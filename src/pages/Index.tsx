@@ -155,6 +155,13 @@ const Index = () => {
           </button>
         ))}
       </nav>
+
+      <DocxImporter
+        open={docxOpen}
+        onClose={() => setDocxOpen(false)}
+        categories={categories}
+        onImport={(cards, cat) => { importCards(cards, cat); setDocxOpen(false); }}
+      />
     </div>
   );
 };
