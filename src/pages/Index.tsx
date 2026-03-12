@@ -78,6 +78,11 @@ const Index = () => {
               <ReviewSession dueCards={dueCards} onReviewSection={reviewSection} onBack={() => setView("dashboard")} />
             </motion.div>
           )}
+          {view === "learn" && (
+            <motion.div key="learn" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+              <LearnSession cards={cards} categories={categories} onMarkRead={markRead} onBack={() => setView("dashboard")} />
+            </motion.div>
+          )}
           {(view === "create" || view === "edit") && (
             <motion.div key="form" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
               <CardForm

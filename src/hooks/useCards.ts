@@ -105,7 +105,7 @@ export function useCards() {
 
   return {
     cards, categories, dueCards, stats, categoryStats, cardCountByCategory,
-    addCard, updateCard, deleteCard, splitCard, reviewSection,
+    addCard, updateCard, deleteCard, splitCard, reviewSection, markRead,
     addCategory, renameCategory, deleteCategory,
   };
 }
