@@ -4,12 +4,13 @@ import Dashboard from "@/components/Dashboard";
 import CardForm from "@/components/CardForm";
 import CardList from "@/components/CardList";
 import ReviewSession from "@/components/ReviewSession";
+import LearnSession from "@/components/LearnSession";
 import CategoryManager from "@/components/CategoryManager";
 import { Card } from "@/lib/spaced-repetition";
-import { Plus, BookOpen, Home, Moon, Sun, FolderOpen } from "lucide-react";
+import { Plus, BookOpen, Home, Moon, Sun, FolderOpen, GraduationCap } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 
-type View = "dashboard" | "create" | "edit" | "cards" | "review" | "categories";
+type View = "dashboard" | "create" | "edit" | "cards" | "review" | "categories" | "learn";
 
 const Index = () => {
   const {
