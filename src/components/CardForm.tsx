@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, X, GripVertical } from "lucide-react";
+import { Plus, X, GripVertical, Scissors } from "lucide-react";
 import RichTextEditor from "@/components/RichTextEditor";
 
 interface SectionInput {
@@ -36,6 +36,36 @@ const widthLabels: Record<FormWidth, string> = {
   full: "XL",
 };
 
+function parseHtmlToParagraphs(html: string): string[] {
+  const div = document.createElement("div");
+  div.innerHTML = html;
+  const blocks: string[] = [];
+  const processNode = (node: Node) => {
+    if (node.nodeType === Node.TEXT_NODE) {
+      const text = node.textContent?.trim();
+      if (text) blocks.push(text);
+    } else if (node.nodeType === Node.ELEMENT_NODE) {
+      const el = node as HTMLElement;
+      const tag = el.tagName.toLowerCase();
+      if (["p", "div", "br", "li"].includes(tag)) {
+        const inner = el.innerHTML.trim();
+        if (inner && inner !== "<br>") blocks.push(inner);
+      } else {
+        // inline element, wrap as block
+        const outer = el.outerHTML.trim();
+        if (outer) blocks.push(outer);
+      }
+    }
+  };
+  if (div.children.length === 0) {
+    // Plain text with <br> splits
+    const parts = html.split(/<br\s*\/?>/gi).map(s => s.trim()).filter(Boolean);
+    return parts.length > 0 ? parts : [html];
+  }
+  div.childNodes.forEach(processNode);
+  return blocks.length > 0 ? blocks : [html];
+}
+
 export default function CardForm({ categories, onSave, onCancel, editCard, onUpdate }: Props) {
   const [question, setQuestion] = useState(editCard?.question ?? "");
   const [sections, setSections] = useState<SectionInput[]>(
@@ -47,6 +77,7 @@ export default function CardForm({ categories, onSave, onCancel, editCard, onUpd
   const [newCategory, setNewCategory] = useState("");
   const [showNewCat, setShowNewCat] = useState(false);
   const [formWidth, setFormWidth] = useState<FormWidth>("wide");
+  const [cuttingIndex, setCuttingIndex] = useState<number | null>(null);
 
   const addSection = () => {
     setSections((prev) => [...prev, { title: `Cjelina ${prev.length + 1}`, content: "" }]);
@@ -59,6 +90,24 @@ export default function CardForm({ categories, onSave, onCancel, editCard, onUpd
 
   const updateSection = (index: number, field: keyof SectionInput, value: string) => {
     setSections((prev) => prev.map((s, i) => (i === index ? { ...s, [field]: value } : s)));
+  };
+
+  const handleCut = (sectionIndex: number, paragraphIndex: number) => {
+    const section = sections[sectionIndex];
+    const paragraphs = parseHtmlToParagraphs(section.content);
+    if (paragraphIndex <= 0 || paragraphIndex >= paragraphs.length) return;
+
+    const beforeContent = paragraphs.slice(0, paragraphIndex).map(p => `<p>${p}</p>`).join("");
+    const newTitle = paragraphs[paragraphIndex].replace(/<[^>]*>/g, "").trim();
+    const afterContent = paragraphs.slice(paragraphIndex + 1).map(p => `<p>${p}</p>`).join("");
+
+    setSections((prev) => {
+      const updated = [...prev];
+      updated[sectionIndex] = { ...updated[sectionIndex], content: beforeContent };
+      updated.splice(sectionIndex + 1, 0, { title: newTitle, content: afterContent });
+      return updated;
+    });
+    setCuttingIndex(null);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -126,17 +175,38 @@ export default function CardForm({ categories, onSave, onCancel, editCard, onUpd
                 placeholder="Naziv cjeline..."
                 className="bg-background font-medium text-sm"
               />
+              <button
+                type="button"
+                onClick={() => setCuttingIndex(cuttingIndex === i ? null : i)}
+                className={`p-1 rounded-lg transition-colors ${
+                  cuttingIndex === i
+                    ? "bg-warning/20 text-warning"
+                    : "text-muted-foreground hover:text-foreground hover:bg-secondary"
+                }`}
+                title="Režim rezanja"
+              >
+                <Scissors className="h-4 w-4" />
+              </button>
               {sections.length > 1 && (
                 <button type="button" onClick={() => removeSection(i)} className="text-muted-foreground hover:text-destructive p-1">
                   <X className="h-4 w-4" />
                 </button>
               )}
             </div>
-            <RichTextEditor
-              value={section.content}
-              onChange={(val) => updateSection(i, "content", val)}
-              placeholder="Sadržaj ove cjeline odgovora..."
-            />
+
+            {cuttingIndex === i ? (
+              <CuttingView
+                content={section.content}
+                onCut={(pIdx) => handleCut(i, pIdx)}
+                onCancel={() => setCuttingIndex(null)}
+              />
+            ) : (
+              <RichTextEditor
+                value={section.content}
+                onChange={(val) => updateSection(i, "content", val)}
+                placeholder="Sadržaj ove cjeline odgovora..."
+              />
+            )}
           </div>
         ))}
       </div>
@@ -179,5 +249,47 @@ export default function CardForm({ categories, onSave, onCancel, editCard, onUpd
         {editCard ? "Sačuvaj izmjene" : "Dodaj karticu"}
       </Button>
     </form>
+  );
+}
+
+function CuttingView({ content, onCut, onCancel }: { content: string; onCut: (paragraphIndex: number) => void; onCancel: () => void }) {
+  const paragraphs = parseHtmlToParagraphs(content);
+
+  if (paragraphs.length <= 1) {
+    return (
+      <div className="text-sm text-muted-foreground text-center py-4">
+        Nema dovoljno paragrafa za rezanje. Dodajte više teksta.
+      </div>
+    );
+  }
+
+  return (
+    <div className="rounded-md border border-warning/30 bg-warning/5 p-3 space-y-0">
+      <div className="flex items-center justify-between mb-3">
+        <span className="text-xs font-medium text-warning">Kliknite na makazice da izrežete</span>
+        <button type="button" onClick={onCancel} className="text-xs text-muted-foreground hover:text-foreground">
+          Otkaži
+        </button>
+      </div>
+      {paragraphs.map((p, idx) => (
+        <div key={idx}>
+          {idx > 0 && (
+            <button
+              type="button"
+              onClick={() => onCut(idx)}
+              className="w-full flex items-center gap-2 py-1.5 group hover:bg-warning/10 rounded transition-colors my-0.5"
+            >
+              <div className="flex-1 h-px bg-warning/30 group-hover:bg-warning" />
+              <Scissors className="h-3.5 w-3.5 text-warning/50 group-hover:text-warning transition-colors rotate-90" />
+              <div className="flex-1 h-px bg-warning/30 group-hover:bg-warning" />
+            </button>
+          )}
+          <div
+            className="text-sm px-2 py-1 rounded"
+            dangerouslySetInnerHTML={{ __html: p }}
+          />
+        </div>
+      ))}
+    </div>
   );
 }
