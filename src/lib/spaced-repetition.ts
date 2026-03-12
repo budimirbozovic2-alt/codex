@@ -1,14 +1,15 @@
-// SM-2 Algorithm with per-section tracking
+// Enhanced SM-2 Algorithm with per-section tracking, leech detection, configurable params
 
 export interface Section {
   id: string;
   title: string;
   content: string;
   easeFactor: number;
-  interval: number;
+  interval: number; // in days (can be fractional for sub-day)
   repetitions: number;
   nextReview: number;
   lastReviewed: number | null;
+  lapses: number; // count of times graded < 3
 }
 
 export interface Card {
@@ -28,37 +29,87 @@ export interface ReviewGrade {
 }
 
 export const GRADES: ReviewGrade[] = [
-  { label: "Ponovi", value: 0, description: "Potpuno zaboravljeno", color: "destructive" },
+  { label: "Ništa", value: 0, description: "Potpuno zaboravljeno", color: "destructive" },
+  { label: "Loše", value: 1, description: "Samo prepoznato", color: "destructive" },
+  { label: "Slabo", value: 2, description: "Djelimično sjećanje", color: "warning" },
   { label: "Teško", value: 3, description: "Značajan napor", color: "warning" },
   { label: "Dobro", value: 4, description: "Mali napor", color: "primary" },
   { label: "Lako", value: 5, description: "Savršeno", color: "success" },
 ];
 
-export function calculateNextReview(section: Section, grade: number): Partial<Section> {
-  let { easeFactor, interval, repetitions } = section;
+export interface SRSettings {
+  initialInterval: number;      // days after first success (default 1)
+  secondInterval: number;       // days after second success (default 6)
+  minEaseFactor: number;        // minimum ease (default 1.3)
+  failIntervalMinutes: number;  // minutes to wait after first fail (default 10)
+  failIntervalGrowth: number;   // multiply fail interval each consecutive fail (default 2)
+  leechThreshold: number;       // number of lapses to mark as leech (default 5)
+}
+
+export const DEFAULT_SR_SETTINGS: SRSettings = {
+  initialInterval: 1,
+  secondInterval: 6,
+  minEaseFactor: 1.3,
+  failIntervalMinutes: 10,
+  failIntervalGrowth: 2,
+  leechThreshold: 5,
+};
+
+export function calculateNextReview(section: Section, grade: number, settings: SRSettings = DEFAULT_SR_SETTINGS): Partial<Section> {
+  let { easeFactor, interval, repetitions, lapses } = section;
+  lapses = lapses || 0;
 
   if (grade < 3) {
+    // Failed — aggressive sub-day scheduling
+    lapses += 1;
     repetitions = 0;
-    interval = 1;
+
+    // Progressive sub-day intervals: 10min -> 20min -> 40min etc.
+    const failMinutes = settings.failIntervalMinutes * Math.pow(settings.failIntervalGrowth, Math.min(lapses - 1, 5));
+    interval = failMinutes / (24 * 60); // convert to fractional days
+
+    // Penalize ease factor more for lower grades
+    easeFactor = Math.max(
+      settings.minEaseFactor,
+      easeFactor - (0.2 + (2 - grade) * 0.05)
+    );
   } else {
-    if (repetitions === 0) interval = 1;
-    else if (repetitions === 1) interval = 6;
+    if (repetitions === 0) interval = settings.initialInterval;
+    else if (repetitions === 1) interval = settings.secondInterval;
     else interval = Math.round(interval * easeFactor);
     repetitions += 1;
-  }
 
-  easeFactor = Math.max(
-    1.3,
-    easeFactor + (0.1 - (5 - grade) * (0.08 + (5 - grade) * 0.02))
-  );
+    easeFactor = Math.max(
+      settings.minEaseFactor,
+      easeFactor + (0.1 - (5 - grade) * (0.08 + (5 - grade) * 0.02))
+    );
+  }
 
   return {
     easeFactor,
     interval,
     repetitions,
+    lapses,
     nextReview: Date.now() + interval * 24 * 60 * 60 * 1000,
     lastReviewed: Date.now(),
   };
+}
+
+export function isLeech(section: Section, settings: SRSettings = DEFAULT_SR_SETTINGS): boolean {
+  return (section.lapses || 0) >= settings.leechThreshold;
+}
+
+export function formatInterval(interval: number): string {
+  if (interval < 1 / 24) {
+    return `${Math.round(interval * 24 * 60)}min`;
+  } else if (interval < 1) {
+    return `${Math.round(interval * 24)}h`;
+  } else if (interval < 30) {
+    return `${Math.round(interval)}d`;
+  } else if (interval < 365) {
+    return `${Math.round(interval / 30)}mj`;
+  }
+  return `${(interval / 365).toFixed(1)}g`;
 }
 
 export function createSection(title: string, content: string): Section {
@@ -71,6 +122,7 @@ export function createSection(title: string, content: string): Section {
     repetitions: 0,
     nextReview: Date.now(),
     lastReviewed: null,
+    lapses: 0,
   };
 }
 
@@ -106,8 +158,8 @@ export function getDueSections(card: Card): Section[] {
 // Knowledge score for a section (0-100 based on repetitions and ease factor)
 export function getSectionScore(section: Section): number {
   if (section.repetitions === 0) return 0;
-  const repScore = Math.min(section.repetitions / 5, 1); // max out at 5 reps
-  const easeScore = (section.easeFactor - 1.3) / (2.5 - 1.3); // normalize 1.3-2.5 to 0-1
+  const repScore = Math.min(section.repetitions / 5, 1);
+  const easeScore = (section.easeFactor - 1.3) / (2.5 - 1.3);
   return Math.round((repScore * 0.6 + easeScore * 0.4) * 100);
 }
 
@@ -130,5 +182,6 @@ export function getStats(cards: Card[]) {
   const totalSections = cards.reduce((sum, c) => sum + c.sections.length, 0);
   const learnedSections = cards.reduce((sum, c) => sum + c.sections.filter((s) => s.repetitions > 0).length, 0);
   const total = cards.length;
-  return { due, total, totalSections, learnedSections };
+  const leechCount = cards.reduce((sum, c) => sum + c.sections.filter((s) => isLeech(s)).length, 0);
+  return { due, total, totalSections, learnedSections, leechCount };
 }
