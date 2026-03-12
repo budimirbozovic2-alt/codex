@@ -55,7 +55,7 @@ export default function CardForm({ categories, onSave, onCancel, editCard, onUpd
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6 max-w-2xl">
+    <form onSubmit={handleSubmit} className="space-y-6 max-w-4xl">
       <div className="flex items-center justify-between">
         <h2 className="text-3xl font-serif">{editCard ? "Uredi karticu" : "Nova kartica"}</h2>
         <button type="button" onClick={onCancel} className="text-muted-foreground hover:text-foreground">
