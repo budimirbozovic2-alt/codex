@@ -4,14 +4,19 @@ import Dashboard from "@/components/Dashboard";
 import CardForm from "@/components/CardForm";
 import CardList from "@/components/CardList";
 import ReviewSession from "@/components/ReviewSession";
+import CategoryManager from "@/components/CategoryManager";
 import { Card } from "@/lib/spaced-repetition";
-import { Plus, BookOpen, Home, Moon, Sun } from "lucide-react";
+import { Plus, BookOpen, Home, Moon, Sun, FolderOpen } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 
-type View = "dashboard" | "create" | "edit" | "cards" | "review";
+type View = "dashboard" | "create" | "edit" | "cards" | "review" | "categories";
 
 const Index = () => {
-  const { cards, categories, dueCards, stats, categoryStats, addCard, updateCard, deleteCard, reviewSection, addCategory } = useCards();
+  const {
+    cards, categories, dueCards, stats, categoryStats, cardCountByCategory,
+    addCard, updateCard, deleteCard, splitCard, reviewSection,
+    addCategory, renameCategory, deleteCategory,
+  } = useCards();
   const [view, setView] = useState<View>("dashboard");
   const [editingCard, setEditingCard] = useState<Card | null>(null);
   const [filterCategory, setFilterCategory] = useState<string | null>(null);
@@ -30,6 +35,7 @@ const Index = () => {
   const navItems = [
     { key: "dashboard" as View, icon: Home, label: "Početna" },
     { key: "cards" as View, icon: BookOpen, label: "Kartice" },
+    { key: "categories" as View, icon: FolderOpen, label: "Kategorije" },
     { key: "create" as View, icon: Plus, label: "Nova" },
   ];
 
@@ -81,6 +87,18 @@ const Index = () => {
               />
             </motion.div>
           )}
+          {view === "categories" && (
+            <motion.div key="categories" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+              <CategoryManager
+                categories={categories}
+                cardCountByCategory={cardCountByCategory}
+                onAdd={addCategory}
+                onRename={renameCategory}
+                onDelete={deleteCategory}
+                onClose={() => setView("dashboard")}
+              />
+            </motion.div>
+          )}
           {view === "cards" && (
             <motion.div key="cards" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
               <div className="space-y-6">
@@ -100,7 +118,7 @@ const Index = () => {
                     </button>
                   ))}
                 </div>
-                <CardList cards={cards} filterCategory={filterCategory} onEdit={handleEdit} onDelete={deleteCard} />
+                <CardList cards={cards} filterCategory={filterCategory} onEdit={handleEdit} onDelete={deleteCard} onSplit={splitCard} />
               </div>
             </motion.div>
           )}

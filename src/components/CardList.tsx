@@ -1,6 +1,6 @@
 import { Card, getCardScore, getSectionScore } from "@/lib/spaced-repetition";
 import { format } from "date-fns";
-import { Edit2, Trash2, ChevronDown, ChevronRight } from "lucide-react";
+import { Edit2, Trash2, ChevronDown, ChevronRight, Scissors } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useState } from "react";
 
@@ -9,6 +9,7 @@ interface Props {
   filterCategory: string | null;
   onEdit: (card: Card) => void;
   onDelete: (id: string) => void;
+  onSplit: (id: string) => void;
 }
 
 function ScoreBadge({ score }: { score: number }) {
@@ -27,7 +28,7 @@ function SectionBar({ score }: { score: number }) {
   );
 }
 
-export default function CardList({ cards, filterCategory, onEdit, onDelete }: Props) {
+export default function CardList({ cards, filterCategory, onEdit, onDelete, onSplit }: Props) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const filtered = filterCategory ? cards.filter((c) => c.category === filterCategory) : cards;
 
@@ -62,6 +63,11 @@ export default function CardList({ cards, filterCategory, onEdit, onDelete }: Pr
                   <button onClick={() => setExpandedId(expanded ? null : card.id)} className="p-2 hover:bg-secondary rounded-lg">
                     {expanded ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
                   </button>
+                  {card.sections.length > 1 && (
+                    <button onClick={() => onSplit(card.id)} className="p-2 hover:bg-secondary rounded-lg" title="Razdvoji na manje kartice">
+                      <Scissors className="h-4 w-4 text-muted-foreground" />
+                    </button>
+                  )}
                   <button onClick={() => onEdit(card)} className="p-2 hover:bg-secondary rounded-lg">
                     <Edit2 className="h-4 w-4 text-muted-foreground" />
                   </button>

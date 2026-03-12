@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useMemo } from "react";
 import { Card, createCard, createSection, calculateNextReview, getDueCards, getStats, getCategoryStats } from "@/lib/spaced-repetition";
 import { loadCards, saveCards, loadCategories, saveCategories } from "@/lib/storage";
 
@@ -25,7 +25,6 @@ export function useCards() {
       if (updates.question) newCard.question = updates.question;
       if (updates.category) newCard.category = updates.category;
       if (updates.sections) {
-        // Preserve SR data for sections with matching titles, create new for others
         newCard.sections = updates.sections.map((s) => {
           const existing = c.sections.find((es) => es.title === s.title);
           if (existing) return { ...existing, content: s.content };
@@ -55,16 +54,44 @@ export function useCards() {
     );
   }, []);
 
+  const splitCard = useCallback((id: string) => {
+    setCards((prev) => {
+      const card = prev.find((c) => c.id === id);
+      if (!card || card.sections.length <= 1) return prev;
+      const newCards = card.sections.map((section) =>
+        ({
+          ...createCard(card.question, [{ title: section.title, content: section.content }], card.category),
+          // Preserve the section's SR data
+          sections: [{ ...section }],
+        })
+      );
+      return [...prev.filter((c) => c.id !== id), ...newCards];
+    });
+  }, []);
+
   const addCategory = useCallback((name: string) => {
     if (!categories.includes(name)) {
       setCategories((prev) => [...prev, name]);
     }
   }, [categories]);
 
+  const renameCategory = useCallback((oldName: string, newName: string) => {
+    if (categories.includes(newName)) return;
+    setCategories((prev) => prev.map((c) => (c === oldName ? newName : c)));
+    setCards((prev) => prev.map((c) => (c.category === oldName ? { ...c, category: newName } : c)));
+  }, [categories]);
+
   const deleteCategory = useCallback((name: string) => {
     setCategories((prev) => prev.filter((c) => c !== name));
     setCards((prev) => prev.map((c) => (c.category === name ? { ...c, category: "Opšte" } : c)));
   }, []);
+
+  const cardCountByCategory = useMemo(() => {
+    const counts: Record<string, number> = {};
+    categories.forEach((cat) => { counts[cat] = 0; });
+    cards.forEach((c) => { counts[c.category] = (counts[c.category] || 0) + 1; });
+    return counts;
+  }, [cards, categories]);
 
   const dueCards = getDueCards(cards);
   const stats = getStats(cards);
@@ -73,8 +100,8 @@ export function useCards() {
   );
 
   return {
-    cards, categories, dueCards, stats, categoryStats,
-    addCard, updateCard, deleteCard, reviewSection,
-    addCategory, deleteCategory,
+    cards, categories, dueCards, stats, categoryStats, cardCountByCategory,
+    addCard, updateCard, deleteCard, splitCard, reviewSection,
+    addCategory, renameCategory, deleteCategory,
   };
 }
