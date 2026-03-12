@@ -17,9 +17,10 @@ const Index = () => {
   const {
     cards, categories, dueCards, stats, categoryStats, cardCountByCategory,
     addCard, updateCard, deleteCard, splitCard, reviewSection, markRead,
-    exportData, importData,
+    exportData, importData, importCards,
     addCategory, renameCategory, deleteCategory,
   } = useCards();
+  const [docxOpen, setDocxOpen] = useState(false);
   const [view, setView] = useState<View>("dashboard");
   const [editingCard, setEditingCard] = useState<Card | null>(null);
   const [filterCategory, setFilterCategory] = useState<string | null>(null);
