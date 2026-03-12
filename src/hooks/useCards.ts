@@ -1,10 +1,11 @@
 import { useState, useCallback, useEffect, useMemo } from "react";
 import { Card, createCard, createSection, calculateNextReview, getDueCards, getStats, getCategoryStats } from "@/lib/spaced-repetition";
-import { loadCards, saveCards, loadCategories, saveCategories } from "@/lib/storage";
+import { loadCards, saveCards, loadCategories, saveCategories, addReviewLogEntry, loadReviewLog, ReviewLogEntry } from "@/lib/storage";
 
 export function useCards() {
   const [cards, setCards] = useState<Card[]>(() => loadCards());
   const [categories, setCategories] = useState<string[]>(() => loadCategories());
+  const [reviewLog, setReviewLog] = useState<ReviewLogEntry[]>(() => loadReviewLog());
 
   useEffect(() => { saveCards(cards); }, [cards]);
   useEffect(() => { saveCategories(categories); }, [categories]);
@@ -43,6 +44,17 @@ export function useCards() {
     setCards((prev) =>
       prev.map((c) => {
         if (c.id !== cardId) return c;
+        // Log the review
+        const entry: ReviewLogEntry = {
+          timestamp: Date.now(),
+          cardId,
+          sectionId,
+          grade,
+          category: c.category,
+        };
+        addReviewLogEntry(entry);
+        setReviewLog((log) => [...log, entry]);
+
         return {
           ...c,
           sections: c.sections.map((s) => {
@@ -61,7 +73,6 @@ export function useCards() {
       const newCards = card.sections.map((section) =>
         ({
           ...createCard(card.question, [{ title: section.title, content: section.content }], card.category),
-          // Preserve the section's SR data
           sections: [{ ...section }],
         })
       );
@@ -91,7 +102,7 @@ export function useCards() {
   }, []);
 
   const exportData = useCallback(() => {
-    const data = JSON.stringify({ cards, categories }, null, 2);
+    const data = JSON.stringify({ cards, categories, reviewLog }, null, 2);
     const blob = new Blob([data], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -99,7 +110,7 @@ export function useCards() {
     a.download = `memoria-backup-${new Date().toISOString().slice(0, 10)}.json`;
     a.click();
     URL.revokeObjectURL(url);
-  }, [cards, categories]);
+  }, [cards, categories, reviewLog]);
 
   const importData = useCallback((file: File) => {
     const reader = new FileReader();
@@ -111,6 +122,9 @@ export function useCards() {
         }
         if (Array.isArray(parsed.categories)) {
           setCategories(parsed.categories);
+        }
+        if (Array.isArray(parsed.reviewLog)) {
+          setReviewLog(parsed.reviewLog);
         }
       } catch {
         alert("Greška pri čitanju fajla. Provjerite format.");
@@ -141,7 +155,7 @@ export function useCards() {
   );
 
   return {
-    cards, categories, dueCards, stats, categoryStats, cardCountByCategory,
+    cards, categories, dueCards, stats, categoryStats, cardCountByCategory, reviewLog,
     addCard, updateCard, deleteCard, splitCard, reviewSection, markRead,
     exportData, importData, importCards,
     addCategory, renameCategory, deleteCategory,
