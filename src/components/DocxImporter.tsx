@@ -267,17 +267,31 @@ export default function DocxImporter({ open, onClose, categories, onImport }: Pr
                   </div>
                 </>
               ) : (
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Tekstualna oznaka za razdvajanje</label>
-                  <input
-                    value={delimiter}
-                    onChange={(e) => setDelimiter(e.target.value)}
-                    placeholder='npr. "čl." ili "Pitanje:"'
-                    className="flex h-10 w-full rounded-md border border-input bg-card px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Svaki put kad se naiđe na ovu oznaku, red sa oznakom postaje pitanje kartice, a tekst do sljedeće oznake postaje odgovor.
-                  </p>
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Oznaka za razdvajanje pitanja (kartica)</label>
+                    <input
+                      value={delimiter}
+                      onChange={(e) => setDelimiter(e.target.value)}
+                      placeholder='npr. "čl." ili "Pitanje:"'
+                      className="flex h-10 w-full rounded-md border border-input bg-card px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Red sa ovom oznakom postaje pitanje kartice, tekst do sljedeće oznake postaje odgovor.
+                    </p>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Oznaka za razdvajanje cjelina unutar kartice <span className="text-muted-foreground font-normal">(opciono)</span></label>
+                    <input
+                      value={sectionDelimiter}
+                      onChange={(e) => setSectionDelimiter(e.target.value)}
+                      placeholder='npr. "Stav" ili "-"'
+                      className="flex h-10 w-full rounded-md border border-input bg-card px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Ako unesete oznaku, odgovor kartice će se podijeliti na cjeline po ovoj oznaci. Red sa oznakom postaje naslov cjeline.
+                    </p>
+                  </div>
                 </div>
               )}
 
