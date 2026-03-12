@@ -33,6 +33,7 @@ export default function DocxImporter({ open, onClose, categories, onImport }: Pr
   const [splitHeading, setSplitHeading] = useState<HeadingLevel>("h1");
   const [sectionHeading, setSectionHeading] = useState<HeadingLevel>("h2");
   const [delimiter, setDelimiter] = useState("");
+  const [sectionDelimiter, setSectionDelimiter] = useState("");
   const [parsedCards, setParsedCards] = useState<ParsedCard[]>([]);
   const [category, setCategory] = useState(categories[0] ?? "Opšte");
   const [newCategory, setNewCategory] = useState("");
@@ -54,21 +55,20 @@ export default function DocxImporter({ open, onClose, categories, onImport }: Pr
     if (!htmlContent) return;
 
     if (splitMode === "delimiter" && delimiter.trim()) {
-      // Delimiter-based parsing: split plain text by delimiter
       const parser = new DOMParser();
       const doc = parser.parseFromString(htmlContent, "text/html");
       const fullText = doc.body.innerText || doc.body.textContent || "";
       const delim = delimiter.trim();
+      const secDelim = sectionDelimiter.trim();
+      const escapeRegex = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       
       const cards: ParsedCard[] = [];
-      // Split by delimiter, keeping the delimiter as the start of each chunk
-      const parts = fullText.split(new RegExp(`(?=${delim.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'g'));
+      const parts = fullText.split(new RegExp(`(?=${escapeRegex(delim)})`, 'g'));
       
       for (const part of parts) {
         const trimmed = part.trim();
         if (!trimmed) continue;
         
-        // Find where the delimiter line ends (first line break after delimiter)
         const firstNewline = trimmed.indexOf('\n');
         let question: string;
         let answerContent: string;
@@ -82,10 +82,31 @@ export default function DocxImporter({ open, onClose, categories, onImport }: Pr
         }
         
         if (question && answerContent) {
-          cards.push({
-            question,
-            sections: [{ title: "Odgovor", content: `<p>${answerContent.replace(/\n/g, '</p><p>')}</p>` }],
-          });
+          let sections: { title: string; content: string }[];
+
+          if (secDelim) {
+            // Split answer by section delimiter
+            const secParts = answerContent.split(new RegExp(`(?=${escapeRegex(secDelim)})`, 'g'));
+            sections = secParts
+              .map((sp) => sp.trim())
+              .filter((sp) => sp.length > 0)
+              .map((sp) => {
+                const nl = sp.indexOf('\n');
+                const title = nl === -1 ? sp : sp.substring(0, nl).trim();
+                const content = nl === -1 ? "" : sp.substring(nl + 1).trim();
+                return {
+                  title,
+                  content: content ? `<p>${content.replace(/\n/g, '</p><p>')}</p>` : "<p></p>",
+                };
+              })
+              .filter((s) => s.title);
+          } else {
+            sections = [{ title: "Odgovor", content: `<p>${answerContent.replace(/\n/g, '</p><p>')}</p>` }];
+          }
+
+          if (sections.length > 0) {
+            cards.push({ question, sections });
+          }
         }
       }
       
@@ -142,7 +163,7 @@ export default function DocxImporter({ open, onClose, categories, onImport }: Pr
     flushCard();
     setParsedCards(cards);
     setStep("preview");
-  }, [htmlContent, splitMode, splitHeading, sectionHeading, delimiter]);
+  }, [htmlContent, splitMode, splitHeading, sectionHeading, delimiter, sectionDelimiter]);
 
   const handleImport = () => {
     const cat = newCategory.trim() || category;
@@ -246,17 +267,31 @@ export default function DocxImporter({ open, onClose, categories, onImport }: Pr
                   </div>
                 </>
               ) : (
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Tekstualna oznaka za razdvajanje</label>
-                  <input
-                    value={delimiter}
-                    onChange={(e) => setDelimiter(e.target.value)}
-                    placeholder='npr. "čl." ili "Pitanje:"'
-                    className="flex h-10 w-full rounded-md border border-input bg-card px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Svaki put kad se naiđe na ovu oznaku, red sa oznakom postaje pitanje kartice, a tekst do sljedeće oznake postaje odgovor.
-                  </p>
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Oznaka za razdvajanje pitanja (kartica)</label>
+                    <input
+                      value={delimiter}
+                      onChange={(e) => setDelimiter(e.target.value)}
+                      placeholder='npr. "čl." ili "Pitanje:"'
+                      className="flex h-10 w-full rounded-md border border-input bg-card px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Red sa ovom oznakom postaje pitanje kartice, tekst do sljedeće oznake postaje odgovor.
+                    </p>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Oznaka za razdvajanje cjelina unutar kartice <span className="text-muted-foreground font-normal">(opciono)</span></label>
+                    <input
+                      value={sectionDelimiter}
+                      onChange={(e) => setSectionDelimiter(e.target.value)}
+                      placeholder='npr. "Stav" ili "-"'
+                      className="flex h-10 w-full rounded-md border border-input bg-card px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Ako unesete oznaku, odgovor kartice će se podijeliti na cjeline po ovoj oznaci. Red sa oznakom postaje naslov cjeline.
+                    </p>
+                  </div>
                 </div>
               )}
 
