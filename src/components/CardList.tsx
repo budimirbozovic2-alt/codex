@@ -101,7 +101,7 @@ export default function CardList({ cards, filterCategory, onEdit, onDelete, onSp
                             </div>
                           </div>
                           <SectionBar score={sScore} />
-                          <p className="text-sm text-muted-foreground line-clamp-2">{s.content}</p>
+                          <div className="text-sm text-muted-foreground line-clamp-2" dangerouslySetInnerHTML={{ __html: s.content }} />
                         </div>
                       );
                     })}
