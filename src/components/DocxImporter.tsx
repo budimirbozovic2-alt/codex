@@ -43,7 +43,13 @@ export default function DocxImporter({ open, onClose, categories, onImport }: Pr
     setFile(f);
     try {
       const arrayBuffer = await f.arrayBuffer();
-      const result = await mammoth.convertToHtml({ arrayBuffer });
+      const result = await mammoth.convertToHtml({
+        arrayBuffer,
+      }, {
+        styleMap: [
+          "p[style-name='List Paragraph'] => p.list-paragraph:fresh",
+        ],
+      });
       setHtmlContent(result.value);
       setStep("configure");
     } catch {
@@ -57,59 +63,76 @@ export default function DocxImporter({ open, onClose, categories, onImport }: Pr
     if (splitMode === "delimiter" && delimiter.trim()) {
       const parser = new DOMParser();
       const doc = parser.parseFromString(htmlContent, "text/html");
-      const fullText = doc.body.innerText || doc.body.textContent || "";
+      const elements = Array.from(doc.body.children);
       const delim = delimiter.trim();
       const secDelim = sectionDelimiter.trim();
-      const escapeRegex = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      
-      const cards: ParsedCard[] = [];
-      const parts = fullText.split(new RegExp(`(?=${escapeRegex(delim)})`, 'g'));
-      
-      for (const part of parts) {
-        const trimmed = part.trim();
-        if (!trimmed) continue;
-        
-        const firstNewline = trimmed.indexOf('\n');
-        let question: string;
-        let answerContent: string;
-        
-        if (firstNewline === -1) {
-          question = trimmed;
-          answerContent = "";
-        } else {
-          question = trimmed.substring(0, firstNewline).trim();
-          answerContent = trimmed.substring(firstNewline + 1).trim();
-        }
-        
-        if (question && answerContent) {
-          let sections: { title: string; content: string }[];
 
-          if (secDelim) {
-            // Split answer by section delimiter
-            const secParts = answerContent.split(new RegExp(`(?=${escapeRegex(secDelim)})`, 'g'));
-            sections = secParts
-              .map((sp) => sp.trim())
-              .filter((sp) => sp.length > 0)
-              .map((sp) => {
-                const nl = sp.indexOf('\n');
-                const title = nl === -1 ? sp : sp.substring(0, nl).trim();
-                const content = nl === -1 ? "" : sp.substring(nl + 1).trim();
-                return {
-                  title,
-                  content: content ? `<p>${content.replace(/\n/g, '</p><p>')}</p>` : "<p></p>",
-                };
-              })
-              .filter((s) => s.title);
-          } else {
-            sections = [{ title: "Odgovor", content: `<p>${answerContent.replace(/\n/g, '</p><p>')}</p>` }];
+      const cards: ParsedCard[] = [];
+      let currentQuestion = "";
+      let currentContent = "";
+
+      const flushDelimCard = () => {
+        if (!currentQuestion.trim() || !currentContent.trim()) {
+          currentQuestion = "";
+          currentContent = "";
+          return;
+        }
+
+        if (secDelim) {
+          // Split content into sections by delimiter in text
+          const tempDoc = new DOMParser().parseFromString(currentContent, "text/html");
+          const secElements = Array.from(tempDoc.body.children);
+          const sections: { title: string; content: string }[] = [];
+          let secTitle = "";
+          let secContent = "";
+
+          const flushSec = () => {
+            if (secContent.trim()) {
+              sections.push({
+                title: secTitle || `Cjelina ${sections.length + 1}`,
+                content: secContent.trim(),
+              });
+            }
+            secTitle = "";
+            secContent = "";
+          };
+
+          for (const el of secElements) {
+            const text = el.textContent?.trim() || "";
+            if (text.startsWith(secDelim)) {
+              flushSec();
+              secTitle = text;
+            } else {
+              secContent += el.outerHTML + "\n";
+            }
           }
+          flushSec();
 
           if (sections.length > 0) {
-            cards.push({ question, sections });
+            cards.push({ question: currentQuestion, sections });
           }
+        } else {
+          cards.push({
+            question: currentQuestion,
+            sections: [{ title: "Odgovor", content: currentContent.trim() }],
+          });
+        }
+
+        currentQuestion = "";
+        currentContent = "";
+      };
+
+      for (const el of elements) {
+        const text = el.textContent?.trim() || "";
+        if (text.startsWith(delim)) {
+          flushDelimCard();
+          currentQuestion = text;
+        } else if (currentQuestion) {
+          currentContent += el.outerHTML + "\n";
         }
       }
-      
+      flushDelimCard();
+
       setParsedCards(cards);
       setStep("preview");
       return;
