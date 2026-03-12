@@ -71,3 +71,16 @@ export function addReviewLogEntry(entry: ReviewLogEntry) {
   log.push(entry);
   saveReviewLog(log);
 }
+
+export function loadSRSettings(): SRSettings {
+  try {
+    const data = localStorage.getItem(SR_SETTINGS_KEY);
+    return data ? { ...DEFAULT_SR_SETTINGS, ...JSON.parse(data) } : DEFAULT_SR_SETTINGS;
+  } catch {
+    return DEFAULT_SR_SETTINGS;
+  }
+}
+
+export function saveSRSettings(settings: SRSettings) {
+  localStorage.setItem(SR_SETTINGS_KEY, JSON.stringify(settings));
+}
