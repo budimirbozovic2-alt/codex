@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, X, GripVertical } from "lucide-react";
+import { Plus, X, GripVertical, Maximize2, Minimize2 } from "lucide-react";
 
 interface SectionInput {
   title: string;
@@ -19,6 +19,22 @@ interface Props {
   onUpdate?: (id: string, updates: { question?: string; sections?: SectionInput[]; category?: string }) => void;
 }
 
+type FormWidth = "compact" | "normal" | "wide" | "full";
+
+const widthClasses: Record<FormWidth, string> = {
+  compact: "max-w-xl",
+  normal: "max-w-2xl",
+  wide: "max-w-4xl",
+  full: "max-w-full",
+};
+
+const widthLabels: Record<FormWidth, string> = {
+  compact: "S",
+  normal: "M",
+  wide: "L",
+  full: "XL",
+};
+
 export default function CardForm({ categories, onSave, onCancel, editCard, onUpdate }: Props) {
   const [question, setQuestion] = useState(editCard?.question ?? "");
   const [sections, setSections] = useState<SectionInput[]>(
@@ -29,6 +45,7 @@ export default function CardForm({ categories, onSave, onCancel, editCard, onUpd
   const [category, setCategory] = useState(editCard?.category ?? categories[0] ?? "Opšte");
   const [newCategory, setNewCategory] = useState("");
   const [showNewCat, setShowNewCat] = useState(false);
+  const [formWidth, setFormWidth] = useState<FormWidth>("wide");
 
   const addSection = () => {
     setSections((prev) => [...prev, { title: `Cjelina ${prev.length + 1}`, content: "" }]);
@@ -55,12 +72,28 @@ export default function CardForm({ categories, onSave, onCancel, editCard, onUpd
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6 max-w-4xl">
+    <form onSubmit={handleSubmit} className={`space-y-6 ${widthClasses[formWidth]} transition-all duration-300`}>
       <div className="flex items-center justify-between">
         <h2 className="text-3xl font-serif">{editCard ? "Uredi karticu" : "Nova kartica"}</h2>
-        <button type="button" onClick={onCancel} className="text-muted-foreground hover:text-foreground">
-          <X className="h-5 w-5" />
-        </button>
+        <div className="flex items-center gap-2">
+          <div className="hidden md:flex items-center gap-1 bg-secondary rounded-lg p-1">
+            {(Object.keys(widthClasses) as FormWidth[]).map((w) => (
+              <button
+                key={w}
+                type="button"
+                onClick={() => setFormWidth(w)}
+                className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${
+                  formWidth === w ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                {widthLabels[w]}
+              </button>
+            ))}
+          </div>
+          <button type="button" onClick={onCancel} className="text-muted-foreground hover:text-foreground">
+            <X className="h-5 w-5" />
+          </button>
+        </div>
       </div>
 
       <div className="space-y-2">
