@@ -17,6 +17,7 @@ export interface Card {
   sections: Section[];
   category: string;
   createdAt: number;
+  readCount: number;
 }
 
 export interface ReviewGrade {
