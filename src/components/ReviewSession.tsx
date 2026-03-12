@@ -109,7 +109,7 @@ export default function ReviewSession({ dueCards, onReviewSection, onBack }: Pro
             <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
               <div className="rounded-xl bg-secondary/50 border p-8">
                 <span className="text-xs uppercase tracking-widest text-muted-foreground">{section.title}</span>
-                <p className="mt-4 text-base leading-relaxed whitespace-pre-wrap">{section.content}</p>
+                <div className="mt-4 text-base leading-relaxed whitespace-pre-wrap" dangerouslySetInnerHTML={{ __html: section.content }} />
               </div>
 
               <div>
