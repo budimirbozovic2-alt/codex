@@ -7,18 +7,19 @@ import ReviewSession from "@/components/ReviewSession";
 import LearnSession from "@/components/LearnSession";
 import CategoryManager from "@/components/CategoryManager";
 import DocxImporter from "@/components/DocxImporter";
+import SRSettingsPanel from "@/components/SRSettingsPanel";
 import { Card } from "@/lib/spaced-repetition";
-import { Plus, BookOpen, Home, Moon, Sun, FolderOpen, GraduationCap, Download, Upload, FileText } from "lucide-react";
+import { Plus, BookOpen, Home, Moon, Sun, FolderOpen, GraduationCap, Download, Upload, FileText, Settings } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 
-type View = "dashboard" | "create" | "edit" | "cards" | "review" | "categories" | "learn";
+type View = "dashboard" | "create" | "edit" | "cards" | "review" | "categories" | "learn" | "settings";
 
 const Index = () => {
   const {
-    cards, categories, dueCards, stats, categoryStats, cardCountByCategory, reviewLog,
+    cards, categories, dueCards, stats, categoryStats, cardCountByCategory, reviewLog, srSettings,
     addCard, updateCard, deleteCard, splitCard, reviewSection, markRead,
     exportData, importData, importCards,
-    addCategory, renameCategory, deleteCategory,
+    addCategory, renameCategory, deleteCategory, updateSRSettings,
   } = useCards();
   const [docxOpen, setDocxOpen] = useState(false);
   const [view, setView] = useState<View>("dashboard");
@@ -65,6 +66,9 @@ const Index = () => {
           </nav>
         </div>
         <div className="flex items-center gap-2">
+          <button onClick={() => setView("settings")} className={`p-2 rounded-lg hover:bg-secondary transition-colors ${view === "settings" ? "text-primary" : "text-muted-foreground"}`} title="Podešavanja">
+            <Settings className="h-4 w-4" />
+          </button>
           <button onClick={() => setDocxOpen(true)} className="p-2 rounded-lg hover:bg-secondary text-muted-foreground" title="Uvezi iz DOCX">
             <FileText className="h-4 w-4" />
           </button>
@@ -90,7 +94,7 @@ const Index = () => {
           )}
           {view === "review" && (
             <motion.div key="review" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-              <ReviewSession dueCards={dueCards} onReviewSection={reviewSection} onBack={() => setView("dashboard")} />
+              <ReviewSession dueCards={dueCards} srSettings={srSettings} onReviewSection={reviewSection} onBack={() => setView("dashboard")} />
             </motion.div>
           )}
           {view === "learn" && (
@@ -119,6 +123,11 @@ const Index = () => {
                 onDelete={deleteCategory}
                 onClose={() => setView("dashboard")}
               />
+            </motion.div>
+          )}
+          {view === "settings" && (
+            <motion.div key="settings" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+              <SRSettingsPanel settings={srSettings} onUpdate={updateSRSettings} onBack={() => setView("dashboard")} />
             </motion.div>
           )}
           {view === "cards" && (
