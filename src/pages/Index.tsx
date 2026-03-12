@@ -62,9 +62,18 @@ const Index = () => {
             ))}
           </nav>
         </div>
-        <button onClick={toggleDark} className="p-2 rounded-lg hover:bg-secondary text-muted-foreground">
-          {dark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-        </button>
+        <div className="flex items-center gap-2">
+          <label className="p-2 rounded-lg hover:bg-secondary text-muted-foreground cursor-pointer" title="Uvezi backup">
+            <Upload className="h-4 w-4" />
+            <input type="file" accept=".json" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) importData(f); e.target.value = ""; }} />
+          </label>
+          <button onClick={exportData} className="p-2 rounded-lg hover:bg-secondary text-muted-foreground" title="Izvezi backup">
+            <Download className="h-4 w-4" />
+          </button>
+          <button onClick={toggleDark} className="p-2 rounded-lg hover:bg-secondary text-muted-foreground">
+            {dark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+          </button>
+        </div>
       </header>
 
       <main className="flex-1 px-6 py-8 max-w-5xl mx-auto w-full">

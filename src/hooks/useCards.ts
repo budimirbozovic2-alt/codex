@@ -90,6 +90,35 @@ export function useCards() {
     setCards((prev) => prev.map((c) => c.id === id ? { ...c, readCount: (c.readCount || 0) + 1 } : c));
   }, []);
 
+  const exportData = useCallback(() => {
+    const data = JSON.stringify({ cards, categories }, null, 2);
+    const blob = new Blob([data], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `memoria-backup-${new Date().toISOString().slice(0, 10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }, [cards, categories]);
+
+  const importData = useCallback((file: File) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const parsed = JSON.parse(e.target?.result as string);
+        if (Array.isArray(parsed.cards)) {
+          setCards(parsed.cards.map((c: any) => ({ ...c, readCount: c.readCount || 0 })));
+        }
+        if (Array.isArray(parsed.categories)) {
+          setCategories(parsed.categories);
+        }
+      } catch {
+        alert("Greška pri čitanju fajla. Provjerite format.");
+      }
+    };
+    reader.readAsText(file);
+  }, []);
+
   const cardCountByCategory = useMemo(() => {
     const counts: Record<string, number> = {};
     categories.forEach((cat) => { counts[cat] = 0; });
@@ -106,6 +135,7 @@ export function useCards() {
   return {
     cards, categories, dueCards, stats, categoryStats, cardCountByCategory,
     addCard, updateCard, deleteCard, splitCard, reviewSection, markRead,
+    exportData, importData,
     addCategory, renameCategory, deleteCategory,
   };
 }
