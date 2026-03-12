@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from "react";
-import { Card, createCard, calculateNextReview, getDueCards, getStats } from "@/lib/spaced-repetition";
+import { Card, createCard, createSection, calculateNextReview, getDueCards, getStats, getCategoryStats } from "@/lib/spaced-repetition";
 import { loadCards, saveCards, loadCategories, saveCategories } from "@/lib/storage";
 
 export function useCards() {
@@ -9,8 +9,8 @@ export function useCards() {
   useEffect(() => { saveCards(cards); }, [cards]);
   useEffect(() => { saveCategories(categories); }, [categories]);
 
-  const addCard = useCallback((question: string, answer: string, category: string) => {
-    const card = createCard(question, answer, category);
+  const addCard = useCallback((question: string, sections: { title: string; content: string }[], category: string) => {
+    const card = createCard(question, sections, category);
     setCards((prev) => [...prev, card]);
     if (!categories.includes(category)) {
       setCategories((prev) => [...prev, category]);
@@ -18,20 +18,39 @@ export function useCards() {
     return card;
   }, [categories]);
 
-  const updateCard = useCallback((id: string, updates: Partial<Card>) => {
-    setCards((prev) => prev.map((c) => (c.id === id ? { ...c, ...updates } : c)));
+  const updateCard = useCallback((id: string, updates: { question?: string; sections?: { title: string; content: string }[]; category?: string }) => {
+    setCards((prev) => prev.map((c) => {
+      if (c.id !== id) return c;
+      const newCard = { ...c };
+      if (updates.question) newCard.question = updates.question;
+      if (updates.category) newCard.category = updates.category;
+      if (updates.sections) {
+        // Preserve SR data for sections with matching titles, create new for others
+        newCard.sections = updates.sections.map((s) => {
+          const existing = c.sections.find((es) => es.title === s.title);
+          if (existing) return { ...existing, content: s.content };
+          return createSection(s.title, s.content);
+        });
+      }
+      return newCard;
+    }));
   }, []);
 
   const deleteCard = useCallback((id: string) => {
     setCards((prev) => prev.filter((c) => c.id !== id));
   }, []);
 
-  const reviewCard = useCallback((id: string, grade: number) => {
+  const reviewSection = useCallback((cardId: string, sectionId: string, grade: number) => {
     setCards((prev) =>
       prev.map((c) => {
-        if (c.id !== id) return c;
-        const updates = calculateNextReview(c, grade);
-        return { ...c, ...updates };
+        if (c.id !== cardId) return c;
+        return {
+          ...c,
+          sections: c.sections.map((s) => {
+            if (s.id !== sectionId) return s;
+            return { ...s, ...calculateNextReview(s, grade) };
+          }),
+        };
       })
     );
   }, []);
@@ -49,10 +68,13 @@ export function useCards() {
 
   const dueCards = getDueCards(cards);
   const stats = getStats(cards);
+  const categoryStats = Object.fromEntries(
+    categories.map((cat) => [cat, getCategoryStats(cards, cat)])
+  );
 
   return {
-    cards, categories, dueCards, stats,
-    addCard, updateCard, deleteCard, reviewCard,
+    cards, categories, dueCards, stats, categoryStats,
+    addCard, updateCard, deleteCard, reviewSection,
     addCategory, deleteCategory,
   };
 }
