@@ -24,7 +24,11 @@ function migrateCard(card: any): Card {
       readCount: card.readCount || 0,
     };
   }
-  return { ...card, readCount: card.readCount || 0 };
+  return {
+    ...card,
+    readCount: card.readCount || 0,
+    sections: (card.sections || []).map((s: any) => ({ ...s, lapses: s.lapses || 0 })),
+  };
 }
 
 export function loadCards(): Card[] {
