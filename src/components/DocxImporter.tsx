@@ -163,7 +163,7 @@ export default function DocxImporter({ open, onClose, categories, onImport }: Pr
     flushCard();
     setParsedCards(cards);
     setStep("preview");
-  }, [htmlContent, splitMode, splitHeading, sectionHeading, delimiter]);
+  }, [htmlContent, splitMode, splitHeading, sectionHeading, delimiter, sectionDelimiter]);
 
   const handleImport = () => {
     const cat = newCategory.trim() || category;
