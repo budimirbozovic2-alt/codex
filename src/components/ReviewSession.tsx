@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
-import { Card, Section, GRADES, getDueSections } from "@/lib/spaced-repetition";
+import { Card, Section, GRADES, getDueSections, isLeech, formatInterval, SRSettings, DEFAULT_SR_SETTINGS } from "@/lib/spaced-repetition";
 import { motion, AnimatePresence } from "framer-motion";
-import { ArrowLeft, Eye, ChevronRight, BookOpen, Shuffle } from "lucide-react";
+import { ArrowLeft, Eye, ChevronRight, BookOpen, Shuffle, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 type ReviewMode = "essay" | "random" | null;
@@ -13,11 +13,12 @@ interface DueItem {
 
 interface Props {
   dueCards: Card[];
+  srSettings: SRSettings;
   onReviewSection: (cardId: string, sectionId: string, grade: number) => void;
   onBack: () => void;
 }
 
-export default function ReviewSession({ dueCards, onReviewSection, onBack }: Props) {
+export default function ReviewSession({ dueCards, srSettings, onReviewSection, onBack }: Props) {
   const [mode, setMode] = useState<ReviewMode>(null);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [cardIndex, setCardIndex] = useState(0);
@@ -26,19 +27,16 @@ export default function ReviewSession({ dueCards, onReviewSection, onBack }: Pro
   const [showAnswer, setShowAnswer] = useState(false);
   const [finished, setFinished] = useState(false);
 
-  // Get unique categories from due cards
   const dueCategories = useMemo(() => {
     const cats = new Set(dueCards.map((c) => c.category));
     return Array.from(cats).sort();
   }, [dueCards]);
 
-  // Filter cards by selected category
   const filteredDueCards = useMemo(() => {
     if (!selectedCategory) return dueCards;
     return dueCards.filter((c) => c.category === selectedCategory);
   }, [dueCards, selectedCategory]);
 
-  // Random mode: flatten all due sections and shuffle
   const randomItems = useMemo<DueItem[]>(() => {
     const items: DueItem[] = [];
     filteredDueCards.forEach((card) => {
@@ -46,7 +44,6 @@ export default function ReviewSession({ dueCards, onReviewSection, onBack }: Pro
         items.push({ card, section });
       });
     });
-    // Fisher-Yates shuffle
     for (let i = items.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
       [items[i], items[j]] = [items[j], items[i]];
@@ -54,7 +51,6 @@ export default function ReviewSession({ dueCards, onReviewSection, onBack }: Pro
     return items;
   }, [filteredDueCards]);
 
-  // Mode selection screen
   if (mode === null) {
     const filteredCount = filteredDueCards.length;
     const filteredSections = filteredDueCards.reduce((sum, c) => sum + getDueSections(c).length, 0);
@@ -68,7 +64,6 @@ export default function ReviewSession({ dueCards, onReviewSection, onBack }: Pro
           <p className="text-muted-foreground mt-2">{filteredCount} pitanja · {filteredSections} cjelina za ponavljanje</p>
         </div>
 
-        {/* Category filter */}
         {dueCategories.length > 1 && (
           <div className="space-y-2">
             <label className="text-sm font-medium text-muted-foreground">Kategorija</label>
@@ -127,7 +122,7 @@ export default function ReviewSession({ dueCards, onReviewSection, onBack }: Pro
     );
   }
 
-  // === ESSAY MODE (original behavior) ===
+  // === ESSAY MODE ===
   if (mode === "essay") {
     const card = filteredDueCards[cardIndex];
     const dueSections = card ? getDueSections(card) : [];
@@ -168,6 +163,7 @@ export default function ReviewSession({ dueCards, onReviewSection, onBack }: Pro
         total={totalDueSections}
         sectionIndex={sectionIndex}
         totalSectionsInCard={dueSections.length}
+        srSettings={srSettings}
       />
     );
   }
@@ -203,6 +199,7 @@ export default function ReviewSession({ dueCards, onReviewSection, onBack }: Pro
       total={randomItems.length}
       sectionIndex={0}
       totalSectionsInCard={1}
+      srSettings={srSettings}
     />
   );
 }
@@ -223,12 +220,13 @@ function FinishedScreen({ onBack }: { onBack: () => void }) {
 
 function ReviewCard({
   card, section, showAnswer, setShowAnswer, onGrade, onBack,
-  progress, total, sectionIndex, totalSectionsInCard,
+  progress, total, sectionIndex, totalSectionsInCard, srSettings,
 }: {
   card: Card; section: Section; showAnswer: boolean;
   setShowAnswer: (v: boolean) => void; onGrade: (g: number) => void;
   onBack: () => void; progress: number; total: number;
   sectionIndex: number; totalSectionsInCard: number;
+  srSettings: SRSettings;
 }) {
   const gradeColorMap: Record<string, string> = {
     destructive: "bg-destructive text-destructive-foreground hover:bg-destructive/90",
@@ -236,6 +234,9 @@ function ReviewCard({
     primary: "bg-primary text-primary-foreground hover:bg-primary/90",
     success: "bg-success text-success-foreground hover:bg-success/90",
   };
+
+  const sectionIsLeech = isLeech(section, srSettings);
+  const lapses = section.lapses || 0;
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">
@@ -257,6 +258,23 @@ function ReviewCard({
         />
       </div>
 
+      {/* Leech warning */}
+      {sectionIsLeech && (
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="flex items-center gap-3 rounded-xl border border-destructive/30 bg-destructive/5 p-4"
+        >
+          <AlertTriangle className="h-5 w-5 text-destructive shrink-0" />
+          <div>
+            <p className="text-sm font-medium text-destructive">Problematična cjelina</p>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Pala {lapses}× — razmislite o podjeli na manje dijelove ili drugačijem pristupu učenju.
+            </p>
+          </div>
+        </motion.div>
+      )}
+
       <AnimatePresence mode="wait">
         <motion.div
           key={`${card.id}-${section.id}`}
@@ -267,7 +285,12 @@ function ReviewCard({
           className="space-y-6"
         >
           <div className="rounded-xl bg-card border p-8">
-            <span className="text-xs uppercase tracking-widest text-muted-foreground">{card.category}</span>
+            <div className="flex items-center gap-2">
+              <span className="text-xs uppercase tracking-widest text-muted-foreground">{card.category}</span>
+              {lapses > 0 && !sectionIsLeech && (
+                <span className="text-xs text-warning">· {lapses} pad{lapses === 1 ? "" : "ova"}</span>
+              )}
+            </div>
             <p className="mt-4 text-xl leading-relaxed font-serif">{card.question}</p>
             <div className="mt-4 flex items-center gap-2 text-sm text-primary">
               <ChevronRight className="h-4 w-4" />
@@ -278,6 +301,11 @@ function ReviewCard({
                 </span>
               )}
             </div>
+            {section.interval > 0 && (
+              <p className="mt-2 text-xs text-muted-foreground">
+                Interval: {formatInterval(section.interval)} · EF: {section.easeFactor.toFixed(2)}
+              </p>
+            )}
           </div>
 
           {!showAnswer ? (
@@ -293,17 +321,21 @@ function ReviewCard({
 
               <div>
                 <p className="text-sm text-muted-foreground mb-3">Koliko ste znali ovu cjelinu?</p>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <div className="grid grid-cols-3 md:grid-cols-6 gap-2">
                   {GRADES.map((g) => (
                     <button
                       key={g.value}
                       onClick={() => onGrade(g.value)}
-                      className={`rounded-xl px-4 py-3 text-sm font-medium transition-all ${gradeColorMap[g.color]}`}
+                      className={`rounded-xl px-3 py-3 text-sm font-medium transition-all ${gradeColorMap[g.color]}`}
                     >
-                      <span className="block">{g.label}</span>
-                      <span className="block text-xs opacity-80 mt-0.5">{g.description}</span>
+                      <span className="block text-xs font-bold">{g.value}</span>
+                      <span className="block text-xs mt-0.5">{g.label}</span>
                     </button>
                   ))}
+                </div>
+                <div className="mt-2 flex justify-between text-[10px] text-muted-foreground px-1">
+                  <span>← Zaboravljeno</span>
+                  <span>Savršeno →</span>
                 </div>
               </div>
             </motion.div>
