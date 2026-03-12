@@ -55,21 +55,20 @@ export default function DocxImporter({ open, onClose, categories, onImport }: Pr
     if (!htmlContent) return;
 
     if (splitMode === "delimiter" && delimiter.trim()) {
-      // Delimiter-based parsing: split plain text by delimiter
       const parser = new DOMParser();
       const doc = parser.parseFromString(htmlContent, "text/html");
       const fullText = doc.body.innerText || doc.body.textContent || "";
       const delim = delimiter.trim();
+      const secDelim = sectionDelimiter.trim();
+      const escapeRegex = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       
       const cards: ParsedCard[] = [];
-      // Split by delimiter, keeping the delimiter as the start of each chunk
-      const parts = fullText.split(new RegExp(`(?=${delim.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'g'));
+      const parts = fullText.split(new RegExp(`(?=${escapeRegex(delim)})`, 'g'));
       
       for (const part of parts) {
         const trimmed = part.trim();
         if (!trimmed) continue;
         
-        // Find where the delimiter line ends (first line break after delimiter)
         const firstNewline = trimmed.indexOf('\n');
         let question: string;
         let answerContent: string;
@@ -83,10 +82,31 @@ export default function DocxImporter({ open, onClose, categories, onImport }: Pr
         }
         
         if (question && answerContent) {
-          cards.push({
-            question,
-            sections: [{ title: "Odgovor", content: `<p>${answerContent.replace(/\n/g, '</p><p>')}</p>` }],
-          });
+          let sections: { title: string; content: string }[];
+
+          if (secDelim) {
+            // Split answer by section delimiter
+            const secParts = answerContent.split(new RegExp(`(?=${escapeRegex(secDelim)})`, 'g'));
+            sections = secParts
+              .map((sp) => sp.trim())
+              .filter((sp) => sp.length > 0)
+              .map((sp) => {
+                const nl = sp.indexOf('\n');
+                const title = nl === -1 ? sp : sp.substring(0, nl).trim();
+                const content = nl === -1 ? "" : sp.substring(nl + 1).trim();
+                return {
+                  title,
+                  content: content ? `<p>${content.replace(/\n/g, '</p><p>')}</p>` : "<p></p>",
+                };
+              })
+              .filter((s) => s.title);
+          } else {
+            sections = [{ title: "Odgovor", content: `<p>${answerContent.replace(/\n/g, '</p><p>')}</p>` }];
+          }
+
+          if (sections.length > 0) {
+            cards.push({ question, sections });
+          }
         }
       }
       
