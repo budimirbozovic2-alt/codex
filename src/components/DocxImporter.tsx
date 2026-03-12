@@ -53,6 +53,48 @@ export default function DocxImporter({ open, onClose, categories, onImport }: Pr
   const parseContent = useCallback(() => {
     if (!htmlContent) return;
 
+    if (splitMode === "delimiter" && delimiter.trim()) {
+      // Delimiter-based parsing: split plain text by delimiter
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(htmlContent, "text/html");
+      const fullText = doc.body.innerText || doc.body.textContent || "";
+      const delim = delimiter.trim();
+      
+      const cards: ParsedCard[] = [];
+      // Split by delimiter, keeping the delimiter as the start of each chunk
+      const parts = fullText.split(new RegExp(`(?=${delim.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'g'));
+      
+      for (const part of parts) {
+        const trimmed = part.trim();
+        if (!trimmed) continue;
+        
+        // Find where the delimiter line ends (first line break after delimiter)
+        const firstNewline = trimmed.indexOf('\n');
+        let question: string;
+        let answerContent: string;
+        
+        if (firstNewline === -1) {
+          question = trimmed;
+          answerContent = "";
+        } else {
+          question = trimmed.substring(0, firstNewline).trim();
+          answerContent = trimmed.substring(firstNewline + 1).trim();
+        }
+        
+        if (question && answerContent) {
+          cards.push({
+            question,
+            sections: [{ title: "Odgovor", content: `<p>${answerContent.replace(/\n/g, '</p><p>')}</p>` }],
+          });
+        }
+      }
+      
+      setParsedCards(cards);
+      setStep("preview");
+      return;
+    }
+
+    // Heading-based parsing
     const parser = new DOMParser();
     const doc = parser.parseFromString(htmlContent, "text/html");
     const elements = Array.from(doc.body.children);
@@ -100,7 +142,7 @@ export default function DocxImporter({ open, onClose, categories, onImport }: Pr
     flushCard();
     setParsedCards(cards);
     setStep("preview");
-  }, [htmlContent, splitHeading, sectionHeading]);
+  }, [htmlContent, splitMode, splitHeading, sectionHeading, delimiter]);
 
   const handleImport = () => {
     const cat = newCategory.trim() || category;
