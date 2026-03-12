@@ -1,4 +1,4 @@
-import { useRef, useCallback } from "react";
+import { useRef, useCallback, useEffect } from "react";
 import { Bold, Paintbrush } from "lucide-react";
 
 interface Props {
@@ -9,15 +9,27 @@ interface Props {
 
 export default function RichTextEditor({ value, onChange, placeholder }: Props) {
   const editorRef = useRef<HTMLDivElement>(null);
+  const internalValue = useRef(value);
+  const isComposing = useRef(false);
 
-  const execCommand = useCallback((command: string, value?: string) => {
-    document.execCommand(command, false, value);
+  // Only sync from outside when value changes externally (not from our own edits)
+  useEffect(() => {
+    if (editorRef.current && value !== internalValue.current) {
+      internalValue.current = value;
+      editorRef.current.innerHTML = value;
+    }
+  }, [value]);
+
+  const execCommand = useCallback((command: string, val?: string) => {
+    document.execCommand(command, false, val);
     if (editorRef.current) {
+      internalValue.current = editorRef.current.innerHTML;
       onChange(editorRef.current.innerHTML);
     }
   }, [onChange]);
 
   const handleBold = () => {
+    editorRef.current?.focus();
     execCommand("bold");
   };
 
@@ -25,22 +37,26 @@ export default function RichTextEditor({ value, onChange, placeholder }: Props) 
     const selection = window.getSelection();
     if (!selection || selection.rangeCount === 0 || selection.isCollapsed) return;
 
-    // Check if current selection is already red
     const parentEl = selection.anchorNode?.parentElement;
     const isRed = parentEl?.style.color === "red" || parentEl?.classList.contains("text-red");
 
     if (isRed && parentEl && parentEl !== editorRef.current) {
-      // Remove red by unwrapping
       const text = document.createTextNode(parentEl.textContent || "");
       parentEl.replaceWith(text);
-      if (editorRef.current) onChange(editorRef.current.innerHTML);
+      if (editorRef.current) {
+        internalValue.current = editorRef.current.innerHTML;
+        onChange(editorRef.current.innerHTML);
+      }
     } else {
+      editorRef.current?.focus();
       execCommand("foreColor", "#ef4444");
     }
   };
 
   const handleInput = () => {
+    if (isComposing.current) return;
     if (editorRef.current) {
+      internalValue.current = editorRef.current.innerHTML;
       onChange(editorRef.current.innerHTML);
     }
   };
@@ -58,6 +74,7 @@ export default function RichTextEditor({ value, onChange, placeholder }: Props) 
       <div className="flex items-center gap-1 px-1">
         <button
           type="button"
+          onMouseDown={(e) => e.preventDefault()}
           onClick={handleBold}
           className="p-1.5 rounded-md hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors"
           title="Bolduj (Ctrl+B)"
@@ -66,6 +83,7 @@ export default function RichTextEditor({ value, onChange, placeholder }: Props) 
         </button>
         <button
           type="button"
+          onMouseDown={(e) => e.preventDefault()}
           onClick={handleRed}
           className="p-1.5 rounded-md hover:bg-secondary text-muted-foreground hover:text-destructive transition-colors"
           title="Crvena boja"
@@ -79,7 +97,10 @@ export default function RichTextEditor({ value, onChange, placeholder }: Props) 
           contentEditable
           onInput={handleInput}
           onPaste={handlePaste}
+          onCompositionStart={() => { isComposing.current = true; }}
+          onCompositionEnd={() => { isComposing.current = false; handleInput(); }}
           dangerouslySetInnerHTML={{ __html: value }}
+          suppressContentEditableWarning
           className="min-h-[100px] resize-y overflow-auto rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
         />
         {isEmpty && (
