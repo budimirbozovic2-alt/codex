@@ -63,6 +63,11 @@ export default function CardList({ cards, filterCategory, onEdit, onDelete, onSp
                   <button onClick={() => setExpandedId(expanded ? null : card.id)} className="p-2 hover:bg-secondary rounded-lg">
                     {expanded ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
                   </button>
+                  {card.sections.length > 1 && (
+                    <button onClick={() => onSplit(card.id)} className="p-2 hover:bg-secondary rounded-lg" title="Razdvoji na manje kartice">
+                      <Scissors className="h-4 w-4 text-muted-foreground" />
+                    </button>
+                  )}
                   <button onClick={() => onEdit(card)} className="p-2 hover:bg-secondary rounded-lg">
                     <Edit2 className="h-4 w-4 text-muted-foreground" />
                   </button>
