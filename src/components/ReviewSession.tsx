@@ -294,7 +294,12 @@ function ReviewCard({
                 <span className="text-xs text-muted-foreground">› {card.subcategory}</span>
               )}
             </div>
-            <p className="mt-1 text-lg leading-relaxed font-serif">{card.question}</p>
+            <div className="flex items-center gap-2 mt-1">
+              <p className="text-lg leading-relaxed font-serif flex-1">{card.question}</p>
+              <button onClick={() => speak(card.question)} className="p-1.5 rounded-md hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors shrink-0" title="Pročitaj naglas">
+                <Volume2 className="h-4 w-4" />
+              </button>
+            </div>
           </div>
 
           {/* Section info (hidden for flash cards) */}
