@@ -67,7 +67,7 @@ function parseHtmlToParagraphs(html: string): string[] {
   return blocks.length > 0 ? blocks : [html];
 }
 
-export default function CardForm({ categories, subcategories, onSave, onSaveFlash, onSaveReverseFlash, onCancel, editCard, onUpdate }: Props) {
+export default function CardForm({ categories, subcategories, onSave, onSaveFlash, onCancel, editCard, onUpdate }: Props) {
   const [cardType, setCardType] = useState<CardType>(editCard?.type || "essay");
   const [question, setQuestion] = useState(editCard?.question ?? "");
   const [flashAnswer, setFlashAnswer] = useState(
