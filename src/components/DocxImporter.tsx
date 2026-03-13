@@ -323,6 +323,7 @@ export default function DocxImporter({ open, onClose, categories, onImport }: Pr
                   </div>
                 )}
               </div>
+              )}
 
               <div className="space-y-2">
                 <label className="text-sm font-medium">Kategorija</label>
