@@ -121,6 +121,7 @@ const Index = () => {
                 subcategories={subcategories}
                 onSave={(q, s, c, sub) => { addCard(q, s, c, sub); setView("cards"); }}
                 onSaveFlash={(q, a, c, sub) => { addFlashCard(q, a, c, sub); setView("cards"); }}
+                onSaveReverseFlash={(q, a, c, sub) => { addFlashCard(a, q, c, sub); }}
                 onCancel={() => { setView("dashboard"); setEditingCard(null); }}
                 editCard={view === "edit" ? editingCard : null}
                 onUpdate={(id, u) => { updateCard(id, u); setView("cards"); setEditingCard(null); }}
