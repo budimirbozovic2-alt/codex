@@ -10,11 +10,13 @@ interface ParsedCard {
   sections: { title: string; content: string }[];
 }
 
+type CardType = "essay" | "flash";
+
 interface Props {
   open: boolean;
   onClose: () => void;
   categories: string[];
-  onImport: (cards: ParsedCard[], category: string) => void;
+  onImport: (cards: ParsedCard[], category: string, cardType: CardType) => void;
 }
 
 type HeadingLevel = "h1" | "h2" | "h3";
