@@ -220,6 +220,30 @@ export default function DocxImporter({ open, onClose, categories, onImport }: Pr
             </p>
 
             <div className="space-y-4">
+              {/* Card type */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Tip kartice</label>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setCardType("essay")}
+                    className={`flex-1 flex items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${cardType === "essay" ? "bg-primary text-primary-foreground" : "bg-secondary text-secondary-foreground"}`}
+                  >
+                    <BookOpen className="h-4 w-4" /> Esejska
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setCardType("flash")}
+                    className={`flex-1 flex items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${cardType === "flash" ? "bg-primary text-primary-foreground" : "bg-secondary text-secondary-foreground"}`}
+                  >
+                    <Zap className="h-4 w-4" /> Blic
+                  </button>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {cardType === "essay" ? "Pitanja sa cjelinama — za duže odgovore" : "Kratka pitanja sa jednim odgovorom"}
+                </p>
+              </div>
+
               {/* Question split mode */}
               <div className="space-y-2">
                 <label className="text-sm font-medium">Razdvajanje pitanja</label>
