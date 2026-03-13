@@ -26,6 +26,11 @@ const headingLabels: Record<HeadingLevel, string> = {
   h3: "Heading 3",
 };
 
+const splitModeLabels: Record<SplitMode, string> = {
+  heading: "Po headingu",
+  delimiter: "Po tekstu",
+};
+
 export default function DocxImporter({ open, onClose, categories, onImport }: Props) {
   const [file, setFile] = useState<File | null>(null);
   const [htmlContent, setHtmlContent] = useState<string>("");
