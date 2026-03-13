@@ -11,11 +11,6 @@ interface Props {
 }
 
 const FIELD_CONFIG = [
-  { key: "initialInterval" as const, label: "Početni interval (dana)", description: "Interval nakon prvog uspješnog ponavljanja", min: 0.5, max: 7, step: 0.5 },
-  { key: "secondInterval" as const, label: "Drugi interval (dana)", description: "Interval nakon drugog uspješnog ponavljanja", min: 1, max: 30, step: 1 },
-  { key: "minEaseFactor" as const, label: "Minimalni faktor lakoće", description: "Najniža vrijednost ease faktora (preporučeno 1.3)", min: 1.1, max: 2.0, step: 0.1 },
-  { key: "failIntervalMinutes" as const, label: "Interval pri padu (min)", description: "Vrijeme čekanja nakon prvog pada", min: 1, max: 60, step: 1 },
-  { key: "failIntervalGrowth" as const, label: "Rast intervala pri padu", description: "Množilac za svaki uzastopni pad (npr. 2 = 10min → 20min → 40min)", min: 1, max: 4, step: 0.5 },
   { key: "leechThreshold" as const, label: "Prag za 'leech' upozorenje", description: "Broj padova nakon kojeg se cjelina označava kao problematična", min: 2, max: 20, step: 1 },
   { key: "dailyGoal" as const, label: "Dnevni cilj ponavljanja", description: "Broj ponavljanja koji želite završiti svaki dan", min: 5, max: 100, step: 5 },
 ];
@@ -45,7 +40,7 @@ export default function SRSettingsPanel({ settings, onUpdate, onBack }: Props) {
           <ArrowLeft className="h-4 w-4" /> Nazad
         </button>
         <h2 className="text-3xl font-serif">Podešavanja ponavljanja</h2>
-        <p className="text-muted-foreground mt-2">Prilagodite SM-2 algoritam svojim potrebama</p>
+        <p className="text-muted-foreground mt-2">Prilagodite FSRS algoritam svojim potrebama</p>
       </div>
 
       <div className="space-y-4">
@@ -71,13 +66,16 @@ export default function SRSettingsPanel({ settings, onUpdate, onBack }: Props) {
         ))}
       </div>
 
-      {/* How it works explanation */}
+      {/* How FSRS works */}
       <div className="rounded-xl border bg-card p-5 space-y-3">
-        <h3 className="font-serif text-lg">Kako radi</h3>
+        <h3 className="font-serif text-lg">Kako FSRS radi</h3>
         <div className="text-sm text-muted-foreground space-y-2">
-          <p><strong className="text-foreground">Ocjena 0-2 (pad):</strong> Interval se smanjuje na {local.failIntervalMinutes} min, pa {local.failIntervalMinutes * local.failIntervalGrowth} min, pa {Math.round(local.failIntervalMinutes * local.failIntervalGrowth * local.failIntervalGrowth)} min...</p>
-          <p><strong className="text-foreground">Ocjena 3+ (uspjeh):</strong> Prvi put → {local.initialInterval}d, drugi → {local.secondInterval}d, zatim interval × ease faktor</p>
-          <p><strong className="text-foreground">Leech:</strong> Nakon {local.leechThreshold} padova, cjelina se označava kao problematična</p>
+          <p><strong className="text-foreground">Opet (1):</strong> Stabilnost pada na 10%. Težina se povećava za 2.</p>
+          <p><strong className="text-foreground">Teško (2):</strong> Stabilnost × 1.5 + 0.5 dana. Težina +1.</p>
+          <p><strong className="text-foreground">Dobro (3):</strong> Stabilnost × 3.0 + 1.0 dana. Težina ostaje ista.</p>
+          <p><strong className="text-foreground">Lako (4):</strong> Stabilnost × 5.0 + 2.0 dana. Težina -1.</p>
+          <p className="pt-2"><strong className="text-foreground">Interval:</strong> Računa se za 95% stopu zadržavanja znanja — idealno za pravosudni ispit.</p>
+          <p><strong className="text-foreground">Leech:</strong> Nakon {local.leechThreshold} padova, cjelina se označava kao problematična.</p>
         </div>
       </div>
 

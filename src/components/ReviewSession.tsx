@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { Card, Section, GRADES, getDueSections, isLeech, formatInterval, SRSettings, DEFAULT_SR_SETTINGS } from "@/lib/spaced-repetition";
+import { Card, Section, GRADES, getDueSections, isLeech, formatInterval, previewIntervals, SRSettings, DEFAULT_SR_SETTINGS } from "@/lib/spaced-repetition";
 import { motion, AnimatePresence } from "framer-motion";
 import { ArrowLeft, Eye, ChevronRight, BookOpen, Shuffle, AlertTriangle, Volume2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -239,6 +239,7 @@ function ReviewCard({
   const sectionIsLeech = isLeech(section, srSettings);
   const lapses = section.lapses || 0;
   const isFlash = card.type === "flash";
+  const intervals = previewIntervals(section);
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">
@@ -317,9 +318,9 @@ function ReviewCard({
                   <span className="text-xs text-warning ml-auto">· {lapses} pad{lapses === 1 ? "" : "ova"}</span>
                 )}
               </div>
-              {section.interval > 0 && (
+              {section.stability > 0 && (
                 <p className="mt-2 text-xs text-muted-foreground">
-                  Interval: {formatInterval(section.interval)} · EF: {section.easeFactor.toFixed(2)}
+                  Stabilnost: {section.stability.toFixed(1)}d · Težina: {section.difficulty.toFixed(0)} · Interval: {formatInterval(section.interval)}
                 </p>
               )}
             </div>
@@ -345,21 +346,18 @@ function ReviewCard({
 
               <div>
                 <p className="text-sm text-muted-foreground mb-3">Koliko ste znali?</p>
-                <div className="grid grid-cols-3 md:grid-cols-6 gap-2">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
                   {GRADES.map((g) => (
                     <button
                       key={g.value}
                       onClick={() => onGrade(g.value)}
-                      className={`rounded-xl px-3 py-3 text-sm font-medium transition-all ${gradeColorMap[g.color]}`}
+                      className={`rounded-xl px-3 py-4 text-sm font-medium transition-all ${gradeColorMap[g.color]}`}
                     >
-                      <span className="block text-xs font-bold">{g.value}</span>
-                      <span className="block text-xs mt-0.5">{g.label}</span>
+                      <span className="block text-sm font-bold">{g.label}</span>
+                      <span className="block text-xs mt-1 opacity-80">{g.description}</span>
+                      <span className="block text-xs mt-1.5 font-mono opacity-70">{intervals[g.value]}</span>
                     </button>
                   ))}
-                </div>
-                <div className="mt-2 flex justify-between text-[10px] text-muted-foreground px-1">
-                  <span>← Zaboravljeno</span>
-                  <span>Savršeno →</span>
                 </div>
               </div>
             </motion.div>

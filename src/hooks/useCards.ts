@@ -76,12 +76,12 @@ export function useCards() {
           ...c,
           sections: c.sections.map((s) => {
             if (s.id !== sectionId) return s;
-            return { ...s, ...calculateNextReview(s, grade, srSettings) };
+            return { ...s, ...calculateNextReview(s, grade) };
           }),
         };
       })
     );
-  }, [srSettings]);
+  }, []);
 
   const splitCard = useCallback((id: string) => {
     setCards((prev) => {
@@ -107,7 +107,6 @@ export function useCards() {
     if (categories.includes(newName)) return;
     setCategories((prev) => prev.map((c) => (c === oldName ? newName : c)));
     setCards((prev) => prev.map((c) => (c.category === oldName ? { ...c, category: newName } : c)));
-    // Rename subcategories key
     setSubcategories((prev) => {
       const next = { ...prev };
       if (next[oldName]) {
@@ -183,7 +182,12 @@ export function useCards() {
             readCount: c.readCount || 0,
             type: c.type || "essay",
             subcategory: c.subcategory || "",
-            sections: (c.sections || []).map((s: any) => ({ ...s, lapses: s.lapses || 0 })),
+            sections: (c.sections || []).map((s: any) => ({
+              ...s,
+              lapses: s.lapses || 0,
+              stability: s.stability ?? 0,
+              difficulty: s.difficulty ?? 5,
+            })),
           })));
         }
         if (Array.isArray(parsed.categories)) {
