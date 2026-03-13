@@ -181,6 +181,7 @@ export default function DocxImporter({ open, onClose, categories, onImport }: Pr
     setParsedCards([]);
     setStep("upload");
     setNewCategory("");
+    setCardType("essay");
     onClose();
   };
 
