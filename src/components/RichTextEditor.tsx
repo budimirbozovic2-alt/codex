@@ -112,7 +112,6 @@ export default function RichTextEditor({ value, onChange, placeholder }: Props) 
           onPaste={handlePaste}
           onCompositionStart={() => { isComposing.current = true; }}
           onCompositionEnd={() => { isComposing.current = false; handleInput(); }}
-          dangerouslySetInnerHTML={{ __html: value }}
           suppressContentEditableWarning
           className="min-h-[100px] resize-y overflow-auto rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 [&_h3]:text-base [&_h3]:font-semibold [&_h3]:mt-2 [&_h3]:mb-1 [&_ul]:list-disc [&_ul]:ml-4 [&_ol]:list-decimal [&_ol]:ml-4"
         />
