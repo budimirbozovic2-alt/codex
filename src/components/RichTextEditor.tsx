@@ -13,7 +13,8 @@ export default function RichTextEditor({ value, onChange, placeholder }: Props) 
   const isComposing = useRef(false);
 
   useEffect(() => {
-    if (editorRef.current && value !== internalValue.current) {
+    // Only sync from prop when the editor is NOT focused (external changes only)
+    if (editorRef.current && value !== internalValue.current && document.activeElement !== editorRef.current) {
       internalValue.current = value;
       editorRef.current.innerHTML = value;
     }
