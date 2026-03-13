@@ -29,6 +29,7 @@ const Index = () => {
   const [filterCategory, setFilterCategory] = useState<string | null>(null);
   const [filterSubcategory, setFilterSubcategory] = useState<string | null>(null);
   const [filterType, setFilterType] = useState<"all" | "essay" | "flash">("all");
+  const [searchQuery, setSearchQuery] = useState("");
   const [dark, setDark] = useState(() => document.documentElement.classList.contains("dark"));
 
   const toggleDark = () => {
