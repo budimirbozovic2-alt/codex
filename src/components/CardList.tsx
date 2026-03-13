@@ -9,6 +9,7 @@ interface Props {
   filterCategory: string | null;
   filterSubcategory?: string | null;
   filterType?: "all" | "essay" | "flash";
+  searchQuery?: string;
   onEdit: (card: Card) => void;
   onDelete: (id: string) => void;
   onSplit: (id: string) => void;
