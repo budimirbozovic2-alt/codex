@@ -222,6 +222,17 @@ export default function CardForm({ categories, subcategories, onSave, onSaveFlas
             onChange={setFlashAnswer}
             placeholder="Unesite odgovor..."
           />
+          {!editCard && (
+            <label className="flex items-center gap-2 text-sm text-muted-foreground cursor-pointer">
+              <input
+                type="checkbox"
+                checked={createReverse}
+                onChange={(e) => setCreateReverse(e.target.checked)}
+                className="rounded border-input"
+              />
+              Kreiraj i obrnutu karticu (odgovor → pitanje)
+            </label>
+          )}
         </div>
       ) : (
         /* Essay sections */
