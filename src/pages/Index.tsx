@@ -295,38 +295,44 @@ const Index = () => {
                   {/* Categories */}
                   <div className="space-y-2.5">
                     <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Kategorija</span>
-                    <div className="flex gap-1.5 flex-wrap">
-                      <button onClick={() => { setFilterCategory(null); setFilterSubcategory(null); }} className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all ${!filterCategory ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground hover:bg-secondary"}`}>
-                        Sve
-                      </button>
-                      {categories.map((c) => {
-                        const count = cards.filter((card) => card.category === c).length;
-                        return (
-                          <button
-                            key={c}
-                            onClick={() => { setFilterCategory(c); setFilterSubcategory(null); }}
-                            className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all flex items-center gap-1.5 ${filterCategory === c ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground hover:bg-secondary"}`}
-                          >
-                            {c}
-                            <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${filterCategory === c ? "bg-primary-foreground/20" : "bg-secondary"}`}>
-                              {count}
-                            </span>
-                          </button>
-                        );
-                      })}
+                    <div className="relative group">
+                      <div className="flex gap-1.5 overflow-x-auto scrollbar-hide pb-1 -mb-1" style={{ scrollbarWidth: "none", msOverflowStyle: "none", WebkitOverflowScrolling: "touch" }}>
+                        <button onClick={() => { setFilterCategory(null); setFilterSubcategory(null); }} className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all whitespace-nowrap flex-shrink-0 ${!filterCategory ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground hover:bg-secondary"}`}>
+                          Sve
+                        </button>
+                        {categories.map((c) => {
+                          const count = cards.filter((card) => card.category === c).length;
+                          return (
+                            <button
+                              key={c}
+                              onClick={() => { setFilterCategory(c); setFilterSubcategory(null); }}
+                              className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all flex items-center gap-1.5 whitespace-nowrap flex-shrink-0 ${filterCategory === c ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground hover:bg-secondary"}`}
+                            >
+                              {c}
+                              <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${filterCategory === c ? "bg-primary-foreground/20" : "bg-secondary"}`}>
+                                {count}
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                      {/* Fade edges */}
+                      <div className="pointer-events-none absolute right-0 top-0 bottom-1 w-8 bg-gradient-to-l from-card to-transparent" />
                     </div>
 
                     {/* Subcategories */}
                     {filterCategory && availableSubcategories.length > 0 && (
-                      <div className="flex gap-1.5 flex-wrap pl-3 border-l-2 border-primary/20 ml-1">
-                        <button onClick={() => setFilterSubcategory(null)} className={`px-2.5 py-1 rounded-md text-[11px] font-medium transition-all ${!filterSubcategory ? "bg-primary/15 text-primary" : "text-muted-foreground hover:text-foreground hover:bg-secondary"}`}>
-                          Sve podkat.
-                        </button>
-                        {availableSubcategories.map((sc) => (
-                          <button key={sc} onClick={() => setFilterSubcategory(sc)} className={`px-2.5 py-1 rounded-md text-[11px] font-medium transition-all ${filterSubcategory === sc ? "bg-primary/15 text-primary" : "text-muted-foreground hover:text-foreground hover:bg-secondary"}`}>
-                            {sc}
+                      <div className="relative">
+                        <div className="flex gap-1.5 overflow-x-auto scrollbar-hide pl-3 border-l-2 border-primary/20 ml-1 pb-1 -mb-1" style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}>
+                          <button onClick={() => setFilterSubcategory(null)} className={`px-2.5 py-1 rounded-md text-[11px] font-medium transition-all whitespace-nowrap flex-shrink-0 ${!filterSubcategory ? "bg-primary/15 text-primary" : "text-muted-foreground hover:text-foreground hover:bg-secondary"}`}>
+                            Sve podkat.
                           </button>
-                        ))}
+                          {availableSubcategories.map((sc) => (
+                            <button key={sc} onClick={() => setFilterSubcategory(sc)} className={`px-2.5 py-1 rounded-md text-[11px] font-medium transition-all whitespace-nowrap flex-shrink-0 ${filterSubcategory === sc ? "bg-primary/15 text-primary" : "text-muted-foreground hover:text-foreground hover:bg-secondary"}`}>
+                              {sc}
+                            </button>
+                          ))}
+                        </div>
                       </div>
                     )}
                   </div>
