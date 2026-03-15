@@ -128,7 +128,7 @@ export default function CardList({ cards, filterCategory, filterSubcategory, fil
   }
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-3" ref={scrollRef}>
       {filtered.map((card, i) => {
         const expanded = expandedId === card.id;
         const score = getCardScore(card);
