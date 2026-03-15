@@ -317,14 +317,29 @@ function ReviewCard({
   const intervals = previewIntervals(section);
 
   return (
-    <div className="max-w-2xl mx-auto space-y-6">
+    <div className={`${viewWidthClasses[viewWidth]} mx-auto space-y-6 transition-all duration-300`}>
       <div className="flex items-center justify-between">
         <button onClick={onBack} className="text-muted-foreground hover:text-foreground flex items-center gap-1">
           <ArrowLeft className="h-4 w-4" /> Nazad
         </button>
-        <span className="text-sm text-muted-foreground">
-          {progress + 1} / {total}
-        </span>
+        <div className="flex items-center gap-3">
+          <div className="hidden md:flex items-center gap-1 bg-secondary rounded-lg p-1">
+            {(Object.keys(viewWidthClasses) as ViewWidth[]).map((w) => (
+              <button
+                key={w}
+                onClick={() => onViewWidthChange(w)}
+                className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${
+                  viewWidth === w ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                {viewWidthLabels[w]}
+              </button>
+            ))}
+          </div>
+          <span className="text-sm text-muted-foreground">
+            {progress + 1} / {total}
+          </span>
+        </div>
       </div>
 
       <div className="w-full h-1.5 rounded-full bg-secondary overflow-hidden">
