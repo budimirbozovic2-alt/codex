@@ -17,6 +17,7 @@ interface Props {
   dueCards: Card[];
   srSettings: SRSettings;
   onReviewSection: (cardId: string, sectionId: string, grade: number) => void;
+  onLogError: (cardId: string, text: string) => void;
   onBack: () => void;
 }
 
