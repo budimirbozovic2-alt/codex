@@ -22,6 +22,13 @@ export interface Section {
   scheduledDays: number;        // days that were scheduled
 }
 
+export interface ErrorLogEntry {
+  text: string;
+  count: number;
+  category?: string;
+  lastMissed: string; // ISO date string
+}
+
 export interface Card {
   id: string;
   question: string;
@@ -32,6 +39,7 @@ export interface Card {
   readCount: number;
   type: "essay" | "flash";
   tags?: string[];
+  errorLog?: ErrorLogEntry[];
 }
 
 export const CARD_TAGS = [
