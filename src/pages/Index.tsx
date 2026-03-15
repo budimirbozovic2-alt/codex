@@ -216,31 +216,29 @@ const Index = () => {
                       Poništi
                     </button>
                     <div className="flex-1" />
-                    <select
-                      value={bulkCategory}
-                      onChange={(e) => { setBulkCategory(e.target.value); setBulkSubcategory(""); }}
-                      className="px-3 py-1.5 rounded-lg border bg-background text-sm"
-                    >
-                      <option value="">Kategorija...</option>
-                      {categories.map((c) => <option key={c} value={c}>{c}</option>)}
-                    </select>
-                    {bulkSubcats.length > 0 && (
-                      <select
-                        value={bulkSubcategory}
-                        onChange={(e) => setBulkSubcategory(e.target.value)}
-                        className="px-3 py-1.5 rounded-lg border bg-background text-sm"
-                      >
-                        <option value="">Podkategorija...</option>
-                        {bulkSubcats.map((sc) => <option key={sc} value={sc}>{sc}</option>)}
-                      </select>
+                    {!filterCategory ? (
+                      <span className="text-xs text-muted-foreground">Filtriraj po kategoriji da bi dodijelio podkategoriju</span>
+                    ) : bulkSubcats.length === 0 ? (
+                      <span className="text-xs text-muted-foreground">Nema podkategorija za "{filterCategory}"</span>
+                    ) : (
+                      <>
+                        <select
+                          value={bulkSubcategory}
+                          onChange={(e) => setBulkSubcategory(e.target.value)}
+                          className="px-3 py-1.5 rounded-lg border bg-background text-sm"
+                        >
+                          <option value="">Podkategorija...</option>
+                          {bulkSubcats.map((sc) => <option key={sc} value={sc}>{sc}</option>)}
+                        </select>
+                        <button
+                          onClick={handleBulkApply}
+                          disabled={selectedIds.size === 0 || !bulkSubcategory}
+                          className="px-4 py-1.5 rounded-lg bg-primary text-primary-foreground text-sm hover:opacity-90 disabled:opacity-50 transition-opacity"
+                        >
+                          Primijeni
+                        </button>
+                      </>
                     )}
-                    <button
-                      onClick={handleBulkApply}
-                      disabled={selectedIds.size === 0 || !bulkCategory}
-                      className="px-4 py-1.5 rounded-lg bg-primary text-primary-foreground text-sm hover:opacity-90 disabled:opacity-50 transition-opacity"
-                    >
-                      Primijeni
-                    </button>
                   </div>
                 )}
 
