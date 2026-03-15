@@ -16,6 +16,9 @@ interface Props {
   onToggleTag: (cardId: string, tag: string) => void;
   scrollToCardId?: string | null;
   onScrolledTo?: () => void;
+  selectionMode?: boolean;
+  selectedIds?: Set<string>;
+  onToggleSelect?: (id: string) => void;
 }
 
 function ScoreBadge({ score }: { score: number }) {
