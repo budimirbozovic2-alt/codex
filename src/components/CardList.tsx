@@ -1,6 +1,6 @@
-import { Card, getCardScore, getSectionScore, CARD_TAGS } from "@/lib/spaced-repetition";
+import { Card, getCardScore, getSectionScore, getCardRetrievability, getRetrievability, CARD_TAGS, SectionState } from "@/lib/spaced-repetition";
 import { format } from "date-fns";
-import { Edit2, Trash2, ChevronDown, ChevronRight, Tag, Zap } from "lucide-react";
+import { Edit2, Trash2, ChevronDown, ChevronRight, Tag, Zap, Brain } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useState, useRef, useEffect } from "react";
 
@@ -22,6 +22,16 @@ function ScoreBadge({ score }: { score: number }) {
   const color = score >= 70 ? "text-success bg-success/10" : score >= 40 ? "text-warning bg-warning/10" : "text-destructive bg-destructive/10";
   return (
     <span className={`text-xs font-medium px-2 py-0.5 rounded-md ${color}`}>{score}%</span>
+  );
+}
+
+function RetentionBadge({ retention }: { retention: number }) {
+  if (retention === 0) return null;
+  const color = retention >= 90 ? "text-success" : retention >= 70 ? "text-warning" : "text-destructive";
+  return (
+    <span className={`text-xs flex items-center gap-0.5 ${color}`} title="Vjerovatnoća prisjećanja">
+      <Brain className="h-3 w-3" />{retention}%
+    </span>
   );
 }
 
@@ -136,6 +146,7 @@ export default function CardList({ cards, filterCategory, filterSubcategory, fil
       {filtered.map((card, i) => {
         const expanded = expandedId === card.id;
         const score = getCardScore(card);
+        const retention = getCardRetrievability(card);
         const isFlash = card.type === "flash";
         const cardTags = card.tags || [];
         return (
@@ -156,6 +167,7 @@ export default function CardList({ cards, filterCategory, filterSubcategory, fil
                       <span className="text-xs text-muted-foreground">› {card.subcategory}</span>
                     )}
                     <ScoreBadge score={score} />
+                    <RetentionBadge retention={retention} />
                     {isFlash ? (
                       <span className="text-xs text-primary flex items-center gap-1">
                         <Zap className="h-3 w-3" /> Blic
@@ -199,12 +211,14 @@ export default function CardList({ cards, filterCategory, filterSubcategory, fil
                     ) : (
                       card.sections.map((s) => {
                         const sScore = getSectionScore(s);
+                        const sRetention = getRetrievability(s);
                         return (
                           <div key={s.id} className="space-y-1.5">
                             <div className="flex items-center justify-between">
                               <span className="text-sm font-medium">{s.title}</span>
                               <div className="flex items-center gap-2 text-xs text-muted-foreground">
                                 <ScoreBadge score={sScore} />
+                                <RetentionBadge retention={sRetention} />
                                 <span>S: {s.stability?.toFixed(1) ?? 0}d</span>
                                 <span>Sljedeće: {format(new Date(s.nextReview), "dd.MM")}</span>
                               </div>

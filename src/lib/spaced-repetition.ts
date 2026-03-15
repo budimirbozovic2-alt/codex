@@ -242,6 +242,25 @@ export function getDueSections(card: Card): Section[] {
   return card.sections.filter((s) => s.nextReview <= now);
 }
 
+// Retrievability: probability of recall at this moment (0-100%)
+export function getRetrievability(section: Section): number {
+  if (section.state === SectionState.New) return 0;
+  if (section.stability <= 0) return 0;
+  const elapsed = section.lastReviewed
+    ? (Date.now() - section.lastReviewed) / (24 * 60 * 60 * 1000)
+    : 0;
+  // R = e^(-elapsed/stability)  — FSRS power forgetting curve
+  const r = Math.exp(-elapsed / section.stability);
+  return Math.round(Math.max(0, Math.min(100, r * 100)));
+}
+
+export function getCardRetrievability(card: Card): number {
+  if (card.sections.length === 0) return 0;
+  const reviewed = card.sections.filter((s) => s.state !== SectionState.New);
+  if (reviewed.length === 0) return 0;
+  return Math.round(reviewed.reduce((sum, s) => sum + getRetrievability(s), 0) / reviewed.length);
+}
+
 export function getSectionScore(section: Section): number {
   if (section.state === SectionState.New) return 0;
   const stabilityScore = Math.min(section.stability / 30, 1);
