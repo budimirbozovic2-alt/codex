@@ -167,6 +167,7 @@ export default function CardList({ cards, filterCategory, filterSubcategory, fil
                       <span className="text-xs text-muted-foreground">› {card.subcategory}</span>
                     )}
                     <ScoreBadge score={score} />
+                    <RetentionBadge retention={retention} />
                     {isFlash ? (
                       <span className="text-xs text-primary flex items-center gap-1">
                         <Zap className="h-3 w-3" /> Blic
