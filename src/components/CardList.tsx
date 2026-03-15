@@ -112,6 +112,9 @@ export default function CardList({ cards, filterCategory, filterSubcategory, fil
   if (filterType !== "all") {
     filtered = filtered.filter((c) => (c.type || "essay") === filterType);
   }
+  if (filterTag) {
+    filtered = filtered.filter((c) => (c.tags || []).includes(filterTag));
+  }
   if (searchQuery.trim()) {
     const q = searchQuery.toLowerCase();
     filtered = filtered.filter((c) => {
