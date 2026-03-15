@@ -39,6 +39,7 @@ export default function LearnSession({ cards, categories, subcategories, onMarkR
   const [currentIndex, setCurrentIndex] = useState(0);
   const [expandedSections, setExpandedSections] = useState<Set<number>>(new Set());
   const [readCards, setReadCards] = useState<Set<string>>(new Set());
+  const [viewWidth, setViewWidth] = useState<ViewWidth>("normal");
 
   const availableCategories = useMemo(() => {
     const cats = new Set(cards.map((c) => c.category));
