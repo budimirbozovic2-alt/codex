@@ -22,6 +22,7 @@ interface Props {
   srSettings: SRSettings;
   onExport?: () => void;
   onShowErrors?: () => void;
+  onShowKnowledgeMap?: () => void;
 }
 
 function ScoreBar({ score }: { score: number }) {
