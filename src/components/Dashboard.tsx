@@ -1,7 +1,7 @@
-import { Brain, Clock, Layers, BookOpen, TrendingUp } from "lucide-react";
+import { Brain, Clock, Layers, BookOpen, TrendingUp, AlertTriangle, Download, HardDrive } from "lucide-react";
 import { motion } from "framer-motion";
 import { Card, getCardScore, getSectionScore, getCardRetrievability, SRSettings, DEFAULT_SR_SETTINGS } from "@/lib/spaced-repetition";
-import { ReviewLogEntry } from "@/lib/storage";
+import { ReviewLogEntry, getStorageUsage, isBackupOverdue, getLastBackupTime } from "@/lib/storage";
 import { useMemo } from "react";
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
@@ -19,6 +19,7 @@ interface Props {
   cards: Card[];
   reviewLog: ReviewLogEntry[];
   srSettings: SRSettings;
+  onExport?: () => void;
 }
 
 function ScoreBar({ score }: { score: number }) {
@@ -56,7 +57,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
   );
 };
 
-export default function Dashboard({ stats, categoryStats, categories, cards, reviewLog, srSettings }: Props) {
+export default function Dashboard({ stats, categoryStats, categories, cards, reviewLog, srSettings, onExport }: Props) {
   const avgRetrievability = useMemo(() => {
     const reviewed = cards.filter((c) => c.sections.some((s) => s.lastReviewed !== null));
     if (reviewed.length === 0) return 0;
@@ -118,6 +119,9 @@ export default function Dashboard({ stats, categoryStats, categories, cards, rev
   }, [cards]);
 
   const hasData = cards.length > 0;
+  const storageUsage = useMemo(() => getStorageUsage(), [cards, reviewLog]);
+  const backupOverdue = useMemo(() => isBackupOverdue(), []);
+  const lastBackup = useMemo(() => getLastBackupTime(), []);
 
   return (
     <div className="space-y-10">
@@ -146,6 +150,43 @@ export default function Dashboard({ stats, categoryStats, categories, cards, rev
           </motion.div>
         ))}
       </div>
+
+      {/* Alerts */}
+      {(backupOverdue || storageUsage.percent > 70) && (
+        <div className="space-y-3">
+          {backupOverdue && (
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="flex items-center gap-3 p-4 rounded-xl border border-warning/30 bg-warning/5">
+              <AlertTriangle className="h-5 w-5 text-warning flex-shrink-0" />
+              <div className="flex-1">
+                <p className="text-sm font-medium">Vrijeme je za backup</p>
+                <p className="text-xs text-muted-foreground">
+                  {lastBackup > 0 ? `Posljednji backup: ${new Date(lastBackup).toLocaleDateString("sr-Latn")}` : "Nikad niste napravili backup."}
+                  {" "}Podaci su samo u ovom pretraživaču.
+                </p>
+              </div>
+              {onExport && (
+                <button onClick={onExport} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-sm hover:opacity-90 transition-opacity">
+                  <Download className="h-3.5 w-3.5" /> Izvezi
+                </button>
+              )}
+            </motion.div>
+          )}
+          {storageUsage.percent > 70 && (
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className={`flex items-center gap-3 p-4 rounded-xl border ${storageUsage.percent > 90 ? "border-destructive/30 bg-destructive/5" : "border-warning/30 bg-warning/5"}`}>
+              <HardDrive className={`h-5 w-5 flex-shrink-0 ${storageUsage.percent > 90 ? "text-destructive" : "text-warning"}`} />
+              <div className="flex-1">
+                <p className="text-sm font-medium">Prostor za podatke: {storageUsage.percent}%</p>
+                <p className="text-xs text-muted-foreground">
+                  {(storageUsage.usedBytes / 1024 / 1024).toFixed(1)} MB / {(storageUsage.maxBytes / 1024 / 1024).toFixed(0)} MB iskorišteno
+                </p>
+              </div>
+              <div className="w-24 h-2 rounded-full bg-secondary overflow-hidden">
+                <div className={`h-full rounded-full transition-all ${storageUsage.percent > 90 ? "bg-destructive" : "bg-warning"}`} style={{ width: `${storageUsage.percent}%` }} />
+              </div>
+            </motion.div>
+          )}
+        </div>
+      )}
 
       {/* Streak + Heatmap + Retention */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

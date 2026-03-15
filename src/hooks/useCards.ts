@@ -1,7 +1,7 @@
 import { useCallback, useMemo } from "react";
 import { useQueryClient, useQuery, useMutation } from "@tanstack/react-query";
 import { Card, createCard, createFlashCard, createSection, calculateNextReview, getDueCards, getStats, getCategoryStats, SRSettings, DEFAULT_SR_SETTINGS } from "@/lib/spaced-repetition";
-import { loadCards, saveCards, loadCategories, saveCategories, loadSubcategories, saveSubcategories, addReviewLogEntry, loadReviewLog, ReviewLogEntry, loadSRSettings, saveSRSettings } from "@/lib/storage";
+import { loadCards, saveCards, loadCategories, saveCategories, loadSubcategories, saveSubcategories, addReviewLogEntry, loadReviewLog, ReviewLogEntry, loadSRSettings, saveSRSettings, setLastBackupTime } from "@/lib/storage";
 
 // Query keys
 const KEYS = {
@@ -234,6 +234,7 @@ export function useCards() {
     a.download = `memoria-backup-${new Date().toISOString().slice(0, 10)}.json`;
     a.click();
     URL.revokeObjectURL(url);
+    setLastBackupTime();
   }, [cards, categories, subcategories, reviewLog, srSettings]);
 
   const importData = useCallback((file: File) => {

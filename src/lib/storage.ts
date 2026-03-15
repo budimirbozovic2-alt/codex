@@ -148,3 +148,34 @@ export function loadSRSettings(): SRSettings {
 export function saveSRSettings(settings: SRSettings) {
   saveToStorage(SR_SETTINGS_KEY, settings);
 }
+
+// Storage usage
+const APP_KEYS = [CARDS_KEY, CATEGORIES_KEY, SUBCATEGORIES_KEY, REVIEW_LOG_KEY, SR_SETTINGS_KEY];
+const MAX_STORAGE_BYTES = 5 * 1024 * 1024; // 5MB
+
+export function getStorageUsage(): { usedBytes: number; maxBytes: number; percent: number } {
+  let usedBytes = 0;
+  for (const key of APP_KEYS) {
+    const val = localStorage.getItem(key);
+    if (val) usedBytes += key.length + val.length * 2; // UTF-16
+  }
+  return { usedBytes, maxBytes: MAX_STORAGE_BYTES, percent: Math.round((usedBytes / MAX_STORAGE_BYTES) * 100) };
+}
+
+// Backup reminder
+const LAST_BACKUP_KEY = "sr-last-backup";
+const BACKUP_INTERVAL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
+
+export function getLastBackupTime(): number {
+  return loadFromStorage(LAST_BACKUP_KEY, 0);
+}
+
+export function setLastBackupTime() {
+  saveToStorage(LAST_BACKUP_KEY, Date.now());
+}
+
+export function isBackupOverdue(): boolean {
+  const last = getLastBackupTime();
+  if (last === 0) return false; // don't nag on first use
+  return Date.now() - last > BACKUP_INTERVAL_MS;
+}
