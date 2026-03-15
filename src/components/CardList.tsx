@@ -13,6 +13,8 @@ interface Props {
   onEdit: (card: Card) => void;
   onDelete: (id: string) => void;
   onToggleTag: (cardId: string, tag: string) => void;
+  scrollToCardId?: string | null;
+  onScrolledTo?: () => void;
 }
 
 function ScoreBadge({ score }: { score: number }) {
