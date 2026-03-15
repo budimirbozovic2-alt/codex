@@ -221,8 +221,7 @@ export function useCards() {
       if (tags.includes(tag)) {
         return { ...c, tags: tags.filter((t) => t !== tag) };
       }
-      const filtered = tags.filter((t) => t !== "često-na-ispitu" && t !== "rijetko-na-ispitu");
-      return { ...c, tags: [...filtered, tag] };
+      return { ...c, tags: [...tags, tag] };
     }));
   }, [setCards]);
 
