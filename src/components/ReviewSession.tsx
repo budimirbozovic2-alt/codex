@@ -161,6 +161,7 @@ export default function ReviewSession({ dueCards, srSettings, onReviewSection, o
         showAnswer={showAnswer}
         setShowAnswer={setShowAnswer}
         onGrade={handleGrade}
+        onLogError={onLogError}
         onBack={() => setMode(null)}
         progress={completedSections}
         total={totalDueSections}
