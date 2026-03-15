@@ -19,7 +19,7 @@ export interface MasteryLevel {
 }
 
 export const MASTERY_LEVELS: MasteryLevel[] = [
-  { level: 0, label: "Novo", color: "hsl(var(--muted-foreground))" },
+  { level: 0, label: "Novo", color: "hsl(220, 13%, 69%)" },
   { level: 1, label: "Kritično", color: "hsl(0, 72%, 51%)" },
   { level: 2, label: "Teško", color: "hsl(25, 95%, 53%)" },
   { level: 3, label: "Nesigurno", color: "hsl(45, 93%, 47%)" },
