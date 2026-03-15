@@ -9,7 +9,7 @@ import CategoryManager from "@/components/CategoryManager";
 import DocxImporter from "@/components/DocxImporter";
 import SRSettingsPanel from "@/components/SRSettingsPanel";
 import { Card, CARD_TAGS } from "@/lib/spaced-repetition";
-import { Plus, BookOpen, Home, Moon, Sun, FolderOpen, GraduationCap, Download, Upload, FileText, Settings, Brain, Search, Tag } from "lucide-react";
+import { Plus, BookOpen, Home, Moon, Sun, FolderOpen, GraduationCap, Download, Upload, FileText, Settings, Brain, Search, Tag, CheckSquare, X } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 
 type View = "dashboard" | "create" | "edit" | "cards" | "review" | "categories" | "learn" | "settings";
