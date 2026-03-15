@@ -219,7 +219,7 @@ export default function FrequentErrors({ cards, onBack, onClearErrorLog }: Props
                         {error.count}×
                       </span>
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm leading-relaxed">{error.text}</p>
+                        <HighlightedSentence sectionContent={error.sectionContent} errorText={error.text} />
                         <p className="text-xs text-muted-foreground mt-1 truncate">
                           {error.cardQuestion}
                           {error.subcategory && <span> · {error.subcategory}</span>}
