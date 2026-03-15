@@ -1,4 +1,4 @@
-import { Brain, Clock, Layers, BookOpen, TrendingUp, AlertTriangle, Download, HardDrive, ChevronDown, ChevronRight, AlertCircle } from "lucide-react";
+import { Brain, Clock, Layers, BookOpen, TrendingUp, AlertTriangle, Download, HardDrive, ChevronDown, ChevronRight, AlertCircle, LayoutGrid } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Card, getCardScore, getSectionScore, getCardRetrievability, SRSettings, DEFAULT_SR_SETTINGS } from "@/lib/spaced-repetition";
 import { ReviewLogEntry, getStorageUsage, isBackupOverdue, getLastBackupTime } from "@/lib/storage";
@@ -22,6 +22,7 @@ interface Props {
   srSettings: SRSettings;
   onExport?: () => void;
   onShowErrors?: () => void;
+  onShowKnowledgeMap?: () => void;
 }
 
 function ScoreBar({ score }: { score: number }) {
@@ -59,7 +60,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
   );
 };
 
-export default function Dashboard({ stats, categoryStats, categories, subcategories, cards, reviewLog, srSettings, onExport, onShowErrors }: Props) {
+export default function Dashboard({ stats, categoryStats, categories, subcategories, cards, reviewLog, srSettings, onExport, onShowErrors, onShowKnowledgeMap }: Props) {
   const [expandedCategory, setExpandedCategory] = useState<string | null>(null);
   const avgRetrievability = useMemo(() => {
     const reviewed = cards.filter((c) => c.sections.some((s) => s.lastReviewed !== null));
@@ -205,6 +206,25 @@ export default function Dashboard({ stats, categoryStats, categories, subcategor
           <div className="text-left flex-1">
             <p className="font-medium text-sm">Najčešće greške</p>
             <p className="text-xs text-muted-foreground">Pregledaj tekst koji najčešće promašuješ</p>
+          </div>
+          <ChevronRight className="h-4 w-4 text-muted-foreground" />
+        </motion.button>
+      )}
+
+      {/* Knowledge Map Button */}
+      {onShowKnowledgeMap && (
+        <motion.button
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          onClick={onShowKnowledgeMap}
+          className="w-full flex items-center gap-3 p-4 rounded-xl border bg-card hover:border-primary/40 transition-colors group"
+        >
+          <div className="p-2 rounded-lg bg-primary/10 text-primary group-hover:bg-primary/15 transition-colors">
+            <LayoutGrid className="h-5 w-5" />
+          </div>
+          <div className="text-left flex-1">
+            <p className="font-medium text-sm">Mapa Znanja</p>
+            <p className="text-xs text-muted-foreground">Vizualni pregled savladanosti svih kartica</p>
           </div>
           <ChevronRight className="h-4 w-4 text-muted-foreground" />
         </motion.button>
