@@ -57,11 +57,17 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 };
 
 export default function Dashboard({ stats, categoryStats, categories, cards, reviewLog, srSettings }: Props) {
+  const avgRetrievability = useMemo(() => {
+    const reviewed = cards.filter((c) => c.sections.some((s) => s.lastReviewed !== null));
+    if (reviewed.length === 0) return 0;
+    return Math.round(reviewed.reduce((sum, c) => sum + getCardRetrievability(c), 0) / reviewed.length);
+  }, [cards]);
+
   const topStats = [
     { label: "Za ponavljanje", value: stats.due, icon: Clock, accent: "text-primary" },
     { label: "Ukupno pitanja", value: stats.total, icon: Layers, accent: "text-muted-foreground" },
-    { label: "Ukupno cjelina", value: stats.totalSections, icon: BookOpen, accent: "text-muted-foreground" },
-    { label: "Naučene cjeline", value: stats.learnedSections, icon: Brain, accent: "text-success" },
+    { label: "Naučene cjeline", value: stats.learnedSections, icon: BookOpen, accent: "text-success" },
+    { label: "Pamćenje", value: `${avgRetrievability}%`, icon: Brain, accent: avgRetrievability >= 90 ? "text-success" : avgRetrievability >= 70 ? "text-warning" : "text-destructive" },
   ];
 
   const categoryChartData = useMemo(() => {
