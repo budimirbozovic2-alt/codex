@@ -30,6 +30,7 @@ const Index = () => {
   const [filterCategory, setFilterCategory] = useState<string | null>(null);
   const [filterSubcategory, setFilterSubcategory] = useState<string | null>(null);
   const [filterType, setFilterType] = useState<"all" | "essay" | "flash">("all");
+  const [filterTag, setFilterTag] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [dark, setDark] = useState(() => document.documentElement.classList.contains("dark"));
 
