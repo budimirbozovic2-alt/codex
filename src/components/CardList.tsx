@@ -47,63 +47,6 @@ function SectionBar({ score }: { score: number }) {
   );
 }
 
-function TagPopover({ cardId, tags, onToggleTag }: { cardId: string; tags: string[]; onToggleTag: (cardId: string, tag: string) => void }) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, [open]);
-
-  return (
-    <div className="relative" ref={ref}>
-      <button
-        onClick={() => setOpen(!open)}
-        className={`p-2 hover:bg-secondary rounded-lg ${tags.length > 0 ? "text-primary" : ""}`}
-        title="Tagovi"
-      >
-        <Tag className="h-4 w-4 text-muted-foreground" />
-      </button>
-      {open && (
-        <div className="absolute right-0 top-full mt-1 z-50 bg-popover border rounded-lg shadow-md p-1.5 min-w-[200px]">
-          {CARD_TAGS.map((t) => {
-            const active = tags.includes(t.id);
-            return (
-              <button
-                key={t.id}
-                onClick={() => { onToggleTag(cardId, t.id); }}
-                className={`w-full text-left px-3 py-2 rounded-md text-sm transition-colors flex items-center gap-2 ${
-                  active ? "bg-primary/10 text-primary" : "hover:bg-secondary text-foreground"
-                }`}
-              >
-                <span className={`w-2 h-2 rounded-full ${active ? "bg-primary" : "bg-muted-foreground/30"}`} />
-                {t.label}
-              </button>
-            );
-          })}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function TagBadge({ tagId }: { tagId: string }) {
-  const tag = CARD_TAGS.find((t) => t.id === tagId);
-  if (!tag) return null;
-  const isFrequent = tagId === "često-na-ispitu";
-  return (
-    <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-md ${
-      isFrequent ? "bg-destructive/10 text-destructive" : "bg-secondary text-muted-foreground"
-    }`}>
-      {tag.label}
-    </span>
-  );
-}
 
 export default function CardList({ cards, filterCategory, filterSubcategory, filterType = "all", filterTag, searchQuery = "", onEdit, onDelete, onToggleTag, scrollToCardId, onScrolledTo, selectionMode, selectedIds, onToggleSelect }: Props) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
