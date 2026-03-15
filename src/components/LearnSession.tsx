@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { Card, getCardScore } from "@/lib/spaced-repetition";
+import { Card, getCardScore, CARD_TAGS } from "@/lib/spaced-repetition";
 import { motion, AnimatePresence } from "framer-motion";
 import { ArrowLeft, ArrowRight, ChevronRight, BookOpen, Check, Eye, TrendingDown, ListOrdered, Zap, Volume2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -239,6 +239,18 @@ export default function LearnSession({ cards, categories, subcategories, onMarkR
                     <Zap className="h-3 w-3" /> Blic
                   </span>
                 )}
+                {(card.tags || []).map((t) => {
+                  const tag = CARD_TAGS.find((ct) => ct.id === t);
+                  if (!tag) return null;
+                  const isFrequent = t === "često-na-ispitu";
+                  return (
+                    <span key={t} className={`text-[10px] font-medium px-1.5 py-0.5 rounded-md ${
+                      isFrequent ? "bg-destructive/10 text-destructive" : "bg-secondary text-muted-foreground"
+                    }`}>
+                      {tag.label}
+                    </span>
+                  );
+                })}
               </div>
               <div className="flex items-center gap-3 text-xs text-muted-foreground">
                 <span className="px-2 py-1 rounded-md bg-secondary">Snaga: {score}%</span>
