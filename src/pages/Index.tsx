@@ -8,8 +8,8 @@ import LearnSession from "@/components/LearnSession";
 import CategoryManager from "@/components/CategoryManager";
 import DocxImporter from "@/components/DocxImporter";
 import SRSettingsPanel from "@/components/SRSettingsPanel";
-import { Card } from "@/lib/spaced-repetition";
-import { Plus, BookOpen, Home, Moon, Sun, FolderOpen, GraduationCap, Download, Upload, FileText, Settings, Brain, Search } from "lucide-react";
+import { Card, CARD_TAGS } from "@/lib/spaced-repetition";
+import { Plus, BookOpen, Home, Moon, Sun, FolderOpen, GraduationCap, Download, Upload, FileText, Settings, Brain, Search, Tag } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 
 type View = "dashboard" | "create" | "edit" | "cards" | "review" | "categories" | "learn" | "settings";
@@ -30,6 +30,7 @@ const Index = () => {
   const [filterCategory, setFilterCategory] = useState<string | null>(null);
   const [filterSubcategory, setFilterSubcategory] = useState<string | null>(null);
   const [filterType, setFilterType] = useState<"all" | "essay" | "flash">("all");
+  const [filterTag, setFilterTag] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [dark, setDark] = useState(() => document.documentElement.classList.contains("dark"));
 
@@ -209,8 +210,20 @@ const Index = () => {
                     ))}
                   </div>
                 )}
+                {/* Tag filter */}
+                <div className="flex gap-2 flex-wrap items-center">
+                  <Tag className="h-3.5 w-3.5 text-muted-foreground" />
+                  <button onClick={() => setFilterTag(null)} className={`px-3 py-1.5 rounded-lg text-sm transition-colors ${!filterTag ? "bg-primary text-primary-foreground" : "bg-secondary text-secondary-foreground"}`}>
+                    Svi tagovi
+                  </button>
+                  {CARD_TAGS.map((t) => (
+                    <button key={t.id} onClick={() => setFilterTag(filterTag === t.id ? null : t.id)} className={`px-3 py-1.5 rounded-lg text-sm transition-colors ${filterTag === t.id ? "bg-primary text-primary-foreground" : "bg-secondary text-secondary-foreground"}`}>
+                      {t.label}
+                    </button>
+                  ))}
+                </div>
 
-                <CardList cards={cards} filterCategory={filterCategory} filterSubcategory={filterSubcategory} filterType={filterType} searchQuery={searchQuery} onEdit={handleEdit} onDelete={deleteCard} onToggleTag={toggleTag} scrollToCardId={scrollToCardId} onScrolledTo={() => setScrollToCardId(null)} />
+                <CardList cards={cards} filterCategory={filterCategory} filterSubcategory={filterSubcategory} filterType={filterType} filterTag={filterTag} searchQuery={searchQuery} onEdit={handleEdit} onDelete={deleteCard} onToggleTag={toggleTag} scrollToCardId={scrollToCardId} onScrolledTo={() => setScrollToCardId(null)} />
               </div>
             </motion.div>
           )}

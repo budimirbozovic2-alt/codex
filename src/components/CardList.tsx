@@ -9,6 +9,7 @@ interface Props {
   filterCategory: string | null;
   filterSubcategory?: string | null;
   filterType?: "all" | "essay" | "flash";
+  filterTag?: string | null;
   searchQuery?: string;
   onEdit: (card: Card) => void;
   onDelete: (id: string) => void;
@@ -91,7 +92,7 @@ function TagBadge({ tagId }: { tagId: string }) {
   );
 }
 
-export default function CardList({ cards, filterCategory, filterSubcategory, filterType = "all", searchQuery = "", onEdit, onDelete, onToggleTag, scrollToCardId, onScrolledTo }: Props) {
+export default function CardList({ cards, filterCategory, filterSubcategory, filterType = "all", filterTag, searchQuery = "", onEdit, onDelete, onToggleTag, scrollToCardId, onScrolledTo }: Props) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -110,6 +111,9 @@ export default function CardList({ cards, filterCategory, filterSubcategory, fil
   }
   if (filterType !== "all") {
     filtered = filtered.filter((c) => (c.type || "essay") === filterType);
+  }
+  if (filterTag) {
+    filtered = filtered.filter((c) => (c.tags || []).includes(filterTag));
   }
   if (searchQuery.trim()) {
     const q = searchQuery.toLowerCase();
