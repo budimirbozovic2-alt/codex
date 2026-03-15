@@ -160,6 +160,20 @@ export function useCards() {
     setCards((prev) => prev.map((c) => c.id === id ? { ...c, readCount: (c.readCount || 0) + 1 } : c));
   }, []);
 
+  const toggleTag = useCallback((cardId: string, tag: string) => {
+    setCards((prev) => prev.map((c) => {
+      if (c.id !== cardId) return c;
+      const tags = c.tags || [];
+      // Mutually exclusive tags
+      if (tags.includes(tag)) {
+        return { ...c, tags: tags.filter((t) => t !== tag) };
+      }
+      // Remove other exam-frequency tags, add new one
+      const filtered = tags.filter((t) => t !== "često-na-ispitu" && t !== "rijetko-na-ispitu");
+      return { ...c, tags: [...filtered, tag] };
+    }));
+  }, []);
+
   const exportData = useCallback(() => {
     const data = JSON.stringify({ cards, categories, subcategories, reviewLog, srSettings }, null, 2);
     const blob = new Blob([data], { type: "application/json" });
@@ -232,7 +246,7 @@ export function useCards() {
 
   return {
     cards, categories, subcategories, dueCards, stats, categoryStats, cardCountByCategory, reviewLog, srSettings,
-    addCard, addFlashCard, updateCard, deleteCard, splitCard, reviewSection, markRead,
+    addCard, addFlashCard, updateCard, deleteCard, splitCard, reviewSection, markRead, toggleTag,
     exportData, importData, importCards,
     addCategory, renameCategory, deleteCategory,
     addSubcategory, renameSubcategory, deleteSubcategory,

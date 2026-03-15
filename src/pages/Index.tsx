@@ -17,7 +17,7 @@ type View = "dashboard" | "create" | "edit" | "cards" | "review" | "categories" 
 const Index = () => {
   const {
     cards, categories, subcategories, dueCards, stats, categoryStats, cardCountByCategory, reviewLog, srSettings,
-    addCard, addFlashCard, updateCard, deleteCard, splitCard, reviewSection, markRead,
+    addCard, addFlashCard, updateCard, deleteCard, splitCard, reviewSection, markRead, toggleTag,
     exportData, importData, importCards,
     addCategory, renameCategory, deleteCategory,
     addSubcategory, renameSubcategory, deleteSubcategory,
@@ -209,7 +209,7 @@ const Index = () => {
                   </div>
                 )}
 
-                <CardList cards={cards} filterCategory={filterCategory} filterSubcategory={filterSubcategory} filterType={filterType} searchQuery={searchQuery} onEdit={handleEdit} onDelete={deleteCard} onSplit={splitCard} />
+                <CardList cards={cards} filterCategory={filterCategory} filterSubcategory={filterSubcategory} filterType={filterType} searchQuery={searchQuery} onEdit={handleEdit} onDelete={deleteCard} onToggleTag={toggleTag} />
               </div>
             </motion.div>
           )}

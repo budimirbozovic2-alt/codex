@@ -58,6 +58,7 @@ function migrateCard(card: any): Card {
     readCount: card.readCount || 0,
     type: card.type || "essay",
     subcategory: card.subcategory || "",
+    tags: card.tags || [],
     sections: (card.sections || []).map(migrateSection),
   };
 }

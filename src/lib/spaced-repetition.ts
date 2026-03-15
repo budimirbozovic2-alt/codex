@@ -24,7 +24,13 @@ export interface Card {
   createdAt: number;
   readCount: number;
   type: "essay" | "flash";
+  tags?: string[];
 }
+
+export const CARD_TAGS = [
+  { id: "često-na-ispitu", label: "Često dolazi na ispitu", color: "destructive" },
+  { id: "rijetko-na-ispitu", label: "Rijetko dolazi na ispitu", color: "secondary" },
+] as const;
 
 export interface ReviewGrade {
   label: string;
