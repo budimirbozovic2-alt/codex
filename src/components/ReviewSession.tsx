@@ -90,13 +90,34 @@ export default function ReviewSession({ dueCards, subcategories, srSettings, onR
               {dueCategories.map((c) => (
                 <button
                   key={c}
-                  onClick={() => setSelectedCategory(c)}
+                  onClick={() => { setSelectedCategory(c); setSelectedSubcategory(null); }}
                   className={`px-3 py-1.5 rounded-lg text-sm transition-colors ${selectedCategory === c ? "bg-primary text-primary-foreground" : "bg-secondary text-secondary-foreground"}`}
                 >
                   {c}
                 </button>
               ))}
             </div>
+
+            {/* Subcategory filter */}
+            {selectedCategory && dueSubcategories.length > 0 && (
+              <div className="flex gap-2 flex-wrap pl-3 border-l-2 border-primary/20 ml-1 mt-2">
+                <button
+                  onClick={() => setSelectedSubcategory(null)}
+                  className={`px-2.5 py-1 rounded-md text-xs transition-colors ${!selectedSubcategory ? "bg-primary/15 text-primary" : "text-muted-foreground hover:text-foreground hover:bg-secondary"}`}
+                >
+                  Sve podkat.
+                </button>
+                {dueSubcategories.map((sc) => (
+                  <button
+                    key={sc}
+                    onClick={() => setSelectedSubcategory(sc)}
+                    className={`px-2.5 py-1 rounded-md text-xs transition-colors ${selectedSubcategory === sc ? "bg-primary/15 text-primary" : "text-muted-foreground hover:text-foreground hover:bg-secondary"}`}
+                  >
+                    {sc}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         )}
 
