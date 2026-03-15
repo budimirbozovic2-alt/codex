@@ -8,8 +8,8 @@ import LearnSession from "@/components/LearnSession";
 import CategoryManager from "@/components/CategoryManager";
 import DocxImporter from "@/components/DocxImporter";
 import SRSettingsPanel from "@/components/SRSettingsPanel";
-import { Card, CARD_TAGS } from "@/lib/spaced-repetition";
-import { Plus, BookOpen, Home, Moon, Sun, FolderOpen, GraduationCap, Download, Upload, FileText, Settings, Brain, Search, Tag, CheckSquare, X } from "lucide-react";
+import { Card } from "@/lib/spaced-repetition";
+import { Plus, BookOpen, Home, Moon, Sun, FolderOpen, GraduationCap, Download, Upload, FileText, Settings, Brain, Search, Flame, CheckSquare, X } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 
 type View = "dashboard" | "create" | "edit" | "cards" | "review" | "categories" | "learn" | "settings";
@@ -294,15 +294,13 @@ const Index = () => {
                 )}
                 {/* Tag filter */}
                 <div className="flex gap-2 flex-wrap items-center">
-                  <Tag className="h-3.5 w-3.5 text-muted-foreground" />
+                  <Flame className="h-3.5 w-3.5 text-muted-foreground" />
                   <button onClick={() => setFilterTag(null)} className={`px-3 py-1.5 rounded-lg text-sm transition-colors ${!filterTag ? "bg-primary text-primary-foreground" : "bg-secondary text-secondary-foreground"}`}>
-                    Svi tagovi
+                    Sve
                   </button>
-                  {CARD_TAGS.map((t) => (
-                    <button key={t.id} onClick={() => setFilterTag(filterTag === t.id ? null : t.id)} className={`px-3 py-1.5 rounded-lg text-sm transition-colors ${filterTag === t.id ? "bg-primary text-primary-foreground" : "bg-secondary text-secondary-foreground"}`}>
-                      {t.label}
-                    </button>
-                  ))}
+                  <button onClick={() => setFilterTag(filterTag === "često-na-ispitu" ? null : "često-na-ispitu")} className={`px-3 py-1.5 rounded-lg text-sm transition-colors ${filterTag === "često-na-ispitu" ? "bg-primary text-primary-foreground" : "bg-secondary text-secondary-foreground"}`}>
+                    Često na ispitu
+                  </button>
                 </div>
 
                 <CardList cards={cards} filterCategory={filterCategory} filterSubcategory={filterSubcategory} filterType={filterType} filterTag={filterTag} searchQuery={searchQuery} onEdit={handleEdit} onDelete={deleteCard} onToggleTag={toggleTag} scrollToCardId={scrollToCardId} onScrolledTo={() => setScrollToCardId(null)} selectionMode={selectionMode} selectedIds={selectedIds} onToggleSelect={toggleSelect} />
