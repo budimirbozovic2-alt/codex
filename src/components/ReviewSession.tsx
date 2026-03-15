@@ -198,6 +198,7 @@ export default function ReviewSession({ dueCards, srSettings, onReviewSection, o
       showAnswer={showAnswer}
       setShowAnswer={setShowAnswer}
       onGrade={handleRandomGrade}
+      onLogError={onLogError}
       onBack={() => setMode(null)}
       progress={randomIndex}
       total={randomItems.length}
