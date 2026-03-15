@@ -16,6 +16,36 @@ interface AggregatedError {
   category: string;
   subcategory?: string;
   status: ErrorStatus;
+  sectionContent: string; // full section text for sentence extraction
+}
+
+/** Find the sentence containing `errorText` and return JSX with the error highlighted */
+function HighlightedSentence({ sectionContent, errorText }: { sectionContent: string; errorText: string }) {
+  // Strip HTML tags for plain text matching
+  const plain = sectionContent.replace(/<[^>]+>/g, "");
+
+  // Find the sentence containing the error text
+  // Split by sentence-ending punctuation, keeping delimiters
+  const sentences = plain.split(/(?<=[.!?])\s+/);
+  const matchingSentence = sentences.find((s) => s.includes(errorText));
+
+  if (!matchingSentence) {
+    // Fallback: just show error text highlighted
+    return <span className="text-destructive font-medium">{errorText}</span>;
+  }
+
+  // Split the sentence around the error text
+  const idx = matchingSentence.indexOf(errorText);
+  const before = matchingSentence.slice(0, idx);
+  const after = matchingSentence.slice(idx + errorText.length);
+
+  return (
+    <span className="text-sm leading-relaxed">
+      {before}
+      <mark className="bg-destructive/15 text-destructive font-medium px-0.5 rounded">{errorText}</mark>
+      {after}
+    </span>
+  );
 }
 
 interface Props {
@@ -70,6 +100,8 @@ export default function FrequentErrors({ cards, onBack, onClearErrorLog }: Props
     const cardIdsWithErrors = new Set<string>();
 
     cards.forEach((card) => {
+      // Collect all section content for sentence matching
+      const allContent = card.sections.map((s) => s.content).join(" ");
       (card.errorLog || []).forEach((entry) => {
         cardIdsWithErrors.add(card.id);
         allErrors.push({
@@ -83,6 +115,7 @@ export default function FrequentErrors({ cards, onBack, onClearErrorLog }: Props
           category: card.category,
           subcategory: card.subcategory,
           status: getErrorStatus(entry),
+          sectionContent: allContent,
         });
       });
     });
@@ -186,7 +219,7 @@ export default function FrequentErrors({ cards, onBack, onClearErrorLog }: Props
                         {error.count}×
                       </span>
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm leading-relaxed">{error.text}</p>
+                        <HighlightedSentence sectionContent={error.sectionContent} errorText={error.text} />
                         <p className="text-xs text-muted-foreground mt-1 truncate">
                           {error.cardQuestion}
                           {error.subcategory && <span> · {error.subcategory}</span>}
@@ -258,7 +291,7 @@ export default function FrequentErrors({ cards, onBack, onClearErrorLog }: Props
                             <div key={`${error.cardId}-${i}`} className="px-5 py-3 flex items-start gap-3">
                               <ShieldCheck className="h-4 w-4 text-success mt-0.5 shrink-0" />
                               <div className="flex-1 min-w-0">
-                                <p className="text-sm leading-relaxed">{error.text}</p>
+                                <HighlightedSentence sectionContent={error.sectionContent} errorText={error.text} />
                                 <p className="text-xs text-muted-foreground mt-1 truncate">
                                   {error.cardQuestion}
                                   {error.subcategory && <span> · {error.subcategory}</span>}
