@@ -17,7 +17,7 @@ type View = "dashboard" | "create" | "edit" | "cards" | "review" | "categories" 
 const Index = () => {
   const {
     cards, categories, subcategories, dueCards, stats, categoryStats, cardCountByCategory, reviewLog, srSettings,
-    addCard, addFlashCard, updateCard, deleteCard, splitCard, reviewSection, markRead, toggleTag, bulkUpdateCategory,
+    addCard, addFlashCard, updateCard, deleteCard, splitCard, reviewSection, markRead, toggleTag, bulkUpdateSubcategory,
     exportData, importData, importCards,
     addCategory, renameCategory, deleteCategory,
     addSubcategory, renameSubcategory, deleteSubcategory,
@@ -35,7 +35,6 @@ const Index = () => {
   const [dark, setDark] = useState(() => document.documentElement.classList.contains("dark"));
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [bulkCategory, setBulkCategory] = useState("");
   const [bulkSubcategory, setBulkSubcategory] = useState("");
 
   const toggleSelect = (id: string) => {
@@ -47,22 +46,20 @@ const Index = () => {
   };
 
   const handleBulkApply = () => {
-    if (selectedIds.size === 0 || !bulkCategory) return;
-    bulkUpdateCategory(Array.from(selectedIds), bulkCategory, bulkSubcategory || undefined);
+    if (selectedIds.size === 0 || !bulkSubcategory || !filterCategory) return;
+    bulkUpdateSubcategory(Array.from(selectedIds), bulkSubcategory);
     setSelectionMode(false);
     setSelectedIds(new Set());
-    setBulkCategory("");
     setBulkSubcategory("");
   };
 
   const exitSelectionMode = () => {
     setSelectionMode(false);
     setSelectedIds(new Set());
-    setBulkCategory("");
     setBulkSubcategory("");
   };
 
-  const bulkSubcats = bulkCategory ? (subcategories[bulkCategory] || []) : [];
+  const bulkSubcats = filterCategory ? (subcategories[filterCategory] || []) : [];
 
   const toggleDark = () => {
     document.documentElement.classList.toggle("dark");
@@ -219,31 +216,29 @@ const Index = () => {
                       Poništi
                     </button>
                     <div className="flex-1" />
-                    <select
-                      value={bulkCategory}
-                      onChange={(e) => { setBulkCategory(e.target.value); setBulkSubcategory(""); }}
-                      className="px-3 py-1.5 rounded-lg border bg-background text-sm"
-                    >
-                      <option value="">Kategorija...</option>
-                      {categories.map((c) => <option key={c} value={c}>{c}</option>)}
-                    </select>
-                    {bulkSubcats.length > 0 && (
-                      <select
-                        value={bulkSubcategory}
-                        onChange={(e) => setBulkSubcategory(e.target.value)}
-                        className="px-3 py-1.5 rounded-lg border bg-background text-sm"
-                      >
-                        <option value="">Podkategorija...</option>
-                        {bulkSubcats.map((sc) => <option key={sc} value={sc}>{sc}</option>)}
-                      </select>
+                    {!filterCategory ? (
+                      <span className="text-xs text-muted-foreground">Filtriraj po kategoriji da bi dodijelio podkategoriju</span>
+                    ) : bulkSubcats.length === 0 ? (
+                      <span className="text-xs text-muted-foreground">Nema podkategorija za "{filterCategory}"</span>
+                    ) : (
+                      <>
+                        <select
+                          value={bulkSubcategory}
+                          onChange={(e) => setBulkSubcategory(e.target.value)}
+                          className="px-3 py-1.5 rounded-lg border bg-background text-sm"
+                        >
+                          <option value="">Podkategorija...</option>
+                          {bulkSubcats.map((sc) => <option key={sc} value={sc}>{sc}</option>)}
+                        </select>
+                        <button
+                          onClick={handleBulkApply}
+                          disabled={selectedIds.size === 0 || !bulkSubcategory}
+                          className="px-4 py-1.5 rounded-lg bg-primary text-primary-foreground text-sm hover:opacity-90 disabled:opacity-50 transition-opacity"
+                        >
+                          Primijeni
+                        </button>
+                      </>
                     )}
-                    <button
-                      onClick={handleBulkApply}
-                      disabled={selectedIds.size === 0 || !bulkCategory}
-                      className="px-4 py-1.5 rounded-lg bg-primary text-primary-foreground text-sm hover:opacity-90 disabled:opacity-50 transition-opacity"
-                    >
-                      Primijeni
-                    </button>
                   </div>
                 )}
 
