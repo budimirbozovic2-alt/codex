@@ -11,8 +11,13 @@ function createWindow() {
     },
   });
 
-  // In development, load from Vite dev server
-  win.loadURL("http://localhost:8080");
+  // In production, load built files; in dev, load from Vite dev server
+  const isDev = !app.isPackaged;
+  if (isDev) {
+    win.loadURL("http://localhost:8080");
+  } else {
+    win.loadFile(path.join(__dirname, "dist", "index.html"));
+  }
 }
 
 app.whenReady().then(() => {
