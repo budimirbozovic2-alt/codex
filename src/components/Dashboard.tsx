@@ -119,6 +119,9 @@ export default function Dashboard({ stats, categoryStats, categories, cards, rev
   }, [cards]);
 
   const hasData = cards.length > 0;
+  const storageUsage = useMemo(() => getStorageUsage(), [cards, reviewLog]);
+  const backupOverdue = useMemo(() => isBackupOverdue(), []);
+  const lastBackup = useMemo(() => getLastBackupTime(), []);
 
   return (
     <div className="space-y-10">
