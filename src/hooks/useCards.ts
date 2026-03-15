@@ -225,6 +225,27 @@ export function useCards() {
     }));
   }, [setCards]);
 
+  const logError = useCallback((cardId: string, text: string) => {
+    setCards((prev) => prev.map((c) => {
+      if (c.id !== cardId) return c;
+      const errorLog = [...(c.errorLog || [])];
+      const existing = errorLog.find((e) => e.text === text);
+      if (existing) {
+        existing.count += 1;
+        existing.lastMissed = new Date().toISOString();
+      } else {
+        errorLog.push({ text, count: 1, category: c.category, lastMissed: new Date().toISOString() });
+      }
+      // Adjust FSRS: increase difficulty, reduce stability on all sections
+      const sections = c.sections.map((s) => ({
+        ...s,
+        difficulty: Math.min(10, s.difficulty + 0.5),
+        stability: Math.max(0.1, s.stability * 0.85),
+      }));
+      return { ...c, errorLog, sections };
+    }));
+  }, [setCards]);
+
   const exportData = useCallback(() => {
     const data = JSON.stringify({ cards, categories, subcategories, reviewLog, srSettings }, null, 2);
     const blob = new Blob([data], { type: "application/json" });
