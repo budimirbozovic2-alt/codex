@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect, useCallback } from "react";
 import { Card, Section, GRADES, getDueSections, isLeech, formatInterval, previewIntervals, SRSettings, DEFAULT_SR_SETTINGS } from "@/lib/spaced-repetition";
 import { motion, AnimatePresence } from "framer-motion";
 import { ArrowLeft, Eye, ChevronRight, BookOpen, Shuffle, AlertTriangle, Volume2 } from "lucide-react";
+import ScrollableRow from "@/components/ScrollableRow";
 import { Button } from "@/components/ui/button";
 import { speak, stopSpeaking } from "@/lib/tts";
 import { useToast } from "@/hooks/use-toast";
