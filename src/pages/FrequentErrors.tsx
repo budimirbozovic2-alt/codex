@@ -19,25 +19,22 @@ interface AggregatedError {
   sectionContent: string; // full section text for sentence extraction
 }
 
-/** Find the sentence containing `errorText` and return JSX with the error highlighted */
+/** Find the line containing `errorText` and return JSX with the error highlighted */
 function HighlightedSentence({ sectionContent, errorText }: { sectionContent: string; errorText: string }) {
   // Strip HTML tags for plain text matching
   const plain = sectionContent.replace(/<[^>]+>/g, "");
 
-  // Find the sentence containing the error text
-  // Split by sentence-ending punctuation, keeping delimiters
-  const sentences = plain.split(/(?<=[.!?])\s+/);
-  const matchingSentence = sentences.find((s) => s.includes(errorText));
+  // Split by newlines to find the line containing the error
+  const lines = plain.split(/\n+/);
+  const matchingLine = lines.find((l) => l.includes(errorText));
 
-  if (!matchingSentence) {
-    // Fallback: just show error text highlighted
+  if (!matchingLine) {
     return <span className="text-destructive font-medium">{errorText}</span>;
   }
 
-  // Split the sentence around the error text
-  const idx = matchingSentence.indexOf(errorText);
-  const before = matchingSentence.slice(0, idx);
-  const after = matchingSentence.slice(idx + errorText.length);
+  const idx = matchingLine.indexOf(errorText);
+  const before = matchingLine.slice(0, idx);
+  const after = matchingLine.slice(idx + errorText.length);
 
   return (
     <span className="text-sm leading-relaxed">
