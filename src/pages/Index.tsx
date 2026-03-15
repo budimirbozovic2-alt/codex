@@ -131,7 +131,7 @@ const Index = () => {
         <AnimatePresence mode="wait">
           {view === "dashboard" && (
             <motion.div key="dash" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-              <Dashboard stats={stats} categoryStats={categoryStats} categories={categories} cards={cards} reviewLog={reviewLog} srSettings={srSettings} onExport={exportData} />
+              <Dashboard stats={stats} categoryStats={categoryStats} categories={categories} subcategories={subcategories} cards={cards} reviewLog={reviewLog} srSettings={srSettings} onExport={exportData} />
             </motion.div>
           )}
           {view === "review" && (
