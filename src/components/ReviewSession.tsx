@@ -224,15 +224,33 @@ function FinishedScreen({ onBack }: { onBack: () => void }) {
 }
 
 function ReviewCard({
-  card, section, showAnswer, setShowAnswer, onGrade, onBack,
+  card, section, showAnswer, setShowAnswer, onGrade, onLogError, onBack,
   progress, total, sectionIndex, totalSectionsInCard, srSettings,
 }: {
   card: Card; section: Section; showAnswer: boolean;
   setShowAnswer: (v: boolean) => void; onGrade: (g: number) => void;
+  onLogError: (cardId: string, text: string) => void;
   onBack: () => void; progress: number; total: number;
   sectionIndex: number; totalSectionsInCard: number;
   srSettings: SRSettings;
 }) {
+  const { toast } = useToast();
+
+  // N-key error capture
+  useEffect(() => {
+    if (!showAnswer) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key !== "n" && e.key !== "N") return;
+      // Don't trigger if typing in an input
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+      const selection = window.getSelection()?.toString().trim();
+      if (!selection || selection.length < 2) return;
+      onLogError(card.id, selection);
+      toast({ title: "Greška zabilježena", description: `"${selection.length > 40 ? selection.slice(0, 40) + "…" : selection}"` });
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [showAnswer, card.id, onLogError, toast]);
   const gradeColorMap: Record<string, string> = {
     destructive: "bg-destructive text-destructive-foreground hover:bg-destructive/90",
     warning: "bg-warning text-warning-foreground hover:bg-warning/90",
