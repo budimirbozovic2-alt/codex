@@ -16,6 +16,7 @@ interface Props {
   stats: { due: number; total: number; totalSections: number; learnedSections: number };
   categoryStats: Record<string, { score: number; total: number; due: number }>;
   categories: string[];
+  subcategories: Record<string, string[]>;
   cards: Card[];
   reviewLog: ReviewLogEntry[];
   srSettings: SRSettings;
