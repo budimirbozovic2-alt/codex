@@ -140,7 +140,8 @@ export default function CardList({ cards, filterCategory, filterSubcategory, fil
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: i * 0.03 }}
-            className="rounded-xl bg-card border hover:border-primary/30 transition-colors overflow-hidden"
+            className={`rounded-xl bg-card border hover:border-primary/30 transition-colors overflow-hidden ${scrollToCardId === card.id ? "ring-2 ring-primary/50" : ""}`}
+            data-card-id={card.id}
           >
             <div className="p-5">
               <div className="flex items-start justify-between gap-4">
