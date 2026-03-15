@@ -179,6 +179,11 @@ const Index = () => {
               <SRSettingsPanel settings={srSettings} onUpdate={updateSRSettings} onBack={() => setView("dashboard")} />
             </motion.div>
           )}
+          {view === "frequent-errors" && (
+            <motion.div key="errors" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+              <FrequentErrors cards={cards} onBack={() => setView("dashboard")} />
+            </motion.div>
+          )}
           {view === "cards" && (
             <motion.div key="cards" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
               <div className="space-y-6">
