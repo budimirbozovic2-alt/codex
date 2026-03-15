@@ -70,6 +70,7 @@ function migrateCard(card: any): Card {
     type: card.type || "essay",
     subcategory: card.subcategory || "",
     tags: card.tags || [],
+    errorLog: card.errorLog || [],
     sections: (card.sections || []).map(migrateSection),
   };
 }
