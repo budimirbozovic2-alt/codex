@@ -15,15 +15,17 @@ interface DueItem {
 
 interface Props {
   dueCards: Card[];
+  subcategories: Record<string, string[]>;
   srSettings: SRSettings;
   onReviewSection: (cardId: string, sectionId: string, grade: number) => void;
   onLogError: (cardId: string, text: string) => void;
   onBack: () => void;
 }
 
-export default function ReviewSession({ dueCards, srSettings, onReviewSection, onLogError, onBack }: Props) {
+export default function ReviewSession({ dueCards, subcategories, srSettings, onReviewSection, onLogError, onBack }: Props) {
   const [mode, setMode] = useState<ReviewMode>(null);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [selectedSubcategory, setSelectedSubcategory] = useState<string | null>(null);
   const [cardIndex, setCardIndex] = useState(0);
   const [sectionIndex, setSectionIndex] = useState(0);
   const [randomIndex, setRandomIndex] = useState(0);
