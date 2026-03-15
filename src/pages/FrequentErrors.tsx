@@ -291,7 +291,7 @@ export default function FrequentErrors({ cards, onBack, onClearErrorLog }: Props
                             <div key={`${error.cardId}-${i}`} className="px-5 py-3 flex items-start gap-3">
                               <ShieldCheck className="h-4 w-4 text-success mt-0.5 shrink-0" />
                               <div className="flex-1 min-w-0">
-                                <p className="text-sm leading-relaxed">{error.text}</p>
+                                <HighlightedSentence sectionContent={error.sectionContent} errorText={error.text} />
                                 <p className="text-xs text-muted-foreground mt-1 truncate">
                                   {error.cardQuestion}
                                   {error.subcategory && <span> · {error.subcategory}</span>}
