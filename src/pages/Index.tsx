@@ -186,6 +186,11 @@ const Index = () => {
               <FrequentErrors cards={cards} onBack={() => setView("dashboard")} onClearErrorLog={clearErrorLog} />
             </motion.div>
           )}
+          {view === "knowledge-map" && (
+            <motion.div key="kmap" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+              <KnowledgeMap cards={cards} categories={categories} subcategories={subcategories} onBack={() => setView("dashboard")} />
+            </motion.div>
+          )}
           {view === "cards" && (
             <motion.div key="cards" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
               <div className="space-y-6">
