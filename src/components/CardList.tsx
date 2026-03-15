@@ -163,6 +163,16 @@ export default function CardList({ cards, filterCategory, filterSubcategory, fil
           >
             <div className="p-5">
               <div className="flex items-start justify-between gap-4">
+                {selectionMode && (
+                  <button
+                    onClick={() => onToggleSelect?.(card.id)}
+                    className={`mt-1 flex-shrink-0 w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${
+                      selectedIds?.has(card.id) ? "bg-primary border-primary text-primary-foreground" : "border-muted-foreground/40 hover:border-primary"
+                    }`}
+                  >
+                    {selectedIds?.has(card.id) && <span className="text-xs">✓</span>}
+                  </button>
+                )}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-1 flex-wrap">
                     <span className="text-xs uppercase tracking-widest text-muted-foreground">{card.category}</span>

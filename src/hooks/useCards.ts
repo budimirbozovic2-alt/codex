@@ -310,7 +310,7 @@ export function useCards() {
 
   return {
     cards, categories, subcategories, dueCards, stats, categoryStats, cardCountByCategory, reviewLog, srSettings,
-    addCard, addFlashCard, updateCard, deleteCard, splitCard, reviewSection, markRead, toggleTag,
+    addCard, addFlashCard, updateCard, deleteCard, splitCard, reviewSection, markRead, toggleTag, bulkUpdateCategory,
     exportData, importData, importCards,
     addCategory, renameCategory, deleteCategory,
     addSubcategory, renameSubcategory, deleteSubcategory,
