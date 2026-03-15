@@ -137,7 +137,7 @@ const Index = () => {
           )}
           {view === "review" && (
             <motion.div key="review" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-              <ReviewSession dueCards={dueCards} srSettings={srSettings} onReviewSection={reviewSection} onLogError={logError} onBack={() => setView("dashboard")} />
+              <ReviewSession dueCards={dueCards} subcategories={subcategories} srSettings={srSettings} onReviewSection={reviewSection} onLogError={logError} onBack={() => setView("dashboard")} />
             </motion.div>
           )}
           {view === "learn" && (

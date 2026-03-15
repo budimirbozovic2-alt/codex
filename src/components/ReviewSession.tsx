@@ -15,15 +15,17 @@ interface DueItem {
 
 interface Props {
   dueCards: Card[];
+  subcategories: Record<string, string[]>;
   srSettings: SRSettings;
   onReviewSection: (cardId: string, sectionId: string, grade: number) => void;
   onLogError: (cardId: string, text: string) => void;
   onBack: () => void;
 }
 
-export default function ReviewSession({ dueCards, srSettings, onReviewSection, onLogError, onBack }: Props) {
+export default function ReviewSession({ dueCards, subcategories, srSettings, onReviewSection, onLogError, onBack }: Props) {
   const [mode, setMode] = useState<ReviewMode>(null);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [selectedSubcategory, setSelectedSubcategory] = useState<string | null>(null);
   const [cardIndex, setCardIndex] = useState(0);
   const [sectionIndex, setSectionIndex] = useState(0);
   const [randomIndex, setRandomIndex] = useState(0);
@@ -36,8 +38,16 @@ export default function ReviewSession({ dueCards, srSettings, onReviewSection, o
   }, [dueCards]);
 
   const filteredDueCards = useMemo(() => {
-    if (!selectedCategory) return dueCards;
-    return dueCards.filter((c) => c.category === selectedCategory);
+    let filtered = dueCards;
+    if (selectedCategory) filtered = filtered.filter((c) => c.category === selectedCategory);
+    if (selectedSubcategory) filtered = filtered.filter((c) => c.subcategory === selectedSubcategory);
+    return filtered;
+  }, [dueCards, selectedCategory, selectedSubcategory]);
+
+  const dueSubcategories = useMemo(() => {
+    if (!selectedCategory) return [];
+    const subs = new Set(dueCards.filter((c) => c.category === selectedCategory && c.subcategory).map((c) => c.subcategory!));
+    return Array.from(subs).sort();
   }, [dueCards, selectedCategory]);
 
   const randomItems = useMemo<DueItem[]>(() => {
@@ -80,13 +90,34 @@ export default function ReviewSession({ dueCards, srSettings, onReviewSection, o
               {dueCategories.map((c) => (
                 <button
                   key={c}
-                  onClick={() => setSelectedCategory(c)}
+                  onClick={() => { setSelectedCategory(c); setSelectedSubcategory(null); }}
                   className={`px-3 py-1.5 rounded-lg text-sm transition-colors ${selectedCategory === c ? "bg-primary text-primary-foreground" : "bg-secondary text-secondary-foreground"}`}
                 >
                   {c}
                 </button>
               ))}
             </div>
+
+            {/* Subcategory filter */}
+            {selectedCategory && dueSubcategories.length > 0 && (
+              <div className="flex gap-2 flex-wrap pl-3 border-l-2 border-primary/20 ml-1 mt-2">
+                <button
+                  onClick={() => setSelectedSubcategory(null)}
+                  className={`px-2.5 py-1 rounded-md text-xs transition-colors ${!selectedSubcategory ? "bg-primary/15 text-primary" : "text-muted-foreground hover:text-foreground hover:bg-secondary"}`}
+                >
+                  Sve podkat.
+                </button>
+                {dueSubcategories.map((sc) => (
+                  <button
+                    key={sc}
+                    onClick={() => setSelectedSubcategory(sc)}
+                    className={`px-2.5 py-1 rounded-md text-xs transition-colors ${selectedSubcategory === sc ? "bg-primary/15 text-primary" : "text-muted-foreground hover:text-foreground hover:bg-secondary"}`}
+                  >
+                    {sc}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         )}
 
