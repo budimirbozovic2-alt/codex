@@ -26,6 +26,8 @@ function createWindow(splash) {
   const win = new BrowserWindow({
     width: 1200,
     height: 800,
+    minWidth: 900,
+    minHeight: 670,
     show: false,
     icon: path.join(__dirname, 'public/icon.ico'),
     webPreferences: {
