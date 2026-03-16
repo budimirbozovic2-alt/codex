@@ -270,17 +270,40 @@ export function useCards() {
     }));
   }, [setCards]);
 
-  const exportData = useCallback(() => {
-    const data = JSON.stringify({ cards, categories, subcategories, reviewLog, srSettings }, null, 2);
-    const blob = new Blob([data], { type: "application/json" });
+  const downloadJson = useCallback((data: object, filename: string) => {
+    const json = JSON.stringify(data, null, 2);
+    const blob = new Blob([json], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `memoria-backup-${new Date().toISOString().slice(0, 10)}.json`;
+    a.download = filename;
     a.click();
     URL.revokeObjectURL(url);
+  }, []);
+
+  const exportTemplate = useCallback(() => {
+    const templateCards = cards.map((c) => ({
+      id: c.id,
+      question: c.question,
+      sections: c.sections.map((s) => ({ title: s.title, content: s.content })),
+      category: c.category,
+      subcategory: c.subcategory || "",
+      type: c.type,
+      tags: c.tags || [],
+    }));
+    downloadJson(
+      { version: 2, type: "template", cards: templateCards, categories, subcategories },
+      `memoria-template-${new Date().toISOString().slice(0, 10)}.json`,
+    );
+  }, [cards, categories, subcategories, downloadJson]);
+
+  const exportData = useCallback(() => {
+    downloadJson(
+      { version: 2, type: "full", cards, categories, subcategories, reviewLog, srSettings },
+      `memoria-backup-${new Date().toISOString().slice(0, 10)}.json`,
+    );
     setLastBackupTime();
-  }, [cards, categories, subcategories, reviewLog, srSettings]);
+  }, [cards, categories, subcategories, reviewLog, srSettings, downloadJson]);
 
   const importData = useCallback((file: File) => {
     const reader = new FileReader();
