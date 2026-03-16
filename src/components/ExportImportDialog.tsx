@@ -138,6 +138,13 @@ export default function ExportImportDialog({ open, onOpenChange, onExportTemplat
               </DialogDescription>
             </DialogHeader>
             <div className="grid gap-3 py-4">
+              <Button variant="outline" className="justify-start gap-3 h-auto py-4" onClick={() => handleConflictChoice("newer")}>
+                <Clock className="h-5 w-5 text-primary" />
+                <div className="text-left">
+                  <p className="font-medium">Zadrži noviji progres</p>
+                  <p className="text-xs text-muted-foreground">Za svaku karticu — zadrži onu koja je novije ponavljana</p>
+                </div>
+              </Button>
               <Button variant="outline" className="justify-start gap-3 h-auto py-4" onClick={() => handleConflictChoice("keep")}>
                 <Check className="h-5 w-5 text-success" />
                 <div className="text-left">
