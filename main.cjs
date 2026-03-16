@@ -4,6 +4,21 @@ const fs = require('fs');
 
 const isDev = !app.isPackaged;
 const configPath = path.join(app.getPath('userData'), 'window-state.json');
+const crashLogPath = path.join(app.getPath('userData'), 'crash.log');
+
+// ── Global Error Handler ──
+function logCrash(label, err) {
+  const timestamp = new Date().toISOString();
+  const msg = `[${timestamp}] ${label}: ${err?.stack || err}\n`;
+  try { fs.appendFileSync(crashLogPath, msg); } catch (_) {}
+}
+
+process.on('uncaughtException', (err) => {
+  logCrash('uncaughtException', err);
+});
+process.on('unhandledRejection', (reason) => {
+  logCrash('unhandledRejection', reason);
+});
 
 // ── Single Instance Lock ──
 const gotLock = app.requestSingleInstanceLock();
@@ -35,13 +50,13 @@ function createSplashWindow() {
     transparent: true,
     alwaysOnTop: true,
     resizable: false,
-    icon: path.join(__dirname, 'public/icon.ico'),
+    icon: path.join(__dirname, isDev ? 'public/favicon.ico' : 'dist/favicon.ico'),
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
     },
   });
-  splash.loadFile(path.join(__dirname, 'public/splash.html'));
+  splash.loadFile(path.join(__dirname, isDev ? 'public/splash.html' : 'dist/splash.html'));
   return splash;
 }
 
@@ -58,7 +73,7 @@ function createWindow(splash) {
     minWidth: 900,
     minHeight: 670,
     show: false,
-    icon: path.join(__dirname, 'public/icon.ico'),
+    icon: path.join(__dirname, isDev ? 'public/favicon.ico' : 'dist/favicon.ico'),
     webPreferences: {
       nodeIntegration: true,
       contextIsolation: false,
