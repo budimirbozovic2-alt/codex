@@ -19,6 +19,7 @@ export default function ZenMode({ active, onToggle }: Props) {
   const [seconds, setSeconds] = useState(25 * 60);
   const [noiseOn, setNoiseOn] = useState(false);
   const [noiseVolume, setNoiseVolume] = useState(0.3);
+  const [pomodoroStats, setPomodoroStats] = useState(getPomodoroStats());
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const FOCUS_DURATION = 25 * 60;
