@@ -1,9 +1,10 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Play, Pause, Volume2, VolumeX, RotateCcw, Maximize, Minimize } from "lucide-react";
+import { X, Play, Pause, Volume2, VolumeX, RotateCcw, Timer } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { startBrownNoise, stopBrownNoise, setBrownNoiseVolume, isBrownNoisePlaying } from "@/lib/brown-noise";
+import { addPomodoroEntry, getPomodoroStats } from "@/lib/storage";
 
 type TimerPhase = "focus" | "break";
 
@@ -18,6 +19,7 @@ export default function ZenMode({ active, onToggle }: Props) {
   const [seconds, setSeconds] = useState(25 * 60);
   const [noiseOn, setNoiseOn] = useState(false);
   const [noiseVolume, setNoiseVolume] = useState(0.3);
+  const [pomodoroStats, setPomodoroStats] = useState(getPomodoroStats());
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const FOCUS_DURATION = 25 * 60;
@@ -76,10 +78,13 @@ export default function ZenMode({ active, onToggle }: Props) {
     if (seconds <= 0) {
       setTimerRunning(false);
       if (phase === "focus") {
+        addPomodoroEntry({ timestamp: Date.now(), type: "focus", durationMinutes: FOCUS_DURATION / 60 });
+        setPomodoroStats(getPomodoroStats());
         playChime("focus");
         setPhase("break");
         setSeconds(BREAK_DURATION);
       } else {
+        addPomodoroEntry({ timestamp: Date.now(), type: "break", durationMinutes: BREAK_DURATION / 60 });
         playChime("break");
         setPhase("focus");
         setSeconds(FOCUS_DURATION);
@@ -175,6 +180,15 @@ export default function ZenMode({ active, onToggle }: Props) {
             {timerRunning ? <Pause className="h-3.5 w-3.5 mr-1" /> : <Play className="h-3.5 w-3.5 mr-1" />}
             {timerRunning ? "Pauziraj" : "Pokreni"}
           </Button>
+        </div>
+
+        {/* Pomodoro stats */}
+        <div className="flex items-center gap-3 pt-1 border-t">
+          <Timer className="h-3.5 w-3.5 text-muted-foreground" />
+          <div className="flex-1 flex justify-between text-xs">
+            <span className="text-muted-foreground">Danas: <span className="font-medium text-foreground">{pomodoroStats.today}</span></span>
+            <span className="text-muted-foreground">Sedmica: <span className="font-medium text-foreground">{pomodoroStats.week}</span></span>
+          </div>
         </div>
 
         {/* Brown Noise */}

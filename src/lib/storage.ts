@@ -150,8 +150,50 @@ export function saveSRSettings(settings: SRSettings) {
   saveToStorage(SR_SETTINGS_KEY, settings);
 }
 
+// Pomodoro log
+const POMODORO_LOG_KEY = "sr-pomodoro-log";
+
+export interface PomodoroLogEntry {
+  timestamp: number;
+  type: "focus" | "break";
+  durationMinutes: number;
+}
+
+export function loadPomodoroLog(): PomodoroLogEntry[] {
+  return loadFromStorage(POMODORO_LOG_KEY, []);
+}
+
+export function savePomodoroLog(log: PomodoroLogEntry[]) {
+  saveToStorage(POMODORO_LOG_KEY, log);
+}
+
+export function addPomodoroEntry(entry: PomodoroLogEntry) {
+  const log = loadPomodoroLog();
+  log.push(entry);
+  savePomodoroLog(log);
+}
+
+export function getPomodoroStats() {
+  const log = loadPomodoroLog();
+  const now = Date.now();
+  const todayStart = new Date().setHours(0, 0, 0, 0);
+  const weekStart = todayStart - new Date().getDay() * 86400000;
+
+  const focusSessions = log.filter((e) => e.type === "focus");
+  const today = focusSessions.filter((e) => e.timestamp >= todayStart);
+  const week = focusSessions.filter((e) => e.timestamp >= weekStart);
+
+  return {
+    today: today.length,
+    todayMinutes: today.reduce((s, e) => s + e.durationMinutes, 0),
+    week: week.length,
+    weekMinutes: week.reduce((s, e) => s + e.durationMinutes, 0),
+    total: focusSessions.length,
+  };
+}
+
 // Storage usage
-const APP_KEYS = [CARDS_KEY, CATEGORIES_KEY, SUBCATEGORIES_KEY, REVIEW_LOG_KEY, SR_SETTINGS_KEY];
+const APP_KEYS = [CARDS_KEY, CATEGORIES_KEY, SUBCATEGORIES_KEY, REVIEW_LOG_KEY, SR_SETTINGS_KEY, POMODORO_LOG_KEY];
 const MAX_STORAGE_BYTES = 5 * 1024 * 1024; // 5MB
 
 export function getStorageUsage(): { usedBytes: number; maxBytes: number; percent: number } {
