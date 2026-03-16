@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 import { useCards } from "@/hooks/useCards";
 import Dashboard from "@/components/Dashboard";
@@ -11,9 +11,11 @@ import CategoryManager from "@/components/CategoryManager";
 import DocxImporter from "@/components/DocxImporter";
 import KnowledgeMap from "@/components/KnowledgeMap";
 import SRSettingsPanel from "@/components/SRSettingsPanel";
-import FrequentErrors from "@/pages/FrequentErrors"; // kept for backward compat
+import FrequentErrors from "@/pages/FrequentErrors";
 import ExportImportDialog from "@/components/ExportImportDialog";
 import ZenMode from "@/components/ZenMode";
+import GlobalSearch from "@/components/GlobalSearch";
+import EmptyState from "@/components/EmptyState";
 import { Card } from "@/lib/spaced-repetition";
 import { Plus, BookOpen, Home, Moon, Sun, FolderOpen, GraduationCap, Download, Upload, FileText, Settings, Brain, Search, Flame, CheckSquare, X, LayoutGrid, Focus } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";

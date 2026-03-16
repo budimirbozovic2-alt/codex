@@ -305,7 +305,7 @@ export function useCards() {
     setLastBackupTime();
   }, [cards, categories, subcategories, reviewLog, srSettings, downloadJson]);
 
-  const importData = useCallback((file: File, strategy: "keep" | "overwrite" | "skip" = "skip") => {
+  const importData = useCallback((file: File, strategy: "keep" | "overwrite" | "skip" | "newer" = "skip") => {
     const reader = new FileReader();
     reader.onload = (e) => {
       try {
@@ -338,14 +338,29 @@ export function useCards() {
           const importedCards: Card[] = parsed.cards.map(migrateImported);
 
           let merged: Card[];
-          if (strategy === "overwrite") {
-            // Overwrite duplicates, keep non-duplicates from both
+          if (strategy === "newer") {
+            // Keep whichever card has more recent review activity
+            const getLastReview = (c: Card) => Math.max(0, ...c.sections.map(s => s.lastReviewed || 0));
+            merged = [...existingCards];
+            importedCards.forEach((ic: Card) => {
+              const existing = existingMap.get(ic.id);
+              if (!existing) {
+                merged.push(ic);
+              } else {
+                const existingLast = getLastReview(existing);
+                const importedLast = getLastReview(ic);
+                if (importedLast > existingLast) {
+                  merged = merged.map(c => c.id === ic.id ? ic : c);
+                }
+                // else keep existing
+              }
+            });
+          } else if (strategy === "overwrite") {
             const importedMap = new Map(importedCards.map((c: any) => [c.id, c] as [string, Card]));
             merged = existingCards.map(c => importedMap.has(c.id) ? importedMap.get(c.id)! : c);
-            // Add cards that don't exist yet
             importedCards.forEach((c: Card) => { if (!existingMap.has(c.id)) merged.push(c); });
           } else {
-            // "keep" or "skip" — keep existing, add only new
+            // "keep" or "skip"
             merged = [...existingCards];
             importedCards.forEach((c: Card) => { if (!existingMap.has(c.id)) merged.push(c); });
           }
