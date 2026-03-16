@@ -1,8 +1,11 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { SRSettings, DEFAULT_SR_SETTINGS } from "@/lib/spaced-repetition";
+import { TTSSettings, DEFAULT_TTS_SETTINGS, loadTTSSettings, saveTTSSettings, getAvailableVoices, speak, stopSpeaking } from "@/lib/tts";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, RotateCcw } from "lucide-react";
+import { Slider } from "@/components/ui/slider";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { ArrowLeft, RotateCcw, Volume2 } from "lucide-react";
 
 interface Props {
   settings: SRSettings;
@@ -17,6 +20,24 @@ const FIELD_CONFIG = [
 
 export default function SRSettingsPanel({ settings, onUpdate, onBack }: Props) {
   const [local, setLocal] = useState<SRSettings>({ ...settings });
+  const [tts, setTts] = useState<TTSSettings>(loadTTSSettings());
+  const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
+
+  useEffect(() => {
+    const loadVoices = () => {
+      const v = getAvailableVoices();
+      if (v.length > 0) setVoices(v);
+    };
+    loadVoices();
+    if ("speechSynthesis" in window) {
+      window.speechSynthesis.onvoiceschanged = loadVoices;
+    }
+    return () => {
+      if ("speechSynthesis" in window) {
+        window.speechSynthesis.onvoiceschanged = null;
+      }
+    };
+  }, []);
 
   const handleChange = (key: keyof SRSettings, value: number) => {
     setLocal((prev) => ({ ...prev, [key]: value }));
@@ -24,13 +45,19 @@ export default function SRSettingsPanel({ settings, onUpdate, onBack }: Props) {
 
   const handleSave = () => {
     onUpdate(local);
+    saveTTSSettings(tts);
   };
 
   const handleReset = () => {
     setLocal({ ...DEFAULT_SR_SETTINGS });
   };
 
-  const hasChanges = JSON.stringify(local) !== JSON.stringify(settings);
+  const testVoice = () => {
+    speak("Ovo je test govora. Memoria MNE.", tts);
+  };
+
+  const hasChanges = JSON.stringify(local) !== JSON.stringify(settings) ||
+    JSON.stringify(tts) !== JSON.stringify(loadTTSSettings());
   const isDefault = JSON.stringify(local) === JSON.stringify(DEFAULT_SR_SETTINGS);
 
   return (
@@ -39,11 +66,13 @@ export default function SRSettingsPanel({ settings, onUpdate, onBack }: Props) {
         <button onClick={onBack} className="text-muted-foreground hover:text-foreground flex items-center gap-1 mb-6">
           <ArrowLeft className="h-4 w-4" /> Nazad
         </button>
-        <h2 className="text-3xl font-serif">Podešavanja ponavljanja</h2>
-        <p className="text-muted-foreground mt-2">Prilagodite FSRS algoritam svojim potrebama</p>
+        <h2 className="text-3xl font-serif">Podešavanja</h2>
+        <p className="text-muted-foreground mt-2">FSRS algoritam i glasovni čitač</p>
       </div>
 
+      {/* FSRS Settings */}
       <div className="space-y-4">
+        <h3 className="font-serif text-lg">Ponavljanje (FSRS)</h3>
         {FIELD_CONFIG.map(({ key, label, description, min, max, step }) => (
           <div key={key} className="rounded-xl border bg-card p-4 space-y-2">
             <div className="flex items-center justify-between">
@@ -66,6 +95,61 @@ export default function SRSettingsPanel({ settings, onUpdate, onBack }: Props) {
         ))}
       </div>
 
+      {/* TTS Settings */}
+      <div className="space-y-4">
+        <h3 className="font-serif text-lg flex items-center gap-2">
+          <Volume2 className="h-4 w-4" /> Glasovni čitač (TTS)
+        </h3>
+
+        <div className="rounded-xl border bg-card p-4 space-y-4">
+          {/* Speed */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <label className="text-sm font-medium">Brzina govora</label>
+              <span className="text-sm text-muted-foreground tabular-nums">{tts.rate.toFixed(2)}×</span>
+            </div>
+            <Slider
+              value={[tts.rate]}
+              min={0.5}
+              max={2}
+              step={0.05}
+              onValueChange={(v) => setTts((p) => ({ ...p, rate: v[0] }))}
+            />
+            <div className="flex justify-between text-[10px] text-muted-foreground">
+              <span>Sporo</span>
+              <span>Normalno</span>
+              <span>Brzo</span>
+            </div>
+          </div>
+
+          {/* Voice Selection */}
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Glas</label>
+            <Select
+              value={tts.voiceURI || "__default__"}
+              onValueChange={(v) => setTts((p) => ({ ...p, voiceURI: v === "__default__" ? "" : v }))}
+            >
+              <SelectTrigger className="bg-background">
+                <SelectValue placeholder="Sistemski podrazumijevani" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__default__">Sistemski podrazumijevani</SelectItem>
+                {voices.map((v) => (
+                  <SelectItem key={v.voiceURI} value={v.voiceURI}>
+                    {v.name} ({v.lang})
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Test button */}
+          <Button variant="outline" size="sm" onClick={testVoice} className="gap-1.5">
+            <Volume2 className="h-3.5 w-3.5" /> Testiraj glas
+          </Button>
+        </div>
+      </div>
+
       {/* How FSRS works */}
       <div className="rounded-xl border bg-card p-5 space-y-3">
         <h3 className="font-serif text-lg">Kako FSRS radi</h3>
@@ -74,7 +158,7 @@ export default function SRSettingsPanel({ settings, onUpdate, onBack }: Props) {
           <p><strong className="text-foreground">Teško (2):</strong> Stabilnost × 1.5 + 0.5 dana. Težina +1.</p>
           <p><strong className="text-foreground">Dobro (3):</strong> Stabilnost × 3.0 + 1.0 dana. Težina ostaje ista.</p>
           <p><strong className="text-foreground">Lako (4):</strong> Stabilnost × 5.0 + 2.0 dana. Težina -1.</p>
-          <p className="pt-2"><strong className="text-foreground">Interval:</strong> Računa se za 95% stopu zadržavanja znanja — idealno za pravosudni ispit.</p>
+          <p className="pt-2"><strong className="text-foreground">Interval:</strong> Računa se za 95% stopu zadržavanja znanja.</p>
           <p><strong className="text-foreground">Leech:</strong> Nakon {local.leechThreshold} padova, cjelina se označava kao problematična.</p>
         </div>
       </div>
