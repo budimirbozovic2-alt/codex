@@ -13,8 +13,9 @@ import KnowledgeMap from "@/components/KnowledgeMap";
 import SRSettingsPanel from "@/components/SRSettingsPanel";
 import FrequentErrors from "@/pages/FrequentErrors"; // kept for backward compat
 import ExportImportDialog from "@/components/ExportImportDialog";
+import ZenMode from "@/components/ZenMode";
 import { Card } from "@/lib/spaced-repetition";
-import { Plus, BookOpen, Home, Moon, Sun, FolderOpen, GraduationCap, Download, Upload, FileText, Settings, Brain, Search, Flame, CheckSquare, X, LayoutGrid } from "lucide-react";
+import { Plus, BookOpen, Home, Moon, Sun, FolderOpen, GraduationCap, Download, Upload, FileText, Settings, Brain, Search, Flame, CheckSquare, X, LayoutGrid, Focus } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 
 type View = "dashboard" | "create" | "edit" | "cards" | "review" | "categories" | "learn" | "settings" | "frequent-errors" | "knowledge-map";
