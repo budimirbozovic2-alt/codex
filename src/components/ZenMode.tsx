@@ -182,6 +182,15 @@ export default function ZenMode({ active, onToggle }: Props) {
           </Button>
         </div>
 
+        {/* Pomodoro stats */}
+        <div className="flex items-center gap-3 pt-1 border-t">
+          <Timer className="h-3.5 w-3.5 text-muted-foreground" />
+          <div className="flex-1 flex justify-between text-xs">
+            <span className="text-muted-foreground">Danas: <span className="font-medium text-foreground">{pomodoroStats.today}</span></span>
+            <span className="text-muted-foreground">Sedmica: <span className="font-medium text-foreground">{pomodoroStats.week}</span></span>
+          </div>
+        </div>
+
         {/* Brown Noise */}
         <div className="space-y-1.5 pt-1 border-t">
           <div className="flex items-center justify-between">
