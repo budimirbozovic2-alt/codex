@@ -157,7 +157,35 @@ export default function Dashboard({ stats, categoryStats, categories, subcategor
         ))}
       </div>
 
-      {/* Alerts */}
+      {/* Pomodoro Stats */}
+      {pomStats.total > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.4, duration: 0.4 }}
+          className="rounded-xl bg-card border p-5"
+        >
+          <div className="flex items-center gap-2 mb-3">
+            <Timer className="h-4 w-4 text-primary" />
+            <h3 className="text-sm font-medium">Pomodoro sesije</h3>
+          </div>
+          <div className="grid grid-cols-3 gap-4">
+            <div>
+              <p className="text-2xl font-serif">{pomStats.today}</p>
+              <p className="text-xs text-muted-foreground">Danas ({pomStats.todayMinutes} min)</p>
+            </div>
+            <div>
+              <p className="text-2xl font-serif">{pomStats.week}</p>
+              <p className="text-xs text-muted-foreground">Ova sedmica ({pomStats.weekMinutes} min)</p>
+            </div>
+            <div>
+              <p className="text-2xl font-serif">{pomStats.total}</p>
+              <p className="text-xs text-muted-foreground">Ukupno</p>
+            </div>
+          </div>
+        </motion.div>
+      )}
+
       {(backupOverdue || storageUsage.percent > 70) && (
         <div className="space-y-3">
           {backupOverdue && (
