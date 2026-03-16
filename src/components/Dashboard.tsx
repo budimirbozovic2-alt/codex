@@ -1,4 +1,4 @@
-import { Brain, Clock, Layers, BookOpen, TrendingUp, AlertTriangle, Download, HardDrive, ChevronDown, ChevronRight, LayoutGrid } from "lucide-react";
+import { Brain, Clock, Layers, BookOpen, TrendingUp, AlertTriangle, Download, HardDrive, ChevronDown, ChevronRight, LayoutGrid, Timer } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Card, getCardScore, getSectionScore, getCardRetrievability, SRSettings, DEFAULT_SR_SETTINGS } from "@/lib/spaced-repetition";
 import { getCardMasteryLevel, MASTERY_LEVELS } from "@/components/KnowledgeMap";
