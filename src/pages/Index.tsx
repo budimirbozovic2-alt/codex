@@ -381,6 +381,15 @@ const Index = () => {
           setDocxOpen(false);
         }}
       />
+
+      <ExportImportDialog
+        open={exportImportOpen}
+        onOpenChange={setExportImportOpen}
+        onExportTemplate={exportTemplate}
+        onExportFull={exportData}
+        onImport={importData}
+        cards={cards}
+      />
     </div>
   );
 };
