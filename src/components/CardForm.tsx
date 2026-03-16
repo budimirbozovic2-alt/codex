@@ -143,7 +143,7 @@ export default function CardForm({ categories, subcategories, onSave, onSaveFlas
         onSaveFlash(question, flashAnswer, cat, sub);
       }
     } else {
-      if (!question.trim() || sections.some((s) => !s.content.trim())) return;
+      if (!stripHtml(question) || sections.some((s) => !stripHtml(s.content))) return;
       if (editCard && onUpdate) {
         onUpdate(editCard.id, { question, sections, category: cat, subcategory: sub });
       } else {
