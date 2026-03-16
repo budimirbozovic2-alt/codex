@@ -29,6 +29,7 @@ const Index = () => {
     updateSRSettings,
   } = useCards();
   const [docxOpen, setDocxOpen] = useState(false);
+  const [exportImportOpen, setExportImportOpen] = useState(false);
   const [view, setView] = useState<View>("dashboard");
   const [editingCard, setEditingCard] = useState<Card | null>(null);
   const [scrollToCardId, setScrollToCardId] = useState<string | null>(null);
