@@ -335,7 +335,7 @@ export function useCards() {
 
           const existingCards = qc.getQueryData<Card[]>(KEYS.cards) || [];
           const existingMap = new Map(existingCards.map(c => [c.id, c]));
-          const importedCards = parsed.cards.map(migrateImported);
+          const importedCards: Card[] = parsed.cards.map(migrateImported);
 
           let merged: Card[];
           if (strategy === "overwrite") {
