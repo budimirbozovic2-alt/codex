@@ -13,8 +13,9 @@ import KnowledgeMap from "@/components/KnowledgeMap";
 import SRSettingsPanel from "@/components/SRSettingsPanel";
 import FrequentErrors from "@/pages/FrequentErrors"; // kept for backward compat
 import ExportImportDialog from "@/components/ExportImportDialog";
+import ZenMode from "@/components/ZenMode";
 import { Card } from "@/lib/spaced-repetition";
-import { Plus, BookOpen, Home, Moon, Sun, FolderOpen, GraduationCap, Download, Upload, FileText, Settings, Brain, Search, Flame, CheckSquare, X, LayoutGrid } from "lucide-react";
+import { Plus, BookOpen, Home, Moon, Sun, FolderOpen, GraduationCap, Download, Upload, FileText, Settings, Brain, Search, Flame, CheckSquare, X, LayoutGrid, Focus } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 
 type View = "dashboard" | "create" | "edit" | "cards" | "review" | "categories" | "learn" | "settings" | "frequent-errors" | "knowledge-map";
@@ -42,6 +43,7 @@ const Index = () => {
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkSubcategory, setBulkSubcategory] = useState("");
+  const [zenMode, setZenMode] = useState(false);
 
   const toggleSelect = (id: string) => {
     setSelectedIds((prev) => {
@@ -113,6 +115,11 @@ const Index = () => {
           </nav>
         </div>
         <div className="flex items-center gap-2">
+          {(view === "review" || view === "learn") && (
+            <button onClick={() => setZenMode(!zenMode)} className={`p-2 rounded-lg hover:bg-secondary transition-colors ${zenMode ? "text-primary bg-primary/10" : "text-muted-foreground"}`} title="Zen Mode">
+              <Focus className="h-4 w-4" />
+            </button>
+          )}
           <button onClick={() => setView("settings")} className={`p-2 rounded-lg hover:bg-secondary transition-colors ${view === "settings" ? "text-primary" : "text-muted-foreground"}`} title="Podešavanja">
             <Settings className="h-4 w-4" />
           </button>
@@ -390,6 +397,10 @@ const Index = () => {
         onImport={importData}
         cards={cards}
       />
+
+      <AnimatePresence>
+        <ZenMode active={zenMode} onToggle={() => setZenMode(false)} />
+      </AnimatePresence>
     </div>
   );
 };

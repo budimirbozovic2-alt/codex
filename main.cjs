@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Menu, globalShortcut } = require('electron');
+const { app, BrowserWindow, Menu, ipcMain } = require('electron');
 const path = require('path');
 const fs = require('fs');
 
@@ -101,9 +101,68 @@ function createWindow(splash) {
   });
 }
 
+// ── Auto-Backup (every 15 minutes, keep last 10) ──
+const BACKUP_DIR = path.join(app.getPath('documents'), 'MemoriaBackups');
+const MAX_BACKUPS = 10;
+const BACKUP_INTERVAL_MS = 15 * 60 * 1000;
+
+function ensureBackupDir() {
+  if (!fs.existsSync(BACKUP_DIR)) {
+    fs.mkdirSync(BACKUP_DIR, { recursive: true });
+  }
+}
+
+function cleanOldBackups() {
+  try {
+    const files = fs.readdirSync(BACKUP_DIR)
+      .filter(f => f.startsWith('Memoria_AutoBackup_') && f.endsWith('.json'))
+      .map(f => ({ name: f, time: fs.statSync(path.join(BACKUP_DIR, f)).mtimeMs }))
+      .sort((a, b) => b.time - a.time);
+    
+    while (files.length > MAX_BACKUPS) {
+      const old = files.pop();
+      if (old) fs.unlinkSync(path.join(BACKUP_DIR, old.name));
+    }
+  } catch (_) {}
+}
+
+function performAutoBackup() {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  
+  mainWindow.webContents.executeJavaScript(`
+    (function() {
+      try {
+        var keys = ['sr-essay-cards', 'sr-essay-categories', 'sr-essay-subcategories', 'sr-review-log', 'sr-settings'];
+        var data = {};
+        keys.forEach(function(k) { var v = localStorage.getItem(k); if (v) data[k] = JSON.parse(v); });
+        return JSON.stringify(data, null, 2);
+      } catch(e) { return null; }
+    })()
+  `).then(result => {
+    if (!result) return;
+    ensureBackupDir();
+    const now = new Date();
+    const ts = now.toISOString().replace(/[-:T]/g, '_').slice(0, 15);
+    const filename = 'Memoria_AutoBackup_' + ts + '.json';
+    fs.writeFileSync(path.join(BACKUP_DIR, filename), result);
+    cleanOldBackups();
+  }).catch(() => {});
+}
+
+let backupInterval = null;
+
 app.whenReady().then(() => {
   const splash = createSplashWindow();
   createWindow(splash);
+
+  // Start auto-backup every 15 minutes (production only)
+  if (!isDev) {
+    // First backup after 2 minutes
+    setTimeout(() => {
+      performAutoBackup();
+      backupInterval = setInterval(performAutoBackup, BACKUP_INTERVAL_MS);
+    }, 2 * 60 * 1000);
+  }
 });
 
 // ── Focus existing window if second instance attempted ──
@@ -115,7 +174,7 @@ app.on('second-instance', () => {
 });
 
 app.on('window-all-closed', () => {
+  if (backupInterval) clearInterval(backupInterval);
   if (process.platform !== 'darwin') app.quit();
 });
-
 } // end of gotLock else block

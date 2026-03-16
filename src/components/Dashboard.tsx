@@ -12,6 +12,7 @@ import { format, subDays, startOfDay, eachDayOfInterval } from "date-fns";
 import ActivityHeatmap from "./ActivityHeatmap";
 import RetentionChart from "./RetentionChart";
 import StreakWidget from "./StreakWidget";
+import ForgettingCurve from "./ForgettingCurve";
 
 interface Props {
   stats: { due: number; total: number; totalSections: number; learnedSections: number };
@@ -464,6 +465,9 @@ export default function Dashboard({ stats, categoryStats, categories, subcategor
           </div>
         </motion.div>
       )}
+
+      {/* Forgetting Curve - Prognoza znanja */}
+      <ForgettingCurve cards={cards} categories={categories} />
     </div>
   );
 }
