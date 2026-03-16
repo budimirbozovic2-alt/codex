@@ -52,19 +52,40 @@ export default function ZenMode({ active, onToggle }: Props) {
     };
   }, [timerRunning, seconds]);
 
+  // Play a chime notification using Web Audio API
+  const playChime = useCallback((type: "focus" | "break") => {
+    try {
+      const ctx = new AudioContext();
+      const freqs = type === "focus" ? [523, 659, 784] : [784, 659, 523];
+      freqs.forEach((freq, i) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = "sine";
+        osc.frequency.value = freq;
+        gain.gain.setValueAtTime(0.3, ctx.currentTime + i * 0.25);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + i * 0.25 + 0.5);
+        osc.connect(gain).connect(ctx.destination);
+        osc.start(ctx.currentTime + i * 0.25);
+        osc.stop(ctx.currentTime + i * 0.25 + 0.5);
+      });
+    } catch {}
+  }, []);
+
   // Phase switch when timer reaches 0
   useEffect(() => {
     if (seconds <= 0) {
       setTimerRunning(false);
       if (phase === "focus") {
+        playChime("focus");
         setPhase("break");
         setSeconds(BREAK_DURATION);
       } else {
+        playChime("break");
         setPhase("focus");
         setSeconds(FOCUS_DURATION);
       }
     }
-  }, [seconds, phase]);
+  }, [seconds, phase, playChime]);
 
   const toggleNoise = useCallback(() => {
     if (noiseOn) {
