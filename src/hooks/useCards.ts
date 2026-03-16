@@ -340,7 +340,7 @@ export function useCards() {
           let merged: Card[];
           if (strategy === "overwrite") {
             // Overwrite duplicates, keep non-duplicates from both
-            const importedMap = new Map(importedCards.map((c: Card) => [c.id, c]));
+            const importedMap = new Map(importedCards.map((c: any) => [c.id, c] as [string, Card]));
             merged = existingCards.map(c => importedMap.has(c.id) ? importedMap.get(c.id)! : c);
             // Add cards that don't exist yet
             importedCards.forEach((c: Card) => { if (!existingMap.has(c.id)) merged.push(c); });
