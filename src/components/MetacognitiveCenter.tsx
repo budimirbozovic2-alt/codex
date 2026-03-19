@@ -14,6 +14,7 @@ import {
   getTodayReviewStats,
   loadSlippageLog, SlippageEntry, getDeepWorkStats,
   getLearningVelocity,
+  getTimeDistribution, getWeeklyTimeDistribution, RESERVOIR_LABELS, RESERVOIR_COLORS,
 } from "@/lib/metacognitive-storage";
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
