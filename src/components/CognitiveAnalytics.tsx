@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { motion } from "framer-motion";
-import { AlertTriangle, Shield, Zap, ArrowRightLeft, HeartPulse, Brain, TrendingUp } from "lucide-react";
+import { AlertTriangle, Shield, Zap, ArrowRightLeft, HeartPulse, Brain, TrendingUp, Eye, Wrench } from "lucide-react";
 import { Card } from "@/lib/spaced-repetition";
 import { ReviewLogEntry } from "@/lib/storage";
 import { Progress } from "@/components/ui/progress";
@@ -10,6 +10,8 @@ import {
   calcStressPerformance,
   calcFrictionAnalysis,
   calcRecoveryRate,
+  calcBlindSpots,
+  calcWeakHooks,
 } from "@/lib/cognitive-analytics";
 import { loadPlanner } from "@/lib/planner-storage";
 
@@ -17,18 +19,21 @@ interface Props {
   cards: Card[];
   categories: string[];
   reviewLog: ReviewLogEntry[];
+  onSendToWorkshop?: (cardId: string) => void;
 }
 
-export default function CognitiveAnalytics({ cards, categories, reviewLog }: Props) {
+export default function CognitiveAnalytics({ cards, categories, reviewLog, onSendToWorkshop }: Props) {
   const interferencePairs = useMemo(() => calcInterferencePairs(cards), [cards]);
   const planner = useMemo(() => loadPlanner(), []);
   const stabilityData = useMemo(() => calcCategoryStability(cards, categories, planner.finalGoalDate), [cards, categories, planner]);
   const stressPerf = useMemo(() => calcStressPerformance(reviewLog), [reviewLog]);
   const friction = useMemo(() => calcFrictionAnalysis(reviewLog), [reviewLog]);
   const recovery = useMemo(() => calcRecoveryRate(), []);
+  const blindSpots = useMemo(() => calcBlindSpots(cards), [cards]);
+  const weakHooks = useMemo(() => calcWeakHooks(), []);
 
   const hasCriticalZones = stabilityData.some(s => s.criticalSections > 0);
-  const hasAnyData = interferencePairs.length > 0 || stabilityData.length > 0 || stressPerf || friction.transitions.length > 0 || recovery;
+  const hasAnyData = interferencePairs.length > 0 || stabilityData.length > 0 || stressPerf || friction.transitions.length > 0 || recovery || blindSpots.length > 0 || weakHooks.length > 0;
 
   if (!hasAnyData) {
     return (
@@ -234,6 +239,72 @@ export default function CognitiveAnalytics({ cards, categories, reviewLog }: Pro
               ? "Umjerena dosljednost — ponekad se teško vraćaš na ritam."
               : "Niska dosljednost — radi na postavljanju malih ciljeva za sutradan kada imaš lošiji dan."}
           </p>
+        </motion.div>
+      )}
+
+      {/* 6. Blind Spot Detector */}
+      {blindSpots.length > 0 && (
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }}
+          className="rounded-xl bg-card border p-5 space-y-4">
+          <div className="flex items-center gap-2">
+            <Eye className="h-4 w-4 text-destructive" />
+            <h3 className="font-serif text-lg">Slijepe tačke</h3>
+          </div>
+          <p className="text-xs text-muted-foreground">Kartice gdje je sigurnost bila visoka (4-5), ali rezultat loš (1-2). Iluzija znanja — prioritet za ponavljanje.</p>
+
+          <div className="space-y-2">
+            {blindSpots.slice(0, 8).map((spot, i) => (
+              <div key={i} className="p-3 rounded-lg border border-destructive/20 bg-destructive/5 space-y-1">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-medium truncate flex-1">{spot.question}</p>
+                  <span className="text-[10px] text-muted-foreground ml-2 flex-shrink-0">{spot.occurrences}× detektovano</span>
+                </div>
+                <div className="flex items-center gap-3 text-[10px]">
+                  <span className="text-muted-foreground">{spot.category}</span>
+                  <span className="text-warning">Sigurnost: {spot.confidence}/5</span>
+                  <span className="text-destructive">Ocjena: {spot.actualGrade}/4</span>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="p-3 rounded-lg border border-destructive/20 bg-destructive/5">
+            <p className="text-xs font-medium text-destructive">⚠ Preporuka</p>
+            <p className="text-[10px] text-muted-foreground mt-0.5">
+              Ove kartice zahtijevaju Feynman provjeru — objasni gradivo naglas bez gledanja. Forsiraj ih kroz mod "Testiranje kuka".
+            </p>
+          </div>
+        </motion.div>
+      )}
+
+      {/* 7. Hook Quality Auditor */}
+      {weakHooks.length > 0 && (
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.6 }}
+          className="rounded-xl bg-card border p-5 space-y-4">
+          <div className="flex items-center gap-2">
+            <Wrench className="h-4 w-4 text-warning" />
+            <h3 className="font-serif text-lg">Slabe kuke</h3>
+          </div>
+          <p className="text-xs text-muted-foreground">Kartice sa iskovanih kukama, ali latencijom prisjećanja &gt;3 sekunde. Kuke treba ojačati.</p>
+
+          <div className="space-y-2">
+            {weakHooks.map((hook, i) => (
+              <div key={i} className="flex items-center justify-between p-3 rounded-lg border border-warning/20 bg-warning/5">
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs font-medium truncate">{hook.question}</p>
+                  <p className="text-[10px] text-muted-foreground">{hook.category} • {(hook.avgLatencyMs / 1000).toFixed(1)}s prosjek</p>
+                </div>
+                {onSendToWorkshop && (
+                  <button
+                    onClick={() => onSendToWorkshop(hook.originalCardId)}
+                    className="ml-2 flex-shrink-0 text-[10px] px-2 py-1 rounded-md bg-warning/10 text-warning hover:bg-warning/20 transition-colors"
+                  >
+                    Radionica →
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
         </motion.div>
       )}
     </div>

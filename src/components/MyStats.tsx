@@ -323,7 +323,7 @@ export default function MyStats({ cards, categories, subcategories, categoryStat
 
         <TabsContent value="cognitive">
           <div className="mt-4">
-            <CognitiveAnalytics cards={cards} categories={categories} reviewLog={reviewLog} />
+            <CognitiveAnalytics cards={cards} categories={categories} reviewLog={reviewLog} onSendToWorkshop={onSendToWorkshop} />
           </div>
         </TabsContent>
       </Tabs>

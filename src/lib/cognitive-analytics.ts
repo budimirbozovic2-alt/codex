@@ -1,7 +1,8 @@
 import { Card, getCardRetrievability, ErrorLogEntry, getErrorStatus } from "./spaced-repetition";
 import { ReviewLogEntry } from "./storage";
-import { LatencyEntry, loadLatency, loadSlippageLog } from "./metacognitive-storage";
-import { loadDisciplineLog, DisciplineEntry } from "./planner-storage";
+import { LatencyEntry, loadLatency, loadSlippageLog, loadCalibration, CalibrationEntry, loadDiary, DiaryEntry } from "./metacognitive-storage";
+import { loadDisciplineLog, DisciplineEntry, loadPlanner, calcVelocity, calcEstimatedFinish, getPlannerStatus } from "./planner-storage";
+import { loadMnemonicCards, MnemonicCard, saveMnemonicCards } from "./mnemonic-storage";
 import { differenceInDays } from "date-fns";
 
 // ═══════════════════════════════════════════════════════════
@@ -321,3 +322,192 @@ export function calcRecoveryRate(): RecoveryStats | null {
     recoveryIndex: index,
   };
 }
+
+// ═══════════════════════════════════════════════════════════
+// 6. Energy-Material Matcher — mood → module recommendation
+// ═══════════════════════════════════════════════════════════
+
+export type EnergyRecommendation = {
+  type: "easy" | "normal";
+  message: string;
+  suggestMnemonics: boolean;
+};
+
+export function calcEnergyRecommendation(): EnergyRecommendation | null {
+  const diary = loadDiary();
+  const today = new Date().toISOString().slice(0, 10);
+  const todayEntry = diary.find(d => d.date === today);
+  if (!todayEntry) return null;
+
+  const text = (todayEntry.selfAnalysis + " " + todayEntry.dailyGoal).toLowerCase();
+  const fatigueWords = ["umor", "umoran", "umorna", "iscrpljen", "frustracija", "frustriran", "loše", "teško", "demotiv", "spava", "glava", "bolest", "bezvoljn", "stres"];
+  const isFatigued = fatigueWords.some(w => text.includes(w));
+
+  if (!isFatigued) return null;
+
+  return {
+    type: "easy",
+    message: "Na osnovu tvog dnevnika: izbjegavaj teško novo gradivo. Fokusiraj se na ponavljanje poznatog ili mnemotehničke drilove.",
+    suggestMnemonics: true,
+  };
+}
+
+// ═══════════════════════════════════════════════════════════
+// 7. Hook Quality Auditor — latency vs mnemonic hooks
+// ═══════════════════════════════════════════════════════════
+
+export interface WeakHook {
+  mnemonicCardId: string;
+  originalCardId: string;
+  question: string;
+  avgLatencyMs: number;
+  category: string;
+}
+
+export function calcWeakHooks(): WeakHook[] {
+  const mnemonicCards = loadMnemonicCards();
+  const latencyLog = loadLatency();
+  if (mnemonicCards.length === 0 || latencyLog.length === 0) return [];
+
+  const THRESHOLD = 3000; // 3 seconds
+  const weakHooks: WeakHook[] = [];
+
+  // For each mnemonic card that has a hook (status = "ready" or "in-workshop" with content)
+  mnemonicCards.forEach(mc => {
+    if (mc.mnemonicStatus === "new" && !mc.mnemonicVideo && !mc.acronym) return;
+
+    // Find latency entries for the original card
+    const cardLatencies = latencyLog.filter(l => l.cardId === mc.originalCardId);
+    if (cardLatencies.length < 2) return;
+
+    // Take last 5 entries
+    const recent = cardLatencies.slice(-5);
+    const avgLatency = recent.reduce((s, l) => s + l.latencyMs, 0) / recent.length;
+
+    if (avgLatency > THRESHOLD) {
+      weakHooks.push({
+        mnemonicCardId: mc.id,
+        originalCardId: mc.originalCardId,
+        question: mc.question,
+        avgLatencyMs: Math.round(avgLatency),
+        category: mc.category,
+      });
+
+      // Auto-tag "Slaba kuka"
+      if (!mc.tags?.includes("slaba-kuka")) {
+        mc.tags = [...(mc.tags || []), "slaba-kuka"];
+      }
+    }
+  });
+
+  // Save updated tags
+  if (weakHooks.length > 0) {
+    saveMnemonicCards(mnemonicCards);
+  }
+
+  return weakHooks;
+}
+
+// ═══════════════════════════════════════════════════════════
+// 8. Strategic Reality Check — discipline vs prediction
+// ═══════════════════════════════════════════════════════════
+
+export interface StrategicAlert {
+  type: "ambitious" | "on-track" | "none";
+  message: string;
+  diligentDays: number;
+  totalDays: number;
+  daysLate: number;
+}
+
+export function calcStrategicRealityCheck(
+  cards: Card[],
+  reviewLog: ReviewLogEntry[]
+): StrategicAlert | null {
+  const planner = loadPlanner();
+  if (!planner.finalGoalDate) return null;
+
+  const log = loadDisciplineLog();
+  if (log.length < 5) return null;
+
+  // Count recent discipline (last 14 days)
+  const recent = log.slice(-14);
+  const diligentDays = recent.filter(e => e.status === "diligent").length;
+  const diligentPct = diligentDays / recent.length;
+
+  // Get projection
+  const totalSections = cards.reduce((s, c) => s + c.sections.length, 0);
+  const learnedSections = cards.reduce((s, c) => s + c.sections.filter(sec => sec.lastReviewed).length, 0);
+  const velocity = calcVelocity(reviewLog, 7);
+  const remaining = totalSections - learnedSections;
+  const estimated = calcEstimatedFinish(remaining, velocity);
+  const status = getPlannerStatus(estimated, planner.finalGoalDate);
+
+  // Diligent but still late = plan too ambitious
+  if (diligentPct >= 0.6 && status.status !== "green" && status.daysLate > 3) {
+    return {
+      type: "ambitious",
+      message: `Plan je previše ambiciozan za tvoj trenutni tempo. Vrijedan si ${diligentDays} od ${recent.length} dana, ali projekcija kasni ${status.daysLate} dana. Razmisli o reviziji cilja.`,
+      diligentDays,
+      totalDays: recent.length,
+      daysLate: status.daysLate,
+    };
+  }
+
+  return null;
+}
+
+// ═══════════════════════════════════════════════════════════
+// 9. Blind Spot Detector — high confidence + bad grade
+// ═══════════════════════════════════════════════════════════
+
+export interface BlindSpot {
+  cardId: string;
+  sectionId: string;
+  question: string;
+  category: string;
+  confidence: number;
+  actualGrade: number;
+  occurrences: number;
+}
+
+export function calcBlindSpots(cards: Card[]): BlindSpot[] {
+  const calibration = loadCalibration();
+  if (calibration.length < 5) return [];
+
+  // Find entries where confidence was high (4-5) but grade was low (1-2)
+  const blindMap = new Map<string, { entries: CalibrationEntry[]; card?: Card }>();
+
+  calibration.forEach(e => {
+    if (e.confidence >= 4 && e.actualGrade <= 2) {
+      const key = `${e.cardId}:${e.sectionId}`;
+      const existing = blindMap.get(key) || { entries: [] };
+      existing.entries.push(e);
+      blindMap.set(key, existing);
+    }
+  });
+
+  // Match with cards
+  const cardMap = new Map(cards.map(c => [c.id, c]));
+
+  const spots: BlindSpot[] = [];
+  blindMap.forEach((data, key) => {
+    const [cardId, sectionId] = key.split(":");
+    const card = cardMap.get(cardId);
+    if (!card) return;
+
+    const latest = data.entries[data.entries.length - 1];
+    spots.push({
+      cardId,
+      sectionId,
+      question: card.question,
+      category: card.category,
+      confidence: latest.confidence,
+      actualGrade: latest.actualGrade,
+      occurrences: data.entries.length,
+    });
+  });
+
+  return spots.sort((a, b) => b.occurrences - a.occurrences).slice(0, 15);
+}
+

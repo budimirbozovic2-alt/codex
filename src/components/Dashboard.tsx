@@ -1,9 +1,10 @@
-import { Clock, BookOpen, AlertTriangle, Download, HardDrive, Timer, Play, Target, Hand, TrendingUp, ShieldAlert, Gauge, Lightbulb, Hourglass } from "lucide-react";
+import { Clock, BookOpen, AlertTriangle, Download, HardDrive, Timer, Play, Target, Hand, TrendingUp, ShieldAlert, Gauge, Lightbulb, Hourglass, Brain, Zap } from "lucide-react";
 import { motion } from "framer-motion";
 import { Card, getCardRetrievability, SRSettings, DEFAULT_SR_SETTINGS, getPendingFirstReviewCount } from "@/lib/spaced-repetition";
 import { ReviewLogEntry, getStorageUsage, isBackupOverdue, getLastBackupTime } from "@/lib/storage";
 import { loadDiary, loadActivityLog, loadSlippageLog } from "@/lib/metacognitive-storage";
 import { loadPlanner, calcVelocity, calcEstimatedFinish, getPlannerStatus, getDailySuggestion, calcDailyTimeRecommendation, getCognitiveDebt, recordDayDiscipline, getDisciplineEmoji, getDisciplineLabel, loadDisciplineLog } from "@/lib/planner-storage";
+import { calcEnergyRecommendation, calcStrategicRealityCheck } from "@/lib/cognitive-analytics";
 import { useMemo, useState, useEffect, useRef } from "react";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
@@ -244,6 +245,12 @@ export default function Dashboard({ stats, categoryStats, categories, subcategor
 
   const cognitiveDebt = useMemo(() => getCognitiveDebt(dailyGoal), [dailyGoal]);
 
+  // Energy-Material Matcher
+  const energyRec = useMemo(() => calcEnergyRecommendation(), []);
+
+  // Strategic Reality Check
+  const strategicAlert = useMemo(() => calcStrategicRealityCheck(cards, reviewLog), [cards, reviewLog]);
+
   // Record discipline for yesterday (if not already done)
   useMemo(() => {
     const yesterday = new Date();
@@ -251,7 +258,6 @@ export default function Dashboard({ stats, categoryStats, categories, subcategor
     const yKey = yesterday.toISOString().slice(0, 10);
     const log = loadDisciplineLog();
     if (log.find(e => e.date === yKey)) return;
-    // Count yesterday's reviews
     const yStart = new Date(yKey).getTime();
     const yEnd = yStart + 86400000;
     const yReviews = reviewLog.filter(e => e.timestamp >= yStart && e.timestamp < yEnd).length;
@@ -281,6 +287,33 @@ export default function Dashboard({ stats, categoryStats, categories, subcategor
           <p className="text-xs text-muted-foreground">Pucni prstima ili napravi gest prije nego počneš učiti — aktiviraj režim fokusa.</p>
         </div>
       </motion.div>
+
+      {/* Energy-Material Matcher */}
+      {energyRec && (
+        <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.22 }}
+          className="flex items-start gap-3 p-4 rounded-xl border border-warning/30 bg-warning/5">
+          <Brain className="h-5 w-5 text-warning flex-shrink-0 mt-0.5" />
+          <div>
+            <p className="text-sm font-medium text-warning">Prilagođen režim učenja</p>
+            <p className="text-xs text-muted-foreground mt-1">{energyRec.message}</p>
+            {energyRec.suggestMnemonics && (
+              <p className="text-xs text-primary mt-1">💡 Preporuka: otvori Memorizaciju za lagani dril kuka.</p>
+            )}
+          </div>
+        </motion.div>
+      )}
+
+      {/* Strategic Reality Check */}
+      {strategicAlert && strategicAlert.type === "ambitious" && (
+        <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.24 }}
+          className="flex items-start gap-3 p-4 rounded-xl border border-primary/30 bg-primary/5">
+          <Zap className="h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
+          <div>
+            <p className="text-sm font-medium">Plan je previše ambiciozan</p>
+            <p className="text-xs text-muted-foreground mt-1">{strategicAlert.message}</p>
+          </div>
+        </motion.div>
+      )}
 
       {/* Core Stats Grid */}
       <div className="grid grid-cols-2 gap-4">
