@@ -252,6 +252,16 @@ const Index = () => {
               <KnowledgeMap cards={cards} categories={categories} subcategories={subcategories} onBack={() => setView("dashboard")} />
             </motion.div>
           )}
+          {view === "mnemonic" && (
+            <motion.div key="mnemonic" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+              <MnemonicModule onBack={() => setView("dashboard")} />
+            </motion.div>
+          )}
+          {view === "major-system-settings" && (
+            <motion.div key="major-settings" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+              <MajorSystemSettings onBack={() => setView("settings")} />
+            </motion.div>
+          )}
           {view === "cards" && (
             <motion.div key="cards" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
               <div className="space-y-6">
