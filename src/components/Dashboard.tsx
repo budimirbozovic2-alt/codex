@@ -227,8 +227,8 @@ export default function Dashboard({ stats, categoryStats, categories, subcategor
   const backupOverdue = useMemo(() => isBackupOverdue(), []);
   const lastBackup = useMemo(() => getLastBackupTime(), []);
 
-  // Planner suggestion
-  const plannerSuggestion = useMemo(() => {
+  // Planner suggestion + time predictor + cognitive debt
+  const plannerData = useMemo(() => {
     const planner = loadPlanner();
     if (!planner.finalGoalDate) return null;
     const totalSections = stats.totalSections;
@@ -238,8 +238,27 @@ export default function Dashboard({ stats, categoryStats, categories, subcategor
     const estimated = calcEstimatedFinish(remaining, velocity);
     const status = getPlannerStatus(estimated, planner.finalGoalDate);
     const suggestion = getDailySuggestion(totalSections, learnedSections, planner.finalGoalDate, velocity);
-    return { status, suggestion };
+    const timeRec = suggestion ? calcDailyTimeRecommendation(suggestion.suggestedToday, velocity, stats.due) : null;
+    return { status, suggestion, timeRec };
   }, [stats, reviewLog]);
+
+  const cognitiveDebt = useMemo(() => getCognitiveDebt(dailyGoal), [dailyGoal]);
+
+  // Record discipline for yesterday (if not already done)
+  useMemo(() => {
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    const yKey = yesterday.toISOString().slice(0, 10);
+    const log = loadDisciplineLog();
+    if (log.find(e => e.date === yKey)) return;
+    // Count yesterday's reviews
+    const yStart = new Date(yKey).getTime();
+    const yEnd = yStart + 86400000;
+    const yReviews = reviewLog.filter(e => e.timestamp >= yStart && e.timestamp < yEnd).length;
+    const slippageLog = loadSlippageLog();
+    const ySlippage = slippageLog.find(s => s.date === yKey)?.slippageMs ?? null;
+    recordDayDiscipline(yKey, yReviews, dailyGoal, ySlippage);
+  }, [reviewLog, dailyGoal]);
 
   return (
     <div className="space-y-8">
