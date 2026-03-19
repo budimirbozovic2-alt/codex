@@ -63,7 +63,7 @@ export default function MetacognitiveCenter({ cards, categories, reviewLog, onBa
         </div>
 
         <TabsContent value="diary">
-          <DiaryTab cards={cards} reviewLog={reviewLog} />
+          <DiaryTab cards={cards} reviewLog={reviewLog} onSendToWorkshop={onSendToWorkshop} />
         </TabsContent>
         <TabsContent value="calibration">
           <CalibrationTab />
