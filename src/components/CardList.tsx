@@ -255,7 +255,7 @@ export default function CardList({
             onExpand: setExpandedId,
             onEdit,
             onDelete,
-          } satisfies VirtualRowProps}
+          } as any}
         />
       </div>
     );
