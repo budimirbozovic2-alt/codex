@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import { ReviewLogEntry } from "@/lib/storage";
+import { loadDisciplineLog, getDisciplineEmoji } from "@/lib/planner-storage";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface Props {
@@ -25,31 +26,34 @@ const INTENSITY_CLASSES = [
 ];
 
 export default function ActivityHeatmap({ reviewLog }: Props) {
+  const disciplineLog = useMemo(() => {
+    const log = loadDisciplineLog();
+    const map = new Map<string, string>();
+    log.forEach(e => map.set(e.date, getDisciplineEmoji(e.status)));
+    return map;
+  }, []);
+
   const { grid, months } = useMemo(() => {
-    const DAYS = 91; // ~13 weeks
+    const DAYS = 91;
     const now = new Date();
     now.setHours(23, 59, 59, 999);
 
-    // Count reviews per day
     const counts: Record<string, number> = {};
     reviewLog.forEach((e) => {
       const key = getDayKey(e.timestamp);
       counts[key] = (counts[key] || 0) + 1;
     });
 
-    // Find max for intensity
     const maxCount = Math.max(1, ...Object.values(counts));
 
-    // Build grid: columns = weeks, rows = days (0=Mon, 6=Sun)
     const startDate = new Date(now);
     startDate.setDate(startDate.getDate() - DAYS + 1);
 
-    // Adjust to start on Monday
     const dayOfWeek = startDate.getDay();
     const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
     startDate.setDate(startDate.getDate() + mondayOffset);
 
-    const cells: { key: string; count: number; intensity: number; date: Date }[] = [];
+    const cells: { key: string; count: number; intensity: number; date: Date; discipline: string | undefined }[] = [];
     const months: { label: string; col: number }[] = [];
     let lastMonth = -1;
 
@@ -70,13 +74,14 @@ export default function ActivityHeatmap({ reviewLog }: Props) {
           lastMonth = d.getMonth();
         }
 
-        cells.push({ key, count, intensity, date: new Date(d) });
+        // Convert to ISO date for discipline lookup
+        const isoKey = d.toISOString().slice(0, 10);
+        cells.push({ key, count, intensity, date: new Date(d), discipline: disciplineLog.get(isoKey) });
       }
       cursor.setDate(cursor.getDate() + 7);
       col++;
     }
 
-    // Organize into grid [row][col]
     const totalWeeks = col;
     const grid: typeof cells[number][][] = Array.from({ length: 7 }, () => []);
     cells.forEach((cell, i) => {
@@ -85,7 +90,7 @@ export default function ActivityHeatmap({ reviewLog }: Props) {
     });
 
     return { grid, months };
-  }, [reviewLog]);
+  }, [reviewLog, disciplineLog]);
 
   const dayLabels = ["P", "U", "S", "Č", "P", "S", "N"];
 
@@ -124,12 +129,15 @@ export default function ActivityHeatmap({ reviewLog }: Props) {
                   return (
                     <Tooltip key={rowIdx}>
                       <TooltipTrigger asChild>
-                        <div
-                          className={`w-[13px] h-[13px] rounded-sm ${INTENSITY_CLASSES[cell.intensity]} transition-colors`}
-                        />
+                        <div className={`w-[13px] h-[13px] rounded-sm ${INTENSITY_CLASSES[cell.intensity]} transition-colors relative flex items-center justify-center`}>
+                          {cell.discipline && (
+                            <span className="text-[7px] leading-none">{cell.discipline}</span>
+                          )}
+                        </div>
                       </TooltipTrigger>
                       <TooltipContent side="top" className="text-xs">
                         {cell.count} ponavljanja — {formatDate(cell.key)}
+                        {cell.discipline && ` ${cell.discipline}`}
                       </TooltipContent>
                     </Tooltip>
                   );
@@ -147,6 +155,9 @@ export default function ActivityHeatmap({ reviewLog }: Props) {
           <div key={i} className={`w-[11px] h-[11px] rounded-sm ${cls}`} />
         ))}
         <span>Više</span>
+        <span className="ml-2">🚀 Vrijedan</span>
+        <span>😐</span>
+        <span>🐢 Lijen</span>
       </div>
     </div>
   );

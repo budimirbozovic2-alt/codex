@@ -1,9 +1,9 @@
-import { Clock, BookOpen, AlertTriangle, Download, HardDrive, Timer, Play, Target, Hand, TrendingUp, ShieldAlert, Gauge, Lightbulb } from "lucide-react";
+import { Clock, BookOpen, AlertTriangle, Download, HardDrive, Timer, Play, Target, Hand, TrendingUp, ShieldAlert, Gauge, Lightbulb, Hourglass } from "lucide-react";
 import { motion } from "framer-motion";
 import { Card, getCardRetrievability, SRSettings, DEFAULT_SR_SETTINGS, getPendingFirstReviewCount } from "@/lib/spaced-repetition";
 import { ReviewLogEntry, getStorageUsage, isBackupOverdue, getLastBackupTime } from "@/lib/storage";
-import { loadDiary, loadActivityLog } from "@/lib/metacognitive-storage";
-import { loadPlanner, calcVelocity, calcEstimatedFinish, getPlannerStatus, getDailySuggestion } from "@/lib/planner-storage";
+import { loadDiary, loadActivityLog, loadSlippageLog } from "@/lib/metacognitive-storage";
+import { loadPlanner, calcVelocity, calcEstimatedFinish, getPlannerStatus, getDailySuggestion, calcDailyTimeRecommendation, getCognitiveDebt, recordDayDiscipline, getDisciplineEmoji, getDisciplineLabel, loadDisciplineLog } from "@/lib/planner-storage";
 import { useMemo, useState, useEffect, useRef } from "react";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
@@ -227,8 +227,8 @@ export default function Dashboard({ stats, categoryStats, categories, subcategor
   const backupOverdue = useMemo(() => isBackupOverdue(), []);
   const lastBackup = useMemo(() => getLastBackupTime(), []);
 
-  // Planner suggestion
-  const plannerSuggestion = useMemo(() => {
+  // Planner suggestion + time predictor + cognitive debt
+  const plannerData = useMemo(() => {
     const planner = loadPlanner();
     if (!planner.finalGoalDate) return null;
     const totalSections = stats.totalSections;
@@ -238,8 +238,27 @@ export default function Dashboard({ stats, categoryStats, categories, subcategor
     const estimated = calcEstimatedFinish(remaining, velocity);
     const status = getPlannerStatus(estimated, planner.finalGoalDate);
     const suggestion = getDailySuggestion(totalSections, learnedSections, planner.finalGoalDate, velocity);
-    return { status, suggestion };
+    const timeRec = suggestion ? calcDailyTimeRecommendation(suggestion.suggestedToday, velocity, stats.due) : null;
+    return { status, suggestion, timeRec };
   }, [stats, reviewLog]);
+
+  const cognitiveDebt = useMemo(() => getCognitiveDebt(dailyGoal), [dailyGoal]);
+
+  // Record discipline for yesterday (if not already done)
+  useMemo(() => {
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    const yKey = yesterday.toISOString().slice(0, 10);
+    const log = loadDisciplineLog();
+    if (log.find(e => e.date === yKey)) return;
+    // Count yesterday's reviews
+    const yStart = new Date(yKey).getTime();
+    const yEnd = yStart + 86400000;
+    const yReviews = reviewLog.filter(e => e.timestamp >= yStart && e.timestamp < yEnd).length;
+    const slippageLog = loadSlippageLog();
+    const ySlippage = slippageLog.find(s => s.date === yKey)?.slippageMs ?? null;
+    recordDayDiscipline(yKey, yReviews, dailyGoal, ySlippage);
+  }, [reviewLog, dailyGoal]);
 
   return (
     <div className="space-y-8">
@@ -422,23 +441,48 @@ export default function Dashboard({ stats, categoryStats, categories, subcategor
         </motion.div>
       )}
 
-      {/* Planner Suggestion Widget */}
-      {plannerSuggestion && plannerSuggestion.suggestion && (
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.38 }}
-          className={`flex items-start gap-3 p-4 rounded-xl border ${
-            plannerSuggestion.status.status === "green" ? "border-success/30 bg-success/5" :
-            plannerSuggestion.status.status === "yellow" ? "border-warning/30 bg-warning/5" :
-            plannerSuggestion.status.status === "red" ? "border-destructive/30 bg-destructive/5" :
-            "border-primary/20 bg-primary/5"
-          }`}>
-          <Lightbulb className={`h-5 w-5 flex-shrink-0 mt-0.5 ${
-            plannerSuggestion.status.status === "green" ? "text-success" :
-            plannerSuggestion.status.status === "yellow" ? "text-warning" :
-            plannerSuggestion.status.status === "red" ? "text-destructive" : "text-primary"
-          }`} />
+      {/* Cognitive Debt Warning */}
+      {cognitiveDebt && (
+        <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
+          className="flex items-start gap-3 p-4 rounded-xl border border-warning/30 bg-warning/5">
+          <AlertTriangle className="h-5 w-5 text-warning flex-shrink-0 mt-0.5" />
           <div>
-            <p className="text-sm font-medium">Sugestija za danas</p>
-            <p className="text-xs text-muted-foreground mt-0.5">{plannerSuggestion.suggestion.message}</p>
+            <p className="text-sm font-medium text-warning">Kognitivni dug</p>
+            <p className="text-xs text-muted-foreground mt-0.5">{cognitiveDebt.message}</p>
+          </div>
+        </motion.div>
+      )}
+
+      {/* Daily Time Predictor + Planner Suggestion */}
+      {plannerData && plannerData.suggestion && (
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.38 }}
+          className="rounded-xl bg-card border p-5 space-y-3">
+          {/* Time recommendation */}
+          {plannerData.timeRec && (
+            <div className="flex items-center gap-3">
+              <div className="flex items-center justify-center w-10 h-10 rounded-full bg-primary/10">
+                <Hourglass className="h-5 w-5 text-primary" />
+              </div>
+              <div>
+                <p className="text-sm font-medium">Preporuka za danas</p>
+                <p className="text-lg font-serif text-primary">{plannerData.timeRec.message}</p>
+              </div>
+            </div>
+          )}
+
+          {/* Suggestion */}
+          <div className={`flex items-start gap-3 p-3 rounded-lg ${
+            plannerData.status.status === "green" ? "bg-success/5" :
+            plannerData.status.status === "yellow" ? "bg-warning/5" :
+            plannerData.status.status === "red" ? "bg-destructive/5" :
+            "bg-primary/5"
+          }`}>
+            <Lightbulb className={`h-4 w-4 flex-shrink-0 mt-0.5 ${
+              plannerData.status.status === "green" ? "text-success" :
+              plannerData.status.status === "yellow" ? "text-warning" :
+              plannerData.status.status === "red" ? "text-destructive" : "text-primary"
+            }`} />
+            <p className="text-xs text-muted-foreground">{plannerData.suggestion.message}</p>
           </div>
         </motion.div>
       )}

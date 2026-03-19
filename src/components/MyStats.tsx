@@ -1,10 +1,11 @@
 import { useState, useMemo } from "react";
 import { motion } from "framer-motion";
-import { ArrowLeft, LayoutGrid, TrendingUp, Brain, Layers, BookOpen, Target, Clock, Flame, Activity, CalendarClock, ChevronRight } from "lucide-react";
+import { ArrowLeft, LayoutGrid, TrendingUp, Brain, Layers, BookOpen, Target, Clock, Flame, Activity, CalendarClock, ChevronRight, Award } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Card, getCardScore, getSectionScore, getCardRetrievability, SRSettings, DEFAULT_SR_SETTINGS } from "@/lib/spaced-repetition";
 import { getCardMasteryLevel, MASTERY_LEVELS } from "@/components/KnowledgeMap";
 import { ReviewLogEntry } from "@/lib/storage";
+import { getDisciplineTrend } from "@/lib/planner-storage";
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
   AreaChart, Area, PieChart, Pie, Cell,
@@ -93,6 +94,8 @@ export default function MyStats({ cards, categories, subcategories, categoryStat
         Kartice: categoryStats[cat].total,
       }));
   }, [categories, categoryStats]);
+
+  const disciplineTrend = useMemo(() => getDisciplineTrend(30), []);
 
   const hasData = cards.length > 0;
 
@@ -279,6 +282,33 @@ export default function MyStats({ cards, categories, subcategories, categoryStat
 
             {/* Forgetting Curve */}
             <ForgettingCurve cards={cards} categories={categories} />
+
+            {/* Discipline Trend Chart */}
+            {disciplineTrend.length > 2 && (
+              <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }} className="rounded-xl bg-card border p-5 space-y-4">
+                <div className="flex items-center gap-2">
+                  <Award className="h-4 w-4 text-primary" />
+                  <h3 className="font-serif text-lg">Trend discipline</h3>
+                </div>
+                <p className="text-xs text-muted-foreground">Postotak "vrijednih" (🚀) dana u klizećem 7-dnevnom prozoru</p>
+                <div className="h-[180px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={disciplineTrend}>
+                      <defs>
+                        <linearGradient id="gradDiscipline" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="hsl(var(--success))" stopOpacity={0.3} />
+                          <stop offset="95%" stopColor="hsl(var(--success))" stopOpacity={0} />
+                        </linearGradient>
+                      </defs>
+                      <XAxis dataKey="date" tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} tickFormatter={(v) => v.slice(5)} />
+                      <YAxis tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} domain={[0, 100]} unit="%" />
+                      <Tooltip content={<CustomTooltip />} />
+                      <Area type="monotone" dataKey="diligentPct" name="Vrijedni dani %" stroke="hsl(var(--success))" fill="url(#gradDiscipline)" strokeWidth={2} />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </div>
+              </motion.div>
+            )}
           </div>
         </TabsContent>
 
