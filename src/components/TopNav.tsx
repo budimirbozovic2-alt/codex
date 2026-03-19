@@ -3,7 +3,7 @@ import { NavLink } from "@/components/NavLink";
 import { useCardContext } from "@/contexts/AppContext";
 import {
   Home, GraduationCap, RotateCcw, BarChart3, BookOpen,
-  Brain, Target, Database, Moon, Sun, Menu, X,
+  Brain, Target, Database, Moon, Sun, Menu, X, Settings,
 } from "lucide-react";
 import { useState, useCallback } from "react";
 import { Badge } from "@/components/ui/badge";
