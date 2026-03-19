@@ -811,16 +811,13 @@ export default function LearnSession({ cards, categories, subcategories, onMarkR
       onReviewSection(card.id, section.id, grade);
       setTotalGrades((prev) => [...prev, grade]);
 
-      if (grade < 4 && grade !== 3) {
+      if (grade <= 2) {
         // Penalty: grade 1 or 2 resets the chain
         setChainResets((c) => c + 1);
         setChainPhase("learn");
         setChainIndex(0);
         setChainReviewIndex(0);
         setChainRevealed(false);
-      } else if (grade === 3) {
-        // Grade 3 (Good): pass but don't advance perfectly — no reset
-        // Continue chain normally
         updateProgress(card.id, { currentModule: 0, phase: "learn", chainPosition: 0 });
       } else {
         const nextReviewIdx = chainReviewIndex + 1;
