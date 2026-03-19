@@ -41,12 +41,19 @@ interface Props {
 }
 
 const GRADE_LABELS = ["", "Ponovo", "Teško", "Dobro", "Lako"];
+const GRADE_DESCRIPTIONS = [
+  "",
+  "Potpuno nepoznat",
+  "Propuštene ključne info",
+  "Poznat + ključne info",
+  "1/1 bez oklijevanja",
+];
 const GRADE_COLORS = [
   "",
   "bg-destructive text-destructive-foreground",
-  "bg-orange-500 text-white dark:bg-orange-600",
+  "bg-warning text-warning-foreground",
   "bg-primary text-primary-foreground",
-  "bg-emerald-500 text-white dark:bg-emerald-600",
+  "bg-success text-success-foreground",
 ];
 
 export default function LearnSession({ cards, categories, subcategories, onMarkRead, onReviewSection, onBack, dueCount = 0 }: Props) {
@@ -723,8 +730,9 @@ export default function LearnSession({ cards, categories, subcategories, onMarkR
                         <p className="text-xs text-muted-foreground mb-2 text-center">Ocijeni svoje znanje (samo 4 = napredak)</p>
                         <div className="grid grid-cols-4 gap-2">
                           {[1, 2, 3, 4].map((g) => (
-                            <Button key={g} onClick={() => handleArGrade(g)} className={`${GRADE_COLORS[g]} border-0`} variant="outline">
-                              {g} — {GRADE_LABELS[g]}
+                            <Button key={g} onClick={() => handleArGrade(g)} className={`${GRADE_COLORS[g]} border-0 flex-col h-auto py-2`} variant="outline">
+                              <span className="font-bold">{g} — {GRADE_LABELS[g]}</span>
+                              <span className="text-[10px] opacity-75 font-normal">{GRADE_DESCRIPTIONS[g]}</span>
                             </Button>
                           ))}
                         </div>
@@ -804,8 +812,8 @@ export default function LearnSession({ cards, categories, subcategories, onMarkR
       onReviewSection(card.id, section.id, grade);
       setTotalGrades((prev) => [...prev, grade]);
 
-      if (grade < 4) {
-        // Penalty: reset to module 0
+      if (grade <= 2) {
+        // Penalty: grade 1 or 2 resets the chain
         setChainResets((c) => c + 1);
         setChainPhase("learn");
         setChainIndex(0);
@@ -879,8 +887,9 @@ export default function LearnSession({ cards, categories, subcategories, onMarkR
                           <p className="text-xs text-muted-foreground text-center">Ocijeni (samo 4 = napredak)</p>
                           <div className="grid grid-cols-4 gap-2">
                             {[1, 2, 3, 4].map((g) => (
-                              <Button key={g} onClick={() => handleChainGrade(g)} className={`${GRADE_COLORS[g]} border-0`} variant="outline">
-                                {g} — {GRADE_LABELS[g]}
+                              <Button key={g} onClick={() => handleChainGrade(g)} className={`${GRADE_COLORS[g]} border-0 flex-col h-auto py-2`} variant="outline">
+                                <span className="font-bold">{g} — {GRADE_LABELS[g]}</span>
+                                <span className="text-[10px] opacity-75 font-normal">{GRADE_DESCRIPTIONS[g]}</span>
                               </Button>
                             ))}
                           </div>
@@ -919,8 +928,9 @@ export default function LearnSession({ cards, categories, subcategories, onMarkR
                           <p className="text-xs text-muted-foreground text-center">Bilo šta ispod 4 = reset na modul 1</p>
                           <div className="grid grid-cols-4 gap-2">
                             {[1, 2, 3, 4].map((g) => (
-                              <Button key={g} onClick={() => handleChainReviewGrade(g)} className={`${GRADE_COLORS[g]} border-0`} variant="outline">
-                                {g} — {GRADE_LABELS[g]}
+                              <Button key={g} onClick={() => handleChainReviewGrade(g)} className={`${GRADE_COLORS[g]} border-0 flex-col h-auto py-2`} variant="outline">
+                                <span className="font-bold">{g} — {GRADE_LABELS[g]}</span>
+                                <span className="text-[10px] opacity-75 font-normal">{GRADE_DESCRIPTIONS[g]}</span>
                               </Button>
                             ))}
                           </div>

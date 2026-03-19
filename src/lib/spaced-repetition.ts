@@ -66,10 +66,10 @@ export interface ReviewGrade {
 }
 
 export const GRADES: ReviewGrade[] = [
-  { label: "Opet", value: 1, description: "Zaboravljeno", color: "destructive" },
-  { label: "Teško", value: 2, description: "Značajan napor", color: "warning" },
-  { label: "Dobro", value: 3, description: "Umjeren napor", color: "primary" },
-  { label: "Lako", value: 4, description: "Savršeno", color: "success" },
+  { label: "Opet", value: 1, description: "Potpuno nepoznat odgovor", color: "destructive" },
+  { label: "Teško", value: 2, description: "Propuštene ključne info (rokovi, brojevi…)", color: "warning" },
+  { label: "Dobro", value: 3, description: "Poznat odgovor + ključne informacije", color: "primary" },
+  { label: "Lako", value: 4, description: "1/1 bez oklijevanja", color: "success" },
 ];
 
 export interface SRSettings {
@@ -139,14 +139,14 @@ export function calculateNextReview(section: Section, grade: number): Partial<Se
   } else {
     const { stability, difficulty } = section;
     switch (grade) {
-      case 1: // Again
+      case 1: // Again — critical zone, shortest interval
         newDifficulty = clampDifficulty(difficulty + 2);
-        newStability = Math.max(0.1, stability * 0.1);
+        newStability = Math.max(0.1, stability * 0.05);
         newLapses += 1;
         break;
-      case 2: // Hard
-        newDifficulty = clampDifficulty(difficulty + 1);
-        newStability = stability * 1.5 + 0.5;
+      case 2: // Hard — critical zone, short interval within 24h
+        newDifficulty = clampDifficulty(difficulty + 1.5);
+        newStability = Math.max(0.2, stability * 0.3);
         break;
       case 3: // Good
         newDifficulty = clampDifficulty(difficulty);
@@ -164,10 +164,20 @@ export function calculateNextReview(section: Section, grade: number): Partial<Se
 
   const interval = Math.max(calculateInterval(newStability), 1 / (24 * 60)); // minimum 1 minute
 
-  // 20-minute rule: new cards graded 3 or 4 get a short first review
+  // Critical zone: grades 1-2 get priority short intervals (max 24h for grade 2, max 20min for grade 1)
   let finalNextReview = Date.now() + interval * 24 * 60 * 60 * 1000;
   let finalState = newState;
   let finalFirstReviewPending = false;
+
+  if (!isNew && grade === 1) {
+    // Again: 20 minutes
+    finalNextReview = Date.now() + 20 * 60 * 1000;
+  } else if (!isNew && grade === 2) {
+    // Hard: cap at 24 hours
+    const maxMs = 24 * 60 * 60 * 1000;
+    const calcMs = interval * 24 * 60 * 60 * 1000;
+    finalNextReview = Date.now() + Math.min(calcMs, maxMs);
+  }
 
   if (isNew && grade >= 3) {
     // Schedule first review in 15-20 minutes, stay in Learning
