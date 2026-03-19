@@ -9,47 +9,26 @@ import { addPomodoroEntry } from "@/lib/storage";
 // ─── Types ──────────────────────────────────────────────
 export type View = "dashboard" | "create" | "edit" | "cards" | "review" | "categories" | "learn" | "settings" | "frequent-errors" | "knowledge-map" | "mnemonic" | "major-system-settings" | "metacognitive" | "stats" | "planner";
 
-/** Map View key → URL path segment */
 const VIEW_TO_PATH: Record<View, string> = {
-  dashboard: "/",
-  create: "/create",
-  edit: "/edit",
-  cards: "/cards",
-  review: "/review",
-  categories: "/categories",
-  learn: "/learn",
-  settings: "/settings",
-  "frequent-errors": "/frequent-errors",
-  "knowledge-map": "/knowledge-map",
-  mnemonic: "/mnemonic",
-  "major-system-settings": "/major-system-settings",
-  metacognitive: "/metacognitive",
-  stats: "/stats",
-  planner: "/planner",
+  dashboard: "/", create: "/create", edit: "/edit", cards: "/cards", review: "/review",
+  categories: "/categories", learn: "/learn", settings: "/settings",
+  "frequent-errors": "/frequent-errors", "knowledge-map": "/knowledge-map",
+  mnemonic: "/mnemonic", "major-system-settings": "/major-system-settings",
+  metacognitive: "/metacognitive", stats: "/stats", planner: "/planner",
 };
 
-/** Reverse: path → View key */
 const PATH_TO_VIEW: Record<string, View> = {};
-Object.entries(VIEW_TO_PATH).forEach(([view, path]) => {
-  PATH_TO_VIEW[path] = view as View;
-});
+Object.entries(VIEW_TO_PATH).forEach(([view, path]) => { PATH_TO_VIEW[path] = view as View; });
 
-/** Derive current View from the router location */
 export function useCurrentView(): View {
   const { pathname } = useLocation();
   return PATH_TO_VIEW[pathname] || "dashboard";
 }
 
 const VIEW_ACTIVITY_MAP: Partial<Record<View, ActivityType>> = {
-  review: "review",
-  learn: "learn-active",
-  mnemonic: "mnemonic-workshop",
-  create: "admin",
-  edit: "admin",
-  categories: "admin",
-  stats: "analysis",
-  metacognitive: "analysis",
-  planner: "analysis",
+  review: "review", learn: "learn-active", mnemonic: "mnemonic-workshop",
+  create: "admin", edit: "admin", categories: "admin",
+  stats: "analysis", metacognitive: "analysis", planner: "analysis",
 };
 
 // ─── Pomodoro types ─────────────────────────────────────
@@ -59,64 +38,54 @@ export interface PomodoroState {
   running: boolean;
 }
 
-interface AppContextValue {
-  // useCards data
-  cards: Card[];
-  categories: string[];
-  subcategories: Record<string, string[]>;
-  dueCards: Card[];
-  stats: { due: number; total: number; totalSections: number; learnedSections: number };
-  categoryStats: Record<string, { score: number; total: number; due: number }>;
-  cardCountByCategory: Record<string, number>;
-  reviewLog: any[];
-  srSettings: any;
-  // useCards actions
-  addCard: (...args: any[]) => any;
-  addFlashCard: (...args: any[]) => any;
-  updateCard: (...args: any[]) => void;
-  deleteCard: (id: string) => void;
-  splitCard: (id: string) => void;
-  reviewSection: (cardId: string, sectionId: string, grade: number) => void;
-  markRead: (id: string) => void;
-  toggleTag: (cardId: string, tag: string) => void;
-  bulkUpdateSubcategory: (ids: string[], sub: string) => void;
-  logError: (cardId: string, text: string) => void;
-  clearErrorLog: (cardId: string) => void;
-  exportData: () => void;
-  exportTemplate: () => void;
-  importData: (file: File, strategy?: any) => void;
-  importCards: (cards: any[], cat: string) => void;
-  addCategory: (name: string) => void;
-  renameCategory: (old: string, next: string) => void;
-  deleteCategory: (name: string) => void;
-  addSubcategory: (cat: string, sub: string) => void;
-  renameSubcategory: (cat: string, old: string, next: string) => void;
-  deleteSubcategory: (cat: string, sub: string) => void;
-  updateSRSettings: (s: any) => void;
-  // Navigation (now backed by React Router)
+// ═══════════════════════════════════════════════════════════
+// CARD CONTEXT — data & mutations (re-renders only on card changes)
+// ═══════════════════════════════════════════════════════════
+type CardContextValue = ReturnType<typeof useCards>;
+
+const CardContext = createContext<CardContextValue | null>(null);
+
+export function useCardContext() {
+  const ctx = useContext(CardContext);
+  if (!ctx) throw new Error("useCardContext must be used within CardProvider");
+  return ctx;
+}
+
+// ═══════════════════════════════════════════════════════════
+// UI CONTEXT — navigation, editing, pomodoro (re-renders independently)
+// ═══════════════════════════════════════════════════════════
+interface UIContextValue {
   view: View;
   setView: (v: View) => void;
-  // Editing
   editingCard: Card | null;
   setEditingCard: (c: Card | null) => void;
-  // Helpers
   handleToggleTag: (cardId: string, tag: string) => void;
   handleSendToWorkshop: (cardId: string) => void;
-  // Pomodoro (global)
   pomodoro: PomodoroState;
   pomodoroToggle: () => void;
   pomodoroReset: () => void;
 }
 
-const AppContext = createContext<AppContextValue | null>(null);
+const UIContext = createContext<UIContextValue | null>(null);
 
-export function useAppContext() {
-  const ctx = useContext(AppContext);
-  if (!ctx) throw new Error("useAppContext must be used within AppProvider");
+export function useUIContext() {
+  const ctx = useContext(UIContext);
+  if (!ctx) throw new Error("useUIContext must be used within UIProvider");
   return ctx;
 }
 
-// ─── Pomodoro hook (lives in context, ticks globally) ───
+// ═══════════════════════════════════════════════════════════
+// BACKWARD-COMPAT: useAppContext merges both
+// ═══════════════════════════════════════════════════════════
+type AppContextValue = CardContextValue & UIContextValue;
+
+export function useAppContext(): AppContextValue {
+  const card = useCardContext();
+  const ui = useUIContext();
+  return useMemo(() => ({ ...card, ...ui }), [card, ui]);
+}
+
+// ─── Pomodoro hook ──────────────────────────────────────
 function useGlobalPomodoro() {
   const [mode, setMode] = useState<"work" | "break">("work");
   const [seconds, setSeconds] = useState(25 * 60);
@@ -159,15 +128,21 @@ function useGlobalPomodoro() {
   }), [mode, seconds, running, toggle, reset]);
 }
 
-export function AppProvider({ children }: { children: ReactNode }) {
+// ═══════════════════════════════════════════════════════════
+// PROVIDERS
+// ═══════════════════════════════════════════════════════════
+
+function CardProvider({ children }: { children: ReactNode }) {
   const cardsHook = useCards();
-  const { cards, toggleTag } = cardsHook;
+  return <CardContext.Provider value={cardsHook}>{children}</CardContext.Provider>;
+}
+
+function UIProvider({ children }: { children: ReactNode }) {
+  const { cards, toggleTag } = useCardContext();
   const navigate = useNavigate();
   const view = useCurrentView();
 
   const [editingCard, setEditingCard] = useState<Card | null>(null);
-
-  // Global pomodoro timer
   const pom = useGlobalPomodoro();
 
   // Record app entry on mount
@@ -191,7 +166,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
     };
   }, [view]);
 
-  // setView now navigates via React Router
   const setView = useCallback((v: View) => {
     navigate(VIEW_TO_PATH[v]);
   }, [navigate]);
@@ -240,18 +214,22 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setView("mnemonic");
   }, [cards, toggleTag, setView]);
 
-  const value = useMemo<AppContextValue>(() => ({
-    ...cardsHook,
-    view,
-    setView,
-    editingCard,
-    setEditingCard,
-    handleToggleTag,
-    handleSendToWorkshop,
-    pomodoro: pom.state,
-    pomodoroToggle: pom.toggle,
-    pomodoroReset: pom.reset,
-  }), [cardsHook, view, setView, editingCard, handleToggleTag, handleSendToWorkshop, pom]);
+  const value = useMemo<UIContextValue>(() => ({
+    view, setView, editingCard, setEditingCard,
+    handleToggleTag, handleSendToWorkshop,
+    pomodoro: pom.state, pomodoroToggle: pom.toggle, pomodoroReset: pom.reset,
+  }), [view, setView, editingCard, handleToggleTag, handleSendToWorkshop, pom]);
 
-  return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
+  return <UIContext.Provider value={value}>{children}</UIContext.Provider>;
+}
+
+// Combined provider — wraps both in correct order
+export function AppProvider({ children }: { children: ReactNode }) {
+  return (
+    <CardProvider>
+      <UIProvider>
+        {children}
+      </UIProvider>
+    </CardProvider>
+  );
 }
