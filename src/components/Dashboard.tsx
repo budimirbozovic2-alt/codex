@@ -39,32 +39,30 @@ function calcFocusRatio(learnedSections: number, totalSections: number) {
   return { progress, targetReviewPct, targetNewPct: 100 - targetReviewPct };
 }
 
-function calcActualRatio(reviewLog: ReviewLogEntry[], cards: Card[]) {
-  const todayKey = getDayKey(Date.now());
-  const todayEntries = reviewLog.filter(e => getDayKey(e.timestamp) === todayKey);
-  if (todayEntries.length === 0) return { actualReviewPct: 0, actualNewPct: 0, totalToday: 0, reviewCount: 0, newCount: 0 };
+function calcActualRatio(reviewLog: ReviewLogEntry[], _cards: Card[]) {
+  const todayStart = startOfDay(new Date()).getTime();
 
-  // A "review" entry is one where the section had been reviewed before today
-  // A "new" entry is one where the section was first seen
+  // Single pass: build first-seen map AND collect today's keys simultaneously
   const sectionFirstSeen = new Map<string, number>();
-  reviewLog.forEach(e => {
+  const todayKeys: string[] = [];
+
+  for (let i = 0; i < reviewLog.length; i++) {
+    const e = reviewLog[i];
     const key = `${e.cardId}:${e.sectionId}`;
     const prev = sectionFirstSeen.get(key);
     if (!prev || e.timestamp < prev) sectionFirstSeen.set(key, e.timestamp);
-  });
+    if (e.timestamp >= todayStart) todayKeys.push(key);
+  }
 
-  const todayStart = startOfDay(new Date()).getTime();
+  if (todayKeys.length === 0) return { actualReviewPct: 0, actualNewPct: 0, totalToday: 0, reviewCount: 0, newCount: 0 };
+
   let reviewCount = 0;
   let newCount = 0;
-  todayEntries.forEach(e => {
-    const key = `${e.cardId}:${e.sectionId}`;
-    const firstSeen = sectionFirstSeen.get(key) || e.timestamp;
-    if (firstSeen < todayStart) {
-      reviewCount++; // section was known before today
-    } else {
-      newCount++; // first seen today
-    }
-  });
+  for (const key of todayKeys) {
+    const firstSeen = sectionFirstSeen.get(key)!;
+    if (firstSeen < todayStart) reviewCount++;
+    else newCount++;
+  }
 
   const total = reviewCount + newCount;
   return {
