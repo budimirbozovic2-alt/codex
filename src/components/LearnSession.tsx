@@ -41,12 +41,19 @@ interface Props {
 }
 
 const GRADE_LABELS = ["", "Ponovo", "Teško", "Dobro", "Lako"];
+const GRADE_DESCRIPTIONS = [
+  "",
+  "Potpuno nepoznat",
+  "Propuštene ključne info",
+  "Poznat + ključne info",
+  "1/1 bez oklijevanja",
+];
 const GRADE_COLORS = [
   "",
   "bg-destructive text-destructive-foreground",
-  "bg-orange-500 text-white dark:bg-orange-600",
+  "bg-warning text-warning-foreground",
   "bg-primary text-primary-foreground",
-  "bg-emerald-500 text-white dark:bg-emerald-600",
+  "bg-success text-success-foreground",
 ];
 
 export default function LearnSession({ cards, categories, subcategories, onMarkRead, onReviewSection, onBack, dueCount = 0 }: Props) {
