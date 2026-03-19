@@ -1,10 +1,10 @@
 import { Timer, Play } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
-import { useAppContext } from "@/contexts/AppContext";
+import { useUIContext } from "@/contexts/AppContext";
 
 export default function PomodoroTimer({ compact = false }: { compact?: boolean }) {
-  const { pomodoro, pomodoroToggle, pomodoroReset } = useAppContext();
+  const { pomodoro, pomodoroToggle, pomodoroReset } = useUIContext();
   const { mode, seconds, running } = pomodoro;
 
   const mins = Math.floor(seconds / 60);
