@@ -190,16 +190,16 @@ export default function Dashboard({ stats, categoryStats, categories, subcategor
     return { status, suggestion, timeRec };
   }, [stats, reviewLog]);
 
-  const cognitiveDebt = useMemo(() => getCognitiveDebt(dailyGoal), [dailyGoal]);
+  const cognitiveDebt = useDeferredCompute(() => getCognitiveDebt(dailyGoal), [dailyGoal]);
 
-  // Time distribution for today
-  const todayTime = useMemo(() => getTimeDistribution(1), []);
+  // Time distribution for today (DEFERRED)
+  const todayTime = useDeferredCompute(() => getTimeDistribution(1), []);
 
-  // Energy-Material Matcher
-  const energyRec = useMemo(() => calcEnergyRecommendation(), []);
+  // Energy-Material Matcher (DEFERRED)
+  const energyRec = useDeferredCompute(() => calcEnergyRecommendation(), []);
 
-  // Strategic Reality Check
-  const strategicAlert = useMemo(() => calcStrategicRealityCheck(cards, reviewLog), [cards, reviewLog]);
+  // Strategic Reality Check (DEFERRED — heavy)
+  const strategicAlert = useDeferredCompute(() => calcStrategicRealityCheck(cards, reviewLog), [cards, reviewLog]);
 
   // Record discipline for yesterday (if not already done)
   useMemo(() => {
