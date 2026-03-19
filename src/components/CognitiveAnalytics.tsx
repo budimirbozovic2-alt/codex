@@ -19,6 +19,7 @@ interface Props {
   cards: Card[];
   categories: string[];
   reviewLog: ReviewLogEntry[];
+  onSendToWorkshop?: (cardId: string) => void;
 }
 
 export default function CognitiveAnalytics({ cards, categories, reviewLog }: Props) {
