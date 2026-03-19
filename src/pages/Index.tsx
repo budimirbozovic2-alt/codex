@@ -273,7 +273,12 @@ const Index = () => {
           )}
           {view === "metacognitive" && (
             <motion.div key="metacognitive" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-              <MetacognitiveCenter cards={cards} categories={categories} reviewLog={reviewLog} onBack={() => setView("dashboard")} settings={srSettings} />
+              <MetacognitiveCenter cards={cards} categories={categories} reviewLog={reviewLog} onBack={() => setView("stats")} settings={srSettings} />
+            </motion.div>
+          )}
+          {view === "stats" && (
+            <motion.div key="stats" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+              <MyStats cards={cards} categories={categories} subcategories={subcategories} categoryStats={categoryStats} reviewLog={reviewLog} srSettings={srSettings} onBack={() => setView("dashboard")} onShowKnowledgeMap={() => setView("knowledge-map")} />
             </motion.div>
           )}
           {view === "major-system-settings" && (
