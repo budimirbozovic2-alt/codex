@@ -18,8 +18,6 @@ const ReviewPage = lazy(() => import("@/views/ReviewPage"));
 const LearnPage = lazy(() => import("@/views/LearnPage"));
 const CreatePage = lazy(() => import("@/views/CreatePage"));
 const EditPage = lazy(() => import("@/views/EditPage"));
-const CardsView = lazy(() => import("@/views/CardsView"));
-const CategoriesPage = lazy(() => import("@/views/CategoriesPage"));
 const SettingsPage = lazy(() => import("@/views/SettingsPage"));
 const StatsPage = lazy(() => import("@/views/StatsPage"));
 const MnemonicPage = lazy(() => import("@/views/MnemonicPage"));
@@ -28,6 +26,7 @@ const KnowledgeMapPage = lazy(() => import("@/views/KnowledgeMapPage"));
 const MetacognitivePage = lazy(() => import("@/views/MetacognitivePage"));
 const FrequentErrorsPage = lazy(() => import("@/views/FrequentErrorsPage"));
 const MajorSystemPage = lazy(() => import("@/views/MajorSystemPage"));
+const DatabasePage = lazy(() => import("@/views/DatabasePage"));
 
 const queryClient = new QueryClient();
 
@@ -48,8 +47,6 @@ const App = () => (
                     <Route path="/learn" element={<LearnPage />} />
                     <Route path="/create" element={<CreatePage />} />
                     <Route path="/edit" element={<EditPage />} />
-                    <Route path="/cards" element={<CardsView />} />
-                    <Route path="/categories" element={<CategoriesPage />} />
                     <Route path="/settings" element={<SettingsPage />} />
                     <Route path="/stats" element={<StatsPage />} />
                     <Route path="/mnemonic" element={<MnemonicPage />} />
@@ -58,6 +55,10 @@ const App = () => (
                     <Route path="/metacognitive" element={<MetacognitivePage />} />
                     <Route path="/frequent-errors" element={<FrequentErrorsPage />} />
                     <Route path="/major-system-settings" element={<MajorSystemPage />} />
+                    <Route path="/database" element={<DatabasePage />} />
+                    {/* Legacy redirects */}
+                    <Route path="/cards" element={<DatabasePage />} />
+                    <Route path="/categories" element={<DatabasePage />} />
                     <Route path="*" element={<NotFound />} />
                   </Routes>
                 </Suspense>
