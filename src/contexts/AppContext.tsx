@@ -1,4 +1,5 @@
 import { createContext, useContext, useCallback, useMemo, useState, useEffect, useRef, ReactNode } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
 import { useCards } from "@/hooks/useCards";
 import { Card } from "@/lib/spaced-repetition";
 import { createMnemonicCard, loadMnemonicCards, saveMnemonicCards } from "@/lib/mnemonic-storage";
@@ -7,6 +8,37 @@ import { addPomodoroEntry } from "@/lib/storage";
 
 // ─── Types ──────────────────────────────────────────────
 export type View = "dashboard" | "create" | "edit" | "cards" | "review" | "categories" | "learn" | "settings" | "frequent-errors" | "knowledge-map" | "mnemonic" | "major-system-settings" | "metacognitive" | "stats" | "planner";
+
+/** Map View key → URL path segment */
+const VIEW_TO_PATH: Record<View, string> = {
+  dashboard: "/",
+  create: "/create",
+  edit: "/edit",
+  cards: "/cards",
+  review: "/review",
+  categories: "/categories",
+  learn: "/learn",
+  settings: "/settings",
+  "frequent-errors": "/frequent-errors",
+  "knowledge-map": "/knowledge-map",
+  mnemonic: "/mnemonic",
+  "major-system-settings": "/major-system-settings",
+  metacognitive: "/metacognitive",
+  stats: "/stats",
+  planner: "/planner",
+};
+
+/** Reverse: path → View key */
+const PATH_TO_VIEW: Record<string, View> = {};
+Object.entries(VIEW_TO_PATH).forEach(([view, path]) => {
+  PATH_TO_VIEW[path] = view as View;
+});
+
+/** Derive current View from the router location */
+export function useCurrentView(): View {
+  const { pathname } = useLocation();
+  return PATH_TO_VIEW[pathname] || "dashboard";
+}
 
 const VIEW_ACTIVITY_MAP: Partial<Record<View, ActivityType>> = {
   review: "review",
@@ -61,7 +93,7 @@ interface AppContextValue {
   renameSubcategory: (cat: string, old: string, next: string) => void;
   deleteSubcategory: (cat: string, sub: string) => void;
   updateSRSettings: (s: any) => void;
-  // Navigation
+  // Navigation (now backed by React Router)
   view: View;
   setView: (v: View) => void;
   // Editing
@@ -97,7 +129,6 @@ function useGlobalPomodoro() {
         setSeconds(prev => {
           if (prev <= 1) {
             setRunning(false);
-            // Log completed session
             if (mode === "work") {
               addPomodoroEntry({ timestamp: Date.now(), type: "focus", durationMinutes: 25 });
               setMode("break");
@@ -131,8 +162,9 @@ function useGlobalPomodoro() {
 export function AppProvider({ children }: { children: ReactNode }) {
   const cardsHook = useCards();
   const { cards, toggleTag } = cardsHook;
+  const navigate = useNavigate();
+  const view = useCurrentView();
 
-  const [view, setViewRaw] = useState<View>("dashboard");
   const [editingCard, setEditingCard] = useState<Card | null>(null);
 
   // Global pomodoro timer
@@ -159,9 +191,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
     };
   }, [view]);
 
+  // setView now navigates via React Router
   const setView = useCallback((v: View) => {
-    setViewRaw(v);
-  }, []);
+    navigate(VIEW_TO_PATH[v]);
+  }, [navigate]);
 
   // Mnemonic cloning
   const handleToggleTag = useCallback((cardId: string, tag: string) => {
