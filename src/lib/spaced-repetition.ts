@@ -129,6 +129,8 @@ export function calculateNextReview(section: Section, grade: number): Partial<Se
   const isNew = section.state === SectionState.New;
   const newState = nextState(section.state, grade);
 
+  const isPendingFirstReview = section.firstReviewPending === true;
+
   if (isNew) {
     const init = INITIAL_VALUES[grade] || INITIAL_VALUES[3];
     newStability = init.stability;
