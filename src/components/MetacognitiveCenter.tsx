@@ -1,22 +1,24 @@
 import { useState, useMemo } from "react";
 import { motion } from "framer-motion";
-import { ArrowLeft, BookOpen, Target, Clock, Brain, TrendingUp, AlertTriangle, CheckCircle, XCircle, Gauge, Flame, Zap } from "lucide-react";
+import { ArrowLeft, BookOpen, Target, Clock, Brain, TrendingUp, AlertTriangle, CheckCircle, XCircle, Gauge, Flame, Zap, Activity, CalendarClock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { ReviewLogEntry } from "@/lib/storage";
-import { Card, getCardRetrievability } from "@/lib/spaced-repetition";
+import { Card, SectionState, getCardRetrievability } from "@/lib/spaced-repetition";
 import {
   loadDiary, addDiaryEntry, DiaryEntry, setLastAnalysisDate,
   loadCalibration, CalibrationEntry, getCalibrationStats,
   loadLatency, LatencyEntry, getLatencyStats,
   getTodayReviewStats,
+  loadSlippageLog, SlippageEntry, getDeepWorkStats,
+  getLearningVelocity,
 } from "@/lib/metacognitive-storage";
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
   ScatterChart, Scatter, Cell, CartesianGrid, Legend,
-  PieChart, Pie,
+  PieChart, Pie, LineChart, Line, AreaChart, Area,
 } from "recharts";
 import { format, subDays, startOfDay } from "date-fns";
 
