@@ -28,6 +28,7 @@ interface Props {
   reviewLog: ReviewLogEntry[];
   onBack: () => void;
   settings?: SRSettings;
+  embedded?: boolean;
 }
 
 export default function MetacognitiveCenter({ cards, categories, reviewLog, onBack, settings }: Props) {
