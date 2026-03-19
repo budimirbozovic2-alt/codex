@@ -22,11 +22,12 @@ import { format, subDays, startOfDay } from "date-fns";
 
 interface Props {
   cards: Card[];
+  categories: string[];
   reviewLog: ReviewLogEntry[];
   onBack: () => void;
 }
 
-export default function MetacognitiveCenter({ cards, reviewLog, onBack }: Props) {
+export default function MetacognitiveCenter({ cards, categories, reviewLog, onBack }: Props) {
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="max-w-4xl mx-auto space-y-6">
       <div className="flex items-center justify-between">
