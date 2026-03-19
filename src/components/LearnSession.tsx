@@ -1,6 +1,7 @@
-import { useState, useMemo, useCallback, useEffect } from "react";
+import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import { Card, getCardScore, getDueCards } from "@/lib/spaced-repetition";
 import { LearnMode, LearnCardProgress, loadLearnProgress, saveLearnProgress } from "@/lib/storage";
+import { addActivityEntry } from "@/lib/metacognitive-storage";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ArrowLeft, ArrowRight, ChevronRight, BookOpen, Check, Eye, TrendingDown,
@@ -95,6 +96,7 @@ export default function LearnSession({ cards, categories, subcategories, onMarkR
   const [totalGrades, setTotalGrades] = useState<number[]>([]);
   const [modulesCompleted, setModulesCompleted] = useState(0);
   const [chainResets, setChainResets] = useState(0);
+  const activityLoggedRef = useRef(false);
 
   useEffect(() => {
     saveLearnProgress(progress);
@@ -379,6 +381,15 @@ export default function LearnSession({ cards, categories, subcategories, onMarkR
     const minutes = Math.floor(elapsed / 60000);
     const seconds = Math.floor((elapsed % 60000) / 1000);
     const avgGrade = totalGrades.length > 0 ? (totalGrades.reduce((a, b) => a + b, 0) / totalGrades.length).toFixed(1) : "—";
+
+    // Log activity for Deep Work tracking (once only)
+    if (!activityLoggedRef.current && elapsed > 5000) {
+      activityLoggedRef.current = true;
+      const activityType = learnMode === "free" ? "learn-free" as const
+        : learnMode === "active-recall" ? "learn-active" as const
+        : "learn-chain" as const;
+      addActivityEntry({ timestamp: Date.now(), type: activityType, durationMs: elapsed });
+    }
 
     const statItems: { icon: typeof Clock; label: string; value: string | number }[] = [
       { icon: Clock, label: "Vrijeme", value: minutes > 0 ? `${minutes}m ${seconds}s` : `${seconds}s` },

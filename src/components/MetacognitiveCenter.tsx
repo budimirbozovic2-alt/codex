@@ -1,22 +1,24 @@
 import { useState, useMemo } from "react";
 import { motion } from "framer-motion";
-import { ArrowLeft, BookOpen, Target, Clock, Brain, TrendingUp, AlertTriangle, CheckCircle, XCircle, Gauge, Flame, Zap } from "lucide-react";
+import { ArrowLeft, BookOpen, Target, Clock, Brain, TrendingUp, AlertTriangle, CheckCircle, XCircle, Gauge, Flame, Zap, Activity, CalendarClock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { ReviewLogEntry } from "@/lib/storage";
-import { Card, getCardRetrievability } from "@/lib/spaced-repetition";
+import { Card, SectionState, getCardRetrievability } from "@/lib/spaced-repetition";
 import {
   loadDiary, addDiaryEntry, DiaryEntry, setLastAnalysisDate,
   loadCalibration, CalibrationEntry, getCalibrationStats,
   loadLatency, LatencyEntry, getLatencyStats,
   getTodayReviewStats,
+  loadSlippageLog, SlippageEntry, getDeepWorkStats,
+  getLearningVelocity,
 } from "@/lib/metacognitive-storage";
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
   ScatterChart, Scatter, Cell, CartesianGrid, Legend,
-  PieChart, Pie,
+  PieChart, Pie, LineChart, Line, AreaChart, Area,
 } from "recharts";
 import { format, subDays, startOfDay } from "date-fns";
 
@@ -41,12 +43,18 @@ export default function MetacognitiveCenter({ cards, categories, reviewLog, onBa
       </div>
 
       <Tabs defaultValue="diary" className="w-full">
-        <TabsList className="w-full grid grid-cols-4">
-          <TabsTrigger value="diary" className="gap-1.5 text-xs sm:text-sm"><BookOpen className="h-3.5 w-3.5" /> Dnevnik</TabsTrigger>
-          <TabsTrigger value="calibration" className="gap-1.5 text-xs sm:text-sm"><Target className="h-3.5 w-3.5" /> Kalibracija</TabsTrigger>
-          <TabsTrigger value="latency" className="gap-1.5 text-xs sm:text-sm"><Clock className="h-3.5 w-3.5" /> Latencija</TabsTrigger>
-          <TabsTrigger value="resistance" className="gap-1.5 text-xs sm:text-sm"><Flame className="h-3.5 w-3.5" /> Otpor</TabsTrigger>
-        </TabsList>
+        <div className="space-y-1">
+          <TabsList className="w-full grid grid-cols-3">
+            <TabsTrigger value="diary" className="gap-1.5 text-xs sm:text-sm"><BookOpen className="h-3.5 w-3.5" /> Dnevnik</TabsTrigger>
+            <TabsTrigger value="calibration" className="gap-1.5 text-xs sm:text-sm"><Target className="h-3.5 w-3.5" /> Kalibracija</TabsTrigger>
+            <TabsTrigger value="latency" className="gap-1.5 text-xs sm:text-sm"><Clock className="h-3.5 w-3.5" /> Latencija</TabsTrigger>
+          </TabsList>
+          <TabsList className="w-full grid grid-cols-3">
+            <TabsTrigger value="resistance" className="gap-1.5 text-xs sm:text-sm"><Flame className="h-3.5 w-3.5" /> Otpor</TabsTrigger>
+            <TabsTrigger value="efficiency" className="gap-1.5 text-xs sm:text-sm"><Activity className="h-3.5 w-3.5" /> Efikasnost</TabsTrigger>
+            <TabsTrigger value="prediction" className="gap-1.5 text-xs sm:text-sm"><CalendarClock className="h-3.5 w-3.5" /> Predikcija</TabsTrigger>
+          </TabsList>
+        </div>
 
         <TabsContent value="diary">
           <DiaryTab cards={cards} reviewLog={reviewLog} />
@@ -59,6 +67,12 @@ export default function MetacognitiveCenter({ cards, categories, reviewLog, onBa
         </TabsContent>
         <TabsContent value="resistance">
           <ResistanceTab cards={cards} categories={categories} reviewLog={reviewLog} />
+        </TabsContent>
+        <TabsContent value="efficiency">
+          <EfficiencyTab />
+        </TabsContent>
+        <TabsContent value="prediction">
+          <PredictionTab cards={cards} categories={categories} reviewLog={reviewLog} />
         </TabsContent>
       </Tabs>
     </motion.div>
@@ -680,6 +694,374 @@ function ResistanceTab({ cards, categories, reviewLog }: { cards: Card[]; catego
           <span>Savladan (&lt;15%)</span>
         </div>
       </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════
+// EFFICIENCY TAB (Slippage + Deep Work)
+// ═══════════════════════════════════════════════════════════
+
+function EfficiencyTab() {
+  const slippageLog = useMemo(() => loadSlippageLog(), []);
+  const deepWork = useMemo(() => getDeepWorkStats(7), []);
+  const deepWork30 = useMemo(() => getDeepWorkStats(30), []);
+
+  const formatMs = (ms: number) => {
+    if (ms < 60000) return `${Math.round(ms / 1000)}s`;
+    return `${Math.floor(ms / 60000)}m ${Math.round((ms % 60000) / 1000)}s`;
+  };
+
+  // Slippage stats
+  const slippageStats = useMemo(() => {
+    if (slippageLog.length === 0) return null;
+    const slippages = slippageLog.filter(e => e.slippageMs !== null).map(e => e.slippageMs!);
+    const avg = slippages.reduce((a, b) => a + b, 0) / slippages.length;
+    const min = Math.min(...slippages);
+    const max = Math.max(...slippages);
+    return { avg, min, max, count: slippages.length };
+  }, [slippageLog]);
+
+  // Daily slippage chart
+  const slippageChartData = useMemo(() => {
+    return slippageLog
+      .filter(e => e.slippageMs !== null)
+      .slice(-14)
+      .map(e => ({
+        date: e.date.slice(5), // MM-DD
+        slippage: +(e.slippageMs! / 1000).toFixed(0),
+      }));
+  }, [slippageLog]);
+
+  const deepWorkPieData = [
+    { name: "Deep Work", value: deepWork.deepWorkPercent, fill: "hsl(var(--success))" },
+    { name: "Shallow Work", value: deepWork.shallowWorkPercent, fill: "hsl(var(--warning))" },
+  ].filter(d => d.value > 0);
+
+  const isHealthyRatio = deepWork.deepWorkPercent >= 70;
+
+  return (
+    <div className="space-y-6 mt-4">
+      {/* Slippage summary */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        <div className="rounded-xl border bg-card p-4 text-center">
+          <div className="text-2xl font-bold">
+            {slippageStats ? formatMs(slippageStats.avg) : "—"}
+          </div>
+          <div className="text-xs text-muted-foreground mt-1">Prosj. Slippage</div>
+        </div>
+        <div className="rounded-xl border bg-card p-4 text-center">
+          <div className="text-2xl font-bold">
+            {slippageStats ? formatMs(slippageStats.min) : "—"}
+          </div>
+          <div className="text-xs text-muted-foreground mt-1">Najbolji</div>
+        </div>
+        <div className="rounded-xl border bg-card p-4 text-center">
+          <div className={`text-2xl font-bold ${isHealthyRatio ? "text-success" : "text-warning"}`}>
+            {deepWork.deepWorkPercent}%
+          </div>
+          <div className="text-xs text-muted-foreground mt-1">Deep Work (7d)</div>
+        </div>
+        <div className="rounded-xl border bg-card p-4 text-center">
+          <div className="text-2xl font-bold">{formatMs(deepWork.totalMs)}</div>
+          <div className="text-xs text-muted-foreground mt-1">Ukupno (7d)</div>
+        </div>
+      </div>
+
+      {/* Deep Work ratio alert */}
+      {deepWork.totalMs > 0 && !isHealthyRatio && (
+        <div className="flex items-center gap-3 p-4 rounded-xl border border-warning/30 bg-warning/5">
+          <AlertTriangle className="h-5 w-5 text-warning shrink-0" />
+          <div>
+            <p className="text-sm font-medium">Previše pasivnog učenja</p>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Deep Work je {deepWork.deepWorkPercent}% — preporučeno ≥70%. Više koristite aktivno prisjećanje i ponavljanje.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Slippage info */}
+      {slippageStats && slippageStats.avg > 300000 && (
+        <div className="flex items-center gap-3 p-4 rounded-xl border border-destructive/30 bg-destructive/5">
+          <Clock className="h-5 w-5 text-destructive shrink-0" />
+          <div>
+            <p className="text-sm font-medium">Visok Slippage</p>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              U prosjeku vam treba {formatMs(slippageStats.avg)} od otvaranja aplikacije do početka učenja.
+              Pokušajte odmah kliknuti na "Uči" ili "Ponavljaj".
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Deep Work pie chart */}
+      {deepWork.totalMs > 0 && (
+        <div className="rounded-xl border bg-card p-5">
+          <h3 className="text-sm font-medium mb-4">Deep Work vs. Shallow Work (7 dana)</h3>
+          <div className="flex items-center gap-8">
+            <ResponsiveContainer width="50%" height={180}>
+              <PieChart>
+                <Pie data={deepWorkPieData} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={45} outerRadius={70} paddingAngle={3}>
+                  {deepWorkPieData.map((d, i) => <Cell key={i} fill={d.fill} />)}
+                </Pie>
+                <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "8px", fontSize: 12 }} formatter={(v: number) => `${v}%`} />
+              </PieChart>
+            </ResponsiveContainer>
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 rounded bg-success" />
+                <div>
+                  <p className="text-sm font-medium">Deep Work: {formatMs(deepWork.deepWorkMs)}</p>
+                  <p className="text-xs text-muted-foreground">Ponavljanje + Aktivno prisjećanje + Lanac</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 rounded bg-warning" />
+                <div>
+                  <p className="text-sm font-medium">Shallow: {formatMs(deepWork.shallowWorkMs)}</p>
+                  <p className="text-xs text-muted-foreground">Slobodno čitanje</p>
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground border-t pt-2">
+                Cilj: ≥70% Deep Work
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Slippage trend */}
+      {slippageChartData.length > 1 && (
+        <div className="rounded-xl border bg-card p-5">
+          <h3 className="text-sm font-medium mb-4">Slippage trend (sekunde)</h3>
+          <ResponsiveContainer width="100%" height={180}>
+            <AreaChart data={slippageChartData}>
+              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+              <XAxis dataKey="date" tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" />
+              <YAxis tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" unit="s" />
+              <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "8px", fontSize: 12 }} />
+              <Area type="monotone" dataKey="slippage" name="Slippage" stroke="hsl(var(--primary))" fill="hsl(var(--primary))" fillOpacity={0.15} />
+            </AreaChart>
+          </ResponsiveContainer>
+          <p className="text-xs text-muted-foreground mt-2">
+            Slippage = vrijeme od otvaranja aplikacije do prvog klika na učenje/ponavljanje.
+          </p>
+        </div>
+      )}
+
+      {/* 30-day comparison */}
+      <div className="rounded-xl border bg-card p-5">
+        <h3 className="text-sm font-medium mb-3">Mjesečni pregled</h3>
+        <div className="grid grid-cols-2 gap-4">
+          <div className="p-3 rounded-lg bg-secondary/50">
+            <p className="text-xs text-muted-foreground">Deep Work (30d)</p>
+            <p className="text-lg font-bold">{deepWork30.deepWorkPercent}%</p>
+            <p className="text-xs text-muted-foreground">{formatMs(deepWork30.deepWorkMs)}</p>
+          </div>
+          <div className="p-3 rounded-lg bg-secondary/50">
+            <p className="text-xs text-muted-foreground">Ukupno (30d)</p>
+            <p className="text-lg font-bold">{formatMs(deepWork30.totalMs)}</p>
+            <p className="text-xs text-muted-foreground">{slippageLog.length} sesija</p>
+          </div>
+        </div>
+      </div>
+
+      {slippageLog.length === 0 && deepWork.totalMs === 0 && (
+        <div className="mt-8 text-center space-y-3 py-12">
+          <Activity className="h-12 w-12 mx-auto text-muted-foreground/30" />
+          <h3 className="text-lg font-medium">Nema podataka o efikasnosti</h3>
+          <p className="text-sm text-muted-foreground max-w-md mx-auto">
+            Slippage i Deep Work omjer se automatski prate pri korištenju aplikacije.
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════
+// PREDICTION TAB (Predictive Analytics)
+// ═══════════════════════════════════════════════════════════
+
+function PredictionTab({ cards, categories, reviewLog }: { cards: Card[]; categories: string[]; reviewLog: ReviewLogEntry[] }) {
+  const velocity = useMemo(() => getLearningVelocity(reviewLog, categories), [reviewLog, categories]);
+
+  // Calculate completion predictions per category
+  const predictions = useMemo(() => {
+    return categories
+      .filter(cat => cards.some(c => c.category === cat))
+      .map(cat => {
+        const catCards = cards.filter(c => c.category === cat);
+        const totalSections = catCards.reduce((s, c) => s + c.sections.length, 0);
+        const masteredSections = catCards.reduce((s, c) =>
+          s + c.sections.filter(sec => sec.state === SectionState.Review && sec.stability > 5).length, 0);
+        const remaining = totalSections - masteredSections;
+        const vel = velocity.find(v => v.category === cat);
+        const dailyVelocity = vel?.velocity || 0;
+
+        const daysRemaining = dailyVelocity > 0 ? Math.ceil(remaining / dailyVelocity) : null;
+        const predictedDate = daysRemaining !== null ? new Date(Date.now() + daysRemaining * 86400000) : null;
+
+        return {
+          category: cat,
+          totalSections,
+          masteredSections,
+          remaining,
+          percent: totalSections > 0 ? Math.round((masteredSections / totalSections) * 100) : 0,
+          dailyVelocity: dailyVelocity,
+          daysRemaining,
+          predictedDate,
+          cardCount: catCards.length,
+        };
+      })
+      .sort((a, b) => b.percent - a.percent);
+  }, [cards, categories, velocity]);
+
+  // Overall prediction
+  const overall = useMemo(() => {
+    const total = predictions.reduce((s, p) => s + p.totalSections, 0);
+    const mastered = predictions.reduce((s, p) => s + p.masteredSections, 0);
+    const remaining = total - mastered;
+    const avgVelocity = velocity.reduce((s, v) => s + v.velocity, 0);
+    const daysRemaining = avgVelocity > 0 ? Math.ceil(remaining / avgVelocity) : null;
+    return { total, mastered, remaining, percent: total > 0 ? Math.round((mastered / total) * 100) : 0, daysRemaining };
+  }, [predictions, velocity]);
+
+  // Chart data for progress
+  const chartData = predictions.map(p => ({
+    category: p.category.length > 12 ? p.category.slice(0, 12) + "…" : p.category,
+    savladano: p.percent,
+    preostalo: 100 - p.percent,
+  }));
+
+  // Velocity chart
+  const velocityData = velocity
+    .filter(v => v.velocity > 0)
+    .sort((a, b) => b.velocity - a.velocity)
+    .map(v => ({
+      category: v.category.length > 12 ? v.category.slice(0, 12) + "…" : v.category,
+      velocity: +v.velocity.toFixed(1),
+    }));
+
+  if (predictions.length === 0) {
+    return (
+      <div className="mt-8 text-center space-y-3 py-12">
+        <CalendarClock className="h-12 w-12 mx-auto text-muted-foreground/30" />
+        <h3 className="text-lg font-medium">Nema podataka za predikciju</h3>
+        <p className="text-sm text-muted-foreground max-w-md mx-auto">
+          Potrebno je bar nekoliko sesija ponavljanja da bi sistem mogao predvidjeti tempo završetka.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6 mt-4">
+      {/* Overall progress */}
+      <div className="rounded-xl border bg-card p-5 space-y-4">
+        <div className="flex items-center justify-between">
+          <h3 className="text-sm font-medium">Ukupan napredak</h3>
+          {overall.daysRemaining !== null && (
+            <span className="text-xs bg-primary/10 text-primary px-2.5 py-1 rounded-full font-medium">
+              ~{overall.daysRemaining} dana do kraja
+            </span>
+          )}
+        </div>
+        <div className="flex items-center gap-4">
+          <div className="text-4xl font-bold">{overall.percent}%</div>
+          <div className="flex-1">
+            <div className="w-full h-3 rounded-full bg-secondary overflow-hidden">
+              <motion.div
+                initial={{ width: 0 }}
+                animate={{ width: `${overall.percent}%` }}
+                transition={{ duration: 0.8, ease: "easeOut" }}
+                className="h-full rounded-full bg-primary"
+              />
+            </div>
+            <div className="flex justify-between text-xs text-muted-foreground mt-1">
+              <span>{overall.mastered} savladano</span>
+              <span>{overall.remaining} preostalo od {overall.total}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Per-category predictions */}
+      <div className="rounded-xl border bg-card p-5 space-y-4">
+        <h3 className="text-sm font-medium">Predikcija po predmetima</h3>
+        <div className="space-y-3">
+          {predictions.map(p => (
+            <div key={p.category} className="p-3 rounded-lg bg-secondary/30 border space-y-2">
+              <div className="flex items-center justify-between">
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium truncate">{p.category}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {p.masteredSections}/{p.totalSections} sekcija · {p.cardCount} kartica
+                  </p>
+                </div>
+                <div className="text-right shrink-0 ml-3">
+                  <p className="text-sm font-bold">{p.percent}%</p>
+                  {p.predictedDate ? (
+                    <p className="text-xs text-muted-foreground">
+                      ~{format(p.predictedDate, "dd.MM.yyyy")}
+                    </p>
+                  ) : (
+                    <p className="text-xs text-muted-foreground">—</p>
+                  )}
+                </div>
+              </div>
+              <div className="w-full h-2 rounded-full bg-secondary overflow-hidden">
+                <div
+                  className={`h-full rounded-full transition-all ${
+                    p.percent >= 80 ? "bg-success" : p.percent >= 40 ? "bg-primary" : "bg-warning"
+                  }`}
+                  style={{ width: `${p.percent}%` }}
+                />
+              </div>
+              <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                <span>Brzina: {p.dailyVelocity > 0 ? `${p.dailyVelocity.toFixed(1)} sekcija/dan` : "—"}</span>
+                {p.daysRemaining !== null && <span>Preostalo: ~{p.daysRemaining} dana</span>}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Progress bar chart */}
+      {chartData.length > 0 && (
+        <div className="rounded-xl border bg-card p-5">
+          <h3 className="text-sm font-medium mb-4">Uporedni napredak</h3>
+          <ResponsiveContainer width="100%" height={Math.max(180, chartData.length * 40)}>
+            <BarChart data={chartData} layout="vertical">
+              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+              <XAxis type="number" domain={[0, 100]} tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" unit="%" />
+              <YAxis type="category" dataKey="category" tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" width={120} />
+              <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "8px", fontSize: 12 }} />
+              <Bar dataKey="savladano" name="Savladano" fill="hsl(var(--success))" radius={[0, 4, 4, 0]} stackId="a" />
+              <Bar dataKey="preostalo" name="Preostalo" fill="hsl(var(--secondary))" radius={[0, 4, 4, 0]} stackId="a" />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      )}
+
+      {/* Velocity chart */}
+      {velocityData.length > 0 && (
+        <div className="rounded-xl border bg-card p-5">
+          <h3 className="text-sm font-medium mb-4">Brzina savladavanja (sekcija/dan)</h3>
+          <ResponsiveContainer width="100%" height={Math.max(150, velocityData.length * 35)}>
+            <BarChart data={velocityData} layout="vertical">
+              <XAxis type="number" tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" />
+              <YAxis type="category" dataKey="category" tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" width={120} />
+              <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "8px", fontSize: 12 }} />
+              <Bar dataKey="velocity" name="Sekcija/dan" fill="hsl(var(--primary))" radius={[0, 4, 4, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+          <p className="text-xs text-muted-foreground mt-2">
+            Bazirano na poslednjih 14 dana aktivnosti. Veća brzina = brže savladavanje gradiva.
+          </p>
+        </div>
+      )}
     </div>
   );
 }

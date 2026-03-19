@@ -6,7 +6,7 @@ import ScrollableRow from "@/components/ScrollableRow";
 import { Button } from "@/components/ui/button";
 import { speak, stopSpeaking } from "@/lib/tts";
 import { useToast } from "@/hooks/use-toast";
-import { addCalibrationEntry, addLatencyEntry, isAnalysisNeededToday } from "@/lib/metacognitive-storage";
+import { addCalibrationEntry, addLatencyEntry, isAnalysisNeededToday, addActivityEntry } from "@/lib/metacognitive-storage";
 
 type ReviewMode = "essay" | "random" | null;
 type ViewWidth = "compact" | "normal" | "wide" | "full";
@@ -48,6 +48,7 @@ export default function ReviewSession({ dueCards, subcategories, srSettings, onR
   const [randomIndex, setRandomIndex] = useState(0);
   const [showAnswer, setShowAnswer] = useState(false);
   const [finished, setFinished] = useState(false);
+  const reviewStartRef = useRef(Date.now());
   const [viewWidth, setViewWidth] = useState<ViewWidth>("normal");
 
   const dueCategories = useMemo(() => {
@@ -81,6 +82,13 @@ export default function ReviewSession({ dueCards, subcategories, srSettings, onR
     }
     return items;
   }, [filteredDueCards]);
+
+  // Log activity when session finishes
+  useEffect(() => {
+    if (finished) {
+      addActivityEntry({ timestamp: Date.now(), type: "review", durationMs: Date.now() - reviewStartRef.current });
+    }
+  }, [finished]);
 
   if (mode === null) {
     const filteredCount = filteredDueCards.length;
