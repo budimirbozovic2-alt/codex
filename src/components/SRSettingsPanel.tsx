@@ -96,7 +96,48 @@ export default function SRSettingsPanel({ settings, onUpdate, onBack, onOpenMajo
         ))}
       </div>
 
-      {/* TTS Settings */}
+      {/* Resistance Weights */}
+      <div className="space-y-4">
+        <h3 className="font-serif text-lg flex items-center gap-2">
+          <span>🔥</span> Težine kognitivnog otpora
+        </h3>
+        <div className="rounded-xl border bg-card p-4 space-y-4">
+          <p className="text-xs text-muted-foreground">Podesi koliko svaki faktor utiče na ukupni skor otpora. Vrijednosti se automatski normalizuju.</p>
+          {([
+            { key: "lapses" as const, label: "Lapsusi (padovi)", icon: "❌" },
+            { key: "latency" as const, label: "Latencija (vrijeme prisjećanja)", icon: "⏱️" },
+            { key: "forgetting" as const, label: "Zaboravljanje (retrievability)", icon: "📉" },
+          ]).map(({ key, label, icon }) => {
+            const w = local.resistanceWeights ?? { lapses: 40, latency: 30, forgetting: 30 };
+            const total = w.lapses + w.latency + w.forgetting;
+            const pct = total > 0 ? Math.round((w[key] / total) * 100) : 33;
+            return (
+              <div key={key} className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <label className="text-sm font-medium">{icon} {label}</label>
+                  <span className="text-xs text-muted-foreground tabular-nums">{w[key]} ({pct}%)</span>
+                </div>
+                <Slider
+                  value={[w[key]]}
+                  min={0}
+                  max={100}
+                  step={5}
+                  onValueChange={(v) => setLocal(prev => ({
+                    ...prev,
+                    resistanceWeights: { ...(prev.resistanceWeights ?? { lapses: 40, latency: 30, forgetting: 30 }), [key]: v[0] }
+                  }))}
+                />
+              </div>
+            );
+          })}
+          <div className="flex gap-2 text-xs text-muted-foreground pt-1">
+            <span>Ukupno: {(local.resistanceWeights?.lapses ?? 40) + (local.resistanceWeights?.latency ?? 30) + (local.resistanceWeights?.forgetting ?? 30)}</span>
+            <span className="opacity-50">•</span>
+            <span>Normalizovano na 100%</span>
+          </div>
+        </div>
+      </div>
+
       <div className="space-y-4">
         <h3 className="font-serif text-lg flex items-center gap-2">
           <Volume2 className="h-4 w-4" /> Glasovni čitač (TTS)
