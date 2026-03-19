@@ -10,6 +10,8 @@ import {
   calcStressPerformance,
   calcFrictionAnalysis,
   calcRecoveryRate,
+  calcBlindSpots,
+  calcWeakHooks,
 } from "@/lib/cognitive-analytics";
 import { loadPlanner } from "@/lib/planner-storage";
 
