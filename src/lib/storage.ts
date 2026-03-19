@@ -173,6 +173,32 @@ export function addPomodoroEntry(entry: PomodoroLogEntry) {
   savePomodoroLog(log);
 }
 
+// Learn session progress persistence
+const LEARN_PROGRESS_KEY = "sr-learn-progress";
+
+export type LearnMode = "free" | "active-recall" | "chain";
+
+export interface LearnCardProgress {
+  mode: LearnMode;
+  currentModule: number;
+  completedModules: number[];
+  chainPosition: number;
+  phase: "preview" | "drill" | "learn" | "chainReview";
+  completed: boolean;
+}
+
+export function loadLearnProgress(): Record<string, LearnCardProgress> {
+  return loadFromStorage(LEARN_PROGRESS_KEY, {});
+}
+
+export function saveLearnProgress(progress: Record<string, LearnCardProgress>) {
+  saveToStorage(LEARN_PROGRESS_KEY, progress);
+}
+
+export function clearLearnProgress() {
+  localStorage.removeItem(LEARN_PROGRESS_KEY);
+}
+
 export function getPomodoroStats() {
   const log = loadPomodoroLog();
   const now = Date.now();

@@ -175,7 +175,7 @@ const Index = () => {
           )}
           {view === "learn" && (
             <motion.div key="learn" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-              <LearnSession cards={cards} categories={categories} subcategories={subcategories} onMarkRead={markRead} onBack={() => setView("dashboard")} />
+              <LearnSession cards={cards} categories={categories} subcategories={subcategories} onMarkRead={markRead} onReviewSection={reviewSection} onBack={() => setView("dashboard")} />
             </motion.div>
           )}
           {(view === "create" || view === "edit") && (
