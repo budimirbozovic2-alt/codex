@@ -215,6 +215,56 @@ export default function LearnSession({ cards, categories, subcategories, onMarkR
               </div>
             </motion.div>
           )}
+
+          {/* Focus ratio warning */}
+          {(() => {
+            const totalSections = cards.reduce((s, c) => s + c.sections.length, 0);
+            const learnedSections = cards.reduce((s, c) => s + c.sections.filter(sec => sec.lastReviewed).length, 0);
+            if (totalSections === 0) return null;
+            const progress = Math.round((learnedSections / totalSections) * 100);
+            const targetReviewPct = Math.max(5, progress);
+
+            // Check today's actual ratio
+            const reviewLog = loadReviewLog();
+            const todayStr = new Date().toISOString().slice(0, 10);
+            const todayStart = new Date(todayStr).getTime();
+            const todayEntries = reviewLog.filter(e => e.timestamp >= todayStart);
+            if (todayEntries.length < 3) return null; // not enough data
+
+            const sectionFirstSeen = new Map<string, number>();
+            reviewLog.forEach(e => {
+              const key = `${e.cardId}:${e.sectionId}`;
+              const prev = sectionFirstSeen.get(key);
+              if (!prev || e.timestamp < prev) sectionFirstSeen.set(key, e.timestamp);
+            });
+            let reviewCount = 0, newCount = 0;
+            todayEntries.forEach(e => {
+              const key = `${e.cardId}:${e.sectionId}`;
+              const firstSeen = sectionFirstSeen.get(key) || e.timestamp;
+              if (firstSeen < todayStart) reviewCount++; else newCount++;
+            });
+            const total = reviewCount + newCount;
+            const actualReviewPct = total > 0 ? Math.round((reviewCount / total) * 100) : 0;
+            const deficit = targetReviewPct - actualReviewPct;
+
+            if (deficit <= 15) return null;
+            return (
+              <motion.div
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="flex items-start gap-3 p-4 rounded-xl border border-destructive/30 bg-destructive/5"
+              >
+                <ShieldAlert className="h-5 w-5 text-destructive flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sm font-medium text-destructive">Prioritet: ponavljanje</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Tvoj progres ({progress}%) zahtijeva ~{targetReviewPct}% fokusa na ponavljanje, ali danas je samo {actualReviewPct}%.
+                    Preporučujemo da prvo ponavljaš dospjele kartice prije učenja novog materijala.
+                  </p>
+                </div>
+              </motion.div>
+            );
+          })()}
           <div>
             <button onClick={onBack} className="text-muted-foreground hover:text-foreground flex items-center gap-1 mb-6">
               <ArrowLeft className="h-4 w-4" /> Nazad
