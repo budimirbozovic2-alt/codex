@@ -1,11 +1,11 @@
 import { useState, useMemo, useCallback, useEffect } from "react";
-import { Card, getCardScore } from "@/lib/spaced-repetition";
+import { Card, getCardScore, getDueCards } from "@/lib/spaced-repetition";
 import { LearnMode, LearnCardProgress, loadLearnProgress, saveLearnProgress } from "@/lib/storage";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ArrowLeft, ArrowRight, ChevronRight, BookOpen, Check, Eye, TrendingDown,
   ListOrdered, Zap, Volume2, Brain, Link2, RotateCcw, HelpCircle,
-  Clock, Target, BarChart3, RotateCw, Trophy
+  Clock, Target, BarChart3, RotateCw, Trophy, AlertTriangle
 } from "lucide-react";
 import ScrollableRow from "@/components/ScrollableRow";
 import { Button } from "@/components/ui/button";
@@ -37,6 +37,7 @@ interface Props {
   onMarkRead: (id: string) => void;
   onReviewSection: (cardId: string, sectionId: string, grade: number) => void;
   onBack: () => void;
+  dueCount?: number;
 }
 
 const GRADE_LABELS = ["", "Ponovo", "Teško", "Dobro", "Lako"];
@@ -48,7 +49,7 @@ const GRADE_COLORS = [
   "bg-emerald-500 text-white dark:bg-emerald-600",
 ];
 
-export default function LearnSession({ cards, categories, subcategories, onMarkRead, onReviewSection, onBack }: Props) {
+export default function LearnSession({ cards, categories, subcategories, onMarkRead, onReviewSection, onBack, dueCount = 0 }: Props) {
   // Setup state
   const [setupStep, setSetupStep] = useState<SetupStep>("mode");
   const [learnMode, setLearnMode] = useState<LearnMode>("free");
@@ -188,6 +189,22 @@ export default function LearnSession({ cards, categories, subcategories, onMarkR
           <AnimatePresence>
             {showOnboarding && <LearnOnboarding onComplete={() => setShowOnboarding(false)} />}
           </AnimatePresence>
+
+          {dueCount > 50 && (
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="flex items-center gap-3 p-4 rounded-xl border border-warning/30 bg-warning/5"
+            >
+              <AlertTriangle className="h-5 w-5 text-warning flex-shrink-0" />
+              <div>
+                <p className="text-sm font-medium">Previše dospjelih kartica ({dueCount})</p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Preporučujemo da prvo ponovite bar polovinu dospjelih kartica prije učenja novog materijala.
+                </p>
+              </div>
+            </motion.div>
+          )}
           <div>
             <button onClick={onBack} className="text-muted-foreground hover:text-foreground flex items-center gap-1 mb-6">
               <ArrowLeft className="h-4 w-4" /> Nazad

@@ -22,6 +22,7 @@ function migrateSection(s: any): any {
     difficulty: s.difficulty ?? 5,
     elapsedDays: s.elapsedDays ?? 0,
     scheduledDays: s.scheduledDays ?? (s.interval || 0),
+    firstReviewPending: s.firstReviewPending || false,
   };
 
   // Migrate state field

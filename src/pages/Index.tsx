@@ -160,7 +160,7 @@ const Index = () => {
               {cards.length === 0 ? (
                 <EmptyState type="dashboard" onAction={() => setView("create")} />
               ) : (
-                <Dashboard stats={stats} categoryStats={categoryStats} categories={categories} subcategories={subcategories} cards={cards} reviewLog={reviewLog} srSettings={srSettings} onExport={() => setExportImportOpen(true)} onShowKnowledgeMap={() => setView("knowledge-map")} />
+                <Dashboard stats={stats} categoryStats={categoryStats} categories={categories} subcategories={subcategories} cards={cards} reviewLog={reviewLog} srSettings={srSettings} onExport={() => setExportImportOpen(true)} onShowKnowledgeMap={() => setView("knowledge-map")} onStartReview={() => setView("review")} />
               )}
             </motion.div>
           )}
@@ -175,7 +175,7 @@ const Index = () => {
           )}
           {view === "learn" && (
             <motion.div key="learn" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-              <LearnSession cards={cards} categories={categories} subcategories={subcategories} onMarkRead={markRead} onReviewSection={reviewSection} onBack={() => setView("dashboard")} />
+              <LearnSession cards={cards} categories={categories} subcategories={subcategories} onMarkRead={markRead} onReviewSection={reviewSection} onBack={() => setView("dashboard")} dueCount={stats.due} />
             </motion.div>
           )}
           {(view === "create" || view === "edit") && (

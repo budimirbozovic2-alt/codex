@@ -1,6 +1,6 @@
-import { Brain, Clock, Layers, BookOpen, TrendingUp, AlertTriangle, Download, HardDrive, ChevronDown, ChevronRight, LayoutGrid, Timer } from "lucide-react";
+import { Brain, Clock, Layers, BookOpen, TrendingUp, AlertTriangle, Download, HardDrive, ChevronDown, ChevronRight, LayoutGrid, Timer, Play } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Card, getCardScore, getSectionScore, getCardRetrievability, SRSettings, DEFAULT_SR_SETTINGS } from "@/lib/spaced-repetition";
+import { Card, getCardScore, getSectionScore, getCardRetrievability, SRSettings, DEFAULT_SR_SETTINGS, getPendingFirstReviewCount } from "@/lib/spaced-repetition";
 import { getCardMasteryLevel, MASTERY_LEVELS } from "@/components/KnowledgeMap";
 import { ReviewLogEntry, getStorageUsage, isBackupOverdue, getLastBackupTime, getPomodoroStats } from "@/lib/storage";
 import { useMemo, useState } from "react";
@@ -24,6 +24,7 @@ interface Props {
   srSettings: SRSettings;
   onExport?: () => void;
   onShowKnowledgeMap?: () => void;
+  onStartReview?: () => void;
 }
 
 function ScoreBar({ score }: { score: number }) {
@@ -61,7 +62,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
   );
 };
 
-export default function Dashboard({ stats, categoryStats, categories, subcategories, cards, reviewLog, srSettings, onExport, onShowKnowledgeMap }: Props) {
+export default function Dashboard({ stats, categoryStats, categories, subcategories, cards, reviewLog, srSettings, onExport, onShowKnowledgeMap, onStartReview }: Props) {
   const [expandedCategory, setExpandedCategory] = useState<string | null>(null);
   const avgRetrievability = useMemo(() => {
     const reviewed = cards.filter((c) => c.sections.some((s) => s.lastReviewed !== null));
@@ -128,7 +129,7 @@ export default function Dashboard({ stats, categoryStats, categories, subcategor
   const backupOverdue = useMemo(() => isBackupOverdue(), []);
   const lastBackup = useMemo(() => getLastBackupTime(), []);
   const pomStats = useMemo(() => getPomodoroStats(), []);
-
+  const pendingFirstReview = useMemo(() => getPendingFirstReviewCount(cards), [cards]);
   return (
     <div className="space-y-10">
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
@@ -430,7 +431,11 @@ export default function Dashboard({ stats, categoryStats, categories, subcategor
               const hasSubData = subStats.length > 1;
 
               return (
-                <div key={cat} className="rounded-xl bg-card border overflow-hidden">
+                 <div key={cat} className={`rounded-xl bg-card border overflow-hidden ${
+                    s.total > 0 && s.due / s.total > 0.5 ? "border-l-4 border-l-destructive" :
+                    s.total > 0 && s.due / s.total > 0.25 ? "border-l-4 border-l-warning" :
+                    s.due === 0 && s.score >= 40 ? "border-l-4 border-l-success" : ""
+                  }`}>
                   <button
                     onClick={() => hasSubData && setExpandedCategory(isExpanded ? null : cat)}
                     className={`w-full p-4 space-y-2 text-left ${hasSubData ? "cursor-pointer hover:bg-secondary/30 transition-colors" : ""}`}
@@ -472,7 +477,10 @@ export default function Dashboard({ stats, categoryStats, categories, subcategor
                               const levelBg = sub.score >= 70 ? "bg-success" : sub.score >= 40 ? "bg-warning" : "bg-destructive";
                               const levelLabel = sub.score >= 70 ? "Jako" : sub.score >= 40 ? "Srednje" : "Slabo";
                               return (
-                                <div key={sub.name} className="flex items-center gap-3 py-1.5">
+                                <div key={sub.name} className={`flex items-center gap-3 py-1.5 ${
+                                    sub.due / sub.total > 0.5 ? "border-l-2 border-l-destructive pl-2" :
+                                    sub.due / sub.total > 0.25 ? "border-l-2 border-l-warning pl-2" : ""
+                                  }`}>
                                   <span className={`w-2 h-2 rounded-full flex-shrink-0 ${levelBg}`} />
                                   <span className="text-sm flex-1 min-w-0 truncate">{sub.name}</span>
                                   <span className={`text-xs font-medium px-2 py-0.5 rounded-md ${level} ${levelBg}/10`}>{levelLabel}</span>

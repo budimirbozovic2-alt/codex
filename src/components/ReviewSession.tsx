@@ -289,6 +289,28 @@ function ReviewCard({
 }) {
   const { toast } = useToast();
   const lastGradeRef = useRef<{ cardId: string; sectionId: string; grade: number } | null>(null);
+  const [answerRevealedAt, setAnswerRevealedAt] = useState<number | null>(null);
+  const [canGradeEasy, setCanGradeEasy] = useState(false);
+
+  // Reset timer when card/section changes or answer is hidden
+  useEffect(() => {
+    if (!showAnswer) {
+      setAnswerRevealedAt(null);
+      setCanGradeEasy(false);
+    }
+  }, [showAnswer, card.id, section.id]);
+
+  // 3-second timer for grade 4
+  useEffect(() => {
+    if (answerRevealedAt === null) return;
+    const timer = setTimeout(() => setCanGradeEasy(true), 3000);
+    return () => clearTimeout(timer);
+  }, [answerRevealedAt]);
+
+  const handleRevealAnswer = useCallback(() => {
+    setShowAnswer(true);
+    setAnswerRevealedAt(Date.now());
+  }, [setShowAnswer]);
 
   // Keyboard shortcuts: Space to reveal, 1-4 to grade, Z to undo
   useEffect(() => {
@@ -298,15 +320,17 @@ function ReviewCard({
       // Space to reveal answer
       if (e.key === " " && !showAnswer) {
         e.preventDefault();
-        setShowAnswer(true);
+        handleRevealAnswer();
         return;
       }
 
       // 1-4 to grade (only when answer is shown)
       if (showAnswer && ["1", "2", "3", "4"].includes(e.key)) {
+        const grade = parseInt(e.key);
+        if (grade === 4 && !canGradeEasy) return;
         e.preventDefault();
-        lastGradeRef.current = { cardId: card.id, sectionId: section.id, grade: parseInt(e.key) };
-        onGrade(parseInt(e.key));
+        lastGradeRef.current = { cardId: card.id, sectionId: section.id, grade };
+        onGrade(grade);
         return;
       }
 
@@ -320,7 +344,7 @@ function ReviewCard({
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [showAnswer, card.id, section.id, onGrade, onLogError, toast, setShowAnswer]);
+  }, [showAnswer, card.id, section.id, onGrade, onLogError, toast, handleRevealAnswer, canGradeEasy]);
   const gradeColorMap: Record<string, string> = {
     destructive: "bg-destructive text-destructive-foreground hover:bg-destructive/90",
     warning: "bg-warning text-warning-foreground hover:bg-warning/90",
@@ -434,9 +458,14 @@ function ReviewCard({
           )}
 
           {!showAnswer ? (
-            <Button onClick={() => setShowAnswer(true)} className="w-full py-6 text-base" variant="outline">
-              <Eye className="h-4 w-4 mr-2" /> {isFlash ? "Prikaži odgovor" : "Prikaži odgovor za ovu cjelinu"}
-            </Button>
+            <div className="space-y-3">
+              <p className="text-sm italic text-muted-foreground text-center">
+                Pokušaj odgovoriti na glas prije otkrivanja.
+              </p>
+              <Button onClick={handleRevealAnswer} className="w-full py-6 text-base" variant="outline">
+                <Eye className="h-4 w-4 mr-2" /> {isFlash ? "Prikaži odgovor" : "Prikaži odgovor za ovu cjelinu"}
+              </Button>
+            </div>
           ) : (
             <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
               <div className="rounded-xl bg-secondary/50 border p-8 select-text">
@@ -457,17 +486,23 @@ function ReviewCard({
               <div>
                 <p className="text-sm text-muted-foreground mb-3">Koliko ste znali?</p>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                  {GRADES.map((g) => (
-                    <button
-                      key={g.value}
-                      onClick={() => onGrade(g.value)}
-                      className={`rounded-xl px-3 py-4 text-sm font-medium transition-all ${gradeColorMap[g.color]}`}
-                    >
-                      <span className="block text-sm font-bold">{g.label}</span>
-                      <span className="block text-xs mt-1 opacity-80">{g.description}</span>
-                      <span className="block text-xs mt-1.5 font-mono opacity-70">{intervals[g.value]}</span>
-                    </button>
-                  ))}
+                  {GRADES.map((g) => {
+                    const isEasy = g.value === 4;
+                    const disabled = isEasy && !canGradeEasy;
+                    return (
+                      <button
+                        key={g.value}
+                        onClick={() => !disabled && onGrade(g.value)}
+                        disabled={disabled}
+                        className={`rounded-xl px-3 py-4 text-sm font-medium transition-all ${gradeColorMap[g.color]} ${disabled ? "opacity-40 cursor-not-allowed" : ""}`}
+                        title={disabled ? "Pričekajte bar 3 sekunde" : undefined}
+                      >
+                        <span className="block text-sm font-bold">{g.label}</span>
+                        <span className="block text-xs mt-1 opacity-80">{g.description}</span>
+                        <span className="block text-xs mt-1.5 font-mono opacity-70">{intervals[g.value]}</span>
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             </motion.div>
