@@ -1,11 +1,13 @@
-import { Clock, BookOpen, AlertTriangle, Download, HardDrive, Timer, Play, Target, Hand } from "lucide-react";
+import { Clock, BookOpen, AlertTriangle, Download, HardDrive, Timer, Play, Target, Hand, TrendingUp, ShieldAlert, Gauge } from "lucide-react";
 import { motion } from "framer-motion";
 import { Card, getCardRetrievability, SRSettings, DEFAULT_SR_SETTINGS, getPendingFirstReviewCount } from "@/lib/spaced-repetition";
-import { ReviewLogEntry, getStorageUsage, isBackupOverdue, getLastBackupTime, getPomodoroStats } from "@/lib/storage";
-import { loadDiary } from "@/lib/metacognitive-storage";
+import { ReviewLogEntry, getStorageUsage, isBackupOverdue, getLastBackupTime } from "@/lib/storage";
+import { loadDiary, loadActivityLog } from "@/lib/metacognitive-storage";
 import { useMemo, useState, useEffect, useRef } from "react";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
+import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine } from "recharts";
+import { format, subDays, startOfDay, eachDayOfInterval } from "date-fns";
 
 interface Props {
   stats: { due: number; total: number; totalSections: number; learnedSections: number };
@@ -25,6 +27,51 @@ function getDayKey(ts: number): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
+// ─── Dynamic Focus Ratio Algorithm ──────────────────────
+function calcFocusRatio(learnedSections: number, totalSections: number) {
+  if (totalSections === 0) return { progress: 0, targetReviewPct: 5, targetNewPct: 95 };
+  const progress = Math.round((learnedSections / totalSections) * 100);
+  const targetReviewPct = Math.max(5, progress); // linear: review % = progress %
+  return { progress, targetReviewPct, targetNewPct: 100 - targetReviewPct };
+}
+
+function calcActualRatio(reviewLog: ReviewLogEntry[], cards: Card[]) {
+  const todayKey = getDayKey(Date.now());
+  const todayEntries = reviewLog.filter(e => getDayKey(e.timestamp) === todayKey);
+  if (todayEntries.length === 0) return { actualReviewPct: 0, actualNewPct: 0, totalToday: 0, reviewCount: 0, newCount: 0 };
+
+  // A "review" entry is one where the section had been reviewed before today
+  // A "new" entry is one where the section was first seen
+  const sectionFirstSeen = new Map<string, number>();
+  reviewLog.forEach(e => {
+    const key = `${e.cardId}:${e.sectionId}`;
+    const prev = sectionFirstSeen.get(key);
+    if (!prev || e.timestamp < prev) sectionFirstSeen.set(key, e.timestamp);
+  });
+
+  const todayStart = startOfDay(new Date()).getTime();
+  let reviewCount = 0;
+  let newCount = 0;
+  todayEntries.forEach(e => {
+    const key = `${e.cardId}:${e.sectionId}`;
+    const firstSeen = sectionFirstSeen.get(key) || e.timestamp;
+    if (firstSeen < todayStart) {
+      reviewCount++; // section was known before today
+    } else {
+      newCount++; // first seen today
+    }
+  });
+
+  const total = reviewCount + newCount;
+  return {
+    actualReviewPct: total > 0 ? Math.round((reviewCount / total) * 100) : 0,
+    actualNewPct: total > 0 ? Math.round((newCount / total) * 100) : 0,
+    totalToday: total,
+    reviewCount,
+    newCount,
+  };
+}
+
 // ─── Pomodoro Timer ──────────────────────────────────────
 function PomodoroTimer() {
   const [mode, setMode] = useState<"work" | "break">("work");
@@ -38,14 +85,8 @@ function PomodoroTimer() {
         setSeconds(prev => {
           if (prev <= 1) {
             setRunning(false);
-            // Auto-switch mode
-            if (mode === "work") {
-              setMode("break");
-              return 5 * 60;
-            } else {
-              setMode("work");
-              return 25 * 60;
-            }
+            if (mode === "work") { setMode("break"); return 5 * 60; }
+            else { setMode("work"); return 25 * 60; }
           }
           return prev - 1;
         });
@@ -60,10 +101,7 @@ function PomodoroTimer() {
     ? ((25 * 60 - seconds) / (25 * 60)) * 100
     : ((5 * 60 - seconds) / (5 * 60)) * 100;
 
-  const reset = () => {
-    setRunning(false);
-    setSeconds(mode === "work" ? 25 * 60 : 5 * 60);
-  };
+  const reset = () => { setRunning(false); setSeconds(mode === "work" ? 25 * 60 : 5 * 60); };
 
   return (
     <div className="rounded-xl bg-card border p-5 space-y-3">
@@ -77,18 +115,11 @@ function PomodoroTimer() {
         </span>
       </div>
       <div className="text-center">
-        <p className="text-4xl font-serif tabular-nums">
-          {String(mins).padStart(2, "0")}:{String(secs).padStart(2, "0")}
-        </p>
+        <p className="text-4xl font-serif tabular-nums">{String(mins).padStart(2, "0")}:{String(secs).padStart(2, "0")}</p>
       </div>
       <Progress value={progress} className="h-1.5" />
       <div className="flex gap-2 justify-center">
-        <Button
-          variant={running ? "outline" : "default"}
-          size="sm"
-          onClick={() => setRunning(!running)}
-          className="gap-1.5"
-        >
+        <Button variant={running ? "outline" : "default"} size="sm" onClick={() => setRunning(!running)} className="gap-1.5">
           {running ? "Pauziraj" : <><Play className="h-3.5 w-3.5" /> Pokreni</>}
         </Button>
         <Button variant="ghost" size="sm" onClick={reset}>Reset</Button>
@@ -97,34 +128,99 @@ function PomodoroTimer() {
   );
 }
 
-export default function Dashboard({ stats, categoryStats, categories, subcategories, cards, reviewLog, srSettings, onExport, onShowKnowledgeMap, onStartReview }: Props) {
+// ─── Custom Tooltip ──────────────────────────────────────
+const ChartTooltip = ({ active, payload, label }: any) => {
+  if (!active || !payload?.length) return null;
+  return (
+    <div className="rounded-lg border bg-card px-3 py-2 shadow-md text-sm">
+      <p className="font-medium text-card-foreground">{label}</p>
+      {payload.map((p: any, i: number) => (
+        <p key={i} style={{ color: p.color }} className="text-xs">
+          {p.name}: <span className="font-medium">{p.value}%</span>
+        </p>
+      ))}
+    </div>
+  );
+};
+
+export default function Dashboard({ stats, categoryStats, categories, subcategories, cards, reviewLog, srSettings, onExport, onStartReview }: Props) {
   const todayKey = getDayKey(Date.now());
   const todayReviews = useMemo(() => reviewLog.filter(e => getDayKey(e.timestamp) === todayKey).length, [reviewLog, todayKey]);
   const dailyGoal = srSettings.dailyGoal;
   const goalProgress = Math.min(100, Math.round((todayReviews / Math.max(1, dailyGoal)) * 100));
   const pendingFirstReview = useMemo(() => getPendingFirstReviewCount(cards), [cards]);
 
-  // Streak calculation
+  // Streak
   const streak = useMemo(() => {
     const reviewDays = new Set(reviewLog.map(e => getDayKey(e.timestamp)));
     let count = 0;
     const cursor = new Date();
-    if (!reviewDays.has(getDayKey(cursor.getTime()))) {
-      cursor.setDate(cursor.getDate() - 1);
-    }
-    while (reviewDays.has(getDayKey(cursor.getTime()))) {
-      count++;
-      cursor.setDate(cursor.getDate() - 1);
-    }
+    if (!reviewDays.has(getDayKey(cursor.getTime()))) cursor.setDate(cursor.getDate() - 1);
+    while (reviewDays.has(getDayKey(cursor.getTime()))) { count++; cursor.setDate(cursor.getDate() - 1); }
     return count;
   }, [reviewLog]);
-  // Today's diary goal text
+
+  // Dynamic Focus Ratio
+  const focusRatio = useMemo(() => calcFocusRatio(stats.learnedSections, stats.totalSections), [stats]);
+  const actualRatio = useMemo(() => calcActualRatio(reviewLog, cards), [reviewLog, cards]);
+
+  // Memory Safety Warning
+  const showMemoryWarning = useMemo(() => {
+    if (actualRatio.totalToday < 5) return false; // too little data
+    const deficit = focusRatio.targetReviewPct - actualRatio.actualReviewPct;
+    return deficit > 20; // warning if actual review is 20%+ below target
+  }, [focusRatio, actualRatio]);
+
+  // 14-day ratio history chart
+  const ratioHistory = useMemo(() => {
+    const now = new Date();
+    const days = eachDayOfInterval({ start: subDays(now, 13), end: now });
+
+    // Build section first-seen map
+    const sectionFirstSeen = new Map<string, number>();
+    reviewLog.forEach(e => {
+      const key = `${e.cardId}:${e.sectionId}`;
+      const prev = sectionFirstSeen.get(key);
+      if (!prev || e.timestamp < prev) sectionFirstSeen.set(key, e.timestamp);
+    });
+
+    return days.map(day => {
+      const dayStart = startOfDay(day).getTime();
+      const dayEnd = dayStart + 86400000;
+      const dayEntries = reviewLog.filter(r => r.timestamp >= dayStart && r.timestamp < dayEnd);
+
+      let review = 0, newL = 0;
+      dayEntries.forEach(e => {
+        const key = `${e.cardId}:${e.sectionId}`;
+        const firstSeen = sectionFirstSeen.get(key) || e.timestamp;
+        if (firstSeen < dayStart) review++; else newL++;
+      });
+
+      const total = review + newL;
+      const actualReview = total > 0 ? Math.round((review / total) * 100) : null;
+
+      return {
+        name: format(day, "dd.MM"),
+        "Stvarni ponavljanje": actualReview,
+        "Idealni cilj": focusRatio.targetReviewPct,
+      };
+    });
+  }, [reviewLog, focusRatio]);
+
+  // Diary goal text
   const diaryGoal = useMemo(() => {
     const diary = loadDiary();
     const today = new Date().toISOString().slice(0, 10);
-    const entry = diary.find(d => d.date === today);
-    return entry?.dailyGoal || null;
+    return diary.find(d => d.date === today)?.dailyGoal || null;
   }, []);
+
+  // Auto-calibrated suggestion
+  const autoSuggestion = useMemo(() => {
+    if (stats.totalSections === 0) return null;
+    const reviewTarget = Math.round((focusRatio.targetReviewPct / 100) * dailyGoal);
+    const newTarget = dailyGoal - reviewTarget;
+    return { reviewTarget, newTarget };
+  }, [focusRatio, dailyGoal, stats.totalSections]);
 
   const storageUsage = useMemo(() => getStorageUsage(), [cards, reviewLog]);
   const backupOverdue = useMemo(() => isBackupOverdue(), []);
@@ -140,13 +236,9 @@ export default function Dashboard({ stats, categoryStats, categories, subcategor
         </h1>
       </motion.div>
 
-      {/* Mental Trigger Reminder */}
-      <motion.div
-        initial={{ opacity: 0, scale: 0.9 }}
-        animate={{ opacity: 1, scale: 1 }}
-        transition={{ delay: 0.2 }}
-        className="flex items-center gap-3 p-4 rounded-xl border border-primary/20 bg-primary/5"
-      >
+      {/* Mental Trigger */}
+      <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.2 }}
+        className="flex items-center gap-3 p-4 rounded-xl border border-primary/20 bg-primary/5">
         <div className="flex items-center justify-center w-10 h-10 rounded-full bg-primary/10">
           <Hand className="h-5 w-5 text-primary" />
         </div>
@@ -158,19 +250,11 @@ export default function Dashboard({ stats, categoryStats, categories, subcategor
 
       {/* Core Stats Grid */}
       <div className="grid grid-cols-2 gap-4">
-        {/* Daily Deck */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1 }}
-          className="rounded-xl bg-card border p-5 space-y-2"
-        >
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="rounded-xl bg-card border p-5 space-y-2">
           <Clock className="h-5 w-5 text-primary mb-1" />
           <p className="text-4xl font-serif">{stats.due}</p>
           <p className="text-sm text-muted-foreground">Za ponavljanje</p>
-          {pendingFirstReview > 0 && (
-            <p className="text-xs text-primary">+ {pendingFirstReview} čeka prvo pon.</p>
-          )}
+          {pendingFirstReview > 0 && <p className="text-xs text-primary">+ {pendingFirstReview} čeka prvo pon.</p>}
           {onStartReview && stats.due > 0 && (
             <Button size="sm" onClick={onStartReview} className="mt-2 gap-1.5 w-full">
               <Play className="h-3.5 w-3.5" /> Ponavljaj
@@ -178,13 +262,7 @@ export default function Dashboard({ stats, categoryStats, categories, subcategor
           )}
         </motion.div>
 
-        {/* Mastery Count */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2 }}
-          className="rounded-xl bg-card border p-5 space-y-2"
-        >
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="rounded-xl bg-card border p-5 space-y-2">
           <BookOpen className="h-5 w-5 text-success mb-1" />
           <p className="text-4xl font-serif">{stats.learnedSections}</p>
           <p className="text-sm text-muted-foreground">Naučene cjeline</p>
@@ -192,13 +270,85 @@ export default function Dashboard({ stats, categoryStats, categories, subcategor
         </motion.div>
       </div>
 
+      {/* Ideal Focus Today */}
+      {stats.totalSections > 0 && (
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }}
+          className="rounded-xl bg-card border p-5 space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Gauge className="h-4 w-4 text-primary" />
+              <h3 className="text-sm font-medium">Idealni fokus danas</h3>
+            </div>
+            <span className="text-xs text-muted-foreground">Progres: {focusRatio.progress}%</span>
+          </div>
+
+          {/* Dual progress bar */}
+          <div className="space-y-2">
+            <div className="flex h-6 rounded-lg overflow-hidden bg-secondary">
+              <motion.div
+                initial={{ width: 0 }}
+                animate={{ width: `${focusRatio.targetReviewPct}%` }}
+                transition={{ duration: 0.8, ease: "easeOut" }}
+                className="bg-primary flex items-center justify-center"
+              >
+                {focusRatio.targetReviewPct >= 15 && (
+                  <span className="text-[10px] font-bold text-primary-foreground">Ponavljanje {focusRatio.targetReviewPct}%</span>
+                )}
+              </motion.div>
+              <motion.div
+                initial={{ width: 0 }}
+                animate={{ width: `${focusRatio.targetNewPct}%` }}
+                transition={{ duration: 0.8, ease: "easeOut", delay: 0.1 }}
+                className="bg-success flex items-center justify-center"
+              >
+                {focusRatio.targetNewPct >= 15 && (
+                  <span className="text-[10px] font-bold text-success-foreground">Novo {focusRatio.targetNewPct}%</span>
+                )}
+              </motion.div>
+            </div>
+
+            {/* Actual ratio comparison */}
+            {actualRatio.totalToday > 0 && (
+              <div className="space-y-1">
+                <div className="flex items-center justify-between text-xs text-muted-foreground">
+                  <span>Stvarni omjer danas</span>
+                  <span className="tabular-nums">{actualRatio.reviewCount} pon. / {actualRatio.newCount} novo</span>
+                </div>
+                <div className="flex h-3 rounded-md overflow-hidden bg-secondary">
+                  <div className="bg-primary/60 transition-all" style={{ width: `${actualRatio.actualReviewPct}%` }} />
+                  <div className="bg-success/60 transition-all" style={{ width: `${actualRatio.actualNewPct}%` }} />
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Auto-suggestion */}
+          {autoSuggestion && (
+            <p className="text-xs text-muted-foreground">
+              💡 Preporučeni cilj: <span className="font-medium text-foreground">{autoSuggestion.reviewTarget}</span> ponavljanja + <span className="font-medium text-foreground">{autoSuggestion.newTarget}</span> novih od ukupno {dailyGoal}.
+            </p>
+          )}
+        </motion.div>
+      )}
+
+      {/* Memory Safety Warning */}
+      {showMemoryWarning && (
+        <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ type: "spring", stiffness: 300, damping: 20 }}
+          className="flex items-start gap-3 p-4 rounded-xl border border-destructive/30 bg-destructive/5">
+          <ShieldAlert className="h-5 w-5 text-destructive flex-shrink-0 mt-0.5" />
+          <div>
+            <p className="text-sm font-medium text-destructive">Rizik od zagušenja memorije</p>
+            <p className="text-xs text-muted-foreground mt-1">
+              Tvoj progres ({focusRatio.progress}%) zahtijeva ~{focusRatio.targetReviewPct}% fokusa na ponavljanje, ali danas je samo {actualRatio.actualReviewPct}% usmjereno na to.
+              Povećaj ponavljanje kako bi zadržao naučeno.
+            </p>
+          </div>
+        </motion.div>
+      )}
+
       {/* Daily Goal Progress */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.3 }}
-        className="rounded-xl bg-card border p-5 space-y-3"
-      >
+      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}
+        className="rounded-xl bg-card border p-5 space-y-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Target className="h-4 w-4 text-primary" />
@@ -206,35 +356,56 @@ export default function Dashboard({ stats, categoryStats, categories, subcategor
           </div>
           <div className="flex items-center gap-3">
             {streak > 0 && (
-              <motion.div
-                initial={{ scale: 0, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
+              <motion.div initial={{ scale: 0, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
                 transition={{ type: "spring", stiffness: 400, damping: 15, delay: 0.5 }}
-                className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-warning/10 border border-warning/20"
-              >
-                <motion.span
-                  animate={{ scale: [1, 1.2, 1] }}
-                  transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }}
-                  className="text-sm"
-                >
-                  🔥
-                </motion.span>
-                <span className="text-xs font-bold text-warning tabular-nums">{streak} {streak === 1 ? "dan" : streak < 5 ? "dana" : "dana"}</span>
+                className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-warning/10 border border-warning/20">
+                <motion.span animate={{ scale: [1, 1.2, 1] }} transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }} className="text-sm">🔥</motion.span>
+                <span className="text-xs font-bold text-warning tabular-nums">{streak} {streak === 1 ? "dan" : "dana"}</span>
               </motion.div>
             )}
             <span className="text-sm font-medium tabular-nums">{todayReviews} / {dailyGoal}</span>
           </div>
         </div>
         <Progress value={goalProgress} className="h-2.5" />
-        {goalProgress >= 100 && (
-          <p className="text-xs text-success font-medium">✓ Cilj ostvaren! 🎉</p>
-        )}
+        {goalProgress >= 100 && <p className="text-xs text-success font-medium">✓ Cilj ostvaren! 🎉</p>}
         {diaryGoal && (
           <div className="pt-1 border-t">
             <p className="text-xs text-muted-foreground">📝 {diaryGoal}</p>
           </div>
         )}
       </motion.div>
+
+      {/* Actual vs Ideal Ratio Chart (14 days) */}
+      {ratioHistory.some(d => d["Stvarni ponavljanje"] !== null) && (
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }}
+          className="rounded-xl bg-card border p-5 space-y-4">
+          <div className="flex items-center gap-2">
+            <TrendingUp className="h-4 w-4 text-primary" />
+            <h3 className="font-serif text-lg">Omjer ponavljanja (14 dana)</h3>
+          </div>
+          <div className="h-[180px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={ratioHistory}>
+                <defs>
+                  <linearGradient id="gradActual" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3} />
+                    <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <XAxis dataKey="name" tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} domain={[0, 100]} unit="%" />
+                <Tooltip content={<ChartTooltip />} />
+                <ReferenceLine y={focusRatio.targetReviewPct} stroke="hsl(var(--destructive))" strokeDasharray="6 3" strokeWidth={1.5} label={{ value: `Cilj ${focusRatio.targetReviewPct}%`, position: "right", fontSize: 10, fill: "hsl(var(--destructive))" }} />
+                <Area type="monotone" dataKey="Stvarni ponavljanje" stroke="hsl(var(--primary))" fill="url(#gradActual)" strokeWidth={2} connectNulls />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+          <div className="flex gap-4 justify-center text-xs text-muted-foreground">
+            <span className="flex items-center gap-1.5"><span className="w-3 h-1 rounded-full bg-primary" /> Stvarni % ponavljanja</span>
+            <span className="flex items-center gap-1.5"><span className="w-3 h-0.5 rounded-full bg-destructive" style={{ borderTop: "2px dashed" }} /> Idealni cilj</span>
+          </div>
+        </motion.div>
+      )}
 
       {/* Pomodoro Timer */}
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}>
@@ -276,17 +447,6 @@ export default function Dashboard({ stats, categoryStats, categories, subcategor
             </motion.div>
           )}
         </div>
-      )}
-
-      {/* Half-and-Half Warning */}
-      {stats.due > 50 && (
-        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="flex items-center gap-3 p-4 rounded-xl border border-warning/30 bg-warning/5">
-          <AlertTriangle className="h-5 w-5 text-warning flex-shrink-0" />
-          <div className="flex-1">
-            <p className="text-sm font-medium">Pola-Pola strategija</p>
-            <p className="text-xs text-muted-foreground">Imate {stats.due} dospjelih pitanja. Prioritetno očistite backlog prije učenja novog materijala.</p>
-          </div>
-        </motion.div>
       )}
     </div>
   );
