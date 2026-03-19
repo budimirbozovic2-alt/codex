@@ -1,7 +1,8 @@
 import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import { Card, getCardScore, getDueCards } from "@/lib/spaced-repetition";
-import { LearnMode, LearnCardProgress, loadLearnProgress, saveLearnProgress } from "@/lib/storage";
+import { LearnMode, LearnCardProgress, loadLearnProgress, saveLearnProgress, loadReviewLog } from "@/lib/storage";
 import { addActivityEntry } from "@/lib/metacognitive-storage";
+import { ShieldAlert } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ArrowLeft, ArrowRight, ChevronRight, BookOpen, Check, Eye, TrendingDown,
