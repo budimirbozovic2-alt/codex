@@ -1,5 +1,3 @@
-import { useMemo } from "react";
-import { motion } from "framer-motion";
 import { AlertTriangle, Shield, Zap, ArrowRightLeft, HeartPulse, Brain, TrendingUp, Eye, Wrench } from "lucide-react";
 import { Card } from "@/lib/spaced-repetition";
 import { ReviewLogEntry } from "@/lib/storage";
@@ -14,6 +12,7 @@ import {
   calcWeakHooks,
 } from "@/lib/cognitive-analytics";
 import { loadPlanner } from "@/lib/planner-storage";
+import LazyChart from "@/components/LazyChart";
 
 interface Props {
   cards: Card[];
@@ -23,41 +22,21 @@ interface Props {
 }
 
 export default function CognitiveAnalytics({ cards, categories, reviewLog, onSendToWorkshop }: Props) {
-  const interferencePairs = useMemo(() => calcInterferencePairs(cards), [cards]);
-  const planner = useMemo(() => loadPlanner(), []);
-  const stabilityData = useMemo(() => calcCategoryStability(cards, categories, planner.finalGoalDate), [cards, categories, planner]);
-  const stressPerf = useMemo(() => calcStressPerformance(reviewLog), [reviewLog]);
-  const friction = useMemo(() => calcFrictionAnalysis(reviewLog), [reviewLog]);
-  const recovery = useMemo(() => calcRecoveryRate(), []);
-  const blindSpots = useMemo(() => calcBlindSpots(cards), [cards]);
-  const weakHooks = useMemo(() => calcWeakHooks(), []);
-
-  const hasCriticalZones = stabilityData.some(s => s.criticalSections > 0);
-  const hasAnyData = interferencePairs.length > 0 || stabilityData.length > 0 || stressPerf || friction.transitions.length > 0 || recovery || blindSpots.length > 0 || weakHooks.length > 0;
-
-  if (!hasAnyData) {
-    return (
-      <div className="rounded-xl border bg-card p-8 text-center space-y-2">
-        <Brain className="h-8 w-8 text-muted-foreground mx-auto" />
-        <p className="text-sm text-muted-foreground">Nedovoljno podataka za kognitivnu analitiku. Nastavi sa učenjem!</p>
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-6">
       {/* 1. Interference Index */}
-      {interferencePairs.length > 0 && (
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
-          className="rounded-xl bg-card border p-5 space-y-4">
-          <div className="flex items-center gap-2">
-            <AlertTriangle className="h-4 w-4 text-warning" />
-            <h3 className="font-serif text-lg">Indeks interferencije</h3>
-          </div>
-          <p className="text-xs text-muted-foreground">Parovi kartica sa sličnim greškama — potrebno razgraničenje pojmova.</p>
-
+      <LazyChart
+        label="Indeks interferencije"
+        icon={<AlertTriangle className="h-4 w-4 text-warning" />}
+        compute={() => calcInterferencePairs(cards)}
+        delay={0}
+      >
+        {(pairs) => pairs.length === 0 ? (
+          <p className="text-sm text-muted-foreground text-center py-4">Nema detektovanih interferencija.</p>
+        ) : (
           <div className="space-y-3">
-            {interferencePairs.map((pair, i) => (
+            <p className="text-xs text-muted-foreground">Parovi kartica sa sličnim greškama — potrebno razgraničenje pojmova.</p>
+            {pairs.map((pair, i) => (
               <div key={i} className="p-3 rounded-lg border border-warning/20 bg-warning/5 space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="text-[10px] font-bold uppercase tracking-wider text-warning">Interferentni par</span>
@@ -81,20 +60,24 @@ export default function CognitiveAnalytics({ cards, categories, reviewLog, onSen
               </div>
             ))}
           </div>
-        </motion.div>
-      )}
+        )}
+      </LazyChart>
 
-      {/* 2. Memory Stability Score */}
-      {stabilityData.length > 0 && (
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
-          className="rounded-xl bg-card border p-5 space-y-4">
-          <div className="flex items-center gap-2">
-            <Shield className="h-4 w-4 text-primary" />
-            <h3 className="font-serif text-lg">Stabilnost memorije</h3>
-          </div>
-          <p className="text-xs text-muted-foreground">Procijenjeno vrijeme do zaborava po kategoriji.</p>
-
+      {/* 2. Memory Stability */}
+      <LazyChart
+        label="Stabilnost memorije"
+        icon={<Shield className="h-4 w-4 text-primary" />}
+        compute={() => {
+          const planner = loadPlanner();
+          return calcCategoryStability(cards, categories, planner.finalGoalDate);
+        }}
+        delay={1}
+      >
+        {(stabilityData) => stabilityData.length === 0 ? (
+          <p className="text-sm text-muted-foreground text-center py-4">Nedovoljno podataka.</p>
+        ) : (
           <div className="space-y-3">
+            <p className="text-xs text-muted-foreground">Procijenjeno vrijeme do zaborava po kategoriji.</p>
             {stabilityData.sort((a, b) => a.avgStability - b.avgStability).map(cat => {
               const retPct = Math.round(cat.avgRetrievability * 100);
               const stabDays = Math.round(cat.avgStability * 10) / 10;
@@ -113,68 +96,63 @@ export default function CognitiveAnalytics({ cards, categories, reviewLog, onSen
                 </div>
               );
             })}
+            {stabilityData.some(s => s.criticalSections > 0) && (
+              <div className="p-3 rounded-lg border border-destructive/20 bg-destructive/5">
+                <p className="text-xs font-medium text-destructive">Kritične zone</p>
+                <p className="text-[10px] text-muted-foreground mt-0.5">
+                  Informacije označene iznad će biti zaboravljene u sedmici ispita ako ih ne ponoviš ranije.
+                </p>
+              </div>
+            )}
           </div>
+        )}
+      </LazyChart>
 
-          {hasCriticalZones && (
-            <div className="p-3 rounded-lg border border-destructive/20 bg-destructive/5">
-              <p className="text-xs font-medium text-destructive">Kritične zone</p>
-              <p className="text-[10px] text-muted-foreground mt-0.5">
-                Informacije označene iznad će biti zaboravljene u sedmici ispita ako ih ne ponoviš ranije. Fokusiraj se na kategorije sa najnižom stabilnošću.
-              </p>
+      {/* 3. Stress-Performance */}
+      <LazyChart
+        label="Otpornost na stres"
+        icon={<Zap className="h-4 w-4 text-primary" />}
+        compute={() => calcStressPerformance(reviewLog)}
+        delay={2}
+      >
+        {(stressPerf) => !stressPerf ? (
+          <p className="text-sm text-muted-foreground text-center py-4">Nedovoljno podataka.</p>
+        ) : (
+          <div className="space-y-3">
+            <p className="text-xs text-muted-foreground">Usporedba tačnosti u normalnim vs. brzim (stresnim) odgovorima.</p>
+            <div className="grid grid-cols-3 gap-3">
+              <div className="p-3 rounded-lg bg-secondary/50 text-center">
+                <p className="text-2xl font-serif tabular-nums">{stressPerf.normalAvgGrade}</p>
+                <p className="text-[10px] text-muted-foreground mt-0.5">Normalni ({stressPerf.normalCount})</p>
+              </div>
+              <div className="p-3 rounded-lg bg-secondary/50 text-center">
+                <p className="text-2xl font-serif tabular-nums">{stressPerf.stressAvgGrade}</p>
+                <p className="text-[10px] text-muted-foreground mt-0.5">Stresni ({stressPerf.stressCount})</p>
+              </div>
+              <div className="p-3 rounded-lg bg-secondary/50 text-center">
+                <p className={`text-2xl font-serif tabular-nums ${stressPerf.stressResistance >= 70 ? "text-success" : stressPerf.stressResistance >= 40 ? "text-warning" : "text-destructive"}`}>
+                  {stressPerf.stressResistance}%
+                </p>
+                <p className="text-[10px] text-muted-foreground mt-0.5">Otpornost</p>
+              </div>
             </div>
-          )}
-        </motion.div>
-      )}
-
-      {/* 3. Stress-Performance Index */}
-      {stressPerf && (
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}
-          className="rounded-xl bg-card border p-5 space-y-4">
-          <div className="flex items-center gap-2">
-            <Zap className="h-4 w-4 text-primary" />
-            <h3 className="font-serif text-lg">Otpornost na stres</h3>
+            <Progress value={stressPerf.stressResistance} className="h-2" />
           </div>
-          <p className="text-xs text-muted-foreground">Usporedba tačnosti u normalnim vs. brzim (stresnim) odgovorima.</p>
-
-          <div className="grid grid-cols-3 gap-3">
-            <div className="p-3 rounded-lg bg-secondary/50 text-center">
-              <p className="text-2xl font-serif tabular-nums">{stressPerf.normalAvgGrade}</p>
-              <p className="text-[10px] text-muted-foreground mt-0.5">Normalni ({stressPerf.normalCount})</p>
-            </div>
-            <div className="p-3 rounded-lg bg-secondary/50 text-center">
-              <p className="text-2xl font-serif tabular-nums">{stressPerf.stressAvgGrade}</p>
-              <p className="text-[10px] text-muted-foreground mt-0.5">Stresni ({stressPerf.stressCount})</p>
-            </div>
-            <div className="p-3 rounded-lg bg-secondary/50 text-center">
-              <p className={`text-2xl font-serif tabular-nums ${stressPerf.stressResistance >= 70 ? "text-success" : stressPerf.stressResistance >= 40 ? "text-warning" : "text-destructive"}`}>
-                {stressPerf.stressResistance}%
-              </p>
-              <p className="text-[10px] text-muted-foreground mt-0.5">Otpornost</p>
-            </div>
-          </div>
-
-          <Progress value={stressPerf.stressResistance} className="h-2" />
-          <p className="text-xs text-muted-foreground">
-            {stressPerf.stressResistance >= 70
-              ? "Odlična otpornost — tvoje znanje je stabilno pod pritiskom."
-              : stressPerf.stressResistance >= 40
-              ? "Umjerena otpornost — pod pritiskom dolazi do grešaka. Vježbaj aktivno prisjećanje."
-              : "Niska otpornost — znanje se raspada pod pritiskom. Fokus na dublje razumijevanje."}
-          </p>
-        </motion.div>
-      )}
+        )}
+      </LazyChart>
 
       {/* 4. Friction Analysis */}
-      {friction.transitions.length > 0 && (
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}
-          className="rounded-xl bg-card border p-5 space-y-4">
-          <div className="flex items-center gap-2">
-            <ArrowRightLeft className="h-4 w-4 text-primary" />
-            <h3 className="font-serif text-lg">Analiza frikcije</h3>
-          </div>
-          <p className="text-xs text-muted-foreground">Vrijeme tranzicije između predmeta. Spore tranzicije (&gt;10 min) ukazuju na gubitak fokusa.</p>
-
+      <LazyChart
+        label="Analiza frikcije"
+        icon={<ArrowRightLeft className="h-4 w-4 text-primary" />}
+        compute={() => calcFrictionAnalysis(reviewLog)}
+        delay={3}
+      >
+        {(friction) => friction.transitions.length === 0 ? (
+          <p className="text-sm text-muted-foreground text-center py-4">Nedovoljno podataka.</p>
+        ) : (
           <div className="space-y-2">
+            <p className="text-xs text-muted-foreground">Vrijeme tranzicije između predmeta.</p>
             {friction.transitions.slice(0, 6).map((t, i) => (
               <div key={i} className={`flex items-center justify-between p-2.5 rounded-lg text-sm ${t.isSlow ? "border border-warning/20 bg-warning/5" : "bg-secondary/30"}`}>
                 <div className="flex items-center gap-2 min-w-0">
@@ -182,77 +160,69 @@ export default function CognitiveAnalytics({ cards, categories, reviewLog, onSen
                   <span className="text-muted-foreground text-xs">→</span>
                   <span className="truncate text-xs font-medium">{t.toCategory}</span>
                 </div>
-                <div className="flex items-center gap-2 flex-shrink-0">
-                  <span className={`text-xs tabular-nums font-medium ${t.isSlow ? "text-warning" : "text-muted-foreground"}`}>
-                    {t.avgTransitionMinutes} min
-                  </span>
-                  <span className="text-[10px] text-muted-foreground">({t.count}×)</span>
-                </div>
+                <span className={`text-xs tabular-nums font-medium ${t.isSlow ? "text-warning" : "text-muted-foreground"}`}>
+                  {t.avgTransitionMinutes} min
+                </span>
               </div>
             ))}
+            {friction.suggestion && (
+              <div className="p-3 rounded-lg border border-primary/20 bg-primary/5">
+                <p className="text-xs text-muted-foreground">💡 {friction.suggestion}</p>
+              </div>
+            )}
           </div>
-
-          {friction.suggestion && (
-            <div className="p-3 rounded-lg border border-primary/20 bg-primary/5">
-              <p className="text-xs text-muted-foreground">💡 {friction.suggestion}</p>
-            </div>
-          )}
-        </motion.div>
-      )}
+        )}
+      </LazyChart>
 
       {/* 5. Recovery Rate */}
-      {recovery && (
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}
-          className="rounded-xl bg-card border p-5 space-y-4">
-          <div className="flex items-center gap-2">
-            <HeartPulse className="h-4 w-4 text-primary" />
-            <h3 className="font-serif text-lg">Indeks oporavka</h3>
+      <LazyChart
+        label="Indeks oporavka"
+        icon={<HeartPulse className="h-4 w-4 text-primary" />}
+        compute={() => calcRecoveryRate()}
+        delay={4}
+      >
+        {(recovery) => !recovery ? (
+          <p className="text-sm text-muted-foreground text-center py-4">Nedovoljno podataka.</p>
+        ) : (
+          <div className="space-y-3">
+            <p className="text-xs text-muted-foreground">Koliko brzo se vraćaš na "Vrijedan" nakon "Lijen" dana.</p>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div className="p-3 rounded-lg bg-secondary/50 text-center">
+                <p className={`text-2xl font-serif tabular-nums ${recovery.recoveryIndex >= 70 ? "text-success" : recovery.recoveryIndex >= 40 ? "text-warning" : "text-destructive"}`}>
+                  {recovery.recoveryIndex}
+                </p>
+                <p className="text-[10px] text-muted-foreground mt-0.5">Indeks</p>
+              </div>
+              <div className="p-3 rounded-lg bg-secondary/50 text-center">
+                <p className="text-2xl font-serif tabular-nums">{recovery.avgRecoveryDays}</p>
+                <p className="text-[10px] text-muted-foreground mt-0.5">Prosjek dana</p>
+              </div>
+              <div className="p-3 rounded-lg bg-secondary/50 text-center">
+                <p className="text-2xl font-serif tabular-nums text-success">{recovery.fastRecoveries}</p>
+                <p className="text-[10px] text-muted-foreground mt-0.5">Brzi (≤1d)</p>
+              </div>
+              <div className="p-3 rounded-lg bg-secondary/50 text-center">
+                <p className="text-2xl font-serif tabular-nums text-destructive">{recovery.slowRecoveries}</p>
+                <p className="text-[10px] text-muted-foreground mt-0.5">Spori (≥3d)</p>
+              </div>
+            </div>
+            <Progress value={recovery.recoveryIndex} className="h-2" />
           </div>
-          <p className="text-xs text-muted-foreground">Koliko brzo se vraćaš na "Vrijedan" (🚀) nakon "Lijen" (🐢) dana.</p>
+        )}
+      </LazyChart>
 
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <div className="p-3 rounded-lg bg-secondary/50 text-center">
-              <p className={`text-2xl font-serif tabular-nums ${recovery.recoveryIndex >= 70 ? "text-success" : recovery.recoveryIndex >= 40 ? "text-warning" : "text-destructive"}`}>
-                {recovery.recoveryIndex}
-              </p>
-              <p className="text-[10px] text-muted-foreground mt-0.5">Indeks</p>
-            </div>
-            <div className="p-3 rounded-lg bg-secondary/50 text-center">
-              <p className="text-2xl font-serif tabular-nums">{recovery.avgRecoveryDays}</p>
-              <p className="text-[10px] text-muted-foreground mt-0.5">Prosjek dana</p>
-            </div>
-            <div className="p-3 rounded-lg bg-secondary/50 text-center">
-              <p className="text-2xl font-serif tabular-nums text-success">{recovery.fastRecoveries}</p>
-              <p className="text-[10px] text-muted-foreground mt-0.5">Brzi (≤1d)</p>
-            </div>
-            <div className="p-3 rounded-lg bg-secondary/50 text-center">
-              <p className="text-2xl font-serif tabular-nums text-destructive">{recovery.slowRecoveries}</p>
-              <p className="text-[10px] text-muted-foreground mt-0.5">Spori (≥3d)</p>
-            </div>
-          </div>
-
-          <Progress value={recovery.recoveryIndex} className="h-2" />
-          <p className="text-xs text-muted-foreground">
-            {recovery.recoveryIndex >= 70
-              ? "Visoka psihološka snaga — brzo se oporavljaš od neproduktivnih dana."
-              : recovery.recoveryIndex >= 40
-              ? "Umjerena dosljednost — ponekad se teško vraćaš na ritam."
-              : "Niska dosljednost — radi na postavljanju malih ciljeva za sutradan kada imaš lošiji dan."}
-          </p>
-        </motion.div>
-      )}
-
-      {/* 6. Blind Spot Detector */}
-      {blindSpots.length > 0 && (
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }}
-          className="rounded-xl bg-card border p-5 space-y-4">
-          <div className="flex items-center gap-2">
-            <Eye className="h-4 w-4 text-destructive" />
-            <h3 className="font-serif text-lg">Slijepe tačke</h3>
-          </div>
-          <p className="text-xs text-muted-foreground">Kartice gdje je sigurnost bila visoka (4-5), ali rezultat loš (1-2). Iluzija znanja — prioritet za ponavljanje.</p>
-
+      {/* 6. Blind Spots */}
+      <LazyChart
+        label="Slijepe tačke"
+        icon={<Eye className="h-4 w-4 text-destructive" />}
+        compute={() => calcBlindSpots(cards)}
+        delay={5}
+      >
+        {(blindSpots) => blindSpots.length === 0 ? (
+          <p className="text-sm text-muted-foreground text-center py-4">Nema detektovanih slijepih tačaka.</p>
+        ) : (
           <div className="space-y-2">
+            <p className="text-xs text-muted-foreground">Kartice sa visokom sigurnošću, ali lošim rezultatom — iluzija znanja.</p>
             {blindSpots.slice(0, 8).map((spot, i) => (
               <div key={i} className="p-3 rounded-lg border border-destructive/20 bg-destructive/5 space-y-1">
                 <div className="flex items-center justify-between">
@@ -267,27 +237,21 @@ export default function CognitiveAnalytics({ cards, categories, reviewLog, onSen
               </div>
             ))}
           </div>
+        )}
+      </LazyChart>
 
-          <div className="p-3 rounded-lg border border-destructive/20 bg-destructive/5">
-            <p className="text-xs font-medium text-destructive">⚠ Preporuka</p>
-            <p className="text-[10px] text-muted-foreground mt-0.5">
-              Ove kartice zahtijevaju Feynman provjeru — objasni gradivo naglas bez gledanja. Forsiraj ih kroz mod "Testiranje kuka".
-            </p>
-          </div>
-        </motion.div>
-      )}
-
-      {/* 7. Hook Quality Auditor */}
-      {weakHooks.length > 0 && (
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.6 }}
-          className="rounded-xl bg-card border p-5 space-y-4">
-          <div className="flex items-center gap-2">
-            <Wrench className="h-4 w-4 text-warning" />
-            <h3 className="font-serif text-lg">Slabe kuke</h3>
-          </div>
-          <p className="text-xs text-muted-foreground">Kartice sa iskovanih kukama, ali latencijom prisjećanja &gt;3 sekunde. Kuke treba ojačati.</p>
-
+      {/* 7. Weak Hooks */}
+      <LazyChart
+        label="Slabe kuke"
+        icon={<Wrench className="h-4 w-4 text-warning" />}
+        compute={() => calcWeakHooks()}
+        delay={6}
+      >
+        {(weakHooks) => weakHooks.length === 0 ? (
+          <p className="text-sm text-muted-foreground text-center py-4">Nema slabih kuka.</p>
+        ) : (
           <div className="space-y-2">
+            <p className="text-xs text-muted-foreground">Kartice sa kukama, ali sporim prisjećanjem (&gt;3s).</p>
             {weakHooks.map((hook, i) => (
               <div key={i} className="flex items-center justify-between p-3 rounded-lg border border-warning/20 bg-warning/5">
                 <div className="min-w-0 flex-1">
@@ -305,8 +269,8 @@ export default function CognitiveAnalytics({ cards, categories, reviewLog, onSen
               </div>
             ))}
           </div>
-        </motion.div>
-      )}
+        )}
+      </LazyChart>
     </div>
   );
 }

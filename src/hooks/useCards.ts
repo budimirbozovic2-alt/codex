@@ -10,8 +10,25 @@ import {
   idbLoadSettings, idbSaveSettings,
 } from "@/lib/db";
 
+// ─── Internal Map type for O(1) access ──────────────────
+type CardMap = Record<string, Card>;
+
+function arrayToMap(cards: Card[]): CardMap {
+  const map: CardMap = {};
+  for (const c of cards) map[c.id] = c;
+  return map;
+}
+
+function mapToArray(map: CardMap): Card[] {
+  return Object.values(map);
+}
+
+function persistCards(map: CardMap) {
+  idbSaveCards(mapToArray(map));
+}
+
 export function useCards() {
-  const [cards, setCardsState] = useState<Card[]>([]);
+  const [cardMap, setCardMapState] = useState<CardMap>({});
   const [categories, setCategoriesState] = useState<string[]>(["Opšte"]);
   const [subcategories, setSubcategoriesState] = useState<Record<string, string[]>>({});
   const [reviewLog, setReviewLogState] = useState<ReviewLogEntry[]>([]);
@@ -33,7 +50,7 @@ export function useCards() {
         idbLoadReviewLog(),
         idbLoadSettings<SRSettings>("srSettings", DEFAULT_SR_SETTINGS),
       ]);
-      setCardsState(c);
+      setCardMapState(arrayToMap(c));
       setCategoriesState(cats);
       setSubcategoriesState(subs);
       setReviewLogState(log);
@@ -42,14 +59,26 @@ export function useCards() {
     })();
   }, []);
 
-  // ── Helpers: update state + persist async ──
-  const setCards = useCallback((updater: (prev: Card[]) => Card[]) => {
-    setCardsState(prev => {
+  // ── Derived: Card[] for consumers (memoized from map) ──
+  const cards = useMemo(() => mapToArray(cardMap), [cardMap]);
+
+  // ── Helpers: update map + persist async ──
+  const setCardMap = useCallback((updater: (prev: CardMap) => CardMap) => {
+    setCardMapState(prev => {
       const next = updater(prev);
-      idbSaveCards(next); // fire-and-forget async persist
+      persistCards(next);
       return next;
     });
   }, []);
+
+  // O(1) update a single card by ID
+  const patchCard = useCallback((id: string, patcher: (card: Card) => Card) => {
+    setCardMap(prev => {
+      const card = prev[id];
+      if (!card) return prev;
+      return { ...prev, [id]: patcher(card) };
+    });
+  }, [setCardMap]);
 
   const setCategories = useCallback((updater: (prev: string[]) => string[]) => {
     setCategoriesState(prev => {
@@ -79,25 +108,25 @@ export function useCards() {
 
   const addCard = useCallback((question: string, sections: { title: string; content: string }[], category: string, subcategory?: string) => {
     const card = createCard(question, sections, category, subcategory);
-    setCards(prev => [...prev, card]);
+    setCardMap(prev => ({ ...prev, [card.id]: card }));
     if (!categories.includes(category)) {
       setCategories(prev => [...prev, category]);
     }
     return card;
-  }, [categories, setCards, setCategories]);
+  }, [categories, setCardMap, setCategories]);
 
   const addFlashCard = useCallback((question: string, answer: string, category: string, subcategory?: string) => {
     const card = createFlashCard(question, answer, category, subcategory);
-    setCards(prev => [...prev, card]);
+    setCardMap(prev => ({ ...prev, [card.id]: card }));
     if (!categories.includes(category)) {
       setCategories(prev => [...prev, category]);
     }
     return card;
-  }, [categories, setCards, setCategories]);
+  }, [categories, setCardMap, setCategories]);
 
+  // O(1) direct update
   const updateCard = useCallback((id: string, updates: { question?: string; sections?: { title: string; content: string }[]; category?: string; subcategory?: string }) => {
-    setCards(prev => prev.map(c => {
-      if (c.id !== id) return c;
+    patchCard(id, c => {
       const newCard = { ...c };
       if (updates.question) newCard.question = updates.question;
       if (updates.category) newCard.category = updates.category;
@@ -110,47 +139,53 @@ export function useCards() {
         });
       }
       return newCard;
-    }));
-  }, [setCards]);
+    });
+  }, [patchCard]);
 
+  // O(1) delete
   const deleteCard = useCallback((id: string) => {
-    setCards(prev => prev.filter(c => c.id !== id));
-  }, [setCards]);
+    setCardMap(prev => {
+      const next = { ...prev };
+      delete next[id];
+      return next;
+    });
+  }, [setCardMap]);
 
+  // O(1) review
   const reviewSection = useCallback((cardId: string, sectionId: string, grade: number) => {
-    setCards(prev =>
-      prev.map(c => {
-        if (c.id !== cardId) return c;
-        const entry: ReviewLogEntry = { timestamp: Date.now(), cardId, sectionId, grade, category: c.category };
-        idbAddReviewLogEntry(entry);
-        setReviewLog(log => [...log, entry]);
+    patchCard(cardId, c => {
+      const entry: ReviewLogEntry = { timestamp: Date.now(), cardId, sectionId, grade, category: c.category };
+      idbAddReviewLogEntry(entry);
+      setReviewLog(log => [...log, entry]);
 
-        let errorLog = c.errorLog;
-        if (errorLog && errorLog.length > 0 && grade >= 3) {
-          errorLog = errorLog.map(e => ({ ...e, recentSuccesses: (e.recentSuccesses || 0) + 1, successStreak: (e.successStreak || 0) + 1 }));
-        } else if (errorLog && errorLog.length > 0 && grade === 1) {
-          errorLog = errorLog.map(e => ({ ...e, successStreak: 0 }));
-        }
+      let errorLog = c.errorLog;
+      if (errorLog && errorLog.length > 0 && grade >= 3) {
+        errorLog = errorLog.map(e => ({ ...e, recentSuccesses: (e.recentSuccesses || 0) + 1, successStreak: (e.successStreak || 0) + 1 }));
+      } else if (errorLog && errorLog.length > 0 && grade === 1) {
+        errorLog = errorLog.map(e => ({ ...e, successStreak: 0 }));
+      }
 
-        return {
-          ...c,
-          ...(errorLog ? { errorLog } : {}),
-          sections: c.sections.map(s => s.id !== sectionId ? s : { ...s, ...calculateNextReview(s, grade) }),
-        };
-      })
-    );
-  }, [setCards, setReviewLog]);
+      return {
+        ...c,
+        ...(errorLog ? { errorLog } : {}),
+        sections: c.sections.map(s => s.id !== sectionId ? s : { ...s, ...calculateNextReview(s, grade) }),
+      };
+    });
+  }, [patchCard, setReviewLog]);
 
   const splitCard = useCallback((id: string) => {
-    setCards(prev => {
-      const card = prev.find(c => c.id === id);
+    setCardMap(prev => {
+      const card = prev[id];
       if (!card || card.sections.length <= 1) return prev;
-      const newCards = card.sections.map(section =>
-        ({ ...createCard(card.question, [{ title: section.title, content: section.content }], card.category, card.subcategory), sections: [{ ...section }] })
-      );
-      return [...prev.filter(c => c.id !== id), ...newCards];
+      const next = { ...prev };
+      delete next[id];
+      card.sections.forEach(section => {
+        const newCard = { ...createCard(card.question, [{ title: section.title, content: section.content }], card.category, card.subcategory), sections: [{ ...section }] };
+        next[newCard.id] = newCard;
+      });
+      return next;
     });
-  }, [setCards]);
+  }, [setCardMap]);
 
   const addCategory = useCallback((name: string) => {
     if (!categories.includes(name)) setCategories(prev => [...prev, name]);
@@ -159,19 +194,31 @@ export function useCards() {
   const renameCategory = useCallback((oldName: string, newName: string) => {
     if (categories.includes(newName)) return;
     setCategories(prev => prev.map(c => c === oldName ? newName : c));
-    setCards(prev => prev.map(c => c.category === oldName ? { ...c, category: newName } : c));
+    setCardMap(prev => {
+      const next: CardMap = {};
+      for (const [id, c] of Object.entries(prev)) {
+        next[id] = c.category === oldName ? { ...c, category: newName } : c;
+      }
+      return next;
+    });
     setSubcategories(prev => {
       const next = { ...prev };
       if (next[oldName]) { next[newName] = next[oldName]; delete next[oldName]; }
       return next;
     });
-  }, [categories, setCategories, setCards, setSubcategories]);
+  }, [categories, setCategories, setCardMap, setSubcategories]);
 
   const deleteCategory = useCallback((name: string) => {
     setCategories(prev => prev.filter(c => c !== name));
-    setCards(prev => prev.map(c => c.category === name ? { ...c, category: "Opšte", subcategory: "" } : c));
+    setCardMap(prev => {
+      const next: CardMap = {};
+      for (const [id, c] of Object.entries(prev)) {
+        next[id] = c.category === name ? { ...c, category: "Opšte", subcategory: "" } : c;
+      }
+      return next;
+    });
     setSubcategories(prev => { const next = { ...prev }; delete next[name]; return next; });
-  }, [setCategories, setCards, setSubcategories]);
+  }, [setCategories, setCardMap, setSubcategories]);
 
   const addSubcategory = useCallback((category: string, subcategory: string) => {
     setSubcategories(prev => {
@@ -187,33 +234,52 @@ export function useCards() {
       if (list.includes(newName)) return prev;
       return { ...prev, [category]: list.map(s => s === oldName ? newName : s) };
     });
-    setCards(prev => prev.map(c => c.category === category && c.subcategory === oldName ? { ...c, subcategory: newName } : c));
-  }, [setSubcategories, setCards]);
+    setCardMap(prev => {
+      const next: CardMap = {};
+      for (const [id, c] of Object.entries(prev)) {
+        next[id] = c.category === category && c.subcategory === oldName ? { ...c, subcategory: newName } : c;
+      }
+      return next;
+    });
+  }, [setSubcategories, setCardMap]);
 
   const deleteSubcategory = useCallback((category: string, subcategory: string) => {
     setSubcategories(prev => ({ ...prev, [category]: (prev[category] || []).filter(s => s !== subcategory) }));
-    setCards(prev => prev.map(c => c.category === category && c.subcategory === subcategory ? { ...c, subcategory: "" } : c));
-  }, [setSubcategories, setCards]);
+    setCardMap(prev => {
+      const next: CardMap = {};
+      for (const [id, c] of Object.entries(prev)) {
+        next[id] = c.category === category && c.subcategory === subcategory ? { ...c, subcategory: "" } : c;
+      }
+      return next;
+    });
+  }, [setSubcategories, setCardMap]);
 
+  // O(1) markRead
   const markRead = useCallback((id: string) => {
-    setCards(prev => prev.map(c => c.id === id ? { ...c, readCount: (c.readCount || 0) + 1 } : c));
-  }, [setCards]);
+    patchCard(id, c => ({ ...c, readCount: (c.readCount || 0) + 1 }));
+  }, [patchCard]);
 
   const bulkUpdateSubcategory = useCallback((ids: string[], subcategory: string) => {
-    setCards(prev => prev.map(c => ids.includes(c.id) ? { ...c, subcategory } : c));
-  }, [setCards]);
+    setCardMap(prev => {
+      const next = { ...prev };
+      for (const id of ids) {
+        if (next[id]) next[id] = { ...next[id], subcategory };
+      }
+      return next;
+    });
+  }, [setCardMap]);
 
+  // O(1) toggleTag
   const toggleTag = useCallback((cardId: string, tag: string) => {
-    setCards(prev => prev.map(c => {
-      if (c.id !== cardId) return c;
+    patchCard(cardId, c => {
       const tags = c.tags || [];
       return { ...c, tags: tags.includes(tag) ? tags.filter(t => t !== tag) : [...tags, tag] };
-    }));
-  }, [setCards]);
+    });
+  }, [patchCard]);
 
+  // O(1) logError
   const logError = useCallback((cardId: string, text: string) => {
-    setCards(prev => prev.map(c => {
-      if (c.id !== cardId) return c;
+    patchCard(cardId, c => {
       const errorLog = [...(c.errorLog || [])];
       const existing = errorLog.find(e => e.text === text);
       if (existing) {
@@ -225,12 +291,13 @@ export function useCards() {
       }
       const sections = c.sections.map(s => ({ ...s, difficulty: Math.min(10, s.difficulty + 0.5), stability: Math.max(0.1, s.stability * 0.85) }));
       return { ...c, errorLog, sections };
-    }));
-  }, [setCards]);
+    });
+  }, [patchCard]);
 
+  // O(1) clearErrorLog
   const clearErrorLog = useCallback((cardId: string) => {
-    setCards(prev => prev.map(c => c.id !== cardId ? c : { ...c, errorLog: [] }));
-  }, [setCards]);
+    patchCard(cardId, c => ({ ...c, errorLog: [] }));
+  }, [patchCard]);
 
   const downloadJson = useCallback((data: object, filename: string) => {
     const json = JSON.stringify(data, null, 2);
@@ -263,7 +330,7 @@ export function useCards() {
       try {
         const parsed = JSON.parse(e.target?.result as string);
         if (Array.isArray(parsed.cards)) {
-          const migrateImported = (c: any) => ({
+          const migrateImported = (c: any): Card => ({
             ...c, readCount: c.readCount || 0, type: c.type || "essay", subcategory: c.subcategory || "",
             tags: c.tags || [], errorLog: c.errorLog || [],
             sections: (c.sections || []).map((s: any) => ({
@@ -275,28 +342,21 @@ export function useCards() {
           });
 
           const importedCards: Card[] = parsed.cards.map(migrateImported);
-          setCards(prev => {
-            const existingMap = new Map(prev.map(c => [c.id, c]));
-            let merged: Card[];
+          setCardMap(prev => {
+            const next = { ...prev };
             if (strategy === "newer") {
               const getLastReview = (c: Card) => Math.max(0, ...c.sections.map(s => s.lastReviewed || 0));
-              merged = [...prev];
               importedCards.forEach(ic => {
-                const existing = existingMap.get(ic.id);
-                if (!existing) { merged.push(ic); }
-                else if (getLastReview(ic) > getLastReview(existing)) {
-                  merged = merged.map(c => c.id === ic.id ? ic : c);
-                }
+                const existing = next[ic.id];
+                if (!existing) { next[ic.id] = ic; }
+                else if (getLastReview(ic) > getLastReview(existing)) { next[ic.id] = ic; }
               });
             } else if (strategy === "overwrite") {
-              const importedMap = new Map(importedCards.map(c => [c.id, c] as [string, Card]));
-              merged = prev.map(c => importedMap.has(c.id) ? importedMap.get(c.id)! : c);
-              importedCards.forEach(c => { if (!existingMap.has(c.id)) merged.push(c); });
+              importedCards.forEach(ic => { next[ic.id] = ic; });
             } else {
-              merged = [...prev];
-              importedCards.forEach(c => { if (!existingMap.has(c.id)) merged.push(c); });
+              importedCards.forEach(ic => { if (!next[ic.id]) next[ic.id] = ic; });
             }
-            return merged;
+            return next;
           });
         }
         if (Array.isArray(parsed.categories)) {
@@ -322,13 +382,17 @@ export function useCards() {
       }
     };
     reader.readAsText(file);
-  }, [setCards, setCategories, setSubcategories, updateSRSettings]);
+  }, [setCardMap, setCategories, setSubcategories, updateSRSettings]);
 
   const importCards = useCallback((newCards: { question: string; sections: { title: string; content: string }[] }[], category: string) => {
     const created = newCards.map(c => createCard(c.question, c.sections, category));
-    setCards(prev => [...prev, ...created]);
+    setCardMap(prev => {
+      const next = { ...prev };
+      created.forEach(c => { next[c.id] = c; });
+      return next;
+    });
     if (!categories.includes(category)) setCategories(prev => [...prev, category]);
-  }, [categories, setCards, setCategories]);
+  }, [categories, setCardMap, setCategories]);
 
   // ── Derived data ──
   const cardCountByCategory = useMemo(() => {
@@ -338,9 +402,12 @@ export function useCards() {
     return counts;
   }, [cards, categories]);
 
-  const dueCards = getDueCards(cards);
-  const stats = getStats(cards);
-  const categoryStats = Object.fromEntries(categories.map(cat => [cat, getCategoryStats(cards, cat)]));
+  const dueCards = useMemo(() => getDueCards(cards), [cards]);
+  const stats = useMemo(() => getStats(cards), [cards]);
+  const categoryStats = useMemo(() =>
+    Object.fromEntries(categories.map(cat => [cat, getCategoryStats(cards, cat)])),
+    [cards, categories]
+  );
 
   return {
     cards, categories, subcategories, dueCards, stats, categoryStats, cardCountByCategory, reviewLog, srSettings, ready,
