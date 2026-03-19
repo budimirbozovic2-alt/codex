@@ -1,5 +1,6 @@
 import { useState, useMemo, memo, lazy, Suspense } from "react";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { ChartTooltip } from "@/components/ui/chart-tooltip";
 import { motion } from "framer-motion";
 import { ArrowLeft, LayoutGrid, TrendingUp, Brain, Layers, Target, Award, Microscope, ChevronRight } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -40,20 +41,6 @@ const MASTERY_COLORS = [
   "hsl(var(--success))",
 ];
 
-const CustomTooltip = ({ active, payload, label }: any) => {
-  if (!active || !payload?.length) return null;
-  return (
-    <div className="rounded-lg border bg-card px-3 py-2 shadow-md text-sm">
-      <p className="font-medium text-card-foreground">{label}</p>
-      {payload.map((p: any, i: number) => (
-        <p key={i} className="text-muted-foreground">
-          {p.name}: <span className="font-medium text-card-foreground">{p.value}</span>
-        </p>
-      ))}
-    </div>
-  );
-};
-
 // ─── Memoized chart components ───────────────────────────
 
 const ActivityChart = memo(function ActivityChart({ data }: { data: any[] }) {
@@ -78,7 +65,7 @@ const ActivityChart = memo(function ActivityChart({ data }: { data: any[] }) {
             </defs>
             <XAxis dataKey="name" tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} />
             <YAxis tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} allowDecimals={false} />
-            <Tooltip content={<CustomTooltip />} />
+            <Tooltip content={<ChartTooltip />} />
             <Area type="monotone" dataKey="Ponavljanja" stroke="hsl(var(--primary))" fill="url(#gradReviewsStats)" strokeWidth={2} />
             <Area type="monotone" dataKey="Nove kartice" stroke="hsl(var(--success))" fill="url(#gradCreatedStats)" strokeWidth={2} />
           </AreaChart>
@@ -108,7 +95,7 @@ const MasteryPieChart = memo(function MasteryPieChart({ data }: { data: { name: 
                 <Cell key={idx} fill={MASTERY_COLORS[idx % MASTERY_COLORS.length]} />
               ))}
             </Pie>
-            <Tooltip content={<CustomTooltip />} />
+            <Tooltip content={<ChartTooltip />} />
           </PieChart>
         </ResponsiveContainer>
       </div>
@@ -137,7 +124,7 @@ const CategoryBarChart = memo(function CategoryBarChart({ data }: { data: any[] 
           <BarChart data={data} barSize={32}>
             <XAxis dataKey="name" tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} />
             <YAxis tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} domain={[0, 100]} />
-            <Tooltip content={<CustomTooltip />} />
+            <Tooltip content={<ChartTooltip />} />
             <Bar dataKey="Znanje" fill="hsl(var(--primary))" radius={[6, 6, 0, 0]} />
           </BarChart>
         </ResponsiveContainer>
@@ -166,7 +153,7 @@ const DisciplineChart = memo(function DisciplineChart({ data }: { data: any[] })
             </defs>
             <XAxis dataKey="date" tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} tickFormatter={(v) => v.slice(5)} />
             <YAxis tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} domain={[0, 100]} unit="%" />
-            <Tooltip content={<CustomTooltip />} />
+            <Tooltip content={<ChartTooltip />} />
             <Area type="monotone" dataKey="diligentPct" name="Vrijedni dani %" stroke="hsl(var(--success))" fill="url(#gradDiscipline)" strokeWidth={2} />
           </AreaChart>
         </ResponsiveContainer>
