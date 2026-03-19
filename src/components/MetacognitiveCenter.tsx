@@ -43,12 +43,18 @@ export default function MetacognitiveCenter({ cards, categories, reviewLog, onBa
       </div>
 
       <Tabs defaultValue="diary" className="w-full">
-        <TabsList className="w-full grid grid-cols-4">
-          <TabsTrigger value="diary" className="gap-1.5 text-xs sm:text-sm"><BookOpen className="h-3.5 w-3.5" /> Dnevnik</TabsTrigger>
-          <TabsTrigger value="calibration" className="gap-1.5 text-xs sm:text-sm"><Target className="h-3.5 w-3.5" /> Kalibracija</TabsTrigger>
-          <TabsTrigger value="latency" className="gap-1.5 text-xs sm:text-sm"><Clock className="h-3.5 w-3.5" /> Latencija</TabsTrigger>
-          <TabsTrigger value="resistance" className="gap-1.5 text-xs sm:text-sm"><Flame className="h-3.5 w-3.5" /> Otpor</TabsTrigger>
-        </TabsList>
+        <div className="space-y-1">
+          <TabsList className="w-full grid grid-cols-3">
+            <TabsTrigger value="diary" className="gap-1.5 text-xs sm:text-sm"><BookOpen className="h-3.5 w-3.5" /> Dnevnik</TabsTrigger>
+            <TabsTrigger value="calibration" className="gap-1.5 text-xs sm:text-sm"><Target className="h-3.5 w-3.5" /> Kalibracija</TabsTrigger>
+            <TabsTrigger value="latency" className="gap-1.5 text-xs sm:text-sm"><Clock className="h-3.5 w-3.5" /> Latencija</TabsTrigger>
+          </TabsList>
+          <TabsList className="w-full grid grid-cols-3">
+            <TabsTrigger value="resistance" className="gap-1.5 text-xs sm:text-sm"><Flame className="h-3.5 w-3.5" /> Otpor</TabsTrigger>
+            <TabsTrigger value="efficiency" className="gap-1.5 text-xs sm:text-sm"><Activity className="h-3.5 w-3.5" /> Efikasnost</TabsTrigger>
+            <TabsTrigger value="prediction" className="gap-1.5 text-xs sm:text-sm"><CalendarClock className="h-3.5 w-3.5" /> Predikcija</TabsTrigger>
+          </TabsList>
+        </div>
 
         <TabsContent value="diary">
           <DiaryTab cards={cards} reviewLog={reviewLog} />
@@ -61,6 +67,12 @@ export default function MetacognitiveCenter({ cards, categories, reviewLog, onBa
         </TabsContent>
         <TabsContent value="resistance">
           <ResistanceTab cards={cards} categories={categories} reviewLog={reviewLog} />
+        </TabsContent>
+        <TabsContent value="efficiency">
+          <EfficiencyTab />
+        </TabsContent>
+        <TabsContent value="prediction">
+          <PredictionTab cards={cards} categories={categories} reviewLog={reviewLog} />
         </TabsContent>
       </Tabs>
     </motion.div>
