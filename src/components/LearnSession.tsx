@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useEffect } from "react";
+import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import { Card, getCardScore, getDueCards } from "@/lib/spaced-repetition";
 import { LearnMode, LearnCardProgress, loadLearnProgress, saveLearnProgress } from "@/lib/storage";
 import { addActivityEntry } from "@/lib/metacognitive-storage";
