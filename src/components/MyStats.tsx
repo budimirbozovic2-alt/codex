@@ -164,6 +164,7 @@ const DisciplineChart = memo(function DisciplineChart({ data }: { data: any[] })
 
 import { TabSkeleton } from "@/components/ui/page-skeleton";
 
+
 // ─── Main component ──────────────────────────────────────
 
 export default function MyStats({ cards, categories, subcategories, categoryStats, reviewLog, srSettings, onBack, onShowKnowledgeMap, onShowPlanner, onSendToWorkshop }: Props) {
