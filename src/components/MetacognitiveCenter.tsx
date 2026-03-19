@@ -31,19 +31,21 @@ interface Props {
   embedded?: boolean;
 }
 
-export default function MetacognitiveCenter({ cards, categories, reviewLog, onBack, settings }: Props) {
+export default function MetacognitiveCenter({ cards, categories, reviewLog, onBack, settings, embedded }: Props) {
   const weights = settings?.resistanceWeights ?? DEFAULT_SR_SETTINGS.resistanceWeights;
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="max-w-4xl mx-auto space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <button onClick={onBack} className="text-muted-foreground hover:text-foreground flex items-center gap-1 mb-4">
-            <ArrowLeft className="h-4 w-4" /> Nazad
-          </button>
-          <h2 className="text-3xl font-serif">Metakognitivni Centar</h2>
-          <p className="text-muted-foreground mt-1">Dnevnik, kalibracija i analitika učenja</p>
+      {!embedded && (
+        <div className="flex items-center justify-between">
+          <div>
+            <button onClick={onBack} className="text-muted-foreground hover:text-foreground flex items-center gap-1 mb-4">
+              <ArrowLeft className="h-4 w-4" /> Nazad
+            </button>
+            <h2 className="text-3xl font-serif">Metakognitivni Centar</h2>
+            <p className="text-muted-foreground mt-1">Dnevnik, kalibracija i analitika učenja</p>
+          </div>
         </div>
-      </div>
+      )}
 
       <Tabs defaultValue="diary" className="w-full">
         <div className="space-y-1">
