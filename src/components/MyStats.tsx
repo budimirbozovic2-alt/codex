@@ -24,6 +24,7 @@ interface Props {
   srSettings: SRSettings;
   onBack: () => void;
   onShowKnowledgeMap?: () => void;
+  onShowPlanner?: () => void;
   onSendToWorkshop?: (cardId: string) => void;
 }
 
