@@ -49,7 +49,7 @@ const GRADE_COLORS = [
   "bg-emerald-500 text-white dark:bg-emerald-600",
 ];
 
-export default function LearnSession({ cards, categories, subcategories, onMarkRead, onReviewSection, onBack }: Props) {
+export default function LearnSession({ cards, categories, subcategories, onMarkRead, onReviewSection, onBack, dueCount = 0 }: Props) {
   // Setup state
   const [setupStep, setSetupStep] = useState<SetupStep>("mode");
   const [learnMode, setLearnMode] = useState<LearnMode>("free");
