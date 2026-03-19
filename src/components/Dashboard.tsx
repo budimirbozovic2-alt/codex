@@ -509,7 +509,7 @@ export default function Dashboard({ stats, categoryStats, categories, subcategor
       </motion.div>
 
       {/* Backup / Storage Warnings */}
-      {(backupOverdue || storageUsage.percent > 70) && (
+      {(backupOverdue || (storageUsage && storageUsage.percent > 70)) && (
         <div className="space-y-3">
           {backupOverdue && (
             <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="flex items-center gap-3 p-4 rounded-xl border border-warning/30 bg-warning/5">
