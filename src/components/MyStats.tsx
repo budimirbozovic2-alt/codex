@@ -112,12 +112,15 @@ export default function MyStats({ cards, categories, subcategories, categoryStat
 
       {/* Tab switch between Overview and Metacognitive */}
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)} className="w-full">
-        <TabsList className="w-full grid grid-cols-2">
+        <TabsList className="w-full grid grid-cols-3">
           <TabsTrigger value="overview" className="gap-1.5 text-xs sm:text-sm">
             <TrendingUp className="h-3.5 w-3.5" /> Pregled
           </TabsTrigger>
           <TabsTrigger value="metacognitive" className="gap-1.5 text-xs sm:text-sm">
             <Brain className="h-3.5 w-3.5" /> Analitika
+          </TabsTrigger>
+          <TabsTrigger value="cognitive" className="gap-1.5 text-xs sm:text-sm">
+            <Microscope className="h-3.5 w-3.5" /> Kognicija
           </TabsTrigger>
         </TabsList>
 
