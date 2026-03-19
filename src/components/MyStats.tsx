@@ -360,15 +360,19 @@ export default function MyStats({ cards, categories, subcategories, categoryStat
 
         <TabsContent value="metacognitive">
           <Suspense fallback={<TabFallback />}>
-            <MetacognitiveCenter cards={cards} categories={categories} reviewLog={reviewLog} onBack={onBack} settings={srSettings} embedded onSendToWorkshop={onSendToWorkshop} />
+            <ErrorBoundary label="Metakognicija">
+              <MetacognitiveCenter cards={cards} categories={categories} reviewLog={reviewLog} onBack={onBack} settings={srSettings} embedded onSendToWorkshop={onSendToWorkshop} />
+            </ErrorBoundary>
           </Suspense>
         </TabsContent>
 
         <TabsContent value="cognitive">
           <Suspense fallback={<TabFallback />}>
-            <div className="mt-4">
-              <CognitiveAnalytics cards={cards} categories={categories} reviewLog={reviewLog} onSendToWorkshop={onSendToWorkshop} />
-            </div>
+            <ErrorBoundary label="Kognicija">
+              <div className="mt-4">
+                <CognitiveAnalytics cards={cards} categories={categories} reviewLog={reviewLog} onSendToWorkshop={onSendToWorkshop} />
+              </div>
+            </ErrorBoundary>
           </Suspense>
         </TabsContent>
       </Tabs>
