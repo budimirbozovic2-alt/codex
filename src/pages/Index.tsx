@@ -82,7 +82,30 @@ const Index = () => {
     }
   }, [toggleTag, cards]);
 
-  // Record app entry for Slippage tracking
+  // Send lapse card to Mnemonic Workshop
+  const handleSendToWorkshop = useCallback((cardId: string) => {
+    const card = cards.find(c => c.id === cardId);
+    if (!card) return;
+    // Add "memorizacija" tag if not present
+    if (!(card.tags || []).includes("memorizacija")) {
+      toggleTag(cardId, "memorizacija");
+      // Clone to mnemonic store
+      const mnemonicCards = loadMnemonicCards();
+      const alreadyCloned = mnemonicCards.some(mc => mc.originalCardId === cardId);
+      if (!alreadyCloned) {
+        const clone = createMnemonicCard(
+          cardId,
+          card.question,
+          card.sections.map(s => ({ title: s.title, content: s.content })),
+          card.category,
+          card.subcategory,
+          (card.tags || []).filter(t => t !== "memorizacija"),
+        );
+        saveMnemonicCards([...mnemonicCards, clone]);
+      }
+    }
+    setView("mnemonic");
+  }, [cards, toggleTag]);
   useEffect(() => { recordAppEntry(); }, []);
 
   // Track first learning action (Slippage)
@@ -273,12 +296,12 @@ const Index = () => {
           )}
           {view === "metacognitive" && (
             <motion.div key="metacognitive" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-              <MetacognitiveCenter cards={cards} categories={categories} reviewLog={reviewLog} onBack={() => setView("stats")} settings={srSettings} />
+              <MetacognitiveCenter cards={cards} categories={categories} reviewLog={reviewLog} onBack={() => setView("stats")} settings={srSettings} onSendToWorkshop={handleSendToWorkshop} />
             </motion.div>
           )}
           {view === "stats" && (
             <motion.div key="stats" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-              <MyStats cards={cards} categories={categories} subcategories={subcategories} categoryStats={categoryStats} reviewLog={reviewLog} srSettings={srSettings} onBack={() => setView("dashboard")} onShowKnowledgeMap={() => setView("knowledge-map")} />
+              <MyStats cards={cards} categories={categories} subcategories={subcategories} categoryStats={categoryStats} reviewLog={reviewLog} srSettings={srSettings} onBack={() => setView("dashboard")} onShowKnowledgeMap={() => setView("knowledge-map")} onSendToWorkshop={handleSendToWorkshop} />
             </motion.div>
           )}
           {view === "major-system-settings" && (

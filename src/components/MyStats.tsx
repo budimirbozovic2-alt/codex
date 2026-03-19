@@ -24,6 +24,7 @@ interface Props {
   srSettings: SRSettings;
   onBack: () => void;
   onShowKnowledgeMap?: () => void;
+  onSendToWorkshop?: (cardId: string) => void;
 }
 
 const MASTERY_COLORS = [
@@ -47,7 +48,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
   );
 };
 
-export default function MyStats({ cards, categories, subcategories, categoryStats, reviewLog, srSettings, onBack, onShowKnowledgeMap }: Props) {
+export default function MyStats({ cards, categories, subcategories, categoryStats, reviewLog, srSettings, onBack, onShowKnowledgeMap, onSendToWorkshop }: Props) {
   const [activeTab, setActiveTab] = useState<"overview" | "metacognitive">("overview");
 
   const activityData = useMemo(() => {
@@ -263,7 +264,7 @@ export default function MyStats({ cards, categories, subcategories, categoryStat
 
         <TabsContent value="metacognitive">
           {/* Embed MetacognitiveCenter inline without its own header/back button */}
-          <MetacognitiveCenter cards={cards} categories={categories} reviewLog={reviewLog} onBack={onBack} settings={srSettings} embedded />
+          <MetacognitiveCenter cards={cards} categories={categories} reviewLog={reviewLog} onBack={onBack} settings={srSettings} embedded onSendToWorkshop={onSendToWorkshop} />
         </TabsContent>
       </Tabs>
     </div>
