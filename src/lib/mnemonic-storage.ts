@@ -1,6 +1,7 @@
 // Isolated mnemonic cards storage — completely separate from main FSRS system
 
 export type MnemonicStatus = "new" | "in-workshop" | "ready";
+export type HookType = "rokovi" | "nabrajanja" | "ostalo";
 
 export interface MnemonicCard {
   id: string;
@@ -9,8 +10,10 @@ export interface MnemonicCard {
   sections: { title: string; content: string }[];
   category: string;
   subcategory?: string;
-  mnemonicVideo: string;   // user's mental video description
-  acronym: string;         // user's acronym/mnemonic aid
+  tags?: string[];          // cloned from original card
+  hookType: HookType;       // auto-detected or manual
+  mnemonicVideo: string;    // user's mental video description
+  acronym: string;          // user's acronym/mnemonic aid
   mnemonicStatus: MnemonicStatus;
   createdAt: number;
   // Isolated stats
@@ -67,9 +70,28 @@ export function saveMajorSystem(system: Record<number, string>) {
   saveToStorage(MAJOR_SYSTEM_KEY, system);
 }
 
+// Auto-detect hook type from content
+export function detectHookType(sections: { content: string }[]): HookType {
+  const allContent = sections.map(s => s.content).join(" ");
+  const text = allContent.replace(/<[^>]*>/g, " ");
+  // Check for deadlines/numbers patterns (rok, dan, mjesec, godina + numbers)
+  const deadlinePattern = /\b(rok|dana|dan|mjesec|godin|Year|frist|deadline|\d+\s*(dana|dan|mjeseci|godina|sati|h))\b/i;
+  if (deadlinePattern.test(text)) return "rokovi";
+  // Check for enumerations
+  const enumItems = detectEnumerationItems(allContent);
+  if (enumItems.length >= 2) return "nabrajanja";
+  return "ostalo";
+}
+
 // Mnemonic Cards
 export function loadMnemonicCards(): MnemonicCard[] {
-  return loadFromStorage(MNEMONIC_CARDS_KEY, []);
+  const cards = loadFromStorage<MnemonicCard[]>(MNEMONIC_CARDS_KEY, []);
+  // Migration: add hookType if missing
+  return cards.map(c => ({
+    ...c,
+    hookType: c.hookType || "ostalo",
+    tags: c.tags || [],
+  }));
 }
 
 export function saveMnemonicCards(cards: MnemonicCard[]) {
@@ -82,6 +104,7 @@ export function createMnemonicCard(
   sections: { title: string; content: string }[],
   category: string,
   subcategory?: string,
+  tags?: string[],
 ): MnemonicCard {
   return {
     id: crypto.randomUUID(),
@@ -90,6 +113,8 @@ export function createMnemonicCard(
     sections,
     category,
     subcategory,
+    tags: tags || [],
+    hookType: detectHookType(sections),
     mnemonicVideo: "",
     acronym: "",
     mnemonicStatus: "new",
