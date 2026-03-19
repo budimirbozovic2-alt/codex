@@ -22,13 +22,20 @@ function highlightMatch(text: string, query: string): string {
 
 export default function GlobalSearch({ cards, open, onClose, onNavigateToCard }: Props) {
   const [query, setQuery] = useState("");
+  const [debouncedQuery, setDebouncedQuery] = useState("");
   const [selectedIndex, setSelectedIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
 
+  // Debounce search query — filter only after 200ms of inactivity
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedQuery(query), 200);
+    return () => clearTimeout(timer);
+  }, [query]);
+
   const results = useMemo(() => {
-    if (!query.trim()) return [];
-    const q = query.toLowerCase();
+    if (!debouncedQuery.trim()) return [];
+    const q = debouncedQuery.toLowerCase();
     return cards
       .filter((c) => {
         const questionMatch = c.question.toLowerCase().includes(q);
@@ -38,7 +45,7 @@ export default function GlobalSearch({ cards, open, onClose, onNavigateToCard }:
         return questionMatch || contentMatch;
       })
       .slice(0, 20);
-  }, [cards, query]);
+  }, [cards, debouncedQuery]);
 
   useEffect(() => {
     if (open) {
