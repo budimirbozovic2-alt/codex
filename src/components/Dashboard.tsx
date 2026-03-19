@@ -129,7 +129,7 @@ export default function Dashboard({ stats, categoryStats, categories, subcategor
   const backupOverdue = useMemo(() => isBackupOverdue(), []);
   const lastBackup = useMemo(() => getLastBackupTime(), []);
   const pomStats = useMemo(() => getPomodoroStats(), []);
-
+  const pendingFirstReview = useMemo(() => getPendingFirstReviewCount(cards), [cards]);
   return (
     <div className="space-y-10">
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
