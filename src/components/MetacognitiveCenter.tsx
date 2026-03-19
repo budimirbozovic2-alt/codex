@@ -98,6 +98,7 @@ function DiaryTab({ cards, reviewLog, onSendToWorkshop }: { cards: Card[]; revie
   const today = new Date().toISOString().slice(0, 10);
   const todayEntry = diary.find(d => d.date === today);
   const todayStats = useMemo(() => getTodayReviewStats(reviewLog), [reviewLog]);
+  const todayTime = useMemo(() => getTimeDistribution(1), []);
 
   const cardMap = useMemo(() => new Map(cards.map(c => [c.id, c])), [cards]);
 
