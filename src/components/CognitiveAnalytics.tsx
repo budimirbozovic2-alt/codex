@@ -22,16 +22,18 @@ interface Props {
   onSendToWorkshop?: (cardId: string) => void;
 }
 
-export default function CognitiveAnalytics({ cards, categories, reviewLog }: Props) {
+export default function CognitiveAnalytics({ cards, categories, reviewLog, onSendToWorkshop }: Props) {
   const interferencePairs = useMemo(() => calcInterferencePairs(cards), [cards]);
   const planner = useMemo(() => loadPlanner(), []);
   const stabilityData = useMemo(() => calcCategoryStability(cards, categories, planner.finalGoalDate), [cards, categories, planner]);
   const stressPerf = useMemo(() => calcStressPerformance(reviewLog), [reviewLog]);
   const friction = useMemo(() => calcFrictionAnalysis(reviewLog), [reviewLog]);
   const recovery = useMemo(() => calcRecoveryRate(), []);
+  const blindSpots = useMemo(() => calcBlindSpots(cards), [cards]);
+  const weakHooks = useMemo(() => calcWeakHooks(), []);
 
   const hasCriticalZones = stabilityData.some(s => s.criticalSections > 0);
-  const hasAnyData = interferencePairs.length > 0 || stabilityData.length > 0 || stressPerf || friction.transitions.length > 0 || recovery;
+  const hasAnyData = interferencePairs.length > 0 || stabilityData.length > 0 || stressPerf || friction.transitions.length > 0 || recovery || blindSpots.length > 0 || weakHooks.length > 0;
 
   if (!hasAnyData) {
     return (
