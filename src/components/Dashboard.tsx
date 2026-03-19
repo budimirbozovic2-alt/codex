@@ -393,7 +393,7 @@ export default function Dashboard({ stats, categoryStats, categories, subcategor
       </motion.div>
 
       {/* Effective Learning Today Widget */}
-      {todayTime.totalMs > 60000 && (
+      {todayTime && todayTime.totalMs > 60000 && (
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.32 }}
           className="rounded-xl bg-card border p-5 space-y-3">
           <div className="flex items-center justify-between">
