@@ -156,6 +156,26 @@ function DiaryTab({ cards, reviewLog, onSendToWorkshop }: { cards: Card[]; revie
         </div>
       </div>
 
+      {/* Auto time tracking summary */}
+      {todayTime.totalMs > 60000 && (
+        <div className="rounded-xl border bg-card p-4 space-y-2">
+          <div className="flex items-center gap-2">
+            <Clock className="h-4 w-4 text-primary" />
+            <span className="text-sm font-medium">Radno vrijeme danas</span>
+          </div>
+          <div className="flex h-2.5 rounded-md overflow-hidden bg-secondary">
+            {todayTime.review > 0 && <div style={{ width: `${(todayTime.review / todayTime.totalMs) * 100}%`, background: RESERVOIR_COLORS.review }} />}
+            {todayTime.learning > 0 && <div style={{ width: `${(todayTime.learning / todayTime.totalMs) * 100}%`, background: RESERVOIR_COLORS.learning }} />}
+            {todayTime.creative > 0 && <div style={{ width: `${(todayTime.creative / todayTime.totalMs) * 100}%`, background: RESERVOIR_COLORS.creative }} />}
+            {todayTime.analysis > 0 && <div style={{ width: `${(todayTime.analysis / todayTime.totalMs) * 100}%`, background: RESERVOIR_COLORS.analysis }} />}
+          </div>
+          <div className="flex items-center justify-between text-xs text-muted-foreground">
+            <span>Efektivno: {Math.round(todayTime.cognitiveMs / 60000)} min</span>
+            <span>Logistika: {Math.round(todayTime.logisticMs / 60000)} min</span>
+          </div>
+        </div>
+      )}
+
       {/* Weekly chart */}
       <div className="rounded-xl border bg-card p-5">
         <h3 className="text-sm font-medium mb-4">Sedmični pregled</h3>
