@@ -1,8 +1,8 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, memo, lazy, Suspense } from "react";
 import { motion } from "framer-motion";
-import { ArrowLeft, LayoutGrid, TrendingUp, Brain, Layers, BookOpen, Target, Clock, Flame, Activity, CalendarClock, ChevronRight, Award, Microscope } from "lucide-react";
+import { ArrowLeft, LayoutGrid, TrendingUp, Brain, Layers, Target, Award, Microscope, ChevronRight } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Card, getCardScore, getSectionScore, getCardRetrievability, SRSettings, DEFAULT_SR_SETTINGS } from "@/lib/spaced-repetition";
+import { Card, getSectionScore, SRSettings, DEFAULT_SR_SETTINGS } from "@/lib/spaced-repetition";
 import { getCardMasteryLevel, MASTERY_LEVELS } from "@/components/KnowledgeMap";
 import { ReviewLogEntry } from "@/lib/storage";
 import { getDisciplineTrend } from "@/lib/planner-storage";
@@ -14,8 +14,10 @@ import { format, subDays, startOfDay, eachDayOfInterval } from "date-fns";
 import ActivityHeatmap from "./ActivityHeatmap";
 import RetentionChart from "./RetentionChart";
 import ForgettingCurve from "./ForgettingCurve";
-import MetacognitiveCenter from "./MetacognitiveCenter";
-import CognitiveAnalytics from "./CognitiveAnalytics";
+
+// Lazy-load heavy tab content
+const MetacognitiveCenter = lazy(() => import("./MetacognitiveCenter"));
+const CognitiveAnalytics = lazy(() => import("./CognitiveAnalytics"));
 
 interface Props {
   cards: Card[];
@@ -50,6 +52,135 @@ const CustomTooltip = ({ active, payload, label }: any) => {
     </div>
   );
 };
+
+// ─── Memoized chart components ───────────────────────────
+
+const ActivityChart = memo(function ActivityChart({ data }: { data: any[] }) {
+  return (
+    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="rounded-xl bg-card border p-5 space-y-4">
+      <div className="flex items-center gap-2">
+        <TrendingUp className="h-4 w-4 text-primary" />
+        <h3 className="font-serif text-lg">Aktivnost (14 dana)</h3>
+      </div>
+      <div className="h-[200px]">
+        <ResponsiveContainer width="100%" height="100%">
+          <AreaChart data={data}>
+            <defs>
+              <linearGradient id="gradReviewsStats" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3} />
+                <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
+              </linearGradient>
+              <linearGradient id="gradCreatedStats" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor="hsl(var(--success))" stopOpacity={0.3} />
+                <stop offset="95%" stopColor="hsl(var(--success))" stopOpacity={0} />
+              </linearGradient>
+            </defs>
+            <XAxis dataKey="name" tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} />
+            <YAxis tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} allowDecimals={false} />
+            <Tooltip content={<CustomTooltip />} />
+            <Area type="monotone" dataKey="Ponavljanja" stroke="hsl(var(--primary))" fill="url(#gradReviewsStats)" strokeWidth={2} />
+            <Area type="monotone" dataKey="Nove kartice" stroke="hsl(var(--success))" fill="url(#gradCreatedStats)" strokeWidth={2} />
+          </AreaChart>
+        </ResponsiveContainer>
+      </div>
+      <div className="flex gap-4 justify-center text-xs text-muted-foreground">
+        <span className="flex items-center gap-1.5"><span className="w-3 h-1 rounded-full bg-primary" /> Ponavljanja</span>
+        <span className="flex items-center gap-1.5"><span className="w-3 h-1 rounded-full bg-success" /> Nove kartice</span>
+      </div>
+    </motion.div>
+  );
+});
+
+const MasteryPieChart = memo(function MasteryPieChart({ data }: { data: { name: string; value: number }[] }) {
+  if (data.length === 0) return null;
+  return (
+    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} className="rounded-xl bg-card border p-5 space-y-4">
+      <div className="flex items-center gap-2">
+        <Brain className="h-4 w-4 text-primary" />
+        <h3 className="font-serif text-lg">Distribucija znanja</h3>
+      </div>
+      <div className="h-[200px] flex items-center justify-center">
+        <ResponsiveContainer width="100%" height="100%">
+          <PieChart>
+            <Pie data={data} cx="50%" cy="50%" innerRadius={50} outerRadius={80} paddingAngle={3} dataKey="value">
+              {data.map((_, idx) => (
+                <Cell key={idx} fill={MASTERY_COLORS[idx % MASTERY_COLORS.length]} />
+              ))}
+            </Pie>
+            <Tooltip content={<CustomTooltip />} />
+          </PieChart>
+        </ResponsiveContainer>
+      </div>
+      <div className="flex flex-wrap gap-3 justify-center text-xs text-muted-foreground">
+        {data.map((d, i) => (
+          <span key={d.name} className="flex items-center gap-1.5">
+            <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: MASTERY_COLORS[i] }} />
+            {d.name} ({d.value})
+          </span>
+        ))}
+      </div>
+    </motion.div>
+  );
+});
+
+const CategoryBarChart = memo(function CategoryBarChart({ data }: { data: any[] }) {
+  if (data.length === 0) return null;
+  return (
+    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }} className="rounded-xl bg-card border p-5 space-y-4 md:col-span-2">
+      <div className="flex items-center gap-2">
+        <Layers className="h-4 w-4 text-primary" />
+        <h3 className="font-serif text-lg">Znanje po kategorijama</h3>
+      </div>
+      <div className="h-[220px]">
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart data={data} barSize={32}>
+            <XAxis dataKey="name" tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} />
+            <YAxis tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} domain={[0, 100]} />
+            <Tooltip content={<CustomTooltip />} />
+            <Bar dataKey="Znanje" fill="hsl(var(--primary))" radius={[6, 6, 0, 0]} />
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+    </motion.div>
+  );
+});
+
+const DisciplineChart = memo(function DisciplineChart({ data }: { data: any[] }) {
+  if (data.length <= 2) return null;
+  return (
+    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }} className="rounded-xl bg-card border p-5 space-y-4">
+      <div className="flex items-center gap-2">
+        <Award className="h-4 w-4 text-primary" />
+        <h3 className="font-serif text-lg">Trend discipline</h3>
+      </div>
+      <p className="text-xs text-muted-foreground">Postotak "vrijednih" (🚀) dana u klizećem 7-dnevnom prozoru</p>
+      <div className="h-[180px]">
+        <ResponsiveContainer width="100%" height="100%">
+          <AreaChart data={data}>
+            <defs>
+              <linearGradient id="gradDiscipline" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor="hsl(var(--success))" stopOpacity={0.3} />
+                <stop offset="95%" stopColor="hsl(var(--success))" stopOpacity={0} />
+              </linearGradient>
+            </defs>
+            <XAxis dataKey="date" tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} tickFormatter={(v) => v.slice(5)} />
+            <YAxis tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} domain={[0, 100]} unit="%" />
+            <Tooltip content={<CustomTooltip />} />
+            <Area type="monotone" dataKey="diligentPct" name="Vrijedni dani %" stroke="hsl(var(--success))" fill="url(#gradDiscipline)" strokeWidth={2} />
+          </AreaChart>
+        </ResponsiveContainer>
+      </div>
+    </motion.div>
+  );
+});
+
+const TabFallback = () => (
+  <div className="flex items-center justify-center min-h-[200px]">
+    <div className="animate-pulse text-muted-foreground text-sm">Učitavanje...</div>
+  </div>
+);
+
+// ─── Main component ──────────────────────────────────────
 
 export default function MyStats({ cards, categories, subcategories, categoryStats, reviewLog, srSettings, onBack, onShowKnowledgeMap, onShowPlanner, onSendToWorkshop }: Props) {
   const [activeTab, setActiveTab] = useState<"overview" | "metacognitive" | "cognitive">("overview");
@@ -110,7 +241,6 @@ export default function MyStats({ cards, categories, subcategories, categoryStat
         <p className="text-muted-foreground mt-1">Svi grafikoni, analitika i metakognitivni alati</p>
       </motion.div>
 
-      {/* Tab switch between Overview and Metacognitive */}
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)} className="w-full">
         <TabsList className="w-full grid grid-cols-3">
           <TabsTrigger value="overview" className="gap-1.5 text-xs sm:text-sm">
@@ -199,132 +329,32 @@ export default function MyStats({ cards, categories, subcategories, categoryStat
 
             {hasData && (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* 14-day Activity Chart */}
-                <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="rounded-xl bg-card border p-5 space-y-4">
-                  <div className="flex items-center gap-2">
-                    <TrendingUp className="h-4 w-4 text-primary" />
-                    <h3 className="font-serif text-lg">Aktivnost (14 dana)</h3>
-                  </div>
-                  <div className="h-[200px]">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <AreaChart data={activityData}>
-                        <defs>
-                          <linearGradient id="gradReviewsStats" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3} />
-                            <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
-                          </linearGradient>
-                          <linearGradient id="gradCreatedStats" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="5%" stopColor="hsl(var(--success))" stopOpacity={0.3} />
-                            <stop offset="95%" stopColor="hsl(var(--success))" stopOpacity={0} />
-                          </linearGradient>
-                        </defs>
-                        <XAxis dataKey="name" tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} />
-                        <YAxis tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} allowDecimals={false} />
-                        <Tooltip content={<CustomTooltip />} />
-                        <Area type="monotone" dataKey="Ponavljanja" stroke="hsl(var(--primary))" fill="url(#gradReviewsStats)" strokeWidth={2} />
-                        <Area type="monotone" dataKey="Nove kartice" stroke="hsl(var(--success))" fill="url(#gradCreatedStats)" strokeWidth={2} />
-                      </AreaChart>
-                    </ResponsiveContainer>
-                  </div>
-                  <div className="flex gap-4 justify-center text-xs text-muted-foreground">
-                    <span className="flex items-center gap-1.5"><span className="w-3 h-1 rounded-full bg-primary" /> Ponavljanja</span>
-                    <span className="flex items-center gap-1.5"><span className="w-3 h-1 rounded-full bg-success" /> Nove kartice</span>
-                  </div>
-                </motion.div>
-
-                {/* Mastery Distribution */}
-                {masteryData.length > 0 && (
-                  <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} className="rounded-xl bg-card border p-5 space-y-4">
-                    <div className="flex items-center gap-2">
-                      <Brain className="h-4 w-4 text-primary" />
-                      <h3 className="font-serif text-lg">Distribucija znanja</h3>
-                    </div>
-                    <div className="h-[200px] flex items-center justify-center">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <PieChart>
-                          <Pie data={masteryData} cx="50%" cy="50%" innerRadius={50} outerRadius={80} paddingAngle={3} dataKey="value">
-                            {masteryData.map((_, idx) => (
-                              <Cell key={idx} fill={MASTERY_COLORS[idx % MASTERY_COLORS.length]} />
-                            ))}
-                          </Pie>
-                          <Tooltip content={<CustomTooltip />} />
-                        </PieChart>
-                      </ResponsiveContainer>
-                    </div>
-                    <div className="flex flex-wrap gap-3 justify-center text-xs text-muted-foreground">
-                      {masteryData.map((d, i) => (
-                        <span key={d.name} className="flex items-center gap-1.5">
-                          <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: MASTERY_COLORS[i] }} />
-                          {d.name} ({d.value})
-                        </span>
-                      ))}
-                    </div>
-                  </motion.div>
-                )}
-
-                {/* Category Scores */}
-                {categoryChartData.length > 0 && (
-                  <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }} className="rounded-xl bg-card border p-5 space-y-4 md:col-span-2">
-                    <div className="flex items-center gap-2">
-                      <Layers className="h-4 w-4 text-primary" />
-                      <h3 className="font-serif text-lg">Znanje po kategorijama</h3>
-                    </div>
-                    <div className="h-[220px]">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={categoryChartData} barSize={32}>
-                          <XAxis dataKey="name" tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} />
-                          <YAxis tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} domain={[0, 100]} />
-                          <Tooltip content={<CustomTooltip />} />
-                          <Bar dataKey="Znanje" fill="hsl(var(--primary))" radius={[6, 6, 0, 0]} />
-                        </BarChart>
-                      </ResponsiveContainer>
-                    </div>
-                  </motion.div>
-                )}
+                <ActivityChart data={activityData} />
+                <MasteryPieChart data={masteryData} />
+                <CategoryBarChart data={categoryChartData} />
               </div>
             )}
 
             {/* Forgetting Curve */}
             <ForgettingCurve cards={cards} categories={categories} />
 
-            {/* Discipline Trend Chart */}
-            {disciplineTrend.length > 2 && (
-              <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }} className="rounded-xl bg-card border p-5 space-y-4">
-                <div className="flex items-center gap-2">
-                  <Award className="h-4 w-4 text-primary" />
-                  <h3 className="font-serif text-lg">Trend discipline</h3>
-                </div>
-                <p className="text-xs text-muted-foreground">Postotak "vrijednih" (🚀) dana u klizećem 7-dnevnom prozoru</p>
-                <div className="h-[180px]">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={disciplineTrend}>
-                      <defs>
-                        <linearGradient id="gradDiscipline" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="hsl(var(--success))" stopOpacity={0.3} />
-                          <stop offset="95%" stopColor="hsl(var(--success))" stopOpacity={0} />
-                        </linearGradient>
-                      </defs>
-                      <XAxis dataKey="date" tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} tickFormatter={(v) => v.slice(5)} />
-                      <YAxis tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} domain={[0, 100]} unit="%" />
-                      <Tooltip content={<CustomTooltip />} />
-                      <Area type="monotone" dataKey="diligentPct" name="Vrijedni dani %" stroke="hsl(var(--success))" fill="url(#gradDiscipline)" strokeWidth={2} />
-                    </AreaChart>
-                  </ResponsiveContainer>
-                </div>
-              </motion.div>
-            )}
+            {/* Discipline Trend */}
+            <DisciplineChart data={disciplineTrend} />
           </div>
         </TabsContent>
 
         <TabsContent value="metacognitive">
-          {/* Embed MetacognitiveCenter inline without its own header/back button */}
-          <MetacognitiveCenter cards={cards} categories={categories} reviewLog={reviewLog} onBack={onBack} settings={srSettings} embedded onSendToWorkshop={onSendToWorkshop} />
+          <Suspense fallback={<TabFallback />}>
+            <MetacognitiveCenter cards={cards} categories={categories} reviewLog={reviewLog} onBack={onBack} settings={srSettings} embedded onSendToWorkshop={onSendToWorkshop} />
+          </Suspense>
         </TabsContent>
 
         <TabsContent value="cognitive">
-          <div className="mt-4">
-            <CognitiveAnalytics cards={cards} categories={categories} reviewLog={reviewLog} onSendToWorkshop={onSendToWorkshop} />
-          </div>
+          <Suspense fallback={<TabFallback />}>
+            <div className="mt-4">
+              <CognitiveAnalytics cards={cards} categories={categories} reviewLog={reviewLog} onSendToWorkshop={onSendToWorkshop} />
+            </div>
+          </Suspense>
         </TabsContent>
       </Tabs>
     </div>
