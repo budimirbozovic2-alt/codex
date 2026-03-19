@@ -298,15 +298,17 @@ function ReviewCard({
       // Space to reveal answer
       if (e.key === " " && !showAnswer) {
         e.preventDefault();
-        setShowAnswer(true);
+        handleRevealAnswer();
         return;
       }
 
       // 1-4 to grade (only when answer is shown)
       if (showAnswer && ["1", "2", "3", "4"].includes(e.key)) {
+        const grade = parseInt(e.key);
+        if (grade === 4 && !canGradeEasy) return; // block grade 4 before 3 sec
         e.preventDefault();
-        lastGradeRef.current = { cardId: card.id, sectionId: section.id, grade: parseInt(e.key) };
-        onGrade(parseInt(e.key));
+        lastGradeRef.current = { cardId: card.id, sectionId: section.id, grade };
+        onGrade(grade);
         return;
       }
 
