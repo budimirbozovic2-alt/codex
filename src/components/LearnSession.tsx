@@ -621,8 +621,10 @@ export default function LearnSession({ cards, categories, subcategories, onMarkR
       const section = sections[drillIndex];
       if (!section) return;
       onReviewSection(card.id, section.id, grade);
+      setTotalGrades((prev) => [...prev, grade]);
 
       if (grade === 4) {
+        setModulesCompleted((c) => c + 1);
         const nextIdx = drillIndex + 1;
         if (nextIdx >= sections.length) {
           // All modules done
