@@ -1,5 +1,6 @@
 import { ReactNode, useState, useEffect, useCallback } from "react";
-import { useAppContext, View } from "@/contexts/AppContext";
+import { useLocation } from "react-router-dom";
+import { useAppContext } from "@/contexts/AppContext";
 import PomodoroTimer from "@/components/PomodoroTimer";
 import DocxImporter from "@/components/DocxImporter";
 import ExportImportDialog from "@/components/ExportImportDialog";
@@ -8,20 +9,21 @@ import GlobalSearch from "@/components/GlobalSearch";
 import { BookOpen, Home, Moon, Sun, FolderOpen, GraduationCap, Download, FileText, Settings, Brain, Search, Focus, RotateCcw, BarChart3, Target } from "lucide-react";
 import { AnimatePresence } from "framer-motion";
 
-const NAV_ITEMS: { key: View; icon: typeof Home; label: string }[] = [
-  { key: "dashboard", icon: Home, label: "Početna" },
-  { key: "learn", icon: GraduationCap, label: "Uči" },
-  { key: "review", icon: RotateCcw, label: "Ponavljaj" },
-  { key: "mnemonic", icon: Brain, label: "Memo" },
-  { key: "stats", icon: BarChart3, label: "Statistike" },
-  { key: "planner", icon: Target, label: "Planer" },
-  { key: "cards", icon: BookOpen, label: "Kartice" },
-  { key: "categories", icon: FolderOpen, label: "Kategorije" },
+const NAV_ITEMS: { path: string; icon: typeof Home; label: string }[] = [
+  { path: "/", icon: Home, label: "Početna" },
+  { path: "/learn", icon: GraduationCap, label: "Uči" },
+  { path: "/review", icon: RotateCcw, label: "Ponavljaj" },
+  { path: "/mnemonic", icon: Brain, label: "Memo" },
+  { path: "/stats", icon: BarChart3, label: "Statistike" },
+  { path: "/planner", icon: Target, label: "Planer" },
+  { path: "/cards", icon: BookOpen, label: "Kartice" },
+  { path: "/categories", icon: FolderOpen, label: "Kategorije" },
 ];
 
 export default function MainLayout({ children }: { children: ReactNode }) {
   const ctx = useAppContext();
-  const { view, setView, setEditingCard, stats, cards, categories, exportData, exportTemplate, importData, importCards, addFlashCard } = ctx;
+  const { setView, setEditingCard, stats, cards, categories, exportData, exportTemplate, importData, importCards, addFlashCard } = ctx;
+  const { pathname } = useLocation();
 
   const [docxOpen, setDocxOpen] = useState(false);
   const [exportImportOpen, setExportImportOpen] = useState(false);
@@ -45,6 +47,8 @@ export default function MainLayout({ children }: { children: ReactNode }) {
     setDark(d => !d);
   }, []);
 
+  const isReviewOrLearn = pathname === "/review" || pathname === "/learn";
+
   return (
     <div className="min-h-screen flex flex-col">
       <header className="border-b px-6 py-4 flex items-center justify-between">
@@ -53,14 +57,15 @@ export default function MainLayout({ children }: { children: ReactNode }) {
             Memoria
           </h1>
           <nav className="hidden md:flex gap-1">
-            {NAV_ITEMS.map(({ key, icon: Icon, label }) => {
-              const badge = key === "review" && stats.due > 0 ? stats.due : undefined;
+            {NAV_ITEMS.map(({ path, icon: Icon, label }) => {
+              const isActive = pathname === path;
+              const badge = path === "/review" && stats.due > 0 ? stats.due : undefined;
               return (
                 <button
-                  key={key}
-                  onClick={() => setView(key)}
+                  key={path}
+                  onClick={() => setView(path === "/" ? "dashboard" : path.slice(1) as any)}
                   className={`relative flex items-center gap-2 px-4 py-2 rounded-lg text-sm transition-colors ${
-                    view === key ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground hover:bg-secondary"
+                    isActive ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground hover:bg-secondary"
                   }`}
                 >
                   <Icon className="h-4 w-4" />
@@ -78,12 +83,12 @@ export default function MainLayout({ children }: { children: ReactNode }) {
         <div className="flex items-center gap-2">
           <PomodoroTimer compact />
           <div className="w-px h-5 bg-border mx-1" />
-          {(view === "review" || view === "learn") && (
+          {isReviewOrLearn && (
             <button onClick={() => setZenMode(!zenMode)} className={`p-2 rounded-lg hover:bg-secondary transition-colors ${zenMode ? "text-primary bg-primary/10" : "text-muted-foreground"}`} title="Zen Mode">
               <Focus className="h-4 w-4" />
             </button>
           )}
-          <button onClick={() => setView("settings")} className={`p-2 rounded-lg hover:bg-secondary transition-colors ${view === "settings" ? "text-primary" : "text-muted-foreground"}`} title="Podešavanja">
+          <button onClick={() => setView("settings")} className={`p-2 rounded-lg hover:bg-secondary transition-colors ${pathname === "/settings" ? "text-primary" : "text-muted-foreground"}`} title="Podešavanja">
             <Settings className="h-4 w-4" />
           </button>
           <button onClick={() => setDocxOpen(true)} className="p-2 rounded-lg hover:bg-secondary text-muted-foreground" title="Uvezi iz DOCX">
@@ -106,10 +111,15 @@ export default function MainLayout({ children }: { children: ReactNode }) {
       </main>
 
       <nav className="md:hidden border-t flex justify-around py-3 bg-background">
-        {NAV_ITEMS.map(({ key, icon: Icon, label }) => {
-          const badge = key === "review" && stats.due > 0 ? stats.due : undefined;
+        {NAV_ITEMS.map(({ path, icon: Icon, label }) => {
+          const isActive = pathname === path;
+          const badge = path === "/review" && stats.due > 0 ? stats.due : undefined;
           return (
-            <button key={key} onClick={() => setView(key)} className={`relative flex flex-col items-center gap-1 text-xs transition-colors ${view === key ? "text-primary" : "text-muted-foreground"}`}>
+            <button
+              key={path}
+              onClick={() => setView(path === "/" ? "dashboard" : path.slice(1) as any)}
+              className={`relative flex flex-col items-center gap-1 text-xs transition-colors ${isActive ? "text-primary" : "text-muted-foreground"}`}
+            >
               <Icon className="h-5 w-5" />
               {label}
               {badge !== undefined && (
