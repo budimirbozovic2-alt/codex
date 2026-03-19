@@ -1,8 +1,9 @@
-import { createContext, useContext, useCallback, useMemo, useState, useEffect, ReactNode } from "react";
+import { createContext, useContext, useCallback, useMemo, useState, useEffect, useRef, ReactNode } from "react";
 import { useCards } from "@/hooks/useCards";
 import { Card } from "@/lib/spaced-repetition";
 import { createMnemonicCard, loadMnemonicCards, saveMnemonicCards } from "@/lib/mnemonic-storage";
 import { recordAppEntry, recordFirstAction, addActivityEntry, ActivityType } from "@/lib/metacognitive-storage";
+import { addPomodoroEntry } from "@/lib/storage";
 
 // ─── Types ──────────────────────────────────────────────
 export type View = "dashboard" | "create" | "edit" | "cards" | "review" | "categories" | "learn" | "settings" | "frequent-errors" | "knowledge-map" | "mnemonic" | "major-system-settings" | "metacognitive" | "stats" | "planner";
@@ -18,6 +19,13 @@ const VIEW_ACTIVITY_MAP: Partial<Record<View, ActivityType>> = {
   metacognitive: "analysis",
   planner: "analysis",
 };
+
+// ─── Pomodoro types ─────────────────────────────────────
+export interface PomodoroState {
+  mode: "work" | "break";
+  seconds: number;
+  running: boolean;
+}
 
 interface AppContextValue {
   // useCards data
@@ -62,6 +70,10 @@ interface AppContextValue {
   // Helpers
   handleToggleTag: (cardId: string, tag: string) => void;
   handleSendToWorkshop: (cardId: string) => void;
+  // Pomodoro (global)
+  pomodoro: PomodoroState;
+  pomodoroToggle: () => void;
+  pomodoroReset: () => void;
 }
 
 const AppContext = createContext<AppContextValue | null>(null);
@@ -72,12 +84,59 @@ export function useAppContext() {
   return ctx;
 }
 
+// ─── Pomodoro hook (lives in context, ticks globally) ───
+function useGlobalPomodoro() {
+  const [mode, setMode] = useState<"work" | "break">("work");
+  const [seconds, setSeconds] = useState(25 * 60);
+  const [running, setRunning] = useState(false);
+  const intervalRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (running) {
+      intervalRef.current = window.setInterval(() => {
+        setSeconds(prev => {
+          if (prev <= 1) {
+            setRunning(false);
+            // Log completed session
+            if (mode === "work") {
+              addPomodoroEntry({ timestamp: Date.now(), type: "focus", durationMinutes: 25 });
+              setMode("break");
+              return 5 * 60;
+            } else {
+              addPomodoroEntry({ timestamp: Date.now(), type: "break", durationMinutes: 5 });
+              setMode("work");
+              return 25 * 60;
+            }
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    }
+    return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
+  }, [running, mode]);
+
+  const toggle = useCallback(() => setRunning(r => !r), []);
+  const reset = useCallback(() => {
+    setRunning(false);
+    setSeconds(mode === "work" ? 25 * 60 : 5 * 60);
+  }, [mode]);
+
+  return useMemo(() => ({
+    state: { mode, seconds, running } as PomodoroState,
+    toggle,
+    reset,
+  }), [mode, seconds, running, toggle, reset]);
+}
+
 export function AppProvider({ children }: { children: ReactNode }) {
   const cardsHook = useCards();
   const { cards, toggleTag } = cardsHook;
 
   const [view, setViewRaw] = useState<View>("dashboard");
   const [editingCard, setEditingCard] = useState<Card | null>(null);
+
+  // Global pomodoro timer
+  const pom = useGlobalPomodoro();
 
   // Record app entry on mount
   useEffect(() => { recordAppEntry(); }, []);
@@ -156,7 +215,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setEditingCard,
     handleToggleTag,
     handleSendToWorkshop,
-  }), [cardsHook, view, setView, editingCard, handleToggleTag, handleSendToWorkshop]);
+    pomodoro: pom.state,
+    pomodoroToggle: pom.toggle,
+    pomodoroReset: pom.reset,
+  }), [cardsHook, view, setView, editingCard, handleToggleTag, handleSendToWorkshop, pom]);
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 }

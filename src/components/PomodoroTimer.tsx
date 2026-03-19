@@ -1,37 +1,17 @@
-import { useState, useEffect, useRef } from "react";
 import { Timer, Play } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
+import { useAppContext } from "@/contexts/AppContext";
 
 export default function PomodoroTimer({ compact = false }: { compact?: boolean }) {
-  const [mode, setMode] = useState<"work" | "break">("work");
-  const [seconds, setSeconds] = useState(25 * 60);
-  const [running, setRunning] = useState(false);
-  const intervalRef = useRef<number | null>(null);
-
-  useEffect(() => {
-    if (running) {
-      intervalRef.current = window.setInterval(() => {
-        setSeconds(prev => {
-          if (prev <= 1) {
-            setRunning(false);
-            if (mode === "work") { setMode("break"); return 5 * 60; }
-            else { setMode("work"); return 25 * 60; }
-          }
-          return prev - 1;
-        });
-      }, 1000);
-    }
-    return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
-  }, [running, mode]);
+  const { pomodoro, pomodoroToggle, pomodoroReset } = useAppContext();
+  const { mode, seconds, running } = pomodoro;
 
   const mins = Math.floor(seconds / 60);
   const secs = seconds % 60;
   const progress = mode === "work"
     ? ((25 * 60 - seconds) / (25 * 60)) * 100
     : ((5 * 60 - seconds) / (5 * 60)) * 100;
-
-  const reset = () => { setRunning(false); setSeconds(mode === "work" ? 25 * 60 : 5 * 60); };
 
   if (compact) {
     return (
@@ -41,7 +21,7 @@ export default function PomodoroTimer({ compact = false }: { compact?: boolean }
           {String(mins).padStart(2, "0")}:{String(secs).padStart(2, "0")}
         </span>
         <button
-          onClick={() => setRunning(!running)}
+          onClick={pomodoroToggle}
           className="p-1 rounded hover:bg-secondary transition-colors"
         >
           {running ? (
@@ -70,10 +50,10 @@ export default function PomodoroTimer({ compact = false }: { compact?: boolean }
       </div>
       <Progress value={progress} className="h-1.5" />
       <div className="flex gap-2 justify-center">
-        <Button variant={running ? "outline" : "default"} size="sm" onClick={() => setRunning(!running)} className="gap-1.5">
+        <Button variant={running ? "outline" : "default"} size="sm" onClick={pomodoroToggle} className="gap-1.5">
           {running ? "Pauziraj" : <><Play className="h-3.5 w-3.5" /> Pokreni</>}
         </Button>
-        <Button variant="ghost" size="sm" onClick={reset}>Reset</Button>
+        <Button variant="ghost" size="sm" onClick={pomodoroReset}>Reset</Button>
       </div>
     </div>
   );
