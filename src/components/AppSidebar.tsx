@@ -102,7 +102,7 @@ export default function AppSidebar() {
         <SidebarSeparator />
 
         {/* Tools */}
-        <SidebarGroup defaultOpen>
+        <SidebarGroup>
           {!collapsed && <SidebarGroupLabel className="text-[10px] uppercase tracking-widest text-muted-foreground/60">Alati</SidebarGroupLabel>}
           <SidebarGroupContent>
             <SidebarMenu>
