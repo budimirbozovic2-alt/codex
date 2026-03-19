@@ -95,6 +95,8 @@ export default function MyStats({ cards, categories, subcategories, categoryStat
       }));
   }, [categories, categoryStats]);
 
+  const disciplineTrend = useMemo(() => getDisciplineTrend(30), []);
+
   const hasData = cards.length > 0;
 
   return (
