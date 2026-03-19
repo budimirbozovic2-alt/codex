@@ -546,7 +546,7 @@ function ReviewCard({
                     return (
                       <button
                         key={g.value}
-                        onClick={() => !disabled && onGrade(g.value)}
+                        onClick={() => !disabled && handleGradeWithCalibration(g.value)}
                         disabled={disabled}
                         className={`rounded-xl px-3 py-4 text-sm font-medium transition-all ${gradeColorMap[g.color]} ${disabled ? "opacity-40 cursor-not-allowed" : ""}`}
                         title={disabled ? "Pričekajte bar 3 sekunde" : undefined}
