@@ -164,10 +164,20 @@ export function calculateNextReview(section: Section, grade: number): Partial<Se
 
   const interval = Math.max(calculateInterval(newStability), 1 / (24 * 60)); // minimum 1 minute
 
-  // 20-minute rule: new cards graded 3 or 4 get a short first review
+  // Critical zone: grades 1-2 get priority short intervals (max 24h for grade 2, max 20min for grade 1)
   let finalNextReview = Date.now() + interval * 24 * 60 * 60 * 1000;
   let finalState = newState;
   let finalFirstReviewPending = false;
+
+  if (!isNew && grade === 1) {
+    // Again: 20 minutes
+    finalNextReview = Date.now() + 20 * 60 * 1000;
+  } else if (!isNew && grade === 2) {
+    // Hard: cap at 24 hours
+    const maxMs = 24 * 60 * 60 * 1000;
+    const calcMs = interval * 24 * 60 * 60 * 1000;
+    finalNextReview = Date.now() + Math.min(calcMs, maxMs);
+  }
 
   if (isNew && grade >= 3) {
     // Schedule first review in 15-20 minutes, stay in Learning
