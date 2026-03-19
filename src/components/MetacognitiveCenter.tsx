@@ -30,7 +30,8 @@ interface Props {
   settings?: SRSettings;
 }
 
-export default function MetacognitiveCenter({ cards, categories, reviewLog, onBack }: Props) {
+export default function MetacognitiveCenter({ cards, categories, reviewLog, onBack, settings }: Props) {
+  const weights = settings?.resistanceWeights ?? DEFAULT_SR_SETTINGS.resistanceWeights;
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="max-w-4xl mx-auto space-y-6">
       <div className="flex items-center justify-between">
