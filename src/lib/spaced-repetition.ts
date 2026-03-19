@@ -164,16 +164,39 @@ export function calculateNextReview(section: Section, grade: number): Partial<Se
 
   const interval = Math.max(calculateInterval(newStability), 1 / (24 * 60)); // minimum 1 minute
 
+  // 20-minute rule: new cards graded 3 or 4 get a short first review
+  let finalNextReview = Date.now() + interval * 24 * 60 * 60 * 1000;
+  let finalState = newState;
+  let finalFirstReviewPending = false;
+
+  if (isNew && grade >= 3) {
+    // Schedule first review in 15-20 minutes, stay in Learning
+    const delayMs = grade === 3 ? 15 * 60 * 1000 : 20 * 60 * 1000;
+    finalNextReview = Date.now() + delayMs;
+    finalState = SectionState.Learning;
+    finalFirstReviewPending = true;
+  } else if (isPendingFirstReview && grade >= 3) {
+    // First review completed successfully — now transition to Review
+    finalState = SectionState.Review;
+    finalFirstReviewPending = false;
+  } else if (isPendingFirstReview && grade < 3) {
+    // Failed first review — stay pending, short interval again
+    finalNextReview = Date.now() + 10 * 60 * 1000;
+    finalState = SectionState.Learning;
+    finalFirstReviewPending = true;
+  }
+
   return {
-    state: newState,
+    state: finalState,
     stability: newStability,
     difficulty: newDifficulty,
     interval,
     lapses: newLapses,
     elapsedDays: elapsed,
     scheduledDays: interval,
-    nextReview: Date.now() + interval * 24 * 60 * 60 * 1000,
+    nextReview: finalNextReview,
     lastReviewed: Date.now(),
+    firstReviewPending: finalFirstReviewPending,
   };
 }
 
