@@ -76,11 +76,13 @@ export const GRADES: ReviewGrade[] = [
 export interface SRSettings {
   leechThreshold: number;
   dailyGoal: number;
+  resistanceWeights: { lapses: number; latency: number; forgetting: number };
 }
 
 export const DEFAULT_SR_SETTINGS: SRSettings = {
   leechThreshold: 5,
   dailyGoal: 20,
+  resistanceWeights: { lapses: 40, latency: 30, forgetting: 30 },
 };
 
 // FSRS interval calculation targeting 95% retention

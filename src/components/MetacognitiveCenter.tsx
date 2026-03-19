@@ -6,7 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { ReviewLogEntry } from "@/lib/storage";
-import { Card, SectionState, getCardRetrievability } from "@/lib/spaced-repetition";
+import { Card, SectionState, getCardRetrievability, SRSettings, DEFAULT_SR_SETTINGS } from "@/lib/spaced-repetition";
 import {
   loadDiary, addDiaryEntry, DiaryEntry, setLastAnalysisDate,
   loadCalibration, CalibrationEntry, getCalibrationStats,
@@ -27,9 +27,11 @@ interface Props {
   categories: string[];
   reviewLog: ReviewLogEntry[];
   onBack: () => void;
+  settings?: SRSettings;
 }
 
-export default function MetacognitiveCenter({ cards, categories, reviewLog, onBack }: Props) {
+export default function MetacognitiveCenter({ cards, categories, reviewLog, onBack, settings }: Props) {
+  const weights = settings?.resistanceWeights ?? DEFAULT_SR_SETTINGS.resistanceWeights;
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="max-w-4xl mx-auto space-y-6">
       <div className="flex items-center justify-between">
@@ -66,7 +68,7 @@ export default function MetacognitiveCenter({ cards, categories, reviewLog, onBa
           <LatencyTab />
         </TabsContent>
         <TabsContent value="resistance">
-          <ResistanceTab cards={cards} categories={categories} reviewLog={reviewLog} />
+          <ResistanceTab cards={cards} categories={categories} reviewLog={reviewLog} weights={weights} />
         </TabsContent>
         <TabsContent value="efficiency">
           <EfficiencyTab />
@@ -530,7 +532,7 @@ interface ResistanceData {
   cardCount: number;
 }
 
-function ResistanceTab({ cards, categories, reviewLog }: { cards: Card[]; categories: string[]; reviewLog: ReviewLogEntry[] }) {
+function ResistanceTab({ cards, categories, reviewLog, weights }: { cards: Card[]; categories: string[]; reviewLog: ReviewLogEntry[]; weights: { lapses: number; latency: number; forgetting: number } }) {
   const latencyData = useMemo(() => loadLatency(), []);
 
   const resistanceData = useMemo<ResistanceData[]>(() => {
@@ -556,8 +558,13 @@ function ResistanceTab({ cards, categories, reviewLog }: { cards: Card[]; catego
           : 100;
         const retrievabilityPenalty = Math.max(0, 100 - avgRetrievability);
 
+        const wTotal = weights.lapses + weights.latency + weights.forgetting;
+        const wL = wTotal > 0 ? weights.lapses / wTotal : 0.33;
+        const wLat = wTotal > 0 ? weights.latency / wTotal : 0.33;
+        const wF = wTotal > 0 ? weights.forgetting / wTotal : 0.34;
+
         const cognitiveLoad = Math.round(
-          lapseRate * 0.4 + latencyScore * 0.3 + retrievabilityPenalty * 0.3
+          lapseRate * wL + latencyScore * wLat + retrievabilityPenalty * wF
         );
 
         return {
