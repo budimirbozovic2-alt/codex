@@ -12,6 +12,7 @@ import DocxImporter from "@/components/DocxImporter";
 import KnowledgeMap from "@/components/KnowledgeMap";
 import SRSettingsPanel from "@/components/SRSettingsPanel";
 import MnemonicModule from "@/components/MnemonicModule";
+import MetacognitiveCenter from "@/components/MetacognitiveCenter";
 import MajorSystemSettings from "@/components/MajorSystemSettings";
 import FrequentErrors from "@/pages/FrequentErrors";
 import ExportImportDialog from "@/components/ExportImportDialog";
