@@ -1,7 +1,6 @@
 import { Card, getCardScore, getSectionScore, getCardRetrievability, getRetrievability } from "@/lib/spaced-repetition";
 import { format } from "date-fns";
 import { Edit2, Trash2, ChevronDown, ChevronRight, Zap, Brain, Flame } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { List } from "react-window";
 
@@ -46,10 +45,118 @@ function SectionBar({ score }: { score: number }) {
   );
 }
 
-// Collapsed card row height
 const ROW_HEIGHT = 100;
-// When expanded, we render outside virtual list
 const VIRTUALIZATION_THRESHOLD = 50;
+
+function CardRow({ card, expanded, scrollToCardId, selectionMode, selectedIds, onToggleSelect, onToggleTag, onExpand, onEdit, onDelete }: {
+  card: Card;
+  expanded: boolean;
+  scrollToCardId?: string | null;
+  selectionMode?: boolean;
+  selectedIds?: Set<string>;
+  onToggleSelect?: (id: string) => void;
+  onToggleTag: (cardId: string, tag: string) => void;
+  onExpand: (id: string | null) => void;
+  onEdit: (card: Card) => void;
+  onDelete: (id: string) => void;
+}) {
+  const score = getCardScore(card);
+  const retention = getCardRetrievability(card);
+  const isFlash = card.type === "flash";
+  const cardTags = card.tags || [];
+  const isFrequent = cardTags.includes("često-na-ispitu");
+
+  return (
+    <div
+      className={`rounded-xl bg-card border hover:border-primary/30 transition-colors overflow-hidden ${
+        scrollToCardId === card.id ? "ring-2 ring-primary/50" : ""
+      }`}
+      data-card-id={card.id}
+    >
+      <div className="p-5">
+        <div className="flex items-start justify-between gap-4">
+          {selectionMode && (
+            <button
+              onClick={() => onToggleSelect?.(card.id)}
+              className={`mt-1 flex-shrink-0 w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${
+                selectedIds?.has(card.id) ? "bg-primary border-primary text-primary-foreground" : "border-muted-foreground/40 hover:border-primary"
+              }`}
+            >
+              {selectedIds?.has(card.id) && <span className="text-xs">✓</span>}
+            </button>
+          )}
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 mb-1 flex-wrap">
+              <span className="text-xs uppercase tracking-widest text-muted-foreground">{card.category}</span>
+              {card.subcategory && <span className="text-xs text-muted-foreground">› {card.subcategory}</span>}
+              <ScoreBadge score={score} />
+              <RetentionBadge retention={retention} />
+              {isFlash ? (
+                <span className="text-xs text-primary flex items-center gap-1"><Zap className="h-3 w-3" /> Blic</span>
+              ) : (
+                <span className="text-xs text-muted-foreground">{card.sections.length} cjelina</span>
+              )}
+            </div>
+            <p className="font-serif text-lg line-clamp-2">{card.question}</p>
+          </div>
+          <div className="flex gap-1">
+            <button
+              onClick={() => onToggleTag(card.id, "često-na-ispitu")}
+              className={`p-2 rounded-lg transition-colors ${isFrequent ? "text-primary bg-primary/10 hover:bg-primary/20" : "text-muted-foreground/40 hover:text-muted-foreground hover:bg-secondary"}`}
+              title={isFrequent ? "Često na ispitu (klikni da ukloniš)" : "Označi kao često na ispitu"}
+            >
+              <Flame className="h-4 w-4" />
+            </button>
+            <button
+              onClick={() => onToggleTag(card.id, "memorizacija")}
+              className={`p-2 rounded-lg transition-colors ${cardTags.includes("memorizacija") ? "text-primary bg-primary/10 hover:bg-primary/20" : "text-muted-foreground/40 hover:text-muted-foreground hover:bg-secondary"}`}
+              title={cardTags.includes("memorizacija") ? "Memorizacija (klikni da ukloniš)" : "Dodaj u Memorizaciju"}
+            >
+              <Brain className="h-4 w-4" />
+            </button>
+            <button onClick={() => onExpand(expanded ? null : card.id)} className="p-2 hover:bg-secondary rounded-lg">
+              {expanded ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
+            </button>
+            <button onClick={() => onEdit(card)} className="p-2 hover:bg-secondary rounded-lg">
+              <Edit2 className="h-4 w-4 text-muted-foreground" />
+            </button>
+            <button onClick={() => onDelete(card.id)} className="p-2 hover:bg-destructive/10 rounded-lg">
+              <Trash2 className="h-4 w-4 text-destructive" />
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {expanded && (
+        <div className="px-5 pb-5 space-y-3 border-t pt-4">
+          {isFlash ? (
+            <div className="text-sm text-muted-foreground" dangerouslySetInnerHTML={{ __html: card.sections[0]?.content || "" }} />
+          ) : (
+            card.sections.map(s => {
+              const sScore = getSectionScore(s);
+              const sRetention = getRetrievability(s);
+              return (
+                <div key={s.id} className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium">{s.title}</span>
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <ScoreBadge score={sScore} />
+                      <RetentionBadge retention={sRetention} />
+                      <span>S: {s.stability?.toFixed(1) ?? 0}d</span>
+                      <span>Sljedeće: {format(new Date(s.nextReview), "dd.MM")}</span>
+                    </div>
+                  </div>
+                  <SectionBar score={sScore} />
+                  <div className="text-sm text-muted-foreground line-clamp-2" dangerouslySetInnerHTML={{ __html: s.content }} />
+                </div>
+              );
+            })
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function CardList({
   cards, filterCategory, filterSubcategory, filterType = "all", filterTag, searchQuery = "",
@@ -58,7 +165,18 @@ export default function CardList({
 }: Props) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const listRef = useRef<List>(null);
+  const listRef = useRef<typeof List | null>(null);
+
+  const [containerWidth, setContainerWidth] = useState(800);
+  useEffect(() => {
+    if (!containerRef.current) return;
+    const obs = new ResizeObserver(entries => {
+      const w = entries[0]?.contentRect.width;
+      if (w) setContainerWidth(w);
+    });
+    obs.observe(containerRef.current);
+    return () => obs.disconnect();
+  }, []);
 
   const filtered = useMemo(() => {
     let result = filterCategory ? cards.filter(c => c.category === filterCategory) : cards;
@@ -79,26 +197,11 @@ export default function CardList({
     return result;
   }, [cards, filterCategory, filterSubcategory, filterType, filterTag, searchQuery]);
 
-  // Scroll to card
   useEffect(() => {
-    if (scrollToCardId && listRef.current) {
-      const idx = filtered.findIndex(c => c.id === scrollToCardId);
-      if (idx >= 0) listRef.current.scrollToItem(idx, "center");
+    if (scrollToCardId) {
       onScrolledTo?.();
     }
-  }, [scrollToCardId, filtered, onScrolledTo]);
-
-  // Container width for react-window
-  const [containerWidth, setContainerWidth] = useState(800);
-  useEffect(() => {
-    if (!containerRef.current) return;
-    const obs = new ResizeObserver(entries => {
-      const w = entries[0]?.contentRect.width;
-      if (w) setContainerWidth(w);
-    });
-    obs.observe(containerRef.current);
-    return () => obs.disconnect();
-  }, []);
+  }, [scrollToCardId, onScrolledTo]);
 
   const useVirtualization = filtered.length >= VIRTUALIZATION_THRESHOLD;
 
@@ -106,141 +209,54 @@ export default function CardList({
     return <p className="text-muted-foreground text-center py-12">Nema kartica. Kreirajte prvu!</p>;
   }
 
-  // Shared card renderer
-  const renderCard = (card: Card, index: number, style?: React.CSSProperties) => {
-    const expanded = expandedId === card.id;
-    const score = getCardScore(card);
-    const retention = getCardRetrievability(card);
-    const isFlash = card.type === "flash";
-    const cardTags = card.tags || [];
-    const isFrequent = cardTags.includes("često-na-ispitu");
-
-    const cardElement = (
-      <div
-        className={`rounded-xl bg-card border hover:border-primary/30 transition-colors overflow-hidden ${
-          scrollToCardId === card.id ? "ring-2 ring-primary/50" : ""
-        }`}
-        data-card-id={card.id}
-      >
-        <div className="p-5">
-          <div className="flex items-start justify-between gap-4">
-            {selectionMode && (
-              <button
-                onClick={() => onToggleSelect?.(card.id)}
-                className={`mt-1 flex-shrink-0 w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${
-                  selectedIds?.has(card.id) ? "bg-primary border-primary text-primary-foreground" : "border-muted-foreground/40 hover:border-primary"
-                }`}
-              >
-                {selectedIds?.has(card.id) && <span className="text-xs">✓</span>}
-              </button>
-            )}
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 mb-1 flex-wrap">
-                <span className="text-xs uppercase tracking-widest text-muted-foreground">{card.category}</span>
-                {card.subcategory && <span className="text-xs text-muted-foreground">› {card.subcategory}</span>}
-                <ScoreBadge score={score} />
-                <RetentionBadge retention={retention} />
-                {isFlash ? (
-                  <span className="text-xs text-primary flex items-center gap-1"><Zap className="h-3 w-3" /> Blic</span>
-                ) : (
-                  <span className="text-xs text-muted-foreground">{card.sections.length} cjelina</span>
-                )}
-              </div>
-              <p className="font-serif text-lg line-clamp-2">{card.question}</p>
-            </div>
-            <div className="flex gap-1">
-              <button
-                onClick={() => onToggleTag(card.id, "često-na-ispitu")}
-                className={`p-2 rounded-lg transition-colors ${isFrequent ? "text-primary bg-primary/10 hover:bg-primary/20" : "text-muted-foreground/40 hover:text-muted-foreground hover:bg-secondary"}`}
-                title={isFrequent ? "Često na ispitu (klikni da ukloniš)" : "Označi kao često na ispitu"}
-              >
-                <Flame className="h-4 w-4" />
-              </button>
-              <button
-                onClick={() => onToggleTag(card.id, "memorizacija")}
-                className={`p-2 rounded-lg transition-colors ${cardTags.includes("memorizacija") ? "text-primary bg-primary/10 hover:bg-primary/20" : "text-muted-foreground/40 hover:text-muted-foreground hover:bg-secondary"}`}
-                title={cardTags.includes("memorizacija") ? "Memorizacija (klikni da ukloniš)" : "Dodaj u Memorizaciju"}
-              >
-                <Brain className="h-4 w-4" />
-              </button>
-              <button onClick={() => setExpandedId(expanded ? null : card.id)} className="p-2 hover:bg-secondary rounded-lg">
-                {expanded ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
-              </button>
-              <button onClick={() => onEdit(card)} className="p-2 hover:bg-secondary rounded-lg">
-                <Edit2 className="h-4 w-4 text-muted-foreground" />
-              </button>
-              <button onClick={() => onDelete(card.id)} className="p-2 hover:bg-destructive/10 rounded-lg">
-                <Trash2 className="h-4 w-4 text-destructive" />
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {expanded && (
-          <div className="overflow-hidden">
-            <div className="px-5 pb-5 space-y-3 border-t pt-4">
-              {isFlash ? (
-                <div className="text-sm text-muted-foreground" dangerouslySetInnerHTML={{ __html: card.sections[0]?.content || "" }} />
-              ) : (
-                card.sections.map(s => {
-                  const sScore = getSectionScore(s);
-                  const sRetention = getRetrievability(s);
-                  return (
-                    <div key={s.id} className="space-y-1.5">
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm font-medium">{s.title}</span>
-                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                          <ScoreBadge score={sScore} />
-                          <RetentionBadge retention={sRetention} />
-                          <span>S: {s.stability?.toFixed(1) ?? 0}d</span>
-                          <span>Sljedeće: {format(new Date(s.nextReview), "dd.MM")}</span>
-                        </div>
-                      </div>
-                      <SectionBar score={sScore} />
-                      <div className="text-sm text-muted-foreground line-clamp-2" dangerouslySetInnerHTML={{ __html: s.content }} />
-                    </div>
-                  );
-                })
-              )}
-            </div>
-          </div>
-        )}
-      </div>
-    );
-
-    if (style) {
-      return (
-        <div style={{ ...style, paddingBottom: 12 }} key={card.id}>
-          {cardElement}
-        </div>
-      );
-    }
-    return <div key={card.id} className="mb-3">{cardElement}</div>;
-  };
-
-  // Virtual row renderer
-  const Row = useCallback(({ index, style }: { index: number; style: React.CSSProperties }) => {
-    return renderCard(filtered[index], index, style);
-  }, [filtered, expandedId, selectionMode, selectedIds, scrollToCardId]);
-
-  return (
-    <div ref={containerRef}>
-      {useVirtualization ? (
+  if (useVirtualization) {
+    return (
+      <div ref={containerRef}>
         <List
-          ref={listRef}
           height={Math.min(filtered.length * ROW_HEIGHT, 700)}
           itemCount={filtered.length}
           itemSize={ROW_HEIGHT}
           width={containerWidth}
           overscanCount={5}
         >
-          {Row}
+          {({ index, style }: { index: number; style: React.CSSProperties }) => (
+            <div style={{ ...style, paddingBottom: 12 }}>
+              <CardRow
+                card={filtered[index]}
+                expanded={expandedId === filtered[index].id}
+                scrollToCardId={scrollToCardId}
+                selectionMode={selectionMode}
+                selectedIds={selectedIds}
+                onToggleSelect={onToggleSelect}
+                onToggleTag={onToggleTag}
+                onExpand={setExpandedId}
+                onEdit={onEdit}
+                onDelete={onDelete}
+              />
+            </div>
+          )}
         </List>
-      ) : (
-        <div className="space-y-3">
-          {filtered.map((card, i) => renderCard(card, i))}
-        </div>
-      )}
+      </div>
+    );
+  }
+
+  return (
+    <div ref={containerRef} className="space-y-3">
+      {filtered.map(card => (
+        <CardRow
+          key={card.id}
+          card={card}
+          expanded={expandedId === card.id}
+          scrollToCardId={scrollToCardId}
+          selectionMode={selectionMode}
+          selectedIds={selectedIds}
+          onToggleSelect={onToggleSelect}
+          onToggleTag={onToggleTag}
+          onExpand={setExpandedId}
+          onEdit={onEdit}
+          onDelete={onDelete}
+        />
+      ))}
     </div>
   );
 }
