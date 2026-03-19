@@ -531,7 +531,7 @@ interface ResistanceData {
   cardCount: number;
 }
 
-function ResistanceTab({ cards, categories, reviewLog }: { cards: Card[]; categories: string[]; reviewLog: ReviewLogEntry[] }) {
+function ResistanceTab({ cards, categories, reviewLog, weights }: { cards: Card[]; categories: string[]; reviewLog: ReviewLogEntry[]; weights: { lapses: number; latency: number; forgetting: number } }) {
   const latencyData = useMemo(() => loadLatency(), []);
 
   const resistanceData = useMemo<ResistanceData[]>(() => {
