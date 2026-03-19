@@ -4,6 +4,7 @@ import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } f
 import { motion } from "framer-motion";
 import { TrendingDown, Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ChartTooltip } from "@/components/ui/chart-tooltip";
 
 interface Props {
   cards: Card[];
@@ -20,20 +21,6 @@ const COLORS = [
   "#14b8a6",
   "#f97316",
 ];
-
-const CustomTooltip = ({ active, payload, label }: any) => {
-  if (!active || !payload?.length) return null;
-  return (
-    <div className="rounded-lg border bg-card px-3 py-2 shadow-md text-sm">
-      <p className="font-medium text-card-foreground">Dan {label}</p>
-      {payload.map((p: any, i: number) => (
-        <p key={i} style={{ color: p.color }} className="text-xs">
-          {p.name}: <span className="font-medium">{p.value}%</span>
-        </p>
-      ))}
-    </div>
-  );
-};
 
 export default function ForgettingCurve({ cards, categories }: Props) {
   const [showCategories, setShowCategories] = useState(false);
