@@ -67,6 +67,7 @@ const Index = () => {
             card.sections.map(s => ({ title: s.title, content: s.content })),
             card.category,
             card.subcategory,
+            (card.tags || []).filter(t => t !== "memorizacija"),
           );
           saveMnemonicCards([...mnemonicCards, clone]);
         }
