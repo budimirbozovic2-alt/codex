@@ -184,7 +184,7 @@ export default function ForgettingCurve({ cards, categories }: Props) {
                 domain={[0, 100]}
                 tickFormatter={(v) => `${v}%`}
               />
-              <Tooltip content={<CustomTooltip />} />
+              <Tooltip content={<ChartTooltip labelPrefix="Dan" valueSuffix="%" />} />
               {showCategories && <Legend wrapperStyle={{ fontSize: 11 }} />}
               <Area
                 type="monotone"
