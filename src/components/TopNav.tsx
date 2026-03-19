@@ -17,6 +17,7 @@ const NAV_ITEMS = [
   { path: "/mnemonic", icon: Brain, label: "Mnemo radionica" },
   { path: "/planner", icon: Target, label: "Strateški planer" },
   { path: "/database", icon: Database, label: "Baza podataka" },
+  { path: "/settings", icon: Settings, label: "Podešavanja" },
 ];
 
 export default function TopNav() {
