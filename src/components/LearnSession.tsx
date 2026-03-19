@@ -755,8 +755,10 @@ export default function LearnSession({ cards, categories, subcategories, onMarkR
       const section = sections[chainIndex];
       if (!section) return;
       onReviewSection(card.id, section.id, grade);
+      setTotalGrades((prev) => [...prev, grade]);
 
       if (grade === 4) {
+        setModulesCompleted((c) => c + 1);
         // Module mastered → start chain review 1..chainIndex
         if (chainIndex === 0) {
           // First module, no chain to review, advance
