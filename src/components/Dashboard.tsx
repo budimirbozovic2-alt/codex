@@ -227,6 +227,20 @@ export default function Dashboard({ stats, categoryStats, categories, subcategor
   const backupOverdue = useMemo(() => isBackupOverdue(), []);
   const lastBackup = useMemo(() => getLastBackupTime(), []);
 
+  // Planner suggestion
+  const plannerSuggestion = useMemo(() => {
+    const planner = loadPlanner();
+    if (!planner.finalGoalDate) return null;
+    const totalSections = stats.totalSections;
+    const learnedSections = stats.learnedSections;
+    const velocity = calcVelocity(reviewLog, 7);
+    const remaining = totalSections - learnedSections;
+    const estimated = calcEstimatedFinish(remaining, velocity);
+    const status = getPlannerStatus(estimated, planner.finalGoalDate);
+    const suggestion = getDailySuggestion(totalSections, learnedSections, planner.finalGoalDate, velocity);
+    return { status, suggestion };
+  }, [stats, reviewLog]);
+
   return (
     <div className="space-y-8">
       {/* Hero */}
