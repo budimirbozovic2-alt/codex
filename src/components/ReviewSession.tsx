@@ -6,6 +6,7 @@ import ScrollableRow from "@/components/ScrollableRow";
 import { Button } from "@/components/ui/button";
 import { speak, stopSpeaking } from "@/lib/tts";
 import { useToast } from "@/hooks/use-toast";
+import { addCalibrationEntry, addLatencyEntry, isAnalysisNeededToday } from "@/lib/metacognitive-storage";
 
 type ReviewMode = "essay" | "random" | null;
 type ViewWidth = "compact" | "normal" | "wide" | "full";
