@@ -305,6 +305,8 @@ function ReviewCard({
   const lastGradeRef = useRef<{ cardId: string; sectionId: string; grade: number } | null>(null);
   const [answerRevealedAt, setAnswerRevealedAt] = useState<number | null>(null);
   const [canGradeEasy, setCanGradeEasy] = useState(false);
+  const [confidence, setConfidence] = useState<number | null>(null);
+  const questionShownAt = useRef<number>(Date.now());
 
   // Reset timer when card/section changes or answer is hidden
   useEffect(() => {
