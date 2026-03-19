@@ -66,10 +66,10 @@ export interface ReviewGrade {
 }
 
 export const GRADES: ReviewGrade[] = [
-  { label: "Opet", value: 1, description: "Zaboravljeno", color: "destructive" },
-  { label: "Teško", value: 2, description: "Značajan napor", color: "warning" },
-  { label: "Dobro", value: 3, description: "Umjeren napor", color: "primary" },
-  { label: "Lako", value: 4, description: "Savršeno", color: "success" },
+  { label: "Opet", value: 1, description: "Potpuno nepoznat odgovor", color: "destructive" },
+  { label: "Teško", value: 2, description: "Propuštene ključne info (rokovi, brojevi…)", color: "warning" },
+  { label: "Dobro", value: 3, description: "Poznat odgovor + ključne informacije", color: "primary" },
+  { label: "Lako", value: 4, description: "1/1 bez oklijevanja", color: "success" },
 ];
 
 export interface SRSettings {
