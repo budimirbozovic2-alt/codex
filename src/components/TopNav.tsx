@@ -133,9 +133,14 @@ export default function TopNav({ onOpenSearch, onOpenDocxImport, onToggleZen, ze
           </div>
         </div>
 
-        <button onClick={toggleDark} className="p-1.5 rounded-md hover:bg-secondary text-muted-foreground ml-2" title="Tema">
-          {dark ? <Sun className="h-3.5 w-3.5" /> : <Moon className="h-3.5 w-3.5" />}
-        </button>
+        <div className="flex items-center gap-0.5 ml-2">
+          <button onClick={onToggleZen} className={`p-1.5 rounded-md hover:bg-secondary transition-colors ${zenActive ? "text-primary bg-primary/10" : "text-muted-foreground"}`} title="Zen Mode">
+            <Focus className="h-3.5 w-3.5" />
+          </button>
+          <button onClick={toggleDark} className="p-1.5 rounded-md hover:bg-secondary text-muted-foreground" title="Tema">
+            {dark ? <Sun className="h-3.5 w-3.5" /> : <Moon className="h-3.5 w-3.5" />}
+          </button>
+        </div>
       </div>
 
       <div className="md:hidden flex items-center h-11 px-3 justify-between">
