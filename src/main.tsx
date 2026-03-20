@@ -6,7 +6,7 @@ createRoot(document.getElementById("root")!).render(<App />);
 
 // ── Electron IPC: listen for backup-requested before quit ──
 if (window.electronAPI) {
-  window.electronAPI.onBackupRequested(() => {
+  const cleanup = window.electronAPI.onBackupRequested(() => {
     try {
       const keys = ['sr-essay-cards', 'sr-essay-categories', 'sr-essay-subcategories', 'sr-review-log', 'sr-settings'];
       const data: Record<string, unknown> = {};
@@ -18,6 +18,9 @@ if (window.electronAPI) {
       window.electronAPI!.requestBackup(json);
     } catch (_) {}
   });
+
+  // Cleanup on page unload to prevent memory leaks
+  window.addEventListener("beforeunload", () => cleanup());
 }
 
 if ("serviceWorker" in navigator) {

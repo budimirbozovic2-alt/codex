@@ -137,7 +137,7 @@ const CardRowInner = memo(function CardRowInner({ card, expanded, highlighted, s
       </div>
 
       {expanded && (
-        <div className="px-5 pb-5 space-y-3 border-t pt-4">
+        <div className="px-5 pb-5 space-y-3 border-t pt-4 max-h-[60vh] overflow-y-auto">
           {isFlash ? (
             <div className="text-sm text-muted-foreground" dangerouslySetInnerHTML={{ __html: card.sections[0]?.content || "" }} />
           ) : (

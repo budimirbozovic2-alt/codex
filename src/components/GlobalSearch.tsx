@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
+import { useDebounce } from "@/hooks/useDebounce";
 import { Card } from "@/lib/spaced-repetition";
 import { default as Search } from "lucide-react/dist/esm/icons/search";
 import { default as X } from "lucide-react/dist/esm/icons/x";
@@ -25,16 +26,10 @@ function highlightMatch(text: string, query: string): string {
 
 export default function GlobalSearch({ cards, open, onClose, onNavigateToCard }: Props) {
   const [query, setQuery] = useState("");
-  const [debouncedQuery, setDebouncedQuery] = useState("");
+  const debouncedQuery = useDebounce(query, 300);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
-
-  // Debounce search query — filter only after 200ms of inactivity
-  useEffect(() => {
-    const timer = setTimeout(() => setDebouncedQuery(query), 200);
-    return () => clearTimeout(timer);
-  }, [query]);
 
   const results = useMemo(() => {
     if (!debouncedQuery.trim()) return [];

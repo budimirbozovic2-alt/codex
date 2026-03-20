@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useAppContext } from "@/contexts/AppContext";
+import { useDebounce } from "@/hooks/useDebounce";
 import { AnimatePresence, motion } from "framer-motion";
 import { default as Plus } from "lucide-react/dist/esm/icons/plus";
 import { default as CheckSquare } from "lucide-react/dist/esm/icons/check-square";
@@ -22,6 +23,7 @@ export default function CardsView() {
   const [filterType, setFilterType] = useState<"all" | "essay" | "flash">("all");
   const [filterTag, setFilterTag] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const debouncedSearch = useDebounce(searchQuery, 300);
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkSubcategory, setBulkSubcategory] = useState("");
@@ -211,7 +213,7 @@ export default function CardsView() {
         filterSubcategory={filterSubcategory}
         filterType={filterType}
         filterTag={filterTag}
-        searchQuery={searchQuery}
+        searchQuery={debouncedSearch}
         onEdit={handleEdit}
         onDelete={deleteCard}
         onToggleTag={handleToggleTag}
