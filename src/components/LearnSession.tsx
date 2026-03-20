@@ -382,6 +382,20 @@ export default function LearnSession({ cards, categories, subcategories, onMarkR
         : learnMode === "active-recall" ? "learn-active" as const
         : "learn-chain" as const;
       addActivityEntry({ timestamp: Date.now(), type: activityType, durationMs: elapsed });
+
+      // Record discipline for today
+      try {
+        const reviewLog = loadReviewLog();
+        const plannerConfig = loadPlanner();
+        const totalSections = cards.reduce((s, c) => s + c.sections.length, 0);
+        const learnedSections = cards.reduce((s, c) => s + c.sections.filter(sec => sec.lastReviewed).length, 0);
+        const velocity = calcVelocity(reviewLog, 7);
+        const suggestion = getDailySuggestion(totalSections, learnedSections, plannerConfig.finalGoalDate, velocity);
+        const dailyGoal = suggestion?.suggestedToday ?? 0;
+        const today = new Date().toISOString().slice(0, 10);
+        const reviewsDoneToday = reviewLog.filter(e => new Date(e.timestamp).toISOString().slice(0, 10) === today).length;
+        recordDayDiscipline(today, reviewsDoneToday, dailyGoal, null);
+      } catch {}
     }
 
     return (
