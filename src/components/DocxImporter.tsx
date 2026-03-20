@@ -1,4 +1,5 @@
 import { useState, useCallback } from "react";
+import { sanitizeHtml } from "@/lib/sanitize";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -64,7 +65,7 @@ export default function DocxImporter({ open, onClose, categories, onImport }: Pr
           "p[style-name='List Paragraph'] => p.list-paragraph:fresh",
         ],
       });
-      setHtmlContent(result.value);
+      setHtmlContent(sanitizeHtml(result.value));
       setStep("configure");
     } catch {
       alert("Greška pri čitanju DOCX fajla.");
