@@ -172,8 +172,7 @@ function DecadeItem({ decade: d, index: i, isCurrent, isEditing, editName, editD
   );
 }
 
-
-  const [config, setConfig] = useState<PlannerConfig>(() => loadPlanner());
+export default function StrategicPlanner({ cards, categories, reviewLog, onBack }: Props) {
   const [newDecadeName, setNewDecadeName] = useState("");
   const [newDecadeDays, setNewDecadeDays] = useState("30");
   const [newDecadeCats, setNewDecadeCats] = useState<string[]>([]);
