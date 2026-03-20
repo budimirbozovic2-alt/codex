@@ -77,21 +77,6 @@ function calcActualRatio(reviewLog: ReviewLogEntry[], _cards: Card[]) {
 
 // PomodoroTimer moved to src/components/PomodoroTimer.tsx (global in MainLayout)
 
-// ─── Custom Tooltip ──────────────────────────────────────
-const ChartTooltip = ({ active, payload, label }: any) => {
-  if (!active || !payload?.length) return null;
-  return (
-    <div className="rounded-lg border bg-card px-3 py-2 shadow-md text-sm">
-      <p className="font-medium text-card-foreground">{label}</p>
-      {payload.map((p: any, i: number) => (
-        <p key={i} style={{ color: p.color }} className="text-xs">
-          {p.name}: <span className="font-medium">{p.value}%</span>
-        </p>
-      ))}
-    </div>
-  );
-};
-
 export default function Dashboard({ stats, categoryStats, categories, subcategories, cards, reviewLog, srSettings, onExport, onStartReview }: Props) {
   const todayKey = getDayKey(Date.now());
   const todayReviews = useMemo(() => reviewLog.filter(e => getDayKey(e.timestamp) === todayKey).length, [reviewLog, todayKey]);
