@@ -125,7 +125,7 @@ export default function MnemonicModule({ onBack }: Props) {
       )}
 
       {/* Menu options */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <motion.button
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
@@ -146,6 +146,17 @@ export default function MnemonicModule({ onBack }: Props) {
           <FlaskConical className="h-8 w-8 text-primary" />
           <h3 className="text-lg font-serif">Testiranje mentalnih kuka</h3>
           <p className="text-sm text-muted-foreground">Testiraj koliko dobro pamtiš uz pomoć mentalnih slika.</p>
+        </motion.button>
+
+        <motion.button
+          whileHover={{ scale: 1.02 }}
+          whileTap={{ scale: 0.98 }}
+          onClick={() => setSubView("major")}
+          className="rounded-xl border bg-card p-6 text-left hover:border-primary/40 transition-colors space-y-3"
+        >
+          <Hash className="h-8 w-8 text-accent-foreground" />
+          <h3 className="text-lg font-serif">Mentalne tablice</h3>
+          <p className="text-sm text-muted-foreground">Prilagodi Major sistem termine za brojeve 0–100.</p>
         </motion.button>
       </div>
 
