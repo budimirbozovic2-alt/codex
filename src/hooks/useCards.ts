@@ -442,65 +442,79 @@ export function useCards() {
     setLastBackupTime();
   }, [cards, categories, subcategories, reviewLog, srSettings, downloadFile, buildJsonChunked]);
 
-  const importData = useCallback((file: File, strategy: "keep" | "overwrite" | "skip" | "newer" = "skip") => {
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      try {
-        const parsed = JSON.parse(e.target?.result as string);
-        if (Array.isArray(parsed.cards)) {
-          const migrateImported = (c: any): Card => ({
-            ...c, readCount: c.readCount || 0, type: c.type || "essay", subcategory: c.subcategory || "",
-            tags: c.tags || [], errorLog: c.errorLog || [],
-            sections: (c.sections || []).map((s: any) => ({
-              ...s, id: s.id || crypto.randomUUID(), state: s.state ?? 0, lapses: s.lapses || 0,
-              stability: s.stability ?? 0, difficulty: s.difficulty ?? 5, interval: s.interval ?? 0,
-              nextReview: s.nextReview ?? 0, lastReviewed: s.lastReviewed ?? null,
-              elapsedDays: s.elapsedDays ?? 0, scheduledDays: s.scheduledDays ?? 0,
-            })),
-          });
+  const processImportJson = useCallback((jsonText: string, strategy: "keep" | "overwrite" | "skip" | "newer") => {
+    try {
+      const parsed = JSON.parse(jsonText);
+      if (Array.isArray(parsed.cards)) {
+        const migrateImported = (c: any): Card => ({
+          ...c, readCount: c.readCount || 0, type: c.type || "essay", subcategory: c.subcategory || "",
+          tags: c.tags || [], errorLog: c.errorLog || [],
+          sections: (c.sections || []).map((s: any) => ({
+            ...s, id: s.id || crypto.randomUUID(), state: s.state ?? 0, lapses: s.lapses || 0,
+            stability: s.stability ?? 0, difficulty: s.difficulty ?? 5, interval: s.interval ?? 0,
+            nextReview: s.nextReview ?? 0, lastReviewed: s.lastReviewed ?? null,
+            elapsedDays: s.elapsedDays ?? 0, scheduledDays: s.scheduledDays ?? 0,
+          })),
+        });
 
-          const importedCards: Card[] = parsed.cards.map(migrateImported);
-          setCardMap(prev => {
-            const next = { ...prev };
-            if (strategy === "newer") {
-              const getLastReview = (c: Card) => Math.max(0, ...c.sections.map(s => s.lastReviewed || 0));
-              importedCards.forEach(ic => {
-                const existing = next[ic.id];
-                if (!existing) { next[ic.id] = ic; }
-                else if (getLastReview(ic) > getLastReview(existing)) { next[ic.id] = ic; }
-              });
-            } else if (strategy === "overwrite") {
-              importedCards.forEach(ic => { next[ic.id] = ic; });
-            } else {
-              importedCards.forEach(ic => { if (!next[ic.id]) next[ic.id] = ic; });
-            }
-            return next;
-          }, "full");
-        }
-        if (Array.isArray(parsed.categories)) {
-          setCategories(prev => [...new Set([...prev, ...parsed.categories])]);
-        }
-        if (parsed.subcategories && typeof parsed.subcategories === "object") {
-          setSubcategories(prev => {
-            const merged = { ...prev };
-            for (const [cat, subs] of Object.entries(parsed.subcategories as Record<string, string[]>)) {
-              merged[cat] = [...new Set([...(merged[cat] || []), ...subs])];
-            }
-            return merged;
-          });
-        }
-        if (Array.isArray(parsed.reviewLog) && strategy === "overwrite") {
-          setReviewLogState(parsed.reviewLog);
-        }
-        if (parsed.srSettings && strategy === "overwrite") {
-          updateSRSettings({ ...DEFAULT_SR_SETTINGS, ...parsed.srSettings });
-        }
-      } catch {
-        alert("Greška pri čitanju fajla. Provjerite format.");
+        const importedCards: Card[] = parsed.cards.map(migrateImported);
+        setCardMap(prev => {
+          const next = { ...prev };
+          if (strategy === "newer") {
+            const getLastReview = (c: Card) => Math.max(0, ...c.sections.map(s => s.lastReviewed || 0));
+            importedCards.forEach(ic => {
+              const existing = next[ic.id];
+              if (!existing) { next[ic.id] = ic; }
+              else if (getLastReview(ic) > getLastReview(existing)) { next[ic.id] = ic; }
+            });
+          } else if (strategy === "overwrite") {
+            importedCards.forEach(ic => { next[ic.id] = ic; });
+          } else {
+            importedCards.forEach(ic => { if (!next[ic.id]) next[ic.id] = ic; });
+          }
+          return next;
+        }, "full");
       }
-    };
-    reader.readAsText(file);
+      if (Array.isArray(parsed.categories)) {
+        setCategories(prev => [...new Set([...prev, ...parsed.categories])]);
+      }
+      if (parsed.subcategories && typeof parsed.subcategories === "object") {
+        setSubcategories(prev => {
+          const merged = { ...prev };
+          for (const [cat, subs] of Object.entries(parsed.subcategories as Record<string, string[]>)) {
+            merged[cat] = [...new Set([...(merged[cat] || []), ...subs])];
+          }
+          return merged;
+        });
+      }
+      if (Array.isArray(parsed.reviewLog) && strategy === "overwrite") {
+        setReviewLogState(parsed.reviewLog);
+      }
+      if (parsed.srSettings && strategy === "overwrite") {
+        updateSRSettings({ ...DEFAULT_SR_SETTINGS, ...parsed.srSettings });
+      }
+    } catch {
+      alert("Greška pri čitanju fajla. Provjerite format.");
+    }
   }, [setCardMap, setCategories, setSubcategories, updateSRSettings]);
+
+  const importData = useCallback(async (file: File, strategy: "keep" | "overwrite" | "skip" | "newer" = "skip") => {
+    try {
+      let jsonText: string;
+      if (file.name.endsWith(".zip")) {
+        const JSZip = (await import("jszip")).default;
+        const zip = await JSZip.loadAsync(file);
+        const jsonFile = Object.keys(zip.files).find(n => n.endsWith(".json"));
+        if (!jsonFile) { alert("ZIP ne sadrži JSON fajl."); return; }
+        jsonText = await zip.files[jsonFile].async("string");
+      } else {
+        jsonText = await file.text();
+      }
+      processImportJson(jsonText, strategy);
+    } catch {
+      alert("Greška pri čitanju fajla. Provjerite format.");
+    }
+  }, [processImportJson]);
 
   const importCards = useCallback((newCards: { question: string; sections: { title: string; content: string }[] }[], category: string) => {
     const created = newCards.map(c => createCard(c.question, c.sections, category));
