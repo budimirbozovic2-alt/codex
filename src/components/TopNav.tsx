@@ -15,10 +15,7 @@ import { default as X } from "lucide-react/dist/esm/icons/x";
 import { default as Focus } from "lucide-react/dist/esm/icons/focus";
 import { default as SettingsIcon } from "lucide-react/dist/esm/icons/settings";
 import { default as BarChart3 } from "lucide-react/dist/esm/icons/bar-chart-3";
-import { default as Search } from "lucide-react/dist/esm/icons/search";
-import { default as FileText } from "lucide-react/dist/esm/icons/file-text";
-import { default as ChevronDown } from "lucide-react/dist/esm/icons/chevron-down"; // kept for potential future use
-import { useState, useCallback, useRef, useEffect } from "react";
+import { useState, useCallback } from "react";
 import { Badge } from "@/components/ui/badge";
 
 interface Props {
@@ -44,24 +41,11 @@ export default function TopNav({ onOpenSearch, onOpenDocxImport, onToggleZen, ze
   const { stats } = useCardContext();
   const [dark, setDark] = useState(() => document.documentElement.classList.contains("dark"));
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [dbDropdownOpen, setDbDropdownOpen] = useState(false);
-  const dropdownRef = useRef<HTMLDivElement>(null);
 
   const toggleDark = useCallback(() => {
     document.documentElement.classList.toggle("dark");
     setDark(d => !d);
   }, []);
-
-  useEffect(() => {
-    if (!dbDropdownOpen) return;
-    const handler = (e: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
-        setDbDropdownOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, [dbDropdownOpen]);
 
   const isDbActive = location.pathname === "/database" || location.pathname === "/cards" || location.pathname === "/categories";
 
