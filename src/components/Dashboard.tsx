@@ -224,18 +224,6 @@ export default function Dashboard({ stats, categoryStats, categories, subcategor
         </h1>
       </motion.div>
 
-      {/* Mental Trigger */}
-      <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.2 }}
-        className="flex items-center gap-3 p-4 rounded-xl border border-primary/20 bg-primary/5">
-        <div className="flex items-center justify-center w-10 h-10 rounded-full bg-primary/10">
-          <Hand className="h-5 w-5 text-primary" />
-        </div>
-        <div>
-          <p className="text-sm font-medium">Mentalni okidač</p>
-          <p className="text-xs text-muted-foreground">Pucni prstima ili napravi gest prije nego počneš učiti — aktiviraj režim fokusa.</p>
-        </div>
-      </motion.div>
-
       {/* Energy-Material Matcher */}
       {energyRec && (
         <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.22 }}
