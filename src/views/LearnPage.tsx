@@ -3,9 +3,10 @@ import { useAppContext } from "@/contexts/AppContext";
 import { useSessionContext, QueuedReview, QueuedError, QueuedMarkRead } from "@/contexts/SessionContext";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import LearnSession from "@/components/LearnSession";
+import { Card } from "@/lib/spaced-repetition";
 
 export default function LearnPage() {
-  const { cards, categories, subcategories, markRead, reviewSection, setView, stats, reviewLog } = useAppContext();
+  const { cards, categories, subcategories, markRead, reviewSection, setView, stats, reviewLog, setEditingCard } = useAppContext();
   const session = useSessionContext();
 
   // Start session on mount
@@ -39,6 +40,11 @@ export default function LearnPage() {
     setView("dashboard");
   }, [session, setView]);
 
+  const handleEdit = useCallback((card: Card) => {
+    setEditingCard(card);
+    setView("edit");
+  }, [setEditingCard, setView]);
+
   return (
     <ErrorBoundary label="Učenje" onNavigateHome={() => setView("dashboard")}>
       <LearnSession
@@ -48,6 +54,7 @@ export default function LearnPage() {
         onMarkRead={handleMarkRead}
         onReviewSection={handleReviewSection}
         onBack={handleBack}
+        onEdit={handleEdit}
         dueCount={stats.due}
       />
     </ErrorBoundary>

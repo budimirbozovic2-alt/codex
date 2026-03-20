@@ -36,7 +36,7 @@ import GradeButtons from "./learn/GradeButtons";
 import NavigationButtons from "./learn/NavigationButtons";
 import { LearnSessionProps, ViewWidth, viewWidthClasses } from "./learn/types";
 
-export default function LearnSession({ cards, categories, subcategories, onMarkRead, onReviewSection, onBack, dueCount = 0 }: LearnSessionProps) {
+export default function LearnSession({ cards, categories, subcategories, onMarkRead, onReviewSection, onBack, onEdit, dueCount = 0 }: LearnSessionProps) {
   // Setup state
   const [setupStep, setSetupStep] = useState<"mode" | "filter" | "ready">("mode");
   const [learnMode, setLearnMode] = useState<LearnMode>("free");
