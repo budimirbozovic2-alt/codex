@@ -602,7 +602,7 @@ function ReviewCard({
               </div>
 
               <div>
-                <p className="text-sm text-muted-foreground mb-3">Koliko ste znali?</p>
+                <p className="text-sm text-muted-foreground mb-3">Ocijeni kvalitet prisjećanja:</p>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
                   {GRADES.map((g) => {
                     const isEasy = g.value === 4;
