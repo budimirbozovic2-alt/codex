@@ -450,43 +450,67 @@ export function useCards() {
         const JSZip = (await import("jszip")).default;
         const zip = await JSZip.loadAsync(file);
         const jsonFile = Object.keys(zip.files).find(n => n.endsWith(".json"));
-        if (!jsonFile) { alert("ZIP ne sadrži JSON fajl."); return; }
+        if (!jsonFile) { toast.error("ZIP ne sadrži JSON fajl."); return; }
         jsonText = await zip.files[jsonFile].async("string");
       } else {
         jsonText = await file.text();
       }
 
-      const parsed = JSON.parse(jsonText);
-      if (Array.isArray(parsed.cards)) {
-        const migrateImported = (c: any): Card => ({
-          ...c, readCount: c.readCount || 0, type: c.type || "essay", subcategory: c.subcategory || "",
-          tags: c.tags || [], errorLog: c.errorLog || [],
-          sections: (c.sections || []).map((s: any) => ({
-            ...s, id: s.id || crypto.randomUUID(), state: s.state ?? 0, lapses: s.lapses || 0,
-            stability: s.stability ?? 0, difficulty: s.difficulty ?? 5, interval: s.interval ?? 0,
-            nextReview: s.nextReview ?? 0, lastReviewed: s.lastReviewed ?? null,
-            elapsedDays: s.elapsedDays ?? 0, scheduledDays: s.scheduledDays ?? 0,
-          })),
-        });
-
-        const importedCards: Card[] = parsed.cards.map(migrateImported);
-        setCardMap(prev => {
-          const next = { ...prev };
-          if (strategy === "newer") {
-            const getLastReview = (c: Card) => Math.max(0, ...c.sections.map(s => s.lastReviewed || 0));
-            importedCards.forEach(ic => {
-              const existing = next[ic.id];
-              if (!existing) { next[ic.id] = ic; }
-              else if (getLastReview(ic) > getLastReview(existing)) { next[ic.id] = ic; }
-            });
-          } else if (strategy === "overwrite") {
-            importedCards.forEach(ic => { next[ic.id] = ic; });
-          } else {
-            importedCards.forEach(ic => { if (!next[ic.id]) next[ic.id] = ic; });
-          }
-          return next;
-        }, "full");
+      let parsed: any;
+      try {
+        parsed = JSON.parse(jsonText);
+      } catch {
+        toast.error("Neispravan JSON format. Fajl je oštećen ili nije validan.");
+        return;
       }
+
+      // Schema validation
+      if (!parsed || typeof parsed !== "object") {
+        toast.error("Fajl ne sadrži validan JSON objekat.");
+        return;
+      }
+      if (!Array.isArray(parsed.cards)) {
+        toast.error("Fajl ne sadrži 'cards' niz. Provjerite format.");
+        return;
+      }
+      // Validate sample cards
+      for (let i = 0; i < Math.min(5, parsed.cards.length); i++) {
+        const c = parsed.cards[i];
+        if (!c || typeof c.question !== "string" || !Array.isArray(c.sections)) {
+          toast.error(`Kartica #${i + 1} ima neispravan format (nedostaje question ili sections).`);
+          return;
+        }
+      }
+
+      const migrateImported = (c: any): Card => ({
+        ...c, readCount: c.readCount || 0, type: c.type || "essay", subcategory: c.subcategory || "",
+        tags: c.tags || [], errorLog: c.errorLog || [],
+        sections: (c.sections || []).map((s: any) => ({
+          ...s, id: s.id || crypto.randomUUID(), state: s.state ?? 0, lapses: s.lapses || 0,
+          stability: s.stability ?? 0, difficulty: s.difficulty ?? 5, interval: s.interval ?? 0,
+          nextReview: s.nextReview ?? 0, lastReviewed: s.lastReviewed ?? null,
+          elapsedDays: s.elapsedDays ?? 0, scheduledDays: s.scheduledDays ?? 0,
+        })),
+      });
+
+      const importedCards: Card[] = parsed.cards.map(migrateImported);
+      setCardMap(prev => {
+        const next = { ...prev };
+        if (strategy === "newer") {
+          const getLastReview = (c: Card) => Math.max(0, ...c.sections.map(s => s.lastReviewed || 0));
+          importedCards.forEach(ic => {
+            const existing = next[ic.id];
+            if (!existing) { next[ic.id] = ic; }
+            else if (getLastReview(ic) > getLastReview(existing)) { next[ic.id] = ic; }
+          });
+        } else if (strategy === "overwrite") {
+          importedCards.forEach(ic => { next[ic.id] = ic; });
+        } else {
+          importedCards.forEach(ic => { if (!next[ic.id]) next[ic.id] = ic; });
+        }
+        return next;
+      }, "full");
+
       if (Array.isArray(parsed.categories)) {
         setCategories(prev => [...new Set([...prev, ...parsed.categories])]);
       }
@@ -505,8 +529,10 @@ export function useCards() {
       if (parsed.srSettings && strategy === "overwrite") {
         updateSRSettings({ ...DEFAULT_SR_SETTINGS, ...parsed.srSettings });
       }
-    } catch {
-      alert("Greška pri čitanju fajla. Provjerite format.");
+
+      toast.success(`Uspješno uvezeno ${importedCards.length} kartica.`);
+    } catch (err) {
+      toast.error(`Greška pri uvozu: ${err instanceof Error ? err.message : "Neispravan format fajla."}`);
     }
   }, [setCardMap, setCategories, setSubcategories, updateSRSettings]);
 
