@@ -29,9 +29,18 @@ function ScoreBadge({ score }: { score: number }) {
 function RetentionBadge({ retention }: { retention: number }) {
   if (retention === 0) return null;
   const color = retention >= 90 ? "text-success" : retention >= 70 ? "text-warning" : "text-destructive";
+  const strokeColor = retention >= 90 ? "hsl(var(--success))" : retention >= 70 ? "hsl(var(--warning))" : "hsl(var(--destructive))";
+  const circumference = 2 * Math.PI * 7;
+  const offset = circumference - (retention / 100) * circumference;
   return (
-    <span className={`text-xs flex items-center gap-0.5 ${color}`} title="Vjerovatnoća prisjećanja">
-      <Brain className="h-3 w-3" />{retention}%
+    <span className={`text-[11px] font-medium flex items-center gap-1 ${color}`} title={`Vjerovatnoća prisjećanja: ${retention}%`}>
+      <svg width="18" height="18" viewBox="0 0 18 18" className="flex-shrink-0">
+        <circle cx="9" cy="9" r="7" fill="none" stroke="hsl(var(--muted))" strokeWidth="2" />
+        <circle cx="9" cy="9" r="7" fill="none" stroke={strokeColor} strokeWidth="2"
+          strokeDasharray={circumference} strokeDashoffset={offset}
+          strokeLinecap="round" transform="rotate(-90 9 9)" className="transition-all duration-500" />
+      </svg>
+      {retention}%
     </span>
   );
 }
