@@ -2,6 +2,7 @@ import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import { Card, getCardScore, getDueCards } from "@/lib/spaced-repetition";
 import { LearnMode, LearnCardProgress, loadLearnProgress, saveLearnProgress, loadReviewLog } from "@/lib/storage";
 import { addActivityEntry } from "@/lib/metacognitive-storage";
+import { recordDayDiscipline, getDailySuggestion, calcVelocity, loadPlanner } from "@/lib/planner-storage";
 import { default as ShieldAlert } from "lucide-react/dist/esm/icons/shield-alert";
 import { motion, AnimatePresence } from "framer-motion";
 import { Link2, BarChart3, Volume2 } from "lucide-react";
