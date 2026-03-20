@@ -4,9 +4,7 @@ import { useAppContext } from "@/contexts/AppContext";
 import PomodoroTimer from "@/components/PomodoroTimer";
 import ZenMode from "@/components/ZenMode";
 import TopNav from "@/components/TopNav";
-import { default as Search } from "lucide-react/dist/esm/icons/search";
 import { default as Focus } from "lucide-react/dist/esm/icons/focus";
-import { default as FileText } from "lucide-react/dist/esm/icons/file-text";
 import { AnimatePresence } from "framer-motion";
 
 const DocxImporter = lazy(() => import("@/components/DocxImporter"));
@@ -36,23 +34,22 @@ export default function MainLayout({ children }: { children: ReactNode }) {
 
   return (
     <div className="min-h-screen flex flex-col w-full">
-      <TopNav />
+      <TopNav
+        onOpenSearch={() => setGlobalSearchOpen(true)}
+        onOpenDocxImport={() => setDocxOpen(true)}
+      />
 
       {/* Utility strip — compact */}
       <div className="border-b h-9 px-4 flex items-center justify-end gap-1.5 bg-background/60 backdrop-blur-sm">
         <PomodoroTimer compact />
-        <div className="w-px h-4 bg-border mx-0.5" />
         {isReviewOrLearn && (
-          <button onClick={() => setZenMode(!zenMode)} className={`p-1 rounded-md hover:bg-secondary transition-colors ${zenMode ? "text-primary bg-primary/10" : "text-muted-foreground"}`} title="Zen Mode">
-            <Focus className="h-3.5 w-3.5" />
-          </button>
+          <>
+            <div className="w-px h-4 bg-border mx-0.5" />
+            <button onClick={() => setZenMode(!zenMode)} className={`p-1 rounded-md hover:bg-secondary transition-colors ${zenMode ? "text-primary bg-primary/10" : "text-muted-foreground"}`} title="Zen Mode">
+              <Focus className="h-3.5 w-3.5" />
+            </button>
+          </>
         )}
-        <button onClick={() => setGlobalSearchOpen(true)} className="p-1 rounded-md hover:bg-secondary text-muted-foreground" title="Pretraži (Ctrl+K)">
-          <Search className="h-3.5 w-3.5" />
-        </button>
-        <button onClick={() => setDocxOpen(true)} className="p-1 rounded-md hover:bg-secondary text-muted-foreground" title="Uvezi DOCX">
-          <FileText className="h-3.5 w-3.5" />
-        </button>
       </div>
 
       {/* Main content */}

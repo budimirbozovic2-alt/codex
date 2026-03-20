@@ -1,21 +1,29 @@
 import { useLocation } from "react-router-dom";
 import { NavLink } from "@/components/NavLink";
 import { useCardContext } from "@/contexts/AppContext";
-import { BarChart3 } from "lucide-react";
 import { default as Home } from "lucide-react/dist/esm/icons/home";
 import { default as GraduationCap } from "lucide-react/dist/esm/icons/graduation-cap";
 import { default as RotateCcw } from "lucide-react/dist/esm/icons/rotate-ccw";
 import { default as BookOpen } from "lucide-react/dist/esm/icons/book-open";
 import { default as Brain } from "lucide-react/dist/esm/icons/brain";
 import { default as Target } from "lucide-react/dist/esm/icons/target";
-import { default as Database } from "lucide-react/dist/esm/icons/database";
+import { default as DatabaseIcon } from "lucide-react/dist/esm/icons/database";
 import { default as Moon } from "lucide-react/dist/esm/icons/moon";
 import { default as Sun } from "lucide-react/dist/esm/icons/sun";
 import { default as Menu } from "lucide-react/dist/esm/icons/menu";
 import { default as X } from "lucide-react/dist/esm/icons/x";
-import { default as Settings } from "lucide-react/dist/esm/icons/settings";
-import { useState, useCallback } from "react";
+import { default as SettingsIcon } from "lucide-react/dist/esm/icons/settings";
+import { default as BarChart3 } from "lucide-react/dist/esm/icons/bar-chart-3";
+import { default as Search } from "lucide-react/dist/esm/icons/search";
+import { default as FileText } from "lucide-react/dist/esm/icons/file-text";
+import { default as ChevronDown } from "lucide-react/dist/esm/icons/chevron-down";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { Badge } from "@/components/ui/badge";
+
+interface Props {
+  onOpenSearch?: () => void;
+  onOpenDocxImport?: () => void;
+}
 
 const NAV_ITEMS = [
   { path: "/", icon: Home, label: "Dashboard" },
@@ -25,20 +33,35 @@ const NAV_ITEMS = [
   { path: "/metacognitive", icon: BookOpen, label: "Dnevnik" },
   { path: "/mnemonic", icon: Brain, label: "Mnemo radionica" },
   { path: "/planner", icon: Target, label: "Strateški planer" },
-  { path: "/database", icon: Database, label: "Baza podataka" },
-  { path: "/settings", icon: Settings, label: "Podešavanja" },
+  { path: "/settings", icon: SettingsIcon, label: "Podešavanja" },
 ];
 
-export default function TopNav() {
+export default function TopNav({ onOpenSearch, onOpenDocxImport }: Props) {
   const location = useLocation();
   const { stats } = useCardContext();
   const [dark, setDark] = useState(() => document.documentElement.classList.contains("dark"));
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [dbDropdownOpen, setDbDropdownOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
   const toggleDark = useCallback(() => {
     document.documentElement.classList.toggle("dark");
     setDark(d => !d);
   }, []);
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    if (!dbDropdownOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setDbDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [dbDropdownOpen]);
+
+  const isDbActive = location.pathname === "/database" || location.pathname === "/cards" || location.pathname === "/categories";
 
   return (
     <nav className="sticky top-0 z-40 border-b bg-background/90 backdrop-blur-md">
@@ -64,6 +87,49 @@ export default function TopNav() {
               )}
             </NavLink>
           ))}
+
+          {/* Database dropdown */}
+          <div ref={dropdownRef} className="relative">
+            <button
+              onClick={() => setDbDropdownOpen(v => !v)}
+              className={`relative flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors whitespace-nowrap hover:bg-secondary/60 ${
+                isDbActive ? "bg-primary/10 text-primary" : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <DatabaseIcon className="h-3.5 w-3.5 flex-shrink-0" />
+              <span>Baza podataka</span>
+              <ChevronDown className={`h-3 w-3 transition-transform ${dbDropdownOpen ? "rotate-180" : ""}`} />
+            </button>
+
+            {dbDropdownOpen && (
+              <div className="absolute top-full left-0 mt-1 w-48 rounded-lg border bg-card shadow-lg py-1 z-50">
+                <NavLink
+                  to="/database"
+                  className="flex items-center gap-2 px-3 py-2 text-xs text-muted-foreground hover:text-foreground hover:bg-secondary/60 transition-colors"
+                  activeClassName="text-primary bg-primary/5"
+                  onClick={() => setDbDropdownOpen(false)}
+                >
+                  <DatabaseIcon className="h-3.5 w-3.5" />
+                  Pregledaj kartice
+                </NavLink>
+                <button
+                  onClick={() => { onOpenSearch?.(); setDbDropdownOpen(false); }}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-xs text-muted-foreground hover:text-foreground hover:bg-secondary/60 transition-colors"
+                >
+                  <Search className="h-3.5 w-3.5" />
+                  Pretraži kartice
+                  <kbd className="ml-auto text-[9px] border rounded px-1 py-0.5 text-muted-foreground/60">⌘K</kbd>
+                </button>
+                <button
+                  onClick={() => { onOpenDocxImport?.(); setDbDropdownOpen(false); }}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-xs text-muted-foreground hover:text-foreground hover:bg-secondary/60 transition-colors"
+                >
+                  <FileText className="h-3.5 w-3.5" />
+                  Uvezi iz DOCX
+                </button>
+              </div>
+            )}
+          </div>
         </div>
 
         <button onClick={toggleDark} className="p-1.5 rounded-md hover:bg-secondary text-muted-foreground ml-2" title="Tema">
@@ -104,6 +170,30 @@ export default function TopNav() {
               )}
             </NavLink>
           ))}
+          {/* Mobile: Database group */}
+          <NavLink
+            to="/database"
+            className="flex items-center gap-2.5 px-3 py-2 rounded-md text-sm text-muted-foreground hover:text-foreground hover:bg-secondary/60 transition-colors"
+            activeClassName="bg-primary/10 text-primary font-medium"
+            onClick={() => setMobileOpen(false)}
+          >
+            <DatabaseIcon className="h-4 w-4 flex-shrink-0" />
+            <span>Baza podataka</span>
+          </NavLink>
+          <button
+            onClick={() => { onOpenSearch?.(); setMobileOpen(false); }}
+            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-md text-sm text-muted-foreground hover:text-foreground hover:bg-secondary/60 transition-colors pl-10"
+          >
+            <Search className="h-4 w-4 flex-shrink-0" />
+            <span>Pretraži kartice</span>
+          </button>
+          <button
+            onClick={() => { onOpenDocxImport?.(); setMobileOpen(false); }}
+            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-md text-sm text-muted-foreground hover:text-foreground hover:bg-secondary/60 transition-colors pl-10"
+          >
+            <FileText className="h-4 w-4 flex-shrink-0" />
+            <span>Uvezi iz DOCX</span>
+          </button>
         </div>
       )}
     </nav>
