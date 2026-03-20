@@ -1,6 +1,7 @@
 import { useState, useMemo } from "react";
 import { MnemonicCard, MnemonicStatus, HookType, loadMajorSystem, resolveNumber, extractNumbers, detectEnumerationItems } from "@/lib/mnemonic-storage";
 import { ArrowLeft, Brain, Film, Type, ChevronDown, ChevronRight, Sparkles, CheckCircle2, Wrench, Hash, MapPin, FolderOpen, Clock, List, MoreHorizontal } from "lucide-react";
+import InfoPanel from "@/components/InfoPanel";
 import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
 
