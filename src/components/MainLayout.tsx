@@ -4,7 +4,9 @@ import { useAppContext } from "@/contexts/AppContext";
 import PomodoroTimer from "@/components/PomodoroTimer";
 import ZenMode from "@/components/ZenMode";
 import TopNav from "@/components/TopNav";
-import { Search, Focus, FileText } from "lucide-react";
+import { default as Search } from "lucide-react/dist/esm/icons/search";
+import { default as Focus } from "lucide-react/dist/esm/icons/focus";
+import { default as FileText } from "lucide-react/dist/esm/icons/file-text";
 import { AnimatePresence } from "framer-motion";
 
 const DocxImporter = lazy(() => import("@/components/DocxImporter"));

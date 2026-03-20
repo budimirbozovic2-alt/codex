@@ -1,5 +1,6 @@
 import { motion, AnimatePresence } from "framer-motion";
-import { Brain, Loader2, CheckCircle2 } from "lucide-react";
+import { Loader2, CheckCircle2 } from "lucide-react";
+import { default as Brain } from "lucide-react/dist/esm/icons/brain";
 import { useSessionContext } from "@/contexts/SessionContext";
 import { useState, useEffect } from "react";
 

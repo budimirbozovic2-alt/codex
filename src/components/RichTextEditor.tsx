@@ -1,5 +1,11 @@
 import { useRef, useCallback, useEffect } from "react";
-import { Bold, Italic, Underline, List, ListOrdered, Paintbrush, Heading2 } from "lucide-react";
+import { Heading2 } from "lucide-react";
+import { default as Bold } from "lucide-react/dist/esm/icons/bold";
+import { default as Italic } from "lucide-react/dist/esm/icons/italic";
+import { default as Underline } from "lucide-react/dist/esm/icons/underline";
+import { default as List } from "lucide-react/dist/esm/icons/list";
+import { default as ListOrdered } from "lucide-react/dist/esm/icons/list-ordered";
+import { default as Paintbrush } from "lucide-react/dist/esm/icons/paintbrush";
 
 interface Props {
   value: string;

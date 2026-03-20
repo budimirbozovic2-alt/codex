@@ -1,9 +1,18 @@
 import { useLocation } from "react-router-dom";
 import { useCardContext } from "@/contexts/AppContext";
-import {
-  Home, GraduationCap, RotateCcw, Brain, BarChart3, Target,
-  BookOpen, FolderOpen, Settings, Moon, Sun, Map, AlertTriangle,
-} from "lucide-react";
+import { BarChart3 } from "lucide-react";
+import { default as Home } from "lucide-react/dist/esm/icons/home";
+import { default as GraduationCap } from "lucide-react/dist/esm/icons/graduation-cap";
+import { default as RotateCcw } from "lucide-react/dist/esm/icons/rotate-ccw";
+import { default as Brain } from "lucide-react/dist/esm/icons/brain";
+import { default as Target } from "lucide-react/dist/esm/icons/target";
+import { default as BookOpen } from "lucide-react/dist/esm/icons/book-open";
+import { default as FolderOpen } from "lucide-react/dist/esm/icons/folder-open";
+import { default as Settings } from "lucide-react/dist/esm/icons/settings";
+import { default as Moon } from "lucide-react/dist/esm/icons/moon";
+import { default as Sun } from "lucide-react/dist/esm/icons/sun";
+import { default as Map } from "lucide-react/dist/esm/icons/map";
+import { default as AlertTriangle } from "lucide-react/dist/esm/icons/alert-triangle";
 import { NavLink } from "@/components/NavLink";
 import {
   Sidebar,

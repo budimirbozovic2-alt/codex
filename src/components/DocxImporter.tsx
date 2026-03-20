@@ -2,7 +2,11 @@ import { useState, useCallback } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { FileText, Upload, ArrowRight, Zap, BookOpen } from "lucide-react";
+import { default as FileText } from "lucide-react/dist/esm/icons/file-text";
+import { default as Upload } from "lucide-react/dist/esm/icons/upload";
+import { default as ArrowRight } from "lucide-react/dist/esm/icons/arrow-right";
+import { default as Zap } from "lucide-react/dist/esm/icons/zap";
+import { default as BookOpen } from "lucide-react/dist/esm/icons/book-open";
 // mammoth loaded dynamically to avoid 164KB eager bundle
 
 interface ParsedCard {

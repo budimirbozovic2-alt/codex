@@ -1,6 +1,17 @@
 import { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { MnemonicCard, HookType } from "@/lib/mnemonic-storage";
-import { ArrowLeft, Brain, CheckCircle, XCircle, RotateCcw, Zap, Timer, FolderOpen, Clock, List, MoreHorizontal, Filter } from "lucide-react";
+import { default as ArrowLeft } from "lucide-react/dist/esm/icons/arrow-left";
+import { default as Brain } from "lucide-react/dist/esm/icons/brain";
+import { default as CheckCircle } from "lucide-react/dist/esm/icons/check-circle";
+import { default as XCircle } from "lucide-react/dist/esm/icons/x-circle";
+import { default as RotateCcw } from "lucide-react/dist/esm/icons/rotate-ccw";
+import { default as Zap } from "lucide-react/dist/esm/icons/zap";
+import { default as Timer } from "lucide-react/dist/esm/icons/timer";
+import { default as FolderOpen } from "lucide-react/dist/esm/icons/folder-open";
+import { default as Clock } from "lucide-react/dist/esm/icons/clock";
+import { default as List } from "lucide-react/dist/esm/icons/list";
+import { default as MoreHorizontal } from "lucide-react/dist/esm/icons/more-horizontal";
+import { default as Filter } from "lucide-react/dist/esm/icons/filter";
 import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
 

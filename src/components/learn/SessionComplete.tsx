@@ -1,6 +1,12 @@
 import React from "react";
 import { LearnMode } from "@/lib/storage";
-import { Clock, Target, BarChart3, Trophy, RotateCw, BookOpen, Check } from "lucide-react";
+import { BarChart3 } from "lucide-react";
+import { default as Clock } from "lucide-react/dist/esm/icons/clock";
+import { default as Target } from "lucide-react/dist/esm/icons/target";
+import { default as Trophy } from "lucide-react/dist/esm/icons/trophy";
+import { default as RotateCw } from "lucide-react/dist/esm/icons/rotate-cw";
+import { default as BookOpen } from "lucide-react/dist/esm/icons/book-open";
+import { default as Check } from "lucide-react/dist/esm/icons/check";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { GRADE_LABELS } from "./types";

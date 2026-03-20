@@ -1,5 +1,6 @@
 import React from "react";
-import { ArrowLeft, ArrowRight } from "lucide-react";
+import { default as ArrowLeft } from "lucide-react/dist/esm/icons/arrow-left";
+import { default as ArrowRight } from "lucide-react/dist/esm/icons/arrow-right";
 import { Button } from "@/components/ui/button";
 
 interface Props {

@@ -2,7 +2,13 @@ import { useState, useRef } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/lib/spaced-repetition";
-import { Download, Upload, FileBox, Package, AlertTriangle, Check, Clock } from "lucide-react";
+import { default as Download } from "lucide-react/dist/esm/icons/download";
+import { default as Upload } from "lucide-react/dist/esm/icons/upload";
+import { default as FileBox } from "lucide-react/dist/esm/icons/file-box";
+import { default as Package } from "lucide-react/dist/esm/icons/package";
+import { default as AlertTriangle } from "lucide-react/dist/esm/icons/alert-triangle";
+import { default as Check } from "lucide-react/dist/esm/icons/check";
+import { default as Clock } from "lucide-react/dist/esm/icons/clock";
 
 interface ExportImportDialogProps {
   open: boolean;

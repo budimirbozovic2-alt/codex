@@ -1,7 +1,11 @@
 import { useState } from "react";
 import { useAppContext } from "@/contexts/AppContext";
 import { AnimatePresence, motion } from "framer-motion";
-import { Plus, CheckSquare, X, Search, Flame } from "lucide-react";
+import { default as Plus } from "lucide-react/dist/esm/icons/plus";
+import { default as CheckSquare } from "lucide-react/dist/esm/icons/check-square";
+import { default as X } from "lucide-react/dist/esm/icons/x";
+import { default as Search } from "lucide-react/dist/esm/icons/search";
+import { default as Flame } from "lucide-react/dist/esm/icons/flame";
 import { Card } from "@/lib/spaced-repetition";
 import ScrollableRow from "@/components/ScrollableRow";
 import CardList from "@/components/CardList";

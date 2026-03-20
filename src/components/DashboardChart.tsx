@@ -1,5 +1,5 @@
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine } from "recharts";
-import { TrendingUp } from "lucide-react";
+import { default as TrendingUp } from "lucide-react/dist/esm/icons/trending-up";
 import { motion } from "framer-motion";
 
 interface ChartTooltipProps {

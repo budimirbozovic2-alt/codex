@@ -4,7 +4,13 @@ import {
   MnemonicCard, loadMnemonicCards, saveMnemonicCards,
   addMnemonicTestEntry, getMnemonicStats,
 } from "@/lib/mnemonic-storage";
-import { ArrowLeft, Brain, Wrench, FlaskConical, Sparkles, CheckCircle2, Hash } from "lucide-react";
+import { CheckCircle2 } from "lucide-react";
+import { default as ArrowLeft } from "lucide-react/dist/esm/icons/arrow-left";
+import { default as Brain } from "lucide-react/dist/esm/icons/brain";
+import { default as Wrench } from "lucide-react/dist/esm/icons/wrench";
+import { default as FlaskConical } from "lucide-react/dist/esm/icons/flask-conical";
+import { default as Sparkles } from "lucide-react/dist/esm/icons/sparkles";
+import { default as Hash } from "lucide-react/dist/esm/icons/hash";
 import { motion } from "framer-motion";
 import InfoPanel from "@/components/InfoPanel";
 import MnemonicWorkshop from "./MnemonicWorkshop";

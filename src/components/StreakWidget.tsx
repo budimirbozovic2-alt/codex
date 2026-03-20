@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { ReviewLogEntry } from "@/lib/storage";
-import { Flame, Target } from "lucide-react";
+import { default as Flame } from "lucide-react/dist/esm/icons/flame";
+import { default as Target } from "lucide-react/dist/esm/icons/target";
 import { Progress } from "@/components/ui/progress";
 
 interface Props {

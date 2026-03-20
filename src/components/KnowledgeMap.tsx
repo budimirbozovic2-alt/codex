@@ -1,7 +1,14 @@
 import { useState, useMemo } from "react";
 import { Card, SectionState } from "@/lib/spaced-repetition";
 import { motion, AnimatePresence } from "framer-motion";
-import { ArrowLeft, X, AlertTriangle, CheckCircle, Clock, HelpCircle, ChevronDown, Search } from "lucide-react";
+import { default as ArrowLeft } from "lucide-react/dist/esm/icons/arrow-left";
+import { default as X } from "lucide-react/dist/esm/icons/x";
+import { default as AlertTriangle } from "lucide-react/dist/esm/icons/alert-triangle";
+import { default as CheckCircle } from "lucide-react/dist/esm/icons/check-circle";
+import { default as Clock } from "lucide-react/dist/esm/icons/clock";
+import { default as HelpCircle } from "lucide-react/dist/esm/icons/help-circle";
+import { default as ChevronDown } from "lucide-react/dist/esm/icons/chevron-down";
+import { default as Search } from "lucide-react/dist/esm/icons/search";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
 

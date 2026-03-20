@@ -1,5 +1,7 @@
 import { Component, ReactNode } from "react";
-import { AlertTriangle, RefreshCw, Home } from "lucide-react";
+import { default as AlertTriangle } from "lucide-react/dist/esm/icons/alert-triangle";
+import { default as RefreshCw } from "lucide-react/dist/esm/icons/refresh-cw";
+import { default as Home } from "lucide-react/dist/esm/icons/home";
 
 interface CrashEntry {
   timestamp: string;

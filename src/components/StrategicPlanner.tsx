@@ -1,6 +1,16 @@
 import { useState, useMemo, useCallback } from "react";
 import { motion } from "framer-motion";
-import { ArrowLeft, Target, Plus, Trash2, Calendar, Zap, TrendingUp, Lightbulb, CheckCircle, AlertTriangle, XCircle } from "lucide-react";
+import { Trash2 } from "lucide-react";
+import { default as ArrowLeft } from "lucide-react/dist/esm/icons/arrow-left";
+import { default as Target } from "lucide-react/dist/esm/icons/target";
+import { default as Plus } from "lucide-react/dist/esm/icons/plus";
+import { default as Calendar } from "lucide-react/dist/esm/icons/calendar";
+import { default as Zap } from "lucide-react/dist/esm/icons/zap";
+import { default as TrendingUp } from "lucide-react/dist/esm/icons/trending-up";
+import { default as Lightbulb } from "lucide-react/dist/esm/icons/lightbulb";
+import { default as CheckCircle } from "lucide-react/dist/esm/icons/check-circle";
+import { default as AlertTriangle } from "lucide-react/dist/esm/icons/alert-triangle";
+import { default as XCircle } from "lucide-react/dist/esm/icons/x-circle";
 import InfoPanel from "@/components/InfoPanel";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";

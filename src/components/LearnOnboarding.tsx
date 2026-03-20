@@ -1,6 +1,12 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { BookOpen, Brain, Link2, ArrowRight, ArrowLeft, CheckCircle2, X, Sparkles } from "lucide-react";
+import { Link2, CheckCircle2 } from "lucide-react";
+import { default as BookOpen } from "lucide-react/dist/esm/icons/book-open";
+import { default as Brain } from "lucide-react/dist/esm/icons/brain";
+import { default as ArrowRight } from "lucide-react/dist/esm/icons/arrow-right";
+import { default as ArrowLeft } from "lucide-react/dist/esm/icons/arrow-left";
+import { default as X } from "lucide-react/dist/esm/icons/x";
+import { default as Sparkles } from "lucide-react/dist/esm/icons/sparkles";
 import { Button } from "@/components/ui/button";
 
 const ONBOARDING_KEY = "sr-learn-onboarding-seen";

@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { loadMajorSystem, saveMajorSystem, DEFAULT_MAJOR_SYSTEM } from "@/lib/mnemonic-storage";
-import { ArrowLeft, RotateCcw } from "lucide-react";
+import { default as ArrowLeft } from "lucide-react/dist/esm/icons/arrow-left";
+import { default as RotateCcw } from "lucide-react/dist/esm/icons/rotate-ccw";
 import { Button } from "@/components/ui/button";
 
 interface Props {

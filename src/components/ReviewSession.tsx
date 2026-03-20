@@ -1,7 +1,15 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from "react"; 
 import { Card, Section, GRADES, getDueSections, isLeech, formatInterval, previewIntervals, SRSettings, DEFAULT_SR_SETTINGS } from "@/lib/spaced-repetition";
 import { motion, AnimatePresence } from "framer-motion";
-import { ArrowLeft, Eye, ChevronRight, BookOpen, Shuffle, AlertTriangle, Volume2, Info, X as XIcon } from "lucide-react";
+import { Volume2 } from "lucide-react";
+import { default as ArrowLeft } from "lucide-react/dist/esm/icons/arrow-left";
+import { default as Eye } from "lucide-react/dist/esm/icons/eye";
+import { default as ChevronRight } from "lucide-react/dist/esm/icons/chevron-right";
+import { default as BookOpen } from "lucide-react/dist/esm/icons/book-open";
+import { default as Shuffle } from "lucide-react/dist/esm/icons/shuffle";
+import { default as AlertTriangle } from "lucide-react/dist/esm/icons/alert-triangle";
+import { default as Info } from "lucide-react/dist/esm/icons/info";
+import { default as XIcon } from "lucide-react/dist/esm/icons/x";
 import ScrollableRow from "@/components/ScrollableRow";
 import { Button } from "@/components/ui/button";
 import { speak, stopSpeaking } from "@/lib/tts";

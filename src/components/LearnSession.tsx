@@ -2,13 +2,26 @@ import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import { Card, getCardScore, getDueCards } from "@/lib/spaced-repetition";
 import { LearnMode, LearnCardProgress, loadLearnProgress, saveLearnProgress, loadReviewLog } from "@/lib/storage";
 import { addActivityEntry } from "@/lib/metacognitive-storage";
-import { ShieldAlert } from "lucide-react";
+import { default as ShieldAlert } from "lucide-react/dist/esm/icons/shield-alert";
 import { motion, AnimatePresence } from "framer-motion";
-import {
-  ArrowLeft, ArrowRight, ChevronRight, BookOpen, Check, Eye, TrendingDown,
-  ListOrdered, Zap, Brain, Link2, RotateCcw, HelpCircle,
-  Clock, Target, BarChart3, RotateCw, Trophy, AlertTriangle, Volume2
-} from "lucide-react";
+import { Link2, BarChart3, Volume2 } from "lucide-react";
+import { default as ArrowLeft } from "lucide-react/dist/esm/icons/arrow-left";
+import { default as ArrowRight } from "lucide-react/dist/esm/icons/arrow-right";
+import { default as ChevronRight } from "lucide-react/dist/esm/icons/chevron-right";
+import { default as BookOpen } from "lucide-react/dist/esm/icons/book-open";
+import { default as Check } from "lucide-react/dist/esm/icons/check";
+import { default as Eye } from "lucide-react/dist/esm/icons/eye";
+import { default as TrendingDown } from "lucide-react/dist/esm/icons/trending-down";
+import { default as ListOrdered } from "lucide-react/dist/esm/icons/list-ordered";
+import { default as Zap } from "lucide-react/dist/esm/icons/zap";
+import { default as Brain } from "lucide-react/dist/esm/icons/brain";
+import { default as RotateCcw } from "lucide-react/dist/esm/icons/rotate-ccw";
+import { default as HelpCircle } from "lucide-react/dist/esm/icons/help-circle";
+import { default as Clock } from "lucide-react/dist/esm/icons/clock";
+import { default as Target } from "lucide-react/dist/esm/icons/target";
+import { default as RotateCw } from "lucide-react/dist/esm/icons/rotate-cw";
+import { default as Trophy } from "lucide-react/dist/esm/icons/trophy";
+import { default as AlertTriangle } from "lucide-react/dist/esm/icons/alert-triangle";
 import ScrollableRow from "@/components/ScrollableRow";
 import { Button } from "@/components/ui/button";
 import { speak } from "@/lib/tts";

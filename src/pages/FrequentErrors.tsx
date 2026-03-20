@@ -1,6 +1,15 @@
 import { useMemo, useState } from "react";
 import { Card, ErrorLogEntry, getErrorStatus, ErrorStatus } from "@/lib/spaced-repetition";
-import { ArrowLeft, AlertCircle, Target, TrendingUp, Trophy, Trash2, ChevronDown, ChevronRight, Flame, ShieldCheck } from "lucide-react";
+import { Trash2 } from "lucide-react";
+import { default as ArrowLeft } from "lucide-react/dist/esm/icons/arrow-left";
+import { default as AlertCircle } from "lucide-react/dist/esm/icons/alert-circle";
+import { default as Target } from "lucide-react/dist/esm/icons/target";
+import { default as TrendingUp } from "lucide-react/dist/esm/icons/trending-up";
+import { default as Trophy } from "lucide-react/dist/esm/icons/trophy";
+import { default as ChevronDown } from "lucide-react/dist/esm/icons/chevron-down";
+import { default as ChevronRight } from "lucide-react/dist/esm/icons/chevron-right";
+import { default as Flame } from "lucide-react/dist/esm/icons/flame";
+import { default as ShieldCheck } from "lucide-react/dist/esm/icons/shield-check";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";

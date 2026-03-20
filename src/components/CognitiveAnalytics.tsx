@@ -1,4 +1,12 @@
-import { AlertTriangle, Shield, Zap, ArrowRightLeft, HeartPulse, Brain, TrendingUp, Eye, Wrench } from "lucide-react";
+import { default as AlertTriangle } from "lucide-react/dist/esm/icons/alert-triangle";
+import { default as Shield } from "lucide-react/dist/esm/icons/shield";
+import { default as Zap } from "lucide-react/dist/esm/icons/zap";
+import { default as ArrowRightLeft } from "lucide-react/dist/esm/icons/arrow-right-left";
+import { default as HeartPulse } from "lucide-react/dist/esm/icons/heart-pulse";
+import { default as Brain } from "lucide-react/dist/esm/icons/brain";
+import { default as TrendingUp } from "lucide-react/dist/esm/icons/trending-up";
+import { default as Eye } from "lucide-react/dist/esm/icons/eye";
+import { default as Wrench } from "lucide-react/dist/esm/icons/wrench";
 import { Card } from "@/lib/spaced-repetition";
 import { ReviewLogEntry } from "@/lib/storage";
 import { Progress } from "@/components/ui/progress";

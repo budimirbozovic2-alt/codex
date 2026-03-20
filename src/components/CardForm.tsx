@@ -3,7 +3,12 @@ import { Card } from "@/lib/spaced-repetition";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, X, GripVertical, Scissors, Zap, FileText } from "lucide-react";
+import { default as Plus } from "lucide-react/dist/esm/icons/plus";
+import { default as X } from "lucide-react/dist/esm/icons/x";
+import { default as GripVertical } from "lucide-react/dist/esm/icons/grip-vertical";
+import { default as Scissors } from "lucide-react/dist/esm/icons/scissors";
+import { default as Zap } from "lucide-react/dist/esm/icons/zap";
+import { default as FileText } from "lucide-react/dist/esm/icons/file-text";
 import RichTextEditor from "@/components/RichTextEditor";
 
 interface SectionInput {

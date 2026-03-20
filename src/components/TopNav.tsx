@@ -1,10 +1,19 @@
 import { useLocation } from "react-router-dom";
 import { NavLink } from "@/components/NavLink";
 import { useCardContext } from "@/contexts/AppContext";
-import {
-  Home, GraduationCap, RotateCcw, BarChart3, BookOpen,
-  Brain, Target, Database, Moon, Sun, Menu, X, Settings,
-} from "lucide-react";
+import { BarChart3 } from "lucide-react";
+import { default as Home } from "lucide-react/dist/esm/icons/home";
+import { default as GraduationCap } from "lucide-react/dist/esm/icons/graduation-cap";
+import { default as RotateCcw } from "lucide-react/dist/esm/icons/rotate-ccw";
+import { default as BookOpen } from "lucide-react/dist/esm/icons/book-open";
+import { default as Brain } from "lucide-react/dist/esm/icons/brain";
+import { default as Target } from "lucide-react/dist/esm/icons/target";
+import { default as Database } from "lucide-react/dist/esm/icons/database";
+import { default as Moon } from "lucide-react/dist/esm/icons/moon";
+import { default as Sun } from "lucide-react/dist/esm/icons/sun";
+import { default as Menu } from "lucide-react/dist/esm/icons/menu";
+import { default as X } from "lucide-react/dist/esm/icons/x";
+import { default as Settings } from "lucide-react/dist/esm/icons/settings";
 import { useState, useCallback } from "react";
 import { Badge } from "@/components/ui/badge";
 

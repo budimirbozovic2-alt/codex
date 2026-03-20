@@ -1,6 +1,12 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Play, Pause, Volume2, VolumeX, RotateCcw, Timer } from "lucide-react";
+import { Volume2 } from "lucide-react";
+import { default as X } from "lucide-react/dist/esm/icons/x";
+import { default as Play } from "lucide-react/dist/esm/icons/play";
+import { default as Pause } from "lucide-react/dist/esm/icons/pause";
+import { default as VolumeX } from "lucide-react/dist/esm/icons/volume-x";
+import { default as RotateCcw } from "lucide-react/dist/esm/icons/rotate-ccw";
+import { default as Timer } from "lucide-react/dist/esm/icons/timer";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { startBrownNoise, stopBrownNoise, setBrownNoiseVolume, isBrownNoisePlaying } from "@/lib/brown-noise";

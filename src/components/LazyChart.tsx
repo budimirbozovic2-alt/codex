@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, ReactNode } from "react";
-import { RefreshCw } from "lucide-react";
+import { default as RefreshCw } from "lucide-react/dist/esm/icons/refresh-cw";
 import { motion, AnimatePresence } from "framer-motion";
 import { Skeleton } from "@/components/ui/skeleton";
 
