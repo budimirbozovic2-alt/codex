@@ -49,7 +49,6 @@ export default function TopNav({ onOpenSearch, onOpenDocxImport }: Props) {
     setDark(d => !d);
   }, []);
 
-  // Close dropdown on outside click
   useEffect(() => {
     if (!dbDropdownOpen) return;
     const handler = (e: MouseEvent) => {
@@ -65,7 +64,6 @@ export default function TopNav({ onOpenSearch, onOpenDocxImport }: Props) {
 
   return (
     <nav className="sticky top-0 z-40 border-b bg-background/90 backdrop-blur-md">
-      {/* Desktop */}
       <div className="hidden md:flex items-center h-11 px-4 gap-1 max-w-7xl mx-auto">
         <span className="text-base font-serif italic text-primary mr-4 select-none tracking-tight">Memoria</span>
 
@@ -88,30 +86,30 @@ export default function TopNav({ onOpenSearch, onOpenDocxImport }: Props) {
             </NavLink>
           ))}
 
-          {/* Database dropdown */}
-          <div ref={dropdownRef} className="relative">
-            <button
-              onClick={() => setDbDropdownOpen(v => !v)}
-              className={`relative flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors whitespace-nowrap hover:bg-secondary/60 ${
+          <div ref={dropdownRef} className="relative flex items-center">
+            <NavLink
+              to="/database"
+              className={`relative flex items-center gap-1.5 px-2.5 py-1.5 rounded-l-md text-xs font-medium transition-colors whitespace-nowrap hover:bg-secondary/60 ${
                 isDbActive ? "bg-primary/10 text-primary" : "text-muted-foreground hover:text-foreground"
               }`}
+              activeClassName="bg-primary/10 text-primary"
+              onClick={() => setDbDropdownOpen(false)}
             >
               <DatabaseIcon className="h-3.5 w-3.5 flex-shrink-0" />
               <span>Baza podataka</span>
+            </NavLink>
+            <button
+              onClick={() => setDbDropdownOpen(v => !v)}
+              aria-label="Otvori meni baze podataka"
+              className={`flex items-center justify-center px-2 py-1.5 rounded-r-md text-xs font-medium transition-colors border-l border-border/60 hover:bg-secondary/60 ${
+                isDbActive ? "bg-primary/10 text-primary" : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
               <ChevronDown className={`h-3 w-3 transition-transform ${dbDropdownOpen ? "rotate-180" : ""}`} />
             </button>
 
             {dbDropdownOpen && (
               <div className="absolute top-full left-0 mt-1 w-48 rounded-lg border bg-card shadow-lg py-1 z-50">
-                <NavLink
-                  to="/database"
-                  className="flex items-center gap-2 px-3 py-2 text-xs text-muted-foreground hover:text-foreground hover:bg-secondary/60 transition-colors"
-                  activeClassName="text-primary bg-primary/5"
-                  onClick={() => setDbDropdownOpen(false)}
-                >
-                  <DatabaseIcon className="h-3.5 w-3.5" />
-                  Pregledaj kartice
-                </NavLink>
                 <button
                   onClick={() => { onOpenSearch?.(); setDbDropdownOpen(false); }}
                   className="w-full flex items-center gap-2 px-3 py-2 text-xs text-muted-foreground hover:text-foreground hover:bg-secondary/60 transition-colors"
@@ -137,7 +135,6 @@ export default function TopNav({ onOpenSearch, onOpenDocxImport }: Props) {
         </button>
       </div>
 
-      {/* Mobile */}
       <div className="md:hidden flex items-center h-11 px-3 justify-between">
         <span className="text-base font-serif italic text-primary select-none">Memoria</span>
         <div className="flex items-center gap-1">
@@ -170,7 +167,6 @@ export default function TopNav({ onOpenSearch, onOpenDocxImport }: Props) {
               )}
             </NavLink>
           ))}
-          {/* Mobile: Database group */}
           <NavLink
             to="/database"
             className="flex items-center gap-2.5 px-3 py-2 rounded-md text-sm text-muted-foreground hover:text-foreground hover:bg-secondary/60 transition-colors"
