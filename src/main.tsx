@@ -4,6 +4,22 @@ import "./index.css";
 
 createRoot(document.getElementById("root")!).render(<App />);
 
+// ── Electron IPC: listen for backup-requested before quit ──
+if (window.electronAPI) {
+  window.electronAPI.onBackupRequested(() => {
+    try {
+      const keys = ['sr-essay-cards', 'sr-essay-categories', 'sr-essay-subcategories', 'sr-review-log', 'sr-settings'];
+      const data: Record<string, unknown> = {};
+      keys.forEach(k => {
+        const v = localStorage.getItem(k);
+        if (v) data[k] = JSON.parse(v);
+      });
+      const json = JSON.stringify(data, null, 2);
+      window.electronAPI!.requestBackup(json);
+    } catch (_) {}
+  });
+}
+
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", async () => {
     // U preview/dev modu SW često kešira zastarjele assete i može dati bijeli ekran.
