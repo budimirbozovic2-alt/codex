@@ -416,9 +416,11 @@ export function useCards() {
       const blob = await zip.generateAsync({ type: "blob", compression: "DEFLATE", compressionOptions: { level: 6 } });
       onProgress(100, "Preuzimanje...");
       downloadFile(blob, `memoria-template-${dateStr}.zip`);
+      toast.success("Template uspješno exportovan.");
     } else {
       onProgress(100, "Preuzimanje...");
       downloadFile(new Blob([json], { type: "application/json" }), `memoria-template-${dateStr}.json`);
+      toast.success("Template uspješno exportovan.");
     }
   }, [cards, categories, subcategories, downloadFile, buildJsonChunked]);
 
