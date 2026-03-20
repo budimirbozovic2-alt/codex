@@ -17,7 +17,7 @@ import { default as SettingsIcon } from "lucide-react/dist/esm/icons/settings";
 import { default as BarChart3 } from "lucide-react/dist/esm/icons/bar-chart-3";
 import { default as Search } from "lucide-react/dist/esm/icons/search";
 import { default as FileText } from "lucide-react/dist/esm/icons/file-text";
-import { default as ChevronDown } from "lucide-react/dist/esm/icons/chevron-down";
+import { default as ChevronDown } from "lucide-react/dist/esm/icons/chevron-down"; // kept for potential future use
 import { useState, useCallback, useRef, useEffect } from "react";
 import { Badge } from "@/components/ui/badge";
 
