@@ -228,28 +228,11 @@ export function extractNumbers(html: string): { number: number; context: string 
   return matches;
 }
 
-// Detect enumeration items from HTML content (lists, numbered items, semicolon-separated)
+// Detect enumeration items from HTML content — only from actual <ul>/<ol> list items
 export function detectEnumerationItems(html: string): string[] {
-  const text = html.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
-  // Try numbered list: "1) Item, 2) Item" or "1. Item"
-  const numbered = text.match(/\d+[\.\)]\s*[^,;\d]+/g);
-  if (numbered && numbered.length >= 2) {
-    return numbered.map(s => s.replace(/^\d+[\.\)]\s*/, "").trim()).filter(Boolean);
-  }
-  // Try semicolons
-  const semicoloned = text.split(/;\s*/);
-  if (semicoloned.length >= 3) {
-    return semicoloned.map(s => s.trim()).filter(s => s.length > 1);
-  }
-  // Try HTML list items
   const liMatches = html.match(/<li[^>]*>(.*?)<\/li>/gi);
   if (liMatches && liMatches.length >= 2) {
     return liMatches.map(li => li.replace(/<[^>]*>/g, "").trim()).filter(Boolean);
-  }
-  // Try comma-separated if 3+ items
-  const commaItems = text.split(/,\s*/);
-  if (commaItems.length >= 3 && commaItems.every(s => s.length < 60)) {
-    return commaItems.map(s => s.trim()).filter(Boolean);
   }
   return [];
 }
