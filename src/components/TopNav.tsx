@@ -32,6 +32,7 @@ const PRIMARY_NAV = [
   { path: "/", icon: Home, label: "Dashboard" },
   { path: "/learn", icon: GraduationCap, label: "Učenje" },
   { path: "/review", icon: RotateCcw, label: "Konsolidacija", badge: true },
+  { path: "/database", icon: DatabaseIcon, label: "Baza podataka" },
 ];
 
 const LAB_ITEMS = [
@@ -39,8 +40,6 @@ const LAB_ITEMS = [
   { path: "/metacognitive", icon: BookOpen, label: "Dnevnik", desc: "Metakognitivne refleksije" },
   { path: "/mnemonic", icon: Brain, label: "Mnemo radionica", desc: "Tehnike pamćenja" },
   { path: "/planner", icon: Target, label: "Strateški planer", desc: "Planiranje učenja" },
-  { path: "/database", icon: DatabaseIcon, label: "Kartice", desc: "Pregledaj i uređuj kartice" },
-  { path: "/categories", icon: FolderOpen, label: "Kategorije", desc: "Organizuj po temama" },
 ];
 
 const LAB_PATHS = LAB_ITEMS.map(i => i.path);
@@ -93,7 +92,7 @@ export default function TopNav({ onToggleZen, zenActive }: Props) {
               className="relative flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors whitespace-nowrap text-muted-foreground hover:text-foreground hover:bg-secondary/60"
               activeClassName="bg-primary/10 text-primary"
             >
-              <Icon className="h-3.5 w-3.5 flex-shrink-0" />
+              <Icon className="h-4 w-4 flex-shrink-0" />
               <span>{label}</span>
               {badge && stats.due > 0 && (
                 <Badge variant="destructive" className="ml-0.5 text-[9px] h-4 min-w-[16px] px-1 flex items-center justify-center">
@@ -113,13 +112,13 @@ export default function TopNav({ onToggleZen, zenActive }: Props) {
                   : "text-muted-foreground hover:text-foreground"
               }`}
             >
-              <FlaskConical className="h-3.5 w-3.5 flex-shrink-0" />
+              <FlaskConical className="h-4 w-4 flex-shrink-0" />
               <span>Laboratorija</span>
             </button>
 
             {/* Mega menu panel */}
             {labOpen && (
-              <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 w-[420px] rounded-xl border bg-popover p-4 shadow-xl animate-in fade-in-0 zoom-in-95 slide-in-from-top-2 duration-200">
+              <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 w-[380px] rounded-xl border bg-popover p-4 shadow-xl animate-in fade-in-0 zoom-in-95 slide-in-from-top-2 duration-200">
                 <div className="grid grid-cols-2 gap-1">
                   {LAB_ITEMS.map(({ path, icon: Icon, label, desc }) => {
                     const active = location.pathname === path;
@@ -157,17 +156,17 @@ export default function TopNav({ onToggleZen, zenActive }: Props) {
             className="relative flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors whitespace-nowrap text-muted-foreground hover:text-foreground hover:bg-secondary/60"
             activeClassName="bg-primary/10 text-primary"
           >
-            <SettingsIcon className="h-3.5 w-3.5 flex-shrink-0" />
+            <SettingsIcon className="h-4 w-4 flex-shrink-0" />
             <span>Podešavanja</span>
           </NavLink>
         </div>
 
         <div className="flex items-center gap-0.5 ml-2">
           <button onClick={onToggleZen} className={`p-1.5 rounded-md hover:bg-secondary transition-colors ${zenActive ? "text-primary bg-primary/10" : "text-muted-foreground"}`} title="Zen Mode">
-            <Focus className="h-3.5 w-3.5" />
+            <Focus className="h-4 w-4" />
           </button>
           <button onClick={toggleDark} className="p-1.5 rounded-md hover:bg-secondary text-muted-foreground" title="Tema">
-            {dark ? <Sun className="h-3.5 w-3.5" /> : <Moon className="h-3.5 w-3.5" />}
+            {dark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
           </button>
         </div>
       </div>
