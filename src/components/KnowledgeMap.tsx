@@ -50,7 +50,7 @@ export function getCardMasteryLevel(card: Card): number {
   return 5;
 }
 
-function getMasteryColor(level: number): string {
+export function getMasteryColor(level: number): string {
   return MASTERY_LEVELS[level]?.color || MASTERY_LEVELS[0].color;
 }
 

@@ -70,6 +70,8 @@ function migrateCard(card: any): Card {
     readCount: card.readCount || 0,
     type: card.type || "essay",
     subcategory: card.subcategory || "",
+    chapter: card.chapter || "",
+    chapterOrder: card.chapterOrder ?? 0,
     tags: card.tags || [],
     errorLog: card.errorLog || [],
     sections: (card.sections || []).map(migrateSection),

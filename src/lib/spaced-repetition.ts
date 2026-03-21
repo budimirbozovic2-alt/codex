@@ -47,6 +47,8 @@ export interface Card {
   sections: Section[];
   category: string;
   subcategory?: string;
+  chapter?: string;
+  chapterOrder?: number;
   createdAt: number;
   readCount: number;
   type: "essay" | "flash";

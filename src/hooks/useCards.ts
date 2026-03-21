@@ -385,6 +385,22 @@ export function useCards() {
     });
   }, []);
 
+  // Update chapter and chapterOrder for cards (used by Mental Skeleton DnD)
+  const bulkUpdateChapter = useCallback((updates: { id: string; chapter: string; chapterOrder: number }[]) => {
+    setCardMapState(prev => {
+      const next = { ...prev };
+      const changed: Card[] = [];
+      for (const u of updates) {
+        if (next[u.id]) {
+          next[u.id] = { ...next[u.id], chapter: u.chapter, chapterOrder: u.chapterOrder };
+          changed.push(next[u.id]);
+        }
+      }
+      schedulePersist({ type: "bulk", cards: changed });
+      return next;
+    });
+  }, []);
+
   // O(1) toggleTag — surgical
   const toggleTag = useCallback((cardId: string, tag: string) => {
     patchCard(cardId, c => {
@@ -624,7 +640,7 @@ export function useCards() {
 
   return {
     cards, categories, subcategories, dueCards, stats, categoryStats, cardCountByCategory, reviewLog, srSettings, ready,
-    addCard, addFlashCard, updateCard, deleteCard, splitCard, reviewSection, markRead, toggleTag, bulkUpdateSubcategory, reorderCards, logError, clearErrorLog,
+    addCard, addFlashCard, updateCard, deleteCard, splitCard, reviewSection, markRead, toggleTag, bulkUpdateSubcategory, bulkUpdateChapter, reorderCards, logError, clearErrorLog,
     exportData, exportTemplate, importData, importCards,
     addCategory, renameCategory, deleteCategory,
     addSubcategory, renameSubcategory, deleteSubcategory,
