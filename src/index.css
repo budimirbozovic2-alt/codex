@@ -485,32 +485,32 @@
      THEME: Midnight — pure dark-first theme
      ═══════════════════════════════════════════ */
   [data-theme="midnight"] {
-    --background: 230 18% 95%;
+    --background: 0 0% 100%;
     --foreground: 230 15% 12%;
 
-    --card: 230 14% 92%;
+    --card: 0 0% 100%;
     --card-foreground: 230 15% 12%;
 
-    --popover: 230 18% 95%;
+    --popover: 0 0% 100%;
     --popover-foreground: 230 15% 12%;
 
     --primary: 245 50% 48%;
-    --primary-foreground: 230 18% 98%;
+    --primary-foreground: 0 0% 100%;
 
-    --secondary: 230 12% 88%;
+    --secondary: 230 12% 93%;
     --secondary-foreground: 230 15% 20%;
 
-    --muted: 230 10% 90%;
+    --muted: 230 10% 95%;
     --muted-foreground: 230 8% 45%;
 
     --accent: 245 50% 48%;
-    --accent-foreground: 230 18% 98%;
+    --accent-foreground: 0 0% 100%;
 
     --destructive: 0 68% 50%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 230 12% 85%;
-    --input: 230 12% 85%;
+    --border: 230 12% 90%;
+    --input: 230 12% 90%;
     --ring: 245 50% 48%;
 
     --success: 165 42% 36%;
@@ -518,13 +518,13 @@
     --warning: 38 70% 48%;
     --warning-foreground: 0 0% 100%;
 
-    --sidebar-background: 230 14% 92%;
+    --sidebar-background: 230 10% 97%;
     --sidebar-foreground: 230 15% 12%;
     --sidebar-primary: 245 50% 48%;
-    --sidebar-primary-foreground: 230 18% 98%;
-    --sidebar-accent: 230 12% 88%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 230 12% 93%;
     --sidebar-accent-foreground: 230 15% 20%;
-    --sidebar-border: 230 12% 85%;
+    --sidebar-border: 230 12% 90%;
     --sidebar-ring: 245 50% 48%;
   }
 
