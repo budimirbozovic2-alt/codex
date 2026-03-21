@@ -175,7 +175,7 @@ import { TabSkeleton } from "@/components/ui/page-skeleton";
 
 // ─── Main component ──────────────────────────────────────
 
-export default function MyStats({ cards, categories, subcategories, categoryStats, reviewLog, srSettings, onBack, onShowKnowledgeMap, onShowPlanner, onSendToWorkshop }: Props) {
+export default function MyStats({ cards, categories, subcategories, categoryStats, reviewLog, srSettings, onBack, onShowKnowledgeMap, onShowPlanner }: Props) {
   const [activeTab, setActiveTab] = useState<"overview" | "metacognitive" | "cognitive">("overview");
 
   const activityData = useMemo(() => {
