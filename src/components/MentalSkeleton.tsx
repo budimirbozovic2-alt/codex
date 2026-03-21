@@ -554,17 +554,21 @@ export default function MentalSkeleton({ cards, subcategory, category, onBack, o
   };
 
   const handleAddChapter = () => {
-    if (!newChapterName.trim()) return;
-    toast.success(`Glava "${newChapterName.trim()}" kreirana. Prevuci kartice u nju.`);
+    const name = newChapterName.trim();
+    if (!name) return;
+    toast.success(`Glava "${name}" kreirana. Prevuci kartice u nju.`);
     setNewChapterName("");
     setAddingChapter(false);
+
+    // Update local state immediately
+    setStoredChapters(prev => prev.includes(name) ? prev : [...prev, name]);
 
     // Fix #7: Store chapters in IndexedDB settings instead of localStorage
     const key = `chapters-${category}-${subcategory}`;
     import("@/lib/db").then(({ idbLoadSettings, idbSaveSettings }) => {
       idbLoadSettings<string[]>(key, []).then(existing => {
-        if (!existing.includes(newChapterName.trim())) {
-          idbSaveSettings(key, [...existing, newChapterName.trim()]);
+        if (!existing.includes(name)) {
+          idbSaveSettings(key, [...existing, name]);
         }
       });
     });
