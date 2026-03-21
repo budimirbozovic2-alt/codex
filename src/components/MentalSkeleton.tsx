@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import { Card, SectionState, calculateNextReview } from "@/lib/spaced-repetition";
 import { getCardMasteryLevel, getMasteryColor, MASTERY_LEVELS } from "@/components/KnowledgeMap";
 import { motion, AnimatePresence } from "framer-motion";
@@ -424,6 +424,7 @@ export default function MentalSkeleton({ cards, subcategory, category, onBack, o
   const [newChapterName, setNewChapterName] = useState("");
   const [renamingChapter, setRenamingChapter] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState("");
+  const [storedChapters, setStoredChapters] = useState<string[]>([]);
 
   // Filter cards for this subcategory
   const subCards = useMemo(() =>
@@ -463,8 +464,8 @@ export default function MentalSkeleton({ cards, subcategory, category, onBack, o
     });
   }, []);
 
-  // Initialize all chapters as expanded
-  useMemo(() => {
+  // Initialize all chapters as expanded — useEffect instead of useMemo (Fix #1)
+  useEffect(() => {
     const all = new Set([UNASSIGNED_CHAPTER, ...chapters]);
     setExpandedChapters(all);
   }, [chapters.length]);
@@ -503,7 +504,10 @@ export default function MentalSkeleton({ cards, subcategory, category, onBack, o
         onUpdateChapters(updates);
       }
     } else {
-      // Move to different chapter
+      // Move to different chapter (Fix #2: null-check for race condition)
+      const movedCard = subCards.find(c => c.id === active.id);
+      if (!movedCard) return; // guard against stale state
+
       const targetChapter = overChapter === UNASSIGNED_CHAPTER ? "" : overChapter;
       const targetCards = [...(cardsByChapter[overChapter] || [])].sort((a, b) => (a.chapterOrder ?? 0) - (b.chapterOrder ?? 0));
       const overIndex = targetCards.findIndex(c => c.id === over.id);
@@ -512,7 +516,7 @@ export default function MentalSkeleton({ cards, subcategory, category, onBack, o
       // Update moved card
       const updates: { id: string; chapter: string; chapterOrder: number }[] = [];
       // Insert into target
-      targetCards.splice(insertIndex, 0, subCards.find(c => c.id === active.id)!);
+      targetCards.splice(insertIndex, 0, movedCard);
       targetCards.forEach((c, i) => {
         updates.push({ id: c.id, chapter: targetChapter, chapterOrder: i });
       });
@@ -540,6 +544,8 @@ export default function MentalSkeleton({ cards, subcategory, category, onBack, o
 
   const handleGrade = (grade: number) => {
     if (!selectedCard) return;
+    // Fix #4: Grade each section — in Navigator modal this applies uniform grade
+    // but the per-section FSRS tracking remains accurate via individual calls
     selectedCard.sections.forEach(s => {
       onReviewSection(selectedCard.id, s.id, grade);
     });
@@ -548,31 +554,24 @@ export default function MentalSkeleton({ cards, subcategory, category, onBack, o
   };
 
   const handleAddChapter = () => {
-    if (!newChapterName.trim()) return;
-    // Just need to assign at least one card to create the chapter, or we can create an empty one
-    // For now, just toast — the chapter will appear when user drags a card into it
-    // We'll create a "virtual" empty chapter by assigning a placeholder
-    toast.success(`Glava "${newChapterName.trim()}" kreirana. Prevuci kartice u nju.`);
-    // Create the chapter by updating one unassigned card if available
-    if (unassignedCards.length > 0) {
-      // Don't auto-assign, just create the chapter name
-    }
-    // We need to persist chapters — simplest: use a card with empty assignment
-    // Actually, let's store chapters as part of the subcategory system or just use card data
-    // For minimal approach: create chapter name and let user drag cards
+    const name = newChapterName.trim();
+    if (!name) return;
+    toast.success(`Glava "${name}" kreirana. Prevuci kartice u nju.`);
     setNewChapterName("");
     setAddingChapter(false);
 
-    // We store chapters implicitly via card.chapter field
-    // If no card has this chapter, it won't persist — so let's add a notification
-    // Real solution: we just set the name and it'll show as empty in UI
-    // We need to track "known chapters" separately. Let's use localStorage for simplicity
-    const key = `memoria-chapters-${category}-${subcategory}`;
-    const existing = JSON.parse(localStorage.getItem(key) || "[]") as string[];
-    if (!existing.includes(newChapterName.trim())) {
-      existing.push(newChapterName.trim());
-      localStorage.setItem(key, JSON.stringify(existing));
-    }
+    // Update local state immediately
+    setStoredChapters(prev => prev.includes(name) ? prev : [...prev, name]);
+
+    // Fix #7: Store chapters in IndexedDB settings instead of localStorage
+    const key = `chapters-${category}-${subcategory}`;
+    import("@/lib/db").then(({ idbLoadSettings, idbSaveSettings }) => {
+      idbLoadSettings<string[]>(key, []).then(existing => {
+        if (!existing.includes(name)) {
+          idbSaveSettings(key, [...existing, name]);
+        }
+      });
+    });
   };
 
   const handleRenameChapter = (oldName: string) => {
@@ -590,11 +589,14 @@ export default function MentalSkeleton({ cards, subcategory, category, onBack, o
     }));
     onUpdateChapters(updates);
 
-    // Update localStorage chapters list
-    const key = `memoria-chapters-${category}-${subcategory}`;
-    const existing = JSON.parse(localStorage.getItem(key) || "[]") as string[];
-    const updated = existing.map(ch => ch === renamingChapter ? renameValue.trim() : ch);
-    localStorage.setItem(key, JSON.stringify(updated));
+    // Fix #7: Update IDB instead of localStorage
+    const key = `chapters-${category}-${subcategory}`;
+    import("@/lib/db").then(({ idbLoadSettings, idbSaveSettings }) => {
+      idbLoadSettings<string[]>(key, []).then(existing => {
+        const updated = existing.map(ch => ch === renamingChapter ? renameValue.trim() : ch);
+        idbSaveSettings(key, updated);
+      });
+    });
 
     toast.success(`Preimenovano u "${renameValue.trim()}"`);
     setRenamingChapter(null);
@@ -605,25 +607,50 @@ export default function MentalSkeleton({ cards, subcategory, category, onBack, o
     const updates = chapterCards.map((c, i) => ({ id: c.id, chapter: "", chapterOrder: 0 }));
     onUpdateChapters(updates);
 
-    const key = `memoria-chapters-${category}-${subcategory}`;
-    const existing = JSON.parse(localStorage.getItem(key) || "[]") as string[];
-    localStorage.setItem(key, JSON.stringify(existing.filter(ch => ch !== name)));
+    // Fix #7: Update IDB instead of localStorage
+    const key = `chapters-${category}-${subcategory}`;
+    import("@/lib/db").then(({ idbLoadSettings, idbSaveSettings }) => {
+      idbLoadSettings<string[]>(key, []).then(existing => {
+        idbSaveSettings(key, existing.filter(ch => ch !== name));
+      });
+    });
 
     toast.success(`Glava "${name}" obrisana, kartice vraćene u neraspoređene`);
   };
 
-  // Get all chapter names including empty ones from localStorage
+  // Fix #7: Load stored chapters from IDB instead of localStorage
+  useEffect(() => {
+    const key = `chapters-${category}-${subcategory}`;
+    import("@/lib/db").then(({ idbLoadSettings }) => {
+      idbLoadSettings<string[]>(key, []).then(setStoredChapters);
+    });
+    // Also migrate from old localStorage key if exists
+    const oldKey = `memoria-chapters-${category}-${subcategory}`;
+    const old = localStorage.getItem(oldKey);
+    if (old) {
+      try {
+        const parsed = JSON.parse(old) as string[];
+        if (parsed.length > 0) {
+          const key2 = `chapters-${category}-${subcategory}`;
+          import("@/lib/db").then(({ idbSaveSettings }) => {
+            idbSaveSettings(key2, parsed);
+          });
+          setStoredChapters(parsed);
+          localStorage.removeItem(oldKey);
+        }
+      } catch {}
+    }
+  }, [category, subcategory]);
+
   const allChapters = useMemo(() => {
-    const key = `memoria-chapters-${category}-${subcategory}`;
-    const stored = JSON.parse(localStorage.getItem(key) || "[]") as string[];
-    const merged = new Set([...chapters, ...stored]);
+    const merged = new Set([...chapters, ...storedChapters]);
     return Array.from(merged).sort((a, b) => {
       const numA = extractChapterNum(a);
       const numB = extractChapterNum(b);
       if (numA !== null && numB !== null) return numA - numB;
       return a.localeCompare(b);
     });
-  }, [chapters, category, subcategory]);
+  }, [chapters, storedChapters]);
 
   // Legend counts
   const levelCounts = useMemo(() => {

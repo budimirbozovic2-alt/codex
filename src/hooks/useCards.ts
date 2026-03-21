@@ -37,6 +37,19 @@ type PersistAction =
 const pendingActions: PersistAction[] = [];
 let flushTimer: number | null = null;
 
+// Fix #3: Non-blocking localStorage sync via requestIdleCallback
+function asyncLocalStorageSync(key: string, data: () => string) {
+  if ("requestIdleCallback" in window) {
+    (window as any).requestIdleCallback(() => {
+      try { localStorage.setItem(key, data()); } catch {}
+    }, { timeout: 5000 });
+  } else {
+    setTimeout(() => {
+      try { localStorage.setItem(key, data()); } catch {}
+    }, 100);
+  }
+}
+
 function schedulePersist(action: PersistAction) {
   pendingActions.push(action);
   if (flushTimer !== null) return;
@@ -76,6 +89,19 @@ export function useCards() {
   const [srSettings, setSrSettingsState] = useState<SRSettings>(DEFAULT_SR_SETTINGS);
   const [ready, setReady] = useState(false);
   const initialLoadDone = useRef(false);
+
+  // Fix #5: Flush pending actions on unmount to prevent data loss
+  useEffect(() => {
+    return () => {
+      if (flushTimer !== null) {
+        clearTimeout(flushTimer);
+        flushTimer = null;
+      }
+      if (pendingActions.length > 0) {
+        flushPersist();
+      }
+    };
+  }, []);
 
   // ── Initial async load from IndexedDB ──
   useEffect(() => {

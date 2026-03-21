@@ -174,6 +174,19 @@ export async function migrateFromLocalStorage(): Promise<void> {
   }
 }
 
+// Fix #3: Non-blocking localStorage sync helper
+function deferredLocalStorageSync(key: string, data: () => string) {
+  if ("requestIdleCallback" in window) {
+    (window as any).requestIdleCallback(() => {
+      try { localStorage.setItem(key, data()); } catch {}
+    }, { timeout: 5000 });
+  } else {
+    setTimeout(() => {
+      try { localStorage.setItem(key, data()); } catch {}
+    }, 200);
+  }
+}
+
 // ─── Async storage API ──────────────────────────────────
 
 export async function idbLoadCards(): Promise<Card[]> {
@@ -185,10 +198,8 @@ export async function idbSaveCards(cards: Card[]): Promise<void> {
     await db.cards.clear();
     await db.cards.bulkPut(cards);
   });
-  // Keep localStorage in sync for Electron auto-backup
-  try {
-    localStorage.setItem("sr-essay-cards", JSON.stringify(cards));
-  } catch { /* quota exceeded is OK — IndexedDB is primary now */ }
+  // Keep localStorage in sync for Electron auto-backup (non-blocking)
+  deferredLocalStorageSync("sr-essay-cards", () => JSON.stringify(cards));
 }
 
 export async function idbPutCard(card: Card): Promise<void> {
@@ -214,7 +225,7 @@ export async function idbSaveCategories(cats: string[]): Promise<void> {
     await db.categories.clear();
     await db.categories.bulkPut(cats.map(name => ({ id: name, name })));
   });
-  try { localStorage.setItem("sr-essay-categories", JSON.stringify(cats)); } catch {}
+  deferredLocalStorageSync("sr-essay-categories", () => JSON.stringify(cats));
 }
 
 export async function idbLoadSubcategories(): Promise<Record<string, string[]>> {
@@ -231,7 +242,7 @@ export async function idbSaveSubcategories(subs: Record<string, string[]>): Prom
       Object.entries(subs).map(([category, subList]) => ({ id: category, category, subs: subList }))
     );
   });
-  try { localStorage.setItem("sr-essay-subcategories", JSON.stringify(subs)); } catch {}
+  deferredLocalStorageSync("sr-essay-subcategories", () => JSON.stringify(subs));
 }
 
 export async function idbLoadReviewLog(): Promise<ReviewLogEntry[]> {
