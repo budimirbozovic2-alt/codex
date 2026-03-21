@@ -9,6 +9,8 @@ import { default as Gauge } from "lucide-react/dist/esm/icons/gauge";
 import { default as Lightbulb } from "lucide-react/dist/esm/icons/lightbulb";
 import { default as Brain } from "lucide-react/dist/esm/icons/brain";
 import { default as Trophy } from "lucide-react/dist/esm/icons/trophy";
+import { default as TrendingUp } from "lucide-react/dist/esm/icons/trending-up";
+import { default as BarChart3 } from "lucide-react/dist/esm/icons/bar-chart-3";
 import { motion } from "framer-motion";
 import { Card as SRCard, SRSettings, getPendingFirstReviewCount } from "@/lib/spaced-repetition";
 import { ReviewLogEntry, getStorageUsage, isBackupOverdue, getLastBackupTime } from "@/lib/storage";
