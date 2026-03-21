@@ -63,6 +63,22 @@ type ViewState =
 export default function KnowledgeMap({ cards, categories, subcategories, onBack, onUpdateChapters, onReviewSection }: Props) {
   const [view, setView] = useState<ViewState>({ step: "categories" });
   const [searchQuery, setSearchQuery] = useState("");
+  const directionRef = useRef(1); // 1 = forward (drill down), -1 = back
+
+  const navigate = (next: ViewState) => {
+    const stepOrder = { categories: 0, subcategories: 1, detail: 2 };
+    directionRef.current = stepOrder[next.step] > stepOrder[view.step] ? 1 : -1;
+    setSearchQuery("");
+    setView(next);
+  };
+
+  const slideVariants = {
+    enter: (dir: number) => ({ x: dir > 0 ? 80 : -80, opacity: 0 }),
+    center: { x: 0, opacity: 1 },
+    exit: (dir: number) => ({ x: dir > 0 ? -80 : 80, opacity: 0 }),
+  };
+
+  const transition = { type: "tween", duration: 0.25, ease: "easeInOut" };
 
   // ── Step 3: Detail view via MentalSkeleton ──
   if (view.step === "detail" && onUpdateChapters && onReviewSection) {
