@@ -118,7 +118,7 @@ export default function TopNav({ onToggleZen, zenActive }: Props) {
 
             {/* Mega menu panel */}
             {labOpen && (
-              <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 w-[420px] rounded-xl border bg-popover p-4 shadow-xl animate-in fade-in-0 zoom-in-95 slide-in-from-top-2 duration-200">
+              <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 w-[380px] rounded-xl border bg-popover p-4 shadow-xl animate-in fade-in-0 zoom-in-95 slide-in-from-top-2 duration-200">
                 <div className="grid grid-cols-2 gap-1">
                   {LAB_ITEMS.map(({ path, icon: Icon, label, desc }) => {
                     const active = location.pathname === path;
