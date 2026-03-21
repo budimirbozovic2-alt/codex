@@ -67,7 +67,7 @@ export default function MnemonicModule({ onBack }: Props) {
   const stats = useMemo(() => getMnemonicStats(cards), [cards]);
 
   if (subView === "workshop") {
-    return <MnemonicWorkshop cards={cards} onUpdateCard={updateCard} onBack={() => setSubView("menu")} />;
+    return <MnemonicWorkshop cards={cards} onUpdateCard={updateCard} onDeleteCard={deleteCard} onBack={() => setSubView("menu")} />;
   }
 
   if (subView === "test") {
