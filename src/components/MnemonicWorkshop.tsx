@@ -6,6 +6,7 @@ import { default as Wrench } from "lucide-react/dist/esm/icons/wrench";
 import { default as FolderOpen } from "lucide-react/dist/esm/icons/folder-open";
 import { default as Search } from "lucide-react/dist/esm/icons/search";
 import { default as Sparkles } from "lucide-react/dist/esm/icons/sparkles";
+import { default as ArrowUpDown } from "lucide-react/dist/esm/icons/arrow-up-down";
 import { CheckCircle2 } from "lucide-react";
 import InfoPanel from "@/components/InfoPanel";
 import WorkshopCardItem from "@/components/workshop/WorkshopCardItem";
