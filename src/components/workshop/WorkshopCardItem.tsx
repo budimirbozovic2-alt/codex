@@ -71,6 +71,11 @@ function WorkshopCardItemInner({ card, isExpanded, onToggle, onUpdateCard, onDel
     setEditMode(false);
   }, []);
 
+  const handleDelete = useCallback(() => {
+    onDeleteCard(card.id);
+    toast.success("Mnemo kartica obrisana.");
+  }, [card.id, onDeleteCard]);
+
   const updateSectionContent = useCallback((idx: number, content: string) => {
     setEditSections(prev => prev.map((s, i) => i === idx ? { ...s, content } : s));
   }, []);
