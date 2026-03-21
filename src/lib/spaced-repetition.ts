@@ -296,13 +296,13 @@ export function getCardNextReview(card: Card): number {
 export function getDueCards(cards: Card[]): Card[] {
   const now = Date.now();
   return cards
-    .filter((c) => c.sections.some((s) => s.nextReview <= now))
+    .filter((c) => c.sections.some((s) => s.state !== SectionState.New && s.nextReview <= now))
     .sort((a, b) => getCardNextReview(a) - getCardNextReview(b));
 }
 
 export function getDueSections(card: Card): Section[] {
   const now = Date.now();
-  return card.sections.filter((s) => s.nextReview <= now);
+  return card.sections.filter((s) => s.state !== SectionState.New && s.nextReview <= now);
 }
 
 // Retrievability: probability of recall at this moment (0-100%)
