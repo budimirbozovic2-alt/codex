@@ -343,7 +343,7 @@ export default function Dashboard({ stats, categoryStats, categories, subcategor
       </motion.div>}
 
       {/* 4. Idealni Fokus */}
-      {stats.totalSections > 0 && (
+      {wc.showIdealFocus && stats.totalSections > 0 && (
         <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.28 }}
           className="rounded-xl bg-card border p-5 space-y-4">
           <div className="flex items-center justify-between">
