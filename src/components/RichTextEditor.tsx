@@ -268,7 +268,7 @@ export default function RichTextEditor({ value, onChange, placeholder, minimal }
 
     if (editorRef.current) {
       internalValue.current = editorRef.current.innerHTML;
-      onChange(editorRef.current.innerHTML);
+      onChange(sanitizeHtml(editorRef.current.innerHTML));
     }
   };
 
