@@ -289,10 +289,10 @@ export default function ReviewSession({ dueCards, subcategories, srSettings, onR
               <div className="p-2 rounded-lg bg-primary/10 text-primary">
                 <BookOpen className="h-5 w-5" />
               </div>
-              <h3 className="text-lg font-medium">Sekvencijalno</h3>
+              <h3 className="text-lg font-medium">Po karticama</h3>
             </div>
             <p className="text-sm text-muted-foreground">
-              Sve dospjele sekcije jedne kartice redom, pa sljedeća kartica. Idealno za temeljno učvršćivanje cijelih eseja.
+              Kartica po kartica — sve dospjele sekcije jedne kartice se testiraju redom prije prelaska na sljedeću. Za fokusirano učvršćivanje cjeline.
             </p>
           </button>
 
@@ -304,10 +304,10 @@ export default function ReviewSession({ dueCards, subcategories, srSettings, onR
               <div className="p-2 rounded-lg bg-primary/10 text-primary">
                 <Shuffle className="h-5 w-5" />
               </div>
-              <h3 className="text-lg font-medium">Interleaving (nasumično)</h3>
+              <h3 className="text-lg font-medium">Izmiješano</h3>
             </div>
             <p className="text-sm text-muted-foreground">
-              Sekcije iz svih kartica izmiješane nasumično. Simulira ispitne uslove i jača dugoročno pamćenje.
+              Sve dospjele sekcije iz svih kartica izmiješane nasumično. Trenira prisjećanje bez konteksta — bliže ispitnim uslovima.
             </p>
           </button>
 
