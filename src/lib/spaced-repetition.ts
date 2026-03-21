@@ -289,8 +289,9 @@ export function createFlashCard(question: string, answer: string, category: stri
 }
 
 export function getCardNextReview(card: Card): number {
-  if (card.sections.length === 0) return Date.now();
-  return Math.min(...card.sections.map((s) => s.nextReview));
+  const reviewable = card.sections.filter(s => s.state !== SectionState.New);
+  if (reviewable.length === 0) return Infinity;
+  return Math.min(...reviewable.map((s) => s.nextReview));
 }
 
 export function getDueCards(cards: Card[]): Card[] {
