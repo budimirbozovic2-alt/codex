@@ -211,9 +211,12 @@ export default function CardList({
   cards, filterCategory, filterSubcategory, filterType = "all", filterTag, searchQuery = "",
   onEdit, onDelete, onToggleTag, scrollToCardId, onScrolledTo,
   selectionMode, selectedIds, onToggleSelect,
+  reorderMode, onReorder,
 }: Props) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const listRef = useRef<{ scrollToRow: (config: { index: number; align?: string }) => void } | null>(null);
+  const [dragIndex, setDragIndex] = useState<number | null>(null);
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
 
   const filtered = useMemo(() => {
     let result = filterCategory ? cards.filter(c => c.category === filterCategory) : cards;
@@ -231,6 +234,13 @@ export default function CardList({
         return questionMatch || contentMatch;
       });
     }
+    // Sort by sortOrder if available, then createdAt
+    result = [...result].sort((a, b) => {
+      const aOrder = a.sortOrder ?? Number.MAX_SAFE_INTEGER;
+      const bOrder = b.sortOrder ?? Number.MAX_SAFE_INTEGER;
+      if (aOrder !== bOrder) return aOrder - bOrder;
+      return a.createdAt - b.createdAt;
+    });
     return result;
   }, [cards, filterCategory, filterSubcategory, filterType, filterTag, searchQuery]);
 
@@ -252,7 +262,35 @@ export default function CardList({
     return EXPANDED_ROW_BASE + sectionCount * SECTION_HEIGHT + GAP;
   }, [filtered, expandedId]);
 
-  const useVirtualization = filtered.length >= VIRTUALIZATION_THRESHOLD;
+  const handleDragStart = useCallback((index: number) => {
+    setDragIndex(index);
+  }, []);
+
+  const handleDragOver = useCallback((e: React.DragEvent, index: number) => {
+    e.preventDefault();
+    setDragOverIndex(index);
+  }, []);
+
+  const handleDrop = useCallback((index: number) => {
+    if (dragIndex === null || dragIndex === index) {
+      setDragIndex(null);
+      setDragOverIndex(null);
+      return;
+    }
+    const reordered = [...filtered];
+    const [moved] = reordered.splice(dragIndex, 1);
+    reordered.splice(index, 0, moved);
+    onReorder?.(reordered.map(c => c.id));
+    setDragIndex(null);
+    setDragOverIndex(null);
+  }, [dragIndex, filtered, onReorder]);
+
+  const handleDragEnd = useCallback(() => {
+    setDragIndex(null);
+    setDragOverIndex(null);
+  }, []);
+
+  const useVirtualization = filtered.length >= VIRTUALIZATION_THRESHOLD && !reorderMode;
 
   if (filtered.length === 0) {
     return <p className="text-muted-foreground text-center py-12">Nema kartica. Kreirajte prvu!</p>;
@@ -286,20 +324,40 @@ export default function CardList({
 
   return (
     <div className="space-y-3">
-      {filtered.map(card => (
-        <CardRowInner
+      {filtered.map((card, index) => (
+        <div
           key={card.id}
-          card={card}
-          expanded={expandedId === card.id}
-          highlighted={scrollToCardId === card.id}
-          selectionMode={selectionMode}
-          selectedIds={selectedIds}
-          onToggleSelect={onToggleSelect}
-          onToggleTag={onToggleTag}
-          onExpand={setExpandedId}
-          onEdit={onEdit}
-          onDelete={onDelete}
-        />
+          draggable={reorderMode}
+          onDragStart={reorderMode ? () => handleDragStart(index) : undefined}
+          onDragOver={reorderMode ? (e) => handleDragOver(e, index) : undefined}
+          onDrop={reorderMode ? () => handleDrop(index) : undefined}
+          onDragEnd={reorderMode ? handleDragEnd : undefined}
+          className={`transition-all ${reorderMode ? "cursor-grab active:cursor-grabbing" : ""} ${
+            dragOverIndex === index && dragIndex !== index ? "border-t-2 border-primary" : ""
+          } ${dragIndex === index ? "opacity-40" : ""}`}
+        >
+          <div className="flex items-stretch gap-0">
+            {reorderMode && (
+              <div className="flex items-center pr-2 text-muted-foreground/50 hover:text-muted-foreground">
+                <GripVertical className="h-5 w-5" />
+              </div>
+            )}
+            <div className="flex-1 min-w-0">
+              <CardRowInner
+                card={card}
+                expanded={expandedId === card.id}
+                highlighted={scrollToCardId === card.id}
+                selectionMode={selectionMode}
+                selectedIds={selectedIds}
+                onToggleSelect={onToggleSelect}
+                onToggleTag={onToggleTag}
+                onExpand={setExpandedId}
+                onEdit={onEdit}
+                onDelete={onDelete}
+              />
+            </div>
+          </div>
+        </div>
       ))}
     </div>
   );
