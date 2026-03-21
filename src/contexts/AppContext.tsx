@@ -176,9 +176,9 @@ function UIProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo<UIContextValue>(() => ({
     view, setView, editingCard, setEditingCard,
-    handleToggleTag, handleSendToWorkshop,
+    handleToggleTag,
     pomodoro: pom.state, pomodoroToggle: pom.toggle, pomodoroReset: pom.reset,
-  }), [view, setView, editingCard, handleToggleTag, handleSendToWorkshop, pom]);
+  }), [view, setView, editingCard, handleToggleTag, pom]);
 
   return <UIContext.Provider value={value}>{children}</UIContext.Provider>;
 }
