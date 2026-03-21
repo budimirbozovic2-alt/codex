@@ -83,16 +83,25 @@ export default function KnowledgeMap({ cards, categories, subcategories, onBack,
   // ── Step 3: Detail view via MentalSkeleton ──
   if (view.step === "detail" && onUpdateChapters && onReviewSection) {
     return (
-      <Suspense fallback={<TabSkeleton />}>
-        <MentalSkeleton
-          cards={cards}
-          category={view.category}
-          subcategory={view.subcategory}
-          onBack={() => setView({ step: "subcategories", category: view.category })}
-          onUpdateChapters={onUpdateChapters}
-          onReviewSection={onReviewSection}
-        />
-      </Suspense>
+      <motion.div
+        key="detail"
+        custom={directionRef.current}
+        variants={slideVariants}
+        initial="enter"
+        animate="center"
+        transition={transition}
+      >
+        <Suspense fallback={<TabSkeleton />}>
+          <MentalSkeleton
+            cards={cards}
+            category={view.category}
+            subcategory={view.subcategory}
+            onBack={() => navigate({ step: "subcategories", category: view.category })}
+            onUpdateChapters={onUpdateChapters}
+            onReviewSection={onReviewSection}
+          />
+        </Suspense>
+      </motion.div>
     );
   }
 
@@ -123,21 +132,32 @@ export default function KnowledgeMap({ cards, categories, subcategories, onBack,
     const filtered = q ? subsWithStats.filter((s) => s.name.toLowerCase().includes(q)) : subsWithStats;
 
     return (
-      <div className="space-y-6">
+      <motion.div
+        key="subcategories"
+        custom={directionRef.current}
+        variants={slideVariants}
+        initial="enter"
+        animate="center"
+        transition={transition}
+        className="space-y-6"
+      >
         <Header
           title={cat}
           subtitle={`${catCards.length} kartica u ${subsWithStats.length} potkategorija`}
-          onBack={() => { setView({ step: "categories" }); setSearchQuery(""); }}
+          onBack={() => navigate({ step: "categories" })}
         />
         <SearchBar value={searchQuery} onChange={setSearchQuery} placeholder="Pretraži potkategorije..." />
 
         <div className="grid gap-3 sm:grid-cols-2">
-          {filtered.map(({ name, count, levels }) => (
-            <button
+          {filtered.map(({ name, count, levels }, i) => (
+            <motion.button
               key={name}
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: i * 0.04, duration: 0.25 }}
               onClick={() => {
                 if (onUpdateChapters && onReviewSection) {
-                  setView({ step: "detail", category: cat, subcategory: name });
+                  navigate({ step: "detail", category: cat, subcategory: name });
                 }
               }}
               className="group flex items-center gap-4 p-4 rounded-xl border bg-card hover:bg-secondary/40 transition-colors text-left"
@@ -148,7 +168,6 @@ export default function KnowledgeMap({ cards, categories, subcategories, onBack,
               <div className="flex-1 min-w-0">
                 <p className="font-medium text-sm truncate">{name}</p>
                 <p className="text-xs text-muted-foreground mt-0.5">{count} kartica</p>
-                {/* Mini mastery bar */}
                 <div className="flex h-1.5 w-full rounded-full overflow-hidden bg-secondary mt-2">
                   {levels.map((c, lvl) =>
                     c > 0 ? (
@@ -158,12 +177,12 @@ export default function KnowledgeMap({ cards, categories, subcategories, onBack,
                 </div>
               </div>
               <ChevronRight className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
-            </button>
+            </motion.button>
           ))}
         </div>
 
         {filtered.length === 0 && <EmptyMessage text={searchQuery ? "Nema rezultata pretrage" : "Nema potkategorija"} />}
-      </div>
+      </motion.div>
     );
   }
 
@@ -185,7 +204,15 @@ export default function KnowledgeMap({ cards, categories, subcategories, onBack,
   const filteredCats = q ? catsWithStats.filter((c) => c.name.toLowerCase().includes(q)) : catsWithStats;
 
   return (
-    <div className="space-y-6">
+    <motion.div
+      key="categories"
+      custom={directionRef.current}
+      variants={slideVariants}
+      initial="enter"
+      animate="center"
+      transition={transition}
+      className="space-y-6"
+    >
       <Header title="Mapa Znanja" subtitle="Odaberi predmet za detaljan pregled" onBack={onBack} />
       <SearchBar value={searchQuery} onChange={setSearchQuery} placeholder="Pretraži kategorije..." />
 
@@ -200,10 +227,13 @@ export default function KnowledgeMap({ cards, categories, subcategories, onBack,
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        {filteredCats.map(({ name, cardCount, subCount, levels }) => (
-          <button
+        {filteredCats.map(({ name, cardCount, subCount, levels }, i) => (
+          <motion.button
             key={name}
-            onClick={() => { setView({ step: "subcategories", category: name }); setSearchQuery(""); }}
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: i * 0.05, duration: 0.25 }}
+            onClick={() => navigate({ step: "subcategories", category: name })}
             className="group flex flex-col gap-3 p-5 rounded-xl border bg-card hover:bg-secondary/40 transition-colors text-left"
           >
             <div className="flex items-center justify-between">
@@ -218,7 +248,6 @@ export default function KnowledgeMap({ cards, categories, subcategories, onBack,
               </div>
               <ChevronRight className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
             </div>
-            {/* Mastery distribution bar */}
             <div className="flex h-2 w-full rounded-full overflow-hidden bg-secondary">
               {levels.map((c, lvl) =>
                 c > 0 ? (
@@ -226,12 +255,12 @@ export default function KnowledgeMap({ cards, categories, subcategories, onBack,
                 ) : null
               )}
             </div>
-          </button>
+          </motion.button>
         ))}
       </div>
 
       {filteredCats.length === 0 && <EmptyMessage text={searchQuery ? "Nema rezultata pretrage" : "Nema kartica za prikaz"} />}
-    </div>
+    </motion.div>
   );
 }
 
