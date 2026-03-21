@@ -81,20 +81,41 @@ export function useCards() {
     if (initialLoadDone.current) return;
     initialLoadDone.current = true;
 
+    const splashProgress = (pct: number, label: string) => {
+      const bar = document.getElementById("splash-progress");
+      const status = document.getElementById("splash-status");
+      const percent = document.getElementById("splash-percent");
+      if (bar) bar.style.width = `${pct}%`;
+      if (status) status.textContent = label;
+      if (percent) percent.textContent = `${pct}%`;
+    };
+
     (async () => {
+      splashProgress(10, "Migracija podataka…");
       await migrateFromLocalStorage();
-      const [c, cats, subs, log, settings] = await Promise.all([
-        idbLoadCards(),
-        idbLoadCategories(),
-        idbLoadSubcategories(),
-        idbLoadReviewLog(),
-        idbLoadSettings<SRSettings>("srSettings", DEFAULT_SR_SETTINGS),
-      ]);
+
+      splashProgress(25, "Učitavanje kartica…");
+      const c = await idbLoadCards();
+
+      splashProgress(50, `${c.length} kartica učitano`);
+      const cats = await idbLoadCategories();
+
+      splashProgress(65, "Učitavanje kategorija…");
+      const subs = await idbLoadSubcategories();
+
+      splashProgress(80, "Učitavanje dnevnika…");
+      const log = await idbLoadReviewLog();
+
+      splashProgress(90, "Učitavanje podešavanja…");
+      const settings = await idbLoadSettings<SRSettings>("srSettings", DEFAULT_SR_SETTINGS);
+
       setCardMapState(arrayToMap(c));
       setCategoriesState(cats);
       setSubcategoriesState(subs);
       setReviewLogState(log);
       setSrSettingsState(settings);
+
+      splashProgress(100, "Spremno!");
       setReady(true);
     })();
   }, []);
