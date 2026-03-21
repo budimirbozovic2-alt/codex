@@ -178,10 +178,10 @@ export default function LearnSession({ cards, categories, subcategories, onMarkR
   if (!started) {
     if (setupStep === "mode") {
       const chainCount = cards.filter((c) => c.type === "essay" && c.sections.length >= 3).length;
-      const modes: { key: LearnMode; label: string; level: string; levelColor: string; desc: string; icon: typeof BookOpen }[] = [
-        { key: "free", label: "Slobodno učenje", level: "Lak", levelColor: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400", desc: "Prolazi kroz materijal svojim tempom. Čitaj i označavaj pročitano.", icon: BookOpen },
-        { key: "active-recall", label: "Aktivno prisjećanje", level: "Srednji", levelColor: "bg-amber-500/15 text-amber-600 dark:text-amber-400", desc: "Pregledaj pa reprodukuj. Ocijeni svoje znanje za svaki modul.", icon: Brain },
-        { key: "chain", label: "Metod lanca", level: "Teški", levelColor: "bg-destructive/15 text-destructive", desc: "Snowball tehnika: ponovi cijeli lanac modula bez greške.", icon: Link2 },
+      const modes: { key: LearnMode; label: string; level: string; levelColor: string; desc: string; tip: string; icon: typeof BookOpen }[] = [
+        { key: "free", label: "Slobodno učenje", level: "Lak", levelColor: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400", desc: "Prolazi kroz materijal svojim tempom. Čitaj i označavaj pročitano.", tip: "Idealno za prvi susret sa gradivom — bez pritiska ocjenjivanja. Kartica se označava kao pročitana i postaje dostupna za ponavljanje.", icon: BookOpen },
+        { key: "active-recall", label: "Aktivno prisjećanje", level: "Srednji", levelColor: "bg-amber-500/15 text-amber-600 dark:text-amber-400", desc: "Pregledaj pa reprodukuj. Ocijeni svoje znanje za svaki modul.", tip: "Naučno najefektivniji metod učenja. Pokušaj odgovoriti prije otkrivanja — ocjena direktno utiče na FSRS algoritam i buduće intervale ponavljanja.", icon: Brain },
+        { key: "chain", label: "Metod lanca", level: "Teški", levelColor: "bg-destructive/15 text-destructive", desc: "Snowball tehnika: ponovi cijeli lanac modula bez greške.", tip: "Kumulativno ponavljanje: svaki novi modul zahtijeva reprodukciju svih prethodnih. Gradi čvrste veze između koncepata — savršeno za složene teme.", icon: Link2 },
       ];
 
       return (
