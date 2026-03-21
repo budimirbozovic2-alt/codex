@@ -20,7 +20,6 @@ export default function DashboardPage() {
           reviewLog={reviewLog}
           srSettings={srSettings}
           onExport={() => {}}
-          onStartReview={() => setView("review")}
         />
       )}
     </ErrorBoundary>
