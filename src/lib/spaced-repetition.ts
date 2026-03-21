@@ -57,7 +57,6 @@ export interface Card {
 export const CARD_TAGS = [
   { id: "često-na-ispitu", label: "Često dolazi na ispitu", color: "destructive" },
   { id: "rijetko-na-ispitu", label: "Rijetko dolazi na ispitu", color: "secondary" },
-  { id: "memorizacija", label: "Memorizacija", color: "primary" },
 ] as const;
 
 export interface ReviewGrade {

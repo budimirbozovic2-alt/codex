@@ -98,6 +98,34 @@ export function saveMnemonicCards(cards: MnemonicCard[]) {
   saveToStorage(MNEMONIC_CARDS_KEY, cards);
 }
 
+export function createMnemonicCardFromSelection(
+  originalCardId: string,
+  question: string,
+  selectedText: string,
+  category: string,
+  subcategory?: string,
+  tags?: string[],
+): MnemonicCard {
+  return {
+    id: crypto.randomUUID(),
+    originalCardId,
+    question,
+    sections: [{ title: "Isječak", content: selectedText }],
+    category,
+    subcategory,
+    tags: tags || [],
+    hookType: detectHookType([{ content: selectedText }]),
+    mnemonicVideo: "",
+    acronym: "",
+    mnemonicStatus: "new",
+    createdAt: Date.now(),
+    testCount: 0,
+    successCount: 0,
+    failCount: 0,
+    lastTested: null,
+  };
+}
+
 export function createMnemonicCard(
   originalCardId: string,
   question: string,
