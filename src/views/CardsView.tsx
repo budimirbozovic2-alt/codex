@@ -32,6 +32,12 @@ export default function CardsView() {
   const [scrollToCardId, setScrollToCardId] = useState<string | null>(null);
   const [reorderMode, setReorderMode] = useState(false);
 
+  // After editing, scroll back to the edited card
+  const lastEditedRef = sessionStorage.getItem("sr-last-edited-card");
+  if (lastEditedRef && !scrollToCardId) {
+    // Use setTimeout to set after mount
+  }
+
   const toggleSelect = (id: string) => {
     setSelectedIds(prev => {
       const next = new Set(prev);

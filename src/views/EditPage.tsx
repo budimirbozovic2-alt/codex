@@ -12,9 +12,9 @@ export default function EditPage() {
         subcategories={subcategories}
         onSave={() => {}}
         onSaveFlash={() => {}}
-        onCancel={() => { setView("dashboard"); setEditingCard(null); }}
+        onCancel={() => { setView("cards"); setEditingCard(null); }}
         editCard={editingCard}
-        onUpdate={(id, u) => { updateCard(id, u); setView("cards"); setEditingCard(null); }}
+        onUpdate={(id, u) => { updateCard(id, u); setEditingCard(null); setView("cards"); }}
       />
     </ErrorBoundary>
   );
