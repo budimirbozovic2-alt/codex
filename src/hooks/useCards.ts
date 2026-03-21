@@ -640,7 +640,7 @@ export function useCards() {
 
   return {
     cards, categories, subcategories, dueCards, stats, categoryStats, cardCountByCategory, reviewLog, srSettings, ready,
-    addCard, addFlashCard, updateCard, deleteCard, splitCard, reviewSection, markRead, toggleTag, bulkUpdateSubcategory, reorderCards, logError, clearErrorLog,
+    addCard, addFlashCard, updateCard, deleteCard, splitCard, reviewSection, markRead, toggleTag, bulkUpdateSubcategory, bulkUpdateChapter, reorderCards, logError, clearErrorLog,
     exportData, exportTemplate, importData, importCards,
     addCategory, renameCategory, deleteCategory,
     addSubcategory, renameSubcategory, deleteSubcategory,
