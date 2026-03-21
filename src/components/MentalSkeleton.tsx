@@ -602,9 +602,13 @@ export default function MentalSkeleton({ cards, subcategory, category, onBack, o
     const updates = chapterCards.map((c, i) => ({ id: c.id, chapter: "", chapterOrder: 0 }));
     onUpdateChapters(updates);
 
-    const key = `memoria-chapters-${category}-${subcategory}`;
-    const existing = JSON.parse(localStorage.getItem(key) || "[]") as string[];
-    localStorage.setItem(key, JSON.stringify(existing.filter(ch => ch !== name)));
+    // Fix #7: Update IDB instead of localStorage
+    const key = `chapters-${category}-${subcategory}`;
+    import("@/lib/db").then(({ idbLoadSettings, idbSaveSettings }) => {
+      idbLoadSettings<string[]>(key, []).then(existing => {
+        idbSaveSettings(key, existing.filter(ch => ch !== name));
+      });
+    });
 
     toast.success(`Glava "${name}" obrisana, kartice vraćene u neraspoređene`);
   };
