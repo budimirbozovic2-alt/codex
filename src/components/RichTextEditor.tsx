@@ -182,7 +182,7 @@ export default function RichTextEditor({ value, onChange, placeholder, minimal }
     document.execCommand(command, false, val);
     if (editorRef.current) {
       internalValue.current = editorRef.current.innerHTML;
-      onChange(editorRef.current.innerHTML);
+      onChange(sanitizeHtml(editorRef.current.innerHTML));
     }
   }, [onChange]);
 
@@ -203,7 +203,7 @@ export default function RichTextEditor({ value, onChange, placeholder, minimal }
       parentEl.replaceWith(text);
       if (editorRef.current) {
         internalValue.current = editorRef.current.innerHTML;
-        onChange(editorRef.current.innerHTML);
+        onChange(sanitizeHtml(editorRef.current.innerHTML));
       }
     } else {
       editorRef.current?.focus();
@@ -222,7 +222,7 @@ export default function RichTextEditor({ value, onChange, placeholder, minimal }
       // Try markdown auto-formatting
       tryMarkdownAutoFormat(editorRef.current);
       internalValue.current = editorRef.current.innerHTML;
-      onChange(editorRef.current.innerHTML);
+      onChange(sanitizeHtml(editorRef.current.innerHTML));
     }
   };
 
@@ -241,7 +241,7 @@ export default function RichTextEditor({ value, onChange, placeholder, minimal }
           if (dataUrl && editorRef.current) {
             document.execCommand("insertHTML", false, `<img src="${dataUrl}" style="max-width:100%;border-radius:6px;margin:4px 0;" />`);
             internalValue.current = editorRef.current.innerHTML;
-            onChange(editorRef.current.innerHTML);
+            onChange(sanitizeHtml(editorRef.current.innerHTML));
           }
         };
         reader.readAsDataURL(file);
@@ -268,7 +268,7 @@ export default function RichTextEditor({ value, onChange, placeholder, minimal }
 
     if (editorRef.current) {
       internalValue.current = editorRef.current.innerHTML;
-      onChange(editorRef.current.innerHTML);
+      onChange(sanitizeHtml(editorRef.current.innerHTML));
     }
   };
 
