@@ -182,8 +182,8 @@ export default function Dashboard({ stats, categoryStats, categories, subcategor
     const velocity = calcVelocity(reviewLog, 7);
     const remaining = totalSections - learnedSections;
     const estimated = calcEstimatedFinish(remaining, velocity);
-    const status = getPlannerStatus(estimated, planner.finalGoalDate);
-    const suggestion = getDailySuggestion(totalSections, learnedSections, planner.finalGoalDate, velocity);
+    const status = getPlannerStatus(estimated, planner.finalGoalDate, planner.bufferPercent ?? 15);
+    const suggestion = getSmartSuggestion(null, cards, planner.finalGoalDate, velocity, planner.bufferPercent ?? 15);
     const timeRec = suggestion ? calcDailyTimeRecommendation(suggestion.suggestedToday, velocity, stats.due) : null;
     return { status, suggestion, timeRec };
   }, [stats, reviewLog]);
