@@ -7,14 +7,16 @@ import { default as CheckSquare } from "lucide-react/dist/esm/icons/check-square
 import { default as X } from "lucide-react/dist/esm/icons/x";
 import { default as Search } from "lucide-react/dist/esm/icons/search";
 import { default as Flame } from "lucide-react/dist/esm/icons/flame";
+import { default as ArrowUpDown } from "lucide-react/dist/esm/icons/arrow-up-down";
 import { Card } from "@/lib/spaced-repetition";
 import ScrollableRow from "@/components/ScrollableRow";
 import CardList from "@/components/CardList";
+import { toast } from "sonner";
 
 export default function CardsView() {
   const {
     cards, categories, subcategories,
-    deleteCard, handleToggleTag, bulkUpdateSubcategory,
+    deleteCard, handleToggleTag, bulkUpdateSubcategory, reorderCards,
     setView, setEditingCard,
   } = useAppContext();
 
@@ -28,6 +30,7 @@ export default function CardsView() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkSubcategory, setBulkSubcategory] = useState("");
   const [scrollToCardId, setScrollToCardId] = useState<string | null>(null);
+  const [reorderMode, setReorderMode] = useState(false);
 
   const toggleSelect = (id: string) => {
     setSelectedIds(prev => {
@@ -51,6 +54,25 @@ export default function CardsView() {
     setBulkSubcategory("");
   };
 
+  const handleReorder = (orderedIds: string[]) => {
+    reorderCards(orderedIds);
+    toast.success("Redoslijed sačuvan.");
+  };
+
+  const toggleReorderMode = () => {
+    if (!reorderMode && !filterCategory) {
+      toast.info("Filtriraj po kategoriji da bi promijenio redoslijed.");
+      return;
+    }
+    setReorderMode(v => !v);
+    if (reorderMode) {
+      // Exiting reorder mode
+    } else {
+      // Entering reorder mode - disable other modes
+      exitSelectionMode();
+    }
+  };
+
   const bulkSubcats = filterCategory ? (subcategories[filterCategory] || []) : [];
   const availableSubcategories = filterCategory ? (subcategories[filterCategory] || []) : [];
 
@@ -65,18 +87,39 @@ export default function CardsView() {
         <h2 className="text-3xl font-serif">Kartice</h2>
         <div className="flex items-center gap-2">
           <button
-            onClick={() => selectionMode ? exitSelectionMode() : setSelectionMode(true)}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm transition-colors ${selectionMode ? "bg-secondary text-secondary-foreground" : "border text-muted-foreground hover:bg-secondary"}`}
+            onClick={toggleReorderMode}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm transition-colors ${reorderMode ? "bg-primary text-primary-foreground" : "border text-muted-foreground hover:bg-secondary"}`}
+            title={reorderMode ? "Završi preuređivanje" : "Promijeni redoslijed"}
           >
-            {selectionMode ? <><X className="h-4 w-4" /> Otkaži</> : <><CheckSquare className="h-4 w-4" /> Označi</>}
+            <ArrowUpDown className="h-4 w-4" />
+            {reorderMode ? "Gotovo" : "Redoslijed"}
           </button>
-          <button onClick={() => setView("create")} className="flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-lg text-sm hover:opacity-90 transition-opacity">
-            <Plus className="h-4 w-4" /> Nova
-          </button>
+          {!reorderMode && (
+            <>
+              <button
+                onClick={() => selectionMode ? exitSelectionMode() : setSelectionMode(true)}
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm transition-colors ${selectionMode ? "bg-secondary text-secondary-foreground" : "border text-muted-foreground hover:bg-secondary"}`}
+              >
+                {selectionMode ? <><X className="h-4 w-4" /> Otkaži</> : <><CheckSquare className="h-4 w-4" /> Označi</>}
+              </button>
+              <button onClick={() => setView("create")} className="flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-lg text-sm hover:opacity-90 transition-opacity">
+                <Plus className="h-4 w-4" /> Nova
+              </button>
+            </>
+          )}
         </div>
       </div>
 
-      {selectionMode && (
+      {reorderMode && (
+        <div className="flex items-center gap-3 p-4 rounded-xl bg-primary/5 border border-primary/20">
+          <ArrowUpDown className="h-4 w-4 text-primary flex-shrink-0" />
+          <p className="text-sm text-muted-foreground">
+            Povlači kartice da promijeniš redoslijed. Redoslijed se automatski čuva.
+          </p>
+        </div>
+      )}
+
+      {selectionMode && !reorderMode && (
         <div className="flex items-center gap-3 flex-wrap p-4 rounded-xl bg-secondary/50 border">
           <span className="text-sm font-medium">{selectedIds.size} označeno</span>
           <button
@@ -172,7 +215,7 @@ export default function CardsView() {
         <div className="space-y-2.5">
           <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Kategorija</span>
           <ScrollableRow>
-            <button onClick={() => { setFilterCategory(null); setFilterSubcategory(null); }} className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all whitespace-nowrap flex-shrink-0 ${!filterCategory ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground hover:bg-secondary"}`}>
+            <button onClick={() => { setFilterCategory(null); setFilterSubcategory(null); if (reorderMode) setReorderMode(false); }} className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all whitespace-nowrap flex-shrink-0 ${!filterCategory ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground hover:bg-secondary"}`}>
               Sve
             </button>
             {categories.map(c => {
@@ -222,6 +265,8 @@ export default function CardsView() {
         selectionMode={selectionMode}
         selectedIds={selectedIds}
         onToggleSelect={toggleSelect}
+        reorderMode={reorderMode}
+        onReorder={handleReorder}
       />
     </div>
   );
