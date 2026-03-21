@@ -554,30 +554,19 @@ export default function MentalSkeleton({ cards, subcategory, category, onBack, o
 
   const handleAddChapter = () => {
     if (!newChapterName.trim()) return;
-    // Just need to assign at least one card to create the chapter, or we can create an empty one
-    // For now, just toast — the chapter will appear when user drags a card into it
-    // We'll create a "virtual" empty chapter by assigning a placeholder
     toast.success(`Glava "${newChapterName.trim()}" kreirana. Prevuci kartice u nju.`);
-    // Create the chapter by updating one unassigned card if available
-    if (unassignedCards.length > 0) {
-      // Don't auto-assign, just create the chapter name
-    }
-    // We need to persist chapters — simplest: use a card with empty assignment
-    // Actually, let's store chapters as part of the subcategory system or just use card data
-    // For minimal approach: create chapter name and let user drag cards
     setNewChapterName("");
     setAddingChapter(false);
 
-    // We store chapters implicitly via card.chapter field
-    // If no card has this chapter, it won't persist — so let's add a notification
-    // Real solution: we just set the name and it'll show as empty in UI
-    // We need to track "known chapters" separately. Let's use localStorage for simplicity
-    const key = `memoria-chapters-${category}-${subcategory}`;
-    const existing = JSON.parse(localStorage.getItem(key) || "[]") as string[];
-    if (!existing.includes(newChapterName.trim())) {
-      existing.push(newChapterName.trim());
-      localStorage.setItem(key, JSON.stringify(existing));
-    }
+    // Fix #7: Store chapters in IndexedDB settings instead of localStorage
+    const key = `chapters-${category}-${subcategory}`;
+    import("@/lib/db").then(({ idbLoadSettings, idbSaveSettings }) => {
+      idbLoadSettings<string[]>(key, []).then(existing => {
+        if (!existing.includes(newChapterName.trim())) {
+          idbSaveSettings(key, [...existing, newChapterName.trim()]);
+        }
+      });
+    });
   };
 
   const handleRenameChapter = (oldName: string) => {
