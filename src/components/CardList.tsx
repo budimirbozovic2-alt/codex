@@ -209,7 +209,7 @@ function VirtualRow(props: RowComponentProps<VirtualRowData>) {
 }
 
 export default function CardList({
-  cards, filterCategory, filterSubcategory, filterType = "all", filterTag, searchQuery = "",
+  cards, filterCategory, filterSubcategory, filterChapter, filterType = "all", filterTag, searchQuery = "",
   onEdit, onDelete, onToggleTag, scrollToCardId, onScrolledTo,
   selectionMode, selectedIds, onToggleSelect,
   reorderMode, onReorder,
