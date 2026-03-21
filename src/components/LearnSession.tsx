@@ -368,6 +368,31 @@ export default function LearnSession({ cards, categories, subcategories, onMarkR
           </div>
         )}
 
+        {selectedSubcategory && (() => {
+          const chaptersInSub = Array.from(new Set(
+            cards.filter(c => c.category === selectedCategory && c.subcategory === selectedSubcategory && c.chapter)
+              .map(c => c.chapter!)
+          )).sort();
+          if (chaptersInSub.length === 0) return null;
+          return (
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-muted-foreground">Glava</label>
+              <ScrollableRow>
+                <button onClick={() => setSelectedChapter(null)}
+                  className={`px-2.5 py-1 rounded-md text-xs font-medium transition-all whitespace-nowrap flex-shrink-0 ${!selectedChapter ? "bg-primary/15 text-primary" : "text-muted-foreground hover:text-foreground hover:bg-secondary"}`}>
+                  Sve glave
+                </button>
+                {chaptersInSub.map((ch) => (
+                  <button key={ch} onClick={() => setSelectedChapter(ch)}
+                    className={`px-2.5 py-1 rounded-md text-xs font-medium transition-all whitespace-nowrap flex-shrink-0 ${selectedChapter === ch ? "bg-primary/15 text-primary" : "text-muted-foreground hover:text-foreground hover:bg-secondary"}`}>
+                    {ch}
+                  </button>
+                ))}
+              </ScrollableRow>
+            </div>
+          );
+        })()}
+
         <div className="space-y-2">
           <label className="text-sm font-medium text-muted-foreground">Redoslijed</label>
           <div className="grid gap-2">
