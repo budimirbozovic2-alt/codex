@@ -38,6 +38,8 @@ import {
 } from "recharts";
 import { format, subDays, startOfDay } from "date-fns";
 
+const FrequentErrors = lazy(() => import("@/pages/FrequentErrors"));
+
 interface Props {
   cards: Card[];
   categories: string[];
@@ -45,6 +47,7 @@ interface Props {
   onBack: () => void;
   settings?: SRSettings;
   embedded?: boolean;
+  onClearErrorLog?: (cardId: string) => void;
 }
 
 export default function MetacognitiveCenter({ cards, categories, reviewLog, onBack, settings, embedded }: Props) {
