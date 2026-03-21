@@ -331,6 +331,22 @@ export function useCards() {
     });
   }, []);
 
+  // Reorder cards by setting sortOrder based on array position
+  const reorderCards = useCallback((orderedIds: string[]) => {
+    setCardMapState(prev => {
+      const next = { ...prev };
+      const updated: Card[] = [];
+      orderedIds.forEach((id, index) => {
+        if (next[id]) {
+          next[id] = { ...next[id], sortOrder: index };
+          updated.push(next[id]);
+        }
+      });
+      schedulePersist({ type: "bulk", cards: updated });
+      return next;
+    });
+  }, []);
+
   // O(1) toggleTag — surgical
   const toggleTag = useCallback((cardId: string, tag: string) => {
     patchCard(cardId, c => {
