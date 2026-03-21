@@ -229,7 +229,7 @@ export default function CardsView() {
         <div className="space-y-2.5">
           <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Kategorija</span>
           <ScrollableRow>
-            <button onClick={() => { setFilterCategory(null); setFilterSubcategory(null); if (reorderMode) setReorderMode(false); }} className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all whitespace-nowrap flex-shrink-0 ${!filterCategory ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground hover:bg-secondary"}`}>
+            <button onClick={() => { setFilterCategory(null); setFilterSubcategory(null); setFilterChapter(null); if (reorderMode) setReorderMode(false); }} className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all whitespace-nowrap flex-shrink-0 ${!filterCategory ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground hover:bg-secondary"}`}>
               Sve
             </button>
             {categories.map(c => {
