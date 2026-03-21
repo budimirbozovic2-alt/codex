@@ -80,7 +80,10 @@ export default function TopNav({ onToggleZen, zenActive }: Props) {
     <nav className="sticky top-0 z-40 border-b bg-background/90 backdrop-blur-md">
       {/* Desktop */}
       <div className="hidden md:flex items-center h-11 px-4 gap-1 max-w-7xl mx-auto">
-        <span className="text-base font-serif italic text-primary mr-4 select-none tracking-tight">Memoria</span>
+        <div className="flex items-center gap-2 mr-4">
+          <img src="/logo-icon.png" alt="Memoria" className="h-6 w-6 rounded-md" />
+          <span className="text-base font-serif italic text-primary select-none tracking-tight">Memoria</span>
+        </div>
 
         <div className="flex items-center gap-0.5 flex-1 min-w-0">
           {PRIMARY_NAV.map(({ path, icon: Icon, label, badge }) => (
@@ -181,7 +184,10 @@ export default function TopNav({ onToggleZen, zenActive }: Props) {
 
       {/* Mobile */}
       <div className="md:hidden flex items-center h-11 px-3 justify-between">
-        <span className="text-base font-serif italic text-primary select-none">Memoria</span>
+        <div className="flex items-center gap-2">
+          <img src="/logo-icon.png" alt="Memoria" className="h-6 w-6 rounded-md" />
+          <span className="text-base font-serif italic text-primary select-none">Memoria</span>
+        </div>
         <div className="flex items-center gap-1">
           <button onClick={onToggleZen} className={`p-1.5 rounded-md hover:bg-secondary transition-colors ${zenActive ? "text-primary bg-primary/10" : "text-muted-foreground"}`} title="Zen Mode">
             <Focus className="h-4 w-4" />
