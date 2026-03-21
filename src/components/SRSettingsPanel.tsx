@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { SRSettings, DEFAULT_SR_SETTINGS } from "@/lib/spaced-repetition";
 import { TTSSettings, DEFAULT_TTS_SETTINGS, loadTTSSettings, saveTTSSettings, getAvailableVoices, speak, stopSpeaking } from "@/lib/tts";
-import { AppSettings, DEFAULT_APP_SETTINGS, loadAppSettings, saveAppSettings } from "@/lib/app-settings";
+import { AppSettings, DEFAULT_APP_SETTINGS, loadAppSettings, saveAppSettings, COLOR_THEMES, applyColorTheme, type ColorTheme } from "@/lib/app-settings";
 import { playGradeGood } from "@/lib/sounds";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -174,6 +174,40 @@ export default function SRSettingsPanel({ settings, onUpdate, onBack }: Props) {
 
         {/* ═══════════ TAB 2: INTERFEJS ═══════════ */}
         <TabsContent value="interface" className="space-y-5 mt-0">
+          {/* Color theme picker */}
+          <div className="rounded-xl border bg-card p-5 space-y-3">
+            <h3 className="text-sm font-semibold">Tema boja</h3>
+            <p className="text-xs text-muted-foreground">Odaberi paletu koja ti odgovara. Primjenjuje se odmah.</p>
+            <div className="grid grid-cols-3 gap-2">
+              {COLOR_THEMES.map((theme) => {
+                const isActive = app.colorTheme === theme.id;
+                return (
+                  <button
+                    key={theme.id}
+                    onClick={() => {
+                      setApp(prev => ({ ...prev, colorTheme: theme.id }));
+                      applyColorTheme(theme.id);
+                    }}
+                    className={`flex items-center gap-2.5 p-3 rounded-lg border-2 transition-all text-left ${
+                      isActive
+                        ? "border-primary bg-primary/5 shadow-sm"
+                        : "border-transparent bg-secondary/40 hover:bg-secondary/70"
+                    }`}
+                  >
+                    <div
+                      className={`w-5 h-5 rounded-full flex-shrink-0 ring-2 ring-offset-2 ring-offset-card ${isActive ? "ring-current" : "ring-transparent"}`}
+                      style={{
+                        backgroundColor: theme.preview,
+                        color: theme.preview,
+                      }}
+                    />
+                    <span className="text-xs font-medium">{theme.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
           {/* Dashboard widgeti */}
           <div className="rounded-xl border bg-card p-5 space-y-3">
             <h3 className="text-sm font-semibold">Dashboard widgeti</h3>

@@ -1,5 +1,16 @@
 const APP_SETTINGS_KEY = "sr-app-settings";
 
+export type ColorTheme = "amber" | "slate" | "forest" | "ocean" | "rose" | "midnight";
+
+export const COLOR_THEMES: { id: ColorTheme; label: string; preview: string }[] = [
+  { id: "amber", label: "Ćilibar", preview: "hsl(38, 75%, 48%)" },
+  { id: "slate", label: "Čelik", preview: "hsl(215, 20%, 35%)" },
+  { id: "forest", label: "Šuma", preview: "hsl(152, 50%, 32%)" },
+  { id: "ocean", label: "Okean", preview: "hsl(210, 65%, 42%)" },
+  { id: "rose", label: "Ruža", preview: "hsl(346, 55%, 45%)" },
+  { id: "midnight", label: "Ponoć", preview: "hsl(245, 50%, 48%)" },
+];
+
 export interface DashboardWidgetConfig {
   showExamProgress: boolean;
   showCoreStats: boolean;
@@ -11,9 +22,10 @@ export interface DashboardWidgetConfig {
 }
 
 export interface AppSettings {
-  targetRetention: number; // 0.85 - 0.99
-  autoBackupDays: number; // 0 = disabled, otherwise N days
+  targetRetention: number;
+  autoBackupDays: number;
   soundEffects: boolean;
+  colorTheme: ColorTheme;
   dashboardWidgets: DashboardWidgetConfig;
 }
 
@@ -21,6 +33,7 @@ export const DEFAULT_APP_SETTINGS: AppSettings = {
   targetRetention: 0.95,
   autoBackupDays: 7,
   soundEffects: false,
+  colorTheme: "amber",
   dashboardWidgets: {
     showExamProgress: true,
     showCoreStats: true,
@@ -51,6 +64,15 @@ export function saveAppSettings(settings: AppSettings): void {
   try {
     localStorage.setItem(APP_SETTINGS_KEY, JSON.stringify(settings));
   } catch {}
+}
+
+export function applyColorTheme(theme: ColorTheme): void {
+  document.documentElement.setAttribute("data-theme", theme);
+}
+
+export function initColorTheme(): void {
+  const settings = loadAppSettings();
+  applyColorTheme(settings.colorTheme);
 }
 
 export function isAutoBackupOverdue(settings: AppSettings): boolean {
