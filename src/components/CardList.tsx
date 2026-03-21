@@ -109,6 +109,7 @@ const CardRowInner = memo(function CardRowInner({ card, expanded, highlighted, s
             <div className="flex items-center gap-2 mb-1 flex-wrap">
               <span className="text-xs uppercase tracking-widest text-muted-foreground">{card.category}</span>
               {card.subcategory && <span className="text-xs text-muted-foreground">› {card.subcategory}</span>}
+              {card.chapter && <span className="text-xs text-muted-foreground/70">› {card.chapter}</span>}
               <ScoreBadge score={score} />
               <RetentionBadge retention={retention} />
               {isFlash ? (

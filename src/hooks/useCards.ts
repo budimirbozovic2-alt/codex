@@ -186,8 +186,9 @@ export function useCards() {
     idbSaveSettings("srSettings", settings);
   }, []);
 
-  const addCard = useCallback((question: string, sections: { title: string; content: string }[], category: string, subcategory?: string) => {
+  const addCard = useCallback((question: string, sections: { title: string; content: string }[], category: string, subcategory?: string, chapter?: string) => {
     const card = createCard(question, sections, category, subcategory);
+    if (chapter) card.chapter = chapter;
     setCardMapState(prev => {
       schedulePersist({ type: "put", card });
       return { ...prev, [card.id]: card };
