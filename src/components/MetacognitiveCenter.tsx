@@ -50,7 +50,7 @@ interface Props {
   onClearErrorLog?: (cardId: string) => void;
 }
 
-export default function MetacognitiveCenter({ cards, categories, reviewLog, onBack, settings, embedded }: Props) {
+export default function MetacognitiveCenter({ cards, categories, reviewLog, onBack, settings, embedded, onClearErrorLog }: Props) {
   const weights = settings?.resistanceWeights ?? DEFAULT_SR_SETTINGS.resistanceWeights;
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="max-w-4xl mx-auto space-y-6">
