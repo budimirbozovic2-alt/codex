@@ -4,6 +4,15 @@ import "./index.css";
 
 createRoot(document.getElementById("root")!).render(<App />);
 
+// Fade out in-app splash
+requestAnimationFrame(() => {
+  const splash = document.getElementById("app-splash");
+  if (splash) {
+    splash.style.opacity = "0";
+    setTimeout(() => splash.remove(), 400);
+  }
+});
+
 // ── Electron IPC: listen for backup-requested before quit ──
 if (window.electronAPI) {
   const cleanup = window.electronAPI.onBackupRequested(() => {
