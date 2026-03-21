@@ -532,16 +532,17 @@ function FinishedScreen({ onBack }: { onBack: () => void }) {
 }
 
 function ReviewCard({
-  card, section, showAnswer, setShowAnswer, onGrade, onLogError, onBack,
-  progress, total, sectionIndex, totalSectionsInCard, srSettings, viewWidth, onViewWidthChange,
+  card, section, showAnswer, setShowAnswer, onGrade, onLogError, onBack, onPause,
+  progress, total, sectionIndex, totalSectionsInCard, srSettings, viewWidth, onViewWidthChange, isDifficultMode,
 }: {
   card: Card; section: Section; showAnswer: boolean;
   setShowAnswer: (v: boolean) => void; onGrade: (g: number) => void;
   onLogError: (cardId: string, text: string) => void;
-  onBack: () => void; progress: number; total: number;
+  onBack: () => void; onPause?: () => void; progress: number; total: number;
   sectionIndex: number; totalSectionsInCard: number;
   srSettings: SRSettings;
   viewWidth: ViewWidth; onViewWidthChange: (w: ViewWidth) => void;
+  isDifficultMode?: boolean;
 }) {
   const { toast } = useToast();
   const lastGradeRef = useRef<{ cardId: string; sectionId: string; grade: number } | null>(null);
