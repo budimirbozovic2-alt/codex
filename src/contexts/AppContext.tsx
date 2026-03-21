@@ -172,46 +172,7 @@ function UIProvider({ children }: { children: ReactNode }) {
   // Mnemonic cloning
   const handleToggleTag = useCallback((cardId: string, tag: string) => {
     toggleTag(cardId, tag);
-    if (tag === "memorizacija") {
-      const card = cards.find(c => c.id === cardId);
-      if (card && !(card.tags || []).includes("memorizacija")) {
-        const mnemonicCards = loadMnemonicCards();
-        const alreadyCloned = mnemonicCards.some(mc => mc.originalCardId === cardId);
-        if (!alreadyCloned) {
-          const clone = createMnemonicCard(
-            cardId, card.question,
-            card.sections.map(s => ({ title: s.title, content: s.content })),
-            card.category, card.subcategory,
-            (card.tags || []).filter(t => t !== "memorizacija"),
-          );
-          saveMnemonicCards([...mnemonicCards, clone]);
-        }
-      } else if (card && (card.tags || []).includes("memorizacija")) {
-        const mnemonicCards = loadMnemonicCards();
-        saveMnemonicCards(mnemonicCards.filter(mc => mc.originalCardId !== cardId));
-      }
-    }
-  }, [toggleTag, cards]);
-
-  const handleSendToWorkshop = useCallback((cardId: string) => {
-    const card = cards.find(c => c.id === cardId);
-    if (!card) return;
-    if (!(card.tags || []).includes("memorizacija")) {
-      toggleTag(cardId, "memorizacija");
-      const mnemonicCards = loadMnemonicCards();
-      const alreadyCloned = mnemonicCards.some(mc => mc.originalCardId === cardId);
-      if (!alreadyCloned) {
-        const clone = createMnemonicCard(
-          cardId, card.question,
-          card.sections.map(s => ({ title: s.title, content: s.content })),
-          card.category, card.subcategory,
-          (card.tags || []).filter(t => t !== "memorizacija"),
-        );
-        saveMnemonicCards([...mnemonicCards, clone]);
-      }
-    }
-    setView("mnemonic");
-  }, [cards, toggleTag, setView]);
+  }, [toggleTag]);
 
   const value = useMemo<UIContextValue>(() => ({
     view, setView, editingCard, setEditingCard,
