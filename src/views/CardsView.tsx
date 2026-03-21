@@ -237,7 +237,7 @@ export default function CardsView() {
               return (
                 <button
                   key={c}
-                  onClick={() => { setFilterCategory(c); setFilterSubcategory(null); }}
+                  onClick={() => { setFilterCategory(c); setFilterSubcategory(null); setFilterChapter(null); }}
                   className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all flex items-center gap-1.5 whitespace-nowrap flex-shrink-0 ${filterCategory === c ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground hover:bg-secondary"}`}
                 >
                   {c}
