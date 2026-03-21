@@ -289,7 +289,7 @@ export default function ReviewSession({ dueCards, subcategories, srSettings, onR
               <div className="p-2 rounded-lg bg-primary/10 text-primary">
                 <BookOpen className="h-5 w-5" />
               </div>
-              <h3 className="text-lg font-medium">Po karticama</h3>
+              <h3 className="text-lg font-medium">FSRS sistem</h3>
             </div>
             <p className="text-sm text-muted-foreground">
               Kartica po kartica — sve dospjele sekcije jedne kartice se testiraju redom prije prelaska na sljedeću. Za fokusirano učvršćivanje cjeline.
