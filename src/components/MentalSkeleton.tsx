@@ -584,11 +584,14 @@ export default function MentalSkeleton({ cards, subcategory, category, onBack, o
     }));
     onUpdateChapters(updates);
 
-    // Update localStorage chapters list
-    const key = `memoria-chapters-${category}-${subcategory}`;
-    const existing = JSON.parse(localStorage.getItem(key) || "[]") as string[];
-    const updated = existing.map(ch => ch === renamingChapter ? renameValue.trim() : ch);
-    localStorage.setItem(key, JSON.stringify(updated));
+    // Fix #7: Update IDB instead of localStorage
+    const key = `chapters-${category}-${subcategory}`;
+    import("@/lib/db").then(({ idbLoadSettings, idbSaveSettings }) => {
+      idbLoadSettings<string[]>(key, []).then(existing => {
+        const updated = existing.map(ch => ch === renamingChapter ? renameValue.trim() : ch);
+        idbSaveSettings(key, updated);
+      });
+    });
 
     toast.success(`Preimenovano u "${renameValue.trim()}"`);
     setRenamingChapter(null);
