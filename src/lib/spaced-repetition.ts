@@ -289,20 +289,21 @@ export function createFlashCard(question: string, answer: string, category: stri
 }
 
 export function getCardNextReview(card: Card): number {
-  if (card.sections.length === 0) return Date.now();
-  return Math.min(...card.sections.map((s) => s.nextReview));
+  const reviewable = card.sections.filter(s => s.state !== SectionState.New);
+  if (reviewable.length === 0) return Infinity;
+  return Math.min(...reviewable.map((s) => s.nextReview));
 }
 
 export function getDueCards(cards: Card[]): Card[] {
   const now = Date.now();
   return cards
-    .filter((c) => c.sections.some((s) => s.nextReview <= now))
+    .filter((c) => c.sections.some((s) => s.state !== SectionState.New && s.nextReview <= now))
     .sort((a, b) => getCardNextReview(a) - getCardNextReview(b));
 }
 
 export function getDueSections(card: Card): Section[] {
   const now = Date.now();
-  return card.sections.filter((s) => s.nextReview <= now);
+  return card.sections.filter((s) => s.state !== SectionState.New && s.nextReview <= now);
 }
 
 // Retrievability: probability of recall at this moment (0-100%)
@@ -340,13 +341,13 @@ export function getCategoryStats(cards: Card[], category: string) {
   const catCards = cards.filter((c) => c.category === category);
   if (catCards.length === 0) return { score: 0, total: 0, due: 0 };
   const score = Math.round(catCards.reduce((sum, c) => sum + getCardScore(c), 0) / catCards.length);
-  const due = catCards.filter((c) => c.sections.some((s) => s.nextReview <= Date.now())).length;
+  const due = catCards.filter((c) => c.sections.some((s) => s.state !== SectionState.New && s.nextReview <= Date.now())).length;
   return { score, total: catCards.length, due };
 }
 
 export function getStats(cards: Card[]) {
   const now = Date.now();
-  const due = cards.filter((c) => c.sections.some((s) => s.nextReview <= now)).length;
+  const due = cards.filter((c) => c.sections.some((s) => s.state !== SectionState.New && s.nextReview <= now)).length;
   const totalSections = cards.reduce((sum, c) => sum + c.sections.length, 0);
   const learnedSections = cards.reduce((sum, c) => sum + c.sections.filter((s) => s.state !== SectionState.New).length, 0);
   const total = cards.length;
