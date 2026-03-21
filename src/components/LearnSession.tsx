@@ -754,8 +754,8 @@ export default function LearnSession({ cards, categories, subcategories, onMarkR
                   </>
                 ) : (
                   <>
-                    <div className="rounded-lg bg-amber-500/10 border border-amber-500/30 px-4 py-3 text-center">
-                      <p className="text-sm font-medium text-amber-600 dark:text-amber-400 flex items-center justify-center gap-2">
+                    <div className="rounded-lg bg-warning/10 border border-warning/30 px-4 py-3 text-center">
+                      <p className="text-sm font-medium text-warning flex items-center justify-center gap-2">
                         <RotateCcw className="h-4 w-4" />
                         Ponavljanje lanca: modul {chainReviewIndex + 1} od {chainIndex + 1}
                       </p>
