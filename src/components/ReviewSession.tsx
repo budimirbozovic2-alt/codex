@@ -15,6 +15,14 @@ import { Button } from "@/components/ui/button";
 import { speak, stopSpeaking } from "@/lib/tts";
 import { useToast } from "@/hooks/use-toast";
 import { addCalibrationEntry, addLatencyEntry, addActivityEntry } from "@/lib/metacognitive-storage";
+import ShortcutsHint from "@/components/ShortcutsHint";
+
+const REVIEW_SHORTCUTS = [
+  { keys: "Space", description: "Otkrij odgovor" },
+  { keys: "1-4", description: "Ocijeni (Opet → Lako)" },
+  { keys: "Z", description: "Poništi zadnju ocjenu" },
+  { keys: "N", description: "Zabilježi grešku" },
+];
 
 type ReviewMode = "essay" | "random" | null;
 type ViewWidth = "compact" | "normal" | "wide" | "full";
@@ -468,6 +476,7 @@ function ReviewCard({
           <span className="text-sm text-muted-foreground">
             {progress + 1} / {total}
           </span>
+          <ShortcutsHint shortcuts={REVIEW_SHORTCUTS} />
         </div>
       </div>
 

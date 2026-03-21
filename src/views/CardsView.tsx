@@ -11,7 +11,12 @@ import { default as ArrowUpDown } from "lucide-react/dist/esm/icons/arrow-up-dow
 import { Card } from "@/lib/spaced-repetition";
 import ScrollableRow from "@/components/ScrollableRow";
 import CardList from "@/components/CardList";
+import ShortcutsHint from "@/components/ShortcutsHint";
 import { toast } from "sonner";
+
+const CARDS_SHORTCUTS = [
+  { keys: "Ctrl+K", description: "Globalna pretraga" },
+];
 
 export default function CardsView() {
   const {
@@ -89,7 +94,10 @@ export default function CardsView() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h2 className="text-3xl font-serif">Kartice</h2>
+        <div className="flex items-center gap-2">
+          <h2 className="text-3xl font-serif">Kartice</h2>
+          <ShortcutsHint shortcuts={CARDS_SHORTCUTS} />
+        </div>
         <div className="flex items-center gap-2">
           <button
             onClick={toggleReorderMode}

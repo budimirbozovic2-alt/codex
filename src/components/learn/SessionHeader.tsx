@@ -7,6 +7,22 @@ import { default as ArrowLeft } from "lucide-react/dist/esm/icons/arrow-left";
 import { default as Zap } from "lucide-react/dist/esm/icons/zap";
 import { motion } from "framer-motion";
 import { speak } from "@/lib/tts";
+import ShortcutsHint from "@/components/ShortcutsHint";
+
+const LEARN_SHORTCUTS = [
+  { keys: "E", description: "Uredi karticu" },
+  { keys: "←/→", description: "Prethodna / sljedeća" },
+];
+
+const AR_SHORTCUTS = [
+  { keys: "Space", description: "Otkrij odgovor" },
+  { keys: "1-4", description: "Ocijeni modul" },
+];
+
+const CHAIN_SHORTCUTS = [
+  { keys: "Space", description: "Otkrij odgovor" },
+  { keys: "1-4", description: "Ocijeni modul" },
+];
 
 interface Props {
   card: Card;
@@ -50,6 +66,7 @@ const SessionHeader = React.memo(function SessionHeader({
           <span className="text-sm text-muted-foreground">
             {currentIndex + 1} / {totalCards}
           </span>
+          <ShortcutsHint shortcuts={learnMode === "free" ? LEARN_SHORTCUTS : learnMode === "active-recall" ? AR_SHORTCUTS : CHAIN_SHORTCUTS} />
         </div>
       </div>
 
