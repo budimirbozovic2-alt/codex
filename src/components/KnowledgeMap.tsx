@@ -2,16 +2,11 @@ import { useState, useMemo, lazy, Suspense } from "react";
 import { Card, SectionState } from "@/lib/spaced-repetition";
 import { motion, AnimatePresence } from "framer-motion";
 import { default as ArrowLeft } from "lucide-react/dist/esm/icons/arrow-left";
-import { default as X } from "lucide-react/dist/esm/icons/x";
-import { default as AlertTriangle } from "lucide-react/dist/esm/icons/alert-triangle";
-import { default as CheckCircle } from "lucide-react/dist/esm/icons/check-circle";
-import { default as Clock } from "lucide-react/dist/esm/icons/clock";
-import { default as HelpCircle } from "lucide-react/dist/esm/icons/help-circle";
-import { default as ChevronDown } from "lucide-react/dist/esm/icons/chevron-down";
+import { default as ChevronRight } from "lucide-react/dist/esm/icons/chevron-right";
 import { default as Search } from "lucide-react/dist/esm/icons/search";
-import { default as Layers } from "lucide-react/dist/esm/icons/layers";
-import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
-import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
+import { default as BookOpen } from "lucide-react/dist/esm/icons/book-open";
+import { default as BarChart3 } from "lucide-react/dist/esm/icons/bar-chart-3";
+import { default as HelpCircle } from "lucide-react/dist/esm/icons/help-circle";
 import { TabSkeleton } from "@/components/ui/page-skeleton";
 
 const MentalSkeleton = lazy(() => import("@/components/MentalSkeleton"));
@@ -60,96 +55,24 @@ export function getMasteryColor(level: number): string {
   return MASTERY_LEVELS[level]?.color || MASTERY_LEVELS[0].color;
 }
 
+type ViewState =
+  | { step: "categories" }
+  | { step: "subcategories"; category: string }
+  | { step: "detail"; category: string; subcategory: string };
+
 export default function KnowledgeMap({ cards, categories, subcategories, onBack, onUpdateChapters, onReviewSection }: Props) {
-  const [selectedCard, setSelectedCard] = useState<Card | null>(null);
-  const [expandedCats, setExpandedCats] = useState<Set<string>>(() => new Set(categories));
+  const [view, setView] = useState<ViewState>({ step: "categories" });
   const [searchQuery, setSearchQuery] = useState("");
-  const [drillDown, setDrillDown] = useState<{ category: string; subcategory: string } | null>(null);
 
-  const toggleCat = (cat: string) => {
-    setExpandedCats((prev) => {
-      const next = new Set(prev);
-      if (next.has(cat)) next.delete(cat); else next.add(cat);
-      return next;
-    });
-  };
-
-  const filteredCards = useMemo(() => {
-    if (!searchQuery.trim()) return cards;
-    const q = searchQuery.toLowerCase();
-    return cards.filter((c) =>
-      c.question.toLowerCase().includes(q) ||
-      c.sections.some((s) => s.title.toLowerCase().includes(q) || s.content.replace(/<[^>]+>/g, "").toLowerCase().includes(q))
-    );
-  }, [cards, searchQuery]);
-
-  const groupedData = useMemo(() => {
-    return categories
-      .map((cat) => {
-        const catCards = filteredCards.filter((c) => c.category === cat);
-        if (catCards.length === 0) return null;
-        const subs = subcategories[cat] || [];
-        const groups: { name: string; chapter?: string; cards: { card: Card; level: number }[] }[] = [];
-
-        subs.forEach((sub) => {
-          const subCards = catCards.filter((c) => c.subcategory === sub);
-          if (subCards.length === 0) return;
-
-          // Group by chapter within subcategory
-          const chapterMap = new Map<string, Card[]>();
-          const noChapter: Card[] = [];
-          subCards.forEach(c => {
-            if (c.chapter && c.chapter !== "") {
-              const arr = chapterMap.get(c.chapter) || [];
-              arr.push(c);
-              chapterMap.set(c.chapter, arr);
-            } else {
-              noChapter.push(c);
-            }
-          });
-
-          if (chapterMap.size > 0) {
-            // Has chapters — show subcategory > chapter hierarchy
-            Array.from(chapterMap.entries())
-              .sort(([a], [b]) => a.localeCompare(b))
-              .forEach(([ch, chCards]) => {
-                groups.push({ name: `${sub} › ${ch}`, chapter: ch, cards: chCards.map(c => ({ card: c, level: getCardMasteryLevel(c) })) });
-              });
-            if (noChapter.length > 0) {
-              groups.push({ name: `${sub} › Ostalo`, cards: noChapter.map(c => ({ card: c, level: getCardMasteryLevel(c) })) });
-            }
-          } else {
-            groups.push({ name: sub, cards: subCards.map((c) => ({ card: c, level: getCardMasteryLevel(c) })) });
-          }
-        });
-
-        const uncategorized = catCards.filter((c) => !c.subcategory || !subs.includes(c.subcategory));
-        if (uncategorized.length > 0) {
-          groups.push({ name: subs.length > 0 ? "Ostalo" : "", cards: uncategorized.map((c) => ({ card: c, level: getCardMasteryLevel(c) })) });
-        }
-
-        return { category: cat, groups, totalCards: catCards.length };
-      })
-      .filter(Boolean) as { category: string; groups: { name: string; chapter?: string; cards: { card: Card; level: number }[] }[]; totalCards: number }[];
-  }, [filteredCards, categories, subcategories]);
-
-  const levelCounts = useMemo(() => {
-    const counts = [0, 0, 0, 0, 0, 0];
-    filteredCards.forEach((c) => { counts[getCardMasteryLevel(c)]++; });
-    return counts;
-  }, [filteredCards]);
-
-  const total = filteredCards.length;
-
-  // Drill-down into MentalSkeleton for a specific subcategory
-  if (drillDown && onUpdateChapters && onReviewSection) {
+  // ── Step 3: Detail view via MentalSkeleton ──
+  if (view.step === "detail" && onUpdateChapters && onReviewSection) {
     return (
       <Suspense fallback={<TabSkeleton />}>
         <MentalSkeleton
           cards={cards}
-          category={drillDown.category}
-          subcategory={drillDown.subcategory}
-          onBack={() => setDrillDown(null)}
+          category={view.category}
+          subcategory={view.subcategory}
+          onBack={() => setView({ step: "subcategories", category: view.category })}
           onUpdateChapters={onUpdateChapters}
           onReviewSection={onReviewSection}
         />
@@ -157,300 +80,181 @@ export default function KnowledgeMap({ cards, categories, subcategories, onBack,
     );
   }
 
+  // ── Step 2: Subcategory list ──
+  if (view.step === "subcategories") {
+    const cat = view.category;
+    const subs = subcategories[cat] || [];
+    const catCards = cards.filter((c) => c.category === cat);
+
+    const subsWithStats = subs
+      .map((sub) => {
+        const subCards = catCards.filter((c) => c.subcategory === sub);
+        if (subCards.length === 0) return null;
+        const levels = [0, 0, 0, 0, 0, 0];
+        subCards.forEach((c) => levels[getCardMasteryLevel(c)]++);
+        return { name: sub, count: subCards.length, levels };
+      })
+      .filter(Boolean) as { name: string; count: number; levels: number[] }[];
+
+    const uncategorized = catCards.filter((c) => !c.subcategory || !subs.includes(c.subcategory));
+    if (uncategorized.length > 0) {
+      const levels = [0, 0, 0, 0, 0, 0];
+      uncategorized.forEach((c) => levels[getCardMasteryLevel(c)]++);
+      subsWithStats.push({ name: "Ostalo", count: uncategorized.length, levels });
+    }
+
+    const q = searchQuery.toLowerCase();
+    const filtered = q ? subsWithStats.filter((s) => s.name.toLowerCase().includes(q)) : subsWithStats;
+
+    return (
+      <div className="space-y-6">
+        <Header
+          title={cat}
+          subtitle={`${catCards.length} kartica u ${subsWithStats.length} potkategorija`}
+          onBack={() => { setView({ step: "categories" }); setSearchQuery(""); }}
+        />
+        <SearchBar value={searchQuery} onChange={setSearchQuery} placeholder="Pretraži potkategorije..." />
+
+        <div className="grid gap-3 sm:grid-cols-2">
+          {filtered.map(({ name, count, levels }) => (
+            <button
+              key={name}
+              onClick={() => {
+                if (onUpdateChapters && onReviewSection) {
+                  setView({ step: "detail", category: cat, subcategory: name });
+                }
+              }}
+              className="group flex items-center gap-4 p-4 rounded-xl border bg-card hover:bg-secondary/40 transition-colors text-left"
+            >
+              <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                <BookOpen className="h-5 w-5 text-primary" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="font-medium text-sm truncate">{name}</p>
+                <p className="text-xs text-muted-foreground mt-0.5">{count} kartica</p>
+                {/* Mini mastery bar */}
+                <div className="flex h-1.5 w-full rounded-full overflow-hidden bg-secondary mt-2">
+                  {levels.map((c, lvl) =>
+                    c > 0 ? (
+                      <div key={lvl} style={{ width: `${(c / count) * 100}%`, backgroundColor: getMasteryColor(lvl) }} />
+                    ) : null
+                  )}
+                </div>
+              </div>
+              <ChevronRight className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
+            </button>
+          ))}
+        </div>
+
+        {filtered.length === 0 && <EmptyMessage text={searchQuery ? "Nema rezultata pretrage" : "Nema potkategorija"} />}
+      </div>
+    );
+  }
+
+  // ── Step 1: Category list ──
+  const q = searchQuery.toLowerCase();
+
+  const catsWithStats = categories
+    .map((cat) => {
+      const catCards = cards.filter((c) => c.category === cat);
+      if (catCards.length === 0) return null;
+      const subs = subcategories[cat] || [];
+      const subCount = subs.filter((s) => catCards.some((c) => c.subcategory === s)).length;
+      const levels = [0, 0, 0, 0, 0, 0];
+      catCards.forEach((c) => levels[getCardMasteryLevel(c)]++);
+      return { name: cat, cardCount: catCards.length, subCount, levels };
+    })
+    .filter(Boolean) as { name: string; cardCount: number; subCount: number; levels: number[] }[];
+
+  const filteredCats = q ? catsWithStats.filter((c) => c.name.toLowerCase().includes(q)) : catsWithStats;
+
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center gap-4">
-        <button onClick={onBack} className="p-2 rounded-lg hover:bg-secondary transition-colors">
-          <ArrowLeft className="h-5 w-5" />
-        </button>
-        <div>
-          <h2 className="text-3xl font-serif">Mapa Znanja</h2>
-          <p className="text-sm text-muted-foreground mt-1">Vizualni pregled savladanosti svih kartica</p>
-        </div>
-      </div>
-
-      {/* Search */}
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <input
-          type="text"
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder="Pretraži kartice po nazivu ili sadržaju..."
-          className="w-full pl-10 pr-4 py-2.5 rounded-xl border bg-card text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-        />
-      </div>
+      <Header title="Mapa Znanja" subtitle="Odaberi predmet za detaljan pregled" onBack={onBack} />
+      <SearchBar value={searchQuery} onChange={setSearchQuery} placeholder="Pretraži kategorije..." />
 
       {/* Legend */}
-      <div className="flex flex-wrap gap-3 p-4 rounded-xl border bg-card">
-        {MASTERY_LEVELS.map((ml, i) => (
-          <div key={ml.level} className="flex items-center gap-2 text-xs">
-            <div className="w-4 h-4 rounded" style={{ backgroundColor: ml.color }} />
-            <span className="text-muted-foreground">
-              {ml.label}
-              <span className="ml-1 text-foreground font-medium">
-                {levelCounts[i]} {total > 0 && <span className="text-muted-foreground">({Math.round(levelCounts[i] / total * 100)}%)</span>}
-              </span>
-            </span>
+      <div className="flex flex-wrap gap-3 p-3 rounded-xl border bg-card">
+        {MASTERY_LEVELS.map((ml) => (
+          <div key={ml.level} className="flex items-center gap-1.5 text-xs">
+            <div className="w-3 h-3 rounded" style={{ backgroundColor: ml.color }} />
+            <span className="text-muted-foreground">{ml.label}</span>
           </div>
         ))}
       </div>
 
-      {/* Accordion categories */}
-      <div className="space-y-2">
-        {groupedData.map(({ category, groups, totalCards }) => {
-          const isOpen = expandedCats.has(category);
-          // Calculate category-level mastery distribution
-          const catLevels = [0, 0, 0, 0, 0, 0];
-          groups.forEach((g) => g.cards.forEach(({ level }) => catLevels[level]++));
-
-          return (
-            <Collapsible key={category} open={isOpen} onOpenChange={() => toggleCat(category)}>
-              <CollapsibleTrigger className="w-full">
-                <div className="flex items-center gap-3 p-4 rounded-xl border bg-card hover:bg-secondary/30 transition-colors">
-                  <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${isOpen ? "" : "-rotate-90"}`} />
-                  <div className="flex-1 text-left">
-                    <span className="font-serif text-base">{category}</span>
-                    <span className="ml-2 text-xs text-muted-foreground">{totalCards} kartica</span>
-                  </div>
-                  {/* Mini distribution bar */}
-                  <div className="flex h-2.5 w-32 rounded-full overflow-hidden bg-secondary">
-                    {catLevels.map((count, lvl) => {
-                      if (count === 0) return null;
-                      return (
-                        <div
-                          key={lvl}
-                          style={{ width: `${(count / totalCards) * 100}%`, backgroundColor: getMasteryColor(lvl) }}
-                        />
-                      );
-                    })}
-                  </div>
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        {filteredCats.map(({ name, cardCount, subCount, levels }) => (
+          <button
+            key={name}
+            onClick={() => { setView({ step: "subcategories", category: name }); setSearchQuery(""); }}
+            className="group flex flex-col gap-3 p-5 rounded-xl border bg-card hover:bg-secondary/40 transition-colors text-left"
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                  <BarChart3 className="h-5 w-5 text-primary" />
                 </div>
-              </CollapsibleTrigger>
-              <CollapsibleContent>
-                <div className="pl-6 pr-2 py-3 space-y-4">
-                  {groups.map(({ name, chapter, cards: groupCards }) => {
-                    // Extract pure subcategory for drill-down (before " › ")
-                    const pureSub = name.includes(" › ") ? name.split(" › ")[0] : name;
-                    const canDrillDown = !!pureSub && pureSub !== "Ostalo" && onUpdateChapters && onReviewSection;
-                    return (
-                    <div key={name} className="space-y-2">
-                      {name && (
-                        <div className="flex items-center gap-2">
-                          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{name}</p>
-                          {canDrillDown && !chapter && (
-                            <button
-                              onClick={() => setDrillDown({ category, subcategory: pureSub })}
-                              className="flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-medium text-primary/70 hover:text-primary hover:bg-primary/5 transition-colors"
-                              title="Otvori detaljni prikaz sa glavama"
-                            >
-                              <Layers className="h-3 w-3" />
-                              Detalji
-                            </button>
-                          )}
-                        </div>
-                      )}
-                      <div className="flex flex-wrap gap-1.5">
-                        {groupCards.map(({ card, level }) => (
-                          <Tooltip key={card.id}>
-                            <TooltipTrigger asChild>
-                              <button
-                                onClick={() => setSelectedCard(card)}
-                                className="w-8 h-8 rounded-md transition-all hover:scale-125 hover:z-10 hover:shadow-lg relative"
-                                style={{ backgroundColor: getMasteryColor(level) }}
-                              >
-                                {(card.errorLog?.length || 0) > 0 && (
-                                  <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-destructive" />
-                                )}
-                              </button>
-                            </TooltipTrigger>
-                            <TooltipContent side="top" className="max-w-[250px]">
-                              <p className="font-medium text-xs truncate">{card.question}</p>
-                              <p className="text-[10px] text-muted-foreground mt-0.5">
-                                Level {level}: {MASTERY_LEVELS[level].label}
-                              </p>
-                            </TooltipContent>
-                          </Tooltip>
-                        ))}
-                      </div>
-                    </div>
-                    );
-                  })}
+                <div>
+                  <p className="font-serif text-base font-medium">{name}</p>
+                  <p className="text-xs text-muted-foreground">{cardCount} kartica • {subCount} potkategorija</p>
                 </div>
-              </CollapsibleContent>
-            </Collapsible>
-          );
-        })}
+              </div>
+              <ChevronRight className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+            </div>
+            {/* Mastery distribution bar */}
+            <div className="flex h-2 w-full rounded-full overflow-hidden bg-secondary">
+              {levels.map((c, lvl) =>
+                c > 0 ? (
+                  <div key={lvl} style={{ width: `${(c / cardCount) * 100}%`, backgroundColor: getMasteryColor(lvl) }} />
+                ) : null
+              )}
+            </div>
+          </button>
+        ))}
       </div>
 
-      {groupedData.length === 0 && (
-        <div className="text-center py-20 text-muted-foreground">
-          <HelpCircle className="h-12 w-12 mx-auto mb-4 opacity-30" />
-          <p>{searchQuery ? "Nema rezultata pretrage" : "Nema kartica za prikaz"}</p>
-        </div>
-      )}
-
-      {/* Detail panel */}
-      <AnimatePresence>
-        {selectedCard && (
-          <CardDetailPanel card={selectedCard} onClose={() => setSelectedCard(null)} />
-        )}
-      </AnimatePresence>
+      {filteredCats.length === 0 && <EmptyMessage text={searchQuery ? "Nema rezultata pretrage" : "Nema kartica za prikaz"} />}
     </div>
   );
 }
 
-function CardDetailPanel({ card, onClose }: { card: Card; onClose: () => void }) {
-  const level = getCardMasteryLevel(card);
-  const ml = MASTERY_LEVELS[level];
-  const avgStability = card.sections.reduce((sum, s) => sum + s.stability, 0) / card.sections.length;
-  const avgDifficulty = card.sections.reduce((sum, s) => sum + s.difficulty, 0) / card.sections.length;
-  const errorLog = card.errorLog || [];
-  const sortedErrors = [...errorLog].sort((a, b) => new Date(b.lastMissed).getTime() - new Date(a.lastMissed).getTime());
-  const sectionContent = card.sections.map((s) => s.content).join("\n");
-  const plainContent = sectionContent.replace(/<[^>]+>/g, "");
+// ── Shared small components ──
 
+function Header({ title, subtitle, onBack }: { title: string; subtitle: string; onBack: () => void }) {
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60"
-      onClick={onClose}
-    >
-      <motion.div
-        initial={{ opacity: 0, scale: 0.95, y: 20 }}
-        animate={{ opacity: 1, scale: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 0.95, y: 20 }}
-        onClick={(e) => e.stopPropagation()}
-        className="bg-background border rounded-2xl shadow-xl w-full max-w-lg max-h-[85vh] overflow-y-auto"
-      >
-        {/* Header */}
-        <div className="p-5 border-b flex items-start justify-between gap-3">
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 mb-2">
-              <div className="w-4 h-4 rounded" style={{ backgroundColor: ml.color }} />
-              <span className="text-xs font-medium" style={{ color: ml.color }}>
-                Level {level}: {ml.label}
-              </span>
-            </div>
-            <h3 className="font-serif text-lg leading-tight">{card.question}</h3>
-            <p className="text-xs text-muted-foreground mt-1">
-              {card.category}{card.subcategory ? ` → ${card.subcategory}` : ""}
-            </p>
-          </div>
-          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-secondary transition-colors">
-            <X className="h-4 w-4" />
-          </button>
-        </div>
-
-        {/* Stats */}
-        <div className="px-5 py-4 border-b grid grid-cols-3 gap-4 text-center">
-          <div>
-            <p className="text-lg font-serif">{avgStability.toFixed(1)}d</p>
-            <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Stabilnost</p>
-          </div>
-          <div>
-            <p className="text-lg font-serif">{avgDifficulty.toFixed(1)}</p>
-            <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Težina</p>
-          </div>
-          <div>
-            <p className="text-lg font-serif">{errorLog.reduce((s, e) => s + e.count, 0)}</p>
-            <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Greške</p>
-          </div>
-        </div>
-
-        {/* Section states */}
-        <div className="px-5 py-3 border-b">
-          <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-2">Sekcije</p>
-          <div className="flex flex-wrap gap-1.5">
-            {card.sections.map((s) => {
-              const sLevel = (() => {
-                if (s.state === SectionState.New) return 0;
-                if (s.stability < 3) return 1;
-                if (s.stability < 7) return 2;
-                if (s.stability < 15) return 3;
-                if (s.stability <= 30) return 4;
-                return 5;
-              })();
-              return (
-                <Tooltip key={s.id}>
-                  <TooltipTrigger asChild>
-                    <div className="px-2 py-1 rounded text-[10px] font-medium text-white" style={{ backgroundColor: getMasteryColor(sLevel) }}>
-                      {s.title.length > 20 ? s.title.slice(0, 20) + "…" : s.title}
-                    </div>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p className="text-xs">{s.title} — Stabilnost: {s.stability.toFixed(1)}d</p>
-                  </TooltipContent>
-                </Tooltip>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Error list - "History of Struggles" */}
-        <div className="p-5 space-y-3">
-          <div className="flex items-center gap-2">
-            <AlertTriangle className="h-4 w-4 text-destructive" />
-            <h4 className="font-medium text-sm">Istorija poteškoća</h4>
-          </div>
-
-          {sortedErrors.length === 0 ? (
-            <div className="flex items-center gap-2 text-sm text-muted-foreground py-4">
-              <CheckCircle className="h-4 w-4 text-success" />
-              Nema zabilježenih grešaka za ovu karticu
-            </div>
-          ) : (
-            <div className="space-y-2">
-              {sortedErrors.map((err, i) => {
-                const isRecent = (Date.now() - new Date(err.lastMissed).getTime()) < 7 * 24 * 60 * 60 * 1000;
-                const lines = plainContent.split(/\n+/);
-                const matchingLine = lines.find((l) => l.includes(err.text));
-
-                return (
-                  <div
-                    key={i}
-                    className={`p-3 rounded-lg border text-sm ${isRecent ? "border-destructive/30 bg-destructive/5" : "border-border bg-card"}`}
-                  >
-                    {isRecent && (
-                      <div className="flex items-center gap-1 mb-1.5">
-                        <Clock className="h-3 w-3 text-destructive" />
-                        <span className="text-[10px] font-medium text-destructive uppercase tracking-wider">Nedavno promašeno</span>
-                      </div>
-                    )}
-                    {matchingLine ? (
-                      <HighlightedLine line={matchingLine} errorText={err.text} />
-                    ) : (
-                      <span className="text-destructive font-medium">{err.text}</span>
-                    )}
-                    <div className="flex items-center gap-3 mt-2 text-[10px] text-muted-foreground">
-                      <span>Promašaja: <span className="font-medium text-foreground">{err.count}</span></span>
-                      <span>Streak: <span className="font-medium text-foreground">{err.successStreak || 0}</span></span>
-                      <span>{new Date(err.lastMissed).toLocaleDateString("sr-Latn")}</span>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      </motion.div>
-    </motion.div>
+    <div className="flex items-center gap-4">
+      <button onClick={onBack} className="p-2 rounded-lg hover:bg-secondary transition-colors">
+        <ArrowLeft className="h-5 w-5" />
+      </button>
+      <div>
+        <h2 className="text-2xl font-serif">{title}</h2>
+        <p className="text-sm text-muted-foreground mt-0.5">{subtitle}</p>
+      </div>
+    </div>
   );
 }
 
-function HighlightedLine({ line, errorText }: { line: string; errorText: string }) {
-  const idx = line.indexOf(errorText);
-  if (idx === -1) return <span>{line}</span>;
-  const before = line.slice(0, idx);
-  const after = line.slice(idx + errorText.length);
+function SearchBar({ value, onChange, placeholder }: { value: string; onChange: (v: string) => void; placeholder: string }) {
   return (
-    <span className="leading-relaxed">
-      {before}
-      <mark className="bg-destructive/15 text-destructive font-medium px-0.5 rounded">{errorText}</mark>
-      {after}
-    </span>
+    <div className="relative">
+      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+      <input
+        type="text"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        className="w-full pl-10 pr-4 py-2.5 rounded-xl border bg-card text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+      />
+    </div>
+  );
+}
+
+function EmptyMessage({ text }: { text: string }) {
+  return (
+    <div className="text-center py-16 text-muted-foreground">
+      <HelpCircle className="h-10 w-10 mx-auto mb-3 opacity-30" />
+      <p>{text}</p>
+    </div>
   );
 }
