@@ -184,7 +184,10 @@ export default function TopNav({ onToggleZen, zenActive }: Props) {
 
       {/* Mobile */}
       <div className="md:hidden flex items-center h-11 px-3 justify-between">
-        <span className="text-base font-serif italic text-primary select-none">Memoria</span>
+        <div className="flex items-center gap-2">
+          <img src="/logo-icon.png" alt="Memoria" className="h-6 w-6 rounded-md" />
+          <span className="text-base font-serif italic text-primary select-none">Memoria</span>
+        </div>
         <div className="flex items-center gap-1">
           <button onClick={onToggleZen} className={`p-1.5 rounded-md hover:bg-secondary transition-colors ${zenActive ? "text-primary bg-primary/10" : "text-muted-foreground"}`} title="Zen Mode">
             <Focus className="h-4 w-4" />
