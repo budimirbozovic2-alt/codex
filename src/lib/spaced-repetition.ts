@@ -346,7 +346,7 @@ export function getCategoryStats(cards: Card[], category: string) {
 
 export function getStats(cards: Card[]) {
   const now = Date.now();
-  const due = cards.filter((c) => c.sections.some((s) => s.nextReview <= now)).length;
+  const due = cards.filter((c) => c.sections.some((s) => s.state !== SectionState.New && s.nextReview <= now)).length;
   const totalSections = cards.reduce((sum, c) => sum + c.sections.length, 0);
   const learnedSections = cards.reduce((sum, c) => sum + c.sections.filter((s) => s.state !== SectionState.New).length, 0);
   const total = cards.length;
