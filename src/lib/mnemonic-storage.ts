@@ -13,6 +13,7 @@ export interface MnemonicCard {
   subcategory?: string;
   tags?: string[];          // cloned from original card
   hookType: HookType;       // auto-detected or manual
+  hookMode: HookMode;       // which hook input to use: video or acronym
   mnemonicVideo: string;    // user's mental video description
   acronym: string;          // user's acronym/mnemonic aid
   mnemonicStatus: MnemonicStatus;
