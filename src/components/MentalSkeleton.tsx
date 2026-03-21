@@ -463,8 +463,8 @@ export default function MentalSkeleton({ cards, subcategory, category, onBack, o
     });
   }, []);
 
-  // Initialize all chapters as expanded
-  useMemo(() => {
+  // Initialize all chapters as expanded — useEffect instead of useMemo (Fix #1)
+  useEffect(() => {
     const all = new Set([UNASSIGNED_CHAPTER, ...chapters]);
     setExpandedChapters(all);
   }, [chapters.length]);
