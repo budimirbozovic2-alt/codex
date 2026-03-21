@@ -10,7 +10,7 @@ export default function CreatePage() {
       <CardForm
         categories={categories}
         subcategories={subcategories}
-        onSave={(q, s, c, sub) => { addCard(q, s, c, sub); setView("cards"); }}
+        onSave={(q, s, c, sub, ch) => { addCard(q, s, c, sub, ch); setView("cards"); }}
         onSaveFlash={(q, a, c, sub) => { addFlashCard(q, a, c, sub); setView("cards"); }}
         onCancel={() => { setView("dashboard"); setEditingCard(null); }}
         editCard={null}
