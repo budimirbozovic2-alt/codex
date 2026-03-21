@@ -212,32 +212,32 @@
      THEME: Forest — deep green earth tones
      ═══════════════════════════════════════════ */
   [data-theme="forest"] {
-    --background: 80 15% 96%;
+    --background: 0 0% 100%;
     --foreground: 150 12% 12%;
 
-    --card: 80 12% 93%;
+    --card: 0 0% 100%;
     --card-foreground: 150 12% 12%;
 
-    --popover: 80 15% 96%;
+    --popover: 0 0% 100%;
     --popover-foreground: 150 12% 12%;
 
     --primary: 152 50% 32%;
-    --primary-foreground: 80 20% 98%;
+    --primary-foreground: 0 0% 100%;
 
-    --secondary: 100 10% 88%;
+    --secondary: 100 10% 93%;
     --secondary-foreground: 150 12% 18%;
 
-    --muted: 100 8% 90%;
+    --muted: 100 8% 95%;
     --muted-foreground: 140 8% 44%;
 
     --accent: 152 50% 32%;
-    --accent-foreground: 80 20% 98%;
+    --accent-foreground: 0 0% 100%;
 
     --destructive: 0 65% 48%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 100 10% 85%;
-    --input: 100 10% 85%;
+    --border: 100 10% 90%;
+    --input: 100 10% 90%;
     --ring: 152 50% 32%;
 
     --success: 152 50% 32%;
@@ -245,13 +245,13 @@
     --warning: 40 75% 48%;
     --warning-foreground: 0 0% 100%;
 
-    --sidebar-background: 80 12% 93%;
+    --sidebar-background: 100 8% 97%;
     --sidebar-foreground: 150 12% 12%;
     --sidebar-primary: 152 50% 32%;
-    --sidebar-primary-foreground: 80 20% 98%;
-    --sidebar-accent: 100 10% 88%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 100 10% 93%;
     --sidebar-accent-foreground: 150 12% 18%;
-    --sidebar-border: 100 10% 85%;
+    --sidebar-border: 100 10% 90%;
     --sidebar-ring: 152 50% 32%;
   }
 
