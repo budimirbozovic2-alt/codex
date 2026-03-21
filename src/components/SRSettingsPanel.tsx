@@ -1,9 +1,12 @@
 import { useState, useEffect } from "react";
 import { SRSettings, DEFAULT_SR_SETTINGS } from "@/lib/spaced-repetition";
 import { TTSSettings, DEFAULT_TTS_SETTINGS, loadTTSSettings, saveTTSSettings, getAvailableVoices, speak, stopSpeaking } from "@/lib/tts";
+import { AppSettings, DEFAULT_APP_SETTINGS, loadAppSettings, saveAppSettings } from "@/lib/app-settings";
+import { playGradeGood } from "@/lib/sounds";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
+import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Volume2 } from "lucide-react";
@@ -15,6 +18,9 @@ import { default as Flame } from "lucide-react/dist/esm/icons/flame";
 import { default as BookOpen } from "lucide-react/dist/esm/icons/book-open";
 import { default as ChevronDown } from "lucide-react/dist/esm/icons/chevron-down";
 import { default as GraduationCap } from "lucide-react/dist/esm/icons/graduation-cap";
+import { default as LayoutDashboard } from "lucide-react/dist/esm/icons/layout-dashboard";
+import { default as Shield } from "lucide-react/dist/esm/icons/shield";
+import { default as BellRing } from "lucide-react/dist/esm/icons/bell-ring";
 import InfoPanel from "@/components/InfoPanel";
 
 interface Props {
