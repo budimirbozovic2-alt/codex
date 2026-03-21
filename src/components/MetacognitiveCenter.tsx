@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, lazy, Suspense } from "react";
 import { motion } from "framer-motion";
 import { default as ArrowLeft } from "lucide-react/dist/esm/icons/arrow-left";
 import { default as BookOpen } from "lucide-react/dist/esm/icons/book-open";
@@ -38,6 +38,8 @@ import {
 } from "recharts";
 import { format, subDays, startOfDay } from "date-fns";
 
+const FrequentErrors = lazy(() => import("@/pages/FrequentErrors"));
+
 interface Props {
   cards: Card[];
   categories: string[];
@@ -45,9 +47,10 @@ interface Props {
   onBack: () => void;
   settings?: SRSettings;
   embedded?: boolean;
+  onClearErrorLog?: (cardId: string) => void;
 }
 
-export default function MetacognitiveCenter({ cards, categories, reviewLog, onBack, settings, embedded }: Props) {
+export default function MetacognitiveCenter({ cards, categories, reviewLog, onBack, settings, embedded, onClearErrorLog }: Props) {
   const weights = settings?.resistanceWeights ?? DEFAULT_SR_SETTINGS.resistanceWeights;
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="max-w-4xl mx-auto space-y-6">
@@ -77,10 +80,11 @@ export default function MetacognitiveCenter({ cards, categories, reviewLog, onBa
             <TabsTrigger value="calibration" className="gap-1.5 text-xs sm:text-sm"><Target className="h-3.5 w-3.5" /> Kalibracija</TabsTrigger>
             <TabsTrigger value="latency" className="gap-1.5 text-xs sm:text-sm"><Clock className="h-3.5 w-3.5" /> Latencija</TabsTrigger>
           </TabsList>
-          <TabsList className="w-full grid grid-cols-3">
+          <TabsList className="w-full grid grid-cols-4">
             <TabsTrigger value="resistance" className="gap-1.5 text-xs sm:text-sm"><Flame className="h-3.5 w-3.5" /> Otpor</TabsTrigger>
             <TabsTrigger value="efficiency" className="gap-1.5 text-xs sm:text-sm"><Activity className="h-3.5 w-3.5" /> Efikasnost</TabsTrigger>
             <TabsTrigger value="prediction" className="gap-1.5 text-xs sm:text-sm"><CalendarClock className="h-3.5 w-3.5" /> Predikcija</TabsTrigger>
+            <TabsTrigger value="errors" className="gap-1.5 text-xs sm:text-sm"><AlertTriangle className="h-3.5 w-3.5" /> Greške</TabsTrigger>
           </TabsList>
         </div>
 
@@ -101,6 +105,11 @@ export default function MetacognitiveCenter({ cards, categories, reviewLog, onBa
         </TabsContent>
         <TabsContent value="prediction">
           <PredictionTab cards={cards} categories={categories} reviewLog={reviewLog} />
+        </TabsContent>
+        <TabsContent value="errors">
+          <Suspense fallback={<div className="py-8 text-center text-muted-foreground text-sm">Učitavanje…</div>}>
+            <FrequentErrors cards={cards} onBack={() => {}} onClearErrorLog={onClearErrorLog || (() => {})} embedded />
+          </Suspense>
         </TabsContent>
       </Tabs>
     </motion.div>

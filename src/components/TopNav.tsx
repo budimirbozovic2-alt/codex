@@ -234,6 +234,16 @@ export default function TopNav({ onToggleZen, zenActive }: Props) {
           ))}
 
           <NavLink
+            to="/database"
+            className="flex items-center gap-2.5 px-3 py-2 rounded-md text-sm text-muted-foreground hover:text-foreground hover:bg-secondary/60 transition-colors"
+            activeClassName="bg-primary/10 text-primary font-medium"
+            onClick={() => setMobileOpen(false)}
+          >
+            <DatabaseIcon className="h-4 w-4 flex-shrink-0" />
+            <span>Baza podataka</span>
+          </NavLink>
+
+          <NavLink
             to="/settings"
             className="flex items-center gap-2.5 px-3 py-2 rounded-md text-sm text-muted-foreground hover:text-foreground hover:bg-secondary/60 transition-colors"
             activeClassName="bg-primary/10 text-primary font-medium"
