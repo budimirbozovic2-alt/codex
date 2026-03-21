@@ -81,6 +81,7 @@ export default function CardsView() {
   const availableSubcategories = filterCategory ? (subcategories[filterCategory] || []) : [];
 
   const handleEdit = (card: Card) => {
+    sessionStorage.setItem("sr-scroll-to-card", card.id);
     setEditingCard(card);
     setView("edit");
   };
