@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { LearnMode } from "@/lib/storage";
 import { BarChart3 } from "lucide-react";
 import { default as Clock } from "lucide-react/dist/esm/icons/clock";
