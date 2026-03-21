@@ -354,7 +354,7 @@ export default function MyStats({ cards, categories, subcategories, categoryStat
           <Suspense fallback={<TabSkeleton />}>
             <ErrorBoundary label="Kognicija">
               <div className="mt-4">
-                <CognitiveAnalytics cards={cards} categories={categories} reviewLog={reviewLog} onSendToWorkshop={onSendToWorkshop} />
+                <CognitiveAnalytics cards={cards} categories={categories} reviewLog={reviewLog} />
               </div>
             </ErrorBoundary>
           </Suspense>
