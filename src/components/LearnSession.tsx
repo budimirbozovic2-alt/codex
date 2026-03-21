@@ -623,8 +623,8 @@ export default function LearnSession({ cards, categories, subcategories, onMarkR
             )}
 
             {isCompleted && (
-              <div className="rounded-xl border bg-emerald-500/10 border-emerald-500/30 p-8 text-center space-y-3">
-                <Check className="h-8 w-8 text-emerald-500 mx-auto" />
+              <div className="rounded-xl border bg-success/10 border-success/30 p-8 text-center space-y-3">
+                <Check className="h-8 w-8 text-success mx-auto" />
                 <p className="font-serif text-lg">Pitanje savladano!</p>
                 <p className="text-sm text-muted-foreground">Svi moduli su uspješno reprodukovani.</p>
               </div>
