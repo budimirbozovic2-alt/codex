@@ -4,6 +4,7 @@ import { useDebounce } from "@/hooks/useDebounce";
 import { AnimatePresence, motion } from "framer-motion";
 import { default as Plus } from "lucide-react/dist/esm/icons/plus";
 import { default as CheckSquare } from "lucide-react/dist/esm/icons/check-square";
+import { default as BookOpen } from "lucide-react/dist/esm/icons/book-open";
 import { default as X } from "lucide-react/dist/esm/icons/x";
 import { default as Search } from "lucide-react/dist/esm/icons/search";
 import { default as Flame } from "lucide-react/dist/esm/icons/flame";
@@ -21,7 +22,7 @@ const CARDS_SHORTCUTS = [
 export default function CardsView() {
   const {
     cards, categories, subcategories,
-    deleteCard, handleToggleTag, bulkUpdateSubcategory, reorderCards,
+    deleteCard, handleToggleTag, bulkUpdateSubcategory, bulkUpdateChapter, reorderCards,
     setView, setEditingCard,
   } = useAppContext();
 
@@ -35,6 +36,8 @@ export default function CardsView() {
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkSubcategory, setBulkSubcategory] = useState("");
+  const [bulkChapter, setBulkChapter] = useState("");
+  const [newBulkChapter, setNewBulkChapter] = useState("");
   const [scrollToCardId, setScrollToCardId] = useState<string | null>(() => {
     const id = sessionStorage.getItem("sr-scroll-to-card");
     if (id) sessionStorage.removeItem("sr-scroll-to-card");
@@ -58,10 +61,25 @@ export default function CardsView() {
     setBulkSubcategory("");
   };
 
+  const handleBulkChapterApply = () => {
+    if (selectedIds.size === 0 || !filterCategory) return;
+    const ch = newBulkChapter.trim() || bulkChapter;
+    if (!ch) return;
+    const updates = Array.from(selectedIds).map((id, i) => ({ id, chapter: ch, chapterOrder: i }));
+    bulkUpdateChapter(updates);
+    toast.success(`${selectedIds.size} kartica dodijeljeno u "${ch}"`);
+    setSelectionMode(false);
+    setSelectedIds(new Set());
+    setBulkChapter("");
+    setNewBulkChapter("");
+  };
+
   const exitSelectionMode = () => {
     setSelectionMode(false);
     setSelectedIds(new Set());
     setBulkSubcategory("");
+    setBulkChapter("");
+    setNewBulkChapter("");
   };
 
   const handleReorder = (orderedIds: string[]) => {
@@ -134,47 +152,93 @@ export default function CardsView() {
       )}
 
       {selectionMode && !reorderMode && (
-        <div className="flex items-center gap-3 flex-wrap p-4 rounded-xl bg-secondary/50 border">
-          <span className="text-sm font-medium">{selectedIds.size} označeno</span>
-          <button
-            onClick={() => {
-              const allFiltered = cards.filter(c => {
-                if (filterCategory && c.category !== filterCategory) return false;
-                if (filterSubcategory && c.subcategory !== filterSubcategory) return false;
-                return true;
-              });
-              setSelectedIds(new Set(allFiltered.map(c => c.id)));
-            }}
-            className="text-xs text-primary hover:underline"
-          >
-            Označi sve
-          </button>
-          <button onClick={() => setSelectedIds(new Set())} className="text-xs text-muted-foreground hover:underline">
-            Poništi
-          </button>
-          <div className="flex-1" />
+        <div className="space-y-3 p-4 rounded-xl bg-secondary/50 border">
+          <div className="flex items-center gap-3 flex-wrap">
+            <span className="text-sm font-medium">{selectedIds.size} označeno</span>
+            <button
+              onClick={() => {
+                const allFiltered = cards.filter(c => {
+                  if (filterCategory && c.category !== filterCategory) return false;
+                  if (filterSubcategory && c.subcategory !== filterSubcategory) return false;
+                  return true;
+                });
+                setSelectedIds(new Set(allFiltered.map(c => c.id)));
+              }}
+              className="text-xs text-primary hover:underline"
+            >
+              Označi sve
+            </button>
+            <button onClick={() => setSelectedIds(new Set())} className="text-xs text-muted-foreground hover:underline">
+              Poništi
+            </button>
+          </div>
+
           {!filterCategory ? (
-            <span className="text-xs text-muted-foreground">Filtriraj po kategoriji da bi dodijelio podkategoriju</span>
-          ) : bulkSubcats.length === 0 ? (
-            <span className="text-xs text-muted-foreground">Nema podkategorija za "{filterCategory}"</span>
+            <span className="text-xs text-muted-foreground">Filtriraj po kategoriji da bi koristio bulk operacije</span>
           ) : (
-            <>
-              <select
-                value={bulkSubcategory}
-                onChange={(e) => setBulkSubcategory(e.target.value)}
-                className="px-3 py-1.5 rounded-lg border bg-background text-sm"
-              >
-                <option value="">Podkategorija...</option>
-                {bulkSubcats.map(sc => <option key={sc} value={sc}>{sc}</option>)}
-              </select>
-              <button
-                onClick={handleBulkApply}
-                disabled={selectedIds.size === 0 || !bulkSubcategory}
-                className="px-4 py-1.5 rounded-lg bg-primary text-primary-foreground text-sm hover:opacity-90 disabled:opacity-50 transition-opacity"
-              >
-                Primijeni
-              </button>
-            </>
+            <div className="space-y-2">
+              {/* Bulk subcategory */}
+              {bulkSubcats.length > 0 && (
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-xs text-muted-foreground w-24">Podkategorija:</span>
+                  <select
+                    value={bulkSubcategory}
+                    onChange={(e) => setBulkSubcategory(e.target.value)}
+                    className="px-3 py-1.5 rounded-lg border bg-background text-sm flex-1 min-w-[150px]"
+                  >
+                    <option value="">Odaberi...</option>
+                    {bulkSubcats.map(sc => <option key={sc} value={sc}>{sc}</option>)}
+                  </select>
+                  <button
+                    onClick={handleBulkApply}
+                    disabled={selectedIds.size === 0 || !bulkSubcategory}
+                    className="px-4 py-1.5 rounded-lg bg-primary text-primary-foreground text-sm hover:opacity-90 disabled:opacity-50 transition-opacity"
+                  >
+                    Primijeni
+                  </button>
+                </div>
+              )}
+
+              {/* Bulk chapter */}
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-xs text-muted-foreground w-24 flex items-center gap-1">
+                  <BookOpen className="h-3 w-3" /> Glava:
+                </span>
+                {(() => {
+                  const existingChapters = Array.from(new Set(
+                    cards.filter(c => c.category === filterCategory && c.chapter).map(c => c.chapter!)
+                  )).sort();
+                  return (
+                    <>
+                      {existingChapters.length > 0 && (
+                        <select
+                          value={bulkChapter}
+                          onChange={(e) => { setBulkChapter(e.target.value); setNewBulkChapter(""); }}
+                          className="px-3 py-1.5 rounded-lg border bg-background text-sm min-w-[150px]"
+                        >
+                          <option value="">Postojeća glava...</option>
+                          {existingChapters.map(ch => <option key={ch} value={ch}>{ch}</option>)}
+                        </select>
+                      )}
+                      <span className="text-xs text-muted-foreground">ili</span>
+                      <input
+                        value={newBulkChapter}
+                        onChange={e => { setNewBulkChapter(e.target.value); setBulkChapter(""); }}
+                        placeholder="Nova glava..."
+                        className="px-3 py-1.5 rounded-lg border bg-background text-sm flex-1 min-w-[120px]"
+                      />
+                      <button
+                        onClick={handleBulkChapterApply}
+                        disabled={selectedIds.size === 0 || (!bulkChapter && !newBulkChapter.trim())}
+                        className="px-4 py-1.5 rounded-lg bg-primary text-primary-foreground text-sm hover:opacity-90 disabled:opacity-50 transition-opacity"
+                      >
+                        Dodijeli
+                      </button>
+                    </>
+                  );
+                })()}
+              </div>
+            </div>
           )}
         </div>
       )}
