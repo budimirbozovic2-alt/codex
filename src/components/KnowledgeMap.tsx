@@ -230,9 +230,27 @@ export default function KnowledgeMap({ cards, categories, subcategories, onBack,
               </CollapsibleTrigger>
               <CollapsibleContent>
                 <div className="pl-6 pr-2 py-3 space-y-4">
-                  {groups.map(({ name, cards: groupCards }) => (
+                  {groups.map(({ name, chapter, cards: groupCards }) => {
+                    // Extract pure subcategory for drill-down (before " › ")
+                    const pureSub = name.includes(" › ") ? name.split(" › ")[0] : name;
+                    const canDrillDown = !!pureSub && pureSub !== "Ostalo" && onUpdateChapters && onReviewSection;
+                    return (
                     <div key={name} className="space-y-2">
-                      {name && <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{name}</p>}
+                      {name && (
+                        <div className="flex items-center gap-2">
+                          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{name}</p>
+                          {canDrillDown && !chapter && (
+                            <button
+                              onClick={() => setDrillDown({ category, subcategory: pureSub })}
+                              className="flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-medium text-primary/70 hover:text-primary hover:bg-primary/5 transition-colors"
+                              title="Otvori detaljni prikaz sa glavama"
+                            >
+                              <Layers className="h-3 w-3" />
+                              Detalji
+                            </button>
+                          )}
+                        </div>
+                      )}
                       <div className="flex flex-wrap gap-1.5">
                         {groupCards.map(({ card, level }) => (
                           <Tooltip key={card.id}>
