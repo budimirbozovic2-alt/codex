@@ -116,6 +116,15 @@ export function useCards() {
       setSrSettingsState(settings);
 
       splashProgress(100, "Spremno!");
+
+      // Trigger fade-out animation on splash icon before splash disappears
+      const splashIcon = document.querySelector('#app-splash div > div:first-child') as HTMLElement;
+      if (splashIcon) {
+        splashIcon.style.transition = 'transform 0.5s ease-out, opacity 0.5s ease-out';
+        splashIcon.style.transform = 'scale(1.15)';
+        splashIcon.style.opacity = '0';
+        splashIcon.style.animation = 'none';
+      }
       setReady(true);
 
       // Signal Electron main process that app is ready
