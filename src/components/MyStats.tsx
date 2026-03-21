@@ -40,7 +40,6 @@ interface Props {
   onBack: () => void;
   onShowKnowledgeMap?: () => void;
   onShowPlanner?: () => void;
-  onSendToWorkshop?: (cardId: string) => void;
 }
 
 const MASTERY_COLORS = [
