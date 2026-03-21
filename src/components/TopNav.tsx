@@ -32,7 +32,6 @@ const PRIMARY_NAV = [
   { path: "/", icon: Home, label: "Dashboard" },
   { path: "/learn", icon: GraduationCap, label: "Učenje" },
   { path: "/review", icon: RotateCcw, label: "Konsolidacija", badge: true },
-  { path: "/database", icon: DatabaseIcon, label: "Baza podataka" },
 ];
 
 const LAB_ITEMS = [
