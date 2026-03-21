@@ -18,6 +18,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Card, getSectionScore, SRSettings, DEFAULT_SR_SETTINGS } from "@/lib/spaced-repetition";
 import { getCardMasteryLevel, MASTERY_LEVELS } from "@/components/KnowledgeMap";
 import { ReviewLogEntry } from "@/lib/storage";
+import { getTimeDistribution } from "@/lib/metacognitive-storage";
 import {
   AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, BarChart, Bar,
@@ -27,6 +28,9 @@ import ActivityHeatmap from "./ActivityHeatmap";
 import RetentionChart from "./RetentionChart";
 import ForgettingCurve from "./ForgettingCurve";
 import { TabSkeleton } from "@/components/ui/page-skeleton";
+import { useDeferredCompute } from "@/hooks/useDeferredCompute";
+
+const DashboardChart = lazy(() => import("@/components/DashboardChart"));
 
 // Lazy-load extracted tab components
 const LatencyTab = lazy(() => import("./stats/LatencyTab"));
@@ -151,6 +155,48 @@ const CategoryBarChart = memo(function CategoryBarChart({ data }: { data: any[] 
 export default function MyStats({ cards, categories, subcategories, categoryStats, reviewLog, srSettings, onBack, onShowKnowledgeMap, onShowPlanner }: Props) {
   const [activeTab, setActiveTab] = useState<string>("overview");
   const weights = srSettings?.resistanceWeights ?? DEFAULT_SR_SETTINGS.resistanceWeights;
+
+  // Focus ratio for ratio chart
+  const focusRatio = useMemo(() => {
+    if (srSettings.dailyGoal === 0) return { progress: 0, targetReviewPct: 5 };
+    const progress = srSettings.dailyGoal > 0 && cards.length > 0
+      ? Math.round((cards.reduce((s, c) => s + c.sections.filter(sec => sec.lastReviewed).length, 0) /
+        Math.max(1, cards.reduce((s, c) => s + c.sections.length, 0))) * 100)
+      : 0;
+    return { progress, targetReviewPct: Math.max(5, progress) };
+  }, [cards, srSettings]);
+
+  // 14-day ratio history (deferred)
+  const ratioHistory = useDeferredCompute(() => {
+    const now = new Date();
+    const days = eachDayOfInterval({ start: subDays(now, 13), end: now });
+    const sectionFirstSeen = new Map<string, number>();
+    reviewLog.forEach(e => {
+      const key = `${e.cardId}:${e.sectionId}`;
+      const prev = sectionFirstSeen.get(key);
+      if (!prev || e.timestamp < prev) sectionFirstSeen.set(key, e.timestamp);
+    });
+    return days.map(day => {
+      const dayStart = startOfDay(day).getTime();
+      const dayEnd = dayStart + 86400000;
+      const dayEntries = reviewLog.filter(r => r.timestamp >= dayStart && r.timestamp < dayEnd);
+      let review = 0, newL = 0;
+      dayEntries.forEach(e => {
+        const key = `${e.cardId}:${e.sectionId}`;
+        const firstSeen = sectionFirstSeen.get(key) || e.timestamp;
+        if (firstSeen < dayStart) review++; else newL++;
+      });
+      const total = review + newL;
+      return {
+        name: format(day, "dd.MM"),
+        "Stvarni ponavljanje": total > 0 ? Math.round((review / total) * 100) : null,
+        "Idealni cilj": focusRatio.targetReviewPct,
+      };
+    });
+  }, [reviewLog, focusRatio]);
+
+  // Effective learning time distribution (deferred)
+  const todayTime = useDeferredCompute(() => getTimeDistribution(1), []);
 
   const activityData = useMemo(() => {
     const now = new Date();
@@ -313,6 +359,46 @@ export default function MyStats({ cards, categories, subcategories, categoryStat
             <ErrorBoundary compact label="Kriva zaboravljanja">
               <ForgettingCurve cards={cards} categories={categories} />
             </ErrorBoundary>
+
+            {/* Ratio Chart (14 dana) — premješteno sa Dashboarda */}
+            {ratioHistory && ratioHistory.some(d => d["Stvarni ponavljanje"] !== null) && (
+              <Suspense fallback={<div className="h-[280px] rounded-xl bg-card border animate-pulse" />}>
+                <DashboardChart ratioHistory={ratioHistory} targetReviewPct={focusRatio.targetReviewPct} />
+              </Suspense>
+            )}
+
+            {/* Efektivno učenje danas — premješteno sa Dashboarda */}
+            {todayTime && todayTime.totalMs > 60000 && (
+              <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
+                className="rounded-xl bg-card border p-5 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Clock className="h-4 w-4 text-primary" />
+                    <h3 className="font-serif text-lg">Efektivno učenje danas</h3>
+                  </div>
+                  <span className="text-lg font-serif text-primary tabular-nums">
+                    {Math.floor(todayTime.cognitiveMs / 3600000) > 0
+                      ? `${Math.floor(todayTime.cognitiveMs / 3600000)}h ${Math.round((todayTime.cognitiveMs % 3600000) / 60000)}min`
+                      : `${Math.round(todayTime.cognitiveMs / 60000)} min`}
+                  </span>
+                </div>
+                <div className="flex h-3 rounded-md overflow-hidden bg-secondary">
+                  {todayTime.review > 0 && <div className="bg-primary transition-all" style={{ width: `${(todayTime.review / todayTime.totalMs) * 100}%` }} title="Ponavljanje" />}
+                  {todayTime.learning > 0 && <div className="bg-success transition-all" style={{ width: `${(todayTime.learning / todayTime.totalMs) * 100}%` }} title="Učenje" />}
+                  {todayTime.creative > 0 && <div className="bg-warning transition-all" style={{ width: `${(todayTime.creative / todayTime.totalMs) * 100}%` }} title="Kreativ/Admin" />}
+                  {todayTime.analysis > 0 && <div className="bg-muted-foreground/30 transition-all" style={{ width: `${(todayTime.analysis / todayTime.totalMs) * 100}%` }} title="Analiza" />}
+                </div>
+                <div className="flex flex-wrap gap-3 text-[10px] text-muted-foreground">
+                  <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-primary" /> Ponavljanje {Math.round(todayTime.review / 60000)}m</span>
+                  <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-success" /> Učenje {Math.round(todayTime.learning / 60000)}m</span>
+                  <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-warning" /> Admin {Math.round(todayTime.creative / 60000)}m</span>
+                  <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-muted-foreground/30" /> Analiza {Math.round(todayTime.analysis / 60000)}m</span>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Neto kognitivni rad: {todayTime.cognitivePct}% • Logistika: {100 - todayTime.cognitivePct}%
+                </p>
+              </motion.div>
+            )}
           </div>
         </TabsContent>
 
