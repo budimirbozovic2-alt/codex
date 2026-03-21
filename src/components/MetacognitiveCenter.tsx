@@ -2,30 +2,25 @@ import { useState, useMemo, lazy, Suspense } from "react";
 import { motion } from "framer-motion";
 import { default as ArrowLeft } from "lucide-react/dist/esm/icons/arrow-left";
 import { default as BookOpen } from "lucide-react/dist/esm/icons/book-open";
-import { default as Target } from "lucide-react/dist/esm/icons/target";
 import { default as Clock } from "lucide-react/dist/esm/icons/clock";
 import { default as Brain } from "lucide-react/dist/esm/icons/brain";
 import { default as AlertTriangle } from "lucide-react/dist/esm/icons/alert-triangle";
 import { default as CheckCircle } from "lucide-react/dist/esm/icons/check-circle";
 import { default as XCircle } from "lucide-react/dist/esm/icons/x-circle";
-import { default as Gauge } from "lucide-react/dist/esm/icons/gauge";
-import { default as Microscope } from "lucide-react/dist/esm/icons/microscope";
 import InfoPanel from "@/components/InfoPanel";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { ReviewLogEntry } from "@/lib/storage";
-import { Card, SRSettings, DEFAULT_SR_SETTINGS } from "@/lib/spaced-repetition";
+import { Card, SRSettings } from "@/lib/spaced-repetition";
 import {
   loadDiary, addDiaryEntry, DiaryEntry, setLastAnalysisDate,
-  loadCalibration, CalibrationEntry, getCalibrationStats,
   getTodayReviewStats,
   getTimeDistribution, RESERVOIR_LABELS, RESERVOIR_COLORS,
 } from "@/lib/metacognitive-storage";
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
-  PieChart, Pie, Cell, CartesianGrid, Legend,
 } from "recharts";
 import { format, startOfDay } from "date-fns";
 
@@ -52,23 +47,19 @@ export default function MetacognitiveCenter({ cards, categories, reviewLog, onBa
               <ArrowLeft className="h-4 w-4" /> Nazad
             </button>
             <h2 className="text-3xl font-serif">Dnevnik</h2>
-            <p className="text-muted-foreground mt-1">Refleksije, greške, kalibracija i kognitivna dijagnostika</p>
+            <p className="text-muted-foreground mt-1">Refleksije, greške i kognitivna dijagnostika</p>
           </div>
           <InfoPanel title="Kako radi Dnevnik?">
-            <p><strong className="text-foreground">Dnevnik</strong> — bilježi dnevne refleksije, postavlja ciljeve za sutra i prati dnevnu samoanalizu.</p>
-            <p><strong className="text-foreground">Greške</strong> — praćenje čestih grešaka sa statusima (Kritično/U oporavku/Savladano).</p>
-            <p><strong className="text-foreground">Kalibracija</strong> — upoređuje tvoju procjenu sigurnosti (1-5) sa stvarnom ocjenom da detektuje „iluziju znanja".</p>
-            <p><strong className="text-foreground">Kognicija</strong> — dublja analiza slabih tačaka, interferencije i mnemonička preporuka.</p>
+            <p><strong className="text-foreground">Dnevnik</strong> — bilježi dnevne refleksije, postavlja ciljeve i prati samoanalizu.</p>
+            <p><strong className="text-foreground">Greške & Dijagnostika</strong> — praćenje čestih grešaka sa statusima + mnemonička rješenja i analiza slabih tačaka.</p>
           </InfoPanel>
         </div>
       )}
 
       <Tabs defaultValue="diary" className="w-full">
-        <TabsList className="w-full grid grid-cols-4">
+        <TabsList className="w-full grid grid-cols-2">
           <TabsTrigger value="diary" className="gap-1.5 text-xs sm:text-sm"><BookOpen className="h-3.5 w-3.5" /> Dnevnik</TabsTrigger>
-          <TabsTrigger value="errors" className="gap-1.5 text-xs sm:text-sm"><AlertTriangle className="h-3.5 w-3.5" /> Greške</TabsTrigger>
-          <TabsTrigger value="calibration" className="gap-1.5 text-xs sm:text-sm"><Target className="h-3.5 w-3.5" /> Kalibracija</TabsTrigger>
-          <TabsTrigger value="cognitive" className="gap-1.5 text-xs sm:text-sm"><Microscope className="h-3.5 w-3.5" /> Kognicija</TabsTrigger>
+          <TabsTrigger value="errors" className="gap-1.5 text-xs sm:text-sm"><AlertTriangle className="h-3.5 w-3.5" /> Greške & Dijagnostika</TabsTrigger>
         </TabsList>
 
         <TabsContent value="diary">
@@ -76,15 +67,22 @@ export default function MetacognitiveCenter({ cards, categories, reviewLog, onBa
         </TabsContent>
         <TabsContent value="errors">
           <Suspense fallback={<div className="py-8 text-center text-muted-foreground text-sm">Učitavanje…</div>}>
-            <FrequentErrors cards={cards} onBack={() => {}} onClearErrorLog={onClearErrorLog || (() => {})} embedded />
-          </Suspense>
-        </TabsContent>
-        <TabsContent value="calibration">
-          <CalibrationTab />
-        </TabsContent>
-        <TabsContent value="cognitive">
-          <Suspense fallback={<div className="py-8 text-center text-muted-foreground text-sm">Učitavanje…</div>}>
-            <CognitiveAnalytics cards={cards} categories={categories} reviewLog={reviewLog} />
+            <div className="space-y-8 mt-4">
+              {/* Frequent Errors section */}
+              <FrequentErrors cards={cards} onBack={() => {}} onClearErrorLog={onClearErrorLog || (() => {})} embedded />
+
+              {/* Cognitive Analytics — mnemonic recommendations integrated here */}
+              <div className="border-t pt-6">
+                <div className="flex items-center gap-2 mb-4">
+                  <Brain className="h-4 w-4 text-primary" />
+                  <h3 className="font-serif text-lg">Kognitivna dijagnostika</h3>
+                </div>
+                <p className="text-xs text-muted-foreground mb-4">
+                  Analiza interferencija, slijepih tačaka i slabih kuka — sa preporukama za mnemoničku obradu problematičnih kartica.
+                </p>
+                <CognitiveAnalytics cards={cards} categories={categories} reviewLog={reviewLog} />
+              </div>
+            </div>
           </Suspense>
         </TabsContent>
       </Tabs>
@@ -123,7 +121,6 @@ function DiaryTab({ cards, reviewLog }: { cards: Card[]; reviewLog: ReviewLogEnt
     const days: { date: string; successes: number; lapses: number; total: number }[] = [];
     for (let i = 6; i >= 0; i--) {
       const d = new Date(Date.now() - i * 86400000);
-      const dateStr = d.toISOString().slice(0, 10);
       const dayStart = startOfDay(d).getTime();
       const dayEnd = dayStart + 86400000;
       const dayEntries = reviewLog.filter(e => e.timestamp >= dayStart && e.timestamp < dayEnd);
@@ -304,116 +301,6 @@ function DiaryTab({ cards, reviewLog }: { cards: Card[]; reviewLog: ReviewLogEnt
           </div>
         </div>
       )}
-    </div>
-  );
-}
-
-// ═══════════════════════════════════════════════════════════
-// CALIBRATION TAB
-// ═══════════════════════════════════════════════════════════
-
-function CalibrationTab() {
-  const calibration = useMemo(() => loadCalibration(), []);
-  const stats = useMemo(() => getCalibrationStats(calibration), [calibration]);
-
-  const scatterData = useMemo(() => {
-    return calibration.slice(-200).map(e => ({
-      confidence: e.confidence,
-      grade: e.actualGrade,
-    }));
-  }, [calibration]);
-
-  const distributionData = useMemo(() => {
-    const groups: Record<number, number[]> = { 1: [], 2: [], 3: [], 4: [], 5: [] };
-    calibration.forEach(e => { groups[e.confidence]?.push(e.actualGrade); });
-    return Object.entries(groups).map(([conf, grades]) => ({
-      confidence: `Sig. ${conf}`,
-      avgGrade: grades.length > 0 ? +(grades.reduce((a, b) => a + b, 0) / grades.length).toFixed(1) : 0,
-      count: grades.length,
-    }));
-  }, [calibration]);
-
-  const pieData = [
-    { name: "Prekalibrisan", value: stats.overconfident, fill: "hsl(var(--destructive))" },
-    { name: "Potkalibris.", value: stats.underconfident, fill: "hsl(var(--warning))" },
-    { name: "Kalibrisan", value: stats.calibrated, fill: "hsl(var(--success))" },
-  ].filter(d => d.value > 0);
-
-  if (calibration.length === 0) {
-    return (
-      <div className="mt-8 text-center space-y-3 py-12">
-        <Gauge className="h-12 w-12 mx-auto text-muted-foreground/30" />
-        <h3 className="text-lg font-medium">Nema podataka o kalibraciji</h3>
-        <p className="text-sm text-muted-foreground max-w-md mx-auto">
-          Tokom ponavljanja, prije otkrivanja odgovora bićete upitani za nivo sigurnosti (1-5).
-          Podaci se automatski prikupljaju.
-        </p>
-      </div>
-    );
-  }
-
-  return (
-    <div className="space-y-6 mt-4">
-      <div className="grid grid-cols-3 gap-4">
-        <div className="rounded-xl border bg-card p-4 text-center">
-          <div className="text-2xl font-bold">{stats.total}</div>
-          <div className="text-xs text-muted-foreground mt-1">Mjerenja</div>
-        </div>
-        <div className="rounded-xl border bg-card p-4 text-center">
-          <div className="text-2xl font-bold text-success">{stats.calibrated}</div>
-          <div className="text-xs text-muted-foreground mt-1">Kalibrisano</div>
-        </div>
-        <div className="rounded-xl border bg-card p-4 text-center">
-          <div className={`text-2xl font-bold ${stats.avgDelta > 0.3 ? "text-destructive" : stats.avgDelta < -0.3 ? "text-warning" : "text-success"}`}>
-            {stats.avgDelta > 0 ? "+" : ""}{stats.avgDelta.toFixed(1)}
-          </div>
-          <div className="text-xs text-muted-foreground mt-1">
-            {stats.avgDelta > 0.3 ? "Iluzija znanja ⚠️" : stats.avgDelta < -0.3 ? "Potcjenjivanje" : "Dobra kalibracija ✓"}
-          </div>
-        </div>
-      </div>
-
-      {stats.avgDelta > 0.3 && (
-        <div className="flex items-center gap-3 p-4 rounded-xl border border-destructive/30 bg-destructive/5">
-          <AlertTriangle className="h-5 w-5 text-destructive shrink-0" />
-          <div>
-            <p className="text-sm font-medium text-destructive">Iluzija znanja detektovana</p>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              Vaša procjena sigurnosti je u prosjeku {stats.avgDelta.toFixed(1)} poena viša od stvarnog znanja.
-              Usporite i budite kritičniji pri procjeni.
-            </p>
-          </div>
-        </div>
-      )}
-
-      <div className="rounded-xl border bg-card p-5">
-        <h3 className="text-sm font-medium mb-4">Distribucija kalibracije</h3>
-        <ResponsiveContainer width="100%" height={200}>
-          <PieChart>
-            <Pie data={pieData} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={50} outerRadius={80} paddingAngle={3}>
-              {pieData.map((d, i) => <Cell key={i} fill={d.fill} />)}
-            </Pie>
-            <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "8px", fontSize: 12 }} />
-            <Legend />
-          </PieChart>
-        </ResponsiveContainer>
-      </div>
-
-      <div className="rounded-xl border bg-card p-5">
-        <h3 className="text-sm font-medium mb-4">Sigurnost vs. Stvarna ocjena</h3>
-        <ResponsiveContainer width="100%" height={200}>
-          <BarChart data={distributionData}>
-            <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-            <XAxis dataKey="confidence" tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" />
-            <YAxis domain={[0, 4]} tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" />
-            <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "8px", fontSize: 12 }} />
-            <Bar dataKey="avgGrade" name="Prosj. ocjena" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
-          </BarChart>
-        </ResponsiveContainer>
-        <p className="text-xs text-muted-foreground mt-2">
-          Idealno: svaki nivo sigurnosti odgovara proporcionalnoj ocjeni. Ako su "Sigurnost 5" ocjene niske — imate iluziju znanja.
-        </p>
-      </div>
     </div>
   );
 }
