@@ -723,8 +723,8 @@ export default function LearnSession({ cards, categories, subcategories, onMarkR
                 <div className="flex items-center gap-2">
                   {sections.map((_, i) => (
                     <div key={i} className={`h-2 flex-1 rounded-full transition-colors ${
-                      i < chainIndex ? "bg-emerald-700 dark:bg-emerald-600"
-                        : i === chainIndex ? (chainPhase === "learn" ? "bg-primary" : "bg-amber-500")
+                      i < chainIndex ? "bg-success"
+                        : i === chainIndex ? (chainPhase === "learn" ? "bg-primary" : "bg-warning")
                         : "bg-secondary"
                     }`} />
                   ))}
