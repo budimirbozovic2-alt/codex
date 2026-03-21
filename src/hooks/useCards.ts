@@ -90,6 +90,19 @@ export function useCards() {
   const [ready, setReady] = useState(false);
   const initialLoadDone = useRef(false);
 
+  // Fix #5: Flush pending actions on unmount to prevent data loss
+  useEffect(() => {
+    return () => {
+      if (flushTimer !== null) {
+        clearTimeout(flushTimer);
+        flushTimer = null;
+      }
+      if (pendingActions.length > 0) {
+        flushPersist();
+      }
+    };
+  }, []);
+
   // ── Initial async load from IndexedDB ──
   useEffect(() => {
     if (initialLoadDone.current) return;
