@@ -51,6 +51,7 @@ export interface Card {
   type: "essay" | "flash";
   tags?: string[];
   errorLog?: ErrorLogEntry[];
+  sortOrder?: number;
 }
 
 export const CARD_TAGS = [
