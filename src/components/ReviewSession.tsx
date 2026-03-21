@@ -28,7 +28,7 @@ const REVIEW_SHORTCUTS = [
   { keys: "N", description: "Zabilježi grešku" },
 ];
 
-type ReviewMode = "essay" | "random" | null;
+type ReviewMode = "essay" | "random" | "difficult" | null;
 type ViewWidth = "compact" | "normal" | "wide" | "full";
 
 const viewWidthClasses: Record<ViewWidth, string> = {
