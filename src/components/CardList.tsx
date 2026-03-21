@@ -244,7 +244,7 @@ export default function CardList({
       return a.createdAt - b.createdAt;
     });
     return result;
-  }, [cards, filterCategory, filterSubcategory, filterType, filterTag, searchQuery]);
+  }, [cards, filterCategory, filterSubcategory, filterChapter, filterType, filterTag, searchQuery]);
 
   // Scroll-to-card for both modes
   useEffect(() => {
