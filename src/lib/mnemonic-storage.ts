@@ -2,6 +2,7 @@
 
 export type MnemonicStatus = "new" | "in-workshop" | "ready";
 export type HookType = "rokovi" | "nabrajanja" | "ostalo";
+export type HookMode = "video" | "acronym";
 
 export interface MnemonicCard {
   id: string;
@@ -12,6 +13,7 @@ export interface MnemonicCard {
   subcategory?: string;
   tags?: string[];          // cloned from original card
   hookType: HookType;       // auto-detected or manual
+  hookMode: HookMode;       // which hook input to use: video or acronym
   mnemonicVideo: string;    // user's mental video description
   acronym: string;          // user's acronym/mnemonic aid
   mnemonicStatus: MnemonicStatus;
@@ -90,6 +92,7 @@ export function loadMnemonicCards(): MnemonicCard[] {
   return cards.map(c => ({
     ...c,
     hookType: c.hookType || "ostalo",
+    hookMode: c.hookMode || (c.mnemonicVideo ? "video" : "acronym"),
     tags: c.tags || [],
   }));
 }
@@ -115,6 +118,7 @@ export function createMnemonicCardFromSelection(
     subcategory,
     tags: tags || [],
     hookType: detectHookType([{ content: selectedText }]),
+    hookMode: "video",
     mnemonicVideo: "",
     acronym: "",
     mnemonicStatus: "new",
@@ -143,6 +147,7 @@ export function createMnemonicCard(
     subcategory,
     tags: tags || [],
     hookType: detectHookType(sections),
+    hookMode: "video",
     mnemonicVideo: "",
     acronym: "",
     mnemonicStatus: "new",

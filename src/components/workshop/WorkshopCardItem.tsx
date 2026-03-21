@@ -1,5 +1,5 @@
 import { useState, useMemo, memo, useCallback, lazy, Suspense } from "react";
-import { MnemonicCard, MnemonicStatus, HookType, loadMajorSystem, resolveNumber, extractNumbers, detectEnumerationItems } from "@/lib/mnemonic-storage";
+import { MnemonicCard, MnemonicStatus, HookType, HookMode, loadMajorSystem, resolveNumber, extractNumbers, detectEnumerationItems } from "@/lib/mnemonic-storage";
 import { CheckCircle2 } from "lucide-react";
 import { default as Brain } from "lucide-react/dist/esm/icons/brain";
 import { default as Film } from "lucide-react/dist/esm/icons/film";
@@ -236,39 +236,64 @@ function WorkshopCardItemInner({ card, isExpanded, onToggle, onUpdateCard, onDel
                 </div>
               )}
 
-              {/* Mental Video */}
-              <div className="space-y-2">
-                <label className="text-sm font-medium flex items-center gap-1.5">
-                  <Film className="h-3.5 w-3.5 text-primary" /> Mentalni video
-                </label>
-                <textarea
-                  value={card.mnemonicVideo}
-                  onChange={(e) => onUpdateCard(card.id, { mnemonicVideo: e.target.value, mnemonicStatus: card.mnemonicStatus === "new" ? "in-workshop" : card.mnemonicStatus })}
-                  placeholder="Opiši živopisnu mentalnu scenu koja ti pomaže da zapamtiš ovu informaciju..."
-                  className="w-full min-h-[80px] px-3 py-2 rounded-lg border bg-background text-sm resize-y focus:outline-none focus:ring-2 focus:ring-ring"
-                />
+              {/* Hook mode selector */}
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs font-medium text-muted-foreground">Kuka:</span>
+                <button
+                  onClick={() => onUpdateCard(card.id, { hookMode: "video" })}
+                  className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                    card.hookMode === "video" ? "bg-primary text-primary-foreground" : "border text-muted-foreground hover:bg-secondary"
+                  }`}
+                >
+                  <Film className="h-3 w-3" /> Mentalni video
+                </button>
+                <button
+                  onClick={() => onUpdateCard(card.id, { hookMode: "acronym" })}
+                  className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                    card.hookMode === "acronym" ? "bg-primary text-primary-foreground" : "border text-muted-foreground hover:bg-secondary"
+                  }`}
+                >
+                  <Type className="h-3 w-3" /> Akronim
+                </button>
               </div>
 
-              {/* Acronym */}
-              <div className="space-y-2">
-                <label className="text-sm font-medium flex items-center gap-1.5">
-                  <Type className="h-3.5 w-3.5 text-primary" /> Akronim / Mentalna kuka
-                  {enumItems.length >= 2 && (
-                    <span className="text-xs text-muted-foreground ml-1">({enumItems.length} slova potrebno)</span>
+              {/* Mental Video (shown when hookMode is video) */}
+              {card.hookMode === "video" && (
+                <div className="space-y-2">
+                  <label className="text-sm font-medium flex items-center gap-1.5">
+                    <Film className="h-3.5 w-3.5 text-primary" /> Mentalni video
+                  </label>
+                  <textarea
+                    value={card.mnemonicVideo}
+                    onChange={(e) => onUpdateCard(card.id, { mnemonicVideo: e.target.value, mnemonicStatus: card.mnemonicStatus === "new" ? "in-workshop" : card.mnemonicStatus })}
+                    placeholder="Opiši živopisnu mentalnu scenu koja ti pomaže da zapamtiš ovu informaciju..."
+                    className="w-full min-h-[80px] px-3 py-2 rounded-lg border bg-background text-sm resize-y focus:outline-none focus:ring-2 focus:ring-ring"
+                  />
+                </div>
+              )}
+
+              {/* Acronym (shown when hookMode is acronym) */}
+              {card.hookMode === "acronym" && (
+                <div className="space-y-2">
+                  <label className="text-sm font-medium flex items-center gap-1.5">
+                    <Type className="h-3.5 w-3.5 text-primary" /> Akronim / Mentalna kuka
+                    {enumItems.length >= 2 && (
+                      <span className="text-xs text-muted-foreground ml-1">({enumItems.length} slova potrebno)</span>
+                    )}
+                  </label>
+                  <input
+                    value={card.acronym}
+                    onChange={(e) => onUpdateCard(card.id, { acronym: e.target.value, mnemonicStatus: card.mnemonicStatus === "new" ? "in-workshop" : card.mnemonicStatus })}
+                    placeholder={enumItems.length >= 2
+                      ? `Unesite akronim od ${enumItems.length} slova (npr. ${enumItems.map(i => i.trim()[0]?.toUpperCase() || "").join("")})`
+                      : "Npr. kratka reč, broj iz Major Sistema, asocijacija..."}
+                    className="w-full px-3 py-2 rounded-lg border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                  />
+                  {enumItems.length >= 2 && card.acronym.length > 0 && card.acronym.length !== enumItems.length && (
+                    <p className="text-xs text-warning">⚠ Akronim ima {card.acronym.length} slova, a nabrajanje ima {enumItems.length} stavki</p>
                   )}
-                </label>
-                <input
-                  value={card.acronym}
-                  onChange={(e) => onUpdateCard(card.id, { acronym: e.target.value, mnemonicStatus: card.mnemonicStatus === "new" ? "in-workshop" : card.mnemonicStatus })}
-                  placeholder={enumItems.length >= 2
-                    ? `Unesite akronim od ${enumItems.length} slova (npr. ${enumItems.map(i => i.trim()[0]?.toUpperCase() || "").join("")})`
-                    : "Npr. kratka reč, broj iz Major Sistema, asocijacija..."}
-                  className="w-full px-3 py-2 rounded-lg border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-                />
-                {enumItems.length >= 2 && card.acronym.length > 0 && card.acronym.length !== enumItems.length && (
-                  <p className="text-xs text-warning">⚠ Akronim ima {card.acronym.length} slova, a nabrajanje ima {enumItems.length} stavki</p>
-                )}
-              </div>
+                </div>
+              )}
 
               {/* Hook type selector + Status */}
               <div className="flex items-center justify-between flex-wrap gap-2">

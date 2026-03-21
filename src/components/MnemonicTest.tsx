@@ -389,8 +389,11 @@ export default function MnemonicTest({ cards, onRecordResult, onBack }: Props) {
               {hasTrigger ? (
                 <div className="rounded-lg bg-primary/5 border border-primary/20 p-4 space-y-2">
                   <p className="text-xs font-medium text-primary uppercase tracking-wider">Tvoj okidač</p>
-                  {currentCard.acronym && <p className="text-lg font-bold">{currentCard.acronym}</p>}
-                  {currentCard.mnemonicVideo && <p className="text-sm italic text-muted-foreground">{currentCard.mnemonicVideo}</p>}
+                  {currentCard.hookMode === "acronym" && currentCard.acronym && <p className="text-lg font-bold">{currentCard.acronym}</p>}
+                  {currentCard.hookMode === "video" && currentCard.mnemonicVideo && <p className="text-sm italic text-muted-foreground">{currentCard.mnemonicVideo}</p>}
+                  {/* Fallback for cards without hookMode */}
+                  {!currentCard.hookMode && currentCard.acronym && <p className="text-lg font-bold">{currentCard.acronym}</p>}
+                  {!currentCard.hookMode && currentCard.mnemonicVideo && <p className="text-sm italic text-muted-foreground">{currentCard.mnemonicVideo}</p>}
                 </div>
               ) : (
                 <div className="rounded-lg bg-warning/5 border border-warning/20 p-4">
