@@ -424,6 +424,7 @@ export default function MentalSkeleton({ cards, subcategory, category, onBack, o
   const [newChapterName, setNewChapterName] = useState("");
   const [renamingChapter, setRenamingChapter] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState("");
+  const [storedChapters, setStoredChapters] = useState<string[]>([]);
 
   // Filter cards for this subcategory
   const subCards = useMemo(() =>
