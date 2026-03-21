@@ -7,6 +7,7 @@ import { default as LayoutGrid } from "lucide-react/dist/esm/icons/layout-grid";
 import { default as TrendingUp } from "lucide-react/dist/esm/icons/trending-up";
 import { default as Brain } from "lucide-react/dist/esm/icons/brain";
 import { default as Layers } from "lucide-react/dist/esm/icons/layers";
+import { default as Target } from "lucide-react/dist/esm/icons/target";
 import { default as Clock } from "lucide-react/dist/esm/icons/clock";
 import { default as Flame } from "lucide-react/dist/esm/icons/flame";
 import { default as CalendarClock } from "lucide-react/dist/esm/icons/calendar-clock";
@@ -25,12 +26,14 @@ import { format, subDays, startOfDay, eachDayOfInterval } from "date-fns";
 import ActivityHeatmap from "./ActivityHeatmap";
 import RetentionChart from "./RetentionChart";
 import ForgettingCurve from "./ForgettingCurve";
+import { TabSkeleton } from "@/components/ui/page-skeleton";
 
 // Lazy-load extracted tab components
 const LatencyTab = lazy(() => import("./stats/LatencyTab"));
 const ResistanceTab = lazy(() => import("./stats/ResistanceTab"));
 const PredictionTab = lazy(() => import("./stats/PredictionTab"));
 const EfficiencyTab = lazy(() => import("./stats/EfficiencyTab"));
+const CalibrationTab = lazy(() => import("./stats/CalibrationTab"));
 
 interface Props {
   cards: Card[];
@@ -143,8 +146,6 @@ const CategoryBarChart = memo(function CategoryBarChart({ data }: { data: any[] 
   );
 });
 
-import { TabSkeleton } from "@/components/ui/page-skeleton";
-
 // ─── Main component ──────────────────────────────────────
 
 export default function MyStats({ cards, categories, subcategories, categoryStats, reviewLog, srSettings, onBack, onShowKnowledgeMap, onShowPlanner }: Props) {
@@ -207,20 +208,24 @@ export default function MyStats({ cards, categories, subcategories, categoryStat
             <p className="text-muted-foreground mt-1">FSRS analitika, grafikoni i kvantitativni podaci</p>
           </div>
           <InfoPanel title="Kako rade Statistike?">
-            <p><strong className="text-foreground">Pregled</strong> — heatmapa aktivnosti, distribucija znanja po kategorijama, kriva zaboravljanja.</p>
-            <p><strong className="text-foreground">Latencija</strong> — vrijeme do otkrivanja odgovora. Prag za automatizovano znanje: &lt;3 sekunde.</p>
-            <p><strong className="text-foreground">Otpor</strong> — kombinovani skor lapsusa, latencije i zaboravljanja koji identifikuje najteže predmete.</p>
-            <p><strong className="text-foreground">Predikcija</strong> — predikcija budućeg opterećenja i brzine savladavanja po predmetima.</p>
-            <p><strong className="text-foreground">Efikasnost</strong> — koliko % vremena provodiš na kognitivni rad vs. logistiku.</p>
+            <p><strong className="text-foreground">Pregled</strong> — heatmapa aktivnosti, distribucija znanja, kriva zaboravljanja.</p>
+            <p><strong className="text-foreground">Kalibracija</strong> — upoređuje procjenu sigurnosti (1-5) sa stvarnom ocjenom radi detekcije iluzije znanja.</p>
+            <p><strong className="text-foreground">Latencija</strong> — vrijeme do otkrivanja odgovora. Prag: &lt;3 sekunde.</p>
+            <p><strong className="text-foreground">Otpor</strong> — kombinovani skor lapsusa, latencije i zaboravljanja.</p>
+            <p><strong className="text-foreground">Predikcija</strong> — predikcija budućeg opterećenja po predmetima.</p>
+            <p><strong className="text-foreground">Efikasnost</strong> — Deep Work vs. Shallow Work omjer.</p>
           </InfoPanel>
         </div>
       </motion.div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <div className="space-y-1">
-          <TabsList className="w-full grid grid-cols-3">
+          <TabsList className="w-full grid grid-cols-4">
             <TabsTrigger value="overview" className="gap-1.5 text-xs sm:text-sm">
               <TrendingUp className="h-3.5 w-3.5" /> Pregled
+            </TabsTrigger>
+            <TabsTrigger value="calibration" className="gap-1.5 text-xs sm:text-sm">
+              <Target className="h-3.5 w-3.5" /> Kalibracija
             </TabsTrigger>
             <TabsTrigger value="latency" className="gap-1.5 text-xs sm:text-sm">
               <Clock className="h-3.5 w-3.5" /> Latencija
@@ -241,7 +246,6 @@ export default function MyStats({ cards, categories, subcategories, categoryStat
 
         <TabsContent value="overview">
           <div className="space-y-6 mt-4">
-            {/* Knowledge Map Widget */}
             {onShowKnowledgeMap && cards.length > 0 && (() => {
               const levelCounts = [0, 0, 0, 0, 0, 0];
               cards.forEach((c) => { levelCounts[getCardMasteryLevel(c)]++; });
@@ -264,11 +268,7 @@ export default function MyStats({ cards, categories, subcategories, categoryStat
                     {levelCounts.map((count, lvl) => {
                       if (count === 0) return null;
                       return (
-                        <div
-                          key={lvl}
-                          style={{ width: `${(count / total) * 100}%`, backgroundColor: MASTERY_LEVELS[lvl].color }}
-                          className="transition-all"
-                        />
+                        <div key={lvl} style={{ width: `${(count / total) * 100}%`, backgroundColor: MASTERY_LEVELS[lvl].color }} className="transition-all" />
                       );
                     })}
                   </div>
@@ -287,7 +287,6 @@ export default function MyStats({ cards, categories, subcategories, categoryStat
               );
             })()}
 
-            {/* Heatmap + Retention */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <ErrorBoundary compact label="Heatmap aktivnosti">
                 <ActivityHeatmap reviewLog={reviewLog} />
@@ -311,11 +310,18 @@ export default function MyStats({ cards, categories, subcategories, categoryStat
               </div>
             )}
 
-            {/* Forgetting Curve */}
             <ErrorBoundary compact label="Kriva zaboravljanja">
               <ForgettingCurve cards={cards} categories={categories} />
             </ErrorBoundary>
           </div>
+        </TabsContent>
+
+        <TabsContent value="calibration">
+          <Suspense fallback={<TabSkeleton />}>
+            <ErrorBoundary label="Kalibracija">
+              <CalibrationTab />
+            </ErrorBoundary>
+          </Suspense>
         </TabsContent>
 
         <TabsContent value="latency">
