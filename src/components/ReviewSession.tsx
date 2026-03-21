@@ -617,6 +617,8 @@ function ReviewCard({
     if (confidence !== null) {
       addCalibrationEntry({ timestamp: Date.now(), cardId: card.id, sectionId: section.id, confidence, actualGrade: grade, category: card.category });
     }
+    // Play sound effect
+    import("@/lib/sounds").then(m => m.playGradeSound(grade));
     onGrade(grade);
   }, [confidence, card.id, section.id, card.category, onGrade]);
 
