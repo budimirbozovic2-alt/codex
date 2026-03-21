@@ -557,7 +557,7 @@ function HowItWorksCorner() {
 }
 
 function FinishedScreen({ onBack }: { onBack: () => void }) {
-  React.useEffect(() => {
+  useEffect(() => {
     import("@/lib/sounds").then(m => m.playSessionComplete());
   }, []);
   return (
