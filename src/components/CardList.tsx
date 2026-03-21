@@ -289,6 +289,31 @@ export default function CardList({
     setDragOverIndex(null);
   }, []);
 
+  // Auto-scroll when dragging near viewport edges
+  const scrollRafRef = useRef<number | null>(null);
+  const handleContainerDragOver = useCallback((e: React.DragEvent) => {
+    if (dragIndex === null) return;
+    e.preventDefault();
+    const EDGE_ZONE = 80; // px from edge to trigger scroll
+    const SCROLL_SPEED = 12;
+    const y = e.clientY;
+    const vh = window.innerHeight;
+
+    if (scrollRafRef.current) cancelAnimationFrame(scrollRafRef.current);
+
+    if (y < EDGE_ZONE) {
+      const intensity = 1 - y / EDGE_ZONE;
+      scrollRafRef.current = requestAnimationFrame(() => {
+        window.scrollBy(0, -SCROLL_SPEED * intensity);
+      });
+    } else if (y > vh - EDGE_ZONE) {
+      const intensity = 1 - (vh - y) / EDGE_ZONE;
+      scrollRafRef.current = requestAnimationFrame(() => {
+        window.scrollBy(0, SCROLL_SPEED * intensity);
+      });
+    }
+  }, [dragIndex]);
+
   const useVirtualization = filtered.length >= VIRTUALIZATION_THRESHOLD && !reorderMode;
 
   if (filtered.length === 0) {
@@ -322,7 +347,7 @@ export default function CardList({
   }
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-3" onDragOver={reorderMode ? handleContainerDragOver : undefined}>
       {filtered.map((card, index) => (
         <div
           key={card.id}
