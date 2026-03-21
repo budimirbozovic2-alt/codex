@@ -51,7 +51,7 @@ export default function StreakWidget({ reviewLog, dailyGoal }: Props) {
           <h3 className="text-sm font-medium text-muted-foreground">Dnevni cilj</h3>
         </div>
         <div className="flex items-center gap-1.5">
-          <Flame className={`h-5 w-5 ${streak > 0 ? "text-orange-500" : "text-muted-foreground"}`} />
+          <Flame className={`h-5 w-5 ${streak > 0 ? "text-primary" : "text-muted-foreground"}`} />
           <span className={`text-lg font-bold ${streak > 0 ? "text-foreground" : "text-muted-foreground"}`}>
             {streak}
           </span>
