@@ -281,9 +281,13 @@ export default function StrategicPlanner({ cards, categories, reviewLog, onBack 
             <p className="text-muted-foreground mt-1">Adaptivni sistem — plan se prilagođava tvom tempu</p>
           </div>
           <InfoPanel title="Kako radi Strateški planer?">
-            <p><strong className="text-foreground">Faze učenja</strong> — grupišu kategorije sa dinamičkim datumima.</p>
-            <p><strong className="text-foreground">Buffer %</strong> — ostavlja sigurnosnu zonu prije ispita za finalno ponavljanje.</p>
-            <p><strong className="text-foreground">Niveliši plan</strong> — raspoređuje zaostatak ravnomjerno na preostale dane.</p>
+            <p><strong className="text-foreground">Operativni plan</strong> — faze učenja sa dinamičkim datumima, Smart Load Balancing (dnevna kvota = preostalo / efektivni dani), Reality Check i dnevne sugestije.</p>
+            <p><strong className="text-foreground">Faze učenja</strong> — grupišu kategorije. Datumi se automatski prilagođavaju tvom tempu (Velocity).</p>
+            <p><strong className="text-foreground">Buffer %</strong> — sigurnosna zona (podrazumijevano 15%) — sistem računa kao da ispit počinje ranije, ostavljajući krajnji period za finalno ponavljanje.</p>
+            <p><strong className="text-foreground">Niveliši plan</strong> — raspoređuje kognitivni dug ravnomjerno na preostale dane, resetujući status u zeleni.</p>
+            <p><strong className="text-foreground">Mapa puta</strong> — Burn-up grafikon (idealna vs. stvarna linija napretka) i tekstualna simulacija završetka.</p>
+            <p><strong className="text-foreground">Disciplina</strong> — Rocket Streak (🚀 uzastopni dani), 14-dnevni grid sa emojijima i trend dosljednosti.</p>
+            <p><strong className="text-foreground">Burnout zaštita</strong> — upozorenje ako dnevna kvota pređe 60 kartica.</p>
           </InfoPanel>
         </div>
 
