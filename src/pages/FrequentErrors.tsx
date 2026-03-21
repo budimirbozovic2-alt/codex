@@ -183,9 +183,20 @@ export default function FrequentErrors({ cards, onBack, onClearErrorLog, embedde
                   ? "Još nema zabilježenih grešaka."
                   : `${criticalAndRecovering.length} aktivn${criticalAndRecovering.length === 1 ? "a" : "e"} · ${mastered.length} savladan${mastered.length === 1 ? "a" : "e"}`}
               </p>
-            </div>
           </div>
-      </div>
+        </div>
+      )}
+
+      {embedded && totalErrors > 0 && (
+        <div className="flex items-center gap-3">
+          <div className="p-2 rounded-lg bg-destructive/10">
+            <AlertCircle className="h-5 w-5 text-destructive" />
+          </div>
+          <p className="text-sm text-muted-foreground">
+            {`${criticalAndRecovering.length} aktivn${criticalAndRecovering.length === 1 ? "a" : "e"} · ${mastered.length} savladan${mastered.length === 1 ? "a" : "e"}`}
+          </p>
+        </div>
+      )
 
       {/* Legend */}
       {totalErrors > 0 && (
