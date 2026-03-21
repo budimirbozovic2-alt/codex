@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, lazy, Suspense } from "react";
 import { Card, SectionState } from "@/lib/spaced-repetition";
 import { motion, AnimatePresence } from "framer-motion";
 import { default as ArrowLeft } from "lucide-react/dist/esm/icons/arrow-left";
@@ -9,14 +9,20 @@ import { default as Clock } from "lucide-react/dist/esm/icons/clock";
 import { default as HelpCircle } from "lucide-react/dist/esm/icons/help-circle";
 import { default as ChevronDown } from "lucide-react/dist/esm/icons/chevron-down";
 import { default as Search } from "lucide-react/dist/esm/icons/search";
+import { default as Layers } from "lucide-react/dist/esm/icons/layers";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
+import { TabSkeleton } from "@/components/ui/page-skeleton";
+
+const MentalSkeleton = lazy(() => import("@/components/MentalSkeleton"));
 
 interface Props {
   cards: Card[];
   categories: string[];
   subcategories: Record<string, string[]>;
   onBack: () => void;
+  onUpdateChapters?: (updates: { id: string; chapter: string; chapterOrder: number }[]) => void;
+  onReviewSection?: (cardId: string, sectionId: string, grade: number) => void;
 }
 
 export interface MasteryLevel {
