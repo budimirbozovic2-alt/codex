@@ -816,6 +816,7 @@ export default function MentalSkeleton({ cards, subcategory, category, onBack, o
             />
           )}
         </div>
+        </SortableContext>
 
         <DragOverlay>
           {activeCard && (
