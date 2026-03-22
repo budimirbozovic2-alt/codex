@@ -354,11 +354,17 @@ export default function CardsView() {
             })}
           </ScrollableRow>
 
-          {filterCategory && availableSubcategories.length > 0 && (
+          {filterCategory && (availableSubcategories.length > 0 || cards.some(c => c.category === filterCategory && !c.subcategory)) && (
             <ScrollableRow className="pl-3 border-l-2 border-primary/20 ml-1">
               <button onClick={() => setFilterSubcategory(null)} className={`px-2.5 py-1 rounded-md text-[11px] font-medium transition-all whitespace-nowrap flex-shrink-0 ${!filterSubcategory ? "bg-primary/15 text-primary" : "text-muted-foreground hover:text-foreground hover:bg-secondary"}`}>
                 Sve podkat.
               </button>
+              {cards.some(c => c.category === filterCategory && !c.subcategory) && (
+                <button onClick={() => setFilterSubcategory("__none__")} className={`px-2.5 py-1 rounded-md text-[11px] font-medium transition-all whitespace-nowrap flex-shrink-0 flex items-center gap-1 ${filterSubcategory === "__none__" ? "bg-warning/15 text-warning" : "text-warning/70 hover:text-warning hover:bg-warning/10"}`}>
+                  ⚠ Bez podkat.
+                  <span className="text-[10px] px-1 py-0.5 rounded-full bg-warning/10">{cards.filter(c => c.category === filterCategory && !c.subcategory).length}</span>
+                </button>
+              )}
               {availableSubcategories.map(sc => (
                 <button key={sc} onClick={() => setFilterSubcategory(sc)} className={`px-2.5 py-1 rounded-md text-[11px] font-medium transition-all whitespace-nowrap flex-shrink-0 ${filterSubcategory === sc ? "bg-primary/15 text-primary" : "text-muted-foreground hover:text-foreground hover:bg-secondary"}`}>
                   {sc}
