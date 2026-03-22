@@ -18,7 +18,7 @@ import { default as Target } from "lucide-react/dist/esm/icons/target";
 import { default as Shield } from "lucide-react/dist/esm/icons/shield";
 import SessionFilters from "@/components/SessionFilters";
 import { Button } from "@/components/ui/button";
-import { speak, stopSpeaking } from "@/lib/tts";
+
 import { useToast } from "@/hooks/use-toast";
 import { addCalibrationEntry, addLatencyEntry, addActivityEntry } from "@/lib/metacognitive-storage";
 import ShortcutsHint from "@/components/ShortcutsHint";
