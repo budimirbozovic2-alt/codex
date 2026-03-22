@@ -234,6 +234,12 @@ export default function ReviewSession({ dueCards, allCards, subcategories, srSet
     return Array.from(subs).sort();
   }, [dueCards, selectedCategory]);
 
+  const dueChapters = useMemo(() => {
+    if (!selectedSubcategory) return [];
+    const chapters = new Set(dueCards.filter(c => c.category === selectedCategory && c.subcategory === selectedSubcategory && c.chapter).map(c => c.chapter!));
+    return Array.from(chapters).sort();
+  }, [dueCards, selectedCategory, selectedSubcategory]);
+
   // Log activity when session finishes
   useEffect(() => {
     if (finished) {
