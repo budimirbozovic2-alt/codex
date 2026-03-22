@@ -145,11 +145,11 @@ export default function SpeedReader() {
 
   // Timer
   useEffect(() => {
-    if (playing && allWords.length > 0) {
+    if (playing && totalWords > 0) {
       const interval = 60000 / wpm;
       timerRef.current = setInterval(() => {
         setCurrentWordIdx(prev => {
-          if (prev >= allWords.length - 1) {
+          if (prev >= totalWords - 1) {
             setPlaying(false);
             return prev;
           }
@@ -158,7 +158,7 @@ export default function SpeedReader() {
       }, interval);
     }
     return () => { if (timerRef.current) clearInterval(timerRef.current); };
-  }, [playing, wpm, allWords.length]);
+  }, [playing, wpm, totalWords]);
 
   // Scroll highlighted word into view
   useEffect(() => {
