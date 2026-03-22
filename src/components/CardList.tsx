@@ -289,7 +289,11 @@ const CardRowInner = memo(function CardRowInner({ card, expanded, highlighted, s
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1 flex-wrap">
               <span className="text-xs uppercase tracking-widest text-muted-foreground">{card.category}</span>
-              {card.subcategory && <span className="text-xs text-muted-foreground">› {card.subcategory}</span>}
+              {card.subcategory ? (
+                <span className="text-xs text-muted-foreground">› {card.subcategory}</span>
+              ) : (
+                <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-warning/15 text-warning font-medium">Bez podkat.</span>
+              )}
               {card.chapter && <span className="text-xs text-muted-foreground/70">› {card.chapter}</span>}
               <ScoreBadge score={score} />
               <RetentionBadge retention={retention} />
@@ -425,7 +429,8 @@ export default function CardList({
 
   const filtered = useMemo(() => {
     let result = filterCategory ? cards.filter(c => c.category === filterCategory) : cards;
-    if (filterSubcategory) result = result.filter(c => c.subcategory === filterSubcategory);
+    if (filterSubcategory === "__none__") result = result.filter(c => !c.subcategory);
+    else if (filterSubcategory) result = result.filter(c => c.subcategory === filterSubcategory);
     if (filterChapter) result = result.filter(c => c.chapter === filterChapter);
     if (filterType !== "all") result = result.filter(c => (c.type || "essay") === filterType);
     if (filterTag) result = result.filter(c => (c.tags || []).includes(filterTag));
