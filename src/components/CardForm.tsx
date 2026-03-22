@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Card } from "@/lib/spaced-repetition";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -133,15 +133,21 @@ export default function CardForm({ categories, subcategories, onSave, onSaveFlas
   const stripHtml = (html: string) => html.replace(/<[^>]*>/g, "").trim();
 
   // Get existing chapters for current category+subcategory
-  const availableChapters = useMemo(() => {
-    // Get from localStorage (stored by MentalSkeleton)
+  // Load chapters from IDB (consistent with MentalSkeleton storage)
+  const [availableChapters, setAvailableChapters] = useState<string[]>([]);
+  useEffect(() => {
     const sub = showNewSub && newSubcategory.trim() ? newSubcategory.trim() : subcategory;
     const cat = showNewCat && newCategory.trim() ? newCategory.trim() : category;
-    if (!sub) return [];
-    const key = `memoria-chapters-${cat}-${sub}`;
-    try {
-      return JSON.parse(localStorage.getItem(key) || "[]") as string[];
-    } catch { return []; }
+    if (!sub) { setAvailableChapters([]); return; }
+    const key = `chapters-${cat}-${sub}`;
+    import("@/lib/db").then(({ idbLoadSettings }) => {
+      idbLoadSettings<string[]>(key, []).then(chapters => {
+        // Also include chapters from existing cards
+        const cardChapters = new Set(chapters);
+        // We don't have access to all cards here, so just use IDB stored chapters
+        setAvailableChapters(Array.from(cardChapters));
+      });
+    });
   }, [category, subcategory, showNewCat, newCategory, showNewSub, newSubcategory]);
 
   const handleSubmit = (e: React.FormEvent) => {

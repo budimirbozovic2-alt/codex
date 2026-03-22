@@ -139,7 +139,7 @@ function ChapterBox({
   onDelete: (name: string) => void;
 }) {
   const isUnassigned = chapter === UNASSIGNED_CHAPTER;
-  const displayName = isUnassigned ? "Neraspoređene kartice" : chapter;
+  const displayName = isUnassigned ? "Nekategorisane" : chapter;
   const sortedCards = useMemo(() =>
     [...cards].sort((a, b) => (a.chapterOrder ?? 0) - (b.chapterOrder ?? 0)),
     [cards]
@@ -158,6 +158,9 @@ function ChapterBox({
     return counts;
   }, [cards]);
 
+  // Each chapter has its own SortableContext to prevent cross-chapter interference
+  const sortedIds = useMemo(() => sortedCards.map(c => c.id), [sortedCards]);
+
   return (
     <Collapsible open={isOpen} onOpenChange={onToggle}>
       <CollapsibleTrigger className="w-full">
@@ -169,7 +172,7 @@ function ChapterBox({
             <span className="ml-2 text-xs text-muted-foreground">{cards.length}</span>
           </div>
           {/* Mini distribution bar */}
-          {mode === "auditor" && (
+          {mode === "auditor" && cards.length > 0 && (
             <div className="flex h-2 w-24 rounded-full overflow-hidden bg-secondary flex-shrink-0">
               {levelCounts.map((count, lvl) => {
                 if (count === 0) return null;
@@ -196,16 +199,18 @@ function ChapterBox({
           ref={setDropRef}
           className={`pl-4 pr-2 py-3 rounded-b-xl transition-colors ${isOver ? "bg-primary/5 ring-2 ring-primary/20" : ""}`}
         >
-          <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-2">
-            {sortedCards.map(card => (
-              <SortableCardTile
-                key={card.id}
-                card={card}
-                mode={mode}
-                onClick={() => onCardClick(card)}
-              />
-            ))}
-          </div>
+          <SortableContext items={sortedIds} strategy={rectSortingStrategy}>
+            <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-2">
+              {sortedCards.map(card => (
+                <SortableCardTile
+                  key={card.id}
+                  card={card}
+                  mode={mode}
+                  onClick={() => onCardClick(card)}
+                />
+              ))}
+            </div>
+          </SortableContext>
           {cards.length === 0 && (
             <p className="text-xs text-muted-foreground text-center py-4">Prevuci kartice ovdje</p>
           )}
@@ -779,14 +784,13 @@ export default function MentalSkeleton({ cards, subcategory, category, onBack, o
         )}
       </AnimatePresence>
 
-      {/* Chapters with DnD — single SortableContext for cross-chapter dragging */}
+      {/* Chapters with DnD — separate SortableContext per chapter */}
       <DndContext
         sensors={sensors}
         collisionDetection={closestCenter}
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
       >
-        <SortableContext items={subCards.map(c => c.id)} strategy={rectSortingStrategy}>
         <div className="space-y-2">
           {allChapters.map(chapter => (
             <ChapterBox
@@ -802,21 +806,18 @@ export default function MentalSkeleton({ cards, subcategory, category, onBack, o
             />
           ))}
 
-          {/* Unassigned */}
-          {(unassignedCards.length > 0 || allChapters.length > 0) && (
-            <ChapterBox
-              chapter={UNASSIGNED_CHAPTER}
-              cards={unassignedCards}
-              mode={mode}
-              isOpen={expandedChapters.has(UNASSIGNED_CHAPTER)}
-              onToggle={() => toggleChapter(UNASSIGNED_CHAPTER)}
-              onCardClick={handleCardClick}
-              onRename={() => {}}
-              onDelete={() => {}}
-            />
-          )}
+          {/* Nekategorisane — always visible */}
+          <ChapterBox
+            chapter={UNASSIGNED_CHAPTER}
+            cards={unassignedCards}
+            mode={mode}
+            isOpen={expandedChapters.has(UNASSIGNED_CHAPTER)}
+            onToggle={() => toggleChapter(UNASSIGNED_CHAPTER)}
+            onCardClick={handleCardClick}
+            onRename={() => {}}
+            onDelete={() => {}}
+          />
         </div>
-        </SortableContext>
 
         <DragOverlay>
           {activeCard && (
