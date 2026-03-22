@@ -124,7 +124,7 @@ function DraggableCardTile({ card, mode, onClick }: { card: Card; mode: Mode; on
 
 // ── Chapter Box (droppable on header) ──
 function ChapterBox({
-  chapter, cards, mode, isOpen, onToggle, onCardClick, onRename, onDelete,
+  chapter, cards, mode, isOpen, onToggle, onCardClick, onRename, onDelete, onMoveUp, onMoveDown,
 }: {
   chapter: string;
   cards: Card[];
@@ -134,6 +134,8 @@ function ChapterBox({
   onCardClick: (card: Card) => void;
   onRename: (oldName: string) => void;
   onDelete: (name: string) => void;
+  onMoveUp?: () => void;
+  onMoveDown?: () => void;
 }) {
   const isUnassigned = chapter === UNASSIGNED_CHAPTER;
   const displayName = isUnassigned ? "Nekategorisane" : chapter;
