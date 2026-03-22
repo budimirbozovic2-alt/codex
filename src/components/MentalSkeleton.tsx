@@ -784,7 +784,7 @@ export default function MentalSkeleton({ cards, subcategory, category, onBack, o
         onDragEnd={handleDragEnd}
       >
         <div className="space-y-2">
-          {allChapters.map(chapter => (
+          {allChapters.map((chapter, idx) => (
             <ChapterBox
               key={chapter}
               chapter={chapter}
@@ -795,6 +795,8 @@ export default function MentalSkeleton({ cards, subcategory, category, onBack, o
               onCardClick={handleCardClick}
               onRename={handleRenameChapter}
               onDelete={handleDeleteChapter}
+              onMoveUp={idx > 0 ? () => handleMoveChapter(idx, -1) : undefined}
+              onMoveDown={idx < allChapters.length - 1 ? () => handleMoveChapter(idx, 1) : undefined}
             />
           ))}
 
