@@ -56,15 +56,15 @@ function extractChapterNum(name: string): number | null {
   return match ? parseInt(match[1]) : null;
 }
 
-// ── Sortable Card Tile ──────────────────────────────────
-function SortableCardTile({ card, mode, onClick }: { card: Card; mode: Mode; onClick: () => void }) {
+// ── Draggable Card Tile ──────────────────────────────────
+function DraggableCardTile({ card, mode, onClick }: { card: Card; mode: Mode; onClick: () => void }) {
   const level = getCardMasteryLevel(card);
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: card.id });
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: card.id });
 
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: isDragging ? 0.4 : 1,
+  const style: React.CSSProperties = {
+    transform: transform ? `translate3d(${transform.x}px, ${transform.y}px, 0)` : undefined,
+    opacity: isDragging ? 0.3 : 1,
+    zIndex: isDragging ? 50 : undefined,
   };
 
   const bgColor = mode === "navigator"
@@ -115,14 +115,14 @@ function SortableCardTile({ card, mode, onClick }: { card: Card; mode: Mode; onC
           </p>
         )}
         {mode === "navigator" && (
-          <p className="text-[10px] text-muted-foreground mt-0.5">Klikni za učenje • Drži za pomjeranje</p>
+          <p className="text-[10px] text-muted-foreground mt-0.5">Klikni za učenje • Drži za pomjeranje u glavu</p>
         )}
       </TooltipContent>
     </Tooltip>
   );
 }
 
-// ── Chapter Box (with useDroppable for cross-chapter DnD) ──
+// ── Chapter Box (droppable on header) ──
 function ChapterBox({
   chapter, cards, mode, isOpen, onToggle, onCardClick, onRename, onDelete,
 }: {
@@ -142,64 +142,63 @@ function ChapterBox({
     [cards]
   );
 
-  // Make this chapter a drop target so cards can be dragged into empty chapters too
   const { setNodeRef: setDropRef, isOver } = useDroppable({
     id: `chapter-drop-${chapter}`,
     data: { type: "chapter", chapter },
   });
 
-  // Mastery distribution for this chapter
   const levelCounts = useMemo(() => {
     const counts = [0, 0, 0, 0, 0, 0];
     cards.forEach(c => counts[getCardMasteryLevel(c)]++);
     return counts;
   }, [cards]);
 
-  // Each chapter has its own SortableContext to prevent cross-chapter interference
-  const sortedIds = useMemo(() => sortedCards.map(c => c.id), [sortedCards]);
-
   return (
     <Collapsible open={isOpen} onOpenChange={onToggle}>
-      <CollapsibleTrigger className="w-full">
-        <div className="flex items-center gap-3 p-3 rounded-xl border bg-card hover:bg-secondary/30 transition-colors">
-          <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform flex-shrink-0 ${isOpen ? "" : "-rotate-90"}`} />
-          <BookOpen className="h-4 w-4 text-primary flex-shrink-0" />
-          <div className="flex-1 text-left min-w-0">
-            <span className="font-serif text-sm">{displayName}</span>
-            <span className="ml-2 text-xs text-muted-foreground">{cards.length}</span>
+      <div
+        ref={setDropRef}
+        className={`rounded-xl border transition-all duration-200 ${
+          isOver
+            ? "ring-2 ring-primary border-primary bg-primary/5 shadow-lg scale-[1.01]"
+            : "bg-card"
+        }`}
+      >
+        <CollapsibleTrigger className="w-full">
+          <div className={`flex items-center gap-3 p-3 rounded-xl transition-colors ${isOver ? "" : "hover:bg-secondary/30"}`}>
+            <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform flex-shrink-0 ${isOpen ? "" : "-rotate-90"}`} />
+            <BookOpen className="h-4 w-4 text-primary flex-shrink-0" />
+            <div className="flex-1 text-left min-w-0">
+              <span className={`font-serif text-sm transition-colors ${isOver ? "text-primary font-semibold" : ""}`}>{displayName}</span>
+              <span className="ml-2 text-xs text-muted-foreground">{cards.length}</span>
+              {isOver && <span className="ml-2 text-xs text-primary animate-pulse">← Pusti ovdje</span>}
+            </div>
+            {mode === "auditor" && cards.length > 0 && (
+              <div className="flex h-2 w-24 rounded-full overflow-hidden bg-secondary flex-shrink-0">
+                {levelCounts.map((count, lvl) => {
+                  if (count === 0) return null;
+                  return (
+                    <div key={lvl} style={{ width: `${(count / cards.length) * 100}%`, backgroundColor: getMasteryColor(lvl) }} />
+                  );
+                })}
+              </div>
+            )}
+            {!isUnassigned && mode === "navigator" && (
+              <div className="flex items-center gap-1 flex-shrink-0" onClick={e => e.stopPropagation()}>
+                <button onClick={() => onRename(chapter)} className="p-1 rounded hover:bg-secondary transition-colors">
+                  <Edit3 className="h-3 w-3 text-muted-foreground" />
+                </button>
+                <button onClick={() => onDelete(chapter)} className="p-1 rounded hover:bg-destructive/10 transition-colors">
+                  <Trash2 className="h-3 w-3 text-muted-foreground" />
+                </button>
+              </div>
+            )}
           </div>
-          {/* Mini distribution bar */}
-          {mode === "auditor" && cards.length > 0 && (
-            <div className="flex h-2 w-24 rounded-full overflow-hidden bg-secondary flex-shrink-0">
-              {levelCounts.map((count, lvl) => {
-                if (count === 0) return null;
-                return (
-                  <div key={lvl} style={{ width: `${(count / cards.length) * 100}%`, backgroundColor: getMasteryColor(lvl) }} />
-                );
-              })}
-            </div>
-          )}
-          {!isUnassigned && mode === "navigator" && (
-            <div className="flex items-center gap-1 flex-shrink-0" onClick={e => e.stopPropagation()}>
-              <button onClick={() => onRename(chapter)} className="p-1 rounded hover:bg-secondary transition-colors">
-                <Edit3 className="h-3 w-3 text-muted-foreground" />
-              </button>
-              <button onClick={() => onDelete(chapter)} className="p-1 rounded hover:bg-destructive/10 transition-colors">
-                <Trash2 className="h-3 w-3 text-muted-foreground" />
-              </button>
-            </div>
-          )}
-        </div>
-      </CollapsibleTrigger>
-      <CollapsibleContent>
-        <div
-          ref={setDropRef}
-          className={`pl-4 pr-2 py-3 rounded-b-xl transition-colors ${isOver ? "bg-primary/5 ring-2 ring-primary/20" : ""}`}
-        >
-          <SortableContext items={sortedIds} strategy={rectSortingStrategy}>
+        </CollapsibleTrigger>
+        <CollapsibleContent>
+          <div className="pl-4 pr-2 py-3">
             <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-2">
               {sortedCards.map(card => (
-                <SortableCardTile
+                <DraggableCardTile
                   key={card.id}
                   card={card}
                   mode={mode}
@@ -207,12 +206,12 @@ function ChapterBox({
                 />
               ))}
             </div>
-          </SortableContext>
-          {cards.length === 0 && (
-            <p className="text-xs text-muted-foreground text-center py-4">Prevuci kartice ovdje</p>
-          )}
-        </div>
-      </CollapsibleContent>
+            {cards.length === 0 && (
+              <p className="text-xs text-muted-foreground text-center py-4">Prevuci kartice ovdje</p>
+            )}
+          </div>
+        </CollapsibleContent>
+      </div>
     </Collapsible>
   );
 }
