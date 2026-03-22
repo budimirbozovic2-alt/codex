@@ -1,4 +1,4 @@
-import { useRef, useState, useEffect, useCallback, ReactNode } from "react";
+import { useRef, useState, useEffect, useCallback, ReactNode, forwardRef } from "react";
 import { default as ChevronLeft } from "lucide-react/dist/esm/icons/chevron-left";
 import { default as ChevronRight } from "lucide-react/dist/esm/icons/chevron-right";
 
@@ -7,7 +7,7 @@ interface Props {
   className?: string;
 }
 
-export default function ScrollableRow({ children, className = "" }: Props) {
+const ScrollableRow = forwardRef<HTMLDivElement, Props>(function ScrollableRow({ children, className = "" }, _ref) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
