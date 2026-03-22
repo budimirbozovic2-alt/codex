@@ -185,8 +185,6 @@ export async function idbSaveCards(cards: Card[]): Promise<void> {
     await db.cards.clear();
     await db.cards.bulkPut(cards);
   });
-  // Keep localStorage in sync for Electron auto-backup (non-blocking)
-  deferredLocalStorageSync("sr-essay-cards", () => JSON.stringify(cards));
 }
 
 export async function idbPutCard(card: Card): Promise<void> {
