@@ -180,26 +180,95 @@ export default function SpeedReader() {
     return () => { if (timerRef.current) clearInterval(timerRef.current); };
   }, [playing, wpm, totalWords]);
 
+  // TTS read-along: speak current segment text when playing with TTS enabled
+  useEffect(() => {
+    if (!ttsEnabled || !playing || !("speechSynthesis" in window)) return;
+    window.speechSynthesis.cancel();
+
+    // Build text from current word to end of current segment
+    const seg = getActiveSegment(segments, currentWordIdx);
+    if (!seg) return;
+    const localIdx = currentWordIdx - seg.globalStartIdx;
+    const remainingWords = seg.words.slice(localIdx);
+    if (remainingWords.length === 0) return;
+
+    const utterance = new SpeechSynthesisUtterance(remainingWords.join(" "));
+    utterance.lang = "sr-RS";
+    utterance.rate = ttsSettings.rate;
+
+    if (ttsSettings.voiceURI) {
+      const v = window.speechSynthesis.getVoices().find(v => v.voiceURI === ttsSettings.voiceURI);
+      if (v) utterance.voice = v;
+    }
+
+    // Sync word highlighting with TTS boundary events
+    let wordOffset = 0;
+    utterance.onboundary = (event) => {
+      if (event.name === "word") {
+        // Find which word index this corresponds to
+        const spokenSoFar = utterance.text.substring(0, event.charIndex);
+        const spokenWords = spokenSoFar.split(/\s+/).filter(Boolean).length;
+        const newGlobalIdx = seg.globalStartIdx + localIdx + spokenWords;
+        if (newGlobalIdx < seg.globalStartIdx + seg.words.length) {
+          setCurrentWordIdx(newGlobalIdx);
+        }
+      }
+    };
+
+    utterance.onend = () => {
+      // Move to next segment or stop
+      const nextSegIdx = segments.indexOf(seg) + 1;
+      if (nextSegIdx < segments.length) {
+        setCurrentWordIdx(segments[nextSegIdx].globalStartIdx);
+      } else {
+        setPlaying(false);
+      }
+    };
+
+    ttsUtteranceRef.current = utterance;
+    window.speechSynthesis.speak(utterance);
+
+    return () => {
+      window.speechSynthesis.cancel();
+    };
+  }, [ttsEnabled, playing, segments, currentWordIdx, ttsSettings]);
+
+  // When TTS is enabled, disable the WPM timer
+  useEffect(() => {
+    if (ttsEnabled && timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+  }, [ttsEnabled]);
+
   // Scroll highlighted word into view
   useEffect(() => {
     const el = wordRefs.current[currentWordIdx];
     if (el) el.scrollIntoView({ behavior: "smooth", block: "center", inline: "nearest" });
   }, [currentWordIdx]);
 
+  const stopTts = useCallback(() => {
+    if ("speechSynthesis" in window) window.speechSynthesis.cancel();
+    ttsUtteranceRef.current = null;
+  }, []);
+
   const handlePlayPause = useCallback(() => {
     if (totalWords === 0) return;
     if (currentWordIdx >= totalWords - 1) setCurrentWordIdx(0);
-    setPlaying(p => !p);
-  }, [totalWords, currentWordIdx]);
+    setPlaying(p => {
+      if (p) stopTts();
+      return !p;
+    });
+  }, [totalWords, currentWordIdx, stopTts]);
 
-  const handleReset = useCallback(() => { setPlaying(false); setCurrentWordIdx(0); }, []);
-  const handlePrevWord = () => { setPlaying(false); setCurrentWordIdx(prev => Math.max(0, prev - 1)); };
-  const handleNextWord = () => { setPlaying(false); setCurrentWordIdx(prev => Math.min(totalWords - 1, prev + 1)); };
+  const handleReset = useCallback(() => { setPlaying(false); setCurrentWordIdx(0); stopTts(); }, [stopTts]);
+  const handlePrevWord = () => { setPlaying(false); stopTts(); setCurrentWordIdx(prev => Math.max(0, prev - 1)); };
+  const handleNextWord = () => { setPlaying(false); stopTts(); setCurrentWordIdx(prev => Math.min(totalWords - 1, prev + 1)); };
 
   // Jump to segment
   const jumpToSegment = (segIdx: number) => {
     const seg = segments[segIdx];
-    if (seg) { setCurrentWordIdx(seg.globalStartIdx); setPlaying(false); }
+    if (seg) { setCurrentWordIdx(seg.globalStartIdx); setPlaying(false); stopTts(); }
   };
 
   // Keyboard shortcuts
