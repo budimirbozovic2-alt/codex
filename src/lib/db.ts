@@ -210,7 +210,6 @@ export async function idbSaveCategories(cats: string[]): Promise<void> {
     await db.categories.clear();
     await db.categories.bulkPut(cats.map(name => ({ id: name, name })));
   });
-  deferredLocalStorageSync("sr-essay-categories", () => JSON.stringify(cats));
 }
 
 export async function idbLoadSubcategories(): Promise<Record<string, string[]>> {
