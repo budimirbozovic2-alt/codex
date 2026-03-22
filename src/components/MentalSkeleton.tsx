@@ -784,14 +784,13 @@ export default function MentalSkeleton({ cards, subcategory, category, onBack, o
         )}
       </AnimatePresence>
 
-      {/* Chapters with DnD — single SortableContext for cross-chapter dragging */}
+      {/* Chapters with DnD — separate SortableContext per chapter */}
       <DndContext
         sensors={sensors}
         collisionDetection={closestCenter}
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
       >
-        <SortableContext items={subCards.map(c => c.id)} strategy={rectSortingStrategy}>
         <div className="space-y-2">
           {allChapters.map(chapter => (
             <ChapterBox
@@ -807,21 +806,18 @@ export default function MentalSkeleton({ cards, subcategory, category, onBack, o
             />
           ))}
 
-          {/* Unassigned */}
-          {(unassignedCards.length > 0 || allChapters.length > 0) && (
-            <ChapterBox
-              chapter={UNASSIGNED_CHAPTER}
-              cards={unassignedCards}
-              mode={mode}
-              isOpen={expandedChapters.has(UNASSIGNED_CHAPTER)}
-              onToggle={() => toggleChapter(UNASSIGNED_CHAPTER)}
-              onCardClick={handleCardClick}
-              onRename={() => {}}
-              onDelete={() => {}}
-            />
-          )}
+          {/* Nekategorisane — always visible */}
+          <ChapterBox
+            chapter={UNASSIGNED_CHAPTER}
+            cards={unassignedCards}
+            mode={mode}
+            isOpen={expandedChapters.has(UNASSIGNED_CHAPTER)}
+            onToggle={() => toggleChapter(UNASSIGNED_CHAPTER)}
+            onCardClick={handleCardClick}
+            onRename={() => {}}
+            onDelete={() => {}}
+          />
         </div>
-        </SortableContext>
 
         <DragOverlay>
           {activeCard && (
