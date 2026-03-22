@@ -301,10 +301,20 @@ const CardRowInner = memo(function CardRowInner({ card, expanded, highlighted, s
             </div>
             <p className="font-serif text-lg line-clamp-2">{card.question}</p>
           </div>
-          <div className="flex gap-1">
+          <div className="flex gap-1 flex-shrink-0">
             <button onClick={() => onToggleTag(card.id, "često-na-ispitu")} className={`p-2 rounded-lg transition-colors ${isFrequent ? "text-primary bg-primary/10 hover:bg-primary/20" : "text-muted-foreground/40 hover:text-muted-foreground hover:bg-secondary"}`} title={isFrequent ? "Često na ispitu (klikni da ukloniš)" : "Označi kao često na ispitu"}>
               <Flame className="h-4 w-4" />
             </button>
+            <CardContextMenu
+              card={card}
+              categories={categories}
+              subcategories={subcategories}
+              availableChapters={availableChapters}
+              onMoveCategory={onMoveCategory}
+              onAssignChapter={onAssignChapter}
+              onToggleTag={onToggleTag}
+              onCloneToMnemonic={onCloneToMnemonic}
+            />
             <button onClick={() => onExpand(expanded ? null : card.id)} className="p-2 hover:bg-secondary rounded-lg">
               {expanded ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
             </button>
