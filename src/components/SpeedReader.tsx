@@ -327,36 +327,50 @@ export default function SpeedReader() {
         <InfoPanel title="Speed Reader">{SPEED_READER_INFO}</InfoPanel>
       </div>
 
-      {/* Segment navigator (card/section jumps) */}
-      {segments.length > 1 && (
+      {/* Card-level navigator (questions) */}
+      {readMode === "subcategory" && selectedCards.length > 1 && (
         <ScrollableRow>
-          {segments.map((seg, i) => {
-            const isActive = i === activeSegIdx;
-            const isPast = activeSegIdx > i;
+          {selectedCards.map((card, ci) => {
+            const isActive = activeSegment?.cardIndex === ci;
+            const isPast = activeSegment ? activeSegment.cardIndex > ci : false;
+            // Jump to first segment of this card
+            const firstSeg = segments.find(s => s.cardIndex === ci);
             return (
               <button
-                key={i}
-                onClick={() => jumpToSegment(i)}
-                className={`px-3 py-1.5 rounded-md text-[11px] font-medium transition-all whitespace-nowrap flex-shrink-0 flex items-center gap-1.5 ${
+                key={card.id}
+                onClick={() => { if (firstSeg) { setCurrentWordIdx(firstSeg.globalStartIdx); setPlaying(false); } }}
+                className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all whitespace-nowrap flex-shrink-0 flex items-center gap-1.5 ${
                   isActive ? "bg-primary text-primary-foreground shadow-sm" : isPast ? "text-muted-foreground/50 bg-secondary/50" : "text-muted-foreground hover:text-foreground hover:bg-secondary"
                 }`}
-                title={seg.cardQuestion}
               >
-                <FileText className="h-3 w-3 flex-shrink-0" />
-                <span className="max-w-[120px] truncate">{seg.sectionTitle || seg.cardQuestion}</span>
+                <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${isActive ? "bg-primary-foreground/20" : "bg-secondary"}`}>{ci + 1}</span>
+                <span className="max-w-[180px] truncate">{card.question}</span>
               </button>
             );
           })}
         </ScrollableRow>
       )}
 
-      {/* Current section indicator */}
-      {readMode === "subcategory" && activeSegment && (
-        <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-secondary/50 text-xs">
-          <BookOpen className="h-3.5 w-3.5 text-primary flex-shrink-0" />
-          <span className="font-medium text-primary">{activeSegment.sectionTitle}</span>
-          <span className="text-muted-foreground ml-auto">Sekcija {activeSegIdx + 1}/{segments.length}</span>
-        </div>
+      {/* Segment navigator (section jumps) */}
+      {segments.length > 1 && (
+        <ScrollableRow className="pl-3 border-l-2 border-primary/20 ml-1">
+          {segments.filter(s => !activeSegment || s.cardIndex === activeSegment.cardIndex).map((seg) => {
+            const segIdx = segments.indexOf(seg);
+            const isActive = segIdx === activeSegIdx;
+            return (
+              <button
+                key={segIdx}
+                onClick={() => jumpToSegment(segIdx)}
+                className={`px-2.5 py-1 rounded-md text-[11px] font-medium transition-all whitespace-nowrap flex-shrink-0 flex items-center gap-1.5 ${
+                  isActive ? "bg-primary/15 text-primary" : "text-muted-foreground hover:text-foreground hover:bg-secondary"
+                }`}
+              >
+                <FileText className="h-3 w-3 flex-shrink-0" />
+                <span className="max-w-[140px] truncate">{seg.sectionTitle}</span>
+              </button>
+            );
+          })}
+        </ScrollableRow>
       )}
 
       {/* Controls bar */}
