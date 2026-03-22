@@ -24,7 +24,6 @@ interface Props {
 }
 
 const MNEMONIC_KEY = ["mnemonicCards"] as const;
-const MNEMO_ONBOARDING_KEY = "sr-mnemo-onboarding-seen";
 
 const MNEMO_ONBOARDING_KEY = "sr-mnemo-onboarding-seen";
 
