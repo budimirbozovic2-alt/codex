@@ -166,7 +166,17 @@ function WorkshopCardItemInner({ card, isExpanded, onToggle, onUpdateCard, onDel
                       </div>
                       {editSections.map((s, i) => (
                         <div key={i}>
-                          <label className="text-[11px] text-muted-foreground">{s.title}</label>
+                          <div className="flex items-center justify-between">
+                            <label className="text-[11px] text-muted-foreground">{s.title}</label>
+                            {editSections.length > 1 && (
+                              <button
+                                onClick={() => setEditSections(prev => prev.filter((_, idx) => idx !== i))}
+                                className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-destructive transition-colors"
+                              >
+                                <Trash2 className="h-3 w-3" /> Obriši cjelinu
+                              </button>
+                            )}
+                          </div>
                           <RichTextEditor
                             value={s.content}
                             onChange={val => updateSectionContent(i, val)}
