@@ -44,6 +44,7 @@ const LAB_ITEMS = [
   { path: "/metacognitive", icon: BookOpen, label: "Dnevnik", desc: "Metakognitivne refleksije" },
   { path: "/mnemonic", icon: Brain, label: "Mnemo radionica", desc: "Tehnike pamćenja" },
   { path: "/planner", icon: Target, label: "Strateški planer", desc: "Planiranje učenja" },
+  { path: "/speed-reader", icon: Zap, label: "Speed Reader", desc: "Brzo čitanje podkategorija" },
 ];
 
 const LAB_PATHS = LAB_ITEMS.map(i => i.path);
