@@ -93,8 +93,8 @@ function createWindow(splash) {
     minWidth: 900,
     minHeight: 670,
     show: false,
-    icon: getPublicPath('favicon.ico'),
-    backgroundColor: '#1a1209', // match splash bg to prevent white flash
+    icon: getPublicPath('icon.ico'),
+    backgroundColor: '#0a1628', // match dark blue splash bg
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
