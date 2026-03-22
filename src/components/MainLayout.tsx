@@ -81,6 +81,13 @@ export default function MainLayout({ children }: { children: ReactNode }) {
           }}
         />
       </Suspense>
+      <AnimatePresence>
+        {showAppOnboarding && (
+          <Suspense fallback={null}>
+            <AppOnboarding onComplete={() => setShowAppOnboarding(false)} />
+          </Suspense>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
