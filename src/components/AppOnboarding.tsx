@@ -1,4 +1,5 @@
 import { default as Sparkles } from "lucide-react/dist/esm/icons/sparkles";
+import { default as LayoutDashboard } from "lucide-react/dist/esm/icons/layout-dashboard";
 import { default as GraduationCap } from "lucide-react/dist/esm/icons/graduation-cap";
 import { default as RotateCcw } from "lucide-react/dist/esm/icons/rotate-ccw";
 import { default as Map } from "lucide-react/dist/esm/icons/map";
@@ -20,6 +21,17 @@ const APP_SLIDES: OnboardingSlide[] = [
       "Sve kartice se automatski raspoređuju po FSRS algoritmu",
       "Sistem prati stabilnost, težinu i greške za svaku cjelinu",
       "Tvoj cilj: savladaj gradivo kroz aktivno prisjećanje",
+    ],
+  },
+  {
+    icon: LayoutDashboard,
+    iconColor: "bg-primary/15 text-primary",
+    title: "Kontrolna tabla",
+    content: "Centralni pregled napretka sa dnevnim ciljem, streikom i preporukama.",
+    bullets: [
+      "Progres ispita, dnevni cilj i streak na jednom mjestu",
+      "Idealni fokus — optimalan omjer novog i ponavljanog",
+      "Statusne ikone upozoravaju na rizike i propuste",
     ],
   },
   {
