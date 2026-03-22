@@ -350,14 +350,12 @@ export default function SpeedReader() {
         </ScrollableRow>
       )}
 
-      {/* Current card indicator */}
+      {/* Current section indicator */}
       {readMode === "subcategory" && activeSegment && (
         <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-secondary/50 text-xs">
           <BookOpen className="h-3.5 w-3.5 text-primary flex-shrink-0" />
-          <span className="text-muted-foreground">Kartica {activeSegment.cardIndex + 1}/{selectedCards.length}:</span>
-          <span className="font-medium truncate">{activeSegment.cardQuestion}</span>
-          <span className="text-muted-foreground">›</span>
-          <span className="text-primary truncate">{activeSegment.sectionTitle}</span>
+          <span className="font-medium text-primary">{activeSegment.sectionTitle}</span>
+          <span className="text-muted-foreground ml-auto">Sekcija {activeSegIdx + 1}/{segments.length}</span>
         </div>
       )}
 
