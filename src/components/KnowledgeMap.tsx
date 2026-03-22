@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef, lazy, Suspense } from "react";
+import { useState, useMemo, useRef, useCallback, lazy, Suspense } from "react";
 import { Card, SectionState } from "@/lib/spaced-repetition";
 import { motion, AnimatePresence } from "framer-motion";
 import { default as ArrowLeft } from "lucide-react/dist/esm/icons/arrow-left";
@@ -7,6 +7,9 @@ import { default as Search } from "lucide-react/dist/esm/icons/search";
 import { default as BookOpen } from "lucide-react/dist/esm/icons/book-open";
 import { default as BarChart3 } from "lucide-react/dist/esm/icons/bar-chart-3";
 import { default as HelpCircle } from "lucide-react/dist/esm/icons/help-circle";
+import { default as ArrowUp } from "lucide-react/dist/esm/icons/arrow-up";
+import { default as ArrowDown } from "lucide-react/dist/esm/icons/arrow-down";
+import { default as ListOrdered } from "lucide-react/dist/esm/icons/list-ordered";
 import { TabSkeleton } from "@/components/ui/page-skeleton";
 
 const MentalSkeleton = lazy(() => import("@/components/MentalSkeleton"));
@@ -18,6 +21,8 @@ interface Props {
   onBack: () => void;
   onUpdateChapters?: (updates: { id: string; chapter: string; chapterOrder: number }[]) => void;
   onReviewSection?: (cardId: string, sectionId: string, grade: number) => void;
+  onReorderCategories?: (ordered: string[]) => void;
+  onReorderSubcategories?: (category: string, ordered: string[]) => void;
 }
 
 export interface MasteryLevel {
@@ -60,15 +65,20 @@ type ViewState =
   | { step: "subcategories"; category: string }
   | { step: "detail"; category: string; subcategory: string };
 
-export default function KnowledgeMap({ cards, categories, subcategories, onBack, onUpdateChapters, onReviewSection }: Props) {
+export default function KnowledgeMap({
+  cards, categories, subcategories, onBack, onUpdateChapters, onReviewSection,
+  onReorderCategories, onReorderSubcategories,
+}: Props) {
   const [view, setView] = useState<ViewState>({ step: "categories" });
   const [searchQuery, setSearchQuery] = useState("");
-  const directionRef = useRef(1); // 1 = forward (drill down), -1 = back
+  const [reorderMode, setReorderMode] = useState(false);
+  const directionRef = useRef(1);
 
   const navigate = (next: ViewState) => {
     const stepOrder = { categories: 0, subcategories: 1, detail: 2 };
     directionRef.current = stepOrder[next.step] > stepOrder[view.step] ? 1 : -1;
     setSearchQuery("");
+    setReorderMode(false);
     setView(next);
   };
 
@@ -79,6 +89,14 @@ export default function KnowledgeMap({ cards, categories, subcategories, onBack,
   };
 
   const transition = { type: "tween" as const, duration: 0.25, ease: "easeInOut" as const };
+
+  // Helper to swap items in array
+  const moveItem = useCallback(<T,>(arr: T[], from: number, to: number): T[] => {
+    const result = [...arr];
+    const [item] = result.splice(from, 1);
+    result.splice(to, 0, item);
+    return result;
+  }, []);
 
   // ── Step 3: Detail view via MentalSkeleton ──
   if (view.step === "detail" && onUpdateChapters && onReviewSection) {
@@ -131,6 +149,13 @@ export default function KnowledgeMap({ cards, categories, subcategories, onBack,
     const q = searchQuery.toLowerCase();
     const filtered = q ? subsWithStats.filter((s) => s.name.toLowerCase().includes(q)) : subsWithStats;
 
+    const handleMoveSub = (index: number, direction: -1 | 1) => {
+      if (!onReorderSubcategories) return;
+      const newIndex = index + direction;
+      if (newIndex < 0 || newIndex >= subs.length) return;
+      onReorderSubcategories(cat, moveItem(subs, index, newIndex));
+    };
+
     return (
       <motion.div
         key="subcategories"
@@ -145,40 +170,70 @@ export default function KnowledgeMap({ cards, categories, subcategories, onBack,
           title={cat}
           subtitle={`${catCards.length} kartica u ${subsWithStats.length} potkategorija`}
           onBack={() => navigate({ step: "categories" })}
+          reorderMode={reorderMode}
+          onToggleReorder={onReorderSubcategories ? () => setReorderMode(r => !r) : undefined}
         />
-        <SearchBar value={searchQuery} onChange={setSearchQuery} placeholder="Pretraži potkategorije..." />
+        {!reorderMode && <SearchBar value={searchQuery} onChange={setSearchQuery} placeholder="Pretraži potkategorije..." />}
 
         <div className="grid gap-3 sm:grid-cols-2">
-          {filtered.map(({ name, count, levels }, i) => (
-            <motion.button
-              key={name}
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: i * 0.04, duration: 0.25 }}
-              onClick={() => {
-                if (onUpdateChapters && onReviewSection) {
-                  navigate({ step: "detail", category: cat, subcategory: name });
-                }
-              }}
-              className="group flex items-center gap-4 p-4 rounded-xl border bg-card hover:bg-secondary/40 transition-colors text-left"
-            >
-              <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                <BookOpen className="h-5 w-5 text-primary" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="font-medium text-sm truncate">{name}</p>
-                <p className="text-xs text-muted-foreground mt-0.5">{count} kartica</p>
-                <div className="flex h-1.5 w-full rounded-full overflow-hidden bg-secondary mt-2">
-                  {levels.map((c, lvl) =>
-                    c > 0 ? (
-                      <div key={lvl} style={{ width: `${(c / count) * 100}%`, backgroundColor: getMasteryColor(lvl) }} />
-                    ) : null
+          {filtered.map(({ name, count, levels }, i) => {
+            const realIndex = subs.indexOf(name);
+            const isOstalo = name === "Ostalo";
+            return (
+              <motion.div
+                key={name}
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: i * 0.04, duration: 0.25 }}
+                className="group flex items-center gap-2"
+              >
+                {reorderMode && !isOstalo && (
+                  <div className="flex flex-col gap-0.5 flex-shrink-0">
+                    <button
+                      onClick={() => handleMoveSub(realIndex, -1)}
+                      disabled={realIndex <= 0}
+                      className="p-1 rounded hover:bg-secondary disabled:opacity-20 transition-colors"
+                    >
+                      <ArrowUp className="h-3 w-3" />
+                    </button>
+                    <button
+                      onClick={() => handleMoveSub(realIndex, 1)}
+                      disabled={realIndex >= subs.length - 1}
+                      className="p-1 rounded hover:bg-secondary disabled:opacity-20 transition-colors"
+                    >
+                      <ArrowDown className="h-3 w-3" />
+                    </button>
+                  </div>
+                )}
+                <button
+                  onClick={() => {
+                    if (!reorderMode && onUpdateChapters && onReviewSection) {
+                      navigate({ step: "detail", category: cat, subcategory: name });
+                    }
+                  }}
+                  className="flex-1 flex items-center gap-4 p-4 rounded-xl border bg-card hover:bg-secondary/40 transition-colors text-left"
+                >
+                  <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                    <BookOpen className="h-5 w-5 text-primary" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-sm truncate">{name}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">{count} kartica</p>
+                    <div className="flex h-1.5 w-full rounded-full overflow-hidden bg-secondary mt-2">
+                      {levels.map((c, lvl) =>
+                        c > 0 ? (
+                          <div key={lvl} style={{ width: `${(c / count) * 100}%`, backgroundColor: getMasteryColor(lvl) }} />
+                        ) : null
+                      )}
+                    </div>
+                  </div>
+                  {!reorderMode && (
+                    <ChevronRight className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
                   )}
-                </div>
-              </div>
-              <ChevronRight className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
-            </motion.button>
-          ))}
+                </button>
+              </motion.div>
+            );
+          })}
         </div>
 
         {filtered.length === 0 && <EmptyMessage text={searchQuery ? "Nema rezultata pretrage" : "Nema potkategorija"} />}
@@ -203,6 +258,13 @@ export default function KnowledgeMap({ cards, categories, subcategories, onBack,
 
   const filteredCats = q ? catsWithStats.filter((c) => c.name.toLowerCase().includes(q)) : catsWithStats;
 
+  const handleMoveCat = (index: number, direction: -1 | 1) => {
+    if (!onReorderCategories) return;
+    const newIndex = index + direction;
+    if (newIndex < 0 || newIndex >= categories.length) return;
+    onReorderCategories(moveItem(categories, index, newIndex));
+  };
+
   return (
     <motion.div
       key="categories"
@@ -213,50 +275,85 @@ export default function KnowledgeMap({ cards, categories, subcategories, onBack,
       transition={transition}
       className="space-y-6"
     >
-      <Header title="Mapa Znanja" subtitle="Odaberi predmet za detaljan pregled" onBack={onBack} />
-      <SearchBar value={searchQuery} onChange={setSearchQuery} placeholder="Pretraži kategorije..." />
+      <Header
+        title="Mapa Znanja"
+        subtitle="Odaberi predmet za detaljan pregled"
+        onBack={onBack}
+        reorderMode={reorderMode}
+        onToggleReorder={onReorderCategories ? () => setReorderMode(r => !r) : undefined}
+      />
+      {!reorderMode && <SearchBar value={searchQuery} onChange={setSearchQuery} placeholder="Pretraži kategorije..." />}
 
       {/* Legend */}
-      <div className="flex flex-wrap gap-3 p-3 rounded-xl border bg-card">
-        {MASTERY_LEVELS.map((ml) => (
-          <div key={ml.level} className="flex items-center gap-1.5 text-xs">
-            <div className="w-3 h-3 rounded" style={{ backgroundColor: ml.color }} />
-            <span className="text-muted-foreground">{ml.label}</span>
-          </div>
-        ))}
-      </div>
+      {!reorderMode && (
+        <div className="flex flex-wrap gap-3 p-3 rounded-xl border bg-card">
+          {MASTERY_LEVELS.map((ml) => (
+            <div key={ml.level} className="flex items-center gap-1.5 text-xs">
+              <div className="w-3 h-3 rounded" style={{ backgroundColor: ml.color }} />
+              <span className="text-muted-foreground">{ml.label}</span>
+            </div>
+          ))}
+        </div>
+      )}
 
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        {filteredCats.map(({ name, cardCount, subCount, levels }, i) => (
-          <motion.button
-            key={name}
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: i * 0.05, duration: 0.25 }}
-            onClick={() => navigate({ step: "subcategories", category: name })}
-            className="group flex flex-col gap-3 p-5 rounded-xl border bg-card hover:bg-secondary/40 transition-colors text-left"
-          >
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                  <BarChart3 className="h-5 w-5 text-primary" />
+      <div className={`grid gap-3 ${reorderMode ? "" : "sm:grid-cols-2 lg:grid-cols-3"}`}>
+        {filteredCats.map(({ name, cardCount, subCount, levels }, i) => {
+          const realIndex = categories.indexOf(name);
+          return (
+            <motion.div
+              key={name}
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: i * 0.05, duration: 0.25 }}
+              className="group flex items-center gap-2"
+            >
+              {reorderMode && (
+                <div className="flex flex-col gap-0.5 flex-shrink-0">
+                  <button
+                    onClick={() => handleMoveCat(realIndex, -1)}
+                    disabled={realIndex <= 0}
+                    className="p-1 rounded hover:bg-secondary disabled:opacity-20 transition-colors"
+                  >
+                    <ArrowUp className="h-3 w-3" />
+                  </button>
+                  <button
+                    onClick={() => handleMoveCat(realIndex, 1)}
+                    disabled={realIndex >= categories.length - 1}
+                    className="p-1 rounded hover:bg-secondary disabled:opacity-20 transition-colors"
+                  >
+                    <ArrowDown className="h-3 w-3" />
+                  </button>
                 </div>
-                <div>
-                  <p className="font-serif text-base font-medium">{name}</p>
-                  <p className="text-xs text-muted-foreground">{cardCount} kartica • {subCount} potkategorija</p>
-                </div>
-              </div>
-              <ChevronRight className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
-            </div>
-            <div className="flex h-2 w-full rounded-full overflow-hidden bg-secondary">
-              {levels.map((c, lvl) =>
-                c > 0 ? (
-                  <div key={lvl} style={{ width: `${(c / cardCount) * 100}%`, backgroundColor: getMasteryColor(lvl) }} />
-                ) : null
               )}
-            </div>
-          </motion.button>
-        ))}
+              <button
+                onClick={() => !reorderMode && navigate({ step: "subcategories", category: name })}
+                className="flex-1 flex flex-col gap-3 p-5 rounded-xl border bg-card hover:bg-secondary/40 transition-colors text-left"
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                      <BarChart3 className="h-5 w-5 text-primary" />
+                    </div>
+                    <div>
+                      <p className="font-serif text-base font-medium">{name}</p>
+                      <p className="text-xs text-muted-foreground">{cardCount} kartica • {subCount} potkategorija</p>
+                    </div>
+                  </div>
+                  {!reorderMode && (
+                    <ChevronRight className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                  )}
+                </div>
+                <div className="flex h-2 w-full rounded-full overflow-hidden bg-secondary">
+                  {levels.map((c, lvl) =>
+                    c > 0 ? (
+                      <div key={lvl} style={{ width: `${(c / cardCount) * 100}%`, backgroundColor: getMasteryColor(lvl) }} />
+                    ) : null
+                  )}
+                </div>
+              </button>
+            </motion.div>
+          );
+        })}
       </div>
 
       {filteredCats.length === 0 && <EmptyMessage text={searchQuery ? "Nema rezultata pretrage" : "Nema kartica za prikaz"} />}
@@ -266,16 +363,35 @@ export default function KnowledgeMap({ cards, categories, subcategories, onBack,
 
 // ── Shared small components ──
 
-function Header({ title, subtitle, onBack }: { title: string; subtitle: string; onBack: () => void }) {
+function Header({ title, subtitle, onBack, reorderMode, onToggleReorder }: {
+  title: string;
+  subtitle: string;
+  onBack: () => void;
+  reorderMode?: boolean;
+  onToggleReorder?: () => void;
+}) {
   return (
     <div className="flex items-center gap-4">
       <button onClick={onBack} className="p-2 rounded-lg hover:bg-secondary transition-colors">
         <ArrowLeft className="h-5 w-5" />
       </button>
-      <div>
+      <div className="flex-1">
         <h2 className="text-2xl font-serif">{title}</h2>
         <p className="text-sm text-muted-foreground mt-0.5">{subtitle}</p>
       </div>
+      {onToggleReorder && (
+        <button
+          onClick={onToggleReorder}
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+            reorderMode
+              ? "bg-primary text-primary-foreground"
+              : "border text-muted-foreground hover:text-foreground hover:bg-secondary"
+          }`}
+        >
+          <ListOrdered className="h-3.5 w-3.5" />
+          {reorderMode ? "Gotovo" : "Redoslijed"}
+        </button>
+      )}
     </div>
   );
 }
