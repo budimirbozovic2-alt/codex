@@ -27,6 +27,7 @@ const MetacognitivePage = lazy(() => import("@/views/MetacognitivePage"));
 const FrequentErrorsPage = lazy(() => import("@/views/FrequentErrorsPage"));
 const MajorSystemPage = lazy(() => import("@/views/MajorSystemPage"));
 const DatabasePage = lazy(() => import("@/views/DatabasePage"));
+const SpeedReaderPage = lazy(() => import("@/views/SpeedReaderPage"));
 
 const queryClient = new QueryClient();
 
