@@ -440,29 +440,47 @@ export default function SpeedReader() {
         </div>
       </div>
 
-      {/* Text display with section dividers */}
+      {/* Text display with inline section titles */}
       <div className="rounded-xl border bg-card p-6 sm:p-8 min-h-[40vh] max-h-[60vh] overflow-y-auto">
-        {allWords.length === 0 ? (
+        {totalWords === 0 ? (
           <p className="text-muted-foreground text-center py-12">Nema tekstualnog sadržaja.</p>
         ) : (
-          <div className="space-y-6">
+          <div className="space-y-8">
             {segments.map((seg, segIdx) => {
-              const segEnd = seg.globalStartIdx + seg.words.length;
               const isCurrentSeg = activeSegment === seg;
+              const titleWordCount = (seg.sectionTitle || "").split(/\s+/).filter(Boolean).length;
               return (
                 <div key={segIdx}>
-                  {/* Section divider */}
-                  {(segments.length > 1) && (
-                    <div className={`flex items-center gap-2 mb-3 pb-2 border-b transition-colors ${isCurrentSeg ? "border-primary/30" : "border-border"}`}>
-                      <BookOpen className={`h-3.5 w-3.5 flex-shrink-0 ${isCurrentSeg ? "text-primary" : "text-muted-foreground/40"}`} />
-                      <span className={`text-sm font-semibold ${isCurrentSeg ? "text-primary" : "text-muted-foreground/60"}`}>
-                        {seg.sectionTitle}
-                      </span>
+                  {/* Title words — rendered as a prominent heading, but part of the reading flow */}
+                  {titleWordCount > 0 && (
+                    <div className={`mb-4 pt-4 ${segIdx > 0 ? "border-t-2 border-primary/20" : ""}`}>
+                      <h3 className="text-2xl font-bold font-serif select-none flex flex-wrap gap-1">
+                        {seg.words.slice(0, titleWordCount).map((word, wi) => {
+                          const globalIdx = seg.globalStartIdx + wi;
+                          return (
+                            <span
+                              key={globalIdx}
+                              ref={el => { wordRefs.current[globalIdx] = el; }}
+                              className={`inline-block py-1 px-1 rounded transition-all duration-150 cursor-pointer ${
+                                globalIdx === currentWordIdx
+                                  ? "bg-primary text-primary-foreground scale-105 shadow-md"
+                                  : globalIdx < currentWordIdx
+                                  ? "text-muted-foreground/50"
+                                  : isCurrentSeg ? "text-foreground" : "text-muted-foreground/70"
+                              }`}
+                              onClick={() => { setCurrentWordIdx(globalIdx); setPlaying(false); }}
+                            >
+                              {word}
+                            </span>
+                          );
+                        })}
+                      </h3>
                     </div>
                   )}
+                  {/* Content words */}
                   <p className={`${fontSize} leading-relaxed font-serif select-none`}>
-                    {seg.words.map((word, wi) => {
-                      const globalIdx = seg.globalStartIdx + wi;
+                    {seg.words.slice(titleWordCount).map((word, wi) => {
+                      const globalIdx = seg.globalStartIdx + titleWordCount + wi;
                       return (
                         <span
                           key={globalIdx}
