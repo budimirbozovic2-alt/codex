@@ -37,29 +37,42 @@ interface Segment {
   cardIndex: number;
   sectionIndex: number;
   words: string[];
-  globalStartIdx: number; // index into flat word array
+  globalStartIdx: number;
 }
 
-function buildSegments(selectedCards: Card[]): { segments: Segment[]; allWords: string[] } {
+// Each word in the flat array knows if it's a title word
+interface WordEntry {
+  text: string;
+  isTitle: boolean;       // section title word
+  segmentIdx: number;
+}
+
+function buildSegments(selectedCards: Card[]): { segments: Segment[]; wordEntries: WordEntry[] } {
   const segments: Segment[] = [];
-  const allWords: string[] = [];
+  const wordEntries: WordEntry[] = [];
   selectedCards.forEach((card, ci) => {
     card.sections.forEach((sec, si) => {
-      const text = stripHtml(sec.content);
-      const words = text.split(/\s+/).filter(Boolean);
-      if (words.length === 0) return;
+      const titleWords = (sec.title || "").split(/\s+/).filter(Boolean);
+      const contentText = stripHtml(sec.content);
+      const contentWords = contentText.split(/\s+/).filter(Boolean);
+      if (titleWords.length === 0 && contentWords.length === 0) return;
+      const segIdx = segments.length;
+      const globalStart = wordEntries.length;
+      // Add title words
+      titleWords.forEach(w => wordEntries.push({ text: w, isTitle: true, segmentIdx: segIdx }));
+      // Add content words
+      contentWords.forEach(w => wordEntries.push({ text: w, isTitle: false, segmentIdx: segIdx }));
       segments.push({
         cardQuestion: card.question,
         sectionTitle: sec.title,
         cardIndex: ci,
         sectionIndex: si,
-        words,
-        globalStartIdx: allWords.length,
+        words: [...titleWords, ...contentWords],
+        globalStartIdx: globalStart,
       });
-      allWords.push(...words);
     });
   });
-  return { segments, allWords };
+  return { segments, wordEntries };
 }
 
 function getActiveSegment(segments: Segment[], wordIdx: number): Segment | null {
@@ -118,7 +131,8 @@ export default function SpeedReader() {
     return [];
   }, [readMode, selCard, filteredCards]);
 
-  const { segments, allWords } = useMemo(() => buildSegments(selectedCards), [selectedCards]);
+  const { segments, wordEntries } = useMemo(() => buildSegments(selectedCards), [selectedCards]);
+  const totalWords = wordEntries.length;
 
   const activeSegment = getActiveSegment(segments, currentWordIdx);
 
@@ -127,15 +141,15 @@ export default function SpeedReader() {
     setCurrentWordIdx(0);
     setPlaying(false);
     wordRefs.current = [];
-  }, [allWords.length, readerActive]);
+  }, [totalWords, readerActive]);
 
   // Timer
   useEffect(() => {
-    if (playing && allWords.length > 0) {
+    if (playing && totalWords > 0) {
       const interval = 60000 / wpm;
       timerRef.current = setInterval(() => {
         setCurrentWordIdx(prev => {
-          if (prev >= allWords.length - 1) {
+          if (prev >= totalWords - 1) {
             setPlaying(false);
             return prev;
           }
@@ -144,7 +158,7 @@ export default function SpeedReader() {
       }, interval);
     }
     return () => { if (timerRef.current) clearInterval(timerRef.current); };
-  }, [playing, wpm, allWords.length]);
+  }, [playing, wpm, totalWords]);
 
   // Scroll highlighted word into view
   useEffect(() => {
@@ -153,14 +167,14 @@ export default function SpeedReader() {
   }, [currentWordIdx]);
 
   const handlePlayPause = useCallback(() => {
-    if (allWords.length === 0) return;
-    if (currentWordIdx >= allWords.length - 1) setCurrentWordIdx(0);
+    if (totalWords === 0) return;
+    if (currentWordIdx >= totalWords - 1) setCurrentWordIdx(0);
     setPlaying(p => !p);
-  }, [allWords.length, currentWordIdx]);
+  }, [totalWords, currentWordIdx]);
 
   const handleReset = useCallback(() => { setPlaying(false); setCurrentWordIdx(0); }, []);
   const handlePrevWord = () => { setPlaying(false); setCurrentWordIdx(prev => Math.max(0, prev - 1)); };
-  const handleNextWord = () => { setPlaying(false); setCurrentWordIdx(prev => Math.min(allWords.length - 1, prev + 1)); };
+  const handleNextWord = () => { setPlaying(false); setCurrentWordIdx(prev => Math.min(totalWords - 1, prev + 1)); };
 
   // Jump to segment
   const jumpToSegment = (segIdx: number) => {
@@ -180,7 +194,7 @@ export default function SpeedReader() {
     return () => window.removeEventListener("keydown", handler);
   }, [handlePlayPause]);
 
-  const progress = allWords.length > 0 ? ((currentWordIdx + 1) / allWords.length) * 100 : 0;
+  const progress = totalWords > 0 ? ((currentWordIdx + 1) / totalWords) * 100 : 0;
 
   const startSubcategoryRead = () => {
     if (filteredCards.length === 0) return;
@@ -314,7 +328,7 @@ export default function SpeedReader() {
                   <Layers className="h-5 w-5 text-primary" />
                   {selSub || selCat || "Sve kartice"}
                 </h2>
-                <p className="text-xs text-muted-foreground">{selectedCards.length} kartica · {allWords.length.toLocaleString()} riječi</p>
+                <p className="text-xs text-muted-foreground">{selectedCards.length} kartica · {totalWords.toLocaleString()} riječi</p>
               </>
             ) : (
               <>
@@ -383,7 +397,7 @@ export default function SpeedReader() {
             <button onClick={handlePlayPause} className="p-3 rounded-xl bg-primary text-primary-foreground hover:opacity-90 transition-opacity">
               {playing ? <Pause className="h-5 w-5" /> : <Play className="h-5 w-5" />}
             </button>
-            <button onClick={handleNextWord} disabled={currentWordIdx >= allWords.length - 1} className="p-2 rounded-lg hover:bg-secondary disabled:opacity-30 transition-colors">
+            <button onClick={handleNextWord} disabled={currentWordIdx >= totalWords - 1} className="p-2 rounded-lg hover:bg-secondary disabled:opacity-30 transition-colors">
               <ChevronRight className="h-4 w-4" />
             </button>
             <button onClick={handleReset} className="p-2 rounded-lg hover:bg-secondary transition-colors" title="Resetuj">
@@ -420,35 +434,53 @@ export default function SpeedReader() {
             <div className="h-full rounded-full bg-primary transition-all duration-200" style={{ width: `${progress}%` }} />
           </div>
           <div className="flex justify-between text-[10px] text-muted-foreground">
-            <span>Riječ {currentWordIdx + 1} / {allWords.length}</span>
-            <span>{Math.ceil((allWords.length - currentWordIdx) / wpm)} min preostalo</span>
+            <span>Riječ {currentWordIdx + 1} / {totalWords}</span>
+            <span>{Math.ceil((totalWords - currentWordIdx) / wpm)} min preostalo</span>
           </div>
         </div>
       </div>
 
-      {/* Text display with section dividers */}
+      {/* Text display with inline section titles */}
       <div className="rounded-xl border bg-card p-6 sm:p-8 min-h-[40vh] max-h-[60vh] overflow-y-auto">
-        {allWords.length === 0 ? (
+        {totalWords === 0 ? (
           <p className="text-muted-foreground text-center py-12">Nema tekstualnog sadržaja.</p>
         ) : (
-          <div className="space-y-6">
+          <div className="space-y-8">
             {segments.map((seg, segIdx) => {
-              const segEnd = seg.globalStartIdx + seg.words.length;
               const isCurrentSeg = activeSegment === seg;
+              const titleWordCount = (seg.sectionTitle || "").split(/\s+/).filter(Boolean).length;
               return (
                 <div key={segIdx}>
-                  {/* Section divider */}
-                  {(segments.length > 1) && (
-                    <div className={`flex items-center gap-2 mb-3 pb-2 border-b transition-colors ${isCurrentSeg ? "border-primary/30" : "border-border"}`}>
-                      <BookOpen className={`h-3.5 w-3.5 flex-shrink-0 ${isCurrentSeg ? "text-primary" : "text-muted-foreground/40"}`} />
-                      <span className={`text-sm font-semibold ${isCurrentSeg ? "text-primary" : "text-muted-foreground/60"}`}>
-                        {seg.sectionTitle}
-                      </span>
+                  {/* Title words — rendered as a prominent heading, but part of the reading flow */}
+                  {titleWordCount > 0 && (
+                    <div className={`mb-4 pt-4 ${segIdx > 0 ? "border-t-2 border-primary/20" : ""}`}>
+                      <h3 className="text-2xl font-bold font-serif select-none flex flex-wrap gap-1">
+                        {seg.words.slice(0, titleWordCount).map((word, wi) => {
+                          const globalIdx = seg.globalStartIdx + wi;
+                          return (
+                            <span
+                              key={globalIdx}
+                              ref={el => { wordRefs.current[globalIdx] = el; }}
+                              className={`inline-block py-1 px-1 rounded transition-all duration-150 cursor-pointer ${
+                                globalIdx === currentWordIdx
+                                  ? "bg-primary text-primary-foreground scale-105 shadow-md"
+                                  : globalIdx < currentWordIdx
+                                  ? "text-muted-foreground/50"
+                                  : isCurrentSeg ? "text-foreground" : "text-muted-foreground/70"
+                              }`}
+                              onClick={() => { setCurrentWordIdx(globalIdx); setPlaying(false); }}
+                            >
+                              {word}
+                            </span>
+                          );
+                        })}
+                      </h3>
                     </div>
                   )}
+                  {/* Content words */}
                   <p className={`${fontSize} leading-relaxed font-serif select-none`}>
-                    {seg.words.map((word, wi) => {
-                      const globalIdx = seg.globalStartIdx + wi;
+                    {seg.words.slice(titleWordCount).map((word, wi) => {
+                      const globalIdx = seg.globalStartIdx + titleWordCount + wi;
                       return (
                         <span
                           key={globalIdx}
