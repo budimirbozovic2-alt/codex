@@ -208,8 +208,12 @@ export default function MnemonicWorkshop({ cards, onUpdateCard, onDeleteCard, on
     ready: cards.filter(c => c.mnemonicStatus === "ready").length,
   }), [cards]);
 
-  return (
+   return (
     <div className="max-w-4xl mx-auto space-y-5">
+      <AnimatePresence>
+        {showOnboarding && <WorkshopOnboarding onComplete={() => setShowOnboarding(false)} />}
+      </AnimatePresence>
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -221,19 +225,13 @@ export default function MnemonicWorkshop({ cards, onUpdateCard, onDeleteCard, on
           </h2>
           <p className="text-muted-foreground mt-1 text-sm">Kreiraj mentalni video i akronim za svaku mnemo karticu.</p>
         </div>
-        <InfoPanel title="Kako radi Mnemo radionica?">
-          <p><strong className="text-foreground">Mnemo kuke</strong> — selektuj tekst u sesiji učenja ili u bazi podataka i klikni „Mnemo kuka" da kloniraš isječak u radionicu. Ovdje kreiraš mentalnu asocijaciju za lakše pamćenje.</p>
-          <p><strong className="text-foreground">Mentalni video</strong> — opiši živopisnu vizuelnu scenu koju povezuješ sa gradivom. Što dramatičnija i bizarnija slika, to bolje pamćenje.</p>
-          <p><strong className="text-foreground">Akronim</strong> — za nabrajanja, sistem automatski detektuje stavke i sugeriše prva slova. Smisli riječ ili frazu od tih slova.</p>
-          <p><strong className="text-foreground">Status kartice:</strong></p>
-          <ul className="space-y-1 pl-3">
-            <li>✨ <strong>Nova</strong> — čeka obradu u radionici</li>
-            <li>🔧 <strong>U radionici</strong> — kuka u izradi (automatski se postavlja kad počneš pisati)</li>
-            <li>✅ <strong>Spremna</strong> — kuka završena, dostupna za testiranje u Sefu</li>
-          </ul>
-          <p><strong className="text-foreground">Major sistem</strong> — brojevi u tekstu se automatski pretvaraju u riječi pomoću fonetskog koda. Konfiguriši tablice u sekciji „Mentalne tablice".</p>
-          <p><strong className="text-foreground">Uređivanje</strong> — klikni „Uredi" na proširenoj kartici da promijeniš pitanje i sadržaj direktno u radionici.</p>
-        </InfoPanel>
+        <button
+          onClick={() => setShowOnboarding(true)}
+          className="p-2 rounded-lg hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors"
+          title="Vodič kroz radionicu"
+        >
+          <HelpCircle className="h-5 w-5" />
+        </button>
       </div>
 
       {/* Filters */}
