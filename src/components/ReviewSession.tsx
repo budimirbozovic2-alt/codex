@@ -16,7 +16,6 @@ import { default as Pause } from "lucide-react/dist/esm/icons/pause";
 import { default as Play } from "lucide-react/dist/esm/icons/play";
 import { default as Target } from "lucide-react/dist/esm/icons/target";
 import { default as Shield } from "lucide-react/dist/esm/icons/shield";
-import ScrollableRow from "@/components/ScrollableRow";
 import SessionFilters from "@/components/SessionFilters";
 import { Button } from "@/components/ui/button";
 import { speak, stopSpeaking } from "@/lib/tts";
