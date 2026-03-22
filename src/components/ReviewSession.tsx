@@ -747,9 +747,7 @@ function ReviewCard({
                   {!isFlash && (
                     <span className="text-xs uppercase tracking-widest text-muted-foreground">{section.title}</span>
                   )}
-                  <button onClick={() => speak(section.content)} className="p-1.5 rounded-md hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors ml-auto" title="Pročitaj naglas">
-                    <Volume2 className="h-4 w-4" />
-                  </button>
+                </div>
                 </div>
                 <div className={`${!isFlash ? "mt-4" : ""} text-base leading-relaxed whitespace-pre-wrap`} dangerouslySetInnerHTML={{ __html: section.content }} />
                 <p className="mt-3 text-[10px] text-muted-foreground/60 flex items-center gap-1">
