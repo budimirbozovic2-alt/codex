@@ -27,6 +27,7 @@ interface Props {
   onOpenDocxImport?: () => void;
   onToggleZen?: () => void;
   zenActive?: boolean;
+  onOpenOnboarding?: () => void;
 }
 
 const PRIMARY_NAV = [
