@@ -198,6 +198,11 @@ export default function TopNav({ onToggleZen, zenActive, onOpenOnboarding }: Pro
           <span className="text-base font-serif italic text-primary select-none">Memoria</span>
         </div>
         <div className="flex items-center gap-1">
+          {onOpenOnboarding && (
+            <button onClick={onOpenOnboarding} className="p-1.5 rounded-md hover:bg-secondary text-muted-foreground" title="Vodič">
+              <HelpCircle className="h-4 w-4" />
+            </button>
+          )}
           <button onClick={onToggleZen} className={`p-1.5 rounded-md hover:bg-secondary transition-colors ${zenActive ? "text-primary bg-primary/10" : "text-muted-foreground"}`} title="Zen Mode">
             <Focus className="h-4 w-4" />
           </button>
