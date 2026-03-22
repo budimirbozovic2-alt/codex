@@ -594,18 +594,37 @@ export default function SpeedReader() {
               {ttsEnabled ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
             </button>
             {ttsEnabled && (
-              <button
-                onClick={() => setShowTtsSettings(v => !v)}
-                className={`p-2 rounded-lg transition-colors ${showTtsSettings ? "bg-secondary text-foreground" : "text-muted-foreground hover:text-foreground hover:bg-secondary"}`}
-                title="TTS podešavanja"
-              >
-                <Settings2 className="h-4 w-4" />
-              </button>
+              <>
+                {/* TTS mode toggle: natural vs WPM */}
+                <div className="flex gap-0.5 rounded-lg border p-0.5">
+                  <button
+                    onClick={() => { setTtsMode("natural"); stopTts(); }}
+                    className={`px-2 py-1 rounded-md text-[10px] font-medium transition-all ${ttsMode === "natural" ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+                    title="TTS kontroliše brzinu čitanja"
+                  >
+                    Prirodno
+                  </button>
+                  <button
+                    onClick={() => { setTtsMode("wpm"); stopTts(); }}
+                    className={`px-2 py-1 rounded-md text-[10px] font-medium transition-all ${ttsMode === "wpm" ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+                    title="WPM tajmer kontroliše brzinu, TTS prati"
+                  >
+                    WPM
+                  </button>
+                </div>
+                <button
+                  onClick={() => setShowTtsSettings(v => !v)}
+                  className={`p-2 rounded-lg transition-colors ${showTtsSettings ? "bg-secondary text-foreground" : "text-muted-foreground hover:text-foreground hover:bg-secondary"}`}
+                  title="TTS podešavanja"
+                >
+                  <Settings2 className="h-4 w-4" />
+                </button>
+              </>
             )}
           </div>
 
-          {/* WPM (hidden when TTS drives the pace) */}
-          {!ttsEnabled && (
+          {/* WPM — show when TTS is off OR when TTS is in WPM mode */}
+          {(!ttsEnabled || ttsMode === "wpm") && (
             <div className="flex items-center gap-2">
               <Gauge className="h-4 w-4 text-muted-foreground" />
               <div className="flex gap-1">
