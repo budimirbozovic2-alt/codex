@@ -339,135 +339,21 @@ export default function LearnSession({ cards, categories, subcategories, onMarkR
           <p className="text-muted-foreground">{sortedCards.length} pitanja dostupno.</p>
         </div>
 
-        {availableCategories.length >= 1 && (
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <label className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Kategorija</label>
-              {examFrequentCount > 0 && (
-                <button
-                  onClick={() => setFilterExamFrequent(!filterExamFrequent)}
-                  className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium transition-all ${filterExamFrequent ? "bg-destructive/15 text-destructive border border-destructive/30" : "text-muted-foreground hover:text-foreground hover:bg-secondary"}`}
-                >
-                  <Flame className="h-3 w-3" />
-                  Često na ispitu ({examFrequentCount})
-                </button>
-              )}
-            </div>
-            <ScrollableRow>
-              <motion.button
-                onClick={() => { setSelectedCategory(null); setSelectedSubcategory(null); setSelectedChapter(null); }}
-                className={`relative px-3 py-1.5 rounded-md text-xs font-medium whitespace-nowrap flex-shrink-0 transition-colors ${!selectedCategory ? "text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
-                whileTap={{ scale: 0.95 }}
-              >
-                {!selectedCategory && (
-                  <motion.span layoutId="learn-cat-pill" className="absolute inset-0 rounded-md bg-primary shadow-sm" transition={{ type: "spring", duration: 0.35, bounce: 0.15 }} />
-                )}
-                <span className="relative z-10">Sve</span>
-              </motion.button>
-              {availableCategories.map((c) => (
-                <motion.button
-                  key={c}
-                  onClick={() => { setSelectedCategory(c); setSelectedSubcategory(null); setSelectedChapter(null); }}
-                  className={`relative px-3 py-1.5 rounded-md text-xs font-medium flex items-center gap-1.5 whitespace-nowrap flex-shrink-0 transition-colors ${selectedCategory === c ? "text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
-                  whileTap={{ scale: 0.95 }}
-                >
-                  {selectedCategory === c && (
-                    <motion.span layoutId="learn-cat-pill" className="absolute inset-0 rounded-md bg-primary shadow-sm" transition={{ type: "spring", duration: 0.35, bounce: 0.15 }} />
-                  )}
-                  <span className="relative z-10">{c}</span>
-                  <span className={`relative z-10 text-[10px] px-1.5 py-0.5 rounded-full ${selectedCategory === c ? "bg-primary-foreground/20" : "bg-secondary"}`}>
-                    {cards.filter(card => card.category === c).length}
-                  </span>
-                </motion.button>
-              ))}
-            </ScrollableRow>
-
-            {/* Subcategory filter */}
-            <AnimatePresence>
-              {selectedCategory && availableSubs.length > 0 && (
-                <motion.div
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: "auto" }}
-                  exit={{ opacity: 0, height: 0 }}
-                  transition={{ duration: 0.2, ease: "easeOut" }}
-                  className="overflow-hidden"
-                >
-                  <ScrollableRow className="pl-3 border-l-2 border-primary/20 ml-1">
-                    <motion.button
-                      onClick={() => { setSelectedSubcategory(null); setSelectedChapter(null); }}
-                      className={`relative px-2.5 py-1 rounded-md text-[11px] font-medium whitespace-nowrap flex-shrink-0 transition-colors ${!selectedSubcategory ? "text-primary" : "text-muted-foreground hover:text-foreground"}`}
-                      whileTap={{ scale: 0.95 }}
-                    >
-                      {!selectedSubcategory && (
-                        <motion.span layoutId="learn-subcat-pill" className="absolute inset-0 rounded-md bg-primary/15" transition={{ type: "spring", duration: 0.3, bounce: 0.15 }} />
-                      )}
-                      <span className="relative z-10">Sve podkat.</span>
-                    </motion.button>
-                    {availableSubs.map((sc) => (
-                      <motion.button
-                        key={sc}
-                        onClick={() => { setSelectedSubcategory(sc); setSelectedChapter(null); }}
-                        className={`relative px-2.5 py-1 rounded-md text-[11px] font-medium whitespace-nowrap flex-shrink-0 transition-colors ${selectedSubcategory === sc ? "text-primary" : "text-muted-foreground hover:text-foreground"}`}
-                        whileTap={{ scale: 0.95 }}
-                      >
-                        {selectedSubcategory === sc && (
-                          <motion.span layoutId="learn-subcat-pill" className="absolute inset-0 rounded-md bg-primary/15" transition={{ type: "spring", duration: 0.3, bounce: 0.15 }} />
-                        )}
-                        <span className="relative z-10">{sc}</span>
-                      </motion.button>
-                    ))}
-                  </ScrollableRow>
-                </motion.div>
-              )}
-            </AnimatePresence>
-
-            {/* Chapter filter */}
-            <AnimatePresence>
-              {selectedSubcategory && (() => {
-                const chaptersInSub = Array.from(new Set(
-                  cards.filter(c => c.category === selectedCategory && c.subcategory === selectedSubcategory && c.chapter)
-                    .map(c => c.chapter!)
-                )).sort();
-                if (chaptersInSub.length === 0) return null;
-                return (
-                  <motion.div
-                    initial={{ opacity: 0, height: 0 }}
-                    animate={{ opacity: 1, height: "auto" }}
-                    exit={{ opacity: 0, height: 0 }}
-                    transition={{ duration: 0.2, ease: "easeOut" }}
-                    className="overflow-hidden"
-                  >
-                    <ScrollableRow className="pl-6 border-l-2 border-primary/10 ml-1">
-                      <motion.button
-                        onClick={() => setSelectedChapter(null)}
-                        className={`relative px-2.5 py-1 rounded-md text-[11px] font-medium whitespace-nowrap flex-shrink-0 transition-colors ${!selectedChapter ? "text-primary" : "text-muted-foreground hover:text-foreground"}`}
-                        whileTap={{ scale: 0.95 }}
-                      >
-                        {!selectedChapter && (
-                          <motion.span layoutId="learn-chapter-pill" className="absolute inset-0 rounded-md bg-primary/10" transition={{ type: "spring", duration: 0.3, bounce: 0.15 }} />
-                        )}
-                        <span className="relative z-10">Sve glave</span>
-                      </motion.button>
-                      {chaptersInSub.map((ch) => (
-                        <motion.button
-                          key={ch}
-                          onClick={() => setSelectedChapter(ch)}
-                          className={`relative px-2.5 py-1 rounded-md text-[11px] font-medium whitespace-nowrap flex-shrink-0 transition-colors ${selectedChapter === ch ? "text-primary" : "text-muted-foreground hover:text-foreground"}`}
-                          whileTap={{ scale: 0.95 }}
-                        >
-                          {selectedChapter === ch && (
-                            <motion.span layoutId="learn-chapter-pill" className="absolute inset-0 rounded-md bg-primary/10" transition={{ type: "spring", duration: 0.3, bounce: 0.15 }} />
-                          )}
-                          <span className="relative z-10">{ch}</span>
-                        </motion.button>
-                      ))}
-                    </ScrollableRow>
-                  </motion.div>
-                );
-              })()}
-            </AnimatePresence>
-          </div>
-        )}
+        <SessionFilters
+          layoutPrefix="learn"
+          cards={cards}
+          categories={availableCategories}
+          subcategories={subcategories}
+          selectedCategory={selectedCategory}
+          selectedSubcategory={selectedSubcategory}
+          selectedChapter={selectedChapter}
+          filterExamFrequent={filterExamFrequent}
+          examFrequentCount={examFrequentCount}
+          onSelectCategory={(cat) => { setSelectedCategory(cat); setSelectedSubcategory(null); setSelectedChapter(null); }}
+          onSelectSubcategory={(sub) => { setSelectedSubcategory(sub); setSelectedChapter(null); }}
+          onSelectChapter={setSelectedChapter}
+          onToggleExamFrequent={() => setFilterExamFrequent(!filterExamFrequent)}
+        />
 
         <div className="space-y-2">
           <label className="text-sm font-medium text-muted-foreground">Redoslijed</label>
