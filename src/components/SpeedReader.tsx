@@ -12,8 +12,12 @@ import { default as Eye } from "lucide-react/dist/esm/icons/eye";
 import { default as Type } from "lucide-react/dist/esm/icons/type";
 import { default as Layers } from "lucide-react/dist/esm/icons/layers";
 import { default as FileText } from "lucide-react/dist/esm/icons/file-text";
+import { default as Volume2 } from "lucide-react/dist/esm/icons/volume-2";
+import { default as VolumeX } from "lucide-react/dist/esm/icons/volume-x";
+import { default as Settings2 } from "lucide-react/dist/esm/icons/settings-2";
 import ScrollableRow from "@/components/ScrollableRow";
 import InfoPanel from "@/components/InfoPanel";
+import { loadTTSSettings, saveTTSSettings, getAvailableVoices, type TTSSettings } from "@/lib/tts";
 import DOMPurify from "dompurify";
 
 const WPM_OPTIONS = [100, 150, 200, 250, 300, 400, 500];
@@ -84,9 +88,10 @@ function getActiveSegment(segments: Segment[], wordIdx: number): Segment | null 
 
 const SPEED_READER_INFO = (
   <div className="space-y-3 text-sm">
-    <div className="flex items-start gap-2"><Layers className="h-4 w-4 mt-0.5 text-primary flex-shrink-0" /><div><strong>Čitaj podkategoriju</strong><p className="text-muted-foreground">Odaberi kategoriju i podkategoriju — sve kartice se spajaju u kontinuirani tok teksta.</p></div></div>
-    <div className="flex items-start gap-2"><Eye className="h-4 w-4 mt-0.5 text-primary flex-shrink-0" /><div><strong>Highlighting</strong><p className="text-muted-foreground">Tekst se prikazuje u cijelosti, trenutna riječ se ističe u zadanom tempu.</p></div></div>
-    <div className="flex items-start gap-2"><Gauge className="h-4 w-4 mt-0.5 text-primary flex-shrink-0" /><div><strong>Brzina</strong><p className="text-muted-foreground">Podesi WPM. Počni sporije pa postepeno ubrzavaj.</p></div></div>
+    <div className="flex items-start gap-2"><Layers className="h-4 w-4 mt-0.5 text-primary flex-shrink-0" /><div><strong>Čitaj podkategoriju</strong><p className="text-muted-foreground">Sve kartice se spajaju u kontinuirani tok teksta.</p></div></div>
+    <div className="flex items-start gap-2"><Eye className="h-4 w-4 mt-0.5 text-primary flex-shrink-0" /><div><strong>Highlighting</strong><p className="text-muted-foreground">Trenutna riječ se ističe u zadanom tempu (WPM).</p></div></div>
+    <div className="flex items-start gap-2"><Volume2 className="h-4 w-4 mt-0.5 text-primary flex-shrink-0" /><div><strong>Glasovno praćenje</strong><p className="text-muted-foreground">Uključi 🔊 za TTS čitanje naglas sa sinhronizovanim praćenjem teksta.</p></div></div>
+    <div className="flex items-start gap-2"><Gauge className="h-4 w-4 mt-0.5 text-primary flex-shrink-0" /><div><strong>Brzina</strong><p className="text-muted-foreground">WPM za vizuelno, ili brzina govora za TTS.</p></div></div>
   </div>
 );
 
@@ -113,6 +118,22 @@ export default function SpeedReader() {
   const [currentWordIdx, setCurrentWordIdx] = useState(0);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const wordRefs = useRef<(HTMLSpanElement | null)[]>([]);
+
+  // TTS read-along state
+  const [ttsEnabled, setTtsEnabled] = useState(false);
+  const [ttsSettings, setTtsSettings] = useState<TTSSettings>(loadTTSSettings);
+  const [showTtsSettings, setShowTtsSettings] = useState(false);
+  const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
+  const ttsUtteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
+
+  // Load voices
+  useEffect(() => {
+    if (!("speechSynthesis" in window)) return;
+    const load = () => { const v = window.speechSynthesis.getVoices(); if (v.length) setVoices(v); };
+    load();
+    window.speechSynthesis.onvoiceschanged = load;
+    return () => { window.speechSynthesis.onvoiceschanged = null; };
+  }, []);
 
   // Filtered cards (essay only)
   const filteredCards = useMemo(() => {
@@ -160,26 +181,95 @@ export default function SpeedReader() {
     return () => { if (timerRef.current) clearInterval(timerRef.current); };
   }, [playing, wpm, totalWords]);
 
+  // TTS read-along: speak current segment text when playing with TTS enabled
+  useEffect(() => {
+    if (!ttsEnabled || !playing || !("speechSynthesis" in window)) return;
+    window.speechSynthesis.cancel();
+
+    // Build text from current word to end of current segment
+    const seg = getActiveSegment(segments, currentWordIdx);
+    if (!seg) return;
+    const localIdx = currentWordIdx - seg.globalStartIdx;
+    const remainingWords = seg.words.slice(localIdx);
+    if (remainingWords.length === 0) return;
+
+    const utterance = new SpeechSynthesisUtterance(remainingWords.join(" "));
+    utterance.lang = "sr-RS";
+    utterance.rate = ttsSettings.rate;
+
+    if (ttsSettings.voiceURI) {
+      const v = window.speechSynthesis.getVoices().find(v => v.voiceURI === ttsSettings.voiceURI);
+      if (v) utterance.voice = v;
+    }
+
+    // Sync word highlighting with TTS boundary events
+    let wordOffset = 0;
+    utterance.onboundary = (event) => {
+      if (event.name === "word") {
+        // Find which word index this corresponds to
+        const spokenSoFar = utterance.text.substring(0, event.charIndex);
+        const spokenWords = spokenSoFar.split(/\s+/).filter(Boolean).length;
+        const newGlobalIdx = seg.globalStartIdx + localIdx + spokenWords;
+        if (newGlobalIdx < seg.globalStartIdx + seg.words.length) {
+          setCurrentWordIdx(newGlobalIdx);
+        }
+      }
+    };
+
+    utterance.onend = () => {
+      // Move to next segment or stop
+      const nextSegIdx = segments.indexOf(seg) + 1;
+      if (nextSegIdx < segments.length) {
+        setCurrentWordIdx(segments[nextSegIdx].globalStartIdx);
+      } else {
+        setPlaying(false);
+      }
+    };
+
+    ttsUtteranceRef.current = utterance;
+    window.speechSynthesis.speak(utterance);
+
+    return () => {
+      window.speechSynthesis.cancel();
+    };
+  }, [ttsEnabled, playing, segments, currentWordIdx, ttsSettings]);
+
+  // When TTS is enabled, disable the WPM timer
+  useEffect(() => {
+    if (ttsEnabled && timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+  }, [ttsEnabled]);
+
   // Scroll highlighted word into view
   useEffect(() => {
     const el = wordRefs.current[currentWordIdx];
     if (el) el.scrollIntoView({ behavior: "smooth", block: "center", inline: "nearest" });
   }, [currentWordIdx]);
 
+  const stopTts = useCallback(() => {
+    if ("speechSynthesis" in window) window.speechSynthesis.cancel();
+    ttsUtteranceRef.current = null;
+  }, []);
+
   const handlePlayPause = useCallback(() => {
     if (totalWords === 0) return;
     if (currentWordIdx >= totalWords - 1) setCurrentWordIdx(0);
-    setPlaying(p => !p);
-  }, [totalWords, currentWordIdx]);
+    setPlaying(p => {
+      if (p) stopTts();
+      return !p;
+    });
+  }, [totalWords, currentWordIdx, stopTts]);
 
-  const handleReset = useCallback(() => { setPlaying(false); setCurrentWordIdx(0); }, []);
-  const handlePrevWord = () => { setPlaying(false); setCurrentWordIdx(prev => Math.max(0, prev - 1)); };
-  const handleNextWord = () => { setPlaying(false); setCurrentWordIdx(prev => Math.min(totalWords - 1, prev + 1)); };
+  const handleReset = useCallback(() => { setPlaying(false); setCurrentWordIdx(0); stopTts(); }, [stopTts]);
+  const handlePrevWord = () => { setPlaying(false); stopTts(); setCurrentWordIdx(prev => Math.max(0, prev - 1)); };
+  const handleNextWord = () => { setPlaying(false); stopTts(); setCurrentWordIdx(prev => Math.min(totalWords - 1, prev + 1)); };
 
   // Jump to segment
   const jumpToSegment = (segIdx: number) => {
     const seg = segments[segIdx];
-    if (seg) { setCurrentWordIdx(seg.globalStartIdx); setPlaying(false); }
+    if (seg) { setCurrentWordIdx(seg.globalStartIdx); setPlaying(false); stopTts(); }
   };
 
   // Keyboard shortcuts
@@ -213,6 +303,7 @@ export default function SpeedReader() {
     setReaderActive(false);
     setPlaying(false);
     setSelCard(null);
+    stopTts();
   };
 
   // ─── Selection screen ──────────────────────────────
@@ -403,19 +494,41 @@ export default function SpeedReader() {
             <button onClick={handleReset} className="p-2 rounded-lg hover:bg-secondary transition-colors" title="Resetuj">
               <RotateCcw className="h-4 w-4 text-muted-foreground" />
             </button>
+
+            {/* TTS toggle */}
+            <div className="w-px h-6 bg-border" />
+            <button
+              onClick={() => { setTtsEnabled(v => !v); stopTts(); }}
+              className={`p-2 rounded-lg transition-colors ${ttsEnabled ? "bg-primary/15 text-primary" : "text-muted-foreground hover:text-foreground hover:bg-secondary"}`}
+              title={ttsEnabled ? "Isključi glasovno praćenje" : "Uključi glasovno praćenje"}
+            >
+              {ttsEnabled ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
+            </button>
+            {ttsEnabled && (
+              <button
+                onClick={() => setShowTtsSettings(v => !v)}
+                className={`p-2 rounded-lg transition-colors ${showTtsSettings ? "bg-secondary text-foreground" : "text-muted-foreground hover:text-foreground hover:bg-secondary"}`}
+                title="TTS podešavanja"
+              >
+                <Settings2 className="h-4 w-4" />
+              </button>
+            )}
           </div>
 
-          <div className="flex items-center gap-2">
-            <Gauge className="h-4 w-4 text-muted-foreground" />
-            <div className="flex gap-1">
-              {WPM_OPTIONS.map(w => (
-                <button key={w} onClick={() => setWpm(w)} className={`px-2.5 py-1 rounded-md text-xs font-medium transition-all ${wpm === w ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground hover:bg-secondary"}`}>
-                  {w}
-                </button>
-              ))}
+          {/* WPM (hidden when TTS drives the pace) */}
+          {!ttsEnabled && (
+            <div className="flex items-center gap-2">
+              <Gauge className="h-4 w-4 text-muted-foreground" />
+              <div className="flex gap-1">
+                {WPM_OPTIONS.map(w => (
+                  <button key={w} onClick={() => setWpm(w)} className={`px-2.5 py-1 rounded-md text-xs font-medium transition-all ${wpm === w ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground hover:bg-secondary"}`}>
+                    {w}
+                  </button>
+                ))}
+              </div>
+              <span className="text-xs text-muted-foreground ml-1">WPM</span>
             </div>
-            <span className="text-xs text-muted-foreground ml-1">WPM</span>
-          </div>
+          )}
 
           <div className="flex items-center gap-2">
             <Type className="h-4 w-4 text-muted-foreground" />
@@ -428,6 +541,47 @@ export default function SpeedReader() {
             </div>
           </div>
         </div>
+
+        {/* TTS settings panel */}
+        {ttsEnabled && showTtsSettings && (
+          <div className="rounded-lg border bg-secondary/30 p-3 space-y-3">
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-medium">Brzina govora</label>
+                <span className="text-xs text-muted-foreground tabular-nums">{ttsSettings.rate.toFixed(2)}×</span>
+              </div>
+              <input
+                type="range" min="0.5" max="2" step="0.05" value={ttsSettings.rate}
+                onChange={(e) => {
+                  const newSettings = { ...ttsSettings, rate: parseFloat(e.target.value) };
+                  setTtsSettings(newSettings);
+                  saveTTSSettings(newSettings);
+                }}
+                className="w-full h-1.5 rounded-full appearance-none bg-secondary cursor-pointer accent-primary"
+              />
+              <div className="flex justify-between text-[10px] text-muted-foreground">
+                <span>Sporo</span><span>Normalno</span><span>Brzo</span>
+              </div>
+            </div>
+            {voices.length > 0 && (
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium">Glas</label>
+                <select
+                  value={ttsSettings.voiceURI || "__default__"}
+                  onChange={(e) => {
+                    const newSettings = { ...ttsSettings, voiceURI: e.target.value === "__default__" ? "" : e.target.value };
+                    setTtsSettings(newSettings);
+                    saveTTSSettings(newSettings);
+                  }}
+                  className="w-full px-3 py-1.5 rounded-lg border bg-background text-xs"
+                >
+                  <option value="__default__">Sistemski podrazumijevani</option>
+                  {voices.map(v => <option key={v.voiceURI} value={v.voiceURI}>{v.name} ({v.lang})</option>)}
+                </select>
+              </div>
+            )}
+          </div>
+        )}
 
         <div className="space-y-1">
           <div className="w-full h-1.5 rounded-full bg-secondary overflow-hidden">

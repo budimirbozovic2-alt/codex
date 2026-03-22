@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
 import { SRSettings, DEFAULT_SR_SETTINGS } from "@/lib/spaced-repetition";
-import { TTSSettings, DEFAULT_TTS_SETTINGS, loadTTSSettings, saveTTSSettings, getAvailableVoices, speak, stopSpeaking } from "@/lib/tts";
 import { AppSettings, DEFAULT_APP_SETTINGS, loadAppSettings, saveAppSettings, COLOR_THEMES, applyColorTheme, type ColorTheme } from "@/lib/app-settings";
 import { playGradeGood } from "@/lib/sounds";
 import { Input } from "@/components/ui/input";
@@ -10,7 +9,7 @@ import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Volume2 } from "lucide-react";
+
 import { default as ArrowLeft } from "lucide-react/dist/esm/icons/arrow-left";
 import { default as RotateCcw } from "lucide-react/dist/esm/icons/rotate-ccw";
 import { default as ChevronDown } from "lucide-react/dist/esm/icons/chevron-down";
@@ -24,25 +23,8 @@ interface Props {
 
 export default function SRSettingsPanel({ settings, onUpdate, onBack }: Props) {
   const [local, setLocal] = useState<SRSettings>({ ...settings });
-  const [tts, setTts] = useState<TTSSettings>(loadTTSSettings());
   const [app, setApp] = useState<AppSettings>(loadAppSettings());
-  const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
 
-  useEffect(() => {
-    const loadVoices = () => {
-      const v = getAvailableVoices();
-      if (v.length > 0) setVoices(v);
-    };
-    loadVoices();
-    if ("speechSynthesis" in window) {
-      window.speechSynthesis.onvoiceschanged = loadVoices;
-    }
-    return () => {
-      if ("speechSynthesis" in window) {
-        window.speechSynthesis.onvoiceschanged = null;
-      }
-    };
-  }, []);
 
   const handleChange = (key: keyof SRSettings, value: number) => {
     setLocal((prev) => ({ ...prev, [key]: value }));
@@ -50,7 +32,6 @@ export default function SRSettingsPanel({ settings, onUpdate, onBack }: Props) {
 
   const handleSave = () => {
     onUpdate(local);
-    saveTTSSettings(tts);
     saveAppSettings(app);
   };
 
@@ -59,12 +40,8 @@ export default function SRSettingsPanel({ settings, onUpdate, onBack }: Props) {
     setApp({ ...DEFAULT_APP_SETTINGS });
   };
 
-  const testVoice = () => {
-    speak("Ovo je test govora. Memoria MNE.", tts);
-  };
 
   const hasChanges = JSON.stringify(local) !== JSON.stringify(settings) ||
-    JSON.stringify(tts) !== JSON.stringify(loadTTSSettings()) ||
     JSON.stringify(app) !== JSON.stringify(loadAppSettings());
   const isDefault = JSON.stringify(local) === JSON.stringify(DEFAULT_SR_SETTINGS) &&
     JSON.stringify(app) === JSON.stringify(DEFAULT_APP_SETTINGS);
@@ -272,39 +249,6 @@ export default function SRSettingsPanel({ settings, onUpdate, onBack }: Props) {
             </div>
           </div>
 
-          {/* TTS */}
-          <div className="rounded-xl border bg-card p-5 space-y-4">
-            <h3 className="text-sm font-semibold">Glasovni čitač (TTS)</h3>
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <label className="text-sm">Brzina govora</label>
-                <span className="text-sm text-muted-foreground tabular-nums">{tts.rate.toFixed(2)}×</span>
-              </div>
-              <Slider value={[tts.rate]} min={0.5} max={2} step={0.05}
-                onValueChange={(v) => setTts((p) => ({ ...p, rate: v[0] }))} />
-              <div className="flex justify-between text-[10px] text-muted-foreground">
-                <span>Sporo</span><span>Normalno</span><span>Brzo</span>
-              </div>
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm">Glas</label>
-              <Select value={tts.voiceURI || "__default__"}
-                onValueChange={(v) => setTts((p) => ({ ...p, voiceURI: v === "__default__" ? "" : v }))}>
-                <SelectTrigger className="bg-background">
-                  <SelectValue placeholder="Sistemski podrazumijevani" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="__default__">Sistemski podrazumijevani</SelectItem>
-                  {voices.map((v) => (
-                    <SelectItem key={v.voiceURI} value={v.voiceURI}>{v.name} ({v.lang})</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <Button variant="outline" size="sm" onClick={testVoice} className="gap-1.5">
-              <Volume2 className="h-3.5 w-3.5" /> Testiraj glas
-            </Button>
-          </div>
         </TabsContent>
 
         {/* ═══════════ TAB 3: REFERENCA ═══════════ */}

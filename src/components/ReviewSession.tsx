@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from "react"; 
 import { Card, Section, GRADES, getDueSections, isLeech, formatInterval, previewIntervals, SRSettings, DEFAULT_SR_SETTINGS, SectionState, getRetrievability } from "@/lib/spaced-repetition";
 import { motion, AnimatePresence } from "framer-motion";
-import { Volume2, CheckCircle2 } from "lucide-react";
+import { CheckCircle2 } from "lucide-react";
 import { default as ArrowLeft } from "lucide-react/dist/esm/icons/arrow-left";
 import { default as Eye } from "lucide-react/dist/esm/icons/eye";
 import { default as ChevronRight } from "lucide-react/dist/esm/icons/chevron-right";
@@ -18,7 +18,7 @@ import { default as Target } from "lucide-react/dist/esm/icons/target";
 import { default as Shield } from "lucide-react/dist/esm/icons/shield";
 import SessionFilters from "@/components/SessionFilters";
 import { Button } from "@/components/ui/button";
-import { speak, stopSpeaking } from "@/lib/tts";
+
 import { useToast } from "@/hooks/use-toast";
 import { addCalibrationEntry, addLatencyEntry, addActivityEntry } from "@/lib/metacognitive-storage";
 import ShortcutsHint from "@/components/ShortcutsHint";
@@ -680,9 +680,6 @@ function ReviewCard({
             </div>
             <div className="flex items-center gap-2 mt-1">
               <p className="text-lg leading-relaxed font-serif flex-1">{card.question}</p>
-              <button onClick={() => speak(card.question)} className="p-1.5 rounded-md hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors shrink-0" title="Pročitaj naglas">
-                <Volume2 className="h-4 w-4" />
-              </button>
             </div>
           </div>
 
@@ -750,9 +747,6 @@ function ReviewCard({
                   {!isFlash && (
                     <span className="text-xs uppercase tracking-widest text-muted-foreground">{section.title}</span>
                   )}
-                  <button onClick={() => speak(section.content)} className="p-1.5 rounded-md hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors ml-auto" title="Pročitaj naglas">
-                    <Volume2 className="h-4 w-4" />
-                  </button>
                 </div>
                 <div className={`${!isFlash ? "mt-4" : ""} text-base leading-relaxed whitespace-pre-wrap`} dangerouslySetInnerHTML={{ __html: section.content }} />
                 <p className="mt-3 text-[10px] text-muted-foreground/60 flex items-center gap-1">
