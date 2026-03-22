@@ -1,4 +1,5 @@
 import { useLocation } from "react-router-dom";
+import { default as Zap } from "lucide-react/dist/esm/icons/zap";
 import { NavLink } from "@/components/NavLink";
 import { useCardContext } from "@/contexts/AppContext";
 import { default as Home } from "lucide-react/dist/esm/icons/home";
@@ -43,6 +44,7 @@ const LAB_ITEMS = [
   { path: "/metacognitive", icon: BookOpen, label: "Dnevnik", desc: "Metakognitivne refleksije" },
   { path: "/mnemonic", icon: Brain, label: "Mnemo radionica", desc: "Tehnike pamćenja" },
   { path: "/planner", icon: Target, label: "Strateški planer", desc: "Planiranje učenja" },
+  { path: "/speed-reader", icon: Zap, label: "Speed Reader", desc: "Brzo čitanje podkategorija" },
 ];
 
 const LAB_PATHS = LAB_ITEMS.map(i => i.path);
