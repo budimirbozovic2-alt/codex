@@ -481,16 +481,9 @@ export default function ReviewSession({ dueCards, allCards, subcategories, srSet
         )}
 
         <Button
-          onClick={() => { clearSavedSession(); setSetupStep("mode"); /* mode is already set, proceed */ }}
+          onClick={() => { clearSavedSession(); setSetupStep("mode"); }}
           className="w-full py-6 text-base"
           disabled={modeMeta.items.length === 0}
-          onClickCapture={(e) => {
-            if (modeMeta.items.length > 0) {
-              // Mode is already set, just need to NOT reset it — proceed to session
-              e.stopPropagation();
-              clearSavedSession();
-            }
-          }}
         >
           <BookOpen className="h-4 w-4 mr-2" /> Počni konsolidaciju ({modeMeta.items.length} sekcija)
         </Button>
