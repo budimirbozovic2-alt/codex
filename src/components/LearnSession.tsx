@@ -92,6 +92,8 @@ export default function LearnSession({ cards, categories, subcategories, onMarkR
 
   const availableSubs = selectedCategory ? (subcategories[selectedCategory] || []) : [];
 
+  const examFrequentCount = useMemo(() => cards.filter(c => c.tags?.includes("često-na-ispitu")).length, [cards]);
+
   const sortedCards = useMemo(() => {
     let filtered = selectedCategory ? cards.filter((c) => c.category === selectedCategory) : [...cards];
     if (selectedSubcategory) {
@@ -99,6 +101,9 @@ export default function LearnSession({ cards, categories, subcategories, onMarkR
     }
     if (selectedChapter) {
       filtered = filtered.filter((c) => c.chapter === selectedChapter);
+    }
+    if (filterExamFrequent) {
+      filtered = filtered.filter((c) => c.tags?.includes("često-na-ispitu"));
     }
     if (learnMode === "chain") {
       filtered = filtered.filter((c) => c.type === "essay" && c.sections.length >= 3);
@@ -118,7 +123,7 @@ export default function LearnSession({ cards, categories, subcategories, onMarkR
           return a.createdAt - b.createdAt;
         });
     }
-  }, [cards, selectedCategory, selectedSubcategory, selectedChapter, sortMode, learnMode]);
+  }, [cards, selectedCategory, selectedSubcategory, selectedChapter, sortMode, learnMode, filterExamFrequent]);
 
   const card = sortedCards[currentIndex];
 
