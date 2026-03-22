@@ -34,6 +34,15 @@ function stripHtml(html: string): string {
   return div.textContent || div.innerText || "";
 }
 
+// Strip non-letter/non-digit chars that cause TTS to stall
+function cleanForTTS(text: string): string {
+  // Keep letters (any script), digits, spaces; remove isolated symbols
+  return text
+    .replace(/[^\p{L}\p{N}\s.,!?;:'"()-]/gu, " ")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+}
+
 // A "segment" is a block of words belonging to one card+section
 interface Segment {
   cardQuestion: string;
@@ -125,7 +134,8 @@ export default function SpeedReader() {
   const [showTtsSettings, setShowTtsSettings] = useState(false);
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
   const ttsUtteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
-
+  const ttsPlayingRef = useRef(false);
+  const ttsSegIdxRef = useRef(-1);
   // Load voices
   useEffect(() => {
     if (!("speechSynthesis" in window)) return;
@@ -181,19 +191,42 @@ export default function SpeedReader() {
     return () => { if (timerRef.current) clearInterval(timerRef.current); };
   }, [playing, wpm, totalWords]);
 
-  // TTS read-along: speak current segment text when playing with TTS enabled
-  useEffect(() => {
-    if (!ttsEnabled || !playing || !("speechSynthesis" in window)) return;
+  // TTS read-along: speak entire text from current position using a stable ref-based approach
+  const speakSegment = useCallback((segIdx: number, startLocal: number) => {
+    if (!("speechSynthesis" in window)) return;
     window.speechSynthesis.cancel();
 
-    // Build text from current word to end of current segment
-    const seg = getActiveSegment(segments, currentWordIdx);
-    if (!seg) return;
-    const localIdx = currentWordIdx - seg.globalStartIdx;
-    const remainingWords = seg.words.slice(localIdx);
-    if (remainingWords.length === 0) return;
+    const seg = segments[segIdx];
+    if (!seg) { setPlaying(false); return; }
 
-    const utterance = new SpeechSynthesisUtterance(remainingWords.join(" "));
+    const remainingWords = seg.words.slice(startLocal);
+    if (remainingWords.length === 0) {
+      // Move to next segment
+      if (segIdx + 1 < segments.length) {
+        ttsSegIdxRef.current = segIdx + 1;
+        setTimeout(() => speakSegment(segIdx + 1, 0), 50);
+      } else {
+        setPlaying(false);
+        ttsPlayingRef.current = false;
+      }
+      return;
+    }
+
+    // Clean text for TTS — strip problematic symbols
+    const ttsText = cleanForTTS(remainingWords.join(" "));
+    if (!ttsText) {
+      // All remaining words were symbols, skip to next segment
+      if (segIdx + 1 < segments.length) {
+        ttsSegIdxRef.current = segIdx + 1;
+        setTimeout(() => speakSegment(segIdx + 1, 0), 50);
+      } else {
+        setPlaying(false);
+        ttsPlayingRef.current = false;
+      }
+      return;
+    }
+
+    const utterance = new SpeechSynthesisUtterance(ttsText);
     utterance.lang = "sr-RS";
     utterance.rate = ttsSettings.rate;
 
@@ -203,13 +236,11 @@ export default function SpeedReader() {
     }
 
     // Sync word highlighting with TTS boundary events
-    let wordOffset = 0;
     utterance.onboundary = (event) => {
       if (event.name === "word") {
-        // Find which word index this corresponds to
         const spokenSoFar = utterance.text.substring(0, event.charIndex);
         const spokenWords = spokenSoFar.split(/\s+/).filter(Boolean).length;
-        const newGlobalIdx = seg.globalStartIdx + localIdx + spokenWords;
+        const newGlobalIdx = seg.globalStartIdx + startLocal + spokenWords;
         if (newGlobalIdx < seg.globalStartIdx + seg.words.length) {
           setCurrentWordIdx(newGlobalIdx);
         }
@@ -217,22 +248,61 @@ export default function SpeedReader() {
     };
 
     utterance.onend = () => {
-      // Move to next segment or stop
-      const nextSegIdx = segments.indexOf(seg) + 1;
-      if (nextSegIdx < segments.length) {
-        setCurrentWordIdx(segments[nextSegIdx].globalStartIdx);
+      if (!ttsPlayingRef.current) return;
+      // Move to next segment
+      const nextIdx = segIdx + 1;
+      if (nextIdx < segments.length) {
+        ttsSegIdxRef.current = nextIdx;
+        setCurrentWordIdx(segments[nextIdx].globalStartIdx);
+        setTimeout(() => speakSegment(nextIdx, 0), 100);
       } else {
         setPlaying(false);
+        ttsPlayingRef.current = false;
+      }
+    };
+
+    utterance.onerror = (e) => {
+      // On error, try to continue to next segment
+      if (e.error === "canceled") return;
+      const nextIdx = segIdx + 1;
+      if (nextIdx < segments.length) {
+        ttsSegIdxRef.current = nextIdx;
+        setCurrentWordIdx(segments[nextIdx].globalStartIdx);
+        setTimeout(() => speakSegment(nextIdx, 0), 100);
+      } else {
+        setPlaying(false);
+        ttsPlayingRef.current = false;
       }
     };
 
     ttsUtteranceRef.current = utterance;
+    ttsSegIdxRef.current = segIdx;
     window.speechSynthesis.speak(utterance);
+  }, [segments, ttsSettings]);
+
+  // Start/stop TTS when playing state or ttsEnabled changes
+  useEffect(() => {
+    if (!ttsEnabled || !playing) {
+      if (ttsPlayingRef.current) {
+        window.speechSynthesis.cancel();
+        ttsPlayingRef.current = false;
+      }
+      return;
+    }
+
+    // Start TTS from current position
+    ttsPlayingRef.current = true;
+    const seg = getActiveSegment(segments, currentWordIdx);
+    if (!seg) return;
+    const segIdx = segments.indexOf(seg);
+    const localIdx = currentWordIdx - seg.globalStartIdx;
+    speakSegment(segIdx, localIdx);
 
     return () => {
-      window.speechSynthesis.cancel();
+      // Only cancel on unmount/dependency change, not on word index change
     };
-  }, [ttsEnabled, playing, segments, currentWordIdx, ttsSettings]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ttsEnabled, playing]);
 
   // When TTS is enabled, disable the WPM timer
   useEffect(() => {
@@ -240,8 +310,7 @@ export default function SpeedReader() {
       clearInterval(timerRef.current);
       timerRef.current = null;
     }
-  }, [ttsEnabled]);
-
+  }, [ttsEnabled, playing]);
   // Scroll highlighted word into view
   useEffect(() => {
     const el = wordRefs.current[currentWordIdx];
@@ -251,6 +320,7 @@ export default function SpeedReader() {
   const stopTts = useCallback(() => {
     if ("speechSynthesis" in window) window.speechSynthesis.cancel();
     ttsUtteranceRef.current = null;
+    ttsPlayingRef.current = false;
   }, []);
 
   const handlePlayPause = useCallback(() => {
