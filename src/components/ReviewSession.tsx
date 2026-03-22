@@ -253,7 +253,14 @@ export default function ReviewSession({ dueCards, allCards, subcategories, srSet
     return (
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="max-w-xl mx-auto space-y-8 py-10 relative">
         <AnimatePresence>
-          {showOnboarding && <ReviewOnboarding onComplete={() => setShowOnboarding(false)} />}
+          {showOnboarding && (
+            <OnboardingModal
+              slides={REVIEW_SLIDES}
+              storageKey={REVIEW_ONBOARDING_KEY}
+              onComplete={() => setShowOnboarding(false)}
+              finishLabel="Počni"
+            />
+          )}
         </AnimatePresence>
         {/* Info corner */}
         <HowItWorksCorner onShowOnboarding={() => setShowOnboarding(true)} />
