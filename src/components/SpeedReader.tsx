@@ -167,14 +167,14 @@ export default function SpeedReader() {
   }, [currentWordIdx]);
 
   const handlePlayPause = useCallback(() => {
-    if (allWords.length === 0) return;
-    if (currentWordIdx >= allWords.length - 1) setCurrentWordIdx(0);
+    if (totalWords === 0) return;
+    if (currentWordIdx >= totalWords - 1) setCurrentWordIdx(0);
     setPlaying(p => !p);
-  }, [allWords.length, currentWordIdx]);
+  }, [totalWords, currentWordIdx]);
 
   const handleReset = useCallback(() => { setPlaying(false); setCurrentWordIdx(0); }, []);
   const handlePrevWord = () => { setPlaying(false); setCurrentWordIdx(prev => Math.max(0, prev - 1)); };
-  const handleNextWord = () => { setPlaying(false); setCurrentWordIdx(prev => Math.min(allWords.length - 1, prev + 1)); };
+  const handleNextWord = () => { setPlaying(false); setCurrentWordIdx(prev => Math.min(totalWords - 1, prev + 1)); };
 
   // Jump to segment
   const jumpToSegment = (segIdx: number) => {
