@@ -115,10 +115,11 @@ export default function MnemonicWorkshop({ cards, onUpdateCard, onDeleteCard, on
           <p className="text-muted-foreground mt-1 text-sm">Kreiraj mentalni video i akronim za svaku mnemo karticu.</p>
         </div>
         <InfoPanel title="Kako radi Mnemo radionica?">
-          <p><strong className="text-foreground">Mnemo kuke</strong> — selektuj tekst u sesiji učenja ili u bazi podataka i klikni „Mnemo kuka" da kloniraš isječak u radionicu.</p>
+          <p><strong className="text-foreground">Mnemo kuke</strong> — dodaj karticu u radionicu na dva načina: selektuj tekst i klikni „Mnemo kuka", ili koristi ⋯ context menu na kartici u Bazi podataka → „Kloniraj u Mnemo radionicu".</p>
           <p><strong className="text-foreground">Mentalni video</strong> — opiši živopisnu vizuelnu scenu koju povezuješ sa gradivom.</p>
           <p><strong className="text-foreground">Akronim</strong> — za nabrajanja, sistem automatski detektuje stavke i sugeriše prva slova.</p>
           <p><strong className="text-foreground">Major sistem</strong> — brojevi u tekstu se automatski pretvaraju u riječi pomoću fonetskog koda.</p>
+          <p><strong className="text-foreground">Statusi</strong> — prati napredak kroz faze: Nova → U radionici → Spremna.</p>
         </InfoPanel>
       </div>
 

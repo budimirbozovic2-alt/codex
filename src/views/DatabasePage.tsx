@@ -29,14 +29,14 @@ export default function DatabasePage() {
           </div>
           <div className="flex items-center gap-2">
             <InfoPanel title="Kako radi Baza podataka?">
-              <p><strong className="text-foreground">Kartice</strong> — pregled, pretraga i filtriranje svih kartica. Podržava bulk operacije (označi više → dodijeli podkategoriju ili glavu).</p>
+              <p><strong className="text-foreground">Kartice</strong> — pregled, pretraga i filtriranje svih kartica. Podržava bulk operacije (označi više → dodijeli podkategoriju ili glavu) i manuelni drag-and-drop redoslijed.</p>
               <p><strong className="text-foreground">Kategorije</strong> — hijerarhijsko upravljanje kategorijama i podkategorijama. Svaka kategorija prikazuje broj kartica.</p>
-              <p><strong className="text-foreground">Mapa znanja</strong> — vizualna mapa savladanosti dostupna u Laboratoriji. Klikni "Detalji" na podkategoriji za prikaz sa glavama i drag-and-drop.</p>
-              <p><strong className="text-foreground">Export/Import</strong> — izvezi sve podatke kao JSON backup ili uvezi podatke iz drugog uređaja.</p>
+              <p><strong className="text-foreground">Context menu (⋯)</strong> — brze akcije na svakoj kartici: premjesti kategoriju, dodijeli glavu, označi tagove ili kloniraj u Mnemo radionicu.</p>
+              <p><strong className="text-foreground">Export/Import</strong> — izvezi sve podatke kao JSON/ZIP backup ili uvezi podatke iz drugog uređaja. Podržava kompresiju i rezoluciju konflikata.</p>
               <p><strong className="text-foreground">Tagovi:</strong></p>
               <ul className="space-y-1 pl-3">
                 <li>🔥 „Često na ispitu" — prioritetne kartice</li>
-                <li>🧠 „Memorizacija" — šalje karticu u Mnemo radionicu</li>
+                <li>🧠 „Mnemonic" — kartica je klonirana u Mnemo radionicu</li>
               </ul>
             </InfoPanel>
             <button

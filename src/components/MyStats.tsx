@@ -253,13 +253,13 @@ export default function MyStats({ cards, categories, subcategories, categoryStat
             <h2 className="text-3xl font-serif">Laboratorija znanja</h2>
             <p className="text-muted-foreground mt-1">FSRS analitika, grafikoni i kvantitativni podaci</p>
           </div>
-          <InfoPanel title="Kako rade Statistike?">
+          <InfoPanel title="Kako radi Laboratorija znanja?">
             <p><strong className="text-foreground">Pregled</strong> — heatmapa aktivnosti, distribucija znanja, kriva zaboravljanja, omjer ponavljanja (14 dana) i efektivno učenje danas.</p>
             <p><strong className="text-foreground">Kalibracija</strong> — upoređuje procjenu sigurnosti (1-5) sa stvarnom ocjenom radi detekcije iluzije znanja.</p>
             <p><strong className="text-foreground">Latencija</strong> — vrijeme do otkrivanja odgovora. Prag: &lt;3 sekunde.</p>
             <p><strong className="text-foreground">Otpor</strong> — kombinovani skor lapsusa, latencije i zaboravljanja.</p>
             <p><strong className="text-foreground">Predikcija</strong> — predikcija budućeg opterećenja po predmetima.</p>
-            <p><strong className="text-foreground">Efikasnost</strong> — Deep Work vs. Shallow Work omjer.</p>
+            <p><strong className="text-foreground">Efikasnost</strong> — omjer produktivnog učenja (Deep Work) naspram površnog (Shallow Work) sa trendom po sesijama.</p>
           </InfoPanel>
         </div>
       </motion.div>

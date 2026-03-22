@@ -50,8 +50,9 @@ export default function MetacognitiveCenter({ cards, categories, reviewLog, onBa
             <p className="text-muted-foreground mt-1">Refleksije, greške i kognitivna dijagnostika</p>
           </div>
           <InfoPanel title="Kako radi Dnevnik?">
-            <p><strong className="text-foreground">Dnevnik</strong> — bilježi dnevne refleksije, postavlja ciljeve i prati samoanalizu.</p>
-            <p><strong className="text-foreground">Greške & Dijagnostika</strong> — praćenje čestih grešaka sa statusima + mnemonička rješenja i analiza slabih tačaka.</p>
+            <p><strong className="text-foreground">Dnevnik</strong> — bilježi dnevne refleksije, postavlja ciljeve i prati samoanalizu. Svaki unos podržava oznake raspoloženja i kognitivnog stanja.</p>
+            <p><strong className="text-foreground">Greške & Dijagnostika</strong> — praćenje čestih grešaka sa statusima (aktivna, riješena, u obradi) i mnemonička rješenja za svaku grešku.</p>
+            <p><strong className="text-foreground">Analiza slabih tačaka</strong> — sistem identifikuje obrasce iz grešaka i predlaže fokusirano ponavljanje problematičnih oblasti.</p>
           </InfoPanel>
         </div>
       )}
