@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useEffect } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { MnemonicCard, MnemonicStatus, loadMajorSystem } from "@/lib/mnemonic-storage";
 import { default as ArrowLeft } from "lucide-react/dist/esm/icons/arrow-left";
 import { default as Brain } from "lucide-react/dist/esm/icons/brain";
@@ -7,18 +7,12 @@ import { default as FolderOpen } from "lucide-react/dist/esm/icons/folder-open";
 import { default as Search } from "lucide-react/dist/esm/icons/search";
 import { default as Sparkles } from "lucide-react/dist/esm/icons/sparkles";
 import { default as ArrowUpDown } from "lucide-react/dist/esm/icons/arrow-up-down";
-import { default as HelpCircle } from "lucide-react/dist/esm/icons/help-circle";
-import { default as ArrowRight } from "lucide-react/dist/esm/icons/arrow-right";
-import { default as X } from "lucide-react/dist/esm/icons/x";
-import { default as Film } from "lucide-react/dist/esm/icons/film";
-import { default as Type } from "lucide-react/dist/esm/icons/type";
-import { default as Hash } from "lucide-react/dist/esm/icons/hash";
 import { CheckCircle2 } from "lucide-react";
+import InfoPanel from "@/components/InfoPanel";
 import WorkshopCardItem from "@/components/workshop/WorkshopCardItem";
 import ScrollableRow from "@/components/ScrollableRow";
 import { useDebounce } from "@/hooks/useDebounce";
 import { motion, AnimatePresence } from "framer-motion";
-import { Button } from "@/components/ui/button";
 interface Props {
   cards: MnemonicCard[];
   onUpdateCard: (id: string, updates: Partial<MnemonicCard>) => void;
@@ -33,104 +27,6 @@ const STATUS_FILTERS: { value: MnemonicStatus | "all"; label: string; icon: type
   { value: "ready", label: "Spremne", icon: CheckCircle2 },
 ];
 
-const WORKSHOP_ONBOARDING_KEY = "sr-workshop-onboarding-seen";
-
-const WORKSHOP_SLIDES = [
-  {
-    icon: Wrench,
-    iconColor: "bg-primary/15 text-primary",
-    title: "Dobrodošli u Radionicu",
-    content: 'Ovdje kreiraš mentalne kuke \u2014 asocijacije koje ti pomažu da zapamtiš gradivo. Selektuj tekst u sesiji učenja ili bazi i klikni \u201eMnemo kuka\u201c da dodaš karticu.',
-  },
-  {
-    icon: Film,
-    iconColor: "bg-primary/15 text-primary",
-    title: "Mentalni video",
-    content: "Opiši živopisnu vizuelnu scenu koju povezuješ sa gradivom. Što dramatičnija i bizarnija slika, to bolje pamćenje. Koristi boje, pokrete i emocije.",
-  },
-  {
-    icon: Type,
-    iconColor: "bg-warning/15 text-warning",
-    title: "Akronim",
-    content: "Za nabrajanja, sistem automatski detektuje stavke i sugeriše prva slova. Smisli riječ ili frazu od tih slova za brzo prisjećanje.",
-  },
-  {
-    icon: Hash,
-    iconColor: "bg-primary/15 text-primary",
-    title: "Major sistem",
-    content: 'Brojevi u tekstu se automatski pretvaraju u riječi pomoću fonetskog koda. Konfiguriši tablice u sekciji \u201eMentalne tablice\u201c.',
-  },
-  {
-    icon: Sparkles,
-    iconColor: "bg-success/15 text-success",
-    title: "Statusi kartica",
-    content: '\u2728 Nova \u2014 čeka obradu\n\uD83D\uDD27 U radionici \u2014 kuka u izradi\n\u2705 Spremna \u2014 dostupna za testiranje u Sefu. Klikni \u201eUredi\u201c da mijenjaš pitanje i sadržaj direktno.',
-  },
-];
-
-function WorkshopOnboarding({ onComplete }: { onComplete: () => void }) {
-  const [step, setStep] = useState(0);
-  const slide = WORKSHOP_SLIDES[step];
-  const Icon = slide.icon;
-
-  const finish = () => {
-    localStorage.setItem(WORKSHOP_ONBOARDING_KEY, "true");
-    onComplete();
-  };
-
-  return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60"
-      onClick={finish}
-    >
-      <motion.div
-        initial={{ opacity: 0, scale: 0.95, y: 20 }}
-        animate={{ opacity: 1, scale: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 0.95, y: 20 }}
-        onClick={e => e.stopPropagation()}
-        className="bg-background border rounded-2xl shadow-xl w-full max-w-md overflow-hidden"
-      >
-        <div className="p-6 space-y-4">
-          <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${slide.iconColor}`}>
-            <Icon className="h-6 w-6" />
-          </div>
-          <h3 className="text-xl font-serif">{slide.title}</h3>
-          <p className="text-sm text-muted-foreground whitespace-pre-line leading-relaxed">{slide.content}</p>
-
-          {/* Progress dots */}
-          <div className="flex items-center justify-center gap-1.5 pt-2">
-            {WORKSHOP_SLIDES.map((_, i) => (
-              <div key={i} className={`w-2 h-2 rounded-full transition-colors ${i === step ? "bg-primary" : "bg-secondary"}`} />
-            ))}
-          </div>
-        </div>
-
-        <div className="flex items-center justify-between p-4 border-t">
-          {step > 0 ? (
-            <Button variant="ghost" size="sm" onClick={() => setStep(s => s - 1)}>
-              <ArrowLeft className="h-4 w-4 mr-1" /> Nazad
-            </Button>
-          ) : (
-            <Button variant="ghost" size="sm" onClick={finish}>Preskoči</Button>
-          )}
-          {step < WORKSHOP_SLIDES.length - 1 ? (
-            <Button size="sm" onClick={() => setStep(s => s + 1)}>
-              Dalje <ArrowRight className="h-4 w-4 ml-1" />
-            </Button>
-          ) : (
-            <Button size="sm" onClick={finish}>
-              Počni <CheckCircle2 className="h-4 w-4 ml-1" />
-            </Button>
-          )}
-        </div>
-      </motion.div>
-    </motion.div>
-  );
-}
-
 export default function MnemonicWorkshop({ cards, onUpdateCard, onDeleteCard, onBack }: Props) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [filterStatus, setFilterStatus] = useState<MnemonicStatus | "all">("all");
@@ -138,9 +34,6 @@ export default function MnemonicWorkshop({ cards, onUpdateCard, onDeleteCard, on
   const [selectedSubcategory, setSelectedSubcategory] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState<"newest" | "status" | "category" | "success">("newest");
-  const [showOnboarding, setShowOnboarding] = useState(
-    () => localStorage.getItem(WORKSHOP_ONBOARDING_KEY) !== "true"
-  );
   const debouncedSearch = useDebounce(searchQuery, 300);
 
   const majorSystem = useMemo(() => loadMajorSystem(), []);
@@ -210,10 +103,6 @@ export default function MnemonicWorkshop({ cards, onUpdateCard, onDeleteCard, on
 
    return (
     <div className="max-w-4xl mx-auto space-y-5">
-      <AnimatePresence>
-        {showOnboarding && <WorkshopOnboarding onComplete={() => setShowOnboarding(false)} />}
-      </AnimatePresence>
-
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -225,13 +114,12 @@ export default function MnemonicWorkshop({ cards, onUpdateCard, onDeleteCard, on
           </h2>
           <p className="text-muted-foreground mt-1 text-sm">Kreiraj mentalni video i akronim za svaku mnemo karticu.</p>
         </div>
-        <button
-          onClick={() => setShowOnboarding(true)}
-          className="p-2 rounded-lg hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors"
-          title="Vodič kroz radionicu"
-        >
-          <HelpCircle className="h-5 w-5" />
-        </button>
+        <InfoPanel title="Kako radi Mnemo radionica?">
+          <p><strong className="text-foreground">Mnemo kuke</strong> — selektuj tekst u sesiji učenja ili u bazi podataka i klikni „Mnemo kuka" da kloniraš isječak u radionicu.</p>
+          <p><strong className="text-foreground">Mentalni video</strong> — opiši živopisnu vizuelnu scenu koju povezuješ sa gradivom.</p>
+          <p><strong className="text-foreground">Akronim</strong> — za nabrajanja, sistem automatski detektuje stavke i sugeriše prva slova.</p>
+          <p><strong className="text-foreground">Major sistem</strong> — brojevi u tekstu se automatski pretvaraju u riječi pomoću fonetskog koda.</p>
+        </InfoPanel>
       </div>
 
       {/* Filters */}
