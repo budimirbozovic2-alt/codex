@@ -58,6 +58,7 @@ const App = () => (
                       <Route path="/frequent-errors" element={<FrequentErrorsPage />} />
                       <Route path="/major-system-settings" element={<MajorSystemPage />} />
                       <Route path="/database" element={<DatabasePage />} />
+                      <Route path="/speed-reader" element={<SpeedReaderPage />} />
                       {/* Legacy redirects */}
                       <Route path="/cards" element={<DatabasePage />} />
                       <Route path="/categories" element={<DatabasePage />} />

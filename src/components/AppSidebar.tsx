@@ -44,6 +44,7 @@ const LAB_ITEMS = [
   { path: "/planner", icon: Target, label: "Strateški planer" },
   { path: "/database", icon: DatabaseIcon, label: "Kartice" },
   { path: "/categories", icon: FolderOpen, label: "Kategorije" },
+  { path: "/speed-reader", icon: Zap, label: "Speed Reader" },
 ];
 
 export default function AppSidebar() {
