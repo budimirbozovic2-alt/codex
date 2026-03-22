@@ -130,7 +130,14 @@ export default function SpeedReader() {
 
   // TTS read-along state
   const [ttsEnabled, setTtsEnabled] = useState(false);
-  const [ttsMode, setTtsMode] = useState<"natural" | "wpm">("natural"); // natural = TTS drives pace, wpm = WPM timer drives pace
+  const [ttsMode, setTtsModeState] = useState<"natural" | "wpm">(() => {
+    const saved = localStorage.getItem("sr-tts-mode");
+    return saved === "wpm" ? "wpm" : "natural";
+  });
+  const setTtsMode = (mode: "natural" | "wpm") => {
+    setTtsModeState(mode);
+    localStorage.setItem("sr-tts-mode", mode);
+  };
   const [ttsSettings, setTtsSettings] = useState<TTSSettings>(loadTTSSettings);
   const [showTtsSettings, setShowTtsSettings] = useState(false);
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
