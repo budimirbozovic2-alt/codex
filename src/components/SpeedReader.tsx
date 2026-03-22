@@ -397,7 +397,7 @@ export default function SpeedReader() {
             <button onClick={handlePlayPause} className="p-3 rounded-xl bg-primary text-primary-foreground hover:opacity-90 transition-opacity">
               {playing ? <Pause className="h-5 w-5" /> : <Play className="h-5 w-5" />}
             </button>
-            <button onClick={handleNextWord} disabled={currentWordIdx >= allWords.length - 1} className="p-2 rounded-lg hover:bg-secondary disabled:opacity-30 transition-colors">
+            <button onClick={handleNextWord} disabled={currentWordIdx >= totalWords - 1} className="p-2 rounded-lg hover:bg-secondary disabled:opacity-30 transition-colors">
               <ChevronRight className="h-4 w-4" />
             </button>
             <button onClick={handleReset} className="p-2 rounded-lg hover:bg-secondary transition-colors" title="Resetuj">
