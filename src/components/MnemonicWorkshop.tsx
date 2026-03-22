@@ -103,10 +103,6 @@ export default function MnemonicWorkshop({ cards, onUpdateCard, onDeleteCard, on
 
    return (
     <div className="max-w-4xl mx-auto space-y-5">
-      <AnimatePresence>
-        {showOnboarding && <WorkshopOnboarding onComplete={() => setShowOnboarding(false)} />}
-      </AnimatePresence>
-
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -118,13 +114,12 @@ export default function MnemonicWorkshop({ cards, onUpdateCard, onDeleteCard, on
           </h2>
           <p className="text-muted-foreground mt-1 text-sm">Kreiraj mentalni video i akronim za svaku mnemo karticu.</p>
         </div>
-        <button
-          onClick={() => setShowOnboarding(true)}
-          className="p-2 rounded-lg hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors"
-          title="Vodič kroz radionicu"
-        >
-          <HelpCircle className="h-5 w-5" />
-        </button>
+        <InfoPanel title="Kako radi Mnemo radionica?">
+          <p><strong className="text-foreground">Mnemo kuke</strong> — selektuj tekst u sesiji učenja ili u bazi podataka i klikni „Mnemo kuka" da kloniraš isječak u radionicu.</p>
+          <p><strong className="text-foreground">Mentalni video</strong> — opiši živopisnu vizuelnu scenu koju povezuješ sa gradivom.</p>
+          <p><strong className="text-foreground">Akronim</strong> — za nabrajanja, sistem automatski detektuje stavke i sugeriše prva slova.</p>
+          <p><strong className="text-foreground">Major sistem</strong> — brojevi u tekstu se automatski pretvaraju u riječi pomoću fonetskog koda.</p>
+        </InfoPanel>
       </div>
 
       {/* Filters */}
