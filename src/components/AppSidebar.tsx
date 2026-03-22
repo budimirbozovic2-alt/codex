@@ -1,6 +1,7 @@
 import { useLocation } from "react-router-dom";
 import { useCardContext } from "@/contexts/AppContext";
 import { default as Home } from "lucide-react/dist/esm/icons/home";
+import { default as Zap } from "lucide-react/dist/esm/icons/zap";
 import { default as GraduationCap } from "lucide-react/dist/esm/icons/graduation-cap";
 import { default as RotateCcw } from "lucide-react/dist/esm/icons/rotate-ccw";
 import { default as Brain } from "lucide-react/dist/esm/icons/brain";
