@@ -88,9 +88,10 @@ function getActiveSegment(segments: Segment[], wordIdx: number): Segment | null 
 
 const SPEED_READER_INFO = (
   <div className="space-y-3 text-sm">
-    <div className="flex items-start gap-2"><Layers className="h-4 w-4 mt-0.5 text-primary flex-shrink-0" /><div><strong>Čitaj podkategoriju</strong><p className="text-muted-foreground">Odaberi kategoriju i podkategoriju — sve kartice se spajaju u kontinuirani tok teksta.</p></div></div>
-    <div className="flex items-start gap-2"><Eye className="h-4 w-4 mt-0.5 text-primary flex-shrink-0" /><div><strong>Highlighting</strong><p className="text-muted-foreground">Tekst se prikazuje u cijelosti, trenutna riječ se ističe u zadanom tempu.</p></div></div>
-    <div className="flex items-start gap-2"><Gauge className="h-4 w-4 mt-0.5 text-primary flex-shrink-0" /><div><strong>Brzina</strong><p className="text-muted-foreground">Podesi WPM. Počni sporije pa postepeno ubrzavaj.</p></div></div>
+    <div className="flex items-start gap-2"><Layers className="h-4 w-4 mt-0.5 text-primary flex-shrink-0" /><div><strong>Čitaj podkategoriju</strong><p className="text-muted-foreground">Sve kartice se spajaju u kontinuirani tok teksta.</p></div></div>
+    <div className="flex items-start gap-2"><Eye className="h-4 w-4 mt-0.5 text-primary flex-shrink-0" /><div><strong>Highlighting</strong><p className="text-muted-foreground">Trenutna riječ se ističe u zadanom tempu (WPM).</p></div></div>
+    <div className="flex items-start gap-2"><Volume2 className="h-4 w-4 mt-0.5 text-primary flex-shrink-0" /><div><strong>Glasovno praćenje</strong><p className="text-muted-foreground">Uključi 🔊 za TTS čitanje naglas sa sinhronizovanim praćenjem teksta.</p></div></div>
+    <div className="flex items-start gap-2"><Gauge className="h-4 w-4 mt-0.5 text-primary flex-shrink-0" /><div><strong>Brzina</strong><p className="text-muted-foreground">WPM za vizuelno, ili brzina govora za TTS.</p></div></div>
   </div>
 );
 
