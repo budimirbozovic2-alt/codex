@@ -17,14 +17,9 @@ import { default as CheckCircle } from "lucide-react/dist/esm/icons/check-circle
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
 import {
-  DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors,
-  DragEndEvent, DragOverlay, DragStartEvent, useDroppable,
+  DndContext, PointerSensor, useSensor, useSensors,
+  DragEndEvent, DragOverlay, DragStartEvent, useDroppable, useDraggable,
 } from "@dnd-kit/core";
-import {
-  arrayMove, SortableContext, sortableKeyboardCoordinates, useSortable,
-  rectSortingStrategy,
-} from "@dnd-kit/sortable";
-import { CSS } from "@dnd-kit/utilities";
 import { toast } from "sonner";
 
 type Mode = "navigator" | "auditor";
@@ -59,15 +54,15 @@ function extractChapterNum(name: string): number | null {
   return match ? parseInt(match[1]) : null;
 }
 
-// ── Sortable Card Tile ──────────────────────────────────
-function SortableCardTile({ card, mode, onClick }: { card: Card; mode: Mode; onClick: () => void }) {
+// ── Draggable Card Tile ──────────────────────────────────
+function DraggableCardTile({ card, mode, onClick }: { card: Card; mode: Mode; onClick: () => void }) {
   const level = getCardMasteryLevel(card);
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: card.id });
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: card.id });
 
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: isDragging ? 0.4 : 1,
+  const style: React.CSSProperties = {
+    transform: transform ? `translate3d(${transform.x}px, ${transform.y}px, 0)` : undefined,
+    opacity: isDragging ? 0.3 : 1,
+    zIndex: isDragging ? 50 : undefined,
   };
 
   const bgColor = mode === "navigator"
@@ -118,14 +113,14 @@ function SortableCardTile({ card, mode, onClick }: { card: Card; mode: Mode; onC
           </p>
         )}
         {mode === "navigator" && (
-          <p className="text-[10px] text-muted-foreground mt-0.5">Klikni za učenje • Drži za pomjeranje</p>
+          <p className="text-[10px] text-muted-foreground mt-0.5">Klikni za učenje • Drži za pomjeranje u glavu</p>
         )}
       </TooltipContent>
     </Tooltip>
   );
 }
 
-// ── Chapter Box (with useDroppable for cross-chapter DnD) ──
+// ── Chapter Box (droppable on header) ──
 function ChapterBox({
   chapter, cards, mode, isOpen, onToggle, onCardClick, onRename, onDelete,
 }: {
@@ -145,64 +140,63 @@ function ChapterBox({
     [cards]
   );
 
-  // Make this chapter a drop target so cards can be dragged into empty chapters too
   const { setNodeRef: setDropRef, isOver } = useDroppable({
     id: `chapter-drop-${chapter}`,
     data: { type: "chapter", chapter },
   });
 
-  // Mastery distribution for this chapter
   const levelCounts = useMemo(() => {
     const counts = [0, 0, 0, 0, 0, 0];
     cards.forEach(c => counts[getCardMasteryLevel(c)]++);
     return counts;
   }, [cards]);
 
-  // Each chapter has its own SortableContext to prevent cross-chapter interference
-  const sortedIds = useMemo(() => sortedCards.map(c => c.id), [sortedCards]);
-
   return (
     <Collapsible open={isOpen} onOpenChange={onToggle}>
-      <CollapsibleTrigger className="w-full">
-        <div className="flex items-center gap-3 p-3 rounded-xl border bg-card hover:bg-secondary/30 transition-colors">
-          <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform flex-shrink-0 ${isOpen ? "" : "-rotate-90"}`} />
-          <BookOpen className="h-4 w-4 text-primary flex-shrink-0" />
-          <div className="flex-1 text-left min-w-0">
-            <span className="font-serif text-sm">{displayName}</span>
-            <span className="ml-2 text-xs text-muted-foreground">{cards.length}</span>
+      <div
+        ref={setDropRef}
+        className={`rounded-xl border transition-all duration-200 ${
+          isOver
+            ? "ring-2 ring-primary border-primary bg-primary/5 shadow-lg scale-[1.01]"
+            : "bg-card"
+        }`}
+      >
+        <CollapsibleTrigger className="w-full">
+          <div className={`flex items-center gap-3 p-3 rounded-xl transition-colors ${isOver ? "" : "hover:bg-secondary/30"}`}>
+            <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform flex-shrink-0 ${isOpen ? "" : "-rotate-90"}`} />
+            <BookOpen className="h-4 w-4 text-primary flex-shrink-0" />
+            <div className="flex-1 text-left min-w-0">
+              <span className={`font-serif text-sm transition-colors ${isOver ? "text-primary font-semibold" : ""}`}>{displayName}</span>
+              <span className="ml-2 text-xs text-muted-foreground">{cards.length}</span>
+              {isOver && <span className="ml-2 text-xs text-primary animate-pulse">← Pusti ovdje</span>}
+            </div>
+            {mode === "auditor" && cards.length > 0 && (
+              <div className="flex h-2 w-24 rounded-full overflow-hidden bg-secondary flex-shrink-0">
+                {levelCounts.map((count, lvl) => {
+                  if (count === 0) return null;
+                  return (
+                    <div key={lvl} style={{ width: `${(count / cards.length) * 100}%`, backgroundColor: getMasteryColor(lvl) }} />
+                  );
+                })}
+              </div>
+            )}
+            {!isUnassigned && mode === "navigator" && (
+              <div className="flex items-center gap-1 flex-shrink-0" onClick={e => e.stopPropagation()}>
+                <button onClick={() => onRename(chapter)} className="p-1 rounded hover:bg-secondary transition-colors">
+                  <Edit3 className="h-3 w-3 text-muted-foreground" />
+                </button>
+                <button onClick={() => onDelete(chapter)} className="p-1 rounded hover:bg-destructive/10 transition-colors">
+                  <Trash2 className="h-3 w-3 text-muted-foreground" />
+                </button>
+              </div>
+            )}
           </div>
-          {/* Mini distribution bar */}
-          {mode === "auditor" && cards.length > 0 && (
-            <div className="flex h-2 w-24 rounded-full overflow-hidden bg-secondary flex-shrink-0">
-              {levelCounts.map((count, lvl) => {
-                if (count === 0) return null;
-                return (
-                  <div key={lvl} style={{ width: `${(count / cards.length) * 100}%`, backgroundColor: getMasteryColor(lvl) }} />
-                );
-              })}
-            </div>
-          )}
-          {!isUnassigned && mode === "navigator" && (
-            <div className="flex items-center gap-1 flex-shrink-0" onClick={e => e.stopPropagation()}>
-              <button onClick={() => onRename(chapter)} className="p-1 rounded hover:bg-secondary transition-colors">
-                <Edit3 className="h-3 w-3 text-muted-foreground" />
-              </button>
-              <button onClick={() => onDelete(chapter)} className="p-1 rounded hover:bg-destructive/10 transition-colors">
-                <Trash2 className="h-3 w-3 text-muted-foreground" />
-              </button>
-            </div>
-          )}
-        </div>
-      </CollapsibleTrigger>
-      <CollapsibleContent>
-        <div
-          ref={setDropRef}
-          className={`pl-4 pr-2 py-3 rounded-b-xl transition-colors ${isOver ? "bg-primary/5 ring-2 ring-primary/20" : ""}`}
-        >
-          <SortableContext items={sortedIds} strategy={rectSortingStrategy}>
+        </CollapsibleTrigger>
+        <CollapsibleContent>
+          <div className="pl-4 pr-2 py-3">
             <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-2">
               {sortedCards.map(card => (
-                <SortableCardTile
+                <DraggableCardTile
                   key={card.id}
                   card={card}
                   mode={mode}
@@ -210,12 +204,12 @@ function ChapterBox({
                 />
               ))}
             </div>
-          </SortableContext>
-          {cards.length === 0 && (
-            <p className="text-xs text-muted-foreground text-center py-4">Prevuci kartice ovdje</p>
-          )}
-        </div>
-      </CollapsibleContent>
+            {cards.length === 0 && (
+              <p className="text-xs text-muted-foreground text-center py-4">Prevuci kartice ovdje</p>
+            )}
+          </div>
+        </CollapsibleContent>
+      </div>
     </Collapsible>
   );
 }
@@ -462,10 +456,9 @@ export default function MentalSkeleton({ cards, subcategory, category, onBack, o
     return map;
   }, [subCards, chapters]);
 
-  // DnD sensors
+   // DnD sensors
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
-    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
   );
 
   const toggleChapter = useCallback((ch: string) => {
@@ -476,7 +469,7 @@ export default function MentalSkeleton({ cards, subcategory, category, onBack, o
     });
   }, []);
 
-  // Initialize all chapters as expanded — useEffect instead of useMemo (Fix #1)
+  // Initialize all chapters as expanded
   useEffect(() => {
     const all = new Set([UNASSIGNED_CHAPTER, ...chapters]);
     setExpandedChapters(all);
@@ -496,73 +489,47 @@ export default function MentalSkeleton({ cards, subcategory, category, onBack, o
   const handleDragEnd = (event: DragEndEvent) => {
     setActiveId(null);
     const { active, over } = event;
-    if (!over || active.id === over.id) return;
+    if (!over) return;
 
-    const activeChapter = findChapterForCard(active.id as string);
-    
-    // Determine target chapter: either from a droppable chapter zone or from the card's chapter
-    let overChapter: string;
     const overId = over.id as string;
-    if (overId.startsWith("chapter-drop-")) {
-      // Dropped onto a chapter droppable zone
-      overChapter = overId.replace("chapter-drop-", "");
-    } else {
-      // Dropped onto another card
-      overChapter = findChapterForCard(overId);
-    }
+    // Only accept drops on chapter headers
+    if (!overId.startsWith("chapter-drop-")) return;
 
-    if (activeChapter === overChapter && !overId.startsWith("chapter-drop-")) {
-      // Reorder within same chapter
-      const chapterCards = [...(cardsByChapter[activeChapter] || [])].sort((a, b) => (a.chapterOrder ?? 0) - (b.chapterOrder ?? 0));
-      const oldIndex = chapterCards.findIndex(c => c.id === active.id);
-      const newIndex = chapterCards.findIndex(c => c.id === overId);
-      if (oldIndex !== -1 && newIndex !== -1) {
-        const reordered = arrayMove(chapterCards, oldIndex, newIndex);
-        const updates = reordered.map((c, i) => ({
-          id: c.id,
-          chapter: activeChapter === UNASSIGNED_CHAPTER ? "" : activeChapter,
-          chapterOrder: i,
-        }));
-        onUpdateChapters(updates);
-      }
-    } else {
-      // Move to different chapter
-      const movedCard = subCards.find(c => c.id === active.id);
-      if (!movedCard) return;
+    const targetChapter = overId.replace("chapter-drop-", "");
+    const sourceChapter = findChapterForCard(active.id as string);
 
-      const targetChapterName = overChapter === UNASSIGNED_CHAPTER ? "" : overChapter;
-      const targetCards = [...(cardsByChapter[overChapter] || [])]
-        .filter(c => c.id !== active.id)
-        .sort((a, b) => (a.chapterOrder ?? 0) - (b.chapterOrder ?? 0));
-      
-      // If dropped on a card, insert at that position; otherwise append
-      let insertIndex = targetCards.length;
-      if (!overId.startsWith("chapter-drop-")) {
-        const overIdx = targetCards.findIndex(c => c.id === overId);
-        if (overIdx !== -1) insertIndex = overIdx;
-      }
+    // Don't do anything if dropped on same chapter
+    if (sourceChapter === targetChapter) return;
 
-      const updates: { id: string; chapter: string; chapterOrder: number }[] = [];
-      targetCards.splice(insertIndex, 0, movedCard);
-      targetCards.forEach((c, i) => {
-        updates.push({ id: c.id, chapter: targetChapterName, chapterOrder: i });
+    const movedCard = subCards.find(c => c.id === active.id);
+    if (!movedCard) return;
+
+    const targetChapterName = targetChapter === UNASSIGNED_CHAPTER ? "" : targetChapter;
+    const updates: { id: string; chapter: string; chapterOrder: number }[] = [];
+
+    // Add card to end of target chapter
+    const targetCards = [...(cardsByChapter[targetChapter] || [])]
+      .filter(c => c.id !== active.id)
+      .sort((a, b) => (a.chapterOrder ?? 0) - (b.chapterOrder ?? 0));
+    targetCards.push(movedCard);
+    targetCards.forEach((c, i) => {
+      updates.push({ id: c.id, chapter: targetChapterName, chapterOrder: i });
+    });
+
+    // Re-index source chapter
+    const sourceCards = [...(cardsByChapter[sourceChapter] || [])]
+      .filter(c => c.id !== active.id)
+      .sort((a, b) => (a.chapterOrder ?? 0) - (b.chapterOrder ?? 0));
+    sourceCards.forEach((c, i) => {
+      updates.push({
+        id: c.id,
+        chapter: sourceChapter === UNASSIGNED_CHAPTER ? "" : sourceChapter,
+        chapterOrder: i,
       });
+    });
 
-      // Re-index source chapter
-      const sourceCards = [...(cardsByChapter[activeChapter] || [])]
-        .filter(c => c.id !== active.id)
-        .sort((a, b) => (a.chapterOrder ?? 0) - (b.chapterOrder ?? 0));
-      sourceCards.forEach((c, i) => {
-        updates.push({
-          id: c.id,
-          chapter: activeChapter === UNASSIGNED_CHAPTER ? "" : activeChapter,
-          chapterOrder: i,
-        });
-      });
-
-      onUpdateChapters(updates);
-      toast.success("Kartica premještena");
-    }
+    onUpdateChapters(updates);
+    toast.success(`Premješteno u "${targetChapter === UNASSIGNED_CHAPTER ? "Nekategorisane" : targetChapter}"`);
   };
 
   const handleCardClick = (card: Card) => {
@@ -784,10 +751,9 @@ export default function MentalSkeleton({ cards, subcategory, category, onBack, o
         )}
       </AnimatePresence>
 
-      {/* Chapters with DnD — separate SortableContext per chapter */}
+      {/* Chapters with DnD — drag cards onto chapter headers */}
       <DndContext
         sensors={sensors}
-        collisionDetection={closestCenter}
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
       >
