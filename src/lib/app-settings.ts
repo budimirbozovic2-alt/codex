@@ -33,7 +33,7 @@ export const DEFAULT_APP_SETTINGS: AppSettings = {
   targetRetention: 0.95,
   autoBackupDays: 7,
   soundEffects: false,
-  colorTheme: "amber",
+  colorTheme: "ocean",
   dashboardWidgets: {
     showExamProgress: true,
     showCoreStats: true,
