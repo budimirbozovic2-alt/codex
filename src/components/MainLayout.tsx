@@ -4,9 +4,12 @@ import { useAppContext } from "@/contexts/AppContext";
 import ZenMode from "@/components/ZenMode";
 import TopNav from "@/components/TopNav";
 import { AnimatePresence } from "framer-motion";
+import { hasSeenOnboarding } from "@/components/OnboardingModal";
+import { APP_ONBOARDING_KEY } from "@/components/AppOnboarding";
 
 const DocxImporter = lazy(() => import("@/components/DocxImporter"));
 const GlobalSearch = lazy(() => import("@/components/GlobalSearch"));
+const AppOnboarding = lazy(() => import("@/components/AppOnboarding"));
 
 export default function MainLayout({ children }: { children: ReactNode }) {
   const ctx = useAppContext();
