@@ -526,7 +526,10 @@ function ReviewCard({
   const [answerRevealedAt, setAnswerRevealedAt] = useState<number | null>(null);
   const [canGradeEasy, setCanGradeEasy] = useState(false);
   const [confidence, setConfidence] = useState<number | null>(null);
+  const [snippetOpen, setSnippetOpen] = useState(false);
   const questionShownAt = useRef<number>(Date.now());
+  const hasSource = !!card.sourceId && !!card.originalSourceSnippet;
+  const SourceSnippetDialog = useMemo(() => hasSource ? lazy(() => import("@/components/SourceSnippetDialog")) : null, [hasSource]);
 
   // Reset timer when card/section changes or answer is hidden
   useEffect(() => {
