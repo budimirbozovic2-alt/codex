@@ -1,19 +1,14 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-
-
-
-
-
-
-
+import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { startBrownNoise, stopBrownNoise, setBrownNoiseVolume, isBrownNoisePlaying } from "@/lib/brown-noise";
 import { addPomodoroEntry, getPomodoroStats } from "@/lib/storage";
-import { Volume2, X, Play, Pause, VolumeX, RotateCcw, Timer } from "lucide-react";
+import { loadAppSettings } from "@/lib/app-settings";
+import { Volume2, X, Play, Pause, VolumeX, RotateCcw, Timer, Coffee, Brain, SkipForward } from "lucide-react";
+import { cn } from "@/lib/utils";
 
-type TimerPhase = "focus" | "break";
+type TimerPhase = "focus" | "break" | "longBreak";
 
 interface Props {
   active: boolean;
@@ -21,47 +16,39 @@ interface Props {
 }
 
 export default function ZenMode({ active, onToggle }: Props) {
+  const pom = loadAppSettings().pomodoro;
+  const FOCUS_DURATION = pom.workMinutes * 60;
+  const BREAK_DURATION = pom.breakMinutes * 60;
+  const LONG_BREAK_DURATION = pom.longBreakMinutes * 60;
+
   const [timerRunning, setTimerRunning] = useState(false);
   const [phase, setPhase] = useState<TimerPhase>("focus");
-  const [seconds, setSeconds] = useState(25 * 60);
+  const [seconds, setSeconds] = useState(FOCUS_DURATION);
+  const [cycleCount, setCycleCount] = useState(0);
   const [noiseOn, setNoiseOn] = useState(false);
   const [noiseVolume, setNoiseVolume] = useState(0.3);
   const [pomodoroStats, setPomodoroStats] = useState(getPomodoroStats());
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const FOCUS_DURATION = 25 * 60;
-  const BREAK_DURATION = 5 * 60;
+  const totalForPhase = phase === "focus" ? FOCUS_DURATION : phase === "longBreak" ? LONG_BREAK_DURATION : BREAK_DURATION;
 
-  // Fullscreen toggle
   useEffect(() => {
     if (active) {
       document.documentElement.requestFullscreen?.().catch(() => {});
     } else {
-      if (document.fullscreenElement) {
-        document.exitFullscreen?.().catch(() => {});
-      }
-      // Cleanup
+      if (document.fullscreenElement) document.exitFullscreen?.().catch(() => {});
       setTimerRunning(false);
-      if (isBrownNoisePlaying()) {
-        stopBrownNoise();
-        setNoiseOn(false);
-      }
+      if (isBrownNoisePlaying()) { stopBrownNoise(); setNoiseOn(false); }
     }
   }, [active]);
 
-  // Timer logic
   useEffect(() => {
     if (timerRunning && seconds > 0) {
-      intervalRef.current = setInterval(() => {
-        setSeconds((s) => s - 1);
-      }, 1000);
+      intervalRef.current = setInterval(() => setSeconds(s => s - 1), 1000);
     }
-    return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
-    };
+    return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
   }, [timerRunning, seconds]);
 
-  // Play a chime notification using Web Audio API
   const playChime = useCallback((type: "focus" | "break") => {
     try {
       const ctx = new AudioContext();
@@ -80,46 +67,59 @@ export default function ZenMode({ active, onToggle }: Props) {
     } catch {}
   }, []);
 
-  // Phase switch when timer reaches 0
   useEffect(() => {
     if (seconds <= 0) {
       setTimerRunning(false);
       if (phase === "focus") {
-        addPomodoroEntry({ timestamp: Date.now(), type: "focus", durationMinutes: FOCUS_DURATION / 60 });
+        addPomodoroEntry({ timestamp: Date.now(), type: "focus", durationMinutes: pom.workMinutes });
         setPomodoroStats(getPomodoroStats());
         playChime("focus");
-        setPhase("break");
-        setSeconds(BREAK_DURATION);
+        const newCycle = cycleCount + 1;
+        setCycleCount(newCycle);
+        if (pom.longBreakInterval > 0 && newCycle % pom.longBreakInterval === 0) {
+          setPhase("longBreak");
+          setSeconds(LONG_BREAK_DURATION);
+        } else {
+          setPhase("break");
+          setSeconds(BREAK_DURATION);
+        }
       } else {
-        addPomodoroEntry({ timestamp: Date.now(), type: "break", durationMinutes: BREAK_DURATION / 60 });
+        const dur = phase === "longBreak" ? pom.longBreakMinutes : pom.breakMinutes;
+        addPomodoroEntry({ timestamp: Date.now(), type: "break", durationMinutes: dur });
         playChime("break");
         setPhase("focus");
         setSeconds(FOCUS_DURATION);
       }
     }
-  }, [seconds, phase, playChime]);
+  }, [seconds, phase, playChime, cycleCount, pom, FOCUS_DURATION, BREAK_DURATION, LONG_BREAK_DURATION]);
 
   const toggleNoise = useCallback(() => {
-    if (noiseOn) {
-      stopBrownNoise();
-      setNoiseOn(false);
-    } else {
-      startBrownNoise(noiseVolume);
-      setNoiseOn(true);
-    }
+    if (noiseOn) { stopBrownNoise(); setNoiseOn(false); }
+    else { startBrownNoise(noiseVolume); setNoiseOn(true); }
   }, [noiseOn, noiseVolume]);
 
   const handleVolumeChange = useCallback((val: number[]) => {
-    const v = val[0];
-    setNoiseVolume(v);
-    setBrownNoiseVolume(v);
+    setNoiseVolume(val[0]);
+    setBrownNoiseVolume(val[0]);
   }, []);
 
   const resetTimer = useCallback(() => {
     setTimerRunning(false);
     setPhase("focus");
     setSeconds(FOCUS_DURATION);
-  }, []);
+    setCycleCount(0);
+  }, [FOCUS_DURATION]);
+
+  const skipPhase = useCallback(() => {
+    setTimerRunning(false);
+    if (phase === "focus") {
+      setPhase("break");
+      setSeconds(BREAK_DURATION);
+    } else {
+      setPhase("focus");
+      setSeconds(FOCUS_DURATION);
+    }
+  }, [phase, FOCUS_DURATION, BREAK_DURATION]);
 
   const formatTime = (s: number) => {
     const m = Math.floor(s / 60);
@@ -127,97 +127,144 @@ export default function ZenMode({ active, onToggle }: Props) {
     return `${m.toString().padStart(2, "0")}:${sec.toString().padStart(2, "0")}`;
   };
 
-  const progress = phase === "focus"
-    ? ((FOCUS_DURATION - seconds) / FOCUS_DURATION) * 100
-    : ((BREAK_DURATION - seconds) / BREAK_DURATION) * 100;
+  const progress = ((totalForPhase - seconds) / totalForPhase) * 100;
 
   if (!active) return null;
 
+  const phaseConfig = {
+    focus: { label: "Fokus", icon: Brain, accent: "text-primary", ring: "stroke-primary", bg: "bg-primary" },
+    break: { label: "Pauza", icon: Coffee, accent: "text-success", ring: "stroke-success", bg: "bg-success" },
+    longBreak: { label: "Dugačka pauza", icon: Coffee, accent: "text-amber-500", ring: "stroke-amber-500", bg: "bg-amber-500" },
+  }[phase];
+
+  // Circular progress ring
+  const RING_SIZE = 160;
+  const STROKE_WIDTH = 5;
+  const RADIUS = (RING_SIZE - STROKE_WIDTH) / 2;
+  const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
+  const strokeDashoffset = CIRCUMFERENCE - (progress / 100) * CIRCUMFERENCE;
+
+  // Cycle dots
+  const interval = pom.longBreakInterval || 4;
+  const currentInCycle = cycleCount % interval;
+
   return (
     <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
+      initial={{ opacity: 0, scale: 0.95 }}
+      animate={{ opacity: 1, scale: 1 }}
+      exit={{ opacity: 0, scale: 0.95 }}
+      transition={{ duration: 0.3, ease: "easeOut" }}
       className="fixed bottom-6 right-6 z-[100]"
     >
-      <div className="rounded-2xl border bg-card/95 backdrop-blur-md shadow-2xl p-4 w-[240px] space-y-3">
+      <div className="rounded-2xl border border-border/50 bg-card/95 backdrop-blur-xl shadow-2xl w-[260px] overflow-hidden">
         {/* Header */}
-        <div className="flex items-center justify-between">
-          <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-            {phase === "focus" ? "🧘 Fokus" : "☕ Pauza"}
-          </span>
-          <button
-            onClick={onToggle}
-            className="p-1 rounded-md hover:bg-secondary text-muted-foreground"
-          >
+        <div className="flex items-center justify-between px-4 pt-3.5 pb-2">
+          <div className="flex items-center gap-2">
+            <phaseConfig.icon className={cn("h-4 w-4", phaseConfig.accent)} />
+            <span className={cn("text-xs font-semibold uppercase tracking-widest", phaseConfig.accent)}>
+              {phaseConfig.label}
+            </span>
+          </div>
+          <button onClick={onToggle} className="p-1 rounded-lg hover:bg-muted text-muted-foreground transition-colors">
             <X className="h-3.5 w-3.5" />
           </button>
         </div>
 
-        {/* Timer */}
-        <div className="text-center">
-          <div className="relative w-full h-1.5 rounded-full bg-secondary overflow-hidden mb-2">
-            <motion.div
-              className={`h-full rounded-full ${phase === "focus" ? "bg-primary" : "bg-success"}`}
-              animate={{ width: `${progress}%` }}
-              transition={{ duration: 0.5 }}
-            />
+        {/* Circular Timer */}
+        <div className="flex flex-col items-center py-4">
+          <div className="relative" style={{ width: RING_SIZE, height: RING_SIZE }}>
+            <svg width={RING_SIZE} height={RING_SIZE} className="-rotate-90">
+              {/* Track */}
+              <circle cx={RING_SIZE / 2} cy={RING_SIZE / 2} r={RADIUS}
+                fill="none" strokeWidth={STROKE_WIDTH}
+                className="stroke-muted/40"
+              />
+              {/* Progress */}
+              <motion.circle
+                cx={RING_SIZE / 2} cy={RING_SIZE / 2} r={RADIUS}
+                fill="none" strokeWidth={STROKE_WIDTH}
+                strokeLinecap="round"
+                className={phaseConfig.ring}
+                strokeDasharray={CIRCUMFERENCE}
+                animate={{ strokeDashoffset }}
+                transition={{ duration: 0.8, ease: "easeOut" }}
+              />
+            </svg>
+            {/* Time display */}
+            <div className="absolute inset-0 flex flex-col items-center justify-center">
+              <p className="text-3xl font-mono font-bold tabular-nums text-foreground leading-none">
+                {formatTime(seconds)}
+              </p>
+              <span className="text-[10px] text-muted-foreground mt-1 uppercase tracking-wider">
+                {phase === "focus" ? `${pom.workMinutes} min` : phase === "longBreak" ? `${pom.longBreakMinutes} min` : `${pom.breakMinutes} min`}
+              </span>
+            </div>
           </div>
-          <p className="text-3xl font-mono font-bold tabular-nums text-foreground">
-            {formatTime(seconds)}
-          </p>
+
+          {/* Cycle dots */}
+          {pom.longBreakInterval > 0 && (
+            <div className="flex items-center gap-1.5 mt-3">
+              {Array.from({ length: interval }, (_, i) => (
+                <div key={i} className={cn(
+                  "w-2 h-2 rounded-full transition-all duration-300",
+                  i < currentInCycle ? phaseConfig.bg : "bg-muted",
+                  i === currentInCycle && phase === "focus" && timerRunning && "animate-pulse"
+                )} />
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Controls */}
-        <div className="flex items-center justify-center gap-2">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8"
-            onClick={resetTimer}
-          >
+        <div className="flex items-center justify-center gap-1.5 pb-4">
+          <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg" onClick={resetTimer} title="Resetuj">
             <RotateCcw className="h-3.5 w-3.5" />
           </Button>
           <Button
             variant={timerRunning ? "outline" : "default"}
             size="sm"
-            className="h-8 px-4"
+            className="h-8 px-5 rounded-lg gap-1.5"
             onClick={() => setTimerRunning(!timerRunning)}
           >
-            {timerRunning ? <Pause className="h-3.5 w-3.5 mr-1" /> : <Play className="h-3.5 w-3.5 mr-1" />}
+            {timerRunning ? <Pause className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5" />}
             {timerRunning ? "Pauziraj" : "Pokreni"}
+          </Button>
+          <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg" onClick={skipPhase} title="Preskoči">
+            <SkipForward className="h-3.5 w-3.5" />
           </Button>
         </div>
 
-        {/* Pomodoro stats */}
-        <div className="flex items-center gap-3 pt-1 border-t">
-          <Timer className="h-3.5 w-3.5 text-muted-foreground" />
+        {/* Stats & Noise divider */}
+        <div className="border-t border-border/50 mx-3" />
+
+        {/* Stats row */}
+        <div className="flex items-center gap-3 px-4 py-2.5">
+          <Timer className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
           <div className="flex-1 flex justify-between text-xs">
-            <span className="text-muted-foreground">Danas: <span className="font-medium text-foreground">{pomodoroStats.today}</span></span>
-            <span className="text-muted-foreground">Sedmica: <span className="font-medium text-foreground">{pomodoroStats.week}</span></span>
+            <span className="text-muted-foreground">Danas <span className="font-semibold text-foreground">{pomodoroStats.today}</span></span>
+            <span className="text-muted-foreground">Sedmica <span className="font-semibold text-foreground">{pomodoroStats.week}</span></span>
           </div>
         </div>
 
         {/* Brown Noise */}
-        <div className="space-y-1.5 pt-1 border-t">
+        <div className="border-t border-border/50 mx-3" />
+        <div className="px-4 py-2.5 space-y-2">
           <div className="flex items-center justify-between">
-            <span className="text-xs text-muted-foreground">Ambijent</span>
+            <span className="text-xs text-muted-foreground font-medium">Ambijent šum</span>
             <button
               onClick={toggleNoise}
-              className={`p-1.5 rounded-md transition-colors ${noiseOn ? "bg-primary/10 text-primary" : "hover:bg-secondary text-muted-foreground"}`}
+              className={cn(
+                "p-1.5 rounded-lg transition-all duration-200",
+                noiseOn ? "bg-primary/15 text-primary shadow-sm" : "hover:bg-muted text-muted-foreground"
+              )}
             >
               {noiseOn ? <Volume2 className="h-3.5 w-3.5" /> : <VolumeX className="h-3.5 w-3.5" />}
             </button>
           </div>
           {noiseOn && (
-            <Slider
-              value={[noiseVolume]}
-              min={0.05}
-              max={1}
-              step={0.05}
-              onValueChange={handleVolumeChange}
-              className="py-1"
-            />
+            <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }}>
+              <Slider value={[noiseVolume]} min={0.05} max={1} step={0.05} onValueChange={handleVolumeChange} className="py-1" />
+            </motion.div>
           )}
         </div>
       </div>
