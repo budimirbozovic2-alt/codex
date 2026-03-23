@@ -8,6 +8,10 @@ import { default as Eye } from "lucide-react/dist/esm/icons/eye";
 import { default as BarChart3 } from "lucide-react/dist/esm/icons/bar-chart-3";
 import { default as Wand2 } from "lucide-react/dist/esm/icons/wand-2";
 import { default as FileQuestion } from "lucide-react/dist/esm/icons/file-question";
+import { default as ChevronUp } from "lucide-react/dist/esm/icons/chevron-up";
+import { default as ChevronDown } from "lucide-react/dist/esm/icons/chevron-down";
+import { default as GripVertical } from "lucide-react/dist/esm/icons/grip-vertical";
+import { default as Pencil } from "lucide-react/dist/esm/icons/pencil";
 
 const AutoSplitDialog = lazy(() => import("@/components/AutoSplitDialog"));
 import ExamSidebar, { type ExamQuestion } from "@/components/ExamSidebar";
