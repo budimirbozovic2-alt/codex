@@ -1,25 +1,11 @@
 import { memo, useState, useCallback } from "react";
 import { Handle, Position, NodeProps, NodeResizer } from "@xyflow/react";
 import { cn } from "@/lib/utils";
-import { Scale, FileText, Building2, Calendar, OctagonX, RefreshCw, User, Coins, ArrowRight, CheckCircle2, AlertTriangle, HelpCircle, Clock, Gavel, BookOpen, ShieldCheck, Send, Search, Copy } from "lucide-react";
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+import {
+  Scale, FileText, Building2, Calendar, OctagonX, RefreshCw, User, Coins,
+  ArrowRight, CheckCircle2, AlertTriangle, HelpCircle, Clock, Gavel,
+  BookOpen, ShieldCheck, Send, Search, Copy, Sparkles,
+} from "lucide-react";
 
 // ── Icon Registry with Lucide components ──
 export const ICON_REGISTRY: { value: string; label: string; Icon: React.FC<{ className?: string }> }[] = [
@@ -40,16 +26,21 @@ export const ICON_REGISTRY: { value: string; label: string; Icon: React.FC<{ cla
   { value: "book", label: "Zakon/Propis", Icon: BookOpen },
   { value: "shield", label: "Zaštita", Icon: ShieldCheck },
   { value: "send", label: "Dostava", Icon: Send },
+  { value: "sparkles", label: "Posebno", Icon: Sparkles },
 ];
 
 const COLOR_OPTIONS = [
-  { value: "default", bg: "bg-card", border: "border-border", text: "text-foreground" },
-  { value: "blue", bg: "bg-blue-500/15", border: "border-blue-500/40", text: "text-blue-700 dark:text-blue-300" },
-  { value: "green", bg: "bg-green-500/15", border: "border-green-500/40", text: "text-green-700 dark:text-green-300" },
-  { value: "amber", bg: "bg-amber-500/15", border: "border-amber-500/40", text: "text-amber-700 dark:text-amber-300" },
-  { value: "red", bg: "bg-red-500/15", border: "border-red-500/40", text: "text-red-700 dark:text-red-300" },
-  { value: "purple", bg: "bg-purple-500/15", border: "border-purple-500/40", text: "text-purple-700 dark:text-purple-300" },
+  { value: "default", bg: "bg-card", border: "border-border", text: "text-foreground", glow: "" },
+  { value: "blue", bg: "bg-blue-500/10", border: "border-blue-500/30", text: "text-blue-600 dark:text-blue-400", glow: "shadow-blue-500/20" },
+  { value: "green", bg: "bg-emerald-500/10", border: "border-emerald-500/30", text: "text-emerald-600 dark:text-emerald-400", glow: "shadow-emerald-500/20" },
+  { value: "amber", bg: "bg-amber-500/10", border: "border-amber-500/30", text: "text-amber-600 dark:text-amber-400", glow: "shadow-amber-500/20" },
+  { value: "red", bg: "bg-red-500/10", border: "border-red-500/30", text: "text-red-600 dark:text-red-400", glow: "shadow-red-500/20" },
+  { value: "purple", bg: "bg-purple-500/10", border: "border-purple-500/30", text: "text-purple-600 dark:text-purple-400", glow: "shadow-purple-500/20" },
+  { value: "cyan", bg: "bg-cyan-500/10", border: "border-cyan-500/30", text: "text-cyan-600 dark:text-cyan-400", glow: "shadow-cyan-500/20" },
+  { value: "pink", bg: "bg-pink-500/10", border: "border-pink-500/30", text: "text-pink-600 dark:text-pink-400", glow: "shadow-pink-500/20" },
 ];
+
+export { COLOR_OPTIONS };
 
 export type NodeShape = "rectangle" | "rounded" | "diamond" | "group";
 
@@ -63,7 +54,8 @@ export type MindMapNodeData = {
   onDuplicate?: (id: string) => void;
 };
 
-const handleBase = "!w-3 !h-3 !min-w-[12px] !min-h-[12px] !border-2 !border-background !rounded-full !bg-primary opacity-0 group-hover:opacity-100 hover:!opacity-100 hover:!scale-125 transition-all";
+const handleBase =
+  "!w-3 !h-3 !min-w-[12px] !min-h-[12px] !border-2 !border-background !rounded-full !bg-primary opacity-0 group-hover:opacity-100 hover:!opacity-100 hover:!scale-125 transition-all duration-200";
 
 function MindMapNodeComponent({ id, data, selected }: NodeProps) {
   const nodeData = data as unknown as MindMapNodeData;
@@ -83,16 +75,25 @@ function MindMapNodeComponent({ id, data, selected }: NodeProps) {
     ? ICON_REGISTRY.filter(i => i.label.toLowerCase().includes(iconSearch.toLowerCase()) || i.value.includes(iconSearch.toLowerCase()))
     : ICON_REGISTRY;
 
+  const handles = (
+    <>
+      <Handle type="source" position={Position.Top} id="top" className={handleBase} style={{ top: -6 }} />
+      <Handle type="source" position={Position.Right} id="right" className={handleBase} style={{ right: -6 }} />
+      <Handle type="source" position={Position.Bottom} id="bottom" className={handleBase} style={{ bottom: -6 }} />
+      <Handle type="source" position={Position.Left} id="left" className={handleBase} style={{ left: -6 }} />
+    </>
+  );
+
   // ── GROUP NODE ──
   if (shape === "group") {
     return (
       <div
         className={cn(
-          "group relative border-2 border-dashed rounded-xl transition-all",
+          "group relative border-2 border-dashed rounded-xl transition-all duration-200",
           colorOpt.border,
-          selected && "ring-2 ring-primary",
+          selected && "ring-2 ring-primary ring-offset-1 ring-offset-background",
         )}
-        style={{ minWidth: 250, minHeight: 150, background: "hsl(var(--muted) / 0.3)" }}
+        style={{ minWidth: 250, minHeight: 150, background: "hsl(var(--muted) / 0.25)" }}
         onDoubleClick={() => setEditing(true)}
       >
         <NodeResizer
@@ -100,34 +101,29 @@ function MindMapNodeComponent({ id, data, selected }: NodeProps) {
           minHeight={120}
           isVisible={!!selected}
           lineClassName="!border-primary"
-          handleClassName="!w-2 !h-2 !bg-primary !border-background !rounded-sm"
+          handleClassName="!w-2.5 !h-2.5 !bg-primary !border-background !rounded-sm"
         />
-        <Handle type="source" position={Position.Top} id="top" className={handleBase} style={{ top: -6 }} />
-        <Handle type="source" position={Position.Right} id="right" className={handleBase} style={{ right: -6 }} />
-        <Handle type="source" position={Position.Bottom} id="bottom" className={handleBase} style={{ bottom: -6 }} />
-        <Handle type="source" position={Position.Left} id="left" className={handleBase} style={{ left: -6 }} />
-
-        <div className="px-3 py-1.5 border-b border-dashed border-inherit bg-muted/50 rounded-t-xl">
+        {handles}
+        <div className="px-3 py-2 border-b border-dashed border-inherit bg-muted/40 rounded-t-xl backdrop-blur-sm">
           {editing ? (
             <input
               autoFocus
-              className="bg-transparent border-b border-primary text-xs font-semibold w-full outline-none text-foreground uppercase tracking-wider"
+              className="bg-transparent border-b border-primary text-xs font-bold w-full outline-none text-foreground uppercase tracking-wider"
               defaultValue={nodeData.label}
               onBlur={(e) => { updateField("label", e.target.value); setEditing(false); }}
               onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
             />
           ) : (
-            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{nodeData.label}</span>
+            <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">{nodeData.label}</span>
           )}
         </div>
-
         {selected && (
-          <div className="absolute bottom-1 right-2 flex gap-1.5">
+          <div className="absolute bottom-1.5 right-2 flex gap-1.5">
             {COLOR_OPTIONS.map(opt => (
               <button
                 key={opt.value}
                 onClick={() => updateField("color", opt.value)}
-                className={cn("w-3.5 h-3.5 rounded-full border", opt.bg, opt.border, nodeData.color === opt.value && "ring-1 ring-primary")}
+                className={cn("w-4 h-4 rounded-full border-2 transition-transform hover:scale-110", opt.bg, opt.border, nodeData.color === opt.value && "ring-1 ring-primary scale-110")}
               />
             ))}
           </div>
@@ -139,45 +135,44 @@ function MindMapNodeComponent({ id, data, selected }: NodeProps) {
   // ── DIAMOND (Conditional) NODE ──
   if (shape === "diamond") {
     return (
-      <div className="group relative" style={{ width: 160, height: 160 }} onDoubleClick={() => setEditing(true)}>
-        <Handle type="source" position={Position.Top} id="top" className={handleBase} style={{ top: 0, left: "50%", transform: "translateX(-50%)" }} />
-        <Handle type="source" position={Position.Right} id="right" className={handleBase} style={{ right: 0, top: "50%", transform: "translateY(-50%)" }} />
-        <Handle type="source" position={Position.Bottom} id="bottom" className={handleBase} style={{ bottom: 0, left: "50%", transform: "translateX(-50%)" }} />
-        <Handle type="source" position={Position.Left} id="left" className={handleBase} style={{ left: 0, top: "50%", transform: "translateY(-50%)" }} />
-
+      <div className="group relative" style={{ width: 150, height: 150 }} onDoubleClick={() => setEditing(true)}>
+        {handles}
         <div
           className={cn(
-            "absolute inset-0 border-2 shadow-md transition-all",
+            "absolute inset-[8px] border-2 transition-all duration-200",
             colorOpt.bg, colorOpt.border,
-            selected && "ring-2 ring-primary shadow-lg",
+            selected ? `ring-2 ring-primary shadow-lg ${colorOpt.glow}` : "shadow-md",
           )}
-          style={{ transform: "rotate(45deg)", borderRadius: "12px" }}
+          style={{ transform: "rotate(45deg)", borderRadius: "14px" }}
         />
-
-        <div className="absolute inset-0 flex flex-col items-center justify-center text-center px-6 z-10">
-          {iconEntry && <iconEntry.Icon className={cn("h-5 w-5 mb-1", colorOpt.text)} />}
+        <div className="absolute inset-0 flex flex-col items-center justify-center text-center px-8 z-10">
+          {iconEntry && (
+            <div className={cn("p-1.5 rounded-lg mb-1.5", colorOpt.bg)}>
+              <iconEntry.Icon className={cn("h-5 w-5", colorOpt.text)} />
+            </div>
+          )}
           {editing ? (
             <input
               autoFocus
-              className="bg-transparent border-b border-primary text-xs font-semibold w-full outline-none text-foreground text-center"
+              className="bg-transparent border-b border-primary text-xs font-bold w-full outline-none text-foreground text-center"
               defaultValue={nodeData.label}
               onBlur={(e) => { updateField("label", e.target.value); setEditing(false); }}
               onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
             />
           ) : (
-            <span className="text-xs font-semibold text-foreground leading-tight">{nodeData.label}</span>
+            <span className="text-xs font-bold text-foreground leading-tight">{nodeData.label}</span>
           )}
         </div>
-
         {selected && (
-          <div className="absolute -bottom-8 left-1/2 -translate-x-1/2 flex gap-1.5 z-20">
-            <button onClick={() => setShowSettings(!showSettings)} className="text-[9px] text-muted-foreground hover:text-foreground bg-card border rounded px-1.5 py-0.5">⚙</button>
-            <button onClick={() => nodeData.onDuplicate?.(id)} className="text-[9px] text-muted-foreground hover:text-foreground bg-card border rounded px-1.5 py-0.5">📋</button>
+          <div className="absolute -bottom-9 left-1/2 -translate-x-1/2 flex gap-1.5 z-20">
+            <button onClick={() => setShowSettings(!showSettings)} className="text-[9px] text-muted-foreground hover:text-foreground bg-card border rounded-md px-2 py-0.5 shadow-sm transition-colors">⚙</button>
+            <button onClick={() => nodeData.onDuplicate?.(id)} className="text-[9px] text-muted-foreground hover:text-foreground bg-card border rounded-md px-2 py-0.5 shadow-sm transition-colors">
+              <Copy className="h-3 w-3 inline" />
+            </button>
           </div>
         )}
-
         {showSettings && selected && (
-          <div className="absolute top-full left-1/2 -translate-x-1/2 mt-10 w-56 bg-card border rounded-lg shadow-lg p-3 space-y-2 z-30">
+          <div className="absolute top-full left-1/2 -translate-x-1/2 mt-12 w-60 bg-card border rounded-xl shadow-xl p-3 space-y-3 z-30">
             <SettingsPanel nodeData={nodeData} updateField={updateField} iconSearch={iconSearch} setIconSearch={setIconSearch} filteredIcons={filteredIcons} />
           </div>
         )}
@@ -186,45 +181,48 @@ function MindMapNodeComponent({ id, data, selected }: NodeProps) {
   }
 
   // ── STANDARD NODE (rectangle / rounded) ──
-  const shapeClass = shape === "rounded" ? "rounded-2xl" : "rounded-lg";
+  const shapeClass = shape === "rounded" ? "rounded-2xl" : "rounded-xl";
 
   return (
     <div
       className={cn(
-        "group relative min-w-[150px] max-w-[240px] border-2 shadow-md transition-all px-4 py-3",
+        "group relative min-w-[160px] max-w-[250px] border-2 transition-all duration-200 px-4 py-3",
         colorOpt.bg, colorOpt.border, shapeClass,
-        selected && "ring-2 ring-primary shadow-lg",
+        selected
+          ? `ring-2 ring-primary ring-offset-1 ring-offset-background shadow-lg ${colorOpt.glow}`
+          : "shadow-md hover:shadow-lg",
       )}
       onDoubleClick={() => setEditing(true)}
     >
-      <Handle type="source" position={Position.Top} id="top" className={handleBase} style={{ top: -6 }} />
-      <Handle type="source" position={Position.Right} id="right" className={handleBase} style={{ right: -6 }} />
-      <Handle type="source" position={Position.Bottom} id="bottom" className={handleBase} style={{ bottom: -6 }} />
-      <Handle type="source" position={Position.Left} id="left" className={handleBase} style={{ left: -6 }} />
+      {handles}
 
       {/* Icon + Title */}
-      <div className="flex items-center gap-2 mb-1">
-        {iconEntry && <iconEntry.Icon className={cn("h-4 w-4 flex-shrink-0", colorOpt.text)} />}
+      <div className="flex items-center gap-2.5 mb-1">
+        {iconEntry && (
+          <div className={cn("p-1 rounded-md flex-shrink-0", colorOpt.value !== "default" ? colorOpt.bg : "bg-muted")}>
+            <iconEntry.Icon className={cn("h-4 w-4", colorOpt.text)} />
+          </div>
+        )}
         {editing ? (
           <input
             autoFocus
-            className="bg-transparent border-b border-primary text-sm font-semibold w-full outline-none text-foreground"
+            className="bg-transparent border-b-2 border-primary text-sm font-bold w-full outline-none text-foreground"
             defaultValue={nodeData.label}
             onBlur={(e) => { updateField("label", e.target.value); setEditing(false); }}
             onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
           />
         ) : (
-          <span className="text-sm font-semibold text-foreground truncate">{nodeData.label}</span>
+          <span className="text-sm font-bold text-foreground truncate">{nodeData.label}</span>
         )}
       </div>
 
       {/* Description */}
       {nodeData.description && !editing && (
-        <p className="text-xs text-muted-foreground mt-1 line-clamp-3">{nodeData.description}</p>
+        <p className="text-xs text-muted-foreground mt-1 line-clamp-3 leading-relaxed">{nodeData.description}</p>
       )}
       {editing && (
         <textarea
-          className="bg-transparent border border-border rounded text-xs w-full outline-none text-foreground mt-1 p-1 resize-none"
+          className="bg-transparent border border-border rounded-lg text-xs w-full outline-none text-foreground mt-1.5 p-1.5 resize-none focus:ring-1 focus:ring-primary"
           rows={2}
           defaultValue={nodeData.description || ""}
           placeholder="Opis..."
@@ -234,19 +232,19 @@ function MindMapNodeComponent({ id, data, selected }: NodeProps) {
 
       {/* Actions row */}
       {selected && (
-        <div className="flex items-center gap-2 mt-1.5">
-          <button onClick={() => setShowSettings(!showSettings)} className="text-[10px] text-muted-foreground hover:text-foreground underline">
-            {showSettings ? "Zatvori" : "⚙ Podešavanja"}
+        <div className="flex items-center gap-2 mt-2 pt-2 border-t border-border/50">
+          <button onClick={() => setShowSettings(!showSettings)} className="text-[10px] text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1">
+            ⚙ {showSettings ? "Zatvori" : "Podešavanja"}
           </button>
-          <button onClick={() => nodeData.onDuplicate?.(id)} className="text-[10px] text-muted-foreground hover:text-foreground underline">
-            <Copy className="h-3 w-3 inline mr-0.5" /> Dupliraj
+          <button onClick={() => nodeData.onDuplicate?.(id)} className="text-[10px] text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1">
+            <Copy className="h-3 w-3" /> Dupliraj
           </button>
         </div>
       )}
 
       {/* Settings panel */}
       {showSettings && selected && (
-        <div className="mt-2 space-y-2 border-t border-border pt-2">
+        <div className="mt-2 space-y-3 border-t border-border pt-3">
           <SettingsPanel nodeData={nodeData} updateField={updateField} iconSearch={iconSearch} setIconSearch={setIconSearch} filteredIcons={filteredIcons} />
         </div>
       )}
@@ -264,16 +262,16 @@ function SettingsPanel({ nodeData, updateField, iconSearch, setIconSearch, filte
 }) {
   return (
     <>
-      {/* Icon picker with search */}
+      {/* Icon picker */}
       <div>
-        <span className="text-[10px] text-muted-foreground uppercase tracking-wider">Ikonica</span>
-        <div className="flex items-center gap-1 mt-1 mb-1">
+        <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Ikonica</span>
+        <div className="flex items-center gap-1.5 mt-1.5 mb-1.5 bg-muted/50 rounded-md px-2 py-1">
           <Search className="h-3 w-3 text-muted-foreground" />
           <input
             value={iconSearch}
             onChange={e => setIconSearch(e.target.value)}
-            className="bg-transparent border-b border-border text-[10px] w-full outline-none text-foreground placeholder:text-muted-foreground"
-            placeholder="Pretraži ikonice..."
+            className="bg-transparent text-[11px] w-full outline-none text-foreground placeholder:text-muted-foreground"
+            placeholder="Pretraži..."
           />
         </div>
         <div className="flex gap-1 flex-wrap max-h-24 overflow-y-auto">
@@ -282,8 +280,8 @@ function SettingsPanel({ nodeData, updateField, iconSearch, setIconSearch, filte
               key={opt.value}
               onClick={() => updateField("icon", opt.value)}
               className={cn(
-                "p-1.5 rounded hover:bg-muted transition-colors",
-                nodeData.icon === opt.value && "ring-1 ring-primary bg-muted"
+                "p-1.5 rounded-md hover:bg-muted transition-all duration-150",
+                nodeData.icon === opt.value && "ring-2 ring-primary bg-primary/10"
               )}
               title={opt.label}
             >
@@ -295,16 +293,16 @@ function SettingsPanel({ nodeData, updateField, iconSearch, setIconSearch, filte
 
       {/* Color picker */}
       <div>
-        <span className="text-[10px] text-muted-foreground uppercase tracking-wider">Boja</span>
-        <div className="flex gap-1.5 mt-1">
+        <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Boja</span>
+        <div className="flex gap-2 mt-1.5">
           {COLOR_OPTIONS.map(opt => (
             <button
               key={opt.value}
               onClick={() => updateField("color", opt.value)}
               className={cn(
-                "w-5 h-5 rounded-full border-2",
+                "w-5 h-5 rounded-full border-2 transition-all duration-150 hover:scale-110",
                 opt.bg, opt.border,
-                nodeData.color === opt.value && "ring-2 ring-primary"
+                nodeData.color === opt.value && "ring-2 ring-primary scale-110"
               )}
             />
           ))}
@@ -313,11 +311,22 @@ function SettingsPanel({ nodeData, updateField, iconSearch, setIconSearch, filte
 
       {/* Shape picker */}
       <div>
-        <span className="text-[10px] text-muted-foreground uppercase tracking-wider">Oblik</span>
-        <div className="flex gap-1.5 mt-1">
-          <button onClick={() => updateField("shape", "rectangle")} className={cn("w-7 h-5 rounded border-2 border-border", nodeData.shape === "rectangle" && "ring-1 ring-primary")} title="Pravougaonik" />
-          <button onClick={() => updateField("shape", "rounded")} className={cn("w-7 h-5 rounded-full border-2 border-border", nodeData.shape === "rounded" && "ring-1 ring-primary")} title="Zaobljeno" />
-          <button onClick={() => updateField("shape", "diamond")} className={cn("w-5 h-5 border-2 border-border rotate-45 rounded-sm", nodeData.shape === "diamond" && "ring-1 ring-primary")} title="Uslovni (dijamant)" />
+        <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Oblik</span>
+        <div className="flex gap-2 mt-1.5">
+          {(["rectangle", "rounded", "diamond"] as const).map(s => (
+            <button
+              key={s}
+              onClick={() => updateField("shape", s)}
+              className={cn(
+                "border-2 border-border transition-all duration-150 hover:border-primary",
+                s === "rectangle" && "w-8 h-6 rounded-md",
+                s === "rounded" && "w-8 h-6 rounded-full",
+                s === "diamond" && "w-5 h-5 rotate-45 rounded-sm",
+                nodeData.shape === s && "ring-2 ring-primary border-primary"
+              )}
+              title={s === "rectangle" ? "Pravougaonik" : s === "rounded" ? "Zaobljeno" : "Dijamant"}
+            />
+          ))}
         </div>
       </div>
     </>
