@@ -55,6 +55,9 @@ export interface Card {
   tags?: string[];
   errorLog?: ErrorLogEntry[];
   sortOrder?: number;
+  sourceId?: string;
+  textAnchor?: string;
+  needsReview?: boolean;
 }
 
 export const CARD_TAGS = [

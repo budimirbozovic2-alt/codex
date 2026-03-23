@@ -209,9 +209,11 @@ export function useCards() {
     idbSaveSettings("srSettings", settings);
   }, []);
 
-  const addCard = useCallback((question: string, sections: { title: string; content: string }[], category: string, subcategory?: string, chapter?: string) => {
+  const addCard = useCallback((question: string, sections: { title: string; content: string }[], category: string, subcategory?: string, chapter?: string, extra?: { sourceId?: string; textAnchor?: string }) => {
     const card = createCard(question, sections, category, subcategory);
     if (chapter) card.chapter = chapter;
+    if (extra?.sourceId) card.sourceId = extra.sourceId;
+    if (extra?.textAnchor) card.textAnchor = extra.textAnchor;
     setCardMapState(prev => {
       schedulePersist({ type: "put", card });
       return { ...prev, [card.id]: card };

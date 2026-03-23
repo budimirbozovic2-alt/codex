@@ -5,6 +5,18 @@ import type { DiaryEntry, CalibrationEntry, LatencyEntry, SlippageEntry, Activit
 import type { PlannerConfig, DisciplineEntry } from "./planner-storage";
 
 // ─── Database Schema ────────────────────────────────────
+export interface Source {
+  id: string;
+  label: string;
+  date: string;           // ISO date string
+  htmlContent: string;
+  outline: { id: string; text: string; level: number }[];
+  version: number;
+  createdAt: number;
+  updatedAt: number;
+  previousVersionId?: string;
+}
+
 class MemoriaDB extends Dexie {
   cards!: Table<Card, string>;
   categories!: Table<{ id: string; name: string }, string>;
@@ -19,6 +31,8 @@ class MemoriaDB extends Dexie {
   slippageLog!: Table<SlippageEntry & { id?: number }, number>;
   activityLog!: Table<ActivityEntry & { id?: number }, number>;
   disciplineLog!: Table<DisciplineEntry & { id?: number }, number>;
+  // v3: sources
+  sources!: Table<Source, string>;
 
   constructor() {
     super("MemoriaDB");
@@ -43,6 +57,21 @@ class MemoriaDB extends Dexie {
       slippageLog: "++id, date",
       activityLog: "++id, timestamp, type",
       disciplineLog: "++id, date",
+    });
+    this.version(3).stores({
+      cards: "id, category, subcategory, type, createdAt, sourceId",
+      categories: "id, name",
+      subcategories: "id, category",
+      reviewLog: "++id, cardId, sectionId, timestamp, category",
+      pomodoroLog: "++id, timestamp, type",
+      settings: "key",
+      diary: "id, date",
+      calibrationLog: "++id, timestamp, cardId",
+      latencyLog: "++id, timestamp, cardId",
+      slippageLog: "++id, date",
+      activityLog: "++id, timestamp, type",
+      disciplineLog: "++id, date",
+      sources: "id, label, version, createdAt",
     });
   }
 }

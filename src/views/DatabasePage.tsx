@@ -6,11 +6,13 @@ import { default as Database } from "lucide-react/dist/esm/icons/database";
 import { default as FolderOpen } from "lucide-react/dist/esm/icons/folder-open";
 import { default as Download } from "lucide-react/dist/esm/icons/download";
 import { default as FileText } from "lucide-react/dist/esm/icons/file-text";
+import { default as BookOpen } from "lucide-react/dist/esm/icons/book-open";
 import { TabSkeleton } from "@/components/ui/page-skeleton";
 import InfoPanel from "@/components/InfoPanel";
 
 const CardsView = lazy(() => import("@/views/CardsView"));
 const CategoriesPage = lazy(() => import("@/views/CategoriesPage"));
+const SourcesView = lazy(() => import("@/views/SourcesView"));
 const ExportImportDialog = lazy(() => import("@/components/ExportImportDialog"));
 const DocxImporter = lazy(() => import("@/components/DocxImporter"));
 
@@ -66,6 +68,10 @@ export default function DatabasePage() {
               <FolderOpen className="h-3.5 w-3.5" />
               Kategorije
             </TabsTrigger>
+            <TabsTrigger value="sources" className="flex-1 gap-1.5">
+              <BookOpen className="h-3.5 w-3.5" />
+              Izvori
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="cards" className="mt-4">
@@ -77,6 +83,12 @@ export default function DatabasePage() {
           <TabsContent value="categories" className="mt-4">
             <Suspense fallback={<TabSkeleton />}>
               <CategoriesPage />
+            </Suspense>
+          </TabsContent>
+
+          <TabsContent value="sources" className="mt-4">
+            <Suspense fallback={<TabSkeleton />}>
+              <SourcesView />
             </Suspense>
           </TabsContent>
         </Tabs>
