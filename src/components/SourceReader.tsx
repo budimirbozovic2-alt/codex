@@ -213,7 +213,7 @@ export default function SourceReader({ source, onBack }: Props) {
       {/* Content area with optional outline */}
       <div className="flex gap-4">
         {/* Outline sidebar (standard mode only) */}
-        {outlineOpen && !isCoverage && source.outline.length > 0 && (
+        {outlineOpen && source.outline.length > 0 && (
           <div className="w-56 flex-shrink-0 sticky top-20 self-start max-h-[calc(100vh-8rem)] overflow-y-auto">
             <div className="rounded-lg border bg-card p-3">
               <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">Sadržaj</h4>
