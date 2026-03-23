@@ -265,6 +265,97 @@ export default function SRSettingsPanel({ settings, onUpdate, onBack }: Props) {
             </div>
           </div>
 
+          {/* Pomodoro tajmer */}
+          <div className="rounded-xl border bg-card p-5 space-y-4">
+            <h3 className="text-sm font-semibold">Pomodoro tajmer</h3>
+            <p className="text-xs text-muted-foreground">Podesi trajanje fokus i pauza sesija.</p>
+            <div className="space-y-3">
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <label className="text-sm">Fokus sesija</label>
+                  <span className="text-sm font-medium tabular-nums">{app.pomodoro.workMinutes} min</span>
+                </div>
+                <Slider
+                  value={[app.pomodoro.workMinutes]}
+                  min={10} max={60} step={5}
+                  onValueChange={(v) => setApp(prev => ({ ...prev, pomodoro: { ...prev.pomodoro, workMinutes: v[0] } }))}
+                />
+                <div className="flex justify-between text-[10px] text-muted-foreground">
+                  <span>10 min</span><span>60 min</span>
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <label className="text-sm">Pauza</label>
+                  <span className="text-sm font-medium tabular-nums">{app.pomodoro.breakMinutes} min</span>
+                </div>
+                <Slider
+                  value={[app.pomodoro.breakMinutes]}
+                  min={1} max={20} step={1}
+                  onValueChange={(v) => setApp(prev => ({ ...prev, pomodoro: { ...prev.pomodoro, breakMinutes: v[0] } }))}
+                />
+                <div className="flex justify-between text-[10px] text-muted-foreground">
+                  <span>1 min</span><span>20 min</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Podsjetnici */}
+          <div className="rounded-xl border bg-card p-5 space-y-4">
+            <h3 className="text-sm font-semibold">Podsjetnik za ponavljanje</h3>
+            <p className="text-xs text-muted-foreground">Browser notifikacija koja te podsjeća da učiš.</p>
+            <div className="flex items-center justify-between">
+              <div>
+                <label className="text-sm">Dnevni podsjetnik</label>
+                <p className="text-xs text-muted-foreground">Šalje notifikaciju u odabrano vrijeme</p>
+              </div>
+              <Switch
+                checked={app.notifications.enabled}
+                onCheckedChange={(v) => {
+                  if (v && "Notification" in window && Notification.permission !== "granted") {
+                    Notification.requestPermission().then(perm => {
+                      if (perm === "granted") {
+                        setApp(prev => ({ ...prev, notifications: { ...prev.notifications, enabled: true } }));
+                      }
+                    });
+                  } else {
+                    setApp(prev => ({ ...prev, notifications: { ...prev.notifications, enabled: v } }));
+                  }
+                }}
+              />
+            </div>
+            {app.notifications.enabled && (
+              <div className="flex items-center gap-3 border-t pt-3">
+                <label className="text-sm text-muted-foreground">Vrijeme:</label>
+                <div className="flex items-center gap-1.5">
+                  <Select value={String(app.notifications.reminderHour)}
+                    onValueChange={(v) => setApp(prev => ({ ...prev, notifications: { ...prev.notifications, reminderHour: parseInt(v) } }))}>
+                    <SelectTrigger className="w-20 bg-background">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Array.from({ length: 24 }, (_, i) => (
+                        <SelectItem key={i} value={String(i)}>{String(i).padStart(2, "0")}h</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <span className="text-muted-foreground">:</span>
+                  <Select value={String(app.notifications.reminderMinute)}
+                    onValueChange={(v) => setApp(prev => ({ ...prev, notifications: { ...prev.notifications, reminderMinute: parseInt(v) } }))}>
+                    <SelectTrigger className="w-20 bg-background">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {[0, 15, 30, 45].map(m => (
+                        <SelectItem key={m} value={String(m)}>{String(m).padStart(2, "0")}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            )}
+
           {/* TTS */}
           <div className="rounded-xl border bg-card p-5 space-y-4">
             <h3 className="text-sm font-semibold">Glasovni čitač (TTS)</h3>
