@@ -247,7 +247,7 @@ const COLLAPSED_ROW_HEIGHT = 100;
 const EXPANDED_ROW_BASE = 160;
 const SECTION_HEIGHT = 80;
 const GAP = 12;
-const VIRTUALIZATION_THRESHOLD = 50;
+const VIRTUALIZATION_THRESHOLD = 30;
 
 interface CardRowProps {
   card: Card;

@@ -1,7 +1,5 @@
 import { Component, ReactNode } from "react";
-import { AlertTriangle, RefreshCw, Home } from "lucide-react";
-
-
+import { AlertTriangle, RefreshCw, Home, Download } from "lucide-react";
 
 interface CrashEntry {
   timestamp: string;
@@ -56,6 +54,39 @@ export class ErrorBoundary extends Component<Props, State> {
     this.setState({ hasError: false, error: null });
   };
 
+  handleEmergencyBackup = async () => {
+    try {
+      const { db } = await import("@/lib/db");
+      const cards = await db.cards.toArray();
+      const categories = await db.categories.toArray();
+      const sources = await db.sources.toArray();
+      const reviewLog = await db.reviewLog.toArray();
+      const settings = await db.settings.toArray();
+
+      const backup = {
+        type: "emergency-backup",
+        timestamp: new Date().toISOString(),
+        cards,
+        categories: categories.map(c => c.name),
+        sources,
+        reviewLog,
+        settings,
+      };
+
+      const json = JSON.stringify(backup);
+      const blob = new Blob([json], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `memoria-emergency-${new Date().toISOString().slice(0, 10)}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      console.error("[EmergencyBackup] Failed:", e);
+      alert("Backup nije uspio. Pokušajte ponovo.");
+    }
+  };
+
   render() {
     if (!this.state.hasError) return this.props.children;
     if (this.props.fallback) return this.props.fallback;
@@ -84,7 +115,7 @@ export class ErrorBoundary extends Component<Props, State> {
       );
     }
 
-    // Full mode — page-level error
+    // Full mode — page-level error with emergency backup
     return (
       <div className="min-h-[300px] flex flex-col items-center justify-center gap-4 p-8">
         <div className="w-16 h-16 rounded-full bg-destructive/10 flex items-center justify-center">
@@ -94,7 +125,14 @@ export class ErrorBoundary extends Component<Props, State> {
         <p className="text-sm text-muted-foreground text-center max-w-md">
           {this.state.error?.message || "Neočekivana greška"}
         </p>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap justify-center">
+          <button
+            onClick={this.handleEmergencyBackup}
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-warning text-warning-foreground text-sm hover:opacity-90 transition-opacity"
+          >
+            <Download className="h-3.5 w-3.5" />
+            Sačuvaj backup
+          </button>
           <button
             onClick={this.handleRetry}
             className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm hover:opacity-90 transition-opacity"

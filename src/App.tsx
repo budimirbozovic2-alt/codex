@@ -46,21 +46,21 @@ const App = () => (
                   <Suspense fallback={<PageSkeleton />}>
                     <Routes>
                       <Route path="/" element={<DashboardPage />} />
-                      <Route path="/review" element={<ReviewPage />} />
-                      <Route path="/learn" element={<LearnPage />} />
+                      <Route path="/review" element={<ErrorBoundary label="Ponavljanje"><ReviewPage /></ErrorBoundary>} />
+                      <Route path="/learn" element={<ErrorBoundary label="Učenje"><LearnPage /></ErrorBoundary>} />
                       <Route path="/create" element={<CreatePage />} />
                       <Route path="/edit" element={<EditPage />} />
                       <Route path="/settings" element={<SettingsPage />} />
-                      <Route path="/stats" element={<StatsPage />} />
-                      <Route path="/mnemonic" element={<MnemonicPage />} />
-                      <Route path="/planner" element={<PlannerPage />} />
-                      <Route path="/knowledge-map" element={<KnowledgeMapPage />} />
-                      <Route path="/metacognitive" element={<MetacognitivePage />} />
-                      <Route path="/frequent-errors" element={<FrequentErrorsPage />} />
+                      <Route path="/stats" element={<ErrorBoundary label="Statistika"><StatsPage /></ErrorBoundary>} />
+                      <Route path="/mnemonic" element={<ErrorBoundary label="Mnemonik"><MnemonicPage /></ErrorBoundary>} />
+                      <Route path="/planner" element={<ErrorBoundary label="Planer"><PlannerPage /></ErrorBoundary>} />
+                      <Route path="/knowledge-map" element={<ErrorBoundary label="Mapa znanja"><KnowledgeMapPage /></ErrorBoundary>} />
+                      <Route path="/metacognitive" element={<ErrorBoundary label="Metakognicija"><MetacognitivePage /></ErrorBoundary>} />
+                      <Route path="/frequent-errors" element={<ErrorBoundary label="Česte greške"><FrequentErrorsPage /></ErrorBoundary>} />
                       <Route path="/major-system-settings" element={<MajorSystemPage />} />
-                      <Route path="/database" element={<DatabasePage />} />
-                      <Route path="/speed-reader" element={<SpeedReaderPage />} />
-                      <Route path="/mind-map" element={<MindMapPage />} />
+                      <Route path="/database" element={<ErrorBoundary label="Baza podataka"><DatabasePage /></ErrorBoundary>} />
+                      <Route path="/speed-reader" element={<ErrorBoundary label="Speed Reader"><SpeedReaderPage /></ErrorBoundary>} />
+                      <Route path="/mind-map" element={<ErrorBoundary label="Mapa uma"><MindMapPage /></ErrorBoundary>} />
                       {/* Legacy redirects */}
                       <Route path="/cards" element={<DatabasePage />} />
                       <Route path="/categories" element={<DatabasePage />} />

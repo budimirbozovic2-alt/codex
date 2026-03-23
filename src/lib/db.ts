@@ -345,3 +345,20 @@ export async function idbLoadSettings<T>(key: string, fallback: T): Promise<T> {
 export async function idbSaveSettings(key: string, value: any): Promise<void> {
   await db.settings.put({ key, value });
 }
+
+// ─── Fast aggregation helpers (cursor-based, no full toArray) ──
+export async function idbCountCardsByCategory(category: string): Promise<number> {
+  return db.cards.where("category").equals(category).count();
+}
+
+export async function idbCountAllCards(): Promise<number> {
+  return db.cards.count();
+}
+
+export async function idbCountByType(type: string): Promise<number> {
+  return db.cards.where("type").equals(type).count();
+}
+
+export async function idbCountReviewLogSince(since: number): Promise<number> {
+  return db.reviewLog.where("timestamp").aboveOrEqual(since).count();
+}
