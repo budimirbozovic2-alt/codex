@@ -412,6 +412,15 @@ export default function SourcesView() {
                     className="w-full px-3 py-2 rounded-md border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
                   />
                 </div>
+                <div className="space-y-2">
+                  <label className="text-xs font-medium">Službeni list (oznaka)</label>
+                  <input
+                    value={importGazette}
+                    onChange={e => setImportGazette(e.target.value)}
+                    className="w-full px-3 py-2 rounded-md border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                    placeholder='npr. "Sl. list CG", br. 47/2008'
+                  />
+                </div>
                 <div className="max-h-40 overflow-y-auto rounded-md border p-3">
                   <div className="prose prose-sm max-w-none text-xs" dangerouslySetInnerHTML={{ __html: importHtml.slice(0, 2000) + (importHtml.length > 2000 ? "…" : "") }} />
                 </div>
