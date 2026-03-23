@@ -60,6 +60,7 @@ const App = () => (
                       <Route path="/major-system-settings" element={<MajorSystemPage />} />
                       <Route path="/database" element={<DatabasePage />} />
                       <Route path="/speed-reader" element={<SpeedReaderPage />} />
+                      <Route path="/mind-map" element={<MindMapPage />} />
                       {/* Legacy redirects */}
                       <Route path="/cards" element={<DatabasePage />} />
                       <Route path="/categories" element={<DatabasePage />} />

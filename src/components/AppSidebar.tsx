@@ -46,6 +46,7 @@ const LAB_ITEMS = [
   { path: "/database", icon: DatabaseIcon, label: "Kartice" },
   { path: "/categories", icon: FolderOpen, label: "Kategorije" },
   { path: "/speed-reader", icon: Zap, label: "Speed Reader" },
+  { path: "/mind-map", icon: Network, label: "Mentalne mape" },
 ];
 
 export default function AppSidebar() {
