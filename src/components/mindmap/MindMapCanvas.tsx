@@ -18,7 +18,7 @@ import {
   ReactFlowProvider,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
-import MindMapNodeComponent, { type MindMapNodeData, ICON_REGISTRY, type NodeShape } from "./MindMapNode";
+import MindMapNodeComponent, { type MindMapNodeData, ICON_REGISTRY, type NodeShape, COLOR_OPTIONS } from "./MindMapNode";
 import { MindMapDoc } from "@/lib/db";
 import { saveMindMap } from "@/lib/mindmap-storage";
 import { Button } from "@/components/ui/button";
@@ -33,16 +33,12 @@ import {
   DropdownMenuSubContent,
   DropdownMenuSubTrigger,
 } from "@/components/ui/dropdown-menu";
-
-
-
-
-
-
-
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
-import { Plus, Save, ArrowLeft, GitBranch, Workflow, ChevronDown, LayoutGrid } from "lucide-react";
+import {
+  Plus, Save, ArrowLeft, GitBranch, Workflow, ChevronDown, LayoutGrid,
+  Eye, EyeOff, Palette, Trash2,
+} from "lucide-react";
 
 const nodeTypes = { mindMapNode: MindMapNodeComponent };
 
@@ -79,10 +75,28 @@ const SPECIAL_TEMPLATES: NodeTemplate[] = [
   { label: "Grupa (faza)", icon: "file-text", color: "blue", desc: "Kontejner za pod-korake", shape: "group" },
 ];
 
-interface Props {
-  doc: MindMapDoc;
-  onBack: () => void;
-}
+// ── Edge style presets ──
+const EDGE_STYLES = [
+  { value: "solid", label: "Puna", dashArray: undefined },
+  { value: "dashed", label: "Isprekidana", dashArray: "8 4" },
+  { value: "dotted", label: "Tačkasta", dashArray: "3 3" },
+] as const;
+
+const EDGE_COLORS = [
+  { value: "primary", label: "Primarna", css: "hsl(var(--primary))" },
+  { value: "muted", label: "Prigušena", css: "hsl(var(--muted-foreground))" },
+  { value: "blue", label: "Plava", css: "hsl(210 80% 55%)" },
+  { value: "green", label: "Zelena", css: "hsl(150 60% 45%)" },
+  { value: "amber", label: "Žuta", css: "hsl(38 92% 50%)" },
+  { value: "red", label: "Crvena", css: "hsl(0 72% 51%)" },
+  { value: "purple", label: "Ljubičasta", css: "hsl(270 60% 55%)" },
+] as const;
+
+const EDGE_TYPES = [
+  { value: "smoothstep", label: "Glatka" },
+  { value: "straight", label: "Ravna" },
+  { value: "default", label: "Bezier" },
+] as const;
 
 // ── Snap guide lines ──
 function SnapGuideLines({ snapLines }: { snapLines: { x?: number; y?: number } }) {
@@ -106,27 +120,17 @@ function SnapGuideLines({ snapLines }: { snapLines: { x?: number; y?: number } }
 // ── Auto-Layout (simple layered/dagre-like) ──
 function autoLayout(nodes: Node[], edges: Edge[], direction: "TB" | "LR" = "TB"): Node[] {
   if (nodes.length === 0) return nodes;
-
-  const NODE_W = 200;
-  const NODE_H = 80;
-  const GAP_X = 80;
-  const GAP_Y = 100;
+  const NODE_W = 200, NODE_H = 80, GAP_X = 80, GAP_Y = 100;
   const isHorizontal = direction === "LR";
 
-  // Build adjacency
   const childrenOf = new Map<string, string[]>();
   const hasParent = new Set<string>();
   nodes.forEach(n => childrenOf.set(n.id, []));
-  edges.forEach(e => {
-    childrenOf.get(e.source)?.push(e.target);
-    hasParent.add(e.target);
-  });
+  edges.forEach(e => { childrenOf.get(e.source)?.push(e.target); hasParent.add(e.target); });
 
-  // Find roots
   const roots = nodes.filter(n => !hasParent.has(n.id));
   if (roots.length === 0) roots.push(nodes[0]);
 
-  // BFS assign layers
   const layer = new Map<string, number>();
   const queue = roots.map(r => ({ id: r.id, lvl: 0 }));
   const visited = new Set<string>();
@@ -135,62 +139,170 @@ function autoLayout(nodes: Node[], edges: Edge[], direction: "TB" | "LR" = "TB")
     if (visited.has(id)) continue;
     visited.add(id);
     layer.set(id, lvl);
-    for (const child of (childrenOf.get(id) || [])) {
-      queue.push({ id: child, lvl: lvl + 1 });
-    }
+    for (const child of (childrenOf.get(id) || [])) queue.push({ id: child, lvl: lvl + 1 });
   }
+  nodes.forEach(n => { if (!layer.has(n.id)) layer.set(n.id, Math.max(...layer.values()) + 1); });
 
-  // Unvisited nodes get placed at bottom
-  nodes.forEach(n => { if (!layer.has(n.id)) layer.set(n.id, (layer.size > 0 ? Math.max(...layer.values()) + 1 : 0)); });
-
-  // Group by layer
   const layers = new Map<number, string[]>();
-  layer.forEach((lvl, id) => {
-    if (!layers.has(lvl)) layers.set(lvl, []);
-    layers.get(lvl)!.push(id);
-  });
+  layer.forEach((lvl, id) => { if (!layers.has(lvl)) layers.set(lvl, []); layers.get(lvl)!.push(id); });
 
-  // Position
   const posMap = new Map<string, { x: number; y: number }>();
-  const sortedLayers = [...layers.entries()].sort((a, b) => a[0] - b[0]);
-  
-  sortedLayers.forEach(([lvl, ids]) => {
-    const totalWidth = ids.length * (isHorizontal ? NODE_H + GAP_Y : NODE_W + GAP_X) - (isHorizontal ? GAP_Y : GAP_X);
-    const startOffset = -totalWidth / 2;
-
+  [...layers.entries()].sort((a, b) => a[0] - b[0]).forEach(([lvl, ids]) => {
+    const total = ids.length * (isHorizontal ? NODE_H + GAP_Y : NODE_W + GAP_X) - (isHorizontal ? GAP_Y : GAP_X);
+    const start = -total / 2;
     ids.forEach((id, idx) => {
-      if (isHorizontal) {
-        posMap.set(id, {
-          x: lvl * (NODE_W + GAP_X),
-          y: startOffset + idx * (NODE_H + GAP_Y),
-        });
-      } else {
-        posMap.set(id, {
-          x: startOffset + idx * (NODE_W + GAP_X),
-          y: lvl * (NODE_H + GAP_Y),
-        });
-      }
+      posMap.set(id, isHorizontal
+        ? { x: lvl * (NODE_W + GAP_X), y: start + idx * (NODE_H + GAP_Y) }
+        : { x: start + idx * (NODE_W + GAP_X), y: lvl * (NODE_H + GAP_Y) });
     });
   });
 
-  return nodes.map(n => ({
-    ...n,
-    position: posMap.get(n.id) || n.position,
-  }));
+  return nodes.map(n => ({ ...n, position: posMap.get(n.id) || n.position }));
 }
 
-function MindMapCanvasInner({ doc, onBack }: Props) {
+// ── Edge Settings Panel ──
+function EdgeSettingsPanel({ edge, onUpdate, onDelete, onClose }: {
+  edge: Edge;
+  onUpdate: (edgeId: string, updates: Partial<Edge>) => void;
+  onDelete: (edgeId: string) => void;
+  onClose: () => void;
+}) {
+  const currentStyle = edge.style || {};
+  const currentDash = (currentStyle as any).strokeDasharray;
+  const currentColor = (currentStyle as any).stroke || "hsl(var(--primary))";
+  const currentType = edge.type || "smoothstep";
+
+  return (
+    <div className="bg-card border border-border rounded-xl shadow-xl p-4 space-y-3 w-72">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Palette className="h-4 w-4 text-primary" />
+          <span className="text-sm font-semibold text-foreground">Podešavanja veze</span>
+        </div>
+        <button onClick={onClose} className="text-muted-foreground hover:text-foreground text-xs">✕</button>
+      </div>
+
+      {/* Label */}
+      <div>
+        <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Tekst</span>
+        <input
+          className="w-full mt-1 bg-muted/50 rounded-md px-2 py-1.5 text-xs outline-none text-foreground focus:ring-1 focus:ring-primary"
+          defaultValue={(edge.label as string) || ""}
+          placeholder="npr. '15 dana' / 'Ako je usvojeno'"
+          onBlur={(e) => onUpdate(edge.id, { label: e.target.value })}
+          onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
+        />
+      </div>
+
+      {/* Edge type */}
+      <div>
+        <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Tip linije</span>
+        <div className="flex gap-1.5 mt-1.5">
+          {EDGE_TYPES.map(t => (
+            <button
+              key={t.value}
+              onClick={() => onUpdate(edge.id, { type: t.value })}
+              className={cn(
+                "px-2.5 py-1 rounded-md text-[10px] font-medium border transition-colors",
+                currentType === t.value ? "bg-primary/15 border-primary text-primary" : "bg-muted/50 border-border text-muted-foreground hover:text-foreground"
+              )}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Line style */}
+      <div>
+        <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Stil</span>
+        <div className="flex gap-1.5 mt-1.5">
+          {EDGE_STYLES.map(s => (
+            <button
+              key={s.value}
+              onClick={() => onUpdate(edge.id, {
+                style: { ...currentStyle, strokeDasharray: s.dashArray }
+              })}
+              className={cn(
+                "flex-1 py-1.5 rounded-md border transition-colors flex items-center justify-center",
+                (currentDash || undefined) === s.dashArray ? "bg-primary/15 border-primary" : "bg-muted/50 border-border hover:border-primary/50"
+              )}
+            >
+              <svg width="32" height="4">
+                <line x1="0" y1="2" x2="32" y2="2" stroke="currentColor" strokeWidth="2"
+                  strokeDasharray={s.dashArray || "none"} />
+              </svg>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Color */}
+      <div>
+        <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Boja</span>
+        <div className="flex gap-2 mt-1.5">
+          {EDGE_COLORS.map(c => (
+            <button
+              key={c.value}
+              onClick={() => onUpdate(edge.id, {
+                style: { ...currentStyle, stroke: c.css, strokeWidth: 2.5 },
+                markerEnd: { type: MarkerType.ArrowClosed, color: c.css, width: 20, height: 20 },
+              })}
+              className={cn(
+                "w-5 h-5 rounded-full border-2 border-background transition-all hover:scale-110",
+                currentColor === c.css && "ring-2 ring-primary scale-110"
+              )}
+              style={{ backgroundColor: c.css }}
+              title={c.label}
+            />
+          ))}
+        </div>
+      </div>
+
+      {/* Animated toggle */}
+      <div className="flex items-center justify-between">
+        <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Animirana</span>
+        <button
+          onClick={() => onUpdate(edge.id, { animated: !edge.animated })}
+          className={cn(
+            "w-9 h-5 rounded-full transition-colors relative",
+            edge.animated ? "bg-primary" : "bg-muted"
+          )}
+        >
+          <div className={cn(
+            "w-3.5 h-3.5 rounded-full bg-background absolute top-0.5 transition-transform",
+            edge.animated ? "translate-x-4" : "translate-x-0.5"
+          )} />
+        </button>
+      </div>
+
+      <div className="pt-2 border-t border-border">
+        <button
+          onClick={() => { onDelete(edge.id); onClose(); }}
+          className="flex items-center gap-1.5 text-xs text-destructive hover:text-destructive/80 transition-colors"
+        >
+          <Trash2 className="h-3 w-3" /> Obriši vezu
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ── Main Canvas ──
+function MindMapCanvasInner({ doc, onBack }: { doc: MindMapDoc; onBack: () => void }) {
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
   const { screenToFlowPosition, fitView } = useReactFlow();
   const [title, setTitle] = useState(doc.title);
   const [dirty, setDirty] = useState(false);
   const [deletedStack, setDeletedStack] = useState<{ nodes: Node[]; edges: Edge[] }[]>([]);
+  const [presentationMode, setPresentationMode] = useState(false);
+  const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null);
 
   const mode = doc.mode || "hierarchy";
   const isProcedure = mode === "procedure";
   const templates = isProcedure ? PROCEDURE_TEMPLATES : HIERARCHY_TEMPLATES;
 
-  // ── Stable onUpdate/onDuplicate via ref ──
+  // ── Stable callbacks via ref ──
   const onUpdateRef = useRef<(id: string, updates: Partial<MindMapNodeData>) => void>(() => {});
   const onDuplicateRef = useRef<(id: string) => void>(() => {});
 
@@ -209,7 +321,6 @@ function MindMapCanvasInner({ doc, onBack }: Props) {
 
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(doc.edges || []);
-  const [editingEdge, setEditingEdge] = useState<string | null>(null);
 
   onUpdateRef.current = (id: string, updates: Partial<MindMapNodeData>) => {
     setNodes(nds => nds.map(n => n.id === id ? { ...n, data: { ...n.data, ...updates } } : n));
@@ -234,8 +345,9 @@ function MindMapCanvasInner({ doc, onBack }: Props) {
     toast.success("Čvor duplikovan");
   };
 
-  // ── Delete interception with Undo ──
+  // ── Delete with undo ──
   const handleNodesChange: typeof onNodesChange = useCallback((changes) => {
+    if (presentationMode) return; // Block changes in presentation mode
     const removeChanges = changes.filter(c => c.type === "remove");
     if (removeChanges.length > 0) {
       setNodes(currentNodes => {
@@ -267,12 +379,13 @@ function MindMapCanvasInner({ doc, onBack }: Props) {
     }
     onNodesChange(changes);
     if (changes.some(c => c.type !== "select")) setDirty(true);
-  }, [onNodesChange, setNodes, setEdges, stableOnUpdate, stableOnDuplicate]);
+  }, [onNodesChange, setNodes, setEdges, stableOnUpdate, stableOnDuplicate, presentationMode]);
 
   const handleEdgesChange: typeof onEdgesChange = useCallback((changes) => {
+    if (presentationMode) return;
     onEdgesChange(changes);
     if (changes.some(c => c.type !== "select")) setDirty(true);
-  }, [onEdgesChange]);
+  }, [onEdgesChange, presentationMode]);
 
   // ── Snap guides ──
   const SNAP_THRESHOLD = 20;
@@ -306,7 +419,7 @@ function MindMapCanvasInner({ doc, onBack }: Props) {
     });
   }, [setNodes]);
 
-  // ── Edge styles — all SmoothStep with arrows ──
+  // ── Edge defaults ──
   const edgeStroke = isProcedure ? "hsl(var(--chart-4))" : "hsl(var(--primary))";
   const edgeStyle = { stroke: edgeStroke, strokeWidth: 2.5 };
 
@@ -328,6 +441,20 @@ function MindMapCanvasInner({ doc, onBack }: Props) {
     setDirty(true);
   }, [setEdges, isProcedure, edgeStroke]);
 
+  // ── Edge update handler ──
+  const updateEdge = useCallback((edgeId: string, updates: Partial<Edge>) => {
+    setEdges(eds => eds.map(e => e.id === edgeId ? { ...e, ...updates } : e));
+    setDirty(true);
+  }, [setEdges]);
+
+  const deleteEdge = useCallback((edgeId: string) => {
+    setEdges(eds => eds.filter(e => e.id !== edgeId));
+    setSelectedEdgeId(null);
+    setDirty(true);
+    toast.success("Veza obrisana");
+  }, [setEdges]);
+
+  // ── Node helpers ──
   const addNodeFromTemplate = useCallback((template: NodeTemplate) => {
     const position = screenToFlowPosition({
       x: window.innerWidth / 2 + (Math.random() - 0.5) * 200,
@@ -372,15 +499,11 @@ function MindMapCanvasInner({ doc, onBack }: Props) {
     setDirty(true);
   }, [screenToFlowPosition, setNodes, stableOnUpdate, stableOnDuplicate, isProcedure]);
 
-  // ── Auto-Layout handler ──
   const handleAutoLayout = useCallback((direction: "TB" | "LR") => {
-    setNodes(nds => {
-      const layouted = autoLayout(nds, edges, direction);
-      return layouted.map(n => ({
-        ...n,
-        data: { ...(n.data as any), onUpdate: stableOnUpdate, onDuplicate: stableOnDuplicate },
-      }));
-    });
+    setNodes(nds => autoLayout(nds, edges, direction).map(n => ({
+      ...n,
+      data: { ...(n.data as any), onUpdate: stableOnUpdate, onDuplicate: stableOnDuplicate },
+    })));
     setDirty(true);
     setTimeout(() => fitView({ padding: 0.2, duration: 400 }), 50);
     toast.success("Automatski raspored primijenjen");
@@ -397,22 +520,17 @@ function MindMapCanvasInner({ doc, onBack }: Props) {
     toast.success("Mapa sačuvana");
   }, [doc, title, nodes, edges]);
 
-  // Auto-save debounce: 30s
+  // Auto-save 30s
   useEffect(() => {
     if (!dirty) return;
     const timer = setTimeout(() => { handleSave(); }, 30000);
     return () => clearTimeout(timer);
   }, [dirty, handleSave]);
 
-  const onEdgeDoubleClick = useCallback((_: React.MouseEvent, edge: Edge) => {
-    setEditingEdge(edge.id);
+  // Edge click → open settings
+  const onEdgeClick = useCallback((_: React.MouseEvent, edge: Edge) => {
+    setSelectedEdgeId(prev => prev === edge.id ? null : edge.id);
   }, []);
-
-  const updateEdgeLabel = useCallback((edgeId: string, label: string) => {
-    setEdges(eds => eds.map(e => e.id === edgeId ? { ...e, label } : e));
-    setEditingEdge(null);
-    setDirty(true);
-  }, [setEdges]);
 
   // Ctrl+S
   useEffect(() => {
@@ -423,105 +541,124 @@ function MindMapCanvasInner({ doc, onBack }: Props) {
     return () => window.removeEventListener("keydown", handler);
   }, [handleSave]);
 
-  // Get icon component for template display
   const getTemplateIcon = (iconValue: string) => {
     const entry = ICON_REGISTRY.find(i => i.value === iconValue);
     return entry ? <entry.Icon className="h-4 w-4" /> : null;
   };
 
+  const selectedEdge = selectedEdgeId ? edges.find(e => e.id === selectedEdgeId) : null;
+
   return (
     <div className="h-full flex flex-col">
       {/* Toolbar */}
-      <div className="flex items-center gap-2 px-4 py-2 border-b border-border bg-card/50 backdrop-blur-sm flex-wrap">
-        <Button variant="ghost" size="sm" onClick={onBack}>
-          <ArrowLeft className="h-4 w-4 mr-1" /> Nazad
-        </Button>
+      {!presentationMode && (
+        <div className="flex items-center gap-2 px-4 py-2 border-b border-border bg-card/80 backdrop-blur-sm flex-wrap">
+          <Button variant="ghost" size="sm" onClick={onBack}>
+            <ArrowLeft className="h-4 w-4 mr-1" /> Nazad
+          </Button>
 
-        <div className={cn(
-          "flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-medium",
-          isProcedure ? "bg-amber-500/15 text-amber-600 dark:text-amber-400" : "bg-primary/15 text-primary"
-        )}>
-          {isProcedure ? <Workflow className="h-3.5 w-3.5" /> : <GitBranch className="h-3.5 w-3.5" />}
-          {isProcedure ? "Procedura" : "Hijerarhija"}
-        </div>
+          <div className={cn(
+            "flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold",
+            isProcedure ? "bg-amber-500/15 text-amber-600 dark:text-amber-400" : "bg-primary/15 text-primary"
+          )}>
+            {isProcedure ? <Workflow className="h-3.5 w-3.5" /> : <GitBranch className="h-3.5 w-3.5" />}
+            {isProcedure ? "Procedura" : "Hijerarhija"}
+          </div>
 
-        <Input
-          value={title}
-          onChange={e => { setTitle(e.target.value); setDirty(true); }}
-          className="max-w-[240px] h-8 text-sm font-semibold"
-          placeholder="Naziv mape..."
-        />
+          <Input
+            value={title}
+            onChange={e => { setTitle(e.target.value); setDirty(true); }}
+            className="max-w-[240px] h-8 text-sm font-semibold"
+            placeholder="Naziv mape..."
+          />
 
-        <div className="flex-1" />
+          <div className="flex-1" />
 
-        {/* Auto-Layout */}
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="sm" title="Automatski raspored čvorova">
-              <LayoutGrid className="h-4 w-4 mr-1" />
-              Auto-Layout
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => handleAutoLayout("TB")}>
-              ↓ Vertikalni raspored (gore-dolje)
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => handleAutoLayout("LR")}>
-              → Horizontalni raspored (lijevo-desno)
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+          {/* Presentation mode */}
+          <Button variant="outline" size="sm" onClick={() => {
+            setPresentationMode(true);
+            setSelectedEdgeId(null);
+            setTimeout(() => fitView({ padding: 0.15, duration: 600 }), 50);
+          }}>
+            <Eye className="h-4 w-4 mr-1" /> Pregled
+          </Button>
 
-        {/* Quick-add templates */}
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="sm">
-              <Plus className="h-4 w-4 mr-1" />
-              {isProcedure ? "Dodaj korak" : "Dodaj čvor"}
-              <ChevronDown className="h-3 w-3 ml-1" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-56">
-            {templates.map(t => (
-              <DropdownMenuItem key={t.icon + t.shape} onClick={() => addNodeFromTemplate(t)} className="flex items-center gap-2.5">
-                {getTemplateIcon(t.icon)}
-                <span className="font-medium">{t.desc}</span>
+          {/* Auto-Layout */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm">
+                <LayoutGrid className="h-4 w-4 mr-1" /> Auto-Layout
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => handleAutoLayout("TB")}>↓ Vertikalni (gore-dolje)</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleAutoLayout("LR")}>→ Horizontalni (lijevo-desno)</DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          {/* Quick-add */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm">
+                <Plus className="h-4 w-4 mr-1" />
+                {isProcedure ? "Dodaj korak" : "Dodaj čvor"}
+                <ChevronDown className="h-3 w-3 ml-1" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56">
+              {templates.map(t => (
+                <DropdownMenuItem key={t.icon + t.shape} onClick={() => addNodeFromTemplate(t)} className="flex items-center gap-2.5">
+                  {getTemplateIcon(t.icon)}
+                  <span className="font-medium">{t.desc}</span>
+                </DropdownMenuItem>
+              ))}
+              <DropdownMenuSeparator />
+              <DropdownMenuSub>
+                <DropdownMenuSubTrigger className="flex items-center gap-2">
+                  <Plus className="h-4 w-4" /> Specijalni čvorovi
+                </DropdownMenuSubTrigger>
+                <DropdownMenuSubContent className="w-52">
+                  {SPECIAL_TEMPLATES.map(t => (
+                    <DropdownMenuItem key={t.shape} onClick={() => addNodeFromTemplate(t)} className="flex items-center gap-2.5">
+                      {getTemplateIcon(t.icon)}
+                      <div>
+                        <span className="font-medium">{t.label}</span>
+                        <p className="text-[10px] text-muted-foreground">{t.desc}</p>
+                      </div>
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuSubContent>
+              </DropdownMenuSub>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={addBlankNode} className="text-muted-foreground">
+                <Plus className="h-4 w-4 mr-2" /> Prazan čvor
               </DropdownMenuItem>
-            ))}
-            <DropdownMenuSeparator />
-            <DropdownMenuSub>
-              <DropdownMenuSubTrigger className="flex items-center gap-2">
-                <Plus className="h-4 w-4" />
-                <span>Specijalni čvorovi</span>
-              </DropdownMenuSubTrigger>
-              <DropdownMenuSubContent className="w-52">
-                {SPECIAL_TEMPLATES.map(t => (
-                  <DropdownMenuItem key={t.shape} onClick={() => addNodeFromTemplate(t)} className="flex items-center gap-2.5">
-                    {getTemplateIcon(t.icon)}
-                    <div>
-                      <span className="font-medium">{t.label}</span>
-                      <p className="text-[10px] text-muted-foreground">{t.desc}</p>
-                    </div>
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuSubContent>
-            </DropdownMenuSub>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={addBlankNode} className="text-muted-foreground">
-              <Plus className="h-4 w-4 mr-2" />
-              Prazan čvor
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+            </DropdownMenuContent>
+          </DropdownMenu>
 
-        <Button size="sm" onClick={handleSave} variant={dirty ? "default" : "outline"}>
-          <Save className="h-4 w-4 mr-1" />
-          {dirty ? "Sačuvaj" : "Sačuvano"}
-        </Button>
-      </div>
+          <Button size="sm" onClick={handleSave} variant={dirty ? "default" : "outline"}>
+            <Save className="h-4 w-4 mr-1" />
+            {dirty ? "Sačuvaj" : "Sačuvano"}
+          </Button>
+        </div>
+      )}
 
-      {/* Hint for empty canvas */}
-      {nodes.length === 0 && (
+      {/* Presentation mode bar */}
+      {presentationMode && (
+        <div className="flex items-center justify-between px-4 py-2 bg-card/90 backdrop-blur-sm border-b border-border">
+          <div className="flex items-center gap-2">
+            <Eye className="h-4 w-4 text-primary" />
+            <span className="text-sm font-semibold text-foreground">{title}</span>
+            <span className="text-xs text-muted-foreground">— Režim pregleda</span>
+          </div>
+          <Button variant="outline" size="sm" onClick={() => setPresentationMode(false)}>
+            <EyeOff className="h-4 w-4 mr-1" /> Zatvori pregled
+          </Button>
+        </div>
+      )}
+
+      {/* Empty hint */}
+      {nodes.length === 0 && !presentationMode && (
         <div className="absolute inset-0 flex items-center justify-center z-10 pointer-events-none" style={{ top: 48 }}>
           <div className="text-center space-y-3 pointer-events-auto">
             <p className="text-muted-foreground text-sm">
@@ -541,16 +678,19 @@ function MindMapCanvasInner({ doc, onBack }: Props) {
           edges={edges}
           onNodesChange={handleNodesChange}
           onEdgesChange={handleEdgesChange}
-          onConnect={onConnect}
-          onEdgeDoubleClick={onEdgeDoubleClick}
-          onNodeDrag={onNodeDrag}
-          onNodeDragStop={onNodeDragStop}
+          onConnect={presentationMode ? undefined : onConnect}
+          onEdgeClick={onEdgeClick}
+          onNodeDrag={presentationMode ? undefined : onNodeDrag}
+          onNodeDragStop={presentationMode ? undefined : onNodeDragStop}
           nodeTypes={nodeTypes}
           connectionMode={ConnectionMode.Loose}
-          snapToGrid
+          snapToGrid={!presentationMode}
           snapGrid={[15, 15]}
           fitView
-          deleteKeyCode={["Backspace", "Delete"]}
+          nodesDraggable={!presentationMode}
+          nodesConnectable={!presentationMode}
+          elementsSelectable={!presentationMode}
+          deleteKeyCode={presentationMode ? [] : ["Backspace", "Delete"]}
           className="bg-background"
           connectionLineStyle={edgeStyle}
           defaultEdgeOptions={{
@@ -558,8 +698,9 @@ function MindMapCanvasInner({ doc, onBack }: Props) {
             animated: isProcedure,
             markerEnd: { type: MarkerType.ArrowClosed, color: edgeStroke, width: 20, height: 20 },
           }}
+          onPaneClick={() => setSelectedEdgeId(null)}
         >
-          <SnapGuideLines snapLines={snapLines} />
+          {!presentationMode && <SnapGuideLines snapLines={snapLines} />}
           <Controls className="!bg-card !border-border !shadow-md [&>button]:!bg-card [&>button]:!border-border [&>button]:!text-foreground [&>button:hover]:!bg-muted" />
           <Background
             variant={isProcedure ? BackgroundVariant.Lines : BackgroundVariant.Dots}
@@ -572,25 +713,16 @@ function MindMapCanvasInner({ doc, onBack }: Props) {
             nodeColor="hsl(var(--primary))"
             maskColor="hsl(var(--background) / 0.7)"
           />
-          {/* Edge label editor */}
-          {editingEdge && (
+
+          {/* Edge settings panel */}
+          {selectedEdge && !presentationMode && (
             <Panel position="top-center">
-              <div className="bg-card border border-border rounded-lg shadow-lg p-3 flex items-center gap-2">
-                <span className="text-xs text-muted-foreground">
-                  {isProcedure ? "Naziv koraka / rok:" : "Tekst veze:"}
-                </span>
-                <input
-                  autoFocus
-                  className="bg-transparent border-b border-primary text-sm outline-none text-foreground w-48"
-                  defaultValue={(edges.find(e => e.id === editingEdge)?.label as string) || ""}
-                  placeholder={isProcedure ? "npr. '15 dana' / 'Ako je usvojeno'" : "npr. 'nadređeni'"}
-                  onBlur={(e) => updateEdgeLabel(editingEdge, e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") (e.target as HTMLInputElement).blur();
-                    if (e.key === "Escape") setEditingEdge(null);
-                  }}
-                />
-              </div>
+              <EdgeSettingsPanel
+                edge={selectedEdge}
+                onUpdate={updateEdge}
+                onDelete={deleteEdge}
+                onClose={() => setSelectedEdgeId(null)}
+              />
             </Panel>
           )}
         </ReactFlow>
@@ -599,7 +731,7 @@ function MindMapCanvasInner({ doc, onBack }: Props) {
   );
 }
 
-export default function MindMapCanvas(props: Props) {
+export default function MindMapCanvas(props: { doc: MindMapDoc; onBack: () => void }) {
   return (
     <ReactFlowProvider>
       <MindMapCanvasInner {...props} />
