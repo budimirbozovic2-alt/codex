@@ -1,17 +1,20 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card } from "@/lib/spaced-repetition";
 import { highlightKeyParts } from "@/lib/highlight-key-parts";
 import { useEffect, useState } from "react";
+import { default as CheckCircle } from "lucide-react/dist/esm/icons/check-circle";
 import { getSource, type Source } from "@/lib/sources-storage";
 
 interface Props {
   card: Card;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onConfirmReview?: (cardId: string) => void;
 }
 
-export default function SourceSnippetDialog({ card, open, onOpenChange }: Props) {
+export default function SourceSnippetDialog({ card, open, onOpenChange, onConfirmReview }: Props) {
   const [source, setSource] = useState<Source | null>(null);
 
   useEffect(() => {
@@ -63,9 +66,25 @@ export default function SourceSnippetDialog({ card, open, onOpenChange }: Props)
         </div>
 
         {card.needsReview && (
-          <div className="mt-2 p-2 rounded-md bg-warning/10 border border-warning/30 text-xs text-warning flex items-center gap-2">
-            <span>⚠️</span>
-            <span>Izvor je ažuriran — provjerite da li je vaš esej još uvijek u skladu sa novim tekstom.</span>
+          <div className="mt-2 p-3 rounded-md bg-warning/10 border border-warning/30 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2 text-xs text-warning">
+              <span>⚠️</span>
+              <span>Izvor je ažuriran — provjerite da li je vaš esej još uvijek u skladu sa novim tekstom.</span>
+            </div>
+            {onConfirmReview && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="shrink-0 border-success/50 text-success hover:bg-success/10 hover:text-success"
+                onClick={() => {
+                  onConfirmReview(card.id);
+                  onOpenChange(false);
+                }}
+              >
+                <CheckCircle className="h-4 w-4 mr-1.5" />
+                Potvrdi provjeru
+              </Button>
+            )}
           </div>
         )}
       </DialogContent>

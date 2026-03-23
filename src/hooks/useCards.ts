@@ -252,6 +252,7 @@ export function useCards() {
       if (updates.originalSourceSnippet !== undefined) newCard.originalSourceSnippet = updates.originalSourceSnippet;
       if (updates.childCardIds !== undefined) newCard.childCardIds = updates.childCardIds;
       if (updates.sourceModules !== undefined) newCard.sourceModules = updates.sourceModules;
+      if (updates.needsReview !== undefined) newCard.needsReview = updates.needsReview;
       if (updates.sections) {
         newCard.sections = updates.sections.map(s => {
           const existing = c.sections.find(es => es.title === s.title);
