@@ -87,17 +87,6 @@ export default function SessionFilters({
       <div className="flex items-center justify-between">
         <label className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Kategorija</label>
       </div>
-      {/* Remove old exam frequent button since it's now in the row above */}
-      {false && examFrequentCount > 0 && (
-          <button
-            onClick={onToggleExamFrequent}
-            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium transition-all ${filterExamFrequent ? "bg-destructive/15 text-destructive border border-destructive/30" : "text-muted-foreground hover:text-foreground hover:bg-secondary"}`}
-          >
-            <Flame className="h-3 w-3" />
-            Često na ispitu ({examFrequentCount})
-          </button>
-        )}
-      </div>
 
       {/* Category pills */}
       <ScrollableRow>
