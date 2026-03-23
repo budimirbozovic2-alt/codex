@@ -15,8 +15,10 @@ import { default as Brain } from "lucide-react/dist/esm/icons/brain";
 import { default as Check } from "lucide-react/dist/esm/icons/check";
 import TextSelectionTooltip from "@/components/TextSelectionTooltip";
 import { default as GripVertical } from "lucide-react/dist/esm/icons/grip-vertical";
-import { useState, useRef, useEffect, useMemo, useCallback, CSSProperties, memo } from "react";
+import { useState, useRef, useEffect, useMemo, useCallback, lazy, Suspense, CSSProperties, memo } from "react";
 import { List, type RowComponentProps } from "react-window";
+
+const SourceSnippetDialog = lazy(() => import("@/components/SourceSnippetDialog"));
 
 interface Props {
   cards: Card[];
