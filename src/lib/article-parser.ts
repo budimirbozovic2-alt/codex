@@ -2,8 +2,11 @@
  * Article-Level Legal Text Parser & Diff Engine
  *
  * Parses legal documents into structured articles (Član/Stav/Tačka)
- * and provides word-level diff comparison between versions.
+ * and provides character-level diff comparison between versions
+ * using diff-match-patch for precision.
  */
+
+import DiffMatchPatch from "diff-match-patch";
 
 // ─── Types ──────────────────────────────────────────────
 
