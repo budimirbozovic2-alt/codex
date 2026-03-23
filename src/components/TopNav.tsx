@@ -109,9 +109,9 @@ export default function TopNav({ onToggleZen, zenActive, onOpenOnboarding }: Pro
     <nav className="sticky top-0 z-40 border-b bg-background/90 backdrop-blur-md">
       {/* Desktop */}
       <div className="hidden md:flex items-center h-11 px-4 gap-1 max-w-7xl mx-auto">
-        <div className="flex items-center gap-2 mr-4">
-          <img src={`${import.meta.env.BASE_URL}logo-icon.png`} alt="CODEX" className="h-6 w-6 rounded-md" />
-          <span className="text-base font-serif italic text-primary select-none tracking-tight">CODEX</span>
+        <div className="flex items-center gap-2.5 mr-4">
+          <img src={`${import.meta.env.BASE_URL}logo-icon.png`} alt="CODEX" className="h-6 w-6 rounded-full" />
+          <span className="text-sm font-bold uppercase tracking-[0.2em] text-primary select-none">CODEX</span>
         </div>
 
         <div className="flex items-center gap-0.5 flex-1 min-w-0">
