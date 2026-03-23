@@ -233,6 +233,90 @@ export default function SourceReader({ source, onBack }: Props) {
     onBack();
   }, [onBack]);
 
+  // Exam sidebar: map selection to a question (silent save)
+  const handleMapSelection = useCallback((questionId: string) => {
+    if (!selection) return;
+    const text = selection.text;
+    const question = examQuestions.find(q => q.id === questionId);
+    if (!question) return;
+
+    // Clear selection UI
+    setSelection(null);
+    window.getSelection()?.removeAllRanges();
+
+    const result = splitSelection(text);
+    const category = source.label || categories[0] || "Opšte";
+
+    if (result.hasArticles && result.modules.length > 0) {
+      // Smart-split: auto-create with question text as parent name
+      const { modules } = result;
+      const sections = modules.map((mod) => ({
+        title: mod.title,
+        content: sanitizeHtml(mod.contentHtml),
+      }));
+      const sourceModules = modules.map((mod, index) => ({
+        id: crypto.randomUUID(),
+        order: index,
+        articleNum: mod.articleNum,
+        title: mod.title,
+        question: mod.title,
+        textAnchor: createTextAnchor(mod.plainSnippet),
+        originalSourceSnippet: mod.plainSnippet,
+      }));
+      const combinedSnippet = modules.map(m => m.plainSnippet).join("\n\n");
+      const anchor = createTextAnchor(combinedSnippet);
+
+      addCard(
+        question.text,
+        sections,
+        category,
+        undefined,
+        undefined,
+        {
+          sourceId: source.id,
+          textAnchor: anchor,
+          originalSourceSnippet: combinedSnippet,
+          childCardIds: sourceModules.map(m => m.id),
+          sourceModules,
+        }
+      );
+
+      // Mark question as done
+      setExamQuestions(prev =>
+        prev.map(q => q.id === questionId ? { ...q, done: true, moduleCount: modules.length } : q)
+      );
+
+      toast({
+        title: `Esej kreiran: ${modules.length} modula`,
+        description: `${result.rangeLabel} → "${question.text.slice(0, 50)}..."`,
+      });
+    } else {
+      // No articles detected — create single essay
+      const anchor = createTextAnchor(text);
+      addCard(
+        question.text,
+        [{ title: "Odgovor", content: sanitizeHtml(text) }],
+        category,
+        undefined,
+        undefined,
+        {
+          sourceId: source.id,
+          textAnchor: anchor,
+          originalSourceSnippet: text,
+        }
+      );
+
+      setExamQuestions(prev =>
+        prev.map(q => q.id === questionId ? { ...q, done: true, moduleCount: 1 } : q)
+      );
+
+      toast({
+        title: "Esej kreiran",
+        description: `"${question.text.slice(0, 60)}..."`,
+      });
+    }
+  }, [selection, examQuestions, source, categories, addCard]);
+
   const isCoverage = viewMode === "coverage";
 
   return (
