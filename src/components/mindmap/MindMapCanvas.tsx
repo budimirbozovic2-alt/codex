@@ -209,7 +209,7 @@ function MindMapCanvasInner({ doc, onBack }: Props) {
     };
     setNodes(nds => [...nds, newNode]);
     setDirty(true);
-    setShowTemplates(false);
+    // dropdown closes automatically via DropdownMenu
   }, [screenToFlowPosition, setNodes, stableOnUpdate, stableOnDuplicate, isProcedure]);
 
   const addBlankNode = useCallback(() => {
