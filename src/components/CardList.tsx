@@ -412,6 +412,7 @@ function VirtualRow(props: RowComponentProps<VirtualRowData>) {
         onMoveCategory={onMoveCategory}
         onAssignChapter={onAssignChapter}
         onCloneToMnemonic={onCloneToMnemonic}
+        onAddKeyPart={onAddKeyPart}
       />
     </div>
   );
