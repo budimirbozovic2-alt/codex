@@ -92,6 +92,9 @@ export default function SourceReader({ source, onBack }: Props) {
     [source.id, source.htmlContent, cards]
   );
 
+  // Re-sanitize HTML at read time to guard against corrupted IDB data
+  const safeHtml = useMemo(() => sanitizeHtml(source.htmlContent), [source.htmlContent]);
+
   const linkedCount = useMemo(
     () => cards.filter(c => c.sourceId === source.id).length,
     [cards, source.id]
