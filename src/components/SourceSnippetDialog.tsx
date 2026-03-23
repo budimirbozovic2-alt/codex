@@ -6,16 +6,20 @@ import { highlightKeyParts } from "@/lib/highlight-key-parts";
 import { useEffect, useState } from "react";
 import { default as CheckCircle } from "lucide-react/dist/esm/icons/check-circle";
 import { getSource, type Source } from "@/lib/sources-storage";
+import { db } from "@/lib/db";
+import { toast } from "sonner";
 
 interface Props {
   card: Card;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onConfirmReview?: (cardId: string) => void;
+  /** Called after confirming review so parent can update local state */
+  onReviewConfirmed?: (cardId: string) => void;
 }
 
-export default function SourceSnippetDialog({ card, open, onOpenChange, onConfirmReview }: Props) {
+export default function SourceSnippetDialog({ card, open, onOpenChange, onReviewConfirmed }: Props) {
   const [source, setSource] = useState<Source | null>(null);
+  const [confirming, setConfirming] = useState(false);
 
   useEffect(() => {
     if (!open || !card.sourceId) return;
@@ -25,6 +29,21 @@ export default function SourceSnippetDialog({ card, open, onOpenChange, onConfir
   if (!card.sourceId || !card.originalSourceSnippet) return null;
 
   const essayHtml = card.sections.map(s => s.content).join("<hr/>");
+
+  const handleConfirmReview = async () => {
+    setConfirming(true);
+    try {
+      // Update in IndexedDB directly
+      await db.cards.update(card.id, { needsReview: undefined });
+      onReviewConfirmed?.(card.id);
+      toast.success("Kartica potvrđena — oznaka za provjeru uklonjena.");
+      onOpenChange(false);
+    } catch {
+      toast.error("Greška pri potvrđivanju.");
+    } finally {
+      setConfirming(false);
+    }
+  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -71,20 +90,16 @@ export default function SourceSnippetDialog({ card, open, onOpenChange, onConfir
               <span>⚠️</span>
               <span>Izvor je ažuriran — provjerite da li je vaš esej još uvijek u skladu sa novim tekstom.</span>
             </div>
-            {onConfirmReview && (
-              <Button
-                size="sm"
-                variant="outline"
-                className="shrink-0 border-success/50 text-success hover:bg-success/10 hover:text-success"
-                onClick={() => {
-                  onConfirmReview(card.id);
-                  onOpenChange(false);
-                }}
-              >
-                <CheckCircle className="h-4 w-4 mr-1.5" />
-                Potvrdi provjeru
-              </Button>
-            )}
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={confirming}
+              className="shrink-0 border-success/50 text-success hover:bg-success/10 hover:text-success"
+              onClick={handleConfirmReview}
+            >
+              <CheckCircle className="h-4 w-4 mr-1.5" />
+              Potvrdi provjeru
+            </Button>
           </div>
         )}
       </DialogContent>
