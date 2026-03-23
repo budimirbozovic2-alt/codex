@@ -87,8 +87,12 @@ export function useAppContext(): AppContextValue {
 
 // ─── Pomodoro hook ──────────────────────────────────────
 function useGlobalPomodoro() {
+  const appSettings = loadAppSettings();
+  const workDuration = appSettings.pomodoro.workMinutes;
+  const breakDuration = appSettings.pomodoro.breakMinutes;
+
   const [mode, setMode] = useState<"work" | "break">("work");
-  const [seconds, setSeconds] = useState(25 * 60);
+  const [seconds, setSeconds] = useState(workDuration * 60);
   const [running, setRunning] = useState(false);
   const intervalRef = useRef<number | null>(null);
 
@@ -99,13 +103,13 @@ function useGlobalPomodoro() {
           if (prev <= 1) {
             setRunning(false);
             if (mode === "work") {
-              addPomodoroEntry({ timestamp: Date.now(), type: "focus", durationMinutes: 25 });
+              addPomodoroEntry({ timestamp: Date.now(), type: "focus", durationMinutes: workDuration });
               setMode("break");
-              return 5 * 60;
+              return breakDuration * 60;
             } else {
-              addPomodoroEntry({ timestamp: Date.now(), type: "break", durationMinutes: 5 });
+              addPomodoroEntry({ timestamp: Date.now(), type: "break", durationMinutes: breakDuration });
               setMode("work");
-              return 25 * 60;
+              return workDuration * 60;
             }
           }
           return prev - 1;
@@ -113,13 +117,13 @@ function useGlobalPomodoro() {
       }, 1000);
     }
     return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
-  }, [running, mode]);
+  }, [running, mode, workDuration, breakDuration]);
 
   const toggle = useCallback(() => setRunning(r => !r), []);
   const reset = useCallback(() => {
     setRunning(false);
-    setSeconds(mode === "work" ? 25 * 60 : 5 * 60);
-  }, [mode]);
+    setSeconds(mode === "work" ? workDuration * 60 : breakDuration * 60);
+  }, [mode, workDuration, breakDuration]);
 
   return useMemo(() => ({
     state: { mode, seconds, running } as PomodoroState,
