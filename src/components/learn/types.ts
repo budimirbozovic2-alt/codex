@@ -1,6 +1,8 @@
 import { Card } from "@/lib/spaced-repetition";
 import { LearnMode, LearnCardProgress } from "@/lib/storage";
 
+export type { LearnCardProgress };
+
 export type SortMode = "order" | "weakest" | "leastRead";
 export type ViewWidth = "compact" | "normal" | "wide" | "full";
 export type SetupStep = "mode" | "filter" | "ready";
