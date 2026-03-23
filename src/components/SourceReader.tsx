@@ -7,8 +7,10 @@ import { default as X } from "lucide-react/dist/esm/icons/x";
 import { default as Eye } from "lucide-react/dist/esm/icons/eye";
 import { default as BarChart3 } from "lucide-react/dist/esm/icons/bar-chart-3";
 import { default as Wand2 } from "lucide-react/dist/esm/icons/wand-2";
+import { default as FileQuestion } from "lucide-react/dist/esm/icons/file-question";
 
 const AutoSplitDialog = lazy(() => import("@/components/AutoSplitDialog"));
+import ExamSidebar, { type ExamQuestion } from "@/components/ExamSidebar";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -76,6 +78,9 @@ export default function SourceReader({ source, onBack }: Props) {
   const [splitDone, setSplitDone] = useState(false);
   const [splitCreatedCount, setSplitCreatedCount] = useState(0);
   const [splitParentName, setSplitParentName] = useState("");
+  // Exam sidebar state
+  const [examOpen, setExamOpen] = useState(false);
+  const [examQuestions, setExamQuestions] = useState<ExamQuestion[]>([]);
   // Coverage analysis (memoized)
   const coverage = useMemo(
     () => analyzeCoverage(source.id, source.htmlContent, cards),
@@ -228,6 +233,90 @@ export default function SourceReader({ source, onBack }: Props) {
     onBack();
   }, [onBack]);
 
+  // Exam sidebar: map selection to a question (silent save)
+  const handleMapSelection = useCallback((questionId: string) => {
+    if (!selection) return;
+    const text = selection.text;
+    const question = examQuestions.find(q => q.id === questionId);
+    if (!question) return;
+
+    // Clear selection UI
+    setSelection(null);
+    window.getSelection()?.removeAllRanges();
+
+    const result = splitSelection(text);
+    const category = source.label || categories[0] || "Opšte";
+
+    if (result.hasArticles && result.modules.length > 0) {
+      // Smart-split: auto-create with question text as parent name
+      const { modules } = result;
+      const sections = modules.map((mod) => ({
+        title: mod.title,
+        content: sanitizeHtml(mod.contentHtml),
+      }));
+      const sourceModules = modules.map((mod, index) => ({
+        id: crypto.randomUUID(),
+        order: index,
+        articleNum: mod.articleNum,
+        title: mod.title,
+        question: mod.title,
+        textAnchor: createTextAnchor(mod.plainSnippet),
+        originalSourceSnippet: mod.plainSnippet,
+      }));
+      const combinedSnippet = modules.map(m => m.plainSnippet).join("\n\n");
+      const anchor = createTextAnchor(combinedSnippet);
+
+      addCard(
+        question.text,
+        sections,
+        category,
+        undefined,
+        undefined,
+        {
+          sourceId: source.id,
+          textAnchor: anchor,
+          originalSourceSnippet: combinedSnippet,
+          childCardIds: sourceModules.map(m => m.id),
+          sourceModules,
+        }
+      );
+
+      // Mark question as done
+      setExamQuestions(prev =>
+        prev.map(q => q.id === questionId ? { ...q, done: true, moduleCount: modules.length } : q)
+      );
+
+      toast({
+        title: `Esej kreiran: ${modules.length} modula`,
+        description: `${result.rangeLabel} → "${question.text.slice(0, 50)}..."`,
+      });
+    } else {
+      // No articles detected — create single essay
+      const anchor = createTextAnchor(text);
+      addCard(
+        question.text,
+        [{ title: "Odgovor", content: sanitizeHtml(text) }],
+        category,
+        undefined,
+        undefined,
+        {
+          sourceId: source.id,
+          textAnchor: anchor,
+          originalSourceSnippet: text,
+        }
+      );
+
+      setExamQuestions(prev =>
+        prev.map(q => q.id === questionId ? { ...q, done: true, moduleCount: 1 } : q)
+      );
+
+      toast({
+        title: "Esej kreiran",
+        description: `"${question.text.slice(0, 60)}..."`,
+      });
+    }
+  }, [selection, examQuestions, source, categories, addCard]);
+
   const isCoverage = viewMode === "coverage";
 
   return (
@@ -283,6 +372,22 @@ export default function SourceReader({ source, onBack }: Props) {
             Pokrivenost
           </button>
         </div>
+
+        <Button
+          variant={examOpen ? "default" : "outline"}
+          size="sm"
+          onClick={() => setExamOpen(!examOpen)}
+          className="gap-1.5"
+          title="Ispitna pitanja sidebar"
+        >
+          <FileQuestion className="h-3.5 w-3.5" />
+          {examOpen ? "Zatvori pitanja" : "Pitanja"}
+          {examQuestions.filter(q => !q.done).length > 0 && (
+            <Badge variant="secondary" className="text-[10px] h-4 min-w-4 px-1">
+              {examQuestions.filter(q => !q.done).length}
+            </Badge>
+          )}
+        </Button>
 
         <Button
           variant="outline"
@@ -365,6 +470,16 @@ export default function SourceReader({ source, onBack }: Props) {
             </div>
           )}
         </div>
+
+        {/* Exam questions sidebar (right) */}
+        {examOpen && (
+          <ExamSidebar
+            questions={examQuestions}
+            onSetQuestions={setExamQuestions}
+            onMapSelection={handleMapSelection}
+            hasSelection={!!selection}
+          />
+        )}
       </div>
 
       {/* Essay creation dialog */}
