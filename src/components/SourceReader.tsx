@@ -182,6 +182,7 @@ export default function SourceReader({ source, onBack }: Props) {
     return () => window.removeEventListener("keydown", handler);
   }, [selection, handleConvertToEssay, essayDialogOpen, splitSummaryOpen, autoSplitOpen]);
 
+  const handleSmartSplitConfirm = useCallback(() => {
     if (!splitResult || splitModules.length === 0) return;
     const category = source.label || categories[0] || "Opšte";
     const modules = splitModules;
