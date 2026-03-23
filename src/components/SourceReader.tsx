@@ -17,6 +17,7 @@ import { useAppContext } from "@/contexts/AppContext";
 import { createTextAnchor, type Source } from "@/lib/sources-storage";
 import { sanitizeHtml } from "@/lib/sanitize";
 import { analyzeCoverage } from "@/lib/coverage-analysis";
+import { splitSelection, type SelectionModule } from "@/lib/selection-split-engine";
 import { cn } from "@/lib/utils";
 import CoverageArticleList from "@/components/source-reader/CoverageArticleList";
 
