@@ -315,7 +315,7 @@ export default function SourcesView() {
                     <div className="min-w-0">
                       <h3 className="font-medium text-sm truncate">{source.label}</h3>
                       {source.officialGazetteInfo && (
-                        <p className="text-[11px] italic text-muted-foreground/70 truncate mt-0.5">
+                        <p className="text-[11px] italic text-muted-foreground/70 mt-0.5 max-w-[260px] truncate" title={source.officialGazetteInfo}>
                           {source.officialGazetteInfo}
                         </p>
                       )}
