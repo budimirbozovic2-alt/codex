@@ -119,7 +119,7 @@ export default function TopNav({ onToggleZen, zenActive, onOpenOnboarding }: Pro
           {/* Laboratorija mega menu trigger */}
           <div ref={labRef} className="relative">
             <button
-              onClick={() => setLabOpen(v => !v)}
+              onClick={() => startTransition(() => setLabOpen(v => !v))}
               className={`relative flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors whitespace-nowrap hover:bg-secondary/60 ${
                 isLabActive || labOpen
                   ? "bg-primary/10 text-primary"
