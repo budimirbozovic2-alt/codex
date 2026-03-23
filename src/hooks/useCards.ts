@@ -665,7 +665,28 @@ export function useCards() {
         updateSRSettings({ ...DEFAULT_SR_SETTINGS, ...parsed.srSettings });
       }
 
-      toast.success(`Uspješno uvezeno ${importedCards.length} kartica.`);
+      // Restore sources & mindMaps (v3+)
+      if (Array.isArray(parsed.sources) || Array.isArray(parsed.mindMaps)) {
+        const { db } = await import("@/lib/db");
+        if (Array.isArray(parsed.sources) && parsed.sources.length > 0) {
+          if (strategy === "overwrite") {
+            await db.sources.clear();
+          }
+          await db.sources.bulkPut(parsed.sources);
+        }
+        if (Array.isArray(parsed.mindMaps) && parsed.mindMaps.length > 0) {
+          if (strategy === "overwrite") {
+            await db.mindMaps.clear();
+          }
+          await db.mindMaps.bulkPut(parsed.mindMaps);
+        }
+      }
+
+      const extraParts: string[] = [];
+      if (Array.isArray(parsed.sources) && parsed.sources.length > 0) extraParts.push(`${parsed.sources.length} izvora`);
+      if (Array.isArray(parsed.mindMaps) && parsed.mindMaps.length > 0) extraParts.push(`${parsed.mindMaps.length} mentalnih mapa`);
+      const extraMsg = extraParts.length > 0 ? ` + ${extraParts.join(", ")}` : "";
+      toast.success(`Uspješno uvezeno ${importedCards.length} kartica${extraMsg}.`);
     } catch (err) {
       toast.error(`Greška pri uvozu: ${err instanceof Error ? err.message : "Neispravan format fajla."}`);
     }
