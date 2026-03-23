@@ -496,6 +496,39 @@ export default function SourcesView() {
           </Button>
         </DialogContent>
       </Dialog>
+
+      {/* Edit source dialog */}
+      <Dialog open={!!editingSource} onOpenChange={v => { if (!v) setEditingSource(null); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Uredi izvor</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <label className="text-xs font-medium">Naziv izvora</label>
+              <input
+                value={editLabel}
+                onChange={e => setEditLabel(e.target.value)}
+                className="w-full px-3 py-2 rounded-md border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                placeholder="npr. Zakon o obligacionim odnosima"
+                autoFocus
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-xs font-medium">Službeni list (oznaka)</label>
+              <input
+                value={editGazette}
+                onChange={e => setEditGazette(e.target.value)}
+                className="w-full px-3 py-2 rounded-md border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                placeholder='npr. "Sl. list CG", br. 47/2008'
+              />
+            </div>
+            <Button onClick={handleSaveEdit} disabled={!editLabel.trim()} className="w-full">
+              Sačuvaj izmjene
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
