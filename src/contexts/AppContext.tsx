@@ -4,6 +4,7 @@ import { useCards } from "@/hooks/useCards";
 import { Card } from "@/lib/spaced-repetition";
 import { recordAppEntry, recordFirstAction, addActivityEntry, ActivityType } from "@/lib/metacognitive-storage";
 import { addPomodoroEntry } from "@/lib/storage";
+import { loadAppSettings } from "@/lib/app-settings";
 
 // ─── Types ──────────────────────────────────────────────
 export type View = "dashboard" | "create" | "edit" | "cards" | "review" | "categories" | "learn" | "settings" | "frequent-errors" | "knowledge-map" | "mnemonic" | "major-system-settings" | "metacognitive" | "stats" | "planner" | "database" | "speed-reader";
