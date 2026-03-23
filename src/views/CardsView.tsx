@@ -28,7 +28,11 @@ export default function CardsView() {
     setView, setEditingCard, updateCard, addKeyPart,
   } = useAppContext();
 
-  const [filterCategory, setFilterCategory] = useState<string | null>(null);
+  const [filterCategory, setFilterCategory] = useState<string | null>(() => {
+    const deeplink = sessionStorage.getItem("sr-deeplink-category");
+    if (deeplink) { sessionStorage.removeItem("sr-deeplink-category"); return deeplink; }
+    return null;
+  });
   const [filterSubcategory, setFilterSubcategory] = useState<string | null>(null);
   const [filterChapter, setFilterChapter] = useState<string | null>(null);
   const [filterType, setFilterType] = useState<"all" | "essay" | "flash">("all");
