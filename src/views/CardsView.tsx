@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useCallback } from "react";
 import { idbLoadSettings } from "@/lib/db";
 import { useAppContext } from "@/contexts/AppContext";
 import { useDebounce } from "@/hooks/useDebounce";
-import { AnimatePresence, motion } from "framer-motion";
+
 import { default as Plus } from "lucide-react/dist/esm/icons/plus";
 import { default as CheckSquare } from "lucide-react/dist/esm/icons/check-square";
 import { default as BookOpen } from "lucide-react/dist/esm/icons/book-open";
