@@ -1,4 +1,4 @@
-import { memo, useState } from "react";
+import { memo, useState, useCallback } from "react";
 import { Handle, Position, NodeProps } from "@xyflow/react";
 import { cn } from "@/lib/utils";
 
@@ -15,18 +15,12 @@ const ICON_OPTIONS = [
 ];
 
 const COLOR_OPTIONS = [
-  { value: "default", bg: "bg-card", border: "border-border", handle: "!bg-muted-foreground" },
-  { value: "blue", bg: "bg-blue-500/15", border: "border-blue-500/40", handle: "!bg-blue-500" },
-  { value: "green", bg: "bg-green-500/15", border: "border-green-500/40", handle: "!bg-green-500" },
-  { value: "amber", bg: "bg-amber-500/15", border: "border-amber-500/40", handle: "!bg-amber-500" },
-  { value: "red", bg: "bg-red-500/15", border: "border-red-500/40", handle: "!bg-red-500" },
-  { value: "purple", bg: "bg-purple-500/15", border: "border-purple-500/40", handle: "!bg-purple-500" },
-];
-
-const SHAPE_OPTIONS = [
-  { value: "rectangle", className: "rounded-lg" },
-  { value: "rounded", className: "rounded-2xl" },
-  { value: "diamond", className: "rounded-lg rotate-0" },
+  { value: "default", bg: "bg-card", border: "border-border" },
+  { value: "blue", bg: "bg-blue-500/15", border: "border-blue-500/40" },
+  { value: "green", bg: "bg-green-500/15", border: "border-green-500/40" },
+  { value: "amber", bg: "bg-amber-500/15", border: "border-amber-500/40" },
+  { value: "red", bg: "bg-red-500/15", border: "border-red-500/40" },
+  { value: "purple", bg: "bg-purple-500/15", border: "border-purple-500/40" },
 ];
 
 export type MindMapNodeData = {
@@ -36,7 +30,10 @@ export type MindMapNodeData = {
   color?: string;
   shape?: string;
   onUpdate?: (id: string, data: Partial<MindMapNodeData>) => void;
+  onDuplicate?: (id: string) => void;
 };
+
+const handleBase = "!w-3 !h-3 !min-w-[12px] !min-h-[12px] !border-2 !border-background !rounded-full !bg-primary opacity-0 group-hover:opacity-100 hover:!opacity-100 hover:!scale-125 transition-all";
 
 function MindMapNodeComponent({ id, data, selected }: NodeProps) {
   const nodeData = data as unknown as MindMapNodeData;
@@ -44,35 +41,27 @@ function MindMapNodeComponent({ id, data, selected }: NodeProps) {
   const [showSettings, setShowSettings] = useState(false);
 
   const colorOpt = COLOR_OPTIONS.find(c => c.value === (nodeData.color || "default")) || COLOR_OPTIONS[0];
-  const shapeOpt = SHAPE_OPTIONS.find(s => s.value === (nodeData.shape || "rectangle")) || SHAPE_OPTIONS[0];
+  const shapeClass = (nodeData.shape === "rounded") ? "rounded-2xl" : "rounded-lg";
   const iconObj = ICON_OPTIONS.find(i => i.value === (nodeData.icon || "document"));
 
-  const updateField = (field: string, value: string) => {
+  const updateField = useCallback((field: string, value: string) => {
     nodeData.onUpdate?.(id, { [field]: value });
-  };
-
-  const handleStyle = "!w-3 !h-3 !min-w-[12px] !min-h-[12px] !border-2 !border-background !rounded-full opacity-0 group-hover:opacity-100 transition-opacity " + (colorOpt.handle || "!bg-primary");
+  }, [id, nodeData.onUpdate]);
 
   return (
     <div
       className={cn(
-        "group relative min-w-[150px] max-w-[240px] border-2 shadow-md transition-all",
-        colorOpt.bg, colorOpt.border, shapeOpt.className,
+        "group relative min-w-[150px] max-w-[240px] border-2 shadow-md transition-all px-4 py-3",
+        colorOpt.bg, colorOpt.border, shapeClass,
         selected && "ring-2 ring-primary shadow-lg",
-        "px-4 py-3"
       )}
       onDoubleClick={() => setEditing(true)}
     >
-      {/* 4-side handles for easy connections */}
-      <Handle type="target" position={Position.Top} id="top" className={handleStyle} style={{ top: -6 }} />
-      <Handle type="target" position={Position.Left} id="left" className={handleStyle} style={{ left: -6 }} />
-      <Handle type="source" position={Position.Bottom} id="bottom" className={handleStyle} style={{ bottom: -6 }} />
-      <Handle type="source" position={Position.Right} id="right" className={handleStyle} style={{ right: -6 }} />
-      {/* Also allow reverse — source on top/left and target on bottom/right */}
-      <Handle type="source" position={Position.Top} id="top-source" className={handleStyle} style={{ top: -6 }} />
-      <Handle type="source" position={Position.Left} id="left-source" className={handleStyle} style={{ left: -6 }} />
-      <Handle type="target" position={Position.Bottom} id="bottom-target" className={handleStyle} style={{ bottom: -6 }} />
-      <Handle type="target" position={Position.Right} id="right-target" className={handleStyle} style={{ right: -6 }} />
+      {/* 4 handles — connectionMode="loose" in canvas allows any-to-any */}
+      <Handle type="source" position={Position.Top} id="top" className={handleBase} style={{ top: -6 }} />
+      <Handle type="source" position={Position.Right} id="right" className={handleBase} style={{ right: -6 }} />
+      <Handle type="source" position={Position.Bottom} id="bottom" className={handleBase} style={{ bottom: -6 }} />
+      <Handle type="source" position={Position.Left} id="left" className={handleBase} style={{ left: -6 }} />
 
       {/* Icon + Title */}
       <div className="flex items-center gap-2 mb-1">
@@ -82,13 +71,8 @@ function MindMapNodeComponent({ id, data, selected }: NodeProps) {
             autoFocus
             className="bg-transparent border-b border-primary text-sm font-semibold w-full outline-none text-foreground"
             defaultValue={nodeData.label}
-            onBlur={(e) => {
-              updateField("label", e.target.value);
-              setEditing(false);
-            }}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") (e.target as HTMLInputElement).blur();
-            }}
+            onBlur={(e) => { updateField("label", e.target.value); setEditing(false); }}
+            onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
           />
         ) : (
           <span className="text-sm font-semibold text-foreground truncate">{nodeData.label}</span>
@@ -109,14 +93,22 @@ function MindMapNodeComponent({ id, data, selected }: NodeProps) {
         />
       )}
 
-      {/* Settings toggle */}
+      {/* Actions row */}
       {selected && (
-        <button
-          onClick={() => setShowSettings(!showSettings)}
-          className="text-[10px] text-muted-foreground hover:text-foreground mt-1.5 underline"
-        >
-          {showSettings ? "Zatvori" : "⚙ Podešavanja"}
-        </button>
+        <div className="flex items-center gap-2 mt-1.5">
+          <button
+            onClick={() => setShowSettings(!showSettings)}
+            className="text-[10px] text-muted-foreground hover:text-foreground underline"
+          >
+            {showSettings ? "Zatvori" : "⚙ Podešavanja"}
+          </button>
+          <button
+            onClick={() => nodeData.onDuplicate?.(id)}
+            className="text-[10px] text-muted-foreground hover:text-foreground underline"
+          >
+            📋 Dupliraj
+          </button>
+        </div>
       )}
 
       {/* Settings panel */}
@@ -159,7 +151,7 @@ function MindMapNodeComponent({ id, data, selected }: NodeProps) {
           <div>
             <span className="text-[10px] text-muted-foreground uppercase tracking-wider">Oblik</span>
             <div className="flex gap-1.5 mt-1">
-              <button onClick={() => updateField("shape", "rectangle")} className={cn("w-7 h-5 rounded border-2 border-border", nodeData.shape !== "rounded" && nodeData.shape !== "diamond" && "ring-1 ring-primary")} title="Pravougaonik" />
+              <button onClick={() => updateField("shape", "rectangle")} className={cn("w-7 h-5 rounded border-2 border-border", nodeData.shape !== "rounded" && "ring-1 ring-primary")} title="Pravougaonik" />
               <button onClick={() => updateField("shape", "rounded")} className={cn("w-7 h-5 rounded-full border-2 border-border", nodeData.shape === "rounded" && "ring-1 ring-primary")} title="Zaobljeno" />
             </div>
           </div>

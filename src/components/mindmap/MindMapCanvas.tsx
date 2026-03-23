@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState, useEffect } from "react";
+import { useCallback, useRef, useState, useEffect, useMemo } from "react";
 import {
   ReactFlow,
   addEdge,
@@ -9,6 +9,7 @@ import {
   MiniMap,
   Connection,
   Edge,
+  Node,
   BackgroundVariant,
   MarkerType,
   Panel,
@@ -21,14 +22,14 @@ import { MindMapDoc } from "@/lib/db";
 import { saveMindMap } from "@/lib/mindmap-storage";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Plus, Save, ArrowLeft, GitBranch, Workflow, ChevronDown } from "lucide-react";
+import { Plus, Save, ArrowLeft, GitBranch, Workflow, ChevronDown, Undo2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
 const nodeTypes = { mindMapNode: MindMapNodeComponent };
 
-let nodeId = 0;
-const getId = () => `node_${Date.now()}_${++nodeId}`;
+let nodeIdCounter = 0;
+const getId = () => `node_${Date.now()}_${++nodeIdCounter}`;
 
 // ── Mode-specific quick-add templates ──
 const HIERARCHY_TEMPLATES = [
@@ -57,42 +58,95 @@ function MindMapCanvasInner({ doc, onBack }: Props) {
   const [title, setTitle] = useState(doc.title);
   const [showTemplates, setShowTemplates] = useState(false);
   const [dirty, setDirty] = useState(false);
+  const [deletedStack, setDeletedStack] = useState<{ nodes: Node[]; edges: Edge[] }[]>([]);
 
   const mode = doc.mode || "hierarchy";
   const isProcedure = mode === "procedure";
   const templates = isProcedure ? PROCEDURE_TEMPLATES : HIERARCHY_TEMPLATES;
 
-  const makeOnUpdate = useCallback(() => {
-    return (id: string, updates: Partial<MindMapNodeData>) => {
-      setNodes(nds =>
-        nds.map(n => n.id === id ? { ...n, data: { ...n.data, ...updates } } : n)
-      );
-      setDirty(true);
-    };
+  // ── Stable onUpdate/onDuplicate via ref ──
+  const onUpdateRef = useRef<(id: string, updates: Partial<MindMapNodeData>) => void>(() => {});
+  const onDuplicateRef = useRef<(id: string) => void>(() => {});
+
+  // Wrapper functions that delegate to refs (stable identity)
+  const stableOnUpdate = useCallback((id: string, updates: Partial<MindMapNodeData>) => {
+    onUpdateRef.current(id, updates);
+  }, []);
+  const stableOnDuplicate = useCallback((id: string) => {
+    onDuplicateRef.current(id);
   }, []);
 
-  const initialNodes = doc.nodes.map((n: any) => ({
+  const initialNodes = useMemo(() => doc.nodes.map((n: any) => ({
     ...n,
     type: "mindMapNode",
-    data: { ...n.data, onUpdate: makeOnUpdate() },
-  }));
+    data: { ...n.data, onUpdate: stableOnUpdate, onDuplicate: stableOnDuplicate },
+  })), [doc.nodes, stableOnUpdate, stableOnDuplicate]);
 
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(doc.edges || []);
   const [editingEdge, setEditingEdge] = useState<string | null>(null);
 
-  // Keep onUpdate reference current
-  useEffect(() => {
+  // Keep ref implementations current
+  onUpdateRef.current = (id: string, updates: Partial<MindMapNodeData>) => {
     setNodes(nds =>
-      nds.map(n => ({ ...n, data: { ...n.data, onUpdate: makeOnUpdate() } }))
+      nds.map(n => n.id === id ? { ...n, data: { ...n.data, ...updates } } : n)
     );
-  }, [makeOnUpdate, setNodes]);
+    setDirty(true);
+  };
 
-  // Mark dirty on node/edge changes
+  onDuplicateRef.current = (id: string) => {
+    setNodes(nds => {
+      const source = nds.find(n => n.id === id);
+      if (!source) return nds;
+      const { onUpdate, onDuplicate, ...cleanData } = source.data as any;
+      const newNode: Node = {
+        ...source,
+        id: getId(),
+        position: { x: source.position.x + 40, y: source.position.y + 40 },
+        selected: false,
+        data: { ...cleanData, onUpdate: stableOnUpdate, onDuplicate: stableOnDuplicate },
+      };
+      return [...nds, newNode];
+    });
+    setDirty(true);
+    toast.success("Čvor duplikovan");
+  };
+
+  // ── Delete interception with Undo ──
   const handleNodesChange: typeof onNodesChange = useCallback((changes) => {
+    const removeChanges = changes.filter(c => c.type === "remove");
+    if (removeChanges.length > 0) {
+      // Capture nodes & connected edges before removal
+      setNodes(currentNodes => {
+        setEdges(currentEdges => {
+          const removedIds = new Set(removeChanges.map((c: any) => c.id));
+          const removedNodes = currentNodes.filter(n => removedIds.has(n.id));
+          const removedEdges = currentEdges.filter(e => removedIds.has(e.source) || removedIds.has(e.target));
+          if (removedNodes.length > 0) {
+            setDeletedStack(prev => [...prev.slice(-9), { nodes: removedNodes, edges: removedEdges }]);
+            toast("Obrisano " + removedNodes.length + " čvor(ova)", {
+              action: {
+                label: "Vrati",
+                onClick: () => {
+                  setNodes(nds => [...nds, ...removedNodes.map(n => ({
+                    ...n,
+                    data: { ...(n.data as any), onUpdate: stableOnUpdate, onDuplicate: stableOnDuplicate },
+                  }))]);
+                  setEdges(eds => [...eds, ...removedEdges]);
+                  setDirty(true);
+                },
+              },
+              duration: 5000,
+            });
+          }
+          return currentEdges;
+        });
+        return currentNodes;
+      });
+    }
     onNodesChange(changes);
     if (changes.some(c => c.type !== "select")) setDirty(true);
-  }, [onNodesChange]);
+  }, [onNodesChange, setNodes, setEdges, stableOnUpdate, stableOnDuplicate]);
 
   const handleEdgesChange: typeof onEdgesChange = useCallback((changes) => {
     onEdgesChange(changes);
@@ -142,13 +196,14 @@ function MindMapCanvasInner({ doc, onBack }: Props) {
         icon: template.icon,
         color: template.color,
         shape: isProcedure ? "rounded" : "rectangle",
-        onUpdate: makeOnUpdate(),
+        onUpdate: stableOnUpdate,
+        onDuplicate: stableOnDuplicate,
       } as MindMapNodeData,
     };
     setNodes(nds => [...nds, newNode]);
     setDirty(true);
     setShowTemplates(false);
-  }, [screenToFlowPosition, setNodes, makeOnUpdate, isProcedure]);
+  }, [screenToFlowPosition, setNodes, stableOnUpdate, stableOnDuplicate, isProcedure]);
 
   const addBlankNode = useCallback(() => {
     const position = screenToFlowPosition({ x: window.innerWidth / 2, y: window.innerHeight / 3 });
@@ -162,16 +217,17 @@ function MindMapCanvasInner({ doc, onBack }: Props) {
         icon: isProcedure ? "arrow" : "document",
         color: "default",
         shape: isProcedure ? "rounded" : "rectangle",
-        onUpdate: makeOnUpdate(),
+        onUpdate: stableOnUpdate,
+        onDuplicate: stableOnDuplicate,
       } as MindMapNodeData,
     };
     setNodes(nds => [...nds, newNode]);
     setDirty(true);
-  }, [screenToFlowPosition, setNodes, makeOnUpdate, isProcedure]);
+  }, [screenToFlowPosition, setNodes, stableOnUpdate, stableOnDuplicate, isProcedure]);
 
   const handleSave = useCallback(async () => {
     const cleanNodes = nodes.map(({ data, ...rest }) => {
-      const { onUpdate, ...cleanData } = data as any;
+      const { onUpdate, onDuplicate, ...cleanData } = data as any;
       return { ...rest, data: cleanData };
     });
     const updated: MindMapDoc = {
@@ -186,7 +242,7 @@ function MindMapCanvasInner({ doc, onBack }: Props) {
     toast.success("Mapa sačuvana");
   }, [doc, title, nodes, edges]);
 
-  // Auto-save every 30s if dirty
+  // Auto-save debounce: 30s after last change
   useEffect(() => {
     if (!dirty) return;
     const timer = setTimeout(() => { handleSave(); }, 30000);
@@ -202,6 +258,18 @@ function MindMapCanvasInner({ doc, onBack }: Props) {
     setEditingEdge(null);
     setDirty(true);
   }, [setEdges]);
+
+  // Keyboard shortcut: Ctrl+S to save
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === "s") {
+        e.preventDefault();
+        handleSave();
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [handleSave]);
 
   return (
     <div className="h-full flex flex-col">
@@ -244,9 +312,7 @@ function MindMapCanvasInner({ doc, onBack }: Props) {
                   className="flex items-center gap-2.5 w-full px-3 py-2 rounded-md text-sm hover:bg-muted transition-colors text-left"
                 >
                   <span className="text-base">{t.label.split(" ")[0]}</span>
-                  <div>
-                    <p className="font-medium text-foreground">{t.desc}</p>
-                  </div>
+                  <p className="font-medium text-foreground">{t.desc}</p>
                 </button>
               ))}
               <div className="border-t border-border mt-1 pt-1">
@@ -276,7 +342,7 @@ function MindMapCanvasInner({ doc, onBack }: Props) {
               Kliknite "<strong>{isProcedure ? "Dodaj korak" : "Dodaj čvor"}</strong>" da počnete.
             </p>
             <p className="text-xs text-muted-foreground/60">
-              Prevucite između čvorova za konekcije · Dupli klik za uređivanje · Handles se pojavljuju na hover
+              Prevucite od handle-a do handle-a za konekcije · Dupli klik za uređivanje · Delete za brisanje
             </p>
           </div>
         </div>
@@ -292,6 +358,7 @@ function MindMapCanvasInner({ doc, onBack }: Props) {
           onConnect={onConnect}
           onEdgeDoubleClick={onEdgeDoubleClick}
           nodeTypes={nodeTypes}
+          connectionMode="loose"
           fitView
           deleteKeyCode={["Backspace", "Delete"]}
           className="bg-background"
