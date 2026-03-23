@@ -359,7 +359,7 @@ function MindMapCanvasInner({ doc, onBack }: Props) {
           onConnect={onConnect}
           onEdgeDoubleClick={onEdgeDoubleClick}
           nodeTypes={nodeTypes}
-          connectionMode="loose"
+          connectionMode={ConnectionMode.Loose}
           fitView
           deleteKeyCode={["Backspace", "Delete"]}
           className="bg-background"
