@@ -22,12 +22,25 @@ export interface DashboardWidgetConfig {
   showProgressRing: boolean;
 }
 
+export interface PomodoroConfig {
+  workMinutes: number;
+  breakMinutes: number;
+}
+
+export interface NotificationConfig {
+  enabled: boolean;
+  reminderHour: number; // 0-23
+  reminderMinute: number; // 0-59
+}
+
 export interface AppSettings {
   targetRetention: number;
   autoBackupDays: number;
   soundEffects: boolean;
   colorTheme: ColorTheme;
   dashboardWidgets: DashboardWidgetConfig;
+  pomodoro: PomodoroConfig;
+  notifications: NotificationConfig;
 }
 
 export const DEFAULT_APP_SETTINGS: AppSettings = {
