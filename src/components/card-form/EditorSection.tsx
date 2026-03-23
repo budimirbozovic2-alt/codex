@@ -3,29 +3,16 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import RichTextEditor from "@/components/RichTextEditor";
 import { Plus, X, GripVertical, Scissors, Zap, FileText } from "lucide-react";
-import { SectionInput, parseHtmlToParagraphs } from "@/hooks/useCardActions";
-import type { CardType } from "@/hooks/useCardActions";
+import { parseHtmlToParagraphs } from "@/hooks/useCardActions";
+import type { SectionInput, CardType, ValidationErrors } from "@/hooks/useCardActions";
 
-interface EditorSectionProps {
-  cardType: CardType;
-  editCard: any;
-  question: string;
-  setQuestion: (v: string) => void;
-  flashAnswer: string;
-  setFlashAnswer: (v: string) => void;
-  sections: SectionInput[];
-  cuttingIndex: number | null;
-  setCuttingIndex: (v: number | null) => void;
-  setCardType: (v: CardType) => void;
-  addSection: () => void;
-  removeSection: (i: number) => void;
-  updateSection: (i: number, field: keyof SectionInput, value: string) => void;
-  handleCut: (sectionIdx: number, paraIdx: number) => void;
-}
-
-function CuttingView({ content, onCut, onCancel }: { content: string; onCut: (paragraphIndex: number) => void; onCancel: () => void }) {
+// ── Cutting View (paragraph splitter) ───────────────────
+function CuttingView({ content, onCut, onCancel }: {
+  content: string;
+  onCut: (paragraphIndex: number) => void;
+  onCancel: () => void;
+}) {
   const paragraphs = parseHtmlToParagraphs(content);
-
   if (paragraphs.length <= 1) {
     return (
       <div className="text-sm text-muted-foreground text-center py-4">
@@ -33,14 +20,11 @@ function CuttingView({ content, onCut, onCancel }: { content: string; onCut: (pa
       </div>
     );
   }
-
   return (
     <div className="rounded-md border border-warning/30 bg-warning/5 p-3 space-y-0">
       <div className="flex items-center justify-between mb-3">
         <span className="text-xs font-medium text-warning">Kliknite na makazice da izrežete</span>
-        <button type="button" onClick={onCancel} className="text-xs text-muted-foreground hover:text-foreground">
-          Otkaži
-        </button>
+        <button type="button" onClick={onCancel} className="text-xs text-muted-foreground hover:text-foreground">Otkaži</button>
       </div>
       {paragraphs.map((p, idx) => (
         <div key={idx}>
@@ -62,15 +46,35 @@ function CuttingView({ content, onCut, onCancel }: { content: string; onCut: (pa
   );
 }
 
+// ── Props ───────────────────────────────────────────────
+interface EditorSectionProps {
+  cardType: CardType;
+  isEditing: boolean;
+  question: string;
+  setQuestion: (v: string) => void;
+  flashAnswer: string;
+  setFlashAnswer: (v: string) => void;
+  sections: SectionInput[];
+  cuttingIndex: number | null;
+  setCuttingIndex: (v: number | null) => void;
+  setCardType: (v: CardType) => void;
+  addSection: () => void;
+  removeSection: (i: number) => void;
+  updateSection: (i: number, field: keyof SectionInput, value: string) => void;
+  handleCut: (sectionIdx: number, paraIdx: number) => void;
+  validationErrors: ValidationErrors;
+}
+
+// ── Component ───────────────────────────────────────────
 const EditorSection = memo(function EditorSection({
-  cardType, editCard, question, setQuestion, flashAnswer, setFlashAnswer,
+  cardType, isEditing, question, setQuestion, flashAnswer, setFlashAnswer,
   sections, cuttingIndex, setCuttingIndex, setCardType,
-  addSection, removeSection, updateSection, handleCut,
+  addSection, removeSection, updateSection, handleCut, validationErrors,
 }: EditorSectionProps) {
   return (
-    <>
+    <div className="space-y-4">
       {/* Card type toggle */}
-      {!editCard && (
+      {!isEditing && (
         <div className="flex gap-2">
           <button
             type="button"
@@ -104,6 +108,9 @@ const EditorSection = memo(function EditorSection({
           placeholder={cardType === "flash" ? "Unesite pitanje..." : "Unesite esejsko pitanje..."}
           minimal
         />
+        {validationErrors.question && (
+          <p className="text-xs text-destructive">{validationErrors.question}</p>
+        )}
       </div>
 
       {/* Flash answer or Essay sections */}
@@ -111,6 +118,9 @@ const EditorSection = memo(function EditorSection({
         <div className="space-y-2">
           <label className="text-sm font-medium text-muted-foreground">Odgovor</label>
           <RichTextEditor value={flashAnswer} onChange={setFlashAnswer} placeholder="Unesite odgovor..." />
+          {validationErrors.flashAnswer && (
+            <p className="text-xs text-destructive">{validationErrors.flashAnswer}</p>
+          )}
         </div>
       ) : (
         <div className="space-y-3">
@@ -120,6 +130,9 @@ const EditorSection = memo(function EditorSection({
               <Plus className="h-3 w-3 mr-1" /> Dodaj cjelinu
             </Button>
           </div>
+          {validationErrors.sections && (
+            <p className="text-xs text-destructive">{validationErrors.sections}</p>
+          )}
           {sections.map((section, i) => (
             <div key={i} className="rounded-xl border bg-card p-4 space-y-3">
               <div className="flex items-center gap-2">
@@ -165,7 +178,7 @@ const EditorSection = memo(function EditorSection({
           ))}
         </div>
       )}
-    </>
+    </div>
   );
 });
 

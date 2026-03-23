@@ -1,32 +1,15 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useMemo } from "react";
 import { Card } from "@/lib/spaced-repetition";
+import { toast } from "sonner";
 
-interface SectionInput {
+// ─── Types ──────────────────────────────────────────────
+export interface SectionInput {
   title: string;
   content: string;
 }
 
-type CardType = "essay" | "flash";
-type FormWidth = "compact" | "normal" | "wide" | "full";
-
-export interface CardFormState {
-  cardType: CardType;
-  question: string;
-  flashAnswer: string;
-  sections: SectionInput[];
-  category: string;
-  subcategory: string;
-  chapter: string;
-  newCategory: string;
-  showNewCat: boolean;
-  newSubcategory: string;
-  showNewSub: boolean;
-  newChapter: string;
-  showNewChapter: boolean;
-  formWidth: FormWidth;
-  cuttingIndex: number | null;
-  availableChapters: string[];
-}
+export type CardType = "essay" | "flash";
+export type FormWidth = "compact" | "normal" | "wide" | "full";
 
 interface UseCardActionsProps {
   categories: string[];
@@ -34,10 +17,19 @@ interface UseCardActionsProps {
   editCard?: Card | null;
   onSave: (question: string, sections: SectionInput[], category: string, subcategory?: string, chapter?: string) => void;
   onSaveFlash: (question: string, answer: string, category: string, subcategory?: string) => void;
-  onUpdate?: (id: string, updates: { question?: string; sections?: SectionInput[]; category?: string; subcategory?: string; chapter?: string }) => void;
+  onUpdate?: (id: string, updates: {
+    question?: string;
+    sections?: SectionInput[];
+    category?: string;
+    subcategory?: string;
+    chapter?: string;
+  }) => void;
 }
 
-function parseHtmlToParagraphs(html: string): string[] {
+// ─── Helpers ────────────────────────────────────────────
+const stripHtml = (html: string) => html.replace(/<[^>]*>/g, "").trim();
+
+export function parseHtmlToParagraphs(html: string): string[] {
   const div = document.createElement("div");
   div.innerHTML = html;
   const blocks: string[] = [];
@@ -65,22 +57,52 @@ function parseHtmlToParagraphs(html: string): string[] {
   return blocks.length > 0 ? blocks : [html];
 }
 
-export { parseHtmlToParagraphs };
-export type { SectionInput, CardType, FormWidth };
+// ─── Validation ─────────────────────────────────────────
+export interface ValidationErrors {
+  question?: string;
+  flashAnswer?: string;
+  sections?: string;
+}
 
-const stripHtml = (html: string) => html.replace(/<[^>]*>/g, "").trim();
+function validate(
+  cardType: CardType,
+  question: string,
+  flashAnswer: string,
+  sections: SectionInput[],
+): ValidationErrors {
+  const errors: ValidationErrors = {};
+  if (!stripHtml(question)) {
+    errors.question = "Pitanje ne smije biti prazno.";
+  }
+  if (cardType === "flash") {
+    if (!stripHtml(flashAnswer)) {
+      errors.flashAnswer = "Odgovor ne smije biti prazan.";
+    }
+  } else {
+    if (sections.some(s => !stripHtml(s.content))) {
+      errors.sections = "Sve cjeline moraju imati sadržaj.";
+    }
+  }
+  return errors;
+}
 
+// ═════════════════════════════════════════════════════════
+// Hook
+// ═════════════════════════════════════════════════════════
 export function useCardActions({ categories, subcategories, editCard, onSave, onSaveFlash, onUpdate }: UseCardActionsProps) {
+  // ── Core state ────────────────────────────────────────
   const [cardType, setCardType] = useState<CardType>(editCard?.type || "essay");
   const [question, setQuestion] = useState(editCard?.question ?? "");
   const [flashAnswer, setFlashAnswer] = useState(
-    editCard?.type === "flash" ? editCard.sections[0]?.content ?? "" : ""
+    editCard?.type === "flash" ? editCard.sections[0]?.content ?? "" : "",
   );
   const [sections, setSections] = useState<SectionInput[]>(
     editCard && editCard.type !== "flash"
-      ? editCard.sections.map((s) => ({ title: s.title, content: s.content }))
-      : [{ title: "Cjelina 1", content: "" }]
+      ? editCard.sections.map(s => ({ title: s.title, content: s.content }))
+      : [{ title: "Cjelina 1", content: "" }],
   );
+
+  // ── Metadata state ────────────────────────────────────
   const [category, setCategory] = useState(editCard?.category ?? categories[0] ?? "Opšte");
   const [subcategory, setSubcategory] = useState(editCard?.subcategory ?? "");
   const [chapter, setChapter] = useState(editCard?.chapter ?? "");
@@ -90,12 +112,29 @@ export function useCardActions({ categories, subcategories, editCard, onSave, on
   const [showNewSub, setShowNewSub] = useState(false);
   const [newChapter, setNewChapter] = useState("");
   const [showNewChapter, setShowNewChapter] = useState(false);
+
+  // ── UI state ──────────────────────────────────────────
   const [formWidth, setFormWidth] = useState<FormWidth>("wide");
   const [cuttingIndex, setCuttingIndex] = useState<number | null>(null);
-  const [availableChapters, setAvailableChapters] = useState<string[]>([]);
+  const [validationErrors, setValidationErrors] = useState<ValidationErrors>({});
+  const [isSaving, setIsSaving] = useState(false);
 
+  // ── Derived ───────────────────────────────────────────
   const availableSubs = subcategories[category] || [];
 
+  // ── Linked source gazette info (read-only) ────────────
+  const [linkedGazetteInfo, setLinkedGazetteInfo] = useState<string | null>(null);
+  useEffect(() => {
+    if (!editCard?.sourceId) { setLinkedGazetteInfo(null); return; }
+    import("@/lib/db").then(({ db }) => {
+      db.sources.get(editCard.sourceId!).then(source => {
+        setLinkedGazetteInfo(source?.officialGazetteInfo ?? null);
+      });
+    });
+  }, [editCard?.sourceId]);
+
+  // ── Load available chapters ───────────────────────────
+  const [availableChapters, setAvailableChapters] = useState<string[]>([]);
   useEffect(() => {
     const sub = showNewSub && newSubcategory.trim() ? newSubcategory.trim() : subcategory;
     const cat = showNewCat && newCategory.trim() ? newCategory.trim() : category;
@@ -108,16 +147,17 @@ export function useCardActions({ categories, subcategories, editCard, onSave, on
     });
   }, [category, subcategory, showNewCat, newCategory, showNewSub, newSubcategory]);
 
+  // ── Section actions ───────────────────────────────────
   const addSection = useCallback(() => {
-    setSections((prev) => [...prev, { title: `Cjelina ${prev.length + 1}`, content: "" }]);
+    setSections(prev => [...prev, { title: `Cjelina ${prev.length + 1}`, content: "" }]);
   }, []);
 
   const removeSection = useCallback((index: number) => {
-    setSections((prev) => prev.length <= 1 ? prev : prev.filter((_, i) => i !== index));
+    setSections(prev => (prev.length <= 1 ? prev : prev.filter((_, i) => i !== index)));
   }, []);
 
   const updateSection = useCallback((index: number, field: keyof SectionInput, value: string) => {
-    setSections((prev) => prev.map((s, i) => (i === index ? { ...s, [field]: value } : s)));
+    setSections(prev => prev.map((s, i) => (i === index ? { ...s, [field]: value } : s)));
   }, []);
 
   const handleCut = useCallback((sectionIndex: number, paragraphIndex: number) => {
@@ -141,42 +181,69 @@ export function useCardActions({ categories, subcategories, editCard, onSave, on
     setCuttingIndex(null);
   }, []);
 
+  // ── Resolve final metadata values ─────────────────────
+  const resolvedMeta = useMemo(() => ({
+    category: showNewCat && newCategory.trim() ? newCategory.trim() : category,
+    subcategory: showNewSub && newSubcategory.trim() ? newSubcategory.trim() : subcategory,
+    chapter: showNewChapter && newChapter.trim() ? newChapter.trim() : chapter,
+  }), [showNewCat, newCategory, category, showNewSub, newSubcategory, subcategory, showNewChapter, newChapter, chapter]);
+
+  // ── Submit ────────────────────────────────────────────
   const handleSubmit = useCallback((e: React.FormEvent) => {
     e.preventDefault();
-    const cat = showNewCat && newCategory.trim() ? newCategory.trim() : category;
-    const sub = showNewSub && newSubcategory.trim() ? newSubcategory.trim() : subcategory;
-    const ch = showNewChapter && newChapter.trim() ? newChapter.trim() : chapter;
 
-    if (cardType === "flash") {
-      if (!stripHtml(question) || !stripHtml(flashAnswer)) return;
-      if (editCard && onUpdate) {
-        onUpdate(editCard.id, {
-          question,
-          sections: [{ title: "Odgovor", content: flashAnswer }],
-          category: cat, subcategory: sub, chapter: ch,
-        });
-      } else {
-        onSaveFlash(question, flashAnswer, cat, sub);
-      }
-    } else {
-      if (!stripHtml(question) || sections.some((s) => !stripHtml(s.content))) return;
-      if (editCard && onUpdate) {
-        onUpdate(editCard.id, { question, sections, category: cat, subcategory: sub, chapter: ch });
-      } else {
-        onSave(question, sections, cat, sub, ch);
-      }
+    // Validate
+    const errors = validate(cardType, question, flashAnswer, sections);
+    setValidationErrors(errors);
+    if (Object.keys(errors).length > 0) {
+      const firstError = Object.values(errors)[0];
+      toast.error(firstError);
+      return;
     }
-  }, [cardType, question, flashAnswer, sections, category, subcategory, chapter, showNewCat, newCategory, showNewSub, newSubcategory, showNewChapter, newChapter, editCard, onSave, onSaveFlash, onUpdate]);
+
+    setIsSaving(true);
+    const { category: cat, subcategory: sub, chapter: ch } = resolvedMeta;
+
+    try {
+      if (cardType === "flash") {
+        if (editCard && onUpdate) {
+          onUpdate(editCard.id, {
+            question,
+            sections: [{ title: "Odgovor", content: flashAnswer }],
+            category: cat, subcategory: sub, chapter: ch,
+          });
+        } else {
+          onSaveFlash(question, flashAnswer, cat, sub);
+        }
+      } else {
+        if (editCard && onUpdate) {
+          onUpdate(editCard.id, { question, sections, category: cat, subcategory: sub, chapter: ch });
+        } else {
+          onSave(question, sections, cat, sub, ch);
+        }
+      }
+    } finally {
+      setIsSaving(false);
+    }
+  }, [cardType, question, flashAnswer, sections, resolvedMeta, editCard, onSave, onSaveFlash, onUpdate]);
 
   return {
     // State
-    cardType, question, flashAnswer, sections, category, subcategory, chapter,
-    newCategory, showNewCat, newSubcategory, showNewSub, newChapter, showNewChapter,
-    formWidth, cuttingIndex, availableChapters, availableSubs,
+    cardType, question, flashAnswer, sections,
+    category, subcategory, chapter,
+    newCategory, showNewCat, newSubcategory, showNewSub,
+    newChapter, showNewChapter,
+    formWidth, cuttingIndex,
+    availableChapters, availableSubs,
+    linkedGazetteInfo,
+    validationErrors, isSaving,
     // Setters
-    setCardType, setQuestion, setFlashAnswer, setCategory, setSubcategory, setChapter,
-    setNewCategory, setShowNewCat, setNewSubcategory, setShowNewSub,
-    setNewChapter, setShowNewChapter, setFormWidth, setCuttingIndex,
+    setCardType, setQuestion, setFlashAnswer,
+    setCategory, setSubcategory, setChapter,
+    setNewCategory, setShowNewCat,
+    setNewSubcategory, setShowNewSub,
+    setNewChapter, setShowNewChapter,
+    setFormWidth, setCuttingIndex,
     // Actions
     addSection, removeSection, updateSection, handleCut, handleSubmit,
   };
