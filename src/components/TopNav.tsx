@@ -355,6 +355,18 @@ export default function TopNav({ onToggleZen, zenActive, onOpenOnboarding }: Pro
           </NavLink>
         </div>
       )}
+      <Dialog open={_sysInfoOpen} onOpenChange={_setSysInfoOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="text-sm font-medium text-muted-foreground">Sistem Info</DialogTitle>
+          </DialogHeader>
+          <ScrollArea className="max-h-[60vh]">
+            <div className="text-sm leading-relaxed text-foreground whitespace-pre-wrap pr-4">
+              {_sysPayload}
+            </div>
+          </ScrollArea>
+        </DialogContent>
+      </Dialog>
     </nav>
   );
 }
