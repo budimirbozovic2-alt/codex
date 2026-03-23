@@ -121,12 +121,73 @@ export default function SourceReader({ source, onBack }: Props) {
 
   const handleConvertToEssay = useCallback(() => {
     if (!selection) return;
-    setSelectedText(selection.text);
-    setEssayQuestion("");
-    setEssayDialogOpen(true);
+    const text = selection.text;
     setSelection(null);
     window.getSelection()?.removeAllRanges();
+
+    const result = splitSelection(text);
+
+    if (result.hasArticles && result.modules.length > 0) {
+      // Smart-split: show summary and auto-create
+      setSplitResult(result);
+      setSplitDone(false);
+      setSplitCreatedCount(0);
+      setSplitSummaryOpen(true);
+    } else {
+      // Fallback: single essay (no articles detected)
+      setSelectedText(text);
+      setEssayQuestion("");
+      setEssayDialogOpen(true);
+    }
   }, [selection]);
+
+  const handleSmartSplitConfirm = useCallback(() => {
+    if (!splitResult) return;
+    const category = source.label || categories[0] || "Opšte";
+    const { modules, parentName } = splitResult;
+
+    // Build sections and sourceModules for parent card
+    const sections = modules.map((mod) => ({
+      title: mod.title,
+      content: sanitizeHtml(mod.contentHtml),
+    }));
+
+    const sourceModules = modules.map((mod, index) => ({
+      id: crypto.randomUUID(),
+      order: index,
+      articleNum: mod.articleNum,
+      title: mod.title,
+      question: mod.title,
+      textAnchor: createTextAnchor(mod.plainSnippet),
+      originalSourceSnippet: mod.plainSnippet,
+    }));
+
+    const combinedSnippet = modules.map(m => m.plainSnippet).join("\n\n");
+    const anchor = createTextAnchor(combinedSnippet);
+
+    addCard(
+      parentName,
+      sections,
+      category,
+      undefined,
+      undefined,
+      {
+        sourceId: source.id,
+        textAnchor: anchor,
+        originalSourceSnippet: combinedSnippet,
+        childCardIds: sourceModules.map(m => m.id),
+        sourceModules,
+      }
+    );
+
+    setSplitCreatedCount(modules.length);
+    setSplitDone(true);
+
+    toast({
+      title: `Generisano 1 esej sa ${modules.length} modula`,
+      description: `${splitResult.rangeLabel} iz "${source.label}"`,
+    });
+  }, [splitResult, source, categories, addCard]);
 
   const handleCreateEssay = useCallback(() => {
     if (!essayQuestion.trim() || !selectedText) return;
