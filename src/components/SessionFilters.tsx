@@ -54,9 +54,41 @@ export default function SessionFilters({
 
   return (
     <div className="space-y-3">
+      {/* Type + Exam frequent row */}
+      <div className="flex items-center gap-6 flex-wrap">
+        {onFilterTypeChange && (
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Tip</span>
+            <div className="flex gap-1">
+              {(["all", "essay", "flash"] as const).map(t => (
+                <button
+                  key={t}
+                  onClick={() => onFilterTypeChange(t)}
+                  className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all ${filterType === t ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground hover:bg-secondary"}`}
+                >
+                  {t === "all" ? "Sve" : t === "essay" ? "Esejska" : "Blic"}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+        {onFilterTypeChange && examFrequentCount > 0 && <div className="w-px h-6 bg-border hidden sm:block" />}
+        {examFrequentCount > 0 && (
+          <button
+            onClick={onToggleExamFrequent}
+            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium transition-all ${filterExamFrequent ? "bg-destructive/15 text-destructive border border-destructive/30" : "text-muted-foreground hover:text-foreground hover:bg-secondary"}`}
+          >
+            <Flame className="h-3 w-3" />
+            Često na ispitu ({examFrequentCount})
+          </button>
+        )}
+      </div>
+
       <div className="flex items-center justify-between">
         <label className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Kategorija</label>
-        {examFrequentCount > 0 && (
+      </div>
+      {/* Remove old exam frequent button since it's now in the row above */}
+      {false && examFrequentCount > 0 && (
           <button
             onClick={onToggleExamFrequent}
             className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium transition-all ${filterExamFrequent ? "bg-destructive/15 text-destructive border border-destructive/30" : "text-muted-foreground hover:text-foreground hover:bg-secondary"}`}
