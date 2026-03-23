@@ -297,8 +297,37 @@ export default function AutoSplitDialog({ open, onClose, source }: Props) {
           </div>
         )}
 
+        {/* Merge naming inline form */}
+        {!done && !importing && mergeNameDialog && (
+          <div className="rounded-lg border border-primary/30 bg-primary/5 p-4 space-y-3">
+            <div className="flex items-center gap-2">
+              <Merge className="h-4 w-4 text-primary" />
+              <span className="text-sm font-medium">Imenuj grupni esej</span>
+            </div>
+            <input
+              value={mergeName}
+              onChange={(e) => setMergeName(e.target.value)}
+              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              placeholder="npr. 'Sve o podnescima'"
+              autoFocus
+              onKeyDown={(e) => e.key === "Enter" && confirmMerge()}
+            />
+            <p className="text-xs text-muted-foreground">
+              Članci {selectedIndices.map(i => rows[i]?.articles.map(a => a.articleNum).join(",")).join(", ")} će postati moduli (cjeline) unutar ovog eseja.
+            </p>
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" onClick={() => setMergeNameDialog(false)} className="flex-1">
+                Otkaži
+              </Button>
+              <Button size="sm" onClick={confirmMerge} disabled={!mergeName.trim()} className="flex-1">
+                Spoji
+              </Button>
+            </div>
+          </div>
+        )}
+
         {/* Article list */}
-        {!done && !importing && (
+        {!done && !importing && !mergeNameDialog && (
           <>
             <div className="flex items-center justify-between gap-2">
               <div className="flex items-center gap-2">
@@ -406,7 +435,7 @@ export default function AutoSplitDialog({ open, onClose, source }: Props) {
               <Button
                 onClick={handleImport}
                 className="flex-1 gap-2"
-                disabled={importing || selectedCount === 0}
+                disabled={importing || selectedCount === 0 || mergeNameDialog}
               >
                 <Wand2 className="h-4 w-4" />
                 Generiši {selectedCount} eseja
