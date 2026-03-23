@@ -1,6 +1,6 @@
 import { Card } from "@/lib/spaced-repetition";
 import { Button } from "@/components/ui/button";
-import { X, FileText } from "lucide-react";
+import { X, FileText, Loader2 } from "lucide-react";
 import { useCardActions } from "@/hooks/useCardActions";
 import type { SectionInput, FormWidth } from "@/hooks/useCardActions";
 import EditorSection from "@/components/card-form/EditorSection";
@@ -24,18 +24,15 @@ const widthClasses: Record<FormWidth, string> = {
 };
 
 const widthLabels: Record<FormWidth, string> = {
-  compact: "S",
-  normal: "M",
-  wide: "L",
-  full: "XL",
+  compact: "S", normal: "M", wide: "L", full: "XL",
 };
 
 export default function CardForm({ categories, subcategories, onSave, onSaveFlash, onCancel, editCard, onUpdate }: Props) {
-  const actions = useCardActions({ categories, subcategories, editCard, onSave, onSaveFlash, onUpdate });
+  const a = useCardActions({ categories, subcategories, editCard, onSave, onSaveFlash, onUpdate });
 
   return (
-    <form onSubmit={actions.handleSubmit} className={`space-y-6 ${widthClasses[actions.formWidth]} transition-all duration-300`}>
-      {/* Header */}
+    <form onSubmit={a.handleSubmit} className={`space-y-6 ${widthClasses[a.formWidth]} transition-all duration-300`}>
+      {/* ── Header ─────────────────────────────────────── */}
       <div className="flex items-center justify-between">
         <h2 className="text-3xl font-serif">{editCard ? "Uredi modul" : "Novi modul"}</h2>
         <div className="flex items-center gap-2">
@@ -58,9 +55,9 @@ export default function CardForm({ categories, subcategories, onSave, onSaveFlas
               <button
                 key={w}
                 type="button"
-                onClick={() => actions.setFormWidth(w)}
+                onClick={() => a.setFormWidth(w)}
                 className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${
-                  actions.formWidth === w ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+                  a.formWidth === w ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
                 }`}
               >
                 {widthLabels[w]}
@@ -74,50 +71,57 @@ export default function CardForm({ categories, subcategories, onSave, onSaveFlas
         </div>
       </div>
 
+      {/* ── Editor (question + answer/sections) ──────── */}
       <EditorSection
-        cardType={actions.cardType}
-        editCard={editCard}
-        question={actions.question}
-        setQuestion={actions.setQuestion}
-        flashAnswer={actions.flashAnswer}
-        setFlashAnswer={actions.setFlashAnswer}
-        sections={actions.sections}
-        cuttingIndex={actions.cuttingIndex}
-        setCuttingIndex={actions.setCuttingIndex}
-        setCardType={actions.setCardType}
-        addSection={actions.addSection}
-        removeSection={actions.removeSection}
-        updateSection={actions.updateSection}
-        handleCut={actions.handleCut}
+        cardType={a.cardType}
+        isEditing={!!editCard}
+        question={a.question}
+        setQuestion={a.setQuestion}
+        flashAnswer={a.flashAnswer}
+        setFlashAnswer={a.setFlashAnswer}
+        sections={a.sections}
+        cuttingIndex={a.cuttingIndex}
+        setCuttingIndex={a.setCuttingIndex}
+        setCardType={a.setCardType}
+        addSection={a.addSection}
+        removeSection={a.removeSection}
+        updateSection={a.updateSection}
+        handleCut={a.handleCut}
+        validationErrors={a.validationErrors}
       />
 
+      {/* ── Metadata (category, subcategory, chapter, gazette) */}
       <MetadataSection
-        cardType={actions.cardType}
-        category={actions.category}
-        setCategory={actions.setCategory}
-        subcategory={actions.subcategory}
-        setSubcategory={actions.setSubcategory}
-        chapter={actions.chapter}
-        setChapter={actions.setChapter}
+        cardType={a.cardType}
+        category={a.category}
+        setCategory={a.setCategory}
+        subcategory={a.subcategory}
+        setSubcategory={a.setSubcategory}
+        chapter={a.chapter}
+        setChapter={a.setChapter}
         categories={categories}
-        availableSubs={actions.availableSubs}
-        availableChapters={actions.availableChapters}
-        newCategory={actions.newCategory}
-        setNewCategory={actions.setNewCategory}
-        showNewCat={actions.showNewCat}
-        setShowNewCat={actions.setShowNewCat}
-        newSubcategory={actions.newSubcategory}
-        setNewSubcategory={actions.setNewSubcategory}
-        showNewSub={actions.showNewSub}
-        setShowNewSub={actions.setShowNewSub}
-        newChapter={actions.newChapter}
-        setNewChapter={actions.setNewChapter}
-        showNewChapter={actions.showNewChapter}
-        setShowNewChapter={actions.setShowNewChapter}
+        availableSubs={a.availableSubs}
+        availableChapters={a.availableChapters}
+        newCategory={a.newCategory}
+        setNewCategory={a.setNewCategory}
+        showNewCat={a.showNewCat}
+        setShowNewCat={a.setShowNewCat}
+        newSubcategory={a.newSubcategory}
+        setNewSubcategory={a.setNewSubcategory}
+        showNewSub={a.showNewSub}
+        setShowNewSub={a.setShowNewSub}
+        newChapter={a.newChapter}
+        setNewChapter={a.setNewChapter}
+        showNewChapter={a.showNewChapter}
+        setShowNewChapter={a.setShowNewChapter}
+        linkedGazetteInfo={a.linkedGazetteInfo}
+        sourceId={editCard?.sourceId}
       />
 
-      <Button type="submit" className="w-full">
-        {editCard ? "Sačuvaj izmjene" : actions.cardType === "flash" ? "Dodaj blic pitanje" : "Dodaj karticu"}
+      {/* ── Submit ───────────────────────────────────── */}
+      <Button type="submit" className="w-full" disabled={a.isSaving}>
+        {a.isSaving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+        {editCard ? "Sačuvaj izmjene" : a.cardType === "flash" ? "Dodaj blic pitanje" : "Dodaj karticu"}
       </Button>
     </form>
   );
