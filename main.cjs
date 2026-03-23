@@ -206,7 +206,7 @@ function createWindow(splash) {
 }
 
 // ── Auto-Backup System ──
-const BACKUP_DIR = path.join(app.getPath('documents'), 'MemoriaBackups');
+const BACKUP_DIR = path.join(app.getPath('documents'), 'CodexBackups');
 const MAX_BACKUPS = 10;
 const BACKUP_INTERVAL_MS = 15 * 60 * 1000;
 
