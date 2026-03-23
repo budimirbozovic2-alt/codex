@@ -559,14 +559,14 @@ export function useCards() {
       onProgress(85, "Kompresija...");
       const JSZip = (await import("jszip")).default;
       const zip = new JSZip();
-      zip.file(`memoria-backup-${dateStr}.json`, json);
+      zip.file(`codex-backup-${dateStr}.json`, json);
       const blob = await zip.generateAsync({ type: "blob", compression: "DEFLATE", compressionOptions: { level: 6 } });
       onProgress(100, "Preuzimanje...");
-      downloadFile(blob, `memoria-backup-${dateStr}.zip`);
+      downloadFile(blob, `codex-backup-${dateStr}.zip`);
       toast.success("Pun backup uspješno exportovan.");
     } else {
       onProgress(100, "Preuzimanje...");
-      downloadFile(new Blob([json], { type: "application/json" }), `memoria-backup-${dateStr}.json`);
+      downloadFile(new Blob([json], { type: "application/json" }), `codex-backup-${dateStr}.json`);
       toast.success("Pun backup uspješno exportovan.");
     }
     setLastBackupTime();
