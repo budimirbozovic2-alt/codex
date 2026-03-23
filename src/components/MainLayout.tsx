@@ -1,4 +1,5 @@
 import { ReactNode, useState, useEffect, useRef, lazy, Suspense } from "react";
+import Breadcrumbs from "@/components/Breadcrumbs";
 import { useLocation } from "react-router-dom";
 import { useAppContext } from "@/contexts/AppContext";
 import ZenMode from "@/components/ZenMode";
