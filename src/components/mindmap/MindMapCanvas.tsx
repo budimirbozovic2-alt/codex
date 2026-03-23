@@ -18,7 +18,7 @@ import {
   ReactFlowProvider,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
-import MindMapNodeComponent, { type MindMapNodeData } from "./MindMapNode";
+import MindMapNodeComponent, { type MindMapNodeData, ICON_REGISTRY, type NodeShape } from "./MindMapNode";
 import { MindMapDoc } from "@/lib/db";
 import { saveMindMap } from "@/lib/mindmap-storage";
 import { Button } from "@/components/ui/button";
@@ -29,8 +29,11 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Plus, Save, ArrowLeft, GitBranch, Workflow, ChevronDown, Undo2 } from "lucide-react";
+import { Plus, Save, ArrowLeft, GitBranch, Workflow, ChevronDown, LayoutGrid } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -40,19 +43,33 @@ let nodeIdCounter = 0;
 const getId = () => `node_${Date.now()}_${++nodeIdCounter}`;
 
 // ── Mode-specific quick-add templates ──
-const HIERARCHY_TEMPLATES = [
-  { label: "⚖️ Sud", icon: "scale", color: "blue", desc: "Sudska institucija" },
-  { label: "🏢 Organ", icon: "building", color: "green", desc: "Upravni organ" },
-  { label: "📄 Odluka", icon: "document", color: "default", desc: "Akt ili odluka" },
-  { label: "👤 Lice", icon: "person", color: "purple", desc: "Službeno lice ili stranka" },
+interface NodeTemplate {
+  label: string;
+  icon: string;
+  color: string;
+  desc: string;
+  shape: NodeShape;
+}
+
+const HIERARCHY_TEMPLATES: NodeTemplate[] = [
+  { label: "Sud", icon: "scale", color: "blue", desc: "Sudska institucija", shape: "rectangle" },
+  { label: "Organ", icon: "building", color: "green", desc: "Upravni organ", shape: "rectangle" },
+  { label: "Odluka", icon: "file-text", color: "default", desc: "Akt ili odluka", shape: "rectangle" },
+  { label: "Lice", icon: "user", color: "purple", desc: "Službeno lice ili stranka", shape: "rectangle" },
 ];
 
-const PROCEDURE_TEMPLATES = [
-  { label: "➡️ Korak", icon: "arrow", color: "blue", desc: "Faza postupka" },
-  { label: "❓ Odluka", icon: "question", color: "amber", desc: "Tačka odlučivanja" },
-  { label: "🕒 Rok", icon: "clock", color: "red", desc: "Rokovi i ograničenja" },
-  { label: "✅ Završetak", icon: "check", color: "green", desc: "Završna faza" },
-  { label: "📄 Dokument", icon: "document", color: "default", desc: "Podnesak ili akt" },
+const PROCEDURE_TEMPLATES: NodeTemplate[] = [
+  { label: "Korak", icon: "arrow-right", color: "blue", desc: "Faza postupka", shape: "rounded" },
+  { label: "Odluka", icon: "question", color: "amber", desc: "Tačka odlučivanja", shape: "diamond" },
+  { label: "Rok", icon: "calendar", color: "red", desc: "Rokovi i ograničenja", shape: "rectangle" },
+  { label: "Završetak", icon: "check", color: "green", desc: "Završna faza", shape: "rounded" },
+  { label: "Dokument", icon: "file-text", color: "default", desc: "Podnesak ili akt", shape: "rectangle" },
+  { label: "Žalba", icon: "refresh", color: "purple", desc: "Pravni lijek", shape: "rounded" },
+];
+
+const SPECIAL_TEMPLATES: NodeTemplate[] = [
+  { label: "Uslovni čvor", icon: "question", color: "amber", desc: "If/else odluka", shape: "diamond" },
+  { label: "Grupa (faza)", icon: "file-text", color: "blue", desc: "Kontejner za pod-korake", shape: "group" },
 ];
 
 interface Props {
@@ -60,7 +77,7 @@ interface Props {
   onBack: () => void;
 }
 
-// ── Snap guide lines component (viewport-aware) ──
+// ── Snap guide lines ──
 function SnapGuideLines({ snapLines }: { snapLines: { x?: number; y?: number } }) {
   const { getViewport } = useReactFlow();
   if (snapLines.x === undefined && snapLines.y === undefined) return null;
@@ -68,26 +85,96 @@ function SnapGuideLines({ snapLines }: { snapLines: { x?: number; y?: number } }
   return (
     <svg style={{ position: "absolute", inset: 0, width: "100%", height: "100%", pointerEvents: "none", zIndex: 1000 }}>
       {snapLines.x !== undefined && (
-        <line
-          x1={snapLines.x * zoom + tx} y1={0}
-          x2={snapLines.x * zoom + tx} y2={9999}
-          stroke="hsl(var(--primary))" strokeWidth={1} strokeDasharray="6 3" opacity={0.5}
-        />
+        <line x1={snapLines.x * zoom + tx} y1={0} x2={snapLines.x * zoom + tx} y2={9999}
+          stroke="hsl(var(--primary))" strokeWidth={1} strokeDasharray="6 3" opacity={0.5} />
       )}
       {snapLines.y !== undefined && (
-        <line
-          x1={0} y1={snapLines.y * zoom + ty}
-          x2={9999} y2={snapLines.y * zoom + ty}
-          stroke="hsl(var(--primary))" strokeWidth={1} strokeDasharray="6 3" opacity={0.5}
-        />
+        <line x1={0} y1={snapLines.y * zoom + ty} x2={9999} y2={snapLines.y * zoom + ty}
+          stroke="hsl(var(--primary))" strokeWidth={1} strokeDasharray="6 3" opacity={0.5} />
       )}
     </svg>
   );
 }
 
+// ── Auto-Layout (simple layered/dagre-like) ──
+function autoLayout(nodes: Node[], edges: Edge[], direction: "TB" | "LR" = "TB"): Node[] {
+  if (nodes.length === 0) return nodes;
+
+  const NODE_W = 200;
+  const NODE_H = 80;
+  const GAP_X = 80;
+  const GAP_Y = 100;
+  const isHorizontal = direction === "LR";
+
+  // Build adjacency
+  const childrenOf = new Map<string, string[]>();
+  const hasParent = new Set<string>();
+  nodes.forEach(n => childrenOf.set(n.id, []));
+  edges.forEach(e => {
+    childrenOf.get(e.source)?.push(e.target);
+    hasParent.add(e.target);
+  });
+
+  // Find roots
+  const roots = nodes.filter(n => !hasParent.has(n.id));
+  if (roots.length === 0) roots.push(nodes[0]);
+
+  // BFS assign layers
+  const layer = new Map<string, number>();
+  const queue = roots.map(r => ({ id: r.id, lvl: 0 }));
+  const visited = new Set<string>();
+  while (queue.length > 0) {
+    const { id, lvl } = queue.shift()!;
+    if (visited.has(id)) continue;
+    visited.add(id);
+    layer.set(id, lvl);
+    for (const child of (childrenOf.get(id) || [])) {
+      queue.push({ id: child, lvl: lvl + 1 });
+    }
+  }
+
+  // Unvisited nodes get placed at bottom
+  nodes.forEach(n => { if (!layer.has(n.id)) layer.set(n.id, (layer.size > 0 ? Math.max(...layer.values()) + 1 : 0)); });
+
+  // Group by layer
+  const layers = new Map<number, string[]>();
+  layer.forEach((lvl, id) => {
+    if (!layers.has(lvl)) layers.set(lvl, []);
+    layers.get(lvl)!.push(id);
+  });
+
+  // Position
+  const posMap = new Map<string, { x: number; y: number }>();
+  const sortedLayers = [...layers.entries()].sort((a, b) => a[0] - b[0]);
+  
+  sortedLayers.forEach(([lvl, ids]) => {
+    const totalWidth = ids.length * (isHorizontal ? NODE_H + GAP_Y : NODE_W + GAP_X) - (isHorizontal ? GAP_Y : GAP_X);
+    const startOffset = -totalWidth / 2;
+
+    ids.forEach((id, idx) => {
+      if (isHorizontal) {
+        posMap.set(id, {
+          x: lvl * (NODE_W + GAP_X),
+          y: startOffset + idx * (NODE_H + GAP_Y),
+        });
+      } else {
+        posMap.set(id, {
+          x: startOffset + idx * (NODE_W + GAP_X),
+          y: lvl * (NODE_H + GAP_Y),
+        });
+      }
+    });
+  });
+
+  return nodes.map(n => ({
+    ...n,
+    position: posMap.get(n.id) || n.position,
+  }));
+}
+
 function MindMapCanvasInner({ doc, onBack }: Props) {
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
-  const { screenToFlowPosition } = useReactFlow();
+  const { screenToFlowPosition, fitView } = useReactFlow();
   const [title, setTitle] = useState(doc.title);
   const [dirty, setDirty] = useState(false);
   const [deletedStack, setDeletedStack] = useState<{ nodes: Node[]; edges: Edge[] }[]>([]);
@@ -100,7 +187,6 @@ function MindMapCanvasInner({ doc, onBack }: Props) {
   const onUpdateRef = useRef<(id: string, updates: Partial<MindMapNodeData>) => void>(() => {});
   const onDuplicateRef = useRef<(id: string) => void>(() => {});
 
-  // Wrapper functions that delegate to refs (stable identity)
   const stableOnUpdate = useCallback((id: string, updates: Partial<MindMapNodeData>) => {
     onUpdateRef.current(id, updates);
   }, []);
@@ -118,11 +204,8 @@ function MindMapCanvasInner({ doc, onBack }: Props) {
   const [edges, setEdges, onEdgesChange] = useEdgesState(doc.edges || []);
   const [editingEdge, setEditingEdge] = useState<string | null>(null);
 
-  // Keep ref implementations current
   onUpdateRef.current = (id: string, updates: Partial<MindMapNodeData>) => {
-    setNodes(nds =>
-      nds.map(n => n.id === id ? { ...n, data: { ...n.data, ...updates } } : n)
-    );
+    setNodes(nds => nds.map(n => n.id === id ? { ...n, data: { ...n.data, ...updates } } : n));
     setDirty(true);
   };
 
@@ -148,7 +231,6 @@ function MindMapCanvasInner({ doc, onBack }: Props) {
   const handleNodesChange: typeof onNodesChange = useCallback((changes) => {
     const removeChanges = changes.filter(c => c.type === "remove");
     if (removeChanges.length > 0) {
-      // Capture nodes & connected edges before removal
       setNodes(currentNodes => {
         setEdges(currentEdges => {
           const removedIds = new Set(removeChanges.map((c: any) => c.id));
@@ -185,23 +267,17 @@ function MindMapCanvasInner({ doc, onBack }: Props) {
     if (changes.some(c => c.type !== "select")) setDirty(true);
   }, [onEdgesChange]);
 
-  // ── Snap guides & alignment ──
+  // ── Snap guides ──
   const SNAP_THRESHOLD = 20;
   const [snapLines, setSnapLines] = useState<{ x?: number; y?: number }>({});
 
   const onNodeDrag = useCallback((_event: React.MouseEvent, draggedNode: Node) => {
     const others = nodes.filter(n => n.id !== draggedNode.id);
     const { x, y } = draggedNode.position;
-    let snapX: number | undefined;
-    let snapY: number | undefined;
-
+    let snapX: number | undefined, snapY: number | undefined;
     for (const other of others) {
-      if (snapX === undefined && Math.abs(other.position.x - x) <= SNAP_THRESHOLD) {
-        snapX = other.position.x;
-      }
-      if (snapY === undefined && Math.abs(other.position.y - y) <= SNAP_THRESHOLD) {
-        snapY = other.position.y;
-      }
+      if (snapX === undefined && Math.abs(other.position.x - x) <= SNAP_THRESHOLD) snapX = other.position.x;
+      if (snapY === undefined && Math.abs(other.position.y - y) <= SNAP_THRESHOLD) snapY = other.position.y;
       if (snapX !== undefined && snapY !== undefined) break;
     }
     setSnapLines({ x: snapX, y: snapY });
@@ -212,62 +288,45 @@ function MindMapCanvasInner({ doc, onBack }: Props) {
     setNodes(nds => {
       const others = nds.filter(n => n.id !== draggedNode.id);
       let { x, y } = draggedNode.position;
-      let snappedX = false;
-      let snappedY = false;
-
+      let sx = false, sy = false;
       for (const other of others) {
-        if (!snappedX && Math.abs(other.position.x - x) <= SNAP_THRESHOLD) {
-          x = other.position.x;
-          snappedX = true;
-        }
-        if (!snappedY && Math.abs(other.position.y - y) <= SNAP_THRESHOLD) {
-          y = other.position.y;
-          snappedY = true;
-        }
-        if (snappedX && snappedY) break;
+        if (!sx && Math.abs(other.position.x - x) <= SNAP_THRESHOLD) { x = other.position.x; sx = true; }
+        if (!sy && Math.abs(other.position.y - y) <= SNAP_THRESHOLD) { y = other.position.y; sy = true; }
+        if (sx && sy) break;
       }
-
-      if (!snappedX && !snappedY) return nds;
-      return nds.map(n =>
-        n.id === draggedNode.id ? { ...n, position: { x, y } } : n
-      );
+      if (!sx && !sy) return nds;
+      return nds.map(n => n.id === draggedNode.id ? { ...n, position: { x, y } } : n);
     });
   }, [setNodes]);
 
-  const edgeStyle = isProcedure
-    ? { stroke: "hsl(var(--chart-4))", strokeWidth: 2.5 }
-    : { stroke: "hsl(var(--primary))", strokeWidth: 2 };
+  // ── Edge styles — all SmoothStep with arrows ──
+  const edgeStroke = isProcedure ? "hsl(var(--chart-4))" : "hsl(var(--primary))";
+  const edgeStyle = { stroke: edgeStroke, strokeWidth: 2.5 };
 
-  const onConnect = useCallback(
-    (params: Connection) => {
-      setEdges(eds =>
-        addEdge(
-          {
-            ...params,
-            type: isProcedure ? "smoothstep" : "default",
-            animated: isProcedure,
-            markerEnd: { type: MarkerType.ArrowClosed, color: edgeStyle.stroke },
-            style: edgeStyle,
-            label: "",
-            labelStyle: { fill: "hsl(var(--foreground))", fontSize: 11, fontWeight: 500 },
-            labelBgStyle: { fill: "hsl(var(--card))", fillOpacity: 0.95 },
-            labelBgPadding: [6, 3] as [number, number],
-            labelBgBorderRadius: 6,
-          },
-          eds
-        )
-      );
-      setDirty(true);
-    },
-    [setEdges, isProcedure, edgeStyle]
-  );
+  const onConnect = useCallback((params: Connection) => {
+    setEdges(eds =>
+      addEdge({
+        ...params,
+        type: "smoothstep",
+        animated: isProcedure,
+        markerEnd: { type: MarkerType.ArrowClosed, color: edgeStroke, width: 20, height: 20 },
+        style: edgeStyle,
+        label: "",
+        labelStyle: { fill: "hsl(var(--foreground))", fontSize: 11, fontWeight: 500 },
+        labelBgStyle: { fill: "hsl(var(--card))", fillOpacity: 0.95 },
+        labelBgPadding: [6, 3] as [number, number],
+        labelBgBorderRadius: 6,
+      }, eds)
+    );
+    setDirty(true);
+  }, [setEdges, isProcedure, edgeStroke]);
 
-  const addNodeFromTemplate = useCallback((template: typeof HIERARCHY_TEMPLATES[0]) => {
+  const addNodeFromTemplate = useCallback((template: NodeTemplate) => {
     const position = screenToFlowPosition({
       x: window.innerWidth / 2 + (Math.random() - 0.5) * 200,
       y: window.innerHeight / 3 + (Math.random() - 0.5) * 100,
     });
-    const newNode = {
+    const newNode: Node = {
       id: getId(),
       type: "mindMapNode",
       position,
@@ -276,26 +335,26 @@ function MindMapCanvasInner({ doc, onBack }: Props) {
         description: "",
         icon: template.icon,
         color: template.color,
-        shape: isProcedure ? "rounded" : "rectangle",
+        shape: template.shape,
         onUpdate: stableOnUpdate,
         onDuplicate: stableOnDuplicate,
       } as MindMapNodeData,
+      ...(template.shape === "group" ? { style: { width: 300, height: 200 } } : {}),
     };
     setNodes(nds => [...nds, newNode]);
     setDirty(true);
-    // dropdown closes automatically via DropdownMenu
-  }, [screenToFlowPosition, setNodes, stableOnUpdate, stableOnDuplicate, isProcedure]);
+  }, [screenToFlowPosition, setNodes, stableOnUpdate, stableOnDuplicate]);
 
   const addBlankNode = useCallback(() => {
     const position = screenToFlowPosition({ x: window.innerWidth / 2, y: window.innerHeight / 3 });
-    const newNode = {
+    const newNode: Node = {
       id: getId(),
       type: "mindMapNode",
       position,
       data: {
         label: "Novi čvor",
         description: "",
-        icon: isProcedure ? "arrow" : "document",
+        icon: isProcedure ? "arrow-right" : "file-text",
         color: "default",
         shape: isProcedure ? "rounded" : "rectangle",
         onUpdate: stableOnUpdate,
@@ -306,24 +365,32 @@ function MindMapCanvasInner({ doc, onBack }: Props) {
     setDirty(true);
   }, [screenToFlowPosition, setNodes, stableOnUpdate, stableOnDuplicate, isProcedure]);
 
+  // ── Auto-Layout handler ──
+  const handleAutoLayout = useCallback((direction: "TB" | "LR") => {
+    setNodes(nds => {
+      const layouted = autoLayout(nds, edges, direction);
+      return layouted.map(n => ({
+        ...n,
+        data: { ...(n.data as any), onUpdate: stableOnUpdate, onDuplicate: stableOnDuplicate },
+      }));
+    });
+    setDirty(true);
+    setTimeout(() => fitView({ padding: 0.2, duration: 400 }), 50);
+    toast.success("Automatski raspored primijenjen");
+  }, [edges, setNodes, fitView, stableOnUpdate, stableOnDuplicate]);
+
   const handleSave = useCallback(async () => {
     const cleanNodes = nodes.map(({ data, ...rest }) => {
       const { onUpdate, onDuplicate, ...cleanData } = data as any;
       return { ...rest, data: cleanData };
     });
-    const updated: MindMapDoc = {
-      ...doc,
-      title,
-      nodes: cleanNodes,
-      edges,
-      updatedAt: Date.now(),
-    };
+    const updated: MindMapDoc = { ...doc, title, nodes: cleanNodes, edges, updatedAt: Date.now() };
     await saveMindMap(updated);
     setDirty(false);
     toast.success("Mapa sačuvana");
   }, [doc, title, nodes, edges]);
 
-  // Auto-save debounce: 30s after last change
+  // Auto-save debounce: 30s
   useEffect(() => {
     if (!dirty) return;
     const timer = setTimeout(() => { handleSave(); }, 30000);
@@ -340,17 +407,20 @@ function MindMapCanvasInner({ doc, onBack }: Props) {
     setDirty(true);
   }, [setEdges]);
 
-  // Keyboard shortcut: Ctrl+S to save
+  // Ctrl+S
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === "s") {
-        e.preventDefault();
-        handleSave();
-      }
+      if ((e.ctrlKey || e.metaKey) && e.key === "s") { e.preventDefault(); handleSave(); }
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
   }, [handleSave]);
+
+  // Get icon component for template display
+  const getTemplateIcon = (iconValue: string) => {
+    const entry = ICON_REGISTRY.find(i => i.value === iconValue);
+    return entry ? <entry.Icon className="h-4 w-4" /> : null;
+  };
 
   return (
     <div className="h-full flex flex-col">
@@ -362,7 +432,7 @@ function MindMapCanvasInner({ doc, onBack }: Props) {
 
         <div className={cn(
           "flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-medium",
-          isProcedure ? "bg-amber-500/15 text-amber-600" : "bg-primary/15 text-primary"
+          isProcedure ? "bg-amber-500/15 text-amber-600 dark:text-amber-400" : "bg-primary/15 text-primary"
         )}>
           {isProcedure ? <Workflow className="h-3.5 w-3.5" /> : <GitBranch className="h-3.5 w-3.5" />}
           {isProcedure ? "Procedura" : "Hijerarhija"}
@@ -377,6 +447,24 @@ function MindMapCanvasInner({ doc, onBack }: Props) {
 
         <div className="flex-1" />
 
+        {/* Auto-Layout */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" size="sm" title="Automatski raspored čvorova">
+              <LayoutGrid className="h-4 w-4 mr-1" />
+              Auto-Layout
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={() => handleAutoLayout("TB")}>
+              ↓ Vertikalni raspored (gore-dolje)
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => handleAutoLayout("LR")}>
+              → Horizontalni raspored (lijevo-desno)
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+
         {/* Quick-add templates */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -388,15 +476,29 @@ function MindMapCanvasInner({ doc, onBack }: Props) {
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-56">
             {templates.map(t => (
-              <DropdownMenuItem
-                key={t.icon}
-                onClick={() => addNodeFromTemplate(t)}
-                className="flex items-center gap-2.5"
-              >
-                <span className="text-base">{t.label.split(" ")[0]}</span>
+              <DropdownMenuItem key={t.icon + t.shape} onClick={() => addNodeFromTemplate(t)} className="flex items-center gap-2.5">
+                {getTemplateIcon(t.icon)}
                 <span className="font-medium">{t.desc}</span>
               </DropdownMenuItem>
             ))}
+            <DropdownMenuSeparator />
+            <DropdownMenuSub>
+              <DropdownMenuSubTrigger className="flex items-center gap-2">
+                <Plus className="h-4 w-4" />
+                <span>Specijalni čvorovi</span>
+              </DropdownMenuSubTrigger>
+              <DropdownMenuSubContent className="w-52">
+                {SPECIAL_TEMPLATES.map(t => (
+                  <DropdownMenuItem key={t.shape} onClick={() => addNodeFromTemplate(t)} className="flex items-center gap-2.5">
+                    {getTemplateIcon(t.icon)}
+                    <div>
+                      <span className="font-medium">{t.label}</span>
+                      <p className="text-[10px] text-muted-foreground">{t.desc}</p>
+                    </div>
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuSubContent>
+            </DropdownMenuSub>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={addBlankNode} className="text-muted-foreground">
               <Plus className="h-4 w-4 mr-2" />
@@ -445,11 +547,11 @@ function MindMapCanvasInner({ doc, onBack }: Props) {
           className="bg-background"
           connectionLineStyle={edgeStyle}
           defaultEdgeOptions={{
-            type: isProcedure ? "smoothstep" : "default",
+            type: "smoothstep",
             animated: isProcedure,
+            markerEnd: { type: MarkerType.ArrowClosed, color: edgeStroke, width: 20, height: 20 },
           }}
         >
-          {/* Snap guide lines rendered in flow coordinates via viewport transform */}
           <SnapGuideLines snapLines={snapLines} />
           <Controls className="!bg-card !border-border !shadow-md [&>button]:!bg-card [&>button]:!border-border [&>button]:!text-foreground [&>button:hover]:!bg-muted" />
           <Background
@@ -474,7 +576,7 @@ function MindMapCanvasInner({ doc, onBack }: Props) {
                   autoFocus
                   className="bg-transparent border-b border-primary text-sm outline-none text-foreground w-48"
                   defaultValue={(edges.find(e => e.id === editingEdge)?.label as string) || ""}
-                  placeholder={isProcedure ? "npr. '15 dana'" : "npr. 'nadređeni'"}
+                  placeholder={isProcedure ? "npr. '15 dana' / 'Ako je usvojeno'" : "npr. 'nadređeni'"}
                   onBlur={(e) => updateEdgeLabel(editingEdge, e.target.value)}
                   onKeyDown={(e) => {
                     if (e.key === "Enter") (e.target as HTMLInputElement).blur();
