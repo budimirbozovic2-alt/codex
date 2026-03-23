@@ -244,7 +244,7 @@ export default function ExamSidebar({ questions, onSetQuestions, onMapSelection,
 
       {/* Edit Questions Modal */}
       <Dialog open={editModalOpen} onOpenChange={setEditModalOpen}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-3xl max-h-[85vh]">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <PencilLine className="h-5 w-5 text-primary" />
