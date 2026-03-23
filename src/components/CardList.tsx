@@ -563,6 +563,7 @@ export default function CardList({
           onMoveCategory,
           onAssignChapter,
           onCloneToMnemonic,
+          onAddKeyPart,
         }}
         style={{ height: Math.min(filtered.length * (COLLAPSED_ROW_HEIGHT + GAP), 700) }}
       />
