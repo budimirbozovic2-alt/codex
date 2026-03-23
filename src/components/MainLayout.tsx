@@ -1,4 +1,5 @@
 import { ReactNode, useState, useEffect, useRef, lazy, Suspense } from "react";
+import Breadcrumbs from "@/components/Breadcrumbs";
 import { useLocation } from "react-router-dom";
 import { useAppContext } from "@/contexts/AppContext";
 import ZenMode from "@/components/ZenMode";
@@ -86,6 +87,9 @@ export default function MainLayout({ children }: { children: ReactNode }) {
         zenActive={zenMode}
         onOpenOnboarding={() => setShowAppOnboarding(true)}
       />
+
+      {/* Breadcrumbs */}
+      <Breadcrumbs />
 
       {/* Main content */}
       <main className="flex-1 px-4 md:px-8 py-6 max-w-6xl mx-auto w-full">

@@ -1,9 +1,9 @@
-import { useState, lazy, Suspense } from "react";
+import { useState, useMemo, lazy, Suspense } from "react";
 import { useAppContext } from "@/contexts/AppContext";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import Dashboard from "@/components/Dashboard";
 import EmptyState from "@/components/EmptyState";
-
+import { QuickActions } from "@/components/dashboard/QuickActions";
 import { AnimatePresence } from "framer-motion";
 import { HelpCircle } from "lucide-react";
 
@@ -13,12 +13,17 @@ export default function DashboardPage() {
   const { cards, stats, categoryStats, categories, subcategories, reviewLog, srSettings, setView } = useAppContext();
   const [showOnboarding, setShowOnboarding] = useState(false);
 
+  const lastSourceLabel = useMemo(() => {
+    const lastUsed = localStorage.getItem("sr-last-source-label");
+    return lastUsed || (cards.some(c => c.sourceId) ? "Izvor" : null);
+  }, [cards]);
+
   return (
     <ErrorBoundary label="Dashboard" onNavigateHome={() => setView("dashboard")}>
       {cards.length === 0 ? (
         <EmptyState type="dashboard" onAction={() => setView("create")} />
       ) : (
-        <div className="relative">
+        <div className="relative space-y-6">
           <button
             onClick={() => setShowOnboarding(true)}
             className="absolute top-0 right-0 p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors z-10"
@@ -26,6 +31,7 @@ export default function DashboardPage() {
           >
             <HelpCircle className="h-4 w-4" />
           </button>
+          <QuickActions dueCount={stats.due} hasCards={cards.length > 0} lastSourceLabel={lastSourceLabel} />
           <Dashboard
             stats={stats}
             categoryStats={categoryStats}

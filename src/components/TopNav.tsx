@@ -24,7 +24,7 @@ import { useCardContext } from "@/contexts/AppContext";
 import { useState, useCallback, useRef, useEffect, useTransition } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Link } from "react-router-dom";
-import { Zap, Home, GraduationCap, RotateCcw, BookOpen, Map, Brain, Network, Target, FolderOpen, Moon, Sun, Menu, X, Focus, Settings as SettingsIcon, BarChart3, FlaskConical, Database as DatabaseIcon, HelpCircle } from "lucide-react";
+import { Zap, Home, GraduationCap, RotateCcw, BookOpen, Map, Brain, Network, Target, Moon, Sun, Menu, X, Focus, Settings as SettingsIcon, BarChart3, FlaskConical, Database as DatabaseIcon, HelpCircle, Plus } from "lucide-react";
 import { setDarkMode } from "@/lib/app-settings";
 
 interface Props {
@@ -41,16 +41,20 @@ const PRIMARY_NAV = [
   { path: "/review", icon: RotateCcw, label: "Konsolidacija", badge: true },
 ];
 
-const LAB_ITEMS = [
+const LAB_ANALYTICS = [
   { path: "/stats", icon: BarChart3, label: "Statistika", desc: "Pregled napretka i analitika" },
   { path: "/knowledge-map", icon: Map, label: "Mapa znanja", desc: "Vizuelna mapa savladanosti" },
   { path: "/metacognitive", icon: BookOpen, label: "Dnevnik", desc: "Metakognitivne refleksije" },
+];
+
+const LAB_TOOLS = [
   { path: "/mnemonic", icon: Brain, label: "Mnemo radionica", desc: "Tehnike pamćenja" },
   { path: "/planner", icon: Target, label: "Strateški planer", desc: "Planiranje učenja" },
   { path: "/speed-reader", icon: Zap, label: "Speed Reader", desc: "Brzo čitanje podkategorija" },
   { path: "/mind-map", icon: Network, label: "Mentalne mape", desc: "Vizuelizacija hijerarhija i postupaka" },
 ];
 
+const LAB_ITEMS = [...LAB_ANALYTICS, ...LAB_TOOLS];
 const LAB_PATHS = LAB_ITEMS.map(i => i.path);
 
 export default function TopNav({ onToggleZen, zenActive, onOpenOnboarding }: Props) {
@@ -61,6 +65,19 @@ export default function TopNav({ onToggleZen, zenActive, onOpenOnboarding }: Pro
   const [labOpen, setLabOpen] = useState(false);
   const labRef = useRef<HTMLDivElement>(null);
   const [, startTransition] = useTransition();
+  const [mappingFlash, setMappingFlash] = useState(false);
+  const mappingCountRef = useRef(0);
+
+  // Listen for mapping events (custom event from SourceReader)
+  useEffect(() => {
+    const handler = () => {
+      mappingCountRef.current += 1;
+      setMappingFlash(true);
+      setTimeout(() => setMappingFlash(false), 1200);
+    };
+    window.addEventListener("codex-mapping-created", handler);
+    return () => window.removeEventListener("codex-mapping-created", handler);
+  }, []);
 
   const toggleDark = useCallback(() => {
     const next = !dark;
@@ -185,6 +202,13 @@ export default function TopNav({ onToggleZen, zenActive, onOpenOnboarding }: Pro
         </div>
 
         <div className="flex items-center gap-0.5 ml-2">
+          {/* Mapping badge */}
+          {mappingFlash && (
+            <div className="flex items-center gap-1 px-2 py-1 rounded-md bg-success/15 text-success text-[10px] font-bold animate-in fade-in zoom-in-95 duration-300">
+              <Plus className="h-3 w-3" />
+              Mapirano
+            </div>
+          )}
           {onOpenOnboarding && (
             <button onClick={onOpenOnboarding} className="p-1.5 rounded-md hover:bg-secondary text-muted-foreground" title="Vodič kroz aplikaciju">
               <HelpCircle className="h-4 w-4" />
@@ -244,14 +268,27 @@ export default function TopNav({ onToggleZen, zenActive, onOpenOnboarding }: Pro
             </NavLink>
           ))}
 
-          {/* Laboratorija group */}
+          {/* Analitika group */}
           <div className="pt-1.5 pb-0.5">
-            <span className="px-3 text-[10px] uppercase tracking-widest text-muted-foreground/60 font-medium">Laboratorija</span>
+            <span className="px-3 text-[10px] uppercase tracking-widest text-muted-foreground/60 font-medium">Analitika</span>
           </div>
-          {LAB_ITEMS.map(({ path, icon: Icon, label }) => (
-            <NavLink
-              key={path}
-              to={path}
+          {LAB_ANALYTICS.map(({ path, icon: Icon, label }) => (
+            <NavLink key={path} to={path}
+              className="flex items-center gap-2.5 px-3 py-2 pl-6 rounded-md text-sm text-muted-foreground hover:text-foreground hover:bg-secondary/60 transition-colors"
+              activeClassName="bg-primary/10 text-primary font-medium"
+              onClick={() => setMobileOpen(false)}
+            >
+              <Icon className="h-4 w-4 flex-shrink-0" />
+              <span>{label}</span>
+            </NavLink>
+          ))}
+
+          {/* Alati group */}
+          <div className="pt-1.5 pb-0.5">
+            <span className="px-3 text-[10px] uppercase tracking-widest text-muted-foreground/60 font-medium">Alati</span>
+          </div>
+          {LAB_TOOLS.map(({ path, icon: Icon, label }) => (
+            <NavLink key={path} to={path}
               className="flex items-center gap-2.5 px-3 py-2 pl-6 rounded-md text-sm text-muted-foreground hover:text-foreground hover:bg-secondary/60 transition-colors"
               activeClassName="bg-primary/10 text-primary font-medium"
               onClick={() => setMobileOpen(false)}

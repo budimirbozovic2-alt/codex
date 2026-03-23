@@ -1,30 +1,22 @@
-
-
-
-
-
-
-
-
-
-
-
-
-
-import { motion } from "framer-motion";
-import { Card as SRCard, SRSettings, getPendingFirstReviewCount, getSectionScore } from "@/lib/spaced-repetition";
+import { Card as SRCard, SRSettings, getPendingFirstReviewCount } from "@/lib/spaced-repetition";
 import { ReviewLogEntry, getStorageUsage, getLastBackupTime } from "@/lib/storage";
-import { loadDiary, loadSlippageLog } from "@/lib/metacognitive-storage";
+import { loadSlippageLog } from "@/lib/metacognitive-storage";
 import { loadPlanner, calcVelocity, calcEstimatedFinish, getPlannerStatus, getSmartSuggestion, calcDailyTimeRecommendation, getCognitiveDebt, recordDayDiscipline, loadDisciplineLog, calcPhaseProgress, getDailyMappedCount, autoRedistributeIfNeeded } from "@/lib/planner-storage";
 import ProgressRing from "@/components/ProgressRing";
 import { calcEnergyRecommendation } from "@/lib/cognitive-analytics";
 import { loadAppSettings } from "@/lib/app-settings";
 import { useMemo } from "react";
 import { useDeferredCompute } from "@/hooks/useDeferredCompute";
-import { Progress } from "@/components/ui/progress";
 import { startOfDay } from "date-fns";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { Clock, BookOpen, AlertTriangle, Download, HardDrive, Target, ShieldAlert, Gauge, Lightbulb, Brain, Trophy, TrendingUp, BarChart3 } from "lucide-react";
+import { motion } from "framer-motion";
+import { Target, ShieldAlert, AlertTriangle, Download, HardDrive } from "lucide-react";
+
+import { ExamProgressBar } from "./dashboard/ExamProgressBar";
+import { CoreStats } from "./dashboard/CoreStats";
+import { DailyBriefing } from "./dashboard/DailyBriefing";
+import { IdealFocus } from "./dashboard/IdealFocus";
+import { VelocityWidget } from "./dashboard/VelocityWidget";
+import { StatusIconsRow, StatusIcon } from "./dashboard/StatusIconsRow";
 
 interface Props {
   stats: { due: number; total: number; totalSections: number; learnedSections: number };
@@ -140,34 +132,21 @@ export default function Dashboard({ stats, categoryStats, categories, subcategor
   const plannerData = useDeferredCompute(() => {
     const planner = loadPlanner();
     if (!planner.finalGoalDate) return null;
-    const totalSections = stats.totalSections;
-    const learnedSections = stats.learnedSections;
     const velocity = calcVelocity(reviewLog, 7);
-    const remaining = totalSections - learnedSections;
+    const remaining = stats.totalSections - stats.learnedSections;
     const estimated = calcEstimatedFinish(remaining, velocity);
     const status = getPlannerStatus(estimated, planner.finalGoalDate, planner.bufferPercent ?? 15);
     const suggestion = getSmartSuggestion(null, cards, planner.finalGoalDate, velocity, planner.bufferPercent ?? 15);
     const timeRec = suggestion ? calcDailyTimeRecommendation(suggestion.suggestedToday, velocity, stats.due) : null;
-
-    // Active phase progress
     const phaseProgressList = planner.phases.map(p => ({ ...p, ...calcPhaseProgress(p, cards) }));
     const activePhase = phaseProgressList.find(p => p.pct < 100) || phaseProgressList[0] || null;
-
-    // Daily mapped count
     const dailyMapped = getDailyMappedCount();
     const dailyQuota = suggestion?.suggestedToday ?? 0;
-
-    // Auto-redistribute check
     const redistResult = autoRedistributeIfNeeded(cards, planner.finalGoalDate, planner.bufferPercent ?? 15);
-
-    return {
-      status, suggestion, timeRec, remaining, totalSections, learnedSections,
-      activePhase, dailyMapped, dailyQuota, redistResult,
-    };
+    return { status, suggestion, timeRec, remaining, totalSections: stats.totalSections, learnedSections: stats.learnedSections, activePhase, dailyMapped, dailyQuota, redistResult };
   }, [stats, reviewLog, cards]);
 
   const cognitiveDebt = useDeferredCompute(() => getCognitiveDebt(dailyGoal), [dailyGoal]);
-
   const energyRec = useDeferredCompute(() => calcEnergyRecommendation(), []);
 
   // Record discipline for yesterday
@@ -185,18 +164,15 @@ export default function Dashboard({ stats, categoryStats, categories, subcategor
     recordDayDiscipline(yKey, yReviews, dailyGoal, ySlippage);
   }, [reviewLog, dailyGoal]);
 
-  const examProgressPct = stats.totalSections > 0 ? Math.round((stats.learnedSections / stats.totalSections) * 100) : 0;
   const energyLevel = getEnergyLevel();
 
-  // Velocity trend (7-day)
   const velocityData = useDeferredCompute(() => {
     const velocity = calcVelocity(reviewLog, 7);
-    const velocityPrev = calcVelocity(reviewLog, 14) - velocity; // rough prev week
+    const velocityPrev = calcVelocity(reviewLog, 14) - velocity;
     const trend = velocity > velocityPrev ? "up" : velocity < velocityPrev ? "down" : "flat";
-    return { velocity: Math.round(velocity * 10) / 10, trend };
+    return { velocity: Math.round(velocity * 10) / 10, trend } as const;
   }, [reviewLog]);
 
-  // Top 3 weakest categories
   const weakestCategories = useMemo(() => {
     return categories
       .filter(cat => categoryStats[cat]?.total > 0)
@@ -205,7 +181,6 @@ export default function Dashboard({ stats, categoryStats, categories, subcategor
       .slice(0, 3);
   }, [categories, categoryStats]);
 
-  // Build brief text
   const briefText = useMemo(() => {
     const parts: string[] = [];
     if (plannerData?.suggestion) {
@@ -220,52 +195,20 @@ export default function Dashboard({ stats, categoryStats, categories, subcategor
     return parts.join(" ");
   }, [plannerData, autoSuggestion, energyLevel, energyRec]);
 
-  // Status icons data
-  const statusIcons = useMemo(() => {
-    const icons: { key: string; icon: React.ReactNode; color: string; label: string; critical: boolean }[] = [];
-
+  const statusIcons = useMemo<StatusIcon[]>(() => {
+    const icons: StatusIcon[] = [];
     if (showMemoryWarning) {
-      icons.push({
-        key: "memory",
-        icon: <ShieldAlert className="h-4 w-4" />,
-        color: "text-destructive",
-        label: `Rizik od zagušenja memorije — potrebno ${focusRatio.targetReviewPct}% ponavljanja, stvarno ${actualRatio.actualReviewPct}%`,
-        critical: true,
-      });
+      icons.push({ key: "memory", icon: <ShieldAlert className="h-4 w-4" />, color: "text-destructive", label: `Rizik od zagušenja memorije — potrebno ${focusRatio.targetReviewPct}% ponavljanja, stvarno ${actualRatio.actualReviewPct}%`, critical: true });
     }
-
     if (cognitiveDebt) {
-      icons.push({
-        key: "debt",
-        icon: <AlertTriangle className="h-4 w-4" />,
-        color: "text-warning",
-        label: cognitiveDebt.message,
-        critical: false,
-      });
+      icons.push({ key: "debt", icon: <AlertTriangle className="h-4 w-4" />, color: "text-warning", label: cognitiveDebt.message, critical: false });
     }
-
     if (backupOverdue) {
-      icons.push({
-        key: "backup",
-        icon: <Download className="h-4 w-4" />,
-        color: "text-warning",
-        label: lastBackup && lastBackup > 0
-          ? `Backup zastarjeo — posljednji: ${new Date(lastBackup).toLocaleDateString("sr-Latn")}`
-          : "Nikad niste napravili backup",
-        critical: false,
-      });
+      icons.push({ key: "backup", icon: <Download className="h-4 w-4" />, color: "text-warning", label: lastBackup && lastBackup > 0 ? `Backup zastarjeo — posljednji: ${new Date(lastBackup).toLocaleDateString("sr-Latn")}` : "Nikad niste napravili backup", critical: false });
     }
-
     if (storageUsage && storageUsage.percent > 70) {
-      icons.push({
-        key: "storage",
-        icon: <HardDrive className="h-4 w-4" />,
-        color: storageUsage.percent > 90 ? "text-destructive" : "text-warning",
-        label: `Prostor: ${storageUsage.percent}% — ${(storageUsage.usedBytes / 1024 / 1024).toFixed(1)} MB / ${(storageUsage.maxBytes / 1024 / 1024).toFixed(0)} MB`,
-        critical: storageUsage.percent > 90,
-      });
+      icons.push({ key: "storage", icon: <HardDrive className="h-4 w-4" />, color: storageUsage.percent > 90 ? "text-destructive" : "text-warning", label: `Prostor: ${storageUsage.percent}% — ${(storageUsage.usedBytes / 1024 / 1024).toFixed(1)} MB / ${(storageUsage.maxBytes / 1024 / 1024).toFixed(0)} MB`, critical: storageUsage.percent > 90 });
     }
-
     return icons;
   }, [showMemoryWarning, cognitiveDebt, backupOverdue, storageUsage, lastBackup, focusRatio, actualRatio]);
 
@@ -282,46 +225,24 @@ export default function Dashboard({ stats, categoryStats, categories, subcategor
 
   return (
     <div className="space-y-6">
-      {/* 1. Exam Progress Bar */}
-      {wc.showExamProgress && <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}
-        className="rounded-xl bg-card border p-5 space-y-3">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Trophy className="h-4 w-4 text-primary" />
-            <h3 className="text-sm font-medium">Napredak do cilja</h3>
-          </div>
-          <div className="flex items-center gap-3">
-            <span className="text-sm font-medium tabular-nums">{stats.learnedSections} / {stats.totalSections}</span>
-            {statusMessage && (
-              <span className={`text-xs font-medium ${statusColor}`}>{statusMessage}</span>
-            )}
-          </div>
-        </div>
-        <Progress value={examProgressPct} className="h-3" />
-        <p className="text-xs text-muted-foreground tabular-nums">{examProgressPct}% savladano</p>
-      </motion.div>}
-
-      {/* 2. Core Stats */}
-      {wc.showCoreStats && (
-        <div className="grid grid-cols-2 gap-4">
-          <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.08 }}
-            className="rounded-xl bg-card border p-5 space-y-2">
-            <Clock className="h-5 w-5 text-primary mb-1" />
-            <p className="text-4xl font-serif">{stats.due}</p>
-            <p className="text-sm text-muted-foreground">Za ponavljanje</p>
-            {pendingFirstReview > 0 && <p className="text-xs text-primary">+ {pendingFirstReview} čeka prvo pon.</p>}
-          </motion.div>
-          <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.14 }}
-            className="rounded-xl bg-card border p-5 space-y-2">
-            <BookOpen className="h-5 w-5 text-success mb-1" />
-            <p className="text-4xl font-serif">{stats.learnedSections}</p>
-            <p className="text-sm text-muted-foreground">Naučene cjeline</p>
-            <p className="text-xs text-muted-foreground">od {stats.totalSections} ukupno</p>
-          </motion.div>
-        </div>
+      {wc.showExamProgress && (
+        <ExamProgressBar
+          learnedSections={stats.learnedSections}
+          totalSections={stats.totalSections}
+          statusMessage={statusMessage}
+          statusColor={statusColor}
+        />
       )}
 
-      {/* 2.5 Progress Ring Widget */}
+      {wc.showCoreStats && (
+        <CoreStats
+          due={stats.due}
+          learnedSections={stats.learnedSections}
+          totalSections={stats.totalSections}
+          pendingFirstReview={pendingFirstReview}
+        />
+      )}
+
       {wc.showProgressRing && plannerData && plannerData.activePhase && (
         <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.12 }}
           className="rounded-xl bg-card border p-5">
@@ -351,188 +272,37 @@ export default function Dashboard({ stats, categoryStats, categories, subcategor
         </motion.div>
       )}
 
+      {wc.showBriefing && (
+        <DailyBriefing
+          briefText={briefText}
+          timeRecMessage={plannerData?.timeRec?.message ?? null}
+          todayReviews={todayReviews}
+          dailyGoal={dailyGoal}
+          goalProgress={goalProgress}
+          streak={streak}
+        />
+      )}
 
-      {wc.showBriefing && <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}
-        className="rounded-xl bg-card border p-5 space-y-4">
-        <div className="flex items-center gap-2">
-          <Brain className="h-4 w-4 text-primary" />
-          <h3 className="text-sm font-medium">Dnevni briefing</h3>
-        </div>
-
-        {/* Brief text */}
-        <p className="text-sm text-muted-foreground">{briefText}</p>
-
-        {/* Planner time recommendation */}
-        {plannerData?.timeRec && (
-          <div className="flex items-center gap-2 text-xs">
-            <Lightbulb className="h-3.5 w-3.5 text-primary" />
-            <span className="text-primary font-medium">{plannerData.timeRec.message}</span>
-          </div>
-        )}
-
-        {/* Daily goal progress + streak */}
-        <div className="space-y-2 pt-2 border-t">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Target className="h-3.5 w-3.5 text-muted-foreground" />
-              <span className="text-xs text-muted-foreground">Dnevni cilj</span>
-            </div>
-            <div className="flex items-center gap-3">
-              {streak > 0 && (
-                <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }}
-                  transition={{ type: "spring", stiffness: 400, damping: 15 }}
-                  className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-warning/10 border border-warning/20">
-                  <motion.span animate={{ scale: [1, 1.2, 1] }} transition={{ repeat: Infinity, duration: 2 }} className="text-xs">🔥</motion.span>
-                  <span className="text-[10px] font-bold text-warning tabular-nums">{streak}d</span>
-                </motion.div>
-              )}
-              <span className="text-xs font-medium tabular-nums">{todayReviews} / {dailyGoal}</span>
-            </div>
-          </div>
-          <Progress value={goalProgress} className="h-2" />
-          {goalProgress >= 100 && <p className="text-xs text-success font-medium">✓ Cilj ostvaren! 🎉</p>}
-        </div>
-      </motion.div>}
-
-      {/* 4. Idealni Fokus */}
       {wc.showIdealFocus && stats.totalSections > 0 && (
-        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.28 }}
-          className="rounded-xl bg-card border p-5 space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Gauge className="h-4 w-4 text-primary" />
-              <h3 className="text-sm font-medium">Idealni fokus danas</h3>
-            </div>
-            <span className="text-xs text-muted-foreground">Progres: {focusRatio.progress}%</span>
-          </div>
-
-          <div className="space-y-2">
-            <div className="flex h-6 rounded-lg overflow-hidden bg-secondary">
-              <motion.div
-                initial={{ width: 0 }}
-                animate={{ width: `${focusRatio.targetReviewPct}%` }}
-                transition={{ duration: 0.8, ease: "easeOut" }}
-                className="bg-primary flex items-center justify-center"
-              >
-                {focusRatio.targetReviewPct >= 15 && (
-                  <span className="text-[10px] font-bold text-primary-foreground">Ponavljanje {focusRatio.targetReviewPct}%</span>
-                )}
-              </motion.div>
-              <motion.div
-                initial={{ width: 0 }}
-                animate={{ width: `${focusRatio.targetNewPct}%` }}
-                transition={{ duration: 0.8, ease: "easeOut", delay: 0.1 }}
-                className="bg-success flex items-center justify-center"
-              >
-                {focusRatio.targetNewPct >= 15 && (
-                  <span className="text-[10px] font-bold text-success-foreground">Novo {focusRatio.targetNewPct}%</span>
-                )}
-              </motion.div>
-            </div>
-
-            {actualRatio.totalToday > 0 && (
-              <div className="space-y-1">
-                <div className="flex items-center justify-between text-xs text-muted-foreground">
-                  <span>Stvarni omjer danas</span>
-                  <span className="tabular-nums">{actualRatio.reviewCount} pon. / {actualRatio.newCount} novo</span>
-                </div>
-                <div className="flex h-3 rounded-md overflow-hidden bg-secondary">
-                  <div className="bg-primary/60 transition-all" style={{ width: `${actualRatio.actualReviewPct}%` }} />
-                  <div className="bg-success/60 transition-all" style={{ width: `${actualRatio.actualNewPct}%` }} />
-                </div>
-              </div>
-            )}
-          </div>
-
-          {autoSuggestion && (
-            <p className="text-xs text-muted-foreground">
-              💡 Preporučeni cilj: <span className="font-medium text-foreground">{autoSuggestion.reviewTarget}</span> ponavljanja + <span className="font-medium text-foreground">{autoSuggestion.newTarget}</span> novih od ukupno {dailyGoal}.
-            </p>
-          )}
-        </motion.div>
+        <IdealFocus
+          focusRatio={focusRatio}
+          actualRatio={actualRatio}
+          autoSuggestion={autoSuggestion}
+          dailyGoal={dailyGoal}
+        />
       )}
 
-      {/* 5. Velocity + Najslabije kategorije */}
       {(wc.showVelocity || wc.showWeakCategories) && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {wc.showVelocity && (
-            <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.32 }}
-              className="rounded-xl bg-card border p-5 space-y-2">
-              <div className="flex items-center gap-2">
-                <TrendingUp className="h-4 w-4 text-primary" />
-                <h3 className="text-sm font-medium">Brzina učenja</h3>
-              </div>
-              {velocityData ? (
-                <>
-                  <div className="flex items-baseline gap-2">
-                    <p className="text-3xl font-semibold tabular-nums">{velocityData.velocity}</p>
-                    <span className="text-sm text-muted-foreground">sekcija/dan</span>
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    {velocityData.trend === "up" ? "📈 Raste u odnosu na prošlu sedmicu" :
-                     velocityData.trend === "down" ? "📉 Pada u odnosu na prošlu sedmicu" :
-                     "➡️ Stabilan tempo"}
-                  </p>
-                </>
-              ) : (
-                <p className="text-sm text-muted-foreground">Učitavanje...</p>
-              )}
-            </motion.div>
-          )}
-          {wc.showWeakCategories && weakestCategories.length > 0 && (
-            <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.36 }}
-              className="rounded-xl bg-card border p-5 space-y-3">
-              <div className="flex items-center gap-2">
-                <BarChart3 className="h-4 w-4 text-primary" />
-                <h3 className="text-sm font-medium">Najslabije kategorije</h3>
-              </div>
-              <div className="space-y-2">
-                {weakestCategories.map((cat, i) => (
-                  <div key={cat.name} className="flex items-center gap-3">
-                    <span className="text-xs text-muted-foreground w-4">{i + 1}.</span>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="text-xs font-medium truncate">{cat.name}</span>
-                        <span className="text-xs text-muted-foreground tabular-nums">{cat.score}%</span>
-                      </div>
-                      <div className="h-1.5 rounded-full bg-secondary overflow-hidden">
-                        <div
-                          className={`h-full rounded-full transition-all ${cat.score < 30 ? "bg-destructive" : cat.score < 60 ? "bg-warning" : "bg-primary"}`}
-                          style={{ width: `${cat.score}%` }}
-                        />
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </motion.div>
-          )}
-        </div>
+        <VelocityWidget
+          velocityData={velocityData}
+          weakestCategories={weakestCategories}
+          showVelocity={wc.showVelocity}
+          showWeakCategories={wc.showWeakCategories}
+        />
       )}
 
-
-      {wc.showStatusIcons && statusIcons.length > 0 && (
-        <TooltipProvider delayDuration={200}>
-          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.34 }}
-            className="flex items-center gap-2 flex-wrap">
-            {statusIcons.map(si => (
-              <Tooltip key={si.key}>
-                <TooltipTrigger asChild>
-                  <div className={`flex items-center gap-1.5 px-3 py-2 rounded-lg border bg-card cursor-default ${si.color}`}>
-                    {si.icon}
-                    {si.critical && <span className="text-xs font-medium">{si.key === "memory" ? "Memorija" : si.key === "storage" ? `${storageUsage?.percent}%` : ""}</span>}
-                  </div>
-                </TooltipTrigger>
-                <TooltipContent side="bottom" className="max-w-xs">
-                  <p className="text-xs">{si.label}</p>
-                  {si.key === "backup" && onExport && (
-                    <button onClick={onExport} className="mt-1 text-xs text-primary underline">Napravi backup</button>
-                  )}
-                </TooltipContent>
-              </Tooltip>
-            ))}
-          </motion.div>
-        </TooltipProvider>
+      {wc.showStatusIcons && (
+        <StatusIconsRow icons={statusIcons} onExport={onExport} storagePercent={storageUsage?.percent} />
       )}
     </div>
   );
