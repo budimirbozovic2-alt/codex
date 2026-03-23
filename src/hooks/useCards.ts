@@ -487,13 +487,16 @@ export function useCards() {
     patchCard(cardId, c => ({ ...c, errorLog: [] }));
   }, [patchCard]);
 
-  // O(1) addKeyPart — surgical
+  // O(1) toggleKeyPart — surgical: add if missing, remove if present
   const addKeyPart = useCallback((cardId: string, text: string) => {
     patchCard(cardId, c => {
       const parts = c.keyParts || [];
-      // Avoid duplicates
       const normalized = text.trim();
-      if (parts.some(p => p === normalized)) return c;
+      const existing = parts.findIndex(p => p === normalized);
+      if (existing >= 0) {
+        // Toggle off — remove this key part
+        return { ...c, keyParts: parts.filter((_, i) => i !== existing) };
+      }
       return { ...c, keyParts: [...parts, normalized] };
     });
   }, [patchCard]);

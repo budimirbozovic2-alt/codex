@@ -71,7 +71,15 @@ export default function TextSelectionTooltip({ children, cardId, question, categ
   const handleKeyPart = useCallback(() => {
     if (!tooltip || !onMarkKeyPart) return;
     onMarkKeyPart(tooltip.text);
-    toast({ title: "Označeno kao ključni dio", description: `"${tooltip.text.slice(0, 40)}${tooltip.text.length > 40 ? "…" : ""}"` });
+    // Check if this text was already a key part (toggle behavior)
+    const isRemoval = containerRef.current?.querySelector("mark.key-part-highlight")
+      ? window.getSelection()?.toString().trim() === tooltip.text &&
+        containerRef.current?.innerHTML.includes(`<mark class="key-part-highlight">${tooltip.text}`)
+      : false;
+    toast({
+      title: isRemoval ? "Uklonjena oznaka" : "Označeno kao ključni dio",
+      description: `"${tooltip.text.slice(0, 40)}${tooltip.text.length > 40 ? "…" : ""}"`,
+    });
     setTooltip(null);
     window.getSelection()?.removeAllRanges();
   }, [tooltip, onMarkKeyPart]);
