@@ -50,6 +50,7 @@ function WorkshopCardItemInner({ card, isExpanded, onToggle, onUpdateCard, onDel
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [editQuestion, setEditQuestion] = useState("");
   const [editSections, setEditSections] = useState<{ title: string; content: string }[]>([]);
+  const [newTag, setNewTag] = useState("");
 
   const statusConf = STATUS_CONFIG[card.mnemonicStatus];
   const StatusIcon = statusConf.icon;
