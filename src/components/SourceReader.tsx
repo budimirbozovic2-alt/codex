@@ -411,10 +411,11 @@ export default function SourceReader({ source, onBack }: Props) {
           size="sm"
           onClick={() => setExamOpen(!examOpen)}
           className="gap-1.5"
-          title="Ispitna pitanja sidebar"
+          title="Ispitna pitanja sidebar (M)"
         >
           <FileQuestion className="h-3.5 w-3.5" />
           {examOpen ? "Zatvori pitanja" : "Pitanja"}
+          <kbd className="hidden sm:inline text-[9px] opacity-60 ml-0.5">M</kbd>
           {examQuestions.filter(q => !q.done).length > 0 && (
             <Badge variant="secondary" className="text-[10px] h-4 min-w-4 px-1">
               {examQuestions.filter(q => !q.done).length}
