@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useEffect, useMemo } from "react";
+import { useState, useCallback, useRef, useEffect, useMemo, lazy, Suspense } from "react";
 import { default as ArrowLeft } from "lucide-react/dist/esm/icons/arrow-left";
 import { default as Calendar } from "lucide-react/dist/esm/icons/calendar";
 import { default as PenSquare } from "lucide-react/dist/esm/icons/pen-square";
@@ -6,6 +6,9 @@ import { default as List } from "lucide-react/dist/esm/icons/list";
 import { default as X } from "lucide-react/dist/esm/icons/x";
 import { default as Eye } from "lucide-react/dist/esm/icons/eye";
 import { default as BarChart3 } from "lucide-react/dist/esm/icons/bar-chart-3";
+import { default as Wand2 } from "lucide-react/dist/esm/icons/wand-2";
+
+const AutoSplitDialog = lazy(() => import("@/components/AutoSplitDialog"));
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
