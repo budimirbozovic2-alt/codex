@@ -578,13 +578,13 @@ export default function LearnSession({ cards, categories, subcategories, onMarkR
 
             {arPhase === "preview" && !isCompleted && (
               <>
-                <TextSelectionTooltip cardId={card.id} question={card.question} category={card.category} subcategory={card.subcategory} tags={card.tags}>
+                <TextSelectionTooltip cardId={card.id} question={card.question} category={card.category} subcategory={card.subcategory} tags={card.tags} onMarkKeyPart={onAddKeyPart ? (text: string) => onAddKeyPart(card.id, text) : undefined}>
                 <div className="space-y-3">
                   <span className="text-sm text-muted-foreground">{sections.length} modula — pročitaj pažljivo</span>
                   {sections.map((section) => (
                     <div key={section.id} className="rounded-xl border bg-card p-4">
                       <p className="font-medium text-sm mb-2">{section.title}</p>
-                      <div className="text-sm leading-relaxed whitespace-pre-wrap prose prose-sm max-w-none" dangerouslySetInnerHTML={{ __html: section.content }} />
+                      <div className="text-sm leading-relaxed whitespace-pre-wrap prose prose-sm max-w-none" dangerouslySetInnerHTML={{ __html: highlightKeyParts(section.content, card.keyParts) }} />
                     </div>
                   ))}
                 </div>
