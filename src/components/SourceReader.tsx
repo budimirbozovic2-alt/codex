@@ -13,7 +13,7 @@ import { toast } from "@/hooks/use-toast";
 import { useAppContext } from "@/contexts/AppContext";
 import { createTextAnchor, type Source } from "@/lib/sources-storage";
 import { sanitizeHtml } from "@/lib/sanitize";
-import { analyzeCoverage, type CoverageRange } from "@/lib/coverage-analysis";
+import { analyzeCoverage } from "@/lib/coverage-analysis";
 import { cn } from "@/lib/utils";
 
 type ViewMode = "standard" | "coverage";
