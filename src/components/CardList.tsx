@@ -1,4 +1,5 @@
 import { Card, getCardScore, getSectionScore, getCardRetrievability, getRetrievability } from "@/lib/spaced-repetition";
+import { highlightKeyParts } from "@/lib/highlight-key-parts";
 import { format } from "date-fns";
 import { Edit2, Trash2 } from "lucide-react";
 import { default as ChevronDown } from "lucide-react/dist/esm/icons/chevron-down";
@@ -41,6 +42,7 @@ interface Props {
   onAssignChapter?: (cardId: string, chapter: string) => void;
   onCloneToMnemonic?: (card: Card) => void;
   availableChapters?: string[];
+  onAddKeyPart?: (cardId: string, text: string) => void;
 }
 
 function ScoreBadge({ score }: { score: number }) {
@@ -260,9 +262,10 @@ interface CardRowProps {
   onMoveCategory?: (cardId: string, category: string, subcategory?: string) => void;
   onAssignChapter?: (cardId: string, chapter: string) => void;
   onCloneToMnemonic?: (card: Card) => void;
+  onAddKeyPart?: (cardId: string, text: string) => void;
 }
 
-const CardRowInner = memo(function CardRowInner({ card, expanded, highlighted, selectionMode, selectedIds, onToggleSelect, onToggleTag, onExpand, onEdit, onDelete, categories, subcategories, availableChapters, onMoveCategory, onAssignChapter, onCloneToMnemonic }: CardRowProps) {
+const CardRowInner = memo(function CardRowInner({ card, expanded, highlighted, selectionMode, selectedIds, onToggleSelect, onToggleTag, onExpand, onEdit, onDelete, categories, subcategories, availableChapters, onMoveCategory, onAssignChapter, onCloneToMnemonic, onAddKeyPart }: CardRowProps) {
   const score = getCardScore(card);
   const retention = getCardRetrievability(card);
   const isFlash = card.type === "flash";
@@ -333,10 +336,10 @@ const CardRowInner = memo(function CardRowInner({ card, expanded, highlighted, s
       </div>
 
       {expanded && (
-        <TextSelectionTooltip cardId={card.id} question={card.question} category={card.category} subcategory={card.subcategory} tags={card.tags}>
+        <TextSelectionTooltip cardId={card.id} question={card.question} category={card.category} subcategory={card.subcategory} tags={card.tags} onMarkKeyPart={onAddKeyPart ? (text: string) => onAddKeyPart(card.id, text) : undefined}>
         <div className="px-5 pb-5 space-y-3 border-t pt-4 max-h-[60vh] overflow-y-auto">
           {isFlash ? (
-            <div className="text-sm text-muted-foreground" dangerouslySetInnerHTML={{ __html: card.sections[0]?.content || "" }} />
+            <div className="text-sm text-muted-foreground" dangerouslySetInnerHTML={{ __html: highlightKeyParts(card.sections[0]?.content || "", card.keyParts) }} />
           ) : (
             card.sections.map(s => {
               const sScore = getSectionScore(s);
@@ -353,7 +356,7 @@ const CardRowInner = memo(function CardRowInner({ card, expanded, highlighted, s
                     </div>
                   </div>
                   <SectionBar score={sScore} />
-                  <div className="text-sm text-muted-foreground line-clamp-2" dangerouslySetInnerHTML={{ __html: s.content }} />
+                  <div className="text-sm text-muted-foreground line-clamp-2" dangerouslySetInnerHTML={{ __html: highlightKeyParts(s.content, card.keyParts) }} />
                 </div>
               );
             })
@@ -383,10 +386,11 @@ interface VirtualRowData {
   onMoveCategory?: (cardId: string, category: string, subcategory?: string) => void;
   onAssignChapter?: (cardId: string, chapter: string) => void;
   onCloneToMnemonic?: (card: Card) => void;
+  onAddKeyPart?: (cardId: string, text: string) => void;
 }
 
 function VirtualRow(props: RowComponentProps<VirtualRowData>) {
-  const { index, style, filteredCards, expandedId, scrollToCardId, selectionMode, selectedIds, onToggleSelect, onToggleTag, onExpand, onEdit, onDelete, categories, subcategories, availableChapters, onMoveCategory, onAssignChapter, onCloneToMnemonic } = props;
+  const { index, style, filteredCards, expandedId, scrollToCardId, selectionMode, selectedIds, onToggleSelect, onToggleTag, onExpand, onEdit, onDelete, categories, subcategories, availableChapters, onMoveCategory, onAssignChapter, onCloneToMnemonic, onAddKeyPart } = props;
   const card = filteredCards[index];
   if (!card) return null;
 
@@ -409,6 +413,7 @@ function VirtualRow(props: RowComponentProps<VirtualRowData>) {
         onMoveCategory={onMoveCategory}
         onAssignChapter={onAssignChapter}
         onCloneToMnemonic={onCloneToMnemonic}
+        onAddKeyPart={onAddKeyPart}
       />
     </div>
   );
@@ -420,7 +425,7 @@ export default function CardList({
   selectionMode, selectedIds, onToggleSelect,
   reorderMode, onReorder,
   categories: propCategories, subcategories: propSubcategories,
-  onMoveCategory, onAssignChapter, onCloneToMnemonic, availableChapters,
+  onMoveCategory, onAssignChapter, onCloneToMnemonic, availableChapters, onAddKeyPart,
 }: Props) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const listRef = useRef<{ scrollToRow: (config: { index: number; align?: string }) => void } | null>(null);
@@ -558,6 +563,7 @@ export default function CardList({
           onMoveCategory,
           onAssignChapter,
           onCloneToMnemonic,
+          onAddKeyPart,
         }}
         style={{ height: Math.min(filtered.length * (COLLAPSED_ROW_HEIGHT + GAP), 700) }}
       />
@@ -602,6 +608,7 @@ export default function CardList({
                 onMoveCategory={onMoveCategory}
                 onAssignChapter={onAssignChapter}
                 onCloneToMnemonic={onCloneToMnemonic}
+                onAddKeyPart={onAddKeyPart}
               />
             </div>
           </div>

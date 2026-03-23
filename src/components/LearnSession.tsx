@@ -29,6 +29,7 @@ import { Button } from "@/components/ui/button";
 
 import LearnOnboarding, { hasSeenOnboarding } from "@/components/LearnOnboarding";
 import TextSelectionTooltip from "@/components/TextSelectionTooltip";
+import { highlightKeyParts } from "@/lib/highlight-key-parts";
 
 // Sub-components
 import SessionHeader from "./learn/SessionHeader";
@@ -38,7 +39,7 @@ import GradeButtons from "./learn/GradeButtons";
 import NavigationButtons from "./learn/NavigationButtons";
 import { LearnSessionProps, ViewWidth, viewWidthClasses } from "./learn/types";
 
-export default function LearnSession({ cards, categories, subcategories, onMarkRead, onReviewSection, onBack, onEdit, dueCount = 0 }: LearnSessionProps) {
+export default function LearnSession({ cards, categories, subcategories, onMarkRead, onReviewSection, onBack, onEdit, onAddKeyPart, dueCount = 0 }: LearnSessionProps) {
   // Setup state
   const [setupStep, setSetupStep] = useState<"mode" | "filter" | "ready">("mode");
   const [learnMode, setLearnMode] = useState<LearnMode>("free");
@@ -463,7 +464,7 @@ export default function LearnSession({ cards, categories, subcategories, onMarkR
         <AnimatePresence mode="wait">
           <motion.div key={card.id} initial={{ opacity: 0, x: 40 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -40 }} transition={{ duration: 0.3 }} className="space-y-4">
             {isFlash ? (
-              <TextSelectionTooltip cardId={card.id} question={card.question} category={card.category} subcategory={card.subcategory} tags={card.tags}>
+              <TextSelectionTooltip cardId={card.id} question={card.question} category={card.category} subcategory={card.subcategory} tags={card.tags} onMarkKeyPart={onAddKeyPart ? (text: string) => onAddKeyPart(card.id, text) : undefined}>
               <div className="rounded-xl border bg-card overflow-hidden">
                 <button onClick={() => toggleSection(0)} className="w-full flex items-center gap-2 p-4 text-left hover:bg-secondary/30 transition-colors">
                   <ChevronRight className={`h-4 w-4 text-muted-foreground transition-transform ${expandedSections.has(0) ? "rotate-90" : ""}`} />
@@ -471,13 +472,13 @@ export default function LearnSession({ cards, categories, subcategories, onMarkR
                 </button>
                 {expandedSections.has(0) && (
                   <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} className="px-4 pb-4 border-t">
-                    <div className="pt-4 text-sm leading-relaxed whitespace-pre-wrap prose prose-sm max-w-none" dangerouslySetInnerHTML={{ __html: card.sections[0]?.content || "" }} />
+                    <div className="pt-4 text-sm leading-relaxed whitespace-pre-wrap prose prose-sm max-w-none" dangerouslySetInnerHTML={{ __html: highlightKeyParts(card.sections[0]?.content || "", card.keyParts) }} />
                   </motion.div>
                 )}
               </div>
               </TextSelectionTooltip>
             ) : (
-              <TextSelectionTooltip cardId={card.id} question={card.question} category={card.category} subcategory={card.subcategory} tags={card.tags}>
+              <TextSelectionTooltip cardId={card.id} question={card.question} category={card.category} subcategory={card.subcategory} tags={card.tags} onMarkKeyPart={onAddKeyPart ? (text: string) => onAddKeyPart(card.id, text) : undefined}>
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-muted-foreground">{card.sections.length} cjelina</span>
@@ -493,7 +494,7 @@ export default function LearnSession({ cards, categories, subcategories, onMarkR
                     </button>
                     {expandedSections.has(i) && (
                       <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} className="px-4 pb-4 border-t">
-                        <div className="pt-4 text-sm leading-relaxed whitespace-pre-wrap prose prose-sm max-w-none" dangerouslySetInnerHTML={{ __html: section.content }} />
+                        <div className="pt-4 text-sm leading-relaxed whitespace-pre-wrap prose prose-sm max-w-none" dangerouslySetInnerHTML={{ __html: highlightKeyParts(section.content, card.keyParts) }} />
                       </motion.div>
                     )}
                   </div>
@@ -577,13 +578,13 @@ export default function LearnSession({ cards, categories, subcategories, onMarkR
 
             {arPhase === "preview" && !isCompleted && (
               <>
-                <TextSelectionTooltip cardId={card.id} question={card.question} category={card.category} subcategory={card.subcategory} tags={card.tags}>
+                <TextSelectionTooltip cardId={card.id} question={card.question} category={card.category} subcategory={card.subcategory} tags={card.tags} onMarkKeyPart={onAddKeyPart ? (text: string) => onAddKeyPart(card.id, text) : undefined}>
                 <div className="space-y-3">
                   <span className="text-sm text-muted-foreground">{sections.length} modula — pročitaj pažljivo</span>
                   {sections.map((section) => (
                     <div key={section.id} className="rounded-xl border bg-card p-4">
                       <p className="font-medium text-sm mb-2">{section.title}</p>
-                      <div className="text-sm leading-relaxed whitespace-pre-wrap prose prose-sm max-w-none" dangerouslySetInnerHTML={{ __html: section.content }} />
+                      <div className="text-sm leading-relaxed whitespace-pre-wrap prose prose-sm max-w-none" dangerouslySetInnerHTML={{ __html: highlightKeyParts(section.content, card.keyParts) }} />
                     </div>
                   ))}
                 </div>
@@ -617,7 +618,7 @@ export default function LearnSession({ cards, categories, subcategories, onMarkR
                   ) : (
                     <div className="space-y-4">
                       <div className="rounded-lg bg-secondary/50 p-4">
-                        <div className="text-sm leading-relaxed whitespace-pre-wrap prose prose-sm max-w-none" dangerouslySetInnerHTML={{ __html: sections[drillIndex].content }} />
+                        <div className="text-sm leading-relaxed whitespace-pre-wrap prose prose-sm max-w-none" dangerouslySetInnerHTML={{ __html: highlightKeyParts(sections[drillIndex].content, card.keyParts) }} />
                       </div>
                       <GradeButtons onGrade={handleArGrade} hint="Ocijeni svoje znanje (samo 4 = napredak)" />
                     </div>
@@ -749,7 +750,7 @@ export default function LearnSession({ cards, categories, subcategories, onMarkR
                       ) : (
                         <div className="space-y-4">
                           <div className="rounded-lg bg-secondary/50 p-4">
-                            <div className="text-sm leading-relaxed whitespace-pre-wrap prose prose-sm max-w-none" dangerouslySetInnerHTML={{ __html: sections[chainIndex].content }} />
+                            <div className="text-sm leading-relaxed whitespace-pre-wrap prose prose-sm max-w-none" dangerouslySetInnerHTML={{ __html: highlightKeyParts(sections[chainIndex].content, card.keyParts) }} />
                           </div>
                           <GradeButtons onGrade={handleChainGrade} hint="Ocijeni (samo 4 = napredak)" />
                         </div>
@@ -778,7 +779,7 @@ export default function LearnSession({ cards, categories, subcategories, onMarkR
                       ) : (
                         <div className="space-y-4">
                           <div className="rounded-lg bg-secondary/50 p-4">
-                            <div className="text-sm leading-relaxed whitespace-pre-wrap prose prose-sm max-w-none" dangerouslySetInnerHTML={{ __html: sections[chainReviewIndex].content }} />
+                            <div className="text-sm leading-relaxed whitespace-pre-wrap prose prose-sm max-w-none" dangerouslySetInnerHTML={{ __html: highlightKeyParts(sections[chainReviewIndex].content, card.keyParts) }} />
                           </div>
                           <GradeButtons onGrade={handleChainReviewGrade} hint="Bilo šta ispod 4 = reset na modul 1" />
                         </div>

@@ -58,6 +58,7 @@ export interface Card {
   sourceId?: string;
   textAnchor?: string;
   needsReview?: boolean;
+  keyParts?: string[];
 }
 
 export const CARD_TAGS = [

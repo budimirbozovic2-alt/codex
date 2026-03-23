@@ -6,7 +6,7 @@ import LearnSession from "@/components/LearnSession";
 import { Card } from "@/lib/spaced-repetition";
 
 export default function LearnPage() {
-  const { cards, categories, subcategories, markRead, reviewSection, setView, stats, reviewLog, setEditingCard } = useAppContext();
+  const { cards, categories, subcategories, markRead, reviewSection, setView, stats, reviewLog, setEditingCard, addKeyPart } = useAppContext();
   const session = useSessionContext();
 
   // Start session on mount
@@ -56,6 +56,7 @@ export default function LearnPage() {
         onReviewSection={handleReviewSection}
         onBack={handleBack}
         onEdit={handleEdit}
+        onAddKeyPart={addKeyPart}
         dueCount={stats.due}
       />
     </ErrorBoundary>

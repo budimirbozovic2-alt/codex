@@ -458,6 +458,17 @@ export function useCards() {
     patchCard(cardId, c => ({ ...c, errorLog: [] }));
   }, [patchCard]);
 
+  // O(1) addKeyPart — surgical
+  const addKeyPart = useCallback((cardId: string, text: string) => {
+    patchCard(cardId, c => {
+      const parts = c.keyParts || [];
+      // Avoid duplicates
+      const normalized = text.trim();
+      if (parts.some(p => p === normalized)) return c;
+      return { ...c, keyParts: [...parts, normalized] };
+    });
+  }, [patchCard]);
+
   const downloadFile = useCallback((blob: Blob, filename: string) => {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -680,7 +691,7 @@ export function useCards() {
 
   return {
     cards, categories, subcategories, dueCards, stats, categoryStats, cardCountByCategory, reviewLog, srSettings, ready,
-    addCard, addFlashCard, updateCard, deleteCard, splitCard, reviewSection, markRead, toggleTag, bulkUpdateSubcategory, bulkUpdateChapter, reorderCards, logError, clearErrorLog,
+    addCard, addFlashCard, updateCard, deleteCard, splitCard, reviewSection, markRead, toggleTag, addKeyPart, bulkUpdateSubcategory, bulkUpdateChapter, reorderCards, logError, clearErrorLog,
     exportData, exportTemplate, importData, importCards,
     addCategory, renameCategory, deleteCategory,
     addSubcategory, renameSubcategory, deleteSubcategory,

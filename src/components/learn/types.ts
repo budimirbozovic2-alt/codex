@@ -43,5 +43,6 @@ export interface LearnSessionProps {
   onReviewSection: (cardId: string, sectionId: string, grade: number) => void;
   onBack: () => void;
   onEdit?: (card: Card) => void;
+  onAddKeyPart?: (cardId: string, text: string) => void;
   dueCount?: number;
 }
