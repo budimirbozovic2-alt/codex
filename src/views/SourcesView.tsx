@@ -21,7 +21,7 @@ import {
 import { compareVersions, getChangedArticleIds, matchAnchorToArticle, parseArticles, type DiffResult } from "@/lib/article-parser";
 import { parseDocxInWorker } from "@/lib/docx-parser";
 import { useAppContext } from "@/contexts/AppContext";
-import { db } from "@/lib/db";
+import { db, idbLoadCards, idbLoadCategories, idbLoadSubcategories, idbLoadReviewLog, idbLoadSettings } from "@/lib/db";
 import { TabSkeleton } from "@/components/ui/page-skeleton";
 
 const SourceReader = lazy(() => import("@/components/SourceReader"));
