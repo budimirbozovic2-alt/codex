@@ -54,11 +54,12 @@ export default function AppSidebar() {
   const { stats } = useCardContext();
   const currentPath = location.pathname;
 
-  const [dark, setDark] = useState(() => document.documentElement.classList.contains("dark"));
+  const [dark, setDarkState] = useState(() => document.documentElement.classList.contains("dark"));
   const toggleDark = useCallback(() => {
-    document.documentElement.classList.toggle("dark");
-    setDark(d => !d);
-  }, []);
+    const next = !dark;
+    setDarkState(next);
+    import("@/lib/app-settings").then(m => m.setDarkMode(next));
+  }, [dark]);
 
   const isActive = (path: string) => currentPath === path;
 

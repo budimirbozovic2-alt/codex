@@ -52,15 +52,16 @@ const LAB_PATHS = LAB_ITEMS.map(i => i.path);
 export default function TopNav({ onToggleZen, zenActive, onOpenOnboarding }: Props) {
   const location = useLocation();
   const { stats } = useCardContext();
-  const [dark, setDark] = useState(() => document.documentElement.classList.contains("dark"));
+  const [dark, setDarkState] = useState(() => document.documentElement.classList.contains("dark"));
   const [mobileOpen, setMobileOpen] = useState(false);
   const [labOpen, setLabOpen] = useState(false);
   const labRef = useRef<HTMLDivElement>(null);
 
   const toggleDark = useCallback(() => {
-    document.documentElement.classList.toggle("dark");
-    setDark(d => !d);
-  }, []);
+    const next = !dark;
+    setDarkState(next);
+    import("@/lib/app-settings").then(m => m.setDarkMode(next));
+  }, [dark]);
 
   // Close mega menu on click outside
   useEffect(() => {

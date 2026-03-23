@@ -73,6 +73,21 @@ export function applyColorTheme(theme: ColorTheme): void {
 export function initColorTheme(): void {
   const settings = loadAppSettings();
   applyColorTheme(settings.colorTheme);
+  // Restore dark mode preference
+  const darkPref = localStorage.getItem("sr-dark-mode");
+  if (darkPref === "true" || (!darkPref && true)) {
+    // Default to dark mode if no preference saved
+    document.documentElement.classList.add("dark");
+  }
+}
+
+export function setDarkMode(dark: boolean): void {
+  localStorage.setItem("sr-dark-mode", String(dark));
+  if (dark) {
+    document.documentElement.classList.add("dark");
+  } else {
+    document.documentElement.classList.remove("dark");
+  }
 }
 
 export function isAutoBackupOverdue(settings: AppSettings): boolean {
