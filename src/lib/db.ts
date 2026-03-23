@@ -82,6 +82,22 @@ class MemoriaDB extends Dexie {
       disciplineLog: "++id, date",
       sources: "id, label, version, createdAt",
     });
+    this.version(4).stores({
+      cards: "id, category, subcategory, type, createdAt, sourceId",
+      categories: "id, name",
+      subcategories: "id, category",
+      reviewLog: "++id, cardId, sectionId, timestamp, category",
+      pomodoroLog: "++id, timestamp, type",
+      settings: "key",
+      diary: "id, date",
+      calibrationLog: "++id, timestamp, cardId",
+      latencyLog: "++id, timestamp, cardId",
+      slippageLog: "++id, date",
+      activityLog: "++id, timestamp, type",
+      disciplineLog: "++id, date",
+      sources: "id, label, version, createdAt",
+      mindMaps: "id, title, updatedAt",
+    });
   }
 }
 
