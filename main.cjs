@@ -219,7 +219,7 @@ function ensureBackupDir() {
 function cleanOldBackups() {
   try {
     const files = fs.readdirSync(BACKUP_DIR)
-      .filter(f => f.startsWith('Memoria_AutoBackup_') && f.endsWith('.json'))
+      .filter(f => f.startsWith('Codex_AutoBackup_') && f.endsWith('.json'))
       .map(f => ({ name: f, time: fs.statSync(path.join(BACKUP_DIR, f)).mtimeMs }))
       .sort((a, b) => b.time - a.time);
     while (files.length > MAX_BACKUPS) {
