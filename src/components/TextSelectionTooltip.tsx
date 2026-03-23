@@ -16,7 +16,7 @@ interface Props {
   onMarkKeyPart?: (text: string) => void;
 }
 
-export default function TextSelectionTooltip({ children, cardId, question, category, subcategory, tags, onMarkKeyPart }: Props) {
+export default function TextSelectionTooltip({ children, cardId, question, category, subcategory, tags, keyParts, onMarkKeyPart }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [tooltip, setTooltip] = useState<{ x: number; y: number; text: string } | null>(null);
 
