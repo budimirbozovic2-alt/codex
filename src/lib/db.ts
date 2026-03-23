@@ -195,7 +195,7 @@ export async function migrateFromLocalStorage(): Promise<void> {
     }
 
     localStorage.setItem(MIGRATION_FLAG, "1");
-    console.log("[MemoriaDB] Migration from localStorage complete");
+    // migration complete
   } catch (err) {
     console.error("[MemoriaDB] Migration failed, falling back to localStorage", err);
   }
@@ -252,7 +252,7 @@ export async function migrateFromLocalStorage(): Promise<void> {
       if (lastAnalysis) await db.settings.put({ key: "lastAnalysisDate", value: lastAnalysis });
 
       localStorage.setItem(MIGRATION_V2_FLAG, "1");
-      console.log("[MemoriaDB] v2 migration (metacognitive+planner) complete");
+      // v2 migration complete
     } catch (err) {
       console.error("[MemoriaDB] v2 migration failed", err);
     }
