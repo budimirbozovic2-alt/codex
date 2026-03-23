@@ -106,6 +106,11 @@ export default function LearnSession({ cards, categories, subcategories, onMarkR
     if (filterExamFrequent) {
       filtered = filtered.filter((c) => c.tags?.includes("često-na-ispitu"));
     }
+    if (filterType === "essay") {
+      filtered = filtered.filter((c) => c.type === "essay");
+    } else if (filterType === "flash") {
+      filtered = filtered.filter((c) => c.type === "flash");
+    }
     if (learnMode === "chain") {
       filtered = filtered.filter((c) => c.type === "essay" && c.sections.length >= 3);
     }
