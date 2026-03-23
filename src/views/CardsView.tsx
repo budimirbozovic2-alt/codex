@@ -45,6 +45,17 @@ export default function CardsView() {
     return id;
   });
   const [reorderMode, setReorderMode] = useState(false);
+  const [storedChapterOrder, setStoredChapterOrder] = useState<string[]>([]);
+
+  // Load stored chapter order from IDB when filter changes
+  useEffect(() => {
+    if (filterCategory && filterSubcategory) {
+      const key = `chapters-${filterCategory}-${filterSubcategory}`;
+      idbLoadSettings<string[]>(key, []).then(setStoredChapterOrder);
+    } else {
+      setStoredChapterOrder([]);
+    }
+  }, [filterCategory, filterSubcategory]);
 
   const toggleSelect = (id: string) => {
     setSelectedIds(prev => {
