@@ -9,9 +9,10 @@ import { Button } from "@/components/ui/button";
 import LearnOnboarding, { hasSeenOnboarding } from "@/components/LearnOnboarding";
 import SessionComplete from "./learn/SessionComplete";
 import { LearnSessionProps, ViewWidth } from "./learn/types";
-import StudyModeFree from "./learn/StudyModeFree";
-import StudyModeRecall from "./learn/StudyModeRecall";
-import StudyModeChain from "./learn/StudyModeChain";
+import { lazy, Suspense } from "react";
+const StudyModeFree = lazy(() => import("./learn/StudyModeFree"));
+const StudyModeRecall = lazy(() => import("./learn/StudyModeRecall"));
+const StudyModeChain = lazy(() => import("./learn/StudyModeChain"));
 import { ShieldAlert, Link2, BookOpen, Brain, ArrowLeft, ChevronRight, ListOrdered, TrendingDown, Eye, HelpCircle, AlertTriangle } from "lucide-react";
 
 export default function LearnSession({ cards, categories, subcategories, onMarkRead, onReviewSection, onBack, onEdit, onAddKeyPart, dueCount = 0 }: LearnSessionProps) {
