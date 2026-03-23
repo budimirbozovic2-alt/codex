@@ -733,7 +733,11 @@ export function useCards() {
           if (strategy === "overwrite") {
             await db.sources.clear();
           }
-          await db.sources.bulkPut(parsed.sources);
+          const sanitizedSources = parsed.sources.map((src: any) => ({
+            ...src,
+            htmlContent: sanitizeHtml(src.htmlContent ?? ""),
+          }));
+          await db.sources.bulkPut(sanitizedSources);
         }
         if (Array.isArray(parsed.mindMaps) && parsed.mindMaps.length > 0) {
           if (strategy === "overwrite") {
