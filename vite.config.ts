@@ -24,23 +24,26 @@ export default defineConfig(({ mode }) => ({
   },
   optimizeDeps: {
     include: [
-      "lucide-react",
       "@radix-ui/react-progress",
       "@radix-ui/react-tabs",
       "@radix-ui/react-dialog",
       "@radix-ui/react-select",
       "@radix-ui/react-tooltip",
     ],
+    exclude: ["lucide-react"],
   },
   build: {
     rollupOptions: {
       output: {
-        manualChunks: {
-          vendor: ["react", "react-dom", "react-router-dom", "@tanstack/react-query"],
-          ui: ["@radix-ui/react-dialog", "@radix-ui/react-popover", "@radix-ui/react-tabs", "@radix-ui/react-tooltip", "@radix-ui/react-select", "@radix-ui/react-accordion", "@radix-ui/react-progress"],
-          charts: ["recharts"],
-          motion: ["framer-motion"],
-          flow: ["@xyflow/react"],
+        manualChunks(id) {
+          if (id.includes("lucide-react")) return "icons";
+          if (id.includes("node_modules/react-dom")) return "vendor";
+          if (id.includes("node_modules/react/") || id.includes("node_modules/react-router-dom")) return "vendor";
+          if (id.includes("@tanstack/react-query")) return "vendor";
+          if (id.includes("@radix-ui")) return "ui";
+          if (id.includes("recharts")) return "charts";
+          if (id.includes("framer-motion")) return "motion";
+          if (id.includes("@xyflow")) return "flow";
         },
       },
     },
