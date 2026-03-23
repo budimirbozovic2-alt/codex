@@ -8,20 +8,25 @@ const ICON_OPTIONS = [
   { value: "document", label: "Odluka", emoji: "📄" },
   { value: "person", label: "Stranka", emoji: "👤" },
   { value: "clock", label: "Rok", emoji: "🕒" },
+  { value: "arrow", label: "Korak", emoji: "➡️" },
+  { value: "check", label: "Završeno", emoji: "✅" },
+  { value: "warning", label: "Upozorenje", emoji: "⚠️" },
+  { value: "question", label: "Odluka", emoji: "❓" },
 ];
 
 const COLOR_OPTIONS = [
-  { value: "default", bg: "bg-card", border: "border-border" },
-  { value: "blue", bg: "bg-blue-500/15", border: "border-blue-500/40" },
-  { value: "green", bg: "bg-green-500/15", border: "border-green-500/40" },
-  { value: "amber", bg: "bg-amber-500/15", border: "border-amber-500/40" },
-  { value: "red", bg: "bg-red-500/15", border: "border-red-500/40" },
-  { value: "purple", bg: "bg-purple-500/15", border: "border-purple-500/40" },
+  { value: "default", bg: "bg-card", border: "border-border", handle: "!bg-muted-foreground" },
+  { value: "blue", bg: "bg-blue-500/15", border: "border-blue-500/40", handle: "!bg-blue-500" },
+  { value: "green", bg: "bg-green-500/15", border: "border-green-500/40", handle: "!bg-green-500" },
+  { value: "amber", bg: "bg-amber-500/15", border: "border-amber-500/40", handle: "!bg-amber-500" },
+  { value: "red", bg: "bg-red-500/15", border: "border-red-500/40", handle: "!bg-red-500" },
+  { value: "purple", bg: "bg-purple-500/15", border: "border-purple-500/40", handle: "!bg-purple-500" },
 ];
 
 const SHAPE_OPTIONS = [
   { value: "rectangle", className: "rounded-lg" },
-  { value: "rounded", className: "rounded-full" },
+  { value: "rounded", className: "rounded-2xl" },
+  { value: "diamond", className: "rounded-lg rotate-0" },
 ];
 
 export type MindMapNodeData = {
@@ -46,21 +51,32 @@ function MindMapNodeComponent({ id, data, selected }: NodeProps) {
     nodeData.onUpdate?.(id, { [field]: value });
   };
 
+  const handleStyle = "!w-3 !h-3 !min-w-[12px] !min-h-[12px] !border-2 !border-background !rounded-full opacity-0 group-hover:opacity-100 transition-opacity " + (colorOpt.handle || "!bg-primary");
+
   return (
     <div
       className={cn(
-        "min-w-[140px] max-w-[220px] border-2 shadow-md transition-shadow",
+        "group relative min-w-[150px] max-w-[240px] border-2 shadow-md transition-all",
         colorOpt.bg, colorOpt.border, shapeOpt.className,
         selected && "ring-2 ring-primary shadow-lg",
-        nodeData.shape === "rounded" ? "px-5 py-4" : "px-4 py-3"
+        "px-4 py-3"
       )}
       onDoubleClick={() => setEditing(true)}
     >
-      <Handle type="target" position={Position.Top} className="!bg-primary !w-2.5 !h-2.5" />
+      {/* 4-side handles for easy connections */}
+      <Handle type="target" position={Position.Top} id="top" className={handleStyle} style={{ top: -6 }} />
+      <Handle type="target" position={Position.Left} id="left" className={handleStyle} style={{ left: -6 }} />
+      <Handle type="source" position={Position.Bottom} id="bottom" className={handleStyle} style={{ bottom: -6 }} />
+      <Handle type="source" position={Position.Right} id="right" className={handleStyle} style={{ right: -6 }} />
+      {/* Also allow reverse — source on top/left and target on bottom/right */}
+      <Handle type="source" position={Position.Top} id="top-source" className={handleStyle} style={{ top: -6 }} />
+      <Handle type="source" position={Position.Left} id="left-source" className={handleStyle} style={{ left: -6 }} />
+      <Handle type="target" position={Position.Bottom} id="bottom-target" className={handleStyle} style={{ bottom: -6 }} />
+      <Handle type="target" position={Position.Right} id="right-target" className={handleStyle} style={{ right: -6 }} />
 
       {/* Icon + Title */}
       <div className="flex items-center gap-2 mb-1">
-        {iconObj && <span className="text-lg">{iconObj.emoji}</span>}
+        {iconObj && <span className="text-lg select-none">{iconObj.emoji}</span>}
         {editing ? (
           <input
             autoFocus
@@ -81,7 +97,7 @@ function MindMapNodeComponent({ id, data, selected }: NodeProps) {
 
       {/* Description */}
       {nodeData.description && !editing && (
-        <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{nodeData.description}</p>
+        <p className="text-xs text-muted-foreground mt-1 line-clamp-3">{nodeData.description}</p>
       )}
       {editing && (
         <textarea
@@ -99,14 +115,13 @@ function MindMapNodeComponent({ id, data, selected }: NodeProps) {
           onClick={() => setShowSettings(!showSettings)}
           className="text-[10px] text-muted-foreground hover:text-foreground mt-1.5 underline"
         >
-          {showSettings ? "Zatvori" : "Podešavanja"}
+          {showSettings ? "Zatvori" : "⚙ Podešavanja"}
         </button>
       )}
 
       {/* Settings panel */}
       {showSettings && selected && (
         <div className="mt-2 space-y-2 border-t border-border pt-2">
-          {/* Icon picker */}
           <div>
             <span className="text-[10px] text-muted-foreground uppercase tracking-wider">Ikonica</span>
             <div className="flex gap-1 mt-1 flex-wrap">
@@ -125,7 +140,6 @@ function MindMapNodeComponent({ id, data, selected }: NodeProps) {
               ))}
             </div>
           </div>
-          {/* Color picker */}
           <div>
             <span className="text-[10px] text-muted-foreground uppercase tracking-wider">Boja</span>
             <div className="flex gap-1.5 mt-1">
@@ -142,24 +156,15 @@ function MindMapNodeComponent({ id, data, selected }: NodeProps) {
               ))}
             </div>
           </div>
-          {/* Shape picker */}
           <div>
             <span className="text-[10px] text-muted-foreground uppercase tracking-wider">Oblik</span>
             <div className="flex gap-1.5 mt-1">
-              <button
-                onClick={() => updateField("shape", "rectangle")}
-                className={cn("w-7 h-5 rounded border-2 border-border", nodeData.shape !== "rounded" && "ring-1 ring-primary")}
-              />
-              <button
-                onClick={() => updateField("shape", "rounded")}
-                className={cn("w-7 h-5 rounded-full border-2 border-border", nodeData.shape === "rounded" && "ring-1 ring-primary")}
-              />
+              <button onClick={() => updateField("shape", "rectangle")} className={cn("w-7 h-5 rounded border-2 border-border", nodeData.shape !== "rounded" && nodeData.shape !== "diamond" && "ring-1 ring-primary")} title="Pravougaonik" />
+              <button onClick={() => updateField("shape", "rounded")} className={cn("w-7 h-5 rounded-full border-2 border-border", nodeData.shape === "rounded" && "ring-1 ring-primary")} title="Zaobljeno" />
             </div>
           </div>
         </div>
       )}
-
-      <Handle type="source" position={Position.Bottom} className="!bg-primary !w-2.5 !h-2.5" />
     </div>
   );
 }

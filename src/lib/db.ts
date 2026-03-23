@@ -12,9 +12,12 @@ export interface SourceArticle {
   text: string;
 }
 
+export type MindMapMode = "hierarchy" | "procedure";
+
 export interface MindMapDoc {
   id: string;
   title: string;
+  mode: MindMapMode;
   nodes: any[];
   edges: any[];
   createdAt: number;
