@@ -675,11 +675,14 @@ export function useCards() {
         }
       }
 
+      const { sanitizeHtml } = await import("@/lib/sanitize");
       const migrateImported = (c: any): Card => ({
         ...c, readCount: c.readCount || 0, type: c.type || "essay", subcategory: c.subcategory || "",
+        question: sanitizeHtml(c.question ?? ""),
         tags: c.tags || [], errorLog: c.errorLog || [],
         sections: (c.sections || []).map((s: any) => ({
           ...s, id: s.id || crypto.randomUUID(), state: s.state ?? 0, lapses: s.lapses || 0,
+          content: sanitizeHtml(s.content ?? ""),
           stability: s.stability ?? 0, difficulty: s.difficulty ?? 5, interval: s.interval ?? 0,
           nextReview: s.nextReview ?? 0, lastReviewed: s.lastReviewed ?? null,
           elapsedDays: s.elapsedDays ?? 0, scheduledDays: s.scheduledDays ?? 0,
@@ -730,7 +733,11 @@ export function useCards() {
           if (strategy === "overwrite") {
             await db.sources.clear();
           }
-          await db.sources.bulkPut(parsed.sources);
+          const sanitizedSources = parsed.sources.map((src: any) => ({
+            ...src,
+            htmlContent: sanitizeHtml(src.htmlContent ?? ""),
+          }));
+          await db.sources.bulkPut(sanitizedSources);
         }
         if (Array.isArray(parsed.mindMaps) && parsed.mindMaps.length > 0) {
           if (strategy === "overwrite") {
