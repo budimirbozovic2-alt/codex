@@ -756,7 +756,7 @@ function ReviewCard({
                     <span className="text-xs uppercase tracking-widest text-muted-foreground">{section.title}</span>
                   )}
                 </div>
-                <div className={`${!isFlash ? "mt-4" : ""} text-base leading-relaxed whitespace-pre-wrap`} dangerouslySetInnerHTML={{ __html: highlightKeyParts(section.content, currentCard?.keyParts) }} />
+                <div className={`${!isFlash ? "mt-4" : ""} text-base leading-relaxed whitespace-pre-wrap`} dangerouslySetInnerHTML={{ __html: highlightKeyParts(section.content, card.keyParts) }} />
                 <p className="mt-3 text-[10px] text-muted-foreground/60 flex items-center gap-1">
                   Označi tekst + pritisni <kbd className="px-1 py-0.5 rounded bg-secondary border text-[9px] font-mono">N</kbd> za bilježenje greške
                 </p>
