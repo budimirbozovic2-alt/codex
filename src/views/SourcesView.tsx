@@ -105,11 +105,28 @@ export default function SourcesView() {
     });
   }, [importHtml, importLabel, importDate, importGazette]);
 
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const deleteConfirmSource = sources.find(s => s.id === deleteConfirmId);
+  const deleteLinkedCount = deleteConfirmId ? linkedCardCount(deleteConfirmId) : 0;
+
   const handleDelete = useCallback(async (id: string) => {
+    const linked = cards.filter(c => c.sourceId === id).length;
+    if (linked > 0) {
+      setDeleteConfirmId(id);
+      return;
+    }
     await deleteSource(id);
     setSources(prev => prev.filter(s => s.id !== id));
-    toast({ title: "Izvor obrisan", description: "Linkovi na karticama su očišćeni." });
-  }, []);
+    toast({ title: "Izvor obrisan" });
+  }, [cards]);
+
+  const confirmDelete = useCallback(async () => {
+    if (!deleteConfirmId) return;
+    await deleteSource(deleteConfirmId);
+    setSources(prev => prev.filter(s => s.id !== deleteConfirmId));
+    setDeleteConfirmId(null);
+    toast({ title: "Izvor obrisan", description: "Linkovi na modulima su očišćeni." });
+  }, [deleteConfirmId]);
 
   const handleEditSource = useCallback((source: Source) => {
     setEditingSource(source);

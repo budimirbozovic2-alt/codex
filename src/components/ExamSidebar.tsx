@@ -262,6 +262,7 @@ export default function ExamSidebar({ questions, onSetQuestions, onMapSelection,
               Numeracija (1. 2. 3.) će biti automatski uklonjena.
             </p>
             <textarea
+              ref={textareaRef}
               value={editText}
               onChange={e => setEditText(e.target.value)}
               className="w-full px-3 py-2.5 rounded-md border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring min-h-[450px] max-h-[60vh] resize-y font-mono leading-relaxed"
