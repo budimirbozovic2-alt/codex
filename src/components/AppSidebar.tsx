@@ -99,7 +99,7 @@ export default function AppSidebar() {
           )}
           {collapsed && (
             <div className="flex justify-center">
-              <img src={new URL('/logo-icon.png', import.meta.url).href} alt="Memoria" className="h-7 w-7 rounded-md" />
+              <img src={`${import.meta.env.BASE_URL}logo-icon.png`} alt="Memoria" className="h-7 w-7 rounded-md" />
             </div>
           )}
         </div>
