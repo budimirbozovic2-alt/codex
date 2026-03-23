@@ -152,6 +152,23 @@ function UIProvider({ children }: { children: ReactNode }) {
   // Record app entry on mount
   useEffect(() => { recordAppEntry(); }, []);
 
+  // Notification reminder scheduler
+  useEffect(() => {
+    const settings = loadAppSettings();
+    if (!settings.notifications.enabled || !("Notification" in window) || Notification.permission !== "granted") return;
+    const check = () => {
+      const now = new Date();
+      if (now.getHours() === settings.notifications.reminderHour && now.getMinutes() === settings.notifications.reminderMinute) {
+        new Notification("Memoria — Podsjetnik", {
+          body: "Vrijeme je za ponavljanje! Imaš kartice koje čekaju.",
+          icon: "/placeholder.svg",
+        });
+      }
+    };
+    const interval = window.setInterval(check, 60000);
+    return () => clearInterval(interval);
+  }, []);
+
   // Track first learning action
   useEffect(() => {
     if (view === "review" || view === "learn") recordFirstAction();
