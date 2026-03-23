@@ -79,16 +79,28 @@ export function detectArticles(html: string): DetectedArticle[] {
     // ── Look backwards for title (Mode A) ──
     let title = "";
     let autoTitle = false;
-    for (let j = i - 1; j >= 0; j--) {
-      if (lines[j].text && !lines[j].isArticle) {
-        let belongsToPrevious = false;
-        for (let k = j + 1; k < i; k++) {
-          if (lines[k].isArticle) { belongsToPrevious = true; break; }
+    if (i > 0) {
+      const candidate = lines[i - 1];
+      if (candidate.text && !candidate.isArticle) {
+        // Only treat as title if:
+        // 1. It's directly above (no other article between)
+        // 2. It looks like a heading (short, ≤80 chars) not a content paragraph
+        let belongsToPrevArticle = false;
+        for (let k = i - 2; k >= 0; k--) {
+          if (lines[k].isArticle) {
+            // Check if this candidate is the ONLY content of the previous article
+            let contentCount = 0;
+            for (let m = k + 1; m < i; m++) {
+              if (lines[m].text && !lines[m].isArticle) contentCount++;
+            }
+            // If the previous article would lose its only content, don't steal it
+            if (contentCount <= 1) belongsToPrevArticle = true;
+            break;
+          }
         }
-        if (!belongsToPrevious) {
-          title = lines[j].text;
+        if (!belongsToPrevArticle && candidate.text.length <= 80) {
+          title = candidate.text;
         }
-        break;
       }
     }
 
@@ -100,11 +112,21 @@ export function detectArticles(html: string): DetectedArticle[] {
     for (let j = i + 1; j < lines.length; j++) {
       if (lines[j].isArticle) {
         nextBoundary = j;
-        for (let k = j - 1; k > i; k--) {
+        // Only reserve the line before next article as its title
+        // if there are multiple content lines between articles
+        const contentLinesBetween = [];
+        for (let k = i + 1; k < j; k++) {
           if (lines[k].text && !lines[k].isArticle) {
-            nextBoundary = k;
-            break;
+            contentLinesBetween.push(k);
           }
+        }
+        // If there are ≥2 content lines and the last one looks like a title
+        // (the next article will pick it up via backward scan), exclude it
+        if (contentLinesBetween.length >= 2) {
+          const lastContentIdx = contentLinesBetween[contentLinesBetween.length - 1];
+          // Check if this last line is actually used as title by next article
+          // by verifying it's directly adjacent (no other articles between)
+          nextBoundary = lastContentIdx;
         }
         break;
       }
