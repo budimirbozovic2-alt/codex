@@ -90,6 +90,7 @@ interface PhaseItemProps {
   onCancelEdit: () => void;
   onStartEdit: () => void;
   onRemove: () => void;
+  onOpenInDB: () => void;
 }
 
 function PhaseItem({ phase: p, index: i, dynamicDays, isEditing, editName, editDays, setEditName, setEditDays, onSaveEdit, onCancelEdit, onStartEdit, onRemove }: PhaseItemProps) {
