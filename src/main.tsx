@@ -22,7 +22,7 @@ setTimeout(() => {
 if (window.electronAPI) {
   const cleanup = window.electronAPI.onBackupRequested(async () => {
     try {
-      const [cards, categories, subcategories, reviewLog, srSettings, sources, mindMaps] = await Promise.all([
+      const [cards, categories, subcategories, reviewLog, srSettings, sources, mindMaps, diary, calibrationLog, latencyLog, slippageLog, activityLog, disciplineLog, pomodoroLog] = await Promise.all([
         db.cards.toArray(),
         db.categories.toArray().then(rows => rows.map(r => r.name)),
         db.subcategories.toArray().then(rows => {
@@ -34,19 +34,40 @@ if (window.electronAPI) {
         db.settings.get("srSettings").then(r => r?.value ?? null),
         db.sources.toArray(),
         db.mindMaps.toArray(),
+        db.diary.toArray(),
+        db.calibrationLog.toArray(),
+        db.latencyLog.toArray(),
+        db.slippageLog.toArray(),
+        db.activityLog.toArray(),
+        db.disciplineLog.toArray(),
+        db.pomodoroLog.toArray(),
       ]);
+
+      // Collect key localStorage items
+      const localStorageData: Record<string, unknown> = {};
+      const lsKeys = [
+        "sr-planner-config", "sr-app-settings", "sr-mnemonic-workshop",
+        "sr-mnemonic-associations", "sr-major-system-map",
+        "sr-daily-mapped-count", "sr-daily-mapped-date",
+        "sr-learn-progress", "sr-last-backup",
+      ];
+      for (const key of lsKeys) {
+        const val = localStorage.getItem(key);
+        if (val !== null) {
+          try { localStorageData[key] = JSON.parse(val); } catch { localStorageData[key] = val; }
+        }
+      }
+
       const data: Record<string, unknown> = {
-        version: 3,
+        version: 4,
         type: "full",
-        cards,
-        categories,
-        subcategories,
-        reviewLog,
-        sources,
-        mindMaps,
+        cards, categories, subcategories, reviewLog,
+        sources, mindMaps,
+        diary, calibrationLog, latencyLog, slippageLog, activityLog, disciplineLog, pomodoroLog,
+        localStorageData,
       };
       if (srSettings) data["srSettings"] = srSettings;
-      const json = JSON.stringify(data, null, 2);
+      const json = JSON.stringify(data);
       window.electronAPI!.requestBackup(json);
     } catch (_) {}
   });

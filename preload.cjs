@@ -6,6 +6,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   requestBackup: (jsonData) => ipcRenderer.invoke('request-backup', jsonData),
   // Get app paths
   getAppVersion: () => ipcRenderer.invoke('get-app-version'),
+  // Get backup info (file list, last auto-backup time)
+  getBackupInfo: () => ipcRenderer.invoke('get-backup-info'),
   // Notify main process that the app is ready (DB loaded)
   notifyReady: () => ipcRenderer.send('renderer-ready'),
   // Listen for backup-requested from main (e.g., before quit)
