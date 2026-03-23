@@ -360,8 +360,11 @@ function MindMapCanvasInner({ doc, onBack }: Props) {
           onEdgesChange={handleEdgesChange}
           onConnect={onConnect}
           onEdgeDoubleClick={onEdgeDoubleClick}
+          onNodeDragStop={onNodeDragStop}
           nodeTypes={nodeTypes}
           connectionMode={ConnectionMode.Loose}
+          snapToGrid
+          snapGrid={[15, 15]}
           fitView
           deleteKeyCode={["Backspace", "Delete"]}
           className="bg-background"
