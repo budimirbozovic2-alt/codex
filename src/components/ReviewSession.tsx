@@ -369,10 +369,12 @@ export default function ReviewSession({ dueCards, allCards, subcategories, srSet
           selectedChapter={selectedChapter}
           filterExamFrequent={filterExamFrequent}
           examFrequentCount={examFrequentCount}
+          filterType={filterType}
           onSelectCategory={(cat) => { setSelectedCategory(cat); setSelectedSubcategory(null); setSelectedChapter(null); }}
           onSelectSubcategory={(sub) => { setSelectedSubcategory(sub); setSelectedChapter(null); }}
           onSelectChapter={setSelectedChapter}
           onToggleExamFrequent={() => setFilterExamFrequent(!filterExamFrequent)}
+          onFilterTypeChange={setFilterType}
         />
 
         <Button

@@ -354,10 +354,12 @@ export default function LearnSession({ cards, categories, subcategories, onMarkR
           selectedChapter={selectedChapter}
           filterExamFrequent={filterExamFrequent}
           examFrequentCount={examFrequentCount}
+          filterType={filterType}
           onSelectCategory={(cat) => { setSelectedCategory(cat); setSelectedSubcategory(null); setSelectedChapter(null); }}
           onSelectSubcategory={(sub) => { setSelectedSubcategory(sub); setSelectedChapter(null); }}
           onSelectChapter={setSelectedChapter}
           onToggleExamFrequent={() => setFilterExamFrequent(!filterExamFrequent)}
+          onFilterTypeChange={setFilterType}
         />
 
         <div className="space-y-2">
