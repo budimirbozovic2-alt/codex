@@ -112,8 +112,13 @@ export default function SourcesView() {
       const electronAPI = (window as any).electronAPI;
       if (electronAPI?.requestBackup) {
         try {
-          const backupData = await exportData();
-          if (backupData) await electronAPI.requestBackup(backupData);
+          const backupJson = JSON.stringify({
+            timestamp: Date.now(),
+            type: "pre-version-backup",
+            sourceId: oldSource.id,
+            sourceLabel: oldSource.label,
+          });
+          await electronAPI.requestBackup(backupJson);
         } catch (_) { /* backup is best-effort */ }
       }
 
