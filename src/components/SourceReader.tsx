@@ -470,6 +470,16 @@ export default function SourceReader({ source, onBack }: Props) {
             </div>
           )}
         </div>
+
+        {/* Exam questions sidebar (right) */}
+        {examOpen && (
+          <ExamSidebar
+            questions={examQuestions}
+            onSetQuestions={setExamQuestions}
+            onMapSelection={handleMapSelection}
+            hasSelection={!!selection}
+          />
+        )}
       </div>
 
       {/* Essay creation dialog */}
