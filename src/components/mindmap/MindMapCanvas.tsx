@@ -424,23 +424,8 @@ function MindMapCanvasInner({ doc, onBack }: Props) {
             animated: isProcedure,
           }}
         >
-          {/* Snap guide lines */}
-          {(snapLines.x !== undefined || snapLines.y !== undefined) && (
-            <svg className="react-flow__snap-lines" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", pointerEvents: "none", zIndex: 1000 }}>
-              {snapLines.x !== undefined && (
-                <line
-                  x1={snapLines.x} y1={-10000} x2={snapLines.x} y2={10000}
-                  stroke="hsl(var(--primary))" strokeWidth={1} strokeDasharray="6 3" opacity={0.6}
-                />
-              )}
-              {snapLines.y !== undefined && (
-                <line
-                  x1={-10000} y1={snapLines.y} x2={10000} y2={snapLines.y}
-                  stroke="hsl(var(--primary))" strokeWidth={1} strokeDasharray="6 3" opacity={0.6}
-                />
-              )}
-            </svg>
-          )}
+          {/* Snap guide lines rendered in flow coordinates via viewport transform */}
+          <SnapGuideLines snapLines={snapLines} />
           <Controls className="!bg-card !border-border !shadow-md [&>button]:!bg-card [&>button]:!border-border [&>button]:!text-foreground [&>button:hover]:!bg-muted" />
           <Background
             variant={isProcedure ? BackgroundVariant.Lines : BackgroundVariant.Dots}
