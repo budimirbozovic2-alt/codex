@@ -126,30 +126,23 @@ export function useCards() {
 
     (async () => {
       try {
-        console.log("[boot] useCards init:start");
         splashProgress(10, "Migracija podataka…");
         await migrateFromLocalStorage();
-        console.log("[boot] migration:done");
 
         splashProgress(25, "Učitavanje kartica…");
         const c = await idbLoadCards();
-        console.log("[boot] cards:done", c.length);
 
         splashProgress(50, `${c.length} kartica učitano`);
         const cats = await idbLoadCategories();
-        console.log("[boot] categories:done", cats.length);
 
         splashProgress(65, "Učitavanje kategorija…");
         const subs = await idbLoadSubcategories();
-        console.log("[boot] subcategories:done", Object.keys(subs).length);
 
         splashProgress(80, "Učitavanje dnevnika…");
         const log = await idbLoadReviewLog();
-        console.log("[boot] reviewLog:done", log.length);
 
         splashProgress(90, "Učitavanje podešavanja…");
         const settings = await idbLoadSettings<SRSettings>("srSettings", DEFAULT_SR_SETTINGS);
-        console.log("[boot] settings:done");
 
         setCardMapState(arrayToMap(c));
         setCategoriesState(cats);
@@ -158,7 +151,6 @@ export function useCards() {
         setSrSettingsState(settings);
 
         splashProgress(100, "Spremno!");
-        console.log("[boot] useCards init:ready");
       } catch (error) {
         console.error("[boot] useCards init:failed", error);
         splashProgress(100, "Pokretanje sa rezervnim stanjem…");
