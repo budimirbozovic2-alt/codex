@@ -22,6 +22,21 @@ export interface CoverageResult {
 // Simple cache keyed by sourceId + card count + total text length
 const cache = new Map<string, CoverageResult>();
 
+function getCoverageSnippets(card: Card): { id: string; question: string; snippet: string }[] {
+  if (card.sourceModules && card.sourceModules.length > 0) {
+    return card.sourceModules
+      .filter(module => module.originalSourceSnippet)
+      .map(module => ({
+        id: module.id,
+        question: module.question || card.question,
+        snippet: module.originalSourceSnippet,
+      }));
+  }
+
+  if (!card.originalSourceSnippet) return [];
+  return [{ id: card.id, question: card.question, snippet: card.originalSourceSnippet }];
+}
+
 /**
  * Strip HTML tags to get plain text for matching.
  */
@@ -44,7 +59,6 @@ function normalize(text: string): string {
  * character mapping.
  */
 function findAllOccurrences(
-  originalText: string,
   normalizedText: string,
   needle: string,
 ): { start: number; end: number }[] {
@@ -101,10 +115,13 @@ export function analyzeCoverage(
   cards: Card[],
 ): CoverageResult {
   const linkedCards = cards.filter(
-    c => c.sourceId === sourceId && c.originalSourceSnippet
+    c => c.sourceId === sourceId && (c.originalSourceSnippet || (c.sourceModules && c.sourceModules.length > 0))
   );
 
-  const cacheKey = `${sourceId}_${linkedCards.length}_${sourceHtmlContent.length}`;
+  const coverageSignature = linkedCards
+    .map(card => `${card.id}:${getCoverageSnippets(card).map(s => `${s.id}:${normalize(s.snippet)}`).join("~")}`)
+    .join("|");
+  const cacheKey = `${sourceId}_${sourceHtmlContent.length}_${coverageSignature}`;
   const cached = cache.get(cacheKey);
   if (cached) return cached;
 
@@ -121,16 +138,18 @@ export function analyzeCoverage(
   const allRanges: CoverageRange[] = [];
 
   for (const card of linkedCards) {
-    const snippet = normalize(card.originalSourceSnippet!);
-    const occurrences = findAllOccurrences(plainText, normalizedFull, snippet);
+    for (const snippetRef of getCoverageSnippets(card)) {
+      const snippet = normalize(snippetRef.snippet);
+      const occurrences = findAllOccurrences(normalizedFull, snippet);
 
-    for (const occ of occurrences) {
-      allRanges.push({
-        start: occ.start,
-        end: occ.end,
-        cardId: card.id,
-        cardQuestion: card.question,
-      });
+      for (const occ of occurrences) {
+        allRanges.push({
+          start: occ.start,
+          end: occ.end,
+          cardId: card.id,
+          cardQuestion: snippetRef.question,
+        });
+      }
     }
   }
 

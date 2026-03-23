@@ -18,6 +18,7 @@ import { createTextAnchor, type Source } from "@/lib/sources-storage";
 import { sanitizeHtml } from "@/lib/sanitize";
 import { analyzeCoverage } from "@/lib/coverage-analysis";
 import { cn } from "@/lib/utils";
+import CoverageArticleList from "@/components/source-reader/CoverageArticleList";
 
 type ViewMode = "standard" | "coverage";
 
@@ -35,9 +36,9 @@ function CoverageStatsBar({
   linkedCount: number;
 }) {
   const barColor =
-    percent >= 80 ? "bg-green-500" : percent >= 50 ? "bg-amber-500" : "bg-red-500";
+    percent >= 80 ? "bg-success" : percent >= 50 ? "bg-warning" : "bg-destructive";
   const color =
-    percent >= 80 ? "text-green-500" : percent >= 50 ? "text-amber-500" : "text-red-500";
+    percent >= 80 ? "text-success" : percent >= 50 ? "text-warning" : "text-destructive";
 
   return (
     <div className="flex items-center gap-3 rounded-lg border bg-card px-4 py-2.5">
@@ -150,6 +151,13 @@ export default function SourceReader({ source, onBack }: Props) {
     if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
   }, []);
 
+  const handleOpenCoveredCard = useCallback((cardId: string) => {
+    sessionStorage.setItem("sr-scroll-to-card", cardId);
+    sessionStorage.setItem("sr-database-tab", "cards");
+    window.dispatchEvent(new CustomEvent("memoria-open-database-tab", { detail: "cards" }));
+    onBack();
+  }, [onBack]);
+
   const isCoverage = viewMode === "coverage";
 
   return (
@@ -250,19 +258,27 @@ export default function SourceReader({ source, onBack }: Props) {
 
         {/* Main content */}
         <div className="flex-1 min-w-0 relative">
-          <div
-            ref={contentRef}
-            className="rounded-lg border bg-card p-6 prose prose-sm max-w-none
-              prose-headings:text-foreground prose-p:text-foreground/90
-              prose-strong:text-foreground prose-a:text-primary
-              prose-ul:text-foreground/90 prose-ol:text-foreground/90
-              prose-li:text-foreground/90"
-            onMouseUp={handleMouseUp}
-            dangerouslySetInnerHTML={{ __html: source.htmlContent }}
-          />
+          {isCoverage ? (
+            <CoverageArticleList
+              source={source}
+              cards={cards}
+              onOpenCard={handleOpenCoveredCard}
+            />
+          ) : (
+            <div
+              ref={contentRef}
+              className="rounded-lg border bg-card p-6 prose prose-sm max-w-none
+                prose-headings:text-foreground prose-p:text-foreground/90
+                prose-strong:text-foreground prose-a:text-primary
+                prose-ul:text-foreground/90 prose-ol:text-foreground/90
+                prose-li:text-foreground/90"
+              onMouseUp={handleMouseUp}
+              dangerouslySetInnerHTML={{ __html: source.htmlContent }}
+            />
+          )}
 
           {/* Selection tooltip */}
-          {selection && (
+          {!isCoverage && selection && (
             <div
               data-source-tooltip
               className="absolute z-50 -translate-x-1/2 -translate-y-full animate-in fade-in-0 zoom-in-95 duration-150"

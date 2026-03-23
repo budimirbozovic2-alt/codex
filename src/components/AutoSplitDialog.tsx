@@ -15,7 +15,7 @@ import { sanitizeHtml } from "@/lib/sanitize";
 import { useAppContext } from "@/contexts/AppContext";
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
-import type { Card } from "@/lib/spaced-repetition";
+import type { Card, SourceModule } from "@/lib/spaced-repetition";
 
 interface Props {
   open: boolean;
@@ -190,6 +190,15 @@ export default function AutoSplitDialog({ open, onClose, source }: Props) {
           title: `Član ${art.articleNum}${art.title ? ` — ${art.title}` : ""}`,
           content: sanitizeHtml(art.contentHtml),
         }));
+        const sourceModules: SourceModule[] = row.articles.map((art, index) => ({
+          id: crypto.randomUUID(),
+          order: index,
+          articleNum: art.articleNum,
+          title: `Član ${art.articleNum}${art.title ? ` — ${art.title}` : ""}`,
+          question: art.essayName,
+          textAnchor: createTextAnchor(art.plainSnippet),
+          originalSourceSnippet: art.plainSnippet,
+        }));
         const combinedSnippet = row.articles.map(a => a.plainSnippet).join("\n\n");
         const anchor = createTextAnchor(combinedSnippet);
 
@@ -203,6 +212,8 @@ export default function AutoSplitDialog({ open, onClose, source }: Props) {
             sourceId: source.id,
             textAnchor: anchor,
             originalSourceSnippet: combinedSnippet,
+            childCardIds: sourceModules.map(module => module.id),
+            sourceModules,
           }
         );
       } else {
@@ -215,6 +226,11 @@ export default function AutoSplitDialog({ open, onClose, source }: Props) {
           updateCard(row.existingCardId, {
             question: art.essayName,
             sections,
+            sourceId: source.id,
+            textAnchor: anchor,
+            originalSourceSnippet: art.plainSnippet,
+            childCardIds: undefined,
+            sourceModules: undefined,
           });
         } else {
           addCard(

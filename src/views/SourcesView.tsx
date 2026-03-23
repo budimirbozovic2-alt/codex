@@ -23,6 +23,7 @@ import { parseDocxInWorker } from "@/lib/docx-parser";
 import { useAppContext } from "@/contexts/AppContext";
 import { db, idbLoadCards, idbLoadCategories, idbLoadSubcategories, idbLoadReviewLog, idbLoadSettings } from "@/lib/db";
 import { TabSkeleton } from "@/components/ui/page-skeleton";
+import { normalizeMatchText, stripHtmlText } from "@/lib/source-coverage";
 
 const SourceReader = lazy(() => import("@/components/SourceReader"));
 const SourceDiffView = lazy(() => import("@/components/SourceDiffView"));
@@ -143,15 +144,26 @@ export default function SourcesView() {
       // Find cards linked to CHANGED articles only
       // Use originalSourceSnippet for smarter matching when available
       const linkedCards = cards.filter(c => c.sourceId === oldSource.id);
+      const newText = normalizeMatchText(stripHtmlText(htmlWithIds));
+      const oldText = normalizeMatchText(stripHtmlText(oldSource.htmlContent));
       const affectedCards = linkedCards.filter(c => {
-        // If card has originalSourceSnippet, check if its content changed in new version
-        if (c.originalSourceSnippet) {
-          const snippet = c.originalSourceSnippet.trim().toLowerCase().replace(/\s+/g, " ");
-          const newText = htmlWithIds.replace(/<[^>]+>/g, "").toLowerCase().replace(/\s+/g, " ");
-          const oldText = oldSource.htmlContent.replace(/<[^>]+>/g, "").toLowerCase().replace(/\s+/g, " ");
-          // If snippet exists in old but not in new → content changed
-          if (oldText.includes(snippet) && !newText.includes(snippet)) return true;
-          if (oldText.includes(snippet) && newText.includes(snippet)) return false;
+        const snippets = c.sourceModules?.length
+          ? c.sourceModules.map(module => module.originalSourceSnippet)
+          : c.originalSourceSnippet
+            ? [c.originalSourceSnippet]
+            : [];
+
+        if (snippets.length > 0) {
+          const hasChangedSnippet = snippets.some(snippet => {
+            const normalizedSnippet = normalizeMatchText(snippet);
+            return !!normalizedSnippet && oldText.includes(normalizedSnippet) && !newText.includes(normalizedSnippet);
+          });
+          if (hasChangedSnippet) return true;
+          const allStillPresent = snippets.every(snippet => {
+            const normalizedSnippet = normalizeMatchText(snippet);
+            return !!normalizedSnippet && oldText.includes(normalizedSnippet) && newText.includes(normalizedSnippet);
+          });
+          if (allStillPresent) return false;
         }
         // Fallback to article-level matching
         if (!c.textAnchor) {

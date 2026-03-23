@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useState, useEffect, useRef } from "react";
 import { toast } from "sonner";
-import { Card, createCard, createFlashCard, createSection, calculateNextReview, getDueCards, getStats, getCategoryStats, SRSettings, DEFAULT_SR_SETTINGS, ErrorLogEntry } from "@/lib/spaced-repetition";
+import { Card, createCard, createFlashCard, createSection, calculateNextReview, getDueCards, getStats, getCategoryStats, SRSettings, DEFAULT_SR_SETTINGS, ErrorLogEntry, SourceModule } from "@/lib/spaced-repetition";
 import { loadAppSettings } from "@/lib/app-settings";
 import { ReviewLogEntry, setLastBackupTime } from "@/lib/storage";
 import {
@@ -209,12 +209,14 @@ export function useCards() {
     idbSaveSettings("srSettings", settings);
   }, []);
 
-  const addCard = useCallback((question: string, sections: { title: string; content: string }[], category: string, subcategory?: string, chapter?: string, extra?: { sourceId?: string; textAnchor?: string; originalSourceSnippet?: string }) => {
+  const addCard = useCallback((question: string, sections: { title: string; content: string }[], category: string, subcategory?: string, chapter?: string, extra?: { sourceId?: string; textAnchor?: string; originalSourceSnippet?: string; childCardIds?: string[]; sourceModules?: SourceModule[] }) => {
     const card = createCard(question, sections, category, subcategory);
     if (chapter) card.chapter = chapter;
     if (extra?.sourceId) card.sourceId = extra.sourceId;
     if (extra?.textAnchor) card.textAnchor = extra.textAnchor;
     if (extra?.originalSourceSnippet) card.originalSourceSnippet = extra.originalSourceSnippet;
+    if (extra?.childCardIds) card.childCardIds = extra.childCardIds;
+    if (extra?.sourceModules) card.sourceModules = extra.sourceModules;
     setCardMapState(prev => {
       schedulePersist({ type: "put", card });
       return { ...prev, [card.id]: card };
@@ -238,13 +240,18 @@ export function useCards() {
   }, [categories, setCategories]);
 
   // O(1) direct update — surgical IDB write
-  const updateCard = useCallback((id: string, updates: { question?: string; sections?: { title: string; content: string }[]; category?: string; subcategory?: string; chapter?: string }) => {
+  const updateCard = useCallback((id: string, updates: { question?: string; sections?: { title: string; content: string }[]; category?: string; subcategory?: string; chapter?: string; sourceId?: string; textAnchor?: string; originalSourceSnippet?: string; childCardIds?: string[]; sourceModules?: SourceModule[] }) => {
     patchCard(id, c => {
       const newCard = { ...c };
       if (updates.question) newCard.question = updates.question;
       if (updates.category) newCard.category = updates.category;
       if (updates.subcategory !== undefined) newCard.subcategory = updates.subcategory;
       if (updates.chapter !== undefined) newCard.chapter = updates.chapter;
+      if (updates.sourceId !== undefined) newCard.sourceId = updates.sourceId;
+      if (updates.textAnchor !== undefined) newCard.textAnchor = updates.textAnchor;
+      if (updates.originalSourceSnippet !== undefined) newCard.originalSourceSnippet = updates.originalSourceSnippet;
+      if (updates.childCardIds !== undefined) newCard.childCardIds = updates.childCardIds;
+      if (updates.sourceModules !== undefined) newCard.sourceModules = updates.sourceModules;
       if (updates.sections) {
         newCard.sections = updates.sections.map(s => {
           const existing = c.sections.find(es => es.title === s.title);

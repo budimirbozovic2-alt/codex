@@ -1,4 +1,4 @@
-import { useState, lazy, Suspense } from "react";
+import { useState, lazy, Suspense, useEffect } from "react";
 import { useAppContext } from "@/contexts/AppContext";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -20,6 +20,30 @@ export default function DatabasePage() {
   const { cards, categories, subcategories, exportData, exportTemplate, importData, importCards, addFlashCard, setView } = useAppContext();
   const [exportOpen, setExportOpen] = useState(false);
   const [docxOpen, setDocxOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<"cards" | "categories" | "sources">(() => {
+    const stored = sessionStorage.getItem("sr-database-tab");
+    return stored === "categories" || stored === "sources" ? stored : "cards";
+  });
+
+  useEffect(() => {
+    const handleOpenTab = (event: Event) => {
+      const next = (event as CustomEvent<string>).detail;
+      if (next === "cards" || next === "categories" || next === "sources") {
+        setActiveTab(next);
+        sessionStorage.setItem("sr-database-tab", next);
+      }
+    };
+
+    window.addEventListener("memoria-open-database-tab", handleOpenTab as EventListener);
+    return () => window.removeEventListener("memoria-open-database-tab", handleOpenTab as EventListener);
+  }, []);
+
+  const handleTabChange = (value: string) => {
+    if (value === "cards" || value === "categories" || value === "sources") {
+      setActiveTab(value);
+      sessionStorage.setItem("sr-database-tab", value);
+    }
+  };
 
   return (
     <ErrorBoundary label="Baza podataka" onNavigateHome={() => setView("dashboard")}>
@@ -58,7 +82,7 @@ export default function DatabasePage() {
           </div>
         </div>
 
-        <Tabs defaultValue="cards" className="w-full">
+        <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
           <TabsList className="w-full max-w-lg">
             <TabsTrigger value="cards" className="flex-1 gap-1.5">
               <Database className="h-3.5 w-3.5" />

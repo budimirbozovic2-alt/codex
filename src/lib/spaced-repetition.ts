@@ -35,6 +35,16 @@ export interface ErrorLogEntry {
 
 export type ErrorStatus = "critical" | "recovering" | "mastered";
 
+export interface SourceModule {
+  id: string;
+  order: number;
+  articleNum?: string;
+  title: string;
+  question: string;
+  textAnchor: string;
+  originalSourceSnippet: string;
+}
+
 export function getErrorStatus(entry: ErrorLogEntry): ErrorStatus {
   if (entry.successStreak >= 5) return "mastered";
   if (entry.recentSuccesses > entry.count) return "recovering";
@@ -60,6 +70,8 @@ export interface Card {
   needsReview?: boolean;
   keyParts?: string[];
   originalSourceSnippet?: string;  // Raw text from source at creation time (hidden, for linking)
+  childCardIds?: string[];
+  sourceModules?: SourceModule[];
 }
 
 export const CARD_TAGS = [
