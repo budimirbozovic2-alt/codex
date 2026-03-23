@@ -48,6 +48,7 @@ interface Props {
   categories: string[];
   reviewLog: ReviewLogEntry[];
   onBack: () => void;
+  onNavigateToDatabase?: (category: string) => void;
 }
 
 const STATUS_CONFIG = {
