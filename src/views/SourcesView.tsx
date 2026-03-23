@@ -32,7 +32,7 @@ function generateId() {
 }
 
 export default function SourcesView() {
-  const { cards, bulkFlagNeedsReview, exportData } = useAppContext();
+  const { cards, bulkFlagNeedsReview } = useAppContext();
   const [sources, setSources] = useState<Source[]>([]);
   const [importing, setImporting] = useState(false);
   const [importLabel, setImportLabel] = useState("");
