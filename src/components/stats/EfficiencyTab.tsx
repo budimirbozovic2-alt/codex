@@ -6,8 +6,8 @@ import {
   loadSlippageLog, getDeepWorkStats, getTimeDistribution,
   getWeeklyTimeDistribution, RESERVOIR_LABELS, RESERVOIR_COLORS,
 } from "@/lib/metacognitive-storage";
-import {
 import { Clock, AlertTriangle, Activity } from "lucide-react";
+import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, AreaChart, Area, CartesianGrid, Legend,
 } from "recharts";

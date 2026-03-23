@@ -38,8 +38,8 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar as CalendarUI } from "@/components/ui/calendar";
 import { format, differenceInDays, addDays, startOfDay } from "date-fns";
 import { cn } from "@/lib/utils";
-import {
 import { Trash2, Pencil, Clock, BarChart3, GripVertical, RefreshCw, Shield, Flame, ArrowLeft, Target, Plus, Calendar, Zap, TrendingUp, Lightbulb, CheckCircle, AlertTriangle, XCircle, Map as MapIcon } from "lucide-react";
+import {
   AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, Line, ComposedChart,
 } from "recharts";
 

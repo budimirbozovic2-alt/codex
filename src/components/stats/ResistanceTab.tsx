@@ -4,8 +4,8 @@ import { useMemo } from "react";
 import { Card, getCardRetrievability } from "@/lib/spaced-repetition";
 import { ReviewLogEntry } from "@/lib/storage";
 import { loadLatency } from "@/lib/metacognitive-storage";
-import {
 import { Flame, Zap } from "lucide-react";
+import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, CartesianGrid,
 } from "recharts";
 
