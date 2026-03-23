@@ -170,6 +170,18 @@ export default function SourceReader({ source, onBack }: Props) {
           </div>
         </div>
 
+        {/* Auto-split button */}
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setAutoSplitOpen(true)}
+          className="gap-1.5"
+          title="Generiši eseje iz članova"
+        >
+          <Wand2 className="h-3.5 w-3.5" />
+          Auto-Split
+        </Button>
+
         {/* Mode toggle */}
         <div className="flex items-center rounded-lg border border-border bg-muted/50 p-0.5">
           <button
