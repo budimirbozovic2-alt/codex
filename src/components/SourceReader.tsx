@@ -456,7 +456,7 @@ export default function SourceReader({ source, onBack }: Props) {
                 prose-ul:text-foreground/90 prose-ol:text-foreground/90
                 prose-li:text-foreground/90"
               onMouseUp={handleMouseUp}
-              dangerouslySetInnerHTML={{ __html: source.htmlContent }}
+              dangerouslySetInnerHTML={{ __html: safeHtml }}
             />
           )}
 
