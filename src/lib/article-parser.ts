@@ -114,7 +114,10 @@ export function parseArticles(html: string): ParsedArticle[] {
     const start = matches[i].index;
     const end = i + 1 < matches.length ? matches[i + 1].index : plainText.length;
     const text = plainText.slice(start, end).trim();
-    const articleId = `član-${matches[i].number}`;
+    // Include letter suffix (e.g. 10a) to avoid collisions
+    const rawNum = plainText.slice(matches[i].index).match(/(?:Č|č)(?:lan|LANAK|L(?:AN|ANAK)?)\s*\.?\s*(\d+[a-z]?)/i);
+    const articleSuffix = rawNum ? rawNum[1] : String(matches[i].number);
+    const articleId = `član-${articleSuffix}`;
 
     articles.push({
       id: articleId,
