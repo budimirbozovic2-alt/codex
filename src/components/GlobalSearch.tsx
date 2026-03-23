@@ -1,19 +1,32 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import { sanitizeHtml } from "@/lib/sanitize";
 import { useDebounce } from "@/hooks/useDebounce";
 import { Card } from "@/lib/spaced-repetition";
-
-
-
-
+import { loadSources, type Source } from "@/lib/sources-storage";
+import { loadMindMaps } from "@/lib/mindmap-storage";
+import { MindMapDoc } from "@/lib/db";
 import { motion, AnimatePresence } from "framer-motion";
-import { Search, X, BookOpen, Zap } from "lucide-react";
+import { Search, BookOpen, Zap, FileText, Network, ArrowRight } from "lucide-react";
 
 interface Props {
   cards: Card[];
   open: boolean;
   onClose: () => void;
   onNavigateToCard: (card: Card) => void;
+}
+
+type ResultType = "card" | "source" | "mindmap";
+
+interface SearchResult {
+  id: string;
+  type: ResultType;
+  title: string;
+  subtitle?: string;
+  icon: "essay" | "flash" | "source" | "mindmap";
+  card?: Card;
+  sourceId?: string;
+  mindmapId?: string;
 }
 
 function stripHtml(html: string): string {
@@ -28,16 +41,33 @@ function highlightMatch(text: string, query: string): string {
 }
 
 export default function GlobalSearch({ cards, open, onClose, onNavigateToCard }: Props) {
+  const navigate = useNavigate();
   const [query, setQuery] = useState("");
   const debouncedQuery = useDebounce(query, 300);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
+  const [sources, setSources] = useState<Source[]>([]);
+  const [mindMaps, setMindMaps] = useState<MindMapDoc[]>([]);
 
-  const results = useMemo(() => {
+  // Load sources and mind maps when opened
+  useEffect(() => {
+    if (open) {
+      loadSources().then(setSources);
+      loadMindMaps().then(setMindMaps);
+      setQuery("");
+      setSelectedIndex(0);
+      setTimeout(() => inputRef.current?.focus(), 50);
+    }
+  }, [open]);
+
+  const results = useMemo<SearchResult[]>(() => {
     if (!debouncedQuery.trim()) return [];
     const q = debouncedQuery.toLowerCase();
-    return cards
+    const out: SearchResult[] = [];
+
+    // Search cards
+    cards
       .filter((c) => {
         const questionMatch = c.question.toLowerCase().includes(q);
         const contentMatch = c.sections.some((s) =>
@@ -45,27 +75,74 @@ export default function GlobalSearch({ cards, open, onClose, onNavigateToCard }:
         );
         return questionMatch || contentMatch;
       })
-      .slice(0, 20);
-  }, [cards, debouncedQuery]);
+      .slice(0, 12)
+      .forEach((c) => {
+        out.push({
+          id: c.id,
+          type: "card",
+          title: c.question,
+          subtitle: `${c.category}${c.subcategory ? ` › ${c.subcategory}` : ""}`,
+          icon: c.type === "flash" ? "flash" : "essay",
+          card: c,
+        });
+      });
 
-  useEffect(() => {
-    if (open) {
-      setQuery("");
-      setSelectedIndex(0);
-      setTimeout(() => inputRef.current?.focus(), 50);
-    }
-  }, [open]);
+    // Search sources
+    sources
+      .filter((s) => s.label.toLowerCase().includes(q))
+      .slice(0, 5)
+      .forEach((s) => {
+        out.push({
+          id: s.id,
+          type: "source",
+          title: s.label,
+          subtitle: `v${s.version} • ${s.date}`,
+          icon: "source",
+          sourceId: s.id,
+        });
+      });
+
+    // Search mind maps
+    mindMaps
+      .filter((m) => m.title.toLowerCase().includes(q))
+      .slice(0, 5)
+      .forEach((m) => {
+        out.push({
+          id: m.id,
+          type: "mindmap",
+          title: m.title,
+          subtitle: m.mode === "hierarchy" ? "Hijerarhija" : "Postupak",
+          icon: "mindmap",
+          mindmapId: m.id,
+        });
+      });
+
+    return out.slice(0, 20);
+  }, [cards, sources, mindMaps, debouncedQuery]);
 
   useEffect(() => {
     setSelectedIndex(0);
   }, [query]);
 
-  // Scroll selected item into view
   useEffect(() => {
     if (!listRef.current) return;
     const el = listRef.current.children[selectedIndex] as HTMLElement;
     el?.scrollIntoView({ block: "nearest" });
   }, [selectedIndex]);
+
+  const handleSelect = useCallback((result: SearchResult) => {
+    if (result.type === "card" && result.card) {
+      onNavigateToCard(result.card);
+    } else if (result.type === "source") {
+      // Navigate to database sources tab, store sourceId for auto-open
+      sessionStorage.setItem("sr-open-source-id", result.id);
+      navigate("/database");
+    } else if (result.type === "mindmap") {
+      sessionStorage.setItem("sr-open-mindmap-id", result.id);
+      navigate("/mind-map");
+    }
+    onClose();
+  }, [onNavigateToCard, onClose, navigate]);
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (e.key === "ArrowDown") {
@@ -76,14 +153,12 @@ export default function GlobalSearch({ cards, open, onClose, onNavigateToCard }:
       setSelectedIndex((i) => Math.max(i - 1, 0));
     } else if (e.key === "Enter" && results[selectedIndex]) {
       e.preventDefault();
-      onNavigateToCard(results[selectedIndex]);
-      onClose();
+      handleSelect(results[selectedIndex]);
     } else if (e.key === "Escape") {
       onClose();
     }
-  }, [results, selectedIndex, onNavigateToCard, onClose]);
+  }, [results, selectedIndex, handleSelect, onClose]);
 
-  // Global Ctrl+K listener
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key === "k") {
@@ -96,6 +171,28 @@ export default function GlobalSearch({ cards, open, onClose, onNavigateToCard }:
   }, [open, onClose]);
 
   if (!open) return null;
+
+  const iconMap = {
+    essay: <BookOpen className="h-3.5 w-3.5 text-primary shrink-0" />,
+    flash: <Zap className="h-3.5 w-3.5 text-warning shrink-0" />,
+    source: <FileText className="h-3.5 w-3.5 text-success shrink-0" />,
+    mindmap: <Network className="h-3.5 w-3.5 text-accent-foreground shrink-0" />,
+  };
+
+  const typeLabel: Record<ResultType, string> = {
+    card: "Moduli",
+    source: "Izvori",
+    mindmap: "Mentalne mape",
+  };
+
+  // Group results by type
+  const grouped = results.reduce<Record<ResultType, SearchResult[]>>((acc, r) => {
+    if (!acc[r.type]) acc[r.type] = [];
+    acc[r.type].push(r);
+    return acc;
+  }, {} as Record<ResultType, SearchResult[]>);
+
+  let flatIndex = 0;
 
   return (
     <AnimatePresence>
@@ -124,7 +221,7 @@ export default function GlobalSearch({ cards, open, onClose, onNavigateToCard }:
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="Pretraži sve kartice..."
+              placeholder="Pretraži module, izvore, mentalne mape..."
               className="flex-1 py-3.5 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
             />
             <kbd className="hidden sm:inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded border bg-secondary text-[10px] text-muted-foreground font-mono">
@@ -137,41 +234,41 @@ export default function GlobalSearch({ cards, open, onClose, onNavigateToCard }:
             {query.trim() && results.length === 0 && (
               <p className="text-sm text-muted-foreground text-center py-8">Nema rezultata za "{query}"</p>
             )}
-            {results.map((card, i) => {
-              const matchedSection = card.sections.find((s) =>
-                stripHtml(s.content).toLowerCase().includes(query.toLowerCase())
-              );
-              const snippet = matchedSection
-                ? stripHtml(matchedSection.content).slice(0, 100)
-                : "";
-
+            {(["card", "source", "mindmap"] as ResultType[]).map((type) => {
+              const items = grouped[type];
+              if (!items || items.length === 0) return null;
               return (
-                <button
-                  key={card.id}
-                  onClick={() => { onNavigateToCard(card); onClose(); }}
-                  className={`w-full text-left px-3 py-2.5 rounded-lg text-sm transition-colors ${
-                    i === selectedIndex ? "bg-primary/10 text-foreground" : "text-foreground hover:bg-secondary"
-                  }`}
-                >
-                  <div className="flex items-center gap-2">
-                    {card.type === "flash" ? (
-                      <Zap className="h-3.5 w-3.5 text-warning shrink-0" />
-                    ) : (
-                      <BookOpen className="h-3.5 w-3.5 text-primary shrink-0" />
-                    )}
-                    <span
-                      className="font-medium truncate"
-                      dangerouslySetInnerHTML={{ __html: highlightMatch(card.question, query) }}
-                    />
-                  </div>
-                  {snippet && (
-                    <p
-                      className="text-xs text-muted-foreground mt-1 ml-5.5 line-clamp-1"
-                      dangerouslySetInnerHTML={{ __html: highlightMatch(snippet, query) }}
-                    />
-                  )}
-                  <span className="text-[10px] text-muted-foreground/60 ml-5.5">{card.category}{card.subcategory ? ` › ${card.subcategory}` : ""}</span>
-                </button>
+                <div key={type}>
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground px-3 pt-2 pb-1">
+                    {typeLabel[type]}
+                  </p>
+                  {items.map((result) => {
+                    const currentIndex = flatIndex++;
+                    return (
+                      <button
+                        key={result.id}
+                        onClick={() => handleSelect(result)}
+                        className={`w-full text-left px-3 py-2.5 rounded-lg text-sm transition-colors ${
+                          currentIndex === selectedIndex ? "bg-primary/10 text-foreground" : "text-foreground hover:bg-secondary"
+                        }`}
+                      >
+                        <div className="flex items-center gap-2">
+                          {iconMap[result.icon]}
+                          <span
+                            className="font-medium truncate flex-1"
+                            dangerouslySetInnerHTML={{ __html: highlightMatch(result.title, query) }}
+                          />
+                          {result.type !== "card" && (
+                            <ArrowRight className="h-3 w-3 text-muted-foreground shrink-0" />
+                          )}
+                        </div>
+                        {result.subtitle && (
+                          <span className="text-[10px] text-muted-foreground/60 ml-5.5">{result.subtitle}</span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
               );
             })}
           </div>

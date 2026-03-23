@@ -105,11 +105,26 @@ export default function SourcesView() {
     });
   }, [importHtml, importLabel, importDate, importGazette]);
 
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+
   const handleDelete = useCallback(async (id: string) => {
+    const linked = cards.filter(c => c.sourceId === id).length;
+    if (linked > 0) {
+      setDeleteConfirmId(id);
+      return;
+    }
     await deleteSource(id);
     setSources(prev => prev.filter(s => s.id !== id));
-    toast({ title: "Izvor obrisan", description: "Linkovi na karticama su očišćeni." });
-  }, []);
+    toast({ title: "Izvor obrisan" });
+  }, [cards]);
+
+  const confirmDelete = useCallback(async () => {
+    if (!deleteConfirmId) return;
+    await deleteSource(deleteConfirmId);
+    setSources(prev => prev.filter(s => s.id !== deleteConfirmId));
+    setDeleteConfirmId(null);
+    toast({ title: "Izvor obrisan", description: "Linkovi na modulima su očišćeni." });
+  }, [deleteConfirmId]);
 
   const handleEditSource = useCallback((source: Source) => {
     setEditingSource(source);
@@ -257,7 +272,9 @@ export default function SourcesView() {
     return cards.filter(c => c.sourceId === sourceId && c.needsReview).length;
   }, [cards]);
 
-  // Diff view
+  const deleteConfirmSource = sources.find(s => s.id === deleteConfirmId);
+  const deleteLinkedCount = deleteConfirmId ? linkedCardCount(deleteConfirmId) : 0;
+
   if (diffView) {
     return (
       <Suspense fallback={<TabSkeleton />}>
@@ -334,7 +351,7 @@ export default function SourcesView() {
                         {linked > 0 && (
                           <span className="flex items-center gap-1">
                             <Tag className="h-3 w-3" />
-                            {linked} kartica
+                            {linked} modula
                           </span>
                         )}
                         {review > 0 && (
@@ -527,6 +544,36 @@ export default function SourcesView() {
             <Button onClick={handleSaveEdit} disabled={!editLabel.trim()} className="w-full">
               Sačuvaj izmjene
             </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete confirmation dialog */}
+      <Dialog open={!!deleteConfirmId} onOpenChange={v => { if (!v) setDeleteConfirmId(null); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-destructive">
+              <AlertTriangle className="h-5 w-5" />
+              Brisanje izvora
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm">
+              Izvor <strong>"{deleteConfirmSource?.label}"</strong> je povezan sa{" "}
+              <strong className="text-destructive">{deleteLinkedCount} modula</strong>.
+            </p>
+            <p className="text-sm text-muted-foreground">
+              Brisanjem izvora, linkovi na svim povezanim modulima će biti uklonjeni. Sami moduli neće biti obrisani.
+            </p>
+            <div className="flex gap-3">
+              <Button variant="outline" onClick={() => setDeleteConfirmId(null)} className="flex-1">
+                Otkaži
+              </Button>
+              <Button variant="destructive" onClick={confirmDelete} className="flex-1">
+                <Trash2 className="h-4 w-4 mr-1.5" />
+                Obriši ipak
+              </Button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>

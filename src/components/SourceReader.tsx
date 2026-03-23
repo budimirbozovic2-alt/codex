@@ -157,6 +157,31 @@ export default function SourceReader({ source, onBack }: Props) {
     }
   }, [selection]);
 
+  // Keyboard shortcuts: S = smart-split selection, M = toggle sidebar, ESC = close modals
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement;
+      if (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable) return;
+
+      if (e.key === "s" || e.key === "S") {
+        if (selection) {
+          e.preventDefault();
+          handleConvertToEssay();
+        }
+      } else if (e.key === "m" || e.key === "M") {
+        e.preventDefault();
+        setExamOpen(prev => !prev);
+      } else if (e.key === "Escape") {
+        if (essayDialogOpen) setEssayDialogOpen(false);
+        else if (splitSummaryOpen) { setSplitSummaryOpen(false); setSplitResult(null); }
+        else if (autoSplitOpen) setAutoSplitOpen(false);
+        else if (selection) setSelection(null);
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [selection, handleConvertToEssay, essayDialogOpen, splitSummaryOpen, autoSplitOpen]);
+
   const handleSmartSplitConfirm = useCallback(() => {
     if (!splitResult || splitModules.length === 0) return;
     const category = source.label || categories[0] || "Opšte";
@@ -386,10 +411,11 @@ export default function SourceReader({ source, onBack }: Props) {
           size="sm"
           onClick={() => setExamOpen(!examOpen)}
           className="gap-1.5"
-          title="Ispitna pitanja sidebar"
+          title="Ispitna pitanja sidebar (M)"
         >
           <FileQuestion className="h-3.5 w-3.5" />
           {examOpen ? "Zatvori pitanja" : "Pitanja"}
+          <kbd className="hidden sm:inline text-[9px] opacity-60 ml-0.5">M</kbd>
           {examQuestions.filter(q => !q.done).length > 0 && (
             <Badge variant="secondary" className="text-[10px] h-4 min-w-4 px-1">
               {examQuestions.filter(q => !q.done).length}
@@ -470,9 +496,11 @@ export default function SourceReader({ source, onBack }: Props) {
               <button
                 onClick={handleConvertToEssay}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-medium shadow-lg hover:bg-primary/90 transition-colors"
+                title="Prečica: S"
               >
                 <PenSquare className="h-3.5 w-3.5" />
                 Pretvori u esej
+                <kbd className="text-[9px] opacity-70 ml-0.5 border border-primary-foreground/30 rounded px-1">S</kbd>
               </button>
               <div className="w-2.5 h-2.5 bg-primary rotate-45 mx-auto -mt-1.5" />
             </div>

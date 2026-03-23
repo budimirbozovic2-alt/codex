@@ -183,8 +183,23 @@ export default function CardForm({ categories, subcategories, onSave, onSaveFlas
   return (
     <form onSubmit={handleSubmit} className={`space-y-6 ${widthClasses[formWidth]} transition-all duration-300`}>
       <div className="flex items-center justify-between">
-        <h2 className="text-3xl font-serif">{editCard ? "Uredi karticu" : "Nova kartica"}</h2>
+        <h2 className="text-3xl font-serif">{editCard ? "Uredi modul" : "Novi modul"}</h2>
         <div className="flex items-center gap-2">
+          {/* Backlinks: Vidi u izvoru / Vidi u mapi */}
+          {editCard?.sourceId && (
+            <button
+              type="button"
+              onClick={() => {
+                sessionStorage.setItem("sr-open-source-id", editCard.sourceId!);
+                sessionStorage.setItem("sr-database-tab", "sources");
+                window.location.hash = "/database";
+              }}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium bg-success/10 text-success hover:bg-success/20 transition-colors"
+            >
+              <FileText className="h-3.5 w-3.5" />
+              Vidi u izvoru
+            </button>
+          )}
           <div className="hidden md:flex items-center gap-1 bg-secondary rounded-lg p-1">
             {(Object.keys(widthClasses) as FormWidth[]).map((w) => (
               <button
