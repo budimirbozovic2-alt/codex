@@ -9,8 +9,10 @@ import { default as ChevronRight } from "lucide-react/dist/esm/icons/chevron-rig
 import { default as AlertTriangle } from "lucide-react/dist/esm/icons/alert-triangle";
 import { default as Columns } from "lucide-react/dist/esm/icons/columns";
 import { default as AlignLeft } from "lucide-react/dist/esm/icons/align-left";
+import { default as Eye } from "lucide-react/dist/esm/icons/eye";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
 import type { DiffResult, ArticleDiff, DiffSegment } from "@/lib/article-parser";
 
 interface Props {
@@ -23,35 +25,25 @@ interface Props {
 }
 
 const STATUS_CONFIG = {
-  modified: { label: "Izmijenjeno", color: "bg-warning/15 text-warning border-warning/30", icon: Edit3, dotColor: "bg-warning" },
-  added: { label: "Novo", color: "bg-success/15 text-success border-success/30", icon: Plus, dotColor: "bg-success" },
-  removed: { label: "Uklonjeno", color: "bg-destructive/15 text-destructive border-destructive/30", icon: Minus, dotColor: "bg-destructive" },
-  unchanged: { label: "Nepromijenjeno", color: "bg-secondary text-muted-foreground border-border", icon: Check, dotColor: "bg-muted-foreground" },
+  modified: { label: "Izmijenjeno", color: "bg-warning/15 text-warning border-warning/30", icon: Edit3, dotColor: "bg-warning", headerBg: "bg-warning/5 border-warning/20" },
+  added: { label: "Novi član", color: "bg-success/15 text-success border-success/30", icon: Plus, dotColor: "bg-success", headerBg: "bg-success/5 border-success/20" },
+  removed: { label: "Obrisani član", color: "bg-destructive/15 text-destructive border-destructive/30", icon: Minus, dotColor: "bg-destructive", headerBg: "bg-destructive/5 border-destructive/20" },
+  unchanged: { label: "Nepromijenjeno", color: "bg-secondary text-muted-foreground border-border", icon: Check, dotColor: "bg-muted-foreground", headerBg: "bg-secondary/50" },
 } as const;
 
 type ViewMode = "side-by-side" | "inline";
 
-/* ── Inline diff renderer (compact) ── */
+/* ── Inline diff renderer ── */
 function InlineDiffContent({ segments }: { segments: DiffSegment[] }) {
   return (
     <div className="text-sm leading-relaxed whitespace-pre-wrap">
       {segments.map((seg, i) => {
-        if (seg.type === "equal") {
-          return <span key={i} className="text-foreground/70">{seg.text}</span>;
-        }
+        if (seg.type === "equal") return <span key={i} className="text-foreground/70">{seg.text}</span>;
         if (seg.type === "insert") {
-          return (
-            <span key={i} className="bg-success/20 text-success-foreground border-b-2 border-success/40 rounded-sm px-0.5">
-              {seg.text}
-            </span>
-          );
+          return <span key={i} className="bg-success/20 text-success-foreground border-b-2 border-success/40 rounded-sm px-0.5">{seg.text}</span>;
         }
         if (seg.type === "delete") {
-          return (
-            <span key={i} className="bg-destructive/20 text-destructive line-through rounded-sm px-0.5">
-              {seg.text}
-            </span>
-          );
+          return <span key={i} className="bg-destructive/20 text-destructive line-through rounded-sm px-0.5">{seg.text}</span>;
         }
         return null;
       })}
@@ -59,13 +51,11 @@ function InlineDiffContent({ segments }: { segments: DiffSegment[] }) {
   );
 }
 
-/* ── Side-by-side diff renderer (clear) ── */
-function SideBySideDiffContent({ segments, oldText, newText }: { segments: DiffSegment[]; oldText?: string; newText?: string }) {
-  // Build left (old) and right (new) highlighted versions from segments
+/* ── Side-by-side diff renderer ── */
+function SideBySideDiffContent({ segments }: { segments: DiffSegment[] }) {
   const { leftParts, rightParts } = useMemo(() => {
     const left: { text: string; type: "normal" | "removed" }[] = [];
     const right: { text: string; type: "normal" | "added" }[] = [];
-
     for (const seg of segments) {
       if (seg.type === "equal") {
         left.push({ text: seg.text, type: "normal" });
@@ -81,41 +71,29 @@ function SideBySideDiffContent({ segments, oldText, newText }: { segments: DiffS
 
   return (
     <div className="grid grid-cols-2 gap-0 border rounded-lg overflow-hidden">
-      {/* Old version */}
       <div className="border-r">
         <div className="px-3 py-1.5 bg-destructive/5 border-b">
           <span className="text-[10px] font-semibold uppercase tracking-wider text-destructive/70">Stara verzija</span>
         </div>
         <div className="p-3 text-sm leading-relaxed whitespace-pre-wrap">
           {leftParts.map((part, i) => (
-            <span
-              key={i}
-              className={part.type === "removed"
-                ? "bg-destructive/15 text-destructive line-through decoration-destructive/50 rounded-sm px-0.5"
-                : "text-foreground/80"
-              }
-            >
-              {part.text}
-            </span>
+            <span key={i} className={part.type === "removed"
+              ? "bg-destructive/15 text-destructive line-through decoration-destructive/50 rounded-sm px-0.5"
+              : "text-foreground/80"
+            }>{part.text}</span>
           ))}
         </div>
       </div>
-      {/* New version */}
       <div>
         <div className="px-3 py-1.5 bg-success/5 border-b">
           <span className="text-[10px] font-semibold uppercase tracking-wider text-success/70">Nova verzija</span>
         </div>
         <div className="p-3 text-sm leading-relaxed whitespace-pre-wrap">
           {rightParts.map((part, i) => (
-            <span
-              key={i}
-              className={part.type === "added"
-                ? "bg-success/15 text-success-foreground font-medium rounded-sm px-0.5 border-b-2 border-success/30"
-                : "text-foreground/80"
-              }
-            >
-              {part.text}
-            </span>
+            <span key={i} className={part.type === "added"
+              ? "bg-success/15 text-success-foreground font-medium rounded-sm px-0.5 border-b-2 border-success/30"
+              : "text-foreground/80"
+            }>{part.text}</span>
           ))}
         </div>
       </div>
@@ -123,67 +101,60 @@ function SideBySideDiffContent({ segments, oldText, newText }: { segments: DiffS
   );
 }
 
-/* ── Added article content ── */
-function AddedContent({ text }: { text: string }) {
+/* ── Full article content (added/removed) ── */
+function FullArticleContent({ text, status }: { text: string; status: "added" | "removed" }) {
+  const isAdded = status === "added";
   return (
-    <div className="rounded-lg border border-success/30 overflow-hidden">
-      <div className="px-3 py-1.5 bg-success/5 border-b border-success/20">
-        <span className="text-[10px] font-semibold uppercase tracking-wider text-success/70">Novi tekst</span>
+    <div className={`rounded-lg border overflow-hidden ${isAdded ? "border-success/30" : "border-destructive/30"}`}>
+      <div className={`px-3 py-1.5 border-b ${isAdded ? "bg-success/5 border-success/20" : "bg-destructive/5 border-destructive/20"}`}>
+        <span className={`text-[10px] font-semibold uppercase tracking-wider ${isAdded ? "text-success/70" : "text-destructive/70"}`}>
+          {isAdded ? "Novi tekst" : "Uklonjeni tekst"}
+        </span>
       </div>
-      <div className="p-3 text-sm leading-relaxed whitespace-pre-wrap text-foreground/80 bg-success/5">
+      <div className={`p-3 text-sm leading-relaxed whitespace-pre-wrap ${isAdded ? "bg-success/5 text-foreground/80" : "bg-destructive/5 text-foreground/50 line-through"}`}>
         {text}
       </div>
     </div>
   );
 }
 
-/* ── Removed article content ── */
-function RemovedContent({ text }: { text: string }) {
-  return (
-    <div className="rounded-lg border border-destructive/30 overflow-hidden">
-      <div className="px-3 py-1.5 bg-destructive/5 border-b border-destructive/20">
-        <span className="text-[10px] font-semibold uppercase tracking-wider text-destructive/70">Uklonjeni tekst</span>
-      </div>
-      <div className="p-3 text-sm leading-relaxed whitespace-pre-wrap text-foreground/50 line-through bg-destructive/5">
-        {text}
-      </div>
-    </div>
-  );
-}
-
-/* ── Article card ── */
+/* ── Article card with "Promjena u Članu [X]" header ── */
 function DiffArticleCard({ diff, defaultExpanded, viewMode }: { diff: ArticleDiff; defaultExpanded: boolean; viewMode: ViewMode }) {
   const [expanded, setExpanded] = useState(defaultExpanded);
   const config = STATUS_CONFIG[diff.status];
   const Icon = config.icon;
 
-  const renderContent = () => {
-    if (diff.status === "added") {
-      return <AddedContent text={diff.newText || diff.segments.map(s => s.text).join("")} />;
-    }
-    if (diff.status === "removed") {
-      return <RemovedContent text={diff.oldText || diff.segments.map(s => s.text).join("")} />;
-    }
-    if (diff.status === "modified") {
-      return viewMode === "side-by-side"
-        ? <SideBySideDiffContent segments={diff.segments} oldText={diff.oldText} newText={diff.newText} />
-        : <InlineDiffContent segments={diff.segments} />;
-    }
-    return null;
-  };
+  const headerLabel = diff.status === "modified"
+    ? `Promjena u ${diff.articleTitle}`
+    : diff.status === "added"
+    ? `NOVI ČLAN: ${diff.articleTitle}`
+    : diff.status === "removed"
+    ? `OBRISANI ČLAN: ${diff.articleTitle}`
+    : diff.articleTitle;
+
+  const borderColor = diff.status === "modified"
+    ? "border-l-warning"
+    : diff.status === "added"
+    ? "border-l-success"
+    : diff.status === "removed"
+    ? "border-l-destructive"
+    : "border-l-muted-foreground";
 
   return (
-    <div className="rounded-lg border overflow-hidden">
+    <div className={`rounded-lg border overflow-hidden border-l-4 ${borderColor}`}>
       <button
         onClick={() => setExpanded(!expanded)}
-        className="w-full flex items-center gap-3 px-4 py-3 hover:bg-secondary/50 transition-colors text-left"
+        className={`w-full flex items-center gap-3 px-4 py-3 hover:bg-secondary/50 transition-colors text-left ${config.headerBg}`}
       >
-        <div className={`w-2 h-2 rounded-full flex-shrink-0 ${config.dotColor}`} />
+        <Icon className={`h-4 w-4 flex-shrink-0 ${
+          diff.status === "modified" ? "text-warning" :
+          diff.status === "added" ? "text-success" :
+          diff.status === "removed" ? "text-destructive" : "text-muted-foreground"
+        }`} />
         <div className="flex-1 min-w-0">
-          <span className="text-sm font-medium">{diff.articleTitle}</span>
+          <span className="text-sm font-semibold">{headerLabel}</span>
         </div>
         <Badge variant="outline" className={`text-[10px] px-1.5 py-0 border ${config.color}`}>
-          <Icon className="h-2.5 w-2.5 mr-1" />
           {config.label}
         </Badge>
         {expanded
@@ -194,7 +165,13 @@ function DiffArticleCard({ diff, defaultExpanded, viewMode }: { diff: ArticleDif
 
       {expanded && diff.status !== "unchanged" && (
         <div className="border-t px-4 py-3 bg-card">
-          {renderContent()}
+          {diff.status === "added" && <FullArticleContent text={diff.newText || diff.segments.map(s => s.text).join("")} status="added" />}
+          {diff.status === "removed" && <FullArticleContent text={diff.oldText || diff.segments.map(s => s.text).join("")} status="removed" />}
+          {diff.status === "modified" && (
+            viewMode === "side-by-side"
+              ? <SideBySideDiffContent segments={diff.segments} />
+              : <InlineDiffContent segments={diff.segments} />
+          )}
         </div>
       )}
     </div>
@@ -205,13 +182,22 @@ function DiffArticleCard({ diff, defaultExpanded, viewMode }: { diff: ArticleDif
 export default function SourceDiffView({ diffResult, sourceName, oldVersion, newVersion, affectedCardCount, onClose }: Props) {
   const [filterStatus, setFilterStatus] = useState<"all" | "modified" | "added" | "removed">("all");
   const [viewMode, setViewMode] = useState<ViewMode>("side-by-side");
+  const [showAll, setShowAll] = useState(false);
 
   const filtered = useMemo(() => {
-    if (filterStatus === "all") return diffResult.diffs.filter(d => d.status !== "unchanged");
-    return diffResult.diffs.filter(d => d.status === filterStatus);
-  }, [diffResult, filterStatus]);
+    let items = diffResult.diffs;
+    // By default hide unchanged unless showAll is on
+    if (!showAll) {
+      items = items.filter(d => d.status !== "unchanged");
+    }
+    if (filterStatus !== "all") {
+      items = items.filter(d => d.status === filterStatus);
+    }
+    return items;
+  }, [diffResult, filterStatus, showAll]);
 
   const { summary } = diffResult;
+  const totalChanges = summary.modified + summary.added + summary.removed;
 
   return (
     <div className="space-y-4">
@@ -223,10 +209,9 @@ export default function SourceDiffView({ diffResult, sourceName, oldVersion, new
         <div className="flex-1 min-w-0">
           <h2 className="font-semibold text-lg">Poređenje verzija</h2>
           <p className="text-xs text-muted-foreground">
-            {sourceName} — v{oldVersion} → v{newVersion}
+            {sourceName} — v{oldVersion} → v{newVersion} · {totalChanges} {totalChanges === 1 ? "promjena" : "promjena"}
           </p>
         </div>
-        {/* View mode toggle */}
         <div className="flex items-center gap-1 border rounded-md p-0.5">
           <button
             onClick={() => setViewMode("side-by-side")}
@@ -263,25 +248,32 @@ export default function SourceDiffView({ diffResult, sourceName, oldVersion, new
         </div>
       )}
 
-      {/* Filter tabs */}
-      <div className="flex gap-1">
-        {(["all", "modified", "added", "removed"] as const).map(status => {
-          const labels = { all: "Sve promjene", modified: "Izmijenjeno", added: "Novo", removed: "Uklonjeno" };
-          const counts = { all: summary.modified + summary.added + summary.removed, modified: summary.modified, added: summary.added, removed: summary.removed };
-          return (
-            <button
-              key={status}
-              onClick={() => setFilterStatus(status)}
-              className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
-                filterStatus === status
-                  ? "bg-primary text-primary-foreground shadow-sm"
-                  : "text-muted-foreground hover:text-foreground hover:bg-secondary"
-              }`}
-            >
-              {labels[status]} ({counts[status]})
-            </button>
-          );
-        })}
+      {/* Filter tabs + Show all toggle */}
+      <div className="flex items-center justify-between">
+        <div className="flex gap-1">
+          {(["all", "modified", "added", "removed"] as const).map(status => {
+            const labels = { all: "Sve promjene", modified: "Izmijenjeno", added: "Novo", removed: "Uklonjeno" };
+            const counts = { all: totalChanges, modified: summary.modified, added: summary.added, removed: summary.removed };
+            return (
+              <button
+                key={status}
+                onClick={() => setFilterStatus(status)}
+                className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
+                  filterStatus === status
+                    ? "bg-primary text-primary-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground hover:bg-secondary"
+                }`}
+              >
+                {labels[status]} ({counts[status]})
+              </button>
+            );
+          })}
+        </div>
+        <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer">
+          <Eye className="h-3.5 w-3.5" />
+          <span>Prikaži sve</span>
+          <Switch checked={showAll} onCheckedChange={setShowAll} className="scale-75" />
+        </label>
       </div>
 
       {/* Diff list */}
@@ -296,7 +288,11 @@ export default function SourceDiffView({ diffResult, sourceName, oldVersion, new
         ))}
         {filtered.length === 0 && (
           <div className="text-center py-12 text-muted-foreground">
-            <p className="text-sm">Nema promjena za prikazivanje u ovom filteru.</p>
+            <Check className="h-8 w-8 mx-auto mb-2 opacity-40" />
+            <p className="text-sm">Nema promjena za prikazivanje.</p>
+            {!showAll && summary.unchanged > 0 && (
+              <p className="text-xs mt-1">Uključite "Prikaži sve" da vidite {summary.unchanged} nepromijenjenih članova.</p>
+            )}
           </div>
         )}
       </div>

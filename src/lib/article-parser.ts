@@ -2,8 +2,11 @@
  * Article-Level Legal Text Parser & Diff Engine
  *
  * Parses legal documents into structured articles (Član/Stav/Tačka)
- * and provides word-level diff comparison between versions.
+ * and provides character-level diff comparison between versions
+ * using diff-match-patch for precision.
  */
+
+import DiffMatchPatch from "diff-match-patch";
 
 // ─── Types ──────────────────────────────────────────────
 
@@ -178,102 +181,28 @@ function splitHtmlByArticles(html: string, articleNumbers: number[]): string[] {
   return segments;
 }
 
-// ─── Diff Engine ────────────────────────────────────────
+// ─── Diff Engine (diff-match-patch, character-level) ───
 
 /**
- * Word-level diff using a simple LCS-based algorithm.
- * Efficient enough for legal article sizes (typically <2000 words).
+ * Character-level diff using diff-match-patch.
+ * Produces precise diffs even when only a single word changes.
  */
 export function diffTexts(oldText: string, newText: string): DiffSegment[] {
-  const oldWords = tokenize(oldText);
-  const newWords = tokenize(newText);
+  const normalizedOld = oldText.replace(/\s+/g, " ").trim();
+  const normalizedNew = newText.replace(/\s+/g, " ").trim();
 
-  if (oldWords.join(" ") === newWords.join(" ")) {
+  if (normalizedOld === normalizedNew) {
     return [{ type: "equal", text: oldText }];
   }
 
-  const segments = myersDiff(oldWords, newWords);
-  return mergeSegments(segments);
-}
+  const dmp = new DiffMatchPatch();
+  const diffs = dmp.diff_main(normalizedOld, normalizedNew);
+  dmp.diff_cleanupSemantic(diffs);
 
-/** Tokenize text into words preserving whitespace */
-function tokenize(text: string): string[] {
-  return text.split(/(\s+)/).filter(t => t.length > 0);
-}
-
-/** Simple Myers-like diff for word arrays */
-function myersDiff(oldArr: string[], newArr: string[]): DiffSegment[] {
-  const m = oldArr.length;
-  const n = newArr.length;
-
-  // For very large texts, fall back to a simpler approach
-  if (m * n > 1_000_000) {
-    return simpleDiff(oldArr, newArr);
-  }
-
-  // Build LCS table
-  const dp: number[][] = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0));
-  for (let i = 1; i <= m; i++) {
-    for (let j = 1; j <= n; j++) {
-      if (oldArr[i - 1] === newArr[j - 1]) {
-        dp[i][j] = dp[i - 1][j - 1] + 1;
-      } else {
-        dp[i][j] = Math.max(dp[i - 1][j], dp[i][j - 1]);
-      }
-    }
-  }
-
-  // Backtrack to build diff
-  const result: DiffSegment[] = [];
-  let i = m, j = n;
-  while (i > 0 || j > 0) {
-    if (i > 0 && j > 0 && oldArr[i - 1] === newArr[j - 1]) {
-      result.unshift({ type: "equal", text: oldArr[i - 1] });
-      i--; j--;
-    } else if (j > 0 && (i === 0 || dp[i][j - 1] >= dp[i - 1][j])) {
-      result.unshift({ type: "insert", text: newArr[j - 1] });
-      j--;
-    } else {
-      result.unshift({ type: "delete", text: oldArr[i - 1] });
-      i--;
-    }
-  }
-
-  return result;
-}
-
-/** Simple line-by-line diff for very large texts */
-function simpleDiff(oldArr: string[], newArr: string[]): DiffSegment[] {
-  const oldSet = new Set(oldArr);
-  const newSet = new Set(newArr);
-  const result: DiffSegment[] = [];
-
-  // Mark all old words not in new as deleted
-  for (const w of oldArr) {
-    if (!newSet.has(w)) result.push({ type: "delete", text: w });
-    else result.push({ type: "equal", text: w });
-  }
-  // Add new words not in old
-  for (const w of newArr) {
-    if (!oldSet.has(w)) result.push({ type: "insert", text: w });
-  }
-
-  return result;
-}
-
-/** Merge consecutive segments of the same type */
-function mergeSegments(segments: DiffSegment[]): DiffSegment[] {
-  if (segments.length === 0) return [];
-  const merged: DiffSegment[] = [{ ...segments[0] }];
-  for (let i = 1; i < segments.length; i++) {
-    const last = merged[merged.length - 1];
-    if (last.type === segments[i].type) {
-      last.text += segments[i].text;
-    } else {
-      merged.push({ ...segments[i] });
-    }
-  }
-  return merged;
+  return diffs.map(([op, text]) => ({
+    type: op === 0 ? "equal" : op === -1 ? "delete" : "insert",
+    text,
+  }));
 }
 
 // ─── Full Source Diff ───────────────────────────────────
