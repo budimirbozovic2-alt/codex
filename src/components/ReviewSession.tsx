@@ -692,6 +692,15 @@ function ReviewCard({
             </div>
             <div className="flex items-center gap-2 mt-1">
               <p className="text-lg leading-relaxed font-serif flex-1">{card.question}</p>
+              {hasSource && (
+                <button
+                  onClick={() => setSnippetOpen(true)}
+                  className={`p-1.5 rounded-md transition-colors shrink-0 ${card.needsReview ? "text-warning hover:bg-warning/10" : "text-muted-foreground hover:bg-secondary hover:text-foreground"}`}
+                  title="Uporedi sa izvorom"
+                >
+                  <Scale className="h-4 w-4" />
+                </button>
+              )}
             </div>
           </div>
 
