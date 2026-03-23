@@ -60,11 +60,12 @@ export default function TopNav({ onToggleZen, zenActive, onOpenOnboarding }: Pro
   const [mobileOpen, setMobileOpen] = useState(false);
   const [labOpen, setLabOpen] = useState(false);
   const labRef = useRef<HTMLDivElement>(null);
+  const [, startTransition] = useTransition();
 
   const toggleDark = useCallback(() => {
     const next = !dark;
     setDarkState(next);
-    import("@/lib/app-settings").then(m => m.setDarkMode(next));
+    setDarkMode(next);
   }, [dark]);
 
   // Close mega menu on click outside
