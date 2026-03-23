@@ -8,6 +8,7 @@ import { default as RefreshCw } from "lucide-react/dist/esm/icons/refresh-cw";
 import { default as Tag } from "lucide-react/dist/esm/icons/tag";
 import { default as AlertTriangle } from "lucide-react/dist/esm/icons/alert-triangle";
 import { default as GitCompare } from "lucide-react/dist/esm/icons/git-compare-arrows";
+import { default as Pencil } from "lucide-react/dist/esm/icons/pencil";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
