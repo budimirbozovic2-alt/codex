@@ -175,12 +175,16 @@ export default function SourcesView() {
         return articleId ? changedArticleIds.has(articleId) : false;
       });
 
+      // Re-extract gazette info from new version
+      const newGazetteInfo = extractOfficialGazette(htmlWithIds);
+
       // Atomic source update in IDB
       const newSource: Source = {
         ...oldSource,
         htmlContent: htmlWithIds,
         outline,
         articles,
+        officialGazetteInfo: newGazetteInfo || oldSource.officialGazetteInfo,
         version: oldSource.version + 1,
         updatedAt: Date.now(),
         previousVersionId: oldSource.id,

@@ -84,14 +84,24 @@ export function extractArticles(html: string) {
 export function extractOfficialGazette(html: string): string | undefined {
   const parser = new DOMParser();
   const doc = parser.parseFromString(html, "text/html");
-  const elements = Array.from(doc.body.children).slice(0, 20);
+  // Search first 30 elements and also full text for broader coverage
+  const elements = Array.from(doc.body.children).slice(0, 30);
 
   const patterns = [
+    // "Zakon je objavljen u..."
     /zakon\s+je\s+objavljen\s+u[^.]*\./i,
-    /objavljen[a]?\s+(?:je\s+)?u\s+(?:"|„|")?služben[a-z]*\s+(?:list[a-z]*|glasnik[a-z]*)[^.]*\./i,
-    /(?:"|„|")?služben[a-z]*\s+(?:list[a-z]*|glasnik[a-z]*)\s+[A-ZČĆŽŠĐa-zčćžšđ]+[^.]*br\.[^.]*\./i,
-    /sl\.\s*list[^.]*br\.[^.]*\./i,
-    /sl\.\s*glasnik[^.]*br\.[^.]*\./i,
+    // "objavljen(a) (je) u Službenom..."
+    /objavljen[a]?\s+(?:je\s+)?u\s+(?:"|„|")?služben[a-z]*\s+(?:list[a-z]*|glasnik[a-z]*|novin[a-z]*)[^.]*\./i,
+    // "Službeni list/glasnik/novine ... br. ..."
+    /(?:"|„|")?služben[a-z]*\s+(?:list[a-z]*|glasnik[a-z]*|novin[a-z]*)\s+[A-ZČĆŽŠĐa-zčćžšđ]+[^.]*br\.\s*\d[^.]*\./i,
+    // Short forms
+    /sl\.\s*list[^.]*br\.\s*\d[^.]*\./i,
+    /sl\.\s*glasnik[^.]*br\.\s*\d[^.]*\./i,
+    /sl\.\s*novin[a-z]*[^.]*br\.\s*\d[^.]*\./i,
+    // "Narodne novine" (Croatian)
+    /narodn[a-z]*\s+novin[a-z]*[^.]*br\.\s*\d[^.]*\./i,
+    // Broader: any mention with gazette number pattern
+    /(?:"|„|")?služben[a-z]*\s+(?:list[a-z]*|glasnik[a-z]*|novin[a-z]*)[^.]*\d+\/\d{4}[^.]*\./i,
   ];
 
   for (const el of elements) {
@@ -103,6 +113,15 @@ export function extractOfficialGazette(html: string): string | undefined {
       if (match) {
         return match[0].trim();
       }
+    }
+  }
+
+  // Fallback: search entire text (some documents have it deeper)
+  const fullText = doc.body.textContent || "";
+  for (const pattern of patterns) {
+    const match = fullText.match(pattern);
+    if (match) {
+      return match[0].trim();
     }
   }
 
