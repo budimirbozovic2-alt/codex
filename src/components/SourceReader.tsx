@@ -123,7 +123,7 @@ export default function SourceReader({ source, onBack }: Props) {
   useEffect(() => {
     const handleMouseDown = (e: MouseEvent) => {
       const target = e.target as HTMLElement;
-      if (target.closest("[data-source-tooltip]")) return;
+      if (target.closest("[data-source-tooltip]") || target.closest("[data-exam-sidebar]")) return;
       setSelection(null);
     };
     document.addEventListener("mousedown", handleMouseDown);
