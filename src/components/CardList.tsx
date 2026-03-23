@@ -422,7 +422,7 @@ export default function CardList({
   selectionMode, selectedIds, onToggleSelect,
   reorderMode, onReorder,
   categories: propCategories, subcategories: propSubcategories,
-  onMoveCategory, onAssignChapter, onCloneToMnemonic, availableChapters,
+  onMoveCategory, onAssignChapter, onCloneToMnemonic, availableChapters, onAddKeyPart,
 }: Props) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const listRef = useRef<{ scrollToRow: (config: { index: number; align?: string }) => void } | null>(null);
