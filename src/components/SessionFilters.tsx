@@ -15,10 +15,12 @@ interface SessionFiltersProps {
   selectedChapter: string | null;
   filterExamFrequent: boolean;
   examFrequentCount: number;
+  filterType?: "all" | "essay" | "flash";
   onSelectCategory: (cat: string | null) => void;
   onSelectSubcategory: (sub: string | null) => void;
   onSelectChapter: (ch: string | null) => void;
   onToggleExamFrequent: () => void;
+  onFilterTypeChange?: (type: "all" | "essay" | "flash") => void;
 }
 
 export default function SessionFilters({
