@@ -264,6 +264,7 @@ export default function SourceReader({ source, onBack }: Props) {
             </div>
           )}
         </div>
+      </div>
 
       {/* Essay creation dialog */}
       <Dialog open={essayDialogOpen} onOpenChange={setEssayDialogOpen}>
