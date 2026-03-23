@@ -314,6 +314,15 @@ const CardRowInner = memo(function CardRowInner({ card, expanded, highlighted, s
             <p className="font-serif text-lg line-clamp-2">{card.question}</p>
           </div>
           <div className="flex gap-1 flex-shrink-0">
+            {hasSource && (
+              <button
+                onClick={() => setSnippetOpen(true)}
+                className={`p-2 rounded-lg transition-colors ${card.needsReview ? "text-warning bg-warning/10 hover:bg-warning/20" : "text-muted-foreground/50 hover:text-muted-foreground hover:bg-secondary"}`}
+                title={card.needsReview ? "Izvor ažuriran — klikni za poređenje" : "Pogledaj originalni tekst izvora"}
+              >
+                <Scale className="h-4 w-4" />
+              </button>
+            )}
             <button onClick={() => onToggleTag(card.id, "često-na-ispitu")} className={`p-2 rounded-lg transition-colors ${isFrequent ? "text-primary bg-primary/10 hover:bg-primary/20" : "text-muted-foreground/40 hover:text-muted-foreground hover:bg-secondary"}`} title={isFrequent ? "Često na ispitu (klikni da ukloniš)" : "Označi kao često na ispitu"}>
               <Flame className="h-4 w-4" />
             </button>
@@ -339,6 +348,12 @@ const CardRowInner = memo(function CardRowInner({ card, expanded, highlighted, s
           </div>
         </div>
       </div>
+
+      {hasSource && snippetOpen && (
+        <Suspense fallback={null}>
+          <SourceSnippetDialog card={card} open={snippetOpen} onOpenChange={setSnippetOpen} />
+        </Suspense>
+      )}
 
       {expanded && (
         <TextSelectionTooltip cardId={card.id} question={card.question} category={card.category} subcategory={card.subcategory} tags={card.tags} onMarkKeyPart={onAddKeyPart ? (text: string) => onAddKeyPart(card.id, text) : undefined}>
