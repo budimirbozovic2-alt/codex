@@ -662,3 +662,22 @@
   padding: 0 2px;
   color: inherit;
 }
+
+/* ─── INP Optimizations ──────────────────────────── */
+
+/* Eliminate 300ms tap delay on all interactive elements */
+button, a, [role="button"], input, select, textarea {
+  touch-action: manipulation;
+}
+
+/* Optimize nav icon transitions — use GPU-accelerated properties only */
+nav button, nav a {
+  will-change: background-color, color;
+  contain: layout style;
+}
+
+/* Heavy route containers — skip rendering off-screen content */
+main > * {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 500px;
+}
