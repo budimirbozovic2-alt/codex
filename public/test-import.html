@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html><body>
+<script type="module">
+import { db } from '/src/lib/db.ts';
+
+const testHtml = `<p><strong>ZAKON O UPRAVNOM POSTUPKU</strong></p>
+<p></p>
+<p><strong>Pojam podnesaka</strong></p>
+<p>Član 59</p>
+<p>Podnesci su zahtjevi, prijedlozi, prijave i druga saopštenja kojima se stranke obraćaju organima. Oni se mogu podnositi u pisanom obliku ili usmeno na zapisnik kod organa.</p>
+<p></p>
+<p><strong>Neuredan podnesak</strong></p>
+<p>Član 60</p>
+<p>Ako podnesak sadrži neki formalni nedostatak koji sprečava postupanje po podnesku, ili je nerazumljiv ili nepotpun, organ koji je primio takav podnesak pomoći će podnosiocu da nedostatak otkloni, tako što će ga pozvati da u određenom roku ispravi podnesak.</p>
+<p></p>
+<p><strong>Predaja podnesaka</strong></p>
+<p>Član 61</p>
+<p>Podnesci se predaju neposredno organu ili se šalju poštom. Podnesci se mogu podnositi i u obliku elektronskog dokumenta u skladu sa zakonom kojim se uređuje elektronski dokument.</p>
+<p></p>
+<p><strong>Rok za predaju</strong></p>
+<p>Član 62</p>
+<p>Podnesak predat poštom preporučeno, telegrafski ili elektronskim putem, smatra se da je predat organu u roku ako je prije isteka roka predat pošti, odnosno primljen od strane informacionog sistema organa.</p>
+<p></p>
+<p><strong>Ispravka podnesaka</strong></p>
+<p>Član 63</p>
+<p>Stranka može ispraviti ili dopuniti podnesak do donošenja rješenja u prvostepenom postupku. Ispravkom ili dopunom podneska stranka ne može promijeniti zahtjev.</p>`;
+
+const source = {
+  id: crypto.randomUUID(),
+  label: 'Zakon o upravnom postupku',
+  date: '2024-01-15',
+  htmlContent: testHtml,
+  outline: [],
+  articles: [],
+  officialGazetteInfo: 'Sl. list CG, br. 56/2014',
+  version: 1,
+  createdAt: Date.now(),
+  updatedAt: Date.now(),
+};
+
+await db.sources.put(source);
+document.body.innerHTML = '<h1 style="color:green">✅ Test source imported! Go back to /#/database</h1>';
+</script>
+</body></html>

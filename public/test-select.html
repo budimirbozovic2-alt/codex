@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html><body>
+<script type="module">
+// Wait for the app to be ready  
+async function waitForApp() {
+  for (let i = 0; i < 30; i++) {
+    const contentDiv = document.querySelector('.prose');
+    if (contentDiv) return contentDiv;
+    await new Promise(r => setTimeout(r, 500));
+  }
+  return null;
+}
+
+// Navigate to sources reader first
+window.location.hash = '#/database';
+
+setTimeout(async () => {
+  // Find the content div and select text spanning articles 59-61
+  const contentDiv = await waitForApp();
+  if (!contentDiv) {
+    document.title = 'FAIL: no content div';
+    return;
+  }
+  
+  // Find the paragraph elements
+  const paragraphs = contentDiv.querySelectorAll('p');
+  let startP = null, endP = null;
+  for (const p of paragraphs) {
+    const text = p.textContent || '';
+    if (text.includes('Pojam podnesaka')) startP = p;
+    if (text.includes('elektronski dokument')) endP = p;
+  }
+  
+  if (!startP || !endP) {
+    document.title = `FAIL: start=${!!startP} end=${!!endP}`;
+    return;
+  }
+  
+  // Create selection
+  const range = document.createRange();
+  range.setStart(startP.firstChild || startP, 0);
+  range.setEnd(endP.lastChild || endP, (endP.lastChild || endP).textContent.length);
+  
+  const sel = window.getSelection();
+  sel.removeAllRanges();
+  sel.addRange(range);
+  
+  // Dispatch mouseup on the content div
+  contentDiv.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+  
+  document.title = 'SELECTED: ' + sel.toString().substring(0, 50);
+}, 3000);
+</script>
+</body></html>
