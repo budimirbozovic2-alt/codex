@@ -59,9 +59,8 @@ export default function SourcesView() {
     setImportLabel(f.name.replace(/\.docx$/i, ""));
     try {
       const arrayBuffer = await f.arrayBuffer();
-      const mammoth = (await import("mammoth")).default;
-      const result = await mammoth.convertToHtml({ arrayBuffer });
-      setImportHtml(sanitizeHtml(result.value));
+      const html = await parseDocxInWorker(arrayBuffer);
+      setImportHtml(sanitizeHtml(html));
     } catch {
       toast({ title: "Greška", description: "Nije moguće procesirati DOCX fajl.", variant: "destructive" });
     }
