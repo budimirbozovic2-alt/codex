@@ -17,6 +17,7 @@ import { useAppContext } from "@/contexts/AppContext";
 import { createTextAnchor, type Source } from "@/lib/sources-storage";
 import { sanitizeHtml } from "@/lib/sanitize";
 import { analyzeCoverage } from "@/lib/coverage-analysis";
+import { splitSelection, type SelectionModule } from "@/lib/selection-split-engine";
 import { cn } from "@/lib/utils";
 import CoverageArticleList from "@/components/source-reader/CoverageArticleList";
 
@@ -69,6 +70,11 @@ export default function SourceReader({ source, onBack }: Props) {
   const [essayCategory, setEssayCategory] = useState(categories[0] ?? "Opšte");
   const [selectedText, setSelectedText] = useState("");
   const [autoSplitOpen, setAutoSplitOpen] = useState(false);
+  // Smart-split summary state
+  const [splitSummaryOpen, setSplitSummaryOpen] = useState(false);
+  const [splitResult, setSplitResult] = useState<{ modules: SelectionModule[]; rangeLabel: string; parentName: string } | null>(null);
+  const [splitDone, setSplitDone] = useState(false);
+  const [splitCreatedCount, setSplitCreatedCount] = useState(0);
   // Coverage analysis (memoized)
   const coverage = useMemo(
     () => analyzeCoverage(source.id, source.htmlContent, cards),
@@ -115,12 +121,73 @@ export default function SourceReader({ source, onBack }: Props) {
 
   const handleConvertToEssay = useCallback(() => {
     if (!selection) return;
-    setSelectedText(selection.text);
-    setEssayQuestion("");
-    setEssayDialogOpen(true);
+    const text = selection.text;
     setSelection(null);
     window.getSelection()?.removeAllRanges();
+
+    const result = splitSelection(text);
+
+    if (result.hasArticles && result.modules.length > 0) {
+      // Smart-split: show summary and auto-create
+      setSplitResult(result);
+      setSplitDone(false);
+      setSplitCreatedCount(0);
+      setSplitSummaryOpen(true);
+    } else {
+      // Fallback: single essay (no articles detected)
+      setSelectedText(text);
+      setEssayQuestion("");
+      setEssayDialogOpen(true);
+    }
   }, [selection]);
+
+  const handleSmartSplitConfirm = useCallback(() => {
+    if (!splitResult) return;
+    const category = source.label || categories[0] || "Opšte";
+    const { modules, parentName } = splitResult;
+
+    // Build sections and sourceModules for parent card
+    const sections = modules.map((mod) => ({
+      title: mod.title,
+      content: sanitizeHtml(mod.contentHtml),
+    }));
+
+    const sourceModules = modules.map((mod, index) => ({
+      id: crypto.randomUUID(),
+      order: index,
+      articleNum: mod.articleNum,
+      title: mod.title,
+      question: mod.title,
+      textAnchor: createTextAnchor(mod.plainSnippet),
+      originalSourceSnippet: mod.plainSnippet,
+    }));
+
+    const combinedSnippet = modules.map(m => m.plainSnippet).join("\n\n");
+    const anchor = createTextAnchor(combinedSnippet);
+
+    addCard(
+      parentName,
+      sections,
+      category,
+      undefined,
+      undefined,
+      {
+        sourceId: source.id,
+        textAnchor: anchor,
+        originalSourceSnippet: combinedSnippet,
+        childCardIds: sourceModules.map(m => m.id),
+        sourceModules,
+      }
+    );
+
+    setSplitCreatedCount(modules.length);
+    setSplitDone(true);
+
+    toast({
+      title: `Generisano 1 esej sa ${modules.length} modula`,
+      description: `${splitResult.rangeLabel} iz "${source.label}"`,
+    });
+  }, [splitResult, source, categories, addCard]);
 
   const handleCreateEssay = useCallback(() => {
     if (!essayQuestion.trim() || !selectedText) return;
@@ -344,6 +411,81 @@ export default function SourceReader({ source, onBack }: Props) {
               Kreiraj esejsko pitanje
             </Button>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Smart-Split Summary Dialog */}
+      <Dialog open={splitSummaryOpen} onOpenChange={(o) => { if (!o) { setSplitSummaryOpen(false); setSplitResult(null); } }}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Wand2 className="h-5 w-5 text-primary" />
+              {splitDone ? "Generisanje završeno" : "Smart-Split pregled"}
+            </DialogTitle>
+          </DialogHeader>
+
+          {splitDone ? (
+            <div className="space-y-4">
+              <div className="flex items-center gap-3 rounded-lg border border-green-500/30 bg-green-500/10 px-4 py-4">
+                <div className="h-8 w-8 rounded-full bg-green-500/20 flex items-center justify-center">
+                  <PenSquare className="h-4 w-4 text-green-500" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium">
+                    Uspješno generisano 1 esejsko pitanje sa {splitCreatedCount} modula
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    {splitResult?.rangeLabel} • Izvor: "{source.label}"
+                  </p>
+                </div>
+              </div>
+              <Button onClick={() => { setSplitSummaryOpen(false); setSplitResult(null); }} className="w-full">
+                Zatvori
+              </Button>
+            </div>
+          ) : splitResult ? (
+            <div className="space-y-4">
+              <div className="rounded-lg border bg-muted/50 px-4 py-3">
+                <p className="text-sm">
+                  Detektovano <strong className="text-foreground">{splitResult.modules.length}</strong> članova ({splitResult.rangeLabel})
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Biće kreiran 1 esejsko pitanje sa {splitResult.modules.length} modula (cjelina).
+                </p>
+              </div>
+
+              <div className="max-h-60 overflow-y-auto space-y-1 pr-1">
+                {splitResult.modules.map((mod, i) => (
+                  <div key={mod.articleNum} className="flex items-start gap-2 rounded-md border bg-card px-3 py-2">
+                    <Badge variant="outline" className="text-[10px] mt-0.5 flex-shrink-0">
+                      {i + 1}
+                    </Badge>
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium truncate">{mod.title}</p>
+                      <p className="text-xs text-muted-foreground truncate mt-0.5">
+                        {mod.contentText.slice(0, 100)}{mod.contentText.length > 100 ? "..." : ""}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/50 rounded-md p-2">
+                <Badge variant="outline" className="text-[10px]">Backlink</Badge>
+                <span>Svi moduli će biti automatski povezani sa izvorom "{source.label}"</span>
+              </div>
+
+              <div className="flex gap-3">
+                <Button variant="outline" onClick={() => { setSplitSummaryOpen(false); setSplitResult(null); }} className="flex-1">
+                  Otkaži
+                </Button>
+                <Button onClick={handleSmartSplitConfirm} className="flex-1 gap-2">
+                  <Wand2 className="h-4 w-4" />
+                  Potvrdi
+                </Button>
+              </div>
+            </div>
+          ) : null}
         </DialogContent>
       </Dialog>
 
