@@ -92,9 +92,11 @@ export default function ReviewSession({ dueCards, allCards, subcategories, srSet
     if (selectedCategory) filtered = filtered.filter((c) => c.category === selectedCategory);
     if (selectedSubcategory) filtered = filtered.filter((c) => c.subcategory === selectedSubcategory);
     if (selectedChapter) filtered = filtered.filter((c) => c.chapter === selectedChapter);
-    if (filterExamFrequent) filtered = filtered.filter((c) => c.tags?.includes("často-na-ispitu"));
+    if (filterExamFrequent) filtered = filtered.filter((c) => c.tags?.includes("često-na-ispitu"));
+    if (filterType === "essay") filtered = filtered.filter((c) => c.type === "essay");
+    else if (filterType === "flash") filtered = filtered.filter((c) => c.type === "flash");
     return filtered;
-  }, [dueCards, selectedCategory, selectedSubcategory, selectedChapter, filterExamFrequent]);
+  }, [dueCards, selectedCategory, selectedSubcategory, selectedChapter, filterExamFrequent, filterType]);
 
   // Apply same category/tag filters to allCards
   const filteredAllCards = useMemo(() => {
