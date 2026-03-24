@@ -29,6 +29,8 @@ export interface SelectionSplitResult {
 }
 
 const ARTICLE_REGEX = /^(?:Č|č)(?:lan|LANAK|L(?:AN|ANAK)?\.?)\s+(\d+[a-z]?)\.?\s*$/i;
+/** Detect lines that look like HTML headings in plain text (from stripped h1-h3) */
+const HEADING_LINE_REGEX = /^#{1,3}\s+/;
 
 /** Extract first N words from text for fallback title */
 function firstWords(text: string, n = 7): string {
