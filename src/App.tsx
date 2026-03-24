@@ -45,19 +45,19 @@ const App = () => (
                 <MainLayout>
                   <Suspense fallback={<PageSkeleton />}>
                     <Routes>
-                      <Route path="/" element={<DashboardPage />} />
+                      <Route path="/" element={<ErrorBoundary label="Početna"><DashboardPage /></ErrorBoundary>} />
                       <Route path="/review" element={<ErrorBoundary label="Ponavljanje"><ReviewPage /></ErrorBoundary>} />
                       <Route path="/learn" element={<ErrorBoundary label="Učenje"><LearnPage /></ErrorBoundary>} />
-                      <Route path="/create" element={<CreatePage />} />
-                      <Route path="/edit" element={<EditPage />} />
-                      <Route path="/settings" element={<SettingsPage />} />
+                      <Route path="/create" element={<ErrorBoundary label="Kreiranje"><CreatePage /></ErrorBoundary>} />
+                      <Route path="/edit" element={<ErrorBoundary label="Uređivanje"><EditPage /></ErrorBoundary>} />
+                      <Route path="/settings" element={<ErrorBoundary label="Podešavanja"><SettingsPage /></ErrorBoundary>} />
                       <Route path="/stats" element={<ErrorBoundary label="Statistika"><StatsPage /></ErrorBoundary>} />
                       <Route path="/mnemonic" element={<ErrorBoundary label="Mnemonik"><MnemonicPage /></ErrorBoundary>} />
                       <Route path="/planner" element={<ErrorBoundary label="Planer"><PlannerPage /></ErrorBoundary>} />
                       <Route path="/knowledge-map" element={<ErrorBoundary label="Mapa znanja"><KnowledgeMapPage /></ErrorBoundary>} />
                       <Route path="/metacognitive" element={<ErrorBoundary label="Metakognicija"><MetacognitivePage /></ErrorBoundary>} />
                       <Route path="/frequent-errors" element={<ErrorBoundary label="Česte greške"><FrequentErrorsPage /></ErrorBoundary>} />
-                      <Route path="/major-system-settings" element={<MajorSystemPage />} />
+                      <Route path="/major-system-settings" element={<ErrorBoundary label="Major sistem"><MajorSystemPage /></ErrorBoundary>} />
                       <Route path="/database" element={<ErrorBoundary label="Baza podataka"><DatabasePage /></ErrorBoundary>} />
                       <Route path="/speed-reader" element={<ErrorBoundary label="Speed Reader"><SpeedReaderPage /></ErrorBoundary>} />
                       <Route path="/mind-map" element={<ErrorBoundary label="Mapa uma"><MindMapPage /></ErrorBoundary>} />
