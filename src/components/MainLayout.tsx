@@ -64,8 +64,59 @@ const NudgeWatcher = memo(function NudgeWatcher() {
   return null;
 });
 
+/** Isolated wrapper for GlobalSearch — accesses cards via own context */
+const GlobalSearchWrapper = memo(function GlobalSearchWrapper({
+  open, onClose,
+}: { open: boolean; onClose: () => void }) {
+  const { cards, setEditingCard } = useCardContext();
+  const { setView } = useUIContext();
+  if (!open) return null;
+  return (
+    <Suspense fallback={null}>
+      <GlobalSearch
+        cards={cards}
+        open={open}
+        onClose={onClose}
+        onNavigateToCard={(card) => {
+          setEditingCard(card);
+          setView("edit");
+        }}
+      />
+    </Suspense>
+  );
+});
+
+/** Isolated wrapper for DocxImporter — accesses cards via own context */
+const DocxImporterWrapper = memo(function DocxImporterWrapper({
+  open, onClose,
+}: { open: boolean; onClose: () => void }) {
+  const { categories, importCards, addFlashCard } = useCardContext();
+  if (!open) return null;
+  return (
+    <Suspense fallback={null}>
+      <DocxImporter
+        open={open}
+        onClose={onClose}
+        categories={categories}
+        onImport={(docxCards, cat, cardType) => {
+          if (cardType === "flash") {
+            docxCards.forEach(c => {
+              const answer = c.sections.map(s => s.content).join("\n");
+              addFlashCard(c.question, answer, cat);
+            });
+          } else {
+            importCards(docxCards, cat);
+          }
+          onClose();
+        }}
+      />
+    </Suspense>
+  );
+});
+
 export default function MainLayout({ children }: { children: ReactNode }) {
-  const { setView, setEditingCard, cards, categories, importCards, addFlashCard } = useAppContext();
+  // Only UI context — no cards dependency, preventing re-renders on card changes
+  const { setView } = useUIContext();
   const { pathname } = useLocation();
 
   const [docxOpen, setDocxOpen] = useState(false);
