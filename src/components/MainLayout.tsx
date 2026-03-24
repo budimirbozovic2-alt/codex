@@ -75,17 +75,6 @@ export default function MainLayout({ children }: { children: ReactNode }) {
     () => !hasSeenOnboarding(APP_ONBOARDING_KEY)
   );
 
-  // Cache planner config — only re-parse when navigating away from source routes
-  const plannerRef = useRef<PlannerConfig | null>(null);
-  const getPlannerCached = () => {
-    if (!plannerRef.current) plannerRef.current = loadPlanner();
-    return plannerRef.current;
-  };
-
-  // Track previous route for gentle nudge
-  const prevPathRef = useRef(pathname);
-  const nudgeShownRef = useRef(false);
-
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key === "k") {
@@ -96,45 +85,6 @@ export default function MainLayout({ children }: { children: ReactNode }) {
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
   }, []);
-
-  // Invalidate planner cache when visiting planner page (user may have changed settings)
-  useEffect(() => {
-    if (pathname === "/planner") plannerRef.current = null;
-  }, [pathname]);
-
-  // Gentle nudge: show toast when leaving source/database route with unmet daily quota
-  useEffect(() => {
-    const prevPath = prevPathRef.current;
-    prevPathRef.current = pathname;
-
-    // Only trigger when navigating AWAY from source routes
-    if (!SOURCE_ROUTES.some(r => prevPath.startsWith(r))) return;
-    if (SOURCE_ROUTES.some(r => pathname.startsWith(r))) return;
-    if (nudgeShownRef.current) return;
-
-    try {
-      const planner = getPlannerCached();
-      if (!planner.finalGoalDate || planner.phases.length === 0) return;
-
-      const velocity = calcVelocity([], 7); // lightweight check
-      const suggestion = getSmartSuggestion(null, cards, planner.finalGoalDate, velocity, planner.bufferPercent ?? 15);
-      if (!suggestion || suggestion.suggestedToday <= 0) return;
-
-      const dailyDone = getDailyMappedCount();
-      const remaining = suggestion.suggestedToday - dailyDone;
-
-      if (remaining > 0 && dailyDone < suggestion.suggestedToday) {
-        nudgeShownRef.current = true;
-        toast({
-          title: "📌 Ostani fokusiran",
-          description: `Preostalo ti je još ${remaining} od ${suggestion.suggestedToday} planiranih sekcija za danas.`,
-          duration: 5000,
-        });
-        // Reset nudge flag after 30 min so it can show again
-        setTimeout(() => { nudgeShownRef.current = false; }, 30 * 60 * 1000);
-      }
-    } catch {}
-  }, [pathname, cards]);
 
   return (
     <div className="min-h-screen flex flex-col w-full">
