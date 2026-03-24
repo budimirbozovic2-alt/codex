@@ -115,9 +115,9 @@ export function loadLatency(): LatencyEntry[] {
 
 export function saveLatency(entries: LatencyEntry[]) {
   _latencyCache = entries;
-  db.latencyLog.clear().then(() => {
-    if (entries.length > 0) db.latencyLog.bulkAdd(entries).catch(() => {});
-  }).catch(() => {});
+  if (entries.length > 0) {
+    db.latencyLog.bulkPut(entries).catch(() => {});
+  }
 }
 
 export function addLatencyEntry(entry: LatencyEntry) {
