@@ -1,9 +1,10 @@
-import { useAppContext } from "@/contexts/AppContext";
+import { useCardContext, useUIContext } from "@/contexts/AppContext";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import MyStats from "@/components/MyStats";
 
 export default function StatsPage() {
-  const { cards, categories, subcategories, categoryStats, reviewLog, srSettings, setView } = useAppContext();
+  const { cards, categories, subcategories, categoryStats, reviewLog, srSettings } = useCardContext();
+  const { setView } = useUIContext();
 
   return (
     <ErrorBoundary label="Statistike" onNavigateHome={() => setView("dashboard")}>

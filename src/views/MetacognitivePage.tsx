@@ -1,9 +1,10 @@
-import { useAppContext } from "@/contexts/AppContext";
+import { useCardContext, useUIContext } from "@/contexts/AppContext";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import MetacognitiveCenter from "@/components/MetacognitiveCenter";
 
 export default function MetacognitivePage() {
-  const { cards, categories, reviewLog, srSettings, setView, clearErrorLog } = useAppContext();
+  const { cards, categories, reviewLog, srSettings, clearErrorLog } = useCardContext();
+  const { setView } = useUIContext();
 
   return (
     <ErrorBoundary label="Metakognicija" onNavigateHome={() => setView("dashboard")}>

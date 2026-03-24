@@ -1,13 +1,10 @@
-import { useAppContext } from "@/contexts/AppContext";
+import { useCardContext, useUIContext } from "@/contexts/AppContext";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import KnowledgeMap from "@/components/KnowledgeMap";
 
 export default function KnowledgeMapPage() {
-  const {
-    cards, categories, subcategories,
-    bulkUpdateChapter, reviewSection, setView,
-    reorderCategories, reorderSubcategories,
-  } = useAppContext();
+  const { cards, categories, subcategories, bulkUpdateChapter, reviewSection, reorderCategories, reorderSubcategories } = useCardContext();
+  const { setView } = useUIContext();
 
   return (
     <ErrorBoundary label="Mapa znanja" onNavigateHome={() => setView("dashboard")}>

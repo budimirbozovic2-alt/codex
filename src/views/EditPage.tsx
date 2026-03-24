@@ -1,13 +1,13 @@
-import { useAppContext } from "@/contexts/AppContext";
+import { useCardContext, useUIContext } from "@/contexts/AppContext";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import CardForm from "@/components/CardForm";
 import { useEffect, useRef } from "react";
 
 export default function EditPage() {
-  const { categories, subcategories, updateCard, setView, editingCard, setEditingCard, view } = useAppContext();
+  const { categories, subcategories, updateCard } = useCardContext();
+  const { setView, editingCard, setEditingCard } = useUIContext();
   const previousViewRef = useRef<string | null>(null);
 
-  // Store the view that was active before navigating to edit
   useEffect(() => {
     const stored = sessionStorage.getItem("sr-edit-return-view");
     if (stored) previousViewRef.current = stored;

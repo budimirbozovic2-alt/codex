@@ -795,28 +795,34 @@ export function useCards() {
         updateSRSettings({ ...DEFAULT_SR_SETTINGS, ...parsed.srSettings });
       }
 
-      // Restore sources & mindMaps (v3+)
+      // Restore sources & mindMaps (v3+) — surgical upsert (no clear())
       if (Array.isArray(parsed.sources) || Array.isArray(parsed.mindMaps)) {
         const { db } = await import("@/lib/db");
         if (Array.isArray(parsed.sources) && parsed.sources.length > 0) {
-          if (strategy === "overwrite") {
-            await db.sources.clear();
-          }
           const sanitizedSources = parsed.sources.map((src: any) => ({
             ...src,
             htmlContent: sanitizeHtml(src.htmlContent ?? ""),
           }));
           await db.sources.bulkPut(sanitizedSources);
+          if (strategy === "overwrite") {
+            const importedIds = new Set(sanitizedSources.map((s: any) => s.id));
+            const allKeys = await db.sources.toCollection().primaryKeys();
+            const toDelete = allKeys.filter(k => !importedIds.has(k as string));
+            if (toDelete.length > 0) await db.sources.bulkDelete(toDelete);
+          }
         }
         if (Array.isArray(parsed.mindMaps) && parsed.mindMaps.length > 0) {
-          if (strategy === "overwrite") {
-            await db.mindMaps.clear();
-          }
           await db.mindMaps.bulkPut(parsed.mindMaps);
+          if (strategy === "overwrite") {
+            const importedIds = new Set(parsed.mindMaps.map((m: any) => m.id));
+            const allKeys = await db.mindMaps.toCollection().primaryKeys();
+            const toDelete = allKeys.filter(k => !importedIds.has(k as string));
+            if (toDelete.length > 0) await db.mindMaps.bulkDelete(toDelete);
+          }
         }
       }
 
-      // Restore metacognitive + planner IDB tables (v4+)
+      // Restore metacognitive + planner IDB tables (v4+) — surgical upsert
       const idbTables: { key: string; table: string }[] = [
         { key: "diary", table: "diary" },
         { key: "calibrationLog", table: "calibrationLog" },
@@ -831,10 +837,13 @@ export function useCards() {
         const { db } = await import("@/lib/db");
         for (const { key, table } of idbTables) {
           if (Array.isArray(parsed[key]) && parsed[key].length > 0) {
-            if (strategy === "overwrite") {
-              await (db as any)[table].clear();
-            }
             await (db as any)[table].bulkPut(parsed[key]);
+            if (strategy === "overwrite") {
+              const importedIds = new Set(parsed[key].map((r: any) => r.id));
+              const allKeys = await (db as any)[table].toCollection().primaryKeys();
+              const toDelete = allKeys.filter((k: any) => !importedIds.has(k));
+              if (toDelete.length > 0) await (db as any)[table].bulkDelete(toDelete);
+            }
           }
         }
       }

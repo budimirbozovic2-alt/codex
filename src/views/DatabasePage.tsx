@@ -1,12 +1,7 @@
 import { useState, lazy, Suspense, useEffect } from "react";
-import { useAppContext } from "@/contexts/AppContext";
+import { useCardContext, useUIContext } from "@/contexts/AppContext";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-
-
-
-
-
 import { TabSkeleton } from "@/components/ui/page-skeleton";
 import InfoPanel from "@/components/InfoPanel";
 import { Database, FolderOpen, Download, FileText, BookOpen } from "lucide-react";
@@ -18,7 +13,8 @@ const ExportImportDialog = lazy(() => import("@/components/ExportImportDialog"))
 const DocxImporter = lazy(() => import("@/components/DocxImporter"));
 
 export default function DatabasePage() {
-  const { cards, categories, subcategories, exportData, exportTemplate, importData, importCards, addFlashCard, setView } = useAppContext();
+  const { cards, categories, exportData, exportTemplate, importData, importCards, addFlashCard } = useCardContext();
+  const { setView } = useUIContext();
   const [exportOpen, setExportOpen] = useState(false);
   const [docxOpen, setDocxOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<"cards" | "categories" | "sources">(() => {

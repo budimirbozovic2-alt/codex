@@ -1,4 +1,4 @@
-import { useAppContext } from "@/contexts/AppContext";
+import { useCardContext, useUIContext } from "@/contexts/AppContext";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import CategoryManager from "@/components/CategoryManager";
 
@@ -7,8 +7,8 @@ export default function CategoriesPage() {
     categories, subcategories, cardCountByCategory,
     addCategory, renameCategory, deleteCategory,
     addSubcategory, renameSubcategory, deleteSubcategory,
-    setView,
-  } = useAppContext();
+  } = useCardContext();
+  const { setView } = useUIContext();
 
   return (
     <ErrorBoundary label="Kategorije" onNavigateHome={() => setView("dashboard")}>

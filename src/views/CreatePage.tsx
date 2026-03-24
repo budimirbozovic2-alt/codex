@@ -1,9 +1,10 @@
-import { useAppContext } from "@/contexts/AppContext";
+import { useCardContext, useUIContext } from "@/contexts/AppContext";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import CardForm from "@/components/CardForm";
 
 export default function CreatePage() {
-  const { categories, subcategories, addCard, addFlashCard, setView, setEditingCard } = useAppContext();
+  const { categories, subcategories, addCard, addFlashCard } = useCardContext();
+  const { setView, setEditingCard } = useUIContext();
 
   return (
     <ErrorBoundary label="Nova kartica" onNavigateHome={() => setView("dashboard")}>

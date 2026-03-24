@@ -21,7 +21,7 @@ import {
 } from "@/lib/sources-storage";
 import { compareVersions, getChangedArticleIds, matchAnchorToArticle, parseArticles, type DiffResult } from "@/lib/article-parser";
 import { parseDocxInWorker } from "@/lib/docx-parser";
-import { useAppContext } from "@/contexts/AppContext";
+import { useCardContext } from "@/contexts/AppContext";
 import { db, idbLoadCards, idbLoadCategories, idbLoadSubcategories, idbLoadReviewLog, idbLoadSettings } from "@/lib/db";
 import { TabSkeleton } from "@/components/ui/page-skeleton";
 import { normalizeMatchText, stripHtmlText } from "@/lib/source-coverage";
@@ -35,7 +35,7 @@ function generateId() {
 }
 
 export default function SourcesView() {
-  const { cards, bulkFlagNeedsReview } = useAppContext();
+  const { cards, bulkFlagNeedsReview } = useCardContext();
   const [sources, setSources] = useState<Source[]>([]);
   const [importing, setImporting] = useState(false);
   const [importLabel, setImportLabel] = useState("");

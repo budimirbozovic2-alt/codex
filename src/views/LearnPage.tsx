@@ -1,31 +1,27 @@
 import { useEffect, useCallback } from "react";
-import { useAppContext } from "@/contexts/AppContext";
+import { useCardContext, useUIContext } from "@/contexts/AppContext";
 import { useSessionContext, QueuedReview, QueuedError, QueuedMarkRead } from "@/contexts/SessionContext";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import LearnSession from "@/components/LearnSession";
 import { Card } from "@/lib/spaced-repetition";
 
 export default function LearnPage() {
-  const { cards, categories, subcategories, markRead, reviewSection, setView, stats, reviewLog, setEditingCard, addKeyPart } = useAppContext();
+  const { cards, categories, subcategories, markRead, reviewSection, stats, reviewLog, addKeyPart } = useCardContext();
+  const { setView, setEditingCard } = useUIContext();
   const session = useSessionContext();
 
-  // Start session on mount
   useEffect(() => {
     session.startSession(cards, reviewLog);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleMarkRead = useCallback((id: string) => {
-    if (session.isSessionActive) {
-      session.queueMarkRead(id);
-    }
+    if (session.isSessionActive) session.queueMarkRead(id);
     markRead(id);
   }, [session, markRead]);
 
   const handleReviewSection = useCallback((cardId: string, sectionId: string, grade: number) => {
-    if (session.isSessionActive) {
-      session.queueReview(cardId, sectionId, grade);
-    }
+    if (session.isSessionActive) session.queueReview(cardId, sectionId, grade);
     reviewSection(cardId, sectionId, grade);
   }, [session, reviewSection]);
 

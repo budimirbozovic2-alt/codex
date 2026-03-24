@@ -1,9 +1,10 @@
-import { useAppContext } from "@/contexts/AppContext";
+import { useCardContext, useUIContext } from "@/contexts/AppContext";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import SRSettingsPanel from "@/components/SRSettingsPanel";
 
 export default function SettingsPage() {
-  const { srSettings, updateSRSettings, setView } = useAppContext();
+  const { srSettings, updateSRSettings } = useCardContext();
+  const { setView } = useUIContext();
 
   return (
     <ErrorBoundary label="Podešavanja" onNavigateHome={() => setView("dashboard")}>

@@ -1,5 +1,5 @@
 import { useState, useMemo, lazy, Suspense } from "react";
-import { useAppContext } from "@/contexts/AppContext";
+import { useCardContext, useUIContext } from "@/contexts/AppContext";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import Dashboard from "@/components/Dashboard";
 import EmptyState from "@/components/EmptyState";
@@ -10,7 +10,8 @@ import { HelpCircle } from "lucide-react";
 const DashboardOnboarding = lazy(() => import("@/components/DashboardOnboarding"));
 
 export default function DashboardPage() {
-  const { cards, stats, categoryStats, categories, subcategories, reviewLog, srSettings, setView } = useAppContext();
+  const { cards, stats, categoryStats, categories, subcategories, reviewLog, srSettings } = useCardContext();
+  const { setView } = useUIContext();
   const [showOnboarding, setShowOnboarding] = useState(false);
 
   const lastSourceLabel = useMemo(() => {
