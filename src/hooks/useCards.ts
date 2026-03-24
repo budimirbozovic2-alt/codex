@@ -127,6 +127,14 @@ export function useCards() {
 
     (async () => {
       try {
+        splashProgress(5, "Otvaranje baze…");
+        const dbOk = await ensureDbOpen(6000);
+        if (!dbOk) {
+          console.warn("[boot] DB unavailable — starting in fallback mode");
+          splashProgress(100, "Pokretanje bez baze…");
+          return;
+        }
+
         splashProgress(10, "Migracija podataka…");
         await migrateFromLocalStorage();
 
