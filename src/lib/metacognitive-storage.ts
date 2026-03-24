@@ -1,44 +1,48 @@
-import { ReviewLogEntry, loadReviewLog } from "./storage";
+import { ReviewLogEntry } from "./storage";
 import { db } from "./db";
 
-// ─── IDB→localStorage hydration ─────────────────────────
-// Ensures localStorage cache stays in sync with IDB (source of truth).
-// Called once at boot after IDB is confirmed open.
-const HYDRATION_KEYS = {
-  diary: "sr-metacognitive-diary",
-  calibration: "sr-calibration-log",
-  latency: "sr-recall-latency",
-  slippage: "sr-slippage-log",
-  activity: "sr-activity-log",
-} as const;
+// ═══════════════════════════════════════════════════════════
+// IN-MEMORY CACHE — populated from IDB at boot, no localStorage
+// ═══════════════════════════════════════════════════════════
+let _diaryCache: DiaryEntry[] = [];
+let _calibrationCache: CalibrationEntry[] = [];
+let _latencyCache: LatencyEntry[] = [];
+let _slippageCache: SlippageEntry[] = [];
+let _activityCache: ActivityEntry[] = [];
+let _lastAnalysisDate: string | null = null;
+let _appEntry: { date: string; time: number; actionRecorded?: boolean } | null = null;
+let _cacheReady = false;
 
-export async function hydrateLocalStorageFromIDB(): Promise<void> {
+/**
+ * Initialize all metacognitive caches from IndexedDB.
+ * Called once at boot after ensureDbOpen succeeds.
+ */
+export async function initMetacognitiveCache(): Promise<void> {
   try {
-    const [diary, calibration, latency, slippage, activity] = await Promise.all([
+    const [diary, calibration, latency, slippage, activity, analysisRow, appEntryRow] = await Promise.all([
       db.diary.toArray(),
       db.calibrationLog.toArray(),
       db.latencyLog.toArray(),
       db.slippageLog.toArray(),
       db.activityLog.toArray(),
+      db.settings.get("lastAnalysisDate"),
+      db.settings.get("appEntry"),
     ]);
-    // Only hydrate if localStorage is empty but IDB has data
-    if (!localStorage.getItem(HYDRATION_KEYS.diary) && diary.length > 0)
-      localStorage.setItem(HYDRATION_KEYS.diary, JSON.stringify(diary));
-    if (!localStorage.getItem(HYDRATION_KEYS.calibration) && calibration.length > 0)
-      localStorage.setItem(HYDRATION_KEYS.calibration, JSON.stringify(calibration));
-    if (!localStorage.getItem(HYDRATION_KEYS.latency) && latency.length > 0)
-      localStorage.setItem(HYDRATION_KEYS.latency, JSON.stringify(latency));
-    if (!localStorage.getItem(HYDRATION_KEYS.slippage) && slippage.length > 0)
-      localStorage.setItem(HYDRATION_KEYS.slippage, JSON.stringify(slippage));
-    if (!localStorage.getItem(HYDRATION_KEYS.activity) && activity.length > 0)
-      localStorage.setItem(HYDRATION_KEYS.activity, JSON.stringify(activity));
+    _diaryCache = diary;
+    _calibrationCache = calibration;
+    _latencyCache = latency;
+    _slippageCache = slippage;
+    _activityCache = activity;
+    _lastAnalysisDate = analysisRow?.value ?? null;
+    _appEntry = appEntryRow?.value ?? null;
+    _cacheReady = true;
   } catch (err) {
-    console.warn("[hydrate] IDB→localStorage hydration failed", err);
+    console.warn("[metacognitive] cache init failed, using empty defaults", err);
+    _cacheReady = true;
   }
 }
 
 // ─── Diary ───────────────────────────────────────────────
-const DIARY_KEY = "sr-metacognitive-diary";
 
 export interface DiaryEntry {
   id: string;
@@ -49,15 +53,11 @@ export interface DiaryEntry {
 }
 
 export function loadDiary(): DiaryEntry[] {
-  try {
-    const data = localStorage.getItem(DIARY_KEY);
-    return data ? JSON.parse(data) : [];
-  } catch { return []; }
+  return _diaryCache;
 }
 
 export function saveDiary(entries: DiaryEntry[]) {
-  try { localStorage.setItem(DIARY_KEY, JSON.stringify(entries)); } catch {}
-  // Async IDB backup
+  _diaryCache = entries;
   db.diary.clear().then(() => {
     if (entries.length > 0) db.diary.bulkPut(entries).catch(() => {});
   }).catch(() => {});
@@ -65,7 +65,7 @@ export function saveDiary(entries: DiaryEntry[]) {
 
 export function addDiaryEntry(entry: Omit<DiaryEntry, "id" | "createdAt">): DiaryEntry {
   const full: DiaryEntry = { ...entry, id: crypto.randomUUID(), createdAt: Date.now() };
-  const diary = loadDiary();
+  const diary = [..._diaryCache];
   const idx = diary.findIndex(d => d.date === entry.date);
   if (idx >= 0) diary[idx] = full; else diary.push(full);
   saveDiary(diary);
@@ -73,7 +73,6 @@ export function addDiaryEntry(entry: Omit<DiaryEntry, "id" | "createdAt">): Diar
 }
 
 // ─── Calibration (confidence before reveal) ──────────────
-const CALIBRATION_KEY = "sr-calibration-log";
 
 export interface CalibrationEntry {
   timestamp: number;
@@ -85,27 +84,22 @@ export interface CalibrationEntry {
 }
 
 export function loadCalibration(): CalibrationEntry[] {
-  try {
-    const data = localStorage.getItem(CALIBRATION_KEY);
-    return data ? JSON.parse(data) : [];
-  } catch { return []; }
+  return _calibrationCache;
 }
 
 export function saveCalibration(entries: CalibrationEntry[]) {
-  try { localStorage.setItem(CALIBRATION_KEY, JSON.stringify(entries)); } catch {}
+  _calibrationCache = entries;
   db.calibrationLog.clear().then(() => {
     if (entries.length > 0) db.calibrationLog.bulkAdd(entries).catch(() => {});
   }).catch(() => {});
 }
 
 export function addCalibrationEntry(entry: CalibrationEntry) {
-  const log = loadCalibration();
-  log.push(entry);
-  saveCalibration(log);
+  _calibrationCache = [..._calibrationCache, entry];
+  db.calibrationLog.add(entry).catch(() => {});
 }
 
 // ─── Recall Latency ──────────────────────────────────────
-const LATENCY_KEY = "sr-recall-latency";
 
 export interface LatencyEntry {
   timestamp: number;
@@ -116,44 +110,37 @@ export interface LatencyEntry {
 }
 
 export function loadLatency(): LatencyEntry[] {
-  try {
-    const data = localStorage.getItem(LATENCY_KEY);
-    return data ? JSON.parse(data) : [];
-  } catch { return []; }
+  return _latencyCache;
 }
 
 export function saveLatency(entries: LatencyEntry[]) {
-  try { localStorage.setItem(LATENCY_KEY, JSON.stringify(entries)); } catch {}
+  _latencyCache = entries;
   db.latencyLog.clear().then(() => {
     if (entries.length > 0) db.latencyLog.bulkAdd(entries).catch(() => {});
   }).catch(() => {});
 }
 
 export function addLatencyEntry(entry: LatencyEntry) {
-  const log = loadLatency();
-  log.push(entry);
-  saveLatency(log);
+  _latencyCache = [..._latencyCache, entry];
+  db.latencyLog.add(entry).catch(() => {});
 }
 
 // ─── Self-analysis reminder ─────────────────────────────
-const LAST_ANALYSIS_KEY = "sr-last-analysis-date";
 
 export function getLastAnalysisDate(): string | null {
-  return localStorage.getItem(LAST_ANALYSIS_KEY);
+  return _lastAnalysisDate;
 }
 
 export function setLastAnalysisDate(date: string) {
-  localStorage.setItem(LAST_ANALYSIS_KEY, date);
+  _lastAnalysisDate = date;
   db.settings.put({ key: "lastAnalysisDate", value: date }).catch(() => {});
 }
 
-export function isAnalysisNeededToday(): boolean {
+export function isAnalysisNeededToday(reviewLog: ReviewLogEntry[]): boolean {
   const today = new Date().toISOString().slice(0, 10);
-  const last = getLastAnalysisDate();
-  if (last === today) return false;
-  const log = loadReviewLog();
+  if (_lastAnalysisDate === today) return false;
   const todayStart = new Date(today).getTime();
-  return log.some(e => e.timestamp >= todayStart);
+  return reviewLog.some(e => e.timestamp >= todayStart);
 }
 
 // ─── Aggregation helpers ─────────────────────────────────
@@ -189,8 +176,6 @@ export function getLatencyStats(entries: LatencyEntry[]) {
 }
 
 // ─── Slippage Tracking ──────────────────────────────────
-const SLIPPAGE_KEY = "sr-slippage-log";
-const APP_ENTRY_KEY = "sr-app-entry-time";
 
 export interface SlippageEntry {
   date: string;
@@ -201,48 +186,32 @@ export interface SlippageEntry {
 
 export function recordAppEntry() {
   const today = new Date().toISOString().slice(0, 10);
-  const existing = localStorage.getItem(APP_ENTRY_KEY);
-  if (existing) {
-    try {
-      const parsed = JSON.parse(existing);
-      if (parsed.date === today) return;
-    } catch {}
-  }
-  const entry = { date: today, time: Date.now() };
-  localStorage.setItem(APP_ENTRY_KEY, JSON.stringify(entry));
-  db.settings.put({ key: "appEntry", value: entry }).catch(() => {});
+  if (_appEntry && _appEntry.date === today) return;
+  _appEntry = { date: today, time: Date.now() };
+  db.settings.put({ key: "appEntry", value: _appEntry }).catch(() => {});
 }
 
 export function recordFirstAction() {
-  const entryRaw = localStorage.getItem(APP_ENTRY_KEY);
-  if (!entryRaw) return;
+  if (!_appEntry) return;
   try {
-    const entry = JSON.parse(entryRaw);
     const today = new Date().toISOString().slice(0, 10);
-    if (entry.date !== today || entry.actionRecorded) return;
+    if (_appEntry.date !== today || _appEntry.actionRecorded) return;
 
-    const slippageMs = Date.now() - entry.time;
-    entry.actionRecorded = true;
-    localStorage.setItem(APP_ENTRY_KEY, JSON.stringify(entry));
-    db.settings.put({ key: "appEntry", value: entry }).catch(() => {});
+    const slippageMs = Date.now() - _appEntry.time;
+    _appEntry = { ..._appEntry, actionRecorded: true };
+    db.settings.put({ key: "appEntry", value: _appEntry }).catch(() => {});
 
-    const slippageEntry: SlippageEntry = { date: today, appEntryTime: entry.time, firstActionTime: Date.now(), slippageMs };
-    const log = loadSlippageLog();
-    log.push(slippageEntry);
-    try { localStorage.setItem(SLIPPAGE_KEY, JSON.stringify(log)); } catch {}
+    const slippageEntry: SlippageEntry = { date: today, appEntryTime: _appEntry.time, firstActionTime: Date.now(), slippageMs };
+    _slippageCache = [..._slippageCache, slippageEntry];
     db.slippageLog.add(slippageEntry).catch(() => {});
   } catch {}
 }
 
 export function loadSlippageLog(): SlippageEntry[] {
-  try {
-    const data = localStorage.getItem(SLIPPAGE_KEY);
-    return data ? JSON.parse(data) : [];
-  } catch { return []; }
+  return _slippageCache;
 }
 
 // ─── Activity Time Tracking ─────────────────────────────
-const ACTIVITY_KEY = "sr-activity-log";
 
 export type ActivityType = "review" | "learn-active" | "learn-free" | "learn-chain" | "mnemonic-test" | "mnemonic-workshop" | "admin" | "analysis";
 
@@ -287,17 +256,11 @@ export const RESERVOIR_COLORS: Record<TimeReservoir, string> = {
 };
 
 export function loadActivityLog(): ActivityEntry[] {
-  try {
-    const data = localStorage.getItem(ACTIVITY_KEY);
-    return data ? JSON.parse(data) : [];
-  } catch { return []; }
+  return _activityCache;
 }
 
 export function addActivityEntry(entry: ActivityEntry) {
-  const log = loadActivityLog();
-  log.push(entry);
-  try { localStorage.setItem(ACTIVITY_KEY, JSON.stringify(log)); } catch {}
-  // IDB backup
+  _activityCache = [..._activityCache, entry];
   db.activityLog.add(entry).catch(() => {});
 }
 
@@ -313,9 +276,8 @@ export interface TimeDistribution {
 }
 
 export function getTimeDistribution(days: number = 1): TimeDistribution {
-  const log = loadActivityLog();
   const cutoff = Date.now() - days * 86400000;
-  const recent = log.filter(e => e.timestamp >= cutoff);
+  const recent = _activityCache.filter(e => e.timestamp >= cutoff);
 
   const buckets: Record<TimeReservoir, number> = { review: 0, learning: 0, creative: 0, analysis: 0 };
   recent.forEach(e => { buckets[getReservoir(e.type)] += e.durationMs; });
@@ -331,7 +293,6 @@ export function getTimeDistribution(days: number = 1): TimeDistribution {
 }
 
 export function getWeeklyTimeDistribution(): { date: string; review: number; learning: number; creative: number; analysis: number }[] {
-  const log = loadActivityLog();
   const days: { date: string; review: number; learning: number; creative: number; analysis: number }[] = [];
 
   for (let i = 6; i >= 0; i--) {
@@ -339,7 +300,7 @@ export function getWeeklyTimeDistribution(): { date: string; review: number; lea
     const dateStr = d.toISOString().slice(0, 10);
     const dayStart = new Date(dateStr).getTime();
     const dayEnd = dayStart + 86400000;
-    const dayEntries = log.filter(e => e.timestamp >= dayStart && e.timestamp < dayEnd);
+    const dayEntries = _activityCache.filter(e => e.timestamp >= dayStart && e.timestamp < dayEnd);
 
     const buckets = { review: 0, learning: 0, creative: 0, analysis: 0 };
     dayEntries.forEach(e => { buckets[getReservoir(e.type)] += Math.round(e.durationMs / 60000); });
@@ -349,9 +310,8 @@ export function getWeeklyTimeDistribution(): { date: string; review: number; lea
 }
 
 export function getDeepWorkStats(days: number = 7) {
-  const log = loadActivityLog();
   const cutoff = Date.now() - days * 86400000;
-  const recent = log.filter(e => e.timestamp >= cutoff);
+  const recent = _activityCache.filter(e => e.timestamp >= cutoff);
 
   const deepWorkMs = recent
     .filter(e => e.type === "review" || e.type === "learn-active" || e.type === "learn-chain" || e.type === "mnemonic-test")

@@ -3,24 +3,9 @@ import { ReviewLogEntry } from "./storage";
 import { db } from "./db";
 import { addDays, differenceInDays, startOfDay } from "date-fns";
 
-const PLANNER_KEY = "sr-planner-config";
-const DISCIPLINE_KEY = "sr-discipline-log";
-
-// ─── IDB→localStorage hydration for planner data ────────
-export async function hydratePlannerFromIDB(): Promise<void> {
-  try {
-    const [disciplineLog, plannerConfig] = await Promise.all([
-      db.disciplineLog.toArray(),
-      db.settings.get("plannerConfig"),
-    ]);
-    if (!localStorage.getItem(DISCIPLINE_KEY) && disciplineLog.length > 0)
-      localStorage.setItem(DISCIPLINE_KEY, JSON.stringify(disciplineLog));
-    if (!localStorage.getItem(PLANNER_KEY) && plannerConfig?.value)
-      localStorage.setItem(PLANNER_KEY, JSON.stringify(plannerConfig.value));
-  } catch (err) {
-    console.warn("[hydrate] planner IDB→localStorage hydration failed", err);
-  }
-}
+// ═══════════════════════════════════════════════════════════
+// IN-MEMORY CACHE — populated from IDB at boot, no localStorage
+// ═══════════════════════════════════════════════════════════
 
 // ─── Types ───────────────────────────────────────────────
 
@@ -56,31 +41,61 @@ const DEFAULT_CONFIG: PlannerConfig = {
   bufferPercent: 15,
 };
 
-// ─── Persistence ─────────────────────────────────────────
+// ─── Cache state ─────────────────────────────────────────
+let _plannerCache: PlannerConfig = { ...DEFAULT_CONFIG, createdAt: Date.now() };
+let _disciplineCache: DisciplineEntry[] = [];
+let _dailyMapped: { date: string; count: number } = { date: "", count: 0 };
+let _lastRedistributeDate: string = "";
 
-export function loadPlanner(): PlannerConfig {
+/**
+ * Initialize planner caches from IndexedDB.
+ * Called once at boot after ensureDbOpen succeeds.
+ */
+export async function initPlannerCache(): Promise<void> {
   try {
-    const data = localStorage.getItem(PLANNER_KEY);
-    if (!data) return { ...DEFAULT_CONFIG, createdAt: Date.now() };
-    const parsed = JSON.parse(data);
-    // Migrate old decades → phases
-    if (parsed.decades && !parsed.phases) {
-      parsed.phases = (parsed.decades as StudyDecade[]).map((d) => ({
-        id: d.id,
-        name: d.name,
-        expectedDays: d.durationDays,
-        categories: d.categories,
-      }));
-      delete parsed.decades;
+    const [plannerRow, disciplineLog, dailyMappedRow, redistRow] = await Promise.all([
+      db.settings.get("plannerConfig"),
+      db.disciplineLog.toArray(),
+      db.settings.get("dailyMapped"),
+      db.settings.get("lastRedistribute"),
+    ]);
+
+    if (plannerRow?.value) {
+      const parsed = plannerRow.value;
+      // Migrate old decades → phases
+      if (parsed.decades && !parsed.phases) {
+        parsed.phases = (parsed.decades as StudyDecade[]).map((d: StudyDecade) => ({
+          id: d.id,
+          name: d.name,
+          expectedDays: d.durationDays,
+          categories: d.categories,
+        }));
+        delete parsed.decades;
+      }
+      _plannerCache = { ...DEFAULT_CONFIG, ...parsed };
     }
-    return { ...DEFAULT_CONFIG, ...parsed };
-  } catch {
-    return { ...DEFAULT_CONFIG, createdAt: Date.now() };
+
+    _disciplineCache = disciplineLog;
+
+    if (dailyMappedRow?.value) {
+      _dailyMapped = dailyMappedRow.value;
+    }
+    if (redistRow?.value) {
+      _lastRedistributeDate = redistRow.value;
+    }
+  } catch (err) {
+    console.warn("[planner] cache init failed, using defaults", err);
   }
 }
 
+// ─── Persistence ─────────────────────────────────────────
+
+export function loadPlanner(): PlannerConfig {
+  return _plannerCache;
+}
+
 export function savePlanner(config: PlannerConfig): void {
-  try { localStorage.setItem(PLANNER_KEY, JSON.stringify(config)); } catch {}
+  _plannerCache = config;
   db.settings.put({ key: "plannerConfig", value: config }).catch(() => {});
 }
 
@@ -310,14 +325,11 @@ export interface DisciplineEntry {
 }
 
 export function loadDisciplineLog(): DisciplineEntry[] {
-  try {
-    const data = localStorage.getItem(DISCIPLINE_KEY);
-    return data ? JSON.parse(data) : [];
-  } catch { return []; }
+  return _disciplineCache;
 }
 
 export function saveDisciplineLog(log: DisciplineEntry[]) {
-  try { localStorage.setItem(DISCIPLINE_KEY, JSON.stringify(log)); } catch {}
+  _disciplineCache = log;
   db.disciplineLog.clear().then(() => {
     if (log.length > 0) db.disciplineLog.bulkAdd(log).catch(() => {});
   }).catch(() => {});
@@ -346,7 +358,7 @@ export function recordDayDiscipline(
   const status = calcDisciplineStatus(reviewsDone, dailyGoal, slippageMs);
   const completion = dailyGoal > 0 ? Math.round((reviewsDone / dailyGoal) * 100) : 0;
   const entry: DisciplineEntry = { date, status, planCompletion: completion, slippageMs, reviewsDone, suggestedReviews: dailyGoal };
-  const log = loadDisciplineLog();
+  const log = [..._disciplineCache];
   const idx = log.findIndex(e => e.date === date);
   if (idx >= 0) log[idx] = entry; else log.push(entry);
   saveDisciplineLog(log);
@@ -354,9 +366,8 @@ export function recordDayDiscipline(
 }
 
 export function getCognitiveDebt(dailyGoal: number): { hasDebt: boolean; debtCards: number; message: string } | null {
-  const log = loadDisciplineLog();
   const yesterday = addDays(new Date(), -1).toISOString().slice(0, 10);
-  const entry = log.find(e => e.date === yesterday);
+  const entry = _disciplineCache.find(e => e.date === yesterday);
   if (!entry || entry.status !== "lazy") return null;
   const debtCards = Math.max(0, entry.suggestedReviews - entry.reviewsDone);
   if (debtCards <= 0) return null;
@@ -364,9 +375,8 @@ export function getCognitiveDebt(dailyGoal: number): { hasDebt: boolean; debtCar
 }
 
 export function getDisciplineTrend(days: number = 30): { date: string; diligentPct: number }[] {
-  const log = loadDisciplineLog();
-  if (log.length === 0) return [];
-  const sorted = [...log].sort((a, b) => a.date.localeCompare(b.date));
+  if (_disciplineCache.length === 0) return [];
+  const sorted = [..._disciplineCache].sort((a, b) => a.date.localeCompare(b.date));
   const result: { date: string; diligentPct: number }[] = [];
   for (let i = 0; i < sorted.length; i++) {
     const windowStart = Math.max(0, i - 6);
@@ -387,33 +397,20 @@ export function getPhaseDisciplinePct(disciplineLog: DisciplineEntry[]): number 
 
 // ─── Daily Mapping Tracker (Auto-sync) ──────────────────
 
-const DAILY_MAPPED_KEY = "sr-daily-mapped";
-
-interface DailyMapped {
-  date: string;
-  count: number;
-}
-
 function getTodayKey(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
 export function getDailyMappedCount(): number {
-  try {
-    const data = localStorage.getItem(DAILY_MAPPED_KEY);
-    if (!data) return 0;
-    const parsed: DailyMapped = JSON.parse(data);
-    return parsed.date === getTodayKey() ? parsed.count : 0;
-  } catch { return 0; }
+  return _dailyMapped.date === getTodayKey() ? _dailyMapped.count : 0;
 }
 
 export function incrementDailyMapped(amount: number = 1): number {
   const today = getTodayKey();
-  const current = getDailyMappedCount();
+  const current = _dailyMapped.date === today ? _dailyMapped.count : 0;
   const newCount = current + amount;
-  try {
-    localStorage.setItem(DAILY_MAPPED_KEY, JSON.stringify({ date: today, count: newCount }));
-  } catch {}
+  _dailyMapped = { date: today, count: newCount };
+  db.settings.put({ key: "dailyMapped", value: _dailyMapped }).catch(() => {});
   return newCount;
 }
 
@@ -424,19 +421,14 @@ export function autoRedistributeIfNeeded(
 ): { redistributed: boolean; newQuota: number } | null {
   if (!goalDateStr) return null;
   const today = getTodayKey();
-  const REDIS_KEY = "sr-last-redistribute";
-  try {
-    const last = localStorage.getItem(REDIS_KEY);
-    if (last === today) return null; // already done today
-  } catch {}
+  if (_lastRedistributeDate === today) return null;
 
   // Check if yesterday had unmet quota
-  const log = loadDisciplineLog();
   const yesterday = addDays(new Date(), -1).toISOString().slice(0, 10);
-  const entry = log.find(e => e.date === yesterday);
+  const entry = _disciplineCache.find(e => e.date === yesterday);
   if (!entry || entry.planCompletion >= 90) {
-    // No debt or quota was met
-    try { localStorage.setItem(REDIS_KEY, today); } catch {}
+    _lastRedistributeDate = today;
+    db.settings.put({ key: "lastRedistribute", value: today }).catch(() => {});
     return null;
   }
 
@@ -447,7 +439,8 @@ export function autoRedistributeIfNeeded(
   const result = calcRebalancedQuota(remaining, goalDateStr, bufferPct);
   if (!result) return null;
 
-  try { localStorage.setItem(REDIS_KEY, today); } catch {}
+  _lastRedistributeDate = today;
+  db.settings.put({ key: "lastRedistribute", value: today }).catch(() => {});
   return { redistributed: true, newQuota: result.newDailyQuota };
 }
 
