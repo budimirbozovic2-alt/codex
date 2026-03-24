@@ -6,6 +6,22 @@ import { addDays, differenceInDays, startOfDay } from "date-fns";
 const PLANNER_KEY = "sr-planner-config";
 const DISCIPLINE_KEY = "sr-discipline-log";
 
+// ─── IDB→localStorage hydration for planner data ────────
+export async function hydratePlannerFromIDB(): Promise<void> {
+  try {
+    const [disciplineLog, plannerConfig] = await Promise.all([
+      db.disciplineLog.toArray(),
+      db.settings.get("plannerConfig"),
+    ]);
+    if (!localStorage.getItem(DISCIPLINE_KEY) && disciplineLog.length > 0)
+      localStorage.setItem(DISCIPLINE_KEY, JSON.stringify(disciplineLog));
+    if (!localStorage.getItem(PLANNER_KEY) && plannerConfig?.value)
+      localStorage.setItem(PLANNER_KEY, JSON.stringify(plannerConfig.value));
+  } catch (err) {
+    console.warn("[hydrate] planner IDB→localStorage hydration failed", err);
+  }
+}
+
 // ─── Types ───────────────────────────────────────────────
 
 export interface StudyPhase {
