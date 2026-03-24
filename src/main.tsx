@@ -65,6 +65,15 @@ setTimeout(() => {
     const { createRoot } = await import("react-dom/client");
     createRoot(document.getElementById("root")!).render(<App />);
     markBootStep("main:react-render-done");
+
+    // Boot complete — replace destructive handlers with benign loggers
+    // React ErrorBoundary now handles UI errors; these only catch non-React exceptions
+    window.onerror = (_msg, _src, _ln, _col, err) => {
+      console.error("[runtime] uncaught error", err || _msg);
+    };
+    window.onunhandledrejection = (event) => {
+      console.error("[runtime] unhandled rejection", event.reason);
+    };
   } catch (err) {
     console.error("[boot] bootstrap failed", err);
     markBootStep("main:bootstrap-error", err instanceof Error ? err.message : String(err));
