@@ -1,9 +1,7 @@
-import { createRoot } from "react-dom/client";
-import App from "./App.tsx";
-import "./index.css";
-import { initColorTheme } from "./lib/app-settings";
-import { db } from "./lib/db";
+import { markBootStep } from "./lib/boot-trace";
+markBootStep("main:module-start");
 
+// ── Register global error handlers FIRST, before any risky imports ──
 const hideSplashImmediately = () => {
   const splash = document.getElementById("app-splash");
   if (!splash) return;
@@ -23,7 +21,7 @@ const showFatalBootError = (message: string) => {
           <div style="width:40px;height:40px;border-radius:999px;display:flex;align-items:center;justify-content:center;background:hsl(0 72% 55% / 0.12);color:hsl(0 84% 68%);font-size:20px;">⚠</div>
           <div>
             <h1 style="margin:0;font-size:24px;font-weight:700;letter-spacing:0.04em;">Greška pri pokretanju</h1>
-            <p style="margin:4px 0 0;color:hsl(215 20% 72%);font-size:14px;">Aplikacija je prekinula inicijalizaciju prije učitavanja interfejsa.</p>
+            <p style="margin:4px 0 0;color:hsl(215 20% 72%);font-size:14px;">Aplikacija je prekinula inicijalizaciju.</p>
           </div>
         </div>
         <p style="margin:0 0 14px;line-height:1.6;color:hsl(210 40% 92%);white-space:pre-wrap;">${message.replace(/[<>&]/g, (char) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' }[char] || char))}</p>
@@ -44,90 +42,108 @@ window.onunhandledrejection = (event) => {
   showFatalBootError(reason instanceof Error ? reason.message : String(reason || "Unhandled promise rejection pri startu."));
 };
 
-initColorTheme();
+markBootStep("main:error-handlers-registered");
 
-createRoot(document.getElementById("root")!).render(<App />);
-
-// Splash removal is now fully driven by useCards hook (setReady → fade-out).
-// Fallback: if data never loads within 8s, remove splash to avoid infinite loading.
+// ── Splash fallback timeout — always runs even if imports fail ──
 setTimeout(() => {
   hideSplashImmediately();
 }, 5000);
 
-// ── Electron IPC: listen for backup-requested before quit ──
-if (window.electronAPI) {
-  const cleanup = window.electronAPI.onBackupRequested(async () => {
+// ── Guarded async bootstrap ──
+(async () => {
+  try {
+    markBootStep("main:theme-init-start");
+    const { initColorTheme } = await import("./lib/app-settings");
+    initColorTheme();
+    markBootStep("main:theme-init-done");
+
+    markBootStep("main:app-import-start");
+    const { default: App } = await import("./App");
+    markBootStep("main:app-import-done");
+
+    markBootStep("main:react-render-start");
+    const { createRoot } = await import("react-dom/client");
+    createRoot(document.getElementById("root")!).render(<App />);
+    markBootStep("main:react-render-done");
+  } catch (err) {
+    console.error("[boot] bootstrap failed", err);
+    markBootStep("main:bootstrap-error", err instanceof Error ? err.message : String(err));
+    showFatalBootError(err instanceof Error ? err.message : String(err));
+    return;
+  }
+
+  // ── Electron IPC: backup listener (lazy db import) ──
+  if (window.electronAPI) {
     try {
-      const [cards, categories, subcategories, reviewLog, srSettings, sources, mindMaps, diary, calibrationLog, latencyLog, slippageLog, activityLog, disciplineLog, pomodoroLog] = await Promise.all([
-        db.cards.toArray(),
-        db.categories.toArray().then(rows => rows.map(r => r.name)),
-        db.subcategories.toArray().then(rows => {
-          const result: Record<string, string[]> = {};
-          rows.forEach(r => { result[r.category] = r.subs; });
-          return result;
-        }),
-        db.reviewLog.toArray(),
-        db.settings.get("srSettings").then(r => r?.value ?? null),
-        db.sources.toArray(),
-        db.mindMaps.toArray(),
-        db.diary.toArray(),
-        db.calibrationLog.toArray(),
-        db.latencyLog.toArray(),
-        db.slippageLog.toArray(),
-        db.activityLog.toArray(),
-        db.disciplineLog.toArray(),
-        db.pomodoroLog.toArray(),
-      ]);
+      const { db } = await import("./lib/db");
+      const cleanup = window.electronAPI.onBackupRequested(async () => {
+        try {
+          const [cards, categories, subcategories, reviewLog, srSettings, sources, mindMaps, diary, calibrationLog, latencyLog, slippageLog, activityLog, disciplineLog, pomodoroLog] = await Promise.all([
+            db.cards.toArray(),
+            db.categories.toArray().then(rows => rows.map(r => r.name)),
+            db.subcategories.toArray().then(rows => {
+              const result: Record<string, string[]> = {};
+              rows.forEach(r => { result[r.category] = r.subs; });
+              return result;
+            }),
+            db.reviewLog.toArray(),
+            db.settings.get("srSettings").then(r => r?.value ?? null),
+            db.sources.toArray(),
+            db.mindMaps.toArray(),
+            db.diary.toArray(),
+            db.calibrationLog.toArray(),
+            db.latencyLog.toArray(),
+            db.slippageLog.toArray(),
+            db.activityLog.toArray(),
+            db.disciplineLog.toArray(),
+            db.pomodoroLog.toArray(),
+          ]);
 
-      // Collect key localStorage items
-      const localStorageData: Record<string, unknown> = {};
-      const lsKeys = [
-        "sr-planner-config", "sr-app-settings", "sr-mnemonic-workshop",
-        "sr-mnemonic-associations", "sr-major-system-map",
-        "sr-daily-mapped-count", "sr-daily-mapped-date",
-        "sr-learn-progress", "sr-last-backup",
-      ];
-      for (const key of lsKeys) {
-        const val = localStorage.getItem(key);
-        if (val !== null) {
-          try { localStorageData[key] = JSON.parse(val); } catch { localStorageData[key] = val; }
-        }
-      }
+          const localStorageData: Record<string, unknown> = {};
+          const lsKeys = [
+            "sr-planner-config", "sr-app-settings", "sr-mnemonic-workshop",
+            "sr-mnemonic-associations", "sr-major-system-map",
+            "sr-daily-mapped-count", "sr-daily-mapped-date",
+            "sr-learn-progress", "sr-last-backup",
+          ];
+          for (const key of lsKeys) {
+            const val = localStorage.getItem(key);
+            if (val !== null) {
+              try { localStorageData[key] = JSON.parse(val); } catch { localStorageData[key] = val; }
+            }
+          }
 
-      const data: Record<string, unknown> = {
-        version: 4,
-        type: "full",
-        cards, categories, subcategories, reviewLog,
-        sources, mindMaps,
-        diary, calibrationLog, latencyLog, slippageLog, activityLog, disciplineLog, pomodoroLog,
-        localStorageData,
-      };
-      if (srSettings) data["srSettings"] = srSettings;
-      const json = JSON.stringify(data);
-      window.electronAPI!.requestBackup(json);
-    } catch (_) {}
-  });
+          const data: Record<string, unknown> = {
+            version: 4, type: "full",
+            cards, categories, subcategories, reviewLog,
+            sources, mindMaps,
+            diary, calibrationLog, latencyLog, slippageLog, activityLog, disciplineLog, pomodoroLog,
+            localStorageData,
+          };
+          if (srSettings) data["srSettings"] = srSettings;
+          window.electronAPI!.requestBackup(JSON.stringify(data));
+        } catch (_) {}
+      });
 
-  // Cleanup on page unload — use both 'beforeunload' and 'unload' for reliability
-  const doCleanup = () => cleanup();
-  window.addEventListener("beforeunload", doCleanup);
-  window.addEventListener("unload", doCleanup);
-}
+      const doCleanup = () => cleanup();
+      window.addEventListener("beforeunload", doCleanup);
+      window.addEventListener("unload", doCleanup);
+    } catch {}
+  }
+})();
 
+// ── Service Worker registration ──
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", async () => {
-    // U preview/dev modu SW često kešira zastarjele assete i može dati bijeli ekran.
     if (!import.meta.env.PROD) {
       const registrations = await navigator.serviceWorker.getRegistrations();
       await Promise.all(registrations.map((registration) => registration.unregister()));
-
       if ("caches" in window) {
         const keys = await caches.keys();
         await Promise.all(keys.map((key) => caches.delete(key)));
       }
       return;
     }
-
     navigator.serviceWorker.register("./sw.js");
   });
 }
