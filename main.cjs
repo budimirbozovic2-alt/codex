@@ -191,7 +191,7 @@ function createWindow(splash) {
   ipcMain.once('renderer-ready', showWindow);
 
   // Fallback: show after max 8 seconds regardless
-  const fallbackTimer = setTimeout(showWindow, 8000);
+  const fallbackTimer = setTimeout(showWindow, 6000);
 
   win.once('ready-to-show', () => {
     // Give renderer 500ms minimum to paint after DOM ready
