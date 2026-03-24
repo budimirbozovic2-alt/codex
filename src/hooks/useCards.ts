@@ -145,9 +145,13 @@ export function useCards() {
     };
 
     (async () => {
+      const { markBootStep } = await import("@/lib/boot-trace");
       try {
+        markBootStep("cards:init-start");
         splashProgress(5, "Otvaranje baze…");
+        markBootStep("cards:db-open-start");
         const dbOk = await ensureDbOpen(6000);
+        markBootStep("cards:db-open-done", dbOk ? "ok" : "failed");
         if (!dbOk) {
           console.warn("[boot] DB unavailable — starting in fallback mode");
           splashProgress(100, "Pokretanje bez baze…");
