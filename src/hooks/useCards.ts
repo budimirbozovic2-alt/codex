@@ -125,6 +125,13 @@ export function useCards() {
       if (percent) percent.textContent = `${pct}%`;
     };
 
+    const showSplashError = (msg: string) => {
+      const el = document.getElementById("splash-error");
+      const msgEl = document.getElementById("splash-error-msg");
+      if (el) el.style.display = "block";
+      if (msgEl) msgEl.textContent = msg;
+    };
+
     (async () => {
       try {
         splashProgress(5, "Otvaranje baze…");
@@ -132,6 +139,7 @@ export function useCards() {
         if (!dbOk) {
           console.warn("[boot] DB unavailable — starting in fallback mode");
           splashProgress(100, "Pokretanje bez baze…");
+          showSplashError("IndexedDB nije dostupan ili je isteklo vrijeme čekanja.");
           return;
         }
 
@@ -163,12 +171,17 @@ export function useCards() {
       } catch (error) {
         console.error("[boot] useCards init:failed", error);
         splashProgress(100, "Pokretanje sa rezervnim stanjem…");
+        showSplashError(error instanceof Error ? error.message : "Neočekivana greška pri učitavanju podataka.");
       } finally {
+        const hasError = !!document.getElementById("splash-error")?.style.display?.includes("block");
         const splash = document.getElementById("app-splash");
         if (splash) {
-          splash.style.transition = 'opacity 0.4s ease-out';
-          splash.style.opacity = '0';
-          setTimeout(() => splash.remove(), 450);
+          const delay = hasError ? 3000 : 0;
+          setTimeout(() => {
+            splash.style.transition = 'opacity 0.4s ease-out';
+            splash.style.opacity = '0';
+            setTimeout(() => splash.remove(), 450);
+          }, delay);
         }
         setReady(true);
 
