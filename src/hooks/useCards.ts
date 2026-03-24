@@ -139,6 +139,7 @@ export function useCards() {
         if (!dbOk) {
           console.warn("[boot] DB unavailable — starting in fallback mode");
           splashProgress(100, "Pokretanje bez baze…");
+          showSplashError("IndexedDB nije dostupan ili je isteklo vrijeme čekanja.");
           return;
         }
 
