@@ -177,11 +177,12 @@ function UIProvider({ children }: { children: ReactNode }) {
   // Record app entry on mount
   useEffect(() => { recordAppEntry(); }, []);
 
-  // Notification reminder scheduler
+  // Notification reminder scheduler — re-reads settings each minute to pick up changes
   useEffect(() => {
-    const settings = loadAppSettings();
-    if (!settings.notifications.enabled || !("Notification" in window) || Notification.permission !== "granted") return;
+    if (!("Notification" in window) || Notification.permission !== "granted") return;
     const check = () => {
+      const settings = loadAppSettings();
+      if (!settings.notifications.enabled) return;
       const now = new Date();
       if (now.getHours() === settings.notifications.reminderHour && now.getMinutes() === settings.notifications.reminderMinute) {
         new Notification("Memoria — Podsjetnik", {

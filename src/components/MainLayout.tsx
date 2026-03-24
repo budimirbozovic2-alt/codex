@@ -1,7 +1,7 @@
 import { ReactNode, useState, useEffect, useRef, lazy, Suspense, useMemo, memo } from "react";
 import Breadcrumbs from "@/components/Breadcrumbs";
 import { useLocation } from "react-router-dom";
-import { useAppContext, useUIContext } from "@/contexts/AppContext";
+import { useUIContext, useCardContext } from "@/contexts/AppContext";
 import ZenMode from "@/components/ZenMode";
 import TopNav from "@/components/TopNav";
 import { AnimatePresence } from "framer-motion";
@@ -19,7 +19,7 @@ const SOURCE_ROUTES = ["/database"];
 
 /** Isolated component for planner nudge — prevents MainLayout re-render on card changes */
 const NudgeWatcher = memo(function NudgeWatcher() {
-  const { cards } = useAppContext();
+  const { cards } = useCardContext();
   const { pathname } = useLocation();
   const prevPathRef = useRef(pathname);
   const nudgeShownRef = useRef(false);
@@ -64,8 +64,57 @@ const NudgeWatcher = memo(function NudgeWatcher() {
   return null;
 });
 
+/** Isolated wrapper for GlobalSearch — accesses cards via own context */
+const GlobalSearchWrapper = memo(function GlobalSearchWrapper({
+  open, onClose,
+}: { open: boolean; onClose: () => void }) {
+  const { cards } = useCardContext();
+  const { setView, setEditingCard } = useUIContext();
+  if (!open) return null;
+  return (
+    <Suspense fallback={null}>
+      <GlobalSearch
+        cards={cards}
+        open={open}
+        onClose={onClose}
+        onNavigateToCard={(card) => {
+          setEditingCard(card);
+          setView("edit");
+        }}
+      />
+    </Suspense>
+  );
+});
+
+/** Isolated wrapper for DocxImporter — accesses cards via own context */
+const DocxImporterWrapper = memo(function DocxImporterWrapper({
+  open, onClose,
+}: { open: boolean; onClose: () => void }) {
+  const { categories, importCards, addFlashCard } = useCardContext();
+  if (!open) return null;
+  return (
+    <Suspense fallback={null}>
+      <DocxImporter
+        open={open}
+        onClose={onClose}
+        categories={categories}
+        onImport={(docxCards, cat, cardType) => {
+          if (cardType === "flash") {
+            docxCards.forEach(c => {
+              const answer = c.sections.map(s => s.content).join("\n");
+              addFlashCard(c.question, answer, cat);
+            });
+          } else {
+            importCards(docxCards, cat);
+          }
+          onClose();
+        }}
+      />
+    </Suspense>
+  );
+});
+
 export default function MainLayout({ children }: { children: ReactNode }) {
-  const { setView, setEditingCard, cards, categories, importCards, addFlashCard } = useAppContext();
   const { pathname } = useLocation();
 
   const [docxOpen, setDocxOpen] = useState(false);
@@ -107,38 +156,11 @@ export default function MainLayout({ children }: { children: ReactNode }) {
         {children}
       </main>
 
-      <Suspense fallback={null}>
-        <DocxImporter
-          open={docxOpen}
-          onClose={() => setDocxOpen(false)}
-          categories={categories}
-          onImport={(docxCards, cat, cardType) => {
-            if (cardType === "flash") {
-              docxCards.forEach(c => {
-                const answer = c.sections.map(s => s.content).join("\n");
-                addFlashCard(c.question, answer, cat);
-              });
-            } else {
-              importCards(docxCards, cat);
-            }
-            setDocxOpen(false);
-          }}
-        />
-      </Suspense>
+      <DocxImporterWrapper open={docxOpen} onClose={() => setDocxOpen(false)} />
       <AnimatePresence>
         <ZenMode active={zenMode} onToggle={() => setZenMode(false)} />
       </AnimatePresence>
-      <Suspense fallback={null}>
-        <GlobalSearch
-          cards={cards}
-          open={globalSearchOpen}
-          onClose={() => setGlobalSearchOpen(false)}
-          onNavigateToCard={(card) => {
-            setEditingCard(card);
-            setView("edit");
-          }}
-        />
-      </Suspense>
+      <GlobalSearchWrapper open={globalSearchOpen} onClose={() => setGlobalSearchOpen(false)} />
       <AnimatePresence>
         {showAppOnboarding && (
           <Suspense fallback={null}>
