@@ -134,6 +134,37 @@ class MemoriaDB extends Dexie {
 
 export const db = new MemoriaDB();
 
+/**
+ * Explicitly open the database with a timeout guard.
+ * Catches VersionError (stale schema) by deleting and re-opening.
+ * Returns true if DB is usable, false if fallback mode should be used.
+ */
+export async function ensureDbOpen(timeoutMs = 6000): Promise<boolean> {
+  try {
+    await Promise.race([
+      db.open(),
+      new Promise((_, reject) =>
+        setTimeout(() => reject(new Error("DB_OPEN_TIMEOUT")), timeoutMs)
+      ),
+    ]);
+    return true;
+  } catch (err: any) {
+    console.error("[MemoriaDB] open failed:", err?.name, err?.message);
+    // VersionError = schema downgrade or corruption — delete and retry once
+    if (err?.name === "VersionError" || err?.name === "UpgradeError") {
+      try {
+        await db.delete();
+        await db.open();
+        console.warn("[MemoriaDB] DB reset after VersionError — data cleared");
+        return true;
+      } catch (retryErr) {
+        console.error("[MemoriaDB] retry after delete failed:", retryErr);
+      }
+    }
+    return false;
+  }
+}
+
 // ─── Migration: localStorage → IndexedDB (one-time) ─────
 const MIGRATION_FLAG = "idb-migrated-v1";
 

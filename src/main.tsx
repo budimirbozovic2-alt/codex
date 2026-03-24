@@ -16,7 +16,7 @@ setTimeout(() => {
     splash.style.opacity = "0";
     setTimeout(() => splash.remove(), 400);
   }
-}, 8000);
+}, 5000);
 
 // ── Electron IPC: listen for backup-requested before quit ──
 if (window.electronAPI) {
