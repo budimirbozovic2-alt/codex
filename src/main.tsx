@@ -108,11 +108,22 @@ setTimeout(() => {
             db.pomodoroLog.toArray(),
           ]);
 
+          // Read planner data from IDB (not stale localStorage)
+          const [plannerConfigRow, dailyMappedRow, dailyMappedDateRow] = await Promise.all([
+            db.settings.get("plannerConfig"),
+            db.settings.get("dailyMapped"),
+            db.settings.get("dailyMappedDate"),
+          ]);
+
           const localStorageData: Record<string, unknown> = {};
+          // Planner data from IDB
+          if (plannerConfigRow?.value) localStorageData["sr-planner-config"] = plannerConfigRow.value;
+          if (dailyMappedRow?.value != null) localStorageData["sr-daily-mapped-count"] = dailyMappedRow.value;
+          if (dailyMappedDateRow?.value) localStorageData["sr-daily-mapped-date"] = dailyMappedDateRow.value;
+
           const lsKeys = [
-            "sr-planner-config", "sr-app-settings", "sr-mnemonic-workshop",
+            "sr-app-settings", "sr-mnemonic-workshop",
             "sr-mnemonic-associations", "sr-major-system-map",
-            "sr-daily-mapped-count", "sr-daily-mapped-date",
             "sr-learn-progress", "sr-last-backup",
           ];
           for (const key of lsKeys) {

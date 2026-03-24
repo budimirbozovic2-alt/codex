@@ -368,10 +368,13 @@ export async function idbLoadSubcategories(): Promise<Record<string, string[]>> 
 
 export async function idbSaveSubcategories(subs: Record<string, string[]>): Promise<void> {
   await db.transaction("rw", db.subcategories, async () => {
-    await db.subcategories.clear();
-    await db.subcategories.bulkPut(
-      Object.entries(subs).map(([category, subList]) => ({ id: category, category, subs: subList }))
-    );
+    const newRows = Object.entries(subs).map(([category, subList]) => ({ id: category, category, subs: subList }));
+    await db.subcategories.bulkPut(newRows);
+    // Delete subcategories no longer present
+    const keepIds = new Set(Object.keys(subs));
+    const allKeys = await db.subcategories.toCollection().primaryKeys();
+    const toDelete = allKeys.filter(k => !keepIds.has(k as string));
+    if (toDelete.length > 0) await db.subcategories.bulkDelete(toDelete);
   });
 }
 

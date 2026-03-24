@@ -94,6 +94,48 @@ export function saveAppSettings(settings: AppSettings): void {
   try {
     localStorage.setItem(APP_SETTINGS_KEY, JSON.stringify(settings));
   } catch {}
+  // IDB backup (fire-and-forget)
+  try {
+    import("./db").then(({ db }) => {
+      db.settings.put({ key: "appSettings", value: settings }).catch(() => {});
+    });
+  } catch {}
+}
+
+/** Load from IDB as fallback when localStorage is empty */
+export async function loadAppSettingsAsync(): Promise<AppSettings> {
+  try {
+    const data = localStorage.getItem(APP_SETTINGS_KEY);
+    if (data) {
+      const parsed = JSON.parse(data);
+      return {
+        ...DEFAULT_APP_SETTINGS,
+        ...parsed,
+        dashboardWidgets: { ...DEFAULT_APP_SETTINGS.dashboardWidgets, ...parsed.dashboardWidgets },
+        pomodoro: { ...DEFAULT_APP_SETTINGS.pomodoro, ...parsed.pomodoro },
+        notifications: { ...DEFAULT_APP_SETTINGS.notifications, ...parsed.notifications },
+      };
+    }
+  } catch {}
+  // Fallback to IDB
+  try {
+    const { db } = await import("./db");
+    const row = await db.settings.get("appSettings");
+    if (row?.value) {
+      const parsed = row.value as Partial<AppSettings>;
+      const restored = {
+        ...DEFAULT_APP_SETTINGS,
+        ...parsed,
+        dashboardWidgets: { ...DEFAULT_APP_SETTINGS.dashboardWidgets, ...parsed.dashboardWidgets },
+        pomodoro: { ...DEFAULT_APP_SETTINGS.pomodoro, ...parsed.pomodoro },
+        notifications: { ...DEFAULT_APP_SETTINGS.notifications, ...parsed.notifications },
+      };
+      // Restore to localStorage for fast sync reads
+      try { localStorage.setItem(APP_SETTINGS_KEY, JSON.stringify(restored)); } catch {}
+      return restored;
+    }
+  } catch {}
+  return { ...DEFAULT_APP_SETTINGS };
 }
 
 export function applyColorTheme(theme: ColorTheme): void {

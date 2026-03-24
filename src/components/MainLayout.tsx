@@ -1,7 +1,7 @@
 import { ReactNode, useState, useEffect, useRef, lazy, Suspense, useMemo, memo } from "react";
 import Breadcrumbs from "@/components/Breadcrumbs";
 import { useLocation } from "react-router-dom";
-import { useAppContext, useUIContext } from "@/contexts/AppContext";
+import { useAppContext, useUIContext, useCardContext } from "@/contexts/AppContext";
 import ZenMode from "@/components/ZenMode";
 import TopNav from "@/components/TopNav";
 import { AnimatePresence } from "framer-motion";
