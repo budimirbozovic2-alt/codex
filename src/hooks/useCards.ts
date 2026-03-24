@@ -173,11 +173,15 @@ export function useCards() {
         splashProgress(100, "Pokretanje sa rezervnim stanjem…");
         showSplashError(error instanceof Error ? error.message : "Neočekivana greška pri učitavanju podataka.");
       } finally {
+        const hasError = !!document.getElementById("splash-error")?.style.display?.includes("block");
         const splash = document.getElementById("app-splash");
         if (splash) {
-          splash.style.transition = 'opacity 0.4s ease-out';
-          splash.style.opacity = '0';
-          setTimeout(() => splash.remove(), 450);
+          const delay = hasError ? 3000 : 0;
+          setTimeout(() => {
+            splash.style.transition = 'opacity 0.4s ease-out';
+            splash.style.opacity = '0';
+            setTimeout(() => splash.remove(), 450);
+          }, delay);
         }
         setReady(true);
 
