@@ -4,7 +4,6 @@ const audioCtx = typeof window !== "undefined" ? new (window.AudioContext || (wi
 
 function playTone(frequency: number, duration: number, type: OscillatorType = "sine", volume: number = 0.15) {
   if (!audioCtx) return;
-  // Resume context if suspended (autoplay policy)
   if (audioCtx.state === "suspended") audioCtx.resume();
   
   const osc = audioCtx.createOscillator();
@@ -19,8 +18,16 @@ function playTone(frequency: number, duration: number, type: OscillatorType = "s
   osc.stop(audioCtx.currentTime + duration);
 }
 
+// Module-level cache for sound enabled check — refreshes every 5s
+let _soundEnabled: boolean | null = null;
+let _soundCacheTime = 0;
 function isSoundEnabled(): boolean {
-  return loadAppSettings().soundEffects;
+  const now = Date.now();
+  if (_soundEnabled === null || now - _soundCacheTime > 5000) {
+    _soundEnabled = loadAppSettings().soundEffects;
+    _soundCacheTime = now;
+  }
+  return _soundEnabled;
 }
 
 /** Soft click for grade 3 (Dobro) */

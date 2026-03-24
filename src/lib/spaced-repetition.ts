@@ -1,6 +1,19 @@
 // FSRS v5 Algorithm with per-section tracking, state machine, leech detection
 import { loadAppSettings } from "./app-settings";
 
+// Module-level cached retention to avoid repeated localStorage parse in hot paths
+let _cachedRetention: number | null = null;
+let _retentionCacheTime = 0;
+function getCachedRetention(): number {
+  const now = Date.now();
+  // Refresh cache every 10 seconds
+  if (_cachedRetention === null || now - _retentionCacheTime > 10000) {
+    _cachedRetention = loadAppSettings().targetRetention;
+    _retentionCacheTime = now;
+  }
+  return _cachedRetention;
+}
+
 export enum SectionState {
   New = 0,
   Learning = 1,
@@ -186,8 +199,8 @@ export function calculateNextReview(section: Section, grade: number, targetReten
     }
   }
 
-  // Use passed retention or load from settings (cached by caller for batch operations)
-  const retention = targetRetention ?? loadAppSettings().targetRetention;
+  // Use passed retention or module-level cache
+  const retention = targetRetention ?? getCachedRetention();
   const interval = Math.max(calculateInterval(newStability, retention), 1 / (24 * 60)); // minimum 1 minute
 
   // Critical zone: grades 1-2 get priority short intervals (max 24h for grade 2, max 20min for grade 1)
@@ -254,7 +267,7 @@ export function formatInterval(interval: number): string {
 }
 
 export function previewIntervals(section: Section): Record<number, string> {
-  const cachedRetention = loadAppSettings().targetRetention;
+  const cachedRetention = getCachedRetention();
   const result: Record<number, string> = {};
   for (const grade of [1, 2, 3, 4]) {
     const next = calculateNextReview(section, grade, cachedRetention);

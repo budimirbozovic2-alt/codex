@@ -654,12 +654,11 @@ export function useCards() {
       loadFullReviewLog(), // Full log for export, not the truncated in-memory version
     ]);
 
-    // Collect key localStorage items
+    // Collect key localStorage items + IDB settings for planner
     const localStorageData: Record<string, any> = {};
     const lsKeys = [
-      "sr-planner-config", "sr-app-settings", "sr-mnemonic-workshop",
+      "sr-app-settings", "sr-mnemonic-workshop",
       "sr-mnemonic-associations", "sr-major-system-map",
-      "sr-daily-mapped-count", "sr-daily-mapped-date",
       "sr-learn-progress", "sr-last-backup",
     ];
     for (const key of lsKeys) {
@@ -668,6 +667,15 @@ export function useCards() {
         try { localStorageData[key] = JSON.parse(val); } catch { localStorageData[key] = val; }
       }
     }
+    // Read planner data from IDB (migrated from localStorage)
+    const [plannerConfig, dailyMapped, dailyMappedDate] = await Promise.all([
+      db.settings.get("plannerConfig"),
+      db.settings.get("dailyMapped"),
+      db.settings.get("dailyMappedDate"),
+    ]);
+    if (plannerConfig?.value) localStorageData["sr-planner-config"] = plannerConfig.value;
+    if (dailyMapped?.value != null) localStorageData["sr-daily-mapped-count"] = dailyMapped.value;
+    if (dailyMappedDate?.value) localStorageData["sr-daily-mapped-date"] = dailyMappedDate.value;
 
     const data = {
       version: 4, type: "full",

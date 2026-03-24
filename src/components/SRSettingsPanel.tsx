@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { SRSettings, DEFAULT_SR_SETTINGS } from "@/lib/spaced-repetition";
 import { AppSettings, DEFAULT_APP_SETTINGS, loadAppSettings, saveAppSettings, COLOR_THEMES, applyColorTheme, type ColorTheme } from "@/lib/app-settings";
 import { TTSSettings, DEFAULT_TTS_SETTINGS, loadTTSSettings, saveTTSSettings, getAvailableVoices, speak } from "@/lib/tts";
@@ -26,8 +26,10 @@ interface Props {
 
 export default function SRSettingsPanel({ settings, onUpdate, onBack }: Props) {
   const [local, setLocal] = useState<SRSettings>({ ...settings });
-  const [app, setApp] = useState<AppSettings>(loadAppSettings());
-  const [tts, setTts] = useState<TTSSettings>(loadTTSSettings());
+  const initialAppRef = useRef(loadAppSettings());
+  const initialTtsRef = useRef(loadTTSSettings());
+  const [app, setApp] = useState<AppSettings>(initialAppRef.current);
+  const [tts, setTts] = useState<TTSSettings>(initialTtsRef.current);
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
 
   useEffect(() => {
@@ -58,8 +60,8 @@ export default function SRSettingsPanel({ settings, onUpdate, onBack }: Props) {
 
 
   const hasChanges = JSON.stringify(local) !== JSON.stringify(settings) ||
-    JSON.stringify(tts) !== JSON.stringify(loadTTSSettings()) ||
-    JSON.stringify(app) !== JSON.stringify(loadAppSettings());
+    JSON.stringify(tts) !== JSON.stringify(initialTtsRef.current) ||
+    JSON.stringify(app) !== JSON.stringify(initialAppRef.current);
   const isDefault = JSON.stringify(local) === JSON.stringify(DEFAULT_SR_SETTINGS) &&
     JSON.stringify(app) === JSON.stringify(DEFAULT_APP_SETTINGS);
 

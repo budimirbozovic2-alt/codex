@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
@@ -16,7 +16,8 @@ interface Props {
 }
 
 export default function ZenMode({ active, onToggle }: Props) {
-  const pom = loadAppSettings().pomodoro;
+  // Cache settings on mount — avoids localStorage parse every second
+  const pom = useMemo(() => loadAppSettings().pomodoro, []);
   const FOCUS_DURATION = pom.workMinutes * 60;
   const BREAK_DURATION = pom.breakMinutes * 60;
   const LONG_BREAK_DURATION = pom.longBreakMinutes * 60;

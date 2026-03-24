@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 import { useUIContext } from "@/contexts/AppContext";
@@ -14,7 +15,8 @@ const MODE_BADGE_CLASS: Record<string, string> = {
 export default function PomodoroTimer({ compact = false }: { compact?: boolean }) {
   const { pomodoro, pomodoroToggle, pomodoroReset } = useUIContext();
   const { mode, seconds, running, cycleCount } = pomodoro;
-  const pom = loadAppSettings().pomodoro;
+  // Cache settings on mount — avoids localStorage parse every render tick
+  const pom = useMemo(() => loadAppSettings().pomodoro, []);
 
   const totalSec = mode === "work" ? pom.workMinutes * 60
     : mode === "longBreak" ? pom.longBreakMinutes * 60
