@@ -175,7 +175,7 @@ function UIProvider({ children }: { children: ReactNode }) {
       if (now.getHours() === settings.notifications.reminderHour && now.getMinutes() === settings.notifications.reminderMinute) {
         new Notification("Memoria — Podsjetnik", {
           body: "Vrijeme je za ponavljanje! Imaš kartice koje čekaju.",
-          icon: "/placeholder.svg",
+          icon: `${import.meta.env.BASE_URL}placeholder.svg`,
         });
       }
     };
