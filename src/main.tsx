@@ -85,65 +85,79 @@ setTimeout(() => {
   if (window.electronAPI) {
     try {
       const { db } = await import("./lib/db");
+
+      const buildBackupData = async () => {
+        const [cards, categories, subcategories, reviewLog, srSettings, sources, mindMaps, diary, calibrationLog, latencyLog, slippageLog, activityLog, disciplineLog, pomodoroLog] = await Promise.all([
+          db.cards.toArray(),
+          db.categories.toArray().then(rows => rows.map(r => r.name)),
+          db.subcategories.toArray().then(rows => {
+            const result: Record<string, string[]> = {};
+            rows.forEach(r => { result[r.category] = r.subs; });
+            return result;
+          }),
+          db.reviewLog.toArray(),
+          db.settings.get("srSettings").then(r => r?.value ?? null),
+          db.sources.toArray(),
+          db.mindMaps.toArray(),
+          db.diary.toArray(),
+          db.calibrationLog.toArray(),
+          db.latencyLog.toArray(),
+          db.slippageLog.toArray(),
+          db.activityLog.toArray(),
+          db.disciplineLog.toArray(),
+          db.pomodoroLog.toArray(),
+        ]);
+
+        // Read planner data from IDB (not stale localStorage)
+        const [plannerConfigRow, dailyMappedRow, dailyMappedDateRow] = await Promise.all([
+          db.settings.get("plannerConfig"),
+          db.settings.get("dailyMapped"),
+          db.settings.get("dailyMappedDate"),
+        ]);
+
+        const localStorageData: Record<string, unknown> = {};
+        if (plannerConfigRow?.value) localStorageData["sr-planner-config"] = plannerConfigRow.value;
+        if (dailyMappedRow?.value != null) localStorageData["sr-daily-mapped-count"] = dailyMappedRow.value;
+        if (dailyMappedDateRow?.value) localStorageData["sr-daily-mapped-date"] = dailyMappedDateRow.value;
+
+        const lsKeys = [
+          "sr-app-settings", "sr-mnemonic-workshop",
+          "sr-mnemonic-associations", "sr-major-system-map",
+          "sr-learn-progress", "sr-last-backup",
+        ];
+        for (const key of lsKeys) {
+          const val = localStorage.getItem(key);
+          if (val !== null) {
+            try { localStorageData[key] = JSON.parse(val); } catch { localStorageData[key] = val; }
+          }
+        }
+
+        const data: Record<string, unknown> = {
+          version: 4, type: "full",
+          cards, categories, subcategories, reviewLog,
+          sources, mindMaps,
+          diary, calibrationLog, latencyLog, slippageLog, activityLog, disciplineLog, pomodoroLog,
+          localStorageData,
+        };
+        if (srSettings) data["srSettings"] = srSettings;
+        return JSON.stringify(data);
+      };
+
+      // Register backup-requested listener
       const cleanup = window.electronAPI.onBackupRequested(async () => {
         try {
-          const [cards, categories, subcategories, reviewLog, srSettings, sources, mindMaps, diary, calibrationLog, latencyLog, slippageLog, activityLog, disciplineLog, pomodoroLog] = await Promise.all([
-            db.cards.toArray(),
-            db.categories.toArray().then(rows => rows.map(r => r.name)),
-            db.subcategories.toArray().then(rows => {
-              const result: Record<string, string[]> = {};
-              rows.forEach(r => { result[r.category] = r.subs; });
-              return result;
-            }),
-            db.reviewLog.toArray(),
-            db.settings.get("srSettings").then(r => r?.value ?? null),
-            db.sources.toArray(),
-            db.mindMaps.toArray(),
-            db.diary.toArray(),
-            db.calibrationLog.toArray(),
-            db.latencyLog.toArray(),
-            db.slippageLog.toArray(),
-            db.activityLog.toArray(),
-            db.disciplineLog.toArray(),
-            db.pomodoroLog.toArray(),
-          ]);
-
-          // Read planner data from IDB (not stale localStorage)
-          const [plannerConfigRow, dailyMappedRow, dailyMappedDateRow] = await Promise.all([
-            db.settings.get("plannerConfig"),
-            db.settings.get("dailyMapped"),
-            db.settings.get("dailyMappedDate"),
-          ]);
-
-          const localStorageData: Record<string, unknown> = {};
-          // Planner data from IDB
-          if (plannerConfigRow?.value) localStorageData["sr-planner-config"] = plannerConfigRow.value;
-          if (dailyMappedRow?.value != null) localStorageData["sr-daily-mapped-count"] = dailyMappedRow.value;
-          if (dailyMappedDateRow?.value) localStorageData["sr-daily-mapped-date"] = dailyMappedDateRow.value;
-
-          const lsKeys = [
-            "sr-app-settings", "sr-mnemonic-workshop",
-            "sr-mnemonic-associations", "sr-major-system-map",
-            "sr-learn-progress", "sr-last-backup",
-          ];
-          for (const key of lsKeys) {
-            const val = localStorage.getItem(key);
-            if (val !== null) {
-              try { localStorageData[key] = JSON.parse(val); } catch { localStorageData[key] = val; }
-            }
-          }
-
-          const data: Record<string, unknown> = {
-            version: 4, type: "full",
-            cards, categories, subcategories, reviewLog,
-            sources, mindMaps,
-            diary, calibrationLog, latencyLog, slippageLog, activityLog, disciplineLog, pomodoroLog,
-            localStorageData,
-          };
-          if (srSettings) data["srSettings"] = srSettings;
-          window.electronAPI!.requestBackup(JSON.stringify(data));
+          const json = await buildBackupData();
+          window.electronAPI!.requestBackup(json);
         } catch (_) {}
       });
+
+      // Expose for before-quit await pattern (called from main process via executeJavaScript)
+      (window as any).__backupBeforeQuit = async () => {
+        try {
+          const json = await buildBackupData();
+          await window.electronAPI!.requestBackup(json);
+        } catch (_) {}
+      };
 
       const doCleanup = () => cleanup();
       window.addEventListener("beforeunload", doCleanup);
