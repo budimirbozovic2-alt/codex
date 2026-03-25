@@ -421,8 +421,8 @@ export function useCards() {
   // O(1) review — surgical IDB write
   const reviewSection = useCallback(
     (cardId: string, sectionId: string, grade: number) => {
-      // Cache retention to avoid repeated localStorage reads during batch grading
-      const cachedRetention = loadAppSettings().targetRetention;
+      // Use module-level cached retention — refreshed per reviewSection call, not per card
+      const cachedRetention = cachedRetentionRef.current;
       patchCard(cardId, (c) => {
         const entry: ReviewLogEntry = { timestamp: Date.now(), cardId, sectionId, grade, category: c.category };
         idbAddReviewLogEntry(entry);
