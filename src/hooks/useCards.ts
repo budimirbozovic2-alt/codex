@@ -133,6 +133,8 @@ export function useCards() {
   const [srSettings, setSrSettingsState] = useState<SRSettings>(DEFAULT_SR_SETTINGS);
   const [ready, setReady] = useState(false);
   const initialLoadDone = useRef(false);
+  // Cache targetRetention to avoid localStorage parse on every reviewSection call
+  const cachedRetentionRef = useRef(loadAppSettings().targetRetention);
 
   // Flush pending actions on unmount to prevent data loss
   useEffect(() => {
