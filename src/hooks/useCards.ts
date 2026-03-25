@@ -14,114 +14,14 @@ import { useCardExport } from "./useCardExport";
 import { useCategoryManagement } from "./useCategoryManagement";
 import { useCardImport } from "./useCardImport";
 import { useCardCRUD } from "./useCardCRUD";
+import { useCardBootstrap } from "./useCardBootstrap";
+import { CardMap, mapToArray, persistQueue, schedulePersist } from "@/lib/persist-queue";
 import {
-  ensureDbOpen,
-  migrateFromLocalStorage,
-  idbLoadCards,
-  idbSaveCards,
-  idbPutCard,
-  idbDeleteCard,
-  idbBulkPutCards,
-  idbLoadCategories,
   idbSaveCategories,
-  idbLoadSubcategories,
   idbSaveSubcategories,
-  idbLoadReviewLog,
-  idbLoadRecentReviewLog,
   idbAddReviewLogEntry,
-  idbLoadSettings,
   idbSaveSettings,
 } from "@/lib/db";
-
-// ─── Internal Map type for O(1) access ──────────────────
-type CardMap = Record<string, Card>;
-
-async function withTimeout<T>(task: Promise<T>, timeoutMs: number, label: string, fallback: T): Promise<T> {
-  try {
-    return await Promise.race([task, new Promise<T>((resolve) => setTimeout(() => resolve(fallback), timeoutMs))]);
-  } catch (error) {
-    console.warn(`[boot] ${label} failed`, error);
-    return fallback;
-  }
-}
-
-function arrayToMap(cards: Card[]): CardMap {
-  const map: CardMap = {};
-  for (const c of cards) map[c.id] = c;
-  return map;
-}
-
-function mapToArray(map: CardMap): Card[] {
-  return Object.values(map);
-}
-
-// ─── Surgical persist helpers ───────────────────────────
-// Track which cards changed so we can persist only those
-type PersistAction =
-  | { type: "put"; card: Card }
-  | { type: "delete"; id: string }
-  | { type: "bulk"; cards: Card[] }
-  | { type: "full"; map: CardMap };
-
-// Persist queue — encapsulated to avoid shared mutable state issues
-function createPersistQueue() {
-  const pending: PersistAction[] = [];
-  let timer: number | null = null;
-
-  async function flush() {
-    timer = null;
-    const actions = pending.splice(0);
-    if (actions.length === 0) return;
-
-    try {
-      const fullAction = actions.find((a) => a.type === "full");
-      if (fullAction && fullAction.type === "full") {
-        await idbSaveCards(mapToArray(fullAction.map));
-        return;
-      }
-
-      const puts: Card[] = [];
-      const deletes: string[] = [];
-      for (const a of actions) {
-        if (a.type === "put") puts.push(a.card);
-        else if (a.type === "delete") deletes.push(a.id);
-        else if (a.type === "bulk") puts.push(...a.cards);
-      }
-
-      if (puts.length > 0) await idbBulkPutCards(puts);
-      for (const id of deletes) await idbDeleteCard(id);
-    } catch (err: any) {
-      if (err?.message === "QUOTA_EXCEEDED") {
-        const { toast } = await import("sonner");
-        toast.error("Memorija browsera je puna! Exportuj backup i očisti nepotrebne podatke.");
-      } else {
-        console.error("[persistQueue] flush failed", err);
-      }
-    }
-  }
-
-  function schedule(action: PersistAction) {
-    pending.push(action);
-    if (timer !== null) return;
-    timer = window.setTimeout(flush, 16);
-  }
-
-  function cleanup() {
-    if (timer !== null) {
-      clearTimeout(timer);
-      timer = null;
-    }
-    if (pending.length > 0) {
-      flush();
-    }
-  }
-
-  return { schedule, cleanup };
-}
-
-// Singleton persist queue — created once per module, safe for StrictMode double-mount
-const persistQueue = createPersistQueue();
-const schedulePersist = persistQueue.schedule;
 
 export function useCards() {
   const [cardMap, setCardMapState] = useState<CardMap>({});
@@ -129,139 +29,17 @@ export function useCards() {
   const [subcategories, setSubcategoriesState] = useState<Record<string, string[]>>({});
   const [reviewLog, setReviewLogState] = useState<ReviewLogEntry[]>([]);
   const [srSettings, setSrSettingsState] = useState<SRSettings>(DEFAULT_SR_SETTINGS);
-  const [ready, setReady] = useState(false);
-  const initialLoadDone = useRef(false);
-  // Cache targetRetention to avoid localStorage parse on every reviewSection call
   const cachedRetentionRef = useRef(loadAppSettings().targetRetention);
 
   // Flush pending actions on unmount to prevent data loss
   useEffect(() => {
-    return () => {
-      persistQueue.cleanup();
-    };
+    return () => { persistQueue.cleanup(); };
   }, []);
 
-  // ── Initial async load from IndexedDB ──
-  useEffect(() => {
-    if (initialLoadDone.current) return;
-    initialLoadDone.current = true;
-
-    // OSIGURAČ: Ako se aplikacija ne učita za 12s, forsiraj 'ready' stanje
-    const panicTimer = setTimeout(() => {
-      setReady((currentReady) => {
-        if (!currentReady) {
-          console.error("[boot] Panic timeout okidanje! Forsiram ready state.");
-          const splash = document.getElementById("app-splash");
-          if (splash) splash.remove();
-          return true;
-        }
-        return currentReady;
-      });
-    }, 12000);
-
-    const splashProgress = (pct: number, label: string) => {
-      const bar = document.getElementById("splash-progress");
-      const status = document.getElementById("splash-status");
-      const percent = document.getElementById("splash-percent");
-      if (bar) bar.style.width = `${pct}%`;
-      if (status) status.textContent = label;
-      if (percent) percent.textContent = `${pct}%`;
-    };
-
-    const showSplashError = (msg: string) => {
-      const el = document.getElementById("splash-error");
-      const msgEl = document.getElementById("splash-error-msg");
-      if (el) el.style.display = "block";
-      if (msgEl) msgEl.textContent = msg;
-    };
-
-    (async () => {
-      const { markBootStep } = await import("@/lib/boot-trace");
-      try {
-        markBootStep("cards:init-start");
-        splashProgress(5, "Otvaranje baze…");
-        markBootStep("cards:db-open-start");
-        const dbOk = await ensureDbOpen(6000);
-        markBootStep("cards:db-open-done", dbOk ? "ok" : "failed");
-        if (!dbOk) {
-          console.warn("[boot] DB unavailable — starting in fallback mode");
-          splashProgress(100, "Pokretanje bez baze…");
-          showSplashError("IndexedDB nije dostupan ili je isteklo vrijeme čekanja.");
-          return;
-        }
-
-        markBootStep("cards:migration-start");
-        splashProgress(10, "Migracija podataka…");
-        await migrateFromLocalStorage();
-        markBootStep("cards:migration-done");
-
-        // Initialize in-memory caches from IDB (replaces localStorage)
-        splashProgress(15, "Inicijalizacija keša…");
-        const { initMetacognitiveCache } = await import("@/lib/metacognitive-storage");
-        const { initPlannerCache } = await import("@/lib/planner-storage");
-        await Promise.all([initMetacognitiveCache().catch(() => {}), initPlannerCache().catch(() => {})]);
-
-        splashProgress(25, "Učitavanje kartica…");
-        markBootStep("cards:data-load-start");
-        const c = await withTimeout(idbLoadCards(), 5000, "cards load", []);
-
-        splashProgress(50, `${c.length} kartica učitano`);
-        const cats = await withTimeout(idbLoadCategories(), 2500, "categories load", ["Opšte"]);
-
-        splashProgress(65, "Učitavanje kategorija…");
-        const subs = await withTimeout(idbLoadSubcategories(), 2500, "subcategories load", {});
-
-        splashProgress(80, "Učitavanje dnevnika…");
-        // Load only last 90 days of review log at boot for performance
-        // Full log is still available via idbLoadReviewLog() for export
-        const log = await withTimeout(idbLoadRecentReviewLog(90), 2500, "review log load", []);
-
-        splashProgress(90, "Učitavanje podešavanja…");
-        const settings = await withTimeout(
-          idbLoadSettings<SRSettings>("srSettings", DEFAULT_SR_SETTINGS),
-          2500,
-          "settings load",
-          DEFAULT_SR_SETTINGS,
-        );
-        markBootStep("cards:data-load-done", `${c.length} cards`);
-
-        setCardMapState(arrayToMap(c));
-        setCategoriesState(cats);
-        setSubcategoriesState(subs);
-        setReviewLogState(log);
-        setSrSettingsState(settings);
-
-        splashProgress(100, "Spremno!");
-        markBootStep("cards:ready");
-      } catch (error) {
-        console.error("[boot] useCards init:failed", error);
-        markBootStep("cards:init-error", error instanceof Error ? error.message : String(error));
-        splashProgress(100, "Pokretanje sa rezervnim stanjem…");
-        showSplashError(error instanceof Error ? error.message : "Neočekivana greška pri učitavanju podataka.");
-      } finally {
-        // 1. Prvo postavljamo ready da React nastavi renderovanje
-        setReady(true);
-        clearTimeout(panicTimer);
-
-        // 2. Bezbjedno uklanjanje splash screena
-        const splash = document.getElementById("app-splash");
-        if (splash) {
-          splash.style.opacity = "0";
-          // Koristimo direktno remove bez previše ugniježdenih timeouta radi sigurnosti
-          setTimeout(() => {
-            if (splash.parentNode) splash.remove();
-          }, 500);
-        }
-
-        // 3. Obavještavamo Electron
-        if (window.electronAPI?.notifyReady) {
-          window.electronAPI.notifyReady();
-        }
-      }
-    })();
-
-    return () => clearTimeout(panicTimer); // Čistimo tajmer ako se komponenta ugasi ranije
-  }, []);
+  // ── Boot (extracted module) ──
+  const { ready } = useCardBootstrap({
+    setCardMapState, setCategoriesState, setSubcategoriesState, setReviewLogState, setSrSettingsState,
+  });
 
   // ── Derived: Card[] for consumers (memoized from map) ──
   const cards = useMemo(() => mapToArray(cardMap), [cardMap]);
@@ -447,7 +225,6 @@ export function useCards() {
         const normalized = text.trim();
         const existing = parts.findIndex((p) => p === normalized);
         if (existing >= 0) {
-          // Toggle off — remove this key part
           return { ...c, keyParts: parts.filter((_, i) => i !== existing) };
         }
         return { ...c, keyParts: [...parts, normalized] };
@@ -484,12 +261,8 @@ export function useCards() {
   // ── Derived data ──
   const cardCountByCategory = useMemo(() => {
     const counts: Record<string, number> = {};
-    categories.forEach((cat) => {
-      counts[cat] = 0;
-    });
-    cards.forEach((c) => {
-      counts[c.category] = (counts[c.category] || 0) + 1;
-    });
+    categories.forEach((cat) => { counts[cat] = 0; });
+    cards.forEach((c) => { counts[c.category] = (counts[c.category] || 0) + 1; });
     return counts;
   }, [cards, categories]);
 
