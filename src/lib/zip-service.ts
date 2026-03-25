@@ -3,7 +3,7 @@
  * Lazy-loads jszip to keep the main bundle small.
  */
 
-let _JSZip: typeof import("jszip").default | null = null;
+let _JSZip: any = null;
 
 async function getJSZip() {
   if (!_JSZip) {
