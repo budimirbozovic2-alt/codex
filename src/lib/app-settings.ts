@@ -97,7 +97,7 @@ export function saveAppSettings(settings: AppSettings): void {
   // IDB backup (fire-and-forget)
   try {
     import("./db").then(({ db }) => {
-      db.settings.put({ key: "appSettings", value: settings }).catch(() => {});
+      db.settings.put({ key: "appSettings", value: settings }).catch((e) => console.warn("[silent]", e));
     });
   } catch {}
 }

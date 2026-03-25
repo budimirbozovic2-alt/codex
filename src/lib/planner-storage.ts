@@ -96,7 +96,7 @@ export function loadPlanner(): PlannerConfig {
 
 export function savePlanner(config: PlannerConfig): void {
   _plannerCache = config;
-  db.settings.put({ key: "plannerConfig", value: config }).catch(() => {});
+  db.settings.put({ key: "plannerConfig", value: config }).catch((e) => console.warn("[silent]", e));
 }
 
 // ─── Velocity ────────────────────────────────────────────
@@ -331,8 +331,8 @@ export function loadDisciplineLog(): DisciplineEntry[] {
 export function saveDisciplineLog(log: DisciplineEntry[]) {
   _disciplineCache = log;
   db.disciplineLog.clear().then(() => {
-    if (log.length > 0) db.disciplineLog.bulkAdd(log).catch(() => {});
-  }).catch(() => {});
+    if (log.length > 0) db.disciplineLog.bulkAdd(log).catch((e) => console.warn("[silent]", e));
+  }).catch((e) => console.warn("[silent]", e));
 }
 
 export function calcDisciplineStatus(reviewsDone: number, dailyGoal: number, slippageMs: number | null): DisciplineStatus {
@@ -410,7 +410,7 @@ export function incrementDailyMapped(amount: number = 1): number {
   const current = _dailyMapped.date === today ? _dailyMapped.count : 0;
   const newCount = current + amount;
   _dailyMapped = { date: today, count: newCount };
-  db.settings.put({ key: "dailyMapped", value: _dailyMapped }).catch(() => {});
+  db.settings.put({ key: "dailyMapped", value: _dailyMapped }).catch((e) => console.warn("[silent]", e));
   return newCount;
 }
 
@@ -428,7 +428,7 @@ export function autoRedistributeIfNeeded(
   const entry = _disciplineCache.find(e => e.date === yesterday);
   if (!entry || entry.planCompletion >= 90) {
     _lastRedistributeDate = today;
-    db.settings.put({ key: "lastRedistribute", value: today }).catch(() => {});
+    db.settings.put({ key: "lastRedistribute", value: today }).catch((e) => console.warn("[silent]", e));
     return null;
   }
 
@@ -440,7 +440,7 @@ export function autoRedistributeIfNeeded(
   if (!result) return null;
 
   _lastRedistributeDate = today;
-  db.settings.put({ key: "lastRedistribute", value: today }).catch(() => {});
+  db.settings.put({ key: "lastRedistribute", value: today }).catch((e) => console.warn("[silent]", e));
   return { redistributed: true, newQuota: result.newDailyQuota };
 }
 

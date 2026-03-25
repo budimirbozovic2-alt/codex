@@ -35,9 +35,9 @@ export default function ZenMode({ active, onToggle }: Props) {
 
   useEffect(() => {
     if (active) {
-      document.documentElement.requestFullscreen?.().catch(() => {});
+      document.documentElement.requestFullscreen?.().catch((e) => console.warn("[fullscreen]", e));
     } else {
-      if (document.fullscreenElement) document.exitFullscreen?.().catch(() => {});
+      if (document.fullscreenElement) document.exitFullscreen?.().catch((e) => console.warn("[fullscreen]", e));
       setTimerRunning(false);
       if (isBrownNoisePlaying()) { stopBrownNoise(); setNoiseOn(false); }
     }

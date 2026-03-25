@@ -91,7 +91,7 @@ export function useCardBootstrap(setters: BootSetters) {
         splashProgress(15, "Inicijalizacija keša…");
         const { initMetacognitiveCache } = await import("@/lib/metacognitive-storage");
         const { initPlannerCache } = await import("@/lib/planner-storage");
-        await Promise.all([initMetacognitiveCache().catch(() => {}), initPlannerCache().catch(() => {})]);
+        await Promise.all([initMetacognitiveCache().catch((e) => console.warn("[silent]", e)), initPlannerCache().catch((e) => console.warn("[silent]", e))]);
 
         splashProgress(25, "Učitavanje kartica…");
         markBootStep("cards:data-load-start");

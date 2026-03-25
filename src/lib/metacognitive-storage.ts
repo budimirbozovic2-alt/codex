@@ -61,7 +61,7 @@ export function loadDiary(): DiaryEntry[] {
 export function saveDiary(entries: DiaryEntry[]) {
   _diaryCache = entries;
   if (entries.length > 0) {
-    db.diary.bulkPut(entries).catch(() => {});
+    db.diary.bulkPut(entries).catch((e) => console.warn("[silent]", e));
   }
 }
 
@@ -92,13 +92,13 @@ export function loadCalibration(): CalibrationEntry[] {
 export function saveCalibration(entries: CalibrationEntry[]) {
   _calibrationCache = entries;
   if (entries.length > 0) {
-    db.calibrationLog.bulkPut(entries).catch(() => {});
+    db.calibrationLog.bulkPut(entries).catch((e) => console.warn("[silent]", e));
   }
 }
 
 export function addCalibrationEntry(entry: CalibrationEntry) {
   _calibrationCache = [..._calibrationCache, entry];
-  db.calibrationLog.add(entry).catch(() => {});
+  db.calibrationLog.add(entry).catch((e) => console.warn("[silent]", e));
 }
 
 // ─── Recall Latency ──────────────────────────────────────
@@ -118,13 +118,13 @@ export function loadLatency(): LatencyEntry[] {
 export function saveLatency(entries: LatencyEntry[]) {
   _latencyCache = entries;
   if (entries.length > 0) {
-    db.latencyLog.bulkPut(entries).catch(() => {});
+    db.latencyLog.bulkPut(entries).catch((e) => console.warn("[silent]", e));
   }
 }
 
 export function addLatencyEntry(entry: LatencyEntry) {
   _latencyCache = [..._latencyCache, entry];
-  db.latencyLog.add(entry).catch(() => {});
+  db.latencyLog.add(entry).catch((e) => console.warn("[silent]", e));
 }
 
 // ─── Self-analysis reminder ─────────────────────────────
@@ -135,7 +135,7 @@ export function getLastAnalysisDate(): string | null {
 
 export function setLastAnalysisDate(date: string) {
   _lastAnalysisDate = date;
-  db.settings.put({ key: "lastAnalysisDate", value: date }).catch(() => {});
+  db.settings.put({ key: "lastAnalysisDate", value: date }).catch((e) => console.warn("[silent]", e));
 }
 
 export function isAnalysisNeededToday(reviewLog: ReviewLogEntry[]): boolean {
@@ -190,7 +190,7 @@ export function recordAppEntry() {
   const today = new Date().toISOString().slice(0, 10);
   if (_appEntry && _appEntry.date === today) return;
   _appEntry = { date: today, time: Date.now() };
-  db.settings.put({ key: "appEntry", value: _appEntry }).catch(() => {});
+  db.settings.put({ key: "appEntry", value: _appEntry }).catch((e) => console.warn("[silent]", e));
 }
 
 export function recordFirstAction() {
@@ -201,11 +201,11 @@ export function recordFirstAction() {
 
     const slippageMs = Date.now() - _appEntry.time;
     _appEntry = { ..._appEntry, actionRecorded: true };
-    db.settings.put({ key: "appEntry", value: _appEntry }).catch(() => {});
+    db.settings.put({ key: "appEntry", value: _appEntry }).catch((e) => console.warn("[silent]", e));
 
     const slippageEntry: SlippageEntry = { date: today, appEntryTime: _appEntry.time, firstActionTime: Date.now(), slippageMs };
     _slippageCache = [..._slippageCache, slippageEntry];
-    db.slippageLog.add(slippageEntry).catch(() => {});
+    db.slippageLog.add(slippageEntry).catch((e) => console.warn("[silent]", e));
   } catch {}
 }
 
@@ -263,7 +263,7 @@ export function loadActivityLog(): ActivityEntry[] {
 
 export function addActivityEntry(entry: ActivityEntry) {
   _activityCache = [..._activityCache, entry];
-  db.activityLog.add(entry).catch(() => {});
+  db.activityLog.add(entry).catch((e) => console.warn("[silent]", e));
 }
 
 export interface TimeDistribution {
