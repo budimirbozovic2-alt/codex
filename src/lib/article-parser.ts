@@ -145,6 +145,8 @@ export function parseArticles(html: string): ParsedArticle[] {
   for (let i = 0; i < articles.length; i++) {
     if (htmlArticleSegments[i]) {
       articles[i].html = htmlArticleSegments[i];
+      // Strip heading text from article content so only legal text remains
+      articles[i].text = htmlToTextWithoutHeadings(htmlArticleSegments[i]) || articles[i].text;
     }
   }
 
