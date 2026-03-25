@@ -15,6 +15,12 @@ interface ElectronAPI {
   onBackupRequested: (callback: () => void) => () => void;
   onQuitBackupRequested: (callback: () => void) => () => void;
   notifyQuitBackupDone: () => void;
+  // Window controls
+  windowMinimize: () => void;
+  windowMaximize: () => void;
+  windowClose: () => void;
+  windowIsMaximized: () => Promise<boolean>;
+  onWindowMaximizedChanged: (callback: (isMaximized: boolean) => void) => () => void;
   isElectron: true;
 }
 

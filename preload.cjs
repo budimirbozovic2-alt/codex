@@ -24,6 +24,16 @@ contextBridge.exposeInMainWorld('electronAPI', {
   },
   // Notify main that quit backup is done
   notifyQuitBackupDone: () => ipcRenderer.send('quit-backup-done'),
+  // ── Window controls ──
+  windowMinimize: () => ipcRenderer.send('window-minimize'),
+  windowMaximize: () => ipcRenderer.send('window-maximize'),
+  windowClose: () => ipcRenderer.send('window-close'),
+  windowIsMaximized: () => ipcRenderer.invoke('window-is-maximized'),
+  onWindowMaximizedChanged: (callback) => {
+    const handler = (_event, isMaximized) => callback(isMaximized);
+    ipcRenderer.on('window-maximized-changed', handler);
+    return () => ipcRenderer.removeListener('window-maximized-changed', handler);
+  },
   // Check if running in Electron
   isElectron: true,
 });

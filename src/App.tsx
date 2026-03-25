@@ -9,6 +9,7 @@ import { AppProvider } from "@/contexts/AppContext";
 import { SessionProvider } from "@/contexts/SessionContext";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import MainLayout from "@/components/MainLayout";
+import TitleBar from "@/components/TitleBar";
 import ProcessingOverlay from "@/components/ProcessingOverlay";
 import { lazy, Suspense } from "react";
 import { PageSkeleton } from "@/components/ui/page-skeleton";
@@ -37,7 +38,8 @@ const queryClient = new QueryClient(); // rebuild trigger v2
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
-      <div>
+      <div className="flex flex-col h-screen">
+        <TitleBar />
         <Toaster />
         <Sonner />
         <HashRouter>

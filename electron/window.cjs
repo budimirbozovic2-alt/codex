@@ -1,4 +1,4 @@
-const { BrowserWindow, Menu, ipcMain } = require('electron');
+const { BrowserWindow, Menu, ipcMain, nativeTheme } = require('electron');
 const path = require('path');
 const fs = require('fs');
 
@@ -77,6 +77,8 @@ function createWindow({ isDev, baseDir, configPath, logCrash, splash, onMainWind
     minWidth: 900,
     minHeight: 670,
     show: false,
+    frame: false,
+    titleBarStyle: 'hidden',
     icon: getPublicPath(isDev, baseDir, 'icon.ico'),
     backgroundColor: '#0a1628',
     webPreferences: {
@@ -86,6 +88,21 @@ function createWindow({ isDev, baseDir, configPath, logCrash, splash, onMainWind
       sandbox: true,
     },
   });
+
+  // ── Window control IPC handlers ──
+  ipcMain.on('window-minimize', () => { if (!win.isDestroyed()) win.minimize(); });
+  ipcMain.on('window-maximize', () => {
+    if (!win.isDestroyed()) {
+      if (win.isMaximized()) win.unmaximize();
+      else win.maximize();
+    }
+  });
+  ipcMain.on('window-close', () => { if (!win.isDestroyed()) win.close(); });
+  ipcMain.handle('window-is-maximized', () => !win.isDestroyed() && win.isMaximized());
+
+  // Notify renderer when maximize state changes
+  win.on('maximize', () => { if (!win.isDestroyed()) win.webContents.send('window-maximized-changed', true); });
+  win.on('unmaximize', () => { if (!win.isDestroyed()) win.webContents.send('window-maximized-changed', false); });
 
   onMainWindow(win);
 
