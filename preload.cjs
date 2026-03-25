@@ -12,13 +12,15 @@ contextBridge.exposeInMainWorld('electronAPI', {
   notifyReady: () => ipcRenderer.send('renderer-ready'),
   // Listen for backup-requested from main (e.g., periodic auto-backup)
   onBackupRequested: (callback) => {
-    ipcRenderer.on('backup-requested', () => callback());
-    return () => ipcRenderer.removeAllListeners('backup-requested');
+    const handler = () => callback();
+    ipcRenderer.on('backup-requested', handler);
+    return () => ipcRenderer.removeListener('backup-requested', handler);
   },
   // Listen for quit-backup-requested from main (before-quit with await)
   onQuitBackupRequested: (callback) => {
-    ipcRenderer.on('quit-backup-requested', () => callback());
-    return () => ipcRenderer.removeAllListeners('quit-backup-requested');
+    const handler = () => callback();
+    ipcRenderer.on('quit-backup-requested', handler);
+    return () => ipcRenderer.removeListener('quit-backup-requested', handler);
   },
   // Notify main that quit backup is done
   notifyQuitBackupDone: () => ipcRenderer.send('quit-backup-done'),
