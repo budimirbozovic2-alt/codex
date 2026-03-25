@@ -152,12 +152,13 @@ setTimeout(() => {
       });
 
       // Register quit-backup listener (IPC pattern, no executeJavaScript)
-      const cleanupQuit = window.electronAPI.onQuitBackupRequested?.(async () => {
+      const api = window.electronAPI as any;
+      const cleanupQuit = api.onQuitBackupRequested?.(async () => {
         try {
           const json = await buildBackupData();
           await window.electronAPI!.requestBackup(json);
         } catch (_) {}
-        window.electronAPI!.notifyQuitBackupDone?.();
+        api.notifyQuitBackupDone?.();
       });
 
       const doCleanup = () => { cleanup(); cleanupQuit?.(); };
