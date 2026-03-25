@@ -136,7 +136,7 @@ export default function MainLayout({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <div className="min-h-screen flex flex-col w-full">
+    <div className="flex-1 flex flex-col w-full overflow-auto">
       <TopNav
         onOpenSearch={() => setGlobalSearchOpen(true)}
         onOpenDocxImport={() => setDocxOpen(true)}
