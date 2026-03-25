@@ -26,7 +26,7 @@ interface ReviewSetupProps {
   allCards: Card[];
   subcategories: Record<string, string[]>;
   srSettings: SRSettings;
-  onSelectMode: (mode: ReviewMode, category: string | null, subcategory: string | null, chapter: string | null, examFrequent: boolean, filterType: "all" | "essay" | "flash") => void;
+  onSelectMode: (mode: ReviewMode, category: string | null, subcategory: string | null, chapter: string | null, examFrequent: boolean, filterType: "all" | "essay" | "flash", items: DueItem[]) => void;
   onBack: () => void;
   savedSession: any;
   onResumeSession: () => void;
