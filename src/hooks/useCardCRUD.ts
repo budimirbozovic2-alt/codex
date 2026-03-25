@@ -1,0 +1,174 @@
+import { useCallback } from "react";
+import { toast } from "sonner";
+import {
+  Card,
+  createCard,
+  createFlashCard,
+  createSection,
+  SourceModule,
+} from "@/lib/spaced-repetition";
+
+type CardMap = Record<string, Card>;
+
+type PersistAction =
+  | { type: "put"; card: Card }
+  | { type: "delete"; id: string }
+  | { type: "bulk"; cards: Card[] }
+  | { type: "full"; map: CardMap };
+
+interface UseCardCRUDParams {
+  categories: string[];
+  setCardMapState: React.Dispatch<React.SetStateAction<CardMap>>;
+  setCategories: (updater: (prev: string[]) => string[]) => void;
+  schedulePersist: (action: PersistAction) => void;
+}
+
+export function useCardCRUD({
+  categories,
+  setCardMapState,
+  setCategories,
+  schedulePersist,
+}: UseCardCRUDParams) {
+  // ── Surgical single-card update (O(1) state + O(1) IDB) ──
+  const patchCard = useCallback((id: string, patcher: (card: Card) => Card) => {
+    setCardMapState((prev) => {
+      const card = prev[id];
+      if (!card) return prev;
+      const updated = patcher(card);
+      schedulePersist({ type: "put", card: updated });
+      return { ...prev, [id]: updated };
+    });
+  }, [setCardMapState, schedulePersist]);
+
+  const addCard = useCallback(
+    (
+      question: string,
+      sections: { title: string; content: string }[],
+      category: string,
+      subcategory?: string,
+      chapter?: string,
+      extra?: {
+        sourceId?: string;
+        textAnchor?: string;
+        originalSourceSnippet?: string;
+        childCardIds?: string[];
+        sourceModules?: SourceModule[];
+      },
+    ) => {
+      const card = createCard(question, sections, category, subcategory);
+      if (chapter) card.chapter = chapter;
+      if (extra?.sourceId) card.sourceId = extra.sourceId;
+      if (extra?.textAnchor) card.textAnchor = extra.textAnchor;
+      if (extra?.originalSourceSnippet) card.originalSourceSnippet = extra.originalSourceSnippet;
+      if (extra?.childCardIds) card.childCardIds = extra.childCardIds;
+      if (extra?.sourceModules) card.sourceModules = extra.sourceModules;
+      setCardMapState((prev) => {
+        schedulePersist({ type: "put", card });
+        return { ...prev, [card.id]: card };
+      });
+      if (!categories.includes(category)) {
+        setCategories((prev) => [...prev, category]);
+      }
+      return card;
+    },
+    [categories, setCategories, setCardMapState, schedulePersist],
+  );
+
+  const addFlashCard = useCallback(
+    (question: string, answer: string, category: string, subcategory?: string) => {
+      const card = createFlashCard(question, answer, category, subcategory);
+      setCardMapState((prev) => {
+        schedulePersist({ type: "put", card });
+        return { ...prev, [card.id]: card };
+      });
+      if (!categories.includes(category)) {
+        setCategories((prev) => [...prev, category]);
+      }
+      return card;
+    },
+    [categories, setCategories, setCardMapState, schedulePersist],
+  );
+
+  // O(1) direct update — surgical IDB write
+  const updateCard = useCallback(
+    (
+      id: string,
+      updates: {
+        question?: string;
+        sections?: { title: string; content: string }[];
+        category?: string;
+        subcategory?: string;
+        chapter?: string;
+        sourceId?: string;
+        textAnchor?: string;
+        originalSourceSnippet?: string;
+        childCardIds?: string[];
+        sourceModules?: SourceModule[];
+        needsReview?: boolean;
+      },
+    ) => {
+      patchCard(id, (c) => {
+        const newCard = { ...c };
+        if (updates.question) newCard.question = updates.question;
+        if (updates.category) newCard.category = updates.category;
+        if (updates.subcategory !== undefined) newCard.subcategory = updates.subcategory;
+        if (updates.chapter !== undefined) newCard.chapter = updates.chapter;
+        if (updates.sourceId !== undefined) newCard.sourceId = updates.sourceId;
+        if (updates.textAnchor !== undefined) newCard.textAnchor = updates.textAnchor;
+        if (updates.originalSourceSnippet !== undefined) newCard.originalSourceSnippet = updates.originalSourceSnippet;
+        if (updates.childCardIds !== undefined) newCard.childCardIds = updates.childCardIds;
+        if (updates.sourceModules !== undefined) newCard.sourceModules = updates.sourceModules;
+        if (updates.needsReview !== undefined) newCard.needsReview = updates.needsReview;
+        if (updates.sections) {
+          newCard.sections = updates.sections.map((s) => {
+            const existing = c.sections.find((es) => es.title === s.title);
+            if (existing) return { ...existing, content: s.content };
+            return createSection(s.title, s.content);
+          });
+        }
+        return newCard;
+      });
+      toast.success("Kartica ažurirana.");
+    },
+    [patchCard],
+  );
+
+  // O(1) delete — surgical IDB delete
+  const deleteCard = useCallback((id: string) => {
+    setCardMapState((prev) => {
+      const next = { ...prev };
+      delete next[id];
+      schedulePersist({ type: "delete", id });
+      return next;
+    });
+    toast.success("Kartica obrisana.");
+  }, [setCardMapState, schedulePersist]);
+
+  const splitCard = useCallback((id: string) => {
+    setCardMapState((prev) => {
+      const card = prev[id];
+      if (!card || card.sections.length <= 1) return prev;
+      const next = { ...prev };
+      delete next[id];
+      schedulePersist({ type: "delete", id });
+      const newCards: Card[] = [];
+      card.sections.forEach((section) => {
+        const newCard = {
+          ...createCard(
+            card.question,
+            [{ title: section.title, content: section.content }],
+            card.category,
+            card.subcategory,
+          ),
+          sections: [{ ...section }],
+        };
+        next[newCard.id] = newCard;
+        newCards.push(newCard);
+      });
+      schedulePersist({ type: "bulk", cards: newCards });
+      return next;
+    });
+  }, [setCardMapState, schedulePersist]);
+
+  return { patchCard, addCard, addFlashCard, updateCard, deleteCard, splitCard };
+}
