@@ -9,6 +9,7 @@ import { AppProvider } from "@/contexts/AppContext";
 import { SessionProvider } from "@/contexts/SessionContext";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import MainLayout from "@/components/MainLayout";
+import TitleBar from "@/components/TitleBar";
 import ProcessingOverlay from "@/components/ProcessingOverlay";
 import { lazy, Suspense } from "react";
 import { PageSkeleton } from "@/components/ui/page-skeleton";
