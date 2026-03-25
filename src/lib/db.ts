@@ -140,15 +140,18 @@ export const db = new MemoriaDB();
  * Returns true if DB is usable, false if fallback mode should be used.
  */
 export async function ensureDbOpen(timeoutMs = 6000): Promise<boolean> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
   try {
     await Promise.race([
       db.open(),
-      new Promise((_, reject) =>
-        setTimeout(() => reject(new Error("DB_OPEN_TIMEOUT")), timeoutMs)
-      ),
+      new Promise((_, reject) => {
+        timer = setTimeout(() => reject(new Error("DB_OPEN_TIMEOUT")), timeoutMs);
+      }),
     ]);
+    clearTimeout(timer);
     return true;
   } catch (err: any) {
+    clearTimeout(timer);
     console.error("[MemoriaDB] open failed:", err?.name, err?.message);
     // VersionError = schema downgrade or corruption — delete and retry once
     if (err?.name === "VersionError" || err?.name === "UpgradeError") {

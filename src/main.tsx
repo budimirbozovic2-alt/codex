@@ -152,13 +152,22 @@ setTimeout(() => {
       });
 
       // Register quit-backup listener (IPC pattern, no executeJavaScript)
+      // CRITICAL: notifyQuitBackupDone MUST always be called or Electron hangs on quit
       const api = window.electronAPI as any;
       const cleanupQuit = api.onQuitBackupRequested?.(async () => {
         try {
-          const json = await buildBackupData();
+          const json = await Promise.race([
+            buildBackupData(),
+            new Promise<string>((_, reject) =>
+              setTimeout(() => reject(new Error("quit-backup-timeout")), 5000)
+            ),
+          ]);
           await window.electronAPI!.requestBackup(json);
-        } catch (_) {}
-        api.notifyQuitBackupDone?.();
+        } catch (err) {
+          console.error("[quit-backup] failed, releasing lock:", err);
+        } finally {
+          api.notifyQuitBackupDone?.();
+        }
       });
 
       const doCleanup = () => { cleanup(); cleanupQuit?.(); };
