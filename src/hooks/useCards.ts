@@ -266,10 +266,79 @@ export function useCards() {
   // ── Derived: Card[] for consumers (memoized from map) ──
   const cards = useMemo(() => mapToArray(cardMap), [cardMap]);
 
+  // ── Bulk map update (for operations touching many cards) ──
+  const setCardMap = useCallback((updater: (prev: CardMap) => CardMap, persist: "surgical" | "full" = "full") => {
+    setCardMapState((prev) => {
+      const next = updater(prev);
+      if (persist === "full") {
+        schedulePersist({ type: "full", map: next });
+      }
+      return next;
+    });
+  }, []);
+
+  const setCategories = useCallback((updater: (prev: string[]) => string[]) => {
+    setCategoriesState((prev) => {
+      const next = updater(prev);
+      idbSaveCategories(next);
+      return next;
+    });
+  }, []);
+
+  const setSubcategories = useCallback((updater: (prev: Record<string, string[]>) => Record<string, string[]>) => {
+    setSubcategoriesState((prev) => {
+      const next = updater(prev);
+      idbSaveSubcategories(next);
+      return next;
+    });
+  }, []);
+
+  const setReviewLog = useCallback((updater: (prev: ReviewLogEntry[]) => ReviewLogEntry[]) => {
+    setReviewLogState((prev) => updater(prev));
+  }, []);
+
+  // ── Actions ──
+  const updateSRSettings = useCallback((settings: SRSettings) => {
+    setSrSettingsState(settings);
+    idbSaveSettings("srSettings", settings);
+  }, []);
+
   // ── CRUD (extracted module) ──
   const { patchCard, addCard, addFlashCard, updateCard, deleteCard, splitCard } = useCardCRUD({
     categories, setCardMapState, setCategories, schedulePersist,
   });
+
+  // O(1) review — surgical IDB write
+  const reviewSection = useCallback(
+    (cardId: string, sectionId: string, grade: number) => {
+      const cachedRetention = cachedRetentionRef.current;
+      patchCard(cardId, (c) => {
+        const entry: ReviewLogEntry = { timestamp: Date.now(), cardId, sectionId, grade, category: c.category };
+        idbAddReviewLogEntry(entry);
+        setReviewLog((log) => [...log, entry]);
+
+        let errorLog = c.errorLog;
+        if (errorLog && errorLog.length > 0 && grade >= 3) {
+          errorLog = errorLog.map((e) => ({
+            ...e,
+            recentSuccesses: (e.recentSuccesses || 0) + 1,
+            successStreak: (e.successStreak || 0) + 1,
+          }));
+        } else if (errorLog && errorLog.length > 0 && grade === 1) {
+          errorLog = errorLog.map((e) => ({ ...e, successStreak: 0 }));
+        }
+
+        return {
+          ...c,
+          ...(errorLog ? { errorLog } : {}),
+          sections: c.sections.map((s) =>
+            s.id !== sectionId ? s : { ...s, ...calculateNextReview(s, grade, cachedRetention) },
+          ),
+        };
+      });
+    },
+    [patchCard, setReviewLog],
+  );
 
   // O(1) markRead — surgical
   const markRead = useCallback(
