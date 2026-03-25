@@ -17,6 +17,7 @@ import {
 import { loadAppSettings } from "@/lib/app-settings";
 import { ReviewLogEntry, setLastBackupTime } from "@/lib/storage";
 import { useCardExport } from "./useCardExport";
+import { useCategoryManagement } from "./useCategoryManagement";
 import { useCardImport } from "./useCardImport";
 import {
   ensureDbOpen,
@@ -481,98 +482,6 @@ export function useCards() {
     });
   }, []);
 
-  const addCategory = useCallback(
-    (name: string) => {
-      if (!categories.includes(name)) setCategories((prev) => [...prev, name]);
-    },
-    [categories, setCategories],
-  );
-
-  const renameCategory = useCallback(
-    (oldName: string, newName: string) => {
-      if (categories.includes(newName)) return;
-      setCategories((prev) => prev.map((c) => (c === oldName ? newName : c)));
-      setCardMap((prev) => {
-        const next: CardMap = {};
-        for (const [id, c] of Object.entries(prev)) {
-          next[id] = c.category === oldName ? { ...c, category: newName } : c;
-        }
-        return next;
-      }, "full");
-      setSubcategories((prev) => {
-        const next = { ...prev };
-        if (next[oldName]) {
-          next[newName] = next[oldName];
-          delete next[oldName];
-        }
-        return next;
-      });
-    },
-    [categories, setCategories, setCardMap, setSubcategories],
-  );
-
-  const deleteCategory = useCallback(
-    (name: string) => {
-      setCategories((prev) => prev.filter((c) => c !== name));
-      setCardMap((prev) => {
-        const next: CardMap = {};
-        for (const [id, c] of Object.entries(prev)) {
-          next[id] = c.category === name ? { ...c, category: "Opšte", subcategory: "" } : c;
-        }
-        return next;
-      }, "full");
-      setSubcategories((prev) => {
-        const next = { ...prev };
-        delete next[name];
-        return next;
-      });
-    },
-    [setCategories, setCardMap, setSubcategories],
-  );
-
-  const addSubcategory = useCallback(
-    (category: string, subcategory: string) => {
-      setSubcategories((prev) => {
-        const list = prev[category] || [];
-        if (list.includes(subcategory)) return prev;
-        return { ...prev, [category]: [...list, subcategory] };
-      });
-    },
-    [setSubcategories],
-  );
-
-  const renameSubcategory = useCallback(
-    (category: string, oldName: string, newName: string) => {
-      setSubcategories((prev) => {
-        const list = prev[category] || [];
-        if (list.includes(newName)) return prev;
-        return { ...prev, [category]: list.map((s) => (s === oldName ? newName : s)) };
-      });
-      setCardMap((prev) => {
-        const next: CardMap = {};
-        for (const [id, c] of Object.entries(prev)) {
-          next[id] = c.category === category && c.subcategory === oldName ? { ...c, subcategory: newName } : c;
-        }
-        return next;
-      }, "full");
-    },
-    [setSubcategories, setCardMap],
-  );
-
-  const deleteSubcategory = useCallback(
-    (category: string, subcategory: string) => {
-      setSubcategories((prev) => ({ ...prev, [category]: (prev[category] || []).filter((s) => s !== subcategory) }));
-      setCardMap((prev) => {
-        const next: CardMap = {};
-        for (const [id, c] of Object.entries(prev)) {
-          next[id] = c.category === category && c.subcategory === subcategory ? { ...c, subcategory: "" } : c;
-        }
-        return next;
-      }, "full");
-    },
-    [setSubcategories, setCardMap],
-  );
-
   // O(1) markRead — surgical
   const markRead = useCallback(
     (id: string) => {
@@ -581,20 +490,14 @@ export function useCards() {
     [patchCard],
   );
 
-  const bulkUpdateSubcategory = useCallback((ids: string[], subcategory: string) => {
-    setCardMapState((prev) => {
-      const next = { ...prev };
-      const updated: Card[] = [];
-      for (const id of ids) {
-        if (next[id]) {
-          next[id] = { ...next[id], subcategory };
-          updated.push(next[id]);
-        }
-      }
-      schedulePersist({ type: "bulk", cards: updated });
-      return next;
-    });
-  }, []);
+  // ── Category management (extracted module) ──
+  const {
+    addCategory, renameCategory, deleteCategory,
+    addSubcategory, renameSubcategory, deleteSubcategory,
+    bulkUpdateSubcategory,
+  } = useCategoryManagement({
+    categories, setCategories, setSubcategories, setCardMap, setCardMapState, schedulePersist,
+  });
 
   // Reorder cards by setting sortOrder based on array position
   const reorderCards = useCallback((orderedIds: string[]) => {
