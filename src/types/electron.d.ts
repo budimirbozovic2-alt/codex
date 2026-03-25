@@ -1,13 +1,13 @@
 // Electron API type declarations for the renderer process
 // Exposed via preload.cjs through contextBridge
 
-export interface BackupInfo {
+interface BackupInfo {
   backupDir: string;
   files: { name: string; time: number; size: number }[];
   lastAutoBackup: number;
 }
 
-export interface ElectronAPI {
+interface ElectronAPI {
   requestBackup: (jsonData: string) => Promise<boolean>;
   getAppVersion: () => Promise<string>;
   getBackupInfo: () => Promise<BackupInfo>;
@@ -18,8 +18,6 @@ export interface ElectronAPI {
   isElectron: true;
 }
 
-declare global {
-  interface Window {
-    electronAPI?: ElectronAPI;
-  }
+interface Window {
+  electronAPI?: ElectronAPI;
 }
