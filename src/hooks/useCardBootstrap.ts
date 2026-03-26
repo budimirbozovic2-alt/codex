@@ -65,10 +65,12 @@ export function useCardBootstrap(setters: BootSetters) {
     };
 
     const showSplashError = (msg: string) => {
-      const el = document.getElementById("splash-error");
-      const msgEl = document.getElementById("splash-error-msg");
-      if (el) el.style.display = "block";
-      if (msgEl) msgEl.textContent = msg;
+      try {
+        const el = document.getElementById("splash-error");
+        const msgEl = document.getElementById("splash-error-msg");
+        if (el) el.style.display = "block";
+        if (msgEl) msgEl.textContent = msg;
+      } catch (e) { console.warn("[boot] showSplashError DOM error", e); }
     };
 
     (async () => {
