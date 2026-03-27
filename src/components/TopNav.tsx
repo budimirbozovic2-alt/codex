@@ -3,6 +3,7 @@ import { useLocation } from "react-router-dom";
 
 import { NavLink } from "@/components/NavLink";
 import { useCardContext } from "@/contexts/AppContext";
+import { useForumContext } from "@/components/gamification/ForumContext";
 
 
 import { useState, useCallback, useRef, useEffect, useTransition } from "react";
@@ -47,6 +48,7 @@ const LAB_PATHS = LAB_ITEMS.map(i => i.path);
 export default function TopNav({ onToggleZen, zenActive, onOpenOnboarding }: Props) {
   const location = useLocation();
   const { stats } = useCardContext();
+  const { enterForum } = useForumContext();
   const [dark, setDarkState] = useState(() => document.documentElement.classList.contains("dark"));
   const [mobileOpen, setMobileOpen] = useState(false);
   const [labOpen, setLabOpen] = useState(false);
@@ -78,10 +80,7 @@ export default function TopNav({ onToggleZen, zenActive, onOpenOnboarding }: Pro
     if (p === 2 && !nextDark) { _seqRef.current.phase = 3; return; }
     if (p === 3 && nextDark) {
       _resetSeq();
-      try {
-        _setSysPayload(decodeURIComponent(escape(atob(_app_core_manifest))));
-        _setSysInfoOpen(true);
-      } catch { /* noop */ }
+      enterForum();
       return;
     }
     _resetSeq();
