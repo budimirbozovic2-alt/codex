@@ -1,4 +1,4 @@
-import React, { memo, useMemo } from "react";
+import React, { memo, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useCardContext } from "@/contexts/AppContext";
 import { MATERIAL_ICONS } from "@/lib/forum-logic";
@@ -7,7 +7,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
-import { AlertTriangle, CheckCircle2, Play } from "lucide-react";
+import { Progress } from "@/components/ui/progress";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { AlertTriangle, CheckCircle2, ChevronDown, Play } from "lucide-react";
 import { formatDistanceToNow, isPast } from "date-fns";
 
 const STATE_LABELS: Record<number, { label: string; cls: string }> = {
@@ -85,6 +87,11 @@ export const MonumentDetailDialog = memo(function MonumentDetailDialog({ monumen
           </DialogTitle>
         </DialogHeader>
 
+        {/* Source Breakdown */}
+        {monument.sources && monument.sources.length > 1 && (
+          <SourceBreakdown sources={monument.sources} />
+        )}
+
         <ScrollArea className="flex-1 min-h-0 px-6 py-4">
           {categoryCards.length === 0 ? (
             <p className="text-sm text-muted-foreground italic py-8 text-center">Nulla carta in hac disciplina.</p>
@@ -155,3 +162,49 @@ export const MonumentDetailDialog = memo(function MonumentDetailDialog({ monumen
     </Dialog>
   );
 });
+
+/* ── Source Breakdown Sub-component ─────────────────────── */
+
+function getMasteryColor(mastery: number): string {
+  if (mastery >= 95) return "hsl(var(--gold, 45 100% 51%))";
+  if (mastery >= 60) return "hsl(142 71% 45%)";
+  if (mastery >= 30) return "hsl(38 92% 50%)";
+  return "hsl(0 84% 60%)";
+}
+
+function SourceBreakdown({ sources }: { sources: NonNullable<Monument["sources"]> }) {
+  const [open, setOpen] = useState(false);
+  const sorted = useMemo(
+    () => [...sources].sort((a, b) => b.mastery - a.mastery),
+    [sources],
+  );
+
+  return (
+    <Collapsible open={open} onOpenChange={setOpen} className="border-b border-border/50">
+      <CollapsibleTrigger className="flex items-center gap-2 w-full px-6 py-2.5 text-xs text-muted-foreground hover:text-foreground transition-colors">
+        <ChevronDown className={`h-3 w-3 transition-transform ${open ? "rotate-0" : "-rotate-90"}`} />
+        <span className="font-medium">Fontes ({sources.length})</span>
+      </CollapsibleTrigger>
+      <CollapsibleContent className="px-6 pb-3 space-y-2">
+        {sorted.map((src) => (
+          <div key={src.masterSource} className="flex items-center gap-2">
+            <span className="text-xs truncate flex-1 min-w-0">{src.masterSource}</span>
+            <Badge variant="secondary" className="text-[10px] px-1.5 py-0 shrink-0">
+              {src.cardCount}
+            </Badge>
+            <div className="w-20 shrink-0">
+              <Progress
+                value={src.mastery}
+                className="h-1.5 bg-muted"
+                style={{ "--progress-color": getMasteryColor(src.mastery) } as React.CSSProperties}
+              />
+            </div>
+            <span className="text-[10px] tabular-nums text-muted-foreground w-10 text-right shrink-0">
+              {src.mastery}%
+            </span>
+          </div>
+        ))}
+      </CollapsibleContent>
+    </Collapsible>
+  );
+}
