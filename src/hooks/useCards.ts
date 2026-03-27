@@ -171,12 +171,16 @@ export function useCards() {
       }
     }
 
-    // Sort due cards by earliest nextReview
-    dueList.sort((a, b) => {
-      const aMin = Math.min(...a.sections.filter(s => s.state !== SectionState.New).map(s => s.nextReview));
-      const bMin = Math.min(...b.sections.filter(s => s.state !== SectionState.New).map(s => s.nextReview));
-      return aMin - bMin;
-    });
+    // Pre-compute sort keys to avoid O(S) work during O(NlogN) sort
+    const sortKeys = new Map<string, number>();
+    for (const card of dueList) {
+      let minNext = Infinity;
+      for (const s of card.sections) {
+        if (s.state !== SectionState.New && s.nextReview < minNext) minNext = s.nextReview;
+      }
+      sortKeys.set(card.id, minNext);
+    }
+    dueList.sort((a, b) => (sortKeys.get(a.id) ?? Infinity) - (sortKeys.get(b.id) ?? Infinity));
 
     // Finalize category stats
     const finalCatStats: Record<string, { score: number; total: number; due: number }> = {};
