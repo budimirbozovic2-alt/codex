@@ -66,7 +66,9 @@ function createPersistQueue() {
 
       if (puts.length > 0) await idbBulkPutCards(puts);
       for (const id of deletes) await idbDeleteCard(id);
+      try { sessionStorage.removeItem("codex-flush-pending"); } catch {}
     } catch (err: unknown) {
+      try { sessionStorage.removeItem("codex-flush-pending"); } catch {}
       const e = err instanceof Error ? err : new Error(String(err));
       if (e.message === "QUOTA_EXCEEDED") {
         const { toast } = await import("sonner");
