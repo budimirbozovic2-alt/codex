@@ -55,6 +55,7 @@ export function useCardCRUD({
       },
     ) => {
       const card = createCard(question, sections, category, subcategory);
+      card.updatedAt = Date.now();
       if (chapter) card.chapter = chapter;
       if (extra?.sourceId) card.sourceId = extra.sourceId;
       if (extra?.textAnchor) card.textAnchor = extra.textAnchor;
@@ -64,6 +65,7 @@ export function useCardCRUD({
       setCardMapState((prev) => {
         return { ...prev, [card.id]: card };
       });
+      bumpMapVersion();
       schedulePersist({ type: "put", card });
       if (!categoriesRef.current.includes(category)) {
         setCategories((prev) => [...prev, category]);
