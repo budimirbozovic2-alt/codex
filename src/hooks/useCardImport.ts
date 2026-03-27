@@ -86,7 +86,15 @@ export function useCardImport({
             else if (getLastReview(ic) > getLastReview(existing)) { nextMap[ic.id] = ic; merged.push(ic); }
           });
         } else if (strategy === "overwrite") {
+          // Full replace: start from empty map, not current map
+          for (const key of Object.keys(nextMap)) delete nextMap[key];
           importedCards.forEach((ic) => { nextMap[ic.id] = ic; merged.push(ic); });
+          // Delete orphaned cards from IDB
+          const { db: dbCards } = await import("@/lib/db");
+          const allCardKeys = await dbCards.cards.toCollection().primaryKeys();
+          const importedIdSet = new Set(importedCards.map(c => c.id));
+          const orphanKeys = allCardKeys.filter(k => !importedIdSet.has(k as string));
+          if (orphanKeys.length > 0) await dbCards.cards.bulkDelete(orphanKeys);
         } else {
           importedCards.forEach((ic) => { if (!nextMap[ic.id]) { nextMap[ic.id] = ic; merged.push(ic); } });
         }
@@ -96,19 +104,33 @@ export function useCardImport({
         bumpMapVersion();
 
         if (Array.isArray(data.categories)) {
-          setCategories((prev) => [...new Set([...prev, ...(data.categories as string[])])]);
+          if (strategy === "overwrite") {
+            setCategories(() => data.categories as string[]);
+          } else {
+            setCategories((prev) => [...new Set([...prev, ...(data.categories as string[])])]);
+          }
         }
         if (data.subcategories && typeof data.subcategories === "object") {
-          setSubcategories((prev) => {
-            const m = { ...prev };
-            for (const [cat, subs] of Object.entries(data.subcategories as Record<string, string[]>)) {
-              m[cat] = [...new Set([...(m[cat] || []), ...subs])];
-            }
-            return m;
-          });
+          if (strategy === "overwrite") {
+            setSubcategories(() => data.subcategories as Record<string, string[]>);
+          } else {
+            setSubcategories((prev) => {
+              const m = { ...prev };
+              for (const [cat, subs] of Object.entries(data.subcategories as Record<string, string[]>)) {
+                m[cat] = [...new Set([...(m[cat] || []), ...subs])];
+              }
+              return m;
+            });
+          }
         }
         if (Array.isArray(data.reviewLog) && strategy === "overwrite") {
           setReviewLog(data.reviewLog as ReviewLogEntry[]);
+          // Also clear and replace IDB reviewLog table
+          const { db: dbReview } = await import("@/lib/db");
+          await dbReview.reviewLog.clear();
+          if ((data.reviewLog as unknown[]).length > 0) {
+            await dbReview.reviewLog.bulkAdd(data.reviewLog as ReviewLogEntry[]);
+          }
         }
         if (data.srSettings && strategy === "overwrite") {
           updateSRSettings({ ...DEFAULT_SR_SETTINGS, ...(data.srSettings as Partial<SRSettings>) });
