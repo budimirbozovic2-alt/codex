@@ -76,9 +76,9 @@ export function useCardCRUD({
     (question: string, answer: string, category: string, subcategory?: string) => {
       const card = createFlashCard(question, answer, category, subcategory);
       setCardMapState((prev) => {
-        schedulePersist({ type: "put", card });
         return { ...prev, [card.id]: card };
       });
+      schedulePersist({ type: "put", card });
       if (!categoriesRef.current.includes(category)) {
         setCategories((prev) => [...prev, category]);
       }
