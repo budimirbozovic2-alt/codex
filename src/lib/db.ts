@@ -14,12 +14,40 @@ export interface SourceArticle {
 
 export type MindMapMode = "hierarchy" | "procedure";
 
+export interface MindMapNodeData {
+  label?: string;
+  shape?: string;
+  colorTheme?: string;
+  [key: string]: unknown;
+}
+
+export interface MindMapNodeRecord {
+  id: string;
+  type?: string;
+  position: { x: number; y: number };
+  data: MindMapNodeData;
+  style?: Record<string, unknown>;
+  [key: string]: unknown;
+}
+
+export interface MindMapEdgeRecord {
+  id: string;
+  source: string;
+  target: string;
+  type?: string;
+  label?: string;
+  style?: Record<string, unknown>;
+  animated?: boolean;
+  data?: Record<string, unknown>;
+  [key: string]: unknown;
+}
+
 export interface MindMapDoc {
   id: string;
   title: string;
   mode: MindMapMode;
-  nodes: any[];
-  edges: any[];
+  nodes: MindMapNodeRecord[];
+  edges: MindMapEdgeRecord[];
   createdAt: number;
   updatedAt: number;
 }
