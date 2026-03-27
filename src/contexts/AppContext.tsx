@@ -177,6 +177,16 @@ function useGlobalPomodoro() {
 
 function CardProvider({ children }: { children: ReactNode }) {
   const cardsHook = useCards();
+
+  if (cardsHook.dbError) {
+    const DatabaseRecoveryPanel = lazy(() => import("@/components/DatabaseRecoveryPanel"));
+    return (
+      <Suspense fallback={<div className="flex items-center justify-center min-h-screen text-muted-foreground">Učitavanje...</div>}>
+        <DatabaseRecoveryPanel error={cardsHook.dbError} />
+      </Suspense>
+    );
+  }
+
   return <CardContext.Provider value={cardsHook}>{children}</CardContext.Provider>;
 }
 
