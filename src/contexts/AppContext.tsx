@@ -99,15 +99,7 @@ export function useAppContext(): AppContextValue {
   const card = useCardContext();
   const ui = useUIContext();
   return useMemo<AppContextValue>(() => {
-    const merged = {} as AppContextValue;
-    // Copy card context keys
-    for (const key of Object.keys(card) as (keyof CardContextValue)[]) {
-      (merged as Record<string, unknown>)[key] = card[key];
-    }
-    // Copy ui context keys (overrides if overlap)
-    for (const key of Object.keys(ui) as (keyof UIContextValue)[]) {
-      (merged as Record<string, unknown>)[key] = ui[key];
-    }
+    const merged = Object.assign({} as AppContextValue, card, ui);
     return merged;
   }, [card, ui]);
 }
