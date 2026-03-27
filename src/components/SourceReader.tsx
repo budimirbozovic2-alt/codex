@@ -106,9 +106,8 @@ export default function SourceReader({ source, onBack }: Props) {
 
   const handleOpenCoveredCard = (cardId: string) => {
     sessionStorage.setItem("sr-scroll-to-card", cardId);
-    sessionStorage.setItem("sr-database-tab", "cards");
-    window.dispatchEvent(new CustomEvent("memoria-open-database-tab", { detail: "cards" }));
-    onBack();
+    // Navigate to dedicated cards route
+    window.location.hash = "#/cards";
   };
 
   return (

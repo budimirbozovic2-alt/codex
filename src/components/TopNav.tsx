@@ -23,6 +23,49 @@ interface Props {
   onOpenOnboarding?: () => void;
 }
 
+/** Baza dropdown — mirrors Alati pattern */
+function BazaDropdown({ items, isActive, currentPath }: { items: { path: string; label: string }[]; isActive: boolean; currentPath: string }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [open]);
+
+  useEffect(() => { setOpen(false); }, [currentPath]);
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        onClick={() => setOpen(v => !v)}
+        className={`relative flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors whitespace-nowrap hover:bg-secondary/60 ${
+          isActive || open ? "bg-primary/10 text-primary" : "text-muted-foreground hover:text-foreground"
+        }`}
+      >
+        <DatabaseIcon className="h-4 w-4 flex-shrink-0" />
+        <span>Baza</span>
+      </button>
+      {open && (
+        <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 w-[200px] rounded-xl border bg-popover p-2 shadow-xl animate-in fade-in-0 zoom-in-95 slide-in-from-top-2 duration-200">
+          {items.map(({ path, label }) => {
+            const active = currentPath === path;
+            return (
+              <Link key={path} to={path} className={`block rounded-lg px-3 py-2 text-sm transition-colors hover:bg-secondary/60 ${active ? "bg-primary/10 text-primary font-medium" : "text-foreground"}`}>
+                {label}
+              </Link>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 const PRIMARY_NAV = [
   { path: "/", icon: Home, label: "Dashboard" },
   { path: "/learn", icon: GraduationCap, label: "Učenje" },
@@ -180,14 +223,25 @@ export default function TopNav({ onToggleZen, zenActive, onOpenOnboarding }: Pro
             )}
           </div>
 
-          <NavLink
-            to="/database"
-            className="relative flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors whitespace-nowrap text-muted-foreground hover:text-foreground hover:bg-secondary/60"
-            activeClassName="bg-primary/10 text-primary"
-          >
-            <DatabaseIcon className="h-4 w-4 flex-shrink-0" />
-            <span>Baza podataka</span>
-          </NavLink>
+          {/* Baza dropdown */}
+          {(() => {
+            const BAZA_NAV = [
+              { path: "/cards", label: "Kartice" },
+              { path: "/categories", label: "Kategorije" },
+              { path: "/sources", label: "Izvori" },
+              { path: "/source-registry", label: "Registar izvora" },
+            ];
+            const BAZA_PATHS = BAZA_NAV.map(i => i.path);
+            const isBazaActive = BAZA_PATHS.some(p => location.pathname === p) || location.pathname === "/database";
+            return (
+              <BazaDropdown
+                items={BAZA_NAV}
+                isActive={isBazaActive}
+                currentPath={location.pathname}
+              />
+            );
+          })()}
+
 
           <NavLink
             to="/settings"

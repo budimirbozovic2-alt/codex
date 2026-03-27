@@ -30,7 +30,10 @@ const KnowledgeMapPage = lazy(() => import("@/views/KnowledgeMapPage"));
 const MetacognitivePage = lazy(() => import("@/views/MetacognitivePage"));
 const FrequentErrorsPage = lazy(() => import("@/views/FrequentErrorsPage"));
 const MajorSystemPage = lazy(() => import("@/views/MajorSystemPage"));
-const DatabasePage = lazy(() => import("@/views/DatabasePage"));
+const CardsPage = lazy(() => import("@/views/CardsPage"));
+const CategoriesRoutePage = lazy(() => import("@/views/CategoriesRoutePage"));
+const SourcesRoutePage = lazy(() => import("@/views/SourcesRoutePage"));
+const SourceRegistryPage = lazy(() => import("@/views/SourceRegistryPage"));
 const SpeedReaderPage = lazy(() => import("@/views/SpeedReaderPage"));
 const MindMapPage = lazy(() => import("@/views/MindMapPage"));
 const RomanForumPage = lazy(() => import("@/views/RomanForumPage"));
@@ -66,13 +69,14 @@ const App = () => (
                         <Route path="/metacognitive" element={<ErrorBoundary label="Metakognicija"><MetacognitivePage /></ErrorBoundary>} />
                         <Route path="/frequent-errors" element={<ErrorBoundary label="Česte greške"><FrequentErrorsPage /></ErrorBoundary>} />
                         <Route path="/major-system-settings" element={<ErrorBoundary label="Major sistem"><MajorSystemPage /></ErrorBoundary>} />
-                        <Route path="/database" element={<ErrorBoundary label="Baza podataka"><DatabasePage /></ErrorBoundary>} />
+                        <Route path="/cards" element={<ErrorBoundary label="Kartice"><CardsPage /></ErrorBoundary>} />
+                        <Route path="/categories" element={<ErrorBoundary label="Kategorije"><CategoriesRoutePage /></ErrorBoundary>} />
+                        <Route path="/sources" element={<ErrorBoundary label="Izvori"><SourcesRoutePage /></ErrorBoundary>} />
+                        <Route path="/source-registry" element={<ErrorBoundary label="Registar izvora"><SourceRegistryPage /></ErrorBoundary>} />
+                        <Route path="/database" element={<ErrorBoundary label="Kartice"><CardsPage /></ErrorBoundary>} />
                         <Route path="/speed-reader" element={<ErrorBoundary label="Speed Reader"><SpeedReaderPage /></ErrorBoundary>} />
                         <Route path="/mind-map" element={<ErrorBoundary label="Mapa uma"><MindMapPage /></ErrorBoundary>} />
                         <Route path="/forum" element={<ErrorBoundary label="Forum"><RomanForumPage /></ErrorBoundary>} />
-                        {/* Legacy redirects */}
-                        <Route path="/cards" element={<ErrorBoundary label="Baza podataka"><DatabasePage /></ErrorBoundary>} />
-                        <Route path="/categories" element={<ErrorBoundary label="Baza podataka"><DatabasePage /></ErrorBoundary>} />
                         <Route path="*" element={<ErrorBoundary label="404"><NotFound /></ErrorBoundary>} />
                       </Routes>
                     </Suspense>
