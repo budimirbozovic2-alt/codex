@@ -18,7 +18,7 @@ interface UseCardImportDeps {
 
 export function useCardImport({
   categories, setCardMap, setCategories, setSubcategories,
-  setReviewLog, updateSRSettings, schedulePersist: _schedulePersist, setCardMapState,
+  setReviewLog, updateSRSettings, schedulePersist: _schedulePersist, setCardMapState, cardMapRef,
 }: UseCardImportDeps) {
   const importData = useCallback(
     async (file: File, strategy: "keep" | "overwrite" | "skip" | "newer" = "skip") => {
