@@ -141,26 +141,41 @@ export function useCardImport({
           }
         }
 
-        // Restore metacognitive + planner IDB tables (v4+) — surgical upsert
-        const idbTables = [
-          { key: "diary", table: "diary" }, { key: "calibrationLog", table: "calibrationLog" },
+        // Restore metacognitive + planner IDB tables (v4+)
+        // diary uses UUID primary key; all others use ++id (auto-increment)
+        const uuidTables = [
+          { key: "diary", table: "diary" },
+        ];
+        const autoIncTables = [
+          { key: "calibrationLog", table: "calibrationLog" },
           { key: "latencyLog", table: "latencyLog" }, { key: "slippageLog", table: "slippageLog" },
           { key: "activityLog", table: "activityLog" }, { key: "disciplineLog", table: "disciplineLog" },
           { key: "pomodoroLog", table: "pomodoroLog" },
         ];
+        const idbTables = [...uuidTables, ...autoIncTables];
+        const autoIncKeys = new Set(autoIncTables.map((t) => t.key));
         const hasExtraTables = idbTables.some((t) => Array.isArray(data[t.key]) && (data[t.key] as unknown[]).length > 0);
         if (hasExtraTables) {
           const { db: dbInst } = await import("@/lib/db");
-          const dbRecord = dbInst as unknown as Record<string, { bulkPut: (items: unknown[]) => Promise<void>; toCollection: () => { primaryKeys: () => Promise<unknown[]> }; bulkDelete: (keys: unknown[]) => Promise<void> }>;
+          const dbRecord = dbInst as unknown as Record<string, { bulkPut: (items: unknown[]) => Promise<void>; bulkAdd: (items: unknown[]) => Promise<void>; clear: () => Promise<void>; toCollection: () => { primaryKeys: () => Promise<unknown[]> }; bulkDelete: (keys: unknown[]) => Promise<void> }>;
           for (const { key, table } of idbTables) {
             const arr = data[key];
             if (Array.isArray(arr) && arr.length > 0) {
-              await dbRecord[table].bulkPut(arr);
-              if (strategy === "overwrite") {
-                const importedIds = new Set((arr as Record<string, unknown>[]).map((r) => r.id));
-                const allKeys = await dbRecord[table].toCollection().primaryKeys();
-                const toDelete = allKeys.filter((k) => !importedIds.has(k));
-                if (toDelete.length > 0) await dbRecord[table].bulkDelete(toDelete);
+              if (strategy === "overwrite" && autoIncKeys.has(key)) {
+                // For auto-increment tables, clear first then add fresh (IDs are not stable across DBs)
+                await dbRecord[table].clear();
+                // Strip the `id` field so Dexie assigns new auto-increment keys
+                const stripped = arr.map((r: Record<string, unknown>) => { const { id: _id, ...rest } = r; return rest; });
+                await dbRecord[table].bulkAdd(stripped);
+              } else {
+                await dbRecord[table].bulkPut(arr);
+                if (strategy === "overwrite") {
+                  // UUID-keyed tables: remove records not in import
+                  const importedIds = new Set((arr as Record<string, unknown>[]).map((r) => r.id));
+                  const allKeys = await dbRecord[table].toCollection().primaryKeys();
+                  const toDelete = allKeys.filter((k) => !importedIds.has(k));
+                  if (toDelete.length > 0) await dbRecord[table].bulkDelete(toDelete);
+                }
               }
             }
           }
