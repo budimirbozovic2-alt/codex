@@ -166,6 +166,11 @@ export const MonumentInterior = memo(function MonumentInterior({
             </Button>
           )}
         </div>
+
+        {/* Source Breakdown */}
+        {monument.sources && monument.sources.length > 1 && (
+          <SourceBreakdown sources={monument.sources} />
+        )}
       </div>
 
       {/* Interior: Architectural nodes */}
