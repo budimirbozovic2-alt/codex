@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState, useEffect, useDeferredValue } from "react";
 import { AnimatePresence, LayoutGroup, motion } from "framer-motion";
 import { useCardContext } from "@/contexts/AppContext";
 import { idbLoadReviewLog } from "@/lib/db";
