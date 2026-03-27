@@ -1,4 +1,4 @@
-import { Zap, Home, GraduationCap, RotateCcw, BookOpen, Brain, Network, Target, Moon, Sun, Menu, X, Focus, Settings as SettingsIcon, BarChart3, FlaskConical, Database as DatabaseIcon, HelpCircle, Plus, Landmark } from "lucide-react";
+import { Home, GraduationCap, RotateCcw, Moon, Sun, Menu, X, Focus, Settings as SettingsIcon, Database as DatabaseIcon, HelpCircle, Plus, Landmark, Wrench } from "lucide-react";
 import { useLocation } from "react-router-dom";
 
 import { NavLink } from "@/components/NavLink";
