@@ -1,8 +1,28 @@
-import { memo, useMemo } from "react";
-import { motion } from "framer-motion";
+import { memo, useMemo, useRef, useState, useEffect } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import type { Monument, MaterialTier } from "@/lib/forum-logic";
 import { MATERIAL_LABELS, MATERIAL_ICONS } from "@/lib/forum-logic";
 import { Progress } from "@/components/ui/progress";
+
+// ─── Tier ordering for upgrade detection ─────────────────
+const TIER_ORDER: MaterialTier[] = ["wood", "brick", "stone", "marble", "gold"];
+
+// ─── Particle colors per material tier ───────────────────
+const PARTICLE_COLORS: Record<MaterialTier, string> = {
+  wood: "hsl(30 60% 40%)",
+  brick: "hsl(20 70% 45%)",
+  stone: "hsl(0 0% 55%)",
+  marble: "hsl(210 20% 85%)",
+  gold: "hsl(45 90% 55%)",
+};
+
+const SHIMMER_COLORS: Record<MaterialTier, string> = {
+  wood: "hsla(30, 60%, 40%, 0.3)",
+  brick: "hsla(20, 70%, 45%, 0.3)",
+  stone: "hsla(0, 0%, 55%, 0.3)",
+  marble: "hsla(210, 20%, 90%, 0.4)",
+  gold: "hsla(45, 90%, 55%, 0.4)",
+};
 
 // ─── Material color mapping (using design tokens) ───────
 
@@ -44,6 +64,24 @@ const MATERIAL_STYLES: Record<MaterialTier, {
   },
 };
 
+// ─── Generate random particles ───────────────────────────
+function generateParticles(material: MaterialTier) {
+  const count = 10;
+  const color = PARTICLE_COLORS[material];
+  return Array.from({ length: count }, (_, i) => {
+    const angle = (Math.PI * 2 * i) / count + (Math.random() - 0.5) * 0.5;
+    const distance = 40 + Math.random() * 40;
+    return {
+      id: i,
+      x: Math.cos(angle) * distance,
+      y: Math.sin(angle) * distance,
+      color,
+      delay: Math.random() * 0.3,
+      duration: 0.8 + Math.random() * 0.4,
+    };
+  });
+}
+
 interface Props {
   monument: Monument;
   index: number;
@@ -52,9 +90,26 @@ interface Props {
 
 export const MonumentCard = memo(function MonumentCard({ monument, index, onClick }: Props) {
   const style = MATERIAL_STYLES[monument.material];
+  const prevMaterialRef = useRef<MaterialTier>(monument.material);
+  const [upgraded, setUpgraded] = useState(false);
+  const [particles, setParticles] = useState<ReturnType<typeof generateParticles>>([]);
+
+  useEffect(() => {
+    const prevIdx = TIER_ORDER.indexOf(prevMaterialRef.current);
+    const currIdx = TIER_ORDER.indexOf(monument.material);
+
+    if (currIdx > prevIdx && prevIdx >= 0) {
+      setParticles(generateParticles(monument.material));
+      setUpgraded(true);
+      const timer = setTimeout(() => setUpgraded(false), 2000);
+      prevMaterialRef.current = monument.material;
+      return () => clearTimeout(timer);
+    }
+
+    prevMaterialRef.current = monument.material;
+  }, [monument.material]);
 
   const pillarsCount = useMemo(() => {
-    // Number of visible pillars based on mastery (2-6)
     return Math.max(2, Math.min(6, Math.floor(monument.mastery / 20) + 2));
   }, [monument.mastery]);
 
@@ -73,6 +128,57 @@ export const MonumentCard = memo(function MonumentCard({ monument, index, onClic
     >
       {/* Material background tint */}
       <div className={`absolute inset-0 ${style.bg} pointer-events-none`} aria-hidden />
+
+      {/* Upgrade shimmer overlay */}
+      <AnimatePresence>
+        {upgraded && (
+          <motion.div
+            key="shimmer"
+            className="absolute inset-0 z-20 pointer-events-none"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.3 }}
+          >
+            <motion.div
+              className="absolute inset-y-0 w-1/2"
+              style={{
+                background: `linear-gradient(90deg, transparent, ${SHIMMER_COLORS[monument.material]}, transparent)`,
+              }}
+              initial={{ x: "-100%" }}
+              animate={{ x: "300%" }}
+              transition={{ duration: 1, ease: "easeInOut" }}
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Upgrade particle burst */}
+      <AnimatePresence>
+        {upgraded && (
+          <div className="absolute inset-0 z-30 pointer-events-none flex items-center justify-center">
+            {particles.map((p) => (
+              <motion.div
+                key={p.id}
+                className="absolute rounded-full"
+                style={{
+                  width: 4,
+                  height: 4,
+                  backgroundColor: p.color,
+                }}
+                initial={{ x: 0, y: 0, opacity: 1, scale: 1 }}
+                animate={{ x: p.x, y: p.y, opacity: 0, scale: 0 }}
+                exit={{ opacity: 0 }}
+                transition={{
+                  duration: p.duration,
+                  delay: p.delay,
+                  ease: "easeOut",
+                }}
+              />
+            ))}
+          </div>
+        )}
+      </AnimatePresence>
 
       {/* Content */}
       <div className="relative z-10 space-y-3">
