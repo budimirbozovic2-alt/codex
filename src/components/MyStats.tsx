@@ -9,10 +9,6 @@ import { motion } from "framer-motion";
 
 
 
-
-
-
-
 import InfoPanel from "@/components/InfoPanel";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Card, getSectionScore, SRSettings, DEFAULT_SR_SETTINGS } from "@/lib/spaced-repetition";

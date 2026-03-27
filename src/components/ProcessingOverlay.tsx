@@ -1,7 +1,5 @@
 import { motion, AnimatePresence } from "framer-motion";
 
-
-
 import { useSessionContext } from "@/contexts/SessionContext";
 import { useState, useEffect } from "react";
 import { Loader2, CheckCircle2, Brain } from "lucide-react";
