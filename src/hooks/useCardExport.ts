@@ -1,7 +1,7 @@
 import { useCallback } from "react";
 import { toast } from "sonner";
 import { Card, SRSettings } from "@/lib/spaced-repetition";
-import { ReviewLogEntry, setLastBackupTime } from "@/lib/storage";
+import { setLastBackupTime } from "@/lib/storage";
 
 function downloadFile(blob: Blob, filename: string) {
   const url = URL.createObjectURL(blob);
