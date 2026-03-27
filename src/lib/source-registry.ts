@@ -66,6 +66,21 @@ export function invalidateSourceRegistryCache() {
   _registryCache = null;
 }
 
+// ─── Event Emitter (registry changes) ───────────────────
+
+const _registryListeners = new Set<() => void>();
+
+export function onRegistryChanged(fn: () => void): () => void {
+  _registryListeners.add(fn);
+  return () => { _registryListeners.delete(fn); };
+}
+
+function _notifyRegistry() {
+  for (const fn of _registryListeners) {
+    try { fn(); } catch { /* swallow */ }
+  }
+}
+
 /** Sync source registry to IDB for backup consistency */
 async function syncSourceRegistryToIDB(registry: SourceRegistry): Promise<void> {
   try {
