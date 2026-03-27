@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+  body { margin: 0; background: #1a1a2e; display: flex; flex-wrap: wrap; gap: 24px; padding: 32px; }
+  .card { background: #16213e; border-radius: 12px; padding: 16px; text-align: center; width: 240px; }
+  .card h3 { color: #e0e0e0; font-family: system-ui; font-size: 13px; margin: 8px 0 4px; }
+  .card .tier { color: #888; font-family: system-ui; font-size: 10px; text-transform: uppercase; letter-spacing: 2px; }
+  svg { width: 240px; height: 192px; }
+</style>
+</head>
+<body>
+<script type="module">
+  // We'll dynamically import from the dev server
+  // Actually let's just build standalone SVGs
+
+  const BUILDINGS = ['amphitheatrum','basilica','tabularium','rostra','curia','macellum','argentaria','templum','arcus','insula'];
+  const LABELS = {
+    amphitheatrum: "Amfiteatar", basilica: "Bazilika", tabularium: "Arhiv",
+    rostra: "Govornica", curia: "Senat", macellum: "Tržnica",
+    argentaria: "Blagajna", templum: "Hram", arcus: "Slavoluk", insula: "Blok"
+  };
+  const TIER = 'marble'; // show marble tier for the showcase
+
+  document.body.innerHTML = '<h1 style="color:#ccc;font-family:system-ui;width:100%;text-align:center;margin:0 0 16px">Loading from app...</h1>';
+</script>
+</body>
+</html>
