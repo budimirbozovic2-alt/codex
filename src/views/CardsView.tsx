@@ -31,10 +31,14 @@ export default function CardsView() {
   const [filterCategory, setFilterCategory] = useState<string | null>(() => {
     const deeplink = sessionStorage.getItem("sr-deeplink-category");
     if (deeplink) { sessionStorage.removeItem("sr-deeplink-category"); return deeplink; }
-    return null;
+    try { return localStorage.getItem("codex-nav-category") || null; } catch { return null; }
   });
-  const [filterSubcategory, setFilterSubcategory] = useState<string | null>(null);
-  const [filterChapter, setFilterChapter] = useState<string | null>(null);
+  const [filterSubcategory, setFilterSubcategory] = useState<string | null>(() => {
+    try { return localStorage.getItem("codex-nav-subcategory") || null; } catch { return null; }
+  });
+  const [filterChapter, setFilterChapter] = useState<string | null>(() => {
+    try { return localStorage.getItem("codex-nav-chapter") || null; } catch { return null; }
+  });
   const [filterType, setFilterType] = useState<"all" | "essay" | "flash">("all");
   const [filterTag, setFilterTag] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");

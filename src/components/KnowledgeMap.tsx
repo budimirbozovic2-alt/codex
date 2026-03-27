@@ -58,11 +58,43 @@ type ViewState =
   | { step: "subcategories"; category: string }
   | { step: "detail"; category: string; subcategory: string };
 
+const NAV_CAT_KEY = "codex-nav-category";
+const NAV_SUB_KEY = "codex-nav-subcategory";
+
+function hydrateView(categories: string[], subcategories: Record<string, string[]>): ViewState {
+  try {
+    const cat = localStorage.getItem(NAV_CAT_KEY);
+    const sub = localStorage.getItem(NAV_SUB_KEY);
+    if (cat && categories.includes(cat)) {
+      if (sub && (subcategories[cat] || []).includes(sub)) {
+        return { step: "detail", category: cat, subcategory: sub };
+      }
+      return { step: "subcategories", category: cat };
+    }
+  } catch { /* ignore */ }
+  return { step: "categories" };
+}
+
+function persistNav(next: ViewState) {
+  try {
+    if (next.step === "categories") {
+      localStorage.removeItem(NAV_CAT_KEY);
+      localStorage.removeItem(NAV_SUB_KEY);
+    } else if (next.step === "subcategories") {
+      localStorage.setItem(NAV_CAT_KEY, next.category);
+      localStorage.removeItem(NAV_SUB_KEY);
+    } else {
+      localStorage.setItem(NAV_CAT_KEY, next.category);
+      localStorage.setItem(NAV_SUB_KEY, next.subcategory);
+    }
+  } catch { /* ignore */ }
+}
+
 export default function KnowledgeMap({
   cards, categories, subcategories, onBack, onUpdateChapters, onReviewSection,
   onReorderCategories, onReorderSubcategories,
 }: Props) {
-  const [view, setView] = useState<ViewState>({ step: "categories" });
+  const [view, setView] = useState<ViewState>(() => hydrateView(categories, subcategories));
   const [searchQuery, setSearchQuery] = useState("");
   const [reorderMode, setReorderMode] = useState(false);
   const directionRef = useRef(1);
@@ -72,6 +104,7 @@ export default function KnowledgeMap({
     directionRef.current = stepOrder[next.step] > stepOrder[view.step] ? 1 : -1;
     setSearchQuery("");
     setReorderMode(false);
+    persistNav(next);
     setView(next);
   };
 
