@@ -3,6 +3,7 @@ import { Card, SectionState } from "@/lib/spaced-repetition";
 import { motion } from "framer-motion";
 import { TabSkeleton } from "@/components/ui/page-skeleton";
 import { ArrowLeft, ChevronRight, Search, BookOpen, BarChart3, HelpCircle, ArrowUp, ArrowDown, ListOrdered } from "lucide-react";
+import SubcategoryCard from "./knowledge-map/SubcategoryCard";
 
 const MentalSkeleton = lazy(() => import("@/components/MentalSkeleton"));
 
