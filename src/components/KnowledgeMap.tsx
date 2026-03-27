@@ -114,49 +114,15 @@ export default function KnowledgeMap({
         transition={transition}
         className="space-y-3"
       >
-        {/* View mode toggle */}
-        <div className="flex justify-end">
-          <div className="flex items-center gap-1 border rounded-lg p-0.5">
-            <button
-              onClick={() => setDetailMode("skeleton")}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
-                detailMode === "skeleton" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              <List className="h-3.5 w-3.5" />
-              Lista
-            </button>
-            <button
-              onClick={() => setDetailMode("kanban")}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
-                detailMode === "kanban" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              <Kanban className="h-3.5 w-3.5" />
-              Kanban
-            </button>
-          </div>
-        </div>
-
         <Suspense fallback={<TabSkeleton />}>
-          {detailMode === "skeleton" ? (
-            <MentalSkeleton
-              cards={cards}
-              category={view.category}
-              subcategory={view.subcategory}
-              onBack={backFn}
-              onUpdateChapters={onUpdateChapters}
-              onReviewSection={onReviewSection}
-            />
-          ) : (
-            <KanbanBoard
-              cards={cards}
-              category={view.category}
-              subcategory={view.subcategory}
-              onBack={backFn}
-              onUpdateChapters={onUpdateChapters}
-            />
-          )}
+          <MentalSkeleton
+            cards={cards}
+            category={view.category}
+            subcategory={view.subcategory}
+            onBack={backFn}
+            onUpdateChapters={onUpdateChapters}
+            onReviewSection={onReviewSection}
+          />
         </Suspense>
       </motion.div>
     );
