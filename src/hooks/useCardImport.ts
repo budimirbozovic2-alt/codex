@@ -73,7 +73,7 @@ export function useCardImport({
           })),
         });
 
-        const importedCards: Card[] = parsed.cards.map(migrateImported);
+        const importedCards: Card[] = cardsArr.map(c => migrateImported(c as Record<string, unknown>));
         setCardMap((prev) => {
           const next = { ...prev };
           if (strategy === "newer") {
