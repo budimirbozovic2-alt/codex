@@ -205,9 +205,10 @@ export function calculateForumState(
   cards: Card[],
   reviewLog: ReviewEntry[],
   allSources?: Source[],
+  registryVersion = 0,
 ): ForumState {
   // B2: Skip full O(n*s) rebuild if fingerprint matches
-  const fp = buildFingerprint(cards, reviewLog.length, allSources?.length ?? 0);
+  const fp = buildFingerprint(cards, reviewLog.length, allSources?.length ?? 0, registryVersion);
   if (fp === _cachedFingerprint && _cachedForumState) {
     return _cachedForumState;
   }
