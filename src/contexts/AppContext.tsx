@@ -41,20 +41,85 @@ export interface PomodoroState {
 }
 
 // ═══════════════════════════════════════════════════════════
-// CARD CONTEXT — data & mutations (re-renders only on card changes)
+// CARD DATA CONTEXT — volatile data (re-renders on card mutations)
 // ═══════════════════════════════════════════════════════════
-type CardContextValue = ReturnType<typeof useCards>;
+interface CardDataContextValue {
+  cards: Card[];
+  categories: string[];
+  subcategories: Record<string, string[]>;
+  dueCards: Card[];
+  stats: ReturnType<typeof import("@/lib/spaced-repetition").getStats>;
+  categoryStats: Record<string, ReturnType<typeof import("@/lib/spaced-repetition").getCategoryStats>>;
+  cardCountByCategory: Record<string, number>;
+  reviewLog: import("@/lib/storage").ReviewLogEntry[];
+  srSettings: import("@/lib/spaced-repetition").SRSettings;
+  ready: boolean;
+  dbError: { type: string; message: string } | null;
+}
 
-const CardContext = createContext<CardContextValue | null>(null);
+const CardDataContext = createContext<CardDataContextValue | null>(null);
 
-export function useCardContext() {
-  const ctx = useContext(CardContext);
-  if (!ctx) throw new Error("useCardContext must be used within CardProvider");
+export function useCardData() {
+  const ctx = useContext(CardDataContext);
+  if (!ctx) throw new Error("useCardData must be used within CardProvider");
   return ctx;
 }
 
 // ═══════════════════════════════════════════════════════════
-// UI CONTEXT — navigation, editing (NO pomodoro — re-renders only on nav/edit)
+// CARD ACTIONS CONTEXT — stable refs (never re-renders on data changes)
+// ═══════════════════════════════════════════════════════════
+interface CardActionsContextValue {
+  addCard: ReturnType<typeof useCards>["addCard"];
+  addFlashCard: ReturnType<typeof useCards>["addFlashCard"];
+  updateCard: ReturnType<typeof useCards>["updateCard"];
+  deleteCard: ReturnType<typeof useCards>["deleteCard"];
+  splitCard: ReturnType<typeof useCards>["splitCard"];
+  reviewSection: ReturnType<typeof useCards>["reviewSection"];
+  markRead: ReturnType<typeof useCards>["markRead"];
+  toggleTag: ReturnType<typeof useCards>["toggleTag"];
+  addKeyPart: ReturnType<typeof useCards>["addKeyPart"];
+  bulkFlagNeedsReview: ReturnType<typeof useCards>["bulkFlagNeedsReview"];
+  bulkUpdateSubcategory: ReturnType<typeof useCards>["bulkUpdateSubcategory"];
+  bulkUpdateChapter: ReturnType<typeof useCards>["bulkUpdateChapter"];
+  reorderCards: ReturnType<typeof useCards>["reorderCards"];
+  logError: ReturnType<typeof useCards>["logError"];
+  clearErrorLog: ReturnType<typeof useCards>["clearErrorLog"];
+  exportData: ReturnType<typeof useCards>["exportData"];
+  exportTemplate: ReturnType<typeof useCards>["exportTemplate"];
+  importData: ReturnType<typeof useCards>["importData"];
+  importCards: ReturnType<typeof useCards>["importCards"];
+  addCategory: ReturnType<typeof useCards>["addCategory"];
+  renameCategory: ReturnType<typeof useCards>["renameCategory"];
+  deleteCategory: ReturnType<typeof useCards>["deleteCategory"];
+  addSubcategory: ReturnType<typeof useCards>["addSubcategory"];
+  renameSubcategory: ReturnType<typeof useCards>["renameSubcategory"];
+  deleteSubcategory: ReturnType<typeof useCards>["deleteSubcategory"];
+  reorderCategories: ReturnType<typeof useCards>["reorderCategories"];
+  reorderSubcategories: ReturnType<typeof useCards>["reorderSubcategories"];
+  updateSRSettings: ReturnType<typeof useCards>["updateSRSettings"];
+}
+
+const CardActionsContext = createContext<CardActionsContextValue | null>(null);
+
+export function useCardActions() {
+  const ctx = useContext(CardActionsContext);
+  if (!ctx) throw new Error("useCardActions must be used within CardProvider");
+  return ctx;
+}
+
+// ═══════════════════════════════════════════════════════════
+// BACKWARD-COMPAT: useCardContext returns merged data + actions
+// ═══════════════════════════════════════════════════════════
+type CardContextValue = CardDataContextValue & CardActionsContextValue;
+
+export function useCardContext(): CardContextValue {
+  const data = useCardData();
+  const actions = useCardActions();
+  return useMemo(() => ({ ...data, ...actions }), [data, actions]);
+}
+
+// ═══════════════════════════════════════════════════════════
+// UI CONTEXT — navigation, editing (NO pomodoro)
 // ═══════════════════════════════════════════════════════════
 interface UIContextValue {
   view: View;
@@ -73,7 +138,7 @@ export function useUIContext() {
 }
 
 // ═══════════════════════════════════════════════════════════
-// POMODORO CONTEXT — isolated timer (re-renders only PomodoroTimer)
+// POMODORO CONTEXT — isolated timer
 // ═══════════════════════════════════════════════════════════
 interface PomodoroContextValue {
   pomodoro: PomodoroState;
@@ -94,14 +159,10 @@ export function usePomodoroContext() {
 // ═══════════════════════════════════════════════════════════
 type AppContextValue = CardContextValue & UIContextValue;
 
-// Stable merged reference — only changes when card or ui identity changes
 export function useAppContext(): AppContextValue {
   const card = useCardContext();
   const ui = useUIContext();
-  return useMemo<AppContextValue>(() => {
-    const merged = Object.assign({} as AppContextValue, card, ui);
-    return merged;
-  }, [card, ui]);
+  return useMemo<AppContextValue>(() => ({ ...card, ...ui }), [card, ui]);
 }
 
 // ─── Pomodoro hook ──────────────────────────────────────
@@ -176,18 +237,60 @@ function useGlobalPomodoro() {
 // ═══════════════════════════════════════════════════════════
 
 function CardProvider({ children }: { children: ReactNode }) {
-  const cardsHook = useCards();
+  const h = useCards();
 
-  if (cardsHook.dbError) {
+  if (h.dbError) {
     const DatabaseRecoveryPanel = lazy(() => import("@/components/DatabaseRecoveryPanel"));
     return (
       <Suspense fallback={<div className="flex items-center justify-center min-h-screen text-muted-foreground">Učitavanje...</div>}>
-        <DatabaseRecoveryPanel error={cardsHook.dbError} />
+        <DatabaseRecoveryPanel error={h.dbError} />
       </Suspense>
     );
   }
 
-  return <CardContext.Provider value={cardsHook}>{children}</CardContext.Provider>;
+  // Split into stable actions ref (never changes unless hook identity changes)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const actions = useMemo<CardActionsContextValue>(() => ({
+    addCard: h.addCard, addFlashCard: h.addFlashCard, updateCard: h.updateCard,
+    deleteCard: h.deleteCard, splitCard: h.splitCard, reviewSection: h.reviewSection,
+    markRead: h.markRead, toggleTag: h.toggleTag, addKeyPart: h.addKeyPart,
+    bulkFlagNeedsReview: h.bulkFlagNeedsReview, bulkUpdateSubcategory: h.bulkUpdateSubcategory,
+    bulkUpdateChapter: h.bulkUpdateChapter, reorderCards: h.reorderCards,
+    logError: h.logError, clearErrorLog: h.clearErrorLog,
+    exportData: h.exportData, exportTemplate: h.exportTemplate,
+    importData: h.importData, importCards: h.importCards,
+    addCategory: h.addCategory, renameCategory: h.renameCategory, deleteCategory: h.deleteCategory,
+    addSubcategory: h.addSubcategory, renameSubcategory: h.renameSubcategory, deleteSubcategory: h.deleteSubcategory,
+    reorderCategories: h.reorderCategories, reorderSubcategories: h.reorderSubcategories,
+    updateSRSettings: h.updateSRSettings,
+  }), [
+    h.addCard, h.addFlashCard, h.updateCard, h.deleteCard, h.splitCard,
+    h.reviewSection, h.markRead, h.toggleTag, h.addKeyPart,
+    h.bulkFlagNeedsReview, h.bulkUpdateSubcategory, h.bulkUpdateChapter, h.reorderCards,
+    h.logError, h.clearErrorLog, h.exportData, h.exportTemplate,
+    h.importData, h.importCards, h.addCategory, h.renameCategory, h.deleteCategory,
+    h.addSubcategory, h.renameSubcategory, h.deleteSubcategory,
+    h.reorderCategories, h.reorderSubcategories, h.updateSRSettings,
+  ]);
+
+  const data = useMemo<CardDataContextValue>(() => ({
+    cards: h.cards, categories: h.categories, subcategories: h.subcategories,
+    dueCards: h.dueCards, stats: h.stats, categoryStats: h.categoryStats,
+    cardCountByCategory: h.cardCountByCategory, reviewLog: h.reviewLog,
+    srSettings: h.srSettings, ready: h.ready, dbError: h.dbError,
+  }), [
+    h.cards, h.categories, h.subcategories, h.dueCards, h.stats,
+    h.categoryStats, h.cardCountByCategory, h.reviewLog, h.srSettings,
+    h.ready, h.dbError,
+  ]);
+
+  return (
+    <CardActionsContext.Provider value={actions}>
+      <CardDataContext.Provider value={data}>
+        {children}
+      </CardDataContext.Provider>
+    </CardActionsContext.Provider>
+  );
 }
 
 function PomodoroProvider({ children }: { children: ReactNode }) {
@@ -201,7 +304,7 @@ function PomodoroProvider({ children }: { children: ReactNode }) {
 }
 
 function UIProvider({ children }: { children: ReactNode }) {
-  const { toggleTag } = useCardContext();
+  const { toggleTag } = useCardActions();
   const navigate = useNavigate();
   const view = useCurrentView();
 
@@ -220,7 +323,7 @@ function UIProvider({ children }: { children: ReactNode }) {
       const now = new Date();
       const todayKey = `${now.getFullYear()}-${now.getMonth()}-${now.getDate()}`;
       if (now.getHours() === settings.notifications.reminderHour && now.getMinutes() === settings.notifications.reminderMinute) {
-        if (lastSentDate === todayKey) return; // Already sent today
+        if (lastSentDate === todayKey) return;
         lastSentDate = todayKey;
         new Notification("Memoria — Podsjetnik", {
           body: "Vrijeme je za ponavljanje! Imaš kartice koje čekaju.",
