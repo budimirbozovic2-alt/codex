@@ -1,11 +1,13 @@
 import { memo, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import { useCardContext } from "@/contexts/AppContext";
 import { MATERIAL_ICONS } from "@/lib/forum-logic";
 import type { Monument } from "@/lib/forum-logic";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { AlertTriangle, CheckCircle2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { AlertTriangle, CheckCircle2, Play } from "lucide-react";
 import { formatDistanceToNow, isPast } from "date-fns";
 
 const STATE_LABELS: Record<number, { label: string; cls: string }> = {
