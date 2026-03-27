@@ -715,12 +715,9 @@
   color: inherit;
 }
 
-/* ─── Imperial Glass System ──────────────────────── */
-
+/* Imperial Glass — NO blur, sharp backgrounds */
 .glass-card {
-  background: hsl(var(--card) / 0.6);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  background: hsl(var(--card) / 0.75);
   border: 1px solid hsl(var(--border) / 0.4);
   border-radius: var(--radius);
   box-shadow: 0 1px 3px hsl(0 0% 0% / 0.04);
