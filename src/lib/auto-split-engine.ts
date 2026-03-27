@@ -52,6 +52,7 @@ export function detectArticles(html: string): DetectedArticle[] {
     html: string;
     isArticle: boolean;
     articleNum: string;
+    isHeading: boolean;
   }
 
   const articleRegex = /^\s*(?:Č|č)(?:lan|LANAK|L(?:AN|ANAK)?\.?)\s+(\d+[a-z]?)\.?\s*$/i;
@@ -69,6 +70,7 @@ export function detectArticles(html: string): DetectedArticle[] {
       html: outerHtml,
       isArticle: !!match,
       articleNum: match ? match[1] : "",
+      isHeading,
     });
   }
 
@@ -119,7 +121,7 @@ export function detectArticles(html: string): DetectedArticle[] {
         // if there are multiple content lines between articles
         const contentLinesBetween = [];
         for (let k = i + 1; k < j; k++) {
-          if (lines[k].text && !lines[k].isArticle) {
+          if (lines[k].text && !lines[k].isArticle && !lines[k].isHeading) {
             contentLinesBetween.push(k);
           }
         }
@@ -136,7 +138,7 @@ export function detectArticles(html: string): DetectedArticle[] {
     }
 
     for (let j = i + 1; j < nextBoundary; j++) {
-      if (lines[j].text) {
+      if (lines[j].text && !lines[j].isHeading) {
         contentParts.push(lines[j].html);
         plainParts.push(lines[j].text);
       }

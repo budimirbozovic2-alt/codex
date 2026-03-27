@@ -114,7 +114,7 @@ export function splitSelection(selectedText: string): SelectionSplitResult {
 
     const contentLines: string[] = [];
     for (let j = lineIndex + 1; j < contentEnd; j++) {
-      if (lines[j].trim()) contentLines.push(lines[j]);
+      if (lines[j].trim() && !HEADING_LINE_REGEX.test(lines[j])) contentLines.push(lines[j]);
     }
 
     // Fallback title from first 7 words
