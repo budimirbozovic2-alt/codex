@@ -1,73 +1,85 @@
 
 
-# Source Registry — Functional Architecture Summary
+# Surgical Logic Patch — C1, C2, H1, H2, H4
 
-## 1. Data Storage & CRUD
+## 1. H4: Fix VIEW_TO_PATH routing map (`src/contexts/AppContext.tsx`)
 
-**Where Sources live:** Exclusively in **IndexedDB** (`db.sources` table, Dexie). Each Source record contains: `id` (UUID), `label`, `date`, `htmlContent`, `outline`, `articles`, `version`, `createdAt`, `updatedAt`, `officialGazetteInfo`, and optional diff fields (`previousVersionId`, `previousHtmlContent`).
+**Lines 12-19** — Update the map so `cards`, `categories` point to their correct routes instead of all mapping to `/database`:
 
-**In-memory cache:** `sources-storage.ts` maintains a simple `_cache: Source[] | null` array. Any mutation (`saveSource`, `deleteSource`) nullifies the cache before writing to IDB, ensuring the next `loadSources()` call fetches fresh data.
+```
+cards: "/cards", categories: "/categories", database: "/database",
+```
 
-**CRUD flow:**
-- **Create/Update:** `saveSource(source)` → clears cache → `db.sources.put(source)` → fires `_notify()` to listeners.
-- **Read:** `loadSources()` → returns cache if warm, otherwise `db.sources.toArray()`.
-- **Delete:** `deleteSource(id)` → inside a Dexie transaction, finds all cards with `sourceId === id`, strips their `sourceId`, `textAnchor`, and `needsReview` fields, bulk-puts the cleaned cards, then deletes the source. Fires `_notify()`.
+Add `sources` and `source-registry` to the `View` type (line 10) and map entries if not present. Remove duplicate `/database` mappings.
 
-**Source Registry (alias system):** Stored separately in **localStorage** (`codex-source-registry`) with async IDB backup sync. This is NOT the source documents themselves — it's a mapping layer (`SourceAlias[]`) that groups raw `Source.label` strings under canonical "Master Source" names, plus optional `CategoryOverride[]` for forcing A/B depth mode per category.
+## 2. C2: Sync `cardMapRef` in bulk operations (`src/hooks/useCardAnnotations.ts`)
 
----
+**Problem**: `bulkFlagNeedsReview`, `reorderCards`, `bulkUpdateChapter` update state via `setCardMapState` but never sync `cardMapRef`, so a same-tick `patchCard` reads stale ref data.
 
-## 2. The Link to Cards
+**Fix**: Add `cardMapRef` as a parameter to `useCardAnnotations`. In each of the 3 bulk functions, after building the updated cards inside the updater, also sync `cardMapRef.current` with each modified card. Pattern:
 
-**Linking mechanism:** Cards reference sources via `card.sourceId` (a UUID pointing to `Source.id`). This is a **proper foreign key by ID**, not a string-name match. Additional fields on the card: `textAnchor` (normalized snippet for scroll-to), `originalSourceSnippet`, `sourceModules`, `childCardIds`.
+```ts
+// Inside each bulk function, after building `next`:
+for (const id of modifiedIds) {
+  cardMapRef.current = { ...cardMapRef.current, [id]: next[id] };
+}
+```
 
-**On source deletion:** The `deleteSource` function **proactively cleans all linked cards** inside a single Dexie transaction — it sets `sourceId`, `textAnchor`, and `needsReview` to `undefined`. Cards survive, but lose their source link. This is safe.
+**Caller change** (`src/hooks/useCards.ts` line 102): Pass `cardMapRef` to `useCardAnnotations`.
 
-**On source rename (label change):** Renaming a source means calling `saveSource(updatedSource)` with a new `label`. Since cards link via `sourceId` (UUID), **renaming has zero effect on card linkage**. The card still points to the same source by ID. However, the Source Registry alias map may become stale if it referenced the old `label` string — the user would need to update the alias mapping manually in the Registar izvora UI.
+## 3. C1: Invalidate caches on import (`src/hooks/useCardImport.ts`)
 
-**Edge case — orphaned sourceId:** If a source is deleted outside the normal `deleteSource` flow (e.g., raw IDB manipulation or a corrupted import), cards would retain a `sourceId` pointing to a non-existent source. The UI handles this gracefully: `sourceMap.get(card.sourceId)` returns `undefined`, and functions like `getCardMasterSource` fall back to `"Bez izvora"`.
+**After line 189** (after localStorage restore loop): Add:
+```ts
+import { invalidateSourceRegistryCache } from "@/lib/source-registry";
+import { invalidateMonumentTypesCache } from "@/lib/forum-logic";
+// ... after localStorage restore:
+invalidateSourceRegistryCache();
+invalidateMonumentTypesCache();
+```
 
----
+## 4. H2: Pre-compute merged array outside updater (`src/hooks/useCardImport.ts`)
 
-## 3. The Link to the Forum (Monuments)
+**Lines 78-97** — Instead of populating `merged[]` inside `setCardMap` updater (which relies on React batching timing for an async function), pre-compute the merge by reading `cardMapRef`:
 
-**How Sources appear in Forum monuments:**
-1. `RomanForumPage` loads sources via `loadSources()` and subscribes to `onSourcesChanged()`.
-2. It passes `allSources` into `calculateForumState(cards, reviewLog, allSources)`.
-3. Inside `calculateForumState`, for each category's cards, it resolves each card's `sourceId` → `Source.label` → Master Source name (via the alias map from Source Registry).
-4. This produces a `sources: MonumentSourceBreakdown[]` array on each Monument, showing per-master-source card counts and mastery percentages.
+- Add `cardMapRef` as a dependency to `useCardImport`
+- Read current state from `cardMapRef.current` to compute `merged` and `nextMap` synchronously
+- Then call `schedulePersist` with pre-computed `merged`
+- Then call `setCardMapState` with pre-computed `nextMap`
 
-**The `onSourcesChanged` event flow:**
-- `sources-storage.ts` maintains a `Set<SourceListener>` of callbacks.
-- Every `saveSource()` or `deleteSource()` call fires `_notify()`, which invokes all registered listeners.
-- `RomanForumPage` subscribes in a `useEffect`: `onSourcesChanged(() => loadSources().then(setSources))`.
-- When sources state updates, React re-renders, `calculateForumState` receives new `allSources`, the fingerprint changes (it includes `sourceCount`), and the Forum rebuilds its monument breakdown.
+**Caller change** (`src/hooks/useCards.ts`): Pass `cardMapRef` to `useCardImport`.
 
-**Edge case:** The fingerprint check (`buildFingerprint`) includes `allSources.length` but not individual source labels. If you **rename** a source without adding/removing any, the fingerprint won't change and the cached ForumState will be stale until the next card review changes it. This is a minor visual staleness — the monument would show the old Master Source name until the next fingerprint-busting event.
+## 5. H1: Fix stale closure in `renameCategory` (`src/hooks/useCategoryManagement.ts`)
 
----
+**Line 29** — The `categories.includes(newName)` check reads a potentially stale closure. Move the duplicate check inside the `setCategories` updater and use an early-return flag:
 
-## 4. Data Import/Export
+```ts
+const renameCategory = useCallback((oldName: string, newName: string) => {
+  let aborted = false;
+  setCategories(prev => {
+    if (prev.includes(newName)) { aborted = true; return prev; }
+    return prev.map(c => c === oldName ? newName : c);
+  });
+  if (aborted) return;
+  // ... rest of rename logic
+```
 
-**Export:** `useCardExport.ts` calls `db.sources.toArray()` and includes the full `sources` array in the backup JSON alongside cards, categories, reviewLog, mindMaps, diary, settings, and all metacognitive tables. The Source Registry (alias/override config) is exported from localStorage under key `codex-source-registry`.
+Wait — `aborted` populated inside updater may not be set synchronously in async context. But `renameCategory` is called from event handlers (synchronous), so React 18 batching runs updaters synchronously within the same event handler tick. The flag will be set before the `if (aborted)` check. This is safe for event-handler calls.
 
-**Import:** `useCardImport.ts` handles sources:
-1. Sanitizes each imported source's `htmlContent` via `sanitizeHtml`.
-2. Calls `db.sources.bulkPut(sanitizedSources)`.
-3. Calls `invalidateSourcesCache()` to bust the in-memory cache.
-4. In "overwrite" strategy: deletes any existing sources whose IDs are not in the import set.
+Remove `categories` from the dependency array since we no longer read it.
 
-**Edge case — Source Registry sync on import:** The import restores localStorage keys including `codex-source-registry`. After import, `invalidateSourceRegistryCache()` should be called to bust the in-memory registry cache. The import code does call `invalidateSourcesCache()` for sources, but I did not find an explicit `invalidateSourceRegistryCache()` call in the import path — if the imported backup contains a different alias map, the in-memory cache would serve the old one until page reload. This is a **minor gap** that would self-heal on reload but could cause temporary alias mismatch in the same session.
+## Files touched
 
----
+| File | Change |
+|------|--------|
+| `src/contexts/AppContext.tsx` | Fix View type + VIEW_TO_PATH mappings |
+| `src/hooks/useCardAnnotations.ts` | Add `cardMapRef` param, sync ref in 3 bulk ops |
+| `src/hooks/useCardImport.ts` | Add cache invalidation calls + pre-compute merge with `cardMapRef` |
+| `src/hooks/useCards.ts` | Pass `cardMapRef` to `useCardAnnotations` and `useCardImport` |
+| `src/hooks/useCategoryManagement.ts` | Move duplicate check inside updater |
 
-## Summary of Edge Cases
-
-| Scenario | Behavior | Risk |
-|----------|----------|------|
-| Source deleted normally | Cards cleaned (sourceId cleared) in transaction | Safe |
-| Source deleted outside app | Cards retain orphan sourceId | Safe — UI falls back to "Bez izvora" |
-| Source renamed | Cards unaffected (link by UUID) | Safe — but Source Registry aliases may need manual update |
-| Source renamed + Forum | Fingerprint may not bust → stale monument labels until next card review | Minor visual staleness |
-| Import with different Source Registry | In-memory alias cache may not invalidate | Self-heals on reload |
+## Risk
+- All changes are surgical, few-line edits
+- No FSRS, UI, or CSS changes
+- `cardMapRef` pattern already battle-tested in `useCardCRUD`
 
