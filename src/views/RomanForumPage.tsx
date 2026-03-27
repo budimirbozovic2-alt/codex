@@ -19,9 +19,12 @@ export default function RomanForumPage() {
 
   const deferredCards = useDeferredValue(cards);
 
+  // B3 fix: use reviewLog.length as dep to avoid recalc on reference-only changes
+  const reviewLogLen = reviewLog.length;
   const forumState = useMemo(() => {
     return calculateForumState(deferredCards, reviewLog, sources);
-  }, [deferredCards, sources, reviewLog]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [deferredCards, sources, reviewLogLen]);
 
   const selectedMonument = selectedCategory
     ? forumState.monuments.find((m) => m.category === selectedCategory) ?? null

@@ -239,8 +239,9 @@ function useGlobalPomodoro() {
 function CardProvider({ children }: { children: ReactNode }) {
   const h = useCards();
 
-  // Split into stable actions ref (useCallback refs don't change)
-  const actions = useMemo<CardActionsContextValue>(() => ({
+  // B1 fix: Ref-based stable actions — context value never changes reference
+  const actionsRef = useRef<CardActionsContextValue>(null!);
+  actionsRef.current = {
     addCard: h.addCard, addFlashCard: h.addFlashCard, updateCard: h.updateCard,
     deleteCard: h.deleteCard, splitCard: h.splitCard, reviewSection: h.reviewSection,
     markRead: h.markRead, toggleTag: h.toggleTag, addKeyPart: h.addKeyPart,
@@ -253,15 +254,11 @@ function CardProvider({ children }: { children: ReactNode }) {
     addSubcategory: h.addSubcategory, renameSubcategory: h.renameSubcategory, deleteSubcategory: h.deleteSubcategory,
     reorderCategories: h.reorderCategories, reorderSubcategories: h.reorderSubcategories,
     updateSRSettings: h.updateSRSettings,
-  }), [
-    h.addCard, h.addFlashCard, h.updateCard, h.deleteCard, h.splitCard,
-    h.reviewSection, h.markRead, h.toggleTag, h.addKeyPart,
-    h.bulkFlagNeedsReview, h.bulkUpdateSubcategory, h.bulkUpdateChapter, h.reorderCards,
-    h.logError, h.clearErrorLog, h.exportData, h.exportTemplate,
-    h.importData, h.importCards, h.addCategory, h.renameCategory, h.deleteCategory,
-    h.addSubcategory, h.renameSubcategory, h.deleteSubcategory,
-    h.reorderCategories, h.reorderSubcategories, h.updateSRSettings,
-  ]);
+  };
+
+  const actions = useMemo<CardActionsContextValue>(() => new Proxy({} as CardActionsContextValue, {
+    get: (_target, prop: string) => (actionsRef.current as unknown as Record<string, unknown>)[prop],
+  }), []);
 
   const data = useMemo<CardDataContextValue>(() => ({
     cards: h.cards, categories: h.categories, subcategories: h.subcategories,
