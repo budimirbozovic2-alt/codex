@@ -74,7 +74,7 @@ export default function SRSettingsPanel({ settings, onUpdate, onBack }: Props) {
             <ArrowLeft className="h-4 w-4" /> Nazad
           </button>
           <h2 className="text-2xl font-serif">Podešavanja</h2>
-          <p className="text-sm text-muted-foreground mt-0.5">Algoritam, interfejs i referenca</p>
+          <p className="text-sm text-muted-foreground mt-0.5">Algoritam, interfejs, tok rada i sistem</p>
         </div>
         <InfoPanel title="O podešavanjima">
           <p><strong className="text-foreground">FSRS v5</strong> — algoritam za optimalni raspored ponavljanja.</p>
@@ -86,10 +86,11 @@ export default function SRSettingsPanel({ settings, onUpdate, onBack }: Props) {
       </div>
 
       <Tabs defaultValue="algorithm" className="w-full">
-        <TabsList className="grid w-full grid-cols-3 mb-6">
+        <TabsList className="grid w-full grid-cols-4 mb-6">
           <TabsTrigger value="algorithm">Algoritam</TabsTrigger>
           <TabsTrigger value="interface">Interfejs</TabsTrigger>
-          <TabsTrigger value="reference">Referenca</TabsTrigger>
+          <TabsTrigger value="workflow">Tok rada</TabsTrigger>
+          <TabsTrigger value="system">Sistem</TabsTrigger>
         </TabsList>
 
         {/* ═══════════ TAB 1: ALGORITAM ═══════════ */}
@@ -229,9 +230,9 @@ export default function SRSettingsPanel({ settings, onUpdate, onBack }: Props) {
             ))}
           </div>
 
-          {/* Zvuk + Backup u jednoj kartici */}
+          {/* Zvučni efekti */}
           <div className="rounded-xl border bg-card p-5 space-y-4">
-            <h3 className="text-sm font-semibold">Zvuk i obavještenja</h3>
+            <h3 className="text-sm font-semibold">Zvučni efekti</h3>
             <div className="flex items-center justify-between">
               <div>
                 <label className="text-sm">Zvučni efekti</label>
@@ -247,27 +248,11 @@ export default function SRSettingsPanel({ settings, onUpdate, onBack }: Props) {
                 }}
               />
             </div>
-            <div className="border-t pt-3 flex items-center justify-between">
-              <div>
-                <label className="text-sm">Backup podsjetnik</label>
-                <p className="text-xs text-muted-foreground">Upozorenje na dashboardu</p>
-              </div>
-              <Select value={String(app.autoBackupDays)}
-                onValueChange={(v) => setApp(prev => ({ ...prev, autoBackupDays: parseInt(v) }))}>
-                <SelectTrigger className="w-28 bg-background">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="0">Isključeno</SelectItem>
-                  <SelectItem value="3">3 dana</SelectItem>
-                  <SelectItem value="7">7 dana</SelectItem>
-                  <SelectItem value="14">14 dana</SelectItem>
-                  <SelectItem value="30">30 dana</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
           </div>
+        </TabsContent>
 
+        {/* ═══════════ TAB 3: TOK RADA ═══════════ */}
+        <TabsContent value="workflow" className="space-y-5 mt-0">
           {/* Pomodoro tajmer */}
           <div className="rounded-xl border bg-card p-5 space-y-4">
             <h3 className="text-sm font-semibold">Pomodoro tajmer</h3>
@@ -338,6 +323,40 @@ export default function SRSettingsPanel({ settings, onUpdate, onBack }: Props) {
             </div>
           </div>
 
+          {/* TTS */}
+          <div className="rounded-xl border bg-card p-5 space-y-4">
+            <h3 className="text-sm font-semibold">Glasovni čitač (TTS)</h3>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="text-sm">Brzina govora</label>
+                <span className="text-sm text-muted-foreground tabular-nums">{tts.rate.toFixed(2)}×</span>
+              </div>
+              <Slider value={[tts.rate]} min={0.5} max={2} step={0.05}
+                onValueChange={(v) => setTts((p) => ({ ...p, rate: v[0] }))} />
+              <div className="flex justify-between text-[10px] text-muted-foreground">
+                <span>Sporo</span><span>Normalno</span><span>Brzo</span>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm">Glas</label>
+              <Select value={tts.voiceURI || "__default__"}
+                onValueChange={(v) => setTts((p) => ({ ...p, voiceURI: v === "__default__" ? "" : v }))}>
+                <SelectTrigger className="bg-background">
+                  <SelectValue placeholder="Sistemski podrazumijevani" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__default__">Sistemski podrazumijevani</SelectItem>
+                  {voices.map((v) => (
+                    <SelectItem key={v.voiceURI} value={v.voiceURI}>{v.name} ({v.lang})</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <Button variant="outline" size="sm" onClick={() => speak("Ovo je test govora. CODEX.")} className="gap-1.5">
+              Testiraj glas
+            </Button>
+          </div>
+
           {/* Podsjetnici */}
           <div className="rounded-xl border bg-card p-5 space-y-4">
             <h3 className="text-sm font-semibold">Podsjetnik za ponavljanje</h3>
@@ -394,44 +413,36 @@ export default function SRSettingsPanel({ settings, onUpdate, onBack }: Props) {
             )}
           </div>
 
-          {/* TTS */}
+          {/* Backup podsjetnik */}
           <div className="rounded-xl border bg-card p-5 space-y-4">
-            <h3 className="text-sm font-semibold">Glasovni čitač (TTS)</h3>
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <label className="text-sm">Brzina govora</label>
-                <span className="text-sm text-muted-foreground tabular-nums">{tts.rate.toFixed(2)}×</span>
+            <h3 className="text-sm font-semibold">Backup podsjetnik</h3>
+            <div className="flex items-center justify-between">
+              <div>
+                <label className="text-sm">Backup podsjetnik</label>
+                <p className="text-xs text-muted-foreground">Upozorenje na dashboardu</p>
               </div>
-              <Slider value={[tts.rate]} min={0.5} max={2} step={0.05}
-                onValueChange={(v) => setTts((p) => ({ ...p, rate: v[0] }))} />
-              <div className="flex justify-between text-[10px] text-muted-foreground">
-                <span>Sporo</span><span>Normalno</span><span>Brzo</span>
-              </div>
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm">Glas</label>
-              <Select value={tts.voiceURI || "__default__"}
-                onValueChange={(v) => setTts((p) => ({ ...p, voiceURI: v === "__default__" ? "" : v }))}>
-                <SelectTrigger className="bg-background">
-                  <SelectValue placeholder="Sistemski podrazumijevani" />
+              <Select value={String(app.autoBackupDays)}
+                onValueChange={(v) => setApp(prev => ({ ...prev, autoBackupDays: parseInt(v) }))}>
+                <SelectTrigger className="w-28 bg-background">
+                  <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="__default__">Sistemski podrazumijevani</SelectItem>
-                  {voices.map((v) => (
-                    <SelectItem key={v.voiceURI} value={v.voiceURI}>{v.name} ({v.lang})</SelectItem>
-                  ))}
+                  <SelectItem value="0">Isključeno</SelectItem>
+                  <SelectItem value="3">3 dana</SelectItem>
+                  <SelectItem value="7">7 dana</SelectItem>
+                  <SelectItem value="14">14 dana</SelectItem>
+                  <SelectItem value="30">30 dana</SelectItem>
                 </SelectContent>
               </Select>
             </div>
-            <Button variant="outline" size="sm" onClick={() => speak("Ovo je test govora. CODEX.")} className="gap-1.5">
-              Testiraj glas
-            </Button>
           </div>
-
         </TabsContent>
 
-        {/* ═══════════ TAB 3: REFERENCA ═══════════ */}
-        <TabsContent value="reference" className="space-y-5 mt-0">
+        {/* ═══════════ TAB 4: SISTEM ═══════════ */}
+        <TabsContent value="system" className="space-y-5 mt-0">
+          {/* Health Monitor */}
+          <HealthMonitor />
+
           {/* Kako ocjene rade */}
           <div className="rounded-xl border bg-card p-5 space-y-3">
             <h3 className="text-sm font-semibold">Kako FSRS računa intervale</h3>
@@ -569,9 +580,6 @@ export default function SRSettingsPanel({ settings, onUpdate, onBack }: Props) {
           <RotateCcw className="h-4 w-4 mr-2" /> Podrazumijevano
         </Button>
       </div>
-
-      {/* Health Monitor */}
-      <HealthMonitor />
       <div className="pb-8" />
     </div>
   );
