@@ -33,10 +33,9 @@ export const MonumentInterior = memo(function MonumentInterior({
   const navigate = useNavigate();
   const [selectedSub, setSelectedSub] = useState<string | null>(null);
 
-  const allCards = useMemo(() => Object.values(cards), [cards]);
-  const catCards = useMemo(() => allCards.filter((c) => c.category === monument.category), [allCards, monument.category]);
+  const catCards = useMemo(() => cards.filter((c) => c.category === monument.category), [cards, monument.category]);
 
-  const sourceHierarchy = useSourceHierarchy(allCards, sources, monument.category);
+  const sourceHierarchy = useSourceHierarchy(cards, sources, monument.category);
 
   const fallbackTree = useMemo<HierarchyNode[]>(() => {
     if (sourceHierarchy.hasSourceLinks) return [];
@@ -70,7 +69,7 @@ export const MonumentInterior = memo(function MonumentInterior({
     return (
       <motion.div key="detail" initial={{ opacity: 0, x: 40 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -40 }} transition={{ duration: 0.2 }} className="space-y-3">
         <Suspense fallback={<TabSkeleton />}>
-          <MentalSkeleton cards={allCards} category={monument.category} subcategory={selectedSub} onBack={() => setSelectedSub(null)} onUpdateChapters={onUpdateChapters} onReviewSection={onReviewSection} />
+          <MentalSkeleton cards={cards} category={monument.category} subcategory={selectedSub} onBack={() => setSelectedSub(null)} onUpdateChapters={onUpdateChapters} onReviewSection={onReviewSection} />
         </Suspense>
       </motion.div>
     );

@@ -25,17 +25,28 @@ export type BuildingType =
 
 const MONUMENT_TYPES_KEY = "codex-monument-types";
 
+// In-memory cache — avoids repeated JSON.parse in render loops
+let _monumentTypesCache: Record<string, BuildingType> | null = null;
+
 export function loadMonumentTypes(): Record<string, BuildingType> {
+  if (_monumentTypesCache) return _monumentTypesCache;
   try {
     const raw = localStorage.getItem(MONUMENT_TYPES_KEY);
-    return raw ? JSON.parse(raw) : {};
-  } catch { return {}; }
+    _monumentTypesCache = raw ? JSON.parse(raw) : {};
+  } catch { _monumentTypesCache = {}; }
+  return _monumentTypesCache!;
 }
 
 export function saveMonumentType(category: string, type: BuildingType) {
   const current = loadMonumentTypes();
   current[category] = type;
+  _monumentTypesCache = current;
   localStorage.setItem(MONUMENT_TYPES_KEY, JSON.stringify(current));
+}
+
+/** Invalidate cache (e.g. after external import) */
+export function invalidateMonumentTypesCache() {
+  _monumentTypesCache = null;
 }
 
 export interface MonumentSourceBreakdown {

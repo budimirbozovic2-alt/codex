@@ -31,28 +31,39 @@ export interface MasterSourceInfo {
   cardCount: number;
 }
 
-// ─── Storage ────────────────────────────────────────────
+// ─── Storage (with in-memory cache) ─────────────────────
 
 const REGISTRY_KEY = "codex-source-registry";
 
+let _registryCache: SourceRegistry | null = null;
+
 export function loadSourceRegistry(): SourceRegistry {
+  if (_registryCache) return _registryCache;
   try {
     const raw = localStorage.getItem(REGISTRY_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
-      return {
+      _registryCache = {
         aliases: Array.isArray(parsed.aliases) ? parsed.aliases : [],
         overrides: Array.isArray(parsed.overrides) ? parsed.overrides : [],
       };
+      return _registryCache;
     }
   } catch { /* ignore */ }
-  return { aliases: [], overrides: [] };
+  _registryCache = { aliases: [], overrides: [] };
+  return _registryCache;
 }
 
 export function saveSourceRegistry(registry: SourceRegistry): void {
+  _registryCache = registry;
   localStorage.setItem(REGISTRY_KEY, JSON.stringify(registry));
   // Fire-and-forget IDB backup sync
   syncSourceRegistryToIDB(registry);
+}
+
+/** Invalidate cache (e.g. after external import) */
+export function invalidateSourceRegistryCache() {
+  _registryCache = null;
 }
 
 /** Sync source registry to IDB for backup consistency */
