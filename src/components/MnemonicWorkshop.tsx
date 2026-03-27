@@ -104,7 +104,7 @@ export default function MnemonicWorkshop({ cards, onUpdateCard, onDeleteCard, on
           <button onClick={onBack} className="text-muted-foreground hover:text-foreground flex items-center gap-1 mb-3">
             <ArrowLeft className="h-4 w-4" /> Nazad
           </button>
-          <h2 className="text-3xl font-serif flex items-center gap-3">
+          <h2 className="text-3xl font-display flex items-center gap-3">
             <Wrench className="h-7 w-7 text-primary" /> Radionica mentalnih kuka
           </h2>
           <p className="text-muted-foreground mt-1 text-sm">Kreiraj mentalni video i akronim za svaku mnemo karticu.</p>

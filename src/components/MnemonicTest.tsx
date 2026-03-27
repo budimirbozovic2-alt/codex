@@ -148,7 +148,7 @@ export default function MnemonicTest({ cards, onRecordResult, onBack }: Props) {
         </button>
 
         <div>
-          <h2 className="text-3xl font-serif flex items-center gap-3">
+          <h2 className="text-3xl font-display flex items-center gap-3">
             <Filter className="h-7 w-7 text-primary" /> Izbor drila
           </h2>
           <p className="text-muted-foreground mt-1">Filtriraj kartice za testiranje.</p>
@@ -262,7 +262,7 @@ export default function MnemonicTest({ cards, onRecordResult, onBack }: Props) {
           <div className="h-20 w-20 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto">
             <Zap className="h-10 w-10 text-primary" />
           </div>
-          <h2 className="text-3xl font-serif">Aktiviraj mentalni okidač</h2>
+          <h2 className="text-3xl font-display">Aktiviraj mentalni okidač</h2>
           <div className="max-w-sm mx-auto space-y-3 text-sm text-muted-foreground">
             <p>Prije početka testiranja, pripremi se mentalno:</p>
             <div className="rounded-xl border bg-card p-4 text-left space-y-2">
@@ -295,18 +295,18 @@ export default function MnemonicTest({ cards, onRecordResult, onBack }: Props) {
         </button>
         <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="text-center py-12 space-y-6">
           <Brain className="h-16 w-16 mx-auto text-primary" />
-          <h2 className="text-3xl font-serif">Testiranje završeno!</h2>
+          <h2 className="text-3xl font-display">Testiranje završeno!</h2>
           <div className="grid grid-cols-3 gap-4 max-w-sm mx-auto">
             <div className="rounded-xl bg-card border p-4">
-              <p className="text-2xl font-serif text-success">{sessionStats.correct}</p>
+              <p className="text-2xl font-display text-success">{sessionStats.correct}</p>
               <p className="text-xs text-muted-foreground">Tačno</p>
             </div>
             <div className="rounded-xl bg-card border p-4">
-              <p className="text-2xl font-serif text-destructive">{sessionStats.wrong}</p>
+              <p className="text-2xl font-display text-destructive">{sessionStats.wrong}</p>
               <p className="text-xs text-muted-foreground">Netačno</p>
             </div>
             <div className="rounded-xl bg-card border p-4">
-              <p className={`text-2xl font-serif ${pct >= 70 ? "text-success" : pct >= 40 ? "text-warning" : "text-destructive"}`}>{pct}%</p>
+              <p className={`text-2xl font-display ${pct >= 70 ? "text-success" : pct >= 40 ? "text-warning" : "text-destructive"}`}>{pct}%</p>
               <p className="text-xs text-muted-foreground">Uspješnost</p>
             </div>
           </div>
@@ -352,7 +352,7 @@ export default function MnemonicTest({ cards, onRecordResult, onBack }: Props) {
         >
           <div>
             <p className="text-xs text-muted-foreground mb-2">{currentCard.category}{currentCard.subcategory ? ` / ${currentCard.subcategory}` : ""}</p>
-            <h3 className="text-xl font-serif">{currentCard.question}</h3>
+            <h3 className="text-xl font-display">{currentCard.question}</h3>
           </div>
 
           {!showTrigger && !timedOut && (

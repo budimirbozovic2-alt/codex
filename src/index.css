@@ -768,6 +768,28 @@ h1, h2, .font-display {
 ::-webkit-scrollbar-thumb { background: hsl(var(--gold) / 0.25); border-radius: 3px; }
 ::-webkit-scrollbar-track { background: transparent; }
 
+/* ─── Achievement Glow ───────────────────────────── */
+
+@keyframes achievement-glow {
+  0% { box-shadow: 0 0 0 0 hsl(var(--gold) / 0.4); }
+  50% { box-shadow: 0 0 20px 4px hsl(var(--gold) / 0.2); }
+  100% { box-shadow: 0 0 0 0 hsl(var(--gold) / 0); }
+}
+
+.achievement-glow {
+  animation: achievement-glow 2s ease-out;
+}
+
+@keyframes mastery-pulse {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 1; }
+}
+
+.mastery-complete {
+  border-color: hsl(var(--gold) / 0.5);
+  box-shadow: 0 0 12px hsl(var(--gold) / 0.15);
+}
+
 /* ─── INP Optimizations ──────────────────────────── */
 
 /* Eliminate 300ms tap delay on all interactive elements */

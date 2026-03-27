@@ -53,10 +53,10 @@ const MASTERY_COLORS = [
 
 const ActivityChart = memo(function ActivityChart({ data }: { data: any[] }) {
   return (
-    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="rounded-xl bg-card border p-5 space-y-4">
+    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="glass-card rounded-xl p-5 space-y-4">
       <div className="flex items-center gap-2">
         <TrendingUp className="h-4 w-4 text-primary" />
-        <h3 className="font-serif text-lg">Aktivnost (14 dana)</h3>
+        <h3 className="font-display text-lg">Aktivnost (14 dana)</h3>
       </div>
       <div className="h-[200px]">
         <ResponsiveContainer width="100%" height="100%">
@@ -90,10 +90,10 @@ const ActivityChart = memo(function ActivityChart({ data }: { data: any[] }) {
 const MasteryPieChart = memo(function MasteryPieChart({ data }: { data: { name: string; value: number }[] }) {
   if (data.length === 0) return null;
   return (
-    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} className="rounded-xl bg-card border p-5 space-y-4">
+    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} className="glass-card rounded-xl p-5 space-y-4">
       <div className="flex items-center gap-2">
         <Brain className="h-4 w-4 text-primary" />
-        <h3 className="font-serif text-lg">Distribucija znanja</h3>
+        <h3 className="font-display text-lg">Distribucija znanja</h3>
       </div>
       <div className="h-[200px] flex items-center justify-center">
         <ResponsiveContainer width="100%" height="100%">
@@ -122,10 +122,10 @@ const MasteryPieChart = memo(function MasteryPieChart({ data }: { data: { name: 
 const CategoryBarChart = memo(function CategoryBarChart({ data }: { data: any[] }) {
   if (data.length === 0) return null;
   return (
-    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }} className="rounded-xl bg-card border p-5 space-y-4 md:col-span-2">
+    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }} className="glass-card rounded-xl p-5 space-y-4 md:col-span-2">
       <div className="flex items-center gap-2">
         <Layers className="h-4 w-4 text-primary" />
-        <h3 className="font-serif text-lg">Znanje po kategorijama</h3>
+        <h3 className="font-display text-lg">Znanje po kategorijama</h3>
       </div>
       <div className="h-[220px]">
         <ResponsiveContainer width="100%" height="100%">
@@ -241,7 +241,7 @@ export default function MyStats({ cards, categories, subcategories, categoryStat
         </button>
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-3xl font-serif">Laboratorija znanja</h2>
+            <h2 className="text-3xl font-display">Laboratorija znanja</h2>
             <p className="text-muted-foreground mt-1">FSRS analitika, grafikoni i kvantitativni podaci</p>
           </div>
           <InfoPanel title="Kako radi Laboratorija znanja?">
@@ -292,12 +292,12 @@ export default function MyStats({ cards, categories, subcategories, categoryStat
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   onClick={onShowKnowledgeMap}
-                  className="w-full rounded-xl border bg-card p-5 hover:border-primary/40 transition-colors group text-left space-y-3"
+                  className="w-full glass-card rounded-xl p-5 hover:border-primary/40 transition-colors group text-left space-y-3"
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <LayoutGrid className="h-4 w-4 text-primary" />
-                      <h3 className="font-serif text-lg">Mapa Znanja</h3>
+                      <h3 className="font-display text-lg">Mapa Znanja</h3>
                     </div>
                     <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:translate-x-0.5 transition-transform" />
                   </div>
@@ -353,7 +353,7 @@ export default function MyStats({ cards, categories, subcategories, categoryStat
 
             {/* Ratio Chart (14 dana) — premješteno sa Dashboarda */}
             {ratioHistory && ratioHistory.some(d => d["Stvarni ponavljanje"] !== null) && (
-              <Suspense fallback={<div className="h-[280px] rounded-xl bg-card border animate-pulse" />}>
+              <Suspense fallback={<div className="h-[280px] glass-card rounded-xl animate-pulse" />}>
                 <DashboardChart ratioHistory={ratioHistory} targetReviewPct={focusRatio.targetReviewPct} />
               </Suspense>
             )}
@@ -361,13 +361,13 @@ export default function MyStats({ cards, categories, subcategories, categoryStat
             {/* Efektivno učenje danas — premješteno sa Dashboarda */}
             {todayTime && todayTime.totalMs > 60000 && (
               <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
-                className="rounded-xl bg-card border p-5 space-y-3">
+                className="glass-card rounded-xl p-5 space-y-3">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <Clock className="h-4 w-4 text-primary" />
-                    <h3 className="font-serif text-lg">Efektivno učenje danas</h3>
+                    <h3 className="font-display text-lg">Efektivno učenje danas</h3>
                   </div>
-                  <span className="text-lg font-serif text-primary tabular-nums">
+                  <span className="text-lg font-display text-primary tabular-nums">
                     {Math.floor(todayTime.cognitiveMs / 3600000) > 0
                       ? `${Math.floor(todayTime.cognitiveMs / 3600000)}h ${Math.round((todayTime.cognitiveMs % 3600000) / 60000)}min`
                       : `${Math.round(todayTime.cognitiveMs / 60000)} min`}

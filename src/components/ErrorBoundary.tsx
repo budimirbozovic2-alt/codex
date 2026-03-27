@@ -124,7 +124,7 @@ export class ErrorBoundary extends Component<Props, State> {
         <div className="w-16 h-16 rounded-full bg-destructive/10 flex items-center justify-center">
           <AlertTriangle className="h-8 w-8 text-destructive" />
         </div>
-        <h2 className="text-xl font-serif">Nešto je pošlo po zlu</h2>
+        <h2 className="text-xl font-display">Nešto je pošlo po zlu</h2>
         <p className="text-sm text-muted-foreground text-center max-w-md">
           {this.state.error?.message || "Neočekivana greška"}
         </p>

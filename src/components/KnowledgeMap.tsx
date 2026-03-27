@@ -405,7 +405,7 @@ export default function KnowledgeMap({
                       <BarChart3 className="h-5 w-5 text-primary" />
                     </div>
                     <div>
-                      <p className="font-serif text-base font-medium">{name}</p>
+                      <p className="font-display text-base font-medium">{name}</p>
                       <p className="text-xs text-muted-foreground">{cardCount} kartica • {subCount} potkategorija</p>
                     </div>
                   </div>
@@ -446,7 +446,7 @@ function Header({ title, subtitle, onBack, reorderMode, onToggleReorder }: {
         <ArrowLeft className="h-5 w-5" />
       </button>
       <div className="flex-1">
-        <h2 className="text-2xl font-serif">{title}</h2>
+        <h2 className="text-2xl font-display">{title}</h2>
         <p className="text-sm text-muted-foreground mt-0.5">{subtitle}</p>
       </div>
       {onToggleReorder && (

@@ -49,16 +49,16 @@ const SessionComplete = React.memo(function SessionComplete({
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="max-w-md mx-auto space-y-8 py-16">
       <div className="text-center space-y-3">
-        <div className="inline-flex p-4 rounded-2xl bg-primary/10 mb-2">
-          <Trophy className="h-10 w-10 text-primary" />
+        <div className="inline-flex p-4 rounded-2xl bg-gold/10 mb-2 achievement-glow">
+          <Trophy className="h-10 w-10 text-gold" />
         </div>
-        <h2 className="text-4xl font-serif italic">Svaka čast!</h2>
+        <h2 className="text-4xl font-display">Svaka čast!</h2>
         <p className="text-muted-foreground text-lg">Sesija završena.</p>
       </div>
 
       <div className="grid grid-cols-2 gap-3">
         {statItems.map(({ icon: StatIcon, label, value }) => (
-          <div key={label} className="rounded-xl border bg-card p-4 text-center space-y-1">
+          <div key={label} className="glass-card rounded-xl p-4 text-center space-y-1">
             <StatIcon className="h-5 w-5 text-muted-foreground mx-auto" />
             <p className="text-2xl font-bold">{value}</p>
             <p className="text-xs text-muted-foreground">{label}</p>
@@ -67,7 +67,7 @@ const SessionComplete = React.memo(function SessionComplete({
       </div>
 
       {totalGrades.length > 0 && (
-        <div className="rounded-xl border bg-card p-4 space-y-2">
+        <div className="glass-card rounded-xl p-4 space-y-2">
           <p className="text-xs font-medium text-muted-foreground text-center">Distribucija ocjena</p>
           <div className="flex items-end justify-center gap-3 h-16">
             {[1, 2, 3, 4].map((g) => {
@@ -88,7 +88,7 @@ const SessionComplete = React.memo(function SessionComplete({
         </div>
       )}
 
-      <Button onClick={onBack} className="w-full bg-primary hover:bg-primary/90 text-primary-foreground">
+      <Button onClick={onBack} className="w-full btn-imperial bg-primary hover:bg-primary/90 text-primary-foreground">
         <Check className="h-4 w-4 mr-2" /> Zaključi sesiju i sačuvaj napredak
       </Button>
     </motion.div>

@@ -176,13 +176,13 @@ export default function ReviewSetup({
           <button onClick={onBack} className="text-muted-foreground hover:text-foreground flex items-center gap-1 mb-6">
             <ArrowLeft className="h-4 w-4" /> Nazad
           </button>
-          <h2 className="text-3xl font-serif">Konsolidacija</h2>
+          <h2 className="text-3xl font-display">Konsolidacija</h2>
           <p className="text-muted-foreground mt-2">Izaberi režim ponavljanja koji odgovara tvom cilju.</p>
         </div>
 
         {/* Resume saved session */}
         {savedSession && (
-          <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="rounded-xl border border-primary/30 bg-primary/5 p-4 flex items-center gap-3">
+          <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="glass-card rounded-xl border-primary/30 p-4 flex items-center gap-3">
             <Play className="h-5 w-5 text-primary shrink-0" />
             <div className="flex-1">
               <p className="text-sm font-medium">Sačuvana sesija</p>
@@ -211,7 +211,7 @@ export default function ReviewSetup({
               key={key}
               onClick={() => { if (count > 0) { setMode(key); setSetupStep("filter"); } }}
               disabled={count === 0}
-              className={`rounded-xl border bg-card p-6 text-left transition-colors group ${count > 0 ? `hover:border-${color}` : "opacity-50 cursor-not-allowed"}`}
+              className={`glass-card rounded-xl p-6 text-left transition-colors group ${count > 0 ? `hover:border-${color}` : "opacity-50 cursor-not-allowed"}`}
             >
               <div className="flex items-center gap-3 mb-3">
                 <div className={`p-2.5 rounded-lg bg-${color}/10 text-${color}`}>
@@ -246,7 +246,7 @@ export default function ReviewSetup({
         <button onClick={() => { setSetupStep("mode"); setMode(null); setSelectedCategory(null); setSelectedSubcategory(null); setSelectedChapter(null); setFilterExamFrequent(false); }} className="text-muted-foreground hover:text-foreground flex items-center gap-1 mb-6">
           <ArrowLeft className="h-4 w-4" /> Nazad na režime
         </button>
-        <h2 className="text-3xl font-serif">{modeMeta.label}</h2>
+        <h2 className="text-3xl font-display">{modeMeta.label}</h2>
         <p className="text-muted-foreground mt-2">{modeMeta.items.length} sekcija dostupno za ponavljanje.</p>
       </div>
 
@@ -270,7 +270,7 @@ export default function ReviewSetup({
 
       <Button
         onClick={handleStartSession}
-        className="w-full py-6 text-base"
+        className="w-full py-6 text-base btn-imperial"
         disabled={modeMeta.items.length === 0}
       >
         <BookOpen className="h-4 w-4 mr-2" /> Počni konsolidaciju ({modeMeta.items.length} sekcija)

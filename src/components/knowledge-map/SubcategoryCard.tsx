@@ -48,7 +48,7 @@ function SubcategoryCardInner({
       )}
       <button
         onClick={onNavigate}
-        className="flex-1 flex items-center gap-4 p-4 rounded-xl border bg-card hover:bg-secondary/40 transition-colors text-left"
+        className="flex-1 flex items-center gap-4 p-4 rounded-xl glass-card hover:bg-secondary/40 transition-colors text-left"
       >
         <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
           <BookOpen className="h-5 w-5 text-primary" />

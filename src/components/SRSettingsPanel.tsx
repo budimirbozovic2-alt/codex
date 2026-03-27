@@ -70,7 +70,7 @@ export default function SRSettingsPanel({ settings, onUpdate, onBack }: Props) {
           <button onClick={onBack} className="text-muted-foreground hover:text-foreground flex items-center gap-1 mb-3">
             <ArrowLeft className="h-4 w-4" /> Nazad
           </button>
-          <h2 className="text-2xl font-serif">Podešavanja</h2>
+          <h2 className="text-2xl font-display">Podešavanja</h2>
           <p className="text-sm text-muted-foreground mt-0.5">Algoritam, interfejs, tok rada i sistem</p>
         </div>
         <InfoPanel title="O podešavanjima">
@@ -93,7 +93,7 @@ export default function SRSettingsPanel({ settings, onUpdate, onBack }: Props) {
         {/* ═══════════ TAB 1: ALGORITAM ═══════════ */}
         <TabsContent value="algorithm" className="space-y-5 mt-0">
           {/* Ciljna retencija */}
-          <div className="rounded-xl border bg-card p-5 space-y-3">
+          <div className="glass-card rounded-xl p-5 space-y-3">
             <h3 className="text-sm font-semibold">Ciljna retencija</h3>
             <div className="flex items-center justify-between">
               <span className="text-sm text-muted-foreground">Stopa zadržavanja</span>
@@ -114,7 +114,7 @@ export default function SRSettingsPanel({ settings, onUpdate, onBack }: Props) {
           </div>
 
           {/* Ponavljanje */}
-          <div className="rounded-xl border bg-card p-5 space-y-4">
+          <div className="glass-card rounded-xl p-5 space-y-4">
             <h3 className="text-sm font-semibold">Ponavljanje (FSRS)</h3>
             <div className="space-y-2">
               <div className="flex items-center justify-between">
@@ -137,7 +137,7 @@ export default function SRSettingsPanel({ settings, onUpdate, onBack }: Props) {
           </div>
 
           {/* Kognitivni otpor */}
-          <div className="rounded-xl border bg-card p-5 space-y-4">
+          <div className="glass-card rounded-xl p-5 space-y-4">
             <h3 className="text-sm font-semibold">Težine kognitivnog otpora</h3>
             <p className="text-xs text-muted-foreground">Koliko svaki faktor utiče na ukupni skor. Normalizuje se automatski.</p>
             {([
@@ -169,7 +169,7 @@ export default function SRSettingsPanel({ settings, onUpdate, onBack }: Props) {
         {/* ═══════════ TAB 2: INTERFEJS ═══════════ */}
         <TabsContent value="interface" className="space-y-5 mt-0">
           {/* Color theme picker */}
-          <div className="rounded-xl border bg-card p-5 space-y-3">
+          <div className="glass-card rounded-xl p-5 space-y-3">
             <h3 className="text-sm font-semibold">Tema boja</h3>
             <p className="text-xs text-muted-foreground">Odaberi paletu koja ti odgovara. Primjenjuje se odmah.</p>
             <div className="grid grid-cols-3 gap-2">
@@ -203,7 +203,7 @@ export default function SRSettingsPanel({ settings, onUpdate, onBack }: Props) {
           </div>
 
           {/* Dashboard widgeti */}
-          <div className="rounded-xl border bg-card p-5 space-y-3">
+          <div className="glass-card rounded-xl p-5 space-y-3">
             <h3 className="text-sm font-semibold">Dashboard widgeti</h3>
             <p className="text-xs text-muted-foreground">Odaberi koje widgete želiš vidjeti.</p>
             {([
@@ -228,7 +228,7 @@ export default function SRSettingsPanel({ settings, onUpdate, onBack }: Props) {
           </div>
 
           {/* Zvučni efekti */}
-          <div className="rounded-xl border bg-card p-5 space-y-4">
+          <div className="glass-card rounded-xl p-5 space-y-4">
             <h3 className="text-sm font-semibold">Zvučni efekti</h3>
             <div className="flex items-center justify-between">
               <div>
@@ -251,7 +251,7 @@ export default function SRSettingsPanel({ settings, onUpdate, onBack }: Props) {
         {/* ═══════════ TAB 3: TOK RADA ═══════════ */}
         <TabsContent value="workflow" className="space-y-5 mt-0">
           {/* Pomodoro tajmer */}
-          <div className="rounded-xl border bg-card p-5 space-y-4">
+          <div className="glass-card rounded-xl p-5 space-y-4">
             <h3 className="text-sm font-semibold">Pomodoro tajmer</h3>
             <p className="text-xs text-muted-foreground">Podesi trajanje fokus i pauza sesija.</p>
             <div className="space-y-3">
@@ -321,7 +321,7 @@ export default function SRSettingsPanel({ settings, onUpdate, onBack }: Props) {
           </div>
 
           {/* TTS */}
-          <div className="rounded-xl border bg-card p-5 space-y-4">
+          <div className="glass-card rounded-xl p-5 space-y-4">
             <h3 className="text-sm font-semibold">Glasovni čitač (TTS)</h3>
             <div className="space-y-2">
               <div className="flex items-center justify-between">
@@ -355,7 +355,7 @@ export default function SRSettingsPanel({ settings, onUpdate, onBack }: Props) {
           </div>
 
           {/* Podsjetnici */}
-          <div className="rounded-xl border bg-card p-5 space-y-4">
+          <div className="glass-card rounded-xl p-5 space-y-4">
             <h3 className="text-sm font-semibold">Podsjetnik za ponavljanje</h3>
             <p className="text-xs text-muted-foreground">Browser notifikacija koja te podsjeća da učiš.</p>
             <div className="flex items-center justify-between">
@@ -411,7 +411,7 @@ export default function SRSettingsPanel({ settings, onUpdate, onBack }: Props) {
           </div>
 
           {/* Backup podsjetnik */}
-          <div className="rounded-xl border bg-card p-5 space-y-4">
+          <div className="glass-card rounded-xl p-5 space-y-4">
             <h3 className="text-sm font-semibold">Backup podsjetnik</h3>
             <div className="flex items-center justify-between">
               <div>
@@ -441,7 +441,7 @@ export default function SRSettingsPanel({ settings, onUpdate, onBack }: Props) {
           <HealthMonitor />
 
           {/* Kako ocjene rade */}
-          <div className="rounded-xl border bg-card p-5 space-y-3">
+          <div className="glass-card rounded-xl p-5 space-y-3">
             <h3 className="text-sm font-semibold">Kako FSRS računa intervale</h3>
             <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground">
               <div className="rounded-lg bg-destructive/5 border border-destructive/10 p-3 space-y-1">
@@ -464,7 +464,7 @@ export default function SRSettingsPanel({ settings, onUpdate, onBack }: Props) {
           </div>
 
           {/* FSRS Vodič - Collapsibles */}
-          <div className="rounded-xl border bg-card p-5 space-y-4 text-sm text-muted-foreground">
+          <div className="glass-card rounded-xl p-5 space-y-4 text-sm text-muted-foreground">
             <h3 className="text-sm font-semibold text-foreground">Kako radi FSRS — vodič</h3>
             <p>
               FSRS (<em>Free Spaced Repetition Scheduler</em>) je algoritam koji odlučuje <strong className="text-foreground">kada</strong> treba da ponoviš neku cjelinu.
