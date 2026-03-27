@@ -129,20 +129,76 @@ export function useCards() {
     schedulePersist, setCardMapState,
   });
 
-  // ── Derived data ──
-  const cardCountByCategory = useMemo(() => {
-    const counts: Record<string, number> = {};
-    categories.forEach((cat) => { counts[cat] = 0; });
-    cards.forEach((c) => { counts[c.category] = (counts[c.category] || 0) + 1; });
-    return counts;
-  }, [cards, categories]);
+  // ── Single-pass derived data (B2+B5 fix: 4×O(n) → 1×O(n)) ──
+  const { dueCards, stats, categoryStats, cardCountByCategory } = useMemo(() => {
+    const now = Date.now();
+    const dueList: Card[] = [];
+    let totalSections = 0;
+    let learnedSections = 0;
+    let leechCount = 0;
+    const catAccum: Record<string, { scoreSum: number; total: number; due: number }> = {};
+    const countByCategory: Record<string, number> = {};
 
-  const dueCards = useMemo(() => getDueCards(cards), [cards]);
-  const stats = useMemo(() => getStats(cards), [cards]);
-  const categoryStats = useMemo(
-    () => Object.fromEntries(categories.map((cat) => [cat, getCategoryStats(cards, cat)])),
-    [cards, categories],
-  );
+    // Initialize category accumulators
+    for (const cat of categories) {
+      catAccum[cat] = { scoreSum: 0, total: 0, due: 0 };
+      countByCategory[cat] = 0;
+    }
+
+    for (const card of cards) {
+      // Card count by category
+      countByCategory[card.category] = (countByCategory[card.category] || 0) + 1;
+
+      // Section-level stats
+      let cardIsDue = false;
+      let cardScoreSum = 0;
+      for (const s of card.sections) {
+        totalSections++;
+        const isNew = s.state === SectionState.New;
+        if (!isNew) {
+          learnedSections++;
+          if (s.nextReview <= now) cardIsDue = true;
+        }
+        if (isLeech(s)) leechCount++;
+        cardScoreSum += getSectionScore(s);
+      }
+
+      if (cardIsDue) dueList.push(card);
+
+      // Category stats accumulation
+      const acc = catAccum[card.category];
+      if (acc) {
+        acc.total++;
+        acc.scoreSum += card.sections.length > 0 ? cardScoreSum / card.sections.length : 0;
+        if (cardIsDue) acc.due++;
+      }
+    }
+
+    // Sort due cards by earliest nextReview
+    dueList.sort((a, b) => {
+      const aMin = Math.min(...a.sections.filter(s => s.state !== SectionState.New).map(s => s.nextReview));
+      const bMin = Math.min(...b.sections.filter(s => s.state !== SectionState.New).map(s => s.nextReview));
+      return aMin - bMin;
+    });
+
+    // Finalize category stats
+    const finalCatStats: Record<string, { score: number; total: number; due: number }> = {};
+    for (const cat of categories) {
+      const a = catAccum[cat];
+      finalCatStats[cat] = {
+        score: a.total > 0 ? Math.round(a.scoreSum / a.total) : 0,
+        total: a.total,
+        due: a.due,
+      };
+    }
+
+    return {
+      dueCards: dueList,
+      stats: { due: dueList.length, total: cards.length, totalSections, learnedSections, leechCount },
+      categoryStats: finalCatStats,
+      cardCountByCategory: countByCategory,
+    };
+  }, [cards, categories]);
 
   const reorderCategories = useCallback((ordered: string[]) => {
     setCategoriesState(ordered);
