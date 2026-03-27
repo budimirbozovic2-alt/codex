@@ -1,8 +1,9 @@
 import { memo } from "react";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
-import { GraduationCap, RotateCcw, BookOpen } from "lucide-react";
-
+import GraduationCap from "lucide-react/dist/esm/icons/graduation-cap";
+import RotateCcw from "lucide-react/dist/esm/icons/rotate-ccw";
+import BookOpen from "lucide-react/dist/esm/icons/book-open";
 interface Props {
   dueCount: number;
   hasCards: boolean;

@@ -1,4 +1,7 @@
-import { CheckCircle, AlertTriangle, XCircle, Target } from "lucide-react";
+import CheckCircle from "lucide-react/dist/esm/icons/check-circle";
+import AlertTriangle from "lucide-react/dist/esm/icons/triangle-alert";
+import XCircle from "lucide-react/dist/esm/icons/x-circle";
+import Target from "lucide-react/dist/esm/icons/target";
 import type { RechartsPayloadItem } from "@/types/planner";
 
 export const STATUS_CONFIG = {

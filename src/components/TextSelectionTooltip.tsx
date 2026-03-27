@@ -3,8 +3,8 @@ import { useState, useEffect, useCallback, useRef, ReactNode } from "react";
 
 import { createMnemonicCardFromSelection, loadMnemonicCards, saveMnemonicCards } from "@/lib/mnemonic-storage";
 import { toast } from "@/hooks/use-toast";
-import { Brain, Star } from "lucide-react";
-
+import Brain from "lucide-react/dist/esm/icons/brain";
+import Star from "lucide-react/dist/esm/icons/star";
 interface Props {
   children: ReactNode;
   cardId: string;

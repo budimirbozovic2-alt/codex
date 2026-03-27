@@ -1,7 +1,7 @@
 import { memo } from "react";
 import { motion } from "framer-motion";
-import { TrendingUp, BarChart3 } from "lucide-react";
-
+import TrendingUp from "lucide-react/dist/esm/icons/trending-up";
+import BarChart3 from "lucide-react/dist/esm/icons/bar-chart3";
 interface Props {
   velocityData: { velocity: number; trend: "up" | "down" | "flat" } | null;
   weakestCategories: { name: string; score: number; total: number }[];

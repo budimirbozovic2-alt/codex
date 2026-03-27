@@ -1,8 +1,8 @@
 import { memo } from "react";
 import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
-import { Clock, BookOpen } from "lucide-react";
-
+import Clock from "lucide-react/dist/esm/icons/clock";
+import BookOpen from "lucide-react/dist/esm/icons/book-open";
 interface Props {
   due: number;
   learnedSections: number;

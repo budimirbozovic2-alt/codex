@@ -7,8 +7,9 @@ import { motion } from "framer-motion";
 
 import { Button } from "@/components/ui/button";
 import { ChartTooltip } from "@/components/ui/chart-tooltip";
-import { TrendingDown, Eye, EyeOff } from "lucide-react";
-
+import TrendingDown from "lucide-react/dist/esm/icons/trending-down";
+import Eye from "lucide-react/dist/esm/icons/eye";
+import EyeOff from "lucide-react/dist/esm/icons/eye-off";
 interface Props {
   cards: Card[];
   categories: string[];

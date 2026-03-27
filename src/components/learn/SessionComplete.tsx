@@ -10,8 +10,13 @@ import { LearnMode } from "@/lib/storage";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { GRADE_LABELS } from "./types";
-import { BarChart3, Clock, Target, Trophy, RotateCw, BookOpen, Check } from "lucide-react";
-
+import BarChart3 from "lucide-react/dist/esm/icons/bar-chart3";
+import Clock from "lucide-react/dist/esm/icons/clock";
+import Target from "lucide-react/dist/esm/icons/target";
+import Trophy from "lucide-react/dist/esm/icons/trophy";
+import RotateCw from "lucide-react/dist/esm/icons/rotate-cw";
+import BookOpen from "lucide-react/dist/esm/icons/book-open";
+import Check from "lucide-react/dist/esm/icons/check";
 interface Props {
   learnMode: LearnMode;
   sessionStartTime: number;

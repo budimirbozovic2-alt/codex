@@ -1,8 +1,7 @@
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine } from "recharts";
 
 import { motion } from "framer-motion";
-import { TrendingUp } from "lucide-react";
-
+import TrendingUp from "lucide-react/dist/esm/icons/trending-up";
 interface ChartTooltipProps {
   active?: boolean;
   payload?: { name: string; value: number; color: string }[];

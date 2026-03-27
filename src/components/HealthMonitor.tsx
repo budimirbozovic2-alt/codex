@@ -4,8 +4,16 @@ import { getStorageUsage } from "@/lib/storage";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { Activity, Database, HardDrive, RefreshCw, FileText, Brain, Clock, BookOpen, MapPin, Layers } from "lucide-react";
-
+import Activity from "lucide-react/dist/esm/icons/activity";
+import Database from "lucide-react/dist/esm/icons/database";
+import HardDrive from "lucide-react/dist/esm/icons/hard-drive";
+import RefreshCw from "lucide-react/dist/esm/icons/refresh-cw";
+import FileText from "lucide-react/dist/esm/icons/file-text";
+import Brain from "lucide-react/dist/esm/icons/brain";
+import Clock from "lucide-react/dist/esm/icons/clock";
+import BookOpen from "lucide-react/dist/esm/icons/book-open";
+import MapPin from "lucide-react/dist/esm/icons/map-pin";
+import Layers from "lucide-react/dist/esm/icons/layers";
 interface TableStat {
   name: string;
   count: number;

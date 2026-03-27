@@ -25,8 +25,17 @@ import RetentionChart from "./RetentionChart";
 import ForgettingCurve from "./ForgettingCurve";
 import { TabSkeleton } from "@/components/ui/page-skeleton";
 import { useDeferredCompute } from "@/hooks/useDeferredCompute";
-import { ArrowLeft, LayoutGrid, TrendingUp, Brain, Layers, Target, Clock, Flame, CalendarClock, Activity, ChevronRight } from "lucide-react";
-
+import ArrowLeft from "lucide-react/dist/esm/icons/arrow-left";
+import LayoutGrid from "lucide-react/dist/esm/icons/layout-grid";
+import TrendingUp from "lucide-react/dist/esm/icons/trending-up";
+import Brain from "lucide-react/dist/esm/icons/brain";
+import Layers from "lucide-react/dist/esm/icons/layers";
+import Target from "lucide-react/dist/esm/icons/target";
+import Clock from "lucide-react/dist/esm/icons/clock";
+import Flame from "lucide-react/dist/esm/icons/flame";
+import CalendarClock from "lucide-react/dist/esm/icons/calendar-clock";
+import Activity from "lucide-react/dist/esm/icons/activity";
+import ChevronRight from "lucide-react/dist/esm/icons/chevron-right";
 const DashboardChart = lazy(() => import("@/components/DashboardChart"));
 
 // Lazy-load extracted tab components

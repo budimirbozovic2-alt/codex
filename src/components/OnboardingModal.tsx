@@ -6,8 +6,10 @@ import { motion, AnimatePresence } from "framer-motion";
 
 import { Button } from "@/components/ui/button";
 import type { LucideIcon } from "lucide-react";
-import { ArrowRight, ArrowLeft, X, CheckCircle2 } from "lucide-react";
-
+import ArrowRight from "lucide-react/dist/esm/icons/arrow-right";
+import ArrowLeft from "lucide-react/dist/esm/icons/arrow-left";
+import X from "lucide-react/dist/esm/icons/x";
+import CheckCircle2 from "lucide-react/dist/esm/icons/check-circle2";
 export interface OnboardingSlide {
   icon: LucideIcon;
   iconColor: string;

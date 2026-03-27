@@ -2,8 +2,9 @@ import { motion, AnimatePresence } from "framer-motion";
 
 import { useSessionContext } from "@/contexts/SessionContext";
 import { useState, useEffect } from "react";
-import { Loader2, CheckCircle2, Brain } from "lucide-react";
-
+import Loader2 from "lucide-react/dist/esm/icons/loader2";
+import CheckCircle2 from "lucide-react/dist/esm/icons/check-circle2";
+import Brain from "lucide-react/dist/esm/icons/brain";
 export default function ProcessingOverlay() {
   const { isProcessing } = useSessionContext();
   const [phase, setPhase] = useState<"analyzing" | "done">("analyzing");

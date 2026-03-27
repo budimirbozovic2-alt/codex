@@ -185,7 +185,7 @@ export function useCardImport({
         toast.error(`Greška pri uvozu: ${err instanceof Error ? err.message : "Neispravan format fajla."}`);
       }
     },
-    [setCardMap, setCategories, setSubcategories, updateSRSettings],
+    [setCardMap, setCategories, setSubcategories, setReviewLog, updateSRSettings],
   );
 
   const importCards = useCallback(

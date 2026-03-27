@@ -21,8 +21,25 @@ import { MnemonicCard, MnemonicStatus, HookType, HookMode, loadMajorSystem, reso
 
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
-import { CheckCircle2, Brain, Film, Type, ChevronDown, ChevronRight, Sparkles, Wrench, Hash, MapPin, Clock, List, MoreHorizontal, Tag, Plus, Pencil, Save, X, Trash2 } from "lucide-react";
-
+import CheckCircle2 from "lucide-react/dist/esm/icons/check-circle2";
+import Brain from "lucide-react/dist/esm/icons/brain";
+import Film from "lucide-react/dist/esm/icons/film";
+import Type from "lucide-react/dist/esm/icons/type";
+import ChevronDown from "lucide-react/dist/esm/icons/chevron-down";
+import ChevronRight from "lucide-react/dist/esm/icons/chevron-right";
+import Sparkles from "lucide-react/dist/esm/icons/sparkles";
+import Wrench from "lucide-react/dist/esm/icons/wrench";
+import Hash from "lucide-react/dist/esm/icons/hash";
+import MapPin from "lucide-react/dist/esm/icons/map-pin";
+import Clock from "lucide-react/dist/esm/icons/clock";
+import List from "lucide-react/dist/esm/icons/list";
+import MoreHorizontal from "lucide-react/dist/esm/icons/more-horizontal";
+import Tag from "lucide-react/dist/esm/icons/tag";
+import Plus from "lucide-react/dist/esm/icons/plus";
+import Pencil from "lucide-react/dist/esm/icons/pencil";
+import Save from "lucide-react/dist/esm/icons/save";
+import X from "lucide-react/dist/esm/icons/x";
+import Trash2 from "lucide-react/dist/esm/icons/trash2";
 const RichTextEditor = lazy(() => import("@/components/RichTextEditor"));
 
 const STATUS_CONFIG: Record<MnemonicStatus, { label: string; icon: typeof Brain; color: string }> = {

@@ -1,8 +1,7 @@
 import { memo } from "react";
 import { motion } from "framer-motion";
 import { Progress } from "@/components/ui/progress";
-import { Trophy } from "lucide-react";
-
+import Trophy from "lucide-react/dist/esm/icons/trophy";
 interface Props {
   learnedSections: number;
   totalSections: number;

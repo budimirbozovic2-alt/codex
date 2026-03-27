@@ -9,7 +9,16 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar as CalendarUI } from "@/components/ui/calendar";
 import { format, differenceInDays, startOfDay } from "date-fns";
 import { cn } from "@/lib/utils";
-import { Clock, RefreshCw, Shield, Flame, Target, Plus, Calendar, Zap, Lightbulb, AlertTriangle } from "lucide-react";
+import Clock from "lucide-react/dist/esm/icons/clock";
+import RefreshCw from "lucide-react/dist/esm/icons/refresh-cw";
+import Shield from "lucide-react/dist/esm/icons/shield";
+import Flame from "lucide-react/dist/esm/icons/flame";
+import Target from "lucide-react/dist/esm/icons/target";
+import Plus from "lucide-react/dist/esm/icons/plus";
+import Calendar from "lucide-react/dist/esm/icons/calendar";
+import Zap from "lucide-react/dist/esm/icons/zap";
+import Lightbulb from "lucide-react/dist/esm/icons/lightbulb";
+import AlertTriangle from "lucide-react/dist/esm/icons/triangle-alert";
 import PhaseItem from "./PhaseItem";
 import { STATUS_CONFIG, PHASE_COLORS } from "./planner-constants";
 import type { PhaseProgressItem, DynamicDateItem, SmartSuggestionItem, TimeRecommendation, CognitiveDebtItem } from "@/types/planner";

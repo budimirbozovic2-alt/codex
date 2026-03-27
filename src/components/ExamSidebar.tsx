@@ -14,8 +14,17 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
-import { ClipboardPaste, MapPin, Check, Trash2, X, ChevronDown, ChevronUp, FileText, PencilLine, Eraser, Loader2 } from "lucide-react";
-
+import ClipboardPaste from "lucide-react/dist/esm/icons/clipboard-paste";
+import MapPin from "lucide-react/dist/esm/icons/map-pin";
+import Check from "lucide-react/dist/esm/icons/check";
+import Trash2 from "lucide-react/dist/esm/icons/trash2";
+import X from "lucide-react/dist/esm/icons/x";
+import ChevronDown from "lucide-react/dist/esm/icons/chevron-down";
+import ChevronUp from "lucide-react/dist/esm/icons/chevron-up";
+import FileText from "lucide-react/dist/esm/icons/file-text";
+import PencilLine from "lucide-react/dist/esm/icons/pencil-line";
+import Eraser from "lucide-react/dist/esm/icons/eraser";
+import Loader2 from "lucide-react/dist/esm/icons/loader2";
 export interface ExamQuestion {
   id: string;
   text: string;

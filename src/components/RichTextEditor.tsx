@@ -1,13 +1,12 @@
 import { useRef, useCallback, useEffect } from "react";
 import { sanitizeHtml } from "@/lib/sanitize";
-import { Heading2, Bold, Italic, Underline, List, ListOrdered, Paintbrush } from "lucide-react";
-
-
-
-
-
-
-
+import Heading2 from "lucide-react/dist/esm/icons/heading2";
+import Bold from "lucide-react/dist/esm/icons/bold";
+import Italic from "lucide-react/dist/esm/icons/italic";
+import Underline from "lucide-react/dist/esm/icons/underline";
+import List from "lucide-react/dist/esm/icons/list";
+import ListOrdered from "lucide-react/dist/esm/icons/list-ordered";
+import Paintbrush from "lucide-react/dist/esm/icons/paintbrush";
 interface Props {
   value: string;
   onChange: (value: string) => void;

@@ -1,8 +1,7 @@
 import { useEffect } from "react";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
-import { BookOpen } from "lucide-react";
-
+import BookOpen from "lucide-react/dist/esm/icons/book-open";
 export default function ReviewComplete({ onBack }: { onBack: () => void }) {
   useEffect(() => {
     import("@/lib/sounds").then(m => m.playSessionComplete());

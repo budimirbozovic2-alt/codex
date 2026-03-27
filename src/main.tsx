@@ -173,6 +173,14 @@ setTimeout(() => {
       const doCleanup = () => { cleanup(); cleanupQuit?.(); };
       window.addEventListener("beforeunload", doCleanup);
       window.addEventListener("unload", doCleanup);
+
+      // HMR cleanup: remove listeners to prevent leaks during hot-reload
+      if (import.meta.hot) {
+        import.meta.hot.dispose(() => {
+          window.removeEventListener("beforeunload", doCleanup);
+          window.removeEventListener("unload", doCleanup);
+        });
+      }
     } catch (e) { console.warn("[boot] Electron IPC setup failed", e); }
   }
 })();

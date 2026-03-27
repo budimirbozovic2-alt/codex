@@ -5,8 +5,14 @@ import SessionFilters from "@/components/SessionFilters";
 import { Button } from "@/components/ui/button";
 import OnboardingModal, { hasSeenOnboarding } from "@/components/OnboardingModal";
 import { DueItem, ReviewMode, REVIEW_ONBOARDING_KEY, REVIEW_SLIDES } from "./review-constants";
-import { Target, Shield, Zap, BookOpen, ArrowLeft, Play, X as XIcon, HelpCircle } from "lucide-react";
-
+import Target from "lucide-react/dist/esm/icons/target";
+import Shield from "lucide-react/dist/esm/icons/shield";
+import Zap from "lucide-react/dist/esm/icons/zap";
+import BookOpen from "lucide-react/dist/esm/icons/book-open";
+import ArrowLeft from "lucide-react/dist/esm/icons/arrow-left";
+import Play from "lucide-react/dist/esm/icons/play";
+import X as XIcon from "lucide-react/dist/esm/icons/x as -x-icon";
+import HelpCircle from "lucide-react/dist/esm/icons/help-circle";
 function HowItWorksCorner({ onShowOnboarding }: { onShowOnboarding: () => void }) {
   return (
     <div className="absolute top-0 right-0">

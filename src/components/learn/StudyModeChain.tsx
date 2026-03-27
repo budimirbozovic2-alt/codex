@@ -8,8 +8,10 @@ import QuestionDots from "./QuestionDots";
 import GradeButtons from "./GradeButtons";
 import NavigationButtons from "./NavigationButtons";
 import { ViewWidth, viewWidthClasses, LearnCardProgress } from "./types";
-import { Eye, Check, RotateCcw, Link2 } from "lucide-react";
-
+import Eye from "lucide-react/dist/esm/icons/eye";
+import Check from "lucide-react/dist/esm/icons/check";
+import RotateCcw from "lucide-react/dist/esm/icons/rotate-ccw";
+import Link2 from "lucide-react/dist/esm/icons/link2";
 interface Props {
   card: Card;
   sortedCards: Card[];

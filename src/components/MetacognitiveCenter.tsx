@@ -23,8 +23,13 @@ import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
 } from "recharts";
 import { format, startOfDay } from "date-fns";
-import { ArrowLeft, BookOpen, Clock, Brain, AlertTriangle, CheckCircle, XCircle } from "lucide-react";
-
+import ArrowLeft from "lucide-react/dist/esm/icons/arrow-left";
+import BookOpen from "lucide-react/dist/esm/icons/book-open";
+import Clock from "lucide-react/dist/esm/icons/clock";
+import Brain from "lucide-react/dist/esm/icons/brain";
+import AlertTriangle from "lucide-react/dist/esm/icons/triangle-alert";
+import CheckCircle from "lucide-react/dist/esm/icons/check-circle";
+import XCircle from "lucide-react/dist/esm/icons/x-circle";
 const FrequentErrors = lazy(() => import("@/pages/FrequentErrors"));
 const CognitiveAnalytics = lazy(() => import("./CognitiveAnalytics"));
 

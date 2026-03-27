@@ -7,8 +7,12 @@ import { loadSources, type Source } from "@/lib/sources-storage";
 import { loadMindMaps } from "@/lib/mindmap-storage";
 import { MindMapDoc } from "@/lib/db";
 import { motion, AnimatePresence } from "framer-motion";
-import { Search, BookOpen, Zap, FileText, Network, ArrowRight } from "lucide-react";
-
+import Search from "lucide-react/dist/esm/icons/search";
+import BookOpen from "lucide-react/dist/esm/icons/book-open";
+import Zap from "lucide-react/dist/esm/icons/zap";
+import FileText from "lucide-react/dist/esm/icons/file-text";
+import Network from "lucide-react/dist/esm/icons/network";
+import ArrowRight from "lucide-react/dist/esm/icons/arrow-right";
 interface Props {
   cards: Card[];
   open: boolean;

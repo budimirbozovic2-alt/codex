@@ -3,8 +3,8 @@ import { loadMajorSystem, saveMajorSystem, DEFAULT_MAJOR_SYSTEM } from "@/lib/mn
 
 
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, RotateCcw } from "lucide-react";
-
+import ArrowLeft from "lucide-react/dist/esm/icons/arrow-left";
+import RotateCcw from "lucide-react/dist/esm/icons/rotate-ccw";
 interface Props {
   onBack: () => void;
 }

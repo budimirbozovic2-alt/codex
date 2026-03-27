@@ -35,11 +35,17 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
-import {
-  Plus, Save, ArrowLeft, GitBranch, Workflow, ChevronDown, LayoutGrid,
-  Eye, EyeOff, Palette, Trash2,
-} from "lucide-react";
-
+import Plus from "lucide-react/dist/esm/icons/plus";
+import Save from "lucide-react/dist/esm/icons/save";
+import ArrowLeft from "lucide-react/dist/esm/icons/arrow-left";
+import GitBranch from "lucide-react/dist/esm/icons/git-branch";
+import Workflow from "lucide-react/dist/esm/icons/workflow";
+import ChevronDown from "lucide-react/dist/esm/icons/chevron-down";
+import LayoutGrid from "lucide-react/dist/esm/icons/layout-grid";
+import Eye from "lucide-react/dist/esm/icons/eye";
+import EyeOff from "lucide-react/dist/esm/icons/eye-off";
+import Palette from "lucide-react/dist/esm/icons/palette";
+import Trash2 from "lucide-react/dist/esm/icons/trash2";
 const nodeTypes = { mindMapNode: MindMapNodeComponent };
 
 let nodeIdCounter = 0;

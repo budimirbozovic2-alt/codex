@@ -2,7 +2,8 @@ import { useMemo } from "react";
 
 
 import { loadLatency, getLatencyStats } from "@/lib/metacognitive-storage";
-import { Clock, AlertTriangle } from "lucide-react";
+import Clock from "lucide-react/dist/esm/icons/clock";
+import AlertTriangle from "lucide-react/dist/esm/icons/triangle-alert";
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell,
 } from "recharts";

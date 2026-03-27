@@ -4,8 +4,11 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { TabSkeleton } from "@/components/ui/page-skeleton";
 import InfoPanel from "@/components/InfoPanel";
-import { Database, FolderOpen, Download, FileText, BookOpen } from "lucide-react";
-
+import Database from "lucide-react/dist/esm/icons/database";
+import FolderOpen from "lucide-react/dist/esm/icons/folder-open";
+import Download from "lucide-react/dist/esm/icons/download";
+import FileText from "lucide-react/dist/esm/icons/file-text";
+import BookOpen from "lucide-react/dist/esm/icons/book-open";
 const CardsView = lazy(() => import("@/views/CardsView"));
 const CategoriesPage = lazy(() => import("@/views/CategoriesPage"));
 const SourcesView = lazy(() => import("@/views/SourcesView"));

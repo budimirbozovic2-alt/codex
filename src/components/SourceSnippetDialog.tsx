@@ -8,8 +8,7 @@ import { useEffect, useState } from "react";
 import { getSource, type Source } from "@/lib/sources-storage";
 import { db } from "@/lib/db";
 import { toast } from "sonner";
-import { CheckCircle } from "lucide-react";
-
+import CheckCircle from "lucide-react/dist/esm/icons/check-circle";
 interface Props {
   card: Card;
   open: boolean;

@@ -14,8 +14,18 @@ import { MnemonicCard, HookType } from "@/lib/mnemonic-storage";
 
 import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
-import { ArrowLeft, Brain, CheckCircle, XCircle, RotateCcw, Zap, Timer, FolderOpen, Clock, List, MoreHorizontal, Filter } from "lucide-react";
-
+import ArrowLeft from "lucide-react/dist/esm/icons/arrow-left";
+import Brain from "lucide-react/dist/esm/icons/brain";
+import CheckCircle from "lucide-react/dist/esm/icons/check-circle";
+import XCircle from "lucide-react/dist/esm/icons/x-circle";
+import RotateCcw from "lucide-react/dist/esm/icons/rotate-ccw";
+import Zap from "lucide-react/dist/esm/icons/zap";
+import Timer from "lucide-react/dist/esm/icons/timer";
+import FolderOpen from "lucide-react/dist/esm/icons/folder-open";
+import Clock from "lucide-react/dist/esm/icons/clock";
+import List from "lucide-react/dist/esm/icons/list";
+import MoreHorizontal from "lucide-react/dist/esm/icons/more-horizontal";
+import Filter from "lucide-react/dist/esm/icons/filter";
 interface Props {
   cards: MnemonicCard[];
   onRecordResult: (cardId: string, success: boolean) => void;

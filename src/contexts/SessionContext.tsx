@@ -68,6 +68,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const reviewQueue = useRef<QueuedReview[]>([]);
   const errorQueue = useRef<QueuedError[]>([]);
   const readQueue = useRef<QueuedMarkRead[]>([]);
+  const [queueSize, setQueueSize] = useState(0);
 
   const startSession = useCallback((cards: Card[], reviewLog: ReviewLogEntry[]) => {
     // Take immutable snapshot
@@ -75,6 +76,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     reviewQueue.current = [];
     errorQueue.current = [];
     readQueue.current = [];
+    setQueueSize(0);
     setIsSessionActive(true);
   }, []);
 
@@ -94,6 +96,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     reviewQueue.current = [];
     errorQueue.current = [];
     readQueue.current = [];
+    setQueueSize(0);
 
     // Apply all queued mutations
     if (reviews.length > 0) flushReviews(reviews);
@@ -109,17 +112,18 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 
   const queueReview = useCallback((cardId: string, sectionId: string, grade: number) => {
     reviewQueue.current.push({ cardId, sectionId, grade, timestamp: Date.now() });
+    setQueueSize(prev => prev + 1);
   }, []);
 
   const queueError = useCallback((cardId: string, text: string) => {
     errorQueue.current.push({ cardId, text });
+    setQueueSize(prev => prev + 1);
   }, []);
 
   const queueMarkRead = useCallback((cardId: string) => {
     readQueue.current.push({ cardId });
+    setQueueSize(prev => prev + 1);
   }, []);
-
-  const queueSize = reviewQueue.current.length + errorQueue.current.length + readQueue.current.length;
 
   const value = useMemo<SessionContextValue>(() => ({
     isSessionActive,

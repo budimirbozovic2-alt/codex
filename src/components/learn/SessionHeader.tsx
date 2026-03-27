@@ -8,8 +8,9 @@ import { ViewWidth, viewWidthClasses, viewWidthLabels } from "./types";
 import { motion } from "framer-motion";
 import { speak } from "@/lib/tts";
 import ShortcutsHint from "@/components/ShortcutsHint";
-import { Volume2, ArrowLeft, Zap } from "lucide-react";
-
+import Volume2 from "lucide-react/dist/esm/icons/volume2";
+import ArrowLeft from "lucide-react/dist/esm/icons/arrow-left";
+import Zap from "lucide-react/dist/esm/icons/zap";
 const LEARN_SHORTCUTS = [
   { keys: "E", description: "Uredi karticu" },
   { keys: "←/→", description: "Prethodna / sljedeća" },

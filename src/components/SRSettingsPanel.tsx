@@ -16,8 +16,9 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 
 import InfoPanel from "@/components/InfoPanel";
 import HealthMonitor from "@/components/HealthMonitor";
-import { ArrowLeft, RotateCcw, ChevronDown } from "lucide-react";
-
+import ArrowLeft from "lucide-react/dist/esm/icons/arrow-left";
+import RotateCcw from "lucide-react/dist/esm/icons/rotate-ccw";
+import ChevronDown from "lucide-react/dist/esm/icons/chevron-down";
 interface Props {
   settings: SRSettings;
   onUpdate: (settings: SRSettings) => void;

@@ -1,7 +1,6 @@
 import { useRef, useState, useEffect, useCallback, ReactNode, forwardRef } from "react";
-import { ChevronLeft, ChevronRight } from "lucide-react";
-
-
+import ChevronLeft from "lucide-react/dist/esm/icons/chevron-left";
+import ChevronRight from "lucide-react/dist/esm/icons/chevron-right";
 interface Props {
   children: ReactNode;
   className?: string;

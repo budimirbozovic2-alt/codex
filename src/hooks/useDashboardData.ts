@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useEffect, useRef } from "react";
 import { Card as SRCard, SRSettings, getPendingFirstReviewCount } from "@/lib/spaced-repetition";
 import { ReviewLogEntry, getStorageUsage, getLastBackupTime } from "@/lib/storage";
 import { loadSlippageLog } from "@/lib/metacognitive-storage";
@@ -13,7 +13,10 @@ import { loadAppSettings } from "@/lib/app-settings";
 import { useDeferredCompute } from "@/hooks/useDeferredCompute";
 import { startOfDay } from "date-fns";
 import { StatusIcon } from "@/components/dashboard/StatusIconsRow";
-import { ShieldAlert, AlertTriangle, Download, HardDrive } from "lucide-react";
+import ShieldAlert from "lucide-react/dist/esm/icons/shield-alert";
+import AlertTriangle from "lucide-react/dist/esm/icons/alert-triangle";
+import Download from "lucide-react/dist/esm/icons/download";
+import HardDrive from "lucide-react/dist/esm/icons/hard-drive";
 import { createElement } from "react";
 
 function getDayKey(ts: number): string {
@@ -87,7 +90,7 @@ export function useDashboardData(
   reviewLog: ReviewLogEntry[],
   srSettings: SRSettings,
 ) {
-  const appSettings = useMemo(() => loadAppSettings(), []);
+  const appSettings = loadAppSettings();
   const wc = appSettings.dashboardWidgets;
   const todayKey = getDayKey(Date.now());
   // Stable hash to avoid recomputing downstream when reviewLog length hasn't changed
@@ -151,19 +154,23 @@ export function useDashboardData(
   const cognitiveDebt = useDeferredCompute(() => getCognitiveDebt(dailyGoal), [dailyGoal]);
   const energyRec = useDeferredCompute(() => calcEnergyRecommendation(), []);
 
-  // Record discipline for yesterday
-  useMemo(() => {
+  // Record discipline for yesterday (side effect — must be in useEffect, not useMemo)
+  const disciplineRecordedRef = useRef<string>("");
+  useEffect(() => {
     const yesterday = new Date();
     yesterday.setDate(yesterday.getDate() - 1);
     const yKey = yesterday.toISOString().slice(0, 10);
+    // Guard: only record once per day key to prevent StrictMode double-fire
+    if (disciplineRecordedRef.current === yKey) return;
     const log = loadDisciplineLog();
-    if (log.find(e => e.date === yKey)) return;
+    if (log.find(e => e.date === yKey)) { disciplineRecordedRef.current = yKey; return; }
     const yStart = new Date(yKey).getTime();
     const yEnd = yStart + 86400000;
     const yReviews = reviewLog.filter(e => e.timestamp >= yStart && e.timestamp < yEnd).length;
     const slippageLog = loadSlippageLog();
     const ySlippage = slippageLog.find(s => s.date === yKey)?.slippageMs ?? null;
     recordDayDiscipline(yKey, yReviews, dailyGoal, ySlippage);
+    disciplineRecordedRef.current = yKey;
   }, [reviewLog, dailyGoal]);
 
   const energyLevel = getEnergyLevel();

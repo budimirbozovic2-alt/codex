@@ -9,8 +9,8 @@ import QuestionDots from "./QuestionDots";
 import GradeButtons from "./GradeButtons";
 import NavigationButtons from "./NavigationButtons";
 import { ViewWidth, viewWidthClasses, LearnCardProgress } from "./types";
-import { Eye, Check } from "lucide-react";
-
+import Eye from "lucide-react/dist/esm/icons/eye";
+import Check from "lucide-react/dist/esm/icons/check";
 interface Props {
   card: Card;
   sortedCards: Card[];

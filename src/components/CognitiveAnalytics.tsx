@@ -21,8 +21,15 @@ import {
 } from "@/lib/cognitive-analytics";
 import { loadPlanner } from "@/lib/planner-storage";
 import LazyChart from "@/components/LazyChart";
-import { AlertTriangle, Shield, Zap, ArrowRightLeft, HeartPulse, Brain, TrendingUp, Eye, Wrench } from "lucide-react";
-
+import AlertTriangle from "lucide-react/dist/esm/icons/triangle-alert";
+import Shield from "lucide-react/dist/esm/icons/shield";
+import Zap from "lucide-react/dist/esm/icons/zap";
+import ArrowRightLeft from "lucide-react/dist/esm/icons/arrow-right-left";
+import HeartPulse from "lucide-react/dist/esm/icons/heart-pulse";
+import Brain from "lucide-react/dist/esm/icons/brain";
+import TrendingUp from "lucide-react/dist/esm/icons/trending-up";
+import Eye from "lucide-react/dist/esm/icons/eye";
+import Wrench from "lucide-react/dist/esm/icons/wrench";
 interface Props {
   cards: Card[];
   categories: string[];

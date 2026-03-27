@@ -1,6 +1,8 @@
 import { Component, ReactNode } from "react";
-import { AlertTriangle, RefreshCw, Home, Download } from "lucide-react";
-
+import AlertTriangle from "lucide-react/dist/esm/icons/triangle-alert";
+import RefreshCw from "lucide-react/dist/esm/icons/refresh-cw";
+import Home from "lucide-react/dist/esm/icons/home";
+import Download from "lucide-react/dist/esm/icons/download";
 interface CrashEntry {
   timestamp: string;
   label: string;

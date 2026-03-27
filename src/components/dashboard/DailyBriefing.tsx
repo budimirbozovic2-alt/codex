@@ -1,8 +1,9 @@
 import { memo } from "react";
 import { motion } from "framer-motion";
 import { Progress } from "@/components/ui/progress";
-import { Brain, Target, Lightbulb } from "lucide-react";
-
+import Brain from "lucide-react/dist/esm/icons/brain";
+import Target from "lucide-react/dist/esm/icons/target";
+import Lightbulb from "lucide-react/dist/esm/icons/lightbulb";
 interface Props {
   briefText: string;
   timeRecMessage: string | null;

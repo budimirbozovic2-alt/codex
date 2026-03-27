@@ -5,8 +5,7 @@ import Dashboard from "@/components/Dashboard";
 import EmptyState from "@/components/EmptyState";
 import { QuickActions } from "@/components/dashboard/QuickActions";
 import { AnimatePresence } from "framer-motion";
-import { HelpCircle } from "lucide-react";
-
+import HelpCircle from "lucide-react/dist/esm/icons/help-circle";
 const DashboardOnboarding = lazy(() => import("@/components/DashboardOnboarding"));
 
 export default function DashboardPage() {

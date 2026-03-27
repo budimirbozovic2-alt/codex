@@ -15,8 +15,16 @@ import { Card } from "@/lib/spaced-repetition";
 
 
 import { Switch } from "@/components/ui/switch";
-import { Download, Upload, FileBox, Package, AlertTriangle, Check, Clock, FileArchive, Loader2, ShieldCheck } from "lucide-react";
-
+import Download from "lucide-react/dist/esm/icons/download";
+import Upload from "lucide-react/dist/esm/icons/upload";
+import FileBox from "lucide-react/dist/esm/icons/file-box";
+import Package from "lucide-react/dist/esm/icons/package";
+import AlertTriangle from "lucide-react/dist/esm/icons/triangle-alert";
+import Check from "lucide-react/dist/esm/icons/check";
+import Clock from "lucide-react/dist/esm/icons/clock";
+import FileArchive from "lucide-react/dist/esm/icons/file-archive";
+import Loader2 from "lucide-react/dist/esm/icons/loader2";
+import ShieldCheck from "lucide-react/dist/esm/icons/shield-check";
 interface ExportImportDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;

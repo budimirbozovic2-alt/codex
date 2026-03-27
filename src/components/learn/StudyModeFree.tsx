@@ -7,8 +7,13 @@ import { highlightKeyParts } from "@/lib/highlight-key-parts";
 import SessionHeader from "./SessionHeader";
 import QuestionDots from "./QuestionDots";
 import { ViewWidth, viewWidthClasses } from "./types";
-import { ChevronRight, Eye, Pencil, Scale, Check, ArrowLeft, ArrowRight } from "lucide-react";
-
+import ChevronRight from "lucide-react/dist/esm/icons/chevron-right";
+import Eye from "lucide-react/dist/esm/icons/eye";
+import Pencil from "lucide-react/dist/esm/icons/pencil";
+import Scale from "lucide-react/dist/esm/icons/scale";
+import Check from "lucide-react/dist/esm/icons/check";
+import ArrowLeft from "lucide-react/dist/esm/icons/arrow-left";
+import ArrowRight from "lucide-react/dist/esm/icons/arrow-right";
 interface Props {
   card: Card;
   sortedCards: Card[];

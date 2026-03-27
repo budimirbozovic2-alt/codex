@@ -4,8 +4,11 @@
 
 
 import OnboardingModal, { type OnboardingSlide, hasSeenOnboarding as _hasSeenOnboarding } from "@/components/OnboardingModal";
-import { Sparkles, BookOpen, Brain, Link2, CheckCircle2 } from "lucide-react";
-
+import Sparkles from "lucide-react/dist/esm/icons/sparkles";
+import BookOpen from "lucide-react/dist/esm/icons/book-open";
+import Brain from "lucide-react/dist/esm/icons/brain";
+import Link2 from "lucide-react/dist/esm/icons/link2";
+import CheckCircle2 from "lucide-react/dist/esm/icons/check-circle2";
 const ONBOARDING_KEY = "sr-learn-onboarding-seen";
 
 export function hasSeenOnboarding(): boolean {

@@ -1,6 +1,8 @@
 import { Card } from "@/lib/spaced-repetition";
 import { Button } from "@/components/ui/button";
-import { X, FileText, Loader2 } from "lucide-react";
+import X from "lucide-react/dist/esm/icons/x";
+import FileText from "lucide-react/dist/esm/icons/file-text";
+import Loader2 from "lucide-react/dist/esm/icons/loader2";
 import { useCardActions } from "@/hooks/useCardActions";
 import type { SectionInput, FormWidth } from "@/hooks/useCardActions";
 import EditorSection from "@/components/card-form/EditorSection";

@@ -13,8 +13,16 @@ import { Card, ErrorLogEntry, getErrorStatus, ErrorStatus } from "@/lib/spaced-r
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { Trash2, ArrowLeft, AlertCircle, Target, TrendingUp, Trophy, ChevronDown, ChevronRight, Flame, ShieldCheck } from "lucide-react";
-
+import Trash2 from "lucide-react/dist/esm/icons/trash2";
+import ArrowLeft from "lucide-react/dist/esm/icons/arrow-left";
+import AlertCircle from "lucide-react/dist/esm/icons/alert-circle";
+import Target from "lucide-react/dist/esm/icons/target";
+import TrendingUp from "lucide-react/dist/esm/icons/trending-up";
+import Trophy from "lucide-react/dist/esm/icons/trophy";
+import ChevronDown from "lucide-react/dist/esm/icons/chevron-down";
+import ChevronRight from "lucide-react/dist/esm/icons/chevron-right";
+import Flame from "lucide-react/dist/esm/icons/flame";
+import ShieldCheck from "lucide-react/dist/esm/icons/shield-check";
 interface AggregatedError {
   text: string;
   count: number;

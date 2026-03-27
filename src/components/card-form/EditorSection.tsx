@@ -2,7 +2,12 @@ import React, { memo } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import RichTextEditor from "@/components/RichTextEditor";
-import { Plus, X, GripVertical, Scissors, Zap, FileText } from "lucide-react";
+import Plus from "lucide-react/dist/esm/icons/plus";
+import X from "lucide-react/dist/esm/icons/x";
+import GripVertical from "lucide-react/dist/esm/icons/grip-vertical";
+import Scissors from "lucide-react/dist/esm/icons/scissors";
+import Zap from "lucide-react/dist/esm/icons/zap";
+import FileText from "lucide-react/dist/esm/icons/file-text";
 import { parseHtmlToParagraphs } from "@/hooks/useCardActions";
 import type { SectionInput, CardType, ValidationErrors } from "@/hooks/useCardActions";
 
