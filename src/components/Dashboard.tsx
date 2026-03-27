@@ -34,8 +34,6 @@ export default function Dashboard({ stats, categoryStats, categories, subcategor
 
   return (
     <div className="space-y-6 relative">
-      {/* Golden radial glow */}
-      <div className="absolute inset-x-0 top-0 h-64 pointer-events-none" style={{ background: 'radial-gradient(ellipse at 50% 0%, hsl(43 74% 49% / 0.06) 0%, transparent 70%)' }} />
       {wc.showExamProgress && (
         <ExamProgressBar
           learnedSections={stats.learnedSections}
