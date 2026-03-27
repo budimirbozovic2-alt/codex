@@ -165,6 +165,12 @@ class MemoriaDB extends Dexie {
 
 export const db = new MemoriaDB();
 
+// Register blocked handler ONCE at module level (C1 fix)
+db.on("blocked", () => {
+  console.warn("[MemoriaDB] DB open blocked by another connection");
+  _blockedReject?.(new Error("DB_BLOCKED"));
+});
+
 // ─── Global DB error state (reactive signal for UI) ─────
 export let dbErrorState: { type: "version" | "timeout"; message: string } | null = null;
 
