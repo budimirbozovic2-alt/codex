@@ -349,7 +349,7 @@ export default function TopNav({ onToggleZen, zenActive, onOpenOnboarding }: Pro
               onClick={() => setMobileOpen(false)}
             >
               <Landmark className="h-4 w-4 flex-shrink-0" />
-              <span className="font-display tracking-wide">Forum Iustitiae</span>
+              <span className="font-display tracking-wide">Forum znanja</span>
             </NavLink>
           )}
         </div>

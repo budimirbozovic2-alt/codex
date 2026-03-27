@@ -72,7 +72,7 @@ export default function RomanForumPage() {
               {forumState.monuments.length === 0 ? (
                 <div className="glass-card flex items-center justify-center min-h-[40vh] px-6">
                   <p className="text-muted-foreground text-sm italic font-display">
-                    Nulla monumenta. Crea disciplinas ut Forum aedificētur.
+                    Nema kategorija. Kreiraj kartice da bi se Forum izgradio.
                   </p>
                 </div>
               ) : (

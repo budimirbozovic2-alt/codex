@@ -200,7 +200,7 @@ export const MonumentCard = memo(function MonumentCard({ monument, index, onClic
 
         {/* Stats row */}
         <div className="flex items-center justify-between text-[10px] text-muted-foreground pt-1 border-t border-border/50">
-          <span>{monument.masteredCards}/{monument.totalCards} cives</span>
+          <span>{monument.masteredCards}/{monument.totalCards} modula</span>
           <span>S̄ {monument.avgStability}d</span>
           {monument.leechCount > 0 && (
             <span className="text-destructive">⚠ {monument.leechCount}</span>

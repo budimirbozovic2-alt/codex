@@ -179,7 +179,7 @@ function SourceBreakdown({ sources }: { sources: import("@/lib/forum-logic").Mon
   return (
     <Collapsible open={open} onOpenChange={setOpen} className="mt-3 pt-3 border-t border-border/30">
       <CollapsibleTrigger className="flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground transition-colors w-full">
-        <span className="font-display uppercase tracking-wider text-[10px]">Fontes</span>
+        <span className="font-display uppercase tracking-wider text-[10px]">Izvori</span>
         <span className="tabular-nums">({sorted.length})</span>
         <ChevronDown className={`h-3 w-3 ml-auto transition-transform duration-150 ${open ? "rotate-180" : ""}`} />
       </CollapsibleTrigger>
