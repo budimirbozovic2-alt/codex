@@ -457,6 +457,8 @@
   }
 
   .dark[data-theme="rose"] {
+    --gold: 43 74% 55%;
+    --gold-foreground: 0 0% 100%;
     --background: 340 14% 7%;
     --foreground: 350 14% 88%;
 
