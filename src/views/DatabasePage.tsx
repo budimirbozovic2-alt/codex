@@ -116,6 +116,12 @@ export default function DatabasePage() {
               <SourcesView />
             </Suspense>
           </TabsContent>
+
+          <TabsContent value="registry" className="mt-4">
+            <Suspense fallback={<TabSkeleton />}>
+              <SourceManager />
+            </Suspense>
+          </TabsContent>
         </Tabs>
       </div>
 
