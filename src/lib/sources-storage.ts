@@ -8,16 +8,28 @@ export async function confirmCardReview(cardId: string): Promise<void> {
   await db.cards.update(cardId, { needsReview: undefined });
 }
 
+// ── In-memory sources cache (H4 fix) ──
+let _cache: Source[] | null = null;
+
+/** Invalidate the in-memory sources cache (call after external mutations like import) */
+export function invalidateSourcesCache(): void {
+  _cache = null;
+}
+
 export async function loadSources(): Promise<Source[]> {
-  return db.sources.toArray();
+  if (_cache) return _cache;
+  const sources = await db.sources.toArray();
+  _cache = sources;
+  return sources;
 }
 
 export async function saveSource(source: Source): Promise<void> {
+  _cache = null;
   await db.sources.put(source);
 }
 
 export async function deleteSource(id: string): Promise<void> {
-  // Cascade: clear sourceId/textAnchor/needsReview on linked cards
+  _cache = null;
   await db.transaction("rw", [db.sources, db.cards], async () => {
     const linkedCards = await db.cards.where("sourceId").equals(id).toArray();
     if (linkedCards.length > 0) {
