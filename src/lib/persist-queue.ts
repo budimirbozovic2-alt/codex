@@ -1,6 +1,5 @@
 import { Card } from "@/lib/spaced-repetition";
 import {
-  idbSaveCards,
   idbDeleteCard,
   idbBulkPutCards,
 } from "@/lib/db";
