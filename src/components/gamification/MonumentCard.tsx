@@ -1,6 +1,7 @@
 import { memo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import type { Monument, ConstructionPhase } from "@/lib/forum-logic";
+import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
 import { PHASE_LABELS } from "@/lib/forum-logic";
 import { Progress } from "@/components/ui/progress";
 import { MonumentSVG } from "./monument-buildings";
