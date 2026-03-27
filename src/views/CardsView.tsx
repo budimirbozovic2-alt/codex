@@ -271,73 +271,78 @@ export default function CardsView() {
             </button>
           </div>
 
-          {!filterCategory ? (
-            <span className="text-xs text-muted-foreground">Filtriraj po kategoriji da bi koristio bulk operacije</span>
-          ) : (
-            <div className="space-y-2">
-              {/* Bulk subcategory */}
-              {bulkSubcats.length > 0 && (
+          {(() => {
+            const bulkCat = bulkCategory || filterCategory || "";
+            const bulkSubcatsForCat = bulkCat ? (subcategories[bulkCat] || []) : [];
+            const bulkChaptersForSub = Array.from(new Set(
+              cards.filter(c => c.category === bulkCat && (!bulkSubcategory || c.subcategory === bulkSubcategory) && c.chapter).map(c => c.chapter!)
+            )).sort();
+
+            return (
+              <div className="space-y-2">
+                {/* Bulk category */}
                 <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-xs text-muted-foreground w-24">Podkategorija:</span>
+                  <span className="text-xs text-muted-foreground w-24">Kategorija:</span>
                   <select
-                    value={bulkSubcategory}
-                    onChange={(e) => setBulkSubcategory(e.target.value)}
+                    value={bulkCategory}
+                    onChange={(e) => { setBulkCategory(e.target.value); setBulkSubcategory(""); setBulkChapter(""); setNewBulkChapter(""); }}
                     className="px-3 py-1.5 rounded-lg border bg-background text-sm flex-1 min-w-[150px]"
                   >
-                    <option value="">Odaberi...</option>
-                    {bulkSubcats.map(sc => <option key={sc} value={sc}>{sc}</option>)}
+                    <option value="">Trenutna ({filterCategory || "—"})</option>
+                    {categories.map(c => <option key={c} value={c}>{c}</option>)}
                   </select>
-                  <button
-                    onClick={handleBulkApply}
-                    disabled={selectedIds.size === 0 || !bulkSubcategory}
-                    className="px-4 py-1.5 rounded-lg bg-primary text-primary-foreground text-sm hover:opacity-90 disabled:opacity-50 transition-opacity"
-                  >
-                    Primijeni
-                  </button>
                 </div>
-              )}
 
-              {/* Bulk chapter */}
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-xs text-muted-foreground w-24 flex items-center gap-1">
-                  <BookOpen className="h-3 w-3" /> Glava:
-                </span>
-                {(() => {
-                  const existingChapters = Array.from(new Set(
-                    cards.filter(c => c.category === filterCategory && c.chapter).map(c => c.chapter!)
-                  )).sort();
-                  return (
-                    <>
-                      {existingChapters.length > 0 && (
-                        <select
-                          value={bulkChapter}
-                          onChange={(e) => { setBulkChapter(e.target.value); setNewBulkChapter(""); }}
-                          className="px-3 py-1.5 rounded-lg border bg-background text-sm min-w-[150px]"
-                        >
-                          <option value="">Postojeća glava...</option>
-                          {existingChapters.map(ch => <option key={ch} value={ch}>{ch}</option>)}
-                        </select>
-                      )}
-                      <span className="text-xs text-muted-foreground">ili</span>
-                      <input
-                        value={newBulkChapter}
-                        onChange={e => { setNewBulkChapter(e.target.value); setBulkChapter(""); }}
-                        placeholder="Nova glava..."
-                        className="px-3 py-1.5 rounded-lg border bg-background text-sm flex-1 min-w-[120px]"
-                      />
-                      <button
-                        onClick={handleBulkChapterApply}
-                        disabled={selectedIds.size === 0 || (!bulkChapter && !newBulkChapter.trim())}
-                        className="px-4 py-1.5 rounded-lg bg-primary text-primary-foreground text-sm hover:opacity-90 disabled:opacity-50 transition-opacity"
-                      >
-                        Dodijeli
-                      </button>
-                    </>
-                  );
-                })()}
+                {/* Bulk subcategory */}
+                {bulkSubcatsForCat.length > 0 && (
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-xs text-muted-foreground w-24">Podkategorija:</span>
+                    <select
+                      value={bulkSubcategory}
+                      onChange={(e) => { setBulkSubcategory(e.target.value); setBulkChapter(""); setNewBulkChapter(""); }}
+                      className="px-3 py-1.5 rounded-lg border bg-background text-sm flex-1 min-w-[150px]"
+                    >
+                      <option value="">Odaberi...</option>
+                      {bulkSubcatsForCat.map(sc => <option key={sc} value={sc}>{sc}</option>)}
+                    </select>
+                  </div>
+                )}
+
+                {/* Bulk chapter */}
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-xs text-muted-foreground w-24 flex items-center gap-1">
+                    <BookOpen className="h-3 w-3" /> Glava:
+                  </span>
+                  {bulkChaptersForSub.length > 0 && (
+                    <select
+                      value={bulkChapter}
+                      onChange={(e) => { setBulkChapter(e.target.value); setNewBulkChapter(""); }}
+                      className="px-3 py-1.5 rounded-lg border bg-background text-sm min-w-[150px]"
+                    >
+                      <option value="">Postojeća glava...</option>
+                      {bulkChaptersForSub.map(ch => <option key={ch} value={ch}>{ch}</option>)}
+                    </select>
+                  )}
+                  <span className="text-xs text-muted-foreground">ili</span>
+                  <input
+                    value={newBulkChapter}
+                    onChange={e => { setNewBulkChapter(e.target.value); setBulkChapter(""); }}
+                    placeholder="Nova glava..."
+                    className="px-3 py-1.5 rounded-lg border bg-background text-sm flex-1 min-w-[120px]"
+                  />
+                </div>
+
+                {/* Unified apply button */}
+                <button
+                  onClick={handleBulkMove}
+                  disabled={selectedIds.size === 0}
+                  className="px-4 py-1.5 rounded-lg bg-primary text-primary-foreground text-sm hover:opacity-90 disabled:opacity-50 transition-opacity"
+                >
+                  Primijeni ({selectedIds.size})
+                </button>
               </div>
-            </div>
-          )}
+            );
+          })()}
         </div>
       )}
 
