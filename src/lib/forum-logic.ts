@@ -275,11 +275,11 @@ export const PHASE_LABELS: Record<ConstructionPhase, string> = {
 };
 
 export const PHASE_ICONS: Record<ConstructionPhase, string> = {
-  foundation: "📐",
-  skeleton: "🏗️",
-  construction: "🔨",
-  complete: "🏛️",
-  imperial: "✨",
+  foundation: "",
+  skeleton: "",
+  construction: "",
+  complete: "",
+  imperial: "",
 };
 
 /** @deprecated Use PHASE_LABELS */

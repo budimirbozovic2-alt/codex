@@ -1,7 +1,7 @@
 /**
  * Blueprint-style SVG overlay effects for Forum monuments.
  * Phase-synced: foundation/skeleton = none, construction = scaffolding,
- * complete = torches, imperial = torches + fountain + golden glow.
+ * complete = torches (static), imperial = torches + fountain (static) + golden glow.
  * Cracks and ivy use gold-tinted lines.
  */
 import type { Monument, ConstructionPhase } from "@/lib/forum-logic";
@@ -31,21 +31,17 @@ function CrackOverlay({ leechRatio }: { leechRatio: number }) {
   );
 }
 
-// ─── Ivy (stability < 10) — gold-tinted vine lines ──────
+// ─── Ivy (stability < 10) — gold-tinted vine lines only ──
 
 function IvyOverlay({ stability }: { stability: number }) {
   const opacity = Math.max(0.15, Math.min(0.5, (10 - stability) / 12));
   const stroke = "hsl(45,30%,30%)";
-  const leaf = "hsl(45,35%,35%)";
   return (
     <g opacity={opacity}>
       <path d="M36,130 C38,120 40,115 42,108 C40,105 42,98 44,92 C42,88 44,82 46,78"
         fill="none" stroke={stroke} strokeWidth={0.7} strokeLinecap="round" />
-      <ellipse cx={43} cy={95} rx={2} ry={1.5} fill="none" stroke={leaf} strokeWidth={0.3} opacity={0.5} />
-      <ellipse cx={41} cy={110} rx={1.5} ry={1.2} fill="none" stroke={leaf} strokeWidth={0.3} opacity={0.4} />
       <path d="M162,130 C160,122 163,115 161,108 C163,102 160,96 163,90"
         fill="none" stroke={stroke} strokeWidth={0.6} strokeLinecap="round" />
-      <ellipse cx={161} cy={106} rx={1.5} ry={1.2} fill="none" stroke={leaf} strokeWidth={0.3} opacity={0.4} />
     </g>
   );
 }
@@ -56,18 +52,16 @@ function ScaffoldingEffect() {
   const stroke = "hsl(45,50%,40%)";
   return (
     <g opacity={0.2}>
-      {/* Diagonal cross-bracing across the building */}
       <line x1={50} y1={130} x2={70} y2={80} stroke={stroke} strokeWidth={0.3} />
       <line x1={70} y1={130} x2={50} y2={80} stroke={stroke} strokeWidth={0.3} />
       <line x1={130} y1={130} x2={150} y2={80} stroke={stroke} strokeWidth={0.3} />
       <line x1={150} y1={130} x2={130} y2={80} stroke={stroke} strokeWidth={0.3} />
-      {/* Horizontal planks */}
       <line x1={45} y1={105} x2={155} y2={105} stroke={stroke} strokeWidth={0.25} strokeDasharray="4,3" />
     </g>
   );
 }
 
-// ─── Torches (complete/imperial) ─────────────────────────
+// ─── Torches (complete/imperial) — static glow ───────────
 
 function TorchOverlay({ phase, id }: { phase: ConstructionPhase; id: string }) {
   const count = phase === "imperial" ? 4 : 2;
@@ -90,33 +84,23 @@ function TorchOverlay({ phase, id }: { phase: ConstructionPhase; id: string }) {
       {positions.map((p, i) => (
         <g key={i}>
           <circle cx={p.x} cy={p.y} r={6} fill={`url(#tg-${id})`} />
-          <circle cx={p.x} cy={p.y} r={1.2} fill="hsl(45,90%,55%)" opacity={0.7}>
-            <animate attributeName="opacity" values="0.5;0.8;0.5" dur="1.8s" repeatCount="indefinite" />
-            <animate attributeName="r" values="1;1.5;1" dur="2.2s" repeatCount="indefinite" />
-          </circle>
+          <circle cx={p.x} cy={p.y} r={1.2} fill="hsl(45,90%,55%)" opacity={0.7} />
         </g>
       ))}
     </g>
   );
 }
 
-// ─── Fountain (imperial only) ────────────────────────────
+// ─── Fountain (imperial only) — static ───────────────────
 
 function FountainOverlay() {
   const stroke = "hsl(45,60%,50%)";
   return (
     <g opacity={0.6}>
       <ellipse cx={100} cy={148} rx={10} ry={2.5} fill="none" stroke={stroke} strokeWidth={0.4} />
-      <circle cx={100} cy={143} r={0.8} fill={stroke} opacity={0.5}>
-        <animate attributeName="cy" values="141;145;141" dur="1.4s" repeatCount="indefinite" />
-        <animate attributeName="opacity" values="0.6;0.15;0.6" dur="1.4s" repeatCount="indefinite" />
-      </circle>
-      <circle cx={97.5} cy={144} r={0.5} fill={stroke} opacity={0.3}>
-        <animate attributeName="cy" values="142;146;142" dur="1.7s" repeatCount="indefinite" />
-      </circle>
-      <circle cx={102.5} cy={144} r={0.5} fill={stroke} opacity={0.3}>
-        <animate attributeName="cy" values="143;147;143" dur="1.5s" repeatCount="indefinite" />
-      </circle>
+      <circle cx={100} cy={143} r={0.8} fill={stroke} opacity={0.4} />
+      <circle cx={97.5} cy={144} r={0.5} fill={stroke} opacity={0.25} />
+      <circle cx={102.5} cy={144} r={0.5} fill={stroke} opacity={0.25} />
     </g>
   );
 }
@@ -149,13 +133,11 @@ export function MonumentEffects({ monument }: Props) {
 
   return (
     <svg viewBox="0 0 200 160" className="absolute inset-0 pointer-events-none" style={{ width: "100%", height: "100%" }} preserveAspectRatio="xMidYMax meet">
-      {/* Phase-based effects */}
       {(phase === "skeleton" || phase === "construction") && <ScaffoldingEffect />}
       {(phase === "complete" || phase === "imperial") && <TorchOverlay phase={phase} id={id} />}
       {phase === "imperial" && <FountainOverlay />}
       {phase === "imperial" && <GoldenGlowOverlay />}
 
-      {/* Decay effects (independent of phase) */}
       {monument.crumbling && <CrackOverlay leechRatio={leechRatio} />}
       {monument.avgStability < 10 && <IvyOverlay stability={monument.avgStability} />}
     </svg>

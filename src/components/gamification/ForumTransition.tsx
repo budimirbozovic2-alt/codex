@@ -43,16 +43,14 @@ export default function ForumTransition() {
       }}
     >
       <h1
-        className="select-none pointer-events-none"
+        className="select-none pointer-events-none font-display"
         style={{
-          fontFamily: "var(--font-display)",
           color: "hsl(var(--gold))",
           fontSize: "clamp(1.5rem, 4vw, 3rem)",
           letterSpacing: "0.3em",
           textTransform: "uppercase",
           opacity: phase === "text-in" ? 1 : 0,
-          transition: "opacity 0.6s ease-in",
-          textShadow: "0 0 40px rgba(212, 168, 67, 0.4), 0 0 80px rgba(212, 168, 67, 0.2)",
+          transition: "opacity 0.3s ease-in",
         }}
       >
         Civis Romanvs Svm

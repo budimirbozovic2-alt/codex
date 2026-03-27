@@ -709,70 +709,10 @@
   color: inherit;
 }
 
-/* Imperial Glass — NO blur, sharp backgrounds */
-.glass-card {
-  background: hsl(var(--card) / 0.75);
-  border: 1px solid hsl(var(--border) / 0.4);
-  border-radius: var(--radius);
-  box-shadow: 0 1px 3px hsl(0 0% 0% / 0.04);
-}
-
-/* ─── Imperial Typography ────────────────────────── */
-
-h1, h2, .font-display {
-  font-family: var(--font-display);
-}
-
-/* ─── Gold Shimmer Button ────────────────────────── */
-
-@keyframes gold-shimmer {
-  0% { background-position: -200% 0; }
-  100% { background-position: 200% 0; }
-}
+/* ─── Simple Imperial Button ─────────────────────── */
 
 .btn-imperial {
   border-color: hsl(var(--gold) / 0.3);
-  position: relative;
-  overflow: hidden;
-}
-
-.btn-imperial:hover {
-  background-image: linear-gradient(
-    90deg,
-    transparent 0%,
-    hsl(var(--gold) / 0.08) 50%,
-    transparent 100%
-  );
-  background-size: 200% 100%;
-  animation: gold-shimmer 1.5s ease-in-out;
-}
-
-/* ─── Gold Scrollbars ────────────────────────────── */
-
-::-webkit-scrollbar { width: 6px; height: 6px; }
-::-webkit-scrollbar-thumb { background: hsl(var(--gold) / 0.25); border-radius: 3px; }
-::-webkit-scrollbar-track { background: transparent; }
-
-/* ─── Achievement Glow ───────────────────────────── */
-
-@keyframes achievement-glow {
-  0% { box-shadow: 0 0 0 0 hsl(var(--gold) / 0.4); }
-  50% { box-shadow: 0 0 20px 4px hsl(var(--gold) / 0.2); }
-  100% { box-shadow: 0 0 0 0 hsl(var(--gold) / 0); }
-}
-
-.achievement-glow {
-  animation: achievement-glow 2s ease-out;
-}
-
-@keyframes mastery-pulse {
-  0%, 100% { opacity: 0.6; }
-  50% { opacity: 1; }
-}
-
-.mastery-complete {
-  border-color: hsl(var(--gold) / 0.5);
-  box-shadow: 0 0 12px hsl(var(--gold) / 0.15);
 }
 
 /* ─── INP Optimizations ──────────────────────────── */
