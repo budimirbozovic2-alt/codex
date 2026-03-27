@@ -38,6 +38,12 @@ export function saveMonumentType(category: string, type: BuildingType) {
   localStorage.setItem(MONUMENT_TYPES_KEY, JSON.stringify(current));
 }
 
+export interface MonumentSourceBreakdown {
+  masterSource: string;
+  cardCount: number;
+  mastery: number;
+}
+
 export interface Monument {
   category: string;
   totalCards: number;
@@ -50,6 +56,8 @@ export interface Monument {
   crumbling: boolean;
   /** User-chosen building type (or "insula" fallback) */
   buildingType: BuildingType;
+  /** Source breakdown (populated when sources are provided) */
+  sources?: MonumentSourceBreakdown[];
 }
 
 export interface ForumState {
