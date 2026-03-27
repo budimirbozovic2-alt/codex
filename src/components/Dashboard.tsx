@@ -1,4 +1,4 @@
-import { Target } from "lucide-react";
+import { Target, Landmark } from "lucide-react";
 import { Card as SRCard, SRSettings } from "@/lib/spaced-repetition";
 import { ReviewLogEntry } from "@/lib/storage";
 import ProgressRing from "@/components/ProgressRing";
@@ -10,6 +10,8 @@ import { DailyBriefing } from "./dashboard/DailyBriefing";
 import { IdealFocus } from "./dashboard/IdealFocus";
 import { VelocityWidget } from "./dashboard/VelocityWidget";
 import { StatusIconsRow } from "./dashboard/StatusIconsRow";
+import { useForumContext } from "./gamification/ForumContext";
+import { Link } from "react-router-dom";
 
 interface Props {
   stats: { due: number; total: number; totalSections: number; learnedSections: number };
