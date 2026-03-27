@@ -1,59 +1,34 @@
 
 
-# Settings Reorganization Plan
+# Fix: TTS Won't Stop — Skips to Next Segment Instead
 
-## Current Problems
+## Root Cause
 
-| Tab | Contents | Issue |
-|-----|----------|-------|
-| Algoritam | Retention, FSRS, Resistance weights | ✅ Clean |
-| Interfejs | Theme, Widgets, Sound, Backup, Pomodoro, Notifications, TTS | ❌ Overloaded — mixes visual customization with workflow tools |
-| Referenca | FSRS guide collapsibles | ✅ Fine but could live elsewhere |
-| (outside tabs) | HealthMonitor | ❌ Orphaned at bottom, unrelated to settings |
+When the user clicks pause/stop, `stopTts()` sets `ttsPlayingRef.current = false` and calls `speechSynthesis.cancel()`. However, there's often a **pending `setTimeout`** from a previous `utterance.onend` handler (lines 261, 274) that fires 100ms later and calls `speakSegment()`.
 
-**Core issue**: "Interfejs" became a dumping ground. Pomodoro, TTS, and Notifications are *workflow/study tools*, not interface customization. Health Monitor has no logical home.
+`speakSegment()` never checks `ttsPlayingRef.current` at entry — it immediately starts speaking the next segment, making it appear as though TTS "skipped to the next article" instead of stopping.
 
-## Proposed Structure: 4 Tabs
+## Fix — `src/components/SpeedReader.tsx`
 
-```text
-┌─────────────┬─────────────┬─────────────┬─────────────┐
-│  Algoritam  │  Interfejs  │  Tok rada   │   Sistem    │
-└─────────────┴─────────────┴─────────────┴─────────────┘
+### 1. Guard `speakSegment` entry (line ~204)
+Add at the very top of `speakSegment`:
+```ts
+if (!ttsPlayingRef.current) return;
 ```
+This kills any delayed calls from stale `setTimeout`s.
 
-### Tab 1: Algoritam (unchanged)
-- Ciljna retencija
-- Ponavljanje (FSRS) — leech, daily goal
-- Težine kognitivnog otpora
+### 2. Clear pending timeouts in `stopTts`
+The 3 `setTimeout(() => speakSegment(...), ...)` calls (lines 215, 227, 261) can still fire after stop. Use a ref to track and cancel them:
+- Add `const ttsTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);`
+- Replace bare `setTimeout(...)` calls with `ttsTimeoutRef.current = setTimeout(...)`
+- In `stopTts`, add `if (ttsTimeoutRef.current) { clearTimeout(ttsTimeoutRef.current); ttsTimeoutRef.current = null; }`
 
-### Tab 2: Interfejs (slimmed down)
-- Tema boja
-- Dashboard widgeti
-- Zvučni efekti (toggle only)
+### Files changed
+| File | Change |
+|------|--------|
+| `src/components/SpeedReader.tsx` | Add guard at top of `speakSegment`; track + clear pending timeouts in `stopTts` |
 
-### Tab 3: Tok rada (new — study workflow settings)
-- Pomodoro tajmer (work/break/long break)
-- Glasovni čitač (TTS) — speed, voice, test button
-- Podsjetnik za ponavljanje (notifications)
-- Backup podsjetnik
-
-### Tab 4: Sistem (new — diagnostics & reference)
-- Health Monitor (moved from bottom)
-- FSRS Referenca / Vodič (moved from old Tab 3)
-
-## Changes
-
-### File: `src/components/SRSettingsPanel.tsx`
-
-1. Change `TabsList` from `grid-cols-3` to `grid-cols-4`, add "Tok rada" and "Sistem" triggers
-2. **Interfejs tab**: Remove Pomodoro, TTS, Notifications sections; keep only Theme, Widgets, Sound toggle
-3. **New "Tok rada" tab**: Move Pomodoro, TTS, Notifications, and Backup reminder here
-4. **New "Sistem" tab**: Move HealthMonitor inside this tab + move the FSRS reference collapsibles here
-5. Remove the orphaned `<HealthMonitor />` from bottom of component
-6. Update subtitle text from "Algoritam, interfejs i referenca" to "Algoritam, interfejs, tok rada i sistem"
-
-### No other files changed
-- `HealthMonitor.tsx` — unchanged
-- `app-settings.ts` — unchanged
-- No data model changes
+### What stays untouched
+- TTS WPM mode, voice settings, segment building logic
+- No other files changed
 
