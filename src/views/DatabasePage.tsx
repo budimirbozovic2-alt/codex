@@ -25,7 +25,7 @@ export default function DatabasePage() {
   useEffect(() => {
     const handleOpenTab = (event: Event) => {
       const next = (event as CustomEvent<string>).detail;
-      if (next === "cards" || next === "categories" || next === "sources") {
+      if (next === "cards" || next === "categories" || next === "sources" || next === "registry") {
         setActiveTab(next);
         sessionStorage.setItem("sr-database-tab", next);
       }
