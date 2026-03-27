@@ -256,9 +256,15 @@ function CardProvider({ children }: { children: ReactNode }) {
     updateSRSettings: h.updateSRSettings,
   };
 
+  const actionKeys = useMemo(() => Object.keys(actionsRef.current) as (keyof CardActionsContextValue)[], []);
   const actions = useMemo<CardActionsContextValue>(() => new Proxy({} as CardActionsContextValue, {
     get: (_target, prop: string) => (actionsRef.current as unknown as Record<string, unknown>)[prop],
-  }), []);
+    ownKeys: () => actionKeys,
+    getOwnPropertyDescriptor: (_target, prop) =>
+      actionKeys.includes(prop as keyof CardActionsContextValue)
+        ? { configurable: true, enumerable: true, writable: true, value: (actionsRef.current as unknown as Record<string, unknown>)[prop as string] }
+        : undefined,
+  }), [actionKeys]);
 
   const data = useMemo<CardDataContextValue>(() => ({
     cards: h.cards, categories: h.categories, subcategories: h.subcategories,
