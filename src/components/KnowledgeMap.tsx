@@ -36,16 +36,19 @@ export const MASTERY_LEVELS: MasteryLevel[] = [
   { level: 5, label: "Savladano", color: "hsl(142, 60%, 30%)" },
 ];
 
-// Weak cache: auto-GC'd when Card objects are collected
-const _masteryCache = new WeakMap<Card, number>();
+// Smart cache keyed by card.id + updatedAt for immutable-friendly caching
+const _masteryCache = new Map<string, { level: number; updatedAt: number }>();
 
 export function getCardMasteryLevel(card: Card): number {
-  const cached = _masteryCache.get(card);
-  if (cached !== undefined) return cached;
+  if (!card.sections || card.sections.length === 0) return 0;
+
+  const cardUpdated = (card as any).updatedAt ?? 0;
+  const cached = _masteryCache.get(card.id);
+  if (cached && cached.updatedAt === cardUpdated && cardUpdated !== 0) return cached.level;
 
   const errorCount = card.errorLog?.reduce((sum, e) => sum + e.count, 0) || 0;
   const allNew = card.sections.every((s) => s.state === SectionState.New);
-  if (allNew) { _masteryCache.set(card, 0); return 0; }
+  if (allNew) { _masteryCache.set(card.id, { level: 0, updatedAt: cardUpdated }); return 0; }
 
   const avgStability = card.sections.reduce((sum, s) => sum + s.stability, 0) / card.sections.length;
 
