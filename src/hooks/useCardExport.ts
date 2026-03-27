@@ -110,6 +110,7 @@ export function useCardExport({ cards, categories, subcategories, srSettings }: 
       const lsKeys = [
         "sr-app-settings", "sr-mnemonic-workshop", "sr-mnemonic-associations",
         "sr-major-system-map", "sr-learn-progress", "sr-last-backup",
+        "codex-source-registry", "codex-monument-types",
       ];
       for (const key of lsKeys) {
         const val = localStorage.getItem(key);
