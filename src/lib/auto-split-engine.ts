@@ -149,7 +149,7 @@ export function detectArticles(html: string): DetectedArticle[] {
     }
 
     for (let j = i + 1; j < nextBoundary; j++) {
-      if (lines[j].text && !lines[j].isHeading) {
+      if (lines[j].text && !lines[j].isHeading && !isStructuralLine(lines[j].text)) {
         contentParts.push(lines[j].html);
         plainParts.push(lines[j].text);
       }
