@@ -187,7 +187,7 @@ function PomodoroProvider({ children }: { children: ReactNode }) {
 }
 
 function UIProvider({ children }: { children: ReactNode }) {
-  const { cards, toggleTag } = useCardContext();
+  const { toggleTag } = useCardContext();
   const navigate = useNavigate();
   const view = useCurrentView();
 

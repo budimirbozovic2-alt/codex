@@ -154,19 +154,23 @@ export function useDashboardData(
   const cognitiveDebt = useDeferredCompute(() => getCognitiveDebt(dailyGoal), [dailyGoal]);
   const energyRec = useDeferredCompute(() => calcEnergyRecommendation(), []);
 
-  // Record discipline for yesterday
-  useMemo(() => {
+  // Record discipline for yesterday (side effect — must be in useEffect, not useMemo)
+  const disciplineRecordedRef = useRef<string>("");
+  useEffect(() => {
     const yesterday = new Date();
     yesterday.setDate(yesterday.getDate() - 1);
     const yKey = yesterday.toISOString().slice(0, 10);
+    // Guard: only record once per day key to prevent StrictMode double-fire
+    if (disciplineRecordedRef.current === yKey) return;
     const log = loadDisciplineLog();
-    if (log.find(e => e.date === yKey)) return;
+    if (log.find(e => e.date === yKey)) { disciplineRecordedRef.current = yKey; return; }
     const yStart = new Date(yKey).getTime();
     const yEnd = yStart + 86400000;
     const yReviews = reviewLog.filter(e => e.timestamp >= yStart && e.timestamp < yEnd).length;
     const slippageLog = loadSlippageLog();
     const ySlippage = slippageLog.find(s => s.date === yKey)?.slippageMs ?? null;
     recordDayDiscipline(yKey, yReviews, dailyGoal, ySlippage);
+    disciplineRecordedRef.current = yKey;
   }, [reviewLog, dailyGoal]);
 
   const energyLevel = getEnergyLevel();

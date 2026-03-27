@@ -112,17 +112,18 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 
   const queueReview = useCallback((cardId: string, sectionId: string, grade: number) => {
     reviewQueue.current.push({ cardId, sectionId, grade, timestamp: Date.now() });
+    setQueueSize(prev => prev + 1);
   }, []);
 
   const queueError = useCallback((cardId: string, text: string) => {
     errorQueue.current.push({ cardId, text });
+    setQueueSize(prev => prev + 1);
   }, []);
 
   const queueMarkRead = useCallback((cardId: string) => {
     readQueue.current.push({ cardId });
+    setQueueSize(prev => prev + 1);
   }, []);
-
-  const queueSize = reviewQueue.current.length + errorQueue.current.length + readQueue.current.length;
 
   const value = useMemo<SessionContextValue>(() => ({
     isSessionActive,
