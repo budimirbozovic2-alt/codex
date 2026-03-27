@@ -355,6 +355,26 @@ export default function CardList({
     return <p className="text-muted-foreground text-center py-12">Nema kartica. Kreirajte prvu!</p>;
   }
 
+  const virtualRowProps = useMemo(() => ({
+    filteredCards: filtered,
+    expandedId,
+    scrollToCardId,
+    selectionMode,
+    selectedIds,
+    onToggleSelect,
+    onToggleTag,
+    onExpand: setExpandedId,
+    onEdit,
+    onDelete,
+    categories: propCategories,
+    subcategories: propSubcategories,
+    availableChapters,
+    onMoveCategory,
+    onAssignChapter,
+    onCloneToMnemonic,
+    onAddKeyPart,
+  }), [filtered, expandedId, scrollToCardId, selectionMode, selectedIds, onToggleSelect, onToggleTag, onEdit, onDelete, propCategories, propSubcategories, availableChapters, onMoveCategory, onAssignChapter, onCloneToMnemonic, onAddKeyPart]);
+
   if (useVirtualization) {
     return (
       <List
@@ -364,25 +384,7 @@ export default function CardList({
         overscanCount={8}
         rowComponent={VirtualRow}
         listRef={listRef}
-        rowProps={{
-          filteredCards: filtered,
-          expandedId,
-          scrollToCardId,
-          selectionMode,
-          selectedIds,
-          onToggleSelect,
-          onToggleTag,
-          onExpand: setExpandedId,
-          onEdit,
-          onDelete,
-          categories: propCategories,
-          subcategories: propSubcategories,
-          availableChapters,
-          onMoveCategory,
-          onAssignChapter,
-          onCloneToMnemonic,
-          onAddKeyPart,
-        }}
+        rowProps={virtualRowProps}
         style={{ height: Math.min(filtered.length * (COLLAPSED_ROW_HEIGHT + GAP), 700) }}
       />
     );
