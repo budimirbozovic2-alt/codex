@@ -694,9 +694,7 @@
 /* ─── Forum Surfaces ─────────────────────────────── */
 
 .forum-stone {
-  background: hsl(var(--card) / 0.6);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
+  background: hsl(var(--card) / 0.7);
   border: 1px solid hsl(var(--border) / 0.4);
   border-radius: var(--radius);
 }
