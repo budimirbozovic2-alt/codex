@@ -138,15 +138,15 @@ export default function SourceManager() {
     <div className="space-y-6">
       {/* Stats summary */}
       <div className="grid grid-cols-3 gap-3">
-        <div className="p-4 rounded-xl border bg-card text-center">
+        <div className="glass-card p-4 rounded-xl text-center">
           <p className="text-2xl font-semibold">{uniqueSources.length}</p>
           <p className="text-xs text-muted-foreground mt-1">Master izvora</p>
         </div>
-        <div className="p-4 rounded-xl border bg-card text-center">
+        <div className="glass-card p-4 rounded-xl text-center">
           <p className="text-2xl font-semibold">{totalAliases}</p>
           <p className="text-xs text-muted-foreground mt-1">Alias mapiranja</p>
         </div>
-        <div className="p-4 rounded-xl border bg-card text-center">
+        <div className="glass-card p-4 rounded-xl text-center">
           <p className="text-2xl font-semibold">
             {modeACats}A / {modeBCats}B
           </p>
