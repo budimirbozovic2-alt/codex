@@ -98,7 +98,8 @@ export function useCardBootstrap(setters: BootSetters) {
 
         markBootStep("cards:migration-start");
         splashProgress(10, "Migracija podataka…");
-        await migrateFromLocalStorage();
+        console.log("[boot:diag] step 2: migrateFromLocalStorage");
+        await withTimeout(migrateFromLocalStorage(), 3000, "migration", undefined);
         markBootStep("cards:migration-done");
 
         // Check for interrupted writes from previous session
@@ -106,9 +107,13 @@ export function useCardBootstrap(setters: BootSetters) {
 
         // Initialize in-memory caches from IDB (replaces localStorage)
         splashProgress(15, "Inicijalizacija keša…");
+        console.log("[boot:diag] step 3: initCaches");
         const { initMetacognitiveCache } = await import("@/lib/metacognitive-storage");
         const { initPlannerCache } = await import("@/lib/planner-storage");
-        await Promise.all([initMetacognitiveCache().catch((e) => console.warn("[silent]", e)), initPlannerCache().catch((e) => console.warn("[silent]", e))]);
+        await withTimeout(
+          Promise.all([initMetacognitiveCache().catch((e) => console.warn("[silent]", e)), initPlannerCache().catch((e) => console.warn("[silent]", e))]),
+          3000, "cache init", undefined
+        );
 
         splashProgress(25, "Učitavanje kartica…");
         markBootStep("cards:data-load-start");
