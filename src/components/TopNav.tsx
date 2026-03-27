@@ -48,6 +48,7 @@ const LAB_PATHS = LAB_ITEMS.map(i => i.path);
 export default function TopNav({ onToggleZen, zenActive, onOpenOnboarding }: Props) {
   const location = useLocation();
   const { stats } = useCardContext();
+  const { enterForum } = useForumContext();
   const [dark, setDarkState] = useState(() => document.documentElement.classList.contains("dark"));
   const [mobileOpen, setMobileOpen] = useState(false);
   const [labOpen, setLabOpen] = useState(false);
