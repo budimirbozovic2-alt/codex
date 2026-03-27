@@ -38,6 +38,14 @@ const backup = setupBackupSystem({
   isDev,
 });
 
+// ── Renderer error logging IPC ──
+ipcMain.handle('log-error', (_event, message) => {
+  const timestamp = new Date().toISOString();
+  const line = `[${timestamp}] ${typeof message === 'string' ? message : JSON.stringify(message)}\n`;
+  try { fs.appendFileSync(rendererLogPath, line); } catch (_) {}
+  return true;
+});
+
 app.whenReady().then(() => {
   // ── CSP headers in production ──
   if (!isDev) {
