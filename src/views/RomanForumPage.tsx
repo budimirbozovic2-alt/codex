@@ -20,11 +20,7 @@ export default function RomanForumPage() {
 
   const forumState = useMemo(() => {
     const reviewLog = loadReviewLog();
-    return calculateForumState(
-      Object.values(cards),
-      reviewLog,
-      sources,
-    );
+    return calculateForumState(Object.values(cards), reviewLog, sources);
   }, [cards, sources]);
 
   const selectedMonument = selectedCategory
@@ -32,64 +28,61 @@ export default function RomanForumPage() {
     : null;
 
   return (
-    <div className="relative max-w-6xl mx-auto px-6 py-8 min-h-[80vh] forum-atmosphere-root"
-      style={{ perspective: "1200px" }}
-    >
-      {/* Atmospheric background layer */}
+    <div className="relative max-w-6xl mx-auto px-6 py-8 min-h-[80vh]">
       <ForumAtmosphere dayPhase={forumState.dayPhase} warmth={forumState.warmth} />
 
       <LayoutGroup>
-      <AnimatePresence>
-        {selectedMonument ? (
-          <MonumentInterior
-            key="interior"
-            monument={selectedMonument}
-            sources={sources}
-            onBack={() => setSelectedCategory(null)}
-            onUpdateChapters={bulkUpdateChapter}
-            onReviewSection={reviewSection}
-          />
-        ) : (
-          <div key="forum-grid" className="relative z-10">
-            {/* Header */}
-            <div className="sticky top-0 forum-stone px-6 py-4 mb-8 z-20">
-              <div className="flex items-center justify-between">
-                <h1 className="text-2xl font-bold tracking-[0.15em] text-gold font-display">
-                  FORVM IVSTITIAE
-                </h1>
-                <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                  <span className="tabular-nums">{forumState.velocity} acta / VII dies</span>
-                  <div className="flex items-center gap-2 min-w-[120px]">
-                    <span>Imperivm</span>
-                    <Progress value={forumState.overallMastery} className="h-1.5 flex-1" />
-                    <span className="tabular-nums font-medium text-foreground">{forumState.overallMastery}%</span>
+        <AnimatePresence>
+          {selectedMonument ? (
+            <MonumentInterior
+              key="interior"
+              monument={selectedMonument}
+              sources={sources}
+              onBack={() => setSelectedCategory(null)}
+              onUpdateChapters={bulkUpdateChapter}
+              onReviewSection={reviewSection}
+            />
+          ) : (
+            <div key="forum-grid" className="relative z-10">
+              {/* Header */}
+              <div className="sticky top-0 glass-card px-6 py-4 mb-8 z-20">
+                <div className="flex items-center justify-between">
+                  <h1 className="text-2xl font-bold tracking-[0.15em] text-gold font-display">
+                    FORVM IVSTITIAE
+                  </h1>
+                  <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                    <span className="tabular-nums">{forumState.velocity} acta / VII dies</span>
+                    <div className="flex items-center gap-2 min-w-[120px]">
+                      <span className="font-display text-[10px] uppercase tracking-wider">Imperivm</span>
+                      <Progress value={forumState.overallMastery} className="h-1.5 flex-1" />
+                      <span className="tabular-nums font-medium text-foreground">{forumState.overallMastery}%</span>
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
 
-            {/* Monument Grid */}
-            {forumState.monuments.length === 0 ? (
-              <div className="forum-stone flex items-center justify-center min-h-[40vh] px-6">
-                <p className="text-muted-foreground text-sm italic font-display">
-                  Nulla monumenta. Crea disciplinas ut Forum aedificētur.
-                </p>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {forumState.monuments.map((monument, i) => (
-                  <MonumentCard
-                    key={monument.category}
-                    monument={monument}
-                    index={i}
-                    onClick={() => setSelectedCategory(monument.category)}
-                  />
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-      </AnimatePresence>
+              {/* Monument Grid */}
+              {forumState.monuments.length === 0 ? (
+                <div className="glass-card flex items-center justify-center min-h-[40vh] px-6">
+                  <p className="text-muted-foreground text-sm italic font-display">
+                    Nulla monumenta. Crea disciplinas ut Forum aedificētur.
+                  </p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {forumState.monuments.map((monument, i) => (
+                    <MonumentCard
+                      key={monument.category}
+                      monument={monument}
+                      index={i}
+                      onClick={() => setSelectedCategory(monument.category)}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </AnimatePresence>
       </LayoutGroup>
     </div>
   );
