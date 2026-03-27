@@ -31,24 +31,17 @@ export function saveMonumentType(category: string, type: BuildingType) {
 }
 
 export interface Monument {
-  /** Category name */
   category: string;
-  /** Total cards in this category */
   totalCards: number;
-  /** Cards where ALL sections are in Review state */
   masteredCards: number;
-  /** 0-100 mastery percentage */
   mastery: number;
-  /** Visual material tier derived from mastery */
   material: MaterialTier;
-  /** Average stability across all sections (days) */
   avgStability: number;
-  /** Average difficulty across all sections (1-10) */
   avgDifficulty: number;
-  /** Number of "leech" sections (lapses >= 5) */
   leechCount: number;
-  /** Whether this monument is "crumbling" (many leeches relative to total) */
   crumbling: boolean;
+  /** User-chosen building type (or "insula" fallback) */
+  buildingType: BuildingType;
 }
 
 export interface ForumState {
