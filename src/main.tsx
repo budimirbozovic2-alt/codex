@@ -175,7 +175,7 @@ setTimeout(() => {
       const doCleanup = () => { cleanup(); cleanupQuit?.(); };
       window.addEventListener("beforeunload", doCleanup);
       window.addEventListener("unload", doCleanup);
-    } catch {}
+    } catch (e) { console.warn("[boot] Electron IPC setup failed", e); }
   }
 })();
 
