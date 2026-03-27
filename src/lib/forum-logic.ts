@@ -264,20 +264,25 @@ export function calculateForumState(
   };
 }
 
-// ─── Material Display Helpers ───────────────────────────
+// ─── Phase Display Helpers ──────────────────────────────
 
-export const MATERIAL_LABELS: Record<MaterialTier, string> = {
-  wood: "Drvo",
-  brick: "Cigla",
-  stone: "Kamen",
-  marble: "Mermer",
-  gold: "Zlato",
+export const PHASE_LABELS: Record<ConstructionPhase, string> = {
+  foundation: "Temelji",
+  skeleton: "Skele",
+  construction: "Građenje",
+  complete: "Kompletna",
+  imperial: "Imperijalna",
 };
 
-export const MATERIAL_ICONS: Record<MaterialTier, string> = {
-  wood: "🪵",
-  brick: "🧱",
-  stone: "🪨",
-  marble: "🏛️",
-  gold: "✨",
+export const PHASE_ICONS: Record<ConstructionPhase, string> = {
+  foundation: "📐",
+  skeleton: "🏗️",
+  construction: "🔨",
+  complete: "🏛️",
+  imperial: "✨",
 };
+
+/** @deprecated Use PHASE_LABELS */
+export const MATERIAL_LABELS = PHASE_LABELS;
+/** @deprecated Use PHASE_ICONS */
+export const MATERIAL_ICONS = PHASE_ICONS;

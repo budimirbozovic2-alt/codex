@@ -174,7 +174,7 @@ export default function CategoryManager({
                                   }`}
                                 >
                                   <div className="w-12 h-10">
-                                    <MonumentSVG buildingType={bt} tier="stone" />
+                                    <MonumentSVG buildingType={bt} tier="complete" />
                                   </div>
                                   <span className="text-[9px] font-display text-muted-foreground leading-tight text-center">
                                     {BUILDING_LABELS[bt]}

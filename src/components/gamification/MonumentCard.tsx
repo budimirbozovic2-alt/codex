@@ -1,62 +1,62 @@
 import { memo, useRef, useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import type { Monument, MaterialTier } from "@/lib/forum-logic";
-import { MATERIAL_LABELS, MATERIAL_ICONS } from "@/lib/forum-logic";
+import type { Monument, ConstructionPhase } from "@/lib/forum-logic";
+import { PHASE_LABELS, PHASE_ICONS } from "@/lib/forum-logic";
 import { Progress } from "@/components/ui/progress";
 import { MonumentSVG } from "./monument-buildings";
 import { MonumentEffects } from "./monument-effects";
 
-// ─── Tier ordering for upgrade detection ─────────────────
-const TIER_ORDER: MaterialTier[] = ["wood", "brick", "stone", "marble", "gold"];
+// ─── Phase ordering for upgrade detection ────────────────
+const PHASE_ORDER: ConstructionPhase[] = ["foundation", "skeleton", "construction", "complete", "imperial"];
 
-// ─── Particle colors per material tier ───────────────────
-const PARTICLE_COLORS: Record<MaterialTier, string> = {
-  wood: "hsl(30 60% 40%)",
-  brick: "hsl(20 70% 45%)",
-  stone: "hsl(0 0% 55%)",
-  marble: "hsl(210 20% 85%)",
-  gold: "hsl(45 90% 55%)",
+// ─── Gold-spectrum particle colors per phase ─────────────
+const PARTICLE_COLORS: Record<ConstructionPhase, string> = {
+  foundation: "hsl(45, 40%, 30%)",
+  skeleton: "hsl(45, 50%, 35%)",
+  construction: "hsl(45, 60%, 42%)",
+  complete: "hsl(45, 70%, 50%)",
+  imperial: "hsl(45, 90%, 55%)",
 };
 
-const SHIMMER_COLORS: Record<MaterialTier, string> = {
-  wood: "hsla(30, 60%, 40%, 0.3)",
-  brick: "hsla(20, 70%, 45%, 0.3)",
-  stone: "hsla(0, 0%, 55%, 0.3)",
-  marble: "hsla(210, 20%, 90%, 0.4)",
-  gold: "hsla(45, 90%, 55%, 0.4)",
+const SHIMMER_COLORS: Record<ConstructionPhase, string> = {
+  foundation: "hsla(45, 40%, 30%, 0.2)",
+  skeleton: "hsla(45, 50%, 35%, 0.25)",
+  construction: "hsla(45, 60%, 42%, 0.3)",
+  complete: "hsla(45, 70%, 50%, 0.35)",
+  imperial: "hsla(45, 90%, 55%, 0.4)",
 };
 
-const MATERIAL_STYLES: Record<MaterialTier, {
+const PHASE_STYLES: Record<ConstructionPhase, {
   border: string;
   glow: string;
   accent: string;
   bg: string;
 }> = {
-  wood: {
-    border: "border-amber-800/40",
+  foundation: {
+    border: "border-gold/10",
     glow: "",
-    accent: "text-amber-700 dark:text-amber-500",
-    bg: "bg-amber-950/20",
+    accent: "text-gold/50",
+    bg: "bg-gold/5",
   },
-  brick: {
-    border: "border-orange-700/40",
+  skeleton: {
+    border: "border-gold/15",
     glow: "",
-    accent: "text-orange-600 dark:text-orange-400",
-    bg: "bg-orange-950/20",
+    accent: "text-gold/60",
+    bg: "bg-gold/5",
   },
-  stone: {
-    border: "border-stone-500/40",
-    glow: "shadow-stone-500/10",
-    accent: "text-stone-500 dark:text-stone-400",
-    bg: "bg-stone-950/20",
+  construction: {
+    border: "border-gold/25",
+    glow: "",
+    accent: "text-gold/70",
+    bg: "bg-gold/8",
   },
-  marble: {
-    border: "border-slate-300/50 dark:border-slate-400/30",
-    glow: "shadow-lg shadow-slate-300/20 dark:shadow-slate-400/10",
-    accent: "text-slate-600 dark:text-slate-300",
-    bg: "bg-slate-100/30 dark:bg-slate-800/30",
+  complete: {
+    border: "border-gold/35",
+    glow: "shadow-md shadow-gold/10",
+    accent: "text-gold/85",
+    bg: "bg-gold/10",
   },
-  gold: {
+  imperial: {
     border: "border-gold/50",
     glow: "shadow-lg shadow-gold/20",
     accent: "text-gold",
@@ -64,9 +64,9 @@ const MATERIAL_STYLES: Record<MaterialTier, {
   },
 };
 
-function generateParticles(material: MaterialTier) {
+function generateParticles(phase: ConstructionPhase) {
   const count = 10;
-  const color = PARTICLE_COLORS[material];
+  const color = PARTICLE_COLORS[phase];
   return Array.from({ length: count }, (_, i) => {
     const angle = (Math.PI * 2 * i) / count + (Math.random() - 0.5) * 0.5;
     const distance = 40 + Math.random() * 40;
@@ -88,24 +88,24 @@ interface Props {
 }
 
 export const MonumentCard = memo(function MonumentCard({ monument, index, onClick }: Props) {
-  const style = MATERIAL_STYLES[monument.material];
-  const prevMaterialRef = useRef<MaterialTier>(monument.material);
+  const style = PHASE_STYLES[monument.material];
+  const prevPhaseRef = useRef<ConstructionPhase>(monument.material);
   const [upgraded, setUpgraded] = useState(false);
   const [particles, setParticles] = useState<ReturnType<typeof generateParticles>>([]);
 
   useEffect(() => {
-    const prevIdx = TIER_ORDER.indexOf(prevMaterialRef.current);
-    const currIdx = TIER_ORDER.indexOf(monument.material);
+    const prevIdx = PHASE_ORDER.indexOf(prevPhaseRef.current);
+    const currIdx = PHASE_ORDER.indexOf(monument.material);
 
     if (currIdx > prevIdx && prevIdx >= 0) {
       setParticles(generateParticles(monument.material));
       setUpgraded(true);
       const timer = setTimeout(() => setUpgraded(false), 2000);
-      prevMaterialRef.current = monument.material;
+      prevPhaseRef.current = monument.material;
       return () => clearTimeout(timer);
     }
 
-    prevMaterialRef.current = monument.material;
+    prevPhaseRef.current = monument.material;
   }, [monument.material]);
 
   return (
@@ -122,7 +122,7 @@ export const MonumentCard = memo(function MonumentCard({ monument, index, onClic
         hover:scale-[1.02] transition-transform duration-200
       `}
     >
-      {/* Material background tint */}
+      {/* Phase background tint */}
       <div className={`absolute inset-0 ${style.bg} pointer-events-none`} aria-hidden />
 
       {/* Upgrade shimmer overlay */}
@@ -173,13 +173,13 @@ export const MonumentCard = memo(function MonumentCard({ monument, index, onClic
         {/* Header: icon + category */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <span className="text-lg" aria-hidden>{MATERIAL_ICONS[monument.material]}</span>
+            <span className="text-lg" aria-hidden>{PHASE_ICONS[monument.material]}</span>
             <h3 className="text-sm font-semibold text-foreground truncate max-w-[160px]">
               {monument.category}
             </h3>
           </div>
           <span className={`text-[10px] font-medium tracking-wider uppercase ${style.accent} font-display`}>
-            {MATERIAL_LABELS[monument.material]}
+            {PHASE_LABELS[monument.material]}
           </span>
         </div>
 
