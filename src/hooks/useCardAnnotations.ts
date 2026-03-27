@@ -1,4 +1,4 @@
-import { useCallback } from "react";
+import { useCallback, MutableRefObject } from "react";
 import { Card, calculateNextReview, getCachedRetention } from "@/lib/spaced-repetition";
 import { ReviewLogEntry } from "@/lib/storage";
 import { CardMap, bumpMapVersion, schedulePersist } from "@/lib/persist-queue";
@@ -8,6 +8,7 @@ interface UseCardAnnotationsParams {
   patchCard: (id: string, patcher: (card: Card) => Card) => void;
   setCardMapState: React.Dispatch<React.SetStateAction<CardMap>>;
   setReviewLog: (updater: (prev: ReviewLogEntry[]) => ReviewLogEntry[]) => void;
+  cardMapRef: MutableRefObject<CardMap>;
 }
 
 export function useCardAnnotations({
