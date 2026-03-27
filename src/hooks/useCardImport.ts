@@ -49,7 +49,7 @@ export function useCardImport({
         }
 
         const { sanitizeHtml } = await import("@/lib/sanitize");
-        const migrateImported = (c: any): Card => ({
+        const migrateImported = (c: Record<string, unknown>): Card => ({
           ...c,
           readCount: c.readCount || 0,
           type: c.type || "essay",
