@@ -69,6 +69,7 @@ export function detectArticles(html: string): DetectedArticle[] {
       html: outerHtml,
       isArticle: !!match,
       articleNum: match ? match[1] : "",
+      isHeading,
     });
   }
 
