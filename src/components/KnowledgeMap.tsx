@@ -1,17 +1,6 @@
-import { useState, useMemo, useRef, useCallback, lazy, Suspense, startTransition } from "react";
+import { useState, useRef, useCallback, lazy, Suspense } from "react";
 import { Card, SectionState } from "@/lib/spaced-repetition";
-import { motion, AnimatePresence } from "framer-motion";
-
-
-
-
-
-
-
-
-
-
-
+import { motion } from "framer-motion";
 import { TabSkeleton } from "@/components/ui/page-skeleton";
 import { ArrowLeft, ChevronRight, Search, BookOpen, BarChart3, HelpCircle, ArrowUp, ArrowDown, ListOrdered } from "lucide-react";
 
