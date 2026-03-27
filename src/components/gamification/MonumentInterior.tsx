@@ -100,8 +100,8 @@ export const MonumentInterior = memo(function MonumentInterior({
           </div>
 
           <div className="flex-1 min-w-0">
-            <h2 className="text-lg font-semibold font-display text-foreground truncate tracking-wide">
-              {materialIcon} {monument.category}
+            <h2 className="text-lg font-semibold text-foreground truncate tracking-wide">
+              {monument.category}
             </h2>
             <p className="text-xs text-muted-foreground mt-0.5 tabular-nums">
               {catCards.length} kartica · {tree.length} {mode === "A" ? "izvora" : "grupa"} ({modeLabel}) · {monument.mastery}%
