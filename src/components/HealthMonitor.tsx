@@ -61,8 +61,8 @@ export default function HealthMonitor() {
         setIdbEstimate({ usage: est.usage || 0, quota: est.quota || 0 });
       }
 
-      // localStorage usage
-      setLsUsage(getStorageUsage());
+      // Overall storage usage (IndexedDB via navigator.storage.estimate)
+      setLsUsage(await getStorageUsage());
     } catch (err) {
       console.error("[health] refresh failed", err);
     } finally {

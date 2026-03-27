@@ -93,16 +93,14 @@ export function saveLearnProgress(progress: Record<string, LearnCardProgress>) {
 }
 
 // Storage usage (estimates localStorage footprint)
-const APP_KEYS = ["sr-essay-cards", "sr-essay-categories", "sr-essay-subcategories", REVIEW_LOG_KEY, "sr-settings", POMODORO_LOG_KEY];
-const MAX_STORAGE_BYTES = 5 * 1024 * 1024;
-
-export function getStorageUsage(): { usedBytes: number; maxBytes: number; percent: number } {
-  let usedBytes = 0;
-  for (const key of APP_KEYS) {
-    const val = localStorage.getItem(key);
-    if (val) usedBytes += key.length + val.length * 2;
+export async function getStorageUsage(): Promise<{ usedBytes: number; maxBytes: number; percent: number }> {
+  if (navigator.storage?.estimate) {
+    const est = await navigator.storage.estimate();
+    const used = est.usage ?? 0;
+    const max = est.quota ?? 500 * 1024 * 1024;
+    return { usedBytes: used, maxBytes: max, percent: Math.round((used / max) * 100) };
   }
-  return { usedBytes, maxBytes: MAX_STORAGE_BYTES, percent: Math.round((usedBytes / MAX_STORAGE_BYTES) * 100) };
+  return { usedBytes: 0, maxBytes: 0, percent: 0 };
 }
 
 // Backup reminder

@@ -139,7 +139,7 @@ function useGlobalPomodoro() {
             }
           } else {
             const dur = modeRef.current === "longBreak" ? s.longBreakMinutes : s.breakMinutes;
-            addPomodoroEntry({ timestamp: Date.now(), type: "break", durationMinutes: dur });
+            void addPomodoroEntry({ timestamp: Date.now(), type: "break", durationMinutes: dur });
             setMode("work");
             return s.workMinutes * 60;
           }

@@ -139,8 +139,8 @@ export default function SpeedReader() {
     if (!("speechSynthesis" in window)) return;
     const load = () => { const v = window.speechSynthesis.getVoices(); if (v.length) setVoices(v); };
     load();
-    window.speechSynthesis.onvoiceschanged = load;
-    return () => { window.speechSynthesis.onvoiceschanged = null; };
+    window.speechSynthesis.addEventListener("voiceschanged", load);
+    return () => { window.speechSynthesis.removeEventListener("voiceschanged", load); };
   }, []);
 
   // Filtered cards (essay only)

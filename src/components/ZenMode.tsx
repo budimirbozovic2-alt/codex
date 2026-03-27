@@ -89,7 +89,7 @@ export default function ZenMode({ active, onToggle }: Props) {
         }
       } else {
         const dur = phase === "longBreak" ? pom.longBreakMinutes : pom.breakMinutes;
-        addPomodoroEntry({ timestamp: Date.now(), type: "break", durationMinutes: dur });
+        void addPomodoroEntry({ timestamp: Date.now(), type: "break", durationMinutes: dur });
         playChime("break");
         setPhase("focus");
         setSeconds(FOCUS_DURATION);
