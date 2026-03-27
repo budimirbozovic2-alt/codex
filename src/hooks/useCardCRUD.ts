@@ -142,16 +142,16 @@ export function useCardCRUD({
 
   // O(1) delete — surgical IDB delete
   const deleteCard = useCallback((id: string) => {
+    const nextRef = { ...cardMapRef.current }; delete nextRef[id]; cardMapRef.current = nextRef; // Sync ref
     setCardMapState((prev) => {
       const next = { ...prev };
       delete next[id];
       return next;
     });
     bumpMapVersion();
-    // Delete must be explicit — bulk persist only does bulkPut
     idbDeleteCard(id).catch(e => console.error("[deleteCard] IDB delete failed", e));
     toast.success("Kartica obrisana.");
-  }, [setCardMapState]);
+  }, [setCardMapState, cardMapRef]);
 
   // Split card — Ref-Delta: read from ref, pre-compute new cards, persist surgically
   const splitCard = useCallback((id: string) => {
