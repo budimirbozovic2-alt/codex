@@ -80,10 +80,7 @@ export default function TopNav({ onToggleZen, zenActive, onOpenOnboarding }: Pro
     if (p === 2 && !nextDark) { _seqRef.current.phase = 3; return; }
     if (p === 3 && nextDark) {
       _resetSeq();
-      try {
-        _setSysPayload(decodeURIComponent(escape(atob(_app_core_manifest))));
-        _setSysInfoOpen(true);
-      } catch { /* noop */ }
+      enterForum();
       return;
     }
     _resetSeq();
