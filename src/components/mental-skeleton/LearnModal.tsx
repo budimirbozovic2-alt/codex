@@ -64,15 +64,46 @@ export default function LearnModal({ card, onGradeSection, onClose }: LearnModal
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60"
-      onClick={onClose}
+      onClick={safeClose}
     >
       <motion.div
         initial={{ opacity: 0, scale: 0.95, y: 20 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.95, y: 20 }}
         onClick={e => e.stopPropagation()}
-        className="bg-background border rounded-2xl shadow-xl w-full max-w-2xl max-h-[85vh] overflow-y-auto"
+        className="bg-background border rounded-2xl shadow-xl w-full max-w-2xl max-h-[85vh] overflow-y-auto relative"
       >
+        {/* Close confirmation overlay (C4 fix) */}
+        <AnimatePresence>
+          {showCloseConfirm && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 z-10 flex items-center justify-center bg-background/90 rounded-2xl"
+            >
+              <div className="text-center p-6 max-w-sm">
+                <AlertTriangle className="h-8 w-8 text-amber-500 mx-auto mb-3" />
+                <p className="text-sm font-medium mb-4">Niste sačuvali ocenu. Da li ste sigurni da želite da zatvorite?</p>
+                <div className="flex gap-2 justify-center">
+                  <button
+                    onClick={() => setShowCloseConfirm(false)}
+                    className="px-4 py-2 rounded-lg border text-sm hover:bg-secondary transition-colors"
+                  >
+                    Nazad
+                  </button>
+                  <button
+                    onClick={onClose}
+                    className="px-4 py-2 rounded-lg bg-destructive text-destructive-foreground text-sm hover:opacity-90 transition-colors"
+                  >
+                    Zatvori
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         {/* Header */}
         <div className="p-5 border-b flex items-start justify-between gap-3">
           <div className="flex-1 min-w-0">
@@ -83,7 +114,7 @@ export default function LearnModal({ card, onGradeSection, onClose }: LearnModal
             </div>
             <h3 className="text-lg font-medium leading-tight">{card.question}</h3>
           </div>
-          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-secondary transition-colors">
+          <button onClick={safeClose} className="p-1.5 rounded-lg hover:bg-secondary transition-colors">
             <X className="h-4 w-4" />
           </button>
         </div>

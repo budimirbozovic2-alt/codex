@@ -70,19 +70,25 @@ export function useCards() {
   }, []);
 
   const setCategories = useCallback((updater: (prev: string[]) => string[]) => {
+    let snapshot: string[] = [];
     setCategoriesState((prev) => {
       const next = updater(prev);
-      idbSaveCategories(next);
+      snapshot = next;
       return next;
     });
+    // Side-effect OUTSIDE the updater (H6 fix)
+    idbSaveCategories(snapshot);
   }, []);
 
   const setSubcategories = useCallback((updater: (prev: Record<string, string[]>) => Record<string, string[]>) => {
+    let snapshot: Record<string, string[]> = {};
     setSubcategoriesState((prev) => {
       const next = updater(prev);
-      idbSaveSubcategories(next);
+      snapshot = next;
       return next;
     });
+    // Side-effect OUTSIDE the updater (H6 fix)
+    idbSaveSubcategories(snapshot);
   }, []);
 
   const setReviewLog = useCallback((updater: (prev: ReviewLogEntry[]) => ReviewLogEntry[]) => {

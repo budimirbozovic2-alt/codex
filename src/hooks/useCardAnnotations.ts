@@ -80,9 +80,9 @@ export function useCardAnnotations({
     [patchCard],
   );
 
-  // O(1) logError — surgical
+  // O(1) logError — surgical, per-section penalty (H5 fix)
   const logError = useCallback(
-    (cardId: string, text: string) => {
+    (cardId: string, text: string, sectionId?: string) => {
       patchCard(cardId, (c) => {
         const errorLog = [...(c.errorLog || [])];
         const existing = errorLog.find((e) => e.text === text);
@@ -100,11 +100,15 @@ export function useCardAnnotations({
             lastMissed: new Date().toISOString(),
           });
         }
-        const sections = c.sections.map((s) => ({
-          ...s,
-          difficulty: Math.min(10, s.difficulty + 0.5),
-          stability: Math.max(0.1, s.stability * 0.85),
-        }));
+        // Only penalize the specific section if sectionId is provided
+        const sections = c.sections.map((s) => {
+          if (sectionId && s.id !== sectionId) return s;
+          return {
+            ...s,
+            difficulty: Math.min(10, s.difficulty + 0.5),
+            stability: Math.max(0.1, s.stability * 0.85),
+          };
+        });
         return { ...c, errorLog, sections };
       });
     },

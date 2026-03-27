@@ -209,9 +209,10 @@ export function useCardImport({
       setCardMapState((prev) => {
         const next = { ...prev };
         created.forEach((c) => { next[c.id] = c; });
-        schedulePersist({ type: "bulk", cards: created });
         return next;
       });
+      // Side-effect OUTSIDE the updater (C1 fix)
+      schedulePersist({ type: "bulk", cards: created });
       if (!categories.includes(category)) setCategories((prev) => [...prev, category]);
     },
     [categories, setCategories, setCardMapState, schedulePersist],
