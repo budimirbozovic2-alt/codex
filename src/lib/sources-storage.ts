@@ -29,7 +29,7 @@ export async function saveSource(source: Source): Promise<void> {
 }
 
 export async function deleteSource(id: string): Promise<void> {
-  // Cascade: clear sourceId/textAnchor/needsReview on linked cards
+  _cache = null;
   await db.transaction("rw", [db.sources, db.cards], async () => {
     const linkedCards = await db.cards.where("sourceId").equals(id).toArray();
     if (linkedCards.length > 0) {
