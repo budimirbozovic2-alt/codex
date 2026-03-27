@@ -26,16 +26,14 @@ export function useCardCRUD({
 
   // ── Surgical single-card update (O(1) state + O(1) IDB) ──
   const patchCard = useCallback((id: string, patcher: (card: Card) => Card) => {
-    let updated: Card | null = null;
     setCardMapState((prev) => {
       const card = prev[id];
       if (!card) return prev;
-      updated = { ...patcher(card), updatedAt: Date.now() };
+      const updated = { ...patcher(card), updatedAt: Date.now() };
       return { ...prev, [id]: updated };
     });
     bumpMapVersion();
-    if (updated) schedulePersist({ type: "put", card: updated });
-  }, [setCardMapState, schedulePersist]);
+  }, [setCardMapState]);
 
   const addCard = useCallback(
     (
