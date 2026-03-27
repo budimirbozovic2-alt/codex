@@ -23,7 +23,7 @@ export const CoreStats = memo(function CoreStats({ due, learnedSections, totalSe
       </Link>
       <Link to="/database">
         <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.14 }}
-          className="rounded-xl bg-card border p-5 space-y-2 hover:border-primary/40 transition-colors cursor-pointer">
+          className="glass-card p-5 space-y-2 hover:border-gold/40 transition-colors cursor-pointer">
           <BookOpen className="h-5 w-5 text-success mb-1" />
           <p className="text-4xl font-serif">{learnedSections}</p>
           <p className="text-sm text-muted-foreground">Naučene cjeline</p>
