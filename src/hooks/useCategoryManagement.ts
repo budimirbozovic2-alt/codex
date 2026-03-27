@@ -1,6 +1,6 @@
 import { useCallback } from "react";
 import { Card } from "@/lib/spaced-repetition";
-import { CardMap, schedulePersist as globalSchedulePersist, bumpMapVersion } from "@/lib/persist-queue";
+import { CardMap, bumpMapVersion } from "@/lib/persist-queue";
 
 interface UseCategoryManagementParams {
   categories: string[];
@@ -8,7 +8,6 @@ interface UseCategoryManagementParams {
   setSubcategories: (updater: (prev: Record<string, string[]>) => Record<string, string[]>) => void;
   setCardMap: (updater: (prev: CardMap) => CardMap, persist?: "surgical" | "full") => void;
   setCardMapState: React.Dispatch<React.SetStateAction<CardMap>>;
-  schedulePersist: (action: { type: "bulk"; cards: Card[] }) => void;
 }
 
 export function useCategoryManagement({
