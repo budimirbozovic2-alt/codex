@@ -1,11 +1,6 @@
+import { ArrowLeft, Brain, Wrench, FolderOpen, Search, Sparkles, ArrowUpDown, CheckCircle2 } from "lucide-react";
 import { useState, useMemo, useCallback } from "react";
 import { MnemonicCard, MnemonicStatus, loadMajorSystem } from "@/lib/mnemonic-storage";
-
-
-
-
-
-
 
 
 import InfoPanel from "@/components/InfoPanel";
@@ -13,14 +8,6 @@ import WorkshopCardItem from "@/components/workshop/WorkshopCardItem";
 import ScrollableRow from "@/components/ScrollableRow";
 import { useDebounce } from "@/hooks/useDebounce";
 import { motion, AnimatePresence } from "framer-motion";
-import ArrowLeft from "lucide-react/dist/esm/icons/arrow-left";
-import Brain from "lucide-react/dist/esm/icons/brain";
-import Wrench from "lucide-react/dist/esm/icons/wrench";
-import FolderOpen from "lucide-react/dist/esm/icons/folder-open";
-import Search from "lucide-react/dist/esm/icons/search";
-import Sparkles from "lucide-react/dist/esm/icons/sparkles";
-import ArrowUpDown from "lucide-react/dist/esm/icons/arrow-up-down";
-import CheckCircle2 from "lucide-react/dist/esm/icons/check-circle2";
 interface Props {
   cards: MnemonicCard[];
   onUpdateCard: (id: string, updates: Partial<MnemonicCard>) => void;

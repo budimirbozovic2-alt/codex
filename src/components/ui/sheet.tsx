@@ -1,10 +1,10 @@
+import { X } from "lucide-react";
 import * as SheetPrimitive from "@radix-ui/react-dialog";
 import { cva, type VariantProps } from "class-variance-authority";
 
 import * as React from "react";
 
 import { cn } from "@/lib/utils";
-import X from "lucide-react/dist/esm/icons/x";
 const Sheet = SheetPrimitive.Root;
 
 const SheetTrigger = SheetPrimitive.Trigger;

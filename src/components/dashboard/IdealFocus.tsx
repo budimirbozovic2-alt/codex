@@ -1,6 +1,6 @@
+import { Gauge } from "lucide-react";
 import { memo } from "react";
 import { motion } from "framer-motion";
-import Gauge from "lucide-react/dist/esm/icons/gauge";
 interface FocusRatio {
   progress: number;
   targetReviewPct: number;

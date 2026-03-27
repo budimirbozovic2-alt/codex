@@ -1,10 +1,9 @@
+import { ArrowLeft, RotateCcw } from "lucide-react";
 import { useState, useEffect } from "react";
 import { loadMajorSystem, saveMajorSystem, DEFAULT_MAJOR_SYSTEM } from "@/lib/mnemonic-storage";
 
 
 import { Button } from "@/components/ui/button";
-import ArrowLeft from "lucide-react/dist/esm/icons/arrow-left";
-import RotateCcw from "lucide-react/dist/esm/icons/rotate-ccw";
 interface Props {
   onBack: () => void;
 }

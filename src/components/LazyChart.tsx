@@ -1,8 +1,8 @@
+import { RefreshCw } from "lucide-react";
 import { useState, useCallback, useRef, ReactNode } from "react";
 
 import { motion, AnimatePresence } from "framer-motion";
 import { Skeleton } from "@/components/ui/skeleton";
-import RefreshCw from "lucide-react/dist/esm/icons/refresh-cw";
 interface Props<T> {
   /** Label shown in the header */
   label: string;

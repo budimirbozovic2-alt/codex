@@ -1,3 +1,4 @@
+import { ShieldAlert, Link2, BookOpen, Brain, ArrowLeft, ChevronRight, ListOrdered, TrendingDown, Eye, HelpCircle, AlertTriangle } from "lucide-react";
 import { useState, useMemo, useCallback, useEffect, useRef, Suspense, lazy } from "react";
 import { Card, getCardScore, getDueCards } from "@/lib/spaced-repetition";
 import { LearnMode, LearnCardProgress, loadLearnProgress, saveLearnProgress, loadReviewLog } from "@/lib/storage";
@@ -12,17 +13,6 @@ import { LearnSessionProps, ViewWidth } from "./learn/types";
 const StudyModeFree = lazy(() => import("./learn/StudyModeFree"));
 const StudyModeRecall = lazy(() => import("./learn/StudyModeRecall"));
 const StudyModeChain = lazy(() => import("./learn/StudyModeChain"));
-import ShieldAlert from "lucide-react/dist/esm/icons/shield-alert";
-import Link2 from "lucide-react/dist/esm/icons/link-2";
-import BookOpen from "lucide-react/dist/esm/icons/book-open";
-import Brain from "lucide-react/dist/esm/icons/brain";
-import ArrowLeft from "lucide-react/dist/esm/icons/arrow-left";
-import ChevronRight from "lucide-react/dist/esm/icons/chevron-right";
-import ListOrdered from "lucide-react/dist/esm/icons/list-ordered";
-import TrendingDown from "lucide-react/dist/esm/icons/trending-down";
-import Eye from "lucide-react/dist/esm/icons/eye";
-import HelpCircle from "lucide-react/dist/esm/icons/help-circle";
-import AlertTriangle from "lucide-react/dist/esm/icons/alert-triangle";
 
 export default function LearnSession({ cards, categories, subcategories, onMarkRead, onReviewSection, onBack, onEdit, onAddKeyPart, dueCount = 0 }: LearnSessionProps) {
   const [setupStep, setSetupStep] = useState<"mode" | "filter" | "ready">("mode");

@@ -1,3 +1,4 @@
+import { Plus, CheckSquare, BookOpen, X, Search, Flame, ArrowUpDown } from "lucide-react";
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { idbLoadSettings } from "@/lib/db";
 import { useCardContext, useUIContext } from "@/contexts/AppContext";
@@ -9,13 +10,6 @@ import ScrollableRow from "@/components/ScrollableRow";
 import CardList from "@/components/CardList";
 import ShortcutsHint from "@/components/ShortcutsHint";
 import { toast } from "sonner";
-import Plus from "lucide-react/dist/esm/icons/plus";
-import CheckSquare from "lucide-react/dist/esm/icons/check-square";
-import BookOpen from "lucide-react/dist/esm/icons/book-open";
-import X from "lucide-react/dist/esm/icons/x";
-import Search from "lucide-react/dist/esm/icons/search";
-import Flame from "lucide-react/dist/esm/icons/flame";
-import ArrowUpDown from "lucide-react/dist/esm/icons/arrow-up-down";
 const CARDS_SHORTCUTS = [
   { keys: "Ctrl+K", description: "Globalna pretraga" },
 ];

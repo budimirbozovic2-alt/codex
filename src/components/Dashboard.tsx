@@ -1,9 +1,9 @@
+import { Target } from "lucide-react";
 import { Card as SRCard, SRSettings } from "@/lib/spaced-repetition";
 import { ReviewLogEntry } from "@/lib/storage";
 import ProgressRing from "@/components/ProgressRing";
 import { useDashboardData } from "@/hooks/useDashboardData";
 import { motion } from "framer-motion";
-import Target from "lucide-react/dist/esm/icons/target";
 import { ExamProgressBar } from "./dashboard/ExamProgressBar";
 import { CoreStats } from "./dashboard/CoreStats";
 import { DailyBriefing } from "./dashboard/DailyBriefing";

@@ -1,12 +1,9 @@
+import { Check, ChevronRight, Circle } from "lucide-react";
 import * as React from "react";
 import * as DropdownMenuPrimitive from "@radix-ui/react-dropdown-menu";
 
 
-
 import { cn } from "@/lib/utils";
-import Check from "lucide-react/dist/esm/icons/check";
-import ChevronRight from "lucide-react/dist/esm/icons/chevron-right";
-import Circle from "lucide-react/dist/esm/icons/circle";
 const DropdownMenu = DropdownMenuPrimitive.Root;
 
 const DropdownMenuTrigger = DropdownMenuPrimitive.Trigger;

@@ -1,12 +1,6 @@
+import { MoreVertical, FolderOpen, BookOpen, Flame, Brain, Check, ChevronRight } from "lucide-react";
 import React, { useState, useRef, useEffect } from "react";
 import { Card } from "@/lib/spaced-repetition";
-import MoreVertical from "lucide-react/dist/esm/icons/more-vertical";
-import FolderOpen from "lucide-react/dist/esm/icons/folder-open";
-import BookOpen from "lucide-react/dist/esm/icons/book-open";
-import Flame from "lucide-react/dist/esm/icons/flame";
-import Brain from "lucide-react/dist/esm/icons/brain";
-import Check from "lucide-react/dist/esm/icons/check";
-import ChevronRight from "lucide-react/dist/esm/icons/chevron-right";
 
 interface CardContextMenuProps {
   card: Card;

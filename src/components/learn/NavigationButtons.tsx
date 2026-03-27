@@ -1,9 +1,8 @@
+import { ArrowLeft, ArrowRight } from "lucide-react";
 import React from "react";
 
 
 import { Button } from "@/components/ui/button";
-import ArrowLeft from "lucide-react/dist/esm/icons/arrow-left";
-import ArrowRight from "lucide-react/dist/esm/icons/arrow-right";
 interface Props {
   currentIndex: number;
   totalCards: number;

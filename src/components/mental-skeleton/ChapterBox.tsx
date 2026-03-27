@@ -1,15 +1,10 @@
+import { ChevronDown, BookOpen, ArrowUp, ArrowDown, Edit3, Trash2 } from "lucide-react";
 import React, { useMemo } from "react";
 import { Card, SectionState } from "@/lib/spaced-repetition";
 import { getCardMasteryLevel, getMasteryColor } from "@/components/KnowledgeMap";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
 import { useDroppable } from "@dnd-kit/core";
-import ChevronDown from "lucide-react/dist/esm/icons/chevron-down";
-import BookOpen from "lucide-react/dist/esm/icons/book-open";
-import ArrowUp from "lucide-react/dist/esm/icons/arrow-up";
-import ArrowDown from "lucide-react/dist/esm/icons/arrow-down";
-import Edit3 from "lucide-react/dist/esm/icons/edit-3";
-import Trash2 from "lucide-react/dist/esm/icons/trash-2";
 import { SortableContext, rectSortingStrategy } from "@dnd-kit/sortable";
 import DraggableCardTile from "./DraggableCardTile";
 import { Mode, UNASSIGNED_CHAPTER } from "./types";

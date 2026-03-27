@@ -1,14 +1,11 @@
+import { Clock, AlertTriangle, Activity } from "lucide-react";
 import { useMemo } from "react";
-
 
 
 import {
   loadSlippageLog, getDeepWorkStats, getTimeDistribution,
   getWeeklyTimeDistribution, RESERVOIR_LABELS, RESERVOIR_COLORS,
 } from "@/lib/metacognitive-storage";
-import Clock from "lucide-react/dist/esm/icons/clock";
-import AlertTriangle from "lucide-react/dist/esm/icons/triangle-alert";
-import Activity from "lucide-react/dist/esm/icons/activity";
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, AreaChart, Area, CartesianGrid, Legend,

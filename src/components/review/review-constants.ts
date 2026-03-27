@@ -1,8 +1,5 @@
+import { Target, Shield, Zap, BookOpen } from "lucide-react";
 import { OnboardingSlide } from "@/components/OnboardingModal";
-import Target from "lucide-react/dist/esm/icons/target";
-import Shield from "lucide-react/dist/esm/icons/shield";
-import Zap from "lucide-react/dist/esm/icons/zap";
-import BookOpen from "lucide-react/dist/esm/icons/book-open";
 import { Card, Section, SRSettings } from "@/lib/spaced-repetition";
 
 export type ReviewMode = "stabilization" | "critical" | "hardest" | null;

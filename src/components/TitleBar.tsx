@@ -1,8 +1,5 @@
+import { Minus, Square, X, Copy } from "lucide-react";
 import { useState, useEffect, useCallback } from "react";
-import Minus from "lucide-react/dist/esm/icons/minus";
-import Square from "lucide-react/dist/esm/icons/square";
-import X from "lucide-react/dist/esm/icons/x";
-import Copy from "lucide-react/dist/esm/icons/copy";
 /**
  * Custom Electron title bar — replaces the system window frame.
  * Only renders in Electron (window.electronAPI exists).

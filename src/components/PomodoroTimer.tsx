@@ -1,10 +1,9 @@
+import { Timer, Play } from "lucide-react";
 import { useMemo } from "react";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 import { usePomodoroContext } from "@/contexts/AppContext";
 import { loadAppSettings } from "@/lib/app-settings";
-import Timer from "lucide-react/dist/esm/icons/timer";
-import Play from "lucide-react/dist/esm/icons/play";
 const MODE_LABELS: Record<string, string> = { work: "Fokus", break: "Pauza", longBreak: "Dugačka pauza" };
 const MODE_BADGE_CLASS: Record<string, string> = {
   work: "bg-primary/10 text-primary",

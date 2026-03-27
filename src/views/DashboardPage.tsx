@@ -1,3 +1,4 @@
+import { HelpCircle } from "lucide-react";
 import { useState, useMemo, lazy, Suspense } from "react";
 import { useCardContext, useUIContext } from "@/contexts/AppContext";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
@@ -5,7 +6,6 @@ import Dashboard from "@/components/Dashboard";
 import EmptyState from "@/components/EmptyState";
 import { QuickActions } from "@/components/dashboard/QuickActions";
 import { AnimatePresence } from "framer-motion";
-import HelpCircle from "lucide-react/dist/esm/icons/help-circle";
 const DashboardOnboarding = lazy(() => import("@/components/DashboardOnboarding"));
 
 export default function DashboardPage() {

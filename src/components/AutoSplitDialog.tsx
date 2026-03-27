@@ -1,3 +1,4 @@
+import { Wand2, Check, RefreshCw, GitMerge as Merge, Ungroup, Sparkles } from "lucide-react";
 import { useState, useMemo, useCallback } from "react";
 
 
@@ -12,12 +13,6 @@ import { useAppContext } from "@/contexts/AppContext";
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import type { Card, SourceModule } from "@/lib/spaced-repetition";
-import Wand2 from "lucide-react/dist/esm/icons/wand2";
-import Check from "lucide-react/dist/esm/icons/check";
-import RefreshCw from "lucide-react/dist/esm/icons/refresh-cw";
-import GitMerge as Merge from "lucide-react/dist/esm/icons/git-merge as -merge";
-import Ungroup from "lucide-react/dist/esm/icons/ungroup";
-import Sparkles from "lucide-react/dist/esm/icons/sparkles";
 interface Props {
   open: boolean;
   onClose: () => void;

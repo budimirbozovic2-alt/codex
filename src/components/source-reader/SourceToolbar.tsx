@@ -1,15 +1,8 @@
+import { ArrowLeft, Calendar, Wand2, Eye, BarChart3, FileQuestion, List, X } from "lucide-react";
 import { memo } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import ArrowLeft from "lucide-react/dist/esm/icons/arrow-left";
-import Calendar from "lucide-react/dist/esm/icons/calendar";
-import Wand2 from "lucide-react/dist/esm/icons/wand2";
-import Eye from "lucide-react/dist/esm/icons/eye";
-import BarChart3 from "lucide-react/dist/esm/icons/bar-chart3";
-import FileQuestion from "lucide-react/dist/esm/icons/file-question";
-import List from "lucide-react/dist/esm/icons/list";
-import X from "lucide-react/dist/esm/icons/x";
 import type { Source } from "@/lib/sources-storage";
 import type { ExamQuestion } from "@/components/ExamSidebar";
 

@@ -1,19 +1,12 @@
+import { Plus, Trash2, Network, GitBranch, Workflow } from "lucide-react";
 import { useState, useEffect } from "react";
 import { MindMapDoc, MindMapMode } from "@/lib/db";
 import { loadMindMaps, deleteMindMap, saveMindMap } from "@/lib/mindmap-storage";
 import { Button } from "@/components/ui/button";
 
 
-
-
-
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
-import Plus from "lucide-react/dist/esm/icons/plus";
-import Trash2 from "lucide-react/dist/esm/icons/trash2";
-import Network from "lucide-react/dist/esm/icons/network";
-import GitBranch from "lucide-react/dist/esm/icons/git-branch";
-import Workflow from "lucide-react/dist/esm/icons/workflow";
 interface Props {
   onOpen: (doc: MindMapDoc) => void;
 }

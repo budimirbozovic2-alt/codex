@@ -1,3 +1,4 @@
+import { Volume2, X, Play, Pause, VolumeX, RotateCcw, Timer, Coffee, Brain, SkipForward } from "lucide-react";
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
@@ -5,16 +6,6 @@ import { Slider } from "@/components/ui/slider";
 import { startBrownNoise, stopBrownNoise, setBrownNoiseVolume, isBrownNoisePlaying } from "@/lib/brown-noise";
 import { addPomodoroEntry, getPomodoroStats } from "@/lib/storage";
 import { loadAppSettings } from "@/lib/app-settings";
-import Volume2 from "lucide-react/dist/esm/icons/volume2";
-import X from "lucide-react/dist/esm/icons/x";
-import Play from "lucide-react/dist/esm/icons/play";
-import Pause from "lucide-react/dist/esm/icons/pause";
-import VolumeX from "lucide-react/dist/esm/icons/volume-x";
-import RotateCcw from "lucide-react/dist/esm/icons/rotate-ccw";
-import Timer from "lucide-react/dist/esm/icons/timer";
-import Coffee from "lucide-react/dist/esm/icons/coffee";
-import Brain from "lucide-react/dist/esm/icons/brain";
-import SkipForward from "lucide-react/dist/esm/icons/skip-forward";
 import { cn } from "@/lib/utils";
 
 type TimerPhase = "focus" | "break" | "longBreak";

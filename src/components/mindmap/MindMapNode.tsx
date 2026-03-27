@@ -1,26 +1,7 @@
+import { Scale, FileText, Building2, Calendar, OctagonX, RefreshCw, User, Coins, ArrowRight, CheckCircle2, AlertTriangle, HelpCircle, Clock, Gavel, BookOpen, ShieldCheck, Send, Search, Copy, Sparkles } from "lucide-react";
 import { memo, useState, useCallback } from "react";
 import { Handle, Position, NodeProps, NodeResizer } from "@xyflow/react";
 import { cn } from "@/lib/utils";
-import Scale from "lucide-react/dist/esm/icons/scale";
-import FileText from "lucide-react/dist/esm/icons/file-text";
-import Building2 from "lucide-react/dist/esm/icons/building2";
-import Calendar from "lucide-react/dist/esm/icons/calendar";
-import OctagonX from "lucide-react/dist/esm/icons/octagon-x";
-import RefreshCw from "lucide-react/dist/esm/icons/refresh-cw";
-import User from "lucide-react/dist/esm/icons/user";
-import Coins from "lucide-react/dist/esm/icons/coins";
-import ArrowRight from "lucide-react/dist/esm/icons/arrow-right";
-import CheckCircle2 from "lucide-react/dist/esm/icons/check-circle2";
-import AlertTriangle from "lucide-react/dist/esm/icons/triangle-alert";
-import HelpCircle from "lucide-react/dist/esm/icons/help-circle";
-import Clock from "lucide-react/dist/esm/icons/clock";
-import Gavel from "lucide-react/dist/esm/icons/gavel";
-import BookOpen from "lucide-react/dist/esm/icons/book-open";
-import ShieldCheck from "lucide-react/dist/esm/icons/shield-check";
-import Send from "lucide-react/dist/esm/icons/send";
-import Search from "lucide-react/dist/esm/icons/search";
-import Copy from "lucide-react/dist/esm/icons/copy";
-import Sparkles from "lucide-react/dist/esm/icons/sparkles";
 // ── Icon Registry with Lucide components ──
 export const ICON_REGISTRY: { value: string; label: string; Icon: React.FC<{ className?: string }> }[] = [
   { value: "scale", label: "Sud/Pravda", Icon: Scale },

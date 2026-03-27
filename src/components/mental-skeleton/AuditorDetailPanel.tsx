@@ -1,10 +1,8 @@
+import { X, AlertTriangle, CheckCircle } from "lucide-react";
 import { Card, SectionState } from "@/lib/spaced-repetition";
 import { getCardMasteryLevel, getMasteryColor, MASTERY_LEVELS } from "@/components/KnowledgeMap";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import { motion } from "framer-motion";
-import X from "lucide-react/dist/esm/icons/x";
-import AlertTriangle from "lucide-react/dist/esm/icons/alert-triangle";
-import CheckCircle from "lucide-react/dist/esm/icons/check-circle";
 
 interface AuditorDetailPanelProps {
   card: Card;

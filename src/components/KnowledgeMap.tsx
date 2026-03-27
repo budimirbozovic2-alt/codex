@@ -1,16 +1,8 @@
+import { ArrowLeft, ChevronRight, Search, BookOpen, BarChart3, HelpCircle, ArrowUp, ArrowDown, ListOrdered } from "lucide-react";
 import { useState, useRef, useCallback, lazy, Suspense } from "react";
 import { Card, SectionState } from "@/lib/spaced-repetition";
 import { motion } from "framer-motion";
 import { TabSkeleton } from "@/components/ui/page-skeleton";
-import ArrowLeft from "lucide-react/dist/esm/icons/arrow-left";
-import ChevronRight from "lucide-react/dist/esm/icons/chevron-right";
-import Search from "lucide-react/dist/esm/icons/search";
-import BookOpen from "lucide-react/dist/esm/icons/book-open";
-import BarChart3 from "lucide-react/dist/esm/icons/bar-chart-3";
-import HelpCircle from "lucide-react/dist/esm/icons/help-circle";
-import ArrowUp from "lucide-react/dist/esm/icons/arrow-up";
-import ArrowDown from "lucide-react/dist/esm/icons/arrow-down";
-import ListOrdered from "lucide-react/dist/esm/icons/list-ordered";
 import SubcategoryCard from "./knowledge-map/SubcategoryCard";
 
 const MentalSkeleton = lazy(() => import("@/components/MentalSkeleton"));

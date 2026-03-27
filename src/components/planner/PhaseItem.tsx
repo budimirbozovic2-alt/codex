@@ -1,12 +1,10 @@
+import { Trash2, Pencil, GripVertical } from "lucide-react";
 import { Reorder, useDragControls } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { StudyPhase } from "@/lib/planner-storage";
 import { cn } from "@/lib/utils";
-import Trash2 from "lucide-react/dist/esm/icons/trash2";
-import Pencil from "lucide-react/dist/esm/icons/pencil";
-import GripVertical from "lucide-react/dist/esm/icons/grip-vertical";
 import { PHASE_COLORS } from "./planner-constants";
 
 export interface PhaseItemProps {

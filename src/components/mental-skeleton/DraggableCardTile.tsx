@@ -1,10 +1,10 @@
+import { GripVertical } from "lucide-react";
 import React from "react";
 import { Card } from "@/lib/spaced-repetition";
 import { getCardMasteryLevel, getMasteryColor, MASTERY_LEVELS } from "@/components/KnowledgeMap";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import GripVertical from "lucide-react/dist/esm/icons/grip-vertical";
 import { Mode } from "./types";
 
 interface DraggableCardTileProps {

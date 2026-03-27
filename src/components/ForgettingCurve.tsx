@@ -1,15 +1,12 @@
+import { TrendingDown, Eye, EyeOff } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Card, SectionState } from "@/lib/spaced-repetition";
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import { motion } from "framer-motion";
 
 
-
 import { Button } from "@/components/ui/button";
 import { ChartTooltip } from "@/components/ui/chart-tooltip";
-import TrendingDown from "lucide-react/dist/esm/icons/trending-down";
-import Eye from "lucide-react/dist/esm/icons/eye";
-import EyeOff from "lucide-react/dist/esm/icons/eye-off";
 interface Props {
   cards: Card[];
   categories: string[];

@@ -1,3 +1,4 @@
+import { ArrowLeft, Eye, ChevronRight, AlertTriangle, Pause, Scale } from "lucide-react";
 import { useState, useMemo, useEffect, useCallback, useRef, lazy, Suspense } from "react";
 import { Card, Section, GRADES, isLeech, formatInterval, previewIntervals, SRSettings } from "@/lib/spaced-repetition";
 import { highlightKeyParts } from "@/lib/highlight-key-parts";
@@ -7,12 +8,6 @@ import { useToast } from "@/hooks/use-toast";
 import { addCalibrationEntry, addLatencyEntry } from "@/lib/metacognitive-storage";
 import ShortcutsHint from "@/components/ShortcutsHint";
 import { ViewWidth, viewWidthClasses, viewWidthLabels, REVIEW_SHORTCUTS } from "./review-constants";
-import ArrowLeft from "lucide-react/dist/esm/icons/arrow-left";
-import Eye from "lucide-react/dist/esm/icons/eye";
-import ChevronRight from "lucide-react/dist/esm/icons/chevron-right";
-import AlertTriangle from "lucide-react/dist/esm/icons/triangle-alert";
-import Pause from "lucide-react/dist/esm/icons/pause";
-import Scale from "lucide-react/dist/esm/icons/scale";
 interface ReviewCardProps {
   card: Card;
   section: Section;

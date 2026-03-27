@@ -1,3 +1,4 @@
+import { ArrowLeft, Eye, Compass, Plus, X, BookOpen } from "lucide-react";
 import { useState, useMemo, useCallback, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { Card, SectionState, calculateNextReview } from "@/lib/spaced-repetition";
@@ -11,12 +12,6 @@ import {
 } from "@dnd-kit/core";
 import { arrayMove } from "@dnd-kit/sortable";
 import { toast } from "sonner";
-import ArrowLeft from "lucide-react/dist/esm/icons/arrow-left";
-import Eye from "lucide-react/dist/esm/icons/eye";
-import Compass from "lucide-react/dist/esm/icons/compass";
-import Plus from "lucide-react/dist/esm/icons/plus";
-import X from "lucide-react/dist/esm/icons/x";
-import BookOpen from "lucide-react/dist/esm/icons/book-open";
 import ChapterBox from "./mental-skeleton/ChapterBox";
 import DraggableCardTile from "./mental-skeleton/DraggableCardTile";
 import LearnModal from "./mental-skeleton/LearnModal";
@@ -50,7 +45,6 @@ function extractChapterNum(name: string): number | null {
   const match = name.match(/(\d+)/);
   return match ? parseInt(match[1]) : null;
 }
-
 
 
 // MAIN COMPONENT
@@ -243,7 +237,6 @@ export default function MentalSkeleton({ cards, subcategory, category, onBack, o
     toast.success(`Ocijenjeno: ${grade}`);
     setSelectedCard(null);
   };
-
 
 
   // Legend counts

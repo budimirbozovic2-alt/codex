@@ -1,13 +1,10 @@
+import { ArrowLeft, Target, BarChart3, Map as MapIcon } from "lucide-react";
 import { useState } from "react";
 import { motion } from "framer-motion";
 import InfoPanel from "@/components/InfoPanel";
 import { Card as SRCard } from "@/lib/spaced-repetition";
 import { ReviewLogEntry } from "@/lib/storage";
 import { cn } from "@/lib/utils";
-import ArrowLeft from "lucide-react/dist/esm/icons/arrow-left";
-import Target from "lucide-react/dist/esm/icons/target";
-import BarChart3 from "lucide-react/dist/esm/icons/bar-chart3";
-import Map as MapIcon from "lucide-react/dist/esm/icons/map as -map-icon";
 import { usePlannerData } from "@/hooks/usePlannerData";
 import OperationsTab from "./planner/OperationsTab";
 import RoadmapTab from "./planner/RoadmapTab";

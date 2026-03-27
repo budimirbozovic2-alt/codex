@@ -1,10 +1,8 @@
+import { Plus, X, FileText } from "lucide-react";
 import React, { memo } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import Plus from "lucide-react/dist/esm/icons/plus";
-import X from "lucide-react/dist/esm/icons/x";
-import FileText from "lucide-react/dist/esm/icons/file-text";
 import type { CardType } from "@/hooks/useCardActions";
 
 interface MetadataSectionProps {

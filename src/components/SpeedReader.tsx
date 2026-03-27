@@ -1,38 +1,13 @@
+import { Play, Pause, RotateCcw, ChevronLeft, ChevronRight, Gauge, BookOpen, Eye, Type, Layers, FileText, Volume2, VolumeX, Settings2 } from "lucide-react";
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useAppContext } from "@/contexts/AppContext";
 import { Card } from "@/lib/spaced-repetition";
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 import ScrollableRow from "@/components/ScrollableRow";
 import InfoPanel from "@/components/InfoPanel";
 import { loadTTSSettings, saveTTSSettings, getAvailableVoices, type TTSSettings } from "@/lib/tts";
 import DOMPurify from "dompurify";
-import Play from "lucide-react/dist/esm/icons/play";
-import Pause from "lucide-react/dist/esm/icons/pause";
-import RotateCcw from "lucide-react/dist/esm/icons/rotate-ccw";
-import ChevronLeft from "lucide-react/dist/esm/icons/chevron-left";
-import ChevronRight from "lucide-react/dist/esm/icons/chevron-right";
-import Gauge from "lucide-react/dist/esm/icons/gauge";
-import BookOpen from "lucide-react/dist/esm/icons/book-open";
-import Eye from "lucide-react/dist/esm/icons/eye";
-import Type from "lucide-react/dist/esm/icons/type";
-import Layers from "lucide-react/dist/esm/icons/layers";
-import FileText from "lucide-react/dist/esm/icons/file-text";
-import Volume2 from "lucide-react/dist/esm/icons/volume-2";
-import VolumeX from "lucide-react/dist/esm/icons/volume-x";
-import Settings2 from "lucide-react/dist/esm/icons/settings-2";
 
 const WPM_OPTIONS = [100, 150, 200, 250, 300, 400, 500];
 const FONT_SIZES = [

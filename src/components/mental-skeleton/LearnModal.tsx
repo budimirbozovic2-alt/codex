@@ -1,9 +1,8 @@
+import { X, ChevronDown } from "lucide-react";
 import { useState } from "react";
 import { Card } from "@/lib/spaced-repetition";
 import { getCardMasteryLevel, getMasteryColor } from "@/components/KnowledgeMap";
 import { motion, AnimatePresence } from "framer-motion";
-import X from "lucide-react/dist/esm/icons/x";
-import ChevronDown from "lucide-react/dist/esm/icons/chevron-down";
 
 interface LearnModalProps {
   card: Card;

@@ -1,10 +1,7 @@
+import { BookOpen, ChevronRight, ArrowUp, ArrowDown } from "lucide-react";
 import React from "react";
 import { motion } from "framer-motion";
 import { getMasteryColor } from "@/components/KnowledgeMap";
-import BookOpen from "lucide-react/dist/esm/icons/book-open";
-import ChevronRight from "lucide-react/dist/esm/icons/chevron-right";
-import ArrowUp from "lucide-react/dist/esm/icons/arrow-up";
-import ArrowDown from "lucide-react/dist/esm/icons/arrow-down";
 
 interface SubcategoryCardProps {
   name: string;

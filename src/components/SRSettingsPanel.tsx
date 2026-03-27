@@ -1,3 +1,4 @@
+import { ArrowLeft, RotateCcw, ChevronDown } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { SRSettings, DEFAULT_SR_SETTINGS } from "@/lib/spaced-repetition";
 import { AppSettings, DEFAULT_APP_SETTINGS, loadAppSettings, saveAppSettings, COLOR_THEMES, applyColorTheme, type ColorTheme } from "@/lib/app-settings";
@@ -12,13 +13,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
 
-
-
 import InfoPanel from "@/components/InfoPanel";
 import HealthMonitor from "@/components/HealthMonitor";
-import ArrowLeft from "lucide-react/dist/esm/icons/arrow-left";
-import RotateCcw from "lucide-react/dist/esm/icons/rotate-ccw";
-import ChevronDown from "lucide-react/dist/esm/icons/chevron-down";
 interface Props {
   settings: SRSettings;
   onUpdate: (settings: SRSettings) => void;

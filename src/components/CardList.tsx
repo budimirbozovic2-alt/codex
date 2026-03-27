@@ -1,17 +1,10 @@
+import { Edit2, Trash2, Scale, ChevronDown, ChevronRight, Zap, Flame, GripVertical } from "lucide-react";
 import { Card, getCardScore, getSectionScore, getCardRetrievability, getRetrievability } from "@/lib/spaced-repetition";
 import { highlightKeyParts } from "@/lib/highlight-key-parts";
 import { format } from "date-fns";
 import TextSelectionTooltip from "@/components/TextSelectionTooltip";
 import { useState, useRef, useEffect, useMemo, useCallback, lazy, Suspense, CSSProperties, memo } from "react";
 import { List, type RowComponentProps } from "react-window";
-import Edit2 from "lucide-react/dist/esm/icons/edit2";
-import Trash2 from "lucide-react/dist/esm/icons/trash2";
-import Scale from "lucide-react/dist/esm/icons/scale";
-import ChevronDown from "lucide-react/dist/esm/icons/chevron-down";
-import ChevronRight from "lucide-react/dist/esm/icons/chevron-right";
-import Zap from "lucide-react/dist/esm/icons/zap";
-import Flame from "lucide-react/dist/esm/icons/flame";
-import GripVertical from "lucide-react/dist/esm/icons/grip-vertical";
 import { ScoreBadge, RetentionBadge, SectionBar } from "./card-list/CardBadges";
 import CardContextMenu from "./card-list/CardContextMenu";
 
@@ -44,8 +37,6 @@ interface Props {
   availableChapters?: string[];
   onAddKeyPart?: (cardId: string, text: string) => void;
 }
-
-
 
 
 const COLLAPSED_ROW_HEIGHT = 100;

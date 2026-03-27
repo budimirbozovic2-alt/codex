@@ -1,3 +1,4 @@
+import { ArrowLeft, CheckCircle2, Brain, Wrench, FlaskConical, Sparkles, Hash, HelpCircle, Film, Type } from "lucide-react";
 import { useState, useCallback, useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -6,29 +7,11 @@ import {
 } from "@/lib/mnemonic-storage";
 
 
-
-
-
-
-
-
-
-
 import { motion, AnimatePresence } from "framer-motion";
 import MnemonicWorkshop from "./MnemonicWorkshop";
 import MnemonicTest from "./MnemonicTest";
 import MajorSystemSettings from "./MajorSystemSettings";
 import OnboardingModal, { type OnboardingSlide, hasSeenOnboarding } from "@/components/OnboardingModal";
-import ArrowLeft from "lucide-react/dist/esm/icons/arrow-left";
-import CheckCircle2 from "lucide-react/dist/esm/icons/check-circle2";
-import Brain from "lucide-react/dist/esm/icons/brain";
-import Wrench from "lucide-react/dist/esm/icons/wrench";
-import FlaskConical from "lucide-react/dist/esm/icons/flask-conical";
-import Sparkles from "lucide-react/dist/esm/icons/sparkles";
-import Hash from "lucide-react/dist/esm/icons/hash";
-import HelpCircle from "lucide-react/dist/esm/icons/help-circle";
-import Film from "lucide-react/dist/esm/icons/film";
-import Type from "lucide-react/dist/esm/icons/type";
 interface Props {
   onBack: () => void;
 }

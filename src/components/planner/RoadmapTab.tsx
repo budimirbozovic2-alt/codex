@@ -1,7 +1,6 @@
+import { TrendingUp, Zap } from "lucide-react";
 import { motion } from "framer-motion";
 import { Progress } from "@/components/ui/progress";
-import TrendingUp from "lucide-react/dist/esm/icons/trending-up";
-import Zap from "lucide-react/dist/esm/icons/zap";
 import {
   AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, Line, ComposedChart,
 } from "recharts";

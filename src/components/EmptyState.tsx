@@ -1,11 +1,8 @@
+import { BookOpen, Brain, Sparkles } from "lucide-react";
 import { motion } from "framer-motion";
 
 
-
 import { Button } from "@/components/ui/button";
-import BookOpen from "lucide-react/dist/esm/icons/book-open";
-import Brain from "lucide-react/dist/esm/icons/brain";
-import Sparkles from "lucide-react/dist/esm/icons/sparkles";
 interface Props {
   type: "dashboard" | "review";
   onAction?: () => void;

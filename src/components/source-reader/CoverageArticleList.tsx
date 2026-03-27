@@ -1,3 +1,4 @@
+import { Check, Link2 } from "lucide-react";
 import { useMemo } from "react";
 
 
@@ -7,8 +8,6 @@ import type { Card } from "@/lib/spaced-repetition";
 import type { Source } from "@/lib/sources-storage";
 import { getCoveredSourceArticles } from "@/lib/source-coverage";
 import { cn } from "@/lib/utils";
-import Check from "lucide-react/dist/esm/icons/check";
-import Link2 from "lucide-react/dist/esm/icons/link2";
 interface Props {
   source: Source;
   cards: Card[];

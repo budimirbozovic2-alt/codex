@@ -1,12 +1,5 @@
+import { FileText, Upload, Calendar, Trash2, Eye, RefreshCw, Tag, AlertTriangle, GitCompareArrows as GitCompare, Pencil } from "lucide-react";
 import { useState, useEffect, useCallback, lazy, Suspense } from "react";
-
-
-
-
-
-
-
-
 
 
 import { Button } from "@/components/ui/button";
@@ -26,16 +19,6 @@ import { useCardContext } from "@/contexts/AppContext";
 import { db, idbLoadCards, idbLoadCategories, idbLoadSubcategories, idbLoadReviewLog, idbLoadSettings } from "@/lib/db";
 import { TabSkeleton } from "@/components/ui/page-skeleton";
 import { normalizeMatchText, stripHtmlText } from "@/lib/source-coverage";
-import FileText from "lucide-react/dist/esm/icons/file-text";
-import Upload from "lucide-react/dist/esm/icons/upload";
-import Calendar from "lucide-react/dist/esm/icons/calendar";
-import Trash2 from "lucide-react/dist/esm/icons/trash2";
-import Eye from "lucide-react/dist/esm/icons/eye";
-import RefreshCw from "lucide-react/dist/esm/icons/refresh-cw";
-import Tag from "lucide-react/dist/esm/icons/tag";
-import AlertTriangle from "lucide-react/dist/esm/icons/triangle-alert";
-import GitCompareArrows as GitCompare from "lucide-react/dist/esm/icons/git-compare-arrows as -git-compare";
-import Pencil from "lucide-react/dist/esm/icons/pencil";
 const SourceReader = lazy(() => import("@/components/SourceReader"));
 const SourceDiffView = lazy(() => import("@/components/SourceDiffView"));
 

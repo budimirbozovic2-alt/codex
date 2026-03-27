@@ -1,3 +1,4 @@
+import { CalendarClock } from "lucide-react";
 import { useMemo } from "react";
 import { motion } from "framer-motion";
 
@@ -9,7 +10,6 @@ import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
 } from "recharts";
 import { format } from "date-fns";
-import CalendarClock from "lucide-react/dist/esm/icons/calendar-clock";
 interface Props {
   cards: Card[];
   categories: string[];

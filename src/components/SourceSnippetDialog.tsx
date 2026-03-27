@@ -1,3 +1,4 @@
+import { CheckCircle } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -8,7 +9,6 @@ import { useEffect, useState } from "react";
 import { getSource, type Source } from "@/lib/sources-storage";
 import { db } from "@/lib/db";
 import { toast } from "sonner";
-import CheckCircle from "lucide-react/dist/esm/icons/check-circle";
 interface Props {
   card: Card;
   open: boolean;
