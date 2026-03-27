@@ -9,16 +9,16 @@ import { Column, TriangularRoof, DomeRoof, Base, Arch, Wall, TIER_FILLS } from "
 import type { BuildingType } from "@/lib/forum-logic";
 
 export const BUILDING_LABELS: Record<BuildingType, string> = {
-  amphitheatrum: "Amphitheatrum",
-  basilica: "Basilica",
-  tabularium: "Tabulārium",
-  rostra: "Rostra",
-  curia: "Cūria",
-  macellum: "Macellum",
-  argentaria: "Argentāria",
-  templum: "Templum",
-  arcus: "Arcus",
-  insula: "Insula",
+  amphitheatrum: "Amfiteatar",
+  basilica: "Bazilika",
+  tabularium: "Arhiv",
+  rostra: "Govornica",
+  curia: "Senat",
+  macellum: "Tržnica",
+  argentaria: "Blagajna",
+  templum: "Hram",
+  arcus: "Slavoluk",
+  insula: "Blok",
 };
 
 interface BuildingProps {

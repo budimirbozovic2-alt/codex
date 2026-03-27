@@ -123,8 +123,8 @@ export default function Dashboard({ stats, categoryStats, categories, subcategor
             <div className="flex items-center gap-3">
               <Landmark className="h-5 w-5 text-gold flex-shrink-0" />
               <div>
-                <h3 className="text-sm font-semibold text-gold tracking-[0.1em] font-display">ENTER THE FORVM</h3>
-                <p className="text-xs text-muted-foreground mt-0.5">Forum Iustitiae — tvoj hram znanja</p>
+                <h3 className="text-sm font-semibold text-gold tracking-[0.1em] font-display">FORUM ZNANJA</h3>
+                <p className="text-xs text-muted-foreground mt-0.5">Pregled napretka po kategorijama</p>
               </div>
             </div>
           </Link>

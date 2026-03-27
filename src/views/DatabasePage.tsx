@@ -95,7 +95,7 @@ export default function DatabasePage() {
             </TabsTrigger>
             <TabsTrigger value="registry" className="flex-1 gap-1.5">
               <Landmark className="h-3.5 w-3.5" />
-              Tabularium
+              Registar izvora
             </TabsTrigger>
           </TabsList>
 
