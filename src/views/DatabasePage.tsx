@@ -1,4 +1,4 @@
-import { Database, FolderOpen, Download, FileText, BookOpen, Library } from "lucide-react";
+import { Database, FolderOpen, Download, FileText, BookOpen, Landmark } from "lucide-react";
 import { useState, lazy, Suspense, useEffect } from "react";
 import { useCardContext, useUIContext } from "@/contexts/AppContext";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
@@ -94,8 +94,8 @@ export default function DatabasePage() {
               Izvori
             </TabsTrigger>
             <TabsTrigger value="registry" className="flex-1 gap-1.5">
-              <Library className="h-3.5 w-3.5" />
-              Registar
+              <Landmark className="h-3.5 w-3.5" />
+              Tabularium
             </TabsTrigger>
           </TabsList>
 

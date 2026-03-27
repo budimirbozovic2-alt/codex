@@ -138,15 +138,15 @@ export default function SourceManager() {
     <div className="space-y-6">
       {/* Stats summary */}
       <div className="grid grid-cols-3 gap-3">
-        <div className="p-4 rounded-xl border bg-card text-center">
+        <div className="glass-card p-4 rounded-xl text-center">
           <p className="text-2xl font-semibold">{uniqueSources.length}</p>
           <p className="text-xs text-muted-foreground mt-1">Master izvora</p>
         </div>
-        <div className="p-4 rounded-xl border bg-card text-center">
+        <div className="glass-card p-4 rounded-xl text-center">
           <p className="text-2xl font-semibold">{totalAliases}</p>
           <p className="text-xs text-muted-foreground mt-1">Alias mapiranja</p>
         </div>
-        <div className="p-4 rounded-xl border bg-card text-center">
+        <div className="glass-card p-4 rounded-xl text-center">
           <p className="text-2xl font-semibold">
             {modeACats}A / {modeBCats}B
           </p>
@@ -201,8 +201,8 @@ export default function SourceManager() {
                 <div
                   key={label}
                   onClick={() => toggleSelect(label)}
-                  className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
-                    isSelected ? "bg-primary/10 border-primary/30" : "bg-card hover:bg-secondary/40"
+                  className={`flex items-center gap-3 p-3 rounded-lg cursor-pointer transition-colors ${
+                    isSelected ? "glass-card border-primary/30 bg-primary/10" : "glass-card hover:bg-secondary/40"
                   }`}
                 >
                   <div className={`w-4 h-4 rounded border-2 flex items-center justify-center flex-shrink-0 ${
@@ -248,7 +248,7 @@ export default function SourceManager() {
             {categoryDepths.map(({ category, mode, override }) => (
               <div
                 key={category}
-                className="flex items-center justify-between p-3 rounded-lg border bg-card"
+                className="flex items-center justify-between p-3 rounded-lg glass-card"
               >
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium truncate">{category}</p>

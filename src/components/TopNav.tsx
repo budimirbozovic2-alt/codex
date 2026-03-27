@@ -1,4 +1,4 @@
-import { Zap, Home, GraduationCap, RotateCcw, BookOpen, Map, Brain, Network, Target, Moon, Sun, Menu, X, Focus, Settings as SettingsIcon, BarChart3, FlaskConical, Database as DatabaseIcon, HelpCircle, Plus, Landmark } from "lucide-react";
+import { Zap, Home, GraduationCap, RotateCcw, BookOpen, Brain, Network, Target, Moon, Sun, Menu, X, Focus, Settings as SettingsIcon, BarChart3, FlaskConical, Database as DatabaseIcon, HelpCircle, Plus, Landmark } from "lucide-react";
 import { useLocation } from "react-router-dom";
 
 import { NavLink } from "@/components/NavLink";
@@ -31,7 +31,6 @@ const PRIMARY_NAV = [
 
 const LAB_ANALYTICS = [
   { path: "/stats", icon: BarChart3, label: "Statistika", desc: "Pregled napretka i analitika" },
-  { path: "/knowledge-map", icon: Map, label: "Mapa znanja", desc: "Vizuelna mapa savladanosti" },
   { path: "/metacognitive", icon: BookOpen, label: "Dnevnik", desc: "Metakognitivne refleksije" },
 ];
 
