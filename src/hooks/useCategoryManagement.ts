@@ -31,18 +31,18 @@ export function useCategoryManagement({
       if (categories.includes(newName)) return;
       setCategories((prev) => prev.map((c) => (c === oldName ? newName : c)));
       // Surgical: only update cards in the renamed category
+      let updated: Card[] = [];
       setCardMapState((prev) => {
         const next = { ...prev };
-        const updated: Card[] = [];
         for (const [id, c] of Object.entries(next)) {
           if (c.category === oldName) {
             next[id] = { ...c, category: newName };
             updated.push(next[id]);
           }
         }
-        if (updated.length > 0) globalSchedulePersist({ type: "bulk", cards: updated });
         return next;
       });
+      if (updated.length > 0) globalSchedulePersist({ type: "bulk", cards: updated });
       setSubcategories((prev) => {
         const next = { ...prev };
         if (next[oldName]) {
