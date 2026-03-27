@@ -16,7 +16,10 @@ import type { Source } from "./db";
 
 // ─── Types ──────────────────────────────────────────────
 
-export type MaterialTier = "wood" | "brick" | "stone" | "marble" | "gold";
+export type ConstructionPhase = "foundation" | "skeleton" | "construction" | "complete" | "imperial";
+
+/** Backward-compatible alias — all downstream consumers keep working */
+export type MaterialTier = ConstructionPhase;
 
 export type BuildingType =
   | "amphitheatrum" | "basilica" | "tabularium" | "rostra"
@@ -49,49 +52,18 @@ export function invalidateMonumentTypesCache() {
   _monumentTypesCache = null;
 }
 
-export interface MonumentSourceBreakdown {
-  masterSource: string;
-  cardCount: number;
-  mastery: number;
+// ─── Construction Phase Logic ───────────────────────────
+
+function getConstructionPhase(mastery: number): ConstructionPhase {
+  if (mastery >= 91) return "imperial";
+  if (mastery >= 61) return "complete";
+  if (mastery >= 31) return "construction";
+  if (mastery >= 11) return "skeleton";
+  return "foundation";
 }
 
-export interface Monument {
-  category: string;
-  totalCards: number;
-  masteredCards: number;
-  mastery: number;
-  material: MaterialTier;
-  avgStability: number;
-  avgDifficulty: number;
-  leechCount: number;
-  crumbling: boolean;
-  /** User-chosen building type (or "insula" fallback) */
-  buildingType: BuildingType;
-  /** Source breakdown (populated when sources are provided) */
-  sources?: MonumentSourceBreakdown[];
-}
-
-export interface ForumState {
-  monuments: Monument[];
-  /** Overall mastery across all cards (0-100) */
-  overallMastery: number;
-  /** Learning velocity: reviews in last 7 days */
-  velocity: number;
-  /** Time-of-day phase for atmosphere (0-1, derived from hour) */
-  dayPhase: number;
-  /** Atmosphere warmth (0-1) based on velocity — higher velocity = warmer/sunnier */
-  warmth: number;
-}
-
-// ─── Material Tier Logic ────────────────────────────────
-
-function getMaterialTier(mastery: number): MaterialTier {
-  if (mastery >= 95) return "gold";
-  if (mastery >= 80) return "marble";
-  if (mastery >= 60) return "stone";
-  if (mastery >= 30) return "brick";
-  return "wood";
-}
+/** @deprecated Use getConstructionPhase — kept for backward compat */
+const getMaterialTier = getConstructionPhase;
 
 // ─── Monument Calculator ────────────────────────────────
 
