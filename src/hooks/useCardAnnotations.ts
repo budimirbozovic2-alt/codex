@@ -138,18 +138,18 @@ export function useCardAnnotations({
   // Bulk flag cards as needsReview
   const bulkFlagNeedsReview = useCallback((cardIds: string[]) => {
     if (cardIds.length === 0) return;
+    let updated: Card[] = [];
     setCardMapState((prev) => {
       const next = { ...prev };
-      const updated: Card[] = [];
       for (const id of cardIds) {
         if (next[id]) {
           next[id] = { ...next[id], needsReview: true };
           updated.push(next[id]);
         }
       }
-      schedulePersist({ type: "bulk", cards: updated });
       return next;
     });
+    if (updated.length > 0) schedulePersist({ type: "bulk", cards: updated });
   }, [setCardMapState]);
 
   // Reorder cards by setting sortOrder
