@@ -41,6 +41,7 @@ export async function loadSources(): Promise<Source[]> {
 export async function saveSource(source: Source): Promise<void> {
   _cache = null;
   await db.sources.put(source);
+  _notify();
 }
 
 export async function deleteSource(id: string): Promise<void> {
