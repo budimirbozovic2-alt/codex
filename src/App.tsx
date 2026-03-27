@@ -13,6 +13,8 @@ import ProcessingOverlay from "@/components/ProcessingOverlay";
 import { lazy, Suspense } from "react";
 import { PageSkeleton } from "@/components/ui/page-skeleton";
 import NotFound from "./pages/NotFound";
+import { ForumProvider } from "@/components/gamification/ForumContext";
+import ForumTransition from "@/components/gamification/ForumTransition";
 
 // Lazy-loaded route pages
 const DashboardPage = lazy(() => import("@/views/DashboardPage"));
