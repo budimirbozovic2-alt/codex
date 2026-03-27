@@ -140,6 +140,16 @@ export const MonumentDetailDialog = memo(function MonumentDetailDialog({ monumen
             </div>
           )}
         </ScrollArea>
+
+        {/* Review launch button */}
+        {overdueCount > 0 && (
+          <div className="px-6 py-4 border-t border-border/50">
+            <Button onClick={handleStartReview} className="w-full gap-2 bg-gold hover:bg-gold/90 text-gold-foreground font-display">
+              <Play className="h-4 w-4" />
+              Consolidā {overdueCount} {overdueCount === 1 ? "cartam" : "cartas"}
+            </Button>
+          </div>
+        )}
       </DialogContent>
     </Dialog>
   );
