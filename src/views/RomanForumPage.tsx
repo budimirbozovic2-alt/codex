@@ -43,7 +43,14 @@ export default function RomanForumPage() {
               onReviewSection={reviewSection}
             />
           ) : (
-            <div key="forum-grid" className="relative z-10">
+            <motion.div
+              key="forum-grid"
+              className="relative z-10"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
+            >
               {/* Header */}
               <div className="sticky top-0 glass-card px-6 py-4 mb-8 z-20">
                 <div className="flex items-center justify-between">
@@ -80,7 +87,7 @@ export default function RomanForumPage() {
                   ))}
                 </div>
               )}
-            </div>
+            </motion.div>
           )}
         </AnimatePresence>
       </LayoutGroup>
