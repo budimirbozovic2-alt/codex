@@ -433,7 +433,7 @@ export async function idbLoadSettings<T>(key: string, fallback: T): Promise<T> {
   return row ? row.value : fallback;
 }
 
-export async function idbSaveSettings(key: string, value: any): Promise<void> {
+export async function idbSaveSettings(key: string, value: unknown): Promise<void> {
   await db.settings.put({ key, value });
 }
 
