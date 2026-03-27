@@ -91,16 +91,27 @@ function createPersistQueue() {
       timer = null;
     }
     if (pending.length > 0) {
-      flush();
+      try { sessionStorage.setItem("codex-flush-pending", "1"); } catch {}
+      flush(); // fire-and-forget — best effort on unmount
     }
   }
 
-  return { schedule, cleanup };
+  return { schedule, cleanup, flush, hasPending: () => pending.length > 0 };
 }
 
 // Singleton persist queue — created once per module, safe for StrictMode double-mount
 export const persistQueue = createPersistQueue();
 export const schedulePersist = persistQueue.schedule;
+
+// ─── Eager flush on tab hide (most reliable cross-browser signal) ────
+if (typeof document !== "undefined") {
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "hidden" && persistQueue.hasPending()) {
+      try { sessionStorage.setItem("codex-flush-pending", "1"); } catch {}
+      persistQueue.flush(); // fire-and-forget, browser allows ~5s for hidden-tab work
+    }
+  });
+}
 
 /** Check if previous session had interrupted writes */
 export function checkInterruptedFlush(): void {
