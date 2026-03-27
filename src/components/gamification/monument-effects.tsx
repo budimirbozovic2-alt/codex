@@ -52,7 +52,7 @@ function TorchOverlay({ mastery, tier, id }: { mastery: number; tier: string; id
       </defs>
       {positions.map((p, i) => (
         <g key={i}>
-          <circle cx={p.x} cy={p.y} r={8} fill="url(#torch-glow)" />
+          <circle cx={p.x} cy={p.y} r={8} fill={`url(#torch-glow-${id})`} />
           <circle cx={p.x} cy={p.y} r={2} fill="hsl(35,100%,55%)" opacity={0.9}>
             <animate attributeName="opacity" values="0.7;1;0.7" dur="1.5s" repeatCount="indefinite" />
             <animate attributeName="r" values="1.5;2.5;1.5" dur="2s" repeatCount="indefinite" />
