@@ -94,20 +94,20 @@ export function useCardImport({
         if (Array.isArray(data.categories)) {
           setCategories((prev) => [...new Set([...prev, ...(data.categories as string[])])]);
         }
-        if (parsed.subcategories && typeof parsed.subcategories === "object") {
+        if (data.subcategories && typeof data.subcategories === "object") {
           setSubcategories((prev) => {
             const merged = { ...prev };
-            for (const [cat, subs] of Object.entries(parsed.subcategories as Record<string, string[]>)) {
+            for (const [cat, subs] of Object.entries(data.subcategories as Record<string, string[]>)) {
               merged[cat] = [...new Set([...(merged[cat] || []), ...subs])];
             }
             return merged;
           });
         }
-        if (Array.isArray(parsed.reviewLog) && strategy === "overwrite") {
-          setReviewLog(parsed.reviewLog);
+        if (Array.isArray(data.reviewLog) && strategy === "overwrite") {
+          setReviewLog(data.reviewLog);
         }
-        if (parsed.srSettings && strategy === "overwrite") {
-          updateSRSettings({ ...DEFAULT_SR_SETTINGS, ...parsed.srSettings });
+        if (data.srSettings && strategy === "overwrite") {
+          updateSRSettings({ ...DEFAULT_SR_SETTINGS, ...(data.srSettings as Partial<SRSettings>) });
         }
 
         // Restore sources & mindMaps (v3+) — surgical upsert
