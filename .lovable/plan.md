@@ -1,116 +1,141 @@
 
 
-# Audit Report: Forum Iustitiae — Phase 3 Review
+# Smart Source Engine & Hierarchy Manager
 
-## 1. Data-to-Visual Mapping (The Logic)
+## Overview
+Build a Source Registry (alias/normalization system) and a dynamic depth algorithm that uses Source labels to drive the Knowledge Map hierarchy. Cards link to Sources via `sourceId` — the Source's `label` becomes the organizing principle instead of manual subcategories.
 
-### Material Tier Formula (`forum-logic.ts:61-67`)
-Mastery is computed as `(reviewSections / totalSections) * 100` — the percentage of FSRS sections in `SectionState.Review` (state 2).
+## Architecture
 
-| Mastery % | Tier    |
-|-----------|---------|
-| ≥ 95      | gold    |
-| ≥ 80      | marble  |
-| ≥ 60      | stone   |
-| ≥ 30      | brick   |
-| < 30      | wood    |
+```text
+source-registry.ts        ← Storage & alias resolution logic
+SourceManager.tsx          ← UI component (new tab in Database page)
+useSourceHierarchy.ts      ← Hook: A/B depth calculator + tree builder
+KnowledgeMap.tsx           ← Updated to use source-based hierarchy
+forum-logic.ts             ← Updated to aggregate by Master Source
+```
 
-### Crumbling Threshold (`forum-logic.ts:112`)
-`crumbling = (leechCount / totalSections) > 0.2` — when more than 20% of sections have 5+ lapses, the monument pulses and cracks appear.
+## Data Model
 
-### Effect Thresholds (`monument-effects.tsx`)
-| Effect | Condition | Detail |
-|--------|-----------|--------|
-| Cracks | `crumbling === true` | Opacity scales with `leechCount / totalCards * 2`, capped at 0.8 |
-| Ivy/Moss | `avgStability < 10` | Opacity = `(10 - stability) / 10`, range 0.2–0.8 |
-| Torches | `mastery > 30` | Count by tier: gold=4, marble=3, stone=2, else=1 |
-| Scaffolding | `material === "wood"` | Fixed 50% opacity wooden beams |
-| Fountain | `avgStability > 30 && mastery > 60` | Animated water droplets |
+### Source Registry (`localStorage: codex-source-registry`)
+```ts
+interface SourceAlias {
+  rawLabel: string;        // original Source.label
+  masterSource: string;    // normalized "Master Source" name
+}
 
-### Atmosphere (`ForumAtmosphere.tsx`)
-- **dayPhase**: `minutesSinceMidnight / 1440` (0–1 cycle, real wall-clock)
-- **warmth**: `min(1, velocity / 100)` — 100+ reviews/week = max warmth
-- Gradient hue shifts from 230 (night blue) toward 40 (warm amber) based on `sunArc * warmth`
-- Golden horizon glow peaks at sunrise/sunset transitions
+interface CategoryOverride {
+  category: string;
+  forcedMode: "A" | "B" | null;  // null = auto
+}
 
-## 2. SVG Architecture
+interface SourceRegistry {
+  aliases: SourceAlias[];
+  overrides: CategoryOverride[];
+}
+```
 
-### Primitives (`monument-svg.tsx`)
-6 reusable SVG `<g>` groups: `Column`, `TriangularRoof`, `DomeRoof`, `Base`, `Arch`, `Wall`. Each accepts `tier: MaterialTier` and computes fill/stroke from `TIER_FILLS` palette. Conditional rendering uses a `switch(tier)` inside each primitive — e.g., Column renders:
-- wood: simple timber post
-- brick: tapered pillar with horizontal mortar lines
-- stone: fluted Doric with capital
-- marble: Ionic with volute circles
-- gold: Corinthian with acanthus leaf `<path>` details
+### Resolution Logic
+For each card with a `sourceId`, look up the linked Source's `label`, then check the registry for an alias mapping. If found, use the `masterSource` name. If not, use the raw `label` as-is. Cards without `sourceId` get grouped under "Bez izvora".
 
-### Composers (`monument-buildings.tsx`)
-10 building functions compose primitives into complete structures. All share `viewBox="0 0 200 160"`. A `BUILDING_MAP` record maps `BuildingType → React.FC`. `MonumentSVG` switches via this map with `Insula` fallback.
+## Task 1: `src/lib/source-registry.ts` (New)
 
-### Animations (`MonumentCard.tsx:96-109`)
-- **Upgrade detection**: `useRef<MaterialTier>` tracks previous tier. `useEffect` compares indices in `TIER_ORDER` array — triggers only on upgrade (higher index).
-- **Shimmer**: `motion.div` with linear gradient slides from -100% to 300% x over 1s.
-- **Particles**: 10 `motion.div` circles scatter outward from center with randomized angle, distance (40-80px), delay (0-0.3s), duration (0.8-1.2s). Colors mapped per tier.
-- Both wrapped in `AnimatePresence`, auto-dismiss after 2s timeout.
+Pure functions for registry CRUD:
+- `loadSourceRegistry(): SourceRegistry`
+- `saveSourceRegistry(registry): void`
+- `resolveMasterSource(rawLabel, registry): string` — returns master name or raw label
+- `getUniqueSources(cards, sources, registry): { masterSource: string; rawLabels: string[]; cardCount: number }[]`
+- `getCategoryDepthMode(category, cards, sources, registry): "A" | "B"` — the A/B algorithm:
+  - Check for manual override first
+  - Count distinct Master Sources in this category
+  - If ≥2 distinct sources → mode A (L1=Source, L2=H1)
+  - If 1 source has ≥90% of cards → mode B (L1=H1, L2=H2)
 
-## 3. Persistence & State
+## Task 2: `src/hooks/useSourceHierarchy.ts` (New)
 
-### BuildingType Storage
-- `localStorage` key: `codex-monument-types`
-- Shape: `Record<string, BuildingType>` (category name → building type)
-- Written by `saveMonumentType()`, read by `loadMonumentTypes()` — called inside `calculateForumState()` on every Forum render
-- CategoryManager maintains local state synced via `handleSetBuildingType`
+Hook that builds the dynamic tree for KnowledgeMap:
+```ts
+function useSourceHierarchy(cards, sources, category): HierarchyNode[]
+```
 
-### Sync Risk Assessment
-- **Low risk**: Forum reads from `useCardContext().cards` via `useMemo` — same reactive source as the rest of the app. Any card update (review, edit) triggers re-render of `cards` object, which recalculates `forumState`.
-- **Caveat**: `calculateForumState` is a pure function called inside `useMemo([cards])`, so it always reflects current state.
+Uses `useMemo` over `[cards, sources, category]`. For each card in the category:
+1. Resolve its Master Source name
+2. Parse existing subcategory/chapter as H1/H2 stand-ins (since cards don't have H1/H2 fields today — the subcategory IS the structural level)
+3. Build tree based on mode A or B
 
-### Easter Egg Persistence
-- `ForumContext.tsx`: `unlocked` state initialized from `localStorage.getItem("codex-forum-unlocked") === "1"`. Set to `"1"` on `enterForum()`. Persists across sessions and tabs.
+**Mode A tree**: `Master Source > Subcategory`
+**Mode B tree**: `Subcategory > Chapter`
 
-## 4. Performance & Optimization
+Returns array of `{ name: string; children: { name: string; cards: Card[] }[]; cardCount: number }`.
 
-- `MonumentCard` is wrapped in `React.memo` — only re-renders when its specific `monument` object or `index` changes.
-- `MonumentDetailDialog` is also `React.memo` with `useMemo` for category card computation.
-- `ForumAtmosphere` is `React.memo` with two `useMemo` calls for gradient/glow — only recalculates when `dayPhase` or `warmth` change.
-- `forumState` in `RomanForumPage` is `useMemo([cards])` — recomputes only on card state changes.
-- SVG buildings are lightweight inline elements with no DOM event listeners; effects use simple SVG `<animate>` (not JS animation loops).
+## Task 3: `src/components/SourceManager.tsx` (New)
 
-## 5. Issues Found
+New tab in DatabasePage called "Registar izvora". UI sections:
 
-### Issue A: Dead variable `totalMastered` (`forum-logic.ts:183`)
-Declared `let totalMastered = 0` but never incremented or used. Dead code — should be removed.
+**Section 1: Master Sources table**
+- Lists all unique Source labels found across cards (via `sourceId` → Source lookup)
+- Each row: raw label, assigned Master Source (editable), card count
+- "Merge" action: select multiple raw labels → assign to one Master Source name
+- Uses existing `Dialog`, `Input`, `Badge`, `Button` components
 
-### Issue B: Duplicate `BuildingType` export
-`BuildingType` is exported from both `forum-logic.ts:13` AND `monument-buildings.tsx:9`. CategoryManager imports from `forum-logic.ts`, MonumentCard uses the type from `monument-buildings.tsx` indirectly. This creates a maintenance risk — one could diverge from the other.
-**Fix**: Remove the duplicate from `monument-buildings.tsx`, import from `forum-logic.ts` instead.
+**Section 2: Category Depth Overrides**
+- Lists categories that have source-linked cards
+- Shows auto-detected mode (A or B) with explanation
+- Toggle to force A or B
 
-### Issue C: Dead variable `totalCards` (`forum-logic.ts:182`)
-`const totalCards = cards.length` — declared but never used (overall mastery is computed from sections, not cards). Dead code.
+**Section 3: Stats summary**
+- Total sources, total aliases, categories in mode A vs B
 
-### Issue D: `torch-glow` gradient ID collision (`monument-effects.tsx:47`)
-If multiple MonumentCards render simultaneously (they do in the grid), all share the same `<defs><radialGradient id="torch-glow">`. SVG IDs are document-global — only the first definition wins. Cards with different tier torch colors would all reference the same gradient.
-**Fix**: Make the ID unique per monument, e.g., `torch-glow-${monument.category}`.
+## Task 4: DatabasePage Update
 
-### Issue E: Zero-card category handling
-When a category has 0 cards, `buildMonument` returns a valid object with `mastery: 0, material: "wood"`. The building renders correctly as a wood-tier Insula with scaffolding overlay. No crash, but a category with 0 cards shouldn't appear as a monument — this is currently handled correctly since `calculateForumState` groups by `card.category`, so empty categories never appear.
+Add a 4th tab "Registar" with a `Library` icon:
+```tsx
+<TabsTrigger value="registry">Registar</TabsTrigger>
+<TabsContent value="registry">
+  <SourceManager />
+</TabsContent>
+```
 
-### Issue F: No `useCallback` on `handleStartReview` in `MonumentDetailDialog`
-Minor — the function recreates on every render. Should use `useCallback([onClose, navigate, monument])`.
+## Task 5: KnowledgeMap Integration
 
----
+In the "subcategories" step of KnowledgeMap, when a category has source-linked cards:
+- Import and call `useSourceHierarchy` to get the dynamic tree
+- If mode A: Level 1 shows Master Source names instead of subcategories
+- If mode B: Level 1 shows subcategories as before (but derived from source structure)
+- Cards without `sourceId` fall into an "Ostalo" group as they do now
+- The existing SubcategoryCard component can be reused — it just gets different data
+- Navigation still flows: Category → L1 → L2 → MentalSkeleton detail
 
-## Summary
+**Important**: Categories with NO source-linked cards continue using the existing subcategory system unchanged. The source hierarchy only activates when cards have `sourceId` links.
 
-The foundation is **solid with 4 actionable fixes** before Phase 4:
+## Task 6: Forum Integration
 
-| # | Severity | Fix |
-|---|----------|-----|
-| A | Low | Remove dead `totalMastered` variable |
-| B | Medium | Remove duplicate `BuildingType` from `monument-buildings.tsx` |
-| C | Low | Remove dead `totalCards` variable |
-| D | Medium | Unique SVG gradient IDs to prevent torch-glow collision |
-| E | — | No action needed (correctly handled) |
-| F | Low | `useCallback` for `handleStartReview` |
+In `forum-logic.ts`, update `calculateForumState`:
+- Load the source registry
+- For monuments, optionally sub-group by Master Source (adding a `sources` array to the `Monument` interface)
+- Monument mastery stats remain aggregated at the category level (no visual change)
+- MonumentDetailDialog can show a "by source" breakdown in the card list
 
-All FSRS math is untouched. No structural regressions detected.
+## Performance
+
+- `useSourceHierarchy` uses `useMemo([cards, category])` — only recomputes when cards change
+- `resolveMasterSource` is O(1) with a pre-built `Map<string, string>` from the registry
+- Source lookup by ID uses a `Map<string, Source>` built once per render cycle
+- No new IndexedDB queries — Sources are already loaded in SourcesView; pass them through context or load once
+
+## Execution Order
+
+1. Create `src/lib/source-registry.ts` (pure logic, no React)
+2. Create `src/hooks/useSourceHierarchy.ts` (hook)
+3. Create `src/components/SourceManager.tsx` (UI)
+4. Update `src/views/DatabasePage.tsx` (add 4th tab)
+5. Update `src/components/KnowledgeMap.tsx` (use source hierarchy)
+6. Update `src/lib/forum-logic.ts` (aggregate by source)
+
+## Guardrails
+- No FSRS math changes
+- No changes to Card interface (uses existing `sourceId` + Source.label)
+- Existing subcategory navigation preserved for categories without sources
+- Standard barrel imports for icons
+- `useMemo` for all hierarchy computations
 
