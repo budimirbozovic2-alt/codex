@@ -1,76 +1,137 @@
 
 
-# Deep Loading Diagnostics — Analysis & Fix Plan
+# Global UI/UX Standardization — High-End Modern Software Aesthetic
 
-## Boot Sequence Trace (Current Flow)
+## Overview
+Strip all game-like, ancient-Rome, and old-fashioned visual effects. Establish a clean, premium fintech aesthetic: DM Sans for all body/data text, Cinzel reserved for primary page titles only, fast subtle transitions, no particles/shimmer/glow, standardized glass-card borders.
 
-```text
-index.html         → splash DOM visible (10s auto-retry timer)
-main.tsx           → 8s splash removal safety timer
-                   → React render (App.tsx)
-  App.tsx          → CardProvider → useCards() → useCardBootstrap()
-    bootstrap      → ensureDbOpen(6000ms timeout)
-                   → migrateFromLocalStorage()
-                   → initMetacognitiveCache() + initPlannerCache()
-                   → idbLoadCards/Categories/Subcategories/ReviewLog/Settings
-                   → setReady(true) in finally block
-  useCards.ts      → 5s forceReady safety net
-```
+## Scope of Changes
 
-## Findings
+### 1. Typography Cleanup
 
-### No Critical Hang Bugs Found
-The boot sequence has **3 layers of protection** already working correctly:
-1. `useCardBootstrap` panic timer (8s)
-2. `useCards` forceReady timer (5s)  
-3. `main.tsx` splash removal timer (8s)
-4. `index.html` 10s boot-fallback with auto-retry
+**`src/index.css`** (lines 611-614, 726-730):
+- Remove the `h1, h2, .font-display { font-family: var(--font-display) }` rule at line 728-730 (it forces Cinzel on ALL headings)
+- Keep headings as DM Sans by default (already set at line 608, 611-614)
+- `.font-display` class remains available but will only be applied manually to primary page titles
 
-The `finally` block in `useCardBootstrap` **always** runs `setReady(true)`, even on error. The `dbOk === false` path does `return` but `finally` still executes.
+**52 component files** using `font-display`:
+- Keep `font-display` ONLY on primary page titles: `h1` elements in RomanForumPage, Dashboard heading, StatsPage title, PlannerPage title, etc.
+- Remove `font-display` from: stat numbers, labels, section headers, buttons, badges, ArchNode `h4`, MonumentInterior `h2`, phase labels, all `text-[10px]` labels, source breakdown labels, all `tabular-nums` data displays
+- This is ~50+ individual class removals across files. Key files:
+  - `MonumentCard.tsx` — remove from phase label (line 184)
+  - `MonumentInterior.tsx` — remove from h2 (line 103), source labels (line 181), review button (line 115)
+  - `ArchNode.tsx` — remove from h4 (line 53)
+  - `Dashboard.tsx` — remove from Forum link h3 (line 126)
+  - `ReviewComplete.tsx` — keep on h2 (primary heading)
+  - `SessionComplete.tsx` — keep on heading
+  - `CognitiveAnalytics.tsx` — remove from all stat numbers
+  - `RoadmapTab.tsx` — remove from stat numbers
+  - All `planner/`, `stats/`, `dashboard/` sub-components — audit and remove from non-title elements
 
-### What's Likely Happening in Sandbox
-The Lovable sandbox has restricted/slow IndexedDB. The `ensureDbOpen(6000)` call may hang for up to 6 seconds. Combined with cache init and data loading, the total can approach 8+ seconds before UI shows.
+### 2. Animation Cleanup
 
-### Real Issues Found (Minor-to-Medium)
+**`src/components/gamification/MonumentCard.tsx`**:
+- Delete `PARTICLE_COLORS`, `SHIMMER_COLORS` constants, `generateParticles()` function
+- Delete `upgraded`/`particles` state + the `useEffect` detecting phase changes
+- Delete the entire shimmer `AnimatePresence` block (lines 132-153)
+- Delete the entire particle burst `AnimatePresence` block (lines 155-172)
+- Remove `animate-pulse` on crumbling monuments (line 124) — replace with a subtle `opacity-75` static class
+- Remove `shadow-md shadow-gold/10` and `shadow-lg shadow-gold/20` glow from `PHASE_STYLES` — set all `glow` to `""`
+- Keep `layoutId` for zoom-in transition
+- Simplify SVG crossfade: reduce duration from 0.6s to 0.25s
+- Reduce card entry animation from `y: 24, duration: 0.4` to `y: 10, duration: 0.2`
 
-**1. Missing `onblocked` handler on Dexie** — If another tab has the DB open during HMR, Dexie can enter a "blocked" state that never resolves within the 6s timeout. No handler exists to detect this.
+**`src/components/gamification/ForumTransition.tsx`**:
+- Remove `textShadow` from the h1 (line 55)
+- Reduce total transition time from 3s to 1.5s (faster cuts)
 
-**2. No timeout on `migrateFromLocalStorage()`** — Line 101 in bootstrap awaits migration with no timeout wrapper. If any `bulkAdd` call hangs (e.g., QuotaExceededError on a large review log), it blocks indefinitely until the 8s panic timer fires.
+**`src/index.css`**:
+- Delete `@keyframes achievement-glow` and `.achievement-glow` class (lines 764-772)
+- Delete `@keyframes mastery-pulse` and `.mastery-complete` class (lines 774-782)
+- Delete `.btn-imperial` hover shimmer animation and `@keyframes gold-shimmer` (lines 734-754)
+- Keep `.btn-imperial` as a simple class with `border-color` only, no animation
 
-**3. No timeout on `initMetacognitiveCache()` + `initPlannerCache()`** — These are wrapped in `.catch()` but not in `withTimeout()`. If `db.diary.toArray()` or similar hangs, it blocks until panic.
+**`src/components/review/ReviewComplete.tsx`** and **`src/components/learn/SessionComplete.tsx`**:
+- Remove `achievement-glow` class from the icon container
 
-**4. `RomanForumPage` calls `idbLoadReviewLog()` independently** — This loads ALL review log entries (no day filter) every time the Forum page mounts, duplicating data already in context. For large logs this is slow and wasteful.
+### 3. UI Kit Synchronization
 
-**5. Splash removal race** — `main.tsx` line 42 removes splash after 8s. `useCardBootstrap` panic timer also removes splash after 8s. Both can race. Not harmful but messy.
+**`src/index.css`**:
+- Standardize `.glass-card` border to `border: 1px solid hsl(var(--gold) / 0.12)` in dark mode, `hsl(var(--border) / 0.5)` in light mode
+- Remove `.forum-stone` class (unused after cleanup)
+- Standardize `.forum-tablet` to match `.glass-card` styling (same border pattern)
 
-## Fix Plan
+**`src/components/gamification/MonumentCard.tsx` — `PHASE_STYLES`**:
+- Standardize all borders to `border-gold/20` (uniform, no per-phase variance)
+- Remove all `bg-gold/*` background tints — set all `bg` to `""`
+- Keep `accent` color variance (subtle opacity gradient is fine)
 
-### Fix 1: `src/lib/db.ts` — Add `onblocked` handler
-- On `db.open()`, Dexie supports `db.on('blocked', callback)`. Register a handler that logs a warning and triggers the timeout reject early, preventing indefinite "blocked" state.
+**`src/components/gamification/ArchNode.tsx`**:
+- Replace `forum-tablet` with `glass-card`
+- Change `font-display` on h4 to regular sans
+- Ensure mastery bar and overall styling matches MonumentCard's sharpness
 
-### Fix 2: `src/hooks/useCardBootstrap.ts` — Wrap migration + cache init in withTimeout
-- Wrap `migrateFromLocalStorage()` in `withTimeout(…, 3000, "migration", undefined)`
-- Wrap the `Promise.all([initMetacognitiveCache, initPlannerCache])` in `withTimeout(…, 3000, "cache init", undefined)`
-- This ensures every async step has a bounded execution time
+### 4. Forum Blueprint Cleanup
 
-### Fix 3: `src/views/RomanForumPage.tsx` — Use context reviewLog
-- Replace `idbLoadReviewLog().then(setReviewLog)` with the `reviewLog` already available from `useCardContext()`
-- Eliminates redundant full-table scan on every Forum mount
+**`src/components/gamification/monument-effects.tsx`**:
+- `CrackOverlay`: Keep as clean sharp gold vector lines (already good)
+- `IvyOverlay`: Keep but remove "leaf" ellipses — use only line paths for status indication
+- Remove all `<animate>` SVG elements from torches (flickering) — make torch glow static
+- Remove fountain water drop animations — make fountain a static SVG element
+- Keep scaffolding as-is (clean lines)
 
-### Fix 4: `src/hooks/useCardBootstrap.ts` — Add diagnostic console markers
-- Add `console.log("[boot:diag] step N: description")` at each stage boundary
-- These are lightweight and help diagnose any future stalls
+**`src/components/gamification/ForumAtmosphere.tsx`**:
+- Remove the golden glow radial gradient at the bottom (lines 39-45)
+- Keep the subtle top ambient gradient but reduce max opacity from 0.4 to 0.2
+
+**`src/components/Dashboard.tsx`**:
+- Remove the golden radial glow div (line 38)
+
+### 5. Emoji Removal from Phase Icons
+
+**`src/lib/forum-logic.ts`** — `PHASE_ICONS`:
+- Replace emojis with clean text indicators or remove entirely:
+  - `"📐"` → `""` (or a small Lucide icon reference)
+  - All 5 phase icons → empty strings
+- In `MonumentCard.tsx` line 179: remove the emoji `<span>` entirely if icons are empty
+
+### 6. Dead CSS Cleanup
+
+**`src/index.css`**:
+- Remove duplicate `.glass-card` definition (lines 688-692 duplicated at 719-724)
+- Remove `.forum-stone` if no longer referenced
 
 ## Files Changed
 
-| File | Change |
-|------|--------|
-| `src/lib/db.ts` | Add `db.on('blocked')` handler in `ensureDbOpen` |
-| `src/hooks/useCardBootstrap.ts` | Wrap migration + cache init in `withTimeout`; add diagnostic markers |
-| `src/views/RomanForumPage.tsx` | Use `reviewLog` from context instead of separate IDB load |
+| File | Change Summary |
+|------|---------------|
+| `src/index.css` | Remove achievement-glow, mastery-pulse, gold-shimmer, btn-imperial animation, duplicate glass-card, forum-stone; standardize glass-card border; remove Cinzel from all headings |
+| `src/components/gamification/MonumentCard.tsx` | Delete particles, shimmer, glow shadows, animate-pulse; standardize borders; simplify transitions |
+| `src/components/gamification/ForumTransition.tsx` | Remove textShadow; speed up transition |
+| `src/components/gamification/monument-effects.tsx` | Remove SVG `<animate>` elements; static torch/fountain; remove ivy leaves |
+| `src/components/gamification/ForumAtmosphere.tsx` | Remove bottom gold glow; reduce ambient opacity |
+| `src/components/gamification/ArchNode.tsx` | Use glass-card; remove font-display |
+| `src/components/gamification/MonumentInterior.tsx` | Remove font-display from non-title elements; remove MATERIAL_ICONS emoji |
+| `src/components/Dashboard.tsx` | Remove golden radial glow; remove font-display from non-title text |
+| `src/components/review/ReviewComplete.tsx` | Remove achievement-glow |
+| `src/components/learn/SessionComplete.tsx` | Remove achievement-glow |
+| `src/lib/forum-logic.ts` | Clear PHASE_ICONS emojis |
+| ~40 other component files | Remove `font-display` from stat numbers, labels, sub-headers |
 
-## Risk Assessment
-- All changes are additive safety nets — no existing logic altered
-- Forum page change removes a redundant IDB call (pure improvement)
-- No FSRS, UI style, or boot timer changes
+## Execution Order
+1. `src/index.css` — CSS foundation cleanup
+2. `src/lib/forum-logic.ts` — Phase icons/labels
+3. `MonumentCard.tsx` — Strip particles/shimmer/glow
+4. `monument-effects.tsx` — Static effects
+5. `ForumAtmosphere.tsx` + `ForumTransition.tsx` — Atmosphere cleanup
+6. `ArchNode.tsx` + `MonumentInterior.tsx` — UI kit sync
+7. `Dashboard.tsx`, `ReviewComplete.tsx`, `SessionComplete.tsx` — Glow removal
+8. Batch font-display removal across remaining ~40 files
+
+## Guardrails
+- 5-phase construction logic untouched
+- FSRS algorithm untouched
+- All Phase 1-3 audit fixes preserved
+- Serbian Latin maintained throughout
+- Blueprint SVG line-art style preserved (just made static)
 
