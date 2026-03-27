@@ -34,7 +34,6 @@ const DatabasePage = lazy(() => import("@/views/DatabasePage"));
 const SpeedReaderPage = lazy(() => import("@/views/SpeedReaderPage"));
 const MindMapPage = lazy(() => import("@/views/MindMapPage"));
 const RomanForumPage = lazy(() => import("@/views/RomanForumPage"));
-const BuildingShowcase = lazy(() => import("@/views/BuildingShowcase"));
 
 const queryClient = new QueryClient(); // rebuild trigger v2
 
