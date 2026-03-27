@@ -65,7 +65,6 @@ const APP_SLIDES: OnboardingSlide[] = [
     bullets: [
       "Navigator — organizuj kartice po glavama drag-and-drop-om",
       "Auditor — heatmapa savladanosti sa detaljnim statistikama",
-      "Kanban — kolone po glavama ili mastery nivou sa drag-and-drop",
     ],
   },
   {
