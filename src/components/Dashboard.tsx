@@ -33,7 +33,9 @@ export default function Dashboard({ stats, categoryStats, categories, subcategor
   const { unlocked } = useForumContext();
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 relative">
+      {/* Golden radial glow */}
+      <div className="absolute inset-x-0 top-0 h-64 pointer-events-none" style={{ background: 'radial-gradient(ellipse at 50% 0%, hsl(43 74% 49% / 0.06) 0%, transparent 70%)' }} />
       {wc.showExamProgress && (
         <ExamProgressBar
           learnedSections={stats.learnedSections}
@@ -54,7 +56,7 @@ export default function Dashboard({ stats, categoryStats, categories, subcategor
 
       {wc.showProgressRing && plannerData && plannerData.activePhase && (
         <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.12 }}
-          className="rounded-xl bg-card border p-5">
+          className="glass-card p-5">
           <div className="flex items-center gap-2 mb-4">
             <Target className="h-4 w-4 text-primary" />
             <h3 className="text-sm font-medium">Progres faze: {plannerData.activePhase.name}</h3>
@@ -116,7 +118,8 @@ export default function Dashboard({ stats, categoryStats, categories, subcategor
 
       {unlocked && (
         <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}>
-          <Link to="/forum" className="block glass-card border border-gold/30 rounded-xl p-5 hover:border-gold/50 transition-colors group">
+          <motion.div layoutId="forum-gateway">
+          <Link to="/forum" className="block glass-card border border-gold/30 p-5 hover:border-gold/50 transition-colors group">
             <div className="flex items-center gap-3">
               <Landmark className="h-5 w-5 text-gold flex-shrink-0" />
               <div>
@@ -125,6 +128,7 @@ export default function Dashboard({ stats, categoryStats, categories, subcategor
               </div>
             </div>
           </Link>
+          </motion.div>
         </motion.div>
       )}
     </div>

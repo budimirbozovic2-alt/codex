@@ -27,7 +27,7 @@ export const StatusIconsRow = memo(function StatusIconsRow({ icons, onExport, st
         {icons.map(si => (
           <Tooltip key={si.key}>
             <TooltipTrigger asChild>
-              <div className={`flex items-center gap-1.5 px-3 py-2 rounded-lg border bg-card cursor-default ${si.color}`}>
+              <div className={`flex items-center gap-1.5 px-3 py-2 glass-card cursor-default ${si.color}`}>
                 {si.icon}
                 {si.critical && <span className="text-xs font-medium">{si.key === "memory" ? "Memorija" : si.key === "storage" ? `${storagePercent}%` : ""}</span>}
               </div>

@@ -14,7 +14,7 @@ interface Props {
 export const DailyBriefing = memo(function DailyBriefing({ briefText, timeRecMessage, todayReviews, dailyGoal, goalProgress, streak }: Props) {
   return (
     <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}
-      className="rounded-xl bg-card border p-5 space-y-4">
+      className="glass-card p-5 space-y-4">
       <div className="flex items-center gap-2">
         <Brain className="h-4 w-4 text-primary" />
         <h3 className="text-sm font-medium font-display">Dnevni briefing</h3>

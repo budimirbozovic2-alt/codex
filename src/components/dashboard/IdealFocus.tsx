@@ -25,7 +25,7 @@ interface Props {
 export const IdealFocus = memo(function IdealFocus({ focusRatio, actualRatio, autoSuggestion, dailyGoal }: Props) {
   return (
     <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.28 }}
-      className="rounded-xl bg-card border p-5 space-y-4">
+      className="glass-card p-5 space-y-4">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Gauge className="h-4 w-4 text-primary" />

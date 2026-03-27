@@ -52,7 +52,7 @@ export default function RomanForumPage() {
               transition={{ duration: 0.2 }}
             >
               {/* Header */}
-              <div className="sticky top-0 glass-card px-6 py-4 mb-8 z-20">
+              <motion.div layoutId="forum-gateway" className="sticky top-0 glass-card px-6 py-4 mb-8 z-20">
                 <div className="flex items-center justify-between">
                   <h1 className="text-2xl font-bold tracking-[0.15em] text-gold font-display">
                     FORUM ZNANJA
@@ -66,7 +66,7 @@ export default function RomanForumPage() {
                     </div>
                   </div>
                 </div>
-              </div>
+              </motion.div>
 
               {/* Monument Grid */}
               {forumState.monuments.length === 0 ? (
