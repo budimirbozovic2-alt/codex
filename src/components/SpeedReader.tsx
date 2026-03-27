@@ -302,7 +302,14 @@ export default function SpeedReader() {
     const localIdx = currentWordIdx - seg.globalStartIdx;
     speakSegment(segIdx, localIdx);
 
-    return () => {};
+    return () => {
+      window.speechSynthesis.cancel();
+      ttsPlayingRef.current = false;
+      if (ttsTimeoutRef.current) {
+        clearTimeout(ttsTimeoutRef.current);
+        ttsTimeoutRef.current = null;
+      }
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ttsEnabled, playing, ttsMode]);
 

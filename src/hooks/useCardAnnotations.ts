@@ -1,4 +1,4 @@
-import { useCallback, useRef } from "react";
+import { useCallback } from "react";
 import { Card, calculateNextReview } from "@/lib/spaced-repetition";
 import { loadAppSettings } from "@/lib/app-settings";
 import { ReviewLogEntry } from "@/lib/storage";
@@ -16,12 +16,11 @@ export function useCardAnnotations({
   setCardMapState,
   setReviewLog,
 }: UseCardAnnotationsParams) {
-  const cachedRetentionRef = useRef(loadAppSettings().targetRetention);
 
   // O(1) review — surgical IDB write
   const reviewSection = useCallback(
     (cardId: string, sectionId: string, grade: number) => {
-      const cachedRetention = cachedRetentionRef.current;
+      const cachedRetention = loadAppSettings().targetRetention;
       patchCard(cardId, (c) => {
         const entry: ReviewLogEntry = { timestamp: Date.now(), cardId, sectionId, grade, category: c.category };
         idbAddReviewLogEntry(entry);
