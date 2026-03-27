@@ -1,4 +1,4 @@
-import { Zap, Home, GraduationCap, RotateCcw, BookOpen, Brain, Network, Target, Moon, Sun, Menu, X, Focus, Settings as SettingsIcon, BarChart3, FlaskConical, Database as DatabaseIcon, HelpCircle, Plus, Landmark } from "lucide-react";
+import { Home, GraduationCap, RotateCcw, Moon, Sun, Menu, X, Focus, Settings as SettingsIcon, Database as DatabaseIcon, HelpCircle, Plus, Landmark, Wrench } from "lucide-react";
 import { useLocation } from "react-router-dom";
 
 import { NavLink } from "@/components/NavLink";
@@ -29,20 +29,16 @@ const PRIMARY_NAV = [
   { path: "/review", icon: RotateCcw, label: "Konsolidacija", badge: true },
 ];
 
-const LAB_ANALYTICS = [
-  { path: "/stats", icon: BarChart3, label: "Statistika", desc: "Pregled napretka i analitika" },
-  { path: "/metacognitive", icon: BookOpen, label: "Dnevnik", desc: "Metakognitivne refleksije" },
+const TOOLS_NAV = [
+  { path: "/stats", label: "Statistika" },
+  { path: "/metacognitive", label: "Dnevnik" },
+  { path: "/mnemonic", label: "Mnemo radionica" },
+  { path: "/planner", label: "Strateški planer" },
+  { path: "/speed-reader", label: "Speed Reader" },
+  { path: "/mind-map", label: "Mentalne mape" },
 ];
 
-const LAB_TOOLS = [
-  { path: "/mnemonic", icon: Brain, label: "Mnemo radionica", desc: "Tehnike pamćenja" },
-  { path: "/planner", icon: Target, label: "Strateški planer", desc: "Planiranje učenja" },
-  { path: "/speed-reader", icon: Zap, label: "Speed Reader", desc: "Brzo čitanje podkategorija" },
-  { path: "/mind-map", icon: Network, label: "Mentalne mape", desc: "Vizuelizacija hijerarhija i postupaka" },
-];
-
-const LAB_ITEMS = [...LAB_ANALYTICS, ...LAB_TOOLS];
-const LAB_PATHS = LAB_ITEMS.map(i => i.path);
+const TOOLS_PATHS = TOOLS_NAV.map(i => i.path);
 
 export default function TopNav({ onToggleZen, zenActive, onOpenOnboarding }: Props) {
   const location = useLocation();
@@ -121,7 +117,7 @@ export default function TopNav({ onToggleZen, zenActive, onOpenOnboarding }: Pro
     setMobileOpen(false);
   }, [location.pathname]);
 
-  const isLabActive = LAB_PATHS.some(p => location.pathname === p || location.pathname.startsWith(p + "/"));
+  const isToolsActive = TOOLS_PATHS.some(p => location.pathname === p || location.pathname.startsWith(p + "/"));
 
   return (
     <nav className="sticky top-0 z-40 border-b bg-background/90 backdrop-blur-md">
@@ -151,51 +147,36 @@ export default function TopNav({ onToggleZen, zenActive, onOpenOnboarding }: Pro
             </NavLink>
           ))}
 
-          {/* Laboratorija mega menu trigger */}
+          {/* Alati dropdown */}
           <div ref={labRef} className="relative">
             <button
               onClick={() => startTransition(() => setLabOpen(v => !v))}
               className={`relative flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors whitespace-nowrap hover:bg-secondary/60 ${
-                isLabActive || labOpen
+                isToolsActive || labOpen
                   ? "bg-primary/10 text-primary"
                   : "text-muted-foreground hover:text-foreground"
               }`}
             >
-              <FlaskConical className="h-4 w-4 flex-shrink-0" />
-              <span>Laboratorija</span>
+              <Wrench className="h-4 w-4 flex-shrink-0" />
+              <span>Alati</span>
             </button>
 
-            {/* Mega menu panel */}
             {labOpen && (
-              <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 w-[380px] rounded-xl border bg-popover p-4 shadow-xl animate-in fade-in-0 zoom-in-95 slide-in-from-top-2 duration-200">
-                <div className="grid grid-cols-2 gap-1">
-                  {LAB_ITEMS.map(({ path, icon: Icon, label, desc }) => {
-                    const active = location.pathname === path;
-                    return (
-                      <Link
-                        key={path}
-                        to={path}
-                        className={`flex items-start gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors hover:bg-secondary/60 group ${
-                          active ? "bg-primary/10" : ""
-                        }`}
-                      >
-                        <div className={`mt-0.5 rounded-md p-1.5 transition-colors ${
-                          active ? "bg-primary/20 text-primary" : "bg-muted text-muted-foreground group-hover:bg-primary/10 group-hover:text-primary"
-                        }`}>
-                          <Icon className="h-4 w-4" />
-                        </div>
-                        <div className="min-w-0">
-                          <div className={`font-medium leading-tight ${active ? "text-primary" : "text-foreground"}`}>
-                            {label}
-                          </div>
-                          <div className="text-[11px] text-muted-foreground mt-0.5 leading-snug">
-                            {desc}
-                          </div>
-                        </div>
-                      </Link>
-                    );
-                  })}
-                </div>
+              <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 w-[200px] rounded-xl border bg-popover p-2 shadow-xl animate-in fade-in-0 zoom-in-95 slide-in-from-top-2 duration-200">
+                {TOOLS_NAV.map(({ path, label }) => {
+                  const active = location.pathname === path;
+                  return (
+                    <Link
+                      key={path}
+                      to={path}
+                      className={`block rounded-lg px-3 py-2 text-sm transition-colors hover:bg-secondary/60 ${
+                        active ? "bg-primary/10 text-primary font-medium" : "text-foreground"
+                      }`}
+                    >
+                      {label}
+                    </Link>
+                  );
+                })}
               </div>
             )}
           </div>
@@ -291,32 +272,17 @@ export default function TopNav({ onToggleZen, zenActive, onOpenOnboarding }: Pro
             </NavLink>
           ))}
 
-          {/* Analitika group */}
-          <div className="pt-1.5 pb-0.5">
-            <span className="px-3 text-[10px] uppercase tracking-widest text-muted-foreground/60 font-medium">Analitika</span>
-          </div>
-          {LAB_ANALYTICS.map(({ path, icon: Icon, label }) => (
-            <NavLink key={path} to={path}
-              className="flex items-center gap-2.5 px-3 py-2 pl-6 rounded-md text-sm text-muted-foreground hover:text-foreground hover:bg-secondary/60 transition-colors"
-              activeClassName="bg-primary/10 text-primary font-medium"
-              onClick={() => setMobileOpen(false)}
-            >
-              <Icon className="h-4 w-4 flex-shrink-0" />
-              <span>{label}</span>
-            </NavLink>
-          ))}
-
-          {/* Alati group */}
+          {/* Alati */}
           <div className="pt-1.5 pb-0.5">
             <span className="px-3 text-[10px] uppercase tracking-widest text-muted-foreground/60 font-medium">Alati</span>
           </div>
-          {LAB_TOOLS.map(({ path, icon: Icon, label }) => (
+          {TOOLS_NAV.map(({ path, label }) => (
             <NavLink key={path} to={path}
               className="flex items-center gap-2.5 px-3 py-2 pl-6 rounded-md text-sm text-muted-foreground hover:text-foreground hover:bg-secondary/60 transition-colors"
               activeClassName="bg-primary/10 text-primary font-medium"
               onClick={() => setMobileOpen(false)}
             >
-              <Icon className="h-4 w-4 flex-shrink-0" />
+              <Wrench className="h-4 w-4 flex-shrink-0" />
               <span>{label}</span>
             </NavLink>
           ))}

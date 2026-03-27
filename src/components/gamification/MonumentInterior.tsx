@@ -157,7 +157,7 @@ export const MonumentInterior = memo(function MonumentInterior({
         )}
         {tree.length === 0 && (
           <div className="flex items-center justify-center min-h-[20vh]">
-            <p className="text-sm text-muted-foreground italic">Nulla structura in hoc monumento.</p>
+            <p className="text-sm text-muted-foreground italic">Nema strukture u ovom monumentu.</p>
           </div>
         )}
       </ScrollArea>
