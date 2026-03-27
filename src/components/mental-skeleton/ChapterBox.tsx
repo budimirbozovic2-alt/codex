@@ -10,6 +10,7 @@ import ArrowUp from "lucide-react/dist/esm/icons/arrow-up";
 import ArrowDown from "lucide-react/dist/esm/icons/arrow-down";
 import Edit3 from "lucide-react/dist/esm/icons/edit-3";
 import Trash2 from "lucide-react/dist/esm/icons/trash-2";
+import { SortableContext, rectSortingStrategy } from "@dnd-kit/sortable";
 import DraggableCardTile from "./DraggableCardTile";
 import { Mode, UNASSIGNED_CHAPTER } from "./types";
 
