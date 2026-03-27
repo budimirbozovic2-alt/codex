@@ -1,47 +1,62 @@
 
 
-# Diagnostic: Eternal Loading Screen in Web Preview
+# Fix: Strip Structural Headings from Auto-Split Card Content
 
-## Root Cause Analysis
+## Problem
+Both split engines (`auto-split-engine.ts` and `selection-split-engine.ts`) already filter `isHeading` (H1-H3 tags) and markdown-style headings, but they do NOT filter **structural legal headings** that appear as regular `<p>` elements — lines like `"GLAVA PRVA"`, `"DIO DRUGI"`, `"POGLAVLJE III"`, `"ODJELJAK 2"`. These get included in card body content as noise.
 
-The splash screen (`#app-splash`) is rendered inside `#root` in `index.html` with `position: fixed; z-index: 9999`. Three mechanisms should remove it:
+## Solution
+Add a shared `isStructuralLine()` utility that detects these lines, then apply it as an additional filter in both content-collection loops.
 
-1. **`main.tsx` line 49**: `setTimeout(hideSplashImmediately, 8000)` — but this is inside a `<script type="module">`. If the module fails to load/parse (e.g., transient network issue, sandbox restriction), this timer never gets registered.
-2. **`useCardBootstrap.ts` finally block**: removes splash after DB init — but only runs if React mounted successfully.
-3. **`useCardBootstrap.ts` panic timer (8s)**: same dependency — React must have mounted.
+### New: `isStructuralLine` helper (in each engine, or shared)
+```ts
+const STRUCTURAL_KEYWORDS = /^\s*(DIO|GLAVA|POGLAVLJE|ODJELJAK|CZĘŚĆ|TYTUŁ)\b/i;
 
-**Critical gap**: There is NO fallback that works if the ES module itself fails to load. The splash persists forever.
-
-**Secondary issue**: `window.onunhandledrejection` (main.tsx line 39-42) calls `showFatalBootError` which replaces `#root.innerHTML` with an error page. ANY stray unhandled rejection (e.g., failed lazy import, failed fetch, sandbox quirk) during the boot window nukes the React tree before it can mount. In some cases the error page itself may look like a "stuck" state.
-
-## Fix (3 files)
-
-### 1. `index.html` — Add non-module splash safety timer
-Add a plain `<script>` tag (NOT `type="module"`) before the module script. This executes synchronously and guarantees the timer is registered regardless of whether ES modules load:
-```html
-<script>
-setTimeout(function(){
-  var s=document.getElementById("app-splash");
-  if(s){s.style.transition="opacity 0.3s";s.style.opacity="0";setTimeout(function(){if(s.parentNode)s.remove()},400);}
-},10000);
-</script>
+function isStructuralLine(text: string): boolean {
+  const trimmed = text.trim();
+  if (!trimmed || trimmed.length > 120) return false;
+  // Purely uppercase lines ≤80 chars (e.g. "GLAVA PRVA", "OPŠTE ODREDBE")
+  if (trimmed.length <= 80 && trimmed === trimmed.toUpperCase() && /[A-ZČĆŽŠĐ]/.test(trimmed)) return true;
+  // Lines starting with structural keywords
+  if (STRUCTURAL_KEYWORDS.test(trimmed)) return true;
+  return false;
+}
 ```
 
-### 2. `main.tsx` — Make unhandledrejection handler non-destructive
-The current handler destroys the entire `#root` innerHTML on ANY rejection. Change it to only log during the critical window, and only show fatal error if the bootstrap async block itself fails (which is already caught in the try/catch):
+### File 1: `auto-split-engine.ts` — lines 140-144
+Current content collection loop:
+```ts
+for (let j = i + 1; j < nextBoundary; j++) {
+  if (lines[j].text && !lines[j].isHeading) {
+```
+Change to:
+```ts
+for (let j = i + 1; j < nextBoundary; j++) {
+  if (lines[j].text && !lines[j].isHeading && !isStructuralLine(lines[j].text)) {
+```
 
-Replace destructive `window.onunhandledrejection` (line 39-42) with a version that only logs but does NOT call `showFatalBootError`. The actual bootstrap error is caught by the try/catch at line 72. Keep `window.onerror` as-is (synchronous errors are truly fatal).
+### File 2: `selection-split-engine.ts` — lines 115-117
+Current content collection loop:
+```ts
+for (let j = lineIndex + 1; j < contentEnd; j++) {
+  if (lines[j].trim() && !HEADING_LINE_REGEX.test(lines[j])) contentLines.push(lines[j]);
+```
+Change to:
+```ts
+for (let j = lineIndex + 1; j < contentEnd; j++) {
+  if (lines[j].trim() && !HEADING_LINE_REGEX.test(lines[j]) && !isStructuralLine(lines[j])) contentLines.push(lines[j]);
+```
 
-### 3. `useCardBootstrap.ts` — No changes needed
-The existing panic timer (8s) and finally block are correct. They both call `setReady(true)` and remove splash.
+## Files modified
+| File | Change |
+|------|--------|
+| `src/lib/auto-split-engine.ts` | Add `isStructuralLine` function + filter in content loop |
+| `src/lib/selection-split-engine.ts` | Add `isStructuralLine` function + filter in content loop |
 
 ## What stays untouched
-- `MainLayout.tsx` — no changes
+- Title detection logic — structural lines above `Član` can still be picked up as titles if appropriate
+- `essayName` / metadata — unchanged
+- `plainSnippet` — will also be cleaned (structural lines won't appear)
 - FSRS/SM-2 logic — not involved
-- Electron IPC calls — already guarded with `if (window.electronAPI)`
-- `boot-trace.ts` — no changes
-- `db.ts` / `ensureDbOpen` timeout logic — already correct
-
-## Execution
-Single response — two small file edits (index.html + main.tsx).
+- `heading-promotion.ts` — not modified
 
