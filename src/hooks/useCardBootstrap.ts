@@ -85,9 +85,14 @@ export function useCardBootstrap(setters: BootSetters) {
         const dbOk = await ensureDbOpen(6000);
         markBootStep("cards:db-open-done", dbOk ? "ok" : "failed");
         if (!dbOk) {
-          console.warn("[boot] DB unavailable — starting in fallback mode");
-          splashProgress(100, "Pokretanje bez baze…");
-          showSplashError("IndexedDB nije dostupan ili je isteklo vrijeme čekanja.");
+          const errState = getDbErrorState();
+          if (errState) {
+            setDbError(errState);
+            splashProgress(100, "Greška baze podataka");
+          } else {
+            splashProgress(100, "Pokretanje bez baze…");
+            showSplashError("IndexedDB nije dostupan ili je isteklo vrijeme čekanja.");
+          }
           return;
         }
 
