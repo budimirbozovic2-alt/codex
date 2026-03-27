@@ -74,7 +74,7 @@ export default function SRSettingsPanel({ settings, onUpdate, onBack }: Props) {
             <ArrowLeft className="h-4 w-4" /> Nazad
           </button>
           <h2 className="text-2xl font-serif">Podešavanja</h2>
-          <p className="text-sm text-muted-foreground mt-0.5">Algoritam, interfejs i referenca</p>
+          <p className="text-sm text-muted-foreground mt-0.5">Algoritam, interfejs, tok rada i sistem</p>
         </div>
         <InfoPanel title="O podešavanjima">
           <p><strong className="text-foreground">FSRS v5</strong> — algoritam za optimalni raspored ponavljanja.</p>
