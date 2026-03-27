@@ -127,7 +127,7 @@ function useGlobalPomodoro() {
           setRunning(false);
           const s = settingsRef.current;
           if (modeRef.current === "work") {
-            addPomodoroEntry({ timestamp: Date.now(), type: "focus", durationMinutes: s.workMinutes });
+            void addPomodoroEntry({ timestamp: Date.now(), type: "focus", durationMinutes: s.workMinutes });
             const newCycle = cycleRef.current + 1;
             setCycleCount(newCycle);
             if (s.longBreakInterval > 0 && newCycle % s.longBreakInterval === 0) {
