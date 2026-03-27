@@ -99,7 +99,7 @@ export function useCards() {
   const {
     reviewSection, markRead, toggleTag, logError, clearErrorLog,
     addKeyPart, bulkFlagNeedsReview, reorderCards, bulkUpdateChapter,
-  } = useCardAnnotations({ patchCard, setCardMapState, setReviewLog });
+  } = useCardAnnotations({ patchCard, setCardMapState, setReviewLog, cardMapRef });
 
   // ── Category management (extracted module) ──
   const {

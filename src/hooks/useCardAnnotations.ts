@@ -189,13 +189,14 @@ export function useCardAnnotations({
           const c = { ...next[u.id], chapter: u.chapter, chapterOrder: u.chapterOrder, updatedAt: Date.now() };
           next[u.id] = c;
           changed.push(c);
+          cardMapRef.current[u.id] = c;
         }
       }
       return next;
     });
     if (changed.length > 0) schedulePersist({ type: "bulk", cards: changed });
     bumpMapVersion();
-  }, [setCardMapState]);
+  }, [setCardMapState, cardMapRef]);
 
   return {
     reviewSection,
