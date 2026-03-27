@@ -72,17 +72,14 @@ export function useCardCRUD({
     (question: string, answer: string, category: string, subcategory?: string) => {
       const card = createFlashCard(question, answer, category, subcategory);
       card.updatedAt = Date.now();
-      setCardMapState((prev) => {
-        return { ...prev, [card.id]: card };
-      });
+      setCardMapState((prev) => ({ ...prev, [card.id]: card }));
       bumpMapVersion();
-      schedulePersist({ type: "put", card });
       if (!categoriesRef.current.includes(category)) {
         setCategories((prev) => [...prev, category]);
       }
       return card;
     },
-    [setCategories, setCardMapState, schedulePersist],
+    [setCategories, setCardMapState],
   );
 
   // O(1) direct update — surgical IDB write
