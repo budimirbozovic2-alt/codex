@@ -28,13 +28,14 @@ export function useCardCRUD({
 
   // ── Surgical single-card update (O(1) state + O(1) IDB) ──
   const patchCard = useCallback((id: string, patcher: (card: Card) => Card) => {
+    let updated: Card | null = null;
     setCardMapState((prev) => {
       const card = prev[id];
       if (!card) return prev;
-      const updated = patcher(card);
-      schedulePersist({ type: "put", card: updated });
+      updated = patcher(card);
       return { ...prev, [id]: updated };
     });
+    if (updated) schedulePersist({ type: "put", card: updated });
   }, [setCardMapState, schedulePersist]);
 
   const addCard = useCallback(
@@ -60,9 +61,9 @@ export function useCardCRUD({
       if (extra?.childCardIds) card.childCardIds = extra.childCardIds;
       if (extra?.sourceModules) card.sourceModules = extra.sourceModules;
       setCardMapState((prev) => {
-        schedulePersist({ type: "put", card });
         return { ...prev, [card.id]: card };
       });
+      schedulePersist({ type: "put", card });
       if (!categoriesRef.current.includes(category)) {
         setCategories((prev) => [...prev, category]);
       }
@@ -75,9 +76,9 @@ export function useCardCRUD({
     (question: string, answer: string, category: string, subcategory?: string) => {
       const card = createFlashCard(question, answer, category, subcategory);
       setCardMapState((prev) => {
-        schedulePersist({ type: "put", card });
         return { ...prev, [card.id]: card };
       });
+      schedulePersist({ type: "put", card });
       if (!categoriesRef.current.includes(category)) {
         setCategories((prev) => [...prev, category]);
       }
@@ -135,20 +136,19 @@ export function useCardCRUD({
     setCardMapState((prev) => {
       const next = { ...prev };
       delete next[id];
-      schedulePersist({ type: "delete", id });
       return next;
     });
+    schedulePersist({ type: "delete", id });
     toast.success("Kartica obrisana.");
   }, [setCardMapState, schedulePersist]);
 
   const splitCard = useCallback((id: string) => {
+    let newCards: Card[] = [];
     setCardMapState((prev) => {
       const card = prev[id];
       if (!card || card.sections.length <= 1) return prev;
       const next = { ...prev };
       delete next[id];
-      schedulePersist({ type: "delete", id });
-      const newCards: Card[] = [];
       card.sections.forEach((section) => {
         const newCard = {
           ...createCard(
@@ -162,9 +162,12 @@ export function useCardCRUD({
         next[newCard.id] = newCard;
         newCards.push(newCard);
       });
-      schedulePersist({ type: "bulk", cards: newCards });
       return next;
     });
+    if (newCards.length > 0) {
+      schedulePersist({ type: "delete", id });
+      schedulePersist({ type: "bulk", cards: newCards });
+    }
   }, [setCardMapState, schedulePersist]);
 
   return { patchCard, addCard, addFlashCard, updateCard, deleteCard, splitCard };

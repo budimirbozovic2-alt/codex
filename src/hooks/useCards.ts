@@ -56,13 +56,17 @@ export function useCards() {
 
   // ── Bulk map update (for operations touching many cards) ──
   const setCardMap = useCallback((updater: (prev: CardMap) => CardMap, persist: "surgical" | "full" = "full") => {
+    let bulkCards: Card[] = [];
     setCardMapState((prev) => {
       const next = updater(prev);
       if (persist === "full") {
-        schedulePersist({ type: "full", map: next });
+        bulkCards = Object.values(next);
       }
       return next;
     });
+    if (bulkCards.length > 0) {
+      schedulePersist({ type: "bulk", cards: bulkCards });
+    }
   }, []);
 
   const setCategories = useCallback((updater: (prev: string[]) => string[]) => {

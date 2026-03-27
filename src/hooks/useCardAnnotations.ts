@@ -138,50 +138,50 @@ export function useCardAnnotations({
   // Bulk flag cards as needsReview
   const bulkFlagNeedsReview = useCallback((cardIds: string[]) => {
     if (cardIds.length === 0) return;
+    let updated: Card[] = [];
     setCardMapState((prev) => {
       const next = { ...prev };
-      const updated: Card[] = [];
       for (const id of cardIds) {
         if (next[id]) {
           next[id] = { ...next[id], needsReview: true };
           updated.push(next[id]);
         }
       }
-      schedulePersist({ type: "bulk", cards: updated });
       return next;
     });
+    if (updated.length > 0) schedulePersist({ type: "bulk", cards: updated });
   }, [setCardMapState]);
 
   // Reorder cards by setting sortOrder
   const reorderCards = useCallback((orderedIds: string[]) => {
+    let updated: Card[] = [];
     setCardMapState((prev) => {
       const next = { ...prev };
-      const updated: Card[] = [];
       orderedIds.forEach((id, index) => {
         if (next[id]) {
           next[id] = { ...next[id], sortOrder: index };
           updated.push(next[id]);
         }
       });
-      schedulePersist({ type: "bulk", cards: updated });
       return next;
     });
+    if (updated.length > 0) schedulePersist({ type: "bulk", cards: updated });
   }, [setCardMapState]);
 
   // Update chapter and chapterOrder (Mental Skeleton DnD)
   const bulkUpdateChapter = useCallback((updates: { id: string; chapter: string; chapterOrder: number }[]) => {
+    let changed: Card[] = [];
     setCardMapState((prev) => {
       const next = { ...prev };
-      const changed: Card[] = [];
       for (const u of updates) {
         if (next[u.id]) {
           next[u.id] = { ...next[u.id], chapter: u.chapter, chapterOrder: u.chapterOrder };
           changed.push(next[u.id]);
         }
       }
-      schedulePersist({ type: "bulk", cards: changed });
       return next;
     });
+    if (changed.length > 0) schedulePersist({ type: "bulk", cards: changed });
   }, [setCardMapState]);
 
   return {

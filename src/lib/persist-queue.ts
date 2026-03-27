@@ -1,6 +1,5 @@
 import { Card } from "@/lib/spaced-repetition";
 import {
-  idbSaveCards,
   idbDeleteCard,
   idbBulkPutCards,
 } from "@/lib/db";
@@ -29,8 +28,7 @@ export function mapToArray(map: CardMap): Card[] {
 export type PersistAction =
   | { type: "put"; card: Card }
   | { type: "delete"; id: string }
-  | { type: "bulk"; cards: Card[] }
-  | { type: "full"; map: CardMap };
+  | { type: "bulk"; cards: Card[] };
 
 function createPersistQueue() {
   const pending: PersistAction[] = [];
@@ -46,16 +44,6 @@ function createPersistQueue() {
     try { sessionStorage.setItem("codex-flush-pending", "1"); } catch {}
 
     try {
-      // Use the LAST full action (most recent snapshot), not the first
-      let fullAction: PersistAction | undefined;
-      for (let i = actions.length - 1; i >= 0; i--) {
-        if (actions[i].type === "full") { fullAction = actions[i]; break; }
-      }
-      if (fullAction && fullAction.type === "full") {
-        await idbSaveCards(mapToArray(fullAction.map));
-        return;
-      }
-
       const puts: Card[] = [];
       const deletes: string[] = [];
       for (const a of actions) {

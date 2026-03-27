@@ -31,18 +31,18 @@ export function useCategoryManagement({
       if (categories.includes(newName)) return;
       setCategories((prev) => prev.map((c) => (c === oldName ? newName : c)));
       // Surgical: only update cards in the renamed category
+      let updated: Card[] = [];
       setCardMapState((prev) => {
         const next = { ...prev };
-        const updated: Card[] = [];
         for (const [id, c] of Object.entries(next)) {
           if (c.category === oldName) {
             next[id] = { ...c, category: newName };
             updated.push(next[id]);
           }
         }
-        if (updated.length > 0) globalSchedulePersist({ type: "bulk", cards: updated });
         return next;
       });
+      if (updated.length > 0) globalSchedulePersist({ type: "bulk", cards: updated });
       setSubcategories((prev) => {
         const next = { ...prev };
         if (next[oldName]) {
@@ -59,18 +59,18 @@ export function useCategoryManagement({
     (name: string) => {
       setCategories((prev) => prev.filter((c) => c !== name));
       // Surgical: only update cards in the deleted category
+      let updated: Card[] = [];
       setCardMapState((prev) => {
         const next = { ...prev };
-        const updated: Card[] = [];
         for (const [id, c] of Object.entries(next)) {
           if (c.category === name) {
             next[id] = { ...c, category: "Opšte", subcategory: "" };
             updated.push(next[id]);
           }
         }
-        if (updated.length > 0) globalSchedulePersist({ type: "bulk", cards: updated });
         return next;
       });
+      if (updated.length > 0) globalSchedulePersist({ type: "bulk", cards: updated });
       setSubcategories((prev) => {
         const next = { ...prev };
         delete next[name];
@@ -99,18 +99,18 @@ export function useCategoryManagement({
         return { ...prev, [category]: list.map((s) => (s === oldName ? newName : s)) };
       });
       // Surgical: only update cards with the old subcategory
+      let updated: Card[] = [];
       setCardMapState((prev) => {
         const next = { ...prev };
-        const updated: Card[] = [];
         for (const [id, c] of Object.entries(next)) {
           if (c.category === category && c.subcategory === oldName) {
             next[id] = { ...c, subcategory: newName };
             updated.push(next[id]);
           }
         }
-        if (updated.length > 0) globalSchedulePersist({ type: "bulk", cards: updated });
         return next;
       });
+      if (updated.length > 0) globalSchedulePersist({ type: "bulk", cards: updated });
     },
     [setSubcategories, setCardMapState],
   );
@@ -119,35 +119,35 @@ export function useCategoryManagement({
     (category: string, subcategory: string) => {
       setSubcategories((prev) => ({ ...prev, [category]: (prev[category] || []).filter((s) => s !== subcategory) }));
       // Surgical: only update cards with the deleted subcategory
+      let updated: Card[] = [];
       setCardMapState((prev) => {
         const next = { ...prev };
-        const updated: Card[] = [];
         for (const [id, c] of Object.entries(next)) {
           if (c.category === category && c.subcategory === subcategory) {
             next[id] = { ...c, subcategory: "" };
             updated.push(next[id]);
           }
         }
-        if (updated.length > 0) globalSchedulePersist({ type: "bulk", cards: updated });
         return next;
       });
+      if (updated.length > 0) globalSchedulePersist({ type: "bulk", cards: updated });
     },
     [setSubcategories, setCardMapState],
   );
 
   const bulkUpdateSubcategory = useCallback((ids: string[], subcategory: string) => {
+    let updated: Card[] = [];
     setCardMapState((prev) => {
       const next = { ...prev };
-      const updated: Card[] = [];
       for (const id of ids) {
         if (next[id]) {
           next[id] = { ...next[id], subcategory };
           updated.push(next[id]);
         }
       }
-      schedulePersist({ type: "bulk", cards: updated });
       return next;
     });
+    if (updated.length > 0) schedulePersist({ type: "bulk", cards: updated });
   }, [setCardMapState, schedulePersist]);
 
   return {
