@@ -126,6 +126,8 @@
      THEME: Slate — cool neutral monochrome
      ═══════════════════════════════════════════ */
   [data-theme="slate"] {
+    --gold: 43 74% 49%;
+    --gold-foreground: 0 0% 100%;
     --background: 0 0% 100%;
     --foreground: 220 14% 10%;
 
