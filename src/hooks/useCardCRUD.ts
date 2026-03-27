@@ -7,13 +7,12 @@ import {
   createSection,
   SourceModule,
 } from "@/lib/spaced-repetition";
-import { CardMap, PersistAction, bumpMapVersion } from "@/lib/persist-queue";
+import { CardMap, bumpMapVersion } from "@/lib/persist-queue";
 
 interface UseCardCRUDParams {
   categories: string[];
   setCardMapState: React.Dispatch<React.SetStateAction<CardMap>>;
   setCategories: (updater: (prev: string[]) => string[]) => void;
-  schedulePersist: (action: PersistAction) => void;
 }
 
 export function useCardCRUD({
