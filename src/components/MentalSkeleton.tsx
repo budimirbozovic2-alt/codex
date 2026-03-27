@@ -7,6 +7,7 @@ import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip
 import {
   DndContext, PointerSensor, useSensor, useSensors,
   DragEndEvent, DragOverlay, DragStartEvent,
+  MeasuringStrategy,
 } from "@dnd-kit/core";
 import { toast } from "sonner";
 import { ArrowLeft, Eye, Compass, Plus, X, BookOpen } from "lucide-react";
