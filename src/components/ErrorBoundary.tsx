@@ -48,6 +48,10 @@ export class ErrorBoundary extends Component<Props, State> {
       if (existing.length > MAX_ENTRIES) existing.splice(0, existing.length - MAX_ENTRIES);
       localStorage.setItem(LOG_KEY, JSON.stringify(existing));
     } catch (_) {}
+    // IPC error logging (Electron only)
+    try {
+      window.electronAPI?.logError?.(`[${this.props.label || "unknown"}] ${error.message}\n${error.stack || ""}`);
+    } catch (_) {}
   }
 
   handleRetry = () => {

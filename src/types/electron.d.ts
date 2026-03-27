@@ -22,6 +22,7 @@ interface ElectronAPI {
   windowIsMaximized: () => Promise<boolean>;
   onWindowMaximizedChanged: (callback: (isMaximized: boolean) => void) => () => void;
   isElectron: true;
+  logError: (message: string) => Promise<boolean>;
 }
 
 interface Window {
