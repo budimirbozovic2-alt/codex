@@ -14,7 +14,7 @@ interface ReviewCardProps {
   showAnswer: boolean;
   setShowAnswer: (v: boolean) => void;
   onGrade: (g: number) => void;
-  onLogError: (cardId: string, text: string) => void;
+  onLogError: (cardId: string, text: string, sectionId?: string) => void;
   onBack: () => void;
   onPause?: () => void;
   progress: number;
