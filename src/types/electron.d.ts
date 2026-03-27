@@ -26,4 +26,5 @@ interface ElectronAPI {
 
 interface Window {
   electronAPI?: ElectronAPI;
+  __bootTrace?: Array<{ step: string; ts: number; meta?: string }>;
 }

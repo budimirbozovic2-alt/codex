@@ -12,7 +12,7 @@ export function markBootStep(step: string, meta?: string) {
     if (el) el.textContent = step;
   } catch {}
   try {
-    (window as any).__bootTrace = _trace;
+    window.__bootTrace = _trace;
   } catch {}
 }
 
