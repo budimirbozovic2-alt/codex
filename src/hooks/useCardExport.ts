@@ -19,8 +19,8 @@ async function buildJsonChunked(
   onProgress(10, "Priprema podataka...");
   await new Promise((r) => setTimeout(r, 30));
 
-  const dataAny = data as any;
-  const cardsArr: any[] = dataAny.cards || [];
+  const dataAny = data as Record<string, unknown>;
+  const cardsArr: unknown[] = (dataAny.cards as unknown[]) || [];
   const CHUNK = 500;
   const blobParts: (string | Blob)[] = [];
 
