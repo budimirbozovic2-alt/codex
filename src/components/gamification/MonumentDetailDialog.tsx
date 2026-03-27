@@ -64,6 +64,12 @@ export const MonumentDetailDialog = memo(function MonumentDetailDialog({ monumen
   if (!monument) return null;
 
   const materialIcon = MATERIAL_ICONS[monument.material];
+  const overdueCount = categoryCards.filter(c => c.overdue).length;
+
+  const handleStartReview = () => {
+    onClose();
+    navigate(`/review?category=${encodeURIComponent(monument.category)}`);
+  };
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
