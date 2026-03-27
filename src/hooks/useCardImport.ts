@@ -57,7 +57,7 @@ export function useCardImport({
           question: sanitizeHtml(c.question ?? ""),
           tags: c.tags || [],
           errorLog: c.errorLog || [],
-          sections: (c.sections || []).map((s: any) => ({
+          sections: (Array.isArray(c.sections) ? c.sections : []).map((s: Record<string, unknown>) => ({
             ...s,
             id: s.id || crypto.randomUUID(),
             state: s.state ?? 0,
