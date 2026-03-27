@@ -55,14 +55,10 @@ export default function HealthMonitor() {
         { name: "Mape uma", count: mindMaps, icon: <Brain className="h-3.5 w-3.5" /> },
       ]);
 
-      // Storage estimate (navigator.storage API)
-      if (navigator.storage?.estimate) {
-        const est = await navigator.storage.estimate();
-        setIdbEstimate({ usage: est.usage || 0, quota: est.quota || 0 });
-      }
-
-      // Overall storage usage (IndexedDB via navigator.storage.estimate)
-      setLsUsage(await getStorageUsage());
+      // Storage usage (single call covers both widgets)
+      const storageResult = await getStorageUsage();
+      setIdbEstimate({ usage: storageResult.usedBytes, quota: storageResult.maxBytes });
+      setLsUsage(storageResult);
     } catch (err) {
       console.error("[health] refresh failed", err);
     } finally {

@@ -15,16 +15,16 @@ function playTone(frequency: number, duration: number, type: OscillatorType = "s
   const ctx = getAudioCtx();
   if (!ctx) return;
   
-  const osc = audioCtx.createOscillator();
-  const gain = audioCtx.createGain();
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
   osc.type = type;
   osc.frequency.value = frequency;
-  gain.gain.setValueAtTime(volume, audioCtx.currentTime);
-  gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+  gain.gain.setValueAtTime(volume, ctx.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration);
   osc.connect(gain);
-  gain.connect(audioCtx.destination);
+  gain.connect(ctx.destination);
   osc.start();
-  osc.stop(audioCtx.currentTime + duration);
+  osc.stop(ctx.currentTime + duration);
 }
 
 // Module-level cache for sound enabled check — refreshes every 5s
