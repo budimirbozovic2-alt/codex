@@ -170,13 +170,14 @@ export function useCardAnnotations({
           const u = { ...next[id], sortOrder: index, updatedAt: Date.now() };
           next[id] = u;
           updated.push(u);
+          cardMapRef.current[id] = u;
         }
       });
       return next;
     });
     if (updated.length > 0) schedulePersist({ type: "bulk", cards: updated });
     bumpMapVersion();
-  }, [setCardMapState]);
+  }, [setCardMapState, cardMapRef]);
 
   // Update chapter and chapterOrder — accumulator pattern for surgical persist
   const bulkUpdateChapter = useCallback((updates: { id: string; chapter: string; chapterOrder: number }[]) => {
