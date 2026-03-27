@@ -1,51 +1,47 @@
 
 
-# Fix: Navigation State Persistence
+# Fix: Persist Expanded Chapters in MentalSkeleton
 
 ## Problem
-When navigating back from edit mode or switching between views, the selected Category/Subcategory/Chapter resets to defaults. The user must re-navigate the hierarchy each time.
+When navigating away from MentalSkeleton and back, all chapters reset to expanded. The user loses track of which chapters they had open/collapsed.
 
 ## Solution
-Use `localStorage` with 3 keys (`codex-nav-category`, `codex-nav-subcategory`, `codex-nav-chapter`) to persist the last active navigation state. Both `KnowledgeMap.tsx` and `CardsView.tsx` read these on mount and write them on change.
+Persist `expandedChapters` to `localStorage` using a key scoped to the current category+subcategory. On mount, hydrate from storage instead of blindly expanding all.
 
-## Changes
+## Changes — `src/components/MentalSkeleton.tsx` only
 
-### 1. `src/components/KnowledgeMap.tsx`
-- **Initialize `view` state** from localStorage: if `codex-nav-category` and `codex-nav-subcategory` exist, start at `step: "detail"`; if only category exists, start at `step: "subcategories"`; otherwise `step: "categories"`.
-- **Update `navigate()` function** to write the keys on each transition:
-  - `subcategories` step → save category
-  - `detail` step → save category + subcategory
-  - `categories` step → clear all 3 keys
-- Validate that the stored category/subcategory still exist in the current `categories`/`subcategories` props before hydrating.
+### 1. Storage key & helpers
+```ts
+const EXPANDED_KEY = `codex-nav-expanded-${category}-${subcategory}`;
+```
 
-### 2. `src/views/CardsView.tsx`
-- **Hydrate `filterCategory`**: check `codex-nav-category` from localStorage (after the existing `sr-deeplink-category` sessionStorage check, which takes priority).
-- **Hydrate `filterSubcategory`**: check `codex-nav-subcategory`.
-- **Hydrate `filterChapter`**: check `codex-nav-chapter`.
-- **Write to localStorage** whenever these filters change — add a `useEffect` that syncs the 3 values.
+### 2. Initialize `expandedChapters` from localStorage
+Replace the current `useState<Set<string>>(new Set(["__all__"]))` with a lazy initializer that reads from localStorage. If stored value exists and is valid, use it; otherwise default to all chapters expanded.
 
-### 3. `src/components/MentalSkeleton.tsx`
-- No direct changes needed. MentalSkeleton receives `category`/`subcategory` as props from KnowledgeMap. The chapter state is already internal (expanded chapters). However, the **selected chapter context** is implicit (all chapters expanded). No chapter-level persistence needed here since MentalSkeleton shows all chapters simultaneously.
+### 3. Update the `useEffect` (lines 115-118)
+Instead of always resetting all chapters to expanded, only set all-expanded when there's **no** stored state (first visit). When stored state exists, merge it with current chapters (remove stale, keep valid).
 
-## Storage Keys
-| Key | Set by | Read by |
-|-----|--------|---------|
-| `codex-nav-category` | KnowledgeMap `navigate()`, CardsView filter change | Both on mount |
-| `codex-nav-subcategory` | KnowledgeMap `navigate()`, CardsView filter change | Both on mount |
-| `codex-nav-chapter` | CardsView filter change | CardsView on mount |
+### 4. Sync to localStorage on change
+Add a `useEffect` that writes `expandedChapters` to localStorage whenever it changes:
+```ts
+useEffect(() => {
+  localStorage.setItem(EXPANDED_KEY, JSON.stringify([...expandedChapters]));
+}, [expandedChapters, EXPANDED_KEY]);
+```
 
-## Cross-Component Sync
-Both components read/write the same localStorage keys, so selecting a category in KnowledgeMap → navigating to CardsView will show the same category pre-selected, and vice versa.
-
-## Guardrails
-- Existing `sr-deeplink-category` sessionStorage mechanism takes priority (used by PlannerPage)
-- FSRS/SM-2 logic untouched
-- No layout changes
-- Stored values are validated against current data before use (stale categories ignored)
+## Technical details
+- Key is scoped per category+subcategory so different subcategories have independent state
+- Stale chapter names (renamed/deleted) are filtered out during hydration
+- New chapters (added after last visit) default to expanded
+- `codex-nav-chapter` key from CardsView remains separate (different purpose)
 
 ## Files modified
 | File | Change |
 |------|--------|
-| `src/components/KnowledgeMap.tsx` | Hydrate `view` state from localStorage; persist on navigate |
-| `src/views/CardsView.tsx` | Hydrate filters from localStorage; sync on change |
+| `src/components/MentalSkeleton.tsx` | Hydrate + persist `expandedChapters` via localStorage |
+
+## Guardrails
+- No FSRS/SM-2 changes
+- DnD logic untouched
+- Existing `codex-nav-category`/`codex-nav-subcategory` keys untouched
 
