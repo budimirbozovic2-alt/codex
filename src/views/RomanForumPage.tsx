@@ -1,5 +1,5 @@
 import { useMemo, useState, useEffect } from "react";
-import { AnimatePresence, LayoutGroup } from "framer-motion";
+import { AnimatePresence, LayoutGroup, motion } from "framer-motion";
 import { useCardContext } from "@/contexts/AppContext";
 import { loadReviewLog } from "@/lib/storage";
 import { calculateForumState } from "@/lib/forum-logic";
