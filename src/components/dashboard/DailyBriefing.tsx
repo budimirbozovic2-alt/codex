@@ -17,7 +17,7 @@ export const DailyBriefing = memo(function DailyBriefing({ briefText, timeRecMes
       className="glass-card p-5 space-y-4">
       <div className="flex items-center gap-2">
         <Brain className="h-4 w-4 text-primary" />
-        <h3 className="text-sm font-medium font-display">Dnevni briefing</h3>
+        <h3 className="text-sm font-medium">Dnevni briefing</h3>
       </div>
 
       <p className="text-sm text-muted-foreground">{briefText}</p>

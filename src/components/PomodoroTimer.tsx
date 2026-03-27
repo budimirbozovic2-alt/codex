@@ -63,7 +63,7 @@ export default function PomodoroTimer({ compact = false }: { compact?: boolean }
         </div>
       </div>
       <div className="text-center">
-        <p className="text-4xl font-display tabular-nums">{String(mins).padStart(2, "0")}:{String(secs).padStart(2, "0")}</p>
+        <p className="text-4xl tabular-nums">{String(mins).padStart(2, "0")}:{String(secs).padStart(2, "0")}</p>
       </div>
       <Progress value={progress} className="h-1.5" />
       <div className="flex gap-2 justify-center">

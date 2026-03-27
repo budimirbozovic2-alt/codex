@@ -452,7 +452,7 @@ export default function SpeedReader() {
             <div className="flex items-center justify-center gap-3">
               <Layers className="h-5 w-5 text-primary" />
               <div className="text-left">
-                <p className="font-display text-lg text-foreground group-hover:text-primary transition-colors">
+                <p className="text-lg font-medium text-foreground group-hover:text-primary transition-colors">
                   Čitaj {selSub ? `"${selSub}"` : selCat ? `"${selCat}"` : "sve kartice"} — {filteredCards.length} kartica
                 </p>
                 <p className="text-xs text-muted-foreground">
@@ -485,7 +485,7 @@ export default function SpeedReader() {
                       {card.subcategory && <span>› {card.subcategory}</span>}
                       <span className="ml-auto">{card.sections.length} sek. · {wc} rij.</span>
                     </div>
-                    <p className="font-display text-sm line-clamp-1">{card.question}</p>
+                    <p className="text-sm font-medium line-clamp-1">{card.question}</p>
                   </button>
                 );
               })}
@@ -510,7 +510,7 @@ export default function SpeedReader() {
           <div>
             {readMode === "subcategory" ? (
               <>
-                <h2 className="text-xl font-display flex items-center gap-2">
+                <h2 className="text-xl font-medium flex items-center gap-2">
                   <Layers className="h-5 w-5 text-primary" />
                   {selSub || selCat || "Sve kartice"}
                 </h2>
@@ -518,7 +518,7 @@ export default function SpeedReader() {
               </>
             ) : (
               <>
-                <h2 className="text-xl font-display">{selCard?.question}</h2>
+                <h2 className="text-xl font-medium">{selCard?.question}</h2>
                 <p className="text-xs text-muted-foreground">{selCard?.category}{selCard?.subcategory ? ` › ${selCard.subcategory}` : ""}</p>
               </>
             )}
@@ -722,7 +722,7 @@ export default function SpeedReader() {
                   {/* Title words — rendered as a prominent heading, but part of the reading flow */}
                   {titleWordCount > 0 && (
                     <div className={`mb-4 pt-4 ${segIdx > 0 ? "border-t-2 border-primary/20" : ""}`}>
-                      <h3 className="text-2xl font-bold font-display select-none flex flex-wrap gap-1">
+                      <h3 className="text-2xl font-bold select-none flex flex-wrap gap-1">
                         {seg.words.slice(0, titleWordCount).map((word, wi) => {
                           const globalIdx = seg.globalStartIdx + wi;
                           return (
@@ -746,7 +746,7 @@ export default function SpeedReader() {
                     </div>
                   )}
                   {/* Content words */}
-                  <p className={`${fontSize} leading-relaxed font-display select-none`}>
+                  <p className={`${fontSize} leading-relaxed select-none`}>
                     {seg.words.slice(titleWordCount).map((word, wi) => {
                       const globalIdx = seg.globalStartIdx + titleWordCount + wi;
                       return (

@@ -114,7 +114,7 @@ function CategoryListInner({
                       <BarChart3 className="h-5 w-5 text-primary" />
                     </div>
                     <div>
-                      <p className="font-display text-base font-medium">{name}</p>
+                      <p className="text-base font-medium">{name}</p>
                       <p className="text-xs text-muted-foreground">{cardCount} kartica • {subCount} potkategorija</p>
                     </div>
                   </div>

@@ -298,15 +298,15 @@ export default function MnemonicTest({ cards, onRecordResult, onBack }: Props) {
           <h2 className="text-3xl font-display">Testiranje završeno!</h2>
           <div className="grid grid-cols-3 gap-4 max-w-sm mx-auto">
             <div className="rounded-xl bg-card border p-4">
-              <p className="text-2xl font-display text-success">{sessionStats.correct}</p>
+              <p className="text-2xl font-bold text-success">{sessionStats.correct}</p>
               <p className="text-xs text-muted-foreground">Tačno</p>
             </div>
             <div className="rounded-xl bg-card border p-4">
-              <p className="text-2xl font-display text-destructive">{sessionStats.wrong}</p>
+              <p className="text-2xl font-bold text-destructive">{sessionStats.wrong}</p>
               <p className="text-xs text-muted-foreground">Netačno</p>
             </div>
             <div className="rounded-xl bg-card border p-4">
-              <p className={`text-2xl font-display ${pct >= 70 ? "text-success" : pct >= 40 ? "text-warning" : "text-destructive"}`}>{pct}%</p>
+              <p className={`text-2xl font-bold ${pct >= 70 ? "text-success" : pct >= 40 ? "text-warning" : "text-destructive"}`}>{pct}%</p>
               <p className="text-xs text-muted-foreground">Uspješnost</p>
             </div>
           </div>
@@ -352,7 +352,7 @@ export default function MnemonicTest({ cards, onRecordResult, onBack }: Props) {
         >
           <div>
             <p className="text-xs text-muted-foreground mb-2">{currentCard.category}{currentCard.subcategory ? ` / ${currentCard.subcategory}` : ""}</p>
-            <h3 className="text-xl font-display">{currentCard.question}</h3>
+            <h3 className="text-xl font-medium">{currentCard.question}</h3>
           </div>
 
           {!showTrigger && !timedOut && (

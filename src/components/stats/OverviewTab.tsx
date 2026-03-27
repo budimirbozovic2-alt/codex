@@ -30,7 +30,7 @@ const ActivityChart = memo(function ActivityChart({ data }: { data: any[] }) {
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="glass-card rounded-xl p-5 space-y-4">
       <div className="flex items-center gap-2">
         <TrendingUp className="h-4 w-4 text-primary" />
-        <h3 className="font-display text-lg">Aktivnost (14 dana)</h3>
+        <h3 className="text-lg font-medium">Aktivnost (14 dana)</h3>
       </div>
       <div className="h-[200px]">
         <ResponsiveContainer width="100%" height="100%">
@@ -67,7 +67,7 @@ const MasteryPieChart = memo(function MasteryPieChart({ data }: { data: { name: 
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} className="glass-card rounded-xl p-5 space-y-4">
       <div className="flex items-center gap-2">
         <Brain className="h-4 w-4 text-primary" />
-        <h3 className="font-display text-lg">Distribucija znanja</h3>
+        <h3 className="text-lg font-medium">Distribucija znanja</h3>
       </div>
       <div className="h-[200px] flex items-center justify-center">
         <ResponsiveContainer width="100%" height="100%">
@@ -99,7 +99,7 @@ const CategoryBarChart = memo(function CategoryBarChart({ data }: { data: any[] 
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }} className="glass-card rounded-xl p-5 space-y-4 md:col-span-2">
       <div className="flex items-center gap-2">
         <Layers className="h-4 w-4 text-primary" />
-        <h3 className="font-display text-lg">Znanje po kategorijama</h3>
+        <h3 className="text-lg font-medium">Znanje po kategorijama</h3>
       </div>
       <div className="h-[220px]">
         <ResponsiveContainer width="100%" height="100%">
@@ -148,7 +148,7 @@ export default function OverviewTab({
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <LayoutGrid className="h-4 w-4 text-primary" />
-              <h3 className="font-display text-lg">Mapa Znanja</h3>
+              <h3 className="text-lg font-medium">Mapa Znanja</h3>
             </div>
             <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:translate-x-0.5 transition-transform" />
           </div>
@@ -213,7 +213,7 @@ export default function OverviewTab({
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Clock className="h-4 w-4 text-primary" />
-              <h3 className="font-display text-lg">Efektivno učenje danas</h3>
+              <h3 className="text-lg font-medium">Efektivno učenje danas</h3>
             </div>
             <span className="text-lg font-display text-primary tabular-nums">
               {Math.floor(todayTime.cognitiveMs / 3600000) > 0

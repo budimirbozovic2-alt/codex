@@ -31,7 +31,7 @@ export default function DashboardChart({ ratioHistory, targetReviewPct }: Props)
       className="rounded-xl bg-card border p-5 space-y-4">
       <div className="flex items-center gap-2">
         <TrendingUp className="h-4 w-4 text-primary" />
-        <h3 className="font-display text-lg">Omjer ponavljanja (14 dana)</h3>
+        <h3 className="text-lg font-medium">Omjer ponavljanja (14 dana)</h3>
       </div>
       <div className="h-[180px]">
         <ResponsiveContainer width="100%" height="100%">

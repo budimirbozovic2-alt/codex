@@ -16,7 +16,7 @@ export function Header({ title, subtitle, onBack, reorderMode, onToggleReorder }
         <ArrowLeft className="h-5 w-5" />
       </button>
       <div className="flex-1">
-        <h2 className="text-2xl font-display">{title}</h2>
+        <h2 className="text-2xl font-semibold">{title}</h2>
         <p className="text-sm text-muted-foreground mt-0.5">{subtitle}</p>
       </div>
       {onToggleReorder && (

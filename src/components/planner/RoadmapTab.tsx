@@ -72,15 +72,15 @@ export default function RoadmapTab({
         <p className="text-sm text-muted-foreground leading-relaxed">{projectionText}</p>
         <div className="grid grid-cols-3 gap-3 pt-3 border-t">
           <div className="text-center">
-            <p className="text-xl font-display tabular-nums">{velocity.toFixed(1)}</p>
+            <p className="text-xl tabular-nums">{velocity.toFixed(1)}</p>
             <p className="text-[10px] text-muted-foreground">kartica/dan</p>
           </div>
           <div className="text-center">
-            <p className="text-xl font-display tabular-nums">{remaining}</p>
+            <p className="text-xl tabular-nums">{remaining}</p>
             <p className="text-[10px] text-muted-foreground">preostalo</p>
           </div>
           <div className="text-center">
-            <p className="text-xl font-display tabular-nums">{totalSections}</p>
+            <p className="text-xl tabular-nums">{totalSections}</p>
             <p className="text-[10px] text-muted-foreground">ukupno cjelina</p>
           </div>
         </div>

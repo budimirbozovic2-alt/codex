@@ -38,7 +38,7 @@ export default function ProcessingOverlay() {
                   <Loader2 className="h-16 w-16 text-primary/30 animate-spin absolute inset-0" />
                 </div>
                 <div>
-                  <p className="text-lg font-display">Analiziram podatke...</p>
+                  <p className="text-lg font-medium">Analiziram podatke...</p>
                   <p className="text-sm text-muted-foreground mt-1">
                     Ažuriranje statistika, krive zaborava i interferencije
                   </p>
@@ -64,7 +64,7 @@ export default function ProcessingOverlay() {
                 >
                   <CheckCircle2 className="h-12 w-12 text-success mx-auto" />
                 </motion.div>
-                <p className="text-lg font-display">Analiza završena</p>
+                <p className="text-lg font-medium">Analiza završena</p>
                 <p className="text-sm text-muted-foreground">Grafikoni i statistike su ažurirane.</p>
               </>
             )}

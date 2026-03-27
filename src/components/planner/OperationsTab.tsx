@@ -105,7 +105,7 @@ export default function OperationsTab({
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Target className="h-4 w-4 text-primary" />
-            <h3 className="font-display text-lg">Faze učenja</h3>
+            <h3 className="text-lg font-medium">Faze učenja</h3>
           </div>
           <Button variant="ghost" size="sm" onClick={() => setShowBufferSettings(!showBufferSettings)} className="gap-1.5 text-xs">
             <Shield className="h-3.5 w-3.5" /> Buffer: {config.bufferPercent}%
@@ -120,7 +120,7 @@ export default function OperationsTab({
                 <p className="text-sm font-medium">Sigurnosna zona (Buffer %)</p>
                 <p className="text-xs text-muted-foreground">Sistem će računati kao da ispit počinje ranije, ostavljajući krajnji period za finalno ponavljanje.</p>
               </div>
-              <span className="text-lg font-display tabular-nums text-primary">{config.bufferPercent}%</span>
+              <span className="text-lg tabular-nums text-primary">{config.bufferPercent}%</span>
             </div>
             <Slider
               value={[config.bufferPercent]}
@@ -249,7 +249,7 @@ export default function OperationsTab({
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Zap className="h-4 w-4 text-primary" />
-            <h3 className="font-display text-lg">Reality Check</h3>
+            <h3 className="text-lg font-medium">Reality Check</h3>
           </div>
           {plannerStatus.status === "red" && config.finalGoalDate && (
             <Button variant="outline" size="sm" onClick={handleRebalance} className="gap-1.5 text-xs">
@@ -260,21 +260,21 @@ export default function OperationsTab({
 
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <div className="p-3 rounded-lg bg-secondary/50 text-center">
-            <p className="text-2xl font-display tabular-nums">{velocity.toFixed(1)}</p>
+            <p className="text-2xl tabular-nums">{velocity.toFixed(1)}</p>
             <p className="text-[10px] text-muted-foreground mt-0.5">cjelina/dan (7d)</p>
           </div>
           <div className="p-3 rounded-lg bg-secondary/50 text-center">
-            <p className="text-2xl font-display tabular-nums">{remaining}</p>
+            <p className="text-2xl tabular-nums">{remaining}</p>
             <p className="text-[10px] text-muted-foreground mt-0.5">preostalo</p>
           </div>
           <div className="p-3 rounded-lg bg-secondary/50 text-center">
-            <p className="text-2xl font-display tabular-nums">
+            <p className="text-2xl tabular-nums">
               {estimatedFinish ? format(estimatedFinish, "dd.MM.yy") : "—"}
             </p>
             <p className="text-[10px] text-muted-foreground mt-0.5">proj. završetak</p>
           </div>
           <div className="p-3 rounded-lg bg-secondary/50 text-center">
-            <p className="text-2xl font-display tabular-nums">
+            <p className="text-2xl tabular-nums">
               {config.finalGoalDate ? format(new Date(config.finalGoalDate), "dd.MM.yy") : "—"}
             </p>
             <p className="text-[10px] text-muted-foreground mt-0.5">cilj</p>

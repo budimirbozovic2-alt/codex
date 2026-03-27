@@ -38,7 +38,7 @@ export default function AuditorDetailPanel({ card, onClose }: AuditorDetailPanel
               <div className="w-4 h-4 rounded" style={{ backgroundColor: ml.color }} />
               <span className="text-xs font-medium" style={{ color: ml.color }}>{ml.label}</span>
             </div>
-            <h3 className="font-display text-lg leading-tight">{card.question}</h3>
+            <h3 className="text-lg font-medium leading-tight">{card.question}</h3>
           </div>
           <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-secondary transition-colors">
             <X className="h-4 w-4" />
@@ -47,15 +47,15 @@ export default function AuditorDetailPanel({ card, onClose }: AuditorDetailPanel
 
         <div className="px-5 py-4 border-b grid grid-cols-3 gap-4 text-center">
           <div>
-            <p className="text-lg font-display">{avgStability.toFixed(1)}d</p>
+            <p className="text-lg font-medium">{avgStability.toFixed(1)}d</p>
             <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Stabilnost</p>
           </div>
           <div>
-            <p className="text-lg font-display">{avgDifficulty.toFixed(1)}</p>
+            <p className="text-lg font-medium">{avgDifficulty.toFixed(1)}</p>
             <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Težina</p>
           </div>
           <div>
-            <p className="text-lg font-display">{totalErrors}</p>
+            <p className="text-lg font-medium">{totalErrors}</p>
             <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Greške</p>
           </div>
         </div>

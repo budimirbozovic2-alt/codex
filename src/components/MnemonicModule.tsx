@@ -146,22 +146,22 @@ export default function MnemonicModule({ onBack }: Props) {
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <div className="rounded-xl bg-card border p-4">
-          <p className="text-2xl font-display">{stats.total}</p>
+          <p className="text-2xl font-bold">{stats.total}</p>
           <p className="text-xs text-muted-foreground">Ukupno</p>
         </div>
         <div className="rounded-xl bg-card border p-4">
           <Sparkles className="h-4 w-4 text-muted-foreground mb-1" />
-          <p className="text-2xl font-display">{stats.newCount}</p>
+          <p className="text-2xl font-bold">{stats.newCount}</p>
           <p className="text-xs text-muted-foreground">Nove</p>
         </div>
         <div className="rounded-xl bg-card border p-4">
           <Wrench className="h-4 w-4 text-warning mb-1" />
-          <p className="text-2xl font-display">{stats.workshopCount}</p>
+          <p className="text-2xl font-bold">{stats.workshopCount}</p>
           <p className="text-xs text-muted-foreground">U radionici</p>
         </div>
         <div className="rounded-xl bg-card border p-4">
           <CheckCircle2 className="h-4 w-4 text-success mb-1" />
-          <p className="text-2xl font-display">{stats.readyCount}</p>
+          <p className="text-2xl font-bold">{stats.readyCount}</p>
           <p className="text-xs text-muted-foreground">Spremne</p>
         </div>
       </div>
@@ -171,7 +171,7 @@ export default function MnemonicModule({ onBack }: Props) {
           <FlaskConical className="h-5 w-5 text-primary" />
           <div>
             <p className="text-sm font-medium">Prosječna uspješnost testiranja</p>
-            <p className={`text-2xl font-display ${stats.avgSuccess >= 70 ? "text-success" : stats.avgSuccess >= 40 ? "text-warning" : "text-destructive"}`}>
+            <p className={`text-2xl font-bold ${stats.avgSuccess >= 70 ? "text-success" : stats.avgSuccess >= 40 ? "text-warning" : "text-destructive"}`}>
               {stats.avgSuccess}%
             </p>
           </div>

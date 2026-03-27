@@ -71,7 +71,7 @@ export default function MetacognitiveCenter({ cards, categories, reviewLog, onBa
               <div className="border-t pt-6">
                 <div className="flex items-center gap-2 mb-4">
                   <Brain className="h-4 w-4 text-primary" />
-                  <h3 className="font-display text-lg">Kognitivna dijagnostika</h3>
+                  <h3 className="text-lg font-medium">Kognitivna dijagnostika</h3>
                 </div>
                 <p className="text-xs text-muted-foreground mb-4">
                   Analiza interferencija, slijepih tačaka i slabih kuka — sa preporukama za mnemoničku obradu problematičnih kartica.

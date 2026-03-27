@@ -161,7 +161,7 @@ export default function CategoryManager({
                             </button>
                           </PopoverTrigger>
                           <PopoverContent className="w-[280px] p-3" align="end">
-                            <p className="text-xs font-display text-muted-foreground mb-2 uppercase tracking-wider">Tip zgrade</p>
+                            <p className="text-xs font-medium text-muted-foreground mb-2 uppercase tracking-wider">Tip zgrade</p>
                             <div className="grid grid-cols-3 gap-2">
                               {ALL_BUILDING_TYPES.map(bt => (
                                 <button
@@ -176,7 +176,7 @@ export default function CategoryManager({
                                   <div className="w-12 h-10">
                                     <MonumentSVG buildingType={bt} tier="complete" />
                                   </div>
-                                  <span className="text-[9px] font-display text-muted-foreground leading-tight text-center">
+                                  <span className="text-[9px] font-medium text-muted-foreground leading-tight text-center">
                                     {BUILDING_LABELS[bt]}
                                   </span>
                                 </button>

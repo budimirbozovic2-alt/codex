@@ -53,7 +53,7 @@ export default function LazyChart<T>({ label, icon, compute, children, delay = 0
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           {icon}
-          <h3 className="font-display text-lg">{label}</h3>
+          <h3 className="text-lg font-medium">{label}</h3>
         </div>
         <button
           onClick={handleRefresh}

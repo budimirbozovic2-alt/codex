@@ -37,7 +37,7 @@ export default function DisciplineTab({
             <div className="flex items-center gap-2">
               <span className="text-2xl">🔥</span>
               <div>
-                <h3 className="font-display text-lg">Rocket Streak</h3>
+                <h3 className="text-lg font-medium">Rocket Streak</h3>
                 <p className="text-xs text-muted-foreground">Uzastopni 🚀 dani</p>
               </div>
             </div>
@@ -81,7 +81,7 @@ export default function DisciplineTab({
       <div className="rounded-xl bg-card border p-5 space-y-4">
         <div className="flex items-center gap-2">
           <BarChart3 className="h-4 w-4 text-primary" />
-          <h3 className="font-display text-lg">Disciplina — Posljednjih 14 dana</h3>
+          <h3 className="text-lg font-medium">Disciplina — Posljednjih 14 dana</h3>
         </div>
         {disciplineLog.length === 0 ? (
           <p className="text-sm text-muted-foreground py-4 text-center">

@@ -142,7 +142,7 @@ export default function StudyModeRecall({
           {isCompleted && (
             <div className="rounded-xl border bg-success/10 border-success/30 p-8 text-center space-y-3">
               <Check className="h-8 w-8 text-success mx-auto" />
-              <p className="font-display text-lg">Pitanje savladano!</p>
+              <p className="text-lg font-medium">Pitanje savladano!</p>
               <p className="text-sm text-muted-foreground">Svi moduli su uspješno reprodukovani.</p>
             </div>
           )}
