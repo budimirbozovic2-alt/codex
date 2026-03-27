@@ -6,10 +6,7 @@
 import type { MaterialTier } from "@/lib/forum-logic";
 import { Column, TriangularRoof, DomeRoof, Base, Arch, Wall, TIER_FILLS } from "./monument-svg";
 
-export type BuildingType =
-  | "amphitheatrum" | "basilica" | "tabularium" | "rostra"
-  | "curia" | "macellum" | "argentaria" | "templum" | "arcus"
-  | "insula";
+import type { BuildingType } from "@/lib/forum-logic";
 
 export const BUILDING_LABELS: Record<BuildingType, string> = {
   amphitheatrum: "Amphitheatrum",

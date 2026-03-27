@@ -66,10 +66,10 @@ export const MonumentDetailDialog = memo(function MonumentDetailDialog({ monumen
   const materialIcon = MATERIAL_ICONS[monument.material];
   const overdueCount = categoryCards.filter(c => c.overdue).length;
 
-  const handleStartReview = () => {
+  const handleStartReview = React.useCallback(() => {
     onClose();
     navigate(`/review?category=${encodeURIComponent(monument.category)}`);
-  };
+  }, [onClose, navigate, monument]);
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>

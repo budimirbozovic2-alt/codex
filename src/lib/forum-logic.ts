@@ -179,8 +179,6 @@ export function calculateForumState(
   monuments.sort((a, b) => b.mastery - a.mastery);
 
   // Overall mastery
-  const totalCards = cards.length;
-  let totalMastered = 0;
   let totalSections = 0;
   let totalReview = 0;
 
