@@ -6,6 +6,10 @@ import { cn } from "@/lib/utils";
 import type { Source } from "@/lib/sources-storage";
 import type { ExamQuestion } from "@/components/ExamSidebar";
 
+type ReaderWidth = "S" | "M" | "L" | "XL" | "Full";
+
+const WIDTH_OPTIONS: ReaderWidth[] = ["S", "M", "L", "XL", "Full"];
+
 interface Props {
   source: Source;
   onBack: () => void;
@@ -17,6 +21,8 @@ interface Props {
   outlineOpen: boolean;
   setOutlineOpen: (v: boolean) => void;
   onAutoSplit: () => void;
+  readerWidth: ReaderWidth;
+  setReaderWidth: (w: ReaderWidth) => void;
 }
 
 export const SourceToolbar = memo(function SourceToolbar({
