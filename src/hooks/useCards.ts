@@ -54,48 +54,31 @@ export function useCards() {
   // ── Derived: Card[] for consumers (memoized from map) ──
   const cards = useMemo(() => mapToArray(cardMap), [cardMap]);
 
-  // ── useEffect-based persistence (React 18 Guard: surgical diff) ──
-  const cardMapMountedRef = useRef(false);
-  const prevCardMapRef = useRef<CardMap>(cardMap);
-  useEffect(() => {
-    if (!cardMapMountedRef.current) { cardMapMountedRef.current = true; prevCardMapRef.current = cardMap; return; }
-    if (!ready) return;
-    const prev = prevCardMapRef.current;
-    prevCardMapRef.current = cardMap;
+  // ── Ref-Delta: cardMapRef mirrors state for synchronous reads in action handlers ──
+  const cardMapRef = useRef<CardMap>({});
+  useEffect(() => { cardMapRef.current = cardMap; }, [cardMap]);
 
-    // Diff: find cards that were added or changed (by reference)
-    const changed: Card[] = [];
-    for (const [id, card] of Object.entries(cardMap)) {
-      if (prev[id] !== card) changed.push(card);
-    }
-    // Note: deletes are handled explicitly in useCardCRUD (idbDeleteCard)
-    if (changed.length > 0) schedulePersist({ type: "bulk", cards: changed });
-  }, [cardMap, ready]);
-
-  const catMountedRef = useRef(false);
-  useEffect(() => {
-    if (!catMountedRef.current) { catMountedRef.current = true; return; }
-    idbSaveCategories(categories);
-  }, [categories]);
-
-  const subMountedRef = useRef(false);
-  useEffect(() => {
-    if (!subMountedRef.current) { subMountedRef.current = true; return; }
-    idbSaveSubcategories(subcategories);
-  }, [subcategories]);
-
-  // ── Pure state setters (no side-effects, persistence handled by useEffects above) ──
+  // ── Setters with inline persistence (no useEffect-based persistence) ──
   const setCardMap = useCallback((updater: (prev: CardMap) => CardMap, _persist?: "surgical" | "full") => {
     setCardMapState(updater);
     bumpMapVersion();
+    // Card persistence handled by callers with pre-computed data
   }, []);
 
   const setCategories = useCallback((updater: (prev: string[]) => string[]) => {
-    setCategoriesState(updater);
+    setCategoriesState(prev => {
+      const next = updater(prev);
+      if (next !== prev) idbSaveCategories(next);
+      return next;
+    });
   }, []);
 
   const setSubcategories = useCallback((updater: (prev: Record<string, string[]>) => Record<string, string[]>) => {
-    setSubcategoriesState(updater);
+    setSubcategoriesState(prev => {
+      const next = updater(prev);
+      if (next !== prev) idbSaveSubcategories(next);
+      return next;
+    });
   }, []);
 
   const setReviewLog = useCallback((updater: (prev: ReviewLogEntry[]) => ReviewLogEntry[]) => {
@@ -109,7 +92,7 @@ export function useCards() {
 
   // ── CRUD (extracted module) ──
   const { patchCard, addCard, addFlashCard, updateCard, deleteCard, splitCard } = useCardCRUD({
-    categories, setCardMapState, setCategories,
+    categories, setCardMapState, setCategories, cardMapRef,
   });
 
   // ── Annotations (extracted module) ──
@@ -212,12 +195,15 @@ export function useCards() {
 
   const reorderCategories = useCallback((ordered: string[]) => {
     setCategoriesState(ordered);
-    // Persistence handled by categories useEffect
+    idbSaveCategories(ordered);
   }, []);
 
   const reorderSubcategories = useCallback((category: string, ordered: string[]) => {
-    setSubcategoriesState((prev) => ({ ...prev, [category]: ordered }));
-    // Persistence handled by subcategories useEffect
+    setSubcategoriesState(prev => {
+      const next = { ...prev, [category]: ordered };
+      idbSaveSubcategories(next);
+      return next;
+    });
   }, []);
 
   return {

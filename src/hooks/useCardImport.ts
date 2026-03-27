@@ -2,7 +2,7 @@ import { useCallback } from "react";
 import { toast } from "sonner";
 import { Card, createCard, createSection, SRSettings, DEFAULT_SR_SETTINGS } from "@/lib/spaced-repetition";
 import { ReviewLogEntry } from "@/lib/storage";
-import { CardMap, bumpMapVersion } from "@/lib/persist-queue";
+import { CardMap, bumpMapVersion, schedulePersist } from "@/lib/persist-queue";
 
 interface UseCardImportDeps {
   categories: string[];
@@ -17,7 +17,7 @@ interface UseCardImportDeps {
 
 export function useCardImport({
   categories, setCardMap, setCategories, setSubcategories,
-  setReviewLog, updateSRSettings, schedulePersist, setCardMapState,
+  setReviewLog, updateSRSettings, schedulePersist: _schedulePersist, setCardMapState,
 }: UseCardImportDeps) {
   const importData = useCallback(
     async (file: File, strategy: "keep" | "overwrite" | "skip" | "newer" = "skip") => {
@@ -76,33 +76,36 @@ export function useCardImport({
         });
 
         const importedCards: Card[] = cardsArr.map(c => migrateImported(c));
+        // Accumulator: collect merged cards for surgical persist
+        const merged: Card[] = [];
         setCardMap((prev) => {
           const next = { ...prev };
           if (strategy === "newer") {
             const getLastReview = (c: Card) => Math.max(0, ...c.sections.map((s) => s.lastReviewed || 0));
             importedCards.forEach((ic) => {
               const existing = next[ic.id];
-              if (!existing) next[ic.id] = ic;
-              else if (getLastReview(ic) > getLastReview(existing)) next[ic.id] = ic;
+              if (!existing) { next[ic.id] = ic; merged.push(ic); }
+              else if (getLastReview(ic) > getLastReview(existing)) { next[ic.id] = ic; merged.push(ic); }
             });
           } else if (strategy === "overwrite") {
-            importedCards.forEach((ic) => { next[ic.id] = ic; });
+            importedCards.forEach((ic) => { next[ic.id] = ic; merged.push(ic); });
           } else {
-            importedCards.forEach((ic) => { if (!next[ic.id]) next[ic.id] = ic; });
+            importedCards.forEach((ic) => { if (!next[ic.id]) { next[ic.id] = ic; merged.push(ic); } });
           }
           return next;
         }, "full");
+        if (merged.length > 0) schedulePersist({ type: "bulk", cards: merged });
 
         if (Array.isArray(data.categories)) {
           setCategories((prev) => [...new Set([...prev, ...(data.categories as string[])])]);
         }
         if (data.subcategories && typeof data.subcategories === "object") {
           setSubcategories((prev) => {
-            const merged = { ...prev };
+            const m = { ...prev };
             for (const [cat, subs] of Object.entries(data.subcategories as Record<string, string[]>)) {
-              merged[cat] = [...new Set([...(merged[cat] || []), ...subs])];
+              m[cat] = [...new Set([...(m[cat] || []), ...subs])];
             }
-            return merged;
+            return m;
           });
         }
         if (Array.isArray(data.reviewLog) && strategy === "overwrite") {
@@ -144,7 +147,6 @@ export function useCardImport({
         }
 
         // Restore metacognitive + planner IDB tables (v4+)
-        // diary uses UUID primary key; all others use ++id (auto-increment)
         const uuidTables = [
           { key: "diary", table: "diary" },
         ];
@@ -164,15 +166,12 @@ export function useCardImport({
             const arr = data[key];
             if (Array.isArray(arr) && arr.length > 0) {
               if (strategy === "overwrite" && autoIncKeys.has(key)) {
-                // For auto-increment tables, clear first then add fresh (IDs are not stable across DBs)
                 await dbRecord[table].clear();
-                // Strip the `id` field so Dexie assigns new auto-increment keys
                 const stripped = arr.map((r: Record<string, unknown>) => { const { id: _id, ...rest } = r; return rest; });
                 await dbRecord[table].bulkAdd(stripped);
               } else {
                 await dbRecord[table].bulkPut(arr);
                 if (strategy === "overwrite") {
-                  // UUID-keyed tables: remove records not in import
                   const importedIds = new Set((arr as Record<string, unknown>[]).map((r) => r.id));
                   const allKeys = await dbRecord[table].toCollection().primaryKeys();
                   const toDelete = allKeys.filter((k) => !importedIds.has(k));
@@ -209,6 +208,8 @@ export function useCardImport({
     (newCards: { question: string; sections: { title: string; content: string }[] }[], category: string) => {
       const created = newCards.map((c) => createCard(c.question, c.sections, category));
       created.forEach(c => { c.updatedAt = Date.now(); });
+      // Surgical persist with pre-computed cards
+      schedulePersist({ type: "bulk", cards: created });
       setCardMapState((prev) => {
         const next = { ...prev };
         created.forEach((c) => { next[c.id] = c; });

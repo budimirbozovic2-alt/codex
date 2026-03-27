@@ -2,7 +2,7 @@ import { useCallback } from "react";
 import { Card, calculateNextReview } from "@/lib/spaced-repetition";
 import { loadAppSettings } from "@/lib/app-settings";
 import { ReviewLogEntry } from "@/lib/storage";
-import { CardMap, bumpMapVersion } from "@/lib/persist-queue";
+import { CardMap, bumpMapVersion, schedulePersist } from "@/lib/persist-queue";
 import { idbAddReviewLogEntry } from "@/lib/db";
 
 interface UseCardAnnotationsParams {
@@ -17,7 +17,7 @@ export function useCardAnnotations({
   setReviewLog,
 }: UseCardAnnotationsParams) {
 
-  // O(1) review — surgical IDB write
+  // O(1) review — surgical IDB write (patchCard handles persist via Ref-Delta)
   const reviewSection = useCallback(
     (cardId: string, sectionId: string, grade: number) => {
       const cachedRetention = loadAppSettings().targetRetention;
@@ -61,7 +61,7 @@ export function useCardAnnotations({
     [patchCard, setReviewLog],
   );
 
-  // O(1) markRead — surgical
+  // O(1) markRead — surgical (patchCard handles persist)
   const markRead = useCallback(
     (id: string) => {
       patchCard(id, (c) => ({ ...c, readCount: (c.readCount || 0) + 1 }));
@@ -69,7 +69,7 @@ export function useCardAnnotations({
     [patchCard],
   );
 
-  // O(1) toggleTag — surgical
+  // O(1) toggleTag — surgical (patchCard handles persist)
   const toggleTag = useCallback(
     (cardId: string, tag: string) => {
       patchCard(cardId, (c) => {
@@ -80,7 +80,7 @@ export function useCardAnnotations({
     [patchCard],
   );
 
-  // O(1) logError — surgical, per-section penalty (H5 fix)
+  // O(1) logError — surgical, per-section penalty (patchCard handles persist)
   const logError = useCallback(
     (cardId: string, text: string, sectionId?: string) => {
       patchCard(cardId, (c) => {
@@ -115,7 +115,7 @@ export function useCardAnnotations({
     [patchCard],
   );
 
-  // O(1) clearErrorLog — surgical
+  // O(1) clearErrorLog — surgical (patchCard handles persist)
   const clearErrorLog = useCallback(
     (cardId: string) => {
       patchCard(cardId, (c) => ({ ...c, errorLog: [] }));
@@ -123,7 +123,7 @@ export function useCardAnnotations({
     [patchCard],
   );
 
-  // O(1) toggleKeyPart — surgical
+  // O(1) toggleKeyPart — surgical (patchCard handles persist)
   const addKeyPart = useCallback(
     (cardId: string, text: string) => {
       patchCard(cardId, (c) => {
@@ -139,46 +139,58 @@ export function useCardAnnotations({
     [patchCard],
   );
 
-  // Bulk flag cards as needsReview
+  // Bulk flag cards as needsReview — accumulator pattern for surgical persist
   const bulkFlagNeedsReview = useCallback((cardIds: string[]) => {
     if (cardIds.length === 0) return;
+    const updated: Card[] = [];
     setCardMapState((prev) => {
       const next = { ...prev };
       for (const id of cardIds) {
         if (next[id]) {
-          next[id] = { ...next[id], needsReview: true, updatedAt: Date.now() };
+          const u = { ...next[id], needsReview: true, updatedAt: Date.now() };
+          next[id] = u;
+          updated.push(u);
         }
       }
       return next;
     });
+    if (updated.length > 0) schedulePersist({ type: "bulk", cards: updated });
     bumpMapVersion();
   }, [setCardMapState]);
 
-  // Reorder cards by setting sortOrder
+  // Reorder cards — accumulator pattern for surgical persist
   const reorderCards = useCallback((orderedIds: string[]) => {
+    const updated: Card[] = [];
     setCardMapState((prev) => {
       const next = { ...prev };
       orderedIds.forEach((id, index) => {
         if (next[id]) {
-          next[id] = { ...next[id], sortOrder: index, updatedAt: Date.now() };
+          const u = { ...next[id], sortOrder: index, updatedAt: Date.now() };
+          next[id] = u;
+          updated.push(u);
         }
       });
       return next;
     });
+    if (updated.length > 0) schedulePersist({ type: "bulk", cards: updated });
     bumpMapVersion();
   }, [setCardMapState]);
 
-  // Update chapter and chapterOrder (Mental Skeleton DnD)
+  // Update chapter and chapterOrder — accumulator pattern for surgical persist
   const bulkUpdateChapter = useCallback((updates: { id: string; chapter: string; chapterOrder: number }[]) => {
+    const changed: Card[] = [];
     setCardMapState((prev) => {
       const next = { ...prev };
       for (const u of updates) {
         if (next[u.id]) {
-          next[u.id] = { ...next[u.id], chapter: u.chapter, chapterOrder: u.chapterOrder, updatedAt: Date.now() };
+          const c = { ...next[u.id], chapter: u.chapter, chapterOrder: u.chapterOrder, updatedAt: Date.now() };
+          next[u.id] = c;
+          changed.push(c);
         }
       }
       return next;
     });
+    if (changed.length > 0) schedulePersist({ type: "bulk", cards: changed });
     bumpMapVersion();
   }, [setCardMapState]);
 
