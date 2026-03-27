@@ -121,11 +121,34 @@ export default function MentalSkeleton({ cards, subcategory, category, onBack, o
     });
   }, []);
 
-  // Initialize all chapters as expanded
+  // Initialize chapters: hydrate from storage or expand all on first visit
   useEffect(() => {
-    const all = new Set([UNASSIGNED_CHAPTER, ...chapters]);
-    setExpandedChapters(all);
-  }, [chapters.length]);
+    const allChapterNames = new Set([UNASSIGNED_CHAPTER, ...chapters]);
+    try {
+      const stored = localStorage.getItem(EXPANDED_KEY);
+      if (stored) {
+        const arr = JSON.parse(stored);
+        if (Array.isArray(arr)) {
+          // Keep only valid chapters, add new ones as expanded
+          const valid = new Set<string>(arr.filter((ch: string) => allChapterNames.has(ch)));
+          // New chapters not in stored state → expand them
+          for (const ch of allChapterNames) {
+            if (!arr.includes(ch)) valid.add(ch);
+          }
+          setExpandedChapters(valid);
+          return;
+        }
+      }
+    } catch {}
+    setExpandedChapters(allChapterNames);
+  }, [chapters.length, EXPANDED_KEY]);
+
+  // Sync expanded state to localStorage
+  useEffect(() => {
+    if (!expandedChapters.has("__all__")) {
+      localStorage.setItem(EXPANDED_KEY, JSON.stringify([...expandedChapters]));
+    }
+  }, [expandedChapters, EXPANDED_KEY]);
 
   const handleDragStart = (event: DragStartEvent) => {
     setActiveId(event.active.id as string);
