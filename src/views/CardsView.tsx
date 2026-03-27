@@ -4,12 +4,6 @@ import { useCardContext, useUIContext } from "@/contexts/AppContext";
 import { useDebounce } from "@/hooks/useDebounce";
 
 
-
-
-
-
-
-
 import { Card } from "@/lib/spaced-repetition";
 import ScrollableRow from "@/components/ScrollableRow";
 import CardList from "@/components/CardList";
@@ -31,10 +25,14 @@ export default function CardsView() {
   const [filterCategory, setFilterCategory] = useState<string | null>(() => {
     const deeplink = sessionStorage.getItem("sr-deeplink-category");
     if (deeplink) { sessionStorage.removeItem("sr-deeplink-category"); return deeplink; }
-    return null;
+    try { return localStorage.getItem("codex-nav-category") || null; } catch { return null; }
   });
-  const [filterSubcategory, setFilterSubcategory] = useState<string | null>(null);
-  const [filterChapter, setFilterChapter] = useState<string | null>(null);
+  const [filterSubcategory, setFilterSubcategory] = useState<string | null>(() => {
+    try { return localStorage.getItem("codex-nav-subcategory") || null; } catch { return null; }
+  });
+  const [filterChapter, setFilterChapter] = useState<string | null>(() => {
+    try { return localStorage.getItem("codex-nav-chapter") || null; } catch { return null; }
+  });
   const [filterType, setFilterType] = useState<"all" | "essay" | "flash">("all");
   const [filterTag, setFilterTag] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -62,7 +60,18 @@ export default function CardsView() {
     }
   }, [filterCategory, filterSubcategory]);
 
-  const toggleSelect = (id: string) => {
+  // Sync nav state to localStorage for cross-component persistence
+  useEffect(() => {
+    try {
+      if (filterCategory) localStorage.setItem("codex-nav-category", filterCategory);
+      else localStorage.removeItem("codex-nav-category");
+      if (filterSubcategory) localStorage.setItem("codex-nav-subcategory", filterSubcategory);
+      else localStorage.removeItem("codex-nav-subcategory");
+      if (filterChapter) localStorage.setItem("codex-nav-chapter", filterChapter);
+      else localStorage.removeItem("codex-nav-chapter");
+    } catch { /* ignore */ }
+  }, [filterCategory, filterSubcategory, filterChapter]);
+
     setSelectedIds(prev => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id); else next.add(id);
