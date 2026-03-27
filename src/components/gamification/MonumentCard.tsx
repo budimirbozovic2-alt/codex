@@ -47,6 +47,7 @@ const MATERIAL_STYLES: Record<MaterialTier, {
 interface Props {
   monument: Monument;
   index: number;
+  onClick?: () => void;
 }
 
 export const MonumentCard = memo(function MonumentCard({ monument, index }: Props) {
