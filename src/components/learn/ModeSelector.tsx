@@ -90,7 +90,7 @@ export default function ModeSelector({ cards, learnMode, dueCount, reviewLog, on
         </button>
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-3xl font-display">Učenje</h2>
+            <h2 className="text-3xl">Učenje</h2>
             <p className="text-muted-foreground mt-2">Izaberi režim učenja koji odgovara tvom nivou.</p>
           </div>
           <button onClick={() => setShowOnboarding(true)}

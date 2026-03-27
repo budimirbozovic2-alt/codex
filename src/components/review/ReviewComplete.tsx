@@ -12,7 +12,7 @@ export default function ReviewComplete({ onBack }: { onBack: () => void }) {
       <div className="inline-flex p-4 rounded-2xl bg-gold/10 mb-2">
         <BookOpen className="h-10 w-10 text-gold" />
       </div>
-      <h2 className="text-4xl font-display">Sesija završena!</h2>
+      <h2 className="text-4xl">Sesija završena!</h2>
       <p className="text-muted-foreground text-lg">Sve dospjele sekcije su konsolidovane. Odlično!</p>
       <Button onClick={onBack} className="btn-imperial bg-primary hover:bg-primary/90 text-primary-foreground">
         <BookOpen className="h-4 w-4 mr-2" /> Zaključi i sačuvaj napredak

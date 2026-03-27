@@ -411,7 +411,7 @@ export default function SpeedReader() {
     return (
       <div className="space-y-6">
         <div className="flex items-center gap-2">
-          <h2 className="text-3xl font-display">Speed Reader</h2>
+          <h2 className="text-3xl">Speed Reader</h2>
           <InfoPanel title="Speed Reader">{SPEED_READER_INFO}</InfoPanel>
         </div>
 

@@ -52,7 +52,7 @@ const SessionComplete = React.memo(function SessionComplete({
         <div className="inline-flex p-4 rounded-2xl bg-gold/10 mb-2">
           <Trophy className="h-10 w-10 text-gold" />
         </div>
-        <h2 className="text-4xl font-display">Svaka čast!</h2>
+        <h2 className="text-4xl">Svaka čast!</h2>
         <p className="text-muted-foreground text-lg">Sesija završena.</p>
       </div>
 

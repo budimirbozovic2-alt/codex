@@ -185,7 +185,7 @@ export default function CardsView() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <h2 className="text-3xl font-display">Kartice</h2>
+          <h2 className="text-3xl">Kartice</h2>
           <ShortcutsHint shortcuts={CARDS_SHORTCUTS} />
         </div>
         <div className="flex items-center gap-2">

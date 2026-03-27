@@ -32,7 +32,7 @@ export default function DatabaseRecoveryPanel({ error }: Props) {
         </div>
 
         <div className="space-y-2">
-          <h2 className="text-xl font-display text-foreground">
+          <h2 className="text-xl text-foreground">
             {error.type === "version" ? "Greška u verziji baze" : "Baza ne reaguje"}
           </h2>
           <p className="text-sm text-muted-foreground">

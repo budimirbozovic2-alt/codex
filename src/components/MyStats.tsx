@@ -45,7 +45,7 @@ export default function MyStats({ cards, categories, subcategories, categoryStat
         </button>
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-3xl font-display">Laboratorija znanja</h2>
+            <h2 className="text-3xl">Laboratorija znanja</h2>
             <p className="text-muted-foreground mt-1">FSRS analitika, grafikoni i kvantitativni podaci</p>
           </div>
           <InfoPanel title="Kako radi Laboratorija znanja?">

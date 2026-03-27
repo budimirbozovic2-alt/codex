@@ -32,7 +32,7 @@ export default function MajorSystemSettings({ onBack }: Props) {
         <button onClick={onBack} className="text-muted-foreground hover:text-foreground flex items-center gap-1 mb-4">
           <ArrowLeft className="h-4 w-4" /> Nazad
         </button>
-        <h2 className="text-3xl font-display">Mentalne tablice (Major sistem)</h2>
+        <h2 className="text-3xl">Mentalne tablice (Major sistem)</h2>
         <p className="text-muted-foreground mt-1">Prilagodi termine za brojeve 0–100.</p>
       </div>
 

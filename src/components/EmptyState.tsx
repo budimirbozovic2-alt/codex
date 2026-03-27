@@ -30,7 +30,7 @@ export default function EmptyState({ type, onAction }: Props) {
           </motion.div>
         </div>
         <div className="space-y-2 max-w-sm">
-          <h2 className="text-2xl font-display">Počnite sa učenjem</h2>
+          <h2 className="text-2xl">Počnite sa učenjem</h2>
           <p className="text-muted-foreground">
             Kreirajte svoju prvu karticu i započnite put ka dugoročnom pamćenju kroz pametno ponavljanje.
           </p>
@@ -65,7 +65,7 @@ export default function EmptyState({ type, onAction }: Props) {
         </motion.div>
       </div>
       <div className="space-y-2 max-w-sm">
-        <h2 className="text-2xl font-display">Sve je ponovljeno!</h2>
+        <h2 className="text-2xl">Sve je ponovljeno!</h2>
         <p className="text-muted-foreground">
           Nemate kartica za ponavljanje danas. Odlično — vaše znanje je ažurno. Vratite se sutra!
         </p>

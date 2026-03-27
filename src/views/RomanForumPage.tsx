@@ -55,7 +55,7 @@ export default function RomanForumPage() {
               {/* Header */}
               <motion.div layoutId="forum-gateway" className="sticky top-0 glass-card px-6 py-4 mb-8 z-20">
                 <div className="flex items-center justify-between">
-                  <h1 className="text-2xl font-bold tracking-[0.15em] text-gold font-display">
+                  <h1 className="text-2xl font-bold tracking-[0.15em] text-gold">
                     FORUM ZNANJA
                   </h1>
                   <div className="flex items-center gap-4 text-xs text-muted-foreground">

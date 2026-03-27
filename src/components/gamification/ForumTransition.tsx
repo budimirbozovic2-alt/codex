@@ -43,7 +43,7 @@ export default function ForumTransition() {
       }}
     >
       <h1
-        className="select-none pointer-events-none font-display"
+        className="select-none pointer-events-none"
         style={{
           color: "hsl(var(--gold))",
           fontSize: "clamp(1.5rem, 4vw, 3rem)",

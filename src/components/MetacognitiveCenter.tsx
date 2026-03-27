@@ -41,7 +41,7 @@ export default function MetacognitiveCenter({ cards, categories, reviewLog, onBa
             <button onClick={onBack} className="text-muted-foreground hover:text-foreground flex items-center gap-1 mb-4">
               <ArrowLeft className="h-4 w-4" /> Nazad
             </button>
-            <h2 className="text-3xl font-display">Dnevnik</h2>
+            <h2 className="text-3xl">Dnevnik</h2>
             <p className="text-muted-foreground mt-1">Refleksije, greške i kognitivna dijagnostika</p>
           </div>
           <InfoPanel title="Kako radi Dnevnik?">

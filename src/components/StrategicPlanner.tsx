@@ -30,7 +30,7 @@ export default function StrategicPlanner({ cards, categories, reviewLog, onBack,
         </button>
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-3xl font-display">Strateški planer</h2>
+            <h2 className="text-3xl">Strateški planer</h2>
             <p className="text-muted-foreground mt-1">Adaptivni sistem — plan se prilagođava tvom tempu</p>
           </div>
           <InfoPanel title="Kako radi Strateški planer?">

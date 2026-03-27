@@ -176,7 +176,7 @@ export default function ReviewSetup({
           <button onClick={onBack} className="text-muted-foreground hover:text-foreground flex items-center gap-1 mb-6">
             <ArrowLeft className="h-4 w-4" /> Nazad
           </button>
-          <h2 className="text-3xl font-display">Konsolidacija</h2>
+          <h2 className="text-3xl">Konsolidacija</h2>
           <p className="text-muted-foreground mt-2">Izaberi režim ponavljanja koji odgovara tvom cilju.</p>
         </div>
 
@@ -246,7 +246,7 @@ export default function ReviewSetup({
         <button onClick={() => { setSetupStep("mode"); setMode(null); setSelectedCategory(null); setSelectedSubcategory(null); setSelectedChapter(null); setFilterExamFrequent(false); }} className="text-muted-foreground hover:text-foreground flex items-center gap-1 mb-6">
           <ArrowLeft className="h-4 w-4" /> Nazad na režime
         </button>
-        <h2 className="text-3xl font-display">{modeMeta.label}</h2>
+        <h2 className="text-3xl">{modeMeta.label}</h2>
         <p className="text-muted-foreground mt-2">{modeMeta.items.length} sekcija dostupno za ponavljanje.</p>
       </div>
 
