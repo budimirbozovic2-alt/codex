@@ -1,6 +1,9 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react-swc";
 import path from "path";
+import { readFileSync } from "fs";
+
+const pkg = JSON.parse(readFileSync("./package.json", "utf-8"));
 import { componentTagger } from "lovable-tagger";
 
 // https://vitejs.dev/config/
@@ -31,6 +34,9 @@ export default defineConfig(({ mode }) => ({
       "@radix-ui/react-tooltip",
       "lucide-react",
     ],
+  },
+  define: {
+    __APP_VERSION__: JSON.stringify(pkg.version),
   },
   build: {
     rollupOptions: {
