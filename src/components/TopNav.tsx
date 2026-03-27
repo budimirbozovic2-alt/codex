@@ -262,7 +262,7 @@ export default function TopNav({ onToggleZen, zenActive, onOpenOnboarding }: Pro
 
       {/* Mobile */}
       <div className="md:hidden flex items-center h-11 px-3 justify-between">
-        <div className="flex items-center gap-2 cursor-default" onClick={_handleBrandClick}>
+        <div className="flex items-center gap-2 cursor-default" onClick={_handleBrandClick} onDoubleClick={() => setVersionOpen(true)}>
           <img src={`${import.meta.env.BASE_URL}logo-icon.png`} alt="CODEX" className="h-6 w-6 rounded-full" />
           <span className="text-sm font-bold uppercase tracking-[0.2em] text-primary select-none">CODEX</span>
         </div>
