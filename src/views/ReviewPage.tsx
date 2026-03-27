@@ -1,4 +1,5 @@
 import { useEffect, useCallback } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useCardContext, useUIContext } from "@/contexts/AppContext";
 import { useSessionContext, QueuedReview, QueuedError } from "@/contexts/SessionContext";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
@@ -9,6 +10,8 @@ export default function ReviewPage() {
   const { dueCards, cards, reviewLog, subcategories, srSettings, reviewSection, logError } = useCardContext();
   const { setView } = useUIContext();
   const session = useSessionContext();
+  const [searchParams] = useSearchParams();
+  const preSelectedCategory = searchParams.get("category") || null;
 
   // Start session on mount
   useEffect(() => {
@@ -16,7 +19,6 @@ export default function ReviewPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Wrap reviewSection to queue instead of applying immediately
   const handleReviewSection = useCallback((cardId: string, sectionId: string, grade: number) => {
     if (session.isSessionActive) {
       session.queueReview(cardId, sectionId, grade);
@@ -31,7 +33,6 @@ export default function ReviewPage() {
     logError(cardId, text);
   }, [session, logError]);
 
-  // On back, end session and flush
   const handleBack = useCallback(() => {
     if (session.isSessionActive) {
       session.endSession(
@@ -56,6 +57,7 @@ export default function ReviewPage() {
           onReviewSection={handleReviewSection}
           onLogError={handleLogError}
           onBack={handleBack}
+          preSelectedCategory={preSelectedCategory}
         />
       )}
     </ErrorBoundary>

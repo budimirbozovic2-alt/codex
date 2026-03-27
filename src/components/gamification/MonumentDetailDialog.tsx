@@ -1,11 +1,13 @@
 import { memo, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import { useCardContext } from "@/contexts/AppContext";
 import { MATERIAL_ICONS } from "@/lib/forum-logic";
 import type { Monument } from "@/lib/forum-logic";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { AlertTriangle, CheckCircle2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { AlertTriangle, CheckCircle2, Play } from "lucide-react";
 import { formatDistanceToNow, isPast } from "date-fns";
 
 const STATE_LABELS: Record<number, { label: string; cls: string }> = {
@@ -23,7 +25,7 @@ interface Props {
 
 export const MonumentDetailDialog = memo(function MonumentDetailDialog({ monument, open, onClose }: Props) {
   const { cards } = useCardContext();
-
+  const navigate = useNavigate();
   const categoryCards = useMemo(() => {
     if (!monument) return [];
     const filtered = Object.values(cards).filter((c) => c.category === monument.category);
@@ -62,6 +64,12 @@ export const MonumentDetailDialog = memo(function MonumentDetailDialog({ monumen
   if (!monument) return null;
 
   const materialIcon = MATERIAL_ICONS[monument.material];
+  const overdueCount = categoryCards.filter(c => c.overdue).length;
+
+  const handleStartReview = () => {
+    onClose();
+    navigate(`/review?category=${encodeURIComponent(monument.category)}`);
+  };
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
@@ -132,6 +140,16 @@ export const MonumentDetailDialog = memo(function MonumentDetailDialog({ monumen
             </div>
           )}
         </ScrollArea>
+
+        {/* Review launch button */}
+        {overdueCount > 0 && (
+          <div className="px-6 py-4 border-t border-border/50">
+            <Button onClick={handleStartReview} className="w-full gap-2 bg-gold hover:bg-gold/90 text-gold-foreground font-display">
+              <Play className="h-4 w-4" />
+              Consolidā {overdueCount} {overdueCount === 1 ? "cartam" : "cartas"}
+            </Button>
+          </div>
+        )}
       </DialogContent>
     </Dialog>
   );
