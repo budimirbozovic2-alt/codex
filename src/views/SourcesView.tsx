@@ -315,6 +315,14 @@ export default function SourcesView() {
     );
   }
 
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-16">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -326,6 +334,16 @@ export default function SourcesView() {
           Uvezi izvor
         </Button>
       </div>
+
+      {sources.length === 0 && (
+        <div className="text-center py-16 space-y-4">
+          <FileText className="h-12 w-12 mx-auto text-muted-foreground/40" />
+          <p className="text-muted-foreground">Nemate nijedan uvezen izvor.</p>
+          <Button variant="outline" onClick={() => setImporting(true)}>
+            <Upload className="h-4 w-4 mr-1" /> Uvezi prvi izvor
+          </Button>
+        </div>
+      )}
 
       {/* Source cards */}
       <div className="grid gap-3">
