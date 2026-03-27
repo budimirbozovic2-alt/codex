@@ -37,9 +37,7 @@ window.onerror = (_message, _source, _lineno, _colno, error) => {
 };
 
 window.onunhandledrejection = (event) => {
-  const reason = event.reason;
-  console.error("[boot] unhandledrejection", reason);
-  showFatalBootError(reason instanceof Error ? reason.message : String(reason || "Unhandled promise rejection pri startu."));
+  console.error("[boot] unhandledrejection", event.reason);
 };
 
 markBootStep("main:error-handlers-registered");

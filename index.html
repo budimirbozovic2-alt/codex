@@ -70,6 +70,12 @@
         @keyframes splashPulse { 0%, 100% { transform: scale(1); box-shadow: 0 8px 32px rgba(56,130,220,0.35); } 50% { transform: scale(1.08); box-shadow: 0 12px 40px rgba(56,130,220,0.5); } }
       </style>
     </div>
+    <script>
+      setTimeout(function(){
+        var s=document.getElementById("app-splash");
+        if(s){s.style.transition="opacity 0.3s";s.style.opacity="0";setTimeout(function(){if(s.parentNode)s.remove()},400);}
+      },10000);
+    </script>
     <script type="module" src="./src/main.tsx"></script>
   </body>
 </html>
