@@ -270,7 +270,7 @@ export default function ReviewSetup({
 
       <Button
         onClick={handleStartSession}
-        className="w-full py-6 text-base"
+        className="w-full py-6 text-base btn-imperial"
         disabled={modeMeta.items.length === 0}
       >
         <BookOpen className="h-4 w-4 mr-2" /> Počni konsolidaciju ({modeMeta.items.length} sekcija)
