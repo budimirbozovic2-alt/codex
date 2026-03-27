@@ -214,7 +214,7 @@ export default function ReviewCard({
 
           {/* Section info (hidden for flash cards) */}
           {!isFlash && (
-            <div className="rounded-xl bg-card border p-8">
+            <div className="rounded-xl bg-card border p-5">
               <div className="flex items-center gap-2">
                 <ChevronRight className="h-4 w-4 text-primary" />
                 <span className="font-medium text-primary">{section.title}</span>

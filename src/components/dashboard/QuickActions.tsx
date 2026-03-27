@@ -27,10 +27,7 @@ export const QuickActions = memo(function QuickActions({ dueCount, hasCards, las
         </Link>
       )}
       {lastSourceLabel && (
-        <Link to="/database"
-          onClick={() => {
-            sessionStorage.setItem("sr-database-tab", "sources");
-          }}
+      <Link to="/sources"
           className="flex items-center gap-2 px-4 py-2.5 rounded-lg border bg-card text-sm font-medium hover:bg-secondary transition-colors">
           <BookOpen className="h-4 w-4 text-primary" />
           Otvori izvor

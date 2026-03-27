@@ -41,8 +41,7 @@ export default function CardForm({ categories, subcategories, onSave, onSaveFlas
               type="button"
               onClick={() => {
                 sessionStorage.setItem("sr-open-source-id", editCard.sourceId!);
-                sessionStorage.setItem("sr-database-tab", "sources");
-                window.location.hash = "/database";
+                window.location.hash = "#/sources";
               }}
               className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium bg-success/10 text-success hover:bg-success/20 transition-colors"
             >

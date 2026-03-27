@@ -688,7 +688,7 @@
 .glass-card {
   background: hsl(var(--card) / 0.75);
   border: 1px solid hsl(var(--border) / 0.5);
-  border-radius: var(--radius);
+  border-radius: calc(var(--radius) + 4px);
 }
 
 /* ─── Forum Tablet (matches glass-card) ──────────── */

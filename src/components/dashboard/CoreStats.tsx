@@ -21,7 +21,7 @@ export const CoreStats = memo(function CoreStats({ due, learnedSections, totalSe
           {pendingFirstReview > 0 && <p className="text-xs text-primary">+ {pendingFirstReview} čeka prvo pon.</p>}
         </motion.div>
       </Link>
-      <Link to="/database">
+      <Link to="/cards">
         <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.14 }}
           className="glass-card p-5 space-y-2 hover:border-gold/40 transition-colors cursor-pointer">
           <BookOpen className="h-5 w-5 text-success mb-1" />

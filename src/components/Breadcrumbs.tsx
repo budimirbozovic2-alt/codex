@@ -47,7 +47,7 @@ export default function Breadcrumbs() {
   if (crumbs.length <= 1) return null;
 
   return (
-    <nav className="flex items-center gap-1 px-4 md:px-8 pt-2 max-w-6xl mx-auto w-full text-xs text-muted-foreground">
+    <nav className={`flex items-center gap-1 px-4 md:px-8 pt-2 mx-auto w-full text-xs text-muted-foreground ${["/cards", "/categories", "/sources", "/source-registry"].includes(pathname) ? "max-w-none" : "max-w-6xl"}`}>
       {crumbs.map((crumb, i) => (
         <span key={i} className="flex items-center gap-1">
           {i > 0 && <ChevronRight className="h-3 w-3" />}
