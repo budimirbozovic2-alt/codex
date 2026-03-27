@@ -73,7 +73,7 @@ class MemoriaDB extends Dexie {
   subcategories!: Table<{ id: string; category: string; subs: string[] }, string>;
   reviewLog!: Table<ReviewLogEntry & { id?: number }, number>;
   pomodoroLog!: Table<PomodoroLogEntry & { id?: number }, number>;
-  settings!: Table<{ key: string; value: any }, string>;
+  settings!: Table<{ key: string; value: unknown }, string>;
   // v2: metacognitive + planner tables
   diary!: Table<DiaryEntry, string>;
   calibrationLog!: Table<CalibrationEntry & { id?: number }, number>;
