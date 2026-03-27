@@ -1,9 +1,12 @@
 import { ArrowLeft, ChevronRight, Search, BookOpen, BarChart3, HelpCircle, ArrowUp, ArrowDown, ListOrdered } from "lucide-react";
-import { useState, useRef, useCallback, lazy, Suspense } from "react";
+import { useState, useRef, useCallback, lazy, Suspense, useEffect } from "react";
 import { Card, SectionState } from "@/lib/spaced-repetition";
+import type { Source } from "@/lib/db";
 import { motion } from "framer-motion";
 import { TabSkeleton } from "@/components/ui/page-skeleton";
 import SubcategoryCard from "./knowledge-map/SubcategoryCard";
+import { useSourceHierarchy } from "@/hooks/useSourceHierarchy";
+import { loadSources } from "@/lib/sources-storage";
 
 const MentalSkeleton = lazy(() => import("@/components/MentalSkeleton"));
 
