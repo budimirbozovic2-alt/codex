@@ -45,9 +45,9 @@ const App = () => (
         <Toaster />
         <Sonner />
         <HashRouter>
-          <ForumProvider>
-            <ForumTransition />
-            <AppProvider>
+          <AppProvider>
+            <ForumProvider>
+              <ForumTransition />
               <SessionProvider>
                 <ErrorBoundary>
                   <MainLayout>
@@ -80,8 +80,8 @@ const App = () => (
                   <ProcessingOverlay />
                 </ErrorBoundary>
               </SessionProvider>
-            </AppProvider>
-          </ForumProvider>
+            </ForumProvider>
+          </AppProvider>
         </HashRouter>
       </div>
     </TooltipProvider>

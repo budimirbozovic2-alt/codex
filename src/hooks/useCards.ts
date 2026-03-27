@@ -56,33 +56,39 @@ export function useCards() {
 
   // ── Bulk map update (for operations touching many cards) ──
   const setCardMap = useCallback((updater: (prev: CardMap) => CardMap, persist: "surgical" | "full" = "full") => {
-    let bulkCards: Card[] = [];
+    let snapshot: CardMap = {};
     setCardMapState((prev) => {
       const next = updater(prev);
-      if (persist === "full") {
-        bulkCards = Object.values(next);
-      }
+      snapshot = next;
       return next;
     });
-    if (bulkCards.length > 0) {
-      schedulePersist({ type: "bulk", cards: bulkCards });
+    // Side-effect OUTSIDE the updater (C3 fix)
+    if (persist === "full") {
+      const bulkCards = Object.values(snapshot);
+      if (bulkCards.length > 0) schedulePersist({ type: "bulk", cards: bulkCards });
     }
   }, []);
 
   const setCategories = useCallback((updater: (prev: string[]) => string[]) => {
+    let snapshot: string[] = [];
     setCategoriesState((prev) => {
       const next = updater(prev);
-      idbSaveCategories(next);
+      snapshot = next;
       return next;
     });
+    // Side-effect OUTSIDE the updater (H6 fix)
+    idbSaveCategories(snapshot);
   }, []);
 
   const setSubcategories = useCallback((updater: (prev: Record<string, string[]>) => Record<string, string[]>) => {
+    let snapshot: Record<string, string[]> = {};
     setSubcategoriesState((prev) => {
       const next = updater(prev);
-      idbSaveSubcategories(next);
+      snapshot = next;
       return next;
     });
+    // Side-effect OUTSIDE the updater (H6 fix)
+    idbSaveSubcategories(snapshot);
   }, []);
 
   const setReviewLog = useCallback((updater: (prev: ReviewLogEntry[]) => ReviewLogEntry[]) => {

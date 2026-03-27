@@ -342,21 +342,14 @@ export async function idbLoadCards(): Promise<Card[]> {
   return db.cards.toArray();
 }
 
+/**
+ * @deprecated Use idbBulkPutCards for upserts or db.cards.clear()+bulkPut for full restore.
+ * This function previously deleted cards not in the input array — that logic has been removed (C2 fix).
+ */
 export async function idbSaveCards(cards: Card[]): Promise<void> {
-  // Surgical upsert: bulkPut handles insert-or-update without clearing.
-  // Then remove any cards in IDB that aren't in the new set.
-  await db.transaction("rw", db.cards, async () => {
-    if (cards.length > 0) {
-      await db.cards.bulkPut(cards);
-    }
-    // Remove stale cards not in the new set
-    const newIds = new Set(cards.map(c => c.id));
-    const allKeys = await db.cards.toCollection().primaryKeys();
-    const toDelete = allKeys.filter(k => !newIds.has(k as string));
-    if (toDelete.length > 0) {
-      await db.cards.bulkDelete(toDelete);
-    }
-  });
+  if (cards.length > 0) {
+    await db.cards.bulkPut(cards);
+  }
 }
 
 function hasInnerQuotaError(err: unknown): boolean {
