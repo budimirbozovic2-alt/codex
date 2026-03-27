@@ -49,11 +49,10 @@ interface UseCardExportDeps {
   cards: Card[];
   categories: string[];
   subcategories: Record<string, string[]>;
-  reviewLog: ReviewLogEntry[];
   srSettings: SRSettings;
 }
 
-export function useCardExport({ cards, categories, subcategories, reviewLog, srSettings }: UseCardExportDeps) {
+export function useCardExport({ cards, categories, subcategories, srSettings }: UseCardExportDeps) {
   const exportTemplate = useCallback(
     async (compress: boolean, onProgress: (p: number, msg: string) => void) => {
       const templateCards = cards.map((c) => ({
