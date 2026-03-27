@@ -30,6 +30,7 @@ interface ReviewSetupProps {
   savedSession: any;
   onResumeSession: () => void;
   onClearSavedSession: () => void;
+  preSelectedCategory?: string | null;
 }
 
 export default function ReviewSetup({
