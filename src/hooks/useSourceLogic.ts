@@ -30,17 +30,20 @@ export function useSourceLogic(source: Source) {
   const [examOpen, setExamOpen] = useState(false);
   const [examQuestions, setExamQuestions] = useState<ExamQuestion[]>([]);
 
+  // Only recompute coverage/linkedCount when cards linked to THIS source change
+  const sourceCards = useMemo(
+    () => cards.filter(c => c.sourceId === source.id),
+    [cards, source.id]
+  );
+
   const coverage = useMemo(
-    () => analyzeCoverage(source.id, source.htmlContent, cards),
-    [source.id, source.htmlContent, cards]
+    () => analyzeCoverage(source.id, source.htmlContent, sourceCards),
+    [source.id, source.htmlContent, sourceCards]
   );
 
   const safeHtml = useMemo(() => sanitizeHtml(source.htmlContent), [source.htmlContent]);
 
-  const linkedCount = useMemo(
-    () => cards.filter(c => c.sourceId === source.id).length,
-    [cards, source.id]
-  );
+  const linkedCount = sourceCards.length;
 
   const handleMouseUp = useCallback(() => {
     setTimeout(() => {
