@@ -101,7 +101,7 @@ export function useCardAnnotations({
         }
         // Only penalize the specific section if sectionId is provided
         const sections = c.sections.map((s) => {
-          if (sectionId && s.id !== sectionId) return s;
+          if (!sectionId || s.id !== sectionId) return s;
           return {
             ...s,
             difficulty: Math.min(10, s.difficulty + 0.5),

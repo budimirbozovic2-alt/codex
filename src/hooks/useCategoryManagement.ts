@@ -26,14 +26,8 @@ export function useCategoryManagement({
 
   const renameCategory = useCallback(
     (oldName: string, newName: string) => {
-      let didRename = false;
-      setCategories((prev) => {
-        if (prev.includes(newName)) return prev;
-        didRename = true;
-        return prev.map((c) => (c === oldName ? newName : c));
-      });
-      if (!didRename) return;
-      // Accumulator pattern: collect changed cards for surgical persist
+      if (categories.includes(newName)) return; // Synchronous check — no React 18 batching race
+      setCategories(prev => prev.map(c => c === oldName ? newName : c));
       const changed: Card[] = [];
       setCardMapState((prev) => {
         const next = { ...prev };
@@ -50,14 +44,11 @@ export function useCategoryManagement({
       bumpMapVersion();
       setSubcategories((prev) => {
         const next = { ...prev };
-        if (next[oldName]) {
-          next[newName] = next[oldName];
-          delete next[oldName];
-        }
+        if (next[oldName]) { next[newName] = next[oldName]; delete next[oldName]; }
         return next;
       });
     },
-    [setCategories, setCardMapState, setSubcategories],
+    [categories, setCategories, setCardMapState, setSubcategories],
   );
 
   const deleteCategory = useCallback(

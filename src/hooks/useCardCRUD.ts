@@ -167,7 +167,8 @@ export function useCardCRUD({
       sections: [{ ...section }],
       updatedAt: Date.now(),
     }));
-    // Surgical persist: save new cards + delete original
+    // Sync ref before state update
+    const nextRef = { ...cardMapRef.current }; delete nextRef[id]; newCards.forEach(c => { nextRef[c.id] = c; }); cardMapRef.current = nextRef;
     schedulePersist({ type: "bulk", cards: newCards });
     idbDeleteCard(id).catch(e => console.error("[splitCard] IDB delete failed", e));
     setCardMapState(prev => {

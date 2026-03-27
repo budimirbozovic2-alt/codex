@@ -81,7 +81,7 @@ export function useCardImport({
         setCardMap((prev) => {
           const next = { ...prev };
           if (strategy === "newer") {
-            const getLastReview = (c: Card) => Math.max(0, ...c.sections.map((s) => s.lastReviewed || 0));
+            const getLastReview = (c: Card) => c.sections.reduce((max, s) => Math.max(max, s.lastReviewed || 0), 0);
             importedCards.forEach((ic) => {
               const existing = next[ic.id];
               if (!existing) { next[ic.id] = ic; merged.push(ic); }
