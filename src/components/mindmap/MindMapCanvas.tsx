@@ -19,7 +19,7 @@ import {
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import MindMapNodeComponent, { type MindMapNodeData, ICON_REGISTRY, type NodeShape, COLOR_OPTIONS } from "./MindMapNode";
-import { MindMapDoc } from "@/lib/db";
+import { MindMapDoc, MindMapEdgeRecord } from "@/lib/db";
 import { saveMindMap } from "@/lib/mindmap-storage";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
