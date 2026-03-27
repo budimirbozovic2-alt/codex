@@ -247,7 +247,7 @@ export default function TopNav({ onToggleZen, zenActive, onOpenOnboarding }: Pro
             </div>
           )}
           {onOpenOnboarding && (
-            <button onClick={onOpenOnboarding} className="p-1.5 rounded-md hover:bg-secondary text-muted-foreground" title="Vodič kroz aplikaciju">
+            <button onClick={onOpenOnboarding} className="p-1.5 rounded-md hover:bg-secondary text-muted-foreground" title="Vodič kroz aplikaciju" aria-label="Vodič kroz aplikaciju">
               <HelpCircle className="h-4 w-4" />
             </button>
           )}
