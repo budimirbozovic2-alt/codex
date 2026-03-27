@@ -49,6 +49,7 @@ export function useCardImport({
           }
         }
 
+        const { sanitizeHtml } = await import("@/lib/sanitize");
         // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic JSON migration requires flexible typing
         const migrateImported = (c: any): Card => ({
           ...c,
