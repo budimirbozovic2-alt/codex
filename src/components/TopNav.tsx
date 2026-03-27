@@ -29,20 +29,16 @@ const PRIMARY_NAV = [
   { path: "/review", icon: RotateCcw, label: "Konsolidacija", badge: true },
 ];
 
-const LAB_ANALYTICS = [
-  { path: "/stats", icon: BarChart3, label: "Statistika", desc: "Pregled napretka i analitika" },
-  { path: "/metacognitive", icon: BookOpen, label: "Dnevnik", desc: "Metakognitivne refleksije" },
+const TOOLS_NAV = [
+  { path: "/stats", label: "Statistika" },
+  { path: "/metacognitive", label: "Dnevnik" },
+  { path: "/mnemonic", label: "Mnemo radionica" },
+  { path: "/planner", label: "Strateški planer" },
+  { path: "/speed-reader", label: "Speed Reader" },
+  { path: "/mind-map", label: "Mentalne mape" },
 ];
 
-const LAB_TOOLS = [
-  { path: "/mnemonic", icon: Brain, label: "Mnemo radionica", desc: "Tehnike pamćenja" },
-  { path: "/planner", icon: Target, label: "Strateški planer", desc: "Planiranje učenja" },
-  { path: "/speed-reader", icon: Zap, label: "Speed Reader", desc: "Brzo čitanje podkategorija" },
-  { path: "/mind-map", icon: Network, label: "Mentalne mape", desc: "Vizuelizacija hijerarhija i postupaka" },
-];
-
-const LAB_ITEMS = [...LAB_ANALYTICS, ...LAB_TOOLS];
-const LAB_PATHS = LAB_ITEMS.map(i => i.path);
+const TOOLS_PATHS = TOOLS_NAV.map(i => i.path);
 
 export default function TopNav({ onToggleZen, zenActive, onOpenOnboarding }: Props) {
   const location = useLocation();
