@@ -162,9 +162,14 @@ class MemoriaDB extends Dexie {
 
 export const db = new MemoriaDB();
 
+// ─── Global DB error state (reactive signal for UI) ─────
+export let dbErrorState: { type: "version" | "timeout"; message: string } | null = null;
+
+export function getDbErrorState() { return dbErrorState; }
+
 /**
  * Explicitly open the database with a timeout guard.
- * Catches VersionError (stale schema) by deleting and re-opening.
+ * Catches VersionError (stale schema) by setting dbErrorState for UI recovery.
  * Returns true if DB is usable, false if fallback mode should be used.
  */
 export async function ensureDbOpen(timeoutMs = 6000): Promise<boolean> {
@@ -183,12 +188,10 @@ export async function ensureDbOpen(timeoutMs = 6000): Promise<boolean> {
     const e = err instanceof Error ? err : new Error(String(err));
     console.error("[MemoriaDB] open failed:", e.name, e.message);
     if (e.name === "VersionError" || e.name === "UpgradeError") {
-      console.error(
-        "[MemoriaDB] CRITICAL: DB schema version mismatch. Automatic deletion has been disabled to protect user data. " +
-        "The app cannot initialize until this is resolved. Error:", e.message
-      );
-      // Do NOT delete the database — this would silently wipe all user data.
-      // A future UI recovery screen will handle this case.
+      dbErrorState = { type: "version", message: e.message };
+      console.error("[MemoriaDB] CRITICAL: DB schema version mismatch.", e.message);
+    } else if (e.message === "DB_OPEN_TIMEOUT") {
+      dbErrorState = { type: "timeout", message: "Baza podataka se nije otvorila u predviđenom roku." };
     }
     return false;
   }
