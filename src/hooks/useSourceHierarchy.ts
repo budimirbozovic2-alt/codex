@@ -40,6 +40,16 @@ function computeLevels(cards: Card[]): number[] {
   return levels;
 }
 
+function computeAvgStability(cards: Card[]): number {
+  let total = 0, count = 0;
+  for (const card of cards) {
+    for (const s of (card as any).sections ?? []) {
+      if ((s.stability ?? 0) > 0) { total += s.stability; count++; }
+    }
+  }
+  return count > 0 ? total / count : 0;
+}
+
 /**
  * Build a dynamic hierarchy tree for a category based on source registry.
  * Only activates when cards have sourceId links.
