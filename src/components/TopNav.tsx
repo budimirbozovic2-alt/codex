@@ -45,7 +45,7 @@ export default function TopNav({ onToggleZen, zenActive, onOpenOnboarding }: Pro
   const { stats } = useCardContext();
   const { enterForum, unlocked: forumUnlocked } = useForumContext();
   const [dark, setDarkState] = useState(() => document.documentElement.classList.contains("dark"));
-  const [mobileOpen, setMobileOpen] = useState(false);
+  
   const [labOpen, setLabOpen] = useState(false);
   const labRef = useRef<HTMLDivElement>(null);
   const [, startTransition] = useTransition();
