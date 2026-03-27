@@ -5,14 +5,15 @@ import {
   AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, Line, ComposedChart,
 } from "recharts";
 import { ChartTooltip, PHASE_COLORS } from "./planner-constants";
+import type { BurnupDataPoint, PhaseProgressItem } from "@/types/planner";
 
 interface Props {
-  burnupData: any[];
+  burnupData: BurnupDataPoint[];
   projectionText: string;
   velocity: number;
   remaining: number;
   totalSections: number;
-  phaseProgressList: any[];
+  phaseProgressList: PhaseProgressItem[];
   bufferPercent: number;
 }
 
@@ -89,7 +90,7 @@ export default function RoadmapTab({
       {phaseProgressList.length > 0 && (
         <div className="rounded-xl bg-card border p-5 space-y-3">
           <h4 className="text-sm font-medium">Progres po fazama</h4>
-          {phaseProgressList.map((p: any, i: number) => (
+          {phaseProgressList.map((p, i) => (
             <div key={p.id} className="space-y-1">
               <div className="flex items-center justify-between text-xs">
                 <span className="flex items-center gap-1.5">

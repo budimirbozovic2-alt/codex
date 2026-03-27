@@ -1,6 +1,6 @@
 import { loadAppSettings } from "./app-settings";
 
-const audioCtx = typeof window !== "undefined" ? new (window.AudioContext || (window as any).webkitAudioContext)() : null;
+const audioCtx = typeof window !== "undefined" ? new (window.AudioContext || window.webkitAudioContext)() : null;
 
 function playTone(frequency: number, duration: number, type: OscillatorType = "sine", volume: number = 0.15) {
   if (!audioCtx) return;

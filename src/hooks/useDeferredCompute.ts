@@ -5,7 +5,7 @@ import { useState, useEffect, useRef } from "react";
  * Returns `null` until the computation is complete, then returns the result.
  * Re-runs when `deps` change.
  */
-export function useDeferredCompute<T>(compute: () => T, deps: any[]): T | null {
+export function useDeferredCompute<T>(compute: () => T, deps: unknown[]): T | null {
   const [result, setResult] = useState<T | null>(null);
   const computeRef = useRef(compute);
   computeRef.current = compute;
@@ -18,8 +18,8 @@ export function useDeferredCompute<T>(compute: () => T, deps: any[]): T | null {
     };
 
     if ("requestIdleCallback" in window) {
-      const id = (window as any).requestIdleCallback(run, { timeout: 2000 });
-      return () => { cancelled = true; (window as any).cancelIdleCallback(id); };
+      const id = window.requestIdleCallback(run, { timeout: 2000 });
+      return () => { cancelled = true; window.cancelIdleCallback(id); };
     } else {
       const id = setTimeout(run, 50);
       return () => { cancelled = true; clearTimeout(id); };

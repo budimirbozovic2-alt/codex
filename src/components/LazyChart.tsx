@@ -31,7 +31,6 @@ export default function LazyChart<T>({ label, icon, compute, children, delay = 0
   const handleRefresh = useCallback(() => {
     setLoading(true);
     setComputed(false);
-    // Use requestIdleCallback or setTimeout to keep UI thread responsive
     const run = () => {
       const result = computeRef.current();
       setData(result);
@@ -39,7 +38,7 @@ export default function LazyChart<T>({ label, icon, compute, children, delay = 0
       setComputed(true);
     };
     if ("requestIdleCallback" in window) {
-      (window as any).requestIdleCallback(run, { timeout: 3000 });
+      window.requestIdleCallback(run, { timeout: 3000 });
     } else {
       setTimeout(run, 50);
     }

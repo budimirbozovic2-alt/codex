@@ -3,9 +3,11 @@
  * across MyStats, ForgettingCurve, StrategicPlanner, etc.
  */
 
+import type { RechartsPayloadItem } from "@/types/planner";
+
 interface ChartTooltipProps {
   active?: boolean;
-  payload?: any[];
+  payload?: RechartsPayloadItem[];
   label?: string;
   /** Optional prefix for the label, e.g. "Dan" → "Dan 5" */
   labelPrefix?: string;
@@ -20,7 +22,7 @@ export function ChartTooltip({ active, payload, label, labelPrefix, valueSuffix 
       <p className="font-medium text-card-foreground">
         {labelPrefix ? `${labelPrefix} ${label}` : label}
       </p>
-      {payload.map((p: any, i: number) => (
+      {payload.map((p, i) => (
         <p key={i} style={{ color: p.color }} className="text-xs text-muted-foreground">
           {p.name}: <span className="font-medium text-card-foreground">
             {p.value}{valueSuffix || ""}

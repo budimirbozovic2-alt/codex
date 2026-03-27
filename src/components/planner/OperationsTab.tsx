@@ -12,21 +12,22 @@ import { cn } from "@/lib/utils";
 import { Clock, RefreshCw, Shield, Flame, Target, Plus, Calendar, Zap, Lightbulb, AlertTriangle } from "lucide-react";
 import PhaseItem from "./PhaseItem";
 import { STATUS_CONFIG, PHASE_COLORS } from "./planner-constants";
+import type { PhaseProgressItem, DynamicDateItem, SmartSuggestionItem, TimeRecommendation, CognitiveDebtItem } from "@/types/planner";
 
 interface Props {
   config: PlannerConfig;
   save: (c: PlannerConfig) => void;
   categories: string[];
-  phaseProgressList: any[];
-  dynamicDates: any[];
+  phaseProgressList: PhaseProgressItem[];
+  dynamicDates: DynamicDateItem[];
   totalTimelineDays: number;
   velocity: number;
   remaining: number;
   estimatedFinish: Date | null;
   plannerStatus: { status: string; daysLate: number };
-  smartSuggestion: any;
-  timeRec: any;
-  debt: any;
+  smartSuggestion: SmartSuggestionItem | null;
+  timeRec: TimeRecommendation | null;
+  debt: CognitiveDebtItem | null;
   dueCount: number;
   onNavigateToDatabase?: (category: string) => void;
 }
@@ -164,7 +165,7 @@ export default function OperationsTab({
         {config.phases.length > 0 && totalTimelineDays > 0 && (
           <div className="flex h-6 rounded-lg overflow-hidden bg-secondary">
             {config.phases.map((p, i) => {
-              const dd = dynamicDates.find((d: any) => d.phaseId === p.id);
+              const dd = dynamicDates.find(d => d.phaseId === p.id);
               const days = dd?.dynamicDays || p.expectedDays;
               return (
                 <div
@@ -187,8 +188,8 @@ export default function OperationsTab({
             onReorder={(newOrder) => save({ ...config, phases: newOrder })}
             className="space-y-2"
           >
-            {phaseProgressList.map((p: any, i: number) => {
-              const dd = dynamicDates.find((d: any) => d.phaseId === p.id);
+            {phaseProgressList.map((p, i) => {
+              const dd = dynamicDates.find(d => d.phaseId === p.id);
               return (
                 <PhaseItem
                   key={p.id}

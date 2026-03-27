@@ -6,10 +6,11 @@ import {
 import { getDisciplineEmoji } from "@/lib/planner-storage";
 import { cn } from "@/lib/utils";
 import { ChartTooltip } from "./planner-constants";
+import type { DisciplineLogEntry, DisciplineTrendPoint } from "@/types/planner";
 
 interface Props {
-  disciplineLog: any[];
-  disciplineTrend: any[];
+  disciplineLog: DisciplineLogEntry[];
+  disciplineTrend: DisciplineTrendPoint[];
   streak: number;
   bestStreak: number;
   currentPhase: { name: string } | null;
@@ -88,7 +89,7 @@ export default function DisciplineTab({
           </p>
         ) : (
           <div className="grid grid-cols-7 gap-1.5">
-            {disciplineLog.slice(-14).map((entry: any, i: number) => (
+            {disciplineLog.slice(-14).map((entry, i) => (
               <div key={i} className="text-center space-y-1">
                 <span className="text-lg">{getDisciplineEmoji(entry.status)}</span>
                 <p className="text-[9px] text-muted-foreground">{entry.date.slice(5)}</p>
