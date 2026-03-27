@@ -1,103 +1,32 @@
 
 
-# Critical Foundation Fix: Audit v3 Phase 1
+# Audit v4 Cleanup: 4 Fixes
 
-## Task 1: Fix C1 — `getStorageUsage()` (storage.ts)
+## Fix 1: `src/lib/sounds.ts:18-27` — Use local `ctx` instead of module-level `audioCtx`
+Replace all 8 occurrences of `audioCtx.` inside `playTone` with `ctx.` (lines 18-27). The null guard is already on `ctx`.
 
-**Problem**: Reads stale localStorage keys that are now empty post-migration. Reports ~0% usage.
-
-**Fix**: Make `getStorageUsage()` async. Use `navigator.storage.estimate()` (returns `{usage, quota}`) which covers IndexedDB. Fall back to a rough Dexie table count if `estimate()` is unavailable.
-
-**Callers to update**:
-- `src/hooks/useDashboardData.ts:125` — `useDeferredCompute` callback becomes async (it already supports promises)
-- `src/components/HealthMonitor.tsx:65` — wrap in `.then()` or make the refresh callback async
-
-**Changes**:
+## Fix 2: `src/hooks/useDashboardData.ts:90` — Stale appSettings
+The `forceSettingsRefresh` counter increments on storage events but `useMemo(() => loadAppSettings(), [])` ignores it. Add the counter to deps:
 ```ts
-// storage.ts
-export async function getStorageUsage(): Promise<{usedBytes: number; maxBytes: number; percent: number}> {
-  if (navigator.storage?.estimate) {
-    const est = await navigator.storage.estimate();
-    const used = est.usage ?? 0;
-    const max = est.quota ?? 500 * 1024 * 1024;
-    return { usedBytes: used, maxBytes: max, percent: Math.round((used / max) * 100) };
-  }
-  // Fallback: count IDB records as rough estimate
-  return { usedBytes: 0, maxBytes: 0, percent: 0 };
-}
+const [settingsVersion, forceSettingsRefresh] = useState(0);
+const appSettings = useMemo(() => loadAppSettings(), [settingsVersion]);
 ```
 
----
-
-## Task 2: Fix C2 — Import overwrite for `++id` tables (useCardImport.ts)
-
-**Problem**: Lines 159-163 — for `++id` tables (reviewLog, pomodoroLog, calibrationLog, etc.), imported records have `id` fields from the source DB. On `bulkPut`, Dexie assigns NEW auto-increment IDs. The cleanup then compares imported `r.id` values against new keys — they never match, so ALL existing records get deleted.
-
-**Fix**: For "overwrite" strategy on `++id` tables, use `table.clear()` before `bulkPut` instead of the ID-comparison cleanup. This is semantically correct: "overwrite" means "replace all data with imported data."
-
-Separate `idbTables` into two lists:
-- UUID-keyed tables (`diary`) — keep current ID-comparison logic
-- Auto-increment tables (all others) — use `clear()` + `bulkAdd` for overwrite
-
----
-
-## Task 3: Fix C3 — Pomodoro to IDB (storage.ts + callers)
-
-**Problem**: `addPomodoroEntry()` writes to localStorage, but backup reads from `db.pomodoroLog` (IDB). Data never syncs.
-
-**Fix**:
-- **storage.ts**: Rewrite `addPomodoroEntry()` to write to `db.pomodoroLog` instead of localStorage. Make it async.
-- **storage.ts**: Rewrite `getPomodoroStats()` to read from `db.pomodoroLog`. Make it async.
-- **ZenMode.tsx**: Update calls to await `addPomodoroEntry()` and `getPomodoroStats()`.
-- **AppContext.tsx**: Update call to await `addPomodoroEntry()`.
-
+## Fix 3: `src/components/HealthMonitor.tsx:58-65` — Double estimate call
+`navigator.storage.estimate()` is called directly on line 60, then again inside `getStorageUsage()` on line 65. Remove the direct call (lines 58-62) and derive `idbEstimate` from the `getStorageUsage()` result:
 ```ts
-// storage.ts
-export async function addPomodoroEntry(entry: PomodoroLogEntry): Promise<void> {
-  const { db } = await import("@/lib/db");
-  await db.pomodoroLog.add(entry);
-}
-
-export async function getPomodoroStats(): Promise<{...}> {
-  const { db } = await import("@/lib/db");
-  const log = await db.pomodoroLog.toArray();
-  // ... same math, same return shape
-}
+const storageResult = await getStorageUsage();
+setIdbEstimate({ usage: storageResult.usedBytes, quota: storageResult.maxBytes });
+setLsUsage(storageResult);
 ```
 
----
-
-## Task 4: Fix C4 — TTS listener leak (SpeedReader.tsx)
-
-**Problem**: Line 142 — `window.speechSynthesis.onvoiceschanged = load` overwrites any existing handler and can be clobbered by other instances.
-
-**Fix**: Replace with `addEventListener`/`removeEventListener`:
-```ts
-useEffect(() => {
-  if (!("speechSynthesis" in window)) return;
-  const load = () => { const v = window.speechSynthesis.getVoices(); if (v.length) setVoices(v); };
-  load();
-  window.speechSynthesis.addEventListener("voiceschanged", load);
-  return () => { window.speechSynthesis.removeEventListener("voiceschanged", load); };
-}, []);
-```
-
----
+## Fix 4: `src/hooks/useDashboardData.ts:130` — Unnecessary deps
+Change `[cards, reviewLog]` to `[]`. `getStorageUsage()` measures browser-level storage, not app state.
 
 ## Files changed
-
 | File | Change |
 |------|--------|
-| `src/lib/storage.ts` | Make `getStorageUsage` async (use `navigator.storage.estimate`); rewrite `addPomodoroEntry` + `getPomodoroStats` to use IDB |
-| `src/hooks/useDashboardData.ts` | Update `getStorageUsage()` call to handle async |
-| `src/components/HealthMonitor.tsx` | Update `getStorageUsage()` call to handle async |
-| `src/hooks/useCardImport.ts` | Fix `++id` overwrite: use `clear()` + `bulkAdd` for auto-increment tables |
-| `src/components/SpeedReader.tsx` | Replace `onvoiceschanged =` with `addEventListener` |
-| `src/components/ZenMode.tsx` | Await async `addPomodoroEntry` / `getPomodoroStats` |
-| `src/contexts/AppContext.tsx` | Await async `addPomodoroEntry` |
-
-## Guardrails
-- No UI changes
-- No FSRS math changes
-- No DnD-kit changes
+| `src/lib/sounds.ts` | `audioCtx.` → `ctx.` in playTone (lines 18-27) |
+| `src/hooks/useDashboardData.ts` | Expose settingsVersion counter as useMemo dep; change storageUsage deps to `[]` |
+| `src/components/HealthMonitor.tsx` | Remove duplicate estimate call, reuse getStorageUsage result |
 
