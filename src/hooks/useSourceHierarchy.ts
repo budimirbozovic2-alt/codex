@@ -135,6 +135,7 @@ export function useSourceHierarchy(
             cards: chapCards,
             cardCount: chapCards.length,
             levels: computeLevels(chapCards),
+            avgStability: computeAvgStability(chapCards),
           });
         }
 
