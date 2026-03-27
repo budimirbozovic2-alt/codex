@@ -552,6 +552,8 @@
   }
 
   .dark[data-theme="midnight"] {
+    --gold: 43 74% 55%;
+    --gold-foreground: 0 0% 100%;
     --background: 230 18% 5%;
     --foreground: 230 12% 88%;
 
