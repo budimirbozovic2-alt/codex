@@ -118,15 +118,21 @@ export function useCategoryManagement({
   const deleteSubcategory = useCallback(
     (category: string, subcategory: string) => {
       setSubcategories((prev) => ({ ...prev, [category]: (prev[category] || []).filter((s) => s !== subcategory) }));
-      setCardMap((prev) => {
-        const next: CardMap = {};
-        for (const [id, c] of Object.entries(prev)) {
-          next[id] = c.category === category && c.subcategory === subcategory ? { ...c, subcategory: "" } : c;
+      // Surgical: only update cards with the deleted subcategory
+      setCardMapState((prev) => {
+        const next = { ...prev };
+        const updated: Card[] = [];
+        for (const [id, c] of Object.entries(next)) {
+          if (c.category === category && c.subcategory === subcategory) {
+            next[id] = { ...c, subcategory: "" };
+            updated.push(next[id]);
+          }
         }
+        if (updated.length > 0) globalSchedulePersist({ type: "bulk", cards: updated });
         return next;
-      }, "full");
+      });
     },
-    [setSubcategories, setCardMap],
+    [setSubcategories, setCardMapState],
   );
 
   const bulkUpdateSubcategory = useCallback((ids: string[], subcategory: string) => {
