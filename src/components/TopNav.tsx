@@ -1,4 +1,4 @@
-import { Zap, Home, GraduationCap, RotateCcw, BookOpen, Map, Brain, Network, Target, Moon, Sun, Menu, X, Focus, Settings as SettingsIcon, BarChart3, FlaskConical, Database as DatabaseIcon, HelpCircle, Plus } from "lucide-react";
+import { Zap, Home, GraduationCap, RotateCcw, BookOpen, Map, Brain, Network, Target, Moon, Sun, Menu, X, Focus, Settings as SettingsIcon, BarChart3, FlaskConical, Database as DatabaseIcon, HelpCircle, Plus, Landmark } from "lucide-react";
 import { useLocation } from "react-router-dom";
 
 import { NavLink } from "@/components/NavLink";
@@ -48,7 +48,7 @@ const LAB_PATHS = LAB_ITEMS.map(i => i.path);
 export default function TopNav({ onToggleZen, zenActive, onOpenOnboarding }: Props) {
   const location = useLocation();
   const { stats } = useCardContext();
-  const { enterForum } = useForumContext();
+  const { enterForum, unlocked: forumUnlocked } = useForumContext();
   const [dark, setDarkState] = useState(() => document.documentElement.classList.contains("dark"));
   const [mobileOpen, setMobileOpen] = useState(false);
   const [labOpen, setLabOpen] = useState(false);
@@ -221,6 +221,11 @@ export default function TopNav({ onToggleZen, zenActive, onOpenOnboarding }: Pro
         </div>
 
         <div className="flex items-center gap-0.5 ml-2">
+          {forumUnlocked && (
+            <Link to="/forum" className="p-1.5 rounded-md hover:bg-gold/10 text-gold transition-colors" title="Forum Iustitiae" aria-label="Forum Iustitiae">
+              <Landmark className="h-4 w-4" />
+            </Link>
+          )}
           {/* Mapping badge */}
           {mappingFlash && (
             <div className="flex items-center gap-1 px-2 py-1 rounded-md bg-success/15 text-success text-[10px] font-bold animate-in fade-in zoom-in-95 duration-300">
@@ -336,6 +341,18 @@ export default function TopNav({ onToggleZen, zenActive, onOpenOnboarding }: Pro
             <SettingsIcon className="h-4 w-4 flex-shrink-0" />
             <span>Podešavanja</span>
           </NavLink>
+
+          {forumUnlocked && (
+            <NavLink
+              to="/forum"
+              className="flex items-center gap-2.5 px-3 py-2 rounded-md text-sm text-gold hover:bg-gold/10 transition-colors"
+              activeClassName="bg-gold/15 font-medium"
+              onClick={() => setMobileOpen(false)}
+            >
+              <Landmark className="h-4 w-4 flex-shrink-0" />
+              <span className="font-display tracking-wide">Forum Iustitiae</span>
+            </NavLink>
+          )}
         </div>
       )}
       <Dialog open={_sysInfoOpen} onOpenChange={_setSysInfoOpen}>
