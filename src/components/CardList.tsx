@@ -109,7 +109,7 @@ const CardRowInner = memo(function CardRowInner({ card, expanded, highlighted, s
                 <span className="text-xs text-muted-foreground">{card.sections.length} cjelina</span>
               )}
             </div>
-            <p className="font-serif text-lg line-clamp-2">{card.question}</p>
+            <p className="font-display text-lg line-clamp-2">{card.question}</p>
           </div>
           <div className="flex gap-1 flex-shrink-0">
             {hasSource && (

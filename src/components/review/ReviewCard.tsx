@@ -199,7 +199,7 @@ export default function ReviewCard({
               )}
             </div>
             <div className="flex items-center gap-2 mt-1">
-              <p className="text-lg leading-relaxed font-serif flex-1">{card.question}</p>
+              <p className="text-lg leading-relaxed font-display flex-1">{card.question}</p>
               {hasSource && (
                 <button
                   onClick={() => setSnippetOpen(true)}

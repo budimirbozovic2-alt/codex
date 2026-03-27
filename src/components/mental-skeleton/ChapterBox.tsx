@@ -74,7 +74,7 @@ function ChapterBoxInner({
             <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform flex-shrink-0 ${isOpen ? "" : "-rotate-90"}`} />
             <BookOpen className="h-4 w-4 text-primary flex-shrink-0" />
             <div className="flex-1 text-left min-w-0">
-              <span className={`font-serif text-sm transition-colors ${isOver ? "text-primary font-semibold" : ""}`}>{displayName}</span>
+              <span className={`font-display text-sm transition-colors ${isOver ? "text-primary font-semibold" : ""}`}>{displayName}</span>
               <span className="ml-2 text-xs text-muted-foreground">{cards.length}</span>
               {isOver && <span className="ml-2 text-xs text-primary animate-pulse">← Pusti ovdje</span>}
             </div>

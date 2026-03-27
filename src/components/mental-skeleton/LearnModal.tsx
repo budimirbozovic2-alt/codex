@@ -52,7 +52,7 @@ export default function LearnModal({ card, onGrade, onClose }: LearnModalProps) 
               <span className="text-xs text-muted-foreground">{card.category} → {card.subcategory}</span>
               {card.chapter && <span className="text-xs text-muted-foreground">→ {card.chapter}</span>}
             </div>
-            <h3 className="font-serif text-lg leading-tight">{card.question}</h3>
+            <h3 className="font-display text-lg leading-tight">{card.question}</h3>
           </div>
           <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-secondary transition-colors">
             <X className="h-4 w-4" />

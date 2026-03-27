@@ -123,15 +123,15 @@ export default function CognitiveAnalytics({ cards, categories, reviewLog }: Pro
             <p className="text-xs text-muted-foreground">Usporedba tačnosti u normalnim vs. brzim (stresnim) odgovorima.</p>
             <div className="grid grid-cols-3 gap-3">
               <div className="p-3 rounded-lg bg-secondary/50 text-center">
-                <p className="text-2xl font-serif tabular-nums">{stressPerf.normalAvgGrade}</p>
+                <p className="text-2xl font-display tabular-nums">{stressPerf.normalAvgGrade}</p>
                 <p className="text-[10px] text-muted-foreground mt-0.5">Normalni ({stressPerf.normalCount})</p>
               </div>
               <div className="p-3 rounded-lg bg-secondary/50 text-center">
-                <p className="text-2xl font-serif tabular-nums">{stressPerf.stressAvgGrade}</p>
+                <p className="text-2xl font-display tabular-nums">{stressPerf.stressAvgGrade}</p>
                 <p className="text-[10px] text-muted-foreground mt-0.5">Stresni ({stressPerf.stressCount})</p>
               </div>
               <div className="p-3 rounded-lg bg-secondary/50 text-center">
-                <p className={`text-2xl font-serif tabular-nums ${stressPerf.stressResistance >= 70 ? "text-success" : stressPerf.stressResistance >= 40 ? "text-warning" : "text-destructive"}`}>
+                <p className={`text-2xl font-display tabular-nums ${stressPerf.stressResistance >= 70 ? "text-success" : stressPerf.stressResistance >= 40 ? "text-warning" : "text-destructive"}`}>
                   {stressPerf.stressResistance}%
                 </p>
                 <p className="text-[10px] text-muted-foreground mt-0.5">Otpornost</p>
@@ -189,21 +189,21 @@ export default function CognitiveAnalytics({ cards, categories, reviewLog }: Pro
             <p className="text-xs text-muted-foreground">Koliko brzo se vraćaš na "Vrijedan" nakon "Lijen" dana.</p>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               <div className="p-3 rounded-lg bg-secondary/50 text-center">
-                <p className={`text-2xl font-serif tabular-nums ${recovery.recoveryIndex >= 70 ? "text-success" : recovery.recoveryIndex >= 40 ? "text-warning" : "text-destructive"}`}>
+                <p className={`text-2xl font-display tabular-nums ${recovery.recoveryIndex >= 70 ? "text-success" : recovery.recoveryIndex >= 40 ? "text-warning" : "text-destructive"}`}>
                   {recovery.recoveryIndex}
                 </p>
                 <p className="text-[10px] text-muted-foreground mt-0.5">Indeks</p>
               </div>
               <div className="p-3 rounded-lg bg-secondary/50 text-center">
-                <p className="text-2xl font-serif tabular-nums">{recovery.avgRecoveryDays}</p>
+                <p className="text-2xl font-display tabular-nums">{recovery.avgRecoveryDays}</p>
                 <p className="text-[10px] text-muted-foreground mt-0.5">Prosjek dana</p>
               </div>
               <div className="p-3 rounded-lg bg-secondary/50 text-center">
-                <p className="text-2xl font-serif tabular-nums text-success">{recovery.fastRecoveries}</p>
+                <p className="text-2xl font-display tabular-nums text-success">{recovery.fastRecoveries}</p>
                 <p className="text-[10px] text-muted-foreground mt-0.5">Brzi (≤1d)</p>
               </div>
               <div className="p-3 rounded-lg bg-secondary/50 text-center">
-                <p className="text-2xl font-serif tabular-nums text-destructive">{recovery.slowRecoveries}</p>
+                <p className="text-2xl font-display tabular-nums text-destructive">{recovery.slowRecoveries}</p>
                 <p className="text-[10px] text-muted-foreground mt-0.5">Spori (≥3d)</p>
               </div>
             </div>

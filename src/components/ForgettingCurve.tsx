@@ -123,7 +123,7 @@ export default function ForgettingCurve({ cards, categories }: Props) {
     >
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-serif flex items-center gap-2">
+          <h2 className="text-2xl font-display flex items-center gap-2">
             <TrendingDown className="h-5 w-5 text-primary" />
             Prognoza znanja
           </h2>

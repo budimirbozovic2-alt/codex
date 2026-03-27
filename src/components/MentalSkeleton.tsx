@@ -256,7 +256,7 @@ export default function MentalSkeleton({ cards, subcategory, category, onBack, o
           <ArrowLeft className="h-5 w-5" />
         </button>
         <div className="flex-1 min-w-0">
-          <h2 className="text-xl font-serif truncate">Mentalni Kostur</h2>
+          <h2 className="text-xl font-display truncate">Mentalni Kostur</h2>
           <p className="text-xs text-muted-foreground">{category} → {subcategory} • {subCards.length} kartica</p>
         </div>
 

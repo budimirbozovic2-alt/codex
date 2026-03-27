@@ -189,7 +189,7 @@ export default function StudyModeChain({
           {isChainCompleted && (
             <div className="rounded-xl border bg-success/10 border-success/30 p-8 text-center space-y-3">
               <Link2 className="h-8 w-8 text-success mx-auto" />
-              <p className="font-serif text-lg">Lanac završen!</p>
+              <p className="font-display text-lg">Lanac završen!</p>
               <p className="text-sm text-muted-foreground">Svi moduli su savršeno reprodukovani u nizu.</p>
             </div>
           )}

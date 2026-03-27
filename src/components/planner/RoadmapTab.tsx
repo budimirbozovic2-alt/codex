@@ -29,7 +29,7 @@ export default function RoadmapTab({
       <div className="rounded-xl bg-card border p-5 space-y-4">
         <div className="flex items-center gap-2">
           <TrendingUp className="h-4 w-4 text-primary" />
-          <h3 className="font-serif text-lg">Burn-up Chart</h3>
+          <h3 className="font-display text-lg">Burn-up Chart</h3>
         </div>
 
         {burnupData.length > 2 ? (
@@ -67,20 +67,20 @@ export default function RoadmapTab({
       <div className="rounded-xl bg-card border p-5 space-y-3">
         <div className="flex items-center gap-2">
           <Zap className="h-4 w-4 text-primary" />
-          <h3 className="font-serif text-lg">Simulacija završetka</h3>
+          <h3 className="font-display text-lg">Simulacija završetka</h3>
         </div>
         <p className="text-sm text-muted-foreground leading-relaxed">{projectionText}</p>
         <div className="grid grid-cols-3 gap-3 pt-3 border-t">
           <div className="text-center">
-            <p className="text-xl font-serif tabular-nums">{velocity.toFixed(1)}</p>
+            <p className="text-xl font-display tabular-nums">{velocity.toFixed(1)}</p>
             <p className="text-[10px] text-muted-foreground">kartica/dan</p>
           </div>
           <div className="text-center">
-            <p className="text-xl font-serif tabular-nums">{remaining}</p>
+            <p className="text-xl font-display tabular-nums">{remaining}</p>
             <p className="text-[10px] text-muted-foreground">preostalo</p>
           </div>
           <div className="text-center">
-            <p className="text-xl font-serif tabular-nums">{totalSections}</p>
+            <p className="text-xl font-display tabular-nums">{totalSections}</p>
             <p className="text-[10px] text-muted-foreground">ukupno cjelina</p>
           </div>
         </div>

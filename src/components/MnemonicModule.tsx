@@ -129,7 +129,7 @@ export default function MnemonicModule({ onBack }: Props) {
           <button onClick={onBack} className="text-muted-foreground hover:text-foreground flex items-center gap-1 mb-4">
             <ArrowLeft className="h-4 w-4" /> Nazad
           </button>
-          <h2 className="text-4xl font-serif flex items-center gap-3">
+          <h2 className="text-4xl font-display flex items-center gap-3">
             <Brain className="h-8 w-8 text-primary" /> Memorizacija
           </h2>
           <p className="text-muted-foreground mt-2">Izolovani sistem za kreiranje i testiranje mentalnih kuka.</p>
@@ -146,22 +146,22 @@ export default function MnemonicModule({ onBack }: Props) {
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <div className="rounded-xl bg-card border p-4">
-          <p className="text-2xl font-serif">{stats.total}</p>
+          <p className="text-2xl font-display">{stats.total}</p>
           <p className="text-xs text-muted-foreground">Ukupno</p>
         </div>
         <div className="rounded-xl bg-card border p-4">
           <Sparkles className="h-4 w-4 text-muted-foreground mb-1" />
-          <p className="text-2xl font-serif">{stats.newCount}</p>
+          <p className="text-2xl font-display">{stats.newCount}</p>
           <p className="text-xs text-muted-foreground">Nove</p>
         </div>
         <div className="rounded-xl bg-card border p-4">
           <Wrench className="h-4 w-4 text-warning mb-1" />
-          <p className="text-2xl font-serif">{stats.workshopCount}</p>
+          <p className="text-2xl font-display">{stats.workshopCount}</p>
           <p className="text-xs text-muted-foreground">U radionici</p>
         </div>
         <div className="rounded-xl bg-card border p-4">
           <CheckCircle2 className="h-4 w-4 text-success mb-1" />
-          <p className="text-2xl font-serif">{stats.readyCount}</p>
+          <p className="text-2xl font-display">{stats.readyCount}</p>
           <p className="text-xs text-muted-foreground">Spremne</p>
         </div>
       </div>
@@ -171,7 +171,7 @@ export default function MnemonicModule({ onBack }: Props) {
           <FlaskConical className="h-5 w-5 text-primary" />
           <div>
             <p className="text-sm font-medium">Prosječna uspješnost testiranja</p>
-            <p className={`text-2xl font-serif ${stats.avgSuccess >= 70 ? "text-success" : stats.avgSuccess >= 40 ? "text-warning" : "text-destructive"}`}>
+            <p className={`text-2xl font-display ${stats.avgSuccess >= 70 ? "text-success" : stats.avgSuccess >= 40 ? "text-warning" : "text-destructive"}`}>
               {stats.avgSuccess}%
             </p>
           </div>
@@ -187,7 +187,7 @@ export default function MnemonicModule({ onBack }: Props) {
           className="rounded-xl border bg-card p-6 text-left hover:border-primary/40 transition-colors space-y-3"
         >
           <Wrench className="h-8 w-8 text-warning" />
-          <h3 className="text-lg font-serif">Radionica mentalnih kuka</h3>
+          <h3 className="text-lg font-display">Radionica mentalnih kuka</h3>
           <p className="text-sm text-muted-foreground">Kreiraj mentalne videe i akronime za kartice.</p>
         </motion.button>
 
@@ -198,7 +198,7 @@ export default function MnemonicModule({ onBack }: Props) {
           className="rounded-xl border bg-card p-6 text-left hover:border-primary/40 transition-colors space-y-3"
         >
           <FlaskConical className="h-8 w-8 text-primary" />
-          <h3 className="text-lg font-serif">Testiranje mentalnih kuka</h3>
+          <h3 className="text-lg font-display">Testiranje mentalnih kuka</h3>
           <p className="text-sm text-muted-foreground">Testiraj koliko dobro pamtiš uz pomoć mentalnih slika.</p>
         </motion.button>
 
@@ -209,7 +209,7 @@ export default function MnemonicModule({ onBack }: Props) {
           className="rounded-xl border bg-card p-6 text-left hover:border-primary/40 transition-colors space-y-3"
         >
           <Hash className="h-8 w-8 text-accent-foreground" />
-          <h3 className="text-lg font-serif">Mentalne tablice</h3>
+          <h3 className="text-lg font-display">Mentalne tablice</h3>
           <p className="text-sm text-muted-foreground">Prilagodi Major sistem termine za brojeve 0–100.</p>
         </motion.button>
       </div>

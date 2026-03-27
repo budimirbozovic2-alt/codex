@@ -41,7 +41,7 @@ export default function MetacognitiveCenter({ cards, categories, reviewLog, onBa
             <button onClick={onBack} className="text-muted-foreground hover:text-foreground flex items-center gap-1 mb-4">
               <ArrowLeft className="h-4 w-4" /> Nazad
             </button>
-            <h2 className="text-3xl font-serif">Dnevnik</h2>
+            <h2 className="text-3xl font-display">Dnevnik</h2>
             <p className="text-muted-foreground mt-1">Refleksije, greške i kognitivna dijagnostika</p>
           </div>
           <InfoPanel title="Kako radi Dnevnik?">
@@ -71,7 +71,7 @@ export default function MetacognitiveCenter({ cards, categories, reviewLog, onBa
               <div className="border-t pt-6">
                 <div className="flex items-center gap-2 mb-4">
                   <Brain className="h-4 w-4 text-primary" />
-                  <h3 className="font-serif text-lg">Kognitivna dijagnostika</h3>
+                  <h3 className="font-display text-lg">Kognitivna dijagnostika</h3>
                 </div>
                 <p className="text-xs text-muted-foreground mb-4">
                   Analiza interferencija, slijepih tačaka i slabih kuka — sa preporukama za mnemoničku obradu problematičnih kartica.

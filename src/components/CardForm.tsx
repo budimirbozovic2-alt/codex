@@ -34,7 +34,7 @@ export default function CardForm({ categories, subcategories, onSave, onSaveFlas
     <form onSubmit={a.handleSubmit} className={`space-y-6 ${widthClasses[a.formWidth]} transition-all duration-300`}>
       {/* ── Header ─────────────────────────────────────── */}
       <div className="flex items-center justify-between">
-        <h2 className="text-3xl font-serif">{editCard ? "Uredi modul" : "Novi modul"}</h2>
+        <h2 className="text-3xl font-display">{editCard ? "Uredi modul" : "Novi modul"}</h2>
         <div className="flex items-center gap-2">
           {editCard?.sourceId && (
             <button
