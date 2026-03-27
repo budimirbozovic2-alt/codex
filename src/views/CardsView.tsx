@@ -8,6 +8,17 @@ import { useDebounce } from "@/hooks/useDebounce";
 
 
 
+  // Sync nav state to localStorage for cross-component persistence
+  useEffect(() => {
+    try {
+      if (filterCategory) localStorage.setItem("codex-nav-category", filterCategory);
+      else localStorage.removeItem("codex-nav-category");
+      if (filterSubcategory) localStorage.setItem("codex-nav-subcategory", filterSubcategory);
+      else localStorage.removeItem("codex-nav-subcategory");
+      if (filterChapter) localStorage.setItem("codex-nav-chapter", filterChapter);
+      else localStorage.removeItem("codex-nav-chapter");
+    } catch { /* ignore */ }
+  }, [filterCategory, filterSubcategory, filterChapter]);
 
 
 import { Card } from "@/lib/spaced-repetition";
