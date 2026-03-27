@@ -29,7 +29,7 @@ export default function RomanForumPage() {
   const deferredCards = useDeferredValue(cards);
 
   const forumState = useMemo(() => {
-    return calculateForumState(deferredCards, reviewLog, sources);
+    return calculateForumState(deferredCards, reviewLog, sources, registryVersion);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [deferredCards, sources, reviewLog, registryVersion]);
 
