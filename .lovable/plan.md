@@ -1,69 +1,82 @@
 
 
-# Forum Iustitiae — Batch 1: Foundation
+# Design Unification: Forum ↔ Modern UI
 
 ## Overview
-Create the easter egg unlock system, transition animation, and `/forum` route. After this batch, the "ritual" (triple-click logo + Light→Dark→Light theme toggle) triggers a cinematic transition to a blank Forum page.
+Four changes to make the Roman Forum feel like a native part of CODEX rather than a separate app: shared serif font, gold CSS variable, glassmorphism card styling, and persistent top navigation.
 
-## New Files
+## 1. Shared Serif Font (Cinzel via Google Fonts)
 
-### 1. `src/components/gamification/ForumContext.tsx`
-React context providing:
-- `unlocked: boolean` — persisted in `localStorage` key `codex-forum-unlocked`
-- `showTransition: boolean` — controls the entry animation
-- `enterForum()` — sets `unlocked=true`, `showTransition=true`, saves to localStorage
-- `exitForum()` — navigates back to `/`
-- `forumReady()` — called after transition ends, navigates to `/forum`, sets `showTransition=false`
+**`index.html`**: Add a `<link>` for Cinzel from Google Fonts (weights 400, 600, 700).
 
-Wrap this provider inside `App.tsx` around the `HashRouter` block (above `AppProvider`).
+**`src/index.css`**: Add a utility class `.font-display` with `font-family: 'Cinzel', 'Georgia', serif`. Also add a CSS custom property `--font-display: 'Cinzel', 'Georgia', serif` so components can reference it.
 
-### 2. `src/components/gamification/ForumTransition.tsx`
-Full-screen fixed overlay (`z-[9999]`), rendered when `showTransition=true`:
-- Phase 1 (0–500ms): Fade to black
-- Phase 2 (500–2500ms): Gold serif text "CIVIS ROMANVS SVM" fades in and holds
-- Phase 3 (2500–3000ms): Everything fades out
-- On complete: call `forumReady()` from context
+**`src/components/Dashboard.tsx`** (or `dashboard/DailyBriefing.tsx`): Apply `font-display` to the main dashboard greeting/title heading so the serif font appears in the modern UI too — creating a visual bridge.
 
-Uses CSS `@keyframes` defined inline or in `index.css`. Text styled with `font-family: 'Georgia', serif`, gold color `#d4a843`, `letter-spacing: 0.3em`.
+**`src/views/RomanForumPage.tsx`** + **`ForumTransition.tsx`**: Replace inline `fontFamily: "'Georgia', 'Times New Roman', serif"` with `fontFamily: "var(--font-display)"` so they use Cinzel when loaded, Georgia as fallback.
 
-### 3. `src/views/RomanForumPage.tsx`
-Simple placeholder page:
-- "FORVM IVSTITIAE" heading
-- Back button to `/`
-- Centered in `max-w-6xl mx-auto`
+## 2. Primary Gold CSS Variable
 
-## Modified Files
+**`src/index.css`**: In every theme block (`:root`, `.dark`, and all `[data-theme]` variants), add:
+```css
+--gold: 43 74% 49%;
+--gold-foreground: 0 0% 100%;
+```
+This gives a consistent warm gold (`hsl(43, 74%, 49%)` ≈ `#d4a843`) available everywhere.
 
-### 4. `src/components/TopNav.tsx`
-Modify the existing `_handleThemeSeq` logic. Currently phase 3 triggers the `_sysInfoOpen` dialog. Change it so:
-- Phase 3 completion calls `enterForum()` from `ForumContext` instead of (or in addition to) the sys info dialog
-- Import and use `useForumContext` from the new context
-- The existing `_handleBrandClick` (single click on brand) already sets phase 1 — keep that
-- The existing `_seqRef` / `_resetSeq` pattern is reused — just change the phase 3 action
+**`tailwind.config.ts`**: Extend the `colors` config to include:
+```ts
+gold: "hsl(var(--gold))",
+"gold-foreground": "hsl(var(--gold-foreground))",
+```
 
-### 5. `src/App.tsx`
-- Add `ForumProvider` wrapper (inside `QueryClientProvider`, outside `HashRouter`)
-- Add lazy import for `RomanForumPage`
-- Add `<Route path="/forum" ...>` alongside other routes
-- Render `<ForumTransition />` outside the router (fixed overlay)
+This enables `text-gold`, `bg-gold`, `border-gold` etc. across both modern UI and Forum.
 
-### 6. `src/index.css`
-Add keyframes for the transition:
-- `@keyframes forum-fade-in` (opacity 0→1)
-- `@keyframes forum-fade-out` (opacity 1→0)
-- `@keyframes forum-text-glow` (subtle gold pulse)
+**Dark variants**: In `.dark` blocks, use a slightly brighter gold: `43 74% 55%`.
 
-## Execution Order
-1. Create `ForumContext.tsx`
-2. Create `ForumTransition.tsx`
-3. Create `RomanForumPage.tsx`
-4. Update `App.tsx` (provider + route + transition)
-5. Update `TopNav.tsx` (phase 3 → enterForum)
-6. Add CSS keyframes to `index.css`
+## 3. Glassmorphism Cards for Forum
+
+**`src/index.css`**: Add a utility class:
+```css
+.glass-card {
+  background: hsl(var(--card) / 0.6);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid hsl(var(--border) / 0.5);
+  border-radius: var(--radius);
+}
+```
+
+**`src/views/RomanForumPage.tsx`**: Apply `glass-card` class to the placeholder container instead of the current dashed border div. This establishes the pattern for Phase 2 monument cards.
+
+## 4. Shared Top Navigation in Forum
+
+Currently `RomanForumPage` renders inside `MainLayout` (which includes `TopNav`), so the nav is already present. The issue is the Forum page has its own back button that duplicates navigation.
+
+**Fix**: Keep the `TopNav` visible (it already is via MainLayout). Remove the manual `ArrowLeft` back-link from `RomanForumPage` and instead make the page header a simple `FORVM IVSTITIAE` title that sits naturally below the existing nav — same pattern as every other page.
+
+Add a subtle translucent backdrop to the Forum's content area header to give it the "floating" feel:
+```tsx
+<div className="sticky top-0 z-10 glass-card px-6 py-4 mb-6">
+  <h1 className="text-2xl font-bold tracking-[0.15em] text-gold" style={{ fontFamily: "var(--font-display)" }}>
+    FORVM IVSTITIAE
+  </h1>
+</div>
+```
+
+## Files Changed
+
+| File | Change |
+|------|--------|
+| `index.html` | Add Cinzel Google Font link |
+| `src/index.css` | Add `--gold`, `--font-display`, `.glass-card`, `.font-display` |
+| `tailwind.config.ts` | Add `gold` color to theme |
+| `src/views/RomanForumPage.tsx` | Use glass-card header, Cinzel font, gold color, remove back arrow |
+| `src/components/gamification/ForumTransition.tsx` | Use `var(--font-display)` and `hsl(var(--gold))` |
+| `src/components/dashboard/DailyBriefing.tsx` | Apply Cinzel to main greeting heading |
 
 ## Guardrails
-- Standard barrel imports for all icons
-- No FSRS/DB/layout changes
-- TitleBar.tsx unchanged (TopNav already handles the brand click + theme sequence)
-- The existing sys-info easter egg can remain as a secondary feature (double-click brand)
+- No FSRS, DB, or layout changes
+- Standard barrel imports for icons
+- TopNav stays untouched — Forum already renders inside MainLayout
 
