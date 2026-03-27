@@ -176,7 +176,7 @@ export default function ReviewSetup({
           <button onClick={onBack} className="text-muted-foreground hover:text-foreground flex items-center gap-1 mb-6">
             <ArrowLeft className="h-4 w-4" /> Nazad
           </button>
-          <h2 className="text-3xl font-serif">Konsolidacija</h2>
+          <h2 className="text-3xl font-display">Konsolidacija</h2>
           <p className="text-muted-foreground mt-2">Izaberi režim ponavljanja koji odgovara tvom cilju.</p>
         </div>
 
