@@ -21,9 +21,9 @@ export function useCategoryManagement({
 }: UseCategoryManagementParams) {
   const addCategory = useCallback(
     (name: string) => {
-      if (!categories.includes(name)) setCategories((prev) => [...prev, name]);
+      setCategories((prev) => prev.includes(name) ? prev : [...prev, name]);
     },
-    [categories, setCategories],
+    [setCategories],
   );
 
   const renameCategory = useCallback(
