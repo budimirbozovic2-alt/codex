@@ -17,12 +17,12 @@ export default function ForumTransition() {
 
     setPhase("fade-black");
 
-    const t1 = setTimeout(() => setPhase("text-in"), 500);
-    const t2 = setTimeout(() => setPhase("fade-out"), 2500);
+    const t1 = setTimeout(() => setPhase("text-in"), 300);
+    const t2 = setTimeout(() => setPhase("fade-out"), 1200);
     const t3 = setTimeout(() => {
       navigate("/forum");
       forumReady();
-    }, 3000);
+    }, 1500);
 
     return () => {
       clearTimeout(t1);
