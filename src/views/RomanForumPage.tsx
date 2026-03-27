@@ -6,7 +6,7 @@ import { ForumAtmosphere } from "@/components/gamification/ForumAtmosphere";
 import { MonumentCard } from "@/components/gamification/MonumentCard";
 import { MonumentInterior } from "@/components/gamification/MonumentInterior";
 import { Progress } from "@/components/ui/progress";
-import { loadSources, type Source } from "@/lib/sources-storage";
+import { loadSources, onSourcesChanged, type Source } from "@/lib/sources-storage";
 
 export default function RomanForumPage() {
   const { cards, reviewLog, bulkUpdateChapter, reviewSection } = useCardContext();
