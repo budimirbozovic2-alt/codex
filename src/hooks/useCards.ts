@@ -14,7 +14,7 @@ import { useCardImport } from "./useCardImport";
 import { useCardCRUD } from "./useCardCRUD";
 import { useCardBootstrap } from "./useCardBootstrap";
 import { useCardAnnotations } from "./useCardAnnotations";
-import { CardMap, mapToArray, persistQueue, schedulePersist } from "@/lib/persist-queue";
+import { CardMap, mapToArray, persistQueue, schedulePersist, bumpMapVersion } from "@/lib/persist-queue";
 import {
   idbSaveCategories,
   idbSaveSubcategories,
