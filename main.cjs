@@ -5,6 +5,7 @@ const fs = require('fs');
 const isDev = !app.isPackaged;
 const configPath = path.join(app.getPath('userData'), 'window-state.json');
 const crashLogPath = path.join(app.getPath('userData'), 'crash.log');
+const rendererLogPath = path.join(app.getPath('userData'), 'renderer-errors.log');
 
 // ── Global Error Handler ──
 function logCrash(label, err) {
