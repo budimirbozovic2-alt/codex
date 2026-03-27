@@ -34,7 +34,6 @@ const DatabasePage = lazy(() => import("@/views/DatabasePage"));
 const SpeedReaderPage = lazy(() => import("@/views/SpeedReaderPage"));
 const MindMapPage = lazy(() => import("@/views/MindMapPage"));
 const RomanForumPage = lazy(() => import("@/views/RomanForumPage"));
-const BuildingShowcase = lazy(() => import("@/views/BuildingShowcase"));
 
 const queryClient = new QueryClient(); // rebuild trigger v2
 
@@ -71,7 +70,6 @@ const App = () => (
                         <Route path="/speed-reader" element={<ErrorBoundary label="Speed Reader"><SpeedReaderPage /></ErrorBoundary>} />
                         <Route path="/mind-map" element={<ErrorBoundary label="Mapa uma"><MindMapPage /></ErrorBoundary>} />
                         <Route path="/forum" element={<ErrorBoundary label="Forum"><RomanForumPage /></ErrorBoundary>} />
-                        <Route path="/building-showcase" element={<BuildingShowcase />} />
                         {/* Legacy redirects */}
                         <Route path="/cards" element={<ErrorBoundary label="Baza podataka"><DatabasePage /></ErrorBoundary>} />
                         <Route path="/categories" element={<ErrorBoundary label="Baza podataka"><DatabasePage /></ErrorBoundary>} />
