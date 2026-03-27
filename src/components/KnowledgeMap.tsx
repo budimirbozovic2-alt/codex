@@ -41,7 +41,7 @@ const _masteryCache = new Map<string, { level: number; updatedAt: number }>();
 export function getCardMasteryLevel(card: Card): number {
   if (!card.sections || card.sections.length === 0) return 0;
 
-  const cardUpdated = (card as any).updatedAt ?? 0;
+  const cardUpdated = card.updatedAt ?? 0;
   const cached = _masteryCache.get(card.id);
   if (cached && cached.updatedAt === cardUpdated && cardUpdated !== 0) return cached.level;
 

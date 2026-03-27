@@ -30,7 +30,7 @@ export interface ReviewSessionProps {
   subcategories: Record<string, string[]>;
   srSettings: SRSettings;
   onReviewSection: (cardId: string, sectionId: string, grade: number) => void;
-  onLogError: (cardId: string, text: string) => void;
+  onLogError: (cardId: string, text: string, sectionId?: string) => void;
   onBack: () => void;
   preSelectedCategory?: string | null;
 }

@@ -28,8 +28,15 @@ export function useCategoryManagement({
 
   const renameCategory = useCallback(
     (oldName: string, newName: string) => {
-      if (categories.includes(newName)) return;
-      setCategories((prev) => prev.map((c) => (c === oldName ? newName : c)));
+      // Use functional updater to avoid stale closure on categories
+      let didRename = false;
+      setCategories((prev) => {
+        if (prev.includes(newName)) return prev; // no-op if target exists
+        didRename = true;
+        return prev.map((c) => (c === oldName ? newName : c));
+      });
+      // React 18: updater runs synchronously in same event handler, so didRename is set
+      if (!didRename) return;
       // Surgical: only update cards in the renamed category
       let updated: Card[] = [];
       setCardMapState((prev) => {
@@ -53,7 +60,7 @@ export function useCategoryManagement({
         return next;
       });
     },
-    [categories, setCategories, setCardMapState, setSubcategories],
+    [setCategories, setCardMapState, setSubcategories],
   );
 
   const deleteCategory = useCallback(

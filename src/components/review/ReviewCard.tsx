@@ -14,7 +14,7 @@ interface ReviewCardProps {
   showAnswer: boolean;
   setShowAnswer: (v: boolean) => void;
   onGrade: (g: number) => void;
-  onLogError: (cardId: string, text: string) => void;
+  onLogError: (cardId: string, text: string, sectionId?: string) => void;
   onBack: () => void;
   onPause?: () => void;
   progress: number;
@@ -96,7 +96,7 @@ export default function ReviewCard({
       if (showAnswer && (e.key === "n" || e.key === "N")) {
         const selection = window.getSelection()?.toString().trim();
         if (!selection || selection.length < 2) return;
-        onLogError(card.id, selection);
+        onLogError(card.id, selection, section.id);
         toast({ title: "Greška zabilježena", description: `"${selection.length > 40 ? selection.slice(0, 40) + "…" : selection}"` });
       }
     };

@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState, useEffect } from "react";
+import { useCallback, useMemo, useState, useEffect, useRef } from "react";
 import {
   Card,
   SRSettings,
@@ -54,42 +54,39 @@ export function useCards() {
   // ── Derived: Card[] for consumers (memoized from map) ──
   const cards = useMemo(() => mapToArray(cardMap), [cardMap]);
 
-  // ── Bulk map update (for operations touching many cards) ──
-  const setCardMap = useCallback((updater: (prev: CardMap) => CardMap, persist: "surgical" | "full" = "full") => {
-    let snapshot: CardMap = {};
-    setCardMapState((prev) => {
-      const next = updater(prev);
-      snapshot = next;
-      return next;
-    });
+  // ── useEffect-based persistence (React 18 Guard: eliminates snapshot races) ──
+  const cardMapMountedRef = useRef(false);
+  useEffect(() => {
+    if (!cardMapMountedRef.current) { cardMapMountedRef.current = true; return; }
+    if (!ready) return;
+    const allCards = Object.values(cardMap);
+    if (allCards.length > 0) schedulePersist({ type: "bulk", cards: allCards });
+  }, [cardMap, ready]);
+
+  const catMountedRef = useRef(false);
+  useEffect(() => {
+    if (!catMountedRef.current) { catMountedRef.current = true; return; }
+    idbSaveCategories(categories);
+  }, [categories]);
+
+  const subMountedRef = useRef(false);
+  useEffect(() => {
+    if (!subMountedRef.current) { subMountedRef.current = true; return; }
+    idbSaveSubcategories(subcategories);
+  }, [subcategories]);
+
+  // ── Pure state setters (no side-effects, persistence handled by useEffects above) ──
+  const setCardMap = useCallback((updater: (prev: CardMap) => CardMap, _persist?: "surgical" | "full") => {
+    setCardMapState(updater);
     bumpMapVersion();
-    // Side-effect OUTSIDE the updater (C3 fix)
-    if (persist === "full") {
-      const bulkCards = Object.values(snapshot);
-      if (bulkCards.length > 0) schedulePersist({ type: "bulk", cards: bulkCards });
-    }
   }, []);
 
   const setCategories = useCallback((updater: (prev: string[]) => string[]) => {
-    let snapshot: string[] = [];
-    setCategoriesState((prev) => {
-      const next = updater(prev);
-      snapshot = next;
-      return next;
-    });
-    // Side-effect OUTSIDE the updater (H6 fix)
-    idbSaveCategories(snapshot);
+    setCategoriesState(updater);
   }, []);
 
   const setSubcategories = useCallback((updater: (prev: Record<string, string[]>) => Record<string, string[]>) => {
-    let snapshot: Record<string, string[]> = {};
-    setSubcategoriesState((prev) => {
-      const next = updater(prev);
-      snapshot = next;
-      return next;
-    });
-    // Side-effect OUTSIDE the updater (H6 fix)
-    idbSaveSubcategories(snapshot);
+    setSubcategoriesState(updater);
   }, []);
 
   const setReviewLog = useCallback((updater: (prev: ReviewLogEntry[]) => ReviewLogEntry[]) => {
@@ -174,12 +171,16 @@ export function useCards() {
       }
     }
 
-    // Sort due cards by earliest nextReview
-    dueList.sort((a, b) => {
-      const aMin = Math.min(...a.sections.filter(s => s.state !== SectionState.New).map(s => s.nextReview));
-      const bMin = Math.min(...b.sections.filter(s => s.state !== SectionState.New).map(s => s.nextReview));
-      return aMin - bMin;
-    });
+    // Pre-compute sort keys to avoid O(S) work during O(NlogN) sort
+    const sortKeys = new Map<string, number>();
+    for (const card of dueList) {
+      let minNext = Infinity;
+      for (const s of card.sections) {
+        if (s.state !== SectionState.New && s.nextReview < minNext) minNext = s.nextReview;
+      }
+      sortKeys.set(card.id, minNext);
+    }
+    dueList.sort((a, b) => (sortKeys.get(a.id) ?? Infinity) - (sortKeys.get(b.id) ?? Infinity));
 
     // Finalize category stats
     const finalCatStats: Record<string, { score: number; total: number; due: number }> = {};
@@ -202,15 +203,12 @@ export function useCards() {
 
   const reorderCategories = useCallback((ordered: string[]) => {
     setCategoriesState(ordered);
-    idbSaveCategories(ordered);
+    // Persistence handled by categories useEffect
   }, []);
 
   const reorderSubcategories = useCallback((category: string, ordered: string[]) => {
-    setSubcategoriesState((prev) => {
-      const next = { ...prev, [category]: ordered };
-      idbSaveSubcategories(next);
-      return next;
-    });
+    setSubcategoriesState((prev) => ({ ...prev, [category]: ordered }));
+    // Persistence handled by subcategories useEffect
   }, []);
 
   return {
