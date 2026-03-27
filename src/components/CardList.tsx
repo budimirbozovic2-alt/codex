@@ -4,7 +4,7 @@ import { format } from "date-fns";
 import TextSelectionTooltip from "@/components/TextSelectionTooltip";
 import { useState, useRef, useEffect, useMemo, useCallback, lazy, Suspense, CSSProperties, memo } from "react";
 import { List, type RowComponentProps } from "react-window";
-import { Edit2, Trash2, Scale, ChevronDown, ChevronRight, Zap, Flame, MoreVertical, Tag, GripVertical } from "lucide-react";
+import { Edit2, Trash2, Scale, ChevronDown, ChevronRight, Zap, Flame, GripVertical } from "lucide-react";
 import { ScoreBadge, RetentionBadge, SectionBar } from "./card-list/CardBadges";
 import CardContextMenu from "./card-list/CardContextMenu";
 
