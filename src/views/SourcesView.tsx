@@ -140,6 +140,7 @@ export default function SourcesView() {
   const handleEditSource = useCallback((source: Source) => {
     setEditingSource(source);
     setEditLabel(source.label);
+    setEditDate(source.date || "");
     setEditGazette(source.officialGazetteInfo || "");
   }, []);
 
