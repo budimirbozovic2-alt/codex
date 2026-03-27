@@ -248,7 +248,7 @@ export default function CardList({
   onMoveCategory, onAssignChapter, onCloneToMnemonic, availableChapters, onAddKeyPart,
 }: Props) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
-  const listRef = useRef<{ scrollToRow: (config: { index: number; align?: string }) => void } | null>(null);
+  const listRef = useRef<any>(null);
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
 
