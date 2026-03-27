@@ -61,7 +61,7 @@ export default function RomanForumPage() {
                   <div className="flex items-center gap-4 text-xs text-muted-foreground">
                     <span className="tabular-nums">{forumState.velocity} kartica / 7 dana</span>
                     <div className="flex items-center gap-2 min-w-[120px]">
-                      <span className="font-display text-[10px] uppercase tracking-wider">Napredak</span>
+                      <span className="text-[10px] uppercase tracking-wider">Napredak</span>
                       <Progress value={forumState.overallMastery} className="h-1.5 flex-1" />
                       <span className="tabular-nums font-medium text-foreground">{forumState.overallMastery}%</span>
                     </div>
