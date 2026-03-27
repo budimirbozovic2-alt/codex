@@ -28,8 +28,7 @@ export function mapToArray(map: CardMap): Card[] {
 export type PersistAction =
   | { type: "put"; card: Card }
   | { type: "delete"; id: string }
-  | { type: "bulk"; cards: Card[] }
-  | { type: "full"; map: CardMap };
+  | { type: "bulk"; cards: Card[] };
 
 function createPersistQueue() {
   const pending: PersistAction[] = [];
