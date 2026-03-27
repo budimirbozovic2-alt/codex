@@ -19,7 +19,6 @@ export function useCardCRUD({
   categories,
   setCardMapState,
   setCategories,
-  schedulePersist,
 }: UseCardCRUDParams) {
   // Keep a ref to categories to avoid stale closures in addCard/addFlashCard
   const categoriesRef = useRef(categories);
