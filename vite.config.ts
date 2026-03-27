@@ -35,6 +35,9 @@ export default defineConfig(({ mode }) => ({
       "lucide-react",
     ],
   },
+  define: {
+    __APP_VERSION__: JSON.stringify(pkg.version),
+  },
   build: {
     rollupOptions: {
       output: {

@@ -368,6 +368,32 @@ export default function TopNav({ onToggleZen, zenActive, onOpenOnboarding }: Pro
           </ScrollArea>
         </DialogContent>
       </Dialog>
+
+      <Dialog open={versionOpen} onOpenChange={setVersionOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-sm font-medium text-foreground">System Info & Changelog</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="flex items-center justify-between rounded-lg border bg-muted/40 px-4 py-3">
+              <span className="text-xs text-muted-foreground uppercase tracking-wider">Verzija</span>
+              <span className="text-sm font-mono font-semibold text-foreground">v{__APP_VERSION__}</span>
+            </div>
+            <div>
+              <h4 className="text-xs uppercase tracking-wider text-muted-foreground mb-2">Changelog</h4>
+              <ScrollArea className="max-h-[40vh]">
+                <ul className="space-y-2 pr-4 text-sm text-foreground/80">
+                  <li className="flex gap-2"><span className="text-primary">•</span>Step 3 — Architectural refactoring & modularizacija</li>
+                  <li className="flex gap-2"><span className="text-primary">•</span>Unified chronological sort (chapterPositionMap)</li>
+                  <li className="flex gap-2"><span className="text-primary">•</span>DnD-kit portal fix za centrirani layout</li>
+                  <li className="flex gap-2"><span className="text-primary">•</span>Auto-split: heading exclusion iz card body</li>
+                  <li className="flex gap-2"><span className="text-primary">•</span>System audit & TypeScript hardening</li>
+                </ul>
+              </ScrollArea>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </nav>
   );
 }
