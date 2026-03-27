@@ -54,13 +54,22 @@ export function useCards() {
   // ── Derived: Card[] for consumers (memoized from map) ──
   const cards = useMemo(() => mapToArray(cardMap), [cardMap]);
 
-  // ── useEffect-based persistence (React 18 Guard: eliminates snapshot races) ──
+  // ── useEffect-based persistence (React 18 Guard: surgical diff) ──
   const cardMapMountedRef = useRef(false);
+  const prevCardMapRef = useRef<CardMap>(cardMap);
   useEffect(() => {
-    if (!cardMapMountedRef.current) { cardMapMountedRef.current = true; return; }
+    if (!cardMapMountedRef.current) { cardMapMountedRef.current = true; prevCardMapRef.current = cardMap; return; }
     if (!ready) return;
-    const allCards = Object.values(cardMap);
-    if (allCards.length > 0) schedulePersist({ type: "bulk", cards: allCards });
+    const prev = prevCardMapRef.current;
+    prevCardMapRef.current = cardMap;
+
+    // Diff: find cards that were added or changed (by reference)
+    const changed: Card[] = [];
+    for (const [id, card] of Object.entries(cardMap)) {
+      if (prev[id] !== card) changed.push(card);
+    }
+    // Note: deletes are handled explicitly in useCardCRUD (idbDeleteCard)
+    if (changed.length > 0) schedulePersist({ type: "bulk", cards: changed });
   }, [cardMap, ready]);
 
   const catMountedRef = useRef(false);
