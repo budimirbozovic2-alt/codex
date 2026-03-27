@@ -33,7 +33,7 @@ export const ForumAtmosphere = memo(function ForumAtmosphere({ dayPhase, warmth 
     <>
       <div
         className="pointer-events-none fixed inset-0 z-0 transition-all duration-1000"
-        style={{ ...gradient, backdropFilter: "blur(2px)", WebkitBackdropFilter: "blur(2px)" }}
+        style={gradient}
         aria-hidden
       />
       <div
