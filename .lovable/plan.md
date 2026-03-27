@@ -1,60 +1,84 @@
 
 
-# Source Registry UI Enhancement
+# Refactor Source Registry → "Forum Architect's Table"
 
-## Overview
-Add "Unmapped Sources" section, improve category override UX, and ensure Forum cache invalidation on every registry save.
+## Concept Mapping
+The existing data model already supports this — no schema changes needed:
+- `SourceAlias.masterSource` = Monument name (e.g., "Upravno pravo")
+- `SourceAlias.rawLabel` = Individual law (e.g., "Zakon o upravnom postupku")
+- `CategoryOverride.forcedMode` = A/B display mode
 
-## 1. Unmapped Sources Section (`SourceManager.tsx`)
+The refactoring is purely **UI restructuring** + **terminology rename**.
 
-**New computed list**: Sources in `db.sources` whose `label` is NOT present in any `registry.aliases[].rawLabel` AND is not itself a `masterSource` target. These are "unrecognized" sources.
+## Changes
 
-**UI**: New section between stats and the existing "Izvori" list:
-- Header: "Neprepoznati izvori" with warning icon and count badge
-- Each unmapped source shows label + card count + two action buttons:
-  - "Kreiraj Master" — creates a new master source (alias pointing rawLabel → itself, essentially a no-op but marks it as "recognized")
-  - "Dodaj u postojeći" — opens a small dropdown/dialog listing existing master sources to pick from, then creates an alias `rawLabel → selectedMaster`
+### 1. `src/components/SourceManager.tsx` — Full UI restructure (~200 lines rewrite)
 
-**Logic**: 
-- `unmappedLabels = allRawLabels.filter(l => !aliasMap.has(l.label) && !uniqueSources.some(u => u.masterSource === l.label && u.rawLabels.length > 1))`
-- Actually simpler: unmapped = labels where `aliasMap.get(label)` is undefined (the label has no explicit alias entry). The current list already shows all labels — we just split it into "mapped" and "unmapped" tabs/sections.
+**Current**: Flat list of labels (mapped/unmapped) + separate category override section.
 
-## 2. Category Override Enhancement (`SourceManager.tsx`)
+**New layout**:
 
-Replace the cryptic toggle button with a clearer UI:
-- Label: "Prikaži ovaj izvor unutar spomenika: [Kategorija]"
-- Replace the A/B toggle with a more descriptive label showing what each mode means for that specific category
-- Add subtitle explaining the current state: "Automatski: Mod B (1 izvor)" or "Ručno: Mod A"
+```text
+┌─────────────────────────────────────────┐
+│ Stats: N Spomenika │ N Zakona │ N Neprepoznatih │
+├─────────────────────────────────────────┤
+│ 🔍 Pretraži...                          │
+├─────────────────────────────────────────┤
+│ ⚠ Neprepoznati izvori (3)               │
+│  ├ "Zakon o radu" [Kreiraj Spomenik] [Dodaj u postojeći] │
+│  └ "Pravilnik X"  [Kreiraj Spomenik] [Dodaj u postojeći] │
+├─────────────────────────────────────────┤
+│ 🏛 Spomenici                            │
+│                                         │
+│ ┌ Upravno pravo ──── Mod A: Grupni ──┐ │
+│ │  Zakoni u ovom spomeniku:           │ │
+│ │   • Zakon o upravnom postupku (45)  │ │
+│ │   • Zakon o upravnom sporu (32)     │ │
+│ │  [+ Dodaj novi zakon u ovaj spomenik] │
+│ │                                     │ │
+│ │  Prikaz: ○ Grupni (više izvora)     │ │
+│ │          ● Detaljni (jedan izvor)   │ │
+│ └─────────────────────────────────────┘ │
+│                                         │
+│ ┌ Krivični zakonik ── Mod B: Detaljni ┐ │
+│ │  Zakoni u ovom spomeniku:           │ │
+│ │   • Krivični zakonik (120)          │ │
+│ │  [+ Dodaj novi zakon]               │ │
+│ │                                     │ │
+│ │  Prikaz: ● Grupni    ○ Detaljni    │ │
+│ └─────────────────────────────────────┘ │
+└─────────────────────────────────────────┘
+```
 
-## 3. Forum Cache Invalidation (`SourceManager.tsx`)
+Key UI changes:
+- **Monument-centric grouping**: Group aliases by their `masterSource` value, show each as an expandable card
+- **Laws listed inside monument**: Each alias `rawLabel` appears as a child item with card count and a remove button
+- **"Dodaj novi zakon" button** inside each monument: Opens dialog to pick from unmapped sources
+- **A/B mode as radio group** inside each monument card:
+  - "Grupni prikaz (Više izvora)" = Mode A → L1: individual laws, L2: subcategories
+  - "Detaljni prikaz (Jedan izvor)" = Mode B → L1: subcategories, L2: chapters
+- **Rename "Spoji" dialog** → "Kreiraj novi spomenik" with terminology update
+- Unmapped section stays at top with same actions but relabeled
 
-In `persistRegistry()`, call `invalidateSourceRegistryCache()` after `saveSourceRegistry()`. Currently `saveSourceRegistry` updates the cache to the new value, but if Forum reads via `loadSourceRegistry()` it gets the cached version correctly. However, to be safe and trigger React re-reads, we should also dispatch a storage event or use the existing `_notify` pattern.
+### 2. `src/lib/source-registry.ts` — Terminology in comments only
+No functional changes. The `masterSource` field name stays (it IS the monument). Only update JSDoc comments to mention "Spomenik" for developer clarity.
 
-**Actual fix**: The `saveSourceRegistry` already sets `_registryCache = registry`, so Forum will get fresh data on next `loadSourceRegistry()` call. The real issue is Forum doesn't re-render because it has no subscription. We add an event emitter pattern (like `onSourcesChanged`) to source-registry.ts:
-- `onRegistryChanged(fn)` / `_notifyRegistry()`
-- `saveSourceRegistry` calls `_notifyRegistry()`
-- `RomanForumPage` subscribes via `useEffect`
+### 3. `src/lib/forum-logic.ts` — No changes needed
+`calculateForumState` already groups cards by `category` and computes `sources[]` breakdown per monument using `resolveMasterSource`. The A/B hierarchy is handled by `useSourceHierarchy` in `MonumentInterior`. No logic changes required.
+
+### 4. `src/hooks/useSourceHierarchy.ts` — No changes needed
+Already reads `getCategoryDepthMode` which respects `overrides.forcedMode`. Mode A groups by source, Mode B by subcategory/chapter. Working correctly.
 
 ## Files Changed
 
 | File | Change |
 |------|--------|
-| `src/lib/source-registry.ts` | Add `onRegistryChanged` event emitter, call it from `saveSourceRegistry` |
-| `src/components/SourceManager.tsx` | Add unmapped sources section, "assign to master" dialog, improved category override labels |
+| `src/components/SourceManager.tsx` | Full UI restructure: monument-centric cards, radio A/B, "Dodaj zakon" button |
 
-## Technical Details
-
-### source-registry.ts additions (~15 lines)
-- Add `_registryListeners` Set, `onRegistryChanged(fn)`, and `_notifyRegistry()` — same pattern as `sources-storage.ts`
-- Call `_notifyRegistry()` at end of `saveSourceRegistry()`
-
-### SourceManager.tsx changes (~80 lines net)
-- New `unmappedLabels` memo: filters `allRawLabels` to those without an alias entry
-- New `mappedLabels` memo: the rest
-- Split the source list into two sections: "Neprepoznati izvori" (unmapped, with yellow accent) and "Prepoznati izvori" (mapped)
-- Each unmapped item gets: "Kreiraj Master" button (creates alias rawLabel→rawLabel) and "Dodaj kao alias" button (opens merge dialog pre-filled)
-- Category override section: replace toggle button text with "L1: Izvor → L2: Potkategorija" / "L1: Potkategorija → L2: Glava" descriptive labels
-
-### RomanForumPage.tsx (~3 lines)
-- Subscribe to `onRegistryChanged` in existing `useEffect` to trigger re-render when registry changes
+## What stays the same
+- `SourceRegistry` data shape (aliases + overrides)
+- `source-registry.ts` functions
+- `forum-logic.ts` calculation
+- `useSourceHierarchy` hook
+- All persistence and event emitter logic
 
