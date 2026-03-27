@@ -10,7 +10,9 @@ import {
   idbLoadSubcategories,
   idbLoadRecentReviewLog,
   idbLoadSettings,
+  getDbErrorState,
 } from "@/lib/db";
+import { checkInterruptedFlush } from "@/lib/persist-queue";
 
 async function withTimeout<T>(task: Promise<T>, timeoutMs: number, label: string, fallback: T): Promise<T> {
   try {
