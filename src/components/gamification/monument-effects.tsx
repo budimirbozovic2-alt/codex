@@ -4,6 +4,10 @@
  */
 import type { Monument } from "@/lib/forum-logic";
 
+function slugify(text: string): string {
+  return text.replace(/[^a-zA-Z0-9]/g, "-").replace(/-+/g, "-");
+}
+
 interface Props {
   monument: Monument;
 }
@@ -108,7 +112,7 @@ export function MonumentEffects({ monument }: Props) {
     <svg viewBox="0 0 200 160" className="absolute inset-0 pointer-events-none" style={{ width: "100%", height: "100%" }} preserveAspectRatio="xMidYMax meet">
       {monument.crumbling && <CrackOverlay leechRatio={leechRatio} />}
       {monument.avgStability < 10 && <IvyOverlay stability={monument.avgStability} />}
-      {monument.mastery > 30 && <TorchOverlay mastery={monument.mastery} tier={monument.material} id={monument.category} />}
+      {monument.mastery > 30 && <TorchOverlay mastery={monument.mastery} tier={monument.material} id={slugify(monument.category)} />}
       {monument.material === "wood" && <ScaffoldingOverlay />}
       {monument.avgStability > 30 && monument.mastery > 60 && <FountainOverlay />}
     </svg>

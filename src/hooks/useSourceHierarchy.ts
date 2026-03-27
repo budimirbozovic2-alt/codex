@@ -15,6 +15,7 @@ export interface HierarchyNode {
   name: string;
   cardCount: number;
   levels: number[]; // mastery level distribution [0..5]
+  avgStability: number;
   children: HierarchyLeaf[];
 }
 
@@ -23,6 +24,7 @@ export interface HierarchyLeaf {
   cards: Card[];
   cardCount: number;
   levels: number[];
+  avgStability: number;
 }
 
 export interface SourceHierarchyResult {
@@ -36,6 +38,16 @@ function computeLevels(cards: Card[]): number[] {
   const levels = [0, 0, 0, 0, 0, 0];
   for (const c of cards) levels[getCardMasteryLevel(c)]++;
   return levels;
+}
+
+function computeAvgStability(cards: Card[]): number {
+  let total = 0, count = 0;
+  for (const card of cards) {
+    for (const s of (card as any).sections ?? []) {
+      if ((s.stability ?? 0) > 0) { total += s.stability; count++; }
+    }
+  }
+  return count > 0 ? total / count : 0;
 }
 
 /**
@@ -87,6 +99,7 @@ export function useSourceHierarchy(
             cards: subCards,
             cardCount: subCards.length,
             levels: computeLevels(subCards),
+            avgStability: computeAvgStability(subCards),
           });
         }
 
@@ -94,6 +107,7 @@ export function useSourceHierarchy(
           name: masterName,
           cardCount: allCards.length,
           levels: computeLevels(allCards),
+          avgStability: computeAvgStability(allCards),
           children,
         });
       }
@@ -121,6 +135,7 @@ export function useSourceHierarchy(
             cards: chapCards,
             cardCount: chapCards.length,
             levels: computeLevels(chapCards),
+            avgStability: computeAvgStability(chapCards),
           });
         }
 
@@ -128,6 +143,7 @@ export function useSourceHierarchy(
           name: subName,
           cardCount: allCards.length,
           levels: computeLevels(allCards),
+          avgStability: computeAvgStability(allCards),
           children,
         });
       }

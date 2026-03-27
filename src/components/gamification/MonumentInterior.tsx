@@ -26,12 +26,6 @@ interface Props {
   onReviewSection?: (cardId: string, sectionId: string, grade: number) => void;
 }
 
-function computeAvgStability(cards: { sections: { stability: number }[] }[]): number {
-  let total = 0, count = 0;
-  for (const card of cards) for (const s of card.sections) if (s.stability > 0) { total += s.stability; count++; }
-  return count > 0 ? total / count : 0;
-}
-
 export const MonumentInterior = memo(function MonumentInterior({
   monument, sources, onBack, onUpdateChapters, onReviewSection,
 }: Props) {
@@ -56,7 +50,9 @@ export const MonumentInterior = memo(function MonumentInterior({
     for (const [name, subCards] of bySubcat) {
       const levels = [0, 0, 0, 0, 0, 0];
       for (const c of subCards) levels[getCardMasteryLevel(c)]++;
-      nodes.push({ name, cardCount: subCards.length, levels, children: [] });
+      let stabTotal = 0, stabCount = 0;
+      for (const c of subCards) for (const s of (c as any).sections ?? []) if ((s.stability ?? 0) > 0) { stabTotal += s.stability; stabCount++; }
+      nodes.push({ name, cardCount: subCards.length, levels, avgStability: stabCount > 0 ? stabTotal / stabCount : 0, children: [] });
     }
     nodes.sort((a, b) => b.cardCount - a.cardCount);
     return nodes;
@@ -146,7 +142,7 @@ export const MonumentInterior = memo(function MonumentInterior({
                 </div>
                 <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                   {wing.children.map((child, ci) => (
-                    <ArchNode key={child.name} name={child.name} cardCount={child.cardCount} levels={child.levels} avgStability={computeAvgStability(child.cards)} index={wi * 10 + ci} onClick={() => setSelectedSub(child.name)} />
+                    <ArchNode key={child.name} name={child.name} cardCount={child.cardCount} levels={child.levels} avgStability={child.avgStability} index={wi * 10 + ci} onClick={() => setSelectedSub(child.name)} />
                   ))}
                 </div>
               </div>
@@ -154,10 +150,9 @@ export const MonumentInterior = memo(function MonumentInterior({
           </div>
         ) : (
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {tree.map((node, i) => {
-              const nodeCards = catCards.filter((c: any) => (c.subcategory || "Ostalo") === node.name);
-              return <ArchNode key={node.name} name={node.name} cardCount={node.cardCount} levels={node.levels} avgStability={computeAvgStability(nodeCards)} index={i} onClick={() => setSelectedSub(node.name)} />;
-            })}
+            {tree.map((node, i) => (
+              <ArchNode key={node.name} name={node.name} cardCount={node.cardCount} levels={node.levels} avgStability={node.avgStability} index={i} onClick={() => setSelectedSub(node.name)} />
+            ))}
           </div>
         )}
         {tree.length === 0 && (
