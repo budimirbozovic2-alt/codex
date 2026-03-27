@@ -86,10 +86,11 @@ export default function SRSettingsPanel({ settings, onUpdate, onBack }: Props) {
       </div>
 
       <Tabs defaultValue="algorithm" className="w-full">
-        <TabsList className="grid w-full grid-cols-3 mb-6">
+        <TabsList className="grid w-full grid-cols-4 mb-6">
           <TabsTrigger value="algorithm">Algoritam</TabsTrigger>
           <TabsTrigger value="interface">Interfejs</TabsTrigger>
-          <TabsTrigger value="reference">Referenca</TabsTrigger>
+          <TabsTrigger value="workflow">Tok rada</TabsTrigger>
+          <TabsTrigger value="system">Sistem</TabsTrigger>
         </TabsList>
 
         {/* ═══════════ TAB 1: ALGORITAM ═══════════ */}
