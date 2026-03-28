@@ -4,11 +4,8 @@ import { loadMajorSystem, saveMajorSystem, DEFAULT_MAJOR_SYSTEM } from "@/lib/mn
 
 
 import { Button } from "@/components/ui/button";
-interface Props {
-  onBack: () => void;
-}
 
-export default function MajorSystemSettings({ onBack }: Props) {
+export default function MajorSystemSettings() {
   const [system, setSystem] = useState<Record<number, string>>(loadMajorSystem());
 
   const handleChange = (num: number, value: string) => {
