@@ -16,14 +16,9 @@ interface UseCardCRUDParams {
 }
 
 export function useCardCRUD({
-  categories,
   setCardMapState,
-  setCategories,
   cardMapRef,
 }: UseCardCRUDParams) {
-  // Keep a ref to categories to avoid stale closures in addCard/addFlashCard
-  const categoriesRef = useRef(categories);
-  categoriesRef.current = categories;
 
   // ── Surgical single-card update (O(1) state + O(1) IDB) — Ref-Delta pattern ──
   const patchCard = useCallback((id: string, patcher: (card: Card) => Card) => {

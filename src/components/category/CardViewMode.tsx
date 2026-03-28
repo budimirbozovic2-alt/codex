@@ -29,7 +29,13 @@ function stabilityLabel(s: number): { text: string; color: string } {
   return { text: "Slabo", color: "text-red-500" };
 }
 
-export default function CardViewMode({ cards, categoryId, allCategories, patchCard, toggleTag }: Props) {
+export default function CardViewMode({ cards, categoryId, allCategories, patchCard, toggleTag, addCard, addFlashCard }: Props) {
+  const [addDialogOpen, setAddDialogOpen] = useState(false);
+  const [addMode, setAddMode] = useState<"essay" | "flash">("flash");
+  const [newQuestion, setNewQuestion] = useState("");
+  const [newAnswer, setNewAnswer] = useState("");
+  const [newSectionTitle, setNewSectionTitle] = useState("Odgovor");
+  const [newSectionContent, setNewSectionContent] = useState("");
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [moveModalOpen, setMoveModalOpen] = useState(false);
   const [moveCardId, setMoveCardId] = useState<string | null>(null);
