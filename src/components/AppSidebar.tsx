@@ -3,7 +3,7 @@ import { useLiveQuery } from "dexie-react-hooks";
 import { NavLink } from "@/components/NavLink";
 import {
   Home, Landmark, Settings as SettingsIcon, RotateCcw,
-  BarChart3, BookOpen, Gauge, Zap, Map, Scale,
+  BarChart3, BookOpen, Gauge, Zap, Map, Scale, GraduationCap,
 } from "lucide-react";
 import {
   Sidebar, SidebarContent, SidebarGroup, SidebarGroupLabel,
@@ -16,7 +16,8 @@ import { useCardContext } from "@/contexts/AppContext";
 
 const STATIC_NAV = [
   { path: "/", icon: Home, label: "Dashboard" },
-  { path: "/review", icon: RotateCcw, label: "Učenje", badge: true },
+  { path: "/review", icon: RotateCcw, label: "Konsolidacija", badge: true },
+  { path: "/learn", icon: GraduationCap, label: "Učenje" },
   { path: "/forum", icon: Landmark, label: "Forum" },
   { path: "/settings", icon: SettingsIcon, label: "Podešavanja" },
 ];
