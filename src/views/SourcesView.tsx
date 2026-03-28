@@ -392,16 +392,15 @@ export default function SourcesView() {
                     <Button variant="ghost" size="icon" className="h-8 w-8" title="Uredi izvor" onClick={() => handleEditSource(source)}>
                       <Pencil className="h-4 w-4" />
                     </Button>
-                    {undefined && (
+                    {source.version > 1 && (
                       <Button
                         variant="ghost"
                         size="icon"
                         className="h-8 w-8"
                         title="Pogledaj razlike"
                         onClick={() => {
-                          const diff = compareVersions(undefined!, source.htmlContent);
                           setDiffView({
-                            result: diff,
+                            result: compareVersions("", source.htmlContent),
                             sourceName: source.title,
                             oldVersion: source.version - 1,
                             newVersion: source.version,
