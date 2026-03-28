@@ -15,7 +15,6 @@ export default function StatsPage() {
         categoryStats={categoryStats}
         reviewLog={reviewLog}
         srSettings={srSettings}
-        onBack={() => setView("dashboard")}
         onShowKnowledgeMap={() => setView("knowledge-map")}
         onShowPlanner={() => setView("planner")}
       />

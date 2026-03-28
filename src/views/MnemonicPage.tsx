@@ -7,7 +7,7 @@ export default function MnemonicPage() {
 
   return (
     <ErrorBoundary label="Memo radionica" onNavigateHome={() => setView("dashboard")}>
-      <MnemonicModule onBack={() => setView("dashboard")} />
+      <MnemonicModule />
     </ErrorBoundary>
   );
 }

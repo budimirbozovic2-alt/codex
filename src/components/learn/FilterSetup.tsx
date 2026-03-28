@@ -55,8 +55,8 @@ export default function FilterSetup({
         <button onClick={onBackToMode} className="text-muted-foreground hover:text-foreground flex items-center gap-1 mb-6">
           <ArrowLeft className="h-4 w-4" /> Nazad na režime
         </button>
-        <h2 className="text-3xl font-bold">{MODE_LABELS[learnMode]}</h2>
-        <p className="text-muted-foreground">{sortedCardsCount} pitanja dostupno.</p>
+        <h2 className="imperial-title">{MODE_LABELS[learnMode]}</h2>
+        <p className="text-muted-foreground mt-1">{sortedCardsCount} pitanja dostupno.</p>
       </div>
 
       <SessionFilters

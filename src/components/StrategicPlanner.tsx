@@ -1,4 +1,4 @@
-import { ArrowLeft, Target, BarChart3, Map as MapIcon } from "lucide-react";
+import { Target, BarChart3, Map as MapIcon } from "lucide-react";
 import { useState } from "react";
 import { motion } from "framer-motion";
 import InfoPanel from "@/components/InfoPanel";
@@ -14,23 +14,19 @@ interface Props {
   cards: SRCard[];
   categories: string[];
   reviewLog: ReviewLogEntry[];
-  onBack: () => void;
   onNavigateToDatabase?: (category: string) => void;
 }
 
-export default function StrategicPlanner({ cards, categories, reviewLog, onBack, onNavigateToDatabase }: Props) {
+export default function StrategicPlanner({ cards, categories, reviewLog, onNavigateToDatabase }: Props) {
   const data = usePlannerData(cards, reviewLog);
   const [activeTab, setActiveTab] = useState<"operations" | "roadmap" | "discipline">("operations");
 
   return (
     <div className="space-y-6">
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
-        <button onClick={onBack} className="text-muted-foreground hover:text-foreground flex items-center gap-1 mb-4">
-          <ArrowLeft className="h-4 w-4" /> Nazad
-        </button>
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-3xl font-bold">Strateški planer</h2>
+            <h2 className="imperial-title">Strateški planer</h2>
             <p className="text-muted-foreground mt-1">Adaptivni sistem — plan se prilagođava tvom tempu</p>
           </div>
           <InfoPanel title="Kako radi Strateški planer?">

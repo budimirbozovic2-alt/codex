@@ -1,4 +1,4 @@
-import { ArrowLeft, BookOpen, Clock, Brain, AlertTriangle, CheckCircle, XCircle } from "lucide-react";
+import { BookOpen, Clock, Brain, AlertTriangle, CheckCircle, XCircle } from "lucide-react";
 import { useState, useMemo, lazy, Suspense } from "react";
 import { motion } from "framer-motion";
 
@@ -26,22 +26,18 @@ interface Props {
   cards: Card[];
   categories: string[];
   reviewLog: ReviewLogEntry[];
-  onBack: () => void;
   settings?: SRSettings;
   embedded?: boolean;
   onClearErrorLog?: (cardId: string) => void;
 }
 
-export default function MetacognitiveCenter({ cards, categories, reviewLog, onBack, settings, embedded, onClearErrorLog }: Props) {
+export default function MetacognitiveCenter({ cards, categories, reviewLog, settings, embedded, onClearErrorLog }: Props) {
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="max-w-4xl mx-auto space-y-6">
       {!embedded && (
         <div className="flex items-center justify-between">
           <div>
-            <button onClick={onBack} className="text-muted-foreground hover:text-foreground flex items-center gap-1 mb-4">
-              <ArrowLeft className="h-4 w-4" /> Nazad
-            </button>
-            <h2 className="text-3xl font-bold">Dnevnik</h2>
+            <h2 className="imperial-title">Dnevnik</h2>
             <p className="text-muted-foreground mt-1">Refleksije, greške i kognitivna dijagnostika</p>
           </div>
           <InfoPanel title="Kako radi Dnevnik?">
@@ -65,7 +61,7 @@ export default function MetacognitiveCenter({ cards, categories, reviewLog, onBa
           <Suspense fallback={<div className="py-8 text-center text-muted-foreground text-sm">Učitavanje…</div>}>
             <div className="space-y-8 mt-4">
               {/* Frequent Errors section */}
-              <FrequentErrors cards={cards} onBack={() => {}} onClearErrorLog={onClearErrorLog || (() => {})} embedded />
+              <FrequentErrors cards={cards} onClearErrorLog={onClearErrorLog || (() => {})} embedded />
 
               {/* Cognitive Analytics — mnemonic recommendations integrated here */}
               <div className="border-t pt-6">

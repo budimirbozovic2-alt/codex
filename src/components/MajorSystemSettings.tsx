@@ -1,14 +1,11 @@
-import { ArrowLeft, RotateCcw } from "lucide-react";
+import { RotateCcw } from "lucide-react";
 import { useState, useEffect } from "react";
 import { loadMajorSystem, saveMajorSystem, DEFAULT_MAJOR_SYSTEM } from "@/lib/mnemonic-storage";
 
 
 import { Button } from "@/components/ui/button";
-interface Props {
-  onBack: () => void;
-}
 
-export default function MajorSystemSettings({ onBack }: Props) {
+export default function MajorSystemSettings() {
   const [system, setSystem] = useState<Record<number, string>>(loadMajorSystem());
 
   const handleChange = (num: number, value: string) => {
@@ -29,10 +26,7 @@ export default function MajorSystemSettings({ onBack }: Props) {
   return (
     <div className="max-w-2xl mx-auto space-y-6">
       <div>
-        <button onClick={onBack} className="text-muted-foreground hover:text-foreground flex items-center gap-1 mb-4">
-          <ArrowLeft className="h-4 w-4" /> Nazad
-        </button>
-        <h2 className="text-3xl font-bold">Mentalne tablice (Major sistem)</h2>
+        <h2 className="imperial-title">Mentalne tablice (Major sistem)</h2>
         <p className="text-muted-foreground mt-1">Prilagodi termine za brojeve 0–100.</p>
       </div>
 

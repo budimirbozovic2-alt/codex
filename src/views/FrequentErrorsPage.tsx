@@ -8,7 +8,7 @@ export default function FrequentErrorsPage() {
 
   return (
     <ErrorBoundary label="Česte greške" onNavigateHome={() => setView("dashboard")}>
-      <FrequentErrors cards={cards} onBack={() => setView("dashboard")} onClearErrorLog={clearErrorLog} />
+      <FrequentErrors cards={cards} onClearErrorLog={clearErrorLog} />
     </ErrorBoundary>
   );
 }

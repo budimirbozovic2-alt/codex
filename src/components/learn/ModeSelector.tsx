@@ -1,4 +1,4 @@
-import { ShieldAlert, BookOpen, Brain, Link2, ArrowLeft, ChevronRight, HelpCircle, AlertTriangle } from "lucide-react";
+import { ShieldAlert, BookOpen, Brain, Link2, ChevronRight, HelpCircle, AlertTriangle } from "lucide-react";
 import { useState, useMemo } from "react";
 import { Card } from "@/lib/spaced-repetition";
 import { LearnMode, ReviewLogEntry } from "@/lib/storage";
@@ -11,10 +11,9 @@ interface Props {
   dueCount: number;
   reviewLog: ReviewLogEntry[];
   onSelectMode: (mode: LearnMode) => void;
-  onBack: () => void;
 }
 
-export default function ModeSelector({ cards, learnMode, dueCount, reviewLog, onSelectMode, onBack }: Props) {
+export default function ModeSelector({ cards, learnMode, dueCount, reviewLog, onSelectMode }: Props) {
   const [showOnboarding, setShowOnboarding] = useState(false);
   const chainCount = useMemo(() => cards.filter(c => c.type === "essay" && c.sections.length >= 3).length, [cards]);
 
@@ -85,12 +84,9 @@ export default function ModeSelector({ cards, learnMode, dueCount, reviewLog, on
       )}
 
       <div>
-        <button onClick={onBack} className="text-muted-foreground hover:text-foreground flex items-center gap-1 mb-6">
-          <ArrowLeft className="h-4 w-4" /> Nazad
-        </button>
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-3xl font-bold">Učenje</h2>
+            <h2 className="imperial-title">Učenje</h2>
             <p className="text-muted-foreground mt-2">Izaberi režim učenja koji odgovara tvom nivou.</p>
           </div>
           <button onClick={() => setShowOnboarding(true)}

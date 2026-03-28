@@ -12,7 +12,6 @@ export default function MetacognitivePage() {
         cards={cards}
         categories={categories}
         reviewLog={reviewLog}
-        onBack={() => setView("stats")}
         settings={srSettings}
         onClearErrorLog={clearErrorLog}
       />

@@ -127,7 +127,6 @@ export default function LearnSession({ cards, categories, subcategories, onMarkR
           dueCount={dueCount}
           reviewLog={reviewLogProp}
           onSelectMode={(mode) => { setLearnMode(mode); setSetupStep("filter"); }}
-          onBack={onBack}
         />
       );
     }

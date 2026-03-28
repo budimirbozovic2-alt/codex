@@ -18,7 +18,6 @@ export default function PlannerPage() {
         cards={cards}
         categories={categories}
         reviewLog={reviewLog}
-        onBack={() => setView("dashboard")}
         onNavigateToDatabase={handleNavigateToDatabase}
       />
     </ErrorBoundary>

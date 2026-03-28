@@ -23,7 +23,7 @@ interface Props {
   onAddSub: (category: string, subcategory: string) => void;
   onRenameSub: (category: string, oldName: string, newName: string) => void;
   onDeleteSub: (category: string, subcategory: string) => void;
-  onClose: () => void;
+  onClose?: () => void;
 }
 
 export default function CategoryManager({

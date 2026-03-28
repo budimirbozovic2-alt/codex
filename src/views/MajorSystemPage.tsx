@@ -7,7 +7,7 @@ export default function MajorSystemPage() {
 
   return (
     <ErrorBoundary label="Major System" onNavigateHome={() => setView("dashboard")}>
-      <MajorSystemSettings onBack={() => setView("settings")} />
+      <MajorSystemSettings />
     </ErrorBoundary>
   );
 }

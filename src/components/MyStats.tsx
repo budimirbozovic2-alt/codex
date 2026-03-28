@@ -1,4 +1,4 @@
-import { ArrowLeft, TrendingUp, Target, Clock, Flame, CalendarClock, Activity } from "lucide-react";
+import { TrendingUp, Target, Clock, Flame, CalendarClock, Activity, HeartPulse } from "lucide-react";
 import { useState, lazy, Suspense } from "react";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { motion } from "framer-motion";
@@ -9,6 +9,7 @@ import { Card, SRSettings } from "@/lib/spaced-repetition";
 import { ReviewLogEntry } from "@/lib/storage";
 import { TabSkeleton } from "@/components/ui/page-skeleton";
 import { useStatsData } from "@/hooks/useStatsData";
+const HealthMonitor = lazy(() => import("@/components/HealthMonitor"));
 
 const OverviewTab = lazy(() => import("./stats/OverviewTab"));
 const LatencyTab = lazy(() => import("./stats/LatencyTab"));
@@ -24,12 +25,11 @@ interface Props {
   categoryStats: Record<string, { score: number; total: number; due: number }>;
   reviewLog: ReviewLogEntry[];
   srSettings: SRSettings;
-  onBack: () => void;
   onShowKnowledgeMap?: () => void;
   onShowPlanner?: () => void;
 }
 
-export default function MyStats({ cards, categories, subcategories, categoryStats, reviewLog, srSettings, onBack, onShowKnowledgeMap, onShowPlanner }: Props) {
+export default function MyStats({ cards, categories, subcategories, categoryStats, reviewLog, srSettings, onShowKnowledgeMap, onShowPlanner }: Props) {
   const [activeTab, setActiveTab] = useState<string>("overview");
 
   const {
@@ -40,12 +40,9 @@ export default function MyStats({ cards, categories, subcategories, categoryStat
   return (
     <div className="space-y-8">
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
-        <button onClick={onBack} className="text-muted-foreground hover:text-foreground flex items-center gap-1 mb-4">
-          <ArrowLeft className="h-4 w-4" /> Nazad
-        </button>
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-3xl font-bold">Laboratorija znanja</h2>
+            <h2 className="imperial-title">Laboratorija znanja</h2>
             <p className="text-muted-foreground mt-1">FSRS analitika, grafikoni i kvantitativni podaci</p>
           </div>
           <InfoPanel title="Kako radi Laboratorija znanja?">
@@ -75,12 +72,15 @@ export default function MyStats({ cards, categories, subcategories, categoryStat
               <Flame className="h-3.5 w-3.5" /> Otpor
             </TabsTrigger>
           </TabsList>
-          <TabsList className="w-full grid grid-cols-2">
+          <TabsList className="w-full grid grid-cols-3">
             <TabsTrigger value="prediction" className="gap-1.5 text-xs sm:text-sm">
               <CalendarClock className="h-3.5 w-3.5" /> Predikcija
             </TabsTrigger>
             <TabsTrigger value="efficiency" className="gap-1.5 text-xs sm:text-sm">
               <Activity className="h-3.5 w-3.5" /> Efikasnost
+            </TabsTrigger>
+            <TabsTrigger value="health" className="gap-1.5 text-xs sm:text-sm">
+              <HeartPulse className="h-3.5 w-3.5" /> Zdravlje
             </TabsTrigger>
           </TabsList>
         </div>
@@ -141,6 +141,14 @@ export default function MyStats({ cards, categories, subcategories, categoryStat
           <Suspense fallback={<TabSkeleton />}>
             <ErrorBoundary label="Efikasnost">
               <EfficiencyTab />
+            </ErrorBoundary>
+          </Suspense>
+        </TabsContent>
+
+        <TabsContent value="health">
+          <Suspense fallback={<TabSkeleton />}>
+            <ErrorBoundary label="Zdravlje baze">
+              <HealthMonitor />
             </ErrorBoundary>
           </Suspense>
         </TabsContent>

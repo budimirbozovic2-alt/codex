@@ -12,7 +12,6 @@ export default function KnowledgeMapPage() {
         cards={cards}
         categories={categories}
         subcategories={subcategories}
-        onBack={() => setView("dashboard")}
         onUpdateChapters={bulkUpdateChapter}
         onReviewSection={reviewSection}
         onReorderCategories={reorderCategories}

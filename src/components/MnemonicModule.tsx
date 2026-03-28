@@ -1,4 +1,4 @@
-import { ArrowLeft, CheckCircle2, Brain, Wrench, FlaskConical, Sparkles, Hash, HelpCircle, Film, Type } from "lucide-react";
+import { CheckCircle2, Brain, Wrench, FlaskConical, Sparkles, Hash, HelpCircle, Film, Type } from "lucide-react";
 import { useState, useCallback, useMemo } from "react";
 import { useCardActions } from "@/contexts/AppContext";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -13,9 +13,7 @@ import MnemonicWorkshop from "./MnemonicWorkshop";
 import MnemonicTest from "./MnemonicTest";
 import MajorSystemSettings from "./MajorSystemSettings";
 import OnboardingModal, { type OnboardingSlide, hasSeenOnboarding } from "@/components/OnboardingModal";
-interface Props {
-  onBack: () => void;
-}
+
 
 const MNEMONIC_KEY = ["mnemonicCards"] as const;
 
@@ -54,7 +52,7 @@ const MNEMO_SLIDES: OnboardingSlide[] = [
   },
 ];
 
-export default function MnemonicModule({ onBack }: Props) {
+export default function MnemonicModule() {
   const qc = useQueryClient();
   const { patchCard } = useCardActions();
   const { data: cards = [] } = useQuery({
@@ -112,7 +110,7 @@ export default function MnemonicModule({ onBack }: Props) {
   const stats = useMemo(() => getMnemonicStats(cards), [cards]);
 
   if (subView === "workshop") {
-    return <MnemonicWorkshop cards={cards} onUpdateCard={updateCard} onDeleteCard={deleteCard} onBack={() => setSubView("menu")} />;
+    return <MnemonicWorkshop cards={cards} onUpdateCard={updateCard} onDeleteCard={deleteCard} />;
   }
 
   if (subView === "test") {
@@ -120,7 +118,7 @@ export default function MnemonicModule({ onBack }: Props) {
   }
 
   if (subView === "major") {
-    return <MajorSystemSettings onBack={() => setSubView("menu")} />;
+    return <MajorSystemSettings />;
   }
 
   return (
@@ -138,10 +136,7 @@ export default function MnemonicModule({ onBack }: Props) {
 
       <div className="flex items-center justify-between">
         <div>
-          <button onClick={onBack} className="text-muted-foreground hover:text-foreground flex items-center gap-1 mb-4">
-            <ArrowLeft className="h-4 w-4" /> Nazad
-          </button>
-          <h2 className="text-4xl font-bold flex items-center gap-3">
+          <h2 className="imperial-title flex items-center gap-3">
             <Brain className="h-8 w-8 text-primary" /> Memorizacija
           </h2>
           <p className="text-muted-foreground mt-2">Izolovani sistem za kreiranje i testiranje mentalnih kuka.</p>

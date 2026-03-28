@@ -13,7 +13,6 @@ interface Props {
   cards: Card[];
   categories: string[];
   subcategories: Record<string, string[]>;
-  onBack: () => void;
   onUpdateChapters?: (updates: { id: string; chapter: string; chapterOrder: number }[]) => void;
   onReviewSection?: (cardId: string, sectionId: string, grade: number) => void;
   onReorderCategories?: (ordered: string[]) => void;
@@ -106,7 +105,7 @@ function persistNav(next: ViewState) {
 }
 
 export default function KnowledgeMap({
-  cards, categories, subcategories, onBack, onUpdateChapters, onReviewSection,
+  cards, categories, subcategories, onUpdateChapters, onReviewSection,
   onReorderCategories, onReorderSubcategories,
 }: Props) {
   const [view, setView] = useState<ViewState>(() => hydrateView(categories, subcategories));
@@ -207,7 +206,7 @@ export default function KnowledgeMap({
         onSearchChange={setSearchQuery}
         reorderMode={reorderMode}
         onToggleReorder={onReorderCategories ? () => setReorderMode(r => !r) : undefined}
-        onBack={onBack}
+        onBack={() => {}}
         onSelectCategory={(cat) => navigate({ step: "subcategories", category: cat })}
         onReorderCategories={onReorderCategories}
       />

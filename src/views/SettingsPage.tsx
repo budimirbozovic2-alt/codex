@@ -11,7 +11,6 @@ export default function SettingsPage() {
       <SRSettingsPanel
         settings={srSettings}
         onUpdate={updateSRSettings}
-        onBack={() => setView("dashboard")}
       />
     </ErrorBoundary>
   );
