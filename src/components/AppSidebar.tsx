@@ -1,4 +1,3 @@
-import { useEffect, useState } from "react";
 import { NavLink } from "@/components/NavLink";
 import {
   Home, Landmark, Settings as SettingsIcon, RotateCcw,
@@ -11,7 +10,6 @@ import {
 } from "@/components/ui/sidebar";
 import { Badge } from "@/components/ui/badge";
 import { useCardData } from "@/contexts/AppContext";
-import type { CategoryRecord } from "@/lib/db";
 
 const STATIC_NAV = [
   { path: "/", icon: Home, label: "Dashboard" },
@@ -32,29 +30,6 @@ export default function AppSidebar() {
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
   const { stats, categoryRecords } = useCardData();
-
-  const [fallbackCategories, setFallbackCategories] = useState<CategoryRecord[]>([]);
-
-  useEffect(() => {
-    if (categoryRecords.length > 0) {
-      if (fallbackCategories.length > 0) setFallbackCategories([]);
-      return;
-    }
-
-    const timer = setTimeout(async () => {
-      try {
-        const { seedDefaultCategories } = await import("@/lib/db");
-        const cats = await seedDefaultCategories();
-        setFallbackCategories(cats);
-      } catch (e) {
-        console.error("[sidebar] fallback failed", e);
-      }
-    }, 2000);
-
-    return () => clearTimeout(timer);
-  }, [categoryRecords.length, fallbackCategories.length]);
-
-  const displayCategories = categoryRecords.length > 0 ? categoryRecords : fallbackCategories;
 
   return (
     <Sidebar collapsible="icon">
@@ -91,7 +66,7 @@ export default function AppSidebar() {
           <SidebarGroupLabel>Predmeti</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {displayCategories.length === 0 && (
+              {categoryRecords.length === 0 && (
                 <SidebarMenuItem>
                   <div className="px-2 py-1.5 text-xs text-muted-foreground">
                     Učitavanje predmeta…
@@ -99,7 +74,7 @@ export default function AppSidebar() {
                 </SidebarMenuItem>
               )}
 
-              {displayCategories.map((cat) => (
+              {categoryRecords.map((cat) => (
                 <SidebarMenuItem key={cat.id}>
                   <SidebarMenuButton asChild tooltip={cat.name}>
                     <NavLink
