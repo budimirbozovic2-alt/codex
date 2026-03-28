@@ -81,12 +81,9 @@ export function useCardCRUD({
       schedulePersist({ type: "put", card });
       setCardMapState((prev) => ({ ...prev, [card.id]: card }));
       bumpMapVersion();
-      if (!categoriesRef.current.includes(category)) {
-        setCategories((prev) => [...prev, category]);
-      }
       return card;
     },
-    [setCategories, setCardMapState],
+    [setCardMapState],
   );
 
   // O(1) direct update — surgical IDB write (delegates to patchCard which handles persist)

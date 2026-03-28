@@ -196,7 +196,7 @@ export function useSourceLogic(source: Source) {
     setSelection(null);
     window.getSelection()?.removeAllRanges();
     const result = splitSelection(text);
-    const category = source.categoryId || categories[0] || "Opšte";
+    const category = source.categoryId;
     if (result.hasArticles && result.modules.length > 0) {
       const { modules } = result;
       const sections = modules.map((mod) => ({ title: mod.title, content: sanitizeHtml(mod.contentHtml) }));

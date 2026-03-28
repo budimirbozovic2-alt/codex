@@ -175,7 +175,7 @@ export default function AutoSplitDialog({ open, onClose, source }: Props) {
     setImporting(true);
     setProgress(0);
     let count = 0;
-    const category = source.title || "Opšte";
+    const category = source.categoryId;
 
     for (let i = 0; i < toImport.length; i++) {
       const row = toImport[i];
