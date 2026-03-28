@@ -1,4 +1,4 @@
-import { ArrowLeft, Target, BarChart3, Map as MapIcon } from "lucide-react";
+import { Target, BarChart3, Map as MapIcon } from "lucide-react";
 import { useState } from "react";
 import { motion } from "framer-motion";
 import InfoPanel from "@/components/InfoPanel";
