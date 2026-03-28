@@ -144,6 +144,14 @@ export default function MyStats({ cards, categories, subcategories, categoryStat
             </ErrorBoundary>
           </Suspense>
         </TabsContent>
+
+        <TabsContent value="health">
+          <Suspense fallback={<TabSkeleton />}>
+            <ErrorBoundary label="Zdravlje baze">
+              <HealthMonitor />
+            </ErrorBoundary>
+          </Suspense>
+        </TabsContent>
       </Tabs>
     </div>
   );
