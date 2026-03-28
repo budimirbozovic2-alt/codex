@@ -84,7 +84,7 @@ export function useCategoryManagement({
       const nextRef = { ...cardMapRef.current };
       for (const [id, c] of Object.entries(nextRef)) {
         if (c.categoryId === name) {
-          const u = { ...c, category: "Opšte", subcategory: "", updatedAt: now };
+          const u = { ...c, categoryId: "Opšte", subcategory: "", updatedAt: now };
           nextRef[id] = u;
           changed.push(u);
         }
