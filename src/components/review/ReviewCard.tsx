@@ -60,18 +60,18 @@ export default function ReviewCard({
 
   const handleRevealAnswer = useCallback(() => {
     const latencyMs = Date.now() - questionShownAt.current;
-    addLatencyEntry({ timestamp: Date.now(), cardId: card.id, sectionId: section.id, latencyMs, category: card.category });
+    addLatencyEntry({ timestamp: Date.now(), cardId: card.id, sectionId: section.id, latencyMs, category: card.categoryId });
     setShowAnswer(true);
     setAnswerRevealedAt(Date.now());
-  }, [setShowAnswer, card.id, section.id, card.category]);
+  }, [setShowAnswer, card.id, section.id, card.categoryId]);
 
   const handleGradeWithCalibration = useCallback((grade: number) => {
     if (confidence !== null) {
-      addCalibrationEntry({ timestamp: Date.now(), cardId: card.id, sectionId: section.id, confidence, actualGrade: grade, category: card.category });
+      addCalibrationEntry({ timestamp: Date.now(), cardId: card.id, sectionId: section.id, confidence, actualGrade: grade, category: card.categoryId });
     }
     import("@/lib/sounds").then(m => m.playGradeSound(grade));
     onGrade(grade);
-  }, [confidence, card.id, section.id, card.category, onGrade]);
+  }, [confidence, card.id, section.id, card.categoryId, onGrade]);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -193,7 +193,7 @@ export default function ReviewCard({
           {/* Question header */}
           <div className="rounded-lg bg-secondary/50 border px-5 py-3">
             <div className="flex items-center gap-2">
-              <span className="text-xs uppercase tracking-widest text-muted-foreground">{card.category}</span>
+              <span className="text-xs uppercase tracking-widest text-muted-foreground">{card.categoryId}</span>
               {card.subcategory && (
                 <span className="text-xs text-muted-foreground">› {card.subcategory}</span>
               )}

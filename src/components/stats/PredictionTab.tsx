@@ -21,9 +21,9 @@ export default function PredictionTab({ cards, categories, reviewLog }: Props) {
 
   const predictions = useMemo(() => {
     return categories
-      .filter(cat => cards.some(c => c.category === cat))
+      .filter(cat => cards.some(c => c.categoryId === cat))
       .map(cat => {
-        const catCards = cards.filter(c => c.category === cat);
+        const catCards = cards.filter(c => c.categoryId === cat);
         const totalSections = catCards.reduce((s, c) => s + c.sections.length, 0);
         const masteredSections = catCards.reduce((s, c) =>
           s + c.sections.filter(sec => sec.state === SectionState.Review && sec.stability > 5).length, 0);

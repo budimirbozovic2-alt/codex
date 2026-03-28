@@ -119,7 +119,7 @@ export function useSourceLogic(source: Source) {
 
   const handleSmartSplitConfirm = useCallback(() => {
     if (!splitResult || splitModules.length === 0) return;
-    const category = source.category || categories[0] || "Opšte";
+    const category = source.categoryId || categories[0] || "Opšte";
     const modules = splitModules;
     const parentName = splitParentName.trim() || splitResult.parentName;
     const sections = modules.map((mod) => ({ title: mod.title, content: sanitizeHtml(mod.contentHtml) }));
@@ -139,7 +139,7 @@ export function useSourceLogic(source: Source) {
     setSplitDone(true);
     incrementDailyMapped(modules.length);
     window.dispatchEvent(new CustomEvent("codex-mapping-created"));
-    toast({ title: `Generisano 1 esej sa ${modules.length} modula`, description: `${splitResult.rangeLabel} iz "${source.label}"` });
+    toast({ title: `Generisano 1 esej sa ${modules.length} modula`, description: `${splitResult.rangeLabel} iz "${source.title}"` });
   }, [splitResult, splitModules, splitParentName, source, categories, addCard]);
 
   const handleCreateEssay = useCallback(() => {
@@ -148,7 +148,7 @@ export function useSourceLogic(source: Source) {
     addCard(essayQuestion.trim(), [{ title: "Odgovor", content: sanitizeHtml(selectedText) }], essayCategory, undefined, undefined, {
       sourceId: source.id, textAnchor: anchor, originalSourceSnippet: selectedText,
     });
-    toast({ title: "Esejsko pitanje kreirano", description: `Povezano sa izvorom "${source.label}"` });
+    toast({ title: "Esejsko pitanje kreirano", description: `Povezano sa izvorom "${source.title}"` });
     setEssayDialogOpen(false);
     incrementDailyMapped(1);
   }, [essayQuestion, selectedText, essayCategory, source, addCard]);
@@ -185,8 +185,8 @@ export function useSourceLogic(source: Source) {
     });
     setLinkModalOpen(false);
     setLinkSelectedText("");
-    toast({ title: "Esej uspješno povezan!", description: `Povezano sa izvorom "${source.label}"` });
-  }, [patchCard, source.id, source.label, linkSelectedText]);
+    toast({ title: "Esej uspješno povezan!", description: `Povezano sa izvorom "${source.title}"` });
+  }, [patchCard, source.id, source.title, linkSelectedText]);
 
   const handleMapSelection = useCallback((questionId: string) => {
     if (!selection) return;
@@ -196,7 +196,7 @@ export function useSourceLogic(source: Source) {
     setSelection(null);
     window.getSelection()?.removeAllRanges();
     const result = splitSelection(text);
-    const category = source.category || categories[0] || "Opšte";
+    const category = source.categoryId || categories[0] || "Opšte";
     if (result.hasArticles && result.modules.length > 0) {
       const { modules } = result;
       const sections = modules.map((mod) => ({ title: mod.title, content: sanitizeHtml(mod.contentHtml) }));

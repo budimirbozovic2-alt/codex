@@ -26,7 +26,7 @@ export function useCardAnnotations({
 
       patchCard(cardId, (c) => {
         // Fill in category now that we have the card
-        entry.category = c.category;
+        entry.category = c.categoryIdId;
 
         let errorLog = c.errorLog;
         if (errorLog && errorLog.length > 0 && grade >= 3) {
@@ -101,7 +101,7 @@ export function useCardAnnotations({
             count: 1,
             recentSuccesses: 0,
             successStreak: 0,
-            category: c.category,
+            category: c.categoryIdId,
             lastMissed: new Date().toISOString(),
           });
         }

@@ -82,7 +82,7 @@ const SessionHeader = React.memo(function SessionHeader({
       <div className="rounded-xl bg-card border p-8">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
-            <span className="text-xs uppercase tracking-widest text-muted-foreground">{card.category}</span>
+            <span className="text-xs uppercase tracking-widest text-muted-foreground">{card.categoryId}</span>
             {card.subcategory && <span className="text-xs text-muted-foreground">› {card.subcategory}</span>}
             {isFlash && (
               <span className="text-xs text-primary flex items-center gap-1"><Zap className="h-3 w-3" /> Blic</span>

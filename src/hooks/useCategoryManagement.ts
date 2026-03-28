@@ -38,13 +38,13 @@ export function useCategoryManagement({
 
       // Always attempt card rename — if categories didn't change (duplicate),
       // no cards will match oldName after the no-op, so changed[] stays empty
-      // This is safe because we check c.category === oldName below
+      // This is safe because we check c.categoryId === oldName below
 
       const now = Date.now();
       const changed: Card[] = [];
       const nextRef = { ...cardMapRef.current };
       for (const [id, c] of Object.entries(nextRef)) {
-        if (c.category === oldName) {
+        if (c.categoryId === oldName) {
           const u = { ...c, category: newName, updatedAt: now };
           nextRef[id] = u;
           changed.push(u);
@@ -65,7 +65,7 @@ export function useCategoryManagement({
       // F4 fix: Cascade rename to sources
       (async () => {
         try {
-          await db.sources.where("category").equals(oldName).modify({ category: newName });
+          await db.sources.where("category").equals(oldName).modify({ categoryId: newName });
           invalidateSourcesCache();
         } catch (err) {
           console.error("[renameCategory] source cascade failed", err);
@@ -83,7 +83,7 @@ export function useCategoryManagement({
       const changed: Card[] = [];
       const nextRef = { ...cardMapRef.current };
       for (const [id, c] of Object.entries(nextRef)) {
-        if (c.category === name) {
+        if (c.categoryId === name) {
           const u = { ...c, category: "Opšte", subcategory: "", updatedAt: now };
           nextRef[id] = u;
           changed.push(u);
@@ -104,7 +104,7 @@ export function useCategoryManagement({
       // F3 fix: Cascade delete to sources — reassign to "Opšte"
       (async () => {
         try {
-          await db.sources.where("category").equals(name).modify({ category: "Opšte" });
+          await db.sources.where("category").equals(name).modify({ categoryId: "Opšte" });
           invalidateSourcesCache();
         } catch (err) {
           console.error("[deleteCategory] source cascade failed", err);
@@ -137,7 +137,7 @@ export function useCategoryManagement({
       const changed: Card[] = [];
       const nextRef = { ...cardMapRef.current };
       for (const [id, c] of Object.entries(nextRef)) {
-        if (c.category === category && c.subcategory === oldName) {
+        if (c.categoryId === category && c.subcategory === oldName) {
           const u = { ...c, subcategory: newName, updatedAt: now };
           nextRef[id] = u;
           changed.push(u);
@@ -160,7 +160,7 @@ export function useCategoryManagement({
       const changed: Card[] = [];
       const nextRef = { ...cardMapRef.current };
       for (const [id, c] of Object.entries(nextRef)) {
-        if (c.category === category && c.subcategory === subcategory) {
+        if (c.categoryId === category && c.subcategory === subcategory) {
           const u = { ...c, subcategory: "", updatedAt: now };
           nextRef[id] = u;
           changed.push(u);

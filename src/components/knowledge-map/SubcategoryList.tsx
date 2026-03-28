@@ -36,7 +36,7 @@ function SubcategoryListInner({
   reorderMode, onToggleReorder, onBack, onSelectSubcategory,
   onReorderSubcategories, slideVariants, direction, transition,
 }: Props) {
-  const catCards = cards.filter((c) => c.category === category);
+  const catCards = cards.filter((c) => c.categoryId === category);
   const sourceHierarchy = useSourceHierarchy(cards, sources, category);
 
   const handleMoveSub = useCallback((index: number, dir: -1 | 1) => {

@@ -229,7 +229,6 @@ export default function TopNav({ onToggleZen, zenActive, onOpenOnboarding }: Pro
               { path: "/cards", label: "Kartice" },
               { path: "/categories", label: "Kategorije" },
               { path: "/sources", label: "Izvori" },
-              { path: "/source-registry", label: "Registar izvora" },
             ];
             const BAZA_PATHS = BAZA_NAV.map(i => i.path);
             const isBazaActive = BAZA_PATHS.some(p => location.pathname === p) || location.pathname === "/database";

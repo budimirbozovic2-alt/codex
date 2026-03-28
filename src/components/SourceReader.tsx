@@ -215,7 +215,7 @@ export default function SourceReader({ source, onBack }: Props) {
             </div>
             <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/50 rounded-md p-2">
               <Badge variant="outline" className="text-[10px]">Backlink</Badge>
-              <span>Kartica će biti automatski povezana sa izvorom "{source.label}"</span>
+              <span>Kartica će biti automatski povezana sa izvorom "{source.title}"</span>
             </div>
             <Button onClick={logic.handleCreateEssay} disabled={!logic.essayQuestion.trim()} className="w-full">
               Kreiraj esejsko pitanje
@@ -241,7 +241,7 @@ export default function SourceReader({ source, onBack }: Props) {
                 </div>
                 <div>
                   <p className="text-sm font-medium">Uspješno generisano 1 esejsko pitanje sa {logic.splitCreatedCount} modula</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">{logic.splitResult?.rangeLabel} • Izvor: "{source.label}"</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">{logic.splitResult?.rangeLabel} • Izvor: "{source.title}"</p>
                 </div>
               </div>
               <Button onClick={() => { logic.setSplitSummaryOpen(false); logic.setSplitResult(null); }} className="w-full">Zatvori</Button>
@@ -287,7 +287,7 @@ export default function SourceReader({ source, onBack }: Props) {
               </div>
               <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/50 rounded-md p-2">
                 <Badge variant="outline" className="text-[10px]">Backlink</Badge>
-                <span>Svi moduli će biti automatski povezani sa izvorom "{source.label}"</span>
+                <span>Svi moduli će biti automatski povezani sa izvorom "{source.title}"</span>
               </div>
               <div className="flex gap-3">
                 <Button variant="outline" onClick={() => { logic.setSplitSummaryOpen(false); logic.setSplitResult(null); }} className="flex-1">Otkaži</Button>
@@ -309,7 +309,7 @@ export default function SourceReader({ source, onBack }: Props) {
             open={logic.linkModalOpen}
             onOpenChange={logic.setLinkModalOpen}
             sourceId={source.id}
-            sourceLabel={source.category || source.label || ""}
+            sourceLabel={source.categoryId || source.title || ""}
             selectedText={logic.linkSelectedText}
             cards={logic.cards}
             onLink={logic.handleLinkConfirm}

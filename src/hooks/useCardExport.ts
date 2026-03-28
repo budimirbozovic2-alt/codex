@@ -63,7 +63,7 @@ export function useCardExport({ cards, categories, subcategories, srSettings }: 
         id: c.id,
         question: c.question,
         sections: c.sections.map((s) => ({ title: s.title, content: s.content })),
-        category: c.category,
+        categoryId: c.categoryIdId,
         subcategory: c.subcategory || "",
         chapter: c.chapter || "",
         type: c.type,
@@ -114,7 +114,6 @@ export function useCardExport({ cards, categories, subcategories, srSettings }: 
       const lsKeys = [
         "sr-app-settings", "sr-mnemonic-workshop", "sr-mnemonic-associations",
         "sr-major-system-map", "sr-learn-progress", "sr-last-backup",
-        "codex-source-registry", "codex-monument-types",
       ];
       for (const key of lsKeys) {
         const val = localStorage.getItem(key);

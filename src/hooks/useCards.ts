@@ -17,7 +17,6 @@ import { useCardAnnotations } from "./useCardAnnotations";
 import { CardMap, mapToArray, persistQueue, schedulePersist, bumpMapVersion } from "@/lib/persist-queue";
 import {
   idbSaveCategories,
-  idbSaveSubcategories,
   idbSaveSettings,
 } from "@/lib/db";
 import { onCardLinksCleared } from "@/lib/sources-storage";
@@ -93,7 +92,6 @@ export function useCards() {
   const setSubcategories = useCallback((updater: (prev: Record<string, string[]>) => Record<string, string[]>) => {
     setSubcategoriesState(prev => {
       const next = updater(prev);
-      if (next !== prev) idbSaveSubcategories(next);
       return next;
     });
   }, []);
@@ -153,7 +151,7 @@ export function useCards() {
 
     for (const card of cards) {
       // Card count by category
-      countByCategory[card.category] = (countByCategory[card.category] || 0) + 1;
+      countByCategory[card.categoryId] = (countByCategory[card.categoryId] || 0) + 1;
 
       // Section-level stats
       let cardIsDue = false;
@@ -172,7 +170,7 @@ export function useCards() {
       if (cardIsDue) dueList.push(card);
 
       // Category stats accumulation
-      const acc = catAccum[card.category];
+      const acc = catAccum[card.categoryId];
       if (acc) {
         acc.total++;
         acc.scoreSum += card.sections.length > 0 ? cardScoreSum / card.sections.length : 0;
@@ -218,7 +216,6 @@ export function useCards() {
   const reorderSubcategories = useCallback((category: string, ordered: string[]) => {
     setSubcategoriesState(prev => {
       const next = { ...prev, [category]: ordered };
-      idbSaveSubcategories(next);
       return next;
     });
   }, []);

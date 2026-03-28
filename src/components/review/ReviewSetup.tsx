@@ -48,13 +48,13 @@ export default function ReviewSetup({
   const [showOnboarding, setShowOnboarding] = useState(() => !hasSeenOnboarding(REVIEW_ONBOARDING_KEY));
 
   const dueCategories = useMemo(() => {
-    const cats = new Set(dueCards.map((c) => c.category));
+    const cats = new Set(dueCards.map((c) => c.categoryId));
     return Array.from(cats).sort();
   }, [dueCards]);
 
   const filteredDueCards = useMemo(() => {
     let filtered = dueCards;
-    if (selectedCategory) filtered = filtered.filter((c) => c.category === selectedCategory);
+    if (selectedCategory) filtered = filtered.filter((c) => c.categoryId === selectedCategory);
     if (selectedSubcategory) filtered = filtered.filter((c) => c.subcategory === selectedSubcategory);
     if (selectedChapter) filtered = filtered.filter((c) => c.chapter === selectedChapter);
     if (filterExamFrequent) filtered = filtered.filter((c) => c.tags?.includes("često-na-ispitu"));
@@ -65,7 +65,7 @@ export default function ReviewSetup({
 
   const filteredAllCards = useMemo(() => {
     let filtered = allCards;
-    if (selectedCategory) filtered = filtered.filter((c) => c.category === selectedCategory);
+    if (selectedCategory) filtered = filtered.filter((c) => c.categoryId === selectedCategory);
     if (selectedSubcategory) filtered = filtered.filter((c) => c.subcategory === selectedSubcategory);
     if (selectedChapter) filtered = filtered.filter((c) => c.chapter === selectedChapter);
     if (filterExamFrequent) filtered = filtered.filter((c) => c.tags?.includes("često-na-ispitu"));
@@ -133,13 +133,13 @@ export default function ReviewSetup({
 
   const dueSubcategories = useMemo(() => {
     if (!selectedCategory) return [];
-    const subs = new Set(dueCards.filter((c) => c.category === selectedCategory && c.subcategory).map((c) => c.subcategory!));
+    const subs = new Set(dueCards.filter((c) => c.categoryId === selectedCategory && c.subcategory).map((c) => c.subcategory!));
     return Array.from(subs).sort();
   }, [dueCards, selectedCategory]);
 
   const dueChapters = useMemo(() => {
     if (!selectedSubcategory) return [];
-    const chapters = new Set(dueCards.filter(c => c.category === selectedCategory && c.subcategory === selectedSubcategory && c.chapter).map(c => c.chapter!));
+    const chapters = new Set(dueCards.filter(c => c.categoryId === selectedCategory && c.subcategory === selectedSubcategory && c.chapter).map(c => c.chapter!));
     return Array.from(chapters).sort();
   }, [dueCards, selectedCategory, selectedSubcategory]);
 

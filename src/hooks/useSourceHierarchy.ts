@@ -8,7 +8,6 @@ import {
   getCategoryDepthMode,
   getCardMasterSource,
   type DepthMode,
-} from "@/lib/source-registry";
 import { getCardMasteryLevel } from "@/components/KnowledgeMap";
 
 export interface HierarchyNode {
@@ -60,7 +59,7 @@ export function useSourceHierarchy(
   category: string,
 ): SourceHierarchyResult {
   return useMemo(() => {
-    const catCards = cards.filter(c => c.category === category);
+    const catCards = cards.filter(c => c.categoryId === category);
     const sourceLinked = catCards.filter(c => c.sourceId);
 
     // If no source links, return empty — caller should use original subcategory system

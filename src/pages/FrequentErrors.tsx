@@ -111,7 +111,7 @@ export default function FrequentErrors({ cards, onBack, onClearErrorLog, embedde
           lastMissed: entry.lastMissed,
           cardQuestion: card.question,
           cardId: card.id,
-          category: card.category,
+          category: card.categoryId,
           subcategory: card.subcategory,
           status: getErrorStatus(entry),
           sectionContent: allContent,

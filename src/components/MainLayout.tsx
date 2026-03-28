@@ -15,7 +15,7 @@ const GlobalSearch = lazy(() => import("@/components/GlobalSearch"));
 const AppOnboarding = lazy(() => import("@/components/AppOnboarding"));
 
 // Routes where the user is actively working on source material
-const SOURCE_ROUTES = ["/cards", "/categories", "/sources", "/source-registry", "/database"];
+const SOURCE_ROUTES = ["/cards", "/categories", "/sources", "/database"];
 
 /** Isolated component for planner nudge — prevents MainLayout re-render on card changes */
 const NudgeWatcher = memo(function NudgeWatcher() {

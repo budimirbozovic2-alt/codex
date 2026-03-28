@@ -146,7 +146,7 @@ export default function SpeedReader() {
   // Filtered cards (essay only)
   const filteredCards = useMemo(() => {
     let result = cards;
-    if (selCat) result = result.filter(c => c.category === selCat);
+    if (selCat) result = result.filter(c => c.categoryId === selCat);
     if (selSub) result = result.filter(c => c.subcategory === selSub);
     return result.filter(c => c.type !== "flash");
   }, [cards, selCat, selSub]);
@@ -481,7 +481,7 @@ export default function SpeedReader() {
                     className="w-full text-left p-3 rounded-lg border hover:border-primary/30 hover:bg-secondary/30 transition-colors"
                   >
                     <div className="flex items-center gap-2 mb-0.5 text-xs text-muted-foreground">
-                      <span>{card.category}</span>
+                      <span>{card.categoryIdId}</span>
                       {card.subcategory && <span>› {card.subcategory}</span>}
                       <span className="ml-auto">{card.sections.length} sek. · {wc} rij.</span>
                     </div>

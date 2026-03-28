@@ -100,12 +100,12 @@ function CardContextMenuInner({ card, categories, subcategories, availableChapte
                     }
                   }}
                   className={`flex items-center gap-2.5 w-full px-3 py-2 rounded-lg text-left text-sm transition-colors ${
-                    card.category === cat ? "text-primary bg-primary/5" : "hover:bg-secondary"
+                    card.categoryId === cat ? "text-primary bg-primary/5" : "hover:bg-secondary"
                   }`}
                 >
                   <FolderOpen className="h-3.5 w-3.5 flex-shrink-0" />
                   <span className="truncate">{cat}</span>
-                  {card.category === cat && <Check className="h-3 w-3 ml-auto text-primary flex-shrink-0" />}
+                  {card.categoryId === cat && <Check className="h-3 w-3 ml-auto text-primary flex-shrink-0" />}
                   {(subcategories?.[cat] || []).length > 0 && <ChevronRight className="h-3 w-3 ml-auto text-muted-foreground flex-shrink-0" />}
                 </button>
               ))}
@@ -127,11 +127,11 @@ function CardContextMenuInner({ card, categories, subcategories, availableChapte
                   key={sub}
                   onClick={(e) => { e.stopPropagation(); onMoveCategory!(card.id, selectedCat, sub); setOpen(false); setSubmenu(null); }}
                   className={`flex items-center gap-2.5 w-full px-3 py-2 rounded-lg text-left text-sm transition-colors ${
-                    card.category === selectedCat && card.subcategory === sub ? "text-primary bg-primary/5" : "hover:bg-secondary"
+                    card.categoryId === selectedCat && card.subcategory === sub ? "text-primary bg-primary/5" : "hover:bg-secondary"
                   }`}
                 >
                   <span className="truncate">{sub}</span>
-                  {card.category === selectedCat && card.subcategory === sub && <Check className="h-3 w-3 ml-auto text-primary flex-shrink-0" />}
+                  {card.categoryId === selectedCat && card.subcategory === sub && <Check className="h-3 w-3 ml-auto text-primary flex-shrink-0" />}
                 </button>
               ))}
               <button onClick={(e) => { e.stopPropagation(); setSubmenu("category"); setSelectedCat(null); }} className="w-full px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground text-left">← Nazad</button>

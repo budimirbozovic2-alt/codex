@@ -6,7 +6,6 @@ let _cachedRetention: number | null = null;
 let _retentionCacheTime = 0;
 export function getCachedRetention(): number {
   const now = Date.now();
-  // Refresh cache every 10 seconds
   if (_cachedRetention === null || now - _retentionCacheTime > 10000) {
     _cachedRetention = loadAppSettings().targetRetention;
     _retentionCacheTime = now;
@@ -25,16 +24,16 @@ export interface Section {
   id: string;
   title: string;
   content: string;
-  state: SectionState;          // FSRS state machine
-  stability: number;            // FSRS stability (days)
-  difficulty: number;           // FSRS difficulty (1-10)
-  interval: number;             // in days
-  nextReview: number;           // timestamp
+  state: SectionState;
+  stability: number;
+  difficulty: number;
+  interval: number;
+  nextReview: number;
   lastReviewed: number | null;
-  lapses: number;               // count of "Again" presses
-  elapsedDays: number;          // days since last review
-  scheduledDays: number;        // days that were scheduled
-  firstReviewPending: boolean;  // 20-min rule: waiting for first repetition
+  lapses: number;
+  elapsedDays: number;
+  scheduledDays: number;
+  firstReviewPending: boolean;
 }
 
 export interface ErrorLogEntry {
@@ -43,7 +42,7 @@ export interface ErrorLogEntry {
   recentSuccesses: number;
   successStreak: number;
   category?: string;
-  lastMissed: string; // ISO date string
+  lastMissed: string;
 }
 
 export type ErrorStatus = "critical" | "recovering" | "mastered";
@@ -68,7 +67,7 @@ export interface Card {
   id: string;
   question: string;
   sections: Section[];
-  category: string;
+  categoryId: string;        // FK → categories.id (was `category: string`)
   subcategory?: string;
   chapter?: string;
   chapterOrder?: number;
@@ -83,7 +82,7 @@ export interface Card {
   textAnchor?: string;
   needsReview?: boolean;
   keyParts?: string[];
-  originalSourceSnippet?: string;  // Raw text from source at creation time (hidden, for linking)
+  originalSourceSnippet?: string;
   childCardIds?: string[];
   sourceModules?: SourceModule[];
 }
@@ -119,14 +118,12 @@ export const DEFAULT_SR_SETTINGS: SRSettings = {
   resistanceWeights: { lapses: 40, latency: 30, forgetting: 30 },
 };
 
-// FSRS interval calculation — retention is loaded from app settings
 export function calculateInterval(stability: number, targetRetention?: number): number {
   if (stability <= 0) return 0;
   const r = targetRetention ?? 0.95;
   return stability * (Math.log(r) / Math.log(0.9));
 }
 
-// Initial values for new cards (first review)
 const INITIAL_VALUES: Record<number, { stability: number; difficulty: number }> = {
   1: { stability: 0.1, difficulty: 6 },
   2: { stability: 1, difficulty: 5 },
@@ -166,7 +163,6 @@ export function calculateNextReview(section: Section, grade: number, targetReten
 
   const isNew = section.state === SectionState.New;
   const newState = nextState(section.state, grade);
-
   const isPendingFirstReview = section.firstReviewPending === true;
 
   if (isNew) {
@@ -177,20 +173,20 @@ export function calculateNextReview(section: Section, grade: number, targetReten
   } else {
     const { stability, difficulty } = section;
     switch (grade) {
-      case 1: // Again — critical zone, shortest interval
+      case 1:
         newDifficulty = clampDifficulty(difficulty + 2);
         newStability = Math.max(0.1, stability * 0.05);
         newLapses += 1;
         break;
-      case 2: // Hard — critical zone, short interval within 24h
+      case 2:
         newDifficulty = clampDifficulty(difficulty + 1.5);
         newStability = Math.max(0.2, stability * 0.3);
         break;
-      case 3: // Good
+      case 3:
         newDifficulty = clampDifficulty(difficulty);
         newStability = stability * 3.0 + 1.0;
         break;
-      case 4: // Easy
+      case 4:
         newDifficulty = clampDifficulty(difficulty - 1);
         newStability = stability * 5.0 + 2.0;
         break;
@@ -200,37 +196,30 @@ export function calculateNextReview(section: Section, grade: number, targetReten
     }
   }
 
-  // Use passed retention or module-level cache
   const retention = targetRetention ?? getCachedRetention();
-  const interval = Math.max(calculateInterval(newStability, retention), 1 / (24 * 60)); // minimum 1 minute
+  const interval = Math.max(calculateInterval(newStability, retention), 1 / (24 * 60));
 
-  // Critical zone: grades 1-2 get priority short intervals (max 24h for grade 2, max 20min for grade 1)
   let finalNextReview = Date.now() + interval * 24 * 60 * 60 * 1000;
   let finalState = newState;
   let finalFirstReviewPending = false;
 
   if (!isNew && grade === 1) {
-    // Again: 20 minutes
     finalNextReview = Date.now() + 20 * 60 * 1000;
   } else if (!isNew && grade === 2) {
-    // Hard: cap at 24 hours
     const maxMs = 24 * 60 * 60 * 1000;
     const calcMs = interval * 24 * 60 * 60 * 1000;
     finalNextReview = Date.now() + Math.min(calcMs, maxMs);
   }
 
   if (isNew && grade >= 3) {
-    // Schedule first review in 15-20 minutes, stay in Learning
     const delayMs = grade === 3 ? 15 * 60 * 1000 : 20 * 60 * 1000;
     finalNextReview = Date.now() + delayMs;
     finalState = SectionState.Learning;
     finalFirstReviewPending = true;
   } else if (isPendingFirstReview && grade >= 3) {
-    // First review completed successfully — now transition to Review
     finalState = SectionState.Review;
     finalFirstReviewPending = false;
   } else if (isPendingFirstReview && grade < 3) {
-    // Failed first review — stay pending, short interval again
     finalNextReview = Date.now() + 10 * 60 * 1000;
     finalState = SectionState.Learning;
     finalFirstReviewPending = true;
@@ -295,17 +284,16 @@ export function createSection(title: string, content: string): Section {
   };
 }
 
-// Count sections pending their 20-minute first review
 export function getPendingFirstReviewCount(cards: Card[]): number {
   return cards.reduce((sum, c) => sum + c.sections.filter((s) => s.firstReviewPending && s.nextReview <= Date.now()).length, 0);
 }
 
-export function createCard(question: string, sections: { title: string; content: string }[], category: string, subcategory?: string): Card {
+export function createCard(question: string, sections: { title: string; content: string }[], categoryId: string, subcategory?: string): Card {
   return {
     id: crypto.randomUUID(),
     question,
     sections: sections.map((s) => createSection(s.title, s.content)),
-    category,
+    categoryId,
     subcategory: subcategory || "",
     createdAt: Date.now(),
     readCount: 0,
@@ -313,12 +301,12 @@ export function createCard(question: string, sections: { title: string; content:
   };
 }
 
-export function createFlashCard(question: string, answer: string, category: string, subcategory?: string): Card {
+export function createFlashCard(question: string, answer: string, categoryId: string, subcategory?: string): Card {
   return {
     id: crypto.randomUUID(),
     question,
     sections: [createSection("Odgovor", answer)],
-    category,
+    categoryId,
     subcategory: subcategory || "",
     createdAt: Date.now(),
     readCount: 0,
@@ -346,14 +334,12 @@ export function getDueSections(card: Card): Section[] {
   return card.sections.filter((s) => s.state !== SectionState.New && s.nextReview <= now);
 }
 
-// Retrievability: probability of recall at this moment (0-100%)
 export function getRetrievability(section: Section): number {
   if (section.state === SectionState.New) return 0;
   if (section.stability <= 0) return 0;
   const elapsed = section.lastReviewed
     ? (Date.now() - section.lastReviewed) / (24 * 60 * 60 * 1000)
     : 0;
-  // R = e^(-elapsed/stability)  — FSRS power forgetting curve
   const r = Math.exp(-elapsed / section.stability);
   return Math.round(Math.max(0, Math.min(100, r * 100)));
 }
@@ -377,8 +363,8 @@ export function getCardScore(card: Card): number {
   return Math.round(card.sections.reduce((sum, s) => sum + getSectionScore(s), 0) / card.sections.length);
 }
 
-export function getCategoryStats(cards: Card[], category: string) {
-  const catCards = cards.filter((c) => c.category === category);
+export function getCategoryStats(cards: Card[], categoryId: string) {
+  const catCards = cards.filter((c) => c.categoryId === categoryId);
   if (catCards.length === 0) return { score: 0, total: 0, due: 0 };
   const score = Math.round(catCards.reduce((sum, c) => sum + getCardScore(c), 0) / catCards.length);
   const due = catCards.filter((c) => c.sections.some((s) => s.state !== SectionState.New && s.nextReview <= Date.now())).length;

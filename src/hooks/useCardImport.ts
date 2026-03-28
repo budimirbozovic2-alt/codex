@@ -220,9 +220,7 @@ export function useCardImport({
           }
         }
         // C1 fix: Invalidate in-memory caches after localStorage restore
-        const { invalidateSourceRegistryCache } = await import("@/lib/source-registry");
         const { invalidateMonumentTypesCache } = await import("@/lib/forum-logic");
-        invalidateSourceRegistryCache();
         invalidateMonumentTypesCache();
         // H2 fix: Clear stale review session data on overwrite import
         if (strategy === "overwrite") {

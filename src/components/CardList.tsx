@@ -94,7 +94,7 @@ const CardRowInner = memo(function CardRowInner({ card, expanded, highlighted, s
           )}
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1 flex-wrap">
-              <span className="text-xs uppercase tracking-widest text-muted-foreground">{card.category}</span>
+              <span className="text-xs uppercase tracking-widest text-muted-foreground">{card.categoryId}</span>
               {card.subcategory ? (
                 <span className="text-xs text-muted-foreground">› {card.subcategory}</span>
               ) : (
@@ -154,7 +154,7 @@ const CardRowInner = memo(function CardRowInner({ card, expanded, highlighted, s
       )}
 
       {expanded && (
-        <TextSelectionTooltip cardId={card.id} question={card.question} category={card.category} subcategory={card.subcategory} tags={card.tags} keyParts={card.keyParts} onMarkKeyPart={onAddKeyPart ? (text: string) => onAddKeyPart(card.id, text) : undefined}>
+        <TextSelectionTooltip cardId={card.id} question={card.question} category={card.categoryId} subcategory={card.subcategory} tags={card.tags} keyParts={card.keyParts} onMarkKeyPart={onAddKeyPart ? (text: string) => onAddKeyPart(card.id, text) : undefined}>
         <div className="px-5 pb-5 space-y-3 border-t pt-4 max-h-[60vh] overflow-y-auto">
           {isFlash ? (
             <div className="text-sm text-muted-foreground" dangerouslySetInnerHTML={{ __html: highlightKeyParts(card.sections[0]?.content || "", card.keyParts) }} />

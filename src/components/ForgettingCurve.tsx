@@ -31,7 +31,7 @@ export default function ForgettingCurve({ cards, categories }: Props) {
     return cards.flatMap((c) =>
       c.sections
         .filter((s) => s.state !== SectionState.New && s.stability > 0)
-        .map((s) => ({ ...s, category: c.category }))
+        .map((s) => ({ ...s, category: c.categoryId }))
     );
   }, [cards]);
 

@@ -7,7 +7,6 @@ import {
   migrateFromLocalStorage,
   idbLoadCards,
   idbLoadCategories,
-  idbLoadSubcategories,
   idbLoadRecentReviewLog,
   idbLoadSettings,
   getDbErrorState,
@@ -125,7 +124,6 @@ export function useCardBootstrap(setters: BootSetters) {
         const cats = await withTimeout(idbLoadCategories(), 2500, "categories load", ["Opšte"]);
 
         splashProgress(65, "Učitavanje kategorija…");
-        const subs = await withTimeout(idbLoadSubcategories(), 2500, "subcategories load", {});
 
         splashProgress(80, "Učitavanje dnevnika…");
         const log = await withTimeout(idbLoadRecentReviewLog(90), 2500, "review log load", []);

@@ -33,7 +33,6 @@ const MajorSystemPage = lazy(() => import("@/views/MajorSystemPage"));
 const CardsPage = lazy(() => import("@/views/CardsPage"));
 const CategoriesRoutePage = lazy(() => import("@/views/CategoriesRoutePage"));
 const SourcesRoutePage = lazy(() => import("@/views/SourcesRoutePage"));
-const SourceRegistryPage = lazy(() => import("@/views/SourceRegistryPage"));
 const SpeedReaderPage = lazy(() => import("@/views/SpeedReaderPage"));
 const MindMapPage = lazy(() => import("@/views/MindMapPage"));
 const RomanForumPage = lazy(() => import("@/views/RomanForumPage"));
@@ -72,7 +71,6 @@ const App = () => (
                         <Route path="/cards" element={<ErrorBoundary label="Kartice"><CardsPage /></ErrorBoundary>} />
                         <Route path="/categories" element={<ErrorBoundary label="Kategorije"><CategoriesRoutePage /></ErrorBoundary>} />
                         <Route path="/sources" element={<ErrorBoundary label="Izvori"><SourcesRoutePage /></ErrorBoundary>} />
-                        <Route path="/source-registry" element={<ErrorBoundary label="Registar izvora"><SourceRegistryPage /></ErrorBoundary>} />
                         <Route path="/database" element={<ErrorBoundary label="Kartice"><CardsPage /></ErrorBoundary>} />
                         <Route path="/speed-reader" element={<ErrorBoundary label="Speed Reader"><SpeedReaderPage /></ErrorBoundary>} />
                         <Route path="/mind-map" element={<ErrorBoundary label="Mapa uma"><MindMapPage /></ErrorBoundary>} />

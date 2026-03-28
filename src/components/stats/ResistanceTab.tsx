@@ -29,9 +29,9 @@ export default function ResistanceTab({ cards, categories, reviewLog, weights }:
 
   const resistanceData = useMemo<ResistanceData[]>(() => {
     return categories
-      .filter(cat => cards.some(c => c.category === cat))
+      .filter(cat => cards.some(c => c.categoryId === cat))
       .map(cat => {
-        const catCards = cards.filter(c => c.category === cat);
+        const catCards = cards.filter(c => c.categoryId === cat);
         const catLapses = reviewLog.filter(e => e.category === cat && e.grade <= 2);
         const catLatencies = latencyData.filter(e => e.category === cat);
 

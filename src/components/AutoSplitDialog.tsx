@@ -175,7 +175,7 @@ export default function AutoSplitDialog({ open, onClose, source }: Props) {
     setImporting(true);
     setProgress(0);
     let count = 0;
-    const category = source.label || "Opšte";
+    const category = source.title || "Opšte";
 
     for (let i = 0; i < toImport.length; i++) {
       const row = toImport[i];
@@ -257,7 +257,7 @@ export default function AutoSplitDialog({ open, onClose, source }: Props) {
 
     toast({
       title: `Generisano ${count} eseja`,
-      description: `Iz izvora "${source.label}"`,
+      description: `Iz izvora "${source.title}"`,
     });
   }, [rows, source, addCard, updateCard]);
 

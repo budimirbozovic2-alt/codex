@@ -1,6 +1,5 @@
 import { db, type Source } from "./db";
 import { parseArticles } from "./article-parser";
-import { loadSourceRegistry, saveSourceRegistry } from "./source-registry";
 
 export type { Source };
 
@@ -58,7 +57,6 @@ export async function saveSource(source: Source): Promise<void> {
 export async function deleteSource(id: string): Promise<void> {
   _cache = null;
 
-  // Read source label before deletion for registry cleanup (F6)
   const source = await db.sources.get(id);
   const sourceLabel = source?.label;
 
@@ -85,15 +83,8 @@ export async function deleteSource(id: string): Promise<void> {
     }
   }
 
-  // F6: Clean registry aliases referencing this source label
   if (sourceLabel) {
     try {
-      const remainingSources = await db.sources.where("label").equals(sourceLabel).count();
-      if (remainingSources === 0) {
-        const registry = loadSourceRegistry();
-        const filtered = registry.aliases.filter(a => a.rawLabel !== sourceLabel);
-        if (filtered.length !== registry.aliases.length) {
-          saveSourceRegistry({ ...registry, aliases: filtered });
         }
       }
     } catch { /* non-critical */ }

@@ -27,9 +27,9 @@ export function calcInterferencePairs(cards: Card[], limit = 10): InterferencePa
   cards.forEach(c => {
     const activeErrors = (c.errorLog || []).filter(e => getErrorStatus(e) !== "mastered");
     if (activeErrors.length === 0) return;
-    const list = byCategory.get(c.category) || [];
+    const list = byCategory.get(c.categoryId) || [];
     list.push(c);
-    byCategory.set(c.category, list);
+    byCategory.set(c.categoryId, list);
   });
 
   // Step 2: For each category group, build error-prefix → cardId[] map
@@ -114,8 +114,8 @@ export function calcInterferencePairs(cards: Card[], limit = 10): InterferencePa
     .sort((a, b) => b.score - a.score)
     .slice(0, limit)
     .map(p => ({
-      cardA: { id: p.a.id, question: p.a.question, category: p.a.category },
-      cardB: { id: p.b.id, question: p.b.question, category: p.b.category },
+      cardA: { id: p.a.id, question: p.a.question, category: p.a.categoryId },
+      cardB: { id: p.b.id, question: p.b.question, category: p.b.categoryId },
       sharedErrors: p.shared.slice(0, 3),
       score: p.score,
     }));
@@ -142,7 +142,7 @@ export function calcCategoryStability(
   const daysToExam = examDate ? Math.max(0, differenceInDays(examDate, new Date())) : null;
 
   return categories.map(cat => {
-    const catCards = cards.filter(c => c.category === cat);
+    const catCards = cards.filter(c => c.categoryId === cat);
     let totalStability = 0;
     let totalRetrievability = 0;
     let criticalCount = 0;
@@ -539,7 +539,7 @@ export function calcBlindSpots(cards: Card[]): BlindSpot[] {
       cardId,
       sectionId,
       question: card.question,
-      category: card.category,
+      category: card.categoryId,
       confidence: latest.confidence,
       actualGrade: latest.actualGrade,
       occurrences: data.entries.length,

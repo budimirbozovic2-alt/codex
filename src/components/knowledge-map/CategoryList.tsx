@@ -33,7 +33,7 @@ function CategoryListInner({
 
   const catsWithStats = categories
     .map((cat) => {
-      const catCards = cards.filter((c) => c.category === cat);
+      const catCards = cards.filter((c) => c.categoryId === cat);
       if (catCards.length === 0) return null;
       const subs = subcategories[cat] || [];
       const subCount = subs.filter((s) => catCards.some((c) => c.subcategory === s)).length;

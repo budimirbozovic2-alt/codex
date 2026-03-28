@@ -28,7 +28,7 @@ export default function LinkToExistingCardModal({
     cards.filter(c =>
       !c.sourceId &&
       c.type !== "flash" &&
-      c.category === sourceLabel
+      c.categoryId === sourceLabel
     ),
     [cards, sourceLabel]
   );

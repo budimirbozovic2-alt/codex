@@ -66,7 +66,7 @@ export default function LearnSession({ cards, categories, subcategories, onMarkR
   }, [selectedCategory, selectedSubcategory]);
 
   const availableCategories = useMemo(() => {
-    const cats = new Set(cards.map(c => c.category));
+    const cats = new Set(cards.map(c => c.categoryId));
     return categories.filter(c => cats.has(c));
   }, [cards, categories]);
 
@@ -74,7 +74,7 @@ export default function LearnSession({ cards, categories, subcategories, onMarkR
   const examFrequentCount = useMemo(() => cards.filter(c => c.tags?.includes("često-na-ispitu")).length, [cards]);
 
   const sortedCards = useMemo(() => {
-    let filtered = selectedCategory ? cards.filter(c => c.category === selectedCategory) : [...cards];
+    let filtered = selectedCategory ? cards.filter(c => c.categoryId === selectedCategory) : [...cards];
     if (selectedSubcategory) filtered = filtered.filter(c => c.subcategory === selectedSubcategory);
     if (selectedChapter) filtered = filtered.filter(c => c.chapter === selectedChapter);
     if (filterExamFrequent) filtered = filtered.filter(c => c.tags?.includes("često-na-ispitu"));

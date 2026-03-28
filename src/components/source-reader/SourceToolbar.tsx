@@ -39,7 +39,7 @@ export const SourceToolbar = memo(function SourceToolbar({
         <ArrowLeft className="h-4 w-4" />
       </Button>
       <div className="min-w-0 flex-1">
-        <h2 className="font-semibold text-lg truncate">{source.label}</h2>
+        <h2 className="font-semibold text-lg truncate">{source.title}</h2>
         <div className="flex items-center gap-3 text-xs text-muted-foreground">
           <span className="flex items-center gap-1">
             <Calendar className="h-3 w-3" />

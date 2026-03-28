@@ -113,7 +113,7 @@ export function useCardCRUD({
       patchCard(id, (c) => {
         const newCard = { ...c };
         if (updates.question) newCard.question = updates.question;
-        if (updates.category) newCard.category = updates.category;
+        if (updates.categoryId) newCard.categoryId = updates.categoryId;
         if (updates.subcategory !== undefined) newCard.subcategory = updates.subcategory;
         if (updates.chapter !== undefined) newCard.chapter = updates.chapter;
         if (updates.sourceId !== undefined) newCard.sourceId = updates.sourceId;
@@ -165,7 +165,7 @@ export function useCardCRUD({
       ...createCard(
         card.question,
         [{ title: section.title, content: section.content }],
-        card.category,
+        card.categoryId,
         card.subcategory,
       ),
       sections: [{ ...section }],

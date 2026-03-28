@@ -7,19 +7,17 @@ import { MonumentCard } from "@/components/gamification/MonumentCard";
 import { MonumentInterior } from "@/components/gamification/MonumentInterior";
 import { Progress } from "@/components/ui/progress";
 import { loadSources, onSourcesChanged, type Source } from "@/lib/sources-storage";
-import { onRegistryChanged } from "@/lib/source-registry";
 
 export default function RomanForumPage() {
   const { cards, reviewLog, bulkUpdateChapter, reviewSection } = useCardContext();
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [sources, setSources] = useState<Source[]>([]);
 
-  const [registryVersion, setRegistryVersion] = useState(0);
 
   useEffect(() => {
     loadSources().then(setSources);
     const unsub1 = onSourcesChanged(() => loadSources().then(setSources));
-    const unsub2 = onRegistryChanged(() => {
+    const unsub2 = (() => {
       setRegistryVersion(v => v + 1);
       loadSources().then(setSources);
     });
@@ -29,9 +27,7 @@ export default function RomanForumPage() {
   const deferredCards = useDeferredValue(cards);
 
   const forumState = useMemo(() => {
-    return calculateForumState(deferredCards, reviewLog, sources, registryVersion);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [deferredCards, sources, reviewLog, registryVersion]);
 
   const selectedMonument = selectedCategory
     ? forumState.monuments.find((m) => m.category === selectedCategory) ?? null

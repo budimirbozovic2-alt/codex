@@ -82,7 +82,7 @@ export default function SourceManager() {
       if (!card.sourceId) continue;
       const src = sourceMap.get(card.sourceId);
       if (!src) continue;
-      labels.set(src.label, (labels.get(src.label) || 0) + 1);
+      labels.set(src.title, (labels.get(src.title) || 0) + 1);
     }
     return labels;
   }, [cards, sourceMap]);
@@ -128,7 +128,7 @@ export default function SourceManager() {
             if (c.category !== cat || !c.sourceId) return false;
             const src = sourceMap.get(c.sourceId);
             if (!src) return false;
-            const master = aliasMap.get(src.label) || src.label;
+            const master = aliasMap.get(src.title) || src.title;
             return master === name;
           })
         );

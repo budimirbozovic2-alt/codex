@@ -50,7 +50,7 @@ export default function SourceSnippetDialog({ card, open, onOpenChange, onReview
           <DialogTitle className="flex items-center gap-2">
             Poređenje sa izvorom
             {source && (
-              <Badge variant="outline" className="text-[10px]">{source.label} v{source.version}</Badge>
+              <Badge variant="outline" className="text-[10px]">{source.title} v{source.version}</Badge>
             )}
           </DialogTitle>
         </DialogHeader>

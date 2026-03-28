@@ -87,10 +87,8 @@ setTimeout(() => {
       const { db } = await import("./lib/db");
 
       const buildBackupData = async () => {
-        const [cards, categories, subcategories, reviewLog, srSettings, sources, mindMaps, diary, calibrationLog, latencyLog, slippageLog, activityLog, disciplineLog, pomodoroLog] = await Promise.all([
           db.cards.toArray(),
           db.categories.toArray().then(rows => rows.map(r => r.name)),
-          db.subcategories.toArray().then(rows => {
             const result: Record<string, string[]> = {};
             rows.forEach(r => { result[r.category] = r.subs; });
             return result;
@@ -134,7 +132,6 @@ setTimeout(() => {
 
         const data: Record<string, unknown> = {
           version: 4, type: "full",
-          cards, categories, subcategories, reviewLog,
           sources, mindMaps,
           diary, calibrationLog, latencyLog, slippageLog, activityLog, disciplineLog, pomodoroLog,
           localStorageData,

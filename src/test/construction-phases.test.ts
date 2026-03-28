@@ -7,7 +7,7 @@ import { SectionState } from "@/lib/spaced-repetition";
  * Helper: generates N cards for a category where `masteryPct`% of sections
  * are in Review state and the rest are New.
  */
-function makeCards(category: string, total: number, masteryPct: number): Card[] {
+function makeCards(categoryId: string, total: number, masteryPct: number): Card[] {
   const cards: Card[] = [];
   const sectionsPerCard = 4;
   const totalSections = total * sectionsPerCard;
@@ -19,7 +19,7 @@ function makeCards(category: string, total: number, masteryPct: number): Card[] 
       const isReview = reviewsPlaced < reviewCount;
       if (isReview) reviewsPlaced++;
       return {
-        id: `${category}-${i}-s${s}`,
+        id: `${categoryId}-${i}-s${s}`,
         title: `Section ${s}`,
         content: "test",
         state: isReview ? SectionState.Review : SectionState.New,
@@ -35,10 +35,10 @@ function makeCards(category: string, total: number, masteryPct: number): Card[] 
       };
     });
     cards.push({
-      id: `${category}-card-${i}`,
+      id: `${categoryId}-card-${i}`,
       question: `Q ${i}`,
       sections,
-      category,
+      categoryId,
       createdAt: Date.now(),
       readCount: 0,
       type: "essay",

@@ -131,7 +131,7 @@ export interface PhaseProgress {
 
 export function calcPhaseProgress(phase: StudyPhase, cards: Card[]): PhaseProgress {
   const relevant = phase.categories.length > 0
-    ? cards.filter(c => phase.categories.includes(c.category))
+    ? cards.filter(c => phase.categories.includes(c.categoryId))
     : cards;
   const total = relevant.reduce((s, c) => s + c.sections.length, 0);
   let learned = 0;

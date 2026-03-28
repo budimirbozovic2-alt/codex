@@ -116,7 +116,7 @@ export default function CardsView() {
 
     ids.forEach((id, i) => {
       const patch: Partial<Card> = {};
-      if (cat && (bulkCategory || !filterCategory)) patch.category = cat;
+      if (cat && (bulkCategory || !filterCategory)) patch.categoryId = cat;
       if (sub) patch.subcategory = sub;
       if (ch) { patch.chapter = ch; patch.chapterOrder = i; }
       if (Object.keys(patch).length > 0) updateCard(id, patch);
@@ -166,7 +166,7 @@ export default function CardsView() {
     const catFilter = filterCategory;
     const subFilter = filterSubcategory;
     const relevant = cards.filter(c => {
-      if (catFilter && c.category !== catFilter) return false;
+      if (catFilter && c.categoryId !== catFilter) return false;
       if (subFilter && c.subcategory !== subFilter) return false;
       return !!c.chapter;
     });
@@ -195,7 +195,7 @@ export default function CardsView() {
         return;
       }
       const sections = card.sections.map(s => ({ title: s.title, content: s.content }));
-      const clone = createMnemonicCard(card.id, card.question, sections, card.category, card.subcategory, card.tags);
+      const clone = createMnemonicCard(card.id, card.question, sections, card.categoryId, card.subcategory, card.tags);
       saveMnemonicCards([...existing, clone]);
       handleToggleTag(card.id, "mnemonic");
       toast.success("Klonirano u Mnemo radionicu");
@@ -265,7 +265,7 @@ export default function CardsView() {
             <button
               onClick={() => {
                 const visible = cards.filter(c => {
-                  if (filterCategory && c.category !== filterCategory) return false;
+                  if (filterCategory && c.categoryId !== filterCategory) return false;
                   if (filterSubcategory) {
                     if (filterSubcategory === "__none__" ? c.subcategory : c.subcategory !== filterSubcategory) return false;
                   }
@@ -287,7 +287,7 @@ export default function CardsView() {
             >
               {(() => {
                 const visible = cards.filter(c => {
-                  if (filterCategory && c.category !== filterCategory) return false;
+                  if (filterCategory && c.categoryId !== filterCategory) return false;
                   if (filterSubcategory) {
                     if (filterSubcategory === "__none__" ? c.subcategory : c.subcategory !== filterSubcategory) return false;
                   }
@@ -314,7 +314,7 @@ export default function CardsView() {
             const bulkCat = bulkCategory || filterCategory || "";
             const bulkSubcatsForCat = bulkCat ? (subcategories[bulkCat] || []) : [];
             const bulkChaptersForSub = Array.from(new Set(
-              cards.filter(c => c.category === bulkCat && (!bulkSubcategory || c.subcategory === bulkSubcategory) && c.chapter).map(c => c.chapter!)
+              cards.filter(c => c.categoryId === bulkCat && (!bulkSubcategory || c.subcategory === bulkSubcategory) && c.chapter).map(c => c.chapter!)
             )).sort();
 
             return (
@@ -439,7 +439,7 @@ export default function CardsView() {
               Sve
             </button>
             {categories.map(c => {
-              const count = cards.filter(card => card.category === c).length;
+              const count = cards.filter(card => card.categoryId === c).length;
               return (
                 <button
                   key={c}
@@ -455,15 +455,15 @@ export default function CardsView() {
             })}
           </ScrollableRow>
 
-          {filterCategory && (availableSubcategories.length > 0 || cards.some(c => c.category === filterCategory && !c.subcategory)) && (
+          {filterCategory && (availableSubcategories.length > 0 || cards.some(c => c.categoryId === filterCategory && !c.subcategory)) && (
             <ScrollableRow className="pl-3 border-l-2 border-primary/20 ml-1">
               <button onClick={() => setFilterSubcategory(null)} className={`px-2.5 py-1 rounded-md text-[11px] font-medium transition-all whitespace-nowrap flex-shrink-0 ${!filterSubcategory ? "bg-primary/15 text-primary" : "text-muted-foreground hover:text-foreground hover:bg-secondary"}`}>
                 Sve podkat.
               </button>
-              {cards.some(c => c.category === filterCategory && !c.subcategory) && (
+              {cards.some(c => c.categoryId === filterCategory && !c.subcategory) && (
                 <button onClick={() => setFilterSubcategory("__none__")} className={`px-2.5 py-1 rounded-md text-[11px] font-medium transition-all whitespace-nowrap flex-shrink-0 flex items-center gap-1 ${filterSubcategory === "__none__" ? "bg-warning/15 text-warning" : "text-warning/70 hover:text-warning hover:bg-warning/10"}`}>
                   ⚠ Bez podkat.
-                  <span className="text-[10px] px-1 py-0.5 rounded-full bg-warning/10">{cards.filter(c => c.category === filterCategory && !c.subcategory).length}</span>
+                  <span className="text-[10px] px-1 py-0.5 rounded-full bg-warning/10">{cards.filter(c => c.categoryId === filterCategory && !c.subcategory).length}</span>
                 </button>
               )}
               {availableSubcategories.map(sc => (
@@ -476,7 +476,7 @@ export default function CardsView() {
 
           {filterSubcategory && (() => {
             const chaptersSet = new Set(
-              cards.filter(c => c.category === filterCategory && c.subcategory === filterSubcategory && c.chapter)
+              cards.filter(c => c.categoryId === filterCategory && c.subcategory === filterSubcategory && c.chapter)
                 .map(c => c.chapter!)
             );
             // Use stored order from MentalSkeleton, append any new chapters

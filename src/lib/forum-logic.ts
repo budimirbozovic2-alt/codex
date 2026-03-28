@@ -5,13 +5,6 @@
  * Pure functions, no side effects, no React imports.
  */
 import { Card, SectionState } from "./spaced-repetition";
-import {
-  loadSourceRegistry,
-  buildAliasMap,
-  buildSourceMap,
-  resolveMasterSource,
-  type MasterSourceInfo,
-} from "./source-registry";
 import type { Source } from "./db";
 
 // ─── Types ──────────────────────────────────────────────
@@ -169,7 +162,6 @@ function buildMonument(category: string, cards: Card[]): MonumentResult {
 
 // ─── Day/Night Phase ────────────────────────────────────
 
-/** Returns 0-1 where 0 = midnight, 0.5 = noon, 1 = next midnight */
 function getDayPhase(): number {
   const now = new Date();
   const minutesSinceMidnight = now.getHours() * 60 + now.getMinutes();
@@ -187,9 +179,7 @@ function calcVelocity(reviewLog: ReviewEntry[]): number {
   return reviewLog.filter(e => e.timestamp >= weekAgo).length;
 }
 
-/** Maps velocity to warmth 0-1 (0 = cold/inactive, 1 = very active) */
 function calcWarmth(velocity: number): number {
-  // 0 reviews → 0, 100+ reviews → 1
   return Math.min(1, velocity / 100);
 }
 
@@ -197,12 +187,10 @@ function calcWarmth(velocity: number): number {
 let _cachedFingerprint = "";
 let _cachedForumState: ForumState | null = null;
 
-// H3 fix v2: Cache monument types hash; invalidate on load AND on save
 let _mtHashCache: string | null = null;
 let _mtHashSource: string | null = null;
 
 function getMonumentTypesHash(): string {
-  // Re-derive hash if underlying localStorage changed (covers import/external tab edits)
   const rawLS = typeof localStorage !== "undefined" ? (localStorage.getItem("codex-monument-types") || "") : "";
   if (_mtHashCache === null || _mtHashSource !== rawLS) {
     _mtHashSource = rawLS;
@@ -211,8 +199,7 @@ function getMonumentTypesHash(): string {
   return _mtHashCache;
 }
 
-/** Build a lightweight fingerprint from card states to detect real changes */
-function buildFingerprint(cards: Card[], reviewLogLen: number, sourceCount: number, registryVersion = 0): string {
+function buildFingerprint(cards: Card[], reviewLogLen: number, sourceCount: number): string {
   let reviewSections = 0;
   let totalSections = 0;
   let stabilitySum = 0;
@@ -224,7 +211,7 @@ function buildFingerprint(cards: Card[], reviewLogLen: number, sourceCount: numb
     }
   }
   const mtHash = getMonumentTypesHash();
-  return `${cards.length}:${totalSections}:${reviewSections}:${Math.round(stabilitySum)}:${reviewLogLen}:${sourceCount}:${registryVersion}:${mtHash}`;
+  return `${cards.length}:${totalSections}:${reviewSections}:${Math.round(stabilitySum)}:${reviewLogLen}:${sourceCount}:${mtHash}`;
 }
 
 // ─── Main Calculator ────────────────────────────────────
@@ -233,18 +220,16 @@ export function calculateForumState(
   cards: Card[],
   reviewLog: ReviewEntry[],
   allSources?: Source[],
-  registryVersion = 0,
 ): ForumState {
-  // B2: Skip full O(n*s) rebuild if fingerprint matches
-  const fp = buildFingerprint(cards, reviewLog.length, allSources?.length ?? 0, registryVersion);
+  const fp = buildFingerprint(cards, reviewLog.length, allSources?.length ?? 0);
   if (fp === _cachedFingerprint && _cachedForumState) {
     return _cachedForumState;
   }
 
-  // Group cards by category
+  // Group cards by categoryId
   const byCategory = new Map<string, Card[]>();
   for (const card of cards) {
-    const cat = card.category || "Nekategorizovano";
+    const cat = card.categoryId || "Nekategorizovano";
     const arr = byCategory.get(cat);
     if (arr) arr.push(card);
     else byCategory.set(cat, [card]);
@@ -252,19 +237,16 @@ export function calculateForumState(
 
   const monumentTypes = loadMonumentTypes();
 
-  // Source registry for optional breakdown
-  let sourceMap: Map<string, Source> | null = null;
-  let aliasMap: Map<string, string> | null = null;
-  if (allSources && allSources.length > 0) {
-    const registry = loadSourceRegistry();
-    aliasMap = buildAliasMap(registry);
-    sourceMap = buildSourceMap(allSources);
+  // Build source lookup map (no registry needed — use source.title directly)
+  const sourceMap = new Map<string, Source>();
+  if (allSources) {
+    for (const s of allSources) sourceMap.set(s.id, s);
   }
 
   const monuments: Monument[] = [];
-  // B4 fix: accumulate overall totals during monument building (eliminates third pass)
   let grandTotalSections = 0;
   let grandTotalReview = 0;
+
   for (const [cat, catCards] of byCategory) {
     const result = buildMonument(cat, catCards);
     const m = result.monument;
@@ -272,13 +254,12 @@ export function calculateForumState(
     grandTotalReview += result.reviewSections;
     m.buildingType = monumentTypes[cat] || "insula";
 
-    // Add source breakdown if sources available
-    if (sourceMap && aliasMap) {
+    // Add source breakdown using source.title directly
+    if (sourceMap.size > 0) {
       const srcGroups = new Map<string, { count: number; reviewSections: number; totalSections: number }>();
       for (const card of catCards) {
-        const master = card.sourceId && sourceMap.get(card.sourceId)
-          ? resolveMasterSource(sourceMap.get(card.sourceId)!.label, aliasMap)
-          : "Bez izvora";
+        const source = card.sourceId ? sourceMap.get(card.sourceId) : null;
+        const master = source ? source.title : "Bez izvora";
         if (!srcGroups.has(master)) srcGroups.set(master, { count: 0, reviewSections: 0, totalSections: 0 });
         const g = srcGroups.get(master)!;
         g.count++;
@@ -297,7 +278,6 @@ export function calculateForumState(
     monuments.push(m);
   }
 
-  // Sort: highest mastery first
   monuments.sort((a, b) => b.mastery - a.mastery);
 
   const overallMastery = grandTotalSections > 0
