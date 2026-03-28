@@ -1,5 +1,6 @@
 import { ArrowLeft, CheckCircle2, Brain, Wrench, FlaskConical, Sparkles, Hash, HelpCircle, Film, Type } from "lucide-react";
 import { useState, useCallback, useMemo } from "react";
+import { useCardActions } from "@/contexts/AppContext";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   MnemonicCard, loadMnemonicCards, saveMnemonicCards,
