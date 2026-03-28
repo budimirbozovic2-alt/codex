@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { useLocation } from "react-router-dom";
 import { useLiveQuery } from "dexie-react-hooks";
 import { NavLink } from "@/components/NavLink";
@@ -10,7 +11,7 @@ import {
   SidebarGroupContent, SidebarMenu, SidebarMenuItem, SidebarMenuButton,
   useSidebar,
 } from "@/components/ui/sidebar";
-import { db } from "@/lib/db";
+import { db, seedDefaultCategories } from "@/lib/db";
 import { Badge } from "@/components/ui/badge";
 import { useCardContext } from "@/contexts/AppContext";
 
@@ -35,6 +36,12 @@ export default function AppSidebar() {
   const location = useLocation();
   const { stats } = useCardContext();
   const categories = useLiveQuery(() => db.categories.orderBy("sortOrder").toArray()) ?? [];
+
+  useEffect(() => {
+    if (categories.length === 0) {
+      seedDefaultCategories().catch(console.error);
+    }
+  }, [categories.length]);
 
   return (
     <Sidebar collapsible="icon">
