@@ -525,6 +525,17 @@ export default function CardsView() {
         onCloneToMnemonic={handleCloneToMnemonic}
         onAddKeyPart={addKeyPart}
       />
+
+      <Suspense fallback={null}>
+        {autoLinkOpen && (
+          <AutoLinkReviewModal
+            pairs={autoLinkPairs}
+            open={autoLinkOpen}
+            onClose={() => setAutoLinkOpen(false)}
+            onLink={handleAutoLink}
+          />
+        )}
+      </Suspense>
     </div>
   );
 }
