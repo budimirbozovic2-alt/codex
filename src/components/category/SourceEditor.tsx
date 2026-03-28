@@ -50,6 +50,11 @@ export default function SourceEditor({ source, categoryId, cards, onBack, onSour
   const [selectedText, setSelectedText] = useState("");
   const [linkModalOpen, setLinkModalOpen] = useState(false);
   const [linkSelectedText, setLinkSelectedText] = useState("");
+  const [wide, setWide] = useState(false);
+  const [autoSplitOpen, setAutoSplitOpen] = useState(false);
+
+  // Cards linked to this source
+  const linkedCards = useMemo(() => cards.filter(c => c.sourceId === source.id), [cards, source.id]);
 
   const outline = useMemo(() => extractOutline(source.htmlContent), [source.htmlContent]);
   const safeHtml = useMemo(() => sanitizeHtml(source.htmlContent), [source.htmlContent]);
