@@ -32,7 +32,7 @@ export async function findBulkAutoLinkSuggestions(
 
   // Pre-compute lowercase labels
   const sourceIndex = sources
-    .filter(s => !!s.category) // skip sources with no category
+    .filter(s => !!s.categoryId) // skip sources with no category
     .map(s => ({
       source: s,
       labelLower: s.title.trim().toLowerCase(),
