@@ -238,6 +238,11 @@ export default function CategoryView() {
             )}
           </div>
         </TabsContent>
+
+        {/* ═══ MENTALNE MAPE TAB ═══ */}
+        <TabsContent value="mindmaps">
+          <CategoryMindMaps categoryId={categoryId!} />
+        </TabsContent>
       </Tabs>
 
       {/* Source metadata editor dialog */}

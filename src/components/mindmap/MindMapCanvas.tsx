@@ -730,6 +730,16 @@ function MindMapCanvasInner({ doc, onBack }: { doc: MindMapDoc; onBack: () => vo
           )}
         </ReactFlow>
       </div>
+
+      {/* Export to Category dialog */}
+      <ExportToCategory
+        open={exportOpen}
+        onOpenChange={setExportOpen}
+        currentTitle={title}
+        currentNodes={nodes}
+        currentEdges={edges}
+        mode={mode}
+      />
     </div>
   );
 }
