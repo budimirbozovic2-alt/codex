@@ -295,7 +295,7 @@ export default function MnemonicTest({ cards, onRecordResult, onBack }: Props) {
         </button>
         <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="text-center py-12 space-y-6">
           <Brain className="h-16 w-16 mx-auto text-primary" />
-          <h2 className="text-3xl font-bold">Testiranje završeno!</h2>
+          <h2 className="imperial-title">Testiranje završeno!</h2>
           <div className="grid grid-cols-3 gap-4 max-w-sm mx-auto">
             <div className="rounded-xl bg-card border p-4">
               <p className="text-2xl font-bold text-success">{sessionStats.correct}</p>
