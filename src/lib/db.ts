@@ -65,6 +65,7 @@ export interface Source {
   previousVersionId?: string;
   previousHtmlContent?: string; // stored for diff comparison
   officialGazetteInfo?: string; // e.g. "Službenom listu CG, br. 56/2014, 20/2015..."
+  category?: string;
 }
 
 // ─── Module-level blocked handler (registered once, no accumulation) ──
