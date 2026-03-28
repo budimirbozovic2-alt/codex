@@ -1,5 +1,6 @@
 import { db, type Source } from "./db";
 import { parseArticles } from "./article-parser";
+import { loadSourceRegistry, saveSourceRegistry } from "./source-registry";
 
 export type { Source };
 
