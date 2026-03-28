@@ -65,10 +65,24 @@ ipcMain.handle('log-error', (_event, message) => {
 });
 
 app.whenReady().then(() => {
+  // ── Register app:// protocol handler for production ──
+  if (!isDev) {
+    const distPath = path.join(__dirname, 'dist');
+    protocol.handle('app', (request) => {
+      const url = new URL(request.url);
+      let filePath = path.join(distPath, decodeURIComponent(url.pathname));
+      // Default to index.html for root or directory requests
+      if (filePath.endsWith('/') || filePath === distPath) {
+        filePath = path.join(distPath, 'index.html');
+      }
+      return net.fetch('file://' + filePath.replace(/\\/g, '/'));
+    });
+  }
+
   // ── CSP headers in production ──
   if (!isDev) {
     session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
-      // Skip CSP for file:// — 'self' doesn't match reliably under file protocol
+      // Skip CSP for file:// and app:// — 'self' works with app:// but we keep it simple
       if (details.url.startsWith('file://')) {
         return callback({ responseHeaders: details.responseHeaders });
       }
@@ -76,7 +90,7 @@ app.whenReady().then(() => {
         responseHeaders: {
           ...details.responseHeaders,
           'Content-Security-Policy': [
-            "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self';"
+            "default-src 'self' app:; script-src 'self' 'unsafe-inline' app:; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: app:; font-src 'self' data: app:; connect-src 'self' app:;"
           ],
         },
       });
