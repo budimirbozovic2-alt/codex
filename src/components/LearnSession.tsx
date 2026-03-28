@@ -42,23 +42,27 @@ export default function LearnSession({ cards, categories, subcategories, onMarkR
 
   useEffect(() => { saveLearnProgress(progress); }, [progress]);
 
-  // Load stored chapter order from IDB to build position map
+  // B4 fix: Static import reference to avoid repeated dynamic import() on filter changes
+  const dbModuleRef = useRef<typeof import("@/lib/db") | null>(null);
   useEffect(() => {
     if (!selectedCategory || !selectedSubcategory) {
       setChapterPositionMap({});
       return;
     }
     const key = `chapters-${selectedCategory}-${selectedSubcategory}`;
-    import("@/lib/db").then(({ idbLoadSettings }) => {
-      idbLoadSettings<string[]>(key, []).then(stored => {
+    const load = async () => {
+      try {
+        if (!dbModuleRef.current) dbModuleRef.current = await import("@/lib/db");
+        const stored = await dbModuleRef.current.idbLoadSettings<string[]>(key, []);
         const map: Record<string, number> = {};
         stored.forEach((ch, i) => { map[ch] = i; });
         setChapterPositionMap(map);
-      });
-    }).catch((err) => {
-      console.error("[LearnSession] Failed to load chapter settings:", err);
-      setChapterPositionMap({});
-    });
+      } catch (err) {
+        console.error("[LearnSession] Failed to load chapter settings:", err);
+        setChapterPositionMap({});
+      }
+    };
+    load();
   }, [selectedCategory, selectedSubcategory]);
 
   const availableCategories = useMemo(() => {

@@ -1,4 +1,4 @@
-import { useCallback } from "react";
+import { useCallback, MutableRefObject } from "react";
 import { Card } from "@/lib/spaced-repetition";
 import { CardMap, bumpMapVersion, schedulePersist } from "@/lib/persist-queue";
 
@@ -6,12 +6,14 @@ interface UseCategoryManagementParams {
   setCategories: (updater: (prev: string[]) => string[]) => void;
   setSubcategories: (updater: (prev: Record<string, string[]>) => Record<string, string[]>) => void;
   setCardMapState: React.Dispatch<React.SetStateAction<CardMap>>;
+  cardMapRef: MutableRefObject<CardMap>;
 }
 
 export function useCategoryManagement({
   setCategories,
   setSubcategories,
   setCardMapState,
+  cardMapRef,
 }: UseCategoryManagementParams) {
   const addCategory = useCallback(
     (name: string) => {
@@ -20,66 +22,67 @@ export function useCategoryManagement({
     [setCategories],
   );
 
+  // C1 fix: Pre-compute changes from cardMapRef (Ref-Delta pattern)
   const renameCategory = useCallback(
     (oldName: string, newName: string) => {
-      // C1 fix: Do the duplicate check via cardMapState updater which always runs synchronously.
-      // We perform ALL mutations inside a single synchronous batch to avoid race conditions.
       let aborted = false;
       setCategories(prev => {
         if (prev.includes(newName)) { aborted = true; return prev; }
         return prev.map(c => c === oldName ? newName : c);
       });
-      // In React 18, functional updaters within the same synchronous call stack
-      // are guaranteed to run synchronously (even in concurrent mode, the updater
-      // function itself executes inline). The `aborted` flag is reliable here.
       if (aborted) return;
+
+      const now = Date.now();
       const changed: Card[] = [];
-      setCardMapState((prev) => {
-        const next = { ...prev };
-        for (const [id, c] of Object.entries(next)) {
-          if (c.category === oldName) {
-            const u = { ...c, category: newName, updatedAt: Date.now() };
-            next[id] = u;
-            changed.push(u);
-          }
+      const nextRef = { ...cardMapRef.current };
+      for (const [id, c] of Object.entries(nextRef)) {
+        if (c.category === oldName) {
+          const u = { ...c, category: newName, updatedAt: now };
+          nextRef[id] = u;
+          changed.push(u);
         }
-        return next;
-      });
-      if (changed.length > 0) schedulePersist({ type: "bulk", cards: changed });
-      bumpMapVersion();
+      }
+      if (changed.length > 0) {
+        cardMapRef.current = nextRef;
+        schedulePersist({ type: "bulk", cards: changed });
+        setCardMapState(() => nextRef);
+        bumpMapVersion();
+      }
       setSubcategories((prev) => {
         const next = { ...prev };
         if (next[oldName]) { next[newName] = next[oldName]; delete next[oldName]; }
         return next;
       });
     },
-    [setCategories, setCardMapState, setSubcategories],
+    [setCategories, setCardMapState, setSubcategories, cardMapRef],
   );
 
   const deleteCategory = useCallback(
     (name: string) => {
       setCategories((prev) => prev.filter((c) => c !== name));
+      const now = Date.now();
       const changed: Card[] = [];
-      setCardMapState((prev) => {
-        const next = { ...prev };
-        for (const [id, c] of Object.entries(next)) {
-          if (c.category === name) {
-            const u = { ...c, category: "Opšte", subcategory: "", updatedAt: Date.now() };
-            next[id] = u;
-            changed.push(u);
-          }
+      const nextRef = { ...cardMapRef.current };
+      for (const [id, c] of Object.entries(nextRef)) {
+        if (c.category === name) {
+          const u = { ...c, category: "Opšte", subcategory: "", updatedAt: now };
+          nextRef[id] = u;
+          changed.push(u);
         }
-        return next;
-      });
-      if (changed.length > 0) schedulePersist({ type: "bulk", cards: changed });
-      bumpMapVersion();
+      }
+      if (changed.length > 0) {
+        cardMapRef.current = nextRef;
+        schedulePersist({ type: "bulk", cards: changed });
+        setCardMapState(() => nextRef);
+        bumpMapVersion();
+      }
       setSubcategories((prev) => {
         const next = { ...prev };
         delete next[name];
         return next;
       });
     },
-    [setCategories, setCardMapState, setSubcategories],
+    [setCategories, setCardMapState, setSubcategories, cardMapRef],
   );
 
   const addSubcategory = useCallback(
@@ -100,61 +103,67 @@ export function useCategoryManagement({
         if (list.includes(newName)) return prev;
         return { ...prev, [category]: list.map((s) => (s === oldName ? newName : s)) };
       });
+      const now = Date.now();
       const changed: Card[] = [];
-      setCardMapState((prev) => {
-        const next = { ...prev };
-        for (const [id, c] of Object.entries(next)) {
-          if (c.category === category && c.subcategory === oldName) {
-            const u = { ...c, subcategory: newName, updatedAt: Date.now() };
-            next[id] = u;
-            changed.push(u);
-          }
+      const nextRef = { ...cardMapRef.current };
+      for (const [id, c] of Object.entries(nextRef)) {
+        if (c.category === category && c.subcategory === oldName) {
+          const u = { ...c, subcategory: newName, updatedAt: now };
+          nextRef[id] = u;
+          changed.push(u);
         }
-        return next;
-      });
-      if (changed.length > 0) schedulePersist({ type: "bulk", cards: changed });
-      bumpMapVersion();
+      }
+      if (changed.length > 0) {
+        cardMapRef.current = nextRef;
+        schedulePersist({ type: "bulk", cards: changed });
+        setCardMapState(() => nextRef);
+        bumpMapVersion();
+      }
     },
-    [setSubcategories, setCardMapState],
+    [setSubcategories, setCardMapState, cardMapRef],
   );
 
   const deleteSubcategory = useCallback(
     (category: string, subcategory: string) => {
       setSubcategories((prev) => ({ ...prev, [category]: (prev[category] || []).filter((s) => s !== subcategory) }));
+      const now = Date.now();
       const changed: Card[] = [];
-      setCardMapState((prev) => {
-        const next = { ...prev };
-        for (const [id, c] of Object.entries(next)) {
-          if (c.category === category && c.subcategory === subcategory) {
-            const u = { ...c, subcategory: "", updatedAt: Date.now() };
-            next[id] = u;
-            changed.push(u);
-          }
-        }
-        return next;
-      });
-      if (changed.length > 0) schedulePersist({ type: "bulk", cards: changed });
-      bumpMapVersion();
-    },
-    [setSubcategories, setCardMapState],
-  );
-
-  const bulkUpdateSubcategory = useCallback((ids: string[], subcategory: string) => {
-    const changed: Card[] = [];
-    setCardMapState((prev) => {
-      const next = { ...prev };
-      for (const id of ids) {
-        if (next[id]) {
-          const u = { ...next[id], subcategory, updatedAt: Date.now() };
-          next[id] = u;
+      const nextRef = { ...cardMapRef.current };
+      for (const [id, c] of Object.entries(nextRef)) {
+        if (c.category === category && c.subcategory === subcategory) {
+          const u = { ...c, subcategory: "", updatedAt: now };
+          nextRef[id] = u;
           changed.push(u);
         }
       }
-      return next;
-    });
-    if (changed.length > 0) schedulePersist({ type: "bulk", cards: changed });
-    bumpMapVersion();
-  }, [setCardMapState]);
+      if (changed.length > 0) {
+        cardMapRef.current = nextRef;
+        schedulePersist({ type: "bulk", cards: changed });
+        setCardMapState(() => nextRef);
+        bumpMapVersion();
+      }
+    },
+    [setSubcategories, setCardMapState, cardMapRef],
+  );
+
+  const bulkUpdateSubcategory = useCallback((ids: string[], subcategory: string) => {
+    const now = Date.now();
+    const changed: Card[] = [];
+    const nextRef = { ...cardMapRef.current };
+    for (const id of ids) {
+      if (nextRef[id]) {
+        const u = { ...nextRef[id], subcategory, updatedAt: now };
+        nextRef[id] = u;
+        changed.push(u);
+      }
+    }
+    if (changed.length > 0) {
+      cardMapRef.current = nextRef;
+      schedulePersist({ type: "bulk", cards: changed });
+      setCardMapState(() => nextRef);
+      bumpMapVersion();
+    }
+  }, [setCardMapState, cardMapRef]);
 
   return {
     addCategory,

@@ -50,6 +50,7 @@ export function saveMonumentType(category: string, type: BuildingType) {
 /** Invalidate cache (e.g. after external import) */
 export function invalidateMonumentTypesCache() {
   _monumentTypesCache = null;
+  _mtHashCache = null;
 }
 
 // ─── Construction Phase Logic ───────────────────────────
@@ -196,9 +197,18 @@ function calcWarmth(velocity: number): number {
 let _cachedFingerprint = "";
 let _cachedForumState: ForumState | null = null;
 
+// H3 fix: Cache monument types hash to avoid JSON.stringify on every fingerprint call
+let _mtHashCache: string | null = null;
+
+function getMonumentTypesHash(): string {
+  if (_mtHashCache === null) {
+    _mtHashCache = JSON.stringify(loadMonumentTypes());
+  }
+  return _mtHashCache;
+}
+
 /** Build a lightweight fingerprint from card states to detect real changes */
 function buildFingerprint(cards: Card[], reviewLogLen: number, sourceCount: number, registryVersion = 0): string {
-  // O(n) but much cheaper than full rebuild — just counts + states
   let reviewSections = 0;
   let totalSections = 0;
   let stabilitySum = 0;
@@ -209,8 +219,7 @@ function buildFingerprint(cards: Card[], reviewLogLen: number, sourceCount: numb
       stabilitySum += sec.stability;
     }
   }
-  // H2 fix: include monument types hash so building type changes bust cache
-  const mtHash = JSON.stringify(loadMonumentTypes());
+  const mtHash = getMonumentTypesHash();
   return `${cards.length}:${totalSections}:${reviewSections}:${Math.round(stabilitySum)}:${reviewLogLen}:${sourceCount}:${registryVersion}:${mtHash}`;
 }
 

@@ -53,9 +53,13 @@ interface UseCardExportDeps {
 }
 
 export function useCardExport({ cards, categories, subcategories, srSettings }: UseCardExportDeps) {
+  // H1 fix: Read fresh cards from IDB for templates too
   const exportTemplate = useCallback(
     async (compress: boolean, onProgress: (p: number, msg: string) => void) => {
-      const templateCards = cards.map((c) => ({
+      const { db } = await import("@/lib/db");
+      const allCards = await db.cards.toArray();
+      const freshCards = allCards.length > 0 ? allCards : cards;
+      const templateCards = freshCards.map((c) => ({
         id: c.id,
         question: c.question,
         sections: c.sections.map((s) => ({ title: s.title, content: s.content })),

@@ -182,13 +182,17 @@ export function useCardImport({
         ];
         const idbTables = [...uuidTables, ...autoIncTables];
         const autoIncKeys = new Set(autoIncTables.map((t) => t.key));
+        // C3 fix: Also enter the block when overwrite strategy has tables present (even if empty)
+        // to clear stale data from IDB
         const hasExtraTables = idbTables.some((t) => Array.isArray(data[t.key]) && (data[t.key] as unknown[]).length > 0);
-        if (hasExtraTables) {
+        const needsClear = strategy === "overwrite" && idbTables.some((t) => Array.isArray(data[t.key]));
+        if (hasExtraTables || needsClear) {
           const { db: dbInst } = await import("@/lib/db");
           const dbRecord = dbInst as unknown as Record<string, { bulkPut: (items: unknown[]) => Promise<void>; bulkAdd: (items: unknown[]) => Promise<void>; clear: () => Promise<void>; toCollection: () => { primaryKeys: () => Promise<unknown[]> }; bulkDelete: (keys: unknown[]) => Promise<void> }>;
           for (const { key, table } of idbTables) {
             const arr = data[key];
-            if (Array.isArray(arr) && arr.length > 0) {
+            if (!Array.isArray(arr)) continue;
+            if (arr.length > 0) {
               if (strategy === "overwrite" && autoIncKeys.has(key)) {
                 await dbRecord[table].clear();
                 const stripped = arr.map((r: Record<string, unknown>) => { const { id: _id, ...rest } = r; return rest; });
@@ -202,6 +206,9 @@ export function useCardImport({
                   if (toDelete.length > 0) await dbRecord[table].bulkDelete(toDelete);
                 }
               }
+            } else if (strategy === "overwrite") {
+              // C3 fix: Empty array in backup = clear the table
+              await dbRecord[table].clear();
             }
           }
         }
@@ -217,6 +224,10 @@ export function useCardImport({
         const { invalidateMonumentTypesCache } = await import("@/lib/forum-logic");
         invalidateSourceRegistryCache();
         invalidateMonumentTypesCache();
+        // H2 fix: Clear stale review session data on overwrite import
+        if (strategy === "overwrite") {
+          try { localStorage.removeItem("sr-review-session"); } catch {}
+        }
 
         const extraParts: string[] = [];
         if (Array.isArray(data.sources) && (data.sources as unknown[]).length > 0) extraParts.push(`${(data.sources as unknown[]).length} izvora`);
@@ -233,17 +244,17 @@ export function useCardImport({
     [setCardMapState, setCategories, setSubcategories, setReviewLog, updateSRSettings, cardMapRef],
   );
 
+  // H5 fix: importCards now syncs cardMapRef before setState
   const importCards = useCallback(
     (newCards: { question: string; sections: { title: string; content: string }[] }[], category: string) => {
       const created = newCards.map((c) => createCard(c.question, c.sections, category));
       created.forEach(c => { c.updatedAt = Date.now(); });
-      // Surgical persist with pre-computed cards
+      // Sync ref before state update to prevent stale ref reads
+      const nextRef = { ...cardMapRef.current };
+      created.forEach((c) => { nextRef[c.id] = c; });
+      cardMapRef.current = nextRef;
       schedulePersist({ type: "bulk", cards: created });
-      setCardMapState((prev) => {
-        const next = { ...prev };
-        created.forEach((c) => { next[c.id] = c; });
-        return next;
-      });
+      setCardMapState(() => nextRef);
       bumpMapVersion();
       setCategories((prev) => prev.includes(category) ? prev : [...prev, category]);
     },
