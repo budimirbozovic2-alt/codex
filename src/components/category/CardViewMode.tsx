@@ -32,7 +32,7 @@ export default function CardViewMode({ cards, categoryId, allCategories, patchCa
   // Filter state
   const [filterSubcategory, setFilterSubcategory] = useState<string>("__all__");
   const [filterChapter, setFilterChapter] = useState<string>("__all__");
-  const [filterType, setFilterType] = useState<"all" | "essay" | "flash">("all");
+  const [filterType, setFilterType] = useState<"all" | "essay" | "flash" | "mnemonic">("all");
   const [filterTag, setFilterTag] = useState<string>("__all__");
 
   const otherCategories = useMemo(
