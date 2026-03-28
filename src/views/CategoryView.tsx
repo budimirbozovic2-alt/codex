@@ -14,6 +14,7 @@ import { BookOpen, FileText, Brain, Plus, Upload } from "lucide-react";
 import SourceEditor from "@/components/category/SourceEditor";
 import CardViewMode from "@/components/category/CardViewMode";
 import CardOrgMode from "@/components/category/CardOrgMode";
+import CategoryMnemonicWorkshop from "@/components/category/CategoryMnemonicWorkshop";
 
 export default function CategoryView() {
   const { categoryId } = useParams<{ categoryId: string }>();
