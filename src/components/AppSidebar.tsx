@@ -1,7 +1,6 @@
-import { useEffect, useState } from "react";
 import { useLocation } from "react-router-dom";
+import { useLiveQuery } from "dexie-react-hooks";
 import { NavLink } from "@/components/NavLink";
-import { cn } from "@/lib/utils";
 import {
   Home, Landmark, Settings as SettingsIcon, RotateCcw,
   BarChart3, BookOpen, Gauge, Zap, Map, Scale,
@@ -11,7 +10,7 @@ import {
   SidebarGroupContent, SidebarMenu, SidebarMenuItem, SidebarMenuButton,
   useSidebar,
 } from "@/components/ui/sidebar";
-import { idbLoadCategories, type CategoryRecord } from "@/lib/db";
+import { db } from "@/lib/db";
 import { Badge } from "@/components/ui/badge";
 import { useCardContext } from "@/contexts/AppContext";
 
