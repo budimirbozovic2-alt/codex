@@ -1,4 +1,4 @@
-import { ArrowLeft, TrendingUp, Target, Clock, Flame, CalendarClock, Activity } from "lucide-react";
+import { TrendingUp, Target, Clock, Flame, CalendarClock, Activity, HeartPulse } from "lucide-react";
 import { useState, lazy, Suspense } from "react";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { motion } from "framer-motion";
