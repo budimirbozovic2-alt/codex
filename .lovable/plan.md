@@ -1,33 +1,37 @@
 
 
-# Phase 2.5: Sidebar UI Fixes
+# Phase 2.6: Separate "Konsolidacija" and "Učenje" in Sidebar
 
-## Current State Analysis
-
-The code already has most of what's requested but needs two adjustments:
-
-1. **Rename "Konsolidacija" → "Učenje"** in STATIC_NAV (line 20 of AppSidebar.tsx)
-2. **Categories may not load** because `idbLoadCategories()` fires once on mount via `useEffect`, but the DB may not be open yet at that point. Switch to `useLiveQuery` from `dexie-react-hooks` for reactive category loading.
-3. **Empty states already exist** in CategoryView — they show "Nema kartica/izvora u ovoj kategoriji." These can be enhanced with icons for better visual clarity.
+## Current State
+- `AppSidebar.tsx` line 19: `/review` is labeled **"Učenje"** — this is wrong, it should be **"Konsolidacija"**
+- `App.tsx` already has both routes: `/review` (ReviewPage) and `/learn` (LearnPage)
+- The `/learn` route and `LearnPage` component already exist — no placeholder needed
 
 ## Changes
 
-### 1. `src/components/AppSidebar.tsx`
+### 1. `src/components/AppSidebar.tsx` — STATIC_NAV (line 17-22)
 
-- Change label from `"Konsolidacija"` to `"Učenje"` in STATIC_NAV
-- Replace the `useEffect` + `useState` pattern with `useLiveQuery(() => db.categories.orderBy("sortOrder").toArray())` from `dexie-react-hooks` for reliable reactive loading
-- Add `dexie-react-hooks` import (already in dependencies)
+Update to contain two separate entries:
 
-### 2. `src/views/CategoryView.tsx`
+```ts
+import { GraduationCap } from "lucide-react";  // add to imports
 
-- Enhance empty states with icons (`BookOpen` for cards, `FileText` for sources) and slightly more descriptive messages
-- No structural changes needed — the 3-tab layout and data fetching are already correct
+const STATIC_NAV = [
+  { path: "/", icon: Home, label: "Dashboard" },
+  { path: "/review", icon: RotateCcw, label: "Konsolidacija", badge: true },
+  { path: "/learn", icon: GraduationCap, label: "Učenje" },
+  { path: "/forum", icon: Landmark, label: "Forum" },
+  { path: "/settings", icon: SettingsIcon, label: "Podešavanja" },
+];
+```
 
-### 3. `package.json`
+- `/review` → **"Konsolidacija"** (FSRS spaced-repetition) with due badge
+- `/learn` → **"Učenje"** (3-mode study module: Free, Active, Chain) — new entry with `GraduationCap` icon
 
-- Verify `dexie-react-hooks` is already a dependency (it should be from the Dexie setup). If not, add it.
+### 2. No other files need changes
+- `App.tsx` already has both `/review` and `/learn` routes
+- `LearnPage` component exists at `src/views/LearnPage.tsx`
 
 ## Summary
-
-Two small edits — rename a label, swap `useEffect` for `useLiveQuery`, and polish empty states. No architectural changes.
+One-line label fix + one new nav entry in STATIC_NAV. Two distinct features, two distinct sidebar items.
 
