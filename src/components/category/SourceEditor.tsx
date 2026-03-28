@@ -200,10 +200,20 @@ export default function SourceEditor({ source, categoryId, cards, onBack, onSour
           <ArrowLeft className="h-4 w-4" />
           Nazad na listu
         </Button>
-        <Button size="sm" onClick={handleSave} disabled={!dirty} className="gap-2">
-          <Save className="h-4 w-4" />
-          Sačuvaj
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={() => setAutoSplitOpen(true)} className="gap-1.5">
+            <Wand2 className="h-4 w-4" />
+            Auto Split
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => setWide(w => !w)} className="gap-1.5">
+            {wide ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+            {wide ? "Usko" : "Široko"}
+          </Button>
+          <Button size="sm" onClick={handleSave} disabled={!dirty} className="gap-2">
+            <Save className="h-4 w-4" />
+            Sačuvaj
+          </Button>
+        </div>
       </div>
 
       {/* Top Panel — Legal Metadata */}
