@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { BookOpen, FileText, Plus, Upload, Loader2, Eye, Pencil } from "lucide-react";
+import { BookOpen, FileText, Plus, Upload, Loader2, Eye, Pencil, GitBranch } from "lucide-react";
 import { toast } from "sonner";
 import { sanitizeHtml } from "@/lib/sanitize";
 import { parseArticles } from "@/lib/article-parser";
@@ -19,6 +19,7 @@ import SourceEditor from "@/components/category/SourceEditor";
 import SourceReader from "@/components/SourceReader";
 import CardViewMode from "@/components/category/CardViewMode";
 import CardOrgMode from "@/components/category/CardOrgMode";
+import CategoryMindMaps from "@/components/category/CategoryMindMaps";
 
 export default function CategoryView() {
   const { categoryId } = useParams<{ categoryId: string }>();
@@ -39,6 +40,11 @@ export default function CategoryView() {
     () => categoryId ? db.sources.where("categoryId").equals(categoryId).toArray() : [],
     [categoryId]
   ) ?? [];
+
+  const mindMapCount = useLiveQuery(
+    () => categoryId ? db.mindMaps.where("categoryId").equals(categoryId).count() : 0,
+    [categoryId]
+  ) ?? 0;
 
   const { addCard, patchCard, toggleTag, addSubcategory, renameSubcategory, deleteSubcategory } = useCardActions();
 
@@ -138,6 +144,11 @@ export default function CategoryView() {
             Izvori
             <Badge variant="secondary" className="ml-1 text-[10px] h-5 px-1.5">{sources.length}</Badge>
           </TabsTrigger>
+          <TabsTrigger value="mindmaps" className="gap-2">
+            <GitBranch className="h-4 w-4" />
+            Mentalne mape
+            <Badge variant="secondary" className="ml-1 text-[10px] h-5 px-1.5">{mindMapCount}</Badge>
+          </TabsTrigger>
         </TabsList>
 
         {/* ═══ KARTICE TAB ═══ */}
@@ -226,6 +237,11 @@ export default function CategoryView() {
               ))
             )}
           </div>
+        </TabsContent>
+
+        {/* ═══ MENTALNE MAPE TAB ═══ */}
+        <TabsContent value="mindmaps">
+          <CategoryMindMaps categoryId={categoryId!} />
         </TabsContent>
       </Tabs>
 

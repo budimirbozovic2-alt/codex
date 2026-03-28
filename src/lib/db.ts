@@ -70,6 +70,7 @@ export interface MindMapEdgeRecord {
 
 export interface MindMapDoc {
   id: string;
+  categoryId?: string;       // FK → categories.id (optional — global maps have no category)
   title: string;
   mode: MindMapMode;
   nodes: MindMapNodeRecord[];
@@ -138,6 +139,11 @@ class MemoriaDB extends Dexie {
       activityLog: "++id, timestamp, type",
       disciplineLog: "++id, date",
       mindMaps: "id, title, updatedAt",
+    });
+
+    // v8: Add categoryId index to mindMaps for category-scoped gallery
+    this.version(8).stores({
+      mindMaps: "id, categoryId, title, updatedAt",
     });
   }
 }

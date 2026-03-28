@@ -1,4 +1,4 @@
-import { Plus, Save, ArrowLeft, GitBranch, Workflow, ChevronDown, LayoutGrid, Eye, EyeOff, Palette, Trash2 } from "lucide-react";
+import { Plus, Save, ArrowLeft, GitBranch, Workflow, ChevronDown, LayoutGrid, Eye, EyeOff, Palette, Trash2, FolderDown } from "lucide-react";
 import { useCallback, useRef, useState, useEffect, useMemo } from "react";
 import {
   ReactFlow,
@@ -36,6 +36,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import ExportToCategory from "./ExportToCategory";
 const nodeTypes = { mindMapNode: MindMapNodeComponent };
 
 let nodeIdCounter = 0;
@@ -293,6 +294,7 @@ function MindMapCanvasInner({ doc, onBack }: { doc: MindMapDoc; onBack: () => vo
   const [deletedStack, setDeletedStack] = useState<{ nodes: Node[]; edges: Edge[] }[]>([]);
   const [presentationMode, setPresentationMode] = useState(false);
   const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null);
+  const [exportOpen, setExportOpen] = useState(false);
 
   const mode = doc.mode || "hierarchy";
   const isProcedure = mode === "procedure";
@@ -632,6 +634,11 @@ function MindMapCanvasInner({ doc, onBack }: { doc: MindMapDoc; onBack: () => vo
             </DropdownMenuContent>
           </DropdownMenu>
 
+          {/* Export to Category */}
+          <Button variant="outline" size="sm" onClick={() => setExportOpen(true)}>
+            <FolderDown className="h-4 w-4 mr-1" /> Eksportuj u Predmet
+          </Button>
+
           <Button size="sm" onClick={handleSave} variant={dirty ? "default" : "outline"}>
             <Save className="h-4 w-4 mr-1" />
             {dirty ? "Sačuvaj" : "Sačuvano"}
@@ -723,6 +730,16 @@ function MindMapCanvasInner({ doc, onBack }: { doc: MindMapDoc; onBack: () => vo
           )}
         </ReactFlow>
       </div>
+
+      {/* Export to Category dialog */}
+      <ExportToCategory
+        open={exportOpen}
+        onOpenChange={setExportOpen}
+        currentTitle={title}
+        currentNodes={nodes}
+        currentEdges={edges}
+        mode={mode}
+      />
     </div>
   );
 }
