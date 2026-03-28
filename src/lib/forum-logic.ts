@@ -197,12 +197,16 @@ function calcWarmth(velocity: number): number {
 let _cachedFingerprint = "";
 let _cachedForumState: ForumState | null = null;
 
-// H3 fix: Cache monument types hash to avoid JSON.stringify on every fingerprint call
+// H3 fix v2: Cache monument types hash; invalidate on load AND on save
 let _mtHashCache: string | null = null;
+let _mtHashSource: string | null = null;
 
 function getMonumentTypesHash(): string {
-  if (_mtHashCache === null) {
-    _mtHashCache = JSON.stringify(loadMonumentTypes());
+  // Re-derive hash if underlying localStorage changed (covers import/external tab edits)
+  const rawLS = typeof localStorage !== "undefined" ? (localStorage.getItem("codex-monument-types") || "") : "";
+  if (_mtHashCache === null || _mtHashSource !== rawLS) {
+    _mtHashSource = rawLS;
+    _mtHashCache = String(rawLS.length) + ":" + (rawLS.length > 0 ? rawLS.slice(0, 64) : "empty");
   }
   return _mtHashCache;
 }

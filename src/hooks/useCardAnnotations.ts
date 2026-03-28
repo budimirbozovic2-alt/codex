@@ -86,12 +86,16 @@ export function useCardAnnotations({
     (cardId: string, text: string, sectionId?: string) => {
       patchCard(cardId, (c) => {
         const errorLog = [...(c.errorLog || [])];
-        const existing = errorLog.find((e) => e.text === text);
-        if (existing) {
-          existing.count += 1;
-          existing.lastMissed = new Date().toISOString();
-          existing.successStreak = 0;
-        } else {
+      const existingIdx = errorLog.findIndex((e) => e.text === text);
+      if (existingIdx >= 0) {
+        // C2 fix: clone the entry to avoid mutating the original object in cardMapRef
+        errorLog[existingIdx] = {
+          ...errorLog[existingIdx],
+          count: errorLog[existingIdx].count + 1,
+          lastMissed: new Date().toISOString(),
+          successStreak: 0,
+        };
+      } else {
           errorLog.push({
             text,
             count: 1,

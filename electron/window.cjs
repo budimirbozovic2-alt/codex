@@ -170,7 +170,9 @@ function createWindow({ isDev, baseDir, configPath, logCrash, splash, onMainWind
         ipcMain.removeListener('window-minimize', onMinimize);
         ipcMain.removeListener('window-maximize', onMaximize);
         ipcMain.removeListener('window-close', onClose);
-        ipcMain.removeHandler('window-is-maximized');
+        // H1 fix: Guard removeHandler to prevent throw on second crash recovery
+        try { ipcMain.removeHandler('window-is-maximized'); } catch (_) {}
+        ipcMain.removeListener('renderer-ready', showWindow);
         clearTimeout(fallbackTimer);
         win.destroy();
         const newSplash = createSplashWindow(isDev, baseDir);

@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback, useRef } from "react";
-import { Card, SRSettings } from "@/lib/spaced-repetition";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import { Card, SRSettings, getDueSections, SectionState, getRetrievability, isLeech } from "@/lib/spaced-repetition";
 import { addActivityEntry } from "@/lib/metacognitive-storage";
 import { ReviewMode, DueItem, ViewWidth, ReviewSessionProps } from "./review/review-constants";
 import ReviewSetup from "./review/ReviewSetup";
@@ -68,19 +68,61 @@ export default function ReviewSession({ dueCards, allCards, subcategories, srSet
     onBack();
   }, [saveSessionState, onBack]);
 
+  // C3 fix: Recompute items when resuming so currentItem is never undefined
+  const computeItemsForMode = useCallback((m: ReviewMode): DueItem[] => {
+    if (m === "stabilization") {
+      const items: DueItem[] = [];
+      dueCards.forEach(card => {
+        getDueSections(card).forEach(section => {
+          if ((section.state === SectionState.Learning || section.state === SectionState.Relearning) && section.stability < 5) {
+            items.push({ card, section });
+          }
+        });
+      });
+      items.sort((a, b) => a.section.stability - b.section.stability);
+      return items;
+    } else if (m === "critical") {
+      const items: DueItem[] = [];
+      allCards.forEach(card => {
+        card.sections.forEach(section => {
+          if (section.state === SectionState.New) return;
+          const r = getRetrievability(section);
+          if (r >= 80 && r <= 85) items.push({ card, section });
+        });
+      });
+      items.sort((a, b) => getRetrievability(a.section) - getRetrievability(b.section));
+      return items;
+    } else {
+      const leechItems: DueItem[] = [];
+      const highDiffItems: DueItem[] = [];
+      allCards.forEach(card => {
+        card.sections.forEach(section => {
+          if (section.state === SectionState.New) return;
+          if (isLeech(section, srSettings)) leechItems.push({ card, section });
+          else if (section.difficulty > 7) highDiffItems.push({ card, section });
+        });
+      });
+      highDiffItems.sort((a, b) => b.section.difficulty - a.section.difficulty);
+      const combined = [...leechItems, ...highDiffItems.slice(0, 50 - leechItems.length)];
+      return combined.slice(0, 50);
+    }
+  }, [dueCards, allCards, srSettings]);
+
   const resumeSession = useCallback(() => {
     if (!savedSession) return;
     let resumeMode: ReviewMode = savedSession.mode;
-    // Legacy migration: old mode names → new ones
     const modeStr = resumeMode as string;
     if (modeStr === "essay") resumeMode = "stabilization";
     else if (modeStr === "random") resumeMode = "critical";
     else if (modeStr === "difficult") resumeMode = "hardest";
+    const resumeItems = computeItemsForMode(resumeMode);
+    const safeIndex = Math.min(savedSession.randomIndex || 0, Math.max(0, resumeItems.length - 1));
     setMode(resumeMode);
-    setRandomIndex(savedSession.randomIndex || 0);
+    setItems(resumeItems);
+    setRandomIndex(safeIndex);
     setSavedSession(null);
     clearSavedSession();
-  }, [savedSession, clearSavedSession]);
+  }, [savedSession, clearSavedSession, computeItemsForMode]);
 
   const handleSelectMode = useCallback((
     selectedMode: ReviewMode,

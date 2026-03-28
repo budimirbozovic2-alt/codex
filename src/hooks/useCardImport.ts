@@ -258,7 +258,7 @@ export function useCardImport({
       bumpMapVersion();
       setCategories((prev) => prev.includes(category) ? prev : [...prev, category]);
     },
-    [setCategories, setCardMapState],
+    [setCategories, setCardMapState, cardMapRef],
   );
 
   return { importData, importCards };
