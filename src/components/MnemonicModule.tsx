@@ -52,7 +52,7 @@ const MNEMO_SLIDES: OnboardingSlide[] = [
   },
 ];
 
-export default function MnemonicModule({ onBack }: Props) {
+export default function MnemonicModule() {
   const qc = useQueryClient();
   const { patchCard } = useCardActions();
   const { data: cards = [] } = useQuery({
