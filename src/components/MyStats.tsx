@@ -29,7 +29,7 @@ interface Props {
   onShowPlanner?: () => void;
 }
 
-export default function MyStats({ cards, categories, subcategories, categoryStats, reviewLog, srSettings, onBack, onShowKnowledgeMap, onShowPlanner }: Props) {
+export default function MyStats({ cards, categories, subcategories, categoryStats, reviewLog, srSettings, onShowKnowledgeMap, onShowPlanner }: Props) {
   const [activeTab, setActiveTab] = useState<string>("overview");
 
   const {
@@ -40,12 +40,9 @@ export default function MyStats({ cards, categories, subcategories, categoryStat
   return (
     <div className="space-y-8">
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
-        <button onClick={onBack} className="text-muted-foreground hover:text-foreground flex items-center gap-1 mb-4">
-          <ArrowLeft className="h-4 w-4" /> Nazad
-        </button>
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-3xl font-bold">Laboratorija znanja</h2>
+            <h2 className="imperial-title">Laboratorija znanja</h2>
             <p className="text-muted-foreground mt-1">FSRS analitika, grafikoni i kvantitativni podaci</p>
           </div>
           <InfoPanel title="Kako radi Laboratorija znanja?">
