@@ -63,6 +63,7 @@ export default function CardViewMode({ cards, categoryId, allCategories, patchCa
       if (filterChapter !== "__all__" && (c.chapter || "") !== filterChapter) return false;
       if (filterType === "essay" && c.type !== "essay") return false;
       if (filterType === "flash" && c.type !== "flash") return false;
+      if (filterType === "mnemonic" && !(c.tags?.includes("mnemonic"))) return false;
       if (filterTag !== "__all__" && !(c.tags?.includes(filterTag))) return false;
       return true;
     });
