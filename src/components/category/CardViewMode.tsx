@@ -1,13 +1,17 @@
 import { useState, useCallback, useMemo } from "react";
-import { ChevronDown, ChevronRight, ArrowRightLeft, Star, Filter, X } from "lucide-react";
+import { ChevronDown, ChevronRight, ArrowRightLeft, Star, Filter, X, Plus, Upload } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 import { type Card, CARD_TAGS, SectionState } from "@/lib/spaced-repetition";
 import { type CategoryRecord } from "@/lib/db";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 interface Props {
   cards: Card[];
@@ -15,6 +19,8 @@ interface Props {
   allCategories: CategoryRecord[];
   patchCard: (id: string, fn: (c: Card) => Card) => void;
   toggleTag: (cardId: string, tag: string) => void;
+  addCard: (question: string, sections: { title: string; content: string }[], category: string, subcategory?: string, chapter?: string) => Card;
+  addFlashCard: (question: string, answer: string, category: string, subcategory?: string) => Card;
 }
 
 function stabilityLabel(s: number): { text: string; color: string } {
