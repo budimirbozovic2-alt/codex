@@ -105,7 +105,7 @@ function persistNav(next: ViewState) {
 }
 
 export default function KnowledgeMap({
-  cards, categories, subcategories, onBack, onUpdateChapters, onReviewSection,
+  cards, categories, subcategories, onUpdateChapters, onReviewSection,
   onReorderCategories, onReorderSubcategories,
 }: Props) {
   const [view, setView] = useState<ViewState>(() => hydrateView(categories, subcategories));

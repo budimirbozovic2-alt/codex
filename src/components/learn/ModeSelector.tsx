@@ -84,12 +84,9 @@ export default function ModeSelector({ cards, learnMode, dueCount, reviewLog, on
       )}
 
       <div>
-        <button onClick={onBack} className="text-muted-foreground hover:text-foreground flex items-center gap-1 mb-6">
-          <ArrowLeft className="h-4 w-4" /> Nazad
-        </button>
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-3xl font-bold">Učenje</h2>
+            <h2 className="imperial-title">Učenje</h2>
             <p className="text-muted-foreground mt-2">Izaberi režim učenja koji odgovara tvom nivou.</p>
           </div>
           <button onClick={() => setShowOnboarding(true)}

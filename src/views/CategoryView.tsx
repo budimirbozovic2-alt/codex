@@ -128,7 +128,7 @@ export default function CategoryView() {
         {category.color && (
           <span className="h-4 w-4 rounded-full shrink-0" style={{ backgroundColor: category.color }} />
         )}
-        <h1 className="text-2xl font-bold text-foreground">{category.name}</h1>
+        <h1 className="imperial-title text-foreground">{category.name}</h1>
       </div>
 
       {/* Tabs — only Kartice & Izvori */}
