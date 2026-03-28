@@ -199,23 +199,13 @@ let _cachedForumState: ForumState | null = null;
 
 // H3 fix: Cache monument types hash to avoid JSON.stringify on every fingerprint call
 let _mtHashCache: string | null = null;
-let _mtHashVersion = 0;
 
 function getMonumentTypesHash(): string {
-  // Only recompute when cache was invalidated
   if (_mtHashCache === null) {
     _mtHashCache = JSON.stringify(loadMonumentTypes());
-    _mtHashVersion++;
   }
   return _mtHashCache;
 }
-
-// Patch invalidateMonumentTypesCache to also bust hash cache
-const _origInvalidate = invalidateMonumentTypesCache;
-invalidateMonumentTypesCache = function() {
-  _origInvalidate();
-  _mtHashCache = null;
-};
 
 /** Build a lightweight fingerprint from card states to detect real changes */
 function buildFingerprint(cards: Card[], reviewLogLen: number, sourceCount: number, registryVersion = 0): string {
