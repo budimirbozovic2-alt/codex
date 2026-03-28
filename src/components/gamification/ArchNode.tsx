@@ -2,13 +2,13 @@ import { memo } from "react";
 import { motion } from "framer-motion";
 import { ChevronRight } from "lucide-react";
 
-interface ArchNodeProps {
+export interface ArchNodeProps {
   name: string;
   cardCount: number;
   levels: number[];
   avgStability: number;
   index: number;
-  onClick: () => void;
+  onClick?: () => void;
 }
 
 function getMasteryColor(level: number): string {
