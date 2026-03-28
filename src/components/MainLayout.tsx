@@ -147,7 +147,7 @@ export default function MainLayout({ children }: { children: ReactNode }) {
   const isFullWidth = SOURCE_ROUTES.some(r => pathname.startsWith(r));
 
   return (
-    <SidebarProvider>
+    <SidebarProvider defaultOpen={true}>
       <div className="flex min-h-0 flex-1 w-full">
         <AppSidebar />
 

@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import { useLocation } from "react-router-dom";
 import { NavLink } from "@/components/NavLink";
 import {
   Home, Landmark, Settings as SettingsIcon, RotateCcw,
@@ -32,35 +31,34 @@ const TOOLS_NAV = [
 export default function AppSidebar() {
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
-  const location = useLocation();
   const { stats, categoryRecords } = useCardData();
 
-  // Defensive fallback: if context categories are empty after 2s, load directly from DB
   const [fallbackCategories, setFallbackCategories] = useState<CategoryRecord[]>([]);
+
   useEffect(() => {
     if (categoryRecords.length > 0) {
       if (fallbackCategories.length > 0) setFallbackCategories([]);
       return;
     }
+
     const timer = setTimeout(async () => {
       try {
         const { seedDefaultCategories } = await import("@/lib/db");
         const cats = await seedDefaultCategories();
-        console.log("[sidebar] fallback loaded", cats.length, "categories");
         setFallbackCategories(cats);
-      } catch (e) { console.error("[sidebar] fallback failed", e); }
+      } catch (e) {
+        console.error("[sidebar] fallback failed", e);
+      }
     }, 2000);
+
     return () => clearTimeout(timer);
-  }, [categoryRecords.length]);
+  }, [categoryRecords.length, fallbackCategories.length]);
 
   const displayCategories = categoryRecords.length > 0 ? categoryRecords : fallbackCategories;
-
-  console.log("[sidebar] categoryRecords:", categoryRecords.length, "fallback:", fallbackCategories.length, "display:", displayCategories.length);
 
   return (
     <Sidebar collapsible="icon">
       <SidebarContent>
-        {/* Static navigation */}
         <SidebarGroup>
           <SidebarGroupLabel>Navigacija</SidebarGroupLabel>
           <SidebarGroupContent>
@@ -89,49 +87,47 @@ export default function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
 
-        {/* Categories — from boot context with fallback */}
         <SidebarGroup>
           <SidebarGroupLabel>Predmeti</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {displayCategories.length === 0 && (
                 <SidebarMenuItem>
-                  <span className="px-2 py-1.5 text-xs text-muted-foreground">
+                  <div className="px-2 py-1.5 text-xs text-muted-foreground">
                     Učitavanje predmeta…
-                  </span>
+                  </div>
                 </SidebarMenuItem>
               )}
-              {displayCategories.map((cat) => {
-                const catPath = `/category/${cat.id}`;
-                return (
-                  <SidebarMenuItem key={cat.id}>
-                    <SidebarMenuButton asChild tooltip={cat.name}>
-                      <NavLink
-                        to={catPath}
-                        className="hover:bg-sidebar-accent/50"
-                        activeClassName="bg-sidebar-accent text-sidebar-primary font-medium"
-                      >
-                        {cat.color ? (
-                          <span
-                            className="h-2.5 w-2.5 rounded-full shrink-0"
-                            style={{ backgroundColor: cat.color }}
-                          />
-                        ) : (
-                          <Scale className="h-4 w-4 shrink-0" />
-                        )}
-                        {!collapsed && (
-                          <span className="truncate text-[13px]">{cat.name}</span>
-                        )}
-                      </NavLink>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                );
-              })}
+
+              {displayCategories.map((cat) => (
+                <SidebarMenuItem key={cat.id}>
+                  <SidebarMenuButton asChild tooltip={cat.name}>
+                    <NavLink
+                      to={`/category/${cat.id}`}
+                      className="hover:bg-sidebar-accent/50"
+                      activeClassName="bg-sidebar-accent text-sidebar-primary font-medium"
+                    >
+                      {collapsed ? (
+                        <Scale className="h-4 w-4 shrink-0" />
+                      ) : cat.color ? (
+                        <span
+                          className="h-2.5 w-2.5 rounded-full shrink-0"
+                          style={{ backgroundColor: cat.color }}
+                        />
+                      ) : (
+                        <Scale className="h-4 w-4 shrink-0" />
+                      )}
+                      {!collapsed && (
+                        <span className="truncate text-[13px]">{cat.name}</span>
+                      )}
+                    </NavLink>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
 
-        {/* Tools */}
         <SidebarGroup>
           <SidebarGroupLabel>Alati</SidebarGroupLabel>
           <SidebarGroupContent>
@@ -154,7 +150,6 @@ export default function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
 
-        {/* Settings — pinned at bottom */}
         <SidebarGroup className="mt-auto">
           <SidebarGroupContent>
             <SidebarMenu>
