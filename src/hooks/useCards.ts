@@ -59,6 +59,27 @@ export function useCards() {
   const cardMapRef = useRef<CardMap>({});
   useEffect(() => { cardMapRef.current = cardMap; }, [cardMap]);
 
+  // ── F5 fix: Sync in-memory cardMap when deleteSource clears card links ──
+  useEffect(() => {
+    return onCardLinksCleared((clearedIds) => {
+      setCardMapState(prev => {
+        const next = { ...prev };
+        let changed = false;
+        for (const id of clearedIds) {
+          if (next[id]?.sourceId) {
+            next[id] = { ...next[id], sourceId: undefined, textAnchor: undefined, needsReview: undefined };
+            changed = true;
+          }
+        }
+        if (changed) {
+          cardMapRef.current = next;
+          return next;
+        }
+        return prev;
+      });
+    });
+  }, []);
+
 
 
   const setCategories = useCallback((updater: (prev: string[]) => string[]) => {
