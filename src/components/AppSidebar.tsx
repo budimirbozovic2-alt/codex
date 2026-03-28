@@ -21,7 +21,7 @@ const STATIC_NAV = [
 const TOOLS_NAV = [
   { path: "/stats", icon: BarChart3, label: "Statistika" },
   { path: "/metacognitive", icon: BookOpen, label: "Dnevnik" },
-  { path: "/mnemonic", icon: Brain, label: "Memorizacija" },
+  { path: "/mnemonics", icon: Brain, label: "Memorizacija" },
   { path: "/planner", icon: Gauge, label: "Strateški planer" },
   { path: "/speed-reader", icon: Zap, label: "Speed Reader" },
   { path: "/mind-map", icon: Map, label: "Mentalne mape" },

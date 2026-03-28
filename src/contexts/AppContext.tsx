@@ -16,7 +16,7 @@ const VIEW_TO_PATH: Record<View, string> = {
   dashboard: "/", create: "/create", edit: "/edit", cards: "/cards", review: "/review",
   categories: "/categories", learn: "/learn", settings: "/settings", database: "/database",
   "frequent-errors": "/frequent-errors", "knowledge-map": "/knowledge-map",
-  mnemonic: "/mnemonic", "major-system-settings": "/major-system-settings",
+  mnemonic: "/mnemonics", "major-system-settings": "/major-system-settings",
   metacognitive: "/metacognitive", stats: "/stats", planner: "/planner",
   "speed-reader": "/speed-reader",
 };
