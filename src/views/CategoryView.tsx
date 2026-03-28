@@ -19,6 +19,7 @@ import SourceEditor from "@/components/category/SourceEditor";
 import SourceReader from "@/components/SourceReader";
 import CardViewMode from "@/components/category/CardViewMode";
 import CardOrgMode from "@/components/category/CardOrgMode";
+import CategoryMindMaps from "@/components/category/CategoryMindMaps";
 
 export default function CategoryView() {
   const { categoryId } = useParams<{ categoryId: string }>();
