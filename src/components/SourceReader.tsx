@@ -309,7 +309,7 @@ export default function SourceReader({ source, onBack }: Props) {
             open={logic.linkModalOpen}
             onOpenChange={logic.setLinkModalOpen}
             sourceId={source.id}
-            sourceLabel={source.label || ""}
+            sourceLabel={source.category || source.label || ""}
             selectedText={logic.linkSelectedText}
             cards={logic.cards}
             onLink={logic.handleLinkConfirm}
