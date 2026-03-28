@@ -241,8 +241,9 @@ export function useSourceLogic(source: Source) {
     splitSummaryOpen, setSplitSummaryOpen, splitResult, setSplitResult,
     splitDone, splitCreatedCount, splitParentName, setSplitParentName,
     splitModules, setSplitModules, examOpen, setExamOpen, examQuestions, setExamQuestions,
+    linkModalOpen, setLinkModalOpen, linkSelectedText,
     coverage, safeHtml, linkedCount, cards, categories,
     handleMouseUp, handleConvertToEssay, handleSmartSplitConfirm, handleCreateEssay,
-    scrollToHeading, handleMapSelection,
+    scrollToHeading, handleMapSelection, handleLinkToExisting, handleLinkConfirm,
   };
 }
