@@ -137,6 +137,7 @@ export default function SourcesView() {
     setEditLabel(source.label);
     setEditDate(source.date || "");
     setEditGazette(source.officialGazetteInfo || "");
+    setEditCategory(source.category || "");
   }, []);
 
   const handleSaveEdit = useCallback(async () => {
