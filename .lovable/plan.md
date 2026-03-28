@@ -1,62 +1,86 @@
 
-Problem nije samo u “renderovanju” sidebar-a, nego u tome što su sada dva različita izvora istine za kategorije:
 
-1. `useCardBootstrap` i `useCards` učitavaju kategorije tokom boot-a, ali u context čuvaju samo `string[]` nazive.
-2. `AppSidebar.tsx` ne koristi taj boot-load tok, nego radi direktan `useLiveQuery` nad `db.categories`.
+# Fix: Categories Not Rendering in Sidebar — Definitive Solution
 
-To je arhitektonski konflikt sa postojećim “boot-load-all” obrascem. Posljedica je da sidebar zavisi od zasebnog Dexie reaktivnog toka koji može ostati prazan ili zakasniti, i zato vidiš naslov “PREDMETI” bez stavki.
+## Root Cause Analysis
 
-Šta sam provjerio:
-- `AppSidebar.tsx` već mapira kategorije ispravno i koristi UUID route (`/category/${cat.id}`).
-- `seedDefaultCategories()` postoji i poziva se i u boot-u i u sidebar-u.
-- `MainLayout` uvijek renderuje sidebar.
-- Screenshot pokazuje da se aplikacija učitala, ali lista i dalje nije pouzdana.
-- Memory kontekst kaže da je odluka sistema da se izbjegava `useLiveQuery` kao glavni data flow; ovdje je sidebar upravo izuzetak i to je vjerovatni uzrok buga.
+From live browser logs, I confirmed:
+- `[MemoriaDB] Seeded 9 default categories` ✅
+- `cards:data-load-done — 0 cards` ✅  
+- `cards:ready` at ~3867ms ✅
 
-Predloženo rješenje:
-1. Uskladiti sidebar sa glavnom arhitekturom:
-   - ukloniti oslanjanje `AppSidebar.tsx` na `useLiveQuery` kao primarni izvor
-   - proširiti boot/context da čuva pune `CategoryRecord[]` (id, name, color, sortOrder), ne samo `string[]`
-2. `useCardBootstrap` treba nakon `seedDefaultCategories()` predati kompletne category recorde u stanje/context.
-3. `AppContext/useCards` treba izlagati te recorde za UI potrošače sidebar-a i breadcrumb-a.
-4. `AppSidebar.tsx` treba renderovati kategorije iz context-a, ne direktno iz Dexie upita.
-5. Kao defanzivni fallback, ostaviti seed guard samo na boot nivou, a ne u sidebar komponenti.
-6. Po potrebi prilagoditi `Breadcrumbs` da koristi isti category source ili da ostane direktni lookup samo za labelu detalja rute.
+The boot completes and calls `setCategoryRecordsState(catRecords)` at line 152 of `useCardBootstrap.ts`. But we have **zero visibility** into whether `catRecords` is actually populated at that point (the `withTimeout` fallback is `[]`), and zero visibility into what the sidebar receives.
 
-Zašto je ovo pravo rješenje:
-- uklanja race condition između boot-a i sidebar-a
-- vraća aplikaciju na jedan izvor istine
-- poštuje novu category-centric arhitekturu
-- čini prikaz kategorija determinističkim nakon refresh-a
+## Plan: Debug Logs + Defensive Fallback
 
-Konkretne izmjene:
-- `src/hooks/useCardBootstrap.ts`
-  - dodati setter za pune category recorde
-  - boot treba spremiti kompletan rezultat `seedDefaultCategories()`
-- `src/hooks/useCards.ts`
-  - držati `categoryRecords` u state-u uz postojeći `categories`
-  - eventualno iz `categoryRecords` izvoditi `categories: string[]` radi backward compatibility
-- `src/contexts/AppContext.tsx`
-  - izložiti `categoryRecords` kroz card data context
-- `src/components/AppSidebar.tsx`
-  - render iz `categoryRecords`
-  - ukloniti direktni `useLiveQuery` dependency kao glavni tok
-- opcionalno `src/components/Breadcrumbs.tsx`
-  - koristiti isti shared source za naziv kategorije kad je dostupan
+### 1. Add debug logging to `useCardBootstrap.ts`
 
-Napomena:
-Trenutni “quick fix” sa `seedDefaultCategories()` u `AppSidebar.tsx` je dobar kao privremeni flaster, ali ne rješava osnovni problem razdvojenih tokova podataka. Za stabilnost Phase 2/3 arhitekture, sidebar treba prebaciti na context-driven kategorije.
-
-Implementacioni cilj:
-Nakon ove izmjene, kategorije će se pojaviti pouzdano poslije refresh-a jer će sidebar koristiti iste podatke koje boot već učitava i garantuje.
-
-Tehnički detalji:
-```text
-Trenutno:
-Boot -> učita CategoryRecord[] -> pretvori u string[] -> Context
-Sidebar -> zasebno pita Dexie -> [] ili kasni -> ništa ne renderuje
-
-Poslije ispravke:
-Boot -> učita CategoryRecord[] -> Context
-Sidebar -> čita CategoryRecord[] iz Context-a -> renderuje UUID linkove
+After `seedDefaultCategories()` returns, log the result:
+```ts
+const catRecords = await withTimeout(seedDefaultCategories(), 2500, "categories load", []);
+console.log("[boot:diag] categories loaded:", catRecords.length, catRecords.map(r => r.name));
 ```
+
+Also log right before setting state:
+```ts
+console.log("[boot:diag] setting categoryRecords state:", catRecords.length);
+setCategoryRecordsState(catRecords);
+```
+
+### 2. Add debug logging to `AppSidebar.tsx`
+
+Log what the sidebar actually receives from context:
+```ts
+const { stats, categoryRecords } = useCardData();
+console.log("[sidebar] categoryRecords from context:", categoryRecords.length);
+```
+
+### 3. Add defensive fallback in `AppSidebar.tsx`
+
+If after 2 seconds `categoryRecords` is still empty, do a direct DB query as a one-time fallback:
+```ts
+const [fallbackCategories, setFallbackCategories] = useState<CategoryRecord[]>([]);
+
+useEffect(() => {
+  if (categoryRecords.length > 0) return;
+  const timer = setTimeout(async () => {
+    try {
+      const { seedDefaultCategories } = await import("@/lib/db");
+      const cats = await seedDefaultCategories();
+      console.log("[sidebar] fallback loaded", cats.length, "categories");
+      setFallbackCategories(cats);
+    } catch (e) { console.error("[sidebar] fallback failed", e); }
+  }, 2000);
+  return () => clearTimeout(timer);
+}, [categoryRecords.length]);
+
+const displayCategories = categoryRecords.length > 0 ? categoryRecords : fallbackCategories;
+```
+
+Then map over `displayCategories` instead of `categoryRecords`.
+
+### 4. Add empty-state indicator
+
+If `displayCategories` is still empty, show a visible indicator:
+```tsx
+{displayCategories.length === 0 && (
+  <SidebarMenuItem>
+    <span className="px-2 py-1 text-xs text-muted-foreground">Učitavanje...</span>
+  </SidebarMenuItem>
+)}
+```
+
+## Files Changed
+
+| File | Change |
+|---|---|
+| `src/hooks/useCardBootstrap.ts` | Add 2 debug console.log lines |
+| `src/components/AppSidebar.tsx` | Add debug log + defensive DB fallback + loading indicator |
+
+## Why This Works
+
+- Debug logs will definitively show where the chain breaks
+- The fallback guarantees categories appear even if context propagation fails
+- The loading indicator makes empty state visible instead of silently empty
+- No architectural changes — this is a safety net on top of the correct architecture
+
