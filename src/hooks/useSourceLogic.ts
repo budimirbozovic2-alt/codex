@@ -229,7 +229,7 @@ export function useSourceLogic(source: Source) {
   return {
     contentRef, outlineOpen, setOutlineOpen, viewMode, setViewMode,
     selection, essayDialogOpen, setEssayDialogOpen, essayQuestion, setEssayQuestion,
-    essayCategory, setEssayCategory, selectedText, autoSplitOpen, setAutoSplitOpen,
+    selectedText, autoSplitOpen, setAutoSplitOpen,
     splitSummaryOpen, setSplitSummaryOpen, splitResult, setSplitResult,
     splitDone, splitCreatedCount, splitParentName, setSplitParentName,
     splitModules, setSplitModules, examOpen, setExamOpen, examQuestions, setExamQuestions,
