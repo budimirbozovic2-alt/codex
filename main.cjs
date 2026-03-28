@@ -50,6 +50,10 @@ app.whenReady().then(() => {
   // ── CSP headers in production ──
   if (!isDev) {
     session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
+      // Skip CSP for file:// — 'self' doesn't match reliably under file protocol
+      if (details.url.startsWith('file://')) {
+        return callback({ responseHeaders: details.responseHeaders });
+      }
       callback({
         responseHeaders: {
           ...details.responseHeaders,

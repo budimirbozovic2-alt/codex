@@ -186,7 +186,7 @@ setTimeout(() => {
 })();
 
 // ── Service Worker registration ──
-if ("serviceWorker" in navigator) {
+if ("serviceWorker" in navigator && !(window as any).electronAPI) {
   window.addEventListener("load", async () => {
     if (!import.meta.env.PROD) {
       const registrations = await navigator.serviceWorker.getRegistrations();
