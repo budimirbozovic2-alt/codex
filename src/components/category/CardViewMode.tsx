@@ -258,6 +258,9 @@ export default function CardViewMode({ cards, categoryId, allCategories, patchCa
               <X className="h-3 w-3" /> Reset
             </Button>
           )}
+          <Button variant="outline" size="sm" onClick={() => setBulkImportOpen(true)} className="h-7 gap-1.5 text-xs">
+            <Upload className="h-3.5 w-3.5" /> Masovni Import
+          </Button>
           <Button variant="default" size="sm" onClick={() => setAddDialogOpen(true)} className="h-7 gap-1.5 text-xs">
             <Plus className="h-3.5 w-3.5" /> Nova kartica
           </Button>
