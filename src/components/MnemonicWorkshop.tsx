@@ -1,4 +1,4 @@
-import { ArrowLeft, Brain, Wrench, FolderOpen, Search, Sparkles, ArrowUpDown, CheckCircle2 } from "lucide-react";
+import { Brain, Wrench, FolderOpen, Search, Sparkles, ArrowUpDown, CheckCircle2 } from "lucide-react";
 import { useState, useMemo, useCallback } from "react";
 import { MnemonicCard, MnemonicStatus, loadMajorSystem } from "@/lib/mnemonic-storage";
 
