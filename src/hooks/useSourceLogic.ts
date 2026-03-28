@@ -157,6 +157,45 @@ export function useSourceLogic(source: Source) {
     if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
   }, []);
 
+  const handleLinkToExisting = useCallback(() => {
+    if (!selection) return;
+    setLinkSelectedText(selection.text);
+    setLinkModalOpen(true);
+    setSelection(null);
+    window.getSelection()?.removeAllRanges();
+  }, [selection]);
+
+  const handleLinkConfirm = useCallback((cardId: string) => {
+    patchCard(cardId, (c) => ({
+      ...c,
+      sourceId: source.id,
+      textAnchor: createTextAnchor(linkSelectedText),
+      originalSourceSnippet: linkSelectedText,
+      sections: [
+        ...c.sections,
+        {
+          id: crypto.randomUUID(),
+          title: "Isječak iz izvora",
+          content: sanitizeHtml(linkSelectedText),
+          state: 0 as const,
+          interval: 0,
+          stability: 0,
+          difficulty: 0,
+          elapsedDays: 0,
+          scheduledDays: 0,
+          nextReview: 0,
+          lastReview: 0,
+          reps: 0,
+          lapses: 0,
+          errorLog: [],
+        },
+      ],
+    }));
+    setLinkModalOpen(false);
+    setLinkSelectedText("");
+    toast({ title: "Esej uspješno povezan!", description: `Povezano sa izvorom "${source.label}"` });
+  }, [patchCard, source.id, source.label, linkSelectedText]);
+
   const handleMapSelection = useCallback((questionId: string) => {
     if (!selection) return;
     const text = selection.text;
