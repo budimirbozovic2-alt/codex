@@ -68,10 +68,7 @@ const App = () => (
                         <Route path="/metacognitive" element={<ErrorBoundary label="Metakognicija"><MetacognitivePage /></ErrorBoundary>} />
                         <Route path="/frequent-errors" element={<ErrorBoundary label="Česte greške"><FrequentErrorsPage /></ErrorBoundary>} />
                         <Route path="/major-system-settings" element={<ErrorBoundary label="Major sistem"><MajorSystemPage /></ErrorBoundary>} />
-                        <Route path="/cards" element={<ErrorBoundary label="Kartice"><CardsPage /></ErrorBoundary>} />
                         <Route path="/categories" element={<ErrorBoundary label="Kategorije"><CategoriesRoutePage /></ErrorBoundary>} />
-                        <Route path="/sources" element={<ErrorBoundary label="Izvori"><SourcesRoutePage /></ErrorBoundary>} />
-                        <Route path="/database" element={<ErrorBoundary label="Kartice"><CardsPage /></ErrorBoundary>} />
                         <Route path="/speed-reader" element={<ErrorBoundary label="Speed Reader"><SpeedReaderPage /></ErrorBoundary>} />
                         <Route path="/mind-map" element={<ErrorBoundary label="Mapa uma"><MindMapPage /></ErrorBoundary>} />
                         <Route path="/forum" element={<ErrorBoundary label="Forum"><RomanForumPage /></ErrorBoundary>} />
