@@ -95,12 +95,22 @@ export interface ForumState {
 
 // ─── Monument Calculator ────────────────────────────────
 
-function buildMonument(category: string, cards: Card[]): Monument {
+interface MonumentResult {
+  monument: Monument;
+  totalSections: number;
+  reviewSections: number;
+}
+
+function buildMonument(category: string, cards: Card[]): MonumentResult {
   if (cards.length === 0) {
     return {
-      category, totalCards: 0, masteredCards: 0, mastery: 0,
-      material: "foundation", avgStability: 0, avgDifficulty: 5,
-      leechCount: 0, crumbling: false, buildingType: "insula",
+      monument: {
+        category, totalCards: 0, masteredCards: 0, mastery: 0,
+        material: "foundation", avgStability: 0, avgDifficulty: 5,
+        leechCount: 0, crumbling: false, buildingType: "insula",
+      },
+      totalSections: 0,
+      reviewSections: 0,
     };
   }
 
@@ -139,16 +149,20 @@ function buildMonument(category: string, cards: Card[]): Monument {
   const crumbling = totalSections > 0 && (leechCount / totalSections) > 0.2;
 
   return {
-    category,
-    totalCards: cards.length,
-    masteredCards,
-    mastery: Math.round(mastery * 10) / 10,
-    material: getMaterialTier(mastery),
-    avgStability: Math.round(avgStability * 10) / 10,
-    avgDifficulty: Math.round(avgDifficulty * 10) / 10,
-    leechCount,
-    crumbling,
-    buildingType: "insula",
+    monument: {
+      category,
+      totalCards: cards.length,
+      masteredCards,
+      mastery: Math.round(mastery * 10) / 10,
+      material: getMaterialTier(mastery),
+      avgStability: Math.round(avgStability * 10) / 10,
+      avgDifficulty: Math.round(avgDifficulty * 10) / 10,
+      leechCount,
+      crumbling,
+      buildingType: "insula",
+    },
+    totalSections,
+    reviewSections,
   };
 }
 
