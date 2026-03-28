@@ -26,13 +26,12 @@ interface Props {
   cards: Card[];
   categories: string[];
   reviewLog: ReviewLogEntry[];
-  onBack: () => void;
   settings?: SRSettings;
   embedded?: boolean;
   onClearErrorLog?: (cardId: string) => void;
 }
 
-export default function MetacognitiveCenter({ cards, categories, reviewLog, onBack, settings, embedded, onClearErrorLog }: Props) {
+export default function MetacognitiveCenter({ cards, categories, reviewLog, settings, embedded, onClearErrorLog }: Props) {
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="max-w-4xl mx-auto space-y-6">
       {!embedded && (
