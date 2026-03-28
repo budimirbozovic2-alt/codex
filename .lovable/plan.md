@@ -1,123 +1,50 @@
 
 
-# Structural Integrity Audit — Card ↔ Source ↔ Category ↔ Registry
+# Electron Build — Eternal Loading Screen Audit
 
----
+## Verdict: No eternal loading bug found
 
-## 1. The Card–Source–Category Triangle
-
-**Card schema** (`src/lib/spaced-repetition.ts:67-89`):
-- `category: string` — plain text name, NOT a UUID foreign key
-- `subcategory?: string` — plain text
-- `chapter?: string` — plain text
-- `sourceId?: string` — UUID referencing `db.sources.id`
-
-**Source rename stability**: ✅ CONFIRMED SAFE. A Source is linked to a Card via `sourceId` (UUID). Renaming `source.label` in `db.sources` does **not** break the link — the UUID is immutable. The `label` is only used for display and for Registry alias matching.
-
-**Note**: `category` is a raw string, not a foreign key. If a category is renamed in the categories array but cards aren't updated, cards become orphaned. This is handled by `renameCategory` which updates both atomically (fixed in C1 patch).
-
----
-
-## 2. The Source-to-Registry Bridge
-
-**How it works** (`src/lib/source-registry.ts`):
-
-```
-Source (IDB)              Registry (localStorage + IDB backup)
-─────────────             ──────────────────────────────────
-id: UUID        ←─────    (not used by registry)
-label: string   ═════►    SourceAlias.rawLabel → masterSource (Spomenik)
-```
-
-- The Registry operates on `Source.label` strings, NOT UUIDs
-- `buildAliasMap()` creates `Map<rawLabel, masterSource>`
-- `resolveMasterSource(rawLabel, aliasMap)` returns the monument name or falls back to the raw label itself
-- ✅ CONFIRMED: Multiple `rawLabel` values can point to the same `masterSource` — this is the core alias mechanism
-
-**Example**:
-```
-aliases: [
-  { rawLabel: "Zakon o upravnom postupku", masterSource: "Upravno pravo" },
-  { rawLabel: "Zakon o upravnom sporu",    masterSource: "Upravno pravo" },
-]
-→ Both laws build the same "Upravno pravo" monument
-```
-
----
-
-## 3. The Registry-to-Forum Command Chain
-
-### Forum level (`forum-logic.ts:237-263`):
-- `calculateForumState` groups cards by `card.category` (= monument name in Forum)
-- For each category's cards, it resolves `sourceId → source.label → masterSource` via the alias map
-- Produces `monument.sources[]` array with per-master-source mastery breakdown
-- **Important**: Forum monuments are keyed by `category`, NOT by `masterSource`. The `sources[]` breakdown is metadata for display.
-
-### Interior level (`MonumentInterior.tsx` + `useSourceHierarchy.ts`):
-
-**Mode A ("Grupni") — CONFIRMED** (`useSourceHierarchy.ts:78-89`):
-- L1 nodes = Master Source names (resolved via `getCardMasterSource`)
-- L2 leaves = Subcategory names
-- Cards are grouped by their resolved master source, then by subcategory
-
-**Mode B ("Detaljni") — PARTIALLY CONFIRMED** (`useSourceHierarchy.ts:108-140`):
-- L1 nodes = Subcategory names
-- L2 leaves = Chapter names (`card.chapter`)
-- ⚠️ **Clarification**: Mode B uses `card.chapter` (string field), NOT `card.sections[].id`. The "columns" are chapter names, not section IDs. This is correct for the legal domain (chapters = "Glave" of a law).
-
-### Mode selection (`source-registry.ts:getCategoryDepthMode`):
-- Manual `forcedMode` override from `registry.overrides[]` takes precedence
-- Auto-detection: ≥2 distinct master sources → A; single source ≥90% dominance → B
-
----
-
-## 4. Data Integrity Guardrails
-
-### Registry → Forum cache invalidation: ✅ CONFIRMED
-```
-saveSourceRegistry()
-  → _registryCache = registry (immediate)
-  → syncSourceRegistryToIDB() (async backup)
-  → _notifyRegistry() (event emitter)
-
-RomanForumPage useEffect:
-  → onRegistryChanged(() => setRegistryVersion(v+1))
-  → registryVersion included in useMemo deps AND in buildFingerprint()
-  → calculateForumState cache is busted → full rebuild
-```
-
-### Overwrite Import hierarchy preservation: ✅ CONFIRMED
-(`useCardImport.ts:86-158`):
-- Cards: Old cards deleted from IDB via `bulkDelete(orphanKeys)` ✅
-- Categories: Fully replaced on overwrite ✅
-- Subcategories: Cleared if backup has none (C3 fix), replaced if present ✅
-- Sources: `bulkPut` + orphan deletion on overwrite ✅
-- ReviewLog: `db.reviewLog.clear()` + `bulkAdd` on overwrite ✅
-- Source Registry: NOT included in export/import payload ⚠️ (self-healing — aliases are rebuilt manually)
-- Monument Types: NOT included in export/import ⚠️ (localStorage, self-healing)
-
----
-
-## 5. System Verdict
-
-### Single Organism Status: ✅ YES, with 2 known blind spots
-
-The four modules form a connected graph:
+The boot sequence has **5 independent timeout layers** that guarantee the UI will eventually show:
 
 ```text
-Card.sourceId (UUID) ──► Source.id (IDB)
-Source.label (string) ──► Registry.aliases.rawLabel ──► masterSource (Spomenik)
-Card.category (string) ──► Forum monument grouping
-Registry.overrides.forcedMode ──► useSourceHierarchy A/B decision
-Registry change ──► onRegistryChanged ──► RomanForumPage re-render
+Layer 1: useCards.ts forceReady         →  5s → sets ready=true
+Layer 2: useCardBootstrap panicTimer    →  8s → sets ready=true
+Layer 3: main.tsx hideSplashImmediately →  8s → removes splash DOM
+Layer 4: index.html fallback timer     → 10s → shows reload button (with 2 auto-retries)
+Layer 5: electron/window.cjs fallback  →  6s → shows BrowserWindow regardless
 ```
 
-### Remaining Blind Spots
+Each layer is **independent** — they use separate timers, not chained promises. Even if React never mounts, layers 4 and 5 still fire.
 
-| # | Area | Risk | Detail |
-|---|------|------|--------|
-| 1 | Export/Import | ⚠️ LOW | Source Registry aliases and Monument Types are NOT in the backup payload. After an overwrite import on a new device, all alias mappings must be manually recreated. Self-healing but inconvenient. |
-| 2 | Category ≠ Spomenik | ⚠️ INFO | Forum monuments are keyed by `card.category`, while the Registry's `masterSource` is a display grouping within a category. If a user expects "Upravno pravo" to be both a category AND a monument name, this works. But if categories and master sources diverge in naming, the Forum shows category names while the interior shows master source names — which is correct but could confuse. |
+## Trace of the critical path
 
-No critical structural gaps remain. The system is synchronized.
+1. **Electron main** → creates splash window, creates main window (hidden)
+2. **main.tsx** → registers error handlers, starts 8s splash-kill timer, async-imports App, calls `createRoot().render(<App/>)`
+3. **App.tsx** → renders `<div data-app-mounted>` immediately (no blocking)
+4. **AppContext** → calls `useCards()` → `useCardBootstrap()` → `ensureDbOpen(6000ms)` with timeout
+5. **useCardBootstrap finally** → always calls `setReady(true)` + `electronAPI.notifyReady()`
+6. **Electron main** receives `renderer-ready` IPC → destroys splash, shows main window
+
+### DB failure path (line 88-97)
+If `ensureDbOpen` fails, the `return` on line 97 exits the `try` block but **`finally` still executes** — `setReady(true)` is called, splash is removed, `notifyReady()` fires. The app boots in degraded mode with empty data.
+
+### Dynamic import failure path
+If `import("@/lib/boot-trace")` on line 80 throws, the outer `catch` logs it, and `finally` still fires.
+
+## Minor observations (not bugs)
+
+1. **`ready-to-show` timer logic** (window.cjs:205-212): If `ready-to-show` fires before the 6s fallback, it **clears** the fallback and sets a new 3s timer. Net effect: window shows at `ready-to-show + 3.5s` instead of 6s. This is intentional but slightly confusing. Not a bug.
+
+2. **Preload path duplication** (window.cjs:87-89): Both dev and prod branches resolve to the same path. This is correct since `preload.cjs` lives at project root in both cases, but the conditional is dead code.
+
+3. **Service Worker in Electron production**: `sw.js` registration runs in prod (main.tsx:189-201). Under `file://` protocol, service workers don't work. The registration silently fails. Not a loading risk, just a no-op.
+
+## Conclusion
+
+**No code changes needed.** The layered timeout architecture is solid. If an eternal loading screen is actually observed in production, it would have to be caused by:
+- A crash loop exceeding the 3-crash limit (which shows an error dialog and quits)
+- A hung GPU process (Electron-level, not app-level)
+- File corruption where `dist/index.html` is missing (caught by `did-fail-load` handler with 2s retry)
+
+None of these are code bugs — they're environmental failures with existing handlers.
 
