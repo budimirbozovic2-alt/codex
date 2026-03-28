@@ -16,7 +16,6 @@ import { promoteHeadings, detectTitle } from "@/lib/heading-promotion";
 import { compareVersions, getChangedArticleIds, matchAnchorToArticle, parseArticles, type DiffResult } from "@/lib/article-parser";
 import { parseDocxInWorker } from "@/lib/docx-parser";
 import { useCardContext } from "@/contexts/AppContext";
-import { db, idbLoadCards, idbLoadCategories, idbLoadSubcategories, idbLoadReviewLog, idbLoadSettings } from "@/lib/db";
 import { TabSkeleton } from "@/components/ui/page-skeleton";
 import { normalizeMatchText, stripHtmlText } from "@/lib/source-coverage";
 const SourceReader = lazy(() => import("@/components/SourceReader"));
@@ -84,13 +83,13 @@ export default function SourcesView() {
     const articles = extractArticles(htmlWithIds);
     const source: Source = {
       id: generateId(),
-      label: importLabel,
+      title: importLabel,
       date: importDate || new Date().toISOString().slice(0, 10),
       htmlContent: htmlWithIds,
       outline,
       articles,
       officialGazetteInfo: importGazette.trim() || undefined,
-      category: importCategory || undefined,
+      categoryId: importCategory || undefined,
       version: 1,
       createdAt: Date.now(),
       updatedAt: Date.now(),
@@ -137,17 +136,17 @@ export default function SourcesView() {
     setEditLabel(source.title);
     setEditDate(source.date || "");
     setEditGazette(source.officialGazetteInfo || "");
-    setEditCategory(source.category || "");
+    setEditCategory(source.categoryId || "");
   }, []);
 
   const handleSaveEdit = useCallback(async () => {
     if (!editingSource || !editLabel.trim()) return;
     const updated: Source = {
       ...editingSource,
-      label: editLabel.trim(),
+      title: editLabel.trim(),
       date: editDate || editingSource.date,
       officialGazetteInfo: editGazette.trim() || undefined,
-      category: editCategory || undefined,
+      categoryId: editCategory || undefined,
       updatedAt: Date.now(),
     };
     await saveSource(updated);
@@ -167,7 +166,6 @@ export default function SourcesView() {
       if (electronAPI?.requestBackup) {
         try {
           const [bCards, bCats, bSubs, bLog, bSr] = await Promise.all([
-            idbLoadCards(), idbLoadCategories(), idbLoadSubcategories(),
             idbLoadReviewLog(), idbLoadSettings("srSettings", {}),
           ]);
           const backupJson = JSON.stringify({
@@ -236,8 +234,6 @@ export default function SourcesView() {
         // Keep existing officialGazetteInfo (user-entered, manual only)
         version: oldSource.version + 1,
         updatedAt: Date.now(),
-        previousVersionId: oldSource.id,
-        previousHtmlContent: oldSource.htmlContent,
       };
 
       await db.transaction("rw", [db.sources], async () => {
@@ -367,9 +363,9 @@ export default function SourcesView() {
                         </p>
                       )}
                       <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground flex-wrap">
-                        {source.category && (
+                        {source.categoryId && (
                           <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
-                            {source.category}
+                            {source.categoryId}
                           </Badge>
                         )}
                         <span className="flex items-center gap-1">
@@ -406,14 +402,14 @@ export default function SourcesView() {
                     <Button variant="ghost" size="icon" className="h-8 w-8" title="Uredi izvor" onClick={() => handleEditSource(source)}>
                       <Pencil className="h-4 w-4" />
                     </Button>
-                    {source.previousHtmlContent && (
+                    {undefined && (
                       <Button
                         variant="ghost"
                         size="icon"
                         className="h-8 w-8"
                         title="Pogledaj razlike"
                         onClick={() => {
-                          const diff = compareVersions(source.previousHtmlContent!, source.htmlContent);
+                          const diff = compareVersions(undefined!, source.htmlContent);
                           setDiffView({
                             result: diff,
                             sourceName: source.title,

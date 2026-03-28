@@ -17,7 +17,6 @@ import { useCardAnnotations } from "./useCardAnnotations";
 import { CardMap, mapToArray, persistQueue, schedulePersist, bumpMapVersion } from "@/lib/persist-queue";
 import {
   idbSaveCategories,
-  idbSaveSubcategories,
   idbSaveSettings,
 } from "@/lib/db";
 import { onCardLinksCleared } from "@/lib/sources-storage";
@@ -93,7 +92,6 @@ export function useCards() {
   const setSubcategories = useCallback((updater: (prev: Record<string, string[]>) => Record<string, string[]>) => {
     setSubcategoriesState(prev => {
       const next = updater(prev);
-      if (next !== prev) idbSaveSubcategories(next);
       return next;
     });
   }, []);
@@ -218,7 +216,6 @@ export function useCards() {
   const reorderSubcategories = useCallback((category: string, ordered: string[]) => {
     setSubcategoriesState(prev => {
       const next = { ...prev, [category]: ordered };
-      idbSaveSubcategories(next);
       return next;
     });
   }, []);
