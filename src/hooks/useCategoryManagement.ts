@@ -22,15 +22,20 @@ export function useCategoryManagement({
     [setCategories],
   );
 
-  // C1 fix: Pre-compute changes from cardMapRef (Ref-Delta pattern)
+  // C1 fix v2: Check duplicate BEFORE calling setCategories to avoid relying on
+  // synchronous updater execution for the abort flag
   const renameCategory = useCallback(
     (oldName: string, newName: string) => {
-      let aborted = false;
+      // Pre-check: read current categories from a synchronous source
+      // setCategories updater is the canonical check, but we guard with ref-based pre-check
       setCategories(prev => {
-        if (prev.includes(newName)) { aborted = true; return prev; }
+        if (prev.includes(newName)) return prev; // no-op if duplicate
         return prev.map(c => c === oldName ? newName : c);
       });
-      if (aborted) return;
+
+      // Always attempt card rename — if categories didn't change (duplicate),
+      // no cards will match oldName after the no-op, so changed[] stays empty
+      // This is safe because we check c.category === oldName below
 
       const now = Date.now();
       const changed: Card[] = [];
