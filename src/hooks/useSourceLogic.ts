@@ -165,31 +165,37 @@ export function useSourceLogic(source: Source) {
     window.getSelection()?.removeAllRanges();
   }, [selection]);
 
-  const handleLinkConfirm = useCallback((cardId: string) => {
-    patchCard(cardId, (c) => ({
-      ...c,
-      sourceId: source.id,
-      textAnchor: createTextAnchor(linkSelectedText),
-      originalSourceSnippet: linkSelectedText,
-      sections: [
-        ...c.sections,
-        {
-          id: crypto.randomUUID(),
-          title: "Isječak iz izvora",
-          content: sanitizeHtml(linkSelectedText),
-          state: 0 as const,
-          interval: 0,
-          stability: 0,
-          difficulty: 0,
-          elapsedDays: 0,
-          scheduledDays: 0,
-          nextReview: 0,
-          lastReviewed: null,
-          lapses: 0,
-          firstReviewPending: false,
-        },
-      ],
-    }));
+  const handleLinkConfirm = useCallback((cardId: string, appendSnippet: boolean = true) => {
+    patchCard(cardId, (c) => {
+      const base = {
+        ...c,
+        sourceId: source.id,
+        textAnchor: createTextAnchor(linkSelectedText),
+        originalSourceSnippet: linkSelectedText,
+      };
+      if (!appendSnippet) return base;
+      return {
+        ...base,
+        sections: [
+          ...c.sections,
+          {
+            id: crypto.randomUUID(),
+            title: "Isječak iz izvora",
+            content: sanitizeHtml(linkSelectedText),
+            state: 0 as const,
+            interval: 0,
+            stability: 0,
+            difficulty: 0,
+            elapsedDays: 0,
+            scheduledDays: 0,
+            nextReview: 0,
+            lastReviewed: null,
+            lapses: 0,
+            firstReviewPending: false,
+          },
+        ],
+      };
+    });
     setLinkModalOpen(false);
     setLinkSelectedText("");
     toast({ title: "Esej uspješno povezan!", description: `Povezano sa izvorom "${source.label}"` });
