@@ -24,6 +24,8 @@ interface Props {
   category: CategoryRecord;
   patchCard: (id: string, fn: (c: Card) => Card) => void;
   addSubcategory: (categoryId: string, name: string) => void;
+  renameSubcategory: (categoryId: string, oldName: string, newName: string) => void;
+  deleteSubcategory: (categoryId: string, name: string) => void;
 }
 
 interface TreeNode {
