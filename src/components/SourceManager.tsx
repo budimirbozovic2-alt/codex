@@ -115,16 +115,24 @@ export default function SourceManager() {
     for (const [name, laws] of groups) {
       const totalCards = laws.reduce((s, l) => s + l.count, 0);
 
-      // Find matching category for depth mode
-      const matchingCat = categories.find((cat) =>
-        cards.some((c) => {
-          if (c.category !== cat || !c.sourceId) return false;
-          const src = sourceMap.get(c.sourceId);
-          if (!src) return false;
-          const master = aliasMap.get(src.label) || src.label;
-          return master === name;
-        })
-      );
+      // Use direct source.category field (v6 schema)
+      const matchingCat = (() => {
+        // Check if any source in this monument group has a direct category
+        for (const law of laws) {
+          const src = sources.find(s => s.label === law.label);
+          if (src?.category) return src.category;
+        }
+        // Fallback: infer from linked cards
+        return categories.find((cat) =>
+          cards.some((c) => {
+            if (c.category !== cat || !c.sourceId) return false;
+            const src = sourceMap.get(c.sourceId);
+            if (!src) return false;
+            const master = aliasMap.get(src.label) || src.label;
+            return master === name;
+          })
+        );
+      })();
 
       const override =
         registry.overrides.find((o) => o.category === matchingCat)
