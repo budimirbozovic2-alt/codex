@@ -37,6 +37,12 @@ export default function AppSidebar() {
   const { stats } = useCardContext();
   const categories = useLiveQuery(() => db.categories.orderBy("sortOrder").toArray()) ?? [];
 
+  useEffect(() => {
+    if (categories.length === 0) {
+      seedDefaultCategories().catch(console.error);
+    }
+  }, [categories.length]);
+
   return (
     <Sidebar collapsible="icon">
       <SidebarContent>
