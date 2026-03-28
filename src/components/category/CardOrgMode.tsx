@@ -1,10 +1,13 @@
 import { useState, useCallback, useMemo } from "react";
 import { createPortal } from "react-dom";
 import {
-  DndContext, closestCenter, DragOverlay, MeasuringStrategy,
-  type DragStartEvent, type DragEndEvent, type DragOverEvent,
+  DndContext, closestCenter, pointerWithin, DragOverlay, MeasuringStrategy,
+  useDroppable,
+  type DragStartEvent, type DragEndEvent,
+  type CollisionDetection,
+  rectIntersection,
 } from "@dnd-kit/core";
-import { SortableContext, verticalListSortingStrategy, useSortable } from "@dnd-kit/sortable";
+import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { ChevronDown, ChevronRight, Plus, FolderOpen, GripVertical } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -28,6 +31,16 @@ interface TreeNode {
   chapters: { chapter: string; cards: Card[] }[];
   unassigned: Card[];
 }
+
+/** Encode a droppable chapter zone ID */
+const chapterDropId = (sub: string, chapter: string) => `__drop__${sub}__${chapter}`;
+const parseChapterDropId = (id: string) => {
+  if (!id.startsWith("__drop__")) return null;
+  const rest = id.slice("__drop__".length);
+  const sepIdx = rest.indexOf("__");
+  if (sepIdx < 0) return null;
+  return { subcategory: rest.slice(0, sepIdx), chapter: rest.slice(sepIdx + 2) };
+};
 
 function buildTree(cards: Card[]): TreeNode[] {
   const map = new Map<string, Map<string, Card[]>>();
@@ -88,6 +101,25 @@ function SortableCardTile({ card, index }: { card: Card; index: number }) {
   );
 }
 
+// ─── Droppable chapter zone ─────────────────────────────
+function DroppableChapterHeader({ sub, chapter, count }: { sub: string; chapter: string; count: number }) {
+  const dropId = chapterDropId(sub, chapter);
+  const { setNodeRef, isOver } = useDroppable({ id: dropId });
+
+  return (
+    <div
+      ref={setNodeRef}
+      className={cn(
+        "text-xs font-semibold text-muted-foreground uppercase tracking-wider px-1 py-1.5 rounded transition-colors",
+        isOver && "bg-primary/10 text-primary ring-1 ring-primary/30"
+      )}
+    >
+      {chapter}
+      <Badge variant="secondary" className="ml-2 text-[9px] h-4 px-1">{count}</Badge>
+    </div>
+  );
+}
+
 // ─── Drag overlay (ghost) ───────────────────────────────
 function CardDragOverlay({ card }: { card: Card }) {
   return (
@@ -109,15 +141,16 @@ export default function CardOrgMode({ cards, categoryId, category, patchCard, ad
   const tree = useMemo(() => buildTree(cards), [cards]);
   const cardMap = useMemo(() => new Map(cards.map(c => [c.id, c])), [cards]);
 
-  // Build a flat list of all sortable IDs for all expanded chapters
-  const allChapterCardIds = useMemo(() => {
-    const ids: string[] = [];
+  /** Find which sub+chapter a card belongs to */
+  const findCardContainer = useCallback((cardId: string): { sub: string; chapter: string } | null => {
     for (const node of tree) {
       for (const ch of node.chapters) {
-        ids.push(...ch.cards.map(c => c.id));
+        if (ch.cards.some(c => c.id === cardId)) {
+          return { sub: node.subcategory, chapter: ch.chapter };
+        }
       }
     }
-    return ids;
+    return null;
   }, [tree]);
 
   const toggleSub = useCallback((sub: string) => {
@@ -161,41 +194,73 @@ export default function CardOrgMode({ cards, categoryId, category, patchCard, ad
     if (!over || active.id === over.id) return;
 
     const activeCardId = active.id as string;
-    const overCardId = over.id as string;
-    const overCard = cardMap.get(overCardId);
+    const overId = over.id as string;
+
+    // Check if dropped on a chapter header zone
+    const dropTarget = parseChapterDropId(overId);
+    if (dropTarget) {
+      // Move card to this chapter (append at end)
+      const targetSub = dropTarget.subcategory === "(Bez potkategorije)" ? "" : dropTarget.subcategory;
+      patchCard(activeCardId, c => ({
+        ...c,
+        chapter: dropTarget.chapter,
+        subcategory: targetSub,
+        sortOrder: 9999, // will be at the end
+      }));
+      return;
+    }
+
+    // Dropped on another card
+    const overCard = cardMap.get(overId);
     if (!overCard) return;
 
-    // Find which chapter the "over" card belongs to
-    const targetChapter = overCard.chapter;
-    const targetSub = overCard.subcategory;
+    const activeContainer = findCardContainer(activeCardId);
+    const overContainer = findCardContainer(overId);
+    if (!activeContainer || !overContainer) return;
 
-    // Find the chapter's card list after drop
-    let targetList: Card[] = [];
-    for (const node of tree) {
-      for (const ch of node.chapters) {
-        if (ch.cards.some(c => c.id === overCardId)) {
-          targetList = ch.cards;
-          break;
-        }
-      }
+    const sameContainer = activeContainer.sub === overContainer.sub && activeContainer.chapter === overContainer.chapter;
+
+    if (sameContainer) {
+      // Reorder within same chapter
+      const chapterNode = tree
+        .find(n => n.subcategory === overContainer.sub)
+        ?.chapters.find(ch => ch.chapter === overContainer.chapter);
+      if (!chapterNode) return;
+
+      const oldIndex = chapterNode.cards.findIndex(c => c.id === activeCardId);
+      const newIndex = chapterNode.cards.findIndex(c => c.id === overId);
+      if (oldIndex < 0 || newIndex < 0) return;
+
+      const reordered = arrayMove(chapterNode.cards, oldIndex, newIndex);
+      reordered.forEach((c, i) => {
+        patchCard(c.id, card => ({ ...card, sortOrder: i }));
+      });
+    } else {
+      // Cross-chapter move: move card to target chapter at the drop position
+      const targetSub = overContainer.sub === "(Bez potkategorije)" ? "" : overContainer.sub;
+      const targetChapterNode = tree
+        .find(n => n.subcategory === overContainer.sub)
+        ?.chapters.find(ch => ch.chapter === overContainer.chapter);
+      if (!targetChapterNode) return;
+
+      // Insert at the position of the over card
+      const overIdx = targetChapterNode.cards.findIndex(c => c.id === overId);
+      const newList = targetChapterNode.cards.filter(c => c.id !== activeCardId);
+      newList.splice(overIdx, 0, cardMap.get(activeCardId)!);
+
+      // Update the moved card's chapter/subcategory
+      patchCard(activeCardId, c => ({
+        ...c,
+        chapter: overContainer.chapter,
+        subcategory: targetSub,
+      }));
+
+      // Reorder all cards in target chapter
+      newList.forEach((c, i) => {
+        patchCard(c.id, card => ({ ...card, sortOrder: i }));
+      });
     }
-
-    // Move active card to target chapter if different
-    const activeCard = cardMap.get(activeCardId);
-    if (activeCard && (activeCard.chapter !== targetChapter || activeCard.subcategory !== targetSub)) {
-      patchCard(activeCardId, c => ({ ...c, chapter: targetChapter, subcategory: targetSub }));
-    }
-
-    // Calculate new sort orders based on drop position
-    const overIdx = targetList.findIndex(c => c.id === overCardId);
-    const filteredIds = targetList.filter(c => c.id !== activeCardId).map(c => c.id);
-    filteredIds.splice(overIdx, 0, activeCardId);
-
-    // Batch update sortOrder
-    filteredIds.forEach((id, i) => {
-      patchCard(id, c => ({ ...c, sortOrder: i }));
-    });
-  }, [cardMap, tree, patchCard]);
+  }, [cardMap, tree, patchCard, findCardContainer]);
 
   const activeCard = activeId ? cardMap.get(activeId) : null;
 
@@ -209,7 +274,7 @@ export default function CardOrgMode({ cards, categoryId, category, patchCard, ad
 
   return (
     <DndContext
-      collisionDetection={closestCenter}
+      collisionDetection={pointerWithin}
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
       measuring={{ droppable: { strategy: MeasuringStrategy.Always } }}
@@ -237,9 +302,7 @@ export default function CardOrgMode({ cards, categoryId, category, patchCard, ad
                   {/* Chapters with DnD */}
                   {node.chapters.map(ch => (
                     <div key={ch.chapter} className="space-y-1">
-                      <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-1 py-1">
-                        {ch.chapter}
-                      </div>
+                      <DroppableChapterHeader sub={node.subcategory} chapter={ch.chapter} count={ch.cards.length} />
                       <SortableContext items={ch.cards.map(c => c.id)} strategy={verticalListSortingStrategy}>
                         {ch.cards.map((card, idx) => (
                           <SortableCardTile key={card.id} card={card} index={idx} />
