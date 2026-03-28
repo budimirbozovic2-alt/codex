@@ -22,7 +22,8 @@ export default function LinkToExistingCardModal({
 }: Props) {
   const [search, setSearch] = useState("");
 
-  // Pre-filter: unlinked, essay-only, same category as source label
+  // Pre-filter: unlinked, essay-only, same category
+  // sourceLabel may be a category name or a source title (fallback for unmigrated sources)
   const eligible = useMemo(() =>
     cards.filter(c =>
       !c.sourceId &&

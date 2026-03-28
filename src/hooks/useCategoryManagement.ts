@@ -102,9 +102,15 @@ export function useCategoryManagement({
       });
 
       // F3 fix: Cascade delete to sources — reassign to "Opšte"
-      db.sources.where("category").equals(name).modify({ category: "Opšte" })
-        .then(() => invalidateSourcesCache())
-        .catch(err => console.warn("[deleteCategory] source cascade failed", err));
+      (async () => {
+        try {
+          await db.sources.where("category").equals(name).modify({ category: "Opšte" });
+          invalidateSourcesCache();
+        } catch (err) {
+          console.error("[deleteCategory] source cascade failed", err);
+          toast({ title: "Greška pri ažuriranju izvora", description: "Izvori nisu prebačeni u 'Opšte'. Pokušajte ponovo.", variant: "destructive" });
+        }
+      })();
     },
     [setCategories, setCardMapState, setSubcategories, cardMapRef],
   );

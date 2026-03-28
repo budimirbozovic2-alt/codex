@@ -179,21 +179,7 @@ export function useSourceLogic(source: Source) {
         ...base,
         sections: [
           ...c.sections,
-          {
-            id: crypto.randomUUID(),
-            title: "Isječak iz izvora",
-            content: sanitizeHtml(linkSelectedText),
-            state: 0 as const,
-            interval: 0,
-            stability: 0,
-            difficulty: 0,
-            elapsedDays: 0,
-            scheduledDays: 0,
-            nextReview: 0,
-            lastReviewed: null,
-            lapses: 0,
-            firstReviewPending: false,
-          },
+          createSection("Isječak iz izvora", sanitizeHtml(linkSelectedText)),
         ],
       };
     });
