@@ -19,7 +19,7 @@ function stripHtml(html: string): string {
  * from cards already linked to it. If no cards are linked yet,
  * the source is considered "uncategorized" and matches any card.
  *
- * Rule A: card.categoryIdId must match the source's inferred category (or source has none).
+ * Rule A: card.categoryId must match the source's inferred category (or source has none).
  * Rule B: source.title exactly matches card.question (stripped), OR
  *         source.title appears as substring in card.question or any section content.
  */

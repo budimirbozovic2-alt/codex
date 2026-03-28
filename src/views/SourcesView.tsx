@@ -228,9 +228,7 @@ export default function SourcesView() {
         updatedAt: Date.now(),
       };
 
-      await db.transaction("rw", [db.sources], async () => {
-        await db.sources.put(newSource);
-      });
+      await saveSource(newSource);
 
       // Flag affected cards via React state (patchCard pipeline)
       if (affectedCards.length > 0) {

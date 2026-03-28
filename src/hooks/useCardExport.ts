@@ -63,7 +63,7 @@ export function useCardExport({ cards, categories, subcategories, srSettings }: 
         id: c.id,
         question: c.question,
         sections: c.sections.map((s) => ({ title: s.title, content: s.content })),
-        categoryId: c.categoryIdId,
+        categoryId: c.categoryId,
         subcategory: c.subcategory || "",
         chapter: c.chapter || "",
         type: c.type,

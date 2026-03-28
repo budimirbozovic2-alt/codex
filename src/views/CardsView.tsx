@@ -175,7 +175,7 @@ export default function CardsView() {
 
   // Context menu: move category
   const handleMoveCategory = useCallback((cardId: string, category: string, subcategory?: string) => {
-    updateCard(cardId, { category, subcategory: subcategory || "" });
+    updateCard(cardId, { categoryId: category, subcategory: subcategory || "" });
     toast.success(`Kartica premještena u "${category}"${subcategory ? ` › ${subcategory}` : ""}`);
   }, [updateCard]);
 

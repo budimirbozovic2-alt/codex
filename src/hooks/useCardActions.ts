@@ -103,7 +103,7 @@ export function useCardActions({ categories, subcategories, editCard, onSave, on
   );
 
   // ── Metadata state ────────────────────────────────────
-  const [category, setCategory] = useState(editCard?.categoryIdId ?? categories[0] ?? "Opšte");
+  const [category, setCategory] = useState(editCard?.categoryId ?? categories[0] ?? "Opšte");
   const [subcategory, setSubcategory] = useState(editCard?.subcategory ?? "");
   const [chapter, setChapter] = useState(editCard?.chapter ?? "");
   const [newCategory, setNewCategory] = useState("");

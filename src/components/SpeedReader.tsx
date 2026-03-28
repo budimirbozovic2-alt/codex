@@ -481,7 +481,7 @@ export default function SpeedReader() {
                     className="w-full text-left p-3 rounded-lg border hover:border-primary/30 hover:bg-secondary/30 transition-colors"
                   >
                     <div className="flex items-center gap-2 mb-0.5 text-xs text-muted-foreground">
-                      <span>{card.categoryIdId}</span>
+                      <span>{card.categoryId}</span>
                       {card.subcategory && <span>› {card.subcategory}</span>}
                       <span className="ml-auto">{card.sections.length} sek. · {wc} rij.</span>
                     </div>
