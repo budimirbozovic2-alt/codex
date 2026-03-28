@@ -705,6 +705,17 @@
   color: inherit;
 }
 
+/* ─── Imperial Title ─────────────────────────────── */
+
+.imperial-title {
+  font-family: 'Cinzel', 'DM Sans', serif;
+  color: hsl(var(--gold));
+  font-weight: 700;
+  font-size: 1.5rem;
+  line-height: 2rem;
+  letter-spacing: 0.025em;
+}
+
 /* ─── Simple Imperial Button ─────────────────────── */
 
 .btn-imperial {
