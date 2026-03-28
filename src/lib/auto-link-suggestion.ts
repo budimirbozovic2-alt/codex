@@ -52,6 +52,7 @@ export async function findBulkAutoLinkSuggestions(
     // Skip cards already linked
     if (card.sourceId) continue;
     if (seen.has(card.id)) continue;
+    if (card.type === "flash") continue;
 
     const questionPlain = stripHtml(card.question);
 
