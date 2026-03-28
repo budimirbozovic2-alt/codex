@@ -119,7 +119,7 @@ export function useSourceLogic(source: Source) {
 
   const handleSmartSplitConfirm = useCallback(() => {
     if (!splitResult || splitModules.length === 0) return;
-    const category = source.categoryId || categories[0] || "Opšte";
+    const category = source.categoryId;
     const modules = splitModules;
     const parentName = splitParentName.trim() || splitResult.parentName;
     const sections = modules.map((mod) => ({ title: mod.title, content: sanitizeHtml(mod.contentHtml) }));
