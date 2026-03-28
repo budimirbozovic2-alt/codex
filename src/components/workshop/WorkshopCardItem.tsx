@@ -80,7 +80,7 @@ function WorkshopCardItemInner({ card, isExpanded, onToggle, onUpdateCard, onDel
         }
         <div className="flex-1 min-w-0">
           <p className="font-medium truncate">{card.question}</p>
-          <p className="text-xs text-muted-foreground">{card.categoryId}{card.subcategory ? ` / ${card.subcategory}` : ""}</p>
+          <p className="text-xs text-muted-foreground">{card.category}{card.subcategory ? ` / ${card.subcategory}` : ""}</p>
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
           {card.testCount > 0 && (

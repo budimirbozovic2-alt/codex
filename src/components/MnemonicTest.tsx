@@ -33,8 +33,8 @@ export default function MnemonicTest({ cards, onRecordResult, onBack }: Props) {
   const categoryTree = useMemo(() => {
     const tree: Record<string, Set<string>> = {};
     allTestable.forEach(c => {
-      if (!tree[c.categoryId]) tree[c.categoryId] = new Set();
-      if (c.subcategory) tree[c.categoryId].add(c.subcategory);
+      if (!tree[c.category]) tree[c.category] = new Set();
+      if (c.subcategory) tree[c.category].add(c.subcategory);
     });
     return tree;
   }, [allTestable]);
@@ -48,7 +48,7 @@ export default function MnemonicTest({ cards, onRecordResult, onBack }: Props) {
   // Filtered testable cards based on selector
   const filteredTestable = useMemo(() => {
     let result = allTestable;
-    if (filterCategory) result = result.filter(c => c.categoryId === filterCategory);
+    if (filterCategory) result = result.filter(c => c.category === filterCategory);
     if (filterSubcategory) result = result.filter(c => c.subcategory === filterSubcategory);
     if (filterHookType) result = result.filter(c => c.hookType === filterHookType);
     return result;
@@ -167,7 +167,7 @@ export default function MnemonicTest({ cards, onRecordResult, onBack }: Props) {
               Svi ({allTestable.length})
             </button>
             {Object.entries(categoryTree).map(([cat, subs]) => {
-              const count = allTestable.filter(c => c.categoryId === cat).length;
+              const count = allTestable.filter(c => c.category === cat).length;
               return (
                 <button
                   key={cat}
@@ -192,7 +192,7 @@ export default function MnemonicTest({ cards, onRecordResult, onBack }: Props) {
                   Sve
                 </button>
                 {subcategories.map(sub => {
-                  const count = allTestable.filter(c => c.categoryId === filterCategory && c.subcategory === sub).length;
+                  const count = allTestable.filter(c => c.category === filterCategory && c.subcategory === sub).length;
                   return (
                     <button
                       key={sub}
