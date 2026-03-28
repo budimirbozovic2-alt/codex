@@ -213,6 +213,7 @@ export function useCards() {
     srSettings,
     ready,
     dbError,
+    patchCard,
     addCard,
     addFlashCard,
     updateCard,

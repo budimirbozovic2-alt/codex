@@ -243,6 +243,7 @@ function CardProvider({ children }: { children: ReactNode }) {
   // B1 fix: Ref-based stable actions — context value never changes reference
   const actionsRef = useRef<CardActionsContextValue>(null!);
   actionsRef.current = {
+    patchCard: h.patchCard,
     addCard: h.addCard, addFlashCard: h.addFlashCard, updateCard: h.updateCard,
     deleteCard: h.deleteCard, splitCard: h.splitCard, reviewSection: h.reviewSection,
     markRead: h.markRead, toggleTag: h.toggleTag, addKeyPart: h.addKeyPart,
