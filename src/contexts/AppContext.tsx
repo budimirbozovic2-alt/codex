@@ -46,6 +46,7 @@ export interface PomodoroState {
 interface CardDataContextValue {
   cards: Card[];
   categories: string[];
+  categoryRecords: import("@/lib/db").CategoryRecord[];
   subcategories: Record<string, string[]>;
   dueCards: Card[];
   stats: ReturnType<typeof import("@/lib/spaced-repetition").getStats>;
