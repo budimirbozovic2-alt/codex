@@ -14,7 +14,7 @@ interface Props {
   sourceLabel: string;
   selectedText: string;
   cards: Card[];
-  onLink: (cardId: string) => void;
+  onLink: (cardId: string, appendSnippet: boolean) => void;
 }
 
 export default function LinkToExistingCardModal({
