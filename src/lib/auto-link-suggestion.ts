@@ -51,7 +51,7 @@ export async function findBulkAutoLinkSuggestions(
 
     for (const { source, labelLower } of sourceIndex) {
       // Rule A: category must match (direct field)
-      if (source.categoryId !== card.categoryIdId) continue;
+      if (source.categoryId !== card.categoryId) continue;
 
       // Rule B: content match
       let matched = false;

@@ -104,7 +104,7 @@ export function useCategoryManagement({
       // F3 fix: Cascade delete to sources — reassign to "Opšte"
       (async () => {
         try {
-          await db.sources.where("category").equals(name).modify({ categoryId: "Opšte" });
+          await db.sources.where("categoryId").equals(name).modify({ categoryId: "Opšte" });
           invalidateSourcesCache();
         } catch (err) {
           console.error("[deleteCategory] source cascade failed", err);

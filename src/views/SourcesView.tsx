@@ -627,7 +627,7 @@ export default function SourcesView() {
           </DialogHeader>
           <div className="space-y-4">
             <p className="text-sm">
-              Izvor <strong>"{deleteConfirmSource?.label}"</strong> je povezan sa{" "}
+              Izvor <strong>"{deleteConfirmSource?.title}"</strong> je povezan sa{" "}
               <strong className="text-destructive">{deleteLinkedCount} modula</strong>.
             </p>
             <p className="text-sm text-muted-foreground">

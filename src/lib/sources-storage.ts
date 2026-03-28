@@ -57,9 +57,6 @@ export async function saveSource(source: Source): Promise<void> {
 export async function deleteSource(id: string): Promise<void> {
   _cache = null;
 
-  const source = await db.sources.get(id);
-  const sourceLabel = source?.label;
-
   const clearedIds: string[] = [];
   await db.transaction("rw", [db.sources, db.cards], async () => {
     const linkedCards = await db.cards.where("sourceId").equals(id).toArray();
@@ -81,13 +78,6 @@ export async function deleteSource(id: string): Promise<void> {
     for (const fn of _cardLinkListeners) {
       try { fn(clearedIds); } catch { /* swallow */ }
     }
-  }
-
-  if (sourceLabel) {
-    try {
-        }
-      }
-    } catch { /* non-critical */ }
   }
 
   _notify();

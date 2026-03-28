@@ -519,7 +519,7 @@ export default function SpeedReader() {
             ) : (
               <>
                 <h2 className="text-xl font-medium">{selCard?.question}</h2>
-                <p className="text-xs text-muted-foreground">{selCard?.category}{selCard?.subcategory ? ` › ${selCard.subcategory}` : ""}</p>
+                <p className="text-xs text-muted-foreground">{selCard?.categoryId}{selCard?.subcategory ? ` › ${selCard.subcategory}` : ""}</p>
               </>
             )}
           </div>

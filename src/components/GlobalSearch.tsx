@@ -88,13 +88,13 @@ export default function GlobalSearch({ cards, open, onClose, onNavigateToCard }:
 
     // Search sources
     sources
-      .filter((s) => s.label.toLowerCase().includes(q))
+      .filter((s) => s.title.toLowerCase().includes(q))
       .slice(0, 5)
       .forEach((s) => {
         out.push({
           id: s.id,
           type: "source",
-          title: s.label,
+          title: s.title,
           subtitle: `v${s.version} • ${s.date}`,
           icon: "source",
           sourceId: s.id,

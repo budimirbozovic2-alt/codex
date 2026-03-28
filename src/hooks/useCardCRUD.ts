@@ -99,7 +99,7 @@ export function useCardCRUD({
       updates: {
         question?: string;
         sections?: { title: string; content: string }[];
-        category?: string;
+        categoryId?: string;
         subcategory?: string;
         chapter?: string;
         sourceId?: string;

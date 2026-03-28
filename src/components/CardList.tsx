@@ -251,7 +251,7 @@ export default function CardList({
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
 
   const filtered = useMemo(() => {
-    let result = filterCategory ? cards.filter(c => c.category === filterCategory) : cards;
+    let result = filterCategory ? cards.filter(c => c.categoryId === filterCategory) : cards;
     if (filterSubcategory === "__none__") result = result.filter(c => !c.subcategory);
     else if (filterSubcategory) result = result.filter(c => c.subcategory === filterSubcategory);
     if (filterChapter) result = result.filter(c => c.chapter === filterChapter);
