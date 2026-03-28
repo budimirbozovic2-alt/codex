@@ -1,7 +1,7 @@
 import { ChevronRight } from "lucide-react";
-import { useLocation, Link, useParams } from "react-router-dom";
-import { useEffect, useState } from "react";
-import { db } from "@/lib/db";
+import { useLocation, Link } from "react-router-dom";
+import { useMemo } from "react";
+import { useCardData } from "@/contexts/AppContext";
 
 const ROUTE_LABELS: Record<string, string> = {
   "/": "Dashboard",
@@ -30,14 +30,15 @@ const LAB_ROUTES = new Set(["/stats", "/knowledge-map", "/metacognitive", "/mnem
 
 export default function Breadcrumbs() {
   const { pathname } = useLocation();
+  const { categoryRecords } = useCardData();
+
   const categoryMatch = pathname.match(/^\/category\/([^/]+)/);
   const categoryId = categoryMatch?.[1];
-  const [categoryName, setCategoryName] = useState<string>("");
 
-  useEffect(() => {
-    if (!categoryId) { setCategoryName(""); return; }
-    db.categories.get(categoryId).then(c => setCategoryName(c?.name ?? "")).catch(() => {});
-  }, [categoryId]);
+  const categoryName = useMemo(() => {
+    if (!categoryId) return "";
+    return categoryRecords.find(c => c.id === categoryId)?.name ?? "…";
+  }, [categoryId, categoryRecords]);
 
   if (pathname === "/") return null;
 
@@ -46,7 +47,7 @@ export default function Breadcrumbs() {
   ];
 
   if (categoryId) {
-    crumbs.push({ label: categoryName || "…", path: null });
+    crumbs.push({ label: categoryName, path: null });
   } else if (LAB_ROUTES.has(pathname)) {
     crumbs.push({ label: "Laboratorija", path: null });
     const label = ROUTE_LABELS[pathname];

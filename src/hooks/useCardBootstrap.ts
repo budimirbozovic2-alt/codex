@@ -27,13 +27,14 @@ async function withTimeout<T>(task: Promise<T>, timeoutMs: number, label: string
 interface BootSetters {
   setCardMapState: React.Dispatch<React.SetStateAction<CardMap>>;
   setCategoriesState: React.Dispatch<React.SetStateAction<string[]>>;
+  setCategoryRecordsState: React.Dispatch<React.SetStateAction<CategoryRecord[]>>;
   setSubcategoriesState: React.Dispatch<React.SetStateAction<Record<string, string[]>>>;
   setReviewLogState: React.Dispatch<React.SetStateAction<ReviewLogEntry[]>>;
   setSrSettingsState: React.Dispatch<React.SetStateAction<SRSettings>>;
 }
 
 export function useCardBootstrap(setters: BootSetters) {
-  const { setCardMapState, setCategoriesState, setSubcategoriesState, setReviewLogState, setSrSettingsState } = setters;
+  const { setCardMapState, setCategoriesState, setCategoryRecordsState, setSubcategoriesState, setReviewLogState, setSrSettingsState } = setters;
   const [ready, setReady] = useState(false);
   const [dbError, setDbError] = useState<{ type: "version" | "timeout"; message: string } | null>(null);
   const initialLoadDone = useRef(false);
@@ -148,6 +149,7 @@ export function useCardBootstrap(setters: BootSetters) {
 
         setCardMapState(arrayToMap(c));
         setCategoriesState(catNames);
+        setCategoryRecordsState(catRecords);
         setSubcategoriesState(subsMap);
         setReviewLogState(log);
         setSrSettingsState(settings);

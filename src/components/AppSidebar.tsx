@@ -1,6 +1,4 @@
-import { useEffect } from "react";
 import { useLocation } from "react-router-dom";
-import { useLiveQuery } from "dexie-react-hooks";
 import { NavLink } from "@/components/NavLink";
 import {
   Home, Landmark, Settings as SettingsIcon, RotateCcw,
@@ -11,9 +9,8 @@ import {
   SidebarGroupContent, SidebarMenu, SidebarMenuItem, SidebarMenuButton,
   useSidebar,
 } from "@/components/ui/sidebar";
-import { db, seedDefaultCategories } from "@/lib/db";
 import { Badge } from "@/components/ui/badge";
-import { useCardContext } from "@/contexts/AppContext";
+import { useCardData } from "@/contexts/AppContext";
 
 const STATIC_NAV = [
   { path: "/", icon: Home, label: "Dashboard" },
@@ -34,14 +31,7 @@ export default function AppSidebar() {
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
   const location = useLocation();
-  const { stats } = useCardContext();
-  const categories = useLiveQuery(() => db.categories.orderBy("sortOrder").toArray()) ?? [];
-
-  useEffect(() => {
-    if (categories.length === 0) {
-      seedDefaultCategories().catch(console.error);
-    }
-  }, [categories.length]);
+  const { stats, categoryRecords } = useCardData();
 
   return (
     <Sidebar collapsible="icon">
@@ -75,12 +65,12 @@ export default function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
 
-        {/* Categories */}
+        {/* Categories — from boot context, not useLiveQuery */}
         <SidebarGroup>
           <SidebarGroupLabel>Predmeti</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {categories.map((cat) => {
+              {categoryRecords.map((cat) => {
                 const catPath = `/category/${cat.id}`;
                 const isActive = location.pathname.startsWith(catPath);
                 return (
