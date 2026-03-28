@@ -81,12 +81,15 @@ export function useCategoryManagement({
   const deleteCategory = useCallback(
     (name: string) => {
       setCategories((prev) => prev.filter((c) => c !== name));
+      // Find first remaining category UUID to reassign orphans
+      const remaining = getCategoryRecords().filter(r => r.name !== name);
+      const fallbackId = remaining.length > 0 ? remaining[0].id : "";
       const now = Date.now();
       const changed: Card[] = [];
       const nextRef = { ...cardMapRef.current };
       for (const [id, c] of Object.entries(nextRef)) {
         if (c.categoryId === name) {
-          const u = { ...c, categoryId: "Opšte", subcategory: "", updatedAt: now };
+          const u = { ...c, categoryId: fallbackId, subcategory: "", updatedAt: now };
           nextRef[id] = u;
           changed.push(u);
         }
@@ -103,18 +106,18 @@ export function useCategoryManagement({
         return next;
       });
 
-      // F3 fix: Cascade delete to sources — reassign to "Opšte"
+      // Cascade to sources — reassign to fallback UUID
       (async () => {
         try {
-          await db.sources.where("categoryId").equals(name).modify({ categoryId: "Opšte" });
+          await db.sources.where("categoryId").equals(name).modify({ categoryId: fallbackId });
           invalidateSourcesCache();
         } catch (err) {
           console.error("[deleteCategory] source cascade failed", err);
-          toast({ title: "Greška pri ažuriranju izvora", description: "Izvori nisu prebačeni u 'Opšte'. Pokušajte ponovo.", variant: "destructive" });
+          toast({ title: "Greška pri ažuriranju izvora", description: "Izvori nisu prebačeni. Pokušajte ponovo.", variant: "destructive" });
         }
       })();
     },
-    [setCategories, setCardMapState, setSubcategories, cardMapRef],
+    [setCategories, setCardMapState, setSubcategories, cardMapRef, getCategoryRecords],
   );
 
   const addSubcategory = useCallback(
