@@ -65,7 +65,7 @@ export function useCategoryManagement({
       // F4 fix: Cascade rename to sources
       (async () => {
         try {
-          await db.sources.where("category").equals(oldName).modify({ categoryId: newName });
+          await db.sources.where("categoryId").equals(oldName).modify({ categoryId: newName });
           invalidateSourcesCache();
         } catch (err) {
           console.error("[renameCategory] source cascade failed", err);
