@@ -1,4 +1,4 @@
-import { createContext, useContext, useCallback, useMemo, useState, useEffect, useRef, ReactNode, Suspense, lazy } from "react";
+import { createContext, useContext, useCallback, useMemo, useState, useEffect, useRef, ReactNode, Suspense, lazy, ComponentType } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useCards } from "@/hooks/useCards";
 import { Card } from "@/lib/spaced-repetition";
