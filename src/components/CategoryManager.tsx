@@ -20,9 +20,9 @@ interface Props {
   onAdd: (name: string) => void;
   onRename: (oldName: string, newName: string) => void;
   onDelete: (name: string, purgeCards?: boolean) => void;
-  onAddSub: (category: string, subcategory: string) => void;
-  onRenameSub: (category: string, oldName: string, newName: string) => void;
-  onDeleteSub: (category: string, subcategory: string) => void;
+  onAddSub?: (category: string, subcategory: string) => void;
+  onRenameSub?: (category: string, oldName: string, newName: string) => void;
+  onDeleteSub?: (category: string, subcategory: string) => void;
   onClose?: () => void;
 }
 
