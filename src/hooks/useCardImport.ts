@@ -106,11 +106,15 @@ export function useCardImport({
         setCardMapState(() => nextMap);
         bumpMapVersion();
 
+        let importedAsRecords = false;
+        let freshRecords: CategoryRecord[] = [];
+
         if (Array.isArray(data.categories) && (data.categories as unknown[]).length > 0) {
           const firstCat = (data.categories as unknown[])[0];
           const isRecordFormat = typeof firstCat === 'object' && firstCat !== null && 'id' in firstCat;
 
           if (isRecordFormat) {
+            importedAsRecords = true;
             // v7+ CategoryRecord[] — write directly to IDB preserving UUIDs
             const { db: dbCat, idbLoadCategories } = await import("@/lib/db");
             const catRecords = data.categories as CategoryRecord[];
@@ -118,11 +122,9 @@ export function useCardImport({
               await dbCat.categories.clear();
               await dbCat.categories.bulkPut(catRecords);
             } else {
-              // Merge: bulkPut upserts, existing records preserved for skip
               await dbCat.categories.bulkPut(catRecords);
             }
-            // Sync React state from IDB
-            const freshRecords = await idbLoadCategories();
+            freshRecords = await idbLoadCategories();
             setCategoryRecordsState(freshRecords);
             setCategories(() => freshRecords.map(r => r.name));
           } else {
@@ -134,8 +136,15 @@ export function useCardImport({
             }
           }
         }
-        if (strategy === "overwrite" && (!data.subcategories || Object.keys(data.subcategories as object).length === 0)) {
-          // C3 fix: Clear subcategories on overwrite when backup has none
+
+        // Subcategories: for v7+ records, derive from embedded data; for legacy, use separate field
+        if (importedAsRecords) {
+          const subMap: Record<string, string[]> = {};
+          freshRecords.forEach(r => {
+            if (r.subcategories && r.subcategories.length > 0) subMap[r.name] = r.subcategories;
+          });
+          setSubcategories(() => subMap);
+        } else if (strategy === "overwrite" && (!data.subcategories || Object.keys(data.subcategories as object).length === 0)) {
           setSubcategories(() => ({}));
         } else if (data.subcategories && typeof data.subcategories === "object") {
           if (strategy === "overwrite") {

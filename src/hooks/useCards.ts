@@ -157,7 +157,7 @@ export function useCards() {
   });
 
   // ── Export/Import (extracted to separate modules) ──
-  const { exportData, exportTemplate } = useCardExport({ cards, subcategories, srSettings });
+  const { exportData, exportTemplate } = useCardExport({ cards, srSettings });
   const { importData, importCards } = useCardImport({
     setCategories, setSubcategories,
     setReviewLog: setReviewLogState, updateSRSettings,

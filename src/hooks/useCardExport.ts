@@ -185,7 +185,7 @@ export function useCardExport({ cards, srSettings }: UseCardExportDeps) {
       }
       setLastBackupTime();
     },
-    [cards, subcategories, srSettings],
+    [cards, srSettings],
   );
 
   return { exportData, exportTemplate };
