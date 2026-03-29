@@ -1,4 +1,5 @@
 import { useState, useCallback, useMemo } from "react";
+import { sanitizeHtml } from "@/lib/sanitize";
 import { ChevronDown, ChevronRight, ArrowRightLeft, Star, Filter, X, Plus, Upload } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
