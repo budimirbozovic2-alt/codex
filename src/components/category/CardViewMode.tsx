@@ -1,6 +1,6 @@
 import { useState, useCallback, useMemo } from "react";
 import { sanitizeHtml } from "@/lib/sanitize";
-import { ChevronDown, ChevronRight, ArrowRightLeft, Star, Filter, X, Plus, Upload, Pencil, Trash2, CheckSquare, Link2, BookOpen } from "lucide-react";
+import { ChevronDown, ChevronRight, ArrowRightLeft, Star, Filter, X, Plus, Upload, Pencil, Trash2, CheckSquare, Link2, BookOpen, AlertTriangle } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
