@@ -47,7 +47,7 @@ export default function CategoryView() {
     [categoryId]
   ) ?? 0;
 
-  const { addCard, addFlashCard, patchCard, toggleTag, addSubcategory, renameSubcategory, deleteSubcategory, deleteCard } = useCardActions();
+  const { addCard, addFlashCard, patchCard, toggleTag, addSubcategory, renameSubcategory, deleteSubcategory, deleteCard, bulkFlagNeedsReview } = useCardActions();
 
   const [orgMode, setOrgMode] = useState(false);
 
