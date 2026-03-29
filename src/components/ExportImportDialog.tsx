@@ -28,6 +28,7 @@ interface ImportValidation {
   type: string;
   fileSizeKB: number;
   duplicateCount: number;
+  duplicateCategoryCount: number;
   uniqueCount: number;
   valid: boolean;
   errors: string[];
