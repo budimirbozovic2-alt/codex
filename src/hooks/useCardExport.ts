@@ -166,7 +166,7 @@ export function useCardExport({ cards, srSettings }: UseCardExportDeps) {
       const freshCards = allCards.length > 0 ? allCards : cards; // fallback to prop if IDB empty
 
       const data = {
-        version: 4, type: "full",
+        version: 5, type: "full",
         cards: freshCards, categories: catRecords, subcategories: deriveSubMap(catRecords),
         reviewLog: fullReviewLog, srSettings,
         sources, mindMaps, diary, calibrationLog, latencyLog,
