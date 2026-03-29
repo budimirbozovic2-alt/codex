@@ -154,7 +154,7 @@ export function useCardExport({ cards, subcategories, srSettings }: UseCardExpor
 
       const data = {
         version: 4, type: "full",
-        cards: freshCards, categories, subcategories,
+        cards: freshCards, categories: catRecords, subcategories,
         reviewLog: fullReviewLog, srSettings,
         sources, mindMaps, diary, calibrationLog, latencyLog,
         slippageLog, activityLog, disciplineLog, pomodoroLog,
