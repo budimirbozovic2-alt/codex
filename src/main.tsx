@@ -135,9 +135,9 @@ setTimeout(() => {
         }
 
         const data: Record<string, unknown> = {
-          version: 4, type: "full",
+          version: 5, type: "full",
           cards,
-          categories: categories.map(r => r.name),
+          categories: categories,
           subcategories,
           sources, mindMaps,
           diary, calibrationLog, latencyLog, slippageLog, activityLog, disciplineLog, pomodoroLog,
