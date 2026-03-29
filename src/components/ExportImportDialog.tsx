@@ -106,8 +106,11 @@ export default function ExportImportDialog({ open, onOpenChange, onExportTemplat
         errors.push("Fajl ne sadrži validan JSON objekat.");
       }
 
-      // Validate Categories Schema
-      if (parsed.categories && Array.isArray(parsed.categories)) {
+      // Validate Categories Schema (backward compatible with legacy string[])
+      const isLegacyCategoryFormat = parsed.categories && Array.isArray(parsed.categories) &&
+        parsed.categories.length > 0 && typeof parsed.categories[0] === 'string';
+
+      if (parsed.categories && Array.isArray(parsed.categories) && !isLegacyCategoryFormat) {
         for (let i = 0; i < parsed.categories.length; i++) {
           const cat = parsed.categories[i];
           if (!isValidUUID(cat.id)) {
