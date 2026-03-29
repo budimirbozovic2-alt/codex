@@ -3,6 +3,7 @@ import { toast } from "sonner";
 import { Card, createCard, SRSettings, DEFAULT_SR_SETTINGS } from "@/lib/spaced-repetition";
 import { ReviewLogEntry } from "@/lib/storage";
 import { CardMap, bumpMapVersion, schedulePersist } from "@/lib/persist-queue";
+import { type CategoryRecord } from "@/lib/db";
 
 interface UseCardImportDeps {
   setCategories: (updater: (prev: string[]) => string[]) => void;
@@ -11,6 +12,7 @@ interface UseCardImportDeps {
   updateSRSettings: (settings: SRSettings) => void;
   setCardMapState: (updater: (prev: CardMap) => CardMap) => void;
   cardMapRef: MutableRefObject<CardMap>;
+  setCategoryRecordsState: (records: CategoryRecord[]) => void;
 }
 
 export function useCardImport({
