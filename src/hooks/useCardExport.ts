@@ -3,7 +3,21 @@ import { toast } from "sonner";
 import { Card, SRSettings } from "@/lib/spaced-repetition";
 import { setLastBackupTime } from "@/lib/storage";
 
-function downloadFile(blob: Blob, filename: string) {
+async function downloadFile(blob: Blob, filename: string) {
+  // Use native Electron save dialog if available
+  if (window.electronAPI?.showSaveDialog) {
+    const ext = filename.endsWith('.zip') ? 'zip' : 'json';
+    const result = await window.electronAPI.showSaveDialog({
+      defaultPath: filename,
+      filters: [{ name: ext === 'zip' ? 'ZIP Archive' : 'JSON File', extensions: [ext] }],
+    });
+    if (result.canceled || !result.filePath) return;
+    const arrayBuffer = await blob.arrayBuffer();
+    const base64 = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
+    await window.electronAPI.saveFile(result.filePath, base64);
+    return;
+  }
+  // Web fallback
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;

@@ -23,6 +23,11 @@ interface ElectronAPI {
   onWindowMaximizedChanged: (callback: (isMaximized: boolean) => void) => () => void;
   isElectron: true;
   logError: (message: string) => Promise<boolean>;
+  // Native file dialogs
+  showSaveDialog: (options: Record<string, unknown>) => Promise<{ canceled: boolean; filePath?: string }>;
+  showOpenDialog: (options: Record<string, unknown>) => Promise<{ canceled: boolean; filePaths: string[] }>;
+  saveFile: (filePath: string, base64Data: string) => Promise<boolean>;
+  readFile: (filePath: string) => Promise<{ data: string; name: string } | null>;
 }
 
 interface Window {

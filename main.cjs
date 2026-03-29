@@ -1,4 +1,4 @@
-const { app, session, ipcMain, protocol, net } = require('electron');
+const { app, session, ipcMain, protocol, net, dialog } = require('electron');
 const path = require('path');
 const fs = require('fs');
 
@@ -62,6 +62,39 @@ ipcMain.handle('log-error', (_event, message) => {
   const line = `[${timestamp}] ${typeof message === 'string' ? message : JSON.stringify(message)}\n`;
   try { fs.appendFileSync(rendererLogPath, line); } catch (_) {}
   return true;
+});
+
+// ── Native file dialogs ──
+ipcMain.handle('show-save-dialog', async (_event, options) => {
+  const win = getMainWindow();
+  if (!win) return { canceled: true };
+  return dialog.showSaveDialog(win, options);
+});
+
+ipcMain.handle('show-open-dialog', async (_event, options) => {
+  const win = getMainWindow();
+  if (!win) return { canceled: true, filePaths: [] };
+  return dialog.showOpenDialog(win, options);
+});
+
+ipcMain.handle('save-file', async (_event, filePath, base64Data) => {
+  try {
+    fs.writeFileSync(filePath, Buffer.from(base64Data, 'base64'));
+    return true;
+  } catch (err) {
+    logCrash('save-file', err);
+    return false;
+  }
+});
+
+ipcMain.handle('read-file', async (_event, filePath) => {
+  try {
+    const data = fs.readFileSync(filePath);
+    return { data: data.toString('base64'), name: path.basename(filePath) };
+  } catch (err) {
+    logCrash('read-file', err);
+    return null;
+  }
 });
 
 app.whenReady().then(() => {

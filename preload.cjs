@@ -38,4 +38,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   isElectron: true,
   // Log error to file via main process
   logError: (message) => ipcRenderer.invoke('log-error', message),
+  // Native file dialogs
+  showSaveDialog: (options) => ipcRenderer.invoke('show-save-dialog', options),
+  showOpenDialog: (options) => ipcRenderer.invoke('show-open-dialog', options),
+  saveFile: (filePath, base64Data) => ipcRenderer.invoke('save-file', filePath, base64Data),
+  readFile: (filePath) => ipcRenderer.invoke('read-file', filePath),
 });

@@ -268,7 +268,23 @@ export default function ExportImportDialog({ open, onOpenChange, onExportTemplat
                   <p className="text-xs text-muted-foreground">Izvezite kartice ili kompletan backup</p>
                 </div>
               </Button>
-              <Button variant="outline" className="justify-start gap-3 h-auto py-4" onClick={() => fileRef.current?.click()}>
+              <Button variant="outline" className="justify-start gap-3 h-auto py-4" onClick={async () => {
+                if (window.electronAPI?.showOpenDialog) {
+                  const result = await window.electronAPI.showOpenDialog({
+                    filters: [{ name: 'Codex Backup', extensions: ['json', 'zip'] }],
+                    properties: ['openFile'],
+                  });
+                  if (result.canceled || !result.filePaths?.length) return;
+                  const fileResult = await window.electronAPI.readFile(result.filePaths[0]);
+                  if (!fileResult) return;
+                  const bytes = Uint8Array.from(atob(fileResult.data), c => c.charCodeAt(0));
+                  const file = new File([bytes], fileResult.name);
+                  const fakeEvent = { target: { files: [file], value: '' } } as unknown as React.ChangeEvent<HTMLInputElement>;
+                  handleFileSelect(fakeEvent);
+                } else {
+                  fileRef.current?.click();
+                }
+              }}>
                 <Upload className="h-5 w-5 text-primary" />
                 <div className="text-left">
                   <p className="font-medium">Import podataka</p>
