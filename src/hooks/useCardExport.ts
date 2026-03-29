@@ -110,7 +110,7 @@ export function useCardExport({ cards, srSettings }: UseCardExportDeps) {
         toast.success("Template uspješno exportovan.");
       }
     },
-    [cards, subcategories],
+    [cards],
   );
 
   const exportData = useCallback(
