@@ -203,6 +203,12 @@ export default function ExportImportDialog({ open, onOpenChange, onExportTemplat
       const existingIds = new Set(cards.map(c => c.id));
       const duplicateCount = importedCards.filter(c => existingIds.has(c.id)).length;
 
+      // Category conflict detection
+      const existingCatIds = new Set((await db.categories.toArray()).map(c => c.id));
+      const duplicateCategoryCount = Array.isArray(parsed.categories)
+        ? parsed.categories.filter((c: any) => existingCatIds.has(c.id)).length
+        : 0;
+
       const validationResult: ImportValidation = {
         file,
         totalCards: importedCards.length,
@@ -211,6 +217,7 @@ export default function ExportImportDialog({ open, onOpenChange, onExportTemplat
         type: parsed.type || "unknown",
         fileSizeKB: Math.round(file.size / 1024),
         duplicateCount,
+        duplicateCategoryCount,
         uniqueCount: importedCards.length - duplicateCount,
         valid: errors.length === 0,
         errors,
@@ -221,7 +228,7 @@ export default function ExportImportDialog({ open, onOpenChange, onExportTemplat
 
       if (!validationResult.valid) {
         setStep("import-confirm");
-      } else if (duplicateCount > 0) {
+      } else if (duplicateCount > 0 || duplicateCategoryCount > 0) {
         setStep("import-conflict");
       } else {
         setStep("import-confirm");
