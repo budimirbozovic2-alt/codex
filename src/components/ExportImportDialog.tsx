@@ -423,30 +423,30 @@ export default function ExportImportDialog({ open, onOpenChange, onExportTemplat
                 Pronađeni duplikati
               </DialogTitle>
               <DialogDescription>
-                Od {validation.totalCards.toLocaleString()} kartica, {validation.duplicateCount.toLocaleString()} već postoji.
-                {validation.uniqueCount > 0 && ` ${validation.uniqueCount.toLocaleString()} novih će biti dodato.`}
+                Pronađeno je preklapanje! Od {validation.totalCards.toLocaleString()} kartica, {validation.duplicateCount.toLocaleString()} već postoji.
+                {validation.duplicateCategoryCount > 0 && ` Pronađeno je i preklapanje kod ${validation.duplicateCategoryCount} predmeta.`}
               </DialogDescription>
             </DialogHeader>
             <div className="grid gap-3 py-4">
               <Button variant="outline" className="justify-start gap-3 h-auto py-4" onClick={() => handleImport("newer")}>
                 <Clock className="h-5 w-5 text-primary" />
                 <div className="text-left">
-                  <p className="font-medium">Zadrži noviji progres</p>
-                  <p className="text-xs text-muted-foreground">Za svaku karticu — zadrži onu koja je novije ponavljana</p>
+                  <p className="font-medium">Pametno spajanje (Preporučeno)</p>
+                  <p className="text-xs text-muted-foreground">Zadrži noviji progres za kartice, spoji predmete</p>
                 </div>
               </Button>
               <Button variant="outline" className="justify-start gap-3 h-auto py-4" onClick={() => handleImport("keep")}>
                 <Check className="h-5 w-5 text-success" />
                 <div className="text-left">
-                  <p className="font-medium">Zadrži moj progres</p>
-                  <p className="text-xs text-muted-foreground">Postojeće kartice ostaju, dodaju se samo nove</p>
+                  <p className="font-medium">Dodaj samo nove (Merge)</p>
+                  <p className="text-xs text-muted-foreground">Postojeće kartice i predmeti ostaju netaknuti, dodaju se samo nove</p>
                 </div>
               </Button>
               <Button variant="outline" className="justify-start gap-3 h-auto py-4" onClick={() => handleImport("overwrite")}>
                 <Download className="h-5 w-5 text-destructive" />
                 <div className="text-left">
-                  <p className="font-medium">Osvježi iz fajla</p>
-                  <p className="text-xs text-muted-foreground">Duplikati će biti zamijenjeni podacima iz fajla</p>
+                  <p className="font-medium">Prepiši sve (Overwrite)</p>
+                  <p className="text-xs text-muted-foreground">Oprez: Duplikati i predmeti će biti prepisani podacima iz fajla</p>
                 </div>
               </Button>
             </div>
