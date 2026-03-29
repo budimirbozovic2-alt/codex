@@ -237,7 +237,7 @@ export default function ExportImportDialog({ open, onOpenChange, onExportTemplat
       setValidation({
         file, totalCards: 0, totalCategories: 0, hasProgress: false,
         type: "unknown", fileSizeKB: Math.round(file.size / 1024),
-        duplicateCount: 0, uniqueCount: 0, valid: false,
+        duplicateCount: 0, duplicateCategoryCount: 0, uniqueCount: 0, valid: false,
         errors: [`Greška pri čitanju fajla: ${err instanceof Error ? err.message : "Neispravan format"}`],
       });
       setStep("import-confirm");
