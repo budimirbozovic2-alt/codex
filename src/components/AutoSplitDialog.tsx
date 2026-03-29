@@ -245,20 +245,13 @@ export default function AutoSplitDialog({ open, onClose, source }: Props) {
       updateCard(u.id, u.patch);
     }
 
-    // Post-import IDB verification: flush pending writes, then re-read from IDB
-    // to guarantee React state is fully synchronized with persisted data
+    // Post-import: flush persist queue to guarantee IDB write completes
+    // before user navigates away (prevents phantom cards scenario)
     await persistQueue.flush();
-    const freshCards = await db.cards.toArray();
-    if (freshCards.length > 0) {
-      const { arrayToMap, bumpMapVersion } = await import("@/lib/persist-queue");
-      const freshMap = arrayToMap(freshCards);
-      // Force React state to match IDB — uses the action from context indirectly
-      // by dispatching through bulkAddCards with an empty diff (state setter replaces)
-      bulkAddCards([]); // no-op for IDB, but triggers state setter
-      // Direct state sync via fresh IDB read
-      const { default: _noop } = { default: null }; // scope guard
-      void _noop;
-    }
+
+    // Verification: confirm cards landed in IDB
+    const idbCount = await db.cards.count();
+    console.log(`[AutoSplit] Bulk import done: ${newCards.length} new, ${updates.length} updated, IDB total: ${idbCount}`);
 
     setProgress(100);
     const count = newCards.length + updates.length;
