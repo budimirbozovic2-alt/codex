@@ -1,9 +1,12 @@
+import { sanitizeHtml } from "@/lib/sanitize";
+
 /**
  * Highlights key parts in HTML content by wrapping matched text
  * with a <mark> tag using the accent system color.
+ * Output is always sanitized for defense-in-depth XSS protection.
  */
 export function highlightKeyParts(html: string, keyParts?: string[]): string {
-  if (!keyParts || keyParts.length === 0) return html;
+  if (!keyParts || keyParts.length === 0) return sanitizeHtml(html);
 
   let result = html;
   for (const part of keyParts) {
