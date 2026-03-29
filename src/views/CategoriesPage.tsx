@@ -6,7 +6,6 @@ export default function CategoriesPage() {
   const {
     categories, subcategories, cardCountByCategory,
     addCategory, renameCategory, deleteCategory,
-    addSubcategory, renameSubcategory, deleteSubcategory,
   } = useCardContext();
   const { setView } = useUIContext();
 
@@ -19,9 +18,6 @@ export default function CategoriesPage() {
         onAdd={addCategory}
         onRename={renameCategory}
         onDelete={deleteCategory}
-        onAddSub={addSubcategory}
-        onRenameSub={renameSubcategory}
-        onDeleteSub={deleteSubcategory}
         onClose={() => setView("dashboard")}
       />
     </ErrorBoundary>

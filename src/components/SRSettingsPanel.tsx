@@ -30,7 +30,6 @@ export default function SRSettingsPanel({ settings, onUpdate }: Props) {
     cards, categories, subcategories, cardCountByCategory,
     exportData, exportTemplate, importData,
     addCategory, renameCategory, deleteCategory,
-    addSubcategory, renameSubcategory, deleteSubcategory,
   } = useCardContext();
   const [app, setApp] = useState<AppSettings>(initialAppRef.current);
   const [tts, setTts] = useState<TTSSettings>(initialTtsRef.current);
@@ -467,9 +466,6 @@ export default function SRSettingsPanel({ settings, onUpdate }: Props) {
               onAdd={addCategory}
               onRename={renameCategory}
               onDelete={deleteCategory}
-              onAddSub={addSubcategory}
-              onRenameSub={renameSubcategory}
-              onDeleteSub={deleteSubcategory}
             />
           </div>
         </TabsContent>

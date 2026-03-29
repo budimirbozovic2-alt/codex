@@ -1,4 +1,4 @@
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import { useState, useCallback, useMemo, useRef } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db, type Source } from "@/lib/db";
@@ -23,6 +23,7 @@ import CategoryMindMaps from "@/components/category/CategoryMindMaps";
 
 export default function CategoryView() {
   const { categoryId } = useParams<{ categoryId: string }>();
+  const navigate = useNavigate();
 
   const category = useLiveQuery(
     () => categoryId ? db.categories.get(categoryId) : undefined,
@@ -46,7 +47,7 @@ export default function CategoryView() {
     [categoryId]
   ) ?? 0;
 
-  const { addCard, addFlashCard, patchCard, toggleTag, addSubcategory, renameSubcategory, deleteSubcategory } = useCardActions();
+  const { addCard, addFlashCard, patchCard, toggleTag, addSubcategory, renameSubcategory, deleteSubcategory, deleteCard } = useCardActions();
 
   const [orgMode, setOrgMode] = useState(false);
 
@@ -178,6 +179,8 @@ export default function CategoryView() {
               toggleTag={toggleTag}
               addCard={addCard}
               addFlashCard={addFlashCard}
+              onDelete={deleteCard}
+              onEdit={(card) => navigate(`/edit/${card.id}`)}
             />
           )}
         </TabsContent>

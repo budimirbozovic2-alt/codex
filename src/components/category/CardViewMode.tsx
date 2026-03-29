@@ -1,6 +1,7 @@
 import { useState, useCallback, useMemo } from "react";
 import { sanitizeHtml } from "@/lib/sanitize";
-import { ChevronDown, ChevronRight, ArrowRightLeft, Star, Filter, X, Plus, Upload } from "lucide-react";
+import { ChevronDown, ChevronRight, ArrowRightLeft, Star, Filter, X, Plus, Upload, Pencil, Trash2, CheckSquare, Link2, BookOpen } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -23,6 +24,8 @@ interface Props {
   toggleTag: (cardId: string, tag: string) => void;
   addCard: (question: string, sections: { title: string; content: string }[], category: string, subcategory?: string, chapter?: string) => Card;
   addFlashCard: (question: string, answer: string, category: string, subcategory?: string) => Card;
+  onDelete?: (id: string) => void;
+  onEdit?: (card: Card) => void;
 }
 
 function stabilityLabel(s: number): { text: string; color: string } {
@@ -31,9 +34,11 @@ function stabilityLabel(s: number): { text: string; color: string } {
   return { text: "Slabo", color: "text-red-500" };
 }
 
-export default function CardViewMode({ cards, categoryId, allCategories, patchCard, toggleTag, addCard, addFlashCard }: Props) {
+export default function CardViewMode({ cards, categoryId, allCategories, patchCard, toggleTag, addCard, addFlashCard, onDelete, onEdit }: Props) {
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [bulkImportOpen, setBulkImportOpen] = useState(false);
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [addMode, setAddMode] = useState<"essay" | "flash">("flash");
   const [newQuestion, setNewQuestion] = useState("");
   const [newAnswer, setNewAnswer] = useState("");
@@ -95,6 +100,28 @@ export default function CardViewMode({ cards, categoryId, allCategories, patchCa
 
   const toggle = useCallback((id: string) => {
     setExpandedId(prev => prev === id ? null : id);
+  }, []);
+
+  const toggleSelection = useCallback((id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }, []);
+
+  const handleBatchDelete = useCallback(() => {
+    if (!onDelete || selectedIds.size === 0) return;
+    const count = selectedIds.size;
+    selectedIds.forEach(id => onDelete(id));
+    setSelectedIds(new Set());
+    setSelectionMode(false);
+    toast.success(`Obrisano ${count} kartica.`);
+  }, [onDelete, selectedIds]);
+
+  const exitSelectionMode = useCallback(() => {
+    setSelectionMode(false);
+    setSelectedIds(new Set());
   }, []);
 
   const openMoveModal = useCallback((cardId: string) => {
@@ -259,6 +286,17 @@ export default function CardViewMode({ cards, categoryId, allCategories, patchCa
               <X className="h-3 w-3" /> Reset
             </Button>
           )}
+          {onDelete && (
+            <Button
+              variant={selectionMode ? "secondary" : "outline"}
+              size="sm"
+              onClick={() => selectionMode ? exitSelectionMode() : setSelectionMode(true)}
+              className="h-7 gap-1.5 text-xs"
+            >
+              <CheckSquare className="h-3.5 w-3.5" />
+              {selectionMode ? "Otkaži" : "Izaberi"}
+            </Button>
+          )}
           <Button variant="outline" size="sm" onClick={() => setBulkImportOpen(true)} className="h-7 gap-1.5 text-xs">
             <Upload className="h-3.5 w-3.5" /> Masovni Import
           </Button>
@@ -267,6 +305,19 @@ export default function CardViewMode({ cards, categoryId, allCategories, patchCa
           </Button>
         </div>
       </div>
+
+      {/* Batch delete toolbar */}
+      {selectionMode && selectedIds.size > 0 && (
+        <div className="flex items-center gap-3 rounded-lg border border-destructive/30 bg-destructive/5 p-2.5">
+          <span className="text-xs font-medium text-foreground">{selectedIds.size} izabrano</span>
+          <Button variant="destructive" size="sm" onClick={handleBatchDelete} className="h-7 gap-1.5 text-xs">
+            <Trash2 className="h-3.5 w-3.5" /> Obriši izabrane
+          </Button>
+          <Button variant="ghost" size="sm" onClick={exitSelectionMode} className="h-7 text-xs">
+            Otkaži
+          </Button>
+        </div>
+      )}
 
       {/* Card list */}
       <div className="space-y-1">
@@ -280,11 +331,19 @@ export default function CardViewMode({ cards, categoryId, allCategories, patchCa
 
           return (
             <div key={card.id} className="rounded-lg border bg-card overflow-hidden">
-              <button
-                onClick={() => toggle(card.id)}
-                className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-accent/30 transition-colors"
-              >
-                {isExpanded ? <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />}
+              <div className="w-full flex items-center gap-3 px-4 py-3">
+                {selectionMode && (
+                  <Checkbox
+                    checked={selectedIds.has(card.id)}
+                    onCheckedChange={() => toggleSelection(card.id)}
+                    className="shrink-0"
+                  />
+                )}
+                <button
+                  onClick={() => toggle(card.id)}
+                  className="flex-1 flex items-center gap-3 text-left hover:bg-accent/30 transition-colors rounded"
+                >
+                  {isExpanded ? <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />}
                 <span className="text-sm text-foreground truncate flex-1">{card.question || "(Bez pitanja)"}</span>
                 <div className="flex items-center gap-2 shrink-0">
                   {hasTags && card.tags!.includes("često-na-ispitu") && (
@@ -294,20 +353,28 @@ export default function CardViewMode({ cards, categoryId, allCategories, patchCa
                   <Badge variant="outline" className="text-[10px]">
                     {card.type === "flash" ? "Flash" : "Esej"}
                   </Badge>
-                </div>
-              </button>
+                  </div>
+                </button>
+              </div>
 
               {isExpanded && (
                 <div className="border-t px-4 py-3 space-y-3 bg-muted/20">
                   <div className="flex items-center gap-2 flex-wrap">
                     {card.subcategory && (
-                      <Badge variant="secondary" className="text-[10px] opacity-60">
+                      <Badge variant="secondary" className="text-[10px]">
                         Potkategorija: {card.subcategory}
                       </Badge>
                     )}
                     {card.chapter && (
-                      <Badge variant="secondary" className="text-[10px] opacity-60">
+                      <Badge variant="outline" className="text-[10px] gap-1 border-primary/30">
+                        <BookOpen className="h-3 w-3" />
                         Glava: {card.chapter}
+                      </Badge>
+                    )}
+                    {card.sourceId && (
+                      <Badge variant="outline" className="text-[10px] gap-1 border-accent">
+                        <Link2 className="h-3 w-3" />
+                        Povezano sa izvorom
                       </Badge>
                     )}
                   </div>
@@ -349,10 +416,22 @@ export default function CardViewMode({ cards, categoryId, allCategories, patchCa
                     })}
                   </div>
 
-                  <Button variant="outline" size="sm" className="gap-2 text-xs" onClick={() => openMoveModal(card.id)}>
-                    <ArrowRightLeft className="h-3.5 w-3.5" />
-                    Premjesti u drugu kategoriju
-                  </Button>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {onEdit && (
+                      <Button variant="outline" size="sm" className="gap-1.5 text-xs" onClick={() => onEdit(card)}>
+                        <Pencil className="h-3.5 w-3.5" /> Uredi
+                      </Button>
+                    )}
+                    <Button variant="outline" size="sm" className="gap-2 text-xs" onClick={() => openMoveModal(card.id)}>
+                      <ArrowRightLeft className="h-3.5 w-3.5" />
+                      Premjesti
+                    </Button>
+                    {onDelete && (
+                      <Button variant="outline" size="sm" className="gap-1.5 text-xs text-destructive hover:bg-destructive/10" onClick={() => { onDelete(card.id); toast.success("Kartica obrisana."); }}>
+                        <Trash2 className="h-3.5 w-3.5" /> Obriši
+                      </Button>
+                    )}
+                  </div>
                 </div>
               )}
             </div>
