@@ -1,44 +1,56 @@
 
 
-# Tier 3 Step 1: Strict UUID Validation in ExportImportDialog
+# Tier 3 Step 2: Foreign Key Integrity Guard
 
 ## What
-Replace the weak sample-check validation (lines 98–132) with comprehensive UUID validation for all imported entities: categories, cards, sources, and mindMaps. Legacy v1 JSON files with string-based IDs will be rejected with clear error messages.
+Insert a relational integrity check between the UUID validation block (line 167) and `setProgress(80)` (line 169). Also add the missing `db` import.
 
-## Change
+## Changes
 
-**`src/components/ExportImportDialog.tsx`** — lines 98–132
+### `src/components/ExportImportDialog.tsx`
 
-Replace the current validation block:
-
+**Line 3** — Add import:
 ```typescript
-// Current (REMOVE):
-const errors: string[] = [];
-if (!parsed || typeof parsed !== "object") { ... }
-if (!Array.isArray(parsed.cards)) { ... }
-const importedCards: any[] = (parsed.cards || []).map(...sanitize...);
-// sample check loop (10 cards, string-type only)
+import { db } from "@/lib/db";
 ```
 
-With the user-provided strict UUID validation block:
-
+**Lines 168–169** — Insert relational guard between end of MindMaps validation and `setProgress(80)`:
 ```typescript
-const errors: string[] = [];
-const uuidRegex = /^[0-9a-f]{8}-...$/i;
-const isValidUUID = (id: any) => typeof id === 'string' && uuidRegex.test(id);
+      // --- STEP 2: RELATIONAL INTEGRITY GUARD ---
+      if (errors.length === 0) {
+        const validCategoryIds = new Set<string>();
+        if (parsed.categories && Array.isArray(parsed.categories)) {
+          parsed.categories.forEach((cat: any) => validCategoryIds.add(cat.id));
+        }
+        const existingCats = await db.categories.toArray();
+        existingCats.forEach(cat => validCategoryIds.add(cat.id));
 
-// Structure check
-// Categories UUID check (break on first failure)
-// Sanitize + map importedCards
-// Cards UUID check: id, categoryId, sections (break on first failure)
-// Sources UUID check: id, categoryId (break on first failure)
-// MindMaps UUID check: id (break on first failure)
+        if (importedCards.length > 0) {
+          for (let i = 0; i < importedCards.length; i++) {
+            const c = importedCards[i];
+            if (c.categoryId && !validCategoryIds.has(c.categoryId)) {
+              errors.push(`Kartica '${c.question?.substring(0,15)}...' pripada predmetu koji ne postoji u bazi ni u fajlu.`);
+              break;
+            }
+          }
+        }
+        if (parsed.sources && Array.isArray(parsed.sources)) {
+          for (let i = 0; i < parsed.sources.length; i++) {
+            const s = parsed.sources[i];
+            if (s.categoryId && !validCategoryIds.has(s.categoryId)) {
+              errors.push(`Izvor '${s.title?.substring(0,15)}...' pripada predmetu koji ne postoji.`);
+              break;
+            }
+          }
+        }
+      }
+      // --- END RELATIONAL INTEGRITY GUARD ---
+
+      setProgress(80);
 ```
-
-The exact replacement code is provided in the user's directive — lines 98–132 are replaced, `setProgress(80)` on line 132 stays as the boundary.
 
 ## Scope
-- Only the validation block inside `handleFileSelect` changes
-- No UI, props, ZIP logic, or export logic touched
-- Net effect: ~34 lines replaced with ~50 lines of strict validation
+- UUID validation block (Step 1) untouched
+- UI components untouched
+- Only the validation pipeline inside `handleFileSelect` is extended
 
