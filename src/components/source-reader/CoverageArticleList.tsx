@@ -1,12 +1,12 @@
 import { Check, Link2 } from "lucide-react";
 import { useMemo } from "react";
 
-
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import type { Card } from "@/lib/spaced-repetition";
 import type { Source } from "@/lib/sources-storage";
 import { getCoveredSourceArticles } from "@/lib/source-coverage";
+import { sanitizeHtml } from "@/lib/sanitize";
 import { cn } from "@/lib/utils";
 interface Props {
   source: Source;
