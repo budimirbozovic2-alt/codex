@@ -1,63 +1,39 @@
 
 
-# Diagnosis: "Save Button Disabled" After Category Deletion
+# Tier 1 Deep Systemic Audit — Vulnerability & Bottleneck Report
 
-## Root Cause
+## Triage Table
 
-The "Sačuvaj izmjene" (Save) button in `SRSettingsPanel.tsx` (line 480) is controlled by:
+| Severity | Type | File Path | Description |
+|----------|------|-----------|-------------|
+| **HIGH** | Security | `src/components/mental-skeleton/LearnModal.tsx:148` | `dangerouslySetInnerHTML={{ __html: section.content }}` — renders card section content **without sanitization**. Content is user-authored HTML from the editor. While the editor sanitizes on input, if IDB data is tampered or imported from a malicious backup, this is a direct XSS vector. |
+| **HIGH** | Security | `src/components/category/CardViewMode.tsx:327` | `dangerouslySetInnerHTML={{ __html: section.content }}` — same pattern, renders raw section content without runtime sanitization. |
+| **HIGH** | Security | `src/components/source-reader/CoverageArticleList.tsx:82` | `dangerouslySetInnerHTML={{ __html: article.contentHtml }}` — renders parsed article HTML. `contentHtml` comes from `getCoveredSourceArticles` which slices raw `source.htmlContent`. The SourceReader sanitizes on read, but CoverageArticleList gets its data from a separate code path that does **not** sanitize. |
+| **HIGH** | Performance | `src/hooks/useCardExport.ts:140` | `idbLoadReviewLog()` (aliased as `loadFullReviewLog`) calls `db.reviewLog.toArray()` — loads the **entire** review log into memory with no limit. After months of daily use (10+ reviews/day × 365 days × multiple sections), this table can reach 50,000+ rows. Full materialization blocks the main thread during export. |
+| **HIGH** | Performance | `src/lib/metacognitive-storage.ts:23-27` | `initMetacognitiveCache()` calls `.toArray()` on 5 log tables simultaneously (`diary`, `calibrationLog`, `latencyLog`, `slippageLog`, `activityLog`). All unbounded. These run at **boot time** and block the splash screen. |
+| **MODERATE** | Security | `src/components/card-form/EditorSection.tsx:42` | `dangerouslySetInnerHTML={{ __html: p }}` — renders preview paragraphs. The `p` value comes from splitting editor content. While upstream editor sanitizes, this is a defense-in-depth gap. |
+| **MODERATE** | Security | `src/components/CardList.tsx:160,177` | `dangerouslySetInnerHTML={{ __html: highlightKeyParts(...) }}` — `highlightKeyParts` does regex replacement on HTML content but does **not** sanitize. If `keyParts` contains crafted strings, the regex could inject markup. Low practical risk since keyParts are user-authored, but violates defense-in-depth. |
+| **MODERATE** | Performance | `src/lib/storage.ts:70` | `db.pomodoroLog.toArray()` — unbounded full table read for pomodoro stats. Called from ZenMode on mount. |
+| **MODERATE** | Performance | `src/hooks/useCardBootstrap.ts:116-118` | Boot sequence loads `initMetacognitiveCache` + `initPlannerCache` with 3s timeout each. If either table is large, boot stalls at the splash screen until timeout fires. The 8s panic timer is a band-aid. |
+| **MODERATE** | Leak | `electron/window.cjs:104-107` | `ipcMain.on('window-minimize/maximize/close')` handlers are registered per `createWindow` call. On crash recovery (which calls `createWindow` again), these accumulate as duplicate listeners. The `removeListener` cleanup on line ~170+ should be verified. |
+| **LOW** | Security | `electron/window.cjs:90` | `sandbox: false` in BrowserWindow webPreferences. Required for preload IPC, but weakens the Chromium sandbox. Documented trade-off, not a bug. |
+| **LOW** | Performance | `src/lib/planner-storage.ts:58` | `db.disciplineLog.toArray()` — unbounded. Low-volume table (1 entry/day), so practical impact is minimal. |
+| **LOW** | Performance | `src/hooks/useCardExport.ts:87,165` | `db.cards.toArray()` called twice in separate export functions. Each call materializes the entire card set. For <10K cards this is acceptable, but could use a shared cache within a single export session. |
+| **LOW** | Security | `main.cjs:62` | `ipcMain.handle('log-error')` accepts arbitrary string from renderer and writes to file. No length limit — a compromised renderer could fill disk. |
 
-```ts
-disabled={!hasChanges}
-```
+## Architectural Summary
 
-Where `hasChanges` (line 66-68) compares:
-- `local` (SR settings) vs `settings` prop
-- `tts` state vs initial TTS ref
-- `app` state vs initial app ref
+**Biggest Threat to Scalability: Unbounded `.toArray()` on Log Tables**
 
-**Category operations are NOT tracked by `hasChanges`.** Category add/rename/delete calls (`onAdd`, `onRename`, `onDelete`) fire **immediately** — they directly mutate IDB and React state through `useCategoryManagement`. They don't go through the Save button at all.
+The application's "boot-load-all" pattern works well for the `cards` table (<10K records, each needed for filtering). However, the same pattern is applied to **append-only log tables** (`reviewLog`, `calibrationLog`, `latencyLog`, `slippageLog`, `activityLog`, `pomodoroLog`) that grow **without bound**. After 6-12 months of active use:
 
-**The Save button is for SR algorithm parameters, TTS settings, and App settings only.** It is correctly disabled when none of those settings have changed. This is NOT a bug — the button is irrelevant to category operations.
+- `reviewLog` alone could reach 50K-100K entries
+- Boot time degrades as `initMetacognitiveCache` materializes all 5 log tables
+- Full export blocks the main thread while serializing the entire review history
 
-## The Real Problem
+The fix pattern is consistent: use **time-windowed queries** (e.g., `idbLoadRecentReviewLog(90)` which already exists but isn't used at boot) and **streaming/chunked serialization** for export. The `idbLoadRecentReviewLog` function is already implemented in `db.ts` — it just needs to replace the unbounded calls.
 
-The user's junk categories **are being deleted immediately** when they click the trash icon. The confusion is that the Save button stays grey, making the user *think* the delete didn't work. But it did.
+**Second Priority: Runtime Sanitization Gaps**
 
-If categories are truly not disappearing, then the issue is in `deleteCategory` (line 81-121 of `useCategoryManagement.ts`): it filters by **name** string (`prev.filter(c => c !== name)`), but categories in the v7 schema are `CategoryRecord` objects with UUID `.id` fields. The `categories` array passed to CategoryManager is `string[]` (names), so the name-based filter works for the UI list — but the **IDB `categories` table is never cleaned up** because `deleteCategory` never calls `db.categories.delete(uuid)`.
-
-## The Fix — 2 Parts
-
-### Part A: Add IDB Category Deletion to `deleteCategory`
-
-In `src/hooks/useCategoryManagement.ts`, the `deleteCategory` function:
-1. Filters the name from the React state array (line 83) — works for UI
-2. Reassigns cards to fallback category (lines 84-101) — works
-3. Reassigns sources (lines 110-118) — works
-4. **Never deletes the CategoryRecord from IDB** — BUG
-
-Fix: Look up the category's UUID from `getCategoryRecords()`, then call `db.categories.delete(uuid)` to remove it from IDB. This ensures the category doesn't reappear after page refresh.
-
-### Part B: Add Cascade Delete Option for Phantom Cards
-
-Currently `deleteCategory` reassigns orphaned cards to the first remaining category. For junk categories with 500 phantom cards, this pollutes the fallback category. Add an optional `cascade: boolean` parameter: when true, **delete** the cards instead of reassigning them.
-
-In `CategoryManager.tsx`, when the card count is high (e.g., >10), show a confirmation dialog asking whether to move cards or delete them.
-
-### File Changes
-
-**`src/hooks/useCategoryManagement.ts`** — In `deleteCategory`:
-- Look up UUID: `const record = getCategoryRecords().find(r => r.name === name)`
-- After all reassignment/cleanup: `if (record) db.categories.delete(record.id)`
-- Add optional `purgeCards` parameter that deletes cards instead of reassigning
-
-**`src/components/CategoryManager.tsx`** — In the delete button handler:
-- If `cardCountByCategory[cat] > 0`, show a confirm dialog with two options: "Prebaci kartice" (move) vs "Obriši sve" (purge)
-- Pass the purge flag to `onDelete`
-
-**`src/contexts/AppContext.tsx`** — Update `deleteCategory` type signature if needed to accept the optional purge flag
-
-## Scope
-- SR settings, export/import, FSRS math: untouched
-- Save button behavior: unchanged (it correctly tracks only SR/TTS/App settings)
-- ~30 lines changed across 2-3 files
+The codebase has strong input-side sanitization (RichTextEditor, DOCX import, JSON import all pass through `sanitizeHtml`). However, 4 render-side components skip runtime sanitization, relying on the assumption that IDB data is always clean. This violates defense-in-depth — a single corrupted import or direct IDB manipulation bypasses all protections. The fix is trivial: wrap each `dangerouslySetInnerHTML` value in `sanitizeHtml()` via `useMemo`.
 
