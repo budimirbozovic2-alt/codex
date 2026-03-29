@@ -1,70 +1,80 @@
 
 
-# Core UI Restoration & Workflow Migration
+# UI Restoration Part 3: DOCX Drag & Drop + Source Diff + Hidden Metadata
 
 ## Current State Assessment
 
-After full audit, here's what's actually broken vs already working:
+| Feature | Backend Logic | UI Wired? |
+|---------|--------------|-----------|
+| DOCX parsing (mammoth) | `src/lib/docx-parser.ts` — full worker-based parser | **CategoryView has file input but NO drag & drop zone** |
+| Source Diff Engine | `src/lib/article-parser.ts` — full `compareVersions()`, `getChangedArticleIds()`, `matchAnchorToArticle()`, `diffTexts()` | **NOT wired to any UI** |
+| Card needsReview flagging | `bulkFlagNeedsReview()` in context + `confirmCardReview()` in SourceSnippetDialog | **Flag exists but never SET during source update** |
+| SourceEditor DOCX upload | N/A | **Only has raw HTML textarea, no file upload** |
+| Category color display | `CategoryRecord.color` exists, displayed in CategoryView header | **Already shown** (line 129-131) |
+| needsReview badge in CardViewMode | N/A | **Not shown** — CardList shows it, CardViewMode doesn't |
 
-| Feature | Status | Notes |
-|---------|--------|-------|
-| Rich Text Editor | **WORKING** | Full toolbar: Bold, Italic, Underline, Heading, Lists, Color. Markdown auto-format. Image paste. NOT dummied out. |
-| Single card delete | **WORKING in CardList** | Trash icon exists (line 143). But **MISSING in CardViewMode** (the CategoryView card list). |
-| Batch card delete | **PARTIALLY WORKING** | CardList has selectionMode/selectedIds props, but CardViewMode has NO selection or batch delete UI. |
-| Edit button in CardViewMode | **MISSING** | No way to navigate to edit a card from CategoryView's card list. |
-| Source linkage badge | **MISSING** | CardViewMode doesn't show sourceId indicator. |
-| Subcategory in Settings | **EXISTS** | Both SRSettingsPanel (Sistem tab) and CategoriesPage render CategoryManager with full subcategory UI. |
-| Subcategory in CardOrgMode | **ALREADY EXISTS** | Full add/rename/delete subcategory UI with DnD. |
+## Plan (3 Actions)
 
-## Plan (4 Actions)
+### Action 1: Add Drag & Drop DOCX to SourceEditor "Update Text" Section
+**File: `src/components/category/SourceEditor.tsx`**
 
-### Action 1: Skip Rich Text Editor — Already Working
-No changes needed. The RichTextEditor has Bold, Italic, Underline, Heading, Bullet List, Ordered List, and Red Color. Markdown auto-format works. Image paste works.
+Replace the plain `<Textarea>` in the "Ažuriraj tekst izvora" collapsible (lines 137-144) with a combined drop zone + textarea:
 
-### Action 2: Add Delete, Edit & Batch Selection to CardViewMode
+- Add a drag & drop zone that accepts `.docx` files
+- On drop/select: use `parseDocxInWorker()` from `src/lib/docx-parser.ts` to extract HTML
+- Populate the textarea with extracted HTML (user can review before saving)
+- Show file name and loading spinner during parsing
+- Keep the textarea as fallback for raw HTML paste
+
+~30 lines added, textarea preserved.
+
+### Action 2: Wire Source Diff Engine into SourceEditor Save Flow
+**File: `src/components/category/SourceEditor.tsx`**
+
+In `handleSave()`, when `newText` is provided (source text update):
+
+1. Call `compareVersions(source.htmlContent, newHtmlContent)` from `article-parser.ts`
+2. Call `getChangedArticleIds(diffResult)` to get modified/removed article IDs
+3. For each card linked to this source (`sourceId === source.id`), call `matchAnchorToArticle(card.textAnchor, oldArticles)` to check if that card's anchor falls in a changed article
+4. Collect affected card IDs → call `bulkFlagNeedsReview(affectedCardIds)` from context
+5. Show a diff summary dialog BEFORE saving: "X članovi izmijenjeni, Y dodati, Z uklonjeni. W kartica označeno za provjeru."
+6. User confirms → save proceeds
+
+**New component: `src/components/source-reader/SourceDiffPreview.tsx`**
+- Simple dialog showing diff summary + per-article status (color-coded: green=added, red=removed, yellow=modified)
+- For modified articles: render diff segments with `<ins>`/`<del>` styling
+- "Potvrdi i sačuvaj" button to proceed
+
+**Props needed from context:** `bulkFlagNeedsReview` — add to SourceEditor via prop or import from `useCardActions()`.
+
+### Action 3: Add needsReview Badge to CardViewMode
 **File: `src/components/category/CardViewMode.tsx`**
 
-- Add `onDelete: (id: string) => void` and `onEdit: (card: Card) => void` to Props interface
-- Add batch selection state: `selectedIds: Set<string>`, `selectionMode: boolean`
-- On each card row (the expanded section, ~line 301): add Edit (pencil) and Delete (trash) buttons
-- Add a batch toolbar that appears when cards are selected: "X izabrano" + "Obriši izabrane" button
-- Add checkbox on each card row when in selection mode
-- Add "Izaberi" toggle button in the filter toolbar
-
-**File: `src/views/CategoryView.tsx`**
-- Pass `deleteCard` and an edit handler to CardViewMode
-- For edit: use `useNavigate` to navigate to `/edit/:cardId`
-
-### Action 3: Add Source & Chapter Badges to CardViewMode
-**File: `src/components/category/CardViewMode.tsx`**
-
-In the expanded card detail section (~line 300-356), add:
-- If `card.sourceId` exists: show a `<Badge>` "Povezano sa izvorom"
-- Ensure `card.chapter` badge is visually distinct (already partially there at line 309, but make it more prominent with an icon)
-
-### Action 4: Remove Subcategory UI from Settings
-**File: `src/components/SRSettingsPanel.tsx`**
-- Remove `onAddSub`, `onRenameSub`, `onDeleteSub` props from the CategoryManager instance (lines 470-472)
-- Remove `addSubcategory`, `renameSubcategory`, `deleteSubcategory` from the destructured context (line 33)
-
-**File: `src/components/CategoryManager.tsx`**
-- Make subcategory props optional (`onAddSub?`, `onRenameSub?`, `onDeleteSub?`)
-- Conditionally render subcategory section only when those props are provided
-- This way CategoriesPage (standalone page) can still pass them if needed, but Settings won't
-
-**File: `src/views/CategoriesPage.tsx`**
-- Also remove subcategory props — subcategory management lives exclusively in CardOrgMode now
+In the card row (expanded detail section), add:
+- If `card.needsReview === true`: show warning badge "⚠ Izvor ažuriran" in orange/warning color
+- This already exists in CardList.tsx (the Scale icon on line 118) — replicate the pattern
 
 ## Files Modified
-1. `src/components/category/CardViewMode.tsx` — Add delete, edit, batch select, source badge
-2. `src/views/CategoryView.tsx` — Pass deleteCard + edit handler to CardViewMode
-3. `src/components/CategoryManager.tsx` — Make subcategory props optional, hide when absent
-4. `src/components/SRSettingsPanel.tsx` — Remove subcategory props from CategoryManager
-5. `src/views/CategoriesPage.tsx` — Remove subcategory props
+1. `src/components/category/SourceEditor.tsx` — Add DOCX drop zone + diff-on-save logic
+2. `src/components/source-reader/SourceDiffPreview.tsx` — **NEW** — Diff summary dialog
+3. `src/components/category/CardViewMode.tsx` — Add needsReview warning badge
 
-## Constraints Respected
-- No IDB schema changes
-- No Context provider logic changes (only consuming existing actions)
-- CardOrgMode subcategory management: untouched
+## Technical Details
+
+The diff engine is already complete in `article-parser.ts`:
+- `compareVersions(oldHtml, newHtml)` → `DiffResult` with per-article diffs
+- `getChangedArticleIds(diffResult)` → `Set<string>` of modified/removed article IDs
+- `matchAnchorToArticle(anchor, articles)` → matches card's textAnchor to an article
+- `diffTexts(old, new)` → character-level `DiffSegment[]` using diff-match-patch
+
+Card flagging infrastructure:
+- `bulkFlagNeedsReview(cardIds)` — sets `needsReview: true` on cards, persists to IDB
+- `confirmCardReview(cardId)` — clears the flag (already wired in SourceSnippetDialog)
+
+## Scope
+- IDB schema: untouched
+- Context providers: untouched (only consuming existing `bulkFlagNeedsReview`)
 - Export/Import pipeline: untouched
+- FSRS math: untouched
+- SourceReader: untouched
 
