@@ -79,41 +79,75 @@ export function useCategoryManagement({
   );
 
   const deleteCategory = useCallback(
-    (name: string) => {
+    (name: string, purgeCards = false) => {
       setCategories((prev) => prev.filter((c) => c !== name));
-      // Find first remaining category UUID to reassign orphans
+
+      const record = getCategoryRecords().find(r => r.name === name);
       const remaining = getCategoryRecords().filter(r => r.name !== name);
       const fallbackId = remaining.length > 0 ? remaining[0].id : "";
       const now = Date.now();
-      const changed: Card[] = [];
-      const nextRef = { ...cardMapRef.current };
-      for (const [id, c] of Object.entries(nextRef)) {
-        if (c.categoryId === name) {
-          const u = { ...c, categoryId: fallbackId, subcategory: "", updatedAt: now };
-          nextRef[id] = u;
-          changed.push(u);
+
+      if (purgeCards) {
+        // Cascade delete: remove all cards belonging to this category
+        const toDelete: string[] = [];
+        const nextRef = { ...cardMapRef.current };
+        for (const [id, c] of Object.entries(nextRef)) {
+          if (c.categoryId === name || (record && c.categoryId === record.id)) {
+            toDelete.push(id);
+            delete nextRef[id];
+          }
+        }
+        if (toDelete.length > 0) {
+          cardMapRef.current = nextRef;
+          setCardMapState(() => nextRef);
+          bumpMapVersion();
+          (async () => {
+            try { await db.cards.bulkDelete(toDelete); } catch (err) {
+              console.error("[deleteCategory] card purge failed", err);
+            }
+          })();
+        }
+      } else {
+        // Reassign cards to fallback category
+        const changed: Card[] = [];
+        const nextRef = { ...cardMapRef.current };
+        for (const [id, c] of Object.entries(nextRef)) {
+          if (c.categoryId === name || (record && c.categoryId === record.id)) {
+            const u = { ...c, categoryId: fallbackId, subcategory: "", updatedAt: now };
+            nextRef[id] = u;
+            changed.push(u);
+          }
+        }
+        if (changed.length > 0) {
+          cardMapRef.current = nextRef;
+          schedulePersist({ type: "bulk", cards: changed });
+          setCardMapState(() => nextRef);
+          bumpMapVersion();
         }
       }
-      if (changed.length > 0) {
-        cardMapRef.current = nextRef;
-        schedulePersist({ type: "bulk", cards: changed });
-        setCardMapState(() => nextRef);
-        bumpMapVersion();
-      }
+
       setSubcategories((prev) => {
         const next = { ...prev };
         delete next[name];
         return next;
       });
 
-      // Cascade to sources — reassign to fallback UUID
+      // Cascade to sources & delete IDB CategoryRecord
       (async () => {
         try {
-          await db.sources.where("categoryId").equals(name).modify({ categoryId: fallbackId });
+          if (purgeCards) {
+            // Also delete sources for this category
+            const catId = record ? record.id : name;
+            await db.sources.where("categoryId").equals(catId).delete();
+          } else {
+            await db.sources.where("categoryId").equals(record ? record.id : name).modify({ categoryId: fallbackId });
+          }
+          // Delete the CategoryRecord from IDB
+          if (record) await db.categories.delete(record.id);
           invalidateSourcesCache();
         } catch (err) {
-          console.error("[deleteCategory] source cascade failed", err);
-          toast({ title: "Greška pri ažuriranju izvora", description: "Izvori nisu prebačeni. Pokušajte ponovo.", variant: "destructive" });
+          console.error("[deleteCategory] cascade failed", err);
+          toast({ title: "Greška pri brisanju kategorije", description: "Pokušajte ponovo.", variant: "destructive" });
         }
       })();
     },
