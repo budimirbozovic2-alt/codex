@@ -19,22 +19,22 @@ let _cacheReady = false;
  */
 export async function initMetacognitiveCache(): Promise<void> {
   try {
+    const cutoff90 = Date.now() - 90 * 86400000;
+    const cutoffDate = new Date(cutoff90).toISOString().slice(0, 10);
     const [diary, calibration, latency, slippage, activity, analysisRow, appEntryRow] = await Promise.all([
       db.diary.toArray(),
-      db.calibrationLog.toArray(),
-      db.latencyLog.toArray(),
-      db.slippageLog.toArray(),
-      db.activityLog.toArray(),
+      db.calibrationLog.where("timestamp").above(cutoff90).toArray(),
+      db.latencyLog.where("timestamp").above(cutoff90).toArray(),
+      db.slippageLog.where("date").above(cutoffDate).toArray(),
+      db.activityLog.where("timestamp").above(cutoff90).toArray(),
       db.settings.get("lastAnalysisDate"),
       db.settings.get("appEntry"),
     ]);
     _diaryCache = diary;
-    // Trim caches to last 90 days to prevent unbounded memory growth
-    const cutoff90 = Date.now() - 90 * 86400000;
-    _calibrationCache = calibration.filter(e => e.timestamp >= cutoff90);
-    _latencyCache = latency.filter(e => e.timestamp >= cutoff90);
+    _calibrationCache = calibration;
+    _latencyCache = latency;
     _slippageCache = slippage;
-    _activityCache = activity.filter(e => e.timestamp >= cutoff90);
+    _activityCache = activity;
     _lastAnalysisDate = (analysisRow?.value as string) ?? null;
     _appEntry = (appEntryRow?.value as typeof _appEntry) ?? null;
     _cacheReady = true;

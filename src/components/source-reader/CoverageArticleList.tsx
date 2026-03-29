@@ -1,12 +1,12 @@
 import { Check, Link2 } from "lucide-react";
 import { useMemo } from "react";
 
-
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import type { Card } from "@/lib/spaced-repetition";
 import type { Source } from "@/lib/sources-storage";
 import { getCoveredSourceArticles } from "@/lib/source-coverage";
+import { sanitizeHtml } from "@/lib/sanitize";
 import { cn } from "@/lib/utils";
 interface Props {
   source: Source;
@@ -79,7 +79,7 @@ export default function CoverageArticleList({ source, cards, onOpenCard }: Props
 
             <div
               className="mt-3 prose prose-sm max-w-none prose-headings:text-foreground prose-p:text-foreground/90 prose-strong:text-foreground prose-a:text-primary prose-ul:text-foreground/90 prose-ol:text-foreground/90 prose-li:text-foreground/90"
-              dangerouslySetInnerHTML={{ __html: article.contentHtml }}
+              dangerouslySetInnerHTML={{ __html: sanitizeHtml(article.contentHtml) }}
             />
           </section>
         );

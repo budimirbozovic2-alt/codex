@@ -1,5 +1,6 @@
 import { Plus, X, GripVertical, Scissors, Zap, FileText } from "lucide-react";
 import React, { memo } from "react";
+import { sanitizeHtml } from "@/lib/sanitize";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import RichTextEditor from "@/components/RichTextEditor";
@@ -39,7 +40,7 @@ function CuttingView({ content, onCut, onCancel }: {
               <div className="flex-1 h-px bg-warning/30 group-hover:bg-warning" />
             </button>
           )}
-          <div className="text-sm px-2 py-1 rounded" dangerouslySetInnerHTML={{ __html: p }} />
+          <div className="text-sm px-2 py-1 rounded" dangerouslySetInnerHTML={{ __html: sanitizeHtml(p) }} />
         </div>
       ))}
     </div>
