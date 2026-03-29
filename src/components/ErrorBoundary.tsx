@@ -60,20 +60,27 @@ export class ErrorBoundary extends Component<Props, State> {
   handleEmergencyBackup = async () => {
     try {
       const { db } = await import("@/lib/db");
-      const cards = await db.cards.toArray();
-      const categories = await db.categories.toArray();
-      const sources = await db.sources.toArray();
-      const reviewLog = await db.reviewLog.toArray();
-      const settings = await db.settings.toArray();
+      const [cards, categories, sources, reviewLog, mindMaps, diary,
+        calibrationLog, latencyLog, slippageLog, activityLog, disciplineLog, pomodoroLog,
+      ] = await Promise.all([
+        db.cards.toArray(), db.categories.toArray(), db.sources.toArray(),
+        db.reviewLog.toArray(), db.mindMaps.toArray(), db.diary.toArray(),
+        db.calibrationLog.toArray(), db.latencyLog.toArray(), db.slippageLog.toArray(),
+        db.activityLog.toArray(), db.disciplineLog.toArray(), db.pomodoroLog.toArray(),
+      ]);
+
+      // Derive subcategories from CategoryRecords
+      const subcategories: Record<string, string[]> = {};
+      categories.forEach(r => {
+        if (r.subcategories && r.subcategories.length > 0) subcategories[r.name] = r.subcategories;
+      });
 
       const backup = {
-        type: "emergency-backup",
+        version: 5, type: "emergency-backup",
         timestamp: new Date().toISOString(),
-        cards,
-        categories: categories.map(c => c.name),
-        sources,
-        reviewLog,
-        settings,
+        cards, categories, subcategories, sources, reviewLog,
+        mindMaps, diary, calibrationLog, latencyLog,
+        slippageLog, activityLog, disciplineLog, pomodoroLog,
       };
 
       const json = JSON.stringify(backup);
