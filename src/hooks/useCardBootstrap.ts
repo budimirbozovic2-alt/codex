@@ -11,7 +11,9 @@ import {
   idbLoadSettings,
   getDbErrorState,
   seedDefaultCategories,
+  db,
   type CategoryRecord,
+  type SubcategoryNode,
 } from "@/lib/db";
 import { checkInterruptedFlush } from "@/lib/persist-queue";
 
