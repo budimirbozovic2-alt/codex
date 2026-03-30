@@ -64,7 +64,8 @@ export default function MnemonicModule() {
     gcTime: Infinity,
   });
 
-  const [subView, setSubView] = useState<"menu" | "workshop" | "test" | "major">("menu");
+  const [subView, setSubView] = useState<"menu" | "workshop" | "test">("menu");
+  const [majorOpen, setMajorOpen] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(
     () => !hasSeenOnboarding(MNEMO_ONBOARDING_KEY)
   );
