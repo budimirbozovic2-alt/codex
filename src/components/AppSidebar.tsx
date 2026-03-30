@@ -1,7 +1,7 @@
 import { NavLink } from "@/components/NavLink";
 import {
   Home, Landmark, Settings as SettingsIcon, RotateCcw,
-  BarChart3, BookOpen, Gauge, Zap, Map, Scale, GraduationCap, Brain,
+  BarChart3, BookOpen, Gauge, Zap, Map, Scale, GraduationCap, Brain, Globe,
 } from "lucide-react";
 import {
   Sidebar, SidebarContent, SidebarGroup, SidebarGroupLabel,
