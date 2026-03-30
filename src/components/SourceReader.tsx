@@ -96,6 +96,10 @@ interface Props {
 export default function SourceReader({ source, onBack, onSourceUpdated }: Props) {
   const logic = useSourceLogic(source);
   const isCoverage = logic.viewMode === "coverage";
+  const [editMode, setEditMode] = useState(false);
+
+  // Sync editModeRef in hook
+  logic.editModeRef.current = editMode;
 
   const [readerWidth, setReaderWidth] = useState<ReaderWidth>(() => {
     const saved = localStorage.getItem(STORAGE_KEY);
