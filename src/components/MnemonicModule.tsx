@@ -212,7 +212,7 @@ export default function MnemonicModule() {
         <motion.button
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
-          onClick={() => setSubView("major")}
+          onClick={() => setMajorOpen(true)}
           className="rounded-xl border bg-card p-6 text-left hover:border-primary/40 transition-colors space-y-3"
         >
           <Hash className="h-8 w-8 text-accent-foreground" />
