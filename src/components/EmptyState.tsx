@@ -1,14 +1,21 @@
-import { BookOpen, Brain, Sparkles } from "lucide-react";
+import { BookOpen, Brain, Sparkles, Info } from "lucide-react";
 import { motion } from "framer-motion";
-
-
 import { Button } from "@/components/ui/button";
+import { SectionState } from "@/lib/spaced-repetition";
+
 interface Props {
   type: "dashboard" | "review";
   onAction?: () => void;
+  /** FSRS diagnostics for review empty state */
+  diagnostics?: {
+    totalCards: number;
+    newSections: number;
+    reviewSections: number;
+    nextDueDate?: string;
+  };
 }
 
-export default function EmptyState({ type, onAction }: Props) {
+export default function EmptyState({ type, onAction, diagnostics }: Props) {
   if (type === "dashboard") {
     return (
       <motion.div
@@ -44,7 +51,7 @@ export default function EmptyState({ type, onAction }: Props) {
     );
   }
 
-  // Review empty state
+  // Review empty state with FSRS diagnostics
   return (
     <motion.div
       initial={{ opacity: 0, y: 30 }}
@@ -70,6 +77,38 @@ export default function EmptyState({ type, onAction }: Props) {
           Nemate kartica za ponavljanje danas. Odlično — vaše znanje je ažurno. Vratite se sutra!
         </p>
       </div>
+
+      {/* FSRS Diagnostics */}
+      {diagnostics && diagnostics.totalCards > 0 && (
+        <div className="rounded-lg border bg-card/50 px-5 py-4 max-w-xs space-y-3 text-left">
+          <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground uppercase tracking-wider">
+            <Info className="h-3.5 w-3.5" />
+            Dijagnostika
+          </div>
+          <div className="grid grid-cols-2 gap-2 text-sm">
+            <div className="text-muted-foreground">Ukupno kartica:</div>
+            <div className="text-foreground font-medium text-right">{diagnostics.totalCards}</div>
+            <div className="text-muted-foreground">Nove cjeline:</div>
+            <div className="text-foreground font-medium text-right">
+              <span className="text-amber-500">{diagnostics.newSections}</span>
+            </div>
+            <div className="text-muted-foreground">U ponavljanju:</div>
+            <div className="text-foreground font-medium text-right">
+              <span className="text-primary">{diagnostics.reviewSections}</span>
+            </div>
+          </div>
+          {diagnostics.newSections > 0 && diagnostics.reviewSections === 0 && (
+            <p className="text-[11px] text-muted-foreground/80 border-t pt-2">
+              Sve cjeline su u stanju "Novo". Pokrenite <strong>Učenje</strong> da biste ih prebacili u režim ponavljanja.
+            </p>
+          )}
+          {diagnostics.nextDueDate && (
+            <p className="text-[11px] text-muted-foreground/80 border-t pt-2">
+              Sljedeće ponavljanje: <strong>{diagnostics.nextDueDate}</strong>
+            </p>
+          )}
+        </div>
+      )}
     </motion.div>
   );
 }
