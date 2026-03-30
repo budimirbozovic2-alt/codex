@@ -52,10 +52,17 @@ export default function CategoryView() {
     [categoryId]
   ) ?? 0;
 
-  const { addCard, addFlashCard, patchCard, toggleTag, addSubcategory, renameSubcategory, deleteSubcategory, deleteCard, bulkFlagNeedsReview } = useCardActions();
+  const {
+    addCard, addFlashCard, patchCard, toggleTag,
+    addSubcategory, renameSubcategory, deleteSubcategory,
+    addChapter, renameChapter, deleteChapter,
+    reorderSubcategories, reorderChapters,
+    deleteCard, bulkFlagNeedsReview,
+  } = useCardActions();
   const { setEditingCard } = useUIContext();
 
   const [orgMode, setOrgMode] = useState(false);
+  const [structureOpen, setStructureOpen] = useState(false);
 
   // Sources: separate state for reader (full-screen) and editor (dialog)
   const [readerSource, setReaderSource] = useState<Source | null>(null);
