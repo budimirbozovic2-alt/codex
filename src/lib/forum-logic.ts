@@ -222,6 +222,7 @@ export function calculateForumState(
   cards: Card[],
   reviewLog: ReviewEntry[],
   allSources?: Source[],
+  categoryRecords?: { id: string; name: string }[],
 ): ForumState {
   const fp = buildFingerprint(cards, reviewLog.length, allSources?.length ?? 0);
   if (fp === _cachedFingerprint && _cachedForumState) {
