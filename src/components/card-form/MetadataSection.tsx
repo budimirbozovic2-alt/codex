@@ -33,6 +33,8 @@ interface MetadataSectionProps {
   linkedGazetteInfo?: string | null;
   /** Source ID for backlink */
   sourceId?: string;
+  /** Category records for UUID → name resolution */
+  categoryRecords?: CategoryRecord[];
 }
 
 const MetadataSection = memo(function MetadataSection({
