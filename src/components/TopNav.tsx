@@ -1,4 +1,4 @@
-import { Home, GraduationCap, RotateCcw, Moon, Sun, Focus, Settings as SettingsIcon, Database as DatabaseIcon, HelpCircle, Plus, Landmark, Wrench } from "lucide-react";
+import { Home, GraduationCap, RotateCcw, Moon, Sun, Focus, Settings as SettingsIcon, HelpCircle, Plus, Landmark, Wrench, FolderOpen } from "lucide-react";
 import { useLocation } from "react-router-dom";
 
 import { NavLink } from "@/components/NavLink";
