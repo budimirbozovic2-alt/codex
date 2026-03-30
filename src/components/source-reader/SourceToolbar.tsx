@@ -1,4 +1,4 @@
-import { ArrowLeft, Calendar, Wand2, Eye, BarChart3, FileQuestion, List, X } from "lucide-react";
+import { ArrowLeft, Calendar, Wand2, Eye, BarChart3, FileQuestion, List, X, Pencil } from "lucide-react";
 import { memo } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
