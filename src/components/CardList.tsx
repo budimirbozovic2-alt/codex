@@ -4,6 +4,8 @@ import { highlightKeyParts } from "@/lib/highlight-key-parts";
 import { format } from "date-fns";
 import TextSelectionTooltip from "@/components/TextSelectionTooltip";
 import { useState, useRef, useEffect, useMemo, useCallback, lazy, Suspense, CSSProperties, memo } from "react";
+import { useLiveQuery } from "dexie-react-hooks";
+import { db } from "@/lib/db";
 import { List, type RowComponentProps } from "react-window";
 import { ScoreBadge, RetentionBadge, SectionBar } from "./card-list/CardBadges";
 import CardContextMenu from "./card-list/CardContextMenu";
@@ -66,7 +68,7 @@ interface CardRowProps {
   onAddKeyPart?: (cardId: string, text: string) => void;
 }
 
-const CardRowInner = memo(function CardRowInner({ card, expanded, highlighted, selectionMode, selectedIds, onToggleSelect, onToggleTag, onExpand, onEdit, onDelete, categories, subcategories, availableChapters, onMoveCategory, onAssignChapter, onCloneToMnemonic, onAddKeyPart }: CardRowProps) {
+const CardRowInner = memo(function CardRowInner({ card, expanded, highlighted, selectionMode, selectedIds, onToggleSelect, onToggleTag, onExpand, onEdit, onDelete, categories, subcategories, availableChapters, onMoveCategory, onAssignChapter, onCloneToMnemonic, onAddKeyPart, catNameMap }: CardRowProps & { catNameMap?: Record<string, string> }) {
   const score = getCardScore(card);
   const retention = getCardRetrievability(card);
   const isFlash = card.type === "flash";
@@ -94,7 +96,7 @@ const CardRowInner = memo(function CardRowInner({ card, expanded, highlighted, s
           )}
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1 flex-wrap">
-              <span className="text-xs uppercase tracking-widest text-muted-foreground">{card.categoryId}</span>
+              <span className="text-xs uppercase tracking-widest text-muted-foreground">{catNameMap?.[card.categoryId] ?? card.categoryId}</span>
               {card.subcategory ? (
                 <span className="text-xs text-muted-foreground">› {card.subcategory}</span>
               ) : (
@@ -205,10 +207,11 @@ interface VirtualRowData {
   onAssignChapter?: (cardId: string, chapter: string) => void;
   onCloneToMnemonic?: (card: Card) => void;
   onAddKeyPart?: (cardId: string, text: string) => void;
+  catNameMap?: Record<string, string>;
 }
 
 function VirtualRow(props: RowComponentProps<VirtualRowData>) {
-  const { index, style, filteredCards, expandedId, scrollToCardId, selectionMode, selectedIds, onToggleSelect, onToggleTag, onExpand, onEdit, onDelete, categories, subcategories, availableChapters, onMoveCategory, onAssignChapter, onCloneToMnemonic, onAddKeyPart } = props;
+  const { index, style, filteredCards, expandedId, scrollToCardId, selectionMode, selectedIds, onToggleSelect, onToggleTag, onExpand, onEdit, onDelete, categories, subcategories, availableChapters, onMoveCategory, onAssignChapter, onCloneToMnemonic, onAddKeyPart, catNameMap } = props;
   const card = filteredCards[index];
   if (!card) return null;
 
@@ -232,6 +235,7 @@ function VirtualRow(props: RowComponentProps<VirtualRowData>) {
         onAssignChapter={onAssignChapter}
         onCloneToMnemonic={onCloneToMnemonic}
         onAddKeyPart={onAddKeyPart}
+        catNameMap={catNameMap}
       />
     </div>
   );
@@ -249,6 +253,8 @@ export default function CardList({
   const listRef = useRef<any>(null);
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+  const allCats = useLiveQuery(() => db.categories.toArray(), []);
+  const catNameMap = useMemo(() => Object.fromEntries((allCats ?? []).map(r => [r.id, r.name])), [allCats]);
 
   const filtered = useMemo(() => {
     let result = filterCategory ? cards.filter(c => c.categoryId === filterCategory) : cards;
@@ -369,7 +375,8 @@ export default function CardList({
     onAssignChapter,
     onCloneToMnemonic,
     onAddKeyPart,
-  }), [filtered, expandedId, scrollToCardId, selectionMode, selectedIds, onToggleSelect, onToggleTag, onEdit, onDelete, propCategories, propSubcategories, availableChapters, onMoveCategory, onAssignChapter, onCloneToMnemonic, onAddKeyPart]);
+    catNameMap,
+  }), [filtered, expandedId, scrollToCardId, selectionMode, selectedIds, onToggleSelect, onToggleTag, onEdit, onDelete, propCategories, propSubcategories, availableChapters, onMoveCategory, onAssignChapter, onCloneToMnemonic, onAddKeyPart, catNameMap]);
 
   if (filtered.length === 0) {
     return <p className="text-muted-foreground text-center py-12">Nema kartica. Kreirajte prvu!</p>;
@@ -429,6 +436,7 @@ export default function CardList({
                 onAssignChapter={onAssignChapter}
                 onCloneToMnemonic={onCloneToMnemonic}
                 onAddKeyPart={onAddKeyPart}
+                catNameMap={catNameMap}
               />
             </div>
           </div>

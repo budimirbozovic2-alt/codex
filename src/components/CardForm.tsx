@@ -117,6 +117,7 @@ export default function CardForm({ categories, subcategories, categoryRecords, o
         setShowNewChapter={a.setShowNewChapter}
         linkedGazetteInfo={a.linkedGazetteInfo}
         sourceId={editCard?.sourceId}
+        categoryRecords={categoryRecords}
       />
 
       {/* ── Submit ───────────────────────────────────── */}

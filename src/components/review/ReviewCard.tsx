@@ -1,6 +1,8 @@
 import { ArrowLeft, Eye, ChevronRight, AlertTriangle, Pause, Scale } from "lucide-react";
 import { useState, useMemo, useEffect, useCallback, useRef, lazy, Suspense } from "react";
 import { Card, Section, GRADES, isLeech, formatInterval, previewIntervals, SRSettings } from "@/lib/spaced-repetition";
+import { useLiveQuery } from "dexie-react-hooks";
+import { db } from "@/lib/db";
 import { highlightKeyParts } from "@/lib/highlight-key-parts";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
@@ -32,6 +34,8 @@ export default function ReviewCard({
   progress, total, sectionIndex, totalSectionsInCard, srSettings, viewWidth, onViewWidthChange, modeBadge,
 }: ReviewCardProps) {
   const { toast } = useToast();
+  const catRecord = useLiveQuery(() => db.categories.get(card.categoryId), [card.categoryId]);
+  const catName = catRecord?.name ?? card.categoryId;
   const lastGradeRef = useRef<{ cardId: string; sectionId: string; grade: number } | null>(null);
   const [answerRevealedAt, setAnswerRevealedAt] = useState<number | null>(null);
   const [canGradeEasy, setCanGradeEasy] = useState(false);
@@ -193,7 +197,7 @@ export default function ReviewCard({
           {/* Question header */}
           <div className="rounded-lg bg-secondary/50 border px-5 py-3">
             <div className="flex items-center gap-2">
-              <span className="text-xs uppercase tracking-widest text-muted-foreground">{card.categoryId}</span>
+              <span className="text-xs uppercase tracking-widest text-muted-foreground">{catName}</span>
               {card.subcategory && (
                 <span className="text-xs text-muted-foreground">› {card.subcategory}</span>
               )}

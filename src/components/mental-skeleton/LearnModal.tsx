@@ -4,6 +4,8 @@ import { Card } from "@/lib/spaced-repetition";
 import { getCardMasteryLevel, getMasteryColor } from "@/components/KnowledgeMap";
 import { motion, AnimatePresence } from "framer-motion";
 import { sanitizeHtml } from "@/lib/sanitize";
+import { useLiveQuery } from "dexie-react-hooks";
+import { db } from "@/lib/db";
 
 const GRADES = [
   { value: 1, label: "1", color: "bg-red-500 hover:bg-red-600" },
@@ -23,6 +25,8 @@ export default function LearnModal({ card, onGradeSection, onClose }: LearnModal
   const [revealedSections, setRevealedSections] = useState<Set<string>>(new Set());
   const [gradedSections, setGradedSections] = useState<Record<string, number>>({});
   const [showCloseConfirm, setShowCloseConfirm] = useState(false);
+  const catRecord = useLiveQuery(() => db.categories.get(card.categoryId), [card.categoryId]);
+  const catName = catRecord?.name ?? card.categoryId;
 
   // C4 fix: confirm close if revealed but ungraded sections exist
   const safeClose = useCallback(() => {
@@ -110,7 +114,7 @@ export default function LearnModal({ card, onGradeSection, onClose }: LearnModal
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-2">
               <div className="w-3 h-3 rounded" style={{ backgroundColor: getMasteryColor(level) }} />
-              <span className="text-xs text-muted-foreground">{card.categoryId} → {card.subcategory}</span>
+              <span className="text-xs text-muted-foreground">{catName} → {card.subcategory}</span>
               {card.chapter && <span className="text-xs text-muted-foreground">→ {card.chapter}</span>}
             </div>
             <h3 className="text-lg font-medium leading-tight">{card.question}</h3>

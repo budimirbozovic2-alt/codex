@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { CardType } from "@/hooks/useCardActions";
+import type { CategoryRecord } from "@/lib/db";
 
 interface MetadataSectionProps {
   cardType: CardType;
@@ -32,6 +33,8 @@ interface MetadataSectionProps {
   linkedGazetteInfo?: string | null;
   /** Source ID for backlink */
   sourceId?: string;
+  /** Category records for UUID → name resolution */
+  categoryRecords?: CategoryRecord[];
 }
 
 const MetadataSection = memo(function MetadataSection({
@@ -40,8 +43,9 @@ const MetadataSection = memo(function MetadataSection({
   newCategory, setNewCategory, showNewCat, setShowNewCat,
   newSubcategory, setNewSubcategory, showNewSub, setShowNewSub,
   newChapter, setNewChapter, showNewChapter, setShowNewChapter,
-  linkedGazetteInfo, sourceId,
+  linkedGazetteInfo, sourceId, categoryRecords = [],
 }: MetadataSectionProps) {
+  const catNameMap = Object.fromEntries(categoryRecords.map(r => [r.id, r.name]));
   return (
     <div className="space-y-4 rounded-xl border bg-card/50 p-4">
       <p className="text-xs uppercase tracking-widest text-muted-foreground font-medium">Metapodaci</p>
@@ -65,7 +69,7 @@ const MetadataSection = memo(function MetadataSection({
             <Select value={category} onValueChange={(v) => { setCategory(v); setSubcategory(""); }}>
               <SelectTrigger className="bg-background"><SelectValue /></SelectTrigger>
               <SelectContent>
-                {categories.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                {categories.map((c) => <SelectItem key={c} value={c}>{catNameMap[c] || c}</SelectItem>)}
               </SelectContent>
             </Select>
             <Button type="button" variant="outline" size="icon" onClick={() => setShowNewCat(true)}>

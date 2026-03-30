@@ -4,7 +4,8 @@ import { Card, getCardScore } from "@/lib/spaced-repetition";
 import { LearnMode } from "@/lib/storage";
 import { ViewWidth, viewWidthClasses, viewWidthLabels } from "./types";
 
-
+import { useLiveQuery } from "dexie-react-hooks";
+import { db } from "@/lib/db";
 import { motion } from "framer-motion";
 import { speak } from "@/lib/tts";
 import ShortcutsHint from "@/components/ShortcutsHint";
@@ -38,6 +39,8 @@ const SessionHeader = React.memo(function SessionHeader({
 }: Props) {
   const score = getCardScore(card);
   const isFlash = card.type === "flash";
+  const catRecord = useLiveQuery(() => db.categories.get(card.categoryId), [card.categoryId]);
+  const catName = catRecord?.name ?? card.categoryId;
 
   return (
     <>
@@ -82,7 +85,7 @@ const SessionHeader = React.memo(function SessionHeader({
       <div className="rounded-xl bg-card border p-8">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
-            <span className="text-xs uppercase tracking-widest text-muted-foreground">{card.categoryId}</span>
+            <span className="text-xs uppercase tracking-widest text-muted-foreground">{catName}</span>
             {card.subcategory && <span className="text-xs text-muted-foreground">› {card.subcategory}</span>}
             {isFlash && (
               <span className="text-xs text-primary flex items-center gap-1"><Zap className="h-3 w-3" /> Blic</span>

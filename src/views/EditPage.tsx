@@ -1,7 +1,7 @@
 import { useCardContext, useUIContext, type View } from "@/contexts/AppContext";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import CardForm from "@/components/CardForm";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useCallback } from "react";
 import type { Card } from "@/lib/spaced-repetition";
 
 export default function EditPage() {
@@ -14,19 +14,26 @@ export default function EditPage() {
     if (stored) previousViewRef.current = stored as View;
   }, []);
 
-  const handleCancel = () => {
-    const returnTo = previousViewRef.current || "cards";
-    setEditingCard(null);
+  const navigateBack = useCallback(() => {
+    const returnTo = previousViewRef.current || "dashboard";
     sessionStorage.removeItem("sr-edit-return-view");
-    setView(returnTo);
+    if (returnTo.startsWith("category:")) {
+      const catId = returnTo.slice("category:".length);
+      window.location.hash = `#/category/${catId}`;
+    } else {
+      setView(returnTo);
+    }
+  }, [setView]);
+
+  const handleCancel = () => {
+    setEditingCard(null);
+    navigateBack();
   };
 
   const handleUpdate = (id: string, u: Partial<Card>) => {
     updateCard(id, u);
     setEditingCard(null);
-    const returnTo = previousViewRef.current || "cards";
-    sessionStorage.removeItem("sr-edit-return-view");
-    setView(returnTo);
+    navigateBack();
   };
 
   return (

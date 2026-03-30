@@ -1,6 +1,8 @@
 import { CheckCircle2, Brain, Film, Type, ChevronDown, ChevronRight, Sparkles, Wrench, Hash, MapPin, Clock, List, MoreHorizontal, Tag, Plus, Pencil, Save, X, Trash2 } from "lucide-react";
 import { useState, useMemo, memo, useCallback, lazy, Suspense } from "react";
 import { MnemonicCard, MnemonicStatus, HookType, HookMode, loadMajorSystem, resolveNumber, extractNumbers, detectEnumerationItems } from "@/lib/mnemonic-storage";
+import { useLiveQuery } from "dexie-react-hooks";
+import { db } from "@/lib/db";
 
 
 import { motion, AnimatePresence } from "framer-motion";
@@ -29,6 +31,8 @@ interface Props {
 }
 
 function WorkshopCardItemInner({ card, isExpanded, onToggle, onUpdateCard, onDeleteCard, majorSystem }: Props) {
+  const catRecord = useLiveQuery(() => db.categories.get(card.categoryId), [card.categoryId]);
+  const catName = catRecord?.name ?? card.categoryId;
   const [editMode, setEditMode] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [editQuestion, setEditQuestion] = useState("");
@@ -80,7 +84,7 @@ function WorkshopCardItemInner({ card, isExpanded, onToggle, onUpdateCard, onDel
         }
         <div className="flex-1 min-w-0">
           <p className="font-medium truncate">{card.question}</p>
-          <p className="text-xs text-muted-foreground">{card.categoryId}{card.subcategory ? ` / ${card.subcategory}` : ""}</p>
+          <p className="text-xs text-muted-foreground">{catName}{card.subcategory ? ` / ${card.subcategory}` : ""}</p>
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
           {card.testCount > 0 && (
