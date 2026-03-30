@@ -438,7 +438,7 @@ export default function CardOrgMode({ cards, categoryId, subcategoryNodes, patch
                       </div>
                       <SortableContext items={node.unassigned.map(c => c.id)} strategy={verticalListSortingStrategy}>
                         {node.unassigned.map((card, idx) => {
-                          const availableChapters = node.chapters.map(ch => ch.chapter);
+                          const availableChapters = node.chapters.map(ch => typeof ch === "string" ? ch : ch.chapter);
                           const otherSubs = tree
                             .filter(n => n.subcategory !== node.subcategory)
                             .map(n => n.subcategory);

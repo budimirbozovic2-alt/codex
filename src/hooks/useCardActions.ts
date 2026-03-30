@@ -139,14 +139,15 @@ export function useCardActions({ categories, subcategories, categoryRecords, edi
   const availableChapters = useMemo(() => {
     const sub = showNewSub && newSubcategory.trim() ? newSubcategory.trim() : subcategory;
     const cat = showNewCat && newCategory.trim() ? newCategory.trim() : category;
-    if (!sub || !cat || !categoryRecords) return [];
+    if (!sub || !cat || !categoryRecords) return [] as string[];
     const catRec = categoryRecords.find(r => r.id === cat);
-    if (!catRec) return [];
+    if (!catRec) return [] as string[];
     const nodes: SubcategoryNode[] = (catRec.subcategories as any[] || []).map((s: any) =>
-      typeof s === "string" ? { name: s, chapters: [], sortOrder: 0 } : s
+      typeof s === "string" ? { id: crypto.randomUUID(), name: s, chapters: [], sortOrder: 0 } : s
     );
     const node = nodes.find(n => n.name === sub);
-    return node?.chapters || [];
+    if (!node) return [] as string[];
+    return (node.chapters || []).map((ch: any) => typeof ch === "string" ? ch : ch.name);
   }, [category, subcategory, showNewCat, newCategory, showNewSub, newSubcategory, categoryRecords]);
 
   // ── Section actions ───────────────────────────────────
