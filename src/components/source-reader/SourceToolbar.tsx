@@ -51,10 +51,12 @@ export const SourceToolbar = memo(function SourceToolbar({
         </div>
       </div>
 
-      <Button variant="outline" size="sm" onClick={onAutoSplit} className="gap-1.5" title="Generiši eseje iz članova">
-        <Wand2 className="h-3.5 w-3.5" />
-        Auto-Split
-      </Button>
+      {!editMode && (
+        <Button variant="outline" size="sm" onClick={onAutoSplit} className="gap-1.5" title="Generiši eseje iz članova">
+          <Wand2 className="h-3.5 w-3.5" />
+          Auto-Split
+        </Button>
+      )}
 
       <div className="flex items-center rounded-lg border border-border bg-muted/50 p-0.5">
         <button
