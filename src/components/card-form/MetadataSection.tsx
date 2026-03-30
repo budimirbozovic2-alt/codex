@@ -43,8 +43,9 @@ const MetadataSection = memo(function MetadataSection({
   newCategory, setNewCategory, showNewCat, setShowNewCat,
   newSubcategory, setNewSubcategory, showNewSub, setShowNewSub,
   newChapter, setNewChapter, showNewChapter, setShowNewChapter,
-  linkedGazetteInfo, sourceId,
+  linkedGazetteInfo, sourceId, categoryRecords = [],
 }: MetadataSectionProps) {
+  const catNameMap = Object.fromEntries(categoryRecords.map(r => [r.id, r.name]));
   return (
     <div className="space-y-4 rounded-xl border bg-card/50 p-4">
       <p className="text-xs uppercase tracking-widest text-muted-foreground font-medium">Metapodaci</p>
