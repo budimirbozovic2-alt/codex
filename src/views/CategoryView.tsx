@@ -305,6 +305,43 @@ export default function CategoryView() {
         onDeleteChapter={deleteChapter}
         onReorderChapters={reorderChapters}
       />
+
+      {/* Delete source confirmation */}
+      <Dialog open={!!deleteTarget} onOpenChange={(open) => { if (!open) setDeleteTarget(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Obriši izvor</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            Da li ste sigurni da želite obrisati izvor <strong className="text-foreground">"{deleteTarget?.title}"</strong>?
+            Kartice povezane sa ovim izvorom neće biti obrisane, ali će izgubiti vezu sa izvorom.
+          </p>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteTarget(null)}>Otkaži</Button>
+            <Button
+              variant="destructive"
+              disabled={deleting}
+              onClick={async () => {
+                if (!deleteTarget) return;
+                setDeleting(true);
+                try {
+                  await deleteSource(deleteTarget.id);
+                  invalidateSourcesCache();
+                  toast.success(`Izvor "${deleteTarget.title}" obrisan.`);
+                  setDeleteTarget(null);
+                } catch (err) {
+                  toast.error("Greška pri brisanju izvora.");
+                } finally {
+                  setDeleting(false);
+                }
+              }}
+            >
+              {deleting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Trash2 className="h-4 w-4 mr-2" />}
+              Obriši
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
