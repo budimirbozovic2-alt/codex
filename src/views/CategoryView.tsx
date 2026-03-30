@@ -282,6 +282,23 @@ export default function CategoryView() {
           bulkFlagNeedsReview={bulkFlagNeedsReview}
         />
       )}
+
+      {/* Structure Manager Dialog */}
+      <StructureManagerDialog
+        open={structureOpen}
+        onOpenChange={setStructureOpen}
+        categoryId={categoryId!}
+        categoryName={category.name}
+        subcategoryNodes={subcategoryNodes}
+        onAddSubcategory={addSubcategory}
+        onRenameSubcategory={renameSubcategory}
+        onDeleteSubcategory={deleteSubcategory}
+        onReorderSubcategories={reorderSubcategories}
+        onAddChapter={addChapter}
+        onRenameChapter={renameChapter}
+        onDeleteChapter={deleteChapter}
+        onReorderChapters={reorderChapters}
+      />
     </div>
   );
 }
