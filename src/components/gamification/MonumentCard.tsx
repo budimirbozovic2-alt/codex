@@ -65,7 +65,7 @@ export const MonumentCard = memo(function MonumentCard({ monument, index, onClic
             <Tooltip>
               <TooltipTrigger asChild>
                 <h3 className="text-sm font-semibold text-foreground truncate max-w-[160px] cursor-default">
-                  {monument.category}
+                  {monument.categoryName || monument.category}
                 </h3>
               </TooltipTrigger>
               {monument.sources && monument.sources.length > 0 && (

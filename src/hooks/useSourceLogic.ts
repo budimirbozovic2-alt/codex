@@ -154,7 +154,7 @@ export function useSourceLogic(source: Source) {
   }, [essayQuestion, selectedText, source, addCard]);
 
   const scrollToHeading = useCallback((id: string) => {
-    const el = contentRef.current?.querySelector(`#${id}`);
+    const el = document.getElementById(id);
     if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
   }, []);
 

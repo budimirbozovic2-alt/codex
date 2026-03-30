@@ -67,6 +67,7 @@ export interface MonumentSourceBreakdown {
 
 export interface Monument {
   category: string;
+  categoryName: string;
   totalCards: number;
   masteredCards: number;
   mastery: number;
@@ -99,7 +100,7 @@ function buildMonument(category: string, cards: Card[]): MonumentResult {
   if (cards.length === 0) {
     return {
       monument: {
-        category, totalCards: 0, masteredCards: 0, mastery: 0,
+        category, categoryName: category, totalCards: 0, masteredCards: 0, mastery: 0,
         material: "foundation", avgStability: 0, avgDifficulty: 5,
         leechCount: 0, crumbling: false, buildingType: "insula",
       },
@@ -145,6 +146,7 @@ function buildMonument(category: string, cards: Card[]): MonumentResult {
   return {
     monument: {
       category,
+      categoryName: category,
       totalCards: cards.length,
       masteredCards,
       mastery: Math.round(mastery * 10) / 10,
@@ -220,6 +222,7 @@ export function calculateForumState(
   cards: Card[],
   reviewLog: ReviewEntry[],
   allSources?: Source[],
+  categoryRecords?: { id: string; name: string }[],
 ): ForumState {
   const fp = buildFingerprint(cards, reviewLog.length, allSources?.length ?? 0);
   if (fp === _cachedFingerprint && _cachedForumState) {
@@ -237,6 +240,12 @@ export function calculateForumState(
 
   const monumentTypes = loadMonumentTypes();
 
+  // UUID → human name map
+  const uuidToName: Record<string, string> = {};
+  if (categoryRecords) {
+    for (const r of categoryRecords) uuidToName[r.id] = r.name;
+  }
+
   // Build source lookup map (no registry needed — use source.title directly)
   const sourceMap = new Map<string, Source>();
   if (allSources) {
@@ -253,6 +262,7 @@ export function calculateForumState(
     grandTotalSections += result.totalSections;
     grandTotalReview += result.reviewSections;
     m.buildingType = monumentTypes[cat] || "insula";
+    m.categoryName = uuidToName[cat] || cat;
 
     // Add source breakdown using source.title directly
     if (sourceMap.size > 0) {

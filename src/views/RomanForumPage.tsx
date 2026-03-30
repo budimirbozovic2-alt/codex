@@ -9,7 +9,7 @@ import { Progress } from "@/components/ui/progress";
 import { loadSources, onSourcesChanged, type Source } from "@/lib/sources-storage";
 
 export default function RomanForumPage() {
-  const { cards, reviewLog, ready } = useCardContext();
+  const { cards, reviewLog, ready, categoryRecords } = useCardContext();
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [sources, setSources] = useState<Source[]>([]);
 
@@ -22,8 +22,8 @@ export default function RomanForumPage() {
   const deferredCards = useDeferredValue(cards);
 
   const forumState = useMemo(
-    () => calculateForumState(deferredCards, reviewLog, sources),
-    [deferredCards, reviewLog, sources],
+    () => calculateForumState(deferredCards, reviewLog, sources, categoryRecords),
+    [deferredCards, reviewLog, sources, categoryRecords],
   );
 
   const selectedMonument = selectedCategory

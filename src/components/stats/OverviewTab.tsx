@@ -148,7 +148,7 @@ export default function OverviewTab({
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <LayoutGrid className="h-4 w-4 text-primary" />
-              <h3 className="text-lg font-medium">Mapa Znanja</h3>
+              <h3 className="text-lg font-medium">Forum Znanja</h3>
             </div>
             <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:translate-x-0.5 transition-transform" />
           </div>

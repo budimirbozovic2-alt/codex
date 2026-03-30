@@ -96,7 +96,13 @@ const SPEED_READER_INFO = (
 type ReadMode = "subcategory" | "card";
 
 export default function SpeedReader() {
-  const { cards, categories, subcategories } = useAppContext();
+  const { cards, categories, subcategories, categoryRecords } = useAppContext();
+
+  const uuidToName = useMemo(() => {
+    const m: Record<string, string> = {};
+    for (const r of categoryRecords) m[r.id] = r.name;
+    return m;
+  }, [categoryRecords]);
 
   // Filters
   const [selCat, setSelCat] = useState<string | null>(null);
@@ -424,7 +430,7 @@ export default function SpeedReader() {
             </button>
             {categories.map(c => (
               <button key={c} onClick={() => { setSelCat(c); setSelSub(null); }} className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all whitespace-nowrap flex-shrink-0 ${selCat === c ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground hover:bg-secondary"}`}>
-                {c}
+                {uuidToName[c] ?? c}
               </button>
             ))}
           </ScrollableRow>
@@ -453,7 +459,7 @@ export default function SpeedReader() {
               <Layers className="h-5 w-5 text-primary" />
               <div className="text-left">
                 <p className="text-lg font-medium text-foreground group-hover:text-primary transition-colors">
-                  Čitaj {selSub ? `"${selSub}"` : selCat ? `"${selCat}"` : "sve kartice"} — {filteredCards.length} kartica
+                  Čitaj {selSub ? `"${selSub}"` : selCat ? `"${uuidToName[selCat] ?? selCat}"` : "sve kartice"} — {filteredCards.length} kartica
                 </p>
                 <p className="text-xs text-muted-foreground">
                   {totalWords.toLocaleString()} riječi · ~{estMinutes} min pri {wpm} WPM
@@ -481,7 +487,7 @@ export default function SpeedReader() {
                     className="w-full text-left p-3 rounded-lg border hover:border-primary/30 hover:bg-secondary/30 transition-colors"
                   >
                     <div className="flex items-center gap-2 mb-0.5 text-xs text-muted-foreground">
-                      <span>{card.categoryId}</span>
+                      <span>{uuidToName[card.categoryId] ?? card.categoryId}</span>
                       {card.subcategory && <span>› {card.subcategory}</span>}
                       <span className="ml-auto">{card.sections.length} sek. · {wc} rij.</span>
                     </div>

@@ -32,6 +32,7 @@ function ViewerInner({ doc }: { doc: MindMapDoc }) {
       edges={doc.edges || []}
       nodeTypes={nodeTypes}
       fitView
+      defaultEdgeOptions={{ style: { stroke: 'hsl(var(--muted-foreground))', strokeWidth: 2 } }}
       nodesDraggable={false}
       nodesConnectable={false}
       elementsSelectable={false}

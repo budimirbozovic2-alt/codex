@@ -21,7 +21,14 @@ export default function MajorSystemSettings() {
     saveMajorSystem(DEFAULT_MAJOR_SYSTEM);
   };
 
-  const hasChanges = JSON.stringify(system) !== JSON.stringify(loadMajorSystem());
+  const hasChanges = (() => {
+    const saved = loadMajorSystem();
+    const keys = new Set([...Object.keys(system), ...Object.keys(saved)]);
+    for (const k of keys) {
+      if ((system as any)[k] !== (saved as any)[k]) return true;
+    }
+    return false;
+  })();
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">
