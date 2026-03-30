@@ -79,7 +79,7 @@ export default function LearnSession({ cards, categories, categoryRecords, subca
         );
       }
     }
-  }, [cards, selectedCategory, selectedSubcategory, selectedChapter, sortMode, learnMode, filterExamFrequent, filterType, chapterPositionMap]);
+  }, [cards, selectedCategory, selectedSubcategory, selectedChapter, sortMode, learnMode, filterExamFrequent, filterType, positionMaps]);
 
   const card = sortedCards[currentIndex];
 
