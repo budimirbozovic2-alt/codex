@@ -3,12 +3,14 @@ import { Card } from "@/lib/spaced-repetition";
 import { Button } from "@/components/ui/button";
 import { useCardActions } from "@/hooks/useCardActions";
 import type { SectionInput, FormWidth } from "@/hooks/useCardActions";
+import type { CategoryRecord } from "@/lib/db";
 import EditorSection from "@/components/card-form/EditorSection";
 import MetadataSection from "@/components/card-form/MetadataSection";
 
 interface Props {
   categories: string[];
   subcategories: Record<string, string[]>;
+  categoryRecords?: CategoryRecord[];
   onSave: (question: string, sections: SectionInput[], category: string, subcategory?: string, chapter?: string) => void;
   onSaveFlash: (question: string, answer: string, category: string, subcategory?: string) => void;
   onCancel: () => void;
@@ -27,8 +29,8 @@ const widthLabels: Record<FormWidth, string> = {
   compact: "S", normal: "M", wide: "L", full: "XL",
 };
 
-export default function CardForm({ categories, subcategories, onSave, onSaveFlash, onCancel, editCard, onUpdate }: Props) {
-  const a = useCardActions({ categories, subcategories, editCard, onSave, onSaveFlash, onUpdate });
+export default function CardForm({ categories, subcategories, categoryRecords, onSave, onSaveFlash, onCancel, editCard, onUpdate }: Props) {
+  const a = useCardActions({ categories, subcategories, categoryRecords, editCard, onSave, onSaveFlash, onUpdate });
 
   return (
     <form onSubmit={a.handleSubmit} className={`space-y-6 ${widthClasses[a.formWidth]} transition-all duration-300`}>
