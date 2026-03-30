@@ -17,6 +17,7 @@ interface Props {
 
 export default function TextSelectionTooltip({ children, cardId, question, category, subcategory, tags, keyParts, onMarkKeyPart }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const qc = useQueryClient();
   const [tooltip, setTooltip] = useState<{ x: number; y: number; text: string } | null>(null);
 
   const handleMouseUp = useCallback(() => {
