@@ -27,6 +27,7 @@ export interface DueItem {
 export interface ReviewSessionProps {
   dueCards: Card[];
   allCards: Card[];
+  categoryRecords: import("@/lib/db").CategoryRecord[];
   subcategories: Record<string, string[]>;
   srSettings: SRSettings;
   onReviewSection: (cardId: string, sectionId: string, grade: number) => void;

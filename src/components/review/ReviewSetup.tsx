@@ -253,6 +253,7 @@ export default function ReviewSetup({
         layoutPrefix="review"
         cards={dueCards}
         categories={dueCategories}
+        categoryRecords={categoryRecords}
         subcategories={subcategories}
         selectedCategory={selectedCategory}
         selectedSubcategory={selectedSubcategory}
