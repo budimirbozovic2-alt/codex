@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Card, SRSettings, DEFAULT_SR_SETTINGS } from "@/lib/spaced-repetition";
 import { ReviewLogEntry } from "@/lib/storage";
-import { CardMap, arrayToMap } from "@/lib/persist-queue";
+import { CardMap, arrayToMap, bumpMapVersion } from "@/lib/persist-queue";
 import {
   ensureDbOpen,
   migrateFromLocalStorage,
