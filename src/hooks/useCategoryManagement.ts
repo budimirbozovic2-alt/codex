@@ -62,7 +62,7 @@ export function useCategoryManagement({
         }
       })();
     },
-    [setCardMapState, cardMapRef],
+    [],
   );
 
   const deleteCategory = useCallback(
