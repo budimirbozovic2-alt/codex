@@ -4,7 +4,7 @@ import { useLiveQuery } from "dexie-react-hooks";
 import { db, type Source } from "@/lib/db";
 import { saveSource, invalidateSourcesCache } from "@/lib/sources-storage";
 import type { Card } from "@/lib/spaced-repetition";
-import { useCardActions } from "@/contexts/AppContext";
+import { useCardActions, useUIContext } from "@/contexts/AppContext";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
