@@ -1,7 +1,7 @@
 import { useCardContext, useUIContext, type View } from "@/contexts/AppContext";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import CardForm from "@/components/CardForm";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useCallback } from "react";
 import type { Card } from "@/lib/spaced-repetition";
 
 export default function EditPage() {

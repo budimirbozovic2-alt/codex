@@ -96,7 +96,7 @@ const CardRowInner = memo(function CardRowInner({ card, expanded, highlighted, s
           )}
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1 flex-wrap">
-              <span className="text-xs uppercase tracking-widest text-muted-foreground">{card.categoryId}</span>
+              <span className="text-xs uppercase tracking-widest text-muted-foreground">{catNameMap?.[card.categoryId] ?? card.categoryId}</span>
               {card.subcategory ? (
                 <span className="text-xs text-muted-foreground">› {card.subcategory}</span>
               ) : (

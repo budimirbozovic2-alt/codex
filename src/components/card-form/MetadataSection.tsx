@@ -69,7 +69,7 @@ const MetadataSection = memo(function MetadataSection({
             <Select value={category} onValueChange={(v) => { setCategory(v); setSubcategory(""); }}>
               <SelectTrigger className="bg-background"><SelectValue /></SelectTrigger>
               <SelectContent>
-                {categories.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                {categories.map((c) => <SelectItem key={c} value={c}>{catNameMap[c] || c}</SelectItem>)}
               </SelectContent>
             </Select>
             <Button type="button" variant="outline" size="icon" onClick={() => setShowNewCat(true)}>

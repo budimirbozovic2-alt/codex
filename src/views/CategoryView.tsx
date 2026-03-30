@@ -202,7 +202,7 @@ export default function CategoryView() {
               addCard={addCard}
               addFlashCard={addFlashCard}
               onDelete={deleteCard}
-              onEdit={(card) => { setEditingCard(card); navigate('/edit'); }}
+              onEdit={(card) => { sessionStorage.setItem("sr-edit-return-view", "category:" + categoryId); setEditingCard(card); navigate('/edit'); }}
             />
           )}
         </TabsContent>

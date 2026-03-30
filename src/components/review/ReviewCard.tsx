@@ -195,7 +195,7 @@ export default function ReviewCard({
           {/* Question header */}
           <div className="rounded-lg bg-secondary/50 border px-5 py-3">
             <div className="flex items-center gap-2">
-              <span className="text-xs uppercase tracking-widest text-muted-foreground">{card.categoryId}</span>
+              <span className="text-xs uppercase tracking-widest text-muted-foreground">{catName}</span>
               {card.subcategory && (
                 <span className="text-xs text-muted-foreground">› {card.subcategory}</span>
               )}
