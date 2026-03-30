@@ -12,8 +12,8 @@ export default function CreatePage() {
         categories={categories}
         subcategories={subcategories}
         categoryRecords={categoryRecords}
-        onSave={(q, s, c, sub, ch) => { addCard(q, s, c, sub, ch); setView("cards"); }}
-        onSaveFlash={(q, a, c, sub) => { addFlashCard(q, a, c, sub); setView("cards"); }}
+        onSave={(q, s, c, sub, ch) => { addCard(q, s, c, sub, ch); setView("categories"); }}
+        onSaveFlash={(q, a, c, sub) => { addFlashCard(q, a, c, sub); setView("categories"); }}
         onCancel={() => { setView("dashboard"); setEditingCard(null); }}
         editCard={null}
         onUpdate={() => {}}

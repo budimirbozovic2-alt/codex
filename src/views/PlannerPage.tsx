@@ -9,7 +9,7 @@ export default function PlannerPage() {
 
   const handleNavigateToDatabase = useCallback((category: string) => {
     sessionStorage.setItem("sr-deeplink-category", category);
-    setView("database");
+    setView("categories");
   }, [setView]);
 
   if (!ready) {
