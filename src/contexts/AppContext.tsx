@@ -87,7 +87,7 @@ interface CardActionsContextValue {
   bulkFlagNeedsReview: ReturnType<typeof useCards>["bulkFlagNeedsReview"];
   bulkUpdateSubcategory: ReturnType<typeof useCards>["bulkUpdateSubcategory"];
   bulkUpdateChapter: ReturnType<typeof useCards>["bulkUpdateChapter"];
-  reorderCards: ReturnType<typeof useCards>["reorderCards"];
+  
   logError: ReturnType<typeof useCards>["logError"];
   clearErrorLog: ReturnType<typeof useCards>["clearErrorLog"];
   exportData: ReturnType<typeof useCards>["exportData"];
