@@ -96,7 +96,13 @@ const SPEED_READER_INFO = (
 type ReadMode = "subcategory" | "card";
 
 export default function SpeedReader() {
-  const { cards, categories, subcategories } = useAppContext();
+  const { cards, categories, subcategories, categoryRecords } = useAppContext();
+
+  const uuidToName = useMemo(() => {
+    const m: Record<string, string> = {};
+    for (const r of categoryRecords) m[r.id] = r.name;
+    return m;
+  }, [categoryRecords]);
 
   // Filters
   const [selCat, setSelCat] = useState<string | null>(null);
