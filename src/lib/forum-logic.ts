@@ -67,6 +67,7 @@ export interface MonumentSourceBreakdown {
 
 export interface Monument {
   category: string;
+  categoryName: string;
   totalCards: number;
   masteredCards: number;
   mastery: number;
