@@ -4,11 +4,15 @@ import { motion, AnimatePresence } from "framer-motion";
 
 import ScrollableRow from "@/components/ScrollableRow";
 import type { Card } from "@/lib/spaced-repetition";
+import type { CategoryRecord } from "@/lib/db";
+
 interface SessionFiltersProps {
   /** Unique prefix for layoutId animations (e.g. "learn", "review") */
   layoutPrefix: string;
   cards: Card[];
   categories: string[];
+  /** CategoryRecords for resolving UUID → display name */
+  categoryRecords?: CategoryRecord[];
   subcategories: Record<string, string[]>;
   selectedCategory: string | null;
   selectedSubcategory: string | null;
