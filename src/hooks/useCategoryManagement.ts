@@ -1,7 +1,7 @@
 import { useCallback, MutableRefObject } from "react";
 import { Card } from "@/lib/spaced-repetition";
 import { CardMap, bumpMapVersion, schedulePersist } from "@/lib/persist-queue";
-import { db } from "@/lib/db";
+import { db, type SubcategoryNode } from "@/lib/db";
 import { invalidateSourcesCache } from "@/lib/sources-storage";
 import { toast } from "@/hooks/use-toast";
 
@@ -13,6 +13,19 @@ interface UseCategoryManagementParams {
   getCategoryRecords: () => { id: string; name: string }[];
 }
 
+// ─── Helper: read SubcategoryNode[] from IDB for a category ───
+async function getNodes(catId: string): Promise<SubcategoryNode[]> {
+  const rec = await db.categories.get(catId);
+  if (!rec) return [];
+  return (rec.subcategories || []).map((s: any) =>
+    typeof s === "string" ? { name: s, chapters: [], sortOrder: 0 } : s
+  );
+}
+
+async function saveNodes(catId: string, nodes: SubcategoryNode[]): Promise<void> {
+  await db.categories.update(catId, { subcategories: nodes });
+}
+
 export function useCategoryManagement({
   setCategories,
   setSubcategories,
@@ -22,7 +35,6 @@ export function useCategoryManagement({
 }: UseCategoryManagementParams) {
   const addCategory = useCallback(
     (name: string) => {
-      // categories is UUID[] — addCategory creates a new CategoryRecord and adds its UUID
       const newId = crypto.randomUUID();
       (async () => {
         try {
@@ -34,11 +46,8 @@ export function useCategoryManagement({
     [setCategories],
   );
 
-  // Pure UUID rename: only updates CategoryRecord.name, does NOT touch cards
-  // Cards already point to the UUID which stays the same
   const renameCategory = useCallback(
     (categoryId: string, newName: string) => {
-      // Update CategoryRecord name in IDB
       (async () => {
         try {
           const record = await db.categories.get(categoryId);
@@ -63,7 +72,6 @@ export function useCategoryManagement({
               bumpMapVersion();
             }
           }
-          // Cascade rename to sources (by old name, for legacy)
           if (record?.name) {
             await db.sources.where("categoryId").equals(record.name).modify({ categoryId });
             invalidateSourcesCache();
@@ -129,7 +137,6 @@ export function useCategoryManagement({
         return next;
       });
 
-      // Cascade to sources & delete IDB CategoryRecord
       (async () => {
         try {
           if (purgeCards) {
@@ -148,7 +155,10 @@ export function useCategoryManagement({
     [setCategories, setCardMapState, setSubcategories, cardMapRef, getCategoryRecords],
   );
 
-  // Subcategory operations — all keyed by categoryId (UUID)
+  // ═══════════════════════════════════════════════════════
+  // Subcategory CRUD — persists SubcategoryNode[] to IDB
+  // ═══════════════════════════════════════════════════════
+
   const addSubcategory = useCallback(
     (categoryId: string, subcategory: string) => {
       setSubcategories((prev) => {
@@ -156,6 +166,14 @@ export function useCategoryManagement({
         if (list.includes(subcategory)) return prev;
         return { ...prev, [categoryId]: [...list, subcategory] };
       });
+      (async () => {
+        try {
+          const nodes = await getNodes(categoryId);
+          if (nodes.some(n => n.name === subcategory)) return;
+          nodes.push({ name: subcategory, chapters: [], sortOrder: nodes.length });
+          await saveNodes(categoryId, nodes);
+        } catch (e) { console.error("[addSubcategory] IDB failed", e); }
+      })();
     },
     [setSubcategories],
   );
@@ -183,6 +201,13 @@ export function useCategoryManagement({
         setCardMapState(() => nextRef);
         bumpMapVersion();
       }
+      (async () => {
+        try {
+          const nodes = await getNodes(categoryId);
+          const updated = nodes.map(n => n.name === oldName ? { ...n, name: newName } : n);
+          await saveNodes(categoryId, updated);
+        } catch (e) { console.error("[renameSubcategory] IDB failed", e); }
+      })();
     },
     [setSubcategories, setCardMapState, cardMapRef],
   );
@@ -190,12 +215,13 @@ export function useCategoryManagement({
   const deleteSubcategory = useCallback(
     (categoryId: string, subcategory: string) => {
       setSubcategories((prev) => ({ ...prev, [categoryId]: (prev[categoryId] || []).filter((s) => s !== subcategory) }));
+      // Non-destructive: move cards to uncategorized
       const now = Date.now();
       const changed: Card[] = [];
       const nextRef = { ...cardMapRef.current };
       for (const [id, c] of Object.entries(nextRef)) {
         if (c.categoryId === categoryId && c.subcategory === subcategory) {
-          const u = { ...c, subcategory: "", updatedAt: now };
+          const u = { ...c, subcategory: "", chapter: "", updatedAt: now };
           nextRef[id] = u;
           changed.push(u);
         }
@@ -206,6 +232,12 @@ export function useCategoryManagement({
         setCardMapState(() => nextRef);
         bumpMapVersion();
       }
+      (async () => {
+        try {
+          const nodes = await getNodes(categoryId);
+          await saveNodes(categoryId, nodes.filter(n => n.name !== subcategory));
+        } catch (e) { console.error("[deleteSubcategory] IDB failed", e); }
+      })();
     },
     [setSubcategories, setCardMapState, cardMapRef],
   );
@@ -229,6 +261,113 @@ export function useCategoryManagement({
     }
   }, [setCardMapState, cardMapRef]);
 
+  // ═══════════════════════════════════════════════════════
+  // Chapter CRUD — operates on SubcategoryNode.chapters
+  // ═══════════════════════════════════════════════════════
+
+  const addChapter = useCallback((categoryId: string, subName: string, chapterName: string) => {
+    (async () => {
+      try {
+        const nodes = await getNodes(categoryId);
+        const updated = nodes.map(n => {
+          if (n.name !== subName) return n;
+          if (n.chapters.includes(chapterName)) return n;
+          return { ...n, chapters: [...n.chapters, chapterName] };
+        });
+        await saveNodes(categoryId, updated);
+      } catch (e) { console.error("[addChapter] IDB failed", e); }
+    })();
+  }, []);
+
+  const renameChapter = useCallback((categoryId: string, subName: string, oldChapter: string, newChapter: string) => {
+    // Update cards
+    const now = Date.now();
+    const changed: Card[] = [];
+    const nextRef = { ...cardMapRef.current };
+    for (const [id, c] of Object.entries(nextRef)) {
+      if (c.categoryId === categoryId && c.subcategory === subName && c.chapter === oldChapter) {
+        const u = { ...c, chapter: newChapter, updatedAt: now };
+        nextRef[id] = u;
+        changed.push(u);
+      }
+    }
+    if (changed.length > 0) {
+      cardMapRef.current = nextRef;
+      schedulePersist({ type: "bulk", cards: changed });
+      setCardMapState(() => nextRef);
+      bumpMapVersion();
+    }
+    // Update node
+    (async () => {
+      try {
+        const nodes = await getNodes(categoryId);
+        const updated = nodes.map(n => {
+          if (n.name !== subName) return n;
+          return { ...n, chapters: n.chapters.map(ch => ch === oldChapter ? newChapter : ch) };
+        });
+        await saveNodes(categoryId, updated);
+      } catch (e) { console.error("[renameChapter] IDB failed", e); }
+    })();
+  }, [setCardMapState, cardMapRef]);
+
+  const deleteChapter = useCallback((categoryId: string, subName: string, chapterName: string) => {
+    // Non-destructive: move cards to chapter=""
+    const now = Date.now();
+    const changed: Card[] = [];
+    const nextRef = { ...cardMapRef.current };
+    for (const [id, c] of Object.entries(nextRef)) {
+      if (c.categoryId === categoryId && c.subcategory === subName && c.chapter === chapterName) {
+        const u = { ...c, chapter: "", updatedAt: now };
+        nextRef[id] = u;
+        changed.push(u);
+      }
+    }
+    if (changed.length > 0) {
+      cardMapRef.current = nextRef;
+      schedulePersist({ type: "bulk", cards: changed });
+      setCardMapState(() => nextRef);
+      bumpMapVersion();
+    }
+    (async () => {
+      try {
+        const nodes = await getNodes(categoryId);
+        const updated = nodes.map(n => {
+          if (n.name !== subName) return n;
+          return { ...n, chapters: n.chapters.filter(ch => ch !== chapterName) };
+        });
+        await saveNodes(categoryId, updated);
+      } catch (e) { console.error("[deleteChapter] IDB failed", e); }
+    })();
+  }, [setCardMapState, cardMapRef]);
+
+  const reorderSubcategories = useCallback((categoryId: string, ordered: string[]) => {
+    setSubcategories((prev) => ({ ...prev, [categoryId]: ordered }));
+    (async () => {
+      try {
+        const nodes = await getNodes(categoryId);
+        const nodeMap = new Map(nodes.map(n => [n.name, n]));
+        const reordered = ordered.map((name, i) => {
+          const n = nodeMap.get(name);
+          return n ? { ...n, sortOrder: i } : { name, chapters: [], sortOrder: i };
+        });
+        await saveNodes(categoryId, reordered);
+      } catch (e) { console.error("[reorderSubcategories] IDB failed", e); }
+    })();
+  }, [setSubcategories]);
+
+  const reorderChapters = useCallback((categoryId: string, subName: string, ordered: string[]) => {
+    (async () => {
+      try {
+        const nodes = await getNodes(categoryId);
+        const updated = nodes.map(n => {
+          if (n.name !== subName) return n;
+          return { ...n, chapters: ordered };
+        });
+        await saveNodes(categoryId, updated);
+      } catch (e) { console.error("[reorderChapters] IDB failed", e); }
+    })();
+  }, []);
+
   return {
     addCategory,
     renameCategory,
@@ -237,5 +376,10 @@ export function useCategoryManagement({
     renameSubcategory,
     deleteSubcategory,
     bulkUpdateSubcategory,
+    addChapter,
+    renameChapter,
+    deleteChapter,
+    reorderSubcategories,
+    reorderChapters,
   };
 }
