@@ -1,79 +1,59 @@
 
 
-# Oživljavanje mrtvog koda i čišćenje 404 ruta
+# Hronološko učenje — potpuni sort po hijerarhiji predmeta
 
-## FAZA 1: Rješavanje 404 ruta
+## Problem
+Trenutno hronološki sort u LearnSession:
+1. Koristi `chapterPositionMap` koji se učitava iz zastarjelog IDB ključa (`chapters-{cat}-{sub}`) — odvojeno od kanonskog izvora (`CategoryRecord.subcategories[].chapters`)
+2. Kad je odabrana samo kategorija (bez podkategorije), `chapterPositionMap` je prazan → kartice se sortiraju samo po `chapterOrder` i `createdAt`
+3. **Nedostaje sort po poziciji podkategorije** (`SubcategoryNode.sortOrder`) — kartice iz različitih podkategorija se miješaju
 
-### TopNav.tsx (L228-242)
-- `BAZA_NAV` sadrži `/cards`, `/categories`, `/sources` — od kojih `/cards` i `/sources` ne postoje
-- Zamijeniti sa: `/categories` → "Kategorije" (jedina validna ruta)
-- Ukloniti cijeli `BazaDropdown` jer ostaje samo jedna stavka — direktan `NavLink` na `/categories`
-- Ukloniti `DatabaseIcon` import i `BazaDropdown` komponentu (L27-67)
-- L234: `isBazaActive` provjera za `/database` — ukloniti
+## Rješenje
+Zamijeniti učitavanje iz IDB ključa sa derivacijom pozicija direktno iz `categoryRecords` (koji su već dostupni kao prop).
 
-### QuickActions.tsx (L30-35)
-- `to="/sources"` — zamijeniti sa `to="/categories"` (ili ukloniti taj link potpuno)
+### Novi sort algoritam (4 nivoa):
+```text
+1. subcategoryPosition  (SubcategoryNode.sortOrder)
+2. chapterPosition      (index u SubcategoryNode.chapters[])
+3. chapterOrder          (pozicija kartice unutar glave)
+4. createdAt             (tiebreaker)
+```
 
-### CardForm.tsx (L46)
-- `window.location.hash = "#/sources"` — zamijeniti sa navigacijom na kategoriju kartice: `#/category/${editCard.categoryId}`
+### Promjene u `LearnSession.tsx`
+- **Ukloniti**: `chapterPositionMap` state, `dbModuleRef`, cijeli `useEffect` za učitavanje iz IDB (L41-66, ~25 linija)
+- **Dodati**: `useMemo` koji iz `categoryRecords` gradi mapu pozicija:
+  ```ts
+  const positionMaps = useMemo(() => {
+    const subPos: Record<string, number> = {};
+    const chapPos: Record<string, number> = {};
+    const catRec = categoryRecords.find(r => r.id === selectedCategory);
+    if (!catRec) return { subPos, chapPos };
+    for (const node of catRec.subcategories as SubcategoryNode[]) {
+      subPos[node.name] = node.sortOrder;
+      node.chapters.forEach((ch, i) => { chapPos[ch] = i; });
+    }
+    return { subPos, chapPos };
+  }, [categoryRecords, selectedCategory]);
+  ```
+- **Ažurirati** `sortedCards` default case:
+  ```ts
+  default: {
+    const { subPos, chapPos } = positionMaps;
+    return filtered.sort((a, b) =>
+      (subPos[a.subcategory ?? ""] ?? 999) - (subPos[b.subcategory ?? ""] ?? 999)
+      || (chapPos[a.chapter ?? ""] ?? 999) - (chapPos[b.chapter ?? ""] ?? 999)
+      || (a.chapterOrder ?? 0) - (b.chapterOrder ?? 0)
+      || a.createdAt - b.createdAt
+    );
+  }
+  ```
 
-### Breadcrumbs.tsx (L12-15)
-- Ukloniti `/cards`, `/sources`, `/database` iz `ROUTE_LABELS` — te rute ne postoje
-
-### MainLayout.tsx (L20)
-- `SOURCE_ROUTES` sadrži `/cards`, `/sources`, `/database` — ukloniti mrtve, ostaviti samo `/categories` i `/category/`
-
-## FAZA 2: Oživljavanje skrivenih stranica
-
-### AppSidebar.tsx — dodati Knowledge Map
-- U `TOOLS_NAV` niz dodati: `{ path: "/knowledge-map", icon: Map, label: "Mapa znanja" }`
-- `Map` je već importovan
-
-### MnemonicModule.tsx — Major System kao Dialog
-- Umjesto `subView === "major"` koji renderuje `<MajorSystemSettings />` kao zasebnu stranicu, renderovati ga unutar `<Dialog>` modala
-- Dugme "Mentalne tablice" u grid meniju otvara dialog umjesto `setSubView("major")`
-
-### App.tsx — ukloniti `/major-system-settings` rutu
-- Obrisati `const MajorSystemPage = lazy(...)` (L31)
-- Obrisati `<Route path="/major-system-settings" ...>` (L66)
-
-### MajorSystemPage.tsx — obrisati fajl (više nije potreban)
-
-### `/frequent-errors` — bez promjena (ostaje skrivena, kontekstualna)
-
-## FAZA 3: Spašavanje napuštene logike
-
-### splitCard() — dodati dugme u CardForm.tsx
-- U header sekciju forme (L38-73), pored "Vrati me nazad", dodati dugme "Podijeli karticu" (ikona `Scissors`)
-- Prikazuje se samo kada: `editCard` postoji I `editCard.sections.length > 1`
-- `onClick`: poziva `splitCard(editCard.id)` iz konteksta, prikazuje toast "Kartica podijeljena", navigira nazad
-- CardForm prima novi prop `onSplit?: (id: string) => void`
-- EditPage.tsx prosljeđuje `onSplit={splitCard}` iz `useCardContext()`
-
-### reorderCards() — obrisati
-- `useCardAnnotations.ts`: obrisati `reorderCards` callback (L169-181) i ukloniti iz return objekta
-- `useCards.ts`: ukloniti iz destructuring-a i return objekta
-- `AppContext.tsx`: ukloniti iz interface-a i provider value-a
-
-## Fajlovi koji se mijenjaju
-
-| Fajl | Promjena |
-|------|----------|
-| `src/components/TopNav.tsx` | Ukloniti BazaDropdown, direktan link na /categories |
-| `src/components/dashboard/QuickActions.tsx` | `/sources` → `/categories` |
-| `src/components/CardForm.tsx` | Fix #/sources link, dodati Split dugme |
-| `src/components/Breadcrumbs.tsx` | Ukloniti mrtve rute iz ROUTE_LABELS |
-| `src/components/MainLayout.tsx` | Očistiti SOURCE_ROUTES |
-| `src/components/AppSidebar.tsx` | Dodati Knowledge Map u TOOLS_NAV |
-| `src/components/MnemonicModule.tsx` | Major System → Dialog modal |
-| `src/App.tsx` | Ukloniti /major-system-settings rutu |
-| `src/views/MajorSystemPage.tsx` | Obrisati fajl |
-| `src/views/EditPage.tsx` | Proslijediti splitCard prop |
-| `src/hooks/useCardAnnotations.ts` | Obrisati reorderCards |
-| `src/hooks/useCards.ts` | Ukloniti reorderCards |
-| `src/contexts/AppContext.tsx` | Ukloniti reorderCards iz interfejsa i providera |
+### Rezultat
+- Kartice prate tačan vizuelni redoslijed iz Mape znanja / Mentalnog kostura
+- Radi ispravno i kad je odabrana samo kategorija, i kad je odabrana podkategorija
+- Uklonjena zavisnost na zastarjeli IDB ključ
 
 ## Scope
-- 13 fajlova, ~120 linija promjena
-- Bez IDB/FSRS promjena
+- 1 fajl (`LearnSession.tsx`), ~20 linija promijenjeno
+- Bez novih zavisnosti, bez IDB promjena
 
