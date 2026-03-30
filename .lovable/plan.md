@@ -1,126 +1,110 @@
 
 
-# Analiza problema iz dokumenta i plan implementacije
+# Strict 3-Tier Taxonomy: Category → Subcategory → Chapter
 
-## Sažetak nalaza
+## Current State
 
-Dokument identifikuje probleme u 10+ modula. Nakon detaljne provjere koda, ovo je status svakog:
+- **CategoryRecord.subcategories**: flat `string[]` — no chapter association
+- **Chapters**: stored ad-hoc in `idbSettings` keys like `chapters-{catId}-{subName}` and derived from card properties
+- **CardOrgMode**: mixes taxonomy CRUD (add/rename/delete subs & chapters) with card drag-and-drop assignment
+- **Card form (MetadataSection)**: chapter dropdown loads from `idbSettings`, not from a canonical tree
+- **useCategoryManagement**: `addSubcategory`/`renameSubcategory`/`deleteSubcategory` only update an in-memory `Record<string, string[]>` — subcategories are NOT persisted to `CategoryRecord.subcategories` in IDB consistently
 
----
+## Architecture
 
-## TRIAGE TABELA
-
-| # | Modul | Problem | Stvarni status | Prioritet |
-|---|-------|---------|---------------|-----------|
-| 1 | Dashboard | "Naučene cjeline" vodi na 404 (`/cards`) | **POTVRĐEN** — `CoreStats.tsx` line 24: `<Link to="/cards">` — ruta `/cards` ne postoji u `App.tsx` | CRITICAL |
-| 2 | Dashboard | "Izvori" vodi na 404 | **TREBA PROVJERA** — nema eksplicitnog "Izvori" dugmeta u Dashboard.tsx, vjerovatno se misli na nešto u StatusIconsRow | MODERATE |
-| 3 | Konsolidacija | Ne prikazuje kartice za ponavljanje | **VJEROVATNO FSRS** — `dueCards` logika (useCards.ts L199-206) zahtijeva `s.state !== New && s.nextReview <= now`. Ako kartice nikad nisu pregledane, nemaju `nextReview` — ostaju "New" zauvijek | HIGH |
-| 4 | Forum | UUID umjesto naziva kategorije | **POTVRĐEN** — `monument.category` je UUID (iz `card.categoryId`), a `MonumentCard.tsx` L68 i `MonumentInterior.tsx` L87 prikazuju ga sirovo | CRITICAL |
-| 5 | Kartice / Edit dugme | Edit u CardViewMode ne radi | **POTVRĐEN RANIJE, POPRAVLJEN** — edit navigacija postoji (setEditingCard + navigate('/edit')). Treba verifikovati | LOW |
-| 6 | Organizacija / Potkategorije | Dugme "Dodaj potkategoriju" ne radi | **TREBA PROVJERA** — ranija popravka je dodala subcategory management u CardOrgMode | MODERATE |
-| 7 | Bulk import blic kartica | Višelinijski odgovori se lome | **POTVRĐEN** — `BulkImportDialog.tsx` L26-33 splituje po `\n` i traži `;` delimiter. Višelinijski odgovor = svaka linija se tretira kao novo pitanje | HIGH |
-| 8 | Izvori / Outline navigacija | Klik na poglavlje u SourceReader ne skroluje | **VJEROVATNO OK** — `scrollToHeading` (useSourceLogic L156-158) radi `querySelector(#id).scrollIntoView()`. Problem može biti da `contentRef` nije isti DOM čvor | MODERATE |
-| 9 | Mentalne mape / Veze nevidljive | Eksportovane mape nemaju vidljive edge-ove | **POTVRĐEN** — `MindMapViewer.tsx` L32 prosljeđuje `edges={doc.edges}` ali ReactFlow bez `defaultEdgeOptions` može imati nevidljive edge-ove ako nedostaju stilovi | HIGH |
-| 10 | Statistika / Naziv | "Laboratorija znanja" umjesto "Statistika" | **POTVRĐEN** — `MyStats.tsx` L45: `Laboratorija znanja` | LOW |
-| 11 | Statistika / Mapa znanja | Pregled upućuje na Knowledge Map | **POTVRĐEN** — `OverviewTab.tsx` L141-174 prikazuje "Mapa Znanja" dugme koje vodi na `/knowledge-map`. Ovo možda konfliktuje sa Forum integracijom | MODERATE |
-| 12 | Memorizacija / UUID | UUID u MnemonicTest filterima | **UPRAVO POPRAVLJENO** — prethodni commit je migrirao na `categoryId` sa `idToName` mapom | DONE |
-| 13 | Memorizacija / Major System save | "Sačuvaj" dugme ne radi | **POTVRĐEN** — `MajorSystemSettings.tsx` L24: `hasChanges` poredi sa `loadMajorSystem()` koji čita localStorage. Svaki input onChange poziva `setSystem` ali NE poziva `saveMajorSystem`. Dugme `handleSave` radi — ali `hasChanges` bi trebao raditi jer poredi current state vs saved. Moguć bug: `JSON.stringify` poređenje objekata sa numeričkim ključevima | MODERATE |
-| 14 | Speed Reader | Ne prepoznaje izvore | **POTVRĐEN** — `SpeedReader.tsx` koristi samo `cards`, nema pristup `sources`. Nema način da se čitaju izvori | HIGH |
-| 15 | Speed Reader | Nema filtriranja po glavama | **POTVRĐEN** — ima filter po kategoriji i potkategoriji, ali ne po "glavama" (chapters) | MODERATE |
-| 16 | Speed Reader | UUID prikazan umjesto naziva | **POTVRĐEN** — L427 i L456 prikazuju `c` (UUID) i `selCat` (UUID) umjesto imena; L484 prikazuje `card.categoryId` (UUID) | HIGH |
-
----
-
-## PLAN IMPLEMENTACIJE
-
-### Faza 1: Kritični linkovi i UUID prikazi (5 fajlova)
-
-**1.1 Dashboard 404 — `src/components/dashboard/CoreStats.tsx`**
-- Line 24: `<Link to="/cards">` → `<Link to="/categories">` (ili ukloniti link jer `/cards` ruta ne postoji)
-
-**1.2 Forum UUID prikaz — 3 fajla**
-- `src/lib/forum-logic.ts`: Funkcija `buildMonument` prima `category` (UUID) i stavlja ga u `monument.category`. Dodati opcioni `categoryName` field u `Monument` interfejs
-- `calculateForumState`: Primiti `categoryRecords` kao parametar, napraviti `uuidToName` mapu, i postaviti `monument.categoryName = uuidToName[cat] ?? cat`
-- `src/components/gamification/MonumentCard.tsx` L68: `{monument.categoryName || monument.category}`
-- `src/components/gamification/MonumentInterior.tsx` L87: isto
-- Svi pozivači `calculateForumState` (ForumContext) — proslijediti `categoryRecords`
-
-**1.3 SpeedReader UUID prikaz — `src/components/SpeedReader.tsx`**
-- Uvesti `categoryRecords` iz contexta
-- Napraviti `uuidToName` mapu
-- L427: prikazati `uuidToName[c] ?? c` umjesto sirovog UUID-a
-- L456: prikazati `uuidToName[selCat] ?? selCat`
-- L484: prikazati `uuidToName[card.categoryId] ?? card.categoryId`
-
-### Faza 2: Konsolidacija / FSRS provjera (2 fajla)
-
-**2.1 Provjera dueCards logike**
-- `useCards.ts` L199-206: Logika je ispravna — kartica je "due" ako ima barem jednu sekciju u Review stanju sa `nextReview <= now`
-- Problem je vjerovatno što kartice nikad nisu bile pregledane (sve sekcije ostaju "New")
-- Korisnik mora prvo proći sesiju učenja da bi sekcije prešle u Review stanje
-- **Akcija**: Dodati dijagnostički info u ReviewPage EmptyState — prikazati koliko kartica je u "New" stanju vs "Review" stanju
-
-### Faza 3: Bulk Import fix (1 fajl)
-
-**3.1 `src/components/category/BulkImportDialog.tsx`**
-- Trenutni format: `pitanje;odgovor` po redu — višelinijski odgovori se lome
-- Fix: Dodati podršku za alternativni delimiter (npr. prazan red razdvaja pitanja, ili koristiti `---` kao separator između Q/A parova)
-- Dodati opciju za izbor formata u UI
-
-### Faza 4: Statistika rename + Knowledge Map (2 fajla)
-
-**4.1 `src/components/MyStats.tsx` L45**
-- `"Laboratorija znanja"` → `"Statistika"`
-- L48: opis ažurirati
-
-**4.2 `src/components/stats/OverviewTab.tsx` L141-174**
-- Knowledge Map dugme: preusmjeriti na `/forum` umjesto `/knowledge-map`, ili potpuno ukloniti ako je funkcionalnost integrirana u Forum
-
-### Faza 5: Source Reader navigacija (1 fajl)
-
-**5.1 `src/hooks/useSourceLogic.ts` L156-158**
-- `scrollToHeading` koristi `contentRef.current?.querySelector(#id)`. Problem: `SourceContent` koristi `enhanceHeadings` callback ref koji postavlja `contentRef` — ali ako se heading ID sadrži specijalne znakove, `querySelector` pada
-- Fix: Koristiti `document.getElementById(id)` umjesto `querySelector(#${id})` jer getElementById ne zahtijeva CSS escaping
-
-### Faza 6: MindMap veze nevidljive (1 fajl)
-
-**6.1 `src/components/category/MindMapViewer.tsx`**
-- Dodati `defaultEdgeOptions` sa vidljivim stilom:
-```ts
-defaultEdgeOptions={{ 
-  style: { stroke: 'hsl(var(--muted-foreground))', strokeWidth: 2 },
-  animated: false 
-}}
+```text
+CategoryRecord (IDB)
+├── id: UUID
+├── name: string
+├── subcategories: SubcategoryNode[]   ← NEW structure
+│   ├── name: string
+│   ├── chapters: string[]
+│   └── sortOrder: number
+└── sortOrder, color
 ```
-- Provjeriti da `doc.edges` sadrži ispravne `source`/`target` reference
 
-### Faza 7: Speed Reader — podrška za izvore (1 fajl)
+No IDB schema version bump needed — `subcategories` is a non-indexed field, so changing its shape from `string[]` to `SubcategoryNode[]` is transparent to Dexie.
 
-**7.1 `src/components/SpeedReader.tsx`**
-- Dodati tab ili toggle: "Kartice" | "Izvori"
-- Kada je izvor odabran, koristiti `source.htmlContent` → `stripHtml()` → segmenti
-- Dodati filter po izvorima (source titles) unutar odabrane kategorije
-- Zahtijeva pristup `sources` iz IDB-a (uvesti `useLiveQuery` ili proslijediti iz konteksta)
+## Plan
 
-### Faza 8: Major System Save (1 fajl)
+### Phase 1: Data Layer Migration
 
-**8.1 `src/components/MajorSystemSettings.tsx`**
-- L24: `hasChanges` koristi `JSON.stringify` poređenje. Objekti sa numeričkim ključevima mogu imati različit redoslijed
-- Fix: Sortirati ključeve prije poređenja, ili koristiti deep-equal utility
+**File: `src/lib/db.ts`**
+- Add `SubcategoryNode` interface: `{ name: string; chapters: string[]; sortOrder: number }`
+- Change `CategoryRecord.subcategories` type from `string[]` to `SubcategoryNode[]`
+- Update `createDefaultCategories()` to use empty `SubcategoryNode[]`
 
----
+**File: `src/hooks/useCardBootstrap.ts`**
+- In the bootstrap where `subsMap` is built from `cat.subcategories`: detect if entry is a plain string (legacy) vs `SubcategoryNode` object; auto-migrate to `SubcategoryNode` format
+- Build fallback nodes: scan all cards for the category; if a card has `subcategory` or `chapter` not present in the tree, create corresponding nodes dynamically (the "Opšte" fallback)
+- Persist migrated `subcategories` back to `db.categories.update()`
 
-## Redoslijed izvršenja
+**File: `src/hooks/useCategoryManagement.ts`**
+- Rewrite `addSubcategory` / `renameSubcategory` / `deleteSubcategory` to operate on `SubcategoryNode[]` and persist to `db.categories.update(catId, { subcategories: newNodes })`
+- Add `addChapter(catId, subName, chapterName)`, `renameChapter(...)`, `deleteChapter(...)`, `reorderSubcategories(...)`, `reorderChapters(...)` — all persist to IDB
+- Delete chapter moves affected cards to `chapter: ""` (non-destructive)
+- Delete subcategory moves affected cards to `subcategory: "", chapter: ""` (non-destructive)
 
-1. **Faze 1.1 + 1.2 + 1.3** (UUID prikazi + 404 fix) — najvidljiviji bugovi
-2. **Faza 4** (Statistika rename) — trivijalan fix
-3. **Faza 3** (Bulk import) — korisnik aktivno koristi
-4. **Faza 5 + 6** (Source Reader + MindMap) — funkcionalni bugovi
-5. **Faza 7** (Speed Reader izvori) — nova funkcionalnost
-6. **Faza 2 + 8** (FSRS dijagnostika + Major System) — manje urgentno
+**File: `src/contexts/AppContext.tsx`**
+- Expose new chapter CRUD functions via `CardActionsContextValue`
 
-## Ukupan opseg
-- ~12 fajlova, ~150 linija promjena
-- Bez IDB schema promjena
-- Bez FSRS logike promjena (samo dijagnostika)
+### Phase 2: Structure Manager Dialog
+
+**New file: `src/components/category/StructureManagerDialog.tsx`**
+- Modal dialog triggered by a "⚙ Struktura" button in CategoryView header
+- Two-level accordion/tree UI:
+  - Level 1: Subcategories (add / rename / delete / reorder via up/down arrows)
+  - Level 2: Chapters within selected subcategory (add / rename / delete / reorder)
+- Delete actions show confirmation: "Ovo će premjestiti sve kartice u Neraspoređene"
+- Calls `addSubcategory`, `renameSubcategory`, `deleteSubcategory`, `addChapter`, `renameChapter`, `deleteChapter`, `reorderSubcategories`, `reorderChapters` from context
+
+**File: `src/views/CategoryView.tsx`**
+- Add "⚙ Struktura" button next to the category title (top-right of header)
+- State: `structureOpen` boolean, renders `<StructureManagerDialog>` when true
+
+### Phase 3: Cascading Dropdowns in Card Form
+
+**File: `src/hooks/useCardActions.ts`**
+- Remove the `idbLoadSettings` chapter loading logic (lines 136-148)
+- Derive `availableChapters` from `subcategories[category]` → find the matching `SubcategoryNode` → return its `.chapters`
+- When subcategory changes, reset chapter to `""`
+
+**File: `src/components/card-form/MetadataSection.tsx`**
+- Chapter dropdown already conditionally renders when subcategory is selected (line 112) — this stays
+- `availableChapters` now comes from the canonical tree, not from idbSettings
+- Remove "+" button for creating new chapters inline (structure changes go through Structure Manager only)
+- Remove "+" button for creating new subcategories inline (same reason)
+
+### Phase 4: Strip CRUD from CardOrgMode
+
+**File: `src/components/category/CardOrgMode.tsx`**
+- Remove props: `addSubcategory`, `renameSubcategory`, `deleteSubcategory`
+- Remove state: `newSubName`, `editingSubName`, `editSubValue`, `editingChapter`, `editChapterValue`, `newChapterName`, `addingChapterFor`
+- Remove handlers: `handleAddSubcategory`, `handleRenameSubcategory`, `handleDeleteSubcategory`, `handleRenameChapter`, `handleDeleteChapter`, `handleAddChapter`
+- Remove all Edit2/Trash2 buttons and Input fields for subcategory/chapter CRUD from the render
+- Keep: DnD context, SortableCardTile, DroppableChapterHeader, drag overlay, `buildTree`, `assignChapter`, `patchCard`
+- Add new prop: `subcategoryNodes: SubcategoryNode[]` — use these to build the tree structure (ensuring empty nodes still appear as drop targets)
+- `buildTree()`: merge `SubcategoryNode[]` structure with actual card data, so empty chapters/subcategories are visible as drop targets
+
+**File: `src/views/CategoryView.tsx`**
+- Remove `addSubcategory`, `renameSubcategory`, `deleteSubcategory` from CardOrgMode props
+- Pass `subcategoryNodes={category.subcategories}` instead
+
+### Cleanup
+
+**File: `src/hooks/useChapterManagement.ts`**
+- Delete entirely — chapters are now stored in `CategoryRecord.subcategories[n].chapters`, not in separate idbSettings keys
+- Or keep as deprecated with a migration note
+
+## Guardrails Respected
+
+- **Pure UUID**: All operations use `categoryId` (UUID). No name-based lookups introduced
+- **Load guards**: `useCardBootstrap.ts` `bumpMapVersion()`, LearnPage/ReviewPage ready guards — untouched
+- **Non-destructive deletion**: All delete operations move cards to uncategorized, never delete cards
+- **No IDB version bump**: `subcategories` is a data field, not an indexed column
+- **Iterative scope**: Only taxonomy-related files touched. FSRS, SR settings, export/import, forum, mnemonic modules: untouched
+
+## Estimated Scope
+- ~6 files modified, 1 new file created, 1 file potentially deleted
+- ~300 lines changed total
 
