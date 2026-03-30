@@ -4,6 +4,8 @@ import { Card } from "@/lib/spaced-repetition";
 import { getCardMasteryLevel, getMasteryColor } from "@/components/KnowledgeMap";
 import { motion, AnimatePresence } from "framer-motion";
 import { sanitizeHtml } from "@/lib/sanitize";
+import { useLiveQuery } from "dexie-react-hooks";
+import { db } from "@/lib/db";
 
 const GRADES = [
   { value: 1, label: "1", color: "bg-red-500 hover:bg-red-600" },
