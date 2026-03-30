@@ -7,7 +7,7 @@ import {
 } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { ChevronDown, ChevronRight, FolderOpen, GripVertical } from "lucide-react";
+import { ChevronDown, ChevronRight, FolderOpen, GripVertical, BookOpen, Inbox } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { type Card } from "@/lib/spaced-repetition";
@@ -27,7 +27,6 @@ interface TreeNode {
   unassigned: Card[];
 }
 
-/** Encode a droppable chapter zone ID */
 const chapterDropId = (sub: string, chapter: string) => `__drop__${sub}__${chapter}`;
 const parseChapterDropId = (id: string) => {
   if (!id.startsWith("__drop__")) return null;
@@ -38,22 +37,18 @@ const parseChapterDropId = (id: string) => {
 };
 
 function buildTree(cards: Card[], subcategoryNodes: SubcategoryNode[]): TreeNode[] {
-  // Start with structure from SubcategoryNode[]
   const nodeMap = new Map<string, { chapters: Map<string, Card[]>; unassigned: Card[] }>();
 
-  // Initialize from canonical structure
   for (const node of subcategoryNodes) {
     const chMap = new Map<string, Card[]>();
     for (const ch of node.chapters) chMap.set(ch, []);
     nodeMap.set(node.name, { chapters: chMap, unassigned: [] });
   }
 
-  // Ensure "(Bez potkategorije)" exists for unassigned cards
   if (!nodeMap.has("(Bez potkategorije)")) {
     nodeMap.set("(Bez potkategorije)", { chapters: new Map(), unassigned: [] });
   }
 
-  // Assign cards to the tree
   for (const card of cards) {
     const sub = card.subcategory || "(Bez potkategorije)";
     if (!nodeMap.has(sub)) {
@@ -63,7 +58,6 @@ function buildTree(cards: Card[], subcategoryNodes: SubcategoryNode[]): TreeNode
     if (card.chapter && entry.chapters.has(card.chapter)) {
       entry.chapters.get(card.chapter)!.push(card);
     } else if (card.chapter) {
-      // Chapter exists on card but not in canonical tree — create it dynamically
       if (!entry.chapters.has(card.chapter)) entry.chapters.set(card.chapter, []);
       entry.chapters.get(card.chapter)!.push(card);
     } else {
@@ -78,7 +72,6 @@ function buildTree(cards: Card[], subcategoryNodes: SubcategoryNode[]): TreeNode
         chapter,
         cards: cards.sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0)),
       }));
-    // Only include if has content OR is a canonical node
     const totalCards = chapters.reduce((sum, ch) => sum + ch.cards.length, 0) + entry.unassigned.length;
     const isCanonical = subcategoryNodes.some(n => n.name === sub);
     if (totalCards > 0 || isCanonical) {
@@ -86,7 +79,6 @@ function buildTree(cards: Card[], subcategoryNodes: SubcategoryNode[]): TreeNode
     }
   }
 
-  // Sort: canonical nodes by sortOrder, then dynamic ones alphabetically
   const sortOrderMap = new Map(subcategoryNodes.map(n => [n.name, n.sortOrder]));
   return result.sort((a, b) => {
     const aOrder = sortOrderMap.get(a.subcategory) ?? 999;
@@ -107,22 +99,31 @@ function SortableCardTile({ card, index }: { card: Card; index: number }) {
   };
 
   return (
-    <div ref={setNodeRef} style={style} className="flex items-center gap-2 rounded border bg-background px-3 py-1.5 group">
+    <div
+      ref={setNodeRef}
+      style={style}
+      className="flex items-center gap-3 rounded-lg border bg-background px-3 py-2 group hover:border-primary/30 hover:shadow-sm transition-all"
+    >
       <span
         {...attributes}
         {...listeners}
-        className="cursor-grab active:cursor-grabbing text-muted-foreground opacity-0 group-hover:opacity-60 transition-opacity shrink-0"
+        className="cursor-grab active:cursor-grabbing text-muted-foreground opacity-40 group-hover:opacity-80 transition-opacity shrink-0"
       >
-        <GripVertical className="h-3.5 w-3.5" />
+        <GripVertical className="h-4 w-4" />
       </span>
-      <span className="text-[10px] text-muted-foreground w-5 text-right shrink-0">{index + 1}.</span>
-      <span className="text-xs text-foreground truncate flex-1">{card.question || "(Bez pitanja)"}</span>
+      <span className="text-[11px] text-muted-foreground tabular-nums w-6 text-right shrink-0">{index + 1}.</span>
+      <span className="text-sm text-foreground truncate flex-1">{card.question || "(Bez pitanja)"}</span>
+      <Badge variant="outline" className="text-[9px] shrink-0 opacity-60">
+        {card.type === "flash" ? "Blic" : "Esej"}
+      </Badge>
     </div>
   );
 }
 
 // ─── Droppable chapter zone ─────────────────────────────
-function DroppableChapterHeader({ sub, chapter, count }: { sub: string; chapter: string; count: number }) {
+function DroppableChapterZone({ sub, chapter, count, children }: {
+  sub: string; chapter: string; count: number; children: React.ReactNode;
+}) {
   const dropId = chapterDropId(sub, chapter);
   const { setNodeRef, isOver } = useDroppable({ id: dropId });
 
@@ -130,12 +131,20 @@ function DroppableChapterHeader({ sub, chapter, count }: { sub: string; chapter:
     <div
       ref={setNodeRef}
       className={cn(
-        "text-xs font-semibold text-muted-foreground uppercase tracking-wider px-1 py-1.5 rounded transition-colors",
-        isOver && "bg-primary/10 text-primary ring-1 ring-primary/30"
+        "rounded-lg border border-dashed p-3 space-y-2 transition-all",
+        isOver
+          ? "border-primary bg-primary/5 ring-1 ring-primary/20"
+          : "border-border/60 bg-muted/20"
       )}
     >
-      {chapter}
-      <Badge variant="secondary" className="ml-2 text-[9px] h-4 px-1">{count}</Badge>
+      <div className="flex items-center gap-2 px-1">
+        <BookOpen className="h-3.5 w-3.5 text-primary/60" />
+        <span className="text-xs font-semibold text-foreground/80">{chapter}</span>
+        <Badge variant="secondary" className="text-[9px] h-4 px-1.5 ml-auto">{count}</Badge>
+      </div>
+      <div className="space-y-1.5">
+        {children}
+      </div>
     </div>
   );
 }
@@ -143,32 +152,93 @@ function DroppableChapterHeader({ sub, chapter, count }: { sub: string; chapter:
 // ─── Drag overlay (ghost) ───────────────────────────────
 function CardDragOverlay({ card }: { card: Card }) {
   return (
-    <div className="flex items-center gap-2 rounded border bg-card shadow-xl px-3 py-1.5 w-80 pointer-events-none">
-      <GripVertical className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-      <span className="text-xs text-foreground truncate flex-1">{card.question || "(Bez pitanja)"}</span>
+    <div className="flex items-center gap-3 rounded-lg border-2 border-primary/40 bg-card shadow-2xl px-4 py-2.5 w-80 pointer-events-none">
+      <GripVertical className="h-4 w-4 text-primary shrink-0" />
+      <span className="text-sm text-foreground truncate flex-1">{card.question || "(Bez pitanja)"}</span>
     </div>
   );
 }
 
-// ─── Main component (assignment only — no CRUD) ─────────
+// ─── Unassigned card with assign controls ───────────────
+function UnassignedCardRow({
+  card, index, availableChapters, otherSubs, onAssignChapter, onMoveSub,
+}: {
+  card: Card; index: number;
+  availableChapters: string[]; otherSubs: string[];
+  onAssignChapter: (v: string) => void;
+  onMoveSub: (v: string) => void;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: card.id });
+  const style = {
+    transform: CSS.Translate.toString(transform),
+    transition,
+    opacity: isDragging ? 0.3 : 1,
+  };
+
+  return (
+    <div ref={setNodeRef} style={style} className="flex items-center gap-2 group">
+      <div className="flex-1 flex items-center gap-3 rounded-lg border border-orange-500/20 bg-orange-500/5 px-3 py-2 hover:border-orange-500/40 transition-all">
+        <span
+          {...attributes}
+          {...listeners}
+          className="cursor-grab active:cursor-grabbing text-muted-foreground opacity-40 group-hover:opacity-80 transition-opacity shrink-0"
+        >
+          <GripVertical className="h-4 w-4" />
+        </span>
+        <span className="text-[11px] text-muted-foreground tabular-nums w-6 text-right shrink-0">{index + 1}.</span>
+        <span className="text-sm text-foreground truncate flex-1">{card.question || "(Bez pitanja)"}</span>
+      </div>
+      <div className="flex items-center gap-1.5 shrink-0">
+        {availableChapters.length > 0 && (
+          <Select onValueChange={onAssignChapter}>
+            <SelectTrigger className="h-7 w-32 text-[10px] border-dashed">
+              <SelectValue placeholder="→ Glava" />
+            </SelectTrigger>
+            <SelectContent>
+              {availableChapters.map(ch => (
+                <SelectItem key={ch} value={ch} className="text-xs">{ch}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
+        {otherSubs.length > 0 && (
+          <Select onValueChange={onMoveSub}>
+            <SelectTrigger className="h-7 w-32 text-[10px] border-dashed">
+              <SelectValue placeholder="→ Potkat." />
+            </SelectTrigger>
+            <SelectContent>
+              {otherSubs.map(s => (
+                <SelectItem key={s} value={s} className="text-xs">{s}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── Main component ─────────────────────────────────────
 export default function CardOrgMode({ cards, categoryId, subcategoryNodes, patchCard }: Props) {
-  const [expandedSubs, setExpandedSubs] = useState<Set<string>>(new Set());
+  const [expandedSubs, setExpandedSubs] = useState<Set<string>>(() => new Set());
   const [activeId, setActiveId] = useState<string | null>(null);
 
   const tree = useMemo(() => buildTree(cards, subcategoryNodes), [cards, subcategoryNodes]);
   const cardMap = useMemo(() => new Map(cards.map(c => [c.id, c])), [cards]);
 
-  /** Find which sub+chapter a card belongs to */
+  // Auto-expand on mount if only 1-3 subcategories
+  useMemo(() => {
+    if (tree.length <= 3) {
+      setExpandedSubs(new Set(tree.map(n => n.subcategory)));
+    }
+  }, [tree.length]);
+
   const findCardContainer = useCallback((cardId: string): { sub: string; chapter: string } | null => {
     for (const node of tree) {
       for (const ch of node.chapters) {
-        if (ch.cards.some(c => c.id === cardId)) {
-          return { sub: node.subcategory, chapter: ch.chapter };
-        }
+        if (ch.cards.some(c => c.id === cardId)) return { sub: node.subcategory, chapter: ch.chapter };
       }
-      if (node.unassigned.some(c => c.id === cardId)) {
-        return { sub: node.subcategory, chapter: "" };
-      }
+      if (node.unassigned.some(c => c.id === cardId)) return { sub: node.subcategory, chapter: "" };
     }
     return null;
   }, [tree]);
@@ -185,7 +255,6 @@ export default function CardOrgMode({ cards, categoryId, subcategoryNodes, patch
     patchCard(cardId, c => ({ ...c, chapter: chapter || undefined }));
   }, [patchCard]);
 
-  // ─── DnD handlers ─────────────────────────────────────
   const handleDragStart = useCallback((event: DragStartEvent) => {
     setActiveId(event.active.id as string);
   }, []);
@@ -198,7 +267,6 @@ export default function CardOrgMode({ cards, categoryId, subcategoryNodes, patch
     const activeCardId = active.id as string;
     const overId = over.id as string;
 
-    // Check if dropped on a chapter header zone
     const dropTarget = parseChapterDropId(overId);
     if (dropTarget) {
       const targetSub = dropTarget.subcategory === "(Bez potkategorije)" ? "" : dropTarget.subcategory;
@@ -211,7 +279,6 @@ export default function CardOrgMode({ cards, categoryId, subcategoryNodes, patch
       return;
     }
 
-    // Dropped on another card
     const overCard = cardMap.get(overId);
     if (!overCard) return;
 
@@ -263,7 +330,7 @@ export default function CardOrgMode({ cards, categoryId, subcategoryNodes, patch
   if (cards.length === 0) {
     return (
       <div className="text-center py-16 text-muted-foreground text-sm">
-        Nema kartica za organizaciju.
+        Nema modula za organizaciju.
       </div>
     );
   }
@@ -275,81 +342,129 @@ export default function CardOrgMode({ cards, categoryId, subcategoryNodes, patch
       onDragEnd={handleDragEnd}
       measuring={{ droppable: { strategy: MeasuringStrategy.Always } }}
     >
-      <div className="space-y-3">
+      <div className="space-y-4">
+        {/* Legend */}
+        <div className="flex items-center gap-4 text-[10px] text-muted-foreground px-1">
+          <span className="flex items-center gap-1.5">
+            <GripVertical className="h-3 w-3" /> Prevuci za premještanje
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="w-3 h-3 rounded border border-dashed border-primary/40 bg-primary/5" /> Ispusti ovdje
+          </span>
+        </div>
+
         {tree.map(node => {
           const isExpanded = expandedSubs.has(node.subcategory);
           const totalCards = node.chapters.reduce((sum, ch) => sum + ch.cards.length, 0) + node.unassigned.length;
+          const isUnassigned = node.subcategory === "(Bez potkategorije)";
 
           return (
-            <div key={node.subcategory} className="rounded-lg border bg-card overflow-hidden">
-              {/* Subcategory header — read-only */}
-              <div className="flex items-center gap-2 px-4 py-2.5 hover:bg-accent/30 transition-colors">
-                <button onClick={() => toggleSub(node.subcategory)} className="flex items-center gap-2 flex-1 text-left min-w-0">
-                  {isExpanded ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
-                  <FolderOpen className="h-4 w-4 text-primary/70" />
-                  <span className="text-sm font-medium text-foreground flex-1 truncate">{node.subcategory}</span>
-                </button>
-                <Badge variant="secondary" className="text-[10px]">{totalCards}</Badge>
-              </div>
+            <div
+              key={node.subcategory}
+              className={cn(
+                "rounded-xl border overflow-hidden transition-colors",
+                isUnassigned ? "border-orange-500/20 bg-orange-500/[0.02]" : "border-border bg-card"
+              )}
+            >
+              {/* Subcategory header */}
+              <button
+                onClick={() => toggleSub(node.subcategory)}
+                className="w-full flex items-center gap-3 px-4 py-3 hover:bg-accent/30 transition-colors"
+              >
+                {isExpanded
+                  ? <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" />
+                  : <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+                }
+                {isUnassigned
+                  ? <Inbox className="h-4 w-4 text-orange-500/70 shrink-0" />
+                  : <FolderOpen className="h-4 w-4 text-primary/70 shrink-0" />
+                }
+                <span className={cn(
+                  "text-sm font-semibold flex-1 text-left truncate",
+                  isUnassigned ? "text-orange-600 dark:text-orange-400" : "text-foreground"
+                )}>
+                  {node.subcategory}
+                </span>
+                <div className="flex items-center gap-2 shrink-0">
+                  {node.chapters.length > 0 && (
+                    <span className="text-[10px] text-muted-foreground">
+                      {node.chapters.length} {node.chapters.length === 1 ? "glava" : "glava"}
+                    </span>
+                  )}
+                  <Badge
+                    variant={isUnassigned ? "outline" : "secondary"}
+                    className={cn("text-[10px]", isUnassigned && "border-orange-500/30 text-orange-600 dark:text-orange-400")}
+                  >
+                    {totalCards} {totalCards === 1 ? "modul" : "modula"}
+                  </Badge>
+                </div>
+              </button>
 
               {isExpanded && (
-                <div className="border-t px-3 py-2 space-y-2">
-                  {/* Chapters with DnD */}
+                <div className="border-t px-4 py-3 space-y-3">
+                  {/* Chapters */}
                   {node.chapters.map(ch => (
-                    <div key={ch.chapter} className="space-y-1">
-                      <DroppableChapterHeader sub={node.subcategory} chapter={ch.chapter} count={ch.cards.length} />
+                    <DroppableChapterZone
+                      key={ch.chapter}
+                      sub={node.subcategory}
+                      chapter={ch.chapter}
+                      count={ch.cards.length}
+                    >
                       <SortableContext items={ch.cards.map(c => c.id)} strategy={verticalListSortingStrategy}>
-                        {ch.cards.map((card, idx) => (
-                          <SortableCardTile key={card.id} card={card} index={idx} />
-                        ))}
+                        {ch.cards.length === 0 ? (
+                          <p className="text-[10px] text-muted-foreground italic text-center py-2">
+                            Prevuci modul ovdje
+                          </p>
+                        ) : (
+                          ch.cards.map((card, idx) => (
+                            <SortableCardTile key={card.id} card={card} index={idx} />
+                          ))
+                        )}
                       </SortableContext>
-                    </div>
+                    </DroppableChapterZone>
                   ))}
 
-                  {/* Unassigned cards — draggable */}
+                  {/* Unassigned cards */}
                   {node.unassigned.length > 0 && (
-                    <div className="space-y-1">
-                      <div className="text-xs text-muted-foreground italic px-1 py-1">Bez glave</div>
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2 px-1">
+                        <Inbox className="h-3.5 w-3.5 text-orange-500/60" />
+                        <span className="text-xs font-medium text-orange-600/80 dark:text-orange-400/80">
+                          Bez glave
+                        </span>
+                        <Badge variant="outline" className="text-[9px] h-4 px-1.5 border-orange-500/30 text-orange-600/70 dark:text-orange-400/70 ml-auto">
+                          {node.unassigned.length}
+                        </Badge>
+                      </div>
                       <SortableContext items={node.unassigned.map(c => c.id)} strategy={verticalListSortingStrategy}>
                         {node.unassigned.map((card, idx) => {
                           const availableChapters = node.chapters.map(ch => ch.chapter);
+                          const otherSubs = tree
+                            .filter(n => n.subcategory !== node.subcategory)
+                            .map(n => n.subcategory);
                           return (
-                            <div key={card.id} className="flex items-center gap-2">
-                              <SortableCardTile card={card} index={idx} />
-                              <div className="flex items-center gap-1 shrink-0">
-                                {availableChapters.length > 0 && (
-                                  <Select onValueChange={v => assignChapter(card.id, v)}>
-                                    <SelectTrigger className="h-6 w-28 text-[10px]">
-                                      <SelectValue placeholder="Dodijeli glavu" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                      {availableChapters.map(ch => (
-                                        <SelectItem key={ch} value={ch} className="text-xs">{ch}</SelectItem>
-                                      ))}
-                                    </SelectContent>
-                                  </Select>
-                                )}
-                                {tree.length > 1 && (
-                                  <Select onValueChange={v => {
-                                    const targetSub = v === "(Bez potkategorije)" ? "" : v;
-                                    patchCard(card.id, c => ({ ...c, subcategory: targetSub }));
-                                  }}>
-                                    <SelectTrigger className="h-6 w-28 text-[10px]">
-                                      <SelectValue placeholder="Premjesti →" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                      {tree.filter(n => n.subcategory !== node.subcategory).map(n => (
-                                        <SelectItem key={n.subcategory} value={n.subcategory} className="text-xs">{n.subcategory}</SelectItem>
-                                      ))}
-                                    </SelectContent>
-                                  </Select>
-                                )}
-                              </div>
-                            </div>
+                            <UnassignedCardRow
+                              key={card.id}
+                              card={card}
+                              index={idx}
+                              availableChapters={availableChapters}
+                              otherSubs={otherSubs}
+                              onAssignChapter={v => assignChapter(card.id, v)}
+                              onMoveSub={v => {
+                                const targetSub = v === "(Bez potkategorije)" ? "" : v;
+                                patchCard(card.id, c => ({ ...c, subcategory: targetSub }));
+                              }}
+                            />
                           );
                         })}
                       </SortableContext>
                     </div>
+                  )}
+
+                  {node.chapters.length === 0 && node.unassigned.length === 0 && (
+                    <p className="text-xs text-muted-foreground italic text-center py-4">
+                      Prazna potkategorija — prevuci module ovdje
+                    </p>
                   )}
                 </div>
               )}
@@ -358,7 +473,6 @@ export default function CardOrgMode({ cards, categoryId, subcategoryNodes, patch
         })}
       </div>
 
-      {/* Drag overlay — rendered via portal to avoid layout offset */}
       {createPortal(
         <DragOverlay dropAnimation={null}>
           {activeCard ? <CardDragOverlay card={activeCard} /> : null}
