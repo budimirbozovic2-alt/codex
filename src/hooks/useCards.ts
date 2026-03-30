@@ -211,8 +211,8 @@ export function useCards() {
 
       if (cardIsDue) dueList.push(card);
 
-      // Category stats accumulation — keyed by NAME
-      const acc = catAccum[catName];
+      // Category stats accumulation — keyed by UUID
+      const acc = catAccum[catKey];
       if (acc) {
         acc.total++;
         acc.scoreSum += card.sections.length > 0 ? cardScoreSum / card.sections.length : 0;
