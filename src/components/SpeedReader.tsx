@@ -1,8 +1,8 @@
-import { Play, Pause, RotateCcw, ChevronLeft, ChevronRight, Gauge, BookOpen, Eye, Type, Layers, FileText, Volume2, VolumeX, Settings2 } from "lucide-react";
+import { Play, Pause, RotateCcw, ChevronLeft, ChevronRight, Gauge, BookOpen, Eye, Type, Layers, FileText, Volume2, VolumeX, Settings2, BookMarked } from "lucide-react";
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useAppContext } from "@/contexts/AppContext";
 import { Card } from "@/lib/spaced-repetition";
-
+import { loadSources, type Source } from "@/lib/sources-storage";
 
 import ScrollableRow from "@/components/ScrollableRow";
 import InfoPanel from "@/components/InfoPanel";
