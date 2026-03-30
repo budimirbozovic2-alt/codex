@@ -38,32 +38,17 @@ export default function LearnSession({ cards, categories, categoryRecords, subca
   const [modulesCompleted, setModulesCompleted] = useState(0);
   const [chainResets, setChainResets] = useState(0);
   const activityLoggedRef = useRef(false);
-  const [chapterPositionMap, setChapterPositionMap] = useState<Record<string, number>>({});
-
-  useEffect(() => { saveLearnProgress(progress); }, [progress]);
-
-  // B4 fix: Static import reference to avoid repeated dynamic import() on filter changes
-  const dbModuleRef = useRef<typeof import("@/lib/db") | null>(null);
-  useEffect(() => {
-    if (!selectedCategory || !selectedSubcategory) {
-      setChapterPositionMap({});
-      return;
+  const positionMaps = useMemo(() => {
+    const subPos: Record<string, number> = {};
+    const chapPos: Record<string, number> = {};
+    const catRec = categoryRecords.find(r => r.id === selectedCategory);
+    if (!catRec) return { subPos, chapPos };
+    for (const node of (catRec as any).subcategories ?? []) {
+      subPos[node.name] = node.sortOrder ?? 0;
+      (node.chapters ?? []).forEach((ch: string, i: number) => { chapPos[ch] = i; });
     }
-    const key = `chapters-${selectedCategory}-${selectedSubcategory}`;
-    const load = async () => {
-      try {
-        if (!dbModuleRef.current) dbModuleRef.current = await import("@/lib/db");
-        const stored = await dbModuleRef.current.idbLoadSettings<string[]>(key, []);
-        const map: Record<string, number> = {};
-        stored.forEach((ch, i) => { map[ch] = i; });
-        setChapterPositionMap(map);
-      } catch (err) {
-        console.error("[LearnSession] Failed to load chapter settings:", err);
-        setChapterPositionMap({});
-      }
-    };
-    load();
-  }, [selectedCategory, selectedSubcategory]);
+    return { subPos, chapPos };
+  }, [categoryRecords, selectedCategory]);
 
   const availableCategories = useMemo(() => {
     const cats = new Set(cards.map(c => c.categoryId));
@@ -85,15 +70,16 @@ export default function LearnSession({ cards, categories, categoryRecords, subca
       case "weakest": return filtered.sort((a, b) => getCardScore(a) - getCardScore(b));
       case "leastRead": return filtered.sort((a, b) => (a.readCount || 0) - (b.readCount || 0));
       default: {
-        const chPos = (c: Card) => chapterPositionMap[c.chapter ?? ""] ?? 999;
+        const { subPos, chapPos } = positionMaps;
         return filtered.sort((a, b) =>
-          chPos(a) - chPos(b)
+          (subPos[a.subcategory ?? ""] ?? 999) - (subPos[b.subcategory ?? ""] ?? 999)
+          || (chapPos[a.chapter ?? ""] ?? 999) - (chapPos[b.chapter ?? ""] ?? 999)
           || (a.chapterOrder ?? 0) - (b.chapterOrder ?? 0)
           || a.createdAt - b.createdAt
         );
       }
     }
-  }, [cards, selectedCategory, selectedSubcategory, selectedChapter, sortMode, learnMode, filterExamFrequent, filterType, chapterPositionMap]);
+  }, [cards, selectedCategory, selectedSubcategory, selectedChapter, sortMode, learnMode, filterExamFrequent, filterType, positionMaps]);
 
   const card = sortedCards[currentIndex];
 
