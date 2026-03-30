@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Card, SRSettings, DEFAULT_SR_SETTINGS } from "@/lib/spaced-repetition";
 import { ReviewLogEntry } from "@/lib/storage";
-import { CardMap, arrayToMap } from "@/lib/persist-queue";
+import { CardMap, arrayToMap, bumpMapVersion } from "@/lib/persist-queue";
 import {
   ensureDbOpen,
   migrateFromLocalStorage,
@@ -150,6 +150,7 @@ export function useCardBootstrap(setters: BootSetters) {
 
         console.log("[boot:diag] setting state — cards:", c.length, "categories:", catRecords.length);
         setCardMapState(arrayToMap(c));
+        bumpMapVersion();
         setCategoriesState(catNames);
         setCategoryRecordsState(catRecords);
         setSubcategoriesState(subsMap);

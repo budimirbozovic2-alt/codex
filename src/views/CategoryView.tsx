@@ -26,7 +26,11 @@ export default function CategoryView() {
   const navigate = useNavigate();
 
   const category = useLiveQuery(
-    () => categoryId ? db.categories.get(categoryId) : undefined,
+    async () => {
+      if (!categoryId) return null;
+      const cat = await db.categories.get(categoryId);
+      return cat || null;
+    },
     [categoryId]
   );
 
