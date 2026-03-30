@@ -375,7 +375,8 @@ export default function CardList({
     onAssignChapter,
     onCloneToMnemonic,
     onAddKeyPart,
-  }), [filtered, expandedId, scrollToCardId, selectionMode, selectedIds, onToggleSelect, onToggleTag, onEdit, onDelete, propCategories, propSubcategories, availableChapters, onMoveCategory, onAssignChapter, onCloneToMnemonic, onAddKeyPart]);
+    catNameMap,
+  }), [filtered, expandedId, scrollToCardId, selectionMode, selectedIds, onToggleSelect, onToggleTag, onEdit, onDelete, propCategories, propSubcategories, availableChapters, onMoveCategory, onAssignChapter, onCloneToMnemonic, onAddKeyPart, catNameMap]);
 
   if (filtered.length === 0) {
     return <p className="text-muted-foreground text-center py-12">Nema kartica. Kreirajte prvu!</p>;
