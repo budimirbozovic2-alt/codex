@@ -80,7 +80,7 @@ export default function ReviewPage() {
   return (
     <ErrorBoundary label="Ponavljanje" onNavigateHome={() => setView("dashboard")}>
       {dueCards.length === 0 ? (
-        <EmptyState type="review" />
+        <EmptyState type="review" diagnostics={diagnostics} />
       ) : (
         <ReviewSession
           dueCards={dueCards}
