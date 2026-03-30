@@ -166,23 +166,6 @@ export function useCardAnnotations({
     bumpMapVersion();
   }, [setCardMapState, cardMapRef]);
 
-  const reorderCards = useCallback((orderedIds: string[]) => {
-    const now = Date.now();
-    const updated: Card[] = [];
-    const nextRef = { ...cardMapRef.current };
-    orderedIds.forEach((id, index) => {
-      if (nextRef[id]) {
-        const u = { ...nextRef[id], sortOrder: index, updatedAt: now };
-        nextRef[id] = u;
-        updated.push(u);
-      }
-    });
-    if (updated.length === 0) return;
-    cardMapRef.current = nextRef;
-    schedulePersist({ type: "bulk", cards: updated });
-    setCardMapState(() => nextRef);
-    bumpMapVersion();
-  }, [setCardMapState, cardMapRef]);
 
   const bulkUpdateChapter = useCallback((updates: { id: string; chapter: string; chapterOrder: number }[]) => {
     const now = Date.now();
