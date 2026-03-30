@@ -116,9 +116,14 @@ export function useCards() {
             const existing = await idbLoadCategories();
             const updated = existing.map(cat => ({
               ...cat,
-              subcategories: next[cat.id] || [],
+              subcategories: (next[cat.id] || []).map((name: string) => {
+                // Preserve existing SubcategoryNode if present, otherwise create new
+                const existingNode = (cat.subcategories as any[])?.find((s: any) => (typeof s === "string" ? s : s.name) === name);
+                if (existingNode && typeof existingNode === "object") return existingNode;
+                return { name, chapters: [] as string[], sortOrder: 0 };
+              }),
             }));
-            await idbSaveCategories(updated);
+            await idbSaveCategories(updated as CategoryRecord[]);
           } catch (e) { console.error("[useCards] subcategory save failed", e); }
         })();
       }
