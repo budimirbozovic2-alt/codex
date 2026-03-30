@@ -135,6 +135,14 @@ export default function CategoryView() {
     );
   }
 
+  // Derive SubcategoryNode[] from category record
+  const subcategoryNodes: SubcategoryNode[] = useMemo(() => {
+    if (!category?.subcategories) return [];
+    return (category.subcategories as any[]).map((s: any) =>
+      typeof s === "string" ? { name: s, chapters: [], sortOrder: 0 } : s
+    );
+  }, [category?.subcategories]);
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -142,10 +150,14 @@ export default function CategoryView() {
         {category.color && (
           <span className="h-4 w-4 rounded-full shrink-0" style={{ backgroundColor: category.color }} />
         )}
-        <h1 className="imperial-title text-foreground">{category.name}</h1>
+        <h1 className="imperial-title text-foreground flex-1">{category.name}</h1>
+        <Button variant="outline" size="sm" className="gap-1.5 h-8 text-xs" onClick={() => setStructureOpen(true)}>
+          <Settings className="h-3.5 w-3.5" />
+          Struktura
+        </Button>
       </div>
 
-      {/* Tabs — only Kartice & Izvori */}
+      {/* Tabs */}
       <Tabs defaultValue="cards" className="w-full">
         <TabsList className="w-full justify-start">
           <TabsTrigger value="cards" className="gap-2">
@@ -177,11 +189,8 @@ export default function CategoryView() {
             <CardOrgMode
               cards={cards}
               categoryId={categoryId!}
-              category={category}
+              subcategoryNodes={subcategoryNodes}
               patchCard={patchCard}
-              addSubcategory={addSubcategory}
-              renameSubcategory={renameSubcategory}
-              deleteSubcategory={deleteSubcategory}
             />
           ) : (
             <CardViewMode
