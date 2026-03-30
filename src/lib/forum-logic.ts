@@ -240,6 +240,12 @@ export function calculateForumState(
 
   const monumentTypes = loadMonumentTypes();
 
+  // UUID → human name map
+  const uuidToName: Record<string, string> = {};
+  if (categoryRecords) {
+    for (const r of categoryRecords) uuidToName[r.id] = r.name;
+  }
+
   // Build source lookup map (no registry needed — use source.title directly)
   const sourceMap = new Map<string, Source>();
   if (allSources) {
