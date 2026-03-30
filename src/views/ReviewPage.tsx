@@ -1,7 +1,8 @@
-import { useEffect, useCallback } from "react";
+import { useEffect, useCallback, useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useCardContext, useUIContext } from "@/contexts/AppContext";
 import { useSessionContext, QueuedReview, QueuedError } from "@/contexts/SessionContext";
+import { SectionState } from "@/lib/spaced-repetition";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import ReviewSession from "@/components/ReviewSession";
 import EmptyState from "@/components/EmptyState";
@@ -17,6 +18,30 @@ export default function ReviewPage() {
     if (ready) session.startSession(cards, reviewLog);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ready]);
+
+  // FSRS diagnostics for empty state
+  const diagnostics = useMemo(() => {
+    let newSections = 0;
+    let reviewSections = 0;
+    let nextDue = Infinity;
+    for (const card of cards) {
+      for (const s of card.sections) {
+        if (s.state === SectionState.New) {
+          newSections++;
+        } else {
+          reviewSections++;
+          if (s.nextReview < nextDue) nextDue = s.nextReview;
+        }
+      }
+    }
+    const now = Date.now();
+    let nextDueDate: string | undefined;
+    if (nextDue !== Infinity && nextDue > now) {
+      const d = new Date(nextDue);
+      nextDueDate = d.toLocaleDateString("sr-Latn-BA", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+    }
+    return { totalCards: cards.length, newSections, reviewSections, nextDueDate };
+  }, [cards]);
 
   const handleReviewSection = useCallback((cardId: string, sectionId: string, grade: number) => {
     if (session.isSessionActive) {
