@@ -4,8 +4,17 @@ import StrategicPlanner from "@/components/StrategicPlanner";
 import { useCallback } from "react";
 
 export default function PlannerPage() {
-  const { cards, categories, reviewLog } = useCardContext();
+  const { cards, categories, reviewLog, ready } = useCardContext();
   const { setView } = useUIContext();
+
+  if (!ready) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 gap-3">
+        <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+        <p className="text-sm text-muted-foreground">Učitavanje planera...</p>
+      </div>
+    );
+  }
 
   const handleNavigateToDatabase = useCallback((category: string) => {
     sessionStorage.setItem("sr-deeplink-category", category);
