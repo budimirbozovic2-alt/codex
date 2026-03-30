@@ -282,11 +282,18 @@ export function useCards() {
       (async () => {
         try {
           const existing = await idbLoadCategories();
-          const updated = existing.map(cat => cat.id === category
-            ? { ...cat, subcategories: ordered }
-            : cat
-          );
-          await idbSaveCategories(updated);
+          const updated = existing.map(cat => {
+            if (cat.id !== category) return cat;
+            // Reorder SubcategoryNodes to match the ordered string[] names
+            const nodeMap = new Map((cat.subcategories as any[]).map((s: any) => [typeof s === "string" ? s : s.name, s]));
+            const reorderedNodes = ordered.map((name, i) => {
+              const existing = nodeMap.get(name);
+              if (existing && typeof existing === "object") return { ...existing, sortOrder: i };
+              return { name, chapters: [] as string[], sortOrder: i };
+            });
+            return { ...cat, subcategories: reorderedNodes };
+          });
+          await idbSaveCategories(updated as any);
         } catch (e) { console.error("[useCards] reorderSubcategories save failed", e); }
       })();
       return next;
