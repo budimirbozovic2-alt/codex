@@ -23,6 +23,8 @@ interface Props {
   onAutoSplit: () => void;
   readerWidth: ReaderWidth;
   setReaderWidth: (w: ReaderWidth) => void;
+  editMode: boolean;
+  setEditMode: (v: boolean) => void;
 }
 
 export const SourceToolbar = memo(function SourceToolbar({
