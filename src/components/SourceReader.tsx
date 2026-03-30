@@ -168,7 +168,7 @@ export default function SourceReader({ source, onBack, onSourceUpdated }: Props)
 
   const handleOpenCoveredCard = (cardId: string) => {
     sessionStorage.setItem("sr-scroll-to-card", cardId);
-    window.location.hash = "#/cards";
+    window.location.hash = "#/categories";
   };
 
   return (
