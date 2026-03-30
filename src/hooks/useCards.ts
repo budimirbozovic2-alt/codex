@@ -182,18 +182,18 @@ export function useCards() {
       uuidToName[rec.id] = rec.name;
     }
 
-    // Initialize category accumulators by NAME (consumers use names)
+    // Initialize category accumulators by UUID
     for (const cat of categories) {
       catAccum[cat] = { scoreSum: 0, total: 0, due: 0 };
       countByCategory[cat] = 0;
     }
 
     for (const card of cards) {
-      // Resolve UUID to name for accumulation
-      const catName = uuidToName[card.categoryId] || card.categoryId;
+      // Use UUID directly for accumulation
+      const catKey = card.categoryId;
 
-      // Card count by category name
-      countByCategory[catName] = (countByCategory[catName] || 0) + 1;
+      // Card count by category UUID
+      countByCategory[catKey] = (countByCategory[catKey] || 0) + 1;
 
       // Section-level stats
       let cardIsDue = false;
