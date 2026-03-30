@@ -16,6 +16,7 @@ interface Props {
   onCancel: () => void;
   editCard?: Card | null;
   onUpdate?: (id: string, updates: { question?: string; sections?: SectionInput[]; category?: string; subcategory?: string; chapter?: string }) => void;
+  onSplit?: (id: string) => void;
 }
 
 const widthClasses: Record<FormWidth, string> = {
