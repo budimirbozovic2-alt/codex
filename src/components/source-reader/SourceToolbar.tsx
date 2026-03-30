@@ -30,7 +30,7 @@ interface Props {
 export const SourceToolbar = memo(function SourceToolbar({
   source, onBack, viewMode, setViewMode, examOpen, setExamOpen,
   examQuestions, outlineOpen, setOutlineOpen, onAutoSplit,
-  readerWidth, setReaderWidth,
+  readerWidth, setReaderWidth, editMode, setEditMode,
 }: Props) {
   const isCoverage = viewMode === "coverage";
   const pendingCount = examQuestions.filter(q => !q.done).length;
