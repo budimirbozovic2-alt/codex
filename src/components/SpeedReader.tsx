@@ -430,7 +430,7 @@ export default function SpeedReader() {
             </button>
             {categories.map(c => (
               <button key={c} onClick={() => { setSelCat(c); setSelSub(null); }} className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all whitespace-nowrap flex-shrink-0 ${selCat === c ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground hover:bg-secondary"}`}>
-                {c}
+                {uuidToName[c] ?? c}
               </button>
             ))}
           </ScrollableRow>
