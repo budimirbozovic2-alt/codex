@@ -146,6 +146,7 @@ function buildMonument(category: string, cards: Card[]): MonumentResult {
   return {
     monument: {
       category,
+      categoryName: category,
       totalCards: cards.length,
       masteredCards,
       mastery: Math.round(mastery * 10) / 10,
