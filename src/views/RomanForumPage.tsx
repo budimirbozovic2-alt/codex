@@ -9,7 +9,7 @@ import { Progress } from "@/components/ui/progress";
 import { loadSources, onSourcesChanged, type Source } from "@/lib/sources-storage";
 
 export default function RomanForumPage() {
-  const { cards, reviewLog } = useCardContext();
+  const { cards, reviewLog, ready } = useCardContext();
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [sources, setSources] = useState<Source[]>([]);
 
