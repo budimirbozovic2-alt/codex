@@ -1,80 +1,124 @@
 
 
-# UI Restoration Part 3: DOCX Drag & Drop + Source Diff + Hidden Metadata
+# Fix: Filters, Edit Navigation & Select All
 
-## Current State Assessment
+## Root Cause Analysis
 
-| Feature | Backend Logic | UI Wired? |
-|---------|--------------|-----------|
-| DOCX parsing (mammoth) | `src/lib/docx-parser.ts` — full worker-based parser | **CategoryView has file input but NO drag & drop zone** |
-| Source Diff Engine | `src/lib/article-parser.ts` — full `compareVersions()`, `getChangedArticleIds()`, `matchAnchorToArticle()`, `diffTexts()` | **NOT wired to any UI** |
-| Card needsReview flagging | `bulkFlagNeedsReview()` in context + `confirmCardReview()` in SourceSnippetDialog | **Flag exists but never SET during source update** |
-| SourceEditor DOCX upload | N/A | **Only has raw HTML textarea, no file upload** |
-| Category color display | `CategoryRecord.color` exists, displayed in CategoryView header | **Already shown** (line 129-131) |
-| needsReview badge in CardViewMode | N/A | **Not shown** — CardList shows it, CardViewMode doesn't |
+### Bug 1: Learn/Review Filters Broken (Category Mismatch)
+**File:** `src/hooks/useCardBootstrap.ts` lines 130 and 133-135
 
-## Plan (3 Actions)
+The bootstrap sets:
+```ts
+const catNames = catRecords.map(r => r.name);  // string[] of NAMES
+subsMap[r.name] = r.subcategories;              // keyed by NAME
+```
 
-### Action 1: Add Drag & Drop DOCX to SourceEditor "Update Text" Section
-**File: `src/components/category/SourceEditor.tsx`**
+But cards use `card.categoryId` = UUID. In `LearnSession.tsx` line 77:
+```ts
+let filtered = selectedCategory ? cards.filter(c => c.categoryId === selectedCategory) : [...cards];
+```
 
-Replace the plain `<Textarea>` in the "Ažuriraj tekst izvora" collapsible (lines 137-144) with a combined drop zone + textarea:
+`selectedCategory` comes from the `categories` array (names), but `card.categoryId` is a UUID. **They never match.** The filter pills show names correctly but filtering produces 0 results.
 
-- Add a drag & drop zone that accepts `.docx` files
-- On drop/select: use `parseDocxInWorker()` from `src/lib/docx-parser.ts` to extract HTML
-- Populate the textarea with extracted HTML (user can review before saving)
-- Show file name and loading spinner during parsing
-- Keep the textarea as fallback for raw HTML paste
+Similarly `availableCategories` (line 68-71) does `categories.filter(c => cats.has(c))` where `cats` is a Set of UUIDs — so no category pills appear at all.
 
-~30 lines added, textarea preserved.
+**The same bug affects ReviewSession** via `SessionFilters`.
 
-### Action 2: Wire Source Diff Engine into SourceEditor Save Flow
-**File: `src/components/category/SourceEditor.tsx`**
+### Bug 2: Edit Button Navigates to Non-Existent Route
+**File:** `src/views/CategoryView.tsx` line 183
 
-In `handleSave()`, when `newText` is provided (source text update):
+```ts
+onEdit={(card) => navigate(`/edit/${card.id}`)}
+```
 
-1. Call `compareVersions(source.htmlContent, newHtmlContent)` from `article-parser.ts`
-2. Call `getChangedArticleIds(diffResult)` to get modified/removed article IDs
-3. For each card linked to this source (`sourceId === source.id`), call `matchAnchorToArticle(card.textAnchor, oldArticles)` to check if that card's anchor falls in a changed article
-4. Collect affected card IDs → call `bulkFlagNeedsReview(affectedCardIds)` from context
-5. Show a diff summary dialog BEFORE saving: "X članovi izmijenjeni, Y dodati, Z uklonjeni. W kartica označeno za provjeru."
-6. User confirms → save proceeds
+But `App.tsx` line 62 only has `<Route path="/edit" ...>`. No `/edit/:cardId` route exists. EditPage reads `editingCard` from UIContext — which is never set by a URL navigation.
 
-**New component: `src/components/source-reader/SourceDiffPreview.tsx`**
-- Simple dialog showing diff summary + per-article status (color-coded: green=added, red=removed, yellow=modified)
-- For modified articles: render diff segments with `<ins>`/`<del>` styling
-- "Potvrdi i sačuvaj" button to proceed
+### Bug 3: No "Select All" in CardViewMode
+The batch selection toolbar exists but there's no way to select all filtered cards at once.
 
-**Props needed from context:** `bulkFlagNeedsReview` — add to SourceEditor via prop or import from `useCardActions()`.
+---
 
-### Action 3: Add needsReview Badge to CardViewMode
+## Fix Plan
+
+### Fix 1: Switch categories/subcategories to UUID-keyed system
+**File: `src/hooks/useCardBootstrap.ts`** (2 lines)
+
+- Line 130: `catRecords.map(r => r.name)` → `catRecords.map(r => r.id)` — categories becomes UUID[]
+- Line 134: `subsMap[r.name]` → `subsMap[r.id]` — subcategories keyed by UUID
+
+**File: `src/components/SessionFilters.tsx`** (~5 lines)
+
+- Add `categoryRecords?: CategoryRecord[]` prop
+- In category pill rendering, resolve UUID → name via categoryRecords lookup: `categoryRecords?.find(r => r.id === c)?.name ?? c`
+
+**File: `src/components/learn/FilterSetup.tsx`** — pass `categoryRecords` through to SessionFilters
+
+**File: `src/components/LearnSession.tsx`** — accept and pass `categoryRecords` prop
+
+**File: `src/components/learn/types.ts`** — add `categoryRecords` to LearnSessionProps
+
+**File: `src/views/LearnPage.tsx`** — pass `categoryRecords` from `useCardContext()`
+
+**File: `src/components/ReviewSession.tsx`** + `src/views/ReviewPage.tsx` — same pattern: pass categoryRecords for display
+
+**Impact on other consumers of `categories` / `subcategories`:**
+- `useCardCRUD.ts` uses `categories` for `addCard` default category — must verify it works with UUID
+- `CategoryManager.tsx` uses `categories` — audit needed
+- `useCards.ts` `setCategories` — persists to IDB via CategoryRecords, needs UUID alignment
+- Sidebar, Dashboard — scan for name-based lookups
+
+### Fix 2: Wire Edit Navigation Properly
+**File: `src/views/CategoryView.tsx`** line 183
+
+Replace navigate with proper context-based edit:
+```ts
+import { useUIContext } from "@/contexts/AppContext";
+// ...
+const { setEditingCard, setView } = useUIContext(); // already available or add
+// ...
+onEdit={(card) => {
+  setEditingCard(card);
+  navigate('/edit');
+}}
+```
+
+Or alternatively, add `useCardActions`'s editing card setter. The key is: set `editingCard` in context BEFORE navigating to `/edit`.
+
+### Fix 3: Add "Select All" Button
 **File: `src/components/category/CardViewMode.tsx`**
 
-In the card row (expanded detail section), add:
-- If `card.needsReview === true`: show warning badge "⚠ Izvor ažuriran" in orange/warning color
-- This already exists in CardList.tsx (the Scale icon on line 118) — replicate the pattern
+In the batch selection toolbar area (~line 290-298), when `selectionMode` is active, add a "Označi sve" button:
+```tsx
+{selectionMode && (
+  <Button variant="outline" size="sm" onClick={() => {
+    setSelectedIds(new Set(filteredCards.map(c => c.id)));
+  }} className="h-7 gap-1.5 text-xs">
+    Označi sve ({filteredCards.length})
+  </Button>
+)}
+```
+
+---
 
 ## Files Modified
-1. `src/components/category/SourceEditor.tsx` — Add DOCX drop zone + diff-on-save logic
-2. `src/components/source-reader/SourceDiffPreview.tsx` — **NEW** — Diff summary dialog
-3. `src/components/category/CardViewMode.tsx` — Add needsReview warning badge
+1. `src/hooks/useCardBootstrap.ts` — Switch categories/subcategories to UUID keys
+2. `src/components/SessionFilters.tsx` — Add categoryRecords prop, display names from UUID
+3. `src/components/learn/FilterSetup.tsx` — Pass categoryRecords
+4. `src/components/LearnSession.tsx` — Accept/pass categoryRecords
+5. `src/components/learn/types.ts` — Add categoryRecords to props
+6. `src/views/LearnPage.tsx` — Pass categoryRecords from context
+7. `src/views/CategoryView.tsx` — Fix edit navigation (set editingCard + navigate)
+8. `src/components/category/CardViewMode.tsx` — Add "Označi sve" button
+9. `src/components/ReviewSession.tsx` — Pass categoryRecords for filter display
+10. `src/views/ReviewPage.tsx` — Pass categoryRecords
 
-## Technical Details
+## Risk Assessment
+- **Bootstrap change (categories → UUIDs):** This is the most impactful change. Every consumer of `categories` string[] must be audited. The `setCategories` function in `useCards.ts` uses names to reconcile with CategoryRecords — this must be updated too.
+- **Edit fix:** Zero risk, just wiring context correctly.
+- **Select All:** Zero risk, purely additive UI.
 
-The diff engine is already complete in `article-parser.ts`:
-- `compareVersions(oldHtml, newHtml)` → `DiffResult` with per-article diffs
-- `getChangedArticleIds(diffResult)` → `Set<string>` of modified/removed article IDs
-- `matchAnchorToArticle(anchor, articles)` → matches card's textAnchor to an article
-- `diffTexts(old, new)` → character-level `DiffSegment[]` using diff-match-patch
-
-Card flagging infrastructure:
-- `bulkFlagNeedsReview(cardIds)` — sets `needsReview: true` on cards, persists to IDB
-- `confirmCardReview(cardId)` — clears the flag (already wired in SourceSnippetDialog)
-
-## Scope
-- IDB schema: untouched
-- Context providers: untouched (only consuming existing `bulkFlagNeedsReview`)
-- Export/Import pipeline: untouched
-- FSRS math: untouched
-- SourceReader: untouched
+## Constraints Respected
+- No IDB schema changes
+- No FSRS math changes
+- No Context provider logic changes (only consuming existing data)
 
