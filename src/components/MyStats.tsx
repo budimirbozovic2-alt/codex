@@ -1,4 +1,4 @@
-import { TrendingUp, Target, Clock, Flame, CalendarClock, Activity, HeartPulse } from "lucide-react";
+import { TrendingUp, Target, Clock, Flame, CalendarClock, Activity } from "lucide-react";
 import { useState, lazy, Suspense } from "react";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { motion } from "framer-motion";
@@ -9,7 +9,6 @@ import { Card, SRSettings } from "@/lib/spaced-repetition";
 import { ReviewLogEntry } from "@/lib/storage";
 import { TabSkeleton } from "@/components/ui/page-skeleton";
 import { useStatsData } from "@/hooks/useStatsData";
-const HealthMonitor = lazy(() => import("@/components/HealthMonitor"));
 
 const OverviewTab = lazy(() => import("./stats/OverviewTab"));
 const LatencyTab = lazy(() => import("./stats/LatencyTab"));
@@ -72,15 +71,12 @@ export default function MyStats({ cards, categories, subcategories, categoryStat
               <Flame className="h-3.5 w-3.5" /> Otpor
             </TabsTrigger>
           </TabsList>
-          <TabsList className="w-full grid grid-cols-3">
+          <TabsList className="w-full grid grid-cols-2">
             <TabsTrigger value="prediction" className="gap-1.5 text-xs sm:text-sm">
               <CalendarClock className="h-3.5 w-3.5" /> Predikcija
             </TabsTrigger>
             <TabsTrigger value="efficiency" className="gap-1.5 text-xs sm:text-sm">
               <Activity className="h-3.5 w-3.5" /> Efikasnost
-            </TabsTrigger>
-            <TabsTrigger value="health" className="gap-1.5 text-xs sm:text-sm">
-              <HeartPulse className="h-3.5 w-3.5" /> Zdravlje
             </TabsTrigger>
           </TabsList>
         </div>
@@ -145,13 +141,6 @@ export default function MyStats({ cards, categories, subcategories, categoryStat
           </Suspense>
         </TabsContent>
 
-        <TabsContent value="health">
-          <Suspense fallback={<TabSkeleton />}>
-            <ErrorBoundary label="Zdravlje baze">
-              <HealthMonitor />
-            </ErrorBoundary>
-          </Suspense>
-        </TabsContent>
       </Tabs>
     </div>
   );
