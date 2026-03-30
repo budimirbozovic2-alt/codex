@@ -9,7 +9,7 @@ import { Progress } from "@/components/ui/progress";
 import { loadSources, onSourcesChanged, type Source } from "@/lib/sources-storage";
 
 export default function RomanForumPage() {
-  const { cards, reviewLog } = useCardContext();
+  const { cards, reviewLog, ready } = useCardContext();
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [sources, setSources] = useState<Source[]>([]);
 
@@ -29,6 +29,15 @@ export default function RomanForumPage() {
   const selectedMonument = selectedCategory
     ? forumState.monuments.find((m) => m.category === selectedCategory) ?? null
     : null;
+
+  if (!ready) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 gap-3">
+        <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+        <p className="text-sm text-muted-foreground">Obnavljanje Foruma...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="relative max-w-6xl mx-auto px-6 py-8 min-h-[80vh]">

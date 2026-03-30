@@ -182,18 +182,18 @@ export function useCards() {
       uuidToName[rec.id] = rec.name;
     }
 
-    // Initialize category accumulators by NAME (consumers use names)
+    // Initialize category accumulators by UUID
     for (const cat of categories) {
       catAccum[cat] = { scoreSum: 0, total: 0, due: 0 };
       countByCategory[cat] = 0;
     }
 
     for (const card of cards) {
-      // Resolve UUID to name for accumulation
-      const catName = uuidToName[card.categoryId] || card.categoryId;
+      // Use UUID directly for accumulation
+      const catKey = card.categoryId;
 
-      // Card count by category name
-      countByCategory[catName] = (countByCategory[catName] || 0) + 1;
+      // Card count by category UUID
+      countByCategory[catKey] = (countByCategory[catKey] || 0) + 1;
 
       // Section-level stats
       let cardIsDue = false;
@@ -211,8 +211,8 @@ export function useCards() {
 
       if (cardIsDue) dueList.push(card);
 
-      // Category stats accumulation — keyed by NAME
-      const acc = catAccum[catName];
+      // Category stats accumulation — keyed by UUID
+      const acc = catAccum[catKey];
       if (acc) {
         acc.total++;
         acc.scoreSum += card.sections.length > 0 ? cardScoreSum / card.sections.length : 0;
@@ -256,12 +256,12 @@ export function useCards() {
     (async () => {
       try {
         const existing = await idbLoadCategories();
-        const byName = new Map(existing.map(c => [c.name, c]));
-        const records: CategoryRecord[] = ordered.map((name, i) => {
-          const rec = byName.get(name);
+        const byId = new Map(existing.map(c => [c.id, c]));
+        const records: CategoryRecord[] = ordered.map((id, i) => {
+          const rec = byId.get(id);
           return rec
             ? { ...rec, sortOrder: i }
-            : { id: crypto.randomUUID(), name, sortOrder: i, subcategories: [] };
+            : { id, name: id, sortOrder: i, subcategories: [] };
         });
         await idbSaveCategories(records);
         setCategoryRecordsState(records);
@@ -277,7 +277,7 @@ export function useCards() {
       (async () => {
         try {
           const existing = await idbLoadCategories();
-          const updated = existing.map(cat => cat.name === category
+          const updated = existing.map(cat => cat.id === category
             ? { ...cat, subcategories: ordered }
             : cat
           );

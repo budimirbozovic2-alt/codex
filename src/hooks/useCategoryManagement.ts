@@ -22,77 +22,75 @@ export function useCategoryManagement({
 }: UseCategoryManagementParams) {
   const addCategory = useCallback(
     (name: string) => {
-      setCategories((prev) => prev.includes(name) ? prev : [...prev, name]);
+      // categories is UUID[] — addCategory creates a new CategoryRecord and adds its UUID
+      const newId = crypto.randomUUID();
+      (async () => {
+        try {
+          await db.categories.add({ id: newId, name, sortOrder: 9999, subcategories: [] });
+        } catch (e) { console.error("[addCategory] IDB add failed", e); }
+      })();
+      setCategories((prev) => prev.includes(newId) ? prev : [...prev, newId]);
     },
     [setCategories],
   );
 
-  // C1 fix v2: Check duplicate BEFORE calling setCategories to avoid relying on
-  // synchronous updater execution for the abort flag
+  // Pure UUID rename: only updates CategoryRecord.name, does NOT touch cards
+  // Cards already point to the UUID which stays the same
   const renameCategory = useCallback(
-    (oldName: string, newName: string) => {
-      // Pre-check: read current categories from a synchronous source
-      // setCategories updater is the canonical check, but we guard with ref-based pre-check
-      setCategories(prev => {
-        if (prev.includes(newName)) return prev; // no-op if duplicate
-        return prev.map(c => c === oldName ? newName : c);
-      });
-
-      // Always attempt card rename — if categories didn't change (duplicate),
-      // no cards will match oldName after the no-op, so changed[] stays empty
-      // This is safe because we check c.categoryId === oldName below
-
-      const now = Date.now();
-      const changed: Card[] = [];
-      const nextRef = { ...cardMapRef.current };
-      for (const [id, c] of Object.entries(nextRef)) {
-        if (c.categoryId === oldName) {
-          const u = { ...c, categoryId: newName, updatedAt: now };
-          nextRef[id] = u;
-          changed.push(u);
-        }
-      }
-      if (changed.length > 0) {
-        cardMapRef.current = nextRef;
-        schedulePersist({ type: "bulk", cards: changed });
-        setCardMapState(() => nextRef);
-        bumpMapVersion();
-      }
-      setSubcategories((prev) => {
-        const next = { ...prev };
-        if (next[oldName]) { next[newName] = next[oldName]; delete next[oldName]; }
-        return next;
-      });
-
-      // F4 fix: Cascade rename to sources
+    (categoryId: string, newName: string) => {
+      // Update CategoryRecord name in IDB
       (async () => {
         try {
-          await db.sources.where("categoryId").equals(oldName).modify({ categoryId: newName });
-          invalidateSourcesCache();
+          const record = await db.categories.get(categoryId);
+          if (record) {
+            await db.categories.update(categoryId, { name: newName });
+          }
+          // Silent migration: fix any legacy cards that have name as categoryId
+          const legacyCards = await db.cards.where("categoryId").equals(record?.name || "").toArray();
+          if (legacyCards.length > 0) {
+            const now = Date.now();
+            const changed: Card[] = [];
+            const nextRef = { ...cardMapRef.current };
+            for (const c of legacyCards) {
+              const u = { ...c, categoryId, updatedAt: now };
+              nextRef[c.id] = u;
+              changed.push(u);
+            }
+            if (changed.length > 0) {
+              cardMapRef.current = nextRef;
+              schedulePersist({ type: "bulk", cards: changed });
+              setCardMapState(() => nextRef);
+              bumpMapVersion();
+            }
+          }
+          // Cascade rename to sources (by old name, for legacy)
+          if (record?.name) {
+            await db.sources.where("categoryId").equals(record.name).modify({ categoryId });
+            invalidateSourcesCache();
+          }
         } catch (err) {
-          console.error("[renameCategory] source cascade failed", err);
-          toast({ title: "Greška pri ažuriranju izvora", description: "Kategorija izvora nije ažurirana. Pokušajte ponovo.", variant: "destructive" });
+          console.error("[renameCategory] failed", err);
+          toast({ title: "Greška pri preimenovanju", description: "Pokušajte ponovo.", variant: "destructive" });
         }
       })();
     },
-    [setCategories, setCardMapState, setSubcategories, cardMapRef],
+    [setCardMapState, cardMapRef],
   );
 
   const deleteCategory = useCallback(
-    (name: string, purgeCards = false) => {
-      setCategories((prev) => prev.filter((c) => c !== name));
+    (categoryId: string, purgeCards = false) => {
+      setCategories((prev) => prev.filter((c) => c !== categoryId));
 
-      const record = getCategoryRecords().find(r => r.name === name);
-      const remaining = getCategoryRecords().filter(r => r.name !== name);
+      const records = getCategoryRecords();
+      const remaining = records.filter(r => r.id !== categoryId);
       const fallbackId = remaining.length > 0 ? remaining[0].id : "";
       const now = Date.now();
 
       if (purgeCards) {
-        // Cascade delete: remove all cards belonging to this category
         const toDelete: string[] = [];
         const nextRef = { ...cardMapRef.current };
         for (const [id, c] of Object.entries(nextRef)) {
-          if (c.categoryId === name || (record && c.categoryId === record.id)) {
+          if (c.categoryId === categoryId) {
             toDelete.push(id);
             delete nextRef[id];
           }
@@ -108,11 +106,10 @@ export function useCategoryManagement({
           })();
         }
       } else {
-        // Reassign cards to fallback category
         const changed: Card[] = [];
         const nextRef = { ...cardMapRef.current };
         for (const [id, c] of Object.entries(nextRef)) {
-          if (c.categoryId === name || (record && c.categoryId === record.id)) {
+          if (c.categoryId === categoryId) {
             const u = { ...c, categoryId: fallbackId, subcategory: "", updatedAt: now };
             nextRef[id] = u;
             changed.push(u);
@@ -128,7 +125,7 @@ export function useCategoryManagement({
 
       setSubcategories((prev) => {
         const next = { ...prev };
-        delete next[name];
+        delete next[categoryId];
         return next;
       });
 
@@ -136,14 +133,11 @@ export function useCategoryManagement({
       (async () => {
         try {
           if (purgeCards) {
-            // Also delete sources for this category
-            const catId = record ? record.id : name;
-            await db.sources.where("categoryId").equals(catId).delete();
+            await db.sources.where("categoryId").equals(categoryId).delete();
           } else {
-            await db.sources.where("categoryId").equals(record ? record.id : name).modify({ categoryId: fallbackId });
+            await db.sources.where("categoryId").equals(categoryId).modify({ categoryId: fallbackId });
           }
-          // Delete the CategoryRecord from IDB
-          if (record) await db.categories.delete(record.id);
+          await db.categories.delete(categoryId);
           invalidateSourcesCache();
         } catch (err) {
           console.error("[deleteCategory] cascade failed", err);
@@ -154,29 +148,30 @@ export function useCategoryManagement({
     [setCategories, setCardMapState, setSubcategories, cardMapRef, getCategoryRecords],
   );
 
+  // Subcategory operations — all keyed by categoryId (UUID)
   const addSubcategory = useCallback(
-    (category: string, subcategory: string) => {
+    (categoryId: string, subcategory: string) => {
       setSubcategories((prev) => {
-        const list = prev[category] || [];
+        const list = prev[categoryId] || [];
         if (list.includes(subcategory)) return prev;
-        return { ...prev, [category]: [...list, subcategory] };
+        return { ...prev, [categoryId]: [...list, subcategory] };
       });
     },
     [setSubcategories],
   );
 
   const renameSubcategory = useCallback(
-    (category: string, oldName: string, newName: string) => {
+    (categoryId: string, oldName: string, newName: string) => {
       setSubcategories((prev) => {
-        const list = prev[category] || [];
+        const list = prev[categoryId] || [];
         if (list.includes(newName)) return prev;
-        return { ...prev, [category]: list.map((s) => (s === oldName ? newName : s)) };
+        return { ...prev, [categoryId]: list.map((s) => (s === oldName ? newName : s)) };
       });
       const now = Date.now();
       const changed: Card[] = [];
       const nextRef = { ...cardMapRef.current };
       for (const [id, c] of Object.entries(nextRef)) {
-        if (c.categoryId === category && c.subcategory === oldName) {
+        if (c.categoryId === categoryId && c.subcategory === oldName) {
           const u = { ...c, subcategory: newName, updatedAt: now };
           nextRef[id] = u;
           changed.push(u);
@@ -193,13 +188,13 @@ export function useCategoryManagement({
   );
 
   const deleteSubcategory = useCallback(
-    (category: string, subcategory: string) => {
-      setSubcategories((prev) => ({ ...prev, [category]: (prev[category] || []).filter((s) => s !== subcategory) }));
+    (categoryId: string, subcategory: string) => {
+      setSubcategories((prev) => ({ ...prev, [categoryId]: (prev[categoryId] || []).filter((s) => s !== subcategory) }));
       const now = Date.now();
       const changed: Card[] = [];
       const nextRef = { ...cardMapRef.current };
       for (const [id, c] of Object.entries(nextRef)) {
-        if (c.categoryId === category && c.subcategory === subcategory) {
+        if (c.categoryId === categoryId && c.subcategory === subcategory) {
           const u = { ...c, subcategory: "", updatedAt: now };
           nextRef[id] = u;
           changed.push(u);

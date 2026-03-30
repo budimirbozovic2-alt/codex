@@ -147,7 +147,7 @@ export function calcDynamicPhaseDates(
   let cursor = new Date();
   for (const phase of phases) {
     const { remainingCards } = calcPhaseProgress(phase, cards);
-    const dynamicDays = velocity > 0 ? Math.max(1, Math.ceil(remainingCards / velocity)) : phase.expectedDays;
+    const dynamicDays = remainingCards === 0 ? 0 : (velocity > 0 ? Math.max(1, Math.ceil(remainingCards / velocity)) : phase.expectedDays);
     const startDate = new Date(cursor);
     const endDate = addDays(cursor, dynamicDays);
     result.push({ phaseId: phase.id, startDate, endDate, dynamicDays });
@@ -171,7 +171,11 @@ export function getSmartSuggestion(
   const goal = new Date(goalDateStr);
   const bufferDays = Math.round(differenceInDays(goal, new Date()) * (bufferPct / 100));
   const effectiveGoal = addDays(goal, -bufferDays);
-  const daysLeft = Math.max(1, differenceInDays(effectiveGoal, new Date()));
+  const rawDaysLeft = differenceInDays(effectiveGoal, new Date());
+  if (rawDaysLeft <= 0) {
+    return { suggestedToday: 0, message: "Rok je prošao. Ažuriraj datum ispita u planeru.", burnoutWarning: false };
+  }
+  const daysLeft = rawDaysLeft;
 
   let remaining: number;
   if (phase) {

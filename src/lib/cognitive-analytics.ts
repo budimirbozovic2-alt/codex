@@ -138,7 +138,8 @@ export function calcCategoryStability(
   categories: string[],
   examDateStr: string | null
 ): CategoryStabilityInfo[] {
-  const examDate = examDateStr ? new Date(examDateStr) : null;
+  const parsedExamDate = examDateStr ? new Date(examDateStr) : null;
+  const examDate = parsedExamDate && !isNaN(parsedExamDate.getTime()) ? parsedExamDate : null;
   const daysToExam = examDate ? Math.max(0, differenceInDays(examDate, new Date())) : null;
 
   return categories.map(cat => {

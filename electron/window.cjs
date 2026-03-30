@@ -215,6 +215,15 @@ function createWindow({ isDev, baseDir, configPath, logCrash, splash, onMainWind
 
   const fallbackTimer = setTimeout(showWindow, 6000);
 
+  // Cleanup IPC listeners on normal window close (not just crash)
+  win.on('closed', () => {
+    ipcMain.removeListener('window-minimize', onMinimize);
+    ipcMain.removeListener('window-maximize', onMaximize);
+    ipcMain.removeListener('window-close', onClose);
+    try { ipcMain.removeHandler('window-is-maximized'); } catch (_) {}
+    clearTimeout(fallbackTimer);
+  });
+
   win.once('ready-to-show', () => {
     setTimeout(() => {
       if (!appReady) {

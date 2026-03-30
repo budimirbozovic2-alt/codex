@@ -24,7 +24,7 @@ export async function compressToZip(filename: string, blob: Blob): Promise<Blob>
 export async function decompressJsonFromZip(file: Blob): Promise<string> {
   const JSZip = await getJSZip();
   const zip = await JSZip.loadAsync(file);
-  const jsonFile = Object.keys(zip.files).find((n) => n.endsWith(".json"));
+  const jsonFile = Object.keys(zip.files).find((n) => n.endsWith(".json") && !n.startsWith("__MACOSX"));
   if (!jsonFile) throw new Error("ZIP ne sadrži JSON fajl.");
   return zip.files[jsonFile].async("string");
 }

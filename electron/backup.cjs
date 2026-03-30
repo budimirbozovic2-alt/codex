@@ -115,12 +115,23 @@ function setupBackupSystem({ app, getMainWindow, logCrash, isDev }) {
       const mainWindow = getMainWindow();
       if (mainWindow && !mainWindow.isDestroyed()) {
         const QUIT_BACKUP_TIMEOUT = 5000;
+        const backupDoneHandler = (resolve) => () => resolve(undefined);
         return Promise.race([
           new Promise(resolve => {
-            ipcMain.once('quit-backup-done', () => resolve(undefined));
+            const handler = backupDoneHandler(resolve);
+            ipcMain.once('quit-backup-done', handler);
+            // Store handler for cleanup
+            mainWindow._quitBackupHandler = handler;
             mainWindow.webContents.send('quit-backup-requested');
           }),
-          new Promise(resolve => setTimeout(resolve, QUIT_BACKUP_TIMEOUT)),
+          new Promise(resolve => setTimeout(() => {
+            // Cleanup the listener if timeout wins
+            if (mainWindow._quitBackupHandler) {
+              ipcMain.removeListener('quit-backup-done', mainWindow._quitBackupHandler);
+              delete mainWindow._quitBackupHandler;
+            }
+            resolve(undefined);
+          }, QUIT_BACKUP_TIMEOUT)),
         ]);
       }
       return Promise.resolve();

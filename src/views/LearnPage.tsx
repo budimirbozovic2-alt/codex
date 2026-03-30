@@ -6,14 +6,14 @@ import LearnSession from "@/components/LearnSession";
 import { Card } from "@/lib/spaced-repetition";
 
 export default function LearnPage() {
-  const { cards, categories, categoryRecords, subcategories, markRead, reviewSection, stats, reviewLog, addKeyPart } = useCardContext();
+  const { cards, categories, categoryRecords, subcategories, markRead, reviewSection, stats, reviewLog, addKeyPart, ready } = useCardContext();
   const { setView, setEditingCard } = useUIContext();
   const session = useSessionContext();
 
   useEffect(() => {
-    session.startSession(cards, reviewLog);
+    if (ready) session.startSession(cards, reviewLog);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [ready]);
 
   const handleMarkRead = useCallback((id: string) => {
     if (session.isSessionActive) session.queueMarkRead(id);
@@ -41,6 +41,15 @@ export default function LearnPage() {
     setEditingCard(card);
     setView("edit");
   }, [setEditingCard, setView]);
+
+  if (!ready) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 gap-3">
+        <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+        <p className="text-sm text-muted-foreground">Priprema gradiva...</p>
+      </div>
+    );
+  }
 
   return (
     <ErrorBoundary label="Učenje" onNavigateHome={() => setView("dashboard")}>
