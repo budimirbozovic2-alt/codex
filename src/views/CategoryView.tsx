@@ -114,6 +114,14 @@ export default function CategoryView() {
     }
   }, [categoryId]);
 
+  // Derive SubcategoryNode[] from category record (must be before early returns)
+  const subcategoryNodes: SubcategoryNode[] = useMemo(() => {
+    if (!category?.subcategories) return [];
+    return (category.subcategories as any[]).map((s: any) =>
+      typeof s === "string" ? { name: s, chapters: [], sortOrder: 0 } : s
+    );
+  }, [category?.subcategories]);
+
   // Full-screen reader mode
   if (readerSource) {
     return <SourceReader source={readerSource} onBack={() => setReaderSource(null)} />;
@@ -134,14 +142,6 @@ export default function CategoryView() {
       </div>
     );
   }
-
-  // Derive SubcategoryNode[] from category record
-  const subcategoryNodes: SubcategoryNode[] = useMemo(() => {
-    if (!category?.subcategories) return [];
-    return (category.subcategories as any[]).map((s: any) =>
-      typeof s === "string" ? { name: s, chapters: [], sortOrder: 0 } : s
-    );
-  }, [category?.subcategories]);
 
   return (
     <div className="space-y-6">
