@@ -1,59 +1,56 @@
 
 
-# Hronološko učenje — potpuni sort po hijerarhiji predmeta
+# Edit režim za SourceReader
 
-## Problem
-Trenutno hronološki sort u LearnSession:
-1. Koristi `chapterPositionMap` koji se učitava iz zastarjelog IDB ključa (`chapters-{cat}-{sub}`) — odvojeno od kanonskog izvora (`CategoryRecord.subcategories[].chapters`)
-2. Kad je odabrana samo kategorija (bez podkategorije), `chapterPositionMap` je prazan → kartice se sortiraju samo po `chapterOrder` i `createdAt`
-3. **Nedostaje sort po poziciji podkategorije** (`SubcategoryNode.sortOrder`) — kartice iz različitih podkategorija se miješaju
+## Koncept
+Dodati toggle dugme "Uredi izvor" u toolbar. Kada je aktivan edit režim:
+- Selekcija teksta prikazuje tooltip sa opcijama: H1, H2, H3, Paragraf, Numbered List, Bullet List (umjesto "Napravi esej" / "Poveži sa postojećim")
+- Desni klik kontekstni meni ostaje isti (heading opcije)
+- Keyboard shortcut `S` u edit režimu primjenjuje formatting umjesto kreiranja eseja
+- Exam sidebar mapping je onemogućen
+- Ukloniti heading context menu iz režima čitanja (sada je samo u edit režimu)
 
-## Rješenje
-Zamijeniti učitavanje iz IDB ključa sa derivacijom pozicija direktno iz `categoryRecords` (koji su već dostupni kao prop).
+## Promjene
 
-### Novi sort algoritam (4 nivoa):
-```text
-1. subcategoryPosition  (SubcategoryNode.sortOrder)
-2. chapterPosition      (index u SubcategoryNode.chapters[])
-3. chapterOrder          (pozicija kartice unutar glave)
-4. createdAt             (tiebreaker)
-```
+### 1. SourceReader.tsx — edit mode state + tooltip zamjena
+- Dodati `editMode` state (`useState(false)`)
+- Proslijediti `editMode` i `setEditMode` u `SourceToolbar`
+- **Heading context menu**: prikazivati SAMO kad je `editMode === true`
+- **Selection tooltip** (L255-275): zamjena sadržaja ovisno o režimu:
+  - **Čitanje**: "Napravi esej" + "Poveži sa postojećim" (kao sada)
+  - **Uređivanje**: 6 dugmadi — H1, H2, H3, Paragraf, Numbered List, Bullet List
+- Dodati `handleFormatSelection` callback koji:
+  1. Uzima Range iz selekcije
+  2. Pronalazi parent block element(e) unutar contentRef
+  3. Zamijeni tag (h1/h2/h3/p/ol/ul) — ista logika kao `handleSetHeading` ali proširena za liste
+  4. Snimi source i pozove `onSourceUpdated`
+- Keyboard handler: kad je `editMode` i `selection` postoji, `S` ne poziva `handleConvertToEssay` nego otvara quick format (ili primjenjuje zadnji format)
 
-### Promjene u `LearnSession.tsx`
-- **Ukloniti**: `chapterPositionMap` state, `dbModuleRef`, cijeli `useEffect` za učitavanje iz IDB (L41-66, ~25 linija)
-- **Dodati**: `useMemo` koji iz `categoryRecords` gradi mapu pozicija:
-  ```ts
-  const positionMaps = useMemo(() => {
-    const subPos: Record<string, number> = {};
-    const chapPos: Record<string, number> = {};
-    const catRec = categoryRecords.find(r => r.id === selectedCategory);
-    if (!catRec) return { subPos, chapPos };
-    for (const node of catRec.subcategories as SubcategoryNode[]) {
-      subPos[node.name] = node.sortOrder;
-      node.chapters.forEach((ch, i) => { chapPos[ch] = i; });
-    }
-    return { subPos, chapPos };
-  }, [categoryRecords, selectedCategory]);
-  ```
-- **Ažurirati** `sortedCards` default case:
-  ```ts
-  default: {
-    const { subPos, chapPos } = positionMaps;
-    return filtered.sort((a, b) =>
-      (subPos[a.subcategory ?? ""] ?? 999) - (subPos[b.subcategory ?? ""] ?? 999)
-      || (chapPos[a.chapter ?? ""] ?? 999) - (chapPos[b.chapter ?? ""] ?? 999)
-      || (a.chapterOrder ?? 0) - (b.chapterOrder ?? 0)
-      || a.createdAt - b.createdAt
-    );
-  }
-  ```
+### 2. SourceToolbar.tsx — dodati "Uredi" dugme
+- Novi props: `editMode: boolean`, `setEditMode: (v: boolean) => void`
+- Dodati toggle dugme sa ikonom `Pencil` između view mode togglea i width selectora
+- Kad je aktivan: `variant="default"`, tekst "Uređivanje" ; kad nije: `variant="outline"`, tekst "Uredi"
+- U edit režimu sakriti "Auto-Split" i "Pitanja" dugmad (jer nisu relevantna)
 
-### Rezultat
-- Kartice prate tačan vizuelni redoslijed iz Mape znanja / Mentalnog kostura
-- Radi ispravno i kad je odabrana samo kategorija, i kad je odabrana podkategorija
-- Uklonjena zavisnost na zastarjeli IDB ključ
+### 3. useSourceLogic.ts — keyboard handler update
+- Keyboard handler za `S`: provjeriti da li je `editMode` (proslijediti kao ref ili flag). Ako jeste — ne pozivati `handleConvertToEssay`
+- Alternativa: SourceReader sam upravlja keyboard handlerom za edit mode, override-uje logiku iz hook-a
+
+## Formatting logika za liste
+Kada korisnik selektuje tekst i klikne "Numbered List" ili "Bullet List":
+- Pronađi sve block elemente (`p`, `div`) koji su dio selekcije
+- Zamijeni ih sa `<ol><li>...</li></ol>` ili `<ul><li>...</li></ul>`
+- Svaki paragraf postaje jedan `<li>`
+- Snimi ažurirani HTML
+
+## Fajlovi
+
+| Fajl | Promjena |
+|------|----------|
+| `src/components/SourceReader.tsx` | editMode state, format tooltip, prošireni handleSetHeading za liste, sakrij heading menu u čitanju |
+| `src/components/source-reader/SourceToolbar.tsx` | Novi props + "Uredi" dugme, sakrij Auto-Split/Pitanja u edit modu |
+| `src/hooks/useSourceLogic.ts` | Dodati `editMode` ref da keyboard `S` ne triggeruje esej u edit modu |
 
 ## Scope
-- 1 fajl (`LearnSession.tsx`), ~20 linija promijenjeno
-- Bez novih zavisnosti, bez IDB promjena
+- 3 fajla, ~80 linija promjena
 
