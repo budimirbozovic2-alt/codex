@@ -15,6 +15,7 @@ export type FormWidth = "compact" | "normal" | "wide" | "full";
 interface UseCardActionsProps {
   categories: string[];
   subcategories: Record<string, string[]>;
+  categoryRecords?: CategoryRecord[];
   editCard?: Card | null;
   onSave: (question: string, sections: SectionInput[], category: string, subcategory?: string, chapter?: string) => void;
   onSaveFlash: (question: string, answer: string, category: string, subcategory?: string) => void;
