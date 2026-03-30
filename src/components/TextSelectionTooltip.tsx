@@ -1,6 +1,6 @@
 import { Brain, Star } from "lucide-react";
 import { useState, useEffect, useCallback, useRef, ReactNode } from "react";
-
+import { useQueryClient } from "@tanstack/react-query";
 
 import { createMnemonicCardFromSelection, loadMnemonicCards, saveMnemonicCards } from "@/lib/mnemonic-storage";
 import { toast } from "@/hooks/use-toast";
