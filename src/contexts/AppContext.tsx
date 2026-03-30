@@ -264,7 +264,9 @@ function CardProvider({ children }: { children: ReactNode }) {
     importData: h.importData, importCards: h.importCards,
     addCategory: h.addCategory, renameCategory: h.renameCategory, deleteCategory: h.deleteCategory,
     addSubcategory: h.addSubcategory, renameSubcategory: h.renameSubcategory, deleteSubcategory: h.deleteSubcategory,
+    addChapter: h.addChapter, renameChapter: h.renameChapter, deleteChapter: h.deleteChapter,
     reorderCategories: h.reorderCategories, reorderSubcategories: h.reorderSubcategories,
+    reorderChapters: h.reorderChapters,
     updateSRSettings: h.updateSRSettings,
   };
 
