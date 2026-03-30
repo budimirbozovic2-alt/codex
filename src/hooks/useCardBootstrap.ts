@@ -130,14 +130,56 @@ export function useCardBootstrap(setters: BootSetters) {
         const catRecords = await withTimeout(seedDefaultCategories(), 2500, "categories load", []);
         console.log("[boot:diag] categories loaded:", catRecords.length, catRecords.map((r: CategoryRecord) => r.name));
         const catNames = catRecords.map((r: CategoryRecord) => r.id);
-        // Build subcategories map from CategoryRecord.subcategories — keyed by UUID
-        // Supports both legacy string[] and new SubcategoryNode[] format
+        // Build subcategories map + fallback "Opšte" nodes for orphaned cards
         const subsMap: Record<string, string[]> = {};
-        catRecords.forEach((r: CategoryRecord) => {
-          if (r.subcategories && r.subcategories.length > 0) {
-            subsMap[r.id] = r.subcategories.map((s: any) => typeof s === "string" ? s : s.name);
+        const updatedRecords: CategoryRecord[] = [];
+        let needsPersist = false;
+
+        for (const r of catRecords) {
+          // Migrate legacy string[] to SubcategoryNode[]
+          let nodes: SubcategoryNode[] = (r.subcategories || []).map((s: any, i: number) =>
+            typeof s === "string" ? { name: s, chapters: [], sortOrder: i } : s
+          );
+
+          // Scan cards belonging to this category for orphaned subcategories/chapters
+          const catCards = c.filter((card) => card.categoryId === r.id);
+          for (const card of catCards) {
+            const sub = card.subcategory || "";
+            const ch = card.chapter || "";
+            if (!sub) continue;
+
+            let node = nodes.find((n) => n.name === sub);
+            if (!node) {
+              // Orphaned subcategory → create fallback node
+              node = { name: sub, chapters: [], sortOrder: nodes.length };
+              nodes.push(node);
+              needsPersist = true;
+              console.log(`[boot] fallback SubcategoryNode created: "${sub}" in category ${r.name}`);
+            }
+            if (ch && !node.chapters.includes(ch)) {
+              // Orphaned chapter → register under its subcategory
+              node.chapters.push(ch);
+              needsPersist = true;
+              console.log(`[boot] fallback chapter registered: "${ch}" under "${sub}" in ${r.name}`);
+            }
           }
-        });
+
+          subsMap[r.id] = nodes.map((n) => n.name);
+          updatedRecords.push({ ...r, subcategories: nodes });
+        }
+
+        // Persist migrated/fallback nodes back to IDB (fire-and-forget)
+        if (needsPersist && db) {
+          Promise.all(
+            updatedRecords.map((rec) =>
+              db!.categories.update(rec.id, { subcategories: rec.subcategories }).catch((e: unknown) =>
+                console.warn("[boot] fallback persist failed for", rec.name, e)
+              )
+            )
+          ).catch(() => {});
+          // Use updated records downstream
+          catRecords.splice(0, catRecords.length, ...updatedRecords);
+        }
 
         splashProgress(65, "Učitavanje kategorija…");
 
