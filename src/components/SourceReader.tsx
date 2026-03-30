@@ -106,9 +106,68 @@ export default function SourceReader({ source, onBack, onSourceUpdated }: Props)
     localStorage.setItem(STORAGE_KEY, readerWidth);
   }, [readerWidth]);
 
+  // ─── Heading context menu ───
+  const [headingMenu, setHeadingMenu] = useState<{ x: number; y: number; element: HTMLElement } | null>(null);
+
+  const handleContextMenu = useCallback((e: React.MouseEvent) => {
+    const target = e.target as HTMLElement;
+    const block = target.closest("p, h1, h2, h3, h4");
+    if (!block) return;
+    // Only allow within the content area
+    const container = logic.contentRef.current;
+    if (!container || !container.contains(block)) return;
+    e.preventDefault();
+    setHeadingMenu({ x: e.clientX, y: e.clientY, element: block as HTMLElement });
+  }, [logic.contentRef]);
+
+  const handleSetHeading = useCallback(async (level: number | null) => {
+    if (!headingMenu) return;
+    const el = headingMenu.element;
+    const container = logic.contentRef.current;
+    setHeadingMenu(null);
+    if (!container) return;
+
+    const text = el.textContent || "";
+    const currentTag = el.tagName.toLowerCase();
+    const targetTag = level ? `h${level}` : "p";
+
+    if (currentTag === targetTag) return; // no change
+
+    // Replace element in DOM
+    const newEl = document.createElement(targetTag);
+    newEl.textContent = text;
+    el.replaceWith(newEl);
+
+    // Get updated HTML and save
+    const { saveSource, extractOutline, injectHeadingIds } = await import("@/lib/sources-storage");
+    const updatedHtml = injectHeadingIds(container.innerHTML);
+    const outline = extractOutline(updatedHtml);
+    const { parseArticles } = await import("@/lib/article-parser");
+    const articles = parseArticles(updatedHtml);
+
+    const updated: Source = {
+      ...source,
+      htmlContent: updatedHtml,
+      outline,
+      articles,
+      updatedAt: Date.now(),
+    };
+    await saveSource(updated);
+    onSourceUpdated?.(updated);
+    const { toast } = await import("sonner");
+    toast.success(level ? `Postavljeno kao H${level}` : "Vraćeno na paragraf");
+  }, [headingMenu, source, onSourceUpdated, logic.contentRef]);
+
+  // Close heading menu on click elsewhere
+  useEffect(() => {
+    if (!headingMenu) return;
+    const close = () => setHeadingMenu(null);
+    window.addEventListener("click", close);
+    return () => window.removeEventListener("click", close);
+  }, [headingMenu]);
+
   const handleOpenCoveredCard = (cardId: string) => {
     sessionStorage.setItem("sr-scroll-to-card", cardId);
-    // Navigate to dedicated cards route
     window.location.hash = "#/cards";
   };
 
