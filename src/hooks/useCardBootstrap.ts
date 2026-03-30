@@ -150,6 +150,7 @@ export function useCardBootstrap(setters: BootSetters) {
 
         console.log("[boot:diag] setting state — cards:", c.length, "categories:", catRecords.length);
         setCardMapState(arrayToMap(c));
+        bumpMapVersion();
         setCategoriesState(catNames);
         setCategoryRecordsState(catRecords);
         setSubcategoriesState(subsMap);
