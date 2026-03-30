@@ -303,30 +303,49 @@ export default function CardOrgMode({ cards, categoryId, subcategoryNodes, patch
                     </div>
                   ))}
 
-                  {/* Unassigned cards */}
+                  {/* Unassigned cards — draggable */}
                   {node.unassigned.length > 0 && (
                     <div className="space-y-1">
                       <div className="text-xs text-muted-foreground italic px-1 py-1">Bez glave</div>
-                      {node.unassigned.map(card => {
-                        const availableChapters = node.chapters.map(ch => ch.chapter);
-                        return (
-                          <div key={card.id} className="flex items-center gap-2 rounded border border-dashed bg-background px-3 py-1.5">
-                            <span className="text-xs text-foreground truncate flex-1">{card.question || "(Bez pitanja)"}</span>
-                            {availableChapters.length > 0 && (
-                              <Select onValueChange={v => assignChapter(card.id, v)}>
-                                <SelectTrigger className="h-6 w-28 text-[10px]">
-                                  <SelectValue placeholder="Dodijeli glavu" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {availableChapters.map(ch => (
-                                    <SelectItem key={ch} value={ch} className="text-xs">{ch}</SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                            )}
-                          </div>
-                        );
-                      })}
+                      <SortableContext items={node.unassigned.map(c => c.id)} strategy={verticalListSortingStrategy}>
+                        {node.unassigned.map((card, idx) => {
+                          const availableChapters = node.chapters.map(ch => ch.chapter);
+                          return (
+                            <div key={card.id} className="flex items-center gap-2">
+                              <SortableCardTile card={card} index={idx} />
+                              <div className="flex items-center gap-1 shrink-0">
+                                {availableChapters.length > 0 && (
+                                  <Select onValueChange={v => assignChapter(card.id, v)}>
+                                    <SelectTrigger className="h-6 w-28 text-[10px]">
+                                      <SelectValue placeholder="Dodijeli glavu" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      {availableChapters.map(ch => (
+                                        <SelectItem key={ch} value={ch} className="text-xs">{ch}</SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                )}
+                                {tree.length > 1 && (
+                                  <Select onValueChange={v => {
+                                    const targetSub = v === "(Bez potkategorije)" ? "" : v;
+                                    patchCard(card.id, c => ({ ...c, subcategory: targetSub }));
+                                  }}>
+                                    <SelectTrigger className="h-6 w-28 text-[10px]">
+                                      <SelectValue placeholder="Premjesti →" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      {tree.filter(n => n.subcategory !== node.subcategory).map(n => (
+                                        <SelectItem key={n.subcategory} value={n.subcategory} className="text-xs">{n.subcategory}</SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </SortableContext>
                     </div>
                   )}
                 </div>
