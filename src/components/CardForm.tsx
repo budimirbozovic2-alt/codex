@@ -1,4 +1,4 @@
-import { X, FileText, Loader2 } from "lucide-react";
+import { X, FileText, Loader2, Scissors } from "lucide-react";
 import { Card } from "@/lib/spaced-repetition";
 import { Button } from "@/components/ui/button";
 import { useCardActions } from "@/hooks/useCardActions";
