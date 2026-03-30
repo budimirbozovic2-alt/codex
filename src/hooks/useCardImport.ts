@@ -126,7 +126,7 @@ export function useCardImport({
             }
             freshRecords = await idbLoadCategories();
             setCategoryRecordsState(freshRecords);
-            setCategories(() => freshRecords.map(r => r.name));
+            setCategories(() => freshRecords.map(r => r.id));
           } else {
             // Legacy string[] format — fallback
             if (strategy === "overwrite") {
