@@ -5,12 +5,14 @@ import { motion } from "framer-motion";
 import SessionFilters from "@/components/SessionFilters";
 import { Button } from "@/components/ui/button";
 import { SortMode } from "./types";
+import type { CategoryRecord } from "@/lib/db";
 
 interface Props {
   cards: Card[];
   sortedCardsCount: number;
   learnMode: LearnMode;
   categories: string[];
+  categoryRecords: CategoryRecord[];
   subcategories: Record<string, string[]>;
   selectedCategory: string | null;
   selectedSubcategory: string | null;
