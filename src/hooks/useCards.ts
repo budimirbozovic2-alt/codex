@@ -157,6 +157,9 @@ export function useCards() {
     addCategory, renameCategory, deleteCategory,
     addSubcategory, renameSubcategory, deleteSubcategory,
     bulkUpdateSubcategory,
+    addChapter, renameChapter, deleteChapter,
+    reorderSubcategories: reorderSubcategoriesManagement,
+    reorderChapters,
   } = useCategoryManagement({
     setCategories, setSubcategories, setCardMapState, cardMapRef, getCategoryRecords,
   });
