@@ -103,8 +103,8 @@ export default function MentalSkeleton({ cards, subcategory, category, onBack, o
     handleDeleteChapter,
     handleMoveChapter,
   } = useChapterManagement({
-    category,
-    subcategory,
+    categoryId: category,
+    subcategoryId: subcategory,
     cardsByChapter,
     cardDerivedChapters: chapters,
     onUpdateChapters,
