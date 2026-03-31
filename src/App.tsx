@@ -45,8 +45,6 @@ const App = () => (
         <Sonner />
         <HashRouter>
           <AppProvider>
-            <ForumProvider>
-              <ForumTransition />
               <SessionProvider>
                 <ErrorBoundary>
                   <MainLayout>
