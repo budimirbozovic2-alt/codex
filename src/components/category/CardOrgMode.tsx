@@ -286,7 +286,9 @@ export default function CardOrgMode({ cards, categoryId, subcategoryNodes, patch
       patchCard(activeCardId, c => ({
         ...c,
         chapter: dropTarget.chapter,
+        chapterId: dropTarget.chapter,
         subcategory: targetSub,
+        subcategoryId: targetSub,
         sortOrder: 9999,
       }));
       return;
