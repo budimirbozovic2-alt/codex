@@ -302,17 +302,30 @@ export default function MnemonicWorkshop({ cards, onUpdateCard, onDeleteCard, ca
               ))}
             </div>
           </div>
-          {filtered.map(card => (
-            <WorkshopCardItem
-              key={card.id}
-              card={card}
-              isExpanded={expandedId === card.id}
-              onToggle={() => handleToggle(card.id)}
-              onUpdateCard={onUpdateCard}
-              onDeleteCard={onDeleteCard}
-              majorSystem={majorSystem}
+          {useVirtualization ? (
+            <List
+              defaultHeight={700}
+              rowCount={filtered.length}
+              rowHeight={getRowHeight}
+              overscanCount={8}
+              rowComponent={VirtualWorkshopRow}
+              listRef={listRef}
+              rowProps={virtualRowProps}
+              style={{ height: Math.min(filtered.length * (COLLAPSED_HEIGHT + GAP), 700) }}
             />
-          ))}
+          ) : (
+            filtered.map(card => (
+              <WorkshopCardItem
+                key={card.id}
+                card={card}
+                isExpanded={expandedId === card.id}
+                onToggle={() => handleToggle(card.id)}
+                onUpdateCard={onUpdateCard}
+                onDeleteCard={onDeleteCard}
+                majorSystem={majorSystem}
+              />
+            ))
+          )}
         </div>
       )}
     </div>
