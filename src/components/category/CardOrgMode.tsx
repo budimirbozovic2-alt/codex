@@ -265,7 +265,7 @@ export default function CardOrgMode({ cards, categoryId, subcategoryNodes, patch
   }, []);
 
   const assignChapter = useCallback((cardId: string, chapter: string) => {
-    patchCard(cardId, c => ({ ...c, chapter: chapter || undefined }));
+    patchCard(cardId, c => ({ ...c, chapter: chapter || undefined, chapterId: chapter || undefined }));
   }, [patchCard]);
 
   const handleDragStart = useCallback((event: DragStartEvent) => {
