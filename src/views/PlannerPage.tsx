@@ -26,6 +26,7 @@ export default function PlannerPage() {
       <StrategicPlanner
         cards={cards}
         categories={categories}
+        categoryRecords={categoryRecords}
         reviewLog={reviewLog}
         onNavigateToDatabase={handleNavigateToDatabase}
       />

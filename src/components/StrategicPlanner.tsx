@@ -1,9 +1,10 @@
 import { Target, BarChart3, Map as MapIcon } from "lucide-react";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { motion } from "framer-motion";
 import InfoPanel from "@/components/InfoPanel";
 import { Card as SRCard } from "@/lib/spaced-repetition";
 import { ReviewLogEntry } from "@/lib/storage";
+import { CategoryRecord } from "@/lib/db";
 import { cn } from "@/lib/utils";
 import { usePlannerData } from "@/hooks/usePlannerData";
 import OperationsTab from "./planner/OperationsTab";
@@ -13,13 +14,20 @@ import DisciplineTab from "./planner/DisciplineTab";
 interface Props {
   cards: SRCard[];
   categories: string[];
+  categoryRecords: CategoryRecord[];
   reviewLog: ReviewLogEntry[];
   onNavigateToDatabase?: (category: string) => void;
 }
 
-export default function StrategicPlanner({ cards, categories, reviewLog, onNavigateToDatabase }: Props) {
+export default function StrategicPlanner({ cards, categories, categoryRecords, reviewLog, onNavigateToDatabase }: Props) {
   const data = usePlannerData(cards, reviewLog);
   const [activeTab, setActiveTab] = useState<"operations" | "roadmap" | "discipline">("operations");
+
+  const catNameMap = useMemo(() => {
+    const m: Record<string, string> = {};
+    for (const r of categoryRecords) m[r.id] = r.name;
+    return m;
+  }, [categoryRecords]);
 
   return (
     <div className="space-y-6">
