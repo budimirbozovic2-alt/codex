@@ -77,10 +77,6 @@ export default function CategoryManager({
     }
   };
 
-  const handleSetBuildingType = (cat: string, type: BuildingType) => {
-    saveMonumentType(cat, type);
-    setMonumentTypes(prev => ({ ...prev, [cat]: type }));
-  };
 
   return (
     <div className="space-y-6">
