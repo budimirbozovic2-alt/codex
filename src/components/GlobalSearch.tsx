@@ -44,6 +44,15 @@ function highlightMatch(text: string, query: string): string {
 export default function GlobalSearch({ cards, open, onClose, onNavigateToCard }: Props) {
   const navigate = useNavigate();
   const [query, setQuery] = useState("");
+  const catRecords = useLiveQuery(() => db.categories.toArray()) ?? [];
+  const uuidToName = useMemo(() => {
+    const m: Record<string, string> = {};
+    for (const r of catRecords) {
+      m[r.id] = r.name;
+      for (const sub of r.subcategories ?? []) m[sub.id] = sub.name;
+    }
+    return m;
+  }, [catRecords]);
   const debouncedQuery = useDebounce(query, 300);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
