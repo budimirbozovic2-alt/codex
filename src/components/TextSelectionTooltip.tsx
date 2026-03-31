@@ -9,13 +9,13 @@ interface Props {
   cardId: string;
   question: string;
   category: string;
-  subcategory?: string;
+  subcategoryId?: string;
   tags?: string[];
   keyParts?: string[];
   onMarkKeyPart?: (text: string) => void;
 }
 
-export default function TextSelectionTooltip({ children, cardId, question, category, subcategory, tags, keyParts, onMarkKeyPart }: Props) {
+export default function TextSelectionTooltip({ children, cardId, question, category, subcategoryId, tags, keyParts, onMarkKeyPart }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const qc = useQueryClient();
   const [tooltip, setTooltip] = useState<{ x: number; y: number; text: string } | null>(null);
@@ -61,7 +61,7 @@ export default function TextSelectionTooltip({ children, cardId, question, categ
     if (!tooltip) return;
     const cards = loadMnemonicCards();
     const clone = createMnemonicCardFromSelection(
-      cardId, question, tooltip.text, category, subcategory, tags
+      cardId, question, tooltip.text, category, subcategoryId, tags
     );
     saveMnemonicCards([...cards, clone]);
     qc.invalidateQueries({ queryKey: ["mnemonicCards"] });

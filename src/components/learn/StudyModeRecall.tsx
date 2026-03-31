@@ -93,7 +93,7 @@ export default function StudyModeRecall({
         <motion.div key={`${card.id}-${arPhase}`} initial={{ opacity: 0, x: 40 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -40 }} transition={{ duration: 0.3 }} className="space-y-4">
           {arPhase === "preview" && !isCompleted && (
             <>
-              <TextSelectionTooltip cardId={card.id} question={card.question} category={card.categoryId} subcategory={card.subcategory} tags={card.tags} keyParts={card.keyParts} onMarkKeyPart={onAddKeyPart ? (text: string) => onAddKeyPart(card.id, text) : undefined}>
+              <TextSelectionTooltip cardId={card.id} question={card.question} category={card.categoryId} subcategoryId={card.subcategoryId} tags={card.tags} keyParts={card.keyParts} onMarkKeyPart={onAddKeyPart ? (text: string) => onAddKeyPart(card.id, text) : undefined}>
                 <div className="space-y-3">
                   <span className="text-sm text-muted-foreground">{sections.length} modula — pročitaj pažljivo</span>
                   {sections.map(section => (

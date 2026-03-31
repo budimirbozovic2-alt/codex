@@ -73,6 +73,11 @@ export function findChapterByName(records: CategoryRecord[], catId: string, subI
   return null;
 }
 
+export function getCategoryName(records: CategoryRecord[], catId: string): string {
+  const rec = records.find(r => r.id === catId);
+  return rec?.name || "";
+}
+
 export function getSubcategoryName(records: CategoryRecord[], subId: string): string {
   const node = findSubcategoryById(records, subId);
   return node?.name || "";

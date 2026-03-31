@@ -49,29 +49,33 @@ export function useCardImport({
 
         const { sanitizeHtml } = await import("@/lib/sanitize");
         // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic JSON migration requires flexible typing
-        const migrateImported = (c: any): Card => ({
-          ...c,
-          readCount: c.readCount || 0,
-          type: c.type || "essay",
-          subcategory: c.subcategory || "",
-          question: sanitizeHtml(c.question ?? ""),
-          tags: c.tags || [],
-          errorLog: c.errorLog || [],
-          sections: (c.sections || []).map((s: any) => ({
-            ...s,
-            id: s.id || crypto.randomUUID(),
-            state: s.state ?? 0,
-            lapses: s.lapses || 0,
-            content: sanitizeHtml(s.content ?? ""),
-            stability: s.stability ?? 0,
-            difficulty: s.difficulty ?? 5,
-            interval: s.interval ?? 0,
-            nextReview: s.nextReview ?? 0,
-            lastReviewed: s.lastReviewed ?? null,
-            elapsedDays: s.elapsedDays ?? 0,
-            scheduledDays: s.scheduledDays ?? 0,
-          })),
-        });
+        const migrateImported = (c: any): Card => {
+          const { subcategory, chapter, ...rest } = c;
+          return {
+            ...rest,
+            readCount: rest.readCount || 0,
+            type: rest.type || "essay",
+            subcategoryId: rest.subcategoryId || undefined,
+            chapterId: rest.chapterId || undefined,
+            question: sanitizeHtml(rest.question ?? ""),
+            tags: rest.tags || [],
+            errorLog: rest.errorLog || [],
+            sections: (rest.sections || []).map((s: any) => ({
+              ...s,
+              id: s.id || crypto.randomUUID(),
+              state: s.state ?? 0,
+              lapses: s.lapses || 0,
+              content: sanitizeHtml(s.content ?? ""),
+              stability: s.stability ?? 0,
+              difficulty: s.difficulty ?? 5,
+              interval: s.interval ?? 0,
+              nextReview: s.nextReview ?? 0,
+              lastReviewed: s.lastReviewed ?? null,
+              elapsedDays: s.elapsedDays ?? 0,
+              scheduledDays: s.scheduledDays ?? 0,
+            })),
+          } as Card;
+        };
 
         const importedCards: Card[] = cardsArr.map(c => migrateImported(c));
         const currentMap = cardMapRef.current;

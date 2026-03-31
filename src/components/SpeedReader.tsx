@@ -2,6 +2,7 @@ import { Play, Pause, RotateCcw, ChevronLeft, ChevronRight, Gauge, BookOpen, Eye
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useAppContext } from "@/contexts/AppContext";
 import { Card } from "@/lib/spaced-repetition";
+import { getSubcategoryName } from "@/lib/category-service";
 import { loadSources, type Source } from "@/lib/sources-storage";
 
 import ScrollableRow from "@/components/ScrollableRow";
@@ -223,7 +224,7 @@ export default function SpeedReader() {
   const filteredCards = useMemo(() => {
     let result = cards;
     if (selCat) result = result.filter(c => c.categoryId === selCat);
-    if (selSub) result = result.filter(c => (c.subcategoryId || c.subcategory) === selSub);
+    if (selSub) result = result.filter(c => c.subcategoryId === selSub);
     return result.filter(c => c.type !== "flash");
   }, [cards, selCat, selSub]);
 
@@ -546,7 +547,7 @@ export default function SpeedReader() {
               </button>
               {availableSubs.map(sc => (
                 <button key={sc} onClick={() => setSelSub(sc)} className={`px-2.5 py-1 rounded-md text-[11px] font-medium transition-all whitespace-nowrap flex-shrink-0 ${selSub === sc ? "bg-primary/15 text-primary" : "text-muted-foreground hover:text-foreground hover:bg-secondary"}`}>
-                  {sc}
+                  {getSubcategoryName(categoryRecords, sc) || sc}
                 </button>
               ))}
             </ScrollableRow>
@@ -594,7 +595,11 @@ export default function SpeedReader() {
                       >
                         <div className="flex items-center gap-2 mb-0.5 text-xs text-muted-foreground">
                           <span>{uuidToName[card.categoryId] ?? card.categoryId}</span>
-                          {card.subcategory && <span>› {card.subcategory}</span>}
+                          {card.subcategoryId && (
+                            <span>
+                              › {getSubcategoryName(categoryRecords, card.subcategoryId) || card.subcategoryId}
+                            </span>
+                          )}
                           <span className="ml-auto">{card.sections.length} sek. · {wc} rij.</span>
                         </div>
                         <p className="text-sm font-medium line-clamp-1">{card.question}</p>

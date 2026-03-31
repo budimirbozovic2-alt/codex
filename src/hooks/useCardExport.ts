@@ -95,8 +95,8 @@ export function useCardExport({ cards, srSettings }: UseCardExportDeps) {
         question: c.question,
         sections: c.sections.map((s) => ({ title: s.title, content: s.content })),
         categoryId: c.categoryId,
-        subcategory: c.subcategory || "",
-        chapter: c.chapter || "",
+        subcategoryId: c.subcategoryId || undefined,
+        chapterId: c.chapterId || undefined,
         type: c.type,
         tags: c.tags || [],
       }));

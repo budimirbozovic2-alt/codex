@@ -15,6 +15,7 @@ import { type CategoryRecord } from "@/lib/db";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import BulkImportDialog from "./BulkImportDialog";
+import { getSubcategoryName, getChapterName } from "@/lib/category-service";
 
 interface Props {
   cards: Card[];
@@ -63,15 +64,15 @@ export default function CardViewMode({ cards, categoryId, allCategories, patchCa
   // Build unique subcategories and chapters
   const uniqueSubcategories = useMemo(() => {
     const set = new Set<string>();
-    cards.forEach(c => { if (c.subcategoryId || c.subcategory) set.add((c.subcategoryId || c.subcategory)!); });
+    cards.forEach(c => { if (c.subcategoryId) set.add(c.subcategoryId); });
     return Array.from(set).sort();
   }, [cards]);
 
   const uniqueChapters = useMemo(() => {
     const set = new Set<string>();
     cards.forEach(c => {
-      if (filterSubcategory !== "__all__" && (c.subcategoryId || c.subcategory) !== filterSubcategory) return;
-      if (c.chapterId || c.chapter) set.add((c.chapterId || c.chapter)!);
+      if (filterSubcategory !== "__all__" && c.subcategoryId !== filterSubcategory) return;
+      if (c.chapterId) set.add(c.chapterId);
     });
     return Array.from(set).sort();
   }, [cards, filterSubcategory]);
@@ -79,8 +80,8 @@ export default function CardViewMode({ cards, categoryId, allCategories, patchCa
   // Apply filters
   const filteredCards = useMemo(() => {
     return cards.filter(c => {
-      if (filterSubcategory !== "__all__" && ((c.subcategoryId || c.subcategory) || "") !== filterSubcategory) return false;
-      if (filterChapter !== "__all__" && ((c.chapterId || c.chapter) || "") !== filterChapter) return false;
+      if (filterSubcategory !== "__all__" && (c.subcategoryId || "") !== filterSubcategory) return false;
+      if (filterChapter !== "__all__" && (c.chapterId || "") !== filterChapter) return false;
       if (filterType === "essay" && c.type !== "essay") return false;
       if (filterType === "flash" && c.type !== "flash") return false;
       if (filterType === "mnemonic" && !(c.tags?.includes("mnemonic"))) return false;
@@ -228,7 +229,9 @@ export default function CardViewMode({ cards, categoryId, allCategories, patchCa
             <SelectContent>
               <SelectItem value="__all__">Sve potkategorije</SelectItem>
               {uniqueSubcategories.map(sub => (
-                <SelectItem key={sub} value={sub} className="text-xs">{sub}</SelectItem>
+                <SelectItem key={sub} value={sub} className="text-xs">
+                  {getSubcategoryName(allCategories, sub) || sub}
+                </SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -243,7 +246,9 @@ export default function CardViewMode({ cards, categoryId, allCategories, patchCa
             <SelectContent>
               <SelectItem value="__all__">Sve glave</SelectItem>
               {uniqueChapters.map(ch => (
-                <SelectItem key={ch} value={ch} className="text-xs">{ch}</SelectItem>
+                <SelectItem key={ch} value={ch} className="text-xs">
+                  {getChapterName(allCategories, ch) || ch}
+                </SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -365,15 +370,15 @@ export default function CardViewMode({ cards, categoryId, allCategories, patchCa
               {isExpanded && (
                 <div className="border-t px-4 py-3 space-y-3 bg-muted/20">
                   <div className="flex items-center gap-2 flex-wrap">
-                    {(card.subcategoryId || card.subcategory) && (
+                    {card.subcategoryId && (
                       <Badge variant="secondary" className="text-[10px]">
-                        Potkategorija: {card.subcategory || card.subcategoryId}
+                        Potkategorija: {getSubcategoryName(allCategories, card.subcategoryId) || card.subcategoryId}
                       </Badge>
                     )}
-                    {(card.chapterId || card.chapter) && (
+                    {card.chapterId && (
                       <Badge variant="outline" className="text-[10px] gap-1 border-primary/30">
                         <BookOpen className="h-3 w-3" />
-                        Glava: {card.chapter || card.chapterId}
+                        Glava: {getChapterName(allCategories, card.chapterId) || card.chapterId}
                       </Badge>
                     )}
                     {card.sourceId && (

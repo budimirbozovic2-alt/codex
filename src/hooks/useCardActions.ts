@@ -106,8 +106,8 @@ export function useCardActions({ categories, subcategories, categoryRecords, edi
 
   // ── Metadata state ────────────────────────────────────
   const [category, setCategory] = useState(editCard?.categoryId ?? categories[0] ?? "");
-  const [subcategory, setSubcategory] = useState(editCard?.subcategoryId ?? editCard?.subcategory ?? "");
-  const [chapter, setChapter] = useState(editCard?.chapterId ?? editCard?.chapter ?? "");
+  const [subcategory, setSubcategory] = useState(editCard?.subcategoryId ?? "");
+  const [chapter, setChapter] = useState(editCard?.chapterId ?? "");
   const [newCategory, setNewCategory] = useState("");
   const [showNewCat, setShowNewCat] = useState(false);
   const [newSubcategory, setNewSubcategory] = useState("");

@@ -119,7 +119,13 @@ export default function HealthMonitor() {
       }
       const fallbackId = categories[0].id;
       await Promise.all(
-        orphans.cardIds.map(id => db.cards.update(id, { categoryId: fallbackId, subcategory: "", chapter: "" }))
+        orphans.cardIds.map(id =>
+          db.cards.update(id, {
+            categoryId: fallbackId,
+            subcategoryId: undefined,
+            chapterId: undefined,
+          }),
+        )
       );
       toast.success(`${orphans.count} kartica premješteno u "${categories[0].name}"`);
       setOrphans({ count: 0, cardIds: [] });

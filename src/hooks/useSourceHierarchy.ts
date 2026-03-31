@@ -61,17 +61,17 @@ export function useSourceHierarchy(
       return { mode: "B" as DepthMode, tree: [], hasSourceLinks: false };
     }
 
-    // Default to Mode B: L1 = Subcategory, L2 = Chapter
+    // Default to Mode B: L1 = Subcategory (by UUID), L2 = Chapter (by UUID)
     const tree: HierarchyNode[] = [];
     const bySub = new Map<string, Map<string, Card[]>>();
 
     for (const card of catCards) {
-      const sub = card.subcategoryId || card.subcategory || "Ostalo";
-      if (!bySub.has(sub)) bySub.set(sub, new Map());
-      const chapMap = bySub.get(sub)!;
-      const chap = card.chapterId || card.chapter || "Ostalo";
-      if (!chapMap.has(chap)) chapMap.set(chap, []);
-      chapMap.get(chap)!.push(card);
+      const subId = card.subcategoryId || "Ostalo";
+      if (!bySub.has(subId)) bySub.set(subId, new Map());
+      const chapMap = bySub.get(subId)!;
+      const chapId = card.chapterId || "Ostalo";
+      if (!chapMap.has(chapId)) chapMap.set(chapId, []);
+      chapMap.get(chapId)!.push(card);
     }
 
     for (const [subName, chapMap] of bySub) {

@@ -22,12 +22,13 @@ interface Props {
 }
 
 interface TreeNode {
-  subcategory: string;
-  chapters: { chapter: string; cards: Card[] }[];
+  subcategoryId: string;
+  subcategoryName: string;
+  chapters: { chapterId: string; chapterName: string; cards: Card[] }[];
   unassigned: Card[];
 }
 
-const chapterDropId = (sub: string, chapter: string) => `__drop__${sub}__${chapter}`;
+const chapterDropId = (subId: string, chapterId: string) => `__drop__${subId}__${chapterId}`;
 const parseChapterDropId = (id: string) => {
   if (!id.startsWith("__drop__")) return null;
   const rest = id.slice("__drop__".length);
@@ -41,27 +42,30 @@ function buildTree(cards: Card[], subcategoryNodes: SubcategoryNode[]): TreeNode
 
   for (const node of subcategoryNodes) {
     const chMap = new Map<string, Card[]>();
-    for (const ch of node.chapters) chMap.set(typeof ch === "string" ? ch : ch.id, []);
+    for (const ch of node.chapters) {
+      const id = typeof ch === "string" ? ch : ch.id;
+      chMap.set(id, []);
+    }
     nodeMap.set(node.id, { chapters: chMap, unassigned: [] });
   }
 
-  const UNCAT_KEY = "(Bez potkategorije)";
+  const UNCAT_KEY = "";
   if (!nodeMap.has(UNCAT_KEY)) {
     nodeMap.set(UNCAT_KEY, { chapters: new Map(), unassigned: [] });
   }
 
   for (const card of cards) {
-    const sub = card.subcategoryId || card.subcategory || UNCAT_KEY;
-    if (!nodeMap.has(sub)) {
-      nodeMap.set(sub, { chapters: new Map(), unassigned: [] });
+    const subId = card.subcategoryId || UNCAT_KEY;
+    if (!nodeMap.has(subId)) {
+      nodeMap.set(subId, { chapters: new Map(), unassigned: [] });
     }
-    const entry = nodeMap.get(sub)!;
-    const cardChap = card.chapterId || card.chapter;
-    if (cardChap && entry.chapters.has(cardChap)) {
-      entry.chapters.get(cardChap)!.push(card);
-    } else if (cardChap) {
-      if (!entry.chapters.has(cardChap)) entry.chapters.set(cardChap, []);
-      entry.chapters.get(cardChap)!.push(card);
+    const entry = nodeMap.get(subId)!;
+    const cardChapId = card.chapterId;
+    if (cardChapId && entry.chapters.has(cardChapId)) {
+      entry.chapters.get(cardChapId)!.push(card);
+    } else if (cardChapId) {
+      if (!entry.chapters.has(cardChapId)) entry.chapters.set(cardChapId, []);
+      entry.chapters.get(cardChapId)!.push(card);
     } else {
       entry.unassigned.push(card);
     }
@@ -78,26 +82,27 @@ function buildTree(cards: Card[], subcategoryNodes: SubcategoryNode[]): TreeNode
   }
 
   const result: TreeNode[] = [];
-  for (const [sub, entry] of nodeMap) {
+  for (const [subId, entry] of nodeMap) {
     const chapters = Array.from(entry.chapters.entries())
-      .map(([chapter, cards]) => ({
-        chapter: chapNameMap.get(chapter) || chapter,
+      .map(([chapterId, cards]) => ({
+        chapterId,
+        chapterName: chapNameMap.get(chapterId) || chapterId,
         cards: cards.sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0)),
       }));
     const totalCards = chapters.reduce((sum, ch) => sum + ch.cards.length, 0) + entry.unassigned.length;
-    const isCanonical = subcategoryNodes.some(n => n.id === sub);
-    const displayName = subNameMap.get(sub) || sub;
+    const isCanonical = subcategoryNodes.some(n => n.id === subId);
+    const displayName = subId === UNCAT_KEY ? "(Bez potkategorije)" : (subNameMap.get(subId) || subId);
     if (totalCards > 0 || isCanonical) {
-      result.push({ subcategory: displayName, chapters, unassigned: entry.unassigned });
+      result.push({ subcategoryId: subId, subcategoryName: displayName, chapters, unassigned: entry.unassigned });
     }
   }
 
-  const sortOrderMap = new Map(subcategoryNodes.map(n => [n.name, n.sortOrder]));
+  const sortOrderMap = new Map(subcategoryNodes.map(n => [n.id, n.sortOrder]));
   return result.sort((a, b) => {
-    const aOrder = sortOrderMap.get(a.subcategory) ?? 999;
-    const bOrder = sortOrderMap.get(b.subcategory) ?? 999;
+    const aOrder = sortOrderMap.get(a.subcategoryId) ?? 999;
+    const bOrder = sortOrderMap.get(b.subcategoryId) ?? 999;
     if (aOrder !== bOrder) return aOrder - bOrder;
-    return a.subcategory.localeCompare(b.subcategory);
+    return a.subcategoryName.localeCompare(b.subcategoryName);
   });
 }
 
@@ -134,10 +139,10 @@ function SortableCardTile({ card, index }: { card: Card; index: number }) {
 }
 
 // ─── Droppable chapter zone ─────────────────────────────
-function DroppableChapterZone({ sub, chapter, count, children }: {
-  sub: string; chapter: string; count: number; children: React.ReactNode;
+function DroppableChapterZone({ subId, chapterId, chapterName, count, children }: {
+  subId: string; chapterId: string; chapterName: string; count: number; children: React.ReactNode;
 }) {
-  const dropId = chapterDropId(sub, chapter);
+  const dropId = chapterDropId(subId, chapterId);
   const { setNodeRef, isOver } = useDroppable({ id: dropId });
 
   return (
@@ -152,7 +157,7 @@ function DroppableChapterZone({ sub, chapter, count, children }: {
     >
       <div className="flex items-center gap-2 px-1">
         <BookOpen className="h-3.5 w-3.5 text-primary/60" />
-        <span className="text-xs font-semibold text-foreground/80">{chapter}</span>
+        <span className="text-xs font-semibold text-foreground/80">{chapterName}</span>
         <Badge variant="secondary" className="text-[9px] h-4 px-1.5 ml-auto">{count}</Badge>
       </div>
       <div className="space-y-1.5">
@@ -177,7 +182,7 @@ function UnassignedCardRow({
   card, index, availableChapters, otherSubs, onAssignChapter, onMoveSub,
 }: {
   card: Card; index: number;
-  availableChapters: string[]; otherSubs: string[];
+  availableChapters: { id: string; name: string }[]; otherSubs: { id: string; name: string }[];
   onAssignChapter: (v: string) => void;
   onMoveSub: (v: string) => void;
 }) {
@@ -209,7 +214,7 @@ function UnassignedCardRow({
             </SelectTrigger>
             <SelectContent>
               {availableChapters.map(ch => (
-                <SelectItem key={ch} value={ch} className="text-xs">{ch}</SelectItem>
+              <SelectItem key={ch.id} value={ch.id} className="text-xs">{ch.name}</SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -221,7 +226,7 @@ function UnassignedCardRow({
             </SelectTrigger>
             <SelectContent>
               {otherSubs.map(s => (
-                <SelectItem key={s} value={s} className="text-xs">{s}</SelectItem>
+              <SelectItem key={s.id} value={s.id} className="text-xs">{s.name}</SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -242,30 +247,30 @@ export default function CardOrgMode({ cards, categoryId, subcategoryNodes, patch
   // Auto-expand on mount if only 1-3 subcategories
   useMemo(() => {
     if (tree.length <= 3) {
-      setExpandedSubs(new Set(tree.map(n => n.subcategory)));
+      setExpandedSubs(new Set(tree.map(n => n.subcategoryId)));
     }
   }, [tree.length]);
 
-  const findCardContainer = useCallback((cardId: string): { sub: string; chapter: string } | null => {
+  const findCardContainer = useCallback((cardId: string): { subId: string; chapterId: string } | null => {
     for (const node of tree) {
       for (const ch of node.chapters) {
-        if (ch.cards.some(c => c.id === cardId)) return { sub: node.subcategory, chapter: ch.chapter };
+        if (ch.cards.some(c => c.id === cardId)) return { subId: node.subcategoryId, chapterId: ch.chapterId };
       }
-      if (node.unassigned.some(c => c.id === cardId)) return { sub: node.subcategory, chapter: "" };
+      if (node.unassigned.some(c => c.id === cardId)) return { subId: node.subcategoryId, chapterId: "" };
     }
     return null;
   }, [tree]);
 
-  const toggleSub = useCallback((sub: string) => {
+  const toggleSub = useCallback((subId: string) => {
     setExpandedSubs(prev => {
       const next = new Set(prev);
-      if (next.has(sub)) next.delete(sub); else next.add(sub);
+      if (next.has(subId)) next.delete(subId); else next.add(subId);
       return next;
     });
   }, []);
 
   const assignChapter = useCallback((cardId: string, chapter: string) => {
-    patchCard(cardId, c => ({ ...c, chapter: chapter || undefined, chapterId: chapter || undefined }));
+    patchCard(cardId, c => ({ ...c, chapterId: chapter || undefined }));
   }, [patchCard]);
 
   const handleDragStart = useCallback((event: DragStartEvent) => {
@@ -305,8 +310,8 @@ export default function CardOrgMode({ cards, categoryId, subcategoryNodes, patch
 
     if (sameContainer) {
       const chapterNode = tree
-        .find(n => n.subcategory === overContainer.sub)
-        ?.chapters.find(ch => ch.chapter === overContainer.chapter);
+        .find(n => n.subcategoryId === overContainer.subId)
+        ?.chapters.find(ch => ch.chapterId === overContainer.chapterId);
       if (!chapterNode) return;
 
       const oldIndex = chapterNode.cards.findIndex(c => c.id === activeCardId);
@@ -318,10 +323,10 @@ export default function CardOrgMode({ cards, categoryId, subcategoryNodes, patch
         patchCard(c.id, card => ({ ...card, sortOrder: i }));
       });
     } else {
-      const targetSub = overContainer.sub === "(Bez potkategorije)" ? "" : overContainer.sub;
+      const targetSubId = overContainer.subId;
       const targetChapterNode = tree
-        .find(n => n.subcategory === overContainer.sub)
-        ?.chapters.find(ch => ch.chapter === overContainer.chapter);
+        .find(n => n.subcategoryId === overContainer.subId)
+        ?.chapters.find(ch => ch.chapterId === overContainer.chapterId);
       if (!targetChapterNode) return;
 
       const overIdx = targetChapterNode.cards.findIndex(c => c.id === overId);
@@ -330,10 +335,8 @@ export default function CardOrgMode({ cards, categoryId, subcategoryNodes, patch
 
       patchCard(activeCardId, c => ({
         ...c,
-        chapter: overContainer.chapter,
-        chapterId: overContainer.chapter,
-        subcategory: targetSub,
-        subcategoryId: targetSub,
+        chapterId: overContainer.chapterId || undefined,
+        subcategoryId: targetSubId || undefined,
       }));
 
       newList.forEach((c, i) => {
@@ -371,13 +374,13 @@ export default function CardOrgMode({ cards, categoryId, subcategoryNodes, patch
         </div>
 
         {tree.map(node => {
-          const isExpanded = expandedSubs.has(node.subcategory);
+          const isExpanded = expandedSubs.has(node.subcategoryId);
           const totalCards = node.chapters.reduce((sum, ch) => sum + ch.cards.length, 0) + node.unassigned.length;
-          const isUnassigned = node.subcategory === "(Bez potkategorije)";
+          const isUnassigned = node.subcategoryId === "";
 
           return (
             <div
-              key={node.subcategory}
+              key={node.subcategoryId}
               className={cn(
                 "rounded-xl border overflow-hidden transition-colors",
                 isUnassigned ? "border-orange-500/20 bg-orange-500/[0.02]" : "border-border bg-card"
@@ -385,7 +388,7 @@ export default function CardOrgMode({ cards, categoryId, subcategoryNodes, patch
             >
               {/* Subcategory header */}
               <button
-                onClick={() => toggleSub(node.subcategory)}
+                onClick={() => toggleSub(node.subcategoryId)}
                 className="w-full flex items-center gap-3 px-4 py-3 hover:bg-accent/30 transition-colors"
               >
                 {isExpanded
@@ -400,7 +403,7 @@ export default function CardOrgMode({ cards, categoryId, subcategoryNodes, patch
                   "text-sm font-semibold flex-1 text-left truncate",
                   isUnassigned ? "text-orange-600 dark:text-orange-400" : "text-foreground"
                 )}>
-                  {node.subcategory}
+                  {node.subcategoryName}
                 </span>
                 <div className="flex items-center gap-2 shrink-0">
                   {node.chapters.length > 0 && (
@@ -422,9 +425,10 @@ export default function CardOrgMode({ cards, categoryId, subcategoryNodes, patch
                   {/* Chapters */}
                   {node.chapters.map(ch => (
                     <DroppableChapterZone
-                      key={ch.chapter}
-                      sub={node.subcategory}
-                      chapter={ch.chapter}
+                      key={ch.chapterId}
+                      subId={node.subcategoryId}
+                      chapterId={ch.chapterId}
+                      chapterName={ch.chapterName}
                       count={ch.cards.length}
                     >
                       <SortableContext items={ch.cards.map(c => c.id)} strategy={verticalListSortingStrategy}>
@@ -455,10 +459,10 @@ export default function CardOrgMode({ cards, categoryId, subcategoryNodes, patch
                       </div>
                       <SortableContext items={node.unassigned.map(c => c.id)} strategy={verticalListSortingStrategy}>
                         {node.unassigned.map((card, idx) => {
-                          const availableChapters = node.chapters.map(ch => typeof ch === "string" ? ch : ch.chapter);
+                          const availableChapters = node.chapters.map(ch => ({ id: ch.chapterId, name: ch.chapterName }));
                           const otherSubs = tree
-                            .filter(n => n.subcategory !== node.subcategory)
-                            .map(n => n.subcategory);
+                            .filter(n => n.subcategoryId !== node.subcategoryId)
+                            .map(n => ({ id: n.subcategoryId, name: n.subcategoryName }));
                           return (
                             <UnassignedCardRow
                               key={card.id}
@@ -468,8 +472,7 @@ export default function CardOrgMode({ cards, categoryId, subcategoryNodes, patch
                               otherSubs={otherSubs}
                               onAssignChapter={v => assignChapter(card.id, v)}
                               onMoveSub={v => {
-                                const targetSub = v === "(Bez potkategorije)" ? "" : v;
-                                patchCard(card.id, c => ({ ...c, subcategory: targetSub, subcategoryId: targetSub }));
+                                patchCard(card.id, c => ({ ...c, subcategoryId: v || undefined }));
                               }}
                             />
                           );
