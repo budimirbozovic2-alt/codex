@@ -228,15 +228,23 @@ export function useSourceLogic(source: Source) {
   }, [selection, examQuestions, source, categories, addCard]);
 
   return {
-    contentRef, outlineOpen, setOutlineOpen, viewMode, setViewMode,
-    selection, essayDialogOpen, setEssayDialogOpen, essayQuestion, setEssayQuestion,
-    selectedText, autoSplitOpen, setAutoSplitOpen,
-    splitSummaryOpen, setSplitSummaryOpen, splitResult, setSplitResult,
-    splitDone, splitCreatedCount, splitParentName, setSplitParentName,
-    splitModules, setSplitModules, examOpen, setExamOpen, examQuestions, setExamQuestions,
-    linkModalOpen, setLinkModalOpen, linkSelectedText, editModeRef,
-    coverage, safeHtml, linkedCount, cards, categories,
-    handleMouseUp, handleConvertToEssay, handleSmartSplitConfirm, handleCreateEssay,
-    scrollToHeading, handleMapSelection, handleLinkToExisting, handleLinkConfirm,
+    state: {
+      outlineOpen, viewMode, selection, essayDialogOpen, essayQuestion,
+      selectedText, autoSplitOpen, splitSummaryOpen, splitResult,
+      splitDone, splitCreatedCount, splitParentName, splitModules,
+      examOpen, examQuestions, linkModalOpen, linkSelectedText,
+      coverage, safeHtml, linkedCount, cards, categories
+    },
+    actions: {
+      setOutlineOpen, setViewMode, setSelection, setEssayDialogOpen,
+      setEssayQuestion, setAutoSplitOpen, setSplitSummaryOpen,
+      setSplitResult, setSplitDone, setSplitCreatedCount,
+      setSplitParentName, setSplitModules, setExamOpen,
+      setExamQuestions, setLinkModalOpen,
+      handleMouseUp, handleConvertToEssay, handleSmartSplitConfirm,
+      handleCreateEssay, scrollToHeading, handleMapSelection,
+      handleLinkToExisting, handleLinkConfirm
+    },
+    refs: { contentRef, editModeRef }
   };
 }

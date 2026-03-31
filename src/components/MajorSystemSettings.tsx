@@ -1,31 +1,41 @@
 import { RotateCcw } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { loadMajorSystem, saveMajorSystem, DEFAULT_MAJOR_SYSTEM } from "@/lib/mnemonic-storage";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 
 export default function MajorSystemSettings() {
-  const [system, setSystem] = useState<Record<number, string>>(loadMajorSystem());
+  const [system, setSystem] = useState<Record<number, string>>(DEFAULT_MAJOR_SYSTEM);
+  const [savedSystem, setSavedSystem] = useState<Record<number, string>>(DEFAULT_MAJOR_SYSTEM);
+
+  useEffect(() => {
+    loadMajorSystem().then(s => {
+      setSystem(s);
+      setSavedSystem(s);
+    });
+  }, []);
 
   const handleChange = (num: number, value: string) => {
     setSystem(prev => ({ ...prev, [num]: value }));
   };
 
-  const handleSave = () => {
-    saveMajorSystem(system);
+  const handleSave = async () => {
+    await saveMajorSystem(system);
+    setSavedSystem({ ...system });
     toast.success("Izmjene sačuvane");
   };
 
-  const handleReset = () => {
-    setSystem({ ...DEFAULT_MAJOR_SYSTEM });
-    saveMajorSystem(DEFAULT_MAJOR_SYSTEM);
+  const handleReset = async () => {
+    const next = { ...DEFAULT_MAJOR_SYSTEM };
+    setSystem(next);
+    await saveMajorSystem(next);
+    setSavedSystem(next);
   };
 
   const hasChanges = (() => {
-    const saved = loadMajorSystem();
-    const keys = new Set([...Object.keys(system), ...Object.keys(saved)]);
+    const keys = new Set([...Object.keys(system), ...Object.keys(savedSystem)]);
     for (const k of keys) {
-      if ((system as any)[k] !== (saved as any)[k]) return true;
+      if ((system as any)[k] !== (savedSystem as any)[k]) return true;
     }
     return false;
   })();

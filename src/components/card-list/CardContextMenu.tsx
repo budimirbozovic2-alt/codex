@@ -1,22 +1,19 @@
 import { MoreVertical, FolderOpen, BookOpen, Flame, Brain, Check, ChevronRight } from "lucide-react";
 import React, { useState, useRef, useEffect } from "react";
 import { Card } from "@/lib/spaced-repetition";
-import { type CategoryRecord } from "@/lib/db";
-import { getCategoryName, getSubcategoryName, getChapterName } from "@/lib/category-service";
 
 interface CardContextMenuProps {
   card: Card;
   categories?: string[];
   subcategories?: Record<string, string[]>;
   availableChapters?: string[];
-  categoryRecords?: CategoryRecord[];
   onMoveCategory?: (cardId: string, category: string, subcategory?: string) => void;
   onAssignChapter?: (cardId: string, chapter: string) => void;
   onToggleTag: (cardId: string, tag: string) => void;
   onCloneToMnemonic?: (card: Card) => void;
 }
 
-function CardContextMenuInner({ card, categories, subcategories, availableChapters, categoryRecords, onMoveCategory, onAssignChapter, onToggleTag, onCloneToMnemonic }: CardContextMenuProps) {
+function CardContextMenuInner({ card, categories, subcategories, availableChapters, onMoveCategory, onAssignChapter, onToggleTag, onCloneToMnemonic }: CardContextMenuProps) {
   const [open, setOpen] = useState(false);
   const [submenu, setSubmenu] = useState<"category" | "subcategory" | "chapter" | null>(null);
   const [selectedCat, setSelectedCat] = useState<string | null>(null);
@@ -107,7 +104,7 @@ function CardContextMenuInner({ card, categories, subcategories, availableChapte
                   }`}
                 >
                   <FolderOpen className="h-3.5 w-3.5 flex-shrink-0" />
-                  <span className="truncate">{getCategoryName(categoryRecords ?? [], cat) || cat}</span>
+                  <span className="truncate">{cat}</span>
                   {card.categoryId === cat && <Check className="h-3 w-3 ml-auto text-primary flex-shrink-0" />}
                   {(subcategories?.[cat] || []).length > 0 && <ChevronRight className="h-3 w-3 ml-auto text-muted-foreground flex-shrink-0" />}
                 </button>
@@ -118,9 +115,7 @@ function CardContextMenuInner({ card, categories, subcategories, availableChapte
 
           {submenu === "subcategory" && selectedCat && (
             <div className="p-1 max-h-64 overflow-y-auto">
-              <p className="px-3 py-1.5 text-[10px] uppercase tracking-wider text-muted-foreground font-medium">
-                {getCategoryName(categoryRecords ?? [], selectedCat) || selectedCat} ›
-              </p>
+              <p className="px-3 py-1.5 text-[10px] uppercase tracking-wider text-muted-foreground font-medium">{selectedCat} ›</p>
               <button
                 onClick={(e) => { e.stopPropagation(); onMoveCategory!(card.id, selectedCat); setOpen(false); setSubmenu(null); }}
                 className="flex items-center gap-2.5 w-full px-3 py-2 rounded-lg text-left text-sm hover:bg-secondary text-muted-foreground italic"
@@ -132,11 +127,11 @@ function CardContextMenuInner({ card, categories, subcategories, availableChapte
                   key={sub}
                   onClick={(e) => { e.stopPropagation(); onMoveCategory!(card.id, selectedCat, sub); setOpen(false); setSubmenu(null); }}
                   className={`flex items-center gap-2.5 w-full px-3 py-2 rounded-lg text-left text-sm transition-colors ${
-                    card.categoryId === selectedCat && card.subcategoryId === sub ? "text-primary bg-primary/5" : "hover:bg-secondary"
+                    card.categoryId === selectedCat && card.subcategory === sub ? "text-primary bg-primary/5" : "hover:bg-secondary"
                   }`}
                 >
-                  <span className="truncate">{getSubcategoryName(categoryRecords ?? [], sub) || sub}</span>
-                  {card.categoryId === selectedCat && card.subcategoryId === sub && <Check className="h-3 w-3 ml-auto text-primary flex-shrink-0" />}
+                  <span className="truncate">{sub}</span>
+                  {card.categoryId === selectedCat && card.subcategory === sub && <Check className="h-3 w-3 ml-auto text-primary flex-shrink-0" />}
                 </button>
               ))}
               <button onClick={(e) => { e.stopPropagation(); setSubmenu("category"); setSelectedCat(null); }} className="w-full px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground text-left">← Nazad</button>
@@ -151,12 +146,12 @@ function CardContextMenuInner({ card, categories, subcategories, availableChapte
                   key={ch}
                   onClick={(e) => { e.stopPropagation(); onAssignChapter!(card.id, ch); setOpen(false); setSubmenu(null); }}
                   className={`flex items-center gap-2.5 w-full px-3 py-2 rounded-lg text-left text-sm transition-colors ${
-                    card.chapterId === ch ? "text-primary bg-primary/5" : "hover:bg-secondary"
+                    card.chapter === ch ? "text-primary bg-primary/5" : "hover:bg-secondary"
                   }`}
                 >
                   <BookOpen className="h-3.5 w-3.5 flex-shrink-0" />
-                  <span className="truncate">{getChapterName(categoryRecords ?? [], ch) || ch}</span>
-                  {card.chapterId === ch && <Check className="h-3 w-3 ml-auto text-primary flex-shrink-0" />}
+                  <span className="truncate">{ch}</span>
+                  {card.chapter === ch && <Check className="h-3 w-3 ml-auto text-primary flex-shrink-0" />}
                 </button>
               ))}
               <button onClick={(e) => { e.stopPropagation(); setSubmenu(null); }} className="w-full px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground text-left">← Nazad</button>

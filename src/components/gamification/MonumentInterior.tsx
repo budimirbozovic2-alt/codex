@@ -38,9 +38,9 @@ export const MonumentInterior = memo(function MonumentInterior({
     if (sourceHierarchy.hasSourceLinks) return [];
     const bySubcat = new Map<string, typeof catCards>();
     for (const card of catCards) {
-      const subId = card.subcategoryId || "Ostalo";
-      if (!bySubcat.has(subId)) bySubcat.set(subId, []);
-      bySubcat.get(subId)!.push(card);
+      const sub = card.subcategoryId || card.subcategory || "Ostalo";
+      if (!bySubcat.has(sub)) bySubcat.set(sub, []);
+      bySubcat.get(sub)!.push(card);
     }
     const nodes: HierarchyNode[] = [];
     for (const [name, subCards] of bySubcat) {
@@ -182,7 +182,7 @@ export const MonumentInterior = memo(function MonumentInterior({
                 </div>
               ) : (
                 /* No chapters — show cards directly */
-                <CardStrengthList cards={catCards.filter(c => (c.subcategoryId || "Ostalo") === expandedSub)} />
+                <CardStrengthList cards={catCards.filter(c => (c.subcategoryId || c.subcategory || "Ostalo") === expandedSub)} />
               )}
             </motion.div>
           ) : expandedNode && expandedChap ? (
@@ -197,7 +197,7 @@ export const MonumentInterior = memo(function MonumentInterior({
               <CardStrengthList
                 cards={
                   expandedNode.children.find(c => c.name === expandedChap)?.cards
-                  ?? catCards.filter(c => (c.subcategoryId || "Ostalo") === expandedSub && (c.chapterId || "Ostalo") === expandedChap)
+                  ?? catCards.filter(c => (c.subcategoryId || c.subcategory || "Ostalo") === expandedSub && (c.chapterId || c.chapter || "Ostalo") === expandedChap)
                 }
               />
             </motion.div>

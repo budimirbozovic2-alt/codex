@@ -403,8 +403,8 @@ export interface WeakHook {
   category: string;
 }
 
-export function calcWeakHooks(): WeakHook[] {
-  const mnemonicCards = loadMnemonicCards();
+export async function calcWeakHooks(): Promise<WeakHook[]> {
+  const mnemonicCards = await loadMnemonicCards();
   const latencyLog = loadLatency();
   if (mnemonicCards.length === 0 || latencyLog.length === 0) return [];
 
@@ -441,7 +441,7 @@ export function calcWeakHooks(): WeakHook[] {
 
   // Save updated tags
   if (weakHooks.length > 0) {
-    saveMnemonicCards(mnemonicCards);
+    await saveMnemonicCards(mnemonicCards);
   }
 
   return weakHooks;

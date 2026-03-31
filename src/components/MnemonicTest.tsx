@@ -34,7 +34,8 @@ export default function MnemonicTest({ cards, onRecordResult, onBack }: Props) {
     const tree: Record<string, Set<string>> = {};
     allTestable.forEach(c => {
       if (!tree[c.categoryId]) tree[c.categoryId] = new Set();
-      if (c.subcategory) tree[c.categoryId].add(c.subcategory);
+      const sid = c.subcategoryId || c.subcategory;
+      if (sid) tree[c.categoryId].add(sid);
     });
     return tree;
   }, [allTestable]);
@@ -49,7 +50,7 @@ export default function MnemonicTest({ cards, onRecordResult, onBack }: Props) {
   const filteredTestable = useMemo(() => {
     let result = allTestable;
     if (filterCategory) result = result.filter(c => c.categoryId === filterCategory);
-    if (filterSubcategory) result = result.filter(c => c.subcategory === filterSubcategory);
+    if (filterSubcategory) result = result.filter(c => (c.subcategoryId || c.subcategory) === filterSubcategory);
     if (filterHookType) result = result.filter(c => c.hookType === filterHookType);
     return result;
   }, [allTestable, filterCategory, filterSubcategory, filterHookType]);

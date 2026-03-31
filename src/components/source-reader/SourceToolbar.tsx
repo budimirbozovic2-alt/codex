@@ -1,10 +1,11 @@
-import { ArrowLeft, Calendar, Wand2, Eye, BarChart3, FileQuestion, List, X, Pencil } from "lucide-react";
+import { ArrowLeft, Wand2, Eye, BarChart3, FileQuestion, List, X, Pencil } from "lucide-react";
 import { memo } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import type { Source } from "@/lib/sources-storage";
 import type { ExamQuestion } from "@/components/ExamSidebar";
+import { SourceHeader } from "./SourceHeader";
 
 type ReaderWidth = "S" | "M" | "L" | "XL" | "Full";
 
@@ -27,6 +28,9 @@ interface Props {
   setEditMode: (v: boolean) => void;
 }
 
+/**
+ * Toolbar component for the SourceReader, providing navigation, view modes, width settings, and edit mode toggle.
+ */
 export const SourceToolbar = memo(function SourceToolbar({
   source, onBack, viewMode, setViewMode, examOpen, setExamOpen,
   examQuestions, outlineOpen, setOutlineOpen, onAutoSplit,
@@ -40,16 +44,8 @@ export const SourceToolbar = memo(function SourceToolbar({
       <Button variant="ghost" size="icon" onClick={onBack} className="h-8 w-8">
         <ArrowLeft className="h-4 w-4" />
       </Button>
-      <div className="min-w-0 flex-1">
-        <h2 className="font-semibold text-lg truncate">{source.title}</h2>
-        <div className="flex items-center gap-3 text-xs text-muted-foreground">
-          <span className="flex items-center gap-1">
-            <Calendar className="h-3 w-3" />
-            {source.date}
-          </span>
-          <Badge variant="outline" className="text-[10px] px-1.5 py-0">v{source.version}</Badge>
-        </div>
-      </div>
+      
+      <SourceHeader source={source} />
 
       {!editMode && (
         <Button variant="outline" size="sm" onClick={onAutoSplit} className="gap-1.5" title="Generiši eseje iz članova">

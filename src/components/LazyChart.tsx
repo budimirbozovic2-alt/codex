@@ -8,8 +8,8 @@ interface Props<T> {
   label: string;
   /** Icon component to show next to label */
   icon: ReactNode;
-  /** The compute function — called only on refresh click */
-  compute: () => T;
+  /** The compute function — called only on refresh click. Can be async. */
+  compute: () => T | Promise<T>;
   /** Render function: receives computed data */
   children: (data: T) => ReactNode;
   /** Optional delay class for animation */
@@ -27,19 +27,17 @@ export default function LazyChart<T>({ label, icon, compute, children, delay = 0
   const computeRef = useRef(compute);
   computeRef.current = compute;
 
-  const handleRefresh = useCallback(() => {
+  const handleRefresh = useCallback(async () => {
     setLoading(true);
     setComputed(false);
-    const run = () => {
-      const result = computeRef.current();
+    try {
+      const result = await computeRef.current();
       setData(result);
-      setLoading(false);
       setComputed(true);
-    };
-    if ("requestIdleCallback" in window) {
-      window.requestIdleCallback(run, { timeout: 3000 });
-    } else {
-      setTimeout(run, 50);
+    } catch (err) {
+      console.error("[LazyChart] compute failed", err);
+    } finally {
+      setLoading(false);
     }
   }, []);
 

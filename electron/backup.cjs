@@ -119,7 +119,7 @@ function setupBackupSystem({ app, getMainWindow, logCrash, isDev }) {
         return Promise.race([
           new Promise(resolve => {
             const handler = backupDoneHandler(resolve);
-            ipcMain.once('notify-quit-backup-done', handler);
+            ipcMain.once('quit-backup-done', handler);
             // Store handler for cleanup
             mainWindow._quitBackupHandler = handler;
             mainWindow.webContents.send('quit-backup-requested');
@@ -127,7 +127,7 @@ function setupBackupSystem({ app, getMainWindow, logCrash, isDev }) {
           new Promise(resolve => setTimeout(() => {
             // Cleanup the listener if timeout wins
             if (mainWindow._quitBackupHandler) {
-              ipcMain.removeListener('notify-quit-backup-done', mainWindow._quitBackupHandler);
+              ipcMain.removeListener('quit-backup-done', mainWindow._quitBackupHandler);
               delete mainWindow._quitBackupHandler;
             }
             resolve(undefined);

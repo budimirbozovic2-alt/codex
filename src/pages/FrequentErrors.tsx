@@ -1,9 +1,8 @@
 import { Trash2, AlertCircle, Target, TrendingUp, Trophy, ChevronDown, ChevronRight, Flame, ShieldCheck } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Card, ErrorLogEntry, getErrorStatus, ErrorStatus } from "@/lib/spaced-repetition";
-import { useLiveQuery } from "dexie-react-hooks";
-import { db } from "@/lib/db";
-import { getSubcategoryName } from "@/lib/category-service";
+
+
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
@@ -16,7 +15,7 @@ interface AggregatedError {
   cardQuestion: string;
   cardId: string;
   category: string;
-  subcategoryId?: string;
+  subcategory?: string;
   status: ErrorStatus;
   sectionContent: string; // full section text for sentence extraction
 }
@@ -93,7 +92,6 @@ function ProgressBar({ count, successes, streak }: { count: number; successes: n
 export default function FrequentErrors({ cards, onClearErrorLog, embedded }: Props) {
   const { toast } = useToast();
   const [showMastered, setShowMastered] = useState(false);
-  const categoryRecords = useLiveQuery(() => db.categories.toArray(), []);
 
   const { criticalAndRecovering, mastered, totalErrors, cardIdsWithErrors } = useMemo(() => {
     const allErrors: AggregatedError[] = [];
@@ -113,7 +111,7 @@ export default function FrequentErrors({ cards, onClearErrorLog, embedded }: Pro
           cardQuestion: card.question,
           cardId: card.id,
           category: card.categoryId,
-          subcategoryId: card.subcategoryId,
+          subcategory: card.subcategory,
           status: getErrorStatus(entry),
           sectionContent: allContent,
         });
@@ -232,12 +230,7 @@ export default function FrequentErrors({ cards, onClearErrorLog, embedded }: Pro
                         <HighlightedSentence sectionContent={error.sectionContent} errorText={error.text} />
                         <p className="text-xs text-muted-foreground mt-1 truncate">
                           {error.cardQuestion}
-                          {error.subcategoryId && (
-                            <span>
-                              {" · "}
-                              {getSubcategoryName(categoryRecords ?? [], error.subcategoryId) || error.subcategoryId}
-                            </span>
-                          )}
+                          {error.subcategory && <span> · {error.subcategory}</span>}
                         </p>
                       </div>
                       <StatusBadge status={error.status} />
@@ -309,12 +302,7 @@ export default function FrequentErrors({ cards, onClearErrorLog, embedded }: Pro
                                 <HighlightedSentence sectionContent={error.sectionContent} errorText={error.text} />
                                 <p className="text-xs text-muted-foreground mt-1 truncate">
                                   {error.cardQuestion}
-                                  {error.subcategoryId && (
-                                    <span>
-                                      {" · "}
-                                      {getSubcategoryName(categoryRecords ?? [], error.subcategoryId) || error.subcategoryId}
-                                    </span>
-                                  )}
+                                  {error.subcategory && <span> · {error.subcategory}</span>}
                                 </p>
                               </div>
                               <span className="flex items-center gap-0.5 text-[10px] text-success">

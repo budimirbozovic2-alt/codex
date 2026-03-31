@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback, useRef, ReactNode } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 
 import { createMnemonicCardFromSelection, loadMnemonicCards, saveMnemonicCards } from "@/lib/mnemonic-storage";
+import { eventBus, EVENT_TYPES } from "@/lib/event-bus";
 import { toast } from "@/hooks/use-toast";
 interface Props {
   children: ReactNode;
@@ -57,14 +58,15 @@ export default function TextSelectionTooltip({ children, cardId, question, categ
     return () => document.removeEventListener("mousedown", handleMouseDown);
   }, [handleMouseDown]);
 
-  const handleAdd = useCallback(() => {
+  const handleAdd = useCallback(async () => {
     if (!tooltip) return;
-    const cards = loadMnemonicCards();
+    const cards = await loadMnemonicCards();
     const clone = createMnemonicCardFromSelection(
       cardId, question, tooltip.text, category, subcategoryId, tags
     );
-    saveMnemonicCards([...cards, clone]);
+    await saveMnemonicCards([...cards, clone]);
     qc.invalidateQueries({ queryKey: ["mnemonicCards"] });
+    eventBus.emit(EVENT_TYPES.MNEMONICS_UPDATED, { cardId: clone.id });
     toast({ title: "Dodano u Mnemo radionicu", description: `"${tooltip.text.slice(0, 40)}${tooltip.text.length > 40 ? "…" : ""}"` });
     setTooltip(null);
     window.getSelection()?.removeAllRanges();

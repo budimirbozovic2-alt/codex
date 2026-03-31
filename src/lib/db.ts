@@ -3,6 +3,12 @@ import { Card } from "./spaced-repetition";
 import { ReviewLogEntry, PomodoroLogEntry } from "./storage";
 import type { DiaryEntry, CalibrationEntry, LatencyEntry, SlippageEntry, ActivityEntry } from "./metacognitive-storage";
 import type { DisciplineEntry } from "./planner-storage";
+import { eventBus, EVENT_TYPES } from "./event-bus";
+import { MnemonicCard, MnemonicTestLogEntry } from "./mnemonic-storage";
+
+// ─── Global DB error state (reactive signal for UI) ─────
+export let dbErrorState: { type: "version" | "timeout"; message: string } | null = null;
+export function getDbErrorState() { return dbErrorState; }
 
 // ─── Database Schema ────────────────────────────────────
 
@@ -133,6 +139,9 @@ class MemoriaDB extends Dexie {
   activityLog!: Table<ActivityEntry & { id?: number }, number>;
   disciplineLog!: Table<DisciplineEntry & { id?: number }, number>;
   mindMaps!: Table<MindMapDoc, string>;
+  mnemonics!: Table<MnemonicCard, string>;
+  majorSystem!: Table<{ id: number; peg: string }, number>;
+  mnemonicTestLog!: Table<MnemonicTestLogEntry & { id?: number }, number>;
 
   constructor() {
     super("MemoriaDB");
@@ -162,6 +171,13 @@ class MemoriaDB extends Dexie {
     this.version(9).stores({
       cards: "id, categoryId, subcategoryId, type, createdAt, sourceId, [categoryId+subcategoryId]",
     });
+
+    // v10: Add mnemonic system tables
+    this.version(10).stores({
+      mnemonics: "id, categoryId, subcategoryId, mnemonicStatus, hookType, createdAt",
+      majorSystem: "id",
+      mnemonicTestLog: "++id, cardId, timestamp",
+    });
   }
 }
 
@@ -170,13 +186,29 @@ export const db = new MemoriaDB();
 // Register blocked handler ONCE at module level
 db.on("blocked", () => {
   console.warn("[MemoriaDB] DB open blocked by another connection");
+  eventBus.emit(EVENT_TYPES.DB_BLOCKED);
   _blockedReject?.(new Error("DB_BLOCKED"));
 });
 
-// ─── Global DB error state (reactive signal for UI) ─────
-export let dbErrorState: { type: "version" | "timeout"; message: string } | null = null;
+// Also handle versionchange (when another tab attempts an upgrade)
+db.on("versionchange", () => {
+  console.warn("[MemoriaDB] Another tab is trying to upgrade the database. Closing connection.");
+  eventBus.emit(EVENT_TYPES.DB_BLOCKED);
+  db.close();
+});
 
-export function getDbErrorState() { return dbErrorState; }
+// Watch for unblocking conditions (tab count dropping to 1)
+setInterval(() => {
+  if (dbErrorState?.type === "timeout" && eventBus.getTabCount() <= 1) {
+    console.log("[MemoriaDB] Only one tab remains, attempting to clear blocked state...");
+    dbErrorState = null;
+    eventBus.emit(EVENT_TYPES.DB_UNBLOCKED);
+    // Force a reload or retry if we were blocked
+    if (window.location.reload) {
+      setTimeout(() => window.location.reload(), 1000);
+    }
+  }
+}, 2000);
 
 /**
  * Open database. On VersionError/UpgradeError, delete DB and reopen fresh.
@@ -221,6 +253,14 @@ export async function ensureDbOpen(timeoutMs = 6000): Promise<boolean> {
             ? "Baza je blokirana od strane drugog taba. Zatvorite ostale tabove i osvježite."
             : "Baza podataka se nije otvorila u predviđenom roku.",
         };
+        
+        // Aggressive retry after 30s if still blocked
+        setTimeout(() => {
+          if (dbErrorState?.type === "timeout") {
+            console.log("[MemoriaDB] Blocked timeout (30s) reached, retrying open...");
+            window.location.reload();
+          }
+        }, 30000);
       }
       return false;
     }

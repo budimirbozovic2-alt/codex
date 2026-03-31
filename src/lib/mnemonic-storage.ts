@@ -1,5 +1,7 @@
 // Isolated mnemonic cards storage — completely separate from main FSRS system
 
+import { db } from "./db";
+
 export type MnemonicStatus = "new" | "in-workshop" | "ready";
 export type HookType = "rokovi" | "nabrajanja" | "ostalo";
 export type HookMode = "video" | "acronym";
@@ -10,7 +12,7 @@ export interface MnemonicCard {
   question: string;
   sections: { title: string; content: string }[];
   categoryId: string;
-  subcategory?: string;
+  subcategoryId?: string;
   tags?: string[];          // cloned from original card
   hookType: HookType;       // auto-detected or manual
   hookMode: HookMode;       // which hook input to use: video or acronym
@@ -63,13 +65,95 @@ function saveToStorage<T>(key: string, value: T): void {
   localStorage.setItem(key, JSON.stringify(value));
 }
 
-// Major System
-export function loadMajorSystem(): Record<number, string> {
-  return loadFromStorage(MAJOR_SYSTEM_KEY, DEFAULT_MAJOR_SYSTEM);
+/**
+ * Migration: Move mnemonics from localStorage to IndexedDB (Transactional)
+ * Ensures all-or-nothing consistency.
+ */
+export async function migrateMnemonicsFromLocalStorageToIDB(): Promise<number> {
+  const MIGRATED_FLAG = "mnemonics-migrated-v10";
+  if (localStorage.getItem(MIGRATED_FLAG) === "true") return 0;
+
+  try {
+    const rawCards = localStorage.getItem(MNEMONIC_CARDS_KEY);
+    const rawMajor = localStorage.getItem(MAJOR_SYSTEM_KEY);
+    const rawLog = localStorage.getItem(MNEMONIC_TEST_LOG_KEY);
+    
+    const cards = rawCards ? JSON.parse(rawCards) : [];
+    const majorSystem = rawMajor ? JSON.parse(rawMajor) : {};
+    const testLog = rawLog ? JSON.parse(rawLog) : [];
+
+    if (cards.length === 0 && Object.keys(majorSystem).length === 0 && testLog.length === 0) {
+      localStorage.setItem(MIGRATED_FLAG, "true");
+      return 0;
+    }
+
+    // Transform cards
+    const transformedCards: MnemonicCard[] = cards.map((c: any) => ({
+      ...c,
+      categoryId: c.categoryId || c.category || "",
+      subcategoryId: c.subcategoryId || c.subcategory || crypto.randomUUID(),
+      hookType: c.hookType || "ostalo",
+      hookMode: c.hookMode || (c.mnemonicVideo ? "video" : "acronym"),
+      tags: c.tags || [],
+    }));
+
+    // Transform major system records to match schema: { id: number; peg: string }
+    const majorRecords = Object.entries(majorSystem).map(([key, value]) => ({
+      id: parseInt(key, 10),
+      peg: value as string
+    }));
+
+    // ALL-OR-NOTHING TRANSAKCIJA
+    await db.transaction('rw', [db.mnemonics, db.majorSystem, db.mnemonicTestLog], async () => {
+      if (transformedCards.length > 0) {
+        await db.mnemonics.bulkPut(transformedCards);
+      }
+      if (majorRecords.length > 0) {
+        await db.majorSystem.bulkPut(majorRecords);
+      }
+      if (testLog.length > 0) {
+        await db.mnemonicTestLog.bulkAdd(testLog);
+      }
+    });
+
+    // ZAVRŠNI COMMIT SIGNAL (Tek kada je IDB transakcija 100% uspješna)
+    localStorage.setItem(MIGRATED_FLAG, "true");
+    
+    // Bezbjedno brisanje starih podataka
+    localStorage.removeItem(MNEMONIC_CARDS_KEY);
+    localStorage.removeItem(MAJOR_SYSTEM_KEY);
+    localStorage.removeItem(MNEMONIC_TEST_LOG_KEY);
+
+    console.log(`[Migracija] Uspješno prebačeno ${transformedCards.length} mnemonika u IDB.`);
+    return transformedCards.length;
+
+  } catch (error) {
+    console.error("[Migracija KRITIČNO] Transakcija propala, podaci u IDB poništeni. LocalStorage ostaje netaknut.", error);
+    return 0;
+  }
 }
 
-export function saveMajorSystem(system: Record<number, string>) {
-  saveToStorage(MAJOR_SYSTEM_KEY, system);
+// Major System
+export async function loadMajorSystem(): Promise<Record<number, string>> {
+  try {
+    const records = await db.majorSystem.toArray();
+    if (records.length === 0) return DEFAULT_MAJOR_SYSTEM;
+    const system: Record<number, string> = {};
+    records.forEach(r => { system[r.id] = r.peg; });
+    return system;
+  } catch (err) {
+    console.error("[mnemonic-storage] loadMajorSystem failed", err);
+    return DEFAULT_MAJOR_SYSTEM;
+  }
+}
+
+export async function saveMajorSystem(system: Record<number, string>): Promise<void> {
+  try {
+    const records = Object.entries(system).map(([id, peg]) => ({ id: parseInt(id, 10), peg }));
+    await db.majorSystem.bulkPut(records);
+  } catch (err) {
+    console.error("[mnemonic-storage] saveMajorSystem failed", err);
+  }
 }
 
 // Auto-detect hook type from content
@@ -86,20 +170,29 @@ export function detectHookType(sections: { content: string }[]): HookType {
 }
 
 // Mnemonic Cards
-export function loadMnemonicCards(): MnemonicCard[] {
-  const cards = loadFromStorage<MnemonicCard[]>(MNEMONIC_CARDS_KEY, []);
-  // Migration: add hookType if missing, rename category→categoryId
-  return cards.map(c => ({
-    ...c,
-    categoryId: c.categoryId || (c as any).category || "",
-    hookType: c.hookType || "ostalo",
-    hookMode: c.hookMode || (c.mnemonicVideo ? "video" : "acronym"),
-    tags: c.tags || [],
-  }));
+export async function loadMnemonicCards(): Promise<MnemonicCard[]> {
+  try {
+    return await db.mnemonics.toArray();
+  } catch (err) {
+    console.error("[mnemonic-storage] loadMnemonicCards failed", err);
+    return [];
+  }
 }
 
-export function saveMnemonicCards(cards: MnemonicCard[]) {
-  saveToStorage(MNEMONIC_CARDS_KEY, cards);
+export async function saveMnemonicCards(cards: MnemonicCard[]): Promise<void> {
+  try {
+    await db.mnemonics.bulkPut(cards);
+  } catch (err) {
+    console.error("[mnemonic-storage] saveMnemonicCards failed", err);
+  }
+}
+
+export async function deleteMnemonicCard(id: string): Promise<void> {
+  try {
+    await db.mnemonics.delete(id);
+  } catch (err) {
+    console.error("[mnemonic-storage] deleteMnemonicCard failed", err);
+  }
 }
 
 export function createMnemonicCardFromSelection(
@@ -107,7 +200,7 @@ export function createMnemonicCardFromSelection(
   question: string,
   selectedText: string,
   categoryId: string,
-  subcategory?: string,
+  subcategoryId?: string,
   tags?: string[],
 ): MnemonicCard {
   return {
@@ -116,7 +209,7 @@ export function createMnemonicCardFromSelection(
     question,
     sections: [{ title: "Isječak", content: selectedText }],
     categoryId,
-    subcategory,
+    subcategoryId,
     tags: tags || [],
     hookType: detectHookType([{ content: selectedText }]),
     hookMode: "video",
@@ -136,7 +229,7 @@ export function createMnemonicCard(
   question: string,
   sections: { title: string; content: string }[],
   categoryId: string,
-  subcategory?: string,
+  subcategoryId?: string,
   tags?: string[],
 ): MnemonicCard {
   return {
@@ -145,7 +238,7 @@ export function createMnemonicCard(
     question,
     sections,
     categoryId,
-    subcategory,
+    subcategoryId,
     tags: tags || [],
     hookType: detectHookType(sections),
     hookMode: "video",
@@ -161,18 +254,21 @@ export function createMnemonicCard(
 }
 
 // Mnemonic Test Log (isolated)
-export function loadMnemonicTestLog(): MnemonicTestLogEntry[] {
-  return loadFromStorage(MNEMONIC_TEST_LOG_KEY, []);
+export async function loadMnemonicTestLog(): Promise<MnemonicTestLogEntry[]> {
+  try {
+    return await db.mnemonicTestLog.toArray();
+  } catch (err) {
+    console.error("[mnemonic-storage] loadMnemonicTestLog failed", err);
+    return [];
+  }
 }
 
-export function saveMnemonicTestLog(log: MnemonicTestLogEntry[]) {
-  saveToStorage(MNEMONIC_TEST_LOG_KEY, log);
-}
-
-export function addMnemonicTestEntry(entry: MnemonicTestLogEntry) {
-  const log = loadMnemonicTestLog();
-  log.push(entry);
-  saveMnemonicTestLog(log);
+export async function addMnemonicTestEntry(entry: MnemonicTestLogEntry): Promise<void> {
+  try {
+    await db.mnemonicTestLog.add(entry);
+  } catch (err) {
+    console.error("[mnemonic-storage] addMnemonicTestEntry failed", err);
+  }
 }
 
 // Stats (isolated from main dashboard)

@@ -7,6 +7,7 @@ import {
   MnemonicCard, loadMnemonicCards, saveMnemonicCards,
   addMnemonicTestEntry, getMnemonicStats,
 } from "@/lib/mnemonic-storage";
+import { eventBus, EVENT_TYPES } from "@/lib/event-bus";
 
 
 import { motion, AnimatePresence } from "framer-motion";
@@ -70,16 +71,41 @@ export default function MnemonicModule() {
     () => !hasSeenOnboarding(MNEMO_ONBOARDING_KEY)
   );
 
-  const setCards = useCallback((updater: (prev: MnemonicCard[]) => MnemonicCard[]) => {
-    qc.setQueryData<MnemonicCard[]>(MNEMONIC_KEY, (old) => {
-      const next = updater(old || []);
-      saveMnemonicCards(next);
-      return next;
-    });
+  // 1) Kreiraj useRef referencu za refresh logiku
+  const refreshRef = useRef<() => void>(() => {
+    console.log("[MnemonicModule] Osvežavam podatke...");
+    qc.invalidateQueries({ queryKey: MNEMONIC_KEY });
+  });
+
+  // 2) Postavi useEffect hook koji će ažurirati referencu
+  useEffect(() => {
+    refreshRef.current = () => {
+      console.log("[MnemonicModule] Primljen signal za ažuriranje, osvežavam podatke...");
+      qc.invalidateQueries({ queryKey: MNEMONIC_KEY });
+    };
   }, [qc]);
 
-  const updateCard = useCallback((id: string, updates: Partial<MnemonicCard>) => {
-    setCards(prev => prev.map(c => c.id === id ? { ...c, ...updates } : c));
+  // 3) U event listeneru koristi refreshRef.current() umjesto direktnog poziva
+  // 4) Osiguraj pravilno čišćenje event listenera u cleanup funkciji
+  useEffect(() => {
+    const unsubscribe = eventBus.subscribe(EVENT_TYPES.MNEMONICS_UPDATED, () => {
+      refreshRef.current();
+    });
+    return unsubscribe;
+  }, []);
+
+  const setCards = useCallback(async (updater: (prev: MnemonicCard[]) => MnemonicCard[]) => {
+    let next: MnemonicCard[] = [];
+    qc.setQueryData<MnemonicCard[]>(MNEMONIC_KEY, (old) => {
+      next = updater(old || []);
+      return next;
+    });
+    await saveMnemonicCards(next);
+    eventBus.emit(EVENT_TYPES.MNEMONICS_UPDATED);
+  }, [qc]);
+
+  const updateCard = useCallback(async (id: string, updates: Partial<MnemonicCard>) => {
+    await setCards(prev => prev.map(c => c.id === id ? { ...c, ...updates } : c));
     // Graduation: when marked "ready", tag the original card with "mnemonic"
     if (updates.mnemonicStatus === "ready") {
       const mnemoCard = cards.find(c => c.id === id);
@@ -92,12 +118,12 @@ export default function MnemonicModule() {
     }
   }, [setCards, cards, patchCard]);
 
-  const deleteCard = useCallback((id: string) => {
-    setCards(prev => prev.filter(c => c.id !== id));
+  const deleteCard = useCallback(async (id: string) => {
+    await setCards(prev => prev.filter(c => c.id !== id));
   }, [setCards]);
 
-  const recordResult = useCallback((cardId: string, success: boolean) => {
-    setCards(prev => prev.map(c => {
+  const recordResult = useCallback(async (cardId: string, success: boolean) => {
+    await setCards(prev => prev.map(c => {
       if (c.id !== cardId) return c;
       return {
         ...c,
@@ -107,7 +133,7 @@ export default function MnemonicModule() {
         lastTested: Date.now(),
       };
     }));
-    addMnemonicTestEntry({ timestamp: Date.now(), cardId, success });
+    await addMnemonicTestEntry({ timestamp: Date.now(), cardId, success });
   }, [setCards]);
 
   const stats = useMemo(() => getMnemonicStats(cards), [cards]);

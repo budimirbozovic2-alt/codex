@@ -29,9 +29,13 @@ export default function MnemonicWorkshop({ cards, onUpdateCard, onDeleteCard, ca
   const [selectedSubcategory, setSelectedSubcategory] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState<"newest" | "status" | "category" | "success">("newest");
+  const [majorSystem, setMajorSystem] = useState<Record<number, string>>({});
   const debouncedSearch = useDebounce(searchQuery, 300);
 
-  const majorSystem = useMemo(() => loadMajorSystem(), []);
+  useEffect(() => {
+    loadMajorSystem().then(setMajorSystem);
+  }, []);
+
   const idToName = useMemo(() => Object.fromEntries(categoryRecords.map(r => [r.id, r.name])), [categoryRecords]);
 
   // Build category tree
@@ -39,7 +43,7 @@ export default function MnemonicWorkshop({ cards, onUpdateCard, onDeleteCard, ca
     const tree: Record<string, Set<string>> = {};
     cards.forEach(c => {
       if (!tree[c.categoryId]) tree[c.categoryId] = new Set();
-      if (c.subcategory) tree[c.categoryId].add(c.subcategory);
+      if (c.subcategoryId) tree[c.categoryId].add(c.subcategoryId);
     });
     return tree;
   }, [cards]);
@@ -51,7 +55,7 @@ export default function MnemonicWorkshop({ cards, onUpdateCard, onDeleteCard, ca
     let result = cards;
     if (filterStatus !== "all") result = result.filter(c => c.mnemonicStatus === filterStatus);
     if (selectedCategory) result = result.filter(c => c.categoryId === selectedCategory);
-    if (selectedSubcategory) result = result.filter(c => c.subcategory === selectedSubcategory);
+    if (selectedSubcategory) result = result.filter(c => c.subcategoryId === selectedSubcategory);
     if (debouncedSearch) {
       const q = debouncedSearch.toLowerCase();
       result = result.filter(c =>
@@ -68,7 +72,7 @@ export default function MnemonicWorkshop({ cards, onUpdateCard, onDeleteCard, ca
         case "status":
           return statusOrder[a.mnemonicStatus] - statusOrder[b.mnemonicStatus];
         case "category":
-          return (idToName[a.categoryId] ?? a.categoryId).localeCompare(idToName[b.categoryId] ?? b.categoryId) || (a.subcategory || "").localeCompare(b.subcategory || "");
+          return (idToName[a.categoryId] ?? a.categoryId).localeCompare(idToName[b.categoryId] ?? b.categoryId) || (a.subcategoryId || "").localeCompare(b.subcategoryId || "");
         case "success": {
           const aRate = a.testCount > 0 ? a.successCount / a.testCount : -1;
           const bRate = b.testCount > 0 ? b.successCount / b.testCount : -1;
@@ -79,7 +83,7 @@ export default function MnemonicWorkshop({ cards, onUpdateCard, onDeleteCard, ca
       }
     });
     return sorted;
-  }, [cards, filterStatus, selectedCategory, selectedSubcategory, debouncedSearch, sortBy]);
+  }, [cards, filterStatus, selectedCategory, selectedSubcategory, debouncedSearch, sortBy, idToName]);
 
   const subcategories = useMemo(
     () => selectedCategory ? [...(categoryTree[selectedCategory] || [])].sort() : [],

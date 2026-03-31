@@ -1,545 +1,177 @@
-import { PenSquare, BarChart3, Wand2, ChevronUp, ChevronDown, Link as LinkIcon, Heading1, Heading2, Heading3, Type, List, ListOrdered } from "lucide-react";
-import { lazy, Suspense, memo, useCallback, useState, useEffect } from "react";
-import { useSourceLogic } from "@/hooks/useSourceLogic";
-import { SourceToolbar } from "@/components/source-reader/SourceToolbar";
+import { lazy, Suspense } from "react";
 import ExamSidebar from "@/components/ExamSidebar";
 import CoverageArticleList from "@/components/source-reader/CoverageArticleList";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import type { Source } from "@/lib/sources-storage";
+import { useSourceReaderLogic, WIDTH_CLASSES } from "@/hooks/useSourceReaderLogic";
+import { SourceToolbar } from "@/components/source-reader/SourceToolbar";
+import { SourceContent } from "@/components/source-reader/SourceContent";
+import { SourceNavigation } from "@/components/source-reader/SourceNavigation";
+import { CoverageStatsBar } from "@/components/source-reader/CoverageStatsBar";
+import { SourceContextMenu } from "@/components/source-reader/SourceContextMenu";
+import { SourceTooltip } from "@/components/source-reader/SourceTooltip";
+import { EssayCreationDialog } from "@/components/source-reader/EssayCreationDialog";
+import { SmartSplitSummaryDialog } from "@/components/source-reader/SmartSplitSummaryDialog";
 
 const AutoSplitDialog = lazy(() => import("@/components/AutoSplitDialog"));
 const LinkToExistingCardModal = lazy(() => import("@/components/LinkToExistingCardModal"));
 
-// ── Coverage Stats Bar ──
-function CoverageStatsBar({ percent, linkedCount }: { percent: number; linkedCount: number }) {
-  const barColor = percent >= 80 ? "bg-success" : percent >= 50 ? "bg-warning" : "bg-destructive";
-  const color = percent >= 80 ? "text-success" : percent >= 50 ? "text-warning" : "text-destructive";
-  return (
-    <div className="flex items-center gap-3 rounded-lg border bg-card px-4 py-2.5">
-      <BarChart3 className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-      <div className="flex-1 min-w-0">
-        <div className="h-1.5 rounded-full bg-muted overflow-hidden">
-          <div className={cn("h-full rounded-full transition-all duration-500", barColor)} style={{ width: `${percent}%` }} />
-        </div>
-      </div>
-      <span className={cn("text-sm font-bold tabular-nums", color)}>{percent}%</span>
-      <span className="text-xs text-muted-foreground">{linkedCount} kartica</span>
-    </div>
-  );
-}
-
-// ── Memoized source content to avoid re-render on sidebar clicks ──
-const SourceContent = memo(function SourceContent({ html, onMouseUp, contentRef }: { html: string; onMouseUp: () => void; contentRef: React.RefObject<HTMLDivElement> }) {
-  const handleClick = useCallback((e: React.MouseEvent) => {
-    const target = e.target as HTMLElement;
-    const heading = target.closest("h1, h2, h3");
-    if (heading && heading.id) {
-      heading.scrollIntoView({ behavior: "smooth", block: "start" });
-    }
-  }, []);
-
-  // Inject link icons into headings after render
-  const enhanceHeadings = useCallback((node: HTMLDivElement | null) => {
-    if (!node) return;
-    (contentRef as React.MutableRefObject<HTMLDivElement>).current = node;
-    node.querySelectorAll("h1[id], h2[id], h3[id]").forEach(h => {
-      if (h.querySelector(".heading-link-icon")) return;
-      const icon = document.createElement("span");
-      icon.className = "heading-link-icon";
-      icon.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>`;
-      h.appendChild(icon);
-    });
-  }, [contentRef]);
-
-  return (
-    <div
-      ref={enhanceHeadings}
-      className="rounded-lg border bg-card p-6 prose prose-sm max-w-none
-        prose-headings:text-foreground prose-headings:cursor-pointer prose-headings:hover:text-primary prose-headings:transition-colors
-        prose-p:text-foreground/90
-        prose-strong:text-foreground prose-a:text-primary
-        prose-ul:text-foreground/90 prose-ol:text-foreground/90
-        prose-li:text-foreground/90
-        [&_h1[id]]:relative [&_h1[id]]:group [&_h2[id]]:relative [&_h2[id]]:group [&_h3[id]]:relative [&_h3[id]]:group
-        [&_.heading-link-icon]:inline-flex [&_.heading-link-icon]:items-center [&_.heading-link-icon]:ml-2
-        [&_.heading-link-icon]:text-muted-foreground/40 [&_.heading-link-icon]:opacity-0
-        [&_h1:hover_.heading-link-icon]:opacity-100 [&_h2:hover_.heading-link-icon]:opacity-100 [&_h3:hover_.heading-link-icon]:opacity-100
-        [&_.heading-link-icon]:transition-opacity [&_.heading-link-icon]:duration-200"
-      onMouseUp={onMouseUp}
-      onClick={handleClick}
-      dangerouslySetInnerHTML={{ __html: html }}
-    />
-  );
-});
-
-type ReaderWidth = "S" | "M" | "L" | "XL" | "Full";
-
-const WIDTH_CLASSES: Record<ReaderWidth, string> = {
-  S: "max-w-2xl",
-  M: "max-w-4xl",
-  L: "max-w-6xl",
-  XL: "max-w-7xl",
-  Full: "max-w-none",
-};
-
-const STORAGE_KEY = "codex-source-reader-width";
-
 interface Props {
+  /** The source to be read and managed */
   source: Source;
+  /** Callback to return to the previous view */
   onBack: () => void;
+  /** Optional callback when the source data is modified */
   onSourceUpdated?: (source: Source) => void;
 }
 
+/**
+ * Main container component for the Source Reader view.
+ * This component orchestrates all sub-components and logic related to reading,
+ * editing, and mapping cards from a source document.
+ */
 export default function SourceReader({ source, onBack, onSourceUpdated }: Props) {
-  const logic = useSourceLogic(source);
-  const isCoverage = logic.viewMode === "coverage";
-  const [editMode, setEditMode] = useState(false);
-
-  // Sync editModeRef in hook
-  logic.editModeRef.current = editMode;
-
-  const [readerWidth, setReaderWidth] = useState<ReaderWidth>(() => {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    return (saved && saved in WIDTH_CLASSES) ? saved as ReaderWidth : "M";
-  });
-
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, readerWidth);
-  }, [readerWidth]);
-
-  // ─── Heading context menu ───
-  const [headingMenu, setHeadingMenu] = useState<{ x: number; y: number; element: HTMLElement } | null>(null);
-
-  const handleContextMenu = useCallback((e: React.MouseEvent) => {
-    if (!editMode) return; // context menu only in edit mode
-    const target = e.target as HTMLElement;
-    const block = target.closest("p, h1, h2, h3, h4, li, ol, ul, div");
-    if (!block) return;
-    const container = logic.contentRef.current;
-    if (!container || !container.contains(block)) return;
-    e.preventDefault();
-    setHeadingMenu({ x: e.clientX, y: e.clientY, element: block as HTMLElement });
-  }, [editMode, logic.contentRef]);
-
-  const handleSetHeading = useCallback(async (level: number | null, targetEl?: HTMLElement) => {
-    const el = targetEl || headingMenu?.element;
-    if (!el) return;
-    const container = logic.contentRef.current;
-    setHeadingMenu(null);
-    if (!container) return;
-
-    const text = el.textContent || "";
-    const currentTag = el.tagName.toLowerCase();
-    const targetTag = level ? `h${level}` : "p";
-
-    if (currentTag === targetTag) return;
-
-    const newEl = document.createElement(targetTag);
-    newEl.textContent = text;
-    el.replaceWith(newEl);
-
-    const { saveSource, extractOutline, injectHeadingIds } = await import("@/lib/sources-storage");
-    const updatedHtml = injectHeadingIds(container.innerHTML);
-    const outline = extractOutline(updatedHtml);
-    const { parseArticles } = await import("@/lib/article-parser");
-    const articles = parseArticles(updatedHtml);
-
-    const updated: Source = {
-      ...source,
-      htmlContent: updatedHtml,
-      outline,
-      articles,
-      updatedAt: Date.now(),
-    };
-    await saveSource(updated);
-    onSourceUpdated?.(updated);
-    const { toast } = await import("sonner");
-    toast.success(level ? `Postavljeno kao H${level}` : "Vraćeno na paragraf");
-  }, [headingMenu, source, onSourceUpdated, logic.contentRef]);
-
-  const handleFormatAsList = useCallback(async (type: "ol" | "ul") => {
-    const container = logic.contentRef.current;
-    setHeadingMenu(null);
-    if (!container) return;
-
-    // Use current selection to find affected block elements
-    const sel = window.getSelection();
-    if (!sel || sel.isCollapsed) return;
-
-    const range = sel.getRangeAt(0);
-    // Collect all block-level elements in the range
-    const blocks: HTMLElement[] = [];
-    const walker = document.createTreeWalker(container, NodeFilter.SHOW_ELEMENT, {
-      acceptNode(node) {
-        const el = node as HTMLElement;
-        const tag = el.tagName.toLowerCase();
-        if (["p", "div", "h1", "h2", "h3", "h4", "li"].includes(tag) && range.intersectsNode(el)) {
-          return NodeFilter.FILTER_ACCEPT;
-        }
-        return NodeFilter.FILTER_SKIP;
-      },
-    });
-    let node: Node | null;
-    while ((node = walker.nextNode())) blocks.push(node as HTMLElement);
-
-    if (blocks.length === 0) return;
-
-    const listEl = document.createElement(type);
-    blocks[0].before(listEl);
-    for (const block of blocks) {
-      const li = document.createElement("li");
-      li.innerHTML = block.innerHTML;
-      listEl.appendChild(li);
-      block.remove();
-    }
-
-    sel.removeAllRanges();
-
-    const { saveSource, extractOutline, injectHeadingIds } = await import("@/lib/sources-storage");
-    const updatedHtml = injectHeadingIds(container.innerHTML);
-    const outline = extractOutline(updatedHtml);
-    const { parseArticles } = await import("@/lib/article-parser");
-    const articles = parseArticles(updatedHtml);
-
-    const updated: Source = {
-      ...source,
-      htmlContent: updatedHtml,
-      outline,
-      articles,
-      updatedAt: Date.now(),
-    };
-    await saveSource(updated);
-    onSourceUpdated?.(updated);
-    const { toast } = await import("sonner");
-    toast.success(type === "ol" ? "Pretvoreno u numerisanu listu" : "Pretvoreno u listu");
-  }, [source, onSourceUpdated, logic.contentRef]);
-
-  const handleFormatSelectionAs = useCallback(async (tag: "h1" | "h2" | "h3" | "p" | "ol" | "ul") => {
-    if (tag === "ol" || tag === "ul") {
-      await handleFormatAsList(tag);
-      return;
-    }
-    // For headings/paragraph: find block elements in selection range
-    const sel = window.getSelection();
-    if (!sel || sel.isCollapsed) return;
-    const container = logic.contentRef.current;
-    if (!container) return;
-
-    const range = sel.getRangeAt(0);
-    const blocks: HTMLElement[] = [];
-    const walker = document.createTreeWalker(container, NodeFilter.SHOW_ELEMENT, {
-      acceptNode(node) {
-        const el = node as HTMLElement;
-        const t = el.tagName.toLowerCase();
-        if (["p", "div", "h1", "h2", "h3", "h4", "li"].includes(t) && range.intersectsNode(el)) {
-          return NodeFilter.FILTER_ACCEPT;
-        }
-        return NodeFilter.FILTER_SKIP;
-      },
-    });
-    let node: Node | null;
-    while ((node = walker.nextNode())) blocks.push(node as HTMLElement);
-
-    if (blocks.length === 0) return;
-
-    const level = tag === "p" ? null : parseInt(tag[1]);
-    for (const block of blocks) {
-      await handleSetHeading(level, block);
-    }
-    sel.removeAllRanges();
-    
-  }, [handleSetHeading, handleFormatAsList, logic.contentRef]);
-
-  // Close heading menu on click elsewhere
-  useEffect(() => {
-    if (!headingMenu) return;
-    const close = () => setHeadingMenu(null);
-    window.addEventListener("click", close);
-    return () => window.removeEventListener("click", close);
-  }, [headingMenu]);
-
-  const handleOpenCoveredCard = (cardId: string) => {
-    sessionStorage.setItem("sr-scroll-to-card", cardId);
-    window.location.hash = "#/categories";
-  };
+  const { state, actions, refs } = useSourceReaderLogic(source, onSourceUpdated);
+  const isCoverage = state.viewMode === "coverage";
 
   return (
     <div className="space-y-4">
+      {/* Top navigation and settings bar */}
       <SourceToolbar
         source={source}
         onBack={onBack}
-        viewMode={logic.viewMode}
-        setViewMode={logic.setViewMode}
-        examOpen={logic.examOpen}
-        setExamOpen={logic.setExamOpen}
-        examQuestions={logic.examQuestions}
-        outlineOpen={logic.outlineOpen}
-        setOutlineOpen={logic.setOutlineOpen}
-        onAutoSplit={() => logic.setAutoSplitOpen(true)}
-        readerWidth={readerWidth}
-        setReaderWidth={setReaderWidth}
-        editMode={editMode}
-        setEditMode={setEditMode}
+        viewMode={state.viewMode}
+        setViewMode={actions.setViewMode}
+        examOpen={state.examOpen}
+        setExamOpen={actions.setExamOpen}
+        examQuestions={state.examQuestions}
+        outlineOpen={state.outlineOpen}
+        setOutlineOpen={actions.setOutlineOpen}
+        onAutoSplit={() => actions.setAutoSplitOpen(true)}
+        readerWidth={state.readerWidth}
+        setReaderWidth={actions.setReaderWidth}
+        editMode={state.editMode}
+        setEditMode={actions.setEditMode}
       />
 
-      {isCoverage && <CoverageStatsBar percent={logic.coverage.percent} linkedCount={logic.linkedCount} />}
+      {/* Progress indicator for card coverage */}
+      {isCoverage && (
+        <CoverageStatsBar 
+          percent={state.coverage.percent} 
+          linkedCount={state.linkedCount} 
+        />
+      )}
 
       <div className="flex gap-4">
-        {logic.outlineOpen && source.outline.length > 0 && (
-          <div className="w-56 flex-shrink-0 sticky top-20 self-start max-h-[calc(100vh-8rem)] overflow-y-auto">
-            <div className="rounded-lg border bg-card p-3">
-              <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">Sadržaj</h4>
-              <nav className="space-y-0.5">
-                {source.outline.map(h => (
-                  <button key={h.id} onClick={() => logic.scrollToHeading(h.id)}
-                    className="block w-full text-left text-xs py-1 px-2 rounded hover:bg-secondary transition-colors truncate text-muted-foreground hover:text-foreground"
-                    style={{ paddingLeft: `${(h.level - 1) * 12 + 8}px` }}
-                  >
-                    {h.text}
-                  </button>
-                ))}
-              </nav>
-            </div>
-          </div>
+        {/* Left sidebar: Outline navigation */}
+        {state.outlineOpen && (
+          <SourceNavigation 
+            source={source} 
+            onScrollToHeading={actions.scrollToHeading} 
+          />
         )}
 
-        <div className={cn("flex-1 min-w-0 relative mx-auto px-6", WIDTH_CLASSES[readerWidth])} onContextMenu={handleContextMenu}>
+        {/* Main content area: Reader or Coverage List */}
+        <div 
+          className={cn("flex-1 min-w-0 relative mx-auto px-6", WIDTH_CLASSES[state.readerWidth])} 
+          onContextMenu={actions.handleContextMenu}
+        >
           {isCoverage ? (
-            <CoverageArticleList source={source} cards={logic.cards} onOpenCard={handleOpenCoveredCard} />
+            <CoverageArticleList 
+              source={source} 
+              cards={state.cards} 
+              onOpenCard={actions.handleOpenCoveredCard} 
+            />
           ) : (
-            <SourceContent html={logic.safeHtml} onMouseUp={logic.handleMouseUp} contentRef={logic.contentRef} />
+            <SourceContent 
+              html={state.safeHtml} 
+              onMouseUp={actions.handleMouseUp} 
+              contentRef={refs.contentRef} 
+            />
           )}
 
-          {/* Heading context menu */}
-          {headingMenu && (
-            <div
-              className="fixed z-[100] rounded-lg border bg-popover shadow-lg p-1 min-w-[180px] animate-in fade-in-0 zoom-in-95"
-              style={{ left: headingMenu.x, top: headingMenu.y }}
-              onClick={e => e.stopPropagation()}
-            >
-              <p className="text-[10px] uppercase tracking-wider text-muted-foreground px-2 py-1">Postavi kao</p>
-              {[
-                { level: 1, label: "Naslov 1 (H1)", icon: <Heading1 className="h-4 w-4" /> },
-                { level: 2, label: "Naslov 2 (H2)", icon: <Heading2 className="h-4 w-4" /> },
-                { level: 3, label: "Naslov 3 (H3)", icon: <Heading3 className="h-4 w-4" /> },
-                { level: null, label: "Paragraf (Normalan)", icon: <Type className="h-4 w-4" /> },
-              ].map(opt => {
-                const currentTag = headingMenu.element.tagName.toLowerCase();
-                const isActive = opt.level ? currentTag === `h${opt.level}` : currentTag === "p";
-                return (
-                  <button
-                    key={opt.level ?? "p"}
-                    onClick={() => handleSetHeading(opt.level)}
-                    className={cn(
-                      "flex items-center gap-2 w-full px-2 py-1.5 text-sm rounded-md transition-colors",
-                      isActive
-                        ? "bg-primary/10 text-primary font-medium"
-                        : "text-foreground hover:bg-secondary"
-                    )}
-                  >
-                    {opt.icon}
-                    {opt.label}
-                    {isActive && <span className="ml-auto text-[10px] text-primary">✓</span>}
-                  </button>
-                );
-              })}
-              <div className="h-px bg-border my-1" />
-              <p className="text-[10px] uppercase tracking-wider text-muted-foreground px-2 py-1">Liste</p>
-              <button
-                onClick={() => { setHeadingMenu(null); handleFormatAsList("ol"); }}
-                className="flex items-center gap-2 w-full px-2 py-1.5 text-sm rounded-md transition-colors text-foreground hover:bg-secondary"
-              >
-                <ListOrdered className="h-4 w-4" />
-                Numerisana lista
-              </button>
-              <button
-                onClick={() => { setHeadingMenu(null); handleFormatAsList("ul"); }}
-                className="flex items-center gap-2 w-full px-2 py-1.5 text-sm rounded-md transition-colors text-foreground hover:bg-secondary"
-              >
-                <List className="h-4 w-4" />
-                Lista
-              </button>
-            </div>
+          {/* Floating context menu for formatting blocks (Edit mode only) */}
+          {state.headingMenu && (
+            <SourceContextMenu
+              menu={state.headingMenu}
+              onSetHeading={actions.handleSetHeading}
+              onFormatAsList={actions.handleFormatAsList}
+              onClose={() => actions.setHeadingMenu(null)}
+            />
           )}
 
-          {!isCoverage && logic.selection && (
-            <div data-source-tooltip
-              className="absolute z-50 -translate-x-1/2 -translate-y-full animate-in fade-in-0 zoom-in-95 duration-150"
-              style={{ left: logic.selection.x, top: logic.selection.y }}>
-              <div className="flex items-center gap-1 mb-1">
-                {editMode ? (
-                  <>
-                    {([
-                      { tag: "h1" as const, label: "H1", icon: <Heading1 className="h-3.5 w-3.5" /> },
-                      { tag: "h2" as const, label: "H2", icon: <Heading2 className="h-3.5 w-3.5" /> },
-                      { tag: "h3" as const, label: "H3", icon: <Heading3 className="h-3.5 w-3.5" /> },
-                      { tag: "p" as const, label: "¶", icon: <Type className="h-3.5 w-3.5" /> },
-                      { tag: "ol" as const, label: "1.", icon: <ListOrdered className="h-3.5 w-3.5" /> },
-                      { tag: "ul" as const, label: "•", icon: <List className="h-3.5 w-3.5" /> },
-                    ]).map(opt => (
-                      <button key={opt.tag} onClick={() => handleFormatSelectionAs(opt.tag)}
-                        className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-secondary text-secondary-foreground text-xs font-medium shadow-lg hover:bg-secondary/80 transition-colors"
-                        title={opt.label}>
-                        {opt.icon}
-                        {opt.label}
-                      </button>
-                    ))}
-                  </>
-                ) : (
-                  <>
-                    <button onClick={logic.handleConvertToEssay}
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-medium shadow-lg hover:bg-primary/90 transition-colors"
-                      title="Prečica: S">
-                      <PenSquare className="h-3.5 w-3.5" />
-                      Napravi esej
-                      <kbd className="text-[9px] opacity-70 ml-0.5 border border-primary-foreground/30 rounded px-1">S</kbd>
-                    </button>
-                    <button onClick={logic.handleLinkToExisting}
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-secondary text-secondary-foreground text-xs font-medium shadow-lg hover:bg-secondary/80 transition-colors">
-                      <LinkIcon className="h-3.5 w-3.5" />
-                      Poveži sa postojećim
-                    </button>
-                  </>
-                )}
-              </div>
-              <div className={cn("w-2.5 h-2.5 rotate-45 mx-auto -mt-1.5", editMode ? "bg-secondary" : "bg-primary")} />
-            </div>
+          {/* Floating action tooltip for selected text */}
+          {!isCoverage && state.selection && (
+            <SourceTooltip
+              selection={state.selection}
+              editMode={state.editMode}
+              onConvertToEssay={actions.handleConvertToEssay}
+              onLinkToExisting={actions.handleLinkToExisting}
+              onFormatSelectionAs={actions.handleFormatSelectionAs}
+            />
           )}
         </div>
 
-        {logic.examOpen && (
+        {/* Right sidebar: Exam mapping logic */}
+        {state.examOpen && (
           <ExamSidebar
-            questions={logic.examQuestions}
-            onSetQuestions={logic.setExamQuestions}
-            onMapSelection={logic.handleMapSelection}
-            hasSelection={!!logic.selection}
+            questions={state.examQuestions}
+            onSetQuestions={actions.setExamQuestions}
+            onMapSelection={actions.handleMapSelection}
+            hasSelection={!!state.selection}
           />
         )}
       </div>
 
-      {/* Essay creation dialog */}
-      <Dialog open={logic.essayDialogOpen} onOpenChange={logic.setEssayDialogOpen}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader><DialogTitle>Kreiraj esejsko pitanje</DialogTitle></DialogHeader>
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <label className="text-xs font-medium">Pitanje</label>
-              <textarea value={logic.essayQuestion} onChange={e => logic.setEssayQuestion(e.target.value)}
-                className="w-full px-3 py-2 rounded-md border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring min-h-[80px] resize-none"
-                placeholder="Unesite pitanje za esej..." autoFocus />
-            </div>
-            <div className="space-y-2">
-              <label className="text-xs font-medium">Označeni tekst (odgovor)</label>
-              <div className="max-h-40 overflow-y-auto rounded-md border bg-muted/50 p-3">
-                <p className="text-sm text-foreground/80 whitespace-pre-wrap">{logic.selectedText}</p>
-              </div>
-            </div>
-            <div className="text-xs text-muted-foreground bg-muted/50 rounded-md p-2">
-              Kategorija se dodjeljuje automatski iz izvora.
-            </div>
-            <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/50 rounded-md p-2">
-              <Badge variant="outline" className="text-[10px]">Backlink</Badge>
-              <span>Kartica će biti automatski povezana sa izvorom "{source.title}"</span>
-            </div>
-            <Button onClick={logic.handleCreateEssay} disabled={!logic.essayQuestion.trim()} className="w-full">
-              Kreiraj esejsko pitanje
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+      {/* Dialog for creating a single essay card */}
+      <EssayCreationDialog
+        open={state.essayDialogOpen}
+        onOpenChange={actions.setEssayDialogOpen}
+        essayQuestion={state.essayQuestion}
+        setEssayQuestion={actions.setEssayQuestion}
+        selectedText={state.selectedText}
+        source={source}
+        onCreateEssay={actions.handleCreateEssay}
+      />
 
-      {/* Smart-Split Summary Dialog */}
-      <Dialog open={logic.splitSummaryOpen} onOpenChange={(o) => { if (!o) { logic.setSplitSummaryOpen(false); logic.setSplitResult(null); } }}>
-        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Wand2 className="h-5 w-5 text-primary" />
-              {logic.splitDone ? "Generisanje završeno" : "Smart-Split pregled"}
-            </DialogTitle>
-          </DialogHeader>
-          {logic.splitDone ? (
-            <div className="space-y-4">
-              <div className="flex items-center gap-3 rounded-lg border border-green-500/30 bg-green-500/10 px-4 py-4">
-                <div className="h-8 w-8 rounded-full bg-green-500/20 flex items-center justify-center">
-                  <PenSquare className="h-4 w-4 text-green-500" />
-                </div>
-                <div>
-                  <p className="text-sm font-medium">Uspješno generisano 1 esejsko pitanje sa {logic.splitCreatedCount} modula</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">{logic.splitResult?.rangeLabel} • Izvor: "{source.title}"</p>
-                </div>
-              </div>
-              <Button onClick={() => { logic.setSplitSummaryOpen(false); logic.setSplitResult(null); }} className="w-full">Zatvori</Button>
-            </div>
-          ) : logic.splitResult ? (
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <label className="text-xs font-medium">Naslov eseja</label>
-                <input value={logic.splitParentName} onChange={e => logic.setSplitParentName(e.target.value)}
-                  className="w-full px-3 py-2 rounded-md border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring" placeholder="Unesite naslov eseja..." />
-              </div>
-              <div className="rounded-lg border bg-muted/50 px-4 py-3">
-                <p className="text-sm">Detektovano <strong className="text-foreground">{logic.splitResult.modules.length}</strong> članova ({logic.splitResult.rangeLabel})</p>
-                <p className="text-xs text-muted-foreground mt-1">Biće kreiran 1 esejsko pitanje sa {logic.splitResult.modules.length} modula (cjelina).</p>
-              </div>
-              <div className="max-h-[400px] overflow-y-auto space-y-1 pr-1">
-                {logic.splitModules.map((mod, i) => (
-                  <div key={`${mod.articleNum}-${i}`} className="group flex items-start gap-1.5 rounded-md border bg-card px-2 py-2">
-                    <div className="flex flex-col gap-0.5 flex-shrink-0 mt-0.5">
-                      <button disabled={i === 0}
-                        onClick={() => logic.setSplitModules(prev => { const arr = [...prev]; [arr[i - 1], arr[i]] = [arr[i], arr[i - 1]]; return arr; })}
-                        className="h-4 w-4 flex items-center justify-center rounded hover:bg-muted disabled:opacity-20 transition-colors" title="Pomjeri gore">
-                        <ChevronUp className="h-3 w-3" />
-                      </button>
-                      <button disabled={i === logic.splitModules.length - 1}
-                        onClick={() => logic.setSplitModules(prev => { const arr = [...prev]; [arr[i], arr[i + 1]] = [arr[i + 1], arr[i]]; return arr; })}
-                        className="h-4 w-4 flex items-center justify-center rounded hover:bg-muted disabled:opacity-20 transition-colors" title="Pomjeri dolje">
-                        <ChevronDown className="h-3 w-3" />
-                      </button>
-                    </div>
-                    <Badge variant="outline" className="text-[10px] mt-1 flex-shrink-0">{i + 1}</Badge>
-                    <div className="min-w-0 flex-1">
-                      <input value={mod.title}
-                        onChange={e => { const val = e.target.value; logic.setSplitModules(prev => prev.map((m, j) => j === i ? { ...m, title: val } : m)); }}
-                        className="w-full text-sm font-medium bg-transparent border-b border-transparent hover:border-border focus:border-ring focus:outline-none px-0 py-0.5 transition-colors"
-                        title="Klikni za editovanje naslova" />
-                      <p className="text-xs text-muted-foreground truncate mt-0.5">
-                        {mod.contentText.slice(0, 100)}{mod.contentText.length > 100 ? "..." : ""}
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-              <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/50 rounded-md p-2">
-                <Badge variant="outline" className="text-[10px]">Backlink</Badge>
-                <span>Svi moduli će biti automatski povezani sa izvorom "{source.title}"</span>
-              </div>
-              <div className="flex gap-3">
-                <Button variant="outline" onClick={() => { logic.setSplitSummaryOpen(false); logic.setSplitResult(null); }} className="flex-1">Otkaži</Button>
-                <Button onClick={logic.handleSmartSplitConfirm} className="flex-1 gap-2">
-                  <Wand2 className="h-4 w-4" />Potvrdi
-                </Button>
-              </div>
-            </div>
-          ) : null}
-        </DialogContent>
-      </Dialog>
+      {/* Dialog for summarizing and confirming a smart-split operation */}
+      <SmartSplitSummaryDialog
+        open={state.splitSummaryOpen}
+        onOpenChange={(o) => { 
+          if (!o) { 
+            actions.setSplitSummaryOpen(false); 
+            actions.setSplitResult(null); 
+          } 
+        }}
+        splitDone={state.splitDone}
+        splitResult={state.splitResult}
+        splitCreatedCount={state.splitCreatedCount}
+        source={source}
+        splitParentName={state.splitParentName}
+        setSplitParentName={actions.setSplitParentName}
+        splitModules={state.splitModules}
+        setSplitModules={actions.setSplitModules}
+        onSmartSplitConfirm={actions.handleSmartSplitConfirm}
+      />
 
+      {/* Lazy-loaded modals for bulk operations */}
       <Suspense fallback={null}>
-        {logic.autoSplitOpen && (
-          <AutoSplitDialog open={logic.autoSplitOpen} onClose={() => logic.setAutoSplitOpen(false)} source={source} />
+        {state.autoSplitOpen && (
+          <AutoSplitDialog 
+            open={state.autoSplitOpen} 
+            onClose={() => actions.setAutoSplitOpen(false)} 
+            source={source} 
+          />
         )}
-        {logic.linkModalOpen && (
+        {state.linkModalOpen && (
           <LinkToExistingCardModal
-            open={logic.linkModalOpen}
-            onOpenChange={logic.setLinkModalOpen}
+            open={state.linkModalOpen}
+            onOpenChange={actions.setLinkModalOpen}
             sourceId={source.id}
             sourceLabel={source.categoryId || source.title || ""}
-            selectedText={logic.linkSelectedText}
-            cards={logic.cards}
-            onLink={logic.handleLinkConfirm}
+            selectedText={state.linkSelectedText}
+            cards={state.cards}
+            onLink={actions.handleLinkConfirm}
           />
         )}
       </Suspense>

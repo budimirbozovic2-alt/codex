@@ -23,7 +23,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     return () => ipcRenderer.removeListener('quit-backup-requested', handler);
   },
   // Notify main that quit backup is done
-  notifyQuitBackupDone: () => ipcRenderer.send('notify-quit-backup-done'),
+  notifyQuitBackupDone: () => ipcRenderer.send('quit-backup-done'),
   // ── Window controls ──
   windowMinimize: () => ipcRenderer.send('window-minimize'),
   windowMaximize: () => ipcRenderer.send('window-maximize'),

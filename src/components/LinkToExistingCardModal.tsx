@@ -6,9 +6,6 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import type { Card } from "@/lib/spaced-repetition";
-import { useLiveQuery } from "dexie-react-hooks";
-import { db } from "@/lib/db";
-import { getSubcategoryName } from "@/lib/category-service";
 
 interface Props {
   open: boolean;
@@ -24,7 +21,6 @@ export default function LinkToExistingCardModal({
   open, onOpenChange, sourceId, sourceLabel, selectedText, cards, onLink,
 }: Props) {
   const [search, setSearch] = useState("");
-  const categoryRecords = useLiveQuery(() => db.categories.toArray(), []);
 
   // Pre-filter: unlinked, essay-only, same category
   // sourceLabel may be a category name or a source title (fallback for unmigrated sources)
@@ -92,9 +88,9 @@ export default function LinkToExistingCardModal({
                   >
                     <div className="min-w-0 flex-1">
                       <p className="text-sm font-medium truncate">{card.question}</p>
-                      {card.subcategoryId && (
+                      {card.subcategory && (
                         <Badge variant="outline" className="text-[10px] mt-0.5">
-                          {getSubcategoryName(categoryRecords ?? [], card.subcategoryId) || card.subcategoryId}
+                          {card.subcategory}
                         </Badge>
                       )}
                     </div>

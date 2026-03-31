@@ -4,6 +4,7 @@ import { useLocation } from "react-router-dom";
 import { useUIContext, useCardContext } from "@/contexts/AppContext";
 import ZenMode from "@/components/ZenMode";
 import AppSidebar from "@/components/AppSidebar";
+import BlockingModal from "@/components/db/BlockingModal";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AnimatePresence } from "framer-motion";
 import { hasSeenOnboarding } from "@/components/OnboardingModal";
@@ -209,6 +210,7 @@ export default function MainLayout({ children }: { children: ReactNode }) {
           </Suspense>
         )}
       </AnimatePresence>
+      <BlockingModal />
     </SidebarProvider>
   );
 }

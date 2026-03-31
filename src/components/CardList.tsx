@@ -5,11 +5,10 @@ import { format } from "date-fns";
 import TextSelectionTooltip from "@/components/TextSelectionTooltip";
 import { useState, useRef, useEffect, useMemo, useCallback, lazy, Suspense, CSSProperties, memo } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
-import { db, type CategoryRecord } from "@/lib/db";
+import { db } from "@/lib/db";
 import { List, type RowComponentProps } from "react-window";
 import { ScoreBadge, RetentionBadge, SectionBar } from "./card-list/CardBadges";
 import CardContextMenu from "./card-list/CardContextMenu";
-import { getCategoryName, getSubcategoryName, getChapterName } from "@/lib/category-service";
 
 const SourceSnippetDialog = lazy(() => import("@/components/SourceSnippetDialog"));
 
@@ -67,29 +66,9 @@ interface CardRowProps {
   onAssignChapter?: (cardId: string, chapter: string) => void;
   onCloneToMnemonic?: (card: Card) => void;
   onAddKeyPart?: (cardId: string, text: string) => void;
-  categoryRecords?: CategoryRecord[];
 }
 
-const CardRowInner = memo(function CardRowInner({
-  card,
-  expanded,
-  highlighted,
-  selectionMode,
-  selectedIds,
-  onToggleSelect,
-  onToggleTag,
-  onExpand,
-  onEdit,
-  onDelete,
-  categories,
-  subcategories,
-  availableChapters,
-  onMoveCategory,
-  onAssignChapter,
-  onCloneToMnemonic,
-  onAddKeyPart,
-  categoryRecords,
-}: CardRowProps) {
+const CardRowInner = memo(function CardRowInner({ card, expanded, highlighted, selectionMode, selectedIds, onToggleSelect, onToggleTag, onExpand, onEdit, onDelete, categories, subcategories, availableChapters, onMoveCategory, onAssignChapter, onCloneToMnemonic, onAddKeyPart, catNameMap }: CardRowProps & { catNameMap?: Record<string, string> }) {
   const score = getCardScore(card);
   const retention = getCardRetrievability(card);
   const isFlash = card.type === "flash";
@@ -115,23 +94,15 @@ const CardRowInner = memo(function CardRowInner({
               {selectedIds?.has(card.id) && <span className="text-xs">✓</span>}
             </button>
           )}
-            <div className="flex-1 min-w-0">
+          <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1 flex-wrap">
-              <span className="text-xs uppercase tracking-widest text-muted-foreground">
-                {getCategoryName(categoryRecords ?? [], card.categoryId) || card.categoryId}
-              </span>
-              {card.subcategoryId ? (
-                <span className="text-xs text-muted-foreground">
-                  › {getSubcategoryName(categoryRecords ?? [], card.subcategoryId) || card.subcategoryId}
-                </span>
+              <span className="text-xs uppercase tracking-widest text-muted-foreground">{catNameMap?.[card.categoryId] ?? card.categoryId}</span>
+              {(card.subcategoryId || card.subcategory) ? (
+                <span className="text-xs text-muted-foreground">› {catNameMap?.["__sub_" + (card.subcategoryId || card.subcategory)] || card.subcategory || card.subcategoryId}</span>
               ) : (
                 <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-warning/15 text-warning font-medium">Bez podkat.</span>
               )}
-              {card.chapterId && (
-                <span className="text-xs text-muted-foreground/70">
-                  › {getChapterName(categoryRecords ?? [], card.chapterId) || card.chapterId}
-                </span>
-              )}
+              {(card.chapterId || card.chapter) && <span className="text-xs text-muted-foreground/70">› {card.chapter || card.chapterId}</span>}
               <ScoreBadge score={score} />
               <RetentionBadge retention={retention} />
               {isFlash ? (
@@ -160,7 +131,6 @@ const CardRowInner = memo(function CardRowInner({
               categories={categories}
               subcategories={subcategories}
               availableChapters={availableChapters}
-              categoryRecords={categoryRecords}
               onMoveCategory={onMoveCategory}
               onAssignChapter={onAssignChapter}
               onToggleTag={onToggleTag}
@@ -186,15 +156,7 @@ const CardRowInner = memo(function CardRowInner({
       )}
 
       {expanded && (
-        <TextSelectionTooltip
-          cardId={card.id}
-          question={card.question}
-          category={card.categoryId}
-          subcategory={card.subcategoryId}
-          tags={card.tags}
-          keyParts={card.keyParts}
-          onMarkKeyPart={onAddKeyPart ? (text: string) => onAddKeyPart(card.id, text) : undefined}
-        >
+        <TextSelectionTooltip cardId={card.id} question={card.question} category={card.categoryId} subcategoryId={card.subcategoryId || card.subcategory} tags={card.tags} keyParts={card.keyParts} onMarkKeyPart={onAddKeyPart ? (text: string) => onAddKeyPart(card.id, text) : undefined}>
         <div className="px-5 pb-5 space-y-3 border-t pt-4 max-h-[60vh] overflow-y-auto">
           {isFlash ? (
             <div className="text-sm text-muted-foreground" dangerouslySetInnerHTML={{ __html: highlightKeyParts(card.sections[0]?.content || "", card.keyParts) }} />
@@ -245,32 +207,11 @@ interface VirtualRowData {
   onAssignChapter?: (cardId: string, chapter: string) => void;
   onCloneToMnemonic?: (card: Card) => void;
   onAddKeyPart?: (cardId: string, text: string) => void;
-  categoryRecords?: CategoryRecord[];
+  catNameMap?: Record<string, string>;
 }
 
 function VirtualRow(props: RowComponentProps<VirtualRowData>) {
-  const {
-    index,
-    style,
-    filteredCards,
-    expandedId,
-    scrollToCardId,
-    selectionMode,
-    selectedIds,
-    onToggleSelect,
-    onToggleTag,
-    onExpand,
-    onEdit,
-    onDelete,
-    categories,
-    subcategories,
-    availableChapters,
-    onMoveCategory,
-    onAssignChapter,
-    onCloneToMnemonic,
-    onAddKeyPart,
-    categoryRecords,
-  } = props;
+  const { index, style, filteredCards, expandedId, scrollToCardId, selectionMode, selectedIds, onToggleSelect, onToggleTag, onExpand, onEdit, onDelete, categories, subcategories, availableChapters, onMoveCategory, onAssignChapter, onCloneToMnemonic, onAddKeyPart, catNameMap } = props;
   const card = filteredCards[index];
   if (!card) return null;
 
@@ -294,7 +235,7 @@ function VirtualRow(props: RowComponentProps<VirtualRowData>) {
         onAssignChapter={onAssignChapter}
         onCloneToMnemonic={onCloneToMnemonic}
         onAddKeyPart={onAddKeyPart}
-        categoryRecords={categoryRecords}
+        catNameMap={catNameMap}
       />
     </div>
   );
@@ -313,6 +254,7 @@ export default function CardList({
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
   const allCats = useLiveQuery(() => db.categories.toArray(), []);
+  const catNameMap = useMemo(() => Object.fromEntries((allCats ?? []).map(r => [r.id, r.name])), [allCats]);
 
   const filtered = useMemo(() => {
     let result = filterCategory ? cards.filter(c => c.categoryId === filterCategory) : cards;
@@ -433,8 +375,8 @@ export default function CardList({
     onAssignChapter,
     onCloneToMnemonic,
     onAddKeyPart,
-    categoryRecords: allCats,
-  }), [filtered, expandedId, scrollToCardId, selectionMode, selectedIds, onToggleSelect, onToggleTag, onEdit, onDelete, propCategories, propSubcategories, availableChapters, onMoveCategory, onAssignChapter, onCloneToMnemonic, onAddKeyPart, allCats]);
+    catNameMap,
+  }), [filtered, expandedId, scrollToCardId, selectionMode, selectedIds, onToggleSelect, onToggleTag, onEdit, onDelete, propCategories, propSubcategories, availableChapters, onMoveCategory, onAssignChapter, onCloneToMnemonic, onAddKeyPart, catNameMap]);
 
   if (filtered.length === 0) {
     return <p className="text-muted-foreground text-center py-12">Nema kartica. Kreirajte prvu!</p>;
@@ -494,7 +436,7 @@ export default function CardList({
                 onAssignChapter={onAssignChapter}
                 onCloneToMnemonic={onCloneToMnemonic}
                 onAddKeyPart={onAddKeyPart}
-                categoryRecords={allCats}
+                catNameMap={catNameMap}
               />
             </div>
           </div>

@@ -6,7 +6,6 @@ import { ViewWidth, viewWidthClasses, viewWidthLabels } from "./types";
 
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "@/lib/db";
-import { getSubcategoryName } from "@/lib/category-service";
 import { motion } from "framer-motion";
 import { speak } from "@/lib/tts";
 import ShortcutsHint from "@/components/ShortcutsHint";
@@ -41,9 +40,7 @@ const SessionHeader = React.memo(function SessionHeader({
   const score = getCardScore(card);
   const isFlash = card.type === "flash";
   const catRecord = useLiveQuery(() => db.categories.get(card.categoryId), [card.categoryId]);
-  const allCategories = useLiveQuery(() => db.categories.toArray(), []);
   const catName = catRecord?.name ?? card.categoryId;
-  const subName = card.subcategoryId ? getSubcategoryName(allCategories ?? [], card.subcategoryId) || card.subcategoryId : null;
 
   return (
     <>
@@ -88,8 +85,8 @@ const SessionHeader = React.memo(function SessionHeader({
       <div className="rounded-xl bg-card border p-8">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
-          <span className="text-xs uppercase tracking-widest text-muted-foreground">{catName}</span>
-            {subName && <span className="text-xs text-muted-foreground">› {subName}</span>}
+            <span className="text-xs uppercase tracking-widest text-muted-foreground">{catName}</span>
+            {(card.subcategoryId || card.subcategory) && <span className="text-xs text-muted-foreground">› {card.subcategory || card.subcategoryId}</span>}
             {isFlash && (
               <span className="text-xs text-primary flex items-center gap-1"><Zap className="h-3 w-3" /> Blic</span>
             )}

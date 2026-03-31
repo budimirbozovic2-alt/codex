@@ -3,7 +3,6 @@ import { useState, useMemo, memo, useCallback, lazy, Suspense } from "react";
 import { MnemonicCard, MnemonicStatus, HookType, HookMode, loadMajorSystem, resolveNumber, extractNumbers, detectEnumerationItems } from "@/lib/mnemonic-storage";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "@/lib/db";
-import { getSubcategoryName } from "@/lib/category-service";
 
 
 import { motion, AnimatePresence } from "framer-motion";
@@ -33,11 +32,14 @@ interface Props {
 
 function WorkshopCardItemInner({ card, isExpanded, onToggle, onUpdateCard, onDeleteCard, majorSystem }: Props) {
   const catRecord = useLiveQuery(() => db.categories.get(card.categoryId), [card.categoryId]);
-  const allCategories = useLiveQuery(() => db.categories.toArray(), []);
   const catName = catRecord?.name ?? card.categoryId;
-  const subName = card.subcategoryId
-    ? getSubcategoryName(allCategories ?? [], card.subcategoryId) || card.subcategoryId
-    : null;
+  const subName = useMemo(() => {
+    if (!catRecord) return card.subcategoryId || card.subcategory;
+    const sid = card.subcategoryId || card.subcategory;
+    if (!sid) return "";
+    const node = (catRecord.subcategories || []).find((s: any) => s.id === sid || s.name === sid);
+    return node?.name ?? sid;
+  }, [catRecord, card.subcategoryId, card.subcategory]);
   const [editMode, setEditMode] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [editQuestion, setEditQuestion] = useState("");
@@ -89,10 +91,7 @@ function WorkshopCardItemInner({ card, isExpanded, onToggle, onUpdateCard, onDel
         }
         <div className="flex-1 min-w-0">
           <p className="font-medium truncate">{card.question}</p>
-          <p className="text-xs text-muted-foreground">
-            {catName}
-            {subName ? ` / ${subName}` : ""}
-          </p>
+          <p className="text-xs text-muted-foreground">{catName}{subName ? ` / ${subName}` : ""}</p>
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
           {card.testCount > 0 && (

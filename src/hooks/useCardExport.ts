@@ -1,11 +1,25 @@
 import { useCallback } from "react";
-import { toast } from "sonner";
+import { toast } from "@/hooks/use-toast";
 import { Card, SRSettings } from "@/lib/spaced-repetition";
 import { setLastBackupTime } from "@/lib/storage";
 
-async function downloadFile(blob: Blob, filename: string) {
+const IPC_SIZE_LIMIT_MB = 50;
+
+async function downloadFile(blob: Blob, filename: string): Promise<void> {
+  const sizeMB = blob.size / (1024 * 1024);
+  
   // Use native Electron save dialog if available
   if (window.electronAPI?.showSaveDialog) {
+    if (sizeMB > IPC_SIZE_LIMIT_MB) {
+      toast({ 
+        title: "Upozorenje o veličini", 
+        description: `ZIP fajl je prevelik (${sizeMB.toFixed(1)}MB) za direktan transfer. Optimizacija streaminga je u razvoju.`, 
+        variant: "destructive" 
+      });
+      // Ovdje u budućnosti implementirati Node.js fs.createWriteStream na strani Main procesa 
+      return;
+    }
+
     const ext = filename.endsWith('.zip') ? 'zip' : 'json';
     const result = await window.electronAPI.showSaveDialog({
       defaultPath: filename,
@@ -95,8 +109,8 @@ export function useCardExport({ cards, srSettings }: UseCardExportDeps) {
         question: c.question,
         sections: c.sections.map((s) => ({ title: s.title, content: s.content })),
         categoryId: c.categoryId,
-        subcategoryId: c.subcategoryId || undefined,
-        chapterId: c.chapterId || undefined,
+        subcategory: c.subcategory || "",
+        chapter: c.chapter || "",
         type: c.type,
         tags: c.tags || [],
       }));

@@ -6,7 +6,7 @@ let _cachedRetention: number | null = null;
 let _retentionCacheTime = 0;
 export function getCachedRetention(): number {
   const now = Date.now();
-  if (_cachedRetention === null || now - _retentionCacheTime > 500) {
+  if (_cachedRetention === null || now - _retentionCacheTime > 10000) {
     _cachedRetention = loadAppSettings().targetRetention;
     _retentionCacheTime = now;
   }
@@ -68,6 +68,10 @@ export interface Card {
   question: string;
   sections: Section[];
   categoryId: string;        // FK → categories.id
+  /** @deprecated Use subcategoryId instead */
+  subcategory?: string;
+  /** @deprecated Use chapterId instead */
+  chapter?: string;
   subcategoryId?: string;    // FK → SubcategoryNode.id (UUID)
   chapterId?: string;        // FK → ChapterNode.id (UUID)
   chapterOrder?: number;
@@ -294,7 +298,8 @@ export function createCard(question: string, sections: { title: string; content:
     question,
     sections: sections.map((s) => createSection(s.title, s.content)),
     categoryId,
-    subcategoryId: subcategoryId || undefined,
+    subcategoryId: subcategoryId || "",
+    subcategory: subcategoryId || "", // @deprecated — kept for backward compat
     createdAt: Date.now(),
     readCount: 0,
     type: "essay",
@@ -307,7 +312,8 @@ export function createFlashCard(question: string, answer: string, categoryId: st
     question,
     sections: [createSection("Odgovor", answer)],
     categoryId,
-    subcategoryId: subcategoryId || undefined,
+    subcategoryId: subcategoryId || "",
+    subcategory: subcategoryId || "", // @deprecated — kept for backward compat
     createdAt: Date.now(),
     readCount: 0,
     type: "flash",
