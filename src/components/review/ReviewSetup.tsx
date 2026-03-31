@@ -57,8 +57,8 @@ export default function ReviewSetup({
   const filteredDueCards = useMemo(() => {
     let filtered = dueCards;
     if (selectedCategory) filtered = filtered.filter((c) => c.categoryId === selectedCategory);
-    if (selectedSubcategory) filtered = filtered.filter((c) => (c.subcategoryId || c.subcategory) === selectedSubcategory);
-    if (selectedChapter) filtered = filtered.filter((c) => (c.chapterId || c.chapter) === selectedChapter);
+    if (selectedSubcategory) filtered = filtered.filter((c) => c.subcategoryId === selectedSubcategory);
+    if (selectedChapter) filtered = filtered.filter((c) => c.chapterId === selectedChapter);
     if (filterExamFrequent) filtered = filtered.filter((c) => c.tags?.includes("često-na-ispitu"));
     if (filterType === "essay") filtered = filtered.filter((c) => c.type === "essay");
     else if (filterType === "flash") filtered = filtered.filter((c) => c.type === "flash");
