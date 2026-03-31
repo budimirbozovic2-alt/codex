@@ -213,7 +213,7 @@ export function useCardActions({ categories, subcategories, categoryRecords, edi
     }
 
     setIsSaving(true);
-    const { category: cat, subcategory: sub, chapter: ch } = resolvedMeta;
+    const { categoryId: cat, subcategoryId: sub, chapterId: ch } = resolvedMeta;
 
     try {
       if (cardType === "flash") {
@@ -221,14 +221,14 @@ export function useCardActions({ categories, subcategories, categoryRecords, edi
           onUpdate(editCard.id, {
             question,
             sections: [{ title: "Odgovor", content: flashAnswer }],
-            category: cat, subcategory: sub, chapter: ch,
+            categoryId: cat, subcategoryId: sub, chapterId: ch,
           });
         } else {
           onSaveFlash(question, flashAnswer, cat, sub);
         }
       } else {
         if (editCard && onUpdate) {
-          onUpdate(editCard.id, { question, sections, category: cat, subcategory: sub, chapter: ch });
+          onUpdate(editCard.id, { question, sections, categoryId: cat, subcategoryId: sub, chapterId: ch });
         } else {
           onSave(question, sections, cat, sub, ch);
         }

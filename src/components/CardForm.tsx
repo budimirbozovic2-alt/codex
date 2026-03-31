@@ -15,7 +15,7 @@ interface Props {
   onSaveFlash: (question: string, answer: string, category: string, subcategory?: string) => void;
   onCancel: () => void;
   editCard?: Card | null;
-  onUpdate?: (id: string, updates: { question?: string; sections?: SectionInput[]; category?: string; subcategory?: string; chapter?: string }) => void;
+  onUpdate?: (id: string, updates: { question?: string; sections?: SectionInput[]; categoryId?: string; subcategoryId?: string; chapterId?: string }) => void;
   onSplit?: (id: string) => void;
 }
 

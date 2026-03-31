@@ -465,7 +465,7 @@ export default function CardOrgMode({ cards, categoryId, subcategoryNodes, patch
                               onAssignChapter={v => assignChapter(card.id, v)}
                               onMoveSub={v => {
                                 const targetSub = v === "(Bez potkategorije)" ? "" : v;
-                                patchCard(card.id, c => ({ ...c, subcategory: targetSub, subcategoryId: targetSub }));
+                                patchCard(card.id, c => ({ ...c, subcategoryId: targetSub }));
                               }}
                             />
                           );
