@@ -1,6 +1,8 @@
 import { Trash2, AlertCircle, Target, TrendingUp, Trophy, ChevronDown, ChevronRight, Flame, ShieldCheck } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Card, ErrorLogEntry, getErrorStatus, ErrorStatus } from "@/lib/spaced-repetition";
+import { type CategoryRecord } from "@/lib/db";
+import { getSubcategoryName } from "@/lib/category-service";
 
 
 import { motion, AnimatePresence } from "framer-motion";
