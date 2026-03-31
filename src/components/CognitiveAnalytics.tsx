@@ -158,9 +158,9 @@ export default function CognitiveAnalytics({ cards, categories, reviewLog, catNa
             {friction.transitions.slice(0, 6).map((t, i) => (
               <div key={i} className={`flex items-center justify-between p-2.5 rounded-lg text-sm ${t.isSlow ? "border border-warning/20 bg-warning/5" : "bg-secondary/30"}`}>
                 <div className="flex items-center gap-2 min-w-0">
-                  <span className="truncate text-xs font-medium">{t.fromCategory}</span>
+                  <span className="truncate text-xs font-medium">{catNameMap[t.fromCategory] || t.fromCategory}</span>
                   <span className="text-muted-foreground text-xs">→</span>
-                  <span className="truncate text-xs font-medium">{t.toCategory}</span>
+                  <span className="truncate text-xs font-medium">{catNameMap[t.toCategory] || t.toCategory}</span>
                 </div>
                 <span className={`text-xs tabular-nums font-medium ${t.isSlow ? "text-warning" : "text-muted-foreground"}`}>
                   {t.avgTransitionMinutes} min
