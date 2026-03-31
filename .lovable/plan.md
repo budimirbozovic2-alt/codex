@@ -1,85 +1,169 @@
 
 
-# Fix Build Errors — Stabilizacija nakon Pod-faze 2B
+# Zustand Store za SourceReader — Eliminacija kaskadnih re-rendera
 
-## Rezime
-27 build grešaka u 9 fajlova. Sve su posljedica nepotpune migracije na UUID sistem i nedostajućih importa. Nema novih biblioteka, nema schema promjena.
-
----
-
-## 1. Missing React imports
-
-### `src/components/MnemonicModule.tsx` (L3)
-- Dodati `useRef, useEffect` u import: `import { useState, useCallback, useMemo, useRef, useEffect } from "react";`
-
-### `src/components/MnemonicWorkshop.tsx` (L2)
-- Dodati `useEffect`: `import { useState, useMemo, useCallback, useEffect } from "react";`
+## Rezime za korisnika
+Uvodimo Zustand kao lightweight state manager za SourceReader modul. Umjesto da jedan gigantski hook gura ~30 state varijabli odozgo ka dolje kroz props, svaka komponenta će direktno čitati samo ono što joj treba iz centralnog store-a. Rezultat: toolbar se ne re-renderuje kad se promijeni selekcija teksta, content se ne re-renderuje kad se promijeni width, itd.
 
 ---
 
-## 2. MnemonicCard nema `subcategory` polje (ima `subcategoryId`)
-
-### `src/components/MnemonicTest.tsx`
-- L37, L53, L196, L355: zamijeni `c.subcategory` → `c.subcategoryId`
-- L355: `currentCard.subcategory` → `currentCard.subcategoryId`, sa lookup za prikaz naziva
-
-### `src/components/workshop/WorkshopCardItem.tsx`
-- L37, L38, L42: `card.subcategory` → `card.subcategoryId` (L37 fallback `|| card.subcategoryId` je OK ali treba ukloniti nepostojeći `card.subcategory`)
-
----
-
-## 3. MentalSkeleton `onUpdateChapters` tip mismatch (L27, L110)
-
-**Problem**: Props interfejs definiše `chapter: string` ali `useChapterManagement` šalje `chapterId: string`.
-
-**Fix**: Promijeniti Props interfejs u `MentalSkeleton.tsx` L27:
-```ts
-onUpdateChapters: (updates: { id: string; chapterId: string; chapterOrder: number }[]) => void;
+## Korak 1: Instalacija Zustand-a
+```bash
+npm install zustand
 ```
 
----
+## Korak 2: Kreiranje `src/store/useSourceReaderStore.ts`
 
-## 4. StudyModeFree — `subcategory` prop ne postoji na `TextSelectionTooltip`
+Store sadrži **sav state** koji je trenutno razbijen između `useSourceLogic` i `useSourceReaderLogic`:
 
-### `src/components/learn/StudyModeFree.tsx` (L82, L96)
-- Zamijeni `subcategory={card.subcategory}` → `subcategoryId={card.subcategoryId}`
+**UI slices** (svaka komponenta čita samo svoj):
+- `viewMode` → koristi samo Toolbar, Content
+- `editMode` → koristi Toolbar, Tooltip, ContextMenu
+- `readerWidth` → koristi samo SourceReader layout
+- `outlineOpen` → koristi Toolbar, layout
+- `examOpen` → koristi Toolbar, layout
+- `selection` → koristi Tooltip, ExamSidebar
+- `headingMenu` → koristi ContextMenu
+- `essayDialogOpen`, `essayQuestion`, `selectedText` → koristi EssayDialog
+- `splitSummaryOpen`, `splitResult`, `splitDone`, `splitCreatedCount`, `splitParentName`, `splitModules` → koristi SmartSplitDialog
+- `autoSplitOpen` → koristi AutoSplitDialog
+- `linkModalOpen`, `linkSelectedText` → koristi LinkModal
+- `examQuestions` → koristi ExamSidebar, Toolbar (pending count)
 
----
+**Computed/derived** (ostaje izvan store-a, u komponenti):
+- `safeHtml`, `coverage`, `linkedCount`, `sourceCards` — zavise od `source` prop-a i `cards` iz AppContext, pa se računaju u SourceReader ili malom wrapper hooku
 
-## 5. `toast.success` ne postoji u useCardExport
+**Actions** (funkcije u store-u):
+- `setViewMode`, `setEditMode`, `setReaderWidth`, `setOutlineOpen`, `setExamOpen`, `setSelection`, `setHeadingMenu`
+- `openEssayDialog`, `closeEssayDialog`, `openSplitSummary`, `closeSplitSummary`
+- `openAutoSplit`, `closeAutoSplit`, `openLinkModal`, `closeLinkModal`
+- `setExamQuestions`
 
-### `src/hooks/useCardExport.ts` (L128, L132, L202, L206)
-- Zamijeni `toast.success("...")` sa `toast({ title: "..." })` (jer koristi shadcn toast, ne sonner)
+**Bitno**: `handleSetHeading`, `handleFormatAsList`, `handleCreateEssay`, `handleSmartSplitConfirm`, `handleLinkConfirm` ostaju kao **eksterni handleri** (ne u store-u) jer zavise od `source` prop-a, `addCard`, `patchCard` iz AppContext. Definišu se u malom `useSourceReaderActions(source)` hooku.
 
----
+### Store struktura (pseudokod):
+```ts
+import { create } from "zustand";
 
-## 6. EventBus TypeScript greške — `payload` je `unknown`
+interface SourceReaderState {
+  // UI state
+  viewMode: "standard" | "coverage";
+  editMode: boolean;
+  readerWidth: ReaderWidth;
+  outlineOpen: boolean;
+  examOpen: boolean;
+  selection: { text: string; x: number; y: number } | null;
+  headingMenu: { x: number; y: number; element: HTMLElement } | null;
+  
+  // Dialog state
+  essayDialogOpen: boolean;
+  essayQuestion: string;
+  selectedText: string;
+  autoSplitOpen: boolean;
+  splitSummaryOpen: boolean;
+  splitResult: SplitResult | null;
+  splitDone: boolean;
+  splitCreatedCount: number;
+  splitParentName: string;
+  splitModules: SelectionModule[];
+  linkModalOpen: boolean;
+  linkSelectedText: string;
+  examQuestions: ExamQuestion[];
+  
+  // Actions
+  setViewMode: (m: ViewMode) => void;
+  setEditMode: (v: boolean) => void;
+  setReaderWidth: (w: ReaderWidth) => void;
+  // ... ostale set funkcije
+  reset: () => void; // za cleanup kad se SourceReader unmountuje
+}
+```
 
-### `src/lib/event-bus.ts` (L43-58)
-- Cast payload u heartbeat/reply/leaving subscriberima: `(payload: any)` je već u potpisu ali TS ga vidi kao `unknown` jer je generički. Fix: eksplicitno tipizirati subscribe pozive kao `subscribe<{sourceTabId: string}>(...)` ili dodati `as any` cast.
+### Zlatno pravilo selektora
+Svaka komponenta koristi **granularne selektore**:
+```ts
+// SourceToolbar.tsx — ISPRAVNO
+const viewMode = useSourceReaderStore(s => s.viewMode);
+const setViewMode = useSourceReaderStore(s => s.setViewMode);
 
----
+// ZABRANJENO — nikada cijeli state:
+// const state = useSourceReaderStore();
+```
 
-## 7. query-client `refetchOnReconnect: "stale"` tip greška
+## Korak 3: Novi `src/hooks/useSourceReaderActions.ts`
 
-### `src/lib/query-client.ts` (L10)
-- Zamijeni `"stale"` sa `false` (ili `true`). Tanstack Query v5 ne prihvata `"stale"` string za `refetchOnReconnect`.
+Ovaj hook sadrži **side-effect akcije** koje zavise od `source` propa i AppContext-a:
+- `handleSetHeading(level, targetEl?)` — čita `contentRef`, piše u IDB
+- `handleFormatAsList(type)` — čita `contentRef`, piše u IDB
+- `handleFormatSelectionAs(tag)` — delegira na gornje dvije
+- `handleConvertToEssay()` — čita `selection` iz store-a, otvara dialog
+- `handleCreateEssay()` — čita `essayQuestion`/`selectedText` iz store-a, poziva `addCard`
+- `handleSmartSplitConfirm()` — čita split state iz store-a, poziva `addCard`
+- `handleLinkToExisting()` / `handleLinkConfirm()` — čita iz store-a, poziva `patchCard`
+- `handleMapSelection(questionId)` — čita `selection`/`examQuestions` iz store-a
+- `handleContextMenu(e)` — čita `editMode` iz store-a
+- `handleMouseUp()` — postavlja `selection` u store
+- `scrollToHeading(id)` — čist DOM scroll
 
----
+**contentRef** ostaje kao `useRef` u ovom hooku.
 
-## 8. Planner UUID prikaz (bonus — iz korisničkog zahtjeva)
+## Korak 4: Ažuriranje `SourceReader.tsx` — postaje "ljuštura"
 
-### `src/components/planner/PhaseItem.tsx` (L74-84)
-- `p.categories` sadrži UUID-ove. Treba lookup za ime.
-- Dodati prop `categoryNames: Record<string, string>` i prikazati `categoryNames[cat] || cat`
+```tsx
+export default function SourceReader({ source, onBack, onSourceUpdated }: Props) {
+  const { actions, contentRef } = useSourceReaderActions(source, onSourceUpdated);
+  const viewMode = useSourceReaderStore(s => s.viewMode);
+  const readerWidth = useSourceReaderStore(s => s.readerWidth);
+  const outlineOpen = useSourceReaderStore(s => s.outlineOpen);
+  const examOpen = useSourceReaderStore(s => s.examOpen);
+  // ... ostalo
 
-### `src/components/planner/OperationsTab.tsx` (L228-236)
-- Kategorije pill-ovi prikazuju UUID. Treba isti lookup.
-- Izračunati `catNameMap` iz `categoryRecords` (treba dodati `categoryRecords` kao prop ili proslijediti iz `StrategicPlanner` koji već ima pristup)
-- Alternativa: prop `categories` promijeniti iz `string[]` u `{id: string, name: string}[]`
+  // Reset store on unmount
+  useEffect(() => () => useSourceReaderStore.getState().reset(), []);
 
-### `src/components/StrategicPlanner.tsx`
-- Proslijeđuje `categories={categories}` (UUID niz). Treba proslijediti i `categoryRecords` ili `catNameMap` za prikaz.
+  // Derived (ostaje ovdje jer zavisi od source prop-a)
+  const sourceCards = useMemo(...);
+  const coverage = useMemo(...);
+  const safeHtml = useMemo(...);
+
+  return (
+    <div className="space-y-4">
+      <SourceToolbar source={source} onBack={onBack} onAutoSplit={actions.openAutoSplit} />
+      {/* ... */}
+    </div>
+  );
+}
+```
+
+## Korak 5: Ažuriranje `SourceToolbar.tsx` — direktno čita store
+
+```tsx
+export const SourceToolbar = memo(function SourceToolbar({ source, onBack, onAutoSplit }) {
+  const viewMode = useSourceReaderStore(s => s.viewMode);
+  const setViewMode = useSourceReaderStore(s => s.setViewMode);
+  const editMode = useSourceReaderStore(s => s.editMode);
+  const setEditMode = useSourceReaderStore(s => s.setEditMode);
+  const readerWidth = useSourceReaderStore(s => s.readerWidth);
+  const setReaderWidth = useSourceReaderStore(s => s.setReaderWidth);
+  const examOpen = useSourceReaderStore(s => s.examOpen);
+  const setExamOpen = useSourceReaderStore(s => s.setExamOpen);
+  const outlineOpen = useSourceReaderStore(s => s.outlineOpen);
+  const setOutlineOpen = useSourceReaderStore(s => s.setOutlineOpen);
+  const examQuestions = useSourceReaderStore(s => s.examQuestions);
+  // Props: source, onBack, onAutoSplit (jedini preostali)
+  // ...
+});
+```
+
+Isto za `SourceTooltip`, `SourceContextMenu`, `EssayCreationDialog`, `SmartSplitSummaryDialog`.
+
+## Korak 6: Brisanje starih fajlova
+- `src/hooks/useSourceReaderLogic.ts` → obrisati (zamijenjeno store-om + actions hookom)
+- `src/hooks/useSourceLogic.ts` → obrisati (logika premještena u store + actions hook)
+
+## Korak 7: Keyboard shortcuts
+- Premjestiti `useEffect` za keyboard shortcuts u `useSourceReaderActions.ts`
+- Čita `selection`, `editMode`, `essayDialogOpen` itd. iz store-a direktno (`useSourceReaderStore.getState()`)
 
 ---
 
@@ -87,20 +171,28 @@ onUpdateChapters: (updates: { id: string; chapterId: string; chapterOrder: numbe
 
 | Fajl | Promjena |
 |------|----------|
-| `src/components/MnemonicModule.tsx` | Dodaj `useRef, useEffect` import |
-| `src/components/MnemonicWorkshop.tsx` | Dodaj `useEffect` import |
-| `src/components/MnemonicTest.tsx` | `subcategory` → `subcategoryId` (5 mjesta) |
-| `src/components/workshop/WorkshopCardItem.tsx` | `subcategory` → `subcategoryId` (3 mjesta) |
-| `src/components/MentalSkeleton.tsx` | Props tip: `chapter` → `chapterId` |
-| `src/components/learn/StudyModeFree.tsx` | `subcategory` → `subcategoryId` (2 mjesta) |
-| `src/hooks/useCardExport.ts` | `toast.success` → `toast({title})` |
-| `src/lib/event-bus.ts` | Tipizacija payload-a u subscribe pozivima |
-| `src/lib/query-client.ts` | `"stale"` → `false` |
-| `src/components/planner/PhaseItem.tsx` | Dodaj catNameMap prop, lookup za prikaz |
-| `src/components/planner/OperationsTab.tsx` | Proslijedi catNameMap, lookup u pill-ovima |
-| `src/components/StrategicPlanner.tsx` | Proslijedi categoryRecords ili catNameMap |
+| `package.json` | Dodaj `zustand` dependency |
+| `src/store/useSourceReaderStore.ts` | **NOVO** — centralni store |
+| `src/hooks/useSourceReaderActions.ts` | **NOVO** — side-effect akcije |
+| `src/components/SourceReader.tsx` | Pojednostavi na ljušturu |
+| `src/components/source-reader/SourceToolbar.tsx` | Čita direktno iz store-a, manje props |
+| `src/components/source-reader/SourceTooltip.tsx` | Čita `selection`, `editMode` iz store-a |
+| `src/components/source-reader/SourceContextMenu.tsx` | Čita `headingMenu` iz store-a |
+| `src/components/source-reader/EssayCreationDialog.tsx` | Čita essay state iz store-a |
+| `src/components/source-reader/SmartSplitSummaryDialog.tsx` | Čita split state iz store-a |
+| `src/hooks/useSourceReaderLogic.ts` | **OBRISATI** |
+| `src/hooks/useSourceLogic.ts` | **OBRISATI** |
+
+## Guardrails
+- FSRS logika: netaknuta
+- Zustand selektori: **granularni** — nikada cijeli state u jednoj komponenti
+- `source` prop i AppContext (`addCard`, `patchCard`, `cards`): ostaju React-native, ne idu u Zustand
+- `contentRef`: ostaje kao `useRef`, ne ide u store
+- Store `reset()` se poziva na unmount da ne ostanu stale podaci
+- CSS/styling: bez promjena
 
 ## Scope
-- 12 fajlova, ~60 linija promjena
-- Nema novih zavisnosti, nema schema promjena
+- 11 fajlova (2 nova, 2 obrisana, 7 ažuriranih)
+- ~400 linija (store ~120, actions hook ~180, ostalo refaktoring)
+- 1 nova dependency: `zustand`
 
