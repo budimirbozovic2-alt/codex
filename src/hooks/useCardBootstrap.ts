@@ -124,77 +124,8 @@ export function useCardBootstrap(setters: BootSetters) {
 
         splashProgress(50, `${c.length} kartica učitano`);
         // Load CategoryRecord[] from IDB, seed defaults if empty
-        const catRecords = await withTimeout(seedDefaultCategories(), 2500, "categories load", []);
-        console.log("[boot:diag] categories loaded:", catRecords.length, catRecords.map((r: CategoryRecord) => r.name));
-        // Build subcategories map + fallback "Opšte" nodes for orphaned cards
-        const updatedRecords: CategoryRecord[] = [];
-        let needsPersist = false;
-
-        for (const r of catRecords) {
-          // Migrate legacy string[] to SubcategoryNode[] with UUID
-          let nodes: SubcategoryNode[] = (r.subcategories || []).map((s: any, i: number) => {
-            if (typeof s === "string") {
-              needsPersist = true;
-              return { id: crypto.randomUUID(), name: s, chapters: [] as import("@/lib/db").ChapterNode[], sortOrder: i };
-            }
-            // Ensure node has id
-            const node: SubcategoryNode = {
-              id: s.id || crypto.randomUUID(),
-              name: s.name,
-              sortOrder: s.sortOrder ?? i,
-              chapters: ((s.chapters || []) as any[]).map((ch: any, ci: number): import("@/lib/db").ChapterNode => {
-                if (typeof ch === "string") {
-                  needsPersist = true;
-                  return { id: crypto.randomUUID(), name: ch, sortOrder: ci };
-                }
-                if (!ch.id) {
-                  needsPersist = true;
-                  return { ...ch, id: crypto.randomUUID(), sortOrder: ch.sortOrder ?? ci };
-                }
-                return ch;
-              }),
-            };
-            if (!s.id) needsPersist = true;
-            return node;
-          });
-
-          // Scan cards belonging to this category for orphaned subcategories/chapters
-          const catCards = c.filter((card) => card.categoryId === r.id);
-          for (const card of catCards) {
-            const sub = card.subcategory || "";
-            const ch = card.chapter || "";
-            if (!sub) continue;
-
-            let node = nodes.find((n) => n.name === sub);
-            if (!node) {
-              node = { id: crypto.randomUUID(), name: sub, chapters: [], sortOrder: nodes.length };
-              nodes.push(node);
-              needsPersist = true;
-              console.log(`[boot] fallback SubcategoryNode created: "${sub}" in category ${r.name}`);
-            }
-            if (ch && !node.chapters.some(c => c.name === ch)) {
-              node.chapters.push({ id: crypto.randomUUID(), name: ch, sortOrder: node.chapters.length });
-              needsPersist = true;
-              console.log(`[boot] fallback chapter registered: "${ch}" under "${sub}" in ${r.name}`);
-            }
-          }
-
-          updatedRecords.push({ ...r, subcategories: nodes });
-        }
-
-        // Persist migrated/fallback nodes back to IDB (fire-and-forget)
-        if (needsPersist && db) {
-          Promise.all(
-            updatedRecords.map((rec) =>
-              db!.categories.update(rec.id, { subcategories: rec.subcategories }).catch((e: unknown) =>
-                console.warn("[boot] fallback persist failed for", rec.name, e)
-              )
-            )
-          ).catch(() => {});
-        }
-
-        // Always use updatedRecords (with migrated nodes) as canonical state
-        const finalRecords = needsPersist ? updatedRecords : catRecords;
+        const finalRecords = await withTimeout(seedDefaultCategories(), 2500, "categories load", []);
+        console.log("[boot:diag] categories loaded:", finalRecords.length, finalRecords.map((r: CategoryRecord) => r.name));
 
         splashProgress(65, "Učitavanje kategorija…");
 

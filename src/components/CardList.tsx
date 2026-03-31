@@ -313,7 +313,6 @@ export default function CardList({
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
   const allCats = useLiveQuery(() => db.categories.toArray(), []);
-  const catNameMap = useMemo(() => Object.fromEntries((allCats ?? []).map(r => [r.id, r.name])), [allCats]);
 
   const filtered = useMemo(() => {
     let result = filterCategory ? cards.filter(c => c.categoryId === filterCategory) : cards;
@@ -434,8 +433,8 @@ export default function CardList({
     onAssignChapter,
     onCloneToMnemonic,
     onAddKeyPart,
-    catNameMap,
-  }), [filtered, expandedId, scrollToCardId, selectionMode, selectedIds, onToggleSelect, onToggleTag, onEdit, onDelete, propCategories, propSubcategories, availableChapters, onMoveCategory, onAssignChapter, onCloneToMnemonic, onAddKeyPart, catNameMap]);
+    categoryRecords: allCats,
+  }), [filtered, expandedId, scrollToCardId, selectionMode, selectedIds, onToggleSelect, onToggleTag, onEdit, onDelete, propCategories, propSubcategories, availableChapters, onMoveCategory, onAssignChapter, onCloneToMnemonic, onAddKeyPart, allCats]);
 
   if (filtered.length === 0) {
     return <p className="text-muted-foreground text-center py-12">Nema kartica. Kreirajte prvu!</p>;
@@ -495,7 +494,7 @@ export default function CardList({
                 onAssignChapter={onAssignChapter}
                 onCloneToMnemonic={onCloneToMnemonic}
                 onAddKeyPart={onAddKeyPart}
-                catNameMap={catNameMap}
+                categoryRecords={allCats}
               />
             </div>
           </div>

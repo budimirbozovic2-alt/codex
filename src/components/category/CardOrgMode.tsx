@@ -306,7 +306,7 @@ export default function CardOrgMode({ cards, categoryId, subcategoryNodes, patch
     const overContainer = findCardContainer(overId);
     if (!activeContainer || !overContainer) return;
 
-    const sameContainer = activeContainer.sub === overContainer.sub && activeContainer.chapter === overContainer.chapter;
+    const sameContainer = activeContainer.subId === overContainer.subId && activeContainer.chapterId === overContainer.chapterId;
 
     if (sameContainer) {
       const chapterNode = tree
