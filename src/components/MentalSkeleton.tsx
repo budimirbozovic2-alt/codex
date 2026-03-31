@@ -195,7 +195,7 @@ export default function MentalSkeleton({ cards, subcategory, category, onBack, o
       sourceCards.forEach((c, i) => {
         updates.push({
           id: c.id,
-          chapter: sourceChapter === UNASSIGNED_CHAPTER ? "" : sourceChapter,
+          chapterId: sourceChapter === UNASSIGNED_CHAPTER ? "" : sourceChapter,
           chapterOrder: i,
         });
       });
