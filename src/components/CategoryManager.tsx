@@ -141,37 +141,6 @@ export default function CategoryManager({
                         )}
                       </div>
                       <div className="flex gap-1">
-                        {/* Building type picker */}
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <button className="p-1.5 hover:bg-secondary rounded-lg" title="Tip monumenta">
-                              <Landmark className="h-3.5 w-3.5 text-gold" />
-                            </button>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-[280px] p-3" align="end">
-                            <p className="text-xs font-medium text-muted-foreground mb-2 uppercase tracking-wider">Tip zgrade</p>
-                            <div className="grid grid-cols-3 gap-2">
-                              {ALL_BUILDING_TYPES.map(bt => (
-                                <button
-                                  key={bt}
-                                  onClick={() => handleSetBuildingType(cat, bt)}
-                                  className={`flex flex-col items-center gap-1 p-2 rounded-lg border transition-colors ${
-                                    currentBuilding === bt
-                                      ? "border-gold bg-gold/10"
-                                      : "border-border hover:border-gold/50"
-                                  }`}
-                                >
-                                  <div className="w-12 h-10">
-                                    <MonumentSVG buildingType={bt} tier="complete" />
-                                  </div>
-                                  <span className="text-[9px] font-medium text-muted-foreground leading-tight text-center">
-                                    {BUILDING_LABELS[bt]}
-                                  </span>
-                                </button>
-                              ))}
-                            </div>
-                          </PopoverContent>
-                        </Popover>
                         <button onClick={() => startEdit(cat)} className="p-1.5 hover:bg-secondary rounded-lg">
                           <Edit2 className="h-3.5 w-3.5 text-muted-foreground" />
                         </button>

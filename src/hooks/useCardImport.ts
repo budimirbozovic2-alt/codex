@@ -249,8 +249,6 @@ export function useCardImport({
             localStorage.setItem(key, typeof value === "string" ? value : JSON.stringify(value));
           }
         }
-        const { invalidateMonumentTypesCache } = await import("@/lib/forum-logic");
-        invalidateMonumentTypesCache();
         if (strategy === "overwrite") {
           try { localStorage.removeItem("sr-review-session"); } catch {}
         }

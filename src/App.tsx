@@ -76,7 +76,7 @@ const App = () => (
                   <ProcessingOverlay />
                 </ErrorBoundary>
               </SessionProvider>
-            </ForumProvider>
+            
           </AppProvider>
         </HashRouter>
       </div>
