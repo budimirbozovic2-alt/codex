@@ -204,7 +204,7 @@ function DiaryTab({ cards, reviewLog, catNameMap }: { cards: Card[]; reviewLog: 
                   </span>
                   <div className="min-w-0 flex-1">
                     <p className="text-sm truncate">{card?.question || "Nepoznata kartica"}</p>
-                    <p className="text-xs text-muted-foreground">{l.category}</p>
+                    <p className="text-xs text-muted-foreground">{catNameMap[l.category] || l.category}</p>
                   </div>
                 </div>
               );
