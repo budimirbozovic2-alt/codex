@@ -21,9 +21,10 @@ export interface PhaseItemProps {
   onStartEdit: () => void;
   onRemove: () => void;
   onOpenInDB: () => void;
+  catNameMap: Record<string, string>;
 }
 
-export default function PhaseItem({ phase: p, index: i, dynamicDays, isEditing, editName, editDays, setEditName, setEditDays, onSaveEdit, onCancelEdit, onStartEdit, onRemove, onOpenInDB }: PhaseItemProps) {
+export default function PhaseItem({ phase: p, index: i, dynamicDays, isEditing, editName, editDays, setEditName, setEditDays, onSaveEdit, onCancelEdit, onStartEdit, onRemove, onOpenInDB, catNameMap }: PhaseItemProps) {
   const controls = useDragControls();
 
   return (
