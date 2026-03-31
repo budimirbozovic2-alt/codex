@@ -96,6 +96,17 @@ export default function FrequentErrors({ cards, categoryRecords, onClearErrorLog
   const { toast } = useToast();
   const [showMastered, setShowMastered] = useState(false);
 
+  const catNameMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const r of categoryRecords) {
+      map[r.id] = r.name;
+      for (const sub of (r.subcategories || [])) {
+        map[sub.id] = sub.name;
+      }
+    }
+    return map;
+  }, [categoryRecords]);
+
   const { criticalAndRecovering, mastered, totalErrors, cardIdsWithErrors } = useMemo(() => {
     const allErrors: AggregatedError[] = [];
     const cardIdsWithErrors = new Set<string>();
