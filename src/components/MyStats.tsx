@@ -136,7 +136,7 @@ export default function MyStats({ cards, categories, categoryRecords, subcategor
         <TabsContent value="prediction">
           <Suspense fallback={<TabSkeleton />}>
             <ErrorBoundary label="Predikcija">
-              <PredictionTab cards={cards} categories={categories} reviewLog={reviewLog} />
+              <PredictionTab cards={cards} categories={categories} reviewLog={reviewLog} catNameMap={catNameMap} />
             </ErrorBoundary>
           </Suspense>
         </TabsContent>
