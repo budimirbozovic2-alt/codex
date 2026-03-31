@@ -63,7 +63,7 @@ export default function MetacognitiveCenter({ cards, categories, categoryRecords
         </TabsList>
 
         <TabsContent value="diary">
-          <DiaryTab cards={cards} reviewLog={reviewLog} />
+          <DiaryTab cards={cards} reviewLog={reviewLog} catNameMap={catNameMap} />
         </TabsContent>
         <TabsContent value="errors">
           <Suspense fallback={<div className="py-8 text-center text-muted-foreground text-sm">Učitavanje…</div>}>
