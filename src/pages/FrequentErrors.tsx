@@ -228,7 +228,7 @@ export default function FrequentErrors({ cards, categoryRecords, onClearErrorLog
               className="rounded-xl border bg-card overflow-hidden"
             >
               <div className="px-5 py-3 bg-secondary/30 border-b flex items-center justify-between">
-                <h3 className="font-medium text-sm">{category}</h3>
+                <h3 className="font-medium text-sm">{catNameMap[category] || category}</h3>
                 <span className="text-xs text-muted-foreground">
                   {errors.reduce((s, e) => s + e.count, 0)} promašaja
                 </span>
