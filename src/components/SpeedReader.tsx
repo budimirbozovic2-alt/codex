@@ -154,7 +154,10 @@ export default function SpeedReader() {
 
   const uuidToName = useMemo(() => {
     const m: Record<string, string> = {};
-    for (const r of categoryRecords) m[r.id] = r.name;
+    for (const r of categoryRecords) {
+      m[r.id] = r.name;
+      for (const sub of r.subcategories ?? []) m[sub.id] = sub.name;
+    }
     return m;
   }, [categoryRecords]);
 
@@ -594,7 +597,7 @@ export default function SpeedReader() {
                       >
                         <div className="flex items-center gap-2 mb-0.5 text-xs text-muted-foreground">
                           <span>{uuidToName[card.categoryId] ?? card.categoryId}</span>
-                          {card.subcategoryId && <span>› {card.subcategoryId}</span>}
+                          {card.subcategoryId && <span>› {uuidToName[card.subcategoryId] ?? card.subcategoryId}</span>}
                           <span className="ml-auto">{card.sections.length} sek. · {wc} rij.</span>
                         </div>
                         <p className="text-sm font-medium line-clamp-1">{card.question}</p>
@@ -677,7 +680,7 @@ export default function SpeedReader() {
             ) : (
               <>
                 <h2 className="text-xl font-medium">{selCard?.question}</h2>
-                <p className="text-xs text-muted-foreground">{uuidToName[selCard?.categoryId ?? ""] ?? selCard?.categoryId}{selCard?.subcategoryId ? ` › ${selCard.subcategoryId}` : ""}</p>
+                <p className="text-xs text-muted-foreground">{uuidToName[selCard?.categoryId ?? ""] ?? selCard?.categoryId}{selCard?.subcategoryId ? ` › ${uuidToName[selCard.subcategoryId] ?? selCard.subcategoryId}` : ""}</p>
               </>
             )}
           </div>

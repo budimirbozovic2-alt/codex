@@ -27,6 +27,8 @@ export default function LearnModal({ card, onGradeSection, onClose }: LearnModal
   const [showCloseConfirm, setShowCloseConfirm] = useState(false);
   const catRecord = useLiveQuery(() => db.categories.get(card.categoryId), [card.categoryId]);
   const catName = catRecord?.name ?? card.categoryId;
+  const subName = catRecord?.subcategories?.find(s => s.id === card.subcategoryId)?.name ?? card.subcategoryId;
+  const chName = catRecord?.subcategories?.flatMap(s => s.chapters ?? [])?.find(ch => (typeof ch === 'string' ? ch : ch.id) === card.chapterId)?.name ?? card.chapterId;
 
   // C4 fix: confirm close if revealed but ungraded sections exist
   const safeClose = useCallback(() => {
@@ -114,8 +116,8 @@ export default function LearnModal({ card, onGradeSection, onClose }: LearnModal
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-2">
               <div className="w-3 h-3 rounded" style={{ backgroundColor: getMasteryColor(level) }} />
-              <span className="text-xs text-muted-foreground">{catName} → {card.subcategoryId}</span>
-              {card.chapterId && <span className="text-xs text-muted-foreground">→ {card.chapterId}</span>}
+              <span className="text-xs text-muted-foreground">{catName} → {subName}</span>
+              {card.chapterId && <span className="text-xs text-muted-foreground">→ {chName}</span>}
             </div>
             <h3 className="text-lg font-medium leading-tight">{card.question}</h3>
           </div>

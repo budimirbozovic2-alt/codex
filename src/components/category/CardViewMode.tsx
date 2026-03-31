@@ -365,12 +365,25 @@ export default function CardViewMode({ cards, categoryId, allCategories, patchCa
               {isExpanded && (
                 <div className="border-t px-4 py-3 space-y-3 bg-muted/20">
                   <div className="flex items-center gap-2 flex-wrap">
-                    {card.subcategoryId && (
-                      <Badge variant="secondary" className="text-[10px]">
-                        Potkategorija: {card.subcategoryId}
-                      </Badge>
-                    )}
-                    {card.chapterId && (
+                    {card.subcategoryId && (() => {
+                      const cr = allCategories.find(c => c.id === card.categoryId);
+                      const sName = cr?.subcategories?.find(s => s.id === card.subcategoryId)?.name ?? card.subcategoryId;
+                      const cName = card.chapterId ? cr?.subcategories?.flatMap(s => s.chapters ?? [])?.find(ch => (typeof ch === 'string' ? ch : ch.id) === card.chapterId)?.name ?? card.chapterId : undefined;
+                      return (
+                        <>
+                          <Badge variant="secondary" className="text-[10px]">
+                            Potkategorija: {sName}
+                          </Badge>
+                          {cName && (
+                            <Badge variant="outline" className="text-[10px] gap-1 border-primary/30">
+                              <BookOpen className="h-3 w-3" />
+                              Glava: {cName}
+                            </Badge>
+                          )}
+                        </>
+                      );
+                    })()}
+                    {!card.subcategoryId && card.chapterId && (
                       <Badge variant="outline" className="text-[10px] gap-1 border-primary/30">
                         <BookOpen className="h-3 w-3" />
                         Glava: {card.chapterId}

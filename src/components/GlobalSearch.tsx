@@ -8,6 +8,8 @@ import { loadSources, type Source } from "@/lib/sources-storage";
 import { loadMindMaps } from "@/lib/mindmap-storage";
 import { MindMapDoc } from "@/lib/db";
 import { motion, AnimatePresence } from "framer-motion";
+import { useLiveQuery } from "dexie-react-hooks";
+import { db } from "@/lib/db";
 interface Props {
   cards: Card[];
   open: boolean;
@@ -42,6 +44,15 @@ function highlightMatch(text: string, query: string): string {
 export default function GlobalSearch({ cards, open, onClose, onNavigateToCard }: Props) {
   const navigate = useNavigate();
   const [query, setQuery] = useState("");
+  const catRecords = useLiveQuery(() => db.categories.toArray()) ?? [];
+  const uuidToName = useMemo(() => {
+    const m: Record<string, string> = {};
+    for (const r of catRecords) {
+      m[r.id] = r.name;
+      for (const sub of r.subcategories ?? []) m[sub.id] = sub.name;
+    }
+    return m;
+  }, [catRecords]);
   const debouncedQuery = useDebounce(query, 300);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -80,7 +91,7 @@ export default function GlobalSearch({ cards, open, onClose, onNavigateToCard }:
           id: c.id,
           type: "card",
           title: c.question,
-          subtitle: `${c.categoryId}${c.subcategoryId ? ` › ${c.subcategoryId}` : ""}`,
+          subtitle: `${uuidToName[c.categoryId] ?? c.categoryId}${c.subcategoryId ? ` › ${uuidToName[c.subcategoryId] ?? c.subcategoryId}` : ""}`,
           icon: c.type === "flash" ? "flash" : "essay",
           card: c,
         });

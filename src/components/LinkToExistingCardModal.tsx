@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import type { Card } from "@/lib/spaced-repetition";
+import { useLiveQuery } from "dexie-react-hooks";
+import { db } from "@/lib/db";
 
 interface Props {
   open: boolean;
@@ -15,6 +17,12 @@ interface Props {
   selectedText: string;
   cards: Card[];
   onLink: (cardId: string, appendSnippet: boolean) => void;
+}
+
+function SubBadge({ categoryId, subcategoryId }: { categoryId: string; subcategoryId: string }) {
+  const catRecord = useLiveQuery(() => db.categories.get(categoryId), [categoryId]);
+  const name = catRecord?.subcategories?.find(s => s.id === subcategoryId)?.name ?? subcategoryId;
+  return <Badge variant="outline" className="text-[10px] mt-0.5">{name}</Badge>;
 }
 
 export default function LinkToExistingCardModal({
@@ -88,10 +96,8 @@ export default function LinkToExistingCardModal({
                   >
                     <div className="min-w-0 flex-1">
                       <p className="text-sm font-medium truncate">{card.question}</p>
-                      {card.subcategoryId && (
-                        <Badge variant="outline" className="text-[10px] mt-0.5">
-                          {card.subcategoryId}
-                        </Badge>
+                    {card.subcategoryId && (
+                        <SubBadge categoryId={card.categoryId} subcategoryId={card.subcategoryId!} />
                       )}
                     </div>
                     <div className="flex items-center gap-1.5 shrink-0">
