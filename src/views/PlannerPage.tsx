@@ -4,7 +4,7 @@ import StrategicPlanner from "@/components/StrategicPlanner";
 import { useCallback } from "react";
 
 export default function PlannerPage() {
-  const { cards, categories, reviewLog, ready } = useCardContext();
+  const { cards, categories, categoryRecords, reviewLog, ready } = useCardContext();
   const { setView } = useUIContext();
 
   const handleNavigateToDatabase = useCallback((category: string) => {
