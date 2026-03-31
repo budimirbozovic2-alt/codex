@@ -1,11 +1,8 @@
-import { Home, GraduationCap, RotateCcw, Moon, Sun, Focus, Settings as SettingsIcon, HelpCircle, Plus, Landmark, Wrench, FolderOpen } from "lucide-react";
+import { Home, GraduationCap, RotateCcw, Moon, Sun, Focus, Settings as SettingsIcon, HelpCircle, Plus, Wrench, FolderOpen } from "lucide-react";
 import { useLocation } from "react-router-dom";
 
 import { NavLink } from "@/components/NavLink";
 import { useCardContext } from "@/contexts/AppContext";
-import { useForumContext } from "@/components/gamification/ForumContext";
-
-
 import { useState, useCallback, useRef, useEffect, useTransition } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Link } from "react-router-dom";
@@ -43,7 +40,6 @@ const TOOLS_PATHS = TOOLS_NAV.map(i => i.path);
 export default function TopNav({ onToggleZen, zenActive, onOpenOnboarding }: Props) {
   const location = useLocation();
   const { stats } = useCardContext();
-  const { enterForum, unlocked: forumUnlocked } = useForumContext();
   const [dark, setDarkState] = useState(() => document.documentElement.classList.contains("dark"));
   
   const [labOpen, setLabOpen] = useState(false);
@@ -55,31 +51,6 @@ export default function TopNav({ onToggleZen, zenActive, onOpenOnboarding }: Pro
   const [versionOpen, setVersionOpen] = useState(false);
   const [_sysInfoOpen, _setSysInfoOpen] = useState(false);
   const [_sysPayload, _setSysPayload] = useState("");
-  const _seqRef = useRef<{ phase: number; timer: ReturnType<typeof setTimeout> | null }>({ phase: 0, timer: null });
-
-  const _resetSeq = useCallback(() => {
-    if (_seqRef.current.timer) clearTimeout(_seqRef.current.timer);
-    _seqRef.current = { phase: 0, timer: null };
-  }, []);
-
-  const _handleBrandClick = useCallback(() => {
-    _resetSeq();
-    _seqRef.current.phase = 1;
-    _seqRef.current.timer = setTimeout(_resetSeq, 10000);
-  }, [_resetSeq]);
-
-  const _handleThemeSeq = useCallback((nextDark: boolean) => {
-    const p = _seqRef.current.phase;
-    if (p === 1 && !nextDark) { return; }
-    if (p === 1 && nextDark) { _seqRef.current.phase = 2; return; }
-    if (p === 2 && !nextDark) { _seqRef.current.phase = 3; return; }
-    if (p === 3 && nextDark) {
-      _resetSeq();
-      enterForum();
-      return;
-    }
-    _resetSeq();
-  }, [_resetSeq]);
 
   // Listen for mapping events (custom event from SourceReader)
   useEffect(() => {
@@ -96,8 +67,7 @@ export default function TopNav({ onToggleZen, zenActive, onOpenOnboarding }: Pro
     const next = !dark;
     setDarkState(next);
     setDarkMode(next);
-    _handleThemeSeq(next);
-  }, [dark, _handleThemeSeq]);
+  }, [dark]);
 
   // Close mega menu on click outside
   useEffect(() => {
@@ -122,7 +92,7 @@ export default function TopNav({ onToggleZen, zenActive, onOpenOnboarding }: Pro
     <nav className="sticky top-0 z-40 border-b bg-background/90 backdrop-blur-md">
       {/* Desktop */}
       <div className="flex items-center h-11 px-4 gap-1 max-w-7xl mx-auto">
-        <div className="flex items-center gap-2.5 mr-4 cursor-default" onClick={_handleBrandClick} onDoubleClick={() => setVersionOpen(true)}>
+        <div className="flex items-center gap-2.5 mr-4 cursor-default" onDoubleClick={() => setVersionOpen(true)}>
           <img src={`${import.meta.env.BASE_URL}logo-icon.png`} alt="CODEX" className="h-6 w-6 rounded-full" />
           <span className="text-sm font-bold uppercase tracking-[0.2em] text-primary select-none">CODEX</span>
         </div>
@@ -202,11 +172,6 @@ export default function TopNav({ onToggleZen, zenActive, onOpenOnboarding }: Pro
         </div>
 
         <div className="flex items-center gap-0.5 ml-2">
-          {forumUnlocked && (
-            <Link to="/forum" className="p-1.5 rounded-md hover:bg-gold/10 text-gold transition-colors" title="Forum znanja" aria-label="Forum znanja">
-              <Landmark className="h-4 w-4" />
-            </Link>
-          )}
           {/* Mapping badge */}
           {mappingFlash && (
             <div className="flex items-center gap-1 px-2 py-1 rounded-md bg-success/15 text-success text-[10px] font-bold animate-in fade-in zoom-in-95 duration-300">

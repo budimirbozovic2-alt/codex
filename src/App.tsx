@@ -13,8 +13,6 @@ import ProcessingOverlay from "@/components/ProcessingOverlay";
 import { lazy, Suspense } from "react";
 import { PageSkeleton } from "@/components/ui/page-skeleton";
 import NotFound from "./pages/NotFound";
-import { ForumProvider } from "@/components/gamification/ForumContext";
-import ForumTransition from "@/components/gamification/ForumTransition";
 
 // Lazy-loaded route pages
 const DashboardPage = lazy(() => import("@/views/DashboardPage"));
@@ -33,7 +31,7 @@ const FrequentErrorsPage = lazy(() => import("@/views/FrequentErrorsPage"));
 const CategoriesRoutePage = lazy(() => import("@/views/CategoriesRoutePage"));
 const SpeedReaderPage = lazy(() => import("@/views/SpeedReaderPage"));
 const MindMapPage = lazy(() => import("@/views/MindMapPage"));
-const RomanForumPage = lazy(() => import("@/views/RomanForumPage"));
+
 const CategoryView = lazy(() => import("@/views/CategoryView"));
 
 const queryClient = new QueryClient();
@@ -47,8 +45,6 @@ const App = () => (
         <Sonner />
         <HashRouter>
           <AppProvider>
-            <ForumProvider>
-              <ForumTransition />
               <SessionProvider>
                 <ErrorBoundary>
                   <MainLayout>
@@ -72,7 +68,7 @@ const App = () => (
                         <Route path="/categories" element={<ErrorBoundary label="Kategorije"><CategoriesRoutePage /></ErrorBoundary>} />
                         <Route path="/speed-reader" element={<ErrorBoundary label="Speed Reader"><SpeedReaderPage /></ErrorBoundary>} />
                         <Route path="/mind-map" element={<ErrorBoundary label="Mapa uma"><MindMapPage /></ErrorBoundary>} />
-                        <Route path="/forum" element={<ErrorBoundary label="Forum"><RomanForumPage /></ErrorBoundary>} />
+                        
                         <Route path="*" element={<ErrorBoundary label="404"><NotFound /></ErrorBoundary>} />
                       </Routes>
                     </Suspense>
@@ -80,7 +76,7 @@ const App = () => (
                   <ProcessingOverlay />
                 </ErrorBoundary>
               </SessionProvider>
-            </ForumProvider>
+            
           </AppProvider>
         </HashRouter>
       </div>

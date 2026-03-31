@@ -1,4 +1,4 @@
-import { Target, Landmark } from "lucide-react";
+import { Target } from "lucide-react";
 import { Card as SRCard, SRSettings } from "@/lib/spaced-repetition";
 import { ReviewLogEntry } from "@/lib/storage";
 import ProgressRing from "@/components/ProgressRing";
@@ -10,8 +10,6 @@ import { DailyBriefing } from "./dashboard/DailyBriefing";
 import { IdealFocus } from "./dashboard/IdealFocus";
 import { VelocityWidget } from "./dashboard/VelocityWidget";
 import { StatusIconsRow } from "./dashboard/StatusIconsRow";
-import { useForumContext } from "./gamification/ForumContext";
-import { Link } from "react-router-dom";
 
 interface Props {
   stats: { due: number; total: number; totalSections: number; learnedSections: number };
@@ -30,8 +28,6 @@ export default function Dashboard({ stats, categoryStats, categories, subcategor
     focusRatio, actualRatio, autoSuggestion, storageUsage, plannerData,
     velocityData, weakestCategories, briefText, statusIcons, statusColor, statusMessage,
   } = useDashboardData(stats, categoryStats, categories, cards, reviewLog, srSettings);
-  const { unlocked } = useForumContext();
-
   return (
     <div className="space-y-6 relative">
       {wc.showExamProgress && (
@@ -114,21 +110,6 @@ export default function Dashboard({ stats, categoryStats, categories, subcategor
         <StatusIconsRow icons={statusIcons} onExport={onExport} storagePercent={storageUsage?.percent} />
       )}
 
-      {unlocked && (
-        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}>
-          <motion.div layoutId="forum-gateway">
-          <Link to="/forum" className="block glass-card border border-gold/30 p-5 hover:border-gold/50 transition-colors group">
-            <div className="flex items-center gap-3">
-              <Landmark className="h-5 w-5 text-gold flex-shrink-0" />
-              <div>
-                <h3 className="text-sm font-semibold text-gold tracking-[0.1em]">FORUM ZNANJA</h3>
-                <p className="text-xs text-muted-foreground mt-0.5">Pregled napretka po kategorijama</p>
-              </div>
-            </div>
-          </Link>
-          </motion.div>
-        </motion.div>
-      )}
     </div>
   );
 }

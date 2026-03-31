@@ -1,6 +1,6 @@
 import { NavLink } from "@/components/NavLink";
 import {
-  Home, Landmark, Settings as SettingsIcon, RotateCcw,
+  Home, Settings as SettingsIcon, RotateCcw,
   BarChart3, BookOpen, Gauge, Zap, Map, Scale, GraduationCap, Brain, Globe,
 } from "lucide-react";
 import {
@@ -15,7 +15,6 @@ const STATIC_NAV = [
   { path: "/", icon: Home, label: "Dashboard" },
   { path: "/learn", icon: GraduationCap, label: "Učenje" },
   { path: "/review", icon: RotateCcw, label: "Konsolidacija", badge: true },
-  { path: "/forum", icon: Landmark, label: "Forum" },
 ];
 
 const TOOLS_NAV = [
