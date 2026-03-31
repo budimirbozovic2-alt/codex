@@ -79,7 +79,7 @@ export default function PhaseItem({ phase: p, index: i, dynamicDays, isEditing, 
                         onClick={onOpenInDB}
                         className="hover:text-primary hover:underline cursor-pointer transition-colors"
                       >
-                        {cat}
+                         {catNameMap[cat] || cat}
                       </button>
                     </span>
                   ))}

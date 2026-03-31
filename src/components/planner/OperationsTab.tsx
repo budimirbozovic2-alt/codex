@@ -234,7 +234,7 @@ export default function OperationsTab({
                     newPhaseCats.includes(cat) ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground hover:text-foreground"
                   )}
                 >
-                  {cat}
+                   {catNameMap[cat] || cat}
                 </button>
               ))}
             </div>
