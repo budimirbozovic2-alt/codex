@@ -1,55 +1,93 @@
 
 
-# UUID Display Fix — Prikaz naziva umjesto UUID-ova
+# Read-Only Refaktor Mentalnog Kostura / Mape Znanja
 
 ## Rezime
-7 komponenti prikazuje sirove UUID-ove za `subcategoryId` i `chapterId` umjesto čitljivih naziva. Svaka već ima pristup `categoryId` i koristi `useLiveQuery` za `catName` — proširujemo taj lookup da uključi subcategory i chapter nazive.
+Pretvaramo cijeli modul Mentalni Kostur u read-only vizuelizaciju. Brišemo svu DnD logiku, chapter management UI, i navigator/auditor mode toggle. Preimenovujemo `DraggableCardTile` u `SkeletonCardTile`. Komponenta postaje lagani, informativni dashboard stanja znanja.
 
 ---
 
-## Problem
-Korisnik vidi npr. `› a3f8c2d1-...` umjesto `› Obligaciono pravo` u headeru kartice tokom učenja, ponavljanja, i pregleda.
+## Promjene po fajlovima
 
-## Pattern za fix
-Svaka pogođena komponenta već radi `useLiveQuery(() => db.categories.get(card.categoryId))` — iz tog `catRecord` možemo izvući subcategory i chapter nazive:
+### 1. PREIMENOVANJE: `DraggableCardTile.tsx` → `SkeletonCardTile.tsx`
+
+Kreiramo novi fajl `src/components/mental-skeleton/SkeletonCardTile.tsx`, brišemo stari.
+
+- Ukloniti: `useSortable`, `CSS` iz `@dnd-kit`, `GripVertical` ikonu, `attributes/listeners/transform/transition/isDragging`
+- Ukloniti: `mode` prop — svi tile-ovi sada uvijek prikazuju mastery boju (auditor stil)
+- Zadržati: `getCardMasteryLevel`, `getMasteryColor`, tooltip sa stabilnošću, error dot indikator
+- Interfejs: `{ card: Card; onClick: () => void }`
+
+### 2. `src/components/mental-skeleton/ChapterBox.tsx` (~50 linija manje)
+
+- Ukloniti: `useDroppable` iz `@dnd-kit/core`, `SortableContext`/`rectSortingStrategy` iz `@dnd-kit/sortable`
+- Ukloniti: `isOver` logiku, drop highlight stilove (`ring-2 ring-primary`, `← Pusti ovdje`)
+- Ukloniti: `mode` prop — nema navigator/auditor razlike
+- Ukloniti: `onRename`, `onDelete`, `onMoveUp`, `onMoveDown` prop-ove i njihov UI (Edit3, Trash2, ArrowUp, ArrowDown dugmad)
+- Zamjena import: `DraggableCardTile` → `SkeletonCardTile`
+- Zadržati: Collapsible, progress bar, mastery bar, section stats tooltip
+- Interfejs: `{ chapter: string; cards: Card[]; isOpen: boolean; onToggle: () => void; onCardClick: (card: Card) => void }`
+
+### 3. `src/components/MentalSkeleton.tsx` (~150 linija manje)
+
+- Ukloniti importi: `DndContext`, `PointerSensor`, `useSensor`, `useSensors`, `DragEndEvent`, `DragOverlay`, `DragStartEvent`, `MeasuringStrategy`, `arrayMove`, `createPortal`, `toast`, `DraggableCardTile`, `Plus`, `X`
+- Ukloniti props: `onUpdateChapters`, `onReviewSection` — komponenta postaje read-only
+- Ukloniti: `useChapterManagement` hook i sav chapter CRUD UI (dodaj/preimenuj/obriši glavu)
+- Ukloniti: `mode` state, mode toggle UI, `activeId`, `handleDragStart`, `handleDragEnd`, `findChapterForCard`, `sensors`, `DndContext` wrapper, `DragOverlay` portal
+- Ukloniti: `handleGradeSection` (nema review iz ovog modula)
+- Zadržati: `selectedCard` + `LearnModal` za read-only pregled kartice (klik otvara modal sa detaljima, ali bez ocjenjivanja)
+- Zadržati: mastery legend, chapter collapsible expand/collapse, `AuditorDetailPanel`
+- Props: `{ cards: Card[]; subcategory: string; category: string; onBack: () => void }`
+
+### 4. `src/components/KnowledgeMap.tsx` (~10 linija)
+
+- Ukloniti iz Props: `onUpdateChapters`, `onReviewSection`
+- L139: Ukloniti uslov `&& onUpdateChapters && onReviewSection` — detail view se uvijek renderuje
+- L151-158: `MentalSkeleton` prima samo `cards, category, subcategory, onBack` — bez callback-ova
+
+### 5. `src/views/KnowledgeMapPage.tsx` (~5 linija)
+
+- Ukloniti: `bulkUpdateChapter`, `reviewSection` iz `useCardContext()` destrukturiranja
+- Ukloniti: `onUpdateChapters` i `onReviewSection` prop-ove sa `<KnowledgeMap>`
+
+### 6. `src/components/mental-skeleton/types.ts`
+
+- Ukloniti: `Mode` tip (više nema navigator/auditor)
+- Zadržati: `UNASSIGNED_CHAPTER`
+
+### 7. `src/hooks/useChapterManagement.ts`
+
+- NE BRIŠEMO — koristi se i iz drugih mjesta potencijalno. Ali MentalSkeleton ga više ne importuje.
+
+### 8. Cleanup importa u `LearnModal.tsx` i `AuditorDetailPanel.tsx`
+
+- Provjeriti da li koriste `Mode` tip i ukloniti ako da (LearnModal se otvara uvijek, AuditorDetailPanel isto)
+
+---
+
+## Vizuelna promjena
 
 ```text
-const subName = catRecord?.subcategories
-  ?.find(s => s.id === card.subcategoryId)?.name ?? card.subcategoryId;
-const chName = catRecord?.subcategories
-  ?.flatMap(s => s.chapters)
-  ?.find(ch => (typeof ch === 'string' ? ch : ch.id) === card.chapterId)
-  ?.name ?? card.chapterId;  // za chapter koji je objekat
+PRIJE:                              POSLIJE:
+┌─ Navigator / Auditor ─┐          ┌─ Mentalni Kostur ────────┐
+│ [+ Dodaj Glavu]        │          │ Legenda mastery boja     │
+│ DnD: prevuci kartice   │   →      │                          │
+│ Edit/Delete/Move glave │          │ Glava 1 [▓▓▓░░] 72%     │
+│ Mode toggle dugmad     │          │   ■ ■ ■ ■ (read-only)   │
+└────────────────────────┘          │ Nekategorisane [░░] 0%   │
+                                    └──────────────────────────┘
 ```
 
-## Fajlovi za izmjenu (7 fajlova, ~3-5 linija svaki)
+Svaka kartica tile prikazuje mastery boju. Klik otvara detail panel. Nema prevlačenja, editovanja, niti dodavanja glava.
 
-| Fajl | Linija | Trenutno | Poslije |
-|------|--------|----------|---------|
-| `SessionHeader.tsx` | L89 | `{card.subcategoryId}` | `{subName}` |
-| `ReviewCard.tsx` | L202 | `{card.subcategoryId}` | `{subName}` |
-| `LearnModal.tsx` | L117 | `{card.subcategoryId}` i L118 `{card.chapterId}` | `{subName}` i `{chName}` |
-| `SpeedReader.tsx` | L597 | `{card.subcategoryId}` | `{subName}` |
-| `CardViewMode.tsx` | L370 | `{card.subcategoryId}` | `{subName}` |
-| `LinkToExistingCardModal.tsx` | L93 | `{card.subcategoryId}` | `{subName}` |
-| `GlobalSearch.tsx` | L83 | `${c.subcategoryId}` | lookup iz catRecords |
-
-### Detalji po komponenti
-
-**1-4. SessionHeader, ReviewCard, SpeedReader, CardViewMode** — sve koriste `useLiveQuery` za `catRecord`. Dodajemo `subName` derivat i zamjenjujemo u JSX-u.
-
-**5. LearnModal** — već ima `catRecord` i `catName`. Dodajemo `subName` i `chName` derivate, zamjenjujemo L117-118.
-
-**6. LinkToExistingCardModal** — nema `useLiveQuery`. Ovdje dodajemo `catNameMap` prop (isti pattern kao `CardList`) ili koristimo `categoryRecords` iz konteksta.
-
-**7. GlobalSearch** — koristi `subtitle` string. Proslijediti `categoryRecords` iz AppContext za lookup.
-
-### Bonus: forum-logic cleanup
-- Obrisati `src/test/construction-phases.test.ts` (testira obrisani Forum)
-- `src/lib/forum-logic.ts` — ostaviti za sada (ne koristi se nigdje osim u testu)
+---
 
 ## Scope
-- 7 fajlova, ~40 linija promjena ukupno
+- 3 fajla značajno smanjeni (MentalSkeleton, ChapterBox, DraggableCardTile→SkeletonCardTile)
+- 2 fajla minor cleanup (KnowledgeMap, KnowledgeMapPage)
+- 1 fajl preimenovan (DraggableCardTile → SkeletonCardTile)
+- 1 fajl types.ts cleanup
+- Netto: ~200 linija manje koda
 - Nema novih zavisnosti
 - FSRS: netaknut
 
