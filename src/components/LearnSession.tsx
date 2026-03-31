@@ -44,8 +44,11 @@ export default function LearnSession({ cards, categories, categoryRecords, subca
     const catRec = categoryRecords.find(r => r.id === selectedCategory);
     if (!catRec) return { subPos, chapPos };
     for (const node of (catRec as any).subcategories ?? []) {
-      subPos[node.name] = node.sortOrder ?? 0;
-      (node.chapters ?? []).forEach((ch: string, i: number) => { chapPos[ch] = i; });
+      subPos[node.id ?? node.name] = node.sortOrder ?? 0;
+      (node.chapters ?? []).forEach((ch: any, i: number) => {
+        const key = typeof ch === "string" ? ch : ch.id;
+        chapPos[key] = i;
+      });
     }
     return { subPos, chapPos };
   }, [categoryRecords, selectedCategory]);
@@ -60,8 +63,8 @@ export default function LearnSession({ cards, categories, categoryRecords, subca
 
   const sortedCards = useMemo(() => {
     let filtered = selectedCategory ? cards.filter(c => c.categoryId === selectedCategory) : [...cards];
-    if (selectedSubcategory) filtered = filtered.filter(c => c.subcategory === selectedSubcategory);
-    if (selectedChapter) filtered = filtered.filter(c => c.chapter === selectedChapter);
+    if (selectedSubcategory) filtered = filtered.filter(c => (c.subcategoryId || c.subcategory) === selectedSubcategory);
+    if (selectedChapter) filtered = filtered.filter(c => (c.chapterId || c.chapter) === selectedChapter);
     if (filterExamFrequent) filtered = filtered.filter(c => c.tags?.includes("često-na-ispitu"));
     if (filterType === "essay") filtered = filtered.filter(c => c.type === "essay");
     else if (filterType === "flash") filtered = filtered.filter(c => c.type === "flash");
@@ -72,8 +75,8 @@ export default function LearnSession({ cards, categories, categoryRecords, subca
       default: {
         const { subPos, chapPos } = positionMaps;
         return filtered.sort((a, b) =>
-          (subPos[a.subcategory ?? ""] ?? 999) - (subPos[b.subcategory ?? ""] ?? 999)
-          || (chapPos[a.chapter ?? ""] ?? 999) - (chapPos[b.chapter ?? ""] ?? 999)
+          (subPos[a.subcategoryId ?? a.subcategory ?? ""] ?? 999) - (subPos[b.subcategoryId ?? b.subcategory ?? ""] ?? 999)
+          || (chapPos[a.chapterId ?? a.chapter ?? ""] ?? 999) - (chapPos[b.chapterId ?? b.chapter ?? ""] ?? 999)
           || (a.chapterOrder ?? 0) - (b.chapterOrder ?? 0)
           || a.createdAt - b.createdAt
         );

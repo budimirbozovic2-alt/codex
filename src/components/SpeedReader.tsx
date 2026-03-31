@@ -223,7 +223,7 @@ export default function SpeedReader() {
   const filteredCards = useMemo(() => {
     let result = cards;
     if (selCat) result = result.filter(c => c.categoryId === selCat);
-    if (selSub) result = result.filter(c => c.subcategory === selSub);
+    if (selSub) result = result.filter(c => (c.subcategoryId || c.subcategory) === selSub);
     return result.filter(c => c.type !== "flash");
   }, [cards, selCat, selSub]);
 

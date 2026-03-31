@@ -31,7 +31,8 @@ interface Props {
 function getChapters(cards: Card[]): string[] {
   const chapters = new Set<string>();
   cards.forEach(c => {
-    if (c.chapter && c.chapter !== "") chapters.add(c.chapter);
+    const ch = c.chapterId || c.chapter;
+    if (ch && ch !== "") chapters.add(ch);
   });
   return Array.from(chapters).sort((a, b) => {
     const numA = extractChapterNum(a);
@@ -67,13 +68,13 @@ export default function MentalSkeleton({ cards, subcategory, category, onBack, o
 
   // Filter cards for this subcategory
   const subCards = useMemo(() =>
-    cards.filter(c => c.categoryId === category && c.subcategory === subcategory),
+    cards.filter(c => c.categoryId === category && (c.subcategoryId || c.subcategory) === subcategory),
     [cards, category, subcategory]
   );
 
   const chapters = useMemo(() => getChapters(subCards), [subCards]);
   const unassignedCards = useMemo(() =>
-    subCards.filter(c => !c.chapter || c.chapter === ""),
+    subCards.filter(c => !(c.chapterId || c.chapter)),
     [subCards]
   );
 
@@ -82,9 +83,10 @@ export default function MentalSkeleton({ cards, subcategory, category, onBack, o
     chapters.forEach(ch => { map[ch] = []; });
     map[UNASSIGNED_CHAPTER] = [];
     subCards.forEach(c => {
-      const ch = c.chapter && c.chapter !== "" ? c.chapter : UNASSIGNED_CHAPTER;
-      if (!map[ch]) map[ch] = [];
-      map[ch].push(c);
+      const ch = (c.chapterId || c.chapter);
+      const chKey = ch && ch !== "" ? ch : UNASSIGNED_CHAPTER;
+      if (!map[chKey]) map[chKey] = [];
+      map[chKey].push(c);
     });
     return map;
   }, [subCards, chapters]);

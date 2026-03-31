@@ -66,10 +66,10 @@ export function useSourceHierarchy(
     const bySub = new Map<string, Map<string, Card[]>>();
 
     for (const card of catCards) {
-      const sub = card.subcategory || "Ostalo";
+      const sub = card.subcategoryId || card.subcategory || "Ostalo";
       if (!bySub.has(sub)) bySub.set(sub, new Map());
       const chapMap = bySub.get(sub)!;
-      const chap = card.chapter || "Ostalo";
+      const chap = card.chapterId || card.chapter || "Ostalo";
       if (!chapMap.has(chap)) chapMap.set(chap, []);
       chapMap.get(chap)!.push(card);
     }

@@ -292,26 +292,28 @@ export function getPendingFirstReviewCount(cards: Card[]): number {
   return cards.reduce((sum, c) => sum + c.sections.filter((s) => s.firstReviewPending && s.nextReview <= Date.now()).length, 0);
 }
 
-export function createCard(question: string, sections: { title: string; content: string }[], categoryId: string, subcategory?: string): Card {
+export function createCard(question: string, sections: { title: string; content: string }[], categoryId: string, subcategoryId?: string): Card {
   return {
     id: crypto.randomUUID(),
     question,
     sections: sections.map((s) => createSection(s.title, s.content)),
     categoryId,
-    subcategory: subcategory || "",
+    subcategoryId: subcategoryId || "",
+    subcategory: subcategoryId || "", // @deprecated — kept for backward compat
     createdAt: Date.now(),
     readCount: 0,
     type: "essay",
   };
 }
 
-export function createFlashCard(question: string, answer: string, categoryId: string, subcategory?: string): Card {
+export function createFlashCard(question: string, answer: string, categoryId: string, subcategoryId?: string): Card {
   return {
     id: crypto.randomUUID(),
     question,
     sections: [createSection("Odgovor", answer)],
     categoryId,
-    subcategory: subcategory || "",
+    subcategoryId: subcategoryId || "",
+    subcategory: subcategoryId || "", // @deprecated — kept for backward compat
     createdAt: Date.now(),
     readCount: 0,
     type: "flash",

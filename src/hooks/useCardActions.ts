@@ -106,8 +106,8 @@ export function useCardActions({ categories, subcategories, categoryRecords, edi
 
   // ── Metadata state ────────────────────────────────────
   const [category, setCategory] = useState(editCard?.categoryId ?? categories[0] ?? "");
-  const [subcategory, setSubcategory] = useState(editCard?.subcategory ?? "");
-  const [chapter, setChapter] = useState(editCard?.chapter ?? "");
+  const [subcategory, setSubcategory] = useState(editCard?.subcategoryId ?? editCard?.subcategory ?? "");
+  const [chapter, setChapter] = useState(editCard?.chapterId ?? editCard?.chapter ?? "");
   const [newCategory, setNewCategory] = useState("");
   const [showNewCat, setShowNewCat] = useState(false);
   const [newSubcategory, setNewSubcategory] = useState("");
@@ -122,7 +122,13 @@ export function useCardActions({ categories, subcategories, categoryRecords, edi
   const [isSaving, setIsSaving] = useState(false);
 
   // ── Derived ───────────────────────────────────────────
-  const availableSubs = subcategories[category] || [];
+  const availableSubs: { id: string; name: string }[] = useMemo(() => {
+    const catRec = categoryRecords?.find(r => r.id === category);
+    if (!catRec) return [];
+    return (catRec.subcategories || []).map((n: any) =>
+      typeof n === "string" ? { id: n, name: n } : { id: n.id, name: n.name }
+    );
+  }, [category, categoryRecords]);
 
   // ── Linked source gazette info (read-only) ────────────
   const [linkedGazetteInfo, setLinkedGazetteInfo] = useState<string | null>(null);
@@ -136,18 +142,20 @@ export function useCardActions({ categories, subcategories, categoryRecords, edi
   }, [editCard?.sourceId]);
 
   // ── Load available chapters from SubcategoryNode tree ──
-  const availableChapters = useMemo(() => {
+  const availableChapters = useMemo((): { id: string; name: string }[] => {
     const sub = showNewSub && newSubcategory.trim() ? newSubcategory.trim() : subcategory;
     const cat = showNewCat && newCategory.trim() ? newCategory.trim() : category;
-    if (!sub || !cat || !categoryRecords) return [] as string[];
+    if (!sub || !cat || !categoryRecords) return [];
     const catRec = categoryRecords.find(r => r.id === cat);
-    if (!catRec) return [] as string[];
+    if (!catRec) return [];
     const nodes: SubcategoryNode[] = (catRec.subcategories as any[] || []).map((s: any) =>
       typeof s === "string" ? { id: crypto.randomUUID(), name: s, chapters: [], sortOrder: 0 } : s
     );
-    const node = nodes.find(n => n.name === sub);
-    if (!node) return [] as string[];
-    return (node.chapters || []).map((ch: any) => typeof ch === "string" ? ch : ch.name);
+    const node = nodes.find(n => n.id === sub);
+    if (!node) return [];
+    return (node.chapters || []).map((ch: any) =>
+      typeof ch === "string" ? { id: ch, name: ch } : { id: ch.id, name: ch.name }
+    );
   }, [category, subcategory, showNewCat, newCategory, showNewSub, newSubcategory, categoryRecords]);
 
   // ── Section actions ───────────────────────────────────

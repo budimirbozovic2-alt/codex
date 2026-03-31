@@ -63,15 +63,15 @@ export default function CardViewMode({ cards, categoryId, allCategories, patchCa
   // Build unique subcategories and chapters
   const uniqueSubcategories = useMemo(() => {
     const set = new Set<string>();
-    cards.forEach(c => { if (c.subcategory) set.add(c.subcategory); });
+    cards.forEach(c => { if (c.subcategoryId || c.subcategory) set.add((c.subcategoryId || c.subcategory)!); });
     return Array.from(set).sort();
   }, [cards]);
 
   const uniqueChapters = useMemo(() => {
     const set = new Set<string>();
     cards.forEach(c => {
-      if (filterSubcategory !== "__all__" && c.subcategory !== filterSubcategory) return;
-      if (c.chapter) set.add(c.chapter);
+      if (filterSubcategory !== "__all__" && (c.subcategoryId || c.subcategory) !== filterSubcategory) return;
+      if (c.chapterId || c.chapter) set.add((c.chapterId || c.chapter)!);
     });
     return Array.from(set).sort();
   }, [cards, filterSubcategory]);
@@ -79,8 +79,8 @@ export default function CardViewMode({ cards, categoryId, allCategories, patchCa
   // Apply filters
   const filteredCards = useMemo(() => {
     return cards.filter(c => {
-      if (filterSubcategory !== "__all__" && (c.subcategory || "") !== filterSubcategory) return false;
-      if (filterChapter !== "__all__" && (c.chapter || "") !== filterChapter) return false;
+      if (filterSubcategory !== "__all__" && ((c.subcategoryId || c.subcategory) || "") !== filterSubcategory) return false;
+      if (filterChapter !== "__all__" && ((c.chapterId || c.chapter) || "") !== filterChapter) return false;
       if (filterType === "essay" && c.type !== "essay") return false;
       if (filterType === "flash" && c.type !== "flash") return false;
       if (filterType === "mnemonic" && !(c.tags?.includes("mnemonic"))) return false;
@@ -365,15 +365,15 @@ export default function CardViewMode({ cards, categoryId, allCategories, patchCa
               {isExpanded && (
                 <div className="border-t px-4 py-3 space-y-3 bg-muted/20">
                   <div className="flex items-center gap-2 flex-wrap">
-                    {card.subcategory && (
+                    {(card.subcategoryId || card.subcategory) && (
                       <Badge variant="secondary" className="text-[10px]">
-                        Potkategorija: {card.subcategory}
+                        Potkategorija: {card.subcategory || card.subcategoryId}
                       </Badge>
                     )}
-                    {card.chapter && (
+                    {(card.chapterId || card.chapter) && (
                       <Badge variant="outline" className="text-[10px] gap-1 border-primary/30">
                         <BookOpen className="h-3 w-3" />
-                        Glava: {card.chapter}
+                        Glava: {card.chapter || card.chapterId}
                       </Badge>
                     )}
                     {card.sourceId && (

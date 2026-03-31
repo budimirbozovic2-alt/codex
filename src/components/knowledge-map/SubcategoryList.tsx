@@ -100,7 +100,7 @@ function SubcategoryListInner({
 
   const subsWithStats = subs
     .map((sub) => {
-      const subCards = catCards.filter((c) => c.subcategory === sub);
+      const subCards = catCards.filter((c) => (c.subcategoryId || c.subcategory) === sub);
       if (subCards.length === 0) return null;
       const levels = [0, 0, 0, 0, 0, 0];
       subCards.forEach((c) => levels[getCardMasteryLevel(c)]++);
@@ -108,7 +108,7 @@ function SubcategoryListInner({
     })
     .filter(Boolean) as { name: string; count: number; levels: number[] }[];
 
-  const uncategorized = catCards.filter((c) => !c.subcategory || !subs.includes(c.subcategory));
+  const uncategorized = catCards.filter((c) => !(c.subcategoryId || c.subcategory) || !subs.includes((c.subcategoryId || c.subcategory)!));
   if (uncategorized.length > 0) {
     const levels = [0, 0, 0, 0, 0, 0];
     uncategorized.forEach((c) => levels[getCardMasteryLevel(c)]++);

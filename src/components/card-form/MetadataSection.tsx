@@ -15,8 +15,8 @@ interface MetadataSectionProps {
   chapter: string;
   setChapter: (v: string) => void;
   categories: string[];
-  availableSubs: string[];
-  availableChapters: string[];
+  availableSubs: { id: string; name: string }[];
+  availableChapters: { id: string; name: string }[];
   newCategory: string;
   setNewCategory: (v: string) => void;
   showNewCat: boolean;
@@ -93,7 +93,7 @@ const MetadataSection = memo(function MetadataSection({
           <SelectTrigger className="bg-background"><SelectValue placeholder="Bez podkategorije" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="__none__">Bez podkategorije</SelectItem>
-            {availableSubs.map((sc) => <SelectItem key={sc} value={sc}>{sc}</SelectItem>)}
+            {availableSubs.map((sc) => <SelectItem key={sc.id} value={sc.id}>{sc.name}</SelectItem>)}
           </SelectContent>
         </Select>
       </div>
@@ -106,7 +106,7 @@ const MetadataSection = memo(function MetadataSection({
             <SelectTrigger className="bg-background"><SelectValue placeholder="Bez glave" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="__none__">Bez glave</SelectItem>
-              {availableChapters.map((ch) => <SelectItem key={ch} value={ch}>{ch}</SelectItem>)}
+              {availableChapters.map((ch) => <SelectItem key={ch.id} value={ch.id}>{ch.name}</SelectItem>)}
             </SelectContent>
           </Select>
           {availableChapters.length === 0 && (

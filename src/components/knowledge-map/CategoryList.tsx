@@ -36,7 +36,7 @@ function CategoryListInner({
       const catCards = cards.filter((c) => c.categoryId === cat);
       if (catCards.length === 0) return null;
       const subs = subcategories[cat] || [];
-      const subCount = subs.filter((s) => catCards.some((c) => c.subcategory === s)).length;
+      const subCount = subs.filter((s) => catCards.some((c) => (c.subcategoryId || c.subcategory) === s)).length;
       const levels = [0, 0, 0, 0, 0, 0];
       catCards.forEach((c) => levels[getCardMasteryLevel(c)]++);
       return { name: cat, cardCount: catCards.length, subCount, levels };

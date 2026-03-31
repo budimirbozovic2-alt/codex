@@ -47,13 +47,20 @@ export default function SessionFilters({
 }: SessionFiltersProps) {
   // Helper to resolve UUID → display name
   const catName = (id: string) => categoryRecords?.find(r => r.id === id)?.name ?? id;
+  const subNameMap = useMemo(() => {
+    const m: Record<string, string> = {};
+    for (const r of (categoryRecords || []))
+      for (const n of (r.subcategories || []))
+        if (typeof n === 'object' && n.id) m[n.id] = n.name;
+    return m;
+  }, [categoryRecords]);
   const availableSubs = selectedCategory ? (subcategories[selectedCategory] || []) : [];
 
   const chaptersInSub = useMemo(() => {
     if (!selectedSubcategory) return [];
     return Array.from(new Set(
-      cards.filter(c => c.categoryId === selectedCategory && c.subcategory === selectedSubcategory && c.chapter)
-        .map(c => c.chapter!)
+      cards.filter(c => c.categoryId === selectedCategory && (c.subcategoryId || c.subcategory) === selectedSubcategory && (c.chapterId || c.chapter))
+        .map(c => (c.chapterId || c.chapter)!)
     )).sort();
   }, [cards, selectedCategory, selectedSubcategory]);
 
@@ -156,7 +163,7 @@ export default function SessionFilters({
                   {selectedSubcategory === sc && (
                     <motion.span layoutId={`${layoutPrefix}-subcat-pill`} className="absolute inset-0 rounded-md bg-primary/15" transition={{ type: "spring", duration: 0.3, bounce: 0.15 }} />
                   )}
-                  <span className="relative z-10">{sc}</span>
+                  <span className="relative z-10">{subNameMap[sc] || sc}</span>
                 </motion.button>
               ))}
             </ScrollableRow>
@@ -195,7 +202,7 @@ export default function SessionFilters({
                   {selectedChapter === ch && (
                     <motion.span layoutId={`${layoutPrefix}-chapter-pill`} className="absolute inset-0 rounded-md bg-primary/10" transition={{ type: "spring", duration: 0.3, bounce: 0.15 }} />
                   )}
-                  <span className="relative z-10">{ch}</span>
+                  <span className="relative z-10">{subNameMap[ch] || ch}</span>
                 </motion.button>
               ))}
             </ScrollableRow>

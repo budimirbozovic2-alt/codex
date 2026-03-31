@@ -34,7 +34,7 @@ export function useCards() {
     const map: Record<string, string[]> = {};
     for (const r of categoryRecords) {
       map[r.id] = (r.subcategories || []).map((n: any) =>
-        typeof n === "string" ? n : n.name
+        typeof n === "string" ? n : n.id  // UUID, not name
       );
     }
     return map;

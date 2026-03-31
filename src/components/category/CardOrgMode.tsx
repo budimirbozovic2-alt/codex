@@ -41,27 +41,39 @@ function buildTree(cards: Card[], subcategoryNodes: SubcategoryNode[]): TreeNode
 
   for (const node of subcategoryNodes) {
     const chMap = new Map<string, Card[]>();
-    for (const ch of node.chapters) chMap.set(typeof ch === "string" ? ch : ch.name, []);
-    nodeMap.set(node.name, { chapters: chMap, unassigned: [] });
+    for (const ch of node.chapters) chMap.set(typeof ch === "string" ? ch : ch.id, []);
+    nodeMap.set(node.id, { chapters: chMap, unassigned: [] });
   }
 
-  if (!nodeMap.has("(Bez potkategorije)")) {
-    nodeMap.set("(Bez potkategorije)", { chapters: new Map(), unassigned: [] });
+  const UNCAT_KEY = "(Bez potkategorije)";
+  if (!nodeMap.has(UNCAT_KEY)) {
+    nodeMap.set(UNCAT_KEY, { chapters: new Map(), unassigned: [] });
   }
 
   for (const card of cards) {
-    const sub = card.subcategory || "(Bez potkategorije)";
+    const sub = card.subcategoryId || card.subcategory || UNCAT_KEY;
     if (!nodeMap.has(sub)) {
       nodeMap.set(sub, { chapters: new Map(), unassigned: [] });
     }
     const entry = nodeMap.get(sub)!;
-    if (card.chapter && entry.chapters.has(card.chapter)) {
-      entry.chapters.get(card.chapter)!.push(card);
-    } else if (card.chapter) {
-      if (!entry.chapters.has(card.chapter)) entry.chapters.set(card.chapter, []);
-      entry.chapters.get(card.chapter)!.push(card);
+    const cardChap = card.chapterId || card.chapter;
+    if (cardChap && entry.chapters.has(cardChap)) {
+      entry.chapters.get(cardChap)!.push(card);
+    } else if (cardChap) {
+      if (!entry.chapters.has(cardChap)) entry.chapters.set(cardChap, []);
+      entry.chapters.get(cardChap)!.push(card);
     } else {
       entry.unassigned.push(card);
+    }
+  }
+
+  // Build name lookup for subcategory nodes
+  const subNameMap = new Map(subcategoryNodes.map(n => [n.id, n.name]));
+  // Build name lookup for chapter nodes
+  const chapNameMap = new Map<string, string>();
+  for (const node of subcategoryNodes) {
+    for (const ch of node.chapters) {
+      if (typeof ch !== "string") chapNameMap.set(ch.id, ch.name);
     }
   }
 
@@ -69,13 +81,14 @@ function buildTree(cards: Card[], subcategoryNodes: SubcategoryNode[]): TreeNode
   for (const [sub, entry] of nodeMap) {
     const chapters = Array.from(entry.chapters.entries())
       .map(([chapter, cards]) => ({
-        chapter,
+        chapter: chapNameMap.get(chapter) || chapter,
         cards: cards.sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0)),
       }));
     const totalCards = chapters.reduce((sum, ch) => sum + ch.cards.length, 0) + entry.unassigned.length;
-    const isCanonical = subcategoryNodes.some(n => n.name === sub);
+    const isCanonical = subcategoryNodes.some(n => n.id === sub);
+    const displayName = subNameMap.get(sub) || sub;
     if (totalCards > 0 || isCanonical) {
-      result.push({ subcategory: sub, chapters, unassigned: entry.unassigned });
+      result.push({ subcategory: displayName, chapters, unassigned: entry.unassigned });
     }
   }
 
@@ -252,7 +265,7 @@ export default function CardOrgMode({ cards, categoryId, subcategoryNodes, patch
   }, []);
 
   const assignChapter = useCallback((cardId: string, chapter: string) => {
-    patchCard(cardId, c => ({ ...c, chapter: chapter || undefined }));
+    patchCard(cardId, c => ({ ...c, chapter: chapter || undefined, chapterId: chapter || undefined }));
   }, [patchCard]);
 
   const handleDragStart = useCallback((event: DragStartEvent) => {
@@ -273,7 +286,9 @@ export default function CardOrgMode({ cards, categoryId, subcategoryNodes, patch
       patchCard(activeCardId, c => ({
         ...c,
         chapter: dropTarget.chapter,
+        chapterId: dropTarget.chapter,
         subcategory: targetSub,
+        subcategoryId: targetSub,
         sortOrder: 9999,
       }));
       return;
@@ -316,7 +331,9 @@ export default function CardOrgMode({ cards, categoryId, subcategoryNodes, patch
       patchCard(activeCardId, c => ({
         ...c,
         chapter: overContainer.chapter,
+        chapterId: overContainer.chapter,
         subcategory: targetSub,
+        subcategoryId: targetSub,
       }));
 
       newList.forEach((c, i) => {
@@ -452,7 +469,7 @@ export default function CardOrgMode({ cards, categoryId, subcategoryNodes, patch
                               onAssignChapter={v => assignChapter(card.id, v)}
                               onMoveSub={v => {
                                 const targetSub = v === "(Bez potkategorije)" ? "" : v;
-                                patchCard(card.id, c => ({ ...c, subcategory: targetSub }));
+                                patchCard(card.id, c => ({ ...c, subcategory: targetSub, subcategoryId: targetSub }));
                               }}
                             />
                           );
