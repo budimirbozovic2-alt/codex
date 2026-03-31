@@ -15,8 +15,8 @@ interface MetadataSectionProps {
   chapter: string;
   setChapter: (v: string) => void;
   categories: string[];
-  availableSubs: string[];
-  availableChapters: string[];
+  availableSubs: { id: string; name: string }[];
+  availableChapters: { id: string; name: string }[];
   newCategory: string;
   setNewCategory: (v: string) => void;
   showNewCat: boolean;
