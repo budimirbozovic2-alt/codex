@@ -49,7 +49,7 @@ export default function MnemonicTest({ cards, onRecordResult, onBack }: Props) {
   const filteredTestable = useMemo(() => {
     let result = allTestable;
     if (filterCategory) result = result.filter(c => c.categoryId === filterCategory);
-    if (filterSubcategory) result = result.filter(c => (c.subcategory || (c as any).subcategoryId) === filterSubcategory);
+    if (filterSubcategory) result = result.filter(c => c.subcategory === filterSubcategory);
     if (filterHookType) result = result.filter(c => c.hookType === filterHookType);
     return result;
   }, [allTestable, filterCategory, filterSubcategory, filterHookType]);
