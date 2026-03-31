@@ -1,53 +1,73 @@
 
 
-# Virtualizacija MnemonicWorkshop liste sa react-window
+# Sljedeća faza: Čišćenje preostalih legacy referenci + DnD stabilizacija
 
 ## Rezime
-`CardList.tsx` već koristi `react-window` virtualizaciju (aktivira se iznad praga). `MnemonicWorkshop.tsx` koristi plain `.map()` — prebacujemo ga na isti pattern sa `VariableSizeList` iz `react-window` v2 (već instaliran kao `List`).
+Ostalo je nekoliko konkretnih problema nakon dosadašnjih refaktora:
 
-## Kontekst
-- `react-window@2.2.7` je instaliran i koristi se u `CardList.tsx` sa `List` komponentom i `RowComponentProps`
-- `WorkshopCardItem` je memo-izirana komponenta sa expand/collapse stanjem — visina reda varira
-- Workshop kartice imaju ~80px collapsed, ~400px+ expanded (zavisno od sadržaja)
-- Nema dnd-kit integracije u Workshop-u (guardrail kaže da to ostavljamo za kasnije)
+1. **Form save ne šalje ispravna polja** — `useCardActions.ts` šalje `{ category, subcategory, chapter }` u `onUpdate`, ali `updateCard` u CRUD-u očekuje `{ categoryId, subcategoryId, chapterId }`. Rezultat: izmjena kategorije/potkategorije/glave kroz formu se **tiho gubi**.
 
-## Plan
+2. **CardOrgMode.tsx L468** — još uvijek piše `subcategory: targetSub` (obrisano polje) uz `subcategoryId: targetSub`.
 
-### Fajl: `src/components/MnemonicWorkshop.tsx`
+3. **DnD portal stabilizacija** — `CardOrgMode.tsx` i `MentalSkeleton.tsx` oba koriste `createPortal(DragOverlay, document.body)`. Sa Zustand store-om za SourceReader već na mjestu, DnD bi trebao biti stabilniji, ali treba dodati `useMemo` za `sensors` u `CardOrgMode` (trenutno ih nema) i memoizirati `measuring` config objekt da se spriječi re-kreiranje pri svakom renderu.
 
-**1. Import `List` i `RowComponentProps`** iz `react-window` (isti pattern kao CardList)
+4. **Memoizacija audit** — `CardOrgMode.tsx L243` koristi `useMemo` sa side-effect-om (`setExpandedSubs`) — to je React anti-pattern koji može izazvati nepredvidive renderove.
 
-**2. Definisati konstante visina:**
+---
+
+## Promjene po fajlovima
+
+### 1. `src/hooks/useCardActions.ts` (~15 linija)
+
+**Problem**: `onUpdate` interfejs koristi `category`, `subcategory`, `chapter` ali CRUD očekuje `categoryId`, `subcategoryId`, `chapterId`.
+
+- L22-28: Preimenuj polja u `onUpdate` interfejsu na `categoryId?`, `subcategoryId?`, `chapterId?`
+- L196-200: `resolvedMeta` preimenuj ključeve u `categoryId`, `subcategoryId`, `chapterId`
+- L221-231: Proslijedi nova imena u `onUpdate` pozive
+
+### 2. `src/components/CardForm.tsx` (~5 linija)
+
+- Ažuriraj `onUpdate` prop interfejs da koristi `categoryId`, `subcategoryId`, `chapterId`
+- Proslijedi ispravna polja iz `useCardActions` returna
+
+### 3. `src/components/category/CardOrgMode.tsx` (~10 linija)
+
+- **L268**: Ukloni `chapter: chapter || undefined` — ostavi samo `chapterId`
+- **L468**: Ukloni `subcategory: targetSub` — ostavi samo `subcategoryId: targetSub`
+- **L243**: Zamijeni `useMemo` sa side-effectom sa `useEffect` — ispravka React anti-patterna
+- Dodaj `useSensors` / `useSensor(PointerSensor)` za DnD (trenutno nema sensor konfiguraciju, koristi default)
+
+### 4. `src/views/EditPage.tsx` (~2 linije)
+
+- L33: `handleUpdate` tip se automatski usklađuje jer `Partial<Card>` već ima `categoryId`/`subcategoryId`/`chapterId`
+
+---
+
+## Tehnički detalji
+
+```text
+useCardActions.ts (form) ──onUpdate──> EditPage.tsx ──updateCard──> useCardCRUD.ts (CRUD)
+                                         
+PRIJE: { category, subcategory, chapter }  →  ignoriše ih jer čeka categoryId/subcategoryId/chapterId
+POSLIJE: { categoryId, subcategoryId, chapterId }  →  ispravno mapira
 ```
-COLLAPSED_HEIGHT = 72
-EXPANDED_BASE = 400
-VIRTUALIZATION_THRESHOLD = 30
-```
 
-**3. Kreirati `VirtualWorkshopRow` komponentu** koja prima `RowComponentProps` i renderuje `WorkshopCardItem`:
-- Čita `card` iz `props.data.filteredCards[props.index]`
-- Prosljeđuje `isExpanded`, `onToggle`, `onUpdateCard`, `onDeleteCard`, `majorSystem` iz `rowProps`
+## Fajlovi
 
-**4. Dinamička visina reda** — `getRowHeight(index)` callback:
-- Collapsed: `COLLAPSED_HEIGHT + 8` (gap)
-- Expanded: `EXPANDED_BASE + 8`
+| Fajl | Promjena | Linija |
+|------|----------|--------|
+| `src/hooks/useCardActions.ts` | Preimenuj polja u onUpdate interfejsu i resolvedMeta | ~15 |
+| `src/components/CardForm.tsx` | Uskladi onUpdate prop tip | ~5 |
+| `src/components/category/CardOrgMode.tsx` | Ukloni legacy polja, fix useMemo anti-pattern, dodaj sensors | ~10 |
+| `src/views/EditPage.tsx` | Verifikuj tip kompatibilnost (vjerovatno 0 promjena) | ~0 |
 
-**5. Zamijeniti `.map()` blok** (L271-281) sa uslovnim renderovanjem:
-- Ako `filtered.length >= VIRTUALIZATION_THRESHOLD`: renderuj `<List>` sa `rowComponent={VirtualWorkshopRow}`
-- Inače: zadrži postojeći `.map()` za male liste (do 30 kartica)
-
-**6. Resetovati `listRef` pri expand/collapse** — pozovi `listRef.current?.resetAfterIndex(expandedIndex)` kad se promijeni `expandedId` (jer se visina reda mijenja)
-
-**7. Wrapper div** oko `<List>` treba imati `max-h-[700px]` ili `height: min(count * ROW_H, 700)` da lista ne bude beskonačno visoka
-
-### Bez promjena
-- `WorkshopCardItem.tsx` — ostaje nepromjenjen
-- `CardList.tsx` — već virtualizovan, bez promjena
+## Guardrails
+- FSRS logika: netaknuta
+- CSS/styling: bez promjena
 - Nema novih zavisnosti
-- CSS/styling ostaje isti unutar kartica
+- Nema schema promjena
 
 ## Scope
-- 1 fajl: `src/components/MnemonicWorkshop.tsx` (~40 linija promjena)
-- Nema novih dependency-ja (`react-window` v2 već instaliran)
-- Nema schema promjena
+- 3-4 fajla, ~30 linija promjena
+- Kritični bugfix: form edit čuva kategoriju/potkategoriju/glavu
 
