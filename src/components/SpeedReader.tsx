@@ -594,7 +594,7 @@ export default function SpeedReader() {
                       >
                         <div className="flex items-center gap-2 mb-0.5 text-xs text-muted-foreground">
                           <span>{uuidToName[card.categoryId] ?? card.categoryId}</span>
-                          {card.subcategory && <span>› {card.subcategory}</span>}
+                          {card.subcategoryId && <span>› {card.subcategoryId}</span>}
                           <span className="ml-auto">{card.sections.length} sek. · {wc} rij.</span>
                         </div>
                         <p className="text-sm font-medium line-clamp-1">{card.question}</p>
