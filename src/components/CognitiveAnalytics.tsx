@@ -86,7 +86,7 @@ export default function CognitiveAnalytics({ cards, categories, reviewLog, catNa
               return (
                 <div key={cat.category} className="space-y-1.5">
                   <div className="flex items-center justify-between text-sm">
-                    <span className="font-medium truncate">{cat.category}</span>
+                    <span className="font-medium truncate">{catNameMap[cat.category] || cat.category}</span>
                     <span className="text-xs text-muted-foreground tabular-nums">{stabDays}d stabilnost • {retPct}% pamćenje</span>
                   </div>
                   <Progress value={retPct} className="h-2" />
