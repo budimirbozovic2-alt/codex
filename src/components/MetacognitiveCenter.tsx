@@ -228,7 +228,7 @@ function DiaryTab({ cards, reviewLog, catNameMap }: { cards: Card[]; reviewLog: 
                   <div className="min-w-0 flex-1">
                     <p className="text-sm truncate">{card?.question || "Nepoznata kartica"}</p>
                     <p className="text-xs text-muted-foreground">
-                      {s.category}
+                      {catNameMap[s.category] || s.category}
                       {hasMnemonic && " · Mnemotehnika"}
                     </p>
                   </div>
