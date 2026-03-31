@@ -304,8 +304,8 @@ export default function CardOrgMode({ cards, categoryId, subcategoryNodes, patch
 
     if (sameContainer) {
       const chapterNode = tree
-        .find(n => n.subcategory === overContainer.subDisplay)
-        ?.chapters.find(ch => ch.chapter === overContainer.chapDisplay);
+        .find(n => n.subcategoryId === overContainer.subId)
+        ?.chapters.find(ch => ch.chapterId === overContainer.chapId);
       if (!chapterNode) return;
 
       const oldIndex = chapterNode.cards.findIndex(c => c.id === activeCardId);
