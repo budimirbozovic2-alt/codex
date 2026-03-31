@@ -31,7 +31,8 @@ interface Props {
 function getChapters(cards: Card[]): string[] {
   const chapters = new Set<string>();
   cards.forEach(c => {
-    if (c.chapter && c.chapter !== "") chapters.add(c.chapter);
+    const ch = c.chapterId || c.chapter;
+    if (ch && ch !== "") chapters.add(ch);
   });
   return Array.from(chapters).sort((a, b) => {
     const numA = extractChapterNum(a);
