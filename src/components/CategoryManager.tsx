@@ -94,7 +94,7 @@ export default function CategoryManager({
             const isEditing = editingCat === cat;
             const isExpanded = expandedCat === cat;
             const subs = subcategories[cat] || [];
-            const currentBuilding = monumentTypes[cat] || "insula";
+            
 
             return (
               <motion.div
