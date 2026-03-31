@@ -182,7 +182,7 @@ export const MonumentInterior = memo(function MonumentInterior({
                 </div>
               ) : (
                 /* No chapters — show cards directly */
-                <CardStrengthList cards={catCards.filter(c => (c.subcategory || "Ostalo") === expandedSub)} />
+                <CardStrengthList cards={catCards.filter(c => (c.subcategoryId || c.subcategory || "Ostalo") === expandedSub)} />
               )}
             </motion.div>
           ) : expandedNode && expandedChap ? (
