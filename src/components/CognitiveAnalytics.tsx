@@ -258,7 +258,7 @@ export default function CognitiveAnalytics({ cards, categories, reviewLog, catNa
               <div key={i} className="flex items-center justify-between p-3 rounded-lg border border-warning/20 bg-warning/5">
                 <div className="min-w-0 flex-1">
                   <p className="text-xs font-medium truncate">{hook.question}</p>
-                  <p className="text-[10px] text-muted-foreground">{hook.category} • {(hook.avgLatencyMs / 1000).toFixed(1)}s prosjek</p>
+                  <p className="text-[10px] text-muted-foreground">{catNameMap[hook.category] || hook.category} • {(hook.avgLatencyMs / 1000).toFixed(1)}s prosjek</p>
                 </div>
               </div>
             ))}
