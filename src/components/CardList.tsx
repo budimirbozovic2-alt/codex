@@ -97,12 +97,12 @@ const CardRowInner = memo(function CardRowInner({ card, expanded, highlighted, s
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1 flex-wrap">
               <span className="text-xs uppercase tracking-widest text-muted-foreground">{catNameMap?.[card.categoryId] ?? card.categoryId}</span>
-              {card.subcategory ? (
-                <span className="text-xs text-muted-foreground">› {card.subcategory}</span>
+              {(card.subcategoryId || card.subcategory) ? (
+                <span className="text-xs text-muted-foreground">› {catNameMap?.["__sub_" + (card.subcategoryId || card.subcategory)] || card.subcategory || card.subcategoryId}</span>
               ) : (
                 <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-warning/15 text-warning font-medium">Bez podkat.</span>
               )}
-              {card.chapter && <span className="text-xs text-muted-foreground/70">› {card.chapter}</span>}
+              {(card.chapterId || card.chapter) && <span className="text-xs text-muted-foreground/70">› {card.chapter || card.chapterId}</span>}
               <ScoreBadge score={score} />
               <RetentionBadge retention={retention} />
               {isFlash ? (
