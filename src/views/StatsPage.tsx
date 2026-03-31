@@ -20,6 +20,7 @@ export default function StatsPage() {
       <MyStats
         cards={cards}
         categories={categories}
+        categoryRecords={categoryRecords}
         subcategories={subcategories}
         categoryStats={categoryStats}
         reviewLog={reviewLog}

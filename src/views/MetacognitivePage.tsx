@@ -20,6 +20,7 @@ export default function MetacognitivePage() {
       <MetacognitiveCenter
         cards={cards}
         categories={categories}
+        categoryRecords={categoryRecords}
         reviewLog={reviewLog}
         settings={srSettings}
         onClearErrorLog={clearErrorLog}
