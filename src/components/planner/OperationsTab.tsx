@@ -29,6 +29,7 @@ interface Props {
   timeRec: TimeRecommendation | null;
   debt: CognitiveDebtItem | null;
   dueCount: number;
+  catNameMap: Record<string, string>;
   onNavigateToDatabase?: (category: string) => void;
 }
 
@@ -36,7 +37,7 @@ export default function OperationsTab({
   config, save, categories,
   phaseProgressList, dynamicDates, totalTimelineDays,
   velocity, remaining, estimatedFinish, plannerStatus,
-  smartSuggestion, timeRec, debt, dueCount,
+  smartSuggestion, timeRec, debt, dueCount, catNameMap,
   onNavigateToDatabase,
 }: Props) {
   const [newPhaseName, setNewPhaseName] = useState("");
