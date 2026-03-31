@@ -136,10 +136,10 @@ function SortableCardTile({ card, index }: { card: Card; index: number }) {
 }
 
 // ─── Droppable chapter zone ─────────────────────────────
-function DroppableChapterZone({ sub, chapter, count, children }: {
-  sub: string; chapter: string; count: number; children: React.ReactNode;
+function DroppableChapterZone({ subId, chapId, displayName, count, children }: {
+  subId: string; chapId: string; displayName: string; count: number; children: React.ReactNode;
 }) {
-  const dropId = chapterDropId(sub, chapter);
+  const dropId = chapterDropId(subId, chapId);
   const { setNodeRef, isOver } = useDroppable({ id: dropId });
 
   return (
