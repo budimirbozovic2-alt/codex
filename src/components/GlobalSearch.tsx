@@ -8,6 +8,8 @@ import { loadSources, type Source } from "@/lib/sources-storage";
 import { loadMindMaps } from "@/lib/mindmap-storage";
 import { MindMapDoc } from "@/lib/db";
 import { motion, AnimatePresence } from "framer-motion";
+import { useLiveQuery } from "dexie-react-hooks";
+import { db } from "@/lib/db";
 interface Props {
   cards: Card[];
   open: boolean;
