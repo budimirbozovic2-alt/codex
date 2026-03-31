@@ -285,9 +285,7 @@ export default function CardOrgMode({ cards, categoryId, subcategoryNodes, patch
       const targetSub = dropTarget.subcategory === "(Bez potkategorije)" ? "" : dropTarget.subcategory;
       patchCard(activeCardId, c => ({
         ...c,
-        chapter: dropTarget.chapter,
         chapterId: dropTarget.chapter,
-        subcategory: targetSub,
         subcategoryId: targetSub,
         sortOrder: 9999,
       }));
