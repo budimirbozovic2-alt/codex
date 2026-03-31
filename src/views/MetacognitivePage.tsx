@@ -3,7 +3,7 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import MetacognitiveCenter from "@/components/MetacognitiveCenter";
 
 export default function MetacognitivePage() {
-  const { cards, categories, reviewLog, srSettings, clearErrorLog, ready } = useCardContext();
+  const { cards, categories, categoryRecords, reviewLog, srSettings, clearErrorLog, ready } = useCardContext();
   const { setView } = useUIContext();
 
   if (!ready) {
