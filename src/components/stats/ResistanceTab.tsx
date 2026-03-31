@@ -22,9 +22,10 @@ interface Props {
   categories: string[];
   reviewLog: ReviewLogEntry[];
   weights: { lapses: number; latency: number; forgetting: number };
+  catNameMap: Record<string, string>;
 }
 
-export default function ResistanceTab({ cards, categories, reviewLog, weights }: Props) {
+export default function ResistanceTab({ cards, categories, reviewLog, weights, catNameMap }: Props) {
   const latencyData = useMemo(() => loadLatency(), []);
 
   const resistanceData = useMemo<ResistanceData[]>(() => {
