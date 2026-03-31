@@ -38,7 +38,7 @@ export const MonumentInterior = memo(function MonumentInterior({
     if (sourceHierarchy.hasSourceLinks) return [];
     const bySubcat = new Map<string, typeof catCards>();
     for (const card of catCards) {
-      const sub = card.subcategory || "Ostalo";
+      const sub = card.subcategoryId || card.subcategory || "Ostalo";
       if (!bySubcat.has(sub)) bySubcat.set(sub, []);
       bySubcat.get(sub)!.push(card);
     }
