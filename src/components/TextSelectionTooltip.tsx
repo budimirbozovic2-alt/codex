@@ -68,7 +68,7 @@ export default function TextSelectionTooltip({ children, cardId, question, categ
     toast({ title: "Dodano u Mnemo radionicu", description: `"${tooltip.text.slice(0, 40)}${tooltip.text.length > 40 ? "…" : ""}"` });
     setTooltip(null);
     window.getSelection()?.removeAllRanges();
-  }, [tooltip, cardId, question, category, subcategory, tags, qc]);
+  }, [tooltip, cardId, question, category, subcategoryId, tags, qc]);
 
   const handleKeyPart = useCallback(() => {
     if (!tooltip || !onMarkKeyPart) return;

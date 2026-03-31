@@ -9,6 +9,7 @@ import {
   SourceModule,
 } from "@/lib/spaced-repetition";
 import { CardMap, bumpMapVersion, schedulePersist } from "@/lib/persist-queue";
+import { eventBus, EVENTS } from "@/lib/event-bus";
 
 interface UseCardCRUDParams {
   setCardMapState: React.Dispatch<React.SetStateAction<CardMap>>;
@@ -38,9 +39,9 @@ export function useCardCRUD({
     (
       question: string,
       sections: { title: string; content: string }[],
-      category: string,
-      subcategory?: string,
-      chapter?: string,
+      categoryId: string,
+      subcategoryId?: string,
+      chapterId?: string,
       extra?: {
         sourceId?: string;
         textAnchor?: string;
@@ -49,9 +50,9 @@ export function useCardCRUD({
         sourceModules?: SourceModule[];
       },
     ) => {
-      const card = createCard(question, sections, category, subcategory);
+      const card = createCard(question, sections, categoryId, subcategoryId);
       card.updatedAt = Date.now();
-      if (chapter) { card.chapterId = chapter; card.chapter = chapter; }
+      if (chapterId) { card.chapterId = chapterId; }
       if (extra?.sourceId) card.sourceId = extra.sourceId;
       if (extra?.textAnchor) card.textAnchor = extra.textAnchor;
       if (extra?.originalSourceSnippet) card.originalSourceSnippet = extra.originalSourceSnippet;
@@ -61,22 +62,24 @@ export function useCardCRUD({
       schedulePersist({ type: "put", card });
       setCardMapState((prev) => ({ ...prev, [card.id]: card }));
       bumpMapVersion();
+      eventBus.emit(EVENTS.CARD_CREATED, card);
       return card;
     },
-    [setCardMapState],
+    [setCardMapState, cardMapRef],
   );
 
   const addFlashCard = useCallback(
-    (question: string, answer: string, category: string, subcategory?: string) => {
-      const card = createFlashCard(question, answer, category, subcategory);
+    (question: string, answer: string, categoryId: string, subcategoryId?: string) => {
+      const card = createFlashCard(question, answer, categoryId, subcategoryId);
       card.updatedAt = Date.now();
       cardMapRef.current = { ...cardMapRef.current, [card.id]: card }; // Sync ref
       schedulePersist({ type: "put", card });
       setCardMapState((prev) => ({ ...prev, [card.id]: card }));
       bumpMapVersion();
+      eventBus.emit(EVENTS.CARD_CREATED, card);
       return card;
     },
-    [setCardMapState],
+    [setCardMapState, cardMapRef],
   );
 
   // O(1) direct update — surgical IDB write (delegates to patchCard which handles persist)
@@ -87,8 +90,8 @@ export function useCardCRUD({
         question?: string;
         sections?: { title: string; content: string }[];
         categoryId?: string;
-        subcategory?: string;
-        chapter?: string;
+        subcategoryId?: string;
+        chapterId?: string;
         sourceId?: string;
         textAnchor?: string;
         originalSourceSnippet?: string;
@@ -101,13 +104,11 @@ export function useCardCRUD({
         const newCard = { ...c };
         if (updates.question) newCard.question = updates.question;
         if (updates.categoryId) newCard.categoryId = updates.categoryId;
-        if (updates.subcategory !== undefined) {
-          newCard.subcategory = updates.subcategory;
-          newCard.subcategoryId = updates.subcategory;
+        if (updates.subcategoryId !== undefined) {
+          newCard.subcategoryId = updates.subcategoryId;
         }
-        if (updates.chapter !== undefined) {
-          newCard.chapter = updates.chapter;
-          newCard.chapterId = updates.chapter;
+        if (updates.chapterId !== undefined) {
+          newCard.chapterId = updates.chapterId;
         }
         if (updates.sourceId !== undefined) newCard.sourceId = updates.sourceId;
         if (updates.textAnchor !== undefined) newCard.textAnchor = updates.textAnchor;
@@ -128,6 +129,7 @@ export function useCardCRUD({
         }
         return newCard;
       });
+      eventBus.emit(EVENTS.CARD_UPDATED, { id, updates });
       toast.success("Kartica ažurirana.");
     },
     [patchCard],
@@ -159,7 +161,7 @@ export function useCardCRUD({
         card.question,
         [{ title: section.title, content: section.content }],
         card.categoryId,
-        card.subcategory,
+        card.subcategoryId,
       ),
       sections: [{ ...section }],
       updatedAt: Date.now(),
