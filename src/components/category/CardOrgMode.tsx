@@ -81,15 +81,16 @@ function buildTree(cards: Card[], subcategoryNodes: SubcategoryNode[]): TreeNode
   const result: TreeNode[] = [];
   for (const [sub, entry] of nodeMap) {
     const chapters = Array.from(entry.chapters.entries())
-      .map(([chapter, cards]) => ({
-        chapter: chapNameMap.get(chapter) || chapter,
+      .map(([chapterId, cards]) => ({
+        chapter: chapNameMap.get(chapterId) || chapterId,
+        chapterId,
         cards: cards.sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0)),
       }));
     const totalCards = chapters.reduce((sum, ch) => sum + ch.cards.length, 0) + entry.unassigned.length;
     const isCanonical = subcategoryNodes.some(n => n.id === sub);
     const displayName = subNameMap.get(sub) || sub;
     if (totalCards > 0 || isCanonical) {
-      result.push({ subcategory: displayName, chapters, unassigned: entry.unassigned });
+      result.push({ subcategory: displayName, subcategoryId: sub === UNCAT_KEY ? "" : sub, chapters, unassigned: entry.unassigned });
     }
   }
 
