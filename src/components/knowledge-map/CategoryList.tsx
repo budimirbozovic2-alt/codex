@@ -28,9 +28,15 @@ function moveItem<T>(arr: T[], from: number, to: number): T[] {
 }
 
 function CategoryListInner({
-  cards, categories, subcategories, searchQuery, onSearchChange,
+  cards, categories, subcategories, categoryRecords, searchQuery, onSearchChange,
   reorderMode, onToggleReorder, onBack, onSelectCategory, onReorderCategories,
 }: Props) {
+  const catNameMap = useMemo(() => {
+    const m: Record<string, string> = {};
+    categoryRecords.forEach(r => { m[r.id] = r.name; });
+    return m;
+  }, [categoryRecords]);
+
   const q = searchQuery.toLowerCase();
 
   const catsWithStats = categories
