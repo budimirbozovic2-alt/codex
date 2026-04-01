@@ -1,8 +1,9 @@
 import { ChevronRight, BarChart3, ArrowUp, ArrowDown } from "lucide-react";
-import React, { useCallback } from "react";
+import React, { useCallback, useMemo } from "react";
 import { motion } from "framer-motion";
 import { MASTERY_LEVELS, getMasteryColor, getCardMasteryLevel } from "@/components/KnowledgeMap";
 import { Card } from "@/lib/spaced-repetition";
+import type { CategoryRecord } from "@/lib/db";
 import { Header, SearchBar, EmptyMessage } from "./SharedWidgets";
 
 interface Props {
