@@ -14,6 +14,7 @@ interface Props {
   cards: Card[];
   categories: string[];
   subcategories: Record<string, string[]>;
+  categoryRecords: CategoryRecord[];
   onReorderCategories?: (ordered: string[]) => void;
   onReorderSubcategories?: (category: string, ordered: string[]) => void;
 }
