@@ -12,6 +12,7 @@ interface Props {
   cards: Card[];
   subcategory: string;
   category: string;
+  categoryRecords: CategoryRecord[];
   onBack: () => void;
 }
 
