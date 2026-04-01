@@ -1,7 +1,7 @@
 import { ArrowLeft, BookOpen } from "lucide-react";
 import { useState, useMemo, useCallback, useEffect } from "react";
 import { Card } from "@/lib/spaced-repetition";
-import { getCardMasteryLevel, MASTERY_LEVELS } from "@/components/KnowledgeMap";
+import type { CategoryRecord } from "@/lib/db";
 import { AnimatePresence } from "framer-motion";
 import ChapterBox from "./mental-skeleton/ChapterBox";
 import LearnModal from "./mental-skeleton/LearnModal";
