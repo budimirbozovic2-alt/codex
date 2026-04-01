@@ -70,7 +70,7 @@ function SubcategoryListInner({
         className="space-y-6"
       >
         <Header
-          title={category}
+          title={catDisplayName}
           subtitle={`${catCards.length} kartica • ${tree.length} grupa (${modeLabel})`}
           onBack={onBack}
         />
