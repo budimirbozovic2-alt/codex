@@ -20,8 +20,6 @@ export default function TitleBar() {
   const handleMaximize = useCallback(() => api?.windowMaximize(), [api]);
   const handleClose = useCallback(() => api?.windowClose(), [api]);
 
-  if (!api) return null;
-
   return (
     <div className="flex items-center h-8 bg-background border-b border-border select-none shrink-0"
       style={{ WebkitAppRegion: "drag" } as React.CSSProperties}
@@ -42,30 +40,32 @@ export default function TitleBar() {
       {/* Spacer — draggable */}
       <div className="flex-1" />
 
-      {/* Window controls */}
-      <div className="flex items-center h-full" style={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}>
-        <button
-          onClick={handleMinimize}
-          className="h-full w-11 inline-flex items-center justify-center text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors"
-          title="Minimiziraj"
-        >
-          <Minus className="h-3.5 w-3.5" />
-        </button>
-        <button
-          onClick={handleMaximize}
-          className="h-full w-11 inline-flex items-center justify-center text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors"
-          title={maximized ? "Vrati" : "Maksimiziraj"}
-        >
-          {maximized ? <Copy className="h-3 w-3" /> : <Square className="h-3 w-3" />}
-        </button>
-        <button
-          onClick={handleClose}
-          className="h-full w-11 inline-flex items-center justify-center text-muted-foreground hover:bg-destructive hover:text-destructive-foreground transition-colors"
-          title="Zatvori"
-        >
-          <X className="h-3.5 w-3.5" />
-        </button>
-      </div>
+      {/* Window controls — only in Electron */}
+      {api && (
+        <div className="flex items-center h-full" style={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}>
+          <button
+            onClick={handleMinimize}
+            className="h-full w-11 inline-flex items-center justify-center text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors"
+            title="Minimiziraj"
+          >
+            <Minus className="h-3.5 w-3.5" />
+          </button>
+          <button
+            onClick={handleMaximize}
+            className="h-full w-11 inline-flex items-center justify-center text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors"
+            title={maximized ? "Vrati" : "Maksimiziraj"}
+          >
+            {maximized ? <Copy className="h-3 w-3" /> : <Square className="h-3 w-3" />}
+          </button>
+          <button
+            onClick={handleClose}
+            className="h-full w-11 inline-flex items-center justify-center text-muted-foreground hover:bg-destructive hover:text-destructive-foreground transition-colors"
+            title="Zatvori"
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      )}
     </div>
   );
 }

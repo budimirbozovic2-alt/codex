@@ -82,16 +82,7 @@ export default function AppSidebar() {
                       className="hover:bg-sidebar-accent/50"
                       activeClassName="bg-sidebar-accent text-sidebar-primary font-medium"
                     >
-                      {collapsed ? (
-                        <Scale className="h-4 w-4 shrink-0" />
-                      ) : cat.color ? (
-                        <span
-                          className="h-2.5 w-2.5 rounded-full shrink-0"
-                          style={{ backgroundColor: cat.color }}
-                        />
-                      ) : (
-                        <Scale className="h-4 w-4 shrink-0" />
-                      )}
+                      <Scale className="h-4 w-4 shrink-0" />
                       {!collapsed && (
                         <span className="truncate text-[13px]">{cat.name}</span>
                       )}
