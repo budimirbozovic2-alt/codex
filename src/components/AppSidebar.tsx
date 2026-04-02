@@ -9,7 +9,7 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { Badge } from "@/components/ui/badge";
-import { useCardData } from "@/contexts/AppContext";
+import { useCardData, useCategoryData } from "@/contexts/AppContext";
 
 const STATIC_NAV = [
   { path: "/", icon: Home, label: "Dashboard" },
