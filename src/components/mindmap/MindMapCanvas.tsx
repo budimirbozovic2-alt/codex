@@ -700,7 +700,9 @@ function MindMapCanvasInner({ doc, onBack }: { doc: MindMapDoc; onBack: () => vo
           defaultEdgeOptions={{
             type: "smoothstep",
             animated: isProcedure,
+            style: edgeStyle,
             markerEnd: { type: MarkerType.ArrowClosed, color: edgeStroke, width: 20, height: 20 },
+            markerStart: { type: MarkerType.ArrowClosed, color: edgeStroke, width: 20, height: 20 },
           }}
           onPaneClick={() => setSelectedEdgeId(null)}
         >
