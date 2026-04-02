@@ -72,10 +72,10 @@ function MindMapNodeComponent({ id, data, selected }: NodeProps) {
 
   const handles = (
     <>
-      <Handle type="source" position={Position.Top} id="top" className={handleBase} style={{ top: -6 }} />
+      <Handle type="target" position={Position.Top} id="top" className={handleBase} style={{ top: -6 }} />
       <Handle type="source" position={Position.Right} id="right" className={handleBase} style={{ right: -6 }} />
       <Handle type="source" position={Position.Bottom} id="bottom" className={handleBase} style={{ bottom: -6 }} />
-      <Handle type="source" position={Position.Left} id="left" className={handleBase} style={{ left: -6 }} />
+      <Handle type="target" position={Position.Left} id="left" className={handleBase} style={{ left: -6 }} />
     </>
   );
 
