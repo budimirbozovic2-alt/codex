@@ -1,58 +1,61 @@
 
 
-# Sljedeće stavke iz deep audita
+# Razdvajanje db.ts na tri modula
 
-## 1. Uklanjanje duplog ready timera (K2)
+## Rezime
 
-**Problem**: Dva nezavisna timera forsiraju "ready" stanje:
-- `useCardBootstrap.ts` L46: **8s panic timer** — setuje `ready=true` i uklanja splash
-- `useCards.ts` L54-64: **5s forceReady timer** — setuje zasebni `forceReady` state
+`db.ts` (432 linije) sadrži tri logički odvojene cjeline: šemu/inicijalizaciju, upite, i seed podatke. Razdvajamo ih u fokusirane module, a originalni `db.ts` postaje barrel re-export — **48 potrošača ne mijenjaju nijedan import**.
 
-5s timer okida prvi, ali bootstrap već ima robusniji 8s timer sa splash cleanup-om. `forceReady` u useCards je suvišan — dodaje kompleksnost bez koristi.
+## Novi moduli
 
-**Rješenje**: Obrisati `forceReady` state i useEffect iz `useCards.ts` (L53-64). Koristiti samo `bootstrapReady` direktno:
-```ts
-const ready = bootstrapReady;
+| Modul | Sadržaj | ~Linije |
+|-------|---------|---------|
+| `src/lib/db-schema.ts` | Tipovi (ChapterNode, SubcategoryNode, CategoryRecord, Source, MindMap*), MemoriaDB klasa, `db` instanca, event handleri, reload guard, `ensureDbOpen`, `dbErrorState`/`getDbErrorState` | ~200 |
+| `src/lib/db-queries.ts` | Sve `idb*` funkcije (cards, categories, reviewLog, settings, aggregation) | ~120 |
+| `src/lib/db-seed.ts` | `DEFAULT_CATEGORIES`, `createDefaultCategories`, `seedDefaultCategories`, `migrateFromLocalStorage` | ~50 |
+| `src/lib/db.ts` | Barrel: re-exportuje sve iz gornja tri modula | ~5 |
+
+## Zavisnosti između modula
+
+```text
+db-schema.ts  ←── db-queries.ts (importuje `db` instancu)
+     ↑
+db-seed.ts (importuje `db`, `CategoryRecord`, `createDefaultCategories`)
+     ↑
+db.ts (barrel — re-exportuje sve)
 ```
 
-| Fajl | Promjena |
-|------|----------|
-| `src/hooks/useCards.ts` L53-64 | Obrisati forceReady state, useEffect i || operator |
+## Detalji implementacije
 
----
+### `db-schema.ts`
+- Svi tipovi/interfejsi (L9-99)
+- `dbErrorState`, `getDbErrorState` (L10-11)
+- `MemoriaDB` klasa i `db` singleton (L126-184)
+- Event handleri: `blocked`, `versionchange` (L186-198)
+- Reload guard: `reloadScheduled`, `unblockIntervalId`, interval (L200-217)
+- `ensureDbOpen()` (L223-291)
 
-## 2. Migracija LearnProgress iz localStorage u IDB (K3)
+### `db-queries.ts`
+- `import { db } from "./db-schema"`
+- Sve funkcije L321-432: `idbLoadCards`, `idbPutCard`, `idbBulkPutCards`, `idbDeleteCard`, `idbLoadCategories`, `idbSaveCategory`, `idbSaveCategories`, `idbDeleteCategory`, `idbLoadReviewLog`, `idbLoadRecentReviewLog`, `idbCountReviewLog`, `idbAddReviewLogEntry`, `idbLoadSettings`, `idbSaveSettings`, `idbCountCardsByCategory`, `idbCountAllCards`, `idbCountByType`, `idbCountReviewLogSince`
 
-**Problem**: `loadLearnProgress()` i `saveLearnProgress()` u `storage.ts` još koriste `localStorage`, dok je sve ostalo migrirano na IndexedDB. Ovo je nekonzistentno i podložno gubitku podataka (localStorage se čisti nezavisno od IDB).
+### `db-seed.ts`
+- `import { db, type CategoryRecord } from "./db-schema"`
+- `DEFAULT_CATEGORIES` (L103-113)
+- `createDefaultCategories()` (L115-123)
+- `seedDefaultCategories()` (L296-305)
+- `migrateFromLocalStorage()` (L308-317)
 
-**Rješenje**: Dodati `learnProgress` tabelu u IDB i ažurirati funkcije.
-
-| Fajl | Promjena |
-|------|----------|
-| `src/lib/db.ts` | Dodati `learnProgress` store u Dexie šemu (key: `cardId`) |
-| `src/lib/storage.ts` | Promijeniti `loadLearnProgress` i `saveLearnProgress` da koriste IDB sa localStorage fallback-om za migraciju |
-| `src/components/LearnSession.tsx` | Ažurirati na async load (useEffect + useState) |
-
----
-
-## 3. Migracija LastBackupTime iz localStorage u IDB (K3b)
-
-**Problem**: `getLastBackupTime()` i `setLastBackupTime()` takođe koriste localStorage.
-
-**Rješenje**: Koristiti postojeći `idbSaveSettings`/`idbLoadSettings` mehanizam u db.ts — isti pristup kao za `srSettings`.
-
-| Fajl | Promjena |
-|------|----------|
-| `src/lib/storage.ts` | Promijeniti `getLastBackupTime` → async, čita iz IDB settings sa localStorage fallback |
-| `src/lib/storage.ts` | Promijeniti `setLastBackupTime` → async, piše u IDB |
-| `src/hooks/useDashboardData.ts` | Ažurirati pozive na async verziju |
-| `src/hooks/useCardExport.ts` | Ažurirati poziv na async verziju |
-
----
+### `db.ts` (barrel)
+```ts
+export * from "./db-schema";
+export * from "./db-queries";
+export * from "./db-seed";
+```
 
 ## Scope
-- 5 fajlova, ~40 linija promjena
-- Nema novih vanjskih zavisnosti
+- 3 nova fajla, 1 fajl pretvoren u barrel
+- 0 promjena u 48 potrošača
+- Nema novih zavisnosti
 - FSRS: netaknut
-- Potpuno backward-kompatibilno (localStorage se čita kao fallback tokom migracije)
 
