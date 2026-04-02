@@ -1,8 +1,7 @@
 import { ArrowLeft, Eye, ChevronRight, AlertTriangle, Pause, Scale } from "lucide-react";
 import { useState, useMemo, useEffect, useCallback, useRef, lazy, Suspense } from "react";
 import { Card, Section, GRADES, isLeech, formatInterval, previewIntervals, SRSettings } from "@/lib/spaced-repetition";
-import { useLiveQuery } from "dexie-react-hooks";
-import { db } from "@/lib/db";
+import { useCategoryData } from "@/contexts/AppContext";
 import { highlightKeyParts } from "@/lib/highlight-key-parts";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
