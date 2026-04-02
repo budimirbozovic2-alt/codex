@@ -3,12 +3,14 @@ import { lazy, Suspense } from "react";
 import { Button } from "@/components/ui/button";
 import CategoryManager from "@/components/CategoryManager";
 import { TabSkeleton } from "@/components/ui/page-skeleton";
+import type { CategoryRecord } from "@/lib/category-service";
 
 const HealthMonitor = lazy(() => import("@/components/HealthMonitor"));
 
 interface Props {
   categories: string[];
   subcategories: Record<string, string[]>;
+  categoryRecords: CategoryRecord[];
   cardCountByCategory: Record<string, number>;
   onAdd: (name: string) => void;
   onRename: (oldName: string, newName: string) => void;
