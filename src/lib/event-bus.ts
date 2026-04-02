@@ -29,7 +29,8 @@ const CHANNEL_NAME = "memoria_event_bus";
 class EventBus {
   private channel: BroadcastChannel | null = null;
   private listeners: Map<EventType, Set<(payload: any) => void>> = new Map();
-  private activeTabs: Map<string, number> = new Map(); // TAB_ID -> lastSeen timestamp
+  private activeTabs: Map<string, number> = new Map();
+  private heartbeatIntervalId: ReturnType<typeof setInterval> | null = null;
 
   constructor() {
     try {
@@ -67,9 +68,9 @@ class EventBus {
         // Initial discovery
         this.emit(EVENT_TYPES.TAB_HEARTBEAT, { sourceTabId: TAB_ID });
 
-        // Periodic heartbeat and cleanup
-        setInterval(() => {
-          // Cleanup stale tabs (no reply for > 12s)
+        // Periodic heartbeat and cleanup (guard against duplicate intervals)
+        if (this.heartbeatIntervalId) clearInterval(this.heartbeatIntervalId);
+        this.heartbeatIntervalId = setInterval(() => {
           const now = Date.now();
           for (const [id, lastSeen] of this.activeTabs.entries()) {
             if (now - lastSeen > 12000) {
@@ -85,6 +86,18 @@ class EventBus {
     } catch (err) {
       console.error("[EventBus] Greška pri inicijalizaciji:", err);
     }
+  }
+
+  /** Čisti sve resurse — koristiti pri HMR cleanup-u */
+  destroy(): void {
+    if (this.heartbeatIntervalId) {
+      clearInterval(this.heartbeatIntervalId);
+      this.heartbeatIntervalId = null;
+    }
+    this.channel?.close();
+    this.channel = null;
+    this.listeners.clear();
+    this.activeTabs.clear();
   }
 
   /**

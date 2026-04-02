@@ -377,12 +377,21 @@ function UIProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!("Notification" in window) || Notification.permission !== "granted") return;
     let lastSentDate = "";
+    const cachedNotif = loadAppSettings().notifications;
+    const settingsRef = { enabled: cachedNotif.enabled, hour: cachedNotif.reminderHour, minute: cachedNotif.reminderMinute };
+
+    const refreshSettings = () => {
+      const s = loadAppSettings().notifications;
+      settingsRef.enabled = s.enabled;
+      settingsRef.hour = s.reminderHour;
+      settingsRef.minute = s.reminderMinute;
+    };
+
     const check = () => {
-      const settings = loadAppSettings();
-      if (!settings.notifications.enabled) return;
+      if (!settingsRef.enabled) return;
       const now = new Date();
       const todayKey = `${now.getFullYear()}-${now.getMonth()}-${now.getDate()}`;
-      if (now.getHours() === settings.notifications.reminderHour && now.getMinutes() === settings.notifications.reminderMinute) {
+      if (now.getHours() === settingsRef.hour && now.getMinutes() === settingsRef.minute) {
         if (lastSentDate === todayKey) return;
         lastSentDate = todayKey;
         new Notification("Memoria — Podsjetnik", {
@@ -391,8 +400,11 @@ function UIProvider({ children }: { children: ReactNode }) {
         });
       }
     };
+
+    const onVisChange = () => { if (document.visibilityState === "visible") refreshSettings(); };
+    document.addEventListener("visibilitychange", onVisChange);
     const interval = window.setInterval(check, 60000);
-    return () => clearInterval(interval);
+    return () => { clearInterval(interval); document.removeEventListener("visibilitychange", onVisChange); };
   }, []);
 
   useEffect(() => {
