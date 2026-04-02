@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import InfoPanel from "@/components/InfoPanel";
 import ExportImportDialog from "@/components/ExportImportDialog";
-import { useCardContext } from "@/contexts/AppContext";
+import { useCardData, useCategoryData, useCardActions } from "@/contexts/AppContext";
 import AlgorithmTab from "@/components/settings/AlgorithmTab";
 import PersonalizationTab from "@/components/settings/PersonalizationTab";
 import WorkflowTab from "@/components/settings/WorkflowTab";
