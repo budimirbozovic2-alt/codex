@@ -4,8 +4,7 @@ import { Card, getCardScore } from "@/lib/spaced-repetition";
 import { LearnMode } from "@/lib/storage";
 import { ViewWidth, viewWidthClasses, viewWidthLabels } from "./types";
 
-import { useLiveQuery } from "dexie-react-hooks";
-import { db } from "@/lib/db";
+import { useCategoryData } from "@/contexts/AppContext";
 import { motion } from "framer-motion";
 import { speak } from "@/lib/tts";
 import ShortcutsHint from "@/components/ShortcutsHint";
