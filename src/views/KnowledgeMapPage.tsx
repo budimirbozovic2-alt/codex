@@ -4,7 +4,7 @@ import KnowledgeMap from "@/components/KnowledgeMap";
 
 export default function KnowledgeMapPage() {
   const { cards, categories, subcategories, reorderCategories, reorderSubcategories, ready } = useCardContext();
-  const { categoryRecords } = useCardData();
+  const { categoryRecords } = useCategoryData();
   const { setView } = useUIContext();
 
   if (!ready) {

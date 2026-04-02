@@ -29,7 +29,8 @@ const TOOLS_NAV = [
 export default function AppSidebar() {
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
-  const { stats, categoryRecords } = useCardData();
+  const { stats } = useCardData();
+  const { categoryRecords } = useCategoryData();
 
   return (
     <Sidebar collapsible="icon">
