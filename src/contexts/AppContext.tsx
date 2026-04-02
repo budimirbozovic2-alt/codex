@@ -1,4 +1,4 @@
-import { createContext, useContext, useCallback, useMemo, useState, useEffect, useRef, ReactNode, Suspense, lazy, ComponentType } from "react";
+import { createContext, useContext, useCallback, useMemo, useState, useEffect, useRef, ReactNode, Suspense, lazy } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useCards } from "@/hooks/useCards";
 import { Card } from "@/lib/spaced-repetition";
@@ -6,7 +6,6 @@ import { recordAppEntry, recordFirstAction, addActivityEntry, ActivityType } fro
 import { addPomodoroEntry } from "@/lib/storage";
 import { loadAppSettings } from "@/lib/app-settings";
 
-// B5 fix: Hoist lazy import to module scope
 const LazyDatabaseRecoveryPanel = lazy(() => import("@/components/DatabaseRecoveryPanel"));
 
 // ─── Types ──────────────────────────────────────────────
@@ -44,28 +43,56 @@ export interface PomodoroState {
 }
 
 // ═══════════════════════════════════════════════════════════
-// CARD DATA CONTEXT — volatile data (re-renders on card mutations)
+// CARD STATE CONTEXT — cards, dueCards, stats (re-renders on card mutations)
 // ═══════════════════════════════════════════════════════════
-interface CardDataContextValue {
+interface CardStateContextValue {
   cards: Card[];
-  categories: string[];
-  categoryRecords: import("@/lib/db").CategoryRecord[];
-  subcategories: Record<string, string[]>;
   dueCards: Card[];
   stats: ReturnType<typeof import("@/lib/spaced-repetition").getStats>;
-  categoryStats: Record<string, ReturnType<typeof import("@/lib/spaced-repetition").getCategoryStats>>;
   cardCountByCategory: Record<string, number>;
-  reviewLog: import("@/lib/storage").ReviewLogEntry[];
-  srSettings: import("@/lib/spaced-repetition").SRSettings;
   ready: boolean;
   dbError: { type: string; message: string } | null;
 }
 
-const CardDataContext = createContext<CardDataContextValue | null>(null);
+const CardStateContext = createContext<CardStateContextValue | null>(null);
 
 export function useCardData() {
-  const ctx = useContext(CardDataContext);
+  const ctx = useContext(CardStateContext);
   if (!ctx) throw new Error("useCardData must be used within CardProvider");
+  return ctx;
+}
+
+// ═══════════════════════════════════════════════════════════
+// CATEGORY STATE CONTEXT — categoryRecords, subcategories, categoryStats
+// ═══════════════════════════════════════════════════════════
+interface CategoryStateContextValue {
+  categories: string[];
+  categoryRecords: import("@/lib/db").CategoryRecord[];
+  subcategories: Record<string, string[]>;
+  categoryStats: Record<string, ReturnType<typeof import("@/lib/spaced-repetition").getCategoryStats>>;
+}
+
+const CategoryStateContext = createContext<CategoryStateContextValue | null>(null);
+
+export function useCategoryData() {
+  const ctx = useContext(CategoryStateContext);
+  if (!ctx) throw new Error("useCategoryData must be used within CardProvider");
+  return ctx;
+}
+
+// ═══════════════════════════════════════════════════════════
+// REVIEW STATE CONTEXT — reviewLog, srSettings
+// ═══════════════════════════════════════════════════════════
+interface ReviewStateContextValue {
+  reviewLog: import("@/lib/storage").ReviewLogEntry[];
+  srSettings: import("@/lib/spaced-repetition").SRSettings;
+}
+
+const ReviewStateContext = createContext<ReviewStateContextValue | null>(null);
+
+export function useReviewData() {
+  const ctx = useContext(ReviewStateContext);
+  if (!ctx) throw new Error("useReviewData must be used within CardProvider");
   return ctx;
 }
 
@@ -120,12 +147,15 @@ export function useCardActions() {
 // ═══════════════════════════════════════════════════════════
 // BACKWARD-COMPAT: useCardContext returns merged data + actions
 // ═══════════════════════════════════════════════════════════
+type CardDataContextValue = CardStateContextValue & CategoryStateContextValue & ReviewStateContextValue;
 type CardContextValue = CardDataContextValue & CardActionsContextValue;
 
 export function useCardContext(): CardContextValue {
-  const data = useCardData();
+  const cardState = useCardData();
+  const categoryState = useCategoryData();
+  const reviewState = useReviewData();
   const actions = useCardActions();
-  return useMemo(() => ({ ...data, ...actions }), [data, actions]);
+  return useMemo(() => ({ ...cardState, ...categoryState, ...reviewState, ...actions }), [cardState, categoryState, reviewState, actions]);
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -280,36 +310,47 @@ function CardProvider({ children }: { children: ReactNode }) {
         : undefined,
   }), [actionKeys]);
 
-  const data = useMemo<CardDataContextValue>(() => ({
-    cards: h.cards, categories: h.categories, categoryRecords: h.categoryRecords,
-    subcategories: h.subcategories,
-    dueCards: h.dueCards, stats: h.stats, categoryStats: h.categoryStats,
-    cardCountByCategory: h.cardCountByCategory, reviewLog: h.reviewLog,
-    srSettings: h.srSettings, ready: h.ready, dbError: h.dbError,
-  }), [
-    h.cards, h.categories, h.categoryRecords, h.subcategories, h.dueCards, h.stats,
-    h.categoryStats, h.cardCountByCategory, h.reviewLog, h.srSettings,
-    h.ready, h.dbError,
-  ]);
+  // Split data into 3 granular contexts
+  const cardState = useMemo<CardStateContextValue>(() => ({
+    cards: h.cards, dueCards: h.dueCards, stats: h.stats,
+    cardCountByCategory: h.cardCountByCategory, ready: h.ready, dbError: h.dbError,
+  }), [h.cards, h.dueCards, h.stats, h.cardCountByCategory, h.ready, h.dbError]);
 
-  // H5 fix: Render recovery panel but still wrap in providers to prevent cascade crash
+  const categoryState = useMemo<CategoryStateContextValue>(() => ({
+    categories: h.categories, categoryRecords: h.categoryRecords,
+    subcategories: h.subcategories, categoryStats: h.categoryStats,
+  }), [h.categories, h.categoryRecords, h.subcategories, h.categoryStats]);
+
+  const reviewState = useMemo<ReviewStateContextValue>(() => ({
+    reviewLog: h.reviewLog, srSettings: h.srSettings,
+  }), [h.reviewLog, h.srSettings]);
+
+  // H5 fix: Render recovery panel but still wrap in providers
   if (h.dbError) {
     return (
       <CardActionsContext.Provider value={actions}>
-        <CardDataContext.Provider value={data}>
-          <Suspense fallback={<div className="flex items-center justify-center min-h-screen text-muted-foreground">Učitavanje...</div>}>
-            <LazyDatabaseRecoveryPanel error={h.dbError} />
-          </Suspense>
-        </CardDataContext.Provider>
+        <CardStateContext.Provider value={cardState}>
+          <CategoryStateContext.Provider value={categoryState}>
+            <ReviewStateContext.Provider value={reviewState}>
+              <Suspense fallback={<div className="flex items-center justify-center min-h-screen text-muted-foreground">Učitavanje...</div>}>
+                <LazyDatabaseRecoveryPanel error={h.dbError} />
+              </Suspense>
+            </ReviewStateContext.Provider>
+          </CategoryStateContext.Provider>
+        </CardStateContext.Provider>
       </CardActionsContext.Provider>
     );
   }
 
   return (
     <CardActionsContext.Provider value={actions}>
-      <CardDataContext.Provider value={data}>
-        {children}
-      </CardDataContext.Provider>
+      <CardStateContext.Provider value={cardState}>
+        <CategoryStateContext.Provider value={categoryState}>
+          <ReviewStateContext.Provider value={reviewState}>
+            {children}
+          </ReviewStateContext.Provider>
+        </CategoryStateContext.Provider>
+      </CardStateContext.Provider>
     </CardActionsContext.Provider>
   );
 }
@@ -331,10 +372,8 @@ function UIProvider({ children }: { children: ReactNode }) {
 
   const [editingCard, setEditingCard] = useState<Card | null>(null);
 
-  // Record app entry on mount
   useEffect(() => { recordAppEntry(); }, []);
 
-  // Notification reminder scheduler
   useEffect(() => {
     if (!("Notification" in window) || Notification.permission !== "granted") return;
     let lastSentDate = "";
@@ -356,12 +395,10 @@ function UIProvider({ children }: { children: ReactNode }) {
     return () => clearInterval(interval);
   }, []);
 
-  // Track first learning action
   useEffect(() => {
     if (view === "review" || view === "learn") recordFirstAction();
   }, [view]);
 
-  // Auto time tracking per view
   useEffect(() => {
     const actType = VIEW_ACTIVITY_MAP[view];
     if (!actType) return;
@@ -389,7 +426,6 @@ function UIProvider({ children }: { children: ReactNode }) {
   return <UIContext.Provider value={value}>{children}</UIContext.Provider>;
 }
 
-// Combined provider — wraps all in correct order
 export function AppProvider({ children }: { children: ReactNode }) {
   return (
     <CardProvider>

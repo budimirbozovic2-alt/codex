@@ -1,7 +1,7 @@
 import { CheckCircle2, Brain, Wrench, FlaskConical, Sparkles, Hash, HelpCircle, Film, Type } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useState, useCallback, useMemo, useRef, useEffect } from "react";
-import { useCardActions, useCardContext } from "@/contexts/AppContext";
+import { useCardActions, useCategoryData } from "@/contexts/AppContext";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   MnemonicCard, loadMnemonicCards, saveMnemonicCards,
@@ -57,7 +57,7 @@ const MNEMO_SLIDES: OnboardingSlide[] = [
 export default function MnemonicModule() {
   const qc = useQueryClient();
   const { patchCard } = useCardActions();
-  const { categoryRecords } = useCardContext();
+  const { categoryRecords } = useCategoryData();
   const { data: cards = [] } = useQuery({
     queryKey: MNEMONIC_KEY,
     queryFn: loadMnemonicCards,

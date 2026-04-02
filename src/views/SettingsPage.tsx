@@ -1,9 +1,11 @@
-import { useCardContext, useUIContext } from "@/contexts/AppContext";
+import { useCardActions, useReviewData } from "@/contexts/AppContext";
+import { useUIContext } from "@/contexts/AppContext";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import SRSettingsPanel from "@/components/SRSettingsPanel";
 
 export default function SettingsPage() {
-  const { srSettings, updateSRSettings } = useCardContext();
+  const { srSettings } = useReviewData();
+  const { updateSRSettings } = useCardActions();
   const { setView } = useUIContext();
 
   return (

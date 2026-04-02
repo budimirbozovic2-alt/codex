@@ -1,7 +1,7 @@
 import { ChevronRight } from "lucide-react";
 import { useLocation, Link } from "react-router-dom";
 import { useMemo } from "react";
-import { useCardData } from "@/contexts/AppContext";
+import { useCategoryData } from "@/contexts/AppContext";
 
 const ROUTE_LABELS: Record<string, string> = {
   "/": "Dashboard",
@@ -26,7 +26,7 @@ const LAB_ROUTES = new Set(["/stats", "/knowledge-map", "/metacognitive", "/mnem
 
 export default function Breadcrumbs() {
   const { pathname } = useLocation();
-  const { categoryRecords } = useCardData();
+  const { categoryRecords } = useCategoryData();
 
   const categoryMatch = pathname.match(/^\/category\/([^/]+)/);
   const categoryId = categoryMatch?.[1];

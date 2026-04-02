@@ -1,10 +1,10 @@
-import { useCardContext, useUIContext, useCardData } from "@/contexts/AppContext";
+import { useCardContext, useUIContext, useCategoryData } from "@/contexts/AppContext";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import KnowledgeMap from "@/components/KnowledgeMap";
 
 export default function KnowledgeMapPage() {
   const { cards, categories, subcategories, reorderCategories, reorderSubcategories, ready } = useCardContext();
-  const { categoryRecords } = useCardData();
+  const { categoryRecords } = useCategoryData();
   const { setView } = useUIContext();
 
   if (!ready) {
