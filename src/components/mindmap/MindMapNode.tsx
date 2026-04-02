@@ -204,7 +204,7 @@ function MindMapNodeComponent({ id, data, selected }: NodeProps) {
             className="bg-transparent border-b-2 border-primary text-sm font-bold w-full outline-none text-foreground"
             defaultValue={nodeData.label}
             onBlur={(e) => { updateField("label", e.target.value); setEditing(false); }}
-            onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
+            onKeyDown={(e) => { e.stopPropagation(); if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
           />
         ) : (
           <span className="text-sm font-bold text-foreground truncate">{nodeData.label}</span>
