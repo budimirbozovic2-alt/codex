@@ -43,14 +43,9 @@ function saveToStorage<T>(key: string, value: T): void {
 
 // ─── Active functions (still used) ───────────────────────
 
-const REVIEW_LOG_KEY = "sr-review-log";
 const POMODORO_LOG_KEY = "sr-pomodoro-log";
 const LEARN_PROGRESS_KEY = "sr-learn-progress";
 const LAST_BACKUP_KEY = "sr-last-backup";
-
-export function loadReviewLog(): ReviewLogEntry[] {
-  return loadFromStorage(REVIEW_LOG_KEY, []);
-}
 
 export async function addPomodoroEntry(entry: PomodoroLogEntry): Promise<void> {
   const { db } = await import("@/lib/db");

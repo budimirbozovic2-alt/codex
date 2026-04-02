@@ -52,18 +52,6 @@ export const DEFAULT_MAJOR_SYSTEM: Record<number, string> = {
   100: "TASOS",
 };
 
-function loadFromStorage<T>(key: string, fallback: T): T {
-  try {
-    const data = localStorage.getItem(key);
-    return data ? JSON.parse(data) : fallback;
-  } catch {
-    return fallback;
-  }
-}
-
-function saveToStorage<T>(key: string, value: T): void {
-  localStorage.setItem(key, JSON.stringify(value));
-}
 
 /**
  * Migration: Move mnemonics from localStorage to IndexedDB (Transactional)
