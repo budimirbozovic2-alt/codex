@@ -8,12 +8,12 @@ import type { CategoryRecord } from "@/lib/db";
 
 interface MetadataSectionProps {
   cardType: CardType;
-  category: string;
-  setCategory: (v: string) => void;
-  subcategory: string;
-  setSubcategory: (v: string) => void;
-  chapter: string;
-  setChapter: (v: string) => void;
+  categoryId: string;
+  setCategoryId: (v: string) => void;
+  subcategoryId: string;
+  setSubcategoryId: (v: string) => void;
+  chapterId: string;
+  setChapterId: (v: string) => void;
   categories: string[];
   availableSubs: { id: string; name: string }[];
   availableChapters: { id: string; name: string }[];
@@ -38,7 +38,7 @@ interface MetadataSectionProps {
 }
 
 const MetadataSection = memo(function MetadataSection({
-  cardType, category, setCategory, subcategory, setSubcategory, chapter, setChapter,
+  cardType, categoryId, setCategoryId, subcategoryId, setSubcategoryId, chapterId, setChapterId,
   categories, availableSubs, availableChapters,
   newCategory, setNewCategory, showNewCat, setShowNewCat,
   newSubcategory, setNewSubcategory, showNewSub, setShowNewSub,
@@ -66,7 +66,7 @@ const MetadataSection = memo(function MetadataSection({
         <label className="text-sm font-medium text-muted-foreground">Kategorija</label>
         {!showNewCat ? (
           <div className="flex gap-2">
-            <Select value={category} onValueChange={(v) => { setCategory(v); setSubcategory(""); }}>
+            <Select value={categoryId} onValueChange={(v) => { setCategoryId(v); setSubcategoryId(""); }}>
               <SelectTrigger className="bg-background"><SelectValue /></SelectTrigger>
               <SelectContent>
                 {categories.map((c) => <SelectItem key={c} value={c}>{catNameMap[c] || c}</SelectItem>)}
@@ -89,7 +89,7 @@ const MetadataSection = memo(function MetadataSection({
       {/* Subcategory */}
       <div className="space-y-1.5">
         <label className="text-sm font-medium text-muted-foreground">Podkategorija (opciono)</label>
-        <Select value={subcategory || "__none__"} onValueChange={(v) => setSubcategory(v === "__none__" ? "" : v)}>
+        <Select value={subcategoryId || "__none__"} onValueChange={(v) => setSubcategoryId(v === "__none__" ? "" : v)}>
           <SelectTrigger className="bg-background"><SelectValue placeholder="Bez podkategorije" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="__none__">Bez podkategorije</SelectItem>
@@ -99,10 +99,10 @@ const MetadataSection = memo(function MetadataSection({
       </div>
 
       {/* Chapter — cascading: only when subcategory selected */}
-      {cardType === "essay" && subcategory && (
+      {cardType === "essay" && subcategoryId && (
         <div className="space-y-1.5">
           <label className="text-sm font-medium text-muted-foreground">Glava (opciono)</label>
-          <Select value={chapter || "__none__"} onValueChange={(v) => setChapter(v === "__none__" ? "" : v)}>
+          <Select value={chapterId || "__none__"} onValueChange={(v) => setChapterId(v === "__none__" ? "" : v)}>
             <SelectTrigger className="bg-background"><SelectValue placeholder="Bez glave" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="__none__">Bez glave</SelectItem>

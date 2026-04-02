@@ -17,8 +17,8 @@ interface UseCardActionsProps {
   subcategories: Record<string, string[]>;
   categoryRecords?: CategoryRecord[];
   editCard?: Card | null;
-  onSave: (question: string, sections: SectionInput[], category: string, subcategory?: string, chapter?: string) => void;
-  onSaveFlash: (question: string, answer: string, category: string, subcategory?: string) => void;
+  onSave: (question: string, sections: SectionInput[], categoryId: string, subcategoryId?: string, chapterId?: string) => void;
+  onSaveFlash: (question: string, answer: string, categoryId: string, subcategoryId?: string) => void;
   onUpdate?: (id: string, updates: {
     question?: string;
     sections?: SectionInput[];
@@ -105,9 +105,9 @@ export function useCardActions({ categories, subcategories, categoryRecords, edi
   );
 
   // ── Metadata state ────────────────────────────────────
-  const [category, setCategory] = useState(editCard?.categoryId ?? categories[0] ?? "");
-  const [subcategory, setSubcategory] = useState(editCard?.subcategoryId ?? "");
-  const [chapter, setChapter] = useState(editCard?.chapterId ?? "");
+  const [categoryId, setCategoryId] = useState(editCard?.categoryId ?? categories[0] ?? "");
+  const [subcategoryId, setSubcategoryId] = useState(editCard?.subcategoryId ?? "");
+  const [chapterId, setChapterId] = useState(editCard?.chapterId ?? "");
   const [newCategory, setNewCategory] = useState("");
   const [showNewCat, setShowNewCat] = useState(false);
   const [newSubcategory, setNewSubcategory] = useState("");
@@ -123,12 +123,12 @@ export function useCardActions({ categories, subcategories, categoryRecords, edi
 
   // ── Derived ───────────────────────────────────────────
   const availableSubs: { id: string; name: string }[] = useMemo(() => {
-    const catRec = categoryRecords?.find(r => r.id === category);
+    const catRec = categoryRecords?.find(r => r.id === categoryId);
     if (!catRec) return [];
     return (catRec.subcategories || []).map((n: any) =>
       typeof n === "string" ? { id: n, name: n } : { id: n.id, name: n.name }
     );
-  }, [category, categoryRecords]);
+  }, [categoryId, categoryRecords]);
 
   // ── Linked source gazette info (read-only) ────────────
   const [linkedGazetteInfo, setLinkedGazetteInfo] = useState<string | null>(null);
@@ -143,8 +143,8 @@ export function useCardActions({ categories, subcategories, categoryRecords, edi
 
   // ── Load available chapters from SubcategoryNode tree ──
   const availableChapters = useMemo((): { id: string; name: string }[] => {
-    const sub = showNewSub && newSubcategory.trim() ? newSubcategory.trim() : subcategory;
-    const cat = showNewCat && newCategory.trim() ? newCategory.trim() : category;
+    const sub = showNewSub && newSubcategory.trim() ? newSubcategory.trim() : subcategoryId;
+    const cat = showNewCat && newCategory.trim() ? newCategory.trim() : categoryId;
     if (!sub || !cat || !categoryRecords) return [];
     const catRec = categoryRecords.find(r => r.id === cat);
     if (!catRec) return [];
@@ -156,7 +156,7 @@ export function useCardActions({ categories, subcategories, categoryRecords, edi
     return (node.chapters || []).map((ch: any) =>
       typeof ch === "string" ? { id: ch, name: ch } : { id: ch.id, name: ch.name }
     );
-  }, [category, subcategory, showNewCat, newCategory, showNewSub, newSubcategory, categoryRecords]);
+  }, [categoryId, subcategoryId, showNewCat, newCategory, showNewSub, newSubcategory, categoryRecords]);
 
   // ── Section actions ───────────────────────────────────
   const addSection = useCallback(() => {
@@ -194,10 +194,10 @@ export function useCardActions({ categories, subcategories, categoryRecords, edi
 
   // ── Resolve final metadata values ─────────────────────
   const resolvedMeta = useMemo(() => ({
-    categoryId: showNewCat && newCategory.trim() ? newCategory.trim() : category,
-    subcategoryId: showNewSub && newSubcategory.trim() ? newSubcategory.trim() : subcategory,
-    chapterId: showNewChapter && newChapter.trim() ? newChapter.trim() : chapter,
-  }), [showNewCat, newCategory, category, showNewSub, newSubcategory, subcategory, showNewChapter, newChapter, chapter]);
+    categoryId: showNewCat && newCategory.trim() ? newCategory.trim() : categoryId,
+    subcategoryId: showNewSub && newSubcategory.trim() ? newSubcategory.trim() : subcategoryId,
+    chapterId: showNewChapter && newChapter.trim() ? newChapter.trim() : chapterId,
+  }), [showNewCat, newCategory, categoryId, showNewSub, newSubcategory, subcategoryId, showNewChapter, newChapter, chapterId]);
 
   // ── Submit ────────────────────────────────────────────
   const handleSubmit = useCallback((e: React.FormEvent) => {
@@ -241,7 +241,7 @@ export function useCardActions({ categories, subcategories, categoryRecords, edi
   return {
     // State
     cardType, question, flashAnswer, sections,
-    category, subcategory, chapter,
+    categoryId, subcategoryId, chapterId,
     newCategory, showNewCat, newSubcategory, showNewSub,
     newChapter, showNewChapter,
     formWidth, cuttingIndex,
@@ -250,7 +250,7 @@ export function useCardActions({ categories, subcategories, categoryRecords, edi
     validationErrors, isSaving,
     // Setters
     setCardType, setQuestion, setFlashAnswer,
-    setCategory, setSubcategory, setChapter,
+    setCategoryId, setSubcategoryId, setChapterId,
     setNewCategory, setShowNewCat,
     setNewSubcategory, setShowNewSub,
     setNewChapter, setShowNewChapter,

@@ -11,8 +11,8 @@ interface Props {
   categories: string[];
   subcategories: Record<string, string[]>;
   categoryRecords?: CategoryRecord[];
-  onSave: (question: string, sections: SectionInput[], category: string, subcategory?: string, chapter?: string) => void;
-  onSaveFlash: (question: string, answer: string, category: string, subcategory?: string) => void;
+  onSave: (question: string, sections: SectionInput[], categoryId: string, subcategoryId?: string, chapterId?: string) => void;
+  onSaveFlash: (question: string, answer: string, categoryId: string, subcategoryId?: string) => void;
   onCancel: () => void;
   editCard?: Card | null;
   onUpdate?: (id: string, updates: { question?: string; sections?: SectionInput[]; categoryId?: string; subcategoryId?: string; chapterId?: string }) => void;
@@ -104,12 +104,12 @@ export default function CardForm({ categories, subcategories, categoryRecords, o
       {/* ── Metadata (category, subcategory, chapter, gazette) */}
       <MetadataSection
         cardType={a.cardType}
-        category={a.category}
-        setCategory={a.setCategory}
-        subcategory={a.subcategory}
-        setSubcategory={a.setSubcategory}
-        chapter={a.chapter}
-        setChapter={a.setChapter}
+        categoryId={a.categoryId}
+        setCategoryId={a.setCategoryId}
+        subcategoryId={a.subcategoryId}
+        setSubcategoryId={a.setSubcategoryId}
+        chapterId={a.chapterId}
+        setChapterId={a.setChapterId}
         categories={categories}
         availableSubs={a.availableSubs}
         availableChapters={a.availableChapters}

@@ -38,9 +38,9 @@ export function useCardCRUD({
     (
       question: string,
       sections: { title: string; content: string }[],
-      category: string,
-      subcategory?: string,
-      chapter?: string,
+      categoryId: string,
+      subcategoryId?: string,
+      chapterId?: string,
       extra?: {
         sourceId?: string;
         textAnchor?: string;
@@ -49,9 +49,9 @@ export function useCardCRUD({
         sourceModules?: SourceModule[];
       },
     ) => {
-      const card = createCard(question, sections, category, subcategory);
+      const card = createCard(question, sections, categoryId, subcategoryId);
       card.updatedAt = Date.now();
-      if (chapter) { card.chapterId = chapter; }
+      if (chapterId) { card.chapterId = chapterId; }
       if (extra?.sourceId) card.sourceId = extra.sourceId;
       if (extra?.textAnchor) card.textAnchor = extra.textAnchor;
       if (extra?.originalSourceSnippet) card.originalSourceSnippet = extra.originalSourceSnippet;
@@ -67,8 +67,8 @@ export function useCardCRUD({
   );
 
   const addFlashCard = useCallback(
-    (question: string, answer: string, category: string, subcategory?: string) => {
-      const card = createFlashCard(question, answer, category, subcategory);
+    (question: string, answer: string, categoryId: string, subcategoryId?: string) => {
+      const card = createFlashCard(question, answer, categoryId, subcategoryId);
       card.updatedAt = Date.now();
       cardMapRef.current = { ...cardMapRef.current, [card.id]: card }; // Sync ref
       schedulePersist({ type: "put", card });
