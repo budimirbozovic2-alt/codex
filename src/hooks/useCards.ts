@@ -86,7 +86,8 @@ export function useCards() {
     return onCardReviewConfirmed((cardId) => {
       setCardMapState(prev => {
         if (!prev[cardId]) return prev;
-        const updated = next[cardId];
+        const updated = { ...prev[cardId], needsReview: undefined };
+        const next = { ...prev, [cardId]: updated };
         cardMapRef.current = next;
         schedulePersist({ type: "put", card: updated });
         bumpMapVersion();
