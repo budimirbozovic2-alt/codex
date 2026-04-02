@@ -374,6 +374,53 @@ export function useSourceReaderActions(source: Source, onSourceUpdated?: (source
     return () => window.removeEventListener("keydown", handler);
   }, [handleConvertToEssay]);
 
+  // ─── Inline format (edit mode) ───
+  const handleInlineFormat = useCallback((command: string, value?: string) => {
+    if (command === "noop") return;
+    const el = contentRef.current;
+    if (!el) return;
+    el.focus();
+    if (command === "formatBlock") {
+      document.execCommand("formatBlock", false, `<${value}>`);
+    } else {
+      document.execCommand(command, false, value);
+    }
+  }, []);
+
+  // ─── Debounced auto-save (edit mode) ───
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const persistContent = useCallback(async () => {
+    const container = contentRef.current;
+    if (!container) return;
+    const { saveSource, extractOutline, injectHeadingIds } = await import("@/lib/sources-storage");
+    const updatedHtml = injectHeadingIds(container.innerHTML);
+    const outline = extractOutline(updatedHtml);
+    const { parseArticles } = await import("@/lib/article-parser");
+    const articles = parseArticles(updatedHtml);
+    const updated: Source = {
+      ...source,
+      htmlContent: updatedHtml,
+      outline,
+      articles,
+      updatedAt: Date.now(),
+    };
+    await saveSource(updated);
+    onSourceUpdated?.(updated);
+  }, [source, onSourceUpdated]);
+
+  const handleEditInput = useCallback(() => {
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = setTimeout(() => {
+      persistContent();
+    }, 1000);
+  }, [persistContent]);
+
+  // Cleanup save timer on unmount
+  useEffect(() => {
+    return () => { if (saveTimerRef.current) clearTimeout(saveTimerRef.current); };
+  }, []);
+
   return {
     contentRef,
     derived: { sourceCards, coverage, safeHtml, linkedCount, cards },
@@ -391,6 +438,8 @@ export function useSourceReaderActions(source: Source, onSourceUpdated?: (source
       handleContextMenu,
       scrollToHeading,
       handleOpenCoveredCard,
+      handleInlineFormat,
+      handleEditInput,
     },
   };
 }
