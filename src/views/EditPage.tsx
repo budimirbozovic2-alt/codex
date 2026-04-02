@@ -1,4 +1,4 @@
-import { useCardContext, useUIContext, type View } from "@/contexts/AppContext";
+import { useCategoryData, useCardActions, useUIContext, type View } from "@/contexts/AppContext";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import CardForm from "@/components/CardForm";
 import { useEffect, useRef, useCallback } from "react";
