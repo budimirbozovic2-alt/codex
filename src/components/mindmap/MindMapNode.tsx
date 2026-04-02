@@ -152,7 +152,7 @@ function MindMapNodeComponent({ id, data, selected }: NodeProps) {
               className="bg-transparent border-b border-primary text-xs font-bold w-full outline-none text-foreground text-center"
               defaultValue={nodeData.label}
               onBlur={(e) => { updateField("label", e.target.value); setEditing(false); }}
-              onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
+              onKeyDown={(e) => { e.stopPropagation(); if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
             />
           ) : (
             <span className="text-xs font-bold text-foreground leading-tight">{nodeData.label}</span>
