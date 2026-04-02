@@ -128,9 +128,9 @@ export function useDashboardData(
   }, [focusRatio, dailyGoal, stats.totalSections]);
 
   const storageUsage = useDeferredCompute(async () => getStorageUsage(), []);
-  const backupOverdue = useDeferredCompute(() => {
+  const backupOverdue = useDeferredCompute(async () => {
     if (appSettings.autoBackupDays <= 0) return false;
-    const last = getLastBackupTime();
+    const last = await getLastBackupTime();
     if (!last || last === 0) return false;
     return Date.now() - last > appSettings.autoBackupDays * 24 * 60 * 60 * 1000;
   }, [appSettings]);

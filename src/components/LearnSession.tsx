@@ -31,7 +31,13 @@ export default function LearnSession({ cards, categories, categoryRecords, subca
   const [readCards, setReadCards] = useState<Set<string>>(new Set());
   const [completedCards, setCompletedCards] = useState<Set<string>>(new Set());
   const [chainCompletedCards, setChainCompletedCards] = useState<Set<string>>(new Set());
-  const [progress, setProgress] = useState<Record<string, LearnCardProgress>>(() => loadLearnProgress());
+  const [progress, setProgress] = useState<Record<string, LearnCardProgress>>({});
+  const progressLoadedRef = useRef(false);
+  useEffect(() => {
+    if (progressLoadedRef.current) return;
+    progressLoadedRef.current = true;
+    loadLearnProgress().then(setProgress);
+  }, []);
 
   const [sessionStartTime] = useState(() => Date.now());
   const [totalGrades, setTotalGrades] = useState<number[]>([]);
