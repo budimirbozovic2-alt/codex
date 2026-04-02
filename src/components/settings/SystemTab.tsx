@@ -18,7 +18,7 @@ interface Props {
   onOpenExportImport: () => void;
 }
 
-export default function SystemTab({ categories, subcategories, cardCountByCategory, onAdd, onRename, onDelete, onOpenExportImport }: Props) {
+export default function SystemTab({ categories, subcategories, categoryRecords, cardCountByCategory, onAdd, onRename, onDelete, onOpenExportImport }: Props) {
   return (
     <div className="space-y-5">
       {/* Backup & Restore */}
