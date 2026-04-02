@@ -9,7 +9,8 @@ import {
 } from "@/components/speed-reader/speed-reader-constants";
 
 export function useSpeedReaderEngine() {
-  const { cards, categories, subcategories, categoryRecords } = useAppContext();
+  const { cards } = useCardData();
+  const { categories, subcategories, categoryRecords } = useCategoryData();
 
   const uuidToName = useMemo(() => {
     const m: Record<string, string> = {};
