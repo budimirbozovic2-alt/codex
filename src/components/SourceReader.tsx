@@ -85,6 +85,9 @@ export default function SourceReader({ source, onBack, onSourceUpdated }: Props)
               html={derived.safeHtml}
               onMouseUp={actions.handleMouseUp}
               contentRef={contentRef}
+              editMode={editMode}
+              onFormat={actions.handleInlineFormat}
+              onInput={actions.handleEditInput}
             />
           )}
 
