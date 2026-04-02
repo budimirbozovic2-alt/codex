@@ -159,7 +159,7 @@ function MindMapNodeComponent({ id, data, selected }: NodeProps) {
           )}
         </div>
         {selected && (
-          <div className="absolute -bottom-9 left-1/2 -translate-x-1/2 flex gap-1.5 z-20">
+          <div className="absolute -bottom-9 left-1/2 -translate-x-1/2 flex gap-1.5 z-20 pointer-events-auto">
             <button onClick={() => setShowSettings(!showSettings)} className="text-[9px] text-muted-foreground hover:text-foreground bg-card border rounded-md px-2 py-0.5 shadow-sm transition-colors">⚙</button>
             <button onClick={() => nodeData.onDuplicate?.(id)} className="text-[9px] text-muted-foreground hover:text-foreground bg-card border rounded-md px-2 py-0.5 shadow-sm transition-colors">
               <Copy className="h-3 w-3 inline" />
