@@ -41,7 +41,8 @@ interface ArticleRow {
 }
 
 export default function AutoSplitDialog({ open, onClose, source }: Props) {
-  const { bulkAddCards, cards, updateCard } = useAppContext();
+  const { cards } = useCardData();
+  const { bulkAddCards, updateCard } = useCardActions();
   const [importing, setImporting] = useState(false);
   const [progress, setProgress] = useState(0);
   const [done, setDone] = useState(false);
