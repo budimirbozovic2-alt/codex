@@ -276,7 +276,7 @@ export default function CategoryManager({
           <div className="bg-card border rounded-xl p-6 max-w-sm w-full mx-4 space-y-4" onClick={e => e.stopPropagation()}>
             <h3 className="font-semibold text-lg">Obriši kategoriju</h3>
             <p className="text-sm text-muted-foreground">
-              Kategorija "{confirmDelete}" sadrži {cardCountByCategory[confirmDelete] ?? 0} kartica. Šta želite?
+              Kategorija "{nameMap[confirmDelete] || confirmDelete}" sadrži {cardCountByCategory[confirmDelete] ?? 0} kartica. Šta želite?
             </p>
             <div className="flex flex-col gap-2">
               <Button

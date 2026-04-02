@@ -40,6 +40,7 @@ export default function SystemTab({ categories, subcategories, categoryRecords, 
         <CategoryManager
           categories={categories}
           subcategories={subcategories}
+          categoryRecords={categoryRecords}
           cardCountByCategory={cardCountByCategory}
           onAdd={onAdd}
           onRename={onRename}

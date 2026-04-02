@@ -103,6 +103,7 @@ export default function SRSettingsPanel({ settings, onUpdate }: Props) {
           <SystemTab
             categories={categories}
             subcategories={subcategories}
+            categoryRecords={categoryRecords}
             cardCountByCategory={cardCountByCategory}
             onAdd={addCategory}
             onRename={renameCategory}
