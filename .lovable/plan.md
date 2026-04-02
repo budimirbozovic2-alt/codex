@@ -1,61 +1,54 @@
 
 
-# Razdvajanje db.ts na tri modula
+# Dekompozicija MindMapCanvas.tsx (757 → ~300 linija)
 
-## Rezime
+## Struktura razdvajanja
 
-`db.ts` (432 linije) sadrži tri logički odvojene cjeline: šemu/inicijalizaciju, upite, i seed podatke. Razdvajamo ih u fokusirane module, a originalni `db.ts` postaje barrel re-export — **48 potrošača ne mijenjaju nijedan import**.
+| Novi modul | Sadržaj | ~Linije |
+|------------|---------|---------|
+| `mindmap/mindmap-constants.ts` | Template-ovi (HIERARCHY, PROCEDURE, SPECIAL), edge presets (EDGE_STYLES, EDGE_COLORS, EDGE_TYPES), `getId()`, `NodeTemplate` tip | ~95 |
+| `mindmap/MindMapToolbar.tsx` | Toolbar sa title input, quick-add dropdown, auto-layout, presentation/save dugmad | ~130 |
+| `mindmap/EdgeSettingsPanel.tsx` | Panel za podešavanje veza (boja, stil, tip, label, animacija, brisanje) | ~130 |
+| `mindmap/mindmap-utils.ts` | `autoLayout()` funkcija i `SnapGuideLines` komponenta | ~65 |
+| `mindmap/MindMapCanvas.tsx` | Core canvas — state, callbacks, ReactFlow render | ~300 |
 
-## Novi moduli
-
-| Modul | Sadržaj | ~Linije |
-|-------|---------|---------|
-| `src/lib/db-schema.ts` | Tipovi (ChapterNode, SubcategoryNode, CategoryRecord, Source, MindMap*), MemoriaDB klasa, `db` instanca, event handleri, reload guard, `ensureDbOpen`, `dbErrorState`/`getDbErrorState` | ~200 |
-| `src/lib/db-queries.ts` | Sve `idb*` funkcije (cards, categories, reviewLog, settings, aggregation) | ~120 |
-| `src/lib/db-seed.ts` | `DEFAULT_CATEGORIES`, `createDefaultCategories`, `seedDefaultCategories`, `migrateFromLocalStorage` | ~50 |
-| `src/lib/db.ts` | Barrel: re-exportuje sve iz gornja tri modula | ~5 |
-
-## Zavisnosti između modula
+## Zavisnosti
 
 ```text
-db-schema.ts  ←── db-queries.ts (importuje `db` instancu)
-     ↑
-db-seed.ts (importuje `db`, `CategoryRecord`, `createDefaultCategories`)
-     ↑
-db.ts (barrel — re-exportuje sve)
+mindmap-constants.ts ←── MindMapToolbar.tsx
+         ↑                     ↑
+mindmap-utils.ts    ←── MindMapCanvas.tsx (core)
+         ↑                     ↑
+EdgeSettingsPanel.tsx ─────────┘
 ```
 
-## Detalji implementacije
+## Detalji
 
-### `db-schema.ts`
-- Svi tipovi/interfejsi (L9-99)
-- `dbErrorState`, `getDbErrorState` (L10-11)
-- `MemoriaDB` klasa i `db` singleton (L126-184)
-- Event handleri: `blocked`, `versionchange` (L186-198)
-- Reload guard: `reloadScheduled`, `unblockIntervalId`, interval (L200-217)
-- `ensureDbOpen()` (L223-291)
+### `mindmap-constants.ts`
+- `NodeTemplate` interface (L46-52)
+- `HIERARCHY_TEMPLATES`, `PROCEDURE_TEMPLATES`, `SPECIAL_TEMPLATES` (L54-73)
+- `EDGE_STYLES`, `EDGE_COLORS`, `EDGE_TYPES` (L76-96)
+- `nodeIdCounter`, `getId()` (L42-43)
 
-### `db-queries.ts`
-- `import { db } from "./db-schema"`
-- Sve funkcije L321-432: `idbLoadCards`, `idbPutCard`, `idbBulkPutCards`, `idbDeleteCard`, `idbLoadCategories`, `idbSaveCategory`, `idbSaveCategories`, `idbDeleteCategory`, `idbLoadReviewLog`, `idbLoadRecentReviewLog`, `idbCountReviewLog`, `idbAddReviewLogEntry`, `idbLoadSettings`, `idbSaveSettings`, `idbCountCardsByCategory`, `idbCountAllCards`, `idbCountByType`, `idbCountReviewLogSince`
+### `mindmap-utils.ts`
+- `autoLayout()` (L118-158)
+- `SnapGuideLines` komponenta (L99-115)
 
-### `db-seed.ts`
-- `import { db, type CategoryRecord } from "./db-schema"`
-- `DEFAULT_CATEGORIES` (L103-113)
-- `createDefaultCategories()` (L115-123)
-- `seedDefaultCategories()` (L296-305)
-- `migrateFromLocalStorage()` (L308-317)
+### `EdgeSettingsPanel.tsx`
+- Kompletna `EdgeSettingsPanel` funkcija (L161-287)
+- Importuje konstante iz `mindmap-constants.ts`
 
-### `db.ts` (barrel)
-```ts
-export * from "./db-schema";
-export * from "./db-queries";
-export * from "./db-seed";
-```
+### `MindMapToolbar.tsx`
+- Props: `title`, `setTitle`, `dirty`, `isProcedure`, `mode`, `templates`, `onSave`, `onBack`, `onAddTemplate`, `onAddBlank`, `onAutoLayout`, `onPresentation`, `onExport`
+- JSX iz L554-648 (toolbar) i L652-663 (presentation bar)
+
+### `MindMapCanvas.tsx` (ostatak)
+- Sav state i callback logika ostaje
+- Importuje 4 nova modula
+- JSX koristi `<MindMapToolbar>`, `<EdgeSettingsPanel>`, `<SnapGuideLines>`
 
 ## Scope
-- 3 nova fajla, 1 fajl pretvoren u barrel
-- 0 promjena u 48 potrošača
+- 4 nova fajla, 1 refaktorisan
+- 0 promjena u potrošačima (`MindMapPage.tsx`, `MindMapViewer.tsx`)
 - Nema novih zavisnosti
-- FSRS: netaknut
 
