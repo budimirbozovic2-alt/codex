@@ -1,4 +1,4 @@
-import { useCardContext, useUIContext } from "@/contexts/AppContext";
+import { useCardData, useCategoryData, useReviewData, useUIContext } from "@/contexts/AppContext";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import StrategicPlanner from "@/components/StrategicPlanner";
 import { useCallback } from "react";
