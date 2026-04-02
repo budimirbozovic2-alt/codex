@@ -1,4 +1,4 @@
-import { useCardContext, useUIContext, useCategoryData } from "@/contexts/AppContext";
+import { useCardData, useCategoryData, useCardActions, useUIContext } from "@/contexts/AppContext";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import KnowledgeMap from "@/components/KnowledgeMap";
 
