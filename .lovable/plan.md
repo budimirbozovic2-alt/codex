@@ -1,66 +1,50 @@
 
 
-# Dekompozicija SRSettingsPanel.tsx (505 → ~120 linija)
+# Zamjena useCardContext() granularnim hookovima
 
-## Struktura razdvajanja
+## Problem
 
-| Novi modul | Sadržaj | ~Linije |
-|------------|---------|---------|
-| `src/components/settings/AlgorithmTab.tsx` | Ciljna retencija, FSRS parametri, kognitivni otpor | ~80 |
-| `src/components/settings/PersonalizationTab.tsx` | Tema boja, dashboard widgeti, zvučni efekti | ~85 |
-| `src/components/settings/WorkflowTab.tsx` | Pomodoro, TTS, podsjetnici, backup | ~140 |
-| `src/components/settings/SystemTab.tsx` | Export/Import, CategoryManager, HealthMonitor | ~45 |
-| `src/components/SRSettingsPanel.tsx` | Orchestrator — state, header, Tabs shell, action buttons | ~120 |
+`useCardContext()` spaja 4 konteksta u novi objekat pri svakom renderu. Svaka komponenta koja ga koristi re-renderuje se kad se promijeni **bilo koji** kontekst — poništavajući dekompoziciju na granularne kontekste.
 
-## Detalji
+## Pristup
 
-### Zajednički props interfejs
+Zamijeniti svaki poziv `useCardContext()` sa kombinacijom granularnih hookova (`useCardData`, `useCategoryData`, `useReviewData`, `useCardActions`), koristeći samo one koji su stvarno potrebni. Na kraju deprecirati `useCardContext`.
 
-Svaki tab prima iste props za state koji koristi:
+## Mapiranje potrošača (14 fajlova)
 
-```ts
-// AlgorithmTab: local, setLocal, app, setApp
-// PersonalizationTab: app, setApp
-// WorkflowTab: app, setApp, tts, setTts, voices
-// SystemTab: exportImportOpen, setExportImportOpen, cards, categories, subcategories, cardCountByCategory, addCategory, renameCategory, deleteCategory, exportData, exportTemplate, importData
-```
+| Fajl | Trenutno koristi | Zamjena hookovima |
+|------|-----------------|-------------------|
+| `DashboardPage.tsx` | cards, stats, categoryStats, categories, subcategories, reviewLog, srSettings, ready | `useCardData` + `useCategoryData` + `useReviewData` |
+| `LearnPage.tsx` | cards, categories, categoryRecords, subcategories, markRead, reviewSection, stats, reviewLog, addKeyPart, ready | `useCardData` + `useCategoryData` + `useReviewData` + `useCardActions` |
+| `ReviewPage.tsx` | dueCards, cards, categoryRecords, reviewLog, subcategories, srSettings, reviewSection, logError, ready | `useCardData` + `useCategoryData` + `useReviewData` + `useCardActions` |
+| `StatsPage.tsx` | cards, categories, categoryRecords, subcategories, categoryStats, reviewLog, srSettings, ready | `useCardData` + `useCategoryData` + `useReviewData` |
+| `CreatePage.tsx` | categories, subcategories, categoryRecords, addCard, addFlashCard | `useCategoryData` + `useCardActions` |
+| `EditPage.tsx` | categories, subcategories, categoryRecords, updateCard, splitCard | `useCategoryData` + `useCardActions` |
+| `CategoriesPage.tsx` | categories, subcategories, cardCountByCategory, addCategory, renameCategory, deleteCategory, ready | `useCategoryData` + `useCardData` (ready) + `useCardActions` |
+| `KnowledgeMapPage.tsx` | cards, categories, subcategories, reorderCategories, reorderSubcategories, ready | `useCardData` + `useCategoryData` + `useCardActions` |
+| `PlannerPage.tsx` | cards, categories, categoryRecords, reviewLog, ready | `useCardData` + `useCategoryData` + `useReviewData` |
+| `MetacognitivePage.tsx` | cards, categories, categoryRecords, reviewLog, srSettings, clearErrorLog, ready | `useCardData` + `useCategoryData` + `useReviewData` + `useCardActions` |
+| `FrequentErrorsPage.tsx` | cards, categoryRecords, clearErrorLog, ready | `useCardData` + `useCategoryData` + `useCardActions` |
+| `TopNav.tsx` | stats | `useCardData` |
+| `MainLayout.tsx` (3 komponente) | cards; categories, importCards, addFlashCard | `useCardData` + `useCategoryData` + `useCardActions` |
+| `SRSettingsPanel.tsx` | cards, categories, subcategories, cardCountByCategory, exportData, exportTemplate, importData, addCategory, renameCategory, deleteCategory | `useCardData` + `useCategoryData` + `useCardActions` |
 
-### `AlgorithmTab.tsx` (L104-177)
-- Ciljna retencija slider
-- Leech prag i dnevni cilj inputi
-- Težine kognitivnog otpora slideri
-- Props: `local`, `setLocal`, `app`, `setApp`
+## Promjene po fajlu
 
-### `PersonalizationTab.tsx` (L180-258)
-- Color theme picker grid
-- Dashboard widget toggle lista
-- Zvučni efekti switch
-- Props: `app`, `setApp`
+Svaki fajl:
+1. Import zamjena: `useCardContext` → odgovarajući granularni hookovi
+2. Destrukturiranje iz zasebnih hookova umjesto jednog poziva
+3. Bez promjene ostatka koda
 
-### `WorkflowTab.tsx` (L262-446)
-- Pomodoro tajmer (4 slidera + select)
-- TTS brzina, glas, test dugme
-- Podsjetnik za ponavljanje (notification + time picker)
-- Backup podsjetnik
-- Props: `app`, `setApp`, `tts`, `setTts`, `voices`
+## AppContext.tsx
 
-### `SystemTab.tsx` (L449-480)
-- Backup & Restore dugme
-- CategoryManager
-- HealthMonitor (lazy)
-- Props: kategorije i akcije iz konteksta, `onOpenExportImport`
-
-### `SRSettingsPanel.tsx` (orchestrator)
-- Sav state ostaje ovdje (local, app, tts, voices, exportImportOpen)
-- handleSave, handleReset, hasChanges, isDefault
-- Header + InfoPanel
-- `<Tabs>` shell sa 4 `<TabsTrigger>`
-- 4 `<TabsContent>` sa importovanim tab komponentama
-- Action buttons + ExportImportDialog
+- Dodati `@deprecated` JSDoc komentar na `useCardContext`
+- Zadržati funkciju za eventualne propuštene potrošače
+- Ukloniti `useAppContext` (nekorišten osim u samom fajlu)
 
 ## Scope
-- 4 nova fajla u `src/components/settings/`
-- 1 refaktorisan fajl (`SRSettingsPanel.tsx`)
-- 0 promjena u potrošačima (`SettingsPage.tsx`)
+- 15 fajlova, ~2-5 linija po fajlu
 - Nema novih zavisnosti
+- Nema promjene ponašanja — čist refaktoring
+- Performans dobitak: komponente se re-renderuju samo kad se promijeni kontekst koji stvarno koriste
 
