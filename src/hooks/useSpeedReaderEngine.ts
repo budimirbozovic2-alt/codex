@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
-import { useAppContext } from "@/contexts/AppContext";
+import { useCardData, useCategoryData } from "@/contexts/AppContext";
 import type { Card } from "@/lib/spaced-repetition";
 import { loadSources, type Source } from "@/lib/sources-storage";
 import { loadTTSSettings, saveTTSSettings, type TTSSettings } from "@/lib/tts";
