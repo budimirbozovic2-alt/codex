@@ -19,7 +19,8 @@ import {
   idbSaveSettings,
   type CategoryRecord,
 } from "@/lib/db";
-import { onCardLinksCleared } from "@/lib/sources-storage";
+import { onCardLinksCleared, onCardReviewConfirmed } from "@/lib/sources-storage";
+import { eventBus, EVENT_TYPES } from "@/lib/event-bus";
 
 export function useCards() {
   const [cardMap, setCardMapState] = useState<CardMap>({});
