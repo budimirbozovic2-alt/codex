@@ -1,6 +1,6 @@
 import { useEffect, useCallback, useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
-import { useCardContext, useUIContext } from "@/contexts/AppContext";
+import { useCardData, useCategoryData, useReviewData, useCardActions, useUIContext } from "@/contexts/AppContext";
 import { useSessionContext, QueuedReview, QueuedError } from "@/contexts/SessionContext";
 import { SectionState } from "@/lib/spaced-repetition";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
