@@ -41,31 +41,29 @@ export default function TitleBar() {
       <div className="flex-1" />
 
       {/* Window controls — only in Electron */}
-      {api && (
-        <div className="flex items-center h-full" style={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}>
-          <button
-            onClick={handleMinimize}
-            className="h-full w-11 inline-flex items-center justify-center text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors"
-            title="Minimiziraj"
-          >
-            <Minus className="h-3.5 w-3.5" />
-          </button>
-          <button
-            onClick={handleMaximize}
-            className="h-full w-11 inline-flex items-center justify-center text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors"
-            title={maximized ? "Vrati" : "Maksimiziraj"}
-          >
-            {maximized ? <Copy className="h-3 w-3" /> : <Square className="h-3 w-3" />}
-          </button>
-          <button
-            onClick={handleClose}
-            className="h-full w-11 inline-flex items-center justify-center text-muted-foreground hover:bg-destructive hover:text-destructive-foreground transition-colors"
-            title="Zatvori"
-          >
-            <X className="h-3.5 w-3.5" />
-          </button>
-        </div>
-      )}
+      <div className="flex items-center h-full" style={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}>
+        <button
+          onClick={handleMinimize}
+          className="h-full w-11 inline-flex items-center justify-center text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors"
+          title="Minimiziraj"
+        >
+          <Minus className="h-3.5 w-3.5" />
+        </button>
+        <button
+          onClick={handleMaximize}
+          className="h-full w-11 inline-flex items-center justify-center text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors"
+          title={maximized ? "Vrati" : "Maksimiziraj"}
+        >
+          {maximized ? <Copy className="h-3 w-3" /> : <Square className="h-3 w-3" />}
+        </button>
+        <button
+          onClick={handleClose}
+          className="h-full w-11 inline-flex items-center justify-center text-muted-foreground hover:bg-destructive hover:text-destructive-foreground transition-colors"
+          title="Zatvori"
+        >
+          <X className="h-3.5 w-3.5" />
+        </button>
+      </div>
     </div>
   );
 }
