@@ -20,11 +20,17 @@ interface Props {
 }
 
 export default function CategoryManager({
-  categories, subcategories, cardCountByCategory,
+  categories, subcategories, categoryRecords,
+  cardCountByCategory,
   onAdd, onRename, onDelete,
   onAddSub, onRenameSub, onDeleteSub,
   onClose,
 }: Props) {
+  const nameMap = useMemo(() => {
+    const m: Record<string, string> = {};
+    (categoryRecords ?? []).forEach(r => { m[r.id] = r.name; });
+    return m;
+  }, [categoryRecords]);
   const [editingCat, setEditingCat] = useState<string | null>(null);
   const [editValue, setEditValue] = useState("");
   const [newCat, setNewCat] = useState("");
