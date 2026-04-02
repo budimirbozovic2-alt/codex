@@ -86,23 +86,25 @@ export default function CardForm({ categories, subcategories, categoryRecords, o
       </div>
 
       {/* ── Editor (question + answer/sections) ──────── */}
-      <EditorSection
-        cardType={a.cardType}
-        isEditing={!!editCard}
-        question={a.question}
-        setQuestion={a.setQuestion}
-        flashAnswer={a.flashAnswer}
-        setFlashAnswer={a.setFlashAnswer}
-        sections={a.sections}
-        cuttingIndex={a.cuttingIndex}
-        setCuttingIndex={a.setCuttingIndex}
-        setCardType={a.setCardType}
-        addSection={a.addSection}
-        removeSection={a.removeSection}
-        updateSection={a.updateSection}
-        handleCut={a.handleCut}
-        validationErrors={a.validationErrors}
-      />
+      <Suspense fallback={<Skeleton className="h-64 w-full rounded-xl" />}>
+        <EditorSection
+          cardType={a.cardType}
+          isEditing={!!editCard}
+          question={a.question}
+          setQuestion={a.setQuestion}
+          flashAnswer={a.flashAnswer}
+          setFlashAnswer={a.setFlashAnswer}
+          sections={a.sections}
+          cuttingIndex={a.cuttingIndex}
+          setCuttingIndex={a.setCuttingIndex}
+          setCardType={a.setCardType}
+          addSection={a.addSection}
+          removeSection={a.removeSection}
+          updateSection={a.updateSection}
+          handleCut={a.handleCut}
+          validationErrors={a.validationErrors}
+        />
+      </Suspense>
 
       {/* ── Metadata (category, subcategory, chapter, gazette) */}
       <MetadataSection
