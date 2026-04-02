@@ -33,10 +33,7 @@ const MindMapPage = lazy(() => import("@/views/MindMapPage"));
 
 const CategoryView = lazy(() => import("@/views/CategoryView"));
 
-const queryClient = new QueryClient();
-
 const App = () => (
-  <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <div className="flex flex-col h-screen" data-app-mounted>
         <TitleBar />
