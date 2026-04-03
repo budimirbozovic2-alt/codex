@@ -7,8 +7,11 @@ import {
   loadPlanner, calcVelocity, calcEstimatedFinish, getPlannerStatus,
   getSmartSuggestion, calcDailyTimeRecommendation, getCognitiveDebt,
   recordDayDiscipline, loadDisciplineLog,
-  getDailyMappedCount, autoRedistributeIfNeeded
+  getDailyMappedCount, autoRedistributeIfNeeded,
+  generateStudyPlan, calcLearningReviewRatio,
 } from "@/lib/planner-storage";
+import { CategoryRecord } from "@/lib/db";
+import { StudyFlowData } from "@/components/dashboard/StudyFlowWidget";
 import { calcEnergyRecommendation } from "@/lib/cognitive-analytics";
 import { loadAppSettings } from "@/lib/app-settings";
 import { useDeferredCompute } from "@/hooks/useDeferredCompute";
