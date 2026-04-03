@@ -1,7 +1,6 @@
 import { useEffect, useCallback, useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useCardData, useCategoryData, useReviewData, useCardActions, useUIContext } from "@/contexts/AppContext";
-import { useT } from "@/lib/i18n/useT";
 import { useSessionContext, QueuedReview, QueuedError } from "@/contexts/SessionContext";
 import { SectionState } from "@/lib/spaced-repetition";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
@@ -72,13 +71,11 @@ export default function ReviewPage() {
     setView("dashboard");
   }, [session, setView]);
 
-  const t = useT();
-
   if (!ready) {
     return (
       <div className="flex flex-col items-center justify-center py-20 gap-3">
         <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-        <p className="text-sm text-muted-foreground">{t("common.preparingMaterial")}</p>
+        <p className="text-sm text-muted-foreground">Priprema gradiva...</p>
       </div>
     );
   }

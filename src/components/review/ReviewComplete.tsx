@@ -2,11 +2,7 @@ import { BookOpen } from "lucide-react";
 import { useEffect } from "react";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
-import { useT } from "@/lib/i18n/useT";
-
 export default function ReviewComplete({ onBack }: { onBack: () => void }) {
-  const t = useT();
-
   useEffect(() => {
     import("@/lib/sounds").then(m => m.playSessionComplete());
   }, []);
@@ -16,10 +12,10 @@ export default function ReviewComplete({ onBack }: { onBack: () => void }) {
       <div className="inline-flex p-4 rounded-2xl bg-gold/10 mb-2">
         <BookOpen className="h-10 w-10 text-gold" />
       </div>
-      <h2 className="text-4xl font-bold">{t("review.sessionComplete")}</h2>
-      <p className="text-muted-foreground text-lg">{t("review.sessionCompleteDesc")}</p>
+      <h2 className="text-4xl font-bold">Sesija završena!</h2>
+      <p className="text-muted-foreground text-lg">Sve dospjele sekcije su konsolidovane. Odlično!</p>
       <Button onClick={onBack} className="btn-imperial bg-primary hover:bg-primary/90 text-primary-foreground">
-        <BookOpen className="h-4 w-4 mr-2" /> {t("review.concludeAndSave")}
+        <BookOpen className="h-4 w-4 mr-2" /> Zaključi i sačuvaj napredak
       </Button>
     </motion.div>
   );

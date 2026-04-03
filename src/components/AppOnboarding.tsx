@@ -1,29 +1,110 @@
+
+
+
 import { Sparkles, LayoutDashboard, GraduationCap, RotateCcw, Map, Brain, BarChart3, Target, Rocket } from "lucide-react";
 import OnboardingModal, { type OnboardingSlide } from "@/components/OnboardingModal";
-import { srOnboarding } from "@/lib/i18n/sr-onboarding";
-
 export const APP_ONBOARDING_KEY = "sr-app-onboarding-seen";
 
-const ICONS = [Sparkles, LayoutDashboard, GraduationCap, RotateCcw, Map, Brain, BarChart3, Target, Rocket];
-const ICON_COLORS = [
-  "bg-primary/15 text-primary",
-  "bg-primary/15 text-primary",
-  "bg-success/15 text-success",
-  "bg-warning/15 text-warning",
-  "bg-accent-foreground/15 text-accent-foreground",
-  "bg-primary/15 text-primary",
-  "bg-success/15 text-success",
-  "bg-destructive/15 text-destructive",
-  "bg-primary/15 text-primary",
+const APP_SLIDES: OnboardingSlide[] = [
+  {
+    icon: Sparkles,
+    iconColor: "bg-primary/15 text-primary",
+    title: "Dobrodošli u CODEX",
+    content: "Inteligentni sistem za učenje koji se prilagođava tvom napretku. Evo kratkog pregleda ključnih funkcija.",
+    bullets: [
+      "Sve kartice se automatski raspoređuju po FSRS algoritmu",
+      "Sistem prati stabilnost, težinu i greške za svaku cjelinu",
+      "Tvoj cilj: savladaj gradivo kroz aktivno prisjećanje",
+    ],
+  },
+  {
+    icon: LayoutDashboard,
+    iconColor: "bg-primary/15 text-primary",
+    title: "Kontrolna tabla",
+    content: "Centralni pregled napretka sa dnevnim ciljem, streikom i preporukama.",
+    bullets: [
+      "Progres ispita, dnevni cilj i streak na jednom mjestu",
+      "Idealni fokus — optimalan omjer novog i ponavljanog",
+      "Statusne ikone upozoravaju na rizike i propuste",
+    ],
+  },
+  {
+    icon: GraduationCap,
+    iconColor: "bg-success/15 text-success",
+    title: "Učenje",
+    content: "Tri progresivna režima za savladavanje novog gradiva.",
+    bullets: [
+      "Slobodno učenje — čitaj bez pritiska",
+      "Aktivno prisjećanje — reprodukuj iz sjećanja",
+      "Metod lanca — gradi savršen niz ponavljanja",
+    ],
+  },
+  {
+    icon: RotateCcw,
+    iconColor: "bg-warning/15 text-warning",
+    title: "Konsolidacija",
+    content: "Ponavljaj kartice koje su spremne za utvrđivanje.",
+    bullets: [
+      "Fokusirano — svježe i pogrešne kartice",
+      "Kritični pregled — optimalni momenat za ponavljanje",
+      "Najteža pitanja — tvrdokorno gradivo zahtijeva posebnu pažnju",
+    ],
+  },
+  {
+    icon: Map,
+    iconColor: "bg-accent-foreground/15 text-accent-foreground",
+    title: "Mapa znanja",
+    content: "Vizuelni pregled savladanosti po kategorijama, podkategorijama i glavama.",
+    bullets: [
+      "Navigator — organizuj kartice po glavama drag-and-drop-om",
+      "Auditor — heatmapa savladanosti sa detaljnim statistikama",
+    ],
+  },
+  {
+    icon: Brain,
+    iconColor: "bg-primary/15 text-primary",
+    title: "Memorizacija",
+    content: "Mnemotehničke alate za teško pamtive informacije.",
+    bullets: [
+      "Mentalni video — vizuelizuj gradivo kroz žive scene",
+      "Akronimi — napravi kratice od nabrajanja",
+      "Major sistem — pretvori brojeve u riječi fonetskim kodom",
+    ],
+  },
+  {
+    icon: BarChart3,
+    iconColor: "bg-success/15 text-success",
+    title: "Statistika i analitika",
+    content: "Detaljni uvid u tvoj napredak i kognitivne obrasce.",
+    bullets: [
+      "Krivulja zaboravljanja i predikcija retencije",
+      "Kalibracija — koliko su tvoje ocjene precizne",
+      "Efikasnost i latencija po sesijama",
+    ],
+  },
+  {
+    icon: Target,
+    iconColor: "bg-destructive/15 text-destructive",
+    title: "Strateški planer i dnevnik",
+    content: "Postavi ciljeve, prati disciplinu i reflektuj o svom učenju.",
+    bullets: [
+      "Definiši predmete, ciljeve i rokove",
+      "Prati dnevnu disciplinu i kognitivni dug",
+      "Dnevnik za metakognitivnu refleksiju",
+    ],
+  },
+  {
+    icon: Rocket,
+    iconColor: "bg-primary/15 text-primary",
+    title: "Spreman si!",
+    content: "Svaka sekcija ima svoje dugme za pomoć (?) sa detaljnijim uputstvima. Počni kreiranjem prve kartice ili uvozom iz dokumenta.",
+    bullets: [
+      "Klikom na ? u bilo kojoj sekciji dobijaš detaljni vodič",
+      "Ctrl+K — brza globalna pretraga",
+      "Backup podataka je dostupan u Bazi podataka (Export/Import)",
+    ],
+  },
 ];
-
-const APP_SLIDES: OnboardingSlide[] = srOnboarding.app.slides.map((slide, i) => ({
-  icon: ICONS[i],
-  iconColor: ICON_COLORS[i],
-  title: slide.title,
-  content: slide.content,
-  bullets: [...slide.bullets],
-}));
 
 export default function AppOnboarding({ onComplete }: { onComplete: () => void }) {
   return (
@@ -31,7 +112,7 @@ export default function AppOnboarding({ onComplete }: { onComplete: () => void }
       slides={APP_SLIDES}
       storageKey={APP_ONBOARDING_KEY}
       onComplete={onComplete}
-      finishLabel={srOnboarding.app.finishLabel}
+      finishLabel="Počni koristiti"
     />
   );
 }

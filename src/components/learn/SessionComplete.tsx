@@ -1,11 +1,11 @@
 import { BarChart3, Clock, Target, Trophy, RotateCw, BookOpen, Check } from "lucide-react";
 import React, { useEffect } from "react";
 import { LearnMode } from "@/lib/storage";
+
+
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { GRADE_LABELS } from "./types";
-import { useT } from "@/lib/i18n/useT";
-
 interface Props {
   learnMode: LearnMode;
   sessionStartTime: number;
@@ -22,8 +22,6 @@ const SessionComplete = React.memo(function SessionComplete({
   learnMode, sessionStartTime, totalGrades, modulesCompleted, chainResets,
   readCardsCount, completedCardsCount, chainCompletedCardsCount, onBack,
 }: Props) {
-  const t = useT();
-
   useEffect(() => {
     import("@/lib/sounds").then(m => m.playSessionComplete());
   }, []);
@@ -34,18 +32,18 @@ const SessionComplete = React.memo(function SessionComplete({
   const avgGrade = totalGrades.length > 0 ? (totalGrades.reduce((a, b) => a + b, 0) / totalGrades.length).toFixed(1) : "—";
 
   const statItems: { icon: typeof Clock; label: string; value: string | number }[] = [
-    { icon: Clock, label: t("learnComplete.time"), value: minutes > 0 ? `${minutes}m ${seconds}s` : `${seconds}s` },
-    { icon: Target, label: t("learnComplete.modulesCompleted"), value: modulesCompleted },
-    { icon: BarChart3, label: t("learnComplete.avgGrade"), value: avgGrade },
+    { icon: Clock, label: "Vrijeme", value: minutes > 0 ? `${minutes}m ${seconds}s` : `${seconds}s` },
+    { icon: Target, label: "Modula savladano", value: modulesCompleted },
+    { icon: BarChart3, label: "Prosječna ocjena", value: avgGrade },
   ];
 
   if (learnMode === "free") {
-    statItems[1] = { icon: BookOpen, label: t("learnComplete.read"), value: readCardsCount };
+    statItems[1] = { icon: BookOpen, label: "Pročitano", value: readCardsCount };
   } else if (learnMode === "active-recall") {
-    statItems.push({ icon: Trophy, label: t("learnComplete.questionsCompleted"), value: completedCardsCount });
+    statItems.push({ icon: Trophy, label: "Pitanja savladana", value: completedCardsCount });
   } else if (learnMode === "chain") {
-    statItems.push({ icon: Trophy, label: t("learnComplete.chainsCompleted"), value: chainCompletedCardsCount });
-    statItems.push({ icon: RotateCw, label: t("learnComplete.chainResets"), value: chainResets });
+    statItems.push({ icon: Trophy, label: "Lanci završeni", value: chainCompletedCardsCount });
+    statItems.push({ icon: RotateCw, label: "Resetovanja lanca", value: chainResets });
   }
 
   return (
@@ -54,8 +52,8 @@ const SessionComplete = React.memo(function SessionComplete({
         <div className="inline-flex p-4 rounded-2xl bg-gold/10 mb-2">
           <Trophy className="h-10 w-10 text-gold" />
         </div>
-        <h2 className="text-4xl font-bold">{t("learnComplete.title")}</h2>
-        <p className="text-muted-foreground text-lg">{t("learnComplete.subtitle")}</p>
+        <h2 className="text-4xl font-bold">Svaka čast!</h2>
+        <p className="text-muted-foreground text-lg">Sesija završena.</p>
       </div>
 
       <div className="grid grid-cols-2 gap-3">
@@ -70,7 +68,7 @@ const SessionComplete = React.memo(function SessionComplete({
 
       {totalGrades.length > 0 && (
         <div className="glass-card rounded-xl p-4 space-y-2">
-          <p className="text-xs font-medium text-muted-foreground text-center">{t("learnComplete.gradeDistribution")}</p>
+          <p className="text-xs font-medium text-muted-foreground text-center">Distribucija ocjena</p>
           <div className="flex items-end justify-center gap-3 h-16">
             {[1, 2, 3, 4].map((g) => {
               const count = totalGrades.filter((x) => x === g).length;
@@ -91,7 +89,7 @@ const SessionComplete = React.memo(function SessionComplete({
       )}
 
       <Button onClick={onBack} className="w-full btn-imperial bg-primary hover:bg-primary/90 text-primary-foreground">
-        <Check className="h-4 w-4 mr-2" /> {t("learnComplete.concludeSession")}
+        <Check className="h-4 w-4 mr-2" /> Zaključi sesiju i sačuvaj napredak
       </Button>
     </motion.div>
   );

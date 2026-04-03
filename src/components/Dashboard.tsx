@@ -10,7 +10,6 @@ import { DailyBriefing } from "./dashboard/DailyBriefing";
 import { IdealFocus } from "./dashboard/IdealFocus";
 import { VelocityWidget } from "./dashboard/VelocityWidget";
 import { StatusIconsRow } from "./dashboard/StatusIconsRow";
-import { useT } from "@/lib/i18n/useT";
 
 interface Props {
   stats: { due: number; total: number; totalSections: number; learnedSections: number };
@@ -24,7 +23,6 @@ interface Props {
 }
 
 export default function Dashboard({ stats, categoryStats, categories, subcategories, cards, reviewLog, srSettings, onExport }: Props) {
-  const t = useT();
   const {
     wc, todayReviews, dailyGoal, goalProgress, pendingFirstReview, streak,
     focusRatio, actualRatio, autoSuggestion, storageUsage, plannerData,
@@ -41,7 +39,9 @@ export default function Dashboard({ stats, categoryStats, categories, subcategor
         />
       )}
 
+      {/* 2-column desktop layout: action widgets left, analytics right */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Left column — action widgets */}
         <div className="space-y-6">
           {wc.showCoreStats && (
             <CoreStats
@@ -57,25 +57,25 @@ export default function Dashboard({ stats, categoryStats, categories, subcategor
               className="glass-card p-5">
               <div className="flex items-center gap-2 mb-4">
                 <Target className="h-4 w-4 text-primary" />
-                <h3 className="text-sm font-medium">{t("dashboard.phaseProgress", { name: plannerData.activePhase.name })}</h3>
+                <h3 className="text-sm font-medium">Progres faze: {plannerData.activePhase.name}</h3>
               </div>
               <div className="flex items-center justify-around">
                 <ProgressRing
                   percent={plannerData.activePhase.pct}
-                  label={t("dashboard.totalLabel")}
+                  label="Ukupno"
                   sublabel={`${plannerData.activePhase.learned}/${plannerData.activePhase.total}`}
                   colorClass="text-primary"
                 />
                 <ProgressRing
                   percent={plannerData.dailyQuota > 0 ? Math.min(100, Math.round((plannerData.dailyMapped / plannerData.dailyQuota) * 100)) : 0}
-                  label={t("dashboard.todayLabel")}
+                  label="Danas"
                   sublabel={`${plannerData.dailyMapped}/${plannerData.dailyQuota}`}
                   colorClass={plannerData.dailyMapped >= plannerData.dailyQuota && plannerData.dailyQuota > 0 ? "text-success" : "text-warning"}
                 />
               </div>
               {plannerData.redistResult?.redistributed && (
                 <p className="text-xs text-warning mt-3 text-center">
-                  {t("dashboard.quotaRedistributed", { quota: plannerData.redistResult.newQuota })}
+                  ⚡ Kvota automatski redistribuirana: {plannerData.redistResult.newQuota} sekcija/dan
                 </p>
               )}
             </motion.div>
@@ -93,6 +93,7 @@ export default function Dashboard({ stats, categoryStats, categories, subcategor
           )}
         </div>
 
+        {/* Right column — analytics widgets */}
         <div className="space-y-6">
           {wc.showIdealFocus && stats.totalSections > 0 && (
             <IdealFocus

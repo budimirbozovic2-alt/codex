@@ -1,6 +1,5 @@
 import { useEffect, useCallback } from "react";
 import { useCardData, useCategoryData, useReviewData, useCardActions, useUIContext } from "@/contexts/AppContext";
-import { useT } from "@/lib/i18n/useT";
 import { useSessionContext, QueuedReview, QueuedError, QueuedMarkRead } from "@/contexts/SessionContext";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import LearnSession from "@/components/LearnSession";
@@ -46,13 +45,11 @@ export default function LearnPage() {
     setView("edit");
   }, [setEditingCard, setView]);
 
-  const t = useT();
-
   if (!ready) {
     return (
       <div className="flex flex-col items-center justify-center py-20 gap-3">
         <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-        <p className="text-sm text-muted-foreground">{t("common.preparingMaterial")}</p>
+        <p className="text-sm text-muted-foreground">Priprema gradiva...</p>
       </div>
     );
   }
