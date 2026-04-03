@@ -1,7 +1,8 @@
 import { Card } from "./spaced-repetition";
 import { ReviewLogEntry } from "./storage";
-import { db } from "./db";
+import { db, CategoryRecord } from "./db";
 import { addDays, differenceInDays, startOfDay } from "date-fns";
+import type { SubjectPlan, SubjectUnit, LearningReviewRatio } from "@/types/planner";
 
 // ═══════════════════════════════════════════════════════════
 // IN-MEMORY CACHE — populated from IDB at boot, no localStorage
