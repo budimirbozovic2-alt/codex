@@ -53,6 +53,7 @@ export default function SourceReader({ source, onBack, onSourceUpdated }: Props)
         source={source}
         onBack={onBack}
         onAutoSplit={() => useSourceReaderStore.getState().setAutoSplitOpen(true)}
+        onAutoFormat={actions.handleAutoFormatArticles}
       />
 
       {isCoverage && (

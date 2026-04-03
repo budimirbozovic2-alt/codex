@@ -466,6 +466,7 @@ export function useSourceReaderActions(source: Source, onSourceUpdated?: (source
       handleOpenCoveredCard,
       handleInlineFormat,
       handleEditInput,
+      handleAutoFormatArticles,
     },
   };
 }
