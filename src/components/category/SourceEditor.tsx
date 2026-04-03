@@ -169,7 +169,7 @@ export default function SourceEditor({ source, categoryId, onClose, onSourceUpda
     onSourceUpdated(updated);
     setDirty(false);
     setNewText("");
-    toast({ title: "Izvor sačuvan", description: updated.title });
+    toast.success("Izvor sačuvan", { description: updated.title });
     onClose();
   }, [source, title, slMarkings, dateStr, isExclusive, newText, onSourceUpdated, onClose]);
 
