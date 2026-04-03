@@ -1,11 +1,14 @@
 // Ambient audio engine — procedural generators for brown noise, rain, forest, lo-fi
-export type AmbientTrack = "brown" | "rain" | "forest" | "lofi";
+export type AmbientTrack = "brown" | "rain" | "forest" | "lofi" | "cafe" | "space" | "piano";
 
 export const AMBIENT_TRACKS: { id: AmbientTrack; label: string }[] = [
   { id: "brown", label: "Brown šum" },
   { id: "rain", label: "Kiša" },
   { id: "forest", label: "Šuma" },
   { id: "lofi", label: "Lo-fi hum" },
+  { id: "cafe", label: "Kafić" },
+  { id: "space", label: "Space drone" },
+  { id: "piano", label: "Tihi klavir" },
 ];
 
 let audioCtx: AudioContext | null = null;
