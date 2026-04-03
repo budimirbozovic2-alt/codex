@@ -282,7 +282,7 @@ export default function ZenMode({ active, onToggle }: Props) {
             <SelectTrigger className="h-7 text-xs">
               <SelectValue />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent className="z-[110]">
               {AMBIENT_TRACKS.map(t => (
                 <SelectItem key={t.id} value={t.id} className="text-xs">{t.label}</SelectItem>
               ))}
