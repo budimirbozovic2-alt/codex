@@ -1,26 +1,18 @@
-import { Clock, RefreshCw, Shield, Flame, Target, Plus, Calendar, Zap, Lightbulb, AlertTriangle } from "lucide-react";
-import { useState } from "react";
-import { motion, Reorder } from "framer-motion";
+import { Clock, RefreshCw, Shield, Flame, Zap, Lightbulb, AlertTriangle, Settings2, BookOpen } from "lucide-react";
+import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
-import { Slider } from "@/components/ui/slider";
-import { StudyPhase, PlannerConfig, calcRebalancedQuota } from "@/lib/planner-storage";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Calendar as CalendarUI } from "@/components/ui/calendar";
-import { format, differenceInDays, startOfDay } from "date-fns";
+import { PlannerConfig, calcRebalancedQuota } from "@/lib/planner-storage";
+import { format, differenceInDays } from "date-fns";
 import { cn } from "@/lib/utils";
-import PhaseItem from "./PhaseItem";
+import SubjectCard from "./SubjectCard";
 import { STATUS_CONFIG, PHASE_COLORS } from "./planner-constants";
-import type { PhaseProgressItem, DynamicDateItem, SmartSuggestionItem, TimeRecommendation, CognitiveDebtItem } from "@/types/planner";
+import type { SubjectPlan, SmartSuggestionItem, TimeRecommendation, CognitiveDebtItem, LearningReviewRatio } from "@/types/planner";
 
 interface Props {
   config: PlannerConfig;
   save: (c: PlannerConfig) => void;
-  categories: string[];
-  phaseProgressList: PhaseProgressItem[];
-  dynamicDates: DynamicDateItem[];
-  totalTimelineDays: number;
+  subjectPlans: SubjectPlan[];
   velocity: number;
   remaining: number;
   estimatedFinish: Date | null;
@@ -29,68 +21,20 @@ interface Props {
   timeRec: TimeRecommendation | null;
   debt: CognitiveDebtItem | null;
   dueCount: number;
-  catNameMap: Record<string, string>;
+  learningRatio: LearningReviewRatio;
+  overallPct: number;
   onNavigateToDatabase?: (category: string) => void;
+  onOpenWizard: () => void;
 }
 
 export default function OperationsTab({
-  config, save, categories,
-  phaseProgressList, dynamicDates, totalTimelineDays,
+  config, save, subjectPlans,
   velocity, remaining, estimatedFinish, plannerStatus,
-  smartSuggestion, timeRec, debt, dueCount, catNameMap,
-  onNavigateToDatabase,
+  smartSuggestion, timeRec, debt, dueCount, learningRatio, overallPct,
+  onNavigateToDatabase, onOpenWizard,
 }: Props) {
-  const [newPhaseName, setNewPhaseName] = useState("");
-  const [newPhaseDays, setNewPhaseDays] = useState("30");
-  const [newPhaseCats, setNewPhaseCats] = useState<string[]>([]);
-  const [goalDate, setGoalDate] = useState<Date | undefined>(config.finalGoalDate ? new Date(config.finalGoalDate) : undefined);
-  const [editingPhaseId, setEditingPhaseId] = useState<string | null>(null);
-  const [editName, setEditName] = useState("");
-  const [editDays, setEditDays] = useState("");
-  const [showBufferSettings, setShowBufferSettings] = useState(false);
-
   const statusCfg = STATUS_CONFIG[plannerStatus.status as keyof typeof STATUS_CONFIG];
   const StatusIcon = statusCfg.icon;
-
-  const addPhase = () => {
-    if (!newPhaseName.trim()) return;
-    const phase: StudyPhase = {
-      id: crypto.randomUUID(),
-      name: newPhaseName.trim(),
-      expectedDays: parseInt(newPhaseDays) || 30,
-      categories: newPhaseCats,
-    };
-    save({ ...config, phases: [...config.phases, phase] });
-    setNewPhaseName("");
-    setNewPhaseDays("30");
-    setNewPhaseCats([]);
-  };
-
-  const removePhase = (id: string) => save({ ...config, phases: config.phases.filter(p => p.id !== id) });
-
-  const startEditPhase = (p: StudyPhase) => {
-    setEditingPhaseId(p.id);
-    setEditName(p.name);
-    setEditDays(String(p.expectedDays));
-  };
-
-  const saveEditPhase = () => {
-    if (!editingPhaseId) return;
-    const updated = config.phases.map(p =>
-      p.id === editingPhaseId ? { ...p, name: editName.trim() || p.name, expectedDays: parseInt(editDays) || p.expectedDays } : p
-    );
-    save({ ...config, phases: updated });
-    setEditingPhaseId(null);
-  };
-
-  const setFinalGoal = (date: Date | undefined) => {
-    setGoalDate(date);
-    save({ ...config, finalGoalDate: date ? date.toISOString().slice(0, 10) : null });
-  };
-
-  const toggleCat = (cat: string) => {
-    setNewPhaseCats(prev => prev.includes(cat) ? prev.filter(c => c !== cat) : [...prev, cat]);
-  };
 
   const handleRebalance = () => {
     const result = calcRebalancedQuota(remaining, config.finalGoalDate, config.bufferPercent);
@@ -100,148 +44,81 @@ export default function OperationsTab({
 
   return (
     <>
-      {/* ─── Phases ─── */}
+      {/* ─── Subject Plans ─── */}
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
-        className="rounded-xl bg-card border p-5 space-y-5">
+        className="rounded-xl bg-card border p-5 space-y-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Target className="h-4 w-4 text-primary" />
-            <h3 className="text-lg font-medium">Faze učenja</h3>
+            <BookOpen className="h-4 w-4 text-primary" />
+            <h3 className="text-lg font-medium">Plan po predmetima</h3>
           </div>
-          <Button variant="ghost" size="sm" onClick={() => setShowBufferSettings(!showBufferSettings)} className="gap-1.5 text-xs">
-            <Shield className="h-3.5 w-3.5" /> Buffer: {config.bufferPercent}%
-          </Button>
-        </div>
-
-        {/* Buffer settings */}
-        {showBufferSettings && (
-          <div className="p-4 rounded-lg border border-dashed space-y-3">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium">Sigurnosna zona (Buffer %)</p>
-                <p className="text-xs text-muted-foreground">Sistem će računati kao da ispit počinje ranije, ostavljajući krajnji period za finalno ponavljanje.</p>
-              </div>
-              <span className="text-lg tabular-nums text-primary">{config.bufferPercent}%</span>
-            </div>
-            <Slider
-              value={[config.bufferPercent]}
-              onValueChange={([v]) => save({ ...config, bufferPercent: v })}
-              min={0} max={30} step={5}
-              className="w-full"
-            />
-            <div className="flex justify-between text-[10px] text-muted-foreground">
-              <span>0% (bez buffera)</span>
-              <span>30% (maksimalan)</span>
-            </div>
-          </div>
-        )}
-
-        {/* Goal date picker */}
-        <div className="flex items-center gap-3 flex-wrap">
-          <span className="text-sm font-medium">Konačni cilj (ispit):</span>
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button variant="outline" className={cn("gap-2", !goalDate && "text-muted-foreground")}>
-                <Calendar className="h-4 w-4" />
-                {goalDate ? format(goalDate, "dd.MM.yyyy") : "Odaberi datum"}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0" align="start">
-              <CalendarUI
-                mode="single" selected={goalDate} onSelect={setFinalGoal}
-                disabled={(date) => date < startOfDay(new Date())} initialFocus
-                className="p-3 pointer-events-auto"
-              />
-            </PopoverContent>
-          </Popover>
-          {goalDate && (
+          <div className="flex items-center gap-2">
             <span className="text-xs text-muted-foreground">
-              ({differenceInDays(goalDate, new Date())} dana do cilja
-              {config.bufferPercent > 0 && `, efektivno ${Math.round(differenceInDays(goalDate, new Date()) * (1 - config.bufferPercent / 100))} dana`})
+              {config.finalGoalDate && `Ispit: ${format(new Date(config.finalGoalDate), "dd.MM.yyyy")}`}
+              {config.bufferPercent > 0 && ` • Buffer: ${config.bufferPercent}%`}
             </span>
-          )}
+            <Button variant="ghost" size="sm" onClick={onOpenWizard} className="gap-1.5 text-xs">
+              <Settings2 className="h-3.5 w-3.5" /> Rekonfiguriši
+            </Button>
+          </div>
         </div>
 
         {/* Timeline bar */}
-        {config.phases.length > 0 && totalTimelineDays > 0 && (
+        {subjectPlans.length > 0 && (
           <div className="flex h-6 rounded-lg overflow-hidden bg-secondary">
-            {config.phases.map((p, i) => {
-              const dd = dynamicDates.find(d => d.phaseId === p.id);
-              const days = dd?.dynamicDays || p.expectedDays;
+            {subjectPlans.map((p, i) => {
+              const totalDays = subjectPlans.reduce((s, sp) => s + sp.allocatedDays, 0) || 1;
               return (
                 <div
-                  key={p.id}
-                  style={{ width: `${(days / totalTimelineDays) * 100}%`, backgroundColor: PHASE_COLORS[i % PHASE_COLORS.length] }}
+                  key={p.categoryId}
+                  style={{ width: `${(p.allocatedDays / totalDays) * 100}%`, backgroundColor: PHASE_COLORS[i % PHASE_COLORS.length] }}
                   className="flex items-center justify-center overflow-hidden"
                 >
-                  <span className="text-[9px] font-bold text-primary-foreground truncate px-1">{p.name}</span>
+                  <span className="text-[9px] font-bold text-primary-foreground truncate px-1">{p.categoryName}</span>
                 </div>
               );
             })}
           </div>
         )}
 
-        {/* Phases list */}
-        {config.phases.length > 0 && (
-          <Reorder.Group
-            axis="y"
-            values={config.phases}
-            onReorder={(newOrder) => save({ ...config, phases: newOrder })}
-            className="space-y-2"
-          >
-            {phaseProgressList.map((p, i) => {
-              const dd = dynamicDates.find(d => d.phaseId === p.id);
-              return (
-                <PhaseItem
-                  key={p.id}
-                  phase={p}
-                  index={i}
-                  dynamicDays={dd?.dynamicDays ?? null}
-                  isEditing={editingPhaseId === p.id}
-                  editName={editName}
-                  editDays={editDays}
-                  setEditName={setEditName}
-                  setEditDays={setEditDays}
-                  onSaveEdit={saveEditPhase}
-                  onCancelEdit={() => setEditingPhaseId(null)}
-                  onStartEdit={() => startEditPhase(p)}
-                  onRemove={() => removePhase(p.id)}
-                  onOpenInDB={() => {
-                    if (p.categories.length > 0 && onNavigateToDatabase) {
-                      onNavigateToDatabase(p.categories[0]);
-                    }
-                  }}
-                  catNameMap={catNameMap}
-                />
-              );
-            })}
-          </Reorder.Group>
-        )}
-
-        {/* Add phase form */}
-        <div className="space-y-3 p-4 rounded-lg border border-dashed">
-          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Nova faza</p>
-          <div className="flex gap-2">
-            <Input value={newPhaseName} onChange={e => setNewPhaseName(e.target.value)} placeholder="Naziv (npr. Anatomija fokus)" className="flex-1" />
-            <Input type="number" value={newPhaseDays} onChange={e => setNewPhaseDays(e.target.value)} placeholder="Očekivano dana" className="w-24" min={1} />
+        {/* Subject cards */}
+        {subjectPlans.length > 0 ? (
+          <div className="space-y-2">
+            {subjectPlans.map((plan, i) => (
+              <SubjectCard key={plan.categoryId} plan={plan} index={i} onNavigate={onNavigateToDatabase} />
+            ))}
           </div>
-          {categories.length > 0 && (
-            <div className="flex flex-wrap gap-1.5">
-              {categories.map(cat => (
-                <button
-                  key={cat} onClick={() => toggleCat(cat)}
-                  className={cn("px-2.5 py-1 rounded-md text-xs font-medium transition-all",
-                    newPhaseCats.includes(cat) ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground hover:text-foreground"
-                  )}
-                >
-                   {catNameMap[cat] || cat}
-                </button>
-              ))}
-            </div>
-          )}
-          <Button size="sm" onClick={addPhase} disabled={!newPhaseName.trim()} className="gap-1.5">
-            <Plus className="h-3.5 w-3.5" /> Dodaj fazu
-          </Button>
+        ) : (
+          <div className="text-center py-8">
+            <p className="text-sm text-muted-foreground">Plan nije konfigurisan.</p>
+            <Button variant="outline" size="sm" onClick={onOpenWizard} className="mt-3 gap-1.5">
+              <Settings2 className="h-3.5 w-3.5" /> Podesi plan
+            </Button>
+          </div>
+        )}
+      </motion.div>
+
+      {/* ─── Learning/Review Ratio ─── */}
+      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}
+        className="rounded-xl bg-card border p-5 space-y-3">
+        <div className="flex items-center gap-2">
+          <BookOpen className="h-4 w-4 text-primary" />
+          <h3 className="text-sm font-medium">Omjer učenje / ponavljanje</h3>
+        </div>
+        <p className="text-xs text-muted-foreground">{learningRatio.label} — Ukupni progres: {overallPct}%</p>
+        <div className="flex h-4 rounded-full overflow-hidden bg-secondary">
+          <div
+            className="bg-primary flex items-center justify-center transition-all"
+            style={{ width: `${learningRatio.learnPct}%` }}
+          >
+            <span className="text-[9px] font-bold text-primary-foreground">Učenje {learningRatio.learnPct}%</span>
+          </div>
+          <div
+            className="bg-success flex items-center justify-center transition-all"
+            style={{ width: `${learningRatio.reviewPct}%` }}
+          >
+            <span className="text-[9px] font-bold text-success-foreground">Ponavljanje {learningRatio.reviewPct}%</span>
+          </div>
         </div>
       </motion.div>
 
@@ -333,7 +210,7 @@ export default function OperationsTab({
             <div>
               <p className="text-xs font-medium text-warning">Visok rizik od zamora</p>
               <p className="text-[11px] text-muted-foreground mt-0.5">
-                Dnevna kvota od {smartSuggestion.suggestedToday} kartica prelazi sigurnu granicu (60). Razmisli o produženju faze ili smanjenju buffera.
+                Dnevna kvota od {smartSuggestion.suggestedToday} kartica prelazi sigurnu granicu (60). Razmisli o produženju plana ili smanjenju buffera.
               </p>
             </div>
           </div>

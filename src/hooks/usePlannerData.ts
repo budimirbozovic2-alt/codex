@@ -1,17 +1,18 @@
 import { useState, useMemo, useCallback } from "react";
 import { Card as SRCard } from "@/lib/spaced-repetition";
 import { ReviewLogEntry } from "@/lib/storage";
+import { CategoryRecord } from "@/lib/db";
 import {
-  loadPlanner, savePlanner, StudyPhase, PlannerConfig,
+  loadPlanner, savePlanner, PlannerConfig,
   calcVelocity, calcEstimatedFinish, getPlannerStatus, getSmartSuggestion,
-  calcDailyTimeRecommendation, calcPhaseProgress, calcDynamicPhaseDates,
+  calcDailyTimeRecommendation,
   calcRebalancedQuota, buildBurnupData, getProjectionText,
   loadDisciplineLog, getDisciplineTrend,
   getCognitiveDebt, getPhaseDisciplinePct,
+  generateStudyPlan, calcLearningReviewRatio,
 } from "@/lib/planner-storage";
-import { differenceInDays } from "date-fns";
 
-export function usePlannerData(cards: SRCard[], reviewLog: ReviewLogEntry[]) {
+export function usePlannerData(cards: SRCard[], reviewLog: ReviewLogEntry[], categoryRecords: CategoryRecord[]) {
   const [config, setConfig] = useState<PlannerConfig>(() => loadPlanner());
 
   const totalSections = useMemo(() => cards.reduce((s, c) => s + c.sections.length, 0), [cards]);
@@ -21,17 +22,20 @@ export function usePlannerData(cards: SRCard[], reviewLog: ReviewLogEntry[]) {
     return count;
   }, [cards]);
   const remaining = totalSections - learnedSections;
+  const overallPct = totalSections > 0 ? Math.round((learnedSections / totalSections) * 100) : 0;
 
   const velocity = useMemo(() => calcVelocity(reviewLog, 7), [reviewLog]);
   const estimatedFinish = useMemo(() => calcEstimatedFinish(remaining, velocity), [remaining, velocity]);
   const plannerStatus = useMemo(() => getPlannerStatus(estimatedFinish, config.finalGoalDate, config.bufferPercent), [estimatedFinish, config.finalGoalDate, config.bufferPercent]);
 
-  const phaseProgressList = useMemo(() => config.phases.map(p => ({ ...p, ...calcPhaseProgress(p, cards) })), [config.phases, cards]);
-  const currentPhase = useMemo(() => phaseProgressList.find(p => p.pct < 100) || phaseProgressList[0] || null, [phaseProgressList]);
+  // Subject-oriented plan
+  const subjectPlans = useMemo(() => generateStudyPlan(config, categoryRecords, cards), [config, categoryRecords, cards]);
 
-  const smartSuggestion = useMemo(() => getSmartSuggestion(currentPhase?.phase || null, cards, config.finalGoalDate, velocity, config.bufferPercent), [currentPhase, cards, config.finalGoalDate, velocity, config.bufferPercent]);
+  // Learning/review ratio
+  const learningRatio = useMemo(() => calcLearningReviewRatio(overallPct), [overallPct]);
 
-  const dynamicDates = useMemo(() => calcDynamicPhaseDates(config.phases, cards, velocity), [config.phases, cards, velocity]);
+  // Smart suggestion uses global remaining (no phase)
+  const smartSuggestion = useMemo(() => getSmartSuggestion(null, cards, config.finalGoalDate, velocity, config.bufferPercent), [cards, config.finalGoalDate, velocity, config.bufferPercent]);
 
   const dueCount = useMemo(() => {
     const now = Date.now();
@@ -55,10 +59,6 @@ export function usePlannerData(cards: SRCard[], reviewLog: ReviewLogEntry[]) {
 
   const projectionText = useMemo(() => getProjectionText(velocity, remaining, config.finalGoalDate, config.bufferPercent), [velocity, remaining, config.finalGoalDate, config.bufferPercent]);
 
-  const totalTimelineDays = useMemo(() => {
-    return dynamicDates.reduce((s, d) => s + d.dynamicDays, 0) || config.phases.reduce((s, p) => s + p.expectedDays, 0);
-  }, [dynamicDates, config.phases]);
-
   const { streak, bestStreak } = useMemo(() => {
     let streak = 0;
     const sorted = [...disciplineLog].sort((a, b) => b.date.localeCompare(a.date));
@@ -75,20 +75,22 @@ export function usePlannerData(cards: SRCard[], reviewLog: ReviewLogEntry[]) {
     return { streak, bestStreak: best };
   }, [disciplineLog]);
 
+  const isConfigured = config.dailyAvailableMinutes > 0 && !!config.finalGoalDate;
+
   const save = useCallback((updated: PlannerConfig) => {
     setConfig(updated);
     savePlanner(updated);
   }, []);
 
   return {
-    config, save,
-    totalSections, learnedSections, remaining, velocity,
+    config, save, isConfigured,
+    totalSections, learnedSections, remaining, overallPct, velocity,
     estimatedFinish, plannerStatus,
-    phaseProgressList, currentPhase,
-    smartSuggestion, dynamicDates, dueCount,
+    subjectPlans, learningRatio,
+    smartSuggestion, dueCount,
     timeRec, debt,
     disciplineLog, disciplineTrend, phaseDisciplinePct,
-    burnupData, projectionText, totalTimelineDays,
+    burnupData, projectionText,
     streak, bestStreak,
   };
 }

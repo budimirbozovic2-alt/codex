@@ -1,4 +1,4 @@
-import type { StudyPhase, DisciplineStatus } from "@/lib/planner-storage";
+import type { DisciplineStatus } from "@/lib/planner-storage";
 
 /** A single data point on the burn-up chart */
 export interface BurnupDataPoint {
@@ -7,24 +7,35 @@ export interface BurnupDataPoint {
   actual: number | null;
 }
 
-/** Per-phase progress item used in RoadmapTab & OperationsTab */
-export interface PhaseProgressItem {
-  id: string;
-  name: string;
-  expectedDays: number;
-  categories: string[];
-  total: number;
-  learned: number;
+/** Per-subject generated plan */
+export interface SubjectPlan {
+  categoryId: string;
+  categoryName: string;
+  weight: number;           // 1.0 or 1.5 for hard subjects
+  totalSections: number;
+  learnedSections: number;
   pct: number;
-  remainingCards: number;
-}
-
-/** Dynamic date info for a phase */
-export interface DynamicDateItem {
-  phaseId: string;
+  allocatedDays: number;
   startDate: Date;
   endDate: Date;
-  dynamicDays: number;
+  units: SubjectUnit[];
+}
+
+/** Sub-unit within a subject (subcategory or chapter) */
+export interface SubjectUnit {
+  id: string;
+  name: string;
+  totalSections: number;
+  learnedSections: number;
+  pct: number;
+  allocatedDays: number;
+}
+
+/** Learning/review ratio */
+export interface LearningReviewRatio {
+  learnPct: number;
+  reviewPct: number;
+  label: string;
 }
 
 /** Smart suggestion from load balancer */

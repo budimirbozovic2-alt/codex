@@ -5,7 +5,7 @@ import {
   AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, Line, ComposedChart,
 } from "recharts";
 import { ChartTooltip, PHASE_COLORS } from "./planner-constants";
-import type { BurnupDataPoint, PhaseProgressItem } from "@/types/planner";
+import type { BurnupDataPoint, SubjectPlan } from "@/types/planner";
 
 interface Props {
   burnupData: BurnupDataPoint[];
@@ -13,13 +13,13 @@ interface Props {
   velocity: number;
   remaining: number;
   totalSections: number;
-  phaseProgressList: PhaseProgressItem[];
+  subjectPlans: SubjectPlan[];
   bufferPercent: number;
 }
 
 export default function RoadmapTab({
   burnupData, projectionText, velocity, remaining, totalSections,
-  phaseProgressList, bufferPercent,
+  subjectPlans, bufferPercent,
 }: Props) {
   return (
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
@@ -86,18 +86,19 @@ export default function RoadmapTab({
         </div>
       </div>
 
-      {/* Per-phase snapshot */}
-      {phaseProgressList.length > 0 && (
+      {/* Per-subject snapshot */}
+      {subjectPlans.length > 0 && (
         <div className="rounded-xl bg-card border p-5 space-y-3">
-          <h4 className="text-sm font-medium">Progres po fazama</h4>
-          {phaseProgressList.map((p, i) => (
-            <div key={p.id} className="space-y-1">
+          <h4 className="text-sm font-medium">Progres po predmetima</h4>
+          {subjectPlans.map((p, i) => (
+            <div key={p.categoryId} className="space-y-1">
               <div className="flex items-center justify-between text-xs">
                 <span className="flex items-center gap-1.5">
                   <span className="w-2 h-2 rounded-full" style={{ backgroundColor: PHASE_COLORS[i % PHASE_COLORS.length] }} />
-                  {p.name}
+                  {p.categoryName}
+                  {p.weight > 1 && <span className="text-[9px] text-warning">(težak)</span>}
                 </span>
-                <span className="text-muted-foreground tabular-nums">{p.learned}/{p.total}</span>
+                <span className="text-muted-foreground tabular-nums">{p.learnedSections}/{p.totalSections}</span>
               </div>
               <Progress value={p.pct} className="h-1.5" />
             </div>

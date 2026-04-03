@@ -10,6 +10,7 @@ import { usePlannerData } from "@/hooks/usePlannerData";
 import OperationsTab from "./planner/OperationsTab";
 import RoadmapTab from "./planner/RoadmapTab";
 import DisciplineTab from "./planner/DisciplineTab";
+import PlannerSetupWizard from "./planner/PlannerSetupWizard";
 
 interface Props {
   cards: SRCard[];
@@ -20,17 +21,22 @@ interface Props {
 }
 
 export default function StrategicPlanner({ cards, categories, categoryRecords, reviewLog, onNavigateToDatabase }: Props) {
-  const data = usePlannerData(cards, reviewLog);
+  const data = usePlannerData(cards, reviewLog, categoryRecords);
   const [activeTab, setActiveTab] = useState<"operations" | "roadmap" | "discipline">("operations");
-
-  const catNameMap = useMemo(() => {
-    const m: Record<string, string> = {};
-    for (const r of categoryRecords) m[r.id] = r.name;
-    return m;
-  }, [categoryRecords]);
+  const [showWizard, setShowWizard] = useState(!data.isConfigured);
 
   return (
     <div className="space-y-6">
+      {showWizard && (
+        <PlannerSetupWizard
+          config={data.config}
+          save={data.save}
+          categoryRecords={categoryRecords}
+          cards={cards}
+          onClose={() => setShowWizard(false)}
+        />
+      )}
+
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
         <div className="flex items-center justify-between">
           <div>
@@ -38,13 +44,12 @@ export default function StrategicPlanner({ cards, categories, categoryRecords, r
             <p className="text-muted-foreground mt-1">Adaptivni sistem — plan se prilagođava tvom tempu</p>
           </div>
           <InfoPanel title="Kako radi Strateški planer?">
-            <p><strong className="text-foreground">Operativni plan</strong> — faze učenja sa dinamičkim datumima, Smart Load Balancing (dnevna kvota = preostalo / efektivni dani), Reality Check i dnevne sugestije.</p>
-            <p><strong className="text-foreground">Faze učenja</strong> — grupišu kategorije. Datumi se automatski prilagođavaju tvom tempu (Velocity).</p>
-            <p><strong className="text-foreground">Buffer %</strong> — sigurnosna zona (podrazumijevano 15%) — sistem računa kao da ispit počinje ranije, ostavljajući krajnji period za finalno ponavljanje.</p>
-            <p><strong className="text-foreground">Niveliši plan</strong> — raspoređuje kognitivni dug ravnomjerno na preostale dane, resetujući status u zeleni.</p>
-            <p><strong className="text-foreground">Mapa puta</strong> — Burn-up grafikon (idealna vs. stvarna linija napretka) i tekstualna simulacija završetka.</p>
-            <p><strong className="text-foreground">Disciplina</strong> — Rocket Streak (🚀 uzastopni dani), 14-dnevni grid sa emojijima i trend dosljednosti.</p>
-            <p><strong className="text-foreground">Burnout zaštita</strong> — upozorenje ako dnevna kvota pređe 60 kartica.</p>
+            <p><strong className="text-foreground">Plan po predmetima</strong> — sistem automatski generiše raspored na osnovu broja cjelina i težine predmeta. Teški predmeti dobijaju 1.5× više vremena.</p>
+            <p><strong className="text-foreground">Omjer učenje/ponavljanje</strong> — dinamički se prilagođava: na početku 90% učenje, pri kraju 90% ponavljanje.</p>
+            <p><strong className="text-foreground">Buffer %</strong> — sigurnosna zona (podrazumijevano 15%) — sistem računa kao da ispit počinje ranije.</p>
+            <p><strong className="text-foreground">Niveliši plan</strong> — raspoređuje kognitivni dug ravnomjerno na preostale dane.</p>
+            <p><strong className="text-foreground">Mapa puta</strong> — Burn-up grafikon i tekstualna simulacija završetka.</p>
+            <p><strong className="text-foreground">Disciplina</strong> — Rocket Streak, 14-dnevni grid i trend dosljednosti.</p>
           </InfoPanel>
         </div>
 
@@ -74,10 +79,7 @@ export default function StrategicPlanner({ cards, categories, categoryRecords, r
         <OperationsTab
           config={data.config}
           save={data.save}
-          categories={categories}
-          phaseProgressList={data.phaseProgressList}
-          dynamicDates={data.dynamicDates}
-          totalTimelineDays={data.totalTimelineDays}
+          subjectPlans={data.subjectPlans}
           velocity={data.velocity}
           remaining={data.remaining}
           estimatedFinish={data.estimatedFinish}
@@ -86,8 +88,10 @@ export default function StrategicPlanner({ cards, categories, categoryRecords, r
           timeRec={data.timeRec}
           debt={data.debt}
           dueCount={data.dueCount}
-          catNameMap={catNameMap}
+          learningRatio={data.learningRatio}
+          overallPct={data.overallPct}
           onNavigateToDatabase={onNavigateToDatabase}
+          onOpenWizard={() => setShowWizard(true)}
         />
       )}
 
@@ -98,7 +102,7 @@ export default function StrategicPlanner({ cards, categories, categoryRecords, r
           velocity={data.velocity}
           remaining={data.remaining}
           totalSections={data.totalSections}
-          phaseProgressList={data.phaseProgressList}
+          subjectPlans={data.subjectPlans}
           bufferPercent={data.config.bufferPercent}
         />
       )}
@@ -109,7 +113,7 @@ export default function StrategicPlanner({ cards, categories, categoryRecords, r
           disciplineTrend={data.disciplineTrend}
           streak={data.streak}
           bestStreak={data.bestStreak}
-          currentPhase={data.currentPhase}
+          currentPhase={(() => { const p = data.subjectPlans.find(p => p.pct < 100); return p ? { name: p.categoryName } : null; })()}
           phaseDisciplinePct={data.phaseDisciplinePct}
         />
       )}
