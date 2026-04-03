@@ -26,11 +26,17 @@ const TOOLS_NAV = [
   { path: "/mind-map", icon: Map, label: "Mentalne mape" },
 ];
 
+function scoreColor(score: number): string {
+  if (score > 70) return "hsl(var(--success))";
+  if (score > 40) return "hsl(var(--warning))";
+  return "hsl(var(--destructive))";
+}
+
 export default function AppSidebar() {
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
   const { stats } = useCardData();
-  const { categoryRecords } = useCategoryData();
+  const { categoryRecords, categoryStats } = useCategoryData();
 
   return (
     <Sidebar collapsible="icon">
@@ -75,22 +81,54 @@ export default function AppSidebar() {
                 </SidebarMenuItem>
               )}
 
-              {categoryRecords.map((cat) => (
-                <SidebarMenuItem key={cat.id}>
-                  <SidebarMenuButton asChild tooltip={cat.name}>
-                    <NavLink
-                      to={`/category/${cat.id}`}
-                      className="hover:bg-sidebar-accent/50"
-                      activeClassName="bg-sidebar-accent text-sidebar-primary font-medium"
-                    >
-                      <Scale className="h-4 w-4 shrink-0" />
-                      {!collapsed && (
-                        <span className="truncate text-[13px]">{cat.name}</span>
-                      )}
-                    </NavLink>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
+              {categoryRecords.map((cat) => {
+                const st = categoryStats[cat.id];
+                const score = st?.score ?? 0;
+                const due = st?.due ?? 0;
+                const color = scoreColor(score);
+
+                return (
+                  <SidebarMenuItem key={cat.id}>
+                    <SidebarMenuButton asChild tooltip={`${cat.name} — ${score}%`}>
+                      <NavLink
+                        to={`/category/${cat.id}`}
+                        className="hover:bg-sidebar-accent/50"
+                        activeClassName="bg-sidebar-accent text-sidebar-primary font-medium"
+                      >
+                        <div className="relative shrink-0">
+                          <Scale className="h-4 w-4" />
+                          {collapsed && (
+                            <span
+                              className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full border border-sidebar"
+                              style={{ backgroundColor: color }}
+                            />
+                          )}
+                        </div>
+                        {!collapsed && (
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-1">
+                              <span className="truncate text-[13px]">{cat.name}</span>
+                              {due > 0 && (
+                                <Badge variant="destructive" className="ml-auto text-[9px] h-4 min-w-[16px] px-1 shrink-0">
+                                  {due}
+                                </Badge>
+                              )}
+                            </div>
+                            {st && st.total > 0 && (
+                              <div className="mt-0.5 h-[3px] w-full rounded-full bg-muted overflow-hidden">
+                                <div
+                                  className="h-full rounded-full transition-all duration-300"
+                                  style={{ width: `${score}%`, backgroundColor: color }}
+                                />
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </NavLink>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                );
+              })}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
