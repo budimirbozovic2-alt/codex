@@ -93,7 +93,7 @@ function ProgressBar({ count, successes, streak }: { count: number; successes: n
 }
 
 export default function FrequentErrors({ cards, categoryRecords, onClearErrorLog, embedded }: Props) {
-  const { toast } = useToast();
+  
   const [showMastered, setShowMastered] = useState(false);
 
   const catNameMap = useMemo(() => {
