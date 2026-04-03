@@ -1,7 +1,8 @@
 import { Scale, FileText, Building2, Calendar, OctagonX, RefreshCw, User, Coins, ArrowRight, CheckCircle2, AlertTriangle, HelpCircle, Clock, Gavel, BookOpen, ShieldCheck, Send, Search, Copy, Sparkles } from "lucide-react";
-import { memo, useState, useCallback, useRef } from "react";
+import { memo, useState, useCallback, useRef, useEffect } from "react";
 import { Handle, Position, NodeProps, NodeResizer } from "@xyflow/react";
 import { cn } from "@/lib/utils";
+
 // ── Icon Registry with Lucide components ──
 export const ICON_REGISTRY: { value: string; label: string; Icon: React.FC<{ className?: string }> }[] = [
   { value: "scale", label: "Sud/Pravda", Icon: Scale },
@@ -55,9 +56,19 @@ const handleBase =
 function MindMapNodeComponent({ id, data, selected }: NodeProps) {
   const nodeData = data as unknown as MindMapNodeData;
   const [editing, setEditing] = useState(false);
+  const [draftLabel, setDraftLabel] = useState(nodeData.label);
+  const [draftDesc, setDraftDesc] = useState(nodeData.description || "");
   const [showSettings, setShowSettings] = useState(false);
   const [iconSearch, setIconSearch] = useState("");
   const nodeRef = useRef<HTMLDivElement>(null);
+
+  // Sync drafts when external data changes (and not editing)
+  useEffect(() => {
+    if (!editing) {
+      setDraftLabel(nodeData.label);
+      setDraftDesc(nodeData.description || "");
+    }
+  }, [nodeData.label, nodeData.description, editing]);
 
   const colorOpt = COLOR_OPTIONS.find(c => c.value === (nodeData.color || "default")) || COLOR_OPTIONS[0];
   const shape = (nodeData.shape || "rectangle") as NodeShape;
@@ -67,11 +78,34 @@ function MindMapNodeComponent({ id, data, selected }: NodeProps) {
     nodeData.onUpdate?.(id, { [field]: value });
   }, [id, nodeData.onUpdate]);
 
-  const handleBlur = useCallback((e: React.FocusEvent, field: string, value: string) => {
-    updateField(field, value);
-    if (nodeRef.current?.contains(e.relatedTarget as Node)) return;
+  // Commit drafts and exit editing
+  const commitAndClose = useCallback(() => {
+    nodeData.onUpdate?.(id, { label: draftLabel, description: draftDesc });
     setEditing(false);
-  }, [updateField]);
+  }, [id, nodeData.onUpdate, draftLabel, draftDesc]);
+
+  // Outside-click detection: close editing when clicking outside the node
+  useEffect(() => {
+    if (!editing) return;
+    const handler = (e: PointerEvent) => {
+      if (nodeRef.current && !nodeRef.current.contains(e.target as Node)) {
+        commitAndClose();
+      }
+    };
+    // Use capture + slight delay so the click that starts editing doesn't immediately close it
+    const timer = setTimeout(() => {
+      document.addEventListener("pointerdown", handler, true);
+    }, 50);
+    return () => {
+      clearTimeout(timer);
+      document.removeEventListener("pointerdown", handler, true);
+    };
+  }, [editing, commitAndClose]);
+
+  // Stop propagation helpers for inputs
+  const stopProp = useCallback((e: React.MouseEvent | React.PointerEvent) => {
+    e.stopPropagation();
+  }, []);
 
   const filteredIcons = iconSearch
     ? ICON_REGISTRY.filter(i => i.label.toLowerCase().includes(iconSearch.toLowerCase()) || i.value.includes(iconSearch.toLowerCase()))
@@ -86,10 +120,38 @@ function MindMapNodeComponent({ id, data, selected }: NodeProps) {
     </>
   );
 
+  // Shared label input
+  const labelInput = (extraClass = "") => (
+    <input
+      autoFocus
+      className={cn("bg-transparent border-b border-primary text-xs font-bold w-full outline-none text-foreground nodrag nowheel nopan", extraClass)}
+      value={draftLabel}
+      onChange={(e) => setDraftLabel(e.target.value)}
+      onKeyDown={(e) => { e.stopPropagation(); if (e.key === "Enter") commitAndClose(); if (e.key === "Escape") { setDraftLabel(nodeData.label); setDraftDesc(nodeData.description || ""); setEditing(false); } }}
+      onMouseDown={stopProp}
+      onPointerDown={stopProp}
+    />
+  );
+
+  // Shared description textarea
+  const descTextarea = (extraClass = "", rows = 2) => (
+    <textarea
+      className={cn("bg-transparent border border-border rounded-lg text-xs w-full outline-none text-foreground p-1.5 resize-none focus:ring-1 focus:ring-primary nodrag nowheel nopan", extraClass)}
+      rows={rows}
+      value={draftDesc}
+      onChange={(e) => setDraftDesc(e.target.value)}
+      placeholder="Opis..."
+      onKeyDown={(e) => { e.stopPropagation(); if (e.key === "Escape") { setDraftLabel(nodeData.label); setDraftDesc(nodeData.description || ""); setEditing(false); } }}
+      onMouseDown={stopProp}
+      onPointerDown={stopProp}
+    />
+  );
+
   // ── GROUP NODE ──
   if (shape === "group") {
     return (
       <div
+        ref={nodeRef}
         className={cn(
           "group relative border-2 border-dashed rounded-xl transition-all duration-200",
           colorOpt.border,
@@ -108,13 +170,7 @@ function MindMapNodeComponent({ id, data, selected }: NodeProps) {
         {handles}
         <div className="px-3 py-2 border-b border-dashed border-inherit bg-muted/40 rounded-t-xl backdrop-blur-sm">
           {editing ? (
-            <input
-              autoFocus
-              className="bg-transparent border-b border-primary text-xs font-bold w-full outline-none text-foreground uppercase tracking-wider nodrag nowheel nopan"
-              defaultValue={nodeData.label}
-              onBlur={(e) => handleBlur(e, "label", e.target.value)}
-              onKeyDown={(e) => { e.stopPropagation(); if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
-            />
+            labelInput("text-xs uppercase tracking-wider")
           ) : (
             <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">{nodeData.label}</span>
           )}
@@ -154,25 +210,16 @@ function MindMapNodeComponent({ id, data, selected }: NodeProps) {
             </div>
           )}
           {editing ? (
-            <input
-              autoFocus
-              className="bg-transparent border-b border-primary text-xs font-bold w-full outline-none text-foreground text-center pointer-events-auto nodrag nowheel nopan"
-              defaultValue={nodeData.label}
-              onBlur={(e) => handleBlur(e, "label", e.target.value)}
-              onKeyDown={(e) => { e.stopPropagation(); if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
-            />
+            <div className="pointer-events-auto w-full">
+              {labelInput("text-center border-b-2")}
+            </div>
           ) : (
             <span className="text-xs font-bold text-foreground leading-tight pointer-events-auto">{nodeData.label}</span>
           )}
           {editing && (
-            <textarea
-              className="bg-transparent border border-border rounded-lg text-[10px] w-full outline-none text-foreground mt-1 p-1 resize-none focus:ring-1 focus:ring-primary pointer-events-auto nodrag nowheel nopan"
-              rows={2}
-              defaultValue={nodeData.description || ""}
-              placeholder="Opis..."
-              onKeyDown={(e) => e.stopPropagation()}
-              onBlur={(e) => handleBlur(e, "description", e.target.value)}
-            />
+            <div className="pointer-events-auto w-full mt-1">
+              {descTextarea("text-[10px]", 2)}
+            </div>
           )}
           {nodeData.description && !editing && (
             <p className="text-[9px] text-muted-foreground mt-0.5 line-clamp-2 leading-tight pointer-events-auto">{nodeData.description}</p>
@@ -220,13 +267,7 @@ function MindMapNodeComponent({ id, data, selected }: NodeProps) {
           </div>
         )}
         {editing ? (
-          <input
-            autoFocus
-            className="bg-transparent border-b-2 border-primary text-sm font-bold w-full outline-none text-foreground nodrag nowheel nopan"
-            defaultValue={nodeData.label}
-            onBlur={(e) => handleBlur(e, "label", e.target.value)}
-            onKeyDown={(e) => { e.stopPropagation(); if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
-          />
+          labelInput("text-sm border-b-2")
         ) : (
           <span className="text-sm font-bold text-foreground truncate">{nodeData.label}</span>
         )}
@@ -237,14 +278,9 @@ function MindMapNodeComponent({ id, data, selected }: NodeProps) {
         <p className="text-xs text-muted-foreground mt-1 line-clamp-3 leading-relaxed">{nodeData.description}</p>
       )}
       {editing && (
-        <textarea
-          className="bg-transparent border border-border rounded-lg text-xs w-full outline-none text-foreground mt-1.5 p-1.5 resize-none focus:ring-1 focus:ring-primary nodrag nowheel nopan"
-          rows={2}
-          defaultValue={nodeData.description || ""}
-          placeholder="Opis..."
-          onKeyDown={(e) => e.stopPropagation()}
-          onBlur={(e) => handleBlur(e, "description", e.target.value)}
-        />
+        <div className="mt-1.5">
+          {descTextarea("", 2)}
+        </div>
       )}
 
       {/* Actions row */}
