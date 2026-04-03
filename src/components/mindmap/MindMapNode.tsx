@@ -141,7 +141,7 @@ function MindMapNodeComponent({ id, data, selected }: NodeProps) {
         {handles}
         <div
           className={cn(
-            "absolute inset-[8px] border-2 transition-all duration-200",
+            "absolute inset-[8px] border-2 transition-all duration-200 pointer-events-none",
             colorOpt.bg, colorOpt.border,
             selected ? `ring-2 ring-primary shadow-lg ${colorOpt.glow}` : "shadow-md",
           )}
