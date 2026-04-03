@@ -41,18 +41,10 @@ export const SourceToolbar = memo(function SourceToolbar({ source, onBack, onAut
       <SourceHeader source={source} />
 
       {!editMode && (
-        <>
-          <Button variant="outline" size="sm" onClick={onAutoSplit} className="gap-1.5" title="Generiši eseje iz članova">
-            <Wand2 className="h-3.5 w-3.5" />
-            Auto-Split
-          </Button>
-          {onAutoFormat && (
-            <Button variant="outline" size="sm" onClick={onAutoFormat} className="gap-1.5" title="Bolduj članove i nazive">
-              <Type className="h-3.5 w-3.5" />
-              Članovi
-            </Button>
-          )}
-        </>
+        <Button variant="outline" size="sm" onClick={onAutoSplit} className="gap-1.5" title="Generiši eseje iz članova">
+          <Wand2 className="h-3.5 w-3.5" />
+          Auto-Split
+        </Button>
       )}
 
       <div className="flex items-center rounded-lg border border-border bg-muted/50 p-0.5">
@@ -103,6 +95,13 @@ export const SourceToolbar = memo(function SourceToolbar({ source, onBack, onAut
         <Pencil className="h-3.5 w-3.5" />
         {editMode ? "Uređivanje" : "Uredi"}
       </Button>
+
+      {editMode && onAutoFormat && (
+        <Button variant="outline" size="sm" onClick={onAutoFormat} className="gap-1.5" title="Bolduj članove i nazive">
+          <Type className="h-3.5 w-3.5" />
+          Članovi
+        </Button>
+      )}
 
       {!editMode && (
         <Button

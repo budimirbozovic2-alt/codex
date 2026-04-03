@@ -29,7 +29,7 @@ export default function ZenMode({ active, onToggle }: Props) {
   const [cycleCount, setCycleCount] = useState(0);
   const [noiseOn, setNoiseOn] = useState(false);
   const [noiseVolume, setNoiseVolume] = useState(0.3);
-  const [ambientTrack, setAmbientTrack] = useState<AmbientTrack>("brown");
+  const [ambientTrack, setAmbientTrack] = useState<AmbientTrack>("rain");
   const [pomodoroStats, setPomodoroStats] = useState<Awaited<ReturnType<typeof getPomodoroStats>>>({ today: 0, todayMinutes: 0, week: 0, weekMinutes: 0, total: 0 });
 
   // Load pomodoro stats on mount
