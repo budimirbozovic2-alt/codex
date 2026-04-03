@@ -1,11 +1,11 @@
-import { BookOpen, Brain, Sparkles, Info } from "lucide-react";
+import { BookOpen, Brain, Sparkles, Info, FileText, Layers, type LucideIcon } from "lucide-react";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
-import { SectionState } from "@/lib/spaced-repetition";
 
 interface Props {
-  type: "dashboard" | "review";
+  type: "dashboard" | "review" | "cards" | "sources" | "generic";
   onAction?: () => void;
+  actionLabel?: string;
   /** FSRS diagnostics for review empty state */
   diagnostics?: {
     totalCards: number;
@@ -13,9 +13,28 @@ interface Props {
     reviewSections: number;
     nextDueDate?: string;
   };
+  // For generic type
+  icon?: LucideIcon;
+  title?: string;
+  description?: string;
 }
 
-export default function EmptyState({ type, onAction, diagnostics }: Props) {
+const PRESETS: Record<string, { icon: LucideIcon; title: string; description: string; actionLabel: string }> = {
+  cards: {
+    icon: Layers,
+    title: "Nema kartica",
+    description: "Kreirajte kartice da biste započeli učenje i ponavljanje.",
+    actionLabel: "Kreiraj karticu",
+  },
+  sources: {
+    icon: FileText,
+    title: "Nema izvora",
+    description: "Dodajte izvor materijala — tekst, članak ili DOCX dokument.",
+    actionLabel: "Dodaj izvor",
+  },
+};
+
+export default function EmptyState({ type, onAction, actionLabel, diagnostics, icon, title, description }: Props) {
   if (type === "dashboard") {
     return (
       <motion.div
@@ -52,62 +71,92 @@ export default function EmptyState({ type, onAction, diagnostics }: Props) {
   }
 
   // Review empty state with FSRS diagnostics
+  if (type === "review") {
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: 30 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.6 }}
+        className="flex flex-col items-center justify-center py-20 text-center space-y-6"
+      >
+        <div className="relative">
+          <div className="w-24 h-24 rounded-full bg-success/10 flex items-center justify-center">
+            <Brain className="h-10 w-10 text-success" />
+          </div>
+          <motion.div
+            animate={{ scale: [1, 1.2, 1] }}
+            transition={{ duration: 2, repeat: Infinity }}
+            className="absolute -top-1 -right-1 w-6 h-6 rounded-full bg-success/20 flex items-center justify-center"
+          >
+            <span className="text-success text-xs">✓</span>
+          </motion.div>
+        </div>
+        <div className="space-y-2 max-w-sm">
+          <h2 className="text-2xl font-semibold">Sve je ponovljeno!</h2>
+          <p className="text-muted-foreground">
+            Nemate kartica za ponavljanje danas. Odlično — vaše znanje je ažurno. Vratite se sutra!
+          </p>
+        </div>
+
+        {diagnostics && diagnostics.totalCards > 0 && (
+          <div className="rounded-lg border bg-card/50 px-5 py-4 max-w-xs space-y-3 text-left">
+            <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground uppercase tracking-wider">
+              <Info className="h-3.5 w-3.5" />
+              Dijagnostika
+            </div>
+            <div className="grid grid-cols-2 gap-2 text-sm">
+              <div className="text-muted-foreground">Ukupno kartica:</div>
+              <div className="text-foreground font-medium text-right">{diagnostics.totalCards}</div>
+              <div className="text-muted-foreground">Nove cjeline:</div>
+              <div className="text-foreground font-medium text-right">
+                <span className="text-amber-500">{diagnostics.newSections}</span>
+              </div>
+              <div className="text-muted-foreground">U ponavljanju:</div>
+              <div className="text-foreground font-medium text-right">
+                <span className="text-primary">{diagnostics.reviewSections}</span>
+              </div>
+            </div>
+            {diagnostics.newSections > 0 && diagnostics.reviewSections === 0 && (
+              <p className="text-[11px] text-muted-foreground/80 border-t pt-2">
+                Sve cjeline su u stanju "Novo". Pokrenite <strong>Učenje</strong> da biste ih prebacili u režim ponavljanja.
+              </p>
+            )}
+            {diagnostics.nextDueDate && (
+              <p className="text-[11px] text-muted-foreground/80 border-t pt-2">
+                Sljedeće ponavljanje: <strong>{diagnostics.nextDueDate}</strong>
+              </p>
+            )}
+          </div>
+        )}
+      </motion.div>
+    );
+  }
+
+  // Cards, sources, generic — unified template
+  const preset = PRESETS[type];
+  const Icon = icon || preset?.icon || Layers;
+  const heading = title || preset?.title || "Nema podataka";
+  const desc = description || preset?.description || "Dodajte sadržaj da biste počeli.";
+  const ctaLabel = actionLabel || preset?.actionLabel || "Dodaj";
+
   return (
     <motion.div
-      initial={{ opacity: 0, y: 30 }}
+      initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.6 }}
-      className="flex flex-col items-center justify-center py-20 text-center space-y-6"
+      transition={{ duration: 0.4 }}
+      className="flex flex-col items-center justify-center py-16 text-center space-y-5"
     >
-      <div className="relative">
-        <div className="w-24 h-24 rounded-full bg-success/10 flex items-center justify-center">
-          <Brain className="h-10 w-10 text-success" />
-        </div>
-        <motion.div
-          animate={{ scale: [1, 1.2, 1] }}
-          transition={{ duration: 2, repeat: Infinity }}
-          className="absolute -top-1 -right-1 w-6 h-6 rounded-full bg-success/20 flex items-center justify-center"
-        >
-          <span className="text-success text-xs">✓</span>
-        </motion.div>
+      <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center">
+        <Icon className="h-7 w-7 text-muted-foreground" />
       </div>
-      <div className="space-y-2 max-w-sm">
-        <h2 className="text-2xl font-semibold">Sve je ponovljeno!</h2>
-        <p className="text-muted-foreground">
-          Nemate kartica za ponavljanje danas. Odlično — vaše znanje je ažurno. Vratite se sutra!
-        </p>
+      <div className="space-y-1.5 max-w-xs">
+        <h3 className="text-lg font-semibold">{heading}</h3>
+        <p className="text-sm text-muted-foreground">{desc}</p>
       </div>
-
-      {/* FSRS Diagnostics */}
-      {diagnostics && diagnostics.totalCards > 0 && (
-        <div className="rounded-lg border bg-card/50 px-5 py-4 max-w-xs space-y-3 text-left">
-          <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground uppercase tracking-wider">
-            <Info className="h-3.5 w-3.5" />
-            Dijagnostika
-          </div>
-          <div className="grid grid-cols-2 gap-2 text-sm">
-            <div className="text-muted-foreground">Ukupno kartica:</div>
-            <div className="text-foreground font-medium text-right">{diagnostics.totalCards}</div>
-            <div className="text-muted-foreground">Nove cjeline:</div>
-            <div className="text-foreground font-medium text-right">
-              <span className="text-amber-500">{diagnostics.newSections}</span>
-            </div>
-            <div className="text-muted-foreground">U ponavljanju:</div>
-            <div className="text-foreground font-medium text-right">
-              <span className="text-primary">{diagnostics.reviewSections}</span>
-            </div>
-          </div>
-          {diagnostics.newSections > 0 && diagnostics.reviewSections === 0 && (
-            <p className="text-[11px] text-muted-foreground/80 border-t pt-2">
-              Sve cjeline su u stanju "Novo". Pokrenite <strong>Učenje</strong> da biste ih prebacili u režim ponavljanja.
-            </p>
-          )}
-          {diagnostics.nextDueDate && (
-            <p className="text-[11px] text-muted-foreground/80 border-t pt-2">
-              Sljedeće ponavljanje: <strong>{diagnostics.nextDueDate}</strong>
-            </p>
-          )}
-        </div>
+      {onAction && (
+        <Button onClick={onAction} variant="outline" className="gap-2">
+          <Icon className="h-4 w-4" /> {ctaLabel}
+        </Button>
       )}
     </motion.div>
   );
