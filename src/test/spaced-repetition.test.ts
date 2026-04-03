@@ -318,3 +318,110 @@ describe("getStats", () => {
     expect(stats.leechCount).toBe(1);
   });
 });
+
+// ─── Edge-case tests ─────────────────────────────────────
+
+describe("difficulty clamping at boundaries", () => {
+  it("grade 4 with difficulty=1 stays at 1", () => {
+    const s = makeSection({ state: SectionState.Review, stability: 5, difficulty: 1, lastReviewed: Date.now() - 86400000 });
+    const r = calculateNextReview(s, 4, 0.9);
+    expect(r.difficulty).toBe(1);
+  });
+
+  it("grade 1 with difficulty=9 clamps to 10", () => {
+    const s = makeSection({ state: SectionState.Review, stability: 5, difficulty: 9, lastReviewed: Date.now() - 86400000 });
+    const r = calculateNextReview(s, 1, 0.9);
+    expect(r.difficulty).toBe(10);
+  });
+
+  it("grade 1 with difficulty=10 stays at 10", () => {
+    const s = makeSection({ state: SectionState.Review, stability: 5, difficulty: 10, lastReviewed: Date.now() - 86400000 });
+    const r = calculateNextReview(s, 1, 0.9);
+    expect(r.difficulty).toBe(10);
+  });
+
+  it("repeated grade 4 never drops below 1", () => {
+    let s = makeSection({ state: SectionState.Review, stability: 5, difficulty: 2, lastReviewed: Date.now() - 86400000 });
+    for (let i = 0; i < 10; i++) {
+      const r = calculateNextReview(s, 4, 0.9);
+      s = { ...s, ...r } as Section;
+    }
+    expect(s.difficulty).toBeGreaterThanOrEqual(1);
+  });
+});
+
+describe("stability near zero", () => {
+  it("grade 1 with stability=0.1 floors at 0.1", () => {
+    const s = makeSection({ state: SectionState.Review, stability: 0.1, difficulty: 5, lastReviewed: Date.now() - 86400000 });
+    const r = calculateNextReview(s, 1, 0.9);
+    expect(r.stability).toBeCloseTo(0.1, 1);
+  });
+
+  it("grade 2 with stability=0.1 floors at 0.2", () => {
+    const s = makeSection({ state: SectionState.Review, stability: 0.1, difficulty: 5, lastReviewed: Date.now() - 86400000 });
+    const r = calculateNextReview(s, 2, 0.9);
+    expect(r.stability).toBeCloseTo(0.2, 1);
+  });
+
+  it("grade 1 with stability=2 → max(0.1, 2*0.05=0.1) = 0.1", () => {
+    const s = makeSection({ state: SectionState.Review, stability: 2, difficulty: 5, lastReviewed: Date.now() - 86400000 });
+    const r = calculateNextReview(s, 1, 0.9);
+    expect(r.stability).toBeCloseTo(0.1, 1);
+  });
+});
+
+describe("interval extreme values", () => {
+  it("very high stability (10000) → finite positive interval", () => {
+    const interval = calculateInterval(10000, 0.9);
+    expect(Number.isFinite(interval)).toBe(true);
+    expect(interval).toBeGreaterThan(0);
+  });
+
+  it("targetRetention=1.0 → interval=0", () => {
+    const interval = calculateInterval(10, 1.0);
+    expect(Math.abs(interval)).toBe(0);
+  });
+
+  it("targetRetention=0.5 → much shorter than 0.95", () => {
+    const i95 = calculateInterval(10, 0.95);
+    const i50 = calculateInterval(10, 0.5);
+    expect(i50).toBeGreaterThan(i95);
+  });
+
+  it("MAX_SAFE_INTEGER stability → no error, finite result", () => {
+    const interval = calculateInterval(Number.MAX_SAFE_INTEGER, 0.9);
+    expect(Number.isFinite(interval)).toBe(true);
+  });
+});
+
+describe("retrievability edge cases", () => {
+  it("tiny stability (0.001) after 1 day → near 0", () => {
+    const s = makeSection({
+      state: SectionState.Review, stability: 0.001,
+      lastReviewed: Date.now() - 86400000,
+    });
+    expect(getRetrievability(s)).toBeLessThanOrEqual(1);
+  });
+
+  it("huge stability (10000) after 90 days → still ~100", () => {
+    const s = makeSection({
+      state: SectionState.Review, stability: 10000,
+      lastReviewed: Date.now() - 90 * 86400000,
+    });
+    expect(getRetrievability(s)).toBeGreaterThanOrEqual(99);
+  });
+});
+
+describe("score edge cases", () => {
+  it("getSectionScore with stability=50 caps near 100", () => {
+    const s = makeSection({ state: SectionState.Review, stability: 50, difficulty: 1 });
+    const score = getSectionScore(s);
+    expect(score).toBeLessThanOrEqual(100);
+    expect(score).toBeGreaterThanOrEqual(90);
+  });
+
+  it("getCardScore with empty sections → 0", () => {
+    const card = makeCard({ sections: [] });
+    expect(getCardScore(card)).toBe(0);
+  });
+});
