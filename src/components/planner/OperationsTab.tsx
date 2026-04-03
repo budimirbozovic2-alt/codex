@@ -43,7 +43,7 @@ export default function OperationsTab({
   const handleRebalance = () => {
     const result = calcRebalancedQuota(remaining, config.finalGoalDate, config.bufferPercent);
     if (!result) return;
-    save({ ...config, dailyNewTarget: result.newQuota });
+    toast.success(`Nova preporučena kvota: ${result.newDailyQuota} sekcija/dan (${result.daysLeft} dana preostalo)`);
   };
 
   return (
