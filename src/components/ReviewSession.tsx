@@ -67,8 +67,8 @@ export default function ReviewSession({ dueCards, allCards, categoryRecords, sub
   // Save session state for pause/resume
   const saveSessionState = useCallback(() => {
     if (mode === null || finished) return;
-    const state = { mode, randomIndex, timestamp: Date.now() };
-    try { localStorage.setItem(SESSION_KEY, JSON.stringify(state)); } catch (_) {}
+    const state: SavedSessionState = { mode, randomIndex, timestamp: Date.now() };
+    idbSaveSettings(SESSION_KEY, state).catch(() => {});
   }, [mode, randomIndex, finished]);
 
   const handlePauseSession = useCallback(() => {
