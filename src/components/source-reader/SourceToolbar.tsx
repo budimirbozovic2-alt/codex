@@ -96,6 +96,13 @@ export const SourceToolbar = memo(function SourceToolbar({ source, onBack, onAut
         {editMode ? "Uređivanje" : "Uredi"}
       </Button>
 
+      {editMode && onAutoFormat && (
+        <Button variant="outline" size="sm" onClick={onAutoFormat} className="gap-1.5" title="Bolduj članove i nazive">
+          <Type className="h-3.5 w-3.5" />
+          Članovi
+        </Button>
+      )}
+
       {!editMode && (
         <Button
           variant={examOpen ? "default" : "outline"}
