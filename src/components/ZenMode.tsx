@@ -263,7 +263,7 @@ export default function ZenMode({ active, onToggle }: Props) {
           </div>
         </div>
 
-        {/* Brown Noise */}
+        {/* Ambient Sound */}
         <div className="border-t border-border/50 mx-3" />
         <div className="px-4 py-2.5 space-y-2">
           <div className="flex items-center justify-between">
@@ -278,6 +278,16 @@ export default function ZenMode({ active, onToggle }: Props) {
               {noiseOn ? <Volume2 className="h-3.5 w-3.5" /> : <VolumeX className="h-3.5 w-3.5" />}
             </button>
           </div>
+          <Select value={ambientTrack} onValueChange={handleTrackChange}>
+            <SelectTrigger className="h-7 text-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {AMBIENT_TRACKS.map(t => (
+                <SelectItem key={t.id} value={t.id} className="text-xs">{t.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           {noiseOn && (
             <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }}>
               <Slider value={[noiseVolume]} min={0.05} max={1} step={0.05} onValueChange={handleVolumeChange} className="py-1" />
