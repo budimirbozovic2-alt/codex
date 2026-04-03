@@ -1,6 +1,7 @@
 import { memo, ReactNode } from "react";
 import { motion } from "framer-motion";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { useT } from "@/lib/i18n/useT";
 
 export interface StatusIcon {
   key: string;
@@ -18,6 +19,7 @@ interface Props {
 }
 
 export const StatusIconsRow = memo(function StatusIconsRow({ icons, onExport, storagePercent }: Props) {
+  const t = useT();
   if (icons.length === 0) return null;
 
   return (
@@ -29,13 +31,13 @@ export const StatusIconsRow = memo(function StatusIconsRow({ icons, onExport, st
             <TooltipTrigger asChild>
               <div className={`flex items-center gap-1.5 px-3 py-2 glass-card cursor-default ${si.color}`}>
                 {si.icon}
-                {si.critical && <span className="text-xs font-medium">{si.key === "memory" ? "Memorija" : si.key === "storage" ? `${storagePercent}%` : ""}</span>}
+                {si.critical && <span className="text-xs font-medium">{si.key === "memory" ? t("dashboard.memory") : si.key === "storage" ? `${storagePercent}%` : ""}</span>}
               </div>
             </TooltipTrigger>
             <TooltipContent side="bottom" className="max-w-xs">
               <p className="text-xs">{si.label}</p>
               {si.key === "backup" && onExport && (
-                <button onClick={onExport} className="mt-1 text-xs text-primary underline">Napravi backup</button>
+                <button onClick={onExport} className="mt-1 text-xs text-primary underline">{t("dashboard.makeBackup")}</button>
               )}
             </TooltipContent>
           </Tooltip>

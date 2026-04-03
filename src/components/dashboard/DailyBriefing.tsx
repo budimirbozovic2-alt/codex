@@ -2,6 +2,8 @@ import { Brain, Target, Lightbulb } from "lucide-react";
 import { memo } from "react";
 import { motion } from "framer-motion";
 import { Progress } from "@/components/ui/progress";
+import { useT } from "@/lib/i18n/useT";
+
 interface Props {
   briefText: string;
   timeRecMessage: string | null;
@@ -12,12 +14,13 @@ interface Props {
 }
 
 export const DailyBriefing = memo(function DailyBriefing({ briefText, timeRecMessage, todayReviews, dailyGoal, goalProgress, streak }: Props) {
+  const t = useT();
   return (
     <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}
       className="glass-card p-5 space-y-4">
       <div className="flex items-center gap-2">
         <Brain className="h-4 w-4 text-primary" />
-        <h3 className="text-sm font-medium">Dnevni briefing</h3>
+        <h3 className="text-sm font-medium">{t("dashboard.dailyBriefing")}</h3>
       </div>
 
       <p className="text-sm text-muted-foreground">{briefText}</p>
@@ -33,7 +36,7 @@ export const DailyBriefing = memo(function DailyBriefing({ briefText, timeRecMes
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Target className="h-3.5 w-3.5 text-muted-foreground" />
-            <span className="text-xs text-muted-foreground">Dnevni cilj</span>
+            <span className="text-xs text-muted-foreground">{t("dashboard.dailyGoal")}</span>
           </div>
           <div className="flex items-center gap-3">
             {streak > 0 && (
@@ -48,7 +51,7 @@ export const DailyBriefing = memo(function DailyBriefing({ briefText, timeRecMes
           </div>
         </div>
         <Progress value={goalProgress} className="h-2" />
-        {goalProgress >= 100 && <p className="text-xs text-success font-medium">✓ Cilj ostvaren! 🎉</p>}
+        {goalProgress >= 100 && <p className="text-xs text-success font-medium">{t("dashboard.goalAchieved")}</p>}
       </div>
     </motion.div>
   );

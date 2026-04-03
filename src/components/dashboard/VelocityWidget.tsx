@@ -1,6 +1,8 @@
 import { TrendingUp, BarChart3 } from "lucide-react";
 import { memo } from "react";
 import { motion } from "framer-motion";
+import { useT } from "@/lib/i18n/useT";
+
 interface Props {
   velocityData: { velocity: number; trend: "up" | "down" | "flat" } | null;
   weakestCategories: { name: string; score: number; total: number }[];
@@ -9,6 +11,7 @@ interface Props {
 }
 
 export const VelocityWidget = memo(function VelocityWidget({ velocityData, weakestCategories, showVelocity, showWeakCategories }: Props) {
+  const t = useT();
   if (!showVelocity && !showWeakCategories) return null;
 
   return (
@@ -18,22 +21,22 @@ export const VelocityWidget = memo(function VelocityWidget({ velocityData, weake
           className="glass-card p-5 space-y-2">
           <div className="flex items-center gap-2">
             <TrendingUp className="h-4 w-4 text-primary" />
-            <h3 className="text-sm font-medium">Brzina učenja</h3>
+            <h3 className="text-sm font-medium">{t("dashboard.learningSpeed")}</h3>
           </div>
           {velocityData ? (
             <>
               <div className="flex items-baseline gap-2">
                 <p className="text-3xl font-semibold tabular-nums">{velocityData.velocity}</p>
-                <span className="text-sm text-muted-foreground">sekcija/dan</span>
+                <span className="text-sm text-muted-foreground">{t("dashboard.sectionsPerDay")}</span>
               </div>
               <p className="text-xs text-muted-foreground">
-                {velocityData.trend === "up" ? "📈 Raste u odnosu na prošlu sedmicu" :
-                 velocityData.trend === "down" ? "📉 Pada u odnosu na prošlu sedmicu" :
-                 "➡️ Stabilan tempo"}
+                {velocityData.trend === "up" ? t("dashboard.trendUp") :
+                 velocityData.trend === "down" ? t("dashboard.trendDown") :
+                 t("dashboard.trendFlat")}
               </p>
             </>
           ) : (
-            <p className="text-sm text-muted-foreground">Učitavanje...</p>
+            <p className="text-sm text-muted-foreground">{t("common.loading")}</p>
           )}
         </motion.div>
       )}
@@ -42,7 +45,7 @@ export const VelocityWidget = memo(function VelocityWidget({ velocityData, weake
           className="glass-card p-5 space-y-3">
           <div className="flex items-center gap-2">
             <BarChart3 className="h-4 w-4 text-primary" />
-            <h3 className="text-sm font-medium">Najslabije kategorije</h3>
+            <h3 className="text-sm font-medium">{t("dashboard.weakestCategories")}</h3>
           </div>
           <div className="space-y-2">
             {weakestCategories.map((cat, i) => (

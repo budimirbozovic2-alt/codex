@@ -2,6 +2,8 @@ import { Clock, BookOpen } from "lucide-react";
 import { memo } from "react";
 import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
+import { useT } from "@/lib/i18n/useT";
+
 interface Props {
   due: number;
   learnedSections: number;
@@ -10,6 +12,7 @@ interface Props {
 }
 
 export const CoreStats = memo(function CoreStats({ due, learnedSections, totalSections, pendingFirstReview }: Props) {
+  const t = useT();
   return (
     <div className="grid grid-cols-2 gap-4">
       <Link to="/review">
@@ -17,8 +20,8 @@ export const CoreStats = memo(function CoreStats({ due, learnedSections, totalSe
           className="glass-card p-5 space-y-2 hover:border-gold/40 transition-colors cursor-pointer">
           <Clock className="h-5 w-5 text-primary mb-1" />
           <p className="text-4xl font-bold">{due}</p>
-          <p className="text-sm text-muted-foreground">Za ponavljanje</p>
-          {pendingFirstReview > 0 && <p className="text-xs text-primary">+ {pendingFirstReview} čeka prvo pon.</p>}
+          <p className="text-sm text-muted-foreground">{t("dashboard.forReview")}</p>
+          {pendingFirstReview > 0 && <p className="text-xs text-primary">{t("dashboard.pendingFirstReview", { count: pendingFirstReview })}</p>}
         </motion.div>
       </Link>
       <Link to="/categories">
@@ -26,8 +29,8 @@ export const CoreStats = memo(function CoreStats({ due, learnedSections, totalSe
           className="glass-card p-5 space-y-2 hover:border-gold/40 transition-colors cursor-pointer">
           <BookOpen className="h-5 w-5 text-success mb-1" />
           <p className="text-4xl font-bold">{learnedSections}</p>
-          <p className="text-sm text-muted-foreground">Naučene cjeline</p>
-          <p className="text-xs text-muted-foreground">od {totalSections} ukupno</p>
+          <p className="text-sm text-muted-foreground">{t("dashboard.learnedSections")}</p>
+          <p className="text-xs text-muted-foreground">{t("dashboard.ofTotal", { count: totalSections })}</p>
         </motion.div>
       </Link>
     </div>

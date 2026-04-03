@@ -4,6 +4,7 @@ import { Card } from "@/lib/spaced-repetition";
 import { LearnMode, ReviewLogEntry } from "@/lib/storage";
 import { motion, AnimatePresence } from "framer-motion";
 import LearnOnboarding from "@/components/LearnOnboarding";
+import { useT } from "@/lib/i18n/useT";
 
 interface Props {
   cards: Card[];
@@ -14,16 +15,16 @@ interface Props {
 }
 
 export default function ModeSelector({ cards, learnMode, dueCount, reviewLog, onSelectMode }: Props) {
+  const t = useT();
   const [showOnboarding, setShowOnboarding] = useState(false);
   const chainCount = useMemo(() => cards.filter(c => c.type === "essay" && c.sections.length >= 3).length, [cards]);
 
   const modes: { key: LearnMode; label: string; level: string; levelColor: string; desc: string; tip: string; icon: typeof BookOpen }[] = [
-    { key: "free", label: "Slobodno učenje", level: "Lak", levelColor: "bg-success/15 text-success", desc: "Prolazi kroz materijal svojim tempom. Čitaj i označavaj pročitano.", tip: "Idealno za prvi susret sa gradivom — bez pritiska ocjenjivanja.", icon: BookOpen },
-    { key: "active-recall", label: "Aktivno prisjećanje", level: "Srednji", levelColor: "bg-warning/15 text-warning", desc: "Pregledaj pa reprodukuj. Ocijeni svoje znanje za svaki modul.", tip: "Naučno najefektivniji metod učenja.", icon: Brain },
-    { key: "chain", label: "Metod lanca", level: "Teški", levelColor: "bg-destructive/15 text-destructive", desc: "Snowball tehnika: ponovi cijeli lanac modula bez greške.", tip: "Kumulativno ponavljanje: svaki novi modul zahtijeva reprodukciju svih prethodnih.", icon: Link2 },
+    { key: "free", label: t("learn.freeName"), level: t("learn.freeLevel"), levelColor: "bg-success/15 text-success", desc: t("learn.freeDesc"), tip: t("learn.freeTip"), icon: BookOpen },
+    { key: "active-recall", label: t("learn.recallName"), level: t("learn.recallLevel"), levelColor: "bg-warning/15 text-warning", desc: t("learn.recallDesc"), tip: t("learn.recallTip"), icon: Brain },
+    { key: "chain", label: t("learn.chainName"), level: t("learn.chainLevel"), levelColor: "bg-destructive/15 text-destructive", desc: t("learn.chainDesc"), tip: t("learn.chainTip"), icon: Link2 },
   ];
 
-  // Review priority warning
   const reviewWarning = useMemo(() => {
     const totalSections = cards.reduce((s, c) => s + c.sections.length, 0);
     const learnedSections = cards.reduce((s, c) => s + c.sections.filter(sec => sec.lastReviewed).length, 0);
@@ -64,8 +65,8 @@ export default function ModeSelector({ cards, learnMode, dueCount, reviewLog, on
           className="flex items-center gap-3 p-4 rounded-xl border border-warning/30 bg-warning/5">
           <AlertTriangle className="h-5 w-5 text-warning flex-shrink-0" />
           <div>
-            <p className="text-sm font-medium">Previše dospjelih kartica ({dueCount})</p>
-            <p className="text-xs text-muted-foreground mt-0.5">Preporučujemo da prvo ponovite bar polovinu dospjelih kartica prije učenja novog materijala.</p>
+            <p className="text-sm font-medium">{t("learn.tooManyDue", { count: dueCount })}</p>
+            <p className="text-xs text-muted-foreground mt-0.5">{t("learn.tooManyDueHint")}</p>
           </div>
         </motion.div>
       )}
@@ -75,9 +76,9 @@ export default function ModeSelector({ cards, learnMode, dueCount, reviewLog, on
           className="flex items-start gap-3 p-4 rounded-xl border border-destructive/30 bg-destructive/5">
           <ShieldAlert className="h-5 w-5 text-destructive flex-shrink-0 mt-0.5" />
           <div>
-            <p className="text-sm font-medium text-destructive">Prioritet: ponavljanje</p>
+            <p className="text-sm font-medium text-destructive">{t("learn.reviewPriority")}</p>
             <p className="text-xs text-muted-foreground mt-0.5">
-              Tvoj progres ({reviewWarning.progress}%) zahtijeva ~{reviewWarning.targetReviewPct}% fokusa na ponavljanje, ali danas je samo {reviewWarning.actualReviewPct}%.
+              {t("learn.reviewPriorityHint", { progress: reviewWarning.progress, target: reviewWarning.targetReviewPct, actual: reviewWarning.actualReviewPct })}
             </p>
           </div>
         </motion.div>
@@ -86,11 +87,11 @@ export default function ModeSelector({ cards, learnMode, dueCount, reviewLog, on
       <div>
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="imperial-title">Učenje</h2>
-            <p className="text-muted-foreground mt-2">Izaberi režim učenja koji odgovara tvom nivou.</p>
+            <h2 className="imperial-title">{t("learn.title")}</h2>
+            <p className="text-muted-foreground mt-2">{t("learn.subtitle")}</p>
           </div>
           <button onClick={() => setShowOnboarding(true)}
-            className="p-2 rounded-lg hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors" title="Vodič kroz režime učenja">
+            className="p-2 rounded-lg hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors" title={t("learn.guideTitle")}>
             <HelpCircle className="h-5 w-5" />
           </button>
         </div>
@@ -116,7 +117,7 @@ export default function ModeSelector({ cards, learnMode, dueCount, reviewLog, on
                 <p className="text-xs text-muted-foreground/70 mt-1.5 leading-relaxed">{tip}</p>
                 {key === "chain" && (
                   <p className="text-xs text-muted-foreground mt-1">
-                    {chainCount > 0 ? `${chainCount} pitanja dostupno` : "Potrebna esejska pitanja sa ≥3 modula"}
+                    {chainCount > 0 ? t("learn.chainAvailable", { count: chainCount }) : t("learn.chainRequired")}
                   </p>
                 )}
               </div>

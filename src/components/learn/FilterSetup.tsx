@@ -6,6 +6,7 @@ import SessionFilters from "@/components/SessionFilters";
 import { Button } from "@/components/ui/button";
 import { SortMode } from "./types";
 import type { CategoryRecord } from "@/lib/db";
+import { useT } from "@/lib/i18n/useT";
 
 interface Props {
   cards: Card[];
@@ -31,12 +32,6 @@ interface Props {
   onBackToMode: () => void;
 }
 
-const SORT_OPTIONS = [
-  { key: "order" as const, label: "Hronološki", desc: "Hronološkim redoslijedom", icon: ListOrdered },
-  { key: "weakest" as const, label: "Najslabija", desc: "Najniži rezultat prvo", icon: TrendingDown },
-  { key: "leastRead" as const, label: "Najmanje čitana", desc: "Nepročitana prvo", icon: Eye },
-];
-
 const MODE_LABELS: Record<LearnMode, string> = {
   "free": "Slobodno učenje",
   "active-recall": "Aktivno prisjećanje",
@@ -51,14 +46,22 @@ export default function FilterSetup({
   onToggleExamFrequent, onFilterTypeChange, onSortModeChange,
   onStart, onBackToMode,
 }: Props) {
+  const t = useT();
+
+  const SORT_OPTIONS = [
+    { key: "order" as const, label: t("filter.chronological"), desc: t("filter.chronologicalDesc"), icon: ListOrdered },
+    { key: "weakest" as const, label: t("filter.weakest"), desc: t("filter.weakestDesc"), icon: TrendingDown },
+    { key: "leastRead" as const, label: t("filter.leastRead"), desc: t("filter.leastReadDesc"), icon: Eye },
+  ];
+
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="max-w-xl mx-auto space-y-8 py-10">
       <div>
         <button onClick={onBackToMode} className="text-muted-foreground hover:text-foreground flex items-center gap-1 mb-6">
-          <ArrowLeft className="h-4 w-4" /> Nazad na režime
+          <ArrowLeft className="h-4 w-4" /> {t("common.backToModes")}
         </button>
         <h2 className="imperial-title">{MODE_LABELS[learnMode]}</h2>
-        <p className="text-muted-foreground mt-1">{sortedCardsCount} pitanja dostupno.</p>
+        <p className="text-muted-foreground mt-1">{t("learn.questionsAvailable", { count: sortedCardsCount })}</p>
       </div>
 
       <SessionFilters
@@ -73,7 +76,7 @@ export default function FilterSetup({
       />
 
       <div className="space-y-2">
-        <label className="text-sm font-medium text-muted-foreground">Redoslijed</label>
+        <label className="text-sm font-medium text-muted-foreground">{t("filter.orderLabel")}</label>
         <div className="grid gap-2">
           {SORT_OPTIONS.map(({ key, label, desc, icon: Icon }) => (
             <button key={key} onClick={() => onSortModeChange(key)}
@@ -90,7 +93,7 @@ export default function FilterSetup({
       </div>
 
       <Button onClick={onStart} className="w-full py-6 text-base" disabled={sortedCardsCount === 0}>
-        <BookOpen className="h-4 w-4 mr-2" /> Počni učenje
+        <BookOpen className="h-4 w-4 mr-2" /> {t("learn.startLearning")}
       </Button>
     </motion.div>
   );
