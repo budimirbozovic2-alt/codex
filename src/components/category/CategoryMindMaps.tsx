@@ -1,7 +1,7 @@
-import { useState } from "react";
-import { useLiveQuery } from "dexie-react-hooks";
+import { useState, useEffect, useCallback } from "react";
 import { db, MindMapDoc } from "@/lib/db";
 import { deleteMindMap } from "@/lib/mindmap-storage";
+import { eventBus, EVENT_TYPES } from "@/lib/event-bus";
 import { Button } from "@/components/ui/button";
 import { GitBranch, Eye, Trash2, ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
@@ -12,15 +12,23 @@ interface Props {
 }
 
 export default function CategoryMindMaps({ categoryId }: Props) {
-  const maps = useLiveQuery(
-    () => db.mindMaps.where("categoryId").equals(categoryId).reverse().sortBy("updatedAt"),
-    [categoryId]
-  ) ?? [];
-
+  const [maps, setMaps] = useState<MindMapDoc[]>([]);
   const [viewDoc, setViewDoc] = useState<MindMapDoc | null>(null);
+
+  const loadMaps = useCallback(async () => {
+    const result = await db.mindMaps.where("categoryId").equals(categoryId).reverse().sortBy("updatedAt");
+    setMaps(result);
+  }, [categoryId]);
+
+  useEffect(() => {
+    loadMaps();
+    const unsub = eventBus.subscribe(EVENT_TYPES.CARDS_UPDATED, loadMaps);
+    return unsub;
+  }, [loadMaps]);
 
   const handleDelete = async (id: string) => {
     await deleteMindMap(id);
+    loadMaps();
     toast.success("Mapa obrisana.");
   };
 
