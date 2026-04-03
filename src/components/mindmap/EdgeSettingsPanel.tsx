@@ -23,7 +23,7 @@ export default function EdgeSettingsPanel({ edge, onUpdate, onDelete, onClose }:
           <Palette className="h-4 w-4 text-primary" />
           <span className="text-sm font-semibold text-foreground">Podešavanja veze</span>
         </div>
-        <button onClick={onClose} className="text-muted-foreground hover:text-foreground text-xs">✕</button>
+        <button onClick={onClose} className="text-muted-foreground hover:text-foreground text-xs" aria-label="Zatvori">✕</button>
       </div>
 
       {/* Label */}

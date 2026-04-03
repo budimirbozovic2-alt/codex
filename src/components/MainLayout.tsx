@@ -155,6 +155,7 @@ export default function MainLayout({ children }: { children: ReactNode }) {
 
         <div className="flex-1 flex flex-col min-w-0">
           {/* Compact header bar */}
+          <a href="#main-content" className="skip-to-content">Preskoči na sadržaj</a>
           <header className="sticky top-0 z-40 flex items-center h-11 px-4 border-b bg-background/90 backdrop-blur-md gap-2">
             <SidebarTrigger className="shrink-0" />
             <Breadcrumbs />
@@ -162,6 +163,7 @@ export default function MainLayout({ children }: { children: ReactNode }) {
             <button
               onClick={() => setGlobalSearchOpen(true)}
               className="p-1.5 rounded-md hover:bg-secondary text-muted-foreground"
+              aria-label="Pretraži (Ctrl+K)"
               title="Pretraži (Ctrl+K)"
             >
               <Search className="h-4 w-4" />
@@ -169,6 +171,7 @@ export default function MainLayout({ children }: { children: ReactNode }) {
             <button
               onClick={() => setShowAppOnboarding(true)}
               className="p-1.5 rounded-md hover:bg-secondary text-muted-foreground"
+              aria-label="Vodič"
               title="Vodič"
             >
               <HelpCircle className="h-4 w-4" />
@@ -176,6 +179,8 @@ export default function MainLayout({ children }: { children: ReactNode }) {
             <button
               onClick={() => setZenMode(v => !v)}
               className={`p-1.5 rounded-md hover:bg-secondary transition-colors ${zenMode ? "text-primary bg-primary/10" : "text-muted-foreground"}`}
+              aria-label="Zen Mode"
+              aria-pressed={zenMode}
               title="Zen Mode"
             >
               <Focus className="h-4 w-4" />
@@ -183,6 +188,7 @@ export default function MainLayout({ children }: { children: ReactNode }) {
             <button
               onClick={toggleDark}
               className="p-1.5 rounded-md hover:bg-secondary text-muted-foreground"
+              aria-label={dark ? "Prebaci na svijetlu temu" : "Prebaci na tamnu temu"}
               title="Tema"
             >
               {dark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}

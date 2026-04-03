@@ -740,3 +740,20 @@ main > * {
   content-visibility: auto;
   contain-intrinsic-size: auto 500px;
 }
+
+/* ─── Skip-to-content link ────────────────────── */
+.skip-to-content {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  z-index: 9999;
+  padding: 0.5rem 1rem;
+  background: hsl(var(--primary));
+  color: hsl(var(--primary-foreground));
+  font-size: 0.875rem;
+  font-weight: 500;
+  border-radius: 0 0 0.5rem 0;
+}
+.skip-to-content:focus {
+  left: 0;
+}

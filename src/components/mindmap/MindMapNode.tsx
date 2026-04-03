@@ -286,10 +286,10 @@ function MindMapNodeComponent({ id, data, selected }: NodeProps) {
       {/* Actions row */}
       {selected && (
         <div className="flex items-center gap-2 mt-2 pt-2 border-t border-border/50">
-          <button onClick={() => setShowSettings(!showSettings)} className="text-[10px] text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1">
+          <button onClick={() => setShowSettings(!showSettings)} className="text-[10px] text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1" aria-label={showSettings ? "Zatvori podešavanja" : "Otvori podešavanja"}>
             ⚙ {showSettings ? "Zatvori" : "Podešavanja"}
           </button>
-          <button onClick={() => nodeData.onDuplicate?.(id)} className="text-[10px] text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1">
+          <button onClick={() => nodeData.onDuplicate?.(id)} className="text-[10px] text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1" aria-label="Dupliraj čvor">
             <Copy className="h-3 w-3" /> Dupliraj
           </button>
         </div>
