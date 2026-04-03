@@ -3,7 +3,7 @@ import { useState, useEffect, useCallback, useRef, ReactNode } from "react";
 
 import { createMnemonicCardFromSelection, loadMnemonicCards, saveMnemonicCards } from "@/lib/mnemonic-storage";
 import { eventBus, EVENT_TYPES } from "@/lib/event-bus";
-import { toast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 
 interface Props {
   children: ReactNode;

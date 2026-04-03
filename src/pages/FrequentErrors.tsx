@@ -7,7 +7,7 @@ import { getSubcategoryName } from "@/lib/category-service";
 
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 interface AggregatedError {
   text: string;
   count: number;

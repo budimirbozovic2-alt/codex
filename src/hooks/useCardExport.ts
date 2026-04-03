@@ -1,5 +1,5 @@
 import { useCallback } from "react";
-import { toast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 import { Card, SRSettings } from "@/lib/spaced-repetition";
 import { setLastBackupTime } from "@/lib/storage";
 

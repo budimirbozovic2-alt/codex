@@ -10,7 +10,7 @@ import { detectArticles, type DetectedArticle } from "@/lib/auto-split-engine";
 import { createTextAnchor, type Source } from "@/lib/sources-storage";
 import { sanitizeHtml } from "@/lib/sanitize";
 import { useCardData, useCardActions } from "@/contexts/AppContext";
-import { toast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { Card, SourceModule, createCard } from "@/lib/spaced-repetition";
 import { persistQueue } from "@/lib/persist-queue";

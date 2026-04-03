@@ -55,8 +55,7 @@ const NudgeWatcher = memo(function NudgeWatcher() {
       const remaining = suggestion.suggestedToday - dailyDone;
       if (remaining > 0 && dailyDone < suggestion.suggestedToday) {
         nudgeShownRef.current = true;
-        toast({
-          title: "📌 Ostani fokusiran",
+        toast("📌 Ostani fokusiran", {
           description: `Preostalo ti je još ${remaining} od ${suggestion.suggestedToday} planiranih sekcija za danas.`,
           duration: 5000,
         });

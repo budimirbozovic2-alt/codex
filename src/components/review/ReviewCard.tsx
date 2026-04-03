@@ -5,7 +5,7 @@ import { useCategoryData } from "@/contexts/AppContext";
 import { highlightKeyParts } from "@/lib/highlight-key-parts";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 import { addCalibrationEntry, addLatencyEntry } from "@/lib/metacognitive-storage";
 import ShortcutsHint from "@/components/ShortcutsHint";
 import { ViewWidth, viewWidthClasses, viewWidthLabels, REVIEW_SHORTCUTS } from "./review-constants";

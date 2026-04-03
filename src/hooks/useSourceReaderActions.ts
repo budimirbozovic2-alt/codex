@@ -6,7 +6,7 @@ import { sanitizeHtml } from "@/lib/sanitize";
 import { createSection } from "@/lib/spaced-repetition";
 import { analyzeCoverage } from "@/lib/coverage-analysis";
 import { splitSelection } from "@/lib/selection-split-engine";
-import { toast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 import { useSourceReaderStore } from "@/store/useSourceReaderStore";
 
 /**

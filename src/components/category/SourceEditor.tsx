@@ -16,7 +16,7 @@ import { sanitizeHtml } from "@/lib/sanitize";
 import { injectHeadingIds } from "@/lib/sources-storage";
 import { parseArticles, compareVersions, getChangedArticleIds, matchAnchorToArticle } from "@/lib/article-parser";
 import { parseDocxInWorker } from "@/lib/docx-parser";
-import { toast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { ChevronRight } from "lucide-react";
 import SourceDiffPreview from "@/components/source-reader/SourceDiffPreview";
