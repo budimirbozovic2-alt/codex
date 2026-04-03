@@ -9,6 +9,13 @@ import { loadMindMaps } from "@/lib/mindmap-storage";
 import { MindMapDoc } from "@/lib/db";
 import { motion, AnimatePresence } from "framer-motion";
 import { useCategoryData } from "@/contexts/AppContext";
+import { eventBus, EVENT_TYPES } from "@/lib/event-bus";
+
+// Module-level cache for sources & mind maps
+let cachedSources: Source[] | null = null;
+let cachedMindMaps: MindMapDoc[] | null = null;
+let cacheTimestamp = 0;
+const CACHE_TTL = 60_000; // 60s staleness check
 interface Props {
   cards: Card[];
   open: boolean;
