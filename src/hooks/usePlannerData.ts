@@ -78,6 +78,13 @@ export function usePlannerData(cards: SRCard[], reviewLog: ReviewLogEntry[], cat
 
   const isConfigured = config.dailyAvailableMinutes > 0 && !!config.finalGoalDate;
 
+  const retentionRisk = useMemo(() => {
+    const catIds = categoryRecords.map(r => r.id);
+    if (catIds.length === 0) return [];
+    return calcCategoryStability(cards, catIds, config.finalGoalDate ?? null)
+      .sort((a, b) => a.avgRetrievability - b.avgRetrievability);
+  }, [cards, categoryRecords, config.finalGoalDate]);
+
   const save = useCallback((updated: PlannerConfig) => {
     setConfig(updated);
     savePlanner(updated);
@@ -90,6 +97,7 @@ export function usePlannerData(cards: SRCard[], reviewLog: ReviewLogEntry[], cat
     subjectPlans, learningRatio,
     smartSuggestion, dueCount,
     timeRec, debt,
+    retentionRisk,
     disciplineLog, disciplineTrend, phaseDisciplinePct,
     burnupData, projectionText,
     streak, bestStreak,
