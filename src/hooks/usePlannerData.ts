@@ -2,8 +2,7 @@ import { useState, useMemo, useCallback } from "react";
 import { Card as SRCard } from "@/lib/spaced-repetition";
 import { ReviewLogEntry } from "@/lib/storage";
 import { CategoryRecord } from "@/lib/db";
-import { calcCategoryStability, CategoryStabilityInfo } from "@/lib/analytics/stability";
-import { CategoryRecord } from "@/lib/db";
+import { calcCategoryStability } from "@/lib/analytics/stability";
 import {
   loadPlanner, savePlanner, PlannerConfig,
   calcVelocity, calcEstimatedFinish, getPlannerStatus, getSmartSuggestion,
