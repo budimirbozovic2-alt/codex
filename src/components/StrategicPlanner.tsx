@@ -113,7 +113,7 @@ export default function StrategicPlanner({ cards, categories, categoryRecords, r
           disciplineTrend={data.disciplineTrend}
           streak={data.streak}
           bestStreak={data.bestStreak}
-          currentPhase={data.subjectPlans.find(p => p.pct < 100) || null}
+          currentPhase={(() => { const p = data.subjectPlans.find(p => p.pct < 100); return p ? { name: p.categoryName } : null; })()}
           phaseDisciplinePct={data.phaseDisciplinePct}
         />
       )}
