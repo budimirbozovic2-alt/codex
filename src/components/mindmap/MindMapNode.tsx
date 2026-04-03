@@ -137,7 +137,7 @@ function MindMapNodeComponent({ id, data, selected }: NodeProps) {
   // ── DIAMOND (Conditional) NODE ──
   if (shape === "diamond") {
     return (
-      <div className="group relative" style={{ width: 150, height: 150 }} onDoubleClick={() => setEditing(true)}>
+      <div ref={nodeRef} className="group relative" style={{ width: 150, height: 150 }} onDoubleClick={() => setEditing(true)}>
         {handles}
         <div
           className={cn(
