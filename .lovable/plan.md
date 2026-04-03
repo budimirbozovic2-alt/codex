@@ -1,55 +1,43 @@
 
-# Dashboard dorада — UUID fix + StudyFlow widget
 
-## 1. Bug: UUID umjesto imena u najslabijim kategorijama
+# GlobalSearch keširanje + ReviewSession IDB migracija
 
-**Problem:** `useDashboardData.ts` koristi `categories` (niz UUID-ova) kao `name` u `weakestCategories`.
+## 1. GlobalSearch — keširanje naslova izvora i mindmap-a
 
-**Fix:** Proslijediti `categoryRecords` u `useDashboardData`, koristiti `categoryRecords.find(r => r.id === cat)?.name` za display name.
+### Problem
+Svaki put kad se otvori search (`open=true`), pozivaju se `loadSources()` i `loadMindMaps()` koji dohvataju kompletne kolekcije iz IDB-a. Za veliku bazu ovo je sporo.
 
-### Fajlovi:
-- `useDashboardData.ts` — dodati `categoryRecords` parametar, fix `weakestCategories` useMemo
-- `Dashboard.tsx` — proslijediti `categoryRecords` prop u hook
-- `DashboardPage.tsx` — proslijediti `categoryRecords` u Dashboard
+### Rješenje
+Keširati naslove u module-level varijablama. Pri prvom otvaranju učitati iz IDB-a, zatim koristiti keš. Event bus signal `CARDS_UPDATED` invalidira keš.
 
-## 2. Novi widget: StudyFlow (tok učenja iz planera)
+### Promjene: `GlobalSearch.tsx`
+- Dodati module-level `let cachedSources: Source[] | null = null` i `let cachedMindMaps: MindMapDoc[] | null = null`
+- U `useEffect` koji se trigerira na `open`: koristiti keš ako postoji, inače loadati i postaviti keš
+- Dodati event bus listener za invalidaciju keša (`SOURCES_UPDATED` signal — provjeriti da li postoji, ako ne, koristiti prazan interval od 60s za stale check)
 
-Widget koji prikazuje danas preporučeni tok učenja na osnovu generisanog plana iz Strateškog planera.
+## 2. ReviewSession — migracija sa localStorage na IDB
 
-### Šta prikazuje:
-- **Trenutni predmet u fokusu** — koji predmet je po rasporedu danas (na osnovu `generateStudyPlan` timeline-a)
-- **Dnevna kvota** — koliko sekcija treba danas obraditi
-- **Omjer učenje/ponavljanje** — dinamički iz `calcLearningReviewRatio` (90/10 → 10/90)
-- **Progres danas** — koliko je urađeno vs cilj
-- CTA dugme "Nastavi učenje" → `/learn`
+### Problem
+`ReviewSession` koristi `localStorage` za pause/resume sesije dok ostatak aplikacije koristi IDB. Nekonzistentno.
 
-### Izgled:
-```text
-┌─────────────────────────────────────┐
-│ 📋 Plan za danas                    │
-│                                     │
-│ Fokus: Krivično materijalno pravo   │
-│ ████████░░ 16/25 sekcija            │
-│                                     │
-│ Omjer: 70% učenje · 30% ponavljanje │
-│ Faza: Učenje + konsolidacija        │
-│                                     │
-│ [Nastavi učenje →]                  │
-└─────────────────────────────────────┘
-```
+### Rješenje
+Zamijeniti `localStorage.getItem/setItem/removeItem(SESSION_KEY)` sa `idbLoadSettings/idbSaveSettings` pozivima. Zadržati isti ključ i format podataka.
 
-### Fajlovi:
+### Promjene: `ReviewSession.tsx`
+- Mount `useEffect`: zamijeniti sinhroni `localStorage.getItem` sa asinhronim `idbLoadSettings<SavedSessionState | null>(SESSION_KEY, null)` — dodati `.then()` za postavljanje `savedSession`
+- `clearSavedSession`: pozivati `idbSaveSettings(SESSION_KEY, null)` umjesto `localStorage.removeItem`
+- `saveSessionState`: pozivati `idbSaveSettings(SESSION_KEY, state)` umjesto `localStorage.setItem`
+- Dodati localStorage→IDB migraciju (isti pattern kao `loadLearnProgress`): ako IDB prazan, provjeriti localStorage, migrirati i obrisati
+
+## Fajlovi
+
 | Fajl | Promjena |
 |------|----------|
-| `src/components/dashboard/StudyFlowWidget.tsx` | **NOVI** — widget komponenta |
-| `src/hooks/useDashboardData.ts` | Dodati `categoryRecords` param, fix UUID, izračunati studyFlow |
-| `src/components/Dashboard.tsx` | Proslijediti categoryRecords, renderovati StudyFlowWidget |
-| `src/views/DashboardPage.tsx` | Proslijediti `categoryRecords` prop |
-
-### Logika:
-- Poziva `generateStudyPlan` + `calcLearningReviewRatio` kroz `useDeferredCompute`
-- Pronalazi koji predmet je aktivan danas (`startDate <= today <= endDate`)
-- Widget se prikazuje samo ako je planer konfigurisan
+| `src/components/GlobalSearch.tsx` | Module-level cache za sources/mindmaps |
+| `src/components/ReviewSession.tsx` | localStorage → idbSettings migracija |
 
 ## Scope
-- 1 novi fajl, 3 modifikovana, ~80 linija neto
+- 2 fajla, ~40 linija neto promjena
+- Nema novih zavisnosti
+- Backward-compatible (migrira postojeće localStorage podatke)
+
