@@ -1,102 +1,49 @@
 
-# Restrukturiranje Strateškog planera
 
-## Problem
+# Retrievability prioritizacija u Strateškom planeru
 
-Trenutni planer koristi generički model "faza" gdje korisnik ručno kreira faze i bira kategorije. Ovo je nelogično jer:
-1. Svih 9 predmeta su obavezni — nema smisla birati koje ćeš učiti
-2. Predmeti su ogromni — ne mogu se grupirati u jednu fazu od 14 dana
-3. Sistem ne koristi informacije koje već ima (taksonomiju, broj kartica po predmetu)
-4. Ne pita korisnika za ključne parametre (dnevno raspoloživo vrijeme, težina predmeta)
+## Cilj
+Dodati widget koji rangira kategorije po tome koliko će biti zaboravljene do dana ispita — pomoću FSRS retrievability projekcije. Već postoji `calcCategoryStability()` u `stability.ts` koja računa `avgRetrievability`, `criticalSections` i `avgStability` po kategoriji sa projekcijom do ispita.
 
-## Novo rješenje: Predmetno-orijentisani planer sa Setup wizardom
+## Promjene
 
-### A. Setup Wizard (prvi put / rekonfiguracija)
+### 1. `usePlannerData.ts` — dodati retrievability ranking
+- Importovati `calcCategoryStability` iz `analytics/stability`
+- Izračunati `categoryStability` koristeći `config.finalGoalDate`
+- Sortirati po `avgRetrievability` (ascending = najugroženiji prvi)
+- Eksportovati kao `retentionRisk`
 
-Umjesto ručnog kreiranja faza, sistem prikazuje **onboarding wizard** sa 3 koraka:
+### 2. `types/planner.ts` — reeksportovati tip
+- Reeksportovati `CategoryStabilityInfo` za konzistentnost
 
-**Korak 1 — Parametri**
-- Datum ispita (postojeći date picker)
-- Dnevno raspoloživo vrijeme (slider: 1-8 sati, default 4h)
-- Buffer % (postojeći, default 15%)
+### 3. `OperationsTab.tsx` — novi widget "Rizik zaboravljanja"
+- Novi `motion.div` sekcija između Learning/Review Ratio i Reality Check
+- Prikazuje kategorije sortirane po retrievability (najugroženija prva)
+- Za svaku kategoriju: naziv, avg retrievability kao %, broj kritičnih sekcija, mini progress bar
+- Colour coding: R < 70% crvena, 70-85% žuta, >85% zelena
+- Prikazuje se samo ako postoje naučene sekcije (inače nema smisla)
 
-**Korak 2 — Težina predmeta**
-- Prikazuje svih 9 kategorija sa brojem kartica/sekcija
-- Korisnik označava "teške" predmete (toggle za svaki) — ovi dobijaju 1.5x koeficijent u raspodjeli vremena
-- Default: nijedan nije označen (ravnomjerna raspodjela)
+### 4. `StrategicPlanner.tsx` — proslijediti novi prop
 
-**Korak 3 — Pregled generisanog plana**
-- Sistem automatski generiše raspored po predmetima
-- Svaki predmet se dijeli na faze po **potkategorijama** (ili glavama ako nema potkategorija)
-- Prikazuje timeline sa procijenjenim datumima za svaku potkategoriju
-- Korisnik može potvrditi ili se vratiti i podesiti parametre
+### 5. Lookup UUID → naziv
+- Koristiti `categoryRecords` za resolving naziva (ne prikazivati UUID)
 
-### B. Nova `PlannerConfig` struktura
+## Vizualni dizajn widgeta
 
 ```text
-PlannerConfig {
-  finalGoalDate: string | null        // postojeće
-  bufferPercent: number               // postojeće
-  createdAt: number                   // postojeće
-  
-  dailyAvailableMinutes: number       // NOVO — koliko minuta dnevno
-  hardSubjects: string[]              // NOVO — UUID-ovi "teških" predmeta
-  subjectOrder: string[]              // NOVO — redoslijed predmeta
-  
-  phases?: StudyPhase[]               // DEPRECATED — migracija
-}
+┌─────────────────────────────────────────┐
+│ 🧠 Rizik zaboravljanja do ispita        │
+│ Predmeti sortirani po ugroženosti       │
+│                                         │
+│ Krivično mat. pravo    ██░░░  42%  ⚠12  │
+│ Upravno pravo          ████░  68%  ⚠5   │
+│ Građansko proc. pravo  █████  89%       │
+│ ...                                     │
+└─────────────────────────────────────────┘
 ```
 
-Faze se VISE NE KREIRAJU RUCNO — sistem ih automatski generiše iz taksonomije.
+## Scope
+- 4 fajla, ~50 linija neto
+- Nema novih zavisnosti — koristi postojeći `calcCategoryStability`
+- Nema promjene ponašanja postojećih mehanizama
 
-### C. Auto-generisanje plana
-
-Nova funkcija `generateStudyPlan(config, categoryRecords, cards)`:
-1. Za svaki predmet, izračunaj ukupan broj sekcija
-2. Primijeni težinski koeficijent (1.5x za "teške")
-3. Rasporedi proporcionalno po efektivnim danima
-4. Unutar svakog predmeta, podijeli po potkategorijama
-5. Generiši timeline sa start/end datumima
-
-### D. Omjer učenje/ponavljanje (dinamički)
-
-| Progres | Učenje | Ponavljanje |
-|---------|--------|-------------|
-| 0-20%   | 90%    | 10%         |
-| 20-50%  | 70%    | 30%         |
-| 50-80%  | 40%    | 60%         |
-| 80-100% | 10%    | 90%         |
-
-### E. UI promjene
-
-**OperationsTab — potpuni redizajn:**
-- Ukloniti "Nova faza" formu i ručno kreiranje faza
-- Zamijeniti sa predmetnim karticama — svaka kategorija je kartica sa progresom, potkategorijama, procijenjenim datumima
-- Zadržati: Reality Check, Smart Load Balancing, Burnout Protection, Cognitive Debt
-- Dodati: Omjer učenje/ponavljanje widget + "Rekonfiguriši plan" dugme
-
-**RoadmapTab — minimalne promjene:**
-- "Progres po fazama" postaje "Progres po predmetima"
-
-**DisciplineTab — bez promjena**
-
-**Setup Wizard — nova komponenta (`PlannerSetupWizard.tsx`):**
-- 3-step modal, prikazuje se automatski ako plan nije konfigurisan
-
-### F. Fajlovi
-
-| Fajl | Promjena |
-|------|----------|
-| `planner-storage.ts` | Nova `PlannerConfig`, `generateStudyPlan()`, `calcLearningReviewRatio()` |
-| `types/planner.ts` | Novi tipovi `SubjectPlan`, `SubjectUnit` |
-| `usePlannerData.ts` | Koristiti `generateStudyPlan` umjesto `calcPhaseProgress` |
-| `OperationsTab.tsx` | Potpuni redizajn — predmetne kartice |
-| `RoadmapTab.tsx` | Zamjena "faze" sa "predmeti" |
-| `PhaseItem.tsx` → `SubjectCard.tsx` | Nova komponenta za predmet |
-| `PlannerSetupWizard.tsx` | **NOVI** — 3-step wizard |
-| `StrategicPlanner.tsx` | Proslijediti `categoryRecords`, prikazati wizard |
-| `PlannerPage.tsx` | Proslijediti `categoryRecords` |
-
-### G. Šta se zadržava
-
-Reality Check, Smart Load Balancing, Burnout Protection, Cognitive Debt, Burn-up Chart, Discipline Tracker, Velocity, Buffer % — svi postojeći mehanizmi se integrišu oko novog predmetnog modela.
