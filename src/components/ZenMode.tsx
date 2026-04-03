@@ -100,13 +100,21 @@ export default function ZenMode({ active, onToggle }: Props) {
   }, [seconds, phase, playChime, cycleCount, pom, FOCUS_DURATION, BREAK_DURATION, LONG_BREAK_DURATION]);
 
   const toggleNoise = useCallback(() => {
-    if (noiseOn) { stopBrownNoise(); setNoiseOn(false); }
-    else { startBrownNoise(noiseVolume); setNoiseOn(true); }
+    if (noiseOn) { stopAmbient(); setNoiseOn(false); }
+    else { startAmbient(ambientTrack, noiseVolume); setNoiseOn(true); }
+  }, [noiseOn, noiseVolume, ambientTrack]);
+
+  const handleTrackChange = useCallback((val: AmbientTrack) => {
+    setAmbientTrack(val);
+    if (noiseOn) {
+      stopAmbient();
+      startAmbient(val, noiseVolume);
+    }
   }, [noiseOn, noiseVolume]);
 
   const handleVolumeChange = useCallback((val: number[]) => {
     setNoiseVolume(val[0]);
-    setBrownNoiseVolume(val[0]);
+    setAmbientVolume(val[0]);
   }, []);
 
   const resetTimer = useCallback(() => {
