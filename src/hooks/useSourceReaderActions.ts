@@ -91,7 +91,7 @@ export function useSourceReaderActions(source: Source, onSourceUpdated?: (source
     addCard(essayQuestion.trim(), [{ title: "Odgovor", content: sanitizeHtml(selectedText) }], source.categoryId, undefined, undefined, {
       sourceId: source.id, textAnchor: anchor, originalSourceSnippet: selectedText,
     });
-    toast({ title: "Esejsko pitanje kreirano", description: `Povezano sa izvorom "${source.title}"` });
+    toast.success("Esejsko pitanje kreirano", { description: `Povezano sa izvorom "${source.title}"` });
     setEssayDialogOpen(false);
     incrementDailyMapped(1);
   }, [source, addCard]);
