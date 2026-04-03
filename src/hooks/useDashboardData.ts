@@ -86,6 +86,7 @@ export function useDashboardData(
   stats: DashboardStats,
   categoryStats: Record<string, { score: number; total: number; due: number }>,
   categories: string[],
+  categoryRecords: CategoryRecord[],
   cards: SRCard[],
   reviewLog: ReviewLogEntry[],
   srSettings: SRSettings,
