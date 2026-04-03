@@ -1,20 +1,15 @@
 import { useState, useCallback, useMemo } from "react";
-import { sanitizeHtml } from "@/lib/sanitize";
-import { ChevronDown, ChevronRight, ArrowRightLeft, Star, Filter, X, Plus, Upload, Pencil, Trash2, CheckSquare, Link2, BookOpen, AlertTriangle } from "lucide-react";
+import { Filter, X, Plus, Upload, CheckSquare, Trash2 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
-import { type Card, CARD_TAGS, SectionState } from "@/lib/spaced-repetition";
+import { type Card, CARD_TAGS } from "@/lib/spaced-repetition";
 import { type CategoryRecord } from "@/lib/db";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
-import BulkImportDialog from "./BulkImportDialog";
+import CardViewTable from "./CardViewTable";
+import { AddCardDialog, MoveCardDialog, BulkImportWrapper } from "./CardViewDialogs";
 
 interface Props {
   cards: Card[];
@@ -28,26 +23,14 @@ interface Props {
   onEdit?: (card: Card) => void;
 }
 
-function stabilityLabel(s: number): { text: string; color: string } {
-  if (s >= 30) return { text: "Stabilno", color: "text-green-500" };
-  if (s >= 7) return { text: "Srednje", color: "text-yellow-500" };
-  return { text: "Slabo", color: "text-red-500" };
-}
-
 export default function CardViewMode({ cards, categoryId, allCategories, patchCard, toggleTag, addCard, addFlashCard, onDelete, onEdit }: Props) {
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [bulkImportOpen, setBulkImportOpen] = useState(false);
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [addMode, setAddMode] = useState<"essay" | "flash">("flash");
-  const [newQuestion, setNewQuestion] = useState("");
-  const [newAnswer, setNewAnswer] = useState("");
-  const [newSectionTitle, setNewSectionTitle] = useState("Odgovor");
-  const [newSectionContent, setNewSectionContent] = useState("");
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [moveModalOpen, setMoveModalOpen] = useState(false);
   const [moveCardId, setMoveCardId] = useState<string | null>(null);
-  const [targetCategoryId, setTargetCategoryId] = useState("");
 
   // Filter state
   const [filterSubcategory, setFilterSubcategory] = useState<string>("__all__");
@@ -60,7 +43,6 @@ export default function CardViewMode({ cards, categoryId, allCategories, patchCa
     [allCategories, categoryId]
   );
 
-  // Build unique subcategories and chapters
   const uniqueSubcategories = useMemo(() => {
     const set = new Set<string>();
     cards.forEach(c => { if (c.subcategoryId) set.add(c.subcategoryId); });
@@ -76,7 +58,6 @@ export default function CardViewMode({ cards, categoryId, allCategories, patchCa
     return Array.from(set).sort();
   }, [cards, filterSubcategory]);
 
-  // Apply filters
   const filteredCards = useMemo(() => {
     return cards.filter(c => {
       if (filterSubcategory !== "__all__" && (c.subcategoryId || "") !== filterSubcategory) return false;
@@ -124,32 +105,11 @@ export default function CardViewMode({ cards, categoryId, allCategories, patchCa
     setSelectedIds(new Set());
   }, []);
 
-  const openMoveModal = useCallback((cardId: string) => {
-    setMoveCardId(cardId);
-    setTargetCategoryId("");
-    setMoveModalOpen(true);
-  }, []);
-
-  const confirmMove = useCallback(() => {
-    if (!moveCardId || !targetCategoryId) return;
+  const confirmMove = useCallback((targetCategoryId: string) => {
+    if (!moveCardId) return;
     patchCard(moveCardId, c => ({ ...c, categoryId: targetCategoryId }));
-    setMoveModalOpen(false);
     setMoveCardId(null);
-  }, [moveCardId, targetCategoryId, patchCard]);
-
-  const handleAddSave = useCallback(() => {
-    if (!newQuestion.trim()) return;
-    if (addMode === "flash") {
-      if (!newAnswer.trim()) return;
-      addFlashCard(newQuestion.trim(), newAnswer.trim(), categoryId);
-    } else {
-      if (!newSectionContent.trim()) return;
-      addCard(newQuestion.trim(), [{ title: newSectionTitle.trim() || "Odgovor", content: newSectionContent.trim() }], categoryId);
-    }
-    toast.success("Kartica kreirana.");
-    setNewQuestion(""); setNewAnswer(""); setNewSectionTitle("Odgovor"); setNewSectionContent("");
-    setAddDialogOpen(false);
-  }, [addMode, newQuestion, newAnswer, newSectionTitle, newSectionContent, categoryId, addCard, addFlashCard]);
+  }, [moveCardId, patchCard]);
 
   if (cards.length === 0 && !addDialogOpen) {
     return (
@@ -158,58 +118,8 @@ export default function CardViewMode({ cards, categoryId, allCategories, patchCa
         <Button onClick={() => setAddDialogOpen(true)} className="gap-2">
           <Plus className="h-4 w-4" /> Nova kartica
         </Button>
-        {renderAddDialog()}
+        <AddCardDialog open={addDialogOpen} onOpenChange={setAddDialogOpen} categoryId={categoryId} addCard={addCard} addFlashCard={addFlashCard} />
       </div>
-    );
-  }
-
-  function renderAddDialog() {
-    return (
-      <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Nova kartica</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            {/* Type toggle */}
-            <div className="flex items-center gap-0.5 rounded-md border p-0.5 w-fit">
-              <button onClick={() => setAddMode("flash")} className={cn("px-3 py-1 rounded text-xs font-medium transition-colors", addMode === "flash" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground")}>
-                Blic
-              </button>
-              <button onClick={() => setAddMode("essay")} className={cn("px-3 py-1 rounded text-xs font-medium transition-colors", addMode === "essay" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground")}>
-                Esej
-              </button>
-            </div>
-
-            <div className="space-y-2">
-              <Label className="text-xs">Pitanje</Label>
-              <Input value={newQuestion} onChange={e => setNewQuestion(e.target.value)} placeholder="Unesite pitanje..." />
-            </div>
-
-            {addMode === "flash" ? (
-              <div className="space-y-2">
-                <Label className="text-xs">Odgovor</Label>
-                <Textarea value={newAnswer} onChange={e => setNewAnswer(e.target.value)} placeholder="Unesite odgovor..." rows={4} />
-              </div>
-            ) : (
-              <>
-                <div className="space-y-2">
-                  <Label className="text-xs">Naslov sekcije</Label>
-                  <Input value={newSectionTitle} onChange={e => setNewSectionTitle(e.target.value)} placeholder="Odgovor" />
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-xs">Sadržaj</Label>
-                  <Textarea value={newSectionContent} onChange={e => setNewSectionContent(e.target.value)} placeholder="Unesite sadržaj..." rows={6} />
-                </div>
-              </>
-            )}
-
-            <Button onClick={handleAddSave} className="w-full gap-2" disabled={!newQuestion.trim()}>
-              <Plus className="h-4 w-4" /> Sačuvaj
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
     );
   }
 
@@ -219,7 +129,6 @@ export default function CardViewMode({ cards, categoryId, allCategories, patchCa
       <div className="flex items-center gap-2 flex-wrap rounded-lg border bg-card p-2.5">
         <Filter className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
 
-        {/* Subcategory filter */}
         {uniqueSubcategories.length > 0 && (
           <Select value={filterSubcategory} onValueChange={(v) => { setFilterSubcategory(v); setFilterChapter("__all__"); }}>
             <SelectTrigger className="h-7 w-auto min-w-[120px] text-xs">
@@ -234,7 +143,6 @@ export default function CardViewMode({ cards, categoryId, allCategories, patchCa
           </Select>
         )}
 
-        {/* Chapter filter */}
         {uniqueChapters.length > 0 && (
           <Select value={filterChapter} onValueChange={setFilterChapter}>
             <SelectTrigger className="h-7 w-auto min-w-[100px] text-xs">
@@ -249,7 +157,6 @@ export default function CardViewMode({ cards, categoryId, allCategories, patchCa
           </Select>
         )}
 
-        {/* Type filter */}
         <div className="flex items-center gap-0.5 rounded-md border p-0.5">
           {(["all", "essay", "flash", "mnemonic"] as const).map(t => (
             <button
@@ -265,7 +172,6 @@ export default function CardViewMode({ cards, categoryId, allCategories, patchCa
           ))}
         </div>
 
-        {/* Tag filter */}
         <Select value={filterTag} onValueChange={setFilterTag}>
           <SelectTrigger className="h-7 w-auto min-w-[110px] text-xs">
             <SelectValue placeholder="Tag" />
@@ -278,7 +184,6 @@ export default function CardViewMode({ cards, categoryId, allCategories, patchCa
           </SelectContent>
         </Select>
 
-        {/* Reset + count + actions */}
         <div className="flex items-center gap-2 ml-auto">
           <span className="text-[10px] text-muted-foreground">{filteredCards.length}/{cards.length}</span>
           {hasActiveFilters && (
@@ -324,180 +229,33 @@ export default function CardViewMode({ cards, categoryId, allCategories, patchCa
         </div>
       )}
 
-      {/* Card list */}
-      <div className="space-y-1">
-        {filteredCards.map(card => {
-          const isExpanded = expandedId === card.id;
-          const avgStability = card.sections.length > 0
-            ? card.sections.reduce((sum, s) => sum + s.stability, 0) / card.sections.length
-            : 0;
-          const stab = stabilityLabel(avgStability);
-          const hasTags = card.tags && card.tags.length > 0;
+      {/* Card table */}
+      <CardViewTable
+        filteredCards={filteredCards}
+        allCategories={allCategories}
+        expandedId={expandedId}
+        onToggle={toggle}
+        selectionMode={selectionMode}
+        selectedIds={selectedIds}
+        onToggleSelection={toggleSelection}
+        toggleTag={toggleTag}
+        onEdit={onEdit}
+        onDelete={onDelete}
+        onOpenMoveModal={(cardId) => { setMoveCardId(cardId); setMoveModalOpen(true); }}
+        hasActiveFilters={hasActiveFilters}
+        totalCount={cards.length}
+        onResetFilters={resetFilters}
+      />
 
-          return (
-            <div key={card.id} className="rounded-lg border bg-card overflow-hidden">
-              <div className="w-full flex items-center gap-3 px-4 py-3">
-                {selectionMode && (
-                  <Checkbox
-                    checked={selectedIds.has(card.id)}
-                    onCheckedChange={() => toggleSelection(card.id)}
-                    className="shrink-0"
-                  />
-                )}
-                <button
-                  onClick={() => toggle(card.id)}
-                  className="flex-1 flex items-center gap-3 text-left hover:bg-accent/30 transition-colors rounded"
-                >
-                  {isExpanded ? <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />}
-                <span className="text-sm text-foreground truncate flex-1">{card.question || "(Bez pitanja)"}</span>
-                <div className="flex items-center gap-2 shrink-0">
-                  {hasTags && card.tags!.includes("često-na-ispitu") && (
-                    <Star className="h-3.5 w-3.5 text-destructive fill-destructive" />
-                  )}
-                  <span className={cn("text-[10px] font-medium", stab.color)}>{stab.text}</span>
-                  <Badge variant="outline" className="text-[10px]">
-                    {card.type === "flash" ? "Flash" : "Esej"}
-                  </Badge>
-                  </div>
-                </button>
-              </div>
-
-              {isExpanded && (
-                <div className="border-t px-4 py-3 space-y-3 bg-muted/20">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    {card.subcategoryId && (() => {
-                      const cr = allCategories.find(c => c.id === card.categoryId);
-                      const sName = cr?.subcategories?.find(s => s.id === card.subcategoryId)?.name ?? card.subcategoryId;
-                      const cName = card.chapterId ? cr?.subcategories?.flatMap(s => s.chapters ?? [])?.find(ch => (typeof ch === 'string' ? ch : ch.id) === card.chapterId)?.name ?? card.chapterId : undefined;
-                      return (
-                        <>
-                          <Badge variant="secondary" className="text-[10px]">
-                            Potkategorija: {sName}
-                          </Badge>
-                          {cName && (
-                            <Badge variant="outline" className="text-[10px] gap-1 border-primary/30">
-                              <BookOpen className="h-3 w-3" />
-                              Glava: {cName}
-                            </Badge>
-                          )}
-                        </>
-                      );
-                    })()}
-                    {!card.subcategoryId && card.chapterId && (() => {
-                      const chName = allCategories.flatMap(c => (c.subcategories || []).flatMap(s => s.chapters || [])).find(ch => typeof ch === 'object' && ch.id === card.chapterId)?.name ?? card.chapterId;
-                      return (
-                        <Badge variant="outline" className="text-[10px] gap-1 border-primary/30">
-                          <BookOpen className="h-3 w-3" />
-                          Glava: {chName}
-                        </Badge>
-                      );
-                    })()}
-                    {card.sourceId && (
-                      <Badge variant="outline" className="text-[10px] gap-1 border-accent">
-                        <Link2 className="h-3 w-3" />
-                        Povezano sa izvorom
-                      </Badge>
-                    )}
-                    {card.needsReview && (
-                      <Badge className="text-[10px] gap-1 bg-orange-500/15 text-orange-700 dark:text-orange-400 border-orange-500/30">
-                        <AlertTriangle className="h-3 w-3" />
-                        Izvor ažuriran
-                      </Badge>
-                    )}
-                  </div>
-
-                  <div className="space-y-2">
-                    {card.sections.map((section, idx) => {
-                      const secStab = stabilityLabel(section.stability);
-                      const stateLabel = section.state === SectionState.New ? "Novo" : section.state === SectionState.Learning ? "Učenje" : section.state === SectionState.Review ? "Ponavljanje" : "Re-učenje";
-                      return (
-                        <div key={section.id} className="rounded border bg-background p-3 space-y-1">
-                          <div className="flex items-center justify-between">
-                            <span className="text-xs font-medium text-foreground">{section.title || `Sekcija ${idx + 1}`}</span>
-                            <div className="flex items-center gap-2">
-                              <span className="text-[10px] text-muted-foreground">{stateLabel}</span>
-                              <span className={cn("text-[10px] font-medium", secStab.color)}>S: {section.stability.toFixed(1)}</span>
-                            </div>
-                          </div>
-                          <div className="text-xs text-foreground/70 prose prose-xs dark:prose-invert max-w-none line-clamp-4" dangerouslySetInnerHTML={{ __html: sanitizeHtml(section.content) }} />
-                        </div>
-                      );
-                    })}
-                  </div>
-
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    {CARD_TAGS.map(tag => {
-                      const active = card.tags?.includes(tag.id);
-                      return (
-                        <button
-                          key={tag.id}
-                          onClick={() => toggleTag(card.id, tag.id)}
-                          className={cn(
-                            "text-[10px] px-2 py-0.5 rounded-full border transition-colors",
-                            active ? "bg-primary/10 border-primary text-primary" : "bg-transparent border-border text-muted-foreground hover:border-primary/50"
-                          )}
-                        >
-                          {tag.label}
-                        </button>
-                      );
-                    })}
-                  </div>
-
-                  <div className="flex items-center gap-2 flex-wrap">
-                    {onEdit && (
-                      <Button variant="outline" size="sm" className="gap-1.5 text-xs" onClick={() => onEdit(card)}>
-                        <Pencil className="h-3.5 w-3.5" /> Uredi
-                      </Button>
-                    )}
-                    <Button variant="outline" size="sm" className="gap-2 text-xs" onClick={() => openMoveModal(card.id)}>
-                      <ArrowRightLeft className="h-3.5 w-3.5" />
-                      Premjesti
-                    </Button>
-                    {onDelete && (
-                      <Button variant="outline" size="sm" className="gap-1.5 text-xs text-destructive hover:bg-destructive/10" onClick={() => { onDelete(card.id); toast.success("Kartica obrisana."); }}>
-                        <Trash2 className="h-3.5 w-3.5" /> Obriši
-                      </Button>
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>
-          );
-        })}
-
-        {filteredCards.length === 0 && hasActiveFilters && (
-          <div className="text-center py-12 text-muted-foreground text-sm space-y-2">
-            <p>Nema kartica koje odgovaraju filterima.</p>
-            <Button variant="outline" size="sm" onClick={resetFilters}>Resetuj filtere</Button>
-          </div>
-        )}
-      </div>
-
-      {/* Move modal */}
-      <Dialog open={moveModalOpen} onOpenChange={setMoveModalOpen}>
-        <DialogContent className="max-w-sm">
-          <DialogHeader>
-            <DialogTitle>Premjesti karticu</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-3">
-            <Select value={targetCategoryId} onValueChange={setTargetCategoryId}>
-              <SelectTrigger>
-                <SelectValue placeholder="Odaberi kategoriju..." />
-              </SelectTrigger>
-              <SelectContent>
-                {otherCategories.map(cat => (
-                  <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Button onClick={confirmMove} disabled={!targetCategoryId} className="w-full">
-              Premjesti
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-      {renderAddDialog()}
-      <BulkImportDialog open={bulkImportOpen} onOpenChange={setBulkImportOpen} categoryId={categoryId} addFlashCard={addFlashCard} />
+      {/* Dialogs */}
+      <MoveCardDialog
+        open={moveModalOpen}
+        onOpenChange={setMoveModalOpen}
+        otherCategories={otherCategories}
+        onConfirm={confirmMove}
+      />
+      <AddCardDialog open={addDialogOpen} onOpenChange={setAddDialogOpen} categoryId={categoryId} addCard={addCard} addFlashCard={addFlashCard} />
+      <BulkImportWrapper open={bulkImportOpen} onOpenChange={setBulkImportOpen} categoryId={categoryId} addFlashCard={addFlashCard} />
     </div>
   );
 }
