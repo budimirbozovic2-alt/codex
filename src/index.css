@@ -735,11 +735,7 @@ nav button, nav a {
   contain: layout style;
 }
 
-/* Heavy route containers — skip rendering off-screen content */
-main > * {
-  content-visibility: auto;
-  contain-intrinsic-size: auto 500px;
-}
+/* content-visibility removed — caused CLS on short pages */
 
 /* ─── Skip-to-content link ────────────────────── */
 .skip-to-content {
