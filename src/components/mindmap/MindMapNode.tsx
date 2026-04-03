@@ -1,5 +1,5 @@
 import { Scale, FileText, Building2, Calendar, OctagonX, RefreshCw, User, Coins, ArrowRight, CheckCircle2, AlertTriangle, HelpCircle, Clock, Gavel, BookOpen, ShieldCheck, Send, Search, Copy, Sparkles } from "lucide-react";
-import { memo, useState, useCallback } from "react";
+import { memo, useState, useCallback, useRef } from "react";
 import { Handle, Position, NodeProps, NodeResizer } from "@xyflow/react";
 import { cn } from "@/lib/utils";
 // ── Icon Registry with Lucide components ──
