@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/button";
 import OnboardingModal, { hasSeenOnboarding } from "@/components/OnboardingModal";
 import { DueItem, ReviewMode, REVIEW_ONBOARDING_KEY, REVIEW_SLIDES } from "./review-constants";
 import type { CategoryRecord } from "@/lib/db";
+import { useT } from "@/lib/i18n/useT";
+
 function HowItWorksCorner({ onShowOnboarding }: { onShowOnboarding: () => void }) {
   return (
     <div className="absolute top-0 right-0">
@@ -40,6 +42,7 @@ export default function ReviewSetup({
   onSelectMode, onBack, savedSession, onResumeSession, onClearSavedSession,
   preSelectedCategory,
 }: ReviewSetupProps) {
+  const t = useT();
   const [setupStep, setSetupStep] = useState<"mode" | "filter">("mode");
   const [mode, setMode] = useState<ReviewMode>(null);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(preSelectedCategory ?? null);
@@ -145,12 +148,6 @@ export default function ReviewSetup({
     return Array.from(chapters).sort();
   }, [dueCards, selectedCategory, selectedSubcategory]);
 
-  const modeLabels: Record<string, string> = {
-    stabilization: "Fokusirano Utvrđivanje",
-    critical: "Kritični Pregled",
-    hardest: "Najteža Pitanja",
-  };
-
   const handleStartSession = useCallback(() => {
     const currentItems = mode === "stabilization" ? stabilizationItems
       : mode === "critical" ? criticalItems
@@ -158,7 +155,6 @@ export default function ReviewSetup({
     onSelectMode(mode, selectedCategory, selectedSubcategory, selectedChapter, filterExamFrequent, filterType, currentItems);
   }, [mode, selectedCategory, selectedSubcategory, selectedChapter, filterExamFrequent, filterType, onSelectMode, stabilizationItems, criticalItems, hardestItems]);
 
-  // ── Step 1: Choose mode ──
   if (setupStep === "mode") {
     return (
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="max-w-xl mx-auto space-y-8 py-10 relative">
@@ -168,30 +164,29 @@ export default function ReviewSetup({
               slides={REVIEW_SLIDES}
               storageKey={REVIEW_ONBOARDING_KEY}
               onComplete={() => setShowOnboarding(false)}
-              finishLabel="Razumijem"
+              finishLabel={t("common.understand")}
             />
           )}
         </AnimatePresence>
         <HowItWorksCorner onShowOnboarding={() => setShowOnboarding(true)} />
 
         <div>
-          <h2 className="imperial-title">Konsolidacija</h2>
-          <p className="text-muted-foreground mt-2">Izaberi režim ponavljanja koji odgovara tvom cilju.</p>
+          <h2 className="imperial-title">{t("review.title")}</h2>
+          <p className="text-muted-foreground mt-2">{t("review.subtitle")}</p>
         </div>
 
-        {/* Resume saved session */}
         {savedSession && (
           <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="glass-card rounded-xl border-primary/30 p-4 flex items-center gap-3">
             <Play className="h-5 w-5 text-primary shrink-0" />
             <div className="flex-1">
-              <p className="text-sm font-medium">Sačuvana sesija</p>
+              <p className="text-sm font-medium">{t("review.savedSession")}</p>
               <p className="text-xs text-muted-foreground">
-                Mod: {modeLabels[savedSession.mode] || savedSession.mode}
+                Mod: {savedSession.mode === "stabilization" ? t("review.stabilization") : savedSession.mode === "critical" ? t("review.critical") : t("review.hardest")}
                 {savedSession.selectedCategory && ` · ${savedSession.selectedCategory}`}
               </p>
             </div>
             <Button size="sm" onClick={onResumeSession} className="bg-primary text-primary-foreground hover:bg-primary/90">
-              <Play className="h-3.5 w-3.5 mr-1" /> Nastavi
+              <Play className="h-3.5 w-3.5 mr-1" /> {t("common.continue")}
             </Button>
             <button onClick={onClearSavedSession} className="text-muted-foreground hover:text-foreground p-1">
               <XIcon className="h-3.5 w-3.5" />
@@ -199,12 +194,11 @@ export default function ReviewSetup({
           </motion.div>
         )}
 
-        {/* Mode selection */}
         <div className="grid gap-4">
           {[
-            { key: "stabilization" as ReviewMode, icon: Target, label: "Fokusirano Utvrđivanje", sublabel: "Stabilizacija", count: stabilizationItems.length, color: "primary", desc: "Cilja nove eseje i one koje si skoro pogriješio. Ključno za brzo prebacivanje svježih informacija iz kratkoročne u dugoročnu memoriju." },
-            { key: "critical" as ReviewMode, icon: Shield, label: "Kritični Pregled", sublabel: "Zadržavanje", count: criticalItems.length, color: "warning", desc: "Hvata kartice u idealnom trenutku zaborava (R ≈ 80–85%). Najbrži način da održiš sve eseje u glavi uz minimalan utrošak vremena." },
-            { key: "hardest" as ReviewMode, icon: Zap, label: "Najteža Pitanja", sublabel: "Okršaj", count: hardestItems.length, color: "destructive", desc: "Direktan okršaj sa do 50 statistički najzahtjevnijih eseja. Uključuje tvoje \"Leech\" kartice (padovi ≥5×) i one sa najvećim indeksom težine." },
+            { key: "stabilization" as ReviewMode, icon: Target, label: t("review.stabilization"), sublabel: t("review.stabilizationSub"), count: stabilizationItems.length, color: "primary", desc: t("review.stabilizationDesc") },
+            { key: "critical" as ReviewMode, icon: Shield, label: t("review.critical"), sublabel: t("review.criticalSub"), count: criticalItems.length, color: "warning", desc: t("review.criticalDesc") },
+            { key: "hardest" as ReviewMode, icon: Zap, label: t("review.hardest"), sublabel: t("review.hardestSub"), count: hardestItems.length, color: "destructive", desc: t("review.hardestDesc") },
           ].map(({ key, icon: Icon, label, sublabel, count, color, desc }) => (
             <button
               key={key}
@@ -221,7 +215,7 @@ export default function ReviewSetup({
                   <span className="text-[11px] uppercase tracking-wider text-muted-foreground">{sublabel}</span>
                 </div>
                 <span className={`text-xs bg-${color}/10 text-${color} px-2.5 py-1 rounded-full font-medium`}>
-                  {count} sekcija
+                  {t("review.sectionCount", { count })}
                 </span>
               </div>
               <p className="text-sm text-muted-foreground leading-relaxed">{desc}</p>
@@ -232,21 +226,20 @@ export default function ReviewSetup({
     );
   }
 
-  // ── Step 2: Filters + Start ──
   const modeMeta = mode === "stabilization"
-    ? { label: "Fokusirano Utvrđivanje", items: stabilizationItems }
+    ? { label: t("review.stabilization"), items: stabilizationItems }
     : mode === "critical"
-    ? { label: "Kritični Pregled", items: criticalItems }
-    : { label: "Najteža Pitanja", items: hardestItems };
+    ? { label: t("review.critical"), items: criticalItems }
+    : { label: t("review.hardest"), items: hardestItems };
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="max-w-xl mx-auto space-y-8 py-10">
       <div>
         <button onClick={() => { setSetupStep("mode"); setMode(null); setSelectedCategory(null); setSelectedSubcategory(null); setSelectedChapter(null); setFilterExamFrequent(false); }} className="text-muted-foreground hover:text-foreground flex items-center gap-1 mb-6">
-          <ArrowLeft className="h-4 w-4" /> Nazad na režime
+          <ArrowLeft className="h-4 w-4" /> {t("common.backToModes")}
         </button>
         <h2 className="imperial-title">{modeMeta.label}</h2>
-        <p className="text-muted-foreground mt-2">{modeMeta.items.length} sekcija dostupno za ponavljanje.</p>
+        <p className="text-muted-foreground mt-2">{t("review.sectionsAvailable", { count: modeMeta.items.length })}</p>
       </div>
 
       <SessionFilters
@@ -273,7 +266,7 @@ export default function ReviewSetup({
         className="w-full py-6 text-base btn-imperial"
         disabled={modeMeta.items.length === 0}
       >
-        <BookOpen className="h-4 w-4 mr-2" /> Počni konsolidaciju ({modeMeta.items.length} sekcija)
+        <BookOpen className="h-4 w-4 mr-2" /> {t("review.startConsolidation", { count: modeMeta.items.length })}
       </Button>
     </motion.div>
   );
