@@ -1,4 +1,4 @@
-import { ArrowLeft, Wand2, Eye, BarChart3, FileQuestion, List, X, Pencil } from "lucide-react";
+import { ArrowLeft, Wand2, Eye, BarChart3, FileQuestion, List, X, Pencil, Type } from "lucide-react";
 import { memo } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -13,9 +13,10 @@ interface Props {
   source: Source;
   onBack: () => void;
   onAutoSplit: () => void;
+  onAutoFormat?: () => void;
 }
 
-export const SourceToolbar = memo(function SourceToolbar({ source, onBack, onAutoSplit }: Props) {
+export const SourceToolbar = memo(function SourceToolbar({ source, onBack, onAutoSplit, onAutoFormat }: Props) {
   const viewMode = useSourceReaderStore(s => s.viewMode);
   const setViewMode = useSourceReaderStore(s => s.setViewMode);
   const editMode = useSourceReaderStore(s => s.editMode);
@@ -40,10 +41,18 @@ export const SourceToolbar = memo(function SourceToolbar({ source, onBack, onAut
       <SourceHeader source={source} />
 
       {!editMode && (
-        <Button variant="outline" size="sm" onClick={onAutoSplit} className="gap-1.5" title="Generiši eseje iz članova">
-          <Wand2 className="h-3.5 w-3.5" />
-          Auto-Split
-        </Button>
+        <>
+          <Button variant="outline" size="sm" onClick={onAutoSplit} className="gap-1.5" title="Generiši eseje iz članova">
+            <Wand2 className="h-3.5 w-3.5" />
+            Auto-Split
+          </Button>
+          {onAutoFormat && (
+            <Button variant="outline" size="sm" onClick={onAutoFormat} className="gap-1.5" title="Bolduj članove i nazive">
+              <Type className="h-3.5 w-3.5" />
+              Članovi
+            </Button>
+          )}
+        </>
       )}
 
       <div className="flex items-center rounded-lg border border-border bg-muted/50 p-0.5">
