@@ -26,19 +26,25 @@ export interface StudyDecade {
 }
 
 export interface PlannerConfig {
-  phases: StudyPhase[];
   finalGoalDate: string | null;
   createdAt: number;
   bufferPercent: number;
+  dailyAvailableMinutes: number;
+  hardSubjects: string[];
+  subjectOrder: string[];
+  /** @deprecated kept for migration */
+  phases?: StudyPhase[];
   /** @deprecated migrated to phases */
   decades?: StudyDecade[];
 }
 
 const DEFAULT_CONFIG: PlannerConfig = {
-  phases: [],
   finalGoalDate: null,
   createdAt: Date.now(),
   bufferPercent: 15,
+  dailyAvailableMinutes: 0,
+  hardSubjects: [],
+  subjectOrder: [],
 };
 
 // ─── Cache state ─────────────────────────────────────────
