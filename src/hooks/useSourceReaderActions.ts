@@ -119,7 +119,7 @@ export function useSourceReaderActions(source: Source, onSourceUpdated?: (source
     setSplitDone(true);
     incrementDailyMapped(modules.length);
     window.dispatchEvent(new CustomEvent("codex-mapping-created"));
-    toast({ title: `Generisano 1 esej sa ${modules.length} modula`, description: `${splitResult.rangeLabel} iz "${source.title}"` });
+    toast.success(`Generisano 1 esej sa ${modules.length} modula`, { description: `${splitResult.rangeLabel} iz "${source.title}"` });
   }, [source, addCard]);
 
   // ─── Link to existing ───
