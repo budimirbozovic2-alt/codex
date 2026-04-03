@@ -113,7 +113,39 @@ export function useCardImport({
               await dbCat.categories.clear();
               await dbCat.categories.bulkPut(catRecords);
             } else {
-              await dbCat.categories.bulkPut(catRecords);
+              // Deduplicate by name: remap IDs when same name exists under different UUID
+              const existingCats = await idbLoadCategories();
+              const existingByName = new Map<string, string>();
+              existingCats.forEach(c => existingByName.set(c.name.toLowerCase(), c.id));
+
+              const idRemap = new Map<string, string>(); // oldId → existingId
+              const filteredCatRecords = catRecords.filter(cr => {
+                const existingId = existingByName.get(cr.name.toLowerCase());
+                if (existingId && existingId !== cr.id) {
+                  idRemap.set(cr.id, existingId);
+                  return false; // skip insert — already exists by name
+                }
+                return true;
+              });
+
+              // Apply remap to imported cards
+              if (idRemap.size > 0) {
+                importedCards.forEach(card => {
+                  const remapped = idRemap.get(card.categoryId);
+                  if (remapped) card.categoryId = remapped;
+                });
+                // Also remap sources if present
+                if (Array.isArray(data.sources)) {
+                  (data.sources as any[]).forEach(src => {
+                    const remapped = idRemap.get(src.categoryId);
+                    if (remapped) src.categoryId = remapped;
+                  });
+                }
+              }
+
+              if (filteredCatRecords.length > 0) {
+                await dbCat.categories.bulkPut(filteredCatRecords);
+              }
             }
             const freshRecords = await idbLoadCategories();
             setCategoryRecords(freshRecords);

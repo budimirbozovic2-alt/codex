@@ -215,10 +215,14 @@ export default function ExportImportDialog({ open, onOpenChange, onExportTemplat
       const existingIds = new Set(freshCards.map(c => c.id));
       const duplicateCount = importedCards.filter(c => existingIds.has(c.id)).length;
 
-      // Category conflict detection
-      const existingCatIds = new Set((await db.categories.toArray()).map(c => c.id));
+      // Category conflict detection (by ID or by name)
+      const existingCats = await db.categories.toArray();
+      const existingCatIds = new Set(existingCats.map(c => c.id));
+      const existingCatNames = new Set(existingCats.map(c => c.name.toLowerCase()));
       const duplicateCategoryCount = Array.isArray(parsed.categories)
-        ? parsed.categories.filter((c: any) => existingCatIds.has(c.id)).length
+        ? parsed.categories.filter((c: any) =>
+            existingCatIds.has(c.id) || (c.name && existingCatNames.has(c.name.toLowerCase()))
+          ).length
         : 0;
 
       const validationResult: ImportValidation = {
