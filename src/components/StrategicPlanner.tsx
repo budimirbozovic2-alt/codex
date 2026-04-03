@@ -90,6 +90,8 @@ export default function StrategicPlanner({ cards, categories, categoryRecords, r
           dueCount={data.dueCount}
           learningRatio={data.learningRatio}
           overallPct={data.overallPct}
+          retentionRisk={data.retentionRisk}
+          categoryRecords={categoryRecords}
           onNavigateToDatabase={onNavigateToDatabase}
           onOpenWizard={() => setShowWizard(true)}
         />
