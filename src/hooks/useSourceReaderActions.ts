@@ -388,6 +388,31 @@ export function useSourceReaderActions(source: Source, onSourceUpdated?: (source
     }
   }, []);
 
+  // ─── Auto-format articles ───
+  const handleAutoFormatArticles = useCallback(async () => {
+    const { autoFormatArticles } = await import("@/lib/article-autoformat");
+    const result = autoFormatArticles(source.htmlContent);
+    if (result.count === 0) {
+      toast.info("Nisu pronađeni članovi za formatiranje", { description: "Tražim pattern: \"Član X\"" });
+      return;
+    }
+    const { saveSource, extractOutline, injectHeadingIds } = await import("@/lib/sources-storage");
+    const updatedHtml = injectHeadingIds(result.html);
+    const outline = extractOutline(updatedHtml);
+    const { parseArticles } = await import("@/lib/article-parser");
+    const articles = parseArticles(updatedHtml);
+    const updated: Source = {
+      ...source,
+      htmlContent: updatedHtml,
+      outline,
+      articles,
+      updatedAt: Date.now(),
+    };
+    await saveSource(updated);
+    onSourceUpdated?.(updated);
+    toast.success(`Formatirano ${result.count} članova`, { description: "Članovi i nazivi su boldovani" });
+  }, [source, onSourceUpdated]);
+
   // ─── Debounced auto-save (edit mode) ───
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
