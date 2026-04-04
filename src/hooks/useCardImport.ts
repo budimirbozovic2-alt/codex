@@ -96,12 +96,7 @@ export function useCardImport({
         } else {
           importedCards.forEach((ic) => { if (!nextMap[ic.id]) { nextMap[ic.id] = ic; merged.push(ic); } });
         }
-        if (merged.length > 0) schedulePersist({ type: "bulk", cards: merged });
-        cardMapRef.current = nextMap;
-        setCardMapState(() => nextMap);
-        bumpMapVersion();
-
-        // ── Categories import ──
+        // ── Categories import + remap BEFORE persist (fixes race condition) ──
         if (Array.isArray(data.categories) && (data.categories as unknown[]).length > 0) {
           const firstCat = (data.categories as unknown[])[0];
           const isRecordFormat = typeof firstCat === 'object' && firstCat !== null && 'id' in firstCat;
@@ -118,23 +113,26 @@ export function useCardImport({
               const existingByName = new Map<string, string>();
               existingCats.forEach(c => existingByName.set(c.name.toLowerCase(), c.id));
 
-              const idRemap = new Map<string, string>(); // oldId → existingId
+              const idRemap = new Map<string, string>();
               const filteredCatRecords = catRecords.filter(cr => {
                 const existingId = existingByName.get(cr.name.toLowerCase());
                 if (existingId && existingId !== cr.id) {
                   idRemap.set(cr.id, existingId);
-                  return false; // skip insert — already exists by name
+                  return false;
                 }
                 return true;
               });
 
-              // Apply remap to imported cards
+              // Apply remap to cards BEFORE they are persisted
               if (idRemap.size > 0) {
-                importedCards.forEach(card => {
+                for (const card of merged) {
                   const remapped = idRemap.get(card.categoryId);
                   if (remapped) card.categoryId = remapped;
-                });
-                // Also remap sources if present
+                }
+                for (const card of Object.values(nextMap)) {
+                  const remapped = idRemap.get(card.categoryId);
+                  if (remapped) card.categoryId = remapped;
+                }
                 if (Array.isArray(data.sources)) {
                   (data.sources as any[]).forEach(src => {
                     const remapped = idRemap.get(src.categoryId);
