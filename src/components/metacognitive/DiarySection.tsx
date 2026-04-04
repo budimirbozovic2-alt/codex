@@ -80,7 +80,7 @@ export default function DiarySection({ cards, reviewLog, catNameMap }: Props) {
     for (const e of todayEntries) {
       const key = e.category;
       if (!grouped.has(key)) grouped.set(key, new Set());
-      grouped.get(key)!.add(`${e.cardId}:${e.sectionIndex ?? 0}`);
+      grouped.get(key)!.add(`${e.cardId}:${e.sectionId ?? 0}`);
     }
     return Array.from(grouped.entries())
       .map(([catId, sections]) => ({ catId, name: catNameMap[catId] || catId, count: sections.size }))
