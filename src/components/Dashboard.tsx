@@ -1,5 +1,6 @@
 import { Target } from "lucide-react";
 import { Card as SRCard, SRSettings } from "@/lib/spaced-repetition";
+import ActivityHeatmap from "@/components/ActivityHeatmap";
 import { ReviewLogEntry } from "@/lib/storage";
 import ProgressRing from "@/components/ProgressRing";
 import { useDashboardData } from "@/hooks/useDashboardData";
@@ -120,6 +121,8 @@ export default function Dashboard({ stats, categoryStats, categories, categoryRe
               showWeakCategories={wc.showWeakCategories}
             />
           )}
+
+          <ActivityHeatmap reviewLog={reviewLog} />
         </div>
       </div>
 
