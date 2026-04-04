@@ -71,7 +71,12 @@ export function useCategoryManagement({
       const fallbackId = remaining.length > 0 ? remaining[0].id : "";
       const now = Date.now();
 
-      setCategoryRecords(prev => prev.filter(r => r.id !== categoryId));
+      // Use optimistic update with rollback for category records
+      optimisticCategoryUpdate(
+        setCategoryRecords,
+        prev => prev.filter(r => r.id !== categoryId),
+        "deleteCategory"
+      );
 
       if (purgeCards) {
         const toDelete: string[] = [];
@@ -97,7 +102,6 @@ export function useCategoryManagement({
         const nextRef = { ...cardMapRef.current };
         for (const [id, c] of Object.entries(nextRef)) {
           if (c.categoryId === categoryId) {
-            // ✓ FIX: subcategoryId i chapterId na undefined (čist UUID pristup)
             const u = { ...c, categoryId: fallbackId, subcategoryId: undefined, chapterId: undefined, updatedAt: now };
             nextRef[id] = u;
             changed.push(u);
@@ -118,7 +122,6 @@ export function useCategoryManagement({
           } else {
             await db.sources.where("categoryId").equals(categoryId).modify({ categoryId: fallbackId });
           }
-          await db.categories.delete(categoryId);
           invalidateSourcesCache();
         } catch (err) {
           console.error("[deleteCategory] cascade failed", err);
