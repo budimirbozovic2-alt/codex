@@ -73,6 +73,20 @@ export default function DiarySection({ cards, reviewLog, catNameMap }: Props) {
     return days;
   }, [reviewLog]);
 
+  const subjectProgress = useMemo(() => {
+    const dayStart = startOfDay(new Date()).getTime();
+    const todayEntries = reviewLog.filter(e => e.timestamp >= dayStart);
+    const grouped = new Map<string, Set<string>>();
+    for (const e of todayEntries) {
+      const key = e.category;
+      if (!grouped.has(key)) grouped.set(key, new Set());
+      grouped.get(key)!.add(`${e.cardId}:${e.sectionId ?? 0}`);
+    }
+    return Array.from(grouped.entries())
+      .map(([catId, sections]) => ({ catId, name: catNameMap[catId] || catId, count: sections.size }))
+      .sort((a, b) => b.count - a.count);
+  }, [reviewLog, catNameMap]);
+
   return (
     <div className="space-y-6 mt-4">
       <div className="grid grid-cols-3 gap-4">
@@ -118,6 +132,22 @@ export default function DiarySection({ cards, reviewLog, catNameMap }: Props) {
       <Suspense fallback={<Skeleton className="h-[240px] w-full rounded-xl" />}>
         <WeeklyChart data={recentDays} />
       </Suspense>
+
+      {subjectProgress.length > 0 && (
+        <div className="rounded-xl border bg-card p-5 space-y-3">
+          <h3 className="text-sm font-medium flex items-center gap-2">
+            <BookOpen className="h-4 w-4 text-primary" /> Danas po predmetima
+          </h3>
+          <div className="space-y-2">
+            {subjectProgress.map(s => (
+              <div key={s.catId} className="flex items-center justify-between py-1">
+                <span className="text-sm truncate mr-2">{s.name}</span>
+                <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-primary/10 text-primary">{s.count}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {todayStats.lapses.length > 0 && (
         <div className="rounded-xl border bg-card p-5 space-y-3">
