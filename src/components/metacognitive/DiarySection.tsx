@@ -1,9 +1,11 @@
-import { BookOpen, Clock, Brain, AlertTriangle, CheckCircle, XCircle } from "lucide-react";
+import { BookOpen, Clock, Brain, AlertTriangle, CheckCircle, XCircle, Target } from "lucide-react";
 import { useState, useMemo, lazy, Suspense } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { ReviewLogEntry } from "@/lib/storage";
+import { loadPlanner, getSmartSuggestion, calcVelocity } from "@/lib/planner-storage";
+import { SectionState } from "@/lib/spaced-repetition";
 import { Card } from "@/lib/spaced-repetition";
 import {
   loadDiary, addDiaryEntry, DiaryEntry, setLastAnalysisDate,
@@ -32,6 +34,16 @@ export default function DiarySection({ cards, reviewLog, catNameMap }: Props) {
   const todayTime = useMemo(() => getTimeDistribution(1), []);
 
   const cardMap = useMemo(() => new Map(cards.map(c => [c.id, c])), [cards]);
+
+  const plannerGoal = useMemo(() => {
+    const config = loadPlanner();
+    if (!config.finalGoalDate) return null;
+    const velocity = calcVelocity(reviewLog, 7);
+    const suggestion = getSmartSuggestion(null, cards, config.finalGoalDate, velocity, config.bufferPercent ?? 20);
+    const now = Date.now();
+    const dueCount = cards.reduce((sum, c) => sum + c.sections.filter(s => s.state !== SectionState.New && s.nextReview <= now).length, 0);
+    return suggestion ? { suggestedNew: suggestion.suggestedToday, due: dueCount } : null;
+  }, [cards, reviewLog]);
 
   const handleSave = () => {
     const entry = addDiaryEntry({ date: today, dailyGoal: dailyGoal || todayEntry?.dailyGoal || "", selfAnalysis });
@@ -174,6 +186,14 @@ export default function DiarySection({ cards, reviewLog, catNameMap }: Props) {
           </div>
         )}
         <div className="space-y-3">
+          {plannerGoal && (
+            <div className="flex items-center gap-2 rounded-lg bg-primary/5 border border-primary/10 p-2">
+              <Target className="h-3.5 w-3.5 text-primary shrink-0" />
+              <span className="text-xs text-primary">
+                Preporučeni cilj danas: <strong>{plannerGoal.suggestedNew} novih</strong> + <strong>{plannerGoal.due} dospjelih</strong>
+              </span>
+            </div>
+          )}
           <div>
             <label className="text-xs text-muted-foreground mb-1 block">Dnevni cilj</label>
             <Input
