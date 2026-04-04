@@ -5,26 +5,40 @@
 import { idbLoadCategories, idbSaveCategories, type CategoryRecord, type SubcategoryNode, type ChapterNode } from "@/lib/db";
 import { toast } from "sonner";
 
-// ─── Optimistic update with rollback ───────────────────
+// ─── Mutex for serializing IDB writes ───────────────────
+let _pendingSave: Promise<void> = Promise.resolve();
+
+// ─── Optimistic update with rollback + serialized IDB ───
 export async function optimisticCategoryUpdate(
   setCategoryRecords: React.Dispatch<React.SetStateAction<CategoryRecord[]>>,
   updater: (prev: CategoryRecord[]) => CategoryRecord[],
   label: string
 ) {
   let rollbackSnapshot: CategoryRecord[] | null = null;
+  let updatedState: CategoryRecord[] | null = null;
+
   setCategoryRecords(prev => {
     rollbackSnapshot = prev;
-    return updater(prev);
+    const next = updater(prev);
+    updatedState = next;
+    return next;
   });
-  try {
-    const current = await idbLoadCategories();
-    const updated = updater(current);
-    await idbSaveCategories(updated);
-  } catch (e) {
-    console.error(`[${label}] IDB persist failed, rolling back`, e);
-    if (rollbackSnapshot) setCategoryRecords(rollbackSnapshot);
-    toast.error("Greška", { description: "Promjena nije sačuvana." });
-  }
+
+  // Serialize IDB writes via mutex to prevent concurrent overwrites
+  const saveOp = _pendingSave.then(async () => {
+    try {
+      // Use React state (updatedState) as source of truth instead of re-loading from IDB
+      if (updatedState) {
+        await idbSaveCategories(updatedState);
+      }
+    } catch (e) {
+      console.error(`[${label}] IDB persist failed, rolling back`, e);
+      if (rollbackSnapshot) setCategoryRecords(rollbackSnapshot);
+      toast.error("Greška", { description: "Promjena nije sačuvana." });
+    }
+  });
+  _pendingSave = saveOp.catch(() => {}); // keep chain alive even on error
+  return saveOp;
 }
 
 // ─── UUID Lookup Helpers ────────────────────────────────

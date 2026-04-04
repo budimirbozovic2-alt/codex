@@ -170,3 +170,24 @@ export function isAutoBackupOverdue(settings: AppSettings): boolean {
   if (!last || last === 0) return false;
   return Date.now() - last > settings.autoBackupDays * 24 * 60 * 60 * 1000;
 }
+
+/** Async version that also checks IDB when localStorage is empty */
+export async function isAutoBackupOverdueAsync(settings: AppSettings): Promise<boolean> {
+  if (settings.autoBackupDays <= 0) return false;
+  let lastTs = 0;
+  // Try localStorage first
+  try {
+    const str = localStorage.getItem("sr-last-backup");
+    if (str) lastTs = JSON.parse(str);
+  } catch {}
+  // Fallback to IDB
+  if (!lastTs) {
+    try {
+      const { db } = await import("./db");
+      const row = await db.settings.get("sr-last-backup");
+      if (row?.value) lastTs = row.value as number;
+    } catch {}
+  }
+  if (!lastTs) return false;
+  return Date.now() - lastTs > settings.autoBackupDays * 24 * 60 * 60 * 1000;
+}
