@@ -756,20 +756,15 @@ nav button, nav a {
   left: 0;
 }
 
-/* ─── Number input spinners ───────────────────── */
+/* ─── Number input spinners — themed ─────────── */
 input[type="number"]::-webkit-inner-spin-button,
 input[type="number"]::-webkit-outer-spin-button {
-  opacity: 1;
-  filter: invert(1) hue-rotate(180deg);
+  -webkit-appearance: none;
+  margin: 0;
 }
 
-.dark input[type="number"]::-webkit-inner-spin-button,
-.dark input[type="number"]::-webkit-outer-spin-button {
-  filter: none;
-}
-
-/* Firefox */
 input[type="number"] {
   -moz-appearance: textfield;
+  appearance: textfield;
 }
 
