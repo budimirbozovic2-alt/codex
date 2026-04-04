@@ -123,7 +123,7 @@ export default function Dashboard({ stats, categoryStats, categories, categoryRe
           )}
 
           <ActivityHeatmap reviewLog={reviewLog} />
-      </div>
+        </div>
 
       {wc.showStatusIcons && (
         <StatusIconsRow icons={statusIcons} onExport={onExport} storagePercent={storageUsage?.percent} />
