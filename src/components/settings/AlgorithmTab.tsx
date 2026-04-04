@@ -1,7 +1,7 @@
 import { SRSettings } from "@/lib/spaced-repetition";
 import { AppSettings } from "@/lib/app-settings";
-import { Input } from "@/components/ui/input";
 import { Slider } from "@/components/ui/slider";
+import { NumberStepper } from "@/components/ui/number-stepper";
 
 interface Props {
   local: SRSettings;
@@ -47,16 +47,14 @@ export default function AlgorithmTab({ local, setLocal, app, setApp }: Props) {
               <label className="text-sm">Leech prag</label>
               <p className="text-xs text-muted-foreground">Padovi za oznaku problematične cjeline</p>
             </div>
-            <Input type="number" value={local.leechThreshold} onChange={(e) => handleChange("leechThreshold", parseFloat(e.target.value) || 2)}
-              min={2} max={20} step={1} className="w-20 text-right bg-background" />
+            <NumberStepper value={local.leechThreshold} onChange={(v) => handleChange("leechThreshold", v)} min={2} max={20} step={1} />
           </div>
           <div className="flex items-center justify-between">
             <div>
               <label className="text-sm">Dnevni cilj</label>
               <p className="text-xs text-muted-foreground">Ponavljanja dnevno</p>
             </div>
-            <Input type="number" value={local.dailyGoal} onChange={(e) => handleChange("dailyGoal", parseFloat(e.target.value) || 5)}
-              min={5} max={100} step={5} className="w-20 text-right bg-background" />
+            <NumberStepper value={local.dailyGoal} onChange={(v) => handleChange("dailyGoal", v)} min={5} max={100} step={5} />
           </div>
         </div>
       </div>
