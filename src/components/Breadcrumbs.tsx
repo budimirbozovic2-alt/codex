@@ -12,7 +12,7 @@ const ROUTE_LABELS: Record<string, string> = {
   "/categories": "Kategorije",
   "/settings": "Podešavanja",
   "/stats": "Statistika",
-  "/knowledge-map": "Mapa znanja",
+  
   "/metacognitive": "Dnevnik",
   "/mnemonic": "Mnemo radionica",
   "/planner": "Strateški planer",
@@ -22,7 +22,7 @@ const ROUTE_LABELS: Record<string, string> = {
   "/forum": "Forum",
 };
 
-const LAB_ROUTES = new Set(["/stats", "/knowledge-map", "/metacognitive", "/mnemonic", "/planner", "/speed-reader", "/mind-map"]);
+const LAB_ROUTES = new Set(["/stats", "/metacognitive", "/mnemonic", "/planner", "/speed-reader", "/mind-map"]);
 
 export default function Breadcrumbs() {
   const { pathname } = useLocation();

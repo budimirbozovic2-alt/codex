@@ -9,12 +9,12 @@ import { loadAppSettings } from "@/lib/app-settings";
 const LazyDatabaseRecoveryPanel = lazy(() => import("@/components/DatabaseRecoveryPanel"));
 
 // ─── Types ──────────────────────────────────────────────
-export type View = "dashboard" | "create" | "edit" | "review" | "categories" | "learn" | "settings" | "frequent-errors" | "knowledge-map" | "mnemonic" | "metacognitive" | "stats" | "planner" | "speed-reader";
+export type View = "dashboard" | "create" | "edit" | "review" | "categories" | "learn" | "settings" | "frequent-errors" | "mnemonic" | "metacognitive" | "stats" | "planner" | "speed-reader";
 
 const VIEW_TO_PATH: Record<View, string> = {
   dashboard: "/", create: "/create", edit: "/edit", review: "/review",
   categories: "/categories", learn: "/learn", settings: "/settings",
-  "frequent-errors": "/frequent-errors", "knowledge-map": "/knowledge-map",
+  "frequent-errors": "/frequent-errors",
   mnemonic: "/mnemonics",
   metacognitive: "/metacognitive", stats: "/stats", planner: "/planner",
   "speed-reader": "/speed-reader",

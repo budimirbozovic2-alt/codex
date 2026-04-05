@@ -22,7 +22,7 @@ const SettingsPage = lazy(() => import("@/views/SettingsPage"));
 const StatsPage = lazy(() => import("@/views/StatsPage"));
 const MnemonicPage = lazy(() => import("@/views/MnemonicPage"));
 const PlannerPage = lazy(() => import("@/views/PlannerPage"));
-const KnowledgeMapPage = lazy(() => import("@/views/KnowledgeMapPage"));
+
 const MetacognitivePage = lazy(() => import("@/views/MetacognitivePage"));
 const FrequentErrorsPage = lazy(() => import("@/views/FrequentErrorsPage"));
 
@@ -55,7 +55,7 @@ const App = () => (
                         <Route path="/mnemonics" element={<ErrorBoundary label="Mnemonik"><MnemonicPage /></ErrorBoundary>} />
                         <Route path="/mnemonic" element={<Navigate to="/mnemonics" replace />} />
                         <Route path="/planner" element={<ErrorBoundary label="Planer"><PlannerPage /></ErrorBoundary>} />
-                        <Route path="/knowledge-map" element={<ErrorBoundary label="Mapa znanja"><KnowledgeMapPage /></ErrorBoundary>} />
+                        
                         <Route path="/metacognitive" element={<ErrorBoundary label="Metakognicija"><MetacognitivePage /></ErrorBoundary>} />
                         <Route path="/frequent-errors" element={<ErrorBoundary label="Česte greške"><FrequentErrorsPage /></ErrorBoundary>} />
                         
