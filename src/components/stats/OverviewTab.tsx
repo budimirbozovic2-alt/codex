@@ -135,6 +135,8 @@ export default function OverviewTab({
   const hasData = cards.length > 0;
   const total = cards.length;
 
+  return (
+    <div className="space-y-6 mt-4">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <ErrorBoundary compact label="Heatmap aktivnosti">
           <ActivityHeatmap reviewLog={reviewLog} />
