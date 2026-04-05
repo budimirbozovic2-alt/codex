@@ -303,6 +303,38 @@ export default function CategoryView() {
         <TabsContent value="mindmaps">
           <CategoryMindMaps categoryId={categoryId!} />
         </TabsContent>
+
+        {/* ═══ MAPA ZNANJA TAB ═══ */}
+        <TabsContent value="knowledge">
+          {kmSubcategory ? (
+            <Suspense fallback={<TabSkeleton />}>
+              <MentalSkeleton
+                cards={cards}
+                category={categoryId!}
+                subcategory={kmSubcategory}
+                categoryRecords={categoryRecords}
+                onBack={() => setKmSubcategory(null)}
+              />
+            </Suspense>
+          ) : (
+            <SubcategoryList
+              cards={cards}
+              sources={sources}
+              category={categoryId!}
+              subcategories={subcategories}
+              categoryRecords={categoryRecords}
+              searchQuery={kmSearch}
+              onSearchChange={setKmSearch}
+              reorderMode={false}
+              onBack={() => {}}
+              onSelectSubcategory={(sub) => setKmSubcategory(sub)}
+              onReorderSubcategories={reorderSubcategories}
+              slideVariants={{ enter: () => ({ opacity: 0 }), center: { opacity: 1 } }}
+              direction={1}
+              transition={{ duration: 0.2 }}
+            />
+          )}
+        </TabsContent>
       </Tabs>
 
       {/* Source metadata editor dialog */}
