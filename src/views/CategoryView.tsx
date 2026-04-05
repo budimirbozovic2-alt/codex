@@ -201,6 +201,12 @@ export default function CategoryView() {
             Mentalne mape
             <Badge variant="secondary" className="ml-1 text-[10px] h-5 px-1.5">{mindMapCount}</Badge>
           </TabsTrigger>
+          <TabsTrigger value="knowledge" className="gap-2">
+            <Map className="h-4 w-4" />
+            Mapa znanja
+          </TabsTrigger>
+            <Badge variant="secondary" className="ml-1 text-[10px] h-5 px-1.5">{mindMapCount}</Badge>
+          </TabsTrigger>
         </TabsList>
 
         {/* ═══ KARTICE TAB ═══ */}
