@@ -13,6 +13,7 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { BookOpen, FileText, Plus, Upload, Loader2, Eye, Pencil, GitBranch, Settings, Trash2, Map } from "lucide-react";
 import { toast } from "sonner";
 import { sanitizeHtml } from "@/lib/sanitize";
@@ -195,17 +196,25 @@ export default function CategoryView() {
       {/* Mastery progress bar */}
       {masteryDist && (
         <div className="space-y-1.5">
-          <div className="h-2 rounded-full overflow-hidden flex bg-secondary">
-            {masteryDist.map((count, i) =>
-              count > 0 ? (
-                <div
-                  key={i}
-                  className="h-full transition-all"
-                  style={{ width: `${(count / cards.length) * 100}%`, backgroundColor: MASTERY_LEVELS[i].color }}
-                />
-              ) : null
-            )}
-          </div>
+          <TooltipProvider delayDuration={200}>
+            <div className="h-2 rounded-full overflow-hidden flex bg-secondary">
+              {masteryDist.map((count, i) =>
+                count > 0 ? (
+                  <Tooltip key={i}>
+                    <TooltipTrigger asChild>
+                      <div
+                        className="h-full transition-all cursor-default"
+                        style={{ width: `${(count / cards.length) * 100}%`, backgroundColor: MASTERY_LEVELS[i].color }}
+                      />
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className="text-xs">
+                      {MASTERY_LEVELS[i].label}: {count} ({Math.round((count / cards.length) * 100)}%)
+                    </TooltipContent>
+                  </Tooltip>
+                ) : null
+              )}
+            </div>
+          </TooltipProvider>
           <div className="flex flex-wrap gap-x-3 gap-y-0.5">
             {masteryDist.map((count, i) =>
               count > 0 ? (
