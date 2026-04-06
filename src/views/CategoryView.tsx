@@ -198,21 +198,35 @@ export default function CategoryView() {
         <div className="space-y-1.5">
           <TooltipProvider delayDuration={200}>
             <div className="h-2 rounded-full overflow-hidden flex bg-secondary">
-              {masteryDist.map((count, i) =>
-                count > 0 ? (
+              {masteryDist.map((count, i) => {
+                const pct = (count / cards.length) * 100;
+                return count > 0 ? (
                   <Tooltip key={i}>
                     <TooltipTrigger asChild>
                       <div
-                        className="h-full transition-all cursor-default"
-                        style={{ width: `${(count / cards.length) * 100}%`, backgroundColor: MASTERY_LEVELS[i].color }}
+                        className="h-full cursor-default transition-[width] duration-700 ease-out"
+                        style={{
+                          width: `${pct}%`,
+                          backgroundColor: MASTERY_LEVELS[i].color,
+                          animationDelay: `${i * 80}ms`,
+                        }}
+                        ref={(el) => {
+                          if (el && !el.dataset.animated) {
+                            el.style.width = '0%';
+                            requestAnimationFrame(() => {
+                              el.style.width = `${pct}%`;
+                              el.dataset.animated = '1';
+                            });
+                          }
+                        }}
                       />
                     </TooltipTrigger>
                     <TooltipContent side="top" className="text-xs">
-                      {MASTERY_LEVELS[i].label}: {count} ({Math.round((count / cards.length) * 100)}%)
+                      {MASTERY_LEVELS[i].label}: {count} ({Math.round(pct)}%)
                     </TooltipContent>
                   </Tooltip>
-                ) : null
-              )}
+                ) : null;
+              })}
             </div>
           </TooltipProvider>
           <div className="flex flex-wrap gap-x-3 gap-y-0.5">
