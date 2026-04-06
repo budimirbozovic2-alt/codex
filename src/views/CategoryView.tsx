@@ -1,5 +1,6 @@
 import { useParams, useNavigate } from "react-router-dom";
 import { useState, useCallback, useMemo, useRef, useEffect } from "react";
+import { getCardMasteryLevel, MASTERY_LEVELS } from "@/lib/mastery";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db, type Source, type SubcategoryNode } from "@/lib/db";
 import { saveSource, invalidateSourcesCache, deleteSource } from "@/lib/sources-storage";
@@ -142,6 +143,13 @@ export default function CategoryView() {
     );
   }, [category?.subcategories]);
 
+  const masteryDist = useMemo(() => {
+    if (cards.length === 0) return null;
+    const counts = [0, 0, 0, 0, 0, 0];
+    cards.forEach(c => { counts[getCardMasteryLevel(c)]++; });
+    return counts;
+  }, [cards]);
+
   // Full-screen reader mode
   if (readerSource) {
     return (
@@ -169,6 +177,7 @@ export default function CategoryView() {
     );
   }
 
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -182,6 +191,33 @@ export default function CategoryView() {
           Struktura
         </Button>
       </div>
+
+      {/* Mastery progress bar */}
+      {masteryDist && (
+        <div className="space-y-1.5">
+          <div className="h-2 rounded-full overflow-hidden flex bg-secondary">
+            {masteryDist.map((count, i) =>
+              count > 0 ? (
+                <div
+                  key={i}
+                  className="h-full transition-all"
+                  style={{ width: `${(count / cards.length) * 100}%`, backgroundColor: MASTERY_LEVELS[i].color }}
+                />
+              ) : null
+            )}
+          </div>
+          <div className="flex flex-wrap gap-x-3 gap-y-0.5">
+            {masteryDist.map((count, i) =>
+              count > 0 ? (
+                <span key={i} className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                  <span className="h-2 w-2 rounded-full" style={{ backgroundColor: MASTERY_LEVELS[i].color }} />
+                  {MASTERY_LEVELS[i].label} {count}
+                </span>
+              ) : null
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Tabs */}
       <Tabs defaultValue="cards" className="w-full">
