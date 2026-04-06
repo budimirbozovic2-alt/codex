@@ -13,6 +13,7 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { BookOpen, FileText, Plus, Upload, Loader2, Eye, Pencil, GitBranch, Settings, Trash2, Map } from "lucide-react";
 import { toast } from "sonner";
 import { sanitizeHtml } from "@/lib/sanitize";
