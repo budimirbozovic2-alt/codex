@@ -210,6 +210,17 @@ export default function CardViewMode({ cards, categoryId, allCategories, patchCa
           </SelectContent>
         </Select>
 
+        {masteryFilter !== null && masteryFilter !== undefined && (
+          <button
+            onClick={onClearMasteryFilter}
+            className="flex items-center gap-1.5 h-7 px-2 rounded-md border text-[10px] font-medium hover:bg-secondary transition-colors"
+          >
+            <span className="w-2 h-2 rounded-full" style={{ backgroundColor: MASTERY_LEVELS[masteryFilter].color }} />
+            {MASTERY_LEVELS[masteryFilter].label}
+            <X className="h-3 w-3" />
+          </button>
+        )}
+
         <div className="flex items-center gap-2 ml-auto">
           <span className="text-[10px] text-muted-foreground">{filteredCards.length}/{cards.length}</span>
           {hasActiveFilters && (
