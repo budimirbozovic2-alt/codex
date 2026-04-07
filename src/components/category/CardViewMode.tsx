@@ -1,5 +1,6 @@
 import { useState, useCallback, useMemo } from "react";
 import { Filter, X, Plus, Upload, CheckSquare, Trash2 } from "lucide-react";
+import { getCardMasteryLevel, MASTERY_LEVELS } from "@/lib/mastery";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -21,9 +22,11 @@ interface Props {
   addFlashCard: (question: string, answer: string, category: string, subcategory?: string) => Card;
   onDelete?: (id: string) => void;
   onEdit?: (card: Card) => void;
+  masteryFilter?: number | null;
+  onClearMasteryFilter?: () => void;
 }
 
-export default function CardViewMode({ cards, categoryId, allCategories, patchCard, toggleTag, addCard, addFlashCard, onDelete, onEdit }: Props) {
+export default function CardViewMode({ cards, categoryId, allCategories, patchCard, toggleTag, addCard, addFlashCard, onDelete, onEdit, masteryFilter, onClearMasteryFilter }: Props) {
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [bulkImportOpen, setBulkImportOpen] = useState(false);
   const [selectionMode, setSelectionMode] = useState(false);
@@ -81,6 +84,7 @@ export default function CardViewMode({ cards, categoryId, allCategories, patchCa
 
   const filteredCards = useMemo(() => {
     return cards.filter(c => {
+      if (masteryFilter !== null && masteryFilter !== undefined && getCardMasteryLevel(c) !== masteryFilter) return false;
       if (filterSubcategory !== "__all__" && (c.subcategoryId || "") !== filterSubcategory) return false;
       if (filterChapter !== "__all__" && (c.chapterId || "") !== filterChapter) return false;
       if (filterType === "essay" && c.type !== "essay") return false;

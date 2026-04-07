@@ -74,6 +74,8 @@ export default function CategoryView() {
   const [structureOpen, setStructureOpen] = useState(false);
   const [kmSubcategory, setKmSubcategory] = useState<string | null>(null);
   const [kmSearch, setKmSearch] = useState("");
+  const [masteryFilter, setMasteryFilter] = useState<number | null>(null);
+  const [activeTab, setActiveTab] = useState("cards");
 
   // Sources: separate state for reader (full-screen) and editor (dialog)
   const [readerSource, setReaderSource] = useState<Source | null>(null);
@@ -204,7 +206,8 @@ export default function CategoryView() {
                   <Tooltip key={i}>
                     <TooltipTrigger asChild>
                       <div
-                        className="h-full cursor-default transition-[width,filter] duration-700 ease-out hover:brightness-125"
+                        className="h-full cursor-pointer transition-[width,filter] duration-700 ease-out hover:brightness-125"
+                        onClick={() => { setMasteryFilter(prev => prev === i ? null : i); setActiveTab("cards"); }}
                         style={{
                           width: `${pct}%`,
                           backgroundColor: MASTERY_LEVELS[i].color,
@@ -244,7 +247,7 @@ export default function CategoryView() {
       )}
 
       {/* Tabs */}
-      <Tabs defaultValue="cards" className="w-full">
+      <Tabs value={activeTab} onValueChange={(v) => { setActiveTab(v); if (v !== "cards") setMasteryFilter(null); }} className="w-full">
         <TabsList className="w-full justify-start overflow-x-auto flex-nowrap">
           <TabsTrigger value="cards" className="gap-1.5">
             <BookOpen className="h-4 w-4" />
@@ -293,6 +296,8 @@ export default function CategoryView() {
               addFlashCard={addFlashCard}
               onDelete={deleteCard}
               onEdit={(card) => { sessionStorage.setItem("sr-edit-return-view", "category:" + categoryId); setEditingCard(card); navigate('/edit'); }}
+              masteryFilter={masteryFilter}
+              onClearMasteryFilter={() => setMasteryFilter(null)}
             />
           )}
         </TabsContent>
