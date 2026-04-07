@@ -197,7 +197,7 @@ export default function CategoryView() {
       {masteryDist && (
         <div className="space-y-1.5">
           <TooltipProvider delayDuration={200}>
-            <div className="h-2 rounded-full overflow-hidden flex bg-secondary group/mastery">
+            <div className="h-2 rounded-full overflow-visible flex bg-secondary relative">
               {masteryDist.map((count, i) => {
                 const pct = (count / cards.length) * 100;
                 return count > 0 ? (
