@@ -251,129 +251,8 @@ export default function CategoryView() {
         </div>
       )}
 
-      {/* Tabs */}
-      <Tabs value={activeTab} onValueChange={(v) => { setActiveTab(v); if (v !== "cards") setMasteryFilter(null); }} className="w-full">
-        <TabsList className="w-full justify-start overflow-x-auto flex-nowrap">
-          <TabsTrigger value="cards" className="gap-1.5">
-            <BookOpen className="h-4 w-4" />
-            <span className="hidden sm:inline">Kartice</span>
-            <Badge variant="secondary" className="text-[10px] h-5 px-1.5">{cards.length}</Badge>
-          </TabsTrigger>
-          <TabsTrigger value="sources" className="gap-1.5">
-            <FileText className="h-4 w-4" />
-            <span className="hidden sm:inline">Izvori</span>
-            <Badge variant="secondary" className="text-[10px] h-5 px-1.5">{sources.length}</Badge>
-          </TabsTrigger>
-          <TabsTrigger value="mindmaps" className="gap-1.5">
-            <GitBranch className="h-4 w-4" />
-            <span className="hidden sm:inline">Mentalne mape</span>
-            <Badge variant="secondary" className="text-[10px] h-5 px-1.5">{mindMapCount}</Badge>
-          </TabsTrigger>
-        </TabsList>
-
-        {/* ═══ KARTICE TAB ═══ */}
-        <TabsContent value="cards">
-          <div className="flex items-center justify-end gap-2 mb-3">
-            <Label htmlFor="org-toggle" className="text-xs text-muted-foreground">Pregled</Label>
-            <Switch id="org-toggle" checked={orgMode} onCheckedChange={setOrgMode} />
-            <Label htmlFor="org-toggle" className="text-xs text-muted-foreground">Organizacija</Label>
-          </div>
-
-          {orgMode ? (
-            <CardOrgMode
-              cards={cards}
-              categoryId={categoryId!}
-              subcategoryNodes={subcategoryNodes}
-              patchCard={patchCard}
-            />
-          ) : (
-            <CardViewMode
-              cards={cards}
-              categoryId={categoryId!}
-              allCategories={allCategories}
-              patchCard={patchCard}
-              toggleTag={toggleTag}
-              addCard={addCard}
-              addFlashCard={addFlashCard}
-              onDelete={deleteCard}
-              onEdit={(card) => { sessionStorage.setItem("sr-edit-return-view", "category:" + categoryId); setEditingCard(card); navigate('/edit'); }}
-              masteryFilter={masteryFilter}
-              onClearMasteryFilter={() => setMasteryFilter(null)}
-            />
-          )}
-        </TabsContent>
-
-        {/* ═══ IZVORI TAB ═══ */}
-        <TabsContent value="sources">
-          <div className="space-y-3">
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept=".docx"
-              className="hidden"
-              onChange={handleDocxImport}
-            />
-            <div className="flex justify-end">
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={importing}
-                onClick={() => fileInputRef.current?.click()}
-                className="gap-2"
-              >
-                {importing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
-                {importing ? "Importujem…" : "Importuj DOCX"}
-              </Button>
-            </div>
-
-            {sources.length === 0 ? (
-              <div className="text-center py-16 space-y-3">
-                <FileText className="h-10 w-10 mx-auto text-muted-foreground/40" />
-                <p className="text-sm text-muted-foreground">Nema izvora u ovoj kategoriji.</p>
-                <p className="text-xs text-muted-foreground">Kliknite "Importuj DOCX" da biste započeli.</p>
-              </div>
-            ) : (
-              sources.map(source => (
-                <div
-                  key={source.id}
-                  className="flex items-center justify-between rounded-lg border bg-card px-4 py-3"
-                >
-                  <div className="min-w-0 flex-1">
-                    <span className="text-sm text-foreground truncate block">{source.title}</span>
-                    {source.slMarkings && (
-                      <span className="text-[10px] text-muted-foreground">{source.slMarkings}</span>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    {source.isExclusive && <Badge variant="outline" className="text-[10px]">Glavni</Badge>}
-                    <span className="text-xs text-muted-foreground">{source.date}</span>
-                    <Button variant="default" size="sm" className="gap-1.5 h-7" onClick={() => setReaderSource(source)}>
-                      <Eye className="h-3.5 w-3.5" />
-                      Čitaj
-                    </Button>
-                    <Button variant="outline" size="sm" className="gap-1.5 h-7" onClick={() => setEditorSource(source)}>
-                      <Pencil className="h-3.5 w-3.5" />
-                      Uredi
-                    </Button>
-                    <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive" onClick={() => setDeleteTarget(source)}>
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </Button>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-        </TabsContent>
-
-        {/* ═══ MENTALNE MAPE TAB ═══ */}
-        <TabsContent value="mindmaps">
-          <CategoryMindMaps categoryId={categoryId!} />
-        </TabsContent>
-
-      </Tabs>
-
-      {/* ═══ MAPA ZNANJA (overlay) ═══ */}
-      {showKnowledge && (
+      {/* Main content: Knowledge map OR Tabs */}
+      {showKnowledge ? (
         <div className="space-y-4">
           {kmSubcategory ? (
             <Suspense fallback={<TabSkeleton />}>
@@ -406,7 +285,124 @@ export default function CategoryView() {
             />
           )}
         </div>
+      ) : (
+        <Tabs value={activeTab} onValueChange={(v) => { setActiveTab(v); if (v !== "cards") setMasteryFilter(null); }} className="w-full">
+          <TabsList className="w-full justify-start overflow-x-auto flex-nowrap">
+            <TabsTrigger value="cards" className="gap-1.5">
+              <BookOpen className="h-4 w-4" />
+              <span className="hidden sm:inline">Kartice</span>
+              <Badge variant="secondary" className="text-[10px] h-5 px-1.5">{cards.length}</Badge>
+            </TabsTrigger>
+            <TabsTrigger value="sources" className="gap-1.5">
+              <FileText className="h-4 w-4" />
+              <span className="hidden sm:inline">Izvori</span>
+              <Badge variant="secondary" className="text-[10px] h-5 px-1.5">{sources.length}</Badge>
+            </TabsTrigger>
+            <TabsTrigger value="mindmaps" className="gap-1.5">
+              <GitBranch className="h-4 w-4" />
+              <span className="hidden sm:inline">Mentalne mape</span>
+              <Badge variant="secondary" className="text-[10px] h-5 px-1.5">{mindMapCount}</Badge>
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="cards">
+            <div className="flex items-center justify-end gap-2 mb-3">
+              <Label htmlFor="org-toggle" className="text-xs text-muted-foreground">Pregled</Label>
+              <Switch id="org-toggle" checked={orgMode} onCheckedChange={setOrgMode} />
+              <Label htmlFor="org-toggle" className="text-xs text-muted-foreground">Organizacija</Label>
+            </div>
+
+            {orgMode ? (
+              <CardOrgMode
+                cards={cards}
+                categoryId={categoryId!}
+                subcategoryNodes={subcategoryNodes}
+                patchCard={patchCard}
+              />
+            ) : (
+              <CardViewMode
+                cards={cards}
+                categoryId={categoryId!}
+                allCategories={allCategories}
+                patchCard={patchCard}
+                toggleTag={toggleTag}
+                addCard={addCard}
+                addFlashCard={addFlashCard}
+                onDelete={deleteCard}
+                onEdit={(card) => { sessionStorage.setItem("sr-edit-return-view", "category:" + categoryId); setEditingCard(card); navigate('/edit'); }}
+                masteryFilter={masteryFilter}
+                onClearMasteryFilter={() => setMasteryFilter(null)}
+              />
+            )}
+          </TabsContent>
+
+          <TabsContent value="sources">
+            <div className="space-y-3">
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".docx"
+                className="hidden"
+                onChange={handleDocxImport}
+              />
+              <div className="flex justify-end">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={importing}
+                  onClick={() => fileInputRef.current?.click()}
+                  className="gap-2"
+                >
+                  {importing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+                  {importing ? "Importujem…" : "Importuj DOCX"}
+                </Button>
+              </div>
+
+              {sources.length === 0 ? (
+                <div className="text-center py-16 space-y-3">
+                  <FileText className="h-10 w-10 mx-auto text-muted-foreground/40" />
+                  <p className="text-sm text-muted-foreground">Nema izvora u ovoj kategoriji.</p>
+                  <p className="text-xs text-muted-foreground">Kliknite "Importuj DOCX" da biste započeli.</p>
+                </div>
+              ) : (
+                sources.map(source => (
+                  <div
+                    key={source.id}
+                    className="flex items-center justify-between rounded-lg border bg-card px-4 py-3"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <span className="text-sm text-foreground truncate block">{source.title}</span>
+                      {source.slMarkings && (
+                        <span className="text-[10px] text-muted-foreground">{source.slMarkings}</span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      {source.isExclusive && <Badge variant="outline" className="text-[10px]">Glavni</Badge>}
+                      <span className="text-xs text-muted-foreground">{source.date}</span>
+                      <Button variant="default" size="sm" className="gap-1.5 h-7" onClick={() => setReaderSource(source)}>
+                        <Eye className="h-3.5 w-3.5" />
+                        Čitaj
+                      </Button>
+                      <Button variant="outline" size="sm" className="gap-1.5 h-7" onClick={() => setEditorSource(source)}>
+                        <Pencil className="h-3.5 w-3.5" />
+                        Uredi
+                      </Button>
+                      <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive" onClick={() => setDeleteTarget(source)}>
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </TabsContent>
+
+          <TabsContent value="mindmaps">
+            <CategoryMindMaps categoryId={categoryId!} />
+          </TabsContent>
+        </Tabs>
       )}
+
 
       {/* Source metadata editor dialog */}
       {editorSource && (
