@@ -114,14 +114,6 @@ export default function AppSidebar() {
                                 </Badge>
                               )}
                             </div>
-                            {st && st.total > 0 && (
-                              <div className="mt-0.5 h-[3px] w-full rounded-full bg-muted overflow-hidden">
-                                <div
-                                  className="h-full rounded-full transition-all duration-300"
-                                  style={{ width: `${score}%`, backgroundColor: color }}
-                                />
-                              </div>
-                            )}
                           </div>
                         )}
                       </NavLink>
