@@ -76,6 +76,7 @@ export default function CategoryView() {
   const [kmSearch, setKmSearch] = useState("");
   const [masteryFilter, setMasteryFilter] = useState<number | null>(null);
   const [activeTab, setActiveTab] = useState("cards");
+  const [showKnowledge, setShowKnowledge] = useState(false);
 
   // Sources: separate state for reader (full-screen) and editor (dialog)
   const [readerSource, setReaderSource] = useState<Source | null>(null);
@@ -189,6 +190,10 @@ export default function CategoryView() {
           <span className="h-4 w-4 rounded-full shrink-0" style={{ backgroundColor: category.color }} />
         )}
         <h1 className="imperial-title text-foreground flex-1">{category.name}</h1>
+        <Button variant={showKnowledge ? "default" : "outline"} size="sm" className="gap-1.5 h-8 text-xs" onClick={() => setShowKnowledge(v => !v)}>
+          <Map className="h-3.5 w-3.5" />
+          Mapa znanja
+        </Button>
         <Button variant="outline" size="sm" className="gap-1.5 h-8 text-xs" onClick={() => setStructureOpen(true)}>
           <Settings className="h-3.5 w-3.5" />
           Struktura
@@ -263,10 +268,6 @@ export default function CategoryView() {
             <GitBranch className="h-4 w-4" />
             <span className="hidden sm:inline">Mentalne mape</span>
             <Badge variant="secondary" className="text-[10px] h-5 px-1.5">{mindMapCount}</Badge>
-          </TabsTrigger>
-          <TabsTrigger value="knowledge" className="gap-1.5">
-            <Map className="h-4 w-4" />
-            <span className="hidden sm:inline">Mapa znanja</span>
           </TabsTrigger>
         </TabsList>
 
@@ -369,8 +370,11 @@ export default function CategoryView() {
           <CategoryMindMaps categoryId={categoryId!} />
         </TabsContent>
 
-        {/* ═══ MAPA ZNANJA TAB ═══ */}
-        <TabsContent value="knowledge">
+      </Tabs>
+
+      {/* ═══ MAPA ZNANJA (overlay) ═══ */}
+      {showKnowledge && (
+        <div className="space-y-4">
           {kmSubcategory ? (
             <Suspense fallback={<TabSkeleton />}>
               <MentalSkeleton
@@ -401,8 +405,8 @@ export default function CategoryView() {
               transition={{ duration: 0.2 }}
             />
           )}
-        </TabsContent>
-      </Tabs>
+        </div>
+      )}
 
       {/* Source metadata editor dialog */}
       {editorSource && (
