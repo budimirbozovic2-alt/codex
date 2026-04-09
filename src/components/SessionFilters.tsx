@@ -50,8 +50,11 @@ export default function SessionFilters({
   const subNameMap = useMemo(() => {
     const m: Record<string, string> = {};
     for (const r of (categoryRecords || []))
-      for (const n of (r.subcategories || []))
+      for (const n of (r.subcategories || [])) {
         if (typeof n === 'object' && n.id) m[n.id] = n.name;
+        for (const ch of (n.chapters || []))
+          if (typeof ch === 'object' && ch.id) m[ch.id] = ch.name;
+      }
     return m;
   }, [categoryRecords]);
   const availableSubs = selectedCategory ? (subcategories[selectedCategory] || []) : [];

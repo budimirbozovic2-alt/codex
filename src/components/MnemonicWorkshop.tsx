@@ -70,7 +70,14 @@ export default function MnemonicWorkshop({ cards, onUpdateCard, onDeleteCard, ca
     loadMajorSystem().then(setMajorSystem);
   }, []);
 
-  const idToName = useMemo(() => Object.fromEntries(categoryRecords.map(r => [r.id, r.name])), [categoryRecords]);
+  const idToName = useMemo(() => {
+    const m: Record<string, string> = {};
+    for (const r of categoryRecords) {
+      m[r.id] = r.name;
+      for (const sub of (r.subcategories ?? [])) m[sub.id] = sub.name;
+    }
+    return m;
+  }, [categoryRecords]);
 
   // Build category tree
   const categoryTree = useMemo(() => {
@@ -106,7 +113,7 @@ export default function MnemonicWorkshop({ cards, onUpdateCard, onDeleteCard, ca
         case "status":
           return statusOrder[a.mnemonicStatus] - statusOrder[b.mnemonicStatus];
         case "category":
-          return (idToName[a.categoryId] ?? a.categoryId).localeCompare(idToName[b.categoryId] ?? b.categoryId) || (a.subcategoryId || "").localeCompare(b.subcategoryId || "");
+          return (idToName[a.categoryId] ?? a.categoryId).localeCompare(idToName[b.categoryId] ?? b.categoryId) || (idToName[a.subcategoryId ?? ""] ?? "").localeCompare(idToName[b.subcategoryId ?? ""] ?? "");
         case "success": {
           const aRate = a.testCount > 0 ? a.successCount / a.testCount : -1;
           const bRate = b.testCount > 0 ? b.successCount / b.testCount : -1;
@@ -286,7 +293,7 @@ export default function MnemonicWorkshop({ cards, onUpdateCard, onDeleteCard, ca
                         selectedSubcategory === sub ? "bg-primary/15 text-primary" : "text-muted-foreground hover:text-foreground hover:bg-secondary"
                       }`}
                     >
-                      {sub}
+                      {idToName[sub] ?? sub}
                     </button>
                   ))}
                 </ScrollableRow>
