@@ -1,81 +1,101 @@
 
 
-# Deep Audit — Pronađene greške i problemi
+# Analiza eksterne revizije — Verifikacija i plan
 
-## Kritični problemi
+## Rezultat verifikacije
 
-### 1. State ne resetuje pri promjeni kategorije (CategoryView)
-**Fajl:** `src/views/CategoryView.tsx`
+### 1.1. "Zamka globalnog konteksta" — ❌ NETAČNO
 
-Kad korisnik klikne na drugi predmet u sidebaru, React re-renderuje istu `CategoryView` komponentu sa novim `categoryId` parametrom, ali `useState` inicijalizacije se **ne resetuju**. Rezultat:
-- `showKnowledge` ostaje `true` ako je bio uključen u prethodnom predmetu
-- `kmSubcategory` zadržava UUID prethodne potkategorije — prikazuje MentalSkeleton sa pogrešnim podacima
-- `masteryFilter` ostaje aktivan sa nivoom iz prethodnog predmeta
-- `orgMode`, `activeTab`, `editorSource`, `readerSource` — sve "curi" između predmeta
+Analiza tvrdi da `AppContext` koristi `useLiveQuery` za sve kartice. **Ovo nije slučaj.**
 
-**Fix:** Dodati `useEffect` koji resetuje sva lokalna stanja kad se `categoryId` promijeni, ili koristiti `key={categoryId}` na `<CategoryView>` u Route-u.
+Stvarno stanje:
+- `AppContext` je dekomponovan na **3 granularna konteksta**: `CardStateContext`, `CategoryStateContext`, `ReviewStateContext`
+- `useCards` hook koristi **Ref-Delta pattern** sa `useState` + `cardMapRef` — **nema `useLiveQuery`** u kontekstu
+- `useLiveQuery` se koristi samo na **jednom mjestu** u cijeloj app — `CategoryView.tsx` (za `sources` i `mindMapCount`), i to sa filtriranim upitima po `categoryId`, ne `toArray()`
+- Review sesija mutira kartice kroz `schedulePersist` → ažurira samo `cardMap` u memoriji, ne okida globalni re-render
 
-### 2. Sidebar link "Mentalne mape" vodi na globalnu stranicu — redundantan
-**Fajl:** `src/components/AppSidebar.tsx` (L26)
+**Zaključak**: Ovaj problem je već riješen. Nema akcije.
 
-Plan za premještanje Mape Znanja u predmete je implementiran, ali **globalna ruta `/mind-map`** i njen sidebar link još uvijek postoje. Ovo stvara konfuziju — korisnik ima i globalne mentalne mape (MindMapPage) i per-predmet mentalne mape (CategoryMindMaps tab). Sidebar prikazuje "Mentalne mape" pod "Alati" što vodi na potpuno drugačiji view.
+---
 
-**Napomena:** Ovo možda nije greška ako su to namjerno dva različita modula — ali treba razjasniti.
+### 1.2. "Monolitni Zustand Store" — ❌ NETAČNO
 
-### 3. `scoreColor` u sidebaru se računa ali ne prikazuje (mrtav kod)
-**Fajl:** `src/components/AppSidebar.tsx` (L86-88)
+Analiza tvrdi da SourceReader store drži teške podatke i nema granularne selektore.
 
-Varijabla `color` se računa putem `scoreColor(score)` ali se koristi samo za mali dot kad je sidebar collapsed (L101-104). Kad je sidebar expanded, nema vizuelnog indikatora score-a — `color` se ne koristi. Prethodno je uklonjen progress bar, pa je sad `scoreColor` funkcija i `color` varijabla djelomično mrtav kod.
+Stvarno stanje:
+- `useSourceReaderStore` drži **isključivo UI stanje** (boolean flagove, selekcije, dialog state)
+- **Svi selektori su već granularni**: `useSourceReaderStore(s => s.viewMode)`, `s => s.editMode`, itd. — 14 zasebnih selektora u `SourceReader.tsx`
+- Teški podaci (parsirani tekst, kartice) dolaze iz `useSourceReaderActions` hook-a, ne iz store-a
 
-## Srednji problemi
+**Zaključak**: Već implementirano. Nema akcije.
 
-### 4. `showKnowledge` ne resetuje `kmSubcategory` pri toggle-u
-**Fajl:** `src/views/CategoryView.tsx` (L193)
+---
 
-Kad korisnik klikne "Mapa znanja" dugme da ga isključi (`showKnowledge` → false), `kmSubcategory` ostaje setovan. Kad ponovo uključi mapu, odmah vidi MentalSkeleton umjesto liste potkategorija.
+### 2.1. "Curenje memorije preko Event Bus-a" — ❌ NETAČNO
 
-**Fix:** Toggle treba resetovati: `setShowKnowledge(v => { if (v) setKmSubcategory(null); return !v; })`
+Analiza tvrdi da postoji rizik od zaboravljenih cleanup-a.
 
-### 5. `onBack={() => {}}` — nefunkcionalan back u SubcategoryList
-**Fajl:** `src/views/CategoryView.tsx` (L278)
+Stvarno stanje — svih 5 pretplata u kodu:
+- `useCards.ts` L101: `return eventBus.subscribe(...)` ✓
+- `MnemonicModule.tsx` L69: `return unsub` ✓
+- `GlobalSearch.tsx` L72: `return eventBus.subscribe(...)` ✓
+- `CategoryMindMaps.tsx` L26: `return unsub` ✓
+- `BlockingModal.tsx` L15-21: vraća cleanup koji poziva oba unsub-a ✓
 
-`SubcategoryList` prima `onBack={() => {}}` — no-op. Iako je `embedded` prop prisutan pa se Header ne renderuje, ovo je code smell — prop bi trebao biti opcionalan ili uklonjen u embedded modu.
+**Zaključak**: Sve pretplate imaju cleanup. Nema curenja. Nema akcije.
 
-### 6. Chapters sort po UUID u SessionFilters
-**Fajl:** `src/components/SessionFilters.tsx` (L67)
+---
 
-`.sort()` na chaptersInSub koristi default string sort — sortira po UUID-u umjesto po imenu ili `sortOrder`. Kad korisnik vidi listu glava, redoslijed je nepredvidiv.
+### 2.2. "Branded Types za UUID" — ⚠️ TAČNO ALI NISKO PRIORITETNO
 
-**Fix:** Sortirati po `subNameMap[ch]` ili po `sortOrder` iz `CategoryRecord`.
+Istina je da se koristi `string` za sve ID-jeve. Branded types bi dodali type safety, ali:
+- Projekat već koristi striktnu `Id` sufiksnu konvenciju (`categoryId`, `subcategoryId`, `chapterId`)
+- Uvođenje branded types zahtijeva refaktoring 100+ fajlova — ogroman scope za marginalan benefit
+- Nijedan bug u sistemu nije nastao zbog zamjene tipova ID-jeva
 
-## Manji problemi
+**Zaključak**: Teoretski korisno, praktično neproporcionalano. Preskočiti.
 
-### 7. `as any` castovi u CategoryView (L145-146)
-Subcategory mapping koristi `as any[]` i `as any` — gubitak type safety. Trebalo bi koristiti `SubcategoryNode` tip direktno.
+---
 
-### 8. CSS custom property `--segment-color` se postavlja ali nigdje ne koristi
-**Fajl:** `src/views/CategoryView.tsx` (L220)
-`'--segment-color': MASTERY_LEVELS[i].color` — ova CSS varijabla se ne referencira nigdje u CSS-u. Mrtav kod.
+### 3.1. "Persist Queue gubitak podataka" — ❌ NETAČNO
 
-### 9. `ref` callback na mastery segmentima ne čisti `dataset.animated`
-**Fajl:** `src/views/CategoryView.tsx` (L222-229)
-Kad se komponenta re-renderuje (npr. nova kartica dodana), `dataset.animated` flag sprječava ponovnu animaciju. To je namjerno, ali ako se `cards` dramatično promijene (import), animacija se neće ponovo pokrenuti.
+Analiza tvrdi da nema zaštite pri zatvaranju taba.
 
-## Predloženi plan popravki
+Stvarno stanje — **tri sloja zaštite** već postoje:
+1. `visibilitychange` handler (L105-110) — flush pri skrivanju taba
+2. `beforeunload` handler u `main.tsx` (L178) — poziva `cleanup()` koji flush-uje queue
+3. `sessionStorage` flag `codex-flush-pending` — detektuje prekinute upisne pri ponovnom pokretanju
 
-### Fajl 1: `src/views/CategoryView.tsx`
-- Dodati `key={categoryId}` na Route ili `useEffect` reset za sva lokalna stanja
-- Resetovati `kmSubcategory` kad se `showKnowledge` toggleuje na false
-- Ukloniti `--segment-color` CSS property
-- Zamijeniti `as any` sa tipiziranim mapiranjem
+**Zaključak**: Potpuno pokriveno. Nema akcije.
 
-### Fajl 2: `src/components/SessionFilters.tsx`
-- Sortirati `chaptersInSub` po imenu (iz `subNameMap`)
+---
 
-### Fajl 3: `src/components/AppSidebar.tsx`
-- Ukloniti nekorištenu `scoreColor` logiku ili je iskoristiti u expanded stanju
+### 3.2. "Worker timeout i error handling" — ❌ NETAČNO
 
-### Scope
-- 3 fajla, ~20 linija neto promjena
-- Najkritičnija popravka: state reset pri promjeni kategorije
+Analiza tvrdi da nema timeout mehanizma i error handling-a za workere.
+
+Stvarno stanje u `docx-parser.ts`:
+- **30s timeout** sa `worker.terminate()` ✓
+- `worker.onerror` sa **fallback na main thread** ✓
+- `settled` flag sprječava duple resolve/reject pozive ✓
+- ZIP worker ima try/catch sa `postMessage({ success: false, error })` ✓
+
+**Zaključak**: Već implementirano. Nema akcije.
+
+---
+
+## Ukupan rezultat
+
+| Tvrdnja | Tačna? | Već riješeno? |
+|---------|--------|---------------|
+| 1.1 Globalni kontekst | ❌ | Da — dekomponovan na 3 konteksta |
+| 1.2 Monolitni Zustand | ❌ | Da — granularni selektori |
+| 2.1 Event Bus leak | ❌ | Da — svi cleanup-i postoje |
+| 2.2 Branded Types | ⚠️ | Nisko prioritetno |
+| 3.1 Persist Queue | ❌ | Da — 3 sloja zaštite |
+| 3.2 Worker errors | ❌ | Da — timeout + fallback |
+
+**Od 6 tvrdnji, 5 je netačno** — problemi koje analiza opisuje su već riješeni u ovom projektu. Jedina validna tvrdnja (Branded Types) je niskoprioritetan refaktoring sa neproporcionalnim scope-om.
+
+**Nema potrebe za planom popravki** jer nema šta da se popravlja.
 
