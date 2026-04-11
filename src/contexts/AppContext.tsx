@@ -370,7 +370,7 @@ function UIProvider({ children }: { children: ReactNode }) {
       if (now.getHours() === settingsRef.hour && now.getMinutes() === settingsRef.minute) {
         if (lastSentDate === todayKey) return;
         lastSentDate = todayKey;
-        new Notification("Memoria — Podsjetnik", {
+        new Notification("CODEX — Podsjetnik", {
           body: "Vrijeme je za ponavljanje! Imaš kartice koje čekaju.",
           icon: `${import.meta.env.BASE_URL}placeholder.svg`,
         });

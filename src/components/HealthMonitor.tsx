@@ -35,7 +35,7 @@ function formatBytes(bytes: number): string {
 
 function loadCrashLog(): CrashEntry[] {
   try {
-    const raw = localStorage.getItem("memoria-crash-log");
+    const raw = localStorage.getItem("codex-crash-log") || localStorage.getItem("memoria-crash-log");
     return raw ? JSON.parse(raw) : [];
   } catch {
     return [];
@@ -134,6 +134,7 @@ export default function HealthMonitor() {
   };
 
   const handleClearCrashLog = () => {
+    localStorage.removeItem("codex-crash-log");
     localStorage.removeItem("memoria-crash-log");
     setCrashLog([]);
     toast.success("Error log očišćen");

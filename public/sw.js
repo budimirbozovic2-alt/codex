@@ -1,4 +1,4 @@
-const CACHE_NAME = "memoria-v2";
+const CACHE_NAME = "codex-v3";
 const STATIC_ASSETS = ["./", "./index.html", "./manifest.json", "./icon-192.png", "./icon-512.png"];
 
 self.addEventListener("install", (event) => {

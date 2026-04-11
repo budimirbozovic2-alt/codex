@@ -34,7 +34,7 @@ export class ErrorBoundary extends Component<Props, State> {
   componentDidCatch(error: Error, info: React.ErrorInfo) {
     console.error(`[ErrorBoundary${this.props.label ? ` — ${this.props.label}` : ""}]`, error, info.componentStack);
     try {
-      const LOG_KEY = "memoria-crash-log";
+      const LOG_KEY = "codex-crash-log";
       const MAX_ENTRIES = 20;
       const existing: CrashEntry[] = JSON.parse(localStorage.getItem(LOG_KEY) || "[]");
       existing.push({
@@ -90,7 +90,7 @@ export class ErrorBoundary extends Component<Props, State> {
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `memoria-emergency-${new Date().toISOString().slice(0, 10)}.json`;
+      a.download = `codex-emergency-${new Date().toISOString().slice(0, 10)}.json`;
       a.click();
       URL.revokeObjectURL(url);
     } catch (e) {

@@ -24,7 +24,7 @@ export interface EventMessage<T = any> {
 
 // Generišemo jedinstveni ID za trenutni tab/prozor
 const TAB_ID = crypto.randomUUID();
-const CHANNEL_NAME = "memoria_event_bus";
+const CHANNEL_NAME = "codex_event_bus";
 
 class EventBus {
   private channel: BroadcastChannel | null = null;
