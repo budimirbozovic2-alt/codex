@@ -101,7 +101,7 @@ const APP_SLIDES: OnboardingSlide[] = [
     bullets: [
       "Klikom na ? u bilo kojoj sekciji dobijaš detaljni vodič",
       "Ctrl+K — brza globalna pretraga",
-      "Backup podataka je dostupan u Bazi podataka (Export/Import)",
+      "Backup podataka je dostupan u Podešavanja → Sistem (Export/Import)",
     ],
   },
 ];

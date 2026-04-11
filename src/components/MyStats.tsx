@@ -54,7 +54,7 @@ export default function MyStats({ cards, categories, categoryRecords, subcategor
           </div>
           <InfoPanel title="Kako radi Statistika?">
             <p><strong className="text-foreground">Pregled</strong> — heatmapa aktivnosti, distribucija znanja, kriva zaboravljanja, omjer ponavljanja (14 dana) i efektivno učenje danas.</p>
-            <p><strong className="text-foreground">Kalibracija</strong> — upoređuje procjenu sigurnosti (1-5) sa stvarnom ocjenom radi detekcije iluzije znanja.</p>
+            <p><strong className="text-foreground">Kalibracija</strong> — upoređuje procjenu sigurnosti (1-4) sa stvarnom ocjenom radi detekcije iluzije znanja.</p>
             <p><strong className="text-foreground">Latencija</strong> — vrijeme do otkrivanja odgovora. Prag: &lt;3 sekunde.</p>
             <p><strong className="text-foreground">Otpor</strong> — kombinovani skor lapsusa, latencije i zaboravljanja.</p>
             <p><strong className="text-foreground">Predikcija</strong> — predikcija budućeg opterećenja po predmetima.</p>
