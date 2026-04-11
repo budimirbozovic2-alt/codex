@@ -43,7 +43,7 @@ export const REVIEW_SLIDES: OnboardingSlide[] = [
     icon: Target,
     iconColor: "bg-primary/15 text-primary",
     title: "Fokusirano Utvrđivanje",
-    content: "Cilja svježe i pogrešne kartice (Learning/Relearning, S<5d). Prebacuje ih iz kratkoročne u dugoročnu memoriju.",
+    content: "Cilja svježe i pogrešne kartice (Learning/Relearning, niska stabilnost). Prebacuje ih iz kratkoročne u dugoročnu memoriju.",
   },
   {
     icon: Shield,
@@ -61,7 +61,7 @@ export const REVIEW_SLIDES: OnboardingSlide[] = [
     icon: BookOpen,
     iconColor: "bg-success/15 text-success",
     title: "Ocjenjivanje (1\u20134)",
-    content: "1 \u2014 Potpuno nepoznato (\u223C20 min)\n2 \u2014 Poznato bez detalja (max 24h)\n3 \u2014 Sa ključnim detaljima (interval raste)\n4 \u2014 Savršeno (maksimalan rast)\n\nPrečice: Space otkriva, 1-4 ocjenjuje, N bilježi grešku.",
+    content: "1 — Ponovo (ponovi uskoro)\n2 — Teško (kratak interval)\n3 — Dobro (interval raste)\n4 — Lako (maksimalan rast)\n\nPrečice: Space otkriva, 1-4 ocjenjuje, N bilježi grešku.",
   },
 ];
 
