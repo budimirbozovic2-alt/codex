@@ -5,6 +5,7 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import Dashboard from "@/components/Dashboard";
 import EmptyState from "@/components/EmptyState";
 import { QuickActions } from "@/components/dashboard/QuickActions";
+import InfoPanel from "@/components/InfoPanel";
 import { AnimatePresence } from "framer-motion";
 const DashboardOnboarding = lazy(() => import("@/components/DashboardOnboarding"));
 
@@ -35,13 +36,24 @@ export default function DashboardPage() {
         <EmptyState type="dashboard" onAction={() => setView("create")} />
       ) : (
         <div className="relative space-y-6">
-          <button
-            onClick={() => setShowOnboarding(true)}
-            className="absolute top-0 right-0 p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors z-10"
-            title="Vodič za kontrolnu tablu"
-          >
-            <HelpCircle className="h-4 w-4" />
-          </button>
+          <div className="absolute top-0 right-0 flex items-center gap-1 z-10">
+            <InfoPanel title="Prečice — Kontrolna tabla">
+              <p>Tastaturne prečice dostupne na kontrolnoj tabli:</p>
+              <div className="space-y-1 mt-1.5">
+                <div className="flex items-center justify-between"><span>Novo pitanje</span><kbd className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-secondary text-secondary-foreground border">N</kbd></div>
+                <div className="flex items-center justify-between"><span>Konsolidacija</span><kbd className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-secondary text-secondary-foreground border">R</kbd></div>
+                <div className="flex items-center justify-between"><span>Učenje</span><kbd className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-secondary text-secondary-foreground border">L</kbd></div>
+              </div>
+            </InfoPanel>
+            <button
+              onClick={() => setShowOnboarding(true)}
+              className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+              title="Vodič za kontrolnu tablu"
+              aria-label="Vodič za kontrolnu tablu"
+            >
+              <HelpCircle className="h-4 w-4" />
+            </button>
+          </div>
           <QuickActions dueCount={stats.due} hasCards={cards.length > 0} lastSourceLabel={lastSourceLabel} />
           <Dashboard
             stats={stats}

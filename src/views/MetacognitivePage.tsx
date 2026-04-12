@@ -1,6 +1,11 @@
+import { HelpCircle } from "lucide-react";
+import { useState, lazy, Suspense } from "react";
 import { useCardData, useCategoryData, useReviewData, useCardActions, useUIContext } from "@/contexts/AppContext";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import MetacognitiveCenter from "@/components/MetacognitiveCenter";
+import { AnimatePresence } from "framer-motion";
+
+const MetacognitiveOnboarding = lazy(() => import("@/components/MetacognitiveOnboarding"));
 
 export default function MetacognitivePage() {
   const { cards, ready } = useCardData();
@@ -8,6 +13,7 @@ export default function MetacognitivePage() {
   const { reviewLog, srSettings } = useReviewData();
   const { clearErrorLog } = useCardActions();
   const { setView } = useUIContext();
+  const [showOnboarding, setShowOnboarding] = useState(false);
 
   if (!ready) {
     return (
@@ -20,14 +26,31 @@ export default function MetacognitivePage() {
 
   return (
     <ErrorBoundary label="Metakognicija" onNavigateHome={() => setView("dashboard")}>
-      <MetacognitiveCenter
-        cards={cards}
-        categories={categories}
-        categoryRecords={categoryRecords}
-        reviewLog={reviewLog}
-        settings={srSettings}
-        onClearErrorLog={clearErrorLog}
-      />
+      <div className="relative">
+        <button
+          onClick={() => setShowOnboarding(true)}
+          className="absolute top-0 right-0 p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors z-10"
+          title="Vodič za dnevnik"
+          aria-label="Vodič za dnevnik"
+        >
+          <HelpCircle className="h-4 w-4" />
+        </button>
+        <MetacognitiveCenter
+          cards={cards}
+          categories={categories}
+          categoryRecords={categoryRecords}
+          reviewLog={reviewLog}
+          settings={srSettings}
+          onClearErrorLog={clearErrorLog}
+        />
+      </div>
+      <AnimatePresence>
+        {showOnboarding && (
+          <Suspense fallback={null}>
+            <MetacognitiveOnboarding onComplete={() => setShowOnboarding(false)} />
+          </Suspense>
+        )}
+      </AnimatePresence>
     </ErrorBoundary>
   );
 }
