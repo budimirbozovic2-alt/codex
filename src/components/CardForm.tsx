@@ -101,6 +101,7 @@ export default function CardForm({ categories, subcategories, categoryRecords, o
           addSection={a.addSection}
           removeSection={a.removeSection}
           updateSection={a.updateSection}
+          moveSection={a.moveSection}
           handleCut={a.handleCut}
           validationErrors={a.validationErrors}
         />

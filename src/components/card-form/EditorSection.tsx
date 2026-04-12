@@ -1,4 +1,4 @@
-import { Plus, X, GripVertical, Scissors, Zap, FileText } from "lucide-react";
+import { Plus, X, ChevronUp, ChevronDown, Scissors, Zap, FileText } from "lucide-react";
 import React, { memo } from "react";
 import { sanitizeHtml } from "@/lib/sanitize";
 import { Button } from "@/components/ui/button";
@@ -62,6 +62,7 @@ interface EditorSectionProps {
   addSection: () => void;
   removeSection: (i: number) => void;
   updateSection: (i: number, field: keyof SectionInput, value: string) => void;
+  moveSection: (from: number, to: number) => void;
   handleCut: (sectionIdx: number, paraIdx: number) => void;
   validationErrors: ValidationErrors;
 }
@@ -70,7 +71,7 @@ interface EditorSectionProps {
 const EditorSection = memo(function EditorSection({
   cardType, isEditing, question, setQuestion, flashAnswer, setFlashAnswer,
   sections, cuttingIndex, setCuttingIndex, setCardType,
-  addSection, removeSection, updateSection, handleCut, validationErrors,
+  addSection, removeSection, updateSection, moveSection, handleCut, validationErrors,
 }: EditorSectionProps) {
   return (
     <div className="space-y-4">
@@ -137,7 +138,18 @@ const EditorSection = memo(function EditorSection({
           {sections.map((section, i) => (
             <div key={i} className="rounded-xl border bg-card p-4 space-y-3">
               <div className="flex items-center gap-2">
-                <GripVertical className="h-4 w-4 text-muted-foreground/40" />
+                <div className="flex flex-col gap-0.5 flex-shrink-0">
+                  <button type="button" disabled={i === 0}
+                    onClick={() => moveSection(i, i - 1)}
+                    className="h-4 w-4 flex items-center justify-center rounded hover:bg-muted disabled:opacity-20 transition-colors" title="Pomjeri gore">
+                    <ChevronUp className="h-3 w-3" />
+                  </button>
+                  <button type="button" disabled={i === sections.length - 1}
+                    onClick={() => moveSection(i, i + 1)}
+                    className="h-4 w-4 flex items-center justify-center rounded hover:bg-muted disabled:opacity-20 transition-colors" title="Pomjeri dolje">
+                    <ChevronDown className="h-3 w-3" />
+                  </button>
+                </div>
                 <Input
                   value={section.title}
                   onChange={(e) => updateSection(i, "title", e.target.value)}

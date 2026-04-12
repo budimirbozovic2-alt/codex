@@ -171,6 +171,16 @@ export function useCardActions({ categories, subcategories, categoryRecords, edi
     setSections(prev => prev.map((s, i) => (i === index ? { ...s, [field]: value } : s)));
   }, []);
 
+  const moveSection = useCallback((from: number, to: number) => {
+    setSections(prev => {
+      if (from < 0 || from >= prev.length || to < 0 || to >= prev.length) return prev;
+      const arr = [...prev];
+      const [item] = arr.splice(from, 1);
+      arr.splice(to, 0, item);
+      return arr;
+    });
+  }, []);
+
   const handleCut = useCallback((sectionIndex: number, paragraphIndex: number) => {
     setSections(prev => {
       const section = prev[sectionIndex];
@@ -256,6 +266,6 @@ export function useCardActions({ categories, subcategories, categoryRecords, edi
     setNewChapter, setShowNewChapter,
     setFormWidth, setCuttingIndex,
     // Actions
-    addSection, removeSection, updateSection, handleCut, handleSubmit,
+    addSection, removeSection, updateSection, moveSection, handleCut, handleSubmit,
   };
 }
