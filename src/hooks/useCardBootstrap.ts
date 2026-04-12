@@ -170,18 +170,41 @@ export function useCardBootstrap(setters: BootSetters) {
             const ch = card.chapterId || "";
             if (!sub) continue;
 
-            let node = nodes.find((n) => n.name === sub);
+            let node = nodes.find((n) => n.id === sub);
             if (!node) {
               node = { id: crypto.randomUUID(), name: sub, chapters: [], sortOrder: nodes.length };
               nodes.push(node);
               needsPersist = true;
               console.log(`[boot] fallback SubcategoryNode created: "${sub}" in category ${r.name}`);
             }
-            if (ch && !node.chapters.some(c => c.name === ch)) {
+            if (ch && !node.chapters.some(c => c.id === ch)) {
               node.chapters.push({ id: crypto.randomUUID(), name: ch, sortOrder: node.chapters.length });
               needsPersist = true;
               console.log(`[boot] fallback chapter registered: "${ch}" under "${sub}" in ${r.name}`);
             }
+          }
+
+          // One-time cleanup: remove phantom nodes with UUID-shaped names and zero cards
+          const uuidPattern = /^[0-9a-f]{8}-/;
+          const cardSubIds = new Set(catCards.map(card => card.subcategoryId).filter(Boolean));
+          const prevLen = nodes.length;
+          nodes = nodes.filter(n => {
+            if (!uuidPattern.test(n.name)) return true;
+            if (cardSubIds.has(n.id)) return true;
+            console.log(`[boot] removing phantom subcategory: "${n.name}" from ${r.name}`);
+            needsPersist = true;
+            return false;
+          });
+          // Clean phantom chapters within remaining nodes
+          for (const n of nodes) {
+            const cardChapIds = new Set(catCards.filter(card => card.subcategoryId === n.id).map(card => card.chapterId).filter(Boolean));
+            n.chapters = n.chapters.filter(ch => {
+              if (!uuidPattern.test(ch.name)) return true;
+              if (cardChapIds.has(ch.id)) return true;
+              console.log(`[boot] removing phantom chapter: "${ch.name}" from ${n.name}`);
+              needsPersist = true;
+              return false;
+            });
           }
 
           updatedRecords.push({ ...r, subcategories: nodes });
