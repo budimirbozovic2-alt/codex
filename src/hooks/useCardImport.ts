@@ -179,7 +179,8 @@ export function useCardImport({
         setCardMapState(() => nextMap);
         bumpMapVersion();
 
-        if (data.subcategories && typeof data.subcategories === "object" && !Array.isArray(data.categories?.[0] && typeof data.categories[0] === 'object')) {
+    const isNewCatFormat = Array.isArray(data.categories) && (data.categories as unknown[]).length > 0 && typeof (data.categories as unknown[])[0] === 'object' && 'id' in ((data.categories as unknown[])[0] as Record<string, unknown>);
+    if (data.subcategories && typeof data.subcategories === "object" && !isNewCatFormat) {
           // Legacy subcategories — update categoryRecords nodes
           const { idbLoadCategories, idbSaveCategories } = await import("@/lib/db");
           const recs = await idbLoadCategories();
@@ -241,12 +242,15 @@ export function useCardImport({
         // Restore metacognitive + planner IDB tables (v4+)
         const uuidTables = [
           { key: "diary", table: "diary" },
+          { key: "mnemonics", table: "mnemonics" },
+          { key: "majorSystem", table: "majorSystem" },
         ];
         const autoIncTables = [
           { key: "calibrationLog", table: "calibrationLog" },
           { key: "latencyLog", table: "latencyLog" }, { key: "slippageLog", table: "slippageLog" },
           { key: "activityLog", table: "activityLog" }, { key: "disciplineLog", table: "disciplineLog" },
           { key: "pomodoroLog", table: "pomodoroLog" },
+          { key: "mnemonicTestLog", table: "mnemonicTestLog" },
         ];
         const idbTables = [...uuidTables, ...autoIncTables];
         const autoIncKeys = new Set(autoIncTables.map((t) => t.key));

@@ -140,7 +140,7 @@ export function useCardExport({ cards, srSettings }: UseCardExportDeps) {
       const [
         sources, mindMaps, diary, calibrationLog, latencyLog,
         slippageLog, activityLog, disciplineLog, pomodoroLog, fullReviewLog,
-        catRecords,
+        catRecords, mnemonics, majorSystem, mnemonicTestLog,
       ] = await Promise.all([
         db.sources.toArray(),
         db.mindMaps.toArray(),
@@ -153,6 +153,9 @@ export function useCardExport({ cards, srSettings }: UseCardExportDeps) {
         db.pomodoroLog.toArray(),
         loadFullReviewLog(),
         db.categories.orderBy('sortOrder').toArray(),
+        db.mnemonics.toArray(),
+        db.majorSystem.toArray(),
+        db.mnemonicTestLog.toArray(),
       ]);
 
       const localStorageData: Record<string, unknown> = {};
@@ -185,6 +188,7 @@ export function useCardExport({ cards, srSettings }: UseCardExportDeps) {
         reviewLog: fullReviewLog, srSettings,
         sources, mindMaps, diary, calibrationLog, latencyLog,
         slippageLog, activityLog, disciplineLog, pomodoroLog,
+        mnemonics, majorSystem, mnemonicTestLog,
         localStorageData,
       };
       const dateStr = new Date().toISOString().slice(0, 10);
