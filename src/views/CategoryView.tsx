@@ -51,8 +51,6 @@ export default function CategoryView() {
     [categoryId]
   ) ?? [];
 
-  const propisSources = useMemo(() => sources.filter(s => (s.sourceKind ?? "propis") === "propis"), [sources]);
-  const skriptaSources = useMemo(() => sources.filter(s => s.sourceKind === "skripta"), [sources]);
 
   const mindMapCount = useLiveQuery(
     () => categoryId ? db.mindMaps.where("categoryId").equals(categoryId).count() : 0,
