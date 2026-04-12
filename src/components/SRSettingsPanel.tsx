@@ -1,4 +1,4 @@
-import { RotateCcw, Database } from "lucide-react";
+import { RotateCcw, Database, FolderOpen } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { SRSettings, DEFAULT_SR_SETTINGS } from "@/lib/spaced-repetition";
 import { AppSettings, DEFAULT_APP_SETTINGS, loadAppSettings, saveAppSettings } from "@/lib/app-settings";
