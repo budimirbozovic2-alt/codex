@@ -26,3 +26,11 @@ export function highlightKeyParts(html: string, keyParts?: string[]): string {
   }
   return sanitizeHtml(result);
 }
+
+/**
+ * Memoized highlighted section component for use inside .map() loops.
+ */
+export function HighlightedSection({ content, keyParts, className }: { content: string; keyParts?: string[]; className?: string }) {
+  const html = useMemo(() => highlightKeyParts(content, keyParts), [content, keyParts]);
+  return React.createElement("div", { className, dangerouslySetInnerHTML: { __html: html } });
+}
