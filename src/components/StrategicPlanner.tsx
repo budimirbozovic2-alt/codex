@@ -50,6 +50,14 @@ export default function StrategicPlanner({ cards, categories, categoryRecords, r
             <p><strong className="text-foreground">Niveliši plan</strong> — raspoređuje kognitivni dug ravnomjerno na preostale dane.</p>
             <p><strong className="text-foreground">Mapa puta</strong> — Burn-up grafikon i tekstualna simulacija završetka.</p>
             <p><strong className="text-foreground">Disciplina</strong> — Rocket Streak, 14-dnevni grid i trend dosljednosti.</p>
+            <div className="pt-1 border-t border-border mt-1">
+              <p className="font-medium text-foreground mb-1">Prečice</p>
+              <div className="space-y-1">
+                <div className="flex items-center justify-between"><span>Globalna pretraga</span><kbd className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-secondary text-secondary-foreground border">Ctrl+K</kbd></div>
+                <div className="flex items-center justify-between"><span>Workflow sidebar</span><kbd className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-secondary text-secondary-foreground border">M</kbd></div>
+                <div className="flex items-center justify-between"><span>Zatvori modal</span><kbd className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-secondary text-secondary-foreground border">ESC</kbd></div>
+              </div>
+            </div>
           </InfoPanel>
         </div>
 

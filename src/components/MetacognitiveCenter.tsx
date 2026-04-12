@@ -49,6 +49,14 @@ export default function MetacognitiveCenter({ cards, categories, categoryRecords
             <p><strong className="text-foreground">Dnevnik</strong> — bilježi dnevne refleksije, postavlja ciljeve i prati samoanalizu. Svaki unos podržava oznake raspoloženja i kognitivnog stanja.</p>
             <p><strong className="text-foreground">Greške & Dijagnostika</strong> — praćenje čestih grešaka sa statusima (aktivna, riješena, u obradi) i mnemonička rješenja za svaku grešku.</p>
             <p><strong className="text-foreground">Analiza slabih tačaka</strong> — sistem identifikuje obrasce iz grešaka i predlaže fokusirano ponavljanje problematičnih oblasti.</p>
+            <div className="pt-1 border-t border-border mt-1">
+              <p className="font-medium text-foreground mb-1">Prečice</p>
+              <div className="space-y-1">
+                <div className="flex items-center justify-between"><span>Globalna pretraga</span><kbd className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-secondary text-secondary-foreground border">Ctrl+K</kbd></div>
+                <div className="flex items-center justify-between"><span>Workflow sidebar</span><kbd className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-secondary text-secondary-foreground border">M</kbd></div>
+                <div className="flex items-center justify-between"><span>Zatvori modal</span><kbd className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-secondary text-secondary-foreground border">ESC</kbd></div>
+              </div>
+            </div>
           </InfoPanel>
         </div>
       )}

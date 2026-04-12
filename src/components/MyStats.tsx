@@ -59,6 +59,14 @@ export default function MyStats({ cards, categories, categoryRecords, subcategor
             <p><strong className="text-foreground">Otpor</strong> — kombinovani skor lapsusa, latencije i zaboravljanja.</p>
             <p><strong className="text-foreground">Predikcija</strong> — predikcija budućeg opterećenja po predmetima.</p>
             <p><strong className="text-foreground">Efikasnost</strong> — omjer produktivnog učenja (Deep Work) naspram površnog (Shallow Work) sa trendom po sesijama.</p>
+            <div className="pt-1 border-t border-border mt-1">
+              <p className="font-medium text-foreground mb-1">Prečice</p>
+              <div className="space-y-1">
+                <div className="flex items-center justify-between"><span>Globalna pretraga</span><kbd className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-secondary text-secondary-foreground border">Ctrl+K</kbd></div>
+                <div className="flex items-center justify-between"><span>Workflow sidebar</span><kbd className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-secondary text-secondary-foreground border">M</kbd></div>
+                <div className="flex items-center justify-between"><span>Zatvori modal</span><kbd className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-secondary text-secondary-foreground border">ESC</kbd></div>
+              </div>
+            </div>
           </InfoPanel>
         </div>
       </motion.div>
