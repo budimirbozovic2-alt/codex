@@ -76,6 +76,7 @@ export default function CategoryView() {
   const [kmSearch, setKmSearch] = useState("");
   const [masteryFilter, setMasteryFilter] = useState<number | null>(null);
   const [activeTab, setActiveTab] = useState("cards");
+  const [activeSourceTab, setActiveSourceTab] = useState<"propis" | "skripta">("propis");
   const [showKnowledge, setShowKnowledge] = useState(false);
 
   // Sources: separate state for reader (full-screen) and editor (dialog)
@@ -127,6 +128,7 @@ export default function CategoryView() {
         version: 1,
         createdAt: Date.now(),
         updatedAt: Date.now(),
+        sourceKind: activeSourceTab,
       };
 
       await saveSource(newSource);
@@ -137,7 +139,7 @@ export default function CategoryView() {
     } finally {
       setImporting(false);
     }
-  }, [categoryId]);
+  }, [categoryId, activeSourceTab]);
 
   // Derive SubcategoryNode[] from category record (must be before early returns)
   const subcategoryNodes: SubcategoryNode[] = useMemo(() => {
