@@ -344,13 +344,13 @@ export default function CategoryView() {
                   <TabsTrigger value="propis" className="gap-1.5">
                     Propisi
                     <Badge variant="secondary" className="text-[10px] h-5 px-1.5">
-                      {sources.filter(s => (s.sourceKind ?? "propis") === "propis").length}
+                      {propisSources.length}
                     </Badge>
                   </TabsTrigger>
                   <TabsTrigger value="skripta" className="gap-1.5">
                     Skripte
                     <Badge variant="secondary" className="text-[10px] h-5 px-1.5">
-                      {sources.filter(s => s.sourceKind === "skripta").length}
+                      {skriptaSources.length}
                     </Badge>
                   </TabsTrigger>
                 </TabsList>
@@ -376,7 +376,7 @@ export default function CategoryView() {
               </div>
 
               {(["propis", "skripta"] as const).map(kind => {
-                const filtered = sources.filter(s => (s.sourceKind ?? "propis") === kind);
+                const filtered = kind === "propis" ? propisSources : skriptaSources;
                 return (
                   <TabsContent key={kind} value={kind}>
                     {filtered.length === 0 ? (
