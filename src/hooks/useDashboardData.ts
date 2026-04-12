@@ -182,11 +182,11 @@ export function useDashboardData(
   const energyLevel = getEnergyLevel();
 
   const velocityData = useDeferredCompute(() => {
-    const velocity = calcVelocity(reviewLog, 7);
-    const velocityPrev = calcVelocity(reviewLog, 14) - velocity;
-    const trend = velocity > velocityPrev ? "up" : velocity < velocityPrev ? "down" : "flat";
-    return { velocity: Math.round(velocity * 10) / 10, trend } as const;
-  }, [reviewLog]);
+    if (velocity7 === null) return null;
+    const velocityPrev = calcVelocity(reviewLog, 14) - velocity7;
+    const trend = velocity7 > velocityPrev ? "up" : velocity7 < velocityPrev ? "down" : "flat";
+    return { velocity: Math.round(velocity7 * 10) / 10, trend } as const;
+  }, [velocity7, reviewLog]);
 
   const weakestCategories = useMemo(() => {
     return categories
@@ -201,9 +201,8 @@ export function useDashboardData(
   }, [categories, categoryStats, categoryRecords]);
 
   const studyFlowData = useDeferredCompute<StudyFlowData | null>(() => {
-    const config = loadPlanner();
-    if (!config.finalGoalDate || categoryRecords.length === 0) return null;
-    const plans = generateStudyPlan(config, categoryRecords, cards);
+    if (!plannerConfig?.finalGoalDate || categoryRecords.length === 0 || velocity7 === null) return null;
+    const plans = generateStudyPlan(plannerConfig, categoryRecords, cards);
     if (plans.length === 0) return null;
     const today = startOfDay(new Date()).getTime();
     const active = plans.find(p => startOfDay(p.startDate).getTime() <= today && today < startOfDay(p.endDate).getTime());
@@ -211,7 +210,7 @@ export function useDashboardData(
     const overallPct = stats.totalSections > 0 ? Math.round((stats.learnedSections / stats.totalSections) * 100) : 0;
     const ratio = calcLearningReviewRatio(overallPct);
     const dailyMapped = getDailyMappedCount();
-    const suggestion = getSmartSuggestion(null, cards, config.finalGoalDate, calcVelocity(reviewLog, 7), config.bufferPercent ?? 15);
+    const suggestion = getSmartSuggestion(null, cards, plannerConfig.finalGoalDate, velocity7, plannerConfig.bufferPercent ?? 15);
     const dailyQuota = suggestion?.suggestedToday ?? 0;
     return {
       focusSubject: focus.categoryName,
@@ -222,7 +221,7 @@ export function useDashboardData(
       ratioLabel: ratio.label,
       overallPct,
     };
-  }, [stats, categoryRecords, cards, reviewLog]);
+  }, [stats, categoryRecords, cards, velocity7, plannerConfig]);
 
   const briefText = useMemo(() => {
     const parts: string[] = [];
