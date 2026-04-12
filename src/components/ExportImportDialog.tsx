@@ -166,20 +166,18 @@ export default function ExportImportDialog({ open, onOpenChange, onExportTemplat
       }
 
       // --- STEP 2: RELATIONAL INTEGRITY GUARD ---
+      const existingCats = await db.categories.toArray();
       if (errors.length === 0) {
         const validCategoryIds = new Set<string>();
         if (parsed.categories && Array.isArray(parsed.categories)) {
           if (isLegacyCategoryFormat) {
             // Legacy string[] — skip FK check for categories (no UUIDs to validate against)
-            // All existing DB category IDs are still valid
           } else {
             parsed.categories.forEach((cat: any) => validCategoryIds.add(cat.id));
           }
         }
-        const existingCats = await db.categories.toArray();
         existingCats.forEach(cat => validCategoryIds.add(cat.id));
 
-        // If legacy format, skip card/source FK check (categories have no UUIDs)
         const skipFKCheck = isLegacyCategoryFormat;
 
         if (!skipFKCheck && importedCards.length > 0) {
@@ -209,8 +207,7 @@ export default function ExportImportDialog({ open, onOpenChange, onExportTemplat
       const existingIds = new Set(freshCards.map(c => c.id));
       const duplicateCount = importedCards.filter(c => existingIds.has(c.id)).length;
 
-      // Category conflict detection (by ID or by name)
-      const existingCats = await db.categories.toArray();
+      // Category conflict detection (reuse existingCats from above)
       const existingCatIds = new Set(existingCats.map(c => c.id));
       const existingCatNames = new Set(existingCats.map(c => c.name.toLowerCase()));
       const duplicateCategoryCount = Array.isArray(parsed.categories)

@@ -139,6 +139,12 @@ export function useCardImport({
                     if (remapped) src.categoryId = remapped;
                   });
                 }
+                if (Array.isArray(data.mnemonics)) {
+                  (data.mnemonics as any[]).forEach(mn => {
+                    const remapped = idRemap.get(mn.categoryId);
+                    if (remapped) mn.categoryId = remapped;
+                  });
+                }
               }
 
               if (filteredCatRecords.length > 0) {
@@ -179,8 +185,8 @@ export function useCardImport({
         setCardMapState(() => nextMap);
         bumpMapVersion();
 
-    const isNewCatFormat = Array.isArray(data.categories) && (data.categories as unknown[]).length > 0 && typeof (data.categories as unknown[])[0] === 'object' && 'id' in ((data.categories as unknown[])[0] as Record<string, unknown>);
-    if (data.subcategories && typeof data.subcategories === "object" && !isNewCatFormat) {
+        const isNewCatFormat = Array.isArray(data.categories) && (data.categories as unknown[]).length > 0 && typeof (data.categories as unknown[])[0] === 'object' && 'id' in ((data.categories as unknown[])[0] as Record<string, unknown>);
+        if (data.subcategories && typeof data.subcategories === "object" && !isNewCatFormat) {
           // Legacy subcategories — update categoryRecords nodes
           const { idbLoadCategories, idbSaveCategories } = await import("@/lib/db");
           const recs = await idbLoadCategories();
@@ -296,6 +302,7 @@ export function useCardImport({
         if (Array.isArray(data.sources) && (data.sources as unknown[]).length > 0) extraParts.push(`${(data.sources as unknown[]).length} izvora`);
         if (Array.isArray(data.mindMaps) && (data.mindMaps as unknown[]).length > 0) extraParts.push(`${(data.mindMaps as unknown[]).length} mentalnih mapa`);
         if (Array.isArray(data.diary) && (data.diary as unknown[]).length > 0) extraParts.push(`${(data.diary as unknown[]).length} dnevničkih zapisa`);
+        if (Array.isArray(data.mnemonics) && (data.mnemonics as unknown[]).length > 0) extraParts.push(`${(data.mnemonics as unknown[]).length} mnemoničkih kartica`);
         if (Array.isArray(data.disciplineLog) && (data.disciplineLog as unknown[]).length > 0) extraParts.push("disciplinski log");
         if (data.localStorageData) extraParts.push("podešavanja i planer");
         const extraMsg = extraParts.length > 0 ? ` + ${extraParts.join(", ")}` : "";
