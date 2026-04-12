@@ -22,9 +22,11 @@ interface OrphanResult {
 }
 
 interface CrashEntry {
-  timestamp: string;
   label: string;
   message: string;
+  count: number;
+  firstSeen: string;
+  lastSeen: string;
 }
 
 function formatBytes(bytes: number): string {
@@ -260,11 +262,18 @@ export default function HealthMonitor() {
             </div>
           ) : (
             <div className="space-y-1 max-h-48 overflow-y-auto">
-              {crashLog.slice().reverse().map((entry, i) => (
+              {crashLog.slice().sort((a, b) => (b.lastSeen || "").localeCompare(a.lastSeen || "")).map((entry, i) => (
                 <div key={i} className="rounded-md border px-2.5 py-2 text-xs space-y-0.5">
-                  <div className="flex items-center justify-between">
-                    <Badge variant="destructive" className="text-[10px]">{entry.label}</Badge>
-                    <span className="text-[10px] text-muted-foreground">{entry.timestamp}</span>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="flex items-center gap-1.5">
+                      <Badge variant="destructive" className="text-[10px]">{entry.label}</Badge>
+                      {(entry.count || 1) > 1 && (
+                        <Badge variant="outline" className="text-[10px]">×{entry.count}</Badge>
+                      )}
+                    </span>
+                    <span className="text-[10px] text-muted-foreground whitespace-nowrap">
+                      {entry.lastSeen ? new Date(entry.lastSeen).toLocaleDateString("sr-Latn") : (entry as any).timestamp || "—"}
+                    </span>
                   </div>
                   <p className="text-muted-foreground truncate">{entry.message}</p>
                 </div>

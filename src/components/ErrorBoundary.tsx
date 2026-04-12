@@ -1,11 +1,13 @@
 import { AlertTriangle, RefreshCw, Home, Download } from "lucide-react";
 import { Component, ReactNode } from "react";
 interface CrashEntry {
-  timestamp: string;
   label: string;
   message: string;
   stack: string;
   componentStack: string;
+  count: number;
+  firstSeen: string;
+  lastSeen: string;
 }
 
 interface Props {
@@ -35,15 +37,25 @@ export class ErrorBoundary extends Component<Props, State> {
     console.error(`[ErrorBoundary${this.props.label ? ` — ${this.props.label}` : ""}]`, error, info.componentStack);
     try {
       const LOG_KEY = "codex-crash-log";
-      const MAX_ENTRIES = 20;
+      const MAX_ENTRIES = 30;
+      const now = new Date().toISOString();
+      const lbl = this.props.label || "unknown";
+      const msg = error.message;
       const existing: CrashEntry[] = JSON.parse(localStorage.getItem(LOG_KEY) || "[]");
-      existing.push({
-        timestamp: new Date().toISOString(),
-        label: this.props.label || "unknown",
-        message: error.message,
-        stack: (error.stack || "").slice(0, 500),
-        componentStack: (info.componentStack || "").slice(0, 500),
-      });
+      const dupIndex = existing.findIndex(e => e.label === lbl && e.message === msg);
+      if (dupIndex !== -1) {
+        existing[dupIndex].count += 1;
+        existing[dupIndex].lastSeen = now;
+        existing[dupIndex].stack = (error.stack || "").slice(0, 500);
+        existing[dupIndex].componentStack = (info.componentStack || "").slice(0, 500);
+      } else {
+        existing.push({
+          label: lbl, message: msg,
+          stack: (error.stack || "").slice(0, 500),
+          componentStack: (info.componentStack || "").slice(0, 500),
+          count: 1, firstSeen: now, lastSeen: now,
+        });
+      }
       if (existing.length > MAX_ENTRIES) existing.splice(0, existing.length - MAX_ENTRIES);
       localStorage.setItem(LOG_KEY, JSON.stringify(existing));
     } catch (_) {}
