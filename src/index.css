@@ -434,7 +434,7 @@
     --accent: 346 55% 45%;
     --accent-foreground: 0 0% 100%;
 
-    --destructive: 0 68% 50%;
+    --destructive: 350 45% 48%;
     --destructive-foreground: 0 0% 100%;
 
     --border: 340 12% 90%;
@@ -480,7 +480,7 @@
     --accent: 346 60% 55%;
     --accent-foreground: 340 14% 7%;
 
-    --destructive: 0 55% 42%;
+    --destructive: 350 40% 45%;
     --destructive-foreground: 0 0% 100%;
 
     --border: 340 10% 17%;
@@ -710,7 +710,7 @@
 /* ─── Imperial Title ─────────────────────────────── */
 
 .imperial-title {
-  font-family: 'Cinzel', 'DM Sans', serif;
+  font-family: 'DM Sans', sans-serif;
   color: hsl(var(--gold));
   font-weight: 700;
   font-size: 1.5rem;
