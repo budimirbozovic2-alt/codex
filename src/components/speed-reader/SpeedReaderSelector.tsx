@@ -1,4 +1,4 @@
-import { Layers, BookMarked, Zap } from "lucide-react";
+import { Layers, BookMarked, Zap, HelpCircle } from "lucide-react";
 import type { Card } from "@/lib/spaced-repetition";
 import type { Source } from "@/lib/sources-storage";
 import ScrollableRow from "@/components/ScrollableRow";
@@ -30,12 +30,13 @@ interface Props {
   startSubcategoryRead: () => void;
   startSingleCardRead: (card: Card) => void;
   startSourceRead: (source: Source) => void;
+  onShowOnboarding?: () => void;
 }
 
 export default function SpeedReaderSelector({
   uuidToName, categories, filteredCards, filteredSources, availableSubs,
   selCat, setSelCat, selSub, setSelSub, contentSource, setContentSource,
-  wpm, startSubcategoryRead, startSingleCardRead, startSourceRead,
+  wpm, startSubcategoryRead, startSingleCardRead, startSourceRead, onShowOnboarding,
 }: Props) {
   const totalWords = filteredCards.reduce((sum, c) => {
     return sum + c.sections.reduce((s2, sec) => s2 + stripHtml(sec.content).split(/\s+/).filter(Boolean).length, 0);
@@ -44,11 +45,26 @@ export default function SpeedReaderSelector({
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-2">
-        <h2 className="text-2xl font-bold text-foreground flex items-center gap-2"><Zap className="h-6 w-6 text-primary" /> Speed Reader</h2>
-        <InfoPanel title="Speed Reader">{SPEED_READER_INFO}</InfoPanel>
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-2xl font-bold text-foreground flex items-center gap-2"><Zap className="h-6 w-6 text-primary" /> Speed Reader</h2>
+          <p className="text-muted-foreground text-sm mt-1">Brzo čitanje kartica i izvora — treniraj brzinu i fokus</p>
+        </div>
+        <div className="flex items-center gap-1">
+          <InfoPanel title="Speed Reader">{SPEED_READER_INFO}</InfoPanel>
+          {onShowOnboarding && (
+            <button
+              onClick={onShowOnboarding}
+              className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors p-1 rounded-md hover:bg-secondary"
+              title="Vodič za brzo čitanje"
+              aria-label="Vodič za brzo čitanje"
+            >
+              <HelpCircle className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Onboarding</span>
+            </button>
+          )}
+        </div>
       </div>
-      <p className="text-muted-foreground text-sm -mt-4">Brzo čitanje kartica i izvora — treniraj brzinu i fokus</p>
 
       {/* Content source toggle */}
       <div className="flex items-center rounded-lg border border-border bg-muted/50 p-0.5 w-fit">

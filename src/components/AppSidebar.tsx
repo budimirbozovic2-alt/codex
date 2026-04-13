@@ -12,7 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { useCardData, useCategoryData } from "@/contexts/AppContext";
 
 const STATIC_NAV = [
-  { path: "/", icon: Home, label: "Dashboard" },
+  { path: "/", icon: Home, label: "Početna tabla" },
   { path: "/learn", icon: GraduationCap, label: "Učenje" },
   { path: "/review", icon: RotateCcw, label: "Konsolidacija", badge: true },
 ];

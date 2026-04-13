@@ -1,4 +1,4 @@
-import { BookOpen, Brain, AlertTriangle } from "lucide-react";
+import { BookOpen, Brain, AlertTriangle, HelpCircle } from "lucide-react";
 import { useMemo, lazy, Suspense } from "react";
 import { motion } from "framer-motion";
 
@@ -21,9 +21,10 @@ interface Props {
   settings?: SRSettings;
   embedded?: boolean;
   onClearErrorLog?: (cardId: string) => void;
+  onShowOnboarding?: () => void;
 }
 
-export default function MetacognitiveCenter({ cards, categories, categoryRecords, reviewLog, settings, embedded, onClearErrorLog }: Props) {
+export default function MetacognitiveCenter({ cards, categories, categoryRecords, reviewLog, settings, embedded, onClearErrorLog, onShowOnboarding }: Props) {
   const catNameMap = useMemo(() => {
     const map: Record<string, string> = {};
     for (const r of categoryRecords) map[r.id] = r.name;
@@ -45,19 +46,32 @@ export default function MetacognitiveCenter({ cards, categories, categoryRecords
             <h2 className="text-2xl font-bold text-foreground flex items-center gap-2"><BookOpen className="h-6 w-6 text-primary" /> Dnevnik</h2>
             <p className="text-muted-foreground mt-1">Refleksije, greške i kognitivna dijagnostika</p>
           </div>
-          <InfoPanel title="Kako radi Dnevnik?">
-            <p><strong className="text-foreground">Dnevnik</strong> — bilježi dnevne refleksije, postavlja ciljeve i prati samoanalizu. Svaki unos podržava oznake raspoloženja i kognitivnog stanja.</p>
-            <p><strong className="text-foreground">Greške & Dijagnostika</strong> — praćenje čestih grešaka sa statusima (aktivna, riješena, u obradi) i mnemonička rješenja za svaku grešku.</p>
-            <p><strong className="text-foreground">Analiza slabih tačaka</strong> — sistem identifikuje obrasce iz grešaka i predlaže fokusirano ponavljanje problematičnih oblasti.</p>
-            <div className="pt-1 border-t border-border mt-1">
-              <p className="font-medium text-foreground mb-1">Prečice</p>
-              <div className="space-y-1">
-                <div className="flex items-center justify-between"><span>Globalna pretraga</span><kbd className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-secondary text-secondary-foreground border">Ctrl+K</kbd></div>
-                <div className="flex items-center justify-between"><span>Workflow sidebar</span><kbd className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-secondary text-secondary-foreground border">M</kbd></div>
-                <div className="flex items-center justify-between"><span>Zatvori modal</span><kbd className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-secondary text-secondary-foreground border">ESC</kbd></div>
+          <div className="flex items-center gap-1">
+            <InfoPanel title="Kako radi Dnevnik?">
+              <p><strong className="text-foreground">Dnevnik</strong> — bilježi dnevne refleksije, postavlja ciljeve i prati samoanalizu. Svaki unos podržava oznake raspoloženja i kognitivnog stanja.</p>
+              <p><strong className="text-foreground">Greške & Dijagnostika</strong> — praćenje čestih grešaka sa statusima (aktivna, riješena, u obradi) i mnemonička rješenja za svaku grešku.</p>
+              <p><strong className="text-foreground">Analiza slabih tačaka</strong> — sistem identifikuje obrasce iz grešaka i predlaže fokusirano ponavljanje problematičnih oblasti.</p>
+              <div className="pt-1 border-t border-border mt-1">
+                <p className="font-medium text-foreground mb-1">Prečice</p>
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between"><span>Globalna pretraga</span><kbd className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-secondary text-secondary-foreground border">Ctrl+K</kbd></div>
+                  <div className="flex items-center justify-between"><span>Workflow sidebar</span><kbd className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-secondary text-secondary-foreground border">M</kbd></div>
+                  <div className="flex items-center justify-between"><span>Zatvori modal</span><kbd className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-secondary text-secondary-foreground border">ESC</kbd></div>
+                </div>
               </div>
-            </div>
-          </InfoPanel>
+            </InfoPanel>
+            {onShowOnboarding && (
+              <button
+                onClick={onShowOnboarding}
+                className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors p-1 rounded-md hover:bg-secondary"
+                title="Vodič za dnevnik"
+                aria-label="Vodič za dnevnik"
+              >
+                <HelpCircle className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">Onboarding</span>
+              </button>
+            )}
+          </div>
         </div>
       )}
 

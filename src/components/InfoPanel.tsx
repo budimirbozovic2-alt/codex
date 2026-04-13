@@ -18,7 +18,7 @@ export default function InfoPanel({ title, children }: InfoPanelProps) {
         className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors p-1 rounded-md hover:bg-secondary"
       >
         <Info className="h-3.5 w-3.5" />
-        <span className="hidden sm:inline">Kako funkcioniše?</span>
+        <span className="hidden sm:inline">Info</span>
       </button>
       <AnimatePresence>
         {open && (

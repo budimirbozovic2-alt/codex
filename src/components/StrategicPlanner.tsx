@@ -1,4 +1,4 @@
-import { Target, BarChart3, Map as MapIcon, Gauge } from "lucide-react";
+import { Target, BarChart3, Map as MapIcon, Gauge, HelpCircle } from "lucide-react";
 import { useState, useMemo } from "react";
 import { motion } from "framer-motion";
 import InfoPanel from "@/components/InfoPanel";
@@ -18,9 +18,10 @@ interface Props {
   categoryRecords: CategoryRecord[];
   reviewLog: ReviewLogEntry[];
   onNavigateToDatabase?: (category: string) => void;
+  onShowOnboarding?: () => void;
 }
 
-export default function StrategicPlanner({ cards, categories, categoryRecords, reviewLog, onNavigateToDatabase }: Props) {
+export default function StrategicPlanner({ cards, categories, categoryRecords, reviewLog, onNavigateToDatabase, onShowOnboarding }: Props) {
   const data = usePlannerData(cards, reviewLog, categoryRecords);
   const [activeTab, setActiveTab] = useState<"operations" | "roadmap" | "discipline">("operations");
   const [showWizard, setShowWizard] = useState(!data.isConfigured);
@@ -43,22 +44,35 @@ export default function StrategicPlanner({ cards, categories, categoryRecords, r
             <h2 className="text-2xl font-bold text-foreground flex items-center gap-2"><Gauge className="h-6 w-6 text-primary" /> Strateški planer</h2>
             <p className="text-muted-foreground mt-1">Adaptivni sistem — plan se prilagođava tvom tempu</p>
           </div>
-          <InfoPanel title="Kako radi Strateški planer?">
-            <p><strong className="text-foreground">Plan po predmetima</strong> — sistem automatski generiše raspored na osnovu broja cjelina i težine predmeta. Teški predmeti dobijaju 1.5× više vremena.</p>
-            <p><strong className="text-foreground">Omjer učenje/ponavljanje</strong> — dinamički se prilagođava: na početku 90% učenje, pri kraju 90% ponavljanje.</p>
-            <p><strong className="text-foreground">Buffer %</strong> — sigurnosna zona (podrazumijevano 15%) — sistem računa kao da ispit počinje ranije.</p>
-            <p><strong className="text-foreground">Niveliši plan</strong> — raspoređuje kognitivni dug ravnomjerno na preostale dane.</p>
-            <p><strong className="text-foreground">Mapa puta</strong> — Burn-up grafikon i tekstualna simulacija završetka.</p>
-            <p><strong className="text-foreground">Disciplina</strong> — Rocket Streak, 14-dnevni grid i trend dosljednosti.</p>
-            <div className="pt-1 border-t border-border mt-1">
-              <p className="font-medium text-foreground mb-1">Prečice</p>
-              <div className="space-y-1">
-                <div className="flex items-center justify-between"><span>Globalna pretraga</span><kbd className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-secondary text-secondary-foreground border">Ctrl+K</kbd></div>
-                <div className="flex items-center justify-between"><span>Workflow sidebar</span><kbd className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-secondary text-secondary-foreground border">M</kbd></div>
-                <div className="flex items-center justify-between"><span>Zatvori modal</span><kbd className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-secondary text-secondary-foreground border">ESC</kbd></div>
+          <div className="flex items-center gap-1">
+            <InfoPanel title="Kako radi Strateški planer?">
+              <p><strong className="text-foreground">Plan po predmetima</strong> — sistem automatski generiše raspored na osnovu broja cjelina i težine predmeta. Teški predmeti dobijaju 1.5× više vremena.</p>
+              <p><strong className="text-foreground">Omjer učenje/ponavljanje</strong> — dinamički se prilagođava: na početku 90% učenje, pri kraju 90% ponavljanje.</p>
+              <p><strong className="text-foreground">Buffer %</strong> — sigurnosna zona (podrazumijevano 15%) — sistem računa kao da ispit počinje ranije.</p>
+              <p><strong className="text-foreground">Niveliši plan</strong> — raspoređuje kognitivni dug ravnomjerno na preostale dane.</p>
+              <p><strong className="text-foreground">Mapa puta</strong> — Burn-up grafikon i tekstualna simulacija završetka.</p>
+              <p><strong className="text-foreground">Disciplina</strong> — Rocket Streak, 14-dnevni grid i trend dosljednosti.</p>
+              <div className="pt-1 border-t border-border mt-1">
+                <p className="font-medium text-foreground mb-1">Prečice</p>
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between"><span>Globalna pretraga</span><kbd className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-secondary text-secondary-foreground border">Ctrl+K</kbd></div>
+                  <div className="flex items-center justify-between"><span>Workflow sidebar</span><kbd className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-secondary text-secondary-foreground border">M</kbd></div>
+                  <div className="flex items-center justify-between"><span>Zatvori modal</span><kbd className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-secondary text-secondary-foreground border">ESC</kbd></div>
+                </div>
               </div>
-            </div>
-          </InfoPanel>
+            </InfoPanel>
+            {onShowOnboarding && (
+              <button
+                onClick={onShowOnboarding}
+                className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors p-1 rounded-md hover:bg-secondary"
+                title="Vodič za planer"
+                aria-label="Vodič za planer"
+              >
+                <HelpCircle className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">Onboarding</span>
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Tab navigation */}

@@ -6,13 +6,18 @@ import SpeedReaderSelector, { SPEED_READER_INFO } from "@/components/speed-reade
 import SpeedReaderControls from "@/components/speed-reader/SpeedReaderControls";
 import SpeedReaderDisplay from "@/components/speed-reader/SpeedReaderDisplay";
 
-export default function SpeedReader() {
+interface SpeedReaderProps {
+  onShowOnboarding?: () => void;
+}
+
+export default function SpeedReader({ onShowOnboarding }: SpeedReaderProps) {
   const engine = useSpeedReaderEngine();
 
   // ─── Selection screen ──────────────────────────────
   if (!engine.readerActive) {
     return (
       <SpeedReaderSelector
+        onShowOnboarding={onShowOnboarding}
         uuidToName={engine.uuidToName}
         categories={engine.categories}
         filteredCards={engine.filteredCards}

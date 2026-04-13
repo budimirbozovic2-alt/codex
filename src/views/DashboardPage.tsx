@@ -44,11 +44,12 @@ export default function DashboardPage() {
             </InfoPanel>
             <button
               onClick={() => setShowOnboarding(true)}
-              className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+              className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors p-1 rounded-md hover:bg-secondary"
               title="Vodič za kontrolnu tablu"
               aria-label="Vodič za kontrolnu tablu"
             >
-              <HelpCircle className="h-4 w-4" />
+              <HelpCircle className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Onboarding</span>
             </button>
           </div>
           

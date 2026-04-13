@@ -1,4 +1,4 @@
-import { TrendingUp, Target, Clock, Flame, CalendarClock, Activity, BarChart3 } from "lucide-react";
+import { TrendingUp, Target, Clock, Flame, CalendarClock, Activity, BarChart3, HelpCircle } from "lucide-react";
 import { useState, useMemo, lazy, Suspense } from "react";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { motion } from "framer-motion";
@@ -28,9 +28,10 @@ interface Props {
   srSettings: SRSettings;
   
   onShowPlanner?: () => void;
+  onShowOnboarding?: () => void;
 }
 
-export default function MyStats({ cards, categories, categoryRecords, subcategories, categoryStats, reviewLog, srSettings, onShowPlanner }: Props) {
+export default function MyStats({ cards, categories, categoryRecords, subcategories, categoryStats, reviewLog, srSettings, onShowPlanner, onShowOnboarding }: Props) {
   const [activeTab, setActiveTab] = useState<string>("overview");
 
   const catNameMap = useMemo(() => {
@@ -52,22 +53,35 @@ export default function MyStats({ cards, categories, categoryRecords, subcategor
             <h2 className="text-2xl font-bold text-foreground flex items-center gap-2"><BarChart3 className="h-6 w-6 text-primary" /> Statistika</h2>
             <p className="text-muted-foreground mt-1">FSRS analitika, grafikoni i kvantitativni podaci</p>
           </div>
-          <InfoPanel title="Kako radi Statistika?">
-            <p><strong className="text-foreground">Pregled</strong> — heatmapa aktivnosti, distribucija znanja, kriva zaboravljanja, omjer ponavljanja (14 dana) i efektivno učenje danas.</p>
-            <p><strong className="text-foreground">Kalibracija</strong> — upoređuje procjenu sigurnosti (1-4) sa stvarnom ocjenom radi detekcije iluzije znanja.</p>
-            <p><strong className="text-foreground">Latencija</strong> — vrijeme do otkrivanja odgovora. Prag: &lt;3 sekunde.</p>
-            <p><strong className="text-foreground">Otpor</strong> — kombinovani skor lapsusa, latencije i zaboravljanja.</p>
-            <p><strong className="text-foreground">Predikcija</strong> — predikcija budućeg opterećenja po predmetima.</p>
-            <p><strong className="text-foreground">Efikasnost</strong> — omjer produktivnog učenja (Deep Work) naspram površnog (Shallow Work) sa trendom po sesijama.</p>
-            <div className="pt-1 border-t border-border mt-1">
-              <p className="font-medium text-foreground mb-1">Prečice</p>
-              <div className="space-y-1">
-                <div className="flex items-center justify-between"><span>Globalna pretraga</span><kbd className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-secondary text-secondary-foreground border">Ctrl+K</kbd></div>
-                <div className="flex items-center justify-between"><span>Workflow sidebar</span><kbd className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-secondary text-secondary-foreground border">M</kbd></div>
-                <div className="flex items-center justify-between"><span>Zatvori modal</span><kbd className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-secondary text-secondary-foreground border">ESC</kbd></div>
+          <div className="flex items-center gap-1">
+            <InfoPanel title="Kako radi Statistika?">
+              <p><strong className="text-foreground">Pregled</strong> — heatmapa aktivnosti, distribucija znanja, kriva zaboravljanja, omjer ponavljanja (14 dana) i efektivno učenje danas.</p>
+              <p><strong className="text-foreground">Kalibracija</strong> — upoređuje procjenu sigurnosti (1-4) sa stvarnom ocjenom radi detekcije iluzije znanja.</p>
+              <p><strong className="text-foreground">Latencija</strong> — vrijeme do otkrivanja odgovora. Prag: &lt;3 sekunde.</p>
+              <p><strong className="text-foreground">Otpor</strong> — kombinovani skor lapsusa, latencije i zaboravljanja.</p>
+              <p><strong className="text-foreground">Predikcija</strong> — predikcija budućeg opterećenja po predmetima.</p>
+              <p><strong className="text-foreground">Efikasnost</strong> — omjer produktivnog učenja (Deep Work) naspram površnog (Shallow Work) sa trendom po sesijama.</p>
+              <div className="pt-1 border-t border-border mt-1">
+                <p className="font-medium text-foreground mb-1">Prečice</p>
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between"><span>Globalna pretraga</span><kbd className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-secondary text-secondary-foreground border">Ctrl+K</kbd></div>
+                  <div className="flex items-center justify-between"><span>Workflow sidebar</span><kbd className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-secondary text-secondary-foreground border">M</kbd></div>
+                  <div className="flex items-center justify-between"><span>Zatvori modal</span><kbd className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-secondary text-secondary-foreground border">ESC</kbd></div>
+                </div>
               </div>
-            </div>
-          </InfoPanel>
+            </InfoPanel>
+            {onShowOnboarding && (
+              <button
+                onClick={onShowOnboarding}
+                className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors p-1 rounded-md hover:bg-secondary"
+                title="Vodič za statistiku"
+                aria-label="Vodič za statistiku"
+              >
+                <HelpCircle className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">Onboarding</span>
+              </button>
+            )}
+          </div>
         </div>
       </motion.div>
 
