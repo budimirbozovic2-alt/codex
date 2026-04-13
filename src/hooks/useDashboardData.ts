@@ -3,13 +3,13 @@ import { useMemo, useEffect, useRef, useState } from "react";
 import { Card as SRCard, SRSettings, getPendingFirstReviewCount } from "@/lib/spaced-repetition";
 import { ReviewLogEntry, getStorageUsage, getLastBackupTime } from "@/lib/storage";
 import { loadSlippageLog } from "@/lib/metacognitive-storage";
-import {
-  loadPlanner, calcVelocity, calcEstimatedFinish, getPlannerStatus,
-  getSmartSuggestion, calcDailyTimeRecommendation, getCognitiveDebt,
-  recordDayDiscipline, loadDisciplineLog,
-  getDailyMappedCount, autoRedistributeIfNeeded,
-  generateStudyPlan, calcLearningReviewRatio,
-} from "@/lib/planner-storage";
+// R2 fix: lazy-import planner-storage to avoid eagerly loading 577-line module + date-fns
+type PlannerModule = typeof import("@/lib/planner-storage");
+let _plannerMod: PlannerModule | null = null;
+async function getPlannerModule(): Promise<PlannerModule> {
+  if (!_plannerMod) _plannerMod = await import("@/lib/planner-storage");
+  return _plannerMod;
+}
 import { CategoryRecord } from "@/lib/db";
 import { StudyFlowData } from "@/components/dashboard/StudyFlowWidget";
 import { calcEnergyRecommendation } from "@/lib/cognitive-analytics";
@@ -140,24 +140,34 @@ export function useDashboardData(
   }, [appSettings]);
   const lastBackup = useDeferredCompute(() => getLastBackupTime(), []);
 
-  const velocity7 = useDeferredCompute(() => calcVelocity(reviewLog, 7), [reviewLog]);
-  const plannerConfig = useDeferredCompute(() => loadPlanner(), []);
+  const velocity7 = useDeferredCompute(async () => {
+    const mod = await getPlannerModule();
+    return mod.calcVelocity(reviewLog, 7);
+  }, [reviewLog]);
+  const plannerConfig = useDeferredCompute(async () => {
+    const mod = await getPlannerModule();
+    return mod.loadPlanner();
+  }, []);
 
-  const plannerData = useDeferredCompute(() => {
+  const plannerData = useDeferredCompute(async () => {
     if (!plannerConfig?.finalGoalDate || velocity7 === null) return null;
+    const mod = await getPlannerModule();
     const remaining = stats.totalSections - stats.learnedSections;
-    const estimated = calcEstimatedFinish(remaining, velocity7);
-    const status = getPlannerStatus(estimated, plannerConfig.finalGoalDate, plannerConfig.bufferPercent ?? 15);
-    const suggestion = getSmartSuggestion(null, cards, plannerConfig.finalGoalDate, velocity7, plannerConfig.bufferPercent ?? 15);
-    const timeRec = suggestion ? calcDailyTimeRecommendation(suggestion.suggestedToday, velocity7, stats.due) : null;
+    const estimated = mod.calcEstimatedFinish(remaining, velocity7);
+    const status = mod.getPlannerStatus(estimated, plannerConfig.finalGoalDate, plannerConfig.bufferPercent ?? 15);
+    const suggestion = mod.getSmartSuggestion(null, cards, plannerConfig.finalGoalDate, velocity7, plannerConfig.bufferPercent ?? 15);
+    const timeRec = suggestion ? mod.calcDailyTimeRecommendation(suggestion.suggestedToday, velocity7, stats.due) : null;
     const activePhase = null;
-    const dailyMapped = getDailyMappedCount();
+    const dailyMapped = mod.getDailyMappedCount();
     const dailyQuota = suggestion?.suggestedToday ?? 0;
-    const redistResult = autoRedistributeIfNeeded(cards, plannerConfig.finalGoalDate, plannerConfig.bufferPercent ?? 15);
+    const redistResult = mod.autoRedistributeIfNeeded(cards, plannerConfig.finalGoalDate, plannerConfig.bufferPercent ?? 15);
     return { status, suggestion, timeRec, remaining, totalSections: stats.totalSections, learnedSections: stats.learnedSections, activePhase, dailyMapped, dailyQuota, redistResult };
   }, [stats, velocity7, plannerConfig, cards]);
 
-  const cognitiveDebt = useDeferredCompute(() => getCognitiveDebt(dailyGoal), [dailyGoal]);
+  const cognitiveDebt = useDeferredCompute(async () => {
+    const mod = await getPlannerModule();
+    return mod.getCognitiveDebt(dailyGoal);
+  }, [dailyGoal]);
   const energyRec = useDeferredCompute(() => calcEnergyRecommendation(), []);
 
   // Record discipline for yesterday (side effect — must be in useEffect, not useMemo)
@@ -166,24 +176,27 @@ export function useDashboardData(
     const yesterday = new Date();
     yesterday.setDate(yesterday.getDate() - 1);
     const yKey = yesterday.toISOString().slice(0, 10);
-    // Guard: only record once per day key to prevent StrictMode double-fire
     if (disciplineRecordedRef.current === yKey) return;
-    const log = loadDisciplineLog();
-    if (log.find(e => e.date === yKey)) { disciplineRecordedRef.current = yKey; return; }
-    const yStart = new Date(yKey).getTime();
-    const yEnd = yStart + 86400000;
-    const yReviews = reviewLog.filter(e => e.timestamp >= yStart && e.timestamp < yEnd).length;
-    const slippageLog = loadSlippageLog();
-    const ySlippage = slippageLog.find(s => s.date === yKey)?.slippageMs ?? null;
-    recordDayDiscipline(yKey, yReviews, dailyGoal, ySlippage);
-    disciplineRecordedRef.current = yKey;
+    (async () => {
+      const mod = await getPlannerModule();
+      const log = mod.loadDisciplineLog();
+      if (log.find(e => e.date === yKey)) { disciplineRecordedRef.current = yKey; return; }
+      const yStart = new Date(yKey).getTime();
+      const yEnd = yStart + 86400000;
+      const yReviews = reviewLog.filter(e => e.timestamp >= yStart && e.timestamp < yEnd).length;
+      const slippageLog = loadSlippageLog();
+      const ySlippage = slippageLog.find(s => s.date === yKey)?.slippageMs ?? null;
+      mod.recordDayDiscipline(yKey, yReviews, dailyGoal, ySlippage);
+      disciplineRecordedRef.current = yKey;
+    })();
   }, [reviewLog, dailyGoal]);
 
   const energyLevel = getEnergyLevel();
 
-  const velocityData = useDeferredCompute(() => {
+  const velocityData = useDeferredCompute(async () => {
     if (velocity7 === null) return null;
-    const velocityPrev = calcVelocity(reviewLog, 14) - velocity7;
+    const mod = await getPlannerModule();
+    const velocityPrev = mod.calcVelocity(reviewLog, 14) - velocity7;
     const trend = velocity7 > velocityPrev ? "up" : velocity7 < velocityPrev ? "down" : "flat";
     return { velocity: Math.round(velocity7 * 10) / 10, trend } as const;
   }, [velocity7, reviewLog]);
@@ -200,17 +213,17 @@ export function useDashboardData(
       .slice(0, 3);
   }, [categories, categoryStats, categoryRecords]);
 
-  const studyFlowData = useDeferredCompute<StudyFlowData | null>(() => {
+  const studyFlowData = useDeferredCompute<StudyFlowData | null>(async () => {
     if (!plannerConfig?.finalGoalDate || categoryRecords.length === 0 || velocity7 === null) return null;
-    const plans = generateStudyPlan(plannerConfig, categoryRecords, cards);
+    const mod = await getPlannerModule();
+    const plans = mod.generateStudyPlan(plannerConfig, categoryRecords, cards);
     if (plans.length === 0) return null;
     const today = startOfDay(new Date()).getTime();
     const active = plans.find(p => startOfDay(p.startDate).getTime() <= today && today < startOfDay(p.endDate).getTime());
     const focus = active || plans[0];
     const overallPct = stats.totalSections > 0 ? Math.round((stats.learnedSections / stats.totalSections) * 100) : 0;
-    const ratio = calcLearningReviewRatio(overallPct);
-    const dailyMapped = getDailyMappedCount();
-    // Reuse plannerData suggestion instead of calling getSmartSuggestion again
+    const ratio = mod.calcLearningReviewRatio(overallPct);
+    const dailyMapped = mod.getDailyMappedCount();
     const dailyQuota = plannerData?.suggestion?.suggestedToday ?? 0;
     return {
       focusSubject: focus.categoryName,

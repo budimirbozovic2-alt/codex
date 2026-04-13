@@ -19,13 +19,19 @@ const AppOnboarding = lazy(() => import("@/components/AppOnboarding"));
 const SOURCE_ROUTES = ["/categories", "/category/"];
 
 /** Isolated component for planner nudge — lazy-loads planner-storage */
+/** M2 fix: NudgeWatcher reads cards/reviewLog lazily via refs to avoid
+ *  re-rendering on every card mutation. Only checks on route change. */
 const NudgeWatcher = memo(function NudgeWatcher() {
-  const { cards } = useCardData();
-  const { reviewLog } = useReviewData();
   const { pathname } = useLocation();
   const prevPathRef = useRef(pathname);
   const nudgeShownRef = useRef(false);
   const plannerModRef = useRef<typeof import("@/lib/planner-storage") | null>(null);
+
+  // Store refs to context data — avoids subscribing to frequent changes
+  const cardDataRef = useRef<ReturnType<typeof useCardData>>(null!);
+  cardDataRef.current = useCardData();
+  const reviewDataRef = useRef<ReturnType<typeof useReviewData>>(null!);
+  reviewDataRef.current = useReviewData();
 
   useEffect(() => {
     if (pathname === "/planner") plannerModRef.current = null;
@@ -46,6 +52,8 @@ const NudgeWatcher = memo(function NudgeWatcher() {
         const { loadPlanner, getSmartSuggestion, calcVelocity, getDailyMappedCount } = plannerModRef.current;
         const planner = loadPlanner();
         if (!planner.finalGoalDate || planner.phases.length === 0) return;
+        const cards = cardDataRef.current.cards;
+        const reviewLog = reviewDataRef.current.reviewLog;
         const velocity = calcVelocity(reviewLog, 7);
         const suggestion = getSmartSuggestion(null, cards, planner.finalGoalDate, velocity, planner.bufferPercent ?? 15);
         if (!suggestion || suggestion.suggestedToday <= 0) return;
@@ -61,7 +69,7 @@ const NudgeWatcher = memo(function NudgeWatcher() {
         }
       } catch {}
     })();
-  }, [pathname, cards, reviewLog]);
+  }, [pathname]);
 
   return null;
 });

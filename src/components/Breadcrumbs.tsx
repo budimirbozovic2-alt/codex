@@ -1,6 +1,6 @@
 import { ChevronRight } from "lucide-react";
 import { useLocation, Link } from "react-router-dom";
-import { useMemo } from "react";
+import { useMemo, memo } from "react";
 import { useCategoryData } from "@/contexts/AppContext";
 
 const ROUTE_LABELS: Record<string, string> = {
@@ -24,7 +24,8 @@ const ROUTE_LABELS: Record<string, string> = {
 
 const LAB_ROUTES = new Set(["/stats", "/metacognitive", "/mnemonic", "/planner", "/speed-reader", "/mind-map"]);
 
-export default function Breadcrumbs() {
+// O2 fix: memo prevents re-renders from parent when categoryRecords haven't changed
+export default memo(function Breadcrumbs() {
   const { pathname } = useLocation();
   const { categoryRecords } = useCategoryData();
 
@@ -69,4 +70,4 @@ export default function Breadcrumbs() {
       ))}
     </nav>
   );
-}
+});

@@ -4,7 +4,7 @@ import ActivityHeatmap from "@/components/ActivityHeatmap";
 import { ReviewLogEntry } from "@/lib/storage";
 import ProgressRing from "@/components/ProgressRing";
 import { useDashboardData } from "@/hooks/useDashboardData";
-import { motion } from "framer-motion";
+
 import { ExamProgressBar } from "./dashboard/ExamProgressBar";
 import { CoreStats } from "./dashboard/CoreStats";
 import { DailyBriefing } from "./dashboard/DailyBriefing";
@@ -62,8 +62,7 @@ export default function Dashboard({ stats, categoryStats, categories, categoryRe
           )}
 
           {wc.showProgressRing && plannerData && plannerData.activePhase && (
-            <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.12 }}
-              className="glass-card p-5">
+            <div className="animate-in fade-in slide-in-from-bottom-4 duration-300 glass-card p-5">
               <div className="flex items-center gap-2 mb-4">
                 <Target className="h-4 w-4 text-primary" />
                 <h3 className="text-sm font-medium">Progres faze: {plannerData.activePhase.name}</h3>
@@ -87,7 +86,7 @@ export default function Dashboard({ stats, categoryStats, categories, categoryRe
                   ⚡ Kvota automatski redistribuirana: {plannerData.redistResult.newQuota} sekcija/dan
                 </p>
               )}
-            </motion.div>
+            </div>
           )}
 
           {studyFlowData && (

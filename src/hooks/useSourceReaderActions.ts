@@ -329,16 +329,26 @@ export function useSourceReaderActions(source: Source, onSourceUpdated?: (source
     useSourceReaderStore.getState().setHeadingMenu({ x: e.clientX, y: e.clientY, element: block as HTMLElement });
   }, []);
 
-  // Close heading menu on click elsewhere
+  // M3 fix: Close heading menu on click elsewhere — properly cleanup listener
   useEffect(() => {
     const store = useSourceReaderStore;
+    let closeHandler: (() => void) | null = null;
     const unsub = store.subscribe((state, prev) => {
       if (state.headingMenu && !prev.headingMenu) {
-        const close = () => store.getState().setHeadingMenu(null);
-        window.addEventListener("click", close, { once: true });
+        // Remove previous listener if it wasn't consumed
+        if (closeHandler) window.removeEventListener("click", closeHandler);
+        closeHandler = () => { store.getState().setHeadingMenu(null); closeHandler = null; };
+        window.addEventListener("click", closeHandler, { once: true });
+      } else if (!state.headingMenu && prev.headingMenu && closeHandler) {
+        // Menu closed via other means (Escape, navigation) — cleanup dangling listener
+        window.removeEventListener("click", closeHandler);
+        closeHandler = null;
       }
     });
-    return unsub;
+    return () => {
+      unsub();
+      if (closeHandler) window.removeEventListener("click", closeHandler);
+    };
   }, []);
 
   // ─── Scroll to heading ───

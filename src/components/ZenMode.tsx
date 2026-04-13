@@ -70,6 +70,8 @@ export default function ZenMode({ active, onToggle }: Props) {
         osc.start(ctx.currentTime + i * 0.25);
         osc.stop(ctx.currentTime + i * 0.25 + 0.5);
       });
+      // M1 fix: close AudioContext after last note to free system audio resources
+      setTimeout(() => ctx.close().catch(() => {}), 1500);
     } catch {}
   }, []);
 
