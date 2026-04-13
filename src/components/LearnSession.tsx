@@ -2,7 +2,6 @@ import { useState, useMemo, useCallback, useEffect, useRef, Suspense, lazy } fro
 import { Card, getCardScore } from "@/lib/spaced-repetition";
 import { LearnMode, LearnCardProgress, loadLearnProgress, saveLearnProgress } from "@/lib/storage";
 import { addActivityEntry } from "@/lib/metacognitive-storage";
-import { recordDayDiscipline, getSmartSuggestion, calcVelocity, loadPlanner } from "@/lib/planner-storage";
 import SessionComplete from "./learn/SessionComplete";
 import ModeSelector from "./learn/ModeSelector";
 import FilterSetup from "./learn/FilterSetup";

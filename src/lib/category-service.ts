@@ -27,10 +27,10 @@ export async function optimisticCategoryUpdate(
   // Serialize IDB writes via mutex to prevent concurrent overwrites
   const saveOp = _pendingSave.then(async () => {
     try {
-      // Use React state (updatedState) as source of truth instead of re-loading from IDB
-      if (updatedState) {
-        await idbSaveCategories(updatedState);
-      }
+      // Re-read fresh IDB state inside mutex, then re-apply updater to avoid stale closure overwrites
+      const fresh = await idbLoadCategories();
+      const next = updater(fresh);
+      await idbSaveCategories(next);
     } catch (e) {
       console.error(`[${label}] IDB persist failed, rolling back`, e);
       if (rollbackSnapshot) setCategoryRecords(rollbackSnapshot);

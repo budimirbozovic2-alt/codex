@@ -1,4 +1,5 @@
-import { memo, useCallback, useEffect, useRef } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef } from "react";
+import { sanitizeHtml } from "@/lib/sanitize";
 import { SourceEditToolbar } from "./SourceEditToolbar";
 
 interface Props {
