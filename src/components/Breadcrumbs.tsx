@@ -4,7 +4,7 @@ import { useMemo } from "react";
 import { useCategoryData } from "@/contexts/AppContext";
 
 const ROUTE_LABELS: Record<string, string> = {
-  "/": "Dashboard",
+  "/": "Početna tabla",
   "/learn": "Učenje",
   "/review": "Konsolidacija",
   "/create": "Kreiranje",
@@ -39,7 +39,7 @@ export default function Breadcrumbs() {
   if (pathname === "/") return null;
 
   const crumbs: { label: string; path: string | null }[] = [
-    { label: "Dashboard", path: "/" },
+    { label: "Početna tabla", path: "/" },
   ];
 
   if (categoryId) {

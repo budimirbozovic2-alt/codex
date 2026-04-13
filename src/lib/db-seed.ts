@@ -34,7 +34,7 @@ export async function seedDefaultCategories(): Promise<CategoryRecord[]> {
   }
   const defaults = createDefaultCategories();
   await db.categories.bulkPut(defaults);
-  console.log(`[MemoriaDB] Seeded ${defaults.length} default categories`);
+  if (import.meta.env.DEV) console.log(`[MemoriaDB] Seeded ${defaults.length} default categories`);
   return defaults;
 }
 

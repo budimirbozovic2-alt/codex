@@ -35,7 +35,8 @@ export default function MajorSystemSettings() {
   const hasChanges = (() => {
     const keys = new Set([...Object.keys(system), ...Object.keys(savedSystem)]);
     for (const k of keys) {
-      if ((system as any)[k] !== (savedSystem as any)[k]) return true;
+      const numKey = Number(k);
+      if (system[numKey] !== savedSystem[numKey]) return true;
     }
     return false;
   })();

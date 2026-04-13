@@ -64,7 +64,7 @@ export const SourceEditToolbar = memo(function SourceEditToolbar({ onFormat }: P
             onClick={() => handleClick(btn.cmd)}
             className={cn(
               "p-1.5 rounded-md text-muted-foreground transition-colors",
-              (btn as any).hoverClass || "hover:text-foreground hover:bg-secondary"
+              "hover:text-foreground hover:bg-secondary"
             )}
             title={btn.label}
           >

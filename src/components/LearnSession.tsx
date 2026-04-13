@@ -49,9 +49,9 @@ export default function LearnSession({ cards, categories, categoryRecords, subca
     const chapPos: Record<string, number> = {};
     const catRec = categoryRecords.find(r => r.id === selectedCategory);
     if (!catRec) return { subPos, chapPos };
-    for (const node of (catRec as any).subcategories ?? []) {
+    for (const node of catRec.subcategories ?? []) {
       subPos[node.id ?? node.name] = node.sortOrder ?? 0;
-      (node.chapters ?? []).forEach((ch: any, i: number) => {
+      (node.chapters ?? []).forEach((ch: { id: string; name: string } | string, i: number) => {
         const key = typeof ch === "string" ? ch : ch.id;
         chapPos[key] = i;
       });

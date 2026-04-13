@@ -175,24 +175,31 @@ db.on("versionchange", () => {
   db.close();
 });
 
-// Watch for unblocking conditions
+// Watch for unblocking conditions — only start interval when error state is set
 let reloadScheduled = false;
 let unblockIntervalId: ReturnType<typeof setInterval> | null = null;
 
-unblockIntervalId = setInterval(() => {
-  if (!dbErrorState) return;
-  if (dbErrorState.type === "timeout" && eventBus.getTabCount() <= 1) {
-    console.log("[MemoriaDB] Only one tab remains, clearing blocked state...");
-    dbErrorState = null;
-    eventBus.emit(EVENT_TYPES.DB_UNBLOCKED);
-    if (!reloadScheduled) {
-      reloadScheduled = true;
-      setTimeout(() => window.location.reload(), 1000);
+export function startUnblockWatch() {
+  if (unblockIntervalId) return; // already running
+  unblockIntervalId = setInterval(() => {
+    if (!dbErrorState) {
+      clearInterval(unblockIntervalId!);
+      unblockIntervalId = null;
+      return;
     }
-    clearInterval(unblockIntervalId!);
-    unblockIntervalId = null;
-  }
-}, 2000);
+    if (dbErrorState.type === "timeout" && eventBus.getTabCount() <= 1) {
+      if (import.meta.env.DEV) console.log("[MemoriaDB] Only one tab remains, clearing blocked state...");
+      dbErrorState = null;
+      eventBus.emit(EVENT_TYPES.DB_UNBLOCKED);
+      clearInterval(unblockIntervalId!);
+      unblockIntervalId = null;
+      if (!reloadScheduled) {
+        reloadScheduled = true;
+        setTimeout(() => window.location.reload(), 1000);
+      }
+    }
+  }, 2000);
+}
 
 /**
  * Open database. On VersionError/UpgradeError, delete DB and reopen fresh.
@@ -226,6 +233,7 @@ export async function ensureDbOpen(timeoutMs = 6000): Promise<boolean> {
         } catch (delErr) {
           console.error("[MemoriaDB] Failed to delete DB for reset", delErr);
           dbErrorState = { type: "version", message: e.message };
+          startUnblockWatch();
           return false;
         }
       } else if (e.message === "DB_OPEN_TIMEOUT" || e.message === "DB_BLOCKED") {
@@ -243,6 +251,7 @@ export async function ensureDbOpen(timeoutMs = 6000): Promise<boolean> {
             window.location.reload();
           }
         }, 30000);
+        startUnblockWatch();
       }
       return false;
     }
@@ -255,6 +264,7 @@ export async function ensureDbOpen(timeoutMs = 6000): Promise<boolean> {
       ok = await tryOpen();
     } catch {
       dbErrorState = { type: "version", message: "Nije moguće otvoriti bazu nakon resetovanja." };
+      startUnblockWatch();
       return false;
     }
   }

@@ -161,3 +161,8 @@ class EventBus {
 
 // Singleton instanca za cijelu aplikaciju
 export const eventBus = new EventBus();
+
+// HMR cleanup — prevent BroadcastChannel accumulation during development
+if (import.meta.hot) {
+  import.meta.hot.dispose(() => eventBus.destroy());
+}

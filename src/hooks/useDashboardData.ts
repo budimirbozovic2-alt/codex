@@ -210,8 +210,8 @@ export function useDashboardData(
     const overallPct = stats.totalSections > 0 ? Math.round((stats.learnedSections / stats.totalSections) * 100) : 0;
     const ratio = calcLearningReviewRatio(overallPct);
     const dailyMapped = getDailyMappedCount();
-    const suggestion = getSmartSuggestion(null, cards, plannerConfig.finalGoalDate, velocity7, plannerConfig.bufferPercent ?? 15);
-    const dailyQuota = suggestion?.suggestedToday ?? 0;
+    // Reuse plannerData suggestion instead of calling getSmartSuggestion again
+    const dailyQuota = plannerData?.suggestion?.suggestedToday ?? 0;
     return {
       focusSubject: focus.categoryName,
       dailyMapped,
@@ -221,7 +221,7 @@ export function useDashboardData(
       ratioLabel: ratio.label,
       overallPct,
     };
-  }, [stats, categoryRecords, cards, velocity7, plannerConfig]);
+  }, [stats, categoryRecords, cards, velocity7, plannerConfig, plannerData]);
 
   const briefText = useMemo(() => {
     const parts: string[] = [];
