@@ -112,7 +112,7 @@ export async function migrateMnemonicsFromLocalStorageToIDB(): Promise<number> {
     localStorage.removeItem(MAJOR_SYSTEM_KEY);
     localStorage.removeItem(MNEMONIC_TEST_LOG_KEY);
 
-    console.log(`[Migracija] Uspješno prebačeno ${transformedCards.length} mnemonika u IDB.`);
+    if (import.meta.env.DEV) console.log(`[Migracija] Uspješno prebačeno ${transformedCards.length} mnemonika u IDB.`);
     return transformedCards.length;
 
   } catch (error) {

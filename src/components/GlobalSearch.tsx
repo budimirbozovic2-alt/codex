@@ -45,7 +45,8 @@ function highlightMatch(text: string, query: string): string {
   if (!query) return sanitizeHtml(text);
   const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const clean = sanitizeHtml(text);
-  return clean.replace(new RegExp(`(${escaped})`, "gi"), '<mark class="bg-primary/30 text-foreground rounded-sm px-0.5">$1</mark>');
+  const highlighted = clean.replace(new RegExp(`(${escaped})`, "gi"), '<mark class="bg-primary/30 text-foreground rounded-sm px-0.5">$1</mark>');
+  return sanitizeHtml(highlighted);
 }
 
 export default function GlobalSearch({ cards, open, onClose, onNavigateToCard }: Props) {

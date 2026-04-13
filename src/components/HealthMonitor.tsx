@@ -272,7 +272,7 @@ export default function HealthMonitor() {
                       )}
                     </span>
                     <span className="text-[10px] text-muted-foreground whitespace-nowrap">
-                      {entry.lastSeen ? new Date(entry.lastSeen).toLocaleDateString("sr-Latn") : (entry as any).timestamp || "—"}
+                      {entry.lastSeen ? new Date(entry.lastSeen).toLocaleDateString("sr-Latn") : "—"}
                     </span>
                   </div>
                   <p className="text-muted-foreground truncate">{entry.message}</p>

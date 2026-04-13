@@ -38,7 +38,7 @@ export default function ReviewSession({ dueCards, allCards, categoryRecords, sub
             await idbSaveSettings(SESSION_KEY, state);
             localStorage.removeItem(SESSION_KEY);
           }
-        } catch (_) {}
+        } catch (e) { console.debug("[ReviewSession] session restore failed", e); }
       }
       if (
         state && typeof state === "object" &&

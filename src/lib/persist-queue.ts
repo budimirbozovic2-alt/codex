@@ -89,7 +89,9 @@ function createPersistQueue() {
     }
     if (pending.length > 0) {
       try { sessionStorage.setItem("codex-flush-pending", "1"); } catch {}
-      flush(); // fire-and-forget — best effort on unmount
+      // Best-effort flush on unmount — cannot await in cleanup/unload contexts.
+      // The visibilitychange handler (below) is the primary safety net for tab close.
+      flush();
     }
   }
 

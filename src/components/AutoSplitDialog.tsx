@@ -252,7 +252,7 @@ export default function AutoSplitDialog({ open, onClose, source }: Props) {
 
     // Verification: confirm cards landed in IDB
     const idbCount = await db.cards.count();
-    console.log(`[AutoSplit] Bulk import done: ${newCards.length} new, ${updates.length} updated, IDB total: ${idbCount}`);
+    if (import.meta.env.DEV) console.log(`[AutoSplit] Bulk import done: ${newCards.length} new, ${updates.length} updated, IDB total: ${idbCount}`);
 
     setProgress(100);
     const count = newCards.length + updates.length;
