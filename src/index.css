@@ -756,6 +756,12 @@ nav button, nav a {
   left: 0;
 }
 
+/* ─── Hide caret on non-editable elements ────── */
+[contenteditable="false"],
+.prose:not([contenteditable="true"]) {
+  caret-color: transparent;
+}
+
 /* ─── Number input spinners — themed ─────────── */
 input[type="number"]::-webkit-inner-spin-button,
 input[type="number"]::-webkit-outer-spin-button {

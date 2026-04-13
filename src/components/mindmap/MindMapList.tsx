@@ -1,4 +1,4 @@
-import { Plus, Trash2, Network, GitBranch, Workflow } from "lucide-react";
+import { Plus, Trash2, Map, GitBranch, Workflow } from "lucide-react";
 import { useState, useEffect } from "react";
 import { MindMapDoc, MindMapMode } from "@/lib/db";
 import { loadMindMaps, deleteMindMap, saveMindMap } from "@/lib/mindmap-storage";
@@ -55,7 +55,7 @@ export default function MindMapList({ onOpen }: Props) {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
-            <Network className="h-6 w-6 text-primary" />
+            <Map className="h-6 w-6 text-primary" />
             Mentalne mape
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
@@ -103,7 +103,7 @@ export default function MindMapList({ onOpen }: Props) {
         </div>
       ) : maps.length === 0 && !showCreate ? (
         <div className="text-center py-16 space-y-4">
-          <Network className="h-12 w-12 mx-auto text-muted-foreground/40" />
+          <Map className="h-12 w-12 mx-auto text-muted-foreground/40" />
           <p className="text-muted-foreground">Nemate nijednu mentalnu mapu.</p>
           <Button variant="outline" onClick={() => setShowCreate(true)}>
             <Plus className="h-4 w-4 mr-1" /> Kreiraj prvu mapu

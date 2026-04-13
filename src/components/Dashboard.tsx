@@ -1,4 +1,4 @@
-import { Target } from "lucide-react";
+import { Target, Home } from "lucide-react";
 import { Card as SRCard, SRSettings } from "@/lib/spaced-repetition";
 import ActivityHeatmap from "@/components/ActivityHeatmap";
 import { ReviewLogEntry } from "@/lib/storage";
@@ -35,6 +35,9 @@ export default function Dashboard({ stats, categoryStats, categories, categoryRe
   } = useDashboardData(stats, categoryStats, categories, categoryRecords, cards, reviewLog, srSettings);
   return (
     <div className="space-y-6 relative">
+      <h2 className="text-2xl font-bold text-foreground flex items-center gap-2">
+        <Home className="h-6 w-6 text-primary" /> Dashboard
+      </h2>
       {wc.showExamProgress && (
         <ExamProgressBar
           learnedSections={stats.learnedSections}

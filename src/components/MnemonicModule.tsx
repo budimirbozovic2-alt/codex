@@ -135,8 +135,8 @@ export default function MnemonicModule() {
 
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="imperial-title flex items-center gap-3">
-            <Brain className="h-8 w-8 text-primary" /> Memorizacija
+          <h2 className="text-2xl font-bold text-foreground flex items-center gap-2">
+            <Brain className="h-6 w-6 text-primary" /> Memorizacija
           </h2>
           <p className="text-muted-foreground mt-2">Izolovani sistem za kreiranje i testiranje mentalnih kuka.</p>
         </div>
