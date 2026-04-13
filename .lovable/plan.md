@@ -1,114 +1,59 @@
 
 
-# Deep Audit: Arhitektura, greške, uska grla i optimizacije
+# Plan: Ujednačavanje naslova stranica + uklanjanje kursora
 
-## 1. GREŠKE I SIGURNOSNI RIZICI
+## Tri zahtjeva
 
-### 1.1 XSS — nesanitizovan `dangerouslySetInnerHTML` (VISOK RIZIK)
-**`src/components/workshop/WorkshopCardItem.tsx:191`** — `s.content` se renderuje direktno bez `sanitizeHtml()`:
-```tsx
-dangerouslySetInnerHTML={{ __html: s.content }}
+### 1. Ikonica iz navigacije uz svaki naslov
+Svaka stranica dobija ikonicu koja odgovara navigaciji u sidebar-u:
+
+| Stranica | Nav ikona | Trenutno u naslovu | Akcija |
+|---|---|---|---|
+| Dashboard | `Home` | nema | dodaj |
+| Učenje | `GraduationCap` | nema | dodaj |
+| Konsolidacija | `RotateCcw` | nema | dodaj |
+| Statistika | `BarChart3` | nema | dodaj |
+| Dnevnik | `BookOpen` | nema | dodaj |
+| Memorizacija | `Brain` | `Brain` ✅ | OK |
+| Strateški planer | `Gauge` | nema | dodaj |
+| Speed Reader | `Zap` | nema | dodaj |
+| Mentalne mape | `Map` | `Network` ❌ | zamijeni sa `Map` |
+
+### 2. Stil naslova — bijeli bold umjesto zlatnog imperial
+Trenutno većina naslova koristi `imperial-title` klasu (zlatna boja, DM Sans 700). Mentalne mape koriste `text-2xl font-bold text-foreground` (bijela boja) — taj stil je upečatljiviji.
+
+Zamjena u svim page-level naslovima:
+- `className="imperial-title"` → `className="text-2xl font-bold text-foreground"`
+- Dodati `flex items-center gap-2` za ikonu
+
+Fajlovi za izmjenu (10):
+- `src/components/Dashboard.tsx` — dodaj naslov "Dashboard" sa `Home` ikonom
+- `src/components/learn/ModeSelector.tsx`
+- `src/components/review/ReviewSetup.tsx`
+- `src/components/MyStats.tsx`
+- `src/components/MetacognitiveCenter.tsx`
+- `src/components/MnemonicModule.tsx`
+- `src/components/StrategicPlanner.tsx`
+- `src/components/speed-reader/SpeedReaderSelector.tsx`
+- `src/components/mindmap/MindMapList.tsx` — zamijeni `Network` sa `Map`
+- `src/views/CategoryView.tsx` — naslov predmeta (zadrži bez nav ikone jer su predmeti dinamički)
+
+`imperial-title` klasa se **NE briše** iz CSS-a jer se koristi i u drugim kontekstima (dijalog naslovi, pod-sekcije itd.).
+
+### 3. Uklanjanje kursora za uređivanje na neaktivnim tekstovima
+Dodati u `src/index.css` globalno pravilo:
+```css
+[contenteditable="false"], .prose:not([contenteditable="true"]) {
+  caret-color: transparent;
+}
 ```
-Svi ostali `dangerouslySetInnerHTML` pozivi koriste `sanitizeHtml()` ili `highlightKeyParts()` (koji interno sanitizuje). Ovo je jedina nesanitizovana tačka.
-
-**Fix**: Zamijeni sa `sanitizeHtml(s.content)`.
-
-### 1.2 `any` kastovi — 27 `as any` u produkcijskom kodu
-Koncentrisani u:
-- `useCardBootstrap.ts` (migracija legacy podataka) — opravdano za backward compat
-- `useCardImport.ts` (import nepoznatih formata) — opravdano ali treba type guard
-- `useMindMapCanvas.ts` (čišćenje callback-ova iz node data) — treba interfejs
-- `useCategoryManagement.ts` — isti legacy pattern
-
-**Rizik**: Nizak u praksi jer su svi u migracijskim/import putanjama, ali smanjuje TypeScript zaštitu.
-
-### 1.3 `SourceContent.tsx` — `dangerouslySetInnerHTML` bez eksplicitnog sanitize poziva
-Treba provjeriti da li se `htmlContent` sanitizuje prije renderovanja u SourceReader putanji.
-
----
-
-## 2. USKA GRLA PERFORMANSI
-
-### 2.1 `useDashboardData` — previše kalkulacija na svakom renderu
-Hook poziva **6 `useDeferredCompute`** hook-ova i **7 `useMemo`** kalkulacija. Svaki od `useDeferredCompute` poziva sinhrone funkcije poput `loadPlanner()`, `loadSlippageLog()`, `loadDisciplineLog()` koje čitaju iz in-memory keša ili IDB. Ovo radi OK dok je dataset mali ali:
-- `calcVelocity(reviewLog, 7)` se poziva **3 puta** sa istim argumentima (linija 146, 184, 213)
-- `loadPlanner()` se poziva **2 puta** (linija 144, 203)
-- `getSmartSuggestion()` se poziva **2 puta** (linija 150, 213)
-
-**Fix**: Konsolidovati u jedan `useDeferredCompute` koji vraća sav planner data, eliminisati duplikate.
-
-### 2.2 `useCards` derived data — O(n) jednoprolazna kalkulacija je OK
-Single-pass `useMemo` za `dueCards/stats/categoryStats` (linija 158-232) je dobro optimizovan. Nema problema ovdje.
-
-### 2.3 `CategoryView` — 498 linija, i dalje najteža komponenta
-Sadrži inline logiku za:
-- DOCX import
-- Source delete dialog (sa async handler-om unutar JSX-a)
-- Knowledge map toggle
-
-Mogla bi se razbiti na `SourcesTab` komponentu (~150 linija manje).
-
-### 2.4 `MindMapNode.tsx` — 390 linija
-Najveća prezentaciona komponenta. Sadrži inline editing, resize, icon registry, i color picker. Kandidat za dekompoziciju ali funkcionalno stabilan jer koristi `memo`.
-
-### 2.5 `sources` filter u CategoryView — dvostruko filtriranje
-```tsx
-sources.filter(s => (s.sourceKind ?? "propis") === "propis").length  // za badge
-sources.filter(s => (s.sourceKind ?? "propis") === kind)              // za listu
+I dodatno opšte pravilo za body/main tekst koji nije editable:
+```css
+body { cursor: default; }
 ```
-Filtrira se 2× za badge + 2× za sadržaj (ukupno 4 prolaza). Trebalo bi memoizovati.
 
----
-
-## 3. ARHITEKTONSKE PRILIKE
-
-### 3.1 Kontekst dekompozicija — ODLIČNA
-Razdvajanje na `CardState`, `CategoryState`, `ReviewState`, `Actions` (Proxy pattern) i `Pomodoro` kontekste je izvanredno. Proxy-based actions nikad ne re-renderuju potrošače. Ovo je state-of-the-art za React kontekst.
-
-### 3.2 Persist Queue — SOLIDNA
-Micro-batching (16ms debounce), visibility change flush, interrupted write detection — sve je na mjestu. Jedina sitna primjedba: `flush()` se poziva fire-and-forget u `cleanup()` — ako tab zatvori za vrijeme pisanja, nema garancije da će se završiti (ali `sessionStorage` flag to detektuje).
-
-### 3.3 Boot proces — ROBUSTAN
-8s panic timer, fazni splash progress, withTimeout sa fallback-ovima, lazy migracije — dobro dizajnirano za offline-first app.
-
-### 3.4 `useLiveQuery` izolacija — ODLIČNA
-Samo 1 fajl koristi `useLiveQuery` (`CategoryView.tsx`) — za `sources` i `mindMapCount`. Svi ostali podaci dolaze iz konteksta. Ovo je čisto.
-
----
-
-## 4. PREPORUKE ZA IMPLEMENTACIJU (po prioritetu)
-
-### P1 — Sanitizuj WorkshopCardItem (5 min)
-Jedna linija fix, eliminira XSS vektor.
-
-### P2 — Memoizuj filtrirane izvore u CategoryView (10 min)
-Dodaj `useMemo` za `propisSources` i `skriptaSources` umjesto inline `.filter()`.
-
-### P3 — Eliminiši duplikate u useDashboardData (30 min)
-Konsoliduj `calcVelocity`, `loadPlanner`, `getSmartSuggestion` u jedan `useDeferredCompute`.
-
-### P4 — Ekstrahuj SourcesTab iz CategoryView (45 min)
-Izdvoji ~150 linija import/delete/list logike u `components/category/SourcesTab.tsx`.
-
-### P5 — Type guard-ovi za import putanje (60 min)
-Zamijeni `as any[]` kastove u `useCardImport.ts` sa runtime validation funkcijama.
-
----
-
-## 5. ZDRAVSTVENI INDIKATORI
-
-| Metrika | Vrijednost | Ocjena |
-|---------|-----------|--------|
-| `useLiveQuery` leak | 1 fajl (izolovano) | ✅ Odlično |
-| `as any` kastovi | 27 | ⚠️ Prihvatljivo (migracijski kod) |
-| XSS tačke | 1 nesanitizovana | ❌ Fixaj odmah |
-| Najveća komponenta | 498 linija (CategoryView) | ⚠️ Kandidat za split |
-| Duplirane kalkulacije | 3 u useDashboardData | ⚠️ Optimizuj |
-| Console statements | 93 | ℹ️ Većina DEV-only guarded |
-| Bundle lazy loading | Sve rute + teške lib | ✅ Odlično |
-| Kontekst granularnost | 5 konteksta + Proxy actions | ✅ Izvanredno |
-| DB recovery | Timeout + version reset + panic | ✅ Robustno |
-| Persist integrity | Micro-batch + flush-on-hide | ✅ Solidno |
-
-**Ukupna ocjena: 8.5/10** — Arhitektura je zrela, sa jednim sigurnosnim propustom i nekoliko optimizacijskih prilika.
+## Scope
+- ~10 fajlova, svaki sa 1-3 linije izmjene u naslovu
+- 1 CSS pravilo za kursor
+- Bez destruktivnih promjena
 
