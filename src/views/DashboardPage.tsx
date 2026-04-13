@@ -4,7 +4,7 @@ import { useCardData, useCategoryData, useReviewData, useUIContext } from "@/con
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import Dashboard from "@/components/Dashboard";
 import EmptyState from "@/components/EmptyState";
-import { QuickActions } from "@/components/dashboard/QuickActions";
+
 import InfoPanel from "@/components/InfoPanel";
 import { AnimatePresence } from "framer-motion";
 const DashboardOnboarding = lazy(() => import("@/components/DashboardOnboarding"));
@@ -51,7 +51,7 @@ export default function DashboardPage() {
               <HelpCircle className="h-4 w-4" />
             </button>
           </div>
-          <QuickActions dueCount={stats.due} hasCards={cards.length > 0} />
+          
           <Dashboard
             stats={stats}
             categoryStats={categoryStats}

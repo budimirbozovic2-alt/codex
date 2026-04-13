@@ -13,6 +13,7 @@ import { VelocityWidget } from "./dashboard/VelocityWidget";
 import { StatusIconsRow } from "./dashboard/StatusIconsRow";
 import { StudyFlowWidget } from "./dashboard/StudyFlowWidget";
 import { CategoryRecord } from "@/lib/db";
+import { QuickActions } from "./dashboard/QuickActions";
 
 interface Props {
   stats: { due: number; total: number; totalSections: number; learnedSections: number };
@@ -36,7 +37,7 @@ export default function Dashboard({ stats, categoryStats, categories, categoryRe
   return (
     <div className="space-y-6 relative">
       <h2 className="text-2xl font-bold text-foreground flex items-center gap-2">
-        <Home className="h-6 w-6 text-primary" /> Dashboard
+        <Home className="h-6 w-6 text-primary" /> Početna tabla
       </h2>
       {wc.showExamProgress && (
         <ExamProgressBar
@@ -103,6 +104,8 @@ export default function Dashboard({ stats, categoryStats, categories, categoryRe
               streak={streak}
             />
           )}
+
+          <QuickActions dueCount={stats.due} hasCards={cards.length > 0} />
         </div>
 
         {/* Right column — analytics widgets */}
