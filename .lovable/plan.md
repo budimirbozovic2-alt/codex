@@ -1,38 +1,22 @@
 
 
-# Fix: Uklanjanje kursora za uređivanje na svim neaktivnim tekstovima
+# Plan: Speed Reader opis + uklanjanje dugmeta "Otvori izvor"
 
-## Problem
-Trenutno CSS pravilo pokriva samo `.prose` i `[contenteditable="false"]` elemente. Obični tekst (`<p>`, `<span>`, `<h1>` itd.) koji nema te klase/atribute i dalje prikazuje `cursor: text` (I-beam kursor) kad se klikne, što izgleda kao da se tekst može urediti.
+## Izmjena 1: Speed Reader — dodati opis ispod naslova
+**Fajl:** `src/components/speed-reader/SpeedReaderSelector.tsx`
 
-## Rješenje
-Proširiti CSS u `src/index.css`:
-
-```css
-/* ─── Hide caret on non-editable elements ────── */
-[contenteditable="false"],
-.prose:not([contenteditable="true"]) {
-  caret-color: transparent;
-  user-select: none;
-}
-
-/* Prevent text cursor on non-interactive elements */
-h1, h2, h3, h4, h5, h6, p, span, label, div {
-  cursor: default;
-}
-
-/* Restore text cursor where editing/selection is expected */
-input, textarea, [contenteditable="true"], .prose[contenteditable="true"],
-[role="textbox"], .select-text {
-  cursor: text;
-}
-
-a, button, [role="button"], summary, [tabindex] {
-  cursor: pointer;
-}
+Dodati `<p>` tag ispod naslova, kao na ostalim stranicama:
+```tsx
+<p className="text-muted-foreground text-sm mt-1">Brzo čitanje kartica i izvora — treniraj brzinu i fokus</p>
 ```
 
+## Izmjena 2: Ukloniti dugme "Otvori izvor" sa Dashboarda
+**Fajl:** `src/components/dashboard/QuickActions.tsx`
+
+Ukloniti cijeli blok koji renderuje "Otvori izvor" link (linije 27-33), kao i `lastSourceLabel` prop iz komponente i interfejsa. Ukloniti `BookOpen` import.
+
+Također očistiti `lastSourceLabel` prop gdje god se proslijeđuje u `QuickActions` (vjerovatno u `Dashboard.tsx`).
+
 ## Scope
-- 1 fajl (`src/index.css`), ~12 linija izmjena
-- Bez rizika za editabilne elemente jer su eksplicitno izuzeti
+- 2-3 fajla, minimalne izmjene
 
