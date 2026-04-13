@@ -1,4 +1,4 @@
-import { Plus, Trash2, Network, GitBranch, Workflow } from "lucide-react";
+import { Plus, Trash2, Map, GitBranch, Workflow } from "lucide-react";
 import { useState, useEffect } from "react";
 import { MindMapDoc, MindMapMode } from "@/lib/db";
 import { loadMindMaps, deleteMindMap, saveMindMap } from "@/lib/mindmap-storage";
@@ -55,7 +55,7 @@ export default function MindMapList({ onOpen }: Props) {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
-            <Network className="h-6 w-6 text-primary" />
+            <Map className="h-6 w-6 text-primary" />
             Mentalne mape
           </h1>
           <p className="text-sm text-muted-foreground mt-1">

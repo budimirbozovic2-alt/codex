@@ -137,7 +137,7 @@ export default function CategoryView() {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center gap-3">
-        <h1 className="imperial-title text-foreground flex-1">{category.name}</h1>
+        <h1 className="text-2xl font-bold text-foreground flex-1">{category.name}</h1>
         <Button variant={showKnowledge ? "default" : "outline"} size="sm" className="gap-1.5 h-8 text-xs" onClick={() => { setShowKnowledge(v => !v); setKmSubcategory(null); }}>
           <Map className="h-3.5 w-3.5" />
           Mapa znanja

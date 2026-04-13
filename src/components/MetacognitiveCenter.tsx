@@ -42,7 +42,7 @@ export default function MetacognitiveCenter({ cards, categories, categoryRecords
       {!embedded && (
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="imperial-title">Dnevnik</h2>
+            <h2 className="text-2xl font-bold text-foreground flex items-center gap-2"><BookOpen className="h-6 w-6 text-primary" /> Dnevnik</h2>
             <p className="text-muted-foreground mt-1">Refleksije, greške i kognitivna dijagnostika</p>
           </div>
           <InfoPanel title="Kako radi Dnevnik?">

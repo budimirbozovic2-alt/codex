@@ -45,7 +45,7 @@ export default function SpeedReaderSelector({
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-2">
-        <h2 className="imperial-title">Speed Reader</h2>
+        <h2 className="text-2xl font-bold text-foreground flex items-center gap-2"><Zap className="h-6 w-6 text-primary" /> Speed Reader</h2>
         <InfoPanel title="Speed Reader">{SPEED_READER_INFO}</InfoPanel>
       </div>
 

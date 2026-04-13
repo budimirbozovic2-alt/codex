@@ -1,4 +1,4 @@
-import { Target, BarChart3, Map as MapIcon } from "lucide-react";
+import { Target, BarChart3, Map as MapIcon, Gauge } from "lucide-react";
 import { useState, useMemo } from "react";
 import { motion } from "framer-motion";
 import InfoPanel from "@/components/InfoPanel";
@@ -40,7 +40,7 @@ export default function StrategicPlanner({ cards, categories, categoryRecords, r
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="imperial-title">Strateški planer</h2>
+            <h2 className="text-2xl font-bold text-foreground flex items-center gap-2"><Gauge className="h-6 w-6 text-primary" /> Strateški planer</h2>
             <p className="text-muted-foreground mt-1">Adaptivni sistem — plan se prilagođava tvom tempu</p>
           </div>
           <InfoPanel title="Kako radi Strateški planer?">

@@ -1,4 +1,4 @@
-import { TrendingUp, Target, Clock, Flame, CalendarClock, Activity } from "lucide-react";
+import { TrendingUp, Target, Clock, Flame, CalendarClock, Activity, BarChart3 } from "lucide-react";
 import { useState, useMemo, lazy, Suspense } from "react";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { motion } from "framer-motion";
@@ -49,7 +49,7 @@ export default function MyStats({ cards, categories, categoryRecords, subcategor
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="imperial-title">Statistika</h2>
+            <h2 className="text-2xl font-bold text-foreground flex items-center gap-2"><BarChart3 className="h-6 w-6 text-primary" /> Statistika</h2>
             <p className="text-muted-foreground mt-1">FSRS analitika, grafikoni i kvantitativni podaci</p>
           </div>
           <InfoPanel title="Kako radi Statistika?">

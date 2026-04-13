@@ -1,4 +1,4 @@
-import { ShieldAlert, BookOpen, Brain, Link2, ChevronRight, HelpCircle, AlertTriangle } from "lucide-react";
+import { ShieldAlert, BookOpen, Brain, Link2, ChevronRight, HelpCircle, AlertTriangle, GraduationCap } from "lucide-react";
 import { useState, useMemo } from "react";
 import { Card } from "@/lib/spaced-repetition";
 import { LearnMode, ReviewLogEntry } from "@/lib/storage";
@@ -86,7 +86,7 @@ export default function ModeSelector({ cards, learnMode, dueCount, reviewLog, on
       <div>
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="imperial-title">Učenje</h2>
+            <h2 className="text-2xl font-bold text-foreground flex items-center gap-2"><GraduationCap className="h-6 w-6 text-primary" /> Učenje</h2>
             <p className="text-muted-foreground mt-2">Izaberi režim učenja koji odgovara tvom nivou.</p>
           </div>
           <button onClick={() => setShowOnboarding(true)}

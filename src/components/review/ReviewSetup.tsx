@@ -1,4 +1,4 @@
-import { Target, Shield, Zap, BookOpen, ArrowLeft, Play, X as XIcon, HelpCircle, Info } from "lucide-react";
+import { Target, Shield, Zap, BookOpen, ArrowLeft, Play, X as XIcon, HelpCircle, Info, RotateCcw } from "lucide-react";
 import { useState, useMemo, useCallback } from "react";
 import { Card, getDueSections, SRSettings, SectionState, getRetrievability, isLeech } from "@/lib/spaced-repetition";
 import { motion, AnimatePresence } from "framer-motion";
@@ -175,7 +175,7 @@ export default function ReviewSetup({
         <HowItWorksCorner onShowOnboarding={() => setShowOnboarding(true)} />
 
         <div>
-          <h2 className="imperial-title">Konsolidacija</h2>
+          <h2 className="text-2xl font-bold text-foreground flex items-center gap-2"><RotateCcw className="h-6 w-6 text-primary" /> Konsolidacija</h2>
           <p className="text-muted-foreground mt-2">Izaberi režim ponavljanja koji odgovara tvom cilju.</p>
         </div>
 
