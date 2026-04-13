@@ -1,70 +1,115 @@
 
 
-# Plan: Onboarding + Info dugmad za Memorizaciju, Konsolidaciju, Mentalne mape i Učenje
+# Deep Audit: Boot Sequence — Greške i Uska Grla
 
-## Pregled
+## Rezime
 
-Potrebno je unificirani header format (naslov lijevo, Info + Onboarding desno) primijeniti na 4 stranice. Također treba popraviti runtime error sa LearnOnboarding.
-
----
-
-## Izmjene
-
-### 1. Fix runtime error: LearnOnboarding ima prazne redove na početku fajla
-**Fajl:** `src/components/LearnOnboarding.tsx`
-- Ukloniti prazne linije 1-3 na početku fajla (moguć uzrok import greške)
-
-### 2. Učenje (ModeSelector) — unificirani header + Info dugme
-**Fajl:** `src/components/learn/ModeSelector.tsx`
-- Zamijeniti trenutno Onboarding dugme (linije 92-95) sa unificiranijim formatom (manji stil, tekst "Onboarding")
-- Dodati InfoPanel pored Onboarding dugmeta sa korisnim info o režimima učenja
-- Header format: `flex items-center justify-between` sa Info + Onboarding desno
-
-### 3. Konsolidacija (ReviewSetup) — unificirani header + Info dugme
-**Fajl:** `src/components/review/ReviewSetup.tsx`
-- Zamijeniti `HowItWorksCorner` komponentu (absolute pozicioniranje) sa inline dugmadima u header redu
-- Dodati InfoPanel sa info o konsolidaciji pored Onboarding dugmeta
-- Ukloniti `HowItWorksCorner` funkciju
-
-### 4. Memorizacija (MnemonicModule) — unificirani header format
-**Fajl:** `src/components/MnemonicModule.tsx`
-- Zamijeniti trenutno Onboarding dugme (linije 143-149, veliko `h-5 w-5`) sa unificiranijim formatom (tekst "Onboarding", manji stil)
-- Dodati InfoPanel sa info o memorizaciji pored Onboarding dugmeta
-- Oba dugmeta u `flex items-center gap-1` kontejneru
-
-### 5. Mentalne mape (MindMapList) — dodati Info + Onboarding
-**Fajl:** `src/components/mindmap/MindMapList.tsx`
-- Dodati InfoPanel i Onboarding dugme u header red (pored "Nova mapa" dugmeta)
-- Kreirati onboarding sadržaj (slides) za mentalne mape
-
-**Novi fajl:** `src/components/mindmap/MindMapOnboarding.tsx`
-- Kreirati onboarding sa 3-4 slide-a o mentalnim mapama (hijerarhija vs procedura, čvorovi, veze, eksport)
-
-### 6. MindMapPage — state za onboarding
-**Fajl:** `src/views/MindMapPage.tsx`
-- Dodati `showOnboarding` state i proslijediti `onShowOnboarding` u MindMapList
+Boot sekvenca je dobro strukturirana sa splash screenom, progress bar-om, timeout guardovima i error recovery-jem. Pronašao sam **7 konkretnih problema** — 2 uska grla, 3 potencijalne greške, i 2 optimizacije.
 
 ---
 
-## Unificirani header pattern (primjenjuje se na sve 4 stranice)
+## USKA GRLA (bottlenecks)
 
+### B1. Sekvencijalni dynamic imports u `main.tsx` blokiraju render
+**Problem:** `main.tsx:54-64` — tri `await import()` poziva su sekvencijalni:
+```
+await import("./lib/app-settings")   // ~10-30ms
+await import("./App")                // TEŠKI — vuče cijeli dependency graph
+await import("react-dom/client")     // ~5ms
+```
+`App.tsx` je sinkroni import koji vuče: `framer-motion`, `AppSidebar`, `MainLayout` (koji vuče `planner-storage` → `date-fns`), `Breadcrumbs`, `ErrorBoundary`, itd. Tek nakon što se SVE ovo učita, poziva se `createRoot().render()`.
+
+**Fix:** Paralelizovati nezavisne importove:
 ```tsx
-<div className="flex items-center justify-between">
-  <div>
-    <h2>...</h2>
-    <p>...</p>
-  </div>
-  <div className="flex items-center gap-1">
-    <InfoPanel title="...">...</InfoPanel>
-    <button onClick={onShowOnboarding} className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors p-1 rounded-md hover:bg-secondary">
-      <HelpCircle className="h-3.5 w-3.5" />
-      <span className="hidden sm:inline">Onboarding</span>
-    </button>
-  </div>
-</div>
+const [{ initColorTheme }, { default: App }, { createRoot }] = await Promise.all([
+  import("./lib/app-settings"),
+  import("./App"),
+  import("react-dom/client"),
+]);
+```
+Ovo je ~15-30% brži first render.
+
+### B2. `useCardBootstrap` sekvencijalno čeka 6+ IDB operacija
+**Problem:** `useCardBootstrap.ts:100-246` — operacije se izvršavaju jedna za drugom:
+1. `ensureDbOpen()` — do 6s timeout
+2. `migrateFromLocalStorage()` — čisti legacy ključeve
+3. `migrateMnemonicsFromLocalStorageToIDB()` — dynamic import + IDB write
+4. `initMetacognitiveCache()` + `initPlannerCache()` — **ova 2 su paralelna** ✓
+5. `idbLoadCards()` — do 5s timeout
+6. `seedDefaultCategories()` — do 2.5s timeout  
+7. Subcategory migration loop (sinkrona, ali O(n×m))
+8. `idbLoadRecentReviewLog()` — do 2.5s timeout
+9. `idbLoadSettings()` — do 2.5s timeout
+
+Koraci 5-6 i 8-9 su nezavisni i mogu se paralelizovati:
+```tsx
+const [c, catRecords, log, settings] = await Promise.all([
+  withTimeout(idbLoadCards(), 5000, "cards", []),
+  withTimeout(seedDefaultCategories(), 2500, "categories", []),
+  withTimeout(idbLoadRecentReviewLog(90), 2500, "review log", []),
+  withTimeout(idbLoadSettings("srSettings", DEFAULT_SR_SETTINGS), 2500, "settings", DEFAULT_SR_SETTINGS),
+]);
+```
+**Napomena:** `log` i `settings` se trenutno učitavaju NAKON kartica i kategorija (linije 238-246), ali ne zavise od njih. Paralelizacija štedi ~2-4s na sporim diskovima.
+
+---
+
+## POTENCIJALNE GREŠKE
+
+### G1. Dupli splash timeout — 8s u `main.tsx` i 8s u `useCardBootstrap`
+**Problem:** 
+- `main.tsx:46-48` — `hideSplashImmediately()` nakon 8s
+- `useCardBootstrap.ts:46-58` — `panicTimer` nakon 8s forsirano `setReady(true)`
+- `index.html:98-116` — 10s fallback sa auto-reload (do 3 pokušaja)
+
+Ova tri timera se preklapaju i mogu izazvati race condition: splash se može ukloniti dok boot još traje, ili boot može završiti dok HTML fallback radi reload. Specifično, ako `hideSplashImmediately` (main.tsx) ukloni splash na 8s, ali `panicTimer` (useCardBootstrap) još nije završio, korisnik vidi prazan ekran na ~1-2s.
+
+**Fix:** Ukloniti `setTimeout` u `main.tsx:46-48` — `useCardBootstrap` već ima svoj panic timer i splash cleanup u `finally` bloku. HTML fallback na 10s ostaje kao ultimate safety net.
+
+### G2. `MainLayout` eagerly importuje `planner-storage` sa `date-fns`
+**Problem:** `MainLayout.tsx:13` importuje `loadPlanner`, `getSmartSuggestion`, `calcVelocity`, `getDailyMappedCount` — to vuče cijeli `planner-storage.ts` (577 linija) + `date-fns` u boot path. Ovo je potrebno SAMO za `NudgeWatcher` komponentu koja se aktivira tek kad korisnik navigira sa source route-a.
+
+**Fix:** Lazy import unutar `NudgeWatcher` useEffect-a:
+```tsx
+const { loadPlanner, getSmartSuggestion, calcVelocity, getDailyMappedCount } = await import("@/lib/planner-storage");
 ```
 
-## Scope
-- 6-7 fajlova, 1 novi fajl (MindMapOnboarding)
-- Fix runtime error u LearnOnboarding
+### G3. `framer-motion` se eagerly importuje u `MainLayout`
+**Problem:** `MainLayout.tsx:9` — `AnimatePresence` se koristi samo za `ZenMode` i `AppOnboarding`. `framer-motion` je ~40KB gzipped i učitava se na svakom page load-u.
+
+**Fix:** Zamijeniti `AnimatePresence` sa CSS transition ili lazy importovati:
+```tsx
+const AnimatePresence = lazy(() => import("framer-motion").then(m => ({ default: m.AnimatePresence })));
+```
+
+---
+
+## OPTIMIZACIJE
+
+### O1. `service-worker-manager.ts` je mrtav kod
+**Problem:** Fajl definiše `selectiveCacheCleanup` i `registerServiceWorker` ali se **nigdje ne importuje**. SW registracija se radi direktno u `main.tsx:192-204`.
+
+**Fix:** Obrisati `src/lib/service-worker-manager.ts`.
+
+### O2. `LearnOnboarding.tsx` eksportuje `hasSeenOnboarding` — nekompatibilno sa Fast Refresh
+**Problem:** Vite HMR log kaže: `Could not Fast Refresh ("hasSeenOnboarding" export is incompatible)`. Ovo znači da svaka promjena na `LearnOnboarding.tsx` uzrokuje full page reload umjesto hot update-a.
+
+**Fix:** Premjestiti `hasSeenOnboarding` export u zaseban utility fajl ili ga ukloniti iz komponente (koristi se samo kao re-export iz `OnboardingModal`).
+
+---
+
+## Šta je DOBRO (ne treba mijenjati)
+
+- `ensureDbOpen` sa timeout + blocked handler + retry — robustan DB init
+- `withTimeout` wrapper sa fallback vrijednostima — nikad ne blokira beskonačno
+- `panicTimer` u useCardBootstrap — garant da UI neće ostati zauvijek na splash-u
+- HTML-level 10s fallback sa auto-retry (3 pokušaja) — ultimate safety net
+- Lazy loading svih route stranica (`lazy(() => import(...))`)
+- Splash progress bar sa procentima — odličan UX tokom boot-a
+- `checkInterruptedFlush()` — detektuje prekinute write-ove iz prošle sesije
+- `visibilitychange` handler za flush — pouzdan signal za tab close
+
+## Scope implementacije
+
+**5-6 fajlova**, najvažnije izmjene su B1 (jednoliner) i B2 (refaktoring ~20 linija u useCardBootstrap). G2 i G3 su srednji effort. Ukupno ~1h rada.
 
