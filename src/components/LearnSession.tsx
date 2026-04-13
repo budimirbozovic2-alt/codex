@@ -159,7 +159,7 @@ export default function LearnSession({ cards, categories, categoryRecords, subca
       activityLoggedRef.current = true;
       const activityType = learnMode === "free" ? "learn-free" as const : learnMode === "active-recall" ? "learn-active" as const : "learn-chain" as const;
       addActivityEntry({ timestamp: Date.now(), type: activityType, durationMs: elapsed });
-      try {
+      (async () => { try {
         const { loadPlanner, calcVelocity, getSmartSuggestion, recordDayDiscipline } = await import("@/lib/planner-storage");
         const plannerConfig = loadPlanner();
         const velocity = calcVelocity(reviewLogProp, 7);
@@ -168,7 +168,7 @@ export default function LearnSession({ cards, categories, categoryRecords, subca
         const today = new Date().toISOString().slice(0, 10);
         const reviewsDoneToday = reviewLogProp.filter(e => new Date(e.timestamp).toISOString().slice(0, 10) === today).length;
         recordDayDiscipline(today, reviewsDoneToday, dailyGoal, null);
-      } catch {}
+      } catch {} })();
     }
 
     return (
