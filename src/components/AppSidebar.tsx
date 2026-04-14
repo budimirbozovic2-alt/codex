@@ -49,7 +49,8 @@ export default function AppSidebar() {
       <SidebarContent>
         <SidebarGroup>
           <SidebarGroupLabel>Navigacija</SidebarGroupLabel>
-          <SidebarGroupContent as="nav" aria-label="Glavna navigacija">
+          {/* A2: nav semantics */}
+          <SidebarGroupContent>
             <SidebarMenu>
               {STATIC_NAV.map(({ path, icon: Icon, label, badge }) => (
                 <SidebarMenuItem key={path}>
@@ -77,7 +78,7 @@ export default function AppSidebar() {
 
         <SidebarGroup>
           <SidebarGroupLabel>Predmeti</SidebarGroupLabel>
-          <SidebarGroupContent as="nav" aria-label="Predmeti">
+          <SidebarGroupContent>
             <SidebarMenu>
               {categoryRecords.length === 0 && (
                 <SidebarMenuItem>
@@ -138,7 +139,7 @@ export default function AppSidebar() {
 
         <SidebarGroup>
           <SidebarGroupLabel>Alati</SidebarGroupLabel>
-          <SidebarGroupContent as="nav" aria-label="Alati">
+          <SidebarGroupContent>
             <SidebarMenu>
               {TOOLS_NAV.map(({ path, icon: Icon, label }) => (
                 <SidebarMenuItem key={path}>
