@@ -49,8 +49,8 @@ export default function AppSidebar() {
       <SidebarContent>
         <SidebarGroup>
           <SidebarGroupLabel>Navigacija</SidebarGroupLabel>
-          {/* A2: nav semantics */}
           <SidebarGroupContent>
+            <nav aria-label="Glavna navigacija">
             <SidebarMenu>
               {STATIC_NAV.map(({ path, icon: Icon, label, badge }) => (
                 <SidebarMenuItem key={path}>
