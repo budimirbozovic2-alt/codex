@@ -176,17 +176,21 @@ export function useCardBootstrap(setters: BootSetters) {
             return node;
           });
 
-          // Scan cards belonging to this category for orphaned subcategories/chapters
+          // B1 fix: use Map for O(1) node lookup instead of O(n) .find() per card
           const catCards = cardsByCat.get(r.id) || [];
+          const nodeMap = new Map<string, SubcategoryNode>();
+          for (const n of nodes) nodeMap.set(n.id, n);
+
           for (const card of catCards) {
             const sub = card.subcategoryId || "";
             const ch = card.chapterId || "";
             if (!sub) continue;
 
-            let node = nodes.find((n) => n.id === sub);
+            let node = nodeMap.get(sub);
             if (!node) {
               node = { id: crypto.randomUUID(), name: sub, chapters: [], sortOrder: nodes.length };
               nodes.push(node);
+              nodeMap.set(sub, node);
               needsPersist = true;
               if (import.meta.env.DEV) console.log(`[boot] fallback SubcategoryNode created: "${sub}" in category ${r.name}`);
             }

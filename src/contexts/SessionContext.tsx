@@ -33,12 +33,12 @@ interface SessionContextValue {
   snapshot: SessionSnapshot | null;
   /** Start a session — takes a snapshot of current data */
   startSession: (cards: Card[], reviewLog: ReviewLogEntry[]) => void;
-  /** End session — flushes queued actions and triggers processing indicator */
+  /** End session — flushes queued actions and awaits persist */
   endSession: (
     flushReviews: (reviews: QueuedReview[]) => void,
     flushErrors: (errors: QueuedError[]) => void,
     flushReads: (reads: QueuedMarkRead[]) => void,
-  ) => void;
+  ) => Promise<void>;
   /** Queue a review grade (buffered until session ends) */
   queueReview: (cardId: string, sectionId: string, grade: number) => void;
   /** Queue an error log (buffered until session ends) */
@@ -57,8 +57,7 @@ export function useSessionContext() {
   return ctx;
 }
 
-// Processing duration (visual indicator)
-const PROCESSING_DURATION_MS = 2500;
+// Processing indicator duration reduced — actual wait is on persist flush
 
 export function SessionProvider({ children }: { children: ReactNode }) {
   const [isSessionActive, setIsSessionActive] = useState(false);
@@ -80,7 +79,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     setIsSessionActive(true);
   }, []);
 
-  const endSession = useCallback((
+  const endSession = useCallback(async (
     flushReviews: (reviews: QueuedReview[]) => void,
     flushErrors: (errors: QueuedError[]) => void,
     flushReads: (reads: QueuedMarkRead[]) => void,
@@ -103,11 +102,19 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     if (errors.length > 0) flushErrors(errors);
     if (reads.length > 0) flushReads(reads);
 
-    // Show processing indicator then clear
+    // G2 fix: wait for actual persist flush, then show brief indicator
+    try {
+      const { persistQueue } = await import("@/lib/persist-queue");
+      await persistQueue.flush();
+    } catch (e) {
+      console.warn("[session] persist flush failed", e);
+    }
+
+    // Brief visual indicator after flush completes
     setTimeout(() => {
       setIsProcessing(false);
       setSnapshot(null);
-    }, PROCESSING_DURATION_MS);
+    }, 600);
   }, []);
 
   const queueReview = useCallback((cardId: string, sectionId: string, grade: number) => {

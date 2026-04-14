@@ -65,19 +65,28 @@ export async function getPomodoroStats(): Promise<PomodoroStatsResult> {
   const todayStart = new Date().setHours(0, 0, 0, 0);
   const weekStart = todayStart - new Date().getDay() * 86400000;
 
-  // Use IDB range query instead of loading entire history
-  const log = await db.pomodoroLog.where("timestamp").aboveOrEqual(weekStart).toArray();
-  const focusSessions = log.filter((e) => e.type === "focus");
-  const today = focusSessions.filter((e) => e.timestamp >= todayStart);
+  // O2 fix: single query — range from weekStart covers both today and week stats
+  const [log, total] = await Promise.all([
+    db.pomodoroLog.where("timestamp").aboveOrEqual(weekStart).toArray(),
+    db.pomodoroLog.where("type").equals("focus").count(),
+  ]);
 
-  // Total still needs full count — use IDB count for efficiency
-  const total = await db.pomodoroLog.where("type").equals("focus").count();
+  let todayCount = 0, todayMinutes = 0, weekCount = 0, weekMinutes = 0;
+  for (const e of log) {
+    if (e.type !== "focus") continue;
+    weekCount++;
+    weekMinutes += e.durationMinutes;
+    if (e.timestamp >= todayStart) {
+      todayCount++;
+      todayMinutes += e.durationMinutes;
+    }
+  }
 
   return {
-    today: today.length,
-    todayMinutes: today.reduce((s, e) => s + e.durationMinutes, 0),
-    week: focusSessions.length,
-    weekMinutes: focusSessions.reduce((s, e) => s + e.durationMinutes, 0),
+    today: todayCount,
+    todayMinutes,
+    week: weekCount,
+    weekMinutes,
     total,
   };
 }
