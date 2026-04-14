@@ -80,7 +80,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     setIsSessionActive(true);
   }, []);
 
-  const endSession = useCallback((
+  const endSession = useCallback(async (
     flushReviews: (reviews: QueuedReview[]) => void,
     flushErrors: (errors: QueuedError[]) => void,
     flushReads: (reads: QueuedMarkRead[]) => void,
@@ -103,11 +103,19 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     if (errors.length > 0) flushErrors(errors);
     if (reads.length > 0) flushReads(reads);
 
-    // Show processing indicator then clear
+    // G2 fix: wait for actual persist flush, then show brief indicator
+    try {
+      const { persistQueue } = await import("@/lib/persist-queue");
+      await persistQueue.flush();
+    } catch (e) {
+      console.warn("[session] persist flush failed", e);
+    }
+
+    // Brief visual indicator after flush completes
     setTimeout(() => {
       setIsProcessing(false);
       setSnapshot(null);
-    }, PROCESSING_DURATION_MS);
+    }, 600);
   }, []);
 
   const queueReview = useCallback((cardId: string, sectionId: string, grade: number) => {
