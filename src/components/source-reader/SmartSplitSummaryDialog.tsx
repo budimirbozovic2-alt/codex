@@ -56,7 +56,7 @@ export function SmartSplitSummaryDialog({ source, onSmartSplitConfirm }: Props) 
             <div className="space-y-2">
               <label className="text-xs font-medium">Naslov eseja</label>
               <input value={splitParentName} onChange={e => setSplitParentName(e.target.value)}
-                className="w-full px-3 py-2 rounded-md border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring" placeholder="Unesite naslov eseja..." />
+                className="w-full px-3 py-2 rounded-md border bg-background text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" placeholder="Unesite naslov eseja..." />
             </div>
             <div className="rounded-lg border bg-muted/50 px-4 py-3">
               <p className="text-sm">Detektovano <strong className="text-foreground">{splitResult.modules.length}</strong> članova ({splitResult.rangeLabel})</p>

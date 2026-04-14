@@ -760,7 +760,6 @@ nav button, nav a {
 [contenteditable="false"],
 .prose:not([contenteditable="true"]) {
   caret-color: transparent;
-  user-select: none;
 }
 
 /* Prevent text cursor on non-interactive elements */

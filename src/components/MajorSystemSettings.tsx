@@ -56,7 +56,7 @@ export default function MajorSystemSettings() {
               <input
                 value={system[num] || ""}
                 onChange={(e) => handleChange(num, e.target.value)}
-                className="flex-1 px-2 py-1 rounded border bg-background text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                className="flex-1 px-2 py-1 rounded border bg-background text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
               />
             </div>
           ))}

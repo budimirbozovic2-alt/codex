@@ -159,7 +159,7 @@ function WorkshopCardItemInner({ card, isExpanded, onToggle, onUpdateCard, onDel
                         <input
                           value={editQuestion}
                           onChange={e => setEditQuestion(e.target.value)}
-                          className="w-full px-3 py-2 rounded-lg border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                          className="w-full px-3 py-2 rounded-lg border bg-background text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                         />
                       </div>
                       {editSections.map((s, i) => (
@@ -275,7 +275,7 @@ function WorkshopCardItemInner({ card, isExpanded, onToggle, onUpdateCard, onDel
                     value={card.mnemonicVideo}
                     onChange={(e) => onUpdateCard(card.id, { mnemonicVideo: e.target.value, mnemonicStatus: card.mnemonicStatus === "new" ? "in-workshop" : card.mnemonicStatus })}
                     placeholder="Opiši živopisnu mentalnu scenu koja ti pomaže da zapamtiš ovu informaciju..."
-                    className="w-full min-h-[80px] px-3 py-2 rounded-lg border bg-background text-sm resize-y focus:outline-none focus:ring-2 focus:ring-ring"
+                    className="w-full min-h-[80px] px-3 py-2 rounded-lg border bg-background text-sm resize-y focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   />
                 </div>
               )}
@@ -295,7 +295,7 @@ function WorkshopCardItemInner({ card, isExpanded, onToggle, onUpdateCard, onDel
                     placeholder={enumItems.length >= 2
                       ? `Unesite akronim od ${enumItems.length} slova (npr. ${enumItems.map(i => i.trim()[0]?.toUpperCase() || "").join("")})`
                       : "Npr. kratka reč, broj iz Major Sistema, asocijacija..."}
-                    className="w-full px-3 py-2 rounded-lg border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                    className="w-full px-3 py-2 rounded-lg border bg-background text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   />
                   {enumItems.length >= 2 && card.acronym.length > 0 && card.acronym.length !== enumItems.length && (
                     <p className="text-xs text-warning">⚠ Akronim ima {card.acronym.length} slova, a nabrajanje ima {enumItems.length} stavki</p>
@@ -374,7 +374,7 @@ function WorkshopCardItemInner({ card, isExpanded, onToggle, onUpdateCard, onDel
                         }
                       }}
                       placeholder="Novi tag..."
-                      className="w-24 px-2 py-0.5 rounded-md border bg-background text-[11px] focus:outline-none focus:ring-1 focus:ring-ring"
+                      className="w-24 px-2 py-0.5 rounded-md border bg-background text-[11px] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                     />
                     <button
                       onClick={() => {

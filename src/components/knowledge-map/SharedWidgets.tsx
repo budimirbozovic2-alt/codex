@@ -51,7 +51,7 @@ export function SearchBar({ value, onChange, placeholder }: SearchBarProps) {
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
-        className="w-full pl-10 pr-4 py-2.5 rounded-xl border bg-card text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+        className="w-full pl-10 pr-4 py-2.5 rounded-xl border bg-card text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       />
     </div>
   );

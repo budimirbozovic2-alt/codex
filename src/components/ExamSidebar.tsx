@@ -269,7 +269,7 @@ export default function ExamSidebar({ questions, onSetQuestions, onMapSelection,
               ref={textareaRef}
               value={editText}
               onChange={e => setEditText(e.target.value)}
-              className="w-full px-3 py-2.5 rounded-md border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring min-h-[450px] max-h-[60vh] resize-y font-mono leading-relaxed"
+              className="w-full px-3 py-2.5 rounded-md border bg-background text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring min-h-[450px] max-h-[60vh] resize-y font-mono leading-relaxed"
               placeholder={"Zalijepite listu pitanja ovdje...\n\n1. Prvo ispitno pitanje\n2. Drugo ispitno pitanje\n3. Treće ispitno pitanje"}
               autoFocus
             />

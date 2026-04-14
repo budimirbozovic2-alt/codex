@@ -24,7 +24,7 @@ export function EssayCreationDialog({ source, onCreateEssay }: Props) {
           <div className="space-y-2">
             <label className="text-xs font-medium">Pitanje</label>
             <textarea value={essayQuestion} onChange={e => setEssayQuestion(e.target.value)}
-              className="w-full px-3 py-2 rounded-md border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring min-h-[80px] resize-none"
+              className="w-full px-3 py-2 rounded-md border bg-background text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring min-h-[80px] resize-none"
               placeholder="Unesite pitanje za esej..." autoFocus />
           </div>
           <div className="space-y-2">

@@ -1,5 +1,5 @@
 import { Timer, Play } from "lucide-react";
-import { useMemo } from "react";
+import { useMemo, useEffect } from "react";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 import { usePomodoroContext } from "@/contexts/AppContext";
@@ -25,11 +25,23 @@ export default function PomodoroTimer({ compact = false }: { compact?: boolean }
   const secs = seconds % 60;
   const progress = ((totalSec - seconds) / totalSec) * 100;
 
+  // U1: Alt+P keyboard shortcut for toggle
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.altKey && e.key.toLowerCase() === "p") {
+        e.preventDefault();
+        pomodoroToggle();
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [pomodoroToggle]);
+
   if (compact) {
     return (
       <div className="flex items-center gap-2">
         <Timer className="h-3.5 w-3.5 text-primary" />
-        <span className={`text-sm font-mono tabular-nums ${running ? "text-primary font-medium" : "text-muted-foreground"}`}>
+        <span aria-live="polite" className={`text-sm font-mono tabular-nums ${running ? "text-primary font-medium" : "text-muted-foreground"}`}>
           {String(mins).padStart(2, "0")}:{String(secs).padStart(2, "0")}
         </span>
         {pom.longBreakInterval > 0 && (
@@ -63,7 +75,7 @@ export default function PomodoroTimer({ compact = false }: { compact?: boolean }
         </div>
       </div>
       <div className="text-center">
-        <p className="text-4xl tabular-nums">{String(mins).padStart(2, "0")}:{String(secs).padStart(2, "0")}</p>
+        <p aria-live="polite" className="text-4xl tabular-nums">{String(mins).padStart(2, "0")}:{String(secs).padStart(2, "0")}</p>
       </div>
       <Progress value={progress} className="h-1.5" />
       <div className="flex gap-2 justify-center">
