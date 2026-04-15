@@ -9,7 +9,7 @@ import {
   getCardScore,
   getDueCards,
   getDueSections,
-  getStats,
+  
   createSection,
   SectionState,
   Section,
@@ -295,29 +295,7 @@ describe("due filtering", () => {
   });
 });
 
-// ─── getStats ────────────────────────────────────────────
-
-describe("getStats", () => {
-  it("counts correctly", () => {
-    const cards = [
-      makeCard({
-        sections: [
-          makeSection({ state: SectionState.Review, nextReview: Date.now() - 1000, lapses: 6 }),
-          makeSection({ state: SectionState.New }),
-        ],
-      }),
-      makeCard({
-        sections: [makeSection({ state: SectionState.Learning, nextReview: Date.now() + 999999 })],
-      }),
-    ];
-    const stats = getStats(cards);
-    expect(stats.total).toBe(2);
-    expect(stats.totalSections).toBe(3);
-    expect(stats.learnedSections).toBe(2); // Review + Learning
-    expect(stats.due).toBe(1);
-    expect(stats.leechCount).toBe(1);
-  });
-});
+// P1: getStats test removed — function replaced by inline single-pass in useCards.ts
 
 // ─── Edge-case tests ─────────────────────────────────────
 
