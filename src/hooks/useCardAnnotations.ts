@@ -57,7 +57,11 @@ export function useCardAnnotations({
           toast.error("Memorija puna, istorija učenja se ne čuva!");
         }
       })();
-      setReviewLog((log) => [...log, entry]);
+      // G1 fix: cap in-memory reviewLog to prevent unbounded growth
+      setReviewLog((log) => {
+        const next = [...log, entry];
+        return next.length > 5000 ? next.slice(-5000) : next;
+      });
     },
     [patchCard, setReviewLog],
   );

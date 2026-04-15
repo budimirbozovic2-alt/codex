@@ -66,15 +66,14 @@ export function useCategoryManagement({
 
   const deleteCategory = useCallback(
     (categoryId: string, purgeCards = false) => {
-      // I2 fix: compute fallbackId from optimistic state to avoid stale reads during rapid deletes
-      let fallbackId = "";
+      // I1 fix: pre-compute fallbackId BEFORE optimistic update to avoid async race
+      const currentRecs = getCategoryRecords();
+      const remaining = currentRecs.filter(r => r.id !== categoryId);
+      const fallbackId = remaining.length > 0 ? remaining[0].id : "";
+
       optimisticCategoryUpdate(
         setCategoryRecords,
-        prev => {
-          const remaining = prev.filter(r => r.id !== categoryId);
-          fallbackId = remaining.length > 0 ? remaining[0].id : "";
-          return remaining;
-        },
+        prev => prev.filter(r => r.id !== categoryId),
         "deleteCategory"
       );
       const now = Date.now();

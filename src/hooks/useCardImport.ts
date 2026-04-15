@@ -288,9 +288,14 @@ export function useCardImport({
           }
         }
 
-        // Restore localStorage data (v4+)
+        // Restore localStorage data (v4+) — S1 fix: whitelist allowed keys
+        const ALLOWED_LS_KEYS = new Set([
+          "codex-app-settings", "codex-source-registry", "codex-monument-types",
+          "sr-planner", "sr-mnemonic-system", "sr-pomodoro-settings",
+        ]);
         if (data.localStorageData && typeof data.localStorageData === "object") {
           for (const [key, value] of Object.entries(data.localStorageData as Record<string, unknown>)) {
+            if (!ALLOWED_LS_KEYS.has(key)) continue;
             localStorage.setItem(key, typeof value === "string" ? value : JSON.stringify(value));
           }
         }

@@ -33,7 +33,13 @@ export async function optimisticCategoryUpdate(
       await idbSaveCategories(next);
     } catch (e) {
       console.error(`[${label}] IDB persist failed, rolling back`, e);
-      if (rollbackSnapshot) setCategoryRecords(rollbackSnapshot);
+      // I2 fix: rollback from fresh IDB state instead of stale snapshot
+      try {
+        const freshFromIdb = await idbLoadCategories();
+        setCategoryRecords(freshFromIdb);
+      } catch {
+        if (rollbackSnapshot) setCategoryRecords(rollbackSnapshot);
+      }
       toast.error("Greška", { description: "Promjena nije sačuvana." });
     }
   });
