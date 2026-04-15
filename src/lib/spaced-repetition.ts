@@ -363,20 +363,4 @@ export function getCardScore(card: Card): number {
   return Math.round(card.sections.reduce((sum, s) => sum + getSectionScore(s), 0) / card.sections.length);
 }
 
-export function getCategoryStats(cards: Card[], categoryId: string) {
-  const catCards = cards.filter((c) => c.categoryId === categoryId);
-  if (catCards.length === 0) return { score: 0, total: 0, due: 0 };
-  const score = Math.round(catCards.reduce((sum, c) => sum + getCardScore(c), 0) / catCards.length);
-  const due = catCards.filter((c) => c.sections.some((s) => s.state !== SectionState.New && s.nextReview <= Date.now())).length;
-  return { score, total: catCards.length, due };
-}
-
-export function getStats(cards: Card[]) {
-  const now = Date.now();
-  const due = cards.filter((c) => c.sections.some((s) => s.state !== SectionState.New && s.nextReview <= now)).length;
-  const totalSections = cards.reduce((sum, c) => sum + c.sections.length, 0);
-  const learnedSections = cards.reduce((sum, c) => sum + c.sections.filter((s) => s.state !== SectionState.New).length, 0);
-  const total = cards.length;
-  const leechCount = cards.reduce((sum, c) => sum + c.sections.filter((s) => isLeech(s)).length, 0);
-  return { due, total, totalSections, learnedSections, leechCount };
-}
+// P1: getCategoryStats and getStats removed — replaced by single-pass in useCards.ts

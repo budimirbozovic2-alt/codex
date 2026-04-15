@@ -48,7 +48,7 @@ export interface PomodoroState {
 interface CardStateContextValue {
   cards: Card[];
   dueCards: Card[];
-  stats: ReturnType<typeof import("@/lib/spaced-repetition").getStats>;
+  stats: { due: number; total: number; totalSections: number; learnedSections: number; leechCount: number };
   cardCountByCategory: Record<string, number>;
   ready: boolean;
   dbError: { type: string; message: string } | null;
@@ -69,7 +69,7 @@ interface CategoryStateContextValue {
   categories: string[];
   categoryRecords: import("@/lib/db").CategoryRecord[];
   subcategories: Record<string, string[]>;
-  categoryStats: Record<string, ReturnType<typeof import("@/lib/spaced-repetition").getCategoryStats>>;
+  categoryStats: Record<string, { score: number; total: number; due: number }>;
 }
 
 const CategoryStateContext = createContext<CategoryStateContextValue | null>(null);
