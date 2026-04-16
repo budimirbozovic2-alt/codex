@@ -88,11 +88,24 @@ export function useCardImport({
         } else if (strategy === "overwrite") {
           for (const key of Object.keys(nextMap)) delete nextMap[key];
           importedCards.forEach((ic) => { nextMap[ic.id] = ic; merged.push(ic); });
-          const { db: dbCards } = await import("@/lib/db");
-          const allCardKeys = await dbCards.cards.toCollection().primaryKeys();
-          const importedIdSet = new Set(importedCards.map(c => c.id));
-          const orphanKeys = allCardKeys.filter(k => !importedIdSet.has(k as string));
-          if (orphanKeys.length > 0) await dbCards.cards.bulkDelete(orphanKeys);
+          // E1: atomic overwrite — cards + categories in single transaction
+          const { db: dbOverwrite } = await import("@/lib/db");
+          await dbOverwrite.transaction("rw", [dbOverwrite.cards, dbOverwrite.categories], async () => {
+            // Clear orphan cards
+            const allCardKeys = await dbOverwrite.cards.toCollection().primaryKeys();
+            const importedIdSet = new Set(importedCards.map(c => c.id));
+            const orphanKeys = allCardKeys.filter(k => !importedIdSet.has(k as string));
+            if (orphanKeys.length > 0) await dbOverwrite.cards.bulkDelete(orphanKeys);
+            // Categories overwrite (if present)
+            if (Array.isArray(data.categories) && (data.categories as unknown[]).length > 0) {
+              const firstCat = (data.categories as unknown[])[0];
+              const isRecord = typeof firstCat === 'object' && firstCat !== null && 'id' in firstCat;
+              if (isRecord) {
+                await dbOverwrite.categories.clear();
+                await dbOverwrite.categories.bulkPut(data.categories as CategoryRecord[]);
+              }
+            }
+          });
         } else {
           importedCards.forEach((ic) => { if (!nextMap[ic.id]) { nextMap[ic.id] = ic; merged.push(ic); } });
         }
@@ -105,8 +118,9 @@ export function useCardImport({
             const { db: dbCat, idbLoadCategories } = await import("@/lib/db");
             const catRecords = data.categories as CategoryRecord[];
             if (strategy === "overwrite") {
-              await dbCat.categories.clear();
-              await dbCat.categories.bulkPut(catRecords);
+              // Already handled in transaction above — just reload
+              const freshRecords = await idbLoadCategories();
+              setCategoryRecords(freshRecords);
             } else {
               // Deduplicate by name: remap IDs when same name exists under different UUID
               const existingCats = await idbLoadCategories();
