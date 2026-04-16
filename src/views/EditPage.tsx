@@ -25,7 +25,7 @@ export default function EditPage() {
       const catId = returnTo.slice("category:".length);
       navigate(`/category/${catId}`);
     } else {
-      setView(returnTo);
+      setView(returnTo as View);
     }
   }, [setView, navigate]);
 
