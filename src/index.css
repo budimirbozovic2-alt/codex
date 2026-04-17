@@ -711,7 +711,7 @@
 
 .imperial-title {
   font-family: 'DM Sans', sans-serif;
-  color: hsl(var(--gold));
+  color: hsl(var(--foreground));
   font-weight: 700;
   font-size: 1.5rem;
   line-height: 2rem;
