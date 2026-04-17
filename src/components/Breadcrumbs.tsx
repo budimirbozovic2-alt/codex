@@ -12,9 +12,8 @@ const ROUTE_LABELS: Record<string, string> = {
   "/categories": "Kategorije",
   "/settings": "Podešavanja",
   "/stats": "Statistika",
-  
   "/metacognitive": "Dnevnik",
-  "/mnemonics": "Mnemo radionica",
+  "/mnemonics": "Memorizacija",
   "/planner": "Strateški planer",
   "/speed-reader": "Speed Reader",
   "/mind-map": "Mentalne mape",
@@ -22,7 +21,7 @@ const ROUTE_LABELS: Record<string, string> = {
   "/forum": "Forum",
 };
 
-const LAB_ROUTES = new Set(["/stats", "/metacognitive", "/mnemonic", "/planner", "/speed-reader", "/mind-map"]);
+const LAB_ROUTES = new Set(["/stats", "/metacognitive", "/mnemonics", "/planner", "/speed-reader", "/mind-map"]);
 
 // O2 fix: memo prevents re-renders from parent when categoryRecords haven't changed
 export default memo(function Breadcrumbs() {
@@ -46,7 +45,7 @@ export default memo(function Breadcrumbs() {
   if (categoryId) {
     crumbs.push({ label: categoryName, path: null });
   } else if (LAB_ROUTES.has(pathname)) {
-    crumbs.push({ label: "Laboratorija", path: null });
+    crumbs.push({ label: "Alati", path: null });
     const label = ROUTE_LABELS[pathname];
     if (label) crumbs.push({ label, path: null });
   } else {
