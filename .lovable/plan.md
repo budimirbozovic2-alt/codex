@@ -1,84 +1,139 @@
 
 
-Analiziram zahtjev. Tri konkretna problema + analiza za dodatna unapređenja.
+# Deep Audit: Sigurnost — Runda 6
 
-## Problemi za ispraviti
+## Rezime
 
-### 1. Breadcrumb "Laboratorija" → "Alati"
-**Fajl:** `src/components/Breadcrumbs.tsx:28`
+Audit pokriva 4 vektora: XSS injection u rendering layer-u, sanitizaciju import putanja, Electron IPC validaciju, i localStorage manipulaciju. Aplikacija ima **solidan defense-in-depth model** (DOMPurify na input/persist/render slojevima, IPC path whitelist, LS key whitelist, CSP, contextIsolation). Pronašao sam **6 konkretnih nalaza** — 2 srednja XSS rizika, 2 IPC/Electron, 1 import edge case, 1 informativni.
 
-Trenutno `LAB_ROUTES` set ubacuje "Laboratorija" za stats/metacognitive/mnemonic/planner/speed-reader/mind-map. Promijeniti string "Laboratorija" → "Alati".
+---
 
-### 2. Memorizacija ne prikazuje "Alati" u breadcrumbu
-**Fajl:** `src/components/Breadcrumbs.tsx:18`
+## XSS VEKTORI
 
-`LAB_ROUTES` sadrži `/mnemonic` (singular), ali stvarna ruta je `/mnemonics` (plural). Iako je u prethodnoj rundi popravljen `ROUTE_LABELS` key, `LAB_ROUTES` set nije ažuriran. Promijeniti `/mnemonic` → `/mnemonics` u `LAB_ROUTES`.
+### X1. `RichTextEditor` i `SourceContent` — paste image bez sanitizacije `data:` URL-a
+**Fajlovi:** `RichTextEditor.tsx:235`, `SourceContent.tsx:49`
 
-### 3. Naslov "Podešavanja" žute boje
-**Provjera:** Trebam pogledati `SRSettingsPanel.tsx` i `SettingsPage.tsx` da vidim gdje je naslov i koja klasa daje žutu boju.
-<lov-tool-use id="toolu_vrtx_01J9oseHq7zmQZecuLj1Mxnn" name="code--search_files" integration-id="code" data="{\"query\": \"Podešavanja\", \"include_patterns\": \"src/components/SRSettingsPanel.tsx,src/views/SettingsPage.tsx\"}">
-</lov-tool-use>
+**Problem:** Pri paste-u slike iz clipboard-a, `FileReader.readAsDataURL(file)` proizvodi data URL koji se direktno injectuje preko `document.execCommand("insertHTML", false, \`<img src="${reader.result}" ...>\`)`. Iako `reader.result` proizilazi iz `Blob`-a (binary), MIME tip se ne validira striktno — `item.type.startsWith("image/")` propušta `image/svg+xml` koji može sadržavati JavaScript (`<svg onload=...>`).
 
-<lov-tool-use id="toolu_vrtx_0186iaFZyZrhVJQVhGaxeQM3" name="code--view" integration-id="code" data="{\"file_path\": \"src/components/SRSettingsPanel.tsx\", \"lines\": \"1-80\"}">
-</lov-tool-use>
+**Rizik:** Korisnik kopira maliciozan SVG, paste-uje u editor → SVG sa script payload-om se snima kao data URL u kartici. Pri kasnijem render-u, `<img src="data:image/svg+xml;base64,...">` u Chromium-u **NE izvršava** script u img kontekstu, ali ako se ikad promijeni rendering na `<object>` ili inline SVG → XSS. Trenutno NIZAK rizik, ali defense-in-depth brisanje SVG-a iz dozvoljenih MIME tipova je trivijalno.
 
-<lov-tool-use id="toolu_vrtx_01JUb5u4v51KNd3TuAaGTdbo" name="code--view" integration-id="code" data="{\"file_path\": \"src/components/Breadcrumbs.tsx\"}">
-</lov-tool-use>
+**Fix:** Striktna MIME whitelist — `["image/png","image/jpeg","image/gif","image/webp"]`.
 
-<lov-tool-use id="toolu_vrtx_01KjmztvxhHu4mJ4A1sgewug" name="code--view" integration-id="code" data="{\"file_path\": \"src/components/SRSettingsPanel.tsx\", \"lines\": \"1-100\"}">
-</lov-tool-use>
+### X2. `highlightKeyParts` — regex injection putem `keyParts`
+**Fajl:** `lib/highlight-key-parts.ts:13-26`
 
-<lov-tool-use id="toolu_vrtx_01R4A1co858jaV93E2GSkL51" name="code--search_files" integration-id="code" data="{\"query\": \"imperial-title\", \"include_patterns\": \"src/index.css,src/**/*.tsx\"}">
-</lov-tool-use>
+**Problem:** `keyParts` se escape-uju regex specijalnim karakterima (linija 16), ali pattern dozvoljava `\\s+` zamjenu — dobro. Međutim, output (`<mark>` wrapped HTML) se na kraju sanitizira (linija 27) — **defense-in-depth je validan**. Provjerio sam: nema injekcije.
 
-<lov-tool-use id="toolu_vrtx_01W18rGdqiuVFxMiY2KUS7MJ" name="code--view" integration-id="code" data="{\"file_path\": \"src/index.css\", \"lines\": \"700-740\"}">
-</lov-tool-use>
-Now I have enough context. The `imperial-title` class still uses gold color — earlier the user requested all titles to be white. Let me check memory for that.
-<lov-tool-use id="toolu_vrtx_0178XktdiJDz5URnmfE3K9bw" name="code--exec" integration-id="code" data="{\"command\": \"grep -r \\\"imperial-title\\\\|--gold\\\" /dev-server/.lovable/memory/ 2>/dev/null | head -20\", \"user_facing_description\": \"Checking memory for title color rules\"}">
-</lov-tool-use>
+**Status:** **False positive** nakon detaljne analize — ostavljam kao info.
 
-<lov-tool-use id="toolu_vrtx_01PxCWgSaJ7rPapHGNYgVg1g" name="code--view" integration-id="code" data="{\"file_path\": \"mem://ui/layout-and-navigation-v5\"}">
-</lov-tool-use>
-Confirmed: titles should be white bold. The `imperial-title` class needs updating. Now I have everything needed for the plan.
+### X3. `SourceContent.enhanceHeadings` — `icon.innerHTML = '<svg...>'` direktno
+**Fajl:** `SourceContent.tsx:77`
 
-<lov-plan>
+**Problem:** SVG ikonica se hardkoduje preko `innerHTML`. SVG je statičan, bez user input-a — **bezbjedan**. Ali pattern je krhak: ako neko u budućnosti parametrizuje ikonicu, otvara se vektor.
 
-# Plan: UI/UX Konzistentnost — Naslovi, Breadcrumbs, dodatna unapređenja
+**Fix (preventivno):** Zamijeniti sa `createElementNS("http://www.w3.org/2000/svg", "svg")` API-jem ili JSX render kroz portal. Ne-hitno.
 
-## Problem analiza
+---
 
-1. **Breadcrumbs prikazuje "Laboratorija"** — naziv ne postoji nigdje u sidebaru (sidebar koristi "Alati"). Stranice Statistika, Dnevnik, Strateški planer, Speed Reader, Mentalne mape pokazuju `Laboratorija › X`.
-2. **Memorizacija (`/mnemonics`) ne dobija grupni breadcrumb** — nije u `LAB_ROUTES` setu (ima i tipo: `/mnemonic` umjesto `/mnemonics`).
-3. **Naslov "Podešavanja" je žut** — globalna CSS klasa `.imperial-title` koristi `color: hsl(var(--gold))`. Memorija (`layout-and-navigation-v5`) nalaže bijele bold naslove. Klasa se koristi na **11 mjesta** kroz aplikaciju (CardForm, MnemonicWorkshop, MnemonicTest, MajorSystemSettings, BulkImportDialog, ReviewSetup, FrequentErrors, SharedWidgets, FilterSetup, SRSettingsPanel) — sve su trenutno žute, što krši pravilo.
+## IPC / ELECTRON
 
-## Izmjene
+### I1. `save-file` IPC ne validira veličinu base64 payload-a
+**Fajl:** `main.cjs:104-117`
 
-### 1. `src/components/Breadcrumbs.tsx`
-- Preimenovati grupu `"Laboratorija"` → `"Alati"`.
-- Dodati `/mnemonics` u `LAB_ROUTES` set.
-- Ukloniti dead key `"/mnemonic"` iz `LAB_ROUTES` (već popravljen u `ROUTE_LABELS` ali ostao u setu).
-- Rezultat: `Početna tabla › Alati › Statistika`, `Početna tabla › Alati › Mnemo radionica`.
+**Problem:** `saveFile(filePath, base64Data)` prima base64 string bez ograničenja veličine. Maliciozan ili buggy renderer može poslati GB-skalu string → `Buffer.from(...)` alocira velike količine RAM-a u main procesu, blocking event loop, potencijalni OOM crash.
 
-### 2. `src/index.css` — `.imperial-title`
-- Promijeniti `color: hsl(var(--gold))` → `color: hsl(var(--foreground))` (bijela u dark temi, tamna u light — ali aplikacija je primarno dark).
-- Ovo automatski popravlja naslove na svih 11 mjesta odjednom (uključujući "Podešavanja", "Novi modul", "Najčešće greške", "Mentalne tablice", itd.).
+**Rizik:** Renderer je under naša kontrola (contextIsolation + sandbox = false), ali pravilo je IPC tretirati kao untrusted boundary.
 
-## Dodatna UI/UX unapređenja (mali, sigurni)
+**Fix:** Cap na input size:
+```js
+const MAX_FILE_SIZE = 100 * 1024 * 1024; // 100MB
+if (typeof base64Data !== 'string' || base64Data.length > MAX_FILE_SIZE * 1.4) {
+  logCrash('save-file-too-large', filePath);
+  return false;
+}
+```
 
-### 3. Konzistentnost label-a u Breadcrumbs
-- `"/mnemonics": "Mnemo radionica"` → `"/mnemonics": "Memorizacija"` (uskladiti sa sidebar labelom "Memorizacija" iz `AppSidebar.tsx`).
+### I2. `request-backup` IPC — nema upper bound na JSON size
+**Fajl:** `electron/backup.cjs:88-93`
 
-### 4. Sitno čišćenje
-- Ukloniti zaostali prazan red u `ROUTE_LABELS` između `/stats` i `/metacognitive` (kozmetika).
+**Problem:** `if (typeof jsonData === 'string' && jsonData.length > 2)` — donja granica postoji, ali nema gornje. Backup od 500MB (npr. nakon import-a velikih DOCX-a kao base64 slika) blokira disk write, može da zaglavi quit-backup timeout.
 
-## Što NE diram
-- Sidebar labeli i grupisanje — već korektno ("Alati").
-- Druga upotreba `--gold` boje (npr. `.btn-imperial` border, brand ikona) — ostaju netaknuti.
-- Funkcionalna logika ruta.
+**Fix:** Cap na npr. 200MB i toast u rendereru ako prelazi.
 
-## Fajlovi
-- `src/components/Breadcrumbs.tsx` — 4 male izmjene
-- `src/index.css` — 1 linija (color value)
+---
 
-Ukupno: **2 fajla**, ~6 izmijenjenih linija. Globalni efekat na 11 naslova + 5 stranica breadcrumbs-a.
+## IMPORT SANITIZACIJA
+
+### IM1. `data.localStorageData` whitelist — ključevi se podudaraju ali vrijednosti se ne validiraju shape-om
+**Fajl:** `useCardImport.ts:306-314`
+
+**Problem:** `ALLOWED_LS_KEYS` set je dobar (whitelist pristup), ali kad se vrijednost zapisuje:
+```ts
+localStorage.setItem(key, typeof value === "string" ? value : JSON.stringify(value));
+```
+Ne validira se shape sadržaja. Maliciozan import može ubaciti `codex-app-settings: {"theme": "<script>alert(1)</script>"}` — kada `loadAppSettings` parsira i vrijednost se direktno ubacuje u DOM (npr. theme u CSS klasu), dolazi do CSS injection ili šire.
+
+**Provjera:** `app-settings.ts` koristi value-e direktno za theme klase i fontove. Trenutno je render bezbjedan jer se klasa primjenjuje preko `setAttribute("data-theme", ...)`, ali vrijednost se ipak interpolira.
+
+**Fix:** Per-key shape validacija (npr. theme mora biti enum `"amber"|"steel"|...`, brojevi su brojevi). Najjednostavnije: whitelist value-tipa po ključu.
+
+### IM2. `data.sources[].htmlContent` se sanitira, ali `data.mindMaps` i `data.diary` se NE sanitiraju
+**Fajl:** `useCardImport.ts:236-238, 251`
+
+**Problem:** Sources su sanitizirani (linija 237), ali mindMaps node labels i diary entries nisu. Diary se renderuje preko `dangerouslySetInnerHTML`? Provjerio sam — diary nije rich-text, ali mindMap node-ovi mogu imati `description` polje koje se renderuje kao text. Ako se u budućnosti pređe na rich-text, vektor postoji.
+
+**Fix:** Sanitizirati sve string vrijednosti u importovanim mindMaps i diary nizovima koje mogu sadržavati HTML, ili postaviti tekst-only render politiku eksplicitno u tipovima.
+
+---
+
+## LOCALSTORAGE MANIPULACIJA
+
+### LS1. `ErrorBoundary` direktno parsira localStorage bez veličinske kontrole
+**Fajl:** `ErrorBoundary.tsx:44`
+
+**Problem:** `JSON.parse(localStorage.getItem(LOG_KEY) || "[]")` — ako je log korumpiran ili napumpan na 5MB+ (npr. attacker via DevTools u dev modu), parse blokira UI thread. Postoji `MAX_ENTRIES` cap nakon parse-a, ali ne i pre.
+
+**Fix:** Try-catch oko parse + size guard pre `JSON.parse`:
+```ts
+const raw = localStorage.getItem(LOG_KEY);
+if (raw && raw.length > 1_000_000) { localStorage.removeItem(LOG_KEY); return; }
+```
+
+### LS2. `sr-tts-mode`, `sidebar:state` i sl. — bez validacije pri load-u
+**Status:** Većina mjesta ima fallback (`saved === "wpm" ? "wpm" : "natural"`) — **dobro**. Provjerio sam `useSpeedReaderEngine`, `useSourceReaderStore`, `sidebar.tsx`, `MentalSkeleton` — svi imaju enum/type-narrowing fallback.
+
+**Status:** **Bezbjedan**.
+
+---
+
+## ŠTO JE DOBRO
+
+- DOMPurify na 3 sloja: input (`RichTextEditor`), persist (`useCardImport.migrateImported`), render (`sanitizeHtml` u svakom `dangerouslySetInnerHTML` ili `highlightKeyParts`).
+- Electron `contextIsolation: true`, `nodeIntegration: false`, preload sa minimalnim API.
+- IPC path whitelist (`isPathAllowed`) + dialog options whitelist (`sanitizeDialogOptions`).
+- CSP header u produkciji (bez `'unsafe-eval'`).
+- Single-instance lock + crash loop detection.
+- ALLOWED_LS_KEYS whitelist na import-u (S1 fix iz prethodne runde).
+- Cards i sources idu kroz `sanitizeHtml` pri importu.
+- TTS koristi `ALLOWED_TAGS: []` da extract pure text (najsigurniji DOMPurify mode).
+- App protocol `app://localhost` umjesto `file://` (stable origin, no opaque storage).
+
+---
+
+## Scope implementacije
+
+**Prioritet 1 (sigurnosno hardening, ~25min):**
+- X1: SVG MIME blacklist u paste handler-ima — `RichTextEditor.tsx`, `SourceContent.tsx` (~3 linije svaki)
+- I1: Size cap na `save-file` IPC (~5 linija u `main.cjs`)
+- I2: Size cap na `request-backup` IPC (~3 linije u `electron/backup.cjs`)
+
+**Prioritet 2 (defense-in-depth, ~25min):**
+- IM1: Per-key shape validacija za `localStorageData` import — minimalno za `codex-app-settings` (theme enum, font enum) (~15 linija)
+- IM2: Sanitizirati string polja u importovanim mindMaps i diary (~8 linija)
+
+**Prioritet 3 (preventivno, ~10min):**
+- LS1: Size guard pre `JSON.parse` u ErrorBoundary (~3 linije)
+- X3: Refaktor `enhanceHeadings` da koristi DOM API umjesto innerHTML (~10 linija) — ne-hitno, kozmetika
+
+Ukupno: **5 fajlova** za Prioritet 1+2.
 
