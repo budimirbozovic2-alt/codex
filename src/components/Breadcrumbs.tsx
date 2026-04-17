@@ -45,7 +45,7 @@ export default memo(function Breadcrumbs() {
   if (categoryId) {
     crumbs.push({ label: categoryName, path: null });
   } else if (LAB_ROUTES.has(pathname)) {
-    crumbs.push({ label: "Laboratorija", path: null });
+    crumbs.push({ label: "Alati", path: null });
     const label = ROUTE_LABELS[pathname];
     if (label) crumbs.push({ label, path: null });
   } else {
