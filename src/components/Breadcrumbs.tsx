@@ -12,9 +12,8 @@ const ROUTE_LABELS: Record<string, string> = {
   "/categories": "Kategorije",
   "/settings": "Podešavanja",
   "/stats": "Statistika",
-  
   "/metacognitive": "Dnevnik",
-  "/mnemonics": "Mnemo radionica",
+  "/mnemonics": "Memorizacija",
   "/planner": "Strateški planer",
   "/speed-reader": "Speed Reader",
   "/mind-map": "Mentalne mape",
