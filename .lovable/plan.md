@@ -1,69 +1,59 @@
 
 
-# Plan: Suptilna separacija pasusa unutar kartica
+# Plan: Učenje i Konsolidacija — poštuj `sortOrder` glava i potkategorija
 
 ## Dijagnoza
 
-Odgovori u karticama renderuju HTML iz `RichTextEditor`-a koji proizvodi `<p>...</p>` tagove. Trenutno postoje **dva problema** u zavisnosti od konteksta:
+Korisnikov manuelni redoslijed iz **Strukture predmeta** (`sortOrder` na `SubcategoryNode` i `ChapterNode`) se ne primjenjuje u Učenju ni Konsolidaciji:
 
-1. **Bez `prose` klase** ili sa `whitespace-pre-wrap` (StudyModeRecall, StudyModeChain, StudyModeFree, CardRow flash) → svi `<p>` tagovi se "lijepe" jedan na drugi → **monolit** (jer browser default `<p>` margine bivaju nadjačane resetom).
-2. **Sa `prose` klasom** (CardViewTable, WorkshopCardItem, SourceSnippetDialog, CoverageArticleList) → Tailwind Typography postavlja `margin-top: 1.25em` između `<p>` → **prevelika praznina**, izgleda kao prazan red.
+1. **`SessionFilters.tsx:62-68`** — pillovi glava se sortiraju **alfabetski po nazivu** (`localeCompare`).
+2. **`useCards.ts:34-42`** — derivacija `subcategories: Record<string, string[]>` čita iz `categoryRecords` direktno bez explicit sortiranja po `sortOrder`. Trenutno nekad radi (DB redoslijed), ali nije garantovano poslije reorder-a.
+3. **`ReviewSetup.tsx:130-134`** — `dueChapters` koristi `Array.from(...).sort()` što sortira po UUID stringu (random redoslijed).
+4. **`LearnSession.sortedCards`** — kad je `sortMode === "order"`, sortira se po `subPos`/`chapPos` koje **dolaze iz `sortOrder`-a** — ovo radi ispravno, ali pillovi za **filter** (gdje korisnik bira koju glavu otvoriti) prikazuju ih pogrešnim redoslijedom.
 
-Korisnik želi **tanku, suptilnu vertikalnu separaciju** — dovoljnu da vizuelno razdvoji pasuse, ali znatno užu od praznog reda.
+## Rješenje: jedinstven izvor istine — `sortOrder`
 
-## Rješenje: jedna utility klasa `card-prose`
-
-Umjesto da diram svaku komponentu, dodajem **jednu globalnu CSS klasu** u `src/index.css` koja postavlja konzistentan paragraph spacing svuda:
-
-```css
-/* Kartice: suptilna separacija pasusa (oko 0.5em umjesto 1.25em) */
-.card-prose p + p,
-.card-prose p + ul,
-.card-prose p + ol,
-.card-prose ul + p,
-.card-prose ol + p {
-  margin-top: 0.55em;
-}
-.card-prose p {
-  margin-block: 0;
-}
+### 1. `src/hooks/useCards.ts` — sortiraj potkategorije pri derivaciji
+U `subcategories` memo, prije mapiranja na ID-ove dodaj sort po `sortOrder`:
+```ts
+map[r.id] = [...(r.subcategories || [])]
+  .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
+  .map(n => typeof n === "string" ? n : n.id);
 ```
 
-Ovo:
-- Daje **~7-8px** razmaka između pasusa (umjesto ~20px za prazan red).
-- Ne kreira "extra" prostor na kraju kartice (margin samo između susjednih paragrafa).
-- Funkcioniše i sa `prose` i bez `prose` (override `prose p` margine kad se kombinuje sa `card-prose`).
-- Pokriva i listove (često sljede paragraf).
+### 2. `src/components/SessionFilters.tsx` — sortiraj glave po `sortOrder` iz `categoryRecords`
+Zamijeni `chaptersInSub` memo da koristi UUID → `sortOrder` mapu izgrađenu iz `categoryRecords`:
+```ts
+const chapterPosMap = useMemo(() => {
+  const m: Record<string, number> = {};
+  for (const r of categoryRecords || [])
+    for (const sub of r.subcategories || [])
+      (sub.chapters || []).forEach((ch, i) =>
+        m[typeof ch === "string" ? ch : ch.id] = typeof ch === "string" ? i : (ch.sortOrder ?? i)
+      );
+  return m;
+}, [categoryRecords]);
 
-## Tačke primjene (5 fajlova)
+const chaptersInSub = useMemo(() => {
+  if (!selectedSubcategory) return [];
+  return Array.from(new Set(
+    cards.filter(c => c.categoryId === selectedCategory && c.subcategoryId === selectedSubcategory && c.chapterId)
+      .map(c => c.chapterId!)
+  )).sort((a, b) => (chapterPosMap[a] ?? 999) - (chapterPosMap[b] ?? 999));
+}, [cards, selectedCategory, selectedSubcategory, chapterPosMap]);
+```
 
-Dodajem `card-prose` klasu na render kontejnere odgovora u karticama:
+### 3. `src/components/review/ReviewSetup.tsx` — `dueChapters` koristi isti princip
+Ovaj memo se pravi lokalno, ali rezultat se ne koristi za UI direktno (pillovi idu kroz `SessionFilters` koji sad ima vlastitu logiku). **Provjera:** `dueChapters` se zapravo nigdje ne renderuje u JSX-u — može se ukloniti (dead code) ili ostaviti netaknuto. Ostavljam netaknuto, uklanjanje van scope-a.
 
-1. **`CardRow.tsx`** (linije 130, 147) — flash i essay collapsed view
-2. **`CardViewTable.tsx`** (linija 135) — tabelarni pregled sekcija
-3. **`WorkshopCardItem.tsx`** (linija 192) — mnemo workshop
-4. **`StudyModeRecall.tsx`** (linije 102, 133) — recall sesija
-5. **`StudyModeChain.tsx`** (linije 150, 178) — chain sesija
-6. **`StudyModeFree.tsx`** (linije 90, 113) — free sesija
-
-**Posebna napomena za Study mode-ove:** Trenutno koriste `whitespace-pre-wrap` što je rudimentarno. Ostavljam tu klasu (za legacy plain-text kartice), ali `card-prose` će se aktivirati za HTML pasuse.
-
-## Što NE diram
-
-- `RichTextEditor` (input layer) — paragrafi se već generišu korektno.
-- `SourceContent` i `CoverageArticleList` — to su **izvori**, ne kartice; tu želimo punu prose tipografiju.
-- `SourceSnippetDialog` — dijalog poređenja eseja sa izvorom; tu je puna typografija opravdana.
-- Sanitizacija — DOMPurify već dozvoljava `<p>` tagove.
+### Što NE diram
+- `SortMode === "order"` u `LearnSession` (već radi ispravno preko `positionMaps`).
+- Strukturu, drag&drop, persistenciju `sortOrder`-a — sve ostaje.
+- `ReviewSetup.dueSubcategories` (alfa po UUID, ali pillovi idu kroz `SessionFilters` → riješeno automatski).
 
 ## Fajlovi
+- `src/hooks/useCards.ts` — 3 linije (sort u memo)
+- `src/components/SessionFilters.tsx` — ~12 linija (novi `chapterPosMap` memo + izmjena `chaptersInSub`)
 
-- `src/index.css` — dodati `.card-prose` blok (~10 linija)
-- `src/components/card-list/CardRow.tsx` — 2 izmjene
-- `src/components/category/CardViewTable.tsx` — 1 izmjena
-- `src/components/workshop/WorkshopCardItem.tsx` — 1 izmjena
-- `src/components/learn/StudyModeRecall.tsx` — 2 izmjene
-- `src/components/learn/StudyModeChain.tsx` — 2 izmjene
-- `src/components/learn/StudyModeFree.tsx` — 2 izmjene
-
-Ukupno: **7 fajlova**, ~12 izmijenjenih linija. Globalni efekat na sve prikaze odgovora u karticama (esej, blic, mnemo).
+Ukupno: **2 fajla**, ~15 izmijenjenih linija. Nakon primjene, glave i potkategorije u Učenju i Konsolidaciji prate redoslijed iz Strukture predmeta.
 
