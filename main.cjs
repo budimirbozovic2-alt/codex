@@ -65,7 +65,21 @@ const ALLOWED_DIRS = () => [
 
 function isPathAllowed(filePath) {
   const resolved = path.resolve(filePath);
-  return ALLOWED_DIRS().some(dir => resolved.startsWith(dir + path.sep) || resolved === dir);
+  const dirs = ALLOWED_DIRS();
+  const matchesPlain = dirs.some(dir => resolved.startsWith(dir + path.sep) || resolved === dir);
+  if (!matchesPlain) return false;
+  // Defense-in-depth: resolve symlinks (when target exists) to prevent symlink-bypass.
+  try {
+    const real = fs.realpathSync.native(resolved);
+    return dirs.some(dir => {
+      let realDir;
+      try { realDir = fs.realpathSync.native(dir); } catch { realDir = dir; }
+      return real.startsWith(realDir + path.sep) || real === realDir;
+    });
+  } catch {
+    // Path doesn't exist yet (e.g. save-file target) — plain check is sufficient.
+    return true;
+  }
 }
 
 // ── K2 Fix: Dialog options whitelist ──
@@ -148,26 +162,40 @@ app.whenReady().then(() => {
       '.ico': 'image/x-icon', '.woff': 'font/woff', '.woff2': 'font/woff2',
       '.ttf': 'font/ttf', '.otf': 'font/otf',
     };
+    const serveIndex = async () => {
+      const indexData = await fs.promises.readFile(path.join(distPath, 'index.html'));
+      return new Response(indexData, {
+        status: 200,
+        headers: { 'Content-Type': 'text/html' },
+      });
+    };
     protocol.handle('app', async (request) => {
-      const url = new URL(request.url);
-      let filePath = path.join(distPath, decodeURIComponent(url.pathname));
-      if (filePath.endsWith('/') || filePath === distPath) {
-        filePath = path.join(distPath, 'index.html');
-      }
-      const ext = path.extname(filePath).toLowerCase();
-      const mime = MIME_TYPES[ext] || 'application/octet-stream';
       try {
-        const data = fs.readFileSync(filePath);
-        return new Response(data, {
-          status: 200,
-          headers: { 'Content-Type': mime },
-        });
-      } catch {
-        const indexData = fs.readFileSync(path.join(distPath, 'index.html'));
-        return new Response(indexData, {
-          status: 200,
-          headers: { 'Content-Type': 'text/html' },
-        });
+        const url = new URL(request.url);
+        let filePath = path.join(distPath, decodeURIComponent(url.pathname));
+        if (filePath.endsWith('/') || filePath === distPath) {
+          filePath = path.join(distPath, 'index.html');
+        }
+        // ── Path traversal guard: ensure resolved path stays inside distPath ──
+        const resolved = path.resolve(filePath);
+        if (resolved !== distPath && !resolved.startsWith(distPath + path.sep)) {
+          logCrash('app-protocol-traversal-blocked', `Blocked: ${request.url} → ${resolved}`);
+          return serveIndex();
+        }
+        const ext = path.extname(resolved).toLowerCase();
+        const mime = MIME_TYPES[ext] || 'application/octet-stream';
+        try {
+          const data = await fs.promises.readFile(resolved);
+          return new Response(data, {
+            status: 200,
+            headers: { 'Content-Type': mime },
+          });
+        } catch {
+          return serveIndex();
+        }
+      } catch (err) {
+        logCrash('app-protocol-handler', err);
+        return serveIndex();
       }
     });
   }
@@ -214,9 +242,10 @@ app.on('before-quit', async (e) => {
 
 // ── Focus existing window if second instance attempted ──
 app.on('second-instance', () => {
-  if (mainWindow) {
-    if (mainWindow.isMinimized()) mainWindow.restore();
-    mainWindow.focus();
+  const win = getMainWindow();
+  if (win) {
+    if (win.isMinimized()) win.restore();
+    win.focus();
   }
 });
 
