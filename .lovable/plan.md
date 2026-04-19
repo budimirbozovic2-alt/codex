@@ -1,73 +1,68 @@
 
 
-# Plan: Popraviti praznu "Sesija završena" kod manjih filtera
+# Deep Audit — provjera 12 navoda
 
-## Dijagnoza (potvrđeno čitanjem koda)
+## Verifikovani nalazi (osnovani)
 
-U `LearnSession.tsx:25-28`, `currentIndex` se inicijalizuje iz `sessionStorage["sr-learn-current-index"]` — **vrijednost preživljava između sesija**. Scenarijski tok bug-a:
+### 🔴 #1 Path traversal u `app://` protocol handler — POTVRĐEN
+`main.cjs:159` koristi `decodeURIComponent(url.pathname)` direktno u `path.join` bez naknadne provjere da rezultat ostaje unutar `distPath`. URL poput `app://localhost/../../../etc/passwd` može izaći iz dist foldera.
+**Fix:** Nakon `path.resolve(filePath)`, provjeriti `resolved.startsWith(distPath + path.sep)` — ako ne, fallback na `index.html`.
 
-1. Korisnik pokrene Slobodno učenje za cijeli predmet "Konvencijsko pravo" → ima npr. 80 kartica → dođe do kartice 47.
-2. Vrati se nazad (`onBack` → `setStarted(false)`) — `currentIndex` ostaje **47** u memoriji i u `sessionStorage`.
-3. Pokrene novu sesiju u potkategoriji koja ima 5 kartica.
-4. `sortedCards.length === 5`, ali `currentIndex === 47` → `card = sortedCards[47] === undefined`.
-5. Blok `if (!card)` (linija 156) odmah pokreće `SessionComplete` sa **0 pregledanih kartica** (jer `readCards.size === 0` u novoj sesiji).
+### 🔴 #2 `fs.readFileSync` u async `protocol.handle` — POTVRĐEN
+`main.cjs:171, 178` koriste sinhrono čitanje unutar async handler-a. Blokira main thread po svakom asset zahtjevu.
+**Fix:** `await fs.promises.readFile(...)`.
 
-Dodatni okidači istog bug-a:
-- Promjena `filterType` (Esej/Blic) ili `filterExamFrequent` smanji `sortedCards.length` ispod trenutnog `currentIndex`.
-- Promjena `learnMode === "chain"` (filter `c.type === "essay" && c.sections.length >= 3`) drastično skrati listu.
-- Hot reload tokom razvoja ostavlja stari index.
+### 🟡 #5 Symlink bypass `isPathAllowed` — POTVRĐEN ali nizak rizik
+`main.cjs:60-62` koristi `path.resolve` + `startsWith`, ne prati symlink-ove. Korisnik može kreirati symlink u Documents koji vodi van dozvoljenog dira. **Realan rizik nizak** (lokalna desktop app, korisnik bi sam sebe napao), ali defense-in-depth opravdava `fs.realpath`.
 
-## Rješenje (3 izmjene u `LearnSession.tsx`)
+### 🟡 #11 `rimraf` nije u dependencies — POTVRĐEN
+`package.json:8` poziva `rimraf dist release` u prebuild, ali `rimraf` nije u dependencies ni devDependencies. **Trenutno radi** jer je `rimraf` tranzitivno povučen (npr. preko ESLint/Vite chain-a), ali to nije garantovano.
+**Fix:** Dodati `"rimraf": "^5.0.5"` u devDependencies, ili još bolje — zamijeniti sa `"prebuild": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true});require('fs').rmSync('release',{recursive:true,force:true})\""` (zero-dep).
 
-### 1. Reset `currentIndex` na `onStart`
-Pri kliku na "Počni učenje", uvijek krenuti od 0:
-```ts
-onStart={() => { 
-  setCurrentIndex(0); 
-  sessionStorage.setItem("sr-learn-current-index", "0");
-  setReadCards(new Set());
-  setCompletedCards(new Set());
-  setChainCompletedCards(new Set());
-  setStarted(true); 
-}}
-```
+## Djelomično osnovani
 
-### 2. Defensivni clamp u `useEffect`
-Ako `sortedCards.length` postane manji od `currentIndex` tokom aktivne sesije (npr. zbog nekog filter-promjene), spustiti index:
-```ts
-useEffect(() => {
-  if (started && currentIndex >= sortedCards.length && sortedCards.length > 0) {
-    goToCard(sortedCards.length - 1);
-  }
-}, [started, sortedCards.length, currentIndex, goToCard]);
-```
+### 🟡 #3 `backup.cleanup()` await — DJELOMIČNO
+`backup.cjs:128` — `cleanup` je sinhron (`clearInterval`), nema async potrebe. Ali u `main.cjs:218` `before-quit` await-uje `performBeforeQuitBackup()` što JE async i pravilno čeka. Navod o `window-all-closed` cleanup nije problem.
 
-### 3. Razlikovati "prazan filter" od "završena sesija"
-U `if (!card)` bloku (linija 156), ako `sortedCards.length === 0` → prikazati poruku "Nema kartica za odabrani filter — vrati se i promijeni izbor" umjesto `SessionComplete`. Inače aktivira pogrešan toast/log.
+### 🟡 #4 `mainWindow` u `second-instance` — DJELOMIČNO
+`main.cjs:223-228` koristi closure `mainWindow` umjesto `getMainWindow()`. Tehnički radi jer `setMainWindow` se pozove sinhrono u `createWindow`, prije nego što korisnik može pokrenuti drugu instancu. **Konzistentnost** opravdava korištenje `getMainWindow()`.
 
-```ts
-if (!card) {
-  if (sortedCards.length === 0) {
-    return (
-      <div className="text-center py-20">
-        <p className="text-muted-foreground mb-4">Nema kartica za odabrani filter.</p>
-        <Button onClick={() => setStarted(false)}>Promijeni filter</Button>
-      </div>
-    );
-  }
-  // ... postojeća SessionComplete logika
-}
-```
+### 🟡 #7 IPC listener leak u preload — DJELOMIČNO
+`preload.cjs:18-22` vraća cleanup funkciju. `main.tsx` poziva cleanup u `beforeunload`/`unload`/`hot.dispose` — **uredno**. Listener se postavlja jednom po app lifetime-u (ne po komponenti). Realan leak rizik: nizak.
 
-Ovo sprečava pogrešno logovanje aktivnosti (`addActivityEntry`) i `recordDayDiscipline` u "lažno završenim" sesijama.
+## Neosnovani / netačni
 
-## Što NE diram
-- `sessionStorage` perzistencija je korisna za **resume unutar iste sesije** (refresh stranice) — ostaje, samo se resetuje na novom `onStart`.
-- Filter logika u `SessionFilters` — radi ispravno.
-- `ReviewSession` — ima vlastiti session-restore mehanizam i ne pati od ovog bug-a (drugačiji tok).
+### 🟢 #6 Nedostaju IPC handleri — NETAČAN
+Sve navedeno postoji:
+- `get-app-version`, `request-backup`, `get-backup-info` → `electron/backup.cjs:89-116` ✓
+- `window-minimize/maximize/close/is-maximized`, `window-maximized-changed` → `electron/window.cjs:123-130` ✓
 
-## Fajlovi
-- `src/components/LearnSession.tsx` — ~15 izmijenjenih linija (3 patch-a iznad)
+### 🟢 #8 `readFileSync(package.json)` u vite.config — NEOSNOVAN
+Vite config se izvršava samo u Node okruženju gdje `fs` uvijek postoji. Nije problem.
 
-Ukupno: **1 fajl**. Direktno rješava korisnikov scenarij i sprečava lažno logovanje aktivnosti.
+### 🟢 #9 `lovable-tagger` u prod — NETAČAN
+Već je korektno guarded sa `mode === "development" &&` i u devDependencies (`package.json:117`).
+
+### 🟢 #10 `data-app-mounted` se ne postavlja — NETAČAN
+`src/App.tsx:43` ima `<div className="flex flex-col h-screen" data-app-mounted>`. Splash retry mehanizam radi ispravno.
+
+### 🟢 #12 `strict: false` u tsconfig — STILSKO, ne bug
+Validan tehnički izbor projekta. Memory navodi "zero-any policy" koja se sprovodi na drugi način.
+
+## Plan implementacije (samo osnovani nalazi)
+
+**Prioritet 1 — kritično (~10 min):**
+- **#1** `main.cjs` app:// handler — dodati path validaciju nakon `path.resolve`, vratiti index.html za out-of-bounds putanje (~5 linija)
+- **#2** `main.cjs` app:// handler — zamijeniti `fs.readFileSync` sa `await fs.promises.readFile` na obje lokacije (~3 izmjene)
+
+**Prioritet 2 — defense-in-depth (~5 min):**
+- **#11** `package.json` — dodati `"rimraf": "^5.0.5"` u devDependencies (1 linija)
+- **#5** `main.cjs` `isPathAllowed` — dodati `fs.realpathSync.native` provjeru sa try/catch fallback-om za nepostojeće putanje (~10 linija)
+
+**Prioritet 3 — kozmetika (~3 min):**
+- **#4** `main.cjs:223` — zamijeniti `mainWindow` sa `getMainWindow()` u `second-instance` handleru za konzistentnost (3 linije)
+
+**Ne implementirati:** #3, #6, #7, #8, #9, #10, #12 (neosnovani ili nizak realan rizik bez konkretne koristi).
+
+**Ukupno:** 1 fajl primarno (`main.cjs`) + 1 linija u `package.json`. ~25 izmijenjenih linija.
 
