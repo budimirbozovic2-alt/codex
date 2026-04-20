@@ -1,113 +1,64 @@
 
 
-## Plan: Prošireni "Kontrolni panel sesije" sa svim filterima + Redoslijedom
+## Dijagnoza
 
-### Šta se dešava sada (zašto izgleda da fali)
+Identifikovana su **dva nezavisna uzroka** koji daju utisak da su nedavne izmjene "polomile" hijerarhiju.
 
-Funkcionalnost potkategorije/glave **postoji u kodu** (`SessionFilters.tsx:184-265`), ali se cijela sekcija prikazuje SAMO ako:
-- `selectedCategory && availableSubs.length > 0` (potkategorija)
-- `selectedSubcategory && chaptersInSub.length > 0` (glava)
+### Uzrok 1: Nove kategorije iz Settings ne vide se u Učenju/Konsolidaciji
 
-Pošto je sve smješteno u uski `max-w-xl` (576 px), a "Redoslijed" je u zasebnom bloku ispod, cijela strana izgleda usko i zbrkano. **Ništa nije obrisano** — ali oku korisnika izgleda kao da fali jer se sekcije pojavljuju i nestaju.
+**Nije regresija — postojeće ponašanje koje sad smeta zbog uvijek-vidljivih sekcija.**
 
-### Rješenje: jedan širi "Setup panel" sa 2-kolonskim layoutom
-
-```
-┌── Filteri sesije ─────────────────────────── 12 / 47 modula ──┐
-│                                                                │
-│  Tip      [ Sve ] [ Esejska ] [ Blic ]   🔥 Često (8)          │
-│                                                                │
-│  ──────────────────────────────────────────────────────        │
-│                                                                │
-│  Predmet                                                       │
-│  [ Sve ] [ KMP · 23 ] [ KPP · 18 ] [ GMP · 12 ] [ ... ]   ▶   │
-│                                                                │
-│  Potkategorija                  ◯ uvijek vidljivo              │
-│  [ Sve ] [ Krivična djela ] [ Sankcije ] [ Postupak ]     ▶   │
-│  (placeholder kad nema izbora: "Izaberi predmet iznad")        │
-│                                                                │
-│  Glava                                                         │
-│  [ Sve ] [ Glava I ] [ Glava II ] [ Glava III ]            ▶   │
-│  (placeholder kad nema potkategorije: "Izaberi potkategoriju") │
-│                                                                │
-│  ──────────────────────────────────────────────────────        │
-│                                                                │
-│  Redoslijed (samo Učenje)                                      │
-│  ┌──────────────┬──────────────┬──────────────────────┐        │
-│  │ Hronološki   │ Najslabija   │ Najmanje čitana      │        │
-│  │ ListOrdered  │ TrendDown    │ Eye                  │        │
-│  │ aktivno...   │ desc...      │ desc...              │        │
-│  └──────────────┴──────────────┴──────────────────────┘        │
-│                                                                │
-└────────────────────────────────────────────────────────────────┘
-
-           [ Počni učenje (12 modula) ]  ← full width ispod
-```
-
-### Konkretne izmjene
-
-**1. `FilterSetup.tsx` (Učenje) i `ReviewSetup.tsx` (Konsolidacija):**
-- Promijeniti kontejner sa `max-w-xl` (576 px) na `max-w-3xl` (768 px) — **30% više površine**, ali i dalje centrirano i čitljivo.
-- U `FilterSetup.tsx` proslijediti `sortMode` + `onSortModeChange` + `SORT_OPTIONS` u `SessionFilters` kao **opcioni prop** `sortControl` — kad postoji, panel renderuje "Redoslijed" sekciju unutra. Konsolidacija nema sort, pa ostaje bez te sekcije (prop je opcioni).
-
-**2. `SessionFilters.tsx` — ključne izmjene:**
-
-- **Potkategorija sekcija UVIJEK vidljiva** (ne više `AnimatePresence` skrivanje):
-  - Ako nema `selectedCategory`: prikaži disabled placeholder pill "Najprije izaberi predmet" (cursor-default, opacity-50).
-  - Ako ima `selectedCategory` ali `availableSubs.length === 0`: prikaži pill "Nema potkategorija u ovom predmetu".
-  - Inače: postojeći pillovi "Sve" + lista. **Funkcionalnost identična, samo se vidi da postoji.**
-
-- **Glava sekcija UVIJEK vidljiva** sa istom logikom:
-  - "Najprije izaberi potkategoriju" / "Nema glava" / pillovi.
-
-- **Nova opciona sekcija "Redoslijed"** na dnu kartice (renderuje se samo ako je `sortControl` prop prisutan):
-  ```tsx
-  {sortControl && (
-    <>
-      <div className="h-px bg-border/60" />
-      <div className="space-y-2">
-        <label>Redoslijed</label>
-        <div className="grid grid-cols-3 gap-2">
-          {sortControl.options.map(...)}  // 3 kartice u redu
-        </div>
-      </div>
-    </>
-  )}
+- `LearnSession.tsx:47-50` filtrira `availableCategories` tako da prikazuje **samo kategorije koje imaju bar jednu karticu**:
+  ```ts
+  const cats = new Set(cards.map(c => c.categoryId));
+  return categories.filter(c => cats.has(c));
   ```
-  Pošto je panel sad širi (max-w-3xl), tri sort kartice stanu lijepo u red umjesto vertikalnog stack-a.
+- `ReviewSetup.tsx:40-43` `dueCategories` ide još uže — samo kategorije sa **due** karticama.
+- Korisnik je u Settings dodao novi predmet, on je perzistiran u IDB i prikazuje se u Settings/Predmeti, ali **bez kartica** ne ulazi u listu filtera za Učenje/Konsolidaciju. Ranije (kad su sekcije Potkategorija/Glava bile sakrivene dok se ne izabere predmet) ovo nije bilo upadljivo. Sada, kad su sekcije uvijek vidljive, izostanak predmeta postaje očigledan.
 
-- **Header "Filteri sesije"** umjesto golog "Filteri" + brojač desno (već postoji).
+### Uzrok 2: Prikaz UUID-a umjesto imena (CardList badges, filter pillovi)
 
-**3. Dugme "Počni" ostaje izvan panela** (full-width ispod) — ne mijenja se.
+**Realna mana — postoji ali samo u edge-case scenarijima.**
 
-### Šta NE diram (garancija da se ništa ne uklanja)
+- `CardList.tsx:107-116` gradi `catNameMap` ali za chapter koristi prefix `"__ch_" + ch.id`, što očekuje da `ch` bude objekat `{id, name}`. Ako je u IDB-u zaostao **legacy string chapter** (stari format), `ch.id` je `undefined` → mapa dobija ključ `__ch_undefined` → CardRow prikazuje sirov UUID iz `card.chapterId`.
+- `SessionFilters.tsx:71-80` (`subNameMap`) ima isti problem: provjerava `typeof n === 'object' && n.id`, ali ako je legacy string ostao, mapa neće imati taj ključ → fallback na `subNameMap[sc] || sc` (linija 237) prikazuje UUID.
+- `useCardViewFilters.ts:24-26` (CategoryView filter bar) gradi `nameMap` čisto preko `sub.id` i `ch.id` što je u redu **kada su sve subkategorije normalizovane**. Ali ako u `categoryRecords` postoji subkategorija koja je objekat sa `{id, name}` ali kartica ima stari UUID koji više ne postoji u `categoryRecords` (orphan zbog raznih ranijih operacija), opet će se prikazati sirov UUID.
+- Korijen je u tome da `useCards.ts:34-49` pretpostavlja sve subkategorije već imaju UUID format, ali `normalizeNode` u `useCategoryManagement.ts` se poziva tek kada se vrši mutacija. Nikad nije pokrenuta jednokratna **migracija postojećeg state-a na boot**.
 
-- Tip kartice (Sve / Esejska / Blic) — **ostaje**.
-- "Često na ispitu" badge — **ostaje**.
-- Predmet pillovi sa count badge-om — **ostaju**.
-- Potkategorija pillovi — **ostaju**, samo se sekcija UVIJEK prikazuje sa placeholder-om kad je prazna.
-- Glava pillovi — **ostaju**, isti tretman.
-- `framer-motion` `layoutId` animacije aktivnog pilla — **ostaju**.
-- `ScrollableRow` horizontalni scroll — **ostaje**.
-- Live brojač "X / Y modula" — **ostaje**.
-- Sve callback prop-ove (`onSelectCategory`, `onSelectSubcategory`, `onSelectChapter`, `onToggleExamFrequent`, `onFilterTypeChange`) — **ostaju, signature nepromijenjen**.
-- `SORT_OPTIONS` u `FilterSetup.tsx` — **ostaje**, samo se proslijedi kao prop umjesto da se renderuje vlastiti blok.
-- Konsolidacija (`ReviewSetup.tsx`) NE dobija "Redoslijed" jer ga nikad nije imala — sortiranje za konsolidaciju je interno (stabilization/critical/hardest mode).
+## Plan popravke
 
-### Fajlovi
+### Popravka A — uklanjanje "fantomskog filtriranja" predmeta
 
-1. **`src/components/SessionFilters.tsx`** — ~30 izmijenjenih linija
-   - Dodati opcioni `sortControl` prop sa tipom `{ value: SortMode, onChange: (s: SortMode) => void, options: SortOption[] }`.
-   - Zamijeniti `AnimatePresence` skrivanje potkat/glava sa uvijek-vidljivim sekcijama + smart placeholder pillovima.
-   - Dodati conditional "Redoslijed" sekciju na dnu (renderuje samo ako je `sortControl` definisan).
+Tri opcije:
+- **A1 (preporučeno):** U `LearnSession.tsx` i `ReviewSetup.tsx` ne filtrirati `categories` po prisustvu kartica. Predmet bez kartica prikaže se u listi sa brojem `0`. Korisnik vidi sve svoje predmete i razumije zašto je kartice nema.
+- **A2:** Ostaviti filtriranje, ali dodati natpis "Skriveno: predmeta bez kartica" sa dugmetom "Prikaži sve". Više koda za malo manje vrijednosti.
+- **A3 (status quo):** Ne mijenjati. Ostaviti i dokumentovati. Ne preporučujem.
 
-2. **`src/components/learn/FilterSetup.tsx`** — ~15 izmijenjenih linija
-   - Promijeniti `max-w-xl` → `max-w-3xl`.
-   - Ukloniti samostalni "Redoslijed" blok (linije 75-90).
-   - Proslijediti `sortControl={{ value: sortMode, onChange: onSortModeChange, options: SORT_OPTIONS }}` u `SessionFilters`.
+→ Idem sa **A1**: 2 izmjene (po jedna u svakom fajlu, ~3 linije).
 
-3. **`src/components/review/ReviewSetup.tsx`** — 1 linija
-   - Promijeniti `max-w-xl` → `max-w-3xl` na linijama 179 i 274 da step 1 (mode) i step 2 (filteri) budu konzistentni.
+### Popravka B — eliminisati prikaz sirovih UUID-a
 
-**Ukupno: 3 fajla, ~50 linija. 0 uklonjenih funkcionalnosti. Panel postaje širi, organizovaniji, i jasno pokazuje sve dostupne opcije čak i kad neke nisu trenutno aktivne.**
+- **B1:** U `useCards.ts` na bootu **jednokratno normalizovati `categoryRecords`** kroz `normalizeNode` ako otkrije bilo koji legacy string node. Persistovati nazad u IDB. Time mapping struktura postaje konzistentna i `subNameMap`/`nameMap` u svim komponentama radi pravilno bez izuzetaka.
+- **B2:** U `CardList.tsx:112` graditi mapu glava i kada je `ch` string (legacy): `m["__ch_" + (typeof ch === 'string' ? ch : ch.id)] = typeof ch === 'string' ? ch : ch.name`. Defenzivni fallback ako migracija B1 nije završena.
+- **B3:** U `SessionFilters.tsx` `subNameMap` dodati isti defenzivni fallback za legacy string nodes.
+- **B4 (opcionalno):** U svim komponentama gdje se prikazuje sirov UUID kao fallback, zamijeniti sa "Nepoznato" + tooltip sa UUID-om radi debugiranja, da korisnik nikad ne vidi golu UUID-niz.
+
+→ Idem sa **B1 + B2 + B3**. B4 izostavljam — UUID fallback ostaje korisno tehničko upozorenje za istinski orphan-e.
+
+### Šta NE diram
+
+- Logika filtriranja kartica (`filteredCount`, `sortedCards`) — radi ispravno.
+- Layout `SessionFilters` panela (proširen prošli put) — ostaje.
+- `useCategoryManagement` mutacije — već koriste `normalizeNode`.
+- `CategoryView` strukturu i tabove.
+
+## Fajlovi
+
+1. **`src/hooks/useCards.ts`** — dodati `useEffect` koji nakon boota detektuje legacy string nodes u `categoryRecords` i pokreće jednokratnu migraciju (~20 linija). Idempotentno: ako je sve već UUID, no-op.
+2. **`src/components/LearnSession.tsx`** — ukloniti filter `cats.has(c)` iz `availableCategories`. Sve predmetne kategorije postaju vidljive (~3 linije).
+3. **`src/components/review/ReviewSetup.tsx`** — `dueCategories` koristi `categoryRecords.map(r => r.id)` umjesto skupa iz `dueCards` (~4 linije). Dodatno, count badge u SessionFilters već prikazuje 0 za prazne, što je ispravno.
+4. **`src/components/CardList.tsx`** — defenzivni `catNameMap` koji baratati i sa legacy string chapters (~3 linije).
+5. **`src/components/SessionFilters.tsx`** — defenzivni `subNameMap` za legacy string nodes (~3 linije).
+
+**Ukupno: 5 fajlova, ~33 linije izmjena. Nijedna funkcionalnost ne uklanja se.**
 
