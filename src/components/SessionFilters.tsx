@@ -1,10 +1,24 @@
-import { Flame } from "lucide-react";
-import { useMemo } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { Flame, type LucideIcon } from "lucide-react";
+import { useMemo, type ComponentType } from "react";
+import { motion } from "framer-motion";
 
 import ScrollableRow from "@/components/ScrollableRow";
 import type { Card } from "@/lib/spaced-repetition";
 import type { CategoryRecord } from "@/lib/db";
+
+export interface SortControlOption<T extends string = string> {
+  key: T;
+  label: string;
+  desc: string;
+  icon: LucideIcon | ComponentType<{ className?: string }>;
+}
+
+export interface SortControl<T extends string = string> {
+  value: T;
+  onChange: (next: T) => void;
+  options: ReadonlyArray<SortControlOption<T>>;
+  label?: string;
+}
 
 interface SessionFiltersProps {
   /** Unique prefix for layoutId animations (e.g. "learn", "review") */
@@ -25,6 +39,8 @@ interface SessionFiltersProps {
   onSelectChapter: (ch: string | null) => void;
   onToggleExamFrequent: () => void;
   onFilterTypeChange?: (type: "all" | "essay" | "flash") => void;
+  /** Optional sort control rendered at the bottom of the panel */
+  sortControl?: SortControl;
 }
 
 const PILL_BASE = "relative px-3 py-1.5 rounded-md text-xs font-medium whitespace-nowrap flex-shrink-0 transition-colors";
@@ -48,6 +64,7 @@ export default function SessionFilters({
   onSelectChapter,
   onToggleExamFrequent,
   onFilterTypeChange,
+  sortControl,
 }: SessionFiltersProps) {
   // Helper to resolve UUID → display name
   const catName = (id: string) => categoryRecords?.find(r => r.id === id)?.name ?? id;
@@ -180,89 +197,127 @@ export default function SessionFilters({
         </ScrollableRow>
       </div>
 
-      {/* Potkategorija */}
-      <AnimatePresence initial={false}>
-        {selectedCategory && availableSubs.length > 0 && (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: "auto" }}
-            exit={{ opacity: 0, height: 0 }}
-            transition={{ duration: 0.2, ease: "easeOut" }}
-            className="overflow-hidden"
-          >
-            <div className="space-y-2">
-              <label className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Potkategorija</label>
-              <ScrollableRow>
-                <motion.button
-                  onClick={() => onSelectSubcategory(null)}
-                  className={`${PILL_BASE} ${!selectedSubcategory ? PILL_ACTIVE : PILL_IDLE}`}
-                  whileTap={{ scale: 0.95 }}
-                >
-                  {!selectedSubcategory && (
-                    <motion.span layoutId={`${layoutPrefix}-subcat-pill`} className="absolute inset-0 rounded-md bg-primary shadow-sm" transition={{ type: "spring", duration: 0.3, bounce: 0.15 }} />
-                  )}
-                  <span className="relative z-10">Sve</span>
-                </motion.button>
-                {availableSubs.map((sc) => (
-                  <motion.button
-                    key={sc}
-                    onClick={() => onSelectSubcategory(sc)}
-                    className={`${PILL_BASE} ${selectedSubcategory === sc ? PILL_ACTIVE : PILL_IDLE}`}
-                    whileTap={{ scale: 0.95 }}
-                  >
-                    {selectedSubcategory === sc && (
-                      <motion.span layoutId={`${layoutPrefix}-subcat-pill`} className="absolute inset-0 rounded-md bg-primary shadow-sm" transition={{ type: "spring", duration: 0.3, bounce: 0.15 }} />
-                    )}
-                    <span className="relative z-10">{subNameMap[sc] || sc}</span>
-                  </motion.button>
-                ))}
-              </ScrollableRow>
-            </div>
-          </motion.div>
+      {/* Potkategorija — uvijek vidljivo */}
+      <div className="space-y-2">
+        <label className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Potkategorija</label>
+        {!selectedCategory ? (
+          <div className="flex">
+            <span className={`${PILL_BASE} bg-secondary/40 text-muted-foreground/60 cursor-default`}>
+              Najprije izaberi predmet
+            </span>
+          </div>
+        ) : availableSubs.length === 0 ? (
+          <div className="flex">
+            <span className={`${PILL_BASE} bg-secondary/40 text-muted-foreground/60 cursor-default`}>
+              Nema potkategorija u ovom predmetu
+            </span>
+          </div>
+        ) : (
+          <ScrollableRow>
+            <motion.button
+              onClick={() => onSelectSubcategory(null)}
+              className={`${PILL_BASE} ${!selectedSubcategory ? PILL_ACTIVE : PILL_IDLE}`}
+              whileTap={{ scale: 0.95 }}
+            >
+              {!selectedSubcategory && (
+                <motion.span layoutId={`${layoutPrefix}-subcat-pill`} className="absolute inset-0 rounded-md bg-primary shadow-sm" transition={{ type: "spring", duration: 0.3, bounce: 0.15 }} />
+              )}
+              <span className="relative z-10">Sve</span>
+            </motion.button>
+            {availableSubs.map((sc) => (
+              <motion.button
+                key={sc}
+                onClick={() => onSelectSubcategory(sc)}
+                className={`${PILL_BASE} ${selectedSubcategory === sc ? PILL_ACTIVE : PILL_IDLE}`}
+                whileTap={{ scale: 0.95 }}
+              >
+                {selectedSubcategory === sc && (
+                  <motion.span layoutId={`${layoutPrefix}-subcat-pill`} className="absolute inset-0 rounded-md bg-primary shadow-sm" transition={{ type: "spring", duration: 0.3, bounce: 0.15 }} />
+                )}
+                <span className="relative z-10">{subNameMap[sc] || sc}</span>
+              </motion.button>
+            ))}
+          </ScrollableRow>
         )}
-      </AnimatePresence>
+      </div>
 
-      {/* Glava (Chapter) */}
-      <AnimatePresence initial={false}>
-        {selectedSubcategory && chaptersInSub.length > 0 && (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: "auto" }}
-            exit={{ opacity: 0, height: 0 }}
-            transition={{ duration: 0.2, ease: "easeOut" }}
-            className="overflow-hidden"
-          >
-            <div className="space-y-2">
-              <label className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Glava</label>
-              <ScrollableRow>
-                <motion.button
-                  onClick={() => onSelectChapter(null)}
-                  className={`${PILL_BASE} ${!selectedChapter ? PILL_ACTIVE : PILL_IDLE}`}
-                  whileTap={{ scale: 0.95 }}
-                >
-                  {!selectedChapter && (
-                    <motion.span layoutId={`${layoutPrefix}-chapter-pill`} className="absolute inset-0 rounded-md bg-primary shadow-sm" transition={{ type: "spring", duration: 0.3, bounce: 0.15 }} />
-                  )}
-                  <span className="relative z-10">Sve</span>
-                </motion.button>
-                {chaptersInSub.map((ch) => (
-                  <motion.button
-                    key={ch}
-                    onClick={() => onSelectChapter(ch)}
-                    className={`${PILL_BASE} ${selectedChapter === ch ? PILL_ACTIVE : PILL_IDLE}`}
-                    whileTap={{ scale: 0.95 }}
-                  >
-                    {selectedChapter === ch && (
-                      <motion.span layoutId={`${layoutPrefix}-chapter-pill`} className="absolute inset-0 rounded-md bg-primary shadow-sm" transition={{ type: "spring", duration: 0.3, bounce: 0.15 }} />
-                    )}
-                    <span className="relative z-10">{subNameMap[ch] || ch}</span>
-                  </motion.button>
-                ))}
-              </ScrollableRow>
-            </div>
-          </motion.div>
+      {/* Glava (Chapter) — uvijek vidljivo */}
+      <div className="space-y-2">
+        <label className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Glava</label>
+        {!selectedSubcategory ? (
+          <div className="flex">
+            <span className={`${PILL_BASE} bg-secondary/40 text-muted-foreground/60 cursor-default`}>
+              {selectedCategory ? "Najprije izaberi potkategoriju" : "Najprije izaberi predmet"}
+            </span>
+          </div>
+        ) : chaptersInSub.length === 0 ? (
+          <div className="flex">
+            <span className={`${PILL_BASE} bg-secondary/40 text-muted-foreground/60 cursor-default`}>
+              Nema glava u ovoj potkategoriji
+            </span>
+          </div>
+        ) : (
+          <ScrollableRow>
+            <motion.button
+              onClick={() => onSelectChapter(null)}
+              className={`${PILL_BASE} ${!selectedChapter ? PILL_ACTIVE : PILL_IDLE}`}
+              whileTap={{ scale: 0.95 }}
+            >
+              {!selectedChapter && (
+                <motion.span layoutId={`${layoutPrefix}-chapter-pill`} className="absolute inset-0 rounded-md bg-primary shadow-sm" transition={{ type: "spring", duration: 0.3, bounce: 0.15 }} />
+              )}
+              <span className="relative z-10">Sve</span>
+            </motion.button>
+            {chaptersInSub.map((ch) => (
+              <motion.button
+                key={ch}
+                onClick={() => onSelectChapter(ch)}
+                className={`${PILL_BASE} ${selectedChapter === ch ? PILL_ACTIVE : PILL_IDLE}`}
+                whileTap={{ scale: 0.95 }}
+              >
+                {selectedChapter === ch && (
+                  <motion.span layoutId={`${layoutPrefix}-chapter-pill`} className="absolute inset-0 rounded-md bg-primary shadow-sm" transition={{ type: "spring", duration: 0.3, bounce: 0.15 }} />
+                )}
+                <span className="relative z-10">{subNameMap[ch] || ch}</span>
+              </motion.button>
+            ))}
+          </ScrollableRow>
         )}
-      </AnimatePresence>
+      </div>
+
+      {/* Redoslijed (opciono) */}
+      {sortControl && (
+        <>
+          <div className="h-px bg-border/60" />
+          <div className="space-y-2">
+            <label className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+              {sortControl.label ?? "Redoslijed"}
+            </label>
+            <div className="grid gap-2 sm:grid-cols-3">
+              {sortControl.options.map(({ key, label, desc, icon: Icon }) => {
+                const active = sortControl.value === key;
+                return (
+                  <button
+                    key={key}
+                    onClick={() => sortControl.onChange(key)}
+                    className={`rounded-xl border p-3 text-left transition-colors flex items-center gap-3 ${
+                      active ? "border-primary bg-primary/5" : "bg-card hover:border-primary/50"
+                    }`}
+                  >
+                    <div className={`p-1.5 rounded-lg shrink-0 ${active ? "bg-primary/10 text-primary" : "bg-secondary text-muted-foreground"}`}>
+                      <Icon className="h-4 w-4" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="font-medium text-sm truncate">{label}</p>
+                      <p className="text-xs text-muted-foreground truncate">{desc}</p>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }
