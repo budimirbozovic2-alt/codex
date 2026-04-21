@@ -31,11 +31,17 @@ const SpeedReaderPage = lazy(() => import("@/views/SpeedReaderPage"));
 const MindMapPage = lazy(() => import("@/views/MindMapPage"));
 
 const CategoryView = lazy(() => import("@/views/CategoryView"));
+const SubjectDashboard = lazy(() => import("@/views/SubjectDashboard"));
 
 /** key={categoryId} forces full remount when navigating between categories — resets all local state */
 function CategoryViewWrapper() {
   const { categoryId } = useParams();
   return <ErrorBoundary label="Kategorija"><CategoryView key={categoryId} /></ErrorBoundary>;
+}
+
+function SubjectDashboardWrapper() {
+  const { categoryId } = useParams();
+  return <ErrorBoundary label="Predmet"><SubjectDashboard key={categoryId} /></ErrorBoundary>;
 }
 
 const App = () => (
@@ -52,6 +58,7 @@ const App = () => (
                       <Routes>
                         <Route path="/" element={<ErrorBoundary label="Početna"><DashboardPage /></ErrorBoundary>} />
                         <Route path="/category/:categoryId" element={<CategoryViewWrapper />} />
+                        <Route path="/subject/:categoryId" element={<SubjectDashboardWrapper />} />
                         <Route path="/review" element={<ErrorBoundary label="Ponavljanje"><ReviewPage /></ErrorBoundary>} />
                         <Route path="/learn" element={<ErrorBoundary label="Učenje"><LearnPage /></ErrorBoundary>} />
                         <Route path="/create" element={<ErrorBoundary label="Kreiranje"><CreatePage /></ErrorBoundary>} />

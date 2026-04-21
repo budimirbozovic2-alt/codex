@@ -1,4 +1,5 @@
-import { Edit2, Trash2, Check, X, Plus, FolderOpen, ChevronDown, ChevronRight, Tag } from "lucide-react";
+import { Edit2, Trash2, Check, X, Plus, FolderOpen, ChevronDown, ChevronRight, Tag, ExternalLink } from "lucide-react";
+import { Link } from "react-router-dom";
 import { useState, useMemo } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -137,13 +138,15 @@ export default function CategoryManager({
                     </div>
                   ) : (
                     <>
-                      <div className="flex-1 min-w-0">
-                        <span className="font-medium text-sm">{nameMap[cat] || cat}</span>
-                        <span className="text-xs text-muted-foreground ml-2">
+                      <div className="flex-1 min-w-0 flex items-center gap-2">
+                        <Link to={`/subject/${cat}`} className="font-medium text-sm hover:text-primary transition-colors">
+                          {nameMap[cat] || cat}
+                        </Link>
+                        <span className="text-xs text-muted-foreground">
                           {count} kartica
                         </span>
                         {subs.length > 0 && (
-                          <span className="text-xs text-muted-foreground ml-1">
+                          <span className="text-xs text-muted-foreground">
                             · {subs.length} podkat.
                           </span>
                         )}

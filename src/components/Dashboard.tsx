@@ -14,6 +14,7 @@ import { StatusIconsRow } from "./dashboard/StatusIconsRow";
 import { StudyFlowWidget } from "./dashboard/StudyFlowWidget";
 import { CategoryRecord } from "@/lib/db";
 import { QuickActions } from "./dashboard/QuickActions";
+import { ToolCards } from "./dashboard/ToolCards";
 
 interface Props {
   stats: { due: number; total: number; totalSections: number; learnedSections: number };
@@ -105,6 +106,7 @@ export default function Dashboard({ stats, categoryStats, categories, categoryRe
           )}
 
           <QuickActions dueCount={stats.due} hasCards={cards.length > 0} />
+          <ToolCards />
         </div>
 
         {/* Right column — analytics widgets */}
