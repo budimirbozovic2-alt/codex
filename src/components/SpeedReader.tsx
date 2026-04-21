@@ -8,10 +8,11 @@ import SpeedReaderDisplay from "@/components/speed-reader/SpeedReaderDisplay";
 
 interface SpeedReaderProps {
   onShowOnboarding?: () => void;
+  initialCategoryId?: string;
 }
 
-export default function SpeedReader({ onShowOnboarding }: SpeedReaderProps) {
-  const engine = useSpeedReaderEngine();
+export default function SpeedReader({ onShowOnboarding, initialCategoryId }: SpeedReaderProps) {
+  const engine = useSpeedReaderEngine(initialCategoryId);
 
   // ─── Selection screen ──────────────────────────────
   if (!engine.readerActive) {

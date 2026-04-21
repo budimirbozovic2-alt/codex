@@ -8,7 +8,7 @@ import {
   buildSegments, buildSourceSegments, getActiveSegment, cleanForTTS,
 } from "@/components/speed-reader/speed-reader-constants";
 
-export function useSpeedReaderEngine() {
+export function useSpeedReaderEngine(initialCategoryId?: string) {
   const { cards } = useCardData();
   const { categories, subcategories, categoryRecords } = useCategoryData();
 
@@ -22,7 +22,7 @@ export function useSpeedReaderEngine() {
   }, [categoryRecords]);
 
   // Filters
-  const [selCat, setSelCat] = useState<string | null>(null);
+  const [selCat, setSelCat] = useState<string | null>(initialCategoryId ?? null);
   const [selSub, setSelSub] = useState<string | null>(null);
   const [readMode, setReadMode] = useState<ReadMode>("subcategory");
   const [contentSource, setContentSource] = useState<ContentSource>("cards");
