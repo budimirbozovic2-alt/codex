@@ -8,6 +8,8 @@ import {
   createFlashCard,
   createSection,
   SourceModule,
+  FrequencyTag,
+  CardSourceType,
 } from "@/lib/spaced-repetition";
 import { CardMap, bumpMapVersion, schedulePersist } from "@/lib/persist-queue";
 
@@ -103,6 +105,8 @@ export function useCardCRUD({
         childCardIds?: string[];
         sourceModules?: SourceModule[];
         needsReview?: boolean;
+        frequencyTag?: FrequencyTag;
+        sourceType?: CardSourceType;
       },
     ) => {
       patchCard(id, (c) => {
