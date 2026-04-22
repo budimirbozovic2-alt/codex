@@ -63,6 +63,20 @@ export function getErrorStatus(entry: ErrorLogEntry): ErrorStatus {
   return "critical";
 }
 
+export type FrequencyTag = "često" | "rijetko" | "nikad";
+export type CardSourceType = "skripta" | "zakon";
+
+export const FREQUENCY_TAGS: { value: FrequencyTag; label: string; color: string }[] = [
+  { value: "često", label: "Često dolazi", color: "destructive" },
+  { value: "rijetko", label: "Rijetko dolazi", color: "warning" },
+  { value: "nikad", label: "Gotovo nikad", color: "secondary" },
+];
+
+export const SOURCE_TYPES: { value: CardSourceType; label: string }[] = [
+  { value: "skripta", label: "Skripta" },
+  { value: "zakon", label: "Zakon" },
+];
+
 export interface Card {
   id: string;
   question: string;
@@ -85,6 +99,8 @@ export interface Card {
   originalSourceSnippet?: string;
   childCardIds?: string[];
   sourceModules?: SourceModule[];
+  frequencyTag?: FrequencyTag;
+  sourceType?: CardSourceType;
 }
 
 export const CARD_TAGS = [
