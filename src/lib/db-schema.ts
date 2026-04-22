@@ -157,6 +157,10 @@ class MemoriaDB extends Dexie {
     this.version(11).stores({
       sources: "id, categoryId, title, version, createdAt, sourceKind, [categoryId+sourceKind]",
     });
+
+    this.version(12).stores({
+      cards: "id, categoryId, subcategoryId, type, createdAt, sourceId, frequencyTag, sourceType, [categoryId+subcategoryId]",
+    });
   }
 }
 

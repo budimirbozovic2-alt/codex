@@ -5,6 +5,8 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { CardType } from "@/hooks/useCardActions";
 import type { CategoryRecord } from "@/lib/db";
+import type { FrequencyTag, CardSourceType } from "@/lib/spaced-repetition";
+import { FREQUENCY_TAGS, SOURCE_TYPES } from "@/lib/spaced-repetition";
 
 interface MetadataSectionProps {
   cardType: CardType;
@@ -29,12 +31,13 @@ interface MetadataSectionProps {
   setNewChapter: (v: string) => void;
   showNewChapter: boolean;
   setShowNewChapter: (v: boolean) => void;
-  /** Read-only gazette info from linked source */
   linkedGazetteInfo?: string | null;
-  /** Source ID for backlink */
   sourceId?: string;
-  /** Category records for UUID → name resolution */
   categoryRecords?: CategoryRecord[];
+  frequencyTag: FrequencyTag | "";
+  setFrequencyTag: (v: FrequencyTag | "") => void;
+  sourceType: CardSourceType | "";
+  setSourceType: (v: CardSourceType | "") => void;
 }
 
 const MetadataSection = memo(function MetadataSection({
@@ -44,6 +47,7 @@ const MetadataSection = memo(function MetadataSection({
   newSubcategory, setNewSubcategory, showNewSub, setShowNewSub,
   newChapter, setNewChapter, showNewChapter, setShowNewChapter,
   linkedGazetteInfo, sourceId, categoryRecords = [],
+  frequencyTag, setFrequencyTag, sourceType, setSourceType,
 }: MetadataSectionProps) {
   const catNameMap = Object.fromEntries(categoryRecords.map(r => [r.id, r.name]));
   return (
@@ -114,6 +118,30 @@ const MetadataSection = memo(function MetadataSection({
           )}
         </div>
       )}
+
+      {/* Frequency Tag */}
+      <div className="space-y-1.5">
+        <label className="text-sm font-medium text-muted-foreground">Frekventnost na ispitu</label>
+        <Select value={frequencyTag || "__none__"} onValueChange={(v) => setFrequencyTag(v === "__none__" ? "" : v as FrequencyTag)}>
+          <SelectTrigger className="bg-background"><SelectValue placeholder="Nije označeno" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="__none__">Nije označeno</SelectItem>
+            {FREQUENCY_TAGS.map((ft) => <SelectItem key={ft.value} value={ft.value}>{ft.label}</SelectItem>)}
+          </SelectContent>
+        </Select>
+      </div>
+
+      {/* Source Type */}
+      <div className="space-y-1.5">
+        <label className="text-sm font-medium text-muted-foreground">Tip izvora</label>
+        <Select value={sourceType || "__none__"} onValueChange={(v) => setSourceType(v === "__none__" ? "" : v as CardSourceType)}>
+          <SelectTrigger className="bg-background"><SelectValue placeholder="Nije označeno" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="__none__">Nije označeno</SelectItem>
+            {SOURCE_TYPES.map((st) => <SelectItem key={st.value} value={st.value}>{st.label}</SelectItem>)}
+          </SelectContent>
+        </Select>
+      </div>
     </div>
   );
 });

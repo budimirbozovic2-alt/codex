@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useMemo } from "react";
 import type { CategoryRecord, SubcategoryNode } from "@/lib/db";
-import { Card } from "@/lib/spaced-repetition";
+import { Card, FrequencyTag, CardSourceType } from "@/lib/spaced-repetition";
 import { toast } from "sonner";
 
 // ─── Types ──────────────────────────────────────────────
@@ -25,6 +25,8 @@ interface UseCardActionsProps {
     categoryId?: string;
     subcategoryId?: string;
     chapterId?: string;
+    frequencyTag?: FrequencyTag;
+    sourceType?: CardSourceType;
   }) => void;
 }
 
@@ -120,6 +122,10 @@ export function useCardActions({ categories, subcategories, categoryRecords, edi
   const [cuttingIndex, setCuttingIndex] = useState<number | null>(null);
   const [validationErrors, setValidationErrors] = useState<ValidationErrors>({});
   const [isSaving, setIsSaving] = useState(false);
+
+  // ── New metadata fields ───────────────────────────────
+  const [frequencyTag, setFrequencyTag] = useState<FrequencyTag | "">(editCard?.frequencyTag ?? "");
+  const [sourceType, setSourceType] = useState<CardSourceType | "">(editCard?.sourceType ?? "");
 
   // ── Derived ───────────────────────────────────────────
   const availableSubs: { id: string; name: string }[] = useMemo(() => {
@@ -232,13 +238,19 @@ export function useCardActions({ categories, subcategories, categoryRecords, edi
             question,
             sections: [{ title: "Odgovor", content: flashAnswer }],
             categoryId: cat, subcategoryId: sub, chapterId: ch,
+            ...(frequencyTag ? { frequencyTag: frequencyTag as FrequencyTag } : {}),
+            ...(sourceType ? { sourceType: sourceType as CardSourceType } : {}),
           });
         } else {
           onSaveFlash(question, flashAnswer, cat, sub);
         }
       } else {
         if (editCard && onUpdate) {
-          onUpdate(editCard.id, { question, sections, categoryId: cat, subcategoryId: sub, chapterId: ch });
+          onUpdate(editCard.id, {
+            question, sections, categoryId: cat, subcategoryId: sub, chapterId: ch,
+            ...(frequencyTag ? { frequencyTag: frequencyTag as FrequencyTag } : {}),
+            ...(sourceType ? { sourceType: sourceType as CardSourceType } : {}),
+          });
         } else {
           onSave(question, sections, cat, sub, ch);
         }
@@ -258,6 +270,7 @@ export function useCardActions({ categories, subcategories, categoryRecords, edi
     availableChapters, availableSubs,
     linkedGazetteInfo,
     validationErrors, isSaving,
+    frequencyTag, sourceType,
     // Setters
     setCardType, setQuestion, setFlashAnswer,
     setCategoryId, setSubcategoryId, setChapterId,
@@ -265,6 +278,7 @@ export function useCardActions({ categories, subcategories, categoryRecords, edi
     setNewSubcategory, setShowNewSub,
     setNewChapter, setShowNewChapter,
     setFormWidth, setCuttingIndex,
+    setFrequencyTag, setSourceType,
     // Actions
     addSection, removeSection, updateSection, moveSection, handleCut, handleSubmit,
   };

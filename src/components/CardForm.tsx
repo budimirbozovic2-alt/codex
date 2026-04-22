@@ -136,6 +136,10 @@ export default function CardForm({ categories, subcategories, categoryRecords, o
         linkedGazetteInfo={a.linkedGazetteInfo}
         sourceId={editCard?.sourceId}
         categoryRecords={categoryRecords}
+        frequencyTag={a.frequencyTag}
+        setFrequencyTag={a.setFrequencyTag}
+        sourceType={a.sourceType}
+        setSourceType={a.setSourceType}
       />
 
       {/* ── Submit ───────────────────────────────────── */}
