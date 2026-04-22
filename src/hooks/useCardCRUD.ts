@@ -125,6 +125,8 @@ export function useCardCRUD({
         if (updates.childCardIds !== undefined) newCard.childCardIds = updates.childCardIds;
         if (updates.sourceModules !== undefined) newCard.sourceModules = updates.sourceModules;
         if (updates.needsReview !== undefined) newCard.needsReview = updates.needsReview;
+        if (updates.frequencyTag !== undefined) newCard.frequencyTag = updates.frequencyTag;
+        if (updates.sourceType !== undefined) newCard.sourceType = updates.sourceType;
         if (updates.sections) {
           newCard.sections = updates.sections.map((s, idx) => {
             // H6 fix: match by id first (preserves FSRS on title rename), then title, then index
