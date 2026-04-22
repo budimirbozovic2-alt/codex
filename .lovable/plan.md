@@ -1,35 +1,57 @@
 
 
-## Plan: Ispravke navigacije ka SubjectDashboard
+## Plan: Dodavanje `frequencyTag` i `sourceType` polja na kartice
 
-### Dijagnoza
+### Korak 1 — Dexie schema upgrade (v12)
 
-Sve je ispravno povezano u kodu:
-- `ToolCards` je importovan i renderuje se u `Dashboard.tsx` (linija 17 + 109)
-- Ruta `/subject/:categoryId` postoji u `App.tsx` (linija 64)
-- `CategoryManager` već linkuje na `/subject/${cat}` (linija 142)
+**`src/lib/db-schema.ts`**
+- Dodati `version(12)` sa novim indeksom na `cards` tabeli: dodaje `frequencyTag` i `sourceType` u index string
+- Indeksi: `"id, categoryId, subcategoryId, type, createdAt, sourceId, frequencyTag, sourceType, [categoryId+subcategoryId]"`
 
-**Problem**: Dashboard pokazuje `EmptyState` ("Počnite sa učenjem") jer nema kartica u bazi — `ToolCards` se ne vidi jer je unutar `else` grane koja se renderuje samo kad `cards.length > 0`. Ovo je ispravan ali frustrirajući UX.
+### Korak 2 — Card TypeScript interfejs
 
-**Glavni problem**: Sidebar kategorije (linija 103 u `AppSidebar.tsx`) vode na `/category/${cat.id}` (stari CategoryView), a ne na `/subject/${cat.id}` (novi SubjectDashboard). Korisnik nikad ne vidi SubjectDashboard osim ako ručno navigira na `/categories` rutu.
+**`src/lib/spaced-repetition.ts`**
+- Dodati dva nova opcionalna polja u `Card` interfejs:
+  - `frequencyTag?: "često" | "rijetko" | "nikad"`
+  - `sourceType?: "skripta" | "zakon"`
+- Dodati nove konstante:
+  - `FREQUENCY_TAGS` array sa label/value/color za UI selektore
+  - `SOURCE_TYPES` array sa label/value za UI selektore
 
-### Izmjene
+### Korak 3 — useCardActions hook
 
-**1. `src/components/AppSidebar.tsx` (linija 103)**
-- Promijeniti `to={/category/${cat.id}}` → `to={/subject/${cat.id}}`
-- Sidebar kategorije sada vode na novi SubjectDashboard
-- Stara `/category/:id` ruta ostaje u `App.tsx` (dostupna iz SubjectDashboard-a kroz "Slobodno istraživanje" karticu)
+**`src/hooks/useCardActions.ts`**
+- Dodati state: `frequencyTag` i `sourceType` (inicijalizovano iz `editCard` ako postoji)
+- Dodati ih u `onUpdate` tip i `handleSubmit` — proslijediti u `onSave`/`onUpdate` pozive
+- Eksportovati iz hook return objekta
+- Ažurirati `UseCardActionsProps.onSave` i `onUpdate` tipove da uključe nova polja
 
-**2. `src/views/DashboardPage.tsx` (linije 32-34)**
-- Prikazati `ToolCards` i `QuickActions` čak i kad je `cards.length === 0`, ispod `EmptyState`
-- Ovim korisnik vidi "Strateški planer" i "Statistika" dugmad čak i na praznoj bazi
+### Korak 4 — CardForm + MetadataSection UI
 
-### Šta NE diram
+**`src/components/card-form/MetadataSection.tsx`**
+- Dodati dva nova UI elementa u metadata sekciju:
+  1. **"Frekventnost na ispitu"** — `Select` sa 3 opcije: "Često dolazi" / "Rijetko dolazi" / "Gotovo nikad" + opcija "Nije označeno" (prazna vrijednost)
+  2. **"Tip izvora"** — `Select` sa 2 opcije: "Skripta" / "Zakon" + opcija "Nije označeno"
+- Props: `frequencyTag`, `setFrequencyTag`, `sourceType`, `setSourceType`
 
-- `SubjectDashboard.tsx` — već funkcionalan
-- `App.tsx` rute — sve ispravne
-- `CategoryManager.tsx` — već linkuje na `/subject/`
-- `Dashboard.tsx` — `ToolCards` komponenta ostaje netaknuta
+**`src/components/CardForm.tsx`**
+- Proslijediti nove props iz `a` (useCardActions) u `MetadataSection`
 
-**Ukupno: 2 fajla, ~5 linija izmjena.**
+### Korak 5 — Propagacija kroz CRUD
+
+**`src/hooks/useCardCRUD.ts`** (ili gdje se `addCard` implementira)
+- Osigurati da `addCard` i `updateCard` primaju i perzistiraju `frequencyTag` i `sourceType`
+
+### Fajlovi
+
+| Fajl | Akcija |
+|------|--------|
+| `src/lib/db-schema.ts` | +1 verzija (v12), ~3 linije |
+| `src/lib/spaced-repetition.ts` | +2 polja u Card, +2 konstante, ~15 linija |
+| `src/hooks/useCardActions.ts` | +2 state, ažuriran submit, ~20 linija |
+| `src/components/card-form/MetadataSection.tsx` | +2 selektora u UI, ~40 linija |
+| `src/components/CardForm.tsx` | Proslijediti 4 nova props, ~4 linije |
+| `src/hooks/useCardCRUD.ts` | Prihvatiti nova polja u CRUD, ~5 linija |
+
+**Ukupno: 6 fajlova, ~90 linija. Postojeći podaci ostaju netaknuti — nova polja su opcionalna.**
 
