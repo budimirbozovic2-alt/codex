@@ -1,90 +1,98 @@
 
 
-## Plan: "Informacije o predmetu" — Examiner Profile
+## Plan: Adaptivni FSRS — težinski faktori po `frequencyTag`, `sourceType` i `examinerProfile`
 
-Wire-up the Info meta-button to open a modal where the user picks examiner difficulty and preferred answer type for the current subject. Persist on the existing `categories` table as a new optional `examinerProfile` field.
+Nadograditi FSRS algoritam u `src/lib/spaced-repetition.ts` da prilagođava raspored (interval) i target retention na osnovu kontekstualnih oznaka kartice i profila ispitivača.
 
-### 1. Schema — `src/lib/db-schema.ts`
+### 1. Logika modifikatora — `src/lib/spaced-repetition.ts`
 
-Extend `CategoryRecord`:
+Dodaje se novi helper `computeAdaptiveModifiers(card?, examinerProfile?)` koji vraća dva multiplikatora:
+
 ```ts
-export type ExaminerDifficulty = "tezak" | "lak";
-export type PreferredAnswerType = "esej" | "definicija" | "potpitanja";
-
-export interface ExaminerProfile {
-  difficulty?: ExaminerDifficulty;
-  preferredAnswerType?: PreferredAnswerType;
-  notes?: string;       // free-form, optional
-  updatedAt?: number;
+interface AdaptiveModifiers {
+  retentionBoost: number;   // dodaje se na targetRetention (npr. +0.02)
+  intervalMultiplier: number; // skraćuje/produžava interval (npr. 0.85 = češće)
 }
+```
 
-export interface CategoryRecord {
-  // ...postojeća polja
+**Pravila** (kumulativno, klampanjem):
+
+| Uslov | retentionBoost | intervalMultiplier |
+|------|----------------|--------------------|
+| `frequencyTag === "često"` | **+0.03** | **× 0.80** (vidi se češće) |
+| `frequencyTag === "rijetko"` | −0.02 | × 1.15 |
+| `frequencyTag === "nikad"` | −0.04 | × 1.30 |
+| `examinerProfile.preferredAnswerType === "esej"` **AND** `sourceType === "skripta"` | +0.02 | × 0.90 |
+| `examinerProfile.preferredAnswerType === "definicija"` **AND** `sourceType === "zakon"` | +0.02 | × 0.90 |
+| `examinerProfile.preferredAnswerType === "potpitanja"` (oba tipa boostovana lagano) | +0.01 | × 0.95 |
+| `examinerProfile.difficulty === "tezak"` | +0.01 | × 0.95 |
+| `examinerProfile.difficulty === "lak"` | −0.01 | × 1.05 |
+
+**Klampovanje rezultata:**
+- finalna `targetRetention` ograničena na `[0.80, 0.98]`
+- finalni `intervalMultiplier` ograničen na `[0.5, 1.5]`
+
+**Graceful fallback:** ako su `frequencyTag`, `sourceType` i `examinerProfile` svi `undefined`, vraća `{ retentionBoost: 0, intervalMultiplier: 1 }` → identično trenutnoj FSRS putanji (zero-impact regresija).
+
+### 2. Integracija u `calculateNextReview`
+
+Potpis se proširuje **opcionalnim** parametrom da ostane backward-compatible:
+
+```ts
+export interface AdaptiveContext {
+  frequencyTag?: FrequencyTag;
+  sourceType?: CardSourceType;
   examinerProfile?: ExaminerProfile;
 }
+
+export function calculateNextReview(
+  section: Section,
+  grade: number,
+  targetRetention?: number,
+  ctx?: AdaptiveContext,
+): Partial<Section>
 ```
 
-Bump Dexie to **v13** as a no-op marker (no new index — `examinerProfile` is an embedded object, not queried):
-```ts
-this.version(13).stores({
-  categories: "id, name, sortOrder",   // no schema change, marker only
-});
-```
-Existing data stays intact (Dexie tolerates new optional fields without migration).
+Unutar funkcije:
+- Izračunati `mods = computeAdaptiveModifiers(ctx)`.
+- `effectiveRetention = clamp((targetRetention ?? cached) + mods.retentionBoost, 0.80, 0.98)`
+- Originalni `interval = calculateInterval(newStability, effectiveRetention)` množi se sa `mods.intervalMultiplier`.
+- `finalNextReview` se kalkulisuje iz adjusted intervala.
+- Hard-coded grace periods (grade 1 = 20min, novi grade 3/4 = 15/20min) ostaju **netaknuti** — adaptivnost se ne primjenjuje na learning steps, samo na zreli scheduling.
 
-### 2. Persistence action — `src/hooks/useCategoryManagement.ts`
+### 3. Pozivaoci — prosljeđivanje konteksta
 
-Add a new orchestrated action:
-```ts
-const updateExaminerProfile = useCallback(
-  (categoryId: string, profile: ExaminerProfile) => {
-    optimisticCategoryUpdate(
-      setCategoryRecords,
-      prev => prev.map(r =>
-        r.id === categoryId
-          ? { ...r, examinerProfile: { ...profile, updatedAt: Date.now() } }
-          : r
-      ),
-      "updateExaminerProfile"
-    );
-  },
-  [setCategoryRecords],
-);
-```
-Export it from the hook and propagate through `useCards.ts` → `AppContext` (categoryActions Proxy already forwards declared keys; we add `updateExaminerProfile` to the surface).
+**`src/hooks/useCardAnnotations.ts`** (`reviewSection`):
+- Importovati `loadCategoryRecord` ili koristiti `db.categories.get(c.categoryId)` async **prije** `patchCard` da uzme `examinerProfile`.
+- Lakša alternativa (preferirana): cached lookup kroz novi sync helper `getCachedExaminerProfile(categoryId)` koji čita iz module-level mape sinhronizovane preko `eventBus` ili lazy iz IDB pri prvom pozivu (TTL 30s).
+- Proslijediti `{ frequencyTag: c.frequencyTag, sourceType: c.sourceType, examinerProfile }` u `calculateNextReview`.
 
-### 3. New modal — `src/components/ExaminerProfileDialog.tsx`
+**`src/components/review/ReviewCard.tsx`** (`previewIntervals`):
+- Helper `previewIntervals` se proširuje: `previewIntervals(section, ctx?)`.
+- ReviewCard već ima pristup `card` — dohvatiti `examinerProfile` iz `useCategoryData()` (kategorije već u contextu) i proslijediti.
 
-A `Dialog` (shadcn) component:
-- Props: `open`, `onOpenChange`, `categoryId`, `categoryName`, `initialProfile`, `onSave(profile)`
-- Body:
-  - **Težina ispitivača** — `Select`: "Težak" / "Lak" / "Nije označeno" (clear)
-  - **Preferirani tip odgovora** — `Select`: "Esej" / "Definicija" / "Potpitanja" / "Nije označeno"
-  - **Napomena** (optional) — `Textarea`, kratak slobodan tekst (do 500 char)
-- Footer: `Otkaži` + `Sačuvaj` button
-- On save: calls `onSave({ difficulty, preferredAnswerType, notes })`, toast "Profil sačuvan", closes modal.
+### 4. Tipovi i export-i
 
-Sanitization: notes pass through `sanitizeText` (existing util) before save.
+- Export `AdaptiveContext` i `computeAdaptiveModifiers` iz `spaced-repetition.ts` radi testiranja.
+- Re-export `ExaminerProfile` tipa (ili import iz `db-schema`) bez circular dependency (već čisto: `db-schema` ne importuje `spaced-repetition`).
 
-### 4. Wire-up in `src/views/SubjectDashboard.tsx`
+### 5. Testovi — `src/test/spaced-repetition.test.ts`
 
-- Replace the static "Informacije o predmetu" link with a button that opens local state `infoOpen`.
-- Read `categoryRec.examinerProfile` as `initialProfile`.
-- On save, call `categoryActions.updateExaminerProfile(categoryId, profile)`.
-- Keep BarChart3 → `/stats` and Settings → `/settings?...` as `<Link>`s as today.
+Nova `describe` grupa `"Adaptive modifiers"`:
+- Bez konteksta → identičan rezultat kao trenutni testovi (regression guard).
+- `frequencyTag === "često"` → kraći interval u poređenju sa baseline-om (>20% kraće).
+- `sourceType === "skripta"` + `preferredAnswerType === "esej"` → boost vs. baseline.
+- `sourceType === "zakon"` + `preferredAnswerType === "esej"` → no boost (pravilo se ne primjenjuje).
+- Klampovanje retention-a na 0.98 max.
 
-Refactored meta-tools row will mix `<Link>` (Stats, Settings) and `<button>` (Info opens modal).
+### Fajlovi
 
-### Files
+| Fajl | Akcija | Linije |
+|------|--------|--------|
+| `src/lib/spaced-repetition.ts` | +`AdaptiveContext`, +`computeAdaptiveModifiers`, +parametar u `calculateNextReview` i `previewIntervals` | ~70 |
+| `src/hooks/useCardAnnotations.ts` | Dohvat `examinerProfile`, prosljeđivanje konteksta | ~25 |
+| `src/components/review/ReviewCard.tsx` | Proslijediti `ctx` u `previewIntervals` | ~6 |
+| `src/test/spaced-repetition.test.ts` | +5 testova za adaptive modifiers | ~50 |
 
-| File | Action |
-|------|--------|
-| `src/lib/db-schema.ts` | +ExaminerProfile types, +`examinerProfile?` on CategoryRecord, +v13 marker (~15 lines) |
-| `src/hooks/useCategoryManagement.ts` | +`updateExaminerProfile` action, exported (~12 lines) |
-| `src/hooks/useCards.ts` | Forward new action from `useCategoryManagement` (~2 lines) |
-| `src/contexts/AppContext.tsx` | Expose `updateExaminerProfile` on category actions (~2 lines) |
-| `src/components/ExaminerProfileDialog.tsx` | **NEW** — modal with 2 selects + textarea (~110 lines) |
-| `src/views/SubjectDashboard.tsx` | Wire Info button to open modal, pass categoryRec.examinerProfile (~25 lines) |
-
-**6 fajlova, ~165 linija. Postojeći podaci ostaju netaknuti — `examinerProfile` je opcionalno polje. Bez novih indeksa.**
+**4 fajla, ~150 linija. Backward-compatible — bez konteksta algoritam radi identično kao trenutno.**
 
