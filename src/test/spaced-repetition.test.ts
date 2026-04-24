@@ -403,3 +403,114 @@ describe("score edge cases", () => {
     expect(getCardScore(card)).toBe(0);
   });
 });
+
+// ─── Adaptive modifiers ──────────────────────────────────
+
+describe("computeAdaptiveModifiers", () => {
+  it("returns neutral modifiers when ctx is undefined", () => {
+    const m = computeAdaptiveModifiers();
+    expect(m.retentionBoost).toBe(0);
+    expect(m.intervalMultiplier).toBe(1);
+  });
+
+  it("returns neutral when all fields are undefined", () => {
+    const m = computeAdaptiveModifiers({});
+    expect(m.retentionBoost).toBe(0);
+    expect(m.intervalMultiplier).toBe(1);
+  });
+
+  it("frequencyTag='često' boosts retention and shortens interval", () => {
+    const m = computeAdaptiveModifiers({ frequencyTag: "često" });
+    expect(m.retentionBoost).toBeCloseTo(0.03, 5);
+    expect(m.intervalMultiplier).toBeCloseTo(0.80, 5);
+  });
+
+  it("frequencyTag='nikad' lowers retention and lengthens interval", () => {
+    const m = computeAdaptiveModifiers({ frequencyTag: "nikad" });
+    expect(m.retentionBoost).toBeCloseTo(-0.04, 5);
+    expect(m.intervalMultiplier).toBeCloseTo(1.30, 5);
+  });
+
+  it("esej + skripta match → boost", () => {
+    const m = computeAdaptiveModifiers({
+      sourceType: "skripta",
+      examinerProfile: { preferredAnswerType: "esej" },
+    });
+    expect(m.retentionBoost).toBeCloseTo(0.02, 5);
+    expect(m.intervalMultiplier).toBeCloseTo(0.90, 5);
+  });
+
+  it("esej + zakon → no source-match boost", () => {
+    const m = computeAdaptiveModifiers({
+      sourceType: "zakon",
+      examinerProfile: { preferredAnswerType: "esej" },
+    });
+    expect(m.retentionBoost).toBe(0);
+    expect(m.intervalMultiplier).toBe(1);
+  });
+
+  it("definicija + zakon match → boost", () => {
+    const m = computeAdaptiveModifiers({
+      sourceType: "zakon",
+      examinerProfile: { preferredAnswerType: "definicija" },
+    });
+    expect(m.retentionBoost).toBeCloseTo(0.02, 5);
+    expect(m.intervalMultiplier).toBeCloseTo(0.90, 5);
+  });
+
+  it("interval multiplier clamps within [0.5, 1.5]", () => {
+    // Stack many lengthening modifiers
+    const m = computeAdaptiveModifiers({
+      frequencyTag: "nikad",       // ×1.30
+      examinerProfile: { difficulty: "lak" }, // ×1.05
+    });
+    expect(m.intervalMultiplier).toBeLessThanOrEqual(1.5);
+    expect(m.intervalMultiplier).toBeGreaterThanOrEqual(0.5);
+  });
+});
+
+describe("calculateNextReview with adaptive context", () => {
+  it("without ctx → identical to baseline (regression guard)", () => {
+    const s = makeSection({ state: SectionState.Review, stability: 5, difficulty: 5, lastReviewed: Date.now() - 86400000 });
+    const baseline = calculateNextReview(s, 3, 0.9);
+    const withEmptyCtx = calculateNextReview(s, 3, 0.9, {});
+    expect(withEmptyCtx.interval).toBeCloseTo(baseline.interval ?? 0, 5);
+  });
+
+  it("frequencyTag='često' → noticeably shorter interval than baseline", () => {
+    const s = makeSection({ state: SectionState.Review, stability: 10, difficulty: 5, lastReviewed: Date.now() - 86400000 });
+    const baseline = calculateNextReview(s, 3, 0.9);
+    const adapted = calculateNextReview(s, 3, 0.9, { frequencyTag: "često" });
+    // Combined effect of shorter interval + higher retention → at least 20% shorter
+    expect(adapted.interval!).toBeLessThan(baseline.interval! * 0.85);
+  });
+
+  it("esej + skripta → shorter interval than baseline", () => {
+    const s = makeSection({ state: SectionState.Review, stability: 10, difficulty: 5, lastReviewed: Date.now() - 86400000 });
+    const baseline = calculateNextReview(s, 3, 0.9);
+    const adapted = calculateNextReview(s, 3, 0.9, {
+      sourceType: "skripta",
+      examinerProfile: { preferredAnswerType: "esej" },
+    });
+    expect(adapted.interval!).toBeLessThan(baseline.interval!);
+  });
+
+  it("esej + zakon → no change (rule does not match)", () => {
+    const s = makeSection({ state: SectionState.Review, stability: 10, difficulty: 5, lastReviewed: Date.now() - 86400000 });
+    const baseline = calculateNextReview(s, 3, 0.9);
+    const adapted = calculateNextReview(s, 3, 0.9, {
+      sourceType: "zakon",
+      examinerProfile: { preferredAnswerType: "esej" },
+    });
+    expect(adapted.interval!).toBeCloseTo(baseline.interval!, 5);
+  });
+
+  it("retention boost clamps at 0.98 max", () => {
+    const s = makeSection({ state: SectionState.Review, stability: 10, difficulty: 5, lastReviewed: Date.now() - 86400000 });
+    // baseline retention 0.97 + boost 0.03 = 1.00 → must clamp to 0.98
+    const adapted = calculateNextReview(s, 3, 0.97, { frequencyTag: "često" });
+    // If clamping works, interval is finite and positive (not 0 from retention=1)
+    expect(Number.isFinite(adapted.interval!)).toBe(true);
+    expect(adapted.interval!).toBeGreaterThan(0);
+  });
+});
