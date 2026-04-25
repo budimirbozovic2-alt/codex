@@ -238,9 +238,10 @@ export default function LearnSession({ cards, categories, categoryRecords, subca
           viewWidth={viewWidth} setViewWidth={setViewWidth}
           readCards={readCards} completedCards={completedCards} chainCompletedCards={chainCompletedCards}
           onMarkRead={handleMarkRead} onReviewSection={onReviewSection} onAddKeyPart={onAddKeyPart}
-          goToCard={goToCard} goNext={goNext} goPrev={goPrev} onBack={() => setStarted(false)}
+          goToCard={goToCard} goNext={goNext} goPrev={goPrev} onBack={isStrictRecall ? onBack : () => setStarted(false)}
           setCompletedCards={setCompletedCards} setTotalGrades={setTotalGrades}
           setModulesCompleted={setModulesCompleted} updateProgress={updateProgress}
+          strictRecall={isStrictRecall}
         />
       </Suspense>
     );
