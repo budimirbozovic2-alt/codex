@@ -1,4 +1,4 @@
-import { useParams, Link } from "react-router-dom";
+import { useParams, Link, useNavigate } from "react-router-dom";
 import { useCardData, useCategoryData, useCardActions } from "@/contexts/AppContext";
 import { useMemo, useState } from "react";
 import {
@@ -6,6 +6,7 @@ import {
   Info, Settings, Network, BookOpen, Layers,
 } from "lucide-react";
 import ExaminerProfileDialog from "@/components/ExaminerProfileDialog";
+import MatrixFilterDialog, { type MatrixFilters } from "@/components/learn/MatrixFilterDialog";
 import type { ExaminerProfile } from "@/lib/db";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
