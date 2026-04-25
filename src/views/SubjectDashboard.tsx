@@ -29,6 +29,28 @@ export default function SubjectDashboard() {
 
   const { updateExaminerProfile } = useCardActions();
   const [infoOpen, setInfoOpen] = useState(false);
+  const [matrixOpen, setMatrixOpen] = useState(false);
+  const navigate = useNavigate();
+
+  const subjectCards = useMemo(
+    () => cards.filter(c => c.categoryId === categoryId),
+    [cards, categoryId],
+  );
+  const subjectSubcategories = useMemo(
+    () => (categoryRec?.subcategories ?? []).map(s => ({ id: s.id, name: s.name })),
+    [categoryRec],
+  );
+
+  const handleMatrixStart = (f: MatrixFilters) => {
+    const params = new URLSearchParams();
+    if (categoryId) params.set("cat", categoryId);
+    params.set("mode", "strict-recall");
+    if (f.subcategoryId) params.set("sub", f.subcategoryId);
+    params.set("type", f.type);
+    params.set("freq", f.frequencyTag);
+    params.set("sort", f.sortMode);
+    navigate(`/learn?${params.toString()}`);
+  };
 
   // ─── Knowledge progress data ──────────────────────────
   const subProgressData = useMemo(() => {
