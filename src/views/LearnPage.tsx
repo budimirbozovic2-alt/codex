@@ -1,9 +1,11 @@
-import { useEffect, useCallback } from "react";
+import { useEffect, useCallback, useMemo } from "react";
+import { useLocation } from "react-router-dom";
 import { useCardData, useCategoryData, useReviewData, useCardActions, useUIContext } from "@/contexts/AppContext";
 import { useSessionContext, QueuedReview, QueuedError, QueuedMarkRead } from "@/contexts/SessionContext";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import LearnSession from "@/components/LearnSession";
 import { Card } from "@/lib/spaced-repetition";
+import type { InitialFilters } from "@/components/learn/types";
 
 export default function LearnPage() {
   const { cards, stats, ready } = useCardData();
@@ -12,6 +14,23 @@ export default function LearnPage() {
   const { markRead, reviewSection, addKeyPart } = useCardActions();
   const { setView, setEditingCard } = useUIContext();
   const session = useSessionContext();
+  const location = useLocation();
+
+  const initialFilters = useMemo<InitialFilters | undefined>(() => {
+    const params = new URLSearchParams(location.search);
+    if (params.get("mode") !== "strict-recall") return undefined;
+    const freq = params.get("freq");
+    const sort = params.get("sort");
+    const type = params.get("type");
+    return {
+      mode: "strict-recall",
+      categoryId: params.get("cat"),
+      subcategoryId: params.get("sub"),
+      type: (type === "essay" || type === "flash") ? type : "all",
+      frequencyTag: (freq === "često" || freq === "rijetko" || freq === "nikad") ? freq : "all",
+      sortMode: sort === "weakest" ? "weakest" : "order",
+    };
+  }, [location.search]);
 
   useEffect(() => {
     if (ready) session.startSession(cards, reviewLog);
