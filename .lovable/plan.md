@@ -1,98 +1,95 @@
+## Plan: "Matrični Filter" modal + strogi Active Recall
 
+Akcija "Učenje uz aktivno prisjećanje" na `SubjectDashboard` više ne navigira direktno na `/learn`. Otvara modal sa 4 filtera, a "Započni" prosljeđuje preselektovane vrijednosti u `LearnPage` koji odmah pokreće sesiju u **strogom AR režimu** (bez preview čitanja).
 
-## Plan: Adaptivni FSRS — težinski faktori po `frequencyTag`, `sourceType` i `examinerProfile`
+### 1. Novi modal — `src/components/learn/MatrixFilterDialog.tsx` (NEW, ~140 linija)
 
-Nadograditi FSRS algoritam u `src/lib/spaced-repetition.ts` da prilagođava raspored (interval) i target retention na osnovu kontekstualnih oznaka kartice i profila ispitivača.
+Shadcn `Dialog` sa stanjem koje drži 4 izbora (lokalno u modalu):
 
-### 1. Logika modifikatora — `src/lib/spaced-repetition.ts`
+| Polje | Opcije | Default |
+|------|--------|---------|
+| **Oblast** | "Sve" / `<lista subcategorija predmeta>` | Sve |
+| **Tip** | Sve / Esejska / Blic | Sve |
+| **Frekvencija** | Sve / Često / Rijetko / Nikad | Sve |
+| **Sortiranje** | Hronološki / Po težini (`weakest`) | Hronološki |
 
-Dodaje se novi helper `computeAdaptiveModifiers(card?, examinerProfile?)` koji vraća dva multiplikatora:
+Header pokazuje broj kartica koje pogađa trenutni filter (live brojanje preko proslijeđene `cards` liste). Footer: "Otkaži" + "Započni" (disabled ako je 0 kartica).
 
+Props:
 ```ts
-interface AdaptiveModifiers {
-  retentionBoost: number;   // dodaje se na targetRetention (npr. +0.02)
-  intervalMultiplier: number; // skraćuje/produžava interval (npr. 0.85 = češće)
+interface Props {
+  open: boolean;
+  onOpenChange: (o: boolean) => void;
+  categoryId: string;
+  categoryName: string;
+  cards: Card[];                // sve kartice predmeta
+  subcategories: { id: string; name: string }[];
+  onStart: (filters: MatrixFilters) => void;
+}
+
+export interface MatrixFilters {
+  subcategoryId: string | null;
+  type: "all" | "essay" | "flash";
+  frequencyTag: "all" | "često" | "rijetko" | "nikad";
+  sortMode: "order" | "weakest";
 }
 ```
 
-**Pravila** (kumulativno, klampanjem):
+### 2. Wire-up na `SubjectDashboard.tsx`
 
-| Uslov | retentionBoost | intervalMultiplier |
-|------|----------------|--------------------|
-| `frequencyTag === "često"` | **+0.03** | **× 0.80** (vidi se češće) |
-| `frequencyTag === "rijetko"` | −0.02 | × 1.15 |
-| `frequencyTag === "nikad"` | −0.04 | × 1.30 |
-| `examinerProfile.preferredAnswerType === "esej"` **AND** `sourceType === "skripta"` | +0.02 | × 0.90 |
-| `examinerProfile.preferredAnswerType === "definicija"` **AND** `sourceType === "zakon"` | +0.02 | × 0.90 |
-| `examinerProfile.preferredAnswerType === "potpitanja"` (oba tipa boostovana lagano) | +0.01 | × 0.95 |
-| `examinerProfile.difficulty === "tezak"` | +0.01 | × 0.95 |
-| `examinerProfile.difficulty === "lak"` | −0.01 | × 1.05 |
+- Akcija "Učenje uz aktivno prisjećanje" više nije `<Link>`, postaje `<button onClick={() => setMatrixOpen(true)}>`.
+- Dodati `useState` za `matrixOpen` i renderovati `<MatrixFilterDialog .../>`.
+- `onStart(filters)` → `navigate(/learn?cat=<id>&mode=strict-recall&sub=...&type=...&freq=...&sort=...)` koristeći `useNavigate` (`react-router-dom`).
+- "Konsolidacija znanja" ostaje nepromijenjena.
 
-**Klampovanje rezultata:**
-- finalna `targetRetention` ograničena na `[0.80, 0.98]`
-- finalni `intervalMultiplier` ograničen na `[0.5, 1.5]`
+### 3. `LearnPage.tsx` — čitanje query parametara
 
-**Graceful fallback:** ako su `frequencyTag`, `sourceType` i `examinerProfile` svi `undefined`, vraća `{ retentionBoost: 0, intervalMultiplier: 1 }` → identično trenutnoj FSRS putanji (zero-impact regresija).
-
-### 2. Integracija u `calculateNextReview`
-
-Potpis se proširuje **opcionalnim** parametrom da ostane backward-compatible:
-
+Dodati parsiranje URL parametara prije render-a:
 ```ts
-export interface AdaptiveContext {
-  frequencyTag?: FrequencyTag;
-  sourceType?: CardSourceType;
-  examinerProfile?: ExaminerProfile;
-}
-
-export function calculateNextReview(
-  section: Section,
-  grade: number,
-  targetRetention?: number,
-  ctx?: AdaptiveContext,
-): Partial<Section>
+const params = new URLSearchParams(location.search);
+const presetMode = params.get("mode");           // "strict-recall"
+const presetCat  = params.get("cat");
+const presetSub  = params.get("sub");
+const presetType = params.get("type") as "all"|"essay"|"flash"|null;
+const presetFreq = params.get("freq");
+const presetSort = params.get("sort");
 ```
+Proslijediti kao `initialFilters` u `LearnSession`.
 
-Unutar funkcije:
-- Izračunati `mods = computeAdaptiveModifiers(ctx)`.
-- `effectiveRetention = clamp((targetRetention ?? cached) + mods.retentionBoost, 0.80, 0.98)`
-- Originalni `interval = calculateInterval(newStability, effectiveRetention)` množi se sa `mods.intervalMultiplier`.
-- `finalNextReview` se kalkulisuje iz adjusted intervala.
-- Hard-coded grace periods (grade 1 = 20min, novi grade 3/4 = 15/20min) ostaju **netaknuti** — adaptivnost se ne primjenjuje na learning steps, samo na zreli scheduling.
+### 4. `LearnSession.tsx` — auto-start strogi recall
 
-### 3. Pozivaoci — prosljeđivanje konteksta
+Dodati opcioni prop `initialFilters?: { mode: "strict-recall"; categoryId; subcategoryId; type; frequencyTag; sortMode }`.
 
-**`src/hooks/useCardAnnotations.ts`** (`reviewSection`):
-- Importovati `loadCategoryRecord` ili koristiti `db.categories.get(c.categoryId)` async **prije** `patchCard` da uzme `examinerProfile`.
-- Lakša alternativa (preferirana): cached lookup kroz novi sync helper `getCachedExaminerProfile(categoryId)` koji čita iz module-level mape sinhronizovane preko `eventBus` ili lazy iz IDB pri prvom pozivu (TTL 30s).
-- Proslijediti `{ frequencyTag: c.frequencyTag, sourceType: c.sourceType, examinerProfile }` u `calculateNextReview`.
+Ako je prisutan:
+- Postaviti `selectedCategory/Subcategory`, `filterType`, `sortMode` iz prop-a.
+- Postaviti `learnMode = "active-recall"` + novi flag `strictRecall = true`.
+- Preskočiti `setupStep` ekrane → `setStarted(true)` u `useEffect` na mount.
+- Dodati novi filter u `sortedCards` memo: ako `frequencyTag !== "all"`, filtrirati `cards.filter(c => c.frequencyTag === frequencyTag)`.
 
-**`src/components/review/ReviewCard.tsx`** (`previewIntervals`):
-- Helper `previewIntervals` se proširuje: `previewIntervals(section, ctx?)`.
-- ReviewCard već ima pristup `card` — dohvatiti `examinerProfile` iz `useCategoryData()` (kategorije već u contextu) i proslijediti.
+Pošto trenutni `sortedCards` ne podržava `frequencyTag` filter, dodaje se samo jedna linija (~3 LOC) i novi state `frequencyFilter`.
 
-### 4. Tipovi i export-i
+### 5. `StudyModeRecall.tsx` — strogi tok bez preview-a
 
-- Export `AdaptiveContext` i `computeAdaptiveModifiers` iz `spaced-repetition.ts` radi testiranja.
-- Re-export `ExaminerProfile` tipa (ili import iz `db-schema`) bez circular dependency (već čisto: `db-schema` ne importuje `spaced-repetition`).
+Trenutno modal ima dvije faze: `"preview"` (prikaži sve module → "Pročitano") i `"drill"` (modul po modul: Otkrij → Ocijeni 1-4).
 
-### 5. Testovi — `src/test/spaced-repetition.test.ts`
+Promjene kad je `strictRecall === true` (novi prop):
+- **Preskoči `preview` fazu** — `useEffect` postavlja `arPhase = "drill"` na mount i poziva `onMarkRead(card.id)` automatski.
+- Drill ostaje, ali umjesto `GradeButtons` (1-4 skala) prikazati **samo "Potvrdi" dugme** koje šalje grade `4` (uvijek napredak na sljedeći modul).
+- Reset preview-a se ne dešava ni pri promjeni kartice — `arPhase` je permanentno `"drill"`.
 
-Nova `describe` grupa `"Adaptive modifiers"`:
-- Bez konteksta → identičan rezultat kao trenutni testovi (regression guard).
-- `frequencyTag === "često"` → kraći interval u poređenju sa baseline-om (>20% kraće).
-- `sourceType === "skripta"` + `preferredAnswerType === "esej"` → boost vs. baseline.
-- `sourceType === "zakon"` + `preferredAnswerType === "esej"` → no boost (pravilo se ne primjenjuje).
-- Klampovanje retention-a na 0.98 max.
+Tok: Pitanje → "Prikaži odgovor" → odgovor + "Potvrdi" → sljedeći modul/kartica.
 
-### Fajlovi
+Bez `strictRecall` → postojeći tok ostaje netaknut (backward-compatible).
+
+### 6. Tehnički detalji
 
 | Fajl | Akcija | Linije |
 |------|--------|--------|
-| `src/lib/spaced-repetition.ts` | +`AdaptiveContext`, +`computeAdaptiveModifiers`, +parametar u `calculateNextReview` i `previewIntervals` | ~70 |
-| `src/hooks/useCardAnnotations.ts` | Dohvat `examinerProfile`, prosljeđivanje konteksta | ~25 |
-| `src/components/review/ReviewCard.tsx` | Proslijediti `ctx` u `previewIntervals` | ~6 |
-| `src/test/spaced-repetition.test.ts` | +5 testova za adaptive modifiers | ~50 |
+| `src/components/learn/MatrixFilterDialog.tsx` | NEW — modal sa 4 selecta + live count | ~140 |
+| `src/views/SubjectDashboard.tsx` | Wire AR akcije na modal, navigate sa query params | ~20 |
+| `src/views/LearnPage.tsx` | Parsiraj query params, prosljeđuj u LearnSession | ~15 |
+| `src/components/LearnSession.tsx` | `initialFilters` prop, frequencyTag filter, auto-start | ~30 |
+| `src/components/learn/StudyModeRecall.tsx` | `strictRecall` prop, preskakanje preview-a, "Potvrdi" dugme | ~25 |
+| `src/components/learn/types.ts` | `LearnSessionProps.initialFilters?` + `StudyModeRecallProps.strictRecall?` | ~10 |
 
-**4 fajla, ~150 linija. Backward-compatible — bez konteksta algoritam radi identično kao trenutno.**
-
+**6 fajlova, ~240 linija. Postojeći ručni tok kroz `/learn` (mode → filter → start) ostaje netaknut. Strogi recall je novi paralelni put aktiviran samo iz Subject Dashboarda.**
