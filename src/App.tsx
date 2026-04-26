@@ -35,6 +35,7 @@ const SubjectDashboard = lazy(() => import("@/views/SubjectDashboard"));
 const SubjectSpeedReaderPage = lazy(() => import("@/views/SubjectSpeedReaderPage"));
 const SubjectMindMapPage = lazy(() => import("@/views/SubjectMindMapPage"));
 const SubjectMnemonicPage = lazy(() => import("@/views/SubjectMnemonicPage"));
+const ZettelkastenView = lazy(() => import("@/views/ZettelkastenView"));
 
 /** key={categoryId} forces full remount when navigating between categories — resets all local state */
 function CategoryViewWrapper() {
@@ -65,6 +66,7 @@ const App = () => (
                         <Route path="/subject/:categoryId/speed-reader" element={<ErrorBoundary label="Speed Reader"><Suspense fallback={<PageSkeleton />}><SubjectSpeedReaderPage /></Suspense></ErrorBoundary>} />
                         <Route path="/subject/:categoryId/mind-maps" element={<ErrorBoundary label="Mapa uma"><Suspense fallback={<PageSkeleton />}><SubjectMindMapPage /></Suspense></ErrorBoundary>} />
                         <Route path="/subject/:categoryId/mnemonics" element={<ErrorBoundary label="Mnemonik"><Suspense fallback={<PageSkeleton />}><SubjectMnemonicPage /></Suspense></ErrorBoundary>} />
+                        <Route path="/subject/:categoryId/zettelkasten" element={<ErrorBoundary label="Zettelkasten"><Suspense fallback={<PageSkeleton />}><ZettelkastenView /></Suspense></ErrorBoundary>} />
                         <Route path="/review" element={<ErrorBoundary label="Ponavljanje"><ReviewPage /></ErrorBoundary>} />
                         <Route path="/learn" element={<ErrorBoundary label="Učenje"><LearnPage /></ErrorBoundary>} />
                         <Route path="/create" element={<ErrorBoundary label="Kreiranje"><CreatePage /></ErrorBoundary>} />

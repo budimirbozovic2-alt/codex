@@ -88,7 +88,7 @@ export default function SubjectDashboard() {
 
   const knowledgeBaseCards = useMemo(() => [
     {
-      to: "#",
+      to: `/subject/${categoryId}/zettelkasten`,
       icon: Network,
       title: "Zettelkasten",
       desc: "Baza znanja i mentalne mape",
