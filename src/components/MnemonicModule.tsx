@@ -146,30 +146,32 @@ export default function MnemonicModule({ embedded = false, categoryFilter }: Pro
         )}
       </AnimatePresence>
 
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold text-foreground flex items-center gap-2">
-            <Brain className="h-6 w-6 text-primary" /> Memorizacija
-          </h2>
-          <p className="text-muted-foreground mt-2">Izolovani sistem za kreiranje i testiranje mentalnih kuka.</p>
+      {!embedded && (
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-2xl font-bold text-foreground flex items-center gap-2">
+              <Brain className="h-6 w-6 text-primary" /> Memorizacija
+            </h2>
+            <p className="text-muted-foreground mt-2">Izolovani sistem za kreiranje i testiranje mentalnih kuka.</p>
+          </div>
+          <div className="flex items-center gap-1">
+            <InfoPanel title="Memorizacija">
+              <p><strong>Mentalni video</strong> — živopisna vizuelna scena povezana sa gradivom. Što bizarnije, to bolje.</p>
+              <p><strong>Akronim</strong> — za nabrajanja, sistem sugeriše prva slova stavki za brzo prisjećanje.</p>
+              <p><strong>Major sistem</strong> — brojevi se pretvaraju u riječi pomoću fonetskog koda.</p>
+              <p>Označi kartice tagom „Memorizacija" (ikona mozga) da ih dodaš ovdje.</p>
+            </InfoPanel>
+            <button
+              onClick={() => setShowOnboarding(true)}
+              className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors p-1 rounded-md hover:bg-secondary"
+              title="Vodič kroz memorizaciju"
+            >
+              <HelpCircle className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Onboarding</span>
+            </button>
+          </div>
         </div>
-        <div className="flex items-center gap-1">
-          <InfoPanel title="Memorizacija">
-            <p><strong>Mentalni video</strong> — živopisna vizuelna scena povezana sa gradivom. Što bizarnije, to bolje.</p>
-            <p><strong>Akronim</strong> — za nabrajanja, sistem sugeriše prva slova stavki za brzo prisjećanje.</p>
-            <p><strong>Major sistem</strong> — brojevi se pretvaraju u riječi pomoću fonetskog koda.</p>
-            <p>Označi kartice tagom „Memorizacija" (ikona mozga) da ih dodaš ovdje.</p>
-          </InfoPanel>
-          <button
-            onClick={() => setShowOnboarding(true)}
-            className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors p-1 rounded-md hover:bg-secondary"
-            title="Vodič kroz memorizaciju"
-          >
-            <HelpCircle className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">Onboarding</span>
-          </button>
-        </div>
-      </div>
+      )}
 
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
