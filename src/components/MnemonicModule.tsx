@@ -50,7 +50,14 @@ const MNEMO_SLIDES: OnboardingSlide[] = [
   },
 ];
 
-export default function MnemonicModule() {
+interface Props {
+  /** When true, hides the global header/onboarding chrome (used inside subject tabs). */
+  embedded?: boolean;
+  /** When set, restricts cards & stats to a single subject. */
+  categoryFilter?: string;
+}
+
+export default function MnemonicModule({ embedded = false, categoryFilter }: Props = {}) {
   const { patchCard } = useCardActions();
   const { categoryRecords } = useCategoryData();
   const [cards, setCardsState] = useState<MnemonicCard[]>([]);
@@ -58,7 +65,7 @@ export default function MnemonicModule() {
   const [subView, setSubView] = useState<"menu" | "workshop" | "test">("menu");
   const [majorOpen, setMajorOpen] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(
-    () => !hasSeenOnboarding(MNEMO_ONBOARDING_KEY)
+    () => !embedded && !hasSeenOnboarding(MNEMO_ONBOARDING_KEY)
   );
 
   // Load on mount + subscribe to event bus for cross-component refresh
