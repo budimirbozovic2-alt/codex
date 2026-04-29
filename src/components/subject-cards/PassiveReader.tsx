@@ -143,12 +143,13 @@ export default function PassiveReader({ cards, subcategoryNodes, categoryId, onE
       // Filters are hiding it — clear them and retry on next render.
       if (subFilter !== "all") setSubFilter("all");
       if (chapterFilter !== "all") setChapterFilter("all");
+      if (typeFilter !== "all") setTypeFilter("all");
       return;
     }
     setIndex(idx);
     consumedInitialRef.current = initialCardId;
     onInitialConsumed?.();
-  }, [initialCardId, cards, filtered, subFilter, chapterFilter, onInitialConsumed]);
+  }, [initialCardId, cards, filtered, subFilter, chapterFilter, typeFilter, onInitialConsumed]);
 
   // Keyboard navigation
   useEffect(() => {
