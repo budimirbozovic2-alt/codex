@@ -43,9 +43,9 @@ export default function SubjectDashboard() {
 
   const handleMatrixStart = (f: MatrixFilters) => {
     const params = new URLSearchParams();
-    if (categoryId) params.set("cat", categoryId);
+    if (categoryId) params.set("category", categoryId);
     params.set("mode", "strict-recall");
-    if (f.subcategoryId) params.set("sub", f.subcategoryId);
+    if (f.subcategoryId) params.set("subcategory", f.subcategoryId);
     params.set("type", f.type);
     params.set("freq", f.frequencyTag);
     params.set("sort", f.sortMode);
