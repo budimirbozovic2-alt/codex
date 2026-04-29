@@ -295,6 +295,7 @@ export default function SubjectCardsView() {
                 cards={cards}
                 categoryId={categoryId!}
                 allCategories={categoryRecords}
+                subcategoryNodes={subcategoryNodes}
                 patchCard={patchCard}
                 toggleTag={toggleTag}
                 addCard={addCard}
