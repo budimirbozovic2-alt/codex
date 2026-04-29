@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/tooltip";
 import { getCardMasteryLevel, getMasteryColor, MASTERY_LEVELS } from "@/lib/mastery";
 import { SectionState } from "@/lib/spaced-repetition";
+import { buildQuery } from "@/lib/url-params";
 
 export default function SubjectDashboard() {
   const { categoryId } = useParams<{ categoryId: string }>();
@@ -42,14 +43,15 @@ export default function SubjectDashboard() {
   );
 
   const handleMatrixStart = (f: MatrixFilters) => {
-    const params = new URLSearchParams();
-    if (categoryId) params.set("category", categoryId);
-    params.set("mode", "strict-recall");
-    if (f.subcategoryId) params.set("subcategory", f.subcategoryId);
-    params.set("type", f.type);
-    params.set("freq", f.frequencyTag);
-    params.set("sort", f.sortMode);
-    navigate(`/learn?${params.toString()}`);
+    const qs = buildQuery({
+      category: categoryId,
+      mode: "strict-recall",
+      subcategory: f.subcategoryId,
+      type: f.type,
+      freq: f.frequencyTag,
+      sort: f.sortMode,
+    });
+    navigate(`/learn${qs}`);
   };
 
   // ─── Knowledge progress data ──────────────────────────
@@ -115,7 +117,7 @@ export default function SubjectDashboard() {
       desc: "Matrični filter — testiranje i učvršćivanje znanja",
     },
     {
-      to: `/review?category=${categoryId}`,
+      to: `/review${buildQuery({ category: categoryId })}`,
       icon: RefreshCw,
       title: "Konsolidacija znanja",
       desc: "Ponavljanje dospjelih kartica iz ovog predmeta",
@@ -171,7 +173,7 @@ export default function SubjectDashboard() {
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button variant="outline" size="icon" className="h-9 w-9" asChild>
-                  <Link to={`/settings?tab=algorithm&category=${categoryId}`}>
+                  <Link to={`/settings${buildQuery({ tab: "algorithm", category: categoryId })}`}>
                     <Settings className="h-4 w-4" />
                   </Link>
                 </Button>

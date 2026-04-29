@@ -17,6 +17,11 @@ const ALIASES: Record<string, readonly string[]> = {
   chapter: ["chapter"],
   source: ["source"],
   card: ["card"],
+  tab: ["tab"],
+  mode: ["mode"],
+  type: ["type"],
+  freq: ["freq", "frequency"],
+  sort: ["sort"],
 };
 
 /** Read a query param by canonical name, falling back to known aliases. */

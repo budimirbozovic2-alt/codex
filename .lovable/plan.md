@@ -1,42 +1,67 @@
-## Cilj
-Spojiti "Uređivanje" i "Strukturu i raspored kartica" u jedan hijerarhijski tab pod nazivom **"Uređivanje i raspored kartica"** sa internim segmentiranim prebacivanjem **View ↔ Org**.
+# Standardizacija pisanja query parametara (canonical writers)
 
-## Trenutno stanje
-`SubjectCardsView.tsx` već ima jedan top-level tab `"manage"` sa internim segmentiranim switchom (`manageMode: "edit" | "structure"`). Korisnik traži samo terminološko poravnanje: tab labela i imena dva pod-mode-a treba da odražavaju zahtjev.
+## Stanje danas
 
-## Izmjene (sve u `src/views/SubjectCardsView.tsx`)
+Iz prethodne runde čitači su već svi prešli na `getParam` (kanonski + alias fallback). Sada treba dovršiti **stranu pisanja**: svaka navigacija/Link koji ručno sklapa query string treba ići preko `buildQuery`, da pisači ostanu u sinhronu sa kanonskim imenima i da nema više ručnih `?cat=` ili copy-paste šablona.
 
-### 1. Naziv top-level taba (linija 192)
-```diff
-- <span>Upravljanje karticama</span>
-+ <span>Uređivanje i raspored kartica</span>
-```
+Routing po path-segmentima (`/subject/:id`, `/category/:id`, `/subject/:id/cards`, `/subject/:id/zettelkasten`, `/subject/:id/mind-maps`) je **već kanonski** i ostaje netaknut — to nisu query parametri.
 
-### 2. Sekcijski naslov iznad TabsList (linija 187)
-```diff
-- Upravljanje
-+ Kartice
-```
-(neutralniji nadgrupni naziv jer se "Upravljanje" ponavljalo u kontekstu jedne stavke)
+## Šta tačno ostaje za ispraviti
 
-### 3. Interna segmentirana dugmad (linije 226 i 239)
-```diff
-- <LayoutList /> Uređivanje i dodavanje
-+ <LayoutList /> View — pregled i uređivanje
+Pretragom `URLSearchParams` + `?category=` + `&category=` u `src/`, ostala su samo dva mjesta gdje pisači još uvijek ručno sklapaju query:
 
-- <Network /> Struktura i raspored
-+ <Network /> Org — struktura i raspored
-```
-(dvojezično/koncizno: kratak ID "View"/"Org" + opisni tail za jasnoću)
+1. **`src/views/SubjectDashboard.tsx`**
+   - Linija 44–53 `handleMatrixStart`: ručno gradi `URLSearchParams` sa `category`, `subcategory`, `mode`, `type`, `freq`, `sort`.
+   - Linija 118 `coreActions`: `to: \`/review?category=${categoryId}\``.
+   - Linija 174 settings link: `to={\`/settings?tab=algorithm&category=${categoryId}\`}`.
 
-### 4. Header podnaslov kategorije (linija 177, ako pominje stari naziv)
-Provjeriti i uskladiti `"Kartice — uređivanje, struktura i pasivno čitanje"` — ostaje, već pokriva.
+Sve tri tačke prebaciti na `buildQuery` iz `src/lib/url-params.ts`.
 
-## Bez promjene
-- `manageMode` state ključevi (`"edit" | "structure"`) — ostaju jer ih `EditReturnSnapshot` već persistira.
-- `localStorage` ključevi i ponašanje stash/restore — bez izmjena.
-- `CardViewMode`, `CardOrgMode`, `StructureManagerDialog` — ne diraju se.
-- Pasivno čitanje tab — ostaje zaseban kao i sada.
+## Plan izmjena
 
-## Fajl
-- **Izmijenjeno:** `src/views/SubjectCardsView.tsx` (4 male tekstualne izmjene labela)
+### 1) `src/views/SubjectDashboard.tsx`
+
+- Importovati `buildQuery` iz `@/lib/url-params`.
+- `handleMatrixStart` zamijeniti sa:
+  ```ts
+  const qs = buildQuery({
+    category: categoryId,
+    mode: "strict-recall",
+    subcategory: f.subcategoryId,
+    type: f.type,
+    freq: f.frequencyTag,
+    sort: f.sortMode,
+  });
+  navigate(`/learn${qs}`);
+  ```
+- `coreActions` review entry: `to: \`/review${buildQuery({ category: categoryId })}\``.
+- Settings link: `to={\`/settings${buildQuery({ tab: "algorithm", category: categoryId })}\`}`.
+
+### 2) `src/lib/url-params.ts` (manja dopuna aliasa)
+
+Dodati ne-kategorijske, ali kanonski-važne ključeve koje pisači sada koriste, da se readeri u budućnosti mogu lako vezati na njih bez novih izmjena:
+- `tab: ["tab"]`
+- `mode: ["mode"]`
+- `type: ["type"]`
+- `freq: ["freq", "frequency"]`
+- `sort: ["sort"]`
+
+Ovo je čisto dodavanje — postojeći `getParam` pozivi nastavljaju raditi.
+
+### 3) Lint / sanity provjera
+
+Nakon izmjena u dashboardu, preko `rg` se potvrđuje da u `src/` više nema:
+- ručnog `new URLSearchParams()` osim u `url-params.ts`,
+- ni jednog hard-coded `?category=` / `&category=` izvan `url-params.ts` testova.
+
+Čitači (`LearnPage`, `ReviewPage`, `SRSettingsPanel`) ostaju netaknuti — već koriste `getParam`.
+
+## Šta se NE dira
+
+- Path-segment rute (`/subject/:id/...`, `/category/:id`) — to nisu query params i već su kanonske.
+- Backward-compat aliasi (`cat`, `sub`, `subject`) ostaju u `ALIASES` da stari bookmarkovi rade zauvijek.
+- Logika `EditReturnSnapshot`, `LearnSession`, `ReviewSession` — bez promjena.
+
+## Rezultat
+
+Svi novi linkovi/redirekcije u aplikaciji idu kroz jedan helper (`buildQuery`) i koriste isključivo kanonska imena (`category`, `subcategory`, `tab`, `mode`, `type`, `freq`, `sort`). Eventualno buduće preimenovanje aliasa svodi se na izmjenu jedne mape u `url-params.ts`.
