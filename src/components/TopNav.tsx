@@ -1,10 +1,8 @@
-import { Home, RotateCcw, Moon, Sun, Focus, Settings as SettingsIcon, HelpCircle, Plus, Wrench, FolderOpen } from "lucide-react";
+import { Home, Moon, Sun, Focus, Settings as SettingsIcon, HelpCircle, Plus, Wrench, FolderOpen } from "lucide-react";
 import { useLocation } from "react-router-dom";
 
 import { NavLink } from "@/components/NavLink";
-import { useCardData } from "@/contexts/AppContext";
 import { useState, useCallback, useRef, useEffect, useTransition } from "react";
-import { Badge } from "@/components/ui/badge";
 import { Link } from "react-router-dom";
 import { setDarkMode } from "@/lib/app-settings";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
