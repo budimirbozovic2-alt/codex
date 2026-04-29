@@ -6,6 +6,10 @@ export interface ReviewLogEntry {
   sectionId: string;
   grade: number;
   category: string;
+  // ── Adaptive scheduling explanation (optional, added v6.x) ──
+  reasons?: { code: string; label: string }[];
+  effectiveRetention?: number;
+  intervalMultiplier?: number;
 }
 
 // Pomodoro log
