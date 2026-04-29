@@ -53,6 +53,7 @@ export default function SubjectCardsView() {
   const [searchQuery, setSearchQuery] = useState("");
   const [sourceFilter, setSourceFilter] = useState<string>("__all__");
   const [sources, setSources] = useState<Source[]>([]);
+  const [pendingPassiveCardId, setPendingPassiveCardId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!categoryId) return;
