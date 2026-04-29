@@ -1,40 +1,100 @@
-## Problem
+## Cilj
 
-U `src/components/category/CardViewTable.tsx` (linija 166) expanded prikaz sekcije koristi:
+U `SubjectCardsView` (Manage tab → "Uređivanje i dodavanje" sub-mode) dodati **hijerarhijsku tree-navigaciju** sa lijeve strane koja prikazuje organizacionu strukturu predmeta (Predmet → Potkategorije → Glave) i sinhronizovana je sa `useCardViewFilters` — klik na čvor odmah filtrira `CardList` desno, sve unutar istog taba (bez prelaska u "Struktura i raspored" ili "Pasivno čitanje").
 
-```html
-<div className="text-xs prose prose-xs dark:prose-invert max-w-none line-clamp-4 card-prose" ...>
+## Šta korisnik vidi
+
+```text
+┌──── Manage tab → "Uređivanje i dodavanje" ────────────────────────┐
+│                                                                    │
+│  ┌─ Tree (sticky, ~260px) ─┐  ┌─ Postojeći filter bar ─────────┐  │
+│  │ ▾ Sve kartice    [142] │  │ [pretraga] [izvor] [tip] [tag] │  │
+│  │   ▾ Obligaciono   [54] │  └────────────────────────────────┘  │
+│  │     • Opšti dio   [21] │  ┌─ CardList (CardViewTable) ─────┐  │
+│  │     • Ugovori     [33] │  │ … virtualizovane kartice …      │  │
+│  │   ▸ Stvarno pravo [88] │  │                                 │  │
+│  └─────────────────────────┘  └─────────────────────────────────┘  │
+└────────────────────────────────────────────────────────────────────┘
 ```
 
-`dark:prose-invert` postavlja Tailwind-ovu paletu (`--tw-prose-body: #d1d5db` itd.) **nakon** našeg globalnog overrida u `src/index.css` (`.dark .prose { --tw-prose-body: hsl(var(--foreground)); ... }`). Posljedica: u dark modu tekst dobije bledu `prose-invert` boju umjesto pune `--foreground` koju zahtijeva Core memorija ("Prose body uses `--foreground` at full opacity in both light and dark; never compose `text-foreground/N` over `prose`.").
+- Korijen "Sve kartice" — resetuje `filterSubcategory` i `filterChapter`.
+- Potkategorija — kliknena postavlja `filterSubcategory`, briše `filterChapter`.
+- Glava — kliknuta postavlja oboje (`filterSubcategory` + `filterChapter`).
+- Bedževi pored svakog čvora pokazuju broj kartica (već imamo `subcategoryCounts` i `chapterCounts` iz `useCardViewFilters`).
+- Trenutno selektovan čvor je vizuelno istaknut (`bg-primary/10 text-primary border-l-2 border-primary`).
+- Expand/collapse strelicom uz ikonu (`ChevronRight`/`ChevronDown`); stanje proširenosti se pamti per-kategorija u `localStorage` (kao i u `PassiveReader`).
+- Postojeći `CardViewFilterBar` Select-ovi za potkategoriju/glavu **ostaju** (radi para "tree = primary, dropdowns = backup"), ali su uvijek u sinhronu jer dijele isti `useCardViewFilters` state.
 
-To je upravo "dupla primjena opacity-ja" o kojoj govoriš — efektivno se naš token override poništava.
+## Tehničke izmjene
 
-## Rješenje
+### 1. Nova komponenta `src/components/category/SubjectHierarchyTree.tsx`
 
-Ukloniti `dark:prose-invert` sa tog jednog elementa. Globalni `.dark .prose` blok u `index.css` već postavlja **sve** potrebne `--tw-prose-*` varijable za dark mod sa `hsl(var(--foreground))`, pa Tailwind utility više nije potreban i samo šteti. Light mode ostaje netaknut (`.prose` blok u `index.css` već pokriva i njega).
+Prezentaciona, kontrolisana komponenta. Props:
 
-Nema potrebe ni za promjenom CSS-a, ni za novim klasama.
-
-### Izmjena (jedna linija)
-
-`src/components/category/CardViewTable.tsx:166`
-
-```diff
-- <div className="text-xs prose prose-xs dark:prose-invert max-w-none line-clamp-4 card-prose" ... />
-+ <div className="text-xs prose prose-xs max-w-none line-clamp-4 card-prose" ... />
+```ts
+interface Props {
+  subcategoryNodes: SubcategoryNode[];
+  totalCount: number;
+  subcategoryCounts: Record<string, number>;
+  chapterCounts: Record<string, number>;
+  selectedSubcategoryId: string;   // "__all__" | uuid
+  selectedChapterId: string;       // "__all__" | uuid
+  onSelectAll: () => void;
+  onSelectSubcategory: (subId: string) => void;
+  onSelectChapter: (subId: string, chapterId: string) => void;
+  storageKey: string;              // npr. `subj-tree-expanded:${categoryId}`
+}
 ```
 
-## Van opsega
+- Renderuje `<nav role="tree">` sa pravilnim ARIA atributima (`role="treeitem"`, `aria-expanded`, `aria-selected`, `aria-level`).
+- Lazy init expanded set iz `localStorage[storageKey]`; persistira na svaki toggle.
+- Auto-expand parent potkategorije ako je `selectedChapterId` njen — tako tree uvijek pokazuje aktivnu selekciju.
+- Klavijatura: `ArrowDown/Up` pomijera fokus, `ArrowRight/Left` proširuje/skuplja, `Enter`/`Space` selektira.
 
-Iste pattern (`prose ... dark:prose-invert ... card-prose`) postoji i u:
-- `src/components/workshop/WorkshopCardItem.tsx:192`
-- `src/components/LinkToExistingCardModal.tsx:86`
-- `src/components/subject-cards/PassiveReader.tsx:378`
-- `src/components/source-reader/EssayCreationDialog.tsx:42`
+### 2. Integracija u `src/components/category/CardViewMode.tsx`
 
-Korisnikov zahtjev je eksplicitno za **CardViewTable expanded prikaz**, pa ostala mjesta ostavljam netaknuta. Mogu da ih popravim u zasebnom koraku ako želiš da se primijeni isti fix svuda (preporučujem).
+- Promijeniti glavni layout iz `space-y-3` u responzivni grid:
+  ```tsx
+  <div className="grid gap-3 lg:grid-cols-[260px_1fr]">
+    <aside className="lg:sticky lg:top-4 lg:self-start">
+      <SubjectHierarchyTree ... />
+    </aside>
+    <div className="space-y-3 min-w-0">
+      <CardViewFilterBar .../>
+      ...
+      <CardViewTable .../>
+    </div>
+  </div>
+  ```
+- Tree dobija dodatne podatke iz već postojećeg `filters`:
+  - `selectedSubcategoryId={filters.filterSubcategory}`
+  - `selectedChapterId={filters.filterChapter}`
+  - `onSelectAll={() => { filters.changeSubcategory("__all__"); }}`
+  - `onSelectSubcategory={(id) => filters.changeSubcategory(id)}`
+  - `onSelectChapter={(subId, chId) => { filters.changeSubcategory(subId); filters.setFilterChapter(chId); }}`
+- `subcategoryNodes` se prosljeđuje iz `SubjectCardsView` (već postoji), kao novi prop u `CardViewMode`.
+
+### 3. Prosljeđivanje propa kroz `SubjectCardsView.tsx`
+
+U `<CardViewMode ... />` (linija ~294) dodati `subcategoryNodes={subcategoryNodes}`.
+
+### 4. `useCardViewFilters` — bez promjene
+
+Već vraća sve potrebno: `filterSubcategory`, `filterChapter`, `changeSubcategory`, `setFilterChapter`, `subcategoryCounts`, `chapterCounts`, `nameMap`. Tree samo čita i poziva ove iste settere — full sync sa Select dropdownima dolazi besplatno.
+
+### 5. Mobilni / uski viewport
+
+Na ekranima `<lg`, tree se pojavi iznad FilterBar-a kao kolapsibilni `<details>` blok ("Struktura predmeta") — ne zauzima dragocjeni prostor na uskom desktop layoutu. (Memorija kaže pure desktop, pa je ovo edge case za usku Electron prozor širinu.)
 
 ## Fajlovi
 
-- **Izmijenjeno:** `src/components/category/CardViewTable.tsx` (uklonjen `dark:prose-invert` na linijama sekcijskog `prose` divaa).
+- **Novo:** `src/components/category/SubjectHierarchyTree.tsx`
+- **Izmijenjeno:** `src/components/category/CardViewMode.tsx` — grid layout, prop `subcategoryNodes`, render Tree-a.
+- **Izmijenjeno:** `src/views/SubjectCardsView.tsx` — proslijeđen `subcategoryNodes` prop u `CardViewMode`.
+
+## Van opsega
+
+- Drag & drop u tree-u (memorija: D&D je zabranjen van CardOrgMode).
+- Promjene u "Struktura i raspored" sub-modu — ostaje nepromijenjen.
+- Tree u Pasivnom čitanju — već postoji svoj filter (Select), ne mijenja se ovdje.
+- Brisanje postojećih Select dropdownova u `CardViewFilterBar` — namjerno se zadržavaju kao backup/explicit kontrola; tree i dropdowni su uvijek u sinhronu.
