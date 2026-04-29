@@ -240,6 +240,17 @@ export default function PassiveReader({ cards, subcategoryNodes, categoryId, onE
           </Select>
         )}
 
+        <Select value={typeFilter} onValueChange={(v) => setTypeFilter(v as TypeFilter)}>
+          <SelectTrigger className="h-9 w-[160px]">
+            <SelectValue placeholder="Tip" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Svi tipovi</SelectItem>
+            <SelectItem value="essay">Esejska</SelectItem>
+            <SelectItem value="flash">Blic</SelectItem>
+          </SelectContent>
+        </Select>
+
         <div className="ml-auto text-xs text-muted-foreground">
           {filtered.length === 0 ? "Nema kartica" : `${index + 1} / ${filtered.length}`}
         </div>
