@@ -15,7 +15,7 @@ interface SavedSessionState {
   timestamp: number;
 }
 
-export default function ReviewSession({ dueCards, allCards, categoryRecords, subcategories, srSettings, onReviewSection, onLogError, onBack, preSelectedCategory, lockedCategory, autoMode }: ReviewSessionProps) {ectedCategory, lockedCategory }: ReviewSessionProps) {
+export default function ReviewSession({ dueCards, allCards, categoryRecords, subcategories, srSettings, onReviewSection, onLogError, onBack, preSelectedCategory, lockedCategory, autoMode }: ReviewSessionProps) {
   const [mode, setMode] = useState<ReviewMode>(null);
   const [items, setItems] = useState<DueItem[]>([]);
   const [randomIndex, setRandomIndex] = useState(0);
