@@ -83,8 +83,10 @@ const GlobalSearchWrapper = memo(function GlobalSearchWrapper({
   const { setView, setEditingCard } = useUIContext();
   // Path is resolved lazily inside `stash()` so it reflects the route at
   // the moment of the click, not when this wrapper mounted.
+  const editingCardIdRef = useRef<string | null>(null);
   const { stash: stashEditReturn } = useEditReturn({
     path: () => window.location.pathname + window.location.search,
+    cardId: () => editingCardIdRef.current,
   });
   if (!open) return null;
   return (
@@ -94,6 +96,7 @@ const GlobalSearchWrapper = memo(function GlobalSearchWrapper({
         open={open}
         onClose={onClose}
         onNavigateToCard={(card) => {
+          editingCardIdRef.current = card.id;
           stashEditReturn();
           setEditingCard(card);
           setView("edit");
