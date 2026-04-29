@@ -39,7 +39,7 @@ export function EssayCreationDialog({ source, onCreateEssay }: Props) {
             <label className="text-xs font-medium">Označeni tekst (odgovor)</label>
             <div className="max-h-40 overflow-y-auto rounded-md border bg-muted/50 p-3">
               <div
-                className="text-sm prose prose-sm dark:prose-invert max-w-none card-prose"
+                className="text-sm prose prose-sm max-w-none card-prose"
                 dangerouslySetInnerHTML={{ __html: previewHtml }}
               />
             </div>
