@@ -40,25 +40,30 @@ function retentionColor(pct: number): string {
 
 const FILTER_STORAGE_PREFIX = "passive-reader-filters:";
 
+type TypeFilter = "all" | "essay" | "flash";
+
 interface PersistedFilters {
   subFilter: string;
   chapterFilter: string;
+  typeFilter: TypeFilter;
 }
 
 function loadPersistedFilters(categoryId: string): PersistedFilters {
   if (typeof window === "undefined" || !categoryId) {
-    return { subFilter: "all", chapterFilter: "all" };
+    return { subFilter: "all", chapterFilter: "all", typeFilter: "all" };
   }
   try {
     const raw = window.localStorage.getItem(FILTER_STORAGE_PREFIX + categoryId);
-    if (!raw) return { subFilter: "all", chapterFilter: "all" };
+    if (!raw) return { subFilter: "all", chapterFilter: "all", typeFilter: "all" };
     const parsed = JSON.parse(raw) as Partial<PersistedFilters>;
+    const tf = parsed.typeFilter;
     return {
       subFilter: typeof parsed.subFilter === "string" ? parsed.subFilter : "all",
       chapterFilter: typeof parsed.chapterFilter === "string" ? parsed.chapterFilter : "all",
+      typeFilter: tf === "essay" || tf === "flash" ? tf : "all",
     };
   } catch {
-    return { subFilter: "all", chapterFilter: "all" };
+    return { subFilter: "all", chapterFilter: "all", typeFilter: "all" };
   }
 }
 
@@ -66,6 +71,7 @@ export default function PassiveReader({ cards, subcategoryNodes, categoryId, onE
   // Lazy init from localStorage so previously selected filters return on mount.
   const [subFilter, setSubFilter] = useState<string>(() => loadPersistedFilters(categoryId).subFilter);
   const [chapterFilter, setChapterFilter] = useState<string>(() => loadPersistedFilters(categoryId).chapterFilter);
+  const [typeFilter, setTypeFilter] = useState<TypeFilter>(() => loadPersistedFilters(categoryId).typeFilter);
   const [index, setIndex] = useState(0);
   const [sidePanel, setSidePanel] = useState<SidePanel>(null);
   const [linkedSource, setLinkedSource] = useState<Source | null>(null);
