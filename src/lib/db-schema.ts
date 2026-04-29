@@ -194,6 +194,11 @@ class MemoriaDB extends Dexie {
     this.version(14).stores({
       knowledgeBaseArticles: "id, subjectId, title, updatedAt, [subjectId+title]",
     });
+
+    // v15: chapter-level indexes for HealthMonitor / SessionFilters / org-mode queries
+    this.version(15).stores({
+      cards: "id, categoryId, subcategoryId, chapterId, type, createdAt, sourceId, frequencyTag, sourceType, [categoryId+subcategoryId], [categoryId+chapterId], [subcategoryId+chapterId]",
+    });
   }
 }
 

@@ -1,3 +1,4 @@
+import { toast } from "sonner";
 import { Card } from "@/lib/spaced-repetition";
 import {
   idbDeleteCard,
@@ -68,7 +69,6 @@ function createPersistQueue() {
       try { sessionStorage.removeItem("codex-flush-pending"); } catch {}
       const e = err instanceof Error ? err : new Error(String(err));
       if (e.message === "QUOTA_EXCEEDED") {
-        const { toast } = await import("sonner");
         toast.error("Memorija browsera je puna! Exportuj backup i očisti nepotrebne podatke.");
       } else {
         console.error("[persistQueue] flush failed", err);
@@ -82,16 +82,19 @@ function createPersistQueue() {
     timer = window.setTimeout(flush, 16);
   }
 
-  function cleanup() {
+  /**
+   * Async cleanup — cancels pending timer and **awaits** flush so callers can
+   * guarantee all queued writes hit IndexedDB before returning. Use this in
+   * Electron beforeQuit / quit-backup paths and other shutdown handlers.
+   */
+  async function cleanup(): Promise<void> {
     if (timer !== null) {
       clearTimeout(timer);
       timer = null;
     }
     if (pending.length > 0) {
       try { sessionStorage.setItem("codex-flush-pending", "1"); } catch {}
-      // Best-effort flush on unmount — cannot await in cleanup/unload contexts.
-      // The visibilitychange handler (below) is the primary safety net for tab close.
-      flush();
+      await flush();
     }
   }
 
