@@ -115,10 +115,10 @@ export default function SubjectDashboard() {
       desc: "Matrični filter — testiranje i učvršćivanje znanja",
     },
     {
-      to: `/review?cat=${categoryId}`,
+      to: `/review?category=${categoryId}`,
       icon: RefreshCw,
       title: "Konsolidacija znanja",
-      desc: "Ponavljanje dospjelih kartica",
+      desc: "Ponavljanje dospjelih kartica iz ovog predmeta",
     },
   ], [categoryId]);
 
