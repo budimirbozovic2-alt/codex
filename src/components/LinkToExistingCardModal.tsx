@@ -80,9 +80,12 @@ export default function LinkToExistingCardModal({
           </div>
 
           {selectedText && (
-            <div className="rounded-md border bg-muted/50 p-2.5 max-h-20 overflow-y-auto">
+            <div className="rounded-md border bg-muted/50 p-2.5 max-h-24 overflow-y-auto">
               <p className="text-xs text-muted-foreground mb-1">Označeni tekst:</p>
-              <p className="text-xs text-foreground/80 line-clamp-3">{selectedText}</p>
+              <div
+                className="text-xs prose prose-xs dark:prose-invert max-w-none card-prose line-clamp-4"
+                dangerouslySetInnerHTML={{ __html: previewHtml }}
+              />
             </div>
           )}
 
