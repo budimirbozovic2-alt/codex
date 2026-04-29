@@ -83,7 +83,7 @@ export default function LinkToExistingCardModal({
             <div className="rounded-md border bg-muted/50 p-2.5 max-h-24 overflow-y-auto">
               <p className="text-xs text-muted-foreground mb-1">Označeni tekst:</p>
               <div
-                className="text-xs prose prose-xs dark:prose-invert max-w-none card-prose line-clamp-4"
+                className="text-xs prose prose-xs max-w-none card-prose line-clamp-4"
                 dangerouslySetInnerHTML={{ __html: previewHtml }}
               />
             </div>

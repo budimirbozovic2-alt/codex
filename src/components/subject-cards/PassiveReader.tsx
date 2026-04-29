@@ -394,7 +394,7 @@ export default function PassiveReader({ cards, subcategoryNodes, categoryId, onE
                     </h3>
                   )}
                   <div
-                    className="prose prose-sm max-w-none dark:prose-invert card-prose"
+                    className="prose prose-sm max-w-none card-prose"
                     dangerouslySetInnerHTML={{ __html: sanitizeHtml(sec.content || "") }}
                   />
                 </section>

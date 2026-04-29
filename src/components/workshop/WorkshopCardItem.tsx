@@ -189,7 +189,7 @@ function WorkshopCardItemInner({ card, isExpanded, onToggle, onUpdateCard, onDel
                   card.sections.map((s, i) => (
                     <div key={i} className="rounded-lg bg-secondary/30 p-3">
                       <p className="text-xs font-medium text-muted-foreground mb-1">{s.title}</p>
-                      <div className="text-sm prose prose-sm max-w-none dark:prose-invert card-prose" dangerouslySetInnerHTML={{ __html: sanitizeHtml(s.content) }} />
+                      <div className="text-sm prose prose-sm max-w-none card-prose" dangerouslySetInnerHTML={{ __html: sanitizeHtml(s.content) }} />
                     </div>
                   ))
                 )}

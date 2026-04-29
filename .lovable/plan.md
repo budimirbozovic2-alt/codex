@@ -1,42 +1,35 @@
 ## Cilj
+Proširiti fix za blijed tekst (uklanjanje `dark:prose-invert` koji prebrisava globalna `.dark .prose` pravila iz `index.css`) na preostala 4 mjesta gdje se prikazuje sadržaj sekcija/kartica.
 
-Dodati filter za tip pitanja (Sve / Esejska / Blic) u `PassiveReader`, uz postojeće filtere za potkategoriju i glavu, sa istom persistencijom po kategoriji.
+## Izmjene (jedan jednolinijski class fix po fajlu)
 
-## Izmjene
-
-**Fajl:** `src/components/subject-cards/PassiveReader.tsx`
-
-### 1. Tip + persistencija
-- Uvesti tip `type TypeFilter = "all" | "essay" | "flash"`.
-- Proširiti `PersistedFilters` sa `typeFilter: TypeFilter`.
-- `loadPersistedFilters` validira vrijednost (`"essay" | "flash"`, inače `"all"`) — backward-compatible sa starim ključem koji nema polje.
-
-### 2. State
-- Dodati `const [typeFilter, setTypeFilter] = useState<TypeFilter>(() => loadPersistedFilters(categoryId).typeFilter);`.
-- Persist effect proširiti da serijalizuje `typeFilter` zajedno sa ostalima.
-
-### 3. Filter logika
-- U `filtered` useMemo dodati: `if (typeFilter !== "all") list = list.filter(c => c.type === typeFilter);`.
-- Dodati `typeFilter` u dependency niz.
-- Reset-index effect proširiti sa `typeFilter` u dep listi (već prati `subFilter`/`chapterFilter`).
-
-### 4. UI — novi Select pored postojećih (linija ~209)
-```tsx
-<Select value={typeFilter} onValueChange={(v) => setTypeFilter(v as TypeFilter)}>
-  <SelectTrigger className="h-9 w-[160px]">
-    <SelectValue placeholder="Tip" />
-  </SelectTrigger>
-  <SelectContent>
-    <SelectItem value="all">Svi tipovi</SelectItem>
-    <SelectItem value="essay">Esejska</SelectItem>
-    <SelectItem value="flash">Blic</SelectItem>
-  </SelectContent>
-</Select>
+### 1. `src/components/subject-cards/PassiveReader.tsx` — linija 397
+```diff
+- className="prose prose-sm max-w-none dark:prose-invert card-prose"
++ className="prose prose-sm max-w-none card-prose"
 ```
 
-### 5. Quick-action kompatibilnost
-- U effect-u koji honoruje `initialCardId`: ako je kartica skrivena trenutnim filterima, pored `subFilter`/`chapterFilter` treba resetovati i `typeFilter` na `"all"` da bi se uvijek mogla pozicionirati na traženu karticu.
+### 2. `src/components/LinkToExistingCardModal.tsx` — linija 86
+```diff
+- className="text-xs prose prose-xs dark:prose-invert max-w-none card-prose line-clamp-4"
++ className="text-xs prose prose-xs max-w-none card-prose line-clamp-4"
+```
+
+### 3. `src/components/workshop/WorkshopCardItem.tsx` — linija 192
+```diff
+- <div className="text-sm prose prose-sm max-w-none dark:prose-invert card-prose" ... />
++ <div className="text-sm prose prose-sm max-w-none card-prose" ... />
+```
+
+### 4. `src/components/source-reader/EssayCreationDialog.tsx` — linija 42
+```diff
+- className="text-sm prose prose-sm dark:prose-invert max-w-none card-prose"
++ className="text-sm prose prose-sm max-w-none card-prose"
+```
+
+## Razlog
+Globalna `.dark .prose` pravila u `index.css` već postavljaju `--tw-prose-body` na `hsl(var(--foreground))` pri punoj neprozirnosti. Dodavanje `dark:prose-invert` resetuje tu palatu na podrazumijevani `prose-invert` sivi ton (`#d1d5db`), što proizvodi efekat "duple opacity" i blijed tekst. Memorija (`mem://ui/styling-prose-fixes-v3`) već nalaže da prose body ostaje na `--foreground` pri punoj neprozirnosti u oba režima.
 
 ## Van opsega
-- Brojači po tipu u Select-u (ostavljamo čisto kao subcategory select).
-- Promjene u `SubjectCardsView` ili strukturi taba — nisu potrebne.
+- Promjene `index.css` — globalna pravila su već ispravna.
+- Druge komponente koje ne koriste `dark:prose-invert`.
