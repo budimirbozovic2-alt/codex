@@ -16,7 +16,7 @@ export default function ReviewPage() {
   const { setView } = useUIContext();
   const session = useSessionContext();
   const [searchParams] = useSearchParams();
-  const lockedCategory = searchParams.get("category") || null;
+  const lockedCategory = getParam(searchParams, "category");
 
   // When entry came from a Subject Dashboard (?category=UUID), hard-scope
   // the entire dataset before it ever reaches the session — this guarantees
