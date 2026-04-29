@@ -1,38 +1,84 @@
-## Cilj
+## Dijagnoza
 
-Dodati automatizovan test koji garantuje da `src/views/CategoryView.tsx` renderuje **isključivo** `SourcesTab`, i da se "Mapa znanja" (MindMap*) i "Struktura" (MentalSkeleton / StructureManager) više nikad ne pojave u ovoj view — u skladu sa odlukom iz `mem://architecture/knowledge-map-restructuring`.
+Tekst u karticama se ponekad prikazuje izrazito blijedo zbog **kompozicije više slojeva providnosti** koja se akumulira:
 
-## Pristup
+1. **`CardViewTable.tsx:166`** — kontejner za section.content kombinuje `text-foreground/70` + `prose` + `dark:prose-invert` + `card-prose`. U dark modu prose body već koristi `hsl(var(--foreground) / 0.9)` (`index.css:619`), pa goli tekst trpi 0.7 × 0.9 ≈ 63% opaciteta. Dijelovi unutar `<p>` dobijaju 0.9, a dijelovi van njega 0.7 — odatle **nejednako blijed tekst unutar iste kartice**.
 
-Umjesto klasičnog mount/render testa preko `@testing-library/react` (koji bi povukao Dexie, AppContext, react-router i mock-ove za sve njih), pišem **statički contract test** nad izvornim kodom datoteke. Razlozi:
+2. **Inline color stilovi iz importovanog HTML-a** (Mammoth/DOCX, copy-paste iz Worda). Override `color !important` na `index.css:638-649` postoji **samo za `.dark .prose`**. U light modu ostaje siva boja iz dokumenta; van klase `.prose` override se uopšte ne primjenjuje.
 
-- Brži, deterministički, bez mockovanja IDB-a.
-- Hvata regresiju tačno na sloju gdje bi se desila: `import` ili JSX tag.
-- Otporan na refaktor unutrašnjosti komponente.
+3. **`--tw-prose-body` u light modu nije eksplicitno postavljen** — default Tailwind Typography vrijednost (`#374151`) ne dolazi iz dizajn-tokena, pa može vizuelno odudarati od ostatka teksta koji koristi `--foreground`.
 
-Postojeći test setup (`vitest`, `src/test/setup.ts`) je već prisutan — nema novih zavisnosti.
+## Izmjene
 
-## Datoteka
+### `src/components/category/CardViewTable.tsx` (1 linija)
+Ukloniti `text-foreground/70` sa kontejnera. Boja teksta treba da dolazi isključivo iz `prose` varijabli koje su već pravilno definisane u `index.css`. Ovo eliminiše dvostruki opacity i nejednakost između `<p>` i ostalog sadržaja.
 
-**Nova: `src/test/category-view-contract.test.ts`**
+```tsx
+// prije:
+className="text-xs text-foreground/70 prose prose-xs dark:prose-invert max-w-none line-clamp-4 card-prose"
+// poslije:
+className="text-xs prose prose-xs dark:prose-invert max-w-none line-clamp-4 card-prose"
+```
 
-Test čita `CategoryView.tsx` kao tekst, skida komentare (da prose poput "Mapa znanja & Struktura moved to ..." ne pravi false-positive), i provjerava 5 invarijanti:
+### `src/index.css` — dodati light-mode prose blok i light-mode override za inline boje
 
-1. **Pozitivna**: postoji `import SourcesTab from "@/components/category/SourcesTab"`.
-2. **Pozitivna**: u JSX-u se pojavljuje `<SourcesTab ...>`.
-3. **Negativna (import sloj)**: ni jedan `import` ne sadrži `MindMap`, `MentalSkeleton`, `StructureManager`, `StructureTab`, `KnowledgeMap`, `MapaZnanja`. Provjera se vrši samo nad `import` linijama (da se ne pomiješa sa stringovima drugdje).
-4. **Negativna (JSX sloj)**: nigdje u datoteci nema `<MindMap*`, `<MentalSkeleton*`, `<Structure*`, `<KnowledgeMap*` — defence-in-depth ako neko aliasira import.
-5. **Strukturna**: postoji tačno jedan `*Tab` JSX element u cijeloj datoteci, i to je `SourcesTab`. Ovo automatski hvata bilo koji budući `MindMapTab`, `StructureTab`, `MentalMapTab` itd. čak i ako mu ime ne pogađa eksplicitnu listu.
+Dodati prije postojećeg `.dark .prose` bloka (oko linije 617):
 
-## Tehnički detalji
+```css
+/* ─── Prose light mode: anchor body text to design tokens ─── */
+.prose {
+  --tw-prose-body: hsl(var(--foreground));
+  --tw-prose-headings: hsl(var(--foreground));
+  --tw-prose-bold: hsl(var(--foreground));
+  --tw-prose-links: hsl(var(--primary));
+  --tw-prose-quotes: hsl(var(--foreground));
+  --tw-prose-code: hsl(var(--foreground));
+}
 
-- `readFileSync(resolve(__dirname, "../views/CategoryView.tsx"), "utf8")` — direktan pristup izvoru.
-- Skidanje komentara: dva regexa za blok i line komentare.
-- `it.each(...)` za parametrizovane assertione po svakoj zabranjenoj riječi i JSX patternu.
-- Bez novih dev-dependencies, bez izmjene `vitest.config.ts`, bez novih test setup hookova.
+/* Force override inline color styles in light mode too (Mammoth/DOCX import) */
+.prose [style*="color"],
+.prose span[style],
+.prose p[style],
+.prose div[style],
+.prose td[style],
+.prose th[style],
+.whitespace-pre-wrap [style*="color"],
+.whitespace-pre-wrap span[style],
+.whitespace-pre-wrap p[style] {
+  color: hsl(var(--foreground)) !important;
+}
 
-## Verifikacija
+.prose [style*="background-color"],
+.whitespace-pre-wrap [style*="background-color"] {
+  background-color: transparent !important;
+}
+```
 
-Nakon kreiranja, test se pokreće kroz postojeći Vitest setup (`bunx vitest run src/test/category-view-contract.test.ts`). Očekivano: svih 5 grupa assertiona prolazi za trenutni `CategoryView.tsx`.
+I dodatno ojačati dark blok da bude **puno opaciteta** umjesto 0.9 (na liniji 619, 621, 627, 631):
+```css
+--tw-prose-body: hsl(var(--foreground));
+--tw-prose-lead: hsl(var(--foreground) / 0.85);
+--tw-prose-quotes: hsl(var(--foreground));
+--tw-prose-pre-code: hsl(var(--foreground));
+```
 
-Ručno verifikujem da test **fail-uje** ako neko u budućnosti doda npr. `import MindMapTab from "..."` ili `<MentalSkeletonTab />`.
+Razlog: `--foreground` je već dizajniran sa pravim kontrastom za pozadinu — dodatni opacity samo razbija WCAG kontrast koji je dizajn token već garantovao.
+
+## Šta NE diramo
+
+- `text-muted-foreground` ostaje gdje je namjerno korišten (timestamps, sekundarne labele, prazno-state poruke). To je legitimna sekundarna hijerarhija.
+- `text-foreground/70` u svrhu hover/disabled stanja na ikonama ostaje.
+- `card-prose` selektor (paragraph spacing) — nema veze sa bojom.
+
+## Verifikacija nakon implementacije
+
+1. Otvoriti `/subject/:id/cards` → "Pregled" → expand-ovati nekoliko kartica:
+   - Dark mode: tekst u expanded prikazu mora imati istu intenzivnost u svakom redu, jednak i `<p>` i goli tekstualni dijelovi.
+   - Light mode: importovani DOCX kartice ne smiju prikazivati sivu boju iz originalnog dokumenta.
+2. PassiveReader (`subject-cards/PassiveReader.tsx:378`) i dalje koristi `prose dark:prose-invert card-prose` — tu boja sada dolazi iz tokena u oba moda.
+3. Pokrenuti postojeće Vitest testove da se ne razbije ništa drugo.
+
+## Datoteke koje se mijenjaju
+
+- `src/components/category/CardViewTable.tsx` (uklanjanje `text-foreground/70` na liniji 166)
+- `src/index.css` (novi light-mode prose blok + jačanje dark-mode kontrasta)
