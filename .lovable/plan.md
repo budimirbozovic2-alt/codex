@@ -1,76 +1,93 @@
 ## Cilj
 
-1. **Ukloniti dugme "Nastavi učenje"** iz globalnog dashboarda i navigacije.
-2. **Ukloniti tri globalna učenje moda**: Slobodno (`free`), Aktivno prisjećanje (`active-recall` selector) i Lanac (`chain`) — jer ih zamjenjuje Pasivno čitanje u lokalnim subject dashboardima.
-3. **Sačuvati strict-recall flow** — taj ulaz koristi `SubjectDashboard` (MatrixFilterDialog → `/learn?mode=strict-recall`), to je sad jedini razlog zašto `/learn` ruta postoji. Korisnik je eksplicitno rekao "aktivno učenje se seli u lokalne dashboarde", ne da se briše — strict-recall je upravo taj lokalni ulaz.
-4. Ne ostaviti dead code, ne razbiti tipove, ne razbiti analitiku.
+Uskladiti UI Active Recall-a sa pedagoškim ciljem aktivnog prisjećanja i hraniti FSRS pravim ocjenama na nivou kartice.
 
-## Šta se uklanja
+## Novi tok (po kartici)
 
-### Globalni dashboard / navigacija
-- **`src/components/dashboard/QuickActions.tsx`** — ukloniti `<Link to="/learn">Nastavi učenje</Link>`. Komponenta ostaje samo s "Ponovi dospjele" linkom (ako ima dospjelih).
-- **`src/components/dashboard/StudyFlowWidget.tsx`** — ukloniti `<Button onClick={() => setView("learn")}>Nastavi učenje</Button>`. Widget ostaje informativan (plan/omjer/progress).
-- **`src/components/AppSidebar.tsx`** (l. 16) — ukloniti stavku `{ path: "/learn", icon: GraduationCap, label: "Učenje" }`.
-- **`src/components/TopNav.tsx`** (l. 25) — isto.
-- **`src/components/Breadcrumbs.tsx`** (l. 8) — ukloniti `"/learn": "Učenje"` mapu (ili je ostaviti — breadcrumb i dalje radi za strict-recall sesiju). Predlažem zadržati zbog UX dok je strict-recall aktivan.
-- **`src/views/DashboardPage.tsx`** (l. 48) — ukloniti `L` keyboard prečicu iz InfoPanel.
+```
+[1] OPEN        Pitanje vidljivo. Dugme "Pročitao sam pitanje".
+                ↓
+[2] RECALL      Pitanje sakriveno. Prompt: "Ponovi odgovor na glas".
+                Dugme "Prikaži odgovor".
+                ↓
+[3] REVEAL      Pitanje + svi moduli odgovora vidljivi.
+                4 dugmeta ocjene (1 Ponovo, 2 Teško, 3 Dobro, 4 Lako).
+                ↓
+[4a] grade == 4 → kartica savladana → auto next
+[4b] grade < 4  → leechCount++; vrati se na [2] RECALL
+[4c] leechCount == 4 (4 ocjene < 4) → kartica označena LEECH/spasena → auto next
+```
 
-### Tri globalna moda učenja
-- **`src/components/LearnSession.tsx`** — refaktorisati: ukloniti `ModeSelector` setup korak, ukloniti grane `learnMode === "free"` i `learnMode === "chain"`, ostaviti samo `active-recall` granu (jer je to ono što strict-recall koristi). Default `learnMode` postaje `"active-recall"`. Setup flow sada počinje direktno sa `FilterSetup` (a strict-recall ulaz je već `started=true`).
-- **Brisati fajlove**:
-  - `src/components/learn/ModeSelector.tsx`
-  - `src/components/learn/StudyModeFree.tsx`
-  - `src/components/learn/StudyModeChain.tsx`
-- **`src/components/learn/SessionHeader.tsx`** — pojednostaviti `learnMode` granjanje (uvijek "Aktivno"); skinuti reference na `LEARN_SHORTCUTS` i `CHAIN_SHORTCUTS` iz `ShortcutsHint` poziva, ostaviti samo `AR_SHORTCUTS`. Ako su konstante nedefinisane u tom fajlu, samo ostaviti `AR_SHORTCUTS`.
-- **`src/components/learn/QuestionDots.tsx`** — `learnMode` prop više nije potreban (uvijek "active-recall"); pojednostaviti ili zadržati prop kao opcionalan radi minimalne invazivnosti. Predlažem da ga zadržimo, ali pojednostavimo logiku.
-- **`src/components/learn/SessionComplete.tsx`** — skinuti grane za "free" i "chain", ostaviti samo "active-recall".
-- **`src/components/learn/FilterSetup.tsx`** — ukloniti `MODE_LABELS["free"]`, `MODE_LABELS["chain"]` reference; ukloniti chain-specific filter (`learnMode === "chain"` filter za essay≥3 sekcije).
-- **`src/components/learn/types.ts`** — `learnMode` props ostaju ali samo s vrijednošću `"active-recall"`.
-- **`src/lib/storage.ts`** (l. 23) — promijeniti `LearnMode` u `type LearnMode = "active-recall"`. Time se osigurava type-safety i da nema preživjelih `"free"`/`"chain"` literala u kodu — TS će ih označiti.
-- **`src/lib/metacognitive-storage.ts`** — ukloniti `"learn-free"` i `"learn-chain"` iz `ActivityType` union-a. Ažurirati switch i filtere u `getMastery`/aggregations da ne referencuju te tipove.
+Brojač `leechCount` resetuje se po kartici. Vidljiv indikator pokušaja (npr. „Pokušaj 2/4 — još 2 prije nego se kartica spasi").
 
-## Šta se NE briše (i zašto)
+## Promjene u kodu
 
-- **`/learn` ruta i `LearnPage`** — ostaju, jer ih `SubjectDashboard.handleMatrixStart` koristi. Sad je jedini ulaz u `/learn` strict-recall iz lokalnog dashboarda.
-- **`LearnSession.tsx`** — ostaje, ali svedeno na strict-recall + `FilterSetup` (jer `SubjectDashboard` ulazi sa `started=true`, ali korisnik može doći nazad na filter screen).
-- **`StudyModeRecall.tsx`** — ostaje (to je suština aktivnog prisjećanja).
-- **`MatrixFilterDialog.tsx`** — ostaje (lokalni ulaz iz `SubjectDashboard`).
-- **`View = "learn"` tip i mapa** u `AppContext.tsx` — ostaju radi rute. Nećemo ga brisati iz unije jer breadcrumb/route još koristi tu mapu.
+### `src/components/learn/StudyModeRecall.tsx` (glavni rad)
 
-## Migracija postojećih korisničkih podataka
+Zamijeniti trenutni `preview / drill` po-modulima tok jednim card-level state machine-om:
 
-Postojeći `LearnCardProgress` zapisi u IndexedDB mogu imati `mode: "free"` ili `mode: "chain"`. Pošto:
-- `LearnCardProgress.mode: LearnMode` — nakon promjene tipa, postojeći zapisi su tehnički nevalidni ali se nigdje više ne čitaju za grananje (samo se prosljeđuju u `updateProgress`).
-- `metacognitive-storage` activity log: postojeći entry-ji s `type: "learn-free" | "learn-chain"` će ostati u IDB. Da se ne razbije agregacija, u `getMastery`/filterima dodati defenzivnu provjeru (entry tipa koje više ne postoje će biti ignorisane jer ih TS unija ne pokriva — runtime prolazi, samo se neće brojati).
+```ts
+type RecallPhase = "open" | "recall" | "reveal";
+const [phase, setPhase] = useState<RecallPhase>("open");
+const [leechCount, setLeechCount] = useState(0);
+```
 
-Ne pišemo migraciju (zero data loss, samo ignorisanje legacy entry-ja).
+Reset na promjenu `card.id` (kao i sada `markedRef`).
 
-## Verifikacija nakon implementacije
+- **OPEN**: prikaži `card.question` (preko `SessionHeader` koji već radi). Sakrij sekcije. Dugme: "Pročitao sam pitanje" → `setPhase("recall")` + `onMarkRead(card.id)` (jednom, čuvati `markedRef` ponašanje da spriječi loop).
+- **RECALL**: sakrij `SessionHeader` pitanje (proslijediti novi prop `hideQuestion` ili lokalno renderovati alternativni header bez `card.question`). Prikaži poruku "Ponovi odgovor na glas". Dugme: "Prikaži odgovor" → `setPhase("reveal")`.
+- **REVEAL**: vrati pitanje + sve sekcije iz `card.sections` (renderovane kao u trenutnom „preview" bloku, sa `HighlightedSection`). Ispod: `GradeButtons` sa hint-om „Ocijeni koliko si znao".
+  - `onGrade(g)`:
+    - Pošalji ocjenu u FSRS za svaku sekciju kartice: `card.sections.forEach(s => onReviewSection(card.id, s.id, g))` (jedna ocjena = card-level signal). Time se očuvava postojeći API i FSRS update.
+    - `setTotalGrades(prev => [...prev, g])`.
+    - Ako `g === 4`:
+      - `setCompletedCards(add card.id)`, `updateProgress(card.id, { completed: true })`, `setModulesCompleted(c => c + card.sections.length)`, `goNext()` (auto, sa malim delay-om za feedback).
+    - Inače:
+      - `next = leechCount + 1`; `setLeechCount(next)`.
+      - Ako `next >= 4`: označi kao leech (`updateProgress(card.id, { completed: true, leech: true })`, dodati `leech?: boolean` u `LearnCardProgress`), `setCompletedCards(add)`, `goNext()`.
+      - Inače: `setPhase("recall")` (vrati na recall fazu da pokuša ponovo).
 
-1. Globalni dashboard ne sadrži "Nastavi učenje" dugme niti "Učenje" link u sidebar/TopNav.
-2. Klik na Risk widget u SubjectDashboard → otvara strict-recall sesiju normalno.
-3. `MatrixFilterDialog` → strict-recall sesija radi normalno.
-4. TypeScript build prolazi bez `any`/unused/missing import grešaka.
-5. Postojeći `learn-free`/`learn-chain` zapisi u activity logu ne izazivaju runtime crash u Metacognitive view.
+Ukloniti staru logiku po-modulima (`drillIndex`, `drillRevealed`, `arPhase`, `handleArGrade` u trenutnoj formi).
 
-## Lista fajlova koji se mijenjaju
+### `src/components/learn/SessionHeader.tsx`
 
-**Edit:**
-- `src/components/dashboard/QuickActions.tsx`
-- `src/components/dashboard/StudyFlowWidget.tsx`
-- `src/components/AppSidebar.tsx`
-- `src/components/TopNav.tsx`
-- `src/views/DashboardPage.tsx`
-- `src/components/LearnSession.tsx`
-- `src/components/learn/SessionHeader.tsx`
-- `src/components/learn/SessionComplete.tsx`
-- `src/components/learn/FilterSetup.tsx`
-- `src/components/learn/QuestionDots.tsx`
-- `src/components/learn/types.ts`
-- `src/lib/storage.ts`
-- `src/lib/metacognitive-storage.ts`
+Dodati opcionalni prop:
+```ts
+hideQuestion?: boolean;
+```
+Kada je `true`, ne prikazuj `card.question` (samo header sa kategorijom, brojem, snagom). Postojeći konzumenti ostaju nepromijenjeni.
 
-**Delete:**
-- `src/components/learn/ModeSelector.tsx`
-- `src/components/learn/StudyModeFree.tsx`
-- `src/components/learn/StudyModeChain.tsx`
+### `src/components/learn/GradeButtons.tsx`
+
+Bez izmjena. Hint tekst se prosljeđuje iz `StudyModeRecall`.
+
+### `src/lib/storage.ts` (`LearnCardProgress`)
+
+Dodati opcionalno polje `leech?: boolean` (i opcionalno `failedAttempts?: number`) — non-breaking. Persist ostaje isti.
+
+### `src/components/learn/types.ts`
+
+Bez funkcionalnih izmjena (eventualno tip `RecallPhase` lokalno u komponenti).
+
+### Indikator napretka
+
+Zamijeniti trake po modulima sa jednom diskretnom oznakom u `RECALL/REVEAL` fazi:
+- `Pokušaj {leechCount + 1} / 4` (ako `leechCount > 0`).
+- Kada je 0, prikazati neutralno „Aktivno prisjećanje".
+
+## Edge cases
+
+- Kartica bez `sections` (prazna): tretiraj kao `[{ id: card.id, content: "" }]` — ocjena se pošalje sa fallback section ID-em, ili preskoči `onReviewSection` ali svejedno ažuriraj UI (kompromis: pošalji `onReviewSection(card.id, "default", g)` samo ako sekcija postoji; ako ne, samo `setTotalGrades`).
+- Korisnik klikne „Sljedeća/Prethodna" sredinom toka: reset state-a na promjenu `card.id` već postoji, leechCount se resetuje.
+- Strict-recall guard za `markRead` ostaje (prevencija beskonačne petlje); sada se `onMarkRead` zove iz `OPEN → RECALL` tranzicije, ne iz `useEffect` na mount.
+
+## Što se NE mijenja
+
+- `LearnSession.tsx`, `LearnPage.tsx`, `SessionContext`, FSRS algoritam, `onReviewSection` potpis.
+- Filteri, sortiranje, navigacija (`QuestionDots`, `NavigationButtons`).
+- `GradeButtons` komponenta i postojeći stilovi ocjena.
+
+## Test
+
+- Ručna provjera: otvori `/#/learn?mode=strict-recall&...` → vidi pitanje → klik „Pročitao sam" → pitanje nestaje → klik „Prikaži odgovor" → pojavi se pitanje + sekcije + 4 ocjene → ocjena 4 ide na sljedeću; ocjene <4 vraćaju u recall sa brojačem; nakon 4. ocjene <4 kartica se spasi i ide dalje.
+- Provjeriti da `readCount` ne raste više od 1 po kartici (postojeći `markedRef` mehanizam).
