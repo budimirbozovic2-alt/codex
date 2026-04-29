@@ -215,8 +215,8 @@ export default function SubjectCardsView() {
               <button
                 type="button"
                 onClick={() => setManageMode("edit")}
-                title="View — pregled i uređivanje kartica"
-                aria-label="View — pregled i uređivanje kartica"
+                title="Pregled i uređivanje kartica — lista, pretraga, filteri"
+                aria-label="Pregled i uređivanje kartica — lista, pretraga, filteri"
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
                   manageMode === "edit"
                     ? "bg-primary text-primary-foreground"
@@ -225,13 +225,14 @@ export default function SubjectCardsView() {
                 aria-pressed={manageMode === "edit"}
               >
                 <LayoutList className="h-3.5 w-3.5" />
-                View — pregled i uređivanje
+                Pregled i uređivanje
+                <span className="opacity-60">(View)</span>
               </button>
               <button
                 type="button"
                 onClick={() => setManageMode("structure")}
-                title="Org — struktura i raspored kartica"
-                aria-label="Org — struktura i raspored kartica"
+                title="Struktura i raspored kartica — hijerarhija, glave, drag & drop"
+                aria-label="Struktura i raspored kartica — hijerarhija, glave, drag & drop"
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
                   manageMode === "structure"
                     ? "bg-primary text-primary-foreground"
@@ -240,7 +241,8 @@ export default function SubjectCardsView() {
                 aria-pressed={manageMode === "structure"}
               >
                 <Network className="h-3.5 w-3.5" />
-                Org — struktura i raspored
+                Struktura i raspored
+                <span className="opacity-60">(Org)</span>
               </button>
             </div>
 

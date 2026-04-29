@@ -114,7 +114,7 @@ const MetadataSection = memo(function MetadataSection({
             </SelectContent>
           </Select>
           {availableChapters.length === 0 && (
-            <p className="text-[10px] text-muted-foreground/60">Koristite "Org — struktura i raspored" u prikazu kartica za dodavanje glava.</p>
+            <p className="text-[10px] text-muted-foreground/60">Koristite "Struktura i raspored" u prikazu kartica za dodavanje glava.</p>
           )}
         </div>
       )}

@@ -1,47 +1,51 @@
-# Standardizacija naziva: "Uređivanje i raspored kartica" + "View ↔ Org"
+# Jasniji tekstovi na preklopniku View ↔ Org
 
-Cilj: jedan vokabular za isti koncept svuda u aplikaciji.
+## Problem
 
-## Kanonski rječnik (referenca)
+Na preklopniku unutar taba **"Uređivanje i raspored kartica"** trenutno stoji:
+- `View — pregled i uređivanje`
+- `Org — struktura i raspored`
 
-| Koncept | Kanonski tekst |
-|---|---|
-| Top-level tab kartica | **Uređivanje i raspored kartica** |
-| Pod-mode (lista, pregled, edit) | **View — pregled i uređivanje** |
-| Pod-mode (DnD, raspored, struktura) | **Org — struktura i raspored** |
-| Sažeti opis u dashboardu/tile-u | "Uređivanje i raspored kartica" |
-| Mali pomenski tekst (legacy) | "Org — struktura i raspored" |
+Skraćenice "View" i "Org" su engleske i korisnik ne zna odmah šta će se promijeniti kad klikne. Treba da prvi pojam u dugmetu bude crnogorski i sam za sebe razumljiv, a "View"/"Org" da ostanu samo kao mali tehnički sufiks (ili da se uklone iz vidljivog teksta i čuvaju u tooltipu).
 
-Sve postojeće varijante poput "Upravljanje karticama", "Struktura i raspored", "Struktura" (kao naziv moda) treba uskladiti sa ovim.
+## Predloženi tekstovi (dvodijelni: jasna akcija + kratki kontekst)
+
+| Pod-mode | Vidljivi tekst dugmeta | Tooltip / aria-label |
+|---|---|---|
+| `edit` | **Pregled i uređivanje** (View) | "Pregled i uređivanje kartica — lista, pretraga, filteri, otvaranje kartice" |
+| `structure` | **Struktura i raspored** (Org) | "Struktura i raspored kartica — hijerarhija, glave, drag & drop" |
+
+Vidljivi tekst počinje crnogorskom oznakom akcije (ono što korisnik radi), a engleska oznaka stoji u zagradi kao mala diskretna kratica radi konzistentnosti sa internom terminologijom (`View`/`Org`) koju koristimo u memoriji i komentarima.
+
+Ikonice (`LayoutList` za View, `Network` za Org) ostaju iste i pojačavaju značenje.
 
 ## Mjesta za izmjenu
 
-### 1) `src/views/SubjectDashboard.tsx` (linija 108)
-Tile "Kartice" `desc` trenutno glasi: *"Upravljanje karticama, struktura i mnemonika"*.
-- Promijeniti na: **"Uređivanje i raspored kartica"** (mnemonika je uklonjena iz hub-a — vidjeti memoriju `subject-cards-hub-v2`).
+### 1) `src/views/SubjectCardsView.tsx` (linije 215–244)
 
-### 2) `src/views/SubjectCardsView.tsx`
-- Dodati `title` i `aria-label` na dva pod-mode dugmeta radi konzistentnosti i pristupačnosti:
-  - View dugme → `title="View — pregled i uređivanje kartica"`, `aria-label` isto.
-  - Org dugme → `title="Org — struktura i raspored kartica"`, `aria-label` isto.
-- (Vidljivi tekst i ikonice ostaju isti — već su kanonski.)
-- Komentar `{/* ── Group: Upravljanje ── */}` (linija 184) preimenovati u `{/* ── Group: Kartice ── */}` da ne zavarava buduće čitače koda.
-- Komentar `{/* Segmented sub-mode switch: Edit ↔ Structure */}` (linija 212) → `{/* Segmented sub-mode switch: View ↔ Org */}`.
+- View dugme:
+  - Tekst: `Pregled i uređivanje` + mala oznaka `<span className="opacity-60">(View)</span>`
+  - `title` / `aria-label`: `"Pregled i uređivanje kartica — lista, pretraga, filteri"`
+- Org dugme:
+  - Tekst: `Struktura i raspored` + mala oznaka `<span className="opacity-60">(Org)</span>`
+  - `title` / `aria-label`: `"Struktura i raspored kartica — hijerarhija, glave, drag & drop"`
 
-### 3) `src/components/category/SubjectHierarchyTree.tsx` (linija 233)
-Prazan-state poruka: *"Nema potkategorija. Dodaj ih u \"Struktura i raspored\"."* upućuje na nepostojeći naziv.
-- Promijeniti na: **"Nema potkategorija. Dodaj ih u \"Org — struktura i raspored\"."**
+### 2) Sinhronizacija preostalih pomena (kanonski rječnik)
 
-### 4) `src/components/card-form/MetadataSection.tsx` (linija 117)
-Hint: *"Koristite \"Struktura\" dugme u prikazu kategorije za dodavanje glava."*
-- Promijeniti na: **"Koristite \"Org — struktura i raspored\" u prikazu kartica za dodavanje glava."**
+Da svi unutrašnji pomeni i dalje upućuju na **isti** vidljivi naziv:
+- `src/components/category/SubjectHierarchyTree.tsx` (linija 233):
+  prazan-state → `"Nema potkategorija. Dodaj ih u \"Struktura i raspored\"."`
+  *(uklanjamo prefiks "Org —" iz pomena jer nije dio glavnog vidljivog teksta dugmeta.)*
+- `src/components/card-form/MetadataSection.tsx` (linija 117):
+  hint → `"Koristite \"Struktura i raspored\" u prikazu kartica za dodavanje glava."`
+- Memoriju `mem://features/subject-cards-hub-v2` ažurirati: kanonski vidljivi nazivi su sada **"Pregled i uređivanje"** i **"Struktura i raspored"**, sa internim oznakama View/Org u zagradi i tooltipu.
 
 ## Šta se NE dira
 
-- Interni state ključevi `manageMode: "edit" | "structure"`, ruta `/edit`, `EditPage`, `Breadcrumbs["/edit"] = "Uređivanje"`, `setEditMode` u source readeru, `editMode` u `WorkshopCardItem`, `useCardOrgDnd` — to su tehnički/UI-nezavisni identifikatori.
-- `StructureManagerDialog` naslov "Struktura — {categoryName}" — dijalog je posebna komponenta za uređivanje hijerarhije, ne odnosi se na pod-mode.
-- `localStorage` ključevi i `EditReturnSnapshot` logika.
+- Internal state `manageMode: "edit" | "structure"`, `localStorage` ključevi, `EditReturnSnapshot`.
+- Top-level tab "Uređivanje i raspored kartica" ostaje isti.
+- Ikonice ostaju iste.
 
 ## Rezultat
 
-Korisnik svuda u UI-u vidi isti rječnik: "Uređivanje i raspored kartica" kao top-level i "View — pregled i uređivanje" / "Org — struktura i raspored" kao pod-modovi. Sve poruke koje upućuju korisnika na neki od ovih ekrana koriste tačan naziv tog ekrana.
+Korisnik na prvi pogled vidi **"Pregled i uređivanje"** vs **"Struktura i raspored"** — dvije jasne akcije na crnogorskom. Mala oznaka `(View)` / `(Org)` ostaje kao diskretni indikator pod-moda za one kojima treba kratak label, a tooltip dodatno objašnjava šta tačno mijenja.

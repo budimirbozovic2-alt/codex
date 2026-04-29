@@ -230,7 +230,7 @@ export default function SubjectHierarchyTree({
 
       {sortedSubcats.length === 0 && (
         <p className="px-2 py-3 text-[11px] text-muted-foreground italic">
-          Nema potkategorija. Dodaj ih u "Org — struktura i raspored".
+          Nema potkategorija. Dodaj ih u "Struktura i raspored".
         </p>
       )}
     </nav>
