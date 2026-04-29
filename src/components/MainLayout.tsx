@@ -11,7 +11,7 @@ import { APP_ONBOARDING_KEY } from "@/components/AppOnboarding";
 import { toast } from "sonner";
 import { Moon, Sun, Search, Focus, HelpCircle } from "lucide-react";
 import { setDarkMode } from "@/lib/app-settings";
-import { setEditReturn } from "@/lib/edit-return";
+import { useEditReturn } from "@/hooks/useEditReturn";
 
 const DocxImporter = lazy(() => import("@/components/DocxImporter"));
 const GlobalSearch = lazy(() => import("@/components/GlobalSearch"));
@@ -81,6 +81,11 @@ const GlobalSearchWrapper = memo(function GlobalSearchWrapper({
 }: { open: boolean; onClose: () => void }) {
   const { cards } = useCardData();
   const { setView, setEditingCard } = useUIContext();
+  // Path is resolved lazily inside `stash()` so it reflects the route at
+  // the moment of the click, not when this wrapper mounted.
+  const { stash: stashEditReturn } = useEditReturn({
+    path: () => window.location.pathname + window.location.search,
+  });
   if (!open) return null;
   return (
     <Suspense fallback={null}>
@@ -89,11 +94,7 @@ const GlobalSearchWrapper = memo(function GlobalSearchWrapper({
         open={open}
         onClose={onClose}
         onNavigateToCard={(card) => {
-          // Stash the current route (incl. query string) so EditPage can
-          // return the user to wherever they invoked Ctrl+K from.
-          setEditReturn({
-            path: window.location.pathname + window.location.search,
-          });
+          stashEditReturn();
           setEditingCard(card);
           setView("edit");
         }}
