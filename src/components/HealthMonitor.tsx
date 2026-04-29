@@ -1,5 +1,6 @@
-import { Activity, Database, HardDrive, RefreshCw, FileText, Brain, Clock, BookOpen, MapPin, Layers, AlertTriangle, Trash2, ShieldCheck } from "lucide-react";
+import { Activity, Database, HardDrive, RefreshCw, FileText, Brain, Clock, BookOpen, MapPin, Layers, AlertTriangle, Trash2, ShieldCheck, Wand2 } from "lucide-react";
 import { useState, useEffect, useCallback } from "react";
+import RemapFromBackupDialog from "@/components/RemapFromBackupDialog";
 import { db } from "@/lib/db";
 import { eventBus, EVENT_TYPES } from "@/lib/event-bus";
 import { getStorageUsage } from "@/lib/storage";
