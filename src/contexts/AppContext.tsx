@@ -6,6 +6,7 @@ import { recordAppEntry, recordFirstAction, addActivityEntry, ActivityType } fro
 import { addPomodoroEntry } from "@/lib/storage";
 import { loadAppSettings } from "@/lib/app-settings";
 import { primeExaminerProfilesFromRecords } from "@/lib/examiner-profile-cache";
+import { buildCardBuckets, EMPTY_BUCKETS, type CardBuckets } from "@/lib/card-buckets";
 
 const LazyDatabaseRecoveryPanel = lazy(() => import("@/components/DatabaseRecoveryPanel"));
 
@@ -51,6 +52,8 @@ interface CardStateContextValue {
   dueCards: Card[];
   stats: { due: number; total: number; totalSections: number; learnedSections: number; leechCount: number };
   cardCountByCategory: Record<string, number>;
+  /** O(1) lookup buckets mirroring v15 IDB indexes — use for filters in render path. */
+  buckets: CardBuckets;
   ready: boolean;
   dbError: { type: string; message: string } | null;
 }
@@ -60,7 +63,7 @@ const CardStateContext = createContext<CardStateContextValue | null>(null);
 const EMPTY_CARD_STATE: CardStateContextValue = {
   cards: [], dueCards: [],
   stats: { due: 0, total: 0, totalSections: 0, learnedSections: 0, leechCount: 0 },
-  cardCountByCategory: {}, ready: false, dbError: null,
+  cardCountByCategory: {}, buckets: EMPTY_BUCKETS, ready: false, dbError: null,
 };
 
 export function useCardData() {
@@ -341,11 +344,16 @@ function CardProvider({ children }: { children: ReactNode }) {
         : undefined,
   }), [actionKeys]);
 
+  // Buckets are recomputed only when the cards array reference changes
+  // (Ref-Delta keeps that rare). All hot-path filters can then do O(1)
+  // Map lookups instead of repeated O(N) scans.
+  const buckets = useMemo(() => buildCardBuckets(h.cards), [h.cards]);
+
   // Split data into 3 granular contexts
   const cardState = useMemo<CardStateContextValue>(() => ({
     cards: h.cards, dueCards: h.dueCards, stats: h.stats,
-    cardCountByCategory: h.cardCountByCategory, ready: h.ready, dbError: h.dbError,
-  }), [h.cards, h.dueCards, h.stats, h.cardCountByCategory, h.ready, h.dbError]);
+    cardCountByCategory: h.cardCountByCategory, buckets, ready: h.ready, dbError: h.dbError,
+  }), [h.cards, h.dueCards, h.stats, h.cardCountByCategory, buckets, h.ready, h.dbError]);
 
   const categoryState = useMemo<CategoryStateContextValue>(() => ({
     categories: h.categories, categoryRecords: h.categoryRecords,

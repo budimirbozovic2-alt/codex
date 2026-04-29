@@ -1,59 +1,93 @@
-## Cilj
+## Kontekst i ograničenja
 
-Centralizovati "tab/app je o tome da se ugasi" signale iza jednog renderer-side bridge-a koji bira najbolji dostupni izvor:
+Projekat **drži sve kartice u memoriji** (`cardMap` SSOT u `AppContext`, per memory rule "No useLiveQuery in primary views"). Zato Dexie indeksi **ne ubrzavaju** filtere u render path-u — oni operišu nad već-učitanim `cards: Card[]` array-em. Ono što novi v15 indeksi (`chapterId`, `[categoryId+chapterId]`, `[subcategoryId+chapterId]`) **stvarno mogu** da ubrzaju:
 
-```
-1. window.electronAPI.onBeforeQuit       (preferirano, future-proof)
-2. window.electronAPI.onQuitBackupRequested + notifyQuitBackupDone (trenutni Electron kontrakt)
-3. document.visibilitychange (state === "hidden")  (web/dev fallback)
-```
+- Bootstrap fetch (jednom po boot-u, već optimalan jer ide `toArray()`).
+- One-shot operacije: HealthMonitor, AutoSplit verifikacija, Source unlinking, mass-delete na brisanje kategorije.
 
-Konzumenti (npr. `useCards`, `main.tsx` backup snapshot, budući moduli) registruju handler kroz jedinstveni API umjesto da svaki sam radi platform-detekciju i upravlja `notifyQuitBackupDone()` lock-om.
+Ali **najveći win za render-time u preview-u** dolazi od **JS-side optimizacija nad in-memory `cards` array-om** koje preslikavaju logiku indeksa: izbjegavanje O(N) `.filter()` lanaca tako što napravimo **memoizovane bucket mape** (`Map<categoryId, Card[]>`, `Map<subcategoryId, Card[]>`, `Map<chapterId, Card[]>`) jednom po promjeni `cards`, pa svako sub-stablo (Subject Dashboard, useSourceHierarchy, ReviewSetup, useCardViewFilters) čita iz njih u O(1) lookup + O(K) iteracije gdje je K = veličina bucket-a, ne ukupan broj kartica.
 
-## Trenutno stanje (audit)
+## Hot path audit (mjereno mjesto u render-u)
 
-- `preload.cjs` izlaže `onQuitBackupRequested(cb)` + `notifyQuitBackupDone()` — **nema `onBeforeQuit`**. Ovaj zadatak ga uvodi kao **opcionalni** kanal (feature-detect), bez izmjena u main procesu sada.
-- `src/lib/persist-queue.ts:108-119` već ima vlastiti `visibilitychange` listener — ostaje na mjestu kao safety net (ne dira se).
-- `useCards.ts:51-71` i `main.tsx:157-178` direktno se kače na `onQuitBackupRequested` i ručno zovu `notifyQuitBackupDone()`. Bridge ih oslobađa toga, ali u ovom koraku bridge je **dodan kao novi modul** — refactor postojećih konzumenata nije u scope-u (može u sljedećem koraku, da ne miješamo bridge sa ponašajnim promjenama).
+| Mjesto | Trenutno | Problem |
+|---|---|---|
+| `SubjectDashboard.subProgressData` | `cards.filter(c=>c.categoryId===id)` zatim **po subcategory pa po chapter** ugnježđeni filteri | O(N × S × C) prolaza nad globalnim `cards` |
+| `useSourceHierarchy` | jedan prolaz, već OK (gradi `bySub`/`chapMap`) | OK, ali ponavlja se za svaku subject view promjenu |
+| `useCardViewFilters` | O(N) filter po categoryId + subcategoryId + chapterId | može iz pre-bucket-a |
+| `useCardListFilters` | O(N) filter, isto | isto |
+| `ReviewSetup` (`filteredDueCards`, `filteredAllCards`) | dva odvojena O(N) filter lanca | može iz pre-bucket-a |
+| `SubjectCardsView/PassiveReader` | O(N) filter | isto |
+| `LearnSession` setup | O(N) filter | isto |
 
-## Novi fajl: `src/lib/before-quit-bridge.ts`
+**Render benefit u preview-u**: za korisnika sa 9 predmeta × ~500 kartica/predmet = 4500 ukupno, prelazak sa "linearno skeniraj 4500 svaki put kad otvoriš dashboard" na "uzmi 500 iz bucket-a po `categoryId`" je 9× speedup na svaki re-render. SubjectDashboard `subProgressData` koji unutra radi 3 ugniježđena `.filter`-a — trenutno O(N × subs × chaps), nakon — O(K_cat) za jedan bucket lookup pa O(K_sub) lokalno.
 
-Singleton modul, lazy `init()` na prvi `onBeforeQuit(handler)`. Karakteristike:
+## Planirane izmjene
 
-- **Feature detection redom**: `electronAPI.onBeforeQuit` → `electronAPI.onQuitBackupRequested` → `document.visibilitychange`. Bira **samo prvi dostupan**, da ne fire-a duplo.
-- **Kod opcije 2** (`onQuitBackupRequested`) bridge automatski zove `notifyQuitBackupDone()` u `finally` nakon što se svi handler-i isettle-uju — main proces ne ostaje da čeka.
-- **Serijalna izvršenja**: ako stigne novi quit signal dok je prethodni run aktivan, coalesce-uje se u jedan ponovni run nakon settle-a (`inFlight` + `queued` flagovi). Sprječava paralelne flush-eve.
-- **Snapshot handler set** prije iteracije — handler koji se sam unregistruje tokom run-a ne razbija petlju.
-- **`Promise.allSettled`** — jedan handler koji throw-a ne blokira ostale.
-- **Browser fallback** koristi `visibilitychange` umjesto `beforeunload` (pouzdaniji u modernim browser-ima, posebno na mobile-u; `beforeunload` se često ne fire-a). Fire-and-forget jer tab može da nestane prije nego promise resolve-uje.
+### 1. Novi util: `src/lib/card-buckets.ts`
 
-### Javni API
+Memoizable indeks-strukture nad `Card[]`. Čista funkcija (ne hook), pa može da se reuse-uje i u `useMemo` i u worker-ima/migracijama.
 
 ```ts
-export function onBeforeQuit(handler: () => void | Promise<void>): () => void;
-export function triggerBeforeQuit(): Promise<void>;        // za testove i imperativni "Restart"
-export function _resetBeforeQuitBridge(): void;            // test/HMR helper
+export interface CardBuckets {
+  byCategory: Map<string, Card[]>;
+  bySubcategory: Map<string, Card[]>;
+  byChapter: Map<string, Card[]>;
+  byCategoryChapter: Map<string, Card[]>;     // key = `${catId}::${chapId}`
+  bySubcategoryChapter: Map<string, Card[]>;  // key = `${subId}::${chapId}`
+}
+export function buildCardBuckets(cards: Card[]): CardBuckets;
+export const compositeKey = (a: string, b: string) => `${a}::${b}`;
 ```
 
-## Type update: `src/types/electron.d.ts`
+Single pass O(N) gradnja. Zamjenjuje N×N (filter + nested filter) sa N + lookups.
 
-Dodati **opcionalno** polje da feature-detect prođe TS checker:
+### 2. AppContext — izloži pre-bucketed view kroz selektor hook
 
-```ts
-/** Future-proof channel — preferred over onQuitBackupRequested when available. */
-onBeforeQuit?: (callback: () => void | Promise<void>) => () => void;
-```
+Dodati u `useCardData()` (ili novi `useCardBuckets()`) memoizovan rezultat `buildCardBuckets(cards)`. Recompute samo kad se `cards` reference mijenja (već je Ref-Delta pa je promjena retka).
 
-`preload.cjs` ostaje nepromijenjen — `onBeforeQuit` je `undefined` u runtime-u, bridge automatski pada na opciju 2.
+### 3. Refactor pozivnih mjesta (najveći payoff prvo)
 
-## Out of scope (eksplicitno)
+- **`SubjectDashboard.subProgressData`** — koristiti `buckets.byCategory.get(categoryId) ?? []` umjesto `cards.filter(...)`, pa unutar petlje subcategorija `buckets.bySubcategory.get(sub.id) ?? []` i `buckets.byChapter.get(ch.id) ?? []` (uz dodatni `categoryId` provjeru za kolizije UUID-a, mada UUID-ovi su unique).
+- **`useSourceHierarchy`** — `cards.filter(c=>c.categoryId===category)` → `buckets.byCategory.get(category) ?? []`.
+- **`useCardViewFilters` / `useCardListFilters`** — startuj od najužeg dostupnog bucket-a (chapter > subcategory > category > all), pa primijeni preostale filtere (type, freq, search) tek nad tim manjim setom.
+- **`ReviewSetup.filteredDueCards/AllCards`** — isto, kreni od najužeg bucket-a.
+- **`PassiveReader`, `LearnSession`** — isto.
 
-- Refactor `useCards.ts` i `main.tsx` da koriste bridge — odvojen, ponašajni PR.
-- Uklanjanje `visibilitychange` listenera u `persist-queue.ts` — ostaje kao defense-in-depth.
-- Bilo kakva izmjena `electron/backup.cjs` ili `preload.cjs` (main proces).
-- Implementacija stvarnog `onBeforeQuit` IPC kanala u main procesu.
+### 4. (Sitno čišćenje) `db-queries.ts`
+
+`idbCountCardsByCategory`, `idbCountByType`, `idbCountAllCards` su **dead code** (nigdje se ne pozivaju). Ako ih ostavimo, idu na novi `[categoryId+...]` indeks gdje je primjenjivo. Predlažem: **ostaviti** kao dokumentovan public API za buduće non-bootstrap query-je (npr. badge counter koji ne traži cijelu listu) — bez promjena.
+
+### 5. (Out of scope) Direktna IDB optimizacija
+
+Ne mijenjamo `db.cards.toArray()` u bootstrap-u na `where(...).toArray()` jer bootstrap već učitava sve kartice u memoriju (to je SSOT model). Indeksi tu **niti pomažu niti smetaju**. Postojeći v15 indeksi su tu za eventualne buduće on-demand IDB query-je (npr. statistike po chapter-u bez učitavanja svega).
+
+## Tehnički detalji
+
+- **Memoizacija**: `buildCardBuckets` se zove kroz `useMemo([cards])` u kontekstu — jedan trošak po cards-update batch-u, koristi ga N konzumenata.
+- **Mutation safety**: vraćamo nove `Map` instance na svaki rebuild (referencijska jednakost = OK signal za React memo). Ne mutiramo postojeće.
+- **Tail handling**: kartice bez `subcategoryId`/`chapterId` ne završavaju u tim bucket-ima — pozivna mjesta već znaju da rade fallback (npr. `__ostalo__` u `useSourceHierarchy`); zadržavamo isti contract.
+- **Composite key**: koristimo string `"${a}::${b}"` umjesto nested Map-a — jednostavnije i brže za V8 string-keyed Map.
+- **Memory cost**: 5 dodatnih Map-a × po N pointer-a = ~40 bajtova × 4500 × 5 ≈ 1 MB heap-a za realne baze. Trivijalno u odnosu na 200+ MB koji TipTap+ReactFlow drže.
 
 ## Fajlovi
 
-- **Novi**: `src/lib/before-quit-bridge.ts`
-- **Izmjena**: `src/types/electron.d.ts` (dodati opcionalni `onBeforeQuit`)
+**Novi**:
+- `src/lib/card-buckets.ts` — bucket builder + composite key helper
+- `src/test/card-buckets.test.ts` — unit test (svaki bucket, edge case missing IDs)
+
+**Izmjene** (samo lookup paths, bez ponašajnih promjena):
+- `src/contexts/AppContext.tsx` (ili `src/hooks/useCards.ts`) — dodati memoizovan `buckets` u `useCardData` return
+- `src/views/SubjectDashboard.tsx` — refactor `subProgressData`
+- `src/hooks/useSourceHierarchy.ts` — koristiti bucket
+- `src/hooks/useCardViewFilters.ts`
+- `src/hooks/useCardListFilters.ts`
+- `src/components/review/ReviewSetup.tsx` — `filteredDueCards`, `filteredAllCards`
+- `src/components/subject-cards/PassiveReader.tsx`
+- `src/components/LearnSession.tsx`
+
+## Out of scope (eksplicitno)
+
+- Konvertovanje SSOT-a sa in-memory na `useLiveQuery` — kršilo bi Core memory rule.
+- Refactor `HealthMonitor` (radi puni dijagnostički prolaz; tu je full scan namjeran).
+- Refactor migracija (`heal-card-taxonomy`, `remap-from-backup`) — one-shot operacije, ne render path.
+- Bilo kakva izmjena `db-schema.ts` (već je v15 sa indeksima; ovo je čisto JS-side optimizacija koja preslikava istu hierarhiju koju indeksi predstavljaju u IDB-u).
