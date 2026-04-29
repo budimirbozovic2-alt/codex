@@ -1,151 +1,55 @@
-## Problem
+## Cilj
 
-Kada korisnik završi (sačuva ili otkaže) editovanje kartice pokrenut iz **SubjectCardsView**, vraća se na pogrešno mjesto — gubi tab (`manage` vs `read`), sub-mode (`edit` vs `structure`), pretragu, source filter i scroll poziciju. Razlog: `EditPage.navigateBack` razumije samo prefix `category:` i `View` enum, ali `SubjectCardsView` šalje `subject-cards:UUID` koji prolazi kroz `setView(... as View)` — nepoznat string → fallback rendering.
+U `CategoryView` (ekran koji renderuje `SourcesTab` na ruti `/category/:categoryId`) dodati jasan breadcrumb i kontekstualni indikator da je to dedicirani **Izvori (Reader/Editor)** ekran za taj predmet, kako bi korisnik uvijek znao gdje se nalazi i kako se vratiti na hub predmeta.
 
-Dodatno: čak i da rute rade, sav lokalni state (`tab`, `manageMode`, `searchQuery`, `sourceFilter`, scroll Y) izgubi se jer se komponenta odmontira pri navigaciji na `/edit`.
+## Šta korisnik vidi
 
-## Rješenje
+Iznad postojećeg `h1` naslova kategorije pojaviće se kompaktan red:
 
-Uvodim **`returnContext`** sessionStorage zapis koji nosi i rutu i mini-snapshot UI stanja, plus restore-on-mount u `SubjectCardsView`.
-
-### 1. Definicija `returnContext`
-
-`src/lib/edit-return.ts` (novi fajl):
-
-```ts
-const KEY = "sr-edit-return-context";
-
-export interface EditReturnContext {
-  /** Absolute path to navigate back to (preferred over View enum). */
-  path: string;
-  /** Optional UI snapshot to restore — opaque to EditPage. */
-  state?: Record<string, unknown>;
-  /** Timestamp for staleness guard. */
-  ts: number;
-}
-
-export function setEditReturn(ctx: Omit<EditReturnContext, "ts">): void {
-  sessionStorage.setItem(KEY, JSON.stringify({ ...ctx, ts: Date.now() }));
-}
-
-export function consumeEditReturn(): EditReturnContext | null {
-  const raw = sessionStorage.getItem(KEY);
-  if (!raw) return null;
-  sessionStorage.removeItem(KEY);
-  try {
-    const parsed = JSON.parse(raw) as EditReturnContext;
-    // 30 min staleness guard
-    if (Date.now() - parsed.ts > 30 * 60 * 1000) return null;
-    return parsed;
-  } catch { return null; }
-}
-
-/**
- * Peek without consuming — used by destination view to read snapshot
- * after navigation completes. Cleared by a separate consume call.
- */
-export function peekEditReturnState<T = Record<string, unknown>>(): T | null {
-  // Snapshot is stashed in a sibling key so it survives consumeEditReturn().
-  const raw = sessionStorage.getItem(KEY + ":state");
-  if (!raw) return null;
-  sessionStorage.removeItem(KEY + ":state");
-  try { return JSON.parse(raw) as T; } catch { return null; }
-}
-
-export function stashEditReturnState(state: Record<string, unknown>): void {
-  sessionStorage.setItem(KEY + ":state", JSON.stringify(state));
-}
+```text
+[ ← ]  Predmeti  ›  {Naziv predmeta}  ›  Izvori        [ Otvoreno: Izvori predmeta ]
 ```
 
-Razdvajanje na dva ključa: `EditPage` konzumira return path odmah pri navigaciji (cleanup), a destination view čita snapshot poseban (`peekEditReturnState`) tek kad se montira.
+- "Predmeti" je link na početni dashboard (lista svih predmeta).
+- Naziv predmeta je link na `SubjectDashboard` (`/subject/:categoryId`) — hub tog predmeta.
+- "Izvori" je trenutna stranica (neaktivni tekst, `aria-current="page"`).
+- Desno: mali pill/badge "Otvoreno: Izvori predmeta" sa ikonicom `BookOpen`/`FileText` koji jasno kaže da je u kontekstu otvoren samo Reader/Editor za taj predmet (a ne globalni izvori ili druge kartice).
+- Lijevo strelica `←` (ikona `ArrowLeft`) kao prečica nazad na `SubjectDashboard`.
 
-### 2. `SubjectCardsView` — postaviti i konzumirati state
+Postojeći `h1 {category.name}` i mastery bar ostaju netaknuti ispod breadcrumba.
 
-`handleEdit`:
+## Tehničke izmjene
 
-```ts
-const handleEdit = (card: Card) => {
-  setEditReturn({ path: `/subject/${categoryId}/cards` });
-  stashEditReturnState({
-    tab, manageMode, searchQuery, sourceFilter,
-    scrollY: window.scrollY,
-  });
-  setEditingCard(card);
-  navigate("/edit");
-};
-```
+### 1. Nova komponenta `src/components/category/SourcesBreadcrumb.tsx`
+Mala prezentaciona komponenta koja prima `categoryId` i `categoryName`. Renderuje:
+- Back dugme (`Button variant="ghost" size="icon"`) → `navigate('/subject/${categoryId}')`.
+- Breadcrumb segmenti koristeći postojeći shadcn `Breadcrumb` (`src/components/ui/breadcrumb.tsx` ako postoji; ako ne, koristiti jednostavan `nav` sa `ChevronRight` separatorima — provjeriti pri implementaciji).
+  - "Predmeti" → `Link` na `/` (ili rutu liste predmeta — provjeriti u `App.tsx`).
+  - `categoryName` → `Link` na `/subject/${categoryId}`.
+  - "Izvori" → `BreadcrumbPage` (current).
+- Desno: `Badge variant="secondary"` sa ikonom i tekstom "Otvoreno: Izvori predmeta", `title`/`tooltip` objašnjenje da edit/reader djeluju samo nad ovim predmetom.
 
-Restore on mount (jednom, ako postoji snapshot):
+### 2. Integracija u `src/views/CategoryView.tsx` (oko linije 87–92)
+- Importovati novi `SourcesBreadcrumb`.
+- Renderovati ga kao prvi child `space-y-6` containera, prije header bloka sa `h1`.
+- Naslov `h1` ostaje (potvrda identiteta predmeta), ali se uklanja redundantnost time što breadcrumb daje navigacioni kontekst.
 
-```ts
-useEffect(() => {
-  const snap = peekEditReturnState<{
-    tab?: "manage" | "read";
-    manageMode?: "edit" | "structure";
-    searchQuery?: string;
-    sourceFilter?: string;
-    scrollY?: number;
-  }>();
-  if (!snap) return;
-  if (snap.tab) setTab(snap.tab);
-  if (snap.manageMode) setManageMode(snap.manageMode);
-  if (typeof snap.searchQuery === "string") setSearchQuery(snap.searchQuery);
-  if (typeof snap.sourceFilter === "string") setSourceFilter(snap.sourceFilter);
-  if (typeof snap.scrollY === "number") {
-    // Defer to next frame so the list has had a chance to layout.
-    requestAnimationFrame(() => window.scrollTo({ top: snap.scrollY!, behavior: "auto" }));
-  }
-}, []);
-```
+### 3. Bez izmjena u `SourcesTab.tsx`
+Breadcrumb je odgovornost stranice (`CategoryView`), ne taba. Ovo poštuje postojeći Orchestrator pattern.
 
-### 3. `EditPage` — koristiti novi return context
+### 4. Pristupačnost
+- `nav aria-label="Breadcrumb"`.
+- Trenutna stranica `aria-current="page"`.
+- Back dugme: `aria-label="Nazad na predmet"`.
+- Badge ima `title` atribut sa punim objašnjenjem.
 
-Zamijeniti staru `previousViewRef` logiku:
+## Fajlovi
 
-```ts
-const previousPathRef = useRef<string | null>(null);
+- **Novo:** `src/components/category/SourcesBreadcrumb.tsx`
+- **Izmijenjeno:** `src/views/CategoryView.tsx` (dodan import + render breadcrumba iznad header bloka)
 
-useEffect(() => {
-  const ctx = consumeEditReturn();
-  if (ctx?.path) previousPathRef.current = ctx.path;
-}, []);
+## Van opsega
 
-const navigateBack = useCallback(() => {
-  const path = previousPathRef.current;
-  if (path) {
-    navigate(path);
-    return;
-  }
-  setView("dashboard"); // safe fallback
-}, [navigate, setView]);
-```
-
-### 4. Backwards compatibility za ostale ulaze
-
-`LearnPage` i bilo koji preostali caller koji koriste `sr-edit-return-view` — ažuriraju se da pozivaju `setEditReturn({ path: "/learn" })` umjesto starog ključa. Stari ključ `sr-edit-return-view` se uklanja iz koda (single grep cleanup).
-
-`MainLayout` GlobalSearchWrapper već ne postavlja return — globalni search namjerno vraća na dashboard; ostavljam.
-
-## Test scenariji
-
-| # | Korak | Očekivano |
-|---|---|---|
-| 1 | Iz SubjectCardsView → tab `read` → klik edit kartice → save | Vraća na `/subject/X/cards`, tab `read` aktivan |
-| 2 | Tab `manage`, sub-mode `structure`, klik edit → cancel | Vraća na `manage`+`structure`, ne na default `manage`+`edit` |
-| 3 | Search query "ugovor", scroll na pola liste, klik edit → save | Lista vraćena sa istim query-jem i scroll Y |
-| 4 | Iz LearnPage edit → save | Vraća na `/learn` |
-| 5 | Stale snapshot (>30 min) | Fallback na rutu bez restore-a state-a |
-| 6 | Direct navigacija na `/edit` bez return-context-a | Fallback na dashboard (postojeće ponašanje) |
-
-## Izmjene fajlova
-
-- **NOVO** `src/lib/edit-return.ts` — helpers za return path + state snapshot.
-- `src/views/EditPage.tsx` — `consumeEditReturn`, navigacija po `path`.
-- `src/views/SubjectCardsView.tsx` — `setEditReturn` + `stashEditReturnState` u `handleEdit`, restore effect on mount.
-- `src/views/LearnPage.tsx` — migracija sa starog ključa na novi helper.
-
-## Što ostaje van skopa
-
-- Restore scroll-a unutar virtualizovane liste (CardList) — koristimo window scroll; ako je lista interna scroll-area, fallback je vrh. Ako se kasnije pokaže potrebno, dodaje se `cardId` u snapshot i scroll-into-view u CardList-u.
-- Restore expand/collapse stanja kartica unutar liste — trenutno nije zahtijevano.
-- GlobalSearch i ostali ad-hoc ulazi u edit — namjerno ostaju na dashboard fallback-u.
+- Ne mijenja se logika učitavanja/izmjene izvora.
+- Ne dodaje se breadcrumb u druge `Subject*` rute (može u zasebnom koraku ako se traži konzistentnost).
+- Ruta liste predmeta za prvi segment: ako u `App.tsx` ne postoji eksplicitna ruta "Predmeti", koristiće se `/` (root dashboard) — provjeriće se pri implementaciji.
