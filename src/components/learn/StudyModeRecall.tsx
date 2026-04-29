@@ -132,14 +132,32 @@ export default function StudyModeRecall({
           transition={{ duration: 0.25 }} className="space-y-4">
 
           {!isCompleted && phase === "open" && (
-            <div className="rounded-xl border bg-card p-6 space-y-4 text-center">
-              <p className="text-sm text-muted-foreground">
-                Pažljivo pročitaj pitanje. Kada budeš spreman, potvrdi i pokušaj odgovoriti na glas.
-              </p>
-              <Button onClick={handleConfirmRead} className="w-full py-5">
-                <Check className="h-4 w-4 mr-2" /> Pročitao sam pitanje
-              </Button>
-            </div>
+            <>
+              <TextSelectionTooltip cardId={card.id} question={card.question} category={card.categoryId} subcategoryId={card.subcategoryId} tags={card.tags} keyParts={card.keyParts} onMarkKeyPart={onAddKeyPart ? (text: string) => onAddKeyPart(card.id, text) : undefined}>
+                <div className="space-y-3">
+                  {sections.length > 0 ? (
+                    sections.map(section => (
+                      <div key={section.id} className="rounded-xl border bg-card p-4">
+                        <p className="font-medium text-sm mb-2">{section.title}</p>
+                        <HighlightedSection content={section.content} keyParts={card.keyParts} className="text-sm leading-relaxed whitespace-pre-wrap prose prose-sm max-w-none card-prose" />
+                      </div>
+                    ))
+                  ) : (
+                    <div className="rounded-xl border bg-card p-4 text-sm text-muted-foreground italic">
+                      Nema dostupnog sadržaja odgovora.
+                    </div>
+                  )}
+                </div>
+              </TextSelectionTooltip>
+              <div className="rounded-xl border bg-card p-6 space-y-3 text-center">
+                <p className="text-sm text-muted-foreground">
+                  Pažljivo pročitaj pitanje i odgovor. Kada budeš spreman, potvrdi i pokušaj odgovor reprodukovati iz sjećanja.
+                </p>
+                <Button onClick={handleConfirmRead} className="w-full py-5">
+                  <Check className="h-4 w-4 mr-2" /> Pročitao sam — počni recall
+                </Button>
+              </div>
+            </>
           )}
 
           {!isCompleted && phase === "recall" && (
