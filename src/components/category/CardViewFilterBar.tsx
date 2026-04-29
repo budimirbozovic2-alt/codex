@@ -6,10 +6,6 @@ import { CARD_TAGS } from "@/lib/spaced-repetition";
 import { cn } from "@/lib/utils";
 
 interface Props {
-  filterSubcategory: string;
-  onChangeSubcategory: (v: string) => void;
-  filterChapter: string;
-  onChangeChapter: (v: string) => void;
   filterType: "all" | "essay" | "flash" | "mnemonic";
   onChangeType: (v: "all" | "essay" | "flash" | "mnemonic") => void;
   filterTag: string;
@@ -18,11 +14,6 @@ interface Props {
   onClearMasteryFilter?: () => void;
   hasActiveFilters: boolean;
   onResetFilters: () => void;
-  uniqueSubcategories: string[];
-  subcategoryCounts: Record<string, number>;
-  uniqueChapters: string[];
-  chapterCounts: Record<string, number>;
-  nameMap: Record<string, string>;
   filteredCount: number;
   totalCount: number;
   selectionMode: boolean;
@@ -33,49 +24,17 @@ interface Props {
 }
 
 export default function CardViewFilterBar({
-  filterSubcategory, onChangeSubcategory,
-  filterChapter, onChangeChapter,
   filterType, onChangeType,
   filterTag, onChangeTag,
   masteryFilter, onClearMasteryFilter,
   hasActiveFilters, onResetFilters,
-  uniqueSubcategories, subcategoryCounts,
-  uniqueChapters, chapterCounts,
-  nameMap, filteredCount, totalCount,
+  filteredCount, totalCount,
   selectionMode, onToggleSelectionMode,
   onBulkImport, onAddCard, onDelete,
 }: Props) {
   return (
     <div className="flex items-center gap-2 flex-wrap rounded-lg border bg-card p-2.5">
       <Filter className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-
-      {uniqueSubcategories.length > 0 && (
-        <Select value={filterSubcategory} onValueChange={onChangeSubcategory}>
-          <SelectTrigger className="h-7 w-auto min-w-[120px] text-xs">
-            <SelectValue placeholder="Potkategorija" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="__all__">Sve potkategorije</SelectItem>
-            {uniqueSubcategories.map(sub => (
-              <SelectItem key={sub} value={sub} className="text-xs">{nameMap[sub] ?? sub} ({subcategoryCounts[sub]})</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      )}
-
-      {uniqueChapters.length > 0 && (
-        <Select value={filterChapter} onValueChange={onChangeChapter}>
-          <SelectTrigger className="h-7 w-auto min-w-[100px] text-xs">
-            <SelectValue placeholder="Glava" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="__all__">Sve glave</SelectItem>
-            {uniqueChapters.map(ch => (
-              <SelectItem key={ch} value={ch} className="text-xs">{nameMap[ch] ?? ch} ({chapterCounts[ch]})</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      )}
 
       <div className="flex items-center gap-0.5 rounded-md border p-0.5">
         {(["all", "essay", "flash", "mnemonic"] as const).map(t => (

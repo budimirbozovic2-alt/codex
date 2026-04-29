@@ -113,10 +113,6 @@ export default function CardViewMode({ cards, categoryId, allCategories, subcate
 
       <div className="space-y-3 min-w-0">
         <CardViewFilterBar
-          filterSubcategory={filters.filterSubcategory}
-          onChangeSubcategory={filters.changeSubcategory}
-          filterChapter={filters.filterChapter}
-          onChangeChapter={filters.setFilterChapter}
           filterType={filters.filterType}
           onChangeType={filters.setFilterType}
           filterTag={filters.filterTag}
@@ -125,11 +121,6 @@ export default function CardViewMode({ cards, categoryId, allCategories, subcate
           onClearMasteryFilter={onClearMasteryFilter}
           hasActiveFilters={filters.hasActiveFilters}
           onResetFilters={filters.resetFilters}
-          uniqueSubcategories={filters.uniqueSubcategories}
-          subcategoryCounts={filters.subcategoryCounts}
-          uniqueChapters={filters.uniqueChapters}
-          chapterCounts={filters.chapterCounts}
-          nameMap={filters.nameMap}
           filteredCount={filters.filteredCards.length}
           totalCount={cards.length}
           selectionMode={selectionMode}

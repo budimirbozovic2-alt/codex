@@ -68,7 +68,7 @@ export function useCardViewFilters({
   const sourceFilter = externalSourceId && externalSourceId !== "__all__" ? externalSourceId : null;
 
   const filteredCards = useMemo(() => {
-    return cards.filter(c => {
+    const filtered = cards.filter(c => {
       if (masteryFilter !== null && masteryFilter !== undefined && getCardMasteryLevel(c) !== masteryFilter) return false;
       if (filterSubcategory !== "__all__" && (c.subcategoryId || "") !== filterSubcategory) return false;
       if (filterChapter !== "__all__" && (c.chapterId || "") !== filterChapter) return false;
@@ -87,6 +87,17 @@ export function useCardViewFilters({
         if (!hay.includes(normalizedQuery)) return false;
       }
       return true;
+    });
+
+    // Prati redoslijed definisan u Strukturi predmeta (CardOrgMode -> sortOrder),
+    // s deterministickim tie-breakerima (createdAt, id).
+    const so = (c: Card) => (typeof c.sortOrder === "number" ? c.sortOrder : Number.MAX_SAFE_INTEGER);
+    return filtered.slice().sort((a, b) => {
+      const d = so(a) - so(b);
+      if (d !== 0) return d;
+      const t = (a.createdAt ?? 0) - (b.createdAt ?? 0);
+      if (t !== 0) return t;
+      return a.id.localeCompare(b.id);
     });
   }, [cards, filterSubcategory, filterChapter, filterType, filterTag, masteryFilter, sourceFilter, normalizedQuery]);
 
