@@ -240,6 +240,40 @@ export default function HealthMonitor() {
               <span className="text-muted-foreground">Nema orphan zapisa — podaci su konzistentni</span>
             </div>
           )}
+
+          {(staleSub.count > 0 || staleChap.count > 0) && (
+            <Alert className="border-warning/50 bg-warning/10">
+              <AlertTriangle className="h-4 w-4 text-warning" />
+              <AlertTitle className="flex items-center gap-2 text-warning">
+                Zastarjele veze sa strukturom
+                <Badge variant="outline" className="text-[10px] border-warning/40 text-warning">
+                  {staleSub.count + staleChap.count}
+                </Badge>
+              </AlertTitle>
+              <AlertDescription className="text-xs space-y-1">
+                {staleSub.count > 0 && (
+                  <div>{staleSub.count} kartica ima podkategoriju koja više ne postoji.</div>
+                )}
+                {staleChap.count > 0 && (
+                  <div>{staleChap.count} kartica ima glavu koja ne postoji ili pripada drugoj podkategoriji.</div>
+                )}
+                <div className="text-muted-foreground pt-1">
+                  Nakon čišćenja, ove kartice ostaju u svojoj kategoriji ali postaju "Neraspoređene"
+                  — možeš ih premjestiti drag & drop-om u Org modu.
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="mt-2 gap-1.5"
+                  onClick={handleHealStaleLinks}
+                  disabled={healing}
+                >
+                  <Trash2 className="h-3 w-3" />
+                  {healing ? "Čišćenje…" : "Očisti zastarjele veze"}
+                </Button>
+              </AlertDescription>
+            </Alert>
+          )}
         </div>
 
         {/* Storage overview */}
