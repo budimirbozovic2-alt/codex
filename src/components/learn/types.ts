@@ -1,12 +1,5 @@
 import { Card } from "@/lib/spaced-repetition";
-import { LearnMode, LearnCardProgress, ReviewLogEntry } from "@/lib/storage";
-import type { CategoryRecord } from "@/lib/db";
-
-export type { LearnCardProgress };
-
-export type SortMode = "order" | "weakest" | "leastRead";
-export type ViewWidth = "compact" | "normal" | "wide" | "full";
-export type SetupStep = "mode" | "filter" | "ready";
+import { LearnCardProgress, Revi
 
 export const viewWidthClasses: Record<ViewWidth, string> = {
   compact: "max-w-xl",
