@@ -20,7 +20,7 @@ import { buildQuery } from "@/lib/url-params";
 export default function SubjectDashboard() {
   const { categoryId } = useParams<{ categoryId: string }>();
   const { categoryRecords } = useCategoryData();
-  const { cards, dueCards } = useCardData();
+  const { cards, dueCards, buckets } = useCardData();
 
   const categoryRec = useMemo(
     () => categoryRecords.find(r => r.id === categoryId),
@@ -34,8 +34,8 @@ export default function SubjectDashboard() {
   const navigate = useNavigate();
 
   const subjectCards = useMemo(
-    () => cards.filter(c => c.categoryId === categoryId),
-    [cards, categoryId],
+    () => (categoryId ? buckets.byCategory.get(categoryId) ?? [] : []),
+    [buckets, categoryId],
   );
   const subjectSubcategories = useMemo(
     () => (categoryRec?.subcategories ?? []).map(s => ({ id: s.id, name: s.name })),
@@ -57,11 +57,11 @@ export default function SubjectDashboard() {
   // ─── Knowledge progress data ──────────────────────────
   const subProgressData = useMemo(() => {
     if (!categoryId || !categoryRec) return [];
-    const catCards = cards.filter(c => c.categoryId === categoryId);
     const subs = categoryRec.subcategories ?? [];
 
     return subs.map(sub => {
-      const subCards = catCards.filter(c => c.subcategoryId === sub.id);
+      // Bucket lookup (UUID is globally unique, so subcategory bucket is exact).
+      const subCards = buckets.bySubcategory.get(sub.id) ?? [];
       const totalSections = subCards.reduce((s, c) => s + (c.sections?.length ?? 0), 0);
       const learnedSections = subCards.reduce(
         (s, c) => s + (c.sections?.filter(sec => sec.state !== SectionState.New).length ?? 0), 0,
@@ -72,7 +72,7 @@ export default function SubjectDashboard() {
         : 0;
 
       const chapters = (sub.chapters ?? []).map(ch => {
-        const chCards = subCards.filter(c => c.chapterId === ch.id);
+        const chCards = buckets.byChapter.get(ch.id) ?? [];
         const chTotal = chCards.reduce((s, c) => s + (c.sections?.length ?? 0), 0);
         const chLearned = chCards.reduce(
           (s, c) => s + (c.sections?.filter(sec => sec.state !== SectionState.New).length ?? 0), 0,
@@ -86,7 +86,7 @@ export default function SubjectDashboard() {
 
       return { id: sub.id, name: sub.name, cardCount: subCards.length, pct, mastery: avgMastery, chapters };
     });
-  }, [categoryId, categoryRec, cards]);
+  }, [categoryId, categoryRec, buckets]);
 
   const knowledgeBaseCards = useMemo(() => [
     {
