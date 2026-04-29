@@ -151,6 +151,45 @@ export default function ZettelkastenView() {
     };
   }, [activeId]);
 
+  // ── Auto-create placeholder articles for new [[Wiki Links]] while editing ──
+  // Debounced 800ms to avoid spamming IDB mid-typing.
+  useEffect(() => {
+    if (!isEditing || !draft || !categoryId) return;
+    const content = draft.content;
+    const rootSubId = activeArticle?.rootSubcategoryId;
+    const handle = setTimeout(async () => {
+      const matches = Array.from(content.matchAll(/\[\[([^\]]+)\]\]/g))
+        .map(m => m[1].trim())
+        .filter(Boolean);
+      if (matches.length === 0) return;
+      // De-dup case-insensitively, keep original casing of first occurrence.
+      const seen = new Map<string, string>();
+      for (const t of matches) {
+        const low = t.toLowerCase();
+        if (!seen.has(low)) seen.set(low, t);
+      }
+      const toCreate: KnowledgeBaseArticle[] = [];
+      for (const [low, original] of seen) {
+        if (existingTitleSet.has(low)) continue;
+        // Storage-level double-check guards against races (e.g. another debounce tick).
+        const dup = await findArticleByTitle(categoryId, original);
+        if (dup) continue;
+        const a = newArticle(categoryId, original, rootSubId);
+        await saveArticle(a);
+        toCreate.push(a);
+      }
+      if (toCreate.length > 0) {
+        setArticles(prev => [...toCreate, ...prev]);
+        toast.success(
+          toCreate.length === 1
+            ? `Kreiran placeholder članak "${toCreate[0].title}"`
+            : `Kreirano ${toCreate.length} placeholder članaka`,
+        );
+      }
+    }, 800);
+    return () => clearTimeout(handle);
+  }, [draft?.content, isEditing, categoryId, existingTitleSet, activeArticle]);
+
   // ── Mutations ──────────────────────────────────
   const handleCreate = useCallback(async (title?: string, rootSubId?: string) => {
     if (!categoryId) return;
