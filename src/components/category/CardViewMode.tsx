@@ -35,7 +35,7 @@ export default function CardViewMode({ cards, categoryId, allCategories, patchCa
   const [moveModalOpen, setMoveModalOpen] = useState(false);
   const [moveCardId, setMoveCardId] = useState<string | null>(null);
 
-  const filters = useCardViewFilters({ cards, allCategories, categoryId, masteryFilter, onClearMasteryFilter });
+  const filters = useCardViewFilters({ cards, allCategories, categoryId, masteryFilter, onClearMasteryFilter, externalQuery, externalSourceId });
 
   const otherCategories = useMemo(
     () => allCategories.filter(c => c.id !== categoryId),
