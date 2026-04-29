@@ -119,7 +119,7 @@ function runInWorker(action: string, payload: { filename?: string; data: ArrayBu
 // ── Fallbacks (main-thread JSZip) ──────────────────────────
 // Promise-cache so concurrent callers share one dynamic import.
 
-type JSZipCtor = typeof import("jszip").default;
+type JSZipCtor = typeof import("jszip");
 let _jszipPromise: Promise<JSZipCtor> | null = null;
 
 function getJSZip(): Promise<JSZipCtor> {
