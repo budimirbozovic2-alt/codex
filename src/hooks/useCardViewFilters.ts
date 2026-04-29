@@ -81,7 +81,9 @@ export function useCardViewFilters({
         const hay =
           (c.question ?? "").toLowerCase() +
           " " +
-          (c.sections ?? []).map(s => `${s.title ?? ""} ${s.content ?? ""}`).join(" ").toLowerCase();
+          (c.sections ?? []).map(s => `${s.title ?? ""} ${s.content ?? ""}`).join(" ").toLowerCase() +
+          " " +
+          (c.tags ?? []).join(" ").toLowerCase();
         if (!hay.includes(normalizedQuery)) return false;
       }
       return true;
