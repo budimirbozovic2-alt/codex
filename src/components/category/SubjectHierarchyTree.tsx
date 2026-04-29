@@ -79,7 +79,7 @@ export default function SubjectHierarchyTree({
 
   const sortedSubcats = useMemo(
     () =>
-      [...subcategoryNodes].sort(
+      [...(subcategoryNodes ?? [])].sort(
         (a, b) =>
           (a.sortOrder ?? 0) - (b.sortOrder ?? 0) || a.name.localeCompare(b.name)
       ),
