@@ -287,28 +287,11 @@ export default function ReviewCard({
                 </p>
               </div>
 
-              <div>
-                <p className="text-sm text-muted-foreground mb-3">Ocijeni kvalitet prisjećanja:</p>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                  {GRADES.map((g) => {
-                    const isEasy = g.value === 4;
-                    const disabled = isEasy && !canGradeEasy;
-                    return (
-                      <button
-                        key={g.value}
-                        onClick={() => !disabled && handleGradeWithCalibration(g.value)}
-                        disabled={disabled}
-                        className={`rounded-xl px-3 py-4 text-sm font-medium transition-all ${gradeColorMap[g.color]} ${disabled ? "opacity-40 cursor-not-allowed" : ""}`}
-                        title={disabled ? "Pričekajte bar 3 sekunde" : undefined}
-                      >
-                        <span className="block text-sm font-bold">{g.label}</span>
-                        <span className="block text-xs mt-1 opacity-80">{g.description}</span>
-                        <span className="block text-xs mt-1.5 font-mono opacity-70">{intervals[g.value]}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
+              <GradeButtons
+                onGrade={handleGradeWithCalibration}
+                hint="Ocijeni kvalitet prisjećanja (4 = bez oklijevanja)"
+              />
+
             </motion.div>
           )}
         </motion.div>
