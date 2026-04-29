@@ -9,6 +9,10 @@ interface UseCardViewFiltersParams {
   categoryId: string;
   masteryFilter?: number | null;
   onClearMasteryFilter?: () => void;
+  /** External text search applied across question + section content. */
+  externalQuery?: string;
+  /** External "filter by linked source" — value of card.sourceId, or "__all__". */
+  externalSourceId?: string;
 }
 
 export function useCardViewFilters({ cards, allCategories, categoryId, masteryFilter, onClearMasteryFilter }: UseCardViewFiltersParams) {
