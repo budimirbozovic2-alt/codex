@@ -70,6 +70,7 @@ export default function SessionFilters({
   onToggleExamFrequent,
   onFilterTypeChange,
   sortControl,
+  lockedCategory,
 }: SessionFiltersProps) {
   // Helper to resolve UUID → display name
   const catName = (id: string) => categoryRecords?.find(r => r.id === id)?.name ?? id;
