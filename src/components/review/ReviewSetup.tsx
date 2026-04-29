@@ -105,6 +105,15 @@ export default function ReviewSetup({
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(() => !hasSeenOnboarding(REVIEW_ONBOARDING_KEY));
 
+  // Stabilization is FSRS-driven: sub/chapter narrowing would compromise the
+  // due-priority selection, so we proactively clear them when entering this mode.
+  useEffect(() => {
+    if (mode === "stabilization") {
+      if (selectedSubcategory !== null) setSelectedSubcategory(null);
+      if (selectedChapter !== null) setSelectedChapter(null);
+    }
+  }, [mode, selectedSubcategory, selectedChapter]);
+
   const dueCategories = useMemo(() => {
     const cats = new Set(dueCards.map((c) => c.categoryId));
     return Array.from(cats).sort();
