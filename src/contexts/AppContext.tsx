@@ -19,6 +19,21 @@ const VIEW_TO_PATH: Record<View, string> = {
   mnemonic: "/mnemonics", stats: "/stats", planner: "/planner",
   "speed-reader": "/speed-reader",
 };
+
+const PATH_TO_VIEW: Record<string, View> = {};
+Object.entries(VIEW_TO_PATH).forEach(([view, path]) => { PATH_TO_VIEW[path] = view as View; });
+
+export function useCurrentView(): View {
+  const { pathname } = useLocation();
+  return PATH_TO_VIEW[pathname] || "dashboard";
+}
+
+const VIEW_ACTIVITY_MAP: Partial<Record<View, ActivityType>> = {
+  review: "review", learn: "learn-active", mnemonic: "mnemonic-workshop",
+  create: "admin", edit: "admin", categories: "admin",
+  stats: "analysis", planner: "analysis",
+};
+
 // ─── Pomodoro types ─────────────────────────────────────
 export interface PomodoroState {
   mode: "work" | "break" | "longBreak";
