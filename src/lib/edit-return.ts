@@ -10,6 +10,9 @@
  *
  * This split lets EditPage clear navigation intent immediately while keeping
  * the snapshot alive across the route transition until the destination mounts.
+ *
+ * All snapshots SHOULD extend `BaseEditReturnSnapshot` so consumers get
+ * uniform path/categoryId/cardId/scrollY validation via `useEditReturn`.
  */
 
 const PATH_KEY = "sr-edit-return-context";
@@ -24,6 +27,21 @@ interface StoredContext {
 interface StoredState<T> {
   data: T;
   ts: number;
+}
+
+/**
+ * Standard snapshot shape every consumer must conform to. View-specific
+ * extras are added via the generic parameter `S extends BaseEditReturnSnapshot`.
+ */
+export interface BaseEditReturnSnapshot {
+  /** Absolute path the snapshot is bound to. Validated against current path on consume. */
+  path: string;
+  /** Vertical scroll position to restore. */
+  scrollY?: number;
+  /** Category UUID this snapshot belongs to (used for cross-category validation). */
+  categoryId?: string;
+  /** Card UUID being edited at stash time. */
+  cardId?: string;
 }
 
 export function setEditReturn(ctx: { path: string }): void {
@@ -59,7 +77,15 @@ export function stashEditReturnState<T>(state: T): void {
   }
 }
 
-export function consumeEditReturnState<T = unknown>(): T | null {
+/**
+ * Consume the stashed snapshot. Optional `validate` predicate lets callers
+ * reject snapshots that don't match the current context (e.g. wrong path or
+ * wrong categoryId). On reject the snapshot is still removed from storage
+ * so it cannot leak into a later mount.
+ */
+export function consumeEditReturnState<T = unknown>(
+  validate?: (snapshot: T) => boolean,
+): T | null {
   try {
     const raw = sessionStorage.getItem(STATE_KEY);
     if (!raw) return null;
@@ -67,6 +93,7 @@ export function consumeEditReturnState<T = unknown>(): T | null {
     const parsed = JSON.parse(raw) as StoredState<T>;
     if (!parsed || typeof parsed.ts !== "number") return null;
     if (Date.now() - parsed.ts > STALE_MS) return null;
+    if (validate && !validate(parsed.data)) return null;
     return parsed.data;
   } catch (e) {
     console.debug("[edit-return] consumeEditReturnState failed", e);

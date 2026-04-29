@@ -1,5 +1,5 @@
 import { useParams, Link, useNavigate } from "react-router-dom";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowLeft, Layers, BookOpen, Settings, Search, X, Pencil, Sparkles,
 } from "lucide-react";
@@ -13,6 +13,7 @@ import type { SubcategoryNode } from "@/lib/db";
 import type { Card } from "@/lib/spaced-repetition";
 import { loadSourcesByCategory, type Source } from "@/lib/sources-storage";
 import { useEditReturn } from "@/hooks/useEditReturn";
+import type { BaseEditReturnSnapshot } from "@/lib/edit-return";
 import CardViewMode from "@/components/category/CardViewMode";
 import CardOrgMode from "@/components/category/CardOrgMode";
 import StructureManagerDialog from "@/components/category/StructureManagerDialog";
@@ -25,12 +26,11 @@ import {
   type ManageMode,
 } from "@/views/subject-cards/manageModes";
 
-interface EditReturnSnapshot {
+interface EditReturnSnapshot extends BaseEditReturnSnapshot {
   tab?: "manage" | "read";
   manageMode?: ManageMode;
   searchQuery?: string;
   sourceFilter?: string;
-  scrollY?: number;
 }
 
 export default function SubjectCardsView() {
@@ -74,18 +74,21 @@ export default function SubjectCardsView() {
   }, [cards]);
 
   /**
-   * Encapsulates: consume snapshot once on mount, restore window scroll
-   * across RAF ticks (virtualized list grows async), and expose `stash()`
-   * to call before navigating to /edit.
+   * Standardized edit-return: hook automatically stashes path + scrollY +
+   * categoryId + cardId (resolved lazily). View only contributes UI extras.
+   * Snapshot is discarded on consume if path or categoryId don't match,
+   * preventing cross-category state leakage.
    */
+  const editingCardRef = useRef<Card | null>(null);
   const { initialSnapshot, stash: stashEditReturn } = useEditReturn<EditReturnSnapshot>({
     path: `/subject/${categoryId}/cards`,
-    buildSnapshot: () => ({
+    categoryId,
+    cardId: () => editingCardRef.current?.id ?? null,
+    buildExtras: () => ({
       tab,
       manageMode,
       searchQuery,
       sourceFilter,
-      scrollY: window.scrollY,
     }),
   });
 
@@ -121,6 +124,7 @@ export default function SubjectCardsView() {
   const handleEdit = (card: Card) => {
     // Stash absolute return path + UI snapshot so EditPage and this view can
     // collaboratively restore the user's exact spot after save/cancel.
+    editingCardRef.current = card;
     stashEditReturn();
     setEditingCard(card);
     navigate("/edit");
