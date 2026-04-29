@@ -48,9 +48,26 @@ export function useCards() {
     return map;
   }, [categoryRecords]);
 
-  // Flush pending actions on unmount to prevent data loss
+  // Flush pending actions on unmount + on Electron quit-backup signal to prevent data loss
   useEffect(() => {
-    return () => { persistQueue.cleanup(); };
+    // Electron desktop: hook into the existing quit-backup channel so the main
+    // process awaits a real flush before tearing down the renderer.
+    const electron = typeof window !== "undefined" ? window.electronAPI : undefined;
+    let unsubQuit: (() => void) | undefined;
+    if (electron?.onQuitBackupRequested) {
+      unsubQuit = electron.onQuitBackupRequested(async () => {
+        try { await persistQueue.cleanup(); } catch (err) {
+          console.error("[useCards] quit flush failed", err);
+        } finally {
+          try { electron.notifyQuitBackupDone?.(); } catch {}
+        }
+      });
+    }
+    return () => {
+      try { unsubQuit?.(); } catch {}
+      // Web/StrictMode unmount: best-effort fire-and-forget; visibilitychange is the safety net.
+      void persistQueue.cleanup();
+    };
   }, []);
 
   // ── Boot (extracted module) ──

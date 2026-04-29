@@ -108,7 +108,8 @@ interface ReviewStateContextValue {
 const ReviewStateContext = createContext<ReviewStateContextValue | null>(null);
 
 const EMPTY_REVIEW_STATE: ReviewStateContextValue = {
-  reviewLog: [], srSettings: {} as import("@/lib/spaced-repetition").SRSettings,
+  reviewLog: [],
+  srSettings: (require("@/lib/spaced-repetition") as { DEFAULT_SR_SETTINGS: import("@/lib/spaced-repetition").SRSettings }).DEFAULT_SR_SETTINGS,
 };
 
 export function useReviewData() {
