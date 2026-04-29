@@ -5,7 +5,21 @@ import {
 } from "lucide-react";
 import {
   Sidebar, SidebarContent, SidebarGroup, SidebarGroupLabel,
-  SidebarGroupContent, SidebarMenu
+  SidebarGroupContent, SidebarMenu, SidebarMenuItem, SidebarMenuButton,
+  useSidebar,
+} from "@/components/ui/sidebar";
+import { Badge } from "@/components/ui/badge";
+import { useCategoryData } from "@/contexts/AppContext";
+
+const STATIC_NAV = [
+  { path: "/", icon: Home, label: "Početna tabla" },
+];
+
+const TOOLS_NAV = [
+  { path: "/mnemonics", icon: Brain, label: "Memorizacija" },
+  { path: "/speed-reader", icon: Zap, label: "Speed Reader" },
+  { path: "/mind-map", icon: Map, label: "Mentalne mape" },
+];
 
 
 export default function AppSidebar() {
