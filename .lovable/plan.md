@@ -1,61 +1,64 @@
 
 ## Cilj
 
-1. Ukloniti suvišne dropdown filtere "Potkategorija" i "Glava" iz Edit prikaza kartica — filtriranje po strukturi se već radi kroz lijevi stablo-panel (`SubjectHierarchyTree`), pa su dropdownovi duplikat.
-2. Prikaz kartica u tabeli mora pratiti redoslijed definisan u **Strukturi predmeta** (Manage → Struktura, `CardOrgMode`), tj. po `card.sortOrder` unutar (subcategoryId, chapterId), zatim po vremenu kreiranja kao tie-breaker.
+Ukloniti redundantni "Kartice" red sa dugmetom **"Uređivanje i raspored kartica · {n}"** ispod naslova predmeta i premjestiti broj kartica pored naziva kategorije, ali razdvojeno na **Esej** i **Blic** brojače.
+
+## Trenutno stanje
+
+`src/views/SubjectCardsView.tsx` linije 164–176 sadrže grupu "Kartice" sa jednim `TabsTrigger` koji prikazuje "Uređivanje i raspored kartica" + `cards.length`. Pošto je u ovom prikazu efektivno samo jedan manage tab (drugi je "Pasivno čitanje" featured kartica), ovaj red ne dodaje nikakvu vrijednost — već se vidi koja je sekcija aktivna.
 
 ## Šta se mijenja
 
-### A. `src/components/category/CardViewFilterBar.tsx`
-- Ukloniti dva `<Select>` bloka: "Potkategorija" (linije 52–64) i "Glava" (66–78).
-- Iz `Props` ukloniti polja: `filterSubcategory`, `onChangeSubcategory`, `filterChapter`, `onChangeChapter`, `uniqueSubcategories`, `subcategoryCounts`, `uniqueChapters`, `chapterCounts`, `nameMap`. Zadržati ostalo (tip, tag, mastery, akcioni dugmadi).
-- Ako više nema nijednog dropdowna ostaje samo `Filter` ikona + tip/tag/mastery — zadržati layout.
+### `src/views/SubjectCardsView.tsx`
 
-### B. `src/components/category/CardViewMode.tsx`
-- Ukloniti propse koje više ne idu u `CardViewFilterBar` (subcategory/chapter dropdown podaci) — i dalje se prosljeđuju u `SubjectHierarchyTree` jer tamo i dalje treba.
-- Ne dirati `useCardViewFilters` poziv — `filterSubcategory`/`filterChapter` ostaju kao interno stanje koje se sada postavlja **isključivo** klikom na stablo.
+**1. Izračun brojača (poslije `subcategoryNodes` useMemo, oko linije 65)**
 
-### C. `src/hooks/useCardViewFilters.ts`
-- Logika filtriranja po `subcategoryId`/`chapterId` ostaje (klikovi u stablu). 
-- `filteredCards` `useMemo` dopuniti stabilnim sortiranjem po strukturi:
-
-```text
-sort key:
-  1. sortOrder (numerički, ako postoji; nedostaje => Number.MAX_SAFE_INTEGER)
-  2. createdAt uzlazno (fallback)
-  3. id (deterministički tie-breaker)
+```ts
+const { essayCount, flashCount } = useMemo(() => {
+  let essay = 0, flash = 0;
+  for (const c of cards) {
+    if (c.type === "essay") essay++;
+    else if (c.type === "flash") flash++;
+  }
+  return { essayCount: essay, flashCount: flash };
+}, [cards]);
 ```
 
-  Sortiranje se primjenjuje **nakon** filtriranja, tako da i puni prikaz ("Sve") i pojedinačna potkategorija/glava poštuju isti redoslijed koji je korisnik podesio u Strukturi.
+**2. Header (linije 152–161)** — pored `category.name` dodaju se dva `Badge`-a:
 
-### D. (Provjera) `CardViewTable`
-- Ne mijenja se — već renderuje `filteredCards` u redoslijedu kako stignu.
+```tsx
+<div className="flex items-center gap-2 flex-wrap">
+  <h1 className="text-2xl font-bold text-foreground truncate">{category.name}</h1>
+  <Badge variant="secondary" className="text-[10px] h-5 px-1.5 gap-1" title="Esejska pitanja">
+    <Pencil className="h-3 w-3" /> Esej: {essayCount}
+  </Badge>
+  <Badge variant="secondary" className="text-[10px] h-5 px-1.5 gap-1" title="Blic pitanja">
+    <Sparkles className="h-3 w-3" /> Blic: {flashCount}
+  </Badge>
+</div>
+```
+
+**3. Uklanjanje grupe "Kartice" (linije 164–176)** — cijeli `<div className="space-y-1.5">…</div>` blok se briše. `Tabs` ostaje (i dalje upravlja `value=tab`), ostaje samo "Učenje" grupa sa featured "Pasivno čitanje" karticom.
+
+**4. Povratak iz "Pasivno čitanje" u uređivanje** — pošto više nema vidljivog manage triggera, dodaje se mali dugmić u headeru (samo kad je `tab === "read"`) za povratak:
+
+```tsx
+{tab === "read" && (
+  <Button variant="outline" size="sm" onClick={() => setTab("manage")} className="gap-1.5 h-8 text-xs">
+    <Pencil className="h-3.5 w-3.5" /> Nazad na uređivanje
+  </Button>
+)}
+```
+
+Smješta se kao posljednji element u `<div className="flex items-center gap-3">` headeru.
 
 ## Šta se NE mijenja
 
-- `SubjectHierarchyTree` (lijevi panel) — ostaje glavni način filtriranja po strukturi.
-- `CardOrgMode` i DnD logika u `useCardOrgDnd` — već piše `sortOrder` na karticu, pa nije potrebno ništa novo.
-- DB schema, persistence queue, ostale faze plana.
-
-## Tehnički detalji sortiranja
-
-`Card` već ima `sortOrder?: number` (vidljivo u `spaced-repetition.ts:193`). DnD u `useCardOrgDnd` postavlja `sortOrder = i` per chapter container, a prilikom premještanja u novi chapter privremeno `sortOrder = 9999`. To je dovoljno da se redoslijed iz Strukture preslika u glavni Edit prikaz.
-
-Sort comparator (pseudokod):
-```ts
-const so = (c: Card) => (typeof c.sortOrder === "number" ? c.sortOrder : Number.MAX_SAFE_INTEGER);
-arr.sort((a, b) => so(a) - so(b)
-  || (a.createdAt ?? 0) - (b.createdAt ?? 0)
-  || a.id.localeCompare(b.id));
-```
-
-## Rizici / kompatibilnost
-
-- Stari nalozi mogu imati kartice bez `sortOrder` — one padaju na kraj, ali se i dalje stabilno sortiraju po `createdAt`/`id`. Korisnik ih može urediti u Strukturi.
-- Izlaz: sve postojeće funkcije (pretraga, tip, tag, mastery, izvor) i dalje rade.
+- `Tabs` / `TabsContent` mehanika ostaje (manage je default, read se aktivira klikom na featured karticu).
+- "Pasivno čitanje" featured `TabsTrigger` ostaje netaknut.
+- Interni Edit↔Struktura segmentirani prekidač unutar manage taba ostaje netaknut (linije 207–245).
+- `EditReturnSnapshot` i restore logika ostaju iste.
 
 ## Datoteke
 
-- `src/components/category/CardViewFilterBar.tsx` — uklanjanje dropdownova i propsa.
-- `src/components/category/CardViewMode.tsx` — uklanjanje proslijeđenih propsa za uklonjene dropdownove.
-- `src/hooks/useCardViewFilters.ts` — sort `filteredCards` po `sortOrder`.
+- `src/views/SubjectCardsView.tsx` — jedna komponenta, tri male izmjene (izračun, header, uklanjanje grupe).
