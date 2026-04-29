@@ -23,8 +23,7 @@ const StatsPage = lazy(() => import("@/views/StatsPage"));
 const MnemonicPage = lazy(() => import("@/views/MnemonicPage"));
 const PlannerPage = lazy(() => import("@/views/PlannerPage"));
 
-const MetacognitivePage = lazy(() => import("@/views/MetacognitivePage"));
-const FrequentErrorsPage = lazy(() => import("@/views/FrequentErrorsPage"));
+const SubjectDiagnosticsPage = lazy(() => import("@/views/SubjectDiagnosticsPage"));
 
 const CategoriesRoutePage = lazy(() => import("@/views/CategoriesRoutePage"));
 const SpeedReaderPage = lazy(() => import("@/views/SpeedReaderPage"));
