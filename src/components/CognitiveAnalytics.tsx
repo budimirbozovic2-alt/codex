@@ -1,29 +1,10 @@
 
 
 
-import { AlertTriangle, Shield, Zap, ArrowRightLeft, HeartPulse, Brain, TrendingUp, Eye, Wrench } from "lucide-react";
+import { AlertTriangle, Shield, Zap, ArrowRightLeft, HeartPulse, Eye, Wrench } from "lucide-react";
 import { Card } from "@/lib/spaced-repetition";
 import { ReviewLogEntry } from "@/lib/storage";
-import { Progress } from "@/components/ui/progress";
-import {
-  calcInterferencePairs,
-  calcCategoryStability,
-  calcStressPerformance,
-  calcFrictionAnalysis,
-  calcRecoveryRate,
-  calcBlindSpots,
-  calcWeakHooks,
-} from "@/lib/cognitive-analytics";
-import { loadPlanner } from "@/lib/planner-storage";
-import LazyChart from "@/components/LazyChart";
-interface Props {
-  cards: Card[];
-  categories: string[];
-  reviewLog: ReviewLogEntry[];
-  catNameMap: Record<string, string>;
-}
-
-export default function CognitiveAnalytics({ cards, categories, reviewLog, catNameMap }: Props) {
+import { Progress } from "@/components/
   return (
     <div className="space-y-6">
       {/* 1. Interference Index */}
