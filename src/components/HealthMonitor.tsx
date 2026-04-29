@@ -51,7 +51,10 @@ export default function HealthMonitor() {
   const [loading, setLoading] = useState(true);
   const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
   const [orphans, setOrphans] = useState<OrphanResult>({ count: 0, cardIds: [] });
+  const [staleSub, setStaleSub] = useState<OrphanResult>({ count: 0, cardIds: [] });
+  const [staleChap, setStaleChap] = useState<OrphanResult>({ count: 0, cardIds: [] });
   const [cleaning, setCleaning] = useState(false);
+  const [healing, setHealing] = useState(false);
   const [crashLog, setCrashLog] = useState<CrashEntry[]>(loadCrashLog());
 
   const refresh = useCallback(async () => {
@@ -99,6 +102,32 @@ export default function HealthMonitor() {
       const orphanCards = allCards.filter(c => c.categoryId && !validIds.has(c.categoryId));
       setOrphans({ count: orphanCards.length, cardIds: orphanCards.map(c => c.id) });
 
+      // Stale subcategoryId / chapterId detection
+      const subUuids = new Set<string>();
+      const chapUuids = new Set<string>();
+      const chapToSub = new Map<string, string>();
+      for (const cat of allCategories) {
+        for (const sub of cat.subcategories ?? []) {
+          subUuids.add(sub.id);
+          for (const ch of sub.chapters ?? []) {
+            if (typeof ch === "object" && ch.id) {
+              chapUuids.add(ch.id);
+              chapToSub.set(ch.id, sub.id);
+            }
+          }
+        }
+      }
+      const staleSubCards = allCards.filter(c => c.subcategoryId && !subUuids.has(c.subcategoryId));
+      const staleChapCards = allCards.filter(c => {
+        if (!c.chapterId) return false;
+        if (!chapUuids.has(c.chapterId)) return true;
+        // mismatch: chapter exists but belongs to a different sub
+        if (c.subcategoryId && subUuids.has(c.subcategoryId) && chapToSub.get(c.chapterId) !== c.subcategoryId) return true;
+        return false;
+      });
+      setStaleSub({ count: staleSubCards.length, cardIds: staleSubCards.map(c => c.id) });
+      setStaleChap({ count: staleChapCards.length, cardIds: staleChapCards.map(c => c.id) });
+
       // Crash log
       setCrashLog(loadCrashLog());
     } catch (err) {
@@ -132,6 +161,26 @@ export default function HealthMonitor() {
       toast.error("Greška pri čišćenju");
     } finally {
       setCleaning(false);
+    }
+  };
+
+  const handleHealStaleLinks = async () => {
+    if (staleSub.count === 0 && staleChap.count === 0) return;
+    setHealing(true);
+    try {
+      const { healCardTaxonomy } = await import("@/lib/migrations/heal-card-taxonomy");
+      const report = await healCardTaxonomy(true);
+      const total = report.staleSubcategoryReset + report.staleChapterReset + report.mismatchChapterReset;
+      toast.success(`${total} zastarjelih veza očišćeno`);
+      setStaleSub({ count: 0, cardIds: [] });
+      setStaleChap({ count: 0, cardIds: [] });
+      eventBus.emit(EVENT_TYPES.CARDS_UPDATED);
+      await refresh();
+    } catch (err) {
+      console.error("[health] heal failed", err);
+      toast.error("Greška pri čišćenju zastarjelih veza");
+    } finally {
+      setHealing(false);
     }
   };
 
@@ -190,6 +239,40 @@ export default function HealthMonitor() {
               <ShieldCheck className="h-4 w-4 text-green-500" />
               <span className="text-muted-foreground">Nema orphan zapisa — podaci su konzistentni</span>
             </div>
+          )}
+
+          {(staleSub.count > 0 || staleChap.count > 0) && (
+            <Alert className="border-warning/50 bg-warning/10">
+              <AlertTriangle className="h-4 w-4 text-warning" />
+              <AlertTitle className="flex items-center gap-2 text-warning">
+                Zastarjele veze sa strukturom
+                <Badge variant="outline" className="text-[10px] border-warning/40 text-warning">
+                  {staleSub.count + staleChap.count}
+                </Badge>
+              </AlertTitle>
+              <AlertDescription className="text-xs space-y-1">
+                {staleSub.count > 0 && (
+                  <div>{staleSub.count} kartica ima podkategoriju koja više ne postoji.</div>
+                )}
+                {staleChap.count > 0 && (
+                  <div>{staleChap.count} kartica ima glavu koja ne postoji ili pripada drugoj podkategoriji.</div>
+                )}
+                <div className="text-muted-foreground pt-1">
+                  Nakon čišćenja, ove kartice ostaju u svojoj kategoriji ali postaju "Neraspoređene"
+                  — možeš ih premjestiti drag & drop-om u Org modu.
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="mt-2 gap-1.5"
+                  onClick={handleHealStaleLinks}
+                  disabled={healing}
+                >
+                  <Trash2 className="h-3 w-3" />
+                  {healing ? "Čišćenje…" : "Očisti zastarjele veze"}
+                </Button>
+              </AlertDescription>
+            </Alert>
           )}
         </div>
 

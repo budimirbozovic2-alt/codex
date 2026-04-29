@@ -6,6 +6,8 @@ export interface TreeNode {
   subcategoryId: string;
   chapters: { chapter: string; chapterId: string; cards: Card[] }[];
   unassigned: Card[];
+  /** Cards whose subcategoryId or chapterId pointed to a node that no longer exists. */
+  staleCardIds?: string[];
 }
 
 export const chapterDropId = (subId: string, chapId: string) => `__drop__${subId}__${chapId}`;
@@ -21,29 +23,47 @@ export const parseChapterDropId = (id: string) => {
 const UNCAT_KEY = "(Bez potkategorije)";
 
 export function buildTree(cards: Card[], subcategoryNodes: SubcategoryNode[]): TreeNode[] {
-  const nodeMap = new Map<string, { chapters: Map<string, Card[]>; unassigned: Card[] }>();
+  const nodeMap = new Map<string, { chapters: Map<string, Card[]>; unassigned: Card[]; staleCardIds: string[] }>();
 
+  // Build registries of valid IDs and chapter→sub mapping for mismatch detection.
+  const validSubIds = new Set<string>();
+  const validChapIds = new Set<string>();
+  const chapToSub = new Map<string, string>();
   for (const node of subcategoryNodes) {
+    validSubIds.add(node.id);
     const chMap = new Map<string, Card[]>();
-    for (const ch of node.chapters) chMap.set(typeof ch === "string" ? ch : ch.id, []);
-    nodeMap.set(node.id, { chapters: chMap, unassigned: [] });
+    for (const ch of node.chapters) {
+      const chId = typeof ch === "string" ? ch : ch.id;
+      chMap.set(chId, []);
+      validChapIds.add(chId);
+      chapToSub.set(chId, node.id);
+    }
+    nodeMap.set(node.id, { chapters: chMap, unassigned: [], staleCardIds: [] });
   }
 
   if (!nodeMap.has(UNCAT_KEY)) {
-    nodeMap.set(UNCAT_KEY, { chapters: new Map(), unassigned: [] });
+    nodeMap.set(UNCAT_KEY, { chapters: new Map(), unassigned: [], staleCardIds: [] });
   }
 
   for (const card of cards) {
-    const sub = card.subcategoryId || UNCAT_KEY;
-    if (!nodeMap.has(sub)) {
-      nodeMap.set(sub, { chapters: new Map(), unassigned: [] });
+    const rawSub = card.subcategoryId || "";
+    const subValid = rawSub && validSubIds.has(rawSub);
+    // Stale subcategoryId → bucket into UNCAT but mark as stale.
+    const targetSubKey = subValid ? rawSub : UNCAT_KEY;
+    const isStaleSub = !!rawSub && !subValid;
+
+    const entry = nodeMap.get(targetSubKey)!;
+
+    const cardChap = card.chapterId || "";
+    const chapValid = !!cardChap && validChapIds.has(cardChap);
+    const chapMismatch = subValid && chapValid && chapToSub.get(cardChap) !== rawSub;
+    const isStaleChap = !!cardChap && !chapValid;
+
+    if (isStaleSub || isStaleChap || chapMismatch) {
+      entry.staleCardIds.push(card.id);
     }
-    const entry = nodeMap.get(sub)!;
-    const cardChap = card.chapterId;
-    if (cardChap && entry.chapters.has(cardChap)) {
-      entry.chapters.get(cardChap)!.push(card);
-    } else if (cardChap) {
-      if (!entry.chapters.has(cardChap)) entry.chapters.set(cardChap, []);
+
+    if (chapValid && !isStaleSub && !chapMismatch && entry.chapters.has(cardChap)) {
       entry.chapters.get(cardChap)!.push(card);
     } else {
       entry.unassigned.push(card);
@@ -68,9 +88,15 @@ export function buildTree(cards: Card[], subcategoryNodes: SubcategoryNode[]): T
       }));
     const totalCards = chapters.reduce((sum, ch) => sum + ch.cards.length, 0) + entry.unassigned.length;
     const isCanonical = subcategoryNodes.some(n => n.id === sub);
-    const displayName = subNameMap.get(sub) || sub;
+    const displayName = subNameMap.get(sub) || (sub === UNCAT_KEY ? UNCAT_KEY : sub);
     if (totalCards > 0 || isCanonical) {
-      result.push({ subcategory: displayName, subcategoryId: sub === UNCAT_KEY ? "" : sub, chapters, unassigned: entry.unassigned });
+      result.push({
+        subcategory: displayName,
+        subcategoryId: sub === UNCAT_KEY ? "" : sub,
+        chapters,
+        unassigned: entry.unassigned,
+        staleCardIds: entry.staleCardIds.length > 0 ? entry.staleCardIds : undefined,
+      });
     }
   }
 

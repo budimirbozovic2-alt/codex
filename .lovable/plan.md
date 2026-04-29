@@ -1,71 +1,74 @@
-## Cilj
+## Dijagnoza
 
-Primijeniti isti "featured" vizualni tretman koji već koristi **Konsolidacija znanja** kartica (gradient pozadina, debeli primary border, sjenka, "Preporučeno" badge sa Sparkles ikonom, krupnija ikona u solid primary kvadratu, hover lift) na još dvije akcije:
+Korisnik vidi sirove "stringove brojeva i slova" (UUID-ove) umjesto imena podkategorija/glava jer trenutni render fallback je `card.subcategoryId` ili `card.chapterId` kad se taj UUID **ne pronađe** u trenutnoj `category.subcategories`.
 
-1. **Učenje uz aktivno prisjećanje** — `coreActions[0]` u `src/views/SubjectDashboard.tsx`
-2. **Pasivno čitanje** — `TabsTrigger value="read"` u `src/views/SubjectCardsView.tsx`
+Glavni izvor problema:
 
-Cilj je da sve tri ključne akcije za učenje izgledaju jednako istaknuto i prepoznatljivo.
+- `src/components/category/org-mode/org-mode-utils.ts` (`buildTree`) — kartice se grupiraju po `card.subcategoryId`. Ako taj UUID nije u `nodeMap` (jer pripada obrisanoj/zamijenjenoj subkategoriji), kreira se "fantomski" node sa subcategorijom = sirovi UUID.
+- `src/components/category/CardViewTable.tsx:114-115` — fallback `?? card.subcategoryId` i `?? card.chapterId`.
+- HealthMonitor (`src/components/HealthMonitor.tsx:98-100`) detektuje samo orphan kategorije — nema detekcije za stale `subcategoryId` / `chapterId` (drift nakon restore-a, importa, ili rebuild-a strukture).
 
-## Izmjene
+Posljedica: kartice koje imaju validan `categoryId`, ali stale `subcategoryId`/`chapterId`, **prikazuju se kao "neraspoređene"** u Org modu i u listi pokazuju goli UUID umjesto naziva.
 
-### 1. `src/views/SubjectDashboard.tsx`
+## Plan ispravke (3 sloja)
 
-Trivijalno: u `coreActions` memo-u (linija 117–134) postaviti `featured: true` na "Aktivno prisjećanje".
+### 1. Auto-resolve sloj — fallback po imenu (nedestruktivno)
 
-```diff
-   {
-     onClick: () => setMatrixOpen(true),
-     icon: Brain,
-     title: "Učenje uz aktivno prisjećanje",
-     desc: "Matrični filter — testiranje i učvršćivanje znanja",
--    featured: false,
-+    featured: true,
-     badge: null as number | null,
-   },
-```
+U `buildTree` i `CardViewTable`, kad UUID ne match-uje, **pokušaj naći node po `name`** (pogodi cross-rebuild slučajeve gdje je ime ostalo isto). Ovo NE mijenja podatke, samo poboljšava prikaz — ali zahtijeva da kartica negdje nosi i staro ime. Trenutno ne nosi → ovaj sloj ne pomaže direktno.
 
-Postojeća render logika (linije 287–331) već crta featured stil kad je `featured: true`. Pošto `badge === null`, neće se prikazati brojač ni `animate-pulse` na ikoni — samo "Preporučeno" pill, gradient, border-2, krupna solid ikona i hover lift. Opis ostaje statičan jer `hasDue === false`.
+Umjesto toga, za prikaz: kad nema match-a, **prikaži `(Nepoznata podkategorija)` umjesto golog UUID-a** i grupiraj sve takve kartice u poseban "Neraspoređeno (zastarjele veze)" čvor sa akcijom "Premjesti".
 
-**Posljedica vizualnog balansa:** obje kartice u toj 2-kolonskoj sekciji "Alati za učenje" sad su featured. To je željeno — obje su primarne radnje učenja, dok su "Baza i Izvori znanja" (3-kolonska sekcija iznad) namjerno neutralne.
+### 2. Health Monitor — proširena orphan detekcija
 
-### 2. `src/views/SubjectCardsView.tsx`
+`src/components/HealthMonitor.tsx`:
 
-Trenutni "Pasivno čitanje" je samo `TabsTrigger` u 1-itemskoj `TabsList` (linije 178–189). Da bismo dobili identičan featured look kao na dashboardu, ali zadržali integraciju sa `Tabs` (jer klik mora prebaciti `value` na `"read"`), refaktorišemo grupu "Učenje":
+- Sastavi `validSubIds = Set(svi node.id iz svih kategorija)` i `validChapIds = Set(svi chapter.id)`.
+- `staleSubcat = cards.filter(c => c.subcategoryId && !validSubIds.has(c.subcategoryId))` — kartica ima sub UUID koji ne postoji.
+- `staleChap = cards.filter(c => c.chapterId && !validChapIds.has(c.chapterId))` — kartica ima chapter UUID koji ne postoji.
+- Cross-check: kartice gdje `chapterId` postoji ali pripada **drugoj** podkategoriji od njene `subcategoryId` (mismatch).
+- Prikaži dvije nove statističke linije ("Stare veze sa podkategorijama: N", "Stare veze sa glavama: M") + dva dugmeta za čišćenje:
+  - **"Resetuj zastarjele subcategoryId"** → `db.cards.update(id, { subcategoryId: "", chapterId: "" })` (chapter se mora isprazniti jer pripada subu).
+  - **"Resetuj zastarjele chapterId"** → samo `chapterId: ""`.
+- Nakon čišćenja: `eventBus.emit(EVENT_TYPES.CARDS_UPDATED)`.
 
-- Zadržavamo `TabsTrigger` kao bazu (Radix UI hendla aria-selected/keyboard nav).
-- Override-ujemo izgled kroz `className`-ove tako da imitiramo featured kartice iz dashboarda: `relative rounded-xl p-5 border-2 border-primary/50 bg-gradient-to-br from-primary/5 via-transparent to-primary/10 hover:border-primary hover:shadow-xl hover:shadow-primary/20 hover:-translate-y-0.5 transition-all w-full justify-start text-left h-auto`.
-- Dodajemo apsolutno pozicionirani **"Preporučeno"** pill sa `Sparkles` ikonom (gornji desni ugao).
-- Solid primary kvadrat sa krupnom (`h-6 w-6`) `BookOpen` ikonom lijevo + naslov (`font-bold text-base`) i kratak opis (`text-xs text-muted-foreground`) desno.
-- Aktivno stanje (kad je tab izabran) dodatno pojačavamo `data-[state=active]:border-primary data-[state=active]:shadow-xl data-[state=active]:shadow-primary/20` — Radix već postavlja `data-state="active"` na trigger.
+### 3. Auto-heal pri boot-u (jednokratna migracija)
 
-**`TabsList` izmjene:** uklanjamo `border bg-card p-1 overflow-x-auto flex-nowrap` jer featured kartica nosi vlastiti chrome; ostavljamo `w-full` da popuni red.
+Nova lightweight migracija u `src/lib/db-seed.ts` (ili novi fajl `src/lib/migrations/heal-card-taxonomy.ts`) koja se okida samo ako flag `localStorage["taxonomy-healed-v1"]` ne postoji:
 
-**Importi:** dodati `Sparkles` u `lucide-react` import (red 4–5).
+1. Učitaj sve kategorije i sve kartice.
+2. Sastavi `subUuidSet` i `chapUuidSet`.
+3. Za svaku karticu sa stale `subcategoryId` ili `chapterId`:
+   - **Pokušaj remap po imenu**: ako je negdje (npr. u dnevniku, sourcetag-u, ili kroz `card.tags`) sačuvano ime stare podkategorije, traži match. Ako nema — postavi na `""`.
+   - Konzervativno: ako match po imenu uspije unutar **iste** `categoryId`, dodijeli novi UUID.
+4. Setuj flag i emituj `CARDS_UPDATED`.
 
-**Šta NE diramo:**
-- Tab "Uređivanje i raspored kartica" (manage) — ostaje obični kompaktan trigger; dvije akcije imaju različitu vizualnu težinu i to je u redu jer je manage tehnički/uređivački, a pasivno čitanje promovirana metoda učenja.
-- Internu logiku, snapshot, `value="read"`, `onValueChange` — sve nepromijenjeno.
-- `MANAGE_MODES` registry iz prethodnog koraka.
+Pošto većina karticama nema sačuvano staro ime, fokus je na **čistom resetu** (varijanta b) — kartice ostaju u kategoriji, ali se "vraćaju" u "Neraspoređeno" gdje ih korisnik može drag-drop-om dodijeliti tačnim podkategorijama (već postoji UI u CardOrgMode).
 
-### Skica novog "Pasivno čitanje" trigera
+### 4. Vizualna jasnoća u Org modu
 
-```text
-┌──────────────────────────────────────────── Preporučeno ✦ ┐
-│ ┌─────┐                                                    │
-│ │ 📖  │  Pasivno čitanje                                    │
-│ │     │  Slušanje i čitanje sadržaja kartica bez ocjenjivanja│
-│ └─────┘                                                    │
-└────────────────────────────────────────────────────────────┘
-```
+`org-mode-utils.ts` `buildTree`:
 
-## Provjera
+- Umjesto da kreira fantomski node sa golim UUID-om kao `subcategory` imenom, **sve kartice sa nevažećim `subcategoryId` smjesti u UNCAT bucket** (kao da je `subcategoryId` prazan), ali ih **vizualno označi** flag-om `staleLink: true` na nivou kartice — Org panel pokazuje narandžasti badge "veza istekla" pored takvih kartica i hint za premjestiti ih.
+- Dodatno polje `TreeNode.staleSubcategoryUuids: string[]` ili jednostavno još jedan bucket "Zastarjele veze ({N})" koji se eksplicitno renderuje na vrhu tek ako ima članova, sa tooltipom: "Ove kartice su pripadale podkategorijama koje više ne postoje. Premjesti ih ili pokreni Health Monitor čišćenje."
 
-- Build mora ostati zelen (samo dodavanje `Sparkles` importa + className izmjene).
-- Klik i tipkovnička navigacija na "Pasivno čitanje" tab i dalje rade (Radix `TabsTrigger` semantika netaknuta).
-- Snapshot/restore ponašanje (`useEditReturn`) nije pogođeno.
+### 5. CardViewTable cleanup
+
+`src/components/category/CardViewTable.tsx:112-138`:
+
+- Zamijeni `?? card.subcategoryId` sa `?? "(Nepoznato)"` i obojii badge u `bg-warning/15 text-warning`.
+- Isto za `chapterId`.
 
 ## Fajlovi
 
-- `src/views/SubjectDashboard.tsx` — jedna linija (`featured: true` za prvu akciju).
-- `src/views/SubjectCardsView.tsx` — restil `TabsTrigger value="read"` + dodavanje `Sparkles` u import; cca 15 linija JSX-a.
+- **Izmjena:** `src/components/category/org-mode/org-mode-utils.ts` — UNCAT konsolidacija, novi bucket "stale", remap stale → unassigned.
+- **Izmjena:** `src/components/category/CardViewTable.tsx` — humanizirani fallback labeli sa upozoravajućim badge-om.
+- **Izmjena:** `src/components/HealthMonitor.tsx` — dvije nove orphan kategorije + cleanup dugmad.
+- **Novo:** `src/lib/migrations/heal-card-taxonomy.ts` — boot-time migracija (resetuje stale veze) sa `localStorage` flagom.
+- **Izmjena:** `src/lib/db-seed.ts` (ili `src/AppContext`) — pozvati migraciju pri boot-u nakon učitavanja kategorija.
+
+## Garancije
+
+- Migracija je **konzervativna**: nikad ne izmišlja UUID-ove, samo prazni stale reference. Kartice ostaju u svojoj kategoriji.
+- Korisnik dobiva jasnu vizualnu indikaciju + dva alata za čišćenje (auto pri boot-u + ručno preko Health Monitor-a).
+- Drag & Drop u Org modu već radi — korisnik premješta kartice u prave podkategorije nakon čišćenja.
+- Bez gubitka podataka (`question`, `sections`, `categoryId`, FSRS state) — ostaju netaknuti.

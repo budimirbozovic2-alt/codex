@@ -111,28 +111,48 @@ export default function CardViewTable({
                 <div className="flex items-center gap-2 flex-wrap">
                   {card.subcategoryId && (() => {
                     const cr = allCategories.find(c => c.id === card.categoryId);
-                    const sName = cr?.subcategories?.find(s => s.id === card.subcategoryId)?.name ?? card.subcategoryId;
-                    const cName = card.chapterId ? cr?.subcategories?.flatMap(s => s.chapters ?? [])?.find(ch => (typeof ch === 'string' ? ch : ch.id) === card.chapterId)?.name ?? card.chapterId : undefined;
+                    const subNode = cr?.subcategories?.find(s => s.id === card.subcategoryId);
+                    const sName = subNode?.name;
+                    const subStale = !subNode;
+                    const chNode = card.chapterId
+                      ? cr?.subcategories?.flatMap(s => s.chapters ?? []).find(ch => (typeof ch === 'string' ? ch : ch.id) === card.chapterId)
+                      : undefined;
+                    const cName = chNode ? (typeof chNode === 'string' ? chNode : chNode.name) : undefined;
+                    const chStale = !!card.chapterId && !chNode;
                     return (
                       <>
-                        <Badge variant="secondary" className="text-[10px]">
-                          Potkategorija: {sName}
+                        <Badge
+                          variant="secondary"
+                          className={`text-[10px] ${subStale ? "bg-warning/15 text-warning border-warning/30" : ""}`}
+                          title={subStale ? `Veza istekla: UUID ${card.subcategoryId} ne postoji` : undefined}
+                        >
+                          Potkategorija: {subStale ? "(zastarjela veza)" : sName}
                         </Badge>
-                        {cName && (
-                          <Badge variant="outline" className="text-[10px] gap-1 border-primary/30">
+                        {(cName || chStale) && (
+                          <Badge
+                            variant="outline"
+                            className={`text-[10px] gap-1 ${chStale ? "bg-warning/15 text-warning border-warning/30" : "border-primary/30"}`}
+                            title={chStale ? `Veza istekla: UUID ${card.chapterId} ne postoji` : undefined}
+                          >
                             <BookOpen className="h-3 w-3" />
-                            Glava: {cName}
+                            Glava: {chStale ? "(zastarjela veza)" : cName}
                           </Badge>
                         )}
                       </>
                     );
                   })()}
                   {!card.subcategoryId && card.chapterId && (() => {
-                    const chName = allCategories.flatMap(c => (c.subcategories || []).flatMap(s => s.chapters || [])).find(ch => typeof ch === 'object' && ch.id === card.chapterId)?.name ?? card.chapterId;
+                    const chNode = allCategories.flatMap(c => (c.subcategories || []).flatMap(s => s.chapters || [])).find(ch => typeof ch === 'object' && ch.id === card.chapterId);
+                    const chStale = !chNode;
+                    const chName = chNode && typeof chNode === 'object' ? chNode.name : undefined;
                     return (
-                      <Badge variant="outline" className="text-[10px] gap-1 border-primary/30">
+                      <Badge
+                        variant="outline"
+                        className={`text-[10px] gap-1 ${chStale ? "bg-warning/15 text-warning border-warning/30" : "border-primary/30"}`}
+                        title={chStale ? `Veza istekla: UUID ${card.chapterId} ne postoji` : undefined}
+                      >
                         <BookOpen className="h-3 w-3" />
-                        Glava: {chName}
+                        Glava: {chStale ? "(zastarjela veza)" : chName}
                       </Badge>
                     );
                   })()}
