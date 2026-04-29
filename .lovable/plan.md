@@ -1,97 +1,96 @@
-## Plan: 'Kartice' Hub — odvojeno upravljanje karticama za predmet
+## Goal
 
-Jasno razdvojiti **Izvore** (sirovi dokumenti) od **Kartica** (učenje, struktura, mnemonika). Stvoriti novi posvećeni prostor `/subject/:categoryId/cards` koji postaje jedini izvor istine za upravljanje karticama jednog predmeta.
-
----
-
-### 1. Čišćenje `CategoryView` (Izvori)
-
-`src/views/CategoryView.tsx` postaje strogo "Izvori" view:
-
-- Ukloniti `Tabs` blok sa tri taba (`Kartice`, `Izvori`, `Mentalne mape`).
-- Ukloniti uvoze i upotrebe: `CardViewMode`, `CardOrgMode`, `CategoryMindMaps`, `Switch`, `Label`, `BookOpen`, `GitBranch`, `Tabs*`, `Badge` (ako se više ne koristi), `addCard`, `addFlashCard`, `patchCard`, `toggleTag`, `deleteCard`, `setEditingCard`, `orgMode` state, `activeTab` state, `masteryFilter` state, `mindMapCount` query.
-- Zadržati: header sa naslovom predmeta, dugmad "Mapa znanja" i "Struktura", `Mastery progress bar` (klik više ne mijenja tab — samo info), `showKnowledge` granu, `SourcesTab` direktno renderovan (bez Tabs wrappera), `SourceReader` full-screen mod, `StructureManagerDialog`.
-- Mapa Znanja grana ostaje funkcionalna kao do sada.
-
-Rezultat: `/category/:categoryId` prikazuje **samo izvore** (lista, uvoz, čitač) + opciono mapu znanja.
+Five focused enhancements across SRS scheduling, review transparency, Zettelkasten knowledge graph, SubjectCardsView discoverability, and article-to-source linking.
 
 ---
 
-### 2. Ruta i Dashboard wiring
+### 1. Synchronous examiner profile cache (per categoryId, TTL)
 
-**`src/App.tsx`**:
-- Lazy import: `const SubjectCardsView = lazy(() => import("@/views/SubjectCardsView"));`
-- Dodati rutu `/subject/:categoryId/cards` sa `ErrorBoundary` + `Suspense`, sa `key={categoryId}` wrapperom radi resetovanja state-a po predmetu (isti pattern kao `SubjectDashboardWrapper`).
+**Problem**: `useCardAnnotations.getCachedExaminerProfile` triggers an async IDB read on first miss and returns `undefined`, so the very first `calculateNextReview` of a session ignores examiner adaptation.
 
-**`src/views/SubjectDashboard.tsx`**:
-- U `knowledgeBaseCards` array, kartica `Kartice` mijenja `to: "#"` u `to: \`/subject/${categoryId}/cards\``.
-- Kratki opis ostaje: "Upravljanje karticama, struktura i mnemonika".
+**Solution**: Prime the cache synchronously from `categoryRecords` (already in memory in `AppContext`), keep the 30s TTL, and refresh in background. No new loading UI.
 
----
+- Export a small module `src/lib/examiner-profile-cache.ts`:
+  - `primeExaminerProfile(categoryId, profile)` — sync set
+  - `getExaminerProfileSync(categoryId)` — returns last known value, never async
+  - `bumpExaminerProfile(categoryId)` — invalidate
+- In `AppContext` (where `categoryRecords` is loaded / mutated), call `primeExaminerProfile` for every record on load and after edits via `useCategoryManagement` examiner-profile mutations.
+- Replace `getCachedExaminerProfile` in `useCardAnnotations.ts` with `getExaminerProfileSync` — no more async refresh path inside the patcher.
 
-### 3. `SubjectCardsView.tsx` — novi Card Hub
+### 2. Reason codes for adaptive scheduling
 
-Lokacija: `src/views/SubjectCardsView.tsx`. Layout sličan `SubjectDashboard`-u (header sa nazivom + back link na `/subject/:categoryId`), zatim `Tabs` sa 4 unutrašnja taba:
+**Problem**: `computeAdaptiveModifiers` silently boosts retention / shrinks intervals; nothing surfaces *why*.
 
-#### Tab 1: **Pregled** (default)
-- Reuse `CardViewMode` (već postojeća komponenta), ista props ko u staroj `CategoryView` `cards` tab grani (`addCard`, `addFlashCard`, `patchCard`, `toggleTag`, `deleteCard`, `onEdit` koji navigira na `/edit`).
-- Dugme "Nova kartica" već je unutra.
-- Filter po mastery, search, tagovi — sve već radi unutar `CardViewMode`.
+**Solution**:
+- Extend `AdaptiveModifiers` in `src/lib/spaced-repetition.ts` with `reasons: AdaptiveReason[]`, where each reason is `{ code: string; label: string; retentionDelta: number; intervalFactor: number }`. Codes: `FREQ_CESTO`, `FREQ_RIJETKO`, `FREQ_NIKAD`, `EXAM_PREF_MATCH_ESEJ`, `EXAM_PREF_MATCH_DEFINICIJA`, `EXAM_PREF_MATCH_POTPITANJA`, `EXAM_DIFF_TEZAK`, `EXAM_DIFF_LAK`.
+- Extend `ReviewLogEntry` (in `src/lib/storage.ts`) with optional `reasons?: { code: string; label: string }[]` plus `effectiveRetention?: number` and `intervalMultiplier?: number`. Capture at log time inside `reviewSection`.
+- Add a small **debug panel** `src/components/review/AdaptiveReasonPanel.tsx` that, given a card+section, shows the live modifiers + reason chips. Embed it inside `ReviewCard.tsx` behind a collapsible "Zašto ovaj interval?" toggle.
+- Render the reasons list inside the existing review history view (search for any existing review log UI; otherwise add a compact list under each entry). Backwards-compatible: old entries without `reasons` simply render nothing extra.
 
-#### Tab 2: **Pasivno čitanje**
-- Novi sub-komponent (npr. `src/components/subject-cards/PassiveReader.tsx`).
-- Lista kartica filtrirana po `categoryId` (opciono filter po `subcategoryId` i `chapterId`), sortirana hronološki (`createdAt asc`).
-- UI: jedna kartica u centru sa `question` + sve `sections` (sanitizovane HTML), dugmad **"← Prethodna"** / **"Sljedeća →"**, indikator `n / total`, padajući meni za izbor potkategorije/glave.
-- **NEMA** FSRS dugmadi (1-4), nema "Prikaži odgovor" — čisti read-through režim. Sadržaj je odmah vidljiv.
-- Tastura: `←` / `→` za navigaciju, `Esc` za izlaz iz fokusa.
+### 3. Zettelkasten backlinks
 
-#### Tab 3: **Struktura**
-- Reuse `CardOrgMode` (drag & drop reorder kartica po potkategorijama/glavama; već postoji).
-- Dodati iznad njega kratak meni za izbor "Grupiši po: Potkategorija / Glava" (state lokalno; CardOrgMode već grupiše po subkat. — proširenje za 'glava' ako nije, ali koristimo postojeće ponašanje gdje je primarna grupacija po `subcategoryId`).
-- Dugme "Otvori Strukturu predmeta" (otvara `StructureManagerDialog` za upravljanje samim potkategorijama/glavama, ne karticama).
+**Problem**: When viewing an article, you can follow `[[Title]]` outward but not see who links *into* it.
 
-#### Tab 4: **Mnemonička radionica**
-- Reuse postojeći `MnemonicModule` komponentu, ali filtriran samo na kartice tekućeg predmeta. Dvije opcije:
-  - **(Odabrano)** Renderovati `MnemonicModule` direktno; on već prikazuje `subView` menu / workshop / test. Dodaćemo opcioni `categoryFilter` prop u `MnemonicModule` i `MnemonicWorkshop` koji ako je postavljen, filtrira `cards` po `categoryId`. Default = undefined → trenutno globalno ponašanje (`/mnemonics`) ostaje netaknuto.
-  - Header `MnemonicModule`-a (h2 naslov + onboarding) postaje opcioni preko `embedded` prop-a kako bi unutar taba bio tiši.
+**Solution**:
+- In `ZettelkastenView.tsx` editor view, compute `backlinks` for the active article:
+  ```ts
+  const re = /\[\[([^\]]+)\]\]/g;
+  const norm = activeArticle.title.trim().toLowerCase();
+  const backlinks = articles.filter(a =>
+    a.id !== activeArticle.id &&
+    Array.from(a.content.matchAll(re)).some(m => m[1].trim().toLowerCase() === norm)
+  );
+  ```
+- Add a right-side or bottom panel "Backlinks (N)" listing each linker with title + 1-line snippet around the link; clicking sets `activeId`.
+- Listen for title changes (already routed through `handleUpdate`) — backlinks recompute via `useMemo([articles, activeArticle?.title])`.
 
-`SubjectMnemonicPage.tsx` i ruta `/subject/:categoryId/mnemonics` se zadržavaju za backward kompatibilnost (ili kasnije uklanjaju; van scope-a).
+### 4. Search & tag/source filters in SubjectCardsView (Pregled tab)
 
----
+**Problem**: `CardViewFilterBar` only filters by subcategory/chapter/type/tag dropdowns; no text search and no linked-source filter.
 
-### 4. Tehnička šema
+**Solution**:
+- Add a global text input at the top of the **Pregled** tab in `SubjectCardsView.tsx` (above `CardViewMode`), bound to a new local `query` state, plus a `linkedSourceFilter` select populated from `getSourcesByCategory(categoryId)`.
+- Pass these through a new optional prop on `CardViewMode` (`externalFilters?: { query: string; linkedSourceId: string | "__all__" }`) consumed by `useCardViewFilters` to filter cards where:
+  - `query` matches `card.question` or any `section.title/content` (case-insensitive),
+  - `linkedSourceId` matches `card.sourceId` (the existing field linking a card to a source — verify exact field name during implementation; fallback: `card.linkedSourceIds`).
+- Tag filter already exists in `CardViewFilterBar` — leave as is. Add a small "Aktivni filteri" chip row to clear the new filters.
+- Keep change scope minimal — no refactor of `CardViewMode` props beyond the new optional input.
 
-```text
-SubjectCardsView
-├── Header (back → /subject/:categoryId, naziv predmeta)
-└── Tabs
-    ├── "Pregled"   → <CardViewMode .../>
-    ├── "Čitanje"   → <PassiveReader cards={subjCards} subcategoryNodes/>
-    ├── "Struktura" → <CardOrgMode .../>  + dugme StructureManagerDialog
-    └── "Mnemonika" → <MnemonicModule embedded categoryFilter={categoryId} />
-```
+### 5. Manage `linkedSourceIds` from Zettelkasten UI
 
-Data izvor — preko `useCardData()` (filter po `categoryId`), `useCategoryData()`, `useCardActions()` (sve već postoji).
+**Problem**: Articles have `linkedSourceIds` in the schema but no UI to manage or display them.
 
----
-
-### 5. Fajlovi
-
-| Fajl | Akcija | Approx LOC |
-|---|---|---|
-| `src/views/CategoryView.tsx` | Ukloniti `Tabs`/Cards/MindMaps; ostaviti samo Sources + Mapa znanja | -90 / +5 |
-| `src/views/SubjectCardsView.tsx` | **NOVO** — hub sa 4 taba | ~140 |
-| `src/components/subject-cards/PassiveReader.tsx` | **NOVO** — chronological viewer bez grading | ~110 |
-| `src/App.tsx` | +lazy import + ruta `/subject/:categoryId/cards` | +5 |
-| `src/views/SubjectDashboard.tsx` | `to:` za 'Kartice' karticu → `/subject/${categoryId}/cards` | 1 |
-| `src/components/MnemonicModule.tsx` | +opcioni `categoryFilter`, `embedded` props; primjeniti filter prije računanja `stats` i prosljedjivanja u `MnemonicWorkshop` | ~15 |
-| `src/components/MnemonicWorkshop.tsx` | Prihvatiti i koristiti `categoryFilter` na ulaznoj listi (ako nije već filtrirana) | ~5 |
-
-**Ukupno: ~7 fajlova, ~290 dodatih linija, ~90 uklonjenih.** Backward-compatible: `/mnemonics` i `/subject/:id/mnemonics` rute nastavljaju da rade.
+**Solution**:
+- In `ZettelkastenView.tsx` editor view, add a "Povezani izvori" toolbar between title and editor:
+  - Multi-select popover listing sources from `loadSourcesByCategory(categoryId)` (titles only).
+  - Selecting/deselecting calls `handleUpdate({ linkedSourceIds })`.
+  - Shows current selections as removable chips.
+- In `ZettelPreview.tsx`, accept an optional prop `linkedSources: { id: string; title: string }[]` and render a "Izvori" footer block (list of clickable chips). Clicks emit `onSourceClick(id)` which the view wires to `navigate('/subject/:categoryId?source=' + id)` (use existing source-reader route if present; otherwise just open `SourceReader` modal — verify route during implementation).
 
 ---
 
-### 6. Out-of-scope
+### Files to create
 
-- Nema izmjena u FSRS, učenju, Zettelkastenu ni Mind Map modulima.
-- `CategoryMindMaps` ostaje dostupan preko postojeće `/subject/:categoryId/mind-maps` rute (već postoji u sidebaru / dashboardu); ne premiještamo ga.
+- `src/lib/examiner-profile-cache.ts`
+- `src/components/review/AdaptiveReasonPanel.tsx`
+- `src/components/zettelkasten/BacklinksPanel.tsx`
+- `src/components/zettelkasten/LinkedSourcesPicker.tsx`
+
+### Files to edit
+
+- `src/lib/spaced-repetition.ts` — add `reasons` to modifiers + return alongside computed values
+- `src/lib/storage.ts` — extend `ReviewLogEntry` with optional `reasons`, `effectiveRetention`, `intervalMultiplier`
+- `src/hooks/useCardAnnotations.ts` — use sync cache, capture reasons in log entry
+- `src/contexts/AppContext.tsx` — prime examiner cache when categoryRecords load/change
+- `src/components/review/ReviewCard.tsx` — embed AdaptiveReasonPanel
+- `src/views/ZettelkastenView.tsx` — backlinks panel, linked-sources picker, pass to preview
+- `src/components/zettelkasten/ZettelPreview.tsx` — render linked sources footer
+- `src/views/SubjectCardsView.tsx` — text search + linked-source filter UI on Pregled tab
+- `src/hooks/useCardViewFilters.ts` — accept external `query` + `linkedSourceId` filters
+
+### Backwards compatibility
+
+- `ReviewLogEntry.reasons` is optional → no migration needed.
+- `KnowledgeBaseArticle.linkedSourceIds` already exists (defaults to `[]`).
+- Examiner cache change is internal; behaviour is strictly improved (sync vs delayed).
+- No DB schema bump required.
