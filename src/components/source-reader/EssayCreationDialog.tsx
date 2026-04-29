@@ -3,6 +3,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import type { Source } from "@/lib/sources-storage";
 import { useSourceReaderStore } from "@/store/useSourceReaderStore";
+import { sanitizeHtml } from "@/lib/sanitize";
+import { useMemo } from "react";
 
 interface Props {
   source: Source;
@@ -15,6 +17,12 @@ export function EssayCreationDialog({ source, onCreateEssay }: Props) {
   const essayQuestion = useSourceReaderStore(s => s.essayQuestion);
   const setEssayQuestion = useSourceReaderStore(s => s.setEssayQuestion);
   const selectedText = useSourceReaderStore(s => s.selectedText);
+  const selectedHtml = useSourceReaderStore(s => s.selectedHtml);
+
+  const previewHtml = useMemo(
+    () => sanitizeHtml(selectedHtml || selectedText),
+    [selectedHtml, selectedText],
+  );
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -30,7 +38,10 @@ export function EssayCreationDialog({ source, onCreateEssay }: Props) {
           <div className="space-y-2">
             <label className="text-xs font-medium">Označeni tekst (odgovor)</label>
             <div className="max-h-40 overflow-y-auto rounded-md border bg-muted/50 p-3">
-              <p className="text-sm text-foreground/80 whitespace-pre-wrap">{selectedText}</p>
+              <div
+                className="text-sm prose prose-sm dark:prose-invert max-w-none card-prose"
+                dangerouslySetInnerHTML={{ __html: previewHtml }}
+              />
             </div>
           </div>
           <div className="text-xs text-muted-foreground bg-muted/50 rounded-md p-2">
