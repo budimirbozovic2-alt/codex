@@ -6,7 +6,7 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import LearnSession from "@/components/LearnSession";
 import { Card } from "@/lib/spaced-repetition";
 import type { InitialFilters } from "@/components/learn/types";
-import { setEditReturn } from "@/lib/edit-return";
+import { useEditReturn } from "@/hooks/useEditReturn";
 import { getParam } from "@/lib/url-params";
 
 export default function LearnPage() {
@@ -60,11 +60,12 @@ export default function LearnPage() {
     setView("dashboard");
   }, [session, setView]);
 
+  const { stash: stashEditReturn } = useEditReturn({ path: "/learn" });
   const handleEdit = useCallback((card: Card) => {
-    setEditReturn({ path: "/learn" });
+    stashEditReturn();
     setEditingCard(card);
     setView("edit");
-  }, [setEditingCard, setView]);
+  }, [stashEditReturn, setEditingCard, setView]);
 
   if (!ready) {
     return (
