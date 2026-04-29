@@ -6,6 +6,7 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import LearnSession from "@/components/LearnSession";
 import { Card } from "@/lib/spaced-repetition";
 import type { InitialFilters } from "@/components/learn/types";
+import { setEditReturn } from "@/lib/edit-return";
 
 export default function LearnPage() {
   const { cards, stats, ready } = useCardData();
@@ -59,7 +60,7 @@ export default function LearnPage() {
   }, [session, setView]);
 
   const handleEdit = useCallback((card: Card) => {
-    sessionStorage.setItem("sr-edit-return-view", "learn");
+    setEditReturn({ path: "/learn" });
     setEditingCard(card);
     setView("edit");
   }, [setEditingCard, setView]);

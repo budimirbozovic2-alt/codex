@@ -1,140 +1,151 @@
-## Cilj
+## Problem
 
-Kada korisnik klikne "Konsolidacija znanja" sa **lokalnog (Subject) Dashboarda**, cijela sesija mora biti **strogo zaključana na trenutni predmet (`categoryId`)** — bez mogućnosti da se kroz UI proširi na druge kategorije. Kada se otvori sa globalnog dashboarda, ponašanje ostaje slobodno (sve kategorije).
+Kada korisnik završi (sačuva ili otkaže) editovanje kartice pokrenut iz **SubjectCardsView**, vraća se na pogrešno mjesto — gubi tab (`manage` vs `read`), sub-mode (`edit` vs `structure`), pretragu, source filter i scroll poziciju. Razlog: `EditPage.navigateBack` razumije samo prefix `category:` i `View` enum, ali `SubjectCardsView` šalje `subject-cards:UUID` koji prolazi kroz `setView(... as View)` — nepoznat string → fallback rendering.
 
-## Trenutno ponašanje
-
-`SubjectDashboard.tsx:118` već šalje `to: /review?category=${categoryId}` → `ReviewPage` čita `searchParams.get("category")` → prosljeđuje kao `preSelectedCategory` u `ReviewSession` → `ReviewSetup`.
-
-Ali postoje **tri rupe** koje dozvoljavaju ispadanje iz scope-a:
-
-1. **Reset gumba** u Setup-u (`ReviewSetup.tsx:276`) "Nazad na režime" briše `selectedCategory` → korisnik završi u globalnom režimu kada se vrati na izbor mode-a.
-2. **`SessionFilters` predmet-piluli** (`SessionFilters.tsx:170-197`) prikazuju **sve** dostupne kategorije + "Sve" pilulu → korisnik može jednim klikom proširiti scope.
-3. **Mode-screen brojači** rade nad `filteredDueCards`/`filteredAllCards` (koji koriste `selectedCategory`), tako da inicijalno **jesu** lokalni — ALI ako korisnik resetuje (rupa #1), brojači postanu globalni.
-
-Dodatno: **`ReviewPage` ne filtrira `dueCards.length === 0`** prije EmptyState-a — koristi globalni broj. Posljedica: ako globalno ima dospjelih kartica, ali ne u našoj kategoriji, korisnik vidi setup ekran sa "0 sekcija" umjesto smislenog EmptyState-a.
+Dodatno: čak i da rute rade, sav lokalni state (`tab`, `manageMode`, `searchQuery`, `sourceFilter`, scroll Y) izgubi se jer se komponenta odmontira pri navigaciji na `/edit`.
 
 ## Rješenje
 
-Uvodim **`lockedCategory`** koncept — kada je prisutan, UI tretira tu kategoriju kao nepromjenjivu granicu domena.
+Uvodim **`returnContext`** sessionStorage zapis koji nosi i rutu i mini-snapshot UI stanja, plus restore-on-mount u `SubjectCardsView`.
 
-### 1. `ReviewPage.tsx` — proslijediti lock + filtrirati EmptyState
+### 1. Definicija `returnContext`
 
-```ts
-const lockedCategory = preSelectedCategory; // alias za jasnoću semantike
-
-const scopedDueCards = useMemo(
-  () => lockedCategory ? dueCards.filter(c => c.categoryId === lockedCategory) : dueCards,
-  [dueCards, lockedCategory],
-);
-const scopedAllCards = useMemo(
-  () => lockedCategory ? cards.filter(c => c.categoryId === lockedCategory) : cards,
-  [cards, lockedCategory],
-);
-
-// Diagnostics računati nad scopedAllCards
-// EmptyState provjera nad scopedDueCards.length
-```
-
-Proslijediti `scopedDueCards`, `scopedAllCards`, `lockedCategory` u `ReviewSession`.
-
-### 2. `ReviewSession.tsx` — proslijediti `lockedCategory` dalje
-
-Dodaj `lockedCategory?: string | null` prop, dalje u `ReviewSetup`. Bez druge logičke izmjene (jer su `dueCards`/`allCards` već scope-ovani od strane `ReviewPage`).
-
-### 3. `ReviewSetup.tsx` — zaključati izbor
+`src/lib/edit-return.ts` (novi fajl):
 
 ```ts
-// Inicijalni state ostaje, ali ako je lockedCategory prisutan, nikad ga ne resetujemo:
-const [selectedCategory, setSelectedCategory] = useState<string | null>(
-  lockedCategory ?? preSelectedCategory ?? null,
-);
+const KEY = "sr-edit-return-context";
 
-// "Nazad na režime" gumb — ne resetuj selectedCategory ako je locked:
-onClick={() => {
-  setSetupStep("mode");
-  setMode(null);
-  if (!lockedCategory) setSelectedCategory(null);
-  setSelectedSubcategory(null);
-  setSelectedChapter(null);
-  setFilterExamFrequent(false);
-}}
-
-// onSelectCategory u SessionFilters — ignoriši ako je locked:
-onSelectCategory={(cat) => {
-  if (lockedCategory) return; // safety, plus UI hides the buttons
-  setSelectedCategory(cat);
-  setSelectedSubcategory(null);
-  setSelectedChapter(null);
-}}
-```
-
-Dodaj **vizuelnu indikaciju** zaključanog scope-a iznad mode-grid-a:
-
-```tsx
-{lockedCategory && (
-  <div className="flex items-center gap-2 px-3 py-2 rounded-md bg-primary/10 border border-primary/20 text-xs">
-    <Lock className="h-3.5 w-3.5 text-primary" />
-    <span className="text-foreground">
-      Konsolidacija ograničena na predmet:&nbsp;
-      <strong>{categoryRecords.find(r => r.id === lockedCategory)?.name ?? "—"}</strong>
-    </span>
-  </div>
-)}
-```
-
-Proslijediti `lockedCategory` u `SessionFilters` kao novi prop `lockedCategory` (vidi #4).
-
-### 4. `SessionFilters.tsx` — sakriti/onemogućiti predmet-pilule kad je lock
-
-```ts
-interface Props {
-  // ...
-  lockedCategory?: string | null;
+export interface EditReturnContext {
+  /** Absolute path to navigate back to (preferred over View enum). */
+  path: string;
+  /** Optional UI snapshot to restore — opaque to EditPage. */
+  state?: Record<string, unknown>;
+  /** Timestamp for staleness guard. */
+  ts: number;
 }
 
-// Predmet sekcija — kada je lock, prikaži samo jednu read-only pilulu sa lock ikonicom:
-{lockedCategory ? (
-  <div className="flex">
-    <span className={`${PILL_BASE} bg-primary/10 text-primary border border-primary/20 cursor-default flex items-center gap-1.5`}>
-      <Lock className="h-3 w-3" />
-      {catName(lockedCategory)}
-    </span>
-  </div>
-) : (
-  <ScrollableRow>...postojeće "Sve" + mapiranje kategorija...</ScrollableRow>
-)}
+export function setEditReturn(ctx: Omit<EditReturnContext, "ts">): void {
+  sessionStorage.setItem(KEY, JSON.stringify({ ...ctx, ts: Date.now() }));
+}
+
+export function consumeEditReturn(): EditReturnContext | null {
+  const raw = sessionStorage.getItem(KEY);
+  if (!raw) return null;
+  sessionStorage.removeItem(KEY);
+  try {
+    const parsed = JSON.parse(raw) as EditReturnContext;
+    // 30 min staleness guard
+    if (Date.now() - parsed.ts > 30 * 60 * 1000) return null;
+    return parsed;
+  } catch { return null; }
+}
+
+/**
+ * Peek without consuming — used by destination view to read snapshot
+ * after navigation completes. Cleared by a separate consume call.
+ */
+export function peekEditReturnState<T = Record<string, unknown>>(): T | null {
+  // Snapshot is stashed in a sibling key so it survives consumeEditReturn().
+  const raw = sessionStorage.getItem(KEY + ":state");
+  if (!raw) return null;
+  sessionStorage.removeItem(KEY + ":state");
+  try { return JSON.parse(raw) as T; } catch { return null; }
+}
+
+export function stashEditReturnState(state: Record<string, unknown>): void {
+  sessionStorage.setItem(KEY + ":state", JSON.stringify(state));
+}
 ```
 
-Potkategorije i Glave ostaju funkcionalne (one i dalje sužavaju unutar zaključanog predmeta — to je željeno ponašanje).
+Razdvajanje na dva ključa: `EditPage` konzumira return path odmah pri navigaciji (cleanup), a destination view čita snapshot poseban (`peekEditReturnState`) tek kad se montira.
 
-### 5. Ostali Subject-Dashboard ulazi (provjera)
+### 2. `SubjectCardsView` — postaviti i konzumirati state
 
-Provjerim ostale komponente koje rutiraju u `/review` da osiguram konzistentnost:
+`handleEdit`:
 
-- `Breadcrumbs.tsx`, `TopNav.tsx`, `AppSidebar.tsx`, `DashboardPage.tsx` — ako ijedan od njih linkuje `/review` **bez** `?category=` iz Subject konteksta, ostavljam takvog kakav jest (taj ulazi su globalni po dizajnu).
+```ts
+const handleEdit = (card: Card) => {
+  setEditReturn({ path: `/subject/${categoryId}/cards` });
+  stashEditReturnState({
+    tab, manageMode, searchQuery, sourceFilter,
+    scrollY: window.scrollY,
+  });
+  setEditingCard(card);
+  navigate("/edit");
+};
+```
+
+Restore on mount (jednom, ako postoji snapshot):
+
+```ts
+useEffect(() => {
+  const snap = peekEditReturnState<{
+    tab?: "manage" | "read";
+    manageMode?: "edit" | "structure";
+    searchQuery?: string;
+    sourceFilter?: string;
+    scrollY?: number;
+  }>();
+  if (!snap) return;
+  if (snap.tab) setTab(snap.tab);
+  if (snap.manageMode) setManageMode(snap.manageMode);
+  if (typeof snap.searchQuery === "string") setSearchQuery(snap.searchQuery);
+  if (typeof snap.sourceFilter === "string") setSourceFilter(snap.sourceFilter);
+  if (typeof snap.scrollY === "number") {
+    // Defer to next frame so the list has had a chance to layout.
+    requestAnimationFrame(() => window.scrollTo({ top: snap.scrollY!, behavior: "auto" }));
+  }
+}, []);
+```
+
+### 3. `EditPage` — koristiti novi return context
+
+Zamijeniti staru `previousViewRef` logiku:
+
+```ts
+const previousPathRef = useRef<string | null>(null);
+
+useEffect(() => {
+  const ctx = consumeEditReturn();
+  if (ctx?.path) previousPathRef.current = ctx.path;
+}, []);
+
+const navigateBack = useCallback(() => {
+  const path = previousPathRef.current;
+  if (path) {
+    navigate(path);
+    return;
+  }
+  setView("dashboard"); // safe fallback
+}, [navigate, setView]);
+```
+
+### 4. Backwards compatibility za ostale ulaze
+
+`LearnPage` i bilo koji preostali caller koji koriste `sr-edit-return-view` — ažuriraju se da pozivaju `setEditReturn({ path: "/learn" })` umjesto starog ključa. Stari ključ `sr-edit-return-view` se uklanja iz koda (single grep cleanup).
+
+`MainLayout` GlobalSearchWrapper već ne postavlja return — globalni search namjerno vraća na dashboard; ostavljam.
 
 ## Test scenariji
 
-| Scenarij | Očekivano |
-|---|---|
-| Klik "Konsolidacija" sa SubjectDashboard predmet A | Setup pokazuje lock-banner sa imenom A; brojači mode-ova prikazuju samo sekcije iz A; predmet-piluli zaključani |
-| Klik "Nazad na režime" u zaključanom flow-u | Vraća na mode-grid, lock i dalje aktivan, brojači i dalje za A |
-| Pokušaj klika na drugu kategoriju u SessionFilters | Pilule nisu klikabilne (read-only); ako hardcoded poziv prođe — handler odbija |
-| Sve kartice iz A urađene | EmptyState (a ne setup sa "0 sekcija") |
-| Globalni `/review` bez `?category=` | Ponašanje nepromijenjeno: sve kategorije, "Sve" pilula, slobodan izbor |
-| Resume sačuvane sesije pokrenut iz lock-a | Resume radi, lock i dalje važi |
+| # | Korak | Očekivano |
+|---|---|---|
+| 1 | Iz SubjectCardsView → tab `read` → klik edit kartice → save | Vraća na `/subject/X/cards`, tab `read` aktivan |
+| 2 | Tab `manage`, sub-mode `structure`, klik edit → cancel | Vraća na `manage`+`structure`, ne na default `manage`+`edit` |
+| 3 | Search query "ugovor", scroll na pola liste, klik edit → save | Lista vraćena sa istim query-jem i scroll Y |
+| 4 | Iz LearnPage edit → save | Vraća na `/learn` |
+| 5 | Stale snapshot (>30 min) | Fallback na rutu bez restore-a state-a |
+| 6 | Direct navigacija na `/edit` bez return-context-a | Fallback na dashboard (postojeće ponašanje) |
 
 ## Izmjene fajlova
 
-- `src/views/ReviewPage.tsx` — scoping `dueCards`/`allCards`/`diagnostics` po `lockedCategory`, prosljeđivanje propova.
-- `src/components/ReviewSession.tsx` — propagacija `lockedCategory` props-a.
-- `src/components/review/ReviewSetup.tsx` — banner, čuvanje lock-a kroz reset, prosljeđivanje u `SessionFilters`.
-- `src/components/SessionFilters.tsx` — read-only pilula za predmet kada je lock, novi `lockedCategory` prop.
-- `src/components/review/review-constants.ts` (ili gdje god je `ReviewSessionProps`/`ReviewSetupProps`) — dodati `lockedCategory?: string | null` u interfaceove.
+- **NOVO** `src/lib/edit-return.ts` — helpers za return path + state snapshot.
+- `src/views/EditPage.tsx` — `consumeEditReturn`, navigacija po `path`.
+- `src/views/SubjectCardsView.tsx` — `setEditReturn` + `stashEditReturnState` u `handleEdit`, restore effect on mount.
+- `src/views/LearnPage.tsx` — migracija sa starog ključa na novi helper.
 
 ## Što ostaje van skopa
 
-- Promjena URL šeme (`/review?category=X` ostaje; ne uvodimo `/subject/:id/review`).
-- Filteri tipa kartice, ispitne frekvencije, potkategorije i glave — nepromijenjeni (oni i dalje sužavaju **unutar** zaključanog predmeta).
-- Ostale ulazne tačke u review (TopNav, Sidebar, globalni Dashboard) — namjerno ostaju globalne.
+- Restore scroll-a unutar virtualizovane liste (CardList) — koristimo window scroll; ako je lista interna scroll-area, fallback je vrh. Ako se kasnije pokaže potrebno, dodaje se `cardId` u snapshot i scroll-into-view u CardList-u.
+- Restore expand/collapse stanja kartica unutar liste — trenutno nije zahtijevano.
+- GlobalSearch i ostali ad-hoc ulazi u edit — namjerno ostaju na dashboard fallback-u.

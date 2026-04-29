@@ -12,10 +12,19 @@ import { useCardData, useCategoryData, useCardActions, useUIContext } from "@/co
 import type { SubcategoryNode } from "@/lib/db";
 import type { Card } from "@/lib/spaced-repetition";
 import { loadSourcesByCategory, type Source } from "@/lib/sources-storage";
+import { setEditReturn, stashEditReturnState, consumeEditReturnState } from "@/lib/edit-return";
 import CardViewMode from "@/components/category/CardViewMode";
 import CardOrgMode from "@/components/category/CardOrgMode";
 import StructureManagerDialog from "@/components/category/StructureManagerDialog";
 import PassiveReader from "@/components/subject-cards/PassiveReader";
+
+interface EditReturnSnapshot {
+  tab?: "manage" | "read";
+  manageMode?: "edit" | "structure";
+  searchQuery?: string;
+  sourceFilter?: string;
+  scrollY?: number;
+}
 
 export default function SubjectCardsView() {
   const { categoryId } = useParams<{ categoryId: string }>();
@@ -48,14 +57,31 @@ export default function SubjectCardsView() {
     );
   }, [category?.subcategories]);
 
-  const [tab, setTab] = useState<"manage" | "read">("manage");
+  /**
+   * Consume the return snapshot exactly once at first render. Lazy initial
+   * state reads from sessionStorage synchronously, so we avoid a flash of the
+   * default tab/sub-mode before a follow-up effect could restore it. We only
+   * grab the snapshot once via a module-scoped ref-equivalent (the IIFE).
+   */
+  const initialSnapshot = useMemo<EditReturnSnapshot | null>(() => consumeEditReturnState<EditReturnSnapshot>(), []);
+
+  const [tab, setTab] = useState<"manage" | "read">(initialSnapshot?.tab ?? "manage");
   /** Sub-mode within "manage" tab: list editor vs structural arrangement. */
-  const [manageMode, setManageMode] = useState<"edit" | "structure">("edit");
+  const [manageMode, setManageMode] = useState<"edit" | "structure">(initialSnapshot?.manageMode ?? "edit");
   const [structureOpen, setStructureOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [sourceFilter, setSourceFilter] = useState<string>("__all__");
+  const [searchQuery, setSearchQuery] = useState(initialSnapshot?.searchQuery ?? "");
+  const [sourceFilter, setSourceFilter] = useState<string>(initialSnapshot?.sourceFilter ?? "__all__");
   const [sources, setSources] = useState<Source[]>([]);
   const [pendingPassiveCardId, setPendingPassiveCardId] = useState<string | null>(null);
+
+  // Restore window scroll once after layout. Defer to next frame so the
+  // virtualized card list (or PassiveReader) has measured its content.
+  useEffect(() => {
+    if (typeof initialSnapshot?.scrollY !== "number") return;
+    const y = initialSnapshot.scrollY;
+    const id = requestAnimationFrame(() => window.scrollTo({ top: y, behavior: "auto" }));
+    return () => cancelAnimationFrame(id);
+  }, [initialSnapshot]);
 
   useEffect(() => {
     if (!categoryId) return;
@@ -76,7 +102,16 @@ export default function SubjectCardsView() {
   );
 
   const handleEdit = (card: Card) => {
-    sessionStorage.setItem("sr-edit-return-view", "subject-cards:" + categoryId);
+    // Stash absolute return path + UI snapshot so EditPage and this view can
+    // collaboratively restore the user's exact spot after save/cancel.
+    setEditReturn({ path: `/subject/${categoryId}/cards` });
+    stashEditReturnState<EditReturnSnapshot>({
+      tab,
+      manageMode,
+      searchQuery,
+      sourceFilter,
+      scrollY: window.scrollY,
+    });
     setEditingCard(card);
     navigate("/edit");
   };
