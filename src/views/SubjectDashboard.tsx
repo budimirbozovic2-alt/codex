@@ -203,58 +203,6 @@ export default function SubjectDashboard() {
         }}
       />
 
-      {/* ─── Prikaz Znanja ───────────────────────────────── */}
-      <section className="space-y-3">
-        <div className="flex items-center gap-2">
-          <BookMarked className="h-4 w-4 text-primary" />
-          <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
-            Prikaz Znanja
-          </h2>
-        </div>
-
-        {subProgressData.length === 0 ? (
-          <div className="glass-card rounded-xl p-6 text-center text-sm text-muted-foreground">
-            Nema potkategorija za ovaj predmet. Dodaj ih u Podešavanjima.
-          </div>
-        ) : (
-          <div className="space-y-2">
-            {subProgressData.map(sub => (
-              <div key={sub.id} className="glass-card rounded-xl p-4 space-y-2">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-sm font-medium text-foreground truncate">{sub.name}</span>
-                  <div className="flex items-center gap-2 shrink-0">
-                    <span
-                      className="text-[10px] font-semibold px-1.5 py-0.5 rounded"
-                      style={{ backgroundColor: getMasteryColor(sub.mastery) + "22", color: getMasteryColor(sub.mastery) }}
-                    >
-                      {MASTERY_LEVELS[sub.mastery]?.label}
-                    </span>
-                    <span className="text-xs text-muted-foreground">{sub.cardCount} kartica</span>
-                    <span className="text-xs font-medium text-foreground w-8 text-right">{sub.pct}%</span>
-                  </div>
-                </div>
-                <Progress value={sub.pct} className="h-1.5" style={{ "--progress-color": getMasteryColor(sub.mastery) } as React.CSSProperties} />
-
-                {sub.chapters.length > 0 && (
-                  <div className="pl-4 space-y-1.5 pt-1 border-l border-border/40 ml-1">
-                    {sub.chapters.map(ch => (
-                      <div key={ch.id} className="flex items-center gap-2">
-                        <span className="text-xs text-muted-foreground truncate flex-1">{ch.name}</span>
-                        <span className="text-[10px] text-muted-foreground w-6 text-right">{ch.cardCount}</span>
-                        <div className="w-20">
-                          <Progress value={ch.pct} className="h-1" style={{ "--progress-color": getMasteryColor(ch.mastery) } as React.CSSProperties} />
-                        </div>
-                        <span className="text-[10px] font-medium text-foreground w-7 text-right">{ch.pct}%</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
-      </section>
-
       {/* ─── Baza i Izvori znanja ────────────────────────── */}
       <section className="space-y-3">
         <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
@@ -330,6 +278,58 @@ export default function SubjectDashboard() {
             );
           })}
         </div>
+      </section>
+
+      {/* ─── Prikaz Znanja ───────────────────────────────── */}
+      <section className="space-y-3">
+        <div className="flex items-center gap-2">
+          <BookMarked className="h-4 w-4 text-primary" />
+          <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
+            Prikaz Znanja
+          </h2>
+        </div>
+
+        {subProgressData.length === 0 ? (
+          <div className="glass-card rounded-xl p-6 text-center text-sm text-muted-foreground">
+            Nema potkategorija za ovaj predmet. Dodaj ih u Podešavanjima.
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {subProgressData.map(sub => (
+              <div key={sub.id} className="glass-card rounded-xl p-4 space-y-2">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-sm font-medium text-foreground truncate">{sub.name}</span>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span
+                      className="text-[10px] font-semibold px-1.5 py-0.5 rounded"
+                      style={{ backgroundColor: getMasteryColor(sub.mastery) + "22", color: getMasteryColor(sub.mastery) }}
+                    >
+                      {MASTERY_LEVELS[sub.mastery]?.label}
+                    </span>
+                    <span className="text-xs text-muted-foreground">{sub.cardCount} kartica</span>
+                    <span className="text-xs font-medium text-foreground w-8 text-right">{sub.pct}%</span>
+                  </div>
+                </div>
+                <Progress value={sub.pct} className="h-1.5" style={{ "--progress-color": getMasteryColor(sub.mastery) } as React.CSSProperties} />
+
+                {sub.chapters.length > 0 && (
+                  <div className="pl-4 space-y-1.5 pt-1 border-l border-border/40 ml-1">
+                    {sub.chapters.map(ch => (
+                      <div key={ch.id} className="flex items-center gap-2">
+                        <span className="text-xs text-muted-foreground truncate flex-1">{ch.name}</span>
+                        <span className="text-[10px] text-muted-foreground w-6 text-right">{ch.cardCount}</span>
+                        <div className="w-20">
+                          <Progress value={ch.pct} className="h-1" style={{ "--progress-color": getMasteryColor(ch.mastery) } as React.CSSProperties} />
+                        </div>
+                        <span className="text-[10px] font-medium text-foreground w-7 text-right">{ch.pct}%</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
       </section>
 
       <MatrixFilterDialog
