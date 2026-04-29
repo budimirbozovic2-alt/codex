@@ -184,7 +184,7 @@ export default function SubjectCardsView() {
         {/* ── Group: Upravljanje ── */}
         <div className="space-y-1.5">
           <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground px-1">
-            Upravljanje
+            Kartice
           </p>
           <TabsList className="w-full justify-start overflow-x-auto flex-nowrap h-auto p-1">
             <TabsTrigger value="manage" className="gap-1.5">

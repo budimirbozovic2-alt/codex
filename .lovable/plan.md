@@ -1,114 +1,42 @@
 ## Cilj
-Standardizovati nazive query parametara koji označavaju **isti pojam** kroz cijelu aplikaciju, uz fallback čitanje starih naziva da postojeći bookmarkovi i otvoreni tabovi nastave da rade.
+Spojiti "Uređivanje" i "Strukturu i raspored kartica" u jedan hijerarhijski tab pod nazivom **"Uređivanje i raspored kartica"** sa internim segmentiranim prebacivanjem **View ↔ Org**.
 
-## Trenutno stanje (rezultat audita)
+## Trenutno stanje
+`SubjectCardsView.tsx` već ima jedan top-level tab `"manage"` sa internim segmentiranim switchom (`manageMode: "edit" | "structure"`). Korisnik traži samo terminološko poravnanje: tab labela i imena dva pod-mode-a treba da odražavaju zahtjev.
 
-Tri različita naziva za **categoryId**:
-- `?category=` — `/review` (ReviewPage čita, SubjectDashboard šalje) ✅
-- `?subject=` — `/settings` (SRSettingsPanel čita, SubjectDashboard šalje) ❌ drugo ime
-- `?cat=` — `/learn` (LearnPage čita, SubjectDashboard šalje) ❌ skraćenica
+## Izmjene (sve u `src/views/SubjectCardsView.tsx`)
 
-Dva različita naziva za **subcategoryId**:
-- `?sub=` — `/learn` ❌ skraćenica
-- (nema kanonskog drugdje)
-
-Ostali parametri (`?tab=`, `?mode=`, `?freq=`, `?sort=`, `?type=`) su već konzistentni.
-
-## Standard
-
-| Pojam | Kanonski naziv | Stari nazivi (fallback) |
-|---|---|---|
-| categoryId | `?category=` | `?cat=`, `?subject=` |
-| subcategoryId | `?subcategory=` | `?sub=` |
-| chapterId | `?chapter=` | — |
-| sourceId | `?source=` | — |
-| cardId | `?card=` | — |
-
-`?category=` je već najčešće korišten i semantički najjasniji — biramo ga kao kanonski.
-
-## Implementacija
-
-### 1. Novi helper `src/lib/url-params.ts`
-Centralizovan reader sa fallback logikom — jedino mjesto gdje se znaju aliasi:
-
-```ts
-import type { URLSearchParams as USP } from "url";
-
-const ALIASES: Record<string, string[]> = {
-  category: ["category", "cat", "subject"],
-  subcategory: ["subcategory", "sub"],
-};
-
-export function getParam(sp: URLSearchParams, key: string): string | null {
-  const aliases = ALIASES[key] ?? [key];
-  for (const k of aliases) {
-    const v = sp.get(k);
-    if (v) return v;
-  }
-  return null;
-}
-
-/** Setteri uvijek pišu KANONSKI naziv. */
-export function buildQuery(params: Record<string, string | null | undefined>): string {
-  const sp = new URLSearchParams();
-  for (const [k, v] of Object.entries(params)) {
-    if (v) sp.set(k, v);
-  }
-  const s = sp.toString();
-  return s ? `?${s}` : "";
-}
+### 1. Naziv top-level taba (linija 192)
+```diff
+- <span>Upravljanje karticama</span>
++ <span>Uređivanje i raspored kartica</span>
 ```
 
-### 2. Update mjesta koja **čitaju** parametre
+### 2. Sekcijski naslov iznad TabsList (linija 187)
+```diff
+- Upravljanje
++ Kartice
+```
+(neutralniji nadgrupni naziv jer se "Upravljanje" ponavljalo u kontekstu jedne stavke)
 
-- **`src/views/ReviewPage.tsx` (l. 18)**
-  ```diff
-  - const lockedCategory = searchParams.get("category") || null;
-  + const lockedCategory = getParam(searchParams, "category");
-  ```
+### 3. Interna segmentirana dugmad (linije 226 i 239)
+```diff
+- <LayoutList /> Uređivanje i dodavanje
++ <LayoutList /> View — pregled i uređivanje
 
-- **`src/components/SRSettingsPanel.tsx` (l. 28)**
-  ```diff
-  - const subjectId = searchParams.get("subject");
-  + const subjectId = getParam(searchParams, "category");
-  ```
-  (`tab` ostaje `searchParams.get("tab")` — već je standard.)
+- <Network /> Struktura i raspored
++ <Network /> Org — struktura i raspored
+```
+(dvojezično/koncizno: kratak ID "View"/"Org" + opisni tail za jasnoću)
 
-- **`src/views/LearnPage.tsx` (l. 21–29)**
-  ```diff
-  - categoryId: params.get("cat"),
-  - subcategoryId: params.get("sub"),
-  + categoryId: getParam(params, "category"),
-  + subcategoryId: getParam(params, "subcategory"),
-  ```
+### 4. Header podnaslov kategorije (linija 177, ako pominje stari naziv)
+Provjeriti i uskladiti `"Kartice — uređivanje, struktura i pasivno čitanje"` — ostaje, već pokriva.
 
-### 3. Update mjesta koja **grade linkove**
+## Bez promjene
+- `manageMode` state ključevi (`"edit" | "structure"`) — ostaju jer ih `EditReturnSnapshot` već persistira.
+- `localStorage` ključevi i ponašanje stash/restore — bez izmjena.
+- `CardViewMode`, `CardOrgMode`, `StructureManagerDialog` — ne diraju se.
+- Pasivno čitanje tab — ostaje zaseban kao i sada.
 
-- **`src/views/SubjectDashboard.tsx`**
-  - l. 46–48 (`handleMatrixStart`):
-    ```diff
-    - if (categoryId) params.set("cat", categoryId);
-    + if (categoryId) params.set("category", categoryId);
-    ...
-    - if (f.subcategoryId) params.set("sub", f.subcategoryId);
-    + if (f.subcategoryId) params.set("subcategory", f.subcategoryId);
-    ```
-  - l. 174:
-    ```diff
-    - <Link to={`/settings?tab=algorithm&subject=${categoryId}`}>
-    + <Link to={`/settings?tab=algorithm&category=${categoryId}`}>
-    ```
-  - l. 118 (`/review?category=...`) — već kanonski, bez promjene.
-
-### 4. Backward compatibility
-`getParam` automatski prepoznaje stare aliase (`cat`, `sub`, `subject`), pa svi postojeći bookmarkovi (`/learn?cat=…&sub=…`, `/settings?subject=…`) nastavljaju da rade bez ikakve dodatne logike. Samo novi linkovi pišu kanonske nazive.
-
-## Fajlovi
-- **Novo:** `src/lib/url-params.ts`
-- **Izmijenjeno:** `src/views/ReviewPage.tsx`, `src/components/SRSettingsPanel.tsx`, `src/views/LearnPage.tsx`, `src/views/SubjectDashboard.tsx`
-
-## Van opsega
-- Promjene route definicija u `App.tsx` (rute ostaju iste, samo se mijenjaju imena query parametara).
-- `?tab=`, `?mode=`, `?freq=`, `?sort=`, `?type=` — već su konzistentni i jasni.
-- Hash dijelovi URL-a, `state` u `navigate()`, in-memory tab state — nisu URL parametri.
-- Memorija (`mem://technical-choices/domain-scoping-integrity`) — fallback ne narušava scoping; samo standardizuje ime parametra.
+## Fajl
+- **Izmijenjeno:** `src/views/SubjectCardsView.tsx` (4 male tekstualne izmjene labela)
