@@ -41,6 +41,11 @@ interface SessionFiltersProps {
   onFilterTypeChange?: (type: "all" | "essay" | "flash") => void;
   /** Optional sort control rendered at the bottom of the panel */
   sortControl?: SortControl;
+  /**
+   * When set, the category row renders as a single read-only pill (with lock
+   * icon) and `onSelectCategory` is never invoked. Sub-filters remain active.
+   */
+  lockedCategory?: string | null;
 }
 
 const PILL_BASE = "relative px-3 py-1.5 rounded-md text-xs font-medium whitespace-nowrap flex-shrink-0 transition-colors";
