@@ -97,12 +97,12 @@ export default function PassiveReader({ cards, subcategoryNodes, categoryId, onE
     try {
       window.localStorage.setItem(
         FILTER_STORAGE_PREFIX + categoryId,
-        JSON.stringify({ subFilter, chapterFilter }),
+        JSON.stringify({ subFilter, chapterFilter, typeFilter }),
       );
     } catch {
       /* quota or privacy mode — ignore */
     }
-  }, [categoryId, subFilter, chapterFilter]);
+  }, [categoryId, subFilter, chapterFilter, typeFilter]);
 
   const chapters = useMemo(() => {
     if (subFilter === "all") return [];
