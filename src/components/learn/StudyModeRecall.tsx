@@ -1,5 +1,5 @@
 import { Eye, Check } from "lucide-react";
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { Card } from "@/lib/spaced-repetition";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
