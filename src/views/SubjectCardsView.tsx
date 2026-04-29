@@ -64,6 +64,15 @@ export default function SubjectCardsView() {
     );
   }, [category?.subcategories]);
 
+  const { essayCount, flashCount } = useMemo(() => {
+    let essay = 0, flash = 0;
+    for (const c of cards) {
+      if (c.type === "essay") essay++;
+      else if (c.type === "flash") flash++;
+    }
+    return { essayCount: essay, flashCount: flash };
+  }, [cards]);
+
   /**
    * Encapsulates: consume snapshot once on mount, restore window scroll
    * across RAF ticks (virtualized list grows async), and expose `stash()`
@@ -152,28 +161,28 @@ export default function SubjectCardsView() {
         <div className="flex-1 min-w-0 flex items-center gap-2">
           <Layers className="h-5 w-5 text-primary shrink-0" />
           <div className="min-w-0">
-            <h1 className="text-2xl font-bold text-foreground truncate">{category.name}</h1>
+            <div className="flex items-center gap-2 flex-wrap">
+              <h1 className="text-2xl font-bold text-foreground truncate">{category.name}</h1>
+              <Badge variant="secondary" className="text-[10px] h-5 px-1.5 gap-1" title="Esejska pitanja">
+                <Pencil className="h-3 w-3" /> Esej: {essayCount}
+              </Badge>
+              <Badge variant="secondary" className="text-[10px] h-5 px-1.5 gap-1" title="Blic pitanja">
+                <Sparkles className="h-3 w-3" /> Blic: {flashCount}
+              </Badge>
+            </div>
             <p className="text-xs text-muted-foreground mt-0.5">
               Kartice — uređivanje, struktura i pasivno čitanje
             </p>
           </div>
         </div>
+        {tab === "read" && (
+          <Button variant="outline" size="sm" onClick={() => setTab("manage")} className="gap-1.5 h-8 text-xs">
+            <Pencil className="h-3.5 w-3.5" /> Nazad na uređivanje
+          </Button>
+        )}
       </div>
 
       <Tabs value={tab} onValueChange={(v) => setTab(v as "manage" | "read")} className="w-full space-y-4">
-        {/* ── Group: Kartice ── */}
-        <div className="space-y-1.5">
-          <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground px-1">
-            Kartice
-          </p>
-          <TabsList className="w-full justify-start overflow-x-auto flex-nowrap h-auto p-1">
-            <TabsTrigger value="manage" className="gap-1.5">
-              <Pencil className="h-4 w-4" />
-              <span>Uređivanje i raspored kartica</span>
-              <Badge variant="secondary" className="text-[10px] h-5 px-1.5">{cards.length}</Badge>
-            </TabsTrigger>
-          </TabsList>
-        </div>
 
         {/* ── Group: Učenje (featured) ── */}
         <div className="space-y-1.5">
