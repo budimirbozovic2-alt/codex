@@ -68,6 +68,7 @@ const App = () => (
                         <Route path="/subject/:categoryId/mnemonics" element={<ErrorBoundary label="Mnemonik"><Suspense fallback={<PageSkeleton />}><SubjectMnemonicPage /></Suspense></ErrorBoundary>} />
                         <Route path="/subject/:categoryId/zettelkasten" element={<ErrorBoundary label="Zettelkasten"><Suspense fallback={<PageSkeleton />}><ZettelkastenView /></Suspense></ErrorBoundary>} />
                         <Route path="/subject/:categoryId/cards" element={<ErrorBoundary label="Kartice"><Suspense fallback={<PageSkeleton />}><SubjectCardsView /></Suspense></ErrorBoundary>} />
+                        <Route path="/subject/:categoryId/diagnostics" element={<ErrorBoundary label="Dijagnostika"><Suspense fallback={<PageSkeleton />}><SubjectDiagnosticsPage /></Suspense></ErrorBoundary>} />
                         <Route path="/review" element={<ErrorBoundary label="Ponavljanje"><ReviewPage /></ErrorBoundary>} />
                         <Route path="/learn" element={<ErrorBoundary label="Učenje"><LearnPage /></ErrorBoundary>} />
                         <Route path="/create" element={<ErrorBoundary label="Kreiranje"><CreatePage /></ErrorBoundary>} />
@@ -77,9 +78,8 @@ const App = () => (
                         <Route path="/mnemonics" element={<ErrorBoundary label="Mnemonik"><MnemonicPage /></ErrorBoundary>} />
                         <Route path="/mnemonic" element={<Navigate to="/mnemonics" replace />} />
                         <Route path="/planner" element={<ErrorBoundary label="Planer"><PlannerPage /></ErrorBoundary>} />
-                        
-                        <Route path="/metacognitive" element={<ErrorBoundary label="Metakognicija"><MetacognitivePage /></ErrorBoundary>} />
-                        <Route path="/frequent-errors" element={<ErrorBoundary label="Česte greške"><FrequentErrorsPage /></ErrorBoundary>} />
+                        <Route path="/metacognitive" element={<Navigate to="/" replace />} />
+                        <Route path="/frequent-errors" element={<Navigate to="/" replace />} />
                         
                         <Route path="/categories" element={<ErrorBoundary label="Kategorije"><CategoriesRoutePage /></ErrorBoundary>} />
                         <Route path="/speed-reader" element={<ErrorBoundary label="Speed Reader"><SpeedReaderPage /></ErrorBoundary>} />
