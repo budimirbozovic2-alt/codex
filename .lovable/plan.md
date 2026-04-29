@@ -1,108 +1,140 @@
 ## Cilj
 
-Garantovati da nakon `insertBlock` caret završi tačno na **prvoj praznoj kucljivoj liniji ispod bloka** (gdje korisnik može odmah početi kucati novi paragraf), bez obzira:
-- gdje je kursor bio prije ubacivanja,
-- da li je postojala selekcija (bilo non-empty range).
+Kada korisnik klikne "Konsolidacija znanja" sa **lokalnog (Subject) Dashboarda**, cijela sesija mora biti **strogo zaključana na trenutni predmet (`categoryId`)** — bez mogućnosti da se kroz UI proširi na druge kategorije. Kada se otvori sa globalnog dashboarda, ponašanje ostaje slobodno (sve kategorije).
 
-## Trenutno stanje i bug-ovi
+## Trenutno ponašanje
 
-`src/components/zettelkasten/ZettelEditor.tsx:70-108` — `insertBlock`:
+`SubjectDashboard.tsx:118` već šalje `to: /review?category=${categoryId}` → `ReviewPage` čita `searchParams.get("category")` → prosljeđuje kao `preSelectedCategory` u `ReviewSession` → `ReviewSetup`.
 
-```ts
-const caret = start + prefix.length + text.length + Math.min(1, suffix.length);
-ta.setSelectionRange(caret, caret);
-```
+Ali postoje **tri rupe** koje dozvoljavaju ispadanje iz scope-a:
 
-Pozvano u `requestAnimationFrame` poslije `onChange(next)`.
+1. **Reset gumba** u Setup-u (`ReviewSetup.tsx:276`) "Nazad na režime" briše `selectedCategory` → korisnik završi u globalnom režimu kada se vrati na izbor mode-a.
+2. **`SessionFilters` predmet-piluli** (`SessionFilters.tsx:170-197`) prikazuju **sve** dostupne kategorije + "Sve" pilulu → korisnik može jednim klikom proširiti scope.
+3. **Mode-screen brojači** rade nad `filteredDueCards`/`filteredAllCards` (koji koriste `selectedCategory`), tako da inicijalno **jesu** lokalni — ALI ako korisnik resetuje (rupa #1), brojači postanu globalni.
 
-### Bug-ovi
-
-1. **Race sa React commit-om**: jedan `requestAnimationFrame` ne garantuje da je `ta.value` već ažuriran (parent koristi sync `setDraft`, ali React batch-uje state update unutar event handlera; novi value stigne tek kad React reflushuje DOM). Ako je `caret > ta.value.length` u trenutku poziva, browser ga cleampuje na end → caret skoči na kraj fajla u nekim slučajevima (npr. kraj dokumenta sa selekcijom).
-
-2. **Caret pri selekciji**: računanje `start = ta.selectionStart` je tačno (start selekcije), ali ako je selekcija reverse (`anchor > focus`), neki browseri vraćaju isto što treba; ipak, `Math.min(start, end)` je sigurnije za jasnoću.
-
-3. **`Math.min(1, suffix.length)` je suviše konzervativno**: kada smo u sredini dokumenta, `suffix === "\n\n"`, želimo caret tačno između dva trailing newline-a (= prazna linija = `BLOCK\n|\nafter`). To je tačno `+1` što već radi, ALI ako bismo htjeli kursor "korak ispod" (na liniji `after`-a), trebalo bi `+suffix.length`. Per zahtjev korisnika ("prvu praznu liniju") — `+1` je ispravno za sredinu.
-
-   Edge: kraj dokumenta sa `suffix = "\n"` → `+1` stavlja caret iza newline-a, na praznoj posljednjoj liniji. ✓
+Dodatno: **`ReviewPage` ne filtrira `dueCards.length === 0`** prije EmptyState-a — koristi globalni broj. Posljedica: ako globalno ima dospjelih kartica, ali ne u našoj kategoriji, korisnik vidi setup ekran sa "0 sekcija" umjesto smislenog EmptyState-a.
 
 ## Rješenje
 
-### 1. Dvostruki `requestAnimationFrame` + provjera dužine
+Uvodim **`lockedCategory`** koncept — kada je prisutan, UI tretira tu kategoriju kao nepromjenjivu granicu domena.
 
-Zamijeniti jedan `rAF` sa pristupom koji čeka da se prop `value` sinhronizuje:
-
-```ts
-// After onChange, schedule caret restoration using a useEffect that watches `value`.
-// Store the pending caret target in a ref; effect applies it once value matches expected.
-const pendingCaretRef = useRef<{ pos: number; expectedValue: string } | null>(null);
-
-useLayoutEffect(() => {
-  const pending = pendingCaretRef.current;
-  if (!pending) return;
-  if (value !== pending.expectedValue) return; // wait for next render
-  const ta = taRef.current;
-  if (!ta) return;
-  ta.focus();
-  // Clamp defensively in case external changes truncated the value.
-  const pos = Math.min(pending.pos, ta.value.length);
-  ta.setSelectionRange(pos, pos);
-  pendingCaretRef.current = null;
-}, [value]);
-```
-
-`insertBlock` (i `insertText`, `wrap`, `insertAtLineStart` za konzistentnost) postavljaju `pendingCaretRef.current = { pos, expectedValue: next }` umjesto `requestAnimationFrame`.
-
-### 2. Robustno rukovanje selekcijom u `insertBlock`
+### 1. `ReviewPage.tsx` — proslijediti lock + filtrirati EmptyState
 
 ```ts
-const rawStart = ta?.selectionStart ?? value.length;
-const rawEnd = ta?.selectionEnd ?? value.length;
-const start = Math.min(rawStart, rawEnd);
-const end = Math.max(rawStart, rawEnd);
+const lockedCategory = preSelectedCategory; // alias za jasnoću semantike
+
+const scopedDueCards = useMemo(
+  () => lockedCategory ? dueCards.filter(c => c.categoryId === lockedCategory) : dueCards,
+  [dueCards, lockedCategory],
+);
+const scopedAllCards = useMemo(
+  () => lockedCategory ? cards.filter(c => c.categoryId === lockedCategory) : cards,
+  [cards, lockedCategory],
+);
+
+// Diagnostics računati nad scopedAllCards
+// EmptyState provjera nad scopedDueCards.length
 ```
 
-Tako reverse selekcija (anchor > focus, koja se javlja kad korisnik selektira unazad) tretira se isto kao forward.
+Proslijediti `scopedDueCards`, `scopedAllCards`, `lockedCategory` u `ReviewSession`.
 
-### 3. Caret target — eksplicitno "prva prazna linija ispod bloka"
+### 2. `ReviewSession.tsx` — proslijediti `lockedCategory` dalje
+
+Dodaj `lockedCategory?: string | null` prop, dalje u `ReviewSetup`. Bez druge logičke izmjene (jer su `dueCards`/`allCards` već scope-ovani od strane `ReviewPage`).
+
+### 3. `ReviewSetup.tsx` — zaključati izbor
 
 ```ts
-// `start` here = normalized selection start (after Math.min above).
-// After insertion, document around caret region looks like:
-//   before + prefix + BLOCK + suffix + after
-// "First blank writable line below block" = position right AFTER the first `\n` of suffix.
-// (visually: the cursor sits on a blank line between BLOCK and `after`).
-// If suffix is empty (we landed on a paragraph break already), caret goes right after BLOCK.
-const caretOffsetInSuffix = suffix.length === 0 ? 0 : 1;
-const pos = start + prefix.length + text.length + caretOffsetInSuffix;
+// Inicijalni state ostaje, ali ako je lockedCategory prisutan, nikad ga ne resetujemo:
+const [selectedCategory, setSelectedCategory] = useState<string | null>(
+  lockedCategory ?? preSelectedCategory ?? null,
+);
+
+// "Nazad na režime" gumb — ne resetuj selectedCategory ako je locked:
+onClick={() => {
+  setSetupStep("mode");
+  setMode(null);
+  if (!lockedCategory) setSelectedCategory(null);
+  setSelectedSubcategory(null);
+  setSelectedChapter(null);
+  setFilterExamFrequent(false);
+}}
+
+// onSelectCategory u SessionFilters — ignoriši ako je locked:
+onSelectCategory={(cat) => {
+  if (lockedCategory) return; // safety, plus UI hides the buttons
+  setSelectedCategory(cat);
+  setSelectedSubcategory(null);
+  setSelectedChapter(null);
+}}
 ```
 
-Ovo je matematički isto kao trenutni `Math.min(1, suffix.length)`, samo eksplicitnije i dokumentovano.
+Dodaj **vizuelnu indikaciju** zaključanog scope-a iznad mode-grid-a:
 
-### 4. Test scenariji (manualni acceptance kroz session replay)
+```tsx
+{lockedCategory && (
+  <div className="flex items-center gap-2 px-3 py-2 rounded-md bg-primary/10 border border-primary/20 text-xs">
+    <Lock className="h-3.5 w-3.5 text-primary" />
+    <span className="text-foreground">
+      Konsolidacija ograničena na predmet:&nbsp;
+      <strong>{categoryRecords.find(r => r.id === lockedCategory)?.name ?? "—"}</strong>
+    </span>
+  </div>
+)}
+```
 
-| # | Scenarij | Očekivano |
-|---|---|---|
-| 1 | Prazan dokument, klik insert | Blok ubačen, caret na novoj liniji ispod bloka (kraj fajla) |
-| 2 | Kursor na sredini paragrafa `lorem\|ipsum` | `lorem\n\nBLOCK\n` + caret + `\nipsum`; caret na praznoj liniji između BLOCK i `ipsum` |
-| 3 | Selekcija sredinom paragrafa `lo[rem ip]sum` | Selektovani dio zamijenjen okruženjem bloka; caret na praznoj liniji ispod bloka, prije `sum` |
-| 4 | Reverse selekcija (od desno ka lijevo) | Isto kao forward selekcija |
-| 5 | Kursor na kraju dokumenta | `…tekst\n\nBLOCK\n` + caret na zadnjoj praznoj liniji |
-| 6 | Kursor odmah poslije `\n\n` (prazan red iznad) | Bez duplog padding-a; caret na praznoj liniji ispod bloka |
-| 7 | Dvije uzastopne `insertBlock` (rapid click) | Drugi blok sa pravilnim spacing-om, caret ispod drugog bloka |
+Proslijediti `lockedCategory` u `SessionFilters` kao novi prop `lockedCategory` (vidi #4).
 
-Scenario 7 (rapid clicks) je razlog zašto pendingCaretRef + useLayoutEffect: ako bi `requestAnimationFrame` runao prije nego React commit-uje prvi `next`, drugi click bi koristio stari `value` iz closure-a → corrupt state. Sa pendingRef pristupom svaki klik ažurira ref na osnovu **tada važećeg** `value` snapshot-a u callbacku.
+### 4. `SessionFilters.tsx` — sakriti/onemogućiti predmet-pilule kad je lock
 
-## Izmjene
+```ts
+interface Props {
+  // ...
+  lockedCategory?: string | null;
+}
 
-**`src/components/zettelkasten/ZettelEditor.tsx`**
+// Predmet sekcija — kada je lock, prikaži samo jednu read-only pilulu sa lock ikonicom:
+{lockedCategory ? (
+  <div className="flex">
+    <span className={`${PILL_BASE} bg-primary/10 text-primary border border-primary/20 cursor-default flex items-center gap-1.5`}>
+      <Lock className="h-3 w-3" />
+      {catName(lockedCategory)}
+    </span>
+  </div>
+) : (
+  <ScrollableRow>...postojeće "Sve" + mapiranje kategorija...</ScrollableRow>
+)}
+```
 
-1. Dodaj `useRef` za `pendingCaretRef` i `useLayoutEffect` koji čita ga.
-2. Refaktoriši `wrap`, `insertAtLineStart`, `insertText`, `insertBlock` da postavljaju `pendingCaretRef` umjesto `requestAnimationFrame` + direktnog `setSelectionRange`.
-3. `insertBlock`: normalizuj `start/end` preko `Math.min`/`Math.max`, koristi eksplicitni `caretOffsetInSuffix`.
-4. Dodaj kratke JSDoc komentare uz `insertBlock` koji opisuju gdje završi caret.
+Potkategorije i Glave ostaju funkcionalne (one i dalje sužavaju unutar zaključanog predmeta — to je željeno ponašanje).
+
+### 5. Ostali Subject-Dashboard ulazi (provjera)
+
+Provjerim ostale komponente koje rutiraju u `/review` da osiguram konzistentnost:
+
+- `Breadcrumbs.tsx`, `TopNav.tsx`, `AppSidebar.tsx`, `DashboardPage.tsx` — ako ijedan od njih linkuje `/review` **bez** `?category=` iz Subject konteksta, ostavljam takvog kakav jest (taj ulazi su globalni po dizajnu).
+
+## Test scenariji
+
+| Scenarij | Očekivano |
+|---|---|
+| Klik "Konsolidacija" sa SubjectDashboard predmet A | Setup pokazuje lock-banner sa imenom A; brojači mode-ova prikazuju samo sekcije iz A; predmet-piluli zaključani |
+| Klik "Nazad na režime" u zaključanom flow-u | Vraća na mode-grid, lock i dalje aktivan, brojači i dalje za A |
+| Pokušaj klika na drugu kategoriju u SessionFilters | Pilule nisu klikabilne (read-only); ako hardcoded poziv prođe — handler odbija |
+| Sve kartice iz A urađene | EmptyState (a ne setup sa "0 sekcija") |
+| Globalni `/review` bez `?category=` | Ponašanje nepromijenjeno: sve kategorije, "Sve" pilula, slobodan izbor |
+| Resume sačuvane sesije pokrenut iz lock-a | Resume radi, lock i dalje važi |
+
+## Izmjene fajlova
+
+- `src/views/ReviewPage.tsx` — scoping `dueCards`/`allCards`/`diagnostics` po `lockedCategory`, prosljeđivanje propova.
+- `src/components/ReviewSession.tsx` — propagacija `lockedCategory` props-a.
+- `src/components/review/ReviewSetup.tsx` — banner, čuvanje lock-a kroz reset, prosljeđivanje u `SessionFilters`.
+- `src/components/SessionFilters.tsx` — read-only pilula za predmet kada je lock, novi `lockedCategory` prop.
+- `src/components/review/review-constants.ts` (ili gdje god je `ReviewSessionProps`/`ReviewSetupProps`) — dodati `lockedCategory?: string | null` u interfaceove.
 
 ## Što ostaje van skopa
 
-- `wrap` semantika (selektuje placeholder ako nije bilo selekcije) ostaje — samo se mehanizam za caret restore mijenja.
-- Bez izmjena u `ZettelkastenView`-u (poziv `insertBlock(\`::mindmap[${id}]\`)` ostaje isti).
-- Bez novih testova (manual QA kroz preview).
+- Promjena URL šeme (`/review?category=X` ostaje; ne uvodimo `/subject/:id/review`).
+- Filteri tipa kartice, ispitne frekvencije, potkategorije i glave — nepromijenjeni (oni i dalje sužavaju **unutar** zaključanog predmeta).
+- Ostale ulazne tačke u review (TopNav, Sidebar, globalni Dashboard) — namjerno ostaju globalne.
