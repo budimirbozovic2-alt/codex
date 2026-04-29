@@ -1,26 +1,22 @@
-import { BarChart3, Clock, Target, Trophy, RotateCw, BookOpen, Check } from "lucide-react";
+import { BarChart3, Clock, Target, Trophy, Check } from "lucide-react";
 import React, { useEffect } from "react";
-import { LearnMode } from "@/lib/storage";
-
 
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { GRADE_LABELS } from "./types";
+
 interface Props {
-  learnMode: LearnMode;
   sessionStartTime: number;
   totalGrades: number[];
   modulesCompleted: number;
-  chainResets: number;
   readCardsCount: number;
   completedCardsCount: number;
-  chainCompletedCardsCount: number;
   onBack: () => void;
 }
 
 const SessionComplete = React.memo(function SessionComplete({
-  learnMode, sessionStartTime, totalGrades, modulesCompleted, chainResets,
-  readCardsCount, completedCardsCount, chainCompletedCardsCount, onBack,
+  sessionStartTime, totalGrades, modulesCompleted,
+  readCardsCount, completedCardsCount, onBack,
 }: Props) {
   useEffect(() => {
     import("@/lib/sounds").then(m => m.playSessionComplete());
@@ -35,16 +31,8 @@ const SessionComplete = React.memo(function SessionComplete({
     { icon: Clock, label: "Vrijeme", value: minutes > 0 ? `${minutes}m ${seconds}s` : `${seconds}s` },
     { icon: Target, label: "Modula savladano", value: modulesCompleted },
     { icon: BarChart3, label: "Prosječna ocjena", value: avgGrade },
+    { icon: Trophy, label: "Pitanja savladana", value: completedCardsCount },
   ];
-
-  if (learnMode === "free") {
-    statItems[1] = { icon: BookOpen, label: "Pročitano", value: readCardsCount };
-  } else if (learnMode === "active-recall") {
-    statItems.push({ icon: Trophy, label: "Pitanja savladana", value: completedCardsCount });
-  } else if (learnMode === "chain") {
-    statItems.push({ icon: Trophy, label: "Lanci završeni", value: chainCompletedCardsCount });
-    statItems.push({ icon: RotateCw, label: "Resetovanja lanca", value: chainResets });
-  }
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="max-w-md mx-auto space-y-8 py-16">

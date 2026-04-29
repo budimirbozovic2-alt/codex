@@ -1,86 +1,76 @@
-## Problem
+## Cilj
 
-Kada se otvori "Aktivno učenje" (posebno preko strict-recall linka iz Dashboarda/Risk widgeta), `readCount` jedne kartice raste u beskraj — hiljade puta i nastavlja rasti svake sekunde. Identifikovan je tačan uzrok: feedback petlja između `SessionContext` → `LearnPage.handleMarkRead` → `StudyModeRecall` useEffect.
+1. **Ukloniti dugme "Nastavi učenje"** iz globalnog dashboarda i navigacije.
+2. **Ukloniti tri globalna učenje moda**: Slobodno (`free`), Aktivno prisjećanje (`active-recall` selector) i Lanac (`chain`) — jer ih zamjenjuje Pasivno čitanje u lokalnim subject dashboardima.
+3. **Sačuvati strict-recall flow** — taj ulaz koristi `SubjectDashboard` (MatrixFilterDialog → `/learn?mode=strict-recall`), to je sad jedini razlog zašto `/learn` ruta postoji. Korisnik je eksplicitno rekao "aktivno učenje se seli u lokalne dashboarde", ne da se briše — strict-recall je upravo taj lokalni ulaz.
+4. Ne ostaviti dead code, ne razbiti tipove, ne razbiti analitiku.
 
-### Lanac petlje (potvrđen čitanjem koda)
+## Šta se uklanja
 
-1. `src/contexts/SessionContext.tsx` (l. 135–145): `value` se memoizuje, ali u dependency listi je `queueSize`. Svaki `queueMarkRead` poziva `setQueueSize(prev+1)` → nova `value` referenca → svi konzumenti `useSessionContext()` re-renderuju.
-2. `src/views/LearnPage.tsx` (l. 42–45): `handleMarkRead = useCallback(..., [session, markRead])` — pošto `session` mijenja identitet na svaki queue, `handleMarkRead` postaje nova funkcija nakon svakog poziva.
-3. `src/components/learn/StudyModeRecall.tsx` (l. 52–57):
-   ```ts
-   useEffect(() => {
-     setArPhase(strictRecall ? "drill" : "preview");
-     setDrillIndex(0);
-     setDrillRevealed(false);
-     if (strictRecall) onMarkRead(card.id);
-   }, [card.id, strictRecall, onMarkRead]);
-   ```
-   `onMarkRead` u dep listi — kako se mijenja na svaki tik, efekat se ponovo izvršava → `onMarkRead(card.id)` → `queueMarkRead` + `markRead` (incrementuje `readCount` i pravi novu `cards` referencu) → ponovo render → nova `handleMarkRead` → efekat opet → ∞.
+### Globalni dashboard / navigacija
+- **`src/components/dashboard/QuickActions.tsx`** — ukloniti `<Link to="/learn">Nastavi učenje</Link>`. Komponenta ostaje samo s "Ponovi dospjele" linkom (ako ima dospjelih).
+- **`src/components/dashboard/StudyFlowWidget.tsx`** — ukloniti `<Button onClick={() => setView("learn")}>Nastavi učenje</Button>`. Widget ostaje informativan (plan/omjer/progress).
+- **`src/components/AppSidebar.tsx`** (l. 16) — ukloniti stavku `{ path: "/learn", icon: GraduationCap, label: "Učenje" }`.
+- **`src/components/TopNav.tsx`** (l. 25) — isto.
+- **`src/components/Breadcrumbs.tsx`** (l. 8) — ukloniti `"/learn": "Učenje"` mapu (ili je ostaviti — breadcrumb i dalje radi za strict-recall sesiju). Predlažem zadržati zbog UX dok je strict-recall aktivan.
+- **`src/views/DashboardPage.tsx`** (l. 48) — ukloniti `L` keyboard prečicu iz InfoPanel.
 
-Rezultat: `readCount` raste neograničeno, `queueSize` raste neograničeno, IndexedDB persist queue se nadima, UI postaje sve sporiji.
+### Tri globalna moda učenja
+- **`src/components/LearnSession.tsx`** — refaktorisati: ukloniti `ModeSelector` setup korak, ukloniti grane `learnMode === "free"` i `learnMode === "chain"`, ostaviti samo `active-recall` granu (jer je to ono što strict-recall koristi). Default `learnMode` postaje `"active-recall"`. Setup flow sada počinje direktno sa `FilterSetup` (a strict-recall ulaz je već `started=true`).
+- **Brisati fajlove**:
+  - `src/components/learn/ModeSelector.tsx`
+  - `src/components/learn/StudyModeFree.tsx`
+  - `src/components/learn/StudyModeChain.tsx`
+- **`src/components/learn/SessionHeader.tsx`** — pojednostaviti `learnMode` granjanje (uvijek "Aktivno"); skinuti reference na `LEARN_SHORTCUTS` i `CHAIN_SHORTCUTS` iz `ShortcutsHint` poziva, ostaviti samo `AR_SHORTCUTS`. Ako su konstante nedefinisane u tom fajlu, samo ostaviti `AR_SHORTCUTS`.
+- **`src/components/learn/QuestionDots.tsx`** — `learnMode` prop više nije potreban (uvijek "active-recall"); pojednostaviti ili zadržati prop kao opcionalan radi minimalne invazivnosti. Predlažem da ga zadržimo, ali pojednostavimo logiku.
+- **`src/components/learn/SessionComplete.tsx`** — skinuti grane za "free" i "chain", ostaviti samo "active-recall".
+- **`src/components/learn/FilterSetup.tsx`** — ukloniti `MODE_LABELS["free"]`, `MODE_LABELS["chain"]` reference; ukloniti chain-specific filter (`learnMode === "chain"` filter za essay≥3 sekcije).
+- **`src/components/learn/types.ts`** — `learnMode` props ostaju ali samo s vrijednošću `"active-recall"`.
+- **`src/lib/storage.ts`** (l. 23) — promijeniti `LearnMode` u `type LearnMode = "active-recall"`. Time se osigurava type-safety i da nema preživjelih `"free"`/`"chain"` literala u kodu — TS će ih označiti.
+- **`src/lib/metacognitive-storage.ts`** — ukloniti `"learn-free"` i `"learn-chain"` iz `ActivityType` union-a. Ažurirati switch i filtere u `getMastery`/aggregations da ne referencuju te tipove.
 
-## Rješenje
+## Šta se NE briše (i zašto)
 
-Dvije male, ciljane izmjene koje uklanjaju petlju bez promjene ponašanja:
+- **`/learn` ruta i `LearnPage`** — ostaju, jer ih `SubjectDashboard.handleMatrixStart` koristi. Sad je jedini ulaz u `/learn` strict-recall iz lokalnog dashboarda.
+- **`LearnSession.tsx`** — ostaje, ali svedeno na strict-recall + `FilterSetup` (jer `SubjectDashboard` ulazi sa `started=true`, ali korisnik može doći nazad na filter screen).
+- **`StudyModeRecall.tsx`** — ostaje (to je suština aktivnog prisjećanja).
+- **`MatrixFilterDialog.tsx`** — ostaje (lokalni ulaz iz `SubjectDashboard`).
+- **`View = "learn"` tip i mapa** u `AppContext.tsx` — ostaju radi rute. Nećemo ga brisati iz unije jer breadcrumb/route još koristi tu mapu.
 
-### 1. `src/components/learn/StudyModeRecall.tsx`
-Razdvojiti efekat reset-stanja od markRead poziva, i pozvati markRead samo jednom po kartici preko `useRef` čuvara:
+## Migracija postojećih korisničkih podataka
 
-```ts
-// Reset state when card changes
-useEffect(() => {
-  setArPhase(strictRecall ? "drill" : "preview");
-  setDrillIndex(0);
-  setDrillRevealed(false);
-}, [card.id, strictRecall]);
+Postojeći `LearnCardProgress` zapisi u IndexedDB mogu imati `mode: "free"` ili `mode: "chain"`. Pošto:
+- `LearnCardProgress.mode: LearnMode` — nakon promjene tipa, postojeći zapisi su tehnički nevalidni ali se nigdje više ne čitaju za grananje (samo se prosljeđuju u `updateProgress`).
+- `metacognitive-storage` activity log: postojeći entry-ji s `type: "learn-free" | "learn-chain"` će ostati u IDB. Da se ne razbije agregacija, u `getMastery`/filterima dodati defenzivnu provjeru (entry tipa koje više ne postoje će biti ignorisane jer ih TS unija ne pokriva — runtime prolazi, samo se neće brojati).
 
-// Strict-recall: mark read EXACTLY ONCE per card
-const markedRef = useRef<string | null>(null);
-useEffect(() => {
-  if (!strictRecall) return;
-  if (markedRef.current === card.id) return;
-  markedRef.current = card.id;
-  onMarkRead(card.id);
-  // namjerno bez onMarkRead u depu — guard ref garantuje single-fire
-}, [card.id, strictRecall]); // eslint-disable-line react-hooks/exhaustive-deps
-```
-
-### 2. `src/views/LearnPage.tsx`
-Stabilizovati `handleMarkRead` (i `handleReviewSection`) tako da im identitet ne ovisi o nestabilnoj `session` referenci. Koristimo `useRef` na trenutnu sesiju:
-
-```ts
-const sessionRef = useRef(session);
-useEffect(() => { sessionRef.current = session; }, [session]);
-
-const handleMarkRead = useCallback((id: string) => {
-  if (sessionRef.current.isSessionActive) sessionRef.current.queueMarkRead(id);
-  markRead(id);
-}, [markRead]);
-
-const handleReviewSection = useCallback((cardId: string, sectionId: string, grade: number) => {
-  if (sessionRef.current.isSessionActive) sessionRef.current.queueReview(cardId, sectionId, grade);
-  reviewSection(cardId, sectionId, grade);
-}, [reviewSection]);
-```
-
-Ovo i samostalno raskida petlju, ali fix #1 je primarni — guard ref u `StudyModeRecall` čini sistem otpornim i na buduće slične regresije.
-
-### 3. (Opciono, low risk) Zaštita u `useCardAnnotations.markRead`
-Dodati throttle sigurnosnu mrežu — npr. ignorisati uzastopne pozive za isti `cardId` u prozoru od 250 ms. Ovo je defenzivno; nije nužno ako se primijene #1 i #2, ali sprječava buduće regresije iz drugih konzumenata. Predlažem da ga **preskočimo** u prvom prolazu da ne maskiramo prave bug-ove.
-
-## Šta NE mijenjamo
-
-- `SessionContext` ostaje kakav jeste (queueSize mora trigerovati re-render za UI badge "X u queue").
-- `StudyModeFree` već zove `markRead` samo iz korisničkog handlera (l. 54–56), nije zahvaćen.
-- Logika strict-recall flow-a (drill, gradiranje) ostaje identična.
-
-## Fajlovi
-
-- `src/components/learn/StudyModeRecall.tsx` — razdvojiti efekat + uvesti `markedRef` guard
-- `src/views/LearnPage.tsx` — stabilizovati `handleMarkRead` i `handleReviewSection` preko `sessionRef`
+Ne pišemo migraciju (zero data loss, samo ignorisanje legacy entry-ja).
 
 ## Verifikacija nakon implementacije
 
-1. Otvoriti Risk widget → Strict-recall za jednu karticu → otvoriti DevTools → provjeriti da `readCount` u IndexedDB poraste tačno za 1 kada se uđe u karticu i da ne raste dok se ne pređe na sljedeću.
-2. Pratiti `queueSize` u session badge-u — raste samo na stvarne korisničke akcije.
-3. Provjeriti da Free i Chain modovi i dalje rade normalno (oni ne zavise od strict-recall granu).
+1. Globalni dashboard ne sadrži "Nastavi učenje" dugme niti "Učenje" link u sidebar/TopNav.
+2. Klik na Risk widget u SubjectDashboard → otvara strict-recall sesiju normalno.
+3. `MatrixFilterDialog` → strict-recall sesija radi normalno.
+4. TypeScript build prolazi bez `any`/unused/missing import grešaka.
+5. Postojeći `learn-free`/`learn-chain` zapisi u activity logu ne izazivaju runtime crash u Metacognitive view.
+
+## Lista fajlova koji se mijenjaju
+
+**Edit:**
+- `src/components/dashboard/QuickActions.tsx`
+- `src/components/dashboard/StudyFlowWidget.tsx`
+- `src/components/AppSidebar.tsx`
+- `src/components/TopNav.tsx`
+- `src/views/DashboardPage.tsx`
+- `src/components/LearnSession.tsx`
+- `src/components/learn/SessionHeader.tsx`
+- `src/components/learn/SessionComplete.tsx`
+- `src/components/learn/FilterSetup.tsx`
+- `src/components/learn/QuestionDots.tsx`
+- `src/components/learn/types.ts`
+- `src/lib/storage.ts`
+- `src/lib/metacognitive-storage.ts`
+
+**Delete:**
+- `src/components/learn/ModeSelector.tsx`
+- `src/components/learn/StudyModeFree.tsx`
+- `src/components/learn/StudyModeChain.tsx`

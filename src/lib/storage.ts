@@ -20,7 +20,7 @@ export interface PomodoroLogEntry {
 }
 
 // Learn session progress persistence
-export type LearnMode = "free" | "active-recall" | "chain";
+export type LearnMode = "active-recall";
 
 export interface LearnCardProgress {
   mode: LearnMode;

@@ -217,7 +217,7 @@ export function loadSlippageLog(): SlippageEntry[] {
 
 // ─── Activity Time Tracking ─────────────────────────────
 
-export type ActivityType = "review" | "learn-active" | "learn-free" | "learn-chain" | "mnemonic-test" | "mnemonic-workshop" | "admin" | "analysis";
+export type ActivityType = "review" | "learn-active" | "mnemonic-test" | "mnemonic-workshop" | "admin" | "analysis";
 
 export interface ActivityEntry {
   timestamp: number;
@@ -234,8 +234,6 @@ export function getReservoir(type: ActivityType): TimeReservoir {
     case "mnemonic-test":
       return "review";
     case "learn-active":
-    case "learn-free":
-    case "learn-chain":
       return "learning";
     case "admin":
     case "mnemonic-workshop":
@@ -319,10 +317,10 @@ export function getDeepWorkStats(days: number = 7) {
   const recent = _activityCache.filter(e => e.timestamp >= cutoff);
 
   const deepWorkMs = recent
-    .filter(e => e.type === "review" || e.type === "learn-active" || e.type === "learn-chain" || e.type === "mnemonic-test")
+    .filter(e => e.type === "review" || e.type === "learn-active" || e.type === "mnemonic-test")
     .reduce((s, e) => s + e.durationMs, 0);
   const shallowWorkMs = recent
-    .filter(e => e.type === "learn-free" || e.type === "admin" || e.type === "analysis" || e.type === "mnemonic-workshop")
+    .filter(e => e.type === "admin" || e.type === "analysis" || e.type === "mnemonic-workshop")
     .reduce((s, e) => s + e.durationMs, 0);
   const totalMs = deepWorkMs + shallowWorkMs;
 

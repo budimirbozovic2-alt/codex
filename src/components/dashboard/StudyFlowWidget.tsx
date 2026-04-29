@@ -1,7 +1,5 @@
-import { ClipboardList, ArrowRight } from "lucide-react";
+import { ClipboardList } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
-import { Button } from "@/components/ui/button";
-import { useUIContext } from "@/contexts/AppContext";
 
 export interface StudyFlowData {
   focusSubject: string;
@@ -14,7 +12,6 @@ export interface StudyFlowData {
 }
 
 export function StudyFlowWidget({ data }: { data: StudyFlowData }) {
-  const { setView } = useUIContext();
   const progressPct = data.dailyQuota > 0 ? Math.min(100, Math.round((data.dailyMapped / data.dailyQuota) * 100)) : 0;
 
   return (
@@ -44,15 +41,6 @@ export function StudyFlowWidget({ data }: { data: StudyFlowData }) {
         <span>Omjer: {data.learnPct}% učenje · {data.reviewPct}% ponavljanje</span>
       </div>
       <p className="text-xs text-muted-foreground/70">{data.ratioLabel}</p>
-
-      <Button
-        size="sm"
-        variant="outline"
-        className="w-full gap-1.5"
-        onClick={() => setView("learn")}
-      >
-        Nastavi učenje <ArrowRight className="h-3.5 w-3.5" />
-      </Button>
     </div>
   );
 }

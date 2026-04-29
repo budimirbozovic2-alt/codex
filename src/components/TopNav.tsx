@@ -1,4 +1,4 @@
-import { Home, GraduationCap, RotateCcw, Moon, Sun, Focus, Settings as SettingsIcon, HelpCircle, Plus, Wrench, FolderOpen } from "lucide-react";
+import { Home, RotateCcw, Moon, Sun, Focus, Settings as SettingsIcon, HelpCircle, Plus, Wrench, FolderOpen } from "lucide-react";
 import { useLocation } from "react-router-dom";
 
 import { NavLink } from "@/components/NavLink";
@@ -22,7 +22,6 @@ interface Props {
 
 const PRIMARY_NAV = [
   { path: "/", icon: Home, label: "Dashboard" },
-  { path: "/learn", icon: GraduationCap, label: "Učenje" },
   { path: "/review", icon: RotateCcw, label: "Konsolidacija", badge: true },
 ];
 

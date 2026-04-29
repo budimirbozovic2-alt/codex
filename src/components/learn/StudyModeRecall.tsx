@@ -100,8 +100,8 @@ export default function StudyModeRecall({
   return (
     <div className={`${viewWidthClasses[viewWidth]} mx-auto space-y-6 transition-all duration-300`}>
       <SessionHeader card={card} currentIndex={currentIndex} totalCards={sortedCards.length}
-        learnMode="active-recall" viewWidth={viewWidth} setViewWidth={setViewWidth} onBack={onBack} />
-      <QuestionDots cards={sortedCards} currentIndex={currentIndex} learnMode="active-recall"
+        viewWidth={viewWidth} setViewWidth={setViewWidth} onBack={onBack} />
+      <QuestionDots cards={sortedCards} currentIndex={currentIndex}
         completedCards={completedCards} chainCompletedCards={chainCompletedCards} readCards={readCards} onSelect={goToCard} />
 
       <AnimatePresence mode="wait">

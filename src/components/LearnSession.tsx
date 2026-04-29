@@ -1,20 +1,15 @@
 import { useState, useMemo, useCallback, useEffect, useRef, Suspense, lazy } from "react";
 import { Card, getCardScore } from "@/lib/spaced-repetition";
-import { LearnMode, LearnCardProgress, loadLearnProgress, saveLearnProgress } from "@/lib/storage";
+import { LearnCardProgress, loadLearnProgress } from "@/lib/storage";
 import { addActivityEntry } from "@/lib/metacognitive-storage";
 import SessionComplete from "./learn/SessionComplete";
-import ModeSelector from "./learn/ModeSelector";
 import FilterSetup from "./learn/FilterSetup";
 import { LearnSessionProps, ViewWidth } from "./learn/types";
 
-const StudyModeFree = lazy(() => import("./learn/StudyModeFree"));
 const StudyModeRecall = lazy(() => import("./learn/StudyModeRecall"));
-const StudyModeChain = lazy(() => import("./learn/StudyModeChain"));
 
 export default function LearnSession({ cards, categories, categoryRecords, subcategories, onMarkRead, onReviewSection, onBack, onEdit, onAddKeyPart, dueCount = 0, reviewLog: reviewLogProp = [], initialFilters }: LearnSessionProps) {
   const isStrictRecall = initialFilters?.mode === "strict-recall";
-  const [setupStep, setSetupStep] = useState<"mode" | "filter" | "ready">("mode");
-  const [learnMode, setLearnMode] = useState<LearnMode>(isStrictRecall ? "active-recall" : "free");
   const [selectedCategory, setSelectedCategory] = useState<string | null>(initialFilters?.categoryId ?? null);
   const [selectedSubcategory, setSelectedSubcategory] = useState<string | null>(initialFilters?.subcategoryId ?? null);
   const [selectedChapter, setSelectedChapter] = useState<string | null>(null);
@@ -31,7 +26,7 @@ export default function LearnSession({ cards, categories, categoryRecords, subca
   const [viewWidth, setViewWidth] = useState<ViewWidth>("normal");
   const [readCards, setReadCards] = useState<Set<string>>(new Set());
   const [completedCards, setCompletedCards] = useState<Set<string>>(new Set());
-  const [chainCompletedCards, setChainCompletedCards] = useState<Set<string>>(new Set());
+  const [chainCompletedCards] = useState<Set<string>>(new Set());
   const [progress, setProgress] = useState<Record<string, LearnCardProgress>>({});
   const progressLoadedRef = useRef(false);
   useEffect(() => {
@@ -43,7 +38,6 @@ export default function LearnSession({ cards, categories, categoryRecords, subca
   const [sessionStartTime] = useState(() => Date.now());
   const [totalGrades, setTotalGrades] = useState<number[]>([]);
   const [modulesCompleted, setModulesCompleted] = useState(0);
-  const [chainResets, setChainResets] = useState(0);
   const activityLoggedRef = useRef(false);
   const positionMaps = useMemo(() => {
     const subPos: Record<string, number> = {};
@@ -76,7 +70,6 @@ export default function LearnSession({ cards, categories, categoryRecords, subca
     if (filterType === "essay") filtered = filtered.filter(c => c.type === "essay");
     else if (filterType === "flash") filtered = filtered.filter(c => c.type === "flash");
     if (frequencyFilter !== "all") filtered = filtered.filter(c => c.frequencyTag === frequencyFilter);
-    if (learnMode === "chain") filtered = filtered.filter(c => c.type === "essay" && c.sections.length >= 3);
     switch (sortMode) {
       case "weakest": return filtered.sort((a, b) => getCardScore(a) - getCardScore(b));
       case "leastRead": return filtered.sort((a, b) => (a.readCount || 0) - (b.readCount || 0));
@@ -90,16 +83,16 @@ export default function LearnSession({ cards, categories, categoryRecords, subca
         );
       }
     }
-  }, [cards, selectedCategory, selectedSubcategory, selectedChapter, sortMode, learnMode, filterExamFrequent, filterType, frequencyFilter, positionMaps]);
+  }, [cards, selectedCategory, selectedSubcategory, selectedChapter, sortMode, filterExamFrequent, filterType, frequencyFilter, positionMaps]);
 
   const card = sortedCards[currentIndex];
 
   const updateProgress = useCallback((cardId: string, update: Partial<LearnCardProgress>) => {
     setProgress(prev => {
-      const existing = prev[cardId] || { mode: learnMode, currentModule: 0, completedModules: [], chainPosition: 0, phase: "preview", completed: false };
+      const existing = prev[cardId] || { mode: "active-recall" as const, currentModule: 0, completedModules: [], chainPosition: 0, phase: "preview" as const, completed: false };
       return { ...prev, [cardId]: { ...existing, ...update } };
     });
-  }, [learnMode]);
+  }, []);
 
   const goToCard = useCallback((index: number) => {
     setCurrentIndex(index);
@@ -121,53 +114,39 @@ export default function LearnSession({ cards, categories, categoryRecords, subca
     setReadCards(prev => new Set(prev).add(id));
   }, [onMarkRead]);
 
-  // ── SETUP SCREENS ──
+  // ── SETUP SCREEN (filter only, no mode selector) ──
   if (!started) {
-    if (setupStep === "mode") {
-      return (
-        <ModeSelector
-          cards={cards}
-          learnMode={learnMode}
-          dueCount={dueCount}
-          reviewLog={reviewLogProp}
-          onSelectMode={(mode) => { setLearnMode(mode); setSetupStep("filter"); }}
-        />
-      );
-    }
-
-      return (
-        <FilterSetup
-          cards={cards}
-          sortedCardsCount={sortedCards.length}
-          learnMode={learnMode}
-          categories={availableCategories}
-          categoryRecords={categoryRecords}
-          subcategories={subcategories}
-          selectedCategory={selectedCategory}
-          selectedSubcategory={selectedSubcategory}
-          selectedChapter={selectedChapter}
-          filterExamFrequent={filterExamFrequent}
-          examFrequentCount={examFrequentCount}
-          filterType={filterType}
-          sortMode={sortMode}
-          onSelectCategory={cat => { setSelectedCategory(cat); setSelectedSubcategory(null); setSelectedChapter(null); }}
-          onSelectSubcategory={sub => { setSelectedSubcategory(sub); setSelectedChapter(null); }}
-          onSelectChapter={setSelectedChapter}
-          onToggleExamFrequent={() => setFilterExamFrequent(!filterExamFrequent)}
-          onFilterTypeChange={setFilterType}
-          onSortModeChange={setSortMode}
-          onStart={() => {
-            setCurrentIndex(0);
-            sessionStorage.setItem("sr-learn-current-index", "0");
-            setReadCards(new Set());
-            setCompletedCards(new Set());
-            setChainCompletedCards(new Set());
-            activityLoggedRef.current = false;
-            setStarted(true);
-          }}
-          onBackToMode={() => setSetupStep("mode")}
-        />
-      );
+    return (
+      <FilterSetup
+        cards={cards}
+        sortedCardsCount={sortedCards.length}
+        categories={availableCategories}
+        categoryRecords={categoryRecords}
+        subcategories={subcategories}
+        selectedCategory={selectedCategory}
+        selectedSubcategory={selectedSubcategory}
+        selectedChapter={selectedChapter}
+        filterExamFrequent={filterExamFrequent}
+        examFrequentCount={examFrequentCount}
+        filterType={filterType}
+        sortMode={sortMode}
+        onSelectCategory={cat => { setSelectedCategory(cat); setSelectedSubcategory(null); setSelectedChapter(null); }}
+        onSelectSubcategory={sub => { setSelectedSubcategory(sub); setSelectedChapter(null); }}
+        onSelectChapter={setSelectedChapter}
+        onToggleExamFrequent={() => setFilterExamFrequent(!filterExamFrequent)}
+        onFilterTypeChange={setFilterType}
+        onSortModeChange={setSortMode}
+        onStart={() => {
+          setCurrentIndex(0);
+          sessionStorage.setItem("sr-learn-current-index", "0");
+          setReadCards(new Set());
+          setCompletedCards(new Set());
+          activityLoggedRef.current = false;
+          setStarted(true);
+        }}
+        onBack={onBack}
+      />
+    );
   }
 
   // ── EMPTY FILTER STATE (no cards match) ──
@@ -190,8 +169,7 @@ export default function LearnSession({ cards, categories, categoryRecords, subca
     const elapsed = Date.now() - sessionStartTime;
     if (!activityLoggedRef.current && elapsed > 5000) {
       activityLoggedRef.current = true;
-      const activityType = learnMode === "free" ? "learn-free" as const : learnMode === "active-recall" ? "learn-active" as const : "learn-chain" as const;
-      addActivityEntry({ timestamp: Date.now(), type: activityType, durationMs: elapsed });
+      addActivityEntry({ timestamp: Date.now(), type: "learn-active", durationMs: elapsed });
       (async () => { try {
         const { loadPlanner, calcVelocity, getSmartSuggestion, recordDayDiscipline } = await import("@/lib/planner-storage");
         const plannerConfig = loadPlanner();
@@ -206,62 +184,28 @@ export default function LearnSession({ cards, categories, categoryRecords, subca
 
     return (
       <SessionComplete
-        learnMode={learnMode} sessionStartTime={sessionStartTime} totalGrades={totalGrades}
-        modulesCompleted={modulesCompleted} chainResets={chainResets} readCardsCount={readCards.size}
-        completedCardsCount={completedCards.size} chainCompletedCardsCount={chainCompletedCards.size} onBack={onBack}
+        sessionStartTime={sessionStartTime} totalGrades={totalGrades}
+        modulesCompleted={modulesCompleted} readCardsCount={readCards.size}
+        completedCardsCount={completedCards.size} onBack={onBack}
       />
     );
   }
 
   const fallback = <div className="flex items-center justify-center py-12 text-muted-foreground text-sm">Učitavanje...</div>;
 
-  // ── ACTIVE MODES (delegated to lazy sub-components) ──
-  if (learnMode === "free") {
-    return (
-      <Suspense fallback={fallback}>
-        <StudyModeFree
-          card={card} sortedCards={sortedCards} currentIndex={currentIndex}
-          viewWidth={viewWidth} setViewWidth={setViewWidth}
-          readCards={readCards} completedCards={completedCards} chainCompletedCards={chainCompletedCards}
-          onMarkRead={handleMarkRead} onEdit={onEdit} onAddKeyPart={onAddKeyPart}
-          goToCard={goToCard} goNext={goNext} goPrev={goPrev} onBack={() => setStarted(false)}
-        />
-      </Suspense>
-    );
-  }
-
-  if (learnMode === "active-recall") {
-    return (
-      <Suspense fallback={fallback}>
-        <StudyModeRecall
-          card={card} sortedCards={sortedCards} currentIndex={currentIndex}
-          viewWidth={viewWidth} setViewWidth={setViewWidth}
-          readCards={readCards} completedCards={completedCards} chainCompletedCards={chainCompletedCards}
-          onMarkRead={handleMarkRead} onReviewSection={onReviewSection} onAddKeyPart={onAddKeyPart}
-          goToCard={goToCard} goNext={goNext} goPrev={goPrev} onBack={isStrictRecall ? onBack : () => setStarted(false)}
-          setCompletedCards={setCompletedCards} setTotalGrades={setTotalGrades}
-          setModulesCompleted={setModulesCompleted} updateProgress={updateProgress}
-          strictRecall={isStrictRecall}
-        />
-      </Suspense>
-    );
-  }
-
-  if (learnMode === "chain") {
-    return (
-      <Suspense fallback={fallback}>
-        <StudyModeChain
-          card={card} sortedCards={sortedCards} currentIndex={currentIndex}
-          viewWidth={viewWidth} setViewWidth={setViewWidth}
-          readCards={readCards} completedCards={completedCards} chainCompletedCards={chainCompletedCards}
-          onReviewSection={onReviewSection}
-          goToCard={goToCard} goNext={goNext} goPrev={goPrev} onBack={() => setStarted(false)}
-          setChainCompletedCards={setChainCompletedCards} setTotalGrades={setTotalGrades}
-          setModulesCompleted={setModulesCompleted} setChainResets={setChainResets} updateProgress={updateProgress}
-        />
-      </Suspense>
-    );
-  }
-
-  return null;
+  // ── ACTIVE RECALL MODE ──
+  return (
+    <Suspense fallback={fallback}>
+      <StudyModeRecall
+        card={card} sortedCards={sortedCards} currentIndex={currentIndex}
+        viewWidth={viewWidth} setViewWidth={setViewWidth}
+        readCards={readCards} completedCards={completedCards} chainCompletedCards={chainCompletedCards}
+        onMarkRead={handleMarkRead} onReviewSection={onReviewSection} onAddKeyPart={onAddKeyPart}
+        goToCard={goToCard} goNext={goNext} goPrev={goPrev} onBack={isStrictRecall ? onBack : () => setStarted(false)}
+        setCompletedCards={setCompletedCards} setTotalGrades={setTotalGrades}
+        setModulesCompleted={setModulesCompleted} updateProgress={updateProgress}
+        strictRecall={isStrictRecall}
+      />
+    </Suspense>
+  );
 }

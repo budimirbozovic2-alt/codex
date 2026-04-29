@@ -1,24 +1,14 @@
 import { Volume2, ArrowLeft, Zap } from "lucide-react";
 import React from "react";
 import { Card, getCardScore } from "@/lib/spaced-repetition";
-import { LearnMode } from "@/lib/storage";
 import { ViewWidth, viewWidthClasses, viewWidthLabels } from "./types";
 
 import { useCategoryData } from "@/contexts/AppContext";
 import { motion } from "framer-motion";
 import { speak } from "@/lib/tts";
 import ShortcutsHint from "@/components/ShortcutsHint";
-const LEARN_SHORTCUTS = [
-  { keys: "E", description: "Uredi karticu" },
-  { keys: "←/→", description: "Prethodna / sljedeća" },
-];
 
 const AR_SHORTCUTS = [
-  { keys: "Space", description: "Otkrij odgovor" },
-  { keys: "1-4", description: "Ocijeni modul" },
-];
-
-const CHAIN_SHORTCUTS = [
   { keys: "Space", description: "Otkrij odgovor" },
   { keys: "1-4", description: "Ocijeni modul" },
 ];
@@ -27,14 +17,13 @@ interface Props {
   card: Card;
   currentIndex: number;
   totalCards: number;
-  learnMode: LearnMode;
   viewWidth: ViewWidth;
   setViewWidth: (w: ViewWidth) => void;
   onBack: () => void;
 }
 
 const SessionHeader = React.memo(function SessionHeader({
-  card, currentIndex, totalCards, learnMode, viewWidth, setViewWidth, onBack,
+  card, currentIndex, totalCards, viewWidth, setViewWidth, onBack,
 }: Props) {
   const score = getCardScore(card);
   const isFlash = card.type === "flash";
@@ -51,7 +40,7 @@ const SessionHeader = React.memo(function SessionHeader({
         </button>
         <div className="flex items-center gap-3">
           <span className="text-xs px-2 py-1 rounded-md bg-secondary text-muted-foreground">
-            {learnMode === "free" ? "Slobodno" : learnMode === "active-recall" ? "Aktivno" : "Lanac"}
+            Aktivno
           </span>
           <div className="hidden md:flex items-center gap-1 bg-secondary rounded-lg p-1">
             {(Object.keys(viewWidthClasses) as ViewWidth[]).map((w) => (
@@ -69,7 +58,7 @@ const SessionHeader = React.memo(function SessionHeader({
           <span className="text-sm text-muted-foreground">
             {currentIndex + 1} / {totalCards}
           </span>
-          <ShortcutsHint shortcuts={learnMode === "free" ? LEARN_SHORTCUTS : learnMode === "active-recall" ? AR_SHORTCUTS : CHAIN_SHORTCUTS} />
+          <ShortcutsHint shortcuts={AR_SHORTCUTS} />
         </div>
       </div>
 

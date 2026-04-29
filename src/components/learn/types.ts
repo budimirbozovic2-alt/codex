@@ -1,21 +1,22 @@
 import { Card } from "@/lib/spaced-repetition";
-import { LearnMode, LearnCardProgress, ReviewLogEntry } from "@/lib/storage";
+import { LearnCardProgress, ReviewLogEntry } from "@/lib/storage";
 import type { CategoryRecord } from "@/lib/db";
 
 export type { LearnCardProgress };
 
 export type SortMode = "order" | "weakest" | "leastRead";
-export type ViewWidth = "compact" | "normal" | "wide" | "full";
-export type SetupStep = "mode" | "filter" | "ready";
+export type VW = "compact" | "normal" | "wide" | "full";
+export type ViewWidth = VW;
+export type SetupStep = "filter" | "ready";
 
-export const viewWidthClasses: Record<ViewWidth, string> = {
+export const viewWidthClasses: Record<VW, string> = {
   compact: "max-w-xl",
   normal: "max-w-2xl",
   wide: "max-w-4xl",
   full: "max-w-full",
 };
 
-export const viewWidthLabels: Record<ViewWidth, string> = {
+export const viewWidthLabels: Record<VW, string> = {
   compact: "S",
   normal: "M",
   wide: "L",

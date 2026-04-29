@@ -1,6 +1,5 @@
 import { BookOpen, ArrowLeft, ListOrdered, TrendingDown, Eye } from "lucide-react";
 import { Card } from "@/lib/spaced-repetition";
-import { LearnMode } from "@/lib/storage";
 import { motion } from "framer-motion";
 import SessionFilters from "@/components/SessionFilters";
 import { Button } from "@/components/ui/button";
@@ -10,7 +9,6 @@ import type { CategoryRecord } from "@/lib/db";
 interface Props {
   cards: Card[];
   sortedCardsCount: number;
-  learnMode: LearnMode;
   categories: string[];
   categoryRecords: CategoryRecord[];
   subcategories: Record<string, string[]>;
@@ -28,7 +26,7 @@ interface Props {
   onFilterTypeChange: (t: "all" | "essay" | "flash") => void;
   onSortModeChange: (s: SortMode) => void;
   onStart: () => void;
-  onBackToMode: () => void;
+  onBack: () => void;
 }
 
 const SORT_OPTIONS = [
@@ -37,27 +35,21 @@ const SORT_OPTIONS = [
   { key: "leastRead" as const, label: "Najmanje čitana", desc: "Nepročitana prvo", icon: Eye },
 ];
 
-const MODE_LABELS: Record<LearnMode, string> = {
-  "free": "Slobodno učenje",
-  "active-recall": "Aktivno prisjećanje",
-  "chain": "Metod lanca",
-};
-
 export default function FilterSetup({
-  cards, sortedCardsCount, learnMode, categories, categoryRecords, subcategories,
+  cards, sortedCardsCount, categories, categoryRecords, subcategories,
   selectedCategory, selectedSubcategory, selectedChapter,
   filterExamFrequent, examFrequentCount, filterType, sortMode,
   onSelectCategory, onSelectSubcategory, onSelectChapter,
   onToggleExamFrequent, onFilterTypeChange, onSortModeChange,
-  onStart, onBackToMode,
+  onStart, onBack,
 }: Props) {
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="max-w-3xl mx-auto space-y-8 py-10">
       <div>
-        <button onClick={onBackToMode} className="text-muted-foreground hover:text-foreground flex items-center gap-1 mb-6">
-          <ArrowLeft className="h-4 w-4" /> Nazad na režime
+        <button onClick={onBack} className="text-muted-foreground hover:text-foreground flex items-center gap-1 mb-6">
+          <ArrowLeft className="h-4 w-4" /> Nazad
         </button>
-        <h2 className="imperial-title">{MODE_LABELS[learnMode]}</h2>
+        <h2 className="imperial-title">Aktivno prisjećanje</h2>
         <p className="text-muted-foreground mt-1">{sortedCardsCount} pitanja dostupno.</p>
       </div>
 

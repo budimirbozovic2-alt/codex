@@ -45,7 +45,6 @@ export default function DashboardPage() {
               <div className="space-y-1 mt-1.5">
                 <div className="flex items-center justify-between"><span>Novo pitanje</span><kbd className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-secondary text-secondary-foreground border">N</kbd></div>
                 <div className="flex items-center justify-between"><span>Konsolidacija</span><kbd className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-secondary text-secondary-foreground border">R</kbd></div>
-                <div className="flex items-center justify-between"><span>Učenje</span><kbd className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-secondary text-secondary-foreground border">L</kbd></div>
               </div>
             </InfoPanel>
             <button
