@@ -406,6 +406,7 @@ export default function ZettelkastenView() {
                   markdown={displayContent}
                   onWikiLink={handleWikiLink}
                   existingTitles={existingTitleSet}
+                  emptyTitles={emptyTitleSet}
                   linkedSources={linkedSourceObjs}
                   onSourceClick={(sid) => setReadingSourceId(sid)}
                   categoryId={categoryId!}
