@@ -1,7 +1,7 @@
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { useEffect, useMemo, useState } from "react";
 import {
-  ArrowLeft, Layers, BookOpen, Network, Settings, Search, X, Pencil,
+  ArrowLeft, Layers, BookOpen, Network, Settings, Search, X, Pencil, LayoutList,
 } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
@@ -48,7 +48,9 @@ export default function SubjectCardsView() {
     );
   }, [category?.subcategories]);
 
-  const [tab, setTab] = useState("manage");
+  const [tab, setTab] = useState<"manage" | "read">("manage");
+  /** Sub-mode within "manage" tab: list editor vs structural arrangement. */
+  const [manageMode, setManageMode] = useState<"edit" | "structure">("edit");
   const [structureOpen, setStructureOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [sourceFilter, setSourceFilter] = useState<string>("__all__");
