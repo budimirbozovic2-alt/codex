@@ -189,7 +189,7 @@ export default function SubjectCardsView() {
           <TabsList className="w-full justify-start overflow-x-auto flex-nowrap h-auto p-1">
             <TabsTrigger value="manage" className="gap-1.5">
               <Pencil className="h-4 w-4" />
-              <span>Upravljanje karticama</span>
+              <span>Uređivanje i raspored kartica</span>
               <Badge variant="secondary" className="text-[10px] h-5 px-1.5">{cards.length}</Badge>
             </TabsTrigger>
           </TabsList>
