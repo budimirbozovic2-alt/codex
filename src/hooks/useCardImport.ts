@@ -91,20 +91,19 @@ export function useCardImport({
           for (const key of Object.keys(nextMap)) delete nextMap[key];
           importedCards.forEach((ic) => { nextMap[ic.id] = ic; merged.push(ic); });
           // E1: atomic overwrite — cards + categories in single transaction
-          const dbOverwrite = db;
-          await dbOverwrite.transaction("rw", [dbOverwrite.cards, dbOverwrite.categories], async () => {
+          await db.transaction("rw", [db.cards, db.categories], async () => {
             // Clear orphan cards
-            const allCardKeys = await dbOverwrite.cards.toCollection().primaryKeys();
+            const allCardKeys = await db.cards.toCollection().primaryKeys();
             const importedIdSet = new Set(importedCards.map(c => c.id));
             const orphanKeys = allCardKeys.filter(k => !importedIdSet.has(k as string));
-            if (orphanKeys.length > 0) await dbOverwrite.cards.bulkDelete(orphanKeys);
+            if (orphanKeys.length > 0) await db.cards.bulkDelete(orphanKeys);
             // Categories overwrite (if present)
             if (Array.isArray(data.categories) && (data.categories as unknown[]).length > 0) {
               const firstCat = (data.categories as unknown[])[0];
               const isRecord = typeof firstCat === 'object' && firstCat !== null && 'id' in firstCat;
               if (isRecord) {
-                await dbOverwrite.categories.clear();
-                await dbOverwrite.categories.bulkPut(data.categories as CategoryRecord[]);
+                await db.categories.clear();
+                await db.categories.bulkPut(data.categories as CategoryRecord[]);
               }
             }
           });
@@ -117,7 +116,6 @@ export function useCardImport({
           const isRecordFormat = typeof firstCat === 'object' && firstCat !== null && 'id' in firstCat;
 
           if (isRecordFormat) {
-            const dbCat = db;
             const catRecords = data.categories as CategoryRecord[];
             if (strategy === "overwrite") {
               // Already handled in transaction above — just reload
@@ -164,7 +162,7 @@ export function useCardImport({
               }
 
               if (filteredCatRecords.length > 0) {
-                await dbCat.categories.bulkPut(filteredCatRecords);
+                await db.categories.bulkPut(filteredCatRecords);
               }
             }
             const freshRecords = await idbLoadCategories();
@@ -182,15 +180,13 @@ export function useCardImport({
               }
             }
             if (strategy === "overwrite") {
-              const dbCat = db;
-              const allRecs = legacyNames.map((name, i) => ({ id: crypto.randomUUID(), name, sortOrder: i, subcategories: [] as any[] }));
-              await dbCat.categories.clear();
-              await dbCat.categories.bulkPut(allRecs);
+                const allRecs = legacyNames.map((name, i) => ({ id: crypto.randomUUID(), name, sortOrder: i, subcategories: [] as any[] }));
+              await db.categories.clear();
+              await db.categories.bulkPut(allRecs);
               setCategoryRecords(allRecs);
             } else if (newRecs.length > 0) {
-              const dbCat = db; const reload = idbLoadCategories;
-              await dbCat.categories.bulkPut(newRecs);
-              setCategoryRecords(await reload());
+              await db.categories.bulkPut(newRecs);
+              setCategoryRecords(await idbLoadCategories());
             }
           }
         }
@@ -232,10 +228,9 @@ export function useCardImport({
 
         if (Array.isArray(data.reviewLog) && strategy === "overwrite") {
           setReviewLog(data.reviewLog as ReviewLogEntry[]);
-          const dbReview = db;
-          await dbReview.reviewLog.clear();
+          await db.reviewLog.clear();
           if ((data.reviewLog as unknown[]).length > 0) {
-            await dbReview.reviewLog.bulkAdd(data.reviewLog as ReviewLogEntry[]);
+            await db.reviewLog.bulkAdd(data.reviewLog as ReviewLogEntry[]);
           }
         }
         if (data.srSettings && strategy === "overwrite") {
@@ -302,8 +297,7 @@ export function useCardImport({
         const hasExtraTables = idbTables.some((t) => Array.isArray(data[t.key]) && (data[t.key] as unknown[]).length > 0);
         const needsClear = strategy === "overwrite" && idbTables.some((t) => Array.isArray(data[t.key]));
         if (hasExtraTables || needsClear) {
-          const dbInst = db;
-          const dbRecord = dbInst as unknown as Record<string, { bulkPut: (items: unknown[]) => Promise<void>; bulkAdd: (items: unknown[]) => Promise<void>; clear: () => Promise<void>; toCollection: () => { primaryKeys: () => Promise<unknown[]> }; bulkDelete: (keys: unknown[]) => Promise<void> }>;
+          const dbRecord = db as unknown as Record<string, { bulkPut: (items: unknown[]) => Promise<void>; bulkAdd: (items: unknown[]) => Promise<void>; clear: () => Promise<void>; toCollection: () => { primaryKeys: () => Promise<unknown[]> }; bulkDelete: (keys: unknown[]) => Promise<void> }>;
           for (const { key, table } of idbTables) {
             const arr = data[key];
             if (!Array.isArray(arr)) continue;
