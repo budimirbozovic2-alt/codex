@@ -39,7 +39,7 @@ export default function AppSidebar() {
           <SidebarGroupContent>
             <nav aria-label="Glavna navigacija">
             <SidebarMenu>
-              {STATIC_NAV.map(({ path, icon: Icon, label, badge }) => (
+              {STATIC_NAV.map(({ path, icon: Icon, label }) => (
                 <SidebarMenuItem key={path}>
                   <SidebarMenuButton asChild tooltip={label}>
                     <NavLink
@@ -50,11 +50,6 @@ export default function AppSidebar() {
                     >
                       <Icon className="h-4 w-4 shrink-0" />
                       {!collapsed && <span className="truncate">{label}</span>}
-                      {!collapsed && badge && stats.due > 0 && (
-                        <Badge variant="destructive" className="ml-auto text-[9px] h-4 min-w-[16px] px-1">
-                          {stats.due}
-                        </Badge>
-                      )}
                     </NavLink>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
