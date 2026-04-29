@@ -70,9 +70,10 @@ export function useSourceReaderActions(source: Source, onSourceUpdated?: (source
 
   // ─── Essay / Split ───
   const handleConvertToEssay = useCallback(() => {
-    const { selection, setSelection, setSplitResult, setSplitParentName, setSplitModules, setSplitDone, setSplitCreatedCount, setSplitSummaryOpen, setSelectedText, setEssayQuestion, setEssayDialogOpen } = useSourceReaderStore.getState();
+    const { selection, setSelection, setSplitResult, setSplitParentName, setSplitModules, setSplitDone, setSplitCreatedCount, setSplitSummaryOpen, setSelectedText, setSelectedHtml, setEssayQuestion, setEssayDialogOpen } = useSourceReaderStore.getState();
     if (!selection) return;
     const text = selection.text;
+    const html = selection.html;
     setSelection(null);
     window.getSelection()?.removeAllRanges();
     const result = splitSelection(text);
@@ -85,16 +86,19 @@ export function useSourceReaderActions(source: Source, onSourceUpdated?: (source
       setSplitSummaryOpen(true);
     } else {
       setSelectedText(text);
+      setSelectedHtml(html);
       setEssayQuestion("");
       setEssayDialogOpen(true);
     }
   }, []);
 
   const handleCreateEssay = useCallback(() => {
-    const { essayQuestion, selectedText, setEssayDialogOpen } = useSourceReaderStore.getState();
+    const { essayQuestion, selectedText, selectedHtml, setEssayDialogOpen } = useSourceReaderStore.getState();
     if (!essayQuestion.trim() || !selectedText) return;
     const anchor = createTextAnchor(selectedText);
-    addCard(essayQuestion.trim(), [{ title: "Odgovor", content: sanitizeHtml(selectedText) }], source.categoryId, undefined, undefined, {
+    // Use HTML for the rendered section (preserves formatting), keep plain for anchor & snippet (matching).
+    const sectionContent = sanitizeHtml(selectedHtml || selectedText);
+    addCard(essayQuestion.trim(), [{ title: "Odgovor", content: sectionContent }], source.categoryId, undefined, undefined, {
       sourceId: source.id, textAnchor: anchor, originalSourceSnippet: selectedText,
     });
     toast.success("Esejsko pitanje kreirano", { description: `Povezano sa izvorom "${source.title}"` });
