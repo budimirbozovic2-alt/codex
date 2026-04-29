@@ -50,7 +50,6 @@ export function useCardImport({
           }
         }
 
-        const { sanitizeHtml } = await import("@/lib/sanitize");
         // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic JSON migration requires flexible typing
         const migrateImported = (c: any): Card => ({
           ...c,
@@ -92,7 +91,7 @@ export function useCardImport({
           for (const key of Object.keys(nextMap)) delete nextMap[key];
           importedCards.forEach((ic) => { nextMap[ic.id] = ic; merged.push(ic); });
           // E1: atomic overwrite — cards + categories in single transaction
-          const { db: dbOverwrite } = await import("@/lib/db");
+          const dbOverwrite = db;
           await dbOverwrite.transaction("rw", [dbOverwrite.cards, dbOverwrite.categories], async () => {
             // Clear orphan cards
             const allCardKeys = await dbOverwrite.cards.toCollection().primaryKeys();
@@ -118,7 +117,7 @@ export function useCardImport({
           const isRecordFormat = typeof firstCat === 'object' && firstCat !== null && 'id' in firstCat;
 
           if (isRecordFormat) {
-            const { db: dbCat, idbLoadCategories } = await import("@/lib/db");
+            const dbCat = db;
             const catRecords = data.categories as CategoryRecord[];
             if (strategy === "overwrite") {
               // Already handled in transaction above — just reload
@@ -172,7 +171,7 @@ export function useCardImport({
             setCategoryRecords(freshRecords);
           } else {
             // Legacy string[] format — create CategoryRecord[] from names
-            const { idbLoadCategories } = await import("@/lib/db");
+            
             const existing = await idbLoadCategories();
             const existingNames = new Set(existing.map(r => r.name));
             const legacyNames = data.categories as string[];
@@ -183,13 +182,13 @@ export function useCardImport({
               }
             }
             if (strategy === "overwrite") {
-              const { db: dbCat } = await import("@/lib/db");
+              const dbCat = db;
               const allRecs = legacyNames.map((name, i) => ({ id: crypto.randomUUID(), name, sortOrder: i, subcategories: [] as any[] }));
               await dbCat.categories.clear();
               await dbCat.categories.bulkPut(allRecs);
               setCategoryRecords(allRecs);
             } else if (newRecs.length > 0) {
-              const { db: dbCat, idbLoadCategories: reload } = await import("@/lib/db");
+              const dbCat = db; const reload = idbLoadCategories;
               await dbCat.categories.bulkPut(newRecs);
               setCategoryRecords(await reload());
             }
@@ -199,10 +198,9 @@ export function useCardImport({
         // ── Resolve legacy string-name taxonomy → UUIDs (prije persist-a) ──
         let legacyResolveReport: { resolvedSubcategory: number; resolvedChapter: number; unresolvedSubcategory: number; unresolvedChapter: number } | null = null;
         try {
-          const { idbLoadCategories } = await import("@/lib/db");
+          
           const freshRecs = await idbLoadCategories();
-          const { resolveLegacyTaxonomyNames } = await import("@/lib/migrations/resolve-legacy-taxonomy");
-          legacyResolveReport = resolveLegacyTaxonomyNames(merged, freshRecs);
+                    legacyResolveReport = resolveLegacyTaxonomyNames(merged, freshRecs);
           // Sinhronizuj nextMap sa potencijalno mutiranim karticama
           for (const c of merged) nextMap[c.id] = c;
         } catch (resolveErr) {
@@ -218,7 +216,7 @@ export function useCardImport({
         const isNewCatFormat = Array.isArray(data.categories) && (data.categories as unknown[]).length > 0 && typeof (data.categories as unknown[])[0] === 'object' && 'id' in ((data.categories as unknown[])[0] as Record<string, unknown>);
         if (data.subcategories && typeof data.subcategories === "object" && !isNewCatFormat) {
           // Legacy subcategories — update categoryRecords nodes
-          const { idbLoadCategories, idbSaveCategories } = await import("@/lib/db");
+          
           const recs = await idbLoadCategories();
           const subData = data.subcategories as Record<string, string[]>;
           const updated = recs.map(r => {
@@ -234,7 +232,7 @@ export function useCardImport({
 
         if (Array.isArray(data.reviewLog) && strategy === "overwrite") {
           setReviewLog(data.reviewLog as ReviewLogEntry[]);
-          const { db: dbReview } = await import("@/lib/db");
+          const dbReview = db;
           await dbReview.reviewLog.clear();
           if ((data.reviewLog as unknown[]).length > 0) {
             await dbReview.reviewLog.bulkAdd(data.reviewLog as ReviewLogEntry[]);
@@ -246,15 +244,14 @@ export function useCardImport({
 
         // Restore sources & mindMaps (v3+) — surgical upsert
         if (Array.isArray(data.sources) || Array.isArray(data.mindMaps)) {
-          const { db } = await import("@/lib/db");
+          
           if (Array.isArray(data.sources) && (data.sources as unknown[]).length > 0) {
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const sanitizedSources = (data.sources as any[]).map((src) => ({
               ...src, htmlContent: sanitizeHtml(src.htmlContent ?? ""),
             }));
             await db.sources.bulkPut(sanitizedSources);
-            const { invalidateSourcesCache } = await import("@/lib/sources-storage");
-            invalidateSourcesCache();
+                        invalidateSourcesCache();
             if (strategy === "overwrite") {
               const importedIds = new Set(sanitizedSources.map((s: { id: string }) => s.id));
               const allKeys = await db.sources.toCollection().primaryKeys();
@@ -305,7 +302,7 @@ export function useCardImport({
         const hasExtraTables = idbTables.some((t) => Array.isArray(data[t.key]) && (data[t.key] as unknown[]).length > 0);
         const needsClear = strategy === "overwrite" && idbTables.some((t) => Array.isArray(data[t.key]));
         if (hasExtraTables || needsClear) {
-          const { db: dbInst } = await import("@/lib/db");
+          const dbInst = db;
           const dbRecord = dbInst as unknown as Record<string, { bulkPut: (items: unknown[]) => Promise<void>; bulkAdd: (items: unknown[]) => Promise<void>; clear: () => Promise<void>; toCollection: () => { primaryKeys: () => Promise<unknown[]> }; bulkDelete: (keys: unknown[]) => Promise<void> }>;
           for (const { key, table } of idbTables) {
             const arr = data[key];
