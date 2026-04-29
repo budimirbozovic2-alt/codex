@@ -26,8 +26,8 @@ export default function LearnPage() {
     const type = params.get("type");
     return {
       mode: "strict-recall",
-      categoryId: params.get("cat"),
-      subcategoryId: params.get("sub"),
+      categoryId: getParam(params, "category"),
+      subcategoryId: getParam(params, "subcategory"),
       type: (type === "essay" || type === "flash") ? type : "all",
       frequencyTag: (freq === "često" || freq === "rijetko" || freq === "nikad") ? freq : "all",
       sortMode: sort === "weakest" ? "weakest" : "order",
