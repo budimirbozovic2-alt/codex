@@ -374,6 +374,12 @@ export function useCardImport({
         }
 
         const extraParts: string[] = [];
+        if (legacyResolveReport) {
+          const okSum = legacyResolveReport.resolvedSubcategory + legacyResolveReport.resolvedChapter;
+          const failSum = legacyResolveReport.unresolvedSubcategory + legacyResolveReport.unresolvedChapter;
+          if (okSum > 0) extraParts.push(`mapirano ${okSum} legacy imena (${legacyResolveReport.resolvedSubcategory} podkat. + ${legacyResolveReport.resolvedChapter} glava)`);
+          if (failSum > 0) extraParts.push(`bez para resetovano ${failSum} (${legacyResolveReport.unresolvedSubcategory} podkat. + ${legacyResolveReport.unresolvedChapter} glava)`);
+        }
         if (Array.isArray(data.sources) && (data.sources as unknown[]).length > 0) extraParts.push(`${(data.sources as unknown[]).length} izvora`);
         if (Array.isArray(data.mindMaps) && (data.mindMaps as unknown[]).length > 0) extraParts.push(`${(data.mindMaps as unknown[]).length} mentalnih mapa`);
         if (Array.isArray(data.diary) && (data.diary as unknown[]).length > 0) extraParts.push(`${(data.diary as unknown[]).length} dnevničkih zapisa`);
