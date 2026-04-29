@@ -399,6 +399,17 @@ export default function ReviewSetup({
         })}
       </div>
 
+      {/* FSRS scope notice for stabilization */}
+      {mode === "stabilization" && (
+        <div className="flex items-start gap-2 px-3 py-2 rounded-md bg-muted/50 border text-xs text-muted-foreground">
+          <Info className="h-3.5 w-3.5 mt-0.5 shrink-0 text-primary" />
+          <span>
+            FSRS bira sekcije po prioritetu zaborava — sub-kategorija i poglavlje se
+            zanemaruju u ovom režimu. Filter po tipu pitanja i „često na ispitu" ostaju aktivni.
+          </span>
+        </div>
+      )}
+
       {/* Filters (collapsible) */}
       <Collapsible open={filtersOpen} onOpenChange={setFiltersOpen}>
         <CollapsibleTrigger className="w-full flex items-center justify-between px-4 py-2.5 rounded-lg border bg-card hover:bg-accent/30 transition-colors text-sm">
