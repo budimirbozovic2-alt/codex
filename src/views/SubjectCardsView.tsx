@@ -82,7 +82,9 @@ export default function SubjectCardsView() {
 
   const [tab, setTab] = useState<"manage" | "read">(initialSnapshot?.tab ?? "manage");
   /** Sub-mode within "manage" tab: list editor vs structural arrangement. */
-  const [manageMode, setManageMode] = useState<"edit" | "structure">(initialSnapshot?.manageMode ?? "edit");
+  const [manageMode, setManageMode] = useState<ManageMode>(
+    isManageMode(initialSnapshot?.manageMode) ? initialSnapshot.manageMode : DEFAULT_MANAGE_MODE
+  );
   const [structureOpen, setStructureOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState(initialSnapshot?.searchQuery ?? "");
   const [sourceFilter, setSourceFilter] = useState<string>(initialSnapshot?.sourceFilter ?? "__all__");
