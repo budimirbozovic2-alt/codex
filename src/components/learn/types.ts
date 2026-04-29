@@ -13,6 +13,3 @@ export const viewWidthClasses: Record<ViewWidth, string> = {
   normal: "max-w-2xl",
   wide: "max-w-4xl",
   full: "max-w-full",
-};
-
-export const vi
