@@ -1,5 +1,7 @@
 import { useMemo } from "react";
 import type { Card } from "@/lib/spaced-repetition";
+import type { CategoryRecord } from "@/lib/db";
+import { buildHierarchyOrder, compareCardsByHierarchy, EMPTY_HIERARCHY_ORDER } from "@/lib/card-ordering";
 
 interface FilterOptions {
   filterCategory: string | null;
@@ -8,10 +10,19 @@ interface FilterOptions {
   filterType?: "all" | "essay" | "flash";
   filterTag?: string | null;
   searchQuery?: string;
+  /**
+   * Category record for hierarchical sort (subcat → chapter → card.sortOrder).
+   * When omitted, falls back to flat sortOrder (legacy behaviour).
+   */
+  categoryRecord?: CategoryRecord | null;
 }
 
 export function useCardListFilters(cards: Card[], opts: FilterOptions) {
-  const { filterCategory, filterSubcategory, filterChapter, filterType = "all", filterTag, searchQuery = "" } = opts;
+  const {
+    filterCategory, filterSubcategory, filterChapter,
+    filterType = "all", filterTag, searchQuery = "",
+    categoryRecord,
+  } = opts;
 
   return useMemo(() => {
     let result = filterCategory ? cards.filter(c => c.categoryId === filterCategory) : cards;
@@ -35,14 +46,12 @@ export function useCardListFilters(cards: Card[], opts: FilterOptions) {
       });
     }
 
-    // Sort by sortOrder if available, then createdAt
-    result = [...result].sort((a, b) => {
-      const aOrder = a.sortOrder ?? Number.MAX_SAFE_INTEGER;
-      const bOrder = b.sortOrder ?? Number.MAX_SAFE_INTEGER;
-      if (aOrder !== bOrder) return aOrder - bOrder;
-      return a.createdAt - b.createdAt;
-    });
+    // Hierarchical sort: subcat.sortOrder → chapter.sortOrder → card.sortOrder.
+    // Without the category record we keep the legacy flat-sortOrder behaviour
+    // so callers that don't pass it don't regress.
+    const order = categoryRecord ? buildHierarchyOrder(categoryRecord) : EMPTY_HIERARCHY_ORDER;
+    result = [...result].sort((a, b) => compareCardsByHierarchy(a, b, order));
 
     return result;
-  }, [cards, filterCategory, filterSubcategory, filterChapter, filterType, filterTag, searchQuery]);
+  }, [cards, filterCategory, filterSubcategory, filterChapter, filterType, filterTag, searchQuery, categoryRecord]);
 }

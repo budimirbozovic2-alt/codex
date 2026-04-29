@@ -115,7 +115,11 @@ export default function CardList({
     return m;
   }, [allCats]);
 
-  const filtered = useCardListFilters(cards, { filterCategory, filterSubcategory, filterChapter, filterType, filterTag, searchQuery });
+  const categoryRecord = useMemo(
+    () => filterCategory ? allCats.find(c => c.id === filterCategory) ?? null : null,
+    [allCats, filterCategory],
+  );
+  const filtered = useCardListFilters(cards, { filterCategory, filterSubcategory, filterChapter, filterType, filterTag, searchQuery, categoryRecord });
 
   const dnd = useCardListDnd({ filtered, onReorder });
 

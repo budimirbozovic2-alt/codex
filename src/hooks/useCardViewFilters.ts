@@ -2,6 +2,7 @@ import { useState, useCallback, useMemo } from "react";
 import { getCardMasteryLevel } from "@/lib/mastery";
 import { type Card } from "@/lib/spaced-repetition";
 import { type CategoryRecord } from "@/lib/db";
+import { buildHierarchyOrder, compareCardsByHierarchy } from "@/lib/card-ordering";
 
 interface UseCardViewFiltersParams {
   cards: Card[];
@@ -67,6 +68,14 @@ export function useCardViewFilters({
   const normalizedQuery = (externalQuery ?? "").trim().toLowerCase();
   const sourceFilter = externalSourceId && externalSourceId !== "__all__" ? externalSourceId : null;
 
+  // Hierarchical sort key: subcat.sortOrder → chapter.sortOrder → card.sortOrder.
+  // Without this, cards from different chapters with card.sortOrder=0 (the
+  // value CardOrgMode resets per-chapter) interleave non-deterministically.
+  const hierarchyOrder = useMemo(
+    () => buildHierarchyOrder(allCategories.find(c => c.id === categoryId) ?? null),
+    [allCategories, categoryId],
+  );
+
   const filteredCards = useMemo(() => {
     const filtered = cards.filter(c => {
       if (masteryFilter !== null && masteryFilter !== undefined && getCardMasteryLevel(c) !== masteryFilter) return false;
@@ -89,17 +98,8 @@ export function useCardViewFilters({
       return true;
     });
 
-    // Prati redoslijed definisan u Strukturi predmeta (CardOrgMode -> sortOrder),
-    // s deterministickim tie-breakerima (createdAt, id).
-    const so = (c: Card) => (typeof c.sortOrder === "number" ? c.sortOrder : Number.MAX_SAFE_INTEGER);
-    return filtered.slice().sort((a, b) => {
-      const d = so(a) - so(b);
-      if (d !== 0) return d;
-      const t = (a.createdAt ?? 0) - (b.createdAt ?? 0);
-      if (t !== 0) return t;
-      return a.id.localeCompare(b.id);
-    });
-  }, [cards, filterSubcategory, filterChapter, filterType, filterTag, masteryFilter, sourceFilter, normalizedQuery]);
+    return filtered.slice().sort((a, b) => compareCardsByHierarchy(a, b, hierarchyOrder));
+  }, [cards, filterSubcategory, filterChapter, filterType, filterTag, masteryFilter, sourceFilter, normalizedQuery, hierarchyOrder]);
 
   const hasActiveFilters =
     filterSubcategory !== "__all__" ||
