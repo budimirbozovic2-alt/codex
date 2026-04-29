@@ -1,6 +1,6 @@
 import { NavLink } from "@/components/NavLink";
 import {
-  Home, Settings as SettingsIcon, RotateCcw,
+  Home, Settings as SettingsIcon,
   BarChart3, BookOpen, Gauge, Zap, Map, Scale, Brain,
 } from "lucide-react";
 import {
@@ -9,11 +9,10 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { Badge } from "@/components/ui/badge";
-import { useCardData, useCategoryData } from "@/contexts/AppContext";
+import { useCategoryData } from "@/contexts/AppContext";
 
 const STATIC_NAV = [
   { path: "/", icon: Home, label: "Početna tabla" },
-  { path: "/review", icon: RotateCcw, label: "Konsolidacija", badge: true },
 ];
 
 const TOOLS_NAV = [
@@ -29,7 +28,6 @@ const TOOLS_NAV = [
 export default function AppSidebar() {
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
-  const { stats } = useCardData();
   const { categoryRecords, categoryStats } = useCategoryData();
 
   return (
@@ -40,7 +38,7 @@ export default function AppSidebar() {
           <SidebarGroupContent>
             <nav aria-label="Glavna navigacija">
             <SidebarMenu>
-              {STATIC_NAV.map(({ path, icon: Icon, label, badge }) => (
+              {STATIC_NAV.map(({ path, icon: Icon, label }) => (
                 <SidebarMenuItem key={path}>
                   <SidebarMenuButton asChild tooltip={label}>
                     <NavLink
@@ -51,11 +49,6 @@ export default function AppSidebar() {
                     >
                       <Icon className="h-4 w-4 shrink-0" />
                       {!collapsed && <span className="truncate">{label}</span>}
-                      {!collapsed && badge && stats.due > 0 && (
-                        <Badge variant="destructive" className="ml-auto text-[9px] h-4 min-w-[16px] px-1">
-                          {stats.due}
-                        </Badge>
-                      )}
                     </NavLink>
                   </SidebarMenuButton>
                 </SidebarMenuItem>

@@ -17,6 +17,10 @@ export default function ReviewPage() {
   const session = useSessionContext();
   const [searchParams] = useSearchParams();
   const lockedCategory = getParam(searchParams, "category");
+  const modeParam = getParam(searchParams, "mode");
+  const autoMode = (modeParam === "critical" || modeParam === "stabilization" || modeParam === "hardest")
+    ? modeParam
+    : undefined;
 
   // When entry came from a Subject Dashboard (?category=UUID), hard-scope
   // the entire dataset before it ever reaches the session — this guarantees

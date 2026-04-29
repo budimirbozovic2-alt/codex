@@ -41,6 +41,12 @@ export interface ReviewSessionProps {
    * Pass through unchanged from `ReviewPage` → `ReviewSession` → `ReviewSetup`.
    */
   lockedCategory?: string | null;
+  /**
+   * When set, skip the ReviewSetup mode picker and start the session
+   * directly in this mode. Used by global dashboard's "Globalna konsolidacija"
+   * shortcut which forces `critical` mode.
+   */
+  autoMode?: Exclude<ReviewMode, null>;
 }
 
 export const REVIEW_ONBOARDING_KEY = "sr-review-onboarding-seen";

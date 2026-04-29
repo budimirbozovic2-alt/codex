@@ -1,10 +1,8 @@
-import { Home, RotateCcw, Moon, Sun, Focus, Settings as SettingsIcon, HelpCircle, Plus, Wrench, FolderOpen } from "lucide-react";
+import { Home, Moon, Sun, Focus, Settings as SettingsIcon, HelpCircle, Plus, Wrench, FolderOpen } from "lucide-react";
 import { useLocation } from "react-router-dom";
 
 import { NavLink } from "@/components/NavLink";
-import { useCardData } from "@/contexts/AppContext";
 import { useState, useCallback, useRef, useEffect, useTransition } from "react";
-import { Badge } from "@/components/ui/badge";
 import { Link } from "react-router-dom";
 import { setDarkMode } from "@/lib/app-settings";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -22,7 +20,6 @@ interface Props {
 
 const PRIMARY_NAV = [
   { path: "/", icon: Home, label: "Dashboard" },
-  { path: "/review", icon: RotateCcw, label: "Konsolidacija", badge: true },
 ];
 
 const TOOLS_NAV = [
@@ -38,7 +35,6 @@ const TOOLS_PATHS = TOOLS_NAV.map(i => i.path);
 
 export default function TopNav({ onToggleZen, zenActive, onOpenOnboarding }: Props) {
   const location = useLocation();
-  const { stats } = useCardData();
   const [dark, setDarkState] = useState(() => document.documentElement.classList.contains("dark"));
   
   const [labOpen, setLabOpen] = useState(false);
@@ -97,7 +93,7 @@ export default function TopNav({ onToggleZen, zenActive, onOpenOnboarding }: Pro
         </div>
 
         <div className="flex items-center gap-0.5 flex-1 min-w-0">
-          {PRIMARY_NAV.map(({ path, icon: Icon, label, badge }) => (
+          {PRIMARY_NAV.map(({ path, icon: Icon, label }) => (
             <NavLink
               key={path}
               to={path}
@@ -107,11 +103,6 @@ export default function TopNav({ onToggleZen, zenActive, onOpenOnboarding }: Pro
             >
               <Icon className="h-4 w-4 flex-shrink-0" />
               <span>{label}</span>
-              {badge && stats.due > 0 && (
-                <Badge variant="destructive" className="ml-0.5 text-[9px] h-4 min-w-[16px] px-1 flex items-center justify-center">
-                  {stats.due}
-                </Badge>
-              )}
             </NavLink>
           ))}
 
