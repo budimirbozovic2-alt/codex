@@ -28,7 +28,6 @@ const TOOLS_NAV = [
 export default function AppSidebar() {
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
-  const { stats } = useCardData();
   const { categoryRecords, categoryStats } = useCategoryData();
 
   return (
