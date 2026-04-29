@@ -40,30 +40,20 @@ export default function ReviewCard({
   const catName = catRecord?.name ?? card.categoryId;
   const subName = catRecord?.subcategories?.find(s => s.id === card.subcategoryId)?.name ?? card.subcategoryId;
   const lastGradeRef = useRef<{ cardId: string; sectionId: string; grade: number } | null>(null);
-  const [answerRevealedAt, setAnswerRevealedAt] = useState<number | null>(null);
-  const [canGradeEasy, setCanGradeEasy] = useState(false);
   const [confidence, setConfidence] = useState<number | null>(null);
   const [snippetOpen, setSnippetOpen] = useState(false);
   const questionShownAt = useRef<number>(Date.now());
   const hasSource = !!card.sourceId && !!card.originalSourceSnippet;
   const SourceSnippetDialog = useMemo(() => hasSource ? lazy(() => import("@/components/SourceSnippetDialog")) : null, [hasSource]);
 
-  // Reset timer when card/section changes or answer is hidden
+  // Reset per-card UI state when card/section changes or answer is hidden
   useEffect(() => {
     if (!showAnswer) {
-      setAnswerRevealedAt(null);
-      setCanGradeEasy(false);
       setConfidence(null);
       questionShownAt.current = Date.now();
     }
   }, [showAnswer, card.id, section.id]);
 
-  // 3-second timer for grade 4
-  useEffect(() => {
-    if (answerRevealedAt === null) return;
-    const timer = setTimeout(() => setCanGradeEasy(true), 3000);
-    return () => clearTimeout(timer);
-  }, [answerRevealedAt]);
 
   const handleRevealAnswer = useCallback(() => {
     const latencyMs = Date.now() - questionShownAt.current;
