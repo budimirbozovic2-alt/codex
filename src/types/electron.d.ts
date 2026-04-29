@@ -15,6 +15,8 @@ interface ElectronAPI {
   onBackupRequested: (callback: () => void) => () => void;
   onQuitBackupRequested: (callback: () => void) => () => void;
   notifyQuitBackupDone: () => void;
+  /** Future-proof channel — preferred over onQuitBackupRequested when available. */
+  onBeforeQuit?: (callback: () => void | Promise<void>) => () => void;
   // Window controls
   windowMinimize: () => void;
   windowMaximize: () => void;
