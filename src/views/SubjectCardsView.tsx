@@ -223,7 +223,7 @@ export default function SubjectCardsView() {
                 aria-pressed={manageMode === "edit"}
               >
                 <LayoutList className="h-3.5 w-3.5" />
-                Uređivanje i dodavanje
+                View — pregled i uređivanje
               </button>
               <button
                 type="button"
