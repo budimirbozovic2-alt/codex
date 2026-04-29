@@ -276,7 +276,7 @@ export default function ZettelkastenView() {
   }, [categoryId, activeArticle, handleOpen]);
 
   const handlePickMindMap = useCallback((mmId: string) => {
-    editorRef.current?.insertText(`\n\n::mindmap[${mmId}]\n\n`);
+    editorRef.current?.insertBlock(`::mindmap[${mmId}]`);
   }, []);
 
   // ── Render ─────────────────────────────────────
