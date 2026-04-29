@@ -193,6 +193,19 @@ export function useCardImport({
           }
         }
 
+        // ── Resolve legacy string-name taxonomy → UUIDs (prije persist-a) ──
+        let legacyResolveReport: { resolvedSubcategory: number; resolvedChapter: number; unresolvedSubcategory: number; unresolvedChapter: number } | null = null;
+        try {
+          const { idbLoadCategories } = await import("@/lib/db");
+          const freshRecs = await idbLoadCategories();
+          const { resolveLegacyTaxonomyNames } = await import("@/lib/migrations/resolve-legacy-taxonomy");
+          legacyResolveReport = resolveLegacyTaxonomyNames(merged, freshRecs);
+          // Sinhronizuj nextMap sa potencijalno mutiranim karticama
+          for (const c of merged) nextMap[c.id] = c;
+        } catch (resolveErr) {
+          console.warn("[useCardImport] legacy taxonomy resolve failed:", resolveErr);
+        }
+
         // ── Persist cards AFTER remap is complete ──
         if (merged.length > 0) schedulePersist({ type: "bulk", cards: merged });
         cardMapRef.current = nextMap;
@@ -361,6 +374,12 @@ export function useCardImport({
         }
 
         const extraParts: string[] = [];
+        if (legacyResolveReport) {
+          const okSum = legacyResolveReport.resolvedSubcategory + legacyResolveReport.resolvedChapter;
+          const failSum = legacyResolveReport.unresolvedSubcategory + legacyResolveReport.unresolvedChapter;
+          if (okSum > 0) extraParts.push(`mapirano ${okSum} legacy imena (${legacyResolveReport.resolvedSubcategory} podkat. + ${legacyResolveReport.resolvedChapter} glava)`);
+          if (failSum > 0) extraParts.push(`bez para resetovano ${failSum} (${legacyResolveReport.unresolvedSubcategory} podkat. + ${legacyResolveReport.unresolvedChapter} glava)`);
+        }
         if (Array.isArray(data.sources) && (data.sources as unknown[]).length > 0) extraParts.push(`${(data.sources as unknown[]).length} izvora`);
         if (Array.isArray(data.mindMaps) && (data.mindMaps as unknown[]).length > 0) extraParts.push(`${(data.mindMaps as unknown[]).length} mentalnih mapa`);
         if (Array.isArray(data.diary) && (data.diary as unknown[]).length > 0) extraParts.push(`${(data.diary as unknown[]).length} dnevničkih zapisa`);
