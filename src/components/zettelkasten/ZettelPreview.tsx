@@ -46,16 +46,16 @@ function renderMarkdown(md: string, existingTitles: Set<string>, emptyTitles: Se
       const empty = exists && emptyTitles.has(low);
       let cls: string;
       if (!exists) {
-        // Missing — amber dotted (will be auto-created by the editor scanner)
-        cls = "text-amber-600 dark:text-amber-400 underline decoration-dotted underline-offset-2 hover:bg-amber-500/10 px-0.5 rounded";
+        cls = "zettel-wikilink text-amber-600 dark:text-amber-400 underline decoration-dotted underline-offset-2 hover:bg-amber-500/10 px-0.5 rounded cursor-pointer";
       } else if (empty) {
-        // Draft placeholder — muted dashed italic
-        cls = "text-muted-foreground italic underline decoration-dashed decoration-muted-foreground/60 underline-offset-2 hover:bg-muted px-0.5 rounded";
+        cls = "zettel-wikilink text-muted-foreground italic underline decoration-dashed decoration-muted-foreground/60 underline-offset-2 hover:bg-muted px-0.5 rounded cursor-pointer";
       } else {
-        // Populated — primary solid (clear clickable link)
-        cls = "text-primary underline decoration-solid underline-offset-2 hover:bg-primary/10 px-0.5 rounded";
+        cls = "zettel-wikilink text-primary underline decoration-solid underline-offset-2 hover:bg-primary/10 px-0.5 rounded cursor-pointer";
       }
-      return `<button type="button" data-wiki="${escapeHtml(title)}" class="${cls}">${escapeHtml(title)}</button>`;
+      // Use <a> + id (allowed by global sanitizer) instead of <button> + data-* (stripped).
+      // Title is base64-encoded (UTF-8 safe) into the id so it survives sanitization.
+      const encoded = `wl-${btoa(unescape(encodeURIComponent(title))).replace(/=+$/, "")}`;
+      return `<a id="${encoded}" class="${cls}">${escapeHtml(title)}</a>`;
     });
     s = s.replace(/`([^`]+)`/g, '<code class="px-1 py-0.5 rounded bg-muted text-[0.9em]">$1</code>');
     s = s.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
