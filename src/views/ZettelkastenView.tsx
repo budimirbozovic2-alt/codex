@@ -88,6 +88,15 @@ export default function ZettelkastenView() {
     [articles],
   );
 
+  const emptyTitleSet = useMemo(
+    () => new Set(
+      articles
+        .filter(a => a.content.trim().length === 0)
+        .map(a => a.title.trim().toLowerCase()),
+    ),
+    [articles],
+  );
+
   const articleCountByRoot = useMemo(() => {
     const map = new Map<string, number>();
     for (const a of articles) {
