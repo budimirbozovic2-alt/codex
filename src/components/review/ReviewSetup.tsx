@@ -286,7 +286,16 @@ export default function ReviewSetup({
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="max-w-3xl mx-auto space-y-8 py-10">
       <div>
-        <button onClick={() => { setSetupStep("mode"); setMode(null); setSelectedCategory(null); setSelectedSubcategory(null); setSelectedChapter(null); setFilterExamFrequent(false); }} className="text-muted-foreground hover:text-foreground flex items-center gap-1 mb-6">
+        <button onClick={() => {
+          setSetupStep("mode");
+          setMode(null);
+          // Preserve the locked subject scope when navigating back to modes;
+          // only clear sub-filters that exist *within* the locked subject.
+          if (!lockedCategory) setSelectedCategory(null);
+          setSelectedSubcategory(null);
+          setSelectedChapter(null);
+          setFilterExamFrequent(false);
+        }} className="text-muted-foreground hover:text-foreground flex items-center gap-1 mb-6">
           <ArrowLeft className="h-4 w-4" /> Nazad na režime
         </button>
         <h2 className="imperial-title">{modeMeta.label}</h2>
@@ -305,7 +314,14 @@ export default function ReviewSetup({
         filterExamFrequent={filterExamFrequent}
         examFrequentCount={examFrequentCount}
         filterType={filterType}
-        onSelectCategory={(cat) => { setSelectedCategory(cat); setSelectedSubcategory(null); setSelectedChapter(null); }}
+        lockedCategory={lockedCategory}
+        onSelectCategory={(cat) => {
+          // Reject scope-broadening attempts when locked.
+          if (lockedCategory) return;
+          setSelectedCategory(cat);
+          setSelectedSubcategory(null);
+          setSelectedChapter(null);
+        }}
         onSelectSubcategory={(sub) => { setSelectedSubcategory(sub); setSelectedChapter(null); }}
         onSelectChapter={setSelectedChapter}
         onToggleExamFrequent={() => setFilterExamFrequent(!filterExamFrequent)}
