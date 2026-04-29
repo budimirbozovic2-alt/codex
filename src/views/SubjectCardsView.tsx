@@ -17,10 +17,17 @@ import CardViewMode from "@/components/category/CardViewMode";
 import CardOrgMode from "@/components/category/CardOrgMode";
 import StructureManagerDialog from "@/components/category/StructureManagerDialog";
 import PassiveReader from "@/components/subject-cards/PassiveReader";
+import {
+  MANAGE_MODES,
+  MANAGE_MODE,
+  DEFAULT_MANAGE_MODE,
+  isManageMode,
+  type ManageMode,
+} from "@/views/subject-cards/manageModes";
 
 interface EditReturnSnapshot {
   tab?: "manage" | "read";
-  manageMode?: "edit" | "structure";
+  manageMode?: ManageMode;
   searchQuery?: string;
   sourceFilter?: string;
   scrollY?: number;
