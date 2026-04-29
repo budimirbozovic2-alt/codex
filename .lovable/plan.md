@@ -1,93 +1,86 @@
-## Kontekst i ograničenja
+## Problem
 
-Projekat **drži sve kartice u memoriji** (`cardMap` SSOT u `AppContext`, per memory rule "No useLiveQuery in primary views"). Zato Dexie indeksi **ne ubrzavaju** filtere u render path-u — oni operišu nad već-učitanim `cards: Card[]` array-em. Ono što novi v15 indeksi (`chapterId`, `[categoryId+chapterId]`, `[subcategoryId+chapterId]`) **stvarno mogu** da ubrzaju:
+Kada se otvori "Aktivno učenje" (posebno preko strict-recall linka iz Dashboarda/Risk widgeta), `readCount` jedne kartice raste u beskraj — hiljade puta i nastavlja rasti svake sekunde. Identifikovan je tačan uzrok: feedback petlja između `SessionContext` → `LearnPage.handleMarkRead` → `StudyModeRecall` useEffect.
 
-- Bootstrap fetch (jednom po boot-u, već optimalan jer ide `toArray()`).
-- One-shot operacije: HealthMonitor, AutoSplit verifikacija, Source unlinking, mass-delete na brisanje kategorije.
+### Lanac petlje (potvrđen čitanjem koda)
 
-Ali **najveći win za render-time u preview-u** dolazi od **JS-side optimizacija nad in-memory `cards` array-om** koje preslikavaju logiku indeksa: izbjegavanje O(N) `.filter()` lanaca tako što napravimo **memoizovane bucket mape** (`Map<categoryId, Card[]>`, `Map<subcategoryId, Card[]>`, `Map<chapterId, Card[]>`) jednom po promjeni `cards`, pa svako sub-stablo (Subject Dashboard, useSourceHierarchy, ReviewSetup, useCardViewFilters) čita iz njih u O(1) lookup + O(K) iteracije gdje je K = veličina bucket-a, ne ukupan broj kartica.
+1. `src/contexts/SessionContext.tsx` (l. 135–145): `value` se memoizuje, ali u dependency listi je `queueSize`. Svaki `queueMarkRead` poziva `setQueueSize(prev+1)` → nova `value` referenca → svi konzumenti `useSessionContext()` re-renderuju.
+2. `src/views/LearnPage.tsx` (l. 42–45): `handleMarkRead = useCallback(..., [session, markRead])` — pošto `session` mijenja identitet na svaki queue, `handleMarkRead` postaje nova funkcija nakon svakog poziva.
+3. `src/components/learn/StudyModeRecall.tsx` (l. 52–57):
+   ```ts
+   useEffect(() => {
+     setArPhase(strictRecall ? "drill" : "preview");
+     setDrillIndex(0);
+     setDrillRevealed(false);
+     if (strictRecall) onMarkRead(card.id);
+   }, [card.id, strictRecall, onMarkRead]);
+   ```
+   `onMarkRead` u dep listi — kako se mijenja na svaki tik, efekat se ponovo izvršava → `onMarkRead(card.id)` → `queueMarkRead` + `markRead` (incrementuje `readCount` i pravi novu `cards` referencu) → ponovo render → nova `handleMarkRead` → efekat opet → ∞.
 
-## Hot path audit (mjereno mjesto u render-u)
+Rezultat: `readCount` raste neograničeno, `queueSize` raste neograničeno, IndexedDB persist queue se nadima, UI postaje sve sporiji.
 
-| Mjesto | Trenutno | Problem |
-|---|---|---|
-| `SubjectDashboard.subProgressData` | `cards.filter(c=>c.categoryId===id)` zatim **po subcategory pa po chapter** ugnježđeni filteri | O(N × S × C) prolaza nad globalnim `cards` |
-| `useSourceHierarchy` | jedan prolaz, već OK (gradi `bySub`/`chapMap`) | OK, ali ponavlja se za svaku subject view promjenu |
-| `useCardViewFilters` | O(N) filter po categoryId + subcategoryId + chapterId | može iz pre-bucket-a |
-| `useCardListFilters` | O(N) filter, isto | isto |
-| `ReviewSetup` (`filteredDueCards`, `filteredAllCards`) | dva odvojena O(N) filter lanca | može iz pre-bucket-a |
-| `SubjectCardsView/PassiveReader` | O(N) filter | isto |
-| `LearnSession` setup | O(N) filter | isto |
+## Rješenje
 
-**Render benefit u preview-u**: za korisnika sa 9 predmeta × ~500 kartica/predmet = 4500 ukupno, prelazak sa "linearno skeniraj 4500 svaki put kad otvoriš dashboard" na "uzmi 500 iz bucket-a po `categoryId`" je 9× speedup na svaki re-render. SubjectDashboard `subProgressData` koji unutra radi 3 ugniježđena `.filter`-a — trenutno O(N × subs × chaps), nakon — O(K_cat) za jedan bucket lookup pa O(K_sub) lokalno.
+Dvije male, ciljane izmjene koje uklanjaju petlju bez promjene ponašanja:
 
-## Planirane izmjene
-
-### 1. Novi util: `src/lib/card-buckets.ts`
-
-Memoizable indeks-strukture nad `Card[]`. Čista funkcija (ne hook), pa može da se reuse-uje i u `useMemo` i u worker-ima/migracijama.
+### 1. `src/components/learn/StudyModeRecall.tsx`
+Razdvojiti efekat reset-stanja od markRead poziva, i pozvati markRead samo jednom po kartici preko `useRef` čuvara:
 
 ```ts
-export interface CardBuckets {
-  byCategory: Map<string, Card[]>;
-  bySubcategory: Map<string, Card[]>;
-  byChapter: Map<string, Card[]>;
-  byCategoryChapter: Map<string, Card[]>;     // key = `${catId}::${chapId}`
-  bySubcategoryChapter: Map<string, Card[]>;  // key = `${subId}::${chapId}`
-}
-export function buildCardBuckets(cards: Card[]): CardBuckets;
-export const compositeKey = (a: string, b: string) => `${a}::${b}`;
+// Reset state when card changes
+useEffect(() => {
+  setArPhase(strictRecall ? "drill" : "preview");
+  setDrillIndex(0);
+  setDrillRevealed(false);
+}, [card.id, strictRecall]);
+
+// Strict-recall: mark read EXACTLY ONCE per card
+const markedRef = useRef<string | null>(null);
+useEffect(() => {
+  if (!strictRecall) return;
+  if (markedRef.current === card.id) return;
+  markedRef.current = card.id;
+  onMarkRead(card.id);
+  // namjerno bez onMarkRead u depu — guard ref garantuje single-fire
+}, [card.id, strictRecall]); // eslint-disable-line react-hooks/exhaustive-deps
 ```
 
-Single pass O(N) gradnja. Zamjenjuje N×N (filter + nested filter) sa N + lookups.
+### 2. `src/views/LearnPage.tsx`
+Stabilizovati `handleMarkRead` (i `handleReviewSection`) tako da im identitet ne ovisi o nestabilnoj `session` referenci. Koristimo `useRef` na trenutnu sesiju:
 
-### 2. AppContext — izloži pre-bucketed view kroz selektor hook
+```ts
+const sessionRef = useRef(session);
+useEffect(() => { sessionRef.current = session; }, [session]);
 
-Dodati u `useCardData()` (ili novi `useCardBuckets()`) memoizovan rezultat `buildCardBuckets(cards)`. Recompute samo kad se `cards` reference mijenja (već je Ref-Delta pa je promjena retka).
+const handleMarkRead = useCallback((id: string) => {
+  if (sessionRef.current.isSessionActive) sessionRef.current.queueMarkRead(id);
+  markRead(id);
+}, [markRead]);
 
-### 3. Refactor pozivnih mjesta (najveći payoff prvo)
+const handleReviewSection = useCallback((cardId: string, sectionId: string, grade: number) => {
+  if (sessionRef.current.isSessionActive) sessionRef.current.queueReview(cardId, sectionId, grade);
+  reviewSection(cardId, sectionId, grade);
+}, [reviewSection]);
+```
 
-- **`SubjectDashboard.subProgressData`** — koristiti `buckets.byCategory.get(categoryId) ?? []` umjesto `cards.filter(...)`, pa unutar petlje subcategorija `buckets.bySubcategory.get(sub.id) ?? []` i `buckets.byChapter.get(ch.id) ?? []` (uz dodatni `categoryId` provjeru za kolizije UUID-a, mada UUID-ovi su unique).
-- **`useSourceHierarchy`** — `cards.filter(c=>c.categoryId===category)` → `buckets.byCategory.get(category) ?? []`.
-- **`useCardViewFilters` / `useCardListFilters`** — startuj od najužeg dostupnog bucket-a (chapter > subcategory > category > all), pa primijeni preostale filtere (type, freq, search) tek nad tim manjim setom.
-- **`ReviewSetup.filteredDueCards/AllCards`** — isto, kreni od najužeg bucket-a.
-- **`PassiveReader`, `LearnSession`** — isto.
+Ovo i samostalno raskida petlju, ali fix #1 je primarni — guard ref u `StudyModeRecall` čini sistem otpornim i na buduće slične regresije.
 
-### 4. (Sitno čišćenje) `db-queries.ts`
+### 3. (Opciono, low risk) Zaštita u `useCardAnnotations.markRead`
+Dodati throttle sigurnosnu mrežu — npr. ignorisati uzastopne pozive za isti `cardId` u prozoru od 250 ms. Ovo je defenzivno; nije nužno ako se primijene #1 i #2, ali sprječava buduće regresije iz drugih konzumenata. Predlažem da ga **preskočimo** u prvom prolazu da ne maskiramo prave bug-ove.
 
-`idbCountCardsByCategory`, `idbCountByType`, `idbCountAllCards` su **dead code** (nigdje se ne pozivaju). Ako ih ostavimo, idu na novi `[categoryId+...]` indeks gdje je primjenjivo. Predlažem: **ostaviti** kao dokumentovan public API za buduće non-bootstrap query-je (npr. badge counter koji ne traži cijelu listu) — bez promjena.
+## Šta NE mijenjamo
 
-### 5. (Out of scope) Direktna IDB optimizacija
-
-Ne mijenjamo `db.cards.toArray()` u bootstrap-u na `where(...).toArray()` jer bootstrap već učitava sve kartice u memoriju (to je SSOT model). Indeksi tu **niti pomažu niti smetaju**. Postojeći v15 indeksi su tu za eventualne buduće on-demand IDB query-je (npr. statistike po chapter-u bez učitavanja svega).
-
-## Tehnički detalji
-
-- **Memoizacija**: `buildCardBuckets` se zove kroz `useMemo([cards])` u kontekstu — jedan trošak po cards-update batch-u, koristi ga N konzumenata.
-- **Mutation safety**: vraćamo nove `Map` instance na svaki rebuild (referencijska jednakost = OK signal za React memo). Ne mutiramo postojeće.
-- **Tail handling**: kartice bez `subcategoryId`/`chapterId` ne završavaju u tim bucket-ima — pozivna mjesta već znaju da rade fallback (npr. `__ostalo__` u `useSourceHierarchy`); zadržavamo isti contract.
-- **Composite key**: koristimo string `"${a}::${b}"` umjesto nested Map-a — jednostavnije i brže za V8 string-keyed Map.
-- **Memory cost**: 5 dodatnih Map-a × po N pointer-a = ~40 bajtova × 4500 × 5 ≈ 1 MB heap-a za realne baze. Trivijalno u odnosu na 200+ MB koji TipTap+ReactFlow drže.
+- `SessionContext` ostaje kakav jeste (queueSize mora trigerovati re-render za UI badge "X u queue").
+- `StudyModeFree` već zove `markRead` samo iz korisničkog handlera (l. 54–56), nije zahvaćen.
+- Logika strict-recall flow-a (drill, gradiranje) ostaje identična.
 
 ## Fajlovi
 
-**Novi**:
-- `src/lib/card-buckets.ts` — bucket builder + composite key helper
-- `src/test/card-buckets.test.ts` — unit test (svaki bucket, edge case missing IDs)
+- `src/components/learn/StudyModeRecall.tsx` — razdvojiti efekat + uvesti `markedRef` guard
+- `src/views/LearnPage.tsx` — stabilizovati `handleMarkRead` i `handleReviewSection` preko `sessionRef`
 
-**Izmjene** (samo lookup paths, bez ponašajnih promjena):
-- `src/contexts/AppContext.tsx` (ili `src/hooks/useCards.ts`) — dodati memoizovan `buckets` u `useCardData` return
-- `src/views/SubjectDashboard.tsx` — refactor `subProgressData`
-- `src/hooks/useSourceHierarchy.ts` — koristiti bucket
-- `src/hooks/useCardViewFilters.ts`
-- `src/hooks/useCardListFilters.ts`
-- `src/components/review/ReviewSetup.tsx` — `filteredDueCards`, `filteredAllCards`
-- `src/components/subject-cards/PassiveReader.tsx`
-- `src/components/LearnSession.tsx`
+## Verifikacija nakon implementacije
 
-## Out of scope (eksplicitno)
-
-- Konvertovanje SSOT-a sa in-memory na `useLiveQuery` — kršilo bi Core memory rule.
-- Refactor `HealthMonitor` (radi puni dijagnostički prolaz; tu je full scan namjeran).
-- Refactor migracija (`heal-card-taxonomy`, `remap-from-backup`) — one-shot operacije, ne render path.
-- Bilo kakva izmjena `db-schema.ts` (već je v15 sa indeksima; ovo je čisto JS-side optimizacija koja preslikava istu hierarhiju koju indeksi predstavljaju u IDB-u).
+1. Otvoriti Risk widget → Strict-recall za jednu karticu → otvoriti DevTools → provjeriti da `readCount` u IndexedDB poraste tačno za 1 kada se uđe u karticu i da ne raste dok se ne pređe na sljedeću.
+2. Pratiti `queueSize` u session badge-u — raste samo na stvarne korisničke akcije.
+3. Provjeriti da Free i Chain modovi i dalje rade normalno (oni ne zavise od strict-recall granu).

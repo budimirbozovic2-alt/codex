@@ -18,6 +18,12 @@ export default function LearnPage() {
   const session = useSessionContext();
   const location = useLocation();
 
+  // Stable ref to session — its value identity changes on every queueSize update,
+  // which previously caused handleMarkRead/handleReviewSection to be re-created
+  // on every queue tick and triggered an infinite markRead loop in StudyModeRecall.
+  const sessionRef = useRef(session);
+  useEffect(() => { sessionRef.current = session; }, [session]);
+
   const initialFilters = useMemo<InitialFilters | undefined>(() => {
     const params = new URLSearchParams(location.search);
     if (params.get("mode") !== "strict-recall") return undefined;
@@ -40,14 +46,16 @@ export default function LearnPage() {
   }, [ready]);
 
   const handleMarkRead = useCallback((id: string) => {
-    if (session.isSessionActive) session.queueMarkRead(id);
+    const s = sessionRef.current;
+    if (s.isSessionActive) s.queueMarkRead(id);
     markRead(id);
-  }, [session, markRead]);
+  }, [markRead]);
 
   const handleReviewSection = useCallback((cardId: string, sectionId: string, grade: number) => {
-    if (session.isSessionActive) session.queueReview(cardId, sectionId, grade);
+    const s = sessionRef.current;
+    if (s.isSessionActive) s.queueReview(cardId, sectionId, grade);
     reviewSection(cardId, sectionId, grade);
-  }, [session, reviewSection]);
+  }, [reviewSection]);
 
   const handleBack = useCallback(() => {
     if (session.isSessionActive) {

@@ -53,8 +53,20 @@ export default function StudyModeRecall({
     setArPhase(strictRecall ? "drill" : "preview");
     setDrillIndex(0);
     setDrillRevealed(false);
-    if (strictRecall) onMarkRead(card.id);
-  }, [card.id, strictRecall, onMarkRead]);
+  }, [card.id, strictRecall]);
+
+  // Strict-recall: mark read EXACTLY ONCE per card.
+  // Guard ref + omitted onMarkRead dep prevents feedback loop:
+  // onMarkRead identity churns when SessionContext queueSize updates,
+  // which would otherwise re-fire this effect and inflate readCount indefinitely.
+  const markedRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!strictRecall) return;
+    if (markedRef.current === card.id) return;
+    markedRef.current = card.id;
+    onMarkRead(card.id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [card.id, strictRecall]);
 
   const handleArGrade = useCallback((grade: number) => {
     const section = sections[drillIndex];
