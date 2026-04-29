@@ -42,10 +42,16 @@ export function useSourceReaderActions(source: Source, onSourceUpdated?: (source
       const range = sel.getRangeAt(0);
       const container = contentRef.current || document.querySelector("[data-coverage-container]");
       if (!container || !container.contains(range.commonAncestorContainer)) return;
+      // Extract HTML preserving formatting (bold, italic, lists, headings, paragraphs)
+      const fragment = range.cloneContents();
+      const wrapper = document.createElement("div");
+      wrapper.appendChild(fragment);
+      const html = wrapper.innerHTML;
       const rect = range.getBoundingClientRect();
       const containerRect = container.getBoundingClientRect();
       useSourceReaderStore.getState().setSelection({
         text,
+        html,
         x: rect.left + rect.width / 2 - containerRect.left,
         y: rect.top - containerRect.top - 8,
       });
