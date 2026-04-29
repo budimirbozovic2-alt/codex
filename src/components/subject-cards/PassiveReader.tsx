@@ -114,11 +114,12 @@ export default function PassiveReader({ cards, subcategoryNodes, categoryId, onE
     let list = cards.slice();
     if (subFilter !== "all") list = list.filter(c => c.subcategoryId === subFilter);
     if (chapterFilter !== "all") list = list.filter(c => c.chapterId === chapterFilter);
+    if (typeFilter !== "all") list = list.filter(c => c.type === typeFilter);
     return list.sort((a, b) => (a.createdAt ?? 0) - (b.createdAt ?? 0));
-  }, [cards, subFilter, chapterFilter]);
+  }, [cards, subFilter, chapterFilter, typeFilter]);
 
   // Reset index when filters change
-  useEffect(() => { setIndex(0); }, [subFilter, chapterFilter]);
+  useEffect(() => { setIndex(0); }, [subFilter, chapterFilter, typeFilter]);
   // Clamp index if list shrinks
   useEffect(() => {
     if (index > 0 && index >= filtered.length) setIndex(Math.max(0, filtered.length - 1));
