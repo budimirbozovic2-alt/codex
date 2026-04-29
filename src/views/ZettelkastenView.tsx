@@ -301,10 +301,9 @@ export default function ZettelkastenView() {
     const readingSource = readingSourceId ? sources.find(s => s.id === readingSourceId) ?? null : null;
     const displayTitle = isEditing && draft ? draft.title : activeArticle.title;
     const displayContent = isEditing && draft ? draft.content : activeArticle.content;
-    const showSidePanel = Boolean(readingSource);
 
     return (
-      <div className="flex flex-col h-[calc(100vh-3rem)] gap-3 p-4">
+      <div className="flex flex-col h-[calc(100vh-3rem)] gap-3 p-4 max-w-4xl mx-auto w-full">
         {/* Top bar */}
         <div className="flex items-center justify-between gap-3">
           <Button
@@ -318,45 +317,33 @@ export default function ZettelkastenView() {
           </Button>
 
           <div className="flex items-center gap-1.5">
-            {/* Source side-panel toggle */}
+            {/* Source picker — opens overlay sheet (no split screen) */}
             {linkedSourceObjs.length > 0 ? (
-              showSidePanel ? (
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setReadingSourceId(null)}
-                  className="gap-1.5"
-                >
-                  <X className="h-4 w-4" /> Zatvori izvor
-                </Button>
-              ) : (
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button type="button" variant="outline" size="sm" className="gap-1.5">
-                      <BookMarked className="h-4 w-4" /> Otvori izvor
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="max-w-xs">
-                    {linkedSourceObjs.map(s => (
-                      <DropdownMenuItem key={s.id} onSelect={() => setReadingSourceId(s.id)}>
-                        <FileText className="h-4 w-4 mr-2 shrink-0 text-muted-foreground" />
-                        <span className="truncate">{s.title}</span>
-                      </DropdownMenuItem>
-                    ))}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              )
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button type="button" variant="outline" size="sm" className="gap-1.5">
+                    <BookMarked className="h-4 w-4" /> Otvori izvor
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="max-w-xs">
+                  {linkedSourceObjs.map(s => (
+                    <DropdownMenuItem key={s.id} onSelect={() => setReadingSourceId(s.id)}>
+                      <FileText className="h-4 w-4 mr-2 shrink-0 text-muted-foreground" />
+                      <span className="truncate">{s.title}</span>
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
             ) : (
               <Button type="button" variant="outline" size="sm" className="gap-1.5" disabled title="Poveži izvor u režimu uređivanja">
                 <BookMarked className="h-4 w-4" /> Otvori izvor
               </Button>
             )}
 
-            {/* Edit / Save toggle */}
+            {/* Read / Edit mode toggle */}
             {isEditing ? (
               <Button type="button" size="sm" onClick={handleSaveAndClose} className="gap-1.5">
-                <Check className="h-4 w-4" /> Sačuvaj i zatvori
+                <Check className="h-4 w-4" /> Završi uređivanje
               </Button>
             ) : (
               <Button type="button" size="sm" onClick={handleEnterEdit} className="gap-1.5">
@@ -391,44 +378,47 @@ export default function ZettelkastenView() {
           />
         )}
 
-        {/* Main content area */}
-        <div className={`grid gap-3 flex-1 min-h-0 ${showSidePanel ? "grid-cols-1 lg:grid-cols-2" : "grid-cols-1"}`}>
-          <div className="flex flex-col gap-3 min-h-0">
-            <div className="flex-1 min-h-0">
-              {isEditing && draft ? (
-                <ZettelEditor
-                  ref={editorRef}
-                  value={draft.content}
-                  onChange={(content) => setDraft({ ...draft, content })}
-                  onInsertMindMap={() => setMmPickerOpen(true)}
-                />
-              ) : (
-                <ZettelPreview
-                  markdown={displayContent}
-                  onWikiLink={handleWikiLink}
-                  existingTitles={existingTitleSet}
-                  emptyTitles={emptyTitleSet}
-                  linkedSources={linkedSourceObjs}
-                  onSourceClick={(sid) => setReadingSourceId(sid)}
-                  categoryId={categoryId!}
-                />
-              )}
-            </div>
-            <BacklinksPanel
-              articles={articles}
-              activeArticle={activeArticle}
-              onOpen={handleOpen}
-            />
+        {/* Single-pane content area (no split screen) */}
+        <div className="flex flex-col gap-3 flex-1 min-h-0">
+          <div className="flex-1 min-h-0">
+            {isEditing && draft ? (
+              <ZettelEditor
+                ref={editorRef}
+                value={draft.content}
+                onChange={(content) => setDraft({ ...draft, content })}
+                onInsertMindMap={() => setMmPickerOpen(true)}
+              />
+            ) : (
+              <ZettelPreview
+                markdown={displayContent}
+                onWikiLink={handleWikiLink}
+                existingTitles={existingTitleSet}
+                emptyTitles={emptyTitleSet}
+                linkedSources={linkedSourceObjs}
+                onSourceClick={(sid) => setReadingSourceId(sid)}
+                categoryId={categoryId!}
+              />
+            )}
           </div>
-
-          {showSidePanel && readingSource && (
-            <SourceSidePanel
-              source={readingSource}
-              categoryId={categoryId!}
-              onClose={() => setReadingSourceId(null)}
-            />
-          )}
+          <BacklinksPanel
+            articles={articles}
+            activeArticle={activeArticle}
+            onOpen={handleOpen}
+          />
         </div>
+
+        {/* Source overlay (Sheet) — replaces previous side-by-side split */}
+        <Sheet open={Boolean(readingSource)} onOpenChange={(open) => { if (!open) setReadingSourceId(null); }}>
+          <SheetContent side="right" className="w-full sm:max-w-2xl p-0 flex flex-col">
+            {readingSource && (
+              <SourceSidePanel
+                source={readingSource}
+                categoryId={categoryId!}
+                onClose={() => setReadingSourceId(null)}
+              />
+            )}
+          </SheetContent>
+        </Sheet>
 
         <MindMapPickerDialog
           open={mmPickerOpen}
