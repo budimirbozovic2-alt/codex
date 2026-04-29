@@ -1,7 +1,7 @@
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { useEffect, useMemo, useState } from "react";
 import {
-  ArrowLeft, Layers, BookOpen, Network, Settings, Search, X, Pencil, LayoutList,
+  ArrowLeft, Layers, BookOpen, Settings, Search, X, Pencil,
 } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
