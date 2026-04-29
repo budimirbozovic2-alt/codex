@@ -111,21 +111,9 @@ export default function ReviewCard({
     return () => window.removeEventListener("keydown", handler);
   }, [showAnswer, card.id, section.id, handleGradeWithCalibration, onLogError, toast, handleRevealAnswer, canGradeEasy]);
 
-  const gradeColorMap: Record<string, string> = {
-    destructive: "bg-destructive text-destructive-foreground hover:bg-destructive/90",
-    warning: "bg-warning text-warning-foreground hover:bg-warning/90",
-    primary: "bg-primary text-primary-foreground hover:bg-primary/90",
-    success: "bg-success text-success-foreground hover:bg-success/90",
-  };
-
   const sectionIsLeech = isLeech(section, srSettings);
   const lapses = section.lapses || 0;
   const isFlash = card.type === "flash";
-  const intervals = previewIntervals(section, {
-    frequencyTag: card.frequencyTag,
-    sourceType: card.sourceType,
-    examinerProfile: catRecord?.examinerProfile,
-  });
 
   return (
     <div className={`${viewWidthClasses[viewWidth]} mx-auto space-y-6 transition-all duration-300`}>
