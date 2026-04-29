@@ -103,6 +103,7 @@ export default function CardList({
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const listRef = useRef<any>(null);
   const { categoryRecords: allCats } = useCategoryData();
+  const { buckets } = useCardData();
 
   const catNameMap = useMemo(() => {
     const m: Record<string, string> = {};
@@ -119,7 +120,7 @@ export default function CardList({
     () => filterCategory ? allCats.find(c => c.id === filterCategory) ?? null : null,
     [allCats, filterCategory],
   );
-  const filtered = useCardListFilters(cards, { filterCategory, filterSubcategory, filterChapter, filterType, filterTag, searchQuery, categoryRecord });
+  const filtered = useCardListFilters(cards, { filterCategory, filterSubcategory, filterChapter, filterType, filterTag, searchQuery, categoryRecord, buckets });
 
   const dnd = useCardListDnd({ filtered, onReorder });
 
