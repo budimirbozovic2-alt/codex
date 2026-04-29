@@ -1,98 +1,99 @@
 ## Goal
 
-Refactor `ZettelkastenView` from a permanent split-screen editor/preview into a Notion/Obsidian-style single-pane reader with an explicit edit toggle. Persist on exit (not on every keystroke). Add an optional side-panel for reading a linked Source while writing, and let articles embed mind-map references that render inline in read mode.
+Restructure `SubjectCardsView` from a flat 4-tab strip into a clear 2-group hierarchy, drop the Mnemonics section entirely, and upgrade `PassiveReader` into a richer reading workspace with FSRS stats, a parallel Source/Mind-map side panel, and a quick "Edit" shortcut.
 
 ---
 
-### 1. Read/Edit toggle (`isEditing`)
+### 1. SubjectCardsView reorganization
 
-New local state in `ZettelkastenView` for the active article view:
-
-- `const [isEditing, setIsEditing] = useState(false);`
-- `const [draft, setDraft] = useState<{ title: string; content: string } | null>(null);`
-
-Behavior:
-
-- **Read mode (default)**: show only `<ZettelPreview>` of the persisted `activeArticle.content`. Top-right action: "✏️ Uredi".
-- **Edit mode**: show only `<ZettelEditor>` bound to `draft`. Top-right action becomes "✓ Sačuvaj i zatvori". Title becomes an editable `<Input>` only in edit mode (read mode shows it as a static H1).
-- Entering edit mode primes `draft` from the active article. Toggling back commits `draft` (see #2).
-
-`<BacklinksPanel>` remains visible in both modes (small footer/sidebar). `<LinkedSourcesPicker>` is only rendered in edit mode; in read mode the linked sources are shown as read-only chips at the top.
-
-### 2. Save-on-exit persistence
-
-Replace the current keystroke-debounced `handleUpdate` flow:
-
-- `<ZettelEditor>` already keeps internal `local` state. Remove its 400 ms upward debounce and instead expose an imperative-style flush via the existing `onChange` prop, but only call it on save. Concretely: change the editor so its `useEffect` for debounced `onChange(local)` is gone — parent reads value via the `onChange` callback fired from the editor's internal "blur" / save trigger. To keep the change minimal, parent will store the editor draft in `draft.content` via `onChange={(c) => setDraft(d => ({ ...d!, content: c }))}` but the editor will fire `onChange` only on `onBlur` of the textarea AND when explicitly told (we'll lift draft state into the parent and pass `value` + onChange that just updates parent draft synchronously — no DB write).
-- `commitDraft()` (called when user clicks "Sačuvaj i zatvori", or on `useEffect` cleanup when the active article changes / view unmounts) does a single `saveArticle({...activeArticle, ...draft, updatedAt: Date.now()})` and updates the `articles` state.
-- Linked-source edits and mind-map embeds are also written through `draft` and committed at the same time.
-
-A `useEffect` cleanup on the editor branch flushes a pending `draft` if the user navigates away without explicitly saving (e.g., clicks "Nazad na listu", switches articles, or unmounts).
-
-We will keep `handleCreate` writing immediately (so a new article exists in IDB) but it will open straight into edit mode with an empty draft.
-
-### 3. Parallel Source-reading side panel (both modes)
-
-New state: `const [readingSourceId, setReadingSourceId] = useState<string | null>(null);`
-
-- Toolbar button "📖 Otvori izvor" with a dropdown of `activeArticle.linkedSourceIds` (resolved against `sources`). Selecting an entry sets `readingSourceId`. A close ✕ unsets it. Available in BOTH read and edit modes.
-- When `readingSourceId` is set, the article view becomes a 2-column grid: left = current mode (Preview or Editor), right = a new lightweight `<SourceSidePanel>` component.
-- `SourceSidePanel` is intentionally minimal: header with source title + close button + "Open full reader" link (`/category/${categoryId}` with `sessionStorage["sr-open-source-id"]` already used elsewhere), then a scrollable div that renders `sanitizeHtml(source.htmlContent)` inside a `prose` wrapper. No editing, no outline navigation — just a focused reading column. New file `src/components/zettelkasten/SourceSidePanel.tsx`.
-- If `linkedSourceIds` is empty, the toolbar button is disabled with a tooltip telling the user to link a source first (in edit mode).
-
-### 4. Mind-map embedding
-
-Articles can embed a mind map by inserting a fenced reference into the markdown:
+Replace the single `Tabs` + 4-trigger `TabsList` with two visually grouped sections rendered above the content area:
 
 ```text
-::mindmap[<mindMapId>]
+┌─ UPRAVLJANJE ────────────────────────────────────────────┐
+│  [✏ Uređivanje i dodavanje kartica]  [⛓ Struktura i raspored kartica] │
+└──────────────────────────────────────────────────────────┘
+
+┌─ UČENJE ─────────────────────────────────────────────────┐
+│  [📖 Pasivno čitanje]                                     │
+└──────────────────────────────────────────────────────────┘
+
+[ active section content here ]
 ```
 
-(One per line, easy to parse, doesn't conflict with markdown.)
+Implementation details:
 
-**Edit mode**:
-- Toolbar gets a new button "🗺️ Umetni mapu". Clicking it opens a small picker dialog listing all `MindMapDoc` records with `categoryId === categoryId` (loaded once via `loadMindMaps()` filtered client-side). Selecting one inserts `\n\n::mindmap[<id>]\n\n` at the cursor.
-- Implementation: extend `ZettelEditor`'s toolbar with an optional `onInsertMindMap?: () => void` prop, fired from the parent which owns the dialog. Parent passes a callback that opens the dialog and, on selection, calls the editor's existing insertion path (we'll expose a small `insertText(text: string)` imperative handle via `forwardRef` + `useImperativeHandle`).
+- Keep the `Tabs` primitive but split its `TabsList` into two labelled `<div>` groups separated by a faint divider/header (small uppercase "UPRAVLJANJE" / "UČENJE" labels in `text-muted-foreground`). The active trigger keeps the same primary highlight as today.
+- Tab values: `manage`, `structure`, `read`. Drop `mnemonics`.
+- Rename triggers:
+  - `manage` → "Uređivanje i dodavanje kartica" (icon `Pencil`)
+  - `structure` → "Struktura i raspored kartica" (icon `Network`/`ListOrdered`)
+  - `read` → "Pasivno čitanje" (icon `BookOpen`)
+- Header subtitle updated to "Kartice — uređivanje, struktura i pasivno čitanje" (drops "mnemonika").
+- Remove imports of `MnemonicModule` and `Brain`. Remove the `<TabsContent value="mnemonics">` block.
 
-**Read mode**:
-- Extend `ZettelPreview`'s `renderMarkdown` to detect lines matching `^::mindmap\[([a-z0-9-]+)\]\s*$` and emit a placeholder `<div data-mindmap="<id>"></div>`.
-- After `dangerouslySetInnerHTML`, a `useEffect` walks placeholders and either:
-  - If the `MindMapDoc` is loaded and resolves: render a small embedded card showing the title + a button "Otvori mapu" linking to `/subject/${categoryId}/mind-map?map=${id}` (or the existing route — confirm by reading routing later in implementation), AND optionally a thumbnail using the existing `<MindMapViewer>` inside a fixed-height (e.g. 320 px) bordered box.
-  - If unresolved: show a muted "Mapa nije pronađena" chip.
-- To avoid bundling React Flow into Zettelkasten on every load, lazy-load `MindMapViewer` via `React.lazy`.
-- New helper component `src/components/zettelkasten/EmbeddedMindMap.tsx` that takes `mindMapId` and `categoryId`, loads the doc with `getMindMap(id)`, and renders the card + lazy viewer.
-- Preview parser approach: simplest is to split the rendered HTML by the placeholder and interleave React nodes. To keep `ZettelPreview` cohesive, change it from a single `dangerouslySetInnerHTML` div into a function that returns `ReactNode[]` by splitting input markdown into segments at `::mindmap[...]` lines, rendering text segments via the existing markdown-to-HTML pipeline, and rendering `<EmbeddedMindMap>` between them.
+The content of each tab (`CardViewMode` + filter bar, `CardOrgMode` + structure dialog button, `PassiveReader`) stays as-is wiring-wise; only the trigger UI changes.
 
-### 5. Files & changes
+### 2. Upgraded PassiveReader
+
+Rewrite `src/components/subject-cards/PassiveReader.tsx` into a richer workspace.
+
+**Header (next to question title)** — small inline FSRS stat chips computed from `card.sections`:
+
+- Reviews count: sum of `(section.state !== New ? 1 : 0) * max(reps,1)` … since we don't track explicit reps, use `card.readCount ?? 0` which is already on the Card.
+- Lapses: sum of `section.lapses` across sections.
+- Avg stability (days): mean of `section.stability` over reviewed sections, displayed as `~Xd` (helper "snaga"/strength).
+- Retention now: `getCardRetrievability(card)` from `@/lib/spaced-repetition`, displayed as `XX%` with semantic color (green ≥80, amber ≥50, red <50).
+- "New" badge if all sections are `SectionState.New`.
+
+Render as small `Tooltip`-wrapped chips in a row beneath the question; chip primitives are plain `<span>` with `bg-muted/40` rounded.
+
+**Quick Edit shortcut** — top-right `Button` "✎ Uredi karticu" that calls the same edit flow used by the Pregled tab:
+
+```ts
+sessionStorage.setItem("sr-edit-return-view", "subject-cards:" + categoryId);
+setEditingCard(current);
+navigate("/edit");
+```
+
+To keep `PassiveReader` decoupled, accept a callback prop `onEditCard?: (card: Card) => void` and wire it from `SubjectCardsView` (which already imports `setEditingCard` and `useNavigate`).
+
+**Parallel Source/Mind-map side panel**:
+
+- New local state `const [sidePanel, setSidePanel] = useState<"source" | "mindmap" | null>(null);`. Reset to `null` whenever `current.id` changes (effect on `current?.id`).
+- Toolbar above the card has two toggle buttons:
+  - "📑 Izvor" — disabled if `!current.sourceId`. Toggles `sidePanel` between `"source"` and `null`.
+  - "🗺️ Mapa uma" — always enabled per subject (mind maps are subject-scoped), toggles `"mindmap"` / `null`.
+- When a side panel is active the workspace becomes a 2-column grid (`lg:grid-cols-2`); otherwise single column (full width as today).
+- **Source panel**: load the card's source on demand via `getSource(current.sourceId)` (already exported from `src/lib/sources-storage.ts`). Render a header (title + "Pun prikaz" button that uses the existing `sessionStorage["sr-open-source-id"]` + `navigate('/category/${categoryId}')` pattern from `SourceSidePanel`) and a sanitized scrollable HTML body. To avoid duplicating that component, **reuse `<SourceSidePanel>`** from `src/components/zettelkasten/SourceSidePanel.tsx` (it already accepts `{source, categoryId, onClose}`). Pass `categoryId` from props.
+- **Mind-map panel**: lightweight inline picker — `loadMindMaps()` filtered to `categoryId`, list as buttons. When the user picks one, render `<MindMapViewer>` (lazy) inside a fixed-height (e.g. `min-h-[420px] flex-1`) bordered box. New tiny component `src/components/subject-cards/MindMapSidePanel.tsx` with header (title + close + "Otvori sve mape" link to `/subject/${categoryId}/mind-maps`), back button to picker, and lazy `MindMapViewer`.
+- The PassiveReader receives `categoryId` as a new prop so both panels can route correctly.
+
+**Layout**:
+
+```text
+┌───────────── card column ───────────────┐ ┌── side panel ──┐
+│ filters · pager                          │ │ Source / Map   │
+│ [Izvor] [Mapa uma]   ····  [Uredi]       │ │                │
+│ ┌─ Article ─────────────────────────┐    │ │                │
+│ │ "Pasivno čitanje"                 │    │ │                │
+│ │ Q: ...                            │    │ │                │
+│ │ chips: reviews · lapses · ret%    │    │ │                │
+│ │ sections...                       │    │ │                │
+│ └───────────────────────────────────┘    │ │                │
+│ [← prev]  ←/→  [next →]                  │ │                │
+└──────────────────────────────────────────┘ └────────────────┘
+```
+
+### 3. Files
 
 | File | Change |
 |---|---|
-| `src/views/ZettelkastenView.tsx` | Major rewrite of the active-article branch: `isEditing`, `draft`, `readingSourceId`, side-panel grid, save-on-exit, mind-map insert dialog wiring. List view unchanged. |
-| `src/components/zettelkasten/ZettelEditor.tsx` | Remove debounced `onChange` effect; `onChange` fires synchronously on user input into parent draft. Add `forwardRef` + `useImperativeHandle({ insertText })`. Add optional `onInsertMindMap?: () => void` toolbar button. |
-| `src/components/zettelkasten/ZettelPreview.tsx` | Switch from single `dangerouslySetInnerHTML` to segment-based render that interleaves markdown HTML chunks with `<EmbeddedMindMap>` for `::mindmap[id]` lines. Keep wiki-link delegated click handling per chunk. |
-| `src/components/zettelkasten/SourceSidePanel.tsx` (new) | Header + scrollable sanitized HTML render of `Source.htmlContent`. |
-| `src/components/zettelkasten/EmbeddedMindMap.tsx` (new) | Loads `MindMapDoc` via `getMindMap`, shows title + open-link, lazy-renders `<MindMapViewer>` in a bounded box. |
-| `src/components/zettelkasten/MindMapPickerDialog.tsx` (new) | Small `<Dialog>` listing the subject's mind maps. Filters `loadMindMaps()` by `categoryId`. |
+| `src/views/SubjectCardsView.tsx` | Split tab triggers into two grouped sections; rename labels; remove `mnemonics` tab + `MnemonicModule` import; pass `categoryId` and `onEditCard` to `PassiveReader`. |
+| `src/components/subject-cards/PassiveReader.tsx` | New props `categoryId`, `onEditCard`. Add FSRS stat chips, source/mindmap toggle toolbar, side-panel grid, on-demand source load via `getSource`, lazy mind-map panel, quick Edit button. |
+| `src/components/subject-cards/MindMapSidePanel.tsx` (new) | Picker → lazy `MindMapViewer` with header. Reuses `loadMindMaps` filtered by `categoryId`. |
 
-### 6. Behavior summary
+### 4. Out of scope
 
-```text
-[List view] ──pick article──▶ [Read mode]
-                                  │  Uredi
-                                  ▼
-                              [Edit mode] ── Sačuvaj ──▶ [Read mode] (one IDB write)
-                                  │
-                                  └── unmount / switch / Nazad ──▶ flushDraft() (one IDB write)
-
-Both modes:
-  ┌──────────────────────┐ ┌──────────────────────┐
-  │  Preview / Editor    │ │  SourceSidePanel     │  ← when readingSourceId is set
-  └──────────────────────┘ └──────────────────────┘
-```
-
-### 7. Out of scope / explicitly unchanged
-
-- `BacklinksPanel`, `LinkedSourcesPicker`, `zettelkasten-storage.ts`, and the Dexie schema stay as-is.
-- The Guided Discovery list view (no active article) is untouched.
-- No new routes; mind-map "Open" links use the existing route.
-- No autosave timer; only explicit save and unmount-flush.
+- No data-model changes (cards still don't have a direct mind-map FK; we offer a subject-scoped picker instead, which is honest).
+- The mnemonics module is reachable globally from the sidebar (`/mnemonics`) and from the embedded picker in CardEditor — removing the tab does not orphan it.
+- `CardViewMode`, `CardOrgMode`, `StructureManagerDialog`: untouched.
