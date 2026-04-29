@@ -1,6 +1,7 @@
-import { useMemo } from "react";
+import { useMemo, Fragment } from "react";
 import { sanitizeHtml } from "@/lib/sanitize";
 import { FileText } from "lucide-react";
+import EmbeddedMindMap from "./EmbeddedMindMap";
 
 interface Props {
   markdown: string;
@@ -12,6 +13,8 @@ interface Props {
   linkedSources?: { id: string; title: string }[];
   /** Optional click handler when user activates a linked source chip. */
   onSourceClick?: (sourceId: string) => void;
+  /** Required to render embedded mind-map references. */
+  categoryId: string;
 }
 
 function escapeHtml(s: string): string {
@@ -23,11 +26,6 @@ function escapeHtml(s: string): string {
     .replace(/'/g, "&#39;");
 }
 
-/**
- * Lightweight markdown renderer (no external deps) supporting:
- * `**bold**`, `*italic*`, `\`code\``, `## H2`, `### H3`, `- list`, blank lines, and `[[Wiki Links]]`.
- * Wiki-links are rendered as `<button data-wiki="title">` so we can attach a single delegated handler.
- */
 function renderMarkdown(md: string, existingTitles: Set<string>): string {
   const lines = md.split(/\r?\n/);
   const out: string[] = [];
@@ -39,7 +37,6 @@ function renderMarkdown(md: string, existingTitles: Set<string>): string {
 
   const inline = (raw: string): string => {
     let s = escapeHtml(raw);
-    // wiki-links FIRST (before other inline replacements that could touch brackets)
     s = s.replace(/\[\[([^\]]+)\]\]/g, (_m, t: string) => {
       const title = t.trim();
       const exists = existingTitles.has(title.toLowerCase());
@@ -87,25 +84,83 @@ function renderMarkdown(md: string, existingTitles: Set<string>): string {
   return out.filter(Boolean).join("\n");
 }
 
-export default function ZettelPreview({ markdown, onWikiLink, existingTitles, linkedSources, onSourceClick }: Props) {
-  const html = useMemo(() => sanitizeHtml(renderMarkdown(markdown, existingTitles)), [markdown, existingTitles]);
+interface Segment {
+  kind: "markdown" | "mindmap";
+  /** For markdown segments, raw markdown text. For mindmap segments, the mind-map id. */
+  payload: string;
+}
+
+const MINDMAP_RE = /^::mindmap\[([A-Za-z0-9_-]+)\]\s*$/;
+
+function splitSegments(md: string): Segment[] {
+  const lines = md.split(/\r?\n/);
+  const segments: Segment[] = [];
+  let buffer: string[] = [];
+
+  const flushBuffer = () => {
+    if (buffer.length === 0) return;
+    const text = buffer.join("\n").replace(/^\n+|\n+$/g, "");
+    if (text.length > 0) segments.push({ kind: "markdown", payload: text });
+    buffer = [];
+  };
+
+  for (const line of lines) {
+    const m = line.match(MINDMAP_RE);
+    if (m) {
+      flushBuffer();
+      segments.push({ kind: "mindmap", payload: m[1] });
+    } else {
+      buffer.push(line);
+    }
+  }
+  flushBuffer();
+  return segments;
+}
+
+export default function ZettelPreview({
+  markdown,
+  onWikiLink,
+  existingTitles,
+  linkedSources,
+  onSourceClick,
+  categoryId,
+}: Props) {
+  const segments = useMemo(() => splitSegments(markdown), [markdown]);
+
+  const handleClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    const t = e.target as HTMLElement;
+    const btn = t.closest("button[data-wiki]") as HTMLButtonElement | null;
+    if (btn) {
+      e.preventDefault();
+      const title = btn.getAttribute("data-wiki") ?? "";
+      if (title) onWikiLink(title);
+    }
+  };
 
   return (
     <div className="flex flex-col h-full bg-card border border-border rounded-md overflow-hidden">
       <div
-        className="prose prose-sm max-w-none p-4 overflow-y-auto flex-1 text-foreground"
-        onClick={(e) => {
-          const t = e.target as HTMLElement;
-          const btn = t.closest("button[data-wiki]") as HTMLButtonElement | null;
-          if (btn) {
-            e.preventDefault();
-            const title = btn.getAttribute("data-wiki") ?? "";
-            if (title) onWikiLink(title);
+        className="prose prose-sm dark:prose-invert max-w-none p-4 overflow-y-auto flex-1 text-foreground"
+        onClick={handleClick}
+      >
+        {segments.length === 0 && (
+          <p className="text-muted-foreground italic">Nema sadržaja. Pređi u režim uređivanja da napišeš bilješku.</p>
+        )}
+        {segments.map((seg, i) => {
+          if (seg.kind === "mindmap") {
+            return (
+              <EmbeddedMindMap key={`mm-${i}-${seg.payload}`} mindMapId={seg.payload} categoryId={categoryId} />
+            );
           }
-        }}
-        // eslint-disable-next-line react/no-danger
-        dangerouslySetInnerHTML={{ __html: html || '<p class="text-muted-foreground italic">Nema sadržaja. Počnite kucati u editoru lijevo.</p>' }}
-      />
+          const html = sanitizeHtml(renderMarkdown(seg.payload, existingTitles));
+          return (
+            <Fragment key={`md-${i}`}>
+              {/* eslint-disable-next-line react/no-danger */}
+              <div dangerouslySetInnerHTML={{ __html: html }} />
+            </Fragment>
+          );
+        })}
+      </div>
       {linkedSources && linkedSources.length > 0 && (
         <div className="border-t border-border bg-muted/30 px-3 py-2">
           <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wide text-muted-foreground mb-1.5">
