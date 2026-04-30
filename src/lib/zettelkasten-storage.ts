@@ -112,3 +112,72 @@ export function newArticle(
     updatedAt: now,
   };
 }
+
+/**
+ * Ensure a subject has exactly one Index article (entry-point for organic
+ * exploration). Atomic open-or-create within a single Dexie `rw` transaction:
+ *
+ * 1. If an article with `isIndex=true` already exists for the subject → return it.
+ * 2. Else, if a regular article whose title (case-insensitive, trimmed) matches
+ *    `subjectName` exists → promote it to Index (set `isIndex=true`).
+ * 3. Else → create a new Index article seeded with an onboarding markdown body.
+ *    When `suggestedLinks` are provided, they appear as `[[wiki-links]]` so the
+ *    user can immediately start branching out.
+ *
+ * Multiple concurrent callers race-safely: only one Index can exist per subject.
+ */
+export async function ensureIndexArticle(
+  subjectId: string,
+  subjectName: string,
+  suggestedLinks: readonly string[] = [],
+): Promise<KnowledgeBaseArticle> {
+  return db.transaction("rw", db.knowledgeBaseArticles, async () => {
+    // 1. Existing Index?
+    const all = await db.knowledgeBaseArticles
+      .where("subjectId")
+      .equals(subjectId)
+      .toArray();
+
+    const existingIndex = all.find(a => a.isIndex === true);
+    if (existingIndex) return existingIndex;
+
+    // 2. Promote a same-titled article (migration path for pre-existing data).
+    const normSubject = subjectName.trim().toLowerCase();
+    const candidate = all.find(a => a.title.trim().toLowerCase() === normSubject);
+    if (candidate) {
+      const promoted: KnowledgeBaseArticle = {
+        ...candidate,
+        isIndex: true,
+        updatedAt: Date.now(),
+      };
+      await db.knowledgeBaseArticles.put(promoted);
+      return promoted;
+    }
+
+    // 3. Create a fresh Index with onboarding content.
+    const links = suggestedLinks
+      .map(s => s.trim())
+      .filter(Boolean)
+      .slice(0, 8);
+
+    const intro = `Dobrodošli u Zettelkasten predmeta **${subjectName.trim()}**. Ovo je Vaša polazna tačka za istraživanje gradiva. Krećite se kroz mrežu znanja klikom na \`[[wiki-linkove]]\` — kada kliknete na link koji još ne postoji, automatski se kreira novi članak.`;
+
+    const body = links.length > 0
+      ? `${intro}\n\n## Predložene oblasti za istraživanje\n\n${links.map(l => `- [[${l}]]`).join("\n")}\n\n_Slobodno mijenjajte ovaj članak — Zettelkasten raste organski._`
+      : `${intro}\n\n_Počnite kucanjem prvog \`[[wiki-linka]]\` da kreirate novi članak i započnete mrežu._`;
+
+    const now = Date.now();
+    const article: KnowledgeBaseArticle = {
+      id: crypto.randomUUID(),
+      subjectId,
+      title: subjectName.trim() || "Predmet",
+      content: body,
+      linkedSourceIds: [],
+      isIndex: true,
+      createdAt: now,
+      updatedAt: now,
+    };
+    await db.knowledgeBaseArticles.put(article);
+    return article;
+  });
+}

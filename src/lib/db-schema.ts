@@ -118,6 +118,8 @@ export interface KnowledgeBaseArticle {
   content: string;            // markdown
   linkedSourceIds: string[];
   rootSubcategoryId?: string;
+  /** True for the per-subject "Index" article (entry-point). Cannot be deleted. */
+  isIndex?: boolean;
   createdAt: number;
   updatedAt: number;
 }
