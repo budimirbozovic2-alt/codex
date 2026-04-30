@@ -189,6 +189,7 @@ export const useSourceReaderStore = create<SourceReaderState>((set, get) => ({
     splitDone: false,
     splitCreatedCount: 0,
   }),
+  setLinkModalOpen: (v) => set({ linkModalOpen: v }),
   setLinkSelectedText: (v) => set({ linkSelectedText: v }),
   setLinkSelectedHtml: (v) => set({ linkSelectedHtml: v }),
   setExamQuestions: (v) => {
