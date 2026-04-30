@@ -169,13 +169,13 @@ export function CardStateProvider({ children }: { children: ReactNode }) {
         for (const id of clearedIds) {
           if (next[id]?.sourceId) {
             next[id] = { ...next[id], sourceId: undefined, textAnchor: undefined, needsReview: undefined };
+            // Keep ref in sync as a separate object so future in-place CRUD
+            // mutations don't bleed into rendered state.
+            cardMapRef.current[id] = next[id];
             changed = true;
           }
         }
-        if (changed) {
-          cardMapRef.current = next;
-          return next;
-        }
+        if (changed) return next;
         return prev;
       });
     });
