@@ -1,5 +1,6 @@
 import { useState, useMemo, useCallback, useEffect, useRef, Suspense, lazy } from "react";
 import { Card, getCardScore } from "@/lib/spaced-repetition";
+import type { FrequencyTag } from "@/lib/sr/types";
 import { LearnCardProgress, loadLearnProgress } from "@/lib/storage";
 import { addActivityEntry } from "@/lib/metacognitive-storage";
 import SessionComplete from "./learn/SessionComplete";
@@ -16,7 +17,7 @@ export default function LearnSession({ cards, categories, categoryRecords, subca
   const [sortMode, setSortMode] = useState<"order" | "weakest" | "leastRead">(initialFilters?.sortMode ?? "order");
   const [filterExamFrequent, setFilterExamFrequent] = useState(false);
   const [filterType, setFilterType] = useState<"all" | "essay" | "flash">(initialFilters?.type ?? "all");
-  const [frequencyFilter, setFrequencyFilter] = useState<"all" | "često" | "rijetko" | "nikad">(initialFilters?.frequencyTag ?? "all");
+  const [frequencyFilter, setFrequencyFilter] = useState<"all" | FrequencyTag>(initialFilters?.frequencyTag ?? "all");
   const [started, setStarted] = useState(isStrictRecall);
 
   const [currentIndex, setCurrentIndex] = useState(() => {

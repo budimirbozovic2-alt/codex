@@ -5,6 +5,8 @@ import { useSessionContext, QueuedReview, QueuedError, QueuedMarkRead } from "@/
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import LearnSession from "@/components/LearnSession";
 import { Card } from "@/lib/spaced-repetition";
+import { FREQUENCY_TAGS } from "@/lib/sr/format";
+import type { FrequencyTag } from "@/lib/sr/types";
 import type { InitialFilters } from "@/components/learn/types";
 import { useEditReturn } from "@/hooks/useEditReturn";
 import { getParam } from "@/lib/url-params";
@@ -35,7 +37,7 @@ export default function LearnPage() {
       categoryId: getParam(params, "category"),
       subcategoryId: getParam(params, "subcategory"),
       type: (type === "essay" || type === "flash") ? type : "all",
-      frequencyTag: (freq === "često" || freq === "rijetko" || freq === "nikad") ? freq : "all",
+      frequencyTag: (FREQUENCY_TAGS.some(t => t.value === freq) ? (freq as FrequencyTag) : "all"),
       sortMode: sort === "weakest" ? "weakest" : "order",
     };
   }, [location.search]);

@@ -1,12 +1,41 @@
 import { useCallback, MutableRefObject } from "react";
 import { toast } from "sonner";
 import { Card, createCard, SRSettings, DEFAULT_SR_SETTINGS } from "@/lib/spaced-repetition";
+import { FREQUENCY_TAGS, SOURCE_TYPES } from "@/lib/sr/format";
+import type { FrequencyTag, CardSourceType } from "@/lib/sr/types";
 import { ReviewLogEntry } from "@/lib/storage";
 import { CardMap, bumpMapVersion, schedulePersist } from "@/lib/persist-queue";
 import { db, idbLoadCategories, idbSaveCategories, type CategoryRecord } from "@/lib/db";
+import type { ExaminerProfile, ExaminerDifficulty, PreferredAnswerType } from "@/lib/db-schema";
 import { sanitizeHtml } from "@/lib/sanitize";
 import { resolveLegacyTaxonomyNames } from "@/lib/migrations/resolve-legacy-taxonomy";
 import { invalidateSourcesCache } from "@/lib/sources-storage";
+
+const VALID_FREQUENCY_TAGS = new Set<FrequencyTag>(FREQUENCY_TAGS.map(t => t.value));
+const VALID_SOURCE_TYPES = new Set<CardSourceType>(SOURCE_TYPES.map(t => t.value));
+const VALID_EXAMINER_DIFFICULTY = new Set<ExaminerDifficulty>(["tezak", "lak"]);
+const VALID_PREFERRED_ANSWER = new Set<PreferredAnswerType>(["esej", "definicija", "potpitanja"]);
+
+function sanitizeFrequencyTag(v: unknown): FrequencyTag | undefined {
+  return typeof v === "string" && VALID_FREQUENCY_TAGS.has(v as FrequencyTag) ? (v as FrequencyTag) : undefined;
+}
+function sanitizeSourceType(v: unknown): CardSourceType | undefined {
+  return typeof v === "string" && VALID_SOURCE_TYPES.has(v as CardSourceType) ? (v as CardSourceType) : undefined;
+}
+function sanitizeExaminerProfile(v: unknown): ExaminerProfile | undefined {
+  if (!v || typeof v !== "object") return undefined;
+  const raw = v as Record<string, unknown>;
+  const out: ExaminerProfile = {};
+  if (typeof raw.difficulty === "string" && VALID_EXAMINER_DIFFICULTY.has(raw.difficulty as ExaminerDifficulty)) {
+    out.difficulty = raw.difficulty as ExaminerDifficulty;
+  }
+  if (typeof raw.preferredAnswerType === "string" && VALID_PREFERRED_ANSWER.has(raw.preferredAnswerType as PreferredAnswerType)) {
+    out.preferredAnswerType = raw.preferredAnswerType as PreferredAnswerType;
+  }
+  if (typeof raw.notes === "string") out.notes = sanitizeHtml(raw.notes);
+  if (typeof raw.updatedAt === "number") out.updatedAt = raw.updatedAt;
+  return Object.keys(out).length > 0 ? out : undefined;
+}
 
 interface UseCardImportDeps {
   setCategoryRecords: React.Dispatch<React.SetStateAction<CategoryRecord[]>>;
@@ -63,6 +92,8 @@ export function useCardImport({
           question: sanitizeHtml(c.question ?? ""),
           tags: c.tags || [],
           errorLog: c.errorLog || [],
+          frequencyTag: sanitizeFrequencyTag(c.frequencyTag),
+          sourceType: sanitizeSourceType(c.sourceType),
           sections: (c.sections || []).map((s: any) => ({
             ...s,
             id: s.id || crypto.randomUUID(),
@@ -78,6 +109,18 @@ export function useCardImport({
             scheduledDays: s.scheduledDays ?? 0,
           })),
         });
+
+        // Sanitize CategoryRecord.examinerProfile (V13 schema) for safety in adaptive scheduler.
+        const sanitizeCategoryRecord = (cr: CategoryRecord): CategoryRecord => {
+          const profile = sanitizeExaminerProfile(cr.examinerProfile);
+          if (profile) return { ...cr, examinerProfile: profile };
+          // Strip invalid profile to prevent runtime crashes downstream.
+          if (cr.examinerProfile && !profile) {
+            const { examinerProfile: _drop, ...rest } = cr;
+            return rest as CategoryRecord;
+          }
+          return cr;
+        };
 
         const importedCards: Card[] = cardsArr.map(c => migrateImported(c));
         const currentMap = cardMapRef.current;
@@ -106,7 +149,7 @@ export function useCardImport({
               const isRecord = typeof firstCat === 'object' && firstCat !== null && 'id' in firstCat;
               if (isRecord) {
                 await db.categories.clear();
-                await db.categories.bulkPut(data.categories as CategoryRecord[]);
+                await db.categories.bulkPut((data.categories as CategoryRecord[]).map(sanitizeCategoryRecord));
               }
             }
           });
@@ -171,7 +214,7 @@ export function useCardImport({
               }
 
               if (filteredCatRecords.length > 0) {
-                await db.categories.bulkPut(filteredCatRecords);
+                await db.categories.bulkPut(filteredCatRecords.map(sanitizeCategoryRecord));
               }
             }
             const freshRecords = await idbLoadCategories();

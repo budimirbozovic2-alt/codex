@@ -1,4 +1,5 @@
 import { Card } from "@/lib/spaced-repetition";
+import type { FrequencyTag } from "@/lib/sr/types";
 import { LearnCardProgress, ReviewLogEntry } from "@/lib/storage";
 import type { CategoryRecord } from "@/lib/db";
 
@@ -44,7 +45,7 @@ export interface InitialFilters {
   categoryId: string | null;
   subcategoryId: string | null;
   type: "all" | "essay" | "flash";
-  frequencyTag: "all" | "često" | "rijetko" | "nikad";
+  frequencyTag: "all" | FrequencyTag;
   sortMode: "order" | "weakest";
 }
 

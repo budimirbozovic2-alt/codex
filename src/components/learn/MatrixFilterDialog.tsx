@@ -1,5 +1,7 @@
 import { useMemo, useState, useEffect } from "react";
 import { Card } from "@/lib/spaced-repetition";
+import { FREQUENCY_TAGS } from "@/lib/sr/format";
+import type { FrequencyTag } from "@/lib/sr/types";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from "@/components/ui/dialog";
@@ -13,7 +15,7 @@ import { Brain } from "lucide-react";
 export interface MatrixFilters {
   subcategoryId: string | null;
   type: "all" | "essay" | "flash";
-  frequencyTag: "all" | "često" | "rijetko" | "nikad";
+  frequencyTag: "all" | FrequencyTag;
   sortMode: "order" | "weakest";
 }
 
@@ -110,9 +112,9 @@ export default function MatrixFilterDialog({
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Sve</SelectItem>
-                <SelectItem value="često">Često</SelectItem>
-                <SelectItem value="rijetko">Rijetko</SelectItem>
-                <SelectItem value="nikad">Nikad</SelectItem>
+                {FREQUENCY_TAGS.map(t => (
+                  <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
