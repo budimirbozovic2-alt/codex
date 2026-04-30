@@ -17,9 +17,23 @@ interface UIContextValue {
 
 const UIContext = createContext<UIContextValue | null>(null);
 
+const UI_FALLBACK: UIContextValue = {
+  view: "dashboard" as View,
+  setView: () => {},
+  editingCard: null,
+  setEditingCard: () => {},
+  handleToggleTag: () => {},
+};
+
 export function useUIContext() {
   const ctx = useContext(UIContext);
-  if (!ctx) throw new Error("useUIContext must be used within UIProvider");
+  if (!ctx) {
+    if (import.meta.env.DEV) {
+      console.warn("[useUIContext] no provider — returning fallback (HMR transient)");
+      return UI_FALLBACK;
+    }
+    throw new Error("useUIContext must be used within UIProvider");
+  }
   return ctx;
 }
 
