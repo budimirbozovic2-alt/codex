@@ -1,6 +1,6 @@
 import {
   Wand2, PenSquare, ChevronLeft, ChevronRight, SkipForward,
-  X, Tag as TagIcon, Layers, FileText, Eye,
+  X, Tag as TagIcon, Layers, FileText, Eye, ArrowLeft,
 } from "lucide-react";
 import { useCallback, useMemo, useState, useEffect, useRef } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -11,7 +11,7 @@ import type { Source } from "@/lib/sources-storage";
 import { useSourceReaderStore } from "@/store/useSourceReaderStore";
 import { sanitizeHtml } from "@/lib/sanitize";
 import { normalizeTag, TAG_LIMITS } from "@/lib/zettelkasten-tags";
-import { unfinishedIndices } from "@/lib/split-wizard-build";
+import { unfinishedIndices, buildSeparatePlans, buildCombinedPlan } from "@/lib/split-wizard-build";
 
 interface Props {
   source: Source;
@@ -96,6 +96,14 @@ export function SmartSplitSummaryDialog({ source, onSmartSplitConfirm }: Props) 
   const [tagDraft, setTagDraft] = useState("");
   useEffect(() => { setTagDraft(""); }, [safeIndex]);
 
+  // ── Final-preview mode ────────────────────────────────────────────────────
+  // Toggled from the footer; renders all soon-to-be-created cards using the
+  // same layout as `StudyModeRecall` so the user sees exactly what they will
+  // get in study sessions before any IDB write happens.
+  const [previewAll, setPreviewAll] = useState(false);
+  // Reset preview mode whenever wizard reopens or step jumps to a new module.
+  useEffect(() => { if (!open) setPreviewAll(false); }, [open]);
+
   const commitTag = useCallback(() => {
     if (!currentEdit) return;
     const t = normalizeTag(tagDraft);
@@ -119,6 +127,39 @@ export function SmartSplitSummaryDialog({ source, onSmartSplitConfirm }: Props) 
     () => (currentModule ? sanitizeHtml(currentModule.contentHtml) : ""),
     [currentModule],
   );
+
+  /**
+   * Build the final list of "preview cards" the user is about to import.
+   * Each preview card carries `{ question, tags, sections[{title, html}] }`,
+   * pre-sanitized so the renderer can safely use `dangerouslySetInnerHTML`.
+   *
+   * - separate mode → one preview card per non-skipped module
+   * - combined mode → exactly one preview card with N sections
+   */
+  const previewCards = useMemo(() => {
+    if (!previewAll || !splitResult) return [];
+    if (splitMode === "separate") {
+      return buildSeparatePlans(splitModules, splitEdits).map((p) => ({
+        question: p.question,
+        tags: p.tags,
+        sections: [{ title: "Odgovor", html: sanitizeHtml(p.module.contentHtml) }],
+      }));
+    }
+    const combined = buildCombinedPlan(
+      splitModules,
+      splitEdits,
+      splitParentName || splitResult.parentName,
+    );
+    if (!combined) return [];
+    return [{
+      question: combined.parentName,
+      tags: combined.tags,
+      sections: combined.modules.map(({ question, module: mod }) => ({
+        title: question,
+        html: sanitizeHtml(mod.contentHtml),
+      })),
+    }];
+  }, [previewAll, splitMode, splitModules, splitEdits, splitParentName, splitResult]);
 
   // Auto-focus the question textarea on step change to keep flow keyboard-driven.
   const questionRef = useRef<HTMLTextAreaElement | null>(null);
@@ -157,6 +198,110 @@ export function SmartSplitSummaryDialog({ source, onSmartSplitConfirm }: Props) 
               Zatvori
             </Button>
           </div>
+        ) : previewAll && splitResult ? (
+          /* ─── Final preview ─────────────────────────────────────────────
+             Renders soon-to-be-created cards using the exact same shell as
+             `StudyModeRecall` (rounded-xl border bg-card + card-prose) so the
+             user verifies the look-and-feel before any IDB write. */
+          <>
+            <div className="flex items-center justify-between gap-3 flex-wrap">
+              <div className="flex items-center gap-2 text-xs">
+                <Badge variant="outline" className="text-[10px] gap-1">
+                  <Eye className="h-3 w-3" />
+                  Pregled prije importa
+                </Badge>
+                <span className="text-muted-foreground">
+                  {splitMode === "separate"
+                    ? `${previewCards.length} kartica`
+                    : `1 esej sa ${previewCards[0]?.sections.length ?? 0} modula`}
+                </span>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setPreviewAll(false)}
+                className="gap-1.5 text-xs"
+              >
+                <ArrowLeft className="h-3.5 w-3.5" />
+                Nazad na editor
+              </Button>
+            </div>
+
+            <div className="flex-1 min-h-0 overflow-y-auto pr-1 space-y-4">
+              {previewCards.length === 0 ? (
+                <div className="rounded-xl border bg-card p-6 text-sm text-muted-foreground italic text-center">
+                  Nema kartica za prikaz — svi članovi su preskočeni.
+                </div>
+              ) : (
+                previewCards.map((card, ci) => (
+                  <article
+                    key={ci}
+                    className="space-y-3 rounded-xl border-2 border-primary/20 bg-muted/20 p-4"
+                  >
+                    {/* Card header — mimics study session top metadata */}
+                    <header className="space-y-1.5">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <Badge variant="outline" className="text-[10px]">
+                          Kartica {ci + 1} / {previewCards.length}
+                        </Badge>
+                        {card.tags.map((t) => (
+                          <span
+                            key={t}
+                            className="inline-flex items-center px-1.5 py-0.5 rounded bg-primary/10 text-primary text-[10px]"
+                          >
+                            #{t}
+                          </span>
+                        ))}
+                      </div>
+                      <h3 className="text-base font-semibold leading-snug">
+                        {card.question}
+                      </h3>
+                    </header>
+
+                    {/* Sections — exact same shell as StudyModeRecall */}
+                    <div className="space-y-3">
+                      {card.sections.map((section, si) => (
+                        <div key={si} className="rounded-xl border bg-card p-4">
+                          <p className="font-medium text-sm mb-2">{section.title}</p>
+                          <div
+                            className="text-sm leading-relaxed prose prose-sm max-w-none card-prose"
+                            dangerouslySetInnerHTML={{ __html: section.html }}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  </article>
+                ))
+              )}
+            </div>
+
+            <div className="flex items-center gap-2 pt-2 border-t">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPreviewAll(false)}
+                className="gap-1.5"
+              >
+                <ArrowLeft className="h-3.5 w-3.5" />
+                Vrati se i izmijeni
+              </Button>
+              <div className="flex-1" />
+              <Button variant="outline" size="sm" onClick={() => handleOpenChange(false)}>
+                Otkaži
+              </Button>
+              <Button
+                size="sm"
+                onClick={onSmartSplitConfirm}
+                className="gap-1.5"
+                disabled={previewCards.length === 0}
+              >
+                <Wand2 className="h-3.5 w-3.5" />
+                {splitMode === "separate"
+                  ? `Potvrdi import ${previewCards.length} kartica`
+                  : `Potvrdi import (1 esej, ${previewCards[0]?.sections.length ?? 0} modula)`}
+              </Button>
+            </div>
+          </>
         ) : splitResult && currentModule && currentEdit ? (
           <>
             {/* ── Top: mode toggle + summary ─────────────────────────────── */}
@@ -412,14 +557,13 @@ export function SmartSplitSummaryDialog({ source, onSmartSplitConfirm }: Props) 
               </Button>
               <Button
                 size="sm"
-                onClick={onSmartSplitConfirm}
+                onClick={() => setPreviewAll(true)}
                 className="gap-1.5"
                 disabled={keptCount === 0}
+                title="Vidi kako će sve kartice izgledati u učenju prije importa"
               >
-                <Wand2 className="h-3.5 w-3.5" />
-                {splitMode === "separate"
-                  ? `Kreiraj ${keptCount} kartica`
-                  : `Kreiraj 1 esej (${keptCount} modula)`}
+                <Eye className="h-3.5 w-3.5" />
+                Pregled svih ({splitMode === "separate" ? `${keptCount} kartica` : `1 esej, ${keptCount} modula`})
               </Button>
             </div>
           </>
