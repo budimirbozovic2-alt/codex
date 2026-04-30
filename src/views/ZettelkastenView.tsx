@@ -399,6 +399,7 @@ export default function ZettelkastenView() {
             articles={articles}
             activeArticle={activeArticle}
             onOpen={handleOpen}
+            isEditing={isEditing}
           />
         </div>
 
