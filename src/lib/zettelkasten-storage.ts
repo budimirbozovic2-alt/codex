@@ -46,6 +46,55 @@ export async function deleteArticle(id: string): Promise<void> {
   await db.knowledgeBaseArticles.delete(id);
 }
 
+/**
+ * Atomically create placeholder articles for a batch of titles within a subject,
+ * skipping any title that already exists (case-insensitive). Runs the entire
+ * lookup + insert pass inside a single `rw` Dexie transaction with `bulkPut`,
+ * eliminating per-title round-trips during wiki-link auto-creation while typing.
+ *
+ * Returns the freshly created articles (in input order, deduped case-insensitively).
+ */
+export async function bulkCreateArticlesIfMissing(
+  subjectId: string,
+  titles: string[],
+  rootSubcategoryId?: string,
+): Promise<KnowledgeBaseArticle[]> {
+  if (!subjectId || titles.length === 0) return [];
+
+  // Case-insensitive de-dup, preserve original casing of first occurrence + input order.
+  const seen = new Map<string, string>();
+  for (const raw of titles) {
+    const trimmed = raw.trim();
+    if (!trimmed) continue;
+    const low = trimmed.toLowerCase();
+    if (!seen.has(low)) seen.set(low, trimmed);
+  }
+  if (seen.size === 0) return [];
+
+  return db.transaction("rw", db.knowledgeBaseArticles, async () => {
+    // Single indexed range scan over the subject (uses `subjectId` index),
+    // O(N_subject) once per batch instead of O(N_subject * titles.length).
+    const existingTitles = new Set<string>();
+    await db.knowledgeBaseArticles
+      .where("subjectId")
+      .equals(subjectId)
+      .each(a => existingTitles.add(a.title.trim().toLowerCase()));
+
+    const toCreate: KnowledgeBaseArticle[] = [];
+    for (const [low, original] of seen) {
+      if (existingTitles.has(low)) continue;
+      toCreate.push(newArticle(subjectId, original, rootSubcategoryId));
+      // Guard against duplicates within the same batch.
+      existingTitles.add(low);
+    }
+
+    if (toCreate.length > 0) {
+      await db.knowledgeBaseArticles.bulkPut(toCreate);
+    }
+    return toCreate;
+  });
+}
+
 export function newArticle(
   subjectId: string,
   title: string,
