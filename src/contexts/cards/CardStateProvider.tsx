@@ -188,7 +188,8 @@ export function CardStateProvider({ children }: { children: ReactNode }) {
         if (!prev[cardId]) return prev;
         const updated = { ...prev[cardId], needsReview: undefined };
         const next = { ...prev, [cardId]: updated };
-        cardMapRef.current = next;
+        // Keep ref in sync as a separate object — never alias state and ref.
+        cardMapRef.current[cardId] = updated;
         schedulePersist({ type: "put", card: updated });
         bumpMapVersion();
         return next;
@@ -203,8 +204,10 @@ export function CardStateProvider({ children }: { children: ReactNode }) {
         idbLoadCards().then(loaded => {
           const map: CardMap = {};
           for (const c of loaded) map[c.id] = c;
+          // Ref and state are independent objects (state is a fresh clone)
+          // so future in-place CRUD ref mutations don't alias rendered state.
           cardMapRef.current = map;
-          setCardMapState(map);
+          setCardMapState({ ...map });
           bumpMapVersion();
         });
       });
