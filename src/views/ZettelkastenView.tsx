@@ -29,6 +29,7 @@ import ZettelPreview from "@/components/zettelkasten/ZettelPreview";
 import BacklinksPanel from "@/components/zettelkasten/BacklinksPanel";
 import LinkedSourcesPicker from "@/components/zettelkasten/LinkedSourcesPicker";
 import SourceSidePanel from "@/components/zettelkasten/SourceSidePanel";
+import ArticleListVirtual from "@/components/zettelkasten/ArticleListVirtual";
 import MindMapPickerDialog from "@/components/zettelkasten/MindMapPickerDialog";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { toast } from "sonner";
@@ -515,44 +516,11 @@ export default function ZettelkastenView() {
             </Button>
           </Card>
         ) : (
-          <div className="grid gap-2">
-            {filteredArticles.map(a => {
-              const sub = rootSubs.find(s => s.id === a.rootSubcategoryId);
-              const preview = a.content.replace(/[#*`[\]]/g, "").trim().slice(0, 140);
-              const isDraft = a.content.trim().length === 0;
-              return (
-                <button
-                  key={a.id}
-                  type="button"
-                  onClick={() => handleOpen(a.id)}
-                  className="text-left p-3 rounded-md border border-border hover:bg-accent/50 transition-colors"
-                >
-                  <div className="flex items-center justify-between gap-3 mb-1">
-                    <div className={`font-semibold text-sm truncate ${
-                      isDraft ? "text-muted-foreground italic" : "text-foreground"
-                    }`}>
-                      {a.title}
-                    </div>
-                    <div className="flex items-center gap-1.5 shrink-0">
-                      {isDraft && (
-                        <span className="text-[10px] uppercase tracking-wide text-amber-600 dark:text-amber-400 border border-amber-500/40 px-1.5 py-0.5 rounded">
-                          Draft
-                        </span>
-                      )}
-                      {sub && (
-                        <span className="text-[10px] uppercase tracking-wide text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
-                          {sub.name}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                  {preview && (
-                    <div className="text-xs text-muted-foreground line-clamp-2">{preview}</div>
-                  )}
-                </button>
-              );
-            })}
-          </div>
+          <ArticleListVirtual
+            articles={filteredArticles}
+            rootSubs={rootSubs}
+            onOpen={handleOpen}
+          />
         )}
       </div>
     </div>
