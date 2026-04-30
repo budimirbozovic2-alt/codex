@@ -28,23 +28,11 @@ interface CardStateContextValue {
   dbError: DbError | null;
 }
 
-const EMPTY_CARD_STATE: CardStateContextValue = {
-  cards: [], dueCards: [],
-  stats: { due: 0, total: 0, totalSections: 0, learnedSections: 0, leechCount: 0 },
-  cardCountByCategory: {}, buckets: EMPTY_BUCKETS, ready: false, dbError: null,
-};
-
 const CardStateContext = createContext<CardStateContextValue | null>(null);
 
 export function useCardData() {
   const ctx = useContext(CardStateContext);
-  if (!ctx) {
-    if (import.meta.env.DEV) {
-      console.warn("[useCardData] no provider — returning empty fallback (HMR?)");
-      return EMPTY_CARD_STATE;
-    }
-    throw new Error("useCardData must be used within CardStateProvider");
-  }
+  if (!ctx) throw new Error("useCardData must be used within CardStateProvider");
   return ctx;
 }
 
@@ -54,22 +42,11 @@ interface ReviewStateContextValue {
   srSettings: SRSettings;
 }
 
-const EMPTY_REVIEW_STATE: ReviewStateContextValue = {
-  reviewLog: [],
-  srSettings: DEFAULT_SR_SETTINGS,
-};
-
 const ReviewStateContext = createContext<ReviewStateContextValue | null>(null);
 
 export function useReviewData() {
   const ctx = useContext(ReviewStateContext);
-  if (!ctx) {
-    if (import.meta.env.DEV) {
-      console.warn("[useReviewData] no provider — returning empty fallback (HMR?)");
-      return EMPTY_REVIEW_STATE;
-    }
-    throw new Error("useReviewData must be used within CardStateProvider");
-  }
+  if (!ctx) throw new Error("useReviewData must be used within CardStateProvider");
   return ctx;
 }
 

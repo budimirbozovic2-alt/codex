@@ -11,24 +11,20 @@ interface CategoryStateContextValue {
 
 const CategoryStateContext = createContext<CategoryStateContextValue | null>(null);
 
-const EMPTY_CATEGORY_STATE: CategoryStateContextValue = {
-  categories: [],
-  categoryRecords: [],
-  subcategories: {},
-};
 
-// Public hook — `categoryStats` is added by CardStateProvider, which composes this.
-export function useCategoryDataInternal() {
+// Public hook for the category list/records/subcategories.
+// `categoryStats` lives in `useCategoryStatsData` from CardStateProvider —
+// keeping them separate means components that read only the list don't
+// re-render when card scores change.
+export function useCategoryData() {
   const ctx = useContext(CategoryStateContext);
-  if (!ctx) {
-    if (import.meta.env.DEV) {
-      console.warn("[useCategoryData] no provider — returning empty fallback (HMR?)");
-      return EMPTY_CATEGORY_STATE;
-    }
-    throw new Error("useCategoryData must be used within CategoryStateProvider");
-  }
+  if (!ctx) throw new Error("useCategoryData must be used within CategoryStateProvider");
   return ctx;
 }
+
+// Back-compat alias retained for the small number of internal callers
+// inside CardStateProvider that read this from the same package.
+export const useCategoryDataInternal = useCategoryData;
 
 // ── Internal plumbing for action providers ──
 interface CategoryStateInternals {
