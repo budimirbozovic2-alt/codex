@@ -1,5 +1,4 @@
 import { loadDisciplineLog } from "../planner-storage";
-import { loadDiary } from "../metacognitive-storage";
 import { differenceInDays } from "date-fns";
 
 export interface RecoveryStats {
@@ -47,30 +46,5 @@ export function calcRecoveryRate(): RecoveryStats | null {
     fastRecoveries: fast,
     slowRecoveries: slow,
     recoveryIndex: index,
-  };
-}
-
-export type EnergyRecommendation = {
-  type: "easy" | "normal";
-  message: string;
-  suggestMnemonics: boolean;
-};
-
-export function calcEnergyRecommendation(): EnergyRecommendation | null {
-  const diary = loadDiary();
-  const today = new Date().toISOString().slice(0, 10);
-  const todayEntry = diary.find(d => d.date === today);
-  if (!todayEntry) return null;
-
-  const text = (todayEntry.selfAnalysis + " " + todayEntry.dailyGoal).toLowerCase();
-  const fatigueWords = ["umor", "umoran", "umorna", "iscrpljen", "frustracija", "frustriran", "loše", "teško", "demotiv", "spava", "glava", "bolest", "bezvoljn", "stres"];
-  const isFatigued = fatigueWords.some(w => text.includes(w));
-
-  if (!isFatigued) return null;
-
-  return {
-    type: "easy",
-    message: "Na osnovu tvog dnevnika: izbjegavaj teško novo gradivo. Fokusiraj se na ponavljanje poznatog ili mnemotehničke drilove.",
-    suggestMnemonics: true,
   };
 }

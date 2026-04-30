@@ -1,121 +1,100 @@
 ## Audit Status
 
-| # | Fix | Status |
+| # | Item | Status |
 |---|---|---|
-| 1 | Cache eviction + drop unused `ts` in examiner-profile-cache | ⚠️ Eviction already done; remove unused `ts` field |
-| 2 | Review-log persist queue with 250 ms debounce + `bulkAdd` | ⚠️ Implement |
-| 3 | `loadCalibrationForCardIds(cardIds: Set<string>)` helper | ⚠️ Add helper |
+| 1 | Drop unused indexes on `cards` table (Dexie v16) | ⚠️ Implement |
+| 2 | Delete dead redirect routes in `App.tsx` | ⚠️ Implement |
+| 3 | Delete `SpeedReaderDisplay.tsx` (zero importers) | ⚠️ Implement |
+| 4 | Remove `preSelectedCategory` prop chain | ⚠️ Implement |
+| 5 | Delete `calcEnergyRecommendation` + `addDiaryEntry` (orphans) | ⚠️ Implement |
 
-## Item 1 — `src/lib/examiner-profile-cache.ts`
+Confirmed via `rg`:
+- `frequencyTag` / `sourceType` / `chapterId` are never queried via `db.cards.where(...)` — filtering is in-memory only.
+- `SpeedReaderDisplay.tsx` has zero importers anywhere in `src/`.
+- `preSelectedCategory` is propagated `ReviewPage → ReviewSession → ReviewSetup` but `ReviewSetup` immediately collapses it via `lockedCategory ?? preSelectedCategory ?? null`. `ReviewPage` passes `lockedCategory` to BOTH props, so removing `preSelectedCategory` is a no-op in behavior.
+- `calcEnergyRecommendation` is consumed only in `useDashboardData.ts` (`energyRec` → status icons / brief text).
+- `addDiaryEntry` has zero call sites (the diary input UI was already removed).
 
-Eviction in `primeExaminerProfilesFromRecords` is already implemented (loops `_cache.keys()` against a live `liveIds` Set and deletes orphans — lines 57–60). The `ts: number` field on `Entry` is set but never read. Replace the `Entry` wrapper with a plain `Map<string, ExaminerProfile | undefined>`:
+## Item 1 — Dexie v16 schema bump
 
-- Drop the `Entry` interface.
-- Change `_cache` type to `Map<string, ExaminerProfile | undefined>`.
-- `primeExaminerProfile`: store profile directly.
-- `primeExaminerProfilesFromRecords`: drop `now`, store `r.examinerProfile` directly. Eviction loop unchanged.
-- `getExaminerProfileSync`: `_cache.get(categoryId)` (no `?.profile`).
-- `hasExaminerProfileEntry` / `invalidateExaminerProfile` / `_clearExaminerProfileCache` unchanged.
-
-Tests in `src/test/examiner-profile-cache.test.ts` should still pass — they test reconciliation/eviction/orphan behavior, none reference `ts`.
-
-## Item 2 — Review log persist queue (`src/hooks/useCardAnnotations.ts` + new helper in `src/lib/db-queries.ts`)
-
-Today every `reviewSection` call fires an isolated `db.reviewLog.add(entry)`. During a fast streak (10+ reviews/sec in Zen) this floods Dexie's serialized write queue, contending with the cards persist queue and degrading typing/UI responsiveness.
-
-**Strategy** — module-level micro-queue in `db-queries.ts`, drained by a 250 ms debounce timer using `db.reviewLog.bulkAdd`. Pattern modeled on the existing cards `persist-queue.ts` but simpler (append-only, no de-dup needed because every entry is unique).
-
-### Add to `src/lib/db-queries.ts`
+`src/lib/db-schema.ts`: append a v16 store migration that respecifies the `cards` schema **without** `frequencyTag`, `sourceType`, `chapterId`, or the two compound `[…+chapterId]` indexes:
 
 ```ts
-const _reviewLogQueue: ReviewLogEntry[] = [];
-let _reviewLogTimer: ReturnType<typeof setTimeout> | null = null;
-const REVIEW_LOG_DEBOUNCE_MS = 250;
-
-function _flushReviewLogQueue(): Promise<void> {
-  _reviewLogTimer = null;
-  if (_reviewLogQueue.length === 0) return Promise.resolve();
-  const batch = _reviewLogQueue.splice(0, _reviewLogQueue.length);
-  return db.reviewLog.bulkAdd(batch).catch(err => {
-    console.error("[reviewLog] bulk write failed", err);
-    // Re-queue so we don't silently lose entries on transient failures
-    _reviewLogQueue.unshift(...batch);
-    throw err;
-  });
-}
-
-/** Enqueue a review-log entry. Batched & debounced (250 ms) to avoid
- *  flooding Dexie's serialized write queue during fast review streaks. */
-export function idbAddReviewLogEntry(entry: ReviewLogEntry): void {
-  _reviewLogQueue.push(entry);
-  if (_reviewLogTimer == null) {
-    _reviewLogTimer = setTimeout(() => { void _flushReviewLogQueue(); }, REVIEW_LOG_DEBOUNCE_MS);
-  }
-}
-
-/** Force-drain the queue. Call before backup/export/full-restore so no
- *  pending entries are missed. */
-export async function flushReviewLogQueue(): Promise<void> {
-  if (_reviewLogTimer != null) { clearTimeout(_reviewLogTimer); _reviewLogTimer = null; }
-  await _flushReviewLogQueue();
-}
+// v16: drop unused secondary indexes (frequencyTag, sourceType, chapterId,
+// [categoryId+chapterId], [subcategoryId+chapterId]). All filtering on these
+// fields is in-memory; the indexes only added write-amplification.
+this.version(16).stores({
+  cards: "id, categoryId, subcategoryId, type, createdAt, sourceId, [categoryId+subcategoryId]",
+});
 ```
 
-The signature changes from `Promise<void>` → `void`. This is intentional — the call site doesn't await success of an individual write, only of the eventual flush. The current `await idbAddReviewLogEntry(entry)` only wraps the synchronous enqueue, so removing the `await` is functionally equivalent.
+Earlier versions (v12, v15) stay intact — Dexie applies them in order so existing DBs upgrade cleanly. No data migration callback needed; Dexie drops the obsolete indexes automatically when the new schema string is applied.
 
-### Update `src/hooks/useCardAnnotations.ts` lines 72–80
+## Item 2 — Dead routes
 
-```ts
-// Persist review log OUTSIDE the state updater to avoid nested setState.
-// Batched + debounced (250 ms) inside idbAddReviewLogEntry to avoid IDB queue floods.
-try { idbAddReviewLogEntry(entry); }
-catch (err) {
-  console.error("[reviewSection] log enqueue failed", err);
-  void import("sonner").then(({ toast }) => toast.error("Memorija puna, istorija učenja se ne čuva!"));
-}
-```
+`src/App.tsx` lines 81, 82, 85: delete the three `<Navigate>` redirect entries. The catch-all `*` route at line 88 already serves `NotFound` for any visitor still hitting these legacy URLs (acceptable — they were removed long ago).
 
-(The async IIFE wrapper goes away.) Errors during the actual `bulkAdd` flush are logged in `_flushReviewLogQueue` itself; re-queuing on failure preserves the previous "best effort" semantics.
+## Item 3 — Delete `SpeedReaderDisplay.tsx`
 
-### Wire `flushReviewLogQueue` into export/backup paths
+`rm src/components/speed-reader/SpeedReaderDisplay.tsx`. No imports anywhere in the codebase — confirmed via `rg`.
 
-Audit existing call sites of `idbAddReviewLogEntry` and any `reviewLog.toArray()` reader used by exports/backups:
-- `src/hooks/useCardExport.ts` — call `await flushReviewLogQueue()` before reading `reviewLog`.
-- `src/main.tsx` boot/restore paths and `src/lib/sources-storage.ts` Full Restore — ensure flush before `db.delete()`.
+## Item 4 — Remove `preSelectedCategory` prop chain
 
-Will inspect during implementation; the change is additive.
+Three files touched, mechanical:
 
-## Item 3 — `src/lib/metacognitive-storage.ts`
+**`src/components/review/review-constants.ts`** (line 35): delete the `preSelectedCategory?: string | null;` field on `ReviewSessionProps`.
 
-Add a single helper near `loadCalibration` (line 88):
+**`src/components/ReviewSession.tsx`**:
+- Line 19: drop `preSelectedCategory` from the destructured props.
+- Line 152: drop the `preSelectedCategory={preSelectedCategory}` JSX prop on the `<ReviewSetup>` call.
 
-```ts
-/** Filter the calibration cache to entries belonging to a specific set of
- *  card IDs. O(N) over the (capped) cache; uses Set lookup for O(1) membership.
- *  Use when the UI needs per-card calibration without paying the cost of
- *  scanning a 2 000-entry array on every render. */
-export function loadCalibrationForCardIds(cardIds: Set<string>): CalibrationEntry[] {
-  if (cardIds.size === 0) return [];
-  const out: CalibrationEntry[] = [];
-  for (const e of _calibrationCache) {
-    if (cardIds.has(e.cardId)) out.push(e);
-  }
-  return out;
-}
-```
+**`src/components/review/ReviewSetup.tsx`**:
+- Lines 25 + 104: drop the prop from the interface and the destructure.
+- Line 107: simplify to `const selectedCategory = lockedCategory ?? null;`.
 
-Pure addition; no existing call site changes. Callers that currently do `loadCalibration().filter(e => ids.includes(e.cardId))` (O(N·M) with `Array.includes`) can migrate to the Set-based helper opportunistically. No mass rewrite in this pass.
+**`src/views/ReviewPage.tsx`** (line 116): drop the `preSelectedCategory={lockedCategory}` JSX prop on the `<ReviewSession>` call.
 
-## Verification plan
+Behavior identical: every code path that was passing `preSelectedCategory` was also passing `lockedCategory` to the same value, and `ReviewSetup` already preferred `lockedCategory`.
 
-- TypeScript build clean (no `any`, typed catches).
-- Existing tests (`examiner-profile-cache.test.ts`, `zettelkasten-bulk-create.test.ts`) still pass — neither touches the changed surfaces.
-- Manual: a fast review streak should now produce a single `bulkAdd` per ~250 ms instead of N individual `add` calls (verify via Dexie devtools or temporary console.count in `_flushReviewLogQueue`).
+## Item 5 — Diary orphans
+
+**`src/lib/analytics/recovery.ts`**:
+- Delete `calcEnergyRecommendation` function (lines 59–76).
+- Delete `EnergyRecommendation` type (lines 53–57).
+- Delete the now-unused `import { loadDiary } from "../metacognitive-storage";` on line 2.
+
+**`src/lib/cognitive-analytics.ts`** (line 6): remove `calcEnergyRecommendation` and `type EnergyRecommendation` from the re-export list.
+
+**`src/hooks/useDashboardData.ts`**:
+- Line 15: drop `calcEnergyRecommendation` import.
+- Line 171: delete `const energyRec = useDeferredCompute(...)`.
+- Lines 247–249: delete the `if (energyRec?.suggestMnemonics) { parts.push("💡 …"); }` block.
+- Line 251: drop `energyRec` from the dep array.
+
+**`src/lib/metacognitive-storage.ts`**: delete `addDiaryEntry` (lines 68–75). Keep `loadDiary` / `saveDiary` / `_diaryCache` / `DiaryEntry` interface and the `db.diary` table — they remain referenced by:
+- `db-schema.ts` (table definition)
+- `_diaryCache` cache init in `initMetacognitiveCache`
+- The `diary` field is still part of backup/restore JSON shape
+
+Removing only the unused `addDiaryEntry` writer is the safe minimal cut. The reader path stays so any historic diary data backed up earlier still loads/exports correctly.
+
+## Verification
+
+- TypeScript build clean (no `any`, no orphan imports).
+- `rg "preSelectedCategory|calcEnergyRecommendation|addDiaryEntry|SpeedReaderDisplay"` returns zero hits in `src/` after the change.
+- Dexie auto-upgrades when the user next opens the app: existing rows preserved; obsolete indexes dropped.
+- Existing tests untouched (none reference the removed surfaces).
 
 ## Files
 
-- **Edit**: `src/lib/examiner-profile-cache.ts`
-- **Edit**: `src/lib/db-queries.ts`
-- **Edit**: `src/hooks/useCardAnnotations.ts`
+- **Edit**: `src/lib/db-schema.ts`
+- **Edit**: `src/App.tsx`
+- **Delete**: `src/components/speed-reader/SpeedReaderDisplay.tsx`
+- **Edit**: `src/components/review/review-constants.ts`
+- **Edit**: `src/components/ReviewSession.tsx`
+- **Edit**: `src/components/review/ReviewSetup.tsx`
+- **Edit**: `src/views/ReviewPage.tsx`
+- **Edit**: `src/lib/analytics/recovery.ts`
+- **Edit**: `src/lib/cognitive-analytics.ts`
+- **Edit**: `src/hooks/useDashboardData.ts`
 - **Edit**: `src/lib/metacognitive-storage.ts`
-- **Possibly edit**: `src/hooks/useCardExport.ts` (add flush) — pending audit during implementation

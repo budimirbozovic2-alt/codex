@@ -65,14 +65,6 @@ export function saveDiary(entries: DiaryEntry[]) {
   }
 }
 
-export function addDiaryEntry(entry: Omit<DiaryEntry, "id" | "createdAt">): DiaryEntry {
-  const full: DiaryEntry = { ...entry, id: crypto.randomUUID(), createdAt: Date.now() };
-  const diary = [..._diaryCache];
-  const idx = diary.findIndex(d => d.date === entry.date);
-  if (idx >= 0) diary[idx] = full; else diary.push(full);
-  saveDiary(diary);
-  return full;
-}
 
 // ─── Calibration (confidence before reveal) ──────────────
 

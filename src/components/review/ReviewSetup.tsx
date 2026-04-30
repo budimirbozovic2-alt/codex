@@ -22,7 +22,7 @@ interface ReviewSetupProps {
   savedSession: { mode: ReviewMode; selectedCategory?: string | null } | null;
   onResumeSession: () => void;
   onClearSavedSession: () => void;
-  preSelectedCategory?: string | null;
+  
   /** Hard scope lock: when set, category cannot be changed via UI. */
   lockedCategory?: string | null;
 }
@@ -101,10 +101,10 @@ const FILTER_TYPE_OPTIONS: { value: FilterType; label: string }[] = [
 export default function ReviewSetup({
   dueCards, allCards, categoryRecords, srSettings,
   onSelectMode, onBack, savedSession, onResumeSession, onClearSavedSession,
-  preSelectedCategory, lockedCategory,
+  lockedCategory,
 }: ReviewSetupProps) {
   const [mode, setMode] = useState<ModeKey>("critical");
-  const selectedCategory = lockedCategory ?? preSelectedCategory ?? null;
+  const selectedCategory = lockedCategory ?? null;
   const [filterType, setFilterType] = useState<FilterType>("all");
   const [showOnboarding, setShowOnboarding] = useState(() => !hasSeenOnboarding(REVIEW_ONBOARDING_KEY));
 

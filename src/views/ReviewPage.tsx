@@ -113,7 +113,6 @@ export default function ReviewPage() {
           onReviewSection={handleReviewSection}
           onLogError={handleLogError}
           onBack={handleBack}
-          preSelectedCategory={lockedCategory}
           lockedCategory={lockedCategory}
         />
       )}

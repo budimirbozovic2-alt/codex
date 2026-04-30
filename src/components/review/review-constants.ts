@@ -32,7 +32,7 @@ export interface ReviewSessionProps {
   onReviewSection: (cardId: string, sectionId: string, grade: number) => void;
   onLogError: (cardId: string, text: string, sectionId?: string) => void;
   onBack: () => void;
-  preSelectedCategory?: string | null;
+  
   /**
    * When set, the review session is hard-scoped to this category UUID.
    * UI must hide / disable any control that would broaden the scope

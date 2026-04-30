@@ -78,11 +78,7 @@ const App = () => (
                         <Route path="/mnemonics" element={<ErrorBoundary label="Mnemonik"><MnemonicPage /></ErrorBoundary>} />
                         <Route path="/mnemonic" element={<Navigate to="/mnemonics" replace />} />
                         <Route path="/planner" element={<ErrorBoundary label="Planer"><PlannerPage /></ErrorBoundary>} />
-                        <Route path="/metacognitive" element={<Navigate to="/" replace />} />
-                        <Route path="/frequent-errors" element={<Navigate to="/" replace />} />
-                        
                         <Route path="/categories" element={<ErrorBoundary label="Kategorije"><CategoriesRoutePage /></ErrorBoundary>} />
-                        <Route path="/speed-reader" element={<Navigate to="/" replace />} />
                         <Route path="/mind-map" element={<ErrorBoundary label="Mapa uma"><MindMapPage /></ErrorBoundary>} />
                         
                         <Route path="*" element={<ErrorBoundary label="404"><NotFound /></ErrorBoundary>} />

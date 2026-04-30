@@ -3,4 +3,4 @@ export { calcInterferencePairs, type InterferencePair } from "./analytics/interf
 export { calcCategoryStability, type CategoryStabilityInfo, calcStrategicRealityCheck, type StrategicAlert } from "./analytics/stability";
 export { calcStressPerformance, type StressPerformance, calcFrictionAnalysis, type FrictionInsight } from "./analytics/friction";
 export { calcBlindSpots, type BlindSpot, calcWeakHooks, type WeakHook } from "./analytics/blind-spots";
-export { calcRecoveryRate, type RecoveryStats, calcEnergyRecommendation, type EnergyRecommendation } from "./analytics/recovery";
+export { calcRecoveryRate, type RecoveryStats } from "./analytics/recovery";

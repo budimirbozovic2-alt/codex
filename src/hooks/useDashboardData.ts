@@ -12,7 +12,7 @@ async function getPlannerModule(): Promise<PlannerModule> {
 }
 import { CategoryRecord } from "@/lib/db";
 import { StudyFlowData } from "@/components/dashboard/StudyFlowWidget";
-import { calcEnergyRecommendation } from "@/lib/cognitive-analytics";
+
 import { loadAppSettings } from "@/lib/app-settings";
 import { useDeferredCompute } from "@/hooks/useDeferredCompute";
 import { startOfDay } from "date-fns";
@@ -168,7 +168,7 @@ export function useDashboardData(
     const mod = await getPlannerModule();
     return mod.getCognitiveDebt(dailyGoal);
   }, [dailyGoal]);
-  const energyRec = useDeferredCompute(() => calcEnergyRecommendation(), []);
+  
 
   // Record discipline for yesterday (side effect — must be in useEffect, not useMemo)
   const disciplineRecordedRef = useRef<string>("");
@@ -244,11 +244,8 @@ export function useDashboardData(
       parts.push(`Cilj: ${autoSuggestion.reviewTarget} ponavljanja + ${autoSuggestion.newTarget} novih.`);
     }
     parts.push(`Kognitivni kapacitet: ${getEnergyLabel(energyLevel)}.`);
-    if (energyRec?.suggestMnemonics) {
-      parts.push("💡 Preporuka: lagani dril kuka.");
-    }
     return parts.join(" ");
-  }, [plannerData, autoSuggestion, energyLevel, energyRec]);
+  }, [plannerData, autoSuggestion, energyLevel]);
 
   const statusIcons = useMemo<StatusIcon[]>(() => {
     const icons: StatusIcon[] = [];

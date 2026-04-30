@@ -199,6 +199,14 @@ class MemoriaDB extends Dexie {
     this.version(15).stores({
       cards: "id, categoryId, subcategoryId, chapterId, type, createdAt, sourceId, frequencyTag, sourceType, [categoryId+subcategoryId], [categoryId+chapterId], [subcategoryId+chapterId]",
     });
+
+    // v16: drop unused secondary indexes (frequencyTag, sourceType, chapterId,
+    // [categoryId+chapterId], [subcategoryId+chapterId]). All filtering on these
+    // fields is in-memory; the indexes only added write-amplification on every
+    // card mutation. Dexie drops the obsolete indexes automatically on upgrade.
+    this.version(16).stores({
+      cards: "id, categoryId, subcategoryId, type, createdAt, sourceId, [categoryId+subcategoryId]",
+    });
   }
 }
 
