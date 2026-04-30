@@ -149,7 +149,7 @@ export function useCardImport({
               const isRecord = typeof firstCat === 'object' && firstCat !== null && 'id' in firstCat;
               if (isRecord) {
                 await db.categories.clear();
-                await db.categories.bulkPut(data.categories as CategoryRecord[]);
+                await db.categories.bulkPut((data.categories as CategoryRecord[]).map(sanitizeCategoryRecord));
               }
             }
           });
@@ -214,7 +214,7 @@ export function useCardImport({
               }
 
               if (filteredCatRecords.length > 0) {
-                await db.categories.bulkPut(filteredCatRecords);
+                await db.categories.bulkPut(filteredCatRecords.map(sanitizeCategoryRecord));
               }
             }
             const freshRecords = await idbLoadCategories();
