@@ -1,6 +1,6 @@
 import { HelpCircle } from "lucide-react";
 import { useState, lazy, Suspense } from "react";
-import { useCardData, useCategoryData, useReviewData, useUIContext } from "@/contexts/AppContext";
+import { useCardData, useCategoryData, useCategoryStatsData, useReviewData, useUIContext } from "@/contexts/AppContext";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import Dashboard from "@/components/Dashboard";
 import EmptyState from "@/components/EmptyState";
@@ -13,7 +13,8 @@ const DashboardOnboarding = lazy(() => import("@/components/DashboardOnboarding"
 
 export default function DashboardPage() {
   const { cards, stats, ready } = useCardData();
-  const { categories, categoryRecords, subcategories, categoryStats } = useCategoryData();
+  const { categories, categoryRecords, subcategories } = useCategoryData();
+  const { categoryStats } = useCategoryStatsData();
   const { reviewLog, srSettings } = useReviewData();
   const { setView } = useUIContext();
   const [showOnboarding, setShowOnboarding] = useState(false);

@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useCardData, useCategoryData, useCardActions, useUIContext } from "@/contexts/AppContext";
+import { useCardData, useCategoryData, useCardOnlyActions, useCategoryActions, useUIContext } from "@/contexts/AppContext";
 import type { SubcategoryNode } from "@/lib/db";
 import type { Card } from "@/lib/spaced-repetition";
 import { loadSourcesByCategory, type Source } from "@/lib/sources-storage";
@@ -42,12 +42,12 @@ export default function SubjectCardsView() {
 
   const { cards: allCards, ready } = useCardData();
   const { categoryRecords } = useCategoryData();
+  const { addCard, addFlashCard, patchCard, toggleTag, deleteCard } = useCardOnlyActions();
   const {
-    addCard, addFlashCard, patchCard, toggleTag, deleteCard,
     addSubcategory, renameSubcategory, deleteSubcategory,
     addChapter, renameChapter, deleteChapter,
     reorderSubcategories, reorderChapters,
-  } = useCardActions();
+  } = useCategoryActions();
   const { setEditingCard } = useUIContext();
 
   const category = useMemo(

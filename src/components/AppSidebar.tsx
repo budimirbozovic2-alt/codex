@@ -9,7 +9,7 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { Badge } from "@/components/ui/badge";
-import { useCategoryData } from "@/contexts/AppContext";
+import { useCategoryData, useCategoryStatsData } from "@/contexts/AppContext";
 
 const STATIC_NAV = [
   { path: "/", icon: Home, label: "Početna tabla" },
@@ -24,7 +24,8 @@ const TOOLS_NAV = [
 export default function AppSidebar() {
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
-  const { categoryRecords, categoryStats } = useCategoryData();
+  const { categoryRecords } = useCategoryData();
+  const { categoryStats } = useCategoryStatsData();
 
   return (
     <Sidebar collapsible="icon">

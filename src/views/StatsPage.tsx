@@ -1,5 +1,5 @@
 import { useState, lazy, Suspense } from "react";
-import { useCardData, useCategoryData, useReviewData, useUIContext } from "@/contexts/AppContext";
+import { useCardData, useCategoryData, useCategoryStatsData, useReviewData, useUIContext } from "@/contexts/AppContext";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import MyStats from "@/components/MyStats";
 import { AnimatePresence } from "framer-motion";
@@ -8,7 +8,8 @@ const StatsOnboarding = lazy(() => import("@/components/StatsOnboarding"));
 
 export default function StatsPage() {
   const { cards, ready } = useCardData();
-  const { categories, categoryRecords, subcategories, categoryStats } = useCategoryData();
+  const { categories, categoryRecords, subcategories } = useCategoryData();
+  const { categoryStats } = useCategoryStatsData();
   const { reviewLog, srSettings } = useReviewData();
   const { setView } = useUIContext();
   const [showOnboarding, setShowOnboarding] = useState(false);

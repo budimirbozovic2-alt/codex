@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import InfoPanel from "@/components/InfoPanel";
 import ExportImportDialog from "@/components/ExportImportDialog";
-import { useCardData, useCategoryData, useCardActions } from "@/contexts/AppContext";
+import { useCardData, useCategoryData, useCategoryActions, useBackupActions } from "@/contexts/AppContext";
 import AlgorithmTab from "@/components/settings/AlgorithmTab";
 import PersonalizationTab from "@/components/settings/PersonalizationTab";
 import WorkflowTab from "@/components/settings/WorkflowTab";
@@ -87,7 +87,8 @@ export default function SRSettingsPanel({ settings, onUpdate }: Props) {
   const [exportImportOpen, setExportImportOpen] = useState(false);
   const { cards, cardCountByCategory } = useCardData();
   const { categories, subcategories } = useCategoryData();
-  const { exportData, exportTemplate, importData, addCategory, renameCategory, deleteCategory } = useCardActions();
+  const { exportData, exportTemplate, importData } = useBackupActions();
+  const { addCategory, renameCategory, deleteCategory } = useCategoryActions();
   const [tts, setTts] = useState<TTSSettings>(initialTtsRef.current);
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
 
