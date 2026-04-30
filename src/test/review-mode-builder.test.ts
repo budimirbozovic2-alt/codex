@@ -100,18 +100,20 @@ describe("review-mode-builder", () => {
     });
 
     it("includes due sections with retrievability in [80, 85]", () => {
-      // overdue, R should land in window
+      // getRetrievability uses real Date.now() internally for `elapsed`,
+      // so anchor lastReviewed relative to it (not the test NOW constant).
+      const realNow = Date.now();
       const eligible = makeSection({
-        nextReview: NOW - DAY,
+        nextReview: realNow - DAY,
         stability: 30,
-        lastReviewed: NOW - 5 * DAY, // R ≈ 85
+        lastReviewed: realNow - 5 * DAY, // R = exp(-5/30)*100 ≈ 84.6
       });
       const card = makeCard([eligible]);
       const items = buildCriticalItems({
         dueCards: [card],
         allCards: [card],
         srSettings: DEFAULT_SR_SETTINGS,
-        now: NOW,
+        now: realNow,
       });
       expect(items.length).toBeGreaterThan(0);
     });
