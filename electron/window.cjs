@@ -63,6 +63,7 @@ function createSplashWindow(isDev, baseDir) {
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
+      sandbox: true,
     },
   });
   splash.loadFile(getPublicPath(isDev, baseDir, 'splash.html'));
@@ -106,8 +107,10 @@ function createWindow({ isDev, baseDir, configPath, logCrash, splash, onMainWind
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
+      sandbox: true,
       preload: resolvePreloadPath(isDev, baseDir),
-      sandbox: false,
+      webviewTag: false,
+      spellcheck: false,
     },
   });
 

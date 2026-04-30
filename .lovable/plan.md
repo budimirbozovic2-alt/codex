@@ -1,113 +1,201 @@
-## Cilj
 
-Dodati **lagane, opcione tagove** člancima u Zettelkastenu kao pomoćni filter u Explorer panelu. Tagovi **ne nameću strukturu** — ne zamjenjuju potkategorije, ne učestvuju u pretrazi, ne formiraju hijerarhiju. Članak može imati 0 tagova; tag može postojati samo na jednom članku.
+# PRE-BUILD AUDIT REPORT — CODEX v3.0.0
 
-## Filozofija
+Scope: `main.cjs`, `preload.cjs`, `electron/window.cjs`, `electron/backup.cjs`, `package.json`, `vite.config.ts`, import/export pipeline.
 
-Tagovi su "miris" koji korisnik prati kad istražuje veću mrežu — dodaje ih po želji, briše bez posljedica, ne moraju pratiti nikakvu konvenciju. Cilj im je sužavanje vidljive liste u Explorer-u, **ne** organizacija sadržaja.
+---
 
-## Šta gradimo
+## PILLAR 1 — Electron Security & IPC: **[BLOCKER]**
 
-### 1. Schema (`src/lib/db-schema.ts`)
-Dodati opciono polje na `KnowledgeBaseArticle`:
-```ts
-/** Lightweight, free-form tags used purely as Explorer-side filters. */
-tags?: string[];
+### Findings
+
+| Check | Status | Evidence |
+|---|---|---|
+| `nodeIntegration: false` | PASS | `window.cjs:107`, splash `:64` |
+| `contextIsolation: true` | PASS | `window.cjs:108`, splash `:65` |
+| `sandbox: true` | **BLOCKER** | `window.cjs:110` explicitly sets `sandbox: false` |
+| `enableRemoteModule` absent | PASS | not present anywhere |
+| `will-navigate` guard | PASS | `main.cjs:228-240` — blocks non-app/non-localhost, delegates http(s) to `shell.openExternal` |
+| `setWindowOpenHandler` | PASS | `main.cjs:241-244` — denies all, http(s) → external |
+| `will-attach-webview` blocked | PASS | `main.cjs:246` |
+| Preload surface | PASS | `preload.cjs` exposes only typed function bridge via `contextBridge`. No raw `ipcRenderer`, `fs`, `path`, or `child_process` leaked. |
+| IPC payload validation | PASS | base64 regex + size cap (`main.cjs:118-144`); path traversal guard (`main.cjs:185-190`); `isPathAllowed` whitelist + symlink resolution (`main.cjs:66-83`); dialog options whitelist (`main.cjs:86-94`). |
+| Splash `preload` | WARNING | Splash window has no preload and no `sandbox: true` declared. Loads only local `splash.html` so risk is low, but inconsistent with hardening posture. |
+
+### BLOCKER 1 — Sandbox disabled on main window
+
+**File:** `electron/window.cjs`
+**Lines:** 106–112
+
+Current:
+```js
+webPreferences: {
+  nodeIntegration: false,
+  contextIsolation: true,
+  preload: resolvePreloadPath(isDev, baseDir),
+  sandbox: false,
+},
 ```
-Bez Dexie migracije — Dexie tolerantno tretira nova polja. Postojeći redovi su validni (undefined → "bez tagova").
 
-### 2. Tag helpers (`src/lib/zettelkasten-tags.ts`, novi fajl)
-Pure funkcije, bez DB/React coupling-a:
-- `normalizeTag(raw)` — strip vodećeg `#`, lowercase, trim, internal whitespace → `-`, drop ne-alfanumeričkih (čuva diacritike), cap 32 char.
-- `normalizeTagList(raw)` — normalizacija + dedup uz očuvan redoslijed prve pojave, cap 8 tagova po članku.
-- `getTagCounts(articles)` — agregat `Map<tag, count>` sortiran po opadajućoj učestalosti pa alfabetski.
-- `filterByActiveTags(articles, activeSet)` — **OR** semantika (članak prolazi ako ima bar jedan aktivni tag). Praznoj activeSet propušta sve. OR je biran namjerno — istraživanje, ne sužavanje.
-- Konstante: `TAG_LIMITS = { maxPerArticle: 8, maxTagLength: 32 }`.
-
-### 3. Tag editor u članku (`ZettelkastenView` — edit mod samo)
-Ispod `LinkedSourcesPicker` u edit modu, dodati novu sekciju `ZettelTagEditor`:
-- Mali horizontalni strip: postojeći tagovi kao chip-ovi sa "×" za uklanjanje + jedan input za dodavanje.
-- Enter ili zarez → dodaj tag (kroz `normalizeTag`); duplicate ignorisan tihim no-op-om.
-- Kad se dosegne `maxPerArticle`, input postaje disabled sa hint tekstom "Maks. 8 tagova".
-- Tagovi se pišu u `draft.tags`; persist ide kroz postojeći `flushDraft` — dodajem `tags` u `Draft` interface i u dirty-check (`sameStringSet(draft.tags, activeArticle.tags ?? [])`).
-- **Ne pojavljuje se u read modu** — tagovi su organizacioni signal, ne sadržaj članka. (Ako želiš, kasnije možemo dodati nenametljiv chip strip ispod naslova i u read modu — javi.)
-
-### 4. Tag filter u Explorer panelu (`ZettelExplorerPanel`)
-Ispod Sort dropdown-a, novi blok "Tagovi":
-- Horizontalni wrap chip-ova svih korištenih tagova u predmetu (kroz `getTagCounts(articles)`), svaki sa countom u zagradi.
-- Klik = toggle u lokalnom `activeTags: Set<string>`.
-- Aktivni chip ima `bg-primary/15` + bold; neaktivni `bg-muted/40`.
-- Mali "Očisti" link kad je `activeTags.size > 0`.
-- Skriva se ako predmet nema nijedan tag (prazan blok bi bio šum).
-
-`visible` memo se proširuje:
-```ts
-let list = articles.slice();
-list = filterByActiveTags(list, activeTags);  // pre-filter
-if (q) list = list.filter(a => a.title.toLowerCase().includes(q));
-// ... existing sort + Index pinning
+Required fix (preload uses only `contextBridge` + `ipcRenderer.invoke/send/on`, all of which work in a sandboxed preload — no `fs`/`path`/`require` of native modules in `preload.cjs`, so enabling sandbox is safe):
+```js
+webPreferences: {
+  nodeIntegration: false,
+  contextIsolation: true,
+  sandbox: true,
+  preload: resolvePreloadPath(isDev, baseDir),
+  webviewTag: false,
+  spellcheck: false,
+},
 ```
-Index članak je **uvijek vidljiv** bez obzira na aktivne tagove (entry-point ne smije nestati iz panela).
 
-### 5. Tag chip-ovi u Explorer redu članka
-Ispod naslova svakog reda, ispod backlink count-a:
-- Prva 3 taga kao mali chip-ovi (`text-[9px] px-1.5 py-0 rounded-sm bg-muted/40`).
-- Ako ih ima više: dodatni chip "+N" (npr. "+2").
-- Ne renderuje se ako članak nema tagove.
-- Klik na chip u listi = toggle istog filtera (brza navigacija).
+Also harden splash (`window.cjs:63-66`):
+```js
+webPreferences: {
+  nodeIntegration: false,
+  contextIsolation: true,
+  sandbox: true,
+},
+```
 
-### 6. Helpers u storage (`zettelkasten-storage.ts`)
-- U `saveArticle`: prije `put`-a, normalizuj `tags` kroz `normalizeTagList` (defensivno, da se UI bug-ovi ne presele u IDB).
-- U `newArticle`: bez tagova po defaultu.
-- `ensureIndexArticle`: Index dobija prazan `tags: []` (ne dodajemo automatske tagove iz subject-name-a — to bi bila skrivena struktura).
+---
 
-## Tehnički detalji
+## PILLAR 2 — Build Configuration & ASAR Packaging: **[BLOCKER]**
 
-### Performanse
-- `getTagCounts(articles)` je O(N × avgTagsPerArticle); cachiran kroz `useMemo([articles])` u Explorer panelu.
-- `filterByActiveTags` je O(N × tags) sa Set lookup-om — beznačajno čak na 5000 članaka.
-- `Draft` proširenje sa `tags` ne uvodi novi listener — ide kroz isti `flushDraft` flow.
+### Findings
 
-### Edge cases
-- Postojeći članci bez `tags`: tretiraju se kao prazna lista. Tag filter ih isključuje (osim Index-a).
-- Stale tag u `tags` koji više nije normalizovan (defenziva za starije redove): `getTagCounts` i `filterByActiveTags` re-normalizuju u letu, ne pretpostavljaju invariantu.
-- Brisanje članka: tagovi nestaju s njim; `getTagCounts` automatski refleksuje sljedeći render.
-- Duplicate tag pri dodavanju: tihi no-op (UI ne baca toast).
-- Cap od 8: input se disable-uje, ne baca grešku.
+| Check | Status | Evidence |
+|---|---|---|
+| `asar: true` | PASS | `package.json:28` |
+| DevTools gated | PASS | `window.cjs:135` — only opens when `!isDev && process.env.CODEX_DEBUG` |
+| Production menu/shortcuts blocked | PASS | `window.cjs:140-151` |
+| CSP headers in prod | PASS | `main.cjs:210-224` — `default-src 'self' app:`. Note: `script-src 'unsafe-inline'` remains (Vite injects inline scripts) — accepted trade-off. |
+| Custom `app://` protocol | PASS | registered with `secure: true, standard: true` and traversal-guarded handler. |
+| Conflicting builders | WARNING | electron-builder is the chosen tool; no Forge/`@electron/packager` config detected. Memory note about `@electron/packager` does not apply to this repo. |
 
-### Tipovi
-`Draft` u `ZettelkastenView`:
-```ts
-interface Draft {
-  title: string;
-  content: string;
-  linkedSourceIds: string[];
-  tags: string[];   // nova
+### BLOCKER 2 — `preload.cjs` will be missing in packaged ASAR
+
+**File:** `package.json`
+**Lines:** 6 and 29–40
+
+Two related defects:
+
+1. `"main": "main.cjs"` is correct, but `files` array (`:29-34`) does **NOT** include `preload.cjs`:
+   ```json
+   "files": [
+     "dist/**/*",
+     "main.cjs",
+     "electron/**/*.cjs",
+     "package.json"
+   ],
+   ```
+   `preload.cjs` lives at the project root and matches none of these globs, so it will not be packed into `app.asar`.
+
+2. `extraResources` (`:35-40`) copies `preload.cjs` next to the asar, **outside** the asar:
+   ```json
+   "extraResources": [{ "from": "preload.cjs", "to": "preload.cjs" }]
+   ```
+   Combined with `resolvePreloadPath` (`window.cjs:10-19`) which checks `process.resourcesPath/preload.cjs` first, this *would* work — but only because of `extraResources`. The dual setup is fragile and the `baseDir` candidate (`__dirname` inside `app.asar`) will fail.
+
+Required fix (`package.json:29-40`) — pack preload inside asar AND drop the extraResources duplicate:
+```json
+"files": [
+  "dist/**/*",
+  "main.cjs",
+  "preload.cjs",
+  "electron/**/*.cjs",
+  "package.json"
+],
+```
+Then remove the `extraResources` block entirely. `resolvePreloadPath` already falls back to `path.join(baseDir, 'preload.cjs')`, which resolves correctly inside the asar.
+
+### BLOCKER 3 — `mac.target: dmg` with PNG icon
+
+**File:** `package.json:49-52`
+
+```json
+"mac": { "target": "dmg", "icon": "public/icon-512.png" }
+```
+
+electron-builder requires a `.icns` file for macOS DMG builds. A `.png` will either fail the build or produce an icon-less DMG.
+
+Required fix (either ship an `.icns` or drop the explicit icon and rely on the default):
+```json
+"mac": {
+  "target": ["dmg", "zip"],
+  "icon": "build/icon.icns",
+  "category": "public.app-category.education"
 }
 ```
-Sve mjesta gdje se `Draft` kreira ili upoređuje (`flushDraft`, `handleEnterEdit`, `handleCreate`, `handleOpen`) ažurirana da uključe tags.
+If you do not have `build/icon.icns` yet, generate one from `icon-512.png` (e.g., `iconutil` / `png2icns`) before running `npm run dist:mac`.
 
-## Testovi
+---
 
-`src/test/zettelkasten-tags.test.ts`:
-- `normalizeTag`: `"#  Načelo "` → `"načelo"`, `"Ljudska Prava"` → `"ljudska-prava"`, sječenje na 32 char, prazan input → `""`, drop interpunkcije.
-- `normalizeTagList`: dedup uz očuvan redoslijed, cap 8, drop praznih.
-- `getTagCounts`: sortiranje po opadajućoj učestalosti pa alfa, dedup unutar jednog članka, ignoriše članke bez tagova.
-- `filterByActiveTags`: prazna activeSet propušta sve; OR semantika; member match na re-normalized stale tag.
+## PILLAR 3 — Bundle Optimization & Dependency Leaks: **[WARNING]**
 
-(Nema integracionog testa za UI editor — već postoji solidan flushDraft test set.)
+### Findings
 
-## Šta se NE mijenja
+| Check | Status | Evidence |
+|---|---|---|
+| TS / ESLint / Vite plugins | PASS | All in `devDependencies` (`:99-127`) |
+| Native modules needing rebuild | PASS | No `better-sqlite3`, `sqlite3`, `node-sqlite`, or other native bindings in deps. Persistence is pure Dexie/IndexedDB. |
+| `rimraf` location | **WARNING** | `rimraf ^5.0.5` is in `dependencies` (`:93`) but only used by the `prebuild` script. It will bloat the asar. Move to `devDependencies`. |
+| `lovable-tagger` | PASS | In `devDependencies` and only loaded in Vite dev mode (`vite.config.ts:19`). Will not be in renderer bundle. |
+| Heavy renderer libs | INFO | `framer-motion`, `recharts`, `@xyflow/react`, `mammoth`, `jszip` are legitimate runtime deps. Tree-shaking handled by Vite. |
 
-- Backlink indeks, wiki-link auto-create, Index članak, persistence flow — netaknuti.
-- Pretraga po naslovu — ne uključuje tag matching (namjerno: pretraga ostaje "naslov", filter ostaje "tagovi").
-- Read mode članka — bez tag prikaza (može se dodati kasnije ako bude trebalo).
-- `rootSubcategoryId` — ostaje legacy no-op.
+### Required fix (`package.json`)
 
-## Redoslijed izvršavanja
+Move `rimraf` from `dependencies:93` to `devDependencies`. (Roughly ~30 transitive dev-only packages will then be excluded from the final asar via electron-builder's prod-deps pruning.)
 
-1. `tags?` polje u shemi.
-2. `zettelkasten-tags.ts` helpers + testovi.
-3. `ZettelExplorerPanel` — filter chip strip + filter primjena + tagovi u redu članka.
-4. `ZettelkastenView` — `Draft.tags`, dirty check, normalizacija pri save-u, tag editor sekcija u edit modu.
-5. Update memorije `mem://features/zettelkasten-organic`.
+---
+
+## PILLAR 4 — TypeScript & React Strictness: **[WARNING]**
+
+### Findings
+
+`rg : any | as any` shows the codebase is largely zero-any compliant per the documented policy, with the **import/export migration boundary** as the documented exception.
+
+| File | `any` count | Risk |
+|---|---|---|
+| `src/hooks/useCardImport.ts` | 10 | Boundary code parsing untyped JSON imports — acceptable, but each `any` should be narrowed before being persisted. |
+| `src/hooks/useCardExport.ts` | 2 | Subcategory shape coercion — low risk. |
+| `src/components/ExportImportDialog.tsx` | 4 | UUID validator and `parsed.categories` cast — low risk. |
+| `src/test/persist-queue-c3c4.test.ts` | 10 | Test-only — ignore. |
+| `src/hooks/useMindMapCanvas.ts` | 6 | ReactFlow node payload — acceptable. |
+| Other source files | ≤2 each | Within tolerance. |
+
+No `tsc --noEmit` issues will fail the build (the harness runs typecheck automatically and the project is currently green per memory). No bare `await` outside `try/catch` was introduced in the new wizard files (`split-wizard-build.ts` is pure, `useSourceReaderActions.ts` wraps mutations).
+
+### Recommended (non-blocking) follow-up
+
+In `useCardImport.ts:86-97`, replace `(c: any)` with a `LegacyCardJSON` interface (Pick of optional fields) so any future schema drift is caught at the boundary. Same for `(s: any)`, `(src)`, `(mm)`, `(n: any)`. This is the only critical data path where `any` could mask silent data loss in the desktop app.
+
+---
+
+## SUMMARY
+
+| Pillar | Status |
+|---|---|
+| 1. Electron Security & IPC | **BLOCKER** (sandbox disabled) |
+| 2. Build Config & ASAR | **BLOCKER** (preload packaging + macOS icon) |
+| 3. Bundle / Dep leaks | **WARNING** (rimraf in deps) |
+| 4. TS / React strictness | **WARNING** (boundary `any`s, advisory only) |
+
+### GO / NO-GO: **NO-GO**
+
+Three blockers must be patched before `npm run dist`:
+
+1. **`electron/window.cjs:110`** — set `sandbox: true` (and harden splash `:63-66`).
+2. **`package.json:29-40`** — add `preload.cjs` to `files`, remove the `extraResources` duplicate.
+3. **`package.json:49-52`** — provide `build/icon.icns` or remove the PNG icon path; switch mac target to `["dmg","zip"]`.
+
+Then move `rimraf` to `devDependencies` (warning, but trivial and reduces asar size).
+
+After these four edits, the build is safe to run:
+```text
+npm run dist        # current platform
+npm run dist:win    # Windows NSIS
+npm run dist:mac    # macOS dmg + zip (requires icns)
+```
+
+If you approve, I will apply exactly these four edits — no feature changes, no refactors — and re-verify with the existing 264-test suite before handing back for the actual `electron-builder` run.
