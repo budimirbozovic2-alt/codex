@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { MindMapDoc } from "@/lib/db";
+import type { MindMapDoc } from "@/lib/db";
 import MindMapList from "@/components/mindmap/MindMapList";
 import MindMapCanvas from "@/components/mindmap/MindMapCanvas";
 import { hasSeenOnboarding } from "@/components/mindmap/MindMapOnboarding";

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useParams, Link } from "react-router-dom";
-import { MindMapDoc } from "@/lib/db";
+import type { MindMapDoc } from "@/lib/db";
 import MindMapList from "@/components/mindmap/MindMapList";
 import MindMapCanvas from "@/components/mindmap/MindMapCanvas";
 import { hasSeenOnboarding } from "@/components/mindmap/MindMapOnboarding";
