@@ -88,6 +88,11 @@ interface SourceReaderState {
   setSplitCreatedCount: (v: number) => void;
   setSplitParentName: (v: string) => void;
   setSplitModules: (v: SelectionModule[] | ((prev: SelectionModule[]) => SelectionModule[])) => void;
+  setSplitEdits: (v: WizardModuleEdit[] | ((prev: WizardModuleEdit[]) => WizardModuleEdit[])) => void;
+  setSplitMode: (v: WizardMode) => void;
+  setSplitStepIndex: (v: number | ((prev: number) => number)) => void;
+  /** Re-initialize wizard state for a fresh split (modules + default edits + step 0). */
+  initSplitWizard: (modules: SelectionModule[], parentName: string) => void;
   setLinkModalOpen: (v: boolean) => void;
   setLinkSelectedText: (v: string) => void;
   setLinkSelectedHtml: (v: string) => void;
