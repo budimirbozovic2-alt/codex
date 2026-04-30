@@ -16,6 +16,8 @@ import {
 } from "@/lib/zettelkasten-storage";
 import { loadSourcesByCategory, type Source } from "@/lib/sources-storage";
 import { sameStringSet } from "@/lib/struct-eq";
+import { backlinkIndex } from "@/lib/backlink-index";
+import { eventBus, EVENT_TYPES } from "@/lib/event-bus";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
@@ -76,6 +78,9 @@ export default function ZettelkastenView() {
       if (!cancelled) {
         setArticles(list);
         setSources(srcs);
+        // Build the per-subject backlink index once; subsequent saves/deletes
+        // update it incrementally via event-bus events emitted below.
+        backlinkIndex.rebuildFromAll(categoryId, list);
         setLoading(false);
       }
     });
