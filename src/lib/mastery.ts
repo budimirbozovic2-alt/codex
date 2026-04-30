@@ -7,12 +7,12 @@ export interface MasteryLevel {
 }
 
 export const MASTERY_LEVELS: MasteryLevel[] = [
-  { level: 0, label: "Novo", color: "hsl(220, 13%, 69%)" },
-  { level: 1, label: "Kritično", color: "hsl(0, 72%, 51%)" },
-  { level: 2, label: "Teško", color: "hsl(25, 95%, 53%)" },
-  { level: 3, label: "Nesigurno", color: "hsl(45, 93%, 47%)" },
-  { level: 4, label: "Stabilno", color: "hsl(142, 60%, 50%)" },
-  { level: 5, label: "Savladano", color: "hsl(142, 60%, 30%)" },
+  { level: 0, label: "Novo", color: "hsl(var(--mastery-new))" },
+  { level: 1, label: "Kritično", color: "hsl(var(--mastery-critical))" },
+  { level: 2, label: "Teško", color: "hsl(var(--mastery-hard))" },
+  { level: 3, label: "Nesigurno", color: "hsl(var(--mastery-uncertain))" },
+  { level: 4, label: "Stabilno", color: "hsl(var(--mastery-stable))" },
+  { level: 5, label: "Savladano", color: "hsl(var(--mastery-mastered))" },
 ];
 
 const _masteryCache = new Map<string, { level: number; updatedAt: number }>();
