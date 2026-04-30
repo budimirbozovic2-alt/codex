@@ -160,11 +160,15 @@ export async function ensureIndexArticle(
       .filter(Boolean)
       .slice(0, 8);
 
-    const intro = `Dobrodošli u Zettelkasten predmeta **${subjectName.trim()}**. Ovo je Vaša polazna tačka za istraživanje gradiva. Krećite se kroz mrežu znanja klikom na \`[[wiki-linkove]]\` — kada kliknete na link koji još ne postoji, automatski se kreira novi članak.`;
+    // IMPORTANT: We avoid using literal `[[...]]` syntax inside the descriptive
+    // intro paragraph — wiki-link parsing would treat those as real references
+    // and inflate backlink counts toward unintended pseudo-targets like
+    // `wiki-linkove`. We use single brackets in prose as visual hint only.
+    const intro = `Dobrodošli u Zettelkasten predmeta **${subjectName.trim()}**. Ovo je Vaša polazna tačka za istraživanje gradiva. Krećite se kroz mrežu znanja klikom na [wiki-linkove] — kada kliknete na link koji još ne postoji, automatski se kreira novi članak.`;
 
     const body = links.length > 0
       ? `${intro}\n\n## Predložene oblasti za istraživanje\n\n${links.map(l => `- [[${l}]]`).join("\n")}\n\n_Slobodno mijenjajte ovaj članak — Zettelkasten raste organski._`
-      : `${intro}\n\n_Počnite kucanjem prvog \`[[wiki-linka]]\` da kreirate novi članak i započnete mrežu._`;
+      : `${intro}\n\n_Počnite kucanjem prvog wiki-linka da kreirate novi članak i započnete mrežu._`;
 
     const now = Date.now();
     const article: KnowledgeBaseArticle = {
