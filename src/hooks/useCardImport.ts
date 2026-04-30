@@ -162,6 +162,12 @@ export function useCardImport({
                     if (remapped) mn.categoryId = remapped;
                   });
                 }
+                if (Array.isArray(data.knowledgeBaseArticles)) {
+                  (data.knowledgeBaseArticles as any[]).forEach(a => {
+                    const remapped = idRemap.get(a.subjectId);
+                    if (remapped) a.subjectId = remapped;
+                  });
+                }
               }
 
               if (filteredCatRecords.length > 0) {
@@ -275,6 +281,34 @@ export function useCardImport({
               const toDelete = allKeys.filter((k) => !importedIds.has(k as string));
               if (toDelete.length > 0) await db.mindMaps.bulkDelete(toDelete);
             }
+          }
+        }
+
+        // Restore knowledgeBaseArticles (v6+) — sanitize markdown body & title; orphan-delete on overwrite
+        if (Array.isArray(data.knowledgeBaseArticles)) {
+          const articles = data.knowledgeBaseArticles as Array<{
+            id: string; subjectId: string; title: string; content: string;
+            linkedSourceIds?: string[]; rootSubcategoryId?: string;
+            createdAt?: number; updatedAt?: number;
+          }>;
+          if (articles.length > 0) {
+            const sanitized = articles.map(a => ({
+              ...a,
+              title: sanitizeHtml(a.title ?? ""),
+              content: sanitizeHtml(a.content ?? ""),
+              linkedSourceIds: Array.isArray(a.linkedSourceIds) ? a.linkedSourceIds : [],
+              createdAt: typeof a.createdAt === "number" ? a.createdAt : Date.now(),
+              updatedAt: typeof a.updatedAt === "number" ? a.updatedAt : Date.now(),
+            }));
+            await db.knowledgeBaseArticles.bulkPut(sanitized);
+            if (strategy === "overwrite") {
+              const importedIds = new Set(sanitized.map(a => a.id));
+              const allKeys = await db.knowledgeBaseArticles.toCollection().primaryKeys();
+              const toDelete = allKeys.filter(k => !importedIds.has(k as string));
+              if (toDelete.length > 0) await db.knowledgeBaseArticles.bulkDelete(toDelete);
+            }
+          } else if (strategy === "overwrite") {
+            await db.knowledgeBaseArticles.clear();
           }
         }
 
