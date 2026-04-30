@@ -1,67 +1,26 @@
-import { useDeferredValue, useMemo, useRef } from "react";
 import { ArrowLeftRight, FileText, Pause } from "lucide-react";
-import type { KnowledgeBaseArticle } from "@/lib/zettelkasten-storage";
+import { useBacklinks } from "@/lib/backlink-index";
 
 interface Props {
-  articles: KnowledgeBaseArticle[];
-  activeArticle: KnowledgeBaseArticle;
+  subjectId: string;
+  activeArticleId: string;
+  activeTitle: string;
   onOpen: (id: string) => void;
   /** When true, BacklinksPanel freezes its last computed result and skips
    *  re-scanning the article corpus. Re-enabled when the user exits edit mode. */
   isEditing?: boolean;
 }
 
-const WIKI_RE = /\[\[([^\]]+)\]\]/g;
-
-interface Backlink {
-  article: KnowledgeBaseArticle;
-  snippet: string;
-}
-
-/** Returns articles that contain a [[link]] pointing to `targetTitle`. */
-function findBacklinks(
-  articles: KnowledgeBaseArticle[],
-  targetId: string,
-  targetTitle: string,
-): Backlink[] {
-  const norm = targetTitle.trim().toLowerCase();
-  const out: Backlink[] = [];
-  for (const a of articles) {
-    if (a.id === targetId) continue;
-    let match: RegExpExecArray | null;
-    WIKI_RE.lastIndex = 0;
-    while ((match = WIKI_RE.exec(a.content)) !== null) {
-      if (match[1].trim().toLowerCase() === norm) {
-        const idx = match.index;
-        const start = Math.max(0, idx - 40);
-        const end = Math.min(a.content.length, idx + match[0].length + 40);
-        const raw = a.content.slice(start, end).replace(/\s+/g, " ").trim();
-        out.push({ article: a, snippet: (start > 0 ? "…" : "") + raw + (end < a.content.length ? "…" : "") });
-        break;
-      }
-    }
-  }
-  return out;
-}
-
-export default function BacklinksPanel({ articles, activeArticle, onOpen, isEditing = false }: Props) {
-  // Freeze the last computed result while editing — we don't want to regex-scan
-  // the entire subject's article corpus on every keystroke.
-  const cacheRef = useRef<{ key: string; backlinks: Backlink[] } | null>(null);
-
-  // useDeferredValue lets React skip stale recomputations under heavy input.
-  const deferredArticles = useDeferredValue(articles);
-  const deferredTitle = useDeferredValue(activeArticle.title);
-
-  const backlinks = useMemo<Backlink[]>(() => {
-    if (isEditing && cacheRef.current) {
-      // Return the snapshot taken before editing started; do NOT rescan.
-      return cacheRef.current.backlinks;
-    }
-    const computed = findBacklinks(deferredArticles, activeArticle.id, deferredTitle);
-    cacheRef.current = { key: activeArticle.id + "::" + deferredTitle, backlinks: computed };
-    return computed;
-  }, [deferredArticles, activeArticle.id, deferredTitle, isEditing]);
+/**
+ * Backlinks display.
+ *
+ * Heavy lifting is delegated to the global `backlinkIndex` (O(1) lookup, kept
+ * fresh by event-bus events from save/delete). This component is now pure
+ * presentation: it subscribes to one slot via `useSyncExternalStore` and
+ * renders. No regex scans here, ever.
+ */
+export default function BacklinksPanel({ subjectId, activeArticleId, activeTitle, onOpen, isEditing = false }: Props) {
+  const backlinks = useBacklinks(subjectId, activeTitle, activeArticleId, isEditing);
 
   return (
     <div className="rounded-md border border-border bg-card/60">
@@ -83,20 +42,20 @@ export default function BacklinksPanel({ articles, activeArticle, onOpen, isEdit
       </div>
       {backlinks.length === 0 ? (
         <p className="px-3 py-3 text-xs italic text-muted-foreground">
-          Nijedan članak ne upućuje na ovaj. Dodaj <code className="text-[10px]">[[{activeArticle.title}]]</code> u drugi članak.
+          Nijedan članak ne upućuje na ovaj. Dodaj <code className="text-[10px]">[[{activeTitle}]]</code> u drugi članak.
         </p>
       ) : (
         <ul className="divide-y divide-border max-h-48 overflow-y-auto">
-          {backlinks.map(({ article, snippet }) => (
-            <li key={article.id}>
+          {backlinks.map(({ articleId, title, snippet }) => (
+            <li key={articleId}>
               <button
                 type="button"
-                onClick={() => onOpen(article.id)}
+                onClick={() => onOpen(articleId)}
                 className="w-full text-left px-3 py-2 hover:bg-accent/50 transition-colors"
               >
                 <div className="flex items-center gap-1.5 text-xs font-semibold">
                   <FileText className="h-3 w-3 text-muted-foreground" />
-                  <span className="truncate">{article.title}</span>
+                  <span className="truncate">{title}</span>
                 </div>
                 <p className="text-[11px] text-muted-foreground line-clamp-2 mt-0.5">{snippet}</p>
               </button>

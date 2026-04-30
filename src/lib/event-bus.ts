@@ -11,6 +11,8 @@ export const EVENT_TYPES = {
   TAB_HEARTBEAT: "tab:heartbeat",
   TAB_REPLY: "tab:reply",
   TAB_LEAVING: "tab:leaving",
+  KB_ARTICLE_UPSERTED: "kb-article:upserted",
+  KB_ARTICLE_REMOVED: "kb-article:removed",
 } as const;
 
 export type EventType = typeof EVENT_TYPES[keyof typeof EVENT_TYPES];

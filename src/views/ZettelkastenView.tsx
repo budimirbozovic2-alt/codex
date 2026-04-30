@@ -15,6 +15,9 @@ import {
   type KnowledgeBaseArticle,
 } from "@/lib/zettelkasten-storage";
 import { loadSourcesByCategory, type Source } from "@/lib/sources-storage";
+import { sameStringSet } from "@/lib/struct-eq";
+import { backlinkIndex } from "@/lib/backlink-index";
+import { eventBus, EVENT_TYPES } from "@/lib/event-bus";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
@@ -75,6 +78,9 @@ export default function ZettelkastenView() {
       if (!cancelled) {
         setArticles(list);
         setSources(srcs);
+        // Build the per-subject backlink index once; subsequent saves/deletes
+        // update it incrementally via event-bus events emitted below.
+        backlinkIndex.rebuildFromAll(categoryId, list);
         setLoading(false);
       }
     });
@@ -147,7 +153,7 @@ export default function ZettelkastenView() {
     const dirty =
       titleClean !== activeArticle.title ||
       draft.content !== activeArticle.content ||
-      JSON.stringify(draft.linkedSourceIds) !== JSON.stringify(activeArticle.linkedSourceIds ?? []);
+      !sameStringSet(draft.linkedSourceIds, activeArticle.linkedSourceIds ?? []);
     if (!dirty) return activeArticle;
     const next: KnowledgeBaseArticle = {
       ...activeArticle,
@@ -158,8 +164,9 @@ export default function ZettelkastenView() {
     };
     await saveArticle(next);
     setArticles(prev => prev.map(a => a.id === next.id ? next : a));
+    eventBus.emit(EVENT_TYPES.KB_ARTICLE_UPSERTED, { subjectId: categoryId!, article: next });
     return next;
-  }, [activeArticle, draft]);
+  }, [activeArticle, draft, categoryId]);
 
   // Cleanup-flush: when leaving edit mode without explicit save, when switching
   // articles, or when the view unmounts. Use a ref to always read the latest.
@@ -516,8 +523,9 @@ export default function ZettelkastenView() {
             )}
           </div>
           <BacklinksPanel
-            articles={articles}
-            activeArticle={activeArticle}
+            subjectId={categoryId!}
+            activeArticleId={activeArticle.id}
+            activeTitle={activeArticle.title}
             onOpen={handleOpen}
             isEditing={isEditing}
           />

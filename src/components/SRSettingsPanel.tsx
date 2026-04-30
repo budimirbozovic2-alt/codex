@@ -18,6 +18,7 @@ import SystemTab from "@/components/settings/SystemTab";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import { getParam } from "@/lib/url-params";
+import { shallowEqual } from "@/lib/struct-eq";
 
 interface Props {
   settings: SRSettings;
@@ -142,18 +143,22 @@ export default function SRSettingsPanel({ settings, onUpdate }: Props) {
 
   const isSubjectMode = !!subjectId;
 
+  // Dirty/default detection: compare by stable shallow equality. SRSettings,
+  // TTSSettings and AppSettings are flat objects of primitives, so shallowEqual
+  // is both correct and dramatically cheaper than JSON.stringify on every render.
   const hasChanges = isSubjectMode
     ? (overridesEnabled !== (existingOverrides !== null)) ||
       (overridesEnabled && (
-        JSON.stringify(local) !== JSON.stringify(settings) ||
+        !shallowEqual(local as unknown as Record<string, unknown>, settings as unknown as Record<string, unknown>) ||
         app.targetRetention !== initialAppRef.current.targetRetention
       ))
-    : JSON.stringify(local) !== JSON.stringify(settings) ||
-      JSON.stringify(tts) !== JSON.stringify(initialTtsRef.current) ||
-      JSON.stringify(app) !== JSON.stringify(initialAppRef.current);
+    : !shallowEqual(local as unknown as Record<string, unknown>, settings as unknown as Record<string, unknown>) ||
+      !shallowEqual(tts as unknown as Record<string, unknown>, initialTtsRef.current as unknown as Record<string, unknown>) ||
+      !shallowEqual(app as unknown as Record<string, unknown>, initialAppRef.current as unknown as Record<string, unknown>);
 
-  const isDefault = JSON.stringify(local) === JSON.stringify(DEFAULT_SR_SETTINGS) &&
-    JSON.stringify(app) === JSON.stringify(DEFAULT_APP_SETTINGS);
+  const isDefault =
+    shallowEqual(local as unknown as Record<string, unknown>, DEFAULT_SR_SETTINGS as unknown as Record<string, unknown>) &&
+    shallowEqual(app as unknown as Record<string, unknown>, DEFAULT_APP_SETTINGS as unknown as Record<string, unknown>);
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">
