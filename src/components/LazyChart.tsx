@@ -14,13 +14,15 @@ interface Props<T> {
   children: (data: T) => ReactNode;
   /** Optional delay class for animation */
   delay?: number;
+  /** Optional info popover (e.g. <InfoPanel/>) shown next to the label */
+  info?: ReactNode;
 }
 
 /**
  * A chart wrapper that defers heavy computation until the user clicks Refresh.
  * Shows shimmer skeleton while computing.
  */
-export default function LazyChart<T>({ label, icon, compute, children, delay = 0 }: Props<T>) {
+export default function LazyChart<T>({ label, icon, compute, children, delay = 0, info }: Props<T>) {
   const [data, setData] = useState<T | null>(null);
   const [loading, setLoading] = useState(false);
   const [computed, setComputed] = useState(false);
@@ -49,9 +51,10 @@ export default function LazyChart<T>({ label, icon, compute, children, delay = 0
       className="rounded-xl bg-card border p-5 space-y-4"
     >
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 min-w-0">
           {icon}
-          <h3 className="text-lg font-medium">{label}</h3>
+          <h3 className="text-lg font-medium truncate">{label}</h3>
+          {info}
         </div>
         <button
           onClick={handleRefresh}
