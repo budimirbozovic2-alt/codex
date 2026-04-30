@@ -23,9 +23,13 @@ export { useUIContext } from "./ui/UIProvider";
 
 export {
   useCardData,
-  useCardActions,
-  useCategoryData,
   useReviewData,
+  useCategoryData,
+  useCategoryStatsData,
+  useCardOnlyActions,
+  useCategoryActions,
+  useBackupActions,
+  useSettingsActions,
 } from "./cards/CardProvider";
 
 // ─── Composition root ────────────────────────────────────
