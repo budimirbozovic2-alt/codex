@@ -2,7 +2,7 @@ import { CheckCircle2, Brain, Wrench, FlaskConical, Sparkles, Hash, HelpCircle, 
 import InfoPanel from "@/components/InfoPanel";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useState, useCallback, useMemo, useRef, useEffect } from "react";
-import { useCardActions, useCategoryData } from "@/contexts/AppContext";
+import { useCardOnlyActions, useCategoryData } from "@/contexts/AppContext";
 import {
   MnemonicCard, loadMnemonicCards, saveMnemonicCards,
   addMnemonicTestEntry, getMnemonicStats,
@@ -58,7 +58,7 @@ interface Props {
 }
 
 export default function MnemonicModule({ embedded = false, categoryFilter }: Props = {}) {
-  const { patchCard } = useCardActions();
+  const { patchCard } = useCardOnlyActions();
   const { categoryRecords } = useCategoryData();
   const [cards, setCardsState] = useState<MnemonicCard[]>([]);
 

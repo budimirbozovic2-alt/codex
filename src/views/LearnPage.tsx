@@ -1,6 +1,6 @@
 import { useEffect, useCallback, useMemo, useRef } from "react";
 import { useLocation } from "react-router-dom";
-import { useCardData, useCategoryData, useReviewData, useCardActions, useUIContext } from "@/contexts/AppContext";
+import { useCardData, useCategoryData, useReviewData, useCardOnlyActions, useUIContext } from "@/contexts/AppContext";
 import { useSessionContext, QueuedReview, QueuedError, QueuedMarkRead } from "@/contexts/SessionContext";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import LearnSession from "@/components/LearnSession";
@@ -15,7 +15,7 @@ export default function LearnPage() {
   const { cards, stats, ready } = useCardData();
   const { categories, categoryRecords, subcategories } = useCategoryData();
   const { reviewLog } = useReviewData();
-  const { markRead, reviewSection, addKeyPart } = useCardActions();
+  const { markRead, reviewSection, addKeyPart } = useCardOnlyActions();
   const { setView, setEditingCard } = useUIContext();
   const session = useSessionContext();
   const location = useLocation();

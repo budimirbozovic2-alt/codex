@@ -1,4 +1,4 @@
-import { useCategoryData, useCardActions, useUIContext } from "@/contexts/AppContext";
+import { useCategoryData, useCardOnlyActions, useUIContext } from "@/contexts/AppContext";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import CardForm from "@/components/CardForm";
 import { Navigate } from "react-router-dom";
@@ -7,7 +7,7 @@ import { useEditReturnTarget } from "@/hooks/useEditReturnTarget";
 
 export default function EditPage() {
   const { categories, subcategories, categoryRecords } = useCategoryData();
-  const { updateCard, splitCard } = useCardActions();
+  const { updateCard, splitCard } = useCardOnlyActions();
   const { setView, editingCard, setEditingCard } = useUIContext();
   const { navigateBack } = useEditReturnTarget();
 

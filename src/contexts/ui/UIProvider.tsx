@@ -2,7 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, R
 import { useNavigate } from "react-router-dom";
 import { Card } from "@/lib/spaced-repetition";
 import { recordAppEntry } from "@/lib/metacognitive-storage";
-import { useCardActions } from "../cards/CardProvider";
+import { useCardOnlyActions } from "../cards/CardProvider";
 import { useCurrentView, VIEW_TO_PATH, type View } from "../routing/useCurrentView";
 import { useNotificationScheduler } from "./useNotificationScheduler";
 import { useActivityTracker } from "./useActivityTracker";
@@ -24,7 +24,7 @@ export function useUIContext() {
 }
 
 export function UIProvider({ children }: { children: ReactNode }) {
-  const { toggleTag } = useCardActions();
+  const { toggleTag } = useCardOnlyActions();
   const navigate = useNavigate();
   const view = useCurrentView();
 

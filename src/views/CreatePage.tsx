@@ -1,10 +1,10 @@
-import { useCategoryData, useCardActions, useUIContext } from "@/contexts/AppContext";
+import { useCategoryData, useCardOnlyActions, useUIContext } from "@/contexts/AppContext";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import CardForm from "@/components/CardForm";
 
 export default function CreatePage() {
   const { categories, subcategories, categoryRecords } = useCategoryData();
-  const { addCard, addFlashCard } = useCardActions();
+  const { addCard, addFlashCard } = useCardOnlyActions();
   const { setView, setEditingCard } = useUIContext();
 
   return (

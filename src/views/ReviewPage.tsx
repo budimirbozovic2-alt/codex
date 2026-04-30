@@ -1,6 +1,6 @@
 import { useEffect, useCallback, useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
-import { useCardData, useCategoryData, useReviewData, useCardActions, useUIContext } from "@/contexts/AppContext";
+import { useCardData, useCategoryData, useReviewData, useCardOnlyActions, useUIContext } from "@/contexts/AppContext";
 import { useSessionContext, QueuedReview, QueuedError } from "@/contexts/SessionContext";
 import { SectionState } from "@/lib/spaced-repetition";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
@@ -12,7 +12,7 @@ export default function ReviewPage() {
   const { cards, dueCards, ready } = useCardData();
   const { categoryRecords } = useCategoryData();
   const { reviewLog, srSettings } = useReviewData();
-  const { reviewSection, logError } = useCardActions();
+  const { reviewSection, logError } = useCardOnlyActions();
   const { setView } = useUIContext();
   const session = useSessionContext();
   const [searchParams] = useSearchParams();

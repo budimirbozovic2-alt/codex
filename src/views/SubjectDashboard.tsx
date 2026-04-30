@@ -1,5 +1,5 @@
 import { useParams, Link, useNavigate } from "react-router-dom";
-import { useCardData, useCategoryData, useCardActions } from "@/contexts/AppContext";
+import { useCardData, useCategoryData, useCategoryActions } from "@/contexts/AppContext";
 import { useMemo, useState } from "react";
 import {
   ArrowLeft, BookMarked, Brain, RefreshCw, AlertTriangle,
@@ -28,7 +28,7 @@ export default function SubjectDashboard() {
   );
   const categoryName = categoryRec?.name ?? "Nepoznat predmet";
 
-  const { updateExaminerProfile } = useCardActions();
+  const { updateExaminerProfile } = useCategoryActions();
   const [infoOpen, setInfoOpen] = useState(false);
   const [matrixOpen, setMatrixOpen] = useState(false);
   const navigate = useNavigate();

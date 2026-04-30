@@ -1,11 +1,11 @@
-import { useCardData, useCategoryData, useCardActions, useUIContext } from "@/contexts/AppContext";
+import { useCardData, useCategoryData, useCategoryActions, useUIContext } from "@/contexts/AppContext";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import CategoryManager from "@/components/CategoryManager";
 
 export default function CategoriesPage() {
   const { cardCountByCategory, ready } = useCardData();
   const { categories, subcategories } = useCategoryData();
-  const { addCategory, renameCategory, deleteCategory } = useCardActions();
+  const { addCategory, renameCategory, deleteCategory } = useCategoryActions();
   const { setView } = useUIContext();
 
   if (!ready) {
