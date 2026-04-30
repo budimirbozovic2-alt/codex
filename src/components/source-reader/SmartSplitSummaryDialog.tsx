@@ -96,6 +96,14 @@ export function SmartSplitSummaryDialog({ source, onSmartSplitConfirm }: Props) 
   const [tagDraft, setTagDraft] = useState("");
   useEffect(() => { setTagDraft(""); }, [safeIndex]);
 
+  // ── Final-preview mode ────────────────────────────────────────────────────
+  // Toggled from the footer; renders all soon-to-be-created cards using the
+  // same layout as `StudyModeRecall` so the user sees exactly what they will
+  // get in study sessions before any IDB write happens.
+  const [previewAll, setPreviewAll] = useState(false);
+  // Reset preview mode whenever wizard reopens or step jumps to a new module.
+  useEffect(() => { if (!open) setPreviewAll(false); }, [open]);
+
   const commitTag = useCallback(() => {
     if (!currentEdit) return;
     const t = normalizeTag(tagDraft);
