@@ -26,11 +26,19 @@ export default function CategoryView() {
     [allCards, categoryId]
   );
 
-  // Sources are not in context — keep useLiveQuery
-  const sources = useLiveQuery(
-    () => categoryId ? db.sources.where("categoryId").equals(categoryId).toArray() : [],
-    [categoryId]
-  ) ?? [];
+  // Sources: subscribe to targeted listener instead of useLiveQuery to avoid
+  // re-rendering on unrelated IDB writes.
+  const [sources, setSources] = useState<Source[]>([]);
+  useEffect(() => {
+    if (!categoryId) { setSources([]); return; }
+    let cancelled = false;
+    const reload = () => {
+      loadSourcesByCategory(categoryId).then(s => { if (!cancelled) setSources(s); });
+    };
+    reload();
+    const off = onSourcesChanged(reload);
+    return () => { cancelled = true; off(); };
+  }, [categoryId]);
 
   const { bulkFlagNeedsReview } = useCardActions();
 
