@@ -1,4 +1,4 @@
-const { app, session, ipcMain, protocol, dialog } = require('electron');
+const { app, session, ipcMain, protocol, dialog, shell } = require('electron');
 const path = require('path');
 const fs = require('fs');
 
@@ -116,7 +116,9 @@ ipcMain.handle('show-open-dialog', async (_event, options) => {
 
 // ── File operations (K1: path validation, B1/B2: async FS, I1: size cap) ──
 const MAX_SAVE_FILE_BYTES = 100 * 1024 * 1024; // 100 MB raw
-const MAX_SAVE_FILE_BASE64_LEN = Math.ceil(MAX_SAVE_FILE_BYTES * 1.4); // base64 overhead
+// Base64 expands by 4/3 (≈1.3334). Use exact ratio + small slack for data: prefix.
+const MAX_SAVE_FILE_BASE64_LEN = Math.ceil((MAX_SAVE_FILE_BYTES * 4) / 3) + 64;
+const BASE64_RE = /^[A-Za-z0-9+/=\r\n]+$/;
 
 ipcMain.handle('save-file', async (_event, filePath, base64Data) => {
   try {
@@ -129,6 +131,10 @@ ipcMain.handle('save-file', async (_event, filePath, base64Data) => {
       return false;
     }
     const cleanBase64 = base64Data.replace(/^data:.*?;base64,/, '');
+    if (!BASE64_RE.test(cleanBase64)) {
+      logCrash('save-file-invalid-payload', 'Payload is not valid base64');
+      return false;
+    }
     await fs.promises.writeFile(filePath, Buffer.from(cleanBase64, 'base64'));
     return true;
   } catch (err) {
@@ -216,6 +222,29 @@ app.whenReady().then(() => {
       });
     });
   }
+
+  // ── Web-contents lockdown: block in-app navigation & new windows ──
+  app.on('web-contents-created', (_e, contents) => {
+    contents.on('will-navigate', (event, navUrl) => {
+      try {
+        const u = new URL(navUrl);
+        const allowedDev = isDev && u.origin === 'http://localhost:8080';
+        const allowedProd = !isDev && u.protocol === 'app:';
+        if (!allowedDev && !allowedProd) {
+          event.preventDefault();
+          if (/^https?:$/i.test(u.protocol)) shell.openExternal(navUrl);
+        }
+      } catch {
+        event.preventDefault();
+      }
+    });
+    contents.setWindowOpenHandler(({ url }) => {
+      if (/^https?:/i.test(url)) shell.openExternal(url);
+      return { action: 'deny' };
+    });
+    // Disable webview tag entirely
+    contents.on('will-attach-webview', (event) => event.preventDefault());
+  });
 
   const splash = createSplashWindow(isDev, __dirname);
   createWindow({
