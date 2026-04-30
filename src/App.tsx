@@ -26,12 +26,12 @@ const PlannerPage = lazy(() => import("@/views/PlannerPage"));
 const SubjectDiagnosticsPage = lazy(() => import("@/views/SubjectDiagnosticsPage"));
 
 const CategoriesRoutePage = lazy(() => import("@/views/CategoriesRoutePage"));
-const SpeedReaderPage = lazy(() => import("@/views/SpeedReaderPage"));
+
 const MindMapPage = lazy(() => import("@/views/MindMapPage"));
 
 const CategoryView = lazy(() => import("@/views/CategoryView"));
 const SubjectDashboard = lazy(() => import("@/views/SubjectDashboard"));
-const SubjectSpeedReaderPage = lazy(() => import("@/views/SubjectSpeedReaderPage"));
+
 const SubjectMindMapPage = lazy(() => import("@/views/SubjectMindMapPage"));
 const SubjectMnemonicPage = lazy(() => import("@/views/SubjectMnemonicPage"));
 const ZettelkastenView = lazy(() => import("@/views/ZettelkastenView"));
@@ -63,7 +63,7 @@ const App = () => (
                         <Route path="/" element={<ErrorBoundary label="Početna"><DashboardPage /></ErrorBoundary>} />
                         <Route path="/category/:categoryId" element={<CategoryViewWrapper />} />
                         <Route path="/subject/:categoryId" element={<SubjectDashboardWrapper />} />
-                        <Route path="/subject/:categoryId/speed-reader" element={<ErrorBoundary label="Speed Reader"><Suspense fallback={<PageSkeleton />}><SubjectSpeedReaderPage /></Suspense></ErrorBoundary>} />
+                        
                         <Route path="/subject/:categoryId/mind-maps" element={<ErrorBoundary label="Mapa uma"><Suspense fallback={<PageSkeleton />}><SubjectMindMapPage /></Suspense></ErrorBoundary>} />
                         <Route path="/subject/:categoryId/mnemonics" element={<ErrorBoundary label="Mnemonik"><Suspense fallback={<PageSkeleton />}><SubjectMnemonicPage /></Suspense></ErrorBoundary>} />
                         <Route path="/subject/:categoryId/zettelkasten" element={<ErrorBoundary label="Zettelkasten"><Suspense fallback={<PageSkeleton />}><ZettelkastenView /></Suspense></ErrorBoundary>} />
@@ -82,7 +82,7 @@ const App = () => (
                         <Route path="/frequent-errors" element={<Navigate to="/" replace />} />
                         
                         <Route path="/categories" element={<ErrorBoundary label="Kategorije"><CategoriesRoutePage /></ErrorBoundary>} />
-                        <Route path="/speed-reader" element={<ErrorBoundary label="Speed Reader"><SpeedReaderPage /></ErrorBoundary>} />
+                        <Route path="/speed-reader" element={<Navigate to="/" replace />} />
                         <Route path="/mind-map" element={<ErrorBoundary label="Mapa uma"><MindMapPage /></ErrorBoundary>} />
                         
                         <Route path="*" element={<ErrorBoundary label="404"><NotFound /></ErrorBoundary>} />

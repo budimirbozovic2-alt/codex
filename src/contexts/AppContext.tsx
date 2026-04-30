@@ -11,13 +11,12 @@ import { buildCardBuckets, EMPTY_BUCKETS, type CardBuckets } from "@/lib/card-bu
 const LazyDatabaseRecoveryPanel = lazy(() => import("@/components/DatabaseRecoveryPanel"));
 
 // ─── Types ──────────────────────────────────────────────
-export type View = "dashboard" | "create" | "edit" | "review" | "categories" | "learn" | "settings" | "mnemonic" | "stats" | "planner" | "speed-reader";
+export type View = "dashboard" | "create" | "edit" | "review" | "categories" | "learn" | "settings" | "mnemonic" | "stats" | "planner";
 
 const VIEW_TO_PATH: Record<View, string> = {
   dashboard: "/", create: "/create", edit: "/edit", review: "/review",
   categories: "/categories", learn: "/learn", settings: "/settings",
   mnemonic: "/mnemonics", stats: "/stats", planner: "/planner",
-  "speed-reader": "/speed-reader",
 };
 
 const PATH_TO_VIEW: Record<string, View> = {};

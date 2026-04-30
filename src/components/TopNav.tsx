@@ -24,10 +24,8 @@ const PRIMARY_NAV = [
 
 const TOOLS_NAV = [
   { path: "/stats", label: "Statistika" },
-  
   { path: "/mnemonic", label: "Mnemo radionica" },
   { path: "/planner", label: "Strateški planer" },
-  { path: "/speed-reader", label: "Speed Reader" },
   { path: "/mind-map", label: "Mentalne mape" },
 ];
 

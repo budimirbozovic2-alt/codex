@@ -1,7 +1,7 @@
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  ArrowLeft, Layers, BookOpen, Settings, Search, X, Pencil, Sparkles,
+  ArrowLeft, Layers, BookOpen, Settings, Search, X, Pencil, Sparkles, Zap,
 } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
@@ -18,6 +18,7 @@ import CardViewMode from "@/components/category/CardViewMode";
 import CardOrgMode from "@/components/category/CardOrgMode";
 import StructureManagerDialog from "@/components/category/StructureManagerDialog";
 import PassiveReader from "@/components/subject-cards/PassiveReader";
+import LocalSpeedReader from "@/components/subject-cards/LocalSpeedReader";
 import {
   MANAGE_MODES,
   MANAGE_MODE,
@@ -26,8 +27,10 @@ import {
   type ManageMode,
 } from "@/views/subject-cards/manageModes";
 
+type TabValue = "manage" | "read" | "speed";
+
 interface EditReturnSnapshot extends BaseEditReturnSnapshot {
-  tab?: "manage" | "read";
+  tab?: TabValue;
   manageMode?: ManageMode;
   searchQuery?: string;
   sourceFilter?: string;
@@ -73,12 +76,6 @@ export default function SubjectCardsView() {
     return { essayCount: essay, flashCount: flash };
   }, [cards]);
 
-  /**
-   * Standardized edit-return: hook automatically stashes path + scrollY +
-   * categoryId + cardId (resolved lazily). View only contributes UI extras.
-   * Snapshot is discarded on consume if path or categoryId don't match,
-   * preventing cross-category state leakage.
-   */
   const editingCardRef = useRef<Card | null>(null);
   const { initialSnapshot, stash: stashEditReturn } = useEditReturn<EditReturnSnapshot>({
     path: `/subject/${categoryId}/cards`,
@@ -92,8 +89,10 @@ export default function SubjectCardsView() {
     }),
   });
 
-  const [tab, setTab] = useState<"manage" | "read">(initialSnapshot?.tab ?? "manage");
-  /** Sub-mode within "manage" tab: list editor vs structural arrangement. */
+  const restoredTab = initialSnapshot?.tab;
+  const [tab, setTab] = useState<TabValue>(
+    restoredTab === "read" || restoredTab === "speed" ? restoredTab : "manage"
+  );
   const [manageMode, setManageMode] = useState<ManageMode>(
     isManageMode(initialSnapshot?.manageMode) ? initialSnapshot.manageMode : DEFAULT_MANAGE_MODE
   );
@@ -102,6 +101,7 @@ export default function SubjectCardsView() {
   const [sourceFilter, setSourceFilter] = useState<string>(initialSnapshot?.sourceFilter ?? "__all__");
   const [sources, setSources] = useState<Source[]>([]);
   const [pendingPassiveCardId, setPendingPassiveCardId] = useState<string | null>(null);
+  const [pendingSpeedCardId, setPendingSpeedCardId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!categoryId) return;
@@ -122,8 +122,6 @@ export default function SubjectCardsView() {
   );
 
   const handleEdit = (card: Card) => {
-    // Stash absolute return path + UI snapshot so EditPage and this view can
-    // collaboratively restore the user's exact spot after save/cancel.
     editingCardRef.current = card;
     stashEditReturn();
     setEditingCard(card);
@@ -175,25 +173,25 @@ export default function SubjectCardsView() {
               </Badge>
             </div>
             <p className="text-xs text-muted-foreground mt-0.5">
-              Kartice — uređivanje, struktura i pasivno čitanje
+              Kartice — uređivanje, struktura, pasivno i brzo čitanje
             </p>
           </div>
         </div>
-        {tab === "read" && (
+        {(tab === "read" || tab === "speed") && (
           <Button variant="outline" size="sm" onClick={() => setTab("manage")} className="gap-1.5 h-8 text-xs">
             <Pencil className="h-3.5 w-3.5" /> Nazad na uređivanje
           </Button>
         )}
       </div>
 
-      <Tabs value={tab} onValueChange={(v) => setTab(v as "manage" | "read")} className="w-full space-y-4">
+      <Tabs value={tab} onValueChange={(v) => setTab(v as TabValue)} className="w-full space-y-4">
 
         {/* ── Group: Učenje (featured) ── */}
         <div className="space-y-1.5">
           <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground px-1">
             Učenje
           </p>
-          <TabsList className="w-full h-auto bg-transparent p-0">
+          <TabsList className="w-full h-auto bg-transparent p-0 grid grid-cols-1 md:grid-cols-2 gap-3">
             <TabsTrigger
               value="read"
               className="relative w-full justify-start text-left h-auto rounded-xl p-5 gap-4 border-2 border-primary/50 bg-gradient-to-br from-primary/5 via-transparent to-primary/10 hover:border-primary hover:shadow-xl hover:shadow-primary/20 hover:-translate-y-0.5 transition-all data-[state=active]:border-primary data-[state=active]:shadow-xl data-[state=active]:shadow-primary/20 group"
@@ -212,11 +210,29 @@ export default function SubjectCardsView() {
                 </p>
               </div>
             </TabsTrigger>
+
+            <TabsTrigger
+              value="speed"
+              className="relative w-full justify-start text-left h-auto rounded-xl p-5 gap-4 border-2 border-primary/50 bg-gradient-to-br from-primary/5 via-transparent to-primary/10 hover:border-primary hover:shadow-xl hover:shadow-primary/20 hover:-translate-y-0.5 transition-all data-[state=active]:border-primary data-[state=active]:shadow-xl data-[state=active]:shadow-primary/20 group"
+            >
+              <span className="absolute top-2 right-2 inline-flex items-center gap-1 rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-primary">
+                <Zap className="h-3 w-3" />
+                Brzo
+              </span>
+              <div className="p-3 rounded-lg shrink-0 bg-primary text-primary-foreground shadow-lg shadow-primary/30 group-hover:bg-primary/90 transition-colors">
+                <Zap className="h-6 w-6" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="font-bold text-base text-foreground">Brzo čitanje</p>
+                <p className="text-xs text-muted-foreground mt-1 whitespace-normal">
+                  RSVP brzo čitanje kartica — treniraj brzinu i fokus
+                </p>
+              </div>
+            </TabsTrigger>
           </TabsList>
         </div>
 
         <TabsContent value="manage" className="pt-2 space-y-3">
-          {/* Segmented sub-mode switch — driven by MANAGE_MODES registry. */}
           <div className="flex items-center justify-between gap-2 flex-wrap">
             <div className="inline-flex rounded-lg border bg-card p-0.5">
               {MANAGE_MODES.map((mode) => {
@@ -329,6 +345,17 @@ export default function SubjectCardsView() {
             onEditCard={handleEdit}
             initialCardId={pendingPassiveCardId}
             onInitialConsumed={() => setPendingPassiveCardId(null)}
+          />
+        </TabsContent>
+
+        <TabsContent value="speed" className="pt-2">
+          <LocalSpeedReader
+            cards={cards}
+            subcategoryNodes={subcategoryNodes}
+            categoryId={categoryId!}
+            onEditCard={handleEdit}
+            initialCardId={pendingSpeedCardId}
+            onInitialConsumed={() => setPendingSpeedCardId(null)}
           />
         </TabsContent>
       </Tabs>

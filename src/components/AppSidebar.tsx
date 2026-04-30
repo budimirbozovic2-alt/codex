@@ -1,7 +1,7 @@
 import { NavLink } from "@/components/NavLink";
 import {
   Home, Settings as SettingsIcon,
-  Zap, Map, Scale, Brain,
+  Map, Scale, Brain,
 } from "lucide-react";
 import {
   Sidebar, SidebarContent, SidebarGroup, SidebarGroupLabel,
@@ -17,7 +17,6 @@ const STATIC_NAV = [
 
 const TOOLS_NAV = [
   { path: "/mnemonics", icon: Brain, label: "Memorizacija" },
-  { path: "/speed-reader", icon: Zap, label: "Speed Reader" },
   { path: "/mind-map", icon: Map, label: "Mentalne mape" },
 ];
 
