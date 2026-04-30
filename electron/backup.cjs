@@ -128,26 +128,40 @@ function setupBackupSystem({ app, getMainWindow, logCrash, isDev }) {
     cleanup: () => { if (backupInterval) clearInterval(backupInterval); },
     performBeforeQuitBackup: () => {
       const mainWindow = getMainWindow();
-      if (mainWindow && !mainWindow.isDestroyed()) {
-        const QUIT_BACKUP_TIMEOUT = 5000;
-        const backupDoneHandler = (resolve) => () => resolve(undefined);
-        return Promise.race([
-          new Promise(resolve => {
-            const handler = backupDoneHandler(resolve);
-            ipcMain.once('quit-backup-done', handler);
-            mainWindow._quitBackupHandler = handler;
-            mainWindow.webContents.send('quit-backup-requested');
-          }),
-          new Promise(resolve => setTimeout(() => {
-            if (mainWindow._quitBackupHandler) {
-              ipcMain.removeListener('quit-backup-done', mainWindow._quitBackupHandler);
-              delete mainWindow._quitBackupHandler;
-            }
+      if (!mainWindow || mainWindow.isDestroyed()) return Promise.resolve();
+
+      const QUIT_BACKUP_TIMEOUT = 5000;
+      // Symmetric cleanup: ensure both timeout and listener are released
+      // exactly once whether the renderer responds in time or not.
+      return new Promise(resolve => {
+        let settled = false;
+        let timeoutId = null;
+        const handler = () => {
+          if (settled) return;
+          settled = true;
+          if (timeoutId) clearTimeout(timeoutId);
+          ipcMain.removeListener('quit-backup-done', handler);
+          resolve(undefined);
+        };
+        ipcMain.once('quit-backup-done', handler);
+        timeoutId = setTimeout(() => {
+          if (settled) return;
+          settled = true;
+          ipcMain.removeListener('quit-backup-done', handler);
+          resolve(undefined);
+        }, QUIT_BACKUP_TIMEOUT);
+        try {
+          mainWindow.webContents.send('quit-backup-requested');
+        } catch (err) {
+          // If the renderer is already gone, settle immediately.
+          if (!settled) {
+            settled = true;
+            clearTimeout(timeoutId);
+            ipcMain.removeListener('quit-backup-done', handler);
             resolve(undefined);
-          }, QUIT_BACKUP_TIMEOUT)),
-        ]);
-      }
-      return Promise.resolve();
+          }
+        }
+      });
     },
   };
 }
