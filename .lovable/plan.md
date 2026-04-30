@@ -1,201 +1,172 @@
 
-# PRE-BUILD AUDIT REPORT — CODEX v3.0.0
+## Cilj
 
-Scope: `main.cjs`, `preload.cjs`, `electron/window.cjs`, `electron/backup.cjs`, `package.json`, `vite.config.ts`, import/export pipeline.
+Eliminisati `any` iz import/backup putanje kroz Zod validaciju, i pretvoriti "Zero-any" memoriju u tooling-enforced pravilo. Trenutno stanje: `useCardImport.ts` ima 6 `any`, `useCardExport.ts` 2, ukupno ~59 `any` u 24 fajla. ESLint trenutno ne provjerava `no-explicit-any`.
 
----
-
-## PILLAR 1 — Electron Security & IPC: **[BLOCKER]**
-
-### Findings
-
-| Check | Status | Evidence |
-|---|---|---|
-| `nodeIntegration: false` | PASS | `window.cjs:107`, splash `:64` |
-| `contextIsolation: true` | PASS | `window.cjs:108`, splash `:65` |
-| `sandbox: true` | **BLOCKER** | `window.cjs:110` explicitly sets `sandbox: false` |
-| `enableRemoteModule` absent | PASS | not present anywhere |
-| `will-navigate` guard | PASS | `main.cjs:228-240` — blocks non-app/non-localhost, delegates http(s) to `shell.openExternal` |
-| `setWindowOpenHandler` | PASS | `main.cjs:241-244` — denies all, http(s) → external |
-| `will-attach-webview` blocked | PASS | `main.cjs:246` |
-| Preload surface | PASS | `preload.cjs` exposes only typed function bridge via `contextBridge`. No raw `ipcRenderer`, `fs`, `path`, or `child_process` leaked. |
-| IPC payload validation | PASS | base64 regex + size cap (`main.cjs:118-144`); path traversal guard (`main.cjs:185-190`); `isPathAllowed` whitelist + symlink resolution (`main.cjs:66-83`); dialog options whitelist (`main.cjs:86-94`). |
-| Splash `preload` | WARNING | Splash window has no preload and no `sandbox: true` declared. Loads only local `splash.html` so risk is low, but inconsistent with hardening posture. |
-
-### BLOCKER 1 — Sandbox disabled on main window
-
-**File:** `electron/window.cjs`
-**Lines:** 106–112
-
-Current:
-```js
-webPreferences: {
-  nodeIntegration: false,
-  contextIsolation: true,
-  preload: resolvePreloadPath(isDev, baseDir),
-  sandbox: false,
-},
-```
-
-Required fix (preload uses only `contextBridge` + `ipcRenderer.invoke/send/on`, all of which work in a sandboxed preload — no `fs`/`path`/`require` of native modules in `preload.cjs`, so enabling sandbox is safe):
-```js
-webPreferences: {
-  nodeIntegration: false,
-  contextIsolation: true,
-  sandbox: true,
-  preload: resolvePreloadPath(isDev, baseDir),
-  webviewTag: false,
-  spellcheck: false,
-},
-```
-
-Also harden splash (`window.cjs:63-66`):
-```js
-webPreferences: {
-  nodeIntegration: false,
-  contextIsolation: true,
-  sandbox: true,
-},
-```
+Strategija je **scoped zaključavanje**: striktno blokiramo `any` u kritičnim putanjama odmah, a ostatak codebasea dobija upozorenje (warn) sa planom postepene migracije — da ne razbijemo CI dok migriramo 50+ ostalih lokacija.
 
 ---
 
-## PILLAR 2 — Build Configuration & ASAR Packaging: **[BLOCKER]**
+## 1. Instalacija Zod
 
-### Findings
+```
+bun add zod
+```
 
-| Check | Status | Evidence |
+Zod je tree-shakeable (~12KB gz), nema runtime zavisnosti. Već je pomenut u memoriji o input-validation.
+
+---
+
+## 2. Novi fajl: `src/lib/migrations/backup-schema.ts` (proširenje)
+
+Postojeći fajl ima samo `MinimalBackup` interfejs i `isMinimalBackup` type-guard. Proširujemo ga sa **kompletnim Zod schemama** za sve table-ove koji prolaze kroz import:
+
+- `BackupSectionSchema` — id, title, content, FSRS polja sa defaultima
+- `BackupCardSchema` — id, question (sanitized), sections, kategorije, opcione FSRS metaдate; `frequencyTag`/`sourceType` kao `z.enum`
+- `BackupCategoryRecordSchema` — uključuje `examinerProfile` sa enum-ima `tezak|lak` i `esej|definicija|potpitanja`
+- `BackupSourceSchema` — `htmlContent` ide kroz `.transform(sanitizeHtml)`
+- `BackupMindMapSchema` — `nodes`/`edges` sa `data.label`/`data.description` sanitized
+- `BackupMnemonicSchema`, `BackupKnowledgeBaseArticleSchema`
+- `BackupReviewLogEntrySchema`, `BackupSRSettingsSchema`
+- `BackupLocalStorageDataSchema` — `z.record(z.string(), z.unknown())` sa whitelistom u helperu
+- **`BackupSchema`** — top-level objekat: `version`, `type`, sve table-ove kao `.optional().default([])`
+
+Stari `MinimalBackup` interfejs i `isMinimalBackup` ostaju (koriste ih remap-from-backup migracije) — refaktorišemo ih da budu `z.infer<typeof MinimalBackupSchema>`.
+
+**Ključno:** schema koristi `.passthrough()` za nepoznata polja gdje god je potrebno (npr. legacy backup-ovi sa custom poljima koja smo pre-FSRS imali) — ne želimo da odbacimo validne backup-ove zbog `version: 3` polja koje danas više ne postoji.
+
+Coercion strategija: `z.coerce.number().default(...)` za FSRS brojeve, `.transform(sanitizeHtml)` za sve HTML stringove (jednom mjesto = single source of truth za XSS sanitizaciju).
+
+---
+
+## 3. Refactor: `src/hooks/useCardImport.ts`
+
+Zamjena svih 6 `any` lokacija:
+
+| Linija | Prije | Poslije |
 |---|---|---|
-| `asar: true` | PASS | `package.json:28` |
-| DevTools gated | PASS | `window.cjs:135` — only opens when `!isDev && process.env.CODEX_DEBUG` |
-| Production menu/shortcuts blocked | PASS | `window.cjs:140-151` |
-| CSP headers in prod | PASS | `main.cjs:210-224` — `default-src 'self' app:`. Note: `script-src 'unsafe-inline'` remains (Vite injects inline scripts) — accepted trade-off. |
-| Custom `app://` protocol | PASS | registered with `secure: true, standard: true` and traversal-guarded handler. |
-| Conflicting builders | WARNING | electron-builder is the chosen tool; no Forge/`@electron/packager` config detected. Memory note about `@electron/packager` does not apply to this repo. |
+| 86 | `(c: any): Card` | `(c: z.infer<typeof BackupCardSchema>): Card` (uklonjen, BackupSchema već radi migraciju kroz `.transform()`) |
+| 97 | `(s: any)` | uklonjen — sekcije parsa schema |
+| 197 | `(data.sources as any[]).forEach` | `parsed.sources.forEach` (tipovan kao `BackupSource[]`) |
+| 203 | `(data.mnemonics as any[]).forEach` | isto |
+| 209 | `(data.knowledgeBaseArticles as any[]).forEach` | isto |
+| 234 | `subcategories: [] as any[]` | `subcategories: [] as SubcategoryNode[]` |
+| 270 | `((r.subcategories \|\| []) as any[]).map((n: any) => ...)` | `r.subcategories.map(n => n.name)` (tip je `SubcategoryNode[]`) |
+| 293 | `(data.sources as any[]).map((src) => ...)` | `parsed.sources.map(src => ...)` |
+| 308–317 | sanitizedMindMaps sa 3× `any` | uklonjeno — sanitization premještena u Zod `.transform()` na `BackupMindMapSchema` |
 
-### BLOCKER 2 — `preload.cjs` will be missing in packaged ASAR
+Glavna struktura nove `importData`:
 
-**File:** `package.json`
-**Lines:** 6 and 29–40
-
-Two related defects:
-
-1. `"main": "main.cjs"` is correct, but `files` array (`:29-34`) does **NOT** include `preload.cjs`:
-   ```json
-   "files": [
-     "dist/**/*",
-     "main.cjs",
-     "electron/**/*.cjs",
-     "package.json"
-   ],
-   ```
-   `preload.cjs` lives at the project root and matches none of these globs, so it will not be packed into `app.asar`.
-
-2. `extraResources` (`:35-40`) copies `preload.cjs` next to the asar, **outside** the asar:
-   ```json
-   "extraResources": [{ "from": "preload.cjs", "to": "preload.cjs" }]
-   ```
-   Combined with `resolvePreloadPath` (`window.cjs:10-19`) which checks `process.resourcesPath/preload.cjs` first, this *would* work — but only because of `extraResources`. The dual setup is fragile and the `baseDir` candidate (`__dirname` inside `app.asar`) will fail.
-
-Required fix (`package.json:29-40`) — pack preload inside asar AND drop the extraResources duplicate:
-```json
-"files": [
-  "dist/**/*",
-  "main.cjs",
-  "preload.cjs",
-  "electron/**/*.cjs",
-  "package.json"
-],
-```
-Then remove the `extraResources` block entirely. `resolvePreloadPath` already falls back to `path.join(baseDir, 'preload.cjs')`, which resolves correctly inside the asar.
-
-### BLOCKER 3 — `mac.target: dmg` with PNG icon
-
-**File:** `package.json:49-52`
-
-```json
-"mac": { "target": "dmg", "icon": "public/icon-512.png" }
+```ts
+const raw = JSON.parse(jsonText);
+const result = BackupSchema.safeParse(raw);
+if (!result.success) {
+  toast.error(`Backup nije validan: ${result.error.issues[0]?.message ?? "nepoznata greška"}`);
+  return;
+}
+const parsed = result.data; // FULLY TYPED, sanitized, defaults applied
+// ostatak importData više ne treba sanitizeHtml/migrateImported/sanitizeExaminerProfile
 ```
 
-electron-builder requires a `.icns` file for macOS DMG builds. A `.png` will either fail the build or produce an icon-less DMG.
+Brisanje pomoćnih funkcija koje sad rade unutar Zod-a:
+- `sanitizeFrequencyTag` → `z.enum(FREQUENCY_TAG_VALUES).optional()`
+- `sanitizeSourceType` → isto
+- `sanitizeExaminerProfile` → ugrađeno u `BackupCategoryRecordSchema`
+- `migrateImported` → ugrađeno u `BackupCardSchema.transform()`
 
-Required fix (either ship an `.icns` or drop the explicit icon and rely on the default):
-```json
-"mac": {
-  "target": ["dmg", "zip"],
-  "icon": "build/icon.icns",
-  "category": "public.app-category.education"
+Krajnji `useCardImport.ts` ima **0 `any`** i pada sa ~486 LOC na ~280 LOC zato što sva validacija živi u schema fajlu.
+
+---
+
+## 4. Refactor: `src/hooks/useCardExport.ts`
+
+Linija 85, 89: `deriveSubMap` prima `{ name; subcategories?: any[] }[]`. Mijenjamo u `CategoryRecord[]` (već postoji import). Subcategories su `SubcategoryNode[]` po šemi v9+, nema više legacy `string[]` reprezentacije u export putanji. Ako legacy backup ipak stigne, type-guard:
+
+```ts
+function deriveSubMap(catRecords: CategoryRecord[]): Record<string, string[]> {
+  const out: Record<string, string[]> = {};
+  for (const r of catRecords) {
+    if (r.subcategories?.length) out[r.name] = r.subcategories.map(s => s.name);
+  }
+  return out;
 }
 ```
-If you do not have `build/icon.icns` yet, generate one from `icon-512.png` (e.g., `iconutil` / `png2icns`) before running `npm run dist:mac`.
+
+0 `any` u `useCardExport.ts`.
 
 ---
 
-## PILLAR 3 — Bundle Optimization & Dependency Leaks: **[WARNING]**
+## 5. ESLint enforcement: `eslint.config.js`
 
-### Findings
+Dodajemo dva sloja:
 
-| Check | Status | Evidence |
-|---|---|---|
-| TS / ESLint / Vite plugins | PASS | All in `devDependencies` (`:99-127`) |
-| Native modules needing rebuild | PASS | No `better-sqlite3`, `sqlite3`, `node-sqlite`, or other native bindings in deps. Persistence is pure Dexie/IndexedDB. |
-| `rimraf` location | **WARNING** | `rimraf ^5.0.5` is in `dependencies` (`:93`) but only used by the `prebuild` script. It will bloat the asar. Move to `devDependencies`. |
-| `lovable-tagger` | PASS | In `devDependencies` and only loaded in Vite dev mode (`vite.config.ts:19`). Will not be in renderer bundle. |
-| Heavy renderer libs | INFO | `framer-motion`, `recharts`, `@xyflow/react`, `mammoth`, `jszip` are legitimate runtime deps. Tree-shaking handled by Vite. |
+**Layer A (global, warn):** `@typescript-eslint/no-explicit-any: "warn"` u glavnom rules bloku — vidljivost u IDE-u za svih 50+ ostalih `any` koje nećemo migrirati u ovoj iteraciji.
 
-### Required fix (`package.json`)
+**Layer B (scoped, error):** novi config blok koji **fail-uje build** za kritične putanje:
 
-Move `rimraf` from `dependencies:93` to `devDependencies`. (Roughly ~30 transitive dev-only packages will then be excluded from the final asar via electron-builder's prod-deps pruning.)
-
----
-
-## PILLAR 4 — TypeScript & React Strictness: **[WARNING]**
-
-### Findings
-
-`rg : any | as any` shows the codebase is largely zero-any compliant per the documented policy, with the **import/export migration boundary** as the documented exception.
-
-| File | `any` count | Risk |
-|---|---|---|
-| `src/hooks/useCardImport.ts` | 10 | Boundary code parsing untyped JSON imports — acceptable, but each `any` should be narrowed before being persisted. |
-| `src/hooks/useCardExport.ts` | 2 | Subcategory shape coercion — low risk. |
-| `src/components/ExportImportDialog.tsx` | 4 | UUID validator and `parsed.categories` cast — low risk. |
-| `src/test/persist-queue-c3c4.test.ts` | 10 | Test-only — ignore. |
-| `src/hooks/useMindMapCanvas.ts` | 6 | ReactFlow node payload — acceptable. |
-| Other source files | ≤2 each | Within tolerance. |
-
-No `tsc --noEmit` issues will fail the build (the harness runs typecheck automatically and the project is currently green per memory). No bare `await` outside `try/catch` was introduced in the new wizard files (`split-wizard-build.ts` is pure, `useSourceReaderActions.ts` wraps mutations).
-
-### Recommended (non-blocking) follow-up
-
-In `useCardImport.ts:86-97`, replace `(c: any)` with a `LegacyCardJSON` interface (Pick of optional fields) so any future schema drift is caught at the boundary. Same for `(s: any)`, `(src)`, `(mm)`, `(n: any)`. This is the only critical data path where `any` could mask silent data loss in the desktop app.
-
----
-
-## SUMMARY
-
-| Pillar | Status |
-|---|---|
-| 1. Electron Security & IPC | **BLOCKER** (sandbox disabled) |
-| 2. Build Config & ASAR | **BLOCKER** (preload packaging + macOS icon) |
-| 3. Bundle / Dep leaks | **WARNING** (rimraf in deps) |
-| 4. TS / React strictness | **WARNING** (boundary `any`s, advisory only) |
-
-### GO / NO-GO: **NO-GO**
-
-Three blockers must be patched before `npm run dist`:
-
-1. **`electron/window.cjs:110`** — set `sandbox: true` (and harden splash `:63-66`).
-2. **`package.json:29-40`** — add `preload.cjs` to `files`, remove the `extraResources` duplicate.
-3. **`package.json:49-52`** — provide `build/icon.icns` or remove the PNG icon path; switch mac target to `["dmg","zip"]`.
-
-Then move `rimraf` to `devDependencies` (warning, but trivial and reduces asar size).
-
-After these four edits, the build is safe to run:
-```text
-npm run dist        # current platform
-npm run dist:win    # Windows NSIS
-npm run dist:mac    # macOS dmg + zip (requires icns)
+```js
+{
+  files: [
+    "src/hooks/useCardImport.ts",
+    "src/hooks/useCardExport.ts",
+    "src/lib/migrations/**/*.ts",
+    "src/lib/sanitize.ts",
+    "src/lib/persist-queue.ts",
+    "src/contexts/cards/**/*.{ts,tsx}",
+  ],
+  rules: {
+    "@typescript-eslint/no-explicit-any": "error",
+  },
+}
 ```
 
-If you approve, I will apply exactly these four edits — no feature changes, no refactors — and re-verify with the existing 264-test suite before handing back for the actual `electron-builder` run.
+Razlog za 2 sloja: globalni `error` bi trenutno failovao CI sa 59 grešaka u testovima/workerima/ErrorBoundary-ju koji nisu dio ove iteracije. Scoped `error` znači da se kritične putanje ne mogu regresirati, a globalni `warn` daje migration tracking listu bez razbijanja CI-ja.
+
+---
+
+## 6. CI fail-on-warn (opcionalno, preporučeno)
+
+`package.json` lint script:
+
+```json
+"lint": "eslint . --max-warnings=59"
+```
+
+Postavljamo trenutni warning-count kao plafon. Svaki novi `any` koji neko doda → CI pada. Postojeći se ne moraju migrirati odmah, ali ne mogu rasti. Ovo je **ratchet pattern** — broj može samo da pada, nikad ne raste. Kada se očiste 5 `any`, plafon se spušta na 54, itd.
+
+---
+
+## 7. Testovi
+
+Novi: `src/test/backup-schema.test.ts`
+- ✅ validni v6 backup parsa bez greške
+- ✅ legacy v3 backup (sa nepostojećim poljima) parsa kroz `.passthrough()`
+- ✅ malformed `cards[0].sections = "not array"` → `safeParse` vraća error
+- ✅ `frequencyTag: "INVALID"` → strip-ovano, ne baca error (`.optional()`)
+- ✅ `examinerProfile.notes: "<script>alert(1)</script>"` → sanitizovano kroz `.transform`
+- ✅ `mindMaps[0].nodes[0].data.label: "<img onerror=...>"` → sanitizovano
+- ✅ prazan backup `{ cards: [], categories: [] }` → defaults popunjeni
+
+Postojeći testovi prolaze nepromijenjeno (svi ulazi u `useCardImport` su validni).
+
+---
+
+## Tehnički sažetak za review
+
+| Stavka | Prije | Poslije |
+|---|---|---|
+| `any` u `useCardImport.ts` | 6 | 0 |
+| `any` u `useCardExport.ts` | 2 | 0 |
+| LOC `useCardImport.ts` | 486 | ~280 |
+| Validacija backup payload | ručne `typeof` provjere, 4 helper fn-a | 1 `BackupSchema.safeParse` |
+| XSS sanitizacija HTML polja | razbacana po `useCardImport` | centralizovana u Zod `.transform()` |
+| ESLint `no-explicit-any` | nije konfigurisano | scoped `error` + global `warn` + ratchet plafon |
+| Bundle size delta | — | +~12KB gz (zod) |
+
+## Ne ulazi u scope
+
+- Migracija ostalih ~50 `any` u workerima/testovima/ErrorBoundary-ju (ratchet pattern će ih izbacivati postepeno)
+- Refaktor `SmartSplitSummaryDialog` (574 LOC) — odvojen audit nalaz
+- Log retention policy za `reviewLog` — odvojen audit nalaz
+
+Po odobrenju, primjenjujem izmjene i runam `bun run test` + `bun run lint` da potvrdim 0 grešaka u kritičnim putanjama.
