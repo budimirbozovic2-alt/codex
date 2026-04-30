@@ -33,6 +33,7 @@ import BacklinksPanel from "@/components/zettelkasten/BacklinksPanel";
 import LinkedSourcesPicker from "@/components/zettelkasten/LinkedSourcesPicker";
 import SourceSidePanel from "@/components/zettelkasten/SourceSidePanel";
 import ZettelExplorerPanel from "@/components/zettelkasten/ZettelExplorerPanel";
+import ZettelTagEditor from "@/components/zettelkasten/ZettelTagEditor";
 import MindMapPickerDialog from "@/components/zettelkasten/MindMapPickerDialog";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { toast } from "sonner";
@@ -41,6 +42,8 @@ interface Draft {
   title: string;
   content: string;
   linkedSourceIds: string[];
+  /** Always normalized; mirrors the article's persisted tag list. */
+  tags: string[];
 }
 
 export default function ZettelkastenView() {
@@ -169,13 +172,15 @@ export default function ZettelkastenView() {
     const dirty =
       titleClean !== activeArticle.title ||
       draft.content !== activeArticle.content ||
-      !sameStringSet(draft.linkedSourceIds, activeArticle.linkedSourceIds ?? []);
+      !sameStringSet(draft.linkedSourceIds, activeArticle.linkedSourceIds ?? []) ||
+      !sameStringSet(draft.tags, activeArticle.tags ?? []);
     if (!dirty) return activeArticle;
     const next: KnowledgeBaseArticle = {
       ...activeArticle,
       title: titleClean,
       content: draft.content,
       linkedSourceIds: draft.linkedSourceIds,
+      tags: draft.tags,
       updatedAt: Date.now(),
     };
     await saveArticle(next);
@@ -318,7 +323,7 @@ export default function ZettelkastenView() {
     eventBus.emit(EVENT_TYPES.KB_ARTICLE_UPSERTED, { subjectId: categoryId, article });
     setActiveId(article.id);
     // Open new article straight in edit mode
-    setDraft({ title: article.title, content: article.content, linkedSourceIds: article.linkedSourceIds ?? [] });
+    setDraft({ title: article.title, content: article.content, linkedSourceIds: article.linkedSourceIds ?? [], tags: article.tags ?? [] });
     setIsEditing(true);
   }, [categoryId]);
 
@@ -332,6 +337,7 @@ export default function ZettelkastenView() {
         title: target.title,
         content: target.content,
         linkedSourceIds: target.linkedSourceIds ?? [],
+        tags: target.tags ?? [],
       });
       setIsEditing(true);
     } else {
@@ -361,6 +367,7 @@ export default function ZettelkastenView() {
       title: activeArticle.title,
       content: activeArticle.content,
       linkedSourceIds: activeArticle.linkedSourceIds ?? [],
+      tags: activeArticle.tags ?? [],
     });
     setIsEditing(true);
   }, [activeArticle]);
@@ -605,6 +612,14 @@ export default function ZettelkastenView() {
                 allSources={sources}
                 selectedIds={draft.linkedSourceIds}
                 onChange={(linkedSourceIds) => setDraft({ ...draft, linkedSourceIds })}
+              />
+            )}
+
+            {/* Tag editor (edit only) — pure Explorer-side filter facet, never shown in read mode. */}
+            {isEditing && draft && (
+              <ZettelTagEditor
+                tags={draft.tags}
+                onChange={(tags) => setDraft({ ...draft, tags })}
               />
             )}
 

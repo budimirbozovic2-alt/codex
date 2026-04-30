@@ -1,4 +1,5 @@
 import { db, type KnowledgeBaseArticle } from "./db";
+import { normalizeTagList } from "./zettelkasten-tags";
 
 export type { KnowledgeBaseArticle };
 
@@ -39,7 +40,10 @@ export async function findArticleByTitle(
 }
 
 export async function saveArticle(article: KnowledgeBaseArticle): Promise<void> {
-  await db.knowledgeBaseArticles.put({ ...article, updatedAt: Date.now() });
+  // Defensive: re-normalize tags on every write so UI bugs or stale data
+  // from imports/migrations can never poison IDB with malformed entries.
+  const tags = normalizeTagList(article.tags);
+  await db.knowledgeBaseArticles.put({ ...article, tags, updatedAt: Date.now() });
 }
 
 export async function deleteArticle(id: string): Promise<void> {

@@ -120,6 +120,14 @@ export interface KnowledgeBaseArticle {
   rootSubcategoryId?: string;
   /** True for the per-subject "Index" article (entry-point). Cannot be deleted. */
   isIndex?: boolean;
+  /**
+   * Lightweight, free-form tags used purely as Explorer-side filters.
+   * They do NOT impose any structure on the Zettelkasten — articles can
+   * exist without any tags, tags can exist on a single article, and they
+   * never feed search, navigation, or persistence beyond the panel filter.
+   * Always normalized: lowercase, trimmed, no `#` prefix, deduped.
+   */
+  tags?: string[];
   createdAt: number;
   updatedAt: number;
 }
