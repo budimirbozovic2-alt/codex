@@ -108,6 +108,7 @@ export default function ReviewSession({ dueCards, allCards, categoryRecords, sub
     if (modeStr === "essay") resumeMode = "stabilization";
     else if (modeStr === "random") resumeMode = "critical";
     else if (modeStr === "difficult") resumeMode = "hardest";
+    if (resumeMode === null) return; // legacy / corrupt state — ignore
     const resumeItems = computeItemsForMode(resumeMode);
     const safeIndex = Math.min(savedSession.randomIndex || 0, Math.max(0, resumeItems.length - 1));
     setMode(resumeMode);
