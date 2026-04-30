@@ -146,22 +146,8 @@ export function calcPhaseProgress(phase: StudyPhase, cards: Card[]): PhaseProgre
   return { phase, total, learned, pct: total > 0 ? Math.round((learned / total) * 100) : 0, remainingCards: total - learned };
 }
 
-/** Dynamic phase dates based on velocity */
-export function calcDynamicPhaseDates(
-  phases: StudyPhase[], cards: Card[], velocity: number
-): { phaseId: string; startDate: Date; endDate: Date; dynamicDays: number }[] {
-  const result: { phaseId: string; startDate: Date; endDate: Date; dynamicDays: number }[] = [];
-  let cursor = new Date();
-  for (const phase of phases) {
-    const { remainingCards } = calcPhaseProgress(phase, cards);
-    const dynamicDays = remainingCards === 0 ? 0 : (velocity > 0 ? Math.max(1, Math.ceil(remainingCards / velocity)) : phase.expectedDays);
-    const startDate = new Date(cursor);
-    const endDate = addDays(cursor, dynamicDays);
-    result.push({ phaseId: phase.id, startDate, endDate, dynamicDays });
-    cursor = endDate;
-  }
-  return result;
-}
+// (removed: calcDynamicPhaseDates — unused since planner phases were retired in favor of subject-centric quotas)
+
 
 // ─── Smart Load Balancing ────────────────────────────────
 
