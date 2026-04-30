@@ -78,43 +78,10 @@ export default function ReviewSession({ dueCards, allCards, categoryRecords, sub
   }, [saveSessionState, onBack]);
 
   // C3 fix: Recompute items when resuming so currentItem is never undefined
-  const computeItemsForMode = useCallback((m: ReviewMode): DueItem[] => {
-    if (m === "stabilization") {
-      const items: DueItem[] = [];
-      dueCards.forEach(card => {
-        getDueSections(card).forEach(section => {
-          if ((section.state === SectionState.Learning || section.state === SectionState.Relearning) && section.stability < 5) {
-            items.push({ card, section });
-          }
-        });
-      });
-      items.sort((a, b) => a.section.stability - b.section.stability);
-      return items;
-    } else if (m === "critical") {
-      const items: DueItem[] = [];
-      allCards.forEach(card => {
-        card.sections.forEach(section => {
-          if (section.state === SectionState.New) return;
-          const r = getRetrievability(section);
-          if (r >= 80 && r <= 85) items.push({ card, section });
-        });
-      });
-      items.sort((a, b) => getRetrievability(a.section) - getRetrievability(b.section));
-      return items;
-    } else {
-      const leechItems: DueItem[] = [];
-      const highDiffItems: DueItem[] = [];
-      allCards.forEach(card => {
-        card.sections.forEach(section => {
-          if (section.state === SectionState.New) return;
-          if (isLeech(section, srSettings)) leechItems.push({ card, section });
-          else if (section.difficulty > 7) highDiffItems.push({ card, section });
-        });
-      });
-      highDiffItems.sort((a, b) => b.section.difficulty - a.section.difficulty);
-      const combined = [...leechItems, ...highDiffItems.slice(0, 50 - leechItems.length)];
-      return combined.slice(0, 50);
-    }
+  // Centralized via review-mode-builder so the picker (ReviewSetup) and
+  // the live session (resume / autoMode) always agree on contents.
+  const computeItemsForMode = useCallback((m: Exclude<ReviewMode, null>): DueItem[] => {
+    return buildItemsForMode(m, { dueCards, allCards, srSettings });
   }, [dueCards, allCards, srSettings]);
 
   // Auto-start in a specific mode (e.g. global dashboard's "Globalna konsolidacija"
