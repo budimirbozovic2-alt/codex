@@ -1,33 +1,36 @@
 ## Goal
 
-Add a Vitest suite that verifies `bulkCreateArticlesIfMissing` is **atomic** and **duplicate-free under concurrent calls**, exercising the real Dexie `rw` transaction semantics (not a mock).
+Cap the wiki-link auto-creation batch at **50 placeholders per debounce tick** in `ZettelkastenView`. Anything beyond the cap is deferred to the next tick(s); the user is notified once per overflow burst (not once per keystroke).
 
-## Files
+## File
 
-- **add dev-dep**: `fake-indexeddb` (already installed in this turn — provides an in-memory IndexedDB so Dexie works under jsdom).
-- **created**: `src/test/zettelkasten-bulk-create.test.ts`
+- **edited**: `src/views/ZettelkastenView.tsx` — extends the existing adaptive-debounce effect (lines 173–218).
 
-No production code changes. No changes to `vitest.config.ts` or `src/test/setup.ts` — the test imports `"fake-indexeddb/auto"` locally so other tests are unaffected.
+## Changes
 
-## Test Coverage
+1. Add a constant `WIKI_LINK_BATCH_CAP = 50` inside the view.
+2. Add `lastOverflowNotifiedRef` (a `useRef<number>(0)`) to dedupe overflow notifications across keystrokes.
+3. Reset that ref alongside the existing cadence-reset effect on `activeId` change.
+4. After computing `pendingAll` (the unresolved candidates):
+   - If empty → reset overflow latch and bail (existing behavior).
+   - Else slice to the cap: `pending = pendingAll.slice(0, WIKI_LINK_BATCH_CAP)`.
+   - If `pendingAll.length > cap` AND the latch value differs from the current overflow size:
+     - `console.warn(...)` with both numbers.
+     - `toast.warning("Previše novih wiki-linkova (N). Obrađujem 50 po koraku — ostatak slijedi.")`.
+     - Update the latch to `pendingAll.length`.
+   - If batch shrank back under the cap, clear the latch to 0 so future overflows re-notify.
+5. Pass the capped `pending` (not `pendingAll`) to `bulkCreateArticlesIfMissing`.
 
-Single-call correctness:
-1. **Case-insensitive skip** — pre-existing "Ustav" + input `["ustav", "USTAV ", "Zakon", "  zakon  ", ""]` creates exactly one new row ("Zakon").
-2. **All-existing input** — returns `[]`, writes nothing.
-3. **Subject scoping** — same title in `SUBJECT_B` doesn't block creation in `SUBJECT_A`.
+## Why the tail still gets created
 
-Concurrency (the core contract):
-4. **Overlapping pair** — two `Promise.all` calls sharing one title each contribute exactly one "Shared" row + their unique titles. Total `created.length` across both results = 3, and only one of the two return arrays claims "Shared".
-5. **Hot race on a single title** — 10 parallel calls all asking for `"Race"` produce exactly one row; sum of returned `created.length` = 1.
-6. **Disjoint parallel batches** — three non-overlapping concurrent calls all fully succeed (5 rows).
+After each successful batch the new placeholders flow into `articles` state → `existingTitleSet` memo updates → next debounce tick sees the remaining unresolved titles as the new "pending" set and processes the next 50. No additional scheduling is needed — the existing effect dependency on `existingTitleSet` already triggers a re-run after each `setArticles`.
 
-## Technical Notes
+## Notification dedup logic
 
-- Each test starts with `await db.knowledgeBaseArticles.clear()` in `beforeEach` for isolation.
-- `fake-indexeddb/auto` installs globals before Dexie opens the DB; importing it at the top of the test file is sufficient.
-- The concurrency tests rely on Dexie's `rw` transaction queue serialising overlapping writes on the same table — the same mechanism production uses. If the implementation regressed to per-title round-trips outside a transaction, test #5 would create N rows and fail.
-- No fake timers; the operations are awaited directly.
+Latch stores the last overflow count we toasted for. While the user keeps typing and the size stays the same → no new toast. If the size changes (paste grew, or one chunk drained), we re-notify with the new number. When count drops to/below 50 the latch clears so the next paste storm notifies fresh.
 
 ## Verification
 
-Run via `bunx vitest run src/test/zettelkasten-bulk-create.test.ts`. All six cases must pass against the current implementation in `src/lib/zettelkasten-storage.ts`.
+- Type/paste 200 wiki-links: one warning toast + one console.warn, 50 placeholders appear, next tick auto-processes 50 more, etc., until drained.
+- Normal typing of 1–10 new links: no warnings, no behavior change.
+- Switching articles mid-overflow: latch resets, new article evaluated cleanly.

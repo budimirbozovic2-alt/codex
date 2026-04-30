@@ -162,12 +162,21 @@ export default function ZettelkastenView() {
   // ONE Dexie `rw` transaction via `bulkCreateArticlesIfMissing`.
   const lastKeystrokeAtRef = useRef<number>(0);
   const lastIntervalRef = useRef<number>(Number.POSITIVE_INFINITY);
+  // Tracks the last overflow-warned pending count so we surface ONE toast per
+  // overflow burst instead of one per keystroke while the user keeps typing
+  // above the cap. Resets to 0 once the batch falls back under the cap.
+  const lastOverflowNotifiedRef = useRef<number>(0);
+
+  // Hard ceiling on how many new placeholder articles a single debounce tick
+  // may create. Protects IDB + UI from runaway paste of huge link tables.
+  const WIKI_LINK_BATCH_CAP = 50;
 
   // Reset cadence tracking when switching articles so a fresh edit session
   // starts from "idle" rather than inheriting the previous article's velocity.
   useEffect(() => {
     lastKeystrokeAtRef.current = 0;
     lastIntervalRef.current = Number.POSITIVE_INFINITY;
+    lastOverflowNotifiedRef.current = 0;
   }, [activeId]);
 
   useEffect(() => {
@@ -187,8 +196,36 @@ export default function ZettelkastenView() {
     const matches = Array.from(content.matchAll(/\[\[([^\]]+)\]\]/g))
       .map(m => m[1].trim())
       .filter(Boolean);
-    const pending = matches.filter(t => !existingTitleSet.has(t.toLowerCase()));
-    if (pending.length === 0) return;
+    const pendingAll = matches.filter(t => !existingTitleSet.has(t.toLowerCase()));
+    if (pendingAll.length === 0) {
+      // Nothing pending → reset overflow latch so a future burst notifies fresh.
+      lastOverflowNotifiedRef.current = 0;
+      return;
+    }
+
+    // Apply hard cap. Anything beyond the cap is deferred to the next tick(s):
+    // after the current batch persists, `setArticles` grows `existingTitleSet`,
+    // which re-triggers this effect and the still-unresolved tail becomes the
+    // new `pendingAll` for the next pass — draining the queue in 50-sized chunks.
+    const overflow = pendingAll.length > WIKI_LINK_BATCH_CAP;
+    const pending = overflow ? pendingAll.slice(0, WIKI_LINK_BATCH_CAP) : pendingAll;
+
+    if (overflow) {
+      // Latch on the *current* overflow size; only re-notify if the size shifts
+      // (e.g. the user pasted more, or one chunk drained). Same size = silent.
+      if (lastOverflowNotifiedRef.current !== pendingAll.length) {
+        lastOverflowNotifiedRef.current = pendingAll.length;
+        console.warn(
+          `[zettelkasten] Wiki-link batch capped: ${pendingAll.length} candidates → processing ${WIKI_LINK_BATCH_CAP} this tick.`,
+        );
+        toast.warning(
+          `Previše novih wiki-linkova (${pendingAll.length}). Obrađujem ${WIKI_LINK_BATCH_CAP} po koraku — ostatak slijedi.`,
+        );
+      }
+    } else if (lastOverflowNotifiedRef.current !== 0) {
+      // Burst drained back under the cap — clear latch so future overflow re-notifies.
+      lastOverflowNotifiedRef.current = 0;
+    }
 
     // Adaptive delay computation.
     const BASE_MIN = 300;
