@@ -41,6 +41,8 @@ interface Draft {
   title: string;
   content: string;
   linkedSourceIds: string[];
+  /** Always normalized; mirrors the article's persisted tag list. */
+  tags: string[];
 }
 
 export default function ZettelkastenView() {
@@ -169,13 +171,15 @@ export default function ZettelkastenView() {
     const dirty =
       titleClean !== activeArticle.title ||
       draft.content !== activeArticle.content ||
-      !sameStringSet(draft.linkedSourceIds, activeArticle.linkedSourceIds ?? []);
+      !sameStringSet(draft.linkedSourceIds, activeArticle.linkedSourceIds ?? []) ||
+      !sameStringSet(draft.tags, activeArticle.tags ?? []);
     if (!dirty) return activeArticle;
     const next: KnowledgeBaseArticle = {
       ...activeArticle,
       title: titleClean,
       content: draft.content,
       linkedSourceIds: draft.linkedSourceIds,
+      tags: draft.tags,
       updatedAt: Date.now(),
     };
     await saveArticle(next);
@@ -318,7 +322,7 @@ export default function ZettelkastenView() {
     eventBus.emit(EVENT_TYPES.KB_ARTICLE_UPSERTED, { subjectId: categoryId, article });
     setActiveId(article.id);
     // Open new article straight in edit mode
-    setDraft({ title: article.title, content: article.content, linkedSourceIds: article.linkedSourceIds ?? [] });
+    setDraft({ title: article.title, content: article.content, linkedSourceIds: article.linkedSourceIds ?? [], tags: article.tags ?? [] });
     setIsEditing(true);
   }, [categoryId]);
 
@@ -332,6 +336,7 @@ export default function ZettelkastenView() {
         title: target.title,
         content: target.content,
         linkedSourceIds: target.linkedSourceIds ?? [],
+        tags: target.tags ?? [],
       });
       setIsEditing(true);
     } else {
@@ -361,6 +366,7 @@ export default function ZettelkastenView() {
       title: activeArticle.title,
       content: activeArticle.content,
       linkedSourceIds: activeArticle.linkedSourceIds ?? [],
+      tags: activeArticle.tags ?? [],
     });
     setIsEditing(true);
   }, [activeArticle]);
