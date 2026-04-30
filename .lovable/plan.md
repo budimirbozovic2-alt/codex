@@ -1,87 +1,100 @@
-# Finish the dependency inversion
+# Improve React Performance & Database/Data Flow
 
-The structural refactor (5 sibling providers, no Proxy, `useCards.ts` deleted) is already in place. What's left is to **make consumers feel the inversion** — right now they still go through merged shims that recreate the old "God Object" surface, and a handful of components still reach past the providers into `@/lib/db` directly.
+Goal: cut per-mutation re-render cost, eliminate O(N) sweeps on every card change, and make IDB writes atomic + cheaper. The structural refactor (5 sibling providers) is done — this plan exploits that split with finer-grained context slicing, derived-state caching, and tighter persistence.
 
-This plan finishes the job in four scoped passes.
+## Findings (verified)
 
-## Current state (verified)
+1. **Single fat `CardStateContextValue`** — `cards`, `dueCards`, `stats`, `buckets`, `cardCountByCategory`, `ready`, `dbError` are all in one object. All 17 `useCardData()` consumers re-render on any card mutation, even if they only read `ready` or one map entry.
+2. **Monolithic derivation sweep** — `dueCards / stats / categoryStats / cardCountByCategory` are computed in one `useMemo` that walks every card × every section on every `cardMap` change. A single grade re-walks the whole corpus.
+3. **O(N) ref clone per mutation** — `useCardCRUD` does `{ ...cardMapRef.current, [id]: updated }` on every put/delete. With 5k cards, that's 5k allocations per click.
+4. **Persist queue not transactional** — `idbBulkPutCards(puts)` then `Promise.allSettled(deletes)` are separate IDB calls. A crash between them leaves divergent state. Also no coalescing: 5 puts of the same card flush 5 records.
+5. **Buckets rebuild from scratch** — `buildCardBuckets(cards)` runs on every cards array change, even though the bucket of an unchanged card never moves.
+6. **`useCardData` HMR fallback hides bugs** — silent empty fallback in DEV (per existing memory) is OK to keep, but the wide context value amplifies its blast radius.
 
-- `CardProvider.tsx` is a 78-line composition root mounting `CategoryStateProvider → CardStateProvider → CardActions → CategoryActions → BackupActions`.
-- Sub-hooks return stable `useCallback`/`useMemo` references — the Proxy is gone.
-- Two back-compat shims survive in `CardProvider.tsx`:
-  - `useCardActions()` merges `useCardOnlyActions + useCategoryActions + useBackupActions + updateSRSettings` → consumed by **17 files**.
-  - `useCategoryData()` merges category state + `categoryStats` → consumed by **27 files**.
-- 45 direct `@/lib/db` imports remain in `src/components` + `src/views`. **The vast majority are type-only** (`type CategoryRecord`, `type Source`, `MindMapDoc`) — those are fine. Only ~6 files pull the runtime `db` instance.
-- `useCardData` / `useReviewData` / `useCategoryDataInternal` still silently return empty fallbacks in DEV when no provider is mounted (masks bugs).
+## Plan
 
-## Pass 1 — Migrate `useCardActions` consumers to focused hooks
+### Pass 1 — Slice the card-state context into 4 narrow contexts
 
-Each of the 17 callers actually uses 1–4 functions from one domain. We replace the merged shim with the right specific hook.
+Replace single `CardStateContext` with:
 
-For each file in the consumer set, classify the calls and rewrite the import:
+| Context | Value | Re-renders when |
+|---|---|---|
+| `CardListContext` | `{ cards, ready, dbError }` | bootstrap or list shape changes |
+| `CardCountsContext` | `{ cardCountByCategory, total }` | per-category counts change |
+| `DueQueueContext` | `{ dueCards, dueCount }` | due set changes |
+| `StatsContext` | `{ stats, leechCount, totalSections, learnedSections }` | section stats change |
+| `BucketsContext` | `buckets` | bucket assignment changes |
 
-| Domain used                          | Hook to import                                |
-| ------------------------------------ | --------------------------------------------- |
-| `addCard`/`updateCard`/`deleteCard`/`patchCard`/`splitCard`/`bulkAddCards`/`addFlashCard` | `useCardOnlyActions` from `CardActionsProvider` |
-| `reviewSection`/`markRead`/`toggleTag`/`logError`/`clearErrorLog`/`addKeyPart`/`bulkFlagNeedsReview`/`bulkUpdateChapter` | `useCardOnlyActions` (same provider)            |
-| `add/rename/deleteCategory`, subcategory ops, chapter ops, reorders, `updateExaminerProfile` | `useCategoryActions` from `CategoryActionsProvider` |
-| `exportData`/`exportTemplate`/`importData`/`importCards` | `useBackupActions` from `BackupActionsProvider`  |
-| `updateSRSettings`                  | new `useSettingsActions()` exported from `CardStateProvider` (thin wrapper around the existing internal) |
+`useCardData()` stays as a backwards-compatible shim that pulls all five (deprecated, replaced over time). New focused hooks: `useCardList`, `useCardCounts`, `useDueQueue`, `useCardStats`, `useCardBuckets`. Migrate the 17 callers to the narrowest hook they actually use.
 
-Then **delete `useCardActions()` from `CardProvider.tsx`**. A component that needs two domains imports two hooks — that's the point of the inversion.
+### Pass 2 — Incremental derivation with delta tracking
 
-## Pass 2 — Split `useCategoryData` into reader + stats
+Split the monolithic `useMemo` into per-slice memos and skip work the inputs don't touch:
 
-The 27 callers fall into two groups:
+- Maintain a `derivedCacheRef` keyed by `cardId → { isDue, scoreSum, sectionCount, isLeech, categoryId }`.
+- On `cardMap` change, diff against previous map: only recompute entries for added/changed/deleted ids (O(Δ) instead of O(N)).
+- Aggregate slices (`stats`, `categoryStats`, `dueCards`, `counts`) are produced by reducing the cache; sort the due list with the existing sortKeys map but only on the rows that actually changed.
 
-- **Pure list/record consumers** (most of them): only need `categories`, `categoryRecords`, or `subcategories`. Migrate to `useCategoryDataInternal` (renamed to **`useCategoryData`** publicly — the merged shim drops the `Internal` suffix).
-- **Stats consumers** (`Dashboard`, `MyStats`, sidebars, dashboards): also need `categoryStats`. They call **`useCategoryStatsData()`** in addition.
+Result: a single grade does ~1 row of work plus a fixed-cost reduction over precomputed scalars per category.
 
-Rename in two steps to avoid collisions:
+### Pass 3 — Cheap card-map mutations
 
-1. Rename the current `useCategoryDataInternal` → `useCategoryData` and re-export from `CategoryStateProvider`.
-2. Delete the merged `useCategoryData()` shim in `CardProvider.tsx`.
-3. Update the ~6 stats consumers to also call `useCategoryStatsData`.
+Stop spread-cloning the full map on every CRUD call. Two options, pick (a):
 
-This guarantees that a component touching only the category list **does not re-render** when card stats change.
+(a) **Move `cardMap` to a `Map<string, Card>` instead of `Record<string, Card>`.** Mutations become `next = new Map(prev); next.set(id, card)` — V8 optimizes this to a structural-sharing copy and Dexie input doesn't care. Update `mapToArray` to `Array.from(map.values())` cached via the existing `_mapVersion` trick.
 
-## Pass 3 — Harden missing-provider behavior
+If a Map migration is too invasive, (b) keep `Record` but stop cloning `cardMapRef.current` — only clone the React-state map and keep the ref strictly delta-applied: `cardMapRef.current[id] = card`. Mutating the ref in place is safe because we never read it during render.
 
-Today these three hooks silently return empty fallbacks in DEV, which hides real "rendered outside provider" bugs:
+### Pass 4 — Atomic, coalesced persistence
 
-- `useCardData` (`CardStateProvider.tsx`)
-- `useReviewData` (`CardStateProvider.tsx`)
-- `useCategoryDataInternal` (`CategoryStateProvider.tsx`)
+Rewrite `persistQueue.flush`:
 
-Change them to **throw in both DEV and PROD**. The HMR concern in the comments is moot because `CardProvider` is mounted at the App root — there is no legitimate path where a child renders without it.
+- Coalesce queued actions by `id`: last write wins; a delete after a put cancels the put; a put after a delete cancels the delete.
+- Run puts + deletes inside a single `db.transaction("rw", db.cards, …)` so every flush is atomic.
+- Replace the 16 ms `setTimeout` with a microtask + idle-callback pair: microtask for ≤8 actions (snappy single edits), idle callback (timeout 50 ms) for larger batches. This removes the perceived input lag on rapid grading without flooding IDB.
+- Add a `metrics` counter (DEV only) that logs `{ coalescedFrom, flushedTo, durationMs }` so future regressions are visible.
 
-## Pass 4 — Remove the few real runtime DB leaks
+### Pass 5 — Bucket index instead of full rebuild
 
-Type-only imports (`type CategoryRecord`, `type Source`, `MindMapDoc`) **stay** — they're free at runtime and types are the lingua franca of the data layer. We only target files that import the `db` instance or runtime query helpers:
+Replace `buildCardBuckets(cards)` full sweep with a stateful `BucketIndex`:
 
-- `src/components/HealthMonitor.tsx` — owns orphan-scan logic; this one is legitimately a DB tool, leave it (document as the single sanctioned exception).
-- `src/components/ExportImportDialog.tsx` — should call `useBackupActions` only; remove direct `db` import if any read is still inline.
-- Audit the remaining handful with `rg -n "import \{[^}]*\bdb\b" src/components src/views` and migrate each to either a domain action or a one-off `db-queries.ts` helper.
+- Stored in a ref alongside `cardMapRef`.
+- Each CRUD path calls `bucketIndex.upsert(card)` / `bucketIndex.remove(id)` — O(1) per mutation.
+- The hook publishes a frozen snapshot via `useSyncExternalStore` so consumers re-render only when bucket membership actually changes.
 
-We do **not** chase the ~40 type-only imports — that would be churn for no architectural gain.
+`buildCardBuckets` stays as the bootstrap one-shot.
+
+### Pass 6 — Tighten DB-queries layer
+
+- Add `idbBulkApply({ puts, deletes })` to `db-queries.ts`, used by the persist queue, that wraps both ops in one transaction.
+- Add `idbCountReviewLog`-style helpers for stats already needed by `MyStats`/dashboard so they don't pull all cards through context just to count.
+- Keep `idbAddReviewLogEntry` debounce; raise it from 250 ms → 400 ms during Zen/Review (we already know review streaks hit 10/sec) and force-flush on session end via the existing `flushReviewLogQueue`.
+
+### Pass 7 — `useSyncExternalStore` for the heaviest slices
+
+Move `buckets`, `dueCards`, and `cardCountByCategory` off React context into tiny external stores subscribed via `useSyncExternalStore`. Two wins:
+
+- Concurrent-mode safe (no tearing during transitions).
+- Selectors can return primitive scalars (`useDueCount()` returns a number) so a component that needs only the badge count never re-renders for any other change.
+
+State derivation logic stays in one place; consumers shrink to the slice they read.
 
 ## Out of scope
 
-- ESLint rules to ban raw Tailwind colors / direct DB imports — separate audit recommendation, not part of the inversion.
-- Further decomposition of `useCardCRUD` / `useCategoryManagement` internals — they're already focused.
-
-## Technical notes
-
-- `useSettingsActions` is a 6-line addition to `CardStateProvider.tsx` that exposes `{ updateSRSettings }` from the existing internals context — gives us a clean home for that one stray action without resurrecting a merged shim.
-- After Pass 1+2, `src/contexts/cards/CardProvider.tsx` shrinks from ~78 lines to ~40: just the composition root, the `RecoveryGate`, and re-exports.
-- Build will surface every missed migration via TS — no runtime risk.
-- No changes to data flow, persistence, IDB schema, or boot sequence.
+- ESLint rules (already done).
+- Provider topology changes (5-sibling layout stays).
+- Any change to FSRS algorithm, Dexie schema, or boot sequence beyond the additions in Pass 6.
+- `useCardData` deprecation removal — kept as shim until migration completes.
 
 ## Files touched (estimate)
 
-- **Modified**: `src/contexts/cards/CardProvider.tsx`, `CardStateProvider.tsx`, `CategoryStateProvider.tsx`, plus ~17 + ~27 (with overlap, net ~35) consumer files for hook renames, plus 2–3 view components for the runtime-DB cleanup.
-- **No new files**, **no deletions** beyond the two shim functions.
+- **Modified** (~10): `src/contexts/cards/CardStateProvider.tsx`, `src/contexts/cards/CardProvider.tsx`, `src/lib/persist-queue.ts`, `src/lib/db-queries.ts`, `src/lib/card-buckets.ts`, `src/hooks/useCardCRUD.ts`, plus 17 consumer files migrated from `useCardData` to focused hooks.
+- **New** (~3): `src/contexts/cards/cardStores.ts` (external stores), `src/lib/derived-cache.ts` (delta-tracked aggregates), `src/lib/bucket-index.ts` (incremental bucket store).
+- **No deletions**, no schema migrations, no boot changes.
 
-## Approval
+## Risk & validation
 
-Confirm and I'll execute all four passes in one go. The build will be the regression test — every miscategorized call site fails type-check immediately.
+- Type system carries Pass 1 — every miscategorized consumer fails type-check.
+- Ref-Delta invariants (existing core memory) are preserved: ref still mutated synchronously before async persist; only the cloning shape changes.
+- Existing tests cover `card-buckets`, `persist-queue`, `card-ordering`, `spaced-repetition` — they must keep passing. Add a `derived-cache.test.ts` and `bucket-index.test.ts` for the new modules.
+- Manual smoke: open Review, grade 50 cards — confirm no input lag and dashboard counters update without full-table re-render (use React DevTools Profiler).
