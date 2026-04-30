@@ -1,111 +1,91 @@
-# Refaktoring Dnevnika u lokalnu dijagnostiku predmeta
+## Cilj
 
-## Pregled
+Na stranici **Dijagnostika predmeta** (`/subject/:categoryId/diagnostics`) dodati uz svaku metriku jasno objašnjenje:
+- **Šta** se mjeri,
+- **Kako** se računa (formula / prag),
+- **Koji podaci** su konkretno korišćeni za TAJ predmet (broj kartica, broj review zapisa, broj kalibracija, broj latencija itd.).
 
-Dnevnik se transformiše iz globalne funkcije sa dnevnikom samoanaliza i dijagnostikom u **lokalnu dijagnostiku predmeta** koja prikazuje greške i kognitivnu analitiku filtrirane po jednom categoryId. Uklonja se:
-- Dnevnik (DiarySection) — kompletno brisanje
-- Globalna /metacognitive ruta i /frequent-errors ruta
-- Dnevnik iz navigacionog panela (sidebar + TopNav)
+Cilj je da korisnik razumije zašto vidi određeni rezultat i da odmah vidi je li uzorak dovoljno velik za pouzdan zaključak.
 
-Dodaje se:
-- Dugme "Dijagnostika" na SubjectDashboard umjesto "Dnevnik"
-- Nova ruta `/subject/:categoryId/diagnostics` sa refaktorisanim komponentama
+## Pristup
 
----
+Iskoristićemo postojeći `InfoPanel` komponentu (već postoji `src/components/InfoPanel.tsx` — popover sa "Info" trigerom). Svakoj metrici u `CognitiveAnalytics.tsx` dodajemo `InfoPanel` u zaglavlju kartice (pored `label`-a) sa:
+1. Kratkim opisom svrhe,
+2. Formulom / pragom računanja,
+3. Live "Korišćeni podaci za ovaj predmet" sekcijom — brojevi se računaju iz već prosljeđenih `cards` i `reviewLog` (oba su već scope-ovana po `categoryId` u `SubjectDiagnosticsPage`).
 
-## Detaljne promjene
+Takođe, u `SubjectDiagnosticsPage.tsx` dodajemo na vrh stranice kratki **kontekstualni summary** ("Analiza je bazirana na X kartica i Y ponavljanja iz ovog predmeta") da korisnik odmah zna obim podataka.
 
-### 1. Nova ruta i stranica: SubjectDiagnosticsPage
+## Konkretne izmjene
 
-**Novi fajl: `src/views/SubjectDiagnosticsPage.tsx`**
+### 1. `src/components/CognitiveAnalytics.tsx`
+- Modifikovati `LazyChart` upotrebu tako da `label` može sadržati `InfoPanel` (ili obmotati svaku metriku u wrapper koji prikazuje `label + InfoPanel` zajedno). Najjednostavnije: dodati novi opcionalni `info?: ReactNode` prop na `LazyChart`, ili ekstrahovati lokalni helper `MetricSection` koji prikazuje header (ikona + label + info popover) iznad `LazyChart`-a.
+- Pripremiti pomoćne brojače jednom (memo): `cardsCount`, `cardsWithErrorsCount`, `totalErrorEntries`, `sectionsWithReviewCount`, `reviewLogCount`, `latencyLogCount`, `calibrationCount`, `disciplineLogCount`. Globalne logove (`loadLatency`, `loadCalibration`, `loadDisciplineLog`) učitati lokalno samo radi prikaza brojača — ne mijenja se logika računanja.
 
-Čita `categoryId` iz URL parametara, filtrira kartice i reviewLog samo na taj predmet, i renderuje:
-- `FrequentErrors` — prosljeđuje samo kartice tog predmeta
-- `CognitiveAnalytics` — prosljeđuje samo kartice i reviewLog tog predmeta
+Za svaku od 7 metrika dodati objašnjenje:
 
-Nema tab-ova (uklonjen diary tab), samo vertikalni stack: Greške pa Kognitivna dijagnostika.
+**Indeks interferencije**
+- Šta: parovi kartica iz iste (pod)kategorije gdje se ponavljaju iste tipične greške.
+- Kako: skor = `min(100, sharedErrorPrefixes·30 + questionWordOverlap·70)`, prag prikaza ≥ 20.
+- Korišćeni podaci: broj aktivnih (ne "mastered") greški po karticama predmeta.
 
-### 2. Modifikacija analitičkih funkcija za category-scoping
+**Stabilnost memorije**
+- Šta: prosječna FSRS `stability` i trenutna `retrievability` po (pod)kategoriji.
+- Kako: `R = exp(-elapsedDana / stability)`. "Kritična" cjelina = procijenjena R < 0.85 na datum ispita iz Strateškog plana.
+- Korišćeni podaci: broj sekcija sa `lastReviewed`, datum cilja iz plannera (ako postoji).
 
-Analitičke funkcije (`calcInterferencePairs`, `calcCategoryStability`, `calcStressPerformance`, `calcBlindSpots`, `calcWeakHooks`) već primaju cards kao parametar — dovoljno je proslijediti filtrirane kartice. `calcCategoryStability` prima categories niz — proslijedit ćemo samo `[categoryId]`. `calcStressPerformance` i `calcFrictionAnalysis` koriste reviewLog — filtriraćemo ga po categoryId prije slanja (reviewLog ima `cardId`, pa ćemo koristiti set kartica predmeta za filtriranje). `calcRecoveryRate` i `calcWeakHooks` koriste globalne IDB podatke bez mogućnosti filtriranja — privremeno ih možemo izostaviti ili prilagoditi.
+**Otpornost na stres**
+- Šta: poređenje prosječne ocjene u "brzim" (stresnim) vs. "normalnim" odgovorima.
+- Kako: prag stresa = 50% prosječne latencije; `otpornost = max(0, (1 - drop/3)·100)`. Minimum: 5 normalnih + 3 stresna odgovora.
+- Korišćeni podaci: broj zapisa latencije ukupno (napomena da se latencija loguje globalno; metrika koristi sve tvoje latencije, ali samo one čiji review se odnosi na karticu ovog predmeta).
 
-Konkretno:
-- `calcFrictionAnalysis` — analizira tranzicije **između** predmeta, nema smisla na nivou jednog predmeta → ukloniti iz lokalne dijagnostike
-- `calcRecoveryRate` — baziran na discipline logu, ne na predmetu → ukloniti iz lokalne dijagnostike
-- `calcInterferencePairs` — već filtrira po categoryId interno → radi sa filtriranim karticama
-- `calcCategoryStability` — primiće `[categoryId]` umjesto svih kategorija
-- `calcStressPerformance` — primiće filtrirani reviewLog
-- `calcBlindSpots` — primiće filtrirane kartice
-- `calcWeakHooks` — koristi mnemonicCards, teško scoping → izostaviti za sada
+**Slijepe tačke**
+- Šta: kartice u kojima je samoprocjena sigurnosti bila visoka (≥4/5) a stvarna ocjena niska (≤2/4).
+- Kako: agregirano iz `calibration` zapisa, filtrirano na kartice ovog predmeta.
+- Korišćeni podaci: broj kalibracijskih zapisa za kartice predmeta.
 
-### 3. Promjena SubjectDashboard
+(Metrike "Analiza frikcije", "Indeks oporavka" i "Slabe kuke" su već skrivene u scoped pogledu — nije potrebno objašnjenje.)
 
-U zaglavlju (header icon buttons):
-- Zamijeniti dugme **Dnevnik** (`/metacognitive`) sa **Dijagnostika** (`/subject/${categoryId}/diagnostics`)
-- Ikona: `AlertTriangle` (kao u postojećem tab-u greški)
-- Tooltip: "Dijagnostika"
+### 2. `src/views/SubjectDiagnosticsPage.tsx`
+- Dodati ispod naslova mali "data scope" red koji prikazuje:
+  - broj kartica ovog predmeta,
+  - broj sekcija sa istorijom ponavljanja,
+  - broj review zapisa,
+  - broj zabilježenih grešaka.
+- Tekst: "Sve metrike ispod računaju se isključivo iz ovih podataka."
 
-### 4. Uklanjanje globalnih ruta i navigacije
+### 3. (opcionalno) `src/components/InfoPanel.tsx`
+- Trenutno popover ide `right-0 top-8`. Ako postane premali za detaljnije objašnjenje, proširiti na `w-96`. Bez funkcionalnih izmjena.
 
-**`src/App.tsx`**:
-- Ukloniti `/metacognitive` rutu
-- Ukloniti `/frequent-errors` rutu
-- Dodati `/subject/:categoryId/diagnostics` rutu
-- Ukloniti lazy importa za MetacognitivePage i FrequentErrorsPage
+## Pseudokod prikaza po metrici
 
-**`src/components/AppSidebar.tsx`**:
-- Ukloniti `{ path: "/metacognitive", icon: BookOpen, label: "Dnevnik" }` iz TOOLS_NAV
+```tsx
+<MetricHeader
+  icon={<AlertTriangle … />}
+  label="Indeks interferencije"
+  info={
+    <InfoPanel title="Indeks interferencije">
+      <p><b>Šta mjeri:</b> parove kartica iz istog predmeta gdje se ponavljaju slične greške…</p>
+      <p><b>Formula:</b> skor = min(100, sharedErrors·30 + qSimilarity·70), prag ≥ 20.</p>
+      <p><b>Korišćeni podaci za ovaj predmet:</b></p>
+      <ul>
+        <li>{cardsCount} kartica</li>
+        <li>{cardsWithErrorsCount} sa zabilježenim greškama</li>
+        <li>{activeErrorEntries} aktivnih grešaka</li>
+      </ul>
+    </InfoPanel>
+  }
+/>
+<LazyChart … />
+```
 
-**`src/components/TopNav.tsx`**:
-- Ukloniti `{ path: "/metacognitive", label: "Dnevnik" }` iz TOOLS_NAV
+## Fajlovi koje mijenjamo
+- **Modifikuje se:** `src/components/CognitiveAnalytics.tsx` (glavni rad).
+- **Modifikuje se:** `src/views/SubjectDiagnosticsPage.tsx` (data-scope summary u headeru).
+- **Mogući manji tweak:** `src/components/InfoPanel.tsx` (širina popovera, bez funkcionalne promjene).
+- **Bez promjena:** logika u `src/lib/analytics/*` ostaje netaknuta — samo se prikazuje šta već radi.
 
-**`src/components/Breadcrumbs.tsx`**:
-- Ukloniti `/metacognitive` iz ROUTE_LABELS i LAB_ROUTES
-- Ukloniti `/frequent-errors` iz ROUTE_LABELS
-
-**`src/contexts/AppContext.tsx`**:
-- Ukloniti `"metacognitive"` i `"frequent-errors"` iz View type i VIEW_ROUTES
-
-### 5. Brisanje nepotrebnih fajlova
-
-- `src/views/MetacognitivePage.tsx` — brisanje
-- `src/views/FrequentErrorsPage.tsx` — brisanje
-- `src/components/MetacognitiveCenter.tsx` — brisanje
-- `src/components/metacognitive/DiarySection.tsx` — brisanje
-- `src/components/metacognitive/WeeklyChart.tsx` — brisanje
-- `src/components/MetacognitiveOnboarding.tsx` — brisanje
-
-**Napomena**: `src/lib/metacognitive-storage.ts` se NE briše jer ga koriste brojne komponente (ReviewCard, stats tabovi, AppContext itd.) za calibration, latency, activity tracking.
-
-### 6. CognitiveAnalytics refaktoring
-
-Modifikovati `CognitiveAnalytics` da prima opcioni `categoryId` prop. Kada je prisutan:
-- Izostaviti Friction Analysis i Recovery Rate sekcije
-- Izostaviti Weak Hooks sekciju
-- Proslijediti `[categoryId]` u `calcCategoryStability`
-- Ostale sekcije (Interference, Stability, Stress, Blind Spots) rade sa već filtriranim podacima
-
-### 7. FrequentErrors — bez izmjena u logici
-
-Komponenta već prima `cards` i `categoryRecords` kao prop-ove. Prosljeđivanjem filtriranih kartica automatski prikazuje samo greške tog predmeta.
-
----
-
-## Fajlovi
-
-| Akcija | Fajl |
-|--------|------|
-| Kreiranje | `src/views/SubjectDiagnosticsPage.tsx` |
-| Izmjena | `src/views/SubjectDashboard.tsx` |
-| Izmjena | `src/components/CognitiveAnalytics.tsx` |
-| Izmjena | `src/App.tsx` |
-| Izmjena | `src/components/AppSidebar.tsx` |
-| Izmjena | `src/components/TopNav.tsx` |
-| Izmjena | `src/components/Breadcrumbs.tsx` |
-| Izmjena | `src/contexts/AppContext.tsx` |
-| Brisanje | `src/views/MetacognitivePage.tsx` |
-| Brisanje | `src/views/FrequentErrorsPage.tsx` |
-| Brisanje | `src/components/MetacognitiveCenter.tsx` |
-| Brisanje | `src/components/metacognitive/DiarySection.tsx` |
-| Brisanje | `src/components/metacognitive/WeeklyChart.tsx` |
-| Brisanje | `src/components/MetacognitiveOnboarding.tsx` |
+## Šta NE radimo
+- Ne mijenjamo formule ni pragove (samo ih dokumentujemo).
+- Ne dodajemo nove metrike.
+- Ne diramo `FrequentErrors` blok (već je samoobjašnjavajući kroz legende i statuse).
