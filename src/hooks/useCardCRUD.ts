@@ -12,6 +12,7 @@ import {
   CardSourceType,
 } from "@/lib/spaced-repetition";
 import { CardMap, bumpMapVersion, schedulePersist } from "@/lib/persist-queue";
+import { sameSourceModules } from "@/lib/struct-eq";
 
 interface UseCardCRUDParams {
   setCardMapState: React.Dispatch<React.SetStateAction<CardMap>>;
@@ -28,10 +29,12 @@ export function useCardCRUD({
     const card = cardMapRef.current![id];
     if (!card) return;
     const updated = { ...patcher(card), updatedAt: Date.now() };
-    // Invalidate coverage cache if source snippet changed
+    // Invalidate coverage cache only if the linked-source snippet or modules
+    // actually changed. Structural compare avoids JSON.stringify thrash and
+    // false invalidations from key reordering.
     if (updated.sourceId && (
       updated.originalSourceSnippet !== card.originalSourceSnippet ||
-      JSON.stringify(updated.sourceModules) !== JSON.stringify(card.sourceModules)
+      !sameSourceModules(updated.sourceModules, card.sourceModules)
     )) {
       invalidateCoverageCache(updated.sourceId);
     }
