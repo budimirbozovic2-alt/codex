@@ -1,88 +1,33 @@
 ## Goal
 
-Replace the fixed 800ms debounce for wiki-link auto-creation in `ZettelkastenView` with an **adaptive debounce (300–1000ms)** that adjusts based on:
-1. **Typing velocity** — fast typing waits longer, idle/slow typing fires sooner.
-2. **Unresolved link count** — more new `[[links]]` queued = wait longer to batch them into one transaction.
+Add a Vitest suite that verifies `bulkCreateArticlesIfMissing` is **atomic** and **duplicate-free under concurrent calls**, exercising the real Dexie `rw` transaction semantics (not a mock).
 
-This keeps the IDB write rate low during bursts while still feeling responsive when the user pauses or only adds one link.
+## Files
 
----
+- **add dev-dep**: `fake-indexeddb` (already installed in this turn — provides an in-memory IndexedDB so Dexie works under jsdom).
+- **created**: `src/test/zettelkasten-bulk-create.test.ts`
 
-## Files Touched
+No production code changes. No changes to `vitest.config.ts` or `src/test/setup.ts` — the test imports `"fake-indexeddb/auto"` locally so other tests are unaffected.
 
-- **edited** `src/views/ZettelkastenView.tsx` — replace the fixed-delay `setTimeout` block (lines 161–187) with an adaptive scheduler.
+## Test Coverage
 
-No new files. No API changes to `zettelkasten-storage.ts`.
+Single-call correctness:
+1. **Case-insensitive skip** — pre-existing "Ustav" + input `["ustav", "USTAV ", "Zakon", "  zakon  ", ""]` creates exactly one new row ("Zakon").
+2. **All-existing input** — returns `[]`, writes nothing.
+3. **Subject scoping** — same title in `SUBJECT_B` doesn't block creation in `SUBJECT_A`.
 
----
+Concurrency (the core contract):
+4. **Overlapping pair** — two `Promise.all` calls sharing one title each contribute exactly one "Shared" row + their unique titles. Total `created.length` across both results = 3, and only one of the two return arrays claims "Shared".
+5. **Hot race on a single title** — 10 parallel calls all asking for `"Race"` produce exactly one row; sum of returned `created.length` = 1.
+6. **Disjoint parallel batches** — three non-overlapping concurrent calls all fully succeed (5 rows).
 
-## Design
+## Technical Notes
 
-### Inputs to the adaptive delay
-
-Tracked via refs (no re-renders):
-
-- `lastKeystrokeAtRef: number` — timestamp of the most recent `draft.content` change.
-- `lastIntervalRef: number` — ms between the two most recent content changes (typing cadence proxy).
-
-Derived per scheduling pass:
-
-- `velocityFactor` — short interval (<120ms between keystrokes) → fast typing → bias toward upper bound. Long interval (>400ms) → idle → bias toward lower bound.
-- `pendingCount` — number of `[[wiki]]` candidates not yet in `existingTitleSet`. Larger batches → longer delay (let them accumulate for a single transaction).
-
-### Formula
-
-```text
-BASE_MIN = 300
-BASE_MAX = 1000
-
-velocityWeight = clamp((lastInterval ms in [120..400]) inverted to [0..1])
-   // <=120ms => 1.0 (fast),  >=400ms => 0.0 (idle)
-
-batchWeight = clamp(pendingCount / 8, 0, 1)
-   // 0 candidates => 0, 8+ => 1
-
-weight = max(velocityWeight, batchWeight)   // either signal can extend the wait
-delay  = BASE_MIN + (BASE_MAX - BASE_MIN) * weight
-```
-
-Rationale:
-- Single keystroke after a pause with one new link → ~300ms (snappy).
-- Continuous typing → ~900–1000ms (avoid mid-burst transactions).
-- Pasting a chunk with many new links → upper bound regardless of cadence.
-
-### Scheduler shape
-
-The current `useEffect` runs on every `draft.content` change. We keep that but:
-
-1. Update `lastIntervalRef` and `lastKeystrokeAtRef` synchronously at the top.
-2. Compute `pendingCount` cheaply by regex-matching content and filtering against `existingTitleSet` (already memoized).
-3. If `pendingCount === 0`, **skip scheduling entirely** (no timer churn).
-4. Otherwise compute `delay` via the formula and `setTimeout(..., delay)`.
-5. Cleanup clears the timer as today.
-
-The async body inside the timeout is unchanged — still calls `bulkCreateArticlesIfMissing` inside the existing single Dexie `rw` transaction, still updates `articles` state and toasts on creation.
-
-### Safety / correctness
-
-- Refs reset when `activeId` changes (piggyback on existing flush effect at line 150) so switching articles starts a fresh cadence measurement.
-- Bounds are hard-clamped (`Math.min/Math.max`) so the delay can never escape `[300, 1000]`.
-- When `isEditing` flips off, the cleanup clears any pending timer — no orphan transactions.
-- Re-uses existing `existingTitleSet` memo, so no extra per-keystroke allocations beyond the regex (already done today).
-
----
-
-## Out of Scope
-
-- No change to `bulkCreateArticlesIfMissing` (already optimal: single tx + bulkPut).
-- No change to `BacklinksPanel` (already gated by `isEditing` + `useDeferredValue`).
-- No new user-facing setting; the heuristic is internal. Can be promoted to a setting later if needed.
-
----
+- Each test starts with `await db.knowledgeBaseArticles.clear()` in `beforeEach` for isolation.
+- `fake-indexeddb/auto` installs globals before Dexie opens the DB; importing it at the top of the test file is sufficient.
+- The concurrency tests rely on Dexie's `rw` transaction queue serialising overlapping writes on the same table — the same mechanism production uses. If the implementation regressed to per-title round-trips outside a transaction, test #5 would create N rows and fail.
+- No fake timers; the operations are awaited directly.
 
 ## Verification
 
-- Type a paragraph fast with no new `[[links]]` → no timers scheduled, zero IDB writes.
-- Type one new `[[Foo]]` then pause → placeholder appears ~300–400ms after the pause.
-- Paste a block with 5+ new `[[links]]` → single transaction fires near the 1000ms ceiling, one toast.
-- Switch articles mid-typing → no orphan placeholders created against the previous article (timer cleared on effect cleanup).
+Run via `bunx vitest run src/test/zettelkasten-bulk-create.test.ts`. All six cases must pass against the current implementation in `src/lib/zettelkasten-storage.ts`.
