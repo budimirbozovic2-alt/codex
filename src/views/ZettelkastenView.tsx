@@ -33,6 +33,7 @@ import BacklinksPanel from "@/components/zettelkasten/BacklinksPanel";
 import LinkedSourcesPicker from "@/components/zettelkasten/LinkedSourcesPicker";
 import SourceSidePanel from "@/components/zettelkasten/SourceSidePanel";
 import ZettelExplorerPanel from "@/components/zettelkasten/ZettelExplorerPanel";
+import ZettelTagEditor from "@/components/zettelkasten/ZettelTagEditor";
 import MindMapPickerDialog from "@/components/zettelkasten/MindMapPickerDialog";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { toast } from "sonner";
@@ -611,6 +612,14 @@ export default function ZettelkastenView() {
                 allSources={sources}
                 selectedIds={draft.linkedSourceIds}
                 onChange={(linkedSourceIds) => setDraft({ ...draft, linkedSourceIds })}
+              />
+            )}
+
+            {/* Tag editor (edit only) — pure Explorer-side filter facet, never shown in read mode. */}
+            {isEditing && draft && (
+              <ZettelTagEditor
+                tags={draft.tags}
+                onChange={(tags) => setDraft({ ...draft, tags })}
               />
             )}
 
