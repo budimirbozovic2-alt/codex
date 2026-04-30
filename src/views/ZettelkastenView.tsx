@@ -272,6 +272,10 @@ export default function ZettelkastenView() {
       const created = await bulkCreateArticlesIfMissing(categoryId, pending, rootSubId);
       if (created.length > 0) {
         setArticles(prev => [...created, ...prev]);
+        // Keep backlink index hot — each new article may target existing titles.
+        for (const a of created) {
+          eventBus.emit(EVENT_TYPES.KB_ARTICLE_UPSERTED, { subjectId: categoryId, article: a });
+        }
         toast.success(
           created.length === 1
             ? `Kreiran placeholder članak "${created[0].title}"`
@@ -293,6 +297,7 @@ export default function ZettelkastenView() {
     const article = newArticle(categoryId, t, rootSubId ?? selectedSubId ?? undefined);
     await saveArticle(article);
     setArticles(prev => [article, ...prev]);
+    eventBus.emit(EVENT_TYPES.KB_ARTICLE_UPSERTED, { subjectId: categoryId, article });
     setActiveId(article.id);
     // Open new article straight in edit mode
     setDraft({ title: article.title, content: article.content, linkedSourceIds: article.linkedSourceIds ?? [] });
@@ -346,6 +351,7 @@ export default function ZettelkastenView() {
     if (!activeArticle) return;
     if (!confirm(`Obrisati članak "${activeArticle.title}"?`)) return;
     await deleteArticle(activeArticle.id);
+    eventBus.emit(EVENT_TYPES.KB_ARTICLE_REMOVED, { subjectId: activeArticle.subjectId, articleId: activeArticle.id });
     setArticles(prev => prev.filter(a => a.id !== activeArticle.id));
     setActiveId(null);
     setDraft(null);
@@ -380,6 +386,7 @@ export default function ZettelkastenView() {
           if (created.length > 0) {
             const article = created[0];
             setArticles(prev => [article, ...prev]);
+            eventBus.emit(EVENT_TYPES.KB_ARTICLE_UPSERTED, { subjectId: categoryId, article });
             toast.success(`Kreiran novi članak "${article.title}"`);
             return article.id;
           }
