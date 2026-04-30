@@ -141,6 +141,7 @@ export function useCardExport({ cards, srSettings }: UseCardExportDeps) {
         sources, mindMaps, diary, calibrationLog, latencyLog,
         slippageLog, activityLog, disciplineLog, pomodoroLog, fullReviewLog,
         catRecords, mnemonics, majorSystem, mnemonicTestLog,
+        knowledgeBaseArticles,
       ] = await Promise.all([
         db.sources.toArray(),
         db.mindMaps.toArray(),
@@ -156,6 +157,7 @@ export function useCardExport({ cards, srSettings }: UseCardExportDeps) {
         db.mnemonics.toArray(),
         db.majorSystem.toArray(),
         db.mnemonicTestLog.toArray(),
+        db.knowledgeBaseArticles.toArray(),
       ]);
 
       const localStorageData: Record<string, unknown> = {};
@@ -183,12 +185,13 @@ export function useCardExport({ cards, srSettings }: UseCardExportDeps) {
       const freshCards = allCards.length > 0 ? allCards : cards; // fallback to prop if IDB empty
 
       const data = {
-        version: 5, type: "full",
+        version: 6, type: "full",
         cards: freshCards, categories: catRecords, subcategories: deriveSubMap(catRecords),
         reviewLog: fullReviewLog, srSettings,
         sources, mindMaps, diary, calibrationLog, latencyLog,
         slippageLog, activityLog, disciplineLog, pomodoroLog,
         mnemonics, majorSystem, mnemonicTestLog,
+        knowledgeBaseArticles,
         localStorageData,
       };
       const dateStr = new Date().toISOString().slice(0, 10);
