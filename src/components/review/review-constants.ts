@@ -28,7 +28,6 @@ export interface ReviewSessionProps {
   dueCards: Card[];
   allCards: Card[];
   categoryRecords: import("@/lib/db").CategoryRecord[];
-  subcategories: Record<string, string[]>;
   srSettings: SRSettings;
   onReviewSection: (cardId: string, sectionId: string, grade: number) => void;
   onLogError: (cardId: string, text: string, sectionId?: string) => void;
