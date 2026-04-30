@@ -1,66 +1,76 @@
-## Audit Status — What's Already Done
+## Audit Status
 
-Inspecting the current code shows three of the four requested fixes are **already in place** from prior turns:
+| # | Fix | Status |
+|---|---|---|
+| 1 | Virtualize `filteredArticles` in `ZettelkastenView` | ✅ Already done — `ArticleListVirtual` (uses `react-window` `List` for >50 items) is imported on line 32 and rendered on line 612 |
+| 2 | Replace `useLiveQuery` for sources in `CategoryView` | ⚠️ Implement now |
+| 3 | Single-pass `catNameMap` in `CardList` | ⚠️ Implement now |
 
-| # | Fix | Status | Location |
-|---|---|---|---|
-| 1 | `findArticleByTitle` uses `[subjectId+title]` compound index, falls back to `.where().filter().first()` | ✅ Already done | `src/lib/zettelkasten-storage.ts` lines 17–39 |
-| 2 | Wiki-link batch via `db.transaction("rw", ...)` + `bulkPut`, single dedup pass | ✅ Already done | `src/lib/zettelkasten-storage.ts` lines 57–96 (`bulkCreateArticlesIfMissing`) |
-| 3a | Gate `existingTitleSet` / `emptyTitleSet` behind `!isEditing` | ⚠️ Not yet — implement now |
-| 3b | `BacklinksPanel` deferred/frozen during edit | ✅ Already done | `BacklinksPanel.tsx` — uses `useDeferredValue` + `cacheRef` freeze when `isEditing` |
+Item 1 already matches the request. Items 2 and 3 below.
 
-So the **only remaining work is item 3a**.
+## Item 2 — `CategoryView` sources fetch
 
-## Subtlety With Item 3a
+**File**: `src/views/CategoryView.tsx`
 
-The wiki-link auto-create effect (`ZettelkastenView.tsx` lines ~177–255) currently reads `existingTitleSet` to decide which `[[link]]` candidates need to be created. That effect runs **only while editing** — exactly the case where the request asks the memo to be empty. A naive gate would break the effect (every wiki-link would look "missing" and a placeholder would be re-created on every keystroke).
+**Important deviation from the verbatim request**: the project does NOT have an `EVENT_TYPES.SOURCE_CHANGED` constant, and `EventBus` is built on `BroadcastChannel` for *cross-tab* sync (it does not loopback within the same tab in older browser versions). However, `src/lib/sources-storage.ts` already exposes the correct same-tab notification mechanism: `onSourcesChanged(fn)` — a subscribable callback fired by `saveSource`, `deleteSource`, and `invalidateSourcesCache`. This is the right primitive to use here; it covers both same-tab and (already) cross-tab cases via existing code.
 
-Note: the audit's framing ("rebuild on every keystroke") is technically inaccurate against today's code — `articles` state identity does NOT change on keystrokes (only on save / auto-create / delete), so the `useMemo`s already do not rebuild during typing. The gate still has a real benefit: it skips the work entirely on the *first* render after entering edit mode and on every `articles` mutation that happens during edit (e.g. after a placeholder batch lands).
+**Changes**:
+1. Drop the `useLiveQuery` import and the `db.sources.where(...)` query.
+2. Add `useState<Source[]>([])` for `sources`.
+3. Add a single `useEffect([categoryId])` that:
+   - calls `loadSourcesByCategory(categoryId)` on mount,
+   - subscribes to `onSourcesChanged` and re-runs the loader on each change,
+   - returns the unsubscribe + cancellation flag for cleanup.
+4. Keep the existing `handleSourceUpdated` as-is — it calls `invalidateSourcesCache()` which already triggers `_notify()` → our subscriber re-loads.
 
-## Plan for Item 3a
+**Code shape**:
+```tsx
+import { loadSourcesByCategory, onSourcesChanged, invalidateSourcesCache } from "@/lib/sources-storage";
+import type { Source } from "@/lib/db";
 
-File: **`src/views/ZettelkastenView.tsx`**
+const [sources, setSources] = useState<Source[]>([]);
 
-1. Gate both memos behind `isEditing`:
-   ```tsx
-   const existingTitleSet = useMemo(
-     () => isEditing
-       ? new Set<string>()
-       : new Set(articles.map(a => a.title.trim().toLowerCase())),
-     [articles, isEditing],
-   );
-   const emptyTitleSet = useMemo(
-     () => isEditing
-       ? new Set<string>()
-       : new Set(
-           articles
-             .filter(a => a.content.trim().length === 0)
-             .map(a => a.title.trim().toLowerCase()),
-         ),
-     [articles, isEditing],
-   );
-   ```
-   Both sets feed only `<ZettelPreview ... />`, which is unmounted during edit (the editor is shown instead), so an empty set is harmless.
+useEffect(() => {
+  if (!categoryId) { setSources([]); return; }
+  let cancelled = false;
+  const reload = () => {
+    loadSourcesByCategory(categoryId).then(s => { if (!cancelled) setSources(s); });
+  };
+  reload();
+  const off = onSourcesChanged(reload);
+  return () => { cancelled = true; off(); };
+}, [categoryId]);
+```
 
-2. Add a ref-based always-current lookup for the wiki-link effect so it doesn't depend on the now-gated memo:
-   ```tsx
-   const existingTitlesLowerRef = useRef<Set<string>>(new Set());
-   useEffect(() => {
-     existingTitlesLowerRef.current = new Set(
-       articles.map(a => a.title.trim().toLowerCase()),
-     );
-   }, [articles]);
-   ```
+This eliminates the `useLiveQuery` hook (which forces re-renders on *every* IDB write to the `sources` table, even from unrelated categories) while preserving live updates for this category via the targeted listener.
 
-3. Update the wiki-link effect:
-   - Replace `existingTitleSet.has(...)` with `existingTitlesLowerRef.current.has(...)`.
-   - Remove `existingTitleSet` from its dependency array; add nothing (refs are stable).
-   - Keep all other behavior (adaptive debounce, 50-cap with deduped warn toast, transaction batching) untouched.
+## Item 3 — `CardList` `catNameMap` single-pass
 
-4. No other call sites change (ripgrep confirmed both sets are consumed only by `<ZettelPreview>` props on lines 458–459 and the wiki-link effect).
+**File**: `src/components/CardList.tsx` lines 108–117
+
+Three loops collapse into one:
+```tsx
+const catNameMap = useMemo(() => {
+  const m: Record<string, string> = {};
+  for (const r of allCats) {
+    m[r.id] = r.name;
+    for (const sub of r.subcategories ?? []) {
+      m[sub.id] = sub.name;
+      m["__sub_" + sub.id] = sub.name;
+      for (const ch of sub.chapters ?? []) {
+        m["__ch_" + ch.id] = ch.name;
+      }
+    }
+  }
+  return m;
+}, [allCats]);
+```
+
+Same output map; one pass over `subcategories` and one over `chapters` per category instead of three.
 
 ## Verification
 
-- Editor mount/unmount: switching to edit mode produces empty sets without recomputing the full set; switching back rebuilds them once.
-- Wiki-link auto-create still suppresses duplicates correctly during edit (uses ref).
-- Existing test `src/test/zettelkasten-bulk-create.test.ts` continues to pass (no production logic for batch creation changed).
+- `loadSourcesByCategory` already returns a fresh array (no cache) per call — no stale data.
+- `onSourcesChanged` fires after every `saveSource` / `deleteSource` / `invalidateSourcesCache` — matches today's `useLiveQuery` reactivity.
+- `catNameMap` is pure transformation; the new loop is provably equivalent to the old three.
+- No new dependencies. No test changes.
