@@ -1,10 +1,11 @@
 import { Target, Shield, Zap, BookOpen, ArrowLeft, Play, X as XIcon, HelpCircle, RotateCcw, Lock, Info } from "lucide-react";
 import { useState, useMemo, useCallback } from "react";
-import { Card, getDueSections, SRSettings, SectionState, getRetrievability, isLeech } from "@/lib/spaced-repetition";
+import { Card, SRSettings } from "@/lib/spaced-repetition";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import OnboardingModal, { hasSeenOnboarding } from "@/components/OnboardingModal";
 import { DueItem, ReviewMode, REVIEW_ONBOARDING_KEY, REVIEW_SLIDES } from "./review-constants";
+import { buildStabilizationItems, buildCriticalItems, buildHardestItems } from "@/lib/review-mode-builder";
 import type { CategoryRecord } from "@/lib/db";
 import InfoPanel from "@/components/InfoPanel";
 
@@ -127,58 +128,20 @@ export default function ReviewSetup({
     return filterByType(filtered);
   }, [allCards, selectedCategory, filterByType]);
 
-  const stabilizationItems = useMemo<DueItem[]>(() => {
-    const items: DueItem[] = [];
-    filteredDueCards.forEach((card) => {
-      getDueSections(card).forEach((section) => {
-        if (
-          (section.state === SectionState.Learning || section.state === SectionState.Relearning) &&
-          section.stability < 5
-        ) {
-          items.push({ card, section });
-        }
-      });
-    });
-    items.sort((a, b) => a.section.stability - b.section.stability);
-    return items;
-  }, [filteredDueCards]);
+  const stabilizationItems = useMemo<DueItem[]>(
+    () => buildStabilizationItems({ dueCards: filteredDueCards, allCards: filteredAllCards, srSettings }),
+    [filteredDueCards, filteredAllCards, srSettings],
+  );
 
-  const criticalItems = useMemo<DueItem[]>(() => {
-    const items: DueItem[] = [];
-    filteredAllCards.forEach((card) => {
-      card.sections.forEach((section) => {
-        if (section.state === SectionState.New) return;
-        const r = getRetrievability(section);
-        if (r >= 80 && r <= 85) {
-          items.push({ card, section });
-        }
-      });
-    });
-    items.sort((a, b) => getRetrievability(a.section) - getRetrievability(b.section));
-    return items;
-  }, [filteredAllCards]);
+  const criticalItems = useMemo<DueItem[]>(
+    () => buildCriticalItems({ dueCards: filteredDueCards, allCards: filteredAllCards, srSettings }),
+    [filteredDueCards, filteredAllCards, srSettings],
+  );
 
-  const hardestItems = useMemo<DueItem[]>(() => {
-    const leechItems: DueItem[] = [];
-    const highDiffItems: DueItem[] = [];
-
-    filteredAllCards.forEach((card) => {
-      card.sections.forEach((section) => {
-        if (section.state === SectionState.New) return;
-        if (isLeech(section, srSettings)) {
-          leechItems.push({ card, section });
-        } else if (section.difficulty > 7) {
-          highDiffItems.push({ card, section });
-        }
-      });
-    });
-
-    highDiffItems.sort((a, b) => b.section.difficulty - a.section.difficulty);
-    const combined = [...leechItems];
-    const remaining = 50 - combined.length;
-    if (remaining > 0) combined.push(...highDiffItems.slice(0, remaining));
-    return combined.slice(0, 50);
-  }, [filteredAllCards, srSettings]);
+  const hardestItems = useMemo<DueItem[]>(
+    () => buildHardestItems({ dueCards: filteredDueCards, allCards: filteredAllCards, srSettings }),
+    [filteredDueCards, filteredAllCards, srSettings],
+  );
 
   const counts: Record<ModeKey, number> = {
     stabilization: stabilizationItems.length,
