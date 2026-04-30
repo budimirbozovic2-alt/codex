@@ -11,6 +11,7 @@ import {
   deleteArticle,
   findArticleByTitle,
   newArticle,
+  bulkCreateArticlesIfMissing,
   type KnowledgeBaseArticle,
 } from "@/lib/zettelkasten-storage";
 import { loadSourcesByCategory, type Source } from "@/lib/sources-storage";
@@ -153,7 +154,9 @@ export default function ZettelkastenView() {
   }, [activeId]);
 
   // ── Auto-create placeholder articles for new [[Wiki Links]] while editing ──
-  // Debounced 800ms to avoid spamming IDB mid-typing.
+  // Debounced 800ms to avoid spamming IDB mid-typing. All lookups + inserts
+  // happen inside ONE Dexie `rw` transaction via `bulkCreateArticlesIfMissing`,
+  // eliminating per-link round-trips and ensuring atomic create-if-missing.
   useEffect(() => {
     if (!isEditing || !draft || !categoryId) return;
     const content = draft.content;
@@ -163,28 +166,19 @@ export default function ZettelkastenView() {
         .map(m => m[1].trim())
         .filter(Boolean);
       if (matches.length === 0) return;
-      // De-dup case-insensitively, keep original casing of first occurrence.
-      const seen = new Map<string, string>();
-      for (const t of matches) {
-        const low = t.toLowerCase();
-        if (!seen.has(low)) seen.set(low, t);
-      }
-      const toCreate: KnowledgeBaseArticle[] = [];
-      for (const [low, original] of seen) {
-        if (existingTitleSet.has(low)) continue;
-        // Storage-level double-check guards against races (e.g. another debounce tick).
-        const dup = await findArticleByTitle(categoryId, original);
-        if (dup) continue;
-        const a = newArticle(categoryId, original, rootSubId);
-        await saveArticle(a);
-        toCreate.push(a);
-      }
-      if (toCreate.length > 0) {
-        setArticles(prev => [...toCreate, ...prev]);
+
+      // Local fast filter against in-memory set first to skip the transaction entirely
+      // when nothing is new (the typical keystroke case).
+      const candidates = matches.filter(t => !existingTitleSet.has(t.toLowerCase()));
+      if (candidates.length === 0) return;
+
+      const created = await bulkCreateArticlesIfMissing(categoryId, candidates, rootSubId);
+      if (created.length > 0) {
+        setArticles(prev => [...created, ...prev]);
         toast.success(
-          toCreate.length === 1
-            ? `Kreiran placeholder članak "${toCreate[0].title}"`
-            : `Kreirano ${toCreate.length} placeholder članaka`,
+          created.length === 1
+            ? `Kreiran placeholder članak "${created[0].title}"`
+            : `Kreirano ${created.length} placeholder članaka`,
         );
       }
     }, 800);
