@@ -142,7 +142,7 @@ export default function ReviewSession({ dueCards, allCards, categoryRecords, srS
         dueCards={dueCards}
         allCards={allCards}
         categoryRecords={categoryRecords}
-        subcategories={subcategories}
+        subcategories={{}}
         srSettings={srSettings}
         onSelectMode={handleSelectMode}
         onBack={onBack}

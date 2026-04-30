@@ -10,7 +10,7 @@ import { getParam } from "@/lib/url-params";
 
 export default function ReviewPage() {
   const { cards, dueCards, ready } = useCardData();
-  const { categoryRecords, subcategories } = useCategoryData();
+  const { categoryRecords } = useCategoryData();
   const { reviewLog, srSettings } = useReviewData();
   const { reviewSection, logError } = useCardActions();
   const { setView } = useUIContext();
