@@ -27,13 +27,13 @@ export const ICON_REGISTRY: { value: string; label: string; Icon: React.FC<{ cla
 
 const COLOR_OPTIONS = [
   { value: "default", bg: "bg-card", border: "border-border", text: "text-foreground", glow: "" },
-  { value: "blue", bg: "bg-blue-500/10", border: "border-blue-500/30", text: "text-blue-600 dark:text-blue-400", glow: "shadow-blue-500/20" },
-  { value: "green", bg: "bg-emerald-500/10", border: "border-emerald-500/30", text: "text-emerald-600 dark:text-emerald-400", glow: "shadow-emerald-500/20" },
-  { value: "amber", bg: "bg-amber-500/10", border: "border-amber-500/30", text: "text-amber-600 dark:text-amber-400", glow: "shadow-amber-500/20" },
-  { value: "red", bg: "bg-red-500/10", border: "border-red-500/30", text: "text-red-600 dark:text-red-400", glow: "shadow-red-500/20" },
-  { value: "purple", bg: "bg-purple-500/10", border: "border-purple-500/30", text: "text-purple-600 dark:text-purple-400", glow: "shadow-purple-500/20" },
-  { value: "cyan", bg: "bg-cyan-500/10", border: "border-cyan-500/30", text: "text-cyan-600 dark:text-cyan-400", glow: "shadow-cyan-500/20" },
-  { value: "pink", bg: "bg-pink-500/10", border: "border-pink-500/30", text: "text-pink-600 dark:text-pink-400", glow: "shadow-pink-500/20" },
+  { value: "blue", bg: "bg-node-blue/10", border: "border-node-blue/30", text: "text-node-blue", glow: "shadow-node-blue/20" },
+  { value: "green", bg: "bg-node-green/10", border: "border-node-green/30", text: "text-node-green", glow: "shadow-node-green/20" },
+  { value: "amber", bg: "bg-node-amber/10", border: "border-node-amber/30", text: "text-node-amber", glow: "shadow-node-amber/20" },
+  { value: "red", bg: "bg-node-red/10", border: "border-node-red/30", text: "text-node-red", glow: "shadow-node-red/20" },
+  { value: "purple", bg: "bg-node-purple/10", border: "border-node-purple/30", text: "text-node-purple", glow: "shadow-node-purple/20" },
+  { value: "cyan", bg: "bg-info/10", border: "border-info/30", text: "text-info", glow: "shadow-info/20" },
+  { value: "pink", bg: "bg-node-purple/10", border: "border-node-purple/30", text: "text-node-purple", glow: "shadow-node-purple/20" },
 ];
 
 export { COLOR_OPTIONS };
