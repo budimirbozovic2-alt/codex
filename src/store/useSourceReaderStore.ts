@@ -58,6 +58,12 @@ interface SourceReaderState {
   splitCreatedCount: number;
   splitParentName: string;
   splitModules: SelectionModule[];
+  /** Wizard: per-module question/tag/skip overrides, parallel array to splitModules. */
+  splitEdits: WizardModuleEdit[];
+  /** Wizard: 'separate' = N cards, 'combined' = 1 essay with N module-sections. */
+  splitMode: WizardMode;
+  /** Wizard: index of the module currently being edited (0-based). */
+  splitStepIndex: number;
   linkModalOpen: boolean;
   linkSelectedText: string;
   linkSelectedHtml: string;
