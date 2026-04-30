@@ -346,20 +346,48 @@ export default function ZettelkastenView() {
     toast.success("Članak obrisan");
   }, [activeArticle]);
 
+  // In-flight guard: dedupes parallel clicks on the same wiki-link title.
+  // Maps normalized title -> Promise resolving to the article id to open.
+  const wikiLinkInFlightRef = useRef<Map<string, Promise<string | null>>>(new Map());
+
   const handleWikiLink = useCallback(async (title: string) => {
     if (!categoryId) return;
+    const trimmed = title.trim();
+    if (!trimmed) return;
+    const key = trimmed.toLowerCase();
+
     // Persist current draft before navigating away
     await flushRef.current();
-    const existing = await findArticleByTitle(categoryId, title);
-    if (existing) {
-      handleOpen(existing.id);
-      return;
+
+    // Coalesce concurrent clicks on the same title into a single transaction.
+    let pending = wikiLinkInFlightRef.current.get(key);
+    if (!pending) {
+      pending = (async (): Promise<string | null> => {
+        try {
+          // Atomic open-or-create within a single Dexie rw transaction.
+          const created = await bulkCreateArticlesIfMissing(
+            categoryId,
+            [trimmed],
+            activeArticle?.rootSubcategoryId,
+          );
+          if (created.length > 0) {
+            const article = created[0];
+            setArticles(prev => [article, ...prev]);
+            toast.success(`Kreiran novi članak "${article.title}"`);
+            return article.id;
+          }
+          // Already existed → resolve via case-insensitive lookup.
+          const existing = await findArticleByTitle(categoryId, trimmed);
+          return existing?.id ?? null;
+        } finally {
+          wikiLinkInFlightRef.current.delete(key);
+        }
+      })();
+      wikiLinkInFlightRef.current.set(key, pending);
     }
-    const article = newArticle(categoryId, title, activeArticle?.rootSubcategoryId);
-    await saveArticle(article);
-    setArticles(prev => [article, ...prev]);
-    handleOpen(article.id);
-    toast.success(`Kreiran novi članak "${title}"`);
+
+    const id = await pending;
+    if (id) handleOpen(id);
   }, [categoryId, activeArticle, handleOpen]);
 
   const handlePickMindMap = useCallback((mmId: string) => {
