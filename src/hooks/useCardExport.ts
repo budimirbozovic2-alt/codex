@@ -2,6 +2,7 @@ import { useCallback } from "react";
 import { toast } from "sonner";
 import { Card, SRSettings } from "@/lib/spaced-repetition";
 import { setLastBackupTime } from "@/lib/storage";
+import type { CategoryRecord } from "@/lib/db-schema";
 
 const IPC_SIZE_LIMIT_MB = 50;
 
@@ -82,13 +83,13 @@ interface UseCardExportDeps {
   srSettings: SRSettings;
 }
 
-function deriveSubMap(catRecords: { name: string; subcategories?: any[] }[]): Record<string, string[]> {
+function deriveSubMap(catRecords: CategoryRecord[]): Record<string, string[]> {
   const subMap: Record<string, string[]> = {};
-  catRecords.forEach(r => {
-    if (r.subcategories && r.subcategories.length > 0) {
-      subMap[r.name] = r.subcategories.map((s: any) => typeof s === "string" ? s : s.name);
+  for (const r of catRecords) {
+    if (r.subcategories.length > 0) {
+      subMap[r.name] = r.subcategories.map((s) => s.name);
     }
-  });
+  }
   return subMap;
 }
 
