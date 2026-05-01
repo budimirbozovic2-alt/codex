@@ -1,25 +1,29 @@
-## Goal
+## Problem
 
-Selekcija teksta u izvorima trenutno otvara tooltip ("Napravi esej" / "Poveži sa postojećim") **iznad** označenog teksta. Pošto se izvor čita i markira odozgo prema dolje, tooltip pokriva tekst koji korisnik tek treba pročitati. Premještamo tooltip **ispod** selekcije.
+Filtri u "Pregled i Uređivanje" (CardViewMode) — `subcategory`, `chapter`, `type`, `tag` — žive kao lokalni `useState` unutar `useCardViewFilters`. Kada korisnik klikne "Uredi" na kartici, `SubjectCardsView` navigira na `/edit`, `CardViewMode` se demountira, a po povratku se remountira sa default vrijednostima (`__all__`, `"all"`, `null`). Filtri se gube.
 
-## Changes (2 male, lokalizovane izmjene)
+`SubjectCardsView` već koristi postojeći `useEditReturn` snapshot-mehanizam za `tab`, `manageMode`, `searchQuery`, `sourceFilter`. Treba dodati i unutarnje CardViewMode filtre u isti snapshot.
 
-### 1. `src/hooks/useSourceReaderActions.ts` (line 52)
-Promijeniti anchor poziciju selekcije sa vrha na dno bounding-rect-a:
+## Plan (3 male, surgical izmjene; bez refaktorisanja arhitekture)
 
-```ts
-// prije
-y: rect.top - containerRect.top - 8,
-// poslije
-y: rect.bottom - containerRect.top + 8,
-```
+### 1. `src/hooks/useCardViewFilters.ts`
+- Dodati opcionalna polja u `UseCardViewFiltersParams`: `initialSubcategory`, `initialChapter`, `initialType`, `initialTag`.
+- Inicijalizovati 4 `useState` poziva tim vrijednostima (sa fallback-om na trenutne defaultove).
+- Bez ostalih izmjena u logici.
 
-### 2. `src/components/source-reader/SourceTooltip.tsx` (lines 25–67)
-- Ukloniti `-translate-y-full` iz wrapper klase (tooltip se sada renderuje **ispod** anchor tačke umjesto iznad).
-- Premjestiti `<div>` strelicu (rotirani kvadrat) sa **dna** na **vrh** tooltip-a, sa `-mb-1.5` umjesto `-mt-1.5`, tako da pokazuje nagore prema selekciji.
-- Sadržaj dugmadi (Napravi esej, Poveži sa postojećim, edit-mode formatting opcije) ostaje identičan.
+### 2. `src/components/category/CardViewMode.tsx`
+- Proširiti `Props` sa: `initialSubcategory?`, `initialChapter?`, `initialType?`, `initialTag?`, i `onFiltersChange?: (snapshot: { subcategory: string; chapter: string; type: FilterTypeValue; tag: string | null }) => void`.
+- Proslijediti `initial*` u `useCardViewFilters`.
+- `useEffect` koji poziva `onFiltersChange` kad god se promijene `filters.filterSubcategory/Chapter/Type/Tag` — parent dobija live snimak tekućih filtera.
 
-## Out of scope
+### 3. `src/views/SubjectCardsView.tsx`
+- Proširiti `EditReturnSnapshot`: dodati `cvSub?`, `cvChapter?`, `cvType?`, `cvTag?`.
+- Držati `useRef` (`cardViewFiltersRef`) sa najnovijim vrijednostima koje šalje `CardViewMode` preko `onFiltersChange`.
+- U `buildExtras` dodati polja iz refa.
+- Proslijediti `initialSnapshot?.cv*` kao `initial*` props prema `<CardViewMode />`.
 
-- Pozicioniranje pri ivici viewport-a (flip-up kada nema mjesta ispod) — trenutni dizajn ne radi flip ni za gornju varijantu, pa to ostaje kako jest.
-- Bilo koja druga logika selekcije, edit mode, ili kontekstnog menija.
+## Što ostaje van obima
+
+- `masteryFilter` se već pamti na višem nivou (ne resetuje se).
+- `searchQuery` i `sourceFilter` su već u snapshotu.
+- Bez perzistencije u localStorage (snapshot je per-edit-session, čisti se sam — to je željeno ponašanje).

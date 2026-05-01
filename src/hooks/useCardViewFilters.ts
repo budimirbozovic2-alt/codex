@@ -27,6 +27,11 @@ interface UseCardViewFiltersParams {
   onClearMasteryFilter?: () => void;
   externalQuery?: string;
   externalSourceId?: string;
+  /** Initial filter values (used to restore state after edit-and-return). */
+  initialSubcategory?: string;
+  initialChapter?: string;
+  initialType?: FilterTypeValue;
+  initialTag?: string | null;
 }
 
 const ALL = "__all__";
