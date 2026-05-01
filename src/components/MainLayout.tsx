@@ -75,11 +75,17 @@ const NudgeWatcher = memo(function NudgeWatcher() {
   return null;
 });
 
-/** Isolated wrapper for GlobalSearch */
+/** Isolated wrapper for GlobalSearch.
+ *
+ * Phase-3 perf fix: this wrapper renders on every MainLayout pass, so it must
+ * NOT subscribe to global card data. Previously `useCardData()` was called
+ * here, which made every card mutation re-render the wrapper (and its tree)
+ * even while the search modal was closed. The `cards` subscription now lives
+ * INSIDE `GlobalSearch`, which only mounts when `open === true` (see the
+ * early-return guard below + the `lazy()` import). */
 const GlobalSearchWrapper = memo(function GlobalSearchWrapper({
   open, onClose,
 }: { open: boolean; onClose: () => void }) {
-  const { cards } = useCardData();
   const { setView, setEditingCard } = useUIContext();
   // Path is resolved lazily inside `stash()` so it reflects the route at
   // the moment of the click, not when this wrapper mounted.
@@ -92,7 +98,6 @@ const GlobalSearchWrapper = memo(function GlobalSearchWrapper({
   return (
     <Suspense fallback={null}>
       <GlobalSearch
-        cards={cards}
         open={open}
         onClose={onClose}
         onNavigateToCard={(card) => {
