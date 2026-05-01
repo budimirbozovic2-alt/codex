@@ -308,11 +308,21 @@ export const BackupKnowledgeBaseArticleSchema = z
     content: SafeHtml,
     linkedSourceIds: StringArray,
     rootSubcategoryId: z.unknown().optional(),
+    isIndex: z.unknown().optional().transform((v) => v === true ? true : undefined),
+    tags: StringArray,
     createdAt: NumberWithDefault(Date.now()),
     updatedAt: NumberWithDefault(Date.now()),
   })
   .passthrough()
   .transform((a): KnowledgeBaseArticle => a as unknown as KnowledgeBaseArticle);
+
+// ─── Settings entry (db.settings table: { key, value }) ─
+export const BackupSettingsEntrySchema = z
+  .object({
+    key: z.string(),
+    value: z.unknown(),
+  })
+  .passthrough();
 
 // ─── Review log / SR settings ───────────────────────────
 
@@ -374,6 +384,7 @@ export const BackupSchema = z
     majorSystem: z.array(z.unknown()).default([]),
     mnemonicTestLog: z.array(z.unknown()).default([]),
     knowledgeBaseArticles: z.array(BackupKnowledgeBaseArticleSchema).default([]),
+    settings: z.array(BackupSettingsEntrySchema).default([]),
     localStorageData: z.unknown().optional(),
   })
   .passthrough();

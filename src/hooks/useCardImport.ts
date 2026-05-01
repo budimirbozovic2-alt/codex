@@ -22,10 +22,13 @@ interface UseCardImportDeps {
   cardMapRef: MutableRefObject<CardMap>;
 }
 
-/** Whitelisted localStorage keys that the import path is allowed to restore. */
+/** Whitelisted localStorage keys that the import path is allowed to restore.
+ *  Must mirror the keys written by `useCardExport.ts`. */
 const ALLOWED_LS_KEYS = new Set([
-  "codex-app-settings", "sr-app-settings", "codex-source-registry", "codex-monument-types",
-  "sr-planner", "sr-mnemonic-system", "sr-pomodoro-settings",
+  "sr-app-settings", "sr-mnemonic-workshop", "sr-mnemonic-associations",
+  "sr-major-system-map", "sr-learn-progress", "sr-last-backup",
+  "sr-planner-config", "sr-daily-mapped-count", "sr-daily-mapped-date",
+  "sr-dark-mode", "sr-tts-settings",
 ]);
 const VALID_THEMES = new Set(["amber", "slate", "forest", "ocean", "rose", "midnight"]);
 
@@ -311,6 +314,7 @@ export function useCardImport({
           { key: "diary", table: "diary" },
           { key: "mnemonics", table: "mnemonics" },
           { key: "majorSystem", table: "majorSystem" },
+          { key: "settings", table: "settings" },
         ] as const;
         const autoIncTables = [
           { key: "calibrationLog", table: "calibrationLog" },
@@ -340,7 +344,9 @@ export function useCardImport({
             } else {
               await dbRecord[table].bulkPut(arr);
               if (strategy === "overwrite") {
-                const importedIds = new Set(arr.map((r) => (r as Record<string, unknown>).id));
+                // Settings table uses `key` as primary key; others use `id`.
+                const pkField = key === "settings" ? "key" : "id";
+                const importedIds = new Set(arr.map((r) => (r as Record<string, unknown>)[pkField]));
                 const allKeys = await dbRecord[table].toCollection().primaryKeys();
                 const toDelete = allKeys.filter((k) => !importedIds.has(k));
                 if (toDelete.length > 0) await dbRecord[table].bulkDelete(toDelete);
@@ -385,7 +391,12 @@ export function useCardImport({
         if (parsed.diary.length > 0) extraParts.push(`${parsed.diary.length} dnevničkih zapisa`);
         if (parsed.mnemonics.length > 0) extraParts.push(`${parsed.mnemonics.length} mnemoničkih kartica`);
         if (parsed.disciplineLog.length > 0) extraParts.push("disciplinski log");
-        if (parsed.localStorageData) extraParts.push("podešavanja i planer");
+        if (Array.isArray((parsed as unknown as Record<string, unknown[]>).settings) &&
+            ((parsed as unknown as Record<string, unknown[]>).settings).length > 0) {
+          extraParts.push(`${((parsed as unknown as Record<string, unknown[]>).settings).length} postavki`);
+        }
+        if (parsed.pomodoroLog.length > 0) extraParts.push(`${parsed.pomodoroLog.length} pomodoro zapisa`);
+        if (parsed.localStorageData) extraParts.push("lokalna podešavanja");
         const extraMsg = extraParts.length > 0 ? ` + ${extraParts.join(", ")}` : "";
         toast.success(`Uspješno uvezeno ${importedCards.length} kartica${extraMsg}.`);
       } catch (err) {
