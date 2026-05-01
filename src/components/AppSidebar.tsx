@@ -12,11 +12,6 @@ const STATIC_NAV = [
   { path: "/", icon: Home, label: "Početna tabla" },
 ];
 
-const SUBJECT_TOOLS = [
-  { suffix: "/mind-maps", icon: Map, label: "Mentalne mape" },
-  { suffix: "/mnemonics", icon: Brain, label: "Memorizacija" },
-];
-
 
 export default function AppSidebar() {
   const { state } = useSidebar();
