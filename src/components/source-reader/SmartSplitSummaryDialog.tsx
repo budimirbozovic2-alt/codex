@@ -59,6 +59,24 @@ export function SmartSplitSummaryDialog({ source, onSmartSplitConfirm }: Props) 
   const setStepIndex = useSourceReaderStore((s) => s.setSplitStepIndex);
   const setSplitSummaryOpen = useSourceReaderStore((s) => s.setSplitSummaryOpen);
   const setSplitResult = useSourceReaderStore((s) => s.setSplitResult);
+  const setSplitModules = useSourceReaderStore((s) => s.setSplitModules);
+  const wizardSubcategoryId = useSourceReaderStore((s) => s.wizardSubcategoryId);
+  const wizardChapterId = useSourceReaderStore((s) => s.wizardChapterId);
+  const setWizardSubcategoryId = useSourceReaderStore((s) => s.setWizardSubcategoryId);
+  const setWizardChapterId = useSourceReaderStore((s) => s.setWizardChapterId);
+
+  // ── Subject taxonomy: subcategories + chapters scoped to source.categoryId ─
+  const { categoryRecords } = useCategoryData();
+  const categoryRecord = useMemo(
+    () => categoryRecords.find((c) => c.id === source.categoryId),
+    [categoryRecords, source.categoryId],
+  );
+  const subcategories = categoryRecord?.subcategories ?? [];
+  const selectedSubcategory = useMemo(
+    () => subcategories.find((s) => s.id === wizardSubcategoryId),
+    [subcategories, wizardSubcategoryId],
+  );
+  const chapters = selectedSubcategory?.chapters ?? [];
 
   const handleOpenChange = (o: boolean) => {
     if (!o) {
