@@ -526,7 +526,6 @@ export function useSourceReaderActions(source: Source, onSourceUpdated?: (source
     actions: {
       handleMouseUp,
       handleConvertToEssay,
-      handleCreateEssay,
       handleSmartSplitConfirm,
       handleLinkToExisting,
       handleLinkConfirm,
