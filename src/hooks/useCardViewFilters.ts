@@ -50,11 +50,15 @@ export function useCardViewFilters({
   onClearMasteryFilter,
   externalQuery,
   externalSourceId,
+  initialSubcategory,
+  initialChapter,
+  initialType,
+  initialTag,
 }: UseCardViewFiltersParams) {
-  const [filterSubcategory, setFilterSubcategory] = useState<string>(ALL);
-  const [filterChapter, setFilterChapter] = useState<string>(ALL);
-  const [filterType, setFilterType] = useState<FilterTypeValue>("all");
-  const [filterTag, setFilterTag] = useState<string | null>(null);
+  const [filterSubcategory, setFilterSubcategory] = useState<string>(initialSubcategory ?? ALL);
+  const [filterChapter, setFilterChapter] = useState<string>(initialChapter ?? ALL);
+  const [filterType, setFilterType] = useState<FilterTypeValue>(initialType ?? "all");
+  const [filterTag, setFilterTag] = useState<string | null>(initialTag ?? null);
 
   const categoryRecord = useMemo(
     () => allCategories.find((c) => c.id === categoryId) ?? null,
