@@ -265,7 +265,11 @@ export function SmartSplitSummaryDialog({ source, onSmartSplitConfirm }: Props) 
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[88vh] overflow-hidden flex flex-col">
+      <DialogContent
+        className="max-w-4xl max-h-[88vh] overflow-hidden flex flex-col"
+        onPointerDownOutside={(e) => { if (isWizardDirty) { e.preventDefault(); requestClose(); } }}
+        onEscapeKeyDown={(e) => { if (isWizardDirty) { e.preventDefault(); requestClose(); } }}
+      >
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Wand2 className="h-5 w-5 text-primary" />
