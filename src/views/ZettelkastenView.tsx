@@ -404,7 +404,7 @@ export default function ZettelkastenView() {
             <div className="flex items-center gap-1.5 min-w-0">
               <Compass className="h-4 w-4 text-primary shrink-0" />
               <span className="text-sm font-semibold truncate">
-                Zettelkasten — {categoryRec.name}
+                Lokalni Wiki — {categoryRec.name}
               </span>
             </div>
           </div>
