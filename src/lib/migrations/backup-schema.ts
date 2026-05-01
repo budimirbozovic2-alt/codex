@@ -85,10 +85,12 @@ export const BackupSectionSchema = z
 
 const FrequencyTagSchema = z
   .unknown()
+  .optional()
   .transform((v) => (v === "često" || v === "rijetko" || v === "nikad" ? v : undefined));
 
 const SourceTypeSchema = z
   .unknown()
+  .optional()
   .transform((v) => (v === "skripta" || v === "zakon" ? v : undefined));
 
 // ─── Card ────────────────────────────────────────────────
