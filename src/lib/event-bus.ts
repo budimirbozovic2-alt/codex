@@ -144,10 +144,10 @@ class EventBus {
     if (!this.listeners.has(type)) {
       this.listeners.set(type, new Set());
     }
-    this.listeners.get(type)!.add(callback);
+    this.listeners.get(type)!.add(callback as (payload: unknown) => void);
 
     return () => {
-      this.listeners.get(type)?.delete(callback);
+      this.listeners.get(type)?.delete(callback as (payload: unknown) => void);
     };
   }
 
