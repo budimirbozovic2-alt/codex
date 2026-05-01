@@ -9,7 +9,14 @@ import CardViewTable from "./CardViewTable";
 import CardViewFilterBar from "./CardViewFilterBar";
 import SubjectHierarchyTree from "./SubjectHierarchyTree";
 import { AddCardDialog, MoveCardDialog, BulkImportWrapper } from "./CardViewDialogs";
-import { useCardViewFilters } from "@/hooks/useCardViewFilters";
+import { useCardViewFilters, type FilterTypeValue } from "@/hooks/useCardViewFilters";
+
+export interface CardViewFiltersSnapshot {
+  subcategory: string;
+  chapter: string;
+  type: FilterTypeValue;
+  tag: string | null;
+}
 
 interface Props {
   cards: Card[];
