@@ -59,9 +59,12 @@ export function buildStabilizationItems(args: BuildArgs): DueItem[] {
 }
 
 /**
- * Critical review — catches sections at the optimal forgetting moment
- * (R ∈ [80, 85]). Restricted to due sections so FSRS doesn't get
- * artificially early reviews.
+ * Critical review — catch-all for any DUE section whose retrievability has
+ * dropped to ≤85%. This includes the "optimal forgetting" window (R≈80–85)
+ * AND every section that drifted lower (R<80) because the user missed days.
+ * Without the catch-all, low-R cards become "zombies": not Learning, not
+ * Leeches, never picked up by any mode. Sorted worst-R first so the most
+ * urgent items lead.
  */
 export function buildCriticalItems(args: BuildArgs): DueItem[] {
   const now = args.now ?? Date.now();
@@ -71,7 +74,7 @@ export function buildCriticalItems(args: BuildArgs): DueItem[] {
       if (section.state === SectionState.New) continue;
       if (section.nextReview > now) continue; // strict due-only
       const r = getRetrievability(section);
-      if (r >= 80 && r <= 85) items.push({ card, section });
+      if (r <= 85) items.push({ card, section });
     }
   }
   items.sort(
