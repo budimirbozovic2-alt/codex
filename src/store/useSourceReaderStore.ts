@@ -112,8 +112,6 @@ const initialState = {
   examOpen: false,
   selection: null as SelectionState | null,
   headingMenu: null as HeadingMenuState | null,
-  essayDialogOpen: false,
-  essayQuestion: "",
   selectedText: "",
   selectedHtml: "",
   autoSplitOpen: false,
