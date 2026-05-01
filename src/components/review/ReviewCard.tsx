@@ -63,12 +63,16 @@ export default function ReviewCard({
   }, [setShowAnswer, card.id, section.id, card.categoryId]);
 
   const handleGradeWithCalibration = useCallback((grade: number) => {
+    // Hard safety gate: never grade before the answer has been revealed.
+    // This protects FSRS from the "illusion of competence" trap where a user
+    // could otherwise self-rate without seeing the actual answer.
+    if (!showAnswer) return;
     if (confidence !== null) {
       addCalibrationEntry({ timestamp: Date.now(), cardId: card.id, sectionId: section.id, confidence, actualGrade: grade, category: card.categoryId });
     }
     import("@/lib/sounds").then(m => m.playGradeSound(grade));
     onGrade(grade);
-  }, [confidence, card.id, section.id, card.categoryId, onGrade]);
+  }, [showAnswer, confidence, card.id, section.id, card.categoryId, onGrade]);
 
   // Keyboard shortcuts
   useEffect(() => {
