@@ -1,140 +1,91 @@
-## Phase 3 — GlobalSearchWrapper re-render fix
+## Cilj
 
-`GlobalSearchWrapper` u `src/components/MainLayout.tsx` poziva `useCardData()` na svakom MainLayout passu, pa se cijeli wrapper subtree re-renderuje na svaku card mutaciju — čak i kad je modal zatvoren. Subscription premiještamo **unutar** `GlobalSearch`, koji je `lazy()` + montiran samo kad `open === true` (early-return guard `if (!open) return null` u wrapperu). Time se subscription kreira kada se modal otvori i raskida kada se zatvori.
+Doraditi Esej čarobnjak (`SmartSplitSummaryDialog`) tako da podjela na module funkcioniše **identično** kao u edit modu kartice — odabir makazica i ručna potvrda linije gdje nastaje split. Ukloniti **paralelni preview screen** ("Pregled kartice"), koji deluje zbunjujuće jer dupla sadržaj.
 
-Ostale pretplate u wrapperu (`useUIContext`, `useEditReturn`) ne subscribuju na `cards` i ne diramo ih.
-
----
-
-### File 1: `src/components/MainLayout.tsx`
-
-**BEFORE** (linije 78–106):
-```tsx
-/** Isolated wrapper for GlobalSearch */
-const GlobalSearchWrapper = memo(function GlobalSearchWrapper({
-  open, onClose,
-}: { open: boolean; onClose: () => void }) {
-  const { cards } = useCardData();
-  const { setView, setEditingCard } = useUIContext();
-  // Path is resolved lazily inside `stash()` so it reflects the route at
-  // the moment of the click, not when this wrapper mounted.
-  const editingCardIdRef = useRef<string | null>(null);
-  const { stash: stashEditReturn } = useEditReturn({
-    path: () => window.location.pathname + window.location.search,
-    cardId: () => editingCardIdRef.current,
-  });
-  if (!open) return null;
-  return (
-    <Suspense fallback={null}>
-      <GlobalSearch
-        cards={cards}
-        open={open}
-        onClose={onClose}
-        onNavigateToCard={(card) => {
-          editingCardIdRef.current = card.id;
-          stashEditReturn();
-          setEditingCard(card);
-          setView("edit");
-        }}
-      />
-    </Suspense>
-```
-
-**AFTER**:
-```tsx
-/** Isolated wrapper for GlobalSearch.
- *
- * Phase-3 perf fix: this wrapper renders on every MainLayout pass, so it must
- * NOT subscribe to global card data. Previously `useCardData()` was called
- * here, which made every card mutation re-render the wrapper (and its tree)
- * even while the search modal was closed. The `cards` subscription now lives
- * INSIDE `GlobalSearch`, which only mounts when `open === true` (see the
- * early-return guard below + the `lazy()` import). */
-const GlobalSearchWrapper = memo(function GlobalSearchWrapper({
-  open, onClose,
-}: { open: boolean; onClose: () => void }) {
-  const { setView, setEditingCard } = useUIContext();
-  // Path is resolved lazily inside `stash()` so it reflects the route at
-  // the moment of the click, not when this wrapper mounted.
-  const editingCardIdRef = useRef<string | null>(null);
-  const { stash: stashEditReturn } = useEditReturn({
-    path: () => window.location.pathname + window.location.search,
-    cardId: () => editingCardIdRef.current,
-  });
-  if (!open) return null;
-  return (
-    <Suspense fallback={null}>
-      <GlobalSearch
-        open={open}
-        onClose={onClose}
-        onNavigateToCard={(card) => {
-          editingCardIdRef.current = card.id;
-          stashEditReturn();
-          setEditingCard(card);
-          setView("edit");
-        }}
-      />
-    </Suspense>
-```
-
-Napomena: import `useCardData` u liniji 4 ostaje (koristi ga `MainLayout` na linijama 32–33). Nije potrebno mijenjati import listu.
+Promjene se rade **isključivo** u jednom fajlu: `src/components/source-reader/SmartSplitSummaryDialog.tsx`. Logika kreiranja eseja, store, taksonomija i ostali ekrani ostaju netaknuti.
 
 ---
 
-### File 2: `src/components/GlobalSearch.tsx`
+## Šta se mijenja u UX-u
 
-**BEFORE** — import (linija 11):
-```tsx
-import { useCategoryData } from "@/contexts/AppContext";
-```
+### 1. Uklanja se "Pregled kartice" panel
+Sekcija na dnu desnog pane-a (label `Eye → Pregled kartice` sa naslovom + sanitizovanim HTML pregledom) potpuno se briše. Pitanje i sadržaj se već vide u editorima iznad — preview je redundantan.
 
-**AFTER**:
-```tsx
-import { useCardData, useCategoryData } from "@/contexts/AppContext";
-```
+### 2. Nova logika "Podijeli modul" — paragraph scissors
+Trenutno: dugme `Scissors → Podijeli modul` otvara popover sa tri opcije (po praznom redu / po "Član X" / po custom graničniku) i podjela je automatska.
 
-**BEFORE** — Props (linije 19–24):
-```tsx
-interface Props {
-  cards: Card[];
-  open: boolean;
-  onClose: () => void;
-  onNavigateToCard: (card: Card) => void;
-}
-```
+Novo (po uzoru na `src/components/card-form/EditorSection.tsx` `CuttingView`):
 
-**AFTER**:
-```tsx
-interface Props {
-  open: boolean;
-  onClose: () => void;
-  onNavigateToCard: (card: Card) => void;
-}
-```
+- Pored sadržaja modula stoji toggle dugme sa makazicama (isti stil kao u editoru kartice).
+- Klik na makazice **prebacuje sadržajno polje u "cutting view"**: textarea se zamjenjuje read-only listom paragrafa (parsovanih iz `currentModule.contentText` razdvajanjem po praznoj liniji).
+- Između svaka dva paragrafa nalazi se horizontalna linija sa ikonicom makaza (warning boja, isti vizuelni jezik kao postojeći `CuttingView`).
+- Klik na linije = ručna potvrda mjesta split-a:
+  - Tekst **prije** klika ostaje u trenutnom modulu (zadržava postojeći `title` i `question`).
+  - Prvi paragraf **poslije** klika postaje **naslov novog modula** (tačno kao `handleCut` u `useCardActions.ts:269`: `paragraphs[paragraphIndex]` → `newTitle`).
+  - Ostatak paragrafa čini sadržaj novog modula.
+  - Novi modul se ubacuje odmah ispod trenutnog u splitModules / splitEdits, fokus skače na njega, cutting view se zatvara.
+- Ako modul ima ≤1 paragraf, prikazuje se isti hint kao u `CuttingView`: "Nema dovoljno paragrafa za rezanje. Dodajte više teksta."
+- Dugme "Otkaži" izlazi iz cutting moda bez promjena.
 
-**BEFORE** — komponenta (linije 52–55):
-```tsx
-export default function GlobalSearch({ cards, open, onClose, onNavigateToCard }: Props) {
-  const navigate = useNavigate();
-  const [query, setQuery] = useState("");
-  const { categoryRecords: catRecords } = useCategoryData();
-```
-
-**AFTER**:
-```tsx
-export default function GlobalSearch({ open, onClose, onNavigateToCard }: Props) {
-  const navigate = useNavigate();
-  const [query, setQuery] = useState("");
-  // Phase-3 perf fix: subscribe to global card data ONLY here. This component
-  // is lazy-loaded and conditionally mounted by `GlobalSearchWrapper`, so the
-  // subscription is created when the modal opens and torn down when it closes.
-  const { cards } = useCardData();
-  const { categoryRecords: catRecords } = useCategoryData();
-```
+### 3. Uklanja se popover sa graničnicima
+`Popover`, `customDelimiter` state i `performSplit` (sa `splitModuleByDelimiter` pozivom) se uklanjaju iz fajla. Import `splitModuleByDelimiter` ostaje ako se još negdje koristi — provjerom `rg`-om to nije slučaj u ovom fajlu, pa se import skida.
 
 ---
 
-### Out of scope
+## Tehničke izmjene (fajl: `src/components/source-reader/SmartSplitSummaryDialog.tsx`)
 
-- Ostatak `GlobalSearch` koji koristi `cards` (memo filter/search logika) ostaje netaknut — varijabla je sada izvedena iz hook-a umjesto props-a, isti tip `Card[]`.
-- Bez izmjena u testovima, događajima, ni u IDB sloju.
+1. **Imports**
+   - Skinuti: `Popover`, `PopoverContent`, `PopoverTrigger`, `Eye`, `splitModuleByDelimiter`.
+   - Zadržati: `Scissors`, `createEmptyModule`, ostatak.
+
+2. **State i logika**
+   - Ukloniti: `splitPopoverOpen`, `customDelimiter`, `performSplit`, `previewHtml` memo.
+   - Dodati lokalni state: `const [cutting, setCutting] = useState(false);`
+   - Reset `setCutting(false)` na promjenu `safeIndex` (useEffect).
+   - Dodati helper (lokalno u fajlu) `splitTextByParagraphs(text: string): string[]` — ekvivalent `text.split(/\n{2,}/).map(p => p.trim()).filter(Boolean)`. (Ne koristimo `parseHtmlToParagraphs` jer wizard radi na plain-text-u.)
+   - Dodati `performManualCut(paraIdx: number)`:
+     - Uzme `currentModule.contentText`, podijeli na `parts`.
+     - `before = parts.slice(0, paraIdx).join("\n\n")`, `after = parts.slice(paraIdx).join("\n\n")` — pri čemu **prvi** element `parts[paraIdx]` postaje `newTitle` (raw text, trimovan), a `newContentText = parts.slice(paraIdx + 1).join("\n\n")`.
+     - `updateModule(safeIndex, { contentText: before, contentHtml: plainTextToHtml(before), plainSnippet: before })`.
+     - Ubaciti novi `SelectionModule` na `safeIndex + 1`: `{ title: newTitle, contentText: newContentText, contentHtml: plainTextToHtml(newContentText), plainSnippet: newContentText }` (preko `setSplitModules` splice-om).
+     - Dodati pratećih `defaultEdit(newModule)` u `splitEdits` na isti index.
+     - `setStepIndex(safeIndex + 1)`, `setCutting(false)`.
+
+3. **JSX — desni pane (modul editor)**
+   - `Sadržaj modula` blok: kad `cutting === false`, prikazuje se postojeća textarea + ispod nje umjesto popovera **toggle dugme makaza** (isti stil kao u `EditorSection.tsx:159-170`):
+     - klik → `setCutting(true)` (disabled ako modul ima <2 paragrafa ili `currentEdit.skipped`).
+   - Kad `cutting === true`, textarea se zamjenjuje **CuttingView** ekvivalentom inline (kopija strukture iz `EditorSection.tsx:24-46`, ali nad plain-text paragrafima):
+     ```text
+     ┌ Kliknite na makazice da izrežete    [Otkaži] ┐
+     │ paragraph 1                                  │
+     │ ───── ✂ ─────                                │
+     │ paragraph 2                                  │
+     │ ───── ✂ ─────                                │
+     │ paragraph 3                                  │
+     └──────────────────────────────────────────────┘
+     ```
+     Klik na makaze između para `i` i `i+1` → `performManualCut(i+1)` (paragraf na poziciji `i+1` postaje naslov novog modula — usklađeno sa `handleCut` semantikom).
+
+4. **JSX — uklanja se "Pregled kartice"**
+   - Brisati cijeli blok `{/* Live preview */}` (linije ~590-605).
+
+5. **Hint tekst ispod sadržaja**
+   - "Prazan red razdvaja paragrafe. Tekst se sanitizuje prije snimanja." ostaje.
+   - `Popover` blok pored njega zamjenjuje se gore opisanim toggle dugmetom makaza.
+
+---
+
+## Verifikacija
+
+1. `tsc --noEmit` mora proći (bez `any`, ispoštovati zero-any policy iz core memory).
+2. Smoke test (mentalno): otvori source → selektuj tekst → "Konvertuj u esej" → wizard se otvori sa jednim modulom → ukucaj više paragrafa razdvojenih praznim redom → klik na makaze → klik na liniju između paragrafa → trenutni modul ostaje sa tekstom prije, novi modul se kreira, prvi red ispod cut-a postaje njegov naslov, fokus skače na novi modul.
+3. Dirty-bar i taksonomijski selektori se ne diraju — preostala ponašanja moraju ostati identična.
+
+---
+
+## Memorija
+
+Po završetku ažurirati `mem://features/smart-split-wizard`:
+- "Manual paragraph-scissors splitting (mirrors card editor `CuttingView`); first paragraph after cut becomes new module title."
+- "No live-preview panel — wizard relies on inline editors only."
+- Ukloniti spomen popovera/graničnika.

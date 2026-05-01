@@ -1,6 +1,6 @@
 import {
   Wand2, PenSquare, ChevronLeft, ChevronRight, SkipForward,
-  X, Tag as TagIcon, Eye, Plus, Trash2, Scissors, FolderTree,
+  X, Tag as TagIcon, Plus, Trash2, Scissors, FolderTree,
 } from "lucide-react";
 import { useCallback, useMemo, useState, useEffect, useRef } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -9,17 +9,13 @@ import { Badge } from "@/components/ui/badge";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import {
-  Popover, PopoverContent, PopoverTrigger,
-} from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import type { Source } from "@/lib/sources-storage";
 import { useSourceReaderStore } from "@/store/useSourceReaderStore";
 import { useCategoryData } from "@/contexts/AppContext";
-import { sanitizeHtml } from "@/lib/sanitize";
 import { normalizeTag, TAG_LIMITS } from "@/lib/zettelkasten-tags";
-import { unfinishedIndices, defaultEdit } from "@/lib/split-wizard-build";
-import { createEmptyModule, splitModuleByDelimiter, type SelectionModule } from "@/lib/selection-split-engine";
+import { defaultEdit } from "@/lib/split-wizard-build";
+import { createEmptyModule, type SelectionModule } from "@/lib/selection-split-engine";
 import { useDirtyDialog } from "@/hooks/useDirtyDialog";
 import DirtyConfirmBar from "@/components/ui/dirty-confirm-bar";
 
@@ -161,12 +157,6 @@ export function SmartSplitSummaryDialog({ source, onSmartSplitConfirm }: Props) 
     [currentEdit, safeIndex, updateEdit],
   );
 
-  // ── Preview HTML (memoized so DOMPurify only runs on actual change) ──────
-  const previewHtml = useMemo(
-    () => (currentModule ? sanitizeHtml(currentModule.contentHtml) : ""),
-    [currentModule],
-  );
-
   // Auto-focus the question textarea on step change to keep flow keyboard-driven.
   const questionRef = useRef<HTMLTextAreaElement | null>(null);
   useEffect(() => {
@@ -198,28 +188,67 @@ export function SmartSplitSummaryDialog({ source, onSmartSplitConfirm }: Props) 
     [total, setSplitModules, setSplitEdits, setStepIndex],
   );
 
-  const [splitPopoverOpen, setSplitPopoverOpen] = useState(false);
-  const [customDelimiter, setCustomDelimiter] = useState("---");
+  // ── Manual paragraph-scissors cutting (mirrors card editor CuttingView) ──
+  const [cutting, setCutting] = useState(false);
+  // Reset cutting mode on module change so it doesn't persist across nav.
+  useEffect(() => { setCutting(false); }, [safeIndex]);
 
-  const performSplit = useCallback(
-    (mode: "blank-line" | "article" | "custom") => {
+  /** Plain-text → array of paragraphs (split on blank lines, trimmed, non-empty). */
+  const splitTextByParagraphs = useCallback((text: string): string[] => {
+    return text.split(/\n{2,}/).map((p) => p.trim()).filter(Boolean);
+  }, []);
+
+  const currentParagraphs = useMemo(
+    () => (currentModule ? splitTextByParagraphs(currentModule.contentText) : []),
+    [currentModule, splitTextByParagraphs],
+  );
+
+  /**
+   * Manual split at paragraph index `paraIdx`:
+   *  - paragraphs [0, paraIdx)  → stay in current module
+   *  - paragraphs[paraIdx]      → becomes the NEW module's title
+   *  - paragraphs (paraIdx, end)→ become the new module's content
+   * Mirrors `handleCut` in src/hooks/useCardActions.ts (~line 269).
+   */
+  const performManualCut = useCallback(
+    (paraIdx: number) => {
       if (!currentModule) return;
-      const delim = mode === "custom" ? { custom: customDelimiter } : mode;
-      const pieces = splitModuleByDelimiter(currentModule, delim);
-      if (pieces.length <= 1) return;
+      const parts = splitTextByParagraphs(currentModule.contentText);
+      if (paraIdx <= 0 || paraIdx >= parts.length) return;
+
+      const beforeText = parts.slice(0, paraIdx).join("\n\n");
+      const newTitle =
+        parts[paraIdx].replace(/\s+/g, " ").trim().slice(0, 200) || "Novi modul";
+      const afterText = parts.slice(paraIdx + 1).join("\n\n");
+
+      const newModule: SelectionModule = {
+        articleNum: "",
+        title: newTitle,
+        contentText: afterText,
+        contentHtml: plainTextToHtml(afterText),
+        plainSnippet: afterText.trim() || newTitle,
+      };
+
       setSplitModules((prev) => {
         const out = [...prev];
-        out.splice(safeIndex, 1, ...pieces);
+        out[safeIndex] = {
+          ...out[safeIndex],
+          contentText: beforeText,
+          contentHtml: plainTextToHtml(beforeText),
+          plainSnippet: beforeText.trim() || out[safeIndex].title,
+        };
+        out.splice(safeIndex + 1, 0, newModule);
         return out;
       });
       setSplitEdits((prev) => {
         const out = [...prev];
-        out.splice(safeIndex, 1, ...pieces.map((p) => defaultEdit(p)));
+        out.splice(safeIndex + 1, 0, defaultEdit(newModule));
         return out;
       });
-      setSplitPopoverOpen(false);
+      setStepIndex(safeIndex + 1);
+      setCutting(false);
     },
-    [currentModule, customDelimiter, safeIndex, setSplitModules, setSplitEdits],
+    [currentModule, safeIndex, setSplitModules, setSplitEdits, setStepIndex, splitTextByParagraphs],
   );
 
   const showNav = total > 1;
@@ -447,86 +476,96 @@ export function SmartSplitSummaryDialog({ source, onSmartSplitConfirm }: Props) 
                   />
                 </div>
 
-                {/* Module content (plain text, no HTML tags exposed) */}
+                {/* Module content (plain text + manual paragraph scissors) */}
                 <div className="space-y-1">
-                  <label className="text-xs font-medium text-muted-foreground">
-                    Sadržaj modula
-                  </label>
-                  <textarea
-                    value={currentModule.contentText}
-                    onChange={(e) => {
-                      const text = e.target.value;
-                      const html = plainTextToHtml(text);
-                      updateModule(safeIndex, {
-                        contentHtml: html,
-                        contentText: text,
-                        plainSnippet: text.trim(),
-                      });
-                    }}
-                    disabled={currentEdit.skipped}
-                    rows={8}
-                    className="w-full px-3 py-2 rounded-md border bg-background text-sm leading-relaxed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring resize-y disabled:opacity-50"
-                    placeholder="Unesite ili prepravite tekst modula..."
-                  />
-                  <div className="flex items-center justify-between gap-2 pt-1">
-                    <p className="text-[10px] text-muted-foreground">
-                      Prazan red razdvaja paragrafe. Tekst se sanitizuje prije snimanja.
-                    </p>
-                    <Popover open={splitPopoverOpen} onOpenChange={setSplitPopoverOpen}>
-                      <PopoverTrigger asChild>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          className="h-7 text-xs gap-1.5"
-                          disabled={currentEdit.skipped}
-                          title="Podijeli ovaj modul na više dijelova"
-                        >
-                          <Scissors className="h-3 w-3" />
-                          Podijeli modul
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent align="end" className="w-72 p-3 space-y-2">
-                        <p className="text-xs font-medium">Podijeli na više modula</p>
-                        <button
-                          type="button"
-                          onClick={() => performSplit("blank-line")}
-                          className="w-full text-left text-xs px-2 py-1.5 rounded hover:bg-muted"
-                        >
-                          Po praznoj liniji (paragrafima)
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => performSplit("article")}
-                          className="w-full text-left text-xs px-2 py-1.5 rounded hover:bg-muted"
-                        >
-                          Po "Član X" markerima
-                        </button>
-                        <div className="space-y-1.5 pt-1 border-t">
-                          <label className="text-[10px] uppercase tracking-wide text-muted-foreground">
-                            Po custom graničniku
-                          </label>
-                          <div className="flex gap-1.5">
-                            <input
-                              value={customDelimiter}
-                              onChange={(e) => setCustomDelimiter(e.target.value)}
-                              className="flex-1 px-2 py-1 rounded border bg-background text-xs"
-                              placeholder="npr. ---"
-                            />
-                            <Button
-                              size="sm"
-                              variant="secondary"
-                              onClick={() => performSplit("custom")}
-                              disabled={!customDelimiter.trim()}
-                              className="h-7 text-xs"
-                            >
-                              Podijeli
-                            </Button>
-                          </div>
-                        </div>
-                      </PopoverContent>
-                    </Popover>
+                  <div className="flex items-center justify-between gap-2">
+                    <label className="text-xs font-medium text-muted-foreground">
+                      Sadržaj modula
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => setCutting((v) => !v)}
+                      disabled={currentEdit.skipped || currentParagraphs.length < 2}
+                      className={cn(
+                        "p-1 rounded-lg transition-colors disabled:opacity-30 disabled:cursor-not-allowed",
+                        cutting
+                          ? "bg-warning/20 text-warning"
+                          : "text-muted-foreground hover:text-foreground hover:bg-secondary",
+                      )}
+                      title={
+                        currentParagraphs.length < 2
+                          ? "Nema dovoljno paragrafa za rezanje"
+                          : "Režim rezanja: ručno podijeli modul"
+                      }
+                      aria-label="Režim rezanja"
+                    >
+                      <Scissors className="h-4 w-4" />
+                    </button>
                   </div>
+
+                  {cutting ? (
+                    <div className="rounded-md border border-warning/30 bg-warning/5 p-3 space-y-0">
+                      <div className="flex items-center justify-between mb-3">
+                        <span className="text-xs font-medium text-warning">
+                          Kliknite na makazice da izrežete — prvi red poslije reza postaje naslov novog modula
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setCutting(false)}
+                          className="text-xs text-muted-foreground hover:text-foreground"
+                        >
+                          Otkaži
+                        </button>
+                      </div>
+                      {currentParagraphs.length <= 1 ? (
+                        <div className="text-sm text-muted-foreground text-center py-4">
+                          Nema dovoljno paragrafa za rezanje. Razdvojte tekst praznim redom.
+                        </div>
+                      ) : (
+                        currentParagraphs.map((para, idx) => (
+                          <div key={idx}>
+                            {idx > 0 && (
+                              <button
+                                type="button"
+                                onClick={() => performManualCut(idx)}
+                                className="w-full flex items-center gap-2 py-1.5 group hover:bg-warning/10 rounded transition-colors my-0.5"
+                                title="Podijeli ovdje"
+                              >
+                                <div className="flex-1 h-px bg-warning/30 group-hover:bg-warning" />
+                                <Scissors className="h-3.5 w-3.5 text-warning/50 group-hover:text-warning transition-colors rotate-90" />
+                                <div className="flex-1 h-px bg-warning/30 group-hover:bg-warning" />
+                              </button>
+                            )}
+                            <div className="text-sm px-2 py-1 rounded whitespace-pre-wrap">
+                              {para}
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  ) : (
+                    <>
+                      <textarea
+                        value={currentModule.contentText}
+                        onChange={(e) => {
+                          const text = e.target.value;
+                          const html = plainTextToHtml(text);
+                          updateModule(safeIndex, {
+                            contentHtml: html,
+                            contentText: text,
+                            plainSnippet: text.trim(),
+                          });
+                        }}
+                        disabled={currentEdit.skipped}
+                        rows={8}
+                        className="w-full px-3 py-2 rounded-md border bg-background text-sm leading-relaxed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring resize-y disabled:opacity-50"
+                        placeholder="Unesite ili prepravite tekst modula..."
+                      />
+                      <p className="text-[10px] text-muted-foreground pt-1">
+                        Prazan red razdvaja paragrafe. Tekst se sanitizuje prije snimanja. Za podjelu na više modula koristite makazice iznad.
+                      </p>
+                    </>
+                  )}
                 </div>
 
                 {/* Tags */}
@@ -587,22 +626,6 @@ export function SmartSplitSummaryDialog({ source, onSmartSplitConfirm }: Props) 
                   </div>
                 </div>
 
-                {/* Live preview */}
-                <div className="space-y-1">
-                  <label className="text-xs font-medium text-muted-foreground flex items-center gap-1">
-                    <Eye className="h-3 w-3" />
-                    Pregled kartice
-                  </label>
-                  <div className="rounded-md border bg-card p-3">
-                    <p className="text-sm font-medium mb-2">
-                      {currentEdit.question.trim() || currentModule.title}
-                    </p>
-                    <div
-                      className="text-xs prose prose-sm max-w-none card-prose max-h-40 overflow-y-auto"
-                      dangerouslySetInnerHTML={{ __html: previewHtml }}
-                    />
-                  </div>
-                </div>
               </div>
             </div>
 
