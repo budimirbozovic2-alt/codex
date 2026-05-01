@@ -60,6 +60,10 @@ interface SourceReaderState {
   splitMode: WizardMode;
   /** Wizard: index of the module currently being edited (0-based). */
   splitStepIndex: number;
+  /** Wizard: target subcategory UUID for ALL cards (empty = direct in subject). */
+  wizardSubcategoryId: string;
+  /** Wizard: target chapter UUID (empty = no chapter). Cleared when subcategory changes. */
+  wizardChapterId: string;
   linkModalOpen: boolean;
   linkSelectedText: string;
   linkSelectedHtml: string;
@@ -89,6 +93,8 @@ interface SourceReaderState {
   setLinkSelectedText: (v: string) => void;
   setLinkSelectedHtml: (v: string) => void;
   setExamQuestions: (v: ExamQuestion[] | ((prev: ExamQuestion[]) => ExamQuestion[])) => void;
+  setWizardSubcategoryId: (v: string) => void;
+  setWizardChapterId: (v: string) => void;
   reset: () => void;
 }
 
@@ -122,6 +128,8 @@ const initialState = {
   linkSelectedText: "",
   linkSelectedHtml: "",
   examQuestions: [] as ExamQuestion[],
+  wizardSubcategoryId: "",
+  wizardChapterId: "",
 };
 
 export const useSourceReaderStore = create<SourceReaderState>((set, get) => ({
@@ -172,7 +180,11 @@ export const useSourceReaderStore = create<SourceReaderState>((set, get) => ({
     splitStepIndex: 0,
     splitDone: false,
     splitCreatedCount: 0,
+    wizardSubcategoryId: "",
+    wizardChapterId: "",
   }),
+  setWizardSubcategoryId: (v) => set({ wizardSubcategoryId: v, wizardChapterId: "" }),
+  setWizardChapterId: (v) => set({ wizardChapterId: v }),
   setLinkModalOpen: (v) => set({ linkModalOpen: v }),
   setLinkSelectedText: (v) => set({ linkSelectedText: v }),
   setLinkSelectedHtml: (v) => set({ linkSelectedHtml: v }),

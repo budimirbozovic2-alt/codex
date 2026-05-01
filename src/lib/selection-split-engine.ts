@@ -152,3 +152,79 @@ export function splitSelection(selectedText: string): SelectionSplitResult {
 
   return { hasArticles: true, modules, rangeLabel, parentName };
 }
+
+/**
+ * Create an empty module — used by the wizard when the user manually adds a
+ * new module. Title defaults to "Novi modul"; content stays empty so the user
+ * pastes/types into the editor.
+ */
+export function createEmptyModule(title = "Novi modul"): SelectionModule {
+  return {
+    articleNum: "",
+    title,
+    contentText: "",
+    contentHtml: "",
+    plainSnippet: title,
+  };
+}
+
+/** Strip HTML tags to get plain text fallback (used after manual edits). */
+function htmlToPlain(html: string): string {
+  return html
+    .replace(/<\/(p|div|li|h[1-6])>/gi, "\n")
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<[^>]+>/g, "")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+/**
+ * Split a single module's content into N modules using a delimiter.
+ * Delimiter modes:
+ *  - "blank-line"  → split on one or more blank lines (paragraph breaks)
+ *  - "article"     → split on /^Član\s+\d+/ markers (re-runs auto-detection on body)
+ *  - { custom: s } → split on the literal string `s` (e.g. "---")
+ *
+ * Returns at least 1 module. If split would yield only 1 chunk, returns the
+ * input unchanged (wrapped in an array). The first chunk inherits the original
+ * module's title; subsequent chunks get auto-titles from their first words.
+ */
+export function splitModuleByDelimiter(
+  mod: SelectionModule,
+  delim: "blank-line" | "article" | { custom: string },
+): SelectionModule[] {
+  const sourceText = mod.contentText || htmlToPlain(mod.contentHtml);
+  if (!sourceText.trim()) return [mod];
+
+  let chunks: string[];
+  if (delim === "blank-line") {
+    chunks = sourceText.split(/\n\s*\n+/).map(s => s.trim()).filter(Boolean);
+  } else if (delim === "article") {
+    // Re-run full split engine on this module's text
+    const result = splitSelection(sourceText);
+    if (result.hasArticles && result.modules.length > 1) return result.modules;
+    return [mod];
+  } else {
+    const lit = delim.custom;
+    if (!lit) return [mod];
+    chunks = sourceText.split(lit).map(s => s.trim()).filter(Boolean);
+  }
+
+  if (chunks.length <= 1) return [mod];
+
+  return chunks.map((chunk, i) => {
+    const lines = chunk.split(/\n/).filter(Boolean);
+    const title = i === 0
+      ? mod.title
+      : (firstWords(lines[0] || chunk, 7) || `Modul ${i + 1}`);
+    const contentHtml = lines.map(l => `<p>${l}</p>`).join("\n");
+    return {
+      articleNum: i === 0 ? mod.articleNum : "",
+      title,
+      contentText: chunk,
+      contentHtml,
+      plainSnippet: chunk,
+    };
+  });
+}
+

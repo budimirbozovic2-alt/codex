@@ -1,89 +1,63 @@
-# Universal Smart-Split Wizard for All Sources
+## Problem
 
-## Cilj
+Trenutno wizard za kreaciju eseja iz izvora ima dvije rupe:
 
-Trenutno se `SmartSplitSummaryDialog` (sa preview-om cijele kartice) otvara samo kad selektovani tekst sadrži "Član X" markere. Za sve ostale slučajeve (skripte, esejski pasusi bez članova) koristi se stari `EssayCreationDialog` koji **nema preview**.
+1. **Nema ručnog sječenja modula.** Kad selekcija ne sadrži "Član X" markere, sintetiše se samo **jedan** modul i nema dugmeta da se taj modul ručno podijeli na više cjelina (ili da se doda novi modul). Auto-detekcija radi samo za pravne članove.
+2. **Nema izbora potkategorije i glave.** `handleSmartSplitConfirm` poziva `addCard(question, sections, source.categoryId, undefined, undefined, ...)` — drugi i treći `undefined` su `subcategoryId` i `chapterId`. Iako `addCard` i `Card` shema oboje podržavaju (`db-schema.ts` ima `SubcategoryNode.chapters: ChapterNode[]`), wizard ih nikad ne postavlja, pa kartice završe direktno na korijenu predmeta.
 
-Cilj: **uvijek** otvoriti SmartSplit wizard, čak i kad ima samo 1 modul (cijela selekcija = 1 kartica), tako da preview funkcioniše univerzalno.
+Korisnik želi da, prije importa, može:
+- Dodati nove module ručno (i obrisati postojeće), uključujući slučaj kad nema članova.
+- Dodijeliti potkategoriju i glavu (opciono) za sve kartice koje će nastati.
 
-## Pristup
+## Rješenje
 
-Modifikovati `handleConvertToEssay` u `src/hooks/useSourceReaderActions.ts` da:
-1. Ako `splitSelection` nađe članove → zadržati postojeće ponašanje (više modula).
-2. Ako NE nađe članove → **sintetizovati 1 `SelectionModule`** iz cijele selekcije i otvoriti wizard sa N=1.
+### 1. Ručno upravljanje modulima u wizardu
 
-Wizard već ispravno radi sa N=1: lista modula je single item, prev/next dugmad se same disabluju na granicama, a `splitMode: "separate"` proizvodi tačno 1 karticu (bez pseudo-roditelja).
+U `SmartSplitSummaryDialog.tsx`, u lijevoj koloni (rail) dodati:
+- **"+ Dodaj modul"** dugme na dnu liste — kreira novi `SelectionModule` sa praznim `articleNum`, naslovom "Novi modul", praznim `contentHtml/contentText/plainSnippet` i seedom `defaultEdit`. Push u `splitModules` + `splitEdits`, skoči na novi step.
+- **"Obriši modul"** ikonica pored svakog modula (kad `total > 1`) — uklanja modul iz oba arraya, ažurira `splitStepIndex` ako je obrisani bio aktivan.
+- **"Podijeli modul"** akcija u editoru desno — otvara mali popover gdje korisnik zalijepi/izabere graničnik (npr. prazan red, "---", ili regex `/Član \d+/`) i automatski razdvaja trenutni modul. Implementirano kao pure helper `splitModuleByDelimiter(mod, delim)` u `selection-split-engine.ts` koji vraća `SelectionModule[]`.
 
-## Implementacija
+Posljedica: rail se uvijek prikazuje čim `total > 1`, čak i u "synthetic single" flow-u. Ako korisnik klikne "+ Dodaj modul" iz početnog jednog sintetičkog, automatski izlazi iz `isSyntheticSingle` UI-ja i prelazi u puni wizard sa toggleom separate/combined.
 
-### 1. `src/hooks/useSourceReaderActions.ts` — `handleConvertToEssay` (linije 72–95)
+Editor desno dobija novo polje **"Sadržaj modula"** (`textarea` ili mali RTE) koje pokazuje/uređuje `currentModule.contentHtml`. Trenutno wizard pokazuje samo question + tagove; sadržaj je read-only iz selekcije. Sa ručnim modulima sadržaj mora biti editabilan. Update upisuje sanitizovani HTML kroz novi `updateModule(i, patch)` helper koji mutira `splitModules`.
 
-Zamijeniti `else` granu (koja otvara `EssayCreationDialog`) logikom koja gradi single-module split result:
+### 2. Izbor potkategorije i glave
 
+Iznad mode-toggle reda u dialogu, dodati novu traku **"Lokacija u predmetu"** sa dva `Select` komponenta (postojeći `@/components/ui/select`):
+
+- **Potkategorija** — opcije = `categoryRecord.subcategories` filtrirano po `source.categoryId` + opcija "(direktno u predmet)".
+- **Glava** — opcije = `selectedSubcategory?.chapters` + opcija "(bez glave)". Disabled kad nema izabrane potkategorije.
+
+Wizard čita `categoryRecords` iz `useCategoryData()` i lokalno čuva izbore `wizardSubcategoryId` i `wizardChapterId` u Zustand storeu (dva nova polja + settera, defaultuju se na `""`). Dodjela vrijedi za **sve** kartice koje će biti kreirane (separate i combined mode jednako).
+
+`handleSmartSplitConfirm` u `useSourceReaderActions.ts` mijenja sve `addCard(...)` pozive da prosljeđuju ova dva polja:
 ```ts
-if (result.hasArticles && result.modules.length > 0) {
-  setSplitResult(result);
-  initSplitWizard([...result.modules], result.parentName);
-  setSplitMode("separate"); // default za multi-modul
-  setSplitSummaryOpen(true);
-} else {
-  // Bez članova: kreiraj 1 sintetički modul iz cijele selekcije
-  const plainSnippet = text.trim();
-  const contentHtml = sanitizeHtml(html || `<p>${text}</p>`);
-  const fallbackTitle = firstWords(plainSnippet, 7) || "Esej iz izvora";
-  const singleModule: SelectionModule = {
-    articleNum: "",
-    title: fallbackTitle,
-    contentText: plainSnippet,
-    contentHtml,
-    plainSnippet,
-  };
-  const synthResult: SelectionSplitResult = {
-    hasArticles: false, // ostaje false — koristi se kao signal za wizard UI
-    modules: [singleModule],
-    rangeLabel: fallbackTitle,
-    parentName: fallbackTitle,
-  };
-  setSplitResult(synthResult);
-  initSplitWizard([singleModule], fallbackTitle);
-  setSplitMode("separate"); // 1 modul → 1 kartica
-  setSplitSummaryOpen(true);
-}
+addCard(question, sections, category, wizardSubcategoryId || undefined, wizardChapterId || undefined, extra)
 ```
 
-Eksport `firstWords` helpera iz `selection-split-engine.ts` (trenutno je private) ili duplirati 5-line helper inline u hook.
+Pri reset wizarda (`reset()` u storeu, `initSplitWizard`, i u `handleConvertToEssay`) ova dva polja se vraćaju na `""`.
 
-### 2. `src/components/source-reader/SmartSplitSummaryDialog.tsx` — kozmetičko prilagođavanje za N=1
+Validacija: ako je izabrana glava ali ne i potkategorija — auto-clear glave (UX guard). Ako je potkategorija promijenjena — clear glave.
 
-Provjeriti par mjesta gdje wizard pretpostavlja više modula:
-- Tab toggler "Separate / Combined" treba biti **sakriven** kad `total === 1` (combined nema smisla za 1 modul).
-- Lista modula u lijevom rail-u: ako `total === 1`, sakriti rail i dati cijeli prostor question + preview-u.
-- Naslov dijaloga: ako nema članova (`!splitResult.hasArticles`), prikazati "Kreiranje eseja" umjesto "Smart Split".
+### 3. Sitnice
 
-### 3. `EssayCreationDialog` — zadržati ili ukloniti?
+- Iz `splitMode` defaulta u `handleConvertToEssay` ostaje `"separate"` za sve flow-ove. Kad korisnik ručno doda module iz sintetičkog single-a, on i dalje vidi separate kao default ali sad mu se otkriva mode-toggle (jer `total > 1`).
+- Dodati `splitModuleByDelimiter` test u `src/test/split-wizard-build.test.ts` (ili novi fajl `selection-split-manual.test.ts`).
+- Dodati setter `setSplitModules` već postoji — koristimo postojeći.
 
-`EssayCreationDialog` postaje mrtav kod (poziva ga samo `handleCreateEssay`, koji više nije reachable). Opcije:
-- **A:** Ostaviti kao fallback i jednostavno više ne mountovati u `SourceReader.tsx`.
-- **B:** Obrisati fajl + import iz `SourceReader.tsx` + obrisati `handleCreateEssay` iz hook-a + obrisati `essayDialogOpen / essayQuestion / setEssayDialogOpen / setEssayQuestion` iz Zustand store-a.
+## Izmjene fajlova
 
-Preporuka: **opcija B** — čisto brisanje (eliminiše mrtav kod, ujednačava tok). Keyboard shortcut na liniji 440 (`if (s.essayDialogOpen) s.setEssayDialogOpen(false);`) treba zamijeniti sa `if (s.splitSummaryOpen) s.setSplitSummaryOpen(false);` (Esc za zatvaranje).
+| Fajl | Promjena |
+|---|---|
+| `src/store/useSourceReaderStore.ts` | + polja `wizardSubcategoryId`, `wizardChapterId` + setteri; reset u `initSplitWizard` i `reset` |
+| `src/lib/selection-split-engine.ts` | + pure helper `splitModuleByDelimiter(mod, delim)`; + `createEmptyModule(title?)` factory |
+| `src/components/source-reader/SmartSplitSummaryDialog.tsx` | UI: traka za potkategoriju+glavu; "+ Dodaj modul" i "Obriši" u rail-u; "Podijeli modul" popover; editabilan `contentHtml` u editoru; rail vidljiv čim `total > 1` |
+| `src/hooks/useSourceReaderActions.ts` | `handleSmartSplitConfirm` čita `wizardSubcategoryId/wizardChapterId` iz storea i prosljeđuje u `addCard`; reset polja u `handleConvertToEssay` |
+| `src/test/selection-split.test.ts` (ili novi fajl) | Testovi za `splitModuleByDelimiter` (split po praznoj liniji, po regexu, po custom string-u) i `createEmptyModule` |
 
-### 4. Verifikacija
+## Out-of-scope
 
-- Ručno: selektovati pasus iz **skripte** (bez "Član X") → wizard se otvara, sa 1 modulom, preview gumb radi, kreira 1 karticu.
-- Ručno: selektovati raspon iz **zakona** sa više članova → wizard radi kao i prije (N modula, separate/combined).
-- Test suite: `bunx vitest run` — provjeriti `src/test/split-wizard-build.test.ts` i `selection-split.test.ts`.
-
-## Izmijenjeni fajlovi
-
-- `src/hooks/useSourceReaderActions.ts` — restrukturisan `handleConvertToEssay` + uklonjen `handleCreateEssay`
-- `src/components/source-reader/SmartSplitSummaryDialog.tsx` — sakrivanje toggler-a + rail-a kad je `total === 1`, dinamički naslov
-- `src/components/SourceReader.tsx` — uklonjen `<EssayCreationDialog>` mount
-- `src/store/useSourceReaderStore.ts` — uklonjena 4 polja (`essayDialogOpen`, `essayQuestion`, setter-i)
-- `src/lib/selection-split-engine.ts` — eksportovati `firstWords` helper
-- `src/components/source-reader/EssayCreationDialog.tsx` — **obrisan**
-- `mem://features/smart-split-wizard` — ažurirati napomenu da wizard radi za sve selekcije (ne samo članove)
-
-## Pitanja prije implementacije
-
-Idem li sa **opcijom B** (čisto brisanje `EssayCreationDialog`) ili **opcijom A** (ostavi fajl, samo ne mountuj)? B je čistije ali mijenja više fajlova.
+- Per-modul (umjesto per-wizard) izbor potkategorije/glave — wizard koristi jednu lokaciju za sve kartice. Ako kasnije zatreba per-modul, dodaje se override u `WizardModuleEdit`.
+- Kreacija nove potkategorije/glave iz wizarda — to ostaje u `Settings → Predmeti`. Wizard samo bira postojeće.
+- Drag-and-drop reorder modula u rail-u (može u sljedećoj iteraciji).

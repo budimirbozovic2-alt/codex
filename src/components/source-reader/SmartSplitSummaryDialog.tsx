@@ -1,17 +1,26 @@
 import {
   Wand2, PenSquare, ChevronLeft, ChevronRight, SkipForward,
   X, Tag as TagIcon, Layers, FileText, Eye, ArrowLeft,
+  Plus, Trash2, Scissors, FolderTree,
 } from "lucide-react";
 import { useCallback, useMemo, useState, useEffect, useRef } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
+import {
+  Popover, PopoverContent, PopoverTrigger,
+} from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import type { Source } from "@/lib/sources-storage";
 import { useSourceReaderStore } from "@/store/useSourceReaderStore";
+import { useCategoryData } from "@/contexts/AppContext";
 import { sanitizeHtml } from "@/lib/sanitize";
 import { normalizeTag, TAG_LIMITS } from "@/lib/zettelkasten-tags";
-import { unfinishedIndices, buildSeparatePlans, buildCombinedPlan } from "@/lib/split-wizard-build";
+import { unfinishedIndices, buildSeparatePlans, buildCombinedPlan, defaultEdit } from "@/lib/split-wizard-build";
+import { createEmptyModule, splitModuleByDelimiter, type SelectionModule } from "@/lib/selection-split-engine";
 
 interface Props {
   source: Source;
@@ -50,6 +59,24 @@ export function SmartSplitSummaryDialog({ source, onSmartSplitConfirm }: Props) 
   const setStepIndex = useSourceReaderStore((s) => s.setSplitStepIndex);
   const setSplitSummaryOpen = useSourceReaderStore((s) => s.setSplitSummaryOpen);
   const setSplitResult = useSourceReaderStore((s) => s.setSplitResult);
+  const setSplitModules = useSourceReaderStore((s) => s.setSplitModules);
+  const wizardSubcategoryId = useSourceReaderStore((s) => s.wizardSubcategoryId);
+  const wizardChapterId = useSourceReaderStore((s) => s.wizardChapterId);
+  const setWizardSubcategoryId = useSourceReaderStore((s) => s.setWizardSubcategoryId);
+  const setWizardChapterId = useSourceReaderStore((s) => s.setWizardChapterId);
+
+  // ── Subject taxonomy: subcategories + chapters scoped to source.categoryId ─
+  const { categoryRecords } = useCategoryData();
+  const categoryRecord = useMemo(
+    () => categoryRecords.find((c) => c.id === source.categoryId),
+    [categoryRecords, source.categoryId],
+  );
+  const subcategories = categoryRecord?.subcategories ?? [];
+  const selectedSubcategory = useMemo(
+    () => subcategories.find((s) => s.id === wizardSubcategoryId),
+    [subcategories, wizardSubcategoryId],
+  );
+  const chapters = selectedSubcategory?.chapters ?? [];
 
   const handleOpenChange = (o: boolean) => {
     if (!o) {
@@ -167,11 +194,61 @@ export function SmartSplitSummaryDialog({ source, onSmartSplitConfirm }: Props) 
     if (open && !splitDone) questionRef.current?.focus();
   }, [open, safeIndex, splitDone]);
 
-  // Single-module synthetic flow: when there are no detected articles, the
-  // wizard shows a streamlined UI (no mode toggle, no module rail, no "Član X"
-  // badge) but still keeps the full preview pipeline.
-  const isSingleModule = total === 1;
-  const isSyntheticSingle = isSingleModule && !!currentModule && !currentModule.articleNum;
+  // Auto-focus the question textarea on step change to keep flow keyboard-driven.
+  // (questionRef declared above)
+
+  // ── Module management (manual add / delete / split) ──────────────────────
+  const updateModule = useCallback(
+    (i: number, patch: Partial<SelectionModule>) => {
+      setSplitModules((prev) => prev.map((m, j) => (j === i ? { ...m, ...patch } : m)));
+    },
+    [setSplitModules],
+  );
+
+  const addNewModule = useCallback(() => {
+    const fresh = createEmptyModule(`Novi modul ${total + 1}`);
+    setSplitModules((prev) => [...prev, fresh]);
+    setSplitEdits((prev) => [...prev, defaultEdit(fresh)]);
+    setStepIndex(total); // jump to the new one (its index = old total)
+  }, [total, setSplitModules, setSplitEdits, setStepIndex]);
+
+  const deleteModule = useCallback(
+    (i: number) => {
+      if (total <= 1) return; // never let it go to zero
+      setSplitModules((prev) => prev.filter((_, j) => j !== i));
+      setSplitEdits((prev) => prev.filter((_, j) => j !== i));
+      setStepIndex((s) => Math.max(0, s >= i ? s - 1 : s));
+    },
+    [total, setSplitModules, setSplitEdits, setStepIndex],
+  );
+
+  const [splitPopoverOpen, setSplitPopoverOpen] = useState(false);
+  const [customDelimiter, setCustomDelimiter] = useState("---");
+
+  const performSplit = useCallback(
+    (mode: "blank-line" | "article" | "custom") => {
+      if (!currentModule) return;
+      const delim = mode === "custom" ? { custom: customDelimiter } : mode;
+      const pieces = splitModuleByDelimiter(currentModule, delim);
+      if (pieces.length <= 1) return;
+      setSplitModules((prev) => {
+        const out = [...prev];
+        out.splice(safeIndex, 1, ...pieces);
+        return out;
+      });
+      setSplitEdits((prev) => {
+        const out = [...prev];
+        out.splice(safeIndex, 1, ...pieces.map((p) => defaultEdit(p)));
+        return out;
+      });
+      setSplitPopoverOpen(false);
+    },
+    [currentModule, customDelimiter, safeIndex, setSplitModules, setSplitEdits],
+  );
+
+  // Rail is always shown so the user can add modules even when starting from
+  // a single synthetic module. Mode toggle only appears once N > 1.
+  const showModeToggle = total > 1;
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
@@ -181,7 +258,7 @@ export function SmartSplitSummaryDialog({ source, onSmartSplitConfirm }: Props) 
             <Wand2 className="h-5 w-5 text-primary" />
             {splitDone
               ? "Generisanje završeno"
-              : isSyntheticSingle
+              : !showModeToggle
                 ? "Kreiranje eseja"
                 : "Smart-Split čarobnjak"}
           </DialogTitle>
@@ -315,7 +392,7 @@ export function SmartSplitSummaryDialog({ source, onSmartSplitConfirm }: Props) 
         ) : splitResult && currentModule && currentEdit ? (
           <>
             {/* ── Top: mode toggle + summary (hidden when N=1) ───────────── */}
-            {!isSingleModule && (
+            {!!showModeToggle && (
               <div className="flex items-center justify-between gap-3 flex-wrap">
                 <div className="flex items-center gap-1 rounded-lg border bg-muted/50 p-1">
                   <button
@@ -354,6 +431,64 @@ export function SmartSplitSummaryDialog({ source, onSmartSplitConfirm }: Props) 
               </div>
             )}
 
+            {/* ── Lokacija u predmetu (potkategorija + glava) ────────────── */}
+            <div className="rounded-lg border bg-muted/20 p-2.5 space-y-2">
+              <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+                <FolderTree className="h-3.5 w-3.5" />
+                Lokacija u predmetu
+                <span className="text-[10px] font-normal text-muted-foreground/70">
+                  (vrijedi za sve kartice)
+                </span>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-1">
+                  <label className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                    Potkategorija
+                  </label>
+                  <Select
+                    value={wizardSubcategoryId || "__none__"}
+                    onValueChange={(v) => setWizardSubcategoryId(v === "__none__" ? "" : v)}
+                  >
+                    <SelectTrigger className="h-9 text-xs">
+                      <SelectValue placeholder="Direktno u predmet" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none__">— direktno u predmet —</SelectItem>
+                      {subcategories.map((s) => (
+                        <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                    Glava
+                  </label>
+                  <Select
+                    value={wizardChapterId || "__none__"}
+                    onValueChange={(v) => setWizardChapterId(v === "__none__" ? "" : v)}
+                    disabled={!wizardSubcategoryId || chapters.length === 0}
+                  >
+                    <SelectTrigger className="h-9 text-xs">
+                      <SelectValue placeholder={
+                        !wizardSubcategoryId
+                          ? "Prvo izaberi potkategoriju"
+                          : chapters.length === 0
+                            ? "(nema glava)"
+                            : "Bez glave"
+                      } />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none__">— bez glave —</SelectItem>
+                      {chapters.map((ch) => (
+                        <SelectItem key={ch.id} value={ch.id}>{ch.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </div>
+
             {/* ── Combined-mode parent name ─────────────────────────────── */}
             {splitMode === "combined" && (
               <div className="space-y-1">
@@ -369,14 +504,13 @@ export function SmartSplitSummaryDialog({ source, onSmartSplitConfirm }: Props) 
               </div>
             )}
 
-            {/* ── Body: rail + editor (rail hidden when N=1) ─────────────── */}
-            <div className={cn(
-              "flex-1 min-h-0 grid gap-3 overflow-hidden",
-              isSingleModule ? "grid-cols-1" : "grid-cols-[200px_1fr]",
-            )}>
-              {/* Left rail — module list (hidden for single-module flow) */}
-              {!isSingleModule && (
-                <div className="overflow-y-auto border rounded-lg bg-muted/30 p-1.5 space-y-0.5">
+            {/* ── Body: rail (always visible) + editor ─────────────────────
+               Rail lets the user jump between modules, delete unwanted ones,
+               and add new modules manually — even when starting from a single
+               synthetic selection. */}
+            <div className="flex-1 min-h-0 grid gap-3 overflow-hidden grid-cols-[220px_1fr]">
+              <div className="overflow-y-auto border rounded-lg bg-muted/30 p-1.5 flex flex-col">
+                <div className="space-y-0.5 flex-1">
                   {splitModules.map((mod, i) => {
                     const edit = splitEdits[i];
                     const isActive = i === safeIndex;
@@ -384,46 +518,83 @@ export function SmartSplitSummaryDialog({ source, onSmartSplitConfirm }: Props) 
                     const isPersonalized =
                       edit && !isSkipped && edit.question.trim() !== mod.title.trim();
                     return (
-                      <button
-                        key={`${mod.articleNum}-${i}`}
-                        type="button"
-                        onClick={() => setStepIndex(i)}
+                      <div
+                        key={`mod-${i}`}
                         className={cn(
-                          "w-full text-left px-2 py-1.5 rounded-md text-xs transition-colors flex items-center gap-2",
+                          "group rounded-md text-xs transition-colors flex items-center gap-1 pr-1",
                           isActive
-                            ? "bg-primary/15 text-foreground ring-1 ring-primary/40"
-                            : "hover:bg-muted text-muted-foreground",
-                          isSkipped && "opacity-50 line-through",
+                            ? "bg-primary/15 ring-1 ring-primary/40"
+                            : "hover:bg-muted",
                         )}
                       >
-                        <Badge
-                          variant="outline"
+                        <button
+                          type="button"
+                          onClick={() => setStepIndex(i)}
                           className={cn(
-                            "text-[9px] h-4 px-1 flex-shrink-0",
-                            isPersonalized && "border-primary/50 text-primary",
+                            "flex-1 min-w-0 text-left px-2 py-1.5 flex items-center gap-2",
+                            isActive ? "text-foreground" : "text-muted-foreground",
+                            isSkipped && "opacity-50 line-through",
                           )}
                         >
-                          čl. {mod.articleNum}
-                        </Badge>
-                        <span className="truncate flex-1">{edit?.question || mod.title}</span>
-                        {edit?.tags.length ? (
-                          <TagIcon className="h-2.5 w-2.5 flex-shrink-0 text-primary" />
-                        ) : null}
-                      </button>
+                          {mod.articleNum ? (
+                            <Badge
+                              variant="outline"
+                              className={cn(
+                                "text-[9px] h-4 px-1 flex-shrink-0",
+                                isPersonalized && "border-primary/50 text-primary",
+                              )}
+                            >
+                              čl. {mod.articleNum}
+                            </Badge>
+                          ) : (
+                            <Badge
+                              variant="outline"
+                              className={cn(
+                                "text-[9px] h-4 px-1 flex-shrink-0",
+                                isPersonalized && "border-primary/50 text-primary",
+                              )}
+                            >
+                              {i + 1}
+                            </Badge>
+                          )}
+                          <span className="truncate flex-1">{edit?.question || mod.title}</span>
+                          {edit?.tags.length ? (
+                            <TagIcon className="h-2.5 w-2.5 flex-shrink-0 text-primary" />
+                          ) : null}
+                        </button>
+                        {total > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => deleteModule(i)}
+                            className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive"
+                            title="Obriši modul"
+                            aria-label={`Obriši modul ${i + 1}`}
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </button>
+                        )}
+                      </div>
                     );
                   })}
                 </div>
-              )}
+                <button
+                  type="button"
+                  onClick={addNewModule}
+                  className="mt-1.5 w-full text-xs px-2 py-1.5 rounded-md border border-dashed border-muted-foreground/30 hover:border-primary/50 hover:bg-primary/5 text-muted-foreground hover:text-foreground inline-flex items-center justify-center gap-1.5 transition-colors"
+                >
+                  <Plus className="h-3 w-3" />
+                  Dodaj modul
+                </button>
+              </div>
+
 
               {/* Right pane — editor for the active module */}
               <div className="overflow-y-auto pr-1 space-y-3">
-                <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center justify-between gap-2 flex-wrap">
                   <div className="flex items-center gap-2">
-                    {!isSingleModule && (
-                      <Badge variant="outline" className="text-[10px]">
-                        Korak {safeIndex + 1} / {total}
-                      </Badge>
-                    )}
+                    <Badge variant="outline" className="text-[10px]">
+                      Modul {safeIndex + 1} / {total}
+                    </Badge>
                     {currentModule.articleNum && (
                       <Badge variant="secondary" className="text-[10px]">
                         Član {currentModule.articleNum}
@@ -435,16 +606,69 @@ export function SmartSplitSummaryDialog({ source, onSmartSplitConfirm }: Props) 
                       </Badge>
                     )}
                   </div>
-                  {!isSingleModule && (
-                    <button
-                      type="button"
-                      onClick={() => updateEdit(safeIndex, { skipped: !currentEdit.skipped })}
-                      className="text-[11px] text-muted-foreground hover:text-foreground inline-flex items-center gap-1"
-                    >
-                      <SkipForward className="h-3 w-3" />
-                      {currentEdit.skipped ? "Vrati u import" : "Preskoči ovaj član"}
-                    </button>
-                  )}
+                  <div className="flex items-center gap-2">
+                    <Popover open={splitPopoverOpen} onOpenChange={setSplitPopoverOpen}>
+                      <PopoverTrigger asChild>
+                        <button
+                          type="button"
+                          className="text-[11px] text-muted-foreground hover:text-foreground inline-flex items-center gap-1"
+                          title="Podijeli ovaj modul na više dijelova"
+                        >
+                          <Scissors className="h-3 w-3" />
+                          Podijeli modul
+                        </button>
+                      </PopoverTrigger>
+                      <PopoverContent align="end" className="w-72 p-3 space-y-2">
+                        <p className="text-xs font-medium">Podijeli na više modula</p>
+                        <button
+                          type="button"
+                          onClick={() => performSplit("blank-line")}
+                          className="w-full text-left text-xs px-2 py-1.5 rounded hover:bg-muted"
+                        >
+                          Po praznoj liniji (paragrafima)
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => performSplit("article")}
+                          className="w-full text-left text-xs px-2 py-1.5 rounded hover:bg-muted"
+                        >
+                          Po "Član X" markerima
+                        </button>
+                        <div className="space-y-1.5 pt-1 border-t">
+                          <label className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                            Po custom graničniku
+                          </label>
+                          <div className="flex gap-1.5">
+                            <input
+                              value={customDelimiter}
+                              onChange={(e) => setCustomDelimiter(e.target.value)}
+                              className="flex-1 px-2 py-1 rounded border bg-background text-xs"
+                              placeholder="npr. ---"
+                            />
+                            <Button
+                              size="sm"
+                              variant="secondary"
+                              onClick={() => performSplit("custom")}
+                              disabled={!customDelimiter.trim()}
+                              className="h-7 text-xs"
+                            >
+                              Podijeli
+                            </Button>
+                          </div>
+                        </div>
+                      </PopoverContent>
+                    </Popover>
+                    {total > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => updateEdit(safeIndex, { skipped: !currentEdit.skipped })}
+                        className="text-[11px] text-muted-foreground hover:text-foreground inline-flex items-center gap-1"
+                      >
+                        <SkipForward className="h-3 w-3" />
+                        {currentEdit.skipped ? "Vrati u import" : "Preskoči"}
+                      </button>
+                    )}
+                  </div>
                 </div>
 
                 {/* Question editor */}
@@ -462,6 +686,41 @@ export function SmartSplitSummaryDialog({ source, onSmartSplitConfirm }: Props) 
                   />
                   <p className="text-[10px] text-muted-foreground">
                     Default: <span className="font-mono">{currentModule.title}</span>
+                  </p>
+                </div>
+
+                {/* Module content (editable) — useful when the user adds a
+                   manual module or wants to tweak the auto-extracted body. */}
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-muted-foreground">
+                    Sadržaj modula (HTML/tekst)
+                  </label>
+                  <textarea
+                    value={currentModule.contentHtml}
+                    onChange={(e) => {
+                      const html = e.target.value;
+                      // Derive a plain-text mirror so plainSnippet/textAnchor stay in sync.
+                      const plain = html
+                        .replace(/<\/(p|div|li|h[1-6])>/gi, "\n")
+                        .replace(/<br\s*\/?>/gi, "\n")
+                        .replace(/<[^>]+>/g, "")
+                        .replace(/\n{3,}/g, "\n\n")
+                        .trim();
+                      updateModule(safeIndex, {
+                        contentHtml: html,
+                        contentText: plain,
+                        plainSnippet: currentModule.articleNum
+                          ? `Član ${currentModule.articleNum}\n${plain}`
+                          : plain,
+                      });
+                    }}
+                    disabled={currentEdit.skipped}
+                    rows={6}
+                    className="w-full px-3 py-2 rounded-md border bg-background text-xs font-mono leading-relaxed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring resize-y disabled:opacity-50"
+                    placeholder="<p>Sadržaj modula...</p>"
+                  />
+                  <p className="text-[10px] text-muted-foreground">
+                    Podržava HTML tagove (npr. &lt;p&gt;, &lt;strong&gt;, &lt;ul&gt;). Sadržaj se sanitizuje prije snimanja.
                   </p>
                 </div>
 
@@ -544,7 +803,7 @@ export function SmartSplitSummaryDialog({ source, onSmartSplitConfirm }: Props) 
 
             {/* ── Footer: navigation + actions ──────────────────────────── */}
             <div className="flex items-center gap-2 pt-2 border-t">
-              {!isSingleModule && (<>
+              {!!showModeToggle && (<>
               <Button
                 variant="outline"
                 size="sm"
@@ -588,7 +847,7 @@ export function SmartSplitSummaryDialog({ source, onSmartSplitConfirm }: Props) 
                 title="Vidi kako će kartica izgledati u učenju prije importa"
               >
                 <Eye className="h-3.5 w-3.5" />
-                {isSingleModule
+                {!showModeToggle
                   ? "Pregled kartice"
                   : `Pregled svih (${splitMode === "separate" ? `${keptCount} kartica` : `1 esej, ${keptCount} modula`})`}
               </Button>
