@@ -69,11 +69,10 @@ export function useSourceReaderActions(source: Source, onSourceUpdated?: (source
   }, []);
 
   // ─── Essay / Split ───
-  // Unified flow: every "Convert to Essay" action routes through the
-  // SmartSplit wizard so the user always gets the per-card preview before
-  // committing to IDB. When the selection contains "Član X" markers we get
-  // multiple modules; otherwise we synthesize a single module from the whole
-  // selection (wizard handles N=1 gracefully).
+  // Manual flow: opens the Essay wizard with a SINGLE module containing the
+  // full selection. The user manually splits, adds, or deletes modules from
+  // within the wizard. No automatic "Član X" detection — this gave too many
+  // false positives and produced confusing pre-split state.
   const handleConvertToEssay = useCallback(() => {
     const {
       selection, setSelection, setSplitResult, setSplitSummaryOpen,
@@ -84,18 +83,9 @@ export function useSourceReaderActions(source: Source, onSourceUpdated?: (source
     const html = selection.html;
     setSelection(null);
     window.getSelection()?.removeAllRanges();
-    const result = splitSelection(text);
-    if (result.hasArticles && result.modules.length > 0) {
-      setSplitResult({ modules: result.modules, rangeLabel: result.rangeLabel, parentName: result.parentName });
-      initSplitWizard([...result.modules], result.parentName);
-      setSplitMode("separate");
-      setSplitSummaryOpen(true);
-      return;
-    }
-    // No articles → synthesize a single module from the whole selection.
     const plainSnippet = text.trim();
     const safeHtml = sanitizeHtml(html || `<p>${text}</p>`);
-    const fallbackTitle = firstWords(plainSnippet, 7) || "Esej iz izvora";
+    const fallbackTitle = firstWords(plainSnippet, 7) || "Novi esej";
     const singleModule: SelectionModule = {
       articleNum: "",
       title: fallbackTitle,
@@ -105,7 +95,7 @@ export function useSourceReaderActions(source: Source, onSourceUpdated?: (source
     };
     setSplitResult({ modules: [singleModule], rangeLabel: fallbackTitle, parentName: fallbackTitle });
     initSplitWizard([singleModule], fallbackTitle);
-    setSplitMode("separate"); // 1 modul → 1 kartica
+    setSplitMode("combined"); // jedan esej, manualno dodavanje modula
     setSplitSummaryOpen(true);
   }, []);
 

@@ -1,7 +1,6 @@
 import {
   Wand2, PenSquare, ChevronLeft, ChevronRight, SkipForward,
-  X, Tag as TagIcon, Layers, FileText, Eye, ArrowLeft,
-  Plus, Trash2, Scissors, FolderTree,
+  X, Tag as TagIcon, Eye, Plus, Trash2, Scissors, FolderTree,
 } from "lucide-react";
 import { useCallback, useMemo, useState, useEffect, useRef } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -19,7 +18,7 @@ import { useSourceReaderStore } from "@/store/useSourceReaderStore";
 import { useCategoryData } from "@/contexts/AppContext";
 import { sanitizeHtml } from "@/lib/sanitize";
 import { normalizeTag, TAG_LIMITS } from "@/lib/zettelkasten-tags";
-import { unfinishedIndices, buildSeparatePlans, buildCombinedPlan, defaultEdit } from "@/lib/split-wizard-build";
+import { unfinishedIndices, defaultEdit } from "@/lib/split-wizard-build";
 import { createEmptyModule, splitModuleByDelimiter, type SelectionModule } from "@/lib/selection-split-engine";
 import { useDirtyDialog } from "@/hooks/useDirtyDialog";
 import DirtyConfirmBar from "@/components/ui/dirty-confirm-bar";
@@ -30,21 +29,43 @@ interface Props {
 }
 
 /**
- * Smart-Split Wizard
- * ──────────────────
- * The user has selected a span of legal text containing multiple "Član X"
- * markers. The wizard walks them through one article at a time, letting them
- * personalize the question, attach lightweight tags, and preview how the card
- * will look in study mode — before any card is actually written to IDB.
+ * Esej čarobnjak (jedan ekran)
+ * ────────────────────────────
+ * Korisnik selektuje tekst u SourceReader-u → otvara se jedan dijalog sa:
+ *  - Lokacijom u predmetu (Potkategorija + Glava)
+ *  - Naslovom nadređenog eseja
+ *  - Lijevim rail-om sa modulima (klik za skok, "+ Dodaj modul", trash)
+ *  - Editorom modula (Pitanje + plain text sadržaj + tagovi + live pregled)
+ *  - Inline "Podijeli modul" dugmetom (popover) za ručnu podjelu
  *
- * Two output modes:
- *  - separate  → each module becomes its own essay card (default for cherry-picking)
- *  - combined  → all modules become sections of one parent essay (legacy behaviour)
+ * Bez automatske detekcije "Član X" — wizard uvijek startuje sa JEDNIM
+ * modulom; korisnik ručno odlučuje da li i kako će ga dijeliti. Bez zasebnog
+ * "preview prije importa" ekrana — pregled je ugrađen u editor.
  *
- * Layout: a sticky left rail listing all modules (click to jump, with skipped /
- * personalized state cues) + a right pane with question editor, tag chips, and
- * an inline preview of the card body.
+ * Output: jedan esej (combined mode) sa N modula → sekcija. Kreira se
+ * direktno klikom na "Kreiraj esej" — bez međukoraka.
  */
+
+/** Zaštićeni HTML escape (textarea → siguran <p>). */
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+/** Plain tekst → siguran HTML (paragrafi po praznom redu, br po single newline). */
+function plainTextToHtml(text: string): string {
+  const trimmed = text.trim();
+  if (!trimmed) return "";
+  return trimmed
+    .split(/\n{2,}/)
+    .map((para) => `<p>${escapeHtml(para).replace(/\n/g, "<br/>")}</p>`)
+    .join("");
+}
+
 export function SmartSplitSummaryDialog({ source, onSmartSplitConfirm }: Props) {
   const open = useSourceReaderStore((s) => s.splitSummaryOpen);
   const splitDone = useSourceReaderStore((s) => s.splitDone);
@@ -55,8 +76,6 @@ export function SmartSplitSummaryDialog({ source, onSmartSplitConfirm }: Props) 
   const splitModules = useSourceReaderStore((s) => s.splitModules);
   const splitEdits = useSourceReaderStore((s) => s.splitEdits);
   const setSplitEdits = useSourceReaderStore((s) => s.setSplitEdits);
-  const splitMode = useSourceReaderStore((s) => s.splitMode);
-  const setSplitMode = useSourceReaderStore((s) => s.setSplitMode);
   const stepIndex = useSourceReaderStore((s) => s.splitStepIndex);
   const setStepIndex = useSourceReaderStore((s) => s.setSplitStepIndex);
   const setSplitSummaryOpen = useSourceReaderStore((s) => s.setSplitSummaryOpen);
@@ -85,8 +104,7 @@ export function SmartSplitSummaryDialog({ source, onSmartSplitConfirm }: Props) 
     setSplitResult(null);
   }, [setSplitSummaryOpen, setSplitResult]);
 
-  // Wizard is "dirty" while user has an unsaved configuration in flight —
-  // i.e. modules exist, but cards have not yet been imported.
+  // Wizard is "dirty" while user has an unsaved configuration in flight.
   const isWizardDirty = !!splitResult && !splitDone;
 
   const { pendingClose, requestClose, cancelClose, confirmDiscard } = useDirtyDialog(
@@ -120,29 +138,10 @@ export function SmartSplitSummaryDialog({ source, onSmartSplitConfirm }: Props) 
     () => setStepIndex((s) => Math.min(total - 1, s + 1)),
     [setStepIndex, total],
   );
-  const goToNextUnfinished = useCallback(() => {
-    const candidates = unfinishedIndices(splitModules, splitEdits).filter(
-      (i) => i > safeIndex,
-    );
-    if (candidates.length > 0) setStepIndex(candidates[0]);
-    else {
-      // wrap to the first unfinished one before current
-      const all = unfinishedIndices(splitModules, splitEdits);
-      if (all.length > 0) setStepIndex(all[0]);
-    }
-  }, [splitModules, splitEdits, safeIndex, setStepIndex]);
 
   // ── Tag chip-input local state ────────────────────────────────────────────
   const [tagDraft, setTagDraft] = useState("");
   useEffect(() => { setTagDraft(""); }, [safeIndex]);
-
-  // ── Final-preview mode ────────────────────────────────────────────────────
-  // Toggled from the footer; renders all soon-to-be-created cards using the
-  // same layout as `StudyModeRecall` so the user sees exactly what they will
-  // get in study sessions before any IDB write happens.
-  const [previewAll, setPreviewAll] = useState(false);
-  // Reset preview mode whenever wizard reopens or step jumps to a new module.
-  useEffect(() => { if (!open) setPreviewAll(false); }, [open]);
 
   const commitTag = useCallback(() => {
     if (!currentEdit) return;
@@ -168,47 +167,11 @@ export function SmartSplitSummaryDialog({ source, onSmartSplitConfirm }: Props) 
     [currentModule],
   );
 
-  /**
-   * Build the final list of "preview cards" the user is about to import.
-   * Each preview card carries `{ question, tags, sections[{title, html}] }`,
-   * pre-sanitized so the renderer can safely use `dangerouslySetInnerHTML`.
-   *
-   * - separate mode → one preview card per non-skipped module
-   * - combined mode → exactly one preview card with N sections
-   */
-  const previewCards = useMemo(() => {
-    if (!previewAll || !splitResult) return [];
-    if (splitMode === "separate") {
-      return buildSeparatePlans(splitModules, splitEdits).map((p) => ({
-        question: p.question,
-        tags: p.tags,
-        sections: [{ title: "Odgovor", html: sanitizeHtml(p.module.contentHtml) }],
-      }));
-    }
-    const combined = buildCombinedPlan(
-      splitModules,
-      splitEdits,
-      splitParentName || splitResult.parentName,
-    );
-    if (!combined) return [];
-    return [{
-      question: combined.parentName,
-      tags: combined.tags,
-      sections: combined.modules.map(({ question, module: mod }) => ({
-        title: question,
-        html: sanitizeHtml(mod.contentHtml),
-      })),
-    }];
-  }, [previewAll, splitMode, splitModules, splitEdits, splitParentName, splitResult]);
-
   // Auto-focus the question textarea on step change to keep flow keyboard-driven.
   const questionRef = useRef<HTMLTextAreaElement | null>(null);
   useEffect(() => {
     if (open && !splitDone) questionRef.current?.focus();
   }, [open, safeIndex, splitDone]);
-
-  // Auto-focus the question textarea on step change to keep flow keyboard-driven.
-  // (questionRef declared above)
 
   // ── Module management (manual add / delete / split) ──────────────────────
   const updateModule = useCallback(
@@ -259,9 +222,10 @@ export function SmartSplitSummaryDialog({ source, onSmartSplitConfirm }: Props) 
     [currentModule, customDelimiter, safeIndex, setSplitModules, setSplitEdits],
   );
 
-  // Rail is always shown so the user can add modules even when starting from
-  // a single synthetic module. Mode toggle only appears once N > 1.
-  const showModeToggle = total > 1;
+  const showNav = total > 1;
+  const confirmLabel = total > 1
+    ? `Kreiraj esej (${keptCount} ${keptCount === 1 ? "modul" : "modula"})`
+    : "Kreiraj esej";
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
@@ -273,11 +237,7 @@ export function SmartSplitSummaryDialog({ source, onSmartSplitConfirm }: Props) 
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Wand2 className="h-5 w-5 text-primary" />
-            {splitDone
-              ? "Generisanje završeno"
-              : !showModeToggle
-                ? "Kreiranje eseja"
-                : "Smart-Split čarobnjak"}
+            {splitDone ? "Esej kreiran" : "Kreiranje eseja"}
           </DialogTitle>
         </DialogHeader>
 
@@ -289,9 +249,7 @@ export function SmartSplitSummaryDialog({ source, onSmartSplitConfirm }: Props) 
               </div>
               <div>
                 <p className="text-sm font-medium">
-                  {splitMode === "separate"
-                    ? `Uspješno generisano ${splitCreatedCount} kartica`
-                    : `Uspješno generisan 1 esej sa ${splitCreatedCount} modula`}
+                  Uspješno kreiran esej sa {splitCreatedCount} {splitCreatedCount === 1 ? "modulom" : "modula"}
                 </p>
                 <p className="text-xs text-muted-foreground mt-0.5">
                   {splitResult?.rangeLabel} • Izvor: "{source.title}"
@@ -302,151 +260,13 @@ export function SmartSplitSummaryDialog({ source, onSmartSplitConfirm }: Props) 
               Zatvori
             </Button>
           </div>
-        ) : previewAll && splitResult ? (
-          /* ─── Final preview ─────────────────────────────────────────────
-             Renders soon-to-be-created cards using the exact same shell as
-             `StudyModeRecall` (rounded-xl border bg-card + card-prose) so the
-             user verifies the look-and-feel before any IDB write. */
-          <>
-            <div className="flex items-center justify-between gap-3 flex-wrap">
-              <div className="flex items-center gap-2 text-xs">
-                <Badge variant="outline" className="text-[10px] gap-1">
-                  <Eye className="h-3 w-3" />
-                  Pregled prije importa
-                </Badge>
-                <span className="text-muted-foreground">
-                  {splitMode === "separate"
-                    ? `${previewCards.length} kartica`
-                    : `1 esej sa ${previewCards[0]?.sections.length ?? 0} modula`}
-                </span>
-              </div>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setPreviewAll(false)}
-                className="gap-1.5 text-xs"
-              >
-                <ArrowLeft className="h-3.5 w-3.5" />
-                Nazad na editor
-              </Button>
-            </div>
-
-            <div className="flex-1 min-h-0 overflow-y-auto pr-1 space-y-4">
-              {previewCards.length === 0 ? (
-                <div className="rounded-xl border bg-card p-6 text-sm text-muted-foreground italic text-center">
-                  Nema kartica za prikaz — svi članovi su preskočeni.
-                </div>
-              ) : (
-                previewCards.map((card, ci) => (
-                  <article
-                    key={ci}
-                    className="space-y-3 rounded-xl border-2 border-primary/20 bg-muted/20 p-4"
-                  >
-                    {/* Card header — mimics study session top metadata */}
-                    <header className="space-y-1.5">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <Badge variant="outline" className="text-[10px]">
-                          Kartica {ci + 1} / {previewCards.length}
-                        </Badge>
-                        {card.tags.map((t) => (
-                          <span
-                            key={t}
-                            className="inline-flex items-center px-1.5 py-0.5 rounded bg-primary/10 text-primary text-[10px]"
-                          >
-                            #{t}
-                          </span>
-                        ))}
-                      </div>
-                      <h3 className="text-base font-semibold leading-snug">
-                        {card.question}
-                      </h3>
-                    </header>
-
-                    {/* Sections — exact same shell as StudyModeRecall */}
-                    <div className="space-y-3">
-                      {card.sections.map((section, si) => (
-                        <div key={si} className="rounded-xl border bg-card p-4">
-                          <p className="font-medium text-sm mb-2">{section.title}</p>
-                          <div
-                            className="text-sm leading-relaxed prose prose-sm max-w-none card-prose"
-                            dangerouslySetInnerHTML={{ __html: section.html }}
-                          />
-                        </div>
-                      ))}
-                    </div>
-                  </article>
-                ))
-              )}
-            </div>
-
-            <div className="flex items-center gap-2 pt-2 border-t">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setPreviewAll(false)}
-                className="gap-1.5"
-              >
-                <ArrowLeft className="h-3.5 w-3.5" />
-                Vrati se i izmijeni
-              </Button>
-              <div className="flex-1" />
-              <Button variant="outline" size="sm" onClick={() => handleOpenChange(false)}>
-                Otkaži
-              </Button>
-              <Button
-                size="sm"
-                onClick={onSmartSplitConfirm}
-                className="gap-1.5"
-                disabled={previewCards.length === 0}
-              >
-                <Wand2 className="h-3.5 w-3.5" />
-                {splitMode === "separate"
-                  ? `Potvrdi import ${previewCards.length} kartica`
-                  : `Potvrdi import (1 esej, ${previewCards[0]?.sections.length ?? 0} modula)`}
-              </Button>
-            </div>
-          </>
         ) : splitResult && currentModule && currentEdit ? (
           <>
-            {/* ── Top: mode toggle + summary (hidden when N=1) ───────────── */}
-            {!!showModeToggle && (
-              <div className="flex items-center justify-between gap-3 flex-wrap">
-                <div className="flex items-center gap-1 rounded-lg border bg-muted/50 p-1">
-                  <button
-                    type="button"
-                    onClick={() => setSplitMode("separate")}
-                    className={cn(
-                      "flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md transition-colors",
-                      splitMode === "separate"
-                        ? "bg-background text-foreground shadow-sm"
-                        : "text-muted-foreground hover:text-foreground",
-                    )}
-                    title="Svaki član postaje zasebna kartica"
-                  >
-                    <FileText className="h-3.5 w-3.5" />
-                    Zasebne kartice
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setSplitMode("combined")}
-                    className={cn(
-                      "flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md transition-colors",
-                      splitMode === "combined"
-                        ? "bg-background text-foreground shadow-sm"
-                        : "text-muted-foreground hover:text-foreground",
-                    )}
-                    title="Jedan esej sa modulima (cjelinama)"
-                  >
-                    <Layers className="h-3.5 w-3.5" />
-                    Jedan esej + moduli
-                  </button>
-                </div>
-                <div className="text-xs text-muted-foreground">
-                  <strong className="text-foreground">{keptCount}</strong> / {total} odabrano
-                  {" • "}{splitResult.rangeLabel}
-                </div>
-              </div>
-            )}
+            {/* ── Info linija ──────────────────────────────────────────── */}
+            <div className="text-xs text-muted-foreground">
+              <strong className="text-foreground">{keptCount}</strong> / {total} {total === 1 ? "modul odabran" : "modula odabrano"}
+              {splitResult.rangeLabel && <> • {splitResult.rangeLabel}</>}
+            </div>
 
             {/* ── Lokacija u predmetu (potkategorija + glava) ────────────── */}
             <div className="rounded-lg border bg-muted/20 p-2.5 space-y-2">
@@ -491,7 +311,7 @@ export function SmartSplitSummaryDialog({ source, onSmartSplitConfirm }: Props) 
                         !wizardSubcategoryId
                           ? "Prvo izaberi potkategoriju"
                           : chapters.length === 0
-                            ? "(nema glava)"
+                            ? "(nema glave)"
                             : "Bez glave"
                       } />
                     </SelectTrigger>
@@ -506,25 +326,20 @@ export function SmartSplitSummaryDialog({ source, onSmartSplitConfirm }: Props) 
               </div>
             </div>
 
-            {/* ── Combined-mode parent name ─────────────────────────────── */}
-            {splitMode === "combined" && (
-              <div className="space-y-1">
-                <label className="text-xs font-medium text-muted-foreground">
-                  Naslov nadređenog eseja
-                </label>
-                <input
-                  value={splitParentName}
-                  onChange={(e) => setSplitParentName(e.target.value)}
-                  className="w-full px-3 py-2 rounded-md border bg-background text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                  placeholder="Unesite naslov eseja..."
-                />
-              </div>
-            )}
+            {/* ── Naslov eseja ─────────────────────────────────────────── */}
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-muted-foreground">
+                Naslov eseja
+              </label>
+              <input
+                value={splitParentName}
+                onChange={(e) => setSplitParentName(e.target.value)}
+                className="w-full px-3 py-2 rounded-md border bg-background text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                placeholder="Unesite naslov eseja..."
+              />
+            </div>
 
-            {/* ── Body: rail (always visible) + editor ─────────────────────
-               Rail lets the user jump between modules, delete unwanted ones,
-               and add new modules manually — even when starting from a single
-               synthetic selection. */}
+            {/* ── Body: rail (uvijek vidljiv) + editor ──────────────────── */}
             <div className="flex-1 min-h-0 grid gap-3 overflow-hidden grid-cols-[220px_1fr]">
               <div className="overflow-y-auto border rounded-lg bg-muted/30 p-1.5 flex flex-col">
                 <div className="space-y-0.5 flex-1">
@@ -553,27 +368,15 @@ export function SmartSplitSummaryDialog({ source, onSmartSplitConfirm }: Props) 
                             isSkipped && "opacity-50 line-through",
                           )}
                         >
-                          {mod.articleNum ? (
-                            <Badge
-                              variant="outline"
-                              className={cn(
-                                "text-[9px] h-4 px-1 flex-shrink-0",
-                                isPersonalized && "border-primary/50 text-primary",
-                              )}
-                            >
-                              čl. {mod.articleNum}
-                            </Badge>
-                          ) : (
-                            <Badge
-                              variant="outline"
-                              className={cn(
-                                "text-[9px] h-4 px-1 flex-shrink-0",
-                                isPersonalized && "border-primary/50 text-primary",
-                              )}
-                            >
-                              {i + 1}
-                            </Badge>
-                          )}
+                          <Badge
+                            variant="outline"
+                            className={cn(
+                              "text-[9px] h-4 px-1 flex-shrink-0",
+                              isPersonalized && "border-primary/50 text-primary",
+                            )}
+                          >
+                            {i + 1}
+                          </Badge>
                           <span className="truncate flex-1">{edit?.question || mod.title}</span>
                           {edit?.tags.length ? (
                             <TagIcon className="h-2.5 w-2.5 flex-shrink-0 text-primary" />
@@ -604,7 +407,6 @@ export function SmartSplitSummaryDialog({ source, onSmartSplitConfirm }: Props) 
                 </button>
               </div>
 
-
               {/* Right pane — editor for the active module */}
               <div className="overflow-y-auto pr-1 space-y-3">
                 <div className="flex items-center justify-between gap-2 flex-wrap">
@@ -612,28 +414,77 @@ export function SmartSplitSummaryDialog({ source, onSmartSplitConfirm }: Props) 
                     <Badge variant="outline" className="text-[10px]">
                       Modul {safeIndex + 1} / {total}
                     </Badge>
-                    {currentModule.articleNum && (
-                      <Badge variant="secondary" className="text-[10px]">
-                        Član {currentModule.articleNum}
-                      </Badge>
-                    )}
                     {currentEdit.skipped && (
                       <Badge variant="outline" className="text-[10px] text-muted-foreground">
                         preskočeno
                       </Badge>
                     )}
                   </div>
-                  <div className="flex items-center gap-2">
+                  {total > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => updateEdit(safeIndex, { skipped: !currentEdit.skipped })}
+                      className="text-[11px] text-muted-foreground hover:text-foreground inline-flex items-center gap-1"
+                    >
+                      <SkipForward className="h-3 w-3" />
+                      {currentEdit.skipped ? "Vrati u import" : "Preskoči"}
+                    </button>
+                  )}
+                </div>
+
+                {/* Question editor */}
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-muted-foreground">
+                    Pitanje (kako će biti zapamćeno)
+                  </label>
+                  <textarea
+                    ref={questionRef}
+                    value={currentEdit.question}
+                    onChange={(e) => updateEdit(safeIndex, { question: e.target.value })}
+                    disabled={currentEdit.skipped}
+                    className="w-full min-h-[60px] px-3 py-2 rounded-md border bg-background text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring resize-none disabled:opacity-50"
+                    placeholder={currentModule.title}
+                  />
+                </div>
+
+                {/* Module content (plain text, no HTML tags exposed) */}
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-muted-foreground">
+                    Sadržaj modula
+                  </label>
+                  <textarea
+                    value={currentModule.contentText}
+                    onChange={(e) => {
+                      const text = e.target.value;
+                      const html = plainTextToHtml(text);
+                      updateModule(safeIndex, {
+                        contentHtml: html,
+                        contentText: text,
+                        plainSnippet: text.trim(),
+                      });
+                    }}
+                    disabled={currentEdit.skipped}
+                    rows={8}
+                    className="w-full px-3 py-2 rounded-md border bg-background text-sm leading-relaxed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring resize-y disabled:opacity-50"
+                    placeholder="Unesite ili prepravite tekst modula..."
+                  />
+                  <div className="flex items-center justify-between gap-2 pt-1">
+                    <p className="text-[10px] text-muted-foreground">
+                      Prazan red razdvaja paragrafe. Tekst se sanitizuje prije snimanja.
+                    </p>
                     <Popover open={splitPopoverOpen} onOpenChange={setSplitPopoverOpen}>
                       <PopoverTrigger asChild>
-                        <button
+                        <Button
                           type="button"
-                          className="text-[11px] text-muted-foreground hover:text-foreground inline-flex items-center gap-1"
+                          variant="outline"
+                          size="sm"
+                          className="h-7 text-xs gap-1.5"
+                          disabled={currentEdit.skipped}
                           title="Podijeli ovaj modul na više dijelova"
                         >
                           <Scissors className="h-3 w-3" />
                           Podijeli modul
-                        </button>
+                        </Button>
                       </PopoverTrigger>
                       <PopoverContent align="end" className="w-72 p-3 space-y-2">
                         <p className="text-xs font-medium">Podijeli na više modula</p>
@@ -675,70 +526,7 @@ export function SmartSplitSummaryDialog({ source, onSmartSplitConfirm }: Props) 
                         </div>
                       </PopoverContent>
                     </Popover>
-                    {total > 1 && (
-                      <button
-                        type="button"
-                        onClick={() => updateEdit(safeIndex, { skipped: !currentEdit.skipped })}
-                        className="text-[11px] text-muted-foreground hover:text-foreground inline-flex items-center gap-1"
-                      >
-                        <SkipForward className="h-3 w-3" />
-                        {currentEdit.skipped ? "Vrati u import" : "Preskoči"}
-                      </button>
-                    )}
                   </div>
-                </div>
-
-                {/* Question editor */}
-                <div className="space-y-1">
-                  <label className="text-xs font-medium text-muted-foreground">
-                    Pitanje (kako će biti zapamćeno)
-                  </label>
-                  <textarea
-                    ref={questionRef}
-                    value={currentEdit.question}
-                    onChange={(e) => updateEdit(safeIndex, { question: e.target.value })}
-                    disabled={currentEdit.skipped}
-                    className="w-full min-h-[60px] px-3 py-2 rounded-md border bg-background text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring resize-none disabled:opacity-50"
-                    placeholder={currentModule.title}
-                  />
-                  <p className="text-[10px] text-muted-foreground">
-                    Default: <span className="font-mono">{currentModule.title}</span>
-                  </p>
-                </div>
-
-                {/* Module content (editable) — useful when the user adds a
-                   manual module or wants to tweak the auto-extracted body. */}
-                <div className="space-y-1">
-                  <label className="text-xs font-medium text-muted-foreground">
-                    Sadržaj modula (HTML/tekst)
-                  </label>
-                  <textarea
-                    value={currentModule.contentHtml}
-                    onChange={(e) => {
-                      const html = e.target.value;
-                      // Derive a plain-text mirror so plainSnippet/textAnchor stay in sync.
-                      const plain = html
-                        .replace(/<\/(p|div|li|h[1-6])>/gi, "\n")
-                        .replace(/<br\s*\/?>/gi, "\n")
-                        .replace(/<[^>]+>/g, "")
-                        .replace(/\n{3,}/g, "\n\n")
-                        .trim();
-                      updateModule(safeIndex, {
-                        contentHtml: html,
-                        contentText: plain,
-                        plainSnippet: currentModule.articleNum
-                          ? `Član ${currentModule.articleNum}\n${plain}`
-                          : plain,
-                      });
-                    }}
-                    disabled={currentEdit.skipped}
-                    rows={6}
-                    className="w-full px-3 py-2 rounded-md border bg-background text-xs font-mono leading-relaxed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring resize-y disabled:opacity-50"
-                    placeholder="<p>Sadržaj modula...</p>"
-                  />
-                  <p className="text-[10px] text-muted-foreground">
-                    Podržava HTML tagove (npr. &lt;p&gt;, &lt;strong&gt;, &lt;ul&gt;). Sadržaj se sanitizuje prije snimanja.
-                  </p>
                 </div>
 
                 {/* Tags */}
@@ -799,7 +587,7 @@ export function SmartSplitSummaryDialog({ source, onSmartSplitConfirm }: Props) 
                   </div>
                 </div>
 
-                {/* Preview */}
+                {/* Live preview */}
                 <div className="space-y-1">
                   <label className="text-xs font-medium text-muted-foreground flex items-center gap-1">
                     <Eye className="h-3 w-3" />
@@ -820,53 +608,49 @@ export function SmartSplitSummaryDialog({ source, onSmartSplitConfirm }: Props) 
 
             {/* ── Footer: navigation + actions ──────────────────────────── */}
             <div className="flex items-center gap-2 pt-2 border-t">
-              {!!showModeToggle && (<>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={goPrev}
-                disabled={safeIndex === 0}
-                className="gap-1"
-              >
-                <ChevronLeft className="h-3.5 w-3.5" />
-                Nazad
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={goNext}
-                disabled={safeIndex === total - 1}
-                className="gap-1"
-              >
-                Naprijed
-                <ChevronRight className="h-3.5 w-3.5" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={goToNextUnfinished}
-                className="gap-1 text-xs"
-                title="Skoči na sljedeći needitovani član"
-              >
-                <Wand2 className="h-3 w-3" />
-                Sljedeći needitovan
-              </Button>
-              </>)}
+              {showNav && (
+                <>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={goPrev}
+                    disabled={safeIndex === 0}
+                    className="gap-1"
+                  >
+                    <ChevronLeft className="h-3.5 w-3.5" />
+                    Nazad
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={goNext}
+                    disabled={safeIndex === total - 1}
+                    className="gap-1"
+                  >
+                    Naprijed
+                    <ChevronRight className="h-3.5 w-3.5" />
+                  </Button>
+                </>
+              )}
               <div className="flex-1" />
               <Button variant="outline" size="sm" onClick={() => handleOpenChange(false)}>
                 Otkaži
               </Button>
               <Button
                 size="sm"
-                onClick={() => setPreviewAll(true)}
+                onClick={onSmartSplitConfirm}
                 className="gap-1.5"
-                disabled={keptCount === 0}
-                title="Vidi kako će kartica izgledati u učenju prije importa"
+                disabled={keptCount === 0 || !splitParentName.trim()}
+                title={
+                  !splitParentName.trim()
+                    ? "Unesite naslov eseja"
+                    : keptCount === 0
+                      ? "Svi moduli su preskočeni"
+                      : "Kreiraj esej i sve module kao kartice"
+                }
               >
-                <Eye className="h-3.5 w-3.5" />
-                {!showModeToggle
-                  ? "Pregled kartice"
-                  : `Pregled svih (${splitMode === "separate" ? `${keptCount} kartica` : `1 esej, ${keptCount} modula`})`}
+                <Wand2 className="h-3.5 w-3.5" />
+                {confirmLabel}
               </Button>
             </div>
           </>
@@ -877,13 +661,12 @@ export function SmartSplitSummaryDialog({ source, onSmartSplitConfirm }: Props) 
           onCancel={cancelClose}
           onDiscard={confirmDiscard}
           onSave={async () => {
-            // "Save & close" in wizard context = jump to final preview so the
-            // user can confirm the import (the only valid persistence path).
-            setPreviewAll(true);
+            // "Sačuvaj i zatvori" = direktno kreiraj esej.
             cancelClose();
+            onSmartSplitConfirm();
           }}
-          message="Imate nesačuvan čarobnjak. Kartice još nisu kreirane."
-          saveLabel="Pregled za import"
+          message="Imate nesačuvan esej. Kartice još nisu kreirane."
+          saveLabel="Kreiraj esej"
         />
       </DialogContent>
     </Dialog>
