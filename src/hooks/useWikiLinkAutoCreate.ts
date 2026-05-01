@@ -1,0 +1,157 @@
+import { useEffect, useRef } from "react";
+import { toast } from "sonner";
+import {
+  bulkCreateArticlesIfMissing,
+  type KnowledgeBaseArticle,
+} from "@/lib/zettelkasten-storage";
+import { eventBus, EVENT_TYPES } from "@/lib/event-bus";
+
+/**
+ * Auto-creates placeholder articles for new `[[Wiki Links]]` typed inside
+ * the active draft. Extracted out of `ZettelkastenView` to keep that
+ * orchestrator slim.
+ *
+ * Behaviour preserved verbatim from the original inline implementation:
+ *   • Adaptive debounce in [300, 1000]ms driven by typing cadence + pending
+ *     batch size. Fast typing or large unresolved batches push toward the
+ *     upper bound (let work accumulate into one tx); idle pauses with a
+ *     single new link fire near the lower bound (snappy).
+ *   • Hard cap of 50 placeholder articles per debounce tick. Anything beyond
+ *     is deferred to subsequent ticks; one toast per overflow burst (latched
+ *     against the current pending size to avoid keystroke-spam).
+ *   • Cadence trackers reset on `activeId` change so a fresh edit session
+ *     starts from "idle" rather than inheriting the previous velocity.
+ *   • All lookups + inserts run inside one Dexie `rw` transaction via
+ *     `bulkCreateArticlesIfMissing`.
+ *
+ * The `articles` dependency is intentional: after a capped batch persists
+ * (and `setArticles` grows the title set), we re-run on the next render so
+ * the still-unresolved tail can be drained even if the user paused typing.
+ */
+const WIKI_LINK_BATCH_CAP = 50;
+const WIKI_LINK_RE = /\[\[([^\]]+)\]\]/g;
+
+interface UseWikiLinkAutoCreateParams {
+  activeId: string | null;
+  categoryId: string | undefined;
+  isEditing: boolean;
+  draftContent: string | undefined;
+  rootSubcategoryId: string | null | undefined;
+  articles: KnowledgeBaseArticle[];
+  setArticles: React.Dispatch<React.SetStateAction<KnowledgeBaseArticle[]>>;
+}
+
+export function useWikiLinkAutoCreate({
+  activeId,
+  categoryId,
+  isEditing,
+  draftContent,
+  rootSubcategoryId,
+  articles,
+  setArticles,
+}: UseWikiLinkAutoCreateParams): void {
+  // Always-current title lookup. A ref keeps this O(N_articles) work out of
+  // the render path and lets the auto-create effect read fresh data without
+  // re-subscribing.
+  const existingTitlesLowerRef = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    existingTitlesLowerRef.current = new Set(
+      articles.map(a => a.title.trim().toLowerCase()),
+    );
+  }, [articles]);
+
+  // Cadence + overflow-latch refs.
+  const lastKeystrokeAtRef = useRef<number>(0);
+  const lastIntervalRef = useRef<number>(Number.POSITIVE_INFINITY);
+  const lastOverflowNotifiedRef = useRef<number>(0);
+
+  // Reset cadence tracking when switching articles.
+  useEffect(() => {
+    lastKeystrokeAtRef.current = 0;
+    lastIntervalRef.current = Number.POSITIVE_INFINITY;
+    lastOverflowNotifiedRef.current = 0;
+  }, [activeId]);
+
+  useEffect(() => {
+    if (!isEditing || draftContent === undefined || !categoryId) return;
+    const content = draftContent;
+
+    // Update typing cadence. First change in a session yields Infinity → idle bias.
+    const now = Date.now();
+    if (lastKeystrokeAtRef.current > 0) {
+      lastIntervalRef.current = now - lastKeystrokeAtRef.current;
+    }
+    lastKeystrokeAtRef.current = now;
+
+    // Cheap pre-check against in-memory set; bail before scheduling any timer
+    // when there is nothing new — the typical keystroke case.
+    const matches = Array.from(content.matchAll(WIKI_LINK_RE))
+      .map(m => m[1].trim())
+      .filter(Boolean);
+    const pendingAll = matches.filter(
+      t => !existingTitlesLowerRef.current.has(t.toLowerCase()),
+    );
+    if (pendingAll.length === 0) {
+      // Nothing pending → reset overflow latch so a future burst notifies fresh.
+      lastOverflowNotifiedRef.current = 0;
+      return;
+    }
+
+    // Apply hard cap. Overflow tail is drained on subsequent ticks once the
+    // current batch persists and grows `existingTitlesLowerRef`.
+    const overflow = pendingAll.length > WIKI_LINK_BATCH_CAP;
+    const pending = overflow ? pendingAll.slice(0, WIKI_LINK_BATCH_CAP) : pendingAll;
+
+    if (overflow) {
+      // Latch on the *current* overflow size; only re-notify if the size shifts
+      // (e.g. the user pasted more, or one chunk drained). Same size = silent.
+      if (lastOverflowNotifiedRef.current !== pendingAll.length) {
+        lastOverflowNotifiedRef.current = pendingAll.length;
+        console.warn(
+          `[zettelkasten] Wiki-link batch capped: ${pendingAll.length} candidates → processing ${WIKI_LINK_BATCH_CAP} this tick.`,
+        );
+        toast.warning(
+          `Previše novih wiki-linkova (${pendingAll.length}). Obrađujem ${WIKI_LINK_BATCH_CAP} po koraku — ostatak slijedi.`,
+        );
+      }
+    } else if (lastOverflowNotifiedRef.current !== 0) {
+      // Burst drained back under the cap — clear latch so future overflow re-notifies.
+      lastOverflowNotifiedRef.current = 0;
+    }
+
+    // Adaptive delay computation.
+    const BASE_MIN = 300;
+    const BASE_MAX = 1000;
+    const VEL_FAST = 120;   // <=120ms between keystrokes ⇒ fast typing
+    const VEL_IDLE = 400;   // >=400ms ⇒ effectively idle
+    const interval = lastIntervalRef.current;
+    const velocityWeight = !Number.isFinite(interval)
+      ? 0
+      : Math.max(0, Math.min(1, (VEL_IDLE - interval) / (VEL_IDLE - VEL_FAST)));
+    const batchWeight = Math.max(0, Math.min(1, pending.length / 8));
+    const weight = Math.max(velocityWeight, batchWeight);
+    const delay = Math.round(BASE_MIN + (BASE_MAX - BASE_MIN) * weight);
+
+    const handle = setTimeout(async () => {
+      const created = await bulkCreateArticlesIfMissing(
+        categoryId,
+        pending,
+        rootSubcategoryId ?? undefined,
+      );
+      if (created.length > 0) {
+        setArticles(prev => [...created, ...prev]);
+        // Keep backlink index hot — each new article may target existing titles.
+        for (const a of created) {
+          eventBus.emit(EVENT_TYPES.KB_ARTICLE_UPSERTED, { subjectId: categoryId, article: a });
+        }
+        toast.success(
+          created.length === 1
+            ? `Kreiran placeholder članak "${created[0].title}"`
+            : `Kreirano ${created.length} placeholder članaka`,
+        );
+      }
+    }, delay);
+    return () => clearTimeout(handle);
+    // `articles` dep is intentional — see header comment.
+  }, [draftContent, isEditing, categoryId, articles, rootSubcategoryId, setArticles]);
+}

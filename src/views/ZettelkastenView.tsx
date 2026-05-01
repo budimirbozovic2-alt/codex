@@ -149,15 +149,7 @@ export default function ZettelkastenView() {
     [articles, isEditing],
   );
 
-  // Always-current title lookup for the wiki-link auto-create effect, which
-  // runs *during* editing and therefore can't rely on the gated memo above.
-  // A ref keeps this O(N_articles) work outside the render path.
-  const existingTitlesLowerRef = useRef<Set<string>>(new Set());
-  useEffect(() => {
-    existingTitlesLowerRef.current = new Set(
-      articles.map(a => a.title.trim().toLowerCase()),
-    );
-  }, [articles]);
+  // Wiki-link auto-create concern lives in `useWikiLinkAutoCreate` (called below).
 
 
   // NOTE: Subcategory-based filtering and grid-style organization were removed
