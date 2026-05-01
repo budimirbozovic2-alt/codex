@@ -689,6 +689,41 @@ export function SmartSplitSummaryDialog({ source, onSmartSplitConfirm }: Props) 
                   </p>
                 </div>
 
+                {/* Module content (editable) — useful when the user adds a
+                   manual module or wants to tweak the auto-extracted body. */}
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-muted-foreground">
+                    Sadržaj modula (HTML/tekst)
+                  </label>
+                  <textarea
+                    value={currentModule.contentHtml}
+                    onChange={(e) => {
+                      const html = e.target.value;
+                      // Derive a plain-text mirror so plainSnippet/textAnchor stay in sync.
+                      const plain = html
+                        .replace(/<\/(p|div|li|h[1-6])>/gi, "\n")
+                        .replace(/<br\s*\/?>/gi, "\n")
+                        .replace(/<[^>]+>/g, "")
+                        .replace(/\n{3,}/g, "\n\n")
+                        .trim();
+                      updateModule(safeIndex, {
+                        contentHtml: html,
+                        contentText: plain,
+                        plainSnippet: currentModule.articleNum
+                          ? `Član ${currentModule.articleNum}\n${plain}`
+                          : plain,
+                      });
+                    }}
+                    disabled={currentEdit.skipped}
+                    rows={6}
+                    className="w-full px-3 py-2 rounded-md border bg-background text-xs font-mono leading-relaxed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring resize-y disabled:opacity-50"
+                    placeholder="<p>Sadržaj modula...</p>"
+                  />
+                  <p className="text-[10px] text-muted-foreground">
+                    Podržava HTML tagove (npr. &lt;p&gt;, &lt;strong&gt;, &lt;ul&gt;). Sadržaj se sanitizuje prije snimanja.
+                  </p>
+                </div>
+
                 {/* Tags */}
                 <div className="space-y-1">
                   <label className="text-xs font-medium text-muted-foreground flex items-center gap-1">
