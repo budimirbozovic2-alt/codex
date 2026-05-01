@@ -24,14 +24,12 @@ export default function SourceReader({ source, onBack, onSourceUpdated }: Props)
   const { contentRef, derived, actions } = useSourceReaderActions(source, onSourceUpdated);
 
   // Granular store selectors
-  const viewMode = useSourceReaderStore(s => s.viewMode);
   const readerWidth = useSourceReaderStore(s => s.readerWidth);
   const outlineOpen = useSourceReaderStore(s => s.outlineOpen);
   const examOpen = useSourceReaderStore(s => s.examOpen);
   const editMode = useSourceReaderStore(s => s.editMode);
   const selection = useSourceReaderStore(s => s.selection);
   const headingMenu = useSourceReaderStore(s => s.headingMenu);
-  const splitSummaryOpen = useSourceReaderStore(s => s.splitSummaryOpen);
   const autoSplitOpen = useSourceReaderStore(s => s.autoSplitOpen);
   const linkModalOpen = useSourceReaderStore(s => s.linkModalOpen);
   const linkSelectedText = useSourceReaderStore(s => s.linkSelectedText);
@@ -42,8 +40,6 @@ export default function SourceReader({ source, onBack, onSourceUpdated }: Props)
   // Reset store on unmount
   useEffect(() => () => useSourceReaderStore.getState().reset(), []);
 
-  const isCoverage = viewMode === "coverage";
-
   return (
     <div className="space-y-4">
       <SourceToolbar
@@ -52,13 +48,6 @@ export default function SourceReader({ source, onBack, onSourceUpdated }: Props)
         onAutoSplit={() => useSourceReaderStore.getState().setAutoSplitOpen(true)}
         onAutoFormat={actions.handleAutoFormatArticles}
       />
-
-      {isCoverage && (
-        <CoverageStatsBar
-          percent={derived.coverage.percent}
-          linkedCount={derived.linkedCount}
-        />
-      )}
 
       <div className="flex gap-4">
         {outlineOpen && (
@@ -72,22 +61,14 @@ export default function SourceReader({ source, onBack, onSourceUpdated }: Props)
           className={cn("flex-1 min-w-0 relative mx-auto px-6", WIDTH_CLASSES[readerWidth])}
           onContextMenu={actions.handleContextMenu}
         >
-          {isCoverage ? (
-            <CoverageArticleList
-              source={source}
-              cards={derived.cards}
-              onOpenCard={actions.handleOpenCoveredCard}
-            />
-          ) : (
-            <SourceContent
-              html={derived.safeHtml}
-              onMouseUp={actions.handleMouseUp}
-              contentRef={contentRef}
-              editMode={editMode}
-              onFormat={actions.handleInlineFormat}
-              onInput={actions.handleEditInput}
-            />
-          )}
+          <SourceContent
+            html={derived.safeHtml}
+            onMouseUp={actions.handleMouseUp}
+            contentRef={contentRef}
+            editMode={editMode}
+            onFormat={actions.handleInlineFormat}
+            onInput={actions.handleEditInput}
+          />
 
           {headingMenu && (
             <SourceContextMenu
@@ -98,7 +79,7 @@ export default function SourceReader({ source, onBack, onSourceUpdated }: Props)
             />
           )}
 
-          {!isCoverage && selection && (
+          {selection && (
             <SourceTooltip
               selection={selection}
               editMode={editMode}
