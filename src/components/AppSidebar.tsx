@@ -100,8 +100,7 @@ export default function AppSidebar() {
                         key={suffix}
                         asChild
                         tooltip={label}
-                        size="sm"
-                        className="pl-8"
+                        className="pl-8 h-7"
                       >
                         <NavLink
                           to={`/subject/${cat.id}${suffix}`}
