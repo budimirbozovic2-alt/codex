@@ -590,13 +590,11 @@ export function SmartSplitSummaryDialog({ source, onSmartSplitConfirm }: Props) 
 
               {/* Right pane — editor for the active module */}
               <div className="overflow-y-auto pr-1 space-y-3">
-                <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center justify-between gap-2 flex-wrap">
                   <div className="flex items-center gap-2">
-                    {!!showModeToggle && (
-                      <Badge variant="outline" className="text-[10px]">
-                        Korak {safeIndex + 1} / {total}
-                      </Badge>
-                    )}
+                    <Badge variant="outline" className="text-[10px]">
+                      Modul {safeIndex + 1} / {total}
+                    </Badge>
                     {currentModule.articleNum && (
                       <Badge variant="secondary" className="text-[10px]">
                         Član {currentModule.articleNum}
@@ -608,16 +606,69 @@ export function SmartSplitSummaryDialog({ source, onSmartSplitConfirm }: Props) 
                       </Badge>
                     )}
                   </div>
-                  {!!showModeToggle && (
-                    <button
-                      type="button"
-                      onClick={() => updateEdit(safeIndex, { skipped: !currentEdit.skipped })}
-                      className="text-[11px] text-muted-foreground hover:text-foreground inline-flex items-center gap-1"
-                    >
-                      <SkipForward className="h-3 w-3" />
-                      {currentEdit.skipped ? "Vrati u import" : "Preskoči ovaj član"}
-                    </button>
-                  )}
+                  <div className="flex items-center gap-2">
+                    <Popover open={splitPopoverOpen} onOpenChange={setSplitPopoverOpen}>
+                      <PopoverTrigger asChild>
+                        <button
+                          type="button"
+                          className="text-[11px] text-muted-foreground hover:text-foreground inline-flex items-center gap-1"
+                          title="Podijeli ovaj modul na više dijelova"
+                        >
+                          <Scissors className="h-3 w-3" />
+                          Podijeli modul
+                        </button>
+                      </PopoverTrigger>
+                      <PopoverContent align="end" className="w-72 p-3 space-y-2">
+                        <p className="text-xs font-medium">Podijeli na više modula</p>
+                        <button
+                          type="button"
+                          onClick={() => performSplit("blank-line")}
+                          className="w-full text-left text-xs px-2 py-1.5 rounded hover:bg-muted"
+                        >
+                          Po praznoj liniji (paragrafima)
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => performSplit("article")}
+                          className="w-full text-left text-xs px-2 py-1.5 rounded hover:bg-muted"
+                        >
+                          Po "Član X" markerima
+                        </button>
+                        <div className="space-y-1.5 pt-1 border-t">
+                          <label className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                            Po custom graničniku
+                          </label>
+                          <div className="flex gap-1.5">
+                            <input
+                              value={customDelimiter}
+                              onChange={(e) => setCustomDelimiter(e.target.value)}
+                              className="flex-1 px-2 py-1 rounded border bg-background text-xs"
+                              placeholder="npr. ---"
+                            />
+                            <Button
+                              size="sm"
+                              variant="secondary"
+                              onClick={() => performSplit("custom")}
+                              disabled={!customDelimiter.trim()}
+                              className="h-7 text-xs"
+                            >
+                              Podijeli
+                            </Button>
+                          </div>
+                        </div>
+                      </PopoverContent>
+                    </Popover>
+                    {total > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => updateEdit(safeIndex, { skipped: !currentEdit.skipped })}
+                        className="text-[11px] text-muted-foreground hover:text-foreground inline-flex items-center gap-1"
+                      >
+                        <SkipForward className="h-3 w-3" />
+                        {currentEdit.skipped ? "Vrati u import" : "Preskoči"}
+                      </button>
+                    )}
+                  </div>
                 </div>
 
                 {/* Question editor */}
