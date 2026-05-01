@@ -511,7 +511,7 @@ export function useSourceReaderActions(source: Source, onSourceUpdated?: (source
 
   return {
     contentRef,
-    derived: { sourceCards, coverage, safeHtml, linkedCount, cards },
+    derived: { sourceCards, safeHtml, linkedCount, cards },
     actions: {
       handleMouseUp,
       handleConvertToEssay,
