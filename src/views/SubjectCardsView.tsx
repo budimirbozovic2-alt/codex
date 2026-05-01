@@ -82,6 +82,9 @@ export default function SubjectCardsView() {
   }, [cards]);
 
   const editingCardRef = useRef<Card | null>(null);
+  // Live mirror of CardViewMode's internal filters; updated via onFiltersChange
+  // so buildExtras can capture the latest values at stash time.
+  const cardViewFiltersRef = useRef<CardViewFiltersSnapshot | null>(null);
   const { initialSnapshot, stash: stashEditReturn } = useEditReturn<EditReturnSnapshot>({
     path: `/subject/${categoryId}/cards`,
     categoryId,
@@ -91,6 +94,10 @@ export default function SubjectCardsView() {
       manageMode,
       searchQuery,
       sourceFilter,
+      cvSubcategory: cardViewFiltersRef.current?.subcategory,
+      cvChapter: cardViewFiltersRef.current?.chapter,
+      cvType: cardViewFiltersRef.current?.type,
+      cvTag: cardViewFiltersRef.current?.tag ?? null,
     }),
   });
 
