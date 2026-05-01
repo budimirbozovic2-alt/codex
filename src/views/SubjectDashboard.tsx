@@ -208,7 +208,7 @@ export default function SubjectDashboard() {
         <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
           Baza i Izvori znanja
         </h2>
-        <div className="grid grid-cols-4 gap-3">
+        <div className="grid grid-cols-3 gap-3">
           {knowledgeBaseCards.map(({ to, icon: Icon, title, desc }) => (
             <Link
               key={title}
