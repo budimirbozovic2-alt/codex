@@ -142,7 +142,7 @@ export function useCardExport({ cards, srSettings }: UseCardExportDeps) {
         sources, mindMaps, diary, calibrationLog, latencyLog,
         slippageLog, activityLog, disciplineLog, pomodoroLog, fullReviewLog,
         catRecords, mnemonics, majorSystem, mnemonicTestLog,
-        knowledgeBaseArticles,
+        knowledgeBaseArticles, settings,
       ] = await Promise.all([
         db.sources.toArray(),
         db.mindMaps.toArray(),
@@ -159,12 +159,15 @@ export function useCardExport({ cards, srSettings }: UseCardExportDeps) {
         db.majorSystem.toArray(),
         db.mnemonicTestLog.toArray(),
         db.knowledgeBaseArticles.toArray(),
+        db.settings.toArray(),
       ]);
 
+      // localStorage keys (browser-only, not in IDB settings table)
       const localStorageData: Record<string, unknown> = {};
       const lsKeys = [
         "sr-app-settings", "sr-mnemonic-workshop", "sr-mnemonic-associations",
         "sr-major-system-map", "sr-learn-progress", "sr-last-backup",
+        "sr-dark-mode", "sr-tts-settings",
       ];
       for (const key of lsKeys) {
         const val = localStorage.getItem(key);
@@ -172,27 +175,20 @@ export function useCardExport({ cards, srSettings }: UseCardExportDeps) {
           try { localStorageData[key] = JSON.parse(val); } catch { localStorageData[key] = val; }
         }
       }
-      const [plannerConfig, dailyMapped, dailyMappedDate] = await Promise.all([
-        db.settings.get("plannerConfig"),
-        db.settings.get("dailyMapped"),
-        db.settings.get("dailyMappedDate"),
-      ]);
-      if (plannerConfig?.value) localStorageData["sr-planner-config"] = plannerConfig.value;
-      if (dailyMapped?.value != null) localStorageData["sr-daily-mapped-count"] = dailyMapped.value;
-      if (dailyMappedDate?.value) localStorageData["sr-daily-mapped-date"] = dailyMappedDate.value;
 
       // H3 fix: Read cards fresh from IDB to avoid stale closure data
       const allCards = await db.cards.toArray();
       const freshCards = allCards.length > 0 ? allCards : cards; // fallback to prop if IDB empty
 
       const data = {
-        version: 6, type: "full",
+        version: 7, type: "full",
         cards: freshCards, categories: catRecords, subcategories: deriveSubMap(catRecords),
         reviewLog: fullReviewLog, srSettings,
         sources, mindMaps, diary, calibrationLog, latencyLog,
         slippageLog, activityLog, disciplineLog, pomodoroLog,
         mnemonics, majorSystem, mnemonicTestLog,
         knowledgeBaseArticles,
+        settings,
         localStorageData,
       };
       const dateStr = new Date().toISOString().slice(0, 10);
