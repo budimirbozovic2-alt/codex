@@ -10,7 +10,7 @@ import ShortcutsHint from "@/components/ShortcutsHint";
 
 const AR_SHORTCUTS = [
   { keys: "Space", description: "Otkrij odgovor" },
-  { keys: "1-4", description: "Ocijeni modul" },
+  { keys: "1-4", description: "Ocijeni (samo nakon otkrivanja)" },
 ];
 
 interface Props {

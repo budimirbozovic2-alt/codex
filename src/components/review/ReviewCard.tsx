@@ -63,12 +63,16 @@ export default function ReviewCard({
   }, [setShowAnswer, card.id, section.id, card.categoryId]);
 
   const handleGradeWithCalibration = useCallback((grade: number) => {
+    // Hard safety gate: never grade before the answer has been revealed.
+    // This protects FSRS from the "illusion of competence" trap where a user
+    // could otherwise self-rate without seeing the actual answer.
+    if (!showAnswer) return;
     if (confidence !== null) {
       addCalibrationEntry({ timestamp: Date.now(), cardId: card.id, sectionId: section.id, confidence, actualGrade: grade, category: card.categoryId });
     }
     import("@/lib/sounds").then(m => m.playGradeSound(grade));
     onGrade(grade);
-  }, [confidence, card.id, section.id, card.categoryId, onGrade]);
+  }, [showAnswer, confidence, card.id, section.id, card.categoryId, onGrade]);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -250,23 +254,30 @@ export default function ReviewCard({
                 Pokušaj odgovoriti na glas prije otkrivanja.
               </p>
 
-              {/* Confidence selector */}
+              {/* Confidence selector — metakognitivna kalibracija (NIJE FSRS ocjena).
+                  Koristi slova A–E da se vizualno razlikuje od 1–4 grading skale. */}
               <div className="rounded-lg border bg-secondary/30 p-3 space-y-2">
-                <p className="text-xs text-muted-foreground text-center">Koliko si siguran/na u odgovor?</p>
+                <p className="text-xs text-muted-foreground text-center">
+                  Procjena sigurnosti <span className="opacity-60">(opciono, prije otkrivanja)</span>
+                </p>
                 <div className="flex justify-center gap-1.5">
-                  {[1, 2, 3, 4, 5].map(level => (
-                    <button
-                      key={level}
-                      onClick={() => setConfidence(level)}
-                      className={`w-9 h-9 rounded-lg text-sm font-medium transition-all ${
-                        confidence === level
-                          ? "bg-primary text-primary-foreground shadow-sm"
-                          : "bg-secondary text-secondary-foreground hover:bg-accent"
-                      }`}
-                    >
-                      {level}
-                    </button>
-                  ))}
+                  {[1, 2, 3, 4, 5].map(level => {
+                    const letter = ["A", "B", "C", "D", "E"][level - 1];
+                    return (
+                      <button
+                        key={level}
+                        onClick={() => setConfidence(level)}
+                        className={`w-9 h-9 rounded-lg text-sm font-medium transition-all ${
+                          confidence === level
+                            ? "bg-primary text-primary-foreground shadow-sm"
+                            : "bg-secondary text-secondary-foreground hover:bg-accent"
+                        }`}
+                        aria-label={`Sigurnost nivo ${level}`}
+                      >
+                        {letter}
+                      </button>
+                    );
+                  })}
                 </div>
                 <div className="flex justify-between text-[10px] text-muted-foreground px-1">
                   <span>Nimalo</span>
@@ -295,6 +306,7 @@ export default function ReviewCard({
               <GradeButtons
                 onGrade={handleGradeWithCalibration}
                 hint="Ocijeni kvalitet prisjećanja (4 = bez oklijevanja)"
+                enabled={showAnswer}
               />
 
             </motion.div>

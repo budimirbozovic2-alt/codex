@@ -78,7 +78,7 @@ export const REVIEW_SLIDES: OnboardingSlide[] = [
 
 export const REVIEW_SHORTCUTS = [
   { keys: "Space", description: "Otkrij odgovor" },
-  { keys: "1-4", description: "Ocijeni (Opet → Lako)" },
+  { keys: "1-4", description: "Ocijeni (samo nakon otkrivanja)" },
   { keys: "Z", description: "Poništi zadnju ocjenu" },
   { keys: "N", description: "Zabilježi grešku" },
 ];
