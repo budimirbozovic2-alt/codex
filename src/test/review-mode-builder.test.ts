@@ -99,23 +99,31 @@ describe("review-mode-builder", () => {
       expect(items).toHaveLength(0);
     });
 
-    it("includes due sections with retrievability in [80, 85]", () => {
+    it("includes due sections with retrievability ≤ 85 (catch-all, no zombies)", () => {
       // getRetrievability uses real Date.now() internally for `elapsed`,
       // so anchor lastReviewed relative to it (not the test NOW constant).
       const realNow = Date.now();
-      const eligible = makeSection({
+      const optimal = makeSection({
         nextReview: realNow - DAY,
         stability: 30,
-        lastReviewed: realNow - 5 * DAY, // R = exp(-5/30)*100 ≈ 84.6
+        lastReviewed: realNow - 5 * DAY, // R ≈ 84.6
       });
-      const card = makeCard([eligible]);
+      // Zombie candidate: dropped well below 80 — must still be picked up.
+      const zombie = makeSection({
+        nextReview: realNow - 10 * DAY,
+        stability: 5,
+        lastReviewed: realNow - 8 * DAY, // R ≈ 20
+      });
+      const card = makeCard([optimal, zombie]);
       const items = buildCriticalItems({
         dueCards: [card],
         allCards: [card],
         srSettings: DEFAULT_SR_SETTINGS,
         now: realNow,
       });
-      expect(items.length).toBeGreaterThan(0);
+      expect(items.length).toBe(2);
+      // Worst R first
+      expect(items[0].section.id).toBe(zombie.id);
     });
 
     it("excludes New sections", () => {
