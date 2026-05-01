@@ -8,7 +8,7 @@ import { loadSources, type Source } from "@/lib/sources-storage";
 import { loadMindMaps } from "@/lib/mindmap-storage";
 import { MindMapDoc } from "@/lib/db";
 import { motion, AnimatePresence } from "framer-motion";
-import { useCategoryData } from "@/contexts/AppContext";
+import { useCardData, useCategoryData } from "@/contexts/AppContext";
 import { eventBus, EVENT_TYPES } from "@/lib/event-bus";
 
 // Module-level cache for sources & mind maps
@@ -17,7 +17,6 @@ let cachedMindMaps: MindMapDoc[] | null = null;
 let cacheTimestamp = 0;
 const CACHE_TTL = 60_000; // 60s staleness check
 interface Props {
-  cards: Card[];
   open: boolean;
   onClose: () => void;
   onNavigateToCard: (card: Card) => void;
@@ -49,9 +48,13 @@ function highlightMatch(text: string, query: string): string {
   return clean.replace(new RegExp(`(${escaped})`, "gi"), '<mark class="bg-primary/30 text-foreground rounded-sm px-0.5">$1</mark>');
 }
 
-export default function GlobalSearch({ cards, open, onClose, onNavigateToCard }: Props) {
+export default function GlobalSearch({ open, onClose, onNavigateToCard }: Props) {
   const navigate = useNavigate();
   const [query, setQuery] = useState("");
+  // Phase-3 perf fix: subscribe to global card data ONLY here. This component
+  // is lazy-loaded and conditionally mounted by `GlobalSearchWrapper`, so the
+  // subscription is created when the modal opens and torn down when it closes.
+  const { cards } = useCardData();
   const { categoryRecords: catRecords } = useCategoryData();
   const uuidToName = useMemo(() => {
     const m: Record<string, string> = {};
