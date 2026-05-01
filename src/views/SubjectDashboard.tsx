@@ -107,6 +107,12 @@ export default function SubjectDashboard() {
       title: "Kartice",
       desc: "Uređivanje i raspored kartica",
     },
+    {
+      to: `/subject/${categoryId}/diagnostics`,
+      icon: AlertTriangle,
+      title: "Najčešće greške",
+      desc: "Dijagnostika slabih tačaka i lapsusa",
+    },
   ], [categoryId]);
 
   const subjectDueCount = useMemo(
@@ -155,17 +161,6 @@ export default function SubjectDashboard() {
           <div className="flex items-center gap-1.5 shrink-0">
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button variant="outline" size="icon" className="h-9 w-9" asChild>
-                  <Link to={`/subject/${categoryId}/diagnostics`} aria-label="Dijagnostika">
-                    <AlertTriangle className="h-4 w-4" />
-                  </Link>
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="bottom">Dijagnostika</TooltipContent>
-            </Tooltip>
-
-            <Tooltip>
-              <TooltipTrigger asChild>
                 <Button
                   variant="outline"
                   size="icon"
@@ -208,7 +203,7 @@ export default function SubjectDashboard() {
         <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
           Baza i Izvori znanja
         </h2>
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-4 gap-3">
           {knowledgeBaseCards.map(({ to, icon: Icon, title, desc }) => (
             <Link
               key={title}

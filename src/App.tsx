@@ -1,7 +1,7 @@
 import "@/index.css";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { HashRouter, Routes, Route, Navigate, useParams } from "react-router-dom";
+import { HashRouter, Routes, Route, useParams } from "react-router-dom";
 import { AppProvider } from "@/contexts/AppContext";
 import { SessionProvider } from "@/contexts/SessionContext";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
@@ -16,18 +16,12 @@ const NotFound = lazy(() => import("./pages/NotFound"));
 const DashboardPage = lazy(() => import("@/views/DashboardPage"));
 const ReviewPage = lazy(() => import("@/views/ReviewPage"));
 const LearnPage = lazy(() => import("@/views/LearnPage"));
-const CreatePage = lazy(() => import("@/views/CreatePage"));
 const EditPage = lazy(() => import("@/views/EditPage"));
 const SettingsPage = lazy(() => import("@/views/SettingsPage"));
-const StatsPage = lazy(() => import("@/views/StatsPage"));
-const MnemonicPage = lazy(() => import("@/views/MnemonicPage"));
-const PlannerPage = lazy(() => import("@/views/PlannerPage"));
 
 const SubjectDiagnosticsPage = lazy(() => import("@/views/SubjectDiagnosticsPage"));
 
 const CategoriesRoutePage = lazy(() => import("@/views/CategoriesRoutePage"));
-
-const MindMapPage = lazy(() => import("@/views/MindMapPage"));
 
 const CategoryView = lazy(() => import("@/views/CategoryView"));
 const SubjectDashboard = lazy(() => import("@/views/SubjectDashboard"));
@@ -71,15 +65,9 @@ const App = () => (
                         <Route path="/subject/:categoryId/diagnostics" element={<ErrorBoundary label="Dijagnostika"><Suspense fallback={<PageSkeleton />}><SubjectDiagnosticsPage /></Suspense></ErrorBoundary>} />
                         <Route path="/review" element={<ErrorBoundary label="Ponavljanje"><ReviewPage /></ErrorBoundary>} />
                         <Route path="/learn" element={<ErrorBoundary label="Učenje"><LearnPage /></ErrorBoundary>} />
-                        <Route path="/create" element={<ErrorBoundary label="Kreiranje"><CreatePage /></ErrorBoundary>} />
                         <Route path="/edit" element={<ErrorBoundary label="Uređivanje"><EditPage /></ErrorBoundary>} />
                         <Route path="/settings" element={<ErrorBoundary label="Podešavanja"><SettingsPage /></ErrorBoundary>} />
-                        <Route path="/stats" element={<ErrorBoundary label="Statistika"><StatsPage /></ErrorBoundary>} />
-                        <Route path="/mnemonics" element={<ErrorBoundary label="Mnemonik"><MnemonicPage /></ErrorBoundary>} />
-                        <Route path="/mnemonic" element={<Navigate to="/mnemonics" replace />} />
-                        <Route path="/planner" element={<ErrorBoundary label="Planer"><PlannerPage /></ErrorBoundary>} />
                         <Route path="/categories" element={<ErrorBoundary label="Kategorije"><CategoriesRoutePage /></ErrorBoundary>} />
-                        <Route path="/mind-map" element={<ErrorBoundary label="Mapa uma"><MindMapPage /></ErrorBoundary>} />
                         
                         <Route path="*" element={<ErrorBoundary label="404"><NotFound /></ErrorBoundary>} />
                       </Routes>

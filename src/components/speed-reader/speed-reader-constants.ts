@@ -1,6 +1,6 @@
 import type { Card } from "@/lib/spaced-repetition";
 import type { Source } from "@/lib/sources-storage";
-import { stripHtml } from "@/lib/sanitize";
+import { stripHtml, sanitizeHtml } from "@/lib/sanitize";
 
 export const WPM_OPTIONS = [100, 150, 200, 250, 300, 400, 500];
 export const FONT_SIZES = [
@@ -70,7 +70,7 @@ export function buildSourceSegments(source: Source): { segments: Segment[]; word
   if (!html) return { segments, wordEntries };
 
   const parser = new DOMParser();
-  const doc = parser.parseFromString(DOMPurify.sanitize(html), "text/html");
+  const doc = parser.parseFromString(sanitizeHtml(html), "text/html");
   const children = Array.from(doc.body.children);
 
   let currentTitle = source.title;
