@@ -4,6 +4,7 @@
  * Uses memoization to avoid recomputation on re-renders.
  */
 import type { Card } from "./spaced-repetition";
+import { stripHtmlText as stripHtml } from "./sanitize";
 
 export interface CoverageRange {
   start: number;
