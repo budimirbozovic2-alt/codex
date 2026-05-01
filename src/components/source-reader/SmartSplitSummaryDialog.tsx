@@ -627,22 +627,6 @@ export function SmartSplitSummaryDialog({ source, onSmartSplitConfirm }: Props) 
                   </div>
                 </div>
 
-                {/* Live preview */}
-                <div className="space-y-1">
-                  <label className="text-xs font-medium text-muted-foreground flex items-center gap-1">
-                    <Eye className="h-3 w-3" />
-                    Pregled kartice
-                  </label>
-                  <div className="rounded-md border bg-card p-3">
-                    <p className="text-sm font-medium mb-2">
-                      {currentEdit.question.trim() || currentModule.title}
-                    </p>
-                    <div
-                      className="text-xs prose prose-sm max-w-none card-prose max-h-40 overflow-y-auto"
-                      dangerouslySetInnerHTML={{ __html: previewHtml }}
-                    />
-                  </div>
-                </div>
               </div>
             </div>
 
