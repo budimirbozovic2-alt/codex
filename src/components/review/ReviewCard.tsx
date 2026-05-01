@@ -306,6 +306,7 @@ export default function ReviewCard({
               <GradeButtons
                 onGrade={handleGradeWithCalibration}
                 hint="Ocijeni kvalitet prisjećanja (4 = bez oklijevanja)"
+                enabled={showAnswer}
               />
 
             </motion.div>
