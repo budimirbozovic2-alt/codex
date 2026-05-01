@@ -113,10 +113,13 @@ export function useSourceReaderActions(source: Source, onSourceUpdated?: (source
   const handleSmartSplitConfirm = useCallback(async () => {
     const {
       splitResult, splitModules, splitEdits, splitParentName, splitMode,
+      wizardSubcategoryId, wizardChapterId,
       setSplitCreatedCount, setSplitDone,
     } = useSourceReaderStore.getState();
     if (!splitResult || splitModules.length === 0) return;
     const category = source.categoryId;
+    const subId = wizardSubcategoryId || undefined;
+    const chapId = wizardChapterId || undefined;
     const { buildSeparatePlans, buildCombinedPlan } = await import("@/lib/split-wizard-build");
 
     if (splitMode === "separate") {
@@ -128,7 +131,7 @@ export function useSourceReaderActions(source: Source, onSourceUpdated?: (source
       for (const plan of plans) {
         const sections = [{ title: "Odgovor", content: sanitizeHtml(plan.module.contentHtml) }];
         const anchor = createTextAnchor(plan.module.plainSnippet);
-        addCard(plan.question, sections, category, undefined, undefined, {
+        addCard(plan.question, sections, category, subId, chapId, {
           sourceId: source.id,
           textAnchor: anchor,
           originalSourceSnippet: plan.module.plainSnippet,
@@ -164,7 +167,7 @@ export function useSourceReaderActions(source: Source, onSourceUpdated?: (source
     }));
     const combinedSnippet = plan.modules.map(({ module: mod }) => mod.plainSnippet).join("\n\n");
     const anchor = createTextAnchor(combinedSnippet);
-    addCard(plan.parentName, sections, category, undefined, undefined, {
+    addCard(plan.parentName, sections, category, subId, chapId, {
       sourceId: source.id,
       textAnchor: anchor,
       originalSourceSnippet: combinedSnippet,
