@@ -9,14 +9,14 @@ import {
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import MindMapNodeComponent from "@/components/mindmap/MindMapNode";
-import { MindMapDoc } from "@/lib/db";
+import { MindMapDoc, type MindMapNodeRecord } from "@/lib/db";
 
 const nodeTypes = { mindMapNode: MindMapNodeComponent };
 const noop = () => {};
 
 function ViewerInner({ doc }: { doc: MindMapDoc }) {
   const nodes = useMemo(() =>
-    doc.nodes.map((n: any) => ({
+    doc.nodes.map((n: MindMapNodeRecord) => ({
       ...n,
       type: "mindMapNode",
       data: { ...n.data, onUpdate: noop, onDuplicate: noop },

@@ -10,7 +10,7 @@ import {
   useReactFlow,
 } from "@xyflow/react";
 import { type MindMapNodeData } from "@/components/mindmap/MindMapNode";
-import { MindMapDoc, MindMapEdgeRecord } from "@/lib/db";
+import { MindMapDoc, MindMapEdgeRecord, type MindMapNodeRecord } from "@/lib/db";
 import { saveMindMap } from "@/lib/mindmap-storage";
 import { toast } from "sonner";
 import { getId, HIERARCHY_TEMPLATES, PROCEDURE_TEMPLATES, type NodeTemplate } from "@/components/mindmap/mindmap-constants";
@@ -43,7 +43,7 @@ export function useMindMapCanvas(doc: MindMapDoc) {
     onDuplicateRef.current(id);
   }, []);
 
-  const initialNodes = useMemo(() => doc.nodes.map((n: any) => ({
+  const initialNodes = useMemo(() => doc.nodes.map((n: MindMapNodeRecord) => ({
     ...n,
     type: "mindMapNode",
     data: { ...n.data, onUpdate: stableOnUpdate, onDuplicate: stableOnDuplicate },
@@ -61,7 +61,7 @@ export function useMindMapCanvas(doc: MindMapDoc) {
     setNodes(nds => {
       const source = nds.find(n => n.id === id);
       if (!source) return nds;
-      const { onUpdate, onDuplicate, ...cleanData } = source.data as any;
+      const { onUpdate: _u, onDuplicate: _d, ...cleanData } = source.data as Record<string, unknown>;
       const newNode: Node = {
         ...source,
         id: getId(),
@@ -82,7 +82,7 @@ export function useMindMapCanvas(doc: MindMapDoc) {
     if (removeChanges.length > 0) {
       setNodes(currentNodes => {
         setEdges(currentEdges => {
-          const removedIds = new Set(removeChanges.map((c: any) => c.id));
+          const removedIds = new Set(removeChanges.map((c) => (c as { id: string }).id));
           const removedNodes = currentNodes.filter(n => removedIds.has(n.id));
           const removedEdges = currentEdges.filter(e => removedIds.has(e.source) || removedIds.has(e.target));
           if (removedNodes.length > 0) {
@@ -93,7 +93,7 @@ export function useMindMapCanvas(doc: MindMapDoc) {
                 onClick: () => {
                   setNodes(nds => [...nds, ...removedNodes.map(n => ({
                     ...n,
-                    data: { ...(n.data as any), onUpdate: stableOnUpdate, onDuplicate: stableOnDuplicate },
+                    data: { ...(n.data as Record<string, unknown>), onUpdate: stableOnUpdate, onDuplicate: stableOnDuplicate },
                   }))]);
                   setEdges(eds => [...eds, ...removedEdges]);
                   setDirty(true);
@@ -230,7 +230,7 @@ export function useMindMapCanvas(doc: MindMapDoc) {
   const handleAutoLayout = useCallback((direction: "TB" | "LR") => {
     setNodes(nds => autoLayout(nds, edges, direction).map(n => ({
       ...n,
-      data: { ...(n.data as any), onUpdate: stableOnUpdate, onDuplicate: stableOnDuplicate },
+      data: { ...(n.data as Record<string, unknown>), onUpdate: stableOnUpdate, onDuplicate: stableOnDuplicate },
     })));
     setDirty(true);
     setTimeout(() => fitView({ padding: 0.2, duration: 400 }), 50);
@@ -239,7 +239,7 @@ export function useMindMapCanvas(doc: MindMapDoc) {
 
   const handleSave = useCallback(async () => {
     const cleanNodes = nodes.map(({ data, ...rest }) => {
-      const { onUpdate, onDuplicate, ...cleanData } = data as any;
+      const { onUpdate: _u, onDuplicate: _d, ...cleanData } = data as Record<string, unknown>;
       return { ...rest, data: cleanData };
     });
     const updated: MindMapDoc = { ...doc, title, nodes: cleanNodes, edges, updatedAt: Date.now() };
