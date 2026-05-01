@@ -79,7 +79,7 @@ export default function SourcesTab({ categoryId, sources, onOpenReader, onSource
         version: 1,
         createdAt: Date.now(),
         updatedAt: Date.now(),
-        sourceKind: activeSourceTab,
+        sourceKind: activeSourceTab === "mape" ? "propis" : activeSourceTab,
       };
 
       await saveSource(newSource);
