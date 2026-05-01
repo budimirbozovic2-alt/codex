@@ -12,14 +12,11 @@ const ROUTE_LABELS: Record<string, string> = {
   "/categories": "Kategorije",
   "/settings": "Podešavanja",
   "/stats": "Statistika",
-  "/mnemonics": "Memorizacija",
   "/planner": "Strateški planer",
-  
-  "/mind-map": "Mentalne mape",
   "/forum": "Forum",
 };
 
-const LAB_ROUTES = new Set(["/stats", "/mnemonics", "/planner", "/mind-map"]);
+const LAB_ROUTES = new Set(["/stats", "/planner"]);
 
 // O2 fix: memo prevents re-renders from parent when categoryRecords haven't changed
 export default memo(function Breadcrumbs() {
