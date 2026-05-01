@@ -49,7 +49,7 @@ export function useSourceReaderActions(source: Source, onSourceUpdated?: (source
         text,
         html,
         x: rect.left + rect.width / 2 - containerRect.left,
-        y: rect.top - containerRect.top - 8,
+        y: rect.bottom - containerRect.top + 8,
       });
     }, 10);
   }, []);

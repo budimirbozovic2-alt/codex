@@ -24,9 +24,12 @@ interface Props {
 export function SourceTooltip({ selection, editMode, onConvertToEssay, onLinkToExisting, onFormatSelectionAs }: Props) {
   return (
     <div data-source-tooltip
-      className="absolute z-50 -translate-x-1/2 -translate-y-full animate-in fade-in-0 zoom-in-95 duration-150"
+      className="absolute z-50 -translate-x-1/2 animate-in fade-in-0 zoom-in-95 duration-150"
       style={{ left: selection.x, top: selection.y }}>
-      <div className="flex items-center gap-1 mb-1">
+      {/* Arrow on TOP — tooltip sits below the selection so it doesn't
+          obscure text the user is still reading downward. */}
+      <div className={cn("w-2.5 h-2.5 rotate-45 mx-auto -mb-1.5", editMode ? "bg-secondary" : "bg-primary")} />
+      <div className="flex items-center gap-1 mt-1">
         {editMode ? (
           <>
             {([
@@ -62,7 +65,6 @@ export function SourceTooltip({ selection, editMode, onConvertToEssay, onLinkToE
           </>
         )}
       </div>
-      <div className={cn("w-2.5 h-2.5 rotate-45 mx-auto -mt-1.5", editMode ? "bg-secondary" : "bg-primary")} />
     </div>
   );
 }
