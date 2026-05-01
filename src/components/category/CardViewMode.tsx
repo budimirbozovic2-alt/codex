@@ -34,9 +34,16 @@ interface Props {
   onClearMasteryFilter?: () => void;
   externalQuery?: string;
   externalSourceId?: string;
+  /** Initial filter values, restored from edit-return snapshot. */
+  initialSubcategory?: string;
+  initialChapter?: string;
+  initialType?: FilterTypeValue;
+  initialTag?: string | null;
+  /** Notified whenever any internal filter changes, so a parent can stash them. */
+  onFiltersChange?: (snap: CardViewFiltersSnapshot) => void;
 }
 
-export default function CardViewMode({ cards, categoryId, allCategories, subcategoryNodes, patchCard, toggleTag, addCard, addFlashCard, onDelete, onEdit, onPassiveRead, masteryFilter, onClearMasteryFilter, externalQuery, externalSourceId }: Props) {
+export default function CardViewMode({ cards, categoryId, allCategories, subcategoryNodes, patchCard, toggleTag, addCard, addFlashCard, onDelete, onEdit, onPassiveRead, masteryFilter, onClearMasteryFilter, externalQuery, externalSourceId, initialSubcategory, initialChapter, initialType, initialTag, onFiltersChange }: Props) {
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [bulkImportOpen, setBulkImportOpen] = useState(false);
   const [selectionMode, setSelectionMode] = useState(false);
@@ -45,7 +52,30 @@ export default function CardViewMode({ cards, categoryId, allCategories, subcate
   const [moveModalOpen, setMoveModalOpen] = useState(false);
   const [moveCardId, setMoveCardId] = useState<string | null>(null);
 
-  const filters = useCardViewFilters({ cards, allCategories, categoryId, masteryFilter, onClearMasteryFilter, externalQuery, externalSourceId });
+  const filters = useCardViewFilters({
+    cards,
+    allCategories,
+    categoryId,
+    masteryFilter,
+    onClearMasteryFilter,
+    externalQuery,
+    externalSourceId,
+    initialSubcategory,
+    initialChapter,
+    initialType,
+    initialTag,
+  });
+
+  // Push current filter values up to the parent so they can be persisted in
+  // the edit-return snapshot. Cheap object — no need to memoize.
+  useEffect(() => {
+    onFiltersChange?.({
+      subcategory: filters.filterSubcategory,
+      chapter: filters.filterChapter,
+      type: filters.filterType,
+      tag: filters.filterTag,
+    });
+  }, [filters.filterSubcategory, filters.filterChapter, filters.filterType, filters.filterTag, onFiltersChange]);
 
   const otherCategories = useMemo(
     () => allCategories.filter(c => c.id !== categoryId),
