@@ -69,11 +69,15 @@ export function useSourceReaderActions(source: Source, onSourceUpdated?: (source
   }, []);
 
   // ─── Essay / Split ───
+  // Unified flow: every "Convert to Essay" action routes through the
+  // SmartSplit wizard so the user always gets the per-card preview before
+  // committing to IDB. When the selection contains "Član X" markers we get
+  // multiple modules; otherwise we synthesize a single module from the whole
+  // selection (wizard handles N=1 gracefully).
   const handleConvertToEssay = useCallback(() => {
     const {
       selection, setSelection, setSplitResult, setSplitSummaryOpen,
-      setSelectedText, setSelectedHtml, setEssayQuestion, setEssayDialogOpen,
-      initSplitWizard,
+      setSplitMode, initSplitWizard,
     } = useSourceReaderStore.getState();
     if (!selection) return;
     const text = selection.text;
@@ -82,31 +86,29 @@ export function useSourceReaderActions(source: Source, onSourceUpdated?: (source
     window.getSelection()?.removeAllRanges();
     const result = splitSelection(text);
     if (result.hasArticles && result.modules.length > 0) {
-      setSplitResult(result);
-      // initSplitWizard seeds: modules + per-module default edits + parentName + step 0.
+      setSplitResult({ modules: result.modules, rangeLabel: result.rangeLabel, parentName: result.parentName });
       initSplitWizard([...result.modules], result.parentName);
+      setSplitMode("separate");
       setSplitSummaryOpen(true);
-    } else {
-      setSelectedText(text);
-      setSelectedHtml(html);
-      setEssayQuestion("");
-      setEssayDialogOpen(true);
+      return;
     }
+    // No articles → synthesize a single module from the whole selection.
+    const plainSnippet = text.trim();
+    const safeHtml = sanitizeHtml(html || `<p>${text}</p>`);
+    const fallbackTitle = firstWords(plainSnippet, 7) || "Esej iz izvora";
+    const singleModule: SelectionModule = {
+      articleNum: "",
+      title: fallbackTitle,
+      contentText: plainSnippet,
+      contentHtml: safeHtml,
+      plainSnippet,
+    };
+    setSplitResult({ modules: [singleModule], rangeLabel: fallbackTitle, parentName: fallbackTitle });
+    initSplitWizard([singleModule], fallbackTitle);
+    setSplitMode("separate"); // 1 modul → 1 kartica
+    setSplitSummaryOpen(true);
   }, []);
 
-  const handleCreateEssay = useCallback(() => {
-    const { essayQuestion, selectedText, selectedHtml, setEssayDialogOpen } = useSourceReaderStore.getState();
-    if (!essayQuestion.trim() || !selectedText) return;
-    const anchor = createTextAnchor(selectedText);
-    // Use HTML for the rendered section (preserves formatting), keep plain for anchor & snippet (matching).
-    const sectionContent = sanitizeHtml(selectedHtml || selectedText);
-    addCard(essayQuestion.trim(), [{ title: "Odgovor", content: sectionContent }], source.categoryId, undefined, undefined, {
-      sourceId: source.id, textAnchor: anchor, originalSourceSnippet: selectedText,
-    });
-    toast.success("Esejsko pitanje kreirano", { description: `Povezano sa izvorom "${source.title}"` });
-    setEssayDialogOpen(false);
-    incrementDailyMapped(1);
-  }, [source, addCard]);
 
   const handleSmartSplitConfirm = useCallback(async () => {
     const {
