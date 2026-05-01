@@ -2,12 +2,12 @@ import { useLocation } from "react-router-dom";
 import { ActivityType } from "@/lib/metacognitive-storage";
 
 // ─── Types ──────────────────────────────────────────────
-export type View = "dashboard" | "create" | "edit" | "review" | "categories" | "learn" | "settings" | "mnemonic" | "stats" | "planner";
+export type View = "dashboard" | "create" | "edit" | "review" | "categories" | "learn" | "settings" | "stats" | "planner";
 
 export const VIEW_TO_PATH: Record<View, string> = {
   dashboard: "/", create: "/create", edit: "/edit", review: "/review",
   categories: "/categories", learn: "/learn", settings: "/settings",
-  mnemonic: "/mnemonics", stats: "/stats", planner: "/planner",
+  stats: "/stats", planner: "/planner",
 };
 
 export const PATH_TO_VIEW: Record<string, View> = {};
