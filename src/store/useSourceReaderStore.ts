@@ -128,6 +128,8 @@ const initialState = {
   linkSelectedText: "",
   linkSelectedHtml: "",
   examQuestions: [] as ExamQuestion[],
+  wizardSubcategoryId: "",
+  wizardChapterId: "",
 };
 
 export const useSourceReaderStore = create<SourceReaderState>((set, get) => ({
@@ -178,7 +180,11 @@ export const useSourceReaderStore = create<SourceReaderState>((set, get) => ({
     splitStepIndex: 0,
     splitDone: false,
     splitCreatedCount: 0,
+    wizardSubcategoryId: "",
+    wizardChapterId: "",
   }),
+  setWizardSubcategoryId: (v) => set({ wizardSubcategoryId: v, wizardChapterId: "" }),
+  setWizardChapterId: (v) => set({ wizardChapterId: v }),
   setLinkModalOpen: (v) => set({ linkModalOpen: v }),
   setLinkSelectedText: (v) => set({ linkSelectedText: v }),
   setLinkSelectedHtml: (v) => set({ linkSelectedHtml: v }),
