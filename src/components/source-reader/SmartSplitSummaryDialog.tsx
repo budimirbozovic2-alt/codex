@@ -158,12 +158,6 @@ export function SmartSplitSummaryDialog({ source, onSmartSplitConfirm }: Props) 
     [currentEdit, safeIndex, updateEdit],
   );
 
-  // ── Preview HTML (memoized so DOMPurify only runs on actual change) ──────
-  const previewHtml = useMemo(
-    () => (currentModule ? sanitizeHtml(currentModule.contentHtml) : ""),
-    [currentModule],
-  );
-
   // Auto-focus the question textarea on step change to keep flow keyboard-driven.
   const questionRef = useRef<HTMLTextAreaElement | null>(null);
   useEffect(() => {
@@ -195,28 +189,66 @@ export function SmartSplitSummaryDialog({ source, onSmartSplitConfirm }: Props) 
     [total, setSplitModules, setSplitEdits, setStepIndex],
   );
 
-  const [splitPopoverOpen, setSplitPopoverOpen] = useState(false);
-  const [customDelimiter, setCustomDelimiter] = useState("---");
+  // ── Manual paragraph-scissors cutting (mirrors card editor CuttingView) ──
+  const [cutting, setCutting] = useState(false);
+  // Reset cutting mode on module change so it doesn't persist across nav.
+  useEffect(() => { setCutting(false); }, [safeIndex]);
 
-  const performSplit = useCallback(
-    (mode: "blank-line" | "article" | "custom") => {
+  /** Plain-text → array of paragraphs (split on blank lines, trimmed, non-empty). */
+  const splitTextByParagraphs = useCallback((text: string): string[] => {
+    return text.split(/\n{2,}/).map((p) => p.trim()).filter(Boolean);
+  }, []);
+
+  const currentParagraphs = useMemo(
+    () => (currentModule ? splitTextByParagraphs(currentModule.contentText) : []),
+    [currentModule, splitTextByParagraphs],
+  );
+
+  /**
+   * Manual split at paragraph index `paraIdx`:
+   *  - paragraphs [0, paraIdx)  → stay in current module
+   *  - paragraphs[paraIdx]      → becomes the NEW module's title
+   *  - paragraphs (paraIdx, end)→ become the new module's content
+   * Mirrors `handleCut` in src/hooks/useCardActions.ts (~line 269).
+   */
+  const performManualCut = useCallback(
+    (paraIdx: number) => {
       if (!currentModule) return;
-      const delim = mode === "custom" ? { custom: customDelimiter } : mode;
-      const pieces = splitModuleByDelimiter(currentModule, delim);
-      if (pieces.length <= 1) return;
+      const parts = splitTextByParagraphs(currentModule.contentText);
+      if (paraIdx <= 0 || paraIdx >= parts.length) return;
+
+      const beforeText = parts.slice(0, paraIdx).join("\n\n");
+      const newTitle =
+        parts[paraIdx].replace(/\s+/g, " ").trim().slice(0, 200) || "Novi modul";
+      const afterText = parts.slice(paraIdx + 1).join("\n\n");
+
+      const newModule: SelectionModule = {
+        title: newTitle,
+        contentText: afterText,
+        contentHtml: plainTextToHtml(afterText),
+        plainSnippet: afterText.trim() || newTitle,
+      };
+
       setSplitModules((prev) => {
         const out = [...prev];
-        out.splice(safeIndex, 1, ...pieces);
+        out[safeIndex] = {
+          ...out[safeIndex],
+          contentText: beforeText,
+          contentHtml: plainTextToHtml(beforeText),
+          plainSnippet: beforeText.trim() || out[safeIndex].title,
+        };
+        out.splice(safeIndex + 1, 0, newModule);
         return out;
       });
       setSplitEdits((prev) => {
         const out = [...prev];
-        out.splice(safeIndex, 1, ...pieces.map((p) => defaultEdit(p)));
+        out.splice(safeIndex + 1, 0, defaultEdit(newModule));
         return out;
       });
-      setSplitPopoverOpen(false);
+      setStepIndex(safeIndex + 1);
+      setCutting(false);
     },
-    [currentModule, customDelimiter, safeIndex, setSplitModules, setSplitEdits],
+    [currentModule, safeIndex, setSplitModules, setSplitEdits, setStepIndex, splitTextByParagraphs],
   );
 
   const showNav = total > 1;
