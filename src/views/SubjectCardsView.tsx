@@ -1,5 +1,5 @@
 import { useParams, Link, useNavigate } from "react-router-dom";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowLeft, Layers, BookOpen, Settings, Search, X, Pencil, Sparkles, Zap,
 } from "lucide-react";
@@ -14,7 +14,7 @@ import type { Card } from "@/lib/spaced-repetition";
 import { loadSourcesByCategory, type Source } from "@/lib/sources-storage";
 import { useEditReturn } from "@/hooks/useEditReturn";
 import type { BaseEditReturnSnapshot } from "@/lib/edit-return";
-import CardViewMode from "@/components/category/CardViewMode";
+import CardViewMode, { type CardViewFiltersSnapshot } from "@/components/category/CardViewMode";
 import CardOrgMode from "@/components/category/CardOrgMode";
 import StructureManagerDialog from "@/components/category/StructureManagerDialog";
 import PassiveReader from "@/components/subject-cards/PassiveReader";
@@ -34,6 +34,11 @@ interface EditReturnSnapshot extends BaseEditReturnSnapshot {
   manageMode?: ManageMode;
   searchQuery?: string;
   sourceFilter?: string;
+  /** CardViewMode internal filters — restored after edit-and-return. */
+  cvSubcategory?: string;
+  cvChapter?: string;
+  cvType?: CardViewFiltersSnapshot["type"];
+  cvTag?: string | null;
 }
 
 export default function SubjectCardsView() {
@@ -77,6 +82,9 @@ export default function SubjectCardsView() {
   }, [cards]);
 
   const editingCardRef = useRef<Card | null>(null);
+  // Live mirror of CardViewMode's internal filters; updated via onFiltersChange
+  // so buildExtras can capture the latest values at stash time.
+  const cardViewFiltersRef = useRef<CardViewFiltersSnapshot | null>(null);
   const { initialSnapshot, stash: stashEditReturn } = useEditReturn<EditReturnSnapshot>({
     path: `/subject/${categoryId}/cards`,
     categoryId,
@@ -86,6 +94,10 @@ export default function SubjectCardsView() {
       manageMode,
       searchQuery,
       sourceFilter,
+      cvSubcategory: cardViewFiltersRef.current?.subcategory,
+      cvChapter: cardViewFiltersRef.current?.chapter,
+      cvType: cardViewFiltersRef.current?.type,
+      cvTag: cardViewFiltersRef.current?.tag ?? null,
     }),
   });
 
@@ -127,6 +139,10 @@ export default function SubjectCardsView() {
     setEditingCard(card);
     navigate("/edit");
   };
+
+  const handleCardViewFiltersChange = useCallback((snap: CardViewFiltersSnapshot) => {
+    cardViewFiltersRef.current = snap;
+  }, []);
 
   const handlePassiveRead = (card: Card) => {
     setPendingPassiveCardId(card.id);
@@ -325,6 +341,11 @@ export default function SubjectCardsView() {
                 onPassiveRead={handlePassiveRead}
                 externalQuery={searchQuery}
                 externalSourceId={sourceFilter}
+                initialSubcategory={initialSnapshot?.cvSubcategory}
+                initialChapter={initialSnapshot?.cvChapter}
+                initialType={initialSnapshot?.cvType}
+                initialTag={initialSnapshot?.cvTag ?? null}
+                onFiltersChange={handleCardViewFiltersChange}
               />
             </>
           ) : (
