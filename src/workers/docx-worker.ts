@@ -9,7 +9,8 @@ self.onmessage = async (e: MessageEvent<{ arrayBuffer: ArrayBuffer }>) => {
   try {
     const result = await mammoth.convertToHtml({ arrayBuffer: e.data.arrayBuffer });
     self.postMessage({ success: true, html: result.value, messages: result.messages });
-  } catch (err: any) {
-    self.postMessage({ success: false, error: err?.message || "DOCX parsing failed" });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "DOCX parsing failed";
+    self.postMessage({ success: false, error: message });
   }
 };

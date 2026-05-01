@@ -78,8 +78,9 @@ export default function SourceEditor({ source, categoryId, onClose, onSourceUpda
       setNewText(html);
       setDirty(true);
       toast.success("DOCX učitan", { description: `${file.name} uspješno parsiran.` });
-    } catch (err: any) {
-      toast.error("Greška pri parsiranju", { description: err?.message || "Neuspješno čitanje DOCX fajla." });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Neuspješno čitanje DOCX fajla.";
+      toast.error("Greška pri parsiranju", { description: message });
     } finally {
       setDocxParsing(false);
     }
