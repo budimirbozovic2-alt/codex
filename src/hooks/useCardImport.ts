@@ -344,7 +344,9 @@ export function useCardImport({
             } else {
               await dbRecord[table].bulkPut(arr);
               if (strategy === "overwrite") {
-                const importedIds = new Set(arr.map((r) => (r as Record<string, unknown>).id));
+                // Settings table uses `key` as primary key; others use `id`.
+                const pkField = key === "settings" ? "key" : "id";
+                const importedIds = new Set(arr.map((r) => (r as Record<string, unknown>)[pkField]));
                 const allKeys = await dbRecord[table].toCollection().primaryKeys();
                 const toDelete = allKeys.filter((k) => !importedIds.has(k));
                 if (toDelete.length > 0) await dbRecord[table].bulkDelete(toDelete);
