@@ -229,8 +229,10 @@ describe("review-mode-builder", () => {
         srSettings: DEFAULT_SR_SETTINGS,
         now: NOW,
       };
+      // Same Learning/low-stability section is picked up by stabilization
+      // AND by critical (R≈0 ≤ 85). Hardest only catches leeches / D>7.
       expect(buildItemsForMode("stabilization", args)).toHaveLength(1);
-      expect(buildItemsForMode("critical", args)).toHaveLength(0);
+      expect(buildItemsForMode("critical", args)).toHaveLength(1);
       expect(buildItemsForMode("hardest", args)).toHaveLength(0);
     });
   });
