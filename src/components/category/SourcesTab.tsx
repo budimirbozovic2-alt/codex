@@ -202,6 +202,57 @@ export default function SourcesTab({ categoryId, sources, onOpenReader, onSource
             </TabsContent>
           );
         })}
+
+        <TabsContent value="mape">
+          {mindMapsLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+            </div>
+          ) : mindMaps.length === 0 ? (
+            <div className="text-center py-12 space-y-3">
+              <MapIcon className="h-10 w-10 mx-auto text-muted-foreground/40" />
+              <p className="text-sm text-muted-foreground">
+                Nema mentalnih mapa za ovaj predmet.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {mindMaps.map(m => {
+                const ModeIcon = m.mode === "procedure" ? Workflow : GitBranch;
+                return (
+                  <button
+                    key={m.id}
+                    type="button"
+                    onClick={() => navigate(`/subject/${categoryId}/mind-maps?open=${m.id}`)}
+                    className="w-full flex items-center justify-between rounded-lg border bg-card px-4 py-3 hover:bg-muted/50 transition-colors text-left"
+                  >
+                    <div className="flex items-center gap-3 min-w-0 flex-1">
+                      <ModeIcon className={`h-4 w-4 shrink-0 ${m.mode === "procedure" ? "text-warning" : "text-primary"}`} />
+                      <div className="min-w-0">
+                        <span className="text-sm text-foreground truncate block">{m.title}</span>
+                        <span className="text-[10px] text-muted-foreground">
+                          {m.mode === "procedure" ? "Procedura" : "Hijerarhija"} · {m.nodes.length} čvorova · {format(new Date(m.updatedAt), "dd.MM.yyyy")}
+                        </span>
+                      </div>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
+          <div className="mt-4 flex justify-center">
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-2"
+              onClick={() => navigate(`/subject/${categoryId}/mind-maps`)}
+            >
+              <Plus className="h-4 w-4" />
+              Kreiraj mentalnu mapu
+            </Button>
+          </div>
+        </TabsContent>
       </Tabs>
 
       {/* Source metadata editor dialog */}
