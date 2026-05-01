@@ -131,11 +131,17 @@ export function calculateNextReview(
     finalNextReview = Date.now() + Math.min(calcMs, maxMs);
   }
 
-  if (isNew && grade >= 3) {
-    const delayMs = grade === 3 ? 15 * 60 * 1000 : 20 * 60 * 1000;
-    finalNextReview = Date.now() + delayMs;
+  if (isNew && grade === 3) {
+    // Good on a New card → short learning step (15 min) before graduating.
+    finalNextReview = Date.now() + 15 * 60 * 1000;
     finalState = SectionState.Learning;
     finalFirstReviewPending = true;
+  } else if (isNew && grade === 4) {
+    // Easy on a New card → graduate immediately to Review using
+    // INITIAL_VALUES[4] (stability=7d). Skip the learning phase entirely.
+    finalNextReview = Date.now() + interval * 24 * 60 * 60 * 1000;
+    finalState = SectionState.Review;
+    finalFirstReviewPending = false;
   } else if (isPendingFirstReview && grade >= 3) {
     finalState = SectionState.Review;
     finalFirstReviewPending = false;
