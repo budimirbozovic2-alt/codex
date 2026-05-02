@@ -81,25 +81,6 @@ export function loadCalibration(): CalibrationEntry[] {
   return _calibrationCache;
 }
 
-/** Filter the calibration cache to entries belonging to a specific set of
- *  card IDs. O(N) over the (capped 2 000-entry) cache; uses Set lookup for
- *  O(1) membership. Use when the UI needs per-card calibration without
- *  paying the cost of a full scan with `Array.includes` on every render. */
-export function loadCalibrationForCardIds(cardIds: Set<string>): CalibrationEntry[] {
-  if (cardIds.size === 0) return [];
-  const out: CalibrationEntry[] = [];
-  for (const e of _calibrationCache) {
-    if (cardIds.has(e.cardId)) out.push(e);
-  }
-  return out;
-}
-
-export function saveCalibration(entries: CalibrationEntry[]) {
-  _calibrationCache = entries;
-  if (entries.length > 0) {
-    db.calibrationLog.bulkPut(entries).catch((e) => console.warn("[silent]", e));
-  }
-}
 
 export function addCalibrationEntry(entry: CalibrationEntry) {
   _calibrationCache = [..._calibrationCache, entry];
