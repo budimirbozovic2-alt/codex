@@ -8,7 +8,7 @@ import { HighlightedSection } from "@/lib/highlight-key-parts";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { addCalibrationEntry, addLatencyEntry } from "@/lib/metacognitive-storage";
+import { addLatencyEntry } from "@/lib/metacognitive-storage";
 import ShortcutsHint from "@/components/ShortcutsHint";
 import GradeButtons from "@/components/learn/GradeButtons";
 import { ViewWidth, viewWidthClasses, viewWidthLabels, REVIEW_SHORTCUTS } from "./review-constants";
@@ -41,7 +41,6 @@ export default function ReviewCard({
   const catName = catRecord?.name ?? card.categoryId;
   const subName = catRecord?.subcategories?.find(s => s.id === card.subcategoryId)?.name ?? card.subcategoryId;
   const lastGradeRef = useRef<{ cardId: string; sectionId: string; grade: number } | null>(null);
-  const [confidence, setConfidence] = useState<number | null>(null);
   const [snippetOpen, setSnippetOpen] = useState(false);
   const questionShownAt = useRef<number>(Date.now());
   const hasSource = !!card.sourceId && !!card.originalSourceSnippet;
@@ -50,7 +49,6 @@ export default function ReviewCard({
   // Reset per-card UI state when card/section changes or answer is hidden
   useEffect(() => {
     if (!showAnswer) {
-      setConfidence(null);
       questionShownAt.current = Date.now();
     }
   }, [showAnswer, card.id, section.id]);
@@ -67,12 +65,9 @@ export default function ReviewCard({
     // This protects FSRS from the "illusion of competence" trap where a user
     // could otherwise self-rate without seeing the actual answer.
     if (!showAnswer) return;
-    if (confidence !== null) {
-      addCalibrationEntry({ timestamp: Date.now(), cardId: card.id, sectionId: section.id, confidence, actualGrade: grade, category: card.categoryId });
-    }
     import("@/lib/sounds").then(m => m.playGradeSound(grade));
     onGrade(grade);
-  }, [showAnswer, confidence, card.id, section.id, card.categoryId, onGrade]);
+  }, [showAnswer, card.id, section.id, onGrade]);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -253,37 +248,6 @@ export default function ReviewCard({
               <p className="text-sm italic text-muted-foreground text-center">
                 Pokušaj odgovoriti na glas prije otkrivanja.
               </p>
-
-              {/* Confidence selector — metakognitivna kalibracija (NIJE FSRS ocjena).
-                  Koristi slova A–E da se vizualno razlikuje od 1–4 grading skale. */}
-              <div className="rounded-lg border bg-secondary/30 p-3 space-y-2">
-                <p className="text-xs text-muted-foreground text-center">
-                  Procjena sigurnosti <span className="opacity-60">(opciono, prije otkrivanja)</span>
-                </p>
-                <div className="flex justify-center gap-1.5">
-                  {[1, 2, 3, 4, 5].map(level => {
-                    const letter = ["A", "B", "C", "D", "E"][level - 1];
-                    return (
-                      <button
-                        key={level}
-                        onClick={() => setConfidence(level)}
-                        className={`w-9 h-9 rounded-lg text-sm font-medium transition-all ${
-                          confidence === level
-                            ? "bg-primary text-primary-foreground shadow-sm"
-                            : "bg-secondary text-secondary-foreground hover:bg-accent"
-                        }`}
-                        aria-label={`Sigurnost nivo ${level}`}
-                      >
-                        {letter}
-                      </button>
-                    );
-                  })}
-                </div>
-                <div className="flex justify-between text-[10px] text-muted-foreground px-1">
-                  <span>Nimalo</span>
-                  <span>Potpuno</span>
-                </div>
-              </div>
 
               <Button onClick={handleRevealAnswer} className="w-full py-6 text-base" variant="outline">
                 <Eye className="h-4 w-4 mr-2" /> {isFlash ? "Prikaži odgovor" : "Prikaži odgovor za ovu cjelinu"}
