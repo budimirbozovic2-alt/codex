@@ -277,20 +277,17 @@ export function CardStateProvider({ children }: { children: ReactNode }) {
     return fresh;
   }, [cards]);
 
-  // Single-pass derived data
-  const { dueCards, stats, categoryStats, cardCountByCategory } = useMemo(() => {
+  // ── Single-pass raw aggregate (depends ONLY on cards) ───────────────
+  // Renaming a category does NOT touch this layer. Adding/removing a category
+  // also doesn't touch it (we always key by card.categoryId in accumulators).
+  const aggregate = useMemo(() => {
     const now = Date.now();
     const dueList: Card[] = [];
     let totalSections = 0;
     let learnedSections = 0;
     let leechCount = 0;
-    const catAccum: Record<string, { scoreSum: number; total: number; due: number }> = {};
+    const perCatAccum: Record<string, { scoreSum: number; total: number; due: number }> = {};
     const countByCategory: Record<string, number> = {};
-
-    for (const cat of categories) {
-      catAccum[cat] = { scoreSum: 0, total: 0, due: 0 };
-      countByCategory[cat] = 0;
-    }
 
     for (const card of cards) {
       const catKey = card.categoryId;
@@ -311,44 +308,61 @@ export function CardStateProvider({ children }: { children: ReactNode }) {
 
       if (cardIsDue) dueList.push(card);
 
-      const acc = catAccum[catKey];
-      if (acc) {
-        acc.total++;
-        acc.scoreSum += card.sections.length > 0 ? cardScoreSum / card.sections.length : 0;
-        if (cardIsDue) acc.due++;
-      }
+      let acc = perCatAccum[catKey];
+      if (!acc) { acc = { scoreSum: 0, total: 0, due: 0 }; perCatAccum[catKey] = acc; }
+      acc.total++;
+      acc.scoreSum += card.sections.length > 0 ? cardScoreSum / card.sections.length : 0;
+      if (cardIsDue) acc.due++;
     }
 
+    return { dueList, totalSections, learnedSections, leechCount, perCatAccum, countByCategory, totalCards: cards.length };
+  }, [cards]);
+
+  // ── Derived: dueCards (sorted) — depends only on aggregate.dueList ──
+  const dueCards = useMemo(() => {
+    const list = aggregate.dueList.slice();
     const sortKeys = new Map<string, number>();
-    for (const card of dueList) {
+    for (const card of list) {
       let minNext = Infinity;
       for (const s of card.sections) {
         if (s.state !== SectionState.New && s.nextReview < minNext) minNext = s.nextReview;
       }
       sortKeys.set(card.id, minNext);
     }
-    dueList.sort((a, b) => (sortKeys.get(a.id) ?? Infinity) - (sortKeys.get(b.id) ?? Infinity));
+    list.sort((a, b) => (sortKeys.get(a.id) ?? Infinity) - (sortKeys.get(b.id) ?? Infinity));
+    return list;
+  }, [aggregate.dueList]);
 
-    const finalCatStats: Record<string, { score: number; total: number; due: number }> = {};
+  // ── Derived: stats — depends only on aggregate ──
+  const stats = useMemo(() => ({
+    due: aggregate.dueList.length,
+    total: aggregate.totalCards,
+    totalSections: aggregate.totalSections,
+    learnedSections: aggregate.learnedSections,
+    leechCount: aggregate.leechCount,
+  }), [aggregate]);
+
+  // ── Derived: cardCountByCategory — fills zeros for empty categories ──
+  // Re-runs on category add/remove (categories array reference change), but
+  // is O(C) where C = number of categories.
+  const cardCountByCategory = useMemo(() => {
+    const out: Record<string, number> = {};
+    for (const cat of categories) out[cat] = 0;
+    for (const k in aggregate.countByCategory) out[k] = aggregate.countByCategory[k];
+    return out;
+  }, [aggregate.countByCategory, categories]);
+
+  // ── Derived: categoryStats — final per-category numbers ──
+  const categoryStats = useMemo(() => {
+    const out: Record<string, { score: number; total: number; due: number }> = {};
     for (const cat of categories) {
-      const a = catAccum[cat];
-      finalCatStats[cat] = {
-        score: a.total > 0 ? Math.round(a.scoreSum / a.total) : 0,
-        total: a.total,
-        due: a.due,
-      };
+      const a = aggregate.perCatAccum[cat];
+      out[cat] = a
+        ? { score: a.total > 0 ? Math.round(a.scoreSum / a.total) : 0, total: a.total, due: a.due }
+        : { score: 0, total: 0, due: 0 };
     }
-
-    return {
-      dueCards: dueList,
-      stats: { due: dueList.length, total: cards.length, totalSections, learnedSections, leechCount },
-      categoryStats: finalCatStats,
-      cardCountByCategory: countByCategory,
-    };
-  // NOTE: Intentionally excludes `categoryRecords` — derivation only depends on
-  // the UUID list. Including category records caused renames to re-derive every
-  // due card and re-bucket the entire app. (Audit: perf bottleneck #2)
-  }, [cards, categories]);
+    return out;
+  }, [aggregate.perCatAccum, categories]);
 
   const cardState = useMemo<CardStateContextValue>(() => ({
     cards, dueCards, stats, cardCountByCategory, buckets, ready, dbError,
