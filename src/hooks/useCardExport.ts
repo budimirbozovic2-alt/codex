@@ -115,17 +115,22 @@ export function useCardExport({ cards, srSettings }: UseCardExportDeps) {
 
       const blob = await buildJsonChunked(data, onProgress);
 
-      if (compress) {
-        onProgress(85, "Kompresija...");
-        const { compressToZip } = await import("@/lib/zip-service");
-        const zipBlob = await compressToZip(`codex-template-${dateStr}.json`, blob);
-        onProgress(100, "Preuzimanje...");
-        downloadFile(zipBlob, `codex-template-${dateStr}.zip`);
-        toast.success("Template uspješno exportovan.");
-      } else {
-        onProgress(100, "Preuzimanje...");
-        downloadFile(blob, `codex-template-${dateStr}.json`);
-        toast.success("Template uspješno exportovan.");
+      try {
+        if (compress) {
+          onProgress(85, "Kompresija...");
+          const { compressToZip } = await import("@/lib/zip-service");
+          const zipBlob = await compressToZip(`codex-template-${dateStr}.json`, blob);
+          onProgress(100, "Preuzimanje...");
+          const r = await downloadFile(zipBlob, `codex-template-${dateStr}.zip`);
+          if (r.saved) toast.success("Template uspješno exportovan.");
+        } else {
+          onProgress(100, "Preuzimanje...");
+          const r = await downloadFile(blob, `codex-template-${dateStr}.json`);
+          if (r.saved) toast.success("Template uspješno exportovan.");
+        }
+      } catch (err) {
+        toast.error("Greška pri exportu templatea", { description: err instanceof Error ? err.message : String(err) });
+        throw err;
       }
     },
     [cards],
@@ -192,19 +197,28 @@ export function useCardExport({ cards, srSettings }: UseCardExportDeps) {
 
       const blob = await buildJsonChunked(data, onProgress);
 
-      if (compress) {
-        onProgress(85, "Kompresija...");
-        const { compressToZip } = await import("@/lib/zip-service");
-        const zipBlob = await compressToZip(`codex-backup-${dateStr}.json`, blob);
-        onProgress(100, "Preuzimanje...");
-        downloadFile(zipBlob, `codex-backup-${dateStr}.zip`);
-        toast.success("Kompletni backup uspješno exportovan.");
-      } else {
-        onProgress(100, "Preuzimanje...");
-        downloadFile(blob, `codex-backup-${dateStr}.json`);
-        toast.success("Kompletni backup uspješno exportovan.");
+      try {
+        let saved = false;
+        if (compress) {
+          onProgress(85, "Kompresija...");
+          const { compressToZip } = await import("@/lib/zip-service");
+          const zipBlob = await compressToZip(`codex-backup-${dateStr}.json`, blob);
+          onProgress(100, "Preuzimanje...");
+          const r = await downloadFile(zipBlob, `codex-backup-${dateStr}.zip`);
+          saved = r.saved;
+        } else {
+          onProgress(100, "Preuzimanje...");
+          const r = await downloadFile(blob, `codex-backup-${dateStr}.json`);
+          saved = r.saved;
+        }
+        if (saved) {
+          toast.success("Kompletni backup uspješno exportovan.");
+          setLastBackupTime();
+        }
+      } catch (err) {
+        toast.error("Greška pri exportu backupa", { description: err instanceof Error ? err.message : String(err) });
+        throw err;
       }
-      setLastBackupTime();
     },
     [cards, srSettings],
   );
