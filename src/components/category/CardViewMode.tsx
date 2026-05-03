@@ -8,7 +8,7 @@ import { toast } from "sonner";
 import CardViewTable from "./CardViewTable";
 import CardViewFilterBar from "./CardViewFilterBar";
 import SubjectHierarchyTree from "./SubjectHierarchyTree";
-import { AddCardDialog, MoveCardDialog, BulkImportWrapper } from "./CardViewDialogs";
+import { AddCardDialog, MoveCardDialog } from "./CardViewDialogs";
 import { useCardViewFilters, type FilterTypeValue } from "@/hooks/useCardViewFilters";
 
 export interface CardViewFiltersSnapshot {
@@ -45,7 +45,6 @@ interface Props {
 
 export default function CardViewMode({ cards, categoryId, allCategories, subcategoryNodes, patchCard, toggleTag, addCard, addFlashCard, onDelete, onEdit, onPassiveRead, masteryFilter, onClearMasteryFilter, externalQuery, externalSourceId, initialSubcategory, initialChapter, initialType, initialTag, onFiltersChange }: Props) {
   const [addDialogOpen, setAddDialogOpen] = useState(false);
-  const [bulkImportOpen, setBulkImportOpen] = useState(false);
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [expandedId, setExpandedId] = useState<string | null>(null);
