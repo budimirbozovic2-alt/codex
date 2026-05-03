@@ -152,8 +152,8 @@ export default function SessionFilters({
         </span>
       </div>
 
-      {/* Type + Exam frequent row */}
-      {(onFilterTypeChange || examFrequentCount > 0) && (
+      {/* Type + Frequency row */}
+      {(onFilterTypeChange || tripleMode || examFrequentCount > 0) && (
         <div className="flex items-center gap-3 flex-wrap">
           {onFilterTypeChange && (
             <div className="flex items-center gap-2">
@@ -171,7 +171,34 @@ export default function SessionFilters({
               </div>
             </div>
           )}
-          {examFrequentCount > 0 && (
+          {tripleMode ? (
+            <div className="flex items-center gap-2 ml-auto">
+              <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Učestalost</span>
+              <div className="flex gap-1">
+                <button
+                  onClick={() => onFrequencyFilterChange?.("all")}
+                  className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all ${(!frequencyFilter || frequencyFilter === "all") ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground hover:bg-secondary"}`}
+                >
+                  Sve
+                </button>
+                {FREQUENCY_TAGS.map(t => {
+                  const active = frequencyFilter === t.value;
+                  const count = frequencyCounts?.[t.value] ?? 0;
+                  return (
+                    <button
+                      key={t.value}
+                      onClick={() => onFrequencyFilterChange?.(t.value)}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all ${active ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground hover:bg-secondary"}`}
+                    >
+                      {t.value === "često" && <Flame className="h-3 w-3" />}
+                      {t.label}
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${active ? "bg-primary-foreground/20" : "bg-secondary"}`}>{count}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ) : examFrequentCount > 0 && (
             <button
               onClick={onToggleExamFrequent}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all ml-auto ${filterExamFrequent ? "bg-destructive/15 text-destructive border border-destructive/30" : "text-muted-foreground hover:text-foreground hover:bg-secondary"}`}
