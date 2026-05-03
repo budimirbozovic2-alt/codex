@@ -1,28 +1,88 @@
-## Tri uklanjanja
+## Cilj
+Ukloniti binarni `tags[]` sloj za "često/rijetko na ispitu" i sve UI/filter putanje preusmjeriti na `Card.frequencyTag` (`"često" | "rijetko" | "nikad"`). `tags[]` ostaje samo za nesemantičke flagove (`MNEMONIC_TAG`).
 
-### 1. Pasivno čitanje — ukloniti dugmad "Izvor" i "Mapa uma"
+## UX odluka — Flame kontrola u listi
 
-`src/components/subject-cards/PassiveReader.tsx`:
-- Ukloniti cijeli blok sa `TooltipProvider`+"Izvor" i Button "Mapa uma" (linije ~262-294). Zadržati samo "Uredi karticu" u istom redu.
-- Ukloniti svu pripadajuću logiku: `sidePanel` state, `setSidePanel`, `linkedSource`, `sourceLoading`, `getSource` lazy-load `useEffect`, `sourceDisabled`, `showSidePanel`, render-blok za side-panel column (linije 406-429), grid `lg:grid-cols-2` se uvijek vraća na `grid-cols-1`.
-- Skinuti unused importe: `FileText`, `MapIcon`, `Tooltip*`, `getSource`, `SourceSidePanel`, `MindMapSidePanel`, `Source` tip, `SidePanel` tip.
+Umjesto jednog Flame dugmeta koristiti **mali dropdown sa 4 opcije** (`Često`, `Rijetko`, `Nikad`, `Ukloni oznaku`) s ikonom koja se boji prema trenutnoj vrijednosti:
+- `često` → Flame, `text-destructive`
+- `rijetko` → Flame, `text-warning`
+- `nikad` → Flame, `text-muted-foreground/60`
+- nepostavljeno → Flame, `text-muted-foreground/40` (outline)
 
-### 2. Konsolidacija — ukloniti "Procjena sigurnosti" prije reveal-a
+Razlog protiv 3-state ciklusa: korisnik ne vidi sve opcije bez probe i lako pogriješi klikom.
 
-Jedini element u `ReviewCard` koji se prikazuje prije otkrivanja odgovora i nudi FSRS procjenu/objašnjenje je **`AdaptiveReasonPanel`** ("Zašto ovaj interval?"). Ukloniti njegov render (linije 237-244) i import. Komponenta `AdaptiveReasonPanel.tsx` ostaje u kodu (može se kasnije koristiti drugdje), ali se više ne mounta u Konsolidaciji.
+## Izmjene po fajlu
 
-> Ako si mislio na nešto drugo (npr. FSRS metrike u zaglavlju kartice — Stabilnost/Težina/Interval), reci pa ćemo ukloniti i to.
+### `src/lib/sr/format.ts`
+- Ukloniti export `CARD_TAGS` i konstantu `"rijetko-na-ispitu"`. `EXAM_FREQUENT_TAG` i `MNEMONIC_TAG` ostaju (MNEMONIC se koristi nezavisno; `EXAM_FREQUENT_TAG` privremeno ostaje samo radi tihe migracije starih `tags[]`).
 
-### 3. Aktivno prisjećanje — ukloniti TTS dugme za pitanje
+### `src/lib/spaced-repetition.ts` (re-eksport barel)
+- Ukloniti `CARD_TAGS` iz re-eksporta ako postoji.
 
-`src/components/learn/SessionHeader.tsx`:
-- Ukloniti `<button onClick={() => speak(card.question)}>` sa `Volume2` ikonom (linije 96-98) — ostaje samo `<p>{card.question}</p>` u flex kontejneru.
-- Skinuti `Volume2` import iz `lucide-react` i `speak` import iz `@/lib/tts` ako više nigdje nisu korišteni u fajlu.
+### Novi helper `src/lib/sr/frequency.ts` (mali, čist)
+- `setCardFrequency(card, value: FrequencyTag | null): Card` — vraća novi card sa postavljenim/poništenim `frequencyTag` i istovremeno čisti naslijeđene tagove `"često-na-ispitu"`/`"rijetko-na-ispitu"` iz `tags[]` (silent migration on touch).
+- `getFrequencyMeta(value): { label, icon, colorClass }` — single source of truth za boje i etikete u UI.
 
-## Fajlovi koji se mijenjaju
+### `src/hooks/useCardCRUD.ts`
+- Već ima `updates.frequencyTag` u `updateCard`. Izložiti **novi pomoćni callback** `setFrequency(cardId, value: FrequencyTag | null)` koji koristi `patchCard` direktno (O(1) bez prolaska kroz `updateCard` koji radi i ostala polja). Ovo je zamjena semantike za stari `toggleTag(EXAM_FREQUENT_TAG)`.
+- Izložiti ga kroz `CardActionsProvider` (`useCardOnlyActions`) kao `setFrequency`.
 
-- `src/components/subject-cards/PassiveReader.tsx` — uklanjanje side-panel toggle-a i sve prateće logike/importa.
-- `src/components/review/ReviewCard.tsx` — uklanjanje `AdaptiveReasonPanel` rendera + importa.
-- `src/components/learn/SessionHeader.tsx` — uklanjanje TTS dugmeta + importa `Volume2`/`speak`.
+### `src/hooks/useCardAnnotations.ts`
+- `toggleTag` ostaje (potreban za `MNEMONIC_TAG`), ali se više ne koristi za EXAM tagove iz UI.
 
-Nema novih komponenti niti promjene API-ja.
+### `src/views/SubjectCardsView.tsx`
+- Proslijediti `setFrequency` iz konteksta kroz `CardViewMode` umjesto `toggleTag` za frequency-namjeru. `toggleTag` zadržati samo ako se još koristi za mnemonic clone path.
+
+### `src/components/card-list/CardRow.tsx`
+- Ukloniti uvoz `EXAM_FREQUENT_TAG` i `isFrequent` boolean.
+- Zamijeniti Flame `<button>` s novim `<FrequencyMenu card setFrequency />` (opisan ispod).
+- Ukloniti prop `onToggleTag` ako se više ne prosljeđuje (ostaviti samo `setFrequency` prop; `onToggleTag` ostaje za `CardContextMenu` ako mnemonic clone i dalje ide kroz njega).
+
+### Nova komponenta `src/components/card-list/FrequencyMenu.tsx`
+- Mali `DropdownMenu` (već postoji shadcn `dropdown-menu`).
+- Trigger: Flame ikona obojena prema `card.frequencyTag` (vidi `getFrequencyMeta`).
+- Items: `Često` / `Rijetko` / `Nikad` / separator / `Ukloni oznaku`.
+- Poziva `setFrequency(card.id, value | null)`.
+
+### `src/components/card-list/CardContextMenu.tsx`
+- Ukloniti EXAM_FREQUENT_TAG stavku.
+- Dodati submenu "Frekventnost" sa 4 opcije (često/rijetko/nikad/ukloni). MNEMONIC clone stavka ostaje netaknuta.
+
+### `src/components/category/CardViewTable.tsx`
+- Ukloniti red sa `CARD_TAGS.map(...)` pill dugmadi i `toggleTag` prop iz potpisa (ako više nije potreban). Dodati istu `<FrequencyMenu>` (ili kompakt ekvivalent) u kontrolnu zonu kartice.
+
+### `src/components/category/CardViewFilterBar.tsx`
+- Zamijeniti `Select` "Tag" sa `Select` "Frekventnost" sa opcijama: `Sve` / `Često` / `Rijetko` / `Nikad` / `Bez oznake`. Koristiti `FREQUENCY_TAGS` za labele.
+
+### `src/hooks/useCardViewFilters.ts`
+- Preimenovati `filterTag: string | null` → `filterFrequency: "all" | FrequencyTag | "none"`. Zamijeniti uslov u `filteredCards`:
+  - `"all"` → bez filtera
+  - `"none"` → `card.frequencyTag === undefined`
+  - inače → `card.frequencyTag === filterFrequency`
+- Update `hasActiveFilters` i `resetFilters` (`"all"` umjesto `null`).
+- Zadržati backward-compatible `initial*` parametre, ali sada `initialFrequency` (string).
+
+### `src/components/category/CardViewMode.tsx`
+- Update `Props` (`toggleTag` više nije potrebno za frequency; predati `setFrequency`).
+- Update `CardViewFiltersSnapshot`: `tag: string | null` → `frequency: "all" | FrequencyTag | "none"`.
+- Provjeriti gdje se snapshot serijalizuje/deserijalizuje (edit-return u `SubjectCardsView`) i prilagoditi.
+
+### `src/components/learn/SessionHeader.tsx`
+- Zamijeniti `tags?.includes(EXAM_FREQUENT_TAG)` badge sa renderom `card.frequencyTag` ako je postavljen (badge u jednoj od tri boje preko `getFrequencyMeta`).
+
+### `src/components/CardForm.tsx` / `src/components/card-form/MetadataSection.tsx`
+- Već je ispravan (dropdown sa 3 opcije + `__none__`). Bez izmjena.
+
+## Tiha migracija starih podataka
+- `setCardFrequency` čisti `"često-na-ispitu"` i `"rijetko-na-ispitu"` iz `tags[]` pri svakom dodiru (lazy).
+- Dodati jednokratnu read-time normalizaciju u `useCardAnnotations`/`patchCard` putanji? **Ne** — preskupo i nepotrebno; lazy je dovoljno. Stari tagovi na nedirnutim karticama više nigdje neće biti čitani (nema više `CARD_TAGS` ni `EXAM_FREQUENT_TAG` checks u UI), pa će se "razgraditi" prirodno.
+- `EXAM_FREQUENT_TAG` konstanta ostaje deklarisana u `format.ts` (samo za backup-schema validator i future cleanup), ali se nigdje ne koristi za UI logiku.
+
+## Testovi / sanity
+- `src/test/spaced-repetition.test.ts`: već testira `frequencyTag`, ostaje.
+- Nije potrebno mijenjati `backup-schema.ts` (akceptira oba sloja nezavisno).
+
+## Rizik / kompatibilnost
+- Postojeće kartice sa starim `tags[]` će izgubiti vizuelnu Flame oznaku jer je to dugme uklonjeno; korisnik mora jednom postaviti `frequencyTag` ako želi vraćenu oznaku. Alternativa: jednokratni boot-time migration job koji za sve `cards` pretvara `tags[].includes("često-na-ispitu")` u `frequencyTag = "često"` ako `frequencyTag` nije već postavljen. **Preporuka: uradi ovaj jednokratni boot-time migration**, da korisnik ne izgubi oznake. Lokacija: u `db-schema.ts` v17 upgrade ili u `AppContext` boot fazi (jednostavnije, bez nove sheme).
+
+Treba mi potvrda samo o jednoj stvari: **migracija postojećih `"često-na-ispitu"` tagova u `frequencyTag = "često"` — da uradim ili ne?** Ako da, dodaću je u boot fazi `AppContext`-a.
