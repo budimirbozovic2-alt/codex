@@ -327,7 +327,7 @@ export function SmartSplitSummaryDialog({ source, onSmartSplitConfirm }: Props) 
                 const edit = splitEdits[i];
                 if (!edit) return null;
                 const isCutting = cuttingIndex === i;
-                const paragraphCount = splitTextByParagraphs(mod.contentText).length;
+                const blockCount = splitHtmlIntoBlocks(mod.contentHtml).length;
                 return (
                   <div
                     key={`mod-${i}`}
