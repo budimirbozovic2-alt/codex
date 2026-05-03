@@ -66,6 +66,7 @@ export interface LearnSessionSnapshot {
 
 export interface LearnSessionProps {
   restoreSnapshot?: LearnSessionSnapshot;
+  onSessionStateChange?: (snap: LearnSessionSnapshot) => void;
   cards: Card[];
   categories: string[];
   categoryRecords: CategoryRecord[];
