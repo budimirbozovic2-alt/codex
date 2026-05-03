@@ -29,6 +29,7 @@ interface Props {
   setFrequency: (cardId: string, value: FrequencyTag | null) => void;
   addCard: (question: string, sections: { title: string; content: string }[], category: string, subcategory?: string, chapter?: string) => Card;
   addFlashCard: (question: string, answer: string, category: string, subcategory?: string) => Card;
+  bulkAddFlashCards: (pairs: { question: string; answer: string }[], categoryId: string, subcategoryId?: string) => void;
   onDelete?: (id: string) => void;
   onEdit?: (card: Card) => void;
   onPassiveRead?: (card: Card) => void;
@@ -45,7 +46,7 @@ interface Props {
   onFiltersChange?: (snap: CardViewFiltersSnapshot) => void;
 }
 
-export default function CardViewMode({ cards, categoryId, allCategories, subcategoryNodes, patchCard, setFrequency, addCard, addFlashCard, onDelete, onEdit, onPassiveRead, masteryFilter, onClearMasteryFilter, externalQuery, externalSourceId, initialSubcategory, initialChapter, initialType, initialFrequency, onFiltersChange }: Props) {
+export default function CardViewMode({ cards, categoryId, allCategories, subcategoryNodes, patchCard, setFrequency, addCard, addFlashCard, bulkAddFlashCards, onDelete, onEdit, onPassiveRead, masteryFilter, onClearMasteryFilter, externalQuery, externalSourceId, initialSubcategory, initialChapter, initialType, initialFrequency, onFiltersChange }: Props) {
   const { importCards } = useBackupActions();
   const allCategoryNames = useMemo(() => allCategories.map(c => c.name), [allCategories]);
   const [selectionMode, setSelectionMode] = useState(false);
@@ -126,6 +127,7 @@ export default function CardViewMode({ cards, categoryId, allCategories, subcate
           allCategoryNames={allCategoryNames}
           addCard={addCard}
           addFlashCard={addFlashCard}
+          bulkAddFlashCards={bulkAddFlashCards}
           importEssays={importCards}
         />
       </div>
@@ -161,6 +163,7 @@ export default function CardViewMode({ cards, categoryId, allCategories, subcate
             allCategoryNames={allCategoryNames}
             addCard={addCard}
             addFlashCard={addFlashCard}
+            bulkAddFlashCards={bulkAddFlashCards}
             importEssays={importCards}
           />
         </div>

@@ -10,6 +10,13 @@ import {
   FrequencyTag,
   CardSourceType,
 } from "@/lib/spaced-repetition";
+
+export interface FlashPair {
+  question: string;
+  answer: string;
+  subcategoryId?: string;
+  chapterId?: string;
+}
 import { setCardFrequency } from "@/lib/sr/frequency";
 import { CardMap, bumpMapVersion, schedulePersist } from "@/lib/persist-queue";
 import { sameSourceModules } from "@/lib/struct-eq";
@@ -209,6 +216,34 @@ export function useCardCRUD({
     bumpMapVersion();
   }, [setCardMapState, cardMapRef]);
 
+  // Convenience: build flash cards from Q/A pairs in one O(n) pass and route
+  // through bulkAddCards. Used by mass flash import (BulkImportDialog) and
+  // DOCX importer's flash branch — replaces the legacy N×addFlashCard loop
+  // which produced O(N²) cardMap clones and froze the UI on large batches.
+  const bulkAddFlashCards = useCallback(
+    (
+      pairs: FlashPair[],
+      categoryId: string,
+      defaultSubcategoryId?: string,
+    ) => {
+      if (pairs.length === 0) return;
+      const now = Date.now();
+      const newCards: Card[] = pairs.map((p) => {
+        const card = createFlashCard(
+          p.question,
+          p.answer,
+          categoryId,
+          p.subcategoryId ?? defaultSubcategoryId,
+        );
+        card.updatedAt = now;
+        if (p.chapterId) card.chapterId = p.chapterId;
+        return card;
+      });
+      bulkAddCards(newCards);
+    },
+    [bulkAddCards],
+  );
+
   // O(1) frequency setter — single field, lazy-cleans legacy tags. Triple
   // system ("često"/"rijetko"/"nikad") + null to clear.
   const setFrequency = useCallback(
@@ -218,6 +253,6 @@ export function useCardCRUD({
     [patchCard],
   );
 
-  return { patchCard, addCard, addFlashCard, updateCard, deleteCard, splitCard, bulkAddCards, setFrequency };
+  return { patchCard, addCard, addFlashCard, updateCard, deleteCard, splitCard, bulkAddCards, bulkAddFlashCards, setFrequency };
 }
 

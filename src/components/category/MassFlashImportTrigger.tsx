@@ -1,5 +1,4 @@
 import BulkImportDialog from "./BulkImportDialog";
-import type { Card } from "@/lib/spaced-repetition";
 
 /**
  * Modular indirection for the "Masovni uvoz blic pitanja" flow.
@@ -13,7 +12,11 @@ interface Props {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   categoryId: string;
-  addFlashCard: (question: string, answer: string, category: string, subcategory?: string) => Card;
+  bulkAddFlashCards: (
+    pairs: { question: string; answer: string }[],
+    categoryId: string,
+    subcategoryId?: string,
+  ) => void;
 }
 
 export default function MassFlashImportTrigger(props: Props) {

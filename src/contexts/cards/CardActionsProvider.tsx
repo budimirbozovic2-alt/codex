@@ -39,7 +39,7 @@ export function CardActionsProvider({ children }: { children: ReactNode }) {
     () => ({ ...crud, ...annotations }),
     [
       crud.patchCard, crud.addCard, crud.addFlashCard, crud.updateCard,
-      crud.deleteCard, crud.splitCard, crud.bulkAddCards, crud.setFrequency,
+      crud.deleteCard, crud.splitCard, crud.bulkAddCards, crud.bulkAddFlashCards, crud.setFrequency,
       annotations.reviewSection, annotations.markRead, annotations.toggleTag,
       annotations.logError, annotations.clearErrorLog, annotations.addKeyPart,
       annotations.bulkFlagNeedsReview, annotations.bulkUpdateChapter,

@@ -29,12 +29,18 @@ interface Props {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   categoryId: string;
-  addFlashCard: (question: string, answer: string, category: string, subcategory?: string) => Card;
+  /** Bulk path — single state update + single IDB transaction for all parsed pairs.
+   *  Replaces legacy per-row addFlashCard loop which froze UI on >100 imports. */
+  bulkAddFlashCards: (
+    pairs: { question: string; answer: string }[],
+    categoryId: string,
+    subcategoryId?: string,
+  ) => void;
 }
 
 interface ParsedPair { question: string; answer: string }
 
-export default function BulkImportDialog({ open, onOpenChange, categoryId, addFlashCard }: Props) {
+export default function BulkImportDialog({ open, onOpenChange, categoryId, bulkAddFlashCards }: Props) {
   const [raw, setRaw] = useState("");
   const [parsed, setParsed] = useState<ParsedPair[] | null>(null);
   const [templates, setTemplates] = useState<FlashcardImportTemplate[]>([]);
@@ -125,14 +131,13 @@ export default function BulkImportDialog({ open, onOpenChange, categoryId, addFl
 
   const confirmImport = useCallback(() => {
     if (!parsed || parsed.length === 0) return;
-    for (const p of parsed) {
-      addFlashCard(p.question, p.answer, categoryId);
-    }
+    // Single batched commit: one setCardMapState + one IDB transaction.
+    bulkAddFlashCards(parsed, categoryId);
     toast.success(`Uspješno uvezeno ${parsed.length} blic pitanja`);
     setRaw("");
     setParsed(null);
     onOpenChange(false);
-  }, [parsed, categoryId, addFlashCard, onOpenChange]);
+  }, [parsed, categoryId, bulkAddFlashCards, onOpenChange]);
 
   const isDirty = raw.trim().length > 0 || (parsed?.length ?? 0) > 0;
 

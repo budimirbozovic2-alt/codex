@@ -35,6 +35,12 @@ interface Props {
     category: string,
     subcategory?: string,
   ) => Card;
+  /** Bulk flash import — single batched commit; replaces N×addFlashCard loop. */
+  bulkAddFlashCards: (
+    pairs: { question: string; answer: string }[],
+    categoryId: string,
+    subcategoryId?: string,
+  ) => void;
   /** Bulk essay import (from useBackupActions().importCards). */
   importEssays: (cards: ParsedEssay[], category: string) => void;
   /** Visual variant — `compact` for inline toolbar, `prominent` for empty-state CTA. */
@@ -54,6 +60,7 @@ export default function CardCreateMenu({
   allCategoryNames,
   addCard,
   addFlashCard,
+  bulkAddFlashCards,
   importEssays,
   size = "compact",
 }: Props) {
@@ -141,12 +148,13 @@ export default function CardCreateMenu({
             categories={allCategoryNames}
             onImport={(cards, cat, type) => {
               if (type === "flash") {
-                cards.forEach((c) =>
-                  addFlashCard(
-                    c.question,
-                    c.sections.map((s) => s.content).join("\n"),
-                    cat,
-                  ),
+                // Single batched commit instead of N×addFlashCard.
+                bulkAddFlashCards(
+                  cards.map((c) => ({
+                    question: c.question,
+                    answer: c.sections.map((s) => s.content).join("\n"),
+                  })),
+                  cat,
                 );
               } else {
                 importEssays(cards, cat);
@@ -161,7 +169,7 @@ export default function CardCreateMenu({
         open={bulkFlashOpen}
         onOpenChange={setBulkFlashOpen}
         categoryId={categoryId}
-        addFlashCard={addFlashCard}
+        bulkAddFlashCards={bulkAddFlashCards}
       />
     </>
   );

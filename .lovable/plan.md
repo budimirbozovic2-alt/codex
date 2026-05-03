@@ -1,128 +1,118 @@
-## Plan refaktora SSOT-a u `CardStateProvider`
+# Uzrok freeze-a kod masovnog importa i `addCard`
 
-Implementacija u 3 sigurna koraka (C2 → B2 → B5) i jedan opcioni veliki zahvat (A1).
+## Šta sam analizirao
+- `src/components/category/BulkImportDialog.tsx` (`confirmImport`)
+- `src/components/category/CardCreateMenu.tsx` (DOCX import grana)
+- `src/hooks/useCardCRUD.ts` (`addCard`, `addFlashCard`, `bulkAddCards`)
+- `src/contexts/cards/CardStateProvider.tsx` (sync ref/state, aggregate)
+- `src/lib/persist-queue.ts` (debounced flush)
+- `src/lib/db-queries.ts` (`idbBulkApply`)
+- `src/lib/card-buckets.ts` (rebuild + fingerprint)
 
----
+## Glavni uzroci
 
-### Korak 1 — C2: Razdvajanje monolitnog `useMemo` po polju
+### 1. (KRITIČNO) Bulk import zove `addFlashCard` jedan-po-jedan
+`BulkImportDialog.confirmImport`:
+```ts
+for (const p of parsed) addFlashCard(p.question, p.answer, categoryId);
+```
+i ista grana u `CardCreateMenu` za DOCX flash karte:
+```ts
+cards.forEach(c => addFlashCard(...))
+```
 
-**Fajl:** `src/contexts/cards/CardStateProvider.tsx` (linije 281–351)
+Svaki `addFlashCard` poziv interno radi:
+```ts
+setCardMapState(prev => ({ ...prev, [card.id]: card }))
+```
+React 18 batchuje pozive, ali updater funkcije se i dalje izvršavaju **sekvencijalno** u commit fazi. Za N novih kartica i M postojećih dobijamo **N × O(M+N) = O(N²)** kloniranja samog `CardMap` objekta. Pri 200 importovanih + 1500 postojećih = ~340.000 property-copy operacija prije nego što render može da krene. Glavni razlog blokiranog UI-a.
 
-Trenutni jedan `useMemo` računa istovremeno: `dueCards`, `stats`, `categoryStats`, `cardCountByCategory` — svaka promjena `cards` ili `categories` rebuilduje sve.
+Plus N pojedinačnih `schedulePersist({type:"put"})` poziva — flush je debounced 16ms pa se sve sliva u jedan `idbBulkApply`, ali samo enqueue petlja na 200+ stavki nije problem; problem je state updater.
 
-**Pristup — jedan pass, više memoa s preciznim zavisnostima:**
+### 2. (BITNO) `cardMapRef` sinhronizacioni `useEffect` briše ref-delta i ponovo klonira O(N)
+`CardStateProvider.tsx:134`:
+```ts
+useEffect(() => { cardMapRef.current = { ...cardMap }; }, [cardMap]);
+```
+Nakon svakog batched commita ref se kompletno re-klonira. Za 2000 kartica nakon importa to je još jedna sinhrona O(N) alokacija na main threadu — odmah nakon već skupog state commita. Takođe potire smisao "Ref-Delta" obrasca jer CRUD je već sam upisao identičan objekat u ref pre `setCardMapState`.
 
-1. Zadržati JEDAN interni `useMemo` koji radi O(n) prolaz i vraća sirov agregat: `{ dueIds, sectionTotals, leech, perCatAccum, countByCategory }` — bez sortiranja i bez konačnih `categoryStats`. Zavisi samo od `cards` (FSRS state utiče samo na ovaj sloj).
-2. Razdvojiti izvedene "javne" memoе:
-   - `dueCards` — izvedeno iz `aggregate.dueIds` + `cardMap` (sort po `nextReview`).
-   - `stats` — izvedeno iz `aggregate.sectionTotals` + `cards.length` + `aggregate.leech`.
-   - `cardCountByCategory` — izvedeno iz `aggregate.countByCategory` + `categories` (popunjavanje nula).
-   - `categoryStats` — izvedeno iz `aggregate.perCatAccum` + `categories`.
-3. Dodati posebne `useMemo` wrappere za context value-ove tako da preimenovanje kategorije (koje ne mijenja UUID listu `categories`) ne okida ništa, a dodavanje/uklanjanje kategorije pogađa samo `cardCountByCategory` i `categoryStats`.
-4. Postojeći `bucketCacheRef` fingerprint pristup zadržati — već je optimalan.
+### 3. (BITNO) Posledične O(N) derivacije nakon importa
+Nakon commita pokreću se:
+- `cards = mapToArray(cardMap)` — O(N) kada se `_mapVersion` promijeni (a `bumpMapVersion()` se zove N puta tokom petlje, što nije problem za cache, ali jeste u sinhronoj petlji ukoliko bi neko čitao međurezultat).
+- `aggregate` useMemo — O(total sections).
+- `bucketFingerprint` + eventualni `buildCardBuckets` — O(N) (taxonomy se mijenja jer se ubacuju novi `categoryId`-evi, pa fingerprint puca i radi se rebuild).
+- `cardCountByCategory`, `categoryStats` — O(C).
 
-**Test:** `src/test/category-view-contract.test.ts` mora i dalje proći; dodati mali test koji potvrđuje da rename kategorije ne mijenja referencu `dueCards`/`stats`.
+To je sve neizbježno, ali kad ide na "tail" iza O(N²) iz #1 efekat je vidljiv freeze.
 
----
+### 4. (Manje, ali doprinosi) `addCard`/`addFlashCard` toast nije problem; **ali** `updateCard` zove `toast.success` po pozivu — nije relevantno za import, samo napomena za pojedinačni "addCard" (jedan novi esej ne bi trebao da kočI; ako kočI, krivac je #2 + #3 nakon ponovnog mountanja "Manage" taba).
 
-### Korak 2 — B2: `dbErrorState` iz modul-level u React kontekst
+### 5. Pojedinačni `addCard` (jedna nova kartica) zašto kočI?
+Sam state update je O(M) (jedna kopija `cardMap`). To je trivijalno. Ono što ipak troši je:
+- `useEffect` clone iz #2 (još jedan O(M) clone),
+- `aggregate` koji prolazi kroz **sve** kartice i **sve** sekcije,
+- `buildCardBuckets` jer se fingerprint promijenio (dodali smo novi `categoryId` ili nije postojao taj chapterId — često rebuilduje),
+- Re-render svih konzumera `useCardData()` (CategoryView, Dashboard widgets, GlobalSearch invalidation, itd.).
 
-**Fajlovi:**
-- `src/lib/db-schema.ts` (linije 9–11, 250–331)
-- novi: `src/contexts/db/DbErrorProvider.tsx`
-- `src/hooks/useCardBootstrap.ts` (linija 92)
-- `src/contexts/cards/CardStateProvider.tsx` (već ima `DbErrorContext` na liniji 122 — proširiti)
-
-**Pristup:**
-
-1. U `db-schema.ts` zadržati internu varijablu **samo** kao trenutni snapshot za async pozivaoce koji nemaju React kontekst (npr. `useCardBootstrap` rana faza). Dodati emisiju event-a kroz postojeći `eventBus` kad se mijenja:
-   - novi event: `EVENT_TYPES.DB_ERROR_CHANGED` (dodati u `src/lib/event-bus.ts`)
-   - svaki set/clear `dbErrorState`-a u `db-schema.ts` (linije 257, 300, 305, 331) prati `eventBus.emit(DB_ERROR_CHANGED, currentState)`.
-2. Napraviti `DbErrorProvider` koji:
-   - Inicijalno čita `getDbErrorState()`.
-   - Subscribe-uje na `DB_ERROR_CHANGED` i drži state u `useState`.
-   - Eksponira `useDbError()` hook (zamjena za trenutni iz `CardStateProvider`).
-3. Premjestiti `<DbErrorContext.Provider>` van `CardStateProvider`-a (omotati ga oko cijele kompozicije u `App.tsx` ili `MainLayout.tsx`) tako da se UI komponente (RecoveryPanel) više ne oslanjaju na to da je `CardStateProvider` ready.
-4. Ukloniti `dbError` iz `CardStateContextValue` da ne miješa odgovornosti.
-
-**Net efekat:** UI dobija reaktivni dbError signal iz pravog izvora; modul-level varijabla i dalje postoji ali kao implementacioni detalj, ne kao SSOT.
-
----
-
-### Korak 3 — B5: Surgical update u HealthMonitor handleru
-
-**Fajlovi:**
-- `src/components/HealthMonitor.tsx` (linije 145–187)
-- `src/contexts/cards/CardStateProvider.tsx` (linije 215–229)
-- `src/lib/event-bus.ts` (proširiti payload `CARDS_UPDATED`)
-
-**Pristup:**
-
-1. Standardizovati payload event-a `CARDS_UPDATED`:
-   ```ts
-   { source: string; cardIds?: string[]; reason: "orphan-cleanup" | "heal-stale" | "remap" | ... }
-   ```
-2. `handleCleanOrphans` (linija 160) i `handleHealStaleLinks` (linija 179) već znaju **tačno** koje `cardIds` su mutirale — proslijediti ih kroz event payload.
-3. U `CardStateProvider` handler (linije 215–229):
-   - Ako `payload.cardIds` postoji i ima **≤ N** stavki (npr. ≤ 200), uradi surgical re-fetch samo tih kartica preko `db.cards.bulkGet(cardIds)` i mergeuj u `cardMap` (kroz postojeći `setCardMapState` + `cardMapRef` patch + `bumpMapVersion`).
-   - Ako payload-a nema (legacy emiteri kao remap-from-backup koji mijenja sve), zadrži postojeći full reload kao fallback.
-4. Bez ikakvog `schedulePersist` — podaci su već u IDB-u (HealthMonitor je upisao direktno preko `db.cards.update`).
-
-**Net efekat:** Tipičan orphan cleanup od npr. 5 kartica više ne radi O(N) IDB scan + full re-render svih subscribera.
+Kod velikih biblioteka (5000+ kartica) jedan `addCard` već može da napravi 50–150 ms zastoj na slabijem hardveru. Cilj je svesti to na <5 ms.
 
 ---
 
-### Korak 4 (OPCIONO, niska hitnost) — A1: Migracija `cardMap` na Zustand
+# Plan ispravki
 
-**Cilj:** Eliminisati `cardMapRef` ↔ `cardMap` dvojnost; jedna data struktura koja podržava i O(1) mutacije i selektivne re-rendere.
+## Korak 1 — Bulk path u BulkImportDialog (KRITIČNO)
+**Fajlovi:** `src/components/category/BulkImportDialog.tsx`, `src/components/category/CardCreateMenu.tsx` (i `MassFlashImportTrigger.tsx` props), `src/contexts/cards/CardActionsProvider.tsx` već exportuje `bulkAddCards`.
 
-**Fajlovi (procjena):**
-- novi: `src/store/useCardStore.ts` (Zustand sa `subscribeWithSelector` + `immer` middleware)
-- `src/contexts/cards/CardStateProvider.tsx` — postaje tanak wrapper koji čita iz storea i dalje izlaže iste kontekste (kompatibilnost)
-- `src/hooks/useCardCRUD.ts` — `cardMapRef.current[id] = ...` postaje `useCardStore.setState(...)` koji je sinhrоn
-- `src/lib/persist-queue.ts` — `mapToArray` čita iz storea umjesto iz arg-a
-- Svi konzumenti `useCardData()` ostaju nepromijenjeni
+- Promijeniti prop `addFlashCard` u `BulkImportDialog`/`MassFlashImportTrigger` na `bulkAddFlashCards: (pairs: {question:string;answer:string}[], categoryId, subcategoryId?) => void` **ili** dodati `bulkAddCards` prop i lokalno konstruisati `Card[]` koristeći `createFlashCard` iz `@/lib/spaced-repetition`.
+- `confirmImport` sklapa cijeli `Card[]` jednim mapiranjem i poziva `bulkAddCards(newCards)` jednom.
+- DOCX flash grana u `CardCreateMenu.onImport` se tretira isto: pretvori sve u `Card[]` i pozovi `bulkAddCards` jednom.
+- Toast ostaje jedan ("Uvezeno N kartica").
 
-**Pristup:**
+Rezultat: jedan `setCardMapState`, jedan `schedulePersist({type:"bulk"})`, jedan flush u `idbBulkApply`.
 
-1. Dodati zavisnost `zustand` (već se koristi za `useSourceReaderStore` — nema novog deps-a).
-2. Definisati store:
-   ```ts
-   interface CardStore {
-     cardMap: CardMap;          // mutiše se kroz immer
-     version: number;            // zamjena za _mapVersion
-     patch: (id, fn) => void;
-     bulkUpsert: (cards) => void;
-     remove: (id) => void;
-     reset: (map) => void;
-   }
-   ```
-3. `useCardData()` interno koristi `useStore(useCardStore, selectorMemo)` — selektivna pretplata (komponenta koja gleda `dueCards` ne re-renderuje se na rename kategorije).
-4. Derivacije iz Koraka 1 ostaju iste, ali se računaju kroz `useCardStore` selektore + `useMemo` na rezultatu.
-5. CRUD hookovi gube `cardMapRef` i `setCardMapState`, postaju 1-line pozivi store-a; `useEffect` sync na liniji 140 nestaje.
-6. `persistQueue` ostaje nepromijenjen (i dalje prima eksplicitne `Card` objekte).
+## Korak 2 — Eliminisati skupi `cardMapRef` sync useEffect
+**Fajl:** `src/contexts/cards/CardStateProvider.tsx` (linija 133–134, plus svi CRUD-ovi koji već održavaju ref).
 
-**Migracioni plan u koracima:**
-- 4a: Uvesti store paralelno; `CardStateProvider` ga puni iz svog `cardMap`-a (dual-write privremeno).
-- 4b: Migrirati `useCardCRUD` da piše u store; ukloniti `cardMapRef`.
-- 4c: Migrirati `useCardData` da čita iz storea; obrisati `cardMap` useState.
-- 4d: Obrisati `useEffect` ref-sync, `bumpMapVersion`, `_mapVersion` cache.
+Trenutno: `useEffect(() => { cardMapRef.current = { ...cardMap }; }, [cardMap]);` — bezuslovno kopira čitav `cardMap`.
 
-**Rizik:** Visok — dira CRUD i sve konzumere kartica. Preporuka: izvesti tek nakon što su koraci 1–3 mergeani i stabilizovani.
+Plan:
+- Inicijalizovati `cardMapRef` iz prvog "load" outputa (`useCardBootstrap` već postavlja `cardMap` — proširiti ga da zajedno sa `setCardMapState(map)` postavi i `cardMapRef.current = map`). Tada inicijalna sinhronizacija ne treba useEffect.
+- CRUD hookovi već održavaju ref u sinhronu (Ref-Delta) prije svakog `setCardMapState`. Isto važi za `onCardLinksCleared`, `onCardReviewConfirmed`, `CARDS_UPDATED` listener (provjeriti i tamo).
+- Zameniti useEffect "best-effort guardom" koji se okida samo ako referenca odstupa **i** veličine se razlikuju (defensive sync), bez kopiranja čitavog objekta — npr. petlja koja dodaje samo missing keys i briše stale; ili još jednostavnije: ukloniti useEffect kompletno jer su svi mutator paths već Ref-Delta-aware. Zadržati developer assert u DEV build-u koji upozorava ako veličine ne odgovaraju (postavlja `cardMapRef.current = cardMap` samo u tom slučaju).
+
+Rezultat: jedan put kod importa nestaje O(N) clone na svakoj promjeni state-a.
+
+## Korak 3 — Smanjiti broj `bumpMapVersion()` + `mapToArray` kod bulk-a
+**Fajl:** `src/hooks/useCardCRUD.ts` (`bulkAddCards`).
+
+Trenutno (već dobro): `bulkAddCards` radi jedan setState i jedan bumpMapVersion. Provjeriti da li se to poštuje i u svim drugim "bulk" call sajtovima (DocxImporter, AutoSplitDialog već koristi `bulkAddCards`). Ako negdje petlja zove `addCard` umjesto `bulkAddCards`, prebaciti.
+
+Dodatno: dodati javni `bulkAddFlashCards` helper u `useCardCRUD` koji prima Q/A parove i interno konstruise `Card[]` — da consumere ne tjeramo da importuju `createFlashCard`.
+
+## Korak 4 — Lazy/deferred derivacije velikih lista (poboljšanje)
+**Fajl:** `src/contexts/cards/CardStateProvider.tsx`.
+
+Za biblioteke s >2000 kartica:
+- `aggregate` ostaje sinhron (potreban za stats), ali eventualno premjestiti `bucketFingerprint`+`buildCardBuckets` iza `requestIdleCallback` ili svesti rebuild na throttling kada je import-batch veći od 100 kartica (npr. via mikro-flag "bulk in progress" koji ostavi `EMPTY_BUCKETS` ili keširanu vrijednost dok flush ne završi).
+- Alternativno: izolovati `buckets` u zaseban context (`CardBucketsContext`) tako da widgeti koji ne trebaju buckete (npr. SettingsPage, BackupCard) ne re-renderuju kad se buckets promijeni.
+
+Ovaj korak je opcioni; ako su koraci 1+2 dovoljni za fluentnost, preskačemo ga.
+
+## Korak 5 — Sigurnosna mreža: chunkovani persist za vrlo velike importe
+**Fajl:** `src/lib/persist-queue.ts` (ili u `idbBulkApply`).
+
+Ako bulk ima >1000 kartica, podijeliti `bulkPut` u chunkove od po ~500 unutar iste rw transakcije, sa `await Promise.resolve()` između chunkova da se main thread odblokira. Sprječava dugačku IDB transakciju koja blokira renderer.
 
 ---
 
-### Tehnički detalji
+# Verifikacija
+- Ručni test: import 200 P:/O: parova u kategoriju s 1000+ postojećih kartica — UI mora ostati responzivan (nema duže od 100 ms blokade).
+- Ručni test: pojedinačni "Dodaj esej" u istoj kategoriji — instantan close dijaloga.
+- Postojeći testovi: `bun test` (unit), posebno `zettelkasten-bulk-create.test.ts`.
+- DEV console: tražiti `[persistQueue] flush ok puts=… ms` — trebalo bi da bude **jedan** flush po importu, ne N.
 
-**Redoslijed mergeа:** 1 → 2 → 3 → (pauza za QA) → 4.
-**Bez breaking changeа za konzumere** u koracima 1–3 (svi `useCardData()` / `useDbError()` ostaju isti).
-**Testovi koji se moraju zelenjeti:**
-- `src/test/category-view-contract.test.ts`
-- `src/test/persist-queue-c3c4.test.ts`
-- `src/test/spaced-repetition.test.ts`
-
-### Šta plan ne radi
-
-- Ne dira `Session/ReviewLog` tok (već je `commitReviewEntry` SSOT).
-- Ne dira `onCardLinksCleared` handler (već poziva `schedulePersist`).
-- Ne uvodi novi state library osim opcione Zustand integracije u Koraku 4.
+# Redoslijed implementacije
+1. Korak 1 (najveći win, mali rizik).
+2. Korak 2 (rizičnije, treba pažljivo provjeriti sve mutator pateve).
+3. Korak 3 (niska rizik).
+4. Korak 4–5 samo ako mjerenja nakon 1–3 i dalje pokazuju zastoj.

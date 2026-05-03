@@ -130,8 +130,29 @@ export function CardStateProvider({ children }: { children: ReactNode }) {
   // Ref-Delta mirror — kept as an *independent* clone of state. CRUD hooks
   // mutate this ref in place for O(1) writes; never alias state and ref or
   // mutations will silently corrupt the rendered map.
+  //
+  // PERF: We do NOT bezuslovno re-clone the ref on every cardMap change. All
+  // mutator paths (CRUD, import, category mgmt, event-bus listeners) already
+  // sync `cardMapRef.current` synchronously *before* calling setCardMapState
+  // ("Ref-Delta" pattern). Doing a `{...cardMap}` here was an O(N) clone on
+  // every commit — visible freeze on bulk imports. In DEV we keep a defensive
+  // size-mismatch assertion that re-syncs (and warns) if some path forgot to
+  // update the ref; in PROD we skip the check entirely.
   const cardMapRef = useRef<CardMap>({});
-  useEffect(() => { cardMapRef.current = { ...cardMap }; }, [cardMap]);
+  useEffect(() => {
+    if (cardMapRef.current === cardMap) return;
+    const refSize = Object.keys(cardMapRef.current).length;
+    const stateSize = Object.keys(cardMap).length;
+    if (refSize !== stateSize) {
+      if (import.meta.env.DEV) {
+        console.warn(
+          `[CardStateProvider] cardMapRef out of sync (ref=${refSize}, state=${stateSize}); resyncing. ` +
+          "A mutator path likely forgot to update cardMapRef before setCardMapState.",
+        );
+      }
+      cardMapRef.current = { ...cardMap };
+    }
+  }, [cardMap]);
 
   // Boot — dbError now lives in DbErrorProvider (consumed by RecoveryGate).
   const { ready } = useCardBootstrap({
@@ -139,6 +160,7 @@ export function CardStateProvider({ children }: { children: ReactNode }) {
     setCategoryRecordsState,
     setReviewLogState,
     setSrSettingsState,
+    cardMapRef,
   });
 
   // Quit-backup flush + unmount safety net
