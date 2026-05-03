@@ -71,7 +71,7 @@ export default function SourcesTab({ categoryId, sources, onOpenReader, onSource
       };
 
       await saveSource(newSource);
-      invalidateSourcesCache();
+      // saveSource notifies listeners (SSOT) — no manual invalidate needed.
       toast.success(`Izvor "${title}" uspješno importovan.`);
     } catch (err) {
       toast.error(`Greška pri importu: ${err instanceof Error ? err.message : "Nepoznata greška"}`);
@@ -85,7 +85,7 @@ export default function SourcesTab({ categoryId, sources, onOpenReader, onSource
     setDeleting(true);
     try {
       await deleteSource(deleteTarget.id);
-      invalidateSourcesCache();
+      // deleteSource notifies listeners (SSOT) — no manual invalidate needed.
       toast.success(`Izvor "${deleteTarget.title}" obrisan.`);
       setDeleteTarget(null);
     } catch {
