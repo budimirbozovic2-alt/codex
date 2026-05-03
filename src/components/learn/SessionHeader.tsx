@@ -1,11 +1,10 @@
-import { Volume2, ArrowLeft, Zap } from "lucide-react";
+import { ArrowLeft, Zap } from "lucide-react";
 import React from "react";
 import { Card, getCardScore, EXAM_FREQUENT_TAG } from "@/lib/spaced-repetition";
 import { ViewWidth, viewWidthClasses, viewWidthLabels } from "./types";
 
 import { useCategoryData } from "@/contexts/AppContext";
 import { motion } from "framer-motion";
-import { speak } from "@/lib/tts";
 import ShortcutsHint from "@/components/ShortcutsHint";
 
 const AR_SHORTCUTS = [
