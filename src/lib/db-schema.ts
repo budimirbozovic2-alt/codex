@@ -61,6 +61,15 @@ export interface SourceArticle {
 
 export type SourceKind = "propis" | "skripta";
 
+/** Per-source exam-question state (W3): persisted on the Source record itself
+ *  so the user's mapping progress survives reload, navigation, and app quit. */
+export interface ExamQuestion {
+  id: string;
+  text: string;
+  done: boolean;
+  moduleCount?: number;
+}
+
 export interface Source {
   id: string;
   categoryId: string;
@@ -76,6 +85,8 @@ export interface Source {
   slMarkings?: string;
   isExclusive?: boolean;
   sourceKind?: SourceKind;
+  /** Per-source exam questions (pending + done). Optional — older records lack it. */
+  examQuestions?: ExamQuestion[];
 }
 
 export type MindMapMode = "hierarchy" | "procedure";

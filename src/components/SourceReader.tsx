@@ -1,7 +1,8 @@
-import { lazy, Suspense, useEffect } from "react";
+import { lazy, Suspense, useEffect, useRef } from "react";
 import ExamSidebar from "@/components/ExamSidebar";
 import { cn } from "@/lib/utils";
 import type { Source } from "@/lib/sources-storage";
+import { saveSource } from "@/lib/sources-storage";
 import { useSourceReaderStore, WIDTH_CLASSES } from "@/store/useSourceReaderStore";
 import { useSourceReaderActions } from "@/hooks/useSourceReaderActions";
 import { SourceToolbar } from "@/components/source-reader/SourceToolbar";
@@ -37,7 +38,41 @@ export default function SourceReader({ source, onBack, onSourceUpdated }: Props)
   const examQuestions = useSourceReaderStore(s => s.examQuestions);
   const setExamQuestions = useSourceReaderStore(s => s.setExamQuestions);
 
-  // Reset store on unmount
+  // ── W3: rehydrate per-source examQuestions on mount / source switch ──
+  // Source record is the SSOT; the Zustand store is just a working copy
+  // scoped to the current reader session.
+  const hydratedSourceIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (hydratedSourceIdRef.current === source.id) return;
+    hydratedSourceIdRef.current = source.id;
+    setExamQuestions(source.examQuestions ?? []);
+  }, [source.id, source.examQuestions, setExamQuestions]);
+
+  // ── W3: debounced silent save back to the Source record ──
+  const saveTimerRef = useRef<number | null>(null);
+  const lastSavedJsonRef = useRef<string>(JSON.stringify(source.examQuestions ?? []));
+  useEffect(() => {
+    if (hydratedSourceIdRef.current !== source.id) return; // pre-hydration guard
+    const json = JSON.stringify(examQuestions);
+    if (json === lastSavedJsonRef.current) return;
+    if (saveTimerRef.current !== null) window.clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = window.setTimeout(() => {
+      saveTimerRef.current = null;
+      lastSavedJsonRef.current = json;
+      const next: Source = { ...source, examQuestions, updatedAt: Date.now() };
+      saveSource(next).then(() => onSourceUpdated?.(next)).catch(err => {
+        console.error("[SourceReader] failed to persist examQuestions", err);
+      });
+    }, 800);
+    return () => {
+      if (saveTimerRef.current !== null) {
+        window.clearTimeout(saveTimerRef.current);
+        saveTimerRef.current = null;
+      }
+    };
+  }, [examQuestions, source, onSourceUpdated]);
+
+  // Reset store on unmount — ensures next source starts clean.
   useEffect(() => () => useSourceReaderStore.getState().reset(), []);
 
   return (

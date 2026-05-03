@@ -6,12 +6,9 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
-export interface ExamQuestion {
-  id: string;
-  text: string;
-  done: boolean;
-  moduleCount?: number;
-}
+import type { ExamQuestion } from "@/lib/db-schema";
+
+export type { ExamQuestion };
 
 interface Props {
   questions: ExamQuestion[];
