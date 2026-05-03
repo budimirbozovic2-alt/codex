@@ -43,8 +43,8 @@ interface Props {
   ) => void;
   /** Bulk essay import (from useBackupActions().importCards). */
   importEssays: (cards: ParsedEssay[], category: string) => void;
-  /** Visual variant — `compact` for inline toolbar, `prominent` for empty-state CTA. */
-  size?: "compact" | "prominent";
+  /** Visual variant — `compact` inline, `prominent` empty-state CTA, `icon` ghost icon-only buttons. */
+  size?: "compact" | "prominent" | "icon";
 }
 
 /**
