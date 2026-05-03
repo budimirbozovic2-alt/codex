@@ -1,9 +1,10 @@
 import { Suspense, lazy, type ReactNode } from "react";
 import { CategoryStateProvider } from "./CategoryStateProvider";
-import { CardStateProvider, useDbError } from "./CardStateProvider";
+import { CardStateProvider } from "./CardStateProvider";
 import { CardActionsProvider } from "./CardActionsProvider";
 import { CategoryActionsProvider } from "./CategoryActionsProvider";
 import { BackupActionsProvider } from "./BackupActionsProvider";
+import { DbErrorProvider, useDbError } from "@/contexts/db/DbErrorProvider";
 
 const LazyDatabaseRecoveryPanel = lazy(() => import("@/components/DatabaseRecoveryPanel"));
 
@@ -21,6 +22,7 @@ export { useCategoryData } from "./CategoryStateProvider";
 export { useCardOnlyActions } from "./CardActionsProvider";
 export { useCategoryActions } from "./CategoryActionsProvider";
 export { useBackupActions } from "./BackupActionsProvider";
+export { useDbError } from "@/contexts/db/DbErrorProvider";
 
 // ─────────────────────────────────────────────────────────────
 // Composition root
@@ -39,16 +41,18 @@ function RecoveryGate({ children }: { children: ReactNode }) {
 
 export function CardProvider({ children }: { children: ReactNode }) {
   return (
-    <CategoryStateProvider>
-      <CardStateProvider>
-        <CardActionsProvider>
-          <CategoryActionsProvider>
-            <BackupActionsProvider>
-              <RecoveryGate>{children}</RecoveryGate>
-            </BackupActionsProvider>
-          </CategoryActionsProvider>
-        </CardActionsProvider>
-      </CardStateProvider>
-    </CategoryStateProvider>
+    <DbErrorProvider>
+      <CategoryStateProvider>
+        <CardStateProvider>
+          <CardActionsProvider>
+            <CategoryActionsProvider>
+              <BackupActionsProvider>
+                <RecoveryGate>{children}</RecoveryGate>
+              </BackupActionsProvider>
+            </CategoryActionsProvider>
+          </CardActionsProvider>
+        </CardStateProvider>
+      </CategoryStateProvider>
+    </DbErrorProvider>
   );
 }
