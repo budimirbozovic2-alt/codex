@@ -70,6 +70,9 @@ export default function SessionFilters({
   selectedChapter,
   filterExamFrequent,
   examFrequentCount,
+  frequencyFilter,
+  onFrequencyFilterChange,
+  frequencyCounts,
   filterType = "all",
   onSelectCategory,
   onSelectSubcategory,
@@ -79,6 +82,7 @@ export default function SessionFilters({
   sortControl,
   lockedCategory,
 }: SessionFiltersProps) {
+  const tripleMode = !!onFrequencyFilterChange;
   // Helper to resolve UUID → display name
   const catName = (id: string) => categoryRecords?.find(r => r.id === id)?.name ?? id;
   const subNameMap = useMemo(() => {
