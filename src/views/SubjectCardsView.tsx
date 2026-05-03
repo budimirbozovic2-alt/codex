@@ -324,21 +324,6 @@ export default function SubjectCardsView() {
                     </button>
                   )}
                 </div>
-                <Select value={sourceFilter} onValueChange={setSourceFilter}>
-                  <SelectTrigger className="h-8 w-auto min-w-[150px] text-xs">
-                    <SelectValue placeholder="Izvor" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="__all__">Svi izvori</SelectItem>
-                    {sourceOptions.length === 0 ? (
-                      <SelectItem value="__none__" disabled>Nema vezanih izvora</SelectItem>
-                    ) : (
-                      sourceOptions.map(s => (
-                        <SelectItem key={s.id} value={s.id} className="text-xs">{s.title}</SelectItem>
-                      ))
-                    )}
-                  </SelectContent>
-                </Select>
               </div>
               <CardViewMode
                 cards={cards}
@@ -354,7 +339,7 @@ export default function SubjectCardsView() {
                 onEdit={handleEdit}
                 onPassiveRead={handlePassiveRead}
                 externalQuery={searchQuery}
-                externalSourceId={sourceFilter}
+                
                 initialSubcategory={initialSnapshot?.cvSubcategory}
                 initialChapter={initialSnapshot?.cvChapter}
                 initialType={initialSnapshot?.cvType}
