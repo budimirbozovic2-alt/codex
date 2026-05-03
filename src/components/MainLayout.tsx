@@ -86,7 +86,7 @@ const NudgeWatcher = memo(function NudgeWatcher() {
 const GlobalSearchWrapper = memo(function GlobalSearchWrapper({
   open, onClose,
 }: { open: boolean; onClose: () => void }) {
-  const { setView, setEditingCard } = useUIContext();
+  const { setView, setEditingCardId } = useUIContext();
   // Path is resolved lazily inside `stash()` so it reflects the route at
   // the moment of the click, not when this wrapper mounted.
   const editingCardIdRef = useRef<string | null>(null);
@@ -103,7 +103,7 @@ const GlobalSearchWrapper = memo(function GlobalSearchWrapper({
         onNavigateToCard={(card) => {
           editingCardIdRef.current = card.id;
           stashEditReturn();
-          setEditingCard(card);
+          setEditingCardId(card.id);
           setView("edit");
         }}
       />

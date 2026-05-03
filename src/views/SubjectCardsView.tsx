@@ -56,7 +56,7 @@ export default function SubjectCardsView() {
     addChapter, renameChapter, deleteChapter,
     reorderSubcategories, reorderChapters,
   } = useCategoryActions();
-  const { setEditingCard } = useUIContext();
+  const { setEditingCardId } = useUIContext();
   const { importCards } = useBackupActions();
   const allCategoryNames = useMemo(() => categoryRecords.map(c => c.name), [categoryRecords]);
   
@@ -126,7 +126,7 @@ export default function SubjectCardsView() {
   const handleEdit = (card: Card) => {
     editingCardRef.current = card;
     stashEditReturn();
-    setEditingCard(card);
+    setEditingCardId(card.id);
     navigate("/edit");
   };
 

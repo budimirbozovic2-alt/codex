@@ -19,7 +19,7 @@ export default function LearnPage() {
   const { categories, categoryRecords, subcategories } = useCategoryData();
   const { reviewLog } = useReviewData();
   const { markRead, reviewSection, addKeyPart } = useCardOnlyActions();
-  const { setView, setEditingCard } = useUIContext();
+  const { setView, setEditingCardId } = useUIContext();
   const session = useSessionContext();
   const location = useLocation();
 
@@ -86,9 +86,9 @@ export default function LearnPage() {
   const handleEdit = useCallback((card: Card) => {
     editingCardRef.current = card;
     stashEditReturn();
-    setEditingCard(card);
+    setEditingCardId(card.id);
     setView("edit");
-  }, [stashEditReturn, setEditingCard, setView]);
+  }, [stashEditReturn, setEditingCardId, setView]);
 
   if (!ready) {
     return (
