@@ -14,9 +14,6 @@ import { useCardBootstrap } from "@/hooks/useCardBootstrap";
 import { buildCardBuckets, EMPTY_BUCKETS, bucketFingerprint, type CardBuckets } from "@/lib/card-buckets";
 import { useCategoryData, useCategoryStateSetter } from "./CategoryStateProvider";
 
-export type DbError = { type: "version" | "timeout"; message: string };
-
-
 // ─── Card state (re-renders on card mutations) ───
 interface CardStateContextValue {
   cards: Card[];
@@ -25,7 +22,6 @@ interface CardStateContextValue {
   cardCountByCategory: Record<string, number>;
   buckets: CardBuckets;
   ready: boolean;
-  dbError: DbError | null;
 }
 
 const CardStateContext = createContext<CardStateContextValue | null>(null);
@@ -33,7 +29,7 @@ const CardStateContext = createContext<CardStateContextValue | null>(null);
 const EMPTY_CARD_STATE: CardStateContextValue = {
   cards: [], dueCards: [],
   stats: { due: 0, total: 0, totalSections: 0, learnedSections: 0, leechCount: 0 },
-  cardCountByCategory: {}, buckets: EMPTY_BUCKETS, ready: false, dbError: null,
+  cardCountByCategory: {}, buckets: EMPTY_BUCKETS, ready: false,
 };
 
 export function useCardData() {
