@@ -12,7 +12,7 @@ import { useCardData, useCategoryData, useCardOnlyActions, useCategoryActions, u
 import CardCreateMenu from "@/components/category/CardCreateMenu";
 import type { SubcategoryNode } from "@/lib/db";
 import type { Card } from "@/lib/spaced-repetition";
-import { useCategorySources } from "@/hooks/useCategorySources";
+
 import { useEditReturn } from "@/hooks/useEditReturn";
 import type { BaseEditReturnSnapshot } from "@/lib/edit-return";
 import CardViewMode, { type CardViewFiltersSnapshot } from "@/components/category/CardViewMode";
@@ -35,7 +35,6 @@ interface EditReturnSnapshot extends BaseEditReturnSnapshot {
   tab?: TabValue;
   manageMode?: ManageMode;
   searchQuery?: string;
-  sourceFilter?: string;
   /** CardViewMode internal filters — restored after edit-and-return. */
   cvSubcategory?: string;
   cvChapter?: string;
