@@ -67,21 +67,56 @@ export function saveDiary(entries: DiaryEntry[]) {
 
 
 // ─── Calibration (confidence before reveal) ──────────────
+//
+// STATUS: READ-ONLY / LEGACY (od uklanjanja "Procjena sigurnosti A–E" iz Konsolidacije).
+//
+// Konsolidacija (ReviewCard) više NE generiše nove `CalibrationEntry` zapise.
+// Postojeći podaci u IndexedDB (`db.calibrationLog`) ostaju netaknuti i koriste se za:
+//   - `CalibrationTab` (Statistika → Kalibracija) — istorijski grafici
+//   - `analytics/blind-spots.ts` (`calcBlindSpots`) — detekcija slijepih tačaka iz prošlih sesija
+//   - Backup/Export/Import i Health Monitor — integritet baze
+//
+// Public API koji ostaje podržan:
+//   - `loadCalibration()`           — čita keš
+//   - `addCalibrationEntry(entry)`  — i dalje izložen (npr. za buduće surface-e koji bi
+//                                      htjeli ručno snimiti samoprocjenu); trenutno NEMA aktivnog pozivaoca
+//   - `getCalibrationStats(entries)` — agregacija za prikaz
+//
+// UKLONJENO (nemoj ih ponovo uvoditi bez jasne potrebe):
+//   - `loadCalibrationForCardIds(ids)` — filtriranje keša po ID-evima kartica
+//   - `saveCalibration(entries)`       — bulk overwrite keša/baze
 
+/**
+ * Zapis o kalibraciji samoprocjene (confidence) vs. stvarne ocjene (actualGrade).
+ * Generiše se istorijski; novi zapisi se trenutno NE kreiraju iz Konsolidacije.
+ */
 export interface CalibrationEntry {
   timestamp: number;
   cardId: string;
   sectionId: string;
+  /** Samoprocjena sigurnosti prije otkrivanja odgovora (1–5). */
   confidence: number;
+  /** FSRS ocjena nakon otkrivanja (1–4). */
   actualGrade: number;
   category: string;
 }
 
+/**
+ * Vraća sve kalibracione zapise iz in-memory keša (poslednjih 90 dana).
+ * Read-only API — bezbjedno za prikaz statistika.
+ */
 export function loadCalibration(): CalibrationEntry[] {
   return _calibrationCache;
 }
 
 
+/**
+ * Dodaje novi kalibracioni zapis u keš i IndexedDB.
+ *
+ * NAPOMENA: Trenutno NEMA aktivnog pozivaoca u aplikaciji (UI "Procjena sigurnosti A–E"
+ * je uklonjen iz Konsolidacije). Funkcija je zadržana kao stabilan public API
+ * za eventualne buduće surface-e (npr. ručno označavanje sigurnosti u Learn sesiji).
+ */
 export function addCalibrationEntry(entry: CalibrationEntry) {
   _calibrationCache = [..._calibrationCache, entry];
   if (_calibrationCache.length > 2000) _calibrationCache = _calibrationCache.slice(-2000);
