@@ -68,9 +68,6 @@ export default function PassiveReader({ cards, subcategoryNodes, categoryId, onE
   const [chapterFilter, setChapterFilter] = useState<string>(() => loadPersistedFilters(categoryId).chapterFilter);
   const [typeFilter, setTypeFilter] = useState<TypeFilter>(() => loadPersistedFilters(categoryId).typeFilter);
   const [index, setIndex] = useState(0);
-  const [sidePanel, setSidePanel] = useState<SidePanel>(null);
-  const [linkedSource, setLinkedSource] = useState<Source | null>(null);
-  const [sourceLoading, setSourceLoading] = useState(false);
 
   // Validate persisted filters against the current taxonomy — drop stale IDs.
   useEffect(() => {
