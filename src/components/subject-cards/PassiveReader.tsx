@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
-  ChevronLeft, ChevronRight, BookOpen, FileText, Map as MapIcon,
+  ChevronLeft, ChevronRight, BookOpen,
   Pencil, Activity, Sparkles, AlertTriangle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -8,16 +8,10 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import {
-  Tooltip, TooltipContent, TooltipProvider, TooltipTrigger,
-} from "@/components/ui/tooltip";
-import {
   type Card, SectionState, getCardRetrievability,
 } from "@/lib/spaced-repetition";
-import type { SubcategoryNode, Source } from "@/lib/db";
+import type { SubcategoryNode } from "@/lib/db";
 import { sanitizeHtml } from "@/lib/sanitize";
-import { getSource } from "@/lib/sources-storage";
-import SourceSidePanel from "@/components/zettelkasten/SourceSidePanel";
-import MindMapSidePanel from "@/components/subject-cards/MindMapSidePanel";
 
 interface Props {
   cards: Card[];
@@ -29,8 +23,6 @@ interface Props {
   /** Called once the initialCardId has been honored, so the parent can clear it. */
   onInitialConsumed?: () => void;
 }
-
-type SidePanel = "source" | "mindmap" | null;
 
 function retentionColor(pct: number): string {
   if (pct >= 80) return "text-success";
