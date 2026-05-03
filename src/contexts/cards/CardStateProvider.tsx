@@ -133,10 +133,8 @@ export function CardStateProvider({ children }: { children: ReactNode }) {
   const cardMapRef = useRef<CardMap>({});
   useEffect(() => { cardMapRef.current = { ...cardMap }; }, [cardMap]);
 
-  // Boot — dbError is no longer surfaced here; it lives in DbErrorProvider
-  // and is consumed by RecoveryGate. We still call useCardBootstrap to drive
-  // the load lifecycle (`ready`).
-  useCardBootstrap({
+  // Boot — dbError now lives in DbErrorProvider (consumed by RecoveryGate).
+  const { ready } = useCardBootstrap({
     setCardMapState,
     setCategoryRecordsState,
     setReviewLogState,
