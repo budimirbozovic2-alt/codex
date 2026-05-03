@@ -1,6 +1,8 @@
 import { MoreVertical, FolderOpen, BookOpen, Flame, Brain, Check, ChevronRight } from "lucide-react";
 import React, { useState, useRef, useEffect } from "react";
-import { Card, EXAM_FREQUENT_TAG, MNEMONIC_TAG } from "@/lib/spaced-repetition";
+import { Card, MNEMONIC_TAG } from "@/lib/spaced-repetition";
+import type { FrequencyTag } from "@/lib/sr/types";
+import { FREQUENCY_VALUES, getFrequencyMeta } from "@/lib/sr/frequency";
 
 interface CardContextMenuProps {
   card: Card;
@@ -9,13 +11,13 @@ interface CardContextMenuProps {
   availableChapters?: string[];
   onMoveCategory?: (cardId: string, category: string, subcategory?: string) => void;
   onAssignChapter?: (cardId: string, chapter: string) => void;
-  onToggleTag: (cardId: string, tag: string) => void;
+  setFrequency: (cardId: string, value: FrequencyTag | null) => void;
   onCloneToMnemonic?: (card: Card) => void;
 }
 
-function CardContextMenuInner({ card, categories, subcategories, availableChapters, onMoveCategory, onAssignChapter, onToggleTag, onCloneToMnemonic }: CardContextMenuProps) {
+function CardContextMenuInner({ card, categories, subcategories, availableChapters, onMoveCategory, onAssignChapter, setFrequency, onCloneToMnemonic }: CardContextMenuProps) {
   const [open, setOpen] = useState(false);
-  const [submenu, setSubmenu] = useState<"category" | "subcategory" | "chapter" | null>(null);
+  const [submenu, setSubmenu] = useState<"category" | "subcategory" | "chapter" | "frequency" | null>(null);
   const [selectedCat, setSelectedCat] = useState<string | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -33,8 +35,8 @@ function CardContextMenuInner({ card, categories, subcategories, availableChapte
   }, [open]);
 
   const cardTags = card.tags || [];
-  const isFrequent = cardTags.includes(EXAM_FREQUENT_TAG);
   const hasMnemoTag = cardTags.includes(MNEMONIC_TAG);
+  const freqMeta = getFrequencyMeta(card.frequencyTag);
 
   const menuItems: { icon: typeof FolderOpen; label: string; action: () => void; active?: boolean }[] = [];
 
@@ -44,7 +46,12 @@ function CardContextMenuInner({ card, categories, subcategories, availableChapte
   if (availableChapters && availableChapters.length > 0 && onAssignChapter) {
     menuItems.push({ icon: BookOpen, label: "Dodijeli glavu", action: () => setSubmenu("chapter") });
   }
-  menuItems.push({ icon: Flame, label: isFrequent ? "Ukloni 'Često na ispitu'" : "Označi 'Često na ispitu'", action: () => { onToggleTag(card.id, EXAM_FREQUENT_TAG); setOpen(false); }, active: isFrequent });
+  menuItems.push({
+    icon: Flame,
+    label: card.frequencyTag ? `Frekventnost: ${freqMeta.shortLabel}` : "Postavi frekventnost",
+    action: () => setSubmenu("frequency"),
+    active: !!card.frequencyTag,
+  });
   if (onCloneToMnemonic) {
     menuItems.push({ icon: Brain, label: hasMnemoTag ? "Već u Mnemo radionici" : "Kloniraj u Mnemo radionicu", action: () => { if (!hasMnemoTag) { onCloneToMnemonic(card); setOpen(false); } }, active: hasMnemoTag });
   }
