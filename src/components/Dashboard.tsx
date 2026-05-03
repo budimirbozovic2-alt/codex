@@ -70,9 +70,8 @@ export default function Dashboard({ stats, categoryStats, categories, categoryRe
           {wc.showCoreStats && (
             <CoreStats
               due={stats.due}
-              learnedSections={stats.learnedSections}
-              totalSections={stats.totalSections}
               pendingFirstReview={pendingFirstReview}
+              weakest={weakestCategory}
             />
           )}
 
