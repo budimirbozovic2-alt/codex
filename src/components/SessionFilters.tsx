@@ -129,10 +129,14 @@ export default function SessionFilters({
       if (selectedChapter && c.chapterId !== selectedChapter) return false;
       if (filterType === "essay" && c.type !== "essay") return false;
       if (filterType === "flash" && c.type !== "flash") return false;
-      if (filterExamFrequent && c.frequencyTag !== "često") return false;
+      if (tripleMode) {
+        if (frequencyFilter && frequencyFilter !== "all" && c.frequencyTag !== frequencyFilter) return false;
+      } else if (filterExamFrequent) {
+        if (c.frequencyTag !== "često") return false;
+      }
       return true;
     }).length;
-  }, [cards, selectedCategory, selectedSubcategory, selectedChapter, filterType, filterExamFrequent]);
+  }, [cards, selectedCategory, selectedSubcategory, selectedChapter, filterType, filterExamFrequent, tripleMode, frequencyFilter]);
 
   if (categories.length < 1) return null;
 
