@@ -102,6 +102,7 @@ export default function SubjectCardsView() {
       cvChapter: cardViewFiltersRef.current?.chapter,
       cvType: cardViewFiltersRef.current?.type,
       cvTag: cardViewFiltersRef.current?.tag ?? null,
+      readerCardId: editingCardRef.current?.id,
     }),
   });
 
