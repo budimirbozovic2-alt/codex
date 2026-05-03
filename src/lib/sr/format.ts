@@ -21,15 +21,8 @@ export const SOURCE_TYPES: { value: CardSourceType; label: string }[] = [
   { value: "zakon", label: "Zakon" },
 ];
 
-/** Canonical tag id stored on `Card.tags` to flag exam-frequent cards. */
-export const EXAM_FREQUENT_TAG = "često-na-ispitu" as const;
 /** Canonical tag id stored on `Card.tags` to flag mnemonic-cloned cards. */
 export const MNEMONIC_TAG = "mnemonic" as const;
-
-export const CARD_TAGS = [
-  { id: EXAM_FREQUENT_TAG, label: "Često dolazi na ispitu", color: "destructive" },
-  { id: "rijetko-na-ispitu", label: "Rijetko dolazi na ispitu", color: "secondary" },
-] as const;
 
 export function formatInterval(interval: number): string {
   if (interval < 1 / 24) {
