@@ -205,15 +205,40 @@ export function CardStateProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
-  // HealthMonitor orphan cleanup → full reload
+  // CARDS_UPDATED → surgical merge when payload.cardIds is provided,
+  // full reload otherwise (legacy emitters / remap-from-backup).
   useEffect(() => {
-    return eventBus.subscribe(EVENT_TYPES.CARDS_UPDATED, () => {
+    interface CardsUpdatedPayload { source?: string; cardIds?: string[] }
+    const SURGICAL_LIMIT = 200;
+    return eventBus.subscribe<CardsUpdatedPayload>(EVENT_TYPES.CARDS_UPDATED, (payload) => {
+      const ids = payload?.cardIds;
+      if (ids && ids.length > 0 && ids.length <= SURGICAL_LIMIT) {
+        // Surgical: re-fetch only mutated cards
+        import("@/lib/db").then(({ db }) => {
+          db.cards.bulkGet(ids).then((rows) => {
+            const fetched = rows.filter((r): r is Card => !!r);
+            const fetchedIds = new Set(fetched.map((c) => c.id));
+            const deletedIds = ids.filter((id) => !fetchedIds.has(id));
+            if (fetched.length === 0 && deletedIds.length === 0) return;
+            // Sync ref first (Ref-Delta)
+            for (const c of fetched) cardMapRef.current[c.id] = c;
+            for (const id of deletedIds) delete cardMapRef.current[id];
+            setCardMapState((prev) => {
+              const next = { ...prev };
+              for (const c of fetched) next[c.id] = c;
+              for (const id of deletedIds) delete next[id];
+              return next;
+            });
+            bumpMapVersion();
+          });
+        });
+        return;
+      }
+      // Fallback: full reload (legacy / large bulk / remap)
       import("@/lib/db-queries").then(({ idbLoadCards }) => {
-        idbLoadCards().then(loaded => {
+        idbLoadCards().then((loaded) => {
           const map: CardMap = {};
           for (const c of loaded) map[c.id] = c;
-          // Ref and state are independent objects (state is a fresh clone)
-          // so future in-place CRUD ref mutations don't alias rendered state.
           cardMapRef.current = map;
           setCardMapState({ ...map });
           bumpMapVersion();
