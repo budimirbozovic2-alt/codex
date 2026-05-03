@@ -40,6 +40,8 @@ interface EditReturnSnapshot extends BaseEditReturnSnapshot {
   cvChapter?: string;
   cvType?: CardViewFiltersSnapshot["type"];
   cvTag?: string | null;
+  /** When tab is "read" or "speed", re-anchor reader to this card on return. */
+  readerCardId?: string;
 }
 
 export default function SubjectCardsView() {
