@@ -2,7 +2,7 @@ import { useParams } from "react-router-dom";
 import { useState, useCallback, useMemo, useEffect } from "react";
 import { getCardMasteryLevel, MASTERY_LEVELS } from "@/lib/mastery";
 import { type Source } from "@/lib/db";
-import { invalidateSourcesCache, loadSourcesByCategory, onSourcesChanged } from "@/lib/sources-storage";
+import { useCategorySources } from "@/hooks/useCategorySources";
 import { useCardData, useCategoryData, useCardOnlyActions } from "@/contexts/AppContext";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import SourceReader from "@/components/SourceReader";
