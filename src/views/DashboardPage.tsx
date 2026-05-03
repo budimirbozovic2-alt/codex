@@ -6,6 +6,7 @@ import Dashboard from "@/components/Dashboard";
 import EmptyState from "@/components/EmptyState";
 import { QuickActions } from "@/components/dashboard/QuickActions";
 import { ToolCards } from "@/components/dashboard/ToolCards";
+import { BackupCard } from "@/components/dashboard/BackupCard";
 
 import InfoPanel from "@/components/InfoPanel";
 import { AnimatePresence } from "framer-motion";

@@ -151,6 +151,7 @@ export default function Dashboard({ stats, categoryStats, categories, categoryRe
         >
           <QuickActions dueCount={stats.due} hasCards={cards.length > 0} />
           <ToolCards />
+          <BackupCard />
         </aside>
       </div>
     </div>
