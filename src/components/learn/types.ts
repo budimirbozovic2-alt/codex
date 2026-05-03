@@ -49,7 +49,23 @@ export interface InitialFilters {
   sortMode: "order" | "weakest";
 }
 
+export interface LearnSessionSnapshot {
+  started?: boolean;
+  selectedCategory?: string | null;
+  selectedSubcategory?: string | null;
+  selectedChapter?: string | null;
+  sortMode?: SortMode;
+  filterType?: "all" | "essay" | "flash";
+  frequencyFilter?: "all" | FrequencyTag;
+  filterExamFrequent?: boolean;
+  currentIndex?: number;
+  viewWidth?: ViewWidth;
+  /** Card the user was editing — used to re-anchor currentIndex if list changed. */
+  cardId?: string;
+}
+
 export interface LearnSessionProps {
+  restoreSnapshot?: LearnSessionSnapshot;
   cards: Card[];
   categories: string[];
   categoryRecords: CategoryRecord[];

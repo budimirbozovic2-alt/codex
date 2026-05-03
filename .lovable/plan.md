@@ -1,60 +1,65 @@
-## Cilj
+## Problem
 
-Optimizovati Smart-Split wizard (`SmartSplitSummaryDialog`) tako da:
-1. **Originalni formating** (bold, italic, podvlačenja, liste, paragrafi) se sačuva iz selekcije izvora kroz cijeli tok wizard-a — uključujući i nakon ručnog rezanja modula.
-2. **Pitanja** (naslov eseja + naziv svake cjeline) se uređuju u **RichTextEditor**-u (isti kao u CardForm-u), sa fokusom na formatiranje (bold/italic/lists/H2/boja).
+Kada korisnik tokom **aktivnog učenja** (`/learn`) ili **pasivnog čitanja** (Subject → Pasivno čitanje) klikne "Uredi karticu" i sačuva/odustane, vraća se na ekran ali **gubi flow**:
 
-## Trenutni problemi
+- `/learn` → vraća na **filter setup** (Filteri → Pokreni), umjesto na karticu na kojoj je radio.
+- Pasivno čitanje → vraća na karticu s indeksom 0 umjesto na karticu koju je uređivao.
 
-- Editor sadržaja modula je obični `<textarea>` (plain text) — pri svakoj izmjeni se HTML rebuilduje iz `plainTextToHtml`, **gubeći sav formating** koji je `handleConvertToEssay` inicijalno spasio u `safeHtml`.
-- `CuttingView` radi nad plain tekstom i `splitTextByParagraphs` razbija po `\n\n`, pa rez vraća rezultat kroz `plainTextToHtml` → ponovo gubitak formatinga.
-- Naslov eseja i nazivi modula koriste `<Input>` (čisti tekst) — bez ikakvog formatinga.
+Razlog: `useEditReturn` snapshot ili nije bogat (LearnPage stashuje samo `path`), ili u PassiveReader/LearnSession ne postoji prop koji bi obnovio internal state (filteri, `started`, `currentIndex`, trenutni cardId).
 
-## Izmjene
+EditPage već ima "Vrati me nazad" link (mali X tekst), ali nije dovoljno vidljiv.
 
-### 1. `src/lib/selection-split-engine.ts` — novi helperi (čisti, bez vanjskih dep)
-Dodati i exportovati:
-- `splitHtmlIntoBlocks(html: string): string[]` — parsira HTML preko `DOMParser`, vraća listu top-level blok-elemenata kao HTML stringove (`<p>…</p>`, `<h1-3>`, `<ul>`, `<ol>`, `<blockquote>`, `<pre>`). Inline elementi se grupišu u prateći `<p>`.
-- `joinHtmlBlocks(blocks: string[]): string` — `blocks.join("\n")`.
-- `htmlBlocksToPlain(blocks: string[]): string` — zadržati postojeći `htmlToPlain` ali ga eksportovati za izvođenje `contentText`/`plainSnippet` iz HTML-a.
+## Rješenje
 
-### 2. `src/components/source-reader/SmartSplitSummaryDialog.tsx`
+Proširiti edit-return snapshot za oba toka i obnoviti puno stanje na povratku, plus pojačati vidljivost dugmeta "Vrati me nazad" u EditPage-u.
 
-**A. Editor sadržaja modula → RichTextEditor**
-- Ukloniti `<textarea>` blok (linije ~423-437).
-- Zamijeniti sa `<RichTextEditor value={mod.contentHtml} onChange={(html) => updateModule(i, { contentHtml: html, contentText: htmlToPlain(html), plainSnippet: htmlToPlain(html).trim() })} placeholder="Sadržaj ove cjeline odgovora..." />`.
-- Ukloniti lokalne helpere `escapeHtml`, `plainTextToHtml` i `splitTextByParagraphs` iz fajla — zamijeniti sa `splitHtmlIntoBlocks` / `joinHtmlBlocks` / `htmlToPlain` iz engine-a.
+### 1. LearnPage (`/learn`) — snapshot pune sesije
 
-**B. Cutting view radi nad HTML blokovima**
-- `CuttingView` prima `htmlBlocks: string[]` umjesto `text`, a svaki blok renderuje `<div dangerouslySetInnerHTML={{__html: sanitizeHtml(block)}} />` — formating ostaje vidljiv tokom rezanja.
-- Scissors između susjednih blokova → `onCut(blockIdx)`.
-- `performManualCut(moduleIdx, blockIdx)`:
-  - `blocks = splitHtmlIntoBlocks(mod.contentHtml)`.
-  - `before = joinHtmlBlocks(blocks.slice(0, blockIdx))`, `after = joinHtmlBlocks(blocks.slice(blockIdx + 1))`.
-  - Naslov novog modula = `htmlToPlain(blocks[blockIdx]).slice(0,200)` (kratki labelni tekst).
-  - `contentHtml` novog modula = `blocks[blockIdx] + "\n" + after` (zadrži prvi blok kao body novog modula umjesto da ga "pojede" kao naslov; alternativa: pure split sa naslov-only blok izbačen iz body-a — uskladiti sa postojećim ponašanjem; default = blok ostaje u novom modulu jer želimo očuvanje sadržaja).
+`useEditReturn` poziv proširiti sa `buildExtras`:
+```ts
+{ started, selectedCategory, selectedSubcategory, selectedChapter,
+  sortMode, filterType, frequencyFilter, filterExamFrequent,
+  currentIndex, viewWidth }
+```
 
-**C. Pitanja u RichTextEditor (minimal)**
-- "Naslov eseja" `<Input>` (linije ~316-321) → `<RichTextEditor value={splitParentName} onChange={setSplitParentName} placeholder="Unesite naslov eseja..." minimal />`.
-- Per-module "naziv cjeline" `<Input>` (linije ~376-382) → `<RichTextEditor value={edit.question} onChange={(v) => updateEditAt(i, { question: v })} placeholder={mod.title || "Naziv cjeline..."} minimal />`.
-- Validacija "non-empty" za parent name → koristiti `htmlToPlain(splitParentName).trim()` kao guard za disabled dugme.
+`LearnSession` dobija novi prop `restoreSnapshot?: LearnSessionSnapshot`. Ako je prosljeđen, lazy-init svi `useState` hookovi koriste vrijednosti iz snapshot-a (uključujući `started=true` da preskoči FilterSetup i ode direktno na karticu na kojoj je korisnik bio).
 
-**D. Sitne posljedice**
-- `paragraphCount` (za enable/disable scissors) → preimenovati u `blockCount = splitHtmlIntoBlocks(mod.contentHtml).length`; disabled kad je `< 2`.
-- `useEffect` za reset `cuttingIndex` ostaje vezan za `total`.
+`LearnPage` čita `initialSnapshot` iz `useEditReturn` i prosljeđuje ga.
 
-### 3. `src/hooks/useSourceReaderActions.ts`
-- `handleConvertToEssay` već koristi `sanitizeHtml(html || ...)` — ostaje. Dodati: ako selekcija ima HTML, izračunati `plainSnippet = htmlToPlain(safeHtml)` umjesto `text.trim()` da bi snippet odgovarao očuvanom HTML-u (sitno usklađenje).
-- `handleSmartSplitConfirm` već prosljeđuje `mod.contentHtml` u `sections[i].content` kroz `sanitizeHtml` — bez izmjena.
+`editingCardRef.current.id` se koristi da, ako je card još u listi (mogla je biti splitovana/obrisana), `currentIndex` se ažurira da pokaže baš tu karticu — fallback na sačuvani index.
 
-## Što se NE mijenja
+### 2. PassiveReader — vraćanje na uređenu karticu
 
-- Engine za auto-detekciju Član X (ostaje za buduće upotrebe; manualni flow je jedini ulaz u wizard, kako i jeste).
-- Tagovi, metapodaci (subcat/chapter), splitMode, dirty-confirm ponašanje.
-- Mapiranje na `addCard` (`sections[].content` već prima HTML).
+`SubjectCardsView` već stashuje `tab: "read"`. Dodati novi extra:
+```ts
+passiveCardId: editingCardRef.current?.id
+```
 
-## Tehničke napomene
+`SubjectCardsView` ako je `initialSnapshot.tab === "read"` postavlja `pendingPassiveCardId = initialSnapshot.passiveCardId` (PassiveReader već ima `initialCardId` prop koji skače na tu karticu — postojeća infrastruktura).
 
-- `RichTextEditor` već postoji (`src/components/RichTextEditor.tsx`) sa `minimal` propom — koristimo ga 1:1 (isti UX kao u CardForm-u).
-- Sav HTML koji ulazi/izlazi iz wizard-a prolazi kroz `sanitizeHtml` (DOMPurify) — XSS politika ostaje očuvana.
-- Bez novih dependencija, bez promjena tipova kartica, bez migracija.
+Isto za `tab: "speed"` → `pendingSpeedCardId`.
+
+### 3. EditPage — vidljivije dugme "Vrati me nazad"
+
+`CardForm` trenutno renderuje malu sivu "Vrati me nazad" labelu pored `X` ikone. Zamijeniti sa pravim **secondary button**-om (`<Button variant="outline" size="sm">` sa `ArrowLeft` ikonom + "Vrati me nazad") na lijevoj strani header-a forme, vidljivim samo kad je `editCard` prisutan. `X` ostaje za "zatvori bez snimanja".
+
+Ova promjena daje jasan vizuelni call-to-action i potvrđuje korisniku da postoji explicit povratni mehanizam (čak i kad je flow spasen automatski).
+
+### 4. Cleanup i edge-case
+
+- Snapshot za `/learn` validira `categoryId` (ako filter sesije bio scoped) — `useEditReturn` to već radi automatski preko `BaseEditReturnSnapshot.categoryId`.
+- Ako je editovana kartica obrisana ili više ne pripada filteru, `currentIndex` se klampuje na valjan opseg (već postoji defensive klamp u LearnSession).
+
+## Fajlovi koji se mijenjaju
+
+- `src/views/LearnPage.tsx` — prošireni `useEditReturn` sa `buildExtras` i prosljeđivanje `restoreSnapshot`.
+- `src/components/LearnSession.tsx` — novi prop `restoreSnapshot`, lazy-init hookova iz snapshot-a.
+- `src/components/learn/types.ts` — tip `LearnSessionSnapshot` + dodavanje u `LearnSessionProps`.
+- `src/views/SubjectCardsView.tsx` — `buildExtras` dobija `passiveCardId`/`speedCardId`; useEffect koji postavlja `pendingPassiveCardId`/`pendingSpeedCardId` iz `initialSnapshot` na mount.
+- `src/components/CardForm.tsx` — istaknuto "Vrati me nazad" dugme u header-u.
+
+## Šta korisnik dobija
+
+- Iz aktivnog učenja: edituje karticu → klikne "Vrati me nazad" (ili "Sačuvaj izmjene") → **odmah se vraća na istu karticu, isti filter, isti recall ekran**.
+- Iz pasivnog čitanja: isti princip — vraća se na **istu karticu** unutar Pasivnog čitanja taba, sa svim filterima netaknutim.
+- Vidljivo, eksplicitno dugme "Vrati me nazad" — više se ne oslanja na malu labelu kraj X-a.
