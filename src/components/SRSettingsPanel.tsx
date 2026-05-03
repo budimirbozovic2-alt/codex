@@ -267,7 +267,7 @@ export default function SRSettingsPanel({ settings, onUpdate }: Props) {
           </TabsContent>
 
           <TabsContent value="system" className="mt-0">
-            <SystemTab onOpenExportImport={() => setExportImportOpen(true)} />
+            <SystemTab />
           </TabsContent>
         </Tabs>
       )}
@@ -283,17 +283,6 @@ export default function SRSettingsPanel({ settings, onUpdate }: Props) {
         </Button>
       </div>
       <div className="pb-8" />
-
-      {!isSubjectMode && (
-        <ExportImportDialog
-          open={exportImportOpen}
-          onOpenChange={setExportImportOpen}
-          onExportTemplate={exportTemplate}
-          onExportFull={exportData}
-          onImport={importData}
-          cards={cards}
-        />
-      )}
     </div>
   );
 }

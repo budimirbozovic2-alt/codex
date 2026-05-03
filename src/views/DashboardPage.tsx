@@ -38,6 +38,7 @@ export default function DashboardPage() {
           <EmptyState type="dashboard" onAction={() => setView("create")} />
           <QuickActions dueCount={0} hasCards={false} />
           <ToolCards />
+          <BackupCard />
         </div>
       ) : (
         <div className="relative space-y-6">
