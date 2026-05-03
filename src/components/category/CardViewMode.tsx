@@ -220,9 +220,6 @@ export default function CardViewMode({ cards, categoryId, allCategories, subcate
           otherCategories={otherCategories}
           onConfirm={confirmMove}
         />
-        {/* Empty-state fallback dialog. Primary creation entry point lives in
-            `CardCreateMenu` (the "Dodaj" dropdown) inside SubjectCardsView. */}
-        <AddCardDialog open={addDialogOpen} onOpenChange={setAddDialogOpen} categoryId={categoryId} addCard={addCard} addFlashCard={addFlashCard} />
       </div>
     </div>
   );
