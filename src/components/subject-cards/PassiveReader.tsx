@@ -159,26 +159,6 @@ export default function PassiveReader({ cards, subcategoryNodes, categoryId, onE
 
   const current = filtered[index];
 
-  // Reset side panel + clear cached source when active card changes
-  useEffect(() => {
-    setSidePanel(null);
-    setLinkedSource(null);
-  }, [current?.id]);
-
-  // Lazy-load the linked source when source side panel opens
-  useEffect(() => {
-    if (sidePanel !== "source" || !current?.sourceId) return;
-    if (linkedSource && linkedSource.id === current.sourceId) return;
-    let cancelled = false;
-    setSourceLoading(true);
-    getSource(current.sourceId).then(s => {
-      if (cancelled) return;
-      setLinkedSource(s ?? null);
-      setSourceLoading(false);
-    });
-    return () => { cancelled = true; };
-  }, [sidePanel, current?.sourceId, linkedSource]);
-
   // ── FSRS stats for current card ──
   const stats = useMemo(() => {
     if (!current) return null;
@@ -198,9 +178,6 @@ export default function PassiveReader({ cards, subcategoryNodes, categoryId, onE
       allNew,
     };
   }, [current]);
-
-  const sourceDisabled = !current?.sourceId;
-  const showSidePanel = sidePanel !== null;
 
   return (
     <div className="space-y-4">
