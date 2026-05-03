@@ -145,6 +145,36 @@ export function useCardBootstrap(setters: BootSetters) {
           withTimeout(idbLoadSettings<SRSettings>("srSettings", DEFAULT_SR_SETTINGS), 2500, "settings load", DEFAULT_SR_SETTINGS),
         ]);
 
+        // One-time migration: legacy tags[] ("često-na-ispitu" / "rijetko-na-ispitu")
+        // → Card.frequencyTag (triple system SSOT). Idempotent: skips cards that
+        // already have frequencyTag set, and strips the legacy strings.
+        try {
+          const { LEGACY_FREQUENT_TAG, LEGACY_RARE_TAG, stripLegacyFrequencyTags } = await import("@/lib/sr/frequency");
+          const migrated: Card[] = [];
+          for (const card of c) {
+            const tags = card.tags;
+            if (!tags || tags.length === 0) continue;
+            const hadFreq = tags.includes(LEGACY_FREQUENT_TAG);
+            const hadRare = tags.includes(LEGACY_RARE_TAG);
+            if (!hadFreq && !hadRare) continue;
+            const cleaned = stripLegacyFrequencyTags(tags);
+            const next: Card = {
+              ...card,
+              tags: cleaned,
+              frequencyTag: card.frequencyTag ?? (hadFreq ? "često" : "rijetko"),
+            };
+            migrated.push(next);
+            const idx = c.indexOf(card);
+            if (idx >= 0) c[idx] = next;
+          }
+          if (migrated.length > 0 && db) {
+            db.cards.bulkPut(migrated).catch((e: unknown) =>
+              console.warn("[boot] frequency tag migration persist failed", e),
+            );
+            if (import.meta.env.DEV) console.info(`[boot] migrated ${migrated.length} cards: legacy tags → frequencyTag`);
+          }
+        } catch (e) { console.warn("[boot] frequency tag migration skipped", e); }
+
         splashProgress(60, `${c.length} kartica učitano`);
         if (import.meta.env.DEV) console.log("[boot:diag] categories loaded:", catRecords.length, catRecords.map((r: CategoryRecord) => r.name));
 
