@@ -26,19 +26,8 @@ export default function CategoryView() {
     [allCards, categoryId]
   );
 
-  // Sources: subscribe to targeted listener instead of useLiveQuery to avoid
-  // re-rendering on unrelated IDB writes.
-  const [sources, setSources] = useState<Source[]>([]);
-  useEffect(() => {
-    if (!categoryId) { setSources([]); return; }
-    let cancelled = false;
-    const reload = () => {
-      loadSourcesByCategory(categoryId).then(s => { if (!cancelled) setSources(s); });
-    };
-    reload();
-    const off = onSourcesChanged(reload);
-    return () => { cancelled = true; off(); };
-  }, [categoryId]);
+  // Sources: SSOT subscription via storage listener (W5 fix).
+  const sources = useCategorySources(categoryId);
 
   const { bulkFlagNeedsReview } = useCardOnlyActions();
 
@@ -54,9 +43,8 @@ export default function CategoryView() {
     if (found) setReaderSource(found);
   }, [sources]);
 
-  const handleSourceUpdated = useCallback(() => {
-    invalidateSourcesCache();
-  }, []);
+  // No-op: saveSource/deleteSource already notify listeners (SSOT).
+  const handleSourceUpdated = useCallback(() => {}, []);
 
   const masteryDist = useMemo(() => {
     if (cards.length === 0) return null;
