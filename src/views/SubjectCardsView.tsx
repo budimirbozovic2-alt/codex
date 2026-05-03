@@ -7,12 +7,12 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+
 import { useCardData, useCategoryData, useCardOnlyActions, useCategoryActions, useUIContext, useBackupActions } from "@/contexts/AppContext";
 import CardCreateMenu from "@/components/category/CardCreateMenu";
 import type { SubcategoryNode } from "@/lib/db";
 import type { Card } from "@/lib/spaced-repetition";
-import { useCategorySources } from "@/hooks/useCategorySources";
+
 import { useEditReturn } from "@/hooks/useEditReturn";
 import type { BaseEditReturnSnapshot } from "@/lib/edit-return";
 import CardViewMode, { type CardViewFiltersSnapshot } from "@/components/category/CardViewMode";
@@ -35,7 +35,6 @@ interface EditReturnSnapshot extends BaseEditReturnSnapshot {
   tab?: TabValue;
   manageMode?: ManageMode;
   searchQuery?: string;
-  sourceFilter?: string;
   /** CardViewMode internal filters — restored after edit-and-return. */
   cvSubcategory?: string;
   cvChapter?: string;
@@ -100,7 +99,6 @@ export default function SubjectCardsView() {
       tab,
       manageMode,
       searchQuery,
-      sourceFilter,
       cvSubcategory: cardViewFiltersRef.current?.subcategory,
       cvChapter: cardViewFiltersRef.current?.chapter,
       cvType: cardViewFiltersRef.current?.type,
@@ -118,24 +116,11 @@ export default function SubjectCardsView() {
   );
   const [structureOpen, setStructureOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState(initialSnapshot?.searchQuery ?? "");
-  const [sourceFilter, setSourceFilter] = useState<string>(initialSnapshot?.sourceFilter ?? "__all__");
-  const sources = useCategorySources(categoryId);
   const [pendingPassiveCardId, setPendingPassiveCardId] = useState<string | null>(
     () => (initialSnapshot?.tab === "read" ? initialSnapshot.readerCardId ?? null : null)
   );
   const [pendingSpeedCardId, setPendingSpeedCardId] = useState<string | null>(
     () => (initialSnapshot?.tab === "speed" ? initialSnapshot.readerCardId ?? null : null)
-  );
-
-  const usedSourceIds = useMemo(() => {
-    const set = new Set<string>();
-    for (const c of cards) if (c.sourceId) set.add(c.sourceId);
-    return set;
-  }, [cards]);
-
-  const sourceOptions = useMemo(
-    () => sources.filter(s => usedSourceIds.has(s.id)),
-    [sources, usedSourceIds],
   );
 
   const handleEdit = (card: Card) => {
@@ -339,21 +324,6 @@ export default function SubjectCardsView() {
                     </button>
                   )}
                 </div>
-                <Select value={sourceFilter} onValueChange={setSourceFilter}>
-                  <SelectTrigger className="h-8 w-auto min-w-[150px] text-xs">
-                    <SelectValue placeholder="Izvor" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="__all__">Svi izvori</SelectItem>
-                    {sourceOptions.length === 0 ? (
-                      <SelectItem value="__none__" disabled>Nema vezanih izvora</SelectItem>
-                    ) : (
-                      sourceOptions.map(s => (
-                        <SelectItem key={s.id} value={s.id} className="text-xs">{s.title}</SelectItem>
-                      ))
-                    )}
-                  </SelectContent>
-                </Select>
               </div>
               <CardViewMode
                 cards={cards}
@@ -369,7 +339,7 @@ export default function SubjectCardsView() {
                 onEdit={handleEdit}
                 onPassiveRead={handlePassiveRead}
                 externalQuery={searchQuery}
-                externalSourceId={sourceFilter}
+                
                 initialSubcategory={initialSnapshot?.cvSubcategory}
                 initialChapter={initialSnapshot?.cvChapter}
                 initialType={initialSnapshot?.cvType}

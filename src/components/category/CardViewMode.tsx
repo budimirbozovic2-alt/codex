@@ -36,7 +36,6 @@ interface Props {
   masteryFilter?: number | null;
   onClearMasteryFilter?: () => void;
   externalQuery?: string;
-  externalSourceId?: string;
   /** Initial filter values, restored from edit-return snapshot. */
   initialSubcategory?: string;
   initialChapter?: string;
@@ -46,7 +45,7 @@ interface Props {
   onFiltersChange?: (snap: CardViewFiltersSnapshot) => void;
 }
 
-export default function CardViewMode({ cards, categoryId, allCategories, subcategoryNodes, patchCard, setFrequency, addCard, addFlashCard, bulkAddFlashCards, onDelete, onEdit, onPassiveRead, masteryFilter, onClearMasteryFilter, externalQuery, externalSourceId, initialSubcategory, initialChapter, initialType, initialFrequency, onFiltersChange }: Props) {
+export default function CardViewMode({ cards, categoryId, allCategories, subcategoryNodes, patchCard, setFrequency, addCard, addFlashCard, bulkAddFlashCards, onDelete, onEdit, onPassiveRead, masteryFilter, onClearMasteryFilter, externalQuery, initialSubcategory, initialChapter, initialType, initialFrequency, onFiltersChange }: Props) {
   const { importCards } = useBackupActions();
   const allCategoryNames = useMemo(() => allCategories.map(c => c.name), [allCategories]);
   const [selectionMode, setSelectionMode] = useState(false);
@@ -62,7 +61,6 @@ export default function CardViewMode({ cards, categoryId, allCategories, subcate
     masteryFilter,
     onClearMasteryFilter,
     externalQuery,
-    externalSourceId,
     initialSubcategory,
     initialChapter,
     initialType,

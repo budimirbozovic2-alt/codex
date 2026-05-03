@@ -29,7 +29,6 @@ interface UseCardViewFiltersParams {
   masteryFilter?: number | null;
   onClearMasteryFilter?: () => void;
   externalQuery?: string;
-  externalSourceId?: string;
   /** Initial filter values (used to restore state after edit-and-return). */
   initialSubcategory?: string;
   initialChapter?: string;
@@ -58,7 +57,6 @@ export function useCardViewFilters({
   masteryFilter,
   onClearMasteryFilter,
   externalQuery,
-  externalSourceId,
   initialSubcategory,
   initialChapter,
   initialType,
@@ -98,14 +96,12 @@ export function useCardViewFilters({
   const filteredCards = useMemo(() => {
     const q = (externalQuery ?? "").trim().toLowerCase();
     const hasQuery = q.length > 0;
-    const sourceFilterActive = !!externalSourceId && externalSourceId !== ALL;
 
     const list = scoped.filter((card) => {
       if (filterSubcategory !== ALL && card.subcategoryId !== filterSubcategory) return false;
       if (filterChapter !== ALL && card.chapterId !== filterChapter) return false;
       if (!matchesType(card, filterType)) return false;
       if (!matchesFrequency(card, filterFrequency)) return false;
-      if (sourceFilterActive && card.sourceId !== externalSourceId) return false;
       if (typeof masteryFilter === "number") {
         if (getCardMasteryLevel(card) !== masteryFilter) return false;
       }
@@ -124,7 +120,7 @@ export function useCardViewFilters({
 
     const order = categoryRecord ? buildHierarchyOrder(categoryRecord) : EMPTY_HIERARCHY_ORDER;
     return [...list].sort((a, b) => compareCardsByHierarchy(a, b, order));
-  }, [scoped, filterSubcategory, filterChapter, filterType, filterFrequency, externalQuery, externalSourceId, masteryFilter, categoryRecord]);
+  }, [scoped, filterSubcategory, filterChapter, filterType, filterFrequency, externalQuery, masteryFilter, categoryRecord]);
 
   const hasActiveFilters = useMemo(
     () =>
@@ -133,9 +129,8 @@ export function useCardViewFilters({
       filterType !== "all" ||
       filterFrequency !== "all" ||
       typeof masteryFilter === "number" ||
-      (!!externalSourceId && externalSourceId !== ALL) ||
       (!!externalQuery && externalQuery.trim().length > 0),
-    [filterSubcategory, filterChapter, filterType, filterFrequency, masteryFilter, externalSourceId, externalQuery],
+    [filterSubcategory, filterChapter, filterType, filterFrequency, masteryFilter, externalQuery],
   );
 
   const changeSubcategory = useCallback((id: string) => {
