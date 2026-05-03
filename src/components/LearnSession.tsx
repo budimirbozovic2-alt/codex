@@ -61,13 +61,18 @@ export default function LearnSession({ cards, categories, categoryRecords, subca
   }, [cards, categories]);
 
   const availableSubs = selectedCategory ? (subcategories[selectedCategory] || []) : [];
-  const examFrequentCount = useMemo(() => cards.filter(c => c.frequencyTag === "često").length, [cards]);
+  const frequencyCounts = useMemo(() => {
+    const counts: Record<FrequencyTag, number> = { "često": 0, "rijetko": 0, "nikad": 0 };
+    for (const c of cards) {
+      if (c.frequencyTag) counts[c.frequencyTag] = (counts[c.frequencyTag] ?? 0) + 1;
+    }
+    return counts;
+  }, [cards]);
 
   const sortedCards = useMemo(() => {
     let filtered = selectedCategory ? cards.filter(c => c.categoryId === selectedCategory) : [...cards];
     if (selectedSubcategory) filtered = filtered.filter(c => c.subcategoryId === selectedSubcategory);
     if (selectedChapter) filtered = filtered.filter(c => c.chapterId === selectedChapter);
-    if (filterExamFrequent) filtered = filtered.filter(c => c.frequencyTag === "često");
     if (filterType === "essay") filtered = filtered.filter(c => c.type === "essay");
     else if (filterType === "flash") filtered = filtered.filter(c => c.type === "flash");
     if (frequencyFilter !== "all") filtered = filtered.filter(c => c.frequencyTag === frequencyFilter);
@@ -84,7 +89,7 @@ export default function LearnSession({ cards, categories, categoryRecords, subca
         );
       }
     }
-  }, [cards, selectedCategory, selectedSubcategory, selectedChapter, sortMode, filterExamFrequent, filterType, frequencyFilter, positionMaps]);
+  }, [cards, selectedCategory, selectedSubcategory, selectedChapter, sortMode, filterType, frequencyFilter, positionMaps]);
 
   const card = sortedCards[currentIndex];
 
