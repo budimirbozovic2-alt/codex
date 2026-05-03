@@ -337,31 +337,6 @@ export default function PassiveReader({ cards, subcategoryNodes, categoryId, onE
             </div>
           </article>
 
-          {/* Side panel column */}
-          {sidePanel === "source" && (
-            sourceLoading ? (
-              <div className="border border-border rounded-md bg-card flex items-center justify-center min-h-[420px] text-xs text-muted-foreground">
-                Učitavanje izvora…
-              </div>
-            ) : linkedSource ? (
-              <SourceSidePanel
-                source={linkedSource}
-                categoryId={categoryId}
-                onClose={() => setSidePanel(null)}
-              />
-            ) : (
-              <div className="border border-border rounded-md bg-card flex items-center justify-center min-h-[420px] text-xs text-muted-foreground">
-                Izvor nije dostupan.
-              </div>
-            )
-          )}
-
-          {sidePanel === "mindmap" && (
-            <MindMapSidePanel
-              categoryId={categoryId}
-              onClose={() => setSidePanel(null)}
-            />
-          )}
         </div>
       )}
 
