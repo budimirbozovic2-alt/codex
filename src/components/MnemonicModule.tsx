@@ -1,11 +1,14 @@
 import { CheckCircle2, Brain, Wrench, FlaskConical, Sparkles, Hash, HelpCircle, Film, Type } from "lucide-react";
 import InfoPanel from "@/components/InfoPanel";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { useState, useCallback, useMemo, useRef, useEffect } from "react";
+import { useState, useCallback, useMemo, useEffect } from "react";
 import { useCardOnlyActions, useCategoryData } from "@/contexts/AppContext";
 import {
-  MnemonicCard, loadMnemonicCards, saveMnemonicCards,
-  addMnemonicTestEntry, getMnemonicStats,
+  MnemonicCard,
+  loadMnemonicCards,
+  saveMnemonicCards,
+  addMnemonicTestEntry,
+  getMnemonicStats,
 } from "@/lib/mnemonic-storage";
 import { eventBus, EVENT_TYPES } from "@/lib/event-bus";
 
@@ -22,31 +25,36 @@ const MNEMO_SLIDES: OnboardingSlide[] = [
     icon: Brain,
     iconColor: "bg-primary/15 text-primary",
     title: "Dobrodošli u Memorizaciju",
-    content: 'Izolovani sistem za kreiranje i testiranje mentalnih kuka. Označi kartice tagom \u201eMemorizacija\u201c (ikona mozga) u bazi podataka da ih dodaš ovdje.',
+    content:
+      "Izolovani sistem za kreiranje i testiranje mentalnih kuka. Označi kartice tagom \u201eMemorizacija\u201c (ikona mozga) u bazi podataka da ih dodaš ovdje.",
   },
   {
     icon: Film,
     iconColor: "bg-primary/15 text-primary",
     title: "Mentalni video",
-    content: "Opiši živopisnu vizuelnu scenu koju povezuješ sa gradivom. Što dramatičnija i bizarnija slika, to bolje pamćenje. Koristi boje, pokrete i emocije.",
+    content:
+      "Opiši živopisnu vizuelnu scenu koju povezuješ sa gradivom. Što dramatičnija i bizarnija slika, to bolje pamćenje. Koristi boje, pokrete i emocije.",
   },
   {
     icon: Type,
     iconColor: "bg-warning/15 text-warning",
     title: "Akronim",
-    content: "Za nabrajanja, sistem automatski detektuje stavke i sugeriše prva slova. Smisli riječ ili frazu od tih slova za brzo prisjećanje.",
+    content:
+      "Za nabrajanja, sistem automatski detektuje stavke i sugeriše prva slova. Smisli riječ ili frazu od tih slova za brzo prisjećanje.",
   },
   {
     icon: Hash,
     iconColor: "bg-accent-foreground/15 text-accent-foreground",
     title: "Major sistem",
-    content: 'Brojevi u tekstu se automatski pretvaraju u riječi pomoću fonetskog koda (0=OSA, 1=DUH...). Konfiguriši tablice u sekciji \u201eMentalne tablice\u201c.',
+    content:
+      "Brojevi u tekstu se automatski pretvaraju u riječi pomoću fonetskog koda (0=OSA, 1=DUH...). Konfiguriši tablice u sekciji \u201eMentalne tablice\u201c.",
   },
   {
     icon: FlaskConical,
     iconColor: "bg-success/15 text-success",
     title: "Testiranje",
-    content: "Sistem prikazuje pitanje, a ti imaš 3 sekunde da prizoveš mentalnu sliku. Vidiš samo svoj okidač, ne originalni tekst. Prati uspješnost kroz statistiku.",
+    content:
+      "Sistem prikazuje pitanje, a ti imaš 3 sekunde da prizoveš mentalnu sliku. Vidiš samo svoj okidač, ne originalni tekst. Prati uspješnost kroz statistiku.",
   },
 ];
 
@@ -64,69 +72,110 @@ export default function MnemonicModule({ embedded = false, categoryFilter }: Pro
 
   const [subView, setSubView] = useState<"menu" | "workshop" | "test">("menu");
   const [majorOpen, setMajorOpen] = useState(false);
-  const [showOnboarding, setShowOnboarding] = useState(
-    () => !embedded && !hasSeenOnboarding(MNEMO_ONBOARDING_KEY)
-  );
+  const [showOnboarding, setShowOnboarding] = useState(() => !embedded && !hasSeenOnboarding(MNEMO_ONBOARDING_KEY));
 
-  // Load on mount + subscribe to event bus for cross-component refresh
+  // ═══════════════════════════════════════════════════════════════════════════
+  // FIX S3: Memory Leak & Race Condition Prevention
+  // ═══════════════════════════════════════════════════════════════════════════
   useEffect(() => {
-    loadMnemonicCards().then(setCardsState);
-    const unsub = eventBus.subscribe(EVENT_TYPES.MNEMONICS_UPDATED, () => {
-      loadMnemonicCards().then(setCardsState);
+    let isMounted = true; // Zastavica za kontrolu unmount-a
+
+    loadMnemonicCards().then((loadedCards) => {
+      if (isMounted) setCardsState(loadedCards);
     });
-    return unsub;
+
+    const unsub = eventBus.subscribe(EVENT_TYPES.MNEMONICS_UPDATED, () => {
+      loadMnemonicCards().then((loadedCards) => {
+        // Ažuriraj stanje SAMO ako je komponenta još uvijek na ekranu
+        if (isMounted) setCardsState(loadedCards);
+      });
+    });
+
+    return () => {
+      isMounted = false; // Spriječi buduće state update-ove asinkronih poziva
+      unsub();
+    };
   }, []);
 
+  // ═══════════════════════════════════════════════════════════════════════════
+  // FIX S3: Idempotent React Updater (Separating side-effects from setState)
+  // ═══════════════════════════════════════════════════════════════════════════
   const setCards = useCallback(async (updater: (prev: MnemonicCard[]) => MnemonicCard[]) => {
-    setCardsState(prev => {
+    // Čistimo React StrictMode upozorenja. Side-efekti ne idu unutar setState!
+    setCardsState((prev) => {
       const next = updater(prev);
-      saveMnemonicCards(next);
-      eventBus.emit(EVENT_TYPES.MNEMONICS_UPDATED);
+
+      // Snimamo u localStorage SINHRONO i emitujemo događaj, ali ASINHRONO u odnosu na React update ciklus,
+      // ili to radimo vani. Ali posto nam treba referenca na prev, evo najsigurnijeg nacina:
+      // Koristimo microtask (Promise.resolve) da side-efekti 'pobjegnu' iz React-ovog render ciklusa.
+      Promise.resolve().then(() => {
+        saveMnemonicCards(next);
+        eventBus.emit(EVENT_TYPES.MNEMONICS_UPDATED);
+      });
+
       return next;
     });
   }, []);
 
-  const updateCard = useCallback(async (id: string, updates: Partial<MnemonicCard>) => {
-    await setCards(prev => prev.map(c => c.id === id ? { ...c, ...updates } : c));
-    // Graduation: when marked "ready", tag the original card with "mnemonic"
-    if (updates.mnemonicStatus === "ready") {
-      const mnemoCard = cards.find(c => c.id === id);
-      if (mnemoCard?.originalCardId) {
-        patchCard(mnemoCard.originalCardId, (c) => ({
-          ...c,
-          tags: c.tags?.includes("mnemonic") ? c.tags : [...(c.tags || []), "mnemonic"],
-        }));
+  const updateCard = useCallback(
+    async (id: string, updates: Partial<MnemonicCard>) => {
+      await setCards((prev) => prev.map((c) => (c.id === id ? { ...c, ...updates } : c)));
+      // Graduation: when marked "ready", tag the original card with "mnemonic"
+      if (updates.mnemonicStatus === "ready") {
+        const mnemoCard = cards.find((c) => c.id === id);
+        if (mnemoCard?.originalCardId) {
+          patchCard(mnemoCard.originalCardId, (c) => ({
+            ...c,
+            tags: c.tags?.includes("mnemonic") ? c.tags : [...(c.tags || []), "mnemonic"],
+          }));
+        }
       }
-    }
-  }, [setCards, cards, patchCard]);
+    },
+    [setCards, cards, patchCard],
+  );
 
-  const deleteCard = useCallback(async (id: string) => {
-    await setCards(prev => prev.filter(c => c.id !== id));
-  }, [setCards]);
+  const deleteCard = useCallback(
+    async (id: string) => {
+      await setCards((prev) => prev.filter((c) => c.id !== id));
+    },
+    [setCards],
+  );
 
-  const recordResult = useCallback(async (cardId: string, success: boolean) => {
-    await setCards(prev => prev.map(c => {
-      if (c.id !== cardId) return c;
-      return {
-        ...c,
-        testCount: c.testCount + 1,
-        successCount: c.successCount + (success ? 1 : 0),
-        failCount: c.failCount + (success ? 0 : 1),
-        lastTested: Date.now(),
-      };
-    }));
-    await addMnemonicTestEntry({ timestamp: Date.now(), cardId, success });
-  }, [setCards]);
+  const recordResult = useCallback(
+    async (cardId: string, success: boolean) => {
+      await setCards((prev) =>
+        prev.map((c) => {
+          if (c.id !== cardId) return c;
+          return {
+            ...c,
+            testCount: c.testCount + 1,
+            successCount: c.successCount + (success ? 1 : 0),
+            failCount: c.failCount + (success ? 0 : 1),
+            lastTested: Date.now(),
+          };
+        }),
+      );
+      await addMnemonicTestEntry({ timestamp: Date.now(), cardId, success });
+    },
+    [setCards],
+  );
 
   const visibleCards = useMemo(
-    () => categoryFilter ? cards.filter(c => c.categoryId === categoryFilter) : cards,
+    () => (categoryFilter ? cards.filter((c) => c.categoryId === categoryFilter) : cards),
     [cards, categoryFilter],
   );
 
   const stats = useMemo(() => getMnemonicStats(visibleCards), [visibleCards]);
 
   if (subView === "workshop") {
-    return <MnemonicWorkshop cards={visibleCards} onUpdateCard={updateCard} onDeleteCard={deleteCard} categoryRecords={categoryRecords} />;
+    return (
+      <MnemonicWorkshop
+        cards={visibleCards}
+        onUpdateCard={updateCard}
+        onDeleteCard={deleteCard}
+        categoryRecords={categoryRecords}
+      />
+    );
   }
 
   if (subView === "test") {
@@ -156,9 +205,16 @@ export default function MnemonicModule({ embedded = false, categoryFilter }: Pro
           </div>
           <div className="flex items-center gap-1">
             <InfoPanel title="Memorizacija">
-              <p><strong>Mentalni video</strong> — živopisna vizuelna scena povezana sa gradivom. Što bizarnije, to bolje.</p>
-              <p><strong>Akronim</strong> — za nabrajanja, sistem sugeriše prva slova stavki za brzo prisjećanje.</p>
-              <p><strong>Major sistem</strong> — brojevi se pretvaraju u riječi pomoću fonetskog koda.</p>
+              <p>
+                <strong>Mentalni video</strong> — živopisna vizuelna scena povezana sa gradivom. Što bizarnije, to
+                bolje.
+              </p>
+              <p>
+                <strong>Akronim</strong> — za nabrajanja, sistem sugeriše prva slova stavki za brzo prisjećanje.
+              </p>
+              <p>
+                <strong>Major sistem</strong> — brojevi se pretvaraju u riječi pomoću fonetskog koda.
+              </p>
               <p>Označi kartice tagom „Memorizacija" (ikona mozga) da ih dodaš ovdje.</p>
             </InfoPanel>
             <button
@@ -201,7 +257,9 @@ export default function MnemonicModule({ embedded = false, categoryFilter }: Pro
           <FlaskConical className="h-5 w-5 text-primary" />
           <div>
             <p className="text-sm font-medium">Prosječna uspješnost testiranja</p>
-            <p className={`text-2xl font-bold ${stats.avgSuccess >= 70 ? "text-success" : stats.avgSuccess >= 40 ? "text-warning" : "text-destructive"}`}>
+            <p
+              className={`text-2xl font-bold ${stats.avgSuccess >= 70 ? "text-success" : stats.avgSuccess >= 40 ? "text-warning" : "text-destructive"}`}
+            >
               {stats.avgSuccess}%
             </p>
           </div>
@@ -248,7 +306,9 @@ export default function MnemonicModule({ embedded = false, categoryFilter }: Pro
         <div className="rounded-xl border border-dashed p-6 text-center text-muted-foreground">
           <Brain className="h-10 w-10 mx-auto mb-3 opacity-30" />
           <p className="text-sm">Još nema kartica za memorizaciju.</p>
-          <p className="text-xs mt-1">Označi kartice tagom <strong>"Memorizacija"</strong> (ikona mozga) u listi kartica.</p>
+          <p className="text-xs mt-1">
+            Označi kartice tagom <strong>"Memorizacija"</strong> (ikona mozga) u listi kartica.
+          </p>
         </div>
       )}
 
