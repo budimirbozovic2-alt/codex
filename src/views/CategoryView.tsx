@@ -59,7 +59,7 @@ export default function CategoryView() {
       <SourceReader
         source={readerSource}
         onBack={() => setReaderSource(null)}
-        onSourceUpdated={(updated) => { setReaderSource(updated); invalidateSourcesCache(); }}
+        onSourceUpdated={(updated) => { setReaderSource(updated); }}
       />
     );
   }
