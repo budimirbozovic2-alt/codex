@@ -81,8 +81,10 @@ const SessionHeader = React.memo(function SessionHeader({
             {isFlash && (
               <span className="text-xs text-primary flex items-center gap-1"><Zap className="h-3 w-3" /> Blic</span>
             )}
-            {(card.tags || []).includes(EXAM_FREQUENT_TAG) && (
-              <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-md bg-primary/10 text-primary">Često na ispitu</span>
+            {card.frequencyTag && (
+              <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-md border ${getFrequencyMeta(card.frequencyTag).badgeClass}`}>
+                {getFrequencyMeta(card.frequencyTag).label}
+              </span>
             )}
           </div>
           <div className="flex items-center gap-3 text-xs text-muted-foreground">
