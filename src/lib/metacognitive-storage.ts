@@ -130,12 +130,8 @@ export function loadLatency(): LatencyEntry[] {
   return _latencyCache;
 }
 
-export function saveLatency(entries: LatencyEntry[]) {
-  _latencyCache = entries;
-  if (entries.length > 0) {
-    db.latencyLog.bulkPut(entries).catch((e) => console.warn("[silent]", e));
-  }
-}
+// `saveLatency` uklonjen 2026-05 — bulk overwrite nije imao pozivaoca.
+// Zapisi se dodaju isključivo preko `addLatencyEntry`.
 
 export function addLatencyEntry(entry: LatencyEntry) {
   _latencyCache = [..._latencyCache, entry];
