@@ -215,9 +215,11 @@ export interface ActivityEntry {
   category?: string;
 }
 
-export type TimeReservoir = "review" | "learning" | "creative" | "analysis";
+// `TimeReservoir`, `getReservoir` i `TimeDistribution` su INTERNI tipovi/helpers
+// (de-eksportovani 2026-05) — koriste se samo unutar agregacionih funkcija ovog modula.
+type TimeReservoir = "review" | "learning" | "creative" | "analysis";
 
-export function getReservoir(type: ActivityType): TimeReservoir {
+function getReservoir(type: ActivityType): TimeReservoir {
   switch (type) {
     case "review":
     case "mnemonic-test":
@@ -246,9 +248,7 @@ export const RESERVOIR_COLORS: Record<TimeReservoir, string> = {
   analysis: "hsl(var(--muted-foreground))",
 };
 
-export function loadActivityLog(): ActivityEntry[] {
-  return _activityCache;
-}
+// `loadActivityLog` uklonjen 2026-05 — nije imao pozivaoca.
 
 export function addActivityEntry(entry: ActivityEntry) {
   _activityCache = [..._activityCache, entry];
@@ -256,7 +256,7 @@ export function addActivityEntry(entry: ActivityEntry) {
   db.activityLog.add(entry).catch((e) => console.warn("[silent]", e));
 }
 
-export interface TimeDistribution {
+interface TimeDistribution {
   review: number;
   learning: number;
   creative: number;
