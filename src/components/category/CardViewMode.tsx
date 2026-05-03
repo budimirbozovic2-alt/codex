@@ -161,8 +161,6 @@ export default function CardViewMode({ cards, categoryId, allCategories, subcate
           totalCount={cards.length}
           selectionMode={selectionMode}
           onToggleSelectionMode={() => selectionMode ? exitSelectionMode() : setSelectionMode(true)}
-          onBulkImport={() => setBulkImportOpen(true)}
-          onAddCard={() => setAddDialogOpen(true)}
           onDelete={onDelete}
         />
 
@@ -207,8 +205,9 @@ export default function CardViewMode({ cards, categoryId, allCategories, subcate
           otherCategories={otherCategories}
           onConfirm={confirmMove}
         />
+        {/* Empty-state fallback dialog. Primary creation entry point lives in
+            `CardCreateMenu` (the "Dodaj" dropdown) inside SubjectCardsView. */}
         <AddCardDialog open={addDialogOpen} onOpenChange={setAddDialogOpen} categoryId={categoryId} addCard={addCard} addFlashCard={addFlashCard} />
-        <BulkImportWrapper open={bulkImportOpen} onOpenChange={setBulkImportOpen} categoryId={categoryId} addFlashCard={addFlashCard} />
       </div>
     </div>
   );
