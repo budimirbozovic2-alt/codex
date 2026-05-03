@@ -193,21 +193,11 @@ export default function CardViewTable({
                 </div>
 
                 <div className="flex items-center gap-1.5 flex-wrap">
-                  {CARD_TAGS.map(tag => {
-                    const active = card.tags?.includes(tag.id);
-                    return (
-                      <button
-                        key={tag.id}
-                        onClick={() => toggleTag(card.id, tag.id)}
-                        className={cn(
-                          "text-[10px] px-2 py-0.5 rounded-full border transition-colors",
-                          active ? "bg-primary/10 border-primary text-primary" : "bg-transparent border-border text-muted-foreground hover:border-primary/50"
-                        )}
-                      >
-                        {tag.label}
-                      </button>
-                    );
-                  })}
+                  <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Frekventnost:</span>
+                  <FrequencyMenu card={card} setFrequency={setFrequency} size="sm" />
+                  {card.frequencyTag && (
+                    <span className="text-[10px] text-muted-foreground">{getFrequencyMeta(card.frequencyTag).label}</span>
+                  )}
                 </div>
 
                 <div className="flex items-center gap-2 flex-wrap">
