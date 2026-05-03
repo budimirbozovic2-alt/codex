@@ -1,6 +1,7 @@
 import { ArrowLeft, Zap } from "lucide-react";
 import React from "react";
-import { Card, getCardScore, EXAM_FREQUENT_TAG } from "@/lib/spaced-repetition";
+import { Card, getCardScore } from "@/lib/spaced-repetition";
+import { getFrequencyMeta } from "@/lib/sr/frequency";
 import { ViewWidth, viewWidthClasses, viewWidthLabels } from "./types";
 
 import { useCategoryData } from "@/contexts/AppContext";
