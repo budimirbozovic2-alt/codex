@@ -225,43 +225,9 @@ export default function PassiveReader({ cards, subcategoryNodes, categoryId, onE
         </div>
       </div>
 
-      {/* Side-panel toggles + Edit shortcut */}
+      {/* Edit shortcut */}
       {current && (
         <div className="flex flex-wrap items-center gap-2">
-          <TooltipProvider delayDuration={300}>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <span>
-                  <Button
-                    type="button"
-                    variant={sidePanel === "source" ? "default" : "outline"}
-                    size="sm"
-                    className="gap-1.5 h-8 text-xs"
-                    disabled={sourceDisabled}
-                    onClick={() => setSidePanel(p => p === "source" ? null : "source")}
-                  >
-                    <FileText className="h-3.5 w-3.5" />
-                    Izvor
-                  </Button>
-                </span>
-              </TooltipTrigger>
-              <TooltipContent side="bottom">
-                {sourceDisabled ? "Kartica nije povezana ni sa jednim izvorom." : "Otvori izvor uporedo"}
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-
-          <Button
-            type="button"
-            variant={sidePanel === "mindmap" ? "default" : "outline"}
-            size="sm"
-            className="gap-1.5 h-8 text-xs"
-            onClick={() => setSidePanel(p => p === "mindmap" ? null : "mindmap")}
-          >
-            <MapIcon className="h-3.5 w-3.5" />
-            Mapa uma
-          </Button>
-
           <div className="ml-auto">
             <Button
               type="button"
@@ -285,7 +251,7 @@ export default function PassiveReader({ cards, subcategoryNodes, categoryId, onE
           Nema kartica za prikaz uz odabrane filtere.
         </div>
       ) : (
-        <div className={`grid gap-4 ${showSidePanel ? "grid-cols-1 lg:grid-cols-2" : "grid-cols-1"}`}>
+        <div className="grid gap-4 grid-cols-1">
           {/* Card column */}
           <article className="glass-card rounded-2xl p-6 md:p-8 space-y-5">
             <header className="space-y-2">
