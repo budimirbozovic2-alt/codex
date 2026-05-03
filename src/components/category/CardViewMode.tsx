@@ -115,14 +115,18 @@ export default function CardViewMode({ cards, categoryId, allCategories, subcate
     setMoveCardId(null);
   }, [moveCardId, patchCard]);
 
-  if (cards.length === 0 && !addDialogOpen) {
+  if (cards.length === 0) {
     return (
       <div className="text-center py-16 space-y-4">
         <p className="text-sm text-muted-foreground">Nema kartica u ovoj kategoriji.</p>
-        <Button onClick={() => setAddDialogOpen(true)} className="gap-2">
-          <Plus className="h-4 w-4" /> Nova kartica
-        </Button>
-        <AddCardDialog open={addDialogOpen} onOpenChange={setAddDialogOpen} categoryId={categoryId} addCard={addCard} addFlashCard={addFlashCard} />
+        <CardCreateMenu
+          size="prominent"
+          categoryId={categoryId}
+          allCategoryNames={allCategoryNames}
+          addCard={addCard}
+          addFlashCard={addFlashCard}
+          importEssays={importCards}
+        />
       </div>
     );
   }
