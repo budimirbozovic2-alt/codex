@@ -361,17 +361,18 @@ export function SmartSplitSummaryDialog({ source, onSmartSplitConfirm }: Props) 
                           <ChevronDown className="h-3 w-3" />
                         </button>
                       </div>
-                      <Input
-                        value={edit.question}
-                        onChange={(e) => updateEditAt(i, { question: e.target.value })}
-                        placeholder={mod.title || "Naziv cjeline..."}
-                        disabled={edit.skipped}
-                        className="bg-background font-medium text-sm"
-                      />
+                      <div className="flex-1 min-w-0">
+                        <RichTextEditor
+                          value={edit.question}
+                          onChange={(v) => updateEditAt(i, { question: v })}
+                          placeholder={mod.title || "Naziv cjeline..."}
+                          minimal
+                        />
+                      </div>
                       <button
                         type="button"
                         onClick={() => setCuttingIndex(isCutting ? null : i)}
-                        disabled={edit.skipped || paragraphCount < 2}
+                        disabled={edit.skipped || blockCount < 2}
                         className={cn(
                           "p-1 rounded-lg transition-colors disabled:opacity-30 disabled:cursor-not-allowed",
                           isCutting
@@ -379,8 +380,8 @@ export function SmartSplitSummaryDialog({ source, onSmartSplitConfirm }: Props) 
                             : "text-muted-foreground hover:text-foreground hover:bg-secondary",
                         )}
                         title={
-                          paragraphCount < 2
-                            ? "Nema dovoljno paragrafa za rezanje"
+                          blockCount < 2
+                            ? "Nema dovoljno blokova za rezanje"
                             : "Režim rezanja"
                         }
                         aria-label="Režim rezanja"
@@ -400,29 +401,28 @@ export function SmartSplitSummaryDialog({ source, onSmartSplitConfirm }: Props) 
                       )}
                     </div>
 
-                    {/* Content: cutting view OR textarea */}
+                    {/* Content: cutting view OR rich-text editor */}
                     {isCutting ? (
                       <CuttingView
-                        text={mod.contentText}
-                        onCut={(pIdx) => performManualCut(i, pIdx)}
+                        blocks={splitHtmlIntoBlocks(mod.contentHtml)}
+                        onCut={(bIdx) => performManualCut(i, bIdx)}
                         onCancel={() => setCuttingIndex(null)}
                       />
                     ) : (
-                      <textarea
-                        value={mod.contentText}
-                        onChange={(e) => {
-                          const text = e.target.value;
-                          updateModule(i, {
-                            contentText: text,
-                            contentHtml: plainTextToHtml(text),
-                            plainSnippet: text.trim(),
-                          });
-                        }}
-                        disabled={edit.skipped}
-                        rows={10}
-                        className="w-full px-3 py-2 rounded-md border bg-background text-sm leading-relaxed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring resize-y disabled:opacity-50"
-                        placeholder="Sadržaj ove cjeline odgovora..."
-                      />
+                      <div className={cn(edit.skipped && "opacity-50 pointer-events-none")}>
+                        <RichTextEditor
+                          value={mod.contentHtml}
+                          onChange={(html) => {
+                            const plain = htmlToPlain(html);
+                            updateModule(i, {
+                              contentHtml: html,
+                              contentText: plain,
+                              plainSnippet: plain.trim(),
+                            });
+                          }}
+                          placeholder="Sadržaj ove cjeline odgovora..."
+                        />
+                      </div>
                     )}
 
                     {/* Tags chip-input */}
