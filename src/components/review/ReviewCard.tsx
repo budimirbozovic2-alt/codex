@@ -234,15 +234,6 @@ export default function ReviewCard({
             )}
           </div>
 
-          <AdaptiveReasonPanel
-            ctx={{
-              frequencyTag: card.frequencyTag,
-              sourceType: card.sourceType,
-              examinerProfile: catRecord?.examinerProfile,
-            }}
-            baseRetention={getCachedRetention()}
-          />
-
           {!showAnswer ? (
             <div className="space-y-4">
               <p className="text-sm italic text-muted-foreground text-center">
