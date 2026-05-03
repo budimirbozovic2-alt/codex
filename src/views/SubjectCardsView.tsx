@@ -354,7 +354,7 @@ export default function SubjectCardsView() {
                 allCategories={categoryRecords}
                 subcategoryNodes={subcategoryNodes}
                 patchCard={patchCard}
-                toggleTag={toggleTag}
+                setFrequency={setFrequency}
                 addCard={addCard}
                 addFlashCard={addFlashCard}
                 onDelete={deleteCard}
@@ -365,7 +365,7 @@ export default function SubjectCardsView() {
                 initialSubcategory={initialSnapshot?.cvSubcategory}
                 initialChapter={initialSnapshot?.cvChapter}
                 initialType={initialSnapshot?.cvType}
-                initialTag={initialSnapshot?.cvTag ?? null}
+                initialFrequency={initialSnapshot?.cvFrequency}
                 onFiltersChange={handleCardViewFiltersChange}
               />
             </>
