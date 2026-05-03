@@ -1,34 +1,29 @@
-
-# Ukloniti filter po izvorima iz pregleda kartica
-
 ## Cilj
-Ukloniti `Select` "Izvor" iz toolbar-a u `SubjectCardsView` (Manage/Edit) i sve prateće mehanizme — postaje suvišan jer kartice već imaju subcategory/chapter/type/frequency/search filtere i hijerarhijsko grupiranje.
+Proširiti postojeću bulk selekciju u `CardViewMode` da uz "Obriši izabrane" omogući i bulk označavanje frekvencije pitanja (`često` / `rijetko` / `nikad` / ukloni tag) za sve izabrane kartice odjednom.
+
+## Trenutno stanje
+`src/components/category/CardViewMode.tsx` (linije 174–189) prikazuje selection toolbar sa samo dvije akcije: "Označi sve" i "Obriši izabrane". `setFrequency(cardId, value | null)` već postoji kao prop i koristi se per-row u `CardViewTable`.
 
 ## Izmjene
 
-### 1. `src/views/SubjectCardsView.tsx`
-- Ukloniti import `useCategorySources` (linija 15) i poziv `const sources = useCategorySources(categoryId)` (linija 122).
-- Ukloniti `usedSourceIds` (130-134) i `sourceOptions` (136-139) memo blokove — više nemaju potrošača.
-- Ukloniti `sourceFilter?: string` polje iz `EditReturnSnapshot` (linija 38) i sve reference: `sourceFilter` u `buildExtras` (103), `useState` deklaraciju (121).
-- Ukloniti `<Select value={sourceFilter} ...>` blok iz toolbara (linije 342-356).
-- Ukloniti prop `externalSourceId={sourceFilter}` sa `<CardViewMode>` (linija 372).
+### `src/components/category/CardViewMode.tsx`
+1. Dodati handler `handleBatchSetFrequency(value: FrequencyTag | null)`:
+   - Iterirati `selectedIds`, pozvati `setFrequency(id, value)`.
+   - Toast `Označeno N kartica kao "često"` (ili odgovarajuće), za `null` → `Uklonjen tag sa N kartica`.
+   - NE izlaziti iz selection moda (korisnik može htjeti odmah obrisati ili re-tagovati). Ostaviti selekciju netaknutu.
+2. U toolbaru (kada je `selectedIds.size > 0`) ubaciti kompaktnu grupu dugmadi prije "Obriši izabrane":
+   - `Često` (variant `default`), `Rijetko` (variant `outline`), `Nikad` (variant `outline`), `Bez taga` (variant `ghost`).
+   - Sve `size="sm"`, `h-7 text-xs`, sa kratkim `aria-label`-om.
+   - Vizualni separator (`<span className="h-4 w-px bg-border" />`) između tag grupe i destruktivne "Obriši" akcije.
+3. Bez novih propsa — `setFrequency` je već u scope-u.
 
-### 2. `src/components/category/CardViewMode.tsx`
-- Ukloniti `externalSourceId?: string` iz `Props` (linija 39).
-- Ukloniti `externalSourceId` iz destrukturiranja parametara (49) i iz objekta proslijeđenog `useCardViewFilters({...})` (65).
-
-### 3. `src/hooks/useCardViewFilters.ts`
-- Ukloniti `externalSourceId?: string` iz `UseCardViewFiltersParams` (32).
-- Ukloniti destrukturirani parametar (61).
-- Ukloniti `sourceFilterActive` i provjeru `card.sourceId !== externalSourceId` iz `filteredCards` filtera (101, 108) i deps (127).
-- Ukloniti grane vezane za `externalSourceId` u `hasActiveFilters` (136) i deps (138).
-
-## Bez izmjena
-- `useCategorySources` hook ostaje (koristi ga `CategoryView`).
-- Logika `card.sourceId` nije dirana na podacima — samo se UI filter uklanja.
-- Edit-return snapshot ostali ključevi (`searchQuery`, `cv*`) ostaju.
+### Bez izmjena
+- `CardViewTable`, `CardViewFilterBar`, `useCardViewFilters` — netaknuti.
+- Per-row frequency badge ostaje funkcionalan.
+- Logika selekcije/exit-a nepromijenjena.
 
 ## Acceptance
-- Toolbar u Manage/Edit modu prikazuje samo `Search` input.
-- Nakon edit-and-return, ostali filteri (search, subcat, chapter, type, frequency) i dalje se vraćaju.
+- U selection modu sa ≥1 izabranom karticom prikazuju se 4 nova taga + postojeća "Obriši izabrane".
+- Klik na tag dugme primjenjuje frekvenciju na sve izabrane, prikazuje toast, selekcija ostaje aktivna.
+- Sa 0 izabranih kartica tagovi i delete su sakriveni (kao i sada).
 - TypeScript prolazi čisto.

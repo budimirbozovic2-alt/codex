@@ -104,6 +104,17 @@ export default function CardViewMode({ cards, categoryId, allCategories, subcate
     toast.success(`Obrisano ${count} kartica.`);
   }, [onDelete, selectedIds]);
 
+  const handleBatchSetFrequency = useCallback((value: FrequencyTag | null) => {
+    if (selectedIds.size === 0) return;
+    const count = selectedIds.size;
+    selectedIds.forEach(id => setFrequency(id, value));
+    if (value === null) {
+      toast.success(`Uklonjen tag sa ${count} kartica.`);
+    } else {
+      toast.success(`Označeno ${count} kartica kao "${value}".`);
+    }
+  }, [selectedIds, setFrequency]);
+
   const exitSelectionMode = useCallback(() => {
     setSelectionMode(false);
     setSelectedIds(new Set());
