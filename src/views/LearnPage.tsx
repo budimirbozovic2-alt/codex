@@ -114,6 +114,8 @@ export default function LearnPage() {
         dueCount={stats.due}
         reviewLog={reviewLog}
         initialFilters={initialFilters}
+        restoreSnapshot={initialSnapshot ?? undefined}
+        onSessionStateChange={handleSessionStateChange}
       />
     </ErrorBoundary>
   );
