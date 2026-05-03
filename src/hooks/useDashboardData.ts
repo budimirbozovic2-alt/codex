@@ -201,10 +201,11 @@ export function useDashboardData(
     return { velocity: Math.round(velocity7 * 10) / 10, trend } as const;
   }, [velocity7, reviewLog]);
 
-  const weakestCategories = useMemo(() => {
+  const weakestCategoriesFull = useMemo(() => {
     return categories
       .filter(cat => categoryStats[cat]?.total > 0)
       .map(cat => ({
+        id: cat,
         name: categoryRecords.find(r => r.id === cat)?.name || cat,
         score: categoryStats[cat].score,
         total: categoryStats[cat].total,
@@ -212,6 +213,11 @@ export function useDashboardData(
       .sort((a, b) => a.score - b.score)
       .slice(0, 3);
   }, [categories, categoryStats, categoryRecords]);
+  const weakestCategories = useMemo(
+    () => weakestCategoriesFull.map(({ name, score, total }) => ({ name, score, total })),
+    [weakestCategoriesFull]
+  );
+  const weakestCategory = weakestCategoriesFull[0] ?? null;
 
   const studyFlowData = useDeferredCompute<StudyFlowData | null>(async () => {
     if (!plannerConfig?.finalGoalDate || categoryRecords.length === 0 || velocity7 === null) return null;
