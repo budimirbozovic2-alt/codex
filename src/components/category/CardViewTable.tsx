@@ -49,7 +49,7 @@ export default function CardViewTable({
           ? card.sections.reduce((sum, s) => sum + s.stability, 0) / card.sections.length
           : 0;
         const stab = stabilityLabel(avgStability);
-        const hasTags = card.tags && card.tags.length > 0;
+        
 
         return (
           <div key={card.id} className="rounded-lg border bg-card overflow-hidden">
