@@ -38,7 +38,7 @@ interface Props {
 export default function CardViewTable({
   filteredCards, allCategories, expandedId, onToggle,
   selectionMode, selectedIds, onToggleSelection,
-  toggleTag, onEdit, onPassiveRead, onDelete, onOpenMoveModal,
+  setFrequency, onEdit, onPassiveRead, onDelete, onOpenMoveModal,
   hasActiveFilters, totalCount, onResetFilters,
 }: Props) {
   return (
