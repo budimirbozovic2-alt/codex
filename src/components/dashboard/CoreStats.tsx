@@ -1,14 +1,14 @@
-import { Clock, BookOpen } from "lucide-react";
+import { Clock, TrendingDown } from "lucide-react";
 import { memo } from "react";
 import { Link } from "react-router-dom";
+
 interface Props {
   due: number;
-  learnedSections: number;
-  totalSections: number;
   pendingFirstReview: number;
+  weakest: { id: string; name: string; score: number } | null;
 }
 
-export const CoreStats = memo(function CoreStats({ due, learnedSections, totalSections, pendingFirstReview }: Props) {
+export const CoreStats = memo(function CoreStats({ due, pendingFirstReview, weakest }: Props) {
   return (
     <div className="grid grid-cols-2 gap-4">
       <Link to="/review">
@@ -20,15 +20,25 @@ export const CoreStats = memo(function CoreStats({ due, learnedSections, totalSe
           {pendingFirstReview > 0 && <p className="text-xs text-primary">+ {pendingFirstReview} čeka prvo pon.</p>}
         </div>
       </Link>
-      <Link to="/categories">
-        <div className="animate-in fade-in slide-in-from-bottom-4 duration-300 glass-card p-5 space-y-2 hover:border-gold/40 transition-colors cursor-pointer"
+      {weakest ? (
+        <Link to={`/category/${weakest.id}`}>
+          <div className="animate-in fade-in slide-in-from-bottom-4 duration-300 glass-card p-5 space-y-2 hover:border-gold/40 transition-colors cursor-pointer"
+            style={{ animationDelay: "140ms", animationFillMode: "both" }}>
+            <TrendingDown className="h-5 w-5 text-destructive mb-1" />
+            <p className="text-xl font-bold truncate" title={weakest.name}>{weakest.name}</p>
+            <p className="text-sm text-muted-foreground">Najslabija kategorija</p>
+            <p className="text-xs text-muted-foreground">Rezultat: {Math.round(weakest.score)}%</p>
+          </div>
+        </Link>
+      ) : (
+        <div className="animate-in fade-in slide-in-from-bottom-4 duration-300 glass-card p-5 space-y-2 opacity-60"
           style={{ animationDelay: "140ms", animationFillMode: "both" }}>
-          <BookOpen className="h-5 w-5 text-success mb-1" />
-          <p className="text-4xl font-bold">{learnedSections}</p>
-          <p className="text-sm text-muted-foreground">Naučene cjeline</p>
-          <p className="text-xs text-muted-foreground">od {totalSections} ukupno</p>
+          <TrendingDown className="h-5 w-5 text-muted-foreground mb-1" />
+          <p className="text-xl font-bold">—</p>
+          <p className="text-sm text-muted-foreground">Najslabija kategorija</p>
+          <p className="text-xs text-muted-foreground">Nema podataka</p>
         </div>
-      </Link>
+      )}
     </div>
   );
 });
