@@ -156,14 +156,14 @@ export default function LearnSession({ cards, categories, categoryRecords, subca
         selectedCategory={selectedCategory}
         selectedSubcategory={selectedSubcategory}
         selectedChapter={selectedChapter}
-        filterExamFrequent={filterExamFrequent}
-        examFrequentCount={examFrequentCount}
+        frequencyFilter={frequencyFilter}
+        frequencyCounts={frequencyCounts}
         filterType={filterType}
         sortMode={sortMode}
         onSelectCategory={cat => { setSelectedCategory(cat); setSelectedSubcategory(null); setSelectedChapter(null); }}
         onSelectSubcategory={sub => { setSelectedSubcategory(sub); setSelectedChapter(null); }}
         onSelectChapter={setSelectedChapter}
-        onToggleExamFrequent={() => setFilterExamFrequent(!filterExamFrequent)}
+        onFrequencyFilterChange={setFrequencyFilter}
         onFilterTypeChange={setFilterType}
         onSortModeChange={setSortMode}
         onStart={() => {
