@@ -8,6 +8,7 @@ export const EVENT_TYPES = {
   CARDS_UPDATED: "cards:updated",
   DB_BLOCKED: "db:blocked",
   DB_UNBLOCKED: "db:unblocked",
+  DB_ERROR_CHANGED: "db:error-changed",
   TAB_HEARTBEAT: "tab:heartbeat",
   TAB_REPLY: "tab:reply",
   TAB_LEAVING: "tab:leaving",

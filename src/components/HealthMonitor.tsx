@@ -157,7 +157,7 @@ export default function HealthMonitor() {
       );
       toast.success(`${orphans.count} kartica premješteno u "${categories[0].name}"`);
       setOrphans({ count: 0, cardIds: [] });
-      eventBus.emit(EVENT_TYPES.CARDS_UPDATED);
+      eventBus.emit(EVENT_TYPES.CARDS_UPDATED, { source: "orphan-cleanup", cardIds: orphans.cardIds });
     } catch (err) {
       console.error("[health] cleanup failed", err);
       toast.error("Greška pri čišćenju");
@@ -176,7 +176,10 @@ export default function HealthMonitor() {
       toast.success(`${total} zastarjelih veza očišćeno`);
       setStaleSub({ count: 0, cardIds: [] });
       setStaleChap({ count: 0, cardIds: [] });
-      eventBus.emit(EVENT_TYPES.CARDS_UPDATED);
+      eventBus.emit(EVENT_TYPES.CARDS_UPDATED, {
+        source: "heal-stale",
+        cardIds: Array.from(new Set([...staleSub.cardIds, ...staleChap.cardIds])),
+      });
       await refresh();
     } catch (err) {
       console.error("[health] heal failed", err);

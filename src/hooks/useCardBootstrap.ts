@@ -37,7 +37,6 @@ interface BootSetters {
 export function useCardBootstrap(setters: BootSetters) {
   const { setCardMapState, setCategoryRecordsState, setReviewLogState, setSrSettingsState } = setters;
   const [ready, setReady] = useState(false);
-  const [dbError, setDbError] = useState<{ type: "version" | "timeout"; message: string } | null>(null);
   const initialLoadDone = useRef(false);
 
   useEffect(() => {
@@ -91,7 +90,8 @@ export function useCardBootstrap(setters: BootSetters) {
         if (!dbOk) {
           const errState = getDbErrorState();
           if (errState) {
-            setDbError(errState);
+            // dbErrorState was already set inside ensureDbOpen via setDbErrorState,
+            // which broadcasts DB_ERROR_CHANGED. DbErrorProvider picks it up.
             splashProgress(100, "Greška baze podataka");
           } else {
             splashProgress(100, "Pokretanje bez baze…");
@@ -333,5 +333,5 @@ export function useCardBootstrap(setters: BootSetters) {
     return () => clearTimeout(panicTimer);
   }, []);
 
-  return { ready, dbError };
+  return { ready };
 }

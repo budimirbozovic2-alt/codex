@@ -1,88 +1,128 @@
-## Cilj
-Ukloniti binarni `tags[]` sloj za "često/rijetko na ispitu" i sve UI/filter putanje preusmjeriti na `Card.frequencyTag` (`"često" | "rijetko" | "nikad"`). `tags[]` ostaje samo za nesemantičke flagove (`MNEMONIC_TAG`).
+## Plan refaktora SSOT-a u `CardStateProvider`
 
-## UX odluka — Flame kontrola u listi
+Implementacija u 3 sigurna koraka (C2 → B2 → B5) i jedan opcioni veliki zahvat (A1).
 
-Umjesto jednog Flame dugmeta koristiti **mali dropdown sa 4 opcije** (`Često`, `Rijetko`, `Nikad`, `Ukloni oznaku`) s ikonom koja se boji prema trenutnoj vrijednosti:
-- `često` → Flame, `text-destructive`
-- `rijetko` → Flame, `text-warning`
-- `nikad` → Flame, `text-muted-foreground/60`
-- nepostavljeno → Flame, `text-muted-foreground/40` (outline)
+---
 
-Razlog protiv 3-state ciklusa: korisnik ne vidi sve opcije bez probe i lako pogriješi klikom.
+### Korak 1 — C2: Razdvajanje monolitnog `useMemo` po polju
 
-## Izmjene po fajlu
+**Fajl:** `src/contexts/cards/CardStateProvider.tsx` (linije 281–351)
 
-### `src/lib/sr/format.ts`
-- Ukloniti export `CARD_TAGS` i konstantu `"rijetko-na-ispitu"`. `EXAM_FREQUENT_TAG` i `MNEMONIC_TAG` ostaju (MNEMONIC se koristi nezavisno; `EXAM_FREQUENT_TAG` privremeno ostaje samo radi tihe migracije starih `tags[]`).
+Trenutni jedan `useMemo` računa istovremeno: `dueCards`, `stats`, `categoryStats`, `cardCountByCategory` — svaka promjena `cards` ili `categories` rebuilduje sve.
 
-### `src/lib/spaced-repetition.ts` (re-eksport barel)
-- Ukloniti `CARD_TAGS` iz re-eksporta ako postoji.
+**Pristup — jedan pass, više memoa s preciznim zavisnostima:**
 
-### Novi helper `src/lib/sr/frequency.ts` (mali, čist)
-- `setCardFrequency(card, value: FrequencyTag | null): Card` — vraća novi card sa postavljenim/poništenim `frequencyTag` i istovremeno čisti naslijeđene tagove `"često-na-ispitu"`/`"rijetko-na-ispitu"` iz `tags[]` (silent migration on touch).
-- `getFrequencyMeta(value): { label, icon, colorClass }` — single source of truth za boje i etikete u UI.
+1. Zadržati JEDAN interni `useMemo` koji radi O(n) prolaz i vraća sirov agregat: `{ dueIds, sectionTotals, leech, perCatAccum, countByCategory }` — bez sortiranja i bez konačnih `categoryStats`. Zavisi samo od `cards` (FSRS state utiče samo na ovaj sloj).
+2. Razdvojiti izvedene "javne" memoе:
+   - `dueCards` — izvedeno iz `aggregate.dueIds` + `cardMap` (sort po `nextReview`).
+   - `stats` — izvedeno iz `aggregate.sectionTotals` + `cards.length` + `aggregate.leech`.
+   - `cardCountByCategory` — izvedeno iz `aggregate.countByCategory` + `categories` (popunjavanje nula).
+   - `categoryStats` — izvedeno iz `aggregate.perCatAccum` + `categories`.
+3. Dodati posebne `useMemo` wrappere za context value-ove tako da preimenovanje kategorije (koje ne mijenja UUID listu `categories`) ne okida ništa, a dodavanje/uklanjanje kategorije pogađa samo `cardCountByCategory` i `categoryStats`.
+4. Postojeći `bucketCacheRef` fingerprint pristup zadržati — već je optimalan.
 
-### `src/hooks/useCardCRUD.ts`
-- Već ima `updates.frequencyTag` u `updateCard`. Izložiti **novi pomoćni callback** `setFrequency(cardId, value: FrequencyTag | null)` koji koristi `patchCard` direktno (O(1) bez prolaska kroz `updateCard` koji radi i ostala polja). Ovo je zamjena semantike za stari `toggleTag(EXAM_FREQUENT_TAG)`.
-- Izložiti ga kroz `CardActionsProvider` (`useCardOnlyActions`) kao `setFrequency`.
+**Test:** `src/test/category-view-contract.test.ts` mora i dalje proći; dodati mali test koji potvrđuje da rename kategorije ne mijenja referencu `dueCards`/`stats`.
 
-### `src/hooks/useCardAnnotations.ts`
-- `toggleTag` ostaje (potreban za `MNEMONIC_TAG`), ali se više ne koristi za EXAM tagove iz UI.
+---
 
-### `src/views/SubjectCardsView.tsx`
-- Proslijediti `setFrequency` iz konteksta kroz `CardViewMode` umjesto `toggleTag` za frequency-namjeru. `toggleTag` zadržati samo ako se još koristi za mnemonic clone path.
+### Korak 2 — B2: `dbErrorState` iz modul-level u React kontekst
 
-### `src/components/card-list/CardRow.tsx`
-- Ukloniti uvoz `EXAM_FREQUENT_TAG` i `isFrequent` boolean.
-- Zamijeniti Flame `<button>` s novim `<FrequencyMenu card setFrequency />` (opisan ispod).
-- Ukloniti prop `onToggleTag` ako se više ne prosljeđuje (ostaviti samo `setFrequency` prop; `onToggleTag` ostaje za `CardContextMenu` ako mnemonic clone i dalje ide kroz njega).
+**Fajlovi:**
+- `src/lib/db-schema.ts` (linije 9–11, 250–331)
+- novi: `src/contexts/db/DbErrorProvider.tsx`
+- `src/hooks/useCardBootstrap.ts` (linija 92)
+- `src/contexts/cards/CardStateProvider.tsx` (već ima `DbErrorContext` na liniji 122 — proširiti)
 
-### Nova komponenta `src/components/card-list/FrequencyMenu.tsx`
-- Mali `DropdownMenu` (već postoji shadcn `dropdown-menu`).
-- Trigger: Flame ikona obojena prema `card.frequencyTag` (vidi `getFrequencyMeta`).
-- Items: `Često` / `Rijetko` / `Nikad` / separator / `Ukloni oznaku`.
-- Poziva `setFrequency(card.id, value | null)`.
+**Pristup:**
 
-### `src/components/card-list/CardContextMenu.tsx`
-- Ukloniti EXAM_FREQUENT_TAG stavku.
-- Dodati submenu "Frekventnost" sa 4 opcije (često/rijetko/nikad/ukloni). MNEMONIC clone stavka ostaje netaknuta.
+1. U `db-schema.ts` zadržati internu varijablu **samo** kao trenutni snapshot za async pozivaoce koji nemaju React kontekst (npr. `useCardBootstrap` rana faza). Dodati emisiju event-a kroz postojeći `eventBus` kad se mijenja:
+   - novi event: `EVENT_TYPES.DB_ERROR_CHANGED` (dodati u `src/lib/event-bus.ts`)
+   - svaki set/clear `dbErrorState`-a u `db-schema.ts` (linije 257, 300, 305, 331) prati `eventBus.emit(DB_ERROR_CHANGED, currentState)`.
+2. Napraviti `DbErrorProvider` koji:
+   - Inicijalno čita `getDbErrorState()`.
+   - Subscribe-uje na `DB_ERROR_CHANGED` i drži state u `useState`.
+   - Eksponira `useDbError()` hook (zamjena za trenutni iz `CardStateProvider`).
+3. Premjestiti `<DbErrorContext.Provider>` van `CardStateProvider`-a (omotati ga oko cijele kompozicije u `App.tsx` ili `MainLayout.tsx`) tako da se UI komponente (RecoveryPanel) više ne oslanjaju na to da je `CardStateProvider` ready.
+4. Ukloniti `dbError` iz `CardStateContextValue` da ne miješa odgovornosti.
 
-### `src/components/category/CardViewTable.tsx`
-- Ukloniti red sa `CARD_TAGS.map(...)` pill dugmadi i `toggleTag` prop iz potpisa (ako više nije potreban). Dodati istu `<FrequencyMenu>` (ili kompakt ekvivalent) u kontrolnu zonu kartice.
+**Net efekat:** UI dobija reaktivni dbError signal iz pravog izvora; modul-level varijabla i dalje postoji ali kao implementacioni detalj, ne kao SSOT.
 
-### `src/components/category/CardViewFilterBar.tsx`
-- Zamijeniti `Select` "Tag" sa `Select` "Frekventnost" sa opcijama: `Sve` / `Često` / `Rijetko` / `Nikad` / `Bez oznake`. Koristiti `FREQUENCY_TAGS` za labele.
+---
 
-### `src/hooks/useCardViewFilters.ts`
-- Preimenovati `filterTag: string | null` → `filterFrequency: "all" | FrequencyTag | "none"`. Zamijeniti uslov u `filteredCards`:
-  - `"all"` → bez filtera
-  - `"none"` → `card.frequencyTag === undefined`
-  - inače → `card.frequencyTag === filterFrequency`
-- Update `hasActiveFilters` i `resetFilters` (`"all"` umjesto `null`).
-- Zadržati backward-compatible `initial*` parametre, ali sada `initialFrequency` (string).
+### Korak 3 — B5: Surgical update u HealthMonitor handleru
 
-### `src/components/category/CardViewMode.tsx`
-- Update `Props` (`toggleTag` više nije potrebno za frequency; predati `setFrequency`).
-- Update `CardViewFiltersSnapshot`: `tag: string | null` → `frequency: "all" | FrequencyTag | "none"`.
-- Provjeriti gdje se snapshot serijalizuje/deserijalizuje (edit-return u `SubjectCardsView`) i prilagoditi.
+**Fajlovi:**
+- `src/components/HealthMonitor.tsx` (linije 145–187)
+- `src/contexts/cards/CardStateProvider.tsx` (linije 215–229)
+- `src/lib/event-bus.ts` (proširiti payload `CARDS_UPDATED`)
 
-### `src/components/learn/SessionHeader.tsx`
-- Zamijeniti `tags?.includes(EXAM_FREQUENT_TAG)` badge sa renderom `card.frequencyTag` ako je postavljen (badge u jednoj od tri boje preko `getFrequencyMeta`).
+**Pristup:**
 
-### `src/components/CardForm.tsx` / `src/components/card-form/MetadataSection.tsx`
-- Već je ispravan (dropdown sa 3 opcije + `__none__`). Bez izmjena.
+1. Standardizovati payload event-a `CARDS_UPDATED`:
+   ```ts
+   { source: string; cardIds?: string[]; reason: "orphan-cleanup" | "heal-stale" | "remap" | ... }
+   ```
+2. `handleCleanOrphans` (linija 160) i `handleHealStaleLinks` (linija 179) već znaju **tačno** koje `cardIds` su mutirale — proslijediti ih kroz event payload.
+3. U `CardStateProvider` handler (linije 215–229):
+   - Ako `payload.cardIds` postoji i ima **≤ N** stavki (npr. ≤ 200), uradi surgical re-fetch samo tih kartica preko `db.cards.bulkGet(cardIds)` i mergeuj u `cardMap` (kroz postojeći `setCardMapState` + `cardMapRef` patch + `bumpMapVersion`).
+   - Ako payload-a nema (legacy emiteri kao remap-from-backup koji mijenja sve), zadrži postojeći full reload kao fallback.
+4. Bez ikakvog `schedulePersist` — podaci su već u IDB-u (HealthMonitor je upisao direktno preko `db.cards.update`).
 
-## Tiha migracija starih podataka
-- `setCardFrequency` čisti `"često-na-ispitu"` i `"rijetko-na-ispitu"` iz `tags[]` pri svakom dodiru (lazy).
-- Dodati jednokratnu read-time normalizaciju u `useCardAnnotations`/`patchCard` putanji? **Ne** — preskupo i nepotrebno; lazy je dovoljno. Stari tagovi na nedirnutim karticama više nigdje neće biti čitani (nema više `CARD_TAGS` ni `EXAM_FREQUENT_TAG` checks u UI), pa će se "razgraditi" prirodno.
-- `EXAM_FREQUENT_TAG` konstanta ostaje deklarisana u `format.ts` (samo za backup-schema validator i future cleanup), ali se nigdje ne koristi za UI logiku.
+**Net efekat:** Tipičan orphan cleanup od npr. 5 kartica više ne radi O(N) IDB scan + full re-render svih subscribera.
 
-## Testovi / sanity
-- `src/test/spaced-repetition.test.ts`: već testira `frequencyTag`, ostaje.
-- Nije potrebno mijenjati `backup-schema.ts` (akceptira oba sloja nezavisno).
+---
 
-## Rizik / kompatibilnost
-- Postojeće kartice sa starim `tags[]` će izgubiti vizuelnu Flame oznaku jer je to dugme uklonjeno; korisnik mora jednom postaviti `frequencyTag` ako želi vraćenu oznaku. Alternativa: jednokratni boot-time migration job koji za sve `cards` pretvara `tags[].includes("često-na-ispitu")` u `frequencyTag = "često"` ako `frequencyTag` nije već postavljen. **Preporuka: uradi ovaj jednokratni boot-time migration**, da korisnik ne izgubi oznake. Lokacija: u `db-schema.ts` v17 upgrade ili u `AppContext` boot fazi (jednostavnije, bez nove sheme).
+### Korak 4 (OPCIONO, niska hitnost) — A1: Migracija `cardMap` na Zustand
 
-Treba mi potvrda samo o jednoj stvari: **migracija postojećih `"često-na-ispitu"` tagova u `frequencyTag = "često"` — da uradim ili ne?** Ako da, dodaću je u boot fazi `AppContext`-a.
+**Cilj:** Eliminisati `cardMapRef` ↔ `cardMap` dvojnost; jedna data struktura koja podržava i O(1) mutacije i selektivne re-rendere.
+
+**Fajlovi (procjena):**
+- novi: `src/store/useCardStore.ts` (Zustand sa `subscribeWithSelector` + `immer` middleware)
+- `src/contexts/cards/CardStateProvider.tsx` — postaje tanak wrapper koji čita iz storea i dalje izlaže iste kontekste (kompatibilnost)
+- `src/hooks/useCardCRUD.ts` — `cardMapRef.current[id] = ...` postaje `useCardStore.setState(...)` koji je sinhrоn
+- `src/lib/persist-queue.ts` — `mapToArray` čita iz storea umjesto iz arg-a
+- Svi konzumenti `useCardData()` ostaju nepromijenjeni
+
+**Pristup:**
+
+1. Dodati zavisnost `zustand` (već se koristi za `useSourceReaderStore` — nema novog deps-a).
+2. Definisati store:
+   ```ts
+   interface CardStore {
+     cardMap: CardMap;          // mutiše se kroz immer
+     version: number;            // zamjena za _mapVersion
+     patch: (id, fn) => void;
+     bulkUpsert: (cards) => void;
+     remove: (id) => void;
+     reset: (map) => void;
+   }
+   ```
+3. `useCardData()` interno koristi `useStore(useCardStore, selectorMemo)` — selektivna pretplata (komponenta koja gleda `dueCards` ne re-renderuje se na rename kategorije).
+4. Derivacije iz Koraka 1 ostaju iste, ali se računaju kroz `useCardStore` selektore + `useMemo` na rezultatu.
+5. CRUD hookovi gube `cardMapRef` i `setCardMapState`, postaju 1-line pozivi store-a; `useEffect` sync na liniji 140 nestaje.
+6. `persistQueue` ostaje nepromijenjen (i dalje prima eksplicitne `Card` objekte).
+
+**Migracioni plan u koracima:**
+- 4a: Uvesti store paralelno; `CardStateProvider` ga puni iz svog `cardMap`-a (dual-write privremeno).
+- 4b: Migrirati `useCardCRUD` da piše u store; ukloniti `cardMapRef`.
+- 4c: Migrirati `useCardData` da čita iz storea; obrisati `cardMap` useState.
+- 4d: Obrisati `useEffect` ref-sync, `bumpMapVersion`, `_mapVersion` cache.
+
+**Rizik:** Visok — dira CRUD i sve konzumere kartica. Preporuka: izvesti tek nakon što su koraci 1–3 mergeani i stabilizovani.
+
+---
+
+### Tehnički detalji
+
+**Redoslijed mergeа:** 1 → 2 → 3 → (pauza za QA) → 4.
+**Bez breaking changeа za konzumere** u koracima 1–3 (svi `useCardData()` / `useDbError()` ostaju isti).
+**Testovi koji se moraju zelenjeti:**
+- `src/test/category-view-contract.test.ts`
+- `src/test/persist-queue-c3c4.test.ts`
+- `src/test/spaced-repetition.test.ts`
+
+### Šta plan ne radi
+
+- Ne dira `Session/ReviewLog` tok (već je `commitReviewEntry` SSOT).
+- Ne dira `onCardLinksCleared` handler (već poziva `schedulePersist`).
+- Ne uvodi novi state library osim opcione Zustand integracije u Koraku 4.

@@ -14,9 +14,6 @@ import { useCardBootstrap } from "@/hooks/useCardBootstrap";
 import { buildCardBuckets, EMPTY_BUCKETS, bucketFingerprint, type CardBuckets } from "@/lib/card-buckets";
 import { useCategoryData, useCategoryStateSetter } from "./CategoryStateProvider";
 
-export type DbError = { type: "version" | "timeout"; message: string };
-
-
 // ─── Card state (re-renders on card mutations) ───
 interface CardStateContextValue {
   cards: Card[];
@@ -25,7 +22,6 @@ interface CardStateContextValue {
   cardCountByCategory: Record<string, number>;
   buckets: CardBuckets;
   ready: boolean;
-  dbError: DbError | null;
 }
 
 const CardStateContext = createContext<CardStateContextValue | null>(null);
@@ -33,7 +29,7 @@ const CardStateContext = createContext<CardStateContextValue | null>(null);
 const EMPTY_CARD_STATE: CardStateContextValue = {
   cards: [], dueCards: [],
   stats: { due: 0, total: 0, totalSections: 0, learnedSections: 0, leechCount: 0 },
-  cardCountByCategory: {}, buckets: EMPTY_BUCKETS, ready: false, dbError: null,
+  cardCountByCategory: {}, buckets: EMPTY_BUCKETS, ready: false,
 };
 
 export function useCardData() {
@@ -118,11 +114,9 @@ export function useSettingsActions() {
   return useMemo(() => ({ updateSRSettings }), [updateSRSettings]);
 }
 
-// ─── DB error broadcast (consumed by composition root for recovery panel) ───
-const DbErrorContext = createContext<DbError | null>(null);
-export function useDbError() {
-  return useContext(DbErrorContext);
-}
+// ─── DB error broadcast — moved to dedicated DbErrorProvider ─────
+// Re-exported here for backward-compatibility with `import { useDbError } from "./CardStateProvider"`.
+export { useDbError } from "@/contexts/db/DbErrorProvider";
 
 export function CardStateProvider({ children }: { children: ReactNode }) {
   const [cardMap, setCardMapState] = useState<CardMap>({});
@@ -130,7 +124,7 @@ export function CardStateProvider({ children }: { children: ReactNode }) {
   const [srSettings, setSrSettingsState] = useState<SRSettings>(DEFAULT_SR_SETTINGS);
 
   // Categories live in the sibling provider; we read both the data and the setter for bootstrap.
-  const { categories, categoryRecords } = useCategoryData();
+  const { categories } = useCategoryData();
   const setCategoryRecordsState = useCategoryStateSetter();
 
   // Ref-Delta mirror — kept as an *independent* clone of state. CRUD hooks
@@ -139,8 +133,8 @@ export function CardStateProvider({ children }: { children: ReactNode }) {
   const cardMapRef = useRef<CardMap>({});
   useEffect(() => { cardMapRef.current = { ...cardMap }; }, [cardMap]);
 
-  // Boot
-  const { ready, dbError } = useCardBootstrap({
+  // Boot — dbError now lives in DbErrorProvider (consumed by RecoveryGate).
+  const { ready } = useCardBootstrap({
     setCardMapState,
     setCategoryRecordsState,
     setReviewLogState,
@@ -211,15 +205,40 @@ export function CardStateProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
-  // HealthMonitor orphan cleanup → full reload
+  // CARDS_UPDATED → surgical merge when payload.cardIds is provided,
+  // full reload otherwise (legacy emitters / remap-from-backup).
   useEffect(() => {
-    return eventBus.subscribe(EVENT_TYPES.CARDS_UPDATED, () => {
+    interface CardsUpdatedPayload { source?: string; cardIds?: string[] }
+    const SURGICAL_LIMIT = 200;
+    return eventBus.subscribe<CardsUpdatedPayload>(EVENT_TYPES.CARDS_UPDATED, (payload) => {
+      const ids = payload?.cardIds;
+      if (ids && ids.length > 0 && ids.length <= SURGICAL_LIMIT) {
+        // Surgical: re-fetch only mutated cards
+        import("@/lib/db").then(({ db }) => {
+          db.cards.bulkGet(ids).then((rows) => {
+            const fetched = rows.filter((r): r is Card => !!r);
+            const fetchedIds = new Set(fetched.map((c) => c.id));
+            const deletedIds = ids.filter((id) => !fetchedIds.has(id));
+            if (fetched.length === 0 && deletedIds.length === 0) return;
+            // Sync ref first (Ref-Delta)
+            for (const c of fetched) cardMapRef.current[c.id] = c;
+            for (const id of deletedIds) delete cardMapRef.current[id];
+            setCardMapState((prev) => {
+              const next = { ...prev };
+              for (const c of fetched) next[c.id] = c;
+              for (const id of deletedIds) delete next[id];
+              return next;
+            });
+            bumpMapVersion();
+          });
+        });
+        return;
+      }
+      // Fallback: full reload (legacy / large bulk / remap)
       import("@/lib/db-queries").then(({ idbLoadCards }) => {
-        idbLoadCards().then(loaded => {
+        idbLoadCards().then((loaded) => {
           const map: CardMap = {};
           for (const c of loaded) map[c.id] = c;
-          // Ref and state are independent objects (state is a fresh clone)
-          // so future in-place CRUD ref mutations don't alias rendered state.
           cardMapRef.current = map;
           setCardMapState({ ...map });
           bumpMapVersion();
@@ -277,20 +296,17 @@ export function CardStateProvider({ children }: { children: ReactNode }) {
     return fresh;
   }, [cards]);
 
-  // Single-pass derived data
-  const { dueCards, stats, categoryStats, cardCountByCategory } = useMemo(() => {
+  // ── Single-pass raw aggregate (depends ONLY on cards) ───────────────
+  // Renaming a category does NOT touch this layer. Adding/removing a category
+  // also doesn't touch it (we always key by card.categoryId in accumulators).
+  const aggregate = useMemo(() => {
     const now = Date.now();
     const dueList: Card[] = [];
     let totalSections = 0;
     let learnedSections = 0;
     let leechCount = 0;
-    const catAccum: Record<string, { scoreSum: number; total: number; due: number }> = {};
+    const perCatAccum: Record<string, { scoreSum: number; total: number; due: number }> = {};
     const countByCategory: Record<string, number> = {};
-
-    for (const cat of categories) {
-      catAccum[cat] = { scoreSum: 0, total: 0, due: 0 };
-      countByCategory[cat] = 0;
-    }
 
     for (const card of cards) {
       const catKey = card.categoryId;
@@ -311,48 +327,65 @@ export function CardStateProvider({ children }: { children: ReactNode }) {
 
       if (cardIsDue) dueList.push(card);
 
-      const acc = catAccum[catKey];
-      if (acc) {
-        acc.total++;
-        acc.scoreSum += card.sections.length > 0 ? cardScoreSum / card.sections.length : 0;
-        if (cardIsDue) acc.due++;
-      }
+      let acc = perCatAccum[catKey];
+      if (!acc) { acc = { scoreSum: 0, total: 0, due: 0 }; perCatAccum[catKey] = acc; }
+      acc.total++;
+      acc.scoreSum += card.sections.length > 0 ? cardScoreSum / card.sections.length : 0;
+      if (cardIsDue) acc.due++;
     }
 
+    return { dueList, totalSections, learnedSections, leechCount, perCatAccum, countByCategory, totalCards: cards.length };
+  }, [cards]);
+
+  // ── Derived: dueCards (sorted) — depends only on aggregate.dueList ──
+  const dueCards = useMemo(() => {
+    const list = aggregate.dueList.slice();
     const sortKeys = new Map<string, number>();
-    for (const card of dueList) {
+    for (const card of list) {
       let minNext = Infinity;
       for (const s of card.sections) {
         if (s.state !== SectionState.New && s.nextReview < minNext) minNext = s.nextReview;
       }
       sortKeys.set(card.id, minNext);
     }
-    dueList.sort((a, b) => (sortKeys.get(a.id) ?? Infinity) - (sortKeys.get(b.id) ?? Infinity));
+    list.sort((a, b) => (sortKeys.get(a.id) ?? Infinity) - (sortKeys.get(b.id) ?? Infinity));
+    return list;
+  }, [aggregate.dueList]);
 
-    const finalCatStats: Record<string, { score: number; total: number; due: number }> = {};
+  // ── Derived: stats — depends only on aggregate ──
+  const stats = useMemo(() => ({
+    due: aggregate.dueList.length,
+    total: aggregate.totalCards,
+    totalSections: aggregate.totalSections,
+    learnedSections: aggregate.learnedSections,
+    leechCount: aggregate.leechCount,
+  }), [aggregate]);
+
+  // ── Derived: cardCountByCategory — fills zeros for empty categories ──
+  // Re-runs on category add/remove (categories array reference change), but
+  // is O(C) where C = number of categories.
+  const cardCountByCategory = useMemo(() => {
+    const out: Record<string, number> = {};
+    for (const cat of categories) out[cat] = 0;
+    for (const k in aggregate.countByCategory) out[k] = aggregate.countByCategory[k];
+    return out;
+  }, [aggregate.countByCategory, categories]);
+
+  // ── Derived: categoryStats — final per-category numbers ──
+  const categoryStats = useMemo(() => {
+    const out: Record<string, { score: number; total: number; due: number }> = {};
     for (const cat of categories) {
-      const a = catAccum[cat];
-      finalCatStats[cat] = {
-        score: a.total > 0 ? Math.round(a.scoreSum / a.total) : 0,
-        total: a.total,
-        due: a.due,
-      };
+      const a = aggregate.perCatAccum[cat];
+      out[cat] = a
+        ? { score: a.total > 0 ? Math.round(a.scoreSum / a.total) : 0, total: a.total, due: a.due }
+        : { score: 0, total: 0, due: 0 };
     }
-
-    return {
-      dueCards: dueList,
-      stats: { due: dueList.length, total: cards.length, totalSections, learnedSections, leechCount },
-      categoryStats: finalCatStats,
-      cardCountByCategory: countByCategory,
-    };
-  // NOTE: Intentionally excludes `categoryRecords` — derivation only depends on
-  // the UUID list. Including category records caused renames to re-derive every
-  // due card and re-bucket the entire app. (Audit: perf bottleneck #2)
-  }, [cards, categories]);
+    return out;
+  }, [aggregate.perCatAccum, categories]);
 
   const cardState = useMemo<CardStateContextValue>(() => ({
-    cards, dueCards, stats, cardCountByCategory, buckets, ready, dbError,
-  }), [cards, dueCards, stats, cardCountByCategory, buckets, ready, dbError]);
+    cards, dueCards, stats, cardCountByCategory, buckets, ready,
+  }), [cards, dueCards, stats, cardCountByCategory, buckets, ready]);
 
   const reviewState = useMemo<ReviewStateContextValue>(() => ({
     reviewLog, srSettings,
@@ -374,16 +407,14 @@ export function CardStateProvider({ children }: { children: ReactNode }) {
   );
 
   return (
-    <DbErrorContext.Provider value={dbError}>
-      <CardStateInternalsContext.Provider value={internals}>
-        <CardStateContext.Provider value={cardState}>
-          <ReviewStateContext.Provider value={reviewState}>
-            <CategoryStatsContext.Provider value={categoryStatsValue}>
-              {children}
-            </CategoryStatsContext.Provider>
-          </ReviewStateContext.Provider>
-        </CardStateContext.Provider>
-      </CardStateInternalsContext.Provider>
-    </DbErrorContext.Provider>
+    <CardStateInternalsContext.Provider value={internals}>
+      <CardStateContext.Provider value={cardState}>
+        <ReviewStateContext.Provider value={reviewState}>
+          <CategoryStatsContext.Provider value={categoryStatsValue}>
+            {children}
+          </CategoryStatsContext.Provider>
+        </ReviewStateContext.Provider>
+      </CardStateContext.Provider>
+    </CardStateInternalsContext.Provider>
   );
 }

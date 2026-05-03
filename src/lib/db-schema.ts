@@ -7,8 +7,16 @@ import { eventBus, EVENT_TYPES } from "./event-bus";
 import { MnemonicCard, MnemonicTestLogEntry } from "./mnemonic-storage";
 
 // ─── Global DB error state (reactive signal for UI) ─────
-export let dbErrorState: { type: "version" | "timeout"; message: string } | null = null;
-export function getDbErrorState() { return dbErrorState; }
+// Module-level snapshot for early-boot async callers (no React context yet).
+// All set/clear operations MUST go through `setDbErrorState` so that the
+// React-side `DbErrorProvider` (subscribed to DB_ERROR_CHANGED) stays in sync.
+export type DbErrorState = { type: "version" | "timeout"; message: string } | null;
+export let dbErrorState: DbErrorState = null;
+export function getDbErrorState(): DbErrorState { return dbErrorState; }
+export function setDbErrorState(next: DbErrorState): void {
+  dbErrorState = next;
+  try { eventBus.emit(EVENT_TYPES.DB_ERROR_CHANGED, next); } catch { /* noop */ }
+}
 
 // ─── Database Schema ────────────────────────────────────
 
@@ -254,7 +262,7 @@ export function startUnblockWatch() {
     }
     if (dbErrorState.type === "timeout" && eventBus.getTabCount() <= 1) {
       if (import.meta.env.DEV) console.log("[MemoriaDB] Only one tab remains, clearing blocked state...");
-      dbErrorState = null;
+      setDbErrorState(null);
       eventBus.emit(EVENT_TYPES.DB_UNBLOCKED);
       clearInterval(unblockIntervalId!);
       unblockIntervalId = null;
@@ -297,17 +305,17 @@ export async function ensureDbOpen(timeoutMs = 6000): Promise<boolean> {
           return false;
         } catch (delErr) {
           console.error("[MemoriaDB] Failed to delete DB for reset", delErr);
-          dbErrorState = { type: "version", message: e.message };
+          setDbErrorState({ type: "version", message: e.message });
           startUnblockWatch();
           return false;
         }
       } else if (e.message === "DB_OPEN_TIMEOUT" || e.message === "DB_BLOCKED") {
-        dbErrorState = {
+        setDbErrorState({
           type: "timeout",
           message: e.message === "DB_BLOCKED"
             ? "Baza je blokirana od strane drugog taba. Zatvorite ostale tabove i osvježite."
             : "Baza podataka se nije otvorila u predviđenom roku.",
-        };
+        });
 
         setTimeout(() => {
           if (dbErrorState?.type === "timeout" && !reloadScheduled) {
@@ -328,7 +336,7 @@ export async function ensureDbOpen(timeoutMs = 6000): Promise<boolean> {
       await new Promise(r => setTimeout(r, 200));
       ok = await tryOpen();
     } catch {
-      dbErrorState = { type: "version", message: "Nije moguće otvoriti bazu nakon resetovanja." };
+      setDbErrorState({ type: "version", message: "Nije moguće otvoriti bazu nakon resetovanja." });
       startUnblockWatch();
       return false;
     }
