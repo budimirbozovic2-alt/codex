@@ -1,5 +1,5 @@
 import {
-  createContext, useContext, useMemo, useState, useEffect, useCallback,
+  createContext, useContext, useMemo, useState, useEffect, useRef, useCallback,
   type ReactNode,
 } from "react";
 import {
