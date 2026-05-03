@@ -4,18 +4,12 @@ import { useNavigate } from "react-router-dom";
 import { sanitizeHtml } from "@/lib/sanitize";
 import { useDebounce } from "@/hooks/useDebounce";
 import { Card } from "@/lib/spaced-repetition";
-import { loadSources, type Source } from "@/lib/sources-storage";
-import { loadMindMaps } from "@/lib/mindmap-storage";
-import { MindMapDoc } from "@/lib/db";
+import { type Source } from "@/lib/sources-storage";
+import { useAllSources } from "@/hooks/useCategorySources";
+import { useMindMaps } from "@/hooks/useMindMaps";
 import { motion, AnimatePresence } from "framer-motion";
 import { useCardData, useCategoryData } from "@/contexts/AppContext";
-import { eventBus, EVENT_TYPES } from "@/lib/event-bus";
 
-// Module-level cache for sources & mind maps
-let cachedSources: Source[] | null = null;
-let cachedMindMaps: MindMapDoc[] | null = null;
-let cacheTimestamp = 0;
-const CACHE_TTL = 60_000; // 60s staleness check
 interface Props {
   open: boolean;
   onClose: () => void;
