@@ -35,6 +35,11 @@ interface SessionFiltersProps {
   selectedChapter: string | null;
   filterExamFrequent: boolean;
   examFrequentCount: number;
+  /** Optional triple-state frequency filter ("often" / "rare" / "never"). When provided, replaces the legacy binary "Često na ispitu" toggle. */
+  frequencyFilter?: "all" | FrequencyTag;
+  onFrequencyFilterChange?: (next: "all" | FrequencyTag) => void;
+  /** Per-tag counts (for badges next to each option). */
+  frequencyCounts?: Record<FrequencyTag, number>;
   filterType?: "all" | "essay" | "flash";
   onSelectCategory: (cat: string | null) => void;
   onSelectSubcategory: (sub: string | null) => void;
