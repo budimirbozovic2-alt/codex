@@ -50,7 +50,7 @@ export default function SubjectCardsView() {
 
   const { cards: allCards, ready } = useCardData();
   const { categoryRecords } = useCategoryData();
-  const { addCard, addFlashCard, patchCard, toggleTag, deleteCard } = useCardOnlyActions();
+  const { addCard, addFlashCard, patchCard, setFrequency, deleteCard } = useCardOnlyActions();
   const {
     addSubcategory, renameSubcategory, deleteSubcategory,
     addChapter, renameChapter, deleteChapter,
