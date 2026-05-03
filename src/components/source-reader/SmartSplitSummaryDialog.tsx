@@ -47,34 +47,11 @@ interface Props {
  * i ručno splitovanje teksta — što je glavna funkcija wizard-a.
  */
 
-function escapeHtml(s: string): string {
-  return s
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
-}
-
-function plainTextToHtml(text: string): string {
-  const trimmed = text.trim();
-  if (!trimmed) return "";
-  return trimmed
-    .split(/\n{2,}/)
-    .map((para) => `<p>${escapeHtml(para).replace(/\n/g, "<br/>")}</p>`)
-    .join("");
-}
-
-function splitTextByParagraphs(text: string): string[] {
-  return text.split(/\n{2,}/).map((p) => p.trim()).filter(Boolean);
-}
-
-/** Inline cutting view — kopija ponašanja iz EditorSection.CuttingView, nad plain-text paragrafima. */
+/** Inline cutting view — radi nad HTML blokovima i čuva originalni format. */
 function CuttingView({
-  text, onCut, onCancel,
-}: { text: string; onCut: (paragraphIndex: number) => void; onCancel: () => void }) {
-  const paragraphs = splitTextByParagraphs(text);
-  if (paragraphs.length <= 1) {
+  blocks, onCut, onCancel,
+}: { blocks: string[]; onCut: (blockIndex: number) => void; onCancel: () => void }) {
+  if (blocks.length <= 1) {
     return (
       <div className="rounded-md border border-warning/30 bg-warning/5 p-3">
         <div className="flex items-center justify-between mb-2">
@@ -84,7 +61,7 @@ function CuttingView({
           </button>
         </div>
         <div className="text-sm text-muted-foreground text-center py-4">
-          Nema dovoljno paragrafa za rezanje. Razdvojte tekst praznim redom.
+          Nema dovoljno blokova za rezanje. Razdvojte sadržaj na više paragrafa/naslova.
         </div>
       </div>
     );
@@ -93,13 +70,13 @@ function CuttingView({
     <div className="rounded-md border border-warning/30 bg-warning/5 p-3 space-y-0">
       <div className="flex items-center justify-between mb-3">
         <span className="text-xs font-medium text-warning">
-          Kliknite na makazice da izrežete — prvi red poslije reza postaje naslov novog modula
+          Kliknite na makazice — sve nakon reza postaje novi modul (format se čuva)
         </span>
         <button type="button" onClick={onCancel} className="text-xs text-muted-foreground hover:text-foreground">
           Otkaži
         </button>
       </div>
-      {paragraphs.map((p, idx) => (
+      {blocks.map((blk, idx) => (
         <div key={idx}>
           {idx > 0 && (
             <button
@@ -113,7 +90,10 @@ function CuttingView({
               <div className="flex-1 h-px bg-warning/30 group-hover:bg-warning" />
             </button>
           )}
-          <div className="text-sm px-2 py-1 rounded whitespace-pre-wrap">{p}</div>
+          <div
+            className="text-sm px-2 py-1 rounded prose prose-sm max-w-none dark:prose-invert"
+            dangerouslySetInnerHTML={{ __html: sanitizeHtml(blk) }}
+          />
         </div>
       ))}
     </div>
