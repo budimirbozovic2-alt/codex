@@ -25,7 +25,7 @@ interface Props {
   selectionMode: boolean;
   selectedIds: Set<string>;
   onToggleSelection: (id: string) => void;
-  toggleTag: (cardId: string, tag: string) => void;
+  setFrequency: (cardId: string, value: FrequencyTag | null) => void;
   onEdit?: (card: Card) => void;
   onPassiveRead?: (card: Card) => void;
   onDelete?: (id: string) => void;
