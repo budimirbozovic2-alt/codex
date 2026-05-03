@@ -10,6 +10,13 @@ import {
   FrequencyTag,
   CardSourceType,
 } from "@/lib/spaced-repetition";
+
+export interface FlashPair {
+  question: string;
+  answer: string;
+  subcategoryId?: string;
+  chapterId?: string;
+}
 import { setCardFrequency } from "@/lib/sr/frequency";
 import { CardMap, bumpMapVersion, schedulePersist } from "@/lib/persist-queue";
 import { sameSourceModules } from "@/lib/struct-eq";
