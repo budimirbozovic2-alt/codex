@@ -6,6 +6,7 @@ import { useCardMap, setCardMap, cardMapRefFacade, type CardMapRefFacade } from 
 import { idbSaveSettings, idbAddReviewLogEntry } from "@/lib/db";
 import { onCardLinksCleared, onCardReviewConfirmed } from "@/lib/sources-storage";
 import { eventBus, EVENT_TYPES } from "@/lib/event-bus";
+import { initBacklinkIndexSubscriptions } from "@/lib/backlink-index";
 import { useCardBootstrap } from "@/hooks/useCardBootstrap";
 import { buildCardBuckets, EMPTY_BUCKETS, bucketFingerprint, type CardBuckets } from "@/lib/card-buckets";
 import { useCategoryData, useCategoryStateSetter } from "./CategoryStateProvider";
