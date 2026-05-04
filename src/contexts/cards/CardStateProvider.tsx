@@ -6,6 +6,7 @@ import { useCardMap, setCardMap, cardMapRefFacade, type CardMapRefFacade } from 
 import { idbSaveSettings, idbAddReviewLogEntry } from "@/lib/db";
 import { onCardLinksCleared, onCardReviewConfirmed } from "@/lib/sources-storage";
 import { eventBus, EVENT_TYPES } from "@/lib/event-bus";
+import { initBacklinkIndexSubscriptions } from "@/lib/backlink-index";
 import { useCardBootstrap } from "@/hooks/useCardBootstrap";
 import { buildCardBuckets, EMPTY_BUCKETS, bucketFingerprint, type CardBuckets } from "@/lib/card-buckets";
 import { useCategoryData, useCategoryStateSetter } from "./CategoryStateProvider";
@@ -125,6 +126,11 @@ export function CardStateProvider({ children }: { children: ReactNode }) {
     setSrSettingsState,
     cardMapRef,
   });
+
+  // FIX S4: Backlink index subscriptions — managed via React lifecycle (cleanup on unmount/HMR)
+  useEffect(() => {
+    return initBacklinkIndexSubscriptions();
+  }, []);
 
   useEffect(() => {
     const electron = typeof window !== "undefined" ? window.electronAPI : undefined;
