@@ -23,7 +23,7 @@ export default function DatabaseRecoveryPanel({ error }: Props) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/95">
+    <div className="fixed inset-0 z-[9998] flex items-center justify-center bg-background/95">
       <div className="glass-card max-w-md w-full mx-4 p-8 space-y-6 text-center">
         <div className="flex justify-center">
           <div className="p-4 rounded-full bg-destructive/10">
