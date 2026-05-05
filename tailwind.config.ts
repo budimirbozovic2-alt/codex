@@ -106,6 +106,23 @@ export default {
   			md: 'calc(var(--radius) - 2px)',
   			sm: 'calc(var(--radius) - 4px)'
   		},
+  		// Centralized z-index scale. Use these semantic tokens (e.g. `z-modal`,
+  		// `z-overlay`) instead of arbitrary `z-[NN]` values so layering stays
+  		// predictable across modals, popovers and global overlays.
+  		// Hierarchy (low → high):
+  		//   base(0) < dropdown(40) < modal(50) < modal-elevated(60) <
+  		//   search(70) < overlay(100) < zen(110) < recovery(9998) < blocking(9999)
+  		zIndex: {
+  			'base': '0',
+  			'dropdown': '40',
+  			'modal': '50',           // Radix Dialog/Sheet default
+  			'modal-elevated': '60',  // Custom modals above standard dialogs
+  			'search': '70',          // Global search palette
+  			'overlay': '100',        // Processing/loading overlays
+  			'zen': '110',            // Zen mode toggle/controls
+  			'recovery': '9998',      // DB recovery gate
+  			'blocking': '9999'       // Hard-blocking system modal
+  		},
   		keyframes: {
   			'accordion-down': {
   				from: {
