@@ -101,7 +101,7 @@ const GlobalSearchWrapper = memo(function GlobalSearchWrapper({
         onClose={onClose}
         onNavigateToCard={(card) => {
           setEditingCardId(card.id);
-          stashEditReturn();
+          stashEditReturn(card.id);
           setView("edit");
         }}
       />

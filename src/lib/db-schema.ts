@@ -3,9 +3,21 @@ import { Card } from "./spaced-repetition";
 import { ReviewLogEntry, PomodoroLogEntry } from "./storage";
 import type { DiaryEntry, CalibrationEntry, LatencyEntry, SlippageEntry, ActivityEntry } from "./metacognitive-storage";
 import type { DisciplineEntry } from "./planner-storage";
-import { eventBus } from "./event-bus";
-import { EVENT_TYPES } from "./event-bus-types";
+import { EVENT_TYPES, type EventType } from "./event-bus-types";
 import { MnemonicCard, MnemonicTestLogEntry } from "./mnemonic-storage";
+
+// ─── W1: Inversion-of-Control emitter ─────────────────────
+// `db-schema` does NOT import the EventBus instance — instead, the bootstrap
+// (src/main.tsx) injects an emitter via `setDbEventEmitter`. This breaks the
+// `db-schema` ↔ `event-bus` cycle and makes calls debuggable by name.
+type DbEmitter = (type: EventType, payload?: unknown) => void;
+type TabCounter = () => number;
+let _emit: DbEmitter = () => { /* no-op default (SSR / test without bus) */ };
+let _getTabCount: TabCounter = () => 1;
+export function setDbEventEmitter(emit: DbEmitter, getTabCount?: TabCounter): void {
+  _emit = emit;
+  if (getTabCount) _getTabCount = getTabCount;
+}
 
 // ─── Global DB error state (reactive signal for UI) ─────
 // Module-level snapshot for early-boot async callers (no React context yet).
@@ -16,7 +28,7 @@ export let dbErrorState: DbErrorState = null;
 export function getDbErrorState(): DbErrorState { return dbErrorState; }
 export function setDbErrorState(next: DbErrorState): void {
   dbErrorState = next;
-  try { eventBus.emit(EVENT_TYPES.DB_ERROR_CHANGED, next); } catch { /* noop */ }
+  try { _emit(EVENT_TYPES.DB_ERROR_CHANGED, next); } catch { /* noop */ }
 }
 
 // ─── Database Schema ────────────────────────────────────
@@ -254,7 +266,7 @@ function emitBlockedThrottled() {
   const now = Date.now();
   if (now - _lastBlockedEmitAt < 250) return;
   _lastBlockedEmitAt = now;
-  eventBus.emit(EVENT_TYPES.DB_BLOCKED);
+  _emit(EVENT_TYPES.DB_BLOCKED);
 }
 
 // Register blocked handler ONCE at module level
@@ -282,10 +294,10 @@ export function startUnblockWatch() {
       unblockIntervalId = null;
       return;
     }
-    if (dbErrorState.type === "timeout" && eventBus.getTabCount() <= 1) {
+    if (dbErrorState.type === "timeout" && _getTabCount() <= 1) {
       if (import.meta.env.DEV) console.log("[MemoriaDB] Only one tab remains, clearing blocked state...");
       setDbErrorState(null);
-      eventBus.emit(EVENT_TYPES.DB_UNBLOCKED);
+      _emit(EVENT_TYPES.DB_UNBLOCKED);
       clearInterval(unblockIntervalId!);
       unblockIntervalId = null;
       if (!reloadScheduled) {

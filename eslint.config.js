@@ -47,6 +47,20 @@ export default tseslint.config(
           message:
             "Raw Tailwind palette colors are forbidden. Use semantic tokens (success, warning, destructive, info, primary, mastery-*, node-*) defined in src/index.css.",
         },
+        // W5: disallow string-literal event names on eventBus.{emit,subscribe,unsubscribe}.
+        // Forces the use of EVENT_TYPES.X constants so typos & stale names fail at lint time.
+        {
+          selector:
+            "CallExpression[callee.object.name='eventBus'][callee.property.name=/^(emit|subscribe|unsubscribe)$/] > Literal:first-child",
+          message:
+            "Koristi EVENT_TYPES.X umjesto string literala (W5).",
+        },
+        {
+          selector:
+            "CallExpression[callee.object.name='eventBus'][callee.property.name=/^(emit|subscribe|unsubscribe)$/] > TemplateLiteral:first-child",
+          message:
+            "Koristi EVENT_TYPES.X umjesto template-literal-a (W5).",
+        },
       ],
     },
   },

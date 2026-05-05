@@ -83,9 +83,9 @@ export default function LearnPage() {
     buildExtras: () => ({ ...(sessionStateRef.current ?? {}) }),
   });
   const handleEdit = useCallback((card: Card) => {
-    // M3: Set SSOT first; stash() reads the freshest id via the global mirror.
+    // M3: explicit id → snapshot always reflects the card the user clicked.
     setEditingCardId(card.id);
-    stashEditReturn();
+    stashEditReturn(card.id);
     setView("edit");
   }, [stashEditReturn, setEditingCardId, setView]);
 

@@ -35,6 +35,13 @@ let _currentEditingCardId: string | null = null;
 export function getCurrentEditingCardId(): string | null {
   return _currentEditingCardId;
 }
+/**
+ * Test-only: directly set the SSOT mirror without going through the React
+ * provider. Production code MUST use `setEditingCardId` from `useUIContext()`.
+ */
+export function setEditingCardId(id: string | null): void {
+  _currentEditingCardId = id;
+}
 
 export function useUIContext() {
   const ctx = useContext(UIContext);

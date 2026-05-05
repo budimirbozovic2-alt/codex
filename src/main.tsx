@@ -46,12 +46,21 @@ markBootStep("main:error-handlers-registered");
 (async () => {
   try {
     markBootStep("main:parallel-import-start");
-    const [{ initColorTheme }, { default: App }, { createRoot }] = await Promise.all([
+    const [{ initColorTheme }, { default: App }, { createRoot }, { eventBus }, { setDbEventEmitter }] = await Promise.all([
       import("./lib/app-settings"),
       import("./App"),
       import("react-dom/client"),
+      import("./lib/event-bus"),
+      import("./lib/db-schema"),
     ]);
     markBootStep("main:parallel-import-done");
+
+    // W1: Inject EventBus into db-schema (Inversion of Control — breaks the
+    // db-schema ↔ event-bus circular dependency).
+    setDbEventEmitter(
+      (type, payload) => eventBus.emit(type, payload),
+      () => eventBus.getTabCount(),
+    );
 
     initColorTheme();
     markBootStep("main:theme-init-done");

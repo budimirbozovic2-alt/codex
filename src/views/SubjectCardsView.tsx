@@ -124,9 +124,9 @@ export default function SubjectCardsView() {
   );
 
   const handleEdit = (card: Card) => {
-    // M3: Set SSOT first (synchronously updates the global mirror), then stash.
+    // M3: explicit id passed to stash → no reliance on SSOT timing.
     setEditingCardId(card.id);
-    stashEditReturn();
+    stashEditReturn(card.id);
     navigate("/edit");
   };
 
