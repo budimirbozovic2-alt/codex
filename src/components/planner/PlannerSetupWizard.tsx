@@ -206,7 +206,6 @@ export default function PlannerSetupWizard({ config, save, categoryRecords, card
             )}
           </div>
         </div>
-      </motion.div>
-    </div>
+    </Modal>
   );
 }
