@@ -10,7 +10,7 @@ import { BackupCard } from "@/components/dashboard/BackupCard";
 
 import InfoPanel from "@/components/InfoPanel";
 import { AnimatePresence } from "framer-motion";
-const DashboardOnboarding = lazy(() => import("@/components/DashboardOnboarding"));
+const OnboardingModal = lazy(() => import("@/components/OnboardingModal"));
 
 export default function DashboardPage() {
   const { cards, stats, ready } = useCardData();
@@ -76,7 +76,7 @@ export default function DashboardPage() {
       <AnimatePresence>
         {showOnboarding && (
           <Suspense fallback={null}>
-            <DashboardOnboarding onComplete={() => setShowOnboarding(false)} />
+            <OnboardingModal preset="dashboard" onComplete={() => setShowOnboarding(false)} />
           </Suspense>
         )}
       </AnimatePresence>

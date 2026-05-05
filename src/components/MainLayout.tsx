@@ -7,7 +7,7 @@ import AppSidebar from "@/components/AppSidebar";
 import BlockingModal from "@/components/db/BlockingModal";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { hasSeenOnboarding } from "@/components/OnboardingModal";
-import { APP_ONBOARDING_KEY } from "@/components/AppOnboarding";
+import { ONBOARDING_KEYS } from "@/components/onboarding/presets";
 import { toast } from "sonner";
 import { Moon, Sun, Search, Focus, HelpCircle } from "lucide-react";
 import { setDarkMode } from "@/lib/app-settings";
@@ -16,7 +16,7 @@ import { useGlobalHotkey } from "@/hooks/useGlobalHotkey";
 
 const DocxImporter = lazy(() => import("@/components/DocxImporter"));
 const GlobalSearch = lazy(() => import("@/components/GlobalSearch"));
-const AppOnboarding = lazy(() => import("@/components/AppOnboarding"));
+const OnboardingModal = lazy(() => import("@/components/OnboardingModal"));
 
 const SOURCE_ROUTES = ["/categories", "/category/"];
 
