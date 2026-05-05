@@ -17,7 +17,8 @@ import {
   type KnowledgeBaseArticle,
 } from "@/lib/zettelkasten-storage";
 import { useWikiLinkAutoCreate } from "@/hooks/useWikiLinkAutoCreate";
-import { loadSourcesByCategory, type Source } from "@/lib/sources-storage";
+import { type Source } from "@/lib/sources-storage";
+import { useCategorySources } from "@/hooks/useCategorySources";
 import { sameStringSet } from "@/lib/struct-eq";
 import { backlinkIndex } from "@/lib/backlink-index";
 import { eventBus, EVENT_TYPES } from "@/lib/event-bus";
@@ -58,7 +59,7 @@ export default function ZettelkastenView() {
   );
 
   const [articles, setArticles] = useState<KnowledgeBaseArticle[]>([]);
-  const [sources, setSources] = useState<Source[]>([]);
+  const sources = useCategorySources(categoryId);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -96,10 +97,7 @@ export default function ZettelkastenView() {
     if (!categoryId || !categoryRec) return;
     let cancelled = false;
     setLoading(true);
-    Promise.all([
-      loadArticlesBySubject(categoryId),
-      loadSourcesByCategory(categoryId),
-    ]).then(async ([list, srcs]) => {
+    loadArticlesBySubject(categoryId).then(async (list) => {
       if (cancelled) return;
       // Seed Index article using the subject's subcategory names as discovery
       // hints (NOT structural tags — they're just initial wiki-link suggestions
@@ -114,7 +112,6 @@ export default function ZettelkastenView() {
         : [idx, ...list];
 
       setArticles(merged);
-      setSources(srcs);
       backlinkIndex.rebuildFromAll(categoryId, merged);
       // Default landing: Index article in read mode.
       setActiveId(prev => prev ?? idx.id);
