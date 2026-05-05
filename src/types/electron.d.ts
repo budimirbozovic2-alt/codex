@@ -30,6 +30,9 @@ interface ElectronAPI {
   showOpenDialog: (options: Record<string, unknown>) => Promise<{ canceled: boolean; filePaths: string[] }>;
   saveFile: (filePath: string, base64Data: string) => Promise<boolean>;
   readFile: (filePath: string) => Promise<{ data: string; name: string } | null>;
+  /** Preferred binary IO — no base64 expansion, 500 MB cap. */
+  saveFileBytes?: (filePath: string, bytes: Uint8Array) => Promise<boolean>;
+  readFileBytes?: (filePath: string) => Promise<{ data: Uint8Array; name: string } | null>;
 }
 
 interface Window {
