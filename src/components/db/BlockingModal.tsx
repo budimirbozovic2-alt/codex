@@ -20,17 +20,23 @@ export default function BlockingModal() {
       setIsBlocked(false);
     });
 
-    // Update tab count display
-    const interval = setInterval(() => {
-      setTabCount(eventBus.getTabCount());
-    }, 2000);
-
     return () => {
       unsubBlocked();
       unsubUnblocked();
-      clearInterval(interval);
     };
   }, []);
+
+  // P1: Tab-count polling only runs while the modal is actually blocking.
+  // Previously a setInterval ran for the entire app lifetime, causing
+  // continual re-renders and event-bus calls even when nothing was blocked.
+  useEffect(() => {
+    if (!isBlocked) return;
+    setTabCount(eventBus.getTabCount());
+    const interval = setInterval(() => {
+      setTabCount(eventBus.getTabCount());
+    }, 2000);
+    return () => clearInterval(interval);
+  }, [isBlocked]);
 
   if (!isBlocked) return null;
 

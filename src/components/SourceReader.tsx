@@ -48,9 +48,19 @@ export default function SourceReader({ source, onBack, onSourceUpdated }: Props)
     setExamQuestions(source.examQuestions ?? []);
   }, [source.id, source.examQuestions, setExamQuestions]);
 
-  // ── W3: debounced silent save back to the Source record ──
+  // ── W3 / P2: debounced silent save back to the Source record ──
+  // Use refs for `source` and `onSourceUpdated` so the effect only
+  // re-runs when examQuestions actually change. Previously the entire
+  // `source` object was a dependency, causing the timer to be torn down
+  // and rescheduled on every parent render and forcing JSON.stringify
+  // on every render path.
   const saveTimerRef = useRef<number | null>(null);
   const lastSavedJsonRef = useRef<string>(JSON.stringify(source.examQuestions ?? []));
+  const sourceRef = useRef(source);
+  const onSourceUpdatedRef = useRef(onSourceUpdated);
+  useEffect(() => { sourceRef.current = source; }, [source]);
+  useEffect(() => { onSourceUpdatedRef.current = onSourceUpdated; }, [onSourceUpdated]);
+
   useEffect(() => {
     if (hydratedSourceIdRef.current !== source.id) return; // pre-hydration guard
     const json = JSON.stringify(examQuestions);
@@ -59,8 +69,9 @@ export default function SourceReader({ source, onBack, onSourceUpdated }: Props)
     saveTimerRef.current = window.setTimeout(() => {
       saveTimerRef.current = null;
       lastSavedJsonRef.current = json;
-      const next: Source = { ...source, examQuestions, updatedAt: Date.now() };
-      saveSource(next).then(() => onSourceUpdated?.(next)).catch(err => {
+      const current = sourceRef.current;
+      const next: Source = { ...current, examQuestions, updatedAt: Date.now() };
+      saveSource(next).then(() => onSourceUpdatedRef.current?.(next)).catch(err => {
         console.error("[SourceReader] failed to persist examQuestions", err);
       });
     }, 800);
@@ -70,7 +81,7 @@ export default function SourceReader({ source, onBack, onSourceUpdated }: Props)
         saveTimerRef.current = null;
       }
     };
-  }, [examQuestions, source, onSourceUpdated]);
+  }, [examQuestions, source.id]);
 
   // Reset store on unmount — ensures next source starts clean.
   useEffect(() => () => useSourceReaderStore.getState().reset(), []);
