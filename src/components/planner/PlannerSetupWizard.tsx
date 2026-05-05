@@ -51,7 +51,7 @@ export default function PlannerSetupWizard({ config, save, categoryRecords, card
   };
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-background/80 backdrop-blur-sm">
+    <div className="fixed inset-0 z-modal-elevated flex items-center justify-center bg-background/80 backdrop-blur-sm">
       <motion.div
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}

@@ -21,7 +21,7 @@ interface Props {
 export function SourceContextMenu({ menu, onSetHeading, onFormatAsList, onClose }: Props) {
   return (
     <div
-      className="fixed z-[100] rounded-lg border bg-popover shadow-lg p-1 min-w-[180px] animate-in fade-in-0 zoom-in-95"
+      className="fixed z-overlay rounded-lg border bg-popover shadow-lg p-1 min-w-[180px] animate-in fade-in-0 zoom-in-95"
       style={{ left: menu.x, top: menu.y }}
       onClick={e => e.stopPropagation()}
     >

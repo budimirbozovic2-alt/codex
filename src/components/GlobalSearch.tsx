@@ -228,7 +228,7 @@ export default function GlobalSearch({ open, onClose, onNavigateToCard }: Props)
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className="fixed inset-0 z-[70] flex items-start justify-center pt-[15vh]"
+        className="fixed inset-0 z-search flex items-start justify-center pt-[15vh]"
         onClick={onClose}
       >
         <div className="fixed inset-0 bg-background/80 backdrop-blur-sm" />

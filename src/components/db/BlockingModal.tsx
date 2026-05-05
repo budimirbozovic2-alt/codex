@@ -35,7 +35,7 @@ export default function BlockingModal() {
   if (!isBlocked) return null;
 
   return (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-background/95 backdrop-blur-md transition-all animate-in fade-in duration-300">
+    <div className="fixed inset-0 z-blocking flex items-center justify-center bg-background/95 backdrop-blur-md transition-all animate-in fade-in duration-300">
       <div className="max-w-md w-full p-8 bg-card border shadow-2xl rounded-2xl text-center space-y-6">
         <div className="flex justify-center">
           <div className="p-4 rounded-full bg-destructive/10 text-destructive animate-pulse">

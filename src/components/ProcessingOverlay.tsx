@@ -24,7 +24,7 @@ export default function ProcessingOverlay() {
 
   return (
     <div
-      className={`fixed inset-0 z-[100] flex items-center justify-center bg-background/80 backdrop-blur-sm transition-opacity duration-300 ${
+      className={`fixed inset-0 z-overlay flex items-center justify-center bg-background/80 backdrop-blur-sm transition-opacity duration-300 ${
         isProcessing ? "opacity-100" : "opacity-0 pointer-events-none"
       }`}
     >

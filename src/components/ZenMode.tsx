@@ -170,7 +170,7 @@ export default function ZenMode({ active, onToggle }: Props) {
       animate={{ opacity: 1, scale: 1 }}
       exit={{ opacity: 0, scale: 0.95 }}
       transition={{ duration: 0.3, ease: "easeOut" }}
-      className="fixed bottom-6 right-6 z-[110]"
+      className="fixed bottom-6 right-6 z-zen"
       role="dialog"
       aria-modal="false"
       aria-label="Zen Mode tajmer"
@@ -284,7 +284,7 @@ export default function ZenMode({ active, onToggle }: Props) {
             <SelectTrigger className="h-7 text-xs">
               <SelectValue />
             </SelectTrigger>
-            <SelectContent className="z-[110]">
+            <SelectContent className="z-zen">
               {AMBIENT_TRACKS.map(t => (
                 <SelectItem key={t.id} value={t.id} className="text-xs">{t.label}</SelectItem>
               ))}
