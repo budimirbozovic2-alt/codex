@@ -334,7 +334,7 @@ export default function LocalSpeedReader({
   // Keyboard shortcuts
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+      if (shouldIgnoreGlobalKey(e)) return;
       if (e.code === "Space") { e.preventDefault(); handlePlayPause(); }
       if (e.code === "ArrowLeft") { e.preventDefault(); handlePrevWord(); }
       if (e.code === "ArrowRight") { e.preventDefault(); handleNextWord(); }
