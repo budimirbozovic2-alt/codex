@@ -3,6 +3,7 @@ import { Card } from "@/lib/spaced-repetition";
 import { CardMap, bumpMapVersion, schedulePersist } from "@/lib/persist-queue";
 import { db, idbDeleteCard, type CategoryRecord, type SubcategoryNode, type ChapterNode, type ExaminerProfile } from "@/lib/db";
 import { invalidateSourcesCache } from "@/lib/sources-storage";
+import { cascadeDeleteCategoryDomains } from "@/lib/category-deletion-service";
 import { toast } from "sonner";
 import { optimisticCategoryUpdate } from "@/lib/category-service";
 import { stableLegacyId } from "@/lib/stable-id";
@@ -129,6 +130,10 @@ export function useCategoryManagement({
 
       (async () => {
         try {
+          // A1+F1: atomic cascade across all category-keyed side-stores
+          // (knowledgeBaseArticles, mindMaps, mnemonics, settings, planner refs).
+          await cascadeDeleteCategoryDomains(categoryId);
+
           if (purgeCards) {
             await db.sources.where("categoryId").equals(categoryId).delete();
           } else {
