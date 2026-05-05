@@ -1,8 +1,8 @@
 import { ArrowRight, ArrowLeft, X, CheckCircle2 } from "lucide-react";
-import { useState } from "react";
+import { useState, useId } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 
-
+import Modal from "@/components/ui/Modal";
 import { Button } from "@/components/ui/button";
 import type { LucideIcon } from "lucide-react";
 export interface OnboardingSlide {
