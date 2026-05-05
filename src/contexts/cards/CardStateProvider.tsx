@@ -343,9 +343,56 @@ export function CardStateProvider({ children }: { children: ReactNode }) {
     return fresh;
   }, [cards]);
 
+  // ════════════════════════════════════════════════════════════════════════
+  // B3: Per-card summary cache. The Ref-Delta pattern guarantees that a Card
+  // object reference is replaced ONLY when its sections mutate, so a WeakMap
+  // keyed by the Card instance is a safe and cheap memo. Aggregating then
+  // collapses to: O(N) sums + 1 cheap `nextReview <= now` comparison per
+  // card, instead of O(N × sections) work on every grade.
+  // ════════════════════════════════════════════════════════════════════════
+  interface CardSummary {
+    totalSections: number;
+    learnedSections: number;
+    leechCount: number;
+    scoreAvg: number;
+    /** Earliest nextReview among non-New sections, or Infinity. */
+    minNonNewNextReview: number;
+  }
+  const cardSummaryCacheRef = useRef<WeakMap<Card, CardSummary>>(new WeakMap());
+
+  const summarizeCard = useCallback((card: Card): CardSummary => {
+    const cached = cardSummaryCacheRef.current.get(card);
+    if (cached) return cached;
+    let totalSections = 0;
+    let learnedSections = 0;
+    let leechCount = 0;
+    let scoreSum = 0;
+    let minNonNewNextReview = Infinity;
+    for (const s of card.sections) {
+      totalSections++;
+      const isNew = s.state === SectionState.New;
+      if (!isNew) {
+        learnedSections++;
+        if (s.nextReview < minNonNewNextReview) minNonNewNextReview = s.nextReview;
+      }
+      if (isLeech(s)) leechCount++;
+      scoreSum += getSectionScore(s);
+    }
+    const summary: CardSummary = {
+      totalSections,
+      learnedSections,
+      leechCount,
+      scoreAvg: totalSections > 0 ? scoreSum / totalSections : 0,
+      minNonNewNextReview,
+    };
+    cardSummaryCacheRef.current.set(card, summary);
+    return summary;
+  }, []);
+
   const aggregate = useMemo(() => {
     const now = Date.now();
     const dueList: Card[] = [];
+    const dueSortKeys = new Map<string, number>();
     let totalSections = 0;
     let learnedSections = 0;
     let leechCount = 0;
@@ -353,23 +400,18 @@ export function CardStateProvider({ children }: { children: ReactNode }) {
     const countByCategory: Record<string, number> = {};
 
     for (const card of cards) {
+      const sum = summarizeCard(card);
       const catKey = card.categoryId;
       countByCategory[catKey] = (countByCategory[catKey] || 0) + 1;
+      totalSections += sum.totalSections;
+      learnedSections += sum.learnedSections;
+      leechCount += sum.leechCount;
 
-      let cardIsDue = false;
-      let cardScoreSum = 0;
-      for (const s of card.sections) {
-        totalSections++;
-        const isNew = s.state === SectionState.New;
-        if (!isNew) {
-          learnedSections++;
-          if (s.nextReview <= now) cardIsDue = true;
-        }
-        if (isLeech(s)) leechCount++;
-        cardScoreSum += getSectionScore(s);
+      const cardIsDue = sum.minNonNewNextReview <= now;
+      if (cardIsDue) {
+        dueList.push(card);
+        dueSortKeys.set(card.id, sum.minNonNewNextReview);
       }
-
-      if (cardIsDue) dueList.push(card);
 
       let acc = perCatAccum[catKey];
       if (!acc) {
@@ -377,12 +419,13 @@ export function CardStateProvider({ children }: { children: ReactNode }) {
         perCatAccum[catKey] = acc;
       }
       acc.total++;
-      acc.scoreSum += card.sections.length > 0 ? cardScoreSum / card.sections.length : 0;
+      acc.scoreSum += sum.scoreAvg;
       if (cardIsDue) acc.due++;
     }
 
     return {
       dueList,
+      dueSortKeys,
       totalSections,
       learnedSections,
       leechCount,
@@ -390,21 +433,14 @@ export function CardStateProvider({ children }: { children: ReactNode }) {
       countByCategory,
       totalCards: cards.length,
     };
-  }, [cards]);
+  }, [cards, summarizeCard]);
 
   const dueCards = useMemo(() => {
     const list = aggregate.dueList.slice();
-    const sortKeys = new Map<string, number>();
-    for (const card of list) {
-      let minNext = Infinity;
-      for (const s of card.sections) {
-        if (s.state !== SectionState.New && s.nextReview < minNext) minNext = s.nextReview;
-      }
-      sortKeys.set(card.id, minNext);
-    }
-    list.sort((a, b) => (sortKeys.get(a.id) ?? Infinity) - (sortKeys.get(b.id) ?? Infinity));
+    const keys = aggregate.dueSortKeys;
+    list.sort((a, b) => (keys.get(a.id) ?? Infinity) - (keys.get(b.id) ?? Infinity));
     return list;
-  }, [aggregate.dueList]);
+  }, [aggregate.dueList, aggregate.dueSortKeys]);
 
   const stats = useMemo(
     () => ({
