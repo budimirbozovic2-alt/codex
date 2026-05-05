@@ -142,6 +142,20 @@ export function idbAddReviewLogEntry(entry: ReviewLogEntry): void {
   }
 }
 
+/**
+ * B2: Bulk variant — enqueues N entries with a SINGLE timer schedule.
+ * Replaces N×idbAddReviewLogEntry calls in tight loops (Zen mode flushes,
+ * session-end commit). Reduces timer churn and lets Dexie coalesce them
+ * into one bulkAdd transaction.
+ */
+export function idbAddReviewLogEntries(entries: ReviewLogEntry[]): void {
+  if (entries.length === 0) return;
+  for (const entry of entries) _reviewLogQueue.push(entry);
+  if (_reviewLogTimer == null) {
+    _reviewLogTimer = setTimeout(() => { void _flushReviewLogQueue(); }, REVIEW_LOG_DEBOUNCE_MS);
+  }
+}
+
 /** Force-drain the queue. Call before backup/export/full-restore so no
  *  pending entries are missed. */
 export async function flushReviewLogQueue(): Promise<void> {

@@ -130,8 +130,13 @@ export function useCardBootstrap(setters: BootSetters) {
         if (import.meta.env.DEV) console.log("[boot:diag] step 3: initCaches");
         const { initMetacognitiveCache } = await import("@/lib/metacognitive-storage");
         const { initPlannerCache } = await import("@/lib/planner-storage");
+        const { initSubjectSettingsCache } = await import("@/lib/subject-settings");
         await withTimeout(
-          Promise.all([initMetacognitiveCache().catch((e) => console.warn("[silent]", e)), initPlannerCache().catch((e) => console.warn("[silent]", e))]),
+          Promise.all([
+            initMetacognitiveCache().catch((e) => console.warn("[silent]", e)),
+            initPlannerCache().catch((e) => console.warn("[silent]", e)),
+            initSubjectSettingsCache().catch((e) => console.warn("[silent]", e)),
+          ]),
           3000, "cache init", undefined
         );
 
