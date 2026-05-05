@@ -58,6 +58,12 @@ function createPersistQueue() {
     return pendingPuts.size > 0 || pendingDeletes.size > 0;
   }
 
+  // V1: Re-enqueue + bounded exponential backoff retry. On failure we MUST
+  // restore the in-flight batch into the pending maps (without clobbering any
+  // newer writes that arrived during the in-flight window — newer wins).
+  let _retryAttempt = 0;
+  const MAX_RETRY = 3;
+
   async function flush() {
     timer = null;
     if (!hasPending()) {
@@ -73,18 +79,46 @@ function createPersistQueue() {
     const t0 = import.meta.env.DEV ? performance.now() : 0;
     try {
       await idbBulkApply(puts, deletes);
+      _retryAttempt = 0;
       try { sessionStorage.removeItem("codex-flush-pending"); } catch { /* noop */ }
       if (import.meta.env.DEV) {
         const dur = (performance.now() - t0).toFixed(1);
         console.debug(`[persistQueue] flush ok puts=${puts.length} deletes=${deletes.length} ${dur}ms`);
       }
     } catch (err: unknown) {
-      try { sessionStorage.removeItem("codex-flush-pending"); } catch { /* noop */ }
       const e = err instanceof Error ? err : new Error(String(err));
+      // Re-enqueue: NEWER writes (already in pending maps) must win over the
+      // failed in-flight batch. Only re-add ids that have NOT been touched
+      // since we drained.
+      for (const c of puts) {
+        if (!pendingPuts.has(c.id) && !pendingDeletes.has(c.id)) {
+          pendingPuts.set(c.id, c);
+        }
+      }
+      for (const id of deletes) {
+        if (!pendingPuts.has(id) && !pendingDeletes.has(id)) {
+          pendingDeletes.add(id);
+        }
+      }
+
       if (e.message === "QUOTA_EXCEEDED") {
+        // Quota errors will not improve with retry — surface and stop.
+        try { sessionStorage.removeItem("codex-flush-pending"); } catch { /* noop */ }
         toast.error("Memorija browsera je puna! Exportuj backup i očisti nepotrebne podatke.");
+        return;
+      }
+
+      console.error(`[persistQueue] flush failed (attempt ${_retryAttempt + 1}/${MAX_RETRY})`, err);
+      if (_retryAttempt < MAX_RETRY) {
+        const delay = 200 * Math.pow(2, _retryAttempt);
+        _retryAttempt++;
+        if (timer === null) {
+          timer = window.setTimeout(flush, delay);
+        }
       } else {
-        console.error("[persistQueue] flush failed", err);
+        _retryAttempt = 0;
+        try { sessionStorage.removeItem("codex-flush-pending"); } catch { /* noop */ }
+        toast.error("Pisanje u bazu nije uspjelo nakon više pokušaja. HITNO eksportujte backup!");
       }
     }
   }
