@@ -11,6 +11,7 @@ interface AuditorDetailPanelProps {
 }
 
 export default function AuditorDetailPanel({ card, onClose }: AuditorDetailPanelProps) {
+  const titleId = useId();
   const level = getCardMasteryLevel(card);
   const ml = MASTERY_LEVELS[level];
   const avgStability = card.sections.reduce((s, sec) => s + sec.stability, 0) / card.sections.length;
@@ -19,20 +20,13 @@ export default function AuditorDetailPanel({ card, onClose }: AuditorDetailPanel
   const totalErrors = errorLog.reduce((s, e) => s + e.count, 0);
 
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      className="fixed inset-0 z-modal-elevated flex items-center justify-center p-4 bg-black/60"
-      onClick={onClose}
+    <Modal
+      open
+      onClose={onClose}
+      labelledBy={titleId}
+      backdropClassName="bg-black/60"
+      panelClassName="bg-background border rounded-2xl shadow-xl w-full max-w-lg max-h-[85vh] overflow-y-auto"
     >
-      <motion.div
-        initial={{ opacity: 0, scale: 0.95, y: 20 }}
-        animate={{ opacity: 1, scale: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 0.95, y: 20 }}
-        onClick={e => e.stopPropagation()}
-        className="bg-background border rounded-2xl shadow-xl w-full max-w-lg max-h-[85vh] overflow-y-auto"
-      >
         <div className="p-5 border-b flex items-start justify-between gap-3">
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-2">
