@@ -102,33 +102,48 @@ export default function SRSettingsPanel({ settings, onUpdate }: Props) {
     return () => { if ("speechSynthesis" in window) window.speechSynthesis.onvoiceschanged = null; };
   }, []);
 
+  // P5: Keep refs to mutable state so save/reset callbacks have stable
+  // identities. Previously `handleSave`/`handleReset` were re-created on
+  // every keystroke (because `local`/`app`/`tts` were in the dep array),
+  // invalidating downstream memoization and re-attaching button handlers.
+  const localRef = useRef(local);
+  const appRef = useRef(app);
+  const ttsRef = useRef(tts);
+  const overridesEnabledRef = useRef(overridesEnabled);
+  const subjectNameRef = useRef(subjectName);
+  useEffect(() => { localRef.current = local; }, [local]);
+  useEffect(() => { appRef.current = app; }, [app]);
+  useEffect(() => { ttsRef.current = tts; }, [tts]);
+  useEffect(() => { overridesEnabledRef.current = overridesEnabled; }, [overridesEnabled]);
+  useEffect(() => { subjectNameRef.current = subjectName; }, [subjectName]);
+
   // ─── Save logic ────────────────────────────────────────
   const handleSave = useCallback(() => {
-    if (subjectId && overridesEnabled) {
-      // Save subject-scoped overrides only
+    const curLocal = localRef.current;
+    const curApp = appRef.current;
+    const curTts = ttsRef.current;
+    const curOverridesEnabled = overridesEnabledRef.current;
+    if (subjectId && curOverridesEnabled) {
       const overrides: SubjectSettings = {
-        targetRetention: app.targetRetention,
-        leechThreshold: local.leechThreshold,
-        dailyGoal: local.dailyGoal,
-        resistanceWeights: local.resistanceWeights,
+        targetRetention: curApp.targetRetention,
+        leechThreshold: curLocal.leechThreshold,
+        dailyGoal: curLocal.dailyGoal,
+        resistanceWeights: curLocal.resistanceWeights,
       };
       saveSubjectSettings(subjectId, overrides);
-      toast.success(`Podešavanja za "${subjectName}" sačuvana`);
-    } else if (subjectId && !overridesEnabled) {
-      // Clear subject overrides, keep global
+      toast.success(`Podešavanja za "${subjectNameRef.current}" sačuvana`);
+    } else if (subjectId && !curOverridesEnabled) {
       clearSubjectSettings(subjectId);
       toast.success("Subjektna podešavanja uklonjena — koriste se globalna");
     } else {
-      // Global save
-      onUpdate(local);
-      saveTTSSettings(tts);
-      saveAppSettings(app);
+      onUpdate(curLocal);
+      saveTTSSettings(curTts);
+      saveAppSettings(curApp);
     }
-  }, [subjectId, overridesEnabled, local, app, tts, onUpdate, subjectName]);
+  }, [subjectId, onUpdate]);
 
   const handleReset = useCallback(() => {
     if (subjectId) {
-      // Reset to global values
       setLocal({ ...settings });
       setApp(initialAppRef.current);
       setOverridesEnabled(false);
