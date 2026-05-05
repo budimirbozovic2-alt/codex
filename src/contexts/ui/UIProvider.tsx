@@ -25,6 +25,17 @@ const UI_FALLBACK: UIContextValue = {
   handleToggleTag: () => {},
 };
 
+// M3: Synchronous SSOT mirror of `editingCardId`. The React state above is
+// the authoritative value for renders, but this slot lets non-React (or
+// just-after-setState) consumers read the latest id without each component
+// keeping its own ref. `useEditReturn` consults this when no `cardId` is
+// supplied, so `setEditingCardId(id)` followed by `stash()` always records
+// the freshest id, even from a stale closure.
+let _currentEditingCardId: string | null = null;
+export function getCurrentEditingCardId(): string | null {
+  return _currentEditingCardId;
+}
+
 export function useUIContext() {
   const ctx = useContext(UIContext);
   if (!ctx) {
@@ -42,7 +53,11 @@ export function UIProvider({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
   const view = useCurrentView();
 
-  const [editingCardId, setEditingCardId] = useState<string | null>(null);
+  const [editingCardId, _setEditingCardId] = useState<string | null>(null);
+  const setEditingCardId = useCallback((id: string | null) => {
+    _currentEditingCardId = id;
+    _setEditingCardId(id);
+  }, []);
 
   useEffect(() => { recordAppEntry(); }, []);
 
@@ -59,7 +74,7 @@ export function UIProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo<UIContextValue>(() => ({
     view, setView, editingCardId, setEditingCardId, handleToggleTag,
-  }), [view, setView, editingCardId, handleToggleTag]);
+  }), [view, setView, editingCardId, setEditingCardId, handleToggleTag]);
 
   return <UIContext.Provider value={value}>{children}</UIContext.Provider>;
 }

@@ -73,20 +73,19 @@ export default function LearnPage() {
     setView("dashboard");
   }, [session, setView]);
 
-  const editingCardRef = useRef<Card | null>(null);
+  // M3: editingCardId is sourced from UIContext (SSOT) — no local ref needed.
   const sessionStateRef = useRef<LearnSessionSnapshot | null>(null);
   const handleSessionStateChange = useCallback((snap: LearnSessionSnapshot) => {
     sessionStateRef.current = snap;
   }, []);
   const { initialSnapshot, stash: stashEditReturn } = useEditReturn<LearnEditReturnSnapshot>({
     path: "/learn",
-    cardId: () => editingCardRef.current?.id ?? null,
     buildExtras: () => ({ ...(sessionStateRef.current ?? {}) }),
   });
   const handleEdit = useCallback((card: Card) => {
-    editingCardRef.current = card;
-    stashEditReturn();
+    // M3: Set SSOT first; stash() reads the freshest id via the global mirror.
     setEditingCardId(card.id);
+    stashEditReturn();
     setView("edit");
   }, [stashEditReturn, setEditingCardId, setView]);
 

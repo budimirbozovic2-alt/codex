@@ -119,16 +119,42 @@ export const persistQueue = createPersistQueue();
 export const schedulePersist = persistQueue.schedule;
 
 // ─── Eager flush on tab hide (most reliable cross-browser signal) ────
-// C4 fix: Use a named handler so HMR re-evaluation removes the old one first
+// M4 fix: HMR re-evaluates this module with a fresh `_onVisibilityChange`
+// closure each time. We pin the active handler to a `globalThis` slot so we
+// can reliably remove the *previous* version (whose function reference is
+// now lost from this module's scope) before registering the new one.
+declare global {
+  // eslint-disable-next-line no-var
+  var __codexPersistVisHandler: (() => void) | undefined;
+}
+
 function _onVisibilityChange() {
   if (document.visibilityState === "hidden" && persistQueue.hasPending()) {
-    try { sessionStorage.setItem("codex-flush-pending", "1"); } catch {}
+    try { sessionStorage.setItem("codex-flush-pending", "1"); } catch { /* noop */ }
     persistQueue.flush();
   }
 }
+
 if (typeof document !== "undefined") {
-  document.removeEventListener("visibilitychange", _onVisibilityChange);
+  if (globalThis.__codexPersistVisHandler) {
+    document.removeEventListener("visibilitychange", globalThis.__codexPersistVisHandler);
+  }
+  globalThis.__codexPersistVisHandler = _onVisibilityChange;
   document.addEventListener("visibilitychange", _onVisibilityChange);
+}
+
+// HMR cleanup — flush pending writes and detach this module's handler before
+// the next evaluation registers its replacement.
+if (import.meta.hot) {
+  import.meta.hot.dispose(() => {
+    try {
+      if (globalThis.__codexPersistVisHandler) {
+        document.removeEventListener("visibilitychange", globalThis.__codexPersistVisHandler);
+        globalThis.__codexPersistVisHandler = undefined;
+      }
+      if (persistQueue.hasPending()) persistQueue.flush();
+    } catch (e) { console.warn("[persistQueue] HMR dispose failed", e); }
+  });
 }
 
 /** Check if previous session had interrupted writes */
@@ -138,5 +164,5 @@ export function checkInterruptedFlush(): void {
       console.warn("[boot] Previous session had interrupted writes — data may be stale");
       sessionStorage.removeItem("codex-flush-pending");
     }
-  } catch {}
+  } catch { /* noop */ }
 }

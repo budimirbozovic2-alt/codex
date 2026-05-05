@@ -56,7 +56,7 @@ export default function SubjectCardsView() {
     addChapter, renameChapter, deleteChapter,
     reorderSubcategories, reorderChapters,
   } = useCategoryActions();
-  const { setEditingCardId } = useUIContext();
+  const { editingCardId, setEditingCardId } = useUIContext();
   const { importCards } = useBackupActions();
   const allCategoryNames = useMemo(() => categoryRecords.map(c => c.name), [categoryRecords]);
   
@@ -87,14 +87,14 @@ export default function SubjectCardsView() {
     return { essayCount: essay, flashCount: flash };
   }, [cards]);
 
-  const editingCardRef = useRef<Card | null>(null);
+  // M3: editingCardId comes from UIContext SSOT (synchronously mirrored on
+  // setEditingCardId), so no per-component ref is needed.
   // Live mirror of CardViewMode's internal filters; updated via onFiltersChange
   // so buildExtras can capture the latest values at stash time.
   const cardViewFiltersRef = useRef<CardViewFiltersSnapshot | null>(null);
   const { initialSnapshot, stash: stashEditReturn } = useEditReturn<EditReturnSnapshot>({
     path: `/subject/${categoryId}/cards`,
     categoryId,
-    cardId: () => editingCardRef.current?.id ?? null,
     buildExtras: () => ({
       tab,
       manageMode,
@@ -103,7 +103,7 @@ export default function SubjectCardsView() {
       cvChapter: cardViewFiltersRef.current?.chapter,
       cvType: cardViewFiltersRef.current?.type,
       cvFrequency: cardViewFiltersRef.current?.frequency,
-      readerCardId: editingCardRef.current?.id,
+      readerCardId: editingCardId ?? undefined,
     }),
   });
 
@@ -124,9 +124,9 @@ export default function SubjectCardsView() {
   );
 
   const handleEdit = (card: Card) => {
-    editingCardRef.current = card;
-    stashEditReturn();
+    // M3: Set SSOT first (synchronously updates the global mirror), then stash.
     setEditingCardId(card.id);
+    stashEditReturn();
     navigate("/edit");
   };
 

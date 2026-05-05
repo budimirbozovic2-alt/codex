@@ -1,32 +1,31 @@
 /**
  * Event Bus sistem baziran na BroadcastChannel API-ju.
  * Omogućava sinhronizaciju podataka između različitih tabova i komponenti.
+ *
+ * W1: Constants/types live in `event-bus-types.ts` to break a circular import
+ *     with `db-schema.ts` — re-exported here for backwards compatibility.
+ * W2: `getListenerCount(type?)` exposes diagnostics (used by HealthMonitor).
+ * W3: Instance is pinned to `globalThis` so HMR re-evaluation does NOT spawn
+ *     a second EventBus. `_softReset()` clears listeners + reopens the channel
+ *     while preserving identity for already-captured references.
  */
 
-export const EVENT_TYPES = {
-  MNEMONICS_UPDATED: "mnemonics:updated",
-  CARDS_UPDATED: "cards:updated",
-  DB_BLOCKED: "db:blocked",
-  DB_UNBLOCKED: "db:unblocked",
-  DB_ERROR_CHANGED: "db:error-changed",
-  TAB_HEARTBEAT: "tab:heartbeat",
-  TAB_REPLY: "tab:reply",
-  TAB_LEAVING: "tab:leaving",
-  KB_ARTICLE_UPSERTED: "kb-article:upserted",
-  KB_ARTICLE_REMOVED: "kb-article:removed",
-} as const;
+import { EVENT_TYPES, type EventType, type EventMessage } from "./event-bus-types";
+export { EVENT_TYPES, type EventType, type EventMessage } from "./event-bus-types";
 
-export type EventType = typeof EVENT_TYPES[keyof typeof EVENT_TYPES];
-
-export interface EventMessage<T = unknown> {
-  type: EventType;
-  payload?: T;
-  timestamp: number;
-  sourceTabId: string;
+// Generišemo jedinstveni ID za trenutni tab/prozor (stabilan kroz HMR
+// pomoću globalThis slot-a).
+declare global {
+  // eslint-disable-next-line no-var
+  var __codexTabId: string | undefined;
+  // eslint-disable-next-line no-var
+  var __codexEventBus: EventBus | undefined;
 }
-
-// Generišemo jedinstveni ID za trenutni tab/prozor
-const TAB_ID = crypto.randomUUID();
+const TAB_ID: string =
+  globalThis.__codexTabId ??
+  (globalThis.__codexTabId = (typeof crypto !== "undefined" && "randomUUID" in crypto)
+    ? crypto.randomUUID()
+    : `tab-${Math.random().toString(36).slice(2)}`);
 const CHANNEL_NAME = "codex_event_bus";
 
 class EventBus {
@@ -37,13 +36,17 @@ class EventBus {
   private _beforeUnloadHandler: (() => void) | null = null;
 
   constructor() {
+    this._init();
+  }
+
+  private _init(): void {
     try {
       if (typeof window !== "undefined" && "BroadcastChannel" in window) {
         this.channel = new BroadcastChannel(CHANNEL_NAME);
         this.channel.onmessage = (event: MessageEvent<EventMessage>) => {
           this.handleIncomingMessage(event.data);
         };
-        
+
         // Heartbeat mechanism to track tab count
         this.subscribe<{ sourceTabId: string }>(EVENT_TYPES.TAB_HEARTBEAT, (payload) => {
           if (payload?.sourceTabId !== TAB_ID) {
@@ -108,11 +111,42 @@ class EventBus {
   }
 
   /**
+   * W3: Soft reset — drop listeners and rotate the BroadcastChannel without
+   * losing instance identity. Used by HMR dispose so consumers that captured
+   * the singleton reference keep working after a hot reload.
+   */
+  _softReset(): void {
+    if (this.heartbeatIntervalId) {
+      clearInterval(this.heartbeatIntervalId);
+      this.heartbeatIntervalId = null;
+    }
+    if (this._beforeUnloadHandler) {
+      try { window.removeEventListener("beforeunload", this._beforeUnloadHandler); } catch { /* noop */ }
+      this._beforeUnloadHandler = null;
+    }
+    try { this.channel?.close(); } catch { /* noop */ }
+    this.channel = null;
+    this.listeners.clear();
+    this.activeTabs.clear();
+    this._init();
+  }
+
+  /**
    * Vraća broj aktivnih tabova detektovanih putem heartbeat mehanizma.
    * Uključuje i trenutni tab.
    */
   getTabCount(): number {
     return this.activeTabs.size + 1; // +1 za trenutni tab
+  }
+
+  /**
+   * W2: Diagnostic — total listener count, or per-type when given.
+   */
+  getListenerCount(type?: EventType): number {
+    if (type) return this.listeners.get(type)?.size ?? 0;
+    let total = 0;
+    for (const set of this.listeners.values()) total += set.size;
+    return total;
   }
 
   /**
@@ -166,10 +200,14 @@ class EventBus {
   }
 }
 
-// Singleton instanca za cijelu aplikaciju
-export const eventBus = new EventBus();
+// W3: Singleton pinned to `globalThis` so HMR module re-evaluation reuses the
+// same instance instead of spawning a fresh BroadcastChannel + listeners.
+export const eventBus: EventBus =
+  globalThis.__codexEventBus ?? (globalThis.__codexEventBus = new EventBus());
 
-// HMR cleanup — prevent BroadcastChannel accumulation during development
+// HMR cleanup — perform a soft reset (preserves singleton identity).
 if (import.meta.hot) {
-  import.meta.hot.dispose(() => eventBus.destroy());
+  import.meta.hot.dispose(() => {
+    try { eventBus._softReset(); } catch (e) { console.warn("[EventBus] HMR softReset failed", e); }
+  });
 }
