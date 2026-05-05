@@ -3,7 +3,7 @@ import { Card, SRSettings, DEFAULT_SR_SETTINGS, SectionState, isLeech, getSectio
 import { ReviewLogEntry } from "@/lib/storage";
 import { CardMap, mapToArray, persistQueue, schedulePersist, bumpMapVersion } from "@/lib/persist-queue";
 import { useCardMap, setCardMap, cardMapRefFacade, type CardMapRefFacade } from "@/store/useCardMapStore";
-import { idbSaveSettings, idbAddReviewLogEntry, flushReviewLogQueue } from "@/lib/db";
+import { idbSaveSettings, idbAddReviewLogEntry, idbAddReviewLogEntries, flushReviewLogQueue } from "@/lib/db";
 import { onCardLinksCleared, onCardReviewConfirmed } from "@/lib/sources-storage";
 import { eventBus, EVENT_TYPES } from "@/lib/event-bus";
 import { initBacklinkIndexSubscriptions } from "@/lib/backlink-index";
@@ -314,9 +314,8 @@ export function CardStateProvider({ children }: { children: ReactNode }) {
   const commitReviewEntries = useCallback((entries: ReviewLogEntry[]) => {
     if (entries.length === 0) return;
     setReviewLogState((prev) => [...prev, ...entries]);
-    for (const entry of entries) {
-      idbAddReviewLogEntry(entry);
-    }
+    // B2: single bulk enqueue → one IDB transaction instead of N.
+    idbAddReviewLogEntries(entries);
   }, []);
 
   const setReviewLog = useCallback((updater: (prev: ReviewLogEntry[]) => ReviewLogEntry[]) => {
