@@ -10,8 +10,9 @@ import {
   RETENTION_MAX,
 } from "@/lib/spaced-repetition";
 import { ReviewLogEntry } from "@/lib/storage";
-import { CardMap, bumpMapVersion, schedulePersist } from "@/lib/persist-queue";
-import { idbAddReviewLogEntry } from "@/lib/db";
+import type { CardMap } from "@/lib/persist-queue";
+import { reviewLogRepository } from "@/lib/repositories/reviewLogRepository";
+import { cardRepository } from "@/lib/repositories/cardRepository";
 import { getExaminerProfileSync } from "@/lib/examiner-profile-cache";
 
 interface UseCardAnnotationsParams {
@@ -23,9 +24,7 @@ interface UseCardAnnotationsParams {
 
 export function useCardAnnotations({
   patchCard,
-  setCardMapState,
   setReviewLog,
-  cardMapRef,
 }: UseCardAnnotationsParams) {
 
   // O(1) review — surgical IDB write (patchCard handles persist via Ref-Delta)
