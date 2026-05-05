@@ -65,8 +65,15 @@ export async function loadSourcesByCategory(categoryId: string): Promise<Source[
 }
 
 export async function saveSource(source: Source): Promise<void> {
+  // V6: NEVER invalidate cache or notify listeners on failure — that would
+  // make consumers reload from a stale DB and silently drop the user's edit.
+  try {
+    await db.sources.put(source);
+  } catch (err) {
+    console.error("[sources-storage] saveSource failed", err);
+    throw err;
+  }
   _cache = null;
-  await db.sources.put(source);
   _notify();
 }
 

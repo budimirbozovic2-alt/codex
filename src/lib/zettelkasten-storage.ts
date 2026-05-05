@@ -43,7 +43,14 @@ export async function saveArticle(article: KnowledgeBaseArticle): Promise<void> 
   // Defensive: re-normalize tags on every write so UI bugs or stale data
   // from imports/migrations can never poison IDB with malformed entries.
   const tags = normalizeTagList(article.tags);
-  await db.knowledgeBaseArticles.put({ ...article, tags, updatedAt: Date.now() });
+  // V6: bubble persistence failures up — caller decides whether to surface a
+  // toast and skip the optimistic UI update. No silent swallow.
+  try {
+    await db.knowledgeBaseArticles.put({ ...article, tags, updatedAt: Date.now() });
+  } catch (err) {
+    console.error("[zettelkasten-storage] saveArticle failed", err);
+    throw err;
+  }
 }
 
 export async function deleteArticle(id: string): Promise<void> {

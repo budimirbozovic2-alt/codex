@@ -33,8 +33,16 @@ export async function loadMindMaps(): Promise<MindMapDoc[]> {
 }
 
 export async function saveMindMap(doc: MindMapDoc): Promise<void> {
+  // V6: only invalidate + notify AFTER a confirmed write. Otherwise a failed
+  // put would invalidate the cache, force a reload from stale IDB, and drop
+  // the user's drawing.
+  try {
+    await db.mindMaps.put(doc);
+  } catch (err) {
+    console.error("[mindmap-storage] saveMindMap failed", err);
+    throw err;
+  }
   _cache = null;
-  await db.mindMaps.put(doc);
   _notify();
 }
 
