@@ -17,15 +17,23 @@ const ScrollableRow = forwardRef<HTMLDivElement, Props>(function ScrollableRow({
     setCanScrollRight(el.scrollLeft < el.scrollWidth - el.clientWidth - 2);
   }, []);
 
+  // P4: Bind scroll/resize listeners ONCE. Previously `children` was in
+  // the dep array, so every parent render tore down + rebuilt the
+  // ResizeObserver and DOM listeners (allocating new observers each time).
   useEffect(() => {
-    checkScroll();
     const el = scrollRef.current;
     if (!el) return;
+    checkScroll();
     el.addEventListener("scroll", checkScroll, { passive: true });
     const ro = new ResizeObserver(checkScroll);
     ro.observe(el);
     return () => { el.removeEventListener("scroll", checkScroll); ro.disconnect(); };
-  }, [checkScroll, children]);
+  }, [checkScroll]);
+
+  // Re-evaluate scroll bounds when children change without rebinding observers.
+  useEffect(() => {
+    checkScroll();
+  }, [children, checkScroll]);
 
   const scroll = (dir: "left" | "right") => {
     const el = scrollRef.current;
