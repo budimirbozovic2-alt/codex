@@ -214,9 +214,13 @@ export function SmartSplitSummaryDialog({ source, onSmartSplitConfirm }: Props) 
       if (blockIdx <= 0 || blockIdx >= blocks.length) return;
 
       const beforeHtml = joinHtmlBlocks(blocks.slice(0, blockIdx));
-      const afterHtml = joinHtmlBlocks(blocks.slice(blockIdx));
+      // The clicked block becomes the new module's TITLE — it must be removed
+      // from the body, otherwise the title line is duplicated as both title
+      // and the first paragraph of the new module.
+      const titleBlock = blocks[blockIdx];
+      const afterHtml = joinHtmlBlocks(blocks.slice(blockIdx + 1));
       const newTitle =
-        htmlToPlain(blocks[blockIdx]).replace(/\s+/g, " ").trim().slice(0, 200) || "Novi modul";
+        htmlToPlain(titleBlock).replace(/\s+/g, " ").trim().slice(0, 200) || "Novi modul";
 
       const newModule: SelectionModule = {
         articleNum: "",
