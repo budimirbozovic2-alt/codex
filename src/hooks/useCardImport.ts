@@ -199,6 +199,13 @@ export function useCardImport({
                   const remapped = idRemap.get(a.subjectId);
                   if (remapped) a.subjectId = remapped;
                 }
+                // FK completeness: mindMaps also reference categoryId.
+                for (const m of parsed.mindMaps) {
+                  if (m.categoryId) {
+                    const remapped = idRemap.get(m.categoryId);
+                    if (remapped) m.categoryId = remapped;
+                  }
+                }
               }
 
               if (filteredCatRecords.length > 0) {
