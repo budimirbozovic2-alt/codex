@@ -1,5 +1,5 @@
 import { MoreVertical, FolderOpen, BookOpen, Flame, Brain, Check, ChevronRight } from "lucide-react";
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useMemo } from "react";
 import { Card, MNEMONIC_TAG } from "@/lib/spaced-repetition";
 import type { FrequencyTag } from "@/lib/sr/types";
 import { FREQUENCY_VALUES, getFrequencyMeta } from "@/lib/sr/frequency";
@@ -38,23 +38,42 @@ function CardContextMenuInner({ card, categories, subcategories, availableChapte
   const hasMnemoTag = cardTags.includes(MNEMONIC_TAG);
   const freqMeta = getFrequencyMeta(card.frequencyTag);
 
-  const menuItems: { icon: typeof FolderOpen; label: string; action: () => void; active?: boolean }[] = [];
-
-  if (categories && categories.length > 0 && onMoveCategory) {
-    menuItems.push({ icon: FolderOpen, label: "Premjesti u kategoriju", action: () => setSubmenu("category") });
-  }
-  if (availableChapters && availableChapters.length > 0 && onAssignChapter) {
-    menuItems.push({ icon: BookOpen, label: "Dodijeli glavu", action: () => setSubmenu("chapter") });
-  }
-  menuItems.push({
-    icon: Flame,
-    label: card.frequencyTag ? `Frekventnost: ${freqMeta.shortLabel}` : "Postavi frekventnost",
-    action: () => setSubmenu("frequency"),
-    active: !!card.frequencyTag,
-  });
-  if (onCloneToMnemonic) {
-    menuItems.push({ icon: Brain, label: hasMnemoTag ? "Već u Mnemo radionici" : "Kloniraj u Mnemo radionicu", action: () => { if (!hasMnemoTag) { onCloneToMnemonic(card); setOpen(false); } }, active: hasMnemoTag });
-  }
+  // P3: Memoize the menu items array. Previously this was rebuilt on every
+  // render (and every parent re-render via memo prop diff), allocating new
+  // closures and breaking referential stability for downstream comparisons.
+  const menuItems = useMemo(() => {
+    const items: { icon: typeof FolderOpen; label: string; action: () => void; active?: boolean }[] = [];
+    if (categories && categories.length > 0 && onMoveCategory) {
+      items.push({ icon: FolderOpen, label: "Premjesti u kategoriju", action: () => setSubmenu("category") });
+    }
+    if (availableChapters && availableChapters.length > 0 && onAssignChapter) {
+      items.push({ icon: BookOpen, label: "Dodijeli glavu", action: () => setSubmenu("chapter") });
+    }
+    items.push({
+      icon: Flame,
+      label: card.frequencyTag ? `Frekventnost: ${freqMeta.shortLabel}` : "Postavi frekventnost",
+      action: () => setSubmenu("frequency"),
+      active: !!card.frequencyTag,
+    });
+    if (onCloneToMnemonic) {
+      items.push({
+        icon: Brain,
+        label: hasMnemoTag ? "Već u Mnemo radionici" : "Kloniraj u Mnemo radionicu",
+        action: () => { if (!hasMnemoTag) { onCloneToMnemonic(card); setOpen(false); } },
+        active: hasMnemoTag,
+      });
+    }
+    return items;
+  }, [
+    categories,
+    availableChapters,
+    onMoveCategory,
+    onAssignChapter,
+    onCloneToMnemonic,
+    card,
+    hasMnemoTag,
+    freqMeta.shortLabel,
+  ]);
 
   const subs = selectedCat ? (subcategories?.[selectedCat] || []) : [];
 
