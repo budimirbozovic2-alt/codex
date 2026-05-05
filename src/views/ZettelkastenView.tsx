@@ -13,6 +13,7 @@ import {
   newArticle,
   bulkCreateArticlesIfMissing,
   ensureIndexArticle,
+  getArticle,
   type KnowledgeBaseArticle,
 } from "@/lib/zettelkasten-storage";
 import { useWikiLinkAutoCreate } from "@/hooks/useWikiLinkAutoCreate";
@@ -160,27 +161,39 @@ export default function ZettelkastenView() {
 
   // ── Persistence ────────────────────────────────
   const flushDraft = useCallback(async (): Promise<KnowledgeBaseArticle | null> => {
-    if (!activeArticle || !draft) return null;
+    if (!draft || !activeId) return null;
+    // V4: Read the FRESHEST persisted article, not the closure snapshot. The
+    // wiki-link auto-create pipeline can mutate `articles[activeId]` while the
+    // user is typing; using a stale `activeArticle` reference would clobber
+    // those server-side fields (e.g. linkedSourceIds expansions) on flush.
+    const fresh = await getArticle(activeId);
+    if (!fresh) return null;
     const titleClean = draft.title.trim() || "Bez naslova";
     const dirty =
-      titleClean !== activeArticle.title ||
-      draft.content !== activeArticle.content ||
-      !sameStringSet(draft.linkedSourceIds, activeArticle.linkedSourceIds ?? []) ||
-      !sameStringSet(draft.tags, activeArticle.tags ?? []);
-    if (!dirty) return activeArticle;
+      titleClean !== fresh.title ||
+      draft.content !== fresh.content ||
+      !sameStringSet(draft.linkedSourceIds, fresh.linkedSourceIds ?? []) ||
+      !sameStringSet(draft.tags, fresh.tags ?? []);
+    if (!dirty) return fresh;
     const next: KnowledgeBaseArticle = {
-      ...activeArticle,
+      ...fresh,
       title: titleClean,
       content: draft.content,
       linkedSourceIds: draft.linkedSourceIds,
       tags: draft.tags,
       updatedAt: Date.now(),
     };
-    await saveArticle(next);
+    try {
+      await saveArticle(next);
+    } catch (err) {
+      console.error("[zettelkasten] saveArticle failed", err);
+      toast.error("Članak NIJE sačuvan. Kopirajte tekst prije navigacije.");
+      return null;
+    }
     setArticles(prev => prev.map(a => a.id === next.id ? next : a));
     eventBus.emit(EVENT_TYPES.KB_ARTICLE_UPSERTED, { subjectId: categoryId!, article: next });
     return next;
-  }, [activeArticle, draft, categoryId]);
+  }, [draft, activeId, categoryId]);
 
   // Cleanup-flush: when leaving edit mode without explicit save, when switching
   // articles, or when the view unmounts. Use a ref to always read the latest.
