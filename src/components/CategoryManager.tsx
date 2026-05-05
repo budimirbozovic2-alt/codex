@@ -4,7 +4,7 @@ import { useState, useMemo } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
-import Modal from "@/components/ui/Modal";
+import Modal from "@/components/ui/DialogShell";
 import type { CategoryRecord } from "@/lib/db-schema";
 
 interface Props {

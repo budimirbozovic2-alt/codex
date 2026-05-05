@@ -3,7 +3,7 @@ import { useId } from "react";
 import { Card, SectionState } from "@/lib/spaced-repetition";
 import { getCardMasteryLevel, getMasteryColor, MASTERY_LEVELS } from "@/lib/mastery";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
-import Modal from "@/components/ui/Modal";
+import Modal from "@/components/ui/DialogShell";
 
 interface AuditorDetailPanelProps {
   card: Card;

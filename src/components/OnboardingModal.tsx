@@ -2,7 +2,7 @@ import { ArrowRight, ArrowLeft, X, CheckCircle2 } from "lucide-react";
 import { useState, useId } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 
-import Modal from "@/components/ui/Modal";
+import Modal from "@/components/ui/DialogShell";
 import { Button } from "@/components/ui/button";
 import type { LucideIcon } from "lucide-react";
 import { ONBOARDING_PRESETS, type OnboardingPresetId } from "@/components/onboarding/presets";

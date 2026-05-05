@@ -9,7 +9,7 @@ import { useAllSources } from "@/hooks/useCategorySources";
 import { useMindMaps } from "@/hooks/useMindMaps";
 import { useCardData, useCategoryData } from "@/contexts/AppContext";
 import { setGlobalSearchOpen } from "@/lib/global-overlay-state";
-import Modal from "@/components/ui/Modal";
+import Modal from "@/components/ui/DialogShell";
 
 interface Props {
   open: boolean;

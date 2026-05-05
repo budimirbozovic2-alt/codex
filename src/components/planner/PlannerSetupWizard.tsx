@@ -11,7 +11,7 @@ import { cn } from "@/lib/utils";
 import { PlannerConfig, generateStudyPlan } from "@/lib/planner-storage";
 import { CategoryRecord } from "@/lib/db";
 import { Card as SRCard } from "@/lib/spaced-repetition";
-import Modal from "@/components/ui/Modal";
+import Modal from "@/components/ui/DialogShell";
 import SubjectCard from "./SubjectCard";
 
 interface Props {
