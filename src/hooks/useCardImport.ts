@@ -300,12 +300,16 @@ export function useCardImport({
           setCategoryRecords(updated);
         }
 
-        // ── Review log overwrite ──
+        // ── Review log overwrite (atomic clear+bulkAdd) ──
         if (parsed.reviewLog.length > 0 && strategy === "overwrite") {
+          progress(50, "Uvoz dnevnika ponavljanja…");
           const log = parsed.reviewLog as unknown as ReviewLogEntry[];
           setReviewLog(log);
-          await db.reviewLog.clear();
-          await db.reviewLog.bulkAdd(log);
+          await db.transaction("rw", db.reviewLog, async () => {
+            await db.reviewLog.clear();
+            await db.reviewLog.bulkAdd(log);
+          });
+          await yieldUI();
         }
 
         if (parsed.srSettings && strategy === "overwrite") {
