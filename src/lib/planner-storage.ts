@@ -425,7 +425,8 @@ export function incrementDailyMapped(amount: number = 1): number {
   const current = _dailyMapped.date === today ? _dailyMapped.count : 0;
   const newCount = current + amount;
   _dailyMapped = { date: today, count: newCount };
-  db.settings.put({ key: "dailyMapped", value: _dailyMapped }).catch((e) => console.warn("[silent]", e));
+  const snapshot = { ..._dailyMapped };
+  enqueueWrite("incrementDailyMapped", () => db.settings.put({ key: "dailyMapped", value: snapshot }));
   return newCount;
 }
 
