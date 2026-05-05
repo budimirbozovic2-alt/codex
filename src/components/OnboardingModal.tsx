@@ -98,7 +98,7 @@ export default function OnboardingModal({ slides, storageKey, onComplete, finish
                 <Icon className="h-8 w-8" />
               </div>
               <div className="flex items-center gap-2 mb-2">
-                <h3 className="text-xl font-semibold">{slide.title}</h3>
+                <h3 id={titleId} className="text-xl font-semibold">{slide.title}</h3>
                 {slide.level && slide.levelColor && (
                   <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${slide.levelColor}`}>
                     {slide.level}
@@ -146,7 +146,7 @@ export default function OnboardingModal({ slides, storageKey, onComplete, finish
             </div>
           </motion.div>
         </AnimatePresence>
-      </motion.div>
-    </motion.div>
+      </>
+    </Modal>
   );
 }
