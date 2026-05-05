@@ -247,7 +247,21 @@ export function CardStateProvider({ children }: { children: ReactNode }) {
             // ABORT if unmounted or if a newer request has fired
             if (!isSubscribed || currentSequence !== fetchSequence) return;
 
-            const fetched = rows.filter((r): r is Card => !!r);
+            // V10: Belt-and-suspenders updatedAt guard. Even after the
+            // persistQueue drain in V5, an in-flight `patchCard` mutation that
+            // happened DURING the bulkGet round-trip would not yet be in IDB.
+            // Skip any fetched row that is older than what we already hold
+            // in memory.
+            const localMap = cardMapRef.current;
+            const fetched = rows
+              .filter((r): r is Card => !!r)
+              .filter((r) => {
+                const local = localMap[r.id];
+                if (!local) return true;
+                const localTs = local.updatedAt ?? 0;
+                const remoteTs = r.updatedAt ?? 0;
+                return remoteTs >= localTs;
+              });
             const fetchedIds = new Set(fetched.map((c) => c.id));
             const deletedIds = ids.filter((id) => !fetchedIds.has(id));
 

@@ -40,14 +40,38 @@ function createPersistQueue() {
 
   function enqueue(action: PersistAction) {
     if (action.type === "put") {
+      // V11: warn on put-after-delete OR put-replacing-newer in same batch.
+      // Same-id put after delete is legal (resurrection), but useful to flag in DEV.
+      if (import.meta.env.DEV && pendingDeletes.has(action.card.id)) {
+        console.warn("[persistQueue] put after pending delete for id", action.card.id);
+      }
+      if (import.meta.env.DEV) {
+        const prev = pendingPuts.get(action.card.id);
+        const prevTs = prev?.updatedAt ?? 0;
+        const nextTs = action.card.updatedAt ?? 0;
+        if (prev && nextTs < prevTs) {
+          console.warn(
+            "[persistQueue] enqueue replacing newer put with older for id",
+            action.card.id, { prevTs, nextTs },
+          );
+        }
+      }
       pendingDeletes.delete(action.card.id);
       pendingPuts.set(action.card.id, action.card);
     } else if (action.type === "delete") {
+      // V11: delete after put in the same batch coalesces — DEV warn so any
+      // accidental "put then delete same id" in higher-level code is visible.
+      if (import.meta.env.DEV && pendingPuts.has(action.id)) {
+        console.warn("[persistQueue] delete cancelling pending put for id", action.id);
+      }
       pendingPuts.delete(action.id);
       pendingDeletes.add(action.id);
     } else {
       // bulk
       for (const c of action.cards) {
+        if (import.meta.env.DEV && pendingDeletes.has(c.id)) {
+          console.warn("[persistQueue] bulk put after pending delete for id", c.id);
+        }
         pendingDeletes.delete(c.id);
         pendingPuts.set(c.id, c);
       }

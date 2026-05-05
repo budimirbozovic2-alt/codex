@@ -60,3 +60,11 @@ export async function getMindMap(id: string): Promise<MindMapDoc | undefined> {
   }
   return db.mindMaps.get(id);
 }
+
+// V12: HMR cleanup — prevent leaking Set-level listeners across module reloads.
+if (import.meta.hot) {
+  import.meta.hot.dispose(() => {
+    _listeners.clear();
+    _cache = null;
+  });
+}

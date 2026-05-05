@@ -205,3 +205,14 @@ export function extractOfficialGazette(html: string): string | undefined {
 
   return undefined;
 }
+
+// V12: HMR cleanup — without this, every hot-reload stacks new listener
+// Set entries while old subscribers stay registered, multiplying state mutations.
+if (import.meta.hot) {
+  import.meta.hot.dispose(() => {
+    _listeners.clear();
+    _cardLinkListeners.clear();
+    _reviewListeners.clear();
+    _cache = null;
+  });
+}
