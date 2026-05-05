@@ -173,6 +173,38 @@ export async function decompressJsonFromZip(file: Blob): Promise<string> {
   }
 }
 
+/**
+ * Parse a JSON file off the main thread. For `.zip` inputs, decompresses
+ * inside the same worker first so neither the gzip stream nor the resulting
+ * JSON text ever materializes in the renderer. Falls back to main-thread
+ * `TextDecoder` + `JSON.parse` if the worker is unavailable.
+ *
+ * Returns the parsed value (any structured-cloneable type — typically an
+ * object). Callers should pass through Zod for shape validation.
+ */
+export async function parseJsonInWorker(file: Blob): Promise<unknown> {
+  const isZip = file.type === "application/zip" ||
+    (typeof (file as File).name === "string" && (file as File).name.toLowerCase().endsWith(".zip"));
+  if (isZip) {
+    const text = await decompressJsonFromZip(file);
+    try {
+      // Parse on a microtask boundary so the previous worker hop's `result`
+      // string can be GC'd before the parse allocation peaks.
+      return JSON.parse(text);
+    } catch (err) {
+      throw new Error(err instanceof Error ? err.message : "Neispravan JSON u ZIP arhivi.");
+    }
+  }
+  const arrayBuffer = await file.arrayBuffer();
+  try {
+    return await runInWorker("parseJson", { data: arrayBuffer });
+  } catch {
+    // Main-thread fallback (Workers unsupported or worker crashed).
+    const text = new TextDecoder("utf-8").decode(new Uint8Array(arrayBuffer));
+    return JSON.parse(text);
+  }
+}
+
 /** Test/HMR helper — terminates the worker and clears caches. */
 export function _resetZipService(): void {
   if (_idleTimer) { clearTimeout(_idleTimer); _idleTimer = null; }

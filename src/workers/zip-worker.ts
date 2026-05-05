@@ -1,5 +1,5 @@
 /**
- * Web Worker for ZIP compression/decompression.
+ * Web Worker for ZIP compression/decompression and large-payload JSON parsing.
  *
  * Long-lived: a single instance handles many requests, demuxed by `requestId`.
  * The JSZip module is therefore imported exactly once per worker lifetime.
@@ -9,7 +9,7 @@ import JSZip from "jszip";
 
 interface Req {
   requestId: number;
-  action: "compress" | "decompress";
+  action: "compress" | "decompress" | "parseJson";
   filename?: string;
   data: ArrayBuffer;
 }
@@ -38,6 +38,13 @@ self.onmessage = async (e: MessageEvent<Req>) => {
       if (!jsonFile) throw new Error("ZIP ne sadrži JSON fajl.");
       const json = await zip.files[jsonFile].async("string");
       post({ requestId, success: true, result: json });
+    } else if (action === "parseJson") {
+      // Decode bytes off the main thread, then JSON.parse. Returning the
+      // parsed object (structured-cloneable) saves the renderer a second
+      // ~payload-sized allocation that string-then-parse would cause.
+      const text = new TextDecoder("utf-8").decode(new Uint8Array(data));
+      const parsed = JSON.parse(text);
+      post({ requestId, success: true, result: parsed });
     } else {
       post({ requestId, success: false, error: `Unknown action: ${action}` });
     }

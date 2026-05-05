@@ -24,18 +24,10 @@ interface RemapFromBackupDialogProps {
 type Phase = "idle" | "parsing" | "analyzed" | "applying" | "done";
 
 async function readFileAsJson(file: File): Promise<unknown> {
-  if (file.name.toLowerCase().endsWith(".zip")) {
-    const JSZip = (await import("jszip")).default;
-    const zip = await JSZip.loadAsync(await file.arrayBuffer());
-    const jsonEntry = Object.values(zip.files).find(
-      (f) => !f.dir && f.name.toLowerCase().endsWith(".json")
-    );
-    if (!jsonEntry) throw new Error("ZIP arhiva ne sadrži .json fajl.");
-    const text = await jsonEntry.async("string");
-    return JSON.parse(text);
-  }
-  const text = await file.text();
-  return JSON.parse(text);
+  // Delegate to the shared zip-service: ZIP decompression and large-payload
+  // JSON.parse both run off the main thread, with main-thread fallbacks.
+  const { parseJsonInWorker } = await import("@/lib/zip-service");
+  return parseJsonInWorker(file);
 }
 
 export default function RemapFromBackupDialog({

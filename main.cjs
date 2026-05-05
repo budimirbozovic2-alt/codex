@@ -224,6 +224,60 @@ ipcMain.handle('read-file', async (event, filePath) => {
   }
 });
 
+// ── Binary IPC variants (B2: drop the base64 expansion + 50MB cap) ──
+// Electron's IPC supports `Buffer`/`Uint8Array` natively via structured clone.
+// Skipping base64 saves ~33% bytes-on-wire AND the renderer-side allocation
+// of a payload-sized string, which is what previously OOM'd the main thread
+// during 100MB+ exports.
+const MAX_SAVE_FILE_BYTES_BIN = 500 * 1024 * 1024; // 500 MB raw
+
+ipcMain.handle('save-file-bytes', async (event, filePath, bytes) => {
+  assertTrustedSender(event);
+  try {
+    if (!isPathAllowed(filePath)) {
+      logCrash('save-file-bytes-blocked', `Path not allowed: ${filePath}`);
+      return false;
+    }
+    // `bytes` may arrive as Uint8Array (structured clone) or Buffer.
+    const buf = Buffer.isBuffer(bytes)
+      ? bytes
+      : (bytes instanceof Uint8Array ? Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength) : null);
+    if (!buf) {
+      logCrash('save-file-bytes-invalid', `Payload is not bytes: ${typeof bytes}`);
+      return false;
+    }
+    if (buf.length > MAX_SAVE_FILE_BYTES_BIN) {
+      logCrash('save-file-bytes-too-large', `Payload exceeds limit: ${buf.length} bytes`);
+      return false;
+    }
+    await fsp.writeFile(filePath, buf);
+    return true;
+  } catch (err) {
+    logCrash('save-file-bytes', err);
+    return false;
+  }
+});
+
+ipcMain.handle('read-file-bytes', async (event, filePath) => {
+  assertTrustedSender(event);
+  try {
+    if (!isPathAllowed(filePath)) {
+      logCrash('read-file-bytes-blocked', `Path not allowed: ${filePath}`);
+      return null;
+    }
+    const data = await fsp.readFile(filePath);
+    if (data.length > MAX_SAVE_FILE_BYTES_BIN) {
+      logCrash('read-file-bytes-too-large', `File exceeds limit: ${data.length} bytes`);
+      return null;
+    }
+    // Return a plain Uint8Array view; structured clone transfers efficiently.
+    return { data: new Uint8Array(data.buffer, data.byteOffset, data.byteLength), name: path.basename(filePath) };
+  } catch (err) {
+    logCrash('read-file-bytes', err);
+    return null;
+  }
+});
+
 app.whenReady().then(() => {
   // ── Register app:// protocol handler for production ──
   if (!isDev) {

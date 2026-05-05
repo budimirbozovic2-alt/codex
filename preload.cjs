@@ -43,4 +43,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   showOpenDialog: (options) => ipcRenderer.invoke('show-open-dialog', options),
   saveFile: (filePath, base64Data) => ipcRenderer.invoke('save-file', filePath, base64Data),
   readFile: (filePath) => ipcRenderer.invoke('read-file', filePath),
+  // Binary file IO (preferred — no base64 expansion, 500 MB cap)
+  saveFileBytes: (filePath, bytes) => ipcRenderer.invoke('save-file-bytes', filePath, bytes),
+  readFileBytes: (filePath) => ipcRenderer.invoke('read-file-bytes', filePath),
 });

@@ -67,3 +67,31 @@ export function migrateBackup(parsed: ParsedBackup): ParsedBackup {
   // Stamp the post-migration version so downstream code can trust the marker.
   return { ...current, version: BACKUP_SCHEMA_VERSION } as ParsedBackup;
 }
+
+/**
+ * Pre-Zod migration. Operates on an `unknown` raw payload (post-`JSON.parse`,
+ * pre-`BackupSchema.safeParse`). Injects missing-array defaults required by
+ * the current schema so old backups (v5 missing `settings`, v6 missing
+ * `knowledgeBaseArticles`) don't fail Zod parsing on absent fields.
+ *
+ * Idempotent: present fields are left untouched; only the structural shape
+ * is filled in. Throws `BackupVersionError` for backups newer than the app.
+ */
+export function migrateRaw(raw: unknown): unknown {
+  if (!raw || typeof raw !== "object") return raw;
+  const obj = raw as Record<string, unknown>;
+  const v = typeof obj.version === "number" && Number.isFinite(obj.version) && obj.version > 0
+    ? Math.floor(obj.version as number)
+    : 1;
+  if (v > BACKUP_SCHEMA_VERSION) {
+    throw new BackupVersionError(v, BACKUP_SCHEMA_VERSION);
+  }
+  const out: Record<string, unknown> = { ...obj };
+  // v5→v6: settings table.
+  if (v < 6 && !Array.isArray(out.settings)) out.settings = [];
+  // v6→v7: knowledgeBaseArticles.
+  if (v < 7 && !Array.isArray(out.knowledgeBaseArticles)) out.knowledgeBaseArticles = [];
+  // Stamp version forward so the post-Zod `migrateBackup` ladder is a no-op.
+  out.version = BACKUP_SCHEMA_VERSION;
+  return out;
+}

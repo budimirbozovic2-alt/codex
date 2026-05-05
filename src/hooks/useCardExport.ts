@@ -5,21 +5,35 @@ import { setLastBackupTime } from "@/lib/storage";
 import type { CategoryRecord } from "@/lib/db-schema";
 import { streamBackup, type ProgressFn } from "@/lib/backup/export-stream";
 
-const IPC_SIZE_LIMIT_MB = 50;
+const IPC_BASE64_LIMIT_MB = 50;
+const IPC_BYTES_LIMIT_MB = 500;
 
 async function downloadFile(blob: Blob, filename: string): Promise<{ saved: boolean }> {
   const sizeMB = blob.size / (1024 * 1024);
 
   if (window.electronAPI?.showSaveDialog) {
-    if (sizeMB > IPC_SIZE_LIMIT_MB) {
-      throw new Error(`Fajl je prevelik (${sizeMB.toFixed(1)}MB). Maksimum za direktan transfer je ${IPC_SIZE_LIMIT_MB}MB. Pokušajte bez ZIP kompresije ili izvezite po predmetu.`);
-    }
     const ext = filename.endsWith(".zip") ? "zip" : "json";
     const result = await window.electronAPI.showSaveDialog({
       defaultPath: filename,
       filters: [{ name: ext === "zip" ? "ZIP Archive" : "JSON File", extensions: [ext] }],
     });
     if (result.canceled || !result.filePath) return { saved: false };
+
+    // Prefer the binary IPC path: no base64 expansion, no payload-sized
+    // string allocation in the renderer, and a 500 MB cap.
+    if (window.electronAPI.saveFileBytes) {
+      if (sizeMB > IPC_BYTES_LIMIT_MB) {
+        throw new Error(`Fajl je prevelik (${sizeMB.toFixed(1)}MB). Maksimum za direktan transfer je ${IPC_BYTES_LIMIT_MB}MB.`);
+      }
+      const bytes = new Uint8Array(await blob.arrayBuffer());
+      const ok = await window.electronAPI.saveFileBytes(result.filePath, bytes);
+      return { saved: !!ok };
+    }
+
+    // Legacy base64 fallback (older preload).
+    if (sizeMB > IPC_BASE64_LIMIT_MB) {
+      throw new Error(`Fajl je prevelik (${sizeMB.toFixed(1)}MB). Maksimum za direktan transfer je ${IPC_BASE64_LIMIT_MB}MB. Pokušajte bez ZIP kompresije ili izvezite po predmetu.`);
+    }
     const arrayBuffer = await blob.arrayBuffer();
     const bytes = new Uint8Array(arrayBuffer);
     let binary = "";
@@ -59,35 +73,40 @@ export function useCardExport({ cards, srSettings }: UseCardExportDeps) {
   const exportTemplate = useCallback(
     async (compress: boolean, onProgress: ProgressFn) => {
       const { db } = await import("@/lib/db");
-      const catRecords = await db.categories.orderBy("sortOrder").toArray();
 
       const dateStr = new Date().toISOString().slice(0, 10);
 
       // Templates don't carry logs; stream cards but project to template shape.
+      // Wrapped in a single read-only transaction so categories + cards form
+      // a consistent point-in-time snapshot even if the user is actively
+      // editing in another tab/process.
       onProgress(5, "Priprema templatea…");
       const parts: BlobPart[] = [];
-      parts.push(`{"version":2,"type":"template"`);
-      parts.push(`,"categories":${JSON.stringify(catRecords)}`);
-      parts.push(`,"subcategories":${JSON.stringify(deriveSubMap(catRecords))}`);
-      parts.push(`,"cards":[`);
       let i = 0;
-      const total = await db.cards.count();
-      await db.cards.each((c) => {
-        const t = {
-          id: c.id,
-          question: c.question,
-          sections: c.sections.map((s) => ({ title: s.title, content: s.content })),
-          categoryId: c.categoryId,
-          subcategoryId: c.subcategoryId || "",
-          chapterId: c.chapterId || "",
-          type: c.type,
-          tags: c.tags || [],
-        };
-        parts.push((i === 0 ? "" : ",") + JSON.stringify(t));
-        i++;
-        if (i % 500 === 0) {
-          onProgress(10 + Math.round((i / Math.max(total, 1)) * 70), `Kartice ${i}/${total}`);
-        }
+      await db.transaction("r", [db.categories, db.cards], async () => {
+        const catRecords = await db.categories.orderBy("sortOrder").toArray();
+        parts.push(`{"version":2,"type":"template"`);
+        parts.push(`,"categories":${JSON.stringify(catRecords)}`);
+        parts.push(`,"subcategories":${JSON.stringify(deriveSubMap(catRecords))}`);
+        parts.push(`,"cards":[`);
+        const total = await db.cards.count();
+        await db.cards.each((c) => {
+          const t = {
+            id: c.id,
+            question: c.question,
+            sections: c.sections.map((s) => ({ title: s.title, content: s.content })),
+            categoryId: c.categoryId,
+            subcategoryId: c.subcategoryId || "",
+            chapterId: c.chapterId || "",
+            type: c.type,
+            tags: c.tags || [],
+          };
+          parts.push((i === 0 ? "" : ",") + JSON.stringify(t));
+          i++;
+          if (i % 500 === 0) {
+            onProgress(10 + Math.round((i / Math.max(total, 1)) * 70), `Kartice ${i}/${total}`);
+          }
+        });
       });
       // Fall back to in-memory if IDB empty
       if (i === 0 && cards.length > 0) {
