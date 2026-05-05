@@ -38,8 +38,13 @@ interface UseEditReturnOptions<S extends BaseEditReturnSnapshot> {
 interface UseEditReturnApi<S> {
   /** Snapshot consumed once on mount (or null if missing / failed validation). */
   initialSnapshot: S | null;
-  /** Call before navigating to /edit; stashes path + standardized snapshot. */
-  stash: () => void;
+  /**
+   * Call before navigating to /edit; stashes path + standardized snapshot.
+   * Pass `cardIdOverride` to record an explicit id (preferred — avoids relying
+   * on render timing or SSOT mirror state). When omitted, falls back to
+   * `opts.cardId`, then to the synchronous SSOT mirror (`getCurrentEditingCardId`).
+   */
+  stash: (cardIdOverride?: string | null) => void;
 }
 
 /** Resolve current absolute path (pathname + search) — used both at stash and at consume. */
