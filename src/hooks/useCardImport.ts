@@ -69,8 +69,14 @@ export function useCardImport({
   cardMapRef,
 }: UseCardImportDeps) {
   const importData = useCallback(
-    async (file: File, strategy: "keep" | "overwrite" | "skip" | "newer" = "skip") => {
+    async (
+      file: File,
+      strategy: "keep" | "overwrite" | "skip" | "newer" = "skip",
+      onProgress?: ImportProgress,
+    ) => {
+      const progress: ImportProgress = onProgress ?? (() => { /* noop */ });
       try {
+        progress(2, "Čitanje fajla…");
         let jsonText: string;
         if (file.name.endsWith(".zip")) {
           const { decompressJsonFromZip } = await import("@/lib/zip-service");
