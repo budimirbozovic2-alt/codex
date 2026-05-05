@@ -246,16 +246,26 @@ class MemoriaDB extends Dexie {
 
 export const db = new MemoriaDB();
 
+// M5: Debounce DB_BLOCKED bursts (Dexie can fire `blocked` repeatedly when
+// multiple connections pile up). 250 ms edge window collapses bursts into one.
+let _lastBlockedEmitAt = 0;
+function emitBlockedThrottled() {
+  const now = Date.now();
+  if (now - _lastBlockedEmitAt < 250) return;
+  _lastBlockedEmitAt = now;
+  eventBus.emit(EVENT_TYPES.DB_BLOCKED);
+}
+
 // Register blocked handler ONCE at module level
 db.on("blocked", () => {
   console.warn("[MemoriaDB] DB open blocked by another connection");
-  eventBus.emit(EVENT_TYPES.DB_BLOCKED);
+  emitBlockedThrottled();
   _blockedReject?.(new Error("DB_BLOCKED"));
 });
 
 db.on("versionchange", () => {
   console.warn("[MemoriaDB] Another tab is trying to upgrade the database. Closing connection.");
-  eventBus.emit(EVENT_TYPES.DB_BLOCKED);
+  emitBlockedThrottled();
   db.close();
 });
 
