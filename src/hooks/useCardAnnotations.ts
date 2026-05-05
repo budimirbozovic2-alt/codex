@@ -73,7 +73,7 @@ export function useCardAnnotations({
 
       // Persist review log OUTSIDE the state updater to avoid nested setState.
       // Batched + debounced (250 ms) inside idbAddReviewLogEntry to avoid IDB queue floods.
-      try { idbAddReviewLogEntry(entry); }
+      try { reviewLogRepository.append(entry); }
       catch (err) {
         console.error("[reviewSection] log enqueue failed", err);
         void import("sonner").then(({ toast }) => toast.error("Memorija puna, istorija učenja se ne čuva!"));
