@@ -34,6 +34,7 @@ export function markOnboardingSeen(key: string) {
 
 export default function OnboardingModal({ slides, storageKey, onComplete, finishLabel = "Počni" }: Props) {
   const [step, setStep] = useState(0);
+  const titleId = useId();
   const slide = slides[step];
   const Icon = slide.icon;
   const isLast = step === slides.length - 1;
@@ -53,24 +54,19 @@ export default function OnboardingModal({ slides, storageKey, onComplete, finish
   };
 
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      className="fixed inset-0 z-modal-elevated flex items-center justify-center bg-background/80 backdrop-blur-sm p-4"
-      onClick={dismissForNow}
+    <Modal
+      open
+      onClose={dismissForNow}
+      labelledBy={titleId}
+      backdropClassName="bg-background/80 backdrop-blur-sm"
+      panelClassName="relative w-full max-w-lg rounded-2xl border bg-card shadow-xl overflow-hidden"
     >
-      <motion.div
-        initial={{ scale: 0.95, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        exit={{ scale: 0.95, opacity: 0 }}
-        onClick={e => e.stopPropagation()}
-        className="relative w-full max-w-lg rounded-2xl border bg-card shadow-xl overflow-hidden"
-      >
+      <>
         {/* Skip */}
         <button
           onClick={finish}
           className="absolute top-4 right-4 p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors z-10"
+          aria-label="Zatvori"
         >
           <X className="h-4 w-4" />
         </button>
