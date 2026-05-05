@@ -1,9 +1,27 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, beforeAll } from "vitest";
 import { render } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import tailwindConfig from "../../tailwind.config";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import Modal from "@/components/ui/Modal";
+
+beforeAll(() => {
+  // jsdom polyfills required by Radix (Popover/Dialog) and storage modules.
+  if (typeof globalThis.ResizeObserver === "undefined") {
+    globalThis.ResizeObserver = class {
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    } as unknown as typeof ResizeObserver;
+  }
+  if (typeof Element.prototype.scrollIntoView !== "function") {
+    Element.prototype.scrollIntoView = function () {};
+  }
+  if (typeof window.HTMLElement.prototype.hasPointerCapture !== "function") {
+    window.HTMLElement.prototype.hasPointerCapture = () => false;
+  }
+});
+
 
 /**
  * Z-index conflict regression suite.
