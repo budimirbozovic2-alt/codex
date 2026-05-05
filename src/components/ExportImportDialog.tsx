@@ -78,25 +78,20 @@ export default function ExportImportDialog({ open, onOpenChange, onExportTemplat
     setProgress(20);
 
     try {
-      let jsonText: string;
+      // Off-thread parse: ZIP decompression + JSON.parse run in the worker,
+      // so the validation step keeps the UI responsive on 100MB+ backups.
+      setProgressMsg(file.name.endsWith(".zip") ? "Dekompresija ZIP fajla..." : "Parsiranje podataka...");
+      setProgress(40);
+      const { parseJsonInWorker } = await import("@/lib/zip-service");
+      const parsed = (await parseJsonInWorker(file)) as Record<string, unknown>;
 
-      // Handle .zip files
-      if (file.name.endsWith(".zip")) {
-        setProgressMsg("Dekompresija ZIP fajla...");
-        setProgress(30);
-        const { decompressJsonFromZip } = await import("@/lib/zip-service");
-        jsonText = await decompressJsonFromZip(file);
-      } else {
-        jsonText = await file.text();
-      }
-
-      setProgressMsg("Parsiranje podataka...");
-      setProgress(60);
-
-      // Yield to UI
-      await new Promise(r => setTimeout(r, 50));
-
-      const parsed = JSON.parse(jsonText) as Record<string, unknown>;
+      setProgressMsg("Validacija podataka...");
+      setProgress(70);
+      // Yield to UI so the new progress paints before the sync validation loop.
+      await new Promise((r) => setTimeout(r, 0));
+      const errors: string[] = [];
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      const isValidUUID = (id: unknown): id is string => typeof id === 'string' && uuidRegex.test(id);
       const errors: string[] = [];
       const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
       const isValidUUID = (id: unknown): id is string => typeof id === 'string' && uuidRegex.test(id);
