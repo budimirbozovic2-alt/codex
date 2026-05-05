@@ -1,8 +1,9 @@
 import { X, AlertTriangle, CheckCircle } from "lucide-react";
+import { useId } from "react";
 import { Card, SectionState } from "@/lib/spaced-repetition";
 import { getCardMasteryLevel, getMasteryColor, MASTERY_LEVELS } from "@/lib/mastery";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
-import { motion } from "framer-motion";
+import Modal from "@/components/ui/Modal";
 
 interface AuditorDetailPanelProps {
   card: Card;
