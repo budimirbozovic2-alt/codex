@@ -1,5 +1,5 @@
 import { MoreVertical, FolderOpen, BookOpen, Flame, Brain, Check, ChevronRight } from "lucide-react";
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useMemo } from "react";
 import { Card, MNEMONIC_TAG } from "@/lib/spaced-repetition";
 import type { FrequencyTag } from "@/lib/sr/types";
 import { FREQUENCY_VALUES, getFrequencyMeta } from "@/lib/sr/frequency";
