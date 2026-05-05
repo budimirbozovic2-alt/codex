@@ -119,19 +119,26 @@ export default function MnemonicModule({ embedded = false, categoryFilter }: Pro
 
   const updateCard = useCallback(
     async (id: string, updates: Partial<MnemonicCard>) => {
-      await setCards((prev) => prev.map((c) => (c.id === id ? { ...c, ...updates } : c)));
-      // Graduation: when marked "ready", tag the original card with "mnemonic"
-      if (updates.mnemonicStatus === "ready") {
-        const mnemoCard = cards.find((c) => c.id === id);
-        if (mnemoCard?.originalCardId) {
-          patchCard(mnemoCard.originalCardId, (c) => ({
-            ...c,
-            tags: c.tags?.includes("mnemonic") ? c.tags : [...(c.tags || []), "mnemonic"],
-          }));
+      // P7: Resolve the target card from the FRESHEST state inside the
+      // functional updater to avoid a stale-closure miss when the card
+      // was added in the same tick. Side-effect (patchCard) is captured
+      // synchronously so we don't double-apply on subsequent renders.
+      let graduateOriginalId: string | undefined;
+      await setCards((prev) => {
+        if (updates.mnemonicStatus === "ready") {
+          const fresh = prev.find((c) => c.id === id);
+          if (fresh?.originalCardId) graduateOriginalId = fresh.originalCardId;
         }
+        return prev.map((c) => (c.id === id ? { ...c, ...updates } : c));
+      });
+      if (graduateOriginalId) {
+        patchCard(graduateOriginalId, (c) => ({
+          ...c,
+          tags: c.tags?.includes("mnemonic") ? c.tags : [...(c.tags || []), "mnemonic"],
+        }));
       }
     },
-    [setCards, cards, patchCard],
+    [setCards, patchCard],
   );
 
   const deleteCard = useCallback(
