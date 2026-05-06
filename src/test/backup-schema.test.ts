@@ -1,5 +1,36 @@
 import { describe, it, expect } from "vitest";
 import { BackupSchema, BackupCardSchema, BackupCategoryRecordSchema } from "@/lib/migrations/backup-schema";
+import { migrateRaw, BackupVersionError, BACKUP_SCHEMA_VERSION } from "@/lib/backup/migrate";
+
+describe("migrateRaw (pre-Zod migration)", () => {
+  it("injects empty `settings` for v5 backups", () => {
+    const out = migrateRaw({ version: 5, type: "full", cards: [], categories: [] }) as Record<string, unknown>;
+    expect(Array.isArray(out.settings)).toBe(true);
+    expect((out.settings as unknown[]).length).toBe(0);
+    expect(out.version).toBe(BACKUP_SCHEMA_VERSION);
+  });
+
+  it("injects empty `knowledgeBaseArticles` for v6 backups", () => {
+    const out = migrateRaw({ version: 6, type: "full", cards: [], categories: [] }) as Record<string, unknown>;
+    expect(Array.isArray(out.knowledgeBaseArticles)).toBe(true);
+  });
+
+  it("throws BackupVersionError for backups newer than the app", () => {
+    expect(() => migrateRaw({ version: 999, cards: [], categories: [] })).toThrow(BackupVersionError);
+  });
+
+  it("is idempotent — running twice produces the same shape", () => {
+    const once = migrateRaw({ version: 5, type: "full", cards: [], categories: [] });
+    const twice = migrateRaw(once);
+    expect(twice).toEqual(once);
+  });
+
+  it("preserves existing fields untouched", () => {
+    const settings = [{ key: "x", value: 1 }];
+    const out = migrateRaw({ version: 6, cards: [], categories: [], settings }) as Record<string, unknown>;
+    expect(out.settings).toBe(settings);
+  });
+});
 
 describe("BackupSchema", () => {
   it("parses a minimal valid v6 backup with empty arrays", () => {

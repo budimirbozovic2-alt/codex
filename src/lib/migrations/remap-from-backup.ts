@@ -9,12 +9,15 @@
  */
 
 import { db } from "@/lib/db";
+import { yieldUI } from "@/lib/backup/yield-ui";
 import {
   isMinimalBackup,
   normalizeName,
   type BackupCategory,
   type MinimalBackup,
 } from "./backup-schema";
+
+export type RemapProgress = (pct: number, label: string) => void;
 
 export interface BackupRemapReport {
   cardsInBackup: number;
@@ -98,8 +101,9 @@ interface CardPatch {
 
 export async function remapFromBackup(
   backupJson: unknown,
-  options: { dryRun?: boolean } = {}
+  options: { dryRun?: boolean; onProgress?: RemapProgress } = {}
 ): Promise<BackupRemapReport> {
+  const onProgress = options.onProgress ?? (() => { /* noop */ });
   const report: BackupRemapReport = {
     cardsInBackup: 0,
     matchedCards: 0,
@@ -131,7 +135,14 @@ export async function remapFromBackup(
   const currentById = new Map(currentCards.map((c) => [c.id, c]));
   const patches: CardPatch[] = [];
 
+  const total = backup.cards.length;
+  onProgress(10, `Analiza ${total} kartica…`);
+  let processed = 0;
   for (const oldCard of backup.cards) {
+    if (++processed % 1000 === 0) {
+      onProgress(10 + Math.round((processed / Math.max(total, 1)) * 70), `Analiza ${processed}/${total}…`);
+      await yieldUI();
+    }
     const cur = currentById.get(oldCard.id);
     if (!cur) continue;
     report.matchedCards++;
@@ -215,13 +226,19 @@ export async function remapFromBackup(
   }
 
   if (!options.dryRun && patches.length > 0) {
+    onProgress(85, `Primjena izmjena (${patches.length})…`);
     try {
       await db.transaction("rw", db.cards, async () => {
+        let i = 0;
         for (const p of patches) {
           await db.cards.update(p.id, {
             subcategoryId: p.subcategoryId,
             chapterId: p.chapterId,
           });
+          if (++i % 500 === 0) {
+            onProgress(85 + Math.round((i / patches.length) * 13), `Zapis ${i}/${patches.length}…`);
+            await yieldUI();
+          }
         }
       });
     } catch (err) {
@@ -231,6 +248,7 @@ export async function remapFromBackup(
     }
   }
 
+  onProgress(100, "Završeno.");
   // Suppress unused warning
   void oldCatNameById;
 
