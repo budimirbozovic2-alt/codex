@@ -1,4 +1,4 @@
-import { Download, Upload, FileBox, Package, AlertTriangle, Check, Clock, FileArchive, Loader2, ShieldCheck } from "lucide-react";
+import { Download, Upload, FileBox, Package, AlertTriangle, Check, Clock, FileArchive, Loader2, ShieldCheck, Wand2 } from "lucide-react";
 import { useState, useRef, useCallback } from "react";
 
 import { db } from "@/lib/db";
@@ -6,6 +6,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Card } from "@/lib/spaced-repetition";
+import { yieldUI } from "@/lib/backup/yield-ui";
+import { migrateRaw, BackupVersionError, BACKUP_SCHEMA_VERSION } from "@/lib/backup/migrate";
 
 
 import { Switch } from "@/components/ui/switch";
@@ -32,6 +34,9 @@ interface ImportValidation {
   uniqueCount: number;
   valid: boolean;
   errors: string[];
+  fileVersion: number | null;
+  appVersion: number;
+  willMigrate: boolean;
 }
 
 export default function ExportImportDialog({ open, onOpenChange, onExportTemplate, onExportFull, onImport, cards }: ExportImportDialogProps) {
