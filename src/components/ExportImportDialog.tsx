@@ -455,7 +455,31 @@ export default function ExportImportDialog({ open, onOpenChange, onExportTemplat
                     <div>
                       <p className="text-muted-foreground text-xs">Veličina</p>
                       <p className="font-medium">{validation.fileSizeKB > 1024 ? `${(validation.fileSizeKB / 1024).toFixed(1)} MB` : `${validation.fileSizeKB} KB`}</p>
-                    </div>
+                  </div>
+                  {/* Schema version row */}
+                  <div className="flex items-center gap-2 pt-2 mt-2 border-t text-xs">
+                    {validation.willMigrate ? (
+                      <>
+                        <Wand2 className="h-3.5 w-3.5 text-primary flex-shrink-0" />
+                        <span className="text-muted-foreground">Šema fajla:</span>
+                        <span className="font-medium">
+                          v{validation.fileVersion} → v{validation.appVersion}
+                        </span>
+                        <span className="text-primary">(auto-migracija)</span>
+                      </>
+                    ) : validation.fileVersion !== null ? (
+                      <>
+                        <ShieldCheck className="h-3.5 w-3.5 text-success flex-shrink-0" />
+                        <span className="text-muted-foreground">Šema fajla:</span>
+                        <span className="font-medium">v{validation.fileVersion}</span>
+                        <span className="text-muted-foreground">(najnovija)</span>
+                      </>
+                    ) : (
+                      <>
+                        <AlertTriangle className="h-3.5 w-3.5 text-warning flex-shrink-0" />
+                        <span className="text-muted-foreground">Šema fajla nije označena — koristi se v{validation.appVersion}.</span>
+                      </>
+                    )}
                   </div>
                 </div>
 
