@@ -11,8 +11,10 @@ import {
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
 import { remapFromBackup, type BackupRemapReport } from "@/lib/migrations/remap-from-backup";
+import { yieldUI } from "@/lib/backup/yield-ui";
 import { eventBus, EVENT_TYPES } from "@/lib/event-bus";
 
 interface RemapFromBackupDialogProps {
@@ -39,6 +41,8 @@ export default function RemapFromBackupDialog({
   const [fileName, setFileName] = useState<string>("");
   const [report, setReport] = useState<BackupRemapReport | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [progress, setProgress] = useState(0);
+  const [progressMsg, setProgressMsg] = useState("");
   const parsedJsonRef = useRef<unknown>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -47,6 +51,8 @@ export default function RemapFromBackupDialog({
     setFileName("");
     setReport(null);
     setError(null);
+    setProgress(0);
+    setProgressMsg("");
     parsedJsonRef.current = null;
     if (inputRef.current) inputRef.current.value = "";
   }, []);
@@ -56,10 +62,19 @@ export default function RemapFromBackupDialog({
     setReport(null);
     setFileName(file.name);
     setPhase("parsing");
+    setProgress(5);
+    setProgressMsg("Čitanje fajla…");
     try {
+      await yieldUI();
       const json = await readFileAsJson(file);
       parsedJsonRef.current = json;
-      const dryReport = await remapFromBackup(json, { dryRun: true });
+      setProgress(10);
+      setProgressMsg("Analiziram backup…");
+      await yieldUI();
+      const dryReport = await remapFromBackup(json, {
+        dryRun: true,
+        onProgress: (p, msg) => { setProgress(p); setProgressMsg(msg); },
+      });
       setReport(dryReport);
       if (dryReport.errors.length > 0) {
         setError(dryReport.errors.join(" "));
