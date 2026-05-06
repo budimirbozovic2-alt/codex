@@ -88,13 +88,29 @@ export default function ExportImportDialog({ open, onOpenChange, onExportTemplat
       setProgressMsg(file.name.endsWith(".zip") ? "Dekompresija ZIP fajla..." : "Parsiranje podataka...");
       setProgress(40);
       const { parseJsonInWorker } = await import("@/lib/zip-service");
-      const parsed = (await parseJsonInWorker(file)) as Record<string, unknown>;
+      let parsed = (await parseJsonInWorker(file)) as Record<string, unknown>;
+
+      // Pre-validation migration: surface schema-version mismatches early
+      // and inject defaults so legacy backups don't fail downstream.
+      const rawFileVersion = typeof parsed.version === "number" && Number.isFinite(parsed.version)
+        ? Math.floor(parsed.version)
+        : null;
+      let willMigrate = false;
+      let versionError: string | null = null;
+      try {
+        const migrated = migrateRaw(parsed) as Record<string, unknown>;
+        if (rawFileVersion !== null && rawFileVersion < BACKUP_SCHEMA_VERSION) willMigrate = true;
+        parsed = migrated;
+      } catch (err) {
+        if (err instanceof BackupVersionError) versionError = err.message;
+        else versionError = err instanceof Error ? err.message : "Migracija backupa nije uspjela.";
+      }
 
       setProgressMsg("Validacija podataka...");
-      setProgress(70);
-      // Yield to UI so the new progress paints before the sync validation loop.
-      await new Promise((r) => setTimeout(r, 0));
+      setProgress(60);
+      await yieldUI();
       const errors: string[] = [];
+      if (versionError) errors.push(versionError);
       const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
       const isValidUUID = (id: unknown): id is string => typeof id === 'string' && uuidRegex.test(id);
 
@@ -121,7 +137,8 @@ export default function ExportImportDialog({ open, onOpenChange, onExportTemplat
       const importedCards: Array<Record<string, unknown>> = (parsed.cards as Array<Record<string, unknown>>) || [];
 
       if (importedCards.length > 0) {
-        for (let i = 0; i < importedCards.length; i++) {
+        const cTotal = importedCards.length;
+        for (let i = 0; i < cTotal; i++) {
           const c = importedCards[i];
           if (!isValidUUID(c.id)) {
             errors.push(`Kartica na indeksu ${i} nema validan UUID (id).`);
@@ -135,6 +152,11 @@ export default function ExportImportDialog({ open, onOpenChange, onExportTemplat
             errors.push(`Kartica na indeksu ${i} nema validan 'sections' niz.`);
             break;
           }
+          if (i > 0 && i % 1000 === 0) {
+            setProgress(60 + Math.round((i / cTotal) * 10));
+            setProgressMsg(`Validacija kartica ${i}/${cTotal}…`);
+            await yieldUI();
+          }
         }
       } else if (!parsed.categories && !parsed.mindMaps) {
         errors.push("Fajl ne sadrži podatke za import (cards, categories, ili mindMaps).");
@@ -142,12 +164,14 @@ export default function ExportImportDialog({ open, onOpenChange, onExportTemplat
 
       // Validate Sources Schema (if present)
       if (parsed.sources && Array.isArray(parsed.sources)) {
-        for (let i = 0; i < parsed.sources.length; i++) {
+        const sTotal = parsed.sources.length;
+        for (let i = 0; i < sTotal; i++) {
           const s = parsed.sources[i];
           if (!isValidUUID(s.id) || !isValidUUID(s.categoryId)) {
             errors.push(`Izvor '${s.title || 'Nepoznato'}' nema validne UUID ključeve.`);
             break;
           }
+          if (i > 0 && i % 1000 === 0) await yieldUI();
         }
       }
 
@@ -163,6 +187,9 @@ export default function ExportImportDialog({ open, onOpenChange, onExportTemplat
       }
 
       // --- STEP 2: RELATIONAL INTEGRITY GUARD ---
+      setProgress(72);
+      setProgressMsg("Provjera relacionog integriteta…");
+      await yieldUI();
       const existingCats = await db.categories.toArray();
       if (errors.length === 0) {
         const validCategoryIds = new Set<string>();
@@ -178,12 +205,14 @@ export default function ExportImportDialog({ open, onOpenChange, onExportTemplat
         const skipFKCheck = isLegacyCategoryFormat;
 
         if (!skipFKCheck && importedCards.length > 0) {
-          for (let i = 0; i < importedCards.length; i++) {
+          const cTotal = importedCards.length;
+          for (let i = 0; i < cTotal; i++) {
             const c = importedCards[i];
             if (typeof c.categoryId === 'string' && !validCategoryIds.has(c.categoryId)) {
               errors.push(`Kartica '${String(c.question ?? '').substring(0,15)}...' pripada predmetu koji ne postoji u bazi ni u fajlu.`);
               break;
             }
+            if (i > 0 && i % 2000 === 0) await yieldUI();
           }
         }
         if (!skipFKCheck && parsed.sources && Array.isArray(parsed.sources)) {
@@ -193,12 +222,13 @@ export default function ExportImportDialog({ open, onOpenChange, onExportTemplat
               errors.push(`Izvor '${s.title?.substring(0,15)}...' pripada predmetu koji ne postoji.`);
               break;
             }
+            if (i > 0 && i % 2000 === 0) await yieldUI();
           }
         }
       }
       // --- END RELATIONAL INTEGRITY GUARD ---
 
-      setProgress(80);
+      setProgress(82);
 
       const freshCards = await db.cards.toArray();
       const existingIds = new Set(freshCards.map(c => c.id));
@@ -226,6 +256,9 @@ export default function ExportImportDialog({ open, onOpenChange, onExportTemplat
         uniqueCount: importedCards.length - duplicateCount,
         valid: errors.length === 0,
         errors,
+        fileVersion: rawFileVersion,
+        appVersion: BACKUP_SCHEMA_VERSION,
+        willMigrate,
       };
 
       setValidation(validationResult);
@@ -244,6 +277,7 @@ export default function ExportImportDialog({ open, onOpenChange, onExportTemplat
         type: "unknown", fileSizeKB: Math.round(file.size / 1024),
         duplicateCount: 0, duplicateCategoryCount: 0, uniqueCount: 0, valid: false,
         errors: [`Greška pri čitanju fajla: ${err instanceof Error ? err.message : "Neispravan format"}`],
+        fileVersion: null, appVersion: BACKUP_SCHEMA_VERSION, willMigrate: false,
       });
       setStep("import-confirm");
     }
