@@ -1,88 +1,68 @@
-## Phase 5 + 4.2 — Cooperative Yielding & Schema Version UX
+## Cilj
 
-Završetak audit roadmape: dodatni yield-ovi u dugim sinhronim petljama (5.1, 5.2) i transparentno prikazivanje verzije backup šeme u import flow-u (4.2).
+Razbiti `src/components/ExportImportDialog.tsx` (552 LOC, "God Object" iz Health Reporta — ocjena C+) na fokusirane komponente korake i jedan custom hook za validaciju. Ponašanje, propsi i UX ostaju identični — radi se isključivo o **presentation/structural refactoru**.
 
----
+## Ciljna struktura fajlova
 
-### Phase 5.1 — Yield u validacijskoj petlji (`ExportImportDialog.tsx`)
+```text
+src/components/ExportImportDialog.tsx          (orchestrator, ~120 LOC)
+src/components/export-import/
+  ├─ types.ts                                  (Step, ImportValidation)
+  ├─ MenuStep.tsx                              (početni izbor: Export / Import)
+  ├─ ExportStep.tsx                            (Template / Full + ZIP toggle)
+  ├─ ProgressStep.tsx                          (zajednički za "exporting", "import-validating", "importing")
+  ├─ ImportConfirmStep.tsx                     (summary + schema-version row + greške)
+  ├─ ImportConflictStep.tsx                    (3 strategije: newer / keep / overwrite)
+  └─ useImportValidation.ts                    (hook: parseJsonInWorker → migrateRaw → Zod-lite checks → FK guard)
+```
 
-**Problem:** Trenutna validacija (linije 92–193) prolazi kroz `importedCards` u jednom sinhronom `for` loop-u. Na 50k+ kartica ovo blokira paint 200–500ms iako je `setProgress(70)` već postavljen — progres bar zaledi.
+## Podjela odgovornosti
 
-**Fix:**
-- Uvesti `await yieldUI()` svakih 1000 iteracija unutar:
-  - `for (let i=0; i < importedCards.length; i++)` (cards UUID + sections check)
-  - `for (let i=0; i < parsed.sources.length; i++)`
-  - FK check petlje (`importedCards` i `parsed.sources` protiv `validCategoryIds`)
-- Promijeniti progress poruku unutar petlji da odražava realan napredak (`Validacija ${i}/${total}`).
-- Zamijeniti `await new Promise((r) => setTimeout(r, 0))` sa shared `yieldUI()` iz `@/lib/backup/yield-ui` zbog konzistentnosti (koristi `scheduler.yield()` kad je dostupno).
+**`ExportImportDialog.tsx` (orchestrator)**
+- Drži `step`, `validation`, `progress`, `progressMsg`, `compress` state.
+- Bira koju step-komponentu da renderuje (switch po `step`).
+- Drži `handleExportTemplate`, `handleExportFull`, `handleImport(strategy)` jer oni žive uz `onExportTemplate/onExportFull/onImport` propse.
+- Delegira validaciju na `useImportValidation` hook.
+- Zadržava postojeće propse (`open`, `onOpenChange`, `onExportTemplate`, `onExportFull`, `onImport`, `cards`) — bez breaking change-a za pozivaoce.
 
-**Fajlovi:** `src/components/ExportImportDialog.tsx`.
+**`useImportValidation.ts`**
+- Eksportuje funkciju `validateImportFile(file, onProgress): Promise<ImportValidation>`.
+- Sadrži cijelu trenutnu logiku iz `handleFileSelect` (linije 76–284): off-thread parse, `migrateRaw`, UUID/sections checks sa `yieldUI()` na 1000/2000, FK guard, duplikat detekcija.
+- Bez React state-a — vraća čisti `ImportValidation` objekat. Orchestrator odlučuje sljedeći step.
 
----
+**`MenuStep.tsx`**
+- Dva button-a (Export / Import) + skriveni `<input type="file">`.
+- Logika za Electron `showOpenDialog` ostaje ovdje (koristi `window.electronAPI`), props: `onPickExport()`, `onFileSelected(file: File)`.
 
-### Phase 5.2 — Yield + napredak u remap dialog-u (`RemapFromBackupDialog.tsx`)
+**`ExportStep.tsx`**
+- ZIP Switch + dva exporta. Props: `cardsCount`, `compress`, `onCompressChange`, `onExportTemplate`, `onExportFull`, `onBack`.
 
-**Problem:** `handleFile` poziva `parseJsonInWorker` (off-thread, OK) ali zatim `remapFromBackup(json, { dryRun: true })` koji je sinhron O(N) po karticama. Nema progresa, nema yield-a — UI pokazuje samo statički "Analiziram backup…".
+**`ProgressStep.tsx`**
+- Loader + `<Progress>` + `progressMsg`. Props: `progress`, `message`. Reuse-ovan za 3 različita progress-state-a (eliminiše duplikat na linijama 389–411).
 
-**Fix:**
-- Prije `remapFromBackup` poziva: `await yieldUI()` da paint flush-uje "Analiziram backup…".
-- Provjeriti potpis `remapFromBackup` u `src/lib/migrations/remap-from-backup.ts`: ako prima `onProgress`, proslijediti ga; ako ne, dodati opcionalni `onProgress?: (pct, msg) => void` callback i unutar njegove glavne `for` petlje yield-ovati svakih 1000 kartica.
-- Dodati `progress` state (0–100) u dialog i `<Progress />` bar u "parsing" / "applying" fazama umjesto samog `Loader2`.
+**`ImportConfirmStep.tsx`**
+- Summary grid (kartice/kategorije/tip/veličina), schema-version red (`willMigrate` / `fileVersion` / fallback), warning za >500 kartica, error lista ako `!validation.valid`.
+- Props: `validation`, `currentCardsCount`, `onConfirm()`, `onCancel()`.
 
-**Fajlovi:** `src/components/RemapFromBackupDialog.tsx`, `src/lib/migrations/remap-from-backup.ts` (proširiti potpis sa optional `onProgress`).
+**`ImportConflictStep.tsx`**
+- 3 strategije: `newer` / `keep` / `overwrite`. Props: `validation`, `onChoose(strategy)`, `onCancel`.
 
----
+**`types.ts`**
+- `Step` union i `ImportValidation` interface (trenutno inline u dialogu).
 
-### Phase 4.2 — UI prikaz verzije backup šeme
+## Šta se NE mijenja
 
-**Problem:** Korisnik ne vidi koja je verzija backupa u fajlu, ni koja je trenutna app verzija. Kada `migrateRaw` baci `BackupVersionError`, samo dobija toast — bez konteksta u dialog-u. Nadogradnje šeme su za njega "crna kutija".
+- Public API komponente (`ExportImportDialogProps`).
+- Sve interakcije, stringovi, ikone, klase, `DialogContent` `sm:max-w-*` širine po koraku.
+- Logika validacije, redoslijed yield-ova, progres procenti, threshold-ovi (1000/2000, >500), error poruke.
+- `onImport` / `onExportTemplate` / `onExportFull` ugovori i toast ponašanje (dialog se zatvara u `finally`, kao i sad).
 
-**Fix u `ExportImportDialog.tsx`:**
+## Verifikacija
 
-1. **Validation phase** — uhvatiti `parsed.version` (number) tokom postojećeg validation passa i staviti u `ImportValidation`:
-   ```ts
-   interface ImportValidation {
-     ...
-     fileVersion: number | null;   // npr. 5
-     appVersion: number;           // BACKUP_SCHEMA_VERSION = 7
-     willMigrate: boolean;         // fileVersion < appVersion
-   }
-   ```
-2. **Confirm screen** — u summary grid dodati red:
-   - "Verzija fajla: v5 → v7 (auto-migracija)" sa `Wand2` ikonom kad `willMigrate === true`
-   - "Verzija fajla: v7 (najnovija)" sa `ShieldCheck` kad jednake
-   - Crveni alert sa `BackupVersionError` porukom kad `fileVersion > appVersion` (validation `valid: false`)
-3. **Pre-validation guard** — prije Zod validacije pozvati `migrateRaw` (već postoji u `useCardImport`, ali validacija u dialog-u radi prije import-a). Importovati `migrateRaw` i `BACKUP_SCHEMA_VERSION` iz `@/lib/backup/migrate` u dialog i pozvati ga odmah nakon `parseJsonInWorker`. Hvatati `BackupVersionError` i postaviti structured error sa verzijama u `validation.errors` umjesto generičnog stringa.
+- `bunx vitest run src/test/backup-schema.test.ts` (postojeći testovi ostaju zeleni).
+- TypeScript build prolazi (harness automatski).
+- Smoke check kroz preview: Menu → Export (Template & Full s/bez ZIP) → Import (validan JSON, validan ZIP, nevažeći fajl, fajl s duplikatima → conflict step).
 
-**Fajlovi:** `src/components/ExportImportDialog.tsx`.
+## Procjena
 
----
-
-### Yield konsolidacija (cleanup)
-
-Zamijeniti sve `await new Promise(r => setTimeout(r, 0))` u backup pipeline-u sa `yieldUI()`:
-- `src/components/ExportImportDialog.tsx` linija 91
-- (Provjera ostalih backup-related fajlova preko `rg`.)
-
-Razlog: jedinstven scheduler hook, lakše je kasnije zamijeniti implementaciju (npr. `requestIdleCallback` fallback).
-
----
-
-### Test pokrivenost
-
-Proširiti `src/test/backup-schema.test.ts` sa:
-- `migrateRaw` za v5 (no `settings`) → injects `[]`
-- `migrateRaw` za v6 (no `knowledgeBaseArticles`) → injects `[]`
-- `migrateRaw` baca `BackupVersionError` za v999
-- `migrateRaw` idempotent: dva uzastopna poziva daju isti output
-
----
-
-### Files touched
-
-- `src/components/ExportImportDialog.tsx` — yield petlje, version display, pre-validation `migrateRaw`
-- `src/components/RemapFromBackupDialog.tsx` — progress bar, yield prije `remapFromBackup`
-- `src/lib/migrations/remap-from-backup.ts` — opcionalni `onProgress` + interni yield
-- `src/test/backup-schema.test.ts` — `migrateRaw` testovi
-
-Bez izmjena na `db-schema.ts`, IPC layeru, ili worker fajlovima.
+~7 novih malih fajlova, dialog spada sa 552 → ~120 LOC. Ciljna ocjena modula: **C+ → A-**.
