@@ -1,68 +1,62 @@
 ## Cilj
 
-Razbiti `src/components/ExportImportDialog.tsx` (552 LOC, "God Object" iz Health Reporta — ocjena C+) na fokusirane komponente korake i jedan custom hook za validaciju. Ponašanje, propsi i UX ostaju identični — radi se isključivo o **presentation/structural refactoru**.
+Razbiti `src/hooks/useCardActions.ts` (369 LOC, 16 `useState` poziva, B−) na tri fokusirana sub-hook-a + tanki orkestrator. **Bez API breaking change-a** — `useCardActions` zadržava identičan return shape, tako da `CardForm.tsx` i `EditPage.tsx` ostaju netaknuti.
 
-## Ciljna struktura fajlova
+## Nova struktura
 
 ```text
-src/components/ExportImportDialog.tsx          (orchestrator, ~120 LOC)
-src/components/export-import/
-  ├─ types.ts                                  (Step, ImportValidation)
-  ├─ MenuStep.tsx                              (početni izbor: Export / Import)
-  ├─ ExportStep.tsx                            (Template / Full + ZIP toggle)
-  ├─ ProgressStep.tsx                          (zajednički za "exporting", "import-validating", "importing")
-  ├─ ImportConfirmStep.tsx                     (summary + schema-version row + greške)
-  ├─ ImportConflictStep.tsx                    (3 strategije: newer / keep / overwrite)
-  └─ useImportValidation.ts                    (hook: parseJsonInWorker → migrateRaw → Zod-lite checks → FK guard)
+src/hooks/card-actions/
+  useSectionEditor.ts     // cardType, question, flashAnswer, sections, cuttingIndex + section actions
+  useCardMetadata.ts      // categoryId/subcategoryId/chapterId + new* + show* + frequencyTag/sourceType
+                          //   + availableSubs, availableChapters, resolvedMeta, linkedGazetteInfo
+  useCardDraft.ts         // pendingDraft banner + restore/dismiss + draftKey + autosave wiring
+  validation.ts           // validate(), ValidationErrors, parseHtmlToParagraphs (čista util logika)
+src/hooks/useCardActions.ts  // orchestrator (~80 LOC): kompozicija + handleSubmit + return objekt
 ```
 
-## Podjela odgovornosti
+## Detalji po modulu
 
-**`ExportImportDialog.tsx` (orchestrator)**
-- Drži `step`, `validation`, `progress`, `progressMsg`, `compress` state.
-- Bira koju step-komponentu da renderuje (switch po `step`).
-- Drži `handleExportTemplate`, `handleExportFull`, `handleImport(strategy)` jer oni žive uz `onExportTemplate/onExportFull/onImport` propse.
-- Delegira validaciju na `useImportValidation` hook.
-- Zadržava postojeće propse (`open`, `onOpenChange`, `onExportTemplate`, `onExportFull`, `onImport`, `cards`) — bez breaking change-a za pozivaoce.
+**`useSectionEditor`**
+- State: `cardType`, `question`, `flashAnswer`, `sections`, `cuttingIndex`, `validationErrors`, `isSaving`.
+- Actions: `addSection`, `removeSection`, `updateSection`, `moveSection`, `handleCut`.
+- Init iz `editCard` (essay/flash grananje kao danas).
+- Vraća sve setere + akcije + read-only state.
 
-**`useImportValidation.ts`**
-- Eksportuje funkciju `validateImportFile(file, onProgress): Promise<ImportValidation>`.
-- Sadrži cijelu trenutnu logiku iz `handleFileSelect` (linije 76–284): off-thread parse, `migrateRaw`, UUID/sections checks sa `yieldUI()` na 1000/2000, FK guard, duplikat detekcija.
-- Bez React state-a — vraća čisti `ImportValidation` objekat. Orchestrator odlučuje sljedeći step.
+**`useCardMetadata`**
+- State: `categoryId`, `subcategoryId`, `chapterId`, `newCategory`, `showNewCat`, `newSubcategory`, `showNewSub`, `newChapter`, `showNewChapter`, `frequencyTag`, `sourceType`, `formWidth`, `linkedGazetteInfo`.
+- Derived: `availableSubs`, `availableChapters`, `resolvedMeta` (sve postojeće `useMemo` netaknute).
+- Effect: load `linkedGazetteInfo` iz `db.sources` kad postoji `editCard.sourceId`.
+- Init iz `editCard` + `categories[0]` fallback.
 
-**`MenuStep.tsx`**
-- Dva button-a (Export / Import) + skriveni `<input type="file">`.
-- Logika za Electron `showOpenDialog` ostaje ovdje (koristi `window.electronAPI`), props: `onPickExport()`, `onFileSelected(file: File)`.
+**`useCardDraft`**
+- Computa `draftKey` preko `buildDraftKey` (initialCategoryIdRef pattern zadržan).
+- Drži `pendingDraft`, `pendingDraftSavedAt`; one-shot `loadCardDraft` na mount.
+- `autosaveEnabled = pendingDraft === null`; poziva `useCardDraftAutosave(draftKey, snapshot, enabled)`.
+- Prima `draftSnapshot` kao argument (orkestrator ga sastavi iz drugih hookova).
+- Prima `applyDraft(draft)` callback koji editor + metadata hooks izlažu da bi `restoreDraft` mogao popuniti njihovo state.
+- Vraća: `pendingDraft`, `pendingDraftSavedAt`, `restoreDraft`, `dismissDraft`, `clearDraft`.
 
-**`ExportStep.tsx`**
-- ZIP Switch + dva exporta. Props: `cardsCount`, `compress`, `onCompressChange`, `onExportTemplate`, `onExportFull`, `onBack`.
+**`validation.ts`**
+- Premjestiti čiste funkcije: `validate`, `parseHtmlToParagraphs`, tip `ValidationErrors`.
+- Re-eksport iz `useCardActions.ts` radi backwards compat (tipovi `SectionInput`, `CardType`, `FormWidth`, `ValidationErrors`).
 
-**`ProgressStep.tsx`**
-- Loader + `<Progress>` + `progressMsg`. Props: `progress`, `message`. Reuse-ovan za 3 različita progress-state-a (eliminiše duplikat na linijama 389–411).
+**`useCardActions` (orkestrator)**
+- Pozove `useSectionEditor`, `useCardMetadata`, pa `useCardDraft` (kome proslijedi snapshot + apply callback).
+- Drži samo `handleSubmit` (validacija → `onUpdate`/`onSave`/`onSaveFlash` → `clearDraft` → setIsSaving).
+- Vrati spread svih sub-hookova + handleSubmit, identičan oblik kao danas.
 
-**`ImportConfirmStep.tsx`**
-- Summary grid (kartice/kategorije/tip/veličina), schema-version red (`willMigrate` / `fileVersion` / fallback), warning za >500 kartica, error lista ako `!validation.valid`.
-- Props: `validation`, `currentCardsCount`, `onConfirm()`, `onCancel()`.
+## Tipovi i back-compat
 
-**`ImportConflictStep.tsx`**
-- 3 strategije: `newer` / `keep` / `overwrite`. Props: `validation`, `onChoose(strategy)`, `onCancel`.
-
-**`types.ts`**
-- `Step` union i `ImportValidation` interface (trenutno inline u dialogu).
-
-## Šta se NE mijenja
-
-- Public API komponente (`ExportImportDialogProps`).
-- Sve interakcije, stringovi, ikone, klase, `DialogContent` `sm:max-w-*` širine po koraku.
-- Logika validacije, redoslijed yield-ova, progres procenti, threshold-ovi (1000/2000, >500), error poruke.
-- `onImport` / `onExportTemplate` / `onExportFull` ugovori i toast ponašanje (dialog se zatvara u `finally`, kao i sad).
+- `SectionInput`, `CardType`, `FormWidth` ostaju eksportovani iz `useCardActions.ts` (re-export).
+- Return shape neporomijenjen → `CardForm.tsx` koristi sve property-je nepromijenjeno.
+- `useCardDraftAutosave` API ostaje isti.
 
 ## Verifikacija
 
-- `bunx vitest run src/test/backup-schema.test.ts` (postojeći testovi ostaju zeleni).
-- TypeScript build prolazi (harness automatski).
-- Smoke check kroz preview: Menu → Export (Template & Full s/bez ZIP) → Import (validan JSON, validan ZIP, nevažeći fajl, fajl s duplikatima → conflict step).
+- `bunx vitest run src/test/card-draft-autosave.test.ts` — postojeći test mora proći.
+- TypeScript build (auto).
+- Smoke: open `/new`, otkucaj → reload → "Vrati nacrt" radi; edit existing card → save → no orphan draft.
 
-## Procjena
+## Procjena gradea
 
-~7 novih malih fajlova, dialog spada sa 552 → ~120 LOC. Ciljna ocjena modula: **C+ → A-**.
+Cilj: B− → A−. Svaki sub-hook < 120 LOC, jasna SRP, orkestrator ~80 LOC bez state šuma.
