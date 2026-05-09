@@ -1,55 +1,50 @@
 ## Cilj
 
-Kozmetičko čišćenje `applyImportAtomically` (270 LOC) ekstraktovanjem 4 helpera iz `db.transaction` body-ja. Bez promjene logike, transakcionih granica, ili spoljnog API-ja.
+Razbiti monolitnu IIFE u `src/hooks/useCardBootstrap.ts` (~270 LOC) na jasno imenovane faze. Bez promjene ponašanja, redoslijeda, timeout-a, splash UI poruka, ni javnog API-ja hook-a.
 
-## Nova struktura (isti fajl)
+## Nova struktura
+
+Novi folder `src/hooks/card-bootstrap/` sa file-private fazama:
 
 ```text
-src/lib/backup/import-transaction.ts
-  // existing helpers
-  isCategoryRecordArray, buildCategoryIdRemap, applyRemapToParsed, pruneOrphans
-  // NEW extracted helpers (private, defined above applyImportAtomically)
-  mergeCardsByStrategy(...)            // ── 1. Pre-merge cards
-  writeCategoriesTx(...)               // ── 4a + 4b. Categories + legacy subs map
-  writeCardsTx(...)                    // ── 4c. Cards bulkPut + overwrite prune
-  writeSatelliteTablesTx(...)          // ── 4f + 4g. Sources/MindMaps/KB + log tables
-  applyImportAtomically(ctx)           // slimmed orchestrator (~80 LOC)
+src/hooks/card-bootstrap/
+  splash.ts              // splashProgress, showSplashError, cleanupSplash, notifyReady
+  withTimeout.ts         // postojeći helper iznesen iz useCardBootstrap
+  bootDb.ts              // ensureDbOpen + getDbErrorState; vraća { ok, errored }
+  runMigrations.ts       // migrateFromLocalStorage + mnemonics + healCardTaxonomy
+  loadInitialData.ts     // initCaches + paralelno idbLoad* + frequency tag migracija
+  normalizeCategories.ts // legacy string→SubcategoryNode, fallback nodes, phantom prune, persist
+src/hooks/useCardBootstrap.ts  // slim orchestrator (~70 LOC)
 ```
 
-## Detalji
+## Detalji faza
 
-**`mergeCardsByStrategy(importedCards, currentMap, strategy)`**
-- Vraća `{ merged, nextMap }`.
-- Sadrži postojeću `newer` / `overwrite` / default granu (linije 130-149).
+**`splash.ts`** — sve `document.getElementById("splash-*")` DOM operacije (progress bar, status, error, cleanup sa fade, `electronAPI.notifyReady`). Čisto presentational.
 
-**`writeCategoriesTx(parsed, strategy, freshCategories)`**
-- Pokriva 4a + 4b (linije 186-253) — radi unutar postojeće `rw` transakcije, prima `parsed` i `freshCategories`, mutira `parsed` (već je tako).
-- Vraća `void`.
+**`bootDb({ panicSetReady })`** — poziva `ensureDbOpen(6000)`, `markBootStep`, `scheduleLogPrune`. Vraća `{ ok: boolean }`. Ako pukne, splash poruka i `showSplashError` se postavljaju ovdje.
 
-**`writeCardsTx(merged, strategy)`**
-- Pokriva 4c (linije 256-263). bulkPut + overwrite orphan prune + `yieldUI`.
+**`runMigrations()`** — tri postojeća `withTimeout` poziva (LS migration, mnemonics, taxonomy heal) + `checkInterruptedFlush`. Vraća `void`.
 
-**`writeSatelliteTablesTx(parsed, strategy, progress)`**
-- Pokriva 4f + 4g (sources, mindMaps, KB, uuidTables, autoIncTables, linije 282-378).
-- Prima `progress` callback za "Uvoz izvora i mapa…" / "Logovi (i/N)…".
-- Sadrži `IdbBulkTable` tip i `uuidTables`/`autoIncTables` konstante (lokalno u fajlu, izvan funkcije).
+**`loadInitialData()`** — `initCaches` (Promise.all 3 init-a) + paralelni `idbLoad*` blok + frequency tag migracija + splashProgress(60). Vraća `{ cards, catRecords, log, settings }`.
 
-**`applyImportAtomically` (slim)**
-- Ostaje: pre-merge poziv, pre-tx remap, legacy taxonomy resolve, otvaranje `db.transaction`, redoslijed poziva helpera, post-tx `idbLoadCategories`.
-- Review log (4d) i SR settings (4e) ostaju inline jer pišu u closure-vezane `srSettingsApplied`/`reviewLogApplied` varijable — extract bi zahtijevao return tuple, što povećava šum bez koristi.
+**`normalizeCategories({ cards, catRecords })`** — sva logika gradnje `cardsByCat` indeksa, legacy `string[]` → `SubcategoryNode[]` migracija sa `stableLegacyId`, fallback nodes za orphan kartice, phantom UUID prune, fire-and-forget IDB persist. Vraća `{ finalRecords }`.
+
+**`useCardBootstrap` (slim)** — drži `useState(ready)`, panic timer, te `useEffect` koji sekvencijalno zove faze i na kraju setuje state (cardMapRef, setCardMapState, bumpMapVersion, setCategoryRecordsState, setReviewLogState, setSrSettingsState) + `splashProgress(100)` + `finally` blok (setReady, clearTimeout, splash cleanup, notifyReady).
 
 ## Garancije
 
-- **Bez logičkih promjena**: helperi sadrže identičan kod, samo izdvojen.
-- **Transakcione granice nepromijenjene**: svi helperi se zovu unutar postojećeg `db.transaction("rw", tables, …)`.
-- **Bez API breaks**: `applyImportAtomically(ctx)` signature, return tip, i ponašanje su nepromijenjeni.
-- **Ekstraktovani helperi su `function` deklaracije iznad `applyImportAtomically`** (file-private, ne export).
+- Identičan redoslijed `markBootStep` poziva i splash progress tačaka (5/10/15/25/60/85/100).
+- Iste `withTimeout` vrijednosti i fallback vrijednosti.
+- Iste DEV `console.log` poruke.
+- Setteri se zovu tačno jednom, na kraju, kao i sad.
+- Panic timer (8s) i `finally` blok ostaju u hook-u (jer trebaju `setReady`).
+- Eksterni API (`useCardBootstrap(setters)` → `{ ready }`) nepromijenjen.
 
 ## Verifikacija
 
-- `bunx vitest run src/test/backup-schema.test.ts`
-- TypeScript build (auto)
+- TypeScript build (auto).
+- Ručna provjera boot-a u preview-u: splash prolazi kroz iste tačke; nema duplog mount-a (`initialLoadDone.current` ostaje).
 
 ## Procjena
 
-B → A−. Glavna funkcija: 270 LOC → ~80 LOC. Svaki helper ima jasnu odgovornost i ime koje se mapira na originalne sekcije 4a-4g.
+B → A−. Glavni fajl: ~270 LOC → ~70 LOC. Svaka faza ima jednu odgovornost i može se zasebno čitati/testirati.

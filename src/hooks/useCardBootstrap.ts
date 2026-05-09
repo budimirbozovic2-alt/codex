@@ -1,31 +1,20 @@
 import { useEffect, useRef, useState } from "react";
-import { Card, SRSettings, DEFAULT_SR_SETTINGS } from "@/lib/spaced-repetition";
+import { SRSettings } from "@/lib/spaced-repetition";
 import { ReviewLogEntry } from "@/lib/storage";
 import { CardMap, arrayToMap, bumpMapVersion } from "@/lib/persist-queue";
+import { type CategoryRecord } from "@/lib/db";
+import { markBootStep } from "@/lib/boot-trace";
 import {
-  ensureDbOpen,
-  migrateFromLocalStorage,
-  idbLoadCards,
-  idbLoadRecentReviewLog,
-  idbLoadSettings,
-  getDbErrorState,
-  seedDefaultCategories,
-  db,
-  type CategoryRecord,
-  type SubcategoryNode,
-} from "@/lib/db";
-import { checkInterruptedFlush } from "@/lib/persist-queue";
-import { stableLegacyId } from "@/lib/stable-id";
-import { scheduleLogPrune } from "@/lib/log-retention";
-
-async function withTimeout<T>(task: Promise<T>, timeoutMs: number, label: string, fallback: T): Promise<T> {
-  try {
-    return await Promise.race([task, new Promise<T>((resolve) => setTimeout(() => resolve(fallback), timeoutMs))]);
-  } catch (error) {
-    console.warn(`[boot] ${label} failed`, error);
-    return fallback;
-  }
-}
+  splashProgress,
+  showSplashError,
+  cleanupSplash,
+  forceRemoveSplash,
+  notifyElectronReady,
+} from "./card-bootstrap/splash";
+import { bootDb } from "./card-bootstrap/bootDb";
+import { runMigrations } from "./card-bootstrap/runMigrations";
+import { loadInitialData } from "./card-bootstrap/loadInitialData";
+import { normalizeCategories } from "./card-bootstrap/normalizeCategories";
 
 interface BootSetters {
   setCardMapState: React.Dispatch<React.SetStateAction<CardMap>>;
@@ -50,259 +39,28 @@ export function useCardBootstrap(setters: BootSetters) {
       setReady((currentReady) => {
         if (!currentReady) {
           console.error("[boot] Panic timeout (8s)! Forsiram ready state.");
-          try {
-            const splash = document.getElementById("app-splash");
-            if (splash) splash.remove();
-          } catch (e) { console.warn("[boot] splash cleanup failed", e); }
+          forceRemoveSplash();
           return true;
         }
         return currentReady;
       });
     }, 8000);
 
-    const splashProgress = (pct: number, label: string) => {
-      try {
-        const bar = document.getElementById("splash-progress");
-        const status = document.getElementById("splash-status");
-        const percent = document.getElementById("splash-percent");
-        if (bar) bar.style.width = `${pct}%`;
-        if (status) status.textContent = label;
-        if (percent) percent.textContent = `${pct}%`;
-      } catch (e) { console.warn("[boot] splashProgress DOM error", e); }
-    };
-
-    const showSplashError = (msg: string) => {
-      try {
-        const el = document.getElementById("splash-error");
-        const msgEl = document.getElementById("splash-error-msg");
-        if (el) el.style.display = "block";
-        if (msgEl) msgEl.textContent = msg;
-      } catch (e) { console.warn("[boot] showSplashError DOM error", e); }
-    };
-
     (async () => {
-      const { markBootStep } = await import("@/lib/boot-trace");
       try {
-        markBootStep("cards:init-start");
-        splashProgress(5, "Otvaranje baze…");
-        if (import.meta.env.DEV) console.log("[boot:diag] step 1: ensureDbOpen");
-        const dbOk = await ensureDbOpen(6000);
-        markBootStep("cards:db-open-done", dbOk ? "ok" : "failed");
-        if (dbOk) scheduleLogPrune();
-        if (!dbOk) {
-          const errState = getDbErrorState();
-          if (errState) {
-            // dbErrorState was already set inside ensureDbOpen via setDbErrorState,
-            // which broadcasts DB_ERROR_CHANGED. DbErrorProvider picks it up.
-            splashProgress(100, "Greška baze podataka");
-          } else {
-            splashProgress(100, "Pokretanje bez baze…");
-            showSplashError("IndexedDB nije dostupan ili je isteklo vrijeme čekanja.");
-          }
-          return;
-        }
+        const { ok } = await bootDb();
+        if (!ok) return;
 
-        markBootStep("cards:migration-start");
-        splashProgress(10, "Migracija podataka…");
-        if (import.meta.env.DEV) console.log("[boot:diag] step 2: migrateFromLocalStorage");
-        await withTimeout(migrateFromLocalStorage(), 3000, "migration", undefined);
-        
-        // Mnemonics migration (localStorage -> IDB)
-        const { migrateMnemonicsFromLocalStorageToIDB } = await import("@/lib/mnemonic-storage");
-        await withTimeout(migrateMnemonicsFromLocalStorageToIDB(), 3000, "mnemonic migration", undefined);
+        await runMigrations();
 
-        // Heal stale subcategoryId/chapterId references on cards (one-shot, flagged)
-        try {
-          const { healCardTaxonomy } = await import("@/lib/migrations/heal-card-taxonomy");
-          const report = await withTimeout(healCardTaxonomy(), 3000, "taxonomy heal", null);
-          if (report && !report.skipped && (report.staleSubcategoryReset + report.staleChapterReset + report.mismatchChapterReset) > 0) {
-            console.info("[boot] taxonomy healed", report);
-          }
-        } catch (e) { console.warn("[boot] taxonomy heal skipped", e); }
-
-        markBootStep("cards:migration-done");
-
-        // Check for interrupted writes from previous session
-        checkInterruptedFlush();
-
-        // Initialize in-memory caches from IDB (replaces localStorage)
-        splashProgress(15, "Inicijalizacija keša…");
-        if (import.meta.env.DEV) console.log("[boot:diag] step 3: initCaches");
-        const { initMetacognitiveCache } = await import("@/lib/metacognitive-storage");
-        const { initPlannerCache } = await import("@/lib/planner-storage");
-        const { initSubjectSettingsCache } = await import("@/lib/subject-settings");
-        await withTimeout(
-          Promise.all([
-            initMetacognitiveCache().catch((e) => console.warn("[silent]", e)),
-            initPlannerCache().catch((e) => console.warn("[silent]", e)),
-            initSubjectSettingsCache().catch((e) => console.warn("[silent]", e)),
-          ]),
-          3000, "cache init", undefined
-        );
-
-        splashProgress(25, "Učitavanje podataka…");
-        if (import.meta.env.DEV) console.log("[boot:diag] step 4: loading data (parallel)");
-        markBootStep("cards:data-load-start");
-
-        // B2: Parallelize all independent IDB loads
-        const [c, catRecords, log, settings] = await Promise.all([
-          withTimeout(idbLoadCards(), 5000, "cards load", []),
-          withTimeout(seedDefaultCategories(), 2500, "categories load", []),
-          withTimeout(idbLoadRecentReviewLog(90), 2500, "review log load", []),
-          withTimeout(idbLoadSettings<SRSettings>("srSettings", DEFAULT_SR_SETTINGS), 2500, "settings load", DEFAULT_SR_SETTINGS),
-        ]);
-
-        // One-time migration: legacy tags[] ("često-na-ispitu" / "rijetko-na-ispitu")
-        // → Card.frequencyTag (triple system SSOT). Idempotent: skips cards that
-        // already have frequencyTag set, and strips the legacy strings.
-        try {
-          const { LEGACY_FREQUENT_TAG, LEGACY_RARE_TAG, stripLegacyFrequencyTags } = await import("@/lib/sr/frequency");
-          const migrated: Card[] = [];
-          for (const card of c) {
-            const tags = card.tags;
-            if (!tags || tags.length === 0) continue;
-            const hadFreq = tags.includes(LEGACY_FREQUENT_TAG);
-            const hadRare = tags.includes(LEGACY_RARE_TAG);
-            if (!hadFreq && !hadRare) continue;
-            const cleaned = stripLegacyFrequencyTags(tags);
-            const next: Card = {
-              ...card,
-              tags: cleaned,
-              frequencyTag: card.frequencyTag ?? (hadFreq ? "često" : "rijetko"),
-            };
-            migrated.push(next);
-            const idx = c.indexOf(card);
-            if (idx >= 0) c[idx] = next;
-          }
-          if (migrated.length > 0 && db) {
-            db.cards.bulkPut(migrated).catch((e: unknown) =>
-              console.warn("[boot] frequency tag migration persist failed", e),
-            );
-            if (import.meta.env.DEV) console.info(`[boot] migrated ${migrated.length} cards: legacy tags → frequencyTag`);
-          }
-        } catch (e) { console.warn("[boot] frequency tag migration skipped", e); }
-
-        splashProgress(60, `${c.length} kartica učitano`);
-        if (import.meta.env.DEV) console.log("[boot:diag] categories loaded:", catRecords.length, catRecords.map((r: CategoryRecord) => r.name));
-
-        // Build card-by-category index O(n) instead of O(n×categories)
-        const cardsByCat = new Map<string, typeof c>();
-        for (const card of c) {
-          const arr = cardsByCat.get(card.categoryId) || [];
-          arr.push(card);
-          cardsByCat.set(card.categoryId, arr);
-        }
-
-        // Build subcategories map + fallback "Opšte" nodes for orphaned cards
-        const updatedRecords: CategoryRecord[] = [];
-        let needsPersist = false;
-
-        for (const r of catRecords) {
-          // Migrate legacy string[] to SubcategoryNode[] with a *deterministic*
-          // id (stableLegacyId scoped to the parent). Re-running boot after
-          // restore yields the same ids, keeping card → subcategory references
-          // coherent.
-          let nodes: SubcategoryNode[] = (r.subcategories || []).map((s: unknown, i: number) => {
-            if (typeof s === "string") {
-              needsPersist = true;
-              return { id: stableLegacyId(r.id, s), name: s, chapters: [] as import("@/lib/db").ChapterNode[], sortOrder: i };
-            }
-            const sObj = s as Partial<SubcategoryNode> & { name: string };
-            const subId = sObj.id || stableLegacyId(r.id, sObj.name);
-            // Ensure node has id
-            const node: SubcategoryNode = {
-              id: subId,
-              name: sObj.name,
-              sortOrder: sObj.sortOrder ?? i,
-              chapters: ((sObj.chapters || []) as unknown[]).map((ch, ci): import("@/lib/db").ChapterNode => {
-                if (typeof ch === "string") {
-                  needsPersist = true;
-                  return { id: stableLegacyId(subId, ch), name: ch, sortOrder: ci };
-                }
-                const c = ch as Partial<import("@/lib/db").ChapterNode> & { name: string };
-                if (!c.id) {
-                  needsPersist = true;
-                  return { ...c, id: stableLegacyId(subId, c.name), sortOrder: c.sortOrder ?? ci } as import("@/lib/db").ChapterNode;
-                }
-                return c as import("@/lib/db").ChapterNode;
-              }),
-            };
-            if (!sObj.id) needsPersist = true;
-            return node;
-          });
-
-          // B1 fix: use Map for O(1) node lookup instead of O(n) .find() per card
-          const catCards = cardsByCat.get(r.id) || [];
-          const nodeMap = new Map<string, SubcategoryNode>();
-          for (const n of nodes) nodeMap.set(n.id, n);
-
-          for (const card of catCards) {
-            const sub = card.subcategoryId || "";
-            const ch = card.chapterId || "";
-            if (!sub) continue;
-
-            let node = nodeMap.get(sub);
-            if (!node) {
-              // Card references an unknown sub id — synthesize a node keyed by
-              // that id so we don't break the link.
-              node = { id: sub, name: sub, chapters: [], sortOrder: nodes.length };
-              nodes.push(node);
-              nodeMap.set(sub, node);
-              needsPersist = true;
-              if (import.meta.env.DEV) console.log(`[boot] fallback SubcategoryNode created: "${sub}" in category ${r.name}`);
-            }
-            if (ch && !node.chapters.some(c => c.id === ch)) {
-              node.chapters.push({ id: ch, name: ch, sortOrder: node.chapters.length });
-              needsPersist = true;
-              if (import.meta.env.DEV) console.log(`[boot] fallback chapter registered: "${ch}" under "${sub}" in ${r.name}`);
-            }
-          }
-
-          // One-time cleanup: remove phantom nodes with UUID-shaped names and zero cards
-          const uuidPattern = /^[0-9a-f]{8}-/;
-          const cardSubIds = new Set(catCards.map(card => card.subcategoryId).filter(Boolean));
-          const prevLen = nodes.length;
-          nodes = nodes.filter(n => {
-            if (!uuidPattern.test(n.name)) return true;
-            if (cardSubIds.has(n.id)) return true;
-            if (import.meta.env.DEV) console.log(`[boot] removing phantom subcategory: "${n.name}" from ${r.name}`);
-            needsPersist = true;
-            return false;
-          });
-          // Clean phantom chapters within remaining nodes
-          for (const n of nodes) {
-            const cardChapIds = new Set(catCards.filter(card => card.subcategoryId === n.id).map(card => card.chapterId).filter(Boolean));
-            n.chapters = n.chapters.filter(ch => {
-              if (!uuidPattern.test(ch.name)) return true;
-              if (cardChapIds.has(ch.id)) return true;
-              if (import.meta.env.DEV) console.log(`[boot] removing phantom chapter: "${ch.name}" from ${n.name}`);
-              needsPersist = true;
-              return false;
-            });
-          }
-
-          updatedRecords.push({ ...r, subcategories: nodes });
-        }
-
-        // Persist migrated/fallback nodes back to IDB (fire-and-forget)
-        if (needsPersist && db) {
-          Promise.all(
-            updatedRecords.map((rec) =>
-              db!.categories.update(rec.id, { subcategories: rec.subcategories }).catch((e: unknown) =>
-                console.warn("[boot] fallback persist failed for", rec.name, e)
-              )
-            )
-          ).catch(() => {});
-        }
-
-        // Always use updatedRecords (with migrated nodes) as canonical state
-        const finalRecords = needsPersist ? updatedRecords : catRecords;
+        const { cards, catRecords, log, settings } = await loadInitialData();
+        const { finalRecords } = normalizeCategories({ cards, catRecords });
 
         splashProgress(85, "Finalizacija…");
-        markBootStep("cards:data-load-done", `${c.length} cards`);
+        markBootStep("cards:data-load-done", `${cards.length} cards`);
 
-        if (import.meta.env.DEV) console.log("[boot:diag] setting state — cards:", c.length, "categories:", finalRecords.length);
-        const initialMap = arrayToMap(c);
+        if (import.meta.env.DEV) console.log("[boot:diag] setting state — cards:", cards.length, "categories:", finalRecords.length);
+        const initialMap = arrayToMap(cards);
         cardMapRef.current = initialMap; // Seed Ref-Delta mirror once at boot
         setCardMapState(initialMap);
         bumpMapVersion();
@@ -318,24 +76,10 @@ export function useCardBootstrap(setters: BootSetters) {
         splashProgress(100, "Pokretanje sa rezervnim stanjem…");
         showSplashError(error instanceof Error ? error.message : "Neočekivana greška pri učitavanju podataka.");
       } finally {
-      setReady(true);
+        setReady(true);
         clearTimeout(panicTimer);
-
-        try {
-          const splash = document.getElementById("app-splash");
-          if (splash) {
-            splash.style.opacity = "0";
-            setTimeout(() => {
-              try { if (splash.parentNode) splash.remove(); } catch (e) { console.warn("[boot] splash remove failed", e); }
-            }, 500);
-          }
-        } catch (e) { console.warn("[boot] splash cleanup failed", e); }
-
-        try {
-          if (window.electronAPI?.notifyReady) {
-            window.electronAPI.notifyReady();
-          }
-        } catch (e) { console.warn("[boot] notifyReady failed", e); }
+        cleanupSplash();
+        notifyElectronReady();
       }
     })();
 
