@@ -72,7 +72,7 @@ function renderMarkdown(md: string, existingTitles: Set<string>, emptyTitles: Se
 
   const inline = (raw: string): string => {
     const escaped = escapeHtml(raw);
-    let s = renderWikiLinks(escaped, raw);
+    let s = renderWikiLinks(escaped);
     s = s.replace(/`([^`]+)`/g, '<code class="px-1 py-0.5 rounded bg-muted text-[0.9em]">$1</code>');
     s = s.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
     s = s.replace(/\*([^*]+)\*/g, "<em>$1</em>");
