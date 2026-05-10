@@ -314,7 +314,15 @@ export default function ZettelkastenView() {
     // Persist current draft before navigating away
     await flushRef.current();
 
-    // Coalesce concurrent clicks on the same title into a single transaction.
+    // Resolve aliases first: if target matches an existing article's alias
+    // (or canonical title), open it directly without spawning a placeholder.
+    const resolvedId = backlinkIndex.resolveTargetToArticleId(categoryId, trimmed);
+    if (resolvedId) {
+      handleOpen(resolvedId);
+      return;
+    }
+
+
     let pending = wikiLinkInFlightRef.current.get(key);
     if (!pending) {
       pending = (async (): Promise<string | null> => {
