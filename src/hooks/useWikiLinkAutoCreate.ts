@@ -30,7 +30,9 @@ import { iterateWikiLinks, normalizeKey } from "@/lib/zettelkasten-wiki-link";
  * the still-unresolved tail can be drained even if the user paused typing.
  */
 const WIKI_LINK_BATCH_CAP = 50;
-const WIKI_LINK_RE = /\[\[([^\]]+)\]\]/g;
+// Pipe-form `[[Target|display]]` is intentionally NOT auto-created — it's
+// the author's explicit signal that `Target` already exists or will be
+// created by hand. Aliases of existing articles likewise suppress creation.
 
 interface UseWikiLinkAutoCreateParams {
   activeId: string | null;
