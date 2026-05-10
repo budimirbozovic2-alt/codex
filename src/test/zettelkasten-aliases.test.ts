@@ -27,11 +27,10 @@ describe("iterateWikiLinks", () => {
     expect(got[0]).toMatchObject({ target: "A", display: "A", hasPipe: false });
     expect(got[1]).toMatchObject({ target: "B", display: "prikaz", hasPipe: true });
   });
-  it("first pipe wins; later pipes are not allowed in display half", () => {
+  it("display half may contain literal pipes", () => {
     const got = Array.from(iterateWikiLinks("[[A|b|c]]"));
-    // The display-half regex forbids `|`, so the whole match fails — fine,
-    // we treat that as no link rather than a malformed one.
-    expect(got).toHaveLength(0);
+    expect(got).toHaveLength(1);
+    expect(got[0]).toMatchObject({ target: "A", display: "b|c", hasPipe: true });
   });
   it("skips empty targets", () => {
     expect(Array.from(iterateWikiLinks("[[ ]] [[|x]]"))).toHaveLength(0);
