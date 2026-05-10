@@ -1,5 +1,6 @@
 import { db, type KnowledgeBaseArticle } from "./db";
 import { normalizeTagList } from "./zettelkasten-tags";
+import { normalizeAliasList } from "./zettelkasten-aliases";
 
 export type { KnowledgeBaseArticle };
 
