@@ -34,6 +34,7 @@
 import { useSyncExternalStore } from "react";
 import type { KnowledgeBaseArticle } from "./zettelkasten-storage";
 import { eventBus, EVENT_TYPES } from "./event-bus";
+import { iterateWikiLinks, normalizeKey } from "./zettelkasten-wiki-link";
 
 export interface BacklinkEntry {
   /** Source article that contains the link. */
@@ -47,19 +48,22 @@ export interface BacklinkEntry {
 interface SubjectState {
   byTarget: Map<string, Set<string>>;
   snippets: Map<string, string>; // key = `${sourceId}::${normTitle}`
-  articleLinks: Map<string, Set<string>>; // sourceId → set of normalized targets
+  articleLinks: Map<string, Set<string>>; // sourceId → set of normalized targets (canonical)
   titleById: Map<string, string>; // articleId → raw title (for snippet rendering)
+  /** Reverse map: any indexable key (alias or canonical title, normalized) → owning article id. */
+  keyToArticleId: Map<string, string>;
+  /** Per-article keys we contributed to keyToArticleId (so we can remove them on update/delete). */
+  articleKeys: Map<string, Set<string>>;
   /** Monotonic version per (subject, normTitle); useSyncExternalStore tracks this. */
   versionByTarget: Map<string, number>;
   /** Subscribers per normTitle for fine-grained re-renders. */
   subsByTarget: Map<string, Set<() => void>>;
 }
 
-const WIKI_RE = /\[\[([^\]]+)\]\]/g;
 const SNIPPET_PAD = 40;
 
 function norm(title: string): string {
-  return title.trim().toLowerCase();
+  return normalizeKey(title);
 }
 
 function snippetFor(content: string, idx: number, matchLen: number): string {
