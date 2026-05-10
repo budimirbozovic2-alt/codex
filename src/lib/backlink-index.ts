@@ -213,7 +213,17 @@ class BacklinkIndex {
     if (links.size > 0) s.articleLinks.set(a.id, links);
   }
 
-  /** Incremental insert/update of a single article. O(linksInArticle). */
+  /**
+   * Incremental insert/update of a single article. O(linksInArticle).
+   *
+   * NOTE on alias changes: this updates THIS article's contribution to the
+   * keyToArticleId map, plus its own outgoing links. It does NOT re-scan
+   * other articles' content, so a freshly-added alias on article X won't
+   * retroactively resolve `[[that-alias]]` links sitting in unrelated
+   * articles until those are themselves saved (or until the next
+   * `rebuildFromAll`). Acceptable trade-off — full index rebuilds happen on
+   * subject (re)mount and on Restore.
+   */
   upsertArticle(subjectId: string, article: KnowledgeBaseArticle): void {
     const s = this.getOrCreate(subjectId);
     const touched = new Set<string>();
@@ -228,8 +238,11 @@ class BacklinkIndex {
       }
       s.articleLinks.delete(article.id);
     }
-    // Re-index with the new content.
-    this.indexArticle(s, article);
+    // Refresh identity-map keys (title + aliases) for this article.
+    this.unregisterKeys(s, article.id);
+    this.registerKeys(s, article);
+    // Re-scan with the new content + (possibly) new identity map.
+    this.indexArticleLinks(s, article);
     const next = s.articleLinks.get(article.id);
     if (next) for (const t of next) touched.add(t);
     // Rename: subscribers to the *old* title under which this article was
@@ -261,6 +274,7 @@ class BacklinkIndex {
     const prevTitle = s.titleById.get(articleId);
     if (prevTitle) touched.add(norm(prevTitle));
     s.titleById.delete(articleId);
+    this.unregisterKeys(s, articleId);
     this.bumpAndNotify(s, touched);
   }
 
