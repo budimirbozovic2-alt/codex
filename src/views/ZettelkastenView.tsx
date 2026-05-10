@@ -522,6 +522,14 @@ export default function ZettelkastenView() {
               />
             )}
 
+            {/* Alias editor (edit only) — case-form synonyms for auto-link. */}
+            {isEditing && draft && (
+              <ZettelAliasEditor
+                aliases={draft.aliases}
+                onChange={(aliases) => setDraft({ ...draft, aliases })}
+              />
+            )}
+
             {/* Single-pane content area (no split screen) */}
             <div className="flex flex-col gap-3 flex-1 min-h-0">
               <div className="flex-1 min-h-0">
