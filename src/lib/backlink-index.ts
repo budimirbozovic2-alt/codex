@@ -84,6 +84,8 @@ class BacklinkIndex {
         snippets: new Map(),
         articleLinks: new Map(),
         titleById: new Map(),
+        keyToArticleId: new Map(),
+        articleKeys: new Map(),
         versionByTarget: new Map(),
         subsByTarget: new Map(),
       };
