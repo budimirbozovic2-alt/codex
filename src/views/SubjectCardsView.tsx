@@ -226,45 +226,11 @@ export default function SubjectCardsView() {
         </div>
 
         <TabsContent value="manage" className="pt-2 space-y-3">
-          <div className="flex items-center justify-between gap-2 flex-wrap">
-            <div className="inline-flex rounded-lg border bg-card p-0.5">
-              {MANAGE_MODES.map((mode) => {
-                const Icon = mode.icon;
-                const active = manageMode === mode.id;
-                return (
-                  <button
-                    key={mode.id}
-                    type="button"
-                    onClick={() => setManageMode(mode.id)}
-                    title={mode.tooltip}
-                    aria-label={mode.tooltip}
-                    aria-pressed={active}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
-                      active
-                        ? "bg-primary text-primary-foreground"
-                        : "text-muted-foreground hover:text-foreground hover:bg-muted"
-                    }`}
-                  >
-                    <Icon className="h-3.5 w-3.5" />
-                    {mode.label}
-                    <span className="opacity-60">({mode.shortTag})</span>
-                  </button>
-                );
-              })}
-            </div>
-
-            {manageMode === MANAGE_MODE.Structure && (
-              <Button
-                variant="outline"
-                size="sm"
-                className="gap-1.5 h-8 text-xs"
-                onClick={() => setStructureOpen(true)}
-              >
-                <Settings className="h-3.5 w-3.5" />
-                Uredi potkategorije i glave
-              </Button>
-            )}
-          </div>
+          <ManageModeToolbar
+            manageMode={manageMode}
+            onChangeMode={setManageMode}
+            onOpenStructure={() => setStructureOpen(true)}
+          />
 
           {manageMode === MANAGE_MODE.Edit ? (
             <>
