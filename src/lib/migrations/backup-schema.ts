@@ -310,6 +310,9 @@ export const BackupKnowledgeBaseArticleSchema = z
     rootSubcategoryId: z.unknown().optional(),
     isIndex: z.unknown().optional().transform((v) => v === true ? true : undefined),
     tags: StringArray,
+    // Case-form synonyms for grammatical languages (e.g. "krivičnog djela" → "Krivično djelo").
+    // Optional so legacy backups (pre-aliases) pass validation untouched.
+    aliases: z.array(z.string()).optional(),
     createdAt: NumberWithDefault(Date.now()),
     updatedAt: NumberWithDefault(Date.now()),
   })
