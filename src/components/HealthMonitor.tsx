@@ -1,34 +1,12 @@
 import { Activity, Database, HardDrive, RefreshCw, FileText, Brain, Clock, BookOpen, MapPin, Layers, AlertTriangle, Trash2, ShieldCheck, Wand2 } from "lucide-react";
-import { useState, useEffect, useCallback } from "react";
+import { useState, type ReactNode } from "react";
 import RemapFromBackupDialog from "@/components/RemapFromBackupDialog";
-import { db } from "@/lib/db";
-import { eventBus, EVENT_TYPES } from "@/lib/event-bus";
-import { getStorageUsage } from "@/lib/storage";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
-import { toast } from "sonner";
-
-interface TableStat {
-  name: string;
-  count: number;
-  icon: React.ReactNode;
-}
-
-interface OrphanResult {
-  count: number;
-  cardIds: string[];
-}
-
-interface CrashEntry {
-  label: string;
-  message: string;
-  count: number;
-  firstSeen: string;
-  lastSeen: string;
-}
+import { useHealthMonitor } from "@/hooks/useHealthMonitor";
 
 function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
@@ -36,166 +14,37 @@ function formatBytes(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
 }
 
-function loadCrashLog(): CrashEntry[] {
-  try {
-    const raw = localStorage.getItem("codex-crash-log") || localStorage.getItem("memoria-crash-log");
-    return raw ? JSON.parse(raw) : [];
-  } catch {
-    return [];
+function iconForTable(name: string): ReactNode {
+  switch (name) {
+    case "Kartice": return <BookOpen className="h-3.5 w-3.5" />;
+    case "Review Log": return <Clock className="h-3.5 w-3.5" />;
+    case "Pomodoro Log": return <Activity className="h-3.5 w-3.5" />;
+    case "Dnevnik": return <FileText className="h-3.5 w-3.5" />;
+    case "Kalibracija": return <Brain className="h-3.5 w-3.5" />;
+    case "Latencija": return <Clock className="h-3.5 w-3.5" />;
+    case "Slippage": return <MapPin className="h-3.5 w-3.5" />;
+    case "Aktivnosti": return <Activity className="h-3.5 w-3.5" />;
+    case "Disciplina": return <Layers className="h-3.5 w-3.5" />;
+    case "Izvori": return <FileText className="h-3.5 w-3.5" />;
+    case "Mape uma": return <Brain className="h-3.5 w-3.5" />;
+    default: return <Database className="h-3.5 w-3.5" />;
   }
 }
 
 export default function HealthMonitor() {
-  const [tableStats, setTableStats] = useState<TableStat[]>([]);
-  const [idbEstimate, setIdbEstimate] = useState<{ usage: number; quota: number } | null>(null);
-  const [lsUsage, setLsUsage] = useState<{ usedBytes: number; maxBytes: number; percent: number } | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
-  const [orphans, setOrphans] = useState<OrphanResult>({ count: 0, cardIds: [] });
-  const [staleSub, setStaleSub] = useState<OrphanResult>({ count: 0, cardIds: [] });
-  const [staleChap, setStaleChap] = useState<OrphanResult>({ count: 0, cardIds: [] });
-  const [cleaning, setCleaning] = useState(false);
-  const [healing, setHealing] = useState(false);
-  const [crashLog, setCrashLog] = useState<CrashEntry[]>(loadCrashLog());
+  const {
+    report, loading, cleaning, healing, lastRefresh,
+    refresh, cleanOrphans, healStaleLinks, clearCrashLog,
+  } = useHealthMonitor();
   const [remapOpen, setRemapOpen] = useState(false);
 
-  const refresh = useCallback(async () => {
-    setLoading(true);
-    try {
-      const [cards, reviewLog, pomodoroLog, diary, calibration, latency, slippage, activity, discipline, sources, mindMaps] = await Promise.all([
-        db.cards.count(),
-        db.reviewLog.count(),
-        db.pomodoroLog.count(),
-        db.diary.count(),
-        db.calibrationLog.count(),
-        db.latencyLog.count(),
-        db.slippageLog.count(),
-        db.activityLog.count(),
-        db.disciplineLog.count(),
-        db.sources.count(),
-        db.mindMaps.count(),
-      ]);
-
-      setTableStats([
-        { name: "Kartice", count: cards, icon: <BookOpen className="h-3.5 w-3.5" /> },
-        { name: "Review Log", count: reviewLog, icon: <Clock className="h-3.5 w-3.5" /> },
-        { name: "Pomodoro Log", count: pomodoroLog, icon: <Activity className="h-3.5 w-3.5" /> },
-        { name: "Dnevnik", count: diary, icon: <FileText className="h-3.5 w-3.5" /> },
-        { name: "Kalibracija", count: calibration, icon: <Brain className="h-3.5 w-3.5" /> },
-        { name: "Latencija", count: latency, icon: <Clock className="h-3.5 w-3.5" /> },
-        { name: "Slippage", count: slippage, icon: <MapPin className="h-3.5 w-3.5" /> },
-        { name: "Aktivnosti", count: activity, icon: <Activity className="h-3.5 w-3.5" /> },
-        { name: "Disciplina", count: discipline, icon: <Layers className="h-3.5 w-3.5" /> },
-        { name: "Izvori", count: sources, icon: <FileText className="h-3.5 w-3.5" /> },
-        { name: "Mape uma", count: mindMaps, icon: <Brain className="h-3.5 w-3.5" /> },
-      ]);
-
-      // Storage
-      const storageResult = await getStorageUsage();
-      setIdbEstimate({ usage: storageResult.usedBytes, quota: storageResult.maxBytes });
-      setLsUsage(storageResult);
-
-      // Orphan detection
-      const [allCards, allCategories] = await Promise.all([
-        db.cards.toArray(),
-        db.categories.toArray(),
-      ]);
-      const validIds = new Set(allCategories.map(c => c.id));
-      const orphanCards = allCards.filter(c => c.categoryId && !validIds.has(c.categoryId));
-      setOrphans({ count: orphanCards.length, cardIds: orphanCards.map(c => c.id) });
-
-      // Stale subcategoryId / chapterId detection
-      const subUuids = new Set<string>();
-      const chapUuids = new Set<string>();
-      const chapToSub = new Map<string, string>();
-      for (const cat of allCategories) {
-        for (const sub of cat.subcategories ?? []) {
-          subUuids.add(sub.id);
-          for (const ch of sub.chapters ?? []) {
-            if (typeof ch === "object" && ch.id) {
-              chapUuids.add(ch.id);
-              chapToSub.set(ch.id, sub.id);
-            }
-          }
-        }
-      }
-      const staleSubCards = allCards.filter(c => c.subcategoryId && !subUuids.has(c.subcategoryId));
-      const staleChapCards = allCards.filter(c => {
-        if (!c.chapterId) return false;
-        if (!chapUuids.has(c.chapterId)) return true;
-        // mismatch: chapter exists but belongs to a different sub
-        if (c.subcategoryId && subUuids.has(c.subcategoryId) && chapToSub.get(c.chapterId) !== c.subcategoryId) return true;
-        return false;
-      });
-      setStaleSub({ count: staleSubCards.length, cardIds: staleSubCards.map(c => c.id) });
-      setStaleChap({ count: staleChapCards.length, cardIds: staleChapCards.map(c => c.id) });
-
-      // Crash log
-      setCrashLog(loadCrashLog());
-    } catch (err) {
-      console.error("[health] refresh failed", err);
-    } finally {
-      setLoading(false);
-      setLastRefresh(new Date());
-    }
-  }, []);
-
-  useEffect(() => { refresh(); }, [refresh]);
-
-  const handleCleanOrphans = async () => {
-    if (orphans.count === 0) return;
-    setCleaning(true);
-    try {
-      const categories = await db.categories.toArray();
-      if (categories.length === 0) {
-        toast.error("Nema kategorija za premještanje kartica");
-        return;
-      }
-      const fallbackId = categories[0].id;
-      await Promise.all(
-        orphans.cardIds.map(id => db.cards.update(id, { categoryId: fallbackId, subcategoryId: "", chapterId: "" }))
-      );
-      toast.success(`${orphans.count} kartica premješteno u "${categories[0].name}"`);
-      setOrphans({ count: 0, cardIds: [] });
-      eventBus.emit(EVENT_TYPES.CARDS_UPDATED, { source: "orphan-cleanup", cardIds: orphans.cardIds });
-    } catch (err) {
-      console.error("[health] cleanup failed", err);
-      toast.error("Greška pri čišćenju");
-    } finally {
-      setCleaning(false);
-    }
-  };
-
-  const handleHealStaleLinks = async () => {
-    if (staleSub.count === 0 && staleChap.count === 0) return;
-    setHealing(true);
-    try {
-      const { healCardTaxonomy } = await import("@/lib/migrations/heal-card-taxonomy");
-      const report = await healCardTaxonomy(true);
-      const total = report.staleSubcategoryReset + report.staleChapterReset + report.mismatchChapterReset;
-      toast.success(`${total} zastarjelih veza očišćeno`);
-      setStaleSub({ count: 0, cardIds: [] });
-      setStaleChap({ count: 0, cardIds: [] });
-      eventBus.emit(EVENT_TYPES.CARDS_UPDATED, {
-        source: "heal-stale",
-        cardIds: Array.from(new Set([...staleSub.cardIds, ...staleChap.cardIds])),
-      });
-      await refresh();
-    } catch (err) {
-      console.error("[health] heal failed", err);
-      toast.error("Greška pri čišćenju zastarjelih veza");
-    } finally {
-      setHealing(false);
-    }
-  };
-
-  const handleClearCrashLog = () => {
-    localStorage.removeItem("codex-crash-log");
-    localStorage.removeItem("memoria-crash-log");
-    setCrashLog([]);
-    toast.success("Error log očišćen");
-  };
-
+  const tableStats = report?.tableStats ?? [];
+  const idb = report?.storage.idb ?? null;
+  const ls = report?.storage.ls ?? null;
+  const orphans = report?.integrity.orphans ?? { count: 0, cardIds: [] };
+  const staleSub = report?.integrity.staleSub ?? { count: 0, cardIds: [] };
+  const staleChap = report?.integrity.staleChap ?? { count: 0, cardIds: [] };
+  const crashLog = report?.crashLog ?? [];
   const totalRecords = tableStats.reduce((s, t) => s + t.count, 0);
 
   return (
@@ -207,7 +56,7 @@ export default function HealthMonitor() {
             <Database className="h-4 w-4 text-primary" />
             Health Monitor
           </CardTitle>
-          <Button variant="ghost" size="sm" onClick={refresh} disabled={loading}>
+          <Button variant="ghost" size="sm" onClick={() => { void refresh(); }} disabled={loading}>
             <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
           </Button>
         </div>
@@ -232,7 +81,7 @@ export default function HealthMonitor() {
                   variant="outline"
                   size="sm"
                   className="mt-2 gap-1.5"
-                  onClick={handleCleanOrphans}
+                  onClick={() => { void cleanOrphans(); }}
                   disabled={cleaning}
                 >
                   <Trash2 className="h-3 w-3" />
@@ -282,7 +131,7 @@ export default function HealthMonitor() {
                     variant="outline"
                     size="sm"
                     className="gap-1.5"
-                    onClick={handleHealStaleLinks}
+                    onClick={() => { void healStaleLinks(); }}
                     disabled={healing}
                   >
                     <Trash2 className="h-3 w-3" />
@@ -296,30 +145,30 @@ export default function HealthMonitor() {
 
         {/* Storage overview */}
         <div className="grid grid-cols-2 gap-3">
-          {idbEstimate && (
+          {idb && (
             <div className="rounded-lg border bg-muted/30 p-3 space-y-1.5">
               <div className="flex items-center gap-1.5 text-xs font-medium">
                 <HardDrive className="h-3.5 w-3.5 text-primary" />
                 IndexedDB
               </div>
-              <p className="text-lg font-semibold">{formatBytes(idbEstimate.usage)}</p>
+              <p className="text-lg font-semibold">{formatBytes(idb.usage)}</p>
               <p className="text-[10px] text-muted-foreground">
-                od {formatBytes(idbEstimate.quota)}
+                od {formatBytes(idb.quota)}
               </p>
-              <Progress value={Math.min(100, (idbEstimate.usage / idbEstimate.quota) * 100)} className="h-1" />
+              <Progress value={Math.min(100, (idb.usage / idb.quota) * 100)} className="h-1" />
             </div>
           )}
-          {lsUsage && (
+          {ls && (
             <div className="rounded-lg border bg-muted/30 p-3 space-y-1.5">
               <div className="flex items-center gap-1.5 text-xs font-medium">
                 <Database className="h-3.5 w-3.5 text-warning" />
                 localStorage
               </div>
-              <p className="text-lg font-semibold">{formatBytes(lsUsage.usedBytes)}</p>
+              <p className="text-lg font-semibold">{formatBytes(ls.usedBytes)}</p>
               <p className="text-[10px] text-muted-foreground">
-                od {formatBytes(lsUsage.maxBytes)} ({lsUsage.percent}%)
+                od {formatBytes(ls.maxBytes)} ({ls.percent}%)
               </p>
-              <Progress value={lsUsage.percent} className="h-1" />
+              <Progress value={ls.percent} className="h-1" />
             </div>
           )}
         </div>
@@ -337,7 +186,7 @@ export default function HealthMonitor() {
             {tableStats.map(t => (
               <div key={t.name} className="flex items-center justify-between rounded-md border px-2.5 py-1.5 text-xs">
                 <span className="flex items-center gap-1.5 text-muted-foreground">
-                  {t.icon}
+                  {iconForTable(t.name)}
                   {t.name}
                 </span>
                 <span className="font-medium tabular-nums">{t.count.toLocaleString()}</span>
@@ -351,7 +200,7 @@ export default function HealthMonitor() {
           <div className="flex items-center justify-between">
             <p className="text-xs font-medium text-muted-foreground">Error Log</p>
             {crashLog.length > 0 && (
-              <Button variant="ghost" size="sm" onClick={handleClearCrashLog} className="h-6 text-[10px] gap-1">
+              <Button variant="ghost" size="sm" onClick={clearCrashLog} className="h-6 text-[10px] gap-1">
                 <Trash2 className="h-3 w-3" /> Očisti
               </Button>
             )}
