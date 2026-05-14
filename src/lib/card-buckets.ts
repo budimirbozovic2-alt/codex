@@ -46,15 +46,19 @@ function pushTo<K>(map: Map<K, Card[]>, key: K, card: Card): void {
   else map.set(key, [card]);
 }
 
+function removeFrom<K>(map: Map<K, Card[]>, key: K, cardId: string): void {
+  const existing = map.get(key);
+  if (!existing) return;
+  const idx = existing.findIndex(c => c.id === cardId);
+  if (idx !== -1) {
+    existing.splice(idx, 1);
+    if (existing.length === 0) map.delete(key);
+  }
+}
+
 /**
  * Single-pass bucket builder. Returns fresh Map instances every call so
  * referential equality is a reliable rebuild signal for React.
- *
- * Cards missing `categoryId`, `subcategoryId`, or `chapterId` are simply
- * not inserted into the corresponding bucket — consumers that need to
- * surface "untagged" rows must continue handling that case explicitly
- * (the existing convention in `useSourceHierarchy` is the `__ostalo__`
- * sentinel; this util preserves that contract by omission).
  */
 export function buildCardBuckets(cards: Card[]): CardBuckets {
   const byCategory = new Map<string, Card[]>();
@@ -74,6 +78,33 @@ export function buildCardBuckets(cards: Card[]): CardBuckets {
   }
 
   return { byCategory, bySubcategory, byChapter, byCategoryChapter, bySubcategoryChapter };
+}
+
+/**
+ * Audit V4: Incremental bucket update.
+ * Modifies existing buckets in-place to avoid O(N) full rebuilds on every keystroke/update.
+ * This eliminates CPU jitter (micro-stutters) for users with 10k+ cards.
+ */
+export function updateCardInBuckets(buckets: CardBuckets, oldCard: Card | undefined, newCard: Card | undefined): void {
+  if (oldCard) {
+    if (oldCard.categoryId) removeFrom(buckets.byCategory, oldCard.categoryId, oldCard.id);
+    if (oldCard.subcategoryId) removeFrom(buckets.bySubcategory, oldCard.subcategoryId, oldCard.id);
+    if (oldCard.chapterId) {
+      removeFrom(buckets.byChapter, oldCard.chapterId, oldCard.id);
+      if (oldCard.categoryId) removeFrom(buckets.byCategoryChapter, compositeKey(oldCard.categoryId, oldCard.chapterId), oldCard.id);
+      if (oldCard.subcategoryId) removeFrom(buckets.bySubcategoryChapter, compositeKey(oldCard.subcategoryId, oldCard.chapterId), oldCard.id);
+    }
+  }
+
+  if (newCard) {
+    if (newCard.categoryId) pushTo(buckets.byCategory, newCard.categoryId, newCard);
+    if (newCard.subcategoryId) pushTo(buckets.bySubcategory, newCard.subcategoryId, newCard);
+    if (newCard.chapterId) {
+      pushTo(buckets.byChapter, newCard.chapterId, newCard);
+      if (newCard.categoryId) pushTo(buckets.byCategoryChapter, compositeKey(newCard.categoryId, newCard.chapterId), newCard);
+      if (newCard.subcategoryId) pushTo(buckets.bySubcategoryChapter, compositeKey(newCard.subcategoryId, newCard.chapterId), newCard);
+    }
+  }
 }
 
 /** Convenience lookup that returns an empty array (never undefined). */

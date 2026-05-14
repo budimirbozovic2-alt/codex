@@ -1,7 +1,7 @@
 import { db } from "./db-schema";
 import type { CategoryRecord } from "./db-schema";
 import { Card } from "./spaced-repetition";
-import { ReviewLogEntry } from "./storage";
+import { ReviewLogEntry } from "./types/logs";
 
 // ─── Cards ──────────────────────────────────────────────
 
@@ -99,6 +99,14 @@ export async function idbDeleteCategory(id: string): Promise<void> {
 
 export async function idbLoadReviewLog(): Promise<ReviewLogEntry[]> {
   return db.reviewLog.toArray();
+}
+
+/**
+ * Audit V4: Memory-efficient review log iteration.
+ * Uses .each() cursor instead of .toArray() to avoid O(N) RAM spikes.
+ */
+export async function idbForEachReviewLog(callback: (entry: ReviewLogEntry) => void | Promise<void>): Promise<void> {
+  await db.reviewLog.each(callback);
 }
 
 export async function idbLoadRecentReviewLog(days: number = 90): Promise<ReviewLogEntry[]> {

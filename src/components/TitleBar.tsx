@@ -28,7 +28,7 @@ export default function TitleBar() {
       {/* Brand */}
       <div className="flex items-center gap-2 pl-3 pr-4">
         <img
-          src={`${import.meta.env.BASE_URL}logo-icon.png`}
+          src={`${import.meta.env.BASE_URL}app-logo.png`}
           alt="CODEX"
           className="h-4 w-4 rounded-full"
           draggable={false}

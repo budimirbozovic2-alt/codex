@@ -1,6 +1,6 @@
 import Dexie, { type Table } from "dexie";
 import { Card } from "./spaced-repetition";
-import { ReviewLogEntry, PomodoroLogEntry } from "./storage";
+import { ReviewLogEntry, PomodoroLogEntry } from "./types/logs";
 import type { DiaryEntry, CalibrationEntry, LatencyEntry, SlippageEntry, ActivityEntry } from "./metacognitive-storage";
 import type { DisciplineEntry } from "./planner-storage";
 import { EVENT_TYPES, type EventType } from "./event-bus-types";

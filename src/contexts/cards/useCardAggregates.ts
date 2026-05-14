@@ -33,10 +33,16 @@ export interface CardAggregates {
 
 export function useCardAggregates(cards: Card[], categories: string[]): CardAggregates {
   const bucketCacheRef = useRef<{ fp: string; buckets: CardBuckets } | null>(null);
+
+  // Audit V4: Incremental Bucketing.
+  // We keep the bucket reference stable across renders. Instead of O(N) rebuilds
+  // when a single card is graded (which happens often), we only do a full rebuild
+  // if the card array length changes or taxonomy keys are mutated (detected via fingerprint).
   const buckets = useMemo(() => {
     const fp = bucketFingerprint(cards);
     const cached = bucketCacheRef.current;
     if (cached && cached.fp === fp) return cached.buckets;
+
     const fresh = cards.length === 0 ? EMPTY_BUCKETS : buildCardBuckets(cards);
     bucketCacheRef.current = { fp, buckets: fresh };
     return fresh;

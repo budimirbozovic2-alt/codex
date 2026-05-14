@@ -1,37 +1,8 @@
 
 
-export interface ReviewLogEntry {
-  timestamp: number;
-  cardId: string;
-  sectionId: string;
-  grade: number;
-  category: string;
-  // ── Adaptive scheduling explanation (optional, added v6.x) ──
-  reasons?: { code: string; label: string }[];
-  effectiveRetention?: number;
-  intervalMultiplier?: number;
-}
+import { type ReviewLogEntry, type PomodoroLogEntry, type LearnCardProgress } from "./types/logs";
 
-// Pomodoro log
-export interface PomodoroLogEntry {
-  timestamp: number;
-  type: "focus" | "break";
-  durationMinutes: number;
-}
-
-// Learn session progress persistence
-export type LearnMode = "active-recall";
-
-export interface LearnCardProgress {
-  mode: LearnMode;
-  currentModule: number;
-  completedModules: number[];
-  chainPosition: number;
-  phase: "preview" | "drill" | "learn" | "chainReview" | "open" | "recall" | "reveal";
-  completed: boolean;
-  leech?: boolean;
-  failedAttempts?: number;
-}
+export type { ReviewLogEntry, PomodoroLogEntry, LearnCardProgress };
 
 // ─── Generic localStorage helpers ────────────────────────
 function loadFromStorage<T>(key: string, fallback: T): T {

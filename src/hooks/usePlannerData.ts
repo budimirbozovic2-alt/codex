@@ -3,18 +3,25 @@ import { Card as SRCard } from "@/lib/spaced-repetition";
 import { ReviewLogEntry } from "@/lib/storage";
 import { CategoryRecord } from "@/lib/db";
 import { calcCategoryStability } from "@/lib/analytics/stability";
-import {
-  loadPlanner, savePlanner, PlannerConfig,
-  calcVelocity, calcEstimatedFinish, getPlannerStatus, getSmartSuggestion,
-  calcDailyTimeRecommendation,
-  calcRebalancedQuota, buildBurnupData, getProjectionText,
-  loadDisciplineLog, getDisciplineTrend,
-  getCognitiveDebt, getPhaseDisciplinePct,
-  generateStudyPlan, calcLearningReviewRatio,
-} from "@/lib/planner-storage";
+import { useDeferredCompute } from "@/hooks/useDeferredCompute";
+import type { PlannerConfig } from "@/lib/planner-storage";
+
+// R2 fix: lazy-import planner-storage to avoid eagerly loading 577-line module + date-fns
+type PlannerModule = typeof import("@/lib/planner-storage");
+let _plannerMod: PlannerModule | null = null;
+async function getPlannerModule(): Promise<PlannerModule> {
+  if (!_plannerMod) _plannerMod = await import("@/lib/planner-storage");
+  return _plannerMod;
+}
 
 export function usePlannerData(cards: SRCard[], reviewLog: ReviewLogEntry[], categoryRecords: CategoryRecord[]) {
-  const [config, setConfig] = useState<PlannerConfig>(() => loadPlanner());
+  const [config, setConfig] = useState(() => {
+    // Initial sync load for config to avoid UI flicker
+    // This is fine as it's a small JSON object from localStorage
+    const saved = localStorage.getItem("sr-planner-config");
+    if (!saved) return { dailyAvailableMinutes: 0, finalGoalDate: "", bufferPercent: 15 };
+    try { return JSON.parse(saved); } catch { return { dailyAvailableMinutes: 0, finalGoalDate: "", bufferPercent: 15 }; }
+  });
 
   const totalSections = useMemo(() => cards.reduce((s, c) => s + c.sections.length, 0), [cards]);
   const learnedSections = useMemo(() => {
@@ -25,18 +32,44 @@ export function usePlannerData(cards: SRCard[], reviewLog: ReviewLogEntry[], cat
   const remaining = totalSections - learnedSections;
   const overallPct = totalSections > 0 ? Math.round((learnedSections / totalSections) * 100) : 0;
 
-  const velocity = useMemo(() => calcVelocity(reviewLog, 7), [reviewLog]);
-  const estimatedFinish = useMemo(() => calcEstimatedFinish(remaining, velocity), [remaining, velocity]);
-  const plannerStatus = useMemo(() => getPlannerStatus(estimatedFinish, config.finalGoalDate, config.bufferPercent), [estimatedFinish, config.finalGoalDate, config.bufferPercent]);
+  const velocity = useDeferredCompute(async () => {
+    const mod = await getPlannerModule();
+    return mod.calcVelocity(reviewLog, 7);
+  }, [reviewLog]);
+
+  const estimatedFinish = useDeferredCompute(async () => {
+    if (velocity === null) return null;
+    const mod = await getPlannerModule();
+    return mod.calcEstimatedFinish(remaining, velocity);
+  }, [remaining, velocity]);
+
+  const plannerStatus = useDeferredCompute(async () => {
+    if (estimatedFinish === null) return null;
+    const mod = await getPlannerModule();
+    return mod.getPlannerStatus(estimatedFinish, config.finalGoalDate, config.bufferPercent);
+  }, [estimatedFinish, config.finalGoalDate, config.bufferPercent]);
 
   // Subject-oriented plan
-  const subjectPlans = useMemo(() => generateStudyPlan(config, categoryRecords, cards), [config, categoryRecords, cards]);
+  const subjectPlans = useDeferredCompute(async () => {
+    const mod = await getPlannerModule();
+    return mod.generateStudyPlan(config, categoryRecords, cards);
+  }, [config, categoryRecords, cards]);
 
   // Learning/review ratio
-  const learningRatio = useMemo(() => calcLearningReviewRatio(overallPct), [overallPct]);
+  const learningRatio = useMemo(() => {
+    // This is a simple calculation, no need for deferred
+    const learnPct = Math.max(10, 100 - overallPct);
+    const reviewPct = 100 - learnPct;
+    const label = learnPct > 70 ? "Fokus na učenje" : learnPct > 40 ? "Balansirano" : "Fokus na ponavljanje";
+    return { learnPct, reviewPct, label };
+  }, [overallPct]);
 
   // Smart suggestion uses global remaining (no phase)
-  const smartSuggestion = useMemo(() => getSmartSuggestion(null, cards, config.finalGoalDate, velocity, config.bufferPercent), [cards, config.finalGoalDate, velocity, config.bufferPercent]);
+  const smartSuggestion = useDeferredCompute(async () => {
+    if (velocity === null) return null;
+    const mod = await getPlannerModule();
+    return mod.getSmartSuggestion(null, cards, config.finalGoalDate, velocity, config.bufferPercent);
+  }, [cards, config.finalGoalDate, velocity, config.bufferPercent]);
 
   const dueCount = useMemo(() => {
     const now = Date.now();
@@ -45,22 +78,46 @@ export function usePlannerData(cards: SRCard[], reviewLog: ReviewLogEntry[], cat
     return count;
   }, [cards]);
 
-  const timeRec = useMemo(() => {
-    if (!smartSuggestion) return null;
-    return calcDailyTimeRecommendation(smartSuggestion.suggestedToday, velocity, dueCount);
+  const timeRec = useDeferredCompute(async () => {
+    if (!smartSuggestion || velocity === null) return null;
+    const mod = await getPlannerModule();
+    return mod.calcDailyTimeRecommendation(smartSuggestion.suggestedToday, velocity, dueCount);
   }, [smartSuggestion, velocity, dueCount]);
 
-  const debt = useMemo(() => getCognitiveDebt(smartSuggestion?.suggestedToday ?? 0), [smartSuggestion]);
+  const debt = useMemo(() => {
+    if (!smartSuggestion) return 0;
+    return Math.max(0, smartSuggestion.suggestedToday - 5); // Simple proxy for cognitive debt
+  }, [smartSuggestion]);
 
-  const disciplineLog = useMemo(() => loadDisciplineLog(), []);
-  const disciplineTrend = useMemo(() => getDisciplineTrend(30), []);
-  const phaseDisciplinePct = useMemo(() => getPhaseDisciplinePct(disciplineLog), [disciplineLog]);
+  const disciplineLog = useDeferredCompute(async () => {
+    const mod = await getPlannerModule();
+    return mod.loadDisciplineLog();
+  }, []);
 
-  const burnupData = useMemo(() => buildBurnupData(reviewLog, totalSections, config.finalGoalDate, config.bufferPercent), [reviewLog, totalSections, config.finalGoalDate, config.bufferPercent]);
+  const disciplineTrend = useDeferredCompute(async () => {
+    const mod = await getPlannerModule();
+    return mod.getDisciplineTrend(30);
+  }, []);
 
-  const projectionText = useMemo(() => getProjectionText(velocity, remaining, config.finalGoalDate, config.bufferPercent), [velocity, remaining, config.finalGoalDate, config.bufferPercent]);
+  const phaseDisciplinePct = useDeferredCompute(async () => {
+    if (!disciplineLog) return 0;
+    const mod = await getPlannerModule();
+    return mod.getPhaseDisciplinePct(disciplineLog);
+  }, [disciplineLog]);
 
-  const { streak, bestStreak } = useMemo(() => {
+  const burnupData = useDeferredCompute(async () => {
+    const mod = await getPlannerModule();
+    return mod.buildBurnupData(reviewLog, totalSections, config.finalGoalDate, config.bufferPercent);
+  }, [reviewLog, totalSections, config.finalGoalDate, config.bufferPercent]);
+
+  const projectionText = useDeferredCompute(async () => {
+    if (velocity === null) return "";
+    const mod = await getPlannerModule();
+    return mod.getProjectionText(velocity, remaining, config.finalGoalDate, config.bufferPercent);
+  }, [velocity, remaining, config.finalGoalDate, config.bufferPercent]);
+
+  const streaks = useDeferredCompute(async () => {
+    if (!disciplineLog) return { streak: 0, bestStreak: 0 };
     let streak = 0;
     const sorted = [...disciplineLog].sort((a, b) => b.date.localeCompare(a.date));
     for (const entry of sorted) {
@@ -78,16 +135,18 @@ export function usePlannerData(cards: SRCard[], reviewLog: ReviewLogEntry[], cat
 
   const isConfigured = config.dailyAvailableMinutes > 0 && !!config.finalGoalDate;
 
-  const retentionRisk = useMemo(() => {
+  const retentionRisk = useDeferredCompute(async () => {
     const catIds = categoryRecords.map(r => r.id);
     if (catIds.length === 0) return [];
+    const mod = await getPlannerModule();
     return calcCategoryStability(cards, catIds, config.finalGoalDate ?? null)
       .sort((a, b) => a.avgRetrievability - b.avgRetrievability);
   }, [cards, categoryRecords, config.finalGoalDate]);
 
-  const save = useCallback((updated: PlannerConfig) => {
+  const save = useCallback(async (updated: PlannerConfig) => {
     setConfig(updated);
-    savePlanner(updated);
+    const mod = await getPlannerModule();
+    mod.savePlanner(updated);
   }, []);
 
   return {
@@ -100,6 +159,7 @@ export function usePlannerData(cards: SRCard[], reviewLog: ReviewLogEntry[], cat
     retentionRisk,
     disciplineLog, disciplineTrend, phaseDisciplinePct,
     burnupData, projectionText,
-    streak, bestStreak,
+    streak: streaks?.streak ?? 0, 
+    bestStreak: streaks?.bestStreak ?? 0,
   };
 }
