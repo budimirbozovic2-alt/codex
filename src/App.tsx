@@ -12,6 +12,7 @@ import { lazy, Suspense, useEffect } from "react";
 import { usePersistingState } from "@/hooks/usePersistingState";
 import { RefreshCw } from "lucide-react";
 import { PageSkeleton } from "@/components/ui/page-skeleton";
+import { installBodyPointerEventsGuard } from "@/lib/body-pointer-events-guard";
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 // Lazy-loaded route pages
@@ -48,6 +49,10 @@ function SubjectDashboardWrapper() {
 
 const App = () => {
   const { hasPending: isSaving, pendingCount } = usePersistingState();
+
+  useEffect(() => {
+    installBodyPointerEventsGuard();
+  }, []);
 
   useEffect(() => {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
