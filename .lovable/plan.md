@@ -1,47 +1,76 @@
-# P2 — Arhitekturne suboptimizacije (status)
+# P3 — Polish
 
-## ✅ Step 2 — `SRSettingsPanel.tsx` ref konsolidacija — DONE
-- Novi `src/hooks/useLatestRef.ts` (generic latest-value ref helper).
-- `SRSettingsPanel.tsx`: 5 manualnih `useRef + useEffect` parova zamijenjena sa `useLatestRef(...)`. 0 `Ref.current = ` linija ostalo.
+Tri male, nezavisne čistke. Sve mogu ići u jednom commit-u; nijedna ne mijenja runtime ponašanje.
 
-## ✅ Step 3 — Mnemonics memory sync — DONE
-- `mem://features/subject-cards-hub-v2` ažurirana: uklonjena netačna tvrdnja "Mnemonics removed"; jasno označeno da Mnemonika živi na zasebnoj ruti `/subject/:categoryId/mnemonics` (linkovana iz `SubjectHeader`).
+## Korak 1 — Centralizovati session-key brisanje (`useCardImport.ts`)
 
-## ✅ Step 4 — Console strip u produkciji — DONE
-- `vite.config.ts`: dodato `esbuild.pure = ["console.log", "console.info", "console.debug", "console.warn"]` u prod modu + `drop: ["debugger"]`. `console.error` preživljava (crash log path).
-- `src/lib/logger.ts`: centralizovan logger (no-op u prod osim `error`). Postojećih 130 `console.*` poziva ostaje — esbuild ih tree-shake-uje. Novi kod treba koristiti `logger`.
+**Trenutno:** `src/hooks/useCardImport.ts:150` direktno zove `localStorage.removeItem("sr-review-session")` sa try/catch. String literal je takođe duplikat — `src/components/ReviewSession.tsx:11` definiše `const SESSION_KEY = "sr-review-session"`.
 
-## ✅ Step 6 — Fix 4 failing testa — DONE
-- `backup-schema.ts`: `BackupSchema` top-level `.strict()` → `.passthrough()` da unknown polja prežive round-trip.
-- `zettelkasten-wiki-link-integration.test.ts`: dodat `initBacklinkIndexSubscriptions()` u `beforeEach`/cleanup u `afterEach`. Root cause nije bio u `backlink-index.ts` (version bump logika je bila ispravna) — već u test setup-u koji nije registrovao event-bus listenere.
-- **Suite status: 398/398 zelena (sa 44/44 fajla).**
+**Plan:**
+1. U `src/lib/review-session-storage.ts` (novi mali modul) izvući:
+   ```ts
+   export const REVIEW_SESSION_KEY = "sr-review-session";
+   export function clearReviewSession(): void {
+     try { localStorage.removeItem(REVIEW_SESSION_KEY); } catch { /* disabled */ }
+   }
+   ```
+2. `ReviewSession.tsx` importuje `REVIEW_SESSION_KEY` umjesto lokalne kopije.
+3. `useCardImport.ts:150` zamijeniti sa `clearReviewSession()`.
 
-## ⏭️ Step 5 — JSON.stringify u equality hot path-u — AUDIT COMPLETE, NO CODE CHANGE
-Triage svih 34 poziva pokazao da ih je **0 u equality / `useEffect` deps / `useMemo` deps**. Sve lokacije su:
-- Persist boundary: `localStorage.setItem`, `sessionStorage.setItem`, IDB backup export-stream, electron-integration IPC.
-- Dirty-check sa cached string ref-om: `SourceReader.tsx` (već optimizovano — stringify se izvršava samo kad `examQuestions` promijeni referencu, ne na svaki render).
+**Acceptance:** 0 hard-coded `"sr-review-session"` literala van novog modula; postojeći test suite zelen.
 
-Acceptance kriterij (`<15 non-persist`) već zadovoljen sa rezervom (0). Step 5 zatvoren bez izmjena.
+## Korak 2 — Komentar uz `installBodyPointerEventsGuard` (`App.tsx`)
 
-## ⏸️ Step 1 — Dekompozicija velikih komponenti — ODGOĐENO za zaseban PR
-Obim: ~1400 linija refactoring kroz 3 fajla + 7 novih hookova. Najbolje izvedeno kao samostalan, fokusiran PR sa per-fajl test smoke-om:
-- `SmartSplitSummaryDialog.tsx` (601) → `hooks/smart-split/use{SplitPreviewState,SplitCommit,SplitValidation}.ts`
-- `MindMapNode.tsx` (390) → `hooks/mindmap/use{NodeEditing,NodeMenu}.ts`
-- `WorkshopCardItem.tsx` (428) → `hooks/workshop/use{CardItemMutations,CardItemDragState}.ts`
+**Trenutno:** `src/App.tsx:53`
+```ts
+useEffect(() => installBodyPointerEventsGuard(), []);
+```
+Funkcionalno tačno (vraća dispose), ali bez objašnjenja — pri budućoj refaktorizaciji neko može omaškom razdvojiti install/cleanup ili dodati drugi side-effect u isti useEffect.
 
-Plan ostaje validan; preporuka: pokrenuti kao "P2 #9 — Orchestrator decomposition" sa najmanjom komponentom prvo (MindMapNode).
+**Plan:** dodati explicit blok-komentar i izričito vratiti dispose:
+```ts
+// Install global guard for Radix Dialog `pointer-events: none` leak.
+// IMPORTANT: returned dispose MUST be wired into useEffect cleanup —
+// StrictMode double-invoke and HMR rely on it to avoid duplicate listeners.
+// Do not collapse this into another effect; keep install/dispose 1:1.
+useEffect(() => {
+  const dispose = installBodyPointerEventsGuard();
+  return dispose;
+}, []);
+```
 
----
+**Acceptance:** runtime nepromijenjen; namjera čitljiva u review-u.
 
-## Sažetak
+## Korak 3 — `Symbol.for` ključevi za event-bus singleton (`event-bus.ts`)
 
-| Korak | Status |
-|---|---|
-| 2 SRSettingsPanel refs | ✅ |
-| 3 Mnemonics memory | ✅ |
-| 4 Console strip prod | ✅ |
-| 5 JSON.stringify | ✅ (audit only, nema izmjena) |
-| 6 4 failing tests | ✅ |
-| 1 Decomposition | ⏸️ Za zaseban PR |
+**Trenutno:** `src/lib/event-bus.ts` koristi imenovane stringove `globalThis.__codexEventBus` i `globalThis.__codexTabId`. Drugi moduli/biblioteke koje slučajno koriste isti naming pattern mogu kolidirati u istom realm-u.
 
-Test suite: **398/398 prolazi**, P0/P1 prethodno završen.
+**Plan:**
+1. Zamijeniti string-named globals sa `Symbol.for()` registry-keyed slotovima:
+   ```ts
+   const BUS_KEY = Symbol.for("codex.eventbus");
+   const TAB_KEY = Symbol.for("codex.tabId");
+
+   type GlobalSlots = {
+     [BUS_KEY]?: EventBus;
+     [TAB_KEY]?: string;
+   };
+   const slots = globalThis as typeof globalThis & GlobalSlots;
+   ```
+2. `var __codexEventBus` / `var __codexTabId` declare-globalThis blok obrisati.
+3. HMR singleton i TAB_ID inicijalizacija čitaju/pišu kroz `slots[BUS_KEY]` / `slots[TAB_KEY]`.
+4. `Symbol.for` registry je svjesno globalan po realm-u (ista garancija kao prije za HMR), ali key prostor je odvojen od string properties.
+
+**Acceptance:** event-bus singleton i dalje preživljava HMR (`_softReset` putanja ostaje); 0 referenci na `__codexEventBus` / `__codexTabId` string identifikatore u `src/`; postojeći testovi zeleni (`db-emitter-di.test.ts`, integracioni backlink test koji koristi event-bus).
+
+## Tehnički sažetak
+
+| Korak | Fajlovi | Dodaje | Briše |
+|---|---|---|---|
+| 1 | new `lib/review-session-storage.ts`, `useCardImport.ts`, `ReviewSession.tsx` | 1 helper modul | 1 hard-coded literal + ad-hoc try/catch |
+| 2 | `App.tsx` | 4-redni komentar + eksplicitna dispose return | — |
+| 3 | `event-bus.ts` | 2 `Symbol.for` slot-a | `declare global var` blok |
+
+**Out of scope:** P0/P1/P2 stavke; bilo kakva promjena event-bus runtime semantike (kanal, listeneri, soft-reset); refactor `body-pointer-events-guard` interne logike.
+
+**Predloženi redoslijed:** 1 → 2 → 3 (svi su L-risk, neovisni; redoslijed nebitan).

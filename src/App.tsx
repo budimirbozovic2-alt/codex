@@ -50,7 +50,14 @@ function SubjectDashboardWrapper() {
 const App = () => {
   const { hasPending: isSaving, pendingCount } = usePersistingState();
 
-  useEffect(() => installBodyPointerEventsGuard(), []);
+  // Install global guard for Radix Dialog `pointer-events: none` leak.
+  // IMPORTANT: returned dispose MUST be wired into useEffect cleanup —
+  // StrictMode double-invoke and HMR rely on it to avoid duplicate listeners.
+  // Do not collapse this into another effect; keep install/dispose 1:1.
+  useEffect(() => {
+    const dispose = installBodyPointerEventsGuard();
+    return dispose;
+  }, []);
 
   useEffect(() => {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {

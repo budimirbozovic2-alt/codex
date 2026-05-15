@@ -14,16 +14,24 @@ import { EVENT_TYPES, type EventType, type EventMessage } from "./event-bus-type
 export { EVENT_TYPES, type EventType, type EventMessage } from "./event-bus-types";
 
 // Generišemo jedinstveni ID za trenutni tab/prozor (stabilan kroz HMR
-// pomoću globalThis slot-a).
-declare global {
-  // eslint-disable-next-line no-var
-  var __codexTabId: string | undefined;
-  // eslint-disable-next-line no-var
-  var __codexEventBus: EventBus | undefined;
+// pomoću globalThis Symbol slot-a).
+//
+// Symbol.for() registry je svjesno globalan po realm-u (ista garancija kao
+// raniji `globalThis.__codexEventBus`), ali key prostor je odvojen od string
+// properties — drugi moduli ne mogu slučajno kolidirati pisanjem na isti
+// imenovani slot.
+const BUS_KEY: unique symbol = Symbol.for("codex.eventbus") as never;
+const TAB_KEY: unique symbol = Symbol.for("codex.tabId") as never;
+
+interface CodexGlobalSlots {
+  [BUS_KEY]?: EventBus;
+  [TAB_KEY]?: string;
 }
+const slots = globalThis as typeof globalThis & CodexGlobalSlots;
+
 const TAB_ID: string =
-  globalThis.__codexTabId ??
-  (globalThis.__codexTabId = (typeof crypto !== "undefined" && "randomUUID" in crypto)
+  slots[TAB_KEY] ??
+  (slots[TAB_KEY] = (typeof crypto !== "undefined" && "randomUUID" in crypto)
     ? crypto.randomUUID()
     : `tab-${Math.random().toString(36).slice(2)}`);
 const CHANNEL_NAME = "codex_event_bus";
@@ -203,7 +211,7 @@ class EventBus {
 // W3: Singleton pinned to `globalThis` so HMR module re-evaluation reuses the
 // same instance instead of spawning a fresh BroadcastChannel + listeners.
 export const eventBus: EventBus =
-  globalThis.__codexEventBus ?? (globalThis.__codexEventBus = new EventBus());
+  slots[BUS_KEY] ?? (slots[BUS_KEY] = new EventBus());
 
 // HMR cleanup — perform a soft reset (preserves singleton identity).
 if (import.meta.hot) {

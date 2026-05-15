@@ -7,8 +7,7 @@ import { buildItemsForMode } from "@/lib/review-mode-builder";
 import ReviewSetup from "./review/ReviewSetup";
 import ReviewCard from "./review/ReviewCard";
 import ReviewComplete from "./review/ReviewComplete";
-
-const SESSION_KEY = "sr-review-session";
+import { REVIEW_SESSION_KEY as SESSION_KEY } from "@/lib/review-session-storage";
 
 interface SavedSessionState {
   mode: ReviewMode;
