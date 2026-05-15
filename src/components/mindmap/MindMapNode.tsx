@@ -1,115 +1,41 @@
-import { Scale, FileText, Building2, Calendar, OctagonX, RefreshCw, User, Coins, ArrowRight, CheckCircle2, AlertTriangle, HelpCircle, Clock, Gavel, BookOpen, ShieldCheck, Send, Search, Copy, Sparkles } from "lucide-react";
-import { memo, useState, useCallback, useRef, useEffect } from "react";
-import { Handle, Position, NodeProps, NodeResizer } from "@xyflow/react";
+import { Copy } from "lucide-react";
+import { memo, useCallback, useState } from "react";
+import { Handle, Position, type NodeProps, NodeResizer } from "@xyflow/react";
 import { cn } from "@/lib/utils";
+import {
+  COLOR_OPTIONS,
+  ICON_REGISTRY,
+  type MindMapNodeData,
+  type NodeShape,
+  pickColor,
+  pickIcon,
+} from "./node/icon-registry";
+import { SettingsPanel } from "./node/SettingsPanel";
+import { useNodeEditing } from "@/hooks/mindmap/useNodeEditing";
 
-// ── Icon Registry with Lucide components ──
-export const ICON_REGISTRY: { value: string; label: string; Icon: React.FC<{ className?: string }> }[] = [
-  { value: "scale", label: "Sud/Pravda", Icon: Scale },
-  { value: "file-text", label: "Podnesak/Akt", Icon: FileText },
-  { value: "building", label: "Organ/Vlast", Icon: Building2 },
-  { value: "calendar", label: "Rok/Datum", Icon: Calendar },
-  { value: "octagon-x", label: "Prekid/Kraj", Icon: OctagonX },
-  { value: "refresh", label: "Žalba/Ponavljanje", Icon: RefreshCw },
-  { value: "user", label: "Stranka/Zastupnik", Icon: User },
-  { value: "coins", label: "Troškovi", Icon: Coins },
-  { value: "arrow-right", label: "Korak", Icon: ArrowRight },
-  { value: "check", label: "Završeno", Icon: CheckCircle2 },
-  { value: "alert", label: "Upozorenje", Icon: AlertTriangle },
-  { value: "question", label: "Odluka", Icon: HelpCircle },
-  { value: "clock", label: "Vrijeme", Icon: Clock },
-  { value: "gavel", label: "Presuda", Icon: Gavel },
-  { value: "book", label: "Zakon/Propis", Icon: BookOpen },
-  { value: "shield", label: "Zaštita", Icon: ShieldCheck },
-  { value: "send", label: "Dostava", Icon: Send },
-  { value: "sparkles", label: "Posebno", Icon: Sparkles },
-];
-
-const COLOR_OPTIONS = [
-  { value: "default", bg: "bg-card", border: "border-border", text: "text-foreground", glow: "" },
-  { value: "blue", bg: "bg-node-blue/10", border: "border-node-blue/30", text: "text-node-blue", glow: "shadow-node-blue/20" },
-  { value: "green", bg: "bg-node-green/10", border: "border-node-green/30", text: "text-node-green", glow: "shadow-node-green/20" },
-  { value: "amber", bg: "bg-node-amber/10", border: "border-node-amber/30", text: "text-node-amber", glow: "shadow-node-amber/20" },
-  { value: "red", bg: "bg-node-red/10", border: "border-node-red/30", text: "text-node-red", glow: "shadow-node-red/20" },
-  { value: "purple", bg: "bg-node-purple/10", border: "border-node-purple/30", text: "text-node-purple", glow: "shadow-node-purple/20" },
-  { value: "cyan", bg: "bg-info/10", border: "border-info/30", text: "text-info", glow: "shadow-info/20" },
-  { value: "pink", bg: "bg-node-purple/10", border: "border-node-purple/30", text: "text-node-purple", glow: "shadow-node-purple/20" },
-];
-
-export { COLOR_OPTIONS };
-
-export type NodeShape = "rectangle" | "rounded" | "diamond" | "group";
-
-export type MindMapNodeData = {
-  label: string;
-  description?: string;
-  icon?: string;
-  color?: string;
-  shape?: NodeShape;
-  onUpdate?: (id: string, data: Partial<MindMapNodeData>) => void;
-  onDuplicate?: (id: string) => void;
-};
+// Re-export for legacy consumers importing from the component module.
+export { ICON_REGISTRY, COLOR_OPTIONS, type NodeShape, type MindMapNodeData };
 
 const handleBase =
   "!w-3 !h-3 !min-w-[12px] !min-h-[12px] !border-2 !border-background !rounded-full !bg-primary opacity-0 group-hover:opacity-100 hover:!opacity-100 hover:!scale-125 transition-all duration-200 z-20";
 
 function MindMapNodeComponent({ id, data, selected }: NodeProps) {
   const nodeData = data as unknown as MindMapNodeData;
-  const [editing, setEditing] = useState(false);
-  const [draftLabel, setDraftLabel] = useState(nodeData.label);
-  const [draftDesc, setDraftDesc] = useState(nodeData.description || "");
+  const {
+    nodeRef, editing, startEditing,
+    draftLabel, setDraftLabel, draftDesc, setDraftDesc,
+    commitAndClose, cancelEditing, stopPropagation,
+  } = useNodeEditing(id, nodeData);
   const [showSettings, setShowSettings] = useState(false);
   const [iconSearch, setIconSearch] = useState("");
-  const nodeRef = useRef<HTMLDivElement>(null);
 
-  // Sync drafts when external data changes (and not editing)
-  useEffect(() => {
-    if (!editing) {
-      setDraftLabel(nodeData.label);
-      setDraftDesc(nodeData.description || "");
-    }
-  }, [nodeData.label, nodeData.description, editing]);
-
-  const colorOpt = COLOR_OPTIONS.find(c => c.value === (nodeData.color || "default")) || COLOR_OPTIONS[0];
+  const colorOpt = pickColor(nodeData.color);
   const shape = (nodeData.shape || "rectangle") as NodeShape;
-  const iconEntry = ICON_REGISTRY.find(i => i.value === (nodeData.icon || "file-text"));
+  const iconEntry = pickIcon(nodeData.icon);
 
   const updateField = useCallback((field: string, value: string) => {
     nodeData.onUpdate?.(id, { [field]: value });
-  }, [id, nodeData.onUpdate]);
-
-  // Commit drafts and exit editing
-  const commitAndClose = useCallback(() => {
-    nodeData.onUpdate?.(id, { label: draftLabel, description: draftDesc });
-    setEditing(false);
-  }, [id, nodeData.onUpdate, draftLabel, draftDesc]);
-
-  // Outside-click detection: close editing when clicking outside the node
-  useEffect(() => {
-    if (!editing) return;
-    const handler = (e: PointerEvent) => {
-      if (nodeRef.current && !nodeRef.current.contains(e.target as Node)) {
-        commitAndClose();
-      }
-    };
-    // Use capture + slight delay so the click that starts editing doesn't immediately close it
-    const timer = setTimeout(() => {
-      document.addEventListener("pointerdown", handler, true);
-    }, 50);
-    return () => {
-      clearTimeout(timer);
-      document.removeEventListener("pointerdown", handler, true);
-    };
-  }, [editing, commitAndClose]);
-
-  // Stop propagation helpers for inputs
-  const stopProp = useCallback((e: React.MouseEvent | React.PointerEvent) => {
-    e.stopPropagation();
-  }, []);
-
-  const filteredIcons = iconSearch
-    ? ICON_REGISTRY.filter(i => i.label.toLowerCase().includes(iconSearch.toLowerCase()) || i.value.includes(iconSearch.toLowerCase()))
-    : ICON_REGISTRY;
+  }, [id, nodeData]);
 
   const handles = (
     <>
@@ -120,20 +46,22 @@ function MindMapNodeComponent({ id, data, selected }: NodeProps) {
     </>
   );
 
-  // Shared label input
   const labelInput = (extraClass = "") => (
     <input
       autoFocus
       className={cn("bg-transparent border-b border-primary text-xs font-bold w-full outline-none text-foreground nodrag nowheel nopan", extraClass)}
       value={draftLabel}
       onChange={(e) => setDraftLabel(e.target.value)}
-      onKeyDown={(e) => { e.stopPropagation(); if (e.key === "Enter") commitAndClose(); if (e.key === "Escape") { setDraftLabel(nodeData.label); setDraftDesc(nodeData.description || ""); setEditing(false); } }}
-      onMouseDown={stopProp}
-      onPointerDown={stopProp}
+      onKeyDown={(e) => {
+        e.stopPropagation();
+        if (e.key === "Enter") commitAndClose();
+        if (e.key === "Escape") cancelEditing();
+      }}
+      onMouseDown={stopPropagation}
+      onPointerDown={stopPropagation}
     />
   );
 
-  // Shared description textarea
   const descTextarea = (extraClass = "", rows = 2) => (
     <textarea
       className={cn("bg-transparent border border-border rounded-lg text-xs w-full outline-none text-foreground p-1.5 resize-none focus:ring-1 focus:ring-primary nodrag nowheel nopan", extraClass)}
@@ -141,9 +69,9 @@ function MindMapNodeComponent({ id, data, selected }: NodeProps) {
       value={draftDesc}
       onChange={(e) => setDraftDesc(e.target.value)}
       placeholder="Opis..."
-      onKeyDown={(e) => { e.stopPropagation(); if (e.key === "Escape") { setDraftLabel(nodeData.label); setDraftDesc(nodeData.description || ""); setEditing(false); } }}
-      onMouseDown={stopProp}
-      onPointerDown={stopProp}
+      onKeyDown={(e) => { e.stopPropagation(); if (e.key === "Escape") cancelEditing(); }}
+      onMouseDown={stopPropagation}
+      onPointerDown={stopPropagation}
     />
   );
 
@@ -158,7 +86,7 @@ function MindMapNodeComponent({ id, data, selected }: NodeProps) {
           selected && "ring-2 ring-primary ring-offset-1 ring-offset-background",
         )}
         style={{ minWidth: 250, minHeight: 150, background: "hsl(var(--muted) / 0.25)" }}
-        onDoubleClick={() => setEditing(true)}
+        onDoubleClick={startEditing}
       >
         <NodeResizer
           minWidth={200}
@@ -169,15 +97,13 @@ function MindMapNodeComponent({ id, data, selected }: NodeProps) {
         />
         {handles}
         <div className="px-3 py-2 border-b border-dashed border-inherit bg-muted/40 rounded-t-xl backdrop-blur-sm">
-          {editing ? (
-            labelInput("text-xs uppercase tracking-wider")
-          ) : (
-            <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">{nodeData.label}</span>
-          )}
+          {editing
+            ? labelInput("text-xs uppercase tracking-wider")
+            : <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">{nodeData.label}</span>}
         </div>
         {selected && (
           <div className="absolute bottom-1.5 right-2 flex gap-1.5">
-            {COLOR_OPTIONS.map(opt => (
+            {COLOR_OPTIONS.map((opt) => (
               <button
                 key={opt.value}
                 onClick={() => updateField("color", opt.value)}
@@ -193,7 +119,7 @@ function MindMapNodeComponent({ id, data, selected }: NodeProps) {
   // ── DIAMOND (Conditional) NODE ──
   if (shape === "diamond") {
     return (
-      <div ref={nodeRef} className="group relative" style={{ width: 150, height: 150 }} onDoubleClick={() => setEditing(true)}>
+      <div ref={nodeRef} className="group relative" style={{ width: 150, height: 150 }} onDoubleClick={startEditing}>
         {handles}
         <div
           className={cn(
@@ -209,13 +135,9 @@ function MindMapNodeComponent({ id, data, selected }: NodeProps) {
               <iconEntry.Icon className={cn("h-5 w-5", colorOpt.text)} />
             </div>
           )}
-          {editing ? (
-            <div className="pointer-events-auto w-full">
-              {labelInput("text-center border-b-2")}
-            </div>
-          ) : (
-            <span className="text-xs font-bold text-foreground leading-tight pointer-events-auto">{nodeData.label}</span>
-          )}
+          {editing
+            ? <div className="pointer-events-auto w-full">{labelInput("text-center border-b-2")}</div>
+            : <span className="text-xs font-bold text-foreground leading-tight pointer-events-auto">{nodeData.label}</span>}
           {editing && (
             <div className="pointer-events-auto w-full mt-1">
               {descTextarea("text-[10px]", 2)}
@@ -235,7 +157,7 @@ function MindMapNodeComponent({ id, data, selected }: NodeProps) {
         )}
         {showSettings && selected && (
           <div className="absolute top-full left-1/2 -translate-x-1/2 mt-12 w-60 bg-card border rounded-xl shadow-xl p-3 space-y-3 z-30 pointer-events-auto">
-            <SettingsPanel nodeData={nodeData} updateField={updateField} iconSearch={iconSearch} setIconSearch={setIconSearch} filteredIcons={filteredIcons} />
+            <SettingsPanel nodeData={nodeData} updateField={updateField} iconSearch={iconSearch} setIconSearch={setIconSearch} />
           </div>
         )}
       </div>
@@ -255,7 +177,7 @@ function MindMapNodeComponent({ id, data, selected }: NodeProps) {
           ? `ring-2 ring-primary ring-offset-1 ring-offset-background shadow-lg ${colorOpt.glow}`
           : "shadow-md hover:shadow-lg",
       )}
-      onDoubleClick={() => setEditing(true)}
+      onDoubleClick={startEditing}
     >
       {handles}
 
@@ -266,22 +188,16 @@ function MindMapNodeComponent({ id, data, selected }: NodeProps) {
             <iconEntry.Icon className={cn("h-4 w-4", colorOpt.text)} />
           </div>
         )}
-        {editing ? (
-          labelInput("text-sm border-b-2")
-        ) : (
-          <span className="text-sm font-bold text-foreground truncate">{nodeData.label}</span>
-        )}
+        {editing
+          ? labelInput("text-sm border-b-2")
+          : <span className="text-sm font-bold text-foreground truncate">{nodeData.label}</span>}
       </div>
 
       {/* Description */}
       {nodeData.description && !editing && (
         <p className="text-xs text-muted-foreground mt-1 line-clamp-3 leading-relaxed">{nodeData.description}</p>
       )}
-      {editing && (
-        <div className="mt-1.5">
-          {descTextarea("", 2)}
-        </div>
-      )}
+      {editing && <div className="mt-1.5">{descTextarea("", 2)}</div>}
 
       {/* Actions row */}
       {selected && (
@@ -298,92 +214,10 @@ function MindMapNodeComponent({ id, data, selected }: NodeProps) {
       {/* Settings panel */}
       {showSettings && selected && (
         <div className="mt-2 space-y-3 border-t border-border pt-3">
-          <SettingsPanel nodeData={nodeData} updateField={updateField} iconSearch={iconSearch} setIconSearch={setIconSearch} filteredIcons={filteredIcons} />
+          <SettingsPanel nodeData={nodeData} updateField={updateField} iconSearch={iconSearch} setIconSearch={setIconSearch} />
         </div>
       )}
     </div>
-  );
-}
-
-// ── Shared Settings Panel ──
-function SettingsPanel({ nodeData, updateField, iconSearch, setIconSearch, filteredIcons }: {
-  nodeData: MindMapNodeData;
-  updateField: (field: string, value: string) => void;
-  iconSearch: string;
-  setIconSearch: (s: string) => void;
-  filteredIcons: typeof ICON_REGISTRY;
-}) {
-  return (
-    <>
-      {/* Icon picker */}
-      <div>
-        <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Ikonica</span>
-        <div className="flex items-center gap-1.5 mt-1.5 mb-1.5 bg-muted/50 rounded-md px-2 py-1">
-          <Search className="h-3 w-3 text-muted-foreground" />
-          <input
-            value={iconSearch}
-            onChange={e => setIconSearch(e.target.value)}
-            onKeyDown={(e) => e.stopPropagation()}
-            className="bg-transparent text-[11px] w-full outline-none text-foreground placeholder:text-muted-foreground"
-            placeholder="Pretraži..."
-          />
-        </div>
-        <div className="flex gap-1 flex-wrap max-h-24 overflow-y-auto">
-          {filteredIcons.map(opt => (
-            <button
-              key={opt.value}
-              onClick={() => updateField("icon", opt.value)}
-              className={cn(
-                "p-1.5 rounded-md hover:bg-muted transition-all duration-150",
-                nodeData.icon === opt.value && "ring-2 ring-primary bg-primary/10"
-              )}
-              title={opt.label}
-            >
-              <opt.Icon className="h-4 w-4" />
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Color picker */}
-      <div>
-        <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Boja</span>
-        <div className="flex gap-2 mt-1.5">
-          {COLOR_OPTIONS.map(opt => (
-            <button
-              key={opt.value}
-              onClick={() => updateField("color", opt.value)}
-              className={cn(
-                "w-5 h-5 rounded-full border-2 transition-all duration-150 hover:scale-110",
-                opt.bg, opt.border,
-                nodeData.color === opt.value && "ring-2 ring-primary scale-110"
-              )}
-            />
-          ))}
-        </div>
-      </div>
-
-      {/* Shape picker */}
-      <div>
-        <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Oblik</span>
-        <div className="flex gap-2 mt-1.5">
-          {(["rectangle", "rounded", "diamond"] as const).map(s => (
-            <button
-              key={s}
-              onClick={() => updateField("shape", s)}
-              className={cn(
-                "border-2 border-border transition-all duration-150 hover:border-primary",
-                s === "rectangle" && "w-8 h-6 rounded-md",
-                s === "rounded" && "w-8 h-6 rounded-full",
-                s === "diamond" && "w-5 h-5 rotate-45 rounded-sm",
-                nodeData.shape === s && "ring-2 ring-primary border-primary"
-              )}
-              title={s === "rectangle" ? "Pravougaonik" : s === "rounded" ? "Zaobljeno" : "Dijamant"}
-            />
-          ))}
-        </div>
-      </div>
-    </>
   );
 }
 
