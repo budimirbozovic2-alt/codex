@@ -259,10 +259,10 @@ export const BackupSourceSchema = z
       version: s.version,
       createdAt: s.createdAt,
       updatedAt: s.updatedAt,
-      officialGazetteInfo: s.officialGazetteInfo,
-      slMarkings: s.slMarkings,
-      isExclusive: s.isExclusive,
-      sourceKind: s.sourceKind,
+      officialGazetteInfo: typeof s.officialGazetteInfo === "string" ? s.officialGazetteInfo : undefined,
+      slMarkings: typeof s.slMarkings === "string" ? s.slMarkings : undefined,
+      isExclusive: typeof s.isExclusive === "boolean" ? s.isExclusive : undefined,
+      sourceKind: (s.sourceKind === "propis" || s.sourceKind === "skripta") ? s.sourceKind : undefined,
     };
   });
 
@@ -308,7 +308,7 @@ export const BackupMindMapSchema = z
   .transform((m): MindMapDoc => {
     return {
       id: m.id,
-      categoryId: m.categoryId,
+      categoryId: typeof m.categoryId === "string" ? m.categoryId : "",
       title: m.title,
       mode: m.mode,
       nodes: m.nodes as MindMapDoc["nodes"],
@@ -325,9 +325,10 @@ export const BackupMnemonicSchema = z
     id: z.string(),
     categoryId: z.unknown().optional().transform((v) => (typeof v === "string" ? v : "")),
   })
-  .strict()
+  .passthrough()
   .transform((m): MnemonicCard => {
     return {
+      ...(m as unknown as MnemonicCard),
       id: m.id,
       categoryId: m.categoryId,
     };
@@ -359,7 +360,7 @@ export const BackupKnowledgeBaseArticleSchema = z
       title: a.title,
       content: a.content,
       linkedSourceIds: a.linkedSourceIds,
-      rootSubcategoryId: a.rootSubcategoryId,
+      rootSubcategoryId: typeof a.rootSubcategoryId === "string" ? a.rootSubcategoryId : undefined,
       isIndex: a.isIndex,
       tags: a.tags,
       aliases: a.aliases,
