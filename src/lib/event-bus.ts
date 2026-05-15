@@ -211,7 +211,7 @@ class EventBus {
 // W3: Singleton pinned to `globalThis` so HMR module re-evaluation reuses the
 // same instance instead of spawning a fresh BroadcastChannel + listeners.
 export const eventBus: EventBus =
-  globalThis.__codexEventBus ?? (globalThis.__codexEventBus = new EventBus());
+  slots[BUS_KEY] ?? (slots[BUS_KEY] = new EventBus());
 
 // HMR cleanup — perform a soft reset (preserves singleton identity).
 if (import.meta.hot) {
