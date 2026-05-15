@@ -173,8 +173,9 @@ describe("wiki-link integration — parallel clicks", () => {
 
     const originalEmit = eventBus.emit.bind(eventBus);
     vi.spyOn(eventBus, "emit").mockImplementation((type, payload) => {
-      if (type === EVENT_TYPES.KB_ARTICLE_UPSERTED && payload?.article?.id) {
-        capturedEmits.push({ type, targetId: payload.article.id });
+      const p = payload as { article?: { id?: string } } | undefined;
+      if (type === EVENT_TYPES.KB_ARTICLE_UPSERTED && p?.article?.id) {
+        capturedEmits.push({ type, targetId: p.article.id });
       }
       return originalEmit(type, payload);
     });
