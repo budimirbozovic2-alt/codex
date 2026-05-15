@@ -18,6 +18,7 @@ import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import { getParam } from "@/lib/url-params";
 import { shallowEqual } from "@/lib/struct-eq";
+import { useLatestRef } from "@/hooks/useLatestRef";
 
 interface Props {
   settings: SRSettings;
