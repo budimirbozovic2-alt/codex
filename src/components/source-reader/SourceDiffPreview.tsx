@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { type DiffResult, type ArticleDiff } from "@/lib/article-parser";
 import { cn } from "@/lib/utils";
+import { afterDialogClose } from "@/lib/dialog-utils";
 
 interface Props {
   diffResult: DiffResult;
@@ -81,7 +82,7 @@ export default function SourceDiffPreview({ diffResult, affectedCardCount, onCon
 
         <div className="flex gap-2 justify-end pt-2">
           <Button variant="outline" onClick={onCancel}>Otkaži</Button>
-          <Button onClick={onConfirm}>Potvrdi i sačuvaj</Button>
+          <Button onClick={() => { onCancel(); afterDialogClose(onConfirm); }}>Potvrdi i sačuvaj</Button>
         </div>
       </DialogContent>
     </Dialog>

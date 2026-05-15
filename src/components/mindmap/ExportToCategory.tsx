@@ -10,6 +10,7 @@ import { MindMapDoc } from "@/lib/db";
 import type { Node, Edge } from "@xyflow/react";
 import { toast } from "sonner";
 import { FolderDown } from "lucide-react";
+import { afterDialogClose } from "@/lib/dialog-utils";
 
 interface Props {
   open: boolean;
@@ -50,8 +51,8 @@ export default function ExportToCategory({ open, onOpenChange, currentTitle, cur
         updatedAt: Date.now(),
       };
       await saveMindMap(snapshot);
-      toast.success("Mapa eksportovana u predmet.");
       onOpenChange(false);
+      afterDialogClose(() => toast.success("Mapa eksportovana u predmet."));
     } catch (err) {
       toast.error("Greška pri eksportu.");
     } finally {

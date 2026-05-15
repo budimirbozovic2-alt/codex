@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import type { ExaminerProfile, ExaminerDifficulty, PreferredAnswerType } from "@/lib/db";
 import { useDirtyDialog } from "@/hooks/useDirtyDialog";
 import DirtyConfirmBar from "@/components/ui/dirty-confirm-bar";
+import { afterDialogClose } from "@/lib/dialog-utils";
 
 const NONE = "__none__";
 const NOTES_MAX = 500;
@@ -55,9 +56,11 @@ export default function ExaminerProfileDialog({ open, onOpenChange, categoryName
       preferredAnswerType: answerType === NONE ? undefined : (answerType as PreferredAnswerType),
       notes: trimmed || undefined,
     };
-    onSave(profile);
-    toast.success("Profil ispitivača sačuvan");
     onOpenChange(false);
+    afterDialogClose(() => {
+      onSave(profile);
+      toast.success("Profil ispitivača sačuvan");
+    });
   };
 
   return (

@@ -11,6 +11,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Brain } from "lucide-react";
+import { afterDialogClose } from "@/lib/dialog-utils";
 
 export interface MatrixFilters {
   subcategoryId: string | null;
@@ -54,8 +55,8 @@ export default function MatrixFilterDialog({
   }, [cards, filters]);
 
   const handleStart = () => {
-    onStart(filters);
     onOpenChange(false);
+    afterDialogClose(() => onStart(filters));
   };
 
   return (

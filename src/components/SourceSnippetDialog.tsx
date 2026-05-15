@@ -8,6 +8,7 @@ import { useEffect, useState } from "react";
 
 import { getSource, confirmCardReview, type Source } from "@/lib/sources-storage";
 import { toast } from "sonner";
+import { afterDialogClose } from "@/lib/dialog-utils";
 interface Props {
   card: Card;
   open: boolean;
@@ -33,9 +34,11 @@ export default function SourceSnippetDialog({ card, open, onOpenChange, onReview
     setConfirming(true);
     try {
       await confirmCardReview(card.id);
-      onReviewConfirmed?.(card.id);
-      toast.success("Kartica potvrđena — oznaka za provjeru uklonjena.");
       onOpenChange(false);
+      afterDialogClose(() => {
+        onReviewConfirmed?.(card.id);
+        toast.success("Kartica potvrđena — oznaka za provjeru uklonjena.");
+      });
     } catch {
       toast.error("Greška pri potvrđivanju.");
     } finally {

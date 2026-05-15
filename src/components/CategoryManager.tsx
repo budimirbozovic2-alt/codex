@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
 import Modal from "@/components/ui/DialogShell";
 import type { CategoryRecord } from "@/lib/db-schema";
+import { afterDialogClose } from "@/lib/dialog-utils";
 
 interface Props {
   categories: string[];
@@ -290,10 +291,10 @@ export default function CategoryManager({
                   Kategorija "{nameMap[confirmDelete] || confirmDelete}" sadrži {cardCountByCategory[confirmDelete] ?? 0} kartica. Šta želite?
                 </p>
                 <div className="flex flex-col gap-2">
-                  <Button variant="outline" onClick={() => { onDelete(confirmDelete, false); setConfirmDelete(null); }}>
+                  <Button variant="outline" onClick={() => { const id = confirmDelete; setConfirmDelete(null); afterDialogClose(() => onDelete(id, false)); }}>
                     Prebaci kartice u drugu kategoriju
                   </Button>
-                  <Button variant="destructive" onClick={() => { onDelete(confirmDelete, true); setConfirmDelete(null); }}>
+                  <Button variant="destructive" onClick={() => { const id = confirmDelete; setConfirmDelete(null); afterDialogClose(() => onDelete(id, true)); }}>
                     Obriši sve kartice ({cardCountByCategory[confirmDelete] ?? 0})
                   </Button>
                   <Button variant="ghost" onClick={() => setConfirmDelete(null)}>Otkaži</Button>
@@ -305,7 +306,7 @@ export default function CategoryManager({
                   Trajno ćete ukloniti kategoriju "{nameMap[confirmDelete] || confirmDelete}". Ova radnja se ne može poništiti.
                 </p>
                 <div className="flex flex-col gap-2">
-                  <Button variant="destructive" onClick={() => { onDelete(confirmDelete, false); setConfirmDelete(null); }}>
+                  <Button variant="destructive" onClick={() => { const id = confirmDelete; setConfirmDelete(null); afterDialogClose(() => onDelete(id, false)); }}>
                     Obriši trajno
                   </Button>
                   <Button variant="ghost" onClick={() => setConfirmDelete(null)} autoFocus>Otkaži</Button>

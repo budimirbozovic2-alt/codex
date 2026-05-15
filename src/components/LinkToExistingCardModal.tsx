@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import type { Card } from "@/lib/spaced-repetition";
 import { useCategoryData } from "@/contexts/AppContext";
 import { sanitizeHtml } from "@/lib/sanitize";
+import { afterDialogClose } from "@/lib/dialog-utils";
 
 interface Props {
   open: boolean;
@@ -56,9 +57,10 @@ export default function LinkToExistingCardModal({
   }, [eligible, search]);
 
   const handleSelect = useCallback((cardId: string, appendSnippet: boolean) => {
-    onLink(cardId, appendSnippet);
+    onOpenChange(false);
     setSearch("");
-  }, [onLink]);
+    afterDialogClose(() => onLink(cardId, appendSnippet));
+  }, [onLink, onOpenChange]);
 
   return (
     <Dialog open={open} onOpenChange={(v) => { onOpenChange(v); if (!v) setSearch(""); }}>

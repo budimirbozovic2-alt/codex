@@ -9,6 +9,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { useMindMapsByCategory } from "@/hooks/useMindMaps";
+import { afterDialogClose } from "@/lib/dialog-utils";
 
 interface Props {
   open: boolean;
@@ -56,7 +57,7 @@ export default function MindMapPickerDialog({ open, onOpenChange, categoryId, on
               <button
                 key={d.id}
                 type="button"
-                onClick={() => { onPick(d.id, d.title); onOpenChange(false); }}
+                onClick={() => { onOpenChange(false); afterDialogClose(() => onPick(d.id, d.title)); }}
                 className="w-full text-left p-3 rounded-md border border-border hover:bg-accent/50 transition-colors flex items-center gap-2"
               >
                 <MapIcon className="h-4 w-4 text-primary shrink-0" />
