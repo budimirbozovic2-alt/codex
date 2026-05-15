@@ -17,6 +17,7 @@ import { toast } from "sonner";
 import { type Card } from "@/lib/spaced-repetition";
 import { useDirtyDialog } from "@/hooks/useDirtyDialog";
 import DirtyConfirmBar from "@/components/ui/dirty-confirm-bar";
+import { afterDialogClose } from "@/lib/dialog-utils";
 import { parseFlashcards } from "@/lib/flashcard-parser";
 import {
   listTemplates,
@@ -131,12 +132,16 @@ export default function BulkImportDialog({ open, onOpenChange, categoryId, bulkA
 
   const confirmImport = useCallback(() => {
     if (!parsed || parsed.length === 0) return;
-    // Single batched commit: one setCardMapState + one IDB transaction.
-    bulkAddFlashCards(parsed, categoryId);
-    toast.success(`Uspješno uvezeno ${parsed.length} blic pitanja`);
+    const snapshot = parsed;
+    // Root-cause: zatvori dijalog PRVO da Radix završi cleanup, pa
+    // izvrši tešku state mutaciju + toast nakon idućeg paint-a.
+    onOpenChange(false);
     setRaw("");
     setParsed(null);
-    onOpenChange(false);
+    afterDialogClose(() => {
+      bulkAddFlashCards(snapshot, categoryId);
+      toast.success(`Uspješno uvezeno ${snapshot.length} blic pitanja`);
+    });
   }, [parsed, categoryId, bulkAddFlashCards, onOpenChange]);
 
   const isDirty = raw.trim().length > 0 || (parsed?.length ?? 0) > 0;

@@ -1,6 +1,7 @@
 import { FileText, Upload, ArrowRight, Zap, BookOpen } from "lucide-react";
 import { useState, useCallback } from "react";
 import { sanitizeHtml } from "@/lib/sanitize";
+import { afterDialogClose } from "@/lib/dialog-utils";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -173,8 +174,12 @@ export default function DocxImporter({ open, onClose, categories, onImport }: Pr
 
   const handleImport = () => {
     const cat = newCategory.trim() || category;
-    onImport(parsedCards, cat, cardType);
+    const cards = parsedCards;
+    const type = cardType;
+    // Root-cause: zatvori dijalog PRVO; uvoz mijenja AppContext + IDB i
+    // pokreće toast — sve to mora čekati Radix unmount cleanup.
     handleReset();
+    afterDialogClose(() => onImport(cards, cat, type));
   };
 
   const handleReset = () => {

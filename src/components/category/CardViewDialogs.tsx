@@ -10,6 +10,7 @@ import { type CategoryRecord } from "@/lib/db";
 import type { Card } from "@/lib/spaced-repetition";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { afterDialogClose } from "@/lib/dialog-utils";
 
 
 interface AddDialogProps {
@@ -36,16 +37,27 @@ export function AddCardDialog({ open, onOpenChange, categoryId, addCard, addFlas
 
   const handleSave = useCallback(() => {
     if (!newQuestion.trim()) return;
-    if (addMode === "flash") {
-      if (!newAnswer.trim()) return;
-      addFlashCard(newQuestion.trim(), newAnswer.trim(), categoryId);
-    } else {
-      if (!newSectionContent.trim()) return;
-      addCard(newQuestion.trim(), [{ title: newSectionTitle.trim() || "Odgovor", content: newSectionContent.trim() }], categoryId);
-    }
-    toast.success("Kartica kreirana.");
-    setNewQuestion(""); setNewAnswer(""); setNewSectionTitle("Odgovor"); setNewSectionContent("");
+    if (addMode === "flash" && !newAnswer.trim()) return;
+    if (addMode === "essay" && !newSectionContent.trim()) return;
+    // Snapshot lokalnih vrijednosti prije resetа.
+    const q = newQuestion.trim();
+    const a = newAnswer.trim();
+    const st = newSectionTitle.trim() || "Odgovor";
+    const sc = newSectionContent.trim();
+    const mode = addMode;
+    // Root-cause: zatvori dijalog PRVO, pa odgodi mutaciju globalnog state-a
+    // (addCard / addFlashCard mijenjaju AppContext + IDB) i toast portal —
+    // to izbjegava Radix focus race koji ostavlja pointer-events: none.
     onOpenChange(false);
+    setNewQuestion(""); setNewAnswer(""); setNewSectionTitle("Odgovor"); setNewSectionContent("");
+    afterDialogClose(() => {
+      if (mode === "flash") {
+        addFlashCard(q, a, categoryId);
+      } else {
+        addCard(q, [{ title: st, content: sc }], categoryId);
+      }
+      toast.success("Kartica kreirana.");
+    });
   }, [addMode, newQuestion, newAnswer, newSectionTitle, newSectionContent, categoryId, addCard, addFlashCard, onOpenChange]);
 
   return (
@@ -108,9 +120,10 @@ export function MoveCardDialog({ open, onOpenChange, otherCategories, onConfirm 
 
   const handleConfirm = useCallback(() => {
     if (!targetCategoryId) return;
-    onConfirm(targetCategoryId);
-    setTargetCategoryId("");
+    const target = targetCategoryId;
     onOpenChange(false);
+    setTargetCategoryId("");
+    afterDialogClose(() => onConfirm(target));
   }, [targetCategoryId, onConfirm, onOpenChange]);
 
   return (
