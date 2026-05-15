@@ -2,7 +2,7 @@ import { Hash, MapPin } from "lucide-react";
 import { resolveNumber } from "@/lib/mnemonic-storage";
 
 interface Props {
-  numbers: { number: string; context: string }[];
+  numbers: { number: number; context: string }[];
   majorSystem: Record<number, string>;
 }
 
