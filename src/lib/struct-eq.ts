@@ -41,20 +41,20 @@ export function sameStringList(a: readonly string[] | null | undefined, b: reado
  * Suitable for "is this form dirty?" checks against settings objects whose
  * values are primitives or stable references.
  */
-export function shallowEqual<T extends Record<string, unknown>>(a: T | null | undefined, b: T | null | undefined): boolean {
+export function shallowEqual<T extends object>(a: T | null | undefined, b: T | null | undefined): boolean {
   if (a === b) return true;
   if (!a || !b) return false;
-  const aKeys = Object.keys(a);
-  const bKeys = Object.keys(b);
+  const aKeys = Object.keys(a) as (keyof T)[];
+  const bKeys = Object.keys(b) as (keyof T)[];
   if (aKeys.length !== bKeys.length) return false;
   for (const k of aKeys) {
-    if (!Object.is(a[k], (b as Record<string, unknown>)[k])) return false;
+    if (!Object.is(a[k], b[k])) return false;
   }
   return true;
 }
 
 /** Like shallowEqual, but only inspects the explicitly listed keys. */
-export function shallowEqualByKeys<T extends Record<string, unknown>>(a: T, b: T, keys: readonly (keyof T)[]): boolean {
+export function shallowEqualByKeys<T extends object>(a: T, b: T, keys: readonly (keyof T)[]): boolean {
   for (const k of keys) {
     if (!Object.is(a[k], b[k])) return false;
   }

@@ -161,16 +161,16 @@ export default function SRSettingsPanel({ settings, onUpdate }: Props) {
   const hasChanges = isSubjectMode
     ? (overridesEnabled !== (existingOverrides !== null)) ||
       (overridesEnabled && (
-        !shallowEqual(local as unknown as Record<string, unknown>, settings as unknown as Record<string, unknown>) ||
+        !shallowEqual(local, settings) ||
         app.targetRetention !== initialAppRef.current.targetRetention
       ))
-    : !shallowEqual(local as unknown as Record<string, unknown>, settings as unknown as Record<string, unknown>) ||
-      !shallowEqual(tts as unknown as Record<string, unknown>, initialTtsRef.current as unknown as Record<string, unknown>) ||
-      !shallowEqual(app as unknown as Record<string, unknown>, initialAppRef.current as unknown as Record<string, unknown>);
+    : !shallowEqual(local, settings) ||
+      !shallowEqual(tts, initialTtsRef.current) ||
+      !shallowEqual(app, initialAppRef.current);
 
   const isDefault =
-    shallowEqual(local as unknown as Record<string, unknown>, DEFAULT_SR_SETTINGS as unknown as Record<string, unknown>) &&
-    shallowEqual(app as unknown as Record<string, unknown>, DEFAULT_APP_SETTINGS as unknown as Record<string, unknown>);
+    shallowEqual(local, DEFAULT_SR_SETTINGS) &&
+    shallowEqual(app, DEFAULT_APP_SETTINGS);
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">
