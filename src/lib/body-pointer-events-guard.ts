@@ -7,15 +7,15 @@
  * van reda i `pointer-events: none` ostane — cijela aplikacija postaje
  * neklikabilna iako je vizuelno ispravna.
  *
- * Ovaj guard:
- *  1) Sluša promjene `style` atributa na <body> (MutationObserver).
- *  2) Ako je `pointer-events: none` postavljen ali NEMA otvorenog
- *     `[role="dialog"][data-state="open"]` u DOM-u — uklanja ga.
- *  3) Drži i mali rAF "self-heal" trigger nakon svakog Radix
- *     `data-state="closed"` događaja u slučaju da MutationObserver
- *     promaši zbog batch-anja.
+ * Optimizacije:
+ *  - MutationObserver se okida na `body[style]`, ali se sve provjere
+ *    coalesce-uju u jedan rAF tick (throttle do 1× po frame-u).
+ *  - `animationend` listener sluša samo overlay/content node-ove preko
+ *    `data-state="closed"` filtera, sa istim rAF coalescing-om.
+ *  - `installBodyPointerEventsGuard()` vraća `dispose()` koji uklanja
+ *    observer + listener i otkazuje pending rAF.
  */
-let installed = false;
+let installed: { dispose: () => void } | null = null;
 
 function hasOpenOverlay(): boolean {
   return !!document.querySelector(
@@ -31,31 +31,42 @@ function clearIfStuck() {
   }
 }
 
-export function installBodyPointerEventsGuard(): void {
-  if (installed || typeof document === "undefined") return;
-  installed = true;
+export function installBodyPointerEventsGuard(): () => void {
+  if (typeof document === "undefined") return () => {};
+  if (installed) return installed.dispose;
 
-  const observer = new MutationObserver(() => {
-    // Defer one frame: dialog cleanup i toast mount često padnu u isti tick.
-    requestAnimationFrame(clearIfStuck);
-  });
+  let rafId: number | null = null;
+  const schedule = () => {
+    if (rafId !== null) return; // throttle: jedan check po frame-u
+    rafId = requestAnimationFrame(() => {
+      rafId = null;
+      clearIfStuck();
+    });
+  };
 
+  const observer = new MutationObserver(schedule);
   observer.observe(document.body, {
     attributes: true,
     attributeFilter: ["style"],
   });
 
-  // Dodatni safety net: kad bilo koji Radix overlay pređe u closed state,
-  // pokušaj očistiti body nakon dva frame-a (dovoljno za sve cleanup-e).
-  document.addEventListener(
-    "animationend",
-    (e) => {
-      const t = e.target as HTMLElement | null;
-      if (!t || !t.getAttribute) return;
-      if (t.getAttribute("data-state") === "closed") {
-        requestAnimationFrame(() => requestAnimationFrame(clearIfStuck));
-      }
-    },
-    true,
-  );
+  const onAnimationEnd = (e: Event) => {
+    const t = e.target as HTMLElement | null;
+    if (!t || typeof t.getAttribute !== "function") return;
+    if (t.getAttribute("data-state") === "closed") schedule();
+  };
+  document.addEventListener("animationend", onAnimationEnd, true);
+
+  const dispose = () => {
+    observer.disconnect();
+    document.removeEventListener("animationend", onAnimationEnd, true);
+    if (rafId !== null) {
+      cancelAnimationFrame(rafId);
+      rafId = null;
+    }
+    installed = null;
+  };
+
+  installed = { dispose };
+  return dispose;
 }
