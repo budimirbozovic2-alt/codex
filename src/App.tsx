@@ -50,9 +50,7 @@ function SubjectDashboardWrapper() {
 const App = () => {
   const { hasPending: isSaving, pendingCount } = usePersistingState();
 
-  useEffect(() => {
-    installBodyPointerEventsGuard();
-  }, []);
+  useEffect(() => installBodyPointerEventsGuard(), []);
 
   useEffect(() => {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
