@@ -440,7 +440,7 @@ export const BackupSchema = z
     settings: z.array(BackupSettingsEntrySchema).default([]),
     localStorageData: z.unknown().optional(),
   })
-  .strict();
+  .passthrough();
 
 export type ParsedBackup = z.infer<typeof BackupSchema>;
 export type ParsedCard = z.infer<typeof BackupCardSchema>;

@@ -18,6 +18,7 @@ import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import { getParam } from "@/lib/url-params";
 import { shallowEqual } from "@/lib/struct-eq";
+import { useLatestRef } from "@/hooks/useLatestRef";
 
 interface Props {
   settings: SRSettings;
@@ -106,16 +107,13 @@ export default function SRSettingsPanel({ settings, onUpdate }: Props) {
   // identities. Previously `handleSave`/`handleReset` were re-created on
   // every keystroke (because `local`/`app`/`tts` were in the dep array),
   // invalidating downstream memoization and re-attaching button handlers.
-  const localRef = useRef(local);
-  const appRef = useRef(app);
-  const ttsRef = useRef(tts);
-  const overridesEnabledRef = useRef(overridesEnabled);
-  const subjectNameRef = useRef(subjectName);
-  useEffect(() => { localRef.current = local; }, [local]);
-  useEffect(() => { appRef.current = app; }, [app]);
-  useEffect(() => { ttsRef.current = tts; }, [tts]);
-  useEffect(() => { overridesEnabledRef.current = overridesEnabled; }, [overridesEnabled]);
-  useEffect(() => { subjectNameRef.current = subjectName; }, [subjectName]);
+  // Consolidated via `useLatestRef` so adding a new field can't accidentally
+  // leave a ref out of sync.
+  const localRef = useLatestRef(local);
+  const appRef = useLatestRef(app);
+  const ttsRef = useLatestRef(tts);
+  const overridesEnabledRef = useLatestRef(overridesEnabled);
+  const subjectNameRef = useLatestRef(subjectName);
 
   // ─── Save logic ────────────────────────────────────────
   const handleSave = useCallback(() => {

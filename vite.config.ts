@@ -38,6 +38,13 @@ export default defineConfig(({ mode }) => ({
   define: {
     __APP_VERSION__: JSON.stringify(pkg.version),
   },
+  esbuild: {
+    // Strip console.* and debugger from production Electron build to prevent
+    // PII leaks into DevTools console. console.error is preserved so genuine
+    // crash signals still reach the crash log path. Dev builds keep all logs.
+    drop: mode === "production" ? ["debugger"] : [],
+    pure: mode === "production" ? ["console.log", "console.info", "console.debug", "console.warn"] : [],
+  },
   build: {
     emptyOutDir: true,
   },
