@@ -169,7 +169,7 @@ function createPersistQueue() {
     }
   }
 
-  return { schedule, cleanup, flush, hasPending };
+  return { schedule, cleanup, flush, hasPending, getPendingCount: () => pendingPuts.size + pendingDeletes.size };
 }
 
 // Singleton persist queue — created once per module, safe for StrictMode double-mount
