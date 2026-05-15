@@ -84,9 +84,15 @@ export function usePlannerData(cards: SRCard[], reviewLog: ReviewLogEntry[], cat
     return mod.calcDailyTimeRecommendation(smartSuggestion.suggestedToday, velocity, dueCount);
   }, [smartSuggestion, velocity, dueCount]);
 
-  const debt = useMemo(() => {
-    if (!smartSuggestion) return 0;
-    return Math.max(0, smartSuggestion.suggestedToday - 5); // Simple proxy for cognitive debt
+  const debt = useMemo<import("@/types/planner").CognitiveDebtItem | null>(() => {
+    if (!smartSuggestion) return null;
+    const debtCards = Math.max(0, smartSuggestion.suggestedToday - 5);
+    if (debtCards <= 0) return null;
+    return {
+      hasDebt: true,
+      debtCards,
+      message: `Kognitivni dug: ${debtCards} kartica iznad održivog dnevnog tempa.`,
+    };
   }, [smartSuggestion]);
 
   const disciplineLog = useDeferredCompute(async () => {
