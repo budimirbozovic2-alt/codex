@@ -61,6 +61,9 @@ export function installBodyPointerEventsGuard(): () => void {
   // node-ova (svaki Radix dismissable layer ih mountuje u par). Ovo hvata
   // tačan trenutak kada se posljednji nested overlay zatvori.
   const treeObserver = new MutationObserver((muts) => {
+    // jsdom teardown može ukloniti `HTMLElement` reference prije nego mutation
+    // queue isprazni — guard mora biti tolerantan na to.
+    if (typeof HTMLElement === "undefined") return;
     for (const m of muts) {
       for (const n of m.removedNodes) {
         if (
