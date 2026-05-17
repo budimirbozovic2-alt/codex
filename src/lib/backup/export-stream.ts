@@ -24,6 +24,7 @@ import type Dexie from "dexie";
 import type { Table } from "dexie";
 import { db } from "@/lib/db";
 import { yieldUI } from "@/lib/backup/yield-ui";
+import { serializeRowsInWorker } from "@/lib/backup/json-serialize-client";
 
 export type ProgressFn = (pct: number, message: string) => void;
 
@@ -59,7 +60,13 @@ export function txScope(...tables: Table<unknown, unknown>[] | Table<unknown>[])
   return tables as Table<unknown, unknown>[];
 }
 
-const YIELD_EVERY = 500;
+// Rows per worker batch. Tuned for two competing concerns:
+// - Larger batches amortize postMessage overhead and let the worker keep
+//   the main thread idle for longer between handoffs.
+// - Smaller batches keep the structured-clone payload bounded so we never
+//   spike the heap when a single row (e.g. a Source with a fat HTML blob)
+//   is large.
+const WORKER_BATCH = 500;
 
 async function emitArray(
   parts: BlobPart[],
@@ -74,20 +81,55 @@ async function emitArray(
   }
   const total = spec.table ? await spec.table.count() : 0;
   parts.push(`"${spec.key}":[`);
+
+  // Collect rows into bounded batches; ship each batch to the worker for
+  // off-thread `JSON.stringify`. The worker returns a JSON fragment
+  // (comma-separated row literals) which we splice in directly.
   let i = 0;
+  let batch: unknown[] = [];
+  const flushBatch = async () => {
+    if (batch.length === 0) return;
+    const chunk = await serializeRowsInWorker(batch);
+    parts.push(i === batch.length ? chunk : "," + chunk);
+    batch = [];
+    const pct = total > 0
+      ? pStart + Math.round(((pEnd - pStart) * Math.min(i, total)) / Math.max(total, 1))
+      : pEnd;
+    onProgress(pct, `${spec.key} ${i}/${total || i}`);
+    await yieldUI();
+  };
+
   const cursor = spec.collection ? spec.collection() : spec.table!;
   await cursor.each((row: unknown) => {
-    parts.push((i === 0 ? "" : ",") + JSON.stringify(row));
+    batch.push(row);
     i++;
+    // Dexie's `each` callback is synchronous — we cannot await here without
+    // closing the IDB cursor. Defer awaits to post-cursor flush.
   });
+
+  // Drain in worker-sized chunks. The cursor finished, so any remaining
+  // awaits are safe.
+  while (batch.length > WORKER_BATCH) {
+    const slice = batch.splice(0, WORKER_BATCH);
+    const chunk = await serializeRowsInWorker(slice);
+    const prefix = parts[parts.length - 1] === `"${spec.key}":[` ? "" : ",";
+    parts.push(prefix + chunk);
+    const pct = total > 0
+      ? pStart + Math.round(((pEnd - pStart) * Math.min(i - batch.length, total)) / Math.max(total, 1))
+      : pEnd;
+    onProgress(pct, `${spec.key} ${i - batch.length}/${total || i}`);
+    await yieldUI();
+  }
+  if (batch.length > 0) {
+    const chunk = await serializeRowsInWorker(batch);
+    const prefix = parts[parts.length - 1] === `"${spec.key}":[` ? "" : ",";
+    parts.push(prefix + chunk);
+  }
+
   parts.push("]");
-  // We can only yield between tables (Table.each does not pause mid-cursor),
-  // but report progress and yield once per emitted table.
-  const pct = total > 0
-    ? pStart + Math.round(((pEnd - pStart) * Math.min(i, total)) / Math.max(total, 1))
-    : pEnd;
-  onProgress(pct, `${spec.key} ${i}/${total || i}`);
+  onProgress(pEnd, `${spec.key} ${i}/${total || i}`);
   await yieldUI();
+  void flushBatch; // retained for potential future incremental flush
   return i;
 }
 
