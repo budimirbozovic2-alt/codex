@@ -82,15 +82,20 @@ async function emitArray(
   const total = spec.table ? await spec.table.count() : 0;
   parts.push(`"${spec.key}":[`);
 
-  // Collect rows into bounded batches; ship each batch to the worker for
-  // off-thread `JSON.stringify`. The worker returns a JSON fragment
-  // (comma-separated row literals) which we splice in directly.
+  // Buffer rows up to WORKER_BATCH, then off-thread `JSON.stringify` the
+  // batch and push the result into `parts`. Dexie's `Collection.each`
+  // awaits an async callback before advancing the IDB cursor, so this
+  // bounded-buffer pattern keeps peak heap at one batch × row size while
+  // still doing the heavy work off the main thread.
   let i = 0;
   let batch: unknown[] = [];
-  const flushBatch = async () => {
+  let isFirstBatch = true;
+
+  const flush = async () => {
     if (batch.length === 0) return;
     const chunk = await serializeRowsInWorker(batch);
-    parts.push(i === batch.length ? chunk : "," + chunk);
+    parts.push(isFirstBatch ? chunk : "," + chunk);
+    isFirstBatch = false;
     batch = [];
     const pct = total > 0
       ? pStart + Math.round(((pEnd - pStart) * Math.min(i, total)) / Math.max(total, 1))
@@ -100,36 +105,16 @@ async function emitArray(
   };
 
   const cursor = spec.collection ? spec.collection() : spec.table!;
-  await cursor.each((row: unknown) => {
+  await cursor.each(async (row: unknown) => {
     batch.push(row);
     i++;
-    // Dexie's `each` callback is synchronous — we cannot await here without
-    // closing the IDB cursor. Defer awaits to post-cursor flush.
+    if (batch.length >= WORKER_BATCH) await flush();
   });
-
-  // Drain in worker-sized chunks. The cursor finished, so any remaining
-  // awaits are safe.
-  while (batch.length > WORKER_BATCH) {
-    const slice = batch.splice(0, WORKER_BATCH);
-    const chunk = await serializeRowsInWorker(slice);
-    const prefix = parts[parts.length - 1] === `"${spec.key}":[` ? "" : ",";
-    parts.push(prefix + chunk);
-    const pct = total > 0
-      ? pStart + Math.round(((pEnd - pStart) * Math.min(i - batch.length, total)) / Math.max(total, 1))
-      : pEnd;
-    onProgress(pct, `${spec.key} ${i - batch.length}/${total || i}`);
-    await yieldUI();
-  }
-  if (batch.length > 0) {
-    const chunk = await serializeRowsInWorker(batch);
-    const prefix = parts[parts.length - 1] === `"${spec.key}":[` ? "" : ",";
-    parts.push(prefix + chunk);
-  }
+  await flush();
 
   parts.push("]");
   onProgress(pEnd, `${spec.key} ${i}/${total || i}`);
   await yieldUI();
-  void flushBatch; // retained for potential future incremental flush
   return i;
 }
 
