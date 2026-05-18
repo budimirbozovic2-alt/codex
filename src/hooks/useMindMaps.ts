@@ -5,6 +5,7 @@ import {
   onMindMapsChanged,
 } from "@/lib/mindmap-storage";
 import type { MindMapDoc } from "@/lib/db";
+import { useIsMountedRef } from "@/hooks/useIsMountedRef";
 
 /**
  * SSOT subscription for ALL mind maps. Backed by module-level cache + listeners
@@ -13,21 +14,20 @@ import type { MindMapDoc } from "@/lib/db";
 export function useMindMaps(enabled: boolean = true): { mindMaps: MindMapDoc[]; ready: boolean } {
   const [mindMaps, setMindMaps] = useState<MindMapDoc[]>([]);
   const [ready, setReady] = useState(false);
+  const mounted = useIsMountedRef();
 
   useEffect(() => {
     if (!enabled) return;
-    let cancelled = false;
     const reload = () => {
       loadMindMaps().then(all => {
-        if (cancelled) return;
+        if (!mounted.current) return;
         setMindMaps(all);
         setReady(true);
       });
     };
     reload();
-    const off = onMindMapsChanged(reload);
-    return () => { cancelled = true; off(); };
-  }, [enabled]);
+    return onMindMapsChanged(reload);
+  }, [enabled, mounted]);
 
   return { mindMaps, ready };
 }
@@ -51,17 +51,16 @@ export function useMindMapsByCategory(categoryId?: string): { mindMaps: MindMapD
  */
 export function useMindMap(id: string | undefined): MindMapDoc | null | undefined {
   const [doc, setDoc] = useState<MindMapDoc | null | undefined>(undefined);
+  const mounted = useIsMountedRef();
 
   useEffect(() => {
     if (!id) { setDoc(null); return; }
-    let cancelled = false;
     const reload = () => {
-      getMindMap(id).then(d => { if (!cancelled) setDoc(d ?? null); });
+      getMindMap(id).then(d => { if (mounted.current) setDoc(d ?? null); });
     };
     reload();
-    const off = onMindMapsChanged(reload);
-    return () => { cancelled = true; off(); };
-  }, [id]);
+    return onMindMapsChanged(reload);
+  }, [id, mounted]);
 
   return doc;
 }

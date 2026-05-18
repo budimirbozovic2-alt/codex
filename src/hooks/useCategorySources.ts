@@ -5,6 +5,7 @@ import {
   onSourcesChanged,
   type Source,
 } from "@/lib/sources-storage";
+import { useIsMountedRef } from "@/hooks/useIsMountedRef";
 
 /**
  * SSOT subscription for sources scoped to a single category.
@@ -12,17 +13,16 @@ import {
  */
 export function useCategorySources(categoryId: string | undefined): Source[] {
   const [sources, setSources] = useState<Source[]>([]);
+  const mounted = useIsMountedRef();
 
   useEffect(() => {
     if (!categoryId) { setSources([]); return; }
-    let cancelled = false;
     const reload = () => {
-      loadSourcesByCategory(categoryId).then(s => { if (!cancelled) setSources(s); });
+      loadSourcesByCategory(categoryId).then(s => { if (mounted.current) setSources(s); });
     };
     reload();
-    const off = onSourcesChanged(reload);
-    return () => { cancelled = true; off(); };
-  }, [categoryId]);
+    return onSourcesChanged(reload);
+  }, [categoryId, mounted]);
 
   return sources;
 }
@@ -33,17 +33,16 @@ export function useCategorySources(categoryId: string | undefined): Source[] {
  */
 export function useAllSources(enabled: boolean = true): Source[] {
   const [sources, setSources] = useState<Source[]>([]);
+  const mounted = useIsMountedRef();
 
   useEffect(() => {
     if (!enabled) return;
-    let cancelled = false;
     const reload = () => {
-      loadSources().then(s => { if (!cancelled) setSources(s); });
+      loadSources().then(s => { if (mounted.current) setSources(s); });
     };
     reload();
-    const off = onSourcesChanged(reload);
-    return () => { cancelled = true; off(); };
-  }, [enabled]);
+    return onSourcesChanged(reload);
+  }, [enabled, mounted]);
 
   return sources;
 }
