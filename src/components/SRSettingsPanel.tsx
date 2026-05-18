@@ -4,7 +4,7 @@ import { useSearchParams, Link } from "react-router-dom";
 import { SRSettings, DEFAULT_SR_SETTINGS } from "@/lib/spaced-repetition";
 import { AppSettings, DEFAULT_APP_SETTINGS, loadAppSettings, saveAppSettings } from "@/lib/app-settings";
 import { TTSSettings, loadTTSSettings, saveTTSSettings, getAvailableVoices } from "@/lib/tts";
-import { loadSubjectSettings, saveSubjectSettings, clearSubjectSettings, SubjectSettings } from "@/lib/subject-settings";
+import { loadSubjectSettings, saveSubjectSettings, clearSubjectSettings, mergeSubjectOverrides, SubjectSettings } from "@/lib/subject-settings";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import InfoPanel from "@/components/InfoPanel";
@@ -48,25 +48,15 @@ export default function SRSettingsPanel({ settings, onUpdate }: Props) {
   const [overridesEnabled, setOverridesEnabled] = useState(existingOverrides !== null);
 
   // ─── Global state ──────────────────────────────────────
-  const [local, setLocal] = useState<SRSettings>(() => {
-    if (subjectId && existingOverrides) {
-      return {
-        ...settings,
-        ...(existingOverrides.leechThreshold !== undefined && { leechThreshold: existingOverrides.leechThreshold }),
-        ...(existingOverrides.dailyGoal !== undefined && { dailyGoal: existingOverrides.dailyGoal }),
-        ...(existingOverrides.resistanceWeights !== undefined && { resistanceWeights: existingOverrides.resistanceWeights }),
-      };
-    }
-    return { ...settings };
-  });
+  const [local, setLocal] = useState<SRSettings>(() =>
+    subjectId && existingOverrides
+      ? mergeSubjectOverrides(settings, existingOverrides)
+      : { ...settings },
+  );
 
-  const [app, setApp] = useState<AppSettings>(() => {
-    const globalApp = loadAppSettings();
-    if (subjectId && existingOverrides?.targetRetention !== undefined) {
-      return { ...globalApp, targetRetention: existingOverrides.targetRetention };
-    }
-    return globalApp;
-  });
+  const [app, setApp] = useState<AppSettings>(() =>
+    mergeSubjectOverrides(loadAppSettings(), subjectId ? existingOverrides : null),
+  );
 
   const initialAppRef = useRef(loadAppSettings());
   const initialTtsRef = useRef(loadTTSSettings());

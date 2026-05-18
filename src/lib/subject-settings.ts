@@ -103,3 +103,32 @@ export function clearSubjectSettings(categoryId: string): void {
 export function hasSubjectOverrides(categoryId: string): boolean {
   return loadSubjectSettings(categoryId) !== null;
 }
+
+/**
+ * Phase C / P2-3: tipizirani merge globalnih podešavanja s per-subject
+ * overrides. Eliminiše inline `!== undefined` spread-conditionals u UI.
+ *
+ * Polja u `overrides` koja su `undefined` se ignorišu (base se zadržava).
+ */
+export const OVERRIDABLE_SUBJECT_KEYS = [
+  "targetRetention",
+  "leechThreshold",
+  "dailyGoal",
+  "resistanceWeights",
+] as const satisfies readonly (keyof SubjectSettings)[];
+
+export function mergeSubjectOverrides<T extends Partial<SubjectSettings>>(
+  base: T,
+  overrides: SubjectSettings | null | undefined,
+): T {
+  if (!overrides) return base;
+  const merged: T = { ...base };
+  for (const key of OVERRIDABLE_SUBJECT_KEYS) {
+    const value = overrides[key];
+    if (value !== undefined) {
+      (merged as Record<string, unknown>)[key] = value;
+    }
+  }
+  return merged;
+}
+
