@@ -267,23 +267,6 @@ export function useCategoryManagement({
     );
   }, [setCategoryRecords, cardMapRef]);
 
-    optimisticCategoryUpdate(
-      setCategoryRecords,
-      prev => prev.map(r => {
-        if (r.id !== categoryId) return r;
-        const nodes = getNodes(r);
-        return {
-          ...r,
-          subcategories: nodes.map(n => {
-            if (n.id !== subcategoryId) return n;
-            return { ...n, chapters: n.chapters.filter(ch => ch.id !== chapterId) };
-          }),
-        };
-      }),
-      "deleteChapter"
-    );
-  }, [setCategoryRecords, setCardMapState, cardMapRef]);
-
   const reorderSubcategories = useCallback((categoryId: string, orderedIds: string[]) => {
     optimisticCategoryUpdate(
       setCategoryRecords,
