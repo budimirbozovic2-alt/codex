@@ -270,6 +270,17 @@ class MemoriaDB extends Dexie {
     this.version(17).stores({
       cards: "id, categoryId, subcategoryId, chapterId, type, createdAt, sourceId, [categoryId+subcategoryId], [categoryId+chapterId]",
     });
+
+    // v18 — Phase 0 of IDB-as-SSOT migration:
+    //   • [categoryId+type]   — Essay/Flash filtering scoped to a subject.
+    //   • [sourceId+createdAt] — ordered "cards by source" reads (SourceReader hot path).
+    //   • *tags  (MultiEntry) — tag-based filtering without scanning every card.
+    // Card has no top-level `nextReview`/`status` (those live per-section),
+    // so the plan's [categoryId+nextReview] / [categoryId+status] are not
+    // applicable at the card-row level and are intentionally omitted.
+    this.version(18).stores({
+      cards: "id, categoryId, subcategoryId, chapterId, type, createdAt, sourceId, [categoryId+subcategoryId], [categoryId+chapterId], [categoryId+type], [sourceId+createdAt], *tags",
+    });
   }
 }
 
