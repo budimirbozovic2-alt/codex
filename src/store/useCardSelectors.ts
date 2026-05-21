@@ -109,3 +109,20 @@ export function useCardCountByCategory(categoryId: string | undefined): number {
     () => 0,
   );
 }
+
+/**
+ * Subscribe to a single card by id. Returns the card object reference
+ * directly so React's default `Object.is` snapshot equality fires a
+ * re-render only when that specific card's identity changes — every
+ * other mutation in the entire store is a no-op for this hook.
+ */
+export function useCardById(id: string | undefined | null): Card | null {
+  return useSyncExternalStore(
+    cardMapStore.subscribe,
+    () => {
+      if (!id) return null;
+      return cardMapStore.getState().cardMap[id] ?? null;
+    },
+    () => null,
+  );
+}

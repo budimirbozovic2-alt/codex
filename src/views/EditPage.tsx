@@ -1,23 +1,20 @@
-import { useCategoryData, useCardData, useCardOnlyActions, useUIContext } from "@/contexts/AppContext";
+import { useCategoryData, useCardOnlyActions, useUIContext } from "@/contexts/AppContext";
+import { useCardById } from "@/store/useCardSelectors";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import CardForm from "@/components/CardForm";
 import { Navigate } from "react-router-dom";
-import { useMemo } from "react";
 import type { Card } from "@/lib/spaced-repetition";
 import { useEditReturnTarget } from "@/hooks/useEditReturnTarget";
 
 export default function EditPage() {
   const { categories, subcategories, categoryRecords } = useCategoryData();
-  const { cards } = useCardData();
   const { updateCard, splitCard } = useCardOnlyActions();
   const { setView, editingCardId, setEditingCardId } = useUIContext();
   const { navigateBack } = useEditReturnTarget();
 
-  // C3: Resolve live Card from cardMap each render — UIContext stores only the UUID.
-  const editingCard = useMemo(
-    () => (editingCardId ? cards.find((c) => c.id === editingCardId) ?? null : null),
-    [cards, editingCardId],
-  );
+  // Phase 1 — granular selector: re-renders only when THIS card changes,
+  // not when any card in the entire library mutates.
+  const editingCard = useCardById(editingCardId);
 
   if (!editingCard) {
     return <Navigate to="/" replace />;
