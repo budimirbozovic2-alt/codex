@@ -2,7 +2,7 @@ import { useCallback, MutableRefObject } from "react";
 import { toast } from "sonner";
 import { Card, createCard, SRSettings } from "@/lib/spaced-repetition";
 import { ReviewLogEntry } from "@/lib/storage";
-import { CardMap, bumpMapVersion, schedulePersist } from "@/lib/persist-queue";
+import { CardMap } from "@/lib/persist-queue";
 import type { CategoryRecord } from "@/lib/db";
 import { invalidateSourcesCache } from "@/lib/sources-storage";
 import { BackupSchema, type ParsedBackup } from "@/lib/migrations/backup-schema";
@@ -11,6 +11,7 @@ import { yieldUI } from "@/lib/backup/yield-ui";
 import { applyImportAtomically, type ImportStrategy } from "@/lib/backup/import-transaction";
 import { parseJsonInWorker } from "@/lib/zip-service";
 import { clearReviewSession } from "@/lib/review-session-storage";
+import { cardRepository } from "@/lib/repositories/cardRepository";
 
 import { logger } from "@/lib/logger";
 export type ImportProgress = (pct: number, label: string) => void;
@@ -55,9 +56,10 @@ export function useCardImport({
   setCategoryRecords,
   setReviewLog,
   updateSRSettings,
-  setCardMapState,
+  setCardMapState: _legacySetCardMap, // Phase 3b: kept for back-compat, unused
   cardMapRef,
 }: UseCardImportDeps) {
+  void _legacySetCardMap;
   const importData = useCallback(
     async (
       file: File,
@@ -124,10 +126,11 @@ export function useCardImport({
           onProgress: progress,
         });
 
-        // ── 6. In-memory sync after the tx commits ──
-        cardMapRef.current = result2.nextMap;
-        setCardMapState(() => result2.nextMap);
-        bumpMapVersion();
+        // ── 6. In-memory sync after the tx commits (Phase 3b: single
+        //       cardRepository.replaceAll handles setCardMap + bumpMapVersion
+        //       + CARDS_UPDATED emit). cardMapRef reads stay live via the C4
+        //       unified atom; no explicit ref mutation required.
+        cardRepository.replaceAll(result2.nextMap);
         setCategoryRecords(result2.freshCategories);
         if (result2.reviewLogApplied) setReviewLog(result2.reviewLogApplied);
         if (result2.srSettingsApplied) updateSRSettings(result2.srSettingsApplied);
@@ -178,22 +181,20 @@ export function useCardImport({
         toast.error(`Greška pri uvozu: ${err instanceof Error ? err.message : "Neispravan format fajla."}`);
       }
     },
-    [setCardMapState, setCategoryRecords, setReviewLog, updateSRSettings, cardMapRef],
+    [setCategoryRecords, setReviewLog, updateSRSettings, cardMapRef],
   );
 
-  // H5 fix: importCards now syncs cardMapRef before setState
+  // Phase 3b — importCards now delegates to cardRepository.bulkPut which
+  // handles persist + RAM + CARDS_UPDATED emit atomically. No direct ref
+  // mutation, no manual schedulePersist, no setCardMapState.
   const importCards = useCallback(
     (newCards: { question: string; sections: { title: string; content: string }[] }[], category: string) => {
       const created = newCards.map((c) => createCard(c.question, c.sections, category));
-      created.forEach((c) => { c.updatedAt = Date.now(); });
-      const nextRef = { ...cardMapRef.current };
-      created.forEach((c) => { nextRef[c.id] = c; });
-      cardMapRef.current = nextRef;
-      schedulePersist({ type: "bulk", cards: created });
-      setCardMapState(() => nextRef);
-      bumpMapVersion();
+      const now = Date.now();
+      created.forEach((c) => { c.updatedAt = now; });
+      if (created.length > 0) cardRepository.bulkPut(created);
     },
-    [setCardMapState, cardMapRef],
+    [],
   );
 
   return { importData, importCards };
