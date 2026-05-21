@@ -7,6 +7,7 @@
 // the indexed Dexie query is within 2x of an in-memory `.filter()` on the
 // same dataset, which is a strong signal that on real IDB (with native
 // b-trees) it will win.
+import "fake-indexeddb/auto";
 import { describe, it, expect, beforeAll } from "vitest";
 import { db } from "@/lib/db";
 import { cardsByCategory } from "@/lib/db/queries/cards";
