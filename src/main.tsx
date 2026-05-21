@@ -46,12 +46,13 @@ markBootStep("main:error-handlers-registered");
 (async () => {
   try {
     markBootStep("main:parallel-import-start");
-    const [{ initColorTheme }, { default: App }, { createRoot }, { eventBus }, { setDbEventEmitter }] = await Promise.all([
+    const [{ initColorTheme }, { default: App }, { createRoot }, { eventBus }, { setDbEventEmitter }, { initCardMapInvalidator }] = await Promise.all([
       import("./lib/app-settings"),
       import("./App"),
       import("react-dom/client"),
       import("./lib/event-bus"),
       import("./lib/db-schema"),
+      import("./lib/repositories/cardMapInvalidator"),
     ]);
     markBootStep("main:parallel-import-done");
 
@@ -61,6 +62,11 @@ markBootStep("main:error-handlers-registered");
       (type, payload) => eventBus.emit(type, payload),
       () => eventBus.getTabCount(),
     );
+
+    // Phase 3 — cardMap is now an invalidatable cache. Subscribe once at
+    // boot so external CARDS_UPDATED emitters (HealthMonitor, RemapFromBackup,
+    // future remote sync) re-hydrate RAM without depending on React mount.
+    initCardMapInvalidator();
 
     initColorTheme();
     markBootStep("main:theme-init-done");
