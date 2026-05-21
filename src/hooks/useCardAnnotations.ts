@@ -12,7 +12,7 @@ import {
 import { ReviewLogEntry } from "@/lib/storage";
 import type { CardMap } from "@/lib/persist-queue";
 import { reviewLogRepository } from "@/lib/repositories/reviewLogRepository";
-import { cardCommandBus } from "@/lib/repositories/cardCommandBus";
+import { cardRepository } from "@/lib/repositories/cardRepository";
 import { getExaminerProfileSync } from "@/lib/examiner-profile-cache";
 
 import { logger } from "@/lib/logger";
@@ -170,25 +170,17 @@ export function useCardAnnotations({
     [patchCard],
   );
 
-  // Bulk-flag via command bus — atomic per-id locks + single bulk write.
+  // Bulk-flag — single bulk write via repository.
   const bulkFlagNeedsReview = useCallback((cardIds: string[]) => {
-    void cardCommandBus.dispatch({
-      type: "bulkPatch",
-      ids: cardIds,
-      patcher: (c) => ({ ...c, needsReview: true }),
-    });
+    cardRepository.bulkPatch(cardIds, (c) => ({ ...c, needsReview: true }));
   }, []);
 
   const bulkUpdateChapter = useCallback(
     (updates: { id: string; chapterId: string | undefined; chapterOrder: number }[]) => {
       const map = new Map(updates.map((u) => [u.id, u]));
-      void cardCommandBus.dispatch({
-        type: "bulkPatch",
-        ids: updates.map((u) => u.id),
-        patcher: (c) => {
-          const u = map.get(c.id)!;
-          return { ...c, chapterId: u.chapterId ?? "", chapterOrder: u.chapterOrder };
-        },
+      cardRepository.bulkPatch(updates.map((u) => u.id), (c) => {
+        const u = map.get(c.id)!;
+        return { ...c, chapterId: u.chapterId ?? "", chapterOrder: u.chapterOrder };
       });
     },
     [],

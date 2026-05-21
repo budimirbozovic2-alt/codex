@@ -20,7 +20,6 @@ import { setCardFrequency } from "@/lib/sr/frequency";
 import type { CardMap } from "@/lib/persist-queue";
 import type { CardMapRefFacade } from "@/store/useCardMapStore";
 import { cardRepository } from "@/lib/repositories/cardRepository";
-import { cardCommandBus } from "@/lib/repositories/cardCommandBus";
 
 import { logger } from "@/lib/logger";
 interface UseCardCRUDParams {
@@ -34,7 +33,7 @@ export function useCardCRUD(_params: UseCardCRUDParams) {
   void _params; // explicit unused
 
   const patchCard = useCallback((id: string, patcher: (card: Card) => Card) => {
-    void cardCommandBus.dispatch({ type: "patch", id, patcher });
+    cardRepository.patch(id, patcher);
   }, []);
 
   const addCard = useCallback(
@@ -61,7 +60,7 @@ export function useCardCRUD(_params: UseCardCRUDParams) {
       if (extra?.childCardIds) card.childCardIds = extra.childCardIds;
       if (extra?.sourceModules) card.sourceModules = extra.sourceModules;
       if (extra?.tags && extra.tags.length > 0) card.tags = extra.tags;
-      void cardCommandBus.dispatch({ type: "put", card: card });
+      cardRepository.put(card);
       return card;
     },
     [],
@@ -70,7 +69,7 @@ export function useCardCRUD(_params: UseCardCRUDParams) {
   const addFlashCard = useCallback(
     (question: string, answer: string, categoryId: string, subcategoryId?: string) => {
       const card = createFlashCard(question, answer, categoryId, subcategoryId);
-      void cardCommandBus.dispatch({ type: "put", card: card });
+      cardRepository.put(card);
       return card;
     },
     [],
@@ -95,7 +94,7 @@ export function useCardCRUD(_params: UseCardCRUDParams) {
         sourceType?: CardSourceType;
       },
     ) => {
-      void cardCommandBus.dispatch({ type: "patch", id, patcher: (c) => {
+      cardRepository.patch(id, (c) => {
         const newCard = { ...c };
         if (updates.question) newCard.question = updates.question;
         if (updates.categoryId) newCard.categoryId = updates.categoryId;
@@ -120,19 +119,20 @@ export function useCardCRUD(_params: UseCardCRUDParams) {
           });
         }
         return newCard;
-      } });
+      });
       toast.success("Kartica ažurirana.");
     },
     [],
   );
 
   const deleteCard = useCallback((id: string) => {
-    cardCommandBus.dispatch({ type: "delete", id: id })
-      .then(() => toast.success("Kartica obrisana."))
-      .catch((err: unknown) => {
-        logger.error("[useCardCRUD.deleteCard] dispatch failed", err);
-        toast.error("Brisanje nije uspjelo.");
-      });
+    try {
+      cardRepository.remove(id);
+      toast.success("Kartica obrisana.");
+    } catch (err) {
+      logger.error("[useCardCRUD.deleteCard] failed", err);
+      toast.error("Brisanje nije uspjelo.");
+    }
   }, []);
 
   const splitCard = useCallback((id: string) => {
@@ -147,12 +147,12 @@ export function useCardCRUD(_params: UseCardCRUDParams) {
       ),
       sections: [{ ...section }],
     }));
-    void cardCommandBus.dispatch({ type: "bulkPut", cards: newCards });
-    void cardCommandBus.dispatch({ type: "delete", id: id });
+    cardRepository.bulkPut(newCards);
+    cardRepository.remove(id);
   }, []);
 
   const bulkAddCards = useCallback((newCards: Card[]) => {
-    void cardCommandBus.dispatch({ type: "bulkPut", cards: newCards });
+    cardRepository.bulkPut(newCards);
   }, []);
 
   const bulkAddFlashCards = useCallback(
@@ -168,13 +168,13 @@ export function useCardCRUD(_params: UseCardCRUDParams) {
         if (p.chapterId) card.chapterId = p.chapterId;
         return card;
       });
-      void cardCommandBus.dispatch({ type: "bulkPut", cards: newCards });
+      cardRepository.bulkPut(newCards);
     },
     [],
   );
 
   const setFrequency = useCallback((id: string, value: FrequencyTag | null) => {
-    void cardCommandBus.dispatch({ type: "patch", id, patcher: (c) => setCardFrequency(c, value) });
+    cardRepository.patch(id, (c) => setCardFrequency(c, value));
   }, []);
 
   return { patchCard, addCard, addFlashCard, updateCard, deleteCard, splitCard, bulkAddCards, bulkAddFlashCards, setFrequency };
