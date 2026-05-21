@@ -68,6 +68,7 @@ function commitSingle(card: Card): void {
   schedulePersist({ type: "put", card });
   setCardMap((prev) => ({ ...prev, [card.id]: card }));
   bumpMapVersion();
+  emitCardsUpdated({ source: "repository", cardIds: [card.id] });
 }
 
 function commitBulk(cards: Card[]): void {
@@ -79,6 +80,10 @@ function commitBulk(cards: Card[]): void {
     return next;
   });
   bumpMapVersion();
+  emitCardsUpdated({
+    source: "repository",
+    cardIds: cards.map((c) => c.id),
+  });
 }
 
 function commitDelete(id: string): void {
@@ -90,6 +95,7 @@ function commitDelete(id: string): void {
     return next;
   });
   bumpMapVersion();
+  emitCardsUpdated({ source: "repository", deletedIds: [id] });
 }
 
 // ─── Write primitives ─────────────────────────────────────────────────────
@@ -200,12 +206,21 @@ export function applySyncDelta(rows: Card[], deletedIds: string[]): void {
     return next;
   });
   bumpMapVersion();
+  // Tagged "repository-sync" so the invalidator can identify (and skip) its
+  // own re-entry — applySyncDelta is invoked BY the invalidator after a
+  // bulkGet, and re-broadcasting "repository" would feed back into itself.
+  emitCardsUpdated({
+    source: "repository-sync",
+    cardIds: rows.map((c) => c.id),
+    deletedIds,
+  });
 }
 
 /** Replace the entire cardMap atom. Bootstrap / restore only. */
 export function replaceAll(map: CardMap): void {
   setCardMap({ ...map });
   bumpMapVersion();
+  emitCardsUpdated({ source: "repository-replace" });
 }
 
 export const cardRepository = {
