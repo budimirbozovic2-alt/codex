@@ -25,6 +25,7 @@ import type { Table } from "dexie";
 import { db } from "@/lib/db";
 import { yieldUI } from "@/lib/backup/yield-ui";
 import { serializeRowsInWorker } from "@/lib/backup/json-serialize-client";
+import { backupLog } from "@/lib/backup/backup-logger";
 
 export type ProgressFn = (pct: number, message: string) => void;
 
@@ -138,6 +139,12 @@ export async function streamBackup(opts: StreamBackupOptions): Promise<Blob> {
   const pStart = opts.pStart ?? 10;
   const pEnd = opts.pEnd ?? 80;
 
+  backupLog.start("export", "streamBackup begin", {
+    version,
+    type,
+    tables: tables.map((t) => t.key),
+  });
+
   onProgress(pStart, "Otvaranje read-snapshot transakcije…");
 
   const parts: BlobPart[] = [];
@@ -149,18 +156,28 @@ export async function streamBackup(opts: StreamBackupOptions): Promise<Blob> {
   const span = pEnd - pStart;
   const stepPct = span / Math.max(tables.length, 1);
 
-  await (db as unknown as Dexie).transaction("r", txTables, async () => {
-    for (let idx = 0; idx < tables.length; idx++) {
-      const spec = tables[idx];
-      parts.push(",");
-      const a = pStart + Math.round(stepPct * idx);
-      const b = pStart + Math.round(stepPct * (idx + 1));
-      await emitArray(parts, spec, onProgress, a, b);
-    }
-  });
+  try {
+    await (db as unknown as Dexie).transaction("r", txTables, async () => {
+      for (let idx = 0; idx < tables.length; idx++) {
+        const spec = tables[idx];
+        parts.push(",");
+        const a = pStart + Math.round(stepPct * idx);
+        const b = pStart + Math.round(stepPct * (idx + 1));
+        await emitArray(parts, spec, onProgress, a, b);
+      }
+    });
 
-  parts.push("}");
-  onProgress(pEnd, "Finalizacija…");
-  await yieldUI();
-  return new Blob(parts, { type: "application/json" });
+    parts.push("}");
+    onProgress(pEnd, "Finalizacija…");
+    await yieldUI();
+    const blob = new Blob(parts, { type: "application/json" });
+    backupLog.success("export", "streamBackup complete", {
+      bytes: blob.size,
+      type,
+    });
+    return blob;
+  } catch (err) {
+    backupLog.error("export", "streamBackup failed", err);
+    throw err;
+  }
 }

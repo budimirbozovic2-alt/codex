@@ -6,6 +6,8 @@
  * Web Workers are unavailable (e.g. some test environments) so callers
  * never have to branch on environment.
  */
+import { backupLog } from "@/lib/backup/backup-logger";
+
 
 type Pending = {
   resolve: (chunk: string) => void;
@@ -34,6 +36,7 @@ function ensureWorker(): Worker | null {
     };
     w.onerror = (ev) => {
       const err = new Error(ev.message || "json-serialize-worker error");
+      backupLog.error("worker", "json-serialize-worker fatal", err);
       for (const p of _pending.values()) p.reject(err);
       _pending.clear();
     };
