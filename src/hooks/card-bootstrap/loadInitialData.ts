@@ -12,6 +12,7 @@ import { markBootStep } from "@/lib/boot-trace";
 import { splashProgress } from "./splash";
 import { withTimeout } from "./withTimeout";
 
+import { logger } from "@/lib/logger";
 export interface InitialData {
   cards: Card[];
   catRecords: CategoryRecord[];
@@ -22,21 +23,21 @@ export interface InitialData {
 export async function loadInitialData(): Promise<InitialData> {
   // Initialize in-memory caches from IDB (replaces localStorage)
   splashProgress(15, "Inicijalizacija keša…");
-  if (import.meta.env.DEV) console.log("[boot:diag] step 3: initCaches");
+  if (import.meta.env.DEV) logger.log("[boot:diag] step 3: initCaches");
   const { initMetacognitiveCache } = await import("@/lib/metacognitive-storage");
   const { initPlannerCache } = await import("@/lib/planner-storage");
   const { initSubjectSettingsCache } = await import("@/lib/subject-settings");
   await withTimeout(
     Promise.all([
-      initMetacognitiveCache().catch((e) => console.warn("[silent]", e)),
-      initPlannerCache().catch((e) => console.warn("[silent]", e)),
-      initSubjectSettingsCache().catch((e) => console.warn("[silent]", e)),
+      initMetacognitiveCache().catch((e) => logger.warn("[silent]", e)),
+      initPlannerCache().catch((e) => logger.warn("[silent]", e)),
+      initSubjectSettingsCache().catch((e) => logger.warn("[silent]", e)),
     ]),
     3000, "cache init", undefined
   );
 
   splashProgress(25, "Učitavanje podataka…");
-  if (import.meta.env.DEV) console.log("[boot:diag] step 4: loading data (parallel)");
+  if (import.meta.env.DEV) logger.log("[boot:diag] step 4: loading data (parallel)");
   markBootStep("cards:data-load-start");
 
   // B2: Parallelize all independent IDB loads
@@ -70,14 +71,14 @@ export async function loadInitialData(): Promise<InitialData> {
     }
     if (migrated.length > 0 && db) {
       db.cards.bulkPut(migrated).catch((e: unknown) =>
-        console.warn("[boot] frequency tag migration persist failed", e),
+        logger.warn("[boot] frequency tag migration persist failed", e),
       );
-      if (import.meta.env.DEV) console.info(`[boot] migrated ${migrated.length} cards: legacy tags → frequencyTag`);
+      if (import.meta.env.DEV) logger.info(`[boot] migrated ${migrated.length} cards: legacy tags → frequencyTag`);
     }
-  } catch (e) { console.warn("[boot] frequency tag migration skipped", e); }
+  } catch (e) { logger.warn("[boot] frequency tag migration skipped", e); }
 
   splashProgress(60, `${cards.length} kartica učitano`);
-  if (import.meta.env.DEV) console.log("[boot:diag] categories loaded:", catRecords.length, catRecords.map((r: CategoryRecord) => r.name));
+  if (import.meta.env.DEV) logger.log("[boot:diag] categories loaded:", catRecords.length, catRecords.map((r: CategoryRecord) => r.name));
 
   return { cards, catRecords, log, settings };
 }

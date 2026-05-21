@@ -1,5 +1,6 @@
 import { AlertTriangle, RefreshCw, Home, Download } from "lucide-react";
 import { Component, ReactNode } from "react";
+import { logger } from "@/lib/logger";
 interface CrashEntry {
   label: string;
   message: string;
@@ -34,7 +35,7 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, info: React.ErrorInfo) {
-    console.error(`[ErrorBoundary${this.props.label ? ` — ${this.props.label}` : ""}]`, error, info.componentStack);
+    logger.error(`[ErrorBoundary${this.props.label ? ` — ${this.props.label}` : ""}]`, error, info.componentStack);
     try {
       const LOG_KEY = "codex-crash-log";
       const MAX_ENTRIES = 30;
@@ -88,7 +89,7 @@ export class ErrorBoundary extends Component<Props, State> {
       a.click();
       URL.revokeObjectURL(url);
     } catch (e) {
-      console.error("[EmergencyBackup] Failed:", e);
+      logger.error("[EmergencyBackup] Failed:", e);
       alert("Backup nije uspio. Pokušajte ponovo.");
     }
   };

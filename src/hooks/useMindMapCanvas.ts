@@ -16,6 +16,7 @@ import { toast } from "sonner";
 import { getId, HIERARCHY_TEMPLATES, PROCEDURE_TEMPLATES, type NodeTemplate } from "@/components/mindmap/mindmap-constants";
 import { autoLayout } from "@/components/mindmap/mindmap-utils";
 
+import { logger } from "@/lib/logger";
 const SNAP_THRESHOLD = 20;
 
 export function useMindMapCanvas(doc: MindMapDoc) {
@@ -248,7 +249,7 @@ export function useMindMapCanvas(doc: MindMapDoc) {
       setDirty(false);
       toast.success("Mapa sačuvana");
     } catch (err) {
-      console.error("[mindMap] save failed", err);
+      logger.error("[mindMap] save failed", err);
       toast.error("Mapa NIJE sačuvana — pokušajte ponovo.");
       throw err;
     }

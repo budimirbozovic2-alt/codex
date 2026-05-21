@@ -1,6 +1,7 @@
 import { ReviewLogEntry } from "./storage";
 import { db } from "./db";
 
+import { logger } from "@/lib/logger";
 // ═══════════════════════════════════════════════════════════
 // IN-MEMORY CACHE — populated from IDB at boot, no localStorage
 // ═══════════════════════════════════════════════════════════
@@ -39,7 +40,7 @@ export async function initMetacognitiveCache(): Promise<void> {
     _appEntry = (appEntryRow?.value as typeof _appEntry) ?? null;
     _cacheReady = true;
   } catch (err) {
-    console.warn("[metacognitive] cache init failed, using empty defaults", err);
+    logger.warn("[metacognitive] cache init failed, using empty defaults", err);
     _cacheReady = true;
   }
 }
@@ -112,7 +113,7 @@ export function loadCalibration(): CalibrationEntry[] {
 export function addCalibrationEntry(entry: CalibrationEntry) {
   _calibrationCache = [..._calibrationCache, entry];
   if (_calibrationCache.length > 2000) _calibrationCache = _calibrationCache.slice(-2000);
-  db.calibrationLog.add(entry).catch((e) => console.warn("[silent]", e));
+  db.calibrationLog.add(entry).catch((e) => logger.warn("[silent]", e));
 }
 
 // ─── Recall Latency ──────────────────────────────────────
@@ -135,7 +136,7 @@ export function loadLatency(): LatencyEntry[] {
 export function addLatencyEntry(entry: LatencyEntry) {
   _latencyCache = [..._latencyCache, entry];
   if (_latencyCache.length > 2000) _latencyCache = _latencyCache.slice(-2000);
-  db.latencyLog.add(entry).catch((e) => console.warn("[silent]", e));
+  db.latencyLog.add(entry).catch((e) => logger.warn("[silent]", e));
 }
 
 // ─── Self-analysis reminder ─────────────────────────────
@@ -180,7 +181,7 @@ export function recordAppEntry() {
   const today = new Date().toISOString().slice(0, 10);
   if (_appEntry && _appEntry.date === today) return;
   _appEntry = { date: today, time: Date.now() };
-  db.settings.put({ key: "appEntry", value: _appEntry }).catch((e) => console.warn("[silent]", e));
+  db.settings.put({ key: "appEntry", value: _appEntry }).catch((e) => logger.warn("[silent]", e));
 }
 
 export function recordFirstAction() {
@@ -191,13 +192,13 @@ export function recordFirstAction() {
 
     const slippageMs = Date.now() - _appEntry.time;
     _appEntry = { ..._appEntry, actionRecorded: true };
-    db.settings.put({ key: "appEntry", value: _appEntry }).catch((e) => console.warn("[silent]", e));
+    db.settings.put({ key: "appEntry", value: _appEntry }).catch((e) => logger.warn("[silent]", e));
 
     const slippageEntry: SlippageEntry = { date: today, appEntryTime: _appEntry.time, firstActionTime: Date.now(), slippageMs };
     _slippageCache = [..._slippageCache, slippageEntry];
-    db.slippageLog.add(slippageEntry).catch((e) => console.warn("[silent]", e));
+    db.slippageLog.add(slippageEntry).catch((e) => logger.warn("[silent]", e));
   } catch (err) {
-    console.warn("[metacognitive] recordFirstAction failed", err);
+    logger.warn("[metacognitive] recordFirstAction failed", err);
   }
 }
 
@@ -254,7 +255,7 @@ export const RESERVOIR_COLORS: Record<TimeReservoir, string> = {
 export function addActivityEntry(entry: ActivityEntry) {
   _activityCache = [..._activityCache, entry];
   if (_activityCache.length > 2000) _activityCache = _activityCache.slice(-2000);
-  db.activityLog.add(entry).catch((e) => console.warn("[silent]", e));
+  db.activityLog.add(entry).catch((e) => logger.warn("[silent]", e));
 }
 
 interface TimeDistribution {

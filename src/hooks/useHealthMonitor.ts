@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { eventBus, EVENT_TYPES } from "@/lib/event-bus";
 import {
+import { logger } from "@/lib/logger";
   buildHealthReport,
   cleanOrphans as svcCleanOrphans,
   clearCrashLog as svcClearCrashLog,
@@ -34,7 +35,7 @@ export function useHealthMonitor(): UseHealthMonitor {
       const next = await buildHealthReport();
       setReport(next);
     } catch (err) {
-      console.error("[health] refresh failed", err);
+      logger.error("[health] refresh failed", err);
     } finally {
       setLoading(false);
       setLastRefresh(new Date());
@@ -56,7 +57,7 @@ export function useHealthMonitor(): UseHealthMonitor {
       } : prev);
       eventBus.emit(EVENT_TYPES.CARDS_UPDATED, { source: "orphan-cleanup", cardIds });
     } catch (err) {
-      console.error("[health] cleanup failed", err);
+      logger.error("[health] cleanup failed", err);
       toast.error(err instanceof Error ? err.message : "Greška pri čišćenju");
     } finally {
       setCleaning(false);
@@ -78,7 +79,7 @@ export function useHealthMonitor(): UseHealthMonitor {
       });
       await refresh();
     } catch (err) {
-      console.error("[health] heal failed", err);
+      logger.error("[health] heal failed", err);
       toast.error("Greška pri čišćenju zastarjelih veza");
     } finally {
       setHealing(false);

@@ -10,6 +10,7 @@
  */
 import { db } from "./db-schema";
 
+import { logger } from "@/lib/logger";
 const MAX_RETAIN = 10_000;
 
 const LOG_TABLES = [
@@ -42,7 +43,7 @@ export async function pruneAppendOnlyLogs(): Promise<void> {
     });
   } catch (err) {
     if (import.meta.env.DEV) {
-      console.warn("[log-retention] prune failed", err);
+      logger.warn("[log-retention] prune failed", err);
     }
   }
 }

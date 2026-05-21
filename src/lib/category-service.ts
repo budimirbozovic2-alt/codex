@@ -5,6 +5,7 @@
 import { idbLoadCategories, idbSaveCategories, type CategoryRecord, type SubcategoryNode, type ChapterNode } from "@/lib/db";
 import { toast } from "sonner";
 
+import { logger } from "@/lib/logger";
 // ─── Mutex for serializing IDB writes ───────────────────
 let _pendingSave: Promise<void> = Promise.resolve();
 
@@ -32,7 +33,7 @@ export async function optimisticCategoryUpdate(
       const next = updater(fresh);
       await idbSaveCategories(next);
     } catch (e) {
-      console.error(`[${label}] IDB persist failed, rolling back`, e);
+      logger.error(`[${label}] IDB persist failed, rolling back`, e);
       // I2 fix: rollback from fresh IDB state instead of stale snapshot
       try {
         const freshFromIdb = await idbLoadCategories();

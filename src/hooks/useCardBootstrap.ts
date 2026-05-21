@@ -16,6 +16,7 @@ import { runMigrations } from "./card-bootstrap/runMigrations";
 import { loadInitialData } from "./card-bootstrap/loadInitialData";
 import { normalizeCategories } from "./card-bootstrap/normalizeCategories";
 
+import { logger } from "@/lib/logger";
 interface BootSetters {
   setCardMapState: React.Dispatch<React.SetStateAction<CardMap>>;
   setCategoryRecordsState: React.Dispatch<React.SetStateAction<CategoryRecord[]>>;
@@ -38,7 +39,7 @@ export function useCardBootstrap(setters: BootSetters) {
     const panicTimer = setTimeout(() => {
       setReady((currentReady) => {
         if (!currentReady) {
-          console.error("[boot] Panic timeout (8s)! Forsiram ready state.");
+          logger.error("[boot] Panic timeout (8s)! Forsiram ready state.");
           forceRemoveSplash();
           return true;
         }
@@ -59,7 +60,7 @@ export function useCardBootstrap(setters: BootSetters) {
         splashProgress(85, "Finalizacija…");
         markBootStep("cards:data-load-done", `${cards.length} cards`);
 
-        if (import.meta.env.DEV) console.log("[boot:diag] setting state — cards:", cards.length, "categories:", finalRecords.length);
+        if (import.meta.env.DEV) logger.log("[boot:diag] setting state — cards:", cards.length, "categories:", finalRecords.length);
         const initialMap = arrayToMap(cards);
         cardMapRef.current = initialMap; // Seed Ref-Delta mirror once at boot
         setCardMapState(initialMap);
@@ -71,7 +72,7 @@ export function useCardBootstrap(setters: BootSetters) {
         splashProgress(100, "Spremno!");
         markBootStep("cards:ready");
       } catch (error) {
-        console.error("[boot] useCards init:failed", error);
+        logger.error("[boot] useCards init:failed", error);
         markBootStep("cards:init-error", error instanceof Error ? error.message : String(error));
         splashProgress(100, "Pokretanje sa rezervnim stanjem…");
         showSplashError(error instanceof Error ? error.message : "Neočekivana greška pri učitavanju podataka.");

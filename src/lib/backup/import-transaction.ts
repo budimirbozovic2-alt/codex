@@ -34,6 +34,7 @@ import type { DisciplineEntry } from "@/lib/planner/types";
 import type { PomodoroLogEntry } from "@/lib/types/logs";
 import type { MnemonicCard, MnemonicTestLogEntry } from "@/lib/mnemonic-storage";
 
+import { logger } from "@/lib/logger";
 export type ImportStrategy = "keep" | "overwrite" | "skip" | "newer";
 
 export interface ImportTxResult {
@@ -475,7 +476,7 @@ export async function applyImportAtomically(ctx: Ctx): Promise<ImportTxResult> {
     legacyResolveReport = resolveLegacyTaxonomyNames(merged, freshCategories);
     for (const c of merged) nextMap[c.id] = c;
   } catch (err) {
-    console.warn("[applyImportAtomically] legacy taxonomy resolve failed:", err);
+    logger.warn("[applyImportAtomically] legacy taxonomy resolve failed:", err);
   }
 
   await yieldUI();

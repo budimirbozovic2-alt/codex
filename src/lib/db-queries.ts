@@ -3,6 +3,7 @@ import type { CategoryRecord } from "./db-schema";
 import { Card } from "./spaced-repetition";
 import { ReviewLogEntry } from "./types/logs";
 
+import { logger } from "@/lib/logger";
 // ─── Cards ──────────────────────────────────────────────
 
 export async function idbLoadCards(): Promise<Card[]> {
@@ -21,7 +22,7 @@ export async function idbPutCard(card: Card): Promise<void> {
   } catch (err: unknown) {
     const e = err instanceof Error ? err : new Error(String(err));
     if (e.name === "QuotaExceededError" || hasInnerQuotaError(err)) {
-      console.error("[MemoriaDB] Storage quota exceeded", err);
+      logger.error("[MemoriaDB] Storage quota exceeded", err);
       throw new Error("QUOTA_EXCEEDED");
     }
     throw err;
@@ -35,7 +36,7 @@ export async function idbBulkPutCards(cards: Card[]): Promise<void> {
   } catch (err: unknown) {
     const e = err instanceof Error ? err : new Error(String(err));
     if (e.name === "QuotaExceededError" || hasInnerQuotaError(err)) {
-      console.error("[MemoriaDB] Storage quota exceeded during bulk write", err);
+      logger.error("[MemoriaDB] Storage quota exceeded during bulk write", err);
       throw new Error("QUOTA_EXCEEDED");
     }
     throw err;
@@ -64,7 +65,7 @@ export async function idbBulkApply(
   } catch (err: unknown) {
     const e = err instanceof Error ? err : new Error(String(err));
     if (e.name === "QuotaExceededError" || hasInnerQuotaError(err)) {
-      console.error("[MemoriaDB] Storage quota exceeded during bulk apply", err);
+      logger.error("[MemoriaDB] Storage quota exceeded during bulk apply", err);
       throw new Error("QUOTA_EXCEEDED");
     }
     throw err;
@@ -134,7 +135,7 @@ async function _flushReviewLogQueue(): Promise<void> {
   try {
     await db.reviewLog.bulkAdd(batch);
   } catch (err: unknown) {
-    console.error("[reviewLog] bulk write failed", err);
+    logger.error("[reviewLog] bulk write failed", err);
     // Re-queue so we don't silently lose entries on transient failures.
     _reviewLogQueue.unshift(...batch);
     throw err;
@@ -198,7 +199,7 @@ if (import.meta.hot) {
         globalThis.__codexReviewLogVisHandler = undefined;
       }
       if (_reviewLogQueue.length > 0) void flushReviewLogQueue();
-    } catch (e) { console.warn("[reviewLog] HMR dispose failed", e); }
+    } catch (e) { logger.warn("[reviewLog] HMR dispose failed", e); }
   });
 }
 

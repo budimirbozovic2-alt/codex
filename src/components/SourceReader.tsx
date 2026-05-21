@@ -12,6 +12,7 @@ import { SourceContextMenu } from "@/components/source-reader/SourceContextMenu"
 import { SourceTooltip } from "@/components/source-reader/SourceTooltip";
 import { SmartSplitSummaryDialog } from "@/components/source-reader/SmartSplitSummaryDialog";
 
+import { logger } from "@/lib/logger";
 const AutoSplitDialog = lazy(() => import("@/components/AutoSplitDialog"));
 const LinkToExistingCardModal = lazy(() => import("@/components/LinkToExistingCardModal"));
 
@@ -72,7 +73,7 @@ export default function SourceReader({ source, onBack, onSourceUpdated }: Props)
       const current = sourceRef.current;
       const next: Source = { ...current, examQuestions, updatedAt: Date.now() };
       saveSource(next).then(() => onSourceUpdatedRef.current?.(next)).catch(err => {
-        console.error("[SourceReader] failed to persist examQuestions", err);
+        logger.error("[SourceReader] failed to persist examQuestions", err);
       });
     }, 800);
     return () => {

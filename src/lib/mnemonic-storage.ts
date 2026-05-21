@@ -2,6 +2,7 @@
 
 import { db } from "./db";
 
+import { logger } from "@/lib/logger";
 export type MnemonicStatus = "new" | "in-workshop" | "ready";
 export type HookType = "rokovi" | "nabrajanja" | "ostalo";
 export type HookMode = "video" | "acronym";
@@ -112,11 +113,11 @@ export async function migrateMnemonicsFromLocalStorageToIDB(): Promise<number> {
     localStorage.removeItem(MAJOR_SYSTEM_KEY);
     localStorage.removeItem(MNEMONIC_TEST_LOG_KEY);
 
-    if (import.meta.env.DEV) console.log(`[Migracija] Uspješno prebačeno ${transformedCards.length} mnemonika u IDB.`);
+    if (import.meta.env.DEV) logger.log(`[Migracija] Uspješno prebačeno ${transformedCards.length} mnemonika u IDB.`);
     return transformedCards.length;
 
   } catch (error) {
-    console.error("[Migracija KRITIČNO] Transakcija propala, podaci u IDB poništeni. LocalStorage ostaje netaknut.", error);
+    logger.error("[Migracija KRITIČNO] Transakcija propala, podaci u IDB poništeni. LocalStorage ostaje netaknut.", error);
     return 0;
   }
 }
@@ -130,7 +131,7 @@ export async function loadMajorSystem(): Promise<Record<number, string>> {
     records.forEach(r => { system[r.id] = r.peg; });
     return system;
   } catch (err) {
-    console.error("[mnemonic-storage] loadMajorSystem failed", err);
+    logger.error("[mnemonic-storage] loadMajorSystem failed", err);
     return DEFAULT_MAJOR_SYSTEM;
   }
 }
@@ -140,7 +141,7 @@ export async function saveMajorSystem(system: Record<number, string>): Promise<v
     const records = Object.entries(system).map(([id, peg]) => ({ id: parseInt(id, 10), peg }));
     await db.majorSystem.bulkPut(records);
   } catch (err) {
-    console.error("[mnemonic-storage] saveMajorSystem failed", err);
+    logger.error("[mnemonic-storage] saveMajorSystem failed", err);
   }
 }
 
@@ -162,7 +163,7 @@ export async function loadMnemonicCards(): Promise<MnemonicCard[]> {
   try {
     return await db.mnemonics.toArray();
   } catch (err) {
-    console.error("[mnemonic-storage] loadMnemonicCards failed", err);
+    logger.error("[mnemonic-storage] loadMnemonicCards failed", err);
     return [];
   }
 }
@@ -177,7 +178,7 @@ export async function loadMnemonicCardsByCategory(categoryId: string): Promise<M
   try {
     return await db.mnemonics.where("categoryId").equals(categoryId).toArray();
   } catch (err) {
-    console.error("[mnemonic-storage] loadMnemonicCardsByCategory failed", err);
+    logger.error("[mnemonic-storage] loadMnemonicCardsByCategory failed", err);
     return [];
   }
 }
@@ -186,7 +187,7 @@ export async function saveMnemonicCards(cards: MnemonicCard[]): Promise<void> {
   try {
     await db.mnemonics.bulkPut(cards);
   } catch (err) {
-    console.error("[mnemonic-storage] saveMnemonicCards failed", err);
+    logger.error("[mnemonic-storage] saveMnemonicCards failed", err);
   }
 }
 
@@ -194,7 +195,7 @@ export async function deleteMnemonicCard(id: string): Promise<void> {
   try {
     await db.mnemonics.delete(id);
   } catch (err) {
-    console.error("[mnemonic-storage] deleteMnemonicCard failed", err);
+    logger.error("[mnemonic-storage] deleteMnemonicCard failed", err);
   }
 }
 
@@ -261,7 +262,7 @@ export async function loadMnemonicTestLog(): Promise<MnemonicTestLogEntry[]> {
   try {
     return await db.mnemonicTestLog.toArray();
   } catch (err) {
-    console.error("[mnemonic-storage] loadMnemonicTestLog failed", err);
+    logger.error("[mnemonic-storage] loadMnemonicTestLog failed", err);
     return [];
   }
 }
@@ -270,7 +271,7 @@ export async function addMnemonicTestEntry(entry: MnemonicTestLogEntry): Promise
   try {
     await db.mnemonicTestLog.add(entry);
   } catch (err) {
-    console.error("[mnemonic-storage] addMnemonicTestEntry failed", err);
+    logger.error("[mnemonic-storage] addMnemonicTestEntry failed", err);
   }
 }
 

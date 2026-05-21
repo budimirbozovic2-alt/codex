@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 
+import { logger } from "@/lib/logger";
 /**
  * Defers a heavy computation to requestIdleCallback (or setTimeout fallback).
  * Returns `null` until the computation is complete, then returns the result.
@@ -17,7 +18,7 @@ export function useDeferredCompute<T>(compute: () => T | Promise<T>, deps: unkno
       const val = computeRef.current();
       if (val instanceof Promise) {
         val.then((resolved) => { if (!cancelled) setResult(resolved as Awaited<T>); })
-           .catch((err) => { console.warn("[useDeferredCompute] async error", err); });
+           .catch((err) => { logger.warn("[useDeferredCompute] async error", err); });
       } else {
         setResult(val as Awaited<T>);
       }

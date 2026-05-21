@@ -1,6 +1,7 @@
 import { AlertTriangle, RefreshCw, Trash2 } from "lucide-react";
 import { useState } from "react";
 
+import { logger } from "@/lib/logger";
 interface Props {
   error: { type: "version" | "timeout"; message: string };
 }
@@ -17,7 +18,7 @@ export default function DatabaseRecoveryPanel({ error }: Props) {
       const { db } = await import("@/lib/db");
       await db.delete();
     } catch (e) {
-      console.error("[DatabaseRecovery] delete failed", e);
+      logger.error("[DatabaseRecovery] delete failed", e);
     }
     window.location.reload();
   };

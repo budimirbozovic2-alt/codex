@@ -22,6 +22,7 @@ import type { CardMapRefFacade } from "@/store/useCardMapStore";
 import { cardRepository } from "@/lib/repositories/cardRepository";
 import { cardCommandBus } from "@/lib/repositories/cardCommandBus";
 
+import { logger } from "@/lib/logger";
 interface UseCardCRUDParams {
   // Kept for backward-compat with the provider wiring; unused — all writes
   // now flow through cardRepository which owns the store mutation.
@@ -129,7 +130,7 @@ export function useCardCRUD(_params: UseCardCRUDParams) {
     cardCommandBus.dispatch({ type: "delete", id: id })
       .then(() => toast.success("Kartica obrisana."))
       .catch((err: unknown) => {
-        console.error("[useCardCRUD.deleteCard] dispatch failed", err);
+        logger.error("[useCardCRUD.deleteCard] dispatch failed", err);
         toast.error("Brisanje nije uspjelo.");
       });
   }, []);

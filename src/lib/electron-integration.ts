@@ -1,5 +1,6 @@
 import { persistQueue } from "@/lib/persist-queue";
 
+import { logger } from "@/lib/logger";
 export async function setupElectronIPC() {
   if (!window.electronAPI) return;
 
@@ -97,7 +98,7 @@ export async function setupElectronIPC() {
 
       return await window.electronAPI.backupStreamFinish();
     } catch (err) {
-      console.error("Streaming backup failed", err);
+      logger.error("Streaming backup failed", err);
       if (window.electronAPI.backupStreamAbort) {
         await window.electronAPI.backupStreamAbort();
       }
@@ -111,7 +112,7 @@ export async function setupElectronIPC() {
       const data = await buildBackupData();
       await streamBackup(data);
     } catch (e) {
-      console.error("Backup failed", e);
+      logger.error("Backup failed", e);
     }
   });
 
@@ -127,7 +128,7 @@ export async function setupElectronIPC() {
         new Promise((_, reject) => setTimeout(() => reject(new Error("timeout")), 5000))
       ]);
     } catch (err) {
-      console.error("[quit-backup] failed, releasing lock:", err);
+      logger.error("[quit-backup] failed, releasing lock:", err);
     } finally {
       window.electronAPI!.notifyQuitBackupDone?.();
     }

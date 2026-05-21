@@ -14,6 +14,7 @@ import { db } from "../db";
 import type { PlannerConfig, StudyDecade, DisciplineEntry } from "./types";
 import { DEFAULT_CONFIG } from "./types";
 
+import { logger } from "@/lib/logger";
 interface DailyMappedSlot {
   date: string;
   count: number;
@@ -30,7 +31,7 @@ let _pendingWrite: Promise<void> = Promise.resolve();
 export function enqueueWrite(label: string, op: () => Promise<unknown>): void {
   _pendingWrite = _pendingWrite
     .then(() => op().then(() => undefined))
-    .catch((e: unknown) => { console.warn(`[planner:${label}]`, e); });
+    .catch((e: unknown) => { logger.warn(`[planner:${label}]`, e); });
 }
 
 // ─── Accessors (sync) ────────────────────────────────────
@@ -96,6 +97,6 @@ export async function initPlannerCache(): Promise<void> {
       _lastRedistributeDate = redistRow.value as string;
     }
   } catch (err) {
-    console.warn("[planner] cache init failed, using defaults", err);
+    logger.warn("[planner] cache init failed, using defaults", err);
   }
 }

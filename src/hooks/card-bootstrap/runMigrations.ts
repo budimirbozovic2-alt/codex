@@ -4,10 +4,11 @@ import { markBootStep } from "@/lib/boot-trace";
 import { splashProgress } from "./splash";
 import { withTimeout } from "./withTimeout";
 
+import { logger } from "@/lib/logger";
 export async function runMigrations(): Promise<void> {
   markBootStep("cards:migration-start");
   splashProgress(10, "Migracija podataka…");
-  if (import.meta.env.DEV) console.log("[boot:diag] step 2: migrateFromLocalStorage");
+  if (import.meta.env.DEV) logger.log("[boot:diag] step 2: migrateFromLocalStorage");
   await withTimeout(migrateFromLocalStorage(), 3000, "migration", undefined);
 
   // Mnemonics migration (localStorage -> IDB)
@@ -19,9 +20,9 @@ export async function runMigrations(): Promise<void> {
     const { healCardTaxonomy } = await import("@/lib/migrations/heal-card-taxonomy");
     const report = await withTimeout(healCardTaxonomy(), 3000, "taxonomy heal", null);
     if (report && !report.skipped && (report.staleSubcategoryReset + report.staleChapterReset + report.mismatchChapterReset) > 0) {
-      console.info("[boot] taxonomy healed", report);
+      logger.info("[boot] taxonomy healed", report);
     }
-  } catch (e) { console.warn("[boot] taxonomy heal skipped", e); }
+  } catch (e) { logger.warn("[boot] taxonomy heal skipped", e); }
 
   markBootStep("cards:migration-done");
 

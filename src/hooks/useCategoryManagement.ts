@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { optimisticCategoryUpdate } from "@/lib/category-service";
 import { stableLegacyId } from "@/lib/stable-id";
 
+import { logger } from "@/lib/logger";
 interface UseCategoryManagementParams {
   setCategoryRecords: React.Dispatch<React.SetStateAction<CategoryRecord[]>>;
   setCardMapState: React.Dispatch<React.SetStateAction<CardMap>>;
@@ -135,7 +136,7 @@ export function useCategoryManagement({
 
           invalidateSourcesCache();
         } catch (err) {
-          console.error("[deleteCategory] cascade failed", err);
+          logger.error("[deleteCategory] cascade failed", err);
           toast.error("Greška pri brisanju kategorije", { description: "Pokušajte ponovo." });
         }
       })();

@@ -8,6 +8,7 @@ import { eventBus, EVENT_TYPES } from "@/lib/event-bus";
 import { iterateWikiLinks, normalizeKey } from "@/lib/zettelkasten-wiki-link";
 import { useLatestRef } from "@/hooks/useLatestRef";
 
+import { logger } from "@/lib/logger";
 /**
  * Auto-creates placeholder articles for new `[[Wiki Links]]` typed inside
  * the active draft. Extracted out of `ZettelkastenView` to keep that
@@ -132,7 +133,7 @@ export function useWikiLinkAutoCreate({
     if (overflow) {
       if (lastOverflowNotifiedRef.current !== pendingAll.length) {
         lastOverflowNotifiedRef.current = pendingAll.length;
-        console.warn(
+        logger.warn(
           `[zettelkasten] Wiki-link batch capped: ${pendingAll.length} candidates → processing ${WIKI_LINK_BATCH_CAP} this tick.`,
         );
         toast.warning(

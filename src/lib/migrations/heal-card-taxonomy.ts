@@ -1,5 +1,6 @@
 import { db } from "@/lib/db";
 
+import { logger } from "@/lib/logger";
 const FLAG_KEY = "taxonomy-healed-v1";
 
 export interface HealReport {
@@ -107,7 +108,7 @@ export async function healCardTaxonomy(force = false): Promise<HealReport> {
       skipped: false,
     };
   } catch (err) {
-    console.error("[heal-card-taxonomy] failed", err);
+    logger.error("[heal-card-taxonomy] failed", err);
     return empty;
   }
 }

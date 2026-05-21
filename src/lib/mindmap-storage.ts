@@ -1,5 +1,6 @@
 import { db, MindMapDoc } from "./db";
 
+import { logger } from "@/lib/logger";
 // ── In-memory cache (parnjak sources-storage.ts) ──
 let _cache: MindMapDoc[] | null = null;
 
@@ -39,7 +40,7 @@ export async function saveMindMap(doc: MindMapDoc): Promise<void> {
   try {
     await db.mindMaps.put(doc);
   } catch (err) {
-    console.error("[mindmap-storage] saveMindMap failed", err);
+    logger.error("[mindmap-storage] saveMindMap failed", err);
     throw err;
   }
   _cache = null;

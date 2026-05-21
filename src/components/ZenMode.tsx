@@ -9,6 +9,7 @@ import { addPomodoroEntry, getPomodoroStats } from "@/lib/storage";
 import { loadAppSettings } from "@/lib/app-settings";
 import { cn } from "@/lib/utils";
 
+import { logger } from "@/lib/logger";
 type TimerPhase = "focus" | "break" | "longBreak";
 
 interface Props {
@@ -40,9 +41,9 @@ export default function ZenMode({ active, onToggle }: Props) {
 
   useEffect(() => {
     if (active) {
-      document.documentElement.requestFullscreen?.().catch((e) => console.warn("[fullscreen]", e));
+      document.documentElement.requestFullscreen?.().catch((e) => logger.warn("[fullscreen]", e));
     } else {
-      if (document.fullscreenElement) document.exitFullscreen?.().catch((e) => console.warn("[fullscreen]", e));
+      if (document.fullscreenElement) document.exitFullscreen?.().catch((e) => logger.warn("[fullscreen]", e));
       setTimerRunning(false);
       if (isAmbientPlaying()) { stopAmbient(); setNoiseOn(false); }
     }

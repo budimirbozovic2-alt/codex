@@ -3,6 +3,7 @@ import type { CategoryRecord, SubcategoryNode } from "@/lib/db";
 import type { Card, FrequencyTag, CardSourceType } from "@/lib/spaced-repetition";
 import type { FormWidth } from "./validation";
 
+import { logger } from "@/lib/logger";
 interface Props {
   categories: string[];
   categoryRecords?: CategoryRecord[];
@@ -52,7 +53,7 @@ export function useCardMetadata({ categories, categoryRecords, editCard }: Props
     const nodes: SubcategoryNode[] = [];
     for (const s of rawNodes) {
       if (typeof s === "string") {
-        if (import.meta.env.DEV) console.warn("[useCardMetadata] legacy string subcategory:", s);
+        if (import.meta.env.DEV) logger.warn("[useCardMetadata] legacy string subcategory:", s);
         continue;
       }
       nodes.push(s as SubcategoryNode);
@@ -62,7 +63,7 @@ export function useCardMetadata({ categories, categoryRecords, editCard }: Props
     const result: { id: string; name: string }[] = [];
     for (const ch of (node.chapters || []) as unknown[]) {
       if (typeof ch === "string") {
-        if (import.meta.env.DEV) console.warn("[useCardMetadata] legacy string chapter:", ch);
+        if (import.meta.env.DEV) logger.warn("[useCardMetadata] legacy string chapter:", ch);
         continue;
       }
       const c = ch as { id: string; name: string };

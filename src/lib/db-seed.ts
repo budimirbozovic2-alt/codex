@@ -1,5 +1,6 @@
 import { db, type CategoryRecord } from "./db-schema";
 
+import { logger } from "@/lib/logger";
 // ─── Default Categories ─────────────────────────────────
 
 export const DEFAULT_CATEGORIES: { name: string; color?: string }[] = [
@@ -34,7 +35,7 @@ export async function seedDefaultCategories(): Promise<CategoryRecord[]> {
   }
   const defaults = createDefaultCategories();
   await db.categories.bulkPut(defaults);
-  if (import.meta.env.DEV) console.log(`[MemoriaDB] Seeded ${defaults.length} default categories`);
+  if (import.meta.env.DEV) logger.log(`[MemoriaDB] Seeded ${defaults.length} default categories`);
   return defaults;
 }
 

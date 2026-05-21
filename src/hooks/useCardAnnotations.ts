@@ -15,6 +15,7 @@ import { reviewLogRepository } from "@/lib/repositories/reviewLogRepository";
 import { cardCommandBus } from "@/lib/repositories/cardCommandBus";
 import { getExaminerProfileSync } from "@/lib/examiner-profile-cache";
 
+import { logger } from "@/lib/logger";
 interface UseCardAnnotationsParams {
   patchCard: (id: string, patcher: (card: Card) => Card) => void;
   setCardMapState: React.Dispatch<React.SetStateAction<CardMap>>;
@@ -75,7 +76,7 @@ export function useCardAnnotations({
       // Batched + debounced (250 ms) inside idbAddReviewLogEntry to avoid IDB queue floods.
       try { reviewLogRepository.append(entry); }
       catch (err) {
-        console.error("[reviewSection] log enqueue failed", err);
+        logger.error("[reviewSection] log enqueue failed", err);
         void import("sonner").then(({ toast }) => toast.error("Memorija puna, istorija učenja se ne čuva!"));
       }
       // G1 fix: cap in-memory reviewLog to prevent unbounded growth

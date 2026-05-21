@@ -24,6 +24,7 @@ import { sameStringSet } from "@/lib/struct-eq";
 import { eventBus, EVENT_TYPES } from "@/lib/event-bus";
 import type { ZettelEditorHandle } from "@/components/zettelkasten/ZettelEditor";
 
+import { logger } from "@/lib/logger";
 export interface Draft {
   title: string;
   content: string;
@@ -105,7 +106,7 @@ export function useArticleDraft({ activeId, categoryId, setArticles }: Input): A
     try {
       await saveArticle(next);
     } catch (err) {
-      console.error("[zettelkasten] saveArticle failed", err);
+      logger.error("[zettelkasten] saveArticle failed", err);
       toast.error("Članak NIJE sačuvan. Kopirajte tekst prije navigacije.");
       return null;
     }

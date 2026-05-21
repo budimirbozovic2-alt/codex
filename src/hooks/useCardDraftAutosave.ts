@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import type { SectionInput, CardType } from "./useCardActions";
 import type { FrequencyTag, CardSourceType } from "@/lib/spaced-repetition";
 
+import { logger } from "@/lib/logger";
 /**
  * Snapshot of in-progress card form state, persisted to LocalStorage so a tab
  * close, refresh, or crash never destroys minutes of typing on essay cards.
@@ -65,7 +66,7 @@ export function useCardDraftAutosave(
       localStorage.setItem(draftKey, JSON.stringify(payload));
     } catch (err) {
       // Quota exceeded or storage unavailable — fail silently in autosave.
-      if (import.meta.env.DEV) console.warn("[useCardDraftAutosave] flush failed", err);
+      if (import.meta.env.DEV) logger.warn("[useCardDraftAutosave] flush failed", err);
     }
   }, [draftKey, enabled]);
 

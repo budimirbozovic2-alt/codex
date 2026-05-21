@@ -15,6 +15,7 @@ import {
 } from "@/lib/auto-split/import-planner";
 import { executeImportPlan } from "@/lib/services/autoSplitImportService";
 
+import { logger } from "@/lib/logger";
 export type AutoSplitPhase = "preview" | "importing" | "done";
 
 interface RowsState { rows: ArticleRow[] }
@@ -137,7 +138,7 @@ export function useAutoSplitImport(open: boolean, source: Source) {
       onProgress: setProgress,
     });
     if (import.meta.env.DEV) {
-      console.log(
+      logger.log(
         `[AutoSplit] created=${result.created} updated=${result.updated} idbTotal=${result.idbCount}`,
       );
     }

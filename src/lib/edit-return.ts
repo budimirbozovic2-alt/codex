@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 /**
  * Edit-return context: when a card-edit is initiated from any view, the source
  * stashes (a) the absolute path to navigate back to and (b) an optional UI
@@ -49,7 +50,7 @@ export function setEditReturn(ctx: { path: string }): void {
     const payload: StoredContext = { path: ctx.path, ts: Date.now() };
     sessionStorage.setItem(PATH_KEY, JSON.stringify(payload));
   } catch (e) {
-    console.debug("[edit-return] setEditReturn failed", e);
+    logger.debug("[edit-return] setEditReturn failed", e);
   }
 }
 
@@ -63,7 +64,7 @@ export function consumeEditReturn(): { path: string } | null {
     if (Date.now() - parsed.ts > STALE_MS) return null;
     return { path: parsed.path };
   } catch (e) {
-    console.debug("[edit-return] consumeEditReturn failed", e);
+    logger.debug("[edit-return] consumeEditReturn failed", e);
     return null;
   }
 }
@@ -73,7 +74,7 @@ export function stashEditReturnState<T>(state: T): void {
     const payload: StoredState<T> = { data: state, ts: Date.now() };
     sessionStorage.setItem(STATE_KEY, JSON.stringify(payload));
   } catch (e) {
-    console.debug("[edit-return] stashEditReturnState failed", e);
+    logger.debug("[edit-return] stashEditReturnState failed", e);
   }
 }
 
@@ -96,7 +97,7 @@ export function consumeEditReturnState<T = unknown>(
     if (validate && !validate(parsed.data)) return null;
     return parsed.data;
   } catch (e) {
-    console.debug("[edit-return] consumeEditReturnState failed", e);
+    logger.debug("[edit-return] consumeEditReturnState failed", e);
     return null;
   }
 }

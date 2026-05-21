@@ -1,6 +1,7 @@
 import { db, type Source } from "./db";
 import { parseArticles } from "./article-parser";
 
+import { logger } from "@/lib/logger";
 export type { Source };
 
 /** Confirm a card's review flag (clear needsReview) — delegates to listener (SSoT) */
@@ -70,7 +71,7 @@ export async function saveSource(source: Source): Promise<void> {
   try {
     await db.sources.put(source);
   } catch (err) {
-    console.error("[sources-storage] saveSource failed", err);
+    logger.error("[sources-storage] saveSource failed", err);
     throw err;
   }
   _cache = null;

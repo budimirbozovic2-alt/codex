@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 /**
  * Per-subject algorithm overrides.
  *
@@ -61,7 +62,7 @@ export async function initSubjectSettingsCache(): Promise<void> {
       }
     }
   } catch (err) {
-    console.warn("[subject-settings] IDB hydrate failed; falling back to localStorage", err);
+    logger.warn("[subject-settings] IDB hydrate failed; falling back to localStorage", err);
   }
 }
 
@@ -86,7 +87,7 @@ export function saveSubjectSettings(categoryId: string, settings: SubjectSetting
   // IDB is canonical and is the source for backups + restore.
   import("./db").then(({ db }) => {
     db.settings.put({ key: PREFIX + categoryId, value: settings })
-      .catch((err) => console.warn("[subject-settings] IDB put failed", err));
+      .catch((err) => logger.warn("[subject-settings] IDB put failed", err));
   }).catch(() => {});
 }
 
@@ -95,7 +96,7 @@ export function clearSubjectSettings(categoryId: string): void {
   try { localStorage.removeItem(PREFIX + categoryId); } catch { /* noop */ }
   import("./db").then(({ db }) => {
     db.settings.delete(PREFIX + categoryId)
-      .catch((err) => console.warn("[subject-settings] IDB delete failed", err));
+      .catch((err) => logger.warn("[subject-settings] IDB delete failed", err));
   }).catch(() => {});
 }
 

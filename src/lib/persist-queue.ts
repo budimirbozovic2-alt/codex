@@ -2,6 +2,7 @@ import { toast } from "sonner";
 import { Card } from "@/lib/spaced-repetition";
 import { idbBulkApply } from "@/lib/db";
 
+import { logger } from "@/lib/logger";
 // ─── Internal Map type for O(1) access ──────────────────
 export type CardMap = Record<string, Card>;
 
@@ -51,7 +52,7 @@ function createPersistQueue() {
     queueMicrotask(() => {
       notifyScheduled = false;
       for (const l of listeners) {
-        try { l(); } catch (e) { console.warn("[persistQueue] listener threw", e); }
+        try { l(); } catch (e) { logger.warn("[persistQueue] listener threw", e); }
       }
     });
   }
@@ -63,14 +64,14 @@ function createPersistQueue() {
   function enqueue(action: PersistAction) {
     if (action.type === "put") {
       if (import.meta.env.DEV && pendingDeletes.has(action.card.id)) {
-        console.warn("[persistQueue] put after pending delete for id", action.card.id);
+        logger.warn("[persistQueue] put after pending delete for id", action.card.id);
       }
       if (import.meta.env.DEV) {
         const prev = pendingPuts.get(action.card.id);
         const prevTs = prev?.updatedAt ?? 0;
         const nextTs = action.card.updatedAt ?? 0;
         if (prev && nextTs < prevTs) {
-          console.warn(
+          logger.warn(
             "[persistQueue] enqueue replacing newer put with older for id",
             action.card.id, { prevTs, nextTs },
           );
@@ -80,14 +81,14 @@ function createPersistQueue() {
       pendingPuts.set(action.card.id, action.card);
     } else if (action.type === "delete") {
       if (import.meta.env.DEV && pendingPuts.has(action.id)) {
-        console.warn("[persistQueue] delete cancelling pending put for id", action.id);
+        logger.warn("[persistQueue] delete cancelling pending put for id", action.id);
       }
       pendingPuts.delete(action.id);
       pendingDeletes.add(action.id);
     } else {
       for (const c of action.cards) {
         if (import.meta.env.DEV && pendingDeletes.has(c.id)) {
-          console.warn("[persistQueue] bulk put after pending delete for id", c.id);
+          logger.warn("[persistQueue] bulk put after pending delete for id", c.id);
         }
         pendingDeletes.delete(c.id);
         pendingPuts.set(c.id, c);
@@ -123,7 +124,7 @@ function createPersistQueue() {
       try { sessionStorage.removeItem("codex-flush-pending"); } catch { /* noop */ }
       if (import.meta.env.DEV) {
         const dur = (performance.now() - t0).toFixed(1);
-        console.debug(`[persistQueue] flush ok puts=${puts.length} deletes=${deletes.length} ${dur}ms`);
+        logger.debug(`[persistQueue] flush ok puts=${puts.length} deletes=${deletes.length} ${dur}ms`);
       }
     } catch (err: unknown) {
       const e = err instanceof Error ? err : new Error(String(err));
@@ -145,7 +146,7 @@ function createPersistQueue() {
         return;
       }
 
-      console.error(`[persistQueue] flush failed (attempt ${_retryAttempt + 1}/${MAX_RETRY})`, err);
+      logger.error(`[persistQueue] flush failed (attempt ${_retryAttempt + 1}/${MAX_RETRY})`, err);
       if (_retryAttempt < MAX_RETRY) {
         const delay = 200 * Math.pow(2, _retryAttempt);
         _retryAttempt++;
@@ -220,7 +221,7 @@ if (import.meta.hot) {
         globalThis.__codexPersistVisHandler = undefined;
       }
       if (persistQueue.hasPending()) persistQueue.flush();
-    } catch (e) { console.warn("[persistQueue] HMR dispose failed", e); }
+    } catch (e) { logger.warn("[persistQueue] HMR dispose failed", e); }
   });
 }
 
@@ -228,7 +229,7 @@ if (import.meta.hot) {
 export function checkInterruptedFlush(): void {
   try {
     if (sessionStorage.getItem("codex-flush-pending") === "1") {
-      console.warn("[boot] Previous session had interrupted writes — data may be stale");
+      logger.warn("[boot] Previous session had interrupted writes — data may be stale");
       sessionStorage.removeItem("codex-flush-pending");
     }
   } catch { /* noop */ }

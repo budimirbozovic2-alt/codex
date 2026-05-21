@@ -3,6 +3,7 @@ import { useState, useCallback, useRef, ReactNode } from "react";
 
 import { motion, AnimatePresence } from "framer-motion";
 import { Skeleton } from "@/components/ui/skeleton";
+import { logger } from "@/lib/logger";
 interface Props<T> {
   /** Label shown in the header */
   label: string;
@@ -37,7 +38,7 @@ export default function LazyChart<T>({ label, icon, compute, children, delay = 0
       setData(result);
       setComputed(true);
     } catch (err) {
-      console.error("[LazyChart] compute failed", err);
+      logger.error("[LazyChart] compute failed", err);
     } finally {
       setLoading(false);
     }

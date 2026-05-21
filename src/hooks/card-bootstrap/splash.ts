@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 /**
  * Splash screen DOM helpers — purely presentational.
  * All `document.getElementById("splash-*")` access lives here.
@@ -10,7 +11,7 @@ export function splashProgress(pct: number, label: string) {
     if (bar) bar.style.width = `${pct}%`;
     if (status) status.textContent = label;
     if (percent) percent.textContent = `${pct}%`;
-  } catch (e) { console.warn("[boot] splashProgress DOM error", e); }
+  } catch (e) { logger.warn("[boot] splashProgress DOM error", e); }
 }
 
 export function showSplashError(msg: string) {
@@ -19,7 +20,7 @@ export function showSplashError(msg: string) {
     const msgEl = document.getElementById("splash-error-msg");
     if (el) el.style.display = "block";
     if (msgEl) msgEl.textContent = msg;
-  } catch (e) { console.warn("[boot] showSplashError DOM error", e); }
+  } catch (e) { logger.warn("[boot] showSplashError DOM error", e); }
 }
 
 export function cleanupSplash() {
@@ -28,17 +29,17 @@ export function cleanupSplash() {
     if (splash) {
       splash.style.opacity = "0";
       setTimeout(() => {
-        try { if (splash.parentNode) splash.remove(); } catch (e) { console.warn("[boot] splash remove failed", e); }
+        try { if (splash.parentNode) splash.remove(); } catch (e) { logger.warn("[boot] splash remove failed", e); }
       }, 500);
     }
-  } catch (e) { console.warn("[boot] splash cleanup failed", e); }
+  } catch (e) { logger.warn("[boot] splash cleanup failed", e); }
 }
 
 export function forceRemoveSplash() {
   try {
     const splash = document.getElementById("app-splash");
     if (splash) splash.remove();
-  } catch (e) { console.warn("[boot] splash cleanup failed", e); }
+  } catch (e) { logger.warn("[boot] splash cleanup failed", e); }
 }
 
 export function notifyElectronReady() {
@@ -46,5 +47,5 @@ export function notifyElectronReady() {
     if (window.electronAPI?.notifyReady) {
       window.electronAPI.notifyReady();
     }
-  } catch (e) { console.warn("[boot] notifyReady failed", e); }
+  } catch (e) { logger.warn("[boot] notifyReady failed", e); }
 }

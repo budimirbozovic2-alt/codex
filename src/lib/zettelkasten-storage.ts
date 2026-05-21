@@ -2,6 +2,7 @@ import { db, type KnowledgeBaseArticle } from "./db";
 import { assertTagsNormalized } from "./zettelkasten-tags";
 import { assertAliasesNormalized } from "./zettelkasten-aliases";
 
+import { logger } from "@/lib/logger";
 export type { KnowledgeBaseArticle };
 
 export async function loadArticlesBySubject(subjectId: string): Promise<KnowledgeBaseArticle[]> {
@@ -54,7 +55,7 @@ export async function saveArticle(article: KnowledgeBaseArticle): Promise<void> 
   try {
     await db.knowledgeBaseArticles.put({ ...article, updatedAt: Date.now() });
   } catch (err) {
-    console.error("[zettelkasten-storage] saveArticle failed", err);
+    logger.error("[zettelkasten-storage] saveArticle failed", err);
     throw err;
   }
 }

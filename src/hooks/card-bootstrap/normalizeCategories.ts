@@ -2,6 +2,7 @@ import { db, type CategoryRecord, type SubcategoryNode, type ChapterNode } from 
 import { Card } from "@/lib/spaced-repetition";
 import { stableLegacyId } from "@/lib/stable-id";
 
+import { logger } from "@/lib/logger";
 /**
  * Normalizes legacy `string[]` subcategories into `SubcategoryNode[]`,
  * synthesizes fallback nodes for orphaned cards, prunes phantom UUID-named
@@ -66,12 +67,12 @@ export async function normalizeCategories(
         nodes.push(node);
         nodeMap.set(sub, node);
         needsPersist = true;
-        if (import.meta.env.DEV) console.log(`[boot] fallback SubcategoryNode created: "${sub}" in category ${r.name}`);
+        if (import.meta.env.DEV) logger.log(`[boot] fallback SubcategoryNode created: "${sub}" in category ${r.name}`);
       }
       if (ch && !node.chapters.some(c => c.id === ch)) {
         node.chapters.push({ id: ch, name: ch, sortOrder: node.chapters.length });
         needsPersist = true;
-        if (import.meta.env.DEV) console.log(`[boot] fallback chapter registered: "${ch}" under "${sub}" in ${r.name}`);
+        if (import.meta.env.DEV) logger.log(`[boot] fallback chapter registered: "${ch}" under "${sub}" in ${r.name}`);
       }
     }
 
@@ -81,7 +82,7 @@ export async function normalizeCategories(
     nodes = nodes.filter(n => {
       if (!uuidPattern.test(n.name)) return true;
       if (cardSubIds.has(n.id)) return true;
-      if (import.meta.env.DEV) console.log(`[boot] removing phantom subcategory: "${n.name}" from ${r.name}`);
+      if (import.meta.env.DEV) logger.log(`[boot] removing phantom subcategory: "${n.name}" from ${r.name}`);
       needsPersist = true;
       return false;
     });
@@ -90,7 +91,7 @@ export async function normalizeCategories(
       n.chapters = n.chapters.filter(ch => {
         if (!uuidPattern.test(ch.name)) return true;
         if (cardChapIds.has(ch.id)) return true;
-        if (import.meta.env.DEV) console.log(`[boot] removing phantom chapter: "${ch.name}" from ${n.name}`);
+        if (import.meta.env.DEV) logger.log(`[boot] removing phantom chapter: "${ch.name}" from ${n.name}`);
         needsPersist = true;
         return false;
       });
@@ -110,7 +111,7 @@ export async function normalizeCategories(
       );
     } catch (err: unknown) {
       const e = err instanceof Error ? err : new Error(String(err));
-      console.error("[boot] KRITIČNO: Neuspješan upis normalizovanih kategorija", e.message);
+      logger.error("[boot] KRITIČNO: Neuspješan upis normalizovanih kategorija", e.message);
       // Bacamo grešku koju će Bootloader uhvatiti i prikazati Panic Screen
       throw new Error(`Greška pri migraciji baze podataka: ${e.message}`);
     }

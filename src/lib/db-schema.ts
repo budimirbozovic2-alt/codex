@@ -116,6 +116,7 @@ export interface MindMapNodeData {
 // `as any` casts at the IDB boundary.
 import type { CSSProperties, ReactNode } from "react";
 
+import { logger } from "@/lib/logger";
 export interface MindMapNodeRecord {
   id: string;
   type?: string;
@@ -286,7 +287,7 @@ function emitBlockedThrottled() {
 
 // Register blocked handler ONCE at module level
 db.on("blocked", () => {
-  console.warn("[MemoriaDB] DB open blocked by another connection");
+  logger.warn("[MemoriaDB] DB open blocked by another connection");
   emitBlockedThrottled();
   for (const r of _blockedRejecters) {
     try { r(new Error("DB_BLOCKED")); } catch { /* noop */ }
@@ -295,7 +296,7 @@ db.on("blocked", () => {
 });
 
 db.on("versionchange", () => {
-  console.warn("[MemoriaDB] Another tab is trying to upgrade the database. Closing connection.");
+  logger.warn("[MemoriaDB] Another tab is trying to upgrade the database. Closing connection.");
   emitBlockedThrottled();
   db.close();
 });
@@ -326,7 +327,7 @@ export function startUnblockWatch() {
       return;
     }
     if (dbErrorState.type === "timeout" && _getTabCount() <= 1) {
-      if (import.meta.env.DEV) console.log("[MemoriaDB] Only one tab remains, clearing blocked state...");
+      if (import.meta.env.DEV) logger.log("[MemoriaDB] Only one tab remains, clearing blocked state...");
       setDbErrorState(null);
       _emit(EVENT_TYPES.DB_UNBLOCKED);
       clearInterval(unblockIntervalId!);
@@ -363,15 +364,15 @@ export async function ensureDbOpen(timeoutMs = 6000): Promise<boolean> {
       clearTimeout(timer);
       if (rejecter) _blockedRejecters.delete(rejecter);
       const e = err instanceof Error ? err : new Error(String(err));
-      console.error("[MemoriaDB] open failed:", e.name, e.message);
+      logger.error("[MemoriaDB] open failed:", e.name, e.message);
 
       if (e.name === "VersionError" || e.name === "UpgradeError") {
-        console.warn("[MemoriaDB] Schema mismatch — executing Clean Slate reset");
+        logger.warn("[MemoriaDB] Schema mismatch — executing Clean Slate reset");
         try {
           await Dexie.delete("MemoriaDB");
           return false;
         } catch (delErr) {
-          console.error("[MemoriaDB] Failed to delete DB for reset", delErr);
+          logger.error("[MemoriaDB] Failed to delete DB for reset", delErr);
           setDbErrorState({ type: "version", message: e.message });
           startUnblockWatch();
           return false;
@@ -387,7 +388,7 @@ export async function ensureDbOpen(timeoutMs = 6000): Promise<boolean> {
         setTimeout(() => {
           if (dbErrorState?.type === "timeout" && !reloadScheduled) {
             reloadScheduled = true;
-            console.log("[MemoriaDB] Blocked timeout (30s), reloading...");
+            logger.log("[MemoriaDB] Blocked timeout (30s), reloading...");
             window.location.reload();
           }
         }, 30000);

@@ -12,6 +12,7 @@ import { applyImportAtomically, type ImportStrategy } from "@/lib/backup/import-
 import { parseJsonInWorker } from "@/lib/zip-service";
 import { clearReviewSession } from "@/lib/review-session-storage";
 
+import { logger } from "@/lib/logger";
 export type ImportProgress = (pct: number, label: string) => void;
 
 interface UseCardImportDeps {
@@ -105,7 +106,7 @@ export function useCardImport({
         } catch (err) {
           if (err instanceof BackupVersionError) toast.error(err.message);
           else toast.error("Migracija backupa nije uspjela.");
-          console.error("[useCardImport] migrate failed", err);
+          logger.error("[useCardImport] migrate failed", err);
           return;
         }
 

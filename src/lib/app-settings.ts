@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 const APP_SETTINGS_KEY = "sr-app-settings";
 
 export type ColorTheme = "amber" | "slate" | "forest" | "ocean" | "rose" | "midnight";
@@ -96,7 +97,7 @@ export function saveAppSettings(settings: AppSettings): void {
   const json = JSON.stringify(settings);
   // Primary: IDB (canonical source)
   import("./db").then(({ db }) => {
-    db.settings.put({ key: "appSettings", value: settings }).catch((e) => console.warn("[settings] IDB write failed", e));
+    db.settings.put({ key: "appSettings", value: settings }).catch((e) => logger.warn("[settings] IDB write failed", e));
   }).catch(() => {});
   // Mirror to localStorage for fast sync reads (cache, not source of truth)
   try { localStorage.setItem(APP_SETTINGS_KEY, json); } catch {}

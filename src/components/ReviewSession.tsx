@@ -9,6 +9,7 @@ import ReviewCard from "./review/ReviewCard";
 import ReviewComplete from "./review/ReviewComplete";
 import { REVIEW_SESSION_KEY as SESSION_KEY } from "@/lib/review-session-storage";
 
+import { logger } from "@/lib/logger";
 interface SavedSessionState {
   mode: ReviewMode;
   randomIndex: number;
@@ -38,7 +39,7 @@ export default function ReviewSession({ dueCards, allCards, categoryRecords, srS
             await idbSaveSettings(SESSION_KEY, state);
             localStorage.removeItem(SESSION_KEY);
           }
-        } catch (e) { console.debug("[ReviewSession] session restore failed", e); }
+        } catch (e) { logger.debug("[ReviewSession] session restore failed", e); }
       }
       if (
         state && typeof state === "object" &&

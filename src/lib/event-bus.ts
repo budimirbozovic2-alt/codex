@@ -11,6 +11,7 @@
  */
 
 import { EVENT_TYPES, type EventType, type EventMessage } from "./event-bus-types";
+import { logger } from "@/lib/logger";
 export { EVENT_TYPES, type EventType, type EventMessage } from "./event-bus-types";
 
 // Generišemo jedinstveni ID za trenutni tab/prozor (stabilan kroz HMR
@@ -95,10 +96,10 @@ class EventBus {
         }, 5000);
 
       } else {
-        console.warn("[EventBus] BroadcastChannel nije podržan u ovom pregledaču. Sinhronizacija između tabova neće raditi.");
+        logger.warn("[EventBus] BroadcastChannel nije podržan u ovom pregledaču. Sinhronizacija između tabova neće raditi.");
       }
     } catch (err) {
-      console.error("[EventBus] Greška pri inicijalizaciji:", err);
+      logger.error("[EventBus] Greška pri inicijalizaciji:", err);
     }
   }
 
@@ -172,7 +173,7 @@ class EventBus {
     try {
       this.channel?.postMessage(message);
     } catch (err) {
-      console.error(`[EventBus] Greška pri slanju poruke (${type}):`, err);
+      logger.error(`[EventBus] Greška pri slanju poruke (${type}):`, err);
     }
 
     // Obavesti lokalne listenere u trenutnom tabu
@@ -201,7 +202,7 @@ class EventBus {
         try {
           callback(message.payload);
         } catch (err) {
-          console.error(`[EventBus] Greška u listeneru za ${message.type}:`, err);
+          logger.error(`[EventBus] Greška u listeneru za ${message.type}:`, err);
         }
       });
     }
@@ -216,6 +217,6 @@ export const eventBus: EventBus =
 // HMR cleanup — perform a soft reset (preserves singleton identity).
 if (import.meta.hot) {
   import.meta.hot.dispose(() => {
-    try { eventBus._softReset(); } catch (e) { console.warn("[EventBus] HMR softReset failed", e); }
+    try { eventBus._softReset(); } catch (e) { logger.warn("[EventBus] HMR softReset failed", e); }
   });
 }
