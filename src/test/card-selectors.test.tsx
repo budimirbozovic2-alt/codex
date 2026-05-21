@@ -1,11 +1,13 @@
 // Phase 1 — selector behavior + stable-reference guarantee.
+// Tests target the RAM exports directly so Phase 2's IDB-routing façade does
+// not require fake-indexeddb here. Façade routing is covered separately.
 import { describe, it, expect, beforeEach } from "vitest";
 import { renderHook, act } from "@testing-library/react";
 import {
-  useCardsByCategory,
-  useCardsBySubcategory,
-  useCardsByChapter,
-  useCardCountByCategory,
+  useCardsByCategoryRam as useCardsByCategory,
+  useCardsBySubcategoryRam as useCardsBySubcategory,
+  useCardsByChapterRam as useCardsByChapter,
+  useCardCountByCategoryRam as useCardCountByCategory,
 } from "@/store/useCardSelectors";
 import { cardMapStore } from "@/store/useCardMapStore";
 import type { Card } from "@/lib/spaced-repetition";

@@ -1,22 +1,40 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// Phase 1 — Granular RAM selectors over `cardMapStore`.
+// Phase 1 + Phase 2 — Granular card selectors.
 //
-// Each hook subscribes directly to the store and returns a STABLE array
-// reference. A new array is only allocated when:
-//   • the matched set's length changes, OR
-//   • any matched card object identity changes
+// Phase 1 shipped RAM-only selectors over `cardMapStore`. Phase 2 adds Dexie
+// liveQuery siblings in `useCardSelectorsFromDb.ts` and routes both through a
+// hybrid façade controlled by the `USE_DB_LIVE_SELECTORS` flag.
 //
-// View code that previously did `useCardData().cards.filter(...)` should
-// migrate to these. Behavior is identical (same RAM source, same data) but
-// re-render cost drops from "every card mutation anywhere" to "mutations
-// inside the matched set only".
+//   ┌── caller (View component) ─────────────────────────────────────┐
+//   │  useCardsByCategory(id)   ← FAÇADE (this file)                 │
+//   │       │                                                         │
+//   │       ├── useCardsByCategoryRam(id)   (cardMapStore subscriber) │
+//   │       └── useCardsByCategoryFromDb(id) (Dexie liveQuery)        │
+//   │                                                                 │
+//   │  Both hooks always run (stable hook order). Return value is     │
+//   │  chosen by `isFeatureEnabled("USE_DB_LIVE_SELECTORS")`, which   │
+//   │  is snapshot-stable for the session. In DEV, divergences are    │
+//   │  diffed and logged once per (selector, key) to surface drift    │
+//   │  during the dual-read validation window.                        │
+//   └─────────────────────────────────────────────────────────────────┘
 //
-// Phase 2 will add Dexie-backed `*FromDb` variants behind a feature flag.
+// Rules of Hooks: the flag is read ONCE per session (snapshot in
+// `feature-flags.ts`), so the conditional return below is safe — hook order
+// across renders is stable.
 // ─────────────────────────────────────────────────────────────────────────────
-import { useSyncExternalStore, useRef } from "react";
+import { useSyncExternalStore, useRef, useEffect } from "react";
 import { cardMapStore } from "./useCardMapStore";
 import type { Card } from "@/lib/spaced-repetition";
 import type { CardMap } from "@/lib/persist-queue";
+import { isFeatureEnabled } from "@/lib/feature-flags";
+import {
+  useCardsByCategoryFromDb,
+  useCardsBySubcategoryFromDb,
+  useCardsByChapterFromDb,
+  useCardCountByCategoryFromDb,
+  useCardByIdFromDb,
+} from "./useCardSelectorsFromDb";
+import { logger } from "@/lib/logger";
 
 const EMPTY: readonly Card[] = Object.freeze([]);
 
@@ -74,29 +92,19 @@ function createCardSetSelector<K>(
   };
 }
 
-// ── Named selectors ─────────────────────────────────────────────────────────
+// ── Phase 1 — RAM selectors (still used as the fallback path) ──────────────
 
-/** Cards whose `categoryId === id`. Stable array reference. */
-export const useCardsByCategory = createCardSetSelector<string>(
+export const useCardsByCategoryRam = createCardSetSelector<string>(
   (c, id) => c.categoryId === id,
 );
-
-/** Cards whose `subcategoryId === id`. Stable array reference. */
-export const useCardsBySubcategory = createCardSetSelector<string>(
+export const useCardsBySubcategoryRam = createCardSetSelector<string>(
   (c, id) => c.subcategoryId === id,
 );
-
-/** Cards whose `chapterId === id`. Stable array reference. */
-export const useCardsByChapter = createCardSetSelector<string>(
+export const useCardsByChapterRam = createCardSetSelector<string>(
   (c, id) => c.chapterId === id,
 );
 
-/**
- * Count of cards in a category. Returns a primitive (number), so
- * `useSyncExternalStore` short-circuits on `Object.is` equality —
- * components re-render only when the count actually changes.
- */
-export function useCardCountByCategory(categoryId: string | undefined): number {
+export function useCardCountByCategoryRam(categoryId: string | undefined): number {
   return useSyncExternalStore(
     cardMapStore.subscribe,
     () => {
@@ -110,13 +118,7 @@ export function useCardCountByCategory(categoryId: string | undefined): number {
   );
 }
 
-/**
- * Subscribe to a single card by id. Returns the card object reference
- * directly so React's default `Object.is` snapshot equality fires a
- * re-render only when that specific card's identity changes — every
- * other mutation in the entire store is a no-op for this hook.
- */
-export function useCardById(id: string | undefined | null): Card | null {
+export function useCardByIdRam(id: string | undefined | null): Card | null {
   return useSyncExternalStore(
     cardMapStore.subscribe,
     () => {
@@ -125,4 +127,97 @@ export function useCardById(id: string | undefined | null): Card | null {
     },
     () => null,
   );
+}
+
+// ── Phase 2 — dual-read diff logger (DEV only) ─────────────────────────────
+
+const DEV = Boolean(import.meta.env?.DEV);
+const _loggedDivergence = new Set<string>();
+
+function logDivergenceOnce(
+  selector: string,
+  key: string,
+  ramLen: number,
+  dbLen: number,
+): void {
+  if (!DEV) return;
+  const tag = `${selector}:${key}:${ramLen}/${dbLen}`;
+  if (_loggedDivergence.has(tag)) return;
+  _loggedDivergence.add(tag);
+  logger.warn(
+    `[phase2-diff] ${selector}(${key}) RAM=${ramLen} IDB=${dbLen} — investigate drift`,
+  );
+}
+
+function useDualReadDiff(
+  selector: string,
+  key: string | undefined | null,
+  ram: readonly Card[],
+  db: readonly Card[],
+): void {
+  useEffect(() => {
+    if (!DEV || !key) return;
+    if (ram.length !== db.length) {
+      logDivergenceOnce(selector, key, ram.length, db.length);
+      return;
+    }
+    // Shallow id-set comparison (cheap, no allocations beyond the Set).
+    const ramIds = new Set(ram.map((c) => c.id));
+    let mismatched = 0;
+    for (const c of db) if (!ramIds.has(c.id)) mismatched++;
+    if (mismatched > 0) logDivergenceOnce(selector, key, ram.length, db.length);
+  }, [selector, key, ram, db]);
+}
+
+// ── Phase 2 — Hybrid façades (PUBLIC API) ──────────────────────────────────
+//
+// Both underlying hooks run on every render so hook order stays stable. The
+// flag — snapshot-stable per session — selects which result is returned.
+
+const USE_DB = isFeatureEnabled("USE_DB_LIVE_SELECTORS");
+
+export function useCardsByCategory(categoryId: string | undefined): readonly Card[] {
+  const ram = useCardsByCategoryRam(categoryId);
+  const db = useCardsByCategoryFromDb(categoryId);
+  useDualReadDiff("useCardsByCategory", categoryId, ram, db);
+  return USE_DB ? db : ram;
+}
+
+export function useCardsBySubcategory(
+  subcategoryId: string | undefined,
+  categoryId?: string,
+): readonly Card[] {
+  const ram = useCardsBySubcategoryRam(subcategoryId);
+  const db = useCardsBySubcategoryFromDb(subcategoryId, categoryId);
+  useDualReadDiff("useCardsBySubcategory", subcategoryId, ram, db);
+  return USE_DB ? db : ram;
+}
+
+export function useCardsByChapter(
+  chapterId: string | undefined,
+  categoryId?: string,
+): readonly Card[] {
+  const ram = useCardsByChapterRam(chapterId);
+  const db = useCardsByChapterFromDb(chapterId, categoryId);
+  useDualReadDiff("useCardsByChapter", chapterId, ram, db);
+  return USE_DB ? db : ram;
+}
+
+export function useCardCountByCategory(categoryId: string | undefined): number {
+  const ram = useCardCountByCategoryRam(categoryId);
+  const db = useCardCountByCategoryFromDb(categoryId);
+  // Cheap primitive diff — no useEffect needed.
+  if (DEV && categoryId && ram !== db) {
+    logDivergenceOnce("useCardCountByCategory", categoryId, ram, db);
+  }
+  return USE_DB ? db : ram;
+}
+
+export function useCardById(id: string | undefined | null): Card | null {
+  const ram = useCardByIdRam(id);
+  const db = useCardByIdFromDb(id);
+  if (DEV && id && ram && db && ram.id !== db.id) {
+    logDivergenceOnce("useCardById", id, ram ? 1 : 0, db ? 1 : 0);
+  }
+  return USE_DB ? db : ram;
 }
