@@ -48,7 +48,7 @@ export default function SourcesTab({ categoryId, sources, onOpenReader, onSource
     setImporting(true);
     try {
       const arrayBuffer = await file.arrayBuffer();
-      const { parseDocxInWorker } = await import("@/lib/docx-parser");
+      const { parseDocxInWorker } = await import("@/features/docx-importer");
       const rawHtml = await parseDocxInWorker(arrayBuffer);
       const cleanHtml = sanitizeHtml(rawHtml);
       const promotedHtml = (await import("@/lib/heading-promotion")).promoteHeadings(cleanHtml);

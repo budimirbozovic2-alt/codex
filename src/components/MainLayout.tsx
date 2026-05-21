@@ -14,7 +14,7 @@ import { setDarkMode } from "@/lib/app-settings";
 import { useEditReturn } from "@/hooks/useEditReturn";
 import { useGlobalHotkey } from "@/hooks/useGlobalHotkey";
 
-const DocxImporter = lazy(() => import("@/components/DocxImporter"));
+const DocxImporter = lazy(() => import("@/features/docx-importer").then(m => ({ default: m.DocxImporter })));
 const GlobalSearch = lazy(() => import("@/components/GlobalSearch"));
 const OnboardingModal = lazy(() => import("@/components/OnboardingModal"));
 

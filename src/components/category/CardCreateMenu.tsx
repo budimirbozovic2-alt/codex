@@ -12,7 +12,7 @@ import MassFlashImportTrigger from "./MassFlashImportTrigger";
 import type { Card } from "@/lib/spaced-repetition";
 import { afterDialogClose } from "@/lib/dialog-utils";
 
-const DocxImporter = lazy(() => import("@/components/DocxImporter"));
+const DocxImporter = lazy(() => import("@/features/docx-importer").then(m => ({ default: m.DocxImporter })));
 
 interface ParsedEssay {
   question: string;

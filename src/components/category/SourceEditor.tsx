@@ -16,7 +16,7 @@ import { saveSource, extractOutline } from "@/lib/sources-storage";
 import { sanitizeHtml } from "@/lib/sanitize";
 import { injectHeadingIds } from "@/lib/sources-storage";
 import { parseArticles, compareVersions, getChangedArticleIds, matchAnchorToArticle } from "@/lib/article-parser";
-import { parseDocxInWorker } from "@/lib/docx-parser";
+import { parseDocxInWorker } from "@/features/docx-importer";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { ChevronRight } from "lucide-react";
