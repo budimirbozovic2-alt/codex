@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
 import { useCardData, useCategoryData, useCardOnlyActions, useCategoryActions, useUIContext, useBackupActions } from "@/contexts/AppContext";
+import { useCardsByCategory } from "@/store/useCardSelectors";
 import CardCreateMenu from "@/components/category/CardCreateMenu";
 import type { SubcategoryNode } from "@/lib/db";
 import type { Card } from "@/lib/spaced-repetition";
@@ -46,7 +47,7 @@ export default function SubjectCardsView() {
   const { categoryId } = useParams<{ categoryId: string }>();
   const navigate = useNavigate();
 
-  const { cards: allCards, ready } = useCardData();
+  const { ready } = useCardData();
   const { categoryRecords } = useCategoryData();
   const { addCard, addFlashCard, bulkAddFlashCards, patchCard, setFrequency, deleteCard } = useCardOnlyActions();
   const {
@@ -64,10 +65,8 @@ export default function SubjectCardsView() {
     [categoryRecords, categoryId]
   );
 
-  const cards = useMemo(
-    () => categoryId ? allCards.filter(c => c.categoryId === categoryId) : [],
-    [allCards, categoryId]
-  );
+  // Phase 1 — granular selector: subscribes only to this category's cards.
+  const cards = useCardsByCategory(categoryId) as Card[];
 
   const subcategoryNodes: SubcategoryNode[] = useMemo(() => {
     if (!category?.subcategories) return [];

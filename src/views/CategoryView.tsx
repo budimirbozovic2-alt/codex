@@ -2,8 +2,10 @@ import { useParams } from "react-router-dom";
 import { useState, useCallback, useMemo, useEffect } from "react";
 import { getCardMasteryLevel, MASTERY_LEVELS } from "@/lib/mastery";
 import { type Source } from "@/lib/db";
+import type { Card } from "@/lib/spaced-repetition";
 import { useCategorySources } from "@/hooks/useCategorySources";
 import { useCardData, useCategoryData, useCardOnlyActions } from "@/contexts/AppContext";
+import { useCardsByCategory } from "@/store/useCardSelectors";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import SourceReader from "@/components/SourceReader";
 import SourcesTab from "@/components/category/SourcesTab";
@@ -13,7 +15,10 @@ export default function CategoryView() {
   const { categoryId } = useParams<{ categoryId: string }>();
 
   // ── Boot-loaded context data (SSoT) ──
-  const { cards: allCards, ready } = useCardData();
+  // `ready` still comes from useCardData (bootstrap signal); the cards array
+  // itself is now subscribed via a granular selector that only re-renders
+  // when this category's matched set changes.
+  const { ready } = useCardData();
   const { categoryRecords } = useCategoryData();
 
   const category = useMemo(
@@ -21,10 +26,7 @@ export default function CategoryView() {
     [categoryRecords, categoryId]
   );
 
-  const cards = useMemo(
-    () => categoryId ? allCards.filter(c => c.categoryId === categoryId) : [],
-    [allCards, categoryId]
-  );
+  const cards = useCardsByCategory(categoryId) as Card[];
 
   // Sources: SSOT subscription via storage listener (W5 fix).
   const sources = useCategorySources(categoryId);
