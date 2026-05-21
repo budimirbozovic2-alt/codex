@@ -1,12 +1,13 @@
 import { useCallback, MutableRefObject } from "react";
 import { Card } from "@/lib/spaced-repetition";
-import { CardMap, bumpMapVersion, schedulePersist } from "@/lib/persist-queue";
+import { CardMap } from "@/lib/persist-queue";
 import { db, idbDeleteCard, type CategoryRecord, type SubcategoryNode, type ChapterNode, type ExaminerProfile } from "@/lib/db";
 import { invalidateSourcesCache } from "@/lib/sources-storage";
 import { cascadeDeleteCategoryDomains } from "@/lib/category-deletion-service";
 import { toast } from "sonner";
 import { optimisticCategoryUpdate } from "@/lib/category-service";
 import { stableLegacyId } from "@/lib/stable-id";
+import { cardRepository } from "@/lib/repositories/cardRepository";
 
 import { logger } from "@/lib/logger";
 interface UseCategoryManagementParams {
@@ -46,10 +47,12 @@ function getNodes(rec: CategoryRecord): SubcategoryNode[] {
 
 export function useCategoryManagement({
   setCategoryRecords,
-  setCardMapState,
+  setCardMapState: _legacySetCardMap, // Phase 3b: kept for back-compat, unused
   cardMapRef,
   getCategoryRecords,
 }: UseCategoryManagementParams) {
+  void _legacySetCardMap;
+  
   
   const addCategory = useCallback(
     (name: string) => {
@@ -93,38 +96,26 @@ export function useCategoryManagement({
       // fallbackId already computed above
 
       if (purgeCards) {
+        // Phase 3b: collect ids only and route through repository.applySyncDelta
+        // which performs the RAM delete + CARDS_UPDATED emit. IDB rows are
+        // dropped atomically inside cascadeDeleteCategoryDomains below.
         const toDelete: string[] = [];
-        const nextRef = { ...cardMapRef.current };
-        for (const [id, c] of Object.entries(nextRef)) {
-          if (c.categoryId === categoryId) {
-            toDelete.push(id);
-            delete nextRef[id];
-          }
+        const ref = cardMapRef.current;
+        for (const [id, c] of Object.entries(ref)) {
+          if (c.categoryId === categoryId) toDelete.push(id);
         }
-        if (toDelete.length > 0) {
-          cardMapRef.current = nextRef;
-          setCardMapState(() => nextRef);
-          bumpMapVersion();
-          // Audit V4: idbDeleteCard calls removed here because IDB state is
-          // now handled atomically by cascadeDeleteCategoryDomains transaction.
-        }
+        if (toDelete.length > 0) cardRepository.applySyncDelta([], toDelete);
       } else {
+        // Phase 3b: build per-card updates and apply RAM-only through
+        // applySyncDelta. IDB persistence is owned by the cascade tx.
         const changed: Card[] = [];
-        const nextRef = { ...cardMapRef.current };
-        for (const [id, c] of Object.entries(nextRef)) {
+        const ref = cardMapRef.current;
+        for (const [id, c] of Object.entries(ref)) {
           if (c.categoryId === categoryId) {
-            const u = { ...c, categoryId: fallbackId, subcategoryId: undefined, chapterId: undefined, updatedAt: now };
-            nextRef[id] = u;
-            changed.push(u);
+            changed.push({ ...c, categoryId: fallbackId, subcategoryId: undefined, chapterId: undefined, updatedAt: now });
           }
         }
-        if (changed.length > 0) {
-          cardMapRef.current = nextRef;
-          // Audit V4: schedulePersist removed here because IDB state is
-          // now handled atomically by cascadeDeleteCategoryDomains transaction.
-          setCardMapState(() => nextRef);
-          bumpMapVersion();
-        }
+        if (changed.length > 0) cardRepository.applySyncDelta(changed, []);
       }
 
       (async () => {
@@ -141,7 +132,7 @@ export function useCategoryManagement({
         }
       })();
     },
-    [setCategoryRecords, setCardMapState, cardMapRef, getCategoryRecords],
+    [setCategoryRecords, cardMapRef, getCategoryRecords],
   );
 
   const addSubcategory = useCallback(
