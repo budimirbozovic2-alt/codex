@@ -10,7 +10,7 @@ import {
   saveMnemonicCards,
   addMnemonicTestEntry,
   getMnemonicStats,
-} from "@/lib/mnemonic-storage";
+} from "./mnemonic-storage";
 import { eventBus, EVENT_TYPES } from "@/lib/event-bus";
 import { useIsMountedRef } from "@/hooks/useIsMountedRef";
 

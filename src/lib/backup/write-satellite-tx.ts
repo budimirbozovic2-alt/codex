@@ -22,7 +22,7 @@ import type {
 } from "@/lib/metacognitive-storage";
 import type { DisciplineEntry } from "@/lib/planner/types";
 import type { PomodoroLogEntry } from "@/lib/types/logs";
-import type { MnemonicCard, MnemonicTestLogEntry } from "@/lib/mnemonic-storage";
+import type { MnemonicCard, MnemonicTestLogEntry } from "@/features/mnemonic";
 import type { ImportStrategy, ProgressFn } from "@/lib/backup/import-types";
 
 /**

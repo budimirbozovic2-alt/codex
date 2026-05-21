@@ -1,5 +1,5 @@
 import { Film, Type } from "lucide-react";
-import type { MnemonicCard } from "@/lib/mnemonic-storage";
+import type { MnemonicCard } from "../../mnemonic-storage";
 
 interface Props {
   card: MnemonicCard;

@@ -21,7 +21,7 @@ import type {
   MindMapDoc,
   KnowledgeBaseArticle,
 } from "@/lib/db-schema";
-import type { MnemonicCard } from "@/lib/mnemonic-storage";
+import type { MnemonicCard } from "@/features/mnemonic";
 
 // ─── Primitive helpers ──────────────────────────────────
 // All helpers are `.optional()` so missing fields don't trigger Zod v4

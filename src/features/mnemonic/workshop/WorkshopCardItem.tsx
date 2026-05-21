@@ -5,7 +5,7 @@ import { useMemo, memo, lazy, Suspense } from "react";
 import {
   MnemonicCard, MnemonicStatus, HookType,
   extractNumbers, detectEnumerationItems,
-} from "@/lib/mnemonic-storage";
+} from "../mnemonic-storage";
 import { useCategoryData } from "@/contexts/AppContext";
 import { SafeHtml } from "@/components/ui/safe-html";
 import { motion, AnimatePresence } from "framer-motion";
@@ -14,7 +14,7 @@ import { MajorSystemHints } from "./card-item/MajorSystemHints";
 import { EnumerationHints } from "./card-item/EnumerationHints";
 import { HookEditor } from "./card-item/HookEditor";
 import { TagsEditor } from "./card-item/TagsEditor";
-import { useCardItemEditing } from "@/hooks/workshop/useCardItemEditing";
+import { useCardItemEditing } from "../hooks/useCardItemEditing";
 
 const RichTextEditor = lazy(() => import("@/components/RichTextEditor"));
 

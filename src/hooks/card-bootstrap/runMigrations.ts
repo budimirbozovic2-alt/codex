@@ -12,7 +12,7 @@ export async function runMigrations(): Promise<void> {
   await withTimeout(migrateFromLocalStorage(), 3000, "migration", undefined);
 
   // Mnemonics migration (localStorage -> IDB)
-  const { migrateMnemonicsFromLocalStorageToIDB } = await import("@/lib/mnemonic-storage");
+  const { migrateMnemonicsFromLocalStorageToIDB } = await import("@/features/mnemonic");
   await withTimeout(migrateMnemonicsFromLocalStorageToIDB(), 3000, "mnemonic migration", undefined);
 
   // Heal stale subcategoryId/chapterId references on cards (one-shot, flagged)

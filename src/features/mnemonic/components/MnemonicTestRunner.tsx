@@ -1,8 +1,8 @@
 import { ArrowLeft, CheckCircle, Timer, XCircle, Zap } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
-import type { MnemonicCard } from "@/lib/mnemonic-storage";
-import type { SessionStats } from "@/hooks/mnemonic/useTestEngine";
+import type { MnemonicCard } from "../mnemonic-storage";
+import type { SessionStats } from "../hooks/useTestEngine";
 
 interface Props {
   currentCard: MnemonicCard;

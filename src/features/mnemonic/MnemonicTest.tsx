@@ -1,13 +1,13 @@
 import { ArrowLeft, Brain } from "lucide-react";
 import { useMemo } from "react";
-import type { MnemonicCard } from "@/lib/mnemonic-storage";
+import type { MnemonicCard } from "./mnemonic-storage";
 import { useCategoryData } from "@/contexts/AppContext";
-import { useTestEngine } from "@/hooks/mnemonic/useTestEngine";
-import { buildUuidToName } from "@/lib/mnemonic/test-tree";
-import MnemonicTestSelector from "@/components/mnemonic/MnemonicTestSelector";
-import MnemonicTestReminder from "@/components/mnemonic/MnemonicTestReminder";
-import MnemonicTestRunner from "@/components/mnemonic/MnemonicTestRunner";
-import MnemonicTestFinished from "@/components/mnemonic/MnemonicTestFinished";
+import { useTestEngine } from "./hooks/useTestEngine";
+import { buildUuidToName } from "./test-tree";
+import MnemonicTestSelector from "./components/MnemonicTestSelector";
+import MnemonicTestReminder from "./components/MnemonicTestReminder";
+import MnemonicTestRunner from "./components/MnemonicTestRunner";
+import MnemonicTestFinished from "./components/MnemonicTestFinished";
 
 interface Props {
   cards: MnemonicCard[];

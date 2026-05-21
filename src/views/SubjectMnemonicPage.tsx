@@ -1,6 +1,6 @@
 import { useParams, Link } from "react-router-dom";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
-import MnemonicModule from "@/components/MnemonicModule";
+import { MnemonicModule } from "@/features/mnemonic";
 import { ArrowLeft } from "lucide-react";
 
 export default function SubjectMnemonicPage() {

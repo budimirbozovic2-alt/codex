@@ -1,7 +1,7 @@
 import { ArrowLeft, Brain, RotateCcw } from "lucide-react";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
-import type { SessionStats } from "@/hooks/mnemonic/useTestEngine";
+import type { SessionStats } from "../hooks/useTestEngine";
 
 interface Props {
   stats: SessionStats;

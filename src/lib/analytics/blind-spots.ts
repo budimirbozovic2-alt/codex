@@ -1,6 +1,6 @@
 import { Card } from "../spaced-repetition";
 import { loadCalibration, CalibrationEntry, loadLatency } from "../metacognitive-storage";
-import { loadMnemonicCards, MnemonicCard, saveMnemonicCards } from "../mnemonic-storage";
+import { loadMnemonicCards, MnemonicCard, saveMnemonicCards } from "@/features/mnemonic";
 
 export interface BlindSpot {
   cardId: string;

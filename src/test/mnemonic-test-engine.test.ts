@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, renderHook } from "@testing-library/react";
-import { useTestEngine, RECALL_TIME_LIMIT } from "@/hooks/mnemonic/useTestEngine";
-import type { MnemonicCard } from "@/lib/mnemonic-storage";
+import { useTestEngine, RECALL_TIME_LIMIT } from "@/features/mnemonic";
+import type { MnemonicCard } from "@/features/mnemonic";
 
 function card(id: string): MnemonicCard {
   return {

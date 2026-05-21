@@ -1,7 +1,7 @@
 import { Brain, Star } from "lucide-react";
 import { useState, useEffect, useCallback, useRef, ReactNode } from "react";
 
-import { createMnemonicCardFromSelection, loadMnemonicCards, saveMnemonicCards } from "@/lib/mnemonic-storage";
+import { createMnemonicCardFromSelection, loadMnemonicCards, saveMnemonicCards } from "@/features/mnemonic";
 import { eventBus, EVENT_TYPES } from "@/lib/event-bus";
 import { toast } from "sonner";
 

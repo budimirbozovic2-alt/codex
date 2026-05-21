@@ -1,6 +1,6 @@
 import { useCallback, useState } from "react";
 import { toast } from "sonner";
-import type { MnemonicCard } from "@/lib/mnemonic-storage";
+import type { MnemonicCard } from "../mnemonic-storage";
 
 interface SectionDraft { title: string; content: string }
 
