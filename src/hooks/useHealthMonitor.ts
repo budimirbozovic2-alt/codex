@@ -2,13 +2,13 @@ import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { eventBus, EVENT_TYPES } from "@/lib/event-bus";
 import {
-import { logger } from "@/lib/logger";
   buildHealthReport,
   cleanOrphans as svcCleanOrphans,
   clearCrashLog as svcClearCrashLog,
   healStaleLinks as svcHealStaleLinks,
   type HealthReport,
 } from "@/lib/services/healthService";
+import { logger } from "@/lib/logger";
 
 export interface UseHealthMonitor {
   report: HealthReport | null;
