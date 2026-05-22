@@ -1,6 +1,7 @@
 import { createContext, useContext, useMemo, useState, useEffect, useCallback, useRef, type ReactNode } from "react";
 import type { CategoryRecord } from "@/lib/db";
 import { primeExaminerProfilesFromRecords } from "@/lib/examiner-profile-cache";
+import { registerCategoryStateSetter } from "@/lib/repositories/categoryStateInvalidator";
 
 // ── Public state (consumed by useCategoryData) ──
 interface CategoryStateContextValue {
