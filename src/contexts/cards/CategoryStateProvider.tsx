@@ -81,6 +81,14 @@ export function CategoryStateProvider({ children }: { children: ReactNode }) {
     primeExaminerProfilesFromRecords(categoryRecords);
   }, [categoryRecords]);
 
+  // Phase 5A — expose the React setter to the module-level invalidator so
+  // external CATEGORIES_UPDATED emitters (backup restore, cascade, future
+  // remote sync) refresh RAM without crossing the React boundary.
+  useEffect(() => {
+    registerCategoryStateSetter(setCategoryRecords);
+    return () => registerCategoryStateSetter(null);
+  }, []);
+
   const stateValue = useMemo<CategoryStateContextValue>(
     () => ({ categories, categoryRecords, subcategories }),
     [categories, categoryRecords, subcategories],
