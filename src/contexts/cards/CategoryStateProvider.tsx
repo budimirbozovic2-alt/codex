@@ -1,6 +1,7 @@
 import { createContext, useContext, useMemo, useState, useEffect, useCallback, useRef, type ReactNode } from "react";
 import type { CategoryRecord } from "@/lib/db";
 import { primeExaminerProfilesFromRecords } from "@/lib/examiner-profile-cache";
+import { registerCategoryStateSetter } from "@/lib/repositories/categoryStateInvalidator";
 
 // ── Public state (consumed by useCategoryData) ──
 interface CategoryStateContextValue {
@@ -79,6 +80,14 @@ export function CategoryStateProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     primeExaminerProfilesFromRecords(categoryRecords);
   }, [categoryRecords]);
+
+  // Phase 5A — expose the React setter to the module-level invalidator so
+  // external CATEGORIES_UPDATED emitters (backup restore, cascade, future
+  // remote sync) refresh RAM without crossing the React boundary.
+  useEffect(() => {
+    registerCategoryStateSetter(setCategoryRecords);
+    return () => registerCategoryStateSetter(null);
+  }, []);
 
   const stateValue = useMemo<CategoryStateContextValue>(
     () => ({ categories, categoryRecords, subcategories }),
