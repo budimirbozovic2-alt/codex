@@ -46,13 +46,14 @@ markBootStep("main:error-handlers-registered");
 (async () => {
   try {
     markBootStep("main:parallel-import-start");
-    const [{ initColorTheme }, { default: App }, { createRoot }, { eventBus }, { setDbEventEmitter }, { initCardMapInvalidator }] = await Promise.all([
+    const [{ initColorTheme }, { default: App }, { createRoot }, { eventBus }, { setDbEventEmitter }, { initCardMapInvalidator }, { initCategoryStateInvalidator }] = await Promise.all([
       import("./lib/app-settings"),
       import("./App"),
       import("react-dom/client"),
       import("./lib/event-bus"),
       import("./lib/db-schema"),
       import("./lib/repositories/cardMapInvalidator"),
+      import("./lib/repositories/categoryStateInvalidator"),
     ]);
     markBootStep("main:parallel-import-done");
 
@@ -67,6 +68,8 @@ markBootStep("main:error-handlers-registered");
     // boot so external CARDS_UPDATED emitters (HealthMonitor, RemapFromBackup,
     // future remote sync) re-hydrate RAM without depending on React mount.
     initCardMapInvalidator();
+    // Phase 5A — same pattern for categoryRecords.
+    initCategoryStateInvalidator();
 
     initColorTheme();
     markBootStep("main:theme-init-done");
