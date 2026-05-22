@@ -6,6 +6,7 @@ import { idbLoadCategories, idbSaveCategories, type CategoryRecord, type Subcate
 import { toast } from "sonner";
 
 import { logger } from "@/lib/logger";
+import { emitCategoriesUpdated } from "@/lib/repositories/categoryRepository";
 // ─── Mutex for serializing IDB writes ───────────────────
 let _pendingSave: Promise<void> = Promise.resolve();
 
@@ -32,6 +33,13 @@ export async function optimisticCategoryUpdate(
       const fresh = await idbLoadCategories();
       const next = updater(fresh);
       await idbSaveCategories(next);
+      // Phase 5A — fan out a self-tagged event so external listeners (e.g.
+      // diagnostics, future cross-tab sync) can react. The invalidator
+      // skips "repository" sources because RAM is already up-to-date.
+      emitCategoriesUpdated({
+        source: "repository",
+        categoryIds: next.map(c => c.id),
+      });
     } catch (e) {
       logger.error(`[${label}] IDB persist failed, rolling back`, e);
       // I2 fix: rollback from fresh IDB state instead of stale snapshot
