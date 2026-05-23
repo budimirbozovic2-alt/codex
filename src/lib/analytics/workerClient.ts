@@ -145,6 +145,18 @@ export const analyticsClient = {
     catch (err) { logger.warn("[analytics-worker] recovery fallback", err); return calcRecoveryRate(snap.disciplineLog); }
   },
 
+  async runResistance(
+    cards: Parameters<AnalyticsWorkerAPI["runResistance"]>[0],
+    categories: string[],
+    reviewLog: Parameters<AnalyticsWorkerAPI["runResistance"]>[2],
+    weights: Parameters<AnalyticsWorkerAPI["runResistance"]>[3],
+  ) {
+    const snap = { latency: loadLatency() };
+    if (!isWorkerSupported) return calcResistance(cards, categories, reviewLog, snap.latency, weights);
+    try { return await getClient().runResistance(cards, categories, reviewLog, weights, snap); }
+    catch (err) { logger.warn("[analytics-worker] resistance fallback", err); return calcResistance(cards, categories, reviewLog, snap.latency, weights); }
+  },
+
   /** Test/teardown hook. Not needed in production. */
   __terminate() {
     try { _worker?.terminate(); } catch { /* noop */ }
