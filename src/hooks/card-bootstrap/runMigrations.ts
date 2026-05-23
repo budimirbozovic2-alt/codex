@@ -1,12 +1,16 @@
 import { migrateFromLocalStorage } from "@/lib/db";
 import { recoverOutboxOnBoot } from "@/lib/persist-queue";
 import { markBootStep } from "@/lib/boot-trace";
+import { transition } from "@/lib/boot";
 import { splashProgress } from "./splash";
 import { withTimeout } from "./withTimeout";
 
 import { logger } from "@/lib/logger";
 export async function runMigrations(): Promise<void> {
   markBootStep("cards:migration-start");
+  // from/to: ovaj boot path nema verzioni delta; koristimo 0 kao placeholder
+  // (state machine traži numeričke argumente za migrating fazu).
+  transition({ type: "MIGRATE_START", from: 0, to: 0 });
   splashProgress(10, "Migracija podataka…");
   if (import.meta.env.DEV) logger.log("[boot:diag] step 2: migrateFromLocalStorage");
   await withTimeout(migrateFromLocalStorage(), 3000, "migration", undefined);
@@ -25,7 +29,9 @@ export async function runMigrations(): Promise<void> {
   } catch (e) { logger.warn("[boot] taxonomy heal skipped", e); }
 
   markBootStep("cards:migration-done");
+  transition({ type: "MIGRATE_DONE" });
 
   // Outbox WAL recovery: re-apply any card writes that crashed mid-flush.
   await withTimeout(recoverOutboxOnBoot(), 3000, "outbox recovery", { recovered: 0 });
 }
+

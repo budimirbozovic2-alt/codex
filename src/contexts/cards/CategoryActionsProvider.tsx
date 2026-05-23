@@ -2,25 +2,18 @@ import { createContext, useContext, useMemo, type ReactNode } from "react";
 import { useCategoryManagement } from "@/hooks/useCategoryManagement";
 import { useCardStateInternals } from "./CardStateProvider";
 import { useCategoryStateInternals } from "./CategoryStateProvider";
+import { missingProvider } from "./_providerFallback";
 
 export type CategoryActionsValue = ReturnType<typeof useCategoryManagement>;
 
 const CategoryActionsContext = createContext<CategoryActionsValue | null>(null);
 
-const noop = () => { /* HMR fallback */ };
-const NOOP_CATEGORY_ACTIONS = new Proxy({} as CategoryActionsValue, { get: () => noop });
-
 export function useCategoryActions() {
   const ctx = useContext(CategoryActionsContext);
-  if (!ctx) {
-    if (import.meta.env.DEV) {
-      console.warn("[useCategoryActions] no provider — returning noop fallback (HMR transient)");
-      return NOOP_CATEGORY_ACTIONS;
-    }
-    throw new Error("useCategoryActions must be used within CategoryActionsProvider");
-  }
+  if (!ctx) missingProvider("CategoryActionsProvider", "useCategoryActions");
   return ctx;
 }
+
 
 export function CategoryActionsProvider({ children }: { children: ReactNode }) {
   const { setCardMapState } = useCardStateInternals();

@@ -2,6 +2,7 @@ import { createContext, useContext, useMemo, type ReactNode } from "react";
 import { useCardCRUD } from "@/hooks/useCardCRUD";
 import { useCardAnnotations } from "@/hooks/useCardAnnotations";
 import { useCardStateInternals } from "./CardStateProvider";
+import { missingProvider } from "./_providerFallback";
 
 type CRUD = ReturnType<typeof useCardCRUD>;
 type Annotations = ReturnType<typeof useCardAnnotations>;
@@ -10,20 +11,12 @@ export type CardActionsValue = CRUD & Annotations;
 
 const CardActionsContext = createContext<CardActionsValue | null>(null);
 
-const noop = () => { /* HMR fallback */ };
-const NOOP_CARD_ACTIONS = new Proxy({} as CardActionsValue, { get: () => noop });
-
 export function useCardOnlyActions() {
   const ctx = useContext(CardActionsContext);
-  if (!ctx) {
-    if (import.meta.env.DEV) {
-      console.warn("[useCardOnlyActions] no provider — returning noop fallback (HMR transient)");
-      return NOOP_CARD_ACTIONS;
-    }
-    throw new Error("useCardOnlyActions must be used within CardActionsProvider");
-  }
+  if (!ctx) missingProvider("CardActionsProvider", "useCardOnlyActions");
   return ctx;
 }
+
 
 export function CardActionsProvider({ children }: { children: ReactNode }) {
   const { setCardMapState, setReviewLog } = useCardStateInternals();

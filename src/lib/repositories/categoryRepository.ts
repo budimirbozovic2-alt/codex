@@ -19,11 +19,13 @@ import { idbLoadCategories, idbSaveCategories, type CategoryRecord } from "@/lib
 import { eventBus, EVENT_TYPES } from "@/lib/event-bus";
 import { toast } from "sonner";
 import { logger } from "@/lib/logger";
+import { createKeyedMutex } from "@/lib/concurrency";
 import {
   getCategoryStoreRecords,
   setCategoryStoreRecords,
 } from "@/store/useCategoryStore";
 import type { CategoryId } from "@/lib/ids";
+
 
 export type CategoriesUpdatedSource =
   | "repository"
@@ -64,7 +66,7 @@ export function replaceAll(records: CategoryRecord[]): void {
 
 // Mutex for serialising IDB writes — prevents concurrent overwrites when
 // two optimistic updates race (e.g. fast double-click on reorder).
-let _pendingSave: Promise<void> = Promise.resolve();
+const _saveMutex = createKeyedMutex();
 
 /**
  * Optimistic commit: mutates the mirror inline, then persists to IDB inside
@@ -79,7 +81,7 @@ export async function commit(
   const optimistic = updater(snapshot);
   setCategoryStoreRecords(optimistic);
 
-  const op = _pendingSave.then(async () => {
+  return _saveMutex.runExclusive(null, async () => {
     try {
       // Re-read fresh IDB inside the mutex, then re-apply the updater to
       // avoid stale-closure overwrites (matches the legacy contract).
@@ -102,10 +104,9 @@ export async function commit(
       }
       toast.error("Greška", { description: "Promjena nije sačuvana." });
     }
-  });
-  _pendingSave = op.catch(() => {});
-  return op;
+  }, `category:${label}`);
 }
+
 
 export const categoryRepository = {
   // reads

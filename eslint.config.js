@@ -88,7 +88,17 @@ export default tseslint.config(
           message:
             "Koristi taskScheduler iz src/lib/scheduler umjesto window.setTimeout/setInterval.",
         },
+        // PR1 — Keyed mutex consolidation. Ad-hoc `let _pendingX = Promise.resolve()`
+        // serijalizacioni lanci moraju ići kroz `createKeyedMutex` iz
+        // `@/lib/concurrency`. Implementacija primitive je u `src/lib/concurrency/**`.
+        {
+          selector:
+            "VariableDeclarator[id.name=/^_?pending[A-Z]\\w*$/][init.type='CallExpression'][init.callee.object.name='Promise'][init.callee.property.name='resolve']",
+          message:
+            "Koristi createKeyedMutex() iz @/lib/concurrency umjesto ručnog `_pendingX = Promise.resolve()` lanca (PR1).",
+        },
       ],
+
     },
   },
 

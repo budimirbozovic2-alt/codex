@@ -9,10 +9,12 @@ import {
 import { Card, SRSettings, DEFAULT_SR_SETTINGS } from "@/lib/spaced-repetition";
 import { ReviewLogEntry } from "@/lib/storage";
 import { markBootStep } from "@/lib/boot-trace";
+import { transition } from "@/lib/boot";
 import { splashProgress } from "./splash";
 import { withTimeout } from "./withTimeout";
 
 import { logger } from "@/lib/logger";
+
 export interface InitialData {
   cards: Card[];
   catRecords: CategoryRecord[];
@@ -23,6 +25,7 @@ export interface InitialData {
 export async function loadInitialData(): Promise<InitialData> {
   // Initialize in-memory caches from IDB (replaces localStorage)
   splashProgress(15, "Inicijalizacija keša…");
+  transition({ type: "LOAD_PROGRESS", pct: 15, label: "Inicijalizacija keša…" });
   if (import.meta.env.DEV) logger.log("[boot:diag] step 3: initCaches");
   const { initMetacognitiveCache } = await import("@/lib/metacognitive-storage");
   const { initPlannerCache } = await import("@/lib/planner-storage");
@@ -37,6 +40,7 @@ export async function loadInitialData(): Promise<InitialData> {
   );
 
   splashProgress(25, "Učitavanje podataka…");
+  transition({ type: "LOAD_PROGRESS", pct: 25, label: "Učitavanje podataka…" });
   if (import.meta.env.DEV) logger.log("[boot:diag] step 4: loading data (parallel)");
   markBootStep("cards:data-load-start");
 
@@ -78,6 +82,7 @@ export async function loadInitialData(): Promise<InitialData> {
   } catch (e) { logger.warn("[boot] frequency tag migration skipped", e); }
 
   splashProgress(60, `${cards.length} kartica učitano`);
+  transition({ type: "LOAD_PROGRESS", pct: 60, label: `${cards.length} kartica učitano` });
   if (import.meta.env.DEV) logger.log("[boot:diag] categories loaded:", catRecords.length, catRecords.map((r: CategoryRecord) => r.name));
 
   return { cards, catRecords, log, settings };
