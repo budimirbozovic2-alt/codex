@@ -2,7 +2,7 @@ import { useState, useMemo, useCallback } from "react";
 import { Card as SRCard } from "@/lib/spaced-repetition";
 import { ReviewLogEntry } from "@/lib/storage";
 import { CategoryRecord } from "@/lib/db";
-import { calcCategoryStability } from "@/lib/analytics/stability";
+import { analyticsClient } from "@/lib/analytics/workerClient";
 import { useDeferredCompute } from "@/hooks/useDeferredCompute";
 import type { PlannerConfig } from "@/lib/planner-storage";
 
@@ -144,9 +144,9 @@ export function usePlannerData(cards: SRCard[], reviewLog: ReviewLogEntry[], cat
   const retentionRisk = useDeferredCompute(async () => {
     const catIds = categoryRecords.map(r => r.id);
     if (catIds.length === 0) return [];
-    const mod = await getPlannerModule();
-    return calcCategoryStability(cards, catIds, config.finalGoalDate ?? null)
-      .sort((a, b) => a.avgRetrievability - b.avgRetrievability);
+    await getPlannerModule();
+    const result = await analyticsClient.runCategoryStability(cards, catIds, config.finalGoalDate ?? null);
+    return [...result].sort((a, b) => a.avgRetrievability - b.avgRetrievability);
   }, [cards, categoryRecords, config.finalGoalDate]);
 
   const save = useCallback(async (updated: PlannerConfig) => {

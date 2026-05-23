@@ -3,15 +3,8 @@ import { AlertTriangle, Shield, Zap, ArrowRightLeft, HeartPulse, Eye, Wrench } f
 import { Card, getErrorStatus } from "@/lib/spaced-repetition";
 import { ReviewLogEntry } from "@/lib/storage";
 import { Progress } from "@/components/ui/progress";
-import {
-  calcInterferencePairs,
-  calcCategoryStability,
-  calcStressPerformance,
-  calcFrictionAnalysis,
-  calcRecoveryRate,
-  calcBlindSpots,
-  calcWeakHooks,
-} from "@/lib/cognitive-analytics";
+import { calcWeakHooks } from "@/lib/cognitive-analytics";
+import { analyticsClient } from "@/lib/analytics/workerClient";
 import { loadPlanner } from "@/lib/planner-storage";
 import { loadCalibration, loadLatency } from "@/lib/metacognitive-storage";
 import LazyChart from "@/components/LazyChart";
@@ -90,7 +83,7 @@ export default function CognitiveAnalytics({ cards, categories, reviewLog, catNa
       <LazyChart
         label="Indeks interferencije"
         icon={<AlertTriangle className="h-4 w-4 text-warning" />}
-        compute={() => calcInterferencePairs(cards)}
+        compute={() => analyticsClient.runInterference(cards)}
         delay={0}
         info={
           <InfoPanel title="Indeks interferencije">
@@ -143,7 +136,7 @@ export default function CognitiveAnalytics({ cards, categories, reviewLog, catNa
         icon={<Shield className="h-4 w-4 text-primary" />}
         compute={() => {
           const planner = loadPlanner();
-          return calcCategoryStability(cards, categories, planner.finalGoalDate);
+          return analyticsClient.runCategoryStability(cards, categories, planner.finalGoalDate);
         }}
         delay={1}
         info={
@@ -198,7 +191,7 @@ export default function CognitiveAnalytics({ cards, categories, reviewLog, catNa
       <LazyChart
         label="Otpornost na stres"
         icon={<Zap className="h-4 w-4 text-primary" />}
-        compute={() => calcStressPerformance(reviewLog)}
+        compute={() => analyticsClient.runStressPerformance(reviewLog)}
         delay={2}
         info={
           <InfoPanel title="Otpornost na stres">
@@ -244,7 +237,7 @@ export default function CognitiveAnalytics({ cards, categories, reviewLog, catNa
         <LazyChart
           label="Analiza frikcije"
           icon={<ArrowRightLeft className="h-4 w-4 text-primary" />}
-          compute={() => calcFrictionAnalysis(reviewLog)}
+          compute={() => analyticsClient.runFrictionAnalysis(reviewLog)}
           delay={3}
         >
           {(friction) => friction.transitions.length === 0 ? (
@@ -279,7 +272,7 @@ export default function CognitiveAnalytics({ cards, categories, reviewLog, catNa
         <LazyChart
           label="Indeks oporavka"
           icon={<HeartPulse className="h-4 w-4 text-primary" />}
-          compute={() => calcRecoveryRate()}
+          compute={() => analyticsClient.runRecovery()}
           delay={4}
         >
           {(recovery) => !recovery ? (
@@ -317,8 +310,8 @@ export default function CognitiveAnalytics({ cards, categories, reviewLog, catNa
       <LazyChart
         label="Slijepe tačke"
         icon={<Eye className="h-4 w-4 text-destructive" />}
-        compute={() => {
-          const spots = calcBlindSpots(cards);
+        compute={async () => {
+          const spots = await analyticsClient.runBlindSpots(cards);
           return categoryId ? spots.filter(s => s.category === categoryId) : spots;
         }}
         delay={5}
