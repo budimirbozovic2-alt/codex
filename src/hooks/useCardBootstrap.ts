@@ -60,6 +60,7 @@ export function useCardBootstrap(setters: BootSetters) {
   useEffect(() => {
     if (initialLoadDone.current) return;
     initialLoadDone.current = true;
+    installSplashBridge();
 
     // OSIGURAČ: ako se boot ne završi za 8s, emituj LOAD_FAIL i prikaži recovery UI
     const panicTimer = setTimeout(() => {
