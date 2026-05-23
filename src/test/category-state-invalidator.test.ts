@@ -46,11 +46,13 @@ describe("Phase 5A — categoryStateInvalidator", () => {
     expect(payload.map(r => r.id).sort()).toEqual(["a", "b"]);
   });
 
-  it("is a no-op when no setter is registered", async () => {
+  it("is a no-op for setter when none registered but still hydrates the store", async () => {
+    await db.categories.bulkPut([rec("x")]);
     // Should not throw.
     emitCategoriesUpdated({ source: "backup-restore" });
     await tick();
-    expect(true).toBe(true);
+    const { getCategoryStoreRecords } = await import("@/store/useCategoryStore");
+    expect(getCategoryStoreRecords().map(r => r.id)).toContain("x");
   });
 
   it("CATEGORIES_UPDATED event is part of the public EVENT_TYPES", () => {
