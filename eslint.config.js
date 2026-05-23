@@ -321,16 +321,9 @@ export default tseslint.config(
   //   • src/components/db/BlockingModal.tsx — pre-boot DB poll
   //   • src/components/ZenMode.tsx — 1s timer tick
   //
-  // Scheduled for Task 2 (`useDraftAutosave` unification) — temporarily
-  // whitelisted so the guard ships without a big-bang migration:
-  //
-  //   • src/hooks/useCardDraftAutosave.ts
-  //   • src/hooks/zettelkasten/useArticleDraft.ts (if it uses raw timers)
-  //   • src/hooks/source-reader/useSourceEditing.ts
-  //   • src/hooks/useWikiLinkAutoCreate.ts
-  //   • src/hooks/useMindMapCanvas.ts
-  //   • src/hooks/mindmap/useNodeEditing.ts
-  //   • src/components/SourceReader.tsx
+  // Task 2 group MIGRATED to taskScheduler (PR completed): useCardDraftAutosave,
+  // useSourceEditing, useArticleDraft, useWikiLinkAutoCreate, useMindMapCanvas,
+  // useNodeEditing, SourceReader.
   {
     files: [
       "src/lib/scheduler/**",
@@ -350,13 +343,6 @@ export default tseslint.config(
       "src/features/docx-importer/docx-parser.ts",
       "src/components/db/BlockingModal.tsx",
       "src/components/ZenMode.tsx",
-      // Task 2 — to be removed once `useDraftAutosave` lands.
-      // useSourceEditing migrated in PR4; useArticleDraft mirror added in PR3;
-      // useCardDraftAutosave migrated to Dexie+scheduler in PR6.
-      "src/hooks/useWikiLinkAutoCreate.ts",
-      "src/hooks/useMindMapCanvas.ts",
-      "src/hooks/mindmap/useNodeEditing.ts",
-      "src/components/SourceReader.tsx",
       // Test files legitimately use raw timers for fake-timer scenarios.
       "src/test/**",
     ],
@@ -365,5 +351,6 @@ export default tseslint.config(
     },
   },
 );
+
 
 
