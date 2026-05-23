@@ -83,7 +83,7 @@ export default function CognitiveAnalytics({ cards, categories, reviewLog, catNa
       <LazyChart
         label="Indeks interferencije"
         icon={<AlertTriangle className="h-4 w-4 text-warning" />}
-        compute={() => calcInterferencePairs(cards)}
+        compute={() => analyticsClient.runInterference(cards)}
         delay={0}
         info={
           <InfoPanel title="Indeks interferencije">
