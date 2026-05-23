@@ -12,7 +12,6 @@
  */
 import * as Comlink from "comlink";
 import { logger } from "@/lib/logger";
-import { emit } from "@/lib/event-bus";
 import { loadCalibration, loadLatency } from "@/lib/metacognitive-storage";
 import { loadDisciplineLog } from "@/lib/planner/discipline";
 import { loadPlanner } from "@/lib/planner/config";
@@ -54,7 +53,6 @@ function getClient(): Client {
   });
   _worker.addEventListener("error", (e) => {
     logger.error("[analytics-worker] error", e.message);
-    emit("ANALYTICS_WORKER_ERROR", { message: e.message });
   });
   _client = Comlink.wrap<AnalyticsWorkerAPI>(_worker);
   registerTerminate();
