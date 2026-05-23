@@ -23,6 +23,7 @@ import {
 } from "../lib/analytics/_pure/friction";
 import { calcBlindSpots } from "../lib/analytics/_pure/blind-spots";
 import { calcRecoveryRate } from "../lib/analytics/_pure/recovery";
+import { calcResistance, type ResistanceWeights } from "../lib/analytics/_pure/resistance";
 import { buildChartBundle, type ChartBundle } from "../lib/analytics/_pure/charts";
 import type { AnalyticsSnapshots } from "../lib/analytics/_pure/types";
 
