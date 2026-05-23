@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef } from "react";
 import { useSourceReaderStore } from "@/store";
+import { taskScheduler } from "@/lib/scheduler";
 
 /**
  * DOM selection capture + global click-away reset for the source reader.

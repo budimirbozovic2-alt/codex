@@ -81,7 +81,7 @@ export default function PersonalizationTab({ app, setApp }: Props) {
               setApp(prev => ({ ...prev, soundEffects: v }));
               if (v) {
                 saveAppSettings({ ...app, soundEffects: true });
-                setTimeout(() => playGradeGood(), 100);
+                taskScheduler.setTimeout(() => playGradeGood(), 100, { label: "PersonalizationTab:soundPreview" });
               }
             }}
           />

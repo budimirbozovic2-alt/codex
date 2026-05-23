@@ -1,6 +1,7 @@
 import { Loader2, CheckCircle2, Brain } from "lucide-react";
 import { useSessionContext } from "@/contexts/SessionContext";
 import { useState, useEffect } from "react";
+import { taskScheduler } from "@/lib/scheduler";
 
 export default function ProcessingOverlay() {
   const { isProcessing } = useSessionContext();
@@ -11,12 +12,12 @@ export default function ProcessingOverlay() {
     if (isProcessing) {
       setVisible(true);
       setPhase("analyzing");
-      const timer = setTimeout(() => setPhase("done"), 800);
-      return () => clearTimeout(timer);
+      const h = taskScheduler.setTimeout(() => setPhase("done"), 800, { label: "ProcessingOverlay:analyzing→done" });
+      return () => taskScheduler.cancel(h);
     } else {
       // fade out
-      const timer = setTimeout(() => setVisible(false), 300);
-      return () => clearTimeout(timer);
+      const h = taskScheduler.setTimeout(() => setVisible(false), 300, { label: "ProcessingOverlay:fadeOut" });
+      return () => taskScheduler.cancel(h);
     }
   }, [isProcessing]);
 

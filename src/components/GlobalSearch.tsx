@@ -72,8 +72,8 @@ export default function GlobalSearch({ open, onClose, onNavigateToCard }: Props)
     if (!open) return;
     setQuery("");
     setSelectedIndex(0);
-    const t = window.setTimeout(() => inputRef.current?.focus(), 50);
-    return () => window.clearTimeout(t);
+    const h = taskScheduler.setTimeout(() => inputRef.current?.focus(), 50, { label: "GlobalSearch:focusInput" });
+    return () => taskScheduler.cancel(h);
   }, [open]);
 
   const results = useMemo<SearchResult[]>(() => {

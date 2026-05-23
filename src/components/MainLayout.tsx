@@ -62,7 +62,7 @@ const NudgeWatcher = memo(function NudgeWatcher() {
             description: `Preostalo ti je još ${remaining} od ${suggestion.suggestedToday} planiranih sekcija za danas.`,
             duration: 5000,
           });
-          setTimeout(() => { nudgeShownRef.current = false; }, 30 * 60 * 1000);
+          taskScheduler.setTimeout(() => { nudgeShownRef.current = false; }, 30 * 60 * 1000, { label: "MainLayout:nudgeCooldown" });
         }
       } catch {}
     })();

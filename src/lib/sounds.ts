@@ -1,4 +1,5 @@
 import { loadAppSettings } from "./app-settings";
+import { taskScheduler } from "@/lib/scheduler";
 
 let audioCtx: AudioContext | null = null;
 
@@ -49,7 +50,7 @@ export function playGradeGood() {
 export function playGradeEasy() {
   if (!isSoundEnabled()) return;
   playTone(700, 0.08, "sine", 0.1);
-  setTimeout(() => playTone(900, 0.12, "sine", 0.1), 80);
+  taskScheduler.setTimeout(() => playTone(900, 0.12, "sine", 0.1), 80, { label: "sound:gradeEasy:tone2" });
 }
 
 /** Low thud for grade 1 (Opet) */
@@ -68,8 +69,8 @@ export function playGradeHard() {
 export function playSessionComplete() {
   if (!isSoundEnabled()) return;
   playTone(523, 0.15, "sine", 0.12);
-  setTimeout(() => playTone(659, 0.15, "sine", 0.12), 150);
-  setTimeout(() => playTone(784, 0.25, "sine", 0.12), 300);
+  taskScheduler.setTimeout(() => playTone(659, 0.15, "sine", 0.12), 150, { label: "sound:sessionComplete:tone2" });
+  taskScheduler.setTimeout(() => playTone(784, 0.25, "sine", 0.12), 300, { label: "sound:sessionComplete:tone3" });
 }
 
 /** Play sound for a specific grade */
