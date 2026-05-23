@@ -1,5 +1,5 @@
 import { Suspense, lazy, type ReactNode } from "react";
-import { CategoryStateProvider } from "./CategoryStateProvider";
+import { useCategoryStateBridge } from "./CategoryStateProvider";
 import { CardStateProvider } from "./CardStateProvider";
 import { ActionsProvider } from "./ActionsProvider";
 import { useDbError } from "@/contexts/db/DbErrorProvider";
@@ -8,7 +8,6 @@ const LazyDatabaseRecoveryPanel = lazy(() => import("@/components/DatabaseRecove
 
 // ─────────────────────────────────────────────────────────────
 // Public hooks — focused re-exports, no merged shims.
-// Components import directly from the right domain provider.
 // ─────────────────────────────────────────────────────────────
 export {
   useCardData,
@@ -35,14 +34,23 @@ function RecoveryGate({ children }: { children: ReactNode }) {
   return <>{children}</>;
 }
 
+/**
+ * Bridge montira side-effect-e ranije vezane za <CategoryStateProvider>
+ * (examiner cache prime + invalidator shim). Hook ne renderuje ništa.
+ */
+function CategoryBridge({ children }: { children: ReactNode }) {
+  useCategoryStateBridge();
+  return <>{children}</>;
+}
+
 export function CardProvider({ children }: { children: ReactNode }) {
   return (
-    <CategoryStateProvider>
+    <CategoryBridge>
       <CardStateProvider>
         <ActionsProvider>
           <RecoveryGate>{children}</RecoveryGate>
         </ActionsProvider>
       </CardStateProvider>
-    </CategoryStateProvider>
+    </CategoryBridge>
   );
 }
