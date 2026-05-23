@@ -1,150 +1,105 @@
-# Čišćenje Provider Stabla i Event Busa
+# V4 Editor Epic — HTML → AST (TipTap)
 
-## Trenutno stanje
+Cilj: zamijeniti trenutni `contentEditable` + `innerHTML` + DOMPurify pipeline jednim AST-baziranim editorom (TipTap / ProseMirror), tako da:
+- XSS rizik se eliminiše po dizajnu (nema sirovog HTML-a u stanju),
+- wiki-linkovi, `::mindmap[id]` embedi, key-parts highlight i Smart-Split postaju **tipizirani AST čvorovi**, a ne regex/sanitize zakrpe,
+- otvara se put ka Notion-style `/` komandama i blok drag-and-drop-u.
 
-Provider stack u `App.tsx` (od korijena ka dolje) je **13 nivoa duboko**:
+## Izbor: TipTap (preko Lexical)
+- ProseMirror jezgro je provjereno, dokumentovano, ima zrelu schemu i decorations API.
+- TipTap = tanak React layer, lakša integracija sa našim postojećim DM Sans / prose stilovima.
+- Lexical je elegantniji, ali ima manje gotovih nodeova za naše custom slučajeve (wiki-link, mindmap embed) i slabiju paste/sanitize priču.
 
-```text
-HashRouter
-└─ BootStateProvider        ← no-op wrapper (kod već postoji)
-   └─ AppProvider
-      └─ CardProvider
-         └─ DbErrorProvider
-            └─ CategoryStateProvider     ← već čita iz Zustand `categoryStore`
-               └─ CardStateProvider      ← 4 stacked Context.Provider-a iznutra
-                  └─ CardActionsProvider
-                     └─ CategoryActionsProvider
-                        └─ BackupActionsProvider
-                           └─ PomodoroProvider  ← 2 stacked iznutra
-                              └─ UIProvider
-                                 └─ SessionProvider
-                                    └─ BootRecoveryGate
-```
+## Trenutno stanje (mapirano)
+Površine koje pišu/čitaju HTML:
+- `src/components/RichTextEditor.tsx` (323 LOC) — primarni RTE, `contentEditable` + manualni `innerHTML` sync na blur.
+- `src/components/source-reader/SourceContent.tsx` + `src/hooks/source-reader/useSourceEditing.ts` — source rich-text editor sa Smart Paste.
+- `src/components/category/SourceEditor.tsx` (356 LOC) — source editor cijelog dokumenta.
+- `src/components/zettelkasten/ZettelEditor.tsx` (214 LOC) — markdown-ish ali piše HTML; `::mindmap[id]` regex embedi.
+- `src/components/ui/safe-html.tsx`, `src/lib/sanitize.ts`, `src/lib/highlight-key-parts.ts` — runtime DOMPurify + regex highlight.
+- `src/components/card-form/EditorSection.tsx`, `src/hooks/card-actions/useSectionEditor.ts` — Essay sekcije.
 
-Plus `eventBus` (`src/lib/event-bus.ts`) drži `BroadcastChannel`, heartbeat `setInterval`, `beforeunload` listener i `_softReset` HMR mašineriju — **sav cross-tab kod je mrtav** jer je app Pure Desktop Electron (jedan prozor po procesu).
+Nije RTE (ne dirati u ovom epiku): `ZettelTagEditor`, `ZettelAliasEditor`, `HookEditor`, `TagsEditor` — tag inputi.
 
-## Cilj
+Polja u IDB koja drže HTML: card section `content`, source `bodyHtml`, zettel article `bodyHtml`. Svi se danas serijalizuju kao sanitizovan HTML string.
 
-Skinuti provider depth sa **13 → 7** i istrgnuti BroadcastChannel mašineriju, bez ijednog `breaking change`-a na ~49 consumer fajlova koji koriste `useCardData / useCategoryData / useUIContext / itd.` Sav state ostaje u Zustand store-ovima koje već imamo (`categoryStore`, `useCardMap`); providers se ukidaju tamo gdje je njihov jedini posao bio "Context wrapping nad eksternim store-om".
+---
 
-## Plan (5 inkrementalnih PR-ova u jednoj seansi)
+## Faze (svaka = jedan PR, svaka samostalna isporuka)
 
-### PR-A — Brisanje no-op `BootStateProvider` + flatten action providers
+### PR-1 — Isolated playground (nema integracije)
+- Dodati `tiptap` + minimalan set extensions (`StarterKit`, `Link`, `Placeholder`, `Underline`, `TextAlign`, `Highlight`).
+- Novi route `/__lab/editor` (dev-only, iza `import.meta.env.DEV`) sa standalone `LabEditor.tsx`.
+- Lokalni state, bez perzistencije. Cilj: tim vidi/testira UX bez ikakvog rizika za produkciju.
+- Dodati `src/test/editor-v4-lab.test.tsx` (smoke: render + tipkanje + serialize round-trip).
 
-1. `src/contexts/boot/BootStateProvider.tsx`: ostaviti samo `useBootState` hook export; ukloniti `BootStateProvider` komponentu (no-op je).
-2. `src/App.tsx`: ukloniti `<BootStateProvider>` wrapper iz JSX-a (useBootState i dalje radi — modul-level store).
-3. Spojiti `CardActionsProvider + CategoryActionsProvider + BackupActionsProvider` u jedan `ActionsProvider` (`src/contexts/cards/ActionsProvider.tsx`). Iznutra zadržati tri postojeća Context-a (CardActionsContext, CategoryActionsContext, BackupActionsContext) — jedan provider, tri vrijednosti. `useCardOnlyActions / useCategoryActions / useBackupActions` ostaju identično public API.
-4. `CardProvider.tsx`: zamijeniti tri stacked providera sa `<ActionsProvider>`.
+### PR-2 — Domain JSON schema + codecs
+- Definisati `EditorDoc` JSON tip (`src/lib/editor-v4/schema.ts`): `{ version: 4, content: ProseMirrorJSON }`.
+- Custom node specs:
+  - `wikiLink` (atrs: `targetId`, `display`) — zamjenjuje regex iz `zettelkasten-wiki-link.ts`,
+  - `mindmapEmbed` (atrs: `mindmapId`) — zamjenjuje `::mindmap[id]` regex,
+  - `keyPart` mark — zamjenjuje runtime highlight.
+- Codecs:
+  - `htmlToDoc(html: string): EditorDoc` — koristi ProseMirror DOMParser + naša pravila za wiki/mindmap detekciju,
+  - `docToHtml(doc): string` — samo za read-only fallback i export (PDF/print),
+  - `docToPlainText(doc): string` — za search/preview.
+- Unit testovi u `src/test/editor-v4-codec.test.ts`: round-trip 20 reprezentativnih HTML fixture-a (`src/test/fixtures/editor-html/*.html`) iz prave baze (sanitizovani export). Niti jedan link/mindmap embed ne smije nestati.
 
-Depth: 13 → 10. Nula promjena na consumer fajlovima.
+### PR-3 — Migration engine na dummy-ju
+- `src/lib/editor-v4/migrate.ts`: čita IDB record, ako `content` nije `EditorDoc` JSON → konvertuje preko `htmlToDoc`, upisuje **u zaseban `contentDoc` kolonu** (Dexie v22 bump, aditivna migracija, ne diramo `content`).
+- Migracija je **lazy + idempotentna**: pri load-u card/source/article-a koji još nema `contentDoc`, generišemo ga i perzistujemo kroz outbox.
+- Dry-run CLI script `src/scripts/migrate-editor-v4.ts` koji se pušta protiv ZIP backup-a iz `Data Backup v5` formata; output: izvještaj `{ migrated, failed, samplesWithDataLoss }`.
+- Test: `src/test/editor-v4-migrate.test.ts` na fixture backup-u; 0 data loss tolerancija za linkove/embede.
 
-### PR-B — `DbErrorProvider` → `useDbError()` hook
+### PR-4 — Read path: render preko AST-a
+- Novi `<EditorView doc={...} readOnly />` komponenta (TipTap u `editable={false}` modu).
+- Svuda gdje danas radimo `<SafeHtml html={...}>` u read-only kontekstu (card preview, review session, zettel render) — ako `contentDoc` postoji, renderuj preko AST-a; inače fallback na trenutni `SafeHtml` (kompatibilnost dok migracija ne pokrije sve).
+- DOMPurify ostaje samo na fallback grani.
+- Vizuelni regression: prose stilovi (`Styling Prose Fixes v3`) primijenjeni na `.ProseMirror` selektor da boja/font ostanu identični.
 
-1. `src/contexts/db/DbErrorProvider.tsx`: izbrisati `DbErrorContext` i `DbErrorProvider`. Konvertovati `useDbError()` u plain hook koji koristi `useSyncExternalStore` nad modul-level `subscribe(listener)` funkcijom — `subscribe` interno koristi `eventBus.subscribe(EVENT_TYPES.DB_ERROR_CHANGED, …)`, `getSnapshot` čita `getDbErrorState()` iz `db-schema`.
-2. `CardProvider.tsx`: ukloniti `<DbErrorProvider>` wrapper, `RecoveryGate` i dalje zove `useDbError()` (sada hook).
-3. Test: `src/test/db-error-dedupe.test.tsx` — adaptirati ako Mount-uje provider (vjerovatno samo skinuti wrapper).
+### PR-5 — Write path #1: card sections
+- Zamijeniti `RichTextEditor` u `card-form/EditorSection.tsx` sa novim `<EditorV4 />`.
+- `useSectionEditor` piše `contentDoc` (JSON) u IDB; `content` (HTML) se generiše iz `docToHtml` samo dok stari kod čita (deprecation period).
+- Wiki-link autosuggest, key-parts toggle, undo/redo — sve preko TipTap komandi.
+- Postojeći testovi za card editing moraju proći; dodati `src/test/editor-v4-cards.test.tsx`.
 
-Depth: 10 → 9. Public API (`useDbError`) ostaje.
+### PR-6 — Write path #2: sources + zettel
+- Smart Paste (`useSourceEditing`) → TipTap paste rules (regex → node transforms umjesto innerHTML manipulacije).
+- `SourceEditor.tsx` i `ZettelEditor.tsx` portovani na `<EditorV4 />`.
+- `::mindmap[id]` postaje `mindmapEmbed` nodeView koji renderuje postojeću mindmap snapshot komponentu.
+- Smart-Split wizard nastavlja da radi nad **plain text** kao i sad (`Smart-Split Wizard` pravilo) — wizard čita `docToPlainText`, generiše nove sekcije kao `EditorDoc`.
 
-### PR-C — `CategoryStateProvider` → Zustand selectors
+### PR-7 — Cleanup + telemetrija
+- Ako telemetrija pokaže >99.5% recorda sa `contentDoc`, ukloniti HTML kolonu (Dexie v23 destruktivna migracija + backup snapshot prije).
+- Obrisati `RichTextEditor.tsx`, `SafeHtml`, `highlight-key-parts.ts` runtime regex, sav `dangerouslySetInnerHTML` u `src/components/**`.
+- DOMPurify ostaje samo u import/export putanji (sanitacija dolaznog HTML-a iz backup-a/clipboarda) — više nigdje u runtime render-u.
+- Memorije za update: `Rich Text Implementation`, `Global Sanitization v6`, `Styling Prose Fixes v3`.
 
-Postojeći provider je već čisti most nad `categoryStore` (Zustand). Brišemo ga:
+---
 
-1. `src/contexts/cards/CategoryStateProvider.tsx`: pretvoriti u modul **bez providera**. `useCategoryData` postaje hook nad `categoryStore` (vraća isti `{categories, categoryRecords, subcategories}` objekt, memo-iziran preko `useSyncExternalStore` + `useMemo`). `useCategoryStateSetter` i `useCategoryStateInternals` se eksportuju kao plain funkcije (već koriste modul-level `setCategoryRecordsShim` / `getCategoryStoreRecords`).
-2. Side-effect-i koji su živjeli u provideru (`primeExaminerProfilesFromRecords`, `registerCategoryStateSetter`) — premjestiti u novi `useCategoryStateBridge()` hook koji se montira jednom unutar `CardProvider`.
-3. `CardProvider.tsx`: ukloniti `<CategoryStateProvider>` wrapper, dodati `useCategoryStateBridge()` poziv.
-4. Verifikovati 7 consumer fajlova koji zovu `useCategoryData()` — API identičan, bez promjena.
+## Acceptance kriterijumi (kraj epika)
+- `grep -r "dangerouslySetInnerHTML" src/components` → 0 hitova.
+- `grep -r "innerHTML\s*=" src` → 0 hitova izvan codec-a i testova.
+- 0 data loss u migracionom izvještaju protiv produkcijskog backup-a.
+- Wiki-linkovi i mindmap embedi rade bez ijednog regex-a u render putanji.
+- Bundle delta: TipTap StarterKit ≈ +60KB gz; izbrisani RichTextEditor + DOMPurify runtime ≈ −35KB → neto ~+25KB.
 
-Depth: 9 → 8.
+## Rizici i mitigacije
+- **Stilovi se razlikuju** → izolovan `LabEditor` u PR-1 + Storybook snapshoti prose stilova prije PR-4.
+- **Migracija pokvari custom HTML** → lazy + idempotent, originalni HTML ostaje u `content` koloni do PR-7; mogućnost rollback-a uvijek.
+- **TipTap dep težina** → koristimo samo `@tiptap/core`, `@tiptap/react`, `@tiptap/starter-kit` + selektivni extensions; ne instaliramo `@tiptap/pm` duplikat.
+- **Electron CSP** → TipTap ne koristi `eval`/inline skripte; trenutna CSP (`Electron Infrastructure v4`) ostaje važeća, samo provjeriti u PR-1.
 
-### PR-D — EventBus: BroadcastChannel → in-process EventTarget
+## Tehnički detalji (za inženjere)
+- Dexie schema bump (PR-3): aditivni indeks `contentDoc` na `cards`, `sources`, `zettelArticles`. Bez index-a, samo polje.
+- Codec ulazna tačka: `ProseMirror.DOMParser.fromSchema(schema).parse(domNode)` sa pre-procesorom koji prepoznaje `<a data-wikilink>` i `<span data-mindmap>` pattern-e (mi smo ih već emitovali u sanitize fazi).
+- NodeView za `mindmapEmbed` mora biti `stopEvent: () => true` da TipTap selection ne otima klikove unutar mindmap canvas-a.
+- `key-part` mark mora biti `inclusive: false` da se ne širi pri tipkanju.
+- Outbox iz `Ref Delta Persistence v4` ostaje SSOT za perzistenciju; samo payload se mijenja sa `string` na `EditorDoc` JSON.
+- Testing: koristiti `@tiptap/core`'s `prosemirror-test-builder` za AST asercije; jsdom dovoljan, ne treba browser.
 
-Cross-tab kod je dead code na desktop-only platformi. Konvertujemo bus u lean in-process pub/sub uz očuvanje cijelog public API-ja:
-
-1. `src/lib/event-bus.ts`:
-   - Skloniti `BroadcastChannel`, `channel?.postMessage`, `onmessage`.
-   - Skloniti `heartbeatIntervalId`, `activeTabs`, `_beforeUnloadHandler`, `TAB_HEARTBEAT/REPLY/LEAVING` subscribe logiku.
-   - `emit()` poziva samo `handleIncomingMessage()` (lokalni listeneri).
-   - `getTabCount()` → vraća `1`.
-   - `_softReset()` → samo `listeners.clear()`.
-   - `destroy()` → samo `listeners.clear()`.
-   - Singleton + HMR dispose ostaju.
-2. `event-bus-types.ts`: ostaviti `TAB_HEARTBEAT/REPLY/LEAVING` konstante (referencirane su u tipovima) ali ih više niko ne emituje.
-3. `useHealthMonitor.ts`: ako negdje koristi `getTabCount > 1` granu, ukloniti je (potvrditi grepom).
-4. Test sweep: `db-error-dedupe`, `category-state-invalidator`, `card-map-invalidator`, `zettelkasten-wiki-link-integration` — svi rade preko lokalnih listenera, prolaze nepromijenjeni.
-
-Bundle delta: −~2KB (BroadcastChannel i heartbeat kod). DX win: nema više fantomskih duplih listenera pri HMR-u.
-
-### PR-E — Verifikacija + dokumentacija
-
-1. Pokrenuti puni test suite: očekujemo zero regresija.
-2. Grep za `<BootStateProvider|<DbErrorProvider|<CategoryStateProvider|<CardActionsProvider|<CategoryActionsProvider|<BackupActionsProvider` u `src/` — sve linije moraju biti obrisane (osim definicija ako su zaostale).
-3. Ažurirati memo index: dodati `mem://architecture/provider-cleanup-v1` sa kratkim opisom "Provider tree spljošten 13→7; cross-tab event bus uklonjen (desktop-only)".
-
-## Šta NE radimo
-
-- **Ne ukidamo** `CardStateProvider`, `UIProvider`, `SessionProvider`, `PomodoroProvider`, `AppProvider` — ovi drže pravi React state (`useState`, `useRef`, side-effect mount) koji bi mu trebao non-trivial refactor svih consumer fajlova. To je za sljedeću iteraciju.
-- **Ne mijenjamo** consumer API (49 fajlova). Svi `useCardData / useUIContext / useSessionContext / ...` ostaju identični.
-- **Ne dodajemo** novi pub/sub mehanizam (npr. mitt). Postojeći lean EventBus pokriva sve slučajeve.
-- **Ne diramo** `draftRegistry` — već je čist Zustand-like store; pominje se u pitanju samo kao primjer šablona.
-
-## Acceptance kriterijumi
-
-- React DevTools "Components" panel prikazuje 6 providera između `HashRouter` i `MainLayout` (umjesto 12).
-- `grep -r "new BroadcastChannel" src/` → 0 rezultata.
-- `bunx vitest run` → svi postojeći testovi prolaze bez izmjena (osim minornog skidanja providera u DbError testu).
-- Otvaranje DevTools → Performance: prvi render `<App>` skida ~6 React Fiber nodova (smaller flame graph root).
-- HMR test: izmijeniti `CardActionsProvider` (sad `ActionsProvider`) → ne pojavljuje se duplikat listener u `eventBus.getListenerCount()`.
-
-## Tehnički detalji
-
-**`useDbError` hook (PR-B):**
-```ts
-let _snap: DbErrorState = getDbErrorState();
-const subscribers = new Set<() => void>();
-eventBus.subscribe(EVENT_TYPES.DB_ERROR_CHANGED, (next) => {
-  const incoming = (next as DbErrorState) ?? null;
-  if (sameDbError(_snap, incoming)) return;
-  _snap = incoming;
-  for (const fn of subscribers) fn();
-});
-export function useDbError() {
-  return useSyncExternalStore(
-    (cb) => { subscribers.add(cb); return () => subscribers.delete(cb); },
-    () => _snap,
-    () => _snap,
-  );
-}
-```
-
-**`useCategoryData` hook (PR-C):**
-```ts
-const selectState = (s) => s;
-export function useCategoryData() {
-  const records = useSyncExternalStore(
-    categoryStore.subscribe,
-    () => categoryStore.getState().records,
-    () => categoryStore.getState().records,
-  );
-  return useMemo(() => ({
-    categories: records.map(r => r.id),
-    categoryRecords: records,
-    subcategories: buildSubcatMap(records),
-  }), [records]);
-}
-```
-
-**Slim EventBus (PR-D):**
-```ts
-class EventBus {
-  private listeners = new Map<EventType, Set<(p: unknown) => void>>();
-  emit(type, payload) {
-    const ls = this.listeners.get(type);
-    if (!ls) return;
-    for (const cb of ls) { try { cb(payload); } catch (e) { logger.error(...) } }
-  }
-  subscribe(type, cb) { /* unchanged */ }
-  getTabCount() { return 1; }
-  getListenerCount(type?) { /* unchanged */ }
-}
-```
+## Šta epik **ne** radi
+- Ne migriramo notes/comment polja (već su plain text).
+- Ne diramo tag/alias/hook editore.
+- Ne uvodimo collaborative editing (Y.js) — to je zaseban epik nakon V4.
+- Ne mijenjamo `Smart-Split Wizard` UX (ostaje plain-text input).
