@@ -15,6 +15,8 @@ import { saveMindMap } from "@/lib/mindmap-storage";
 import { toast } from "sonner";
 import { getId, HIERARCHY_TEMPLATES, PROCEDURE_TEMPLATES, type NodeTemplate } from "@/components/mindmap/mindmap-constants";
 import { autoLayout } from "@/components/mindmap/mindmap-utils";
+import { taskScheduler } from "@/lib/scheduler";
+
 
 import { logger } from "@/lib/logger";
 const SNAP_THRESHOLD = 20;
