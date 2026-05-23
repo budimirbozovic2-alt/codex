@@ -12,6 +12,7 @@ import { applyImportAtomically, type ImportStrategy } from "@/lib/backup/import-
 import { parseJsonInWorker } from "@/lib/zip-service";
 import { clearReviewSession } from "@/lib/review-session-storage";
 import { cardRepository } from "@/lib/repositories/cardRepository";
+import { categoryRepository } from "@/lib/repositories/categoryRepository";
 
 import { logger } from "@/lib/logger";
 export type ImportProgress = (pct: number, label: string) => void;
@@ -53,13 +54,14 @@ function sanitizeLSValue(v: unknown): unknown {
 }
 
 export function useCardImport({
-  setCategoryRecords,
+  setCategoryRecords: _legacySetCategoryRecords,
   setReviewLog,
   updateSRSettings,
   setCardMapState: _legacySetCardMap, // Phase 3b: kept for back-compat, unused
   cardMapRef,
 }: UseCardImportDeps) {
   void _legacySetCardMap;
+  void _legacySetCategoryRecords; // Phase 5C: categories go through categoryRepository
   const importData = useCallback(
     async (
       file: File,
@@ -131,7 +133,8 @@ export function useCardImport({
         //       + CARDS_UPDATED emit). cardMapRef reads stay live via the C4
         //       unified atom; no explicit ref mutation required.
         cardRepository.replaceAll(result2.nextMap);
-        setCategoryRecords(result2.freshCategories);
+        // Phase 5C — categories go through the repository → mirror.
+        categoryRepository.replaceAll(result2.freshCategories);
         if (result2.reviewLogApplied) setReviewLog(result2.reviewLogApplied);
         if (result2.srSettingsApplied) updateSRSettings(result2.srSettingsApplied);
         invalidateSourcesCache();
@@ -181,7 +184,7 @@ export function useCardImport({
         toast.error(`Greška pri uvozu: ${err instanceof Error ? err.message : "Neispravan format fajla."}`);
       }
     },
-    [setCategoryRecords, setReviewLog, updateSRSettings, cardMapRef],
+    [setReviewLog, updateSRSettings, cardMapRef],
   );
 
   // Phase 3b — importCards now delegates to cardRepository.bulkPut which

@@ -1,59 +1,24 @@
 // ─── Category Service Layer ("Oficir za vezu") ─────────
 // Centralni servis za optimističke category operacije i UUID lookup helpere.
 // UI komponente NIKADA ne pišu direktno u IDB — sve ide kroz ovaj sloj.
+//
+// Phase 5C: persistence + rollback live in `categoryRepository.commit`,
+// koji piše u eksterni mirror (Single Source of Truth od Faze 5B).
+// `optimisticCategoryUpdate` ostaje kao tanki shim radi back-compat —
+// React setter argument se ignoriše (mirror subscription će re-renderovati
+// provider automatski). Postojeći call sites kompajliraju bez izmjena.
 
-import { idbLoadCategories, idbSaveCategories, type CategoryRecord, type SubcategoryNode, type ChapterNode } from "@/lib/db";
-import { toast } from "sonner";
+import { type CategoryRecord, type SubcategoryNode, type ChapterNode } from "@/lib/db";
+import { commit as repositoryCommit } from "@/lib/repositories/categoryRepository";
 
-import { logger } from "@/lib/logger";
-import { emitCategoriesUpdated } from "@/lib/repositories/categoryRepository";
-// ─── Mutex for serializing IDB writes ───────────────────
-let _pendingSave: Promise<void> = Promise.resolve();
-
-// ─── Optimistic update with rollback + serialized IDB ───
-export async function optimisticCategoryUpdate(
-  setCategoryRecords: React.Dispatch<React.SetStateAction<CategoryRecord[]>>,
+// ─── Optimistic update (Phase 5C shim → repository) ───
+export function optimisticCategoryUpdate(
+  _setCategoryRecords: React.Dispatch<React.SetStateAction<CategoryRecord[]>> | null | undefined,
   updater: (prev: CategoryRecord[]) => CategoryRecord[],
-  label: string
-) {
-  let rollbackSnapshot: CategoryRecord[] | null = null;
-  let updatedState: CategoryRecord[] | null = null;
-
-  setCategoryRecords(prev => {
-    rollbackSnapshot = prev;
-    const next = updater(prev);
-    updatedState = next;
-    return next;
-  });
-
-  // Serialize IDB writes via mutex to prevent concurrent overwrites
-  const saveOp = _pendingSave.then(async () => {
-    try {
-      // Re-read fresh IDB state inside mutex, then re-apply updater to avoid stale closure overwrites
-      const fresh = await idbLoadCategories();
-      const next = updater(fresh);
-      await idbSaveCategories(next);
-      // Phase 5A — fan out a self-tagged event so external listeners (e.g.
-      // diagnostics, future cross-tab sync) can react. The invalidator
-      // skips "repository" sources because RAM is already up-to-date.
-      emitCategoriesUpdated({
-        source: "repository",
-        categoryIds: next.map(c => c.id),
-      });
-    } catch (e) {
-      logger.error(`[${label}] IDB persist failed, rolling back`, e);
-      // I2 fix: rollback from fresh IDB state instead of stale snapshot
-      try {
-        const freshFromIdb = await idbLoadCategories();
-        setCategoryRecords(freshFromIdb);
-      } catch {
-        if (rollbackSnapshot) setCategoryRecords(rollbackSnapshot);
-      }
-      toast.error("Greška", { description: "Promjena nije sačuvana." });
-    }
-  });
-  _pendingSave = saveOp.catch(() => {}); // keep chain alive even on error
-  return saveOp;
+  label: string,
+): Promise<void> {
+  void _setCategoryRecords; // Phase 5C: React setter no longer authoritative.
+  return repositoryCommit(updater, label);
 }
 
 // ─── UUID Lookup Helpers ────────────────────────────────

@@ -5,6 +5,7 @@ import { CardMap, arrayToMap } from "@/lib/persist-queue";
 import { type CategoryRecord } from "@/lib/db";
 import { markBootStep } from "@/lib/boot-trace";
 import { cardRepository } from "@/lib/repositories/cardRepository";
+import { categoryRepository } from "@/lib/repositories/categoryRepository";
 import {
   splashProgress,
   showSplashError,
@@ -28,8 +29,9 @@ interface BootSetters {
 }
 
 export function useCardBootstrap(setters: BootSetters) {
-  const { setCardMapState: _legacySetCardMap, setCategoryRecordsState, setReviewLogState, setSrSettingsState, cardMapRef } = setters;
+  const { setCardMapState: _legacySetCardMap, setCategoryRecordsState: _legacySetCategoryRecords, setReviewLogState, setSrSettingsState, cardMapRef } = setters;
   void _legacySetCardMap; // Phase 3b: writes go through cardRepository now
+  void _legacySetCategoryRecords; // Phase 5C: writes go through categoryRepository
   const [ready, setReady] = useState(false);
   const initialLoadDone = useRef(false);
 
@@ -70,7 +72,10 @@ export function useCardBootstrap(setters: BootSetters) {
         cardRepository.replaceAll(arrayToMap(cards));
         // cardMapRef still seeded by replaceAll's setState (atom = ref).
         void cardMapRef; // kept in props for backwards compat; no direct write
-        setCategoryRecordsState(finalRecords);
+        // Phase 5C — route category bootstrap through the repository so the
+        // external mirror (Phase 5B SSOT) is updated and React re-renders
+        // via its useSyncExternalStore subscription.
+        categoryRepository.replaceAll(finalRecords);
         setReviewLogState(log);
         setSrSettingsState(settings);
 

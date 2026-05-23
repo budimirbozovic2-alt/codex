@@ -1,8 +1,13 @@
-import { createContext, useContext, useMemo, useState, useEffect, useCallback, useRef, type ReactNode } from "react";
+import { createContext, useContext, useMemo, useEffect, useCallback, type ReactNode } from "react";
+import { useSyncExternalStore } from "react";
 import type { CategoryRecord } from "@/lib/db";
 import { primeExaminerProfilesFromRecords } from "@/lib/examiner-profile-cache";
 import { registerCategoryStateSetter } from "@/lib/repositories/categoryStateInvalidator";
-import { setCategoryStoreRecords } from "@/store/useCategoryStore";
+import {
+  categoryStore,
+  getCategoryStoreRecords,
+  setCategoryStoreRecords,
+} from "@/store/useCategoryStore";
 
 // ── Public state (consumed by useCategoryData) ──
 interface CategoryStateContextValue {
@@ -12,7 +17,6 @@ interface CategoryStateContextValue {
 }
 
 const CategoryStateContext = createContext<CategoryStateContextValue | null>(null);
-
 
 const EMPTY_CATEGORY_STATE: CategoryStateContextValue = {
   categories: [],
@@ -37,6 +41,10 @@ export function useCategoryData() {
 }
 
 // ── Internal plumbing for action providers ──
+// Phase 5C: `setCategoryRecords` is now a SHIM that writes into the external
+// `categoryStore` mirror — which is the new SSOT. Action callers don't need
+// to change their signature; the underlying mutation just no longer flows
+// through React state.
 interface CategoryStateInternals {
   setCategoryRecords: React.Dispatch<React.SetStateAction<CategoryRecord[]>>;
   getCategoryRecords: () => CategoryRecord[];
@@ -58,10 +66,28 @@ export function useCategoryStateSetter() {
   return ctx;
 }
 
+// Stable module-level setter facade — same identity across renders so it
+// can be passed as a prop without churning memoisation.
+const setCategoryRecordsShim: React.Dispatch<React.SetStateAction<CategoryRecord[]>> = (action) => {
+  const prev = getCategoryStoreRecords();
+  const next = typeof action === "function"
+    ? (action as (p: CategoryRecord[]) => CategoryRecord[])(prev)
+    : action;
+  if (next === prev) return;
+  setCategoryStoreRecords(next);
+};
+
+const getRecordsFromStore = (): CategoryRecord[] => getCategoryStoreRecords();
+
 export function CategoryStateProvider({ children }: { children: ReactNode }) {
-  const [categoryRecords, setCategoryRecords] = useState<CategoryRecord[]>([]);
-  const recordsRef = useRef<CategoryRecord[]>([]);
-  recordsRef.current = categoryRecords;
+  // Phase 5C — provider subscribes to the external mirror. The mirror IS the
+  // SSOT now; useState is gone. Any writer (action providers, invalidator,
+  // bootstrap, restore) pushes to the mirror and this hook re-renders.
+  const categoryRecords = useSyncExternalStore(
+    categoryStore.subscribe,
+    () => categoryStore.getState().records,
+    () => categoryStore.getState().records,
+  );
 
   // Derived: UUID list
   const categories = useMemo(() => categoryRecords.map(r => r.id), [categoryRecords]);
@@ -82,18 +108,12 @@ export function CategoryStateProvider({ children }: { children: ReactNode }) {
     primeExaminerProfilesFromRecords(categoryRecords);
   }, [categoryRecords]);
 
-  // Phase 5B — mirror records into the external category store so granular
-  // selectors (useCategoryFromStore et al.) get per-slice reactivity without
-  // re-running on unrelated context updates.
+  // Phase 5A — register the React shim with the invalidator. Strictly
+  // redundant in Phase 5C (the invalidator already pushes to the mirror,
+  // which re-renders us via subscription) but kept so any future external
+  // emitter that bypasses the mirror still has a React-side fan-out.
   useEffect(() => {
-    setCategoryStoreRecords(categoryRecords);
-  }, [categoryRecords]);
-
-  // Phase 5A — expose the React setter to the module-level invalidator so
-  // external CATEGORIES_UPDATED emitters (backup restore, cascade, future
-  // remote sync) refresh RAM without crossing the React boundary.
-  useEffect(() => {
-    registerCategoryStateSetter(setCategoryRecords);
+    registerCategoryStateSetter((records) => setCategoryStoreRecords(records));
     return () => registerCategoryStateSetter(null);
   }, []);
 
@@ -102,14 +122,14 @@ export function CategoryStateProvider({ children }: { children: ReactNode }) {
     [categories, categoryRecords, subcategories],
   );
 
-  const getCategoryRecords = useCallback(() => recordsRef.current, []);
+  const getCategoryRecords = useCallback(getRecordsFromStore, []);
   const internals = useMemo<CategoryStateInternals>(
-    () => ({ setCategoryRecords, getCategoryRecords }),
+    () => ({ setCategoryRecords: setCategoryRecordsShim, getCategoryRecords }),
     [getCategoryRecords],
   );
 
   return (
-    <CategoryStateSetterContext.Provider value={setCategoryRecords}>
+    <CategoryStateSetterContext.Provider value={setCategoryRecordsShim}>
       <CategoryStateInternalsContext.Provider value={internals}>
         <CategoryStateContext.Provider value={stateValue}>
           {children}
