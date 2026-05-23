@@ -149,10 +149,10 @@ interface OverviewTabProps {
   cards: Card[];
   categories: string[];
   reviewLog: ReviewLogEntry[];
-  activityData: ActivityPoint[];
-  masteryData: { name: string; value: number }[];
+  activityData: ActivityPoint[] | null;
+  masteryData: { name: string; value: number }[] | null;
   categoryChartData: CategoryBarPoint[];
-  levelCounts: number[];
+  levelCounts: number[] | null;
   ratioHistory: RatioHistoryPoint[] | null;
   todayTime: TodayTimeStat | null;
   focusRatio: { progress: number; targetReviewPct: number };
@@ -162,8 +162,9 @@ export default function OverviewTab({
   cards, categories, reviewLog, activityData, masteryData, categoryChartData,
   levelCounts, ratioHistory, todayTime, focusRatio,
 }: OverviewTabProps) {
+  void levelCounts;
   const hasData = cards.length > 0;
-  const total = cards.length;
+  const chartsReady = activityData !== null && masteryData !== null;
 
   return (
     <div className="space-y-6 mt-4">
@@ -179,10 +180,14 @@ export default function OverviewTab({
       {hasData && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <ErrorBoundary compact label="Grafikon aktivnosti">
-            <ActivityChart data={activityData} />
+            {chartsReady && activityData
+              ? <ActivityChart data={activityData} />
+              : <div className="h-[260px] glass-card rounded-xl animate-pulse" />}
           </ErrorBoundary>
           <ErrorBoundary compact label="Distribucija znanja">
-            <MasteryPieChart data={masteryData} />
+            {chartsReady && masteryData
+              ? <MasteryPieChart data={masteryData} />
+              : <div className="h-[260px] glass-card rounded-xl animate-pulse" />}
           </ErrorBoundary>
           <ErrorBoundary compact label="Kategorije">
             <CategoryBarChart data={categoryChartData} />

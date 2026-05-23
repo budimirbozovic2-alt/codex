@@ -289,6 +289,29 @@ export default tseslint.config(
     },
   },
 
+  // PR5 — analytics `_pure/**` modules must remain free of any side-effectful
+  // dependency so they can run identically inside `analytics.worker.ts`.
+  // Blocks storage, IDB, contexts, React, and the event bus.
+  {
+    files: ["src/lib/analytics/_pure/**/*.{ts,tsx}"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            { group: ["@/lib/storage", "@/lib/storage/*"], message: "_pure analytics ne smije čitati storage. Inject snapshote." },
+            { group: ["@/lib/db", "@/lib/db/*"], message: "_pure analytics ne smije pristupati IDB. Inject snapshote." },
+            { group: ["@/lib/metacognitive-storage"], message: "_pure analytics ne smije čitati metacognitive-storage. Inject snapshote." },
+            { group: ["@/lib/planner-storage", "@/lib/planner/*"], message: "_pure analytics ne smije čitati planner. Inject snapshote." },
+            { group: ["@/contexts/*", "@/contexts/**"], message: "_pure analytics ne smije čitati React contexts." },
+            { group: ["react", "react-dom"], message: "_pure analytics mora biti React-free (radi u Web Worker-u)." },
+            { group: ["@/lib/event-bus", "@/lib/event-bus-types"], message: "_pure analytics ne smije emitovati event-bus." },
+          ],
+        },
+      ],
+    },
+  },
+
   {
     files: ["src/features/**/*.{ts,tsx}"],
     rules: {

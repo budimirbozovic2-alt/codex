@@ -1,53 +1,15 @@
+// Thin adapter — pulls calibration snapshot from main-thread storage and
+// delegates to `_pure/blind-spots.ts`. `calcWeakHooks` stays here because
+// it WRITES to IDB (mnemonic cards) and is therefore not OLAP.
 import { Card } from "../spaced-repetition";
-import { loadCalibration, CalibrationEntry, loadLatency } from "../metacognitive-storage";
-import { loadMnemonicCards, MnemonicCard, saveMnemonicCards } from "@/features/mnemonic";
+import { loadCalibration, loadLatency } from "../metacognitive-storage";
+import { loadMnemonicCards, saveMnemonicCards } from "@/features/mnemonic";
+import { calcBlindSpots as calcBlindSpotsPure, type BlindSpot } from "./_pure/blind-spots";
 
-export interface BlindSpot {
-  cardId: string;
-  sectionId: string;
-  question: string;
-  category: string;
-  confidence: number;
-  actualGrade: number;
-  occurrences: number;
-}
+export type { BlindSpot };
 
 export function calcBlindSpots(cards: Card[]): BlindSpot[] {
-  const calibration = loadCalibration();
-  if (calibration.length < 5) return [];
-
-  const blindMap = new Map<string, { entries: CalibrationEntry[]; card?: Card }>();
-
-  calibration.forEach(e => {
-    if (e.confidence >= 4 && e.actualGrade <= 2) {
-      const key = `${e.cardId}:${e.sectionId}`;
-      const existing = blindMap.get(key) || { entries: [] };
-      existing.entries.push(e);
-      blindMap.set(key, existing);
-    }
-  });
-
-  const cardMap = new Map(cards.map(c => [c.id, c]));
-
-  const spots: BlindSpot[] = [];
-  blindMap.forEach((data, key) => {
-    const [cardId, sectionId] = key.split(":");
-    const card = cardMap.get(cardId);
-    if (!card) return;
-
-    const latest = data.entries[data.entries.length - 1];
-    spots.push({
-      cardId,
-      sectionId,
-      question: card.question,
-      category: card.categoryId,
-      confidence: latest.confidence,
-      actualGrade: latest.actualGrade,
-      occurrences: data.entries.length,
-    });
-  });
-
-  return spots.sort((a, b) => b.occurrences - a.occurrences).slice(0, 15);
+  return calcBlindSpotsPure(cards, loadCalibration());
 }
 
 export interface WeakHook {
