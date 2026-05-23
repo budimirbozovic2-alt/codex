@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, type RefObject } from "react";
+import { useCallback, useEffect, useMemo, useState, type RefObject } from "react";
 import { toast } from "sonner";
 import type { Source } from "@/lib/sources-storage";
 import { useSourceReaderStore } from "@/store";
@@ -8,6 +8,8 @@ import {
 import {
   persistSourceHtml, persistAutoFormat,
 } from "@/lib/services/sourceEditingService";
+import { taskScheduler } from "@/lib/scheduler";
+import { usePersistedDraftMirror } from "@/hooks/usePersistedDraftMirror";
 
 /**
  * Source HTML editing actions: heading toggle, list wrap, context menu,
