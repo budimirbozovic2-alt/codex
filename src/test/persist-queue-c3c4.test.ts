@@ -8,6 +8,27 @@ vi.mock("@/lib/db", () => ({
   idbDeleteCard: vi.fn().mockResolvedValue(undefined),
 }));
 
+// Stub Dexie schema: transaction passes through to the callback so the
+// mocked idbBulkApply is actually invoked; outbox ops are no-ops.
+vi.mock("@/lib/db-schema", () => {
+  const outbox = {
+    put: vi.fn().mockResolvedValue(undefined),
+    bulkDelete: vi.fn().mockResolvedValue(undefined),
+    toArray: vi.fn().mockResolvedValue([]),
+  };
+  const cards = {};
+  return {
+    db: {
+      cards,
+      outbox,
+      transaction: (_mode: string, ..._args: unknown[]) => {
+        const fn = _args[_args.length - 1] as () => Promise<unknown>;
+        return Promise.resolve(fn());
+      },
+    },
+  };
+});
+
 import { idbBulkApply } from "@/lib/db";
 import { PersistAction } from "@/lib/persist-queue";
 
