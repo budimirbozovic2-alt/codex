@@ -195,6 +195,26 @@ export interface DraftRecord {
   updatedAt: number;
 }
 
+/**
+ * Write-ahead log entry for `persist-queue`. Each in-flight card mutation
+ * has at most one outbox row keyed by cardId (last-write-wins). The flush
+ * transaction applies the card mutation AND deletes the outbox row in a
+ * single Dexie `rw` tx — a crash mid-flush leaves the outbox row intact and
+ * `recoverOutboxOnBoot()` re-applies it on next session.
+ *
+ * Replaces the `sessionStorage["codex-flush-pending"]` flag (v19 and earlier)
+ * which only told the user "previous session had interrupted writes" without
+ * recovering anything.
+ */
+export interface OutboxRecord {
+  /** Card ID — primary key. Last write of the same id overwrites the row. */
+  cardId: string;
+  op: "put" | "delete";
+  /** Full card snapshot for `put`; undefined for `delete`. */
+  card?: Card;
+  ts: number;
+}
+
 // V7: Set of pending rejecters. Single-slot lost concurrent open() calls.
 const _blockedRejecters = new Set<(err: Error) => void>();
 
@@ -217,6 +237,7 @@ class MemoriaDB extends Dexie {
   mnemonicTestLog!: Table<MnemonicTestLogEntry & { id?: number }, number>;
   knowledgeBaseArticles!: Table<KnowledgeBaseArticle, string>;
   drafts!: Table<DraftRecord, string>;
+  outbox!: Table<OutboxRecord, string>;
 
   constructor() {
     super("MemoriaDB");
@@ -304,6 +325,16 @@ class MemoriaDB extends Dexie {
     // reads pending rows and offers resume.
     this.version(19).stores({
       drafts: "key, source, updatedAt",
+    });
+
+    // v20: `outbox` table — write-ahead log for `persist-queue`. Replaces the
+    // `sessionStorage["codex-flush-pending"]` flag with a real recovery
+    // signal. Primary key `&cardId` enforces last-write-wins coalescing;
+    // flush deletes the row atomically with the card mutation, so any row
+    // present on boot represents a write that did NOT make it to the cards
+    // table and must be re-applied.
+    this.version(20).stores({
+      outbox: "&cardId, ts",
     });
   }
 }
