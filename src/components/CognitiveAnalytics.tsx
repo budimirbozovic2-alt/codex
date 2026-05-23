@@ -136,7 +136,7 @@ export default function CognitiveAnalytics({ cards, categories, reviewLog, catNa
         icon={<Shield className="h-4 w-4 text-primary" />}
         compute={() => {
           const planner = loadPlanner();
-          return calcCategoryStability(cards, categories, planner.finalGoalDate);
+          return analyticsClient.runCategoryStability(cards, categories, planner.finalGoalDate);
         }}
         delay={1}
         info={
