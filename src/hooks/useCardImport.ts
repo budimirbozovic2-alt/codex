@@ -59,8 +59,8 @@ export function useCardImport({
   setReviewLog,
   updateSRSettings,
   setCardMapState: _legacySetCardMap, // Phase 3b: kept for back-compat, unused
-  cardMapRef,
 }: UseCardImportDeps) {
+
   void _legacySetCardMap;
   void _legacySetCategoryRecords; // Phase 5C: categories go through categoryRepository
   const importData = useCallback(
