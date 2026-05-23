@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import type { SectionInput, CardType } from "./useCardActions";
 import type { FrequencyTag, CardSourceType } from "@/lib/spaced-repetition";
+import { draftRegistry } from "@/lib/drafts/draftRegistry";
 
 import { logger } from "@/lib/logger";
 /**
