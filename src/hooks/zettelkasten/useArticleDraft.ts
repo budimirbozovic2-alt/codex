@@ -23,6 +23,7 @@ import { normalizeTagList } from "@/lib/zettelkasten-tags";
 import { sameStringSet } from "@/lib/struct-eq";
 import { eventBus, EVENT_TYPES } from "@/lib/event-bus";
 import type { ZettelEditorHandle } from "@/components/zettelkasten/ZettelEditor";
+import { usePersistedDraftMirror } from "@/hooks/usePersistedDraftMirror";
 
 import { logger } from "@/lib/logger";
 export interface Draft {
@@ -74,6 +75,17 @@ export function useArticleDraft({ activeId, categoryId, setArticles }: Input): A
   useEffect(() => {
     draftRef.current = draft;
   }, [draft]);
+
+  // Mirror the in-progress draft into the IDB `drafts` table for crash
+  // recovery and register dirty state into the global registry so the central
+  // nav-guard can see "article X is unsaved" without bespoke wiring.
+  // Real persistence still happens via `flush()` on exit / navigation.
+  usePersistedDraftMirror({
+    key: activeId ? `article:${activeId}` : "article:none",
+    source: "zettelkasten-article",
+    enabled: Boolean(activeId && draft),
+    payload: draft,
+  });
 
   const flush = useCallback(async (): Promise<KnowledgeBaseArticle | null> => {
     const currentDraft = draftRef.current;
