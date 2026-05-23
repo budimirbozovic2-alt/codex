@@ -272,7 +272,7 @@ export default function CognitiveAnalytics({ cards, categories, reviewLog, catNa
         <LazyChart
           label="Indeks oporavka"
           icon={<HeartPulse className="h-4 w-4 text-primary" />}
-          compute={() => calcRecoveryRate()}
+          compute={() => analyticsClient.runRecovery()}
           delay={4}
         >
           {(recovery) => !recovery ? (
