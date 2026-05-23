@@ -53,6 +53,15 @@ const api = {
   runRecovery(snapshots: Pick<AnalyticsSnapshots, "disciplineLog">) {
     return calcRecoveryRate(snapshots.disciplineLog);
   },
+  runResistance(
+    cards: Card[],
+    categories: string[],
+    reviewLog: ReviewLogEntry[],
+    weights: ResistanceWeights,
+    snapshots: Pick<AnalyticsSnapshots, "latency">,
+  ) {
+    return calcResistance(cards, categories, reviewLog, snapshots.latency, weights);
+  },
   buildCharts(cards: Card[], reviewLog: ReviewLogEntry[], targetReviewPct: number): ChartBundle {
     return buildChartBundle(cards, reviewLog, targetReviewPct);
   },
