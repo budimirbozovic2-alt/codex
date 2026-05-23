@@ -38,6 +38,11 @@ const SubjectMnemonicPage = lazy(() => import("@/views/SubjectMnemonicPage"));
 const ZettelkastenView = lazy(() => import("@/views/ZettelkastenView"));
 const SubjectCardsView = lazy(() => import("@/views/SubjectCardsView"));
 
+// PR-1 Editor V4 lab — dev-only, no production wiring.
+const LabEditor = import.meta.env.DEV
+  ? lazy(() => import("@/views/lab/LabEditor"))
+  : null;
+
 /** key={categoryId} forces full remount when navigating between categories — resets all local state */
 function CategoryViewWrapper() {
   const { categoryId } = useParams();
