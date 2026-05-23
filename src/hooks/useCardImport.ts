@@ -133,7 +133,8 @@ export function useCardImport({
         //       + CARDS_UPDATED emit). cardMapRef reads stay live via the C4
         //       unified atom; no explicit ref mutation required.
         cardRepository.replaceAll(result2.nextMap);
-        setCategoryRecords(result2.freshCategories);
+        // Phase 5C — categories go through the repository → mirror.
+        categoryRepository.replaceAll(result2.freshCategories);
         if (result2.reviewLogApplied) setReviewLog(result2.reviewLogApplied);
         if (result2.srSettingsApplied) updateSRSettings(result2.srSettingsApplied);
         invalidateSourcesCache();
