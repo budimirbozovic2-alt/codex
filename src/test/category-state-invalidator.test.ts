@@ -30,7 +30,7 @@ describe("Phase 5A — categoryStateInvalidator", () => {
   it("skips self-tagged 'repository' emissions", async () => {
     const setter = vi.fn();
     registerCategoryStateSetter(setter);
-    emitCategoriesUpdated({ source: "repository", categoryIds: ["a"] });
+    emitCategoriesUpdated({ source: "repository", categoryIds: ["a"] as never });
     await tick();
     expect(setter).not.toHaveBeenCalled();
   });
