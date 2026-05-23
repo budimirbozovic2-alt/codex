@@ -129,7 +129,7 @@ export function useCardImport({
         const result2 = await applyImportAtomically({
           parsed,
           strategy,
-          currentMap: cardMapRef.current,
+          currentMap: getCardMap(),
           onProgress: progress,
         });
 
@@ -189,7 +189,7 @@ export function useCardImport({
         toast.error(`Greška pri uvozu: ${err instanceof Error ? err.message : "Neispravan format fajla."}`);
       }
     },
-    [setReviewLog, updateSRSettings, cardMapRef],
+    [setReviewLog, updateSRSettings],
   );
 
   // Phase 3b — importCards now delegates to cardRepository.bulkPut which

@@ -1,4 +1,4 @@
-import { useCallback, MutableRefObject } from "react";
+import { useCallback } from "react";
 import { Card } from "@/lib/spaced-repetition";
 import { CardMap } from "@/lib/persist-queue";
 import { db, idbDeleteCard, type CategoryRecord, type SubcategoryNode, type ChapterNode, type ExaminerProfile } from "@/lib/db";
@@ -8,12 +8,12 @@ import { toast } from "sonner";
 import { optimisticCategoryUpdate } from "@/lib/category-service";
 import { stableLegacyId } from "@/lib/stable-id";
 import { cardRepository } from "@/lib/repositories";
+import { getCardMap } from "@/store";
 
 import { logger } from "@/lib/logger";
 interface UseCategoryManagementParams {
   setCategoryRecords: React.Dispatch<React.SetStateAction<CategoryRecord[]>>;
-  setCardMapState: React.Dispatch<React.SetStateAction<CardMap>>;
-  cardMapRef: MutableRefObject<CardMap>;
+  setCardMapState?: React.Dispatch<React.SetStateAction<CardMap>>;
   getCategoryRecords: () => { id: string; name: string }[];
 }
 
@@ -48,7 +48,6 @@ function getNodes(rec: CategoryRecord): SubcategoryNode[] {
 export function useCategoryManagement({
   setCategoryRecords,
   setCardMapState: _legacySetCardMap, // Phase 3b: kept for back-compat, unused
-  cardMapRef,
   getCategoryRecords,
 }: UseCategoryManagementParams) {
   void _legacySetCardMap;

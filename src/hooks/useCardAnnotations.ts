@@ -1,4 +1,4 @@
-import { useCallback, MutableRefObject } from "react";
+import { useCallback } from "react";
 import {
   Card,
   calculateNextReview,
@@ -18,9 +18,8 @@ import { getExaminerProfileSync } from "@/lib/examiner-profile-cache";
 import { logger } from "@/lib/logger";
 interface UseCardAnnotationsParams {
   patchCard: (id: string, patcher: (card: Card) => Card) => void;
-  setCardMapState: React.Dispatch<React.SetStateAction<CardMap>>;
+  setCardMapState?: React.Dispatch<React.SetStateAction<CardMap>>;
   setReviewLog: (updater: (prev: ReviewLogEntry[]) => ReviewLogEntry[]) => void;
-  cardMapRef: MutableRefObject<CardMap>;
 }
 
 export function useCardAnnotations({
