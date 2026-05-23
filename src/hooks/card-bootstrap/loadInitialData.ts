@@ -52,34 +52,8 @@ export async function loadInitialData(): Promise<InitialData> {
     withTimeout(idbLoadSettings<SRSettings>("srSettings", DEFAULT_SR_SETTINGS), 2500, "settings load", DEFAULT_SR_SETTINGS),
   ]);
 
-  // One-time migration: legacy tags[] ("često-na-ispitu" / "rijetko-na-ispitu")
-  // → Card.frequencyTag (triple system SSOT). Idempotent.
-  try {
-    const { LEGACY_FREQUENT_TAG, LEGACY_RARE_TAG, stripLegacyFrequencyTags } = await import("@/lib/sr/frequency");
-    const migrated: Card[] = [];
-    for (const card of cards) {
-      const tags = card.tags;
-      if (!tags || tags.length === 0) continue;
-      const hadFreq = tags.includes(LEGACY_FREQUENT_TAG);
-      const hadRare = tags.includes(LEGACY_RARE_TAG);
-      if (!hadFreq && !hadRare) continue;
-      const cleaned = stripLegacyFrequencyTags(tags);
-      const next: Card = {
-        ...card,
-        tags: cleaned,
-        frequencyTag: card.frequencyTag ?? (hadFreq ? "često" : "rijetko"),
-      };
-      migrated.push(next);
-      const idx = cards.indexOf(card);
-      if (idx >= 0) cards[idx] = next;
-    }
-    if (migrated.length > 0 && db) {
-      db.cards.bulkPut(migrated).catch((e: unknown) =>
-        logger.warn("[boot] frequency tag migration persist failed", e),
-      );
-      if (import.meta.env.DEV) logger.info(`[boot] migrated ${migrated.length} cards: legacy tags → frequencyTag`);
-    }
-  } catch (e) { logger.warn("[boot] frequency tag migration skipped", e); }
+  // Legacy frequency-tag migracija je premještena u `runHeal` (Phase 2b).
+
 
   splashProgress(60, `${cards.length} kartica učitano`);
   transition({ type: "LOAD_PROGRESS", pct: 60, label: `${cards.length} kartica učitano` });
