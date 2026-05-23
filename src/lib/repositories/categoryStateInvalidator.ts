@@ -38,11 +38,13 @@ export function initCategoryStateInvalidator(): () => void {
     EVENT_TYPES.CATEGORIES_UPDATED,
     (payload) => {
       if (!payload || SELF_SOURCES.has(payload.source)) return;
-      if (!_setter) return;
       const seq = ++_fetchSequence;
       void idbLoadCategories()
         .then((records) => {
           if (seq !== _fetchSequence) return;
+          // Phase 5B — push into the external mirror first so non-React
+          // subscribers see fresh data even if no provider is mounted yet.
+          setCategoryStoreRecords(records);
           _setter?.(records);
         })
         .catch((e) => logger.warn("[categoryStateInvalidator] reload failed", e));
