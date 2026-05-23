@@ -9,6 +9,7 @@ import { useAllSources } from "@/hooks/useCategorySources";
 import { useMindMaps } from "@/hooks/useMindMaps";
 import { useCardData, useCategoryData } from "@/contexts/AppContext";
 import Modal from "@/components/ui/DialogShell";
+import { taskScheduler } from "@/lib/scheduler";
 import { SafeHtml } from "@/components/ui/safe-html";
 
 interface Props {

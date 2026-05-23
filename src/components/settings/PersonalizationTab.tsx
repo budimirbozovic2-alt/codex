@@ -1,6 +1,7 @@
 import { AppSettings, COLOR_THEMES, applyColorTheme } from "@/lib/app-settings";
 import { saveAppSettings } from "@/lib/app-settings";
 import { playGradeGood } from "@/lib/sounds";
+import { taskScheduler } from "@/lib/scheduler";
 import { Switch } from "@/components/ui/switch";
 
 interface Props {

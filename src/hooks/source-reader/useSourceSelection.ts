@@ -10,7 +10,7 @@ export function useSourceSelection() {
   const contentRef = useRef<HTMLDivElement>(null);
 
   const handleMouseUp = useCallback(() => {
-    setTimeout(() => {
+    taskScheduler.setTimeout(() => {
       const sel = window.getSelection();
       if (!sel || sel.isCollapsed) return;
       const text = sel.toString().trim();
@@ -30,7 +30,7 @@ export function useSourceSelection() {
         x: rect.left + rect.width / 2 - containerRect.left,
         y: rect.bottom - containerRect.top + 8,
       });
-    }, 10);
+    }, 10, { label: "useSourceSelection:capture" });
   }, []);
 
   useEffect(() => {

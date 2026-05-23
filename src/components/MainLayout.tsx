@@ -13,6 +13,7 @@ import { Moon, Sun, Search, Focus, HelpCircle } from "lucide-react";
 import { setDarkMode } from "@/lib/app-settings";
 import { useEditReturn } from "@/hooks/useEditReturn";
 import { useGlobalHotkey } from "@/hooks/useGlobalHotkey";
+import { taskScheduler } from "@/lib/scheduler";
 
 const DocxImporter = lazy(() => import("@/features/docx-importer").then(m => ({ default: m.DocxImporter })));
 const GlobalSearch = lazy(() => import("@/components/GlobalSearch"));
