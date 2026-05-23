@@ -4,7 +4,7 @@ import { ReviewLogEntry } from "@/lib/storage";
 import { CardMap, arrayToMap } from "@/lib/persist-queue";
 import { type CategoryRecord } from "@/lib/db";
 import { markBootStep } from "@/lib/boot-trace";
-import { transition, getBootState } from "@/lib/boot";
+import { transition, getBootState, installSplashBridge } from "@/lib/boot";
 import { cardRepository } from "@/lib/repositories";
 import { categoryRepository } from "@/lib/repositories";
 import {
@@ -60,6 +60,7 @@ export function useCardBootstrap(setters: BootSetters) {
   useEffect(() => {
     if (initialLoadDone.current) return;
     initialLoadDone.current = true;
+    installSplashBridge();
 
     // OSIGURAČ: ako se boot ne završi za 8s, emituj LOAD_FAIL i prikaži recovery UI
     const panicTimer = setTimeout(() => {

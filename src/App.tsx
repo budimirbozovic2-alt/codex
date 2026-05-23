@@ -88,38 +88,42 @@ const App = () => {
         )}
         <Sonner />
         <HashRouter>
-          <AppProvider>
-              <SessionProvider>
-                <ErrorBoundary>
-                  <MainLayout>
-                    <Suspense fallback={<PageSkeleton />}>
-                      <Routes>
-                        <Route path="/" element={<ErrorBoundary label="Početna"><DashboardPage /></ErrorBoundary>} />
-                        <Route path="/category/:categoryId" element={<CategoryViewWrapper />} />
-                        <Route path="/subject/:categoryId" element={<SubjectDashboardWrapper />} />
-                        
-                        <Route path="/subject/:categoryId/mind-maps" element={<ErrorBoundary label="Mapa uma"><Suspense fallback={<PageSkeleton />}><SubjectMindMapPage /></Suspense></ErrorBoundary>} />
-                        <Route path="/subject/:categoryId/mnemonics" element={<ErrorBoundary label="Mnemonik"><Suspense fallback={<PageSkeleton />}><SubjectMnemonicPage /></Suspense></ErrorBoundary>} />
-                        <Route path="/subject/:categoryId/zettelkasten" element={<ErrorBoundary label="Zettelkasten"><Suspense fallback={<PageSkeleton />}><ZettelkastenView /></Suspense></ErrorBoundary>} />
-                        <Route path="/subject/:categoryId/cards" element={<ErrorBoundary label="Kartice"><Suspense fallback={<PageSkeleton />}><SubjectCardsView /></Suspense></ErrorBoundary>} />
-                        <Route path="/subject/:categoryId/diagnostics" element={<ErrorBoundary label="Dijagnostika"><Suspense fallback={<PageSkeleton />}><SubjectDiagnosticsPage /></Suspense></ErrorBoundary>} />
-                        <Route path="/review" element={<ErrorBoundary label="Ponavljanje"><ReviewPage /></ErrorBoundary>} />
-                        <Route path="/learn" element={<ErrorBoundary label="Učenje"><LearnPage /></ErrorBoundary>} />
-                        <Route path="/edit" element={<ErrorBoundary label="Uređivanje"><EditPage /></ErrorBoundary>} />
-                        <Route path="/settings" element={<ErrorBoundary label="Podešavanja"><SettingsPage /></ErrorBoundary>} />
-                        <Route path="/planner" element={<PlannerPage />} />
-                        <Route path="/stats" element={<StatsPage />} />
-                        <Route path="/categories" element={<ErrorBoundary label="Kategorije"><CategoriesRoutePage /></ErrorBoundary>} />
-                        
-                        <Route path="*" element={<ErrorBoundary label="404"><NotFound /></ErrorBoundary>} />
-                      </Routes>
-                    </Suspense>
-                  </MainLayout>
-                  <ProcessingOverlay />
-                </ErrorBoundary>
-              </SessionProvider>
-            
-          </AppProvider>
+          <BootStateProvider>
+            <AppProvider>
+                <SessionProvider>
+                  <ErrorBoundary>
+                    <BootRecoveryGate>
+                      <MainLayout>
+                        <Suspense fallback={<PageSkeleton />}>
+                          <Routes>
+                            <Route path="/" element={<ErrorBoundary label="Početna"><DashboardPage /></ErrorBoundary>} />
+                            <Route path="/category/:categoryId" element={<CategoryViewWrapper />} />
+                            <Route path="/subject/:categoryId" element={<SubjectDashboardWrapper />} />
+
+                            <Route path="/subject/:categoryId/mind-maps" element={<ErrorBoundary label="Mapa uma"><Suspense fallback={<PageSkeleton />}><SubjectMindMapPage /></Suspense></ErrorBoundary>} />
+                            <Route path="/subject/:categoryId/mnemonics" element={<ErrorBoundary label="Mnemonik"><Suspense fallback={<PageSkeleton />}><SubjectMnemonicPage /></Suspense></ErrorBoundary>} />
+                            <Route path="/subject/:categoryId/zettelkasten" element={<ErrorBoundary label="Zettelkasten"><Suspense fallback={<PageSkeleton />}><ZettelkastenView /></Suspense></ErrorBoundary>} />
+                            <Route path="/subject/:categoryId/cards" element={<ErrorBoundary label="Kartice"><Suspense fallback={<PageSkeleton />}><SubjectCardsView /></Suspense></ErrorBoundary>} />
+                            <Route path="/subject/:categoryId/diagnostics" element={<ErrorBoundary label="Dijagnostika"><Suspense fallback={<PageSkeleton />}><SubjectDiagnosticsPage /></Suspense></ErrorBoundary>} />
+                            <Route path="/review" element={<ErrorBoundary label="Ponavljanje"><ReviewPage /></ErrorBoundary>} />
+                            <Route path="/learn" element={<ErrorBoundary label="Učenje"><LearnPage /></ErrorBoundary>} />
+                            <Route path="/edit" element={<ErrorBoundary label="Uređivanje"><EditPage /></ErrorBoundary>} />
+                            <Route path="/settings" element={<ErrorBoundary label="Podešavanja"><SettingsPage /></ErrorBoundary>} />
+                            <Route path="/planner" element={<PlannerPage />} />
+                            <Route path="/stats" element={<StatsPage />} />
+                            <Route path="/categories" element={<ErrorBoundary label="Kategorije"><CategoriesRoutePage /></ErrorBoundary>} />
+
+                            <Route path="*" element={<ErrorBoundary label="404"><NotFound /></ErrorBoundary>} />
+                          </Routes>
+                        </Suspense>
+                      </MainLayout>
+                    </BootRecoveryGate>
+                    <ProcessingOverlay />
+                  </ErrorBoundary>
+                </SessionProvider>
+
+            </AppProvider>
+          </BootStateProvider>
         </HashRouter>
       </div>
     </TooltipProvider>
