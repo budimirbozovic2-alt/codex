@@ -2,7 +2,7 @@ import { Suspense, lazy, type ReactNode } from "react";
 import { CategoryStateProvider } from "./CategoryStateProvider";
 import { CardStateProvider } from "./CardStateProvider";
 import { ActionsProvider } from "./ActionsProvider";
-import { DbErrorProvider, useDbError } from "@/contexts/db/DbErrorProvider";
+import { useDbError } from "@/contexts/db/DbErrorProvider";
 
 const LazyDatabaseRecoveryPanel = lazy(() => import("@/components/DatabaseRecoveryPanel"));
 
@@ -37,14 +37,12 @@ function RecoveryGate({ children }: { children: ReactNode }) {
 
 export function CardProvider({ children }: { children: ReactNode }) {
   return (
-    <DbErrorProvider>
-      <CategoryStateProvider>
-        <CardStateProvider>
-          <ActionsProvider>
-            <RecoveryGate>{children}</RecoveryGate>
-          </ActionsProvider>
-        </CardStateProvider>
-      </CategoryStateProvider>
-    </DbErrorProvider>
+    <CategoryStateProvider>
+      <CardStateProvider>
+        <ActionsProvider>
+          <RecoveryGate>{children}</RecoveryGate>
+        </ActionsProvider>
+      </CardStateProvider>
+    </CategoryStateProvider>
   );
 }
