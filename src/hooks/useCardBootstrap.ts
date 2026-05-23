@@ -72,7 +72,10 @@ export function useCardBootstrap(setters: BootSetters) {
         cardRepository.replaceAll(arrayToMap(cards));
         // cardMapRef still seeded by replaceAll's setState (atom = ref).
         void cardMapRef; // kept in props for backwards compat; no direct write
-        setCategoryRecordsState(finalRecords);
+        // Phase 5C — route category bootstrap through the repository so the
+        // external mirror (Phase 5B SSOT) is updated and React re-renders
+        // via its useSyncExternalStore subscription.
+        categoryRepository.replaceAll(finalRecords);
         setReviewLogState(log);
         setSrSettingsState(settings);
 
