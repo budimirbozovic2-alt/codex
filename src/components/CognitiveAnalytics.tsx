@@ -310,8 +310,8 @@ export default function CognitiveAnalytics({ cards, categories, reviewLog, catNa
       <LazyChart
         label="Slijepe tačke"
         icon={<Eye className="h-4 w-4 text-destructive" />}
-        compute={() => {
-          const spots = calcBlindSpots(cards);
+        compute={async () => {
+          const spots = await analyticsClient.runBlindSpots(cards);
           return categoryId ? spots.filter(s => s.category === categoryId) : spots;
         }}
         delay={5}
