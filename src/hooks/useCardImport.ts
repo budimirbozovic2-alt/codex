@@ -184,7 +184,7 @@ export function useCardImport({
         toast.error(`Greška pri uvozu: ${err instanceof Error ? err.message : "Neispravan format fajla."}`);
       }
     },
-    [setCategoryRecords, setReviewLog, updateSRSettings, cardMapRef],
+    [setReviewLog, updateSRSettings, cardMapRef],
   );
 
   // Phase 3b — importCards now delegates to cardRepository.bulkPut which
