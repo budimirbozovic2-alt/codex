@@ -179,6 +179,22 @@ export interface KnowledgeBaseArticle {
   updatedAt: number;
 }
 
+/**
+ * Persisted draft snapshot for `useDraftAutosave({ persistDraft: true })`.
+ * Survives tab close / app crash so the user can resume an in-progress edit.
+ * Cleared on `saveNow()` success or explicit `discard()`. `payload` is opaque
+ * JSON owned by the caller; the registry never inspects it.
+ */
+export interface DraftRecord {
+  /** Stable composite key, e.g. `cardform:edit:<cardId>`. */
+  key: string;
+  /** Producer tag ("card-form", "article", "source-edit", ...). */
+  source: string;
+  /** Caller-owned JSON snapshot. */
+  payload: unknown;
+  updatedAt: number;
+}
+
 // V7: Set of pending rejecters. Single-slot lost concurrent open() calls.
 const _blockedRejecters = new Set<(err: Error) => void>();
 
@@ -200,6 +216,7 @@ class MemoriaDB extends Dexie {
   majorSystem!: Table<{ id: number; peg: string }, number>;
   mnemonicTestLog!: Table<MnemonicTestLogEntry & { id?: number }, number>;
   knowledgeBaseArticles!: Table<KnowledgeBaseArticle, string>;
+  drafts!: Table<DraftRecord, string>;
 
   constructor() {
     super("MemoriaDB");
