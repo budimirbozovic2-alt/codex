@@ -26,11 +26,11 @@ export function useCardOnlyActions() {
 }
 
 export function CardActionsProvider({ children }: { children: ReactNode }) {
-  const { setCardMapState, cardMapRef, setReviewLog } = useCardStateInternals();
+  const { setCardMapState, setReviewLog } = useCardStateInternals();
 
-  const crud = useCardCRUD({ setCardMapState, cardMapRef });
+  const crud = useCardCRUD({ setCardMapState });
   const annotations = useCardAnnotations({
-    patchCard: crud.patchCard, setCardMapState, setReviewLog, cardMapRef,
+    patchCard: crud.patchCard, setCardMapState, setReviewLog,
   });
 
   // Sub-hooks already memoize each function with useCallback. Memoizing the

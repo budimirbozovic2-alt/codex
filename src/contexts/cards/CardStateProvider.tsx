@@ -12,7 +12,7 @@ import { Card, SRSettings, DEFAULT_SR_SETTINGS } from "@/lib/spaced-repetition";
 import { ReviewLogEntry } from "@/lib/storage";
 import { CardMap, mapToArray, persistQueue } from "@/lib/persist-queue";
 import { flushReviewLogQueue } from "@/lib/db";
-import { useCardMap, setCardMap, cardMapRefFacade, type CardMapRefFacade } from "@/store";
+import { useCardMap, setCardMap } from "@/store";
 import { useCardBootstrap } from "@/hooks/useCardBootstrap";
 import { useCategoryData, useCategoryStateSetter } from "./CategoryStateProvider";
 import { useCardSyncEffects } from "./useCardSyncEffects";
@@ -91,7 +91,6 @@ export function useCategoryStatsData() {
 // ─── Internals exposed to action providers ───
 interface CardStateInternals {
   setCardMapState: React.Dispatch<React.SetStateAction<CardMap>>;
-  cardMapRef: CardMapRefFacade;
   commitReviewEntry: (entry: ReviewLogEntry) => void;
   commitReviewEntries: (entries: ReviewLogEntry[]) => void;
   setReviewLog: (updater: (prev: ReviewLogEntry[]) => ReviewLogEntry[]) => void;
@@ -117,7 +116,6 @@ export { useDbError } from "@/contexts/db/DbErrorProvider";
 export function CardStateProvider({ children }: { children: ReactNode }) {
   const cardMap = useCardMap();
   const setCardMapState = setCardMap as React.Dispatch<React.SetStateAction<CardMap>>;
-  const cardMapRef = cardMapRefFacade;
 
   const reviewSettings = useReviewSettingsStore();
   const { categories } = useCategoryData();
@@ -128,7 +126,6 @@ export function CardStateProvider({ children }: { children: ReactNode }) {
     setCategoryRecordsState,
     setReviewLogState: reviewSettings.setReviewLogState,
     setSrSettingsState: reviewSettings.setSrSettingsState,
-    cardMapRef,
   });
 
   // Bus subscriptions, source-link / review-confirmed sync, CARDS_UPDATED.
@@ -181,7 +178,6 @@ export function CardStateProvider({ children }: { children: ReactNode }) {
   const internals = useMemo<CardStateInternals>(
     () => ({
       setCardMapState,
-      cardMapRef,
       commitReviewEntry: reviewSettings.commitReviewEntry,
       commitReviewEntries: reviewSettings.commitReviewEntries,
       setReviewLog: reviewSettings.setReviewLog,
@@ -190,7 +186,6 @@ export function CardStateProvider({ children }: { children: ReactNode }) {
     }),
     [
       setCardMapState,
-      cardMapRef,
       reviewSettings.commitReviewEntry,
       reviewSettings.commitReviewEntries,
       reviewSettings.setReviewLog,

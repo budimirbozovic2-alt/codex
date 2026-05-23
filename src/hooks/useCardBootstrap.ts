@@ -24,12 +24,10 @@ interface BootSetters {
   setCategoryRecordsState: React.Dispatch<React.SetStateAction<CategoryRecord[]>>;
   setReviewLogState: React.Dispatch<React.SetStateAction<ReviewLogEntry[]>>;
   setSrSettingsState: React.Dispatch<React.SetStateAction<SRSettings>>;
-  /** Ref-Delta mirror — synced once at boot to seed CRUD's in-place writes. */
-  cardMapRef: React.MutableRefObject<CardMap>;
 }
 
 export function useCardBootstrap(setters: BootSetters) {
-  const { setCardMapState: _legacySetCardMap, setCategoryRecordsState: _legacySetCategoryRecords, setReviewLogState, setSrSettingsState, cardMapRef } = setters;
+  const { setCardMapState: _legacySetCardMap, setCategoryRecordsState: _legacySetCategoryRecords, setReviewLogState, setSrSettingsState } = setters;
   void _legacySetCardMap; // Phase 3b: writes go through cardRepository now
   void _legacySetCategoryRecords; // Phase 5C: writes go through categoryRepository
   const [ready, setReady] = useState(false);
@@ -67,11 +65,7 @@ export function useCardBootstrap(setters: BootSetters) {
         if (import.meta.env.DEV) logger.log("[boot:diag] setting state — cards:", cards.length, "categories:", finalRecords.length);
         // Phase 3b — route through cardRepository.replaceAll, which handles
         // setCardMap + bumpMapVersion + CARDS_UPDATED emit in one call.
-        // `cardMapRef.current = initialMap` was a no-op under the unified
-        // atom (C4) and `setCardMapState(initialMap)` is now redundant.
         cardRepository.replaceAll(arrayToMap(cards));
-        // cardMapRef still seeded by replaceAll's setState (atom = ref).
-        void cardMapRef; // kept in props for backwards compat; no direct write
         // Phase 5C — route category bootstrap through the repository so the
         // external mirror (Phase 5B SSOT) is updated and React re-renders
         // via its useSyncExternalStore subscription.

@@ -17,7 +17,6 @@ import {
   type CardMap,
 } from "@/lib/persist-queue";
 import {
-  cardMapRefFacade,
   setCardMap,
   getCardMap,
 } from "@/store/useCardMapStore";
@@ -49,7 +48,7 @@ function emitCardsUpdated(payload: CardsUpdatedPayload): void {
 
 // ─── Read primitives ──────────────────────────────────────────────────────
 export function getCard(id: string): Card | undefined {
-  return cardMapRefFacade.current[id];
+  return getCardMap()[id];
 }
 
 export function snapshot(): CardMap {
@@ -57,7 +56,7 @@ export function snapshot(): CardMap {
 }
 
 // ─── Internal helpers ─────────────────────────────────────────────────────
-// NOTE (C4 follow-up): `cardMapRefFacade.current` and the Zustand store atom
+// NOTE (C4 follow-up): `getCardMap()` and the Zustand store atom
 // are the SAME reference. In-place mutation of `current` therefore mutates
 // the very `prev` object that `setCardMap`'s updater is about to inspect,
 // which defeats any "skip-if-noop" guard (notably in commitDelete, where
@@ -116,7 +115,7 @@ export function bulkPut(cards: Card[]): void {
 
 /** Delete a card by id. Invalidates coverage cache for any linked source. */
 export function remove(id: string): void {
-  const card = cardMapRefFacade.current[id];
+  const card = getCardMap()[id];
   if (card?.sourceId) invalidateCoverageCache(card.sourceId);
   commitDelete(id);
 }
@@ -127,7 +126,7 @@ export function remove(id: string): void {
  * the legacy `patchCard` it replaces.
  */
 export function patch(id: string, patcher: (card: Card) => Card): Card | undefined {
-  const card = cardMapRefFacade.current[id];
+  const card = getCardMap()[id];
   if (!card) return undefined;
   const updated: Card = { ...patcher(card), updatedAt: Date.now() };
   if (
@@ -153,7 +152,7 @@ export function bulkPatch(
   const now = Date.now();
   const updated: Card[] = [];
   for (const id of ids) {
-    const card = cardMapRefFacade.current[id];
+    const card = getCardMap()[id];
     if (!card) continue;
     updated.push({ ...patcher(card), updatedAt: now });
   }
@@ -169,7 +168,7 @@ export function clearLinks(cardIds: string[]): Card[] {
   const updates: Card[] = [];
   const now = Date.now();
   for (const id of cardIds) {
-    const c = cardMapRefFacade.current[id];
+    const c = getCardMap()[id];
     if (!c?.sourceId) continue;
     updates.push({
       ...c,
@@ -185,7 +184,7 @@ export function clearLinks(cardIds: string[]): Card[] {
 
 /** Clear `needsReview` for one card if currently set. */
 export function clearNeedsReview(id: string): Card | undefined {
-  const c = cardMapRefFacade.current[id];
+  const c = getCardMap()[id];
   if (!c) return undefined;
   if (c.needsReview === undefined) return c;
   const updated: Card = { ...c, needsReview: undefined, updatedAt: Date.now() };

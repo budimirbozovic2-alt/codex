@@ -23,11 +23,11 @@ export function useCategoryActions() {
 }
 
 export function CategoryActionsProvider({ children }: { children: ReactNode }) {
-  const { setCardMapState, cardMapRef } = useCardStateInternals();
+  const { setCardMapState } = useCardStateInternals();
   const { setCategoryRecords, getCategoryRecords } = useCategoryStateInternals();
 
   const actions = useCategoryManagement({
-    setCategoryRecords, setCardMapState, cardMapRef, getCategoryRecords,
+    setCategoryRecords, setCardMapState, getCategoryRecords,
   });
 
   const value = useMemo<CategoryActionsValue>(

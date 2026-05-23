@@ -1,6 +1,7 @@
 import { toast } from "sonner";
 import { Card } from "@/lib/spaced-repetition";
 import { idbBulkApply } from "@/lib/db";
+import { db } from "@/lib/db-schema";
 
 import { logger } from "@/lib/logger";
 // ─── Internal Map type for O(1) access ──────────────────
@@ -33,11 +34,33 @@ export type PersistAction =
   | { type: "delete"; id: string }
   | { type: "bulk"; cards: Card[] };
 
+// ─── Outbox WAL writer ───────────────────────────────────
+// Each enqueue fires (and forgets) an outbox upsert keyed by cardId. Last
+// write wins. Flush deletes the matching rows atomically with the card
+// mutation, so a row still present on next boot represents a write that
+// did not complete and must be re-applied by `recoverOutboxOnBoot()`.
+//
+// Errors here are swallowed: outbox is best-effort crash insurance, not a
+// blocker for the optimistic in-memory commit that has already happened.
+function outboxPut(card: Card): void {
+  void db.outbox.put({ cardId: card.id, op: "put", card, ts: Date.now() })
+    .catch((err) => logger.warn("[persistQueue] outbox put failed", err));
+}
+function outboxDelete(id: string): void {
+  void db.outbox.put({ cardId: id, op: "delete", ts: Date.now() })
+    .catch((err) => logger.warn("[persistQueue] outbox delete-op failed", err));
+}
+
 function createPersistQueue() {
   // Coalesce by id: last write wins; delete after put cancels put; put after delete cancels delete.
-  const pendingPuts = new Map<string, Card>();
-  const pendingDeletes = new Set<string>();
+  // Each entry carries a monotone sequence number used by the retry path to
+  // decide whether a re-enqueued snapshot has been superseded by a newer write.
+  interface PutEntry { card: Card; seq: number; }
+  interface DelEntry { seq: number; }
+  const pendingPuts = new Map<string, PutEntry>();
+  const pendingDeletes = new Map<string, DelEntry>();
   let timer: number | null = null;
+  let globalSeq = 0;
 
   // ─── Observable: subscribers notified on every queue state change ──
   // Phase A / P0-2: replaces the 100ms polling in `usePersistingState`.
@@ -63,35 +86,40 @@ function createPersistQueue() {
 
   function enqueue(action: PersistAction) {
     if (action.type === "put") {
-      if (import.meta.env.DEV && pendingDeletes.has(action.card.id)) {
-        logger.warn("[persistQueue] put after pending delete for id", action.card.id);
+      const id = action.card.id;
+      if (import.meta.env.DEV && pendingDeletes.has(id)) {
+        logger.warn("[persistQueue] put after pending delete for id", id);
       }
       if (import.meta.env.DEV) {
-        const prev = pendingPuts.get(action.card.id);
-        const prevTs = prev?.updatedAt ?? 0;
+        const prev = pendingPuts.get(id);
+        const prevTs = prev?.card.updatedAt ?? 0;
         const nextTs = action.card.updatedAt ?? 0;
         if (prev && nextTs < prevTs) {
           logger.warn(
             "[persistQueue] enqueue replacing newer put with older for id",
-            action.card.id, { prevTs, nextTs },
+            id, { prevTs, nextTs },
           );
         }
       }
-      pendingDeletes.delete(action.card.id);
-      pendingPuts.set(action.card.id, action.card);
+      pendingDeletes.delete(id);
+      pendingPuts.set(id, { card: action.card, seq: ++globalSeq });
+      outboxPut(action.card);
     } else if (action.type === "delete") {
-      if (import.meta.env.DEV && pendingPuts.has(action.id)) {
-        logger.warn("[persistQueue] delete cancelling pending put for id", action.id);
+      const id = action.id;
+      if (import.meta.env.DEV && pendingPuts.has(id)) {
+        logger.warn("[persistQueue] delete cancelling pending put for id", id);
       }
-      pendingPuts.delete(action.id);
-      pendingDeletes.add(action.id);
+      pendingPuts.delete(id);
+      pendingDeletes.set(id, { seq: ++globalSeq });
+      outboxDelete(id);
     } else {
       for (const c of action.cards) {
         if (import.meta.env.DEV && pendingDeletes.has(c.id)) {
           logger.warn("[persistQueue] bulk put after pending delete for id", c.id);
         }
         pendingDeletes.delete(c.id);
-        pendingPuts.set(c.id, c);
+        pendingPuts.set(c.id, { card: c, seq: ++globalSeq });
+        outboxPut(c);
       }
     }
     notify();
@@ -104,44 +132,71 @@ function createPersistQueue() {
   let _retryAttempt = 0;
   const MAX_RETRY = 3;
 
+  // Snapshot of writes currently inside the flush transaction. If the user
+  // closes the tab while inflight, `cleanup()` awaits a stable "no inflight"
+  // moment so beforeunload doesn't return before IDB commits.
+  let inFlightCount = 0;
+
   async function flush() {
     timer = null;
-    if (!hasPending()) {
-      try { sessionStorage.removeItem("codex-flush-pending"); } catch { /* noop */ }
-      return;
-    }
-    const puts = Array.from(pendingPuts.values());
-    const deletes = Array.from(pendingDeletes);
+    if (!hasPending()) return;
+
+    // Snapshot + clear before async work so concurrent enqueues queue up
+    // for the next flush instead of getting silently dropped.
+    const snapPuts = Array.from(pendingPuts.entries());
+    const snapDels = Array.from(pendingDeletes.entries());
     pendingPuts.clear();
     pendingDeletes.clear();
     notify();
 
-    try { sessionStorage.setItem("codex-flush-pending", "1"); } catch { /* noop */ }
+    inFlightCount++;
     const t0 = import.meta.env.DEV ? performance.now() : 0;
     try {
-      await idbBulkApply(puts, deletes);
+      // Atomic unit: card mutation + outbox clear share one rw transaction.
+      // A crash after this commit leaves no outbox row → no re-apply on boot.
+      // A crash before this commit leaves the outbox row → recover on boot.
+      await db.transaction("rw", db.cards, db.outbox, async () => {
+        await idbBulkApply(
+          snapPuts.map(([, e]) => e.card),
+          snapDels.map(([id]) => id),
+        );
+        const clearIds = [
+          ...snapPuts.map(([id]) => id),
+          ...snapDels.map(([id]) => id),
+        ];
+        if (clearIds.length > 0) await db.outbox.bulkDelete(clearIds);
+      });
       _retryAttempt = 0;
-      try { sessionStorage.removeItem("codex-flush-pending"); } catch { /* noop */ }
       if (import.meta.env.DEV) {
         const dur = (performance.now() - t0).toFixed(1);
-        logger.debug(`[persistQueue] flush ok puts=${puts.length} deletes=${deletes.length} ${dur}ms`);
+        logger.debug(`[persistQueue] flush ok puts=${snapPuts.length} deletes=${snapDels.length} ${dur}ms`);
       }
     } catch (err: unknown) {
       const e = err instanceof Error ? err : new Error(String(err));
-      for (const c of puts) {
-        if (!pendingPuts.has(c.id) && !pendingDeletes.has(c.id)) {
-          pendingPuts.set(c.id, c);
+
+      // Re-enqueue snapshot, but ONLY where the in-flight write has not
+      // already been superseded by a newer enqueue (seq comparison). This
+      // closes the lost-update window that the original implementation
+      // had: stale snapshots can no longer overwrite a newer pending write.
+      for (const [id, entry] of snapPuts) {
+        const cur = pendingPuts.get(id);
+        const curDel = pendingDeletes.get(id);
+        if (curDel) continue;          // a newer delete is queued, drop stale put
+        if (!cur || cur.seq < entry.seq) {
+          pendingPuts.set(id, entry);
         }
       }
-      for (const id of deletes) {
-        if (!pendingPuts.has(id) && !pendingDeletes.has(id)) {
-          pendingDeletes.add(id);
+      for (const [id, entry] of snapDels) {
+        const cur = pendingDeletes.get(id);
+        const curPut = pendingPuts.get(id);
+        if (curPut) continue;          // a newer put cancels the stale delete
+        if (!cur || cur.seq < entry.seq) {
+          pendingDeletes.set(id, entry);
         }
       }
       notify();
 
       if (e.message === "QUOTA_EXCEEDED") {
-        try { sessionStorage.removeItem("codex-flush-pending"); } catch { /* noop */ }
         toast.error("Memorija browsera je puna! Exportuj backup i očisti nepotrebne podatke.");
         return;
       }
@@ -155,9 +210,10 @@ function createPersistQueue() {
         }
       } else {
         _retryAttempt = 0;
-        try { sessionStorage.removeItem("codex-flush-pending"); } catch { /* noop */ }
         toast.error("Pisanje u bazu nije uspjelo nakon više pokušaja. HITNO eksportujte backup!");
       }
+    } finally {
+      inFlightCount--;
     }
   }
 
@@ -173,8 +229,12 @@ function createPersistQueue() {
       timer = null;
     }
     if (hasPending()) {
-      try { sessionStorage.setItem("codex-flush-pending", "1"); } catch { /* noop */ }
       await flush();
+    }
+    // If a flush is in-flight (e.g. visibility hidden triggered earlier),
+    // wait for it to settle so beforeunload doesn't return before IDB commits.
+    while (inFlightCount > 0) {
+      await new Promise<void>(r => queueMicrotask(r));
     }
   }
 
@@ -200,7 +260,6 @@ declare global {
 
 function _onVisibilityChange() {
   if (document.visibilityState === "hidden" && persistQueue.hasPending()) {
-    try { sessionStorage.setItem("codex-flush-pending", "1"); } catch { /* noop */ }
     persistQueue.flush();
   }
 }
@@ -225,12 +284,49 @@ if (import.meta.hot) {
   });
 }
 
-/** Check if previous session had interrupted writes */
-export function checkInterruptedFlush(): void {
+/**
+ * Boot-time outbox recovery. Replaces `checkInterruptedFlush()`'s
+ * "previous session had interrupted writes" warning with a real recovery:
+ * any outbox row left behind by a crash is re-applied to the cards table
+ * atomically. Idempotent — last-write-wins per cardId guarantees we never
+ * resurrect older state.
+ */
+export async function recoverOutboxOnBoot(): Promise<{ recovered: number }> {
+  let rows;
   try {
-    if (sessionStorage.getItem("codex-flush-pending") === "1") {
-      logger.warn("[boot] Previous session had interrupted writes — data may be stale");
-      sessionStorage.removeItem("codex-flush-pending");
-    }
-  } catch { /* noop */ }
+    rows = await db.outbox.toArray();
+  } catch (err) {
+    logger.warn("[persistQueue] outbox scan failed", err);
+    return { recovered: 0 };
+  }
+  if (rows.length === 0) return { recovered: 0 };
+
+  const puts: Card[] = [];
+  const deletes: string[] = [];
+  for (const row of rows) {
+    if (row.op === "put" && row.card) puts.push(row.card);
+    else if (row.op === "delete") deletes.push(row.cardId);
+  }
+
+  try {
+    await db.transaction("rw", db.cards, db.outbox, async () => {
+      await idbBulkApply(puts, deletes);
+      await db.outbox.bulkDelete(rows.map(r => r.cardId));
+    });
+    logger.info(`[persistQueue] recovered ${rows.length} pending writes from outbox`);
+    return { recovered: rows.length };
+  } catch (err) {
+    logger.error("[persistQueue] outbox recovery failed", err);
+    toast.error("Oporavak nedovršenih izmjena nije uspio. Izvezite backup prije nastavka.");
+    return { recovered: 0 };
+  }
+}
+
+/**
+ * @deprecated Use `recoverOutboxOnBoot()` — the sessionStorage flag was
+ * replaced by the durable `outbox` table in v20. Stub kept so legacy callers
+ * compile; it forwards to the recovery path and discards the result.
+ */
+export function checkInterruptedFlush(): void {
+  void recoverOutboxOnBoot();
 }
