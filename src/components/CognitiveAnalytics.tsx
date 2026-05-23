@@ -3,15 +3,8 @@ import { AlertTriangle, Shield, Zap, ArrowRightLeft, HeartPulse, Eye, Wrench } f
 import { Card, getErrorStatus } from "@/lib/spaced-repetition";
 import { ReviewLogEntry } from "@/lib/storage";
 import { Progress } from "@/components/ui/progress";
-import {
-  calcInterferencePairs,
-  calcCategoryStability,
-  calcStressPerformance,
-  calcFrictionAnalysis,
-  calcRecoveryRate,
-  calcBlindSpots,
-  calcWeakHooks,
-} from "@/lib/cognitive-analytics";
+import { calcWeakHooks } from "@/lib/cognitive-analytics";
+import { analyticsClient } from "@/lib/analytics/workerClient";
 import { loadPlanner } from "@/lib/planner-storage";
 import { loadCalibration, loadLatency } from "@/lib/metacognitive-storage";
 import LazyChart from "@/components/LazyChart";
