@@ -2,9 +2,11 @@ import { Flame, Zap } from "lucide-react";
 import { useMemo } from "react";
 
 
-import { Card, getCardRetrievability } from "@/lib/spaced-repetition";
+import { Card } from "@/lib/spaced-repetition";
 import { ReviewLogEntry } from "@/lib/storage";
-import { loadLatency } from "@/lib/metacognitive-storage";
+import { analyticsClient } from "@/lib/analytics/workerClient";
+import { useAnalyticsWorker } from "@/hooks/useAnalyticsWorker";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, CartesianGrid,
 } from "recharts";
@@ -26,48 +28,30 @@ interface Props {
 }
 
 export default function ResistanceTab({ cards, categories, reviewLog, weights, catNameMap }: Props) {
-  const latencyData = useMemo(() => loadLatency(), []);
+  const rawRows = useAnalyticsWorker(
+    () => analyticsClient.runResistance(cards, categories, reviewLog, weights),
+    [cards, categories, reviewLog, weights.lapses, weights.latency, weights.forgetting],
+  );
 
-  const resistanceData = useMemo<ResistanceData[]>(() => {
-    return categories
-      .filter(cat => cards.some(c => c.categoryId === cat))
-      .map(cat => {
-        const catCards = cards.filter(c => c.categoryId === cat);
-        const catLapses = reviewLog.filter(e => e.category === cat && e.grade <= 2);
-        const catLatencies = latencyData.filter(e => e.category === cat);
+  const resistanceData = useMemo<ResistanceData[] | null>(() => {
+    if (!rawRows) return null;
+    return rawRows.map(r => ({
+      category: catNameMap[r.categoryId] || r.categoryId,
+      lapseCount: r.lapseCount,
+      avgLatency: r.avgLatency,
+      cognitiveLoad: r.cognitiveLoad,
+      cardCount: r.cardCount,
+    }));
+  }, [rawRows, catNameMap]);
 
-        const avgLatency = catLatencies.length > 0
-          ? catLatencies.reduce((s, e) => s + e.latencyMs, 0) / catLatencies.length / 1000
-          : 0;
-
-        const totalReviews = reviewLog.filter(e => e.category === cat).length;
-        const lapseRate = totalReviews > 0 ? (catLapses.length / totalReviews) * 100 : 0;
-        const latencyScore = Math.min(100, (avgLatency / 10) * 100);
-        
-        const avgRetrievability = catCards.length > 0
-          ? catCards.reduce((s, c) => s + (getCardRetrievability(c) ?? 100), 0) / catCards.length
-          : 100;
-        const retrievabilityPenalty = Math.max(0, 100 - avgRetrievability);
-
-        const wTotal = weights.lapses + weights.latency + weights.forgetting;
-        const wL = wTotal > 0 ? weights.lapses / wTotal : 0.33;
-        const wLat = wTotal > 0 ? weights.latency / wTotal : 0.33;
-        const wF = wTotal > 0 ? weights.forgetting / wTotal : 0.34;
-
-        const cognitiveLoad = Math.round(
-          lapseRate * wL + latencyScore * wLat + retrievabilityPenalty * wF
-        );
-
-        return {
-          category: catNameMap[cat] || cat,
-          lapseCount: catLapses.length,
-          avgLatency: +avgLatency.toFixed(1),
-          cognitiveLoad: Math.min(100, cognitiveLoad),
-          cardCount: catCards.length,
-        };
-      })
-      .sort((a, b) => b.cognitiveLoad - a.cognitiveLoad);
-  }, [cards, categories, reviewLog, latencyData, weights]);
+  if (resistanceData === null) {
+    return (
+      <div className="space-y-4 mt-4">
+        <Skeleton className="h-24 w-full rounded-xl" />
+        <Skeleton className="h-48 w-full rounded-xl" />
+      </div>
+    );
+  }
 
   const topHardStart = resistanceData.filter(d => d.cognitiveLoad > 0).slice(0, 3);
 
@@ -82,6 +66,7 @@ export default function ResistanceTab({ cards, categories, reviewLog, weights, c
       </div>
     );
   }
+
 
   const getHeatColor = (load: number) => {
     if (load >= 60) return "bg-destructive/20 border-destructive/30 text-destructive";
