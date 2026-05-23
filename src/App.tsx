@@ -3,6 +3,8 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { HashRouter, Routes, Route, useParams } from "react-router-dom";
 import { AppProvider } from "@/contexts/AppContext";
+import { BootStateProvider } from "@/contexts/boot/BootStateProvider";
+import { BootRecoveryGate } from "@/contexts/boot/BootRecoveryGate";
 import { SessionProvider } from "@/contexts/SessionContext";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import MainLayout from "@/components/MainLayout";
