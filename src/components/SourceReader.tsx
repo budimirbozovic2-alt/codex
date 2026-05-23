@@ -4,6 +4,8 @@ import { cn } from "@/lib/utils";
 import type { Source } from "@/lib/sources-storage";
 import { saveSource } from "@/lib/sources-storage";
 import { useSourceReaderStore, WIDTH_CLASSES } from "@/store";
+import { taskScheduler, type TaskHandle } from "@/lib/scheduler";
+
 import { useSourceReaderActions } from "@/hooks/useSourceReaderActions";
 import { SourceToolbar } from "@/components/source-reader/SourceToolbar";
 import { SourceContent } from "@/components/source-reader/SourceContent";
