@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef } from "react";
 import { useSourceReaderStore } from "@/store";
+import { taskScheduler } from "@/lib/scheduler";
 
 /**
  * DOM selection capture + global click-away reset for the source reader.
@@ -9,7 +10,7 @@ export function useSourceSelection() {
   const contentRef = useRef<HTMLDivElement>(null);
 
   const handleMouseUp = useCallback(() => {
-    setTimeout(() => {
+    taskScheduler.setTimeout(() => {
       const sel = window.getSelection();
       if (!sel || sel.isCollapsed) return;
       const text = sel.toString().trim();
@@ -29,7 +30,7 @@ export function useSourceSelection() {
         x: rect.left + rect.width / 2 - containerRect.left,
         y: rect.bottom - containerRect.top + 8,
       });
-    }, 10);
+    }, 10, { label: "useSourceSelection:capture" });
   }, []);
 
   useEffect(() => {

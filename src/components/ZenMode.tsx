@@ -8,6 +8,7 @@ import { startAmbient, stopAmbient, setAmbientVolume, isAmbientPlaying, AMBIENT_
 import { addPomodoroEntry, getPomodoroStats } from "@/lib/storage";
 import { loadAppSettings } from "@/lib/app-settings";
 import { cn } from "@/lib/utils";
+import { taskScheduler } from "@/lib/scheduler";
 
 import { logger } from "@/lib/logger";
 type TimerPhase = "focus" | "break" | "longBreak";
@@ -72,7 +73,7 @@ export default function ZenMode({ active, onToggle }: Props) {
         osc.stop(ctx.currentTime + i * 0.25 + 0.5);
       });
       // M1 fix: close AudioContext after last note to free system audio resources
-      setTimeout(() => ctx.close().catch(() => {}), 1500);
+      taskScheduler.setTimeout(() => ctx.close().catch(() => {}), 1500, { label: "ZenMode:audioCtxClose" });
     } catch {}
   }, []);
 

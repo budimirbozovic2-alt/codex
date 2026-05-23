@@ -9,6 +9,7 @@ import { useAllSources } from "@/hooks/useCategorySources";
 import { useMindMaps } from "@/hooks/useMindMaps";
 import { useCardData, useCategoryData } from "@/contexts/AppContext";
 import Modal from "@/components/ui/DialogShell";
+import { taskScheduler } from "@/lib/scheduler";
 import { SafeHtml } from "@/components/ui/safe-html";
 
 interface Props {
@@ -72,8 +73,8 @@ export default function GlobalSearch({ open, onClose, onNavigateToCard }: Props)
     if (!open) return;
     setQuery("");
     setSelectedIndex(0);
-    const t = window.setTimeout(() => inputRef.current?.focus(), 50);
-    return () => window.clearTimeout(t);
+    const h = taskScheduler.setTimeout(() => inputRef.current?.focus(), 50, { label: "GlobalSearch:focusInput" });
+    return () => taskScheduler.cancel(h);
   }, [open]);
 
   const results = useMemo<SearchResult[]>(() => {

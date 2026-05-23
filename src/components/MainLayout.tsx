@@ -13,6 +13,7 @@ import { Moon, Sun, Search, Focus, HelpCircle } from "lucide-react";
 import { setDarkMode } from "@/lib/app-settings";
 import { useEditReturn } from "@/hooks/useEditReturn";
 import { useGlobalHotkey } from "@/hooks/useGlobalHotkey";
+import { taskScheduler } from "@/lib/scheduler";
 
 const DocxImporter = lazy(() => import("@/features/docx-importer").then(m => ({ default: m.DocxImporter })));
 const GlobalSearch = lazy(() => import("@/components/GlobalSearch"));
@@ -62,7 +63,7 @@ const NudgeWatcher = memo(function NudgeWatcher() {
             description: `Preostalo ti je još ${remaining} od ${suggestion.suggestedToday} planiranih sekcija za danas.`,
             duration: 5000,
           });
-          setTimeout(() => { nudgeShownRef.current = false; }, 30 * 60 * 1000);
+          taskScheduler.setTimeout(() => { nudgeShownRef.current = false; }, 30 * 60 * 1000, { label: "MainLayout:nudgeCooldown" });
         }
       } catch {}
     })();

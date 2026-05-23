@@ -1,6 +1,7 @@
 import { AppSettings, COLOR_THEMES, applyColorTheme } from "@/lib/app-settings";
 import { saveAppSettings } from "@/lib/app-settings";
 import { playGradeGood } from "@/lib/sounds";
+import { taskScheduler } from "@/lib/scheduler";
 import { Switch } from "@/components/ui/switch";
 
 interface Props {
@@ -81,7 +82,7 @@ export default function PersonalizationTab({ app, setApp }: Props) {
               setApp(prev => ({ ...prev, soundEffects: v }));
               if (v) {
                 saveAppSettings({ ...app, soundEffects: true });
-                setTimeout(() => playGradeGood(), 100);
+                taskScheduler.setTimeout(() => playGradeGood(), 100, { label: "PersonalizationTab:soundPreview" });
               }
             }}
           />

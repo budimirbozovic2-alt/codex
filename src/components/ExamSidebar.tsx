@@ -1,5 +1,6 @@
 import { ClipboardPaste, MapPin, Check, Trash2, X, ChevronDown, ChevronUp, FileText, PencilLine, Eraser, Loader2 } from "lucide-react";
 import { useState, useCallback, useEffect, useRef } from "react";
+import { taskScheduler } from "@/lib/scheduler";
 
 
 import { Button } from "@/components/ui/button";
@@ -34,7 +35,7 @@ export default function ExamSidebar({ questions, onSetQuestions, onMapSelection,
     setEditText(pending.map(q => q.text).join("\n"));
     setEditModalOpen(true);
     // Auto-focus textarea after dialog opens
-    setTimeout(() => textareaRef.current?.focus(), 100);
+    taskScheduler.setTimeout(() => textareaRef.current?.focus(), 100, { label: "ExamSidebar:focusTextarea" });
   }, [pending]);
 
   // Save edited list — replace pending, keep done
@@ -70,18 +71,18 @@ export default function ExamSidebar({ questions, onSetQuestions, onMapSelection,
   const handleMap = useCallback((qId: string) => {
     setMappingId(qId);
     // Small delay for visual feedback before actual action
-    setTimeout(() => {
+    taskScheduler.setTimeout(() => {
       onMapSelection(qId);
       setMappingId(null);
       setJustMappedId(qId);
-    }, 300);
+    }, 300, { label: "ExamSidebar:mapAnim" });
   }, [onMapSelection]);
 
   // Clear justMapped after animation
   useEffect(() => {
     if (!justMappedId) return;
-    const t = setTimeout(() => setJustMappedId(null), 1200);
-    return () => clearTimeout(t);
+    const h = taskScheduler.setTimeout(() => setJustMappedId(null), 1200, { label: "ExamSidebar:clearJustMapped" });
+    return () => taskScheduler.cancel(h);
   }, [justMappedId]);
 
   return (

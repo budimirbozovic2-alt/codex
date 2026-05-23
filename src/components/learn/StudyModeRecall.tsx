@@ -1,5 +1,6 @@
 import { Eye, Check, AlertTriangle } from "lucide-react";
 import { useState, useCallback, useEffect, useRef } from "react";
+import { taskScheduler } from "@/lib/scheduler";
 import { Card } from "@/lib/spaced-repetition";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
@@ -92,7 +93,7 @@ export default function StudyModeRecall({
       setModulesCompleted(c => c + Math.max(1, sections.length));
       setCompletedCards(prev => new Set(prev).add(card.id));
       updateProgress(card.id, { completed: true, phase: "reveal", failedAttempts: leechCount });
-      setTimeout(() => goNext(), AUTO_NEXT_DELAY);
+      taskScheduler.setTimeout(() => goNext(), AUTO_NEXT_DELAY, { label: "StudyModeRecall:autoNext:easy" });
       return;
     }
 
@@ -102,7 +103,7 @@ export default function StudyModeRecall({
     if (next >= LEECH_THRESHOLD) {
       setCompletedCards(prev => new Set(prev).add(card.id));
       updateProgress(card.id, { completed: true, leech: true, phase: "reveal", failedAttempts: next });
-      setTimeout(() => goNext(), AUTO_NEXT_DELAY);
+      taskScheduler.setTimeout(() => goNext(), AUTO_NEXT_DELAY, { label: "StudyModeRecall:autoNext:leech" });
     } else {
       updateProgress(card.id, { phase: "recall", failedAttempts: next });
       setPhase("recall");

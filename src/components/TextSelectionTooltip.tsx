@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback, useRef, ReactNode } from "react";
 
 import { createMnemonicCardFromSelection, loadMnemonicCards, saveMnemonicCards } from "@/features/mnemonic";
 import { eventBus, EVENT_TYPES } from "@/lib/event-bus";
+import { taskScheduler } from "@/lib/scheduler";
 import { toast } from "sonner";
 
 interface Props {
@@ -21,7 +22,7 @@ export default function TextSelectionTooltip({ children, cardId, question, categ
   const [tooltip, setTooltip] = useState<{ x: number; y: number; text: string } | null>(null);
 
   const handleMouseUp = useCallback(() => {
-    setTimeout(() => {
+    taskScheduler.setTimeout(() => {
       const sel = window.getSelection();
       if (!sel || sel.isCollapsed || !containerRef.current) return;
       const text = sel.toString().trim();
@@ -38,7 +39,7 @@ export default function TextSelectionTooltip({ children, cardId, question, categ
         y: rect.top - containerRect.top - 8,
         text,
       });
-    }, 10);
+    }, 10, { label: "TextSelectionTooltip:capture" });
   }, []);
 
   const handleMouseDown = useCallback((e: MouseEvent) => {
