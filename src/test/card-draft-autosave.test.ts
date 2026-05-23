@@ -1,16 +1,17 @@
 /**
- * Unit tests for the LocalStorage-backed CardForm draft autosave (B9).
+ * Unit tests for the Dexie-backed CardForm draft autosave (PR6).
  *
  * Covers:
- *  - Debounced write of meaningful drafts to localStorage.
- *  - Empty/whitespace drafts are not persisted (and clear any stale entry).
+ *  - Debounced write of meaningful drafts to the `drafts` table.
+ *  - Empty/whitespace drafts are not persisted (and clear any stale row).
  *  - TTL expiry — old drafts are evicted on load.
  *  - Disabling autosave halts writes (e.g. while restore banner is pending).
- *  - clearDraft removes the entry.
+ *  - clearDraft removes the row.
  *  - buildDraftKey discriminates between new vs edit and per-category slots.
  */
+import "fake-indexeddb/auto";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { act, renderHook } from "@testing-library/react";
+import { act, renderHook, waitFor } from "@testing-library/react";
 
 import {
   buildDraftKey,
@@ -18,6 +19,8 @@ import {
   useCardDraftAutosave,
   type CardDraftSnapshot,
 } from "@/hooks/useCardDraftAutosave";
+import { db } from "@/lib/db-schema";
+import { putDraft } from "@/lib/drafts/draftsTable";
 
 const baseDraft = (overrides: Partial<CardDraftSnapshot> = {}): CardDraftSnapshot => ({
   cardType: "essay",
@@ -32,8 +35,12 @@ const baseDraft = (overrides: Partial<CardDraftSnapshot> = {}): CardDraftSnapsho
   ...overrides,
 });
 
-beforeEach(() => {
-  localStorage.clear();
+async function getStored(key: string) {
+  return db.drafts.get(key);
+}
+
+beforeEach(async () => {
+  await db.drafts.clear();
   vi.useFakeTimers();
 });
 
@@ -53,89 +60,110 @@ describe("buildDraftKey", () => {
 });
 
 describe("useCardDraftAutosave", () => {
-  it("debounces writes and persists meaningful drafts", () => {
+  it("debounces writes and persists meaningful drafts to Dexie", async () => {
     const key = "cardform:new:cat-1";
     const draft = baseDraft({ question: "Šta je ugovor o radu?" });
 
     renderHook(() => useCardDraftAutosave(key, draft, true));
 
-    expect(localStorage.getItem(key)).toBeNull();
+    expect(await getStored(key)).toBeUndefined();
 
-    act(() => { vi.advanceTimersByTime(700); });
-
-    const raw = localStorage.getItem(key);
-    expect(raw).toBeTruthy();
-    const parsed = JSON.parse(raw!);
-    expect(parsed.question).toBe("Šta je ugovor o radu?");
-    expect(typeof parsed.savedAt).toBe("number");
+    await act(async () => { await vi.advanceTimersByTimeAsync(700); });
+    await vi.useRealTimers();
+    await waitFor(async () => {
+      const row = await getStored(key);
+      expect(row).toBeTruthy();
+      const payload = row!.payload as CardDraftSnapshot & { savedAt: number };
+      expect(payload.question).toBe("Šta je ugovor o radu?");
+      expect(typeof payload.savedAt).toBe("number");
+    });
+    vi.useFakeTimers();
   });
 
-  it("does not persist empty drafts and clears stale entries", () => {
+  it("does not persist empty drafts and clears stale rows", async () => {
     const key = "cardform:new:cat-empty";
-    localStorage.setItem(key, JSON.stringify({ ...baseDraft({ question: "old" }), savedAt: Date.now() }));
+    await putDraft({
+      key,
+      source: "cardform",
+      payload: { ...baseDraft({ question: "old" }), savedAt: Date.now() },
+      updatedAt: Date.now(),
+    });
 
     renderHook(() => useCardDraftAutosave(key, baseDraft(), true));
-    act(() => { vi.advanceTimersByTime(700); });
-
-    expect(localStorage.getItem(key)).toBeNull();
+    await act(async () => { await vi.advanceTimersByTimeAsync(700); });
+    await vi.useRealTimers();
+    await waitFor(async () => {
+      expect(await getStored(key)).toBeUndefined();
+    });
+    vi.useFakeTimers();
   });
 
-  it("respects enabled=false (no writes)", () => {
+  it("respects enabled=false (no writes)", async () => {
     const key = "cardform:new:cat-disabled";
     const draft = baseDraft({ question: "should not write" });
 
     renderHook(() => useCardDraftAutosave(key, draft, false));
-    act(() => { vi.advanceTimersByTime(2000); });
-
-    expect(localStorage.getItem(key)).toBeNull();
+    await act(async () => { await vi.advanceTimersByTimeAsync(2000); });
+    expect(await getStored(key)).toBeUndefined();
   });
 
-  it("clearDraft removes the entry", () => {
+  it("clearDraft removes the row", async () => {
     const key = "cardform:new:cat-clear";
     const draft = baseDraft({ question: "to be cleared" });
 
     const { result } = renderHook(() => useCardDraftAutosave(key, draft, true));
-    act(() => { vi.advanceTimersByTime(700); });
-    expect(localStorage.getItem(key)).toBeTruthy();
+    await act(async () => { await vi.advanceTimersByTimeAsync(700); });
+    await vi.useRealTimers();
+    await waitFor(async () => { expect(await getStored(key)).toBeTruthy(); });
 
-    act(() => { result.current.clearDraft(); });
-    expect(localStorage.getItem(key)).toBeNull();
+    await act(async () => { result.current.clearDraft(); });
+    await waitFor(async () => { expect(await getStored(key)).toBeUndefined(); });
+    vi.useFakeTimers();
   });
 });
 
 describe("loadCardDraft", () => {
-  it("returns null when no entry exists", () => {
-    expect(loadCardDraft("missing-key")).toBeNull();
+  it("returns null when no row exists", async () => {
+    expect(await loadCardDraft("missing-key")).toBeNull();
   });
 
-  it("returns null and evicts entries older than TTL", () => {
+  it("returns null and evicts entries older than TTL", async () => {
     const key = "cardform:new:cat-old";
     const ancient = Date.now() - 25 * 60 * 60 * 1000;
-    localStorage.setItem(key, JSON.stringify({ ...baseDraft({ question: "old" }), savedAt: ancient }));
+    await putDraft({
+      key,
+      source: "cardform",
+      payload: { ...baseDraft({ question: "old" }), savedAt: ancient },
+      updatedAt: ancient,
+    });
 
-    expect(loadCardDraft(key)).toBeNull();
-    expect(localStorage.getItem(key)).toBeNull();
+    expect(await loadCardDraft(key)).toBeNull();
+    expect(await getStored(key)).toBeUndefined();
   });
 
-  it("returns fresh meaningful drafts", () => {
+  it("returns fresh meaningful drafts", async () => {
     const key = "cardform:new:cat-fresh";
-    localStorage.setItem(key, JSON.stringify({ ...baseDraft({ question: "fresh" }), savedAt: Date.now() }));
+    await putDraft({
+      key,
+      source: "cardform",
+      payload: { ...baseDraft({ question: "fresh" }), savedAt: Date.now() },
+      updatedAt: Date.now(),
+    });
 
-    const loaded = loadCardDraft(key);
+    const loaded = await loadCardDraft(key);
     expect(loaded).not.toBeNull();
     expect(loaded!.question).toBe("fresh");
   });
 
-  it("rejects empty drafts even if fresh", () => {
+  it("rejects empty drafts even if fresh", async () => {
     const key = "cardform:new:cat-empty-fresh";
-    localStorage.setItem(key, JSON.stringify({ ...baseDraft(), savedAt: Date.now() }));
+    await putDraft({
+      key,
+      source: "cardform",
+      payload: { ...baseDraft(), savedAt: Date.now() },
+      updatedAt: Date.now(),
+    });
 
-    expect(loadCardDraft(key)).toBeNull();
-  });
-
-  it("survives malformed JSON", () => {
-    const key = "cardform:new:cat-bad";
-    localStorage.setItem(key, "{not json");
-    expect(loadCardDraft(key)).toBeNull();
+    expect(await loadCardDraft(key)).toBeNull();
   });
 });
