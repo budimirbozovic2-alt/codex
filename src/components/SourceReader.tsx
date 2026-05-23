@@ -57,7 +57,7 @@ export default function SourceReader({ source, onBack, onSourceUpdated }: Props)
   // `source` object was a dependency, causing the timer to be torn down
   // and rescheduled on every parent render and forcing JSON.stringify
   // on every render path.
-  const saveTimerRef = useRef<number | null>(null);
+  const saveTimerRef = useRef<TaskHandle | null>(null);
   const lastSavedJsonRef = useRef<string>(JSON.stringify(source.examQuestions ?? []));
   const sourceRef = useRef(source);
   const onSourceUpdatedRef = useRef(onSourceUpdated);
@@ -68,8 +68,8 @@ export default function SourceReader({ source, onBack, onSourceUpdated }: Props)
     if (hydratedSourceIdRef.current !== source.id) return; // pre-hydration guard
     const json = JSON.stringify(examQuestions);
     if (json === lastSavedJsonRef.current) return;
-    if (saveTimerRef.current !== null) window.clearTimeout(saveTimerRef.current);
-    saveTimerRef.current = window.setTimeout(() => {
+    if (saveTimerRef.current !== null) taskScheduler.cancel(saveTimerRef.current);
+    saveTimerRef.current = taskScheduler.setTimeout(() => {
       saveTimerRef.current = null;
       lastSavedJsonRef.current = json;
       const current = sourceRef.current;
@@ -77,14 +77,15 @@ export default function SourceReader({ source, onBack, onSourceUpdated }: Props)
       saveSource(next).then(() => onSourceUpdatedRef.current?.(next)).catch(err => {
         logger.error("[SourceReader] failed to persist examQuestions", err);
       });
-    }, 800);
+    }, 800, { label: `source-reader:exam-questions:${source.id}` });
     return () => {
       if (saveTimerRef.current !== null) {
-        window.clearTimeout(saveTimerRef.current);
+        taskScheduler.cancel(saveTimerRef.current);
         saveTimerRef.current = null;
       }
     };
   }, [examQuestions, source.id]);
+
 
   // Reset store on unmount — ensures next source starts clean.
   useEffect(() => () => useSourceReaderStore.getState().reset(), []);
