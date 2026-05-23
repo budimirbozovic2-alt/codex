@@ -1,49 +1,45 @@
 /**
  * `useDirtyDialog` — pair with any Radix `<Dialog>` whose body has unsaved
- * edits. When `isDirty` is true, calls to `tryClose(closer)` are intercepted:
- * instead of running `closer`, the hook flips `pendingClose` to true so the
- * caller can render `<DirtyConfirmBar>` in the dialog footer with three
- * resolutions (Discard / Keep editing / Save & close).
+ * edits. When dirty, calls to `requestClose()` are intercepted: instead of
+ * running `close`, the hook flips `pendingClose` to true so the caller can
+ * render `<DirtyConfirmBar>` in the dialog footer with three resolutions
+ * (Discard / Keep editing / Save & close).
  *
- * Usage:
+ * Two overloads:
+ *   useDirtyDialog(isDirty: boolean, close: () => void)
+ *   useDirtyDialog({ draftKey, close })  // reads draftRegistry by key
  *
- *   const { pendingClose, requestClose, cancelClose, confirmDiscard } =
- *     useDirtyDialog(isDirty, () => onOpenChange(false));
- *
- *   <DialogContent
- *     onPointerDownOutside={(e) => { if (isDirty) { e.preventDefault(); requestClose(); } }}
- *     onEscapeKeyDown={(e) => { if (isDirty) { e.preventDefault(); requestClose(); } }}
- *   >
- *     ...
- *     <DirtyConfirmBar
- *       open={pendingClose}
- *       onCancel={cancelClose}
- *       onDiscard={confirmDiscard}
- *       onSave={async () => { await save(); confirmDiscard(); }}
- *     />
- *   </DialogContent>
- *
- * The hook is intentionally state-only — it does not own the close itself, so
- * dialogs that need to run additional cleanup (focus return, form reset, …)
- * stay in control.
+ * The `draftKey` form removes the need to thread `isDirty` through props when
+ * the editor already publishes to the registry (`useDraftAutosave`,
+ * `useCardDraftAutosave`, `usePersistedDraftMirror`).
  */
 import { useCallback, useState } from "react";
+import { useIsDirty } from "./useDraftRegistry";
 
 export interface DirtyDialogApi {
-  /** True after `requestClose` is called while dirty; render the confirm bar. */
   pendingClose: boolean;
-  /**
-   * Ask to close. If the dialog is clean, runs the supplied closer immediately.
-   * If dirty, sets `pendingClose=true` and lets the caller render the bar.
-   */
   requestClose: () => void;
-  /** Dismiss the confirm bar without closing the dialog. */
   cancelClose: () => void;
-  /** Discard intent confirmed — runs the closer and clears the bar. */
   confirmDiscard: () => void;
 }
 
-export function useDirtyDialog(isDirty: boolean, close: () => void): DirtyDialogApi {
+interface KeyedOptions {
+  draftKey: string | null | undefined;
+  close: () => void;
+}
+
+export function useDirtyDialog(isDirty: boolean, close: () => void): DirtyDialogApi;
+export function useDirtyDialog(opts: KeyedOptions): DirtyDialogApi;
+export function useDirtyDialog(
+  isDirtyOrOpts: boolean | KeyedOptions,
+  closeMaybe?: () => void,
+): DirtyDialogApi {
+  const isObject = typeof isDirtyOrOpts === "object" && isDirtyOrOpts !== null;
+  const draftKey = isObject ? isDirtyOrOpts.draftKey : null;
+  const fromRegistry = useIsDirty(draftKey);
+  const isDirty = isObject ? fromRegistry : isDirtyOrOpts;
+  const close = isObject ? isDirtyOrOpts.close : (closeMaybe as () => void);
+
   const [pendingClose, setPendingClose] = useState(false);
 
   const requestClose = useCallback(() => {
