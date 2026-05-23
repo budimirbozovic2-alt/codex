@@ -23,6 +23,7 @@ import { normalizeTagList } from "@/lib/zettelkasten-tags";
 import { sameStringSet } from "@/lib/struct-eq";
 import { eventBus, EVENT_TYPES } from "@/lib/event-bus";
 import type { ZettelEditorHandle } from "@/components/zettelkasten/ZettelEditor";
+import { usePersistedDraftMirror } from "@/hooks/usePersistedDraftMirror";
 
 import { logger } from "@/lib/logger";
 export interface Draft {
