@@ -1,151 +1,123 @@
 ## Cilj
 
-Riješiti tri preostala high-priority strukturna problema iz Greenfield audita:
-
-1. **#2 Draft store** — konsolidovati posljednje ad-hoc draft implementacije na unificirani `useDraftAutosave` + `draftRegistry`.
-2. **#7 Persist transactional unit** — eliminisati `sessionStorage["codex-flush-pending"]` hack i ukloniti rizik od *lost update* u `persist-queue`.
-3. **#8 Završiti Zustand migraciju** — povući `cardMapRefFacade` iz public API-ja i ukinuti `cardMapRef` prop-drilling kroz contexte/hookove.
-
-Svaki problem ide kao zaseban PR (PR-A, PR-B, PR-C) sa svojim test setom; nema cross-zavisnosti pa redoslijed može biti paralelan.
+Pet srednje-prioritetnih strukturnih problema iz audita — svaki kao zaseban, izoliran PR sa testovima. Redoslijed je biran tako da svaka iteracija stoji samostalno i ne blokira ostale.
 
 ---
 
-## PR-A — #2 Draft store (završetak konsolidacije)
+### PR1 — #10 Konsolidacija keyed mutex-a (DRY/DX)
 
-**Trenutno stanje:** `useDraftAutosave` + `draftsTable` + `draftRegistry` postoje. `useCardDraftAutosave` je već migriran (PR6). Preostalo:
+Stanje: tri ručna `Promise.resolve()` lanca + dva ad-hoc inFlight brojača:
+- `src/lib/repositories/categoryRepository.ts` (`_pendingSave`)
+- `src/lib/planner/cache.ts` (`_pendingWrite`)
+- `src/lib/repositories/cardMapInvalidator.ts` (`.then(() => …)` lanac)
+- `src/lib/persist-queue.ts` (`inFlightCount` mikrotask coalesce)
+- (istorijski) `cardCommandBus` (uklonjen u Phase 4 — komentar i dalje stoji)
 
-- `src/hooks/zettelkasten/useArticleDraft.ts` (173 LOC) — vlastiti debounce + setArticles flush.
-- `src/hooks/card-actions/useSectionEditor.ts` (69 LOC) — lokalni dirty state.
-- `src/hooks/useDirtyDialog.ts` — ne čita `draftRegistry`, oslanja se na ručni `isDirty` prop.
-
-**Promjene:**
-
-1. **`useArticleDraft.ts` → tanak adapter nad `useDraftAutosave`**
-   - Ključ: `article:<articleId>`, `source: "članci"`.
-   - Zadržati `flushNow()` semantiku (poziva se prije navigacije) — već je dio `useDraftAutosave.flush()`.
-   - `persistDraft: true` → drop u `db.drafts` ako commit u `articles` tabelu padne.
-   - Brisanje: rezultat brisanja članka uklanja `db.drafts` red preko `deleteDraft(key)`.
-
-2. **`useSectionEditor.ts` → preusmjeriti dirty signal u `draftRegistry`**
-   - Lokalni `useState<boolean>` ostaje za UI, ali `useEffect` mark/clean u `draftRegistry` sa ključem `card-section:<cardId>:<index>`.
-   - Time sve "active dirty editor" instance žive u **jednom** registru → `useHasAnyDirty()` postaje jedini izvor istine za nav-guard.
-
-3. **`useDirtyDialog.ts` — opcioni `draftKey` parametar**
-   - Ako je proslijeđen, hook čita `useIsDirty(key)` iz `draftRegistry` umjesto eksternog booleana.
-   - Postojeći potpis ostaje (`useDirtyDialog(isDirty, close)`) za backward-compat; novi overload `useDirtyDialog({ draftKey, close })`.
-
-4. **`src/store/index.ts` — eksponovati draft API**
-   - Re-export `useHasAnyDirty`, `useIsDirty`, `useDraftRegistry` kroz barrel da konzumeri ne idu po deep importima.
-   - ESLint zid (`no-restricted-imports`) za `@/lib/drafts/*` izvan `src/lib/drafts/**` i `src/hooks/useDraft*` family.
-
-5. **Testovi:**
-   - `zettelkasten-article-draft.test.ts` se prepravlja na novi backend (fake-indexeddb, async load).
-   - Novi `section-editor-dirty.test.ts` — provjera da mark/clean dolazi u registry.
-
-**Rizik:** Async load draft-a u `useArticleDraft` mijenja inicijalni render (od sync na `useEffect`). Mitigacija: zadržati `setArticles` SSOT kao trenutni source-of-truth, draft je samo crash-recovery overlay → UI ne treba čekati IDB hop.
+Plan:
+1. Nova primitiva `src/lib/concurrency/keyedMutex.ts`:
+   - `createKeyedMutex<K>()` → `{ runExclusive(key, fn), drain(key?), pending(key?) }`
+   - Globalni mutex (`runExclusive(GLOBAL_KEY, fn)`) je samo poseban slučaj.
+   - Greške se rethrow-uju iz `runExclusive` ali ne zatruju lanac (`.catch(() => {})` interno).
+2. Migracija sajtova → svaki dobija imenovani mutex (npr. `categoryMutex.runExclusive("save", op)`).
+3. `persist-queue` ostaje sa svojom semantikom (frame coalesce) ali `inFlightCount` zamijeniti `mutex.pending()` API-jem.
+4. Test: `src/test/keyed-mutex.test.ts` — ordering, error isolation, drain.
+5. ESLint guard: zabrana novih `_pending\w+\s*=\s*Promise\.resolve` literala van `src/lib/concurrency/**`.
 
 ---
 
-## PR-B — #7 Persist transactional unit
+### PR2 — #9 Proxy noop fallback (silent provider bugs)
 
-**Trenutno stanje (`src/lib/persist-queue.ts`, 236 LOC):**
+Stanje: `CardActionsProvider`, `CategoryActionsProvider`, `BackupActionsProvider` vraćaju `new Proxy({}, { get: () => noop })` kad provider fali, sa `console.warn` "HMR transient" samo u DEV-u. PROD progresivno pojede klikove (delete, save, import).
 
-- Coalescing `Map<id, Card>` + `Set<id>` deletes, jedan `setTimeout(flush, 16)`.
-- Retry sa exp backoff (`MAX_RETRY=3`) → re-enqueue u `pendingPuts` nakon catch.
-- `sessionStorage["codex-flush-pending"]` flag — meta-SSOT van memorije.
-- `_mapVersion` cache za `mapToArray` — treći mirror.
-
-**Glavni rizik:** Nakon `pendingPuts.clear()` + neuspješan `idbBulkApply`, novi write koji stigne tokom retry delay-a se mixa sa starim re-enqueue-om bez verzioniranja → **lost update** kad noviji ts upadne prije starijeg snapshot-a koji se vraća u red.
-
-**Promjene:**
-
-1. **Per-card monotone sequence broj**
-   - U `enqueue({ type: "put", card })` dodijeli `seq = ++globalSeq` i čuvaj `Map<id, { card, seq }>`.
-   - U retry re-enqueue putu, dodaj **samo ako** trenutni `pendingPuts.get(id)?.seq < failedSeq` (newer write win). Ako noviji već stigao, drop stari (no-op).
-
-2. **In-flight set umjesto sessionStorage flag-a**
-   - Drži `inFlight: Map<id, seq>` dok `idbBulkApply` traje.
-   - `cleanup()` (page hide / beforeunload) `await`-uje da `inFlight` bude prazan.
-   - Ukloniti **sve** `sessionStorage.{set,remove}Item("codex-flush-pending")` pozive. Memory pravilo "no LS/SS as SSOT" se vraća.
-   - Crash-recovery signal se seli na `db.outbox` tabelu (vidi tačku 3).
-
-3. **`db.outbox` tabela (Dexie v20)**
-   - Schema: `outbox: "&seq, id, op, ts"`.
-   - `enqueue` upiše outbox red u istoj IDB transakciji **prije** flush-a; flush briše red nakon uspjeha. Crash → boot recovery (`src/lib/drafts/draftRecovery.ts` susjed) re-aplicira preostale redove i toast-uje korisnika.
-   - Time WAL semantika bez ručnog reseta.
-
-4. **Granularan API**
-   - Public surface ostaje `schedulePersist(action)` — interno se preslagiva. Ukloniti `bumpMapVersion` poziv iz svih konzumera: novi `mapToArray` se oslanja na referencu cardMap atoma (jedan SSOT, vidi PR-C).
-
-5. **Toasts**
-   - Dosadašnji "Pisanje nije uspjelo nakon više pokušaja" ostaje, ali se sad triggeruje samo ako outbox ostane neispražnjen.
-
-6. **Testovi:**
-   - `persist-queue-sequence.test.ts` — write A(seq=1) → flush fail → write A(seq=2) → re-enqueue A(seq=1) ne smije pregaziti seq=2.
-   - `persist-queue-outbox.test.ts` — kill mid-flush, novi boot mora re-aplicirati.
-   - `persist-queue.test.ts` (postojeći) ažurirati: dropom `sessionStorage` assertion-a.
-
-**Rizik:** Dexie schema bump na v20. Mitigacija: outbox tabela je nova (nema migracije podataka); upgrade je čist `stores({ outbox: ... })`.
+Plan:
+1. Razdvojiti DEV/PROD ponašanje:
+   - **DEV**: throw odmah (`Error: useCardOnlyActions used outside provider`) — HMR transient se eliminira pravilnim ključem na root-u (umjesto da ga maskiramo).
+   - **PROD**: classify metode kao `read` vs `write` preko statične mape; pozivi `write` metoda u PROD-u throw-uju + emit `eventBus.emit("PROVIDER_FALLBACK", {provider, method})`; `read` metode vraćaju default vrijednost iz `EMPTY_*` konstanti (ne `noop`).
+2. Telemetrija: nova event vrsta `PROVIDER_FALLBACK` se loguje kroz `logger.error` i, u Electron-u, kroz crash-log file.
+3. Test: `src/test/provider-fallback.test.tsx` — render bez providera mora throw-ati u DEV, write call mora throw-ati u PROD.
 
 ---
 
-## PR-C — #8 Završetak Zustand migracije (ukinuti `cardMapRefFacade`)
+### PR3 — #6 body-pointer-events-guard (maintenance bomba)
 
-**Trenutno stanje:** `cardMapStore` postoji kao atom, ali javni `cardMapRefFacade` se i dalje vuče kroz 6 fajlova kao da je `MutableRefObject<CardMap>`. Postoje i prop-drill `cardMapRef` parametri u `useCardCRUD`, `useCategoryManagement`, `useCardImport`, `useCardBootstrap`, `CardActionsProvider`, `CategoryActionsProvider`, `BackupActionsProvider`.
+Stanje: `src/lib/body-pointer-events-guard.ts` zavisi od internih atributa Radix-a (`[data-radix-focus-guard]`), Vaul-a (`[data-vaul-drawer]`) i `react-remove-scroll` (`body[data-scroll-locked]`). Tihi crash ako bilo koja biblioteka promijeni naming.
 
-**Promjene:**
-
-1. **`cardRepository.ts` — direktan store pristup**
-   - Sve `cardMapRefFacade.current[id]` → `getCardMap()[id]`.
-   - Mutacije i dalje idu kroz `setCardMap(prev => ...)` + `schedulePersist(...)`.
-
-2. **Ukloniti `cardMapRef` prop iz API-ja hookova**
-   - `useCardCRUD`, `useCategoryManagement`, `useCardImport`, `useCardBootstrap` — drop iz interface-a, koristi `getCardMap()` / `setCardMap()` interno.
-   - `category-deletion-service.ts` — isto.
-
-3. **Provider slojevi**
-   - `CardStateProvider.tsx`: skinuti `cardMapRef` iz `CardStateInternalsContext`. Zadržati samo `useCardMap()` + `setCardMap` u publik surface-u.
-   - `CardActionsProvider`, `CategoryActionsProvider`, `BackupActionsProvider`: prestati prosljeđivati `cardMapRef`.
-
-4. **Public API barrel**
-   - U `src/store/index.ts` ukloniti `cardMapRefFacade` i `CardMapRefFacade` export.
-   - ESLint patch (`no-restricted-imports`): zabraniti import imena `cardMapRefFacade` čak i iz `@/store/useCardMapStore`.
-
-5. **Bumpovi i čišćenje**
-   - `bumpMapVersion()` postaje no-op nakon PR-B (jedan atom = jedan ref); ukloniti pozive iz `cardRepository`, `useCardCRUD`, `useCardImport`, `useCategoryManagement`. Funkcija ostaje export samo kao deprecated stub jedan PR (warn u DEV) i briše se u sljedećem.
-
-6. **Testovi:**
-   - `card-repository-delete.test.ts` ažurirati (drop `cardMapRefFacade` import; koristiti `getCardMap`).
-   - Novi `store-facade-removed.test.ts` — gleda da javni barrel ne eksponira `cardMapRefFacade`.
-
-**Rizik:** Najveći blast radius — 8 fajlova mijenja potpis. Mitigacija: transformacije su mehaničke (s/`cardMapRef.current`/`getCardMap()`/g + drop iz argumenata); 488-test svita pokriva regresiju.
+Plan:
+1. **Selector regresijski test** (`src/test/body-pointer-events-selectors.test.tsx`):
+   - Mount jedne Radix Dialog + jedne Vaul Drawer + jedne AlertDialog instance.
+   - `expect(document.querySelector(OPEN_OVERLAY_SELECTOR))` za svaki state.
+   - Test se izvršava u CI-ju nakon svake `bun update`; pad = guard mora biti revidiran.
+2. **Watchdog log**: ako `body.style.pointerEvents === "none"` ostane >300ms bez aktivnog overlay-a, `logger.error("[guard] body lock leaked")` + zabilježi vrijednost `installed.lastClearAt`. Daje signal čak i ako selektori i dalje match-uju ali se semantika promijeni.
+3. **Version pin** u `package.json`: `@radix-ui/react-dialog`, `vaul`, `react-remove-scroll` prelaze iz `^` u tačnu verziju; bump je svjesna odluka (dokumentovano u `docs/dependency-pins.md`).
+4. **Smanjenje doseg**: dodati `<DialogRoot>` wrapper koji forsira `onOpenChange` cleanup pattern (audit u `src/test/dialog-close-pattern.test.tsx`); guard ostaje kao defense-in-depth ali ne kao primarni put.
 
 ---
 
-## Tehnički sažetak (developer)
+### PR4 — #12 DB boot state machine + recovery UX
 
-```text
-PR-A draft konsolidacija
-   useArticleDraft  ───▶  useDraftAutosave({ key, source:"članci", persistDraft:true })
-   useSectionEditor ───▶  registry mark/clean
-   useDirtyDialog   ───▶  overload sa draftKey
-   barrel + ESLint zid za @/lib/drafts/*
+Stanje: `bootDb()` vraća `{ok: boolean}`; greške se signaliziraju kombinacijom `dbErrorState` modul-varijable, splash stringova i `DbErrorProvider`-a. Korisnik ne dobija jasnu razliku između "blocked tab", "version mismatch", "corrupted IDB", "timeout".
 
-PR-B persist transactional
-   per-id seq + inFlight Map
-   sessionStorage flag → DROP
-   db.outbox (Dexie v20)  ───▶  boot recovery rerun
-   bumpMapVersion → no-op (priprema za PR-C)
+Plan:
+1. Novi `src/lib/boot/bootStateMachine.ts`:
+   ```
+   idle → opening → migrating → loading → ready
+              ↓         ↓          ↓
+            blocked  version    corrupted
+              ↓     mismatch       ↓
+            recovery-prompt
+   ```
+   - Implementacija kao discriminated union state + reducer; svaka tranzicija ima `reason` polje.
+2. `BootStateProvider` zamijenjuje direktno čitanje `getDbErrorState()`. `useDbError` postaje shim koji deriva iz `bootState`.
+3. `bootDb` i `runMigrations` su sad transition emitter-i (`emit({type: "OPENING"})`, `emit({type: "OPEN_OK"})`, `emit({type: "OPEN_FAILED", reason})`).
+4. Recovery UI komponenta `<BootRecoveryDialog>`:
+   - `blocked` → "Zatvorite ostale tabove ili kliknite Reset".
+   - `version` → "Backup → Reset → Restore" wizard sa progress bar-om.
+   - `corrupted` → "Export emergency JSON + Reset" (već postoji `emergency-export.ts` — sad ga state machine pokreće).
+5. Tests: `src/test/boot-state-machine.test.ts` (sve tranzicije) + `src/test/boot-recovery-flow.test.tsx` (jedan E2E recovery).
 
-PR-C ukloniti cardMapRefFacade
-   cardRepository → getCardMap()
-   contexts/hooks drop cardMapRef prop (8 fajlova)
-   barrel ne eksponira facade
-   bumpMapVersion deprecated → noop
-```
+---
 
-## Što plan **ne** dira
+### PR5 — #1 OLAP u UI niti → Web Worker
 
-- Pomodoro, SpeedReader, notifikacije (timing-critical, ostaju raw).
-- Editor caret race-ovi (#11), body-pointer-events-guard (#6), OLAP (#1), FSRS coupling (#5).
-- Nijedna UI tema, ruta, ili user-facing semantika.
+Stanje: `useStatsData` (`src/hooks/useStatsData.ts`, 127 LOC) + `src/lib/analytics/*` (5 fajlova, ~450 LOC) izvršavaju agregaciju preko `useDeferredCompute` (rIC) na main thread-u. Pri >10k review log unosa dolazi do jank-a (long task >50ms).
+
+Plan:
+1. Novi worker `src/workers/analytics-worker.ts`:
+   - Input: `{cards, reviewLog, srSettings, asOf}`.
+   - Output: `{ratioHistory, focusRatio, blindSpots, frictionScore, interferenceMap, recoveryCurve, stabilityHistogram}`.
+   - Cijela `src/lib/analytics/**` familija je čist `(input) → output` — premjestiti u `src/lib/analytics/_pure/` (bez DOM-a, bez React-a), worker ih importuje direktno.
+2. Hook `src/hooks/useAnalyticsWorker.ts`:
+   - Singleton worker (lazy init); request keying preko `hash(cards.length + reviewLog.length + maxUpdatedAt)`.
+   - Vraća `{data, isComputing}`; data se memo-izira dok hash ne promijeni.
+3. `useStatsData` postaje thin shim koji konzumira hook + zadržava jeftine sync derive-ove (npr. `categoryStats` lookup-i).
+4. Fallback: ako `Worker` nije dostupan (test env), pao na main-thread sync put (sa `console.warn` u DEV-u).
+5. Tests:
+   - `src/test/analytics-worker.test.ts` — parity test (worker vs main-thread daju identičan output na fixture-u).
+   - `src/test/perf/analytics-jank.bench.ts` — 50k log unosa, mora <16ms main-thread vrijeme.
+
+---
+
+## Redoslijed i nezavisnost
+
+| PR | Zavisnosti | Risk | LOC est. |
+|----|------------|------|----------|
+| PR1 mutex | nijedna | low | ~250 |
+| PR2 fallback | nijedna | low | ~150 |
+| PR3 guard | nijedna | medium (CI tooling) | ~200 |
+| PR4 boot SM | nijedna | medium (mijenja boot flow) | ~500 |
+| PR5 analytics worker | nijedna | medium (worker infra) | ~700 |
+
+Svi PR-ovi su nezavisni — može se ići paralelno. Predlažem redoslijed PR1 → PR2 → PR3 → PR4 → PR5 (od najmanjeg blast radius-a ka najvećem).
+
+## Šta se NE dira
+
+- FSRS algoritam, taxonomy, Zettelkasten, planner business logika.
+- UI teme, route-ovi, korisnička semantika.
+- Postojeće Dexie šeme (PR4 ne diže verziju).
+- Pomodoro / SpeedReader / TTS engine-i.
+
+## Otvorena pitanja
+
+1. **PR3 version-pin** — da li želiš striktni pin (`1.2.3`) ili tilde (`~1.2.3`)? Pin = manji rizik, češći ručni bump.
+2. **PR5 worker bundling** — Vite već radi worker chunk; bez dodatne konfiguracije. OK?
+3. **PR4 recovery UX** — da li želiš da `corrupted` state automatski export-uje emergency JSON, ili samo nudi dugme?
