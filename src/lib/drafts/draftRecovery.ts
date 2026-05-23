@@ -43,10 +43,8 @@ export async function recoverDraftsOnBoot(): Promise<void> {
   if (fresh.length === 0) return;
 
   // Group counts by source for a readable summary.
-  const bySource = fresh.reduce<Record<string, number>>((acc, r) => {
-    acc[r.source] = (acc[r.source] ?? 0) + 1;
-    return acc;
-  }, {});
+  const bySource: Record<string, number> = {};
+  for (const r of fresh) bySource[r.source] = (bySource[r.source] ?? 0) + 1;
   const summary = Object.entries(bySource)
     .map(([s, n]) => `${describeSource(s)}: ${n}`)
     .join(" · ");
