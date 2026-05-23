@@ -236,7 +236,7 @@ export function useMindMapCanvas(doc: MindMapDoc) {
       data: { ...(n.data as Record<string, unknown>), onUpdate: stableOnUpdate, onDuplicate: stableOnDuplicate },
     })));
     setDirty(true);
-    setTimeout(() => fitView({ padding: 0.2, duration: 400 }), 50);
+    taskScheduler.setTimeout(() => fitView({ padding: 0.2, duration: 400 }), 50, { label: "mindmap:auto-layout-fit" });
     toast.success("Automatski raspored primijenjen");
   }, [edges, setNodes, fitView, stableOnUpdate, stableOnDuplicate]);
 
