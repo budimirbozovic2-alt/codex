@@ -1,47 +1,38 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// Phase 5A — Granular category selectors.
+// Phase 5A + 5B — Granular category selectors.
 //
-// Tiny hooks layered on `useCategoryData()`. They memoise their narrow slice
-// so a component that only cares about ONE category (or the subcategories of
-// ONE parent) does not re-render when an unrelated category mutates.
+// 5A: introduced these hooks layered over the React context.
+// 5B: re-routed to the **external** `categoryStore` mirror so a component
+//     that cares about ONE category does NOT re-render when an unrelated
+//     category mutates (context value identity changes invalidate every
+//     consumer; external-store subscription does not).
 //
-// Re-render savings come from the `useMemo` referential stability: even
-// though `categoryRecords` is recreated on every commit, the slice returned
-// here only changes when the slice's own bytes change.
+// Public API is unchanged — existing call sites keep working.
 // ─────────────────────────────────────────────────────────────────────────────
-import { useMemo } from "react";
 import type { CategoryRecord, SubcategoryNode, ChapterNode } from "@/lib/db";
-import { useCategoryData } from "@/contexts/cards/CategoryStateProvider";
+import {
+  useCategoryFromStore,
+  useSubcategoriesByParentFromStore,
+  useChaptersBySubcategoryFromStore,
+} from "@/store/useCategoryStore";
 
 /** Single category record by id. Stable reference between mutations of others. */
 export function useCategory(categoryId: string | undefined): CategoryRecord | undefined {
-  const { categoryRecords } = useCategoryData();
-  return useMemo(
-    () => categoryRecords.find(r => r.id === categoryId),
-    [categoryRecords, categoryId],
-  );
+  return useCategoryFromStore(categoryId);
 }
 
 /** Sorted subcategory nodes for a parent. Empty array when not found. */
 export function useSubcategoriesByParent(categoryId: string | undefined): SubcategoryNode[] {
-  const cat = useCategory(categoryId);
-  return useMemo(() => {
-    const subs = [...(cat?.subcategories ?? [])];
-    subs.sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
-    return subs;
-  }, [cat]);
+  return useSubcategoriesByParentFromStore(categoryId);
 }
 
 /** Sorted chapter nodes for a (category, subcategory) pair. */
 export function useChaptersBySubcategory(
-  categoryId: string | undefined,
+  _categoryId: string | undefined,
   subcategoryId: string | undefined,
 ): ChapterNode[] {
-  const subs = useSubcategoriesByParent(categoryId);
-  return useMemo(() => {
-    const sub = subs.find(s => s.id === subcategoryId);
-    const chs = [...(sub?.chapters ?? [])].filter((c): c is ChapterNode => typeof c === "object");
-    chs.sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
-    return chs;
-  }, [subs, subcategoryId]);
+  // categoryId kept in the signature for backwards-compat; the external store
+  // resolves chapters by subcategoryId alone via its parent-index map.
+  void _categoryId;
+  return useChaptersBySubcategoryFromStore(subcategoryId);
 }
