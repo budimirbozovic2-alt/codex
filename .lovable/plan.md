@@ -1,175 +1,206 @@
-# Plan: ESLint Public API zidovi + Task Scheduler
+# Greenfield Finalization — 3 zadatka
 
-Dva nezavisna ali komplementarna posla. Mogu se mergati odvojeno; ne diraju runtime ponašanje (osim Schedulera koji centralizuje već postojeće timere).
+## Preliminarna provjera (bitno!)
+
+- **Zod već postoji** kao dependency (`zod ^4.4.1`) i **`src/lib/migrations/backup-schema.ts` već implementira pun Zod parser** za backup payload (sa `.strict()`, `sanitizeHtml` transformima, SafeText/SafeHtml helperima). `import-transaction.ts` već konsumira `ParsedBackup`. Zadatak #3 stoga **nije "uvedi Zod"** nego **audit + plombiranje rupa**.
+- `taskScheduler` ima `debounce(fn, ms, opts)` — Zadatak #2 ima sve što mu treba.
+- ESLint config već koristi `no-restricted-syntax` za druge stvari (raw boje, eventBus literali) — dodavanje timer guard-a je proširenje istog bloka.
 
 ---
 
-## Dio A — ESLint Public API zidovi
+## Zadatak 1 — ESLint guard za `setTimeout` / `setInterval`
 
-**Cilj:** spriječiti deep import-e u domene koje sada imaju jasan public API (repositories, store, lib/db), tako da naredne faze IDB-as-SSOT migracije ne dobiju nove "back-door" ulaze. Ovo je čisto lint pravilo — zero runtime change.
+### Pristup
+Proširiti postojeći `no-restricted-syntax` blok u `eslint.config.js` sa dva selektora koji ciljaju globalne `CallExpression`. Koristiti **per-file override blokove** za dozvoljene lokacije (umjesto inline `eslint-disable` komentara po fajlu — manje šuma, lakša revizija).
 
-### A1. Repositories barrel
+### Konkretne izmjene
 
-1. Kreirati `src/lib/repositories/index.ts` koji re-exportuje samo javni API:
-   - `cardRepository`, `categoryRepository`, `reviewLogRepository`, `settingsRepository`
-   - `cardMapInvalidator`, `categoryStateInvalidator` (samo za boot/test setup)
-2. Interne helpere (npr. privatne `commit`/`rollback` util-e ako se izdvoje) ne re-eksportovati.
-
-### A2. Store barrel
-
-1. Kreirati `src/store/index.ts` sa javnim hook-ovima:
-   - `useCardMap*`, `useCardSelectors*`, `useCardsBySource`, `useCategory*`, `useSourceReaderStore`.
-2. `useCardSelectorsFromDb` ostaje dostupan kao opt-in (export-ovan, ali sa JSDoc napomenom da je iza feature flag-a).
-
-### A3. db barrel hardening
-
-1. `src/lib/db/index.ts` (ako ne postoji, kreirati) eksportuje samo `db`, schema verzije i `queries/*` named queries.
-2. Direktan `import { db } from "@/lib/db"` ostaje, ali se zabranjuje **van** `src/lib/**`, `src/contexts/**`, `src/hooks/card-bootstrap/**` i `src/test/**` (views već imaju to pravilo — proširujemo na komponente/features).
-
-### A4. ESLint pravila (`eslint.config.js`)
-
-Dodati novi override blok:
-
+**`eslint.config.js` — globalni guard:**
 ```js
-// Public API walls — block deep imports into walled modules
 {
-  files: ["src/**/*.{ts,tsx}"],
-  ignores: [
-    "src/lib/repositories/**",
-    "src/store/**",
-    "src/lib/db/**",
-    "src/test/**",
-  ],
-  rules: {
-    "no-restricted-imports": ["error", {
-      patterns: [
-        { group: ["@/lib/repositories/*"], message: "Importuj iz `@/lib/repositories` barrel-a." },
-        { group: ["@/store/*"],            message: "Importuj iz `@/store` barrel-a." },
-        { group: ["@/lib/db/queries/*"],   message: "Importuj iz `@/lib/db` barrel-a." },
-      ],
-    }],
-  },
+  selector: "CallExpression[callee.name='setTimeout']",
+  message: "Koristi taskScheduler.setTimeout() (src/lib/scheduler). Raw setTimeout je dozvoljen samo u taskScheduler.ts, Pomodoro/SpeedReader engine-ima i testovima.",
+},
+{
+  selector: "CallExpression[callee.name='setInterval']",
+  message: "Koristi taskScheduler.setInterval() (src/lib/scheduler). Raw setInterval je dozvoljen samo u taskScheduler.ts i Pomodoro engine-u.",
 },
 ```
 
-`@/features/*/*` već postoji — ostaje nepromijenjen.
+**Allow-list (per-file override, dodaje `no-restricted-syntax: "off"` ili ciljano isključuje samo timer pravila):**
+- `src/lib/scheduler/taskScheduler.ts` (implementacija)
+- `src/contexts/pomodoro/usePomodoroEngine.ts` (sub-frame timing)
+- `src/hooks/speed-reader/useSpeedReaderEngine.ts` (RSVP)
+- `src/contexts/ui/useNotificationScheduler.ts` (preexisting whitelist)
+- `src/test/**` (fake timers)
+- `src/lib/persist-queue.ts` — **OPREZ**: trenutno koristi `window.setTimeout(flush, 16)` i `window.setTimeout(flush, delay)` za retry. Treba odluka: ili premjestiti na scheduler (gubi se 16ms frame-tick semantika ako ide kroz `priority: high`), ili dodati u whitelist. **Preporuka:** migrirati flush tick na `taskScheduler.setTimeout(flush, 16, { label: "persist-queue-flush", priority: "high" })` i retry takođe; zatim BEZ izuzetka.
 
-### A5. Migracija postojećih import-a
+**Plus migracija preostalih `setTimeout` poziva** (iz prethodne G1/G3/G4):
+- `src/lib/sounds.ts` (3 poziva za nizove tonova) — migrirati na scheduler sa `label: "sound-tone"`
+- `src/lib/electron-integration.ts:128` (5s timeout wrapper) — već postoji `withTimeout` helper, refactor
+- `src/components/MainLayout.tsx:65` (30min nudge cooldown)
+- `src/components/ProcessingOverlay.tsx`, `ExamSidebar.tsx`, `GlobalSearch.tsx` (UI delay/focus — sve na scheduler sa `pauseWhenHidden: false`)
+- `src/hooks/useMindMapCanvas.ts` (3 poziva: fitView delay 50ms × 2, autosave 30s)
+- `src/components/ZenMode.tsx:75`, `src/components/settings/PersonalizationTab.tsx:84` (sound feedback)
+- `src/lib/db-schema.ts:348` (reload delay) i `:415` (200ms polling) — ovi su pre-boot, `taskScheduler` možda još nije inicijalizovan; **dodati u whitelist sa komentarom**.
 
-- `rg "@/lib/repositories/(card|category|reviewLog|settings)" -l` → preusmjeriti na barrel.
-- `rg "@/store/(useCard|useCategory|useSource|useCardsBy)" -l` → barrel.
-- Sanctioned izuzeci (boot, testovi) ostaju kako jesu (pokrivenо `ignores`).
+### Verifikacija
+- `bun run lint` mora proći sa nulom timer-pravila violacija
+- Dodati `src/test/no-raw-timers.test.ts` koji programski pokreće ESLint preko `src/**/*.{ts,tsx}` i očekuje 0 violation-a (paralelno sa postojećim `task-scheduler-eslint.test.ts` pattern-om iz plana)
 
-### A6. Test
+### Risk
+- Pomodoro engine **MORA** ostati whitelist-ovan (sub-frame timing)
+- Persist queue migracija je suptilna — `taskScheduler.setTimeout` ide kroz dodatni layer; testirati da li 16ms coalescing tick i dalje radi pod load-om
 
-`src/test/eslint-public-api.test.ts` — programmatic ESLint run nad fixturom koji pokušava deep import; očekuje grešku. Time se pravilo brani od slučajnog ublažavanja.
-
-**Izlaz A:** ~50 file-ova migrirano na barrel import-e, 3 nova pravila, 1 novi test. Zero behavior change.
+**Effort:** ~3h (config + migracija ~12 fajlova + test)
 
 ---
 
-## Dio B — Centralizovani Task Scheduler
+## Zadatak 2 — Unifikovani `useDraftAutosave` hook
 
-**Cilj:** sve raspršene `setTimeout` / `setInterval` / `requestIdleCallback` pozive (46+ mjesta) provući kroz jedan modul koji:
+### Trenutno stanje (3 paralelne implementacije)
+- `src/hooks/useCardDraftAutosave.ts` — koristi `useRef<latestRef>`, `useDebounce`, custom save flow, error fallback toast
+- `src/hooks/zettelkasten/useArticleDraft.ts` — stale-closure prevention preko useRef, save-on-exit semantika
+- `src/hooks/card-actions/useSectionEditor.ts` + `useCardDraft.ts` — section-level editor sa custom dirty tracking
 
-- vodi registar aktivnih zadataka (debug-friendly),
-- gasi sve timere pri `beforeunload` / Electron `before-quit` (sprečava IDB write nakon unload-a),
-- pauzira "low-priority" zadatke kad je tab skriven (`document.visibilityState === "hidden"`) i nastavlja ih pri povratku,
-- daje jednu putanju za testove (`vi.useFakeTimers()` + ručno `scheduler.flush()`).
+Svaki ima:
+1. svoju verziju debounce-a (jedan koristi `useDebounce` hook, drugi inline timer, treći save-on-blur)
+2. svoju verziju "latest ref" zaštite od stale closure
+3. svoj način signalizacije "dirty" stanja u UI (`useDirtyDialog`)
+4. različite strategije za "save before unmount"
 
-Ne diramo: Pomodoro engine (mora tačno tikati), notification scheduler (već domenski), Electron native timere.
+### Predloženi unified API
 
-### B1. Novi modul `src/lib/scheduler/taskScheduler.ts`
-
-API:
-
+**`src/hooks/useDraftAutosave.ts`** (novi, ~120 LOC):
 ```ts
-type Priority = "high" | "normal" | "idle";
-
-interface ScheduleOptions {
-  label: string;            // obavezan, ide u debug registar
-  priority?: Priority;      // default "normal"
-  pauseWhenHidden?: boolean;// default true za "idle", false inače
-  signal?: AbortSignal;
+interface DraftAutosaveOptions<T> {
+  /** Stable key — drafts with the same key share dirty state (cross-tab safe via BroadcastChannel) */
+  key: string;
+  /** Current source-of-truth value (e.g. saved card from IDB) */
+  source: T;
+  /** Equality function — default Object.is; pass struct-eq for deep compare */
+  equals?: (a: T, b: T) => boolean;
+  /** Persist function — must be idempotent (called multiple times if user types fast) */
+  save: (draft: T) => Promise<void>;
+  /** Debounce ms (default 800) */
+  debounceMs?: number;
+  /** Save on blur/unmount/visibility-hidden (default: true) */
+  saveOnExit?: boolean;
+  /** Optional draft persistence to IDB `drafts` table (default: false; opt-in for editors where data loss is unacceptable) */
+  persistDraft?: boolean;
 }
 
-scheduler.setTimeout(fn, ms, opts): TaskHandle
-scheduler.setInterval(fn, ms, opts): TaskHandle
-scheduler.idle(fn, opts): TaskHandle           // rIC sa setTimeout fallback-om
-scheduler.debounce(fn, ms, opts): (...args) => void
-scheduler.cancel(handle): void
-scheduler.cancelByLabel(prefix): number
-scheduler.snapshot(): { label, priority, scheduledAt, kind }[]
-scheduler.shutdown(): void                      // poziva se iz beforeunload
-```
-
-Interno: `Map<TaskHandle, TaskRecord>`. `pauseWhenHidden` zadaci se na `visibilitychange → hidden` čuvaju (preostali delay), na `visible` re-schedule-uju. `shutdown()` čisti sve i zaključava dalji `schedule*` (silent no-op u dev sa warning-om).
-
-### B2. `src/lib/scheduler/index.ts`
-
-Barrel + named singleton `taskScheduler`. Plus tipovi za eksternu konzumaciju.
-
-### B3. Integracija sa lifecycle-om
-
-- `src/main.tsx` — `window.addEventListener("beforeunload", () => taskScheduler.shutdown())`.
-- `preload.cjs` / `electron-integration.ts` — slušati `onBeforeQuit` (postoji u tipovima) → `shutdown()` prije `notifyQuitBackupDone()`.
-
-### B4. Migracija call-site-ova (po grupama, svaka commit-abilna zasebno)
-
-| Grupa | Fajlovi | Priority |
-|---|---|---|
-| G1 boot/splash | `card-bootstrap/splash.ts`, `withTimeout.ts`, `useCardBootstrap.ts` | high |
-| G2 debounce/draft autosave | `useDebounce.ts`, `useCardDraftAutosave.ts`, `useSourceEditing.ts`, `useNodeEditing.ts` | normal |
-| G3 idle/deferred | `useDeferredCompute.ts`, `useWikiLinkAutoCreate.ts`, `useSourceSelection.ts` | idle |
-| G4 maintenance | `log-retention.ts`, `persist-queue.ts`, `emergency-export.ts`, `event-bus.ts` (retry), `sounds.ts` | idle |
-| G5 backup | `backup/yield-ui.ts`, `zip-service.ts` | normal |
-
-**Ne diramo:** `usePomodoroEngine.ts`, `useNotificationScheduler.ts`, `useSpeedReaderEngine.ts` (RSVP tajming kritičan — ostaje raw `setTimeout` ali sa `label` komentarom).
-
-Svaki migrirani poziv dobija eksplicitan `label` (npr. `"card-draft:autosave"`) — to je jedina semantička promjena.
-
-### B5. ESLint guard (sinergija sa Dio A)
-
-Novo `no-restricted-syntax` pravilo:
-
-```js
-{
-  selector: "CallExpression[callee.name=/^(setTimeout|setInterval)$/]",
-  message: "Koristi taskScheduler iz @/lib/scheduler. Izuzeci: pomodoro, speed-reader, notifications, scheduler internals.",
+interface DraftAutosaveReturn<T> {
+  draft: T;
+  setDraft: (next: T | ((prev: T) => T)) => void;
+  isDirty: boolean;
+  isSaving: boolean;
+  saveNow: () => Promise<void>;        // imperatively flush
+  discard: () => void;                  // revert draft to source
+  registerNavGuard: () => () => void;   // hook into useDirtyDialog
 }
+
+export function useDraftAutosave<T>(opts: DraftAutosaveOptions<T>): DraftAutosaveReturn<T>;
 ```
 
-Sa `overrides` koji dozvoljavaju raw timere u:
-- `src/lib/scheduler/**`
-- `src/contexts/pomodoro/**`
-- `src/contexts/ui/useNotificationScheduler.ts`
-- `src/hooks/speed-reader/**`
-- `src/test/**`
+### Implementacioni detalji
+- **Debounce** preko `taskScheduler.debounce(save, debounceMs, { label: "draft:"+key, pauseWhenHidden: false })`
+- **Latest-ref** interno (jedna implementacija, ne 3)
+- **`saveOnExit`** kombinuje 3 signala: `visibilitychange → hidden`, component unmount, `beforeunload`
+- **`persistDraft: true`** — opciono piše draft u novu Dexie `drafts` tabelu (key, payload, updatedAt). Boot-time recovery: u `useCardBootstrap` provjeriti `drafts` tabelu i ponuditi resume (toast: "Pronađena je nesačuvana izmjena — vrati / odbaci"). **Ovo je pravo rješenje za "aplikacija se ugasi prije debounce-a opali"** rizik iz analize.
+- **`isDirty`** — derivirano kroz `!equals(draft, source)`, ne kroz manualni flag. Auto-reset kad save uspije.
+- **`registerNavGuard`** — vraća unsubscribe; pod hood pretplaćuje hook na centralni `useDirtyDialog` registar (jedna globalna lista dirty key-eva, dijalog pita prije navigacije ako ima ≥1).
 
-`requestIdleCallback` se ne ban-uje (rijetko korišten direktno; scheduler ga interno koristi).
+### Migracija (postupna, ne big-bang)
+1. **PR 1:** Napraviti hook + test + `drafts` Dexie tabela (v19 schema bump)
+2. **PR 2:** Migrirati `useCardDraftAutosave` (najprostije) — sve postojeće pozivaoce ostaviti, samo unutra delegirati
+3. **PR 3:** Migrirati `useArticleDraft` (Zettelkasten)
+4. **PR 4:** Migrirati `useSectionEditor` / `useCardDraft`
+5. **PR 5:** Ukloniti `useDebounce.ts` ako ima nula pozivaoca (sva debounce prošla kroz scheduler)
 
-### B6. Testovi
+### Edge cases za test
+- Brzo kucanje pa odmah navigacija → save mora ići pre route change
+- App crash između save-a → boot detektuje `drafts` row i nudi resume
+- Dva tab-a edituju isti zapis → BroadcastChannel obavještava "draft moved", drugi tab ulazi u read-only
+- `equals` vraća true odmah nakon save-a → `isDirty` mora pasti na false
 
-- `src/test/task-scheduler.test.ts` — fake timers: schedule/cancel/flush, `pauseWhenHidden` putanja (mock `visibilitychange`), `shutdown()` čisti sve, double-shutdown idempotentan.
-- `src/test/task-scheduler-eslint.test.ts` — programmatic ESLint nad fixturom sa `setTimeout` koji nije u izuzetku.
-
-**Izlaz B:** novi modul (~250 LOC), ~30 migriranih call-site-ova, 2 nova testa, 1 novo lint pravilo. Runtime ponašanje identično, ali sada postoji jedna tačka za debug/shutdown.
+**Effort:** ~1 dan core + ~1 dan migracija svih pozivaoca + test coverage
 
 ---
 
-## Redoslijed i rizici
+## Zadatak 3 — Backup Zod audit (NIJE "uvedi Zod")
 
-1. **Dio A prvo** (čisto lint, low risk, ubrzava review).
-2. **Dio B** u 5 manjih PR-ova po grupi (G1…G5), svaki sa svojim testovima.
-3. ESLint pravilo iz B5 se aktivira tek **nakon** zadnje grupe, da CI ne pukne tokom migracije.
+### Realnost
+`src/lib/migrations/backup-schema.ts` već postoji i sadrži `.strict()` Zod parser-e sa `sanitizeHtml`/`SafeText` transformima. `import-transaction.ts` već prima `ParsedBackup` (Zod output). Tvrdnja iz analize *"baza prima nevalidirane podatke iz fajla"* je **netačna za main backup path**.
 
-**Rizik:** previd nekog tajming-kritičnog call-site-a tokom G2/G3 migracije.
-**Mitigacija:** svaka grupa ima zaseban PR + manuelni smoke test (autosave, deferred compute, log retention).
+### Šta zaista treba uraditi — audit i plombiranje
 
-**Trajanje:** Dio A ~1 dan, Dio B ~3-4 dana sa testovima.
+**3a. Audit coverage matrice** — provjeriti koje sve tabele iz `db-schema.ts` su pokrivene Zod schema-om. Vjerovatne rupe (prema importu samo `KnowledgeBaseArticle`, `MindMapDoc`, `Source`, `MnemonicCard`, `CategoryRecord`, `Card`):
+- `reviewLog` — provjeriti da li ima `ReviewLogEntrySchema`
+- `metacognitive*` tabele (diary, time distribution, examiner profile)
+- `plannerCache`, `subjectPlans`, `disciplineLog`, `streaks`
+- `zettelkastenAliases`, `zettelkastenTags`
+- `appSettings`, `srSettings`
+- Crash logs (vjerovatno se preskaču, treba potvrditi)
 
-## Pitanja za potvrdu
+**Output:** tabela `[Dexie table] × [in backup? yes/no] × [Zod schema? yes/no/partial]`. Sve gdje je "yes/no" ili "yes/partial" je rupa.
 
-1. Da li je `pauseWhenHidden=true` po defaultu za `idle` prioritet OK? (alternativa: nikad ne pauzirati, samo logovati skip)
-2. Treba li scheduler imati i `runAfterFrame` (rAF) API ili rAF ostaje raw (koristi se samo u mindmap canvas-u)?
-3. Da li dozvoljavamo raw `setTimeout` u testovima bez ikakvog komentara, ili tražimo `// eslint-disable-next-line` da bude eksplicitno?
+**3b. `parseBackup` ulazna kapija** — provjeriti **GDJE se Zod parse poziva**:
+- Iz `useCardImport` glavnog flow-a? ✓ vjerovatno
+- Iz `Full Restore` (electron file → import)? ❓ verifikovati
+- Iz "atomic backup" kojeg pravi `electron/backup.cjs`? ❓ ovo je *.codex.json* format — možda zaobilazi schema
+- Iz drag-drop on dashboard? ❓
+- Iz CLI/dev tools? Nebitno
+
+Sva mjesta gdje payload ulazi u IDB **moraju** proći kroz `backupSchema.parse(raw)`. Ako bilo gdje postoji `JSON.parse(file)` koji direktno hrani `db.cards.bulkPut(...)`, to je rupa.
+
+**3c. Failure UX** — kad Zod baci `ZodError`:
+- Trenutno: vjerovatno generic toast "import failed"
+- Predloženo: parse `error.issues`, prikaži prvih 5 path/poruka u toast/dialog, ponudi "preskoči nevalidne i nastavi" (filter validne entry-je individualno)
+
+**3d. Forward-compat** — `.strict()` baca na unknown fields. Ako backend doda novo polje u `Card` v5 backup, stariji import (pre-update) puca. Treba odluka:
+- ostaviti `.strict()` (sigurnije, ali krhko pri schema evoluciji) 
+- promijeniti na `.strip()` (default) sa `superRefine` validacijom poznatih polja (fleksibilnije)
+- **Preporuka:** `.strict()` + verzionisanje (`backup.schemaVersion: 1|2|3`) sa ladder migracija (već postoji `migrateBackup` ladder po memoriji — provjeriti integraciju)
+
+### Konkretni deliverable
+1. Audit dokument (~1h analize): koje tabele nedostaju, koji ulazi zaobilaze
+2. Dodavanje Zod schema za nedostajuće tabele (1-3h po tabeli)
+3. Centralni `validateBackupOrThrow(raw): ParsedBackup` ulazni helper sa friendly error mapping
+4. Test fixture: `corrupted-backup.json` sa 5 različitih grešaka — svaki mora biti odbijen sa jasnom porukom, IDB nepromjenjeno
+5. Test: `partial-recovery.json` — 100 kartica, 10 corrupt → import 90, prijavi 10
+
+**Effort:** 1-2 dana zavisno od rupa otkrivenih u audit-u
+
+---
+
+## Sugestije za **bolje** rješenje (umjesto / pored zatraženog)
+
+### Bolje od #1 (ESLint guard)
+Dodati i **runtime detekciju** u DEV mode: monkey-patch `globalThis.setTimeout` u `main.tsx` (DEV only) koji loguje stack trace svaki put kad se pozove iz fajla van whitelist-a. ESLint hvata pisanje koda; ovo hvata **import-ovan** kod iz biblioteka koje kradu thread (npr. neka 3rd-party lib otvara setInterval na boot). 
+**Effort:** +30min, vrijednost: visoka za debugging future regressija.
+
+### Bolje od #2 (Draft hook)
+Razmisliti o **dvonivo arhitekturi**:
+- **Level 1 (lightweight):** `useLocalDraft(source)` — samo lokalni state + dirty flag, bez persist. Za polja koja se ionako čuvaju on-blur (ime kategorije, naslov).
+- **Level 2 (full):** `useDraftAutosave({ persistDraft: true })` za RTE, Zettel, dugačke eseje gdje data loss = real problem.
+
+Inače rizikuješ over-engineering za polja koja ne trebaju IDB draft tabelu.
+
+### Bolje od #3 (Zod backup)
+**Brutalni trik:** umjesto ručno održavanog Zod schema, generisati Zod iz Dexie type-ova (postoji paket `ts-to-zod` ili custom AST script). Kad dodaš polje u `Card` interface, schema se sama ažurira. Cijena: build-time codegen step. Vrijednost: nemoguća drift Zod schema vs runtime tipovi (čest izvor false-negative validacije).
+
+**Alternativa:** ostaviti ručni Zod (kao sada) ali dodati `src/test/backup-schema-drift.test.ts` koji ekstraktuje keys iz oba interface-a (Dexie Card vs Zod Card) i poredi — fail ako ima drift.
+
+### Bolje od svih 3 zajedno
+Iz prethodne analize: **draft hook (#2) i persist-queue refactor (problem #7) su isti problem na različitim nivoima** — oba su "kako sigurno doći iz user input-a do IDB-a sa nula data loss-a". Razmisliti da li `useDraftAutosave` + `cardCommandBus` mogu da konsoliduju i `persist-queue` retry logiku → jedna `WriteUnitOfWork` apstrakcija. Ovo je veće, ali ukida 2 strukturna problema odjednom. **Effort:** +1 nedjelja, vrijednost: ukida latent data-loss rizik.
+
+---
+
+## Predlog redoslijeda
+
+1. **Zadatak 1** prvi (najbrži, najmanji rizik, zaključava progress prije ostalih izmjena)
+2. **Zadatak 3 audit** drugi (pasivan rad — možda nema rupa, brzo se završi)
+3. **Zadatak 2** zadnji (najveći, najviše dodira)
+
+Ukupan effort: ~5-7 radnih dana ako se rade sekvencijalno, sa solidnim test coverage-om.
