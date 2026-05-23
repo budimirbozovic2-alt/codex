@@ -5,6 +5,7 @@ import { CardMap, arrayToMap } from "@/lib/persist-queue";
 import { type CategoryRecord } from "@/lib/db";
 import { markBootStep } from "@/lib/boot-trace";
 import { cardRepository } from "@/lib/repositories/cardRepository";
+import { categoryRepository } from "@/lib/repositories/categoryRepository";
 import {
   splashProgress,
   showSplashError,
