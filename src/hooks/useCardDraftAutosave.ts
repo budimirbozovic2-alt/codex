@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import type { SectionInput, CardType } from "./useCardActions";
 import type { FrequencyTag, CardSourceType } from "@/lib/spaced-repetition";
+import { draftRegistry } from "@/lib/drafts/draftRegistry";
 
 import { logger } from "@/lib/logger";
 /**
@@ -102,8 +103,22 @@ export function useCardDraftAutosave(
     };
   }, [enabled, flush]);
 
+  // Register card-form drafts into the global dirty registry so the central
+  // nav-guard (and future cross-feature consumers) can see "is anything
+  // unsaved?" without each call site re-implementing the wiring.
+  useEffect(() => {
+    if (!enabled) {
+      draftRegistry.markClean(draftKey);
+      return;
+    }
+    if (isMeaningful(draft)) draftRegistry.markDirty(draftKey);
+    else draftRegistry.markClean(draftKey);
+    return () => { draftRegistry.markClean(draftKey); };
+  }, [draft, enabled, draftKey]);
+
   const clearDraft = useCallback(() => {
     try { localStorage.removeItem(draftKey); } catch { /* ignore */ }
+    draftRegistry.markClean(draftKey);
   }, [draftKey]);
 
   return { clearDraft, flushDraft: flush };
