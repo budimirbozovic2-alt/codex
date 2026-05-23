@@ -191,7 +191,7 @@ export default function CognitiveAnalytics({ cards, categories, reviewLog, catNa
       <LazyChart
         label="Otpornost na stres"
         icon={<Zap className="h-4 w-4 text-primary" />}
-        compute={() => calcStressPerformance(reviewLog)}
+        compute={() => analyticsClient.runStressPerformance(reviewLog)}
         delay={2}
         info={
           <InfoPanel title="Otpornost na stres">
