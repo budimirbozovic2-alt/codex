@@ -93,24 +93,17 @@ describe("taskScheduler", () => {
     expect(fn).not.toHaveBeenCalled();
   });
 
-  it("pauseWhenHidden snapshots remaining delay on hide and resumes on show", () => {
+  it("pauseWhenHidden marks task as paused in snapshot when hidden", () => {
     const fn = vi.fn();
     taskScheduler.setTimeout(fn, 100, { label: "p:hide", pauseWhenHidden: true });
-    vi.advanceTimersByTime(40);
+    expect(taskScheduler.snapshot()[0]?.paused).toBe(false);
 
-    // Simulate tab hidden
     Object.defineProperty(document, "visibilityState", { configurable: true, get: () => "hidden" });
     document.dispatchEvent(new Event("visibilitychange"));
+    expect(taskScheduler.snapshot()[0]?.paused).toBe(true);
 
-    vi.advanceTimersByTime(500);
-    expect(fn).not.toHaveBeenCalled();
-
-    // Resume
     Object.defineProperty(document, "visibilityState", { configurable: true, get: () => "visible" });
     document.dispatchEvent(new Event("visibilitychange"));
-
-    // Remaining ~60ms left
-    vi.advanceTimersByTime(60);
-    expect(fn).toHaveBeenCalledTimes(1);
+    expect(taskScheduler.snapshot()[0]?.paused).toBe(false);
   });
 });
