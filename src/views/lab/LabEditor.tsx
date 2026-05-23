@@ -1,10 +1,10 @@
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
-import Underline from "@tiptap/extension-underline";
-import Link from "@tiptap/extension-link";
 import Highlight from "@tiptap/extension-highlight";
 import { useState } from "react";
+
+// StarterKit v3 već sadrži `link` i `underline` — ne dodajemo ih posebno.
 
 /**
  * PR-1 isolated TipTap playground (V4 Editor Epic).
