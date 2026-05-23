@@ -1,4 +1,5 @@
 import { logger } from "@/lib/logger";
+import { taskScheduler } from "@/lib/scheduler";
 /**
  * Splash screen DOM helpers — purely presentational.
  * All `document.getElementById("splash-*")` access lives here.
@@ -28,9 +29,9 @@ export function cleanupSplash() {
     const splash = document.getElementById("app-splash");
     if (splash) {
       splash.style.opacity = "0";
-      setTimeout(() => {
+      taskScheduler.setTimeout(() => {
         try { if (splash.parentNode) splash.remove(); } catch (e) { logger.warn("[boot] splash remove failed", e); }
-      }, 500);
+      }, 500, { label: "boot:splash-remove", priority: "high" });
     }
   } catch (e) { logger.warn("[boot] splash cleanup failed", e); }
 }
