@@ -2,7 +2,7 @@ import { useState, useMemo, useCallback } from "react";
 import { Card as SRCard } from "@/lib/spaced-repetition";
 import { ReviewLogEntry } from "@/lib/storage";
 import { CategoryRecord } from "@/lib/db";
-import { calcCategoryStability } from "@/lib/analytics/stability";
+import { analyticsClient } from "@/lib/analytics/workerClient";
 import { useDeferredCompute } from "@/hooks/useDeferredCompute";
 import type { PlannerConfig } from "@/lib/planner-storage";
 
