@@ -12,6 +12,7 @@ import { applyImportAtomically, type ImportStrategy } from "@/lib/backup/import-
 import { parseJsonInWorker } from "@/lib/zip-service";
 import { clearReviewSession } from "@/lib/review-session-storage";
 import { cardRepository } from "@/lib/repositories/cardRepository";
+import { categoryRepository } from "@/lib/repositories/categoryRepository";
 
 import { logger } from "@/lib/logger";
 export type ImportProgress = (pct: number, label: string) => void;
