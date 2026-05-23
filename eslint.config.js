@@ -339,8 +339,8 @@ export default tseslint.config(
       "src/components/db/BlockingModal.tsx",
       "src/components/ZenMode.tsx",
       // Task 2 — to be removed once `useDraftAutosave` lands.
-      // useSourceEditing migrated in PR4; useArticleDraft mirror added in PR3.
-      "src/hooks/useCardDraftAutosave.ts",
+      // useSourceEditing migrated in PR4; useArticleDraft mirror added in PR3;
+      // useCardDraftAutosave migrated to Dexie+scheduler in PR6.
       "src/hooks/useWikiLinkAutoCreate.ts",
       "src/hooks/useMindMapCanvas.ts",
       "src/hooks/mindmap/useNodeEditing.ts",
