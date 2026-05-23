@@ -24,6 +24,7 @@
  * tačan i guard mora biti revidiran.
  */
 import { logger } from "@/lib/logger";
+import { taskScheduler } from "@/lib/scheduler";
 
 let installed: { dispose: () => void } | null = null;
 
@@ -125,7 +126,12 @@ export function installBodyPointerEventsGuard(): () => void {
   const watchdogTimer =
     typeof window === "undefined"
       ? null
-      : window.setInterval(checkWatchdog, 100);
+      : taskScheduler.setInterval(checkWatchdog, 100, {
+          label: "body-pointer-events-watchdog",
+          priority: "low",
+          pauseWhenHidden: true,
+        });
+
 
   const dispose = () => {
     observer.disconnect();
@@ -135,7 +141,7 @@ export function installBodyPointerEventsGuard(): () => void {
       cancelAnimationFrame(rafId);
       rafId = null;
     }
-    if (watchdogTimer !== null) window.clearInterval(watchdogTimer);
+    if (watchdogTimer !== null) taskScheduler.cancel(watchdogTimer);
     installed = null;
   };
 
