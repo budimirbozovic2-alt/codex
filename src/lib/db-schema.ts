@@ -298,6 +298,13 @@ class MemoriaDB extends Dexie {
     this.version(18).stores({
       cards: "id, categoryId, subcategoryId, chapterId, type, createdAt, sourceId, [categoryId+subcategoryId], [categoryId+chapterId], [categoryId+type], [sourceId+createdAt], *tags",
     });
+
+    // v19: `drafts` table — persisted in-progress edits for `useDraftAutosave`
+    // ({ persistDraft: true }). Survives crash / tab close; boot recovery UI
+    // reads pending rows and offers resume.
+    this.version(19).stores({
+      drafts: "key, source, updatedAt",
+    });
   }
 }
 
