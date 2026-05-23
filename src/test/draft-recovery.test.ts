@@ -29,7 +29,8 @@ describe("draftRecovery — boot scan", () => {
     const remaining = await db.drafts.toArray();
     expect(remaining.map(r => r.key).sort()).toEqual(["article:fresh"]);
     expect(toast).toHaveBeenCalledTimes(1);
-    const description = (toast as ReturnType<typeof vi.fn>).mock.calls[0][1]?.description as string;
+    const mockToast = toast as unknown as ReturnType<typeof vi.fn>;
+    const description = mockToast.mock.calls[0][1]?.description as string;
     expect(description).toContain("članci");
   });
 
