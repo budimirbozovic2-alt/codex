@@ -320,18 +320,52 @@ export const BackupMindMapSchema = z
 
 // ─── Mnemonic ───────────────────────────────────────────
 
+const MnemonicSectionSchema = z
+  .object({ title: SafeText, content: SafeHtml })
+  .strict();
+
 export const BackupMnemonicSchema = z
   .object({
     id: z.string(),
+    originalCardId: z.unknown().optional().transform((v) => (typeof v === "string" ? v : "")),
+    question: SafeHtml,
+    sections: z.array(MnemonicSectionSchema).default([]),
     categoryId: z.unknown().optional().transform((v) => (typeof v === "string" ? v : "")),
+    subcategoryId: z.unknown().optional(),
+    tags: StringArray,
+    hookType: z.unknown().optional().transform((v) => (v === "rokovi" || v === "nabrajanja" || v === "ostalo" ? v : "ostalo")),
+    hookMode: z.unknown().optional().transform((v) => (v === "video" || v === "acronym" ? v : "video")),
+    mnemonicVideo: SafeText,
+    acronym: SafeText,
+    mnemonicStatus: z.unknown().optional().transform((v) => (v === "new" || v === "in-workshop" || v === "ready" ? v : "new")),
+    createdAt: NumberWithDefault(Date.now()),
+    testCount: NumberWithDefault(0),
+    successCount: NumberWithDefault(0),
+    failCount: NumberWithDefault(0),
+    lastTested: NullableNumber,
   })
-  .passthrough()
+  .strict()
   .transform((m): MnemonicCard => {
-    return {
-      ...(m as unknown as MnemonicCard),
+    const out: MnemonicCard = {
       id: m.id,
+      originalCardId: m.originalCardId,
+      question: m.question,
+      sections: m.sections as MnemonicCard["sections"],
       categoryId: m.categoryId,
+      tags: m.tags,
+      hookType: m.hookType,
+      hookMode: m.hookMode,
+      mnemonicVideo: m.mnemonicVideo,
+      acronym: m.acronym,
+      mnemonicStatus: m.mnemonicStatus,
+      createdAt: m.createdAt,
+      testCount: m.testCount,
+      successCount: m.successCount,
+      failCount: m.failCount,
+      lastTested: m.lastTested,
     };
+    if (typeof m.subcategoryId === "string") out.subcategoryId = m.subcategoryId;
+    return out;
   });
 
 // ─── Knowledge-base article ─────────────────────────────
@@ -346,8 +380,6 @@ export const BackupKnowledgeBaseArticleSchema = z
     rootSubcategoryId: z.unknown().optional(),
     isIndex: z.unknown().optional().transform((v) => v === true ? true : undefined),
     tags: StringArray,
-    // Case-form synonyms for grammatical languages (e.g. "krivičnog djela" → "Krivično djelo").
-    // Optional so legacy backups (pre-aliases) pass validation untouched.
     aliases: z.array(z.string()).optional(),
     createdAt: NumberWithDefault(Date.now()),
     updatedAt: NumberWithDefault(Date.now()),
@@ -371,29 +403,159 @@ export const BackupKnowledgeBaseArticleSchema = z
 
 // ─── Settings entry (db.settings table: { key, value }) ─
 export const BackupSettingsEntrySchema = z
-  .object({
-    key: z.string(),
-    value: z.unknown(),
-  })
+  .object({ key: z.string(), value: z.unknown() })
   .strict();
 
 // ─── Review log / SR settings ───────────────────────────
+
+const ReasonSchema = z.object({ code: z.string(), label: z.string() }).strict();
 
 export const BackupReviewLogEntrySchema = z
   .object({
     cardId: z.string(),
     sectionId: z.string().optional(),
     timestamp: NumberWithDefault(Date.now()),
+    grade: NumberWithDefault(0),
+    category: SafeText,
+    reasons: z.array(ReasonSchema).optional(),
+    effectiveRetention: z.unknown().optional().transform((v) => (typeof v === "number" && Number.isFinite(v) ? v : undefined)),
+    intervalMultiplier: z.unknown().optional().transform((v) => (typeof v === "number" && Number.isFinite(v) ? v : undefined)),
+  })
+  .strict();
+
+const ResistanceWeightsSchema = z
+  .object({
+    lapses: z.number().finite(),
+    latency: z.number().finite(),
+    forgetting: z.number().finite(),
   })
   .strict();
 
 export const BackupSRSettingsSchema = z
   .object({
-    leechThreshold: z.unknown().optional(),
-    dailyGoal: z.unknown().optional(),
-    resistanceWeights: z.unknown().optional(),
+    leechThreshold: z.number().finite().optional(),
+    dailyGoal: z.number().finite().optional(),
+    resistanceWeights: ResistanceWeightsSchema.optional(),
   })
   .strict();
+
+// ─── Satellite log schemas (per-row strict) ─────────────
+
+export const BackupDiarySchema = z
+  .object({
+    id: z.string(),
+    date: SafeText,
+    dailyGoal: SafeText,
+    selfAnalysis: SafeText,
+    createdAt: NumberWithDefault(Date.now()),
+  })
+  .strict();
+
+export const BackupCalibrationSchema = z
+  .object({
+    timestamp: NumberWithDefault(Date.now()),
+    cardId: z.string(),
+    sectionId: SafeText,
+    confidence: NumberWithDefault(0),
+    actualGrade: NumberWithDefault(0),
+    category: SafeText,
+  })
+  .strict();
+
+export const BackupLatencySchema = z
+  .object({
+    timestamp: NumberWithDefault(Date.now()),
+    cardId: z.string(),
+    sectionId: SafeText,
+    latencyMs: NumberWithDefault(0),
+    category: SafeText,
+  })
+  .strict();
+
+export const BackupSlippageSchema = z
+  .object({
+    date: SafeText,
+    appEntryTime: NumberWithDefault(0),
+    firstActionTime: NullableNumber,
+    slippageMs: NullableNumber,
+  })
+  .strict();
+
+export const BackupActivitySchema = z
+  .object({
+    timestamp: NumberWithDefault(Date.now()),
+    type: z.unknown().transform((v) => (typeof v === "string" ? v : "admin")),
+    durationMs: NumberWithDefault(0),
+    category: z.unknown().optional().transform((v) => (typeof v === "string" ? v : undefined)),
+  })
+  .strict();
+
+export const BackupDisciplineSchema = z
+  .object({
+    date: SafeText,
+    status: z.unknown().transform((v) => (v === "diligent" || v === "neutral" || v === "lazy" ? v : "neutral")),
+    planCompletion: NumberWithDefault(0),
+    slippageMs: NullableNumber,
+    reviewsDone: NumberWithDefault(0),
+    suggestedReviews: NumberWithDefault(0),
+  })
+  .strict();
+
+export const BackupPomodoroLogSchema = z
+  .object({
+    timestamp: NumberWithDefault(Date.now()),
+    type: z.unknown().transform((v) => (v === "focus" || v === "break" ? v : "focus")),
+    durationMinutes: NumberWithDefault(0),
+  })
+  .strict();
+
+export const BackupMnemonicTestLogSchema = z
+  .object({
+    timestamp: NumberWithDefault(Date.now()),
+    cardId: z.string(),
+    success: z.unknown().transform((v) => v === true),
+  })
+  .strict();
+
+export const BackupMajorSystemSchema = z
+  .object({
+    id: z.number().int().nonnegative(),
+    peg: SafeText,
+  })
+  .strict();
+
+/**
+ * Per-item lenient parser: validates each row, drops invalid ones (logs in dev).
+ * Used for satellite log arrays so one corrupt row doesn't abort the whole restore.
+ */
+function lenientArray<T extends z.ZodTypeAny>(schema: T, label: string) {
+  return z
+    .unknown()
+    .optional()
+    .transform((v): z.infer<T>[] => {
+      if (!Array.isArray(v)) return [];
+      const out: z.infer<T>[] = [];
+      let dropped = 0;
+      let firstErr: string | undefined;
+      for (const raw of v) {
+        const r = schema.safeParse(raw);
+        if (r.success) {
+          out.push(r.data);
+        } else {
+          dropped++;
+          if (!firstErr) {
+            const issue = r.error.issues[0];
+            firstErr = `${issue?.path.join(".") || "(root)"} — ${issue?.message ?? ""}`;
+          }
+        }
+      }
+      if (dropped > 0 && typeof console !== "undefined") {
+        console.warn(`[backup-schema] ${label}: dropped ${dropped} invalid row(s). First: ${firstErr}`);
+      }
+      return out;
+    });
+}
+
 
 // ─── Top-level backup ───────────────────────────────────
 
