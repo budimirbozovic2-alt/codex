@@ -60,9 +60,9 @@ describe("useDraftAutosave", () => {
     await act(async () => { await vi.advanceTimersByTimeAsync(250); });
     expect(save).toHaveBeenCalledWith({ v: 2 });
 
-    // Caller would push new value via `initial` after persistence settles.
+    // Caller pushes the persisted value back; dirty derives from equality.
     rerender({ initial: { v: 2 } });
-    await waitFor(() => expect(result.current.isDirty).toBe(false));
+    expect(result.current.isDirty).toBe(false);
     expect(draftRegistry.isDirty("test:debounce")).toBe(false);
   });
 
