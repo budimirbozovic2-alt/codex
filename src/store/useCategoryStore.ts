@@ -106,7 +106,7 @@ function useStoreSlice<T>(
 }
 
 /** Single category record by id from the external mirror. */
-export function useCategoryFromStore(categoryId: string | undefined): CategoryRecord | undefined {
+export function useCategoryFromStore(categoryId: CategoryIdLike | undefined): CategoryRecord | undefined {
   return useStoreSlice<CategoryRecord | undefined>(
     categoryId,
     (idx, id) => idx.byId.get(id),
@@ -115,7 +115,7 @@ export function useCategoryFromStore(categoryId: string | undefined): CategoryRe
 }
 
 /** Sorted subcategory nodes for a parent — re-renders only when this parent's list changes. */
-export function useSubcategoriesByParentFromStore(categoryId: string | undefined): SubcategoryNode[] {
+export function useSubcategoriesByParentFromStore(categoryId: CategoryIdLike | undefined): SubcategoryNode[] {
   return useStoreSlice<SubcategoryNode[]>(
     categoryId,
     (idx, id) => {
@@ -130,7 +130,7 @@ export function useSubcategoriesByParentFromStore(categoryId: string | undefined
 }
 
 /** Sorted chapter nodes for a subcategory id (parent inferred via index). */
-export function useChaptersBySubcategoryFromStore(subcategoryId: string | undefined): ChapterNode[] {
+export function useChaptersBySubcategoryFromStore(subcategoryId: SubcategoryIdLike | undefined): ChapterNode[] {
   return useStoreSlice<ChapterNode[]>(
     subcategoryId,
     (idx, id) => {
