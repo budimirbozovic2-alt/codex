@@ -88,7 +88,6 @@ const App = () => {
         )}
         <Sonner />
         <HashRouter>
-          <BootStateProvider>
             <AppProvider>
                 <SessionProvider>
                   <ErrorBoundary>
@@ -123,7 +122,6 @@ const App = () => {
                 </SessionProvider>
 
             </AppProvider>
-          </BootStateProvider>
         </HashRouter>
       </div>
     </TooltipProvider>
