@@ -15,6 +15,7 @@ export interface RatioPoint {
   name: string;
   "Stvarni ponavljanje": number | null;
   "Idealni cilj": number;
+  [key: string]: string | number | null | undefined;
 }
 
 /** Local mastery-level scoring, duplicated from `@/lib/mastery` so this
