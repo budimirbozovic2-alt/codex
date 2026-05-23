@@ -584,20 +584,27 @@ export const BackupSchema = z
         return v.filter((s): s is string => typeof s === "string");
       }),
     subcategories: z.unknown().optional(),
-    reviewLog: z.array(BackupReviewLogEntrySchema).default([]),
-    srSettings: z.unknown().optional(),
+    reviewLog: lenientArray(BackupReviewLogEntrySchema, "reviewLog"),
+    srSettings: z
+      .unknown()
+      .optional()
+      .transform((v) => {
+        if (v === undefined || v === null) return undefined;
+        const r = BackupSRSettingsSchema.safeParse(v);
+        return r.success ? r.data : undefined;
+      }),
     sources: z.array(BackupSourceSchema).default([]),
     mindMaps: z.array(BackupMindMapSchema).default([]),
-    diary: z.array(z.unknown()).default([]),
-    calibrationLog: z.array(z.unknown()).default([]),
-    latencyLog: z.array(z.unknown()).default([]),
-    slippageLog: z.array(z.unknown()).default([]),
-    activityLog: z.array(z.unknown()).default([]),
-    disciplineLog: z.array(z.unknown()).default([]),
-    pomodoroLog: z.array(z.unknown()).default([]),
+    diary: lenientArray(BackupDiarySchema, "diary"),
+    calibrationLog: lenientArray(BackupCalibrationSchema, "calibrationLog"),
+    latencyLog: lenientArray(BackupLatencySchema, "latencyLog"),
+    slippageLog: lenientArray(BackupSlippageSchema, "slippageLog"),
+    activityLog: lenientArray(BackupActivitySchema, "activityLog"),
+    disciplineLog: lenientArray(BackupDisciplineSchema, "disciplineLog"),
+    pomodoroLog: lenientArray(BackupPomodoroLogSchema, "pomodoroLog"),
     mnemonics: z.array(BackupMnemonicSchema).default([]),
-    majorSystem: z.array(z.unknown()).default([]),
-    mnemonicTestLog: z.array(z.unknown()).default([]),
+    majorSystem: lenientArray(BackupMajorSystemSchema, "majorSystem"),
+    mnemonicTestLog: lenientArray(BackupMnemonicTestLogSchema, "mnemonicTestLog"),
     knowledgeBaseArticles: z.array(BackupKnowledgeBaseArticleSchema).default([]),
     settings: z.array(BackupSettingsEntrySchema).default([]),
     localStorageData: z.unknown().optional(),
