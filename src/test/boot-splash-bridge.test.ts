@@ -4,19 +4,21 @@
  */
 import { describe, it, expect, beforeEach, vi } from "vitest";
 
-// Mock splash DOM helpers prije nego što bridge bude import-ovan
-const splashProgressMock = vi.fn();
-const cleanupSplashMock = vi.fn();
 vi.mock("@/hooks/card-bootstrap/splash", () => ({
-  splashProgress: splashProgressMock,
-  cleanupSplash: cleanupSplashMock,
+  splashProgress: vi.fn(),
+  cleanupSplash: vi.fn(),
 }));
 
-const markBootStepMock = vi.fn();
 vi.mock("@/lib/boot-trace", () => ({
-  markBootStep: markBootStepMock,
+  markBootStep: vi.fn(),
   getBootTrace: () => [],
 }));
+
+import * as splashMod from "@/hooks/card-bootstrap/splash";
+import * as traceMod from "@/lib/boot-trace";
+const splashProgressMock = splashMod.splashProgress as unknown as ReturnType<typeof vi.fn>;
+const cleanupSplashMock = splashMod.cleanupSplash as unknown as ReturnType<typeof vi.fn>;
+const markBootStepMock = traceMod.markBootStep as unknown as ReturnType<typeof vi.fn>;
 
 import { transition, __resetBootStateForTests } from "@/lib/boot/bootStateMachine";
 import { installSplashBridge, __resetSplashBridgeForTests } from "@/lib/boot/splashBridge";
