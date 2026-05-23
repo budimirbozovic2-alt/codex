@@ -14,7 +14,7 @@ import { setDarkMode } from "@/lib/app-settings";
 import { useEditReturn } from "@/hooks/useEditReturn";
 import { useGlobalHotkey } from "@/hooks/useGlobalHotkey";
 import { useBeforeUnloadGuard } from "@/hooks/useBeforeUnloadGuard";
-import { recoverDraftsOnBoot } from "@/lib/drafts/draftRecovery";
+import { recoverDraftsOnBoot } from "@/lib/drafts";
 import { taskScheduler } from "@/lib/scheduler";
 
 const DocxImporter = lazy(() => import("@/features/docx-importer").then(m => ({ default: m.DocxImporter })));

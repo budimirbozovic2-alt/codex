@@ -235,6 +235,13 @@ export default tseslint.config(
       "src/lib/repositories/**",
       "src/store/**",
       "src/lib/db/**",
+      "src/lib/drafts/**",
+      // Draft hooks own the thin React wrapper over the drafts module and
+      // legitimately reach for sub-modules (registry, table) directly.
+      "src/hooks/useDraftAutosave.ts",
+      "src/hooks/useDraftRegistry.ts",
+      "src/hooks/usePersistedDraftMirror.ts",
+      "src/hooks/useCardDraftAutosave.ts",
     ],
     rules: {
       "no-restricted-imports": [
@@ -260,6 +267,11 @@ export default tseslint.config(
               group: ["@/lib/db/queries/*"],
               message:
                 "Importuj iz `@/lib/db` barrel-a — `queries/*` je interno (Public API wall).",
+            },
+            {
+              group: ["@/lib/drafts/*"],
+              message:
+                "Importuj iz `@/lib/drafts` barrel-a (Public API wall). Hookove koristi iz @/hooks/useDraftAutosave | useDraftRegistry | usePersistedDraftMirror.",
             },
           ],
         },
