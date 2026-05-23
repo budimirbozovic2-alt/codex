@@ -12,7 +12,15 @@
  *   - react-remove-scroll lock:  body[data-scroll-locked]
  *
  * Throttle: jedan provjeri-i-očisti tick po frame-u (rAF coalesced).
+ *
+ * PR3 — Watchdog (~300ms): ako `body.style.pointerEvents === "none"` ostane
+ * postavljeno bez ijednog aktivnog overlay-a, loguje se ERROR. To je signal
+ * da je neka od upstream biblioteka (Radix/Vaul/react-remove-scroll)
+ * promijenila atribute koje gore selektujemo — selectorRegistry više nije
+ * tačan i guard mora biti revidiran.
  */
+import { logger } from "@/lib/logger";
+
 let installed: { dispose: () => void } | null = null;
 
 const OPEN_OVERLAY_SELECTOR = [
@@ -35,6 +43,7 @@ function clearIfStuck() {
     body.style.pointerEvents = "";
   }
 }
+
 
 export function installBodyPointerEventsGuard(): () => void {
   if (typeof document === "undefined") return () => {};
