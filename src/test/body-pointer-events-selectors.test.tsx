@@ -1,20 +1,22 @@
 /**
  * PR3 — Selector regresijski test.
  *
- * Cilj: kad neka od upstream biblioteka (Radix Dialog, Vaul Drawer,
- * Radix AlertDialog) promijeni naming svojih internih atributa,
+ * Cilj: kad Radix Dialog (jedina overlay biblioteka koja je trenutno u
+ * projektu) promijeni naming svojih internih atributa,
  * `body-pointer-events-guard` više neće "vidjeti" otvoreni overlay i
- * watchdog će logovati grešku u produkciji.
+ * watchdog će logovati ERROR u runtime-u.
  *
- * Ovaj test mountuje realne primitive i potvrdi da bar JEDAN od
- * `OVERLAY_SELECTORS` match-uje DOM dok je overlay otvoren — ako pukne,
- * `body-pointer-events-guard` mora biti revidiran prije merge-a `bun update`.
+ * Test potvrdi da bar JEDAN od `OVERLAY_SELECTORS` match-uje DOM dok je
+ * Dialog otvoren — ako pukne, `body-pointer-events-guard` mora biti
+ * revidiran prije merge-a `bun update`.
+ *
+ * Napomena: selektori za AlertDialog (`role="alertdialog"`) i Vaul Drawer
+ * (`data-vaul-drawer`) ostaju kao defense-in-depth ako neka buduća feature
+ * povuče te biblioteke; ovaj test ih ne pokriva jer nisu u dependency tree-u.
  */
 import { describe, it, expect } from "vitest";
 import { render, screen } from "@testing-library/react";
 import * as Dialog from "@radix-ui/react-dialog";
-import * as AlertDialog from "@radix-ui/react-alert-dialog";
-import { Drawer } from "vaul";
 import { OVERLAY_SELECTORS } from "@/lib/body-pointer-events-guard";
 
 function anyMatches(): boolean {
@@ -38,33 +40,30 @@ describe("PR3 — body-pointer-events-guard OVERLAY_SELECTORS regresija", () => 
     expect(anyMatches()).toBe(true);
   });
 
-  it("Radix AlertDialog: bar jedan selektor match-uje", () => {
-    render(
-      <AlertDialog.Root open>
-        <AlertDialog.Portal>
-          <AlertDialog.Overlay />
-          <AlertDialog.Content>
-            <AlertDialog.Title>at</AlertDialog.Title>
-            <AlertDialog.Description>ad</AlertDialog.Description>
-          </AlertDialog.Content>
-        </AlertDialog.Portal>
-      </AlertDialog.Root>,
+  it("nakon close-a: nijedan overlay selektor ne match-uje", () => {
+    const { rerender } = render(
+      <Dialog.Root open>
+        <Dialog.Portal>
+          <Dialog.Overlay />
+          <Dialog.Content>
+            <Dialog.Title>t2</Dialog.Title>
+            <Dialog.Description>d2</Dialog.Description>
+          </Dialog.Content>
+        </Dialog.Portal>
+      </Dialog.Root>,
     );
     expect(anyMatches()).toBe(true);
-  });
-
-  it("Vaul Drawer: bar jedan selektor match-uje", () => {
-    render(
-      <Drawer.Root open>
-        <Drawer.Portal>
-          <Drawer.Overlay />
-          <Drawer.Content>
-            <Drawer.Title>dt</Drawer.Title>
-            <Drawer.Description>dd</Drawer.Description>
-          </Drawer.Content>
-        </Drawer.Portal>
-      </Drawer.Root>,
+    rerender(
+      <Dialog.Root open={false}>
+        <Dialog.Portal>
+          <Dialog.Overlay />
+          <Dialog.Content>
+            <Dialog.Title>t2</Dialog.Title>
+            <Dialog.Description>d2</Dialog.Description>
+          </Dialog.Content>
+        </Dialog.Portal>
+      </Dialog.Root>,
     );
-    expect(anyMatches()).toBe(true);
+    expect(anyMatches()).toBe(false);
   });
 });
