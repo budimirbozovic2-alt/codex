@@ -97,9 +97,14 @@ export function useCardImport({
         const result = BackupSchema.safeParse(raw);
         await yieldUI();
         if (!result.success) {
-          const issue = result.error.issues[0];
-          const path = issue?.path.join(".") || "(root)";
-          toast.error(`Backup nije validan: ${path} — ${issue?.message ?? "nepoznata greška"}`);
+          const issues = result.error.issues.slice(0, 5);
+          const summary = issues
+            .map((iss) => `• ${iss.path.join(".") || "(root)"} — ${iss.message}`)
+            .join("\n");
+          const more = result.error.issues.length > issues.length
+            ? `\n…i još ${result.error.issues.length - issues.length} grešaka.`
+            : "";
+          toast.error(`Backup nije validan:\n${summary}${more}`);
           return;
         }
 
