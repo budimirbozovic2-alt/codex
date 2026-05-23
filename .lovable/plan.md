@@ -1,132 +1,144 @@
-## Cilj
+# Plan: Analytics + FSRS u Web Worker (Ograničenje #3)
 
-Pet srednje-prioritetnih strukturnih problema iz audita — svaki kao zaseban, izoliran PR sa testovima. Redoslijed je biran tako da svaka iteracija stoji samostalno i ne blokira ostale.
+Cilj: skinuti sa main thread-a sve teške `reduce`/`map` petlje (analitika, masteryData, activityData, FSRS batch retrievability) tako da renderovanje dashboard-a za 15k kartica više ne blokira UI. Glavna nit ostaje na 144 FPS, grafici prikazuju skeleton dok worker računa.
 
----
+## Scope
 
-### PR1 — #10 Konsolidacija keyed mutex-a (DRY/DX)
+In:
+- `src/lib/analytics/**` (interference, stability, friction, blind-spots, recovery)
+- Teški blokovi iz `useStatsData` (`activityData`, `masteryData`, `ratioHistory`, `levelCounts`)
+- FSRS batch izračuni koji se zovu samo za analitiku (avg retrievability, future R, `getCardMasteryLevel` po kartici, `getSectionScore` agregacije)
+- `useCardAggregates` ostaje na main thread-u (mali, dirty-tracked, koristi se za routing/badge — premalo da bi opravdao serializaciju)
 
-Stanje: tri ručna `Promise.resolve()` lanca + dva ad-hoc inFlight brojača:
-- `src/lib/repositories/categoryRepository.ts` (`_pendingSave`)
-- `src/lib/planner/cache.ts` (`_pendingWrite`)
-- `src/lib/repositories/cardMapInvalidator.ts` (`.then(() => …)` lanac)
-- `src/lib/persist-queue.ts` (`inFlightCount` mikrotask coalesce)
-- (istorijski) `cardCommandBus` (uklonjen u Phase 4 — komentar i dalje stoji)
+Out (sljedeća iteracija):
+- IDB čitanje iz worker-a (sad worker prima snapshote)
+- `localStorage` čitanje iz worker-a (main thread serijalizuje `loadCalibration/loadLatency/loadDisciplineLog/loadPlanner` snapshote i šalje uz request)
+- FSRS koji se koristi za grading (`calculateNextReview` ostaje sinkron — kritičan path, ne smije biti async)
+- Dexie/Repository sloj
 
-Plan:
-1. Nova primitiva `src/lib/concurrency/keyedMutex.ts`:
-   - `createKeyedMutex<K>()` → `{ runExclusive(key, fn), drain(key?), pending(key?) }`
-   - Globalni mutex (`runExclusive(GLOBAL_KEY, fn)`) je samo poseban slučaj.
-   - Greške se rethrow-uju iz `runExclusive` ali ne zatruju lanac (`.catch(() => {})` interno).
-2. Migracija sajtova → svaki dobija imenovani mutex (npr. `categoryMutex.runExclusive("save", op)`).
-3. `persist-queue` ostaje sa svojom semantikom (frame coalesce) ali `inFlightCount` zamijeniti `mutex.pending()` API-jem.
-4. Test: `src/test/keyed-mutex.test.ts` — ordering, error isolation, drain.
-5. ESLint guard: zabrana novih `_pending\w+\s*=\s*Promise\.resolve` literala van `src/lib/concurrency/**`.
+## Arhitektura
 
----
+```text
+UI (StatsPage, MyStats, SubjectDiagnosticsPage)
+        │
+        │ thin hook  ──────────────────────────┐
+        ▼                                       │
+useAnalyticsWorker()                            │
+  • lazy worker singleton                       │ skeleton dok promise pending
+  • Comlink.wrap<AnalyticsAPI>                  │
+  • request keying (hash deps → cache)          │
+  • AbortSignal po pozivu                       │
+        │                                       │
+        ▼                                       │
+analytics.worker.ts (module worker)             │
+  ├─ Comlink.expose(api)                        │
+  ├─ src/lib/analytics/_pure/**  ◄── moved      │
+  ├─ src/lib/sr/_pure/**  (retrievability,      │
+  │                       getSectionScore,      │
+  │                       getCardMasteryLevel)  │
+  └─ chart-aggregators/  (activityData,         │
+                          masteryData,          │
+                          ratioHistory,         │
+                          levelCounts)          │
+```
 
-### PR2 — #9 Proxy noop fallback (silent provider bugs)
+Worker je **stateless**: svaki poziv prima `{ cards, reviewLog, snapshots }` i vraća već agregirane podatke. Glavna nit drži SSOT.
 
-Stanje: `CardActionsProvider`, `CategoryActionsProvider`, `BackupActionsProvider` vraćaju `new Proxy({}, { get: () => noop })` kad provider fali, sa `console.warn` "HMR transient" samo u DEV-u. PROD progresivno pojede klikove (delete, save, import).
+## Inkrementalna isporuka (5 PR-ova, redoslijed)
 
-Plan:
-1. Razdvojiti DEV/PROD ponašanje:
-   - **DEV**: throw odmah (`Error: useCardOnlyActions used outside provider`) — HMR transient se eliminira pravilnim ključem na root-u (umjesto da ga maskiramo).
-   - **PROD**: classify metode kao `read` vs `write` preko statične mape; pozivi `write` metoda u PROD-u throw-uju + emit `eventBus.emit("PROVIDER_FALLBACK", {provider, method})`; `read` metode vraćaju default vrijednost iz `EMPTY_*` konstanti (ne `noop`).
-2. Telemetrija: nova event vrsta `PROVIDER_FALLBACK` se loguje kroz `logger.error` i, u Electron-u, kroz crash-log file.
-3. Test: `src/test/provider-fallback.test.tsx` — render bez providera mora throw-ati u DEV, write call mora throw-ati u PROD.
+### PR-1 — Pure split (preparatory, zero behavior change)
+Razdvojiti analytics i sr module u `_pure/` granu — bez React, DOM, localStorage, Dexie importa.
+- `src/lib/analytics/_pure/interference.ts` — čista funkcija nad `Card[]`
+- `src/lib/analytics/_pure/stability.ts` — funkcija prima `{ disciplineLog, planner }` umjesto `loadDisciplineLog()/loadPlanner()`
+- `src/lib/analytics/_pure/friction.ts` — prima `latencyLog`
+- `src/lib/analytics/_pure/blind-spots.ts` — prima `calibration`; `calcWeakHooks` ostaje na main (piše u IDB)
+- `src/lib/analytics/_pure/recovery.ts` — prima `disciplineLog`
+- `src/lib/sr/_pure/aggregations.ts` — re-export `getSectionScore`, `getCardMasteryLevel`, retrievability helpers (bez side-effect importa)
+- Postojeći fajlovi postaju thin adapteri: čitaju localStorage pa zovu `_pure`.
+- ESLint pravilo (`no-restricted-imports`) za `_pure/**` zabranjuje `@/lib/storage`, `localStorage`, `@/contexts/**`, `@/lib/db**`, `react`.
 
----
+Test: postojeći testovi prolaze nepromijenjeni (samo refactor).
 
-### PR3 — #6 body-pointer-events-guard (maintenance bomba)
+### PR-2 — Worker skeleton + Comlink
+- `bun add comlink`
+- `src/workers/analytics.worker.ts` — `Comlink.expose({ runInterference, runStability, runFriction, runBlindSpots, runRecovery, buildChartData })`
+- `src/lib/analytics/workerClient.ts` — lazy singleton:
+  - `new Worker(new URL("../../workers/analytics.worker.ts", import.meta.url), { type: "module" })`
+  - `Comlink.wrap<AnalyticsAPI>(worker)`
+  - `terminate()` na `beforeunload` (via `taskScheduler` lifecycle)
+  - request keying: `hash(cards.length + reviewLog.length + lastReviewTs) → Promise` cache, 30s TTL
+- Fallback: u test env (`vitest`) i ako `typeof Worker === "undefined"` → sync poziv `_pure` funkcija.
 
-Stanje: `src/lib/body-pointer-events-guard.ts` zavisi od internih atributa Radix-a (`[data-radix-focus-guard]`), Vaul-a (`[data-vaul-drawer]`) i `react-remove-scroll` (`body[data-scroll-locked]`). Tihi crash ako bilo koja biblioteka promijeni naming.
+Test: `src/test/analytics-worker-roundtrip.test.ts` — mockuje Worker, provjerava da Comlink RPC vraća isti rezultat kao sync.
 
-Plan:
-1. **Selector regresijski test** (`src/test/body-pointer-events-selectors.test.tsx`):
-   - Mount jedne Radix Dialog + jedne Vaul Drawer + jedne AlertDialog instance.
-   - `expect(document.querySelector(OPEN_OVERLAY_SELECTOR))` za svaki state.
-   - Test se izvršava u CI-ju nakon svake `bun update`; pad = guard mora biti revidiran.
-2. **Watchdog log**: ako `body.style.pointerEvents === "none"` ostane >300ms bez aktivnog overlay-a, `logger.error("[guard] body lock leaked")` + zabilježi vrijednost `installed.lastClearAt`. Daje signal čak i ako selektori i dalje match-uju ali se semantika promijeni.
-3. **Version pin** u `package.json`: `@radix-ui/react-dialog`, `vaul`, `react-remove-scroll` prelaze iz `^` u tačnu verziju; bump je svjesna odluka (dokumentovano u `docs/dependency-pins.md`).
-4. **Smanjenje doseg**: dodati `<DialogRoot>` wrapper koji forsira `onOpenChange` cleanup pattern (audit u `src/test/dialog-close-pattern.test.tsx`); guard ostaje kao defense-in-depth ali ne kao primarni put.
+### PR-3 — Chart aggregators u worker
+Migrirati teške memo blokove iz `useStatsData`:
+- `activityData` (dva puna prolaza kroz `reviewLog` + `cards`)
+- `masteryData` (prolaz kroz sve sections × `getSectionScore`)
+- `ratioHistory` (već `useDeferredCompute`, ali svejedno na main thread-u; sad worker)
+- `levelCounts` (prolaz kroz sve kartice × `getCardMasteryLevel`)
+- `categoryChartData` (jeftin, ostaje na main)
 
----
+Novi hook `useStatsDataAsync` vraća `{ ...sync, charts: ChartBundle | null }`. `MyStats` prikazuje `<TabSkeleton />` dok je `charts === null`.
 
-### PR4 — #12 DB boot state machine + recovery UX
+### PR-4 — Analytics konzumeri (SubjectDiagnosticsPage, OverviewTab, ResistanceTab itd.)
+Zamijeniti direktne pozive (`calcInterferencePairs(cards)`) sa:
+```ts
+const { data: interference } = useWorkerQuery(
+  (api) => api.runInterference(cards, { limit: 10 }),
+  [cards]
+);
+```
+Tokom pending stanja: `<Skeleton />` umjesto blank UI. Greška u worker-u: ErrorBoundary fallback + telemetry event `ANALYTICS_WORKER_ERROR`.
 
-Stanje: `bootDb()` vraća `{ok: boolean}`; greške se signaliziraju kombinacijom `dbErrorState` modul-varijable, splash stringova i `DbErrorProvider`-a. Korisnik ne dobija jasnu razliku između "blocked tab", "version mismatch", "corrupted IDB", "timeout".
+### PR-5 — FSRS retrievability batch
+Pozive tipa `cards.forEach(c => c.sections.forEach(s => ...computeRetrievability(s)))` zamijeniti sa `api.computeRetrievabilityBatch(cards)` koji vraća `Map<sectionId, number>`. Koristi se u `useCardAggregates` *samo* za bucket "critical/risk" prikaza (ne za FSRS grading u review modu).
 
-Plan:
-1. Novi `src/lib/boot/bootStateMachine.ts`:
-   ```
-   idle → opening → migrating → loading → ready
-              ↓         ↓          ↓
-            blocked  version    corrupted
-              ↓     mismatch       ↓
-            recovery-prompt
-   ```
-   - Implementacija kao discriminated union state + reducer; svaka tranzicija ima `reason` polje.
-2. `BootStateProvider` zamijenjuje direktno čitanje `getDbErrorState()`. `useDbError` postaje shim koji deriva iz `bootState`.
-3. `bootDb` i `runMigrations` su sad transition emitter-i (`emit({type: "OPENING"})`, `emit({type: "OPEN_OK"})`, `emit({type: "OPEN_FAILED", reason})`).
-4. Recovery UI komponenta `<BootRecoveryDialog>`:
-   - `blocked` → "Zatvorite ostale tabove ili kliknite Reset".
-   - `version` → "Backup → Reset → Restore" wizard sa progress bar-om.
-   - `corrupted` → "Export emergency JSON + Reset" (već postoji `emergency-export.ts` — sad ga state machine pokreće).
-5. Tests: `src/test/boot-state-machine.test.ts` (sve tranzicije) + `src/test/boot-recovery-flow.test.tsx` (jedan E2E recovery).
+## Tehnički detalji
 
----
+**Transfer strategija**
+- Šaljemo strukturirano-klonirane plain objekte (ne `Card` instance — već su to plain JSON-like u SSOT-u).
+- Velike payload-e (>5MB) razmotriti `transferable` ArrayBuffer + custom binary, ali tek u v2 ako Comlink overhead postane mjerljiv.
 
-### PR5 — #1 OLAP u UI niti → Web Worker
+**Cancellation**
+- Comlink ne podržava nativno abort; implementiramo `requestId`-based gate u worker klijentu: nova request s istim ključem invalidira ranije promise-ove (`.then` postaje no-op kroz `cancelled` flag).
 
-Stanje: `useStatsData` (`src/hooks/useStatsData.ts`, 127 LOC) + `src/lib/analytics/*` (5 fajlova, ~450 LOC) izvršavaju agregaciju preko `useDeferredCompute` (rIC) na main thread-u. Pri >10k review log unosa dolazi do jank-a (long task >50ms).
+**Worker lifecycle**
+- Singleton instanciran lazy na prvi poziv (ne na app boot — ne kvarimo TTI).
+- `terminate()` registrovan kroz `taskScheduler.onShutdown()` (postoji per memory `Task Scheduler`).
+- HMR: u dev modu `import.meta.hot?.dispose(() => worker.terminate())`.
 
-Plan:
-1. Novi worker `src/workers/analytics-worker.ts`:
-   - Input: `{cards, reviewLog, srSettings, asOf}`.
-   - Output: `{ratioHistory, focusRatio, blindSpots, frictionScore, interferenceMap, recoveryCurve, stabilityHistogram}`.
-   - Cijela `src/lib/analytics/**` familija je čist `(input) → output` — premjestiti u `src/lib/analytics/_pure/` (bez DOM-a, bez React-a), worker ih importuje direktno.
-2. Hook `src/hooks/useAnalyticsWorker.ts`:
-   - Singleton worker (lazy init); request keying preko `hash(cards.length + reviewLog.length + maxUpdatedAt)`.
-   - Vraća `{data, isComputing}`; data se memo-izira dok hash ne promijeni.
-3. `useStatsData` postaje thin shim koji konzumira hook + zadržava jeftine sync derive-ove (npr. `categoryStats` lookup-i).
-4. Fallback: ako `Worker` nije dostupan (test env), pao na main-thread sync put (sa `console.warn` u DEV-u).
-5. Tests:
-   - `src/test/analytics-worker.test.ts` — parity test (worker vs main-thread daju identičan output na fixture-u).
-   - `src/test/perf/analytics-jank.bench.ts` — 50k log unosa, mora <16ms main-thread vrijeme.
+**Vite/Electron**
+- `new Worker(new URL(...), { type: "module" })` — Vite zna bundle-ovati. Electron CSP već dozvoljava `worker-src 'self' blob:` (per memory `Electron Infrastructure v4`).
+- Test env: `vitest` koristi happy-dom; fallback grana izvršava sync na main da bi testovi ostali deterministički.
 
----
+**Telemetry**
+- Novi event `ANALYTICS_WORKER_ERROR` u `src/lib/event-bus-types.ts`.
+- Mjerenje: `performance.mark("analytics:req")` u klijentu, šaljemo `durationMs` u logger za prve N poziva (dev only).
 
-## Redoslijed i nezavisnost
+## Ograničenja / open questions
 
-| PR | Zavisnosti | Risk | LOC est. |
-|----|------------|------|----------|
-| PR1 mutex | nijedna | low | ~250 |
-| PR2 fallback | nijedna | low | ~150 |
-| PR3 guard | nijedna | medium (CI tooling) | ~200 |
-| PR4 boot SM | nijedna | medium (mijenja boot flow) | ~500 |
-| PR5 analytics worker | nijedna | medium (worker infra) | ~700 |
+1. **Storage čitanje**: `loadCalibration/loadLatency/loadDisciplineLog/loadPlanner` u PR-1 ostaju na main thread-u. To znači da svaki request mora serijalizovati i te snapshote (uvijek mali, <1MB ukupno). Alternativa: kasnije migrirati ova tri loga u IDB pa worker čita direktno. Odluka za sad: **main snapshot-uje, šalje uz request**.
+2. **`calcWeakHooks`** mutira mnemonic kartice i piše IDB — ostaje na main thread-u u potpunosti (nije OLAP, već write path).
+3. **Bundle size**: worker chunk će uvući `date-fns`, dio FSRS-a, sve analytics module. Procjena ~40-60 KB gzip; prihvatljivo jer se učitava lazy.
+4. **Da li `useCardAggregates` migrirati?** Preporuka: **ne**. Koristi se za routing badge-ove i mora biti dostupno odmah; trenutno već radi dirty-tracking i je <5ms za 15k kartica. Async overhead bi ga pogoršao.
 
-Svi PR-ovi su nezavisni — može se ići paralelno. Predlažem redoslijed PR1 → PR2 → PR3 → PR4 → PR5 (od najmanjeg blast radius-a ka najvećem).
+## Šta NE diramo
 
-## Šta se NE dira
+- FSRS grading (`calculateNextReview`, `gradeSection`) — sinkron, kritičan path
+- Pure UUID taxonomy
+- Dexie shema / repositori sloj
+- Ref-Delta pattern
+- Provider tree, AppContext SSOT
+- DM Sans + 6-tema paleta
+- Test scheduler primitive
 
-- FSRS algoritam, taxonomy, Zettelkasten, planner business logika.
-- UI teme, route-ovi, korisnička semantika.
-- Postojeće Dexie šeme (PR4 ne diže verziju).
-- Pomodoro / SpeedReader / TTS engine-i.
+## Acceptance criteria
 
-## Otvorena pitanja
-
-1. **PR3 version-pin** — da li želiš striktni pin (`1.2.3`) ili tilde (`~1.2.3`)? Pin = manji rizik, češći ručni bump.
-2. **PR5 worker bundling** — Vite već radi worker chunk; bez dodatne konfiguracije. OK?
-3. **PR4 recovery UX** — da li želiš da `corrupted` state automatski export-uje emergency JSON, ili samo nudi dugme?
----
-
-## Status implementacije (snapshot)
-
-- **PR1 ✅** — `createKeyedMutex` u `src/lib/concurrency/`, migrirani `categoryRepository` i `planner/cache`, 6 testova prolaze, ESLint guard protiv `_pending* = Promise.resolve()` aktivan.
-- **PR2 ✅** — `_providerFallback.missingProvider()` zamijenio Proxy noop-ove u `CardActionsProvider`, `CategoryActionsProvider`, `BackupActionsProvider`; emituje `PROVIDER_FALLBACK` telemetriju + throw; 3 testa prolaze.
-- **PR3 ✅** — `OVERLAY_SELECTORS` izložen kao named export; watchdog log (300ms) na `taskScheduler.setInterval`; regresijski test mountuje Radix Dialog. Version-pin (`@radix-ui/react-dialog`, `react-remove-scroll`) **NIJE** primijenjen u package.json — to je svjesna odluka pri sljedećem `bun update` (vaul nije instaliran).
-- **PR4 ✅ (core)** — `src/lib/boot/bootStateMachine.ts` (discriminated union + reducer + subscribe API), `BootStateProvider` + `useBootState`, `transition()` emit-ovi iz `bootDb`/`runMigrations`/`loadInitialData`/`useCardBootstrap`; 3 testa prolaze. Recovery UI (`<BootRecoveryDialog>`) i `useDbError` shim ostavljeni za zaseban PR — postojeći `DbErrorProvider` + `BlockingModal` ostaju kompatibilni.
-- **PR5 ⏸** — Analytics worker odložen (najveći scope, ~700 LOC, zaseban PR).
+- [ ] StatsPage open sa 15k kartica: main thread idle gap >50ms ne smije se pojaviti tokom inicijalnog rendera
+- [ ] Skeleton vidljiv <16ms od mount-a; pravi grafik <1s na M1 baseline
+- [ ] Postojeći analytics testovi prolaze (re-eksportovani `_pure` ekvivalenti)
+- [ ] Novi `analytics-worker-roundtrip.test.ts` pokriva svih 5 RPC metoda
+- [ ] ESLint guard sprječava direktne importe iz `_pure/**` u storage/db/react module
+- [ ] U test env-u nema padova zbog `Worker` undefined (sync fallback)
+- [ ] Worker termiranje radi na app close (Electron quit + browser beforeunload)
