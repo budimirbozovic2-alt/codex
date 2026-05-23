@@ -181,7 +181,7 @@ export function useCategoryManagement({
       
       // Phase 3b — repository.bulkPut handles persist + RAM + emit.
       const now = Date.now();
-      const ref = cardMapRef.current;
+      const ref = getCardMap();
       const changed: Card[] = [];
       for (const [id, c] of Object.entries(ref)) {
         if (c.categoryId === categoryId && c.subcategoryId === subcategoryId) {
@@ -191,7 +191,7 @@ export function useCategoryManagement({
       }
       if (changed.length > 0) cardRepository.bulkPut(changed);
     },
-    [setCategoryRecords, cardMapRef],
+    [setCategoryRecords],
   );
 
   const bulkUpdateSubcategory = useCallback((ids: string[], subcategoryId: string) => {
@@ -240,7 +240,7 @@ export function useCategoryManagement({
   const deleteChapter = useCallback((categoryId: string, subcategoryId: string, chapterId: string) => {
     // Phase 3b — repository.bulkPut handles persist + RAM + emit.
     const now = Date.now();
-    const ref = cardMapRef.current;
+    const ref = getCardMap();
     const changed: Card[] = [];
     for (const [id, c] of Object.entries(ref)) {
       if (c.categoryId === categoryId && c.subcategoryId === subcategoryId && c.chapterId === chapterId) {
@@ -265,7 +265,7 @@ export function useCategoryManagement({
       }),
       "deleteChapter"
     );
-  }, [setCategoryRecords, cardMapRef]);
+  }, [setCategoryRecords]);
 
   const reorderSubcategories = useCallback((categoryId: string, orderedIds: string[]) => {
     optimisticCategoryUpdate(
