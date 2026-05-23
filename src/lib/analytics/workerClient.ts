@@ -24,6 +24,7 @@ import { calcCategoryStability, calcStrategicRealityCheck } from "./_pure/stabil
 import { calcStressPerformance, calcFrictionAnalysis } from "./_pure/friction";
 import { calcBlindSpots } from "./_pure/blind-spots";
 import { calcRecoveryRate } from "./_pure/recovery";
+import { calcResistance } from "./_pure/resistance";
 import { buildChartBundle } from "./_pure/charts";
 
 type Client = Comlink.Remote<AnalyticsWorkerAPI>;
@@ -142,6 +143,18 @@ export const analyticsClient = {
     if (!isWorkerSupported) return calcRecoveryRate(snap.disciplineLog);
     try { return await getClient().runRecovery(snap); }
     catch (err) { logger.warn("[analytics-worker] recovery fallback", err); return calcRecoveryRate(snap.disciplineLog); }
+  },
+
+  async runResistance(
+    cards: Parameters<AnalyticsWorkerAPI["runResistance"]>[0],
+    categories: string[],
+    reviewLog: Parameters<AnalyticsWorkerAPI["runResistance"]>[2],
+    weights: Parameters<AnalyticsWorkerAPI["runResistance"]>[3],
+  ) {
+    const snap = { latency: loadLatency() };
+    if (!isWorkerSupported) return calcResistance(cards, categories, reviewLog, snap.latency, weights);
+    try { return await getClient().runResistance(cards, categories, reviewLog, weights, snap); }
+    catch (err) { logger.warn("[analytics-worker] resistance fallback", err); return calcResistance(cards, categories, reviewLog, snap.latency, weights); }
   },
 
   /** Test/teardown hook. Not needed in production. */

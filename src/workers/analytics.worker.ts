@@ -23,6 +23,7 @@ import {
 } from "../lib/analytics/_pure/friction";
 import { calcBlindSpots } from "../lib/analytics/_pure/blind-spots";
 import { calcRecoveryRate } from "../lib/analytics/_pure/recovery";
+import { calcResistance, type ResistanceWeights } from "../lib/analytics/_pure/resistance";
 import { buildChartBundle, type ChartBundle } from "../lib/analytics/_pure/charts";
 import type { AnalyticsSnapshots } from "../lib/analytics/_pure/types";
 
@@ -51,6 +52,15 @@ const api = {
   },
   runRecovery(snapshots: Pick<AnalyticsSnapshots, "disciplineLog">) {
     return calcRecoveryRate(snapshots.disciplineLog);
+  },
+  runResistance(
+    cards: Card[],
+    categories: string[],
+    reviewLog: ReviewLogEntry[],
+    weights: ResistanceWeights,
+    snapshots: Pick<AnalyticsSnapshots, "latency">,
+  ) {
+    return calcResistance(cards, categories, reviewLog, snapshots.latency, weights);
   },
   buildCharts(cards: Card[], reviewLog: ReviewLogEntry[], targetReviewPct: number): ChartBundle {
     return buildChartBundle(cards, reviewLog, targetReviewPct);
