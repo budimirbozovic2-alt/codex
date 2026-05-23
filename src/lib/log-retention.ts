@@ -48,18 +48,13 @@ export async function pruneAppendOnlyLogs(): Promise<void> {
   }
 }
 
-interface IdleWindow {
-  requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number;
-}
+import { taskScheduler } from "@/lib/scheduler";
 
 export function scheduleLogPrune(): void {
-  const run = () => { void pruneAppendOnlyLogs(); };
-  const ric = (globalThis as unknown as IdleWindow).requestIdleCallback;
-  if (typeof ric === "function") {
-    ric(run, { timeout: 8000 });
-  } else {
-    setTimeout(run, 4000);
-  }
+  taskScheduler.idle(
+    () => { void pruneAppendOnlyLogs(); },
+    { label: "log-retention:prune", priority: "idle", timeoutMs: 8000, fallbackMs: 4000 },
+  );
 }
 
 /** Test-only hook to reset the session-once guard. */
