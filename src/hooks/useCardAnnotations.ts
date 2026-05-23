@@ -11,8 +11,8 @@ import {
 } from "@/lib/spaced-repetition";
 import { ReviewLogEntry } from "@/lib/storage";
 import type { CardMap } from "@/lib/persist-queue";
-import { reviewLogRepository } from "@/lib/repositories/reviewLogRepository";
-import { cardRepository } from "@/lib/repositories/cardRepository";
+import { reviewLogRepository } from "@/lib/repositories";
+import { cardRepository } from "@/lib/repositories";
 import { getExaminerProfileSync } from "@/lib/examiner-profile-cache";
 
 import { logger } from "@/lib/logger";

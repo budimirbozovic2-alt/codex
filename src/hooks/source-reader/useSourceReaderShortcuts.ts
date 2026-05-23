@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { useSourceReaderStore } from "@/store/useSourceReaderStore";
+import { useSourceReaderStore } from "@/store";
 
 /** Global keyboard shortcuts for the source reader (S = essay, M = exam, Esc = close). */
 export function useSourceReaderShortcuts(opts: { onConvertToEssay: () => void }) {

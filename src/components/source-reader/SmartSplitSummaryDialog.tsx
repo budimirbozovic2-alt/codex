@@ -4,7 +4,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import RichTextEditor from "@/components/RichTextEditor";
 import type { Source } from "@/lib/sources-storage";
-import { useSourceReaderStore } from "@/store/useSourceReaderStore";
+import { useSourceReaderStore } from "@/store";
 import { useCategoryData } from "@/contexts/AppContext";
 import { htmlToPlain } from "@/lib/selection-split-engine";
 import { useDirtyDialog } from "@/hooks/useDirtyDialog";

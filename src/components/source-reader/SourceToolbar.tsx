@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import type { Source, SourceKind } from "@/lib/db-schema";
 import { SourceHeader } from "./SourceHeader";
-import { useSourceReaderStore, type ReaderWidth } from "@/store/useSourceReaderStore";
+import { useSourceReaderStore, type ReaderWidth } from "@/store";
 
 const WIDTH_OPTIONS: ReaderWidth[] = ["S", "M", "L", "XL", "Full"];
 

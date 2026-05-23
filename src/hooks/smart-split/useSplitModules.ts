@@ -7,7 +7,7 @@ import {
   type SelectionModule,
 } from "@/lib/selection-split-engine";
 import { defaultEdit } from "@/lib/split-wizard-build";
-import { useSourceReaderStore } from "@/store/useSourceReaderStore";
+import { useSourceReaderStore } from "@/store";
 
 type EditDraft = ReturnType<typeof defaultEdit>;
 

@@ -23,7 +23,7 @@ import type { ReviewLogEntry } from "@/lib/storage";
 import { resolveLegacyTaxonomyNames } from "@/lib/migrations/resolve-legacy-taxonomy";
 import { yieldUI } from "@/lib/backup/yield-ui";
 import { backupLog } from "@/lib/backup/backup-logger";
-import { emitCategoriesUpdated } from "@/lib/repositories/categoryRepository";
+import { emitCategoriesUpdated } from "@/lib/repositories";
 
 import type { ImportCtx, ImportTxResult, ImportStrategy } from "@/lib/backup/import-types";
 import {

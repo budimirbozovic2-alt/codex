@@ -4,8 +4,8 @@
 import { useCallback, useState } from "react";
 import { DEFAULT_SR_SETTINGS, type SRSettings } from "@/lib/spaced-repetition";
 import type { ReviewLogEntry } from "@/lib/storage";
-import { reviewLogRepository } from "@/lib/repositories/reviewLogRepository";
-import { settingsRepository } from "@/lib/repositories/settingsRepository";
+import { reviewLogRepository } from "@/lib/repositories";
+import { settingsRepository } from "@/lib/repositories";
 
 export interface ReviewSettingsStore {
   reviewLog: ReviewLogEntry[];

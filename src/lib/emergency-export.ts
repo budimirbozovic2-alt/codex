@@ -1,6 +1,8 @@
+import { taskScheduler } from "@/lib/scheduler";
+
 export async function performEmergencyExport(timeoutMs = 3000) {
   const { db } = await import("@/lib/db");
-  
+
   const exportTask = async () => {
     const [
       cards, categories, sources, reviewLog, mindMaps, diary,
@@ -30,9 +32,14 @@ export async function performEmergencyExport(timeoutMs = 3000) {
     return JSON.stringify(data);
   };
 
-  const timeout = new Promise<never>((_, reject) => 
-    setTimeout(() => reject(new Error("Database locked or too slow")), timeoutMs)
-  );
+  const timeout = new Promise<never>((_, reject) => {
+    taskScheduler.setTimeout(
+      () => reject(new Error("Database locked or too slow")),
+      timeoutMs,
+      { label: "emergency-export:timeout", priority: "high" },
+    );
+  });
 
   return Promise.race([exportTask(), timeout]);
 }
+

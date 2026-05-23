@@ -2,12 +2,12 @@ import { createContext, useContext, useMemo, useEffect, useCallback, type ReactN
 import { useSyncExternalStore } from "react";
 import type { CategoryRecord } from "@/lib/db";
 import { primeExaminerProfilesFromRecords } from "@/lib/examiner-profile-cache";
-import { registerCategoryStateSetter } from "@/lib/repositories/categoryStateInvalidator";
+import { registerCategoryStateSetter } from "@/lib/repositories";
 import {
   categoryStore,
   getCategoryStoreRecords,
   setCategoryStoreRecords,
-} from "@/store/useCategoryStore";
+} from "@/store";
 
 // ── Public state (consumed by useCategoryData) ──
 interface CategoryStateContextValue {

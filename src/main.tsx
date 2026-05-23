@@ -81,10 +81,19 @@ markBootStep("main:error-handlers-registered");
     window.onerror = (_msg, _src, _ln, _col, err) => {
       console.error("[runtime] uncaught error", err || _msg);
     };
+
+    // Task Scheduler lifecycle — shut down all pending centralized timers on
+    // unload so no IDB write fires after the page is gone. Idempotent.
+    const { taskScheduler } = await import("./lib/scheduler");
+    window.addEventListener("beforeunload", () => taskScheduler.shutdown());
+
     // ── Electron IPC Setup ──
     if (window.electronAPI) {
       import("./lib/electron-integration").then(({ setupElectronIPC }) => {
         setupElectronIPC().catch(e => console.warn("[boot] Electron IPC setup failed", e));
+        if (typeof window.electronAPI?.onBeforeQuit === "function") {
+          window.electronAPI.onBeforeQuit(() => taskScheduler.shutdown());
+        }
       });
     }
   } catch (err) {

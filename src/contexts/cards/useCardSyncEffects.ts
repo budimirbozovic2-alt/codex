@@ -7,7 +7,7 @@
 import { useEffect } from "react";
 import { onCardLinksCleared, onCardReviewConfirmed } from "@/lib/sources-storage";
 import { initBacklinkIndexSubscriptions } from "@/lib/backlink-index";
-import { cardRepository } from "@/lib/repositories/cardRepository";
+import { cardRepository } from "@/lib/repositories";
 
 export function useCardSyncEffects(): void {
   useEffect(() => initBacklinkIndexSubscriptions(), []);

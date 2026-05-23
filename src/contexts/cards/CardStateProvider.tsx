@@ -12,7 +12,7 @@ import { Card, SRSettings, DEFAULT_SR_SETTINGS } from "@/lib/spaced-repetition";
 import { ReviewLogEntry } from "@/lib/storage";
 import { CardMap, mapToArray, persistQueue } from "@/lib/persist-queue";
 import { flushReviewLogQueue } from "@/lib/db";
-import { useCardMap, setCardMap, cardMapRefFacade, type CardMapRefFacade } from "@/store/useCardMapStore";
+import { useCardMap, setCardMap, cardMapRefFacade, type CardMapRefFacade } from "@/store";
 import { useCardBootstrap } from "@/hooks/useCardBootstrap";
 import { useCategoryData, useCategoryStateSetter } from "./CategoryStateProvider";
 import { useCardSyncEffects } from "./useCardSyncEffects";

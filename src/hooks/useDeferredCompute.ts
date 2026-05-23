@@ -1,10 +1,11 @@
 import { useState, useEffect, useRef } from "react";
 
 import { logger } from "@/lib/logger";
+import { taskScheduler } from "@/lib/scheduler";
 /**
- * Defers a heavy computation to requestIdleCallback (or setTimeout fallback).
- * Returns `null` until the computation is complete, then returns the result.
- * Re-runs when `deps` change.
+ * Defers a heavy computation to the task scheduler's idle slot (rIC under the
+ * hood with a setTimeout fallback). Returns `null` until the computation is
+ * complete, then returns the result. Re-runs when `deps` change.
  */
 export function useDeferredCompute<T>(compute: () => T | Promise<T>, deps: unknown[]): Awaited<T> | null {
   const [result, setResult] = useState<Awaited<T> | null>(null);
@@ -13,7 +14,7 @@ export function useDeferredCompute<T>(compute: () => T | Promise<T>, deps: unkno
 
   useEffect(() => {
     let cancelled = false;
-    const run = () => {
+    const handle = taskScheduler.idle(() => {
       if (cancelled) return;
       const val = computeRef.current();
       if (val instanceof Promise) {
@@ -22,15 +23,12 @@ export function useDeferredCompute<T>(compute: () => T | Promise<T>, deps: unkno
       } else {
         setResult(val as Awaited<T>);
       }
-    };
+    }, { label: "useDeferredCompute", priority: "idle", timeoutMs: 2000, fallbackMs: 50 });
 
-    if ("requestIdleCallback" in window) {
-      const id = window.requestIdleCallback(run, { timeout: 2000 });
-      return () => { cancelled = true; window.cancelIdleCallback(id); };
-    } else {
-      const id = setTimeout(run, 50);
-      return () => { cancelled = true; clearTimeout(id); };
-    }
+    return () => {
+      cancelled = true;
+      taskScheduler.cancel(handle);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, deps);
 
