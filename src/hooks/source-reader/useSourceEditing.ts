@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, type RefObject } from "react";
+import { useCallback, useEffect, useMemo, useState, type RefObject } from "react";
 import { toast } from "sonner";
 import type { Source } from "@/lib/sources-storage";
 import { useSourceReaderStore } from "@/store";
@@ -8,6 +8,8 @@ import {
 import {
   persistSourceHtml, persistAutoFormat,
 } from "@/lib/services/sourceEditingService";
+import { taskScheduler } from "@/lib/scheduler";
+import { usePersistedDraftMirror } from "@/hooks/usePersistedDraftMirror";
 
 /**
  * Source HTML editing actions: heading toggle, list wrap, context menu,
@@ -123,20 +125,46 @@ export function useSourceEditing(
     toast.success(`Formatirano ${result.count} članova`, { description: "Članovi i nazivi su boldovani" });
   }, [source, onSourceUpdated]);
 
-  // Debounced autosave for contentEditable input.
-  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const handleEditInput = useCallback(() => {
-    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
-    saveTimerRef.current = setTimeout(async () => {
-      const container = contentRef.current;
-      if (!container) return;
-      await persistSourceHtml(source, container.innerHTML, onSourceUpdated);
-    }, 1000);
-  }, [source, onSourceUpdated, contentRef]);
+  // Debounced autosave for contentEditable input. Funneled through the central
+  // task scheduler so it participates in shutdown / inspection. The draft is
+  // also mirrored to the IDB `drafts` table for crash recovery — long source
+  // edits would otherwise be lost on tab close between debounce ticks.
+  const [draftHtml, setDraftHtml] = useState<string>(source.htmlContent);
 
-  useEffect(() => () => {
-    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
-  }, []);
+  // Reset mirror baseline whenever the underlying source id/version changes.
+  useEffect(() => {
+    setDraftHtml(source.htmlContent);
+  }, [source.id, source.version, source.htmlContent]);
+
+  const persistDebounced = useMemo(
+    () => taskScheduler.debounce(
+      async (html: string) => {
+        await persistSourceHtml(source, html, onSourceUpdated);
+      },
+      1000,
+      { label: `sourceEditing:${source.id}`, pauseWhenHidden: false },
+    ),
+    [source, onSourceUpdated],
+  );
+
+  // Cancel pending debounce on source change / unmount so the next source
+  // never receives a write meant for the previous one.
+  useEffect(() => () => { persistDebounced.cancel(); }, [persistDebounced]);
+
+  const handleEditInput = useCallback(() => {
+    const container = contentRef.current;
+    if (!container) return;
+    const html = container.innerHTML;
+    setDraftHtml(html);
+    persistDebounced(html);
+  }, [contentRef, persistDebounced]);
+
+  usePersistedDraftMirror({
+    key: `source:${source.id}`,
+    source: "source-html",
+    enabled: draftHtml !== source.htmlContent,
+    payload: draftHtml,
+  });
 
   return {
     handleSetHeading,
