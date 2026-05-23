@@ -59,7 +59,7 @@ export async function runHeal({ cards, catRecords }: HealInput): Promise<HealRes
       const next: Card = {
         ...card,
         tags: cleaned,
-        frequencyTag: card.frequencyTag ?? (hadFreq ? "často" : "rijetko"),
+        frequencyTag: card.frequencyTag ?? (hadFreq ? "često" : "rijetko"),
       };
       cards[i] = next;
       mutatedCards.push(next);
