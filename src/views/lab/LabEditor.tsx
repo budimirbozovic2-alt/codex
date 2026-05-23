@@ -22,14 +22,13 @@ export default function LabEditor() {
     extensions: [
       StarterKit.configure({
         heading: { levels: [1, 2, 3] },
+        link: {
+          openOnClick: false,
+          autolink: true,
+          HTMLAttributes: { class: "underline text-primary" },
+        },
       }),
-      Underline,
       Highlight,
-      Link.configure({
-        openOnClick: false,
-        autolink: true,
-        HTMLAttributes: { class: "underline text-primary" },
-      }),
       Placeholder.configure({
         placeholder: "Piši ovdje... (Markdown shortcuts rade: **bold**, *italic*, # heading, - lista)",
       }),
