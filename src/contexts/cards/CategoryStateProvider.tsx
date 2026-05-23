@@ -82,6 +82,13 @@ export function CategoryStateProvider({ children }: { children: ReactNode }) {
     primeExaminerProfilesFromRecords(categoryRecords);
   }, [categoryRecords]);
 
+  // Phase 5B — mirror records into the external category store so granular
+  // selectors (useCategoryFromStore et al.) get per-slice reactivity without
+  // re-running on unrelated context updates.
+  useEffect(() => {
+    setCategoryStoreRecords(categoryRecords);
+  }, [categoryRecords]);
+
   // Phase 5A — expose the React setter to the module-level invalidator so
   // external CATEGORIES_UPDATED emitters (backup restore, cascade, future
   // remote sync) refresh RAM without crossing the React boundary.
