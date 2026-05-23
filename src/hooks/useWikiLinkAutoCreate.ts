@@ -7,6 +7,8 @@ import {
 import { eventBus, EVENT_TYPES } from "@/lib/event-bus";
 import { iterateWikiLinks, normalizeKey } from "@/lib/zettelkasten-wiki-link";
 import { useLatestRef } from "@/hooks/useLatestRef";
+import { taskScheduler } from "@/lib/scheduler";
+
 
 import { logger } from "@/lib/logger";
 /**
@@ -157,7 +159,7 @@ export function useWikiLinkAutoCreate({
     const delay = Math.round(BASE_MIN + (BASE_MAX - BASE_MIN) * weight);
 
     let cancelled = false;
-    const handle = setTimeout(async () => {
+    const handle = taskScheduler.setTimeout(async () => {
       const created = await bulkCreateArticlesIfMissing(
         categoryId,
         pending,
@@ -186,8 +188,9 @@ export function useWikiLinkAutoCreate({
         // every unrelated `articles` mutation.
         if (overflow) setDrainTick(t => t + 1);
       }
-    }, delay);
-    return () => { cancelled = true; clearTimeout(handle); };
+    }, delay, { label: "zettelkasten:wiki-link-auto-create" });
+    return () => { cancelled = true; taskScheduler.cancel(handle); };
+
     // `articles` intentionally NOT a dep: `existingTitlesLowerRef` stays
     // fresh via the separate effect above, and `drainTick` covers tail drain.
   }, [draftContent, isEditing, categoryId, drainTick, rootSubcategoryIdRef, setArticlesRef]);

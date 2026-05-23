@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
 import type { MindMapNodeData } from "@/components/mindmap/node/icon-registry";
+import { taskScheduler } from "@/lib/scheduler";
+
 
 /**
  * Encapsulates the inline-editing lifecycle for a mind-map node:
@@ -59,14 +61,15 @@ export function useNodeEditing(
       }
     };
     // Capture + slight delay so the click that starts editing doesn't immediately close it.
-    const timer = setTimeout(() => {
+    const timer = taskScheduler.setTimeout(() => {
       document.addEventListener("pointerdown", handler, true);
-    }, 50);
+    }, 50, { label: "mindmap-node:editing-outside-click" });
     return () => {
-      clearTimeout(timer);
+      taskScheduler.cancel(timer);
       document.removeEventListener("pointerdown", handler, true);
     };
   }, [editing, commitAndClose]);
+
 
   const stopPropagation = useCallback((e: React.MouseEvent | React.PointerEvent) => {
     e.stopPropagation();

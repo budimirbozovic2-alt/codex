@@ -15,6 +15,8 @@ import { saveMindMap } from "@/lib/mindmap-storage";
 import { toast } from "sonner";
 import { getId, HIERARCHY_TEMPLATES, PROCEDURE_TEMPLATES, type NodeTemplate } from "@/components/mindmap/mindmap-constants";
 import { autoLayout } from "@/components/mindmap/mindmap-utils";
+import { taskScheduler } from "@/lib/scheduler";
+
 
 import { logger } from "@/lib/logger";
 const SNAP_THRESHOLD = 20;
@@ -234,7 +236,7 @@ export function useMindMapCanvas(doc: MindMapDoc) {
       data: { ...(n.data as Record<string, unknown>), onUpdate: stableOnUpdate, onDuplicate: stableOnDuplicate },
     })));
     setDirty(true);
-    setTimeout(() => fitView({ padding: 0.2, duration: 400 }), 50);
+    taskScheduler.setTimeout(() => fitView({ padding: 0.2, duration: 400 }), 50, { label: "mindmap:auto-layout-fit" });
     toast.success("Automatski raspored primijenjen");
   }, [edges, setNodes, fitView, stableOnUpdate, stableOnDuplicate]);
 
@@ -258,8 +260,9 @@ export function useMindMapCanvas(doc: MindMapDoc) {
   // Auto-save 30s
   useEffect(() => {
     if (!dirty) return;
-    const timer = setTimeout(() => { void handleSave().catch(() => { /* surfaced via toast */ }); }, 30000);
-    return () => clearTimeout(timer);
+    const timer = taskScheduler.setTimeout(() => { void handleSave().catch(() => { /* surfaced via toast */ }); }, 30000, { label: "mindmap:autosave" });
+    return () => taskScheduler.cancel(timer);
+
   }, [dirty, handleSave]);
 
   // V3: Flush on unmount + beforeunload guard so route-change or window-close
@@ -307,7 +310,7 @@ export function useMindMapCanvas(doc: MindMapDoc) {
   const enterPresentation = useCallback(() => {
     setPresentationMode(true);
     setSelectedEdgeId(null);
-    setTimeout(() => fitView({ padding: 0.15, duration: 600 }), 50);
+    taskScheduler.setTimeout(() => fitView({ padding: 0.15, duration: 600 }), 50, { label: "mindmap:presentation-fit" });
   }, [fitView]);
 
   const exitPresentation = useCallback(() => setPresentationMode(false), []);
