@@ -284,5 +284,73 @@ export default tseslint.config(
       ],
     },
   },
+
+  // G7 — Raw setTimeout/setInterval allow-list.
+  //
+  // Disables `no-restricted-syntax` (which carries the timer guards from
+  // the global block) ONLY for files that legitimately need raw timers:
+  //
+  //   • src/lib/scheduler/**        — the implementation itself
+  //   • src/lib/persist-queue.ts    — frame-coalescer + retry tick; predates
+  //                                    and underpins scheduler bootstrap
+  //   • src/lib/db-schema.ts        — pre-boot DB open / blocked-tab recovery
+  //   • src/lib/db-queries.ts       — reviewLog debounce hot path
+  //   • src/lib/event-bus.ts        — heartbeat / cleanup interval (singleton)
+  //   • src/lib/zip-service.ts      — idle-timeout worker teardown
+  //   • src/lib/electron-integration.ts — IPC timeout race wrapper
+  //   • src/lib/backup/yield-ui.ts  — alternative to scheduler for Dexie txs
+  //   • src/main.tsx                 — splash removal pre-scheduler init
+  //   • src/hooks/useCardBootstrap.ts — boot panic timer
+  //   • src/contexts/pomodoro/usePomodoroEngine.ts — sub-frame timing
+  //   • src/contexts/ui/useNotificationScheduler.ts — global 60s polling
+  //   • src/hooks/speed-reader/useSpeedReaderEngine.ts — RSVP timing
+  //   • src/features/mnemonic/hooks/useTestEngine.ts — test countdown
+  //   • src/features/docx-importer/docx-parser.ts — worker timeout race
+  //   • src/components/db/BlockingModal.tsx — pre-boot DB poll
+  //   • src/components/ZenMode.tsx — 1s timer tick
+  //
+  // Scheduled for Task 2 (`useDraftAutosave` unification) — temporarily
+  // whitelisted so the guard ships without a big-bang migration:
+  //
+  //   • src/hooks/useCardDraftAutosave.ts
+  //   • src/hooks/zettelkasten/useArticleDraft.ts (if it uses raw timers)
+  //   • src/hooks/source-reader/useSourceEditing.ts
+  //   • src/hooks/useWikiLinkAutoCreate.ts
+  //   • src/hooks/useMindMapCanvas.ts
+  //   • src/hooks/mindmap/useNodeEditing.ts
+  //   • src/components/SourceReader.tsx
+  {
+    files: [
+      "src/lib/scheduler/**",
+      "src/lib/persist-queue.ts",
+      "src/lib/db-schema.ts",
+      "src/lib/db-queries.ts",
+      "src/lib/event-bus.ts",
+      "src/lib/zip-service.ts",
+      "src/lib/electron-integration.ts",
+      "src/lib/backup/yield-ui.ts",
+      "src/main.tsx",
+      "src/hooks/useCardBootstrap.ts",
+      "src/contexts/pomodoro/usePomodoroEngine.ts",
+      "src/contexts/ui/useNotificationScheduler.ts",
+      "src/hooks/speed-reader/useSpeedReaderEngine.ts",
+      "src/features/mnemonic/hooks/useTestEngine.ts",
+      "src/features/docx-importer/docx-parser.ts",
+      "src/components/db/BlockingModal.tsx",
+      "src/components/ZenMode.tsx",
+      // Task 2 — to be removed once `useDraftAutosave` lands.
+      "src/hooks/useCardDraftAutosave.ts",
+      "src/hooks/zettelkasten/useArticleDraft.ts",
+      "src/hooks/source-reader/useSourceEditing.ts",
+      "src/hooks/useWikiLinkAutoCreate.ts",
+      "src/hooks/useMindMapCanvas.ts",
+      "src/hooks/mindmap/useNodeEditing.ts",
+      "src/components/SourceReader.tsx",
+    ],
+    rules: {
+      "no-restricted-syntax": "off",
+    },
+  },
 );
+
 
