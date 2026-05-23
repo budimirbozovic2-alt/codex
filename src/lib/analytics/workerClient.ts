@@ -24,6 +24,7 @@ import { calcCategoryStability, calcStrategicRealityCheck } from "./_pure/stabil
 import { calcStressPerformance, calcFrictionAnalysis } from "./_pure/friction";
 import { calcBlindSpots } from "./_pure/blind-spots";
 import { calcRecoveryRate } from "./_pure/recovery";
+import { calcResistance } from "./_pure/resistance";
 import { buildChartBundle } from "./_pure/charts";
 
 type Client = Comlink.Remote<AnalyticsWorkerAPI>;
