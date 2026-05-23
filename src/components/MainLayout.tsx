@@ -13,6 +13,8 @@ import { Moon, Sun, Search, Focus, HelpCircle } from "lucide-react";
 import { setDarkMode } from "@/lib/app-settings";
 import { useEditReturn } from "@/hooks/useEditReturn";
 import { useGlobalHotkey } from "@/hooks/useGlobalHotkey";
+import { useBeforeUnloadGuard } from "@/hooks/useBeforeUnloadGuard";
+import { recoverDraftsOnBoot } from "@/lib/drafts/draftRecovery";
 import { taskScheduler } from "@/lib/scheduler";
 
 const DocxImporter = lazy(() => import("@/features/docx-importer").then(m => ({ default: m.DocxImporter })));
@@ -158,6 +160,12 @@ export default function MainLayout({ children }: { children: ReactNode }) {
     e => (e.ctrlKey || e.metaKey) && e.key === "k",
     e => { e.preventDefault(); setGlobalSearchOpen(v => !v); },
   );
+
+  // Browser-level "unsaved changes" prompt driven by the central draft registry.
+  useBeforeUnloadGuard();
+
+  // One-shot boot scan for resumable drafts (cleans stale rows, surfaces toast).
+  useEffect(() => { void recoverDraftsOnBoot(); }, []);
 
   const isFullWidth = SOURCE_ROUTES.some(r => pathname.startsWith(r));
 
