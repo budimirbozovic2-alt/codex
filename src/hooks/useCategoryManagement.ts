@@ -7,7 +7,7 @@ import { cascadeDeleteCategoryDomains } from "@/lib/category-deletion-service";
 import { toast } from "sonner";
 import { optimisticCategoryUpdate } from "@/lib/category-service";
 import { stableLegacyId } from "@/lib/stable-id";
-import { cardRepository } from "@/lib/repositories/cardRepository";
+import { cardRepository } from "@/lib/repositories";
 
 import { logger } from "@/lib/logger";
 interface UseCategoryManagementParams {

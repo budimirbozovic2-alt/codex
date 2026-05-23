@@ -1,5 +1,5 @@
 import { useCategoryData, useCardOnlyActions, useUIContext } from "@/contexts/AppContext";
-import { useCardById } from "@/store/useCardSelectors";
+import { useCardById } from "@/store";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import CardForm from "@/components/CardForm";
 import { Navigate } from "react-router-dom";

@@ -18,8 +18,8 @@ export interface FlashPair {
 }
 import { setCardFrequency } from "@/lib/sr/frequency";
 import type { CardMap } from "@/lib/persist-queue";
-import type { CardMapRefFacade } from "@/store/useCardMapStore";
-import { cardRepository } from "@/lib/repositories/cardRepository";
+import type { CardMapRefFacade } from "@/store";
+import { cardRepository } from "@/lib/repositories";
 
 import { logger } from "@/lib/logger";
 interface UseCardCRUDParams {

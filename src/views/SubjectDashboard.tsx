@@ -1,6 +1,6 @@
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { useCardData, useCategoryData, useCategoryActions } from "@/contexts/AppContext";
-import { useCardsByCategory } from "@/store/useCardSelectors";
+import { useCardsByCategory } from "@/store";
 import { useMemo, useState } from "react";
 import {
   ArrowLeft, BookMarked, Brain, RefreshCw, AlertTriangle,

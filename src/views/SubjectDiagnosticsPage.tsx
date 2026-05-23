@@ -2,7 +2,7 @@ import { useMemo, lazy, Suspense } from "react";
 import { Link, useParams } from "react-router-dom";
 import { ArrowLeft, AlertTriangle, Brain } from "lucide-react";
 import { useCardData, useCategoryData, useReviewData, useCardOnlyActions } from "@/contexts/AppContext";
-import { useCardsByCategory } from "@/store/useCardSelectors";
+import { useCardsByCategory } from "@/store";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { Skeleton } from "@/components/ui/skeleton";
 import FrequentErrors from "@/pages/FrequentErrors";

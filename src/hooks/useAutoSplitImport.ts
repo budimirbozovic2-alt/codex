@@ -7,7 +7,7 @@
 import { useCallback, useEffect, useMemo, useReducer, useState } from "react";
 import { toast } from "sonner";
 import { useCardOnlyActions } from "@/contexts/AppContext";
-import { useCardsBySource } from "@/store/useCardsBySource";
+import { useCardsBySource } from "@/store";
 import { detectArticles } from "@/lib/auto-split-engine";
 import type { Source } from "@/lib/sources-storage";
 import {

@@ -3,7 +3,7 @@ import ExamSidebar from "@/components/ExamSidebar";
 import { cn } from "@/lib/utils";
 import type { Source } from "@/lib/sources-storage";
 import { saveSource } from "@/lib/sources-storage";
-import { useSourceReaderStore, WIDTH_CLASSES } from "@/store/useSourceReaderStore";
+import { useSourceReaderStore, WIDTH_CLASSES } from "@/store";
 import { useSourceReaderActions } from "@/hooks/useSourceReaderActions";
 import { SourceToolbar } from "@/components/source-reader/SourceToolbar";
 import { SourceContent } from "@/components/source-reader/SourceContent";

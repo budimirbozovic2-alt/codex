@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef } from "react";
-import { useSourceReaderStore } from "@/store/useSourceReaderStore";
+import { useSourceReaderStore } from "@/store";
 
 /**
  * DOM selection capture + global click-away reset for the source reader.

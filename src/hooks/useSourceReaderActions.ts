@@ -10,8 +10,8 @@
  * handling. Decomposed in line with the orchestrator architecture.
  */
 import { useMemo } from "react";
-import { useCardsByCategory } from "@/store/useCardSelectors";
-import { useCardsBySource } from "@/store/useCardsBySource";
+import { useCardsByCategory } from "@/store";
+import { useCardsBySource } from "@/store";
 import { sanitizeHtml } from "@/lib/sanitize";
 import type { Source } from "@/lib/sources-storage";
 import { useSourceSelection } from "@/hooks/source-reader/useSourceSelection";

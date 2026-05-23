@@ -5,7 +5,7 @@ import { type Source } from "@/lib/db";
 import type { Card } from "@/lib/spaced-repetition";
 import { useCategorySources } from "@/hooks/useCategorySources";
 import { useCardData, useCategoryData, useCardOnlyActions } from "@/contexts/AppContext";
-import { useCardsByCategory } from "@/store/useCardSelectors";
+import { useCardsByCategory } from "@/store";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import SourceReader from "@/components/SourceReader";
 import SourcesTab from "@/components/category/SourcesTab";

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, type RefObject } from "react";
 import { toast } from "sonner";
 import type { Source } from "@/lib/sources-storage";
-import { useSourceReaderStore } from "@/store/useSourceReaderStore";
+import { useSourceReaderStore } from "@/store";
 import {
   applyHeadingChange, applyListWrap, collectIntersectingBlocks,
 } from "@/lib/source-reader/source-html-pipeline";
