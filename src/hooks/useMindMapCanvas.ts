@@ -260,8 +260,9 @@ export function useMindMapCanvas(doc: MindMapDoc) {
   // Auto-save 30s
   useEffect(() => {
     if (!dirty) return;
-    const timer = setTimeout(() => { void handleSave().catch(() => { /* surfaced via toast */ }); }, 30000);
-    return () => clearTimeout(timer);
+    const timer = taskScheduler.setTimeout(() => { void handleSave().catch(() => { /* surfaced via toast */ }); }, 30000, { label: "mindmap:autosave" });
+    return () => taskScheduler.cancel(timer);
+
   }, [dirty, handleSave]);
 
   // V3: Flush on unmount + beforeunload guard so route-change or window-close
