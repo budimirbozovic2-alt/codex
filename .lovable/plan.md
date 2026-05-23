@@ -1,144 +1,176 @@
-# Plan: Analytics + FSRS u Web Worker (Ograničenje #3)
 
-Cilj: skinuti sa main thread-a sve teške `reduce`/`map` petlje (analitika, masteryData, activityData, FSRS batch retrievability) tako da renderovanje dashboard-a za 15k kartica više ne blokira UI. Glavna nit ostaje na 144 FPS, grafici prikazuju skeleton dok worker računa.
+# Plan: Razdvajanje Boot Sekvence i Migracija (Ograničenja #6 + #7)
 
-## Scope
+## Trenutno stanje
 
-In:
-- `src/lib/analytics/**` (interference, stability, friction, blind-spots, recovery)
-- Teški blokovi iz `useStatsData` (`activityData`, `masteryData`, `ratioHistory`, `levelCounts`)
-- FSRS batch izračuni koji se zovu samo za analitiku (avg retrievability, future R, `getCardMasteryLevel` po kartici, `getSectionScore` agregacije)
-- `useCardAggregates` ostaje na main thread-u (mali, dirty-tracked, koristi se za routing/badge — premalo da bi opravdao serializaciju)
+`useCardBootstrap` orkestrira sve sekvencijalno: `bootDb → runMigrations → loadInitialData → normalizeCategories → setState`. State machine (`src/lib/boot/bootStateMachine.ts`) već postoji, ali:
 
-Out (sljedeća iteracija):
-- IDB čitanje iz worker-a (sad worker prima snapshote)
-- `localStorage` čitanje iz worker-a (main thread serijalizuje `loadCalibration/loadLatency/loadDisciplineLog/loadPlanner` snapshote i šalje uz request)
-- FSRS koji se koristi za grading (`calculateNextReview` ostaje sinkron — kritičan path, ne smije biti async)
-- Dexie/Repository sloj
+- **`runMigrations` miješa tri stvari**: Dexie verzioni upgrade (`migrateFromLocalStorage`), data migracije (mnemonics, frequency tags), i data healing (`healCardTaxonomy`).
+- **`normalizeCategories` je *drugi* heal pass** — phantom prune + fallback subcat synthesis — koji se izvršava poslije `loadInitialData`, dakle van faze "migrating".
+- **Granularnost grešaka je 0**: bilo koji throw padne u jedan `catch` koji emituje `CORRUPTED` sa generičkom porukom. Korisnik vidi splash error, ali ne zna *koja* faza je pukla, da li je heal idempotentan, niti može pokrenuti recovery.
+- **Nema UI konzumera `useBootState()`** — `BootStateProvider` je trenutno no-op wrapper. Sva UX se i dalje radi kroz `splash.ts` DOM manipulaciju (`splash-progress`, `splash-error`).
 
-## Arhitektura
+## Šta želimo
+
+Tri eksplicitne, nezavisno fail-safe faze, svaka sa svojim error stanjem i recovery akcijom, vidljive kroz `useBootState()`:
 
 ```text
-UI (StatsPage, MyStats, SubjectDiagnosticsPage)
-        │
-        │ thin hook  ──────────────────────────┐
-        ▼                                       │
-useAnalyticsWorker()                            │
-  • lazy worker singleton                       │ skeleton dok promise pending
-  • Comlink.wrap<AnalyticsAPI>                  │
-  • request keying (hash deps → cache)          │
-  • AbortSignal po pozivu                       │
-        │                                       │
-        ▼                                       │
-analytics.worker.ts (module worker)             │
-  ├─ Comlink.expose(api)                        │
-  ├─ src/lib/analytics/_pure/**  ◄── moved      │
-  ├─ src/lib/sr/_pure/**  (retrievability,      │
-  │                       getSectionScore,      │
-  │                       getCardMasteryLevel)  │
-  └─ chart-aggregators/  (activityData,         │
-                          masteryData,          │
-                          ratioHistory,         │
-                          levelCounts)          │
+  Phase 1: SCHEMA           Phase 2: HEAL              Phase 3: LOAD/RENDER
+  ─────────────────         ─────────────────          ─────────────────
+  ensureDbOpen              healCardTaxonomy           idbLoad* (parallel)
+  Dexie upgrade             normalizeCategories        cache init
+  legacy migrations         frequency-tag migrate      repository.replaceAll
+  outbox WAL recovery       (sve idempotentno)         transition(READY)
+  ↓                         ↓                          ↓
+  schema-error              heal-error                 load-error
+  (blocked/version)         (recoverable, skip)        (corrupted)
 ```
 
-Worker je **stateless**: svaki poziv prima `{ cards, reviewLog, snapshots }` i vraća već agregirane podatke. Glavna nit drži SSOT.
+Pravilo: **schema mora uspjeti** (bez nje nema ničega), **heal je best-effort i skippable** (čak i ako sve heal-funkcije puknu, app boot-uje sa "Heal preskočen" toast-om), **load grešku tretiramo kao corrupted** ali dajemo recovery akcije (Recover from backup / Reset DB / Continue read-only).
 
-## Inkrementalna isporuka (5 PR-ova, redoslijed)
+## Implementacija — 5 PR-ova
 
-### PR-1 — Pure split (preparatory, zero behavior change)
-Razdvojiti analytics i sr module u `_pure/` granu — bez React, DOM, localStorage, Dexie importa.
-- `src/lib/analytics/_pure/interference.ts` — čista funkcija nad `Card[]`
-- `src/lib/analytics/_pure/stability.ts` — funkcija prima `{ disciplineLog, planner }` umjesto `loadDisciplineLog()/loadPlanner()`
-- `src/lib/analytics/_pure/friction.ts` — prima `latencyLog`
-- `src/lib/analytics/_pure/blind-spots.ts` — prima `calibration`; `calcWeakHooks` ostaje na main (piše u IDB)
-- `src/lib/analytics/_pure/recovery.ts` — prima `disciplineLog`
-- `src/lib/sr/_pure/aggregations.ts` — re-export `getSectionScore`, `getCardMasteryLevel`, retrievability helpers (bez side-effect importa)
-- Postojeći fajlovi postaju thin adapteri: čitaju localStorage pa zovu `_pure`.
-- ESLint pravilo (`no-restricted-imports`) za `_pure/**` zabranjuje `@/lib/storage`, `localStorage`, `@/contexts/**`, `@/lib/db**`, `react`.
+### PR-1 — Proširi state machine sa tri eksplicitne faze
 
-Test: postojeći testovi prolaze nepromijenjeni (samo refactor).
+`src/lib/boot/bootStateMachine.ts`:
+- Zamijeniti generički `migrating` sa tri stanja:
+  - `{ type: "schema"; pct: number; label: string }`
+  - `{ type: "healing"; pct: number; label: string; skipped: string[] }`
+  - `{ type: "loading"; pct: number; label: string }` (već postoji)
+- Nova error stanja: `{ type: "schema-error"; cause: SchemaErrorCause; message: string }` (cause ∈ `version | blocked | timeout | unknown`) i `{ type: "load-error"; message: string }`. `corrupted` ostaje kao terminalno fallback za ne-recoverable greške.
+- Novi eventi: `SCHEMA_START`, `SCHEMA_PROGRESS`, `SCHEMA_DONE`, `SCHEMA_FAIL`, `HEAL_START`, `HEAL_PROGRESS`, `HEAL_STEP_FAIL` (kumulativan — dodaje u `skipped[]`, ne menja fazu), `HEAL_DONE`, `LOAD_FAIL`, `RECOVERY_REQUESTED`.
+- Reducer: schema-error → može u `schema` kroz `RECOVERY_REQUESTED` (retry); heal-error nema (heal step fail ne mijenja fazu); load-error → može u `loading` kroz `RECOVERY_REQUESTED`.
+- Update `src/test/boot-state-machine.test.ts` da pokriva nove tranzicije, naročito da `HEAL_STEP_FAIL` ne izbacuje iz `healing` faze.
 
-### PR-2 — Worker skeleton + Comlink
-- `bun add comlink`
-- `src/workers/analytics.worker.ts` — `Comlink.expose({ runInterference, runStability, runFriction, runBlindSpots, runRecovery, buildChartData })`
-- `src/lib/analytics/workerClient.ts` — lazy singleton:
-  - `new Worker(new URL("../../workers/analytics.worker.ts", import.meta.url), { type: "module" })`
-  - `Comlink.wrap<AnalyticsAPI>(worker)`
-  - `terminate()` na `beforeunload` (via `taskScheduler` lifecycle)
-  - request keying: `hash(cards.length + reviewLog.length + lastReviewTs) → Promise` cache, 30s TTL
-- Fallback: u test env (`vitest`) i ako `typeof Worker === "undefined"` → sync poziv `_pure` funkcija.
+Stari eventi (`MIGRATE_START`, `MIGRATE_DONE`, `OPEN_*`) ostaju kao **deprecated aliasi** koji mapiraju na nove (radi backward kompat sa `bootDb.ts` koji još emituje `OPEN_*`).
 
-Test: `src/test/analytics-worker-roundtrip.test.ts` — mockuje Worker, provjerava da Comlink RPC vraća isti rezultat kao sync.
+### PR-2 — Razdvoji `runMigrations` u `runSchema` + `runHeal`
 
-### PR-3 — Chart aggregators u worker
-Migrirati teške memo blokove iz `useStatsData`:
-- `activityData` (dva puna prolaza kroz `reviewLog` + `cards`)
-- `masteryData` (prolaz kroz sve sections × `getSectionScore`)
-- `ratioHistory` (već `useDeferredCompute`, ali svejedno na main thread-u; sad worker)
-- `levelCounts` (prolaz kroz sve kartice × `getCardMasteryLevel`)
-- `categoryChartData` (jeftin, ostaje na main)
+`src/hooks/card-bootstrap/runSchema.ts` (novo):
+- Sadrži: `migrateFromLocalStorage` (Dexie upgrade), `migrateMnemonicsFromLocalStorageToIDB`, `recoverOutboxOnBoot`.
+- Sve unutar `withTimeout`; ako bilo koji baci, emituje `SCHEMA_FAIL` sa konkretnim korakom u poruci i throw-uje (orchestrator hvata).
+- Emituje `SCHEMA_PROGRESS` sa labelama "Schema upgrade…", "Mnemonics migracija…", "Outbox recovery…".
 
-Novi hook `useStatsDataAsync` vraća `{ ...sync, charts: ChartBundle | null }`. `MyStats` prikazuje `<TabSkeleton />` dok je `charts === null`.
+`src/hooks/card-bootstrap/runHeal.ts` (novo):
+- Sadrži: `healCardTaxonomy`, plus poziva nov `healCategoryShapes(catRecords, cards)` ekstraktovan iz `normalizeCategories.ts` (legacy string[] → SubcategoryNode[], phantom prune, fallback synthesis).
+- Svaki heal korak u svom `try/catch`; ako padne, log + `transition({ type: "HEAL_STEP_FAIL", step: "taxonomy" | "categoryShapes" | ... })` i nastavlja sa sljedećim. Heal nikada ne throw-uje na gore.
+- Vraća `{ finalRecords, skippedSteps: string[] }`.
 
-### PR-4 — Analytics konzumeri (SubjectDiagnosticsPage, OverviewTab, ResistanceTab itd.)
-Zamijeniti direktne pozive (`calcInterferencePairs(cards)`) sa:
+`src/hooks/card-bootstrap/normalizeCategories.ts`:
+- Ostaje kao čista pure funkcija `normalizeCategoryShapes(input): { records, needsPersist }` (no DB write, no logger.warn na fail — vraća rezultat).
+- IDB persist se izdvaja u zaseban helper koji `runHeal` poziva sa svojim catch wrapper-om.
+
+`runMigrations.ts` postaje shim koji poziva `runSchema()` (backward kompat za sve eksterne pozivaoce, ako ih ima — provjera kroz `rg "runMigrations"`).
+
+### PR-3 — Refaktor `useCardBootstrap` u eksplicitan DAG
+
+Novi orchestrator:
+
 ```ts
-const { data: interference } = useWorkerQuery(
-  (api) => api.runInterference(cards, { limit: 10 }),
-  [cards]
-);
+useEffect(() => {
+  (async () => {
+    try {
+      // Phase 1
+      const dbOk = await bootDb();             // emits SCHEMA_START internally
+      if (!dbOk) return;                        // state machine already in schema-error
+      await runSchema();                        // throws → caught below as schema fail
+      transition({ type: "SCHEMA_DONE" });
+
+      // Phase 2 — never throws on gore
+      const { cards, catRecords, log, settings } = await loadInitialData();
+      transition({ type: "HEAL_START" });
+      const { finalRecords, skippedSteps } = await runHeal({ cards, catRecords });
+      transition({ type: "HEAL_DONE", skipped: skippedSteps });
+
+      // Phase 3
+      cardRepository.replaceAll(arrayToMap(cards));
+      categoryRepository.replaceAll(finalRecords);
+      setReviewLogState(log);
+      setSrSettingsState(settings);
+      transition({ type: "READY" });
+    } catch (err) {
+      // Razlikuj schema-fail vs load-fail po fazi u kojoj smo bili
+      const current = getBootState();
+      if (current.type === "schema" || current.type === "opening") {
+        transition({ type: "SCHEMA_FAIL", cause: "unknown", message: msg(err) });
+      } else {
+        transition({ type: "LOAD_FAIL", message: msg(err) });
+      }
+    } finally {
+      setReady(true);  // ready=true znači "boot je završio" (ne nužno success);
+                       // UI gleda useBootState() za phase
+      cleanupSplash();
+      notifyElectronReady();
+    }
+  })();
+}, []);
 ```
-Tokom pending stanja: `<Skeleton />` umjesto blank UI. Greška u worker-u: ErrorBoundary fallback + telemetry event `ANALYTICS_WORKER_ERROR`.
 
-### PR-5 — FSRS retrievability batch
-Pozive tipa `cards.forEach(c => c.sections.forEach(s => ...computeRetrievability(s)))` zamijeniti sa `api.computeRetrievabilityBatch(cards)` koji vraća `Map<sectionId, number>`. Koristi se u `useCardAggregates` *samo* za bucket "critical/risk" prikaza (ne za FSRS grading u review modu).
+Ključna promjena: `loadInitialData` se premešta **iznad** heal-a (heal je sada čisto post-load operacija), što odgovara user mentalnom modelu "schema → load → fix data → render".
 
-## Tehnički detalji
+Panic timer (8s) ostaje, ali ako se okine i state nije `ready`, emituje `transition({ type: "LOAD_FAIL", message: "Panic timeout" })` umjesto da samo forsira `ready=true`.
 
-**Transfer strategija**
-- Šaljemo strukturirano-klonirane plain objekte (ne `Card` instance — već su to plain JSON-like u SSOT-u).
-- Velike payload-e (>5MB) razmotriti `transferable` ArrayBuffer + custom binary, ali tek u v2 ako Comlink overhead postane mjerljiv.
+### PR-4 — `BootRecoveryGate` komponenta
 
-**Cancellation**
-- Comlink ne podržava nativno abort; implementiramo `requestId`-based gate u worker klijentu: nova request s istim ključem invalidira ranije promise-ove (`.then` postaje no-op kroz `cancelled` flag).
+`src/contexts/boot/BootRecoveryGate.tsx` (novo) — postavlja se kao child od `BootStateProvider` (ili oko App-a u `main.tsx`):
 
-**Worker lifecycle**
-- Singleton instanciran lazy na prvi poziv (ne na app boot — ne kvarimo TTI).
-- `terminate()` registrovan kroz `taskScheduler.onShutdown()` (postoji per memory `Task Scheduler`).
-- HMR: u dev modu `import.meta.hot?.dispose(() => worker.terminate())`.
+```tsx
+const state = useBootState();
+if (state.type === "schema-error") return <SchemaErrorScreen state={state} />;
+if (state.type === "load-error" || state.type === "corrupted") return <LoadErrorScreen state={state} />;
+// healing/loading: koristi postojeći splash (DOM-based), ali optional in-React overlay sa skipped[] preview
+return <>{children}</>;
+```
 
-**Vite/Electron**
-- `new Worker(new URL(...), { type: "module" })` — Vite zna bundle-ovati. Electron CSP već dozvoljava `worker-src 'self' blob:` (per memory `Electron Infrastructure v4`).
-- Test env: `vitest` koristi happy-dom; fallback grana izvršava sync na main da bi testovi ostali deterministički.
+`SchemaErrorScreen` (novo, `src/components/boot/`):
+- Mapira `cause` u user-friendly poruku: `version` → "Verzija baze ne podudara sa instaliranom aplikacijom" + dugme "Force reload (close other tabs)"; `blocked` → "Druga instanca CODEX-a drži bazu otključanom"; `timeout` → "Baza se nije otvorila u 6s"; `unknown` → tehnička poruka.
+- Akcije: **Retry** (emituje `RECOVERY_REQUESTED`, reload window), **Export current data** (poziva existing backup eksport ako je DB djelimično dostupna), **Reset DB** (delete + reload sa potvrdom).
 
-**Telemetry**
-- Novi event `ANALYTICS_WORKER_ERROR` u `src/lib/event-bus-types.ts`.
-- Mjerenje: `performance.mark("analytics:req")` u klijentu, šaljemo `durationMs` u logger za prve N poziva (dev only).
+`LoadErrorScreen` (novo):
+- Iste 3 akcije + **Continue with empty state** (emituje `READY`, app radi sa praznim repositorima — read-only za korisnika dok ne uradi restore).
 
-## Ograničenja / open questions
+Ovo eliminiše "bijeli ekran smrti" — korisnik uvijek dobije akcijabilni screen.
 
-1. **Storage čitanje**: `loadCalibration/loadLatency/loadDisciplineLog/loadPlanner` u PR-1 ostaju na main thread-u. To znači da svaki request mora serijalizovati i te snapshote (uvijek mali, <1MB ukupno). Alternativa: kasnije migrirati ova tri loga u IDB pa worker čita direktno. Odluka za sad: **main snapshot-uje, šalje uz request**.
-2. **`calcWeakHooks`** mutira mnemonic kartice i piše IDB — ostaje na main thread-u u potpunosti (nije OLAP, već write path).
-3. **Bundle size**: worker chunk će uvući `date-fns`, dio FSRS-a, sve analytics module. Procjena ~40-60 KB gzip; prihvatljivo jer se učitava lazy.
-4. **Da li `useCardAggregates` migrirati?** Preporuka: **ne**. Koristi se za routing badge-ove i mora biti dostupno odmah; trenutno već radi dirty-tracking i je <5ms za 15k kartica. Async overhead bi ga pogoršao.
+### PR-5 — Splash bridge + telemetrija
 
-## Šta NE diramo
+`splash.ts`:
+- Dodati `subscribeBootState` listener koji automatski mapira fazu u splash UI (pct, label). Ručni `splashProgress()` pozivi se uklanjaju iz `bootDb/runSchema/loadInitialData/runHeal` — single source of truth postaje state machine.
+- `cleanupSplash` se sada okida na `READY | schema-error | load-error`, ne više u `finally` blok-u orchestratora.
 
-- FSRS grading (`calculateNextReview`, `gradeSection`) — sinkron, kritičan path
-- Pure UUID taxonomy
-- Dexie shema / repositori sloj
-- Ref-Delta pattern
-- Provider tree, AppContext SSOT
-- DM Sans + 6-tema paleta
-- Test scheduler primitive
+Telemetrija:
+- Novi event u `boot-trace`: `boot:phase:enter` i `boot:phase:exit` sa duration. Dobijamo prirodni waterfall: schema 320ms, heal 80ms, load 410ms.
+- Ako `HEAL_STEP_FAIL` ima items u `skipped[]` na kraju, dodati `boot:heal-degraded` step sa listom — pomaže debug.
 
-## Acceptance criteria
+### Testovi (uz svaki PR, ali izdvojeno radi pregleda)
 
-- [ ] StatsPage open sa 15k kartica: main thread idle gap >50ms ne smije se pojaviti tokom inicijalnog rendera
-- [ ] Skeleton vidljiv <16ms od mount-a; pravi grafik <1s na M1 baseline
-- [ ] Postojeći analytics testovi prolaze (re-eksportovani `_pure` ekvivalenti)
-- [ ] Novi `analytics-worker-roundtrip.test.ts` pokriva svih 5 RPC metoda
-- [ ] ESLint guard sprječava direktne importe iz `_pure/**` u storage/db/react module
-- [ ] U test env-u nema padova zbog `Worker` undefined (sync fallback)
-- [ ] Worker termiranje radi na app close (Electron quit + browser beforeunload)
+`src/test/boot-orchestrator.test.ts` (novo):
+1. **happy path** — schema OK → heal OK → load OK → state završava u `ready`.
+2. **schema fail** — `migrateFromLocalStorage` throw → state `schema-error`, `loadInitialData` se *ne* poziva.
+3. **heal partial fail** — `healCardTaxonomy` throw, `healCategoryShapes` OK → state ide kroz `healing` u `loading` u `ready`, `skipped: ["taxonomy"]` vidljiv.
+4. **load fail** — `idbLoadCards` throw → state `load-error`, repositori ostaju prazni.
+5. **panic timeout** — promise nikad ne riješi → 8s panic → `LOAD_FAIL` emit, splash forsiran, `ready=true`.
+
+Mock `idbLoadCards`, `migrateFromLocalStorage`, itd. preko `vi.mock`.
+
+## Tehničke odluke
+
+- **Bez XState** — `BootEvent`/`reduce` pattern je već imamo i dovoljno je za 7 stanja. Dodatna dep nije opravdana.
+- **Heal je idempotentan i pojedinačni step-ovi su `try`-wrapped** — to znači da boot uvijek napreduje; degradiranje je vidljivo ali ne blokira.
+- **`bootDb.ts` ostaje** ali interno emituje nove `SCHEMA_*` evente (preko alias mapinga iz PR-1). Ne želimo touch-ati `ensureDbOpen` API.
+- **Backward kompat alias-i u state machine-u** se uklanjaju u zasebnom cleanup PR-u nakon što sve potvrdimo.
+- **`finally { setReady(true) }`** ostaje radi parent komponenata koje gate-uju render na `ready`, ali stvarno health stanje čita `BootRecoveryGate`.
+
+## Šta NE radimo u ovom planu
+
+- Migracija na pravi DAG runner (npr. odvajanje cache init / outbox recovery u paralelne grane) — to je sljedeći korak nakon što imamo fazni okvir.
+- Schema-version aware migracije (`from`/`to` su trenutno 0/0 placeholderi) — može u zasebnom PR-u kada budemo imali numbered migration scripts.
+- Restore-from-backup unutar `LoadErrorScreen` — koristi postojeći backup engine, nije nova funkcionalnost.
+
+## Acceptance kriterijumi
+
+- `useBootState()` u dev konzoli prolazi kroz `idle → opening → schema → healing → loading → ready` u happy path-u.
+- Namjerno baci u `healCardTaxonomy` → app boot-uje, vidljiv "Heal degradiran: taxonomy" indikator.
+- Namjerno baci u `migrateFromLocalStorage` → SchemaErrorScreen sa Retry/Reset/Export.
+- Namjerno baci u `idbLoadCards` → LoadErrorScreen sa "Continue empty".
+- `boot-orchestrator.test.ts` 5/5 prolazi.
+- Bundle delta < 2KB gzip (samo new module-i, bez dep-a).
