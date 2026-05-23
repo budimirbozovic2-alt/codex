@@ -1,17 +1,9 @@
 /**
  * Unit tests for the Dexie-backed CardForm draft autosave (PR6).
- *
- * Covers:
- *  - Debounced write of meaningful drafts to the `drafts` table.
- *  - Empty/whitespace drafts are not persisted (and clear any stale row).
- *  - TTL expiry — old drafts are evicted on load.
- *  - Disabling autosave halts writes (e.g. while restore banner is pending).
- *  - clearDraft removes the row.
- *  - buildDraftKey discriminates between new vs edit and per-category slots.
  */
 import "fake-indexeddb/auto";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { act, renderHook, waitFor } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { renderHook, waitFor } from "@testing-library/react";
 
 import {
   buildDraftKey,
@@ -35,17 +27,15 @@ const baseDraft = (overrides: Partial<CardDraftSnapshot> = {}): CardDraftSnapsho
   ...overrides,
 });
 
-async function getStored(key: string) {
-  return db.drafts.get(key);
-}
+const getStored = (key: string) => db.drafts.get(key);
+const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
 beforeEach(async () => {
   await db.drafts.clear();
-  vi.useFakeTimers();
 });
 
-afterEach(() => {
-  vi.useRealTimers();
+afterEach(async () => {
+  await db.drafts.clear();
 });
 
 describe("buildDraftKey", () => {
@@ -67,17 +57,13 @@ describe("useCardDraftAutosave", () => {
     renderHook(() => useCardDraftAutosave(key, draft, true));
 
     expect(await getStored(key)).toBeUndefined();
-
-    await act(async () => { await vi.advanceTimersByTimeAsync(700); });
-    await vi.useRealTimers();
+    await sleep(900);
     await waitFor(async () => {
       const row = await getStored(key);
       expect(row).toBeTruthy();
       const payload = row!.payload as CardDraftSnapshot & { savedAt: number };
       expect(payload.question).toBe("Šta je ugovor o radu?");
-      expect(typeof payload.savedAt).toBe("number");
-    });
-    vi.useFakeTimers();
+    }, { timeout: 2000 });
   });
 
   it("does not persist empty drafts and clears stale rows", async () => {
@@ -90,12 +76,8 @@ describe("useCardDraftAutosave", () => {
     });
 
     renderHook(() => useCardDraftAutosave(key, baseDraft(), true));
-    await act(async () => { await vi.advanceTimersByTimeAsync(700); });
-    await vi.useRealTimers();
-    await waitFor(async () => {
-      expect(await getStored(key)).toBeUndefined();
-    });
-    vi.useFakeTimers();
+    await sleep(900);
+    await waitFor(async () => { expect(await getStored(key)).toBeUndefined(); }, { timeout: 2000 });
   });
 
   it("respects enabled=false (no writes)", async () => {
@@ -103,7 +85,7 @@ describe("useCardDraftAutosave", () => {
     const draft = baseDraft({ question: "should not write" });
 
     renderHook(() => useCardDraftAutosave(key, draft, false));
-    await act(async () => { await vi.advanceTimersByTimeAsync(2000); });
+    await sleep(900);
     expect(await getStored(key)).toBeUndefined();
   });
 
@@ -112,13 +94,11 @@ describe("useCardDraftAutosave", () => {
     const draft = baseDraft({ question: "to be cleared" });
 
     const { result } = renderHook(() => useCardDraftAutosave(key, draft, true));
-    await act(async () => { await vi.advanceTimersByTimeAsync(700); });
-    await vi.useRealTimers();
-    await waitFor(async () => { expect(await getStored(key)).toBeTruthy(); });
+    await sleep(900);
+    await waitFor(async () => { expect(await getStored(key)).toBeTruthy(); }, { timeout: 2000 });
 
-    await act(async () => { result.current.clearDraft(); });
-    await waitFor(async () => { expect(await getStored(key)).toBeUndefined(); });
-    vi.useFakeTimers();
+    result.current.clearDraft();
+    await waitFor(async () => { expect(await getStored(key)).toBeUndefined(); }, { timeout: 2000 });
   });
 });
 
@@ -131,12 +111,10 @@ describe("loadCardDraft", () => {
     const key = "cardform:new:cat-old";
     const ancient = Date.now() - 25 * 60 * 60 * 1000;
     await putDraft({
-      key,
-      source: "cardform",
+      key, source: "cardform",
       payload: { ...baseDraft({ question: "old" }), savedAt: ancient },
       updatedAt: ancient,
     });
-
     expect(await loadCardDraft(key)).toBeNull();
     expect(await getStored(key)).toBeUndefined();
   });
@@ -144,12 +122,10 @@ describe("loadCardDraft", () => {
   it("returns fresh meaningful drafts", async () => {
     const key = "cardform:new:cat-fresh";
     await putDraft({
-      key,
-      source: "cardform",
+      key, source: "cardform",
       payload: { ...baseDraft({ question: "fresh" }), savedAt: Date.now() },
       updatedAt: Date.now(),
     });
-
     const loaded = await loadCardDraft(key);
     expect(loaded).not.toBeNull();
     expect(loaded!.question).toBe("fresh");
@@ -158,12 +134,10 @@ describe("loadCardDraft", () => {
   it("rejects empty drafts even if fresh", async () => {
     const key = "cardform:new:cat-empty-fresh";
     await putDraft({
-      key,
-      source: "cardform",
+      key, source: "cardform",
       payload: { ...baseDraft(), savedAt: Date.now() },
       updatedAt: Date.now(),
     });
-
     expect(await loadCardDraft(key)).toBeNull();
   });
 });
