@@ -1,149 +1,175 @@
-# Plan: IDB kao jedini SSOT, RAM kao per-view keš
+# Plan: ESLint Public API zidovi + Task Scheduler
 
-## Cilj
-
-Preokrenuti trenutnu invariantu: umjesto „RAM (`cardMapStore` + `categoryRecords`) drži cijelu bazu, IDB je log za persist", uvodimo „IDB je istina, RAM je samo materijalizovani prozor za trenutno aktivni view". Time padaju četiri cijela podsistema (cardCommandBus mutex, useCardSyncEffects sa BroadcastChannel sinhronizacijom, useCardAggregates+bucketFingerprint, persistQueue.cleanup() prije čitanja) jer postaju nepotrebni.
-
-Migracija je **inkrementalna, 6 faza, sa feature flag-om**, bez razbijanja postojećeg koda. Svaka faza je samostalno mergable i revertable.
+Dva nezavisna ali komplementarna posla. Mogu se mergati odvojeno; ne diraju runtime ponašanje (osim Schedulera koji centralizuje već postojeće timere).
 
 ---
 
-## Faza 0 — Temelj: indeksi i query layer (1-2 sedmice)
+## Dio A — ESLint Public API zidovi
 
-**Cilj:** dati IDB-u sve indekse koje view-ovi trebaju, da Dexie liveQuery može biti brz koliko i RAM filter.
+**Cilj:** spriječiti deep import-e u domene koje sada imaju jasan public API (repositories, store, lib/db), tako da naredne faze IDB-as-SSOT migracije ne dobiju nove "back-door" ulaze. Ovo je čisto lint pravilo — zero runtime change.
 
-1. **`db-schema.ts` v12+**: dodati indekse na `cards`:
-   - `categoryId`, `subcategoryId`, `chapterId`, `sourceId`
-   - kompozitni: `[categoryId+nextReview]`, `[categoryId+status]`, `[categoryId+type]`
-   - MultiEntry: `*tags`, `*links`
-2. **Novi modul `src/lib/db/queries/cards.ts`**: čisti named queries (`cardsByCategory(id)`, `cardsBySource(id)`, `dueCards(categoryId, limit)`, `cardCount(filter)`). Svaki vraća `liveQuery()` Observable + sinkroni `.toArray()` varijantu.
-3. **Migracija postojećeg `db-queries.ts`** — ostaje, ali se interno preusmjerava na nove queries.
-4. **Relaksirati Core pravilo**: „No `useLiveQuery` in primary views" → „No `useLiveQuery` for unbounded reads bez indeksa ili `.limit()`". Bez ovoga faze 2-4 su blokirane.
-5. **Bench harness** (`src/test/perf/`): script koji puni IDB sa 5k, 20k, 50k kartica i mjeri `cardsByCategory` (liveQuery) vs trenutni `useCardData().cards.filter()`. Cilj: <16ms na 20k kartica.
+### A1. Repositories barrel
 
-**Izlaz:** indeksi mergovani, ali nijedan view još ne koristi liveQuery. Zero behavior change.
+1. Kreirati `src/lib/repositories/index.ts` koji re-exportuje samo javni API:
+   - `cardRepository`, `categoryRepository`, `reviewLogRepository`, `settingsRepository`
+   - `cardMapInvalidator`, `categoryStateInvalidator` (samo za boot/test setup)
+2. Interne helpere (npr. privatne `commit`/`rollback` util-e ako se izdvoje) ne re-eksportovati.
+
+### A2. Store barrel
+
+1. Kreirati `src/store/index.ts` sa javnim hook-ovima:
+   - `useCardMap*`, `useCardSelectors*`, `useCardsBySource`, `useCategory*`, `useSourceReaderStore`.
+2. `useCardSelectorsFromDb` ostaje dostupan kao opt-in (export-ovan, ali sa JSDoc napomenom da je iza feature flag-a).
+
+### A3. db barrel hardening
+
+1. `src/lib/db/index.ts` (ako ne postoji, kreirati) eksportuje samo `db`, schema verzije i `queries/*` named queries.
+2. Direktan `import { db } from "@/lib/db"` ostaje, ali se zabranjuje **van** `src/lib/**`, `src/contexts/**`, `src/hooks/card-bootstrap/**` i `src/test/**` (views već imaju to pravilo — proširujemo na komponente/features).
+
+### A4. ESLint pravila (`eslint.config.js`)
+
+Dodati novi override blok:
+
+```js
+// Public API walls — block deep imports into walled modules
+{
+  files: ["src/**/*.{ts,tsx}"],
+  ignores: [
+    "src/lib/repositories/**",
+    "src/store/**",
+    "src/lib/db/**",
+    "src/test/**",
+  ],
+  rules: {
+    "no-restricted-imports": ["error", {
+      patterns: [
+        { group: ["@/lib/repositories/*"], message: "Importuj iz `@/lib/repositories` barrel-a." },
+        { group: ["@/store/*"],            message: "Importuj iz `@/store` barrel-a." },
+        { group: ["@/lib/db/queries/*"],   message: "Importuj iz `@/lib/db` barrel-a." },
+      ],
+    }],
+  },
+},
+```
+
+`@/features/*/*` već postoji — ostaje nepromijenjen.
+
+### A5. Migracija postojećih import-a
+
+- `rg "@/lib/repositories/(card|category|reviewLog|settings)" -l` → preusmjeriti na barrel.
+- `rg "@/store/(useCard|useCategory|useSource|useCardsBy)" -l` → barrel.
+- Sanctioned izuzeci (boot, testovi) ostaju kako jesu (pokrivenо `ignores`).
+
+### A6. Test
+
+`src/test/eslint-public-api.test.ts` — programmatic ESLint run nad fixturom koji pokušava deep import; očekuje grešku. Time se pravilo brani od slučajnog ublažavanja.
+
+**Izlaz A:** ~50 file-ova migrirano na barrel import-e, 3 nova pravila, 1 novi test. Zero behavior change.
 
 ---
 
-## Faza 1 — Granularni selektori iz RAM-a (1 sedmica)
+## Dio B — Centralizovani Task Scheduler
 
-**Cilj:** prestati koristiti `useCardData().cards.filter(...)` u view-ovima, ali bez napuštanja `cardMapStore`. Ovo je "vežbanje" arhitekture prije nego što IDB postane SSOT.
+**Cilj:** sve raspršene `setTimeout` / `setInterval` / `requestIdleCallback` pozive (46+ mjesta) provući kroz jedan modul koji:
 
-Dodati u `src/store/` (analogno postojećem `useCardsBySource`):
-- `useCardsByCategory(categoryId)`
-- `useCardsByChapter(chapterId)`
-- `useCardsBySubcategory(subId)`
-- `useCardCount(filter)` — vraća samo broj
-- `useDueCards(categoryId, limit)` — već filtrirano i sortirano
+- vodi registar aktivnih zadataka (debug-friendly),
+- gasi sve timere pri `beforeunload` / Electron `before-quit` (sprečava IDB write nakon unload-a),
+- pauzira "low-priority" zadatke kad je tab skriven (`document.visibilityState === "hidden"`) i nastavlja ih pri povratku,
+- daje jednu putanju za testove (`vi.useFakeTimers()` + ručno `scheduler.flush()`).
 
-Svaki koristi `useSyncExternalStore` sa selector funkcijom + stable reference (kao postojeći `useCardsBySource`). Re-render samo kad se *matched set* mijenja.
+Ne diramo: Pomodoro engine (mora tačno tikati), notification scheduler (već domenski), Electron native timere.
 
-**Migracioni rad:** zamijeniti sve `useCardData().cards.filter(...)` pozive (oko 30-40 mjesta) na granularne selektore. `useCardData()` ostaje samo za: Backup, GlobalSearch, dijagnostika.
+### B1. Novi modul `src/lib/scheduler/taskScheduler.ts`
 
-**Izlaz:** view-ovi i dalje čitaju iz RAM-a, ali sa granularnom reaktivnošću. Mjerljivo: re-render count po mutaciji pada 5-10x.
+API:
 
----
-
-## Faza 2 — Dexie-backed selektori iza feature flag-a (2 sedmice)
-
-**Cilj:** paralelna implementacija svakog selektora iz Faze 1, ali sa `liveQuery` iz IDB. Flag `USE_DB_LIVE_SELECTORS` u `app-settings.ts`.
-
-Za svaki Faza-1 selektor, `*FromDb` varijanta:
 ```ts
-// useCardsByCategoryFromDb.ts
-export function useCardsByCategory(categoryId: string) {
-  const flag = useFeatureFlag("USE_DB_LIVE_SELECTORS");
-  return flag ? useLiveQueryCards(categoryId) : useCardsByCategoryRam(categoryId);
+type Priority = "high" | "normal" | "idle";
+
+interface ScheduleOptions {
+  label: string;            // obavezan, ide u debug registar
+  priority?: Priority;      // default "normal"
+  pauseWhenHidden?: boolean;// default true za "idle", false inače
+  signal?: AbortSignal;
+}
+
+scheduler.setTimeout(fn, ms, opts): TaskHandle
+scheduler.setInterval(fn, ms, opts): TaskHandle
+scheduler.idle(fn, opts): TaskHandle           // rIC sa setTimeout fallback-om
+scheduler.debounce(fn, ms, opts): (...args) => void
+scheduler.cancel(handle): void
+scheduler.cancelByLabel(prefix): number
+scheduler.snapshot(): { label, priority, scheduledAt, kind }[]
+scheduler.shutdown(): void                      // poziva se iz beforeunload
+```
+
+Interno: `Map<TaskHandle, TaskRecord>`. `pauseWhenHidden` zadaci se na `visibilitychange → hidden` čuvaju (preostali delay), na `visible` re-schedule-uju. `shutdown()` čisti sve i zaključava dalji `schedule*` (silent no-op u dev sa warning-om).
+
+### B2. `src/lib/scheduler/index.ts`
+
+Barrel + named singleton `taskScheduler`. Plus tipovi za eksternu konzumaciju.
+
+### B3. Integracija sa lifecycle-om
+
+- `src/main.tsx` — `window.addEventListener("beforeunload", () => taskScheduler.shutdown())`.
+- `preload.cjs` / `electron-integration.ts` — slušati `onBeforeQuit` (postoji u tipovima) → `shutdown()` prije `notifyQuitBackupDone()`.
+
+### B4. Migracija call-site-ova (po grupama, svaka commit-abilna zasebno)
+
+| Grupa | Fajlovi | Priority |
+|---|---|---|
+| G1 boot/splash | `card-bootstrap/splash.ts`, `withTimeout.ts`, `useCardBootstrap.ts` | high |
+| G2 debounce/draft autosave | `useDebounce.ts`, `useCardDraftAutosave.ts`, `useSourceEditing.ts`, `useNodeEditing.ts` | normal |
+| G3 idle/deferred | `useDeferredCompute.ts`, `useWikiLinkAutoCreate.ts`, `useSourceSelection.ts` | idle |
+| G4 maintenance | `log-retention.ts`, `persist-queue.ts`, `emergency-export.ts`, `event-bus.ts` (retry), `sounds.ts` | idle |
+| G5 backup | `backup/yield-ui.ts`, `zip-service.ts` | normal |
+
+**Ne diramo:** `usePomodoroEngine.ts`, `useNotificationScheduler.ts`, `useSpeedReaderEngine.ts` (RSVP tajming kritičan — ostaje raw `setTimeout` ali sa `label` komentarom).
+
+Svaki migrirani poziv dobija eksplicitan `label` (npr. `"card-draft:autosave"`) — to je jedina semantička promjena.
+
+### B5. ESLint guard (sinergija sa Dio A)
+
+Novo `no-restricted-syntax` pravilo:
+
+```js
+{
+  selector: "CallExpression[callee.name=/^(setTimeout|setInterval)$/]",
+  message: "Koristi taskScheduler iz @/lib/scheduler. Izuzeci: pomodoro, speed-reader, notifications, scheduler internals.",
 }
 ```
 
-`useLiveQueryCards` koristi `dexie-react-hooks.useLiveQuery` sa kompozitnim indeksom + `.limit(500)`.
+Sa `overrides` koji dozvoljavaju raw timere u:
+- `src/lib/scheduler/**`
+- `src/contexts/pomodoro/**`
+- `src/contexts/ui/useNotificationScheduler.ts`
+- `src/hooks/speed-reader/**`
+- `src/test/**`
 
-**Validacija:** 7-dnevni stability window. Tokom toga, oba sistema rade paralelno; dev tools provjeravaju da li RAM i IDB selektor vraćaju identičan rezultat (shallow-equal po id+updatedAt). Razilaženja logovati u IDB log table.
+`requestIdleCallback` se ne ban-uje (rijetko korišten direktno; scheduler ga interno koristi).
 
-**Izlaz:** flag default `false` u prod-u, `true` u dev-u. Posle 7 dana bez razilaženja, prebaciti na `true` globalno.
+### B6. Testovi
 
----
+- `src/test/task-scheduler.test.ts` — fake timers: schedule/cancel/flush, `pauseWhenHidden` putanja (mock `visibilitychange`), `shutdown()` čisti sve, double-shutdown idempotentan.
+- `src/test/task-scheduler-eslint.test.ts` — programmatic ESLint nad fixturom sa `setTimeout` koji nije u izuzetku.
 
-## Faza 3 — Pisanja kroz `cardRepository` direktno (1 sedmica)
-
-**Cilj:** uklanjanje `cardMapStore` mutacije iz pisanja. Pisanje ide samo u IDB; `cardMapStore` postaje *cache koji se invalidira*, ne SSOT.
-
-1. **`cardRepository`** dobija `emit(CARDS_UPDATED, {ids})` poslije svake commit operacije (već postoji preko event-bus).
-2. **`cardMapStore`** dobija pasivnu subscription na `CARDS_UPDATED`:
-   - ako su id-jevi „vrući" (u trenutnom view-u), refetch tih kartica i ažuriraj store
-   - ako nisu, samo ih obriši iz store-a (lazy refill kad ih view zatraži)
-3. **Ukloniti** sve `setCardMap(prev => ...)` pozive iz `CardActionsProvider`, `useCardCRUD`, `useAutoSplitImport` itd. — sve mutacije idu samo kroz `cardRepository`.
-4. **`useCardSyncEffects`** se uprošćava: više nema `persistQueue.cleanup() → bulkGet → applySyncDelta` dance. Postoji samo „IDB changed → invalidate hot ids".
-
-**Izlaz:** RAM je dokazano cache. Ako bi se `cardMapStore` resetovao u runtime-u, view-ovi bi se sami napunili iz IDB.
+**Izlaz B:** novi modul (~250 LOC), ~30 migriranih call-site-ova, 2 nova testa, 1 novo lint pravilo. Runtime ponašanje identično, ali sada postoji jedna tačka za debug/shutdown.
 
 ---
 
-## Faza 4 — Penzionisanje `cardCommandBus` i `useCardAggregates` (1 sedmica)
+## Redoslijed i rizici
 
-Sada kad pisanja ne diraju RAM, mutex per-cardId više ne čuva ništa.
+1. **Dio A prvo** (čisto lint, low risk, ubrzava review).
+2. **Dio B** u 5 manjih PR-ova po grupi (G1…G5), svaki sa svojim testovima.
+3. ESLint pravilo iz B5 se aktivira tek **nakon** zadnje grupe, da CI ne pukne tokom migracije.
 
-1. **`cardCommandBus.dispatch(cmd)`** → `cardRepository.<op>(...)` direktno. Fajl ostaje kao thin shim (jedan red po command type) dok se call sites ne migriraju, pa se briše.
-2. **`applySyncDelta` "updatedAt newer-wins"** logika premjestiti u `cardRepository.bulkPut` (već polu-postoji) — to je jedina vrijednost koju bus pruža.
-3. **`useCardAggregates` → `useCardCounts`**: agregati (count by category, count by status) idu na Dexie `.count()` sa indeksom, cached za 500ms. `bucketFingerprint`, `buildCardBuckets`, `card-buckets.test.ts` brisati.
+**Rizik:** previd nekog tajming-kritičnog call-site-a tokom G2/G3 migracije.
+**Mitigacija:** svaka grupa ima zaseban PR + manuelni smoke test (autosave, deferred compute, log retention).
 
-**Izlaz:** `src/lib/repositories/cardCommandBus.ts` (116 LOC), `src/contexts/cards/useCardSyncEffects.ts` (90 LOC), `src/contexts/cards/useCardAggregates.ts` (164 LOC), `src/lib/card-buckets.ts` — sve obrisano. ~500 LOC manje + 4 cijele klase grešaka eliminisane.
+**Trajanje:** Dio A ~1 dan, Dio B ~3-4 dana sa testovima.
 
----
+## Pitanja za potvrdu
 
-## Faza 5 — Isto za `categoryRecords` i ostale satellite stores (2 sedmice)
-
-Ista logika za:
-- `CategoryStateProvider` → `useCategoriesFromDb`, `useCategory(id)`, `useSubcategoriesByParent(catId)`
-- `mindmap-storage`, `sources-storage`, `zettelkasten-storage` — već imaju subscribe pattern, samo verifikovati da nigde nema dvostrukog SSOT-a
-- `planner-storage` — već ima write mutex, dobro je; samo preraditi čitanja na liveQuery gdje ima smisla
-
-`categoryRecords` Proxy iz `AppContext` se uklanja — distributed actions sada commit-uju u IDB i emit-uju event.
-
----
-
-## Faza 6 — Branded ID tipovi (paralelno sa fazama 3-5, 1 sedmica)
-
-Ne mijenja runtime, ali zatvara cijelu klasu bug-ova prije nego što arhitektura sazri:
-
-```ts
-export type CategoryId = string & { readonly __brand: "CategoryId" };
-export type CardId = string & { readonly __brand: "CardId" };
-export type SourceId = string & { readonly __brand: "SourceId" };
-```
-
-Repository funkcije i selektori uzimaju brandirane tipove. Konverzija `asCategoryId(uuid)` na rubovima (parsing, URL params, IDB read). Postojeći kod nastavlja raditi jer su to subtypes od `string`.
-
----
-
-## Šta NE diramo
-
-- `categoryDeletionService` (atomska kaskada — radi savršeno)
-- `backup-restore` migration ladder, FK remap, per-domain tx
-- `cardRepository.applySyncDelta` newer-wins logika (premiješta se, ne briše)
-- FSRS algoritam, cramming guard
-- Electron `app://localhost`, CSP, DOMPurify
-- Vizualni identitet, DM Sans, layout, Zettelkasten UX
-- Sve testove osim `card-buckets.test.ts` (taj se briše sa bucketima)
-
-## Rizici i mitigacije
-
-| Rizik | Mitigacija |
-|---|---|
-| Dexie liveQuery sporiji nego očekivano na velikim dataset-ima | Faza 0 bench prije svega ostalog; ako ne prođe — stajemo |
-| Razilaženje RAM ↔ IDB tokom Faze 2 | 7-dnevni dual-read window sa diff log-om |
-| Regresije u write-heavy putanjama (auto-split import 1000+ kartica) | Faza 3 zadržava `bulkPut` kao atom; samo se uklanja RAM mutacija |
-| `useLiveQuery` u listama sa scroll-om uzrokuje jank | Sve liveQuery sa `.limit()` + virtualizacija (već postoji u `CardList`) |
-
-## Trajanje i isporuke
-
-Ukupno **8-10 sedmica** kalendarski (sa testovima, validacijom, code review).
-
-Svaka faza je mergable samostalno. Posle Faze 1 već ima vidljive performansne dobitke; posle Faze 4 padaju ~500 LOC i 4 podsistema; posle Faze 6 tip-sistem hvata UUID mismatch greške kompajl-time.
-
-## Šta tražim od tebe za odluku
-
-1. **Da li relaksiramo Core pravilo "No `useLiveQuery` in primary views"** na "samo sa indeksom i `.limit()`"? Bez toga staje na Fazi 1.
-2. **Faze 0+1 sada, ostalo po dokazanim benchmark-ima?** Ili idemo cijelom putanjom od starta?
-3. **Branded ID tipovi (Faza 6)** — vrijedi ti ili je over-engineering za ovaj projekat?
+1. Da li je `pauseWhenHidden=true` po defaultu za `idle` prioritet OK? (alternativa: nikad ne pauzirati, samo logovati skip)
+2. Treba li scheduler imati i `runAfterFrame` (rAF) API ili rAF ostaje raw (koristi se samo u mindmap canvas-u)?
+3. Da li dozvoljavamo raw `setTimeout` u testovima bez ikakvog komentara, ili tražimo `// eslint-disable-next-line` da bude eksplicitno?
