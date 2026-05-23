@@ -1,12 +1,21 @@
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useMemo, useRef, useCallback } from "react";
 import type { SectionInput, CardType } from "./useCardActions";
 import type { FrequencyTag, CardSourceType } from "@/lib/spaced-repetition";
 import { draftRegistry } from "@/lib/drafts/draftRegistry";
-
+import { putDraft, getDraft, deleteDraft } from "@/lib/drafts/draftsTable";
+import { taskScheduler } from "@/lib/scheduler";
 import { logger } from "@/lib/logger";
+
 /**
- * Snapshot of in-progress card form state, persisted to LocalStorage so a tab
- * close, refresh, or crash never destroys minutes of typing on essay cards.
+ * Snapshot of in-progress card form state, persisted to the Dexie `drafts`
+ * table so a tab close, refresh, or crash never destroys minutes of typing on
+ * essay cards.
+ *
+ * PR6: migrated from LocalStorage → Dexie `drafts` table. Benefits:
+ *   • Unified with `usePersistedDraftMirror` / `useDraftAutosave` storage.
+ *   • Boot-recovery scanner (`draftRecovery.ts`) automatically sees these rows.
+ *   • Quota survives much larger essays than LocalStorage's ~5 MB cap.
+ *   • Debounce goes through `taskScheduler` — participates in app shutdown.
  *
  * Keying strategy:
  *   - New card  → `cardform:new:${categoryId || "global"}` (one draft per category)
@@ -32,6 +41,7 @@ interface StoredDraft extends CardDraftSnapshot {
 
 const DRAFT_TTL_MS = 24 * 60 * 60 * 1000; // 24h
 const DEBOUNCE_MS = 600;
+const DRAFT_SOURCE = "cardform";
 
 export function buildDraftKey(editCardId: string | null | undefined, categoryId: string | null | undefined): string {
   if (editCardId) return `cardform:edit:${editCardId}`;
@@ -51,61 +61,63 @@ export function useCardDraftAutosave(
   draft: CardDraftSnapshot,
   enabled: boolean,
 ) {
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const latestRef = useRef<CardDraftSnapshot>(draft);
+  const enabledRef = useRef<boolean>(enabled);
+  const keyRef = useRef<string>(draftKey);
   latestRef.current = draft;
+  enabledRef.current = enabled;
+  keyRef.current = draftKey;
 
   const flush = useCallback(() => {
-    if (!enabled) return;
+    if (!enabledRef.current) return;
+    const d = latestRef.current;
+    const key = keyRef.current;
     try {
-      const d = latestRef.current;
       if (!isMeaningful(d)) {
-        localStorage.removeItem(draftKey);
+        void deleteDraft(key);
         return;
       }
       const payload: StoredDraft = { ...d, savedAt: Date.now() };
-      localStorage.setItem(draftKey, JSON.stringify(payload));
+      void putDraft({ key, source: DRAFT_SOURCE, payload, updatedAt: payload.savedAt });
     } catch (err) {
-      // Quota exceeded or storage unavailable — fail silently in autosave.
       if (import.meta.env.DEV) logger.warn("[useCardDraftAutosave] flush failed", err);
     }
-  }, [draftKey, enabled]);
+  }, []);
 
-  // Debounced write on every change.
-  // V8: cleanup MUST flush any pending debounce — otherwise toggling `enabled`
-  // off (e.g. user closes the form within 600 ms of the last keystroke)
-  // silently discards the in-flight write.
+  // Scheduler-owned debounce — flushes on shutdown and obeys `pauseWhenHidden: false`
+  // so background saves never get starved.
+  const debounced = useMemo(
+    () => taskScheduler.debounce(flush, DEBOUNCE_MS, {
+      label: `cardform-draft:${draftKey}`,
+      pauseWhenHidden: false,
+    }),
+    [flush, draftKey],
+  );
+
+  // Trigger debounce on every meaningful draft change.
   useEffect(() => {
     if (!enabled) return;
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(flush, DEBOUNCE_MS);
+    debounced();
     return () => {
-      if (debounceRef.current) {
-        clearTimeout(debounceRef.current);
-        debounceRef.current = null;
-        // Synchronous LS write — safe to invoke during cleanup.
-        flush();
-      }
+      // Flush any pending write on cleanup (form close / key change).
+      debounced.flush();
     };
-  }, [draft, enabled, flush]);
+  }, [draft, enabled, debounced]);
 
-  // Force flush on tab hide / unload
+  // Force flush on tab hide / unload.
   useEffect(() => {
     if (!enabled) return;
-    const onHide = () => {
-      if (document.visibilityState === "hidden") flush();
-    };
+    const onHide = () => { if (document.visibilityState === "hidden") debounced.flush(); };
+    const onUnload = () => { debounced.flush(); };
     window.addEventListener("visibilitychange", onHide);
-    window.addEventListener("beforeunload", flush);
+    window.addEventListener("beforeunload", onUnload);
     return () => {
       window.removeEventListener("visibilitychange", onHide);
-      window.removeEventListener("beforeunload", flush);
+      window.removeEventListener("beforeunload", onUnload);
     };
-  }, [enabled, flush]);
+  }, [enabled, debounced]);
 
-  // Register card-form drafts into the global dirty registry so the central
-  // nav-guard (and future cross-feature consumers) can see "is anything
-  // unsaved?" without each call site re-implementing the wiring.
+  // Mirror dirty state into the global registry so the central nav-guard sees it.
   useEffect(() => {
     if (!enabled) {
       draftRegistry.markClean(draftKey);
@@ -117,27 +129,31 @@ export function useCardDraftAutosave(
   }, [draft, enabled, draftKey]);
 
   const clearDraft = useCallback(() => {
-    try { localStorage.removeItem(draftKey); } catch { /* ignore */ }
+    debounced.cancel();
+    void deleteDraft(draftKey);
     draftRegistry.markClean(draftKey);
-  }, [draftKey]);
+  }, [debounced, draftKey]);
 
   return { clearDraft, flushDraft: flush };
 }
 
 /**
- * One-shot loader called from form initialization. Returns a stored draft if
- * present, fresh enough, and meaningful. Does NOT auto-apply — caller decides
- * whether to surface a "restore draft?" banner.
+ * One-shot async loader called from form initialization. Returns a stored
+ * draft if present, fresh enough, and meaningful. Does NOT auto-apply — caller
+ * decides whether to surface a "restore draft?" banner.
+ *
+ * PR6: async because the Dexie `drafts` table read is async. Callers should
+ * await inside a `useEffect` and `setState` on resolve.
  */
-export function loadCardDraft(draftKey: string): StoredDraft | null {
+export async function loadCardDraft(draftKey: string): Promise<StoredDraft | null> {
   try {
-    const raw = localStorage.getItem(draftKey);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as StoredDraft;
+    const row = await getDraft(draftKey);
+    if (!row) return null;
+    const parsed = row.payload as StoredDraft | null;
     if (!parsed || typeof parsed !== "object") return null;
     if (typeof parsed.savedAt !== "number") return null;
     if (Date.now() - parsed.savedAt > DRAFT_TTL_MS) {
-      localStorage.removeItem(draftKey);
+      await deleteDraft(draftKey);
       return null;
     }
     if (!isMeaningful(parsed)) return null;
