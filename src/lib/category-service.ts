@@ -9,7 +9,7 @@
 // provider automatski). Postojeći call sites kompajliraju bez izmjena.
 
 import { type CategoryRecord, type SubcategoryNode, type ChapterNode } from "@/lib/db";
-import { commit as repositoryCommit } from "@/lib/repositories";
+import { commitCategoryRecords as repositoryCommit } from "@/lib/repositories";
 
 // ─── Optimistic update (Phase 5C shim → repository) ───
 export function optimisticCategoryUpdate(
