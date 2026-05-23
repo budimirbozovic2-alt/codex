@@ -13,6 +13,7 @@
 import { eventBus, EVENT_TYPES } from "@/lib/event-bus";
 import { idbLoadCategories, type CategoryRecord } from "@/lib/db";
 import { logger } from "@/lib/logger";
+import { setCategoryStoreRecords } from "@/store/useCategoryStore";
 import type { CategoriesUpdatedPayload } from "./categoryRepository";
 
 const SELF_SOURCES = new Set(["repository", "repository-replace"]);
