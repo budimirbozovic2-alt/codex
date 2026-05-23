@@ -14,7 +14,8 @@ import { db } from "../db";
 import type { PlannerConfig, StudyDecade, DisciplineEntry } from "./types";
 import { DEFAULT_CONFIG } from "./types";
 
-import { logger } from "@/lib/logger";
+import { createKeyedMutex } from "@/lib/concurrency";
+
 interface DailyMappedSlot {
   date: string;
   count: number;
@@ -27,12 +28,12 @@ let _dailyMapped: DailyMappedSlot = { date: "", count: 0 };
 let _lastRedistributeDate: string = "";
 
 // ─── Mutex ───────────────────────────────────────────────
-let _pendingWrite: Promise<void> = Promise.resolve();
+const _mutex = createKeyedMutex();
 export function enqueueWrite(label: string, op: () => Promise<unknown>): void {
-  _pendingWrite = _pendingWrite
-    .then(() => op().then(() => undefined))
-    .catch((e: unknown) => { logger.warn(`[planner:${label}]`, e); });
+  // Fire-and-forget; greške loguje sam mutex preko label-a.
+  void _mutex.runExclusive(null, () => op().then(() => undefined), `planner:${label}`);
 }
+
 
 // ─── Accessors (sync) ────────────────────────────────────
 export const plannerCache = {
