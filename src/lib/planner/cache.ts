@@ -15,6 +15,8 @@ import type { PlannerConfig, StudyDecade, DisciplineEntry } from "./types";
 import { DEFAULT_CONFIG } from "./types";
 
 import { createKeyedMutex } from "@/lib/concurrency";
+import { logger } from "@/lib/logger";
+
 
 interface DailyMappedSlot {
   date: string;
