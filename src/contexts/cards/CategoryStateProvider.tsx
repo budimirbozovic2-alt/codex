@@ -2,6 +2,7 @@ import { createContext, useContext, useMemo, useState, useEffect, useCallback, u
 import type { CategoryRecord } from "@/lib/db";
 import { primeExaminerProfilesFromRecords } from "@/lib/examiner-profile-cache";
 import { registerCategoryStateSetter } from "@/lib/repositories/categoryStateInvalidator";
+import { setCategoryStoreRecords } from "@/store/useCategoryStore";
 
 // ── Public state (consumed by useCategoryData) ──
 interface CategoryStateContextValue {
@@ -79,6 +80,13 @@ export function CategoryStateProvider({ children }: { children: ReactNode }) {
   // Prime examiner-profile cache so calculateNextReview never sees undefined.
   useEffect(() => {
     primeExaminerProfilesFromRecords(categoryRecords);
+  }, [categoryRecords]);
+
+  // Phase 5B — mirror records into the external category store so granular
+  // selectors (useCategoryFromStore et al.) get per-slice reactivity without
+  // re-running on unrelated context updates.
+  useEffect(() => {
+    setCategoryStoreRecords(categoryRecords);
   }, [categoryRecords]);
 
   // Phase 5A — expose the React setter to the module-level invalidator so
