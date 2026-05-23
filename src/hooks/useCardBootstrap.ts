@@ -4,6 +4,7 @@ import { ReviewLogEntry } from "@/lib/storage";
 import { CardMap, arrayToMap } from "@/lib/persist-queue";
 import { type CategoryRecord } from "@/lib/db";
 import { markBootStep } from "@/lib/boot-trace";
+import { transition } from "@/lib/boot";
 import { cardRepository } from "@/lib/repositories";
 import { categoryRepository } from "@/lib/repositories";
 import {
@@ -74,10 +75,13 @@ export function useCardBootstrap(setters: BootSetters) {
         setSrSettingsState(settings);
 
         splashProgress(100, "Spremno!");
+        transition({ type: "LOAD_PROGRESS", pct: 100, label: "Spremno!" });
+        transition({ type: "READY" });
         markBootStep("cards:ready");
       } catch (error) {
         logger.error("[boot] useCards init:failed", error);
         markBootStep("cards:init-error", error instanceof Error ? error.message : String(error));
+        transition({ type: "CORRUPTED", message: error instanceof Error ? error.message : String(error) });
         splashProgress(100, "Pokretanje sa rezervnim stanjem…");
         showSplashError(error instanceof Error ? error.message : "Neočekivana greška pri učitavanju podataka.");
       } finally {
