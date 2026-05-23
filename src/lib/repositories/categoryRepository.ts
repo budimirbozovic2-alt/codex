@@ -90,7 +90,7 @@ export async function commit(
       setCategoryStoreRecords(next);
       emitCategoriesUpdated({
         source: "repository",
-        categoryIds: next.map(c => c.id),
+        categoryIds: next.map(c => c.id as CategoryId),
       });
     } catch (e) {
       logger.error(`[${label}] IDB persist failed, rolling back`, e);
