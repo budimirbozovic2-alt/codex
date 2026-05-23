@@ -76,6 +76,17 @@ export function useArticleDraft({ activeId, categoryId, setArticles }: Input): A
     draftRef.current = draft;
   }, [draft]);
 
+  // Mirror the in-progress draft into the IDB `drafts` table for crash
+  // recovery and register dirty state into the global registry so the central
+  // nav-guard can see "article X is unsaved" without bespoke wiring.
+  // Real persistence still happens via `flush()` on exit / navigation.
+  usePersistedDraftMirror({
+    key: activeId ? `article:${activeId}` : "article:none",
+    source: "zettelkasten-article",
+    enabled: Boolean(activeId && draft),
+    payload: draft,
+  });
+
   const flush = useCallback(async (): Promise<KnowledgeBaseArticle | null> => {
     const currentDraft = draftRef.current;
     if (!currentDraft || !activeId) return null;
