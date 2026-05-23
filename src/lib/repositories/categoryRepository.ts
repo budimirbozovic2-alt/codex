@@ -58,7 +58,7 @@ export function replaceAll(records: CategoryRecord[]): void {
   setCategoryStoreRecords(records);
   emitCategoriesUpdated({
     source: "repository-replace",
-    categoryIds: records.map(r => r.id),
+    categoryIds: records.map(r => r.id as CategoryId),
   });
 }
 
