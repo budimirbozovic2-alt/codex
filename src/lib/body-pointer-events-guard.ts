@@ -11,6 +11,10 @@
  *     indikator čak i za nested/stacked dijaloge)
  *   - react-remove-scroll lock:  body[data-scroll-locked]
  *
+ * Selektori su izloženi kao `OVERLAY_SELECTORS` (named export) tako da CI test
+ * `body-pointer-events-selectors.test.tsx` mountuje stvarne Radix/Vaul
+ * primitive i potvrdi da selektor jos uvijek match-uje.
+ *
  * Throttle: jedan provjeri-i-očisti tick po frame-u (rAF coalesced).
  *
  * PR3 — Watchdog (~300ms): ako `body.style.pointerEvents === "none"` ostane
@@ -23,12 +27,15 @@ import { logger } from "@/lib/logger";
 
 let installed: { dispose: () => void } | null = null;
 
-const OPEN_OVERLAY_SELECTOR = [
+export const OVERLAY_SELECTORS = [
   '[role="dialog"][data-state="open"]',
   '[role="alertdialog"][data-state="open"]',
   '[data-vaul-drawer][data-state="open"]',
   "[data-radix-focus-guard]",
-].join(",");
+] as const;
+
+const OPEN_OVERLAY_SELECTOR = OVERLAY_SELECTORS.join(",");
+
 
 export function isOverlayOpen(): boolean {
   if (typeof document === "undefined") return false;
@@ -95,6 +102,31 @@ export function installBodyPointerEventsGuard(): () => void {
   };
   document.addEventListener("animationend", onAnimationEnd, true);
 
+  // Watchdog: ~300ms grace; ako body ostane lock-ovan bez overlay-a, loguj
+  // ERROR (signaliziraj drift upstream biblioteka).
+  let watchdogStart: number | null = null;
+  const checkWatchdog = () => {
+    if (typeof document === "undefined") return;
+    const stuck =
+      document.body.style.pointerEvents === "none" && !isOverlayOpen();
+    if (stuck) {
+      if (watchdogStart === null) watchdogStart = Date.now();
+      else if (Date.now() - watchdogStart > 300) {
+        logger.error(
+          "[body-pointer-events-guard] watchdog: body remained locked >300ms without an open overlay. " +
+          "Upstream library (Radix/Vaul/react-remove-scroll) may have changed attribute naming — selectorRegistry needs review.",
+        );
+        watchdogStart = Date.now() + 5000; // throttle: ne loguj svaki tick
+      }
+    } else {
+      watchdogStart = null;
+    }
+  };
+  const watchdogTimer =
+    typeof window === "undefined"
+      ? null
+      : window.setInterval(checkWatchdog, 100);
+
   const dispose = () => {
     observer.disconnect();
     treeObserver.disconnect();
@@ -103,9 +135,11 @@ export function installBodyPointerEventsGuard(): () => void {
       cancelAnimationFrame(rafId);
       rafId = null;
     }
+    if (watchdogTimer !== null) window.clearInterval(watchdogTimer);
     installed = null;
   };
 
   installed = { dispose };
   return dispose;
+
 }
