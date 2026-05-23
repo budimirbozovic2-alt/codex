@@ -241,3 +241,70 @@ describe("BackupSchema", () => {
     }
   });
 });
+
+describe("Strict satellite log schemas (lenient array filter)", () => {
+  it("drops invalid log rows but keeps valid ones", () => {
+    const result = BackupSchema.safeParse({
+      version: BACKUP_SCHEMA_VERSION,
+      cards: [],
+      categories: [],
+      pomodoroLog: [
+        { timestamp: 1, type: "focus", durationMinutes: 25 },
+        { timestamp: "bad", type: "focus", durationMinutes: 25 }, // ts wrong type → coerced to default
+        "totally bogus",                                          // dropped (not an object)
+        { timestamp: 2, type: "break", durationMinutes: 5, extra: "nope" }, // strict reject
+      ],
+      disciplineLog: [
+        { date: "2026-05-23", status: "diligent", planCompletion: 1, slippageMs: null, reviewsDone: 10, suggestedReviews: 10 },
+        null, // dropped
+      ],
+      activityLog: [{ timestamp: 1, type: "review", durationMs: 1000 }],
+      latencyLog: [{ timestamp: 1, cardId: "c1", sectionId: "s1", latencyMs: 100, category: "A" }],
+    });
+    expect(result.success).toBe(true);
+    if (!result.success) return;
+    // Two valid pomodoro rows (the "extra" one is strict-rejected; the "bogus" string dropped)
+    expect(result.data.pomodoroLog.length).toBe(2);
+    expect(result.data.disciplineLog.length).toBe(1);
+    expect(result.data.activityLog.length).toBe(1);
+    expect(result.data.latencyLog.length).toBe(1);
+  });
+
+  it("accepts review log entries with full FSRS metadata", () => {
+    const result = BackupSchema.safeParse({
+      version: BACKUP_SCHEMA_VERSION,
+      cards: [],
+      categories: [],
+      reviewLog: [
+        {
+          cardId: "c1",
+          sectionId: "s1",
+          timestamp: 123,
+          grade: 3,
+          category: "Krivično",
+          reasons: [{ code: "leech", label: "Leech" }],
+          effectiveRetention: 0.9,
+          intervalMultiplier: 1.2,
+        },
+      ],
+    });
+    expect(result.success).toBe(true);
+    if (result.success) expect(result.data.reviewLog.length).toBe(1);
+  });
+
+  it("parses srSettings strictly and falls back to undefined on malformed input", () => {
+    const ok = BackupSchema.safeParse({
+      version: BACKUP_SCHEMA_VERSION, cards: [], categories: [],
+      srSettings: { leechThreshold: 5, dailyGoal: 20, resistanceWeights: { lapses: 1, latency: 1, forgetting: 1 } },
+    });
+    expect(ok.success).toBe(true);
+    if (ok.success) expect(ok.data.srSettings?.dailyGoal).toBe(20);
+
+    const bad = BackupSchema.safeParse({
+      version: BACKUP_SCHEMA_VERSION, cards: [], categories: [],
+      srSettings: { leechThreshold: "five", resistanceWeights: "nope" },
+    });
+    expect(bad.success).toBe(true);
+    if (bad.success) expect(bad.data.srSettings).toBeUndefined();
+  });
+});
