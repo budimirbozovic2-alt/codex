@@ -139,6 +139,21 @@ export default tseslint.config(
               message:
                 "Deep imports into a feature are forbidden. Import from the feature barrel: `@/features/<name>`.",
             },
+            {
+              group: ["@/lib/repositories/*"],
+              message:
+                "Importuj iz `@/lib/repositories` barrel-a (Public API wall).",
+            },
+            {
+              group: ["@/store/*"],
+              message:
+                "Importuj iz `@/store` barrel-a (Public API wall).",
+            },
+            {
+              group: ["@/lib/db/queries/*"],
+              message:
+                "Importuj iz `@/lib/db` barrel-a — `queries/*` je interno (Public API wall).",
+            },
           ],
         },
       ],
