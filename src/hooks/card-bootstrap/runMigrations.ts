@@ -1,5 +1,5 @@
 import { migrateFromLocalStorage } from "@/lib/db";
-import { checkInterruptedFlush } from "@/lib/persist-queue";
+import { recoverOutboxOnBoot } from "@/lib/persist-queue";
 import { markBootStep } from "@/lib/boot-trace";
 import { splashProgress } from "./splash";
 import { withTimeout } from "./withTimeout";
@@ -26,6 +26,6 @@ export async function runMigrations(): Promise<void> {
 
   markBootStep("cards:migration-done");
 
-  // Check for interrupted writes from previous session
-  checkInterruptedFlush();
+  // Outbox WAL recovery: re-apply any card writes that crashed mid-flush.
+  await withTimeout(recoverOutboxOnBoot(), 3000, "outbox recovery", { recovered: 0 });
 }
