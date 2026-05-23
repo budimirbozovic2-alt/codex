@@ -161,6 +161,12 @@ export default function MainLayout({ children }: { children: ReactNode }) {
     e => { e.preventDefault(); setGlobalSearchOpen(v => !v); },
   );
 
+  // Browser-level "unsaved changes" prompt driven by the central draft registry.
+  useBeforeUnloadGuard();
+
+  // One-shot boot scan for resumable drafts (cleans stale rows, surfaces toast).
+  useEffect(() => { void recoverDraftsOnBoot(); }, []);
+
   const isFullWidth = SOURCE_ROUTES.some(r => pathname.startsWith(r));
 
   return (
