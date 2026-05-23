@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
 import type { MindMapNodeData } from "@/components/mindmap/node/icon-registry";
+import { taskScheduler } from "@/lib/scheduler";
+
 
 /**
  * Encapsulates the inline-editing lifecycle for a mind-map node:
