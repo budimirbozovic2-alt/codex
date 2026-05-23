@@ -18,11 +18,13 @@ export function useCardDraft({ editCardId, initialCategoryId, draftSnapshot, app
   const [pendingDraft, setPendingDraft] = useState<CardDraftSnapshot | null>(null);
   const [pendingDraftSavedAt, setPendingDraftSavedAt] = useState<number | null>(null);
   useEffect(() => {
-    const stored = loadCardDraft(draftKey);
-    if (stored) {
+    let cancelled = false;
+    void loadCardDraft(draftKey).then((stored) => {
+      if (cancelled || !stored) return;
       setPendingDraft(stored);
       setPendingDraftSavedAt(stored.savedAt);
-    }
+    });
+    return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [draftKey]);
 
