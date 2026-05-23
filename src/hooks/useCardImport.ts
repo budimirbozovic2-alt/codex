@@ -1,4 +1,4 @@
-import { useCallback, MutableRefObject } from "react";
+import { useCallback } from "react";
 import { toast } from "sonner";
 import { Card, createCard, SRSettings } from "@/lib/spaced-repetition";
 import { ReviewLogEntry } from "@/lib/storage";
@@ -13,6 +13,7 @@ import { parseJsonInWorker } from "@/lib/zip-service";
 import { clearReviewSession } from "@/lib/review-session-storage";
 import { cardRepository } from "@/lib/repositories";
 import { categoryRepository } from "@/lib/repositories";
+import { getCardMap } from "@/store";
 
 import { logger } from "@/lib/logger";
 export type ImportProgress = (pct: number, label: string) => void;
@@ -22,8 +23,8 @@ interface UseCardImportDeps {
   setReviewLog: (log: ReviewLogEntry[]) => void;
   updateSRSettings: (settings: SRSettings) => void;
   setCardMapState: (updater: (prev: CardMap) => CardMap) => void;
-  cardMapRef: MutableRefObject<CardMap>;
 }
+
 
 /** Whitelisted localStorage keys that the import path is allowed to restore. */
 const ALLOWED_LS_KEYS = new Set([
@@ -58,8 +59,8 @@ export function useCardImport({
   setReviewLog,
   updateSRSettings,
   setCardMapState: _legacySetCardMap, // Phase 3b: kept for back-compat, unused
-  cardMapRef,
 }: UseCardImportDeps) {
+
   void _legacySetCardMap;
   void _legacySetCategoryRecords; // Phase 5C: categories go through categoryRepository
   const importData = useCallback(
