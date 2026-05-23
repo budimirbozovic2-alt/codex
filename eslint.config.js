@@ -346,6 +346,8 @@ export default tseslint.config(
       "src/hooks/useMindMapCanvas.ts",
       "src/hooks/mindmap/useNodeEditing.ts",
       "src/components/SourceReader.tsx",
+      // Test files legitimately use raw timers for fake-timer scenarios.
+      "src/test/**",
     ],
     rules: {
       "no-restricted-syntax": "off",
