@@ -23,6 +23,7 @@ import {
   getCategoryStoreRecords,
   setCategoryStoreRecords,
 } from "@/store/useCategoryStore";
+import type { CategoryId } from "@/lib/ids";
 
 export type CategoriesUpdatedSource =
   | "repository"
@@ -31,8 +32,8 @@ export type CategoriesUpdatedSource =
 
 export interface CategoriesUpdatedPayload {
   source: CategoriesUpdatedSource;
-  categoryIds?: string[];
-  deletedIds?: string[];
+  categoryIds?: CategoryId[];
+  deletedIds?: CategoryId[];
 }
 
 export function emitCategoriesUpdated(payload: CategoriesUpdatedPayload): void {
