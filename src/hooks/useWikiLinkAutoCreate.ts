@@ -7,6 +7,8 @@ import {
 import { eventBus, EVENT_TYPES } from "@/lib/event-bus";
 import { iterateWikiLinks, normalizeKey } from "@/lib/zettelkasten-wiki-link";
 import { useLatestRef } from "@/hooks/useLatestRef";
+import { taskScheduler } from "@/lib/scheduler";
+
 
 import { logger } from "@/lib/logger";
 /**
