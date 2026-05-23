@@ -1,9 +1,7 @@
 import { Suspense, lazy, type ReactNode } from "react";
 import { CategoryStateProvider } from "./CategoryStateProvider";
 import { CardStateProvider } from "./CardStateProvider";
-import { CardActionsProvider } from "./CardActionsProvider";
-import { CategoryActionsProvider } from "./CategoryActionsProvider";
-import { BackupActionsProvider } from "./BackupActionsProvider";
+import { ActionsProvider } from "./ActionsProvider";
 import { DbErrorProvider, useDbError } from "@/contexts/db/DbErrorProvider";
 
 const LazyDatabaseRecoveryPanel = lazy(() => import("@/components/DatabaseRecoveryPanel"));
@@ -19,9 +17,7 @@ export {
   useSettingsActions,
 } from "./CardStateProvider";
 export { useCategoryData } from "./CategoryStateProvider";
-export { useCardOnlyActions } from "./CardActionsProvider";
-export { useCategoryActions } from "./CategoryActionsProvider";
-export { useBackupActions } from "./BackupActionsProvider";
+export { useCardOnlyActions, useCategoryActions, useBackupActions } from "./useActions";
 export { useDbError } from "@/contexts/db/DbErrorProvider";
 
 // ─────────────────────────────────────────────────────────────
@@ -44,13 +40,9 @@ export function CardProvider({ children }: { children: ReactNode }) {
     <DbErrorProvider>
       <CategoryStateProvider>
         <CardStateProvider>
-          <CardActionsProvider>
-            <CategoryActionsProvider>
-              <BackupActionsProvider>
-                <RecoveryGate>{children}</RecoveryGate>
-              </BackupActionsProvider>
-            </CategoryActionsProvider>
-          </CardActionsProvider>
+          <ActionsProvider>
+            <RecoveryGate>{children}</RecoveryGate>
+          </ActionsProvider>
         </CardStateProvider>
       </CategoryStateProvider>
     </DbErrorProvider>
