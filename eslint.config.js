@@ -61,6 +61,33 @@ export default tseslint.config(
           message:
             "Koristi EVENT_TYPES.X umjesto template-literal-a (W5).",
         },
+        // G7: ban raw setTimeout / setInterval. Every timer must go through
+        // `taskScheduler` (src/lib/scheduler) so it participates in shutdown
+        // on `beforeunload` / Electron `before-quit`, can be inspected via
+        // `snapshot()`, and follows the `pauseWhenHidden` contract.
+        //
+        // Allow-list (per-file override below): timing-critical engines
+        // (Pomodoro, SpeedReader), pre-boot infrastructure (db-schema, splash,
+        // panic timer), low-level libraries that the scheduler itself sits on
+        // top of (persist-queue tick, event-bus heartbeat, zip-service idle,
+        // docx-parser race), and editor draft hooks that are scheduled for
+        // unified `useDraftAutosave` refactor (Task 2).
+        {
+          selector: "CallExpression[callee.name='setTimeout']",
+          message:
+            "Koristi taskScheduler.setTimeout() (src/lib/scheduler). Raw setTimeout je dozvoljen samo u whitelisted infrastrukturi i tight engine-ima (vidi eslint.config.js override).",
+        },
+        {
+          selector: "CallExpression[callee.name='setInterval']",
+          message:
+            "Koristi taskScheduler.setInterval() (src/lib/scheduler). Raw setInterval je dozvoljen samo u whitelisted engine-ima (vidi eslint.config.js override).",
+        },
+        {
+          selector:
+            "MemberExpression[object.name='window'][property.name=/^(setTimeout|setInterval)$/]",
+          message:
+            "Koristi taskScheduler iz src/lib/scheduler umjesto window.setTimeout/setInterval.",
+        },
       ],
     },
   },
