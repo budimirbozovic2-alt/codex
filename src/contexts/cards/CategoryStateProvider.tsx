@@ -2,6 +2,7 @@ import { createContext, useContext, useMemo, useState, useEffect, useCallback, u
 import type { CategoryRecord } from "@/lib/db";
 import { primeExaminerProfilesFromRecords } from "@/lib/examiner-profile-cache";
 import { registerCategoryStateSetter } from "@/lib/repositories/categoryStateInvalidator";
+import { setCategoryStoreRecords } from "@/store/useCategoryStore";
 
 // ── Public state (consumed by useCategoryData) ──
 interface CategoryStateContextValue {
