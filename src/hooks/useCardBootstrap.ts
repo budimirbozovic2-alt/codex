@@ -29,8 +29,9 @@ interface BootSetters {
 }
 
 export function useCardBootstrap(setters: BootSetters) {
-  const { setCardMapState: _legacySetCardMap, setCategoryRecordsState, setReviewLogState, setSrSettingsState, cardMapRef } = setters;
+  const { setCardMapState: _legacySetCardMap, setCategoryRecordsState: _legacySetCategoryRecords, setReviewLogState, setSrSettingsState, cardMapRef } = setters;
   void _legacySetCardMap; // Phase 3b: writes go through cardRepository now
+  void _legacySetCategoryRecords; // Phase 5C: writes go through categoryRepository
   const [ready, setReady] = useState(false);
   const initialLoadDone = useRef(false);
 
