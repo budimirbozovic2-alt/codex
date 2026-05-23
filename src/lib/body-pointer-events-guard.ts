@@ -128,7 +128,7 @@ export function installBodyPointerEventsGuard(): () => void {
       ? null
       : taskScheduler.setInterval(checkWatchdog, 100, {
           label: "body-pointer-events-watchdog",
-          priority: "low",
+          priority: "idle",
           pauseWhenHidden: true,
         });
 
