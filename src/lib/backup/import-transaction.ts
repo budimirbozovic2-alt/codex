@@ -130,7 +130,7 @@ export async function applyImportAtomically(ctx: ImportCtx): Promise<ImportTxRes
     // cross-tab listener) can refresh from the authoritative IDB snapshot.
     emitCategoriesUpdated({
       source: "backup-restore",
-      categoryIds: freshCategories.map(c => c.id),
+      categoryIds: freshCategories.map(c => c.id) as never,
     });
 
     backupLog.success("import", "atomic restore committed", {

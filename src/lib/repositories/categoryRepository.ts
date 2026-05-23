@@ -23,6 +23,7 @@ import {
   getCategoryStoreRecords,
   setCategoryStoreRecords,
 } from "@/store/useCategoryStore";
+import type { CategoryId } from "@/lib/ids";
 
 export type CategoriesUpdatedSource =
   | "repository"
@@ -31,8 +32,8 @@ export type CategoriesUpdatedSource =
 
 export interface CategoriesUpdatedPayload {
   source: CategoriesUpdatedSource;
-  categoryIds?: string[];
-  deletedIds?: string[];
+  categoryIds?: CategoryId[];
+  deletedIds?: CategoryId[];
 }
 
 export function emitCategoriesUpdated(payload: CategoriesUpdatedPayload): void {
@@ -57,7 +58,7 @@ export function replaceAll(records: CategoryRecord[]): void {
   setCategoryStoreRecords(records);
   emitCategoriesUpdated({
     source: "repository-replace",
-    categoryIds: records.map(r => r.id),
+    categoryIds: records.map(r => r.id as CategoryId),
   });
 }
 
@@ -89,7 +90,7 @@ export async function commit(
       setCategoryStoreRecords(next);
       emitCategoriesUpdated({
         source: "repository",
-        categoryIds: next.map(c => c.id),
+        categoryIds: next.map(c => c.id as CategoryId),
       });
     } catch (e) {
       logger.error(`[${label}] IDB persist failed, rolling back`, e);
