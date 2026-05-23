@@ -117,6 +117,18 @@ const App = () => {
                             <Route path="/stats" element={<StatsPage />} />
                             <Route path="/categories" element={<ErrorBoundary label="Kategorije"><CategoriesRoutePage /></ErrorBoundary>} />
 
+                            {LabEditor && (
+                              <Route
+                                path="/__lab/editor"
+                                element={
+                                  <ErrorBoundary label="Editor V4 Lab">
+                                    <Suspense fallback={<PageSkeleton />}>
+                                      <LabEditor />
+                                    </Suspense>
+                                  </ErrorBoundary>
+                                }
+                              />
+                            )}
                             <Route path="*" element={<ErrorBoundary label="404"><NotFound /></ErrorBoundary>} />
                           </Routes>
                         </Suspense>
