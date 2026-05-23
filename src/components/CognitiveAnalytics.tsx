@@ -237,7 +237,7 @@ export default function CognitiveAnalytics({ cards, categories, reviewLog, catNa
         <LazyChart
           label="Analiza frikcije"
           icon={<ArrowRightLeft className="h-4 w-4 text-primary" />}
-          compute={() => calcFrictionAnalysis(reviewLog)}
+          compute={() => analyticsClient.runFrictionAnalysis(reviewLog)}
           delay={3}
         >
           {(friction) => friction.transitions.length === 0 ? (
