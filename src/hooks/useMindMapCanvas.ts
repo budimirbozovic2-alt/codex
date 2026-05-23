@@ -310,7 +310,7 @@ export function useMindMapCanvas(doc: MindMapDoc) {
   const enterPresentation = useCallback(() => {
     setPresentationMode(true);
     setSelectedEdgeId(null);
-    setTimeout(() => fitView({ padding: 0.15, duration: 600 }), 50);
+    taskScheduler.setTimeout(() => fitView({ padding: 0.15, duration: 600 }), 50, { label: "mindmap:presentation-fit" });
   }, [fitView]);
 
   const exitPresentation = useCallback(() => setPresentationMode(false), []);
