@@ -1,16 +1,13 @@
 import { Suspense, lazy, type ReactNode } from "react";
-import { CategoryStateProvider } from "./CategoryStateProvider";
+import { useCategoryStateBridge } from "./CategoryStateProvider";
 import { CardStateProvider } from "./CardStateProvider";
-import { CardActionsProvider } from "./CardActionsProvider";
-import { CategoryActionsProvider } from "./CategoryActionsProvider";
-import { BackupActionsProvider } from "./BackupActionsProvider";
-import { DbErrorProvider, useDbError } from "@/contexts/db/DbErrorProvider";
+import { ActionsProvider } from "./ActionsProvider";
+import { useDbError } from "@/contexts/db/DbErrorProvider";
 
 const LazyDatabaseRecoveryPanel = lazy(() => import("@/components/DatabaseRecoveryPanel"));
 
 // ─────────────────────────────────────────────────────────────
 // Public hooks — focused re-exports, no merged shims.
-// Components import directly from the right domain provider.
 // ─────────────────────────────────────────────────────────────
 export {
   useCardData,
@@ -19,9 +16,7 @@ export {
   useSettingsActions,
 } from "./CardStateProvider";
 export { useCategoryData } from "./CategoryStateProvider";
-export { useCardOnlyActions } from "./CardActionsProvider";
-export { useCategoryActions } from "./CategoryActionsProvider";
-export { useBackupActions } from "./BackupActionsProvider";
+export { useCardOnlyActions, useCategoryActions, useBackupActions } from "./useActions";
 export { useDbError } from "@/contexts/db/DbErrorProvider";
 
 // ─────────────────────────────────────────────────────────────
@@ -39,20 +34,23 @@ function RecoveryGate({ children }: { children: ReactNode }) {
   return <>{children}</>;
 }
 
+/**
+ * Bridge montira side-effect-e ranije vezane za <CategoryStateProvider>
+ * (examiner cache prime + invalidator shim). Hook ne renderuje ništa.
+ */
+function CategoryBridge({ children }: { children: ReactNode }) {
+  useCategoryStateBridge();
+  return <>{children}</>;
+}
+
 export function CardProvider({ children }: { children: ReactNode }) {
   return (
-    <DbErrorProvider>
-      <CategoryStateProvider>
-        <CardStateProvider>
-          <CardActionsProvider>
-            <CategoryActionsProvider>
-              <BackupActionsProvider>
-                <RecoveryGate>{children}</RecoveryGate>
-              </BackupActionsProvider>
-            </CategoryActionsProvider>
-          </CardActionsProvider>
-        </CardStateProvider>
-      </CategoryStateProvider>
-    </DbErrorProvider>
+    <CategoryBridge>
+      <CardStateProvider>
+        <ActionsProvider>
+          <RecoveryGate>{children}</RecoveryGate>
+        </ActionsProvider>
+      </CardStateProvider>
+    </CategoryBridge>
   );
 }

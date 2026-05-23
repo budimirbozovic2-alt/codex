@@ -2,9 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { renderHook } from "@testing-library/react";
 import { eventBus } from "@/lib/event-bus";
 import { EVENT_TYPES } from "@/lib/event-bus-types";
-import { useCardOnlyActions } from "@/contexts/cards/CardActionsProvider";
-import { useCategoryActions } from "@/contexts/cards/CategoryActionsProvider";
-import { useBackupActions } from "@/contexts/cards/BackupActionsProvider";
+import { useCardOnlyActions, useCategoryActions, useBackupActions } from "@/contexts/cards/useActions";
 
 describe("PR2 — provider fallback throws + emits telemetry", () => {
   beforeEach(() => vi.restoreAllMocks());
@@ -21,14 +19,14 @@ describe("PR2 — provider fallback throws + emits telemetry", () => {
   }
 
   it("useCardOnlyActions throws bez providera", () => {
-    expectThrowAndTelemetry(useCardOnlyActions, "CardActionsProvider", "useCardOnlyActions");
+    expectThrowAndTelemetry(useCardOnlyActions, "ActionsProvider", "useCardOnlyActions");
   });
 
   it("useCategoryActions throws bez providera", () => {
-    expectThrowAndTelemetry(useCategoryActions, "CategoryActionsProvider", "useCategoryActions");
+    expectThrowAndTelemetry(useCategoryActions, "ActionsProvider", "useCategoryActions");
   });
 
   it("useBackupActions throws bez providera", () => {
-    expectThrowAndTelemetry(useBackupActions, "BackupActionsProvider", "useBackupActions");
+    expectThrowAndTelemetry(useBackupActions, "ActionsProvider", "useBackupActions");
   });
 });

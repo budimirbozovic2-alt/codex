@@ -1,176 +1,150 @@
-
-# Plan: Razdvajanje Boot Sekvence i Migracija (Ograničenja #6 + #7)
+# Čišćenje Provider Stabla i Event Busa
 
 ## Trenutno stanje
 
-`useCardBootstrap` orkestrira sve sekvencijalno: `bootDb → runMigrations → loadInitialData → normalizeCategories → setState`. State machine (`src/lib/boot/bootStateMachine.ts`) već postoji, ali:
-
-- **`runMigrations` miješa tri stvari**: Dexie verzioni upgrade (`migrateFromLocalStorage`), data migracije (mnemonics, frequency tags), i data healing (`healCardTaxonomy`).
-- **`normalizeCategories` je *drugi* heal pass** — phantom prune + fallback subcat synthesis — koji se izvršava poslije `loadInitialData`, dakle van faze "migrating".
-- **Granularnost grešaka je 0**: bilo koji throw padne u jedan `catch` koji emituje `CORRUPTED` sa generičkom porukom. Korisnik vidi splash error, ali ne zna *koja* faza je pukla, da li je heal idempotentan, niti može pokrenuti recovery.
-- **Nema UI konzumera `useBootState()`** — `BootStateProvider` je trenutno no-op wrapper. Sva UX se i dalje radi kroz `splash.ts` DOM manipulaciju (`splash-progress`, `splash-error`).
-
-## Šta želimo
-
-Tri eksplicitne, nezavisno fail-safe faze, svaka sa svojim error stanjem i recovery akcijom, vidljive kroz `useBootState()`:
+Provider stack u `App.tsx` (od korijena ka dolje) je **13 nivoa duboko**:
 
 ```text
-  Phase 1: SCHEMA           Phase 2: HEAL              Phase 3: LOAD/RENDER
-  ─────────────────         ─────────────────          ─────────────────
-  ensureDbOpen              healCardTaxonomy           idbLoad* (parallel)
-  Dexie upgrade             normalizeCategories        cache init
-  legacy migrations         frequency-tag migrate      repository.replaceAll
-  outbox WAL recovery       (sve idempotentno)         transition(READY)
-  ↓                         ↓                          ↓
-  schema-error              heal-error                 load-error
-  (blocked/version)         (recoverable, skip)        (corrupted)
+HashRouter
+└─ BootStateProvider        ← no-op wrapper (kod već postoji)
+   └─ AppProvider
+      └─ CardProvider
+         └─ DbErrorProvider
+            └─ CategoryStateProvider     ← već čita iz Zustand `categoryStore`
+               └─ CardStateProvider      ← 4 stacked Context.Provider-a iznutra
+                  └─ CardActionsProvider
+                     └─ CategoryActionsProvider
+                        └─ BackupActionsProvider
+                           └─ PomodoroProvider  ← 2 stacked iznutra
+                              └─ UIProvider
+                                 └─ SessionProvider
+                                    └─ BootRecoveryGate
 ```
 
-Pravilo: **schema mora uspjeti** (bez nje nema ničega), **heal je best-effort i skippable** (čak i ako sve heal-funkcije puknu, app boot-uje sa "Heal preskočen" toast-om), **load grešku tretiramo kao corrupted** ali dajemo recovery akcije (Recover from backup / Reset DB / Continue read-only).
+Plus `eventBus` (`src/lib/event-bus.ts`) drži `BroadcastChannel`, heartbeat `setInterval`, `beforeunload` listener i `_softReset` HMR mašineriju — **sav cross-tab kod je mrtav** jer je app Pure Desktop Electron (jedan prozor po procesu).
 
-## Implementacija — 5 PR-ova
+## Cilj
 
-### PR-1 — Proširi state machine sa tri eksplicitne faze
+Skinuti provider depth sa **13 → 7** i istrgnuti BroadcastChannel mašineriju, bez ijednog `breaking change`-a na ~49 consumer fajlova koji koriste `useCardData / useCategoryData / useUIContext / itd.` Sav state ostaje u Zustand store-ovima koje već imamo (`categoryStore`, `useCardMap`); providers se ukidaju tamo gdje je njihov jedini posao bio "Context wrapping nad eksternim store-om".
 
-`src/lib/boot/bootStateMachine.ts`:
-- Zamijeniti generički `migrating` sa tri stanja:
-  - `{ type: "schema"; pct: number; label: string }`
-  - `{ type: "healing"; pct: number; label: string; skipped: string[] }`
-  - `{ type: "loading"; pct: number; label: string }` (već postoji)
-- Nova error stanja: `{ type: "schema-error"; cause: SchemaErrorCause; message: string }` (cause ∈ `version | blocked | timeout | unknown`) i `{ type: "load-error"; message: string }`. `corrupted` ostaje kao terminalno fallback za ne-recoverable greške.
-- Novi eventi: `SCHEMA_START`, `SCHEMA_PROGRESS`, `SCHEMA_DONE`, `SCHEMA_FAIL`, `HEAL_START`, `HEAL_PROGRESS`, `HEAL_STEP_FAIL` (kumulativan — dodaje u `skipped[]`, ne menja fazu), `HEAL_DONE`, `LOAD_FAIL`, `RECOVERY_REQUESTED`.
-- Reducer: schema-error → može u `schema` kroz `RECOVERY_REQUESTED` (retry); heal-error nema (heal step fail ne mijenja fazu); load-error → može u `loading` kroz `RECOVERY_REQUESTED`.
-- Update `src/test/boot-state-machine.test.ts` da pokriva nove tranzicije, naročito da `HEAL_STEP_FAIL` ne izbacuje iz `healing` faze.
+## Plan (5 inkrementalnih PR-ova u jednoj seansi)
 
-Stari eventi (`MIGRATE_START`, `MIGRATE_DONE`, `OPEN_*`) ostaju kao **deprecated aliasi** koji mapiraju na nove (radi backward kompat sa `bootDb.ts` koji još emituje `OPEN_*`).
+### PR-A — Brisanje no-op `BootStateProvider` + flatten action providers
 
-### PR-2 — Razdvoji `runMigrations` u `runSchema` + `runHeal`
+1. `src/contexts/boot/BootStateProvider.tsx`: ostaviti samo `useBootState` hook export; ukloniti `BootStateProvider` komponentu (no-op je).
+2. `src/App.tsx`: ukloniti `<BootStateProvider>` wrapper iz JSX-a (useBootState i dalje radi — modul-level store).
+3. Spojiti `CardActionsProvider + CategoryActionsProvider + BackupActionsProvider` u jedan `ActionsProvider` (`src/contexts/cards/ActionsProvider.tsx`). Iznutra zadržati tri postojeća Context-a (CardActionsContext, CategoryActionsContext, BackupActionsContext) — jedan provider, tri vrijednosti. `useCardOnlyActions / useCategoryActions / useBackupActions` ostaju identično public API.
+4. `CardProvider.tsx`: zamijeniti tri stacked providera sa `<ActionsProvider>`.
 
-`src/hooks/card-bootstrap/runSchema.ts` (novo):
-- Sadrži: `migrateFromLocalStorage` (Dexie upgrade), `migrateMnemonicsFromLocalStorageToIDB`, `recoverOutboxOnBoot`.
-- Sve unutar `withTimeout`; ako bilo koji baci, emituje `SCHEMA_FAIL` sa konkretnim korakom u poruci i throw-uje (orchestrator hvata).
-- Emituje `SCHEMA_PROGRESS` sa labelama "Schema upgrade…", "Mnemonics migracija…", "Outbox recovery…".
+Depth: 13 → 10. Nula promjena na consumer fajlovima.
 
-`src/hooks/card-bootstrap/runHeal.ts` (novo):
-- Sadrži: `healCardTaxonomy`, plus poziva nov `healCategoryShapes(catRecords, cards)` ekstraktovan iz `normalizeCategories.ts` (legacy string[] → SubcategoryNode[], phantom prune, fallback synthesis).
-- Svaki heal korak u svom `try/catch`; ako padne, log + `transition({ type: "HEAL_STEP_FAIL", step: "taxonomy" | "categoryShapes" | ... })` i nastavlja sa sljedećim. Heal nikada ne throw-uje na gore.
-- Vraća `{ finalRecords, skippedSteps: string[] }`.
+### PR-B — `DbErrorProvider` → `useDbError()` hook
 
-`src/hooks/card-bootstrap/normalizeCategories.ts`:
-- Ostaje kao čista pure funkcija `normalizeCategoryShapes(input): { records, needsPersist }` (no DB write, no logger.warn na fail — vraća rezultat).
-- IDB persist se izdvaja u zaseban helper koji `runHeal` poziva sa svojim catch wrapper-om.
+1. `src/contexts/db/DbErrorProvider.tsx`: izbrisati `DbErrorContext` i `DbErrorProvider`. Konvertovati `useDbError()` u plain hook koji koristi `useSyncExternalStore` nad modul-level `subscribe(listener)` funkcijom — `subscribe` interno koristi `eventBus.subscribe(EVENT_TYPES.DB_ERROR_CHANGED, …)`, `getSnapshot` čita `getDbErrorState()` iz `db-schema`.
+2. `CardProvider.tsx`: ukloniti `<DbErrorProvider>` wrapper, `RecoveryGate` i dalje zove `useDbError()` (sada hook).
+3. Test: `src/test/db-error-dedupe.test.tsx` — adaptirati ako Mount-uje provider (vjerovatno samo skinuti wrapper).
 
-`runMigrations.ts` postaje shim koji poziva `runSchema()` (backward kompat za sve eksterne pozivaoce, ako ih ima — provjera kroz `rg "runMigrations"`).
+Depth: 10 → 9. Public API (`useDbError`) ostaje.
 
-### PR-3 — Refaktor `useCardBootstrap` u eksplicitan DAG
+### PR-C — `CategoryStateProvider` → Zustand selectors
 
-Novi orchestrator:
+Postojeći provider je već čisti most nad `categoryStore` (Zustand). Brišemo ga:
 
-```ts
-useEffect(() => {
-  (async () => {
-    try {
-      // Phase 1
-      const dbOk = await bootDb();             // emits SCHEMA_START internally
-      if (!dbOk) return;                        // state machine already in schema-error
-      await runSchema();                        // throws → caught below as schema fail
-      transition({ type: "SCHEMA_DONE" });
+1. `src/contexts/cards/CategoryStateProvider.tsx`: pretvoriti u modul **bez providera**. `useCategoryData` postaje hook nad `categoryStore` (vraća isti `{categories, categoryRecords, subcategories}` objekt, memo-iziran preko `useSyncExternalStore` + `useMemo`). `useCategoryStateSetter` i `useCategoryStateInternals` se eksportuju kao plain funkcije (već koriste modul-level `setCategoryRecordsShim` / `getCategoryStoreRecords`).
+2. Side-effect-i koji su živjeli u provideru (`primeExaminerProfilesFromRecords`, `registerCategoryStateSetter`) — premjestiti u novi `useCategoryStateBridge()` hook koji se montira jednom unutar `CardProvider`.
+3. `CardProvider.tsx`: ukloniti `<CategoryStateProvider>` wrapper, dodati `useCategoryStateBridge()` poziv.
+4. Verifikovati 7 consumer fajlova koji zovu `useCategoryData()` — API identičan, bez promjena.
 
-      // Phase 2 — never throws on gore
-      const { cards, catRecords, log, settings } = await loadInitialData();
-      transition({ type: "HEAL_START" });
-      const { finalRecords, skippedSteps } = await runHeal({ cards, catRecords });
-      transition({ type: "HEAL_DONE", skipped: skippedSteps });
+Depth: 9 → 8.
 
-      // Phase 3
-      cardRepository.replaceAll(arrayToMap(cards));
-      categoryRepository.replaceAll(finalRecords);
-      setReviewLogState(log);
-      setSrSettingsState(settings);
-      transition({ type: "READY" });
-    } catch (err) {
-      // Razlikuj schema-fail vs load-fail po fazi u kojoj smo bili
-      const current = getBootState();
-      if (current.type === "schema" || current.type === "opening") {
-        transition({ type: "SCHEMA_FAIL", cause: "unknown", message: msg(err) });
-      } else {
-        transition({ type: "LOAD_FAIL", message: msg(err) });
-      }
-    } finally {
-      setReady(true);  // ready=true znači "boot je završio" (ne nužno success);
-                       // UI gleda useBootState() za phase
-      cleanupSplash();
-      notifyElectronReady();
-    }
-  })();
-}, []);
-```
+### PR-D — EventBus: BroadcastChannel → in-process EventTarget
 
-Ključna promjena: `loadInitialData` se premešta **iznad** heal-a (heal je sada čisto post-load operacija), što odgovara user mentalnom modelu "schema → load → fix data → render".
+Cross-tab kod je dead code na desktop-only platformi. Konvertujemo bus u lean in-process pub/sub uz očuvanje cijelog public API-ja:
 
-Panic timer (8s) ostaje, ali ako se okine i state nije `ready`, emituje `transition({ type: "LOAD_FAIL", message: "Panic timeout" })` umjesto da samo forsira `ready=true`.
+1. `src/lib/event-bus.ts`:
+   - Skloniti `BroadcastChannel`, `channel?.postMessage`, `onmessage`.
+   - Skloniti `heartbeatIntervalId`, `activeTabs`, `_beforeUnloadHandler`, `TAB_HEARTBEAT/REPLY/LEAVING` subscribe logiku.
+   - `emit()` poziva samo `handleIncomingMessage()` (lokalni listeneri).
+   - `getTabCount()` → vraća `1`.
+   - `_softReset()` → samo `listeners.clear()`.
+   - `destroy()` → samo `listeners.clear()`.
+   - Singleton + HMR dispose ostaju.
+2. `event-bus-types.ts`: ostaviti `TAB_HEARTBEAT/REPLY/LEAVING` konstante (referencirane su u tipovima) ali ih više niko ne emituje.
+3. `useHealthMonitor.ts`: ako negdje koristi `getTabCount > 1` granu, ukloniti je (potvrditi grepom).
+4. Test sweep: `db-error-dedupe`, `category-state-invalidator`, `card-map-invalidator`, `zettelkasten-wiki-link-integration` — svi rade preko lokalnih listenera, prolaze nepromijenjeni.
 
-### PR-4 — `BootRecoveryGate` komponenta
+Bundle delta: −~2KB (BroadcastChannel i heartbeat kod). DX win: nema više fantomskih duplih listenera pri HMR-u.
 
-`src/contexts/boot/BootRecoveryGate.tsx` (novo) — postavlja se kao child od `BootStateProvider` (ili oko App-a u `main.tsx`):
+### PR-E — Verifikacija + dokumentacija
 
-```tsx
-const state = useBootState();
-if (state.type === "schema-error") return <SchemaErrorScreen state={state} />;
-if (state.type === "load-error" || state.type === "corrupted") return <LoadErrorScreen state={state} />;
-// healing/loading: koristi postojeći splash (DOM-based), ali optional in-React overlay sa skipped[] preview
-return <>{children}</>;
-```
+1. Pokrenuti puni test suite: očekujemo zero regresija.
+2. Grep za `<BootStateProvider|<DbErrorProvider|<CategoryStateProvider|<CardActionsProvider|<CategoryActionsProvider|<BackupActionsProvider` u `src/` — sve linije moraju biti obrisane (osim definicija ako su zaostale).
+3. Ažurirati memo index: dodati `mem://architecture/provider-cleanup-v1` sa kratkim opisom "Provider tree spljošten 13→7; cross-tab event bus uklonjen (desktop-only)".
 
-`SchemaErrorScreen` (novo, `src/components/boot/`):
-- Mapira `cause` u user-friendly poruku: `version` → "Verzija baze ne podudara sa instaliranom aplikacijom" + dugme "Force reload (close other tabs)"; `blocked` → "Druga instanca CODEX-a drži bazu otključanom"; `timeout` → "Baza se nije otvorila u 6s"; `unknown` → tehnička poruka.
-- Akcije: **Retry** (emituje `RECOVERY_REQUESTED`, reload window), **Export current data** (poziva existing backup eksport ako je DB djelimično dostupna), **Reset DB** (delete + reload sa potvrdom).
+## Šta NE radimo
 
-`LoadErrorScreen` (novo):
-- Iste 3 akcije + **Continue with empty state** (emituje `READY`, app radi sa praznim repositorima — read-only za korisnika dok ne uradi restore).
-
-Ovo eliminiše "bijeli ekran smrti" — korisnik uvijek dobije akcijabilni screen.
-
-### PR-5 — Splash bridge + telemetrija
-
-`splash.ts`:
-- Dodati `subscribeBootState` listener koji automatski mapira fazu u splash UI (pct, label). Ručni `splashProgress()` pozivi se uklanjaju iz `bootDb/runSchema/loadInitialData/runHeal` — single source of truth postaje state machine.
-- `cleanupSplash` se sada okida na `READY | schema-error | load-error`, ne više u `finally` blok-u orchestratora.
-
-Telemetrija:
-- Novi event u `boot-trace`: `boot:phase:enter` i `boot:phase:exit` sa duration. Dobijamo prirodni waterfall: schema 320ms, heal 80ms, load 410ms.
-- Ako `HEAL_STEP_FAIL` ima items u `skipped[]` na kraju, dodati `boot:heal-degraded` step sa listom — pomaže debug.
-
-### Testovi (uz svaki PR, ali izdvojeno radi pregleda)
-
-`src/test/boot-orchestrator.test.ts` (novo):
-1. **happy path** — schema OK → heal OK → load OK → state završava u `ready`.
-2. **schema fail** — `migrateFromLocalStorage` throw → state `schema-error`, `loadInitialData` se *ne* poziva.
-3. **heal partial fail** — `healCardTaxonomy` throw, `healCategoryShapes` OK → state ide kroz `healing` u `loading` u `ready`, `skipped: ["taxonomy"]` vidljiv.
-4. **load fail** — `idbLoadCards` throw → state `load-error`, repositori ostaju prazni.
-5. **panic timeout** — promise nikad ne riješi → 8s panic → `LOAD_FAIL` emit, splash forsiran, `ready=true`.
-
-Mock `idbLoadCards`, `migrateFromLocalStorage`, itd. preko `vi.mock`.
-
-## Tehničke odluke
-
-- **Bez XState** — `BootEvent`/`reduce` pattern je već imamo i dovoljno je za 7 stanja. Dodatna dep nije opravdana.
-- **Heal je idempotentan i pojedinačni step-ovi su `try`-wrapped** — to znači da boot uvijek napreduje; degradiranje je vidljivo ali ne blokira.
-- **`bootDb.ts` ostaje** ali interno emituje nove `SCHEMA_*` evente (preko alias mapinga iz PR-1). Ne želimo touch-ati `ensureDbOpen` API.
-- **Backward kompat alias-i u state machine-u** se uklanjaju u zasebnom cleanup PR-u nakon što sve potvrdimo.
-- **`finally { setReady(true) }`** ostaje radi parent komponenata koje gate-uju render na `ready`, ali stvarno health stanje čita `BootRecoveryGate`.
-
-## Šta NE radimo u ovom planu
-
-- Migracija na pravi DAG runner (npr. odvajanje cache init / outbox recovery u paralelne grane) — to je sljedeći korak nakon što imamo fazni okvir.
-- Schema-version aware migracije (`from`/`to` su trenutno 0/0 placeholderi) — može u zasebnom PR-u kada budemo imali numbered migration scripts.
-- Restore-from-backup unutar `LoadErrorScreen` — koristi postojeći backup engine, nije nova funkcionalnost.
+- **Ne ukidamo** `CardStateProvider`, `UIProvider`, `SessionProvider`, `PomodoroProvider`, `AppProvider` — ovi drže pravi React state (`useState`, `useRef`, side-effect mount) koji bi mu trebao non-trivial refactor svih consumer fajlova. To je za sljedeću iteraciju.
+- **Ne mijenjamo** consumer API (49 fajlova). Svi `useCardData / useUIContext / useSessionContext / ...` ostaju identični.
+- **Ne dodajemo** novi pub/sub mehanizam (npr. mitt). Postojeći lean EventBus pokriva sve slučajeve.
+- **Ne diramo** `draftRegistry` — već je čist Zustand-like store; pominje se u pitanju samo kao primjer šablona.
 
 ## Acceptance kriterijumi
 
-- `useBootState()` u dev konzoli prolazi kroz `idle → opening → schema → healing → loading → ready` u happy path-u.
-- Namjerno baci u `healCardTaxonomy` → app boot-uje, vidljiv "Heal degradiran: taxonomy" indikator.
-- Namjerno baci u `migrateFromLocalStorage` → SchemaErrorScreen sa Retry/Reset/Export.
-- Namjerno baci u `idbLoadCards` → LoadErrorScreen sa "Continue empty".
-- `boot-orchestrator.test.ts` 5/5 prolazi.
-- Bundle delta < 2KB gzip (samo new module-i, bez dep-a).
+- React DevTools "Components" panel prikazuje 6 providera između `HashRouter` i `MainLayout` (umjesto 12).
+- `grep -r "new BroadcastChannel" src/` → 0 rezultata.
+- `bunx vitest run` → svi postojeći testovi prolaze bez izmjena (osim minornog skidanja providera u DbError testu).
+- Otvaranje DevTools → Performance: prvi render `<App>` skida ~6 React Fiber nodova (smaller flame graph root).
+- HMR test: izmijeniti `CardActionsProvider` (sad `ActionsProvider`) → ne pojavljuje se duplikat listener u `eventBus.getListenerCount()`.
+
+## Tehnički detalji
+
+**`useDbError` hook (PR-B):**
+```ts
+let _snap: DbErrorState = getDbErrorState();
+const subscribers = new Set<() => void>();
+eventBus.subscribe(EVENT_TYPES.DB_ERROR_CHANGED, (next) => {
+  const incoming = (next as DbErrorState) ?? null;
+  if (sameDbError(_snap, incoming)) return;
+  _snap = incoming;
+  for (const fn of subscribers) fn();
+});
+export function useDbError() {
+  return useSyncExternalStore(
+    (cb) => { subscribers.add(cb); return () => subscribers.delete(cb); },
+    () => _snap,
+    () => _snap,
+  );
+}
+```
+
+**`useCategoryData` hook (PR-C):**
+```ts
+const selectState = (s) => s;
+export function useCategoryData() {
+  const records = useSyncExternalStore(
+    categoryStore.subscribe,
+    () => categoryStore.getState().records,
+    () => categoryStore.getState().records,
+  );
+  return useMemo(() => ({
+    categories: records.map(r => r.id),
+    categoryRecords: records,
+    subcategories: buildSubcatMap(records),
+  }), [records]);
+}
+```
+
+**Slim EventBus (PR-D):**
+```ts
+class EventBus {
+  private listeners = new Map<EventType, Set<(p: unknown) => void>>();
+  emit(type, payload) {
+    const ls = this.listeners.get(type);
+    if (!ls) return;
+    for (const cb of ls) { try { cb(payload); } catch (e) { logger.error(...) } }
+  }
+  subscribe(type, cb) { /* unchanged */ }
+  getTabCount() { return 1; }
+  getListenerCount(type?) { /* unchanged */ }
+}
+```
