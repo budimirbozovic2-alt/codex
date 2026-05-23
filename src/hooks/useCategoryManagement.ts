@@ -99,7 +99,7 @@ export function useCategoryManagement({
         // which performs the RAM delete + CARDS_UPDATED emit. IDB rows are
         // dropped atomically inside cascadeDeleteCategoryDomains below.
         const toDelete: string[] = [];
-        const ref = cardMapRef.current;
+        const ref = getCardMap();
         for (const [id, c] of Object.entries(ref)) {
           if (c.categoryId === categoryId) toDelete.push(id);
         }
@@ -108,7 +108,7 @@ export function useCategoryManagement({
         // Phase 3b: build per-card updates and apply RAM-only through
         // applySyncDelta. IDB persistence is owned by the cascade tx.
         const changed: Card[] = [];
-        const ref = cardMapRef.current;
+        const ref = getCardMap();
         for (const [id, c] of Object.entries(ref)) {
           if (c.categoryId === categoryId) {
             changed.push({ ...c, categoryId: fallbackId, subcategoryId: undefined, chapterId: undefined, updatedAt: now });
@@ -131,8 +131,9 @@ export function useCategoryManagement({
         }
       })();
     },
-    [setCategoryRecords, cardMapRef, getCategoryRecords],
+    [setCategoryRecords, getCategoryRecords],
   );
+
 
   const addSubcategory = useCallback(
     (categoryId: string, subName: string) => {
