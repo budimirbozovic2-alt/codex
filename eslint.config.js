@@ -175,17 +175,25 @@ export default tseslint.config(
     },
   },
 
-  // Feature-Sliced boundaries: outside `src/features/X/`, code may only
-  // import `@/features/X` (its barrel). Deep imports like
-  // `@/features/X/lib/internal` are forbidden — they bypass the public API
-  // and re-introduce the cross-module coupling we are eliminating.
+  // Public API walls + Feature-Sliced boundaries.
   //
-  // The override block below relaxes this rule INSIDE `src/features/**`
-  // so a feature can freely import its own internals, but still cannot
-  // reach into a SIBLING feature's internals.
+  // Outside `src/features/X/`, code may only import `@/features/X` (its
+  // barrel). Deep imports like `@/features/X/lib/internal` are forbidden.
+  //
+  // Walled domains (`@/lib/repositories`, `@/store`, `@/lib/db/queries`)
+  // expose a single barrel each. Deep imports into them re-introduce the
+  // cross-module coupling we are eliminating during the IDB-as-SSOT
+  // migration — they are blocked here for every consumer outside the
+  // walled directory itself.
   {
     files: ["src/**/*.{ts,tsx}"],
-    ignores: ["src/features/**", "src/test/**"],
+    ignores: [
+      "src/features/**",
+      "src/test/**",
+      "src/lib/repositories/**",
+      "src/store/**",
+      "src/lib/db/**",
+    ],
     rules: {
       "no-restricted-imports": [
         "error",
@@ -196,11 +204,27 @@ export default tseslint.config(
               message:
                 "Deep imports into a feature are forbidden. Import from the feature barrel: `@/features/<name>`.",
             },
+            {
+              group: ["@/lib/repositories/*"],
+              message:
+                "Importuj iz `@/lib/repositories` barrel-a (Public API wall).",
+            },
+            {
+              group: ["@/store/*"],
+              message:
+                "Importuj iz `@/store` barrel-a (Public API wall).",
+            },
+            {
+              group: ["@/lib/db/queries/*"],
+              message:
+                "Importuj iz `@/lib/db` barrel-a — `queries/*` je interno (Public API wall).",
+            },
           ],
         },
       ],
     },
   },
+
   {
     files: ["src/features/**/*.{ts,tsx}"],
     rules: {
