@@ -15,16 +15,13 @@ export const KeyPart = Mark.create({
   inclusive: false,
 
   parseHTML() {
+    // priority > Highlight's default (50) so the typed mark wins for
+    // `<mark class="key-part-highlight">`. Generic `<mark>` (no class) still
+    // falls through to Highlight.
     return [
       {
         tag: "mark.key-part-highlight",
-      },
-      {
-        tag: "mark",
-        getAttrs: (el) => {
-          if (!(el instanceof HTMLElement)) return false;
-          return el.classList.contains("key-part-highlight") ? {} : false;
-        },
+        priority: 60,
       },
     ];
   },
