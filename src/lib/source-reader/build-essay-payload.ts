@@ -50,9 +50,10 @@ export interface AddCardArgs {
 }
 
 function fromSeparatePlan(plan: SeparateCardPlan, source: Source, subId?: string, chapId?: string): AddCardArgs {
+  const content = sanitizeHtml(plan.module.contentHtml);
   return {
     question: plan.question,
-    sections: [{ title: "Odgovor", content: sanitizeHtml(plan.module.contentHtml) }],
+    sections: [{ title: "Odgovor", content, contentDoc: buildSectionDoc(content) }],
     categoryId: source.categoryId,
     subId,
     chapId,
