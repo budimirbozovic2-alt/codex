@@ -94,10 +94,7 @@ function parseSlice(html: string, view: ViewLike): Slice | null {
   if (typeof document === "undefined") return null;
   const template = document.createElement("template");
   template.innerHTML = html;
-  // ProseMirror's DOMParser walks the schema's parseRules — including ours
-  // for wikiLink (`a[data-wikilink]`) and mindmapEmbed (`div[data-mindmap]`).
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const { DOMParser } = require("@tiptap/pm/model") as typeof import("@tiptap/pm/model");
   const parser = DOMParser.fromSchema(view.state.schema);
   return parser.parseSlice(template.content);
 }
+
