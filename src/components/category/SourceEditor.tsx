@@ -83,7 +83,8 @@ export default function SourceEditor({ source, categoryId, onClose, onSourceUpda
     try {
       const arrayBuffer = await file.arrayBuffer();
       const html = await parseDocxInWorker(arrayBuffer);
-      setNewText(html);
+      setNewDoc(htmlToDoc(html));
+      setEditorKey((k) => k + 1);
       setDirty(true);
       toast.success("DOCX učitan", { description: `${file.name} uspješno parsiran.` });
     } catch (err: unknown) {
