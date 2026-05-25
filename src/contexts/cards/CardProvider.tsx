@@ -1,13 +1,17 @@
+/**
+ * Provider Cleanup v2 — CardProvider is now a thin recovery gate + boot
+ * mount. No Context providers, no Action providers, no Category bridges
+ * (those are now hooks invoked by `<AppBootstrap />`).
+ */
 import { Suspense, lazy, type ReactNode } from "react";
-import { useCategoryStateBridge } from "./CategoryStateProvider";
-import { CardStateProvider } from "./CardStateProvider";
-import { ActionsProvider } from "./ActionsProvider";
+import { AppBootstrap } from "@/contexts/AppBootstrap";
 import { useDbError } from "@/contexts/db/DbErrorProvider";
 
 const LazyDatabaseRecoveryPanel = lazy(() => import("@/components/DatabaseRecoveryPanel"));
 
 // ─────────────────────────────────────────────────────────────
-// Public hooks — focused re-exports, no merged shims.
+// Public hooks — focused re-exports. Source files moved to stores
+// but the import paths remain stable for view code.
 // ─────────────────────────────────────────────────────────────
 export {
   useCardData,
@@ -34,23 +38,11 @@ function RecoveryGate({ children }: { children: ReactNode }) {
   return <>{children}</>;
 }
 
-/**
- * Bridge montira side-effect-e ranije vezane za <CategoryStateProvider>
- * (examiner cache prime + invalidator shim). Hook ne renderuje ništa.
- */
-function CategoryBridge({ children }: { children: ReactNode }) {
-  useCategoryStateBridge();
-  return <>{children}</>;
-}
-
 export function CardProvider({ children }: { children: ReactNode }) {
   return (
-    <CategoryBridge>
-      <CardStateProvider>
-        <ActionsProvider>
-          <RecoveryGate>{children}</RecoveryGate>
-        </ActionsProvider>
-      </CardStateProvider>
-    </CategoryBridge>
+    <RecoveryGate>
+      <AppBootstrap />
+      {children}
+    </RecoveryGate>
   );
 }
