@@ -114,7 +114,7 @@ export default function SourceEditor({ source, categoryId, onClose, onSourceUpda
     let articles = source.articles;
 
     // If user pasted new text, update HTML
-    if (newText.trim()) {
+    if (hasPastedText) {
       const cleanHtml = sanitizeHtml(newText);
       const { promoteHeadings } = await import("@/lib/heading-promotion");
       const promotedHtml = promoteHeadings(cleanHtml);
