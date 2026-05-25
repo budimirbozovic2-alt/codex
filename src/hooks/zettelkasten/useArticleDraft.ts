@@ -24,11 +24,16 @@ import { sameStringSet } from "@/lib/struct-eq";
 import { backlinkIndex } from "@/lib/backlink-index";
 import type { ZettelEditorHandle } from "@/components/zettelkasten/ZettelEditor";
 import { usePersistedDraftMirror } from "@/hooks/usePersistedDraftMirror";
+import { htmlToDoc, docToMarkdown, type EditorDoc } from "@/lib/editor-v4";
+import { mdToHtml } from "@/lib/editor-v4/migrate";
 
 import { logger } from "@/lib/logger";
 export interface Draft {
   title: string;
+  /** Legacy markdown — derived from `contentDoc` whenever the doc changes. */
   content: string;
+  /** Canonical V4 AST — primary write payload from PR-6 onward. */
+  contentDoc: EditorDoc;
   linkedSourceIds: string[];
   tags: string[];
   aliases: string[];
@@ -47,15 +52,32 @@ export interface ArticleDraftApi {
   enterEdit: (article: KnowledgeBaseArticle) => void;
   exitEdit: () => void;
   updateDraft: (patch: Partial<Draft>) => void;
+  /** Update `contentDoc` and re-derive legacy `content` (markdown). */
+  updateDraftDoc: (doc: EditorDoc) => void;
   flush: () => Promise<KnowledgeBaseArticle | null>;
   saveAndClose: () => Promise<void>;
   resetForArticle: (article: KnowledgeBaseArticle | null, opts?: { autoEditEmpty?: boolean }) => void;
+}
+
+const EMPTY_DOC: EditorDoc = { version: 4, content: { type: "doc", content: [] } };
+
+function seedDoc(a: KnowledgeBaseArticle): EditorDoc {
+  if (a.contentDoc && a.contentDoc.version === 4 && a.contentDoc.content) return a.contentDoc;
+  const md = a.content ?? "";
+  if (!md.trim()) return EMPTY_DOC;
+  try {
+    return htmlToDoc(mdToHtml(md));
+  } catch (err) {
+    logger.warn("[zettelkasten] seedDoc failed, falling back to empty", err);
+    return EMPTY_DOC;
+  }
 }
 
 function fromArticle(a: KnowledgeBaseArticle): Draft {
   return {
     title: a.title,
     content: a.content,
+    contentDoc: seedDoc(a),
     linkedSourceIds: a.linkedSourceIds ?? [],
     tags: a.tags ?? [],
     aliases: a.aliases ?? [],
