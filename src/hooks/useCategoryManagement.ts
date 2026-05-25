@@ -11,10 +11,10 @@ import { getCardMap, getCategoryStoreRecords } from "@/store";
 
 import { logger } from "@/lib/logger";
 
+import { setCategoryStoreRecords } from "@/store";
+
 // Stable module-level setter — proxies into the categoryStore mirror.
-// Action callbacks no longer need a Context-supplied setter.
 const setCategoryRecords: React.Dispatch<React.SetStateAction<CategoryRecord[]>> = (action) => {
-  const { setCategoryStoreRecords } = require("@/store") as typeof import("@/store");
   const prev = getCategoryStoreRecords();
   const next = typeof action === "function"
     ? (action as (p: CategoryRecord[]) => CategoryRecord[])(prev)
@@ -24,6 +24,7 @@ const setCategoryRecords: React.Dispatch<React.SetStateAction<CategoryRecord[]>>
 };
 
 const getCategoryRecords = (): { id: string; name: string }[] => getCategoryStoreRecords();
+
 
 // ─── Helper: osigurava da čvorovi imaju UUID sistemsku strukturu ───
 // Legacy string nodes get a *deterministic* id (stableLegacyId) so re-running
