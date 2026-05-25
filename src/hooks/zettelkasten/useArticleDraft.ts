@@ -202,5 +202,5 @@ export function useArticleDraft({ activeId, categoryId, setArticles }: Input): A
     [],
   );
 
-  return { draft, isEditing, editorRef, enterEdit, exitEdit, updateDraft, flush, saveAndClose, resetForArticle };
+  return { draft, isEditing, editorRef, enterEdit, exitEdit, updateDraft, updateDraftDoc, flush, saveAndClose, resetForArticle };
 }
