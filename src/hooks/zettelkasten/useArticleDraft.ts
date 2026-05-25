@@ -21,7 +21,7 @@ import {
 import { normalizeAliasList } from "@/lib/zettelkasten-aliases";
 import { normalizeTagList } from "@/lib/zettelkasten-tags";
 import { sameStringSet } from "@/lib/struct-eq";
-import { eventBus, EVENT_TYPES } from "@/lib/event-bus";
+import { backlinkIndex } from "@/lib/backlink-index";
 import type { ZettelEditorHandle } from "@/components/zettelkasten/ZettelEditor";
 import { usePersistedDraftMirror } from "@/hooks/usePersistedDraftMirror";
 
@@ -124,7 +124,7 @@ export function useArticleDraft({ activeId, categoryId, setArticles }: Input): A
     }
     setArticles(prev => prev.map(a => a.id === next.id ? next : a));
     if (categoryId) {
-      eventBus.emit(EVENT_TYPES.KB_ARTICLE_UPSERTED, { subjectId: categoryId, article: next });
+      backlinkIndex.upsertArticle(categoryId, next);
     }
     return next;
   }, [activeId, categoryId, setArticles]); // Removed 'draft' from dependencies
