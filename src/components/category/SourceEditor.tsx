@@ -324,18 +324,21 @@ export default function SourceEditor({ source, categoryId, onClose, onSourceUpda
                   )}
                 </div>
 
-                <div className="text-[10px] text-muted-foreground text-center">ili zalijepite HTML direktno:</div>
+                <div className="text-[10px] text-muted-foreground text-center">ili napišite / zalijepite tekst direktno:</div>
 
-                <Textarea
-                  value={newText}
-                  onChange={e => { setNewText(e.target.value); setDirty(true); }}
-                  placeholder="Zalijepite novu verziju teksta (HTML) ovdje. Postojeće kartice neće izgubiti linkove."
-                  className="min-h-[120px] text-xs"
+                <EditorV4
+                  key={`src-paste-${editorKey}`}
+                  initialDoc={newDoc ?? { version: 4, content: { type: "doc", content: [] } }}
+                  onChange={(doc) => { setNewDoc(doc); setDirty(true); }}
+                  placeholder="Zalijepite novu verziju teksta ovdje. Postojeće kartice neće izgubiti linkove."
+                  categoryId={categoryId}
+                  embedKind="source"
+                  className="min-h-[160px] text-xs"
                 />
               </CollapsibleContent>
             </Collapsible>
 
-            <Button onClick={handleSave} disabled={!dirty && !newText.trim()} className="w-full gap-2">
+            <Button onClick={handleSave} disabled={!dirty && !hasPastedText} className="w-full gap-2">
               <Save className="h-4 w-4" />
               Sačuvaj
             </Button>
