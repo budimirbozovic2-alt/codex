@@ -10,8 +10,8 @@ import {
   saveMnemonicCards,
   addMnemonicTestEntry,
   getMnemonicStats,
+  subscribeMnemonics,
 } from "./mnemonic-storage";
-import { eventBus, EVENT_TYPES } from "@/lib/event-bus";
 import { useIsMountedRef } from "@/hooks/useIsMountedRef";
 
 import { motion, AnimatePresence } from "framer-motion";
@@ -92,7 +92,7 @@ export default function MnemonicModule({ embedded = false, categoryFilter }: Pro
       if (mounted.current) setCardsState(loadedCards);
     });
 
-    return eventBus.subscribe(EVENT_TYPES.MNEMONICS_UPDATED, () => {
+    return subscribeMnemonics(() => {
       load().then((loadedCards) => {
         if (mounted.current) setCardsState(loadedCards);
       });
@@ -106,15 +106,10 @@ export default function MnemonicModule({ embedded = false, categoryFilter }: Pro
     // Čistimo React StrictMode upozorenja. Side-efekti ne idu unutar setState!
     setCardsState((prev) => {
       const next = updater(prev);
-
-      // Snimamo u localStorage SINHRONO i emitujemo događaj, ali ASINHRONO u odnosu na React update ciklus,
-      // ili to radimo vani. Ali posto nam treba referenca na prev, evo najsigurnijeg nacina:
-      // Koristimo microtask (Promise.resolve) da side-efekti 'pobjegnu' iz React-ovog render ciklusa.
+      // saveMnemonicCards notifies subscribers internally — no event needed.
       Promise.resolve().then(() => {
         saveMnemonicCards(next);
-        eventBus.emit(EVENT_TYPES.MNEMONICS_UPDATED);
       });
-
       return next;
     });
   }, []);
