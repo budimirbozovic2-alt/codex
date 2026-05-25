@@ -263,6 +263,7 @@ function ZettelkastenViewImpl() {
                 ) : (
                   <ZettelPreview
                     markdown={displayContent}
+                    doc={activeArticle.contentDoc ?? null}
                     onWikiLink={mutations.wikiLink}
                     existingTitles={existingTitleSet}
                     emptyTitles={emptyTitleSet}
