@@ -13,10 +13,29 @@ import {
   buildSeparatePlans, buildCombinedPlan,
   type SeparateCardPlan, type CombinedCardPlan, type WizardModuleEdit,
 } from "@/lib/split-wizard-build";
+import { htmlToDoc, type EditorDoc } from "@/lib/editor-v4";
+import { logger } from "@/lib/logger";
+
+/**
+ * Convert sanitized section HTML into its canonical V4 AST.
+ *
+ * Smart-Split keeps producing plain text + sanitized HTML per the Smart-Split
+ * Wizard rule (manual text input remains the SSOT for module detection); we
+ * additionally seed `contentDoc` so the section persists in the new schema
+ * immediately and doesn't have to wait for the lazy-migrate pass.
+ */
+function buildSectionDoc(html: string): EditorDoc | undefined {
+  try {
+    return htmlToDoc(html);
+  } catch (err) {
+    logger.warn("[build-essay-payload] htmlToDoc failed; section persists with legacy HTML only", err);
+    return undefined;
+  }
+}
 
 export interface AddCardArgs {
   question: string;
-  sections: { title: string; content: string }[];
+  sections: { title: string; content: string; contentDoc?: EditorDoc }[];
   categoryId: string;
   subId?: string;
   chapId?: string;
