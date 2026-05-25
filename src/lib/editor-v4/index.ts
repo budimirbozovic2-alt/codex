@@ -1,4 +1,5 @@
 export { editorV4Extensions } from "./schema";
+export { EditorView } from "./EditorView";
 export { htmlToDoc } from "./codecs/html-to-doc";
 export { docToHtml } from "./codecs/doc-to-html";
 export { docToPlainText } from "./codecs/doc-to-text";

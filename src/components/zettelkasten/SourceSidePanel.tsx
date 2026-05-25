@@ -4,7 +4,7 @@ import { X, ExternalLink, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { sanitizeHtml } from "@/lib/sanitize";
 import type { Source } from "@/lib/db";
-import { SafeHtml } from "@/components/ui/safe-html";
+import { ContentRenderer } from "@/components/ui/ContentRenderer";
 
 interface Props {
   source: Source;
@@ -57,8 +57,9 @@ export default function SourceSidePanel({ source, categoryId, onClose }: Props) 
           <X className="h-4 w-4" />
         </Button>
       </div>
-      <SafeHtml
+      <ContentRenderer
         className="prose prose-sm dark:prose-invert max-w-none p-4 overflow-y-auto flex-1 text-foreground"
+        doc={source.contentDoc}
         html={html || '<p class="text-muted-foreground italic">Izvor nema sadržaja.</p>'}
       />
     </div>
