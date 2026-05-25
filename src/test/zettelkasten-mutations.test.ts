@@ -19,6 +19,7 @@ function makeDraftApi(): ArticleDraftApi {
     enterEdit: vi.fn(),
     exitEdit: vi.fn(),
     updateDraft: vi.fn(),
+    updateDraftDoc: vi.fn(),
     flush: vi.fn().mockResolvedValue(null),
     saveAndClose: vi.fn().mockResolvedValue(undefined),
     resetForArticle: vi.fn(),
