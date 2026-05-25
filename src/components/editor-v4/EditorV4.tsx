@@ -1,13 +1,24 @@
 import { useEditor, EditorContent, type Editor } from "@tiptap/react";
 import Placeholder from "@tiptap/extension-placeholder";
-
-import { useEffect } from "react";
+import { forwardRef, useEffect, useImperativeHandle, useMemo } from "react";
 import {
   Bold, Italic, Underline as UnderlineIcon, Heading2, List, ListOrdered,
-  Highlighter, Star, Undo2, Redo2,
+  Highlighter, Star, Undo2, Redo2, Map as MapIcon, Link2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { editorV4Extensions, type EditorDoc } from "@/lib/editor-v4";
+import { editorV4Extensions, SmartPaste, type EditorDoc } from "@/lib/editor-v4";
+
+export interface EditorV4Handle {
+  /** Insert raw text at the caret (preserves marks via TipTap's `insertContent`). */
+  insertText: (text: string) => void;
+  /** Insert as a standalone block (paragraph). For mindmaps use `insertMindmap`. */
+  insertBlock: (text: string) => void;
+  /** Insert a `mindmapEmbed` node at the caret. */
+  insertMindmap: (mindmapId: string) => void;
+  /** Insert a `wikiLink` node (or wrap selection). */
+  insertWikiLink: (target: string, display?: string) => void;
+  focus: () => void;
+}
 
 interface EditorV4Props {
   /** Initial document — read only on mount. Force reset with React `key`. */
@@ -19,6 +30,16 @@ interface EditorV4Props {
   minimal?: boolean;
   /** Adds an "Označi kao ključni dio" toggle (KeyPart mark). */
   showKeyPartToggle?: boolean;
+  /** Required for `mindmapEmbed` nodeView to resolve the embedded snapshot. */
+  categoryId?: string;
+  /**
+   * Surface hint for editor-aware affordances:
+   *  - `'article'` shows the mindmap insert button + wiki-link helper.
+   *  - `'source'` / `'card'` keep the toolbar focused on prose formatting.
+   */
+  embedKind?: "card" | "source" | "article";
+  /** Invoked when user clicks the mindmap toolbar button. */
+  onPickMindmap?: () => void;
   className?: string;
 }
 
@@ -31,27 +52,36 @@ const SAFE_IMAGE_MIME = new Set(["image/png", "image/jpeg", "image/gif", "image/
  * commands flow through TipTap chains; no `document.execCommand`, no
  * `dangerouslySetInnerHTML`, no DOMPurify on input (schema is whitelist-based).
  *
+ * Paste pipeline (`SmartPaste`) re-uses `preprocessHtml` so `[[wiki]]` and
+ * `::mindmap[id]` syntax pasted from any clipboard payload becomes proper
+ * `wikiLink` / `mindmapEmbed` nodes — same codec as backup import.
+ *
  * `onChange` emits `{ version: 4, content: editor.getJSON() }` — callers
- * persist this as `Section.contentDoc` and derive legacy `content` (HTML) via
- * `docToHtml` until PR-6 flips reads entirely to AST.
+ * persist this as the canonical `contentDoc` and derive legacy `content`
+ * (HTML/Markdown) via `docToHtml` / `docToMarkdown` for backward compat.
  */
-export function EditorV4({
+export const EditorV4 = forwardRef<EditorV4Handle, EditorV4Props>(function EditorV4({
   initialDoc,
   onChange,
   placeholder,
   minimal = false,
   showKeyPartToggle = false,
+  categoryId,
+  embedKind = "card",
+  onPickMindmap,
   className,
-}: EditorV4Props) {
+}, ref) {
+  const extensions = useMemo(() => [
+    ...editorV4Extensions,
+    SmartPaste,
+    Placeholder.configure({
+      placeholder: placeholder ?? "",
+      emptyEditorClass: "is-editor-empty",
+    }),
+  ], [placeholder]);
+
   const editor = useEditor({
-    extensions: [
-      ...editorV4Extensions,
-      // Underline is included in StarterKit v3.
-      Placeholder.configure({
-        placeholder: placeholder ?? "",
-        emptyEditorClass: "is-editor-empty",
-      }),
-    ],
+    extensions,
     content: initialDoc.content,
     editable: true,
     immediatelyRender: false,
@@ -83,6 +113,44 @@ export function EditorV4({
     },
   });
 
+  // Wire categoryId into mindmap storage so nodeView can resolve embeds.
+  useEffect(() => {
+    if (!editor || !categoryId) return;
+    const storage = (editor.storage as unknown as Record<string, unknown>).mindmapEmbed as
+      | { categoryId?: string }
+      | undefined;
+    if (storage) storage.categoryId = categoryId;
+  }, [editor, categoryId]);
+
+  useImperativeHandle(ref, (): EditorV4Handle => ({
+    insertText: (text: string) => {
+      editor?.chain().focus().insertContent(text).run();
+    },
+    insertBlock: (text: string) => {
+      editor?.chain().focus().insertContent({
+        type: "paragraph",
+        content: text ? [{ type: "text", text }] : [],
+      }).run();
+    },
+    insertMindmap: (mindmapId: string) => {
+      if (!mindmapId) return;
+      editor?.chain().focus().insertContent({
+        type: "mindmapEmbed",
+        attrs: { mindmapId },
+      }).run();
+    },
+    insertWikiLink: (target: string, display?: string) => {
+      const t = target.trim();
+      if (!t) return;
+      const d = (display ?? t).trim() || t;
+      editor?.chain().focus().insertContent({
+        type: "wikiLink",
+        attrs: { target: t, display: d, hasPipe: d !== t },
+      }).run();
+    },
+    focus: () => editor?.commands.focus(),
+  }), [editor]);
+
   useEffect(() => {
     return () => {
       editor?.destroy();
@@ -92,7 +160,13 @@ export function EditorV4({
 
   if (!editor) return null;
 
-  const buttons = buildToolbarButtons(editor, { minimal, showKeyPartToggle });
+  const buttons = buildToolbarButtons(editor, {
+    minimal,
+    showKeyPartToggle,
+    showMindmap: embedKind === "article" && Boolean(onPickMindmap),
+    showWikiLinkHelper: embedKind === "article",
+    onPickMindmap,
+  });
 
   return (
     <div className="space-y-1.5">
@@ -120,11 +194,14 @@ export function EditorV4({
       <EditorContent editor={editor} />
     </div>
   );
-}
+});
 
 interface ToolbarOpts {
   minimal: boolean;
   showKeyPartToggle: boolean;
+  showMindmap: boolean;
+  showWikiLinkHelper: boolean;
+  onPickMindmap?: () => void;
 }
 
 interface ToolbarBtn {
@@ -147,12 +224,28 @@ function buildToolbarButtons(editor: Editor, opts: ToolbarOpts): ToolbarBtn[] {
   const filtered = opts.minimal ? all.filter((b) => b.minimalShow) : all;
   const out: ToolbarBtn[] = filtered.map(({ minimalShow: _ms, ...rest }) => { void _ms; return rest; });
 
+  if (opts.showWikiLinkHelper) {
+    out.push({
+      title: "Umetni wiki-link ([[...]])",
+      icon: Link2,
+      onClick: () => editor.chain().focus().insertContent("[[]]").run(),
+      active: false,
+    });
+  }
   if (opts.showKeyPartToggle) {
     out.push({
       title: "Označi kao ključni dio",
       icon: Star,
       onClick: () => editor.chain().focus().toggleMark("keyPart").run(),
       active: editor.isActive("keyPart"),
+    });
+  }
+  if (opts.showMindmap && opts.onPickMindmap) {
+    out.push({
+      title: "Umetni mapu uma",
+      icon: MapIcon,
+      onClick: () => opts.onPickMindmap!(),
+      active: false,
     });
   }
   out.push({
