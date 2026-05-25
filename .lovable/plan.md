@@ -1,119 +1,172 @@
-## PR-2 — Domain JSON schema + codecs
 
-Cilj: definisati tipizirani `EditorDoc` AST i bidirekcione codece (HTML ↔ Doc ↔ plain text), uz fixture round-trip testove. Bez ikakve integracije u produkcijske view-ove — sve ostaje izolovano u `src/lib/editor-v4/*`.
+# Plan: Provider Hell + Lokalni EventBus
 
-### Nove datoteke
+Dva paralelna zadatka koja se rade u istom PR-u — Task A briše Context skele, Task B briše duple izvore istine (EventBus → Zustand). Oboje cilja istu metu: jedan SSOT (Zustand) bez parazitnih re-rendera.
 
+## Trenutno stanje (mjereno)
+
+App.tsx provider stack (od korijena ka dolje):
 ```text
-src/lib/editor-v4/
-  schema.ts          # TipTap schema + custom nodes/marks (wikiLink, mindmapEmbed, keyPart)
-  types.ts           # EditorDoc, EditorNodeJSON tipovi
-  extensions/
-    wiki-link.ts     # TipTap Node extension (atrs: target, display, hasPipe)
-    mindmap-embed.ts # TipTap Node extension (atrs: mindmapId)
-    key-part.ts      # TipTap Mark extension (inclusive: false)
-  codecs/
-    html-to-doc.ts   # DOMParser + pre-processor za [[wiki]] i ::mindmap[id]
-    doc-to-html.ts   # za read-only fallback i export
-    doc-to-text.ts   # za search/preview
-  index.ts           # barrel
-
-src/test/fixtures/editor-html/
-  01-plain-paragraph.html
-  02-headings.html
-  03-lists-nested.html
-  04-bold-italic-underline.html
-  05-blockquote-code.html
-  06-link-external.html
-  07-wiki-link-simple.html        # [[Naslov]]
-  08-wiki-link-piped.html         # [[Naslov|prikaz]]
-  09-mindmap-embed.html           # ::mindmap[uuid]
-  10-key-part-mark.html           # <mark class="key-part-highlight">
-  11-mixed-wiki-and-marks.html
-  12-table-simple.html
-  13-image.html
-  14-hr-rule.html
-  15-nested-marks.html
-  16-empty-paragraphs.html
-  17-malformed-cleanup.html
-  18-multiple-wiki-same-paragraph.html
-  19-mindmap-inside-list.html
-  20-real-card-section.html       # pravi sanitizovani export iz baze
-
-src/test/editor-v4-codec.test.ts  # round-trip nad svim fixture-ima
-src/test/editor-v4-schema.test.ts # schema validacija + node atrs
+TooltipProvider
+└─ HashRouter
+   └─ AppProvider
+      └─ CardProvider                  ← composition: 3 ugnijezdjena providera
+         ├─ CategoryBridge (hook)
+         ├─ CardStateProvider           ← 4 nested Context.Provider iznutra
+         │  ├─ CardStateInternalsContext
+         │  ├─ CardStateContext
+         │  ├─ ReviewStateContext
+         │  └─ CategoryStatsContext
+         └─ ActionsProvider             ← 3 nested Context.Provider iznutra
+            ├─ CardActionsContext
+            ├─ CategoryActionsContext
+            └─ BackupActionsContext
+      └─ PomodoroProvider
+      └─ UIProvider
+   └─ SessionProvider
+   └─ ErrorBoundary
+   └─ BootRecoveryGate
+   └─ MainLayout
 ```
 
-### Schema (ključne odluke)
+Ukupno **10 Context.Provider** node-ova prije `MainLayout`-a. `CategoryStateProvider` je već no-op shim (čita iz `categoryStore` preko `useSyncExternalStore`). `cardMap` je već u Zustand `cardMapStore`. Većina action hookova (useCardCRUD, useCategoryManagement) već zove `cardRepository` / `categoryRepository` direktno — Context im služi samo za stabilnu identitet referencu.
 
-`EditorDoc`:
+EventBus lokalna potrošnja (kandidati za brisanje):
+- `CARDS_UPDATED` — emit: `cardRepository`, `RemapFromBackupDialog`, `useHealthMonitor` (2×). Sub: `cardMapInvalidator`.
+- `CATEGORIES_UPDATED` — emit: `categoryRepository`. Sub: `categoryStateInvalidator`.
+- `MNEMONICS_UPDATED` — emit: `TextSelectionTooltip`, `MnemonicModule`. Sub: `MnemonicModule`.
+- `KB_ARTICLE_UPSERTED / REMOVED` — emit: `useArticleMutations`, `useArticleDraft`, `useWikiLinkAutoCreate`. Sub: `backlink-index`.
+- `PROVIDER_FALLBACK` — diagnostički, umire sa Task A.
+- `TAB_*` — već dead constants.
+
+**Čuvamo:** `DB_BLOCKED / DB_UNBLOCKED / DB_ERROR_CHANGED` (cross-cutting infra signali, ne UI sync).
+
+---
+
+## Task A — Brisanje Provider skela
+
+### 1. Konverzija state hookova na Zustand (zero Context)
+
+- **`useCardData`** — danas čita `cards` (derivat `mapToArray(cardMap)`), `dueCards`, `stats`, `cardCountByCategory`, `ready`. Prepisati u jedan modul `src/store/useCardDerivedSelectors.ts`:
+  - `useCards()` — `useSyncExternalStore(cardMapStore.subscribe, () => mapToArray(state.map))` sa cache-iranom array referencom (mutira se samo kad map promijeni).
+  - `useCardAggregatesStore(categories)` — premjesti `useCardAggregates` (čista funkcija + WeakMap cache) iza `useMemo` na ovaj hook.
+  - `useCardReady()` — boot status izlazi iz nove `useAppBootstrap()` (vidi #3).
+- **`useReviewData`** — `reviewLog` + `srSettings`. Premjestiti `useReviewSettingsStore` u Zustand `reviewSettingsStore` (`src/store/useReviewSettingsStore.ts`). Action surface (`commitReviewEntry`, `replaceReviewLog`, `updateSRSettings`) ostaje na istoj instanci, pristup preko selektora.
+- **`useCategoryStatsData`** — derivat iz `useCardAggregatesStore`; ekstrahovati u `useCategoryStats()` selektor.
+- **`useCategoryData`** — već radi iz `categoryStore`, ostaje neizmijenjeno (briše se samo `CategoryStateProvider` shim).
+- **`useCardStateInternals`** — briše se. Konzumeri (`ActionsProvider`, `useSettingsActions`) direktno zovu `cardRepository` / store setter-e / `reviewSettingsStore` action-e.
+
+### 2. Konverzija action hookova (bez Context-a)
+
+`useCardOnlyActions`, `useCategoryActions`, `useBackupActions` prestaju biti Context lookup. Postaju thin compose hookovi koji vraćaju memoizirane bundle-e:
+
 ```ts
-interface EditorDoc {
-  version: 4;
-  content: ProseMirrorJSON; // root doc node
+// useCardOnlyActions.ts (novo)
+export function useCardOnlyActions(): CardActionsValue {
+  const crud = useCardCRUD();
+  const annotations = useCardAnnotations();
+  return useMemo(() => ({ ...crud, ...annotations }), [crud, annotations]);
 }
 ```
 
-Custom čvorovi:
-- `wikiLink` — inline node, atomic. Atrs: `target: string`, `display: string`, `hasPipe: boolean`. Serijalizacija: `<a data-wikilink="target" data-display="display">display</a>` (kompatibilno sa postojećim `sanitize.ts` ALLOWED_ATTR-ima nakon dodavanja `data-wikilink`/`data-display` u allowlist — TO SE NE RADI U PR-2, samo u PR-4 kad uđe read path).
-- `mindmapEmbed` — block node, atomic. Atrs: `mindmapId: string`. Serijalizacija: `<div data-mindmap="id"></div>`.
-- `keyPart` — mark, `inclusive: false`. Serijalizacija: `<mark class="key-part-highlight">`.
+Hookovi `useCardCRUD` / `useCardAnnotations` / `useCategoryManagement` / `useCardExport` / `useCardImport` već su čisti — uklanjaju im se `setCardMapState` / `setCategoryRecords` / `setReviewLog` parametri (mrtvi — sve ide kroz repository). Tipovi (`CardActionsValue`, itd.) ostaju u `actions-contexts.ts` (preimenovati u `actions-types.ts`).
 
-Reuse: `WIKI_LINK_RE` iz `src/lib/zettelkasten-wiki-link.ts` (već je SSOT). `::mindmap[id]` pattern centralizovati u `src/lib/editor-v4/patterns.ts`.
+`useSettingsActions` postaje thin wrapper oko `reviewSettingsStore.updateSRSettings`.
 
-### Codec ugovor
+### 3. Boot side-effects → `AppBootstrap` komponenta
 
-```ts
-htmlToDoc(html: string): EditorDoc
-docToHtml(doc: EditorDoc): string        // za fallback render; ide kroz sanitizeHtml na pozivnoj strani
-docToPlainText(doc: EditorDoc): string   // čist tekst, jedan space između block-ova
+Side-effecti danas montirani u `CardStateProvider` (`useCardBootstrap`, `useCardSyncEffects`, quit-flush effect) + `CategoryBridge` (`useCategoryStateBridge`) konsoliduju se u jedan `<AppBootstrap />` koji renderuje `null` i montira se kao sibling unutar `BootRecoveryGate`. Read-paths (Zustand selektori) više ne zavise od ovog node-a.
+
+### 4. Brisanje fajlova
+
+- `src/contexts/cards/CardStateProvider.tsx` → brisanje, javni hookovi premješteni u `src/store/useCardDerivedSelectors.ts` + `src/contexts/cards/useSettingsActions.ts`.
+- `src/contexts/cards/CategoryStateProvider.tsx` → brisanje shim provider-a; `useCategoryData`, `useCategoryStateBridge`, `setCategoryRecordsShim` ostaju (premještaju se u `src/store/useCategorySelectors.ts` + `src/contexts/cards/useCategoryStateBridge.ts`).
+- `src/contexts/cards/ActionsProvider.tsx` → brisanje. 
+- `src/contexts/cards/actions-contexts.ts` → preimenovati u `actions-types.ts` (samo tipovi).
+- `src/contexts/cards/useActions.ts` → prepisati u compose hookove (bez `useContext`).
+- `src/contexts/cards/_providerFallback.ts` → brisanje (PROVIDER_FALLBACK event takođe nestaje u Task B).
+- `src/contexts/cards/CardProvider.tsx` → svesti na: `<RecoveryGate><AppBootstrap />{children}</RecoveryGate>`.
+
+### 5. Novi App.tsx stack (cilj)
+
+```text
+TooltipProvider
+└─ HashRouter
+   └─ SessionProvider
+      └─ BootRecoveryGate
+         └─ MainLayout
+            └─ <AppBootstrap />  + <Routes/>
 ```
 
-Pre-procesor u `htmlToDoc`:
-1. DOMPurify nad ulazom (defense-in-depth — ulaz može biti backup ili clipboard).
-2. Tekstualni pass: `[[...]]` → `<a data-wikilink="target" data-display="display">display</a>`, `::mindmap[id]` → `<div data-mindmap="id"></div>`.
-3. Postojeći `<mark class="key-part-highlight">` se prepoznaje direktno iz schema-e.
-4. ProseMirror `DOMParser.fromSchema(schema).parse(domFragment)` → JSON.
+4 wrappera (Tooltip / HashRouter / SessionProvider / BootRecoveryGate). `UIProvider` i `PomodoroProvider` ostaju jer drže pravi React state — premještaju se INSIDE `BootRecoveryGate` ili refaktoriraju u Zustand u zasebnom PR-u (van skopa).
 
-`docToHtml` koristi ProseMirror `DOMSerializer` sa istim toDOM specifikacijama iz schema-e.
+---
 
-`docToPlainText` rekurzivno spaja `text` nodeove + `\n\n` između block-ova; za `wikiLink` izbacuje `display`, za `mindmapEmbed` izbacuje prazno (ili `[mindmap]` placeholder — odluka u testu).
+## Task B — Eliminacija lokalnih EventBus evenata
 
-### Test plan
+### 1. `CARDS_UPDATED` → direktni store pozivi
 
-`src/test/editor-v4-codec.test.ts` — za svaki od 20 fixture-a:
-- `htmlToDoc(html)` ne baca, vraća validan `EditorDoc`.
-- `docToHtml(doc)` round-trip — drugi prolaz `htmlToDoc(docToHtml(doc))` daje strukturno jednak doc (preko `struct-eq.ts`).
-- Sve `[[wiki]]` instance opstaju kao `wikiLink` čvorovi (count + target equality).
-- Sve `::mindmap[id]` instance opstaju kao `mindmapEmbed` čvorovi.
-- Svi `<mark class="key-part-highlight">` opstaju kao `keyPart` markovi.
+- `cardRepository.put/patch/bulkPut/remove` — već mutiraju `cardMapStore`. Skinuti `eventBus.emit(CARDS_UPDATED)` poziv.
+- `cardMapInvalidator` → brisanje (cache je sad sam store).
+- `useHealthMonitor` orphan-cleanup → poziva `cardRepository.bulkRemove()` direktno (već to radi); `eventBus.emit` linije se brišu.
+- `RemapFromBackupDialog` → poziva `cardRepository.replaceAll()` ili ekvivalent; emit se briše.
+- `main.tsx` `initCardMapInvalidator()` poziv se briše.
 
-`src/test/editor-v4-schema.test.ts`:
-- Schema validira atrs (target prazan → throw).
-- `keyPart` mark `inclusive: false` ponašanje (programatski insertText ne širi mark).
+### 2. `CATEGORIES_UPDATED` → direktni store pozivi
 
-Ciljano coverage gate: 0 data loss nad fixture-ima, schema parser ne baca ni na jednom.
+- `categoryRepository` emit briše se; svi pisači već prolaze kroz `setCategoryStoreRecords`.
+- `categoryStateInvalidator` → brisanje. 
+- `main.tsx` `initCategoryStateInvalidator()` poziv se briše.
 
-### Dependencies
+### 3. `MNEMONICS_UPDATED` → Zustand subscribe
 
-Ništa novo. PR-1 je već instalirao `@tiptap/core`, `@tiptap/react`, `@tiptap/starter-kit`. `prosemirror-model`, `prosemirror-state`, `prosemirror-transform` dolaze tranzitivno kroz TipTap. Za parser koristimo `@tiptap/core`'s re-export `DOMParser`/`DOMSerializer` (preko `editor.schema`).
+`MnemonicModule` slušalac zamijeniti `useSyncExternalStore` nad `mnemonicStore` (postoji u `src/features/mnemonic/mnemonic-storage.ts`). `TextSelectionTooltip` emit briše se nakon što `mnemonic-storage` writer mutira store sinhrono.
 
-### Šta PR-2 NE radi
+### 4. `KB_ARTICLE_UPSERTED / REMOVED` → backlink index subscription na zettelkasten store
 
-- Ne dira `RichTextEditor.tsx`, `SafeHtml`, `sanitize.ts` allowlist.
-- Ne dira IDB schema (to je PR-3).
-- Ne uvodi nikakav UI — codec je čista lib funkcija.
-- Ne mijenja `LabEditor` (može opciono dobiti dugme "AST JSON" koji već postoji).
+`backlink-index.ts` `initBacklinkIndexSubscriptions` zamijeniti `zettelkastenStore.subscribe((s, prev) => diff(s, prev))` — index reaguje na upsert/remove diff lokalno. Emit pozivi iz `useArticleMutations / useArticleDraft / useWikiLinkAutoCreate` brišu se.
 
-### Acceptance
+### 5. `PROVIDER_FALLBACK` + `TAB_*`
 
-- `bunx vitest run src/test/editor-v4-codec.test.ts` → 20/20 round-trip prolazi.
-- `bunx vitest run src/test/editor-v4-schema.test.ts` → prolazi.
-- `grep -r "editor-v4" src/components src/views` → 0 hitova (izolacija očuvana).
-- Bundle ne raste (codec se ne importuje iz produkcijskog koda).
+- `PROVIDER_FALLBACK` event i `_providerFallback.ts` brišu se sa Task A.
+- `TAB_HEARTBEAT / TAB_REPLY / TAB_LEAVING` konstante uklanjaju se iz `event-bus-types.ts` (već unused).
 
-### Rizici
+### 6. `event-bus.ts` ostaje
 
-- **ProseMirror `DOMParser` ne razumije naše custom data-atribute** → riješeno `parseDOM` pravilima u node spec-ovima (`getAttrs: dom => ({ target: dom.getAttribute("data-wikilink") })`).
-- **Wiki-link pre-procesor lomi tekst unutar `<code>` blokova** → eksplicitno preskočiti tekstualni pass unutar `<code>`/`<pre>` (test fixture #5 to pokriva).
-- **Round-trip "gubi" prazne paragrafe** → ProseMirror normalizuje; fixture #16 verifikuje očekivano ponašanje (paragraf bez sadržaja se čuva ako ima break, inače pada — dokumentovati).
+Samo za `DB_BLOCKED / DB_UNBLOCKED / DB_ERROR_CHANGED`. Modul ostaje, ali listenerCount na health-check-u opada drastično. Memo `mem://technical-choices/event-bus-architecture` ažurira se (uloga svedena na DB infra signale).
+
+---
+
+## Tests
+
+- Postojeći testovi koji mockuju Context: `phase-a-p0`, `phase-b-p1`, `provider-fallback.test.tsx` — adaptirati ili obrisati.
+- `card-map-invalidator.test.ts` + `category-state-invalidator.test.ts` → brisanje.
+- Dodati `src/test/app-bootstrap-tree.test.tsx` — render `<App />`, assert `document.querySelectorAll('[data-app-mounted]').length === 1` + ručno brojanje Context Provider node-ova ≤ 4 preko React DevTools nije pouzdano; umjesto toga assert preko snapshot-a render-tree-a iz `react-test-renderer`.
+- Dodati `src/test/event-bus-residual.test.ts` — `eventBus.getListenerCount()` nakon punog boot-a ne smije premašiti 3 (samo DB_* kanali).
+- Smoke run cijelog `vitest run` mora proći zeleno.
+
+## Rizici i mitigacija
+
+| Rizik | Mitigacija |
+|---|---|
+| `useSyncExternalStore` cache stable identity za `cards = mapToArray(map)` — bez memoizacije pravi novu array referencu svaki tick | Mapa-mutacija već triggeruje store version bump; cache-irati posljednji rezultat u modulu (`let cached = null` + version compare). |
+| Repository `emit` brisanje razbije test mockove koji slušaju CARDS_UPDATED | Globalna grep + zamjena svih `eventBus.subscribe(CARDS_UPDATED, ...)` testova; assertion-e prepisati na `cardMapStore.subscribe`. |
+| Backlink index propušta event ako neko upsert-uje bez prolaska kroz store | Tek nakon što potvrdim da svi upsert path-ovi (useArticleMutations, useArticleDraft, useWikiLinkAutoCreate, import flow) idu kroz `zettelkastenStore.upsertArticle`. Ako ne — prvo te pisače rerout-ovati pa onda brisati event. |
+| HMR transient: bez Provider-a, fallback warning iz `useCardData` više neće postojati | Selektor iz Zustand vraća prazan `[]` dok store nije inicijalizovan — pokriveno `ready` flag-om iz `useAppBootstrap`. |
+| Mnemonic store možda ne postoji ili nije reaktivan | Provjera prije starta Task B koraka #3; ako fali — uvesti tanki Zustand wrapper oko `mnemonic-storage` ili zadržati MNEMONICS_UPDATED dok se ne refaktoriše posebno. |
+
+## Acceptance
+
+1. App.tsx ima ≤ 4 wrappera prije `MainLayout`-a.
+2. `git grep -n "createContext\|useContext" src/contexts/cards/` vraća nula hitova.
+3. `eventBus.getListenerCount()` nakon boot-a ≤ 3 (samo DB_*).
+4. Sve postojeće card/category/review interakcije rade (smoke test passes).
+5. Memo `mem://architecture/provider-cleanup-v1` se nadograđuje na v2 sa novim brojevima (10 → 4 Provider node-ova).
+
+## Touched files (procjena)
+
+- **Briše:** `CardStateProvider.tsx`, `ActionsProvider.tsx`, `CategoryStateProvider.tsx`, `_providerFallback.ts`, `cardMapInvalidator.ts`, `categoryStateInvalidator.ts`, 2 testa za invalidatore.
+- **Nova:** `src/store/useCardDerivedSelectors.ts`, `src/store/useReviewSettingsStore.ts`, `src/contexts/AppBootstrap.tsx`, `src/contexts/cards/actions-types.ts`.
+- **Mijenja:** `App.tsx`, `AppContext.tsx`, `CardProvider.tsx`, `useActions.ts`, `useCardCRUD.ts`, `useCardAnnotations.ts`, `useCategoryManagement.ts`, `useCardImport.ts`, `useCardExport.ts`, `cardRepository.ts`, `categoryRepository.ts`, `backlink-index.ts`, `event-bus-types.ts`, `main.tsx`, `useHealthMonitor.ts`, `RemapFromBackupDialog.tsx`, `TextSelectionTooltip.tsx`, `MnemonicModule.tsx`, `useArticleMutations.ts`, `useArticleDraft.ts`, `useWikiLinkAutoCreate.ts`.
+
+Procjena: ~22 izmijenjenih + 4 nova + 8 obrisanih fajla. Većina je mehanička zamjena (TypeScript kompajler vodi).
