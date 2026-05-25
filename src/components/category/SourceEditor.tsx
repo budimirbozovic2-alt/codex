@@ -165,7 +165,7 @@ export default function SourceEditor({ source, categoryId, onClose, onSourceUpda
     }
 
     await commitSave(htmlContent, outline, articles);
-  }, [source, title, slMarkings, dateStr, isExclusive, newText, bulkFlagNeedsReview]);
+  }, [source, title, slMarkings, dateStr, isExclusive, sourceKind, newText, hasPastedText, bulkFlagNeedsReview]);
 
   const commitSave = useCallback(async (htmlContent: string, outline: Source["outline"], articles: Source["articles"]) => {
     const updated: Source = {
