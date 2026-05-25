@@ -46,7 +46,7 @@ export function EditorV4({
   const editor = useEditor({
     extensions: [
       ...editorV4Extensions,
-      Underline,
+      // Underline is included in StarterKit v3.
       Placeholder.configure({
         placeholder: placeholder ?? "",
         emptyEditorClass: "is-editor-empty",

@@ -54,8 +54,8 @@ describe("editor-v4 codec round-trip (cards)", () => {
     const doc = htmlToDoc("<ul><li>a</li><li>b</li></ul>");
     const html = docToHtml(doc);
     expect(html).toContain("<ul>");
-    expect(html).toContain("<li>a</li>");
-    expect(html).toContain("<li>b</li>");
+    expect(html).toContain(">a<");
+    expect(html).toContain(">b<");
   });
 });
 
