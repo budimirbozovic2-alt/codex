@@ -172,6 +172,16 @@ export function useArticleDraft({ activeId, categoryId, setArticles }: Input): A
     setDraft(prev => prev ? { ...prev, ...patch } : prev);
   }, []);
 
+  /**
+   * SSOT-respecting helper: update the AST and re-derive legacy markdown
+   * once, so wiki-link auto-create / backlink-index scans (which still read
+   * `content`) stay synchronized without each editor caller having to call
+   * `docToMarkdown` themselves.
+   */
+  const updateDraftDoc = useCallback((doc: EditorDoc) => {
+    setDraft(prev => prev ? { ...prev, contentDoc: doc, content: docToMarkdown(doc) } : prev);
+  }, []);
+
   const saveAndClose = useCallback(async () => {
     const saved = await flush();
     setIsEditing(false);
