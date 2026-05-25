@@ -172,10 +172,11 @@ export function buildEssayFromSelection(
       rangeLabel: result.rangeLabel,
     };
   }
+  const fallbackContent = sanitizeHtml(html || text);
   return {
     args: {
       question: questionText,
-      sections: [{ title: "Odgovor", content: sanitizeHtml(html || text) }],
+      sections: [{ title: "Odgovor", content: fallbackContent, contentDoc: buildSectionDoc(fallbackContent) }],
       categoryId: source.categoryId,
       options: {
         sourceId: source.id,
