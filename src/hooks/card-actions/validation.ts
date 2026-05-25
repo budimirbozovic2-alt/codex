@@ -1,8 +1,12 @@
 import { stripHtmlText } from "@/lib/sanitize";
+import type { EditorDoc } from "@/lib/editor-v4/types";
 
 export interface SectionInput {
   title: string;
+  /** Legacy HTML — od PR-5 derivirano iz contentDoc preko docToHtml. */
   content: string;
+  /** V4 canonical AST — primarni write payload od PR-5. */
+  contentDoc?: EditorDoc;
 }
 
 export type CardType = "essay" | "flash";
