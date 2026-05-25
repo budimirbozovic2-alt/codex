@@ -132,6 +132,7 @@ export function useArticleDraft({ activeId, categoryId, setArticles }: Input): A
       ...fresh,
       title: titleClean,
       content: currentDraft.content,
+      contentDoc: currentDraft.contentDoc,
       linkedSourceIds: currentDraft.linkedSourceIds,
       tags: tagsClean,
       aliases: aliasesClean,
