@@ -63,33 +63,15 @@ export function EditorV4({
           className,
         ),
       },
-      handlePaste(view, event) {
+      handlePaste(_view, event) {
+        // Image paste deferred until Image node is added to the V4 schema.
+        // For now: if the clipboard carries an image, swallow the event so
+        // we don't accidentally inject HTML the schema would strip silently.
         const items = event.clipboardData?.items;
         if (!items) return false;
         for (let i = 0; i < items.length; i++) {
-          const item = items[i];
-          if (SAFE_IMAGE_MIME.has(item.type)) {
+          if (SAFE_IMAGE_MIME.has(items[i].type)) {
             event.preventDefault();
-            const file = item.getAsFile();
-            if (!file) return true;
-            const reader = new FileReader();
-            reader.onload = (ev) => {
-              const dataUrl = ev.target?.result as string;
-              if (!dataUrl) return;
-              // Use TipTap's insertContent so the image goes through schema validation.
-              view.dispatch(
-                view.state.tr.insertText(""), // no-op to keep focus
-              );
-              // StarterKit doesn't include Image — fall back to a <p> with raw URL placeholder.
-              // Future: add @tiptap/extension-image. For now we preserve old behavior:
-              // emit a sanitized <img> via insertContent (parsed by Document schema).
-              const html = `<p><img src="${dataUrl}" alt="" /></p>`;
-              const e = view.dom.closest("[data-tiptap-editor]") as HTMLElement | null;
-              void e;
-              // Direct chain insertion via editor instance:
-              (view as unknown as { editor?: Editor }).editor?.chain().focus().insertContent(html).run();
-            };
-            reader.readAsDataURL(file);
             return true;
           }
         }
