@@ -13,10 +13,29 @@ import {
   buildSeparatePlans, buildCombinedPlan,
   type SeparateCardPlan, type CombinedCardPlan, type WizardModuleEdit,
 } from "@/lib/split-wizard-build";
+import { htmlToDoc, type EditorDoc } from "@/lib/editor-v4";
+import { logger } from "@/lib/logger";
+
+/**
+ * Convert sanitized section HTML into its canonical V4 AST.
+ *
+ * Smart-Split keeps producing plain text + sanitized HTML per the Smart-Split
+ * Wizard rule (manual text input remains the SSOT for module detection); we
+ * additionally seed `contentDoc` so the section persists in the new schema
+ * immediately and doesn't have to wait for the lazy-migrate pass.
+ */
+function buildSectionDoc(html: string): EditorDoc | undefined {
+  try {
+    return htmlToDoc(html);
+  } catch (err) {
+    logger.warn("[build-essay-payload] htmlToDoc failed; section persists with legacy HTML only", err);
+    return undefined;
+  }
+}
 
 export interface AddCardArgs {
   question: string;
-  sections: { title: string; content: string }[];
+  sections: { title: string; content: string; contentDoc?: EditorDoc }[];
   categoryId: string;
   subId?: string;
   chapId?: string;
@@ -31,9 +50,10 @@ export interface AddCardArgs {
 }
 
 function fromSeparatePlan(plan: SeparateCardPlan, source: Source, subId?: string, chapId?: string): AddCardArgs {
+  const content = sanitizeHtml(plan.module.contentHtml);
   return {
     question: plan.question,
-    sections: [{ title: "Odgovor", content: sanitizeHtml(plan.module.contentHtml) }],
+    sections: [{ title: "Odgovor", content, contentDoc: buildSectionDoc(content) }],
     categoryId: source.categoryId,
     subId,
     chapId,
@@ -57,10 +77,10 @@ export function buildSeparateEssaysFromModules(
 }
 
 function fromCombinedPlan(plan: CombinedCardPlan, source: Source, subId?: string, chapId?: string): AddCardArgs {
-  const sections = plan.modules.map(({ question, module: mod }) => ({
-    title: question,
-    content: sanitizeHtml(mod.contentHtml),
-  }));
+  const sections = plan.modules.map(({ question, module: mod }) => {
+    const content = sanitizeHtml(mod.contentHtml);
+    return { title: question, content, contentDoc: buildSectionDoc(content) };
+  });
   const sourceModules: SourceModule[] = plan.modules.map(({ question, module: mod }, index) => ({
     id: crypto.randomUUID(),
     order: index,
@@ -121,7 +141,10 @@ export function buildEssayFromSelection(
   const result = splitSelection(text);
   if (result.hasArticles && result.modules.length > 0) {
     const { modules } = result;
-    const sections = modules.map((mod) => ({ title: mod.title, content: sanitizeHtml(mod.contentHtml) }));
+    const sections = modules.map((mod) => {
+      const content = sanitizeHtml(mod.contentHtml);
+      return { title: mod.title, content, contentDoc: buildSectionDoc(content) };
+    });
     const sourceModules: SourceModule[] = modules.map((mod, index) => ({
       id: crypto.randomUUID(),
       order: index,
@@ -149,10 +172,11 @@ export function buildEssayFromSelection(
       rangeLabel: result.rangeLabel,
     };
   }
+  const fallbackContent = sanitizeHtml(html || text);
   return {
     args: {
       question: questionText,
-      sections: [{ title: "Odgovor", content: sanitizeHtml(html || text) }],
+      sections: [{ title: "Odgovor", content: fallbackContent, contentDoc: buildSectionDoc(fallbackContent) }],
       categoryId: source.categoryId,
       options: {
         sourceId: source.id,

@@ -255,13 +255,15 @@ function ZettelkastenViewImpl() {
                 {isEditing && draft ? (
                   <ZettelEditor
                     ref={editorRef}
-                    value={draft.content}
-                    onChange={(content) => draftApi.updateDraft({ content })}
+                    valueDoc={draft.contentDoc}
+                    onChangeDoc={(doc) => draftApi.updateDraftDoc(doc)}
                     onInsertMindMap={() => setMmPickerOpen(true)}
+                    categoryId={categoryId}
                   />
                 ) : (
                   <ZettelPreview
                     markdown={displayContent}
+                    doc={activeArticle.contentDoc ?? null}
                     onWikiLink={mutations.wikiLink}
                     existingTitles={existingTitleSet}
                     emptyTitles={emptyTitleSet}
@@ -296,7 +298,7 @@ function ZettelkastenViewImpl() {
               open={mmPickerOpen}
               onOpenChange={setMmPickerOpen}
               categoryId={categoryId!}
-              onPick={(mmId) => editorRef.current?.insertBlock(`::mindmap[${mmId}]`)}
+              onPick={(mmId) => editorRef.current?.insertMindmap(mmId)}
             />
           </div>
         )}

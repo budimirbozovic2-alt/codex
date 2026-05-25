@@ -2,9 +2,18 @@ import { useMemo, Fragment } from "react";
 import { FileText } from "lucide-react";
 import EmbeddedMindMap from "./EmbeddedMindMap";
 import { SafeHtml } from "@/components/ui/safe-html";
+import { ContentRenderer } from "@/components/ui/ContentRenderer";
+import type { EditorDoc } from "@/lib/editor-v4";
 
 interface Props {
   markdown: string;
+  /**
+   * PR-6: when present and `version === 4`, the read path renders the
+   * canonical AST through `<ContentRenderer>` (which delegates to TipTap in
+   * read-only mode). The markdown branch stays for back-compat with articles
+   * whose `contentDoc` hasn't been backfilled yet.
+   */
+  doc?: EditorDoc | null;
   /** Called when user clicks a [[Wiki Link]]. Argument is the raw title inside brackets. */
   onWikiLink: (title: string) => void;
   /** Set of normalized (lowercase, trimmed) titles that already exist — used for styling. */
@@ -147,6 +156,7 @@ function splitSegments(md: string): Segment[] {
 
 export default function ZettelPreview({
   markdown,
+  doc,
   onWikiLink,
   existingTitles,
   emptyTitles,
@@ -156,9 +166,18 @@ export default function ZettelPreview({
 }: Props) {
   const segments = useMemo(() => splitSegments(markdown), [markdown]);
   const emptySet = emptyTitles ?? new Set<string>();
+  const useDocPath = Boolean(doc && doc.version === 4 && doc.content);
 
   const handleClick = (e: React.MouseEvent<HTMLDivElement>) => {
     const t = e.target as HTMLElement;
+    // PR-6: doc path renders wiki-links as <a data-wikilink="target">.
+    const docLink = t.closest("a[data-wikilink]") as HTMLAnchorElement | null;
+    if (docLink) {
+      e.preventDefault();
+      const target = docLink.getAttribute("data-wikilink");
+      if (target) onWikiLink(target);
+      return;
+    }
     const a = t.closest("a.zettel-wikilink") as HTMLAnchorElement | null;
     if (a) {
       e.preventDefault();
@@ -179,22 +198,28 @@ export default function ZettelPreview({
         className="prose prose-sm dark:prose-invert max-w-none p-4 overflow-y-auto flex-1 text-foreground"
         onClick={handleClick}
       >
-        {segments.length === 0 && (
-          <p className="text-muted-foreground italic">Nema sadržaja. Pređi u režim uređivanja da napišeš bilješku.</p>
+        {useDocPath ? (
+          <ContentRenderer doc={doc} html={markdown} />
+        ) : (
+          <>
+            {segments.length === 0 && (
+              <p className="text-muted-foreground italic">Nema sadržaja. Pređi u režim uređivanja da napišeš bilješku.</p>
+            )}
+            {segments.map((seg, i) => {
+              if (seg.kind === "mindmap") {
+                return (
+                  <EmbeddedMindMap key={`mm-${i}-${seg.payload}`} mindMapId={seg.payload} categoryId={categoryId} />
+                );
+              }
+              const html = renderMarkdown(seg.payload, existingTitles, emptySet);
+              return (
+                <Fragment key={`md-${i}`}>
+                  <SafeHtml html={html} />
+                </Fragment>
+              );
+            })}
+          </>
         )}
-        {segments.map((seg, i) => {
-          if (seg.kind === "mindmap") {
-            return (
-              <EmbeddedMindMap key={`mm-${i}-${seg.payload}`} mindMapId={seg.payload} categoryId={categoryId} />
-            );
-          }
-          const html = renderMarkdown(seg.payload, existingTitles, emptySet);
-          return (
-            <Fragment key={`md-${i}`}>
-              <SafeHtml html={html} />
-            </Fragment>
-          );
-        })}
       </div>
       {linkedSources && linkedSources.length > 0 && (
         <div className="border-t border-border bg-muted/30 px-3 py-2">

@@ -1,212 +1,99 @@
-import { forwardRef, useCallback, useImperativeHandle, useLayoutEffect, useRef } from "react";
-import { Textarea } from "@/components/ui/textarea";
-import { Button } from "@/components/ui/button";
-import { Bold, Italic, Heading2, List, Link2, Code, Map as MapIcon } from "lucide-react";
+/**
+ * Thin wrapper around `<EditorV4 />` that preserves the legacy `ZettelEditor`
+ * surface used by `ZettelkastenView` and `useArticleDraft`.
+ *
+ * PR-6 swaps the long-lived textarea + custom toolbar implementation for the
+ * shared TipTap editor so wiki-link / mindmap paste rules, key-part marks and
+ * undo/redo flow through the same engine the rest of the app uses. The
+ * `ZettelEditorHandle` contract is preserved (insertText / insertBlock /
+ * focus) so call-sites — including the markdown-string-aware mindmap picker
+ * — keep working without changes.
+ *
+ * Inputs (mutually exclusive, prefer doc):
+ *  - `valueDoc` + `onChangeDoc`: canonical V4 AST path (PR-6 forward).
+ *  - `value` + `onChange`: legacy markdown path; converted on mount via
+ *    `htmlToDoc(mdToHtml(value))` and emitted back via `docToMarkdown`.
+ *
+ * The wrapper itself does NOT persist — `useArticleDraft` owns flush/dirty.
+ */
+import { forwardRef, useImperativeHandle, useMemo, useRef } from "react";
+import { EditorV4, type EditorV4Handle } from "@/components/editor-v4/EditorV4";
+import { htmlToDoc, docToMarkdown, type EditorDoc } from "@/lib/editor-v4";
+import { mdToHtml } from "@/lib/editor-v4/migrate";
 
 export interface ZettelEditorHandle {
   insertText: (text: string) => void;
-  /** Insert `text` as a standalone block: guarantees blank line before & after, regardless of cursor position. */
   insertBlock: (text: string) => void;
+  /** PR-6: prefer over `insertBlock("::mindmap[id]")`. */
+  insertMindmap: (mindmapId: string) => void;
   focus: () => void;
 }
 
 interface Props {
-  value: string;
-  /** Fires synchronously on every input — parent should hold this in a draft state, NOT persist. */
-  onChange: (next: string) => void;
+  /** Legacy markdown — kept for backward compatibility while migration is in flight. */
+  value?: string;
+  /** Canonical V4 AST — PR-6+ callers should always pass this. */
+  valueDoc?: EditorDoc;
+  /** Fires with derived markdown (lossy). Kept for legacy parents. */
+  onChange?: (nextMarkdown: string) => void;
+  /** Fires with the canonical V4 AST. Preferred. */
+  onChangeDoc?: (doc: EditorDoc) => void;
   placeholder?: string;
   onInsertMindMap?: () => void;
+  categoryId?: string;
 }
 
-/** Minimal markdown editor with toolbar; supports [[wiki-links]] and ::mindmap[] embeds. */
+const EMPTY_DOC: EditorDoc = { version: 4, content: { type: "doc", content: [] } };
+
 const ZettelEditor = forwardRef<ZettelEditorHandle, Props>(function ZettelEditor(
-  { value, onChange, placeholder, onInsertMindMap },
+  { value, valueDoc, onChange, onChangeDoc, placeholder, onInsertMindMap, categoryId },
   ref,
 ) {
-  const taRef = useRef<HTMLTextAreaElement | null>(null);
-
-  /**
-   * Caret restoration is racy if done in `requestAnimationFrame` immediately after
-   * `onChange`: the textarea's `value` prop is only updated after React commits the
-   * parent's state. If we call `setSelectionRange` before that commit, the browser
-   * clamps against the *old* value and the caret jumps (often to the end).
-   *
-   * Solution: stash a pending target keyed by the *expected* `value` snapshot, then
-   * apply it from a `useLayoutEffect` that fires once `value` matches. This also
-   * makes rapid sequential inserts safe — each one targets its own snapshot.
-   */
-  const pendingCaretRef = useRef<{
-    selStart: number;
-    selEnd: number;
-    expectedValue: string;
-  } | null>(null);
-
-  useLayoutEffect(() => {
-    const pending = pendingCaretRef.current;
-    if (!pending) return;
-    if (value !== pending.expectedValue) return;
-    const ta = taRef.current;
-    if (!ta) return;
-    ta.focus();
-    const max = ta.value.length;
-    const s = Math.min(pending.selStart, max);
-    const e = Math.min(pending.selEnd, max);
-    ta.setSelectionRange(s, e);
-    pendingCaretRef.current = null;
-  }, [value]);
-
-  const scheduleCaret = useCallback((expectedValue: string, selStart: number, selEnd: number = selStart) => {
-    pendingCaretRef.current = { selStart, selEnd, expectedValue };
+  // Editor seed is captured on mount only — parent must force-remount with
+  // `key={articleId}` when switching articles (ZettelkastenView already does
+  // so via the `activeArticle` branch + `enterEdit` lifecycle).
+  const initialDoc = useMemo<EditorDoc>(() => {
+    if (valueDoc && valueDoc.version === 4) return valueDoc;
+    const md = value ?? "";
+    if (!md.trim()) return EMPTY_DOC;
+    return htmlToDoc(mdToHtml(md));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const wrap = useCallback((before: string, after: string = before, ph = "") => {
-    const ta = taRef.current;
-    if (!ta) return;
-    const rawStart = ta.selectionStart;
-    const rawEnd = ta.selectionEnd;
-    const start = Math.min(rawStart, rawEnd);
-    const end = Math.max(rawStart, rawEnd);
-    const selected = value.slice(start, end) || ph;
-    const next = value.slice(0, start) + before + selected + after + value.slice(end);
-    onChange(next);
-    const cursorStart = start + before.length;
-    scheduleCaret(next, cursorStart, cursorStart + selected.length);
-  }, [value, onChange, scheduleCaret]);
+  const innerRef = useRef<EditorV4Handle | null>(null);
 
-  const insertAtLineStart = useCallback((prefix: string) => {
-    const ta = taRef.current;
-    if (!ta) return;
-    const start = ta.selectionStart;
-    const lineStart = value.lastIndexOf("\n", start - 1) + 1;
-    const next = value.slice(0, lineStart) + prefix + value.slice(lineStart);
-    onChange(next);
-    scheduleCaret(next, start + prefix.length);
-  }, [value, onChange, scheduleCaret]);
-
-  const insertText = useCallback((text: string) => {
-    const ta = taRef.current;
-    const rawStart = ta?.selectionStart ?? value.length;
-    const rawEnd = ta?.selectionEnd ?? value.length;
-    const start = Math.min(rawStart, rawEnd);
-    const end = Math.max(rawStart, rawEnd);
-    const next = value.slice(0, start) + text + value.slice(end);
-    onChange(next);
-    scheduleCaret(next, start + text.length);
-  }, [value, onChange, scheduleCaret]);
-
-  /**
-   * Inserts `text` as a standalone block, surrounded by blank lines so it renders
-   * as its own paragraph regardless of where the caret is.
-   *
-   * Caret guarantee: lands on the **first blank writable line directly below the block**
-   * (so the user can immediately start typing a new paragraph). At end-of-document
-   * this is the new trailing line; in mid-document this is the blank line between
-   * the block and pre-existing content. Any prior selection is replaced.
-   */
-  const insertBlock = useCallback((text: string) => {
-    const ta = taRef.current;
-    const rawStart = ta?.selectionStart ?? value.length;
-    const rawEnd = ta?.selectionEnd ?? value.length;
-    const start = Math.min(rawStart, rawEnd);
-    const end = Math.max(rawStart, rawEnd);
-    const before = value.slice(0, start);
-    const after = value.slice(end);
-
-    // Leading newlines: ensure exactly one blank line before the block,
-    // unless we're at document start (no padding needed).
-    let prefix = "";
-    if (before.length > 0) {
-      if (before.endsWith("\n\n")) prefix = "";
-      else if (before.endsWith("\n")) prefix = "\n";
-      else prefix = "\n\n";
-    }
-
-    // Trailing newlines: ensure exactly one blank line after the block,
-    // unless we're at document end (single \n is enough).
-    let suffix = "";
-    if (after.length === 0) {
-      suffix = "\n";
-    } else {
-      if (after.startsWith("\n\n")) suffix = "";
-      else if (after.startsWith("\n")) suffix = "\n";
-      else suffix = "\n\n";
-    }
-
-    const insertion = prefix + text + suffix;
-    const next = before + insertion + after;
-    onChange(next);
-
-    // Caret target: just past the FIRST trailing newline. Visually this is the
-    // blank line directly under the block (mid-doc: between block and `after`;
-    // end-of-doc: the fresh trailing line). When suffix is empty we landed on
-    // an existing paragraph break — caret goes flush against the block.
-    const caretOffsetInSuffix = suffix.length === 0 ? 0 : 1;
-    const pos = start + prefix.length + text.length + caretOffsetInSuffix;
-    scheduleCaret(next, pos);
-  }, [value, onChange, scheduleCaret]);
-
-  useImperativeHandle(ref, () => ({
-    insertText,
-    insertBlock,
-    focus: () => taRef.current?.focus(),
-  }), [insertText, insertBlock]);
-
+  useImperativeHandle(ref, (): ZettelEditorHandle => ({
+    insertText: (text) => innerRef.current?.insertText(text),
+    insertBlock: (text) => {
+      // Back-compat: callers historically passed `::mindmap[id]` blocks here.
+      const m = text.match(/^::mindmap\[([A-Za-z0-9_-]+)\]\s*$/);
+      if (m) {
+        innerRef.current?.insertMindmap(m[1]);
+        return;
+      }
+      innerRef.current?.insertBlock(text);
+    },
+    insertMindmap: (id) => innerRef.current?.insertMindmap(id),
+    focus: () => innerRef.current?.focus(),
+  }), []);
 
   return (
-    <div className="flex flex-col h-full border border-border rounded-md bg-card">
-      <div className="flex items-center gap-1 p-2 border-b border-border flex-wrap">
-        <Button type="button" size="sm" variant="ghost" onClick={() => wrap("**", "**", "tekst")} aria-label="Bold">
-          <Bold className="h-4 w-4" />
-        </Button>
-        <Button type="button" size="sm" variant="ghost" onClick={() => wrap("*", "*", "tekst")} aria-label="Italic">
-          <Italic className="h-4 w-4" />
-        </Button>
-        <Button type="button" size="sm" variant="ghost" onClick={() => wrap("`", "`", "kod")} aria-label="Code">
-          <Code className="h-4 w-4" />
-        </Button>
-        <Button type="button" size="sm" variant="ghost" onClick={() => insertAtLineStart("## ")} aria-label="Heading 2">
-          <Heading2 className="h-4 w-4" />
-        </Button>
-        <Button type="button" size="sm" variant="ghost" onClick={() => insertAtLineStart("- ")} aria-label="List">
-          <List className="h-4 w-4" />
-        </Button>
-        <div className="w-px h-5 bg-border mx-1" />
-        <Button
-          type="button"
-          size="sm"
-          variant="ghost"
-          onClick={() => wrap("[[", "]]", "Naslov članka")}
-          className="gap-1.5"
-          aria-label="Wiki link"
-        >
-          <Link2 className="h-4 w-4" />
-          <span className="text-xs">Wiki-link</span>
-        </Button>
-        {onInsertMindMap && (
-          <Button
-            type="button"
-            size="sm"
-            variant="ghost"
-            onClick={onInsertMindMap}
-            className="gap-1.5"
-            aria-label="Umetni mapu uma"
-          >
-            <MapIcon className="h-4 w-4" />
-            <span className="text-xs">Umetni mapu</span>
-          </Button>
-        )}
-      </div>
-      <Textarea
-        ref={taRef}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder={placeholder ?? "Napišite svoju bilješku u markdownu...\n\nKoristite [[Naslov članka]] za povezivanje, ::mindmap[id] za mapu uma."}
-        className="flex-1 resize-none border-0 rounded-none rounded-b-md font-mono text-sm leading-relaxed focus-visible:ring-0"
+    <div className="flex flex-col h-full">
+      <EditorV4
+        ref={innerRef}
+        initialDoc={initialDoc}
+        placeholder={placeholder ?? "Napišite svoju bilješku...\n\nKoristite [[Naslov članka]] za povezivanje, ::mindmap[id] za mapu uma."}
+        categoryId={categoryId}
+        embedKind="article"
+        onPickMindmap={onInsertMindMap}
+        onChange={(doc) => {
+          onChangeDoc?.(doc);
+          // Keep legacy markdown consumers (wiki-link auto-create, backlink
+          // index scans, full-text search) populated until they migrate.
+          if (onChange) onChange(docToMarkdown(doc));
+        }}
+        className="flex-1 min-h-[300px]"
       />
-      <div className="px-3 py-1.5 text-[11px] text-muted-foreground border-t border-border flex justify-between">
-        <span>Markdown · `**bold**` · `*italic*` · `## naslov` · `[[Wiki Link]]` · `::mindmap[id]`</span>
-        <span>{value.length} znakova</span>
-      </div>
     </div>
   );
 });

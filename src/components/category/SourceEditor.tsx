@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { Save, Calendar as CalendarIcon, FileUp, Loader2 } from "lucide-react";
 import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
@@ -6,7 +6,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { Textarea } from "@/components/ui/textarea";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -24,6 +23,8 @@ import SourceDiffPreview from "@/components/source-reader/SourceDiffPreview";
 import { useDirtyDialog } from "@/hooks/useDirtyDialog";
 import DirtyConfirmBar from "@/components/ui/dirty-confirm-bar";
 import { afterDialogClose } from "@/lib/dialog-utils";
+import { EditorV4 } from "@/components/editor-v4/EditorV4";
+import { docToHtml, htmlToDoc, docToPlainText, type EditorDoc } from "@/lib/editor-v4";
 
 interface Props {
   source: Source;
@@ -42,8 +43,14 @@ export default function SourceEditor({ source, categoryId, onClose, onSourceUpda
   const [sourceKind, setSourceKind] = useState<SourceKind>(source.sourceKind ?? "propis");
   const [dirty, setDirty] = useState(false);
 
-  // Update source text
-  const [newText, setNewText] = useState("");
+  // Update source text — held as canonical V4 AST; legacy HTML derived on save.
+  const [newDoc, setNewDoc] = useState<EditorDoc | null>(null);
+  const [editorKey, setEditorKey] = useState(0);
+  const newText = useMemo(() => (newDoc ? docToHtml(newDoc) : ""), [newDoc]);
+  const hasPastedText = useMemo(
+    () => Boolean(newDoc && docToPlainText(newDoc).trim().length > 0),
+    [newDoc],
+  );
   const [textOpen, setTextOpen] = useState(false);
 
   // DOCX upload
@@ -76,7 +83,8 @@ export default function SourceEditor({ source, categoryId, onClose, onSourceUpda
     try {
       const arrayBuffer = await file.arrayBuffer();
       const html = await parseDocxInWorker(arrayBuffer);
-      setNewText(html);
+      setNewDoc(htmlToDoc(html));
+      setEditorKey((k) => k + 1);
       setDirty(true);
       toast.success("DOCX učitan", { description: `${file.name} uspješno parsiran.` });
     } catch (err: unknown) {
@@ -106,7 +114,7 @@ export default function SourceEditor({ source, categoryId, onClose, onSourceUpda
     let articles = source.articles;
 
     // If user pasted new text, update HTML
-    if (newText.trim()) {
+    if (hasPastedText) {
       const cleanHtml = sanitizeHtml(newText);
       const { promoteHeadings } = await import("@/lib/heading-promotion");
       const promotedHtml = promoteHeadings(cleanHtml);
@@ -157,7 +165,7 @@ export default function SourceEditor({ source, categoryId, onClose, onSourceUpda
     }
 
     await commitSave(htmlContent, outline, articles);
-  }, [source, title, slMarkings, dateStr, isExclusive, newText, bulkFlagNeedsReview]);
+  }, [source, title, slMarkings, dateStr, isExclusive, sourceKind, newText, hasPastedText, bulkFlagNeedsReview]);
 
   const commitSave = useCallback(async (htmlContent: string, outline: Source["outline"], articles: Source["articles"]) => {
     const updated: Source = {
@@ -170,18 +178,18 @@ export default function SourceEditor({ source, categoryId, onClose, onSourceUpda
       htmlContent,
       outline,
       articles,
-      version: (source.version || 1) + (newText.trim() ? 1 : 0),
+      version: (source.version || 1) + (hasPastedText ? 1 : 0),
       updatedAt: Date.now(),
     };
     await saveSource(updated);
     setDirty(false);
-    setNewText("");
+    setNewDoc(null);
     onClose();
     afterDialogClose(() => {
       onSourceUpdated(updated);
       toast.success("Izvor sačuvan", { description: updated.title });
     });
-  }, [source, title, slMarkings, dateStr, isExclusive, newText, onSourceUpdated, onClose]);
+  }, [source, title, slMarkings, dateStr, isExclusive, sourceKind, hasPastedText, onSourceUpdated, onClose]);
 
   const handleDiffConfirm = useCallback(async () => {
     if (!diffPending) return;
@@ -189,7 +197,7 @@ export default function SourceEditor({ source, categoryId, onClose, onSourceUpda
 
     await saveSource(updatedSource);
     setDirty(false);
-    setNewText("");
+    setNewDoc(null);
     setDiffPending(null);
     onClose();
     afterDialogClose(() => {
@@ -205,7 +213,7 @@ export default function SourceEditor({ source, categoryId, onClose, onSourceUpda
     });
   }, [diffPending, bulkFlagNeedsReview, onSourceUpdated, onClose]);
 
-  const isDirty = dirty || newText.trim().length > 0;
+  const isDirty = dirty || hasPastedText;
   const { pendingClose, requestClose, cancelClose, confirmDiscard } = useDirtyDialog(isDirty, onClose);
 
   return (
@@ -316,18 +324,21 @@ export default function SourceEditor({ source, categoryId, onClose, onSourceUpda
                   )}
                 </div>
 
-                <div className="text-[10px] text-muted-foreground text-center">ili zalijepite HTML direktno:</div>
+                <div className="text-[10px] text-muted-foreground text-center">ili napišite / zalijepite tekst direktno:</div>
 
-                <Textarea
-                  value={newText}
-                  onChange={e => { setNewText(e.target.value); setDirty(true); }}
-                  placeholder="Zalijepite novu verziju teksta (HTML) ovdje. Postojeće kartice neće izgubiti linkove."
-                  className="min-h-[120px] text-xs"
+                <EditorV4
+                  key={`src-paste-${editorKey}`}
+                  initialDoc={newDoc ?? { version: 4, content: { type: "doc", content: [] } }}
+                  onChange={(doc) => { setNewDoc(doc); setDirty(true); }}
+                  placeholder="Zalijepite novu verziju teksta ovdje. Postojeće kartice neće izgubiti linkove."
+                  categoryId={categoryId}
+                  embedKind="source"
+                  className="min-h-[160px] text-xs"
                 />
               </CollapsibleContent>
             </Collapsible>
 
-            <Button onClick={handleSave} disabled={!dirty && !newText.trim()} className="w-full gap-2">
+            <Button onClick={handleSave} disabled={!dirty && !hasPastedText} className="w-full gap-2">
               <Save className="h-4 w-4" />
               Sačuvaj
             </Button>
@@ -336,7 +347,7 @@ export default function SourceEditor({ source, categoryId, onClose, onSourceUpda
           <DirtyConfirmBar
             open={pendingClose}
             onCancel={cancelClose}
-            onDiscard={() => { setDirty(false); setNewText(""); confirmDiscard(); }}
+            onDiscard={() => { setDirty(false); setNewDoc(null); confirmDiscard(); }}
             onSave={async () => { await handleSave(); }}
           />
         </DialogContent>
