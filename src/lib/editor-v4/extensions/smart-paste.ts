@@ -1,7 +1,8 @@
 import { Extension } from "@tiptap/core";
 import { Plugin, PluginKey } from "@tiptap/pm/state";
-import type { Slice } from "@tiptap/pm/model";
+import { DOMParser, type Slice } from "@tiptap/pm/model";
 import { preprocessHtml } from "../patterns";
+
 
 /**
  * `SmartPaste` — single-source-of-truth for converting raw `[[wiki]]` and
