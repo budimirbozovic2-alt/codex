@@ -76,14 +76,13 @@ export function useCardAnnotations({
         logger.error("[reviewSection] log enqueue failed", err);
         void import("sonner").then(({ toast }) => toast.error("Memorija puna, istorija učenja se ne čuva!"));
       }
-      // G1 fix: cap in-memory reviewLog to prevent unbounded growth
-      setReviewLog((log) => {
-        const next = [...log, entry];
-        return next.length > 5000 ? next.slice(-5000) : next;
-      });
+      // G1 fix: cap in-memory reviewLog to prevent unbounded growth.
+      // The repository already persisted the entry — RAM-only patch here.
+      patchReviewLog((log) => [...log, entry]);
     },
-    [patchCard, setReviewLog],
+    [patchCard],
   );
+
 
   // O(1) markRead — surgical (patchCard handles persist)
   const markRead = useCallback(
