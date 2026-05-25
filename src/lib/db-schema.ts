@@ -5,6 +5,7 @@ import type { DiaryEntry, CalibrationEntry, LatencyEntry, SlippageEntry, Activit
 import type { DisciplineEntry } from "./planner-storage";
 import { EVENT_TYPES, type EventType } from "./event-bus-types";
 import type { MnemonicCard, MnemonicTestLogEntry } from "@/features/mnemonic";
+import type { EditorDoc } from "./editor-v4/types";
 
 // ─── W1: Inversion-of-Control emitter ─────────────────────
 // `db-schema` does NOT import the EventBus instance — instead, the bootstrap
@@ -89,6 +90,8 @@ export interface Source {
   title: string;
   date: string;
   htmlContent: string;
+  /** V4 canonical AST — lazily populated by `ensureSourceDoc` (PR-3, additive). */
+  contentDoc?: EditorDoc;
   outline: { id: string; text: string; level: number }[];
   articles: SourceArticle[];
   version: number;
@@ -153,7 +156,9 @@ export interface KnowledgeBaseArticle {
   id: string;
   subjectId: string;          // === categoryId
   title: string;
-  content: string;            // markdown
+  content: string;            // markdown (legacy SSOT during PR-3)
+  /** V4 canonical AST — lazily populated by `ensureArticleDoc` (PR-3, additive). */
+  contentDoc?: EditorDoc;
   linkedSourceIds: string[];
   rootSubcategoryId?: string;
   /** True for the per-subject "Index" article (entry-point). Cannot be deleted. */
@@ -336,6 +341,14 @@ class MemoriaDB extends Dexie {
     this.version(20).stores({
       outbox: "&cardId, ts",
     });
+
+    // v21 — editor-v4 migration (PR-3). Aditivna `contentDoc` kolona na
+    // Section[] (kartice), Source i KnowledgeBaseArticle. Polje NIJE
+    // indeksirano — Dexie ne traži schema diff za neindeksirane atribute,
+    // pa je `stores({})` validan no-op koji samo bumpuje verziju.
+    // Backfill je LAZY (vidi `src/lib/editor-v4/lazy-migrate.ts`) — upgrade
+    // hook ne dira postojeće rekorde i ne kompromituje boot performanse.
+    this.version(21).stores({});
   }
 }
 

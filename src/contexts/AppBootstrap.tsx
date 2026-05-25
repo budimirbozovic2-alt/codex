@@ -17,6 +17,7 @@ import { persistQueue } from "@/lib/persist-queue";
 import { useCardBootstrap } from "@/hooks/useCardBootstrap";
 import { useCardSyncEffects } from "@/contexts/cards/useCardSyncEffects";
 import { useCategoryStateBridge } from "@/contexts/cards/CategoryStateProvider";
+import { kickoffEditorV4Migration } from "@/lib/editor-v4/lazy-migrate";
 import { logger } from "@/lib/logger";
 
 export function AppBootstrap(): null {
@@ -31,6 +32,11 @@ export function AppBootstrap(): null {
   // review-confirmed sync). Lives in a hook because it's tied to React
   // lifecycle for cleanup.
   useCardSyncEffects();
+
+  // editor-v4 lazy backfill — scheduled in idle, idempotent. Runs once per
+  // page lifetime; subsequent calls no-op.
+  useEffect(() => { kickoffEditorV4Migration(); }, []);
+
 
   // Electron quit + unmount drain — flush review log + persist queue.
   useEffect(() => {

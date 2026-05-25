@@ -1,5 +1,6 @@
 // FSRS v5 — Domain types only (no runtime logic). Re-exported via spaced-repetition.ts.
 export type { ExaminerProfile } from "../db-schema";
+import type { EditorDoc } from "@/lib/editor-v4/types";
 
 export enum SectionState {
   New = 0,
@@ -12,6 +13,12 @@ export interface Section {
   id: string;
   title: string;
   content: string;
+  /**
+   * V4 canonical AST (editor-v4). Optional during PR-3 (additive); populated
+   * lazily by `ensureCardDoc` on load. Renderer still consumes `content`
+   * (legacy HTML) until PR-4 flips the read path.
+   */
+  contentDoc?: EditorDoc;
   state: SectionState;
   stability: number;
   difficulty: number;
