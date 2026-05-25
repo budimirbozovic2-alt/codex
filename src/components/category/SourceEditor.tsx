@@ -178,7 +178,7 @@ export default function SourceEditor({ source, categoryId, onClose, onSourceUpda
       htmlContent,
       outline,
       articles,
-      version: (source.version || 1) + (newText.trim() ? 1 : 0),
+      version: (source.version || 1) + (hasPastedText ? 1 : 0),
       updatedAt: Date.now(),
     };
     await saveSource(updated);
@@ -189,7 +189,7 @@ export default function SourceEditor({ source, categoryId, onClose, onSourceUpda
       onSourceUpdated(updated);
       toast.success("Izvor sačuvan", { description: updated.title });
     });
-  }, [source, title, slMarkings, dateStr, isExclusive, newText, onSourceUpdated, onClose]);
+  }, [source, title, slMarkings, dateStr, isExclusive, sourceKind, hasPastedText, onSourceUpdated, onClose]);
 
   const handleDiffConfirm = useCallback(async () => {
     if (!diffPending) return;
