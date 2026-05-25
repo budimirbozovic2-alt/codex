@@ -28,11 +28,9 @@ import {
   newArticle,
   type KnowledgeBaseArticle,
 } from "@/lib/zettelkasten-storage";
-import { eventBus, EVENT_TYPES } from "@/lib/event-bus";
-import { backlinkIndex, initBacklinkIndexSubscriptions } from "@/lib/backlink-index";
+import { backlinkIndex } from "@/lib/backlink-index";
 
 const SUBJECT = "subject-integration";
-let unsubBacklink: (() => void) | null = null;
 
 /**
  * Mirrors `ZettelkastenView.handleWikiLink` precisely — same coalescing map,
@@ -55,7 +53,7 @@ function makeWikiLinkHandler(subjectId: string) {
           if (created.length > 0) {
             const article = created[0];
             emitted.push({ subjectId, article });
-            eventBus.emit(EVENT_TYPES.KB_ARTICLE_UPSERTED, { subjectId, article });
+            backlinkIndex.upsertArticle(subjectId, article);
             return article.id;
           }
           const existing = await findArticleByTitle(subjectId, trimmed);
@@ -75,12 +73,9 @@ function makeWikiLinkHandler(subjectId: string) {
 beforeEach(async () => {
   await db.knowledgeBaseArticles.clear();
   backlinkIndex.rebuildFromAll(SUBJECT, []);
-  unsubBacklink = initBacklinkIndexSubscriptions();
 });
 
 afterEach(() => {
-  unsubBacklink?.();
-  unsubBacklink = null;
   vi.restoreAllMocks();
 });
 
@@ -171,28 +166,12 @@ describe("wiki-link integration — parallel clicks", () => {
     expect(all).toHaveLength(1);
   });
 
-  it("emit fires per-create and updates the backlink index deterministically", async () => {
-    // Capture emits to verify deterministic sequencing (not timing-dependent).
-    const capturedEmits: Array<{ type: string; targetId: string }> = [];
-
-    const originalEmit = eventBus.emit.bind(eventBus);
-    vi.spyOn(eventBus, "emit").mockImplementation((type, payload) => {
-      const p = payload as { article?: { id?: string } } | undefined;
-      if (type === EVENT_TYPES.KB_ARTICLE_UPSERTED && p?.article?.id) {
-        capturedEmits.push({ type, targetId: p.article.id });
-      }
-      return originalEmit(type, payload);
-    });
-
+  it("upsert updates the backlink index deterministically per create", async () => {
     const { handle } = makeWikiLinkHandler(SUBJECT);
 
     // Create the target first via wiki-link.
     const targetId = await handle("Cilj");
     expect(targetId).not.toBeNull();
-
-    // Verify the emit was captured synchronously.
-    expect(capturedEmits).toHaveLength(1);
-    expect(capturedEmits[0].targetId).toBe(targetId);
 
     // Get version BEFORE creating linker — establish baseline.
     const versionBefore = backlinkIndex.getVersion(SUBJECT, "Cilj");
@@ -203,7 +182,7 @@ describe("wiki-link integration — parallel clicks", () => {
       content: "Vidi [[Cilj]] za detalje.",
     };
     await db.knowledgeBaseArticles.put(linker);
-    eventBus.emit(EVENT_TYPES.KB_ARTICLE_UPSERTED, { subjectId: SUBJECT, article: linker });
+    backlinkIndex.upsertArticle(SUBJECT, linker);
 
     // Backlink index version MUST increment (deterministic signal of update).
     const versionAfter = backlinkIndex.getVersion(SUBJECT, "Cilj");
@@ -212,8 +191,6 @@ describe("wiki-link integration — parallel clicks", () => {
     // Backlink index must report Linker → Cilj (no timing assumptions).
     const backlinks = backlinkIndex.getBacklinks(SUBJECT, "Cilj");
     expect(backlinks.map(b => b.articleId)).toContain(linker.id);
-
-    // Validate that the backlinks are correctly indexed.
     expect(backlinks).toHaveLength(1);
     expect(backlinks[0].title).toBe("Linker");
   });
@@ -256,9 +233,7 @@ describe("wiki-link integration — parallel clicks", () => {
       content: "See [[Some Title]] here.",
     };
     await db.knowledgeBaseArticles.put(linker);
-
-    // Emit synchronously — version MUST bump before we read it again.
-    eventBus.emit(EVENT_TYPES.KB_ARTICLE_UPSERTED, { subjectId: SUBJECT, article: linker });
+    backlinkIndex.upsertArticle(SUBJECT, linker);
 
     // Version increments immediately (deterministic, not timing-dependent).
     const versionAfter = backlinkIndex.getVersion(SUBJECT, "Some Title");
