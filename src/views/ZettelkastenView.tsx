@@ -255,9 +255,10 @@ function ZettelkastenViewImpl() {
                 {isEditing && draft ? (
                   <ZettelEditor
                     ref={editorRef}
-                    value={draft.content}
-                    onChange={(content) => draftApi.updateDraft({ content })}
+                    valueDoc={draft.contentDoc}
+                    onChangeDoc={(doc) => draftApi.updateDraftDoc(doc)}
                     onInsertMindMap={() => setMmPickerOpen(true)}
+                    categoryId={categoryId}
                   />
                 ) : (
                   <ZettelPreview
