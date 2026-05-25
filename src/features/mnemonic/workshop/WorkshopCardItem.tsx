@@ -7,7 +7,7 @@ import {
   extractNumbers, detectEnumerationItems,
 } from "../mnemonic-storage";
 import { useCategoryData } from "@/contexts/AppContext";
-import { SafeHtml } from "@/components/ui/safe-html";
+import { ContentRenderer } from "@/components/ui/ContentRenderer";
 import { motion, AnimatePresence } from "framer-motion";
 import { STATUS_CONFIG, HOOK_TYPE_CONFIG } from "./card-item/configs";
 import { MajorSystemHints } from "./card-item/MajorSystemHints";
@@ -154,7 +154,7 @@ function WorkshopCardItemInner({ card, isExpanded, onToggle, onUpdateCard, onDel
                   card.sections.map((s, i) => (
                     <div key={i} className="rounded-lg bg-secondary/30 p-3">
                       <p className="text-xs font-medium text-muted-foreground mb-1">{s.title}</p>
-                      <SafeHtml className="text-sm prose prose-sm max-w-none card-prose" html={s.content} />
+                      <ContentRenderer className="text-sm prose prose-sm max-w-none card-prose" doc={s.contentDoc} html={s.content} />
                     </div>
                   ))
                 )}

@@ -2,7 +2,7 @@ import { memo, useState, lazy, Suspense } from "react";
 import { Edit2, Trash2, Scale, ChevronDown, ChevronRight, Zap } from "lucide-react";
 import { Card, getCardScore, getSectionScore, getCardRetrievability, getRetrievability } from "@/lib/spaced-repetition";
 import type { FrequencyTag } from "@/lib/sr/types";
-import { highlightKeyParts } from "@/lib/highlight-key-parts";
+
 import { ContentRenderer } from "@/components/ui/ContentRenderer";
 import { format } from "date-fns";
 import TextSelectionTooltip from "@/components/TextSelectionTooltip";

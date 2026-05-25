@@ -15,7 +15,7 @@ import {
   type Card, SectionState, getCardRetrievability,
 } from "@/lib/spaced-repetition";
 import type { SubcategoryNode } from "@/lib/db";
-import { SafeHtml } from "@/components/ui/safe-html";
+import { ContentRenderer } from "@/components/ui/ContentRenderer";
 
 interface Props {
   cards: Card[];
@@ -326,8 +326,9 @@ export default function PassiveReader({ cards, subcategoryNodes, categoryId, onE
                       {sec.title}
                     </h3>
                   )}
-                  <SafeHtml
+                  <ContentRenderer
                     className="prose prose-sm max-w-none card-prose"
+                    doc={sec.contentDoc}
                     html={sec.content || ""}
                   />
                 </section>

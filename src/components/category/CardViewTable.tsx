@@ -1,4 +1,4 @@
-import { SafeHtml } from "@/components/ui/safe-html";
+import { ContentRenderer } from "@/components/ui/ContentRenderer";
 import { ChevronDown, ChevronRight, ArrowRightLeft, Flame, Link2, BookOpen, AlertTriangle, Pencil, Trash2 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
@@ -186,7 +186,7 @@ export default function CardViewTable({
                             <span className={cn("text-[10px] font-medium", secStab.color)}>S: {section.stability.toFixed(1)}</span>
                           </div>
                         </div>
-                        <SafeHtml className="text-xs prose prose-xs max-w-none line-clamp-4 card-prose" html={section.content} />
+                        <ContentRenderer className="text-xs prose prose-xs max-w-none line-clamp-4 card-prose" doc={section.contentDoc} html={section.content} />
                       </div>
                     );
                   })}
