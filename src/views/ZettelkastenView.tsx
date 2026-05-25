@@ -297,7 +297,7 @@ function ZettelkastenViewImpl() {
               open={mmPickerOpen}
               onOpenChange={setMmPickerOpen}
               categoryId={categoryId!}
-              onPick={(mmId) => editorRef.current?.insertBlock(`::mindmap[${mmId}]`)}
+              onPick={(mmId) => editorRef.current?.insertMindmap(mmId)}
             />
           </div>
         )}
