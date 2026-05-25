@@ -11,7 +11,7 @@ import EmbeddedMindMap from "@/components/zettelkasten/EmbeddedMindMap";
  */
 export function MindmapEmbedNodeView({ node, editor }: NodeViewProps) {
   const mindmapId = String(node.attrs.mindmapId ?? "");
-  const storage = editor.storage.mindmapEmbed as { categoryId?: string } | undefined;
+  const storage = (editor.storage as Record<string, unknown>).mindmapEmbed as { categoryId?: string } | undefined;
   const categoryId = storage?.categoryId ?? "";
 
   return (
