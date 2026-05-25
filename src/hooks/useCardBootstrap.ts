@@ -83,8 +83,9 @@ export function useCardBootstrap() {
         if (import.meta.env.DEV) logger.log("[boot:diag] setting state — cards:", cards.length, "categories:", finalRecords.length);
         cardRepository.replaceAll(arrayToMap(cards));
         categoryRepository.replaceAll(finalRecords);
-        setReviewLogState(log);
-        setSrSettingsState(settings);
+        replaceReviewLog(log);
+        seedSrSettings(settings);
+
 
         splashProgress(100, "Spremno!");
         transition({ type: "LOAD_PROGRESS", pct: 100, label: "Spremno!" });
