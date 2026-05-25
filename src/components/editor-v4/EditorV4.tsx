@@ -1,6 +1,6 @@
 import { useEditor, EditorContent, type Editor } from "@tiptap/react";
 import Placeholder from "@tiptap/extension-placeholder";
-import Underline from "@tiptap/extension-underline";
+
 import { useEffect } from "react";
 import {
   Bold, Italic, Underline as UnderlineIcon, Heading2, List, ListOrdered,
