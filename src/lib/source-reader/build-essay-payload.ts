@@ -77,10 +77,10 @@ export function buildSeparateEssaysFromModules(
 }
 
 function fromCombinedPlan(plan: CombinedCardPlan, source: Source, subId?: string, chapId?: string): AddCardArgs {
-  const sections = plan.modules.map(({ question, module: mod }) => ({
-    title: question,
-    content: sanitizeHtml(mod.contentHtml),
-  }));
+  const sections = plan.modules.map(({ question, module: mod }) => {
+    const content = sanitizeHtml(mod.contentHtml);
+    return { title: question, content, contentDoc: buildSectionDoc(content) };
+  });
   const sourceModules: SourceModule[] = plan.modules.map(({ question, module: mod }, index) => ({
     id: crypto.randomUUID(),
     order: index,
