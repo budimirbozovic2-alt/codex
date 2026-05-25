@@ -223,6 +223,6 @@ export function migrateArticle(article: KnowledgeBaseArticle): MigrateResult<Kno
   const html = mdToHtml(md);
   const doc = htmlToDoc(html);
   const docTokens = countDocTokens(doc);
-  const warnings = diffTokens(`article[${article.id}]`, srcTokens, doc as unknown as EditorDoc ? docTokens : docTokens);
+  const warnings = diffTokens(`article[${article.id}]`, srcTokens, docTokens);
   return { record: { ...article, contentDoc: doc }, changed: true, warnings };
 }
