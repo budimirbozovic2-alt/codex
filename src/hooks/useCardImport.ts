@@ -1,9 +1,6 @@
 import { useCallback } from "react";
 import { toast } from "sonner";
-import { Card, createCard, SRSettings } from "@/lib/spaced-repetition";
-import { ReviewLogEntry } from "@/lib/storage";
-import { CardMap } from "@/lib/persist-queue";
-import type { CategoryRecord } from "@/lib/db";
+import { createCard } from "@/lib/spaced-repetition";
 import { invalidateSourcesCache } from "@/lib/sources-storage";
 import { BackupSchema, type ParsedBackup } from "@/lib/migrations/backup-schema";
 import { migrateBackup, migrateRaw, BackupVersionError } from "@/lib/backup/migrate";
@@ -14,17 +11,10 @@ import { clearReviewSession } from "@/lib/review-session-storage";
 import { cardRepository } from "@/lib/repositories";
 import { categoryRepository } from "@/lib/repositories";
 import { getCardMap } from "@/store";
+import { replaceReviewLog, updateSRSettings } from "@/store/reviewSettingsStore";
 
 import { logger } from "@/lib/logger";
 export type ImportProgress = (pct: number, label: string) => void;
-
-interface UseCardImportDeps {
-  setCategoryRecords: React.Dispatch<React.SetStateAction<CategoryRecord[]>>;
-  setReviewLog: (log: ReviewLogEntry[]) => void;
-  updateSRSettings: (settings: SRSettings) => void;
-  setCardMapState: (updater: (prev: CardMap) => CardMap) => void;
-}
-
 
 /** Whitelisted localStorage keys that the import path is allowed to restore. */
 const ALLOWED_LS_KEYS = new Set([
@@ -54,15 +44,9 @@ function sanitizeLSValue(v: unknown): unknown {
   return v;
 }
 
-export function useCardImport({
-  setCategoryRecords: _legacySetCategoryRecords,
-  setReviewLog,
-  updateSRSettings,
-  setCardMapState: _legacySetCardMap, // Phase 3b: kept for back-compat, unused
-}: UseCardImportDeps) {
+export function useCardImport() {
+  const setReviewLog = replaceReviewLog;
 
-  void _legacySetCardMap;
-  void _legacySetCategoryRecords; // Phase 5C: categories go through categoryRepository
   const importData = useCallback(
     async (
       file: File,

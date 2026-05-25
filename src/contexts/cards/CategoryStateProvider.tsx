@@ -1,21 +1,16 @@
 /**
- * Category state — Provider je uklonjen; `useCategoryData` čita direktno iz
- * Zustand `categoryStore` preko `useSyncExternalStore`. Side-effect bridge
- * (`primeExaminerProfilesFromRecords`, `registerCategoryStateSetter`)
- * montira se kao `useCategoryStateBridge()` hook unutar `CardProvider`-a.
+ * Provider Cleanup v2 — `CategoryStateProvider` is a no-op shim and
+ * `useCategoryStateInternals` is gone.
  *
- * Re-export `CategoryStateProvider` no-op shim postoji samo radi backwards
- * kompatibilnosti — može se ukloniti čim svi pozivaoci skinu wrapper.
+ * `useCategoryData` reads from Zustand `categoryStore` via
+ * `useSyncExternalStore`. `useCategoryStateBridge` is the one remaining
+ * hook with React-lifecycle side-effects (examiner cache prime) — it is
+ * mounted exactly once in `<AppBootstrap />`.
  */
 import { useEffect, useMemo, useSyncExternalStore, type ReactNode } from "react";
 import type { CategoryRecord } from "@/lib/db";
 import { primeExaminerProfilesFromRecords } from "@/lib/examiner-profile-cache";
-import { registerCategoryStateSetter } from "@/lib/repositories";
-import {
-  categoryStore,
-  getCategoryStoreRecords,
-  setCategoryStoreRecords,
-} from "@/store";
+import { categoryStore } from "@/store";
 
 interface CategoryStateContextValue {
   categories: string[];
@@ -27,7 +22,6 @@ function getRecords(): CategoryRecord[] {
   return categoryStore.getState().records;
 }
 
-// ── Hook: subscribes to Zustand store, returns memoised derived view ──
 export function useCategoryData(): CategoryStateContextValue {
   const records = useSyncExternalStore(categoryStore.subscribe, getRecords, getRecords);
   return useMemo<CategoryStateContextValue>(() => {
@@ -42,50 +36,18 @@ export function useCategoryData(): CategoryStateContextValue {
   }, [records]);
 }
 
-// ── Module-level setter facade (stable identity across renders) ──
-export const setCategoryRecordsShim: React.Dispatch<React.SetStateAction<CategoryRecord[]>> = (action) => {
-  const prev = getCategoryStoreRecords();
-  const next = typeof action === "function"
-    ? (action as (p: CategoryRecord[]) => CategoryRecord[])(prev)
-    : action;
-  if (next === prev) return;
-  setCategoryStoreRecords(next);
-};
-
-const _internals = {
-  setCategoryRecords: setCategoryRecordsShim,
-  getCategoryRecords: getCategoryStoreRecords,
-} as const;
-
-export function useCategoryStateInternals() {
-  return _internals;
-}
-
-export function useCategoryStateSetter() {
-  return setCategoryRecordsShim;
-}
-
 /**
- * Bridge hook — montira se jednom (npr. u `CardProvider`) i drži dva
- * side-effect-a koja su ranije živjela u `<CategoryStateProvider>`:
- *  1. examiner-profile cache prime na svaku promjenu records-a
- *  2. registracija React-side fan-out shim-a za invalidator (defensivno)
+ * Bridge hook — mounted once in `AppBootstrap`. Primes examiner cache on
+ * each categoryRecords change.
  */
 export function useCategoryStateBridge(): void {
   const { categoryRecords } = useCategoryData();
-
   useEffect(() => {
     primeExaminerProfilesFromRecords(categoryRecords);
   }, [categoryRecords]);
-
-  useEffect(() => {
-    registerCategoryStateSetter((records) => setCategoryStoreRecords(records));
-    return () => registerCategoryStateSetter(null);
-  }, []);
 }
 
-/** @deprecated Provider je uklonjen; ostaje no-op shim radi backwards kompat. */
+/** @deprecated Provider removed in v2 cleanup. Kept as no-op shim. */
 export function CategoryStateProvider({ children }: { children: ReactNode }) {
-  // No-op: state izvor je Zustand `categoryStore`. Bridge montira CardProvider.
   return <>{children}</>;
 }

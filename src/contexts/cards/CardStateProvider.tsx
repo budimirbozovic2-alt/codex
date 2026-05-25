@@ -1,25 +1,47 @@
 // ═══════════════════════════════════════════════════════════════════════════
-// M1 — Composition root for card state. Decomposed from the old "God object"
-// into focused hooks:
-//   • useCardSyncEffects       — bus subscriptions & remote sync
-//   • useReviewSettingsStore   — review log + SR settings
-//   • useCardAggregates        — derived buckets / dueCards / stats
-// All write paths now flow through `cardRepository` (Repository facade).
-// Provider is a thin context-wiring layer.
+// Provider Cleanup v2 — Context providers eliminated.
+//
+// Read hooks (useCardData, useReviewData, useCategoryStatsData,
+// useSettingsActions) now read directly from Zustand stores via
+// `useSyncExternalStore`. No Context, no provider tree, no fallback proxy.
+//
+// File path preserved for backwards-compat with the public re-exports.
 // ═══════════════════════════════════════════════════════════════════════════
-import { createContext, useContext, useEffect, useMemo, type ReactNode } from "react";
-import { Card, SRSettings, DEFAULT_SR_SETTINGS } from "@/lib/spaced-repetition";
+import { useMemo, useSyncExternalStore, type ReactNode } from "react";
+import { Card, SRSettings } from "@/lib/spaced-repetition";
 import { ReviewLogEntry } from "@/lib/storage";
-import { CardMap, mapToArray, persistQueue } from "@/lib/persist-queue";
-import { flushReviewLogQueue } from "@/lib/db";
-import { useCardMap, setCardMap } from "@/store";
-import { useCardBootstrap } from "@/hooks/useCardBootstrap";
-import { useCategoryData, useCategoryStateSetter } from "./CategoryStateProvider";
-import { useCardSyncEffects } from "./useCardSyncEffects";
-import { useReviewSettingsStore } from "./useReviewSettingsStore";
+import { mapToArray, type CardMap } from "@/lib/persist-queue";
+import { cardMapStore } from "@/store";
+import { useCategoryData } from "./CategoryStateProvider";
 import { useCardAggregates } from "./useCardAggregates";
+import {
+  reviewSettingsStore,
+  useReviewLog,
+  useSrSettings,
+  updateSRSettings as updateSRSettingsAction,
+} from "@/store/reviewSettingsStore";
+import { useBootState } from "@/contexts/boot/BootStateProvider";
 
-// ─── Card state (re-renders on card mutations) ───
+// ─── Cards array selector — cached by cardMap reference ─────────────────
+let _cardsCacheMap: CardMap | null = null;
+let _cardsCacheArr: Card[] = [];
+function getCardsArray(): Card[] {
+  const map = cardMapStore.getState().cardMap;
+  if (map === _cardsCacheMap) return _cardsCacheArr;
+  _cardsCacheMap = map;
+  _cardsCacheArr = mapToArray(map);
+  return _cardsCacheArr;
+}
+
+function useCards(): Card[] {
+  return useSyncExternalStore(
+    cardMapStore.subscribe,
+    getCardsArray,
+    getCardsArray,
+  );
+}
+
+// ─── Public read hooks ──────────────────────────────────────────────────
 interface CardStateContextValue {
   cards: Card[];
   dueCards: Card[];
@@ -28,179 +50,52 @@ interface CardStateContextValue {
   ready: boolean;
 }
 
-const CardStateContext = createContext<CardStateContextValue | null>(null);
-
-const EMPTY_CARD_STATE: CardStateContextValue = {
-  cards: [],
-  dueCards: [],
-  stats: { due: 0, total: 0, totalSections: 0, learnedSections: 0, leechCount: 0 },
-  cardCountByCategory: {},
-  ready: false,
-};
-
-export function useCardData() {
-  const ctx = useContext(CardStateContext);
-  if (!ctx) {
-    if (import.meta.env.DEV) {
-      console.warn("[useCardData] no provider — returning empty fallback (HMR transient)");
-      return EMPTY_CARD_STATE;
-    }
-    throw new Error("useCardData must be used within CardStateProvider");
-  }
-  return ctx;
+export function useCardData(): CardStateContextValue {
+  const cards = useCards();
+  const { categories } = useCategoryData();
+  const bootState = useBootState();
+  const ready = bootState.type === "ready";
+  const { dueCards, stats, cardCountByCategory } = useCardAggregates(cards, categories);
+  return useMemo(
+    () => ({ cards, dueCards, stats, cardCountByCategory, ready }),
+    [cards, dueCards, stats, cardCountByCategory, ready],
+  );
 }
 
-// ─── Review state ───
 interface ReviewStateContextValue {
   reviewLog: ReviewLogEntry[];
   srSettings: SRSettings;
 }
 
-const ReviewStateContext = createContext<ReviewStateContextValue | null>(null);
-
-const EMPTY_REVIEW_STATE: ReviewStateContextValue = {
-  reviewLog: [],
-  srSettings: DEFAULT_SR_SETTINGS,
-};
-
-export function useReviewData() {
-  const ctx = useContext(ReviewStateContext);
-  if (!ctx) {
-    if (import.meta.env.DEV) {
-      console.warn("[useReviewData] no provider — returning empty fallback (HMR transient)");
-      return EMPTY_REVIEW_STATE;
-    }
-    throw new Error("useReviewData must be used within CardStateProvider");
-  }
-  return ctx;
+export function useReviewData(): ReviewStateContextValue {
+  const reviewLog = useReviewLog();
+  const srSettings = useSrSettings();
+  return useMemo(() => ({ reviewLog, srSettings }), [reviewLog, srSettings]);
 }
 
-// ─── Category-stats overlay ───
 interface CategoryStatsContextValue {
   categoryStats: Record<string, { score: number; total: number; due: number }>;
 }
 
-const CategoryStatsContext = createContext<CategoryStatsContextValue | null>(null);
-
-export function useCategoryStatsData() {
-  const ctx = useContext(CategoryStatsContext);
-  if (!ctx) return { categoryStats: {} };
-  return ctx;
-}
-
-// ─── Internals exposed to action providers ───
-interface CardStateInternals {
-  setCardMapState: React.Dispatch<React.SetStateAction<CardMap>>;
-  commitReviewEntry: (entry: ReviewLogEntry) => void;
-  commitReviewEntries: (entries: ReviewLogEntry[]) => void;
-  setReviewLog: (updater: (prev: ReviewLogEntry[]) => ReviewLogEntry[]) => void;
-  replaceReviewLog: (log: ReviewLogEntry[]) => void;
-  updateSRSettings: (settings: SRSettings) => void;
-}
-
-const CardStateInternalsContext = createContext<CardStateInternals | null>(null);
-
-export function useCardStateInternals() {
-  const ctx = useContext(CardStateInternalsContext);
-  if (!ctx) throw new Error("useCardStateInternals must be used within CardStateProvider");
-  return ctx;
+export function useCategoryStatsData(): CategoryStatsContextValue {
+  const cards = useCards();
+  const { categories } = useCategoryData();
+  const { categoryStats } = useCardAggregates(cards, categories);
+  return useMemo(() => ({ categoryStats }), [categoryStats]);
 }
 
 export function useSettingsActions() {
-  const { updateSRSettings } = useCardStateInternals();
-  return useMemo(() => ({ updateSRSettings }), [updateSRSettings]);
+  // Stable reference — module-level action.
+  return useMemo(() => ({ updateSRSettings: updateSRSettingsAction }), []);
 }
 
 export { useDbError } from "@/contexts/db/DbErrorProvider";
 
+// Re-export the store handle for non-React callers (kept on this path for
+// backwards-compat with any external imports).
+export { reviewSettingsStore };
+
+/** @deprecated Provider removed in v2 cleanup. Kept as no-op shim. */
 export function CardStateProvider({ children }: { children: ReactNode }) {
-  const cardMap = useCardMap();
-  const setCardMapState = setCardMap as React.Dispatch<React.SetStateAction<CardMap>>;
-
-  const reviewSettings = useReviewSettingsStore();
-  const { categories } = useCategoryData();
-  const setCategoryRecordsState = useCategoryStateSetter();
-
-  const { ready } = useCardBootstrap({
-    setCardMapState,
-    setCategoryRecordsState,
-    setReviewLogState: reviewSettings.setReviewLogState,
-    setSrSettingsState: reviewSettings.setSrSettingsState,
-  });
-
-  // Bus subscriptions, source-link / review-confirmed sync, CARDS_UPDATED.
-  useCardSyncEffects();
-
-  // Quit / unmount drain — flush review log + persist queue. The command
-  // bus was retired in Phase 4; repository writes are RAM-synchronous and
-  // only the IDB persist queue still needs draining at shutdown.
-  useEffect(() => {
-    const electron = typeof window !== "undefined" ? window.electronAPI : undefined;
-    let unsubQuit: (() => void) | undefined;
-    if (electron?.onQuitBackupRequested) {
-      unsubQuit = electron.onQuitBackupRequested(async () => {
-        try {
-          await flushReviewLogQueue();
-          await persistQueue.cleanup();
-        } catch (err) {
-          console.error("[CardStateProvider] quit flush failed", err);
-        } finally {
-          try { electron.notifyQuitBackupDone?.(); } catch { /* noop */ }
-        }
-      });
-    }
-    return () => {
-      try { unsubQuit?.(); } catch { /* noop */ }
-      void flushReviewLogQueue();
-      void persistQueue.cleanup();
-    };
-  }, []);
-
-  const cards = useMemo(() => mapToArray(cardMap), [cardMap]);
-  const { dueCards, stats, cardCountByCategory, categoryStats } =
-    useCardAggregates(cards, categories);
-
-  const cardState = useMemo<CardStateContextValue>(
-    () => ({ cards, dueCards, stats, cardCountByCategory, ready }),
-    [cards, dueCards, stats, cardCountByCategory, ready],
-  );
-
-  const reviewState = useMemo<ReviewStateContextValue>(
-    () => ({ reviewLog: reviewSettings.reviewLog, srSettings: reviewSettings.srSettings }),
-    [reviewSettings.reviewLog, reviewSettings.srSettings],
-  );
-
-  const categoryStatsValue = useMemo<CategoryStatsContextValue>(
-    () => ({ categoryStats }),
-    [categoryStats],
-  );
-
-  const internals = useMemo<CardStateInternals>(
-    () => ({
-      setCardMapState,
-      commitReviewEntry: reviewSettings.commitReviewEntry,
-      commitReviewEntries: reviewSettings.commitReviewEntries,
-      setReviewLog: reviewSettings.setReviewLog,
-      replaceReviewLog: reviewSettings.replaceReviewLog,
-      updateSRSettings: reviewSettings.updateSRSettings,
-    }),
-    [
-      setCardMapState,
-      reviewSettings.commitReviewEntry,
-      reviewSettings.commitReviewEntries,
-      reviewSettings.setReviewLog,
-      reviewSettings.replaceReviewLog,
-      reviewSettings.updateSRSettings,
-    ],
-  );
-
-  return (
-    <CardStateInternalsContext.Provider value={internals}>
-      <CardStateContext.Provider value={cardState}>
-        <ReviewStateContext.Provider value={reviewState}>
-          <CategoryStatsContext.Provider value={categoryStatsValue}>{children}</CategoryStatsContext.Provider>
-        </ReviewStateContext.Provider>
-      </CardStateContext.Provider>
-    </CardStateInternalsContext.Provider>
-  );
+  return <>{children}</>;
 }

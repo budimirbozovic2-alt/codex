@@ -1,12 +1,10 @@
 import { useEffect, useRef, useState } from "react";
-import { SRSettings } from "@/lib/spaced-repetition";
-import { ReviewLogEntry } from "@/lib/storage";
-import { CardMap, arrayToMap } from "@/lib/persist-queue";
-import { type CategoryRecord } from "@/lib/db";
+import { arrayToMap } from "@/lib/persist-queue";
 import { markBootStep } from "@/lib/boot-trace";
 import { transition, getBootState, installSplashBridge } from "@/lib/boot";
 import { cardRepository } from "@/lib/repositories";
 import { categoryRepository } from "@/lib/repositories";
+import { replaceReviewLog, seedSrSettings } from "@/store/reviewSettingsStore";
 import {
   splashProgress,
   showSplashError,
@@ -21,13 +19,6 @@ import { loadInitialData } from "./card-bootstrap/loadInitialData";
 
 import { logger } from "@/lib/logger";
 
-interface BootSetters {
-  setCardMapState: React.Dispatch<React.SetStateAction<CardMap>>;
-  setCategoryRecordsState: React.Dispatch<React.SetStateAction<CategoryRecord[]>>;
-  setReviewLogState: React.Dispatch<React.SetStateAction<ReviewLogEntry[]>>;
-  setSrSettingsState: React.Dispatch<React.SetStateAction<SRSettings>>;
-}
-
 function msg(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
 }
@@ -38,24 +29,14 @@ function inSchemaPhase(): boolean {
 }
 
 /**
- * Boot orchestrator — eksplicitan tro-fazni DAG:
- *
- *   Phase 1: schema (bootDb + runSchema)  ← throw → schema-error
- *   Phase 2: load (loadInitialData)        ← throw → load-error
- *   Phase 2b: heal (runHeal)                ← per-step skip, nikad ne throw-uje
- *   Phase 3: render (repository.replaceAll)
- *
- * Per-faza error stanja vidi `BootRecoveryGate` koji renderuje akciono
- * UI (Retry / Reset DB / Continue empty). `setReady(true)` u finally-u
- * znači "boot je završio", ne "boot je uspio" — stvarno health stanje
- * čita `useBootState()`.
+ * Boot orchestrator — eksplicitan tro-fazni DAG. State writes route directly
+ * into Zustand stores via the repositories — no setter props required.
  */
-export function useCardBootstrap(setters: BootSetters) {
-  const { setCardMapState: _legacySetCardMap, setCategoryRecordsState: _legacySetCategoryRecords, setReviewLogState, setSrSettingsState } = setters;
-  void _legacySetCardMap;
-  void _legacySetCategoryRecords;
+export function useCardBootstrap() {
   const [ready, setReady] = useState(false);
   const initialLoadDone = useRef(false);
+
+
 
   useEffect(() => {
     if (initialLoadDone.current) return;
@@ -102,8 +83,9 @@ export function useCardBootstrap(setters: BootSetters) {
         if (import.meta.env.DEV) logger.log("[boot:diag] setting state — cards:", cards.length, "categories:", finalRecords.length);
         cardRepository.replaceAll(arrayToMap(cards));
         categoryRepository.replaceAll(finalRecords);
-        setReviewLogState(log);
-        setSrSettingsState(settings);
+        replaceReviewLog(log);
+        seedSrSettings(settings);
+
 
         splashProgress(100, "Spremno!");
         transition({ type: "LOAD_PROGRESS", pct: 100, label: "Spremno!" });

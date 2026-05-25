@@ -10,22 +10,20 @@ import {
   RETENTION_MAX,
 } from "@/lib/spaced-repetition";
 import { ReviewLogEntry } from "@/lib/storage";
-import type { CardMap } from "@/lib/persist-queue";
 import { reviewLogRepository } from "@/lib/repositories";
 import { cardRepository } from "@/lib/repositories";
 import { getExaminerProfileSync } from "@/lib/examiner-profile-cache";
+import { patchReviewLog } from "@/store/reviewSettingsStore";
 
 import { logger } from "@/lib/logger";
 interface UseCardAnnotationsParams {
   patchCard: (id: string, patcher: (card: Card) => Card) => void;
-  setCardMapState?: React.Dispatch<React.SetStateAction<CardMap>>;
-  setReviewLog: (updater: (prev: ReviewLogEntry[]) => ReviewLogEntry[]) => void;
 }
 
 export function useCardAnnotations({
   patchCard,
-  setReviewLog,
 }: UseCardAnnotationsParams) {
+
 
   // O(1) review — surgical IDB write (patchCard handles persist via Ref-Delta)
   const reviewSection = useCallback(
@@ -78,14 +76,13 @@ export function useCardAnnotations({
         logger.error("[reviewSection] log enqueue failed", err);
         void import("sonner").then(({ toast }) => toast.error("Memorija puna, istorija učenja se ne čuva!"));
       }
-      // G1 fix: cap in-memory reviewLog to prevent unbounded growth
-      setReviewLog((log) => {
-        const next = [...log, entry];
-        return next.length > 5000 ? next.slice(-5000) : next;
-      });
+      // G1 fix: cap in-memory reviewLog to prevent unbounded growth.
+      // The repository already persisted the entry — RAM-only patch here.
+      patchReviewLog((log) => [...log, entry]);
     },
-    [patchCard, setReviewLog],
+    [patchCard],
   );
+
 
   // O(1) markRead — surgical (patchCard handles persist)
   const markRead = useCallback(
