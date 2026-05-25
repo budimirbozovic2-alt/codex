@@ -901,3 +901,13 @@ input[type="number"] {
   margin-top: 0.55em;
 }
 
+/* ─── EditorV4 placeholder (TipTap Placeholder extension) ─── */
+.ProseMirror p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  color: hsl(var(--muted-foreground));
+  float: left;
+  pointer-events: none;
+  height: 0;
+}
+
+
