@@ -183,7 +183,7 @@ export default function SourceEditor({ source, categoryId, onClose, onSourceUpda
     };
     await saveSource(updated);
     setDirty(false);
-    setNewText("");
+    setNewDoc(null);
     onClose();
     afterDialogClose(() => {
       onSourceUpdated(updated);
@@ -197,7 +197,7 @@ export default function SourceEditor({ source, categoryId, onClose, onSourceUpda
 
     await saveSource(updatedSource);
     setDirty(false);
-    setNewText("");
+    setNewDoc(null);
     setDiffPending(null);
     onClose();
     afterDialogClose(() => {
@@ -344,7 +344,7 @@ export default function SourceEditor({ source, categoryId, onClose, onSourceUpda
           <DirtyConfirmBar
             open={pendingClose}
             onCancel={cancelClose}
-            onDiscard={() => { setDirty(false); setNewText(""); confirmDiscard(); }}
+            onDiscard={() => { setDirty(false); setNewDoc(null); confirmDiscard(); }}
             onSave={async () => { await handleSave(); }}
           />
         </DialogContent>
