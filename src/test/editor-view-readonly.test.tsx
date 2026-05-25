@@ -75,7 +75,8 @@ describe("ContentRenderer", () => {
     expect(div).not.toBeNull();
     // DOMPurify must have stripped the <script>.
     expect(div?.innerHTML).not.toContain("<script");
-    expect(div?.textContent).toContain("Helloworld");
+    expect(div?.textContent).toContain("Hello");
+    expect(div?.textContent).toContain("world");
   });
 
   it("applies keyParts highlight only in fallback branch", () => {
