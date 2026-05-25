@@ -267,12 +267,10 @@ describe("wiki-link integration — parallel clicks", () => {
     // Record version before removal.
     const versionBefore = backlinkIndex.getVersion(SUBJECT, "Target");
 
-    // Remove linker and emit event.
+    // Remove linker and update backlink index directly (post Task-B: no EventBus).
     await db.knowledgeBaseArticles.delete(linker.id);
-    eventBus.emit(EVENT_TYPES.KB_ARTICLE_REMOVED, {
-      subjectId: SUBJECT,
-      articleId: linker.id,
-    });
+    backlinkIndex.removeArticle(SUBJECT, linker.id);
+
 
     // Version bumps deterministically (no timing assumptions).
     const versionAfter = backlinkIndex.getVersion(SUBJECT, "Target");
