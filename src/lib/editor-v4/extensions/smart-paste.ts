@@ -55,7 +55,9 @@ export const SmartPaste = Extension.create({
 
             const tr = view.state.tr.replaceSelection(slice).scrollIntoView();
             view.dispatch(tr);
-            editor.emit("update", { editor, transaction: tr });
+            // No manual `update` emit needed — view.dispatch already does it
+            // through the editor's transaction pipeline.
+            void editor;
             return true;
           },
         },
