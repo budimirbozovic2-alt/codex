@@ -3,9 +3,6 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { HashRouter, Routes, Route, useParams } from "react-router-dom";
 import { AppProvider } from "@/contexts/AppContext";
-// Boot state machine je module-level; provider više nije potreban.
-import { BootRecoveryGate } from "@/contexts/boot/BootRecoveryGate";
-import { SessionProvider } from "@/contexts/SessionContext";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import MainLayout from "@/components/MainLayout";
 import TitleBar from "@/components/TitleBar";
@@ -58,9 +55,6 @@ const App = () => {
   const { hasPending: isSaving, pendingCount } = usePersistingState();
 
   // Install global guard for Radix Dialog `pointer-events: none` leak.
-  // IMPORTANT: returned dispose MUST be wired into useEffect cleanup —
-  // StrictMode double-invoke and HMR rely on it to avoid duplicate listeners.
-  // Do not collapse this into another effect; keep install/dispose 1:1.
   useEffect(() => {
     const dispose = installBodyPointerEventsGuard();
     return dispose;
@@ -69,7 +63,6 @@ const App = () => {
   useEffect(() => {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
       if (isSaving) {
-        // Standardni način da browser izbaci upozorenje pri zatvaranju
         e.preventDefault();
         e.returnValue = "Podaci se još uvijek čuvaju. Da li ste sigurni da želite napustiti aplikaciju?";
         return e.returnValue;
@@ -93,52 +86,47 @@ const App = () => {
         )}
         <Sonner />
         <HashRouter>
-            <AppProvider>
-                <SessionProvider>
-                  <ErrorBoundary>
-                    <BootRecoveryGate>
-                      <MainLayout>
-                        <Suspense fallback={<PageSkeleton />}>
-                          <Routes>
-                            <Route path="/" element={<ErrorBoundary label="Početna"><DashboardPage /></ErrorBoundary>} />
-                            <Route path="/category/:categoryId" element={<CategoryViewWrapper />} />
-                            <Route path="/subject/:categoryId" element={<SubjectDashboardWrapper />} />
+          <AppProvider>
+            <ErrorBoundary>
+              <MainLayout>
+                <Suspense fallback={<PageSkeleton />}>
+                  <Routes>
+                    <Route path="/" element={<ErrorBoundary label="Početna"><DashboardPage /></ErrorBoundary>} />
+                    <Route path="/category/:categoryId" element={<CategoryViewWrapper />} />
+                    <Route path="/subject/:categoryId" element={<SubjectDashboardWrapper />} />
 
-                            <Route path="/subject/:categoryId/mind-maps" element={<ErrorBoundary label="Mapa uma"><Suspense fallback={<PageSkeleton />}><SubjectMindMapPage /></Suspense></ErrorBoundary>} />
-                            <Route path="/subject/:categoryId/mnemonics" element={<ErrorBoundary label="Mnemonik"><Suspense fallback={<PageSkeleton />}><SubjectMnemonicPage /></Suspense></ErrorBoundary>} />
-                            <Route path="/subject/:categoryId/zettelkasten" element={<ErrorBoundary label="Zettelkasten"><Suspense fallback={<PageSkeleton />}><ZettelkastenView /></Suspense></ErrorBoundary>} />
-                            <Route path="/subject/:categoryId/cards" element={<ErrorBoundary label="Kartice"><Suspense fallback={<PageSkeleton />}><SubjectCardsView /></Suspense></ErrorBoundary>} />
-                            <Route path="/subject/:categoryId/diagnostics" element={<ErrorBoundary label="Dijagnostika"><Suspense fallback={<PageSkeleton />}><SubjectDiagnosticsPage /></Suspense></ErrorBoundary>} />
-                            <Route path="/review" element={<ErrorBoundary label="Ponavljanje"><ReviewPage /></ErrorBoundary>} />
-                            <Route path="/learn" element={<ErrorBoundary label="Učenje"><LearnPage /></ErrorBoundary>} />
-                            <Route path="/edit" element={<ErrorBoundary label="Uređivanje"><EditPage /></ErrorBoundary>} />
-                            <Route path="/settings" element={<ErrorBoundary label="Podešavanja"><SettingsPage /></ErrorBoundary>} />
-                            <Route path="/planner" element={<PlannerPage />} />
-                            <Route path="/stats" element={<StatsPage />} />
-                            <Route path="/categories" element={<ErrorBoundary label="Kategorije"><CategoriesRoutePage /></ErrorBoundary>} />
+                    <Route path="/subject/:categoryId/mind-maps" element={<ErrorBoundary label="Mapa uma"><Suspense fallback={<PageSkeleton />}><SubjectMindMapPage /></Suspense></ErrorBoundary>} />
+                    <Route path="/subject/:categoryId/mnemonics" element={<ErrorBoundary label="Mnemonik"><Suspense fallback={<PageSkeleton />}><SubjectMnemonicPage /></Suspense></ErrorBoundary>} />
+                    <Route path="/subject/:categoryId/zettelkasten" element={<ErrorBoundary label="Zettelkasten"><Suspense fallback={<PageSkeleton />}><ZettelkastenView /></Suspense></ErrorBoundary>} />
+                    <Route path="/subject/:categoryId/cards" element={<ErrorBoundary label="Kartice"><Suspense fallback={<PageSkeleton />}><SubjectCardsView /></Suspense></ErrorBoundary>} />
+                    <Route path="/subject/:categoryId/diagnostics" element={<ErrorBoundary label="Dijagnostika"><Suspense fallback={<PageSkeleton />}><SubjectDiagnosticsPage /></Suspense></ErrorBoundary>} />
+                    <Route path="/review" element={<ErrorBoundary label="Ponavljanje"><ReviewPage /></ErrorBoundary>} />
+                    <Route path="/learn" element={<ErrorBoundary label="Učenje"><LearnPage /></ErrorBoundary>} />
+                    <Route path="/edit" element={<ErrorBoundary label="Uređivanje"><EditPage /></ErrorBoundary>} />
+                    <Route path="/settings" element={<ErrorBoundary label="Podešavanja"><SettingsPage /></ErrorBoundary>} />
+                    <Route path="/planner" element={<PlannerPage />} />
+                    <Route path="/stats" element={<StatsPage />} />
+                    <Route path="/categories" element={<ErrorBoundary label="Kategorije"><CategoriesRoutePage /></ErrorBoundary>} />
 
-                            {LabEditor && (
-                              <Route
-                                path="/__lab/editor"
-                                element={
-                                  <ErrorBoundary label="Editor V4 Lab">
-                                    <Suspense fallback={<PageSkeleton />}>
-                                      <LabEditor />
-                                    </Suspense>
-                                  </ErrorBoundary>
-                                }
-                              />
-                            )}
-                            <Route path="*" element={<ErrorBoundary label="404"><NotFound /></ErrorBoundary>} />
-                          </Routes>
-                        </Suspense>
-                      </MainLayout>
-                    </BootRecoveryGate>
-                    <ProcessingOverlay />
-                  </ErrorBoundary>
-                </SessionProvider>
-
-            </AppProvider>
+                    {LabEditor && (
+                      <Route
+                        path="/__lab/editor"
+                        element={
+                          <ErrorBoundary label="Editor V4 Lab">
+                            <Suspense fallback={<PageSkeleton />}>
+                              <LabEditor />
+                            </Suspense>
+                          </ErrorBoundary>
+                        }
+                      />
+                    )}
+                    <Route path="*" element={<ErrorBoundary label="404"><NotFound /></ErrorBoundary>} />
+                  </Routes>
+                </Suspense>
+              </MainLayout>
+              <ProcessingOverlay />
+            </ErrorBoundary>
+          </AppProvider>
         </HashRouter>
       </div>
     </TooltipProvider>
