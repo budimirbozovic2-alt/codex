@@ -213,7 +213,7 @@ export default function SourceEditor({ source, categoryId, onClose, onSourceUpda
     });
   }, [diffPending, bulkFlagNeedsReview, onSourceUpdated, onClose]);
 
-  const isDirty = dirty || newText.trim().length > 0;
+  const isDirty = dirty || hasPastedText;
   const { pendingClose, requestClose, cancelClose, confirmDiscard } = useDirtyDialog(isDirty, onClose);
 
   return (
