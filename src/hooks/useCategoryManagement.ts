@@ -1,21 +1,29 @@
 import { useCallback } from "react";
 import { Card } from "@/lib/spaced-repetition";
-import { CardMap } from "@/lib/persist-queue";
-import { db, idbDeleteCard, type CategoryRecord, type SubcategoryNode, type ChapterNode, type ExaminerProfile } from "@/lib/db";
+import { type CategoryRecord, type SubcategoryNode, type ChapterNode, type ExaminerProfile } from "@/lib/db";
 import { invalidateSourcesCache } from "@/lib/sources-storage";
 import { cascadeDeleteCategoryDomains } from "@/lib/category-deletion-service";
 import { toast } from "sonner";
 import { optimisticCategoryUpdate } from "@/lib/category-service";
 import { stableLegacyId } from "@/lib/stable-id";
 import { cardRepository } from "@/lib/repositories";
-import { getCardMap } from "@/store";
+import { getCardMap, getCategoryStoreRecords } from "@/store";
 
 import { logger } from "@/lib/logger";
-interface UseCategoryManagementParams {
-  setCategoryRecords: React.Dispatch<React.SetStateAction<CategoryRecord[]>>;
-  setCardMapState?: React.Dispatch<React.SetStateAction<CardMap>>;
-  getCategoryRecords: () => { id: string; name: string }[];
-}
+
+// Stable module-level setter — proxies into the categoryStore mirror.
+// Action callbacks no longer need a Context-supplied setter.
+const setCategoryRecords: React.Dispatch<React.SetStateAction<CategoryRecord[]>> = (action) => {
+  const { setCategoryStoreRecords } = require("@/store") as typeof import("@/store");
+  const prev = getCategoryStoreRecords();
+  const next = typeof action === "function"
+    ? (action as (p: CategoryRecord[]) => CategoryRecord[])(prev)
+    : action;
+  if (next === prev) return;
+  setCategoryStoreRecords(next);
+};
+
+const getCategoryRecords = (): { id: string; name: string }[] => getCategoryStoreRecords();
 
 // ─── Helper: osigurava da čvorovi imaju UUID sistemsku strukturu ───
 // Legacy string nodes get a *deterministic* id (stableLegacyId) so re-running
@@ -45,12 +53,8 @@ function getNodes(rec: CategoryRecord): SubcategoryNode[] {
   return ((rec.subcategories || []) as unknown[]).map((s, i) => normalizeNode(s, i, rec.id));
 }
 
-export function useCategoryManagement({
-  setCategoryRecords,
-  setCardMapState: _legacySetCardMap, // Phase 3b: kept for back-compat, unused
-  getCategoryRecords,
-}: UseCategoryManagementParams) {
-  void _legacySetCardMap;
+export function useCategoryManagement() {
+
   
   
   const addCategory = useCallback(
