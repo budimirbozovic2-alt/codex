@@ -2,9 +2,18 @@ import { useMemo, Fragment } from "react";
 import { FileText } from "lucide-react";
 import EmbeddedMindMap from "./EmbeddedMindMap";
 import { SafeHtml } from "@/components/ui/safe-html";
+import { ContentRenderer } from "@/components/ui/ContentRenderer";
+import type { EditorDoc } from "@/lib/editor-v4";
 
 interface Props {
   markdown: string;
+  /**
+   * PR-6: when present and `version === 4`, the read path renders the
+   * canonical AST through `<ContentRenderer>` (which delegates to TipTap in
+   * read-only mode). The markdown branch stays for back-compat with articles
+   * whose `contentDoc` hasn't been backfilled yet.
+   */
+  doc?: EditorDoc | null;
   /** Called when user clicks a [[Wiki Link]]. Argument is the raw title inside brackets. */
   onWikiLink: (title: string) => void;
   /** Set of normalized (lowercase, trimmed) titles that already exist — used for styling. */
