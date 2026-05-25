@@ -46,30 +46,25 @@ markBootStep("main:error-handlers-registered");
 (async () => {
   try {
     markBootStep("main:parallel-import-start");
-    const [{ initColorTheme }, { default: App }, { createRoot }, { eventBus }, { setDbEventEmitter }, { initCardMapInvalidator }, { initCategoryStateInvalidator }] = await Promise.all([
+    const [{ initColorTheme }, { default: App }, { createRoot }, { eventBus }, { setDbEventEmitter }] = await Promise.all([
       import("./lib/app-settings"),
       import("./App"),
       import("react-dom/client"),
       import("./lib/event-bus"),
       import("./lib/db-schema"),
-      import("./lib/repositories/cardMapInvalidator"),
-      import("./lib/repositories/categoryStateInvalidator"),
     ]);
     markBootStep("main:parallel-import-done");
 
     // W1: Inject EventBus into db-schema (Inversion of Control — breaks the
-    // db-schema ↔ event-bus circular dependency).
+    // db-schema ↔ event-bus circular dependency). Only DB infrastructure
+    // events (DB_BLOCKED / DB_UNBLOCKED / DB_ERROR_CHANGED) still flow
+    // through the bus — domain events have all migrated to direct Zustand
+    // store calls.
     setDbEventEmitter(
       (type, payload) => eventBus.emit(type, payload),
       () => eventBus.getTabCount(),
     );
 
-    // Phase 3 — cardMap is now an invalidatable cache. Subscribe once at
-    // boot so external CARDS_UPDATED emitters (HealthMonitor, RemapFromBackup,
-    // future remote sync) re-hydrate RAM without depending on React mount.
-    initCardMapInvalidator();
-    // Phase 5A — same pattern for categoryRecords.
-    initCategoryStateInvalidator();
 
     initColorTheme();
     markBootStep("main:theme-init-done");

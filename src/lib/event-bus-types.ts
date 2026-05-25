@@ -1,22 +1,18 @@
 /**
- * Event bus constants & types — extracted from event-bus.ts to break the
- * circular import between db-schema.ts and event-bus.ts (W1). Importing only
- * from this file lets emitters reach for `EVENT_TYPES` without pulling in the
- * `EventBus` instance (which itself imports DB-side types in some paths).
+ * Event bus constants & types.
+ *
+ * Post Task-B EventBus elimination: the bus carries only DB infrastructure
+ * events that genuinely need cross-module fan-out from a module-level
+ * emitter (no React provider available at that layer). All domain events
+ * (cards/categories/mnemonics/zettelkasten articles) have been migrated to
+ * direct Zustand store mutations + module-level singletons, so they no
+ * longer appear here.
  */
 
 export const EVENT_TYPES = {
-  MNEMONICS_UPDATED: "mnemonics:updated",
-  CARDS_UPDATED: "cards:updated",
-  CATEGORIES_UPDATED: "categories:updated",
   DB_BLOCKED: "db:blocked",
   DB_UNBLOCKED: "db:unblocked",
   DB_ERROR_CHANGED: "db:error-changed",
-  TAB_HEARTBEAT: "tab:heartbeat",
-  TAB_REPLY: "tab:reply",
-  TAB_LEAVING: "tab:leaving",
-  KB_ARTICLE_UPSERTED: "kb-article:upserted",
-  KB_ARTICLE_REMOVED: "kb-article:removed",
 } as const;
 
 export type EventType = typeof EVENT_TYPES[keyof typeof EVENT_TYPES];

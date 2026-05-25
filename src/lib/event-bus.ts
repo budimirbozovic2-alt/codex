@@ -91,9 +91,3 @@ if (import.meta.hot) {
   });
 }
 
-// EVENT_TYPES re-export gore. Konstante TAB_HEARTBEAT/REPLY/LEAVING ostaju
-// dostupne kao no-op (niko ih više ne emituje), ali ne pokrećemo runtime
-// stranice — listing samo da grep ne razbije:
-void EVENT_TYPES.TAB_HEARTBEAT;
-void EVENT_TYPES.TAB_REPLY;
-void EVENT_TYPES.TAB_LEAVING;

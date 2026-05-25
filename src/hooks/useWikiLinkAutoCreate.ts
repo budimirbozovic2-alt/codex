@@ -4,7 +4,7 @@ import {
   bulkCreateArticlesIfMissing,
   type KnowledgeBaseArticle,
 } from "@/lib/zettelkasten-storage";
-import { eventBus, EVENT_TYPES } from "@/lib/event-bus";
+import { backlinkIndex } from "@/lib/backlink-index";
 import { iterateWikiLinks, normalizeKey } from "@/lib/zettelkasten-wiki-link";
 import { useLatestRef } from "@/hooks/useLatestRef";
 import { taskScheduler } from "@/lib/scheduler";
@@ -176,7 +176,7 @@ export function useWikiLinkAutoCreate({
 
         setArticlesRef.current(prev => [...created, ...prev]);
         for (const a of created) {
-          eventBus.emit(EVENT_TYPES.KB_ARTICLE_UPSERTED, { subjectId: categoryId, article: a });
+          backlinkIndex.upsertArticle(categoryId, a);
         }
         toast.success(
           created.length === 1

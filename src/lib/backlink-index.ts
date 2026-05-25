@@ -373,36 +373,12 @@ class BacklinkIndex {
 
 export const backlinkIndex = new BacklinkIndex();
 
-interface KbUpsertPayload {
-  subjectId: string;
-  article: KnowledgeBaseArticle;
-}
-interface KbRemovePayload {
-  subjectId: string;
-  articleId: string;
-}
+// Note: BacklinkIndex was previously fed via EventBus (KB_ARTICLE_UPSERTED /
+// KB_ARTICLE_REMOVED). Post Task-B the bus is gone — callers
+// (`useArticleMutations`, `useArticleDraft`, `useWikiLinkAutoCreate`) invoke
+// `backlinkIndex.upsertArticle` / `removeArticle` directly after each IDB
+// write, which is simpler, synchronous, and removes one indirection.
 
-// ═══════════════════════════════════════════════════════════════════════════
-// FIX S4: Managed Subscriptions (No module-level side-effects)
-// ═══════════════════════════════════════════════════════════════════════════
-/**
- * Pokreće osluškivanje događaja za BacklinkIndex.
- * Mora se pozvati iz React useEffect-a kako bi se omogućio pravilan cleanup (npr. u CardStateProvider-u).
- */
-export function initBacklinkIndexSubscriptions() {
-  const unsubUpsert = eventBus.subscribe<KbUpsertPayload>(EVENT_TYPES.KB_ARTICLE_UPSERTED, (p) => {
-    if (p?.subjectId && p?.article) backlinkIndex.upsertArticle(p.subjectId, p.article);
-  });
-
-  const unsubRemove = eventBus.subscribe<KbRemovePayload>(EVENT_TYPES.KB_ARTICLE_REMOVED, (p) => {
-    if (p?.subjectId && p?.articleId) backlinkIndex.removeArticle(p.subjectId, p.articleId);
-  });
-
-  return () => {
-    unsubUpsert();
-    unsubRemove();
-  };
-}
 
 /**
  * React hook: returns the live backlink list for a (subject, target) pair.

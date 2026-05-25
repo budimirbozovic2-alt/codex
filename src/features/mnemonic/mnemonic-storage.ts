@@ -183,9 +183,22 @@ export async function loadMnemonicCardsByCategory(categoryId: string): Promise<M
   }
 }
 
+// ─── Local change-notifier (post Task-B replacement for MNEMONICS_UPDATED) ──
+const _mnemonicListeners = new Set<() => void>();
+export function subscribeMnemonics(cb: () => void): () => void {
+  _mnemonicListeners.add(cb);
+  return () => { _mnemonicListeners.delete(cb); };
+}
+function notifyMnemonics(): void {
+  for (const cb of _mnemonicListeners) {
+    try { cb(); } catch { /* ignore listener errors */ }
+  }
+}
+
 export async function saveMnemonicCards(cards: MnemonicCard[]): Promise<void> {
   try {
     await db.mnemonics.bulkPut(cards);
+    notifyMnemonics();
   } catch (err) {
     logger.error("[mnemonic-storage] saveMnemonicCards failed", err);
   }
@@ -194,6 +207,7 @@ export async function saveMnemonicCards(cards: MnemonicCard[]): Promise<void> {
 export async function deleteMnemonicCard(id: string): Promise<void> {
   try {
     await db.mnemonics.delete(id);
+    notifyMnemonics();
   } catch (err) {
     logger.error("[mnemonic-storage] deleteMnemonicCard failed", err);
   }

@@ -23,7 +23,7 @@ import type { ReviewLogEntry } from "@/lib/storage";
 import { resolveLegacyTaxonomyNames } from "@/lib/migrations/resolve-legacy-taxonomy";
 import { yieldUI } from "@/lib/backup/yield-ui";
 import { backupLog } from "@/lib/backup/backup-logger";
-import { emitCategoriesUpdated } from "@/lib/repositories";
+import { categoryRepository } from "@/lib/repositories";
 
 import type { ImportCtx, ImportTxResult, ImportStrategy } from "@/lib/backup/import-types";
 import {
@@ -126,12 +126,10 @@ export async function applyImportAtomically(ctx: ImportCtx): Promise<ImportTxRes
     // ── 5. Re-read final categories snapshot for AppContext ──
     freshCategories = await idbLoadCategories();
 
-    // Phase 5A — broadcast so the categoryStateInvalidator (and any future
-    // cross-tab listener) can refresh from the authoritative IDB snapshot.
-    emitCategoriesUpdated({
-      source: "backup-restore",
-      categoryIds: freshCategories.map(c => c.id) as never,
-    });
+    // Push freshly restored categories into the SSOT store synchronously —
+    // replaces the old EventBus "backup-restore" round-trip.
+    categoryRepository.replaceAll(freshCategories);
+
 
     backupLog.success("import", "atomic restore committed", {
       strategy,

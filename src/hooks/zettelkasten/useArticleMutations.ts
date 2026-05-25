@@ -20,7 +20,6 @@ import {
   findArticleByTitle,
   type KnowledgeBaseArticle,
 } from "@/lib/zettelkasten-storage";
-import { eventBus, EVENT_TYPES } from "@/lib/event-bus";
 import { backlinkIndex } from "@/lib/backlink-index";
 import type { ArticleDraftApi } from "./useArticleDraft";
 
@@ -63,7 +62,7 @@ export function useArticleMutations(input: Input): ArticleMutationsApi {
     const article = newArticle(categoryId, t);
     await saveArticle(article);
     setArticles(prev => [article, ...prev]);
-    eventBus.emit(EVENT_TYPES.KB_ARTICLE_UPSERTED, { subjectId: categoryId, article });
+    backlinkIndex.upsertArticle(categoryId, article);
     setActiveId(article.id);
     draftApi.enterEdit(article);
   }, [categoryId, setArticles, setActiveId, draftApi]);
@@ -90,10 +89,7 @@ export function useArticleMutations(input: Input): ArticleMutationsApi {
     }
     if (!confirm(`Obrisati članak "${activeArticle.title}"?`)) return;
     await deleteArticle(activeArticle.id);
-    eventBus.emit(EVENT_TYPES.KB_ARTICLE_REMOVED, {
-      subjectId: activeArticle.subjectId,
-      articleId: activeArticle.id,
-    });
+    backlinkIndex.removeArticle(activeArticle.subjectId, activeArticle.id);
     setArticles(prev => prev.filter(a => a.id !== activeArticle.id));
     setActiveId(indexArticleId && indexArticleId !== activeArticle.id ? indexArticleId : null);
     draftApi.exitEdit();
@@ -127,7 +123,7 @@ export function useArticleMutations(input: Input): ArticleMutationsApi {
           if (created.length > 0) {
             const article = created[0];
             setArticles(prev => [article, ...prev]);
-            eventBus.emit(EVENT_TYPES.KB_ARTICLE_UPSERTED, { subjectId: categoryId, article });
+            backlinkIndex.upsertArticle(categoryId, article);
             toast.success(`Kreiran novi članak "${article.title}"`);
             return article.id;
           }

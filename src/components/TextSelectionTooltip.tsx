@@ -2,7 +2,7 @@ import { Brain, Star } from "lucide-react";
 import { useState, useEffect, useCallback, useRef, ReactNode } from "react";
 
 import { createMnemonicCardFromSelection, loadMnemonicCards, saveMnemonicCards } from "@/features/mnemonic";
-import { eventBus, EVENT_TYPES } from "@/lib/event-bus";
+
 import { taskScheduler } from "@/lib/scheduler";
 import { toast } from "sonner";
 
@@ -60,7 +60,7 @@ export default function TextSelectionTooltip({ children, cardId, question, categ
       cardId, question, tooltip.text, category, subcategoryId, tags
     );
     await saveMnemonicCards([...cards, clone]);
-    eventBus.emit(EVENT_TYPES.MNEMONICS_UPDATED, { cardId: clone.id });
+    // saveMnemonicCards notifies the mnemonic store internally — no event needed.
     toast("Dodano u Mnemo radionicu", { description: `"${tooltip.text.slice(0, 40)}${tooltip.text.length > 40 ? "…" : ""}"` });
     setTooltip(null);
     window.getSelection()?.removeAllRanges();

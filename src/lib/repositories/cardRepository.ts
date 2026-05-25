@@ -1,12 +1,12 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// M1+A1 — Card Repository Facade
+// Card Repository — single source of truth for card mutations.
 //
-// Single source of truth for **card mutations**. Owns the contract between
-// the in-memory cardMap (Zustand store + ref facade) and the IndexedDB
-// persist queue. Higher layers (hooks, providers, services) call repository
-// methods instead of poking at `schedulePersist`, `cardMapRef.current`, and
-// `setCardMap` directly — this severs the tight coupling identified in the
-// architecture audit (A1) and lets us evolve persistence without touching UI.
+// Post Task-B: the EventBus CARDS_UPDATED fan-out has been removed. Every
+// write mutates the Zustand `cardMapStore` inline, which is the SSOT all
+// consumers subscribe to via `useSyncExternalStore`. The previous self/
+// external "invalidator" dance is replaced by an explicit `reloadCardsFromIdb`
+// helper that external callers (HealthMonitor, RemapFromBackupDialog) invoke
+// directly when they bypass the repository to write to IDB.
 // ─────────────────────────────────────────────────────────────────────────────
 import type { Card } from "@/lib/spaced-repetition";
 import { invalidateCoverageCache } from "@/lib/coverage-analysis";
@@ -14,37 +14,16 @@ import { sameSourceModules } from "@/lib/struct-eq";
 import {
   bumpMapVersion,
   schedulePersist,
+  persistQueue,
   type CardMap,
 } from "@/lib/persist-queue";
 import {
   setCardMap,
   getCardMap,
 } from "@/store/useCardMapStore";
-import { eventBus, EVENT_TYPES } from "@/lib/event-bus";
-
-// ─── Phase 3 — invalidation broadcast ──────────────────────────────────────
-// Every repository write fans out a CARDS_UPDATED event tagged with the
-// commit source. The module-level `cardMapInvalidator` filters our own
-// "repository" / "repository-sync" emissions back out so we don't double-
-// apply (RAM is already up-to-date inline). External emitters (HealthMonitor,
-// RemapFromBackupDialog, future remote sync) keep using their own source
-// strings and the invalidator does the bulkGet → applySyncDelta dance.
-export type CardsUpdatedSource =
-  | "repository"
-  | "repository-sync"
-  | "repository-replace"
-  | string; // external (orphan-cleanup, delete-cards, remap-from-backup, …)
-
-export interface CardsUpdatedPayload {
-  source: CardsUpdatedSource;
-  cardIds?: string[];
-  deletedIds?: string[];
-}
-
-function emitCardsUpdated(payload: CardsUpdatedPayload): void {
-  try { eventBus.emit(EVENT_TYPES.CARDS_UPDATED, payload); }
-  catch { /* bus failures must not break a commit */ }
-}
+import { db } from "@/lib/db";
+import { idbLoadCards } from "@/lib/db-queries";
+import { logger } from "@/lib/logger";
 
 // ─── Read primitives ──────────────────────────────────────────────────────
 export function getCard(id: string): Card | undefined {
@@ -56,18 +35,10 @@ export function snapshot(): CardMap {
 }
 
 // ─── Internal helpers ─────────────────────────────────────────────────────
-// NOTE (C4 follow-up): `getCardMap()` and the Zustand store atom
-// are the SAME reference. In-place mutation of `current` therefore mutates
-// the very `prev` object that `setCardMap`'s updater is about to inspect,
-// which defeats any "skip-if-noop" guard (notably in commitDelete, where
-// `prev[id]` is already gone, the guard returns `prev`, no notify fires,
-// and the UI never re-renders the deletion). Single source of truth: write
-// via `setCardMap`; the ref getter reads the live atom right after.
 function commitSingle(card: Card): void {
   schedulePersist({ type: "put", card });
   setCardMap((prev) => ({ ...prev, [card.id]: card }));
   bumpMapVersion();
-  emitCardsUpdated({ source: "repository", cardIds: [card.id] });
 }
 
 function commitBulk(cards: Card[]): void {
@@ -79,10 +50,6 @@ function commitBulk(cards: Card[]): void {
     return next;
   });
   bumpMapVersion();
-  emitCardsUpdated({
-    source: "repository",
-    cardIds: cards.map((c) => c.id),
-  });
 }
 
 function commitDelete(id: string): void {
@@ -94,7 +61,6 @@ function commitDelete(id: string): void {
     return next;
   });
   bumpMapVersion();
-  emitCardsUpdated({ source: "repository", deletedIds: [id] });
 }
 
 // ─── Write primitives ─────────────────────────────────────────────────────
@@ -193,8 +159,9 @@ export function clearNeedsReview(id: string): Card | undefined {
 }
 
 /**
- * Apply a remote sync delta from the CARDS_UPDATED bus event. Newer rows
- * win over the in-memory copy; missing ids are deleted.
+ * Apply a delta of rows fetched from IDB on top of the in-memory map.
+ * Newer rows win; missing ids are deleted. Bootstrap-side only — does NOT
+ * schedule a persist (the rows came from IDB).
  */
 export function applySyncDelta(rows: Card[], deletedIds: string[]): void {
   if (rows.length === 0 && deletedIds.length === 0) return;
@@ -205,21 +172,56 @@ export function applySyncDelta(rows: Card[], deletedIds: string[]): void {
     return next;
   });
   bumpMapVersion();
-  // Tagged "repository-sync" so the invalidator can identify (and skip) its
-  // own re-entry — applySyncDelta is invoked BY the invalidator after a
-  // bulkGet, and re-broadcasting "repository" would feed back into itself.
-  emitCardsUpdated({
-    source: "repository-sync",
-    cardIds: rows.map((c) => c.id),
-    deletedIds,
-  });
 }
 
 /** Replace the entire cardMap atom. Bootstrap / restore only. */
 export function replaceAll(map: CardMap): void {
   setCardMap({ ...map });
   bumpMapVersion();
-  emitCardsUpdated({ source: "repository-replace" });
+}
+
+// ─── External-invalidation helper ─────────────────────────────────────────
+// Replaces the old CARDS_UPDATED bus + cardMapInvalidator. Callers that
+// write to IDB outside the repository (HealthMonitor cleanups, Remap-from-
+// backup) must invoke this to bring RAM back in sync.
+
+/** Above this surgical refetch falls back to a full reload (cheaper at scale). */
+const SURGICAL_LIMIT = 200;
+
+let _fetchSequence = 0;
+
+/**
+ * Re-read the given card ids (surgical) or the whole table (full) from IDB
+ * and apply the delta to the in-memory store. Idempotent — concurrent calls
+ * are sequenced and only the latest delta is committed.
+ */
+export async function reloadCardsFromIdb(cardIds?: string[]): Promise<void> {
+  const currentSequence = ++_fetchSequence;
+  try {
+    await persistQueue.cleanup();
+    if (currentSequence !== _fetchSequence) return;
+
+    // Surgical path
+    if (cardIds && cardIds.length > 0 && cardIds.length <= SURGICAL_LIMIT) {
+      const rows = await db.cards.bulkGet(cardIds);
+      if (currentSequence !== _fetchSequence) return;
+      const fetched = rows.filter((r): r is Card => !!r);
+      const fetchedIds = new Set(fetched.map((c) => c.id));
+      const deletedIds = cardIds.filter((id) => !fetchedIds.has(id));
+      if (fetched.length === 0 && deletedIds.length === 0) return;
+      applySyncDelta(fetched, deletedIds);
+      return;
+    }
+
+    // Full reload
+    const loaded = await idbLoadCards();
+    if (currentSequence !== _fetchSequence) return;
+    const map: CardMap = {};
+    for (const c of loaded) map[c.id] = c;
+    replaceAll(map);
+  } catch (err) {
+    logger.warn("[cardRepository] reloadCardsFromIdb failed", err);
+  }
 }
 
 export const cardRepository = {
@@ -236,4 +238,6 @@ export const cardRepository = {
   clearNeedsReview,
   applySyncDelta,
   replaceAll,
+  // external invalidation
+  reloadFromIdb: reloadCardsFromIdb,
 };
