@@ -17,9 +17,6 @@ export const EVENT_TYPES = {
   TAB_LEAVING: "tab:leaving",
   KB_ARTICLE_UPSERTED: "kb-article:upserted",
   KB_ARTICLE_REMOVED: "kb-article:removed",
-  // PR2 — diagnostic: emitted when a provider hook is used outside its
-  // <Provider> tree (previously silently returned a Proxy noop).
-  PROVIDER_FALLBACK: "provider:fallback",
 } as const;
 
 export type EventType = typeof EVENT_TYPES[keyof typeof EVENT_TYPES];
