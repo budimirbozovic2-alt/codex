@@ -43,8 +43,14 @@ export default function SourceEditor({ source, categoryId, onClose, onSourceUpda
   const [sourceKind, setSourceKind] = useState<SourceKind>(source.sourceKind ?? "propis");
   const [dirty, setDirty] = useState(false);
 
-  // Update source text
-  const [newText, setNewText] = useState("");
+  // Update source text — held as canonical V4 AST; legacy HTML derived on save.
+  const [newDoc, setNewDoc] = useState<EditorDoc | null>(null);
+  const [editorKey, setEditorKey] = useState(0);
+  const newText = useMemo(() => (newDoc ? docToHtml(newDoc) : ""), [newDoc]);
+  const hasPastedText = useMemo(
+    () => Boolean(newDoc && docToPlainText(newDoc).trim().length > 0),
+    [newDoc],
+  );
   const [textOpen, setTextOpen] = useState(false);
 
   // DOCX upload
