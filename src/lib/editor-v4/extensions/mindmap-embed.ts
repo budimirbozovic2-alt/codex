@@ -1,11 +1,13 @@
 import { Node, mergeAttributes } from "@tiptap/core";
+import { ReactNodeViewRenderer } from "@tiptap/react";
+import { MindmapEmbedNodeView } from "./MindmapEmbedNodeView";
 
 /**
  * `mindmapEmbed` — block-level atomic node representing `::mindmap[id]`.
  *
- * DOM shape: `<div data-mindmap="id"></div>`. The nodeView that renders an
- * actual mind-map canvas is wired up in PR-4/PR-6; this extension is only
- * concerned with schema and lossless round-tripping.
+ * DOM shape: `<div data-mindmap="id"></div>`. NodeView (PR-6) renders the
+ * actual mind-map snapshot via `EmbeddedMindMap`, reading `categoryId`
+ * from `editor.storage.mindmapEmbed.categoryId`.
  */
 export const MindmapEmbed = Node.create({
   name: "mindmapEmbed",
@@ -13,6 +15,10 @@ export const MindmapEmbed = Node.create({
   atom: true,
   selectable: true,
   draggable: false,
+
+  addStorage() {
+    return { categoryId: "" as string };
+  },
 
   addAttributes() {
     return {
@@ -43,4 +49,9 @@ export const MindmapEmbed = Node.create({
       }),
     ];
   },
+
+  addNodeView() {
+    return ReactNodeViewRenderer(MindmapEmbedNodeView);
+  },
 });
+
