@@ -17,6 +17,7 @@ import { persistQueue } from "@/lib/persist-queue";
 import { useCardBootstrap } from "@/hooks/useCardBootstrap";
 import { useCardSyncEffects } from "@/contexts/cards/useCardSyncEffects";
 import { useCategoryStateBridge } from "@/contexts/cards/CategoryStateProvider";
+import { kickoffEditorV4Migration } from "@/lib/editor-v4/lazy-migrate";
 import { logger } from "@/lib/logger";
 
 export function AppBootstrap(): null {
