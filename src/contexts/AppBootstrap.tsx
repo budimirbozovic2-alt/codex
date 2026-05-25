@@ -33,6 +33,11 @@ export function AppBootstrap(): null {
   // lifecycle for cleanup.
   useCardSyncEffects();
 
+  // editor-v4 lazy backfill — scheduled in idle, idempotent. Runs once per
+  // page lifetime; subsequent calls no-op.
+  useEffect(() => { kickoffEditorV4Migration(); }, []);
+
+
   // Electron quit + unmount drain — flush review log + persist queue.
   useEffect(() => {
     const electron = typeof window !== "undefined" ? window.electronAPI : undefined;
