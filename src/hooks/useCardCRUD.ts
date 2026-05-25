@@ -9,6 +9,7 @@ import {
   FrequencyTag,
   CardSourceType,
 } from "@/lib/spaced-repetition";
+import type { EditorDoc } from "@/lib/editor-v4/types";
 
 export interface FlashPair {
   question: string;
@@ -29,7 +30,7 @@ export function useCardCRUD() {
   const addCard = useCallback(
     (
       question: string,
-      sections: { title: string; content: string }[],
+      sections: { title: string; content: string; contentDoc?: EditorDoc }[],
       categoryId: string,
       subcategoryId?: string,
       chapterId?: string,
@@ -70,7 +71,7 @@ export function useCardCRUD() {
       id: string,
       updates: {
         question?: string;
-        sections?: { title: string; content: string }[];
+        sections?: { title: string; content: string; contentDoc?: EditorDoc }[];
         categoryId?: string;
         subcategoryId?: string;
         chapterId?: string;
@@ -104,8 +105,15 @@ export function useCardCRUD() {
               c.sections.find((es) => (s as { id?: string }).id && es.id === (s as { id?: string }).id) ||
               c.sections.find((es) => es.title === s.title) ||
               c.sections[idx];
-            if (existing) return { ...existing, title: s.title, content: s.content };
-            return createSection(s.title, s.content);
+            if (existing) {
+              return {
+                ...existing,
+                title: s.title,
+                content: s.content,
+                contentDoc: s.contentDoc ?? existing.contentDoc,
+              };
+            }
+            return createSection(s.title, s.content, s.contentDoc);
           });
         }
         return newCard;

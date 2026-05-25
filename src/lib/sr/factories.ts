@@ -1,8 +1,9 @@
 // Builder/factory functions for Section, Card, and FlashCard.
 import { Section, SectionState, Card, ErrorLogEntry, ErrorStatus } from "./types";
+import type { EditorDoc } from "@/lib/editor-v4/types";
 
-export function createSection(title: string, content: string): Section {
-  return {
+export function createSection(title: string, content: string, contentDoc?: EditorDoc): Section {
+  const base: Section = {
     id: crypto.randomUUID(),
     title,
     content,
@@ -17,13 +18,15 @@ export function createSection(title: string, content: string): Section {
     scheduledDays: 0,
     firstReviewPending: false,
   };
+  if (contentDoc) base.contentDoc = contentDoc;
+  return base;
 }
 
-export function createCard(question: string, sections: { title: string; content: string }[], categoryId: string, subcategoryId?: string): Card {
+export function createCard(question: string, sections: { title: string; content: string; contentDoc?: EditorDoc }[], categoryId: string, subcategoryId?: string): Card {
   return {
     id: crypto.randomUUID(),
     question,
-    sections: sections.map((s) => createSection(s.title, s.content)),
+    sections: sections.map((s) => createSection(s.title, s.content, s.contentDoc)),
     categoryId,
     subcategoryId: subcategoryId || "",
     createdAt: Date.now(),

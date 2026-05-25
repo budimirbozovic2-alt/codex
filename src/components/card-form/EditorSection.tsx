@@ -1,9 +1,10 @@
 import { Plus, X, ChevronUp, ChevronDown, Scissors, Zap, FileText } from "lucide-react";
-import React, { memo } from "react";
+import React, { memo, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { SafeHtml } from "@/components/ui/safe-html";
-import RichTextEditor from "@/components/RichTextEditor";
+import EditorV4 from "@/components/editor-v4/EditorV4";
+import { htmlToDoc, docToHtml, type EditorDoc } from "@/lib/editor-v4";
 import { parseHtmlToParagraphs } from "@/hooks/useCardActions";
 import type { SectionInput, CardType, ValidationErrors } from "@/hooks/useCardActions";
 
@@ -62,6 +63,7 @@ interface EditorSectionProps {
   addSection: () => void;
   removeSection: (i: number) => void;
   updateSection: (i: number, field: keyof SectionInput, value: string) => void;
+  updateSectionDoc: (i: number, doc: EditorDoc) => void;
   moveSection: (from: number, to: number) => void;
   handleCut: (sectionIdx: number, paraIdx: number) => void;
   validationErrors: ValidationErrors;
@@ -71,8 +73,12 @@ interface EditorSectionProps {
 const EditorSection = memo(function EditorSection({
   cardType, isEditing, question, setQuestion, flashAnswer, setFlashAnswer,
   sections, cuttingIndex, setCuttingIndex, setCardType,
-  addSection, removeSection, updateSection, moveSection, handleCut, validationErrors,
+  addSection, removeSection, updateSection, updateSectionDoc, moveSection, handleCut, validationErrors,
 }: EditorSectionProps) {
+  // Seed AST for question + flash answer once per mount; thereafter the editor owns it.
+  const questionDoc = useMemo(() => htmlToDoc(question || ""), []); // eslint-disable-line react-hooks/exhaustive-deps
+  const flashAnswerDoc = useMemo(() => htmlToDoc(flashAnswer || ""), []); // eslint-disable-line react-hooks/exhaustive-deps
+
   return (
     <div className="space-y-4">
       {/* Card type toggle */}
@@ -104,9 +110,9 @@ const EditorSection = memo(function EditorSection({
       {/* Question */}
       <div className="space-y-2">
         <label className="text-sm font-medium text-muted-foreground">Pitanje</label>
-        <RichTextEditor
-          value={question}
-          onChange={setQuestion}
+        <EditorV4
+          initialDoc={questionDoc}
+          onChange={(doc) => setQuestion(docToHtml(doc))}
           placeholder={cardType === "flash" ? "Unesite pitanje..." : "Unesite esejsko pitanje..."}
           minimal
         />
@@ -119,7 +125,11 @@ const EditorSection = memo(function EditorSection({
       {cardType === "flash" ? (
         <div className="space-y-2">
           <label className="text-sm font-medium text-muted-foreground">Odgovor</label>
-          <RichTextEditor value={flashAnswer} onChange={setFlashAnswer} placeholder="Unesite odgovor..." />
+          <EditorV4
+            initialDoc={flashAnswerDoc}
+            onChange={(doc) => setFlashAnswer(docToHtml(doc))}
+            placeholder="Unesite odgovor..."
+          />
           {validationErrors.flashAnswer && (
             <p className="text-xs text-destructive">{validationErrors.flashAnswer}</p>
           )}
@@ -136,60 +146,103 @@ const EditorSection = memo(function EditorSection({
             <p className="text-xs text-destructive">{validationErrors.sections}</p>
           )}
           {sections.map((section, i) => (
-            <div key={i} className="rounded-xl border bg-card p-4 space-y-3">
-              <div className="flex items-center gap-2">
-                <div className="flex flex-col gap-0.5 flex-shrink-0">
-                  <button type="button" disabled={i === 0}
-                    onClick={() => moveSection(i, i - 1)}
-                    className="h-4 w-4 flex items-center justify-center rounded hover:bg-muted disabled:opacity-20 transition-colors" title="Pomjeri gore">
-                    <ChevronUp className="h-3 w-3" />
-                  </button>
-                  <button type="button" disabled={i === sections.length - 1}
-                    onClick={() => moveSection(i, i + 1)}
-                    className="h-4 w-4 flex items-center justify-center rounded hover:bg-muted disabled:opacity-20 transition-colors" title="Pomjeri dolje">
-                    <ChevronDown className="h-3 w-3" />
-                  </button>
-                </div>
-                <Input
-                  value={section.title}
-                  onChange={(e) => updateSection(i, "title", e.target.value)}
-                  placeholder="Naziv cjeline..."
-                  className="bg-background font-medium text-sm"
-                />
-                <button
-                  type="button"
-                  onClick={() => setCuttingIndex(cuttingIndex === i ? null : i)}
-                  className={`p-1 rounded-lg transition-colors ${
-                    cuttingIndex === i
-                      ? "bg-warning/20 text-warning"
-                      : "text-muted-foreground hover:text-foreground hover:bg-secondary"
-                  }`}
-                  title="Režim rezanja"
-                >
-                  <Scissors className="h-4 w-4" />
-                </button>
-                {sections.length > 1 && (
-                  <button type="button" onClick={() => removeSection(i)} className="text-muted-foreground hover:text-destructive p-1">
-                    <X className="h-4 w-4" />
-                  </button>
-                )}
-              </div>
-              {cuttingIndex === i ? (
-                <CuttingView
-                  content={section.content}
-                  onCut={(pIdx) => handleCut(i, pIdx)}
-                  onCancel={() => setCuttingIndex(null)}
-                />
-              ) : (
-                <RichTextEditor
-                  value={section.content}
-                  onChange={(val) => updateSection(i, "content", val)}
-                  placeholder="Sadržaj ove cjeline odgovora..."
-                />
-              )}
-            </div>
+            <SectionEditor
+              key={i}
+              section={section}
+              index={i}
+              total={sections.length}
+              cuttingActive={cuttingIndex === i}
+              setCuttingIndex={setCuttingIndex}
+              cuttingIndex={cuttingIndex}
+              moveSection={moveSection}
+              removeSection={removeSection}
+              updateSection={updateSection}
+              updateSectionDoc={updateSectionDoc}
+              handleCut={handleCut}
+            />
           ))}
         </div>
+      )}
+    </div>
+  );
+});
+
+interface SectionEditorProps {
+  section: SectionInput;
+  index: number;
+  total: number;
+  cuttingActive: boolean;
+  cuttingIndex: number | null;
+  setCuttingIndex: (v: number | null) => void;
+  moveSection: (from: number, to: number) => void;
+  removeSection: (i: number) => void;
+  updateSection: (i: number, field: keyof SectionInput, value: string) => void;
+  updateSectionDoc: (i: number, doc: EditorDoc) => void;
+  handleCut: (sectionIdx: number, paraIdx: number) => void;
+}
+
+const SectionEditor = memo(function SectionEditor({
+  section, index: i, total, cuttingActive, cuttingIndex, setCuttingIndex,
+  moveSection, removeSection, updateSection, updateSectionDoc, handleCut,
+}: SectionEditorProps) {
+  // Seed AST once per mount; React `key` (index) drives remount on splits/reorders.
+  const initialDoc = useMemo(
+    () => section.contentDoc ?? htmlToDoc(section.content || ""),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [],
+  );
+  return (
+    <div className="rounded-xl border bg-card p-4 space-y-3">
+      <div className="flex items-center gap-2">
+        <div className="flex flex-col gap-0.5 flex-shrink-0">
+          <button type="button" disabled={i === 0}
+            onClick={() => moveSection(i, i - 1)}
+            className="h-4 w-4 flex items-center justify-center rounded hover:bg-muted disabled:opacity-20 transition-colors" title="Pomjeri gore">
+            <ChevronUp className="h-3 w-3" />
+          </button>
+          <button type="button" disabled={i === total - 1}
+            onClick={() => moveSection(i, i + 1)}
+            className="h-4 w-4 flex items-center justify-center rounded hover:bg-muted disabled:opacity-20 transition-colors" title="Pomjeri dolje">
+            <ChevronDown className="h-3 w-3" />
+          </button>
+        </div>
+        <Input
+          value={section.title}
+          onChange={(e) => updateSection(i, "title", e.target.value)}
+          placeholder="Naziv cjeline..."
+          className="bg-background font-medium text-sm"
+        />
+        <button
+          type="button"
+          onClick={() => setCuttingIndex(cuttingIndex === i ? null : i)}
+          className={`p-1 rounded-lg transition-colors ${
+            cuttingActive
+              ? "bg-warning/20 text-warning"
+              : "text-muted-foreground hover:text-foreground hover:bg-secondary"
+          }`}
+          title="Režim rezanja"
+        >
+          <Scissors className="h-4 w-4" />
+        </button>
+        {total > 1 && (
+          <button type="button" onClick={() => removeSection(i)} className="text-muted-foreground hover:text-destructive p-1">
+            <X className="h-4 w-4" />
+          </button>
+        )}
+      </div>
+      {cuttingActive ? (
+        <CuttingView
+          content={section.content}
+          onCut={(pIdx) => handleCut(i, pIdx)}
+          onCancel={() => setCuttingIndex(null)}
+        />
+      ) : (
+        <EditorV4
+          initialDoc={initialDoc}
+          onChange={(doc) => updateSectionDoc(i, doc)}
+          placeholder="Sadržaj ove cjeline odgovora..."
+          showKeyPartToggle
+        />
       )}
     </div>
   );

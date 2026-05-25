@@ -180,6 +180,7 @@ export default function CardForm({
           addSection={a.addSection}
           removeSection={a.removeSection}
           updateSection={a.updateSection}
+          updateSectionDoc={a.updateSectionDoc}
           moveSection={a.moveSection}
           handleCut={a.handleCut}
           validationErrors={a.validationErrors}
