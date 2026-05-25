@@ -1,22 +1,13 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// Phase 5A → 5C — Category Repository facade.
+// Category Repository — primary writer for `categoryRecords`.
 //
-// Phase 5A introduced this file as a write-contract emitter (just
-// `emitCategoriesUpdated`). Phase 5C promotes it into the **primary writer**
-// for `categoryRecords`, mirroring `cardRepository`:
-//
-//   - `commit(updater, label)` runs the optimistic mirror write + serialised
-//     IDB persist + rollback dance previously living in `category-service`.
-//   - `replaceAll(records)` is the bootstrap / restore atom.
-//   - `getCategorySnapshot()` is the sync read primitive.
-//
-// React `CategoryStateProvider` no longer holds the SSOT — it subscribes to
-// the external mirror via `useSyncExternalStore`. Action providers keep
-// their existing `setCategoryRecords` prop but the shim writes into the
-// repository, so legacy call sites compile unchanged.
+// Post Task-B: the EventBus CATEGORIES_UPDATED fan-out is gone. Every write
+// goes through Zustand `categoryStore`, which is the SSOT all readers
+// subscribe to via `useSyncExternalStore`. External callers that bypass
+// this repository (e.g. backup-restore) push directly into the store via
+// `setCategoryStoreRecords`.
 // ─────────────────────────────────────────────────────────────────────────────
 import { idbLoadCategories, idbSaveCategories, type CategoryRecord } from "@/lib/db";
-import { eventBus, EVENT_TYPES } from "@/lib/event-bus";
 import { toast } from "sonner";
 import { logger } from "@/lib/logger";
 import { createKeyedMutex } from "@/lib/concurrency";
@@ -24,24 +15,6 @@ import {
   getCategoryStoreRecords,
   setCategoryStoreRecords,
 } from "@/store/useCategoryStore";
-import type { CategoryId } from "@/lib/ids";
-
-
-export type CategoriesUpdatedSource =
-  | "repository"
-  | "repository-replace"
-  | string; // external — backup-restore, cascade-delete, normalize, …
-
-export interface CategoriesUpdatedPayload {
-  source: CategoriesUpdatedSource;
-  categoryIds?: CategoryId[];
-  deletedIds?: CategoryId[];
-}
-
-export function emitCategoriesUpdated(payload: CategoriesUpdatedPayload): void {
-  try { eventBus.emit(EVENT_TYPES.CATEGORIES_UPDATED, payload); }
-  catch { /* bus failures must not break a commit */ }
-}
 
 // ─── Read primitives ─────────────────────────────────────────────────────
 export function getCategorySnapshot(): CategoryRecord[] {
@@ -51,17 +24,12 @@ export function getCategorySnapshot(): CategoryRecord[] {
 // ─── Write primitives ────────────────────────────────────────────────────
 
 /**
- * Full replace — bootstrap, restore, invalidator. Pushes into the mirror
- * synchronously and tags the event so external subscribers can react.
+ * Full replace — bootstrap, restore. Pushes into the SSOT synchronously.
  * Does NOT persist to IDB on its own (the upstream caller — e.g.
  * `applyImportAtomically`, `loadInitialData` — has already done that).
  */
 export function replaceAll(records: CategoryRecord[]): void {
   setCategoryStoreRecords(records);
-  emitCategoriesUpdated({
-    source: "repository-replace",
-    categoryIds: records.map(r => r.id as CategoryId),
-  });
 }
 
 // Mutex for serialising IDB writes — prevents concurrent overwrites when
@@ -90,10 +58,6 @@ export async function commit(
       await idbSaveCategories(next);
       // Keep the mirror in sync with the canonical persisted state.
       setCategoryStoreRecords(next);
-      emitCategoriesUpdated({
-        source: "repository",
-        categoryIds: next.map(c => c.id as CategoryId),
-      });
     } catch (e) {
       logger.error(`[${label}] IDB persist failed, rolling back`, e);
       try {
@@ -114,6 +78,4 @@ export const categoryRepository = {
   // writes
   commit,
   replaceAll,
-  // events
-  emit: emitCategoriesUpdated,
 };
