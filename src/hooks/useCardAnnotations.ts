@@ -10,22 +10,20 @@ import {
   RETENTION_MAX,
 } from "@/lib/spaced-repetition";
 import { ReviewLogEntry } from "@/lib/storage";
-import type { CardMap } from "@/lib/persist-queue";
 import { reviewLogRepository } from "@/lib/repositories";
 import { cardRepository } from "@/lib/repositories";
 import { getExaminerProfileSync } from "@/lib/examiner-profile-cache";
+import { patchReviewLog } from "@/store/reviewSettingsStore";
 
 import { logger } from "@/lib/logger";
 interface UseCardAnnotationsParams {
   patchCard: (id: string, patcher: (card: Card) => Card) => void;
-  setCardMapState?: React.Dispatch<React.SetStateAction<CardMap>>;
-  setReviewLog: (updater: (prev: ReviewLogEntry[]) => ReviewLogEntry[]) => void;
 }
 
 export function useCardAnnotations({
   patchCard,
-  setReviewLog,
 }: UseCardAnnotationsParams) {
+
 
   // O(1) review — surgical IDB write (patchCard handles persist via Ref-Delta)
   const reviewSection = useCallback(

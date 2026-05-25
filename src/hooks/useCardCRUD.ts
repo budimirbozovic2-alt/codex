@@ -17,19 +17,11 @@ export interface FlashPair {
   chapterId?: string;
 }
 import { setCardFrequency } from "@/lib/sr/frequency";
-import type { CardMap } from "@/lib/persist-queue";
 import { cardRepository } from "@/lib/repositories";
 
 import { logger } from "@/lib/logger";
-interface UseCardCRUDParams {
-  // Kept for backward-compat with the provider wiring; unused — all writes
-  // now flow through cardRepository which owns the store mutation.
-  setCardMapState?: React.Dispatch<React.SetStateAction<CardMap>>;
-}
 
-export function useCardCRUD(_params: UseCardCRUDParams = {}) {
-  void _params; // explicit unused
-
+export function useCardCRUD() {
   const patchCard = useCallback((id: string, patcher: (card: Card) => Card) => {
     cardRepository.patch(id, patcher);
   }, []);
