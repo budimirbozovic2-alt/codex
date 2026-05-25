@@ -3,7 +3,7 @@ import { Edit2, Trash2, Scale, ChevronDown, ChevronRight, Zap } from "lucide-rea
 import { Card, getCardScore, getSectionScore, getCardRetrievability, getRetrievability } from "@/lib/spaced-repetition";
 import type { FrequencyTag } from "@/lib/sr/types";
 import { highlightKeyParts } from "@/lib/highlight-key-parts";
-import { SafeHtml } from "@/components/ui/safe-html";
+import { ContentRenderer } from "@/components/ui/ContentRenderer";
 import { format } from "date-fns";
 import TextSelectionTooltip from "@/components/TextSelectionTooltip";
 import { ScoreBadge, RetentionBadge, SectionBar } from "./CardBadges";
@@ -126,7 +126,12 @@ const CardRow = memo(function CardRow({
         <TextSelectionTooltip cardId={card.id} question={card.question} category={card.categoryId} subcategoryId={card.subcategoryId} tags={card.tags} keyParts={card.keyParts} onMarkKeyPart={onAddKeyPart ? (text: string) => onAddKeyPart(card.id, text) : undefined}>
           <div className="px-5 pb-5 space-y-3 border-t pt-4 max-h-[60vh] overflow-y-auto">
             {isFlash ? (
-              <SafeHtml className="text-sm text-muted-foreground card-prose" html={highlightKeyParts(card.sections[0]?.content || "", card.keyParts)} trusted />
+              <ContentRenderer
+                className="text-sm text-muted-foreground card-prose"
+                doc={card.sections[0]?.contentDoc}
+                html={card.sections[0]?.content || ""}
+                highlight={{ keyParts: card.keyParts }}
+              />
             ) : (
               card.sections.map(s => {
                 const sScore = getSectionScore(s);
@@ -143,7 +148,12 @@ const CardRow = memo(function CardRow({
                       </div>
                     </div>
                     <SectionBar score={sScore} />
-                    <SafeHtml className="text-sm text-muted-foreground line-clamp-2 card-prose" html={highlightKeyParts(s.content, card.keyParts)} trusted />
+                    <ContentRenderer
+                      className="text-sm text-muted-foreground line-clamp-2 card-prose"
+                      doc={s.contentDoc}
+                      html={s.content}
+                      highlight={{ keyParts: card.keyParts }}
+                    />
                   </div>
                 );
               })
