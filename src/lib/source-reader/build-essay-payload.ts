@@ -141,7 +141,10 @@ export function buildEssayFromSelection(
   const result = splitSelection(text);
   if (result.hasArticles && result.modules.length > 0) {
     const { modules } = result;
-    const sections = modules.map((mod) => ({ title: mod.title, content: sanitizeHtml(mod.contentHtml) }));
+    const sections = modules.map((mod) => {
+      const content = sanitizeHtml(mod.contentHtml);
+      return { title: mod.title, content, contentDoc: buildSectionDoc(content) };
+    });
     const sourceModules: SourceModule[] = modules.map((mod, index) => ({
       id: crypto.randomUUID(),
       order: index,
