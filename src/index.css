@@ -654,14 +654,18 @@
   }
 }
 
-/* ─── Prose light mode: anchor body text to design tokens ─── */
-.prose {
+/* ─── Prose light mode: anchor body text to design tokens ───
+   Mirrored on `.ProseMirror` so the V4 TipTap read-only EditorView matches
+   the legacy SafeHtml + Tailwind prose render byte-for-byte. */
+.prose,
+.ProseMirror {
   --tw-prose-body: hsl(var(--foreground));
   --tw-prose-headings: hsl(var(--foreground));
   --tw-prose-bold: hsl(var(--foreground));
   --tw-prose-links: hsl(var(--primary));
   --tw-prose-quotes: hsl(var(--foreground));
   --tw-prose-code: hsl(var(--foreground));
+  color: hsl(var(--foreground));
 }
 
 /* Force override inline color styles in light mode (Mammoth/DOCX import etc.) */
@@ -671,6 +675,12 @@
 .prose div[style],
 .prose td[style],
 .prose th[style],
+.ProseMirror [style*="color"],
+.ProseMirror span[style],
+.ProseMirror p[style],
+.ProseMirror div[style],
+.ProseMirror td[style],
+.ProseMirror th[style],
 .whitespace-pre-wrap [style*="color"],
 .whitespace-pre-wrap span[style],
 .whitespace-pre-wrap p[style] {
@@ -678,12 +688,14 @@
 }
 
 .prose [style*="background-color"],
+.ProseMirror [style*="background-color"],
 .whitespace-pre-wrap [style*="background-color"] {
   background-color: transparent !important;
 }
 
 /* ─── Prose dark mode: force light text on dark backgrounds ─── */
-.dark .prose {
+.dark .prose,
+.dark .ProseMirror {
   --tw-prose-body: hsl(var(--foreground));
   --tw-prose-headings: hsl(var(--foreground));
   --tw-prose-lead: hsl(var(--foreground) / 0.85);
@@ -700,6 +712,7 @@
   --tw-prose-pre-bg: hsl(var(--muted));
   --tw-prose-th-borders: hsl(var(--border));
   --tw-prose-td-borders: hsl(var(--border));
+  color: hsl(var(--foreground));
 }
 
 /* Force override inline color styles from imported HTML (e.g. mammoth.js) */
@@ -709,6 +722,12 @@
 .dark .prose div[style],
 .dark .prose td[style],
 .dark .prose th[style],
+.dark .ProseMirror [style*="color"],
+.dark .ProseMirror span[style],
+.dark .ProseMirror p[style],
+.dark .ProseMirror div[style],
+.dark .ProseMirror td[style],
+.dark .ProseMirror th[style],
 .dark [dangerouslysetinnerhtml] [style*="color"],
 .dark .whitespace-pre-wrap [style*="color"],
 .dark .whitespace-pre-wrap span[style],
@@ -717,6 +736,7 @@
 }
 
 .dark .prose [style*="background-color"],
+.dark .ProseMirror [style*="background-color"],
 .dark .whitespace-pre-wrap [style*="background-color"] {
   background-color: transparent !important;
 }
@@ -860,7 +880,8 @@ input[type="number"] {
 /* ─── Card prose — suptilna separacija pasusa unutar kartica ───
    Daje ~7-8px razmaka između susjednih blokova (umjesto ~20px praznog reda).
    Override-uje default <p> margine i Tailwind Typography prose margine. */
-.card-prose p {
+.card-prose p,
+.card-prose.ProseMirror p {
   margin-block: 0;
 }
 .card-prose p + p,
@@ -869,7 +890,14 @@ input[type="number"] {
 .card-prose ul + p,
 .card-prose ol + p,
 .card-prose blockquote + p,
-.card-prose p + blockquote {
+.card-prose p + blockquote,
+.card-prose.ProseMirror p + p,
+.card-prose.ProseMirror p + ul,
+.card-prose.ProseMirror p + ol,
+.card-prose.ProseMirror ul + p,
+.card-prose.ProseMirror ol + p,
+.card-prose.ProseMirror blockquote + p,
+.card-prose.ProseMirror p + blockquote {
   margin-top: 0.55em;
 }
 
