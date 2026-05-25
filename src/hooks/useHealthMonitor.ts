@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
-import { eventBus, EVENT_TYPES } from "@/lib/event-bus";
+import { cardRepository } from "@/lib/repositories";
 import {
   buildHealthReport,
   cleanOrphans as svcCleanOrphans,
@@ -55,7 +55,7 @@ export function useHealthMonitor(): UseHealthMonitor {
         ...prev,
         integrity: { ...prev.integrity, orphans: { count: 0, cardIds: [] } },
       } : prev);
-      eventBus.emit(EVENT_TYPES.CARDS_UPDATED, { source: "orphan-cleanup", cardIds });
+      await cardRepository.reloadFromIdb(cardIds);
     } catch (err) {
       logger.error("[health] cleanup failed", err);
       toast.error(err instanceof Error ? err.message : "Greška pri čišćenju");
@@ -73,10 +73,9 @@ export function useHealthMonitor(): UseHealthMonitor {
       const r = await svcHealStaleLinks();
       const total = r.staleSubcategoryReset + r.staleChapterReset + r.mismatchChapterReset;
       toast.success(`${total} zastarjelih veza očišćeno`);
-      eventBus.emit(EVENT_TYPES.CARDS_UPDATED, {
-        source: "heal-stale",
-        cardIds: Array.from(new Set([...staleSub.cardIds, ...staleChap.cardIds])),
-      });
+      await cardRepository.reloadFromIdb(
+        Array.from(new Set([...staleSub.cardIds, ...staleChap.cardIds])),
+      );
       await refresh();
     } catch (err) {
       logger.error("[health] heal failed", err);
