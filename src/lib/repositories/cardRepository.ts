@@ -23,6 +23,7 @@ import {
 import { db } from "@/lib/db";
 import { idbLoadCards } from "@/lib/db-queries";
 import { logger } from "@/lib/logger";
+import { wrapWrite, type WriteResult } from "@/lib/persistence/write-result";
 
 // ─── Read primitives ──────────────────────────────────────────────────────
 export function getCard(id: string): Card | undefined {
@@ -218,11 +219,45 @@ export async function reloadCardsFromIdb(cardIds?: string[]): Promise<void> {
   }
 }
 
+// ─── Async WriteResult variants (PR-7d M2.4) ──────────────────────────────
+// Optimistic commit + awaited persist flush, wrapped in the unified
+// `WriteResult` shape so future TanStack `useMutation` integrations have a
+// uniform onSuccess/onError contract. Existing sync callers stay untouched.
+
+export function putAsync(card: Card): Promise<WriteResult<Card>> {
+  return wrapWrite(async () => {
+    const stamped = card.updatedAt ? card : { ...card, updatedAt: Date.now() };
+    commitSingle(stamped);
+    await persistQueue.cleanup();
+    return stamped;
+  });
+}
+
+export function bulkPutAsync(cards: Card[]): Promise<WriteResult<Card[]>> {
+  return wrapWrite(async () => {
+    if (cards.length === 0) return [];
+    const now = Date.now();
+    const stamped = cards.map((c) => (c.updatedAt ? c : { ...c, updatedAt: now }));
+    commitBulk(stamped);
+    await persistQueue.cleanup();
+    return stamped;
+  });
+}
+
+export function removeAsync(id: string): Promise<WriteResult<void>> {
+  return wrapWrite(async () => {
+    const card = getCardMap()[id];
+    if (card?.sourceId) invalidateCoverageCache(card.sourceId);
+    commitDelete(id);
+    await persistQueue.cleanup();
+  });
+}
+
 export const cardRepository = {
   // reads
   get: getCard,
   snapshot,
-  // writes
+  // writes (sync optimistic)
   put,
   bulkPut,
   remove,
@@ -232,6 +267,10 @@ export const cardRepository = {
   clearNeedsReview,
   applySyncDelta,
   replaceAll,
+  // writes (async + WriteResult — M2.4)
+  putAsync,
+  bulkPutAsync,
+  removeAsync,
   // external invalidation
   reloadFromIdb: reloadCardsFromIdb,
 };
