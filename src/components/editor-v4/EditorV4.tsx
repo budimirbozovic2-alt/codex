@@ -133,7 +133,6 @@ export const EditorV4 = forwardRef<EditorV4Handle, EditorV4Props>(function Edito
     if (storage) storage.categoryId = categoryId;
   }, [editor, categoryId]);
 
-  useImperativeHandle(ref, (): EditorV4Handle => ({
   // Keep editable in sync with prop changes (read↔edit toggle in SourceContent).
   useEffect(() => {
     if (!editor) return;
