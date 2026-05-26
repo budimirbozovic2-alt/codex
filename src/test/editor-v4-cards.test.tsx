@@ -95,9 +95,7 @@ describe("useSectionEditor", () => {
       ...createCard("Q", [{ title: "S1", content: "<p>a</p><p>b</p><p>c</p>" }], "cat-1"),
       type: "essay" as const,
     };
-    // PR-7b: useSectionEditor seeds `content` from legacy field for handleCut paragraph
-    // splitting; ensure shim by hydrating legacy `content` on the section ref directly.
-    card.sections[0].content = "<p>a</p><p>b</p><p>c</p>";
+    // PR-7b: handleCut derives HTML from contentDoc when legacy `content` is absent.
     const { result } = renderHook(() => useSectionEditor(card));
     act(() => {
       result.current.handleCut(0, 1);
