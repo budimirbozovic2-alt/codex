@@ -23,7 +23,7 @@ function makeSection(overrides: Partial<Section> = {}): Section {
   return {
     id: crypto.randomUUID(),
     title: "S",
-    content: "C",
+    
     contentDoc: { version: 4, content: { type: "doc", content: [{ type: "paragraph", content: [{ type: "text", text: "C" }] }] } },
     state: SectionState.Review,
     stability: 10,
