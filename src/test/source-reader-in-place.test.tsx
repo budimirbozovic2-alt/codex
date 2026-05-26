@@ -38,9 +38,7 @@ describe("SourceContent (PR-7a / M5)", () => {
         source={baseSource()}
         editMode={false}
         onSourceUpdated={() => {}}
-        onSplit={() => {}}
-        onLinkToExisting={() => {}}
-        onAddMnemo={() => {}}
+        onEditorReady={() => {}}
       />
     );
     await waitMicroTask();
@@ -55,9 +53,7 @@ describe("SourceContent (PR-7a / M5)", () => {
         source={baseSource()}
         editMode={false}
         onSourceUpdated={() => {}}
-        onSplit={() => {}}
-        onLinkToExisting={() => {}}
-        onAddMnemo={() => {}}
+        onEditorReady={() => {}}
       />
     );
     await waitMicroTask();
@@ -66,9 +62,7 @@ describe("SourceContent (PR-7a / M5)", () => {
         source={baseSource()}
         editMode={true}
         onSourceUpdated={() => {}}
-        onSplit={() => {}}
-        onLinkToExisting={() => {}}
-        onAddMnemo={() => {}}
+        onEditorReady={() => {}}
       />
     );
     await waitMicroTask();
