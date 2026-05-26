@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useRef } from "react";
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
 import ExamSidebar from "@/components/ExamSidebar";
 import { cn } from "@/lib/utils";
 import type { Source } from "@/lib/sources-storage";
@@ -10,9 +10,11 @@ import { useSourceReaderActions } from "@/hooks/useSourceReaderActions";
 import { SourceToolbar } from "@/components/source-reader/SourceToolbar";
 import { SourceContent } from "@/components/source-reader/SourceContent";
 import { SourceNavigation } from "@/components/source-reader/SourceNavigation";
-import { SourceContextMenu } from "@/components/source-reader/SourceContextMenu";
-import { SourceTooltip } from "@/components/source-reader/SourceTooltip";
+import { SourceBubbleMenu } from "@/components/source-reader/SourceBubbleMenu";
 import { SmartSplitSummaryDialog } from "@/components/source-reader/SmartSplitSummaryDialog";
+import { docToHtml, type Editor } from "@/lib/editor-v4";
+import { toast } from "sonner";
+import { createMnemonicCardFromSelection, loadMnemonicCards, saveMnemonicCards } from "@/features/mnemonic";
 
 import { logger } from "@/lib/logger";
 const AutoSplitDialog = lazy(() => import("@/components/AutoSplitDialog"));
@@ -25,15 +27,12 @@ interface Props {
 }
 
 export default function SourceReader({ source, onBack, onSourceUpdated }: Props) {
-  const { contentRef, derived, actions } = useSourceReaderActions(source, onSourceUpdated);
+  const { derived, actions } = useSourceReaderActions(source, onSourceUpdated);
 
-  // Granular store selectors
   const readerWidth = useSourceReaderStore(s => s.readerWidth);
   const outlineOpen = useSourceReaderStore(s => s.outlineOpen);
   const examOpen = useSourceReaderStore(s => s.examOpen);
   const editMode = useSourceReaderStore(s => s.editMode);
-  const selection = useSourceReaderStore(s => s.selection);
-  const headingMenu = useSourceReaderStore(s => s.headingMenu);
   const autoSplitOpen = useSourceReaderStore(s => s.autoSplitOpen);
   const linkModalOpen = useSourceReaderStore(s => s.linkModalOpen);
   const linkSelectedText = useSourceReaderStore(s => s.linkSelectedText);
@@ -41,9 +40,36 @@ export default function SourceReader({ source, onBack, onSourceUpdated }: Props)
   const examQuestions = useSourceReaderStore(s => s.examQuestions);
   const setExamQuestions = useSourceReaderStore(s => s.setExamQuestions);
 
-  // ── W3: rehydrate per-source examQuestions on mount / source switch ──
-  // Source record is the SSOT; the Zustand store is just a working copy
-  // scoped to the current reader session.
+  const [editor, setEditor] = useState<Editor | null>(null);
+  const handleEditorReady = useCallback((e: Editor | null) => setEditor(e), []);
+
+  /** Compute current TipTap selection payload (text + html via docToHtml). */
+  const getSelectionPayload = useCallback((): { text: string; html: string } | null => {
+    if (!editor) return null;
+    const { state } = editor;
+    const { from, to, empty } = state.selection;
+    if (empty) return null;
+    const text = state.doc.textBetween(from, to, "\n", " ").trim();
+    if (text.length < 5) return null;
+    const slice = state.doc.slice(from, to);
+    const docJson = { type: "doc", content: slice.content.toJSON() as unknown as never[] };
+    return { text, html: docToHtml({ version: 4, content: docJson }) };
+  }, [editor]);
+
+  const handleMnemoFromSelection = useCallback(async (text: string) => {
+    const cards = await loadMnemonicCards();
+    const clone = createMnemonicCardFromSelection(
+      source.id, source.title, text, source.categoryId, undefined, []
+    );
+    await saveMnemonicCards([...cards, clone]);
+    toast("Dodano u Mnemo radionicu", { description: `"${text.slice(0, 40)}${text.length > 40 ? "…" : ""}"` });
+  }, [source.id, source.title, source.categoryId]);
+
+  const handleMapWithSelection = useCallback((qId: string) => {
+    actions.handleMapSelection(qId, getSelectionPayload());
+  }, [actions, getSelectionPayload]);
+
+  // Rehydrate per-source examQuestions on mount/source switch
   const hydratedSourceIdRef = useRef<string | null>(null);
   useEffect(() => {
     if (hydratedSourceIdRef.current === source.id) return;
@@ -51,12 +77,7 @@ export default function SourceReader({ source, onBack, onSourceUpdated }: Props)
     setExamQuestions(source.examQuestions ?? []);
   }, [source.id, source.examQuestions, setExamQuestions]);
 
-  // ── W3 / P2: debounced silent save back to the Source record ──
-  // Use refs for `source` and `onSourceUpdated` so the effect only
-  // re-runs when examQuestions actually change. Previously the entire
-  // `source` object was a dependency, causing the timer to be torn down
-  // and rescheduled on every parent render and forcing JSON.stringify
-  // on every render path.
+  // Debounced silent save back to the Source record
   const saveTimerRef = useRef<TaskHandle | null>(null);
   const lastSavedJsonRef = useRef<string>(JSON.stringify(source.examQuestions ?? []));
   const sourceRef = useRef(source);
@@ -65,7 +86,7 @@ export default function SourceReader({ source, onBack, onSourceUpdated }: Props)
   useEffect(() => { onSourceUpdatedRef.current = onSourceUpdated; }, [onSourceUpdated]);
 
   useEffect(() => {
-    if (hydratedSourceIdRef.current !== source.id) return; // pre-hydration guard
+    if (hydratedSourceIdRef.current !== source.id) return;
     const json = JSON.stringify(examQuestions);
     if (json === lastSavedJsonRef.current) return;
     if (saveTimerRef.current !== null) taskScheduler.cancel(saveTimerRef.current);
@@ -86,9 +107,9 @@ export default function SourceReader({ source, onBack, onSourceUpdated }: Props)
     };
   }, [examQuestions, source.id]);
 
-
-  // Reset store on unmount — ensures next source starts clean.
   useEffect(() => () => useSourceReaderStore.getState().reset(), []);
+
+  const hasSelection = !!getSelectionPayload();
 
   return (
     <div className="space-y-4">
@@ -107,35 +128,21 @@ export default function SourceReader({ source, onBack, onSourceUpdated }: Props)
           />
         )}
 
-        <div
-          className={cn("flex-1 min-w-0 relative mx-auto px-6", WIDTH_CLASSES[readerWidth])}
-          onContextMenu={actions.handleContextMenu}
-        >
+        <div className={cn("flex-1 min-w-0 relative mx-auto px-6", WIDTH_CLASSES[readerWidth])}>
           <SourceContent
-            html={derived.safeHtml}
-            onMouseUp={actions.handleMouseUp}
-            contentRef={contentRef}
+            source={source}
             editMode={editMode}
-            onFormat={actions.handleInlineFormat}
-            onInput={actions.handleEditInput}
+            onSourceUpdated={onSourceUpdated}
+            onEditorReady={handleEditorReady}
           />
 
-          {headingMenu && (
-            <SourceContextMenu
-              menu={headingMenu}
-              onSetHeading={actions.handleSetHeading}
-              onFormatAsList={actions.handleFormatAsList}
-              onClose={() => useSourceReaderStore.getState().setHeadingMenu(null)}
-            />
-          )}
-
-          {selection && (
-            <SourceTooltip
-              selection={selection}
+          {editor && (
+            <SourceBubbleMenu
+              editor={editor}
               editMode={editMode}
-              onConvertToEssay={actions.handleConvertToEssay}
+              onSplit={actions.handleConvertToEssay}
               onLinkToExisting={actions.handleLinkToExisting}
-              onFormatSelectionAs={actions.handleFormatSelectionAs}
+              onAddMnemo={handleMnemoFromSelection}
             />
           )}
         </div>
@@ -144,8 +151,8 @@ export default function SourceReader({ source, onBack, onSourceUpdated }: Props)
           <ExamSidebar
             questions={examQuestions}
             onSetQuestions={setExamQuestions}
-            onMapSelection={actions.handleMapSelection}
-            hasSelection={!!selection}
+            onMapSelection={handleMapWithSelection}
+            hasSelection={hasSelection}
           />
         )}
       </div>

@@ -1,168 +1,133 @@
+# PR-7a — In-place Source Editing + BubbleMenu
 
-# PR-5 — Write path #1: card sections (TipTap EditorV4)
+Replace fragile `window.getSelection()` + `document.execCommand` pipeline in `SourceContent` and the legacy `TextSelectionTooltip` in card views with TipTap-native `<BubbleMenu>` mounted over the `<EditorV4>` editor instance.
 
-Cilj: zamijeniti legacy `RichTextEditor` (contenteditable + execCommand + DOMPurify-on-input) sa novim `<EditorV4 />` baziranim na TipTap-u v3, propagirati `contentDoc` (JSON AST) kao primarni payload kroz `useSectionEditor` → `useCardActions` → `useCardCRUD` → `cardRepository`, dok `content: string` (HTML) ostaje izvedeno polje preko `docToHtml` dok read-path-ovi ne pređu u potpunosti na AST (PR-6).
+---
 
-## 1. Nova komponenta `<EditorV4>`
+## Milestone 1 — Expose editor instance from EditorV4
 
-Fajl: `src/components/editor-v4/EditorV4.tsx`
+`src/components/editor-v4/EditorV4.tsx`
+- Extend `EditorV4Handle` with `getEditor: () => Editor | null`.
+- New prop `editable?: boolean` (default `true`). Pipe into `useEditor({ editable })`.
+- Force a single re-render after mount so parents using `editorRef.current?.getEditor()` actually see the instance (small `mounted` state ticked in a one-shot `useEffect`, or expose via `onCreate` callback prop).
+- Re-export `Editor` type from `@tiptap/react` through `editor-v4` barrel so consumers don't import tiptap directly.
 
-Props:
-```ts
-interface EditorV4Props {
-  /** Initial document. Ako se promijeni `key`, editor se remountuje sa novim sadržajem. */
-  initialDoc: EditorDoc;
-  /** Pozvano na svaki update sa novim AST-om. */
-  onChange: (doc: EditorDoc) => void;
-  placeholder?: string;
-  /** Minimal toolbar (bold/italic/list samo) — za pitanje i flash answer. */
-  minimal?: boolean;
-  /** Ako je `true`, dodaj "Označi kao ključni dio" toggle dugme. */
-  showKeyPartToggle?: boolean;
-  className?: string;
-}
+`src/lib/editor-v4/extensions/key-part.ts`
+- Add `addCommands()` exposing `setKeyPart`, `unsetKeyPart`, `toggleKeyPart` (chain-friendly). Update TipTap `Commands` declaration so `editor.chain().toggleKeyPart()` is typed.
+
+---
+
+## Milestone 2 — `<SourceBubbleMenu>` (in-place editing)
+
+`src/components/source-reader/SourceBubbleMenu.tsx` (new)
+
+```text
+Props: { editor: Editor; editMode: boolean;
+         onSplit: (text: string, html: string) => void;
+         onLinkToExisting: (text: string, html: string) => void;
+         onAddMnemo: (text: string) => void; }
 ```
 
-Interno:
-- `useEditor({ extensions: [...editorV4Extensions, Placeholder.configure({ placeholder })], content: initialDoc.content, editable: true, immediatelyRender: false, onUpdate: ({ editor }) => onChange({ version: 4, content: editor.getJSON() }) })`.
-- Reuse `editorV4Extensions` (single source of truth — schema = read-path = write-path).
-- Toolbar (lucide-react ikone, design tokens):
-  - Bold / Italic — uvijek vidljivo.
-  - Underline (StarterKit ne uključuje) — dodaj `@tiptap/extension-underline` (već u package.json).
-  - Heading 3 toggle.
-  - Bullet / Ordered list.
-  - Highlight (žuti `<mark>`).
-  - KeyPart toggle — samo ako `showKeyPartToggle === true`.
-  - Undo / Redo (ChevronLeft/Right ili dedicated ikone) — `editor.chain().focus().undo().run()`.
-- Komande idu kroz TipTap chain — niti jedan poziv `document.execCommand`, niti `dangerouslySetInnerHTML`.
-- Markdown shortcuts (`**bold**`, `# heading`, `- list`, `1.` itd.) — StarterKit ih daje ugrađeno; ne treba custom `tryMarkdownAutoFormat`.
-- Paste rules: dodati `editor.setOptions({ editorProps: { handlePaste: ... } })` koji vrti istu MIME-allowlist sliku kao stari RTE (`image/png|jpeg|gif|webp`), ostalo prosljeđuje TipTap-ovom default paste-u koji koristi schema-bound DOMParser (nema XSS surface-a).
-- `Placeholder` ekstenzija prikazuje `placeholder` kad je dokument prazan; CSS preko `.ProseMirror p.is-editor-empty::before`.
-- `useEffect` cleanup → `editor.destroy()`.
-- Re-export u `src/lib/editor-v4/index.ts` kao convenience nije potreban; `<EditorV4>` je čisto UI sloj pa živi u `components/`.
+Renders `<BubbleMenu editor={editor} tippyOptions={{ duration: 100, placement: "top" }}>` with two button groups:
+- **Always:** Split (PenSquare), Link postojećem (LinkIcon), Mnemo kuka (Brain).
+- **`editMode === true` only:** H1, H2, H3, ¶, •, 1., Key Part (`toggleKeyPart`).
 
-Wiki-link autosuggest:
-- **Out of scope za PR-5** u card formi: kartice ne dijele Zettelkasten title-bus i nemaju listu mete-naslova u svom kontekstu. WikiLink ekstenzija je već u schema-i (round-trip radi), ali UI suggester ide u PR-7 (kad write-path stigne do articles).
+Click handlers extract `from/to` from `editor.state.selection`, compute `text = doc.textBetween(from, to, "\n")` and `html = docToHtml({ version:4, content: editor.state.doc.cut(from, to).toJSON() as JSONContent })` (use existing `docToHtml` codec). The Heading/list buttons use `editor.chain().focus().toggleHeading({ level }).run()` and `toggleBulletList`/`toggleOrderedList`. `onMouseDown` preventDefault so click doesn't collapse the selection.
 
-## 2. Proširenje `SectionInput`
+`shouldShow` callback: hide when selection empty OR selected text < 5 chars (parity with old tooltip).
 
-Fajl: `src/hooks/card-actions/validation.ts`
+---
 
-```ts
-export interface SectionInput {
-  title: string;
-  /** Legacy HTML — izvedeno iz contentDoc preko docToHtml na save-u. */
-  content: string;
-  /** V4 AST — primarni payload od PR-5 nadalje. */
-  contentDoc?: EditorDoc;
-}
+## Milestone 3 — Refactor `SourceContent` + `SourceReader`
+
+`src/components/source-reader/SourceContent.tsx` (rewrite)
+- Drop legacy: `contentEditable`, `execCommand` paste handler, `enhanceHeadings` ref, `SourceEditToolbar`, `onMouseUp`, `dangerouslySetInnerHTML`. Drop `html`, `onMouseUp`, `contentRef`, `onFormat`, `onInput` props.
+- New props: `source`, `editMode`, `onSourceUpdated`, `onSplit`, `onLinkToExisting`, `onAddMnemo`, `editorRef` (forwarded).
+- Mount `<EditorV4 ref={editorRef} initialDoc={source.contentDoc ?? htmlToDoc(source.htmlContent)} editable={editMode} onChange={handleAutoSave} categoryId={source.categoryId} embedKind="source" />` inside `prose` wrapper.
+- `handleAutoSave(doc)` → debounced (1s, `taskScheduler.debounce`) call to a new `persistSourceDoc(source, doc, onSourceUpdated)` helper in `src/lib/services/sourceEditingService.ts` that writes `contentDoc = doc` and derives `htmlContent = docToHtml(doc)` before `saveSource(...)`. Mirror via `usePersistedDraftMirror` keyed on doc JSON hash.
+- Heading anchor icons: post-render decoration on the editor root (small `useEffect` querying `[data-heading-id]` inside the ProseMirror DOM) — keeps navigation parity.
+
+`src/components/SourceReader.tsx`
+- Replace `SourceTooltip` + `SourceContextMenu` mount with `<SourceBubbleMenu editor={editor} editMode={editMode} onSplit={...} onLinkToExisting={...} onAddMnemo={...} />`.
+- `const [editor, setEditor] = useState<Editor|null>(null)` populated via `useEffect(() => { setEditor(editorRef.current?.getEditor() ?? null); }, [editorRef.current])` (or pass an `onEditorReady` prop to EditorV4 for clean wiring).
+- Wire BubbleMenu callbacks to existing `useSourceMapping` handlers (`handleConvertToEssay`, `handleLinkToExisting`) — adapt their signatures: read `text`/`html` from BubbleMenu, not from `useSourceReaderStore.selection`. The `selection` store field becomes unused.
+- Remove `SourceTooltip` import, `headingMenu`, `selection`, `handleContextMenu`, `handleMouseUp` from the JSX path. Keep `ExamSidebar` + `examQuestions` wiring; `onMapSelection` reads from the new editor selection via a `getEditorSelection()` helper passed to ExamSidebar (returns `{text, html}` from current TipTap selection).
+
+`src/hooks/source-reader/useSourceEditing.ts`
+- Strip `handleSetHeading`, `handleFormatAsList`, `handleFormatSelectionAs`, `handleContextMenu`, `handleInlineFormat`, `handleEditInput` (all are TipTap commands now).
+- Keep `handleAutoFormatArticles` (file-wide regex transform stays; ports to operate on `contentDoc` via `docToHtml → transform → htmlToDoc`).
+- Remove `draftHtml` state and `persistDebounced` over `innerHTML`; new autosave lives in `SourceContent`.
+
+`src/hooks/source-reader/useSourceSelection.ts` — **delete file**. Its only job (DOM selectionchange + click-away) is now handled by TipTap.
+
+`src/hooks/useSourceReaderActions.ts` — drop `useSourceSelection` import, `contentRef`, `handleMouseUp` from the facade return; drop the stripped editing methods. `derived.safeHtml` no longer needed.
+
+`src/components/source-reader/SourceTooltip.tsx`, `SourceContextMenu.tsx`, `SourceEditToolbar.tsx` — **delete**.
+
+---
+
+## Milestone 4 — Migrate card views off `TextSelectionTooltip`
+
+`src/components/learn/StudyModeRecall.tsx`, `src/components/card-list/CardRow.tsx`:
+- Replace `<TextSelectionTooltip>{html}</TextSelectionTooltip>` with `<CardSelectionEditor html|contentDoc={section} cardMeta={...} onMarkKeyPart={...} />`.
+
+`src/components/card-list/CardSelectionEditor.tsx` (new)
+- Mounts `<EditorV4 editable={false} initialDoc={...} />` (TipTap BubbleMenu works fine on `editable:false` editors — selection still tracked).
+- Mounts `<CardBubbleMenu editor={editor} onAddMnemo={...} onMarkKeyPart={...} />`.
+
+`src/components/card-list/CardBubbleMenu.tsx` (new)
+- Buttons: **Mnemo kuka** (always) + **Key Part toggle** (only when `onMarkKeyPart` provided AND parent passes `editable` prop hinting the card supports key-part marking).
+- Mnemo handler reuses `createMnemonicCardFromSelection` + `saveMnemonicCards` (logic lifted from `TextSelectionTooltip`).
+- Key-part: parent provides `onMarkKeyPart(text)` — same callback shape, so `useCardAnnotations` is untouched.
+
+`src/components/TextSelectionTooltip.tsx` — **delete** after the two callsites are migrated.
+
+---
+
+## Milestone 5 — Tests & verification
+
+- New: `src/test/source-reader-in-place.test.tsx` — mount `SourceReader`, programmatically set TipTap selection, assert `SourceBubbleMenu` buttons fire `onSplit`/`toggleHeading`/`toggleKeyPart`.
+- New: `src/test/card-bubble-menu.test.tsx` — verify Mnemo kuka writes to mnemonic storage, Key Part toggles call `onMarkKeyPart`.
+- Update: existing `source-reader-build-essay.test.ts`, `selection-split.test.ts`, `selection-split-manual.test.ts` — feed `text + docToHtml(slice)` instead of DOM-derived HTML; assertions on payload shape stay the same.
+- Update: any test importing `SourceTooltip` / `useSourceSelection` / `TextSelectionTooltip`.
+- Run `bunx tsc --noEmit` and `bunx vitest run` — full green required before merge.
+
+---
+
+## Files at a glance
+
+```text
+NEW
+  src/components/source-reader/SourceBubbleMenu.tsx
+  src/components/card-list/CardSelectionEditor.tsx
+  src/components/card-list/CardBubbleMenu.tsx
+  src/lib/services/sourceEditingService.ts  (persistSourceDoc helper)
+  src/test/source-reader-in-place.test.tsx
+  src/test/card-bubble-menu.test.tsx
+
+EDIT
+  src/components/editor-v4/EditorV4.tsx        (handle.getEditor, editable prop, onEditorReady)
+  src/lib/editor-v4/extensions/key-part.ts      (addCommands)
+  src/lib/editor-v4/index.ts                    (re-export Editor type)
+  src/components/source-reader/SourceContent.tsx (full rewrite)
+  src/components/SourceReader.tsx               (BubbleMenu wiring)
+  src/hooks/source-reader/useSourceEditing.ts   (slim to autoFormatArticles)
+  src/hooks/useSourceReaderActions.ts           (facade cleanup)
+  src/components/learn/StudyModeRecall.tsx
+  src/components/card-list/CardRow.tsx
+  existing source-reader / smart-split tests
+
+DELETE
+  src/components/TextSelectionTooltip.tsx
+  src/components/source-reader/SourceTooltip.tsx
+  src/components/source-reader/SourceContextMenu.tsx
+  src/components/source-reader/SourceEditToolbar.tsx
+  src/hooks/source-reader/useSourceSelection.ts
 ```
 
-`validate(...)` ostaje na `stripHtmlText(content)` (sigurno radi sa `docToHtml(contentDoc)` rezultatom).
-
-## 3. `useSectionEditor`
-
-Fajl: `src/hooks/card-actions/useSectionEditor.ts`
-
-Promjene:
-- Inicijalizacija sekcija iz `editCard`: ako `s.contentDoc` postoji, koristi ga; inače `htmlToDoc(s.content)` kao seed (ne pišemo nazad, samo za editor).
-- Inicijalizacija pitanja / flashAnswer: hold both `question` (string-HTML, legacy) i `questionDoc` (EditorDoc); isto za `flashAnswer` / `flashAnswerDoc`.
-- Novi setter `updateSectionDoc(index, doc)` koji:
-  1. `setSections(prev => prev.map((s, i) => i === index ? { ...s, contentDoc: doc, content: docToHtml(doc) } : s))`.
-  2. Time `content` ostaje sinhron izvod (PR-4 read fallback nastavlja raditi).
-- Postojeći `updateSection(i, "content", value)` se zadržava ali se više ne zove iz EditorV4 — koristi se samo za `handleCut`-style derivate. Sa AST puta, EditorV4 emituje preko `updateSectionDoc`.
-- `handleCut`: kalkulacija ostaje preko legacy HTML-a (`parseHtmlToParagraphs(content)`). Nakon splita, oba nova sadržaja se konvertuju nazad u doc: `contentDoc = htmlToDoc(content)` za pre/post komad. To čuva trenutno UX i ne zahtijeva ProseMirror node-splice logiku.
-
-Setteri vraćeni iz hook-a: dodati `updateSectionDoc`, `setQuestionDoc`, `setFlashAnswerDoc`. Stari `setQuestion` / `setFlashAnswer` ostaju (drugi consumeri).
-
-`draftSnapshot` (autosave): proširiti sa `sectionDocs?: EditorDoc[]`, `questionDoc?`, `flashAnswerDoc?`. `applyDraft` ih primjenjuje.
-
-## 4. `useCardActions` + `useCardCRUD`
-
-`useCardActions.handleSubmit` već prosljeđuje `editor.sections` u `onSave`/`onUpdate`. Pošto sekcije sad nose `contentDoc`, signature ostaju kompatibilni (TypeScript struktura `{title, content, contentDoc?}` je supertip).
-
-`src/hooks/useCardCRUD.ts`:
-- `addCard.sections` tip: `Array<{ title: string; content: string; contentDoc?: EditorDoc }>`.
-- `updateCard.updates.sections` isti tip.
-- Mapping prilikom kreiranja sekcije:
-  ```ts
-  c.sections = sections.map((s, idx) => {
-    const base = createSection(s.title, s.content);
-    if (s.contentDoc) base.contentDoc = s.contentDoc;
-    return base;
-  });
-  ```
-- U `updateCard`, granu "existing section" izmijeniti:
-  ```ts
-  if (existing) return { ...existing, title: s.title, content: s.content, contentDoc: s.contentDoc ?? existing.contentDoc };
-  ```
-- `createSection(title, content, contentDoc?)` — proširiti potpis (default ostaje undefined).
-
-`src/lib/sr/factories.ts`:
-- `createSection(title, content, contentDoc?: EditorDoc)` postavlja `contentDoc` ako je prošlo.
-- `createCard(question, sections, ...)` se ne mijenja semantički; samo `sections` mapiranje prosljeđuje `s.contentDoc`.
-
-## 5. `EditorSection.tsx`
-
-- `import RichTextEditor` → `import { EditorV4 }`.
-- Question: `<EditorV4 minimal initialDoc={questionDoc} onChange={setQuestionDoc} placeholder={...} />`.
-  - `questionDoc` se računa iz `question` lazy: `useMemo(() => htmlToDoc(question), [question])` ako trenutni hook ne pruža `questionDoc` direktno. Bolje: hook već daje `questionDoc`.
-- Flash answer: isto, sa toolbar-om (ne-minimal).
-- Sections content: `<EditorV4 initialDoc={section.contentDoc ?? htmlToDoc(section.content)} onChange={(doc) => updateSectionDoc(i, doc)} showKeyPartToggle />`.
-- CuttingView (paragraf splitter) ostaje na `SafeHtml` — UI je preview-only.
-- Prop tip `EditorSectionProps` proširen sa `updateSectionDoc`, `setQuestionDoc`, `setFlashAnswerDoc`.
-
-`CardForm` (caller) prosljeđuje nove settere iz `useCardActions`.
-
-## 6. Postojeći ne-card consumeri RichTextEditor-a
-
-`RichTextEditor` se još koristi u:
-- `src/components/source-reader/smart-split/ModuleCard.tsx`
-- `src/components/source-reader/SmartSplitSummaryDialog.tsx`
-
-Oni **ostaju na RichTextEditor-u** za PR-5 (out of scope; write-path za source/article ide u PR-6 i PR-7). Time se izbjegava ripple-efekat i čuva fokus.
-
-## 7. Sanitizacija / sigurnost
-
-- TipTap schema je whitelist-based — nepostojeći node-ovi i mark-ovi se odbacuju pri `setContent` / `generateJSON`. Nema render-time `dangerouslySetInnerHTML`.
-- `docToHtml` emituje strukturisani markup za `content` polje; legacy SafeHtml read-grana (`ContentRenderer`) i dalje propušta kroz DOMPurify (defense-in-depth).
-- Paste image MIME allowlist se zadržava bitno-bitno.
-
-## 8. Testovi
-
-Postojeći test `src/test/auto-split-import-phase.test.tsx` (jedini koji koristi `addCard`) ne smije pasti — `addCard.sections` ostaje string-tip i contentDoc je optional.
-
-Novi: `src/test/editor-v4-cards.test.tsx`
-- Render `<EditorV4 initialDoc={htmlToDoc("<p>hello</p>")} onChange={spy} />` u test env-u; tipkanjem `editor.commands.insertContent("X")` provjeriti da `onChange` dobije validan `EditorDoc` sa `version: 4`.
-- Toggle bold preko `editor.chain().toggleBold().run()` → onChange JSON ima `marks: [{type:"bold"}]`.
-- Round-trip sanity: `docToHtml(htmlToDoc("<p><strong>a</strong></p>"))` daje semantički ekvivalentan HTML.
-- `useSectionEditor.updateSectionDoc(0, doc)` mijenja i `section.contentDoc` i `section.content`.
-- `useCardCRUD.addCard(..., [{title, content, contentDoc}])` perzistuje contentDoc na Section-u (mock cardRepository.put, assert payload).
-- `useCardCRUD.updateCard` na postojećoj kartici sa sekcijama bez contentDoc i sa contentDoc — oba slučaja perzistiraju ispravno.
-
-Smoke: cijeli vitest run mora ostati zelen.
-
-## 9. Out of scope (rezervisano za naredne PR-ove)
-
-- PR-6: write-path za sources (rich-text source editor) + read-path full flip na contentDoc; uklanjanje legacy `content` polja.
-- PR-7: write-path za Zettelkasten articles + wiki-link suggester (popover sa fuzzy match listom postojećih title-ova).
-- Sinhronizacija KeyPart mark-ova sa `card.keyParts: string[]` (trenutno se key parts highlight derivira iz separatnog array-a; PR-6 unificira).
-
-## Tehničke napomene
-
-- `@tiptap/extension-placeholder` se već nalazi u dependencies — samo se importuje.
-- `Placeholder.configure({ placeholder, emptyEditorClass: "is-editor-empty" })`; CSS u `index.css`:
-  ```css
-  .ProseMirror p.is-editor-empty:first-child::before {
-    content: attr(data-placeholder);
-    color: hsl(var(--muted-foreground));
-    float: left;
-    pointer-events: none;
-    height: 0;
-  }
-  ```
-- `Underline` ekstenzija — TipTap v3 StarterKit ne uključuje underline mark; importovati iz `@tiptap/extension-underline`.
-- Highlight ekstenzija je već u `editorV4Extensions`.
-- `useEditor` lifecycle: `initialDoc` se postavlja samo na mount; izmjene `initialDoc` ne re-triggeruju `setContent` (jer bi to gazilo korisnikov live tipkanje). Forsiranje reseta = parent dodaje `key={editingId}`. EditorSection već koristi unique `key={i}` po sekciji, dovoljno.
-- Caret/scroll: `editor.options.editorProps.attributes.class = "ProseMirror min-h-[100px] focus:outline-none"` — bez promjene fokusne logike u parent-u.
-
+## Architectural invariants preserved
+- No `window.getSelection()` / `document.execCommand` in any modified file.
+- `contentDoc` (AST) is SSOT; `htmlContent` derived via `docToHtml`.
+- Autosave debounced through `taskScheduler` + `usePersistedDraftMirror`.
+- Card mutations still flow through existing card-action hooks (`onMarkKeyPart`).
+- Smart-Split wizard contract unchanged — receives `text + html`.

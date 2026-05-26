@@ -18,6 +18,8 @@ export interface EditorV4Handle {
   /** Insert a `wikiLink` node (or wrap selection). */
   insertWikiLink: (target: string, display?: string) => void;
   focus: () => void;
+  /** Raw TipTap editor instance — parent can mount `<BubbleMenu editor={...}>`. */
+  getEditor: () => Editor | null;
 }
 
 interface EditorV4Props {
@@ -41,6 +43,12 @@ interface EditorV4Props {
   /** Invoked when user clicks the mindmap toolbar button. */
   onPickMindmap?: () => void;
   className?: string;
+  /** When false, mounts editor in read-only mode (BubbleMenu still tracks selection). */
+  editable?: boolean;
+  /** Hide the static toolbar (e.g. when a BubbleMenu fully owns formatting). */
+  hideToolbar?: boolean;
+  /** Fires once when the TipTap editor is ready (and again if it changes). */
+  onEditorReady?: (editor: Editor) => void;
 }
 
 const SAFE_IMAGE_MIME = new Set(["image/png", "image/jpeg", "image/gif", "image/webp"]);
@@ -70,6 +78,9 @@ export const EditorV4 = forwardRef<EditorV4Handle, EditorV4Props>(function Edito
   embedKind = "card",
   onPickMindmap,
   className,
+  editable = true,
+  hideToolbar = false,
+  onEditorReady,
 }, ref) {
   const extensions = useMemo(() => [
     ...editorV4Extensions,
@@ -83,7 +94,7 @@ export const EditorV4 = forwardRef<EditorV4Handle, EditorV4Props>(function Edito
   const editor = useEditor({
     extensions,
     content: initialDoc.content,
-    editable: true,
+    editable,
     immediatelyRender: false,
     editorProps: {
       attributes: {
@@ -122,6 +133,17 @@ export const EditorV4 = forwardRef<EditorV4Handle, EditorV4Props>(function Edito
     if (storage) storage.categoryId = categoryId;
   }, [editor, categoryId]);
 
+  // Keep editable in sync with prop changes (read↔edit toggle in SourceContent).
+  useEffect(() => {
+    if (!editor) return;
+    if (editor.isEditable !== editable) editor.setEditable(editable);
+  }, [editor, editable]);
+
+  // Notify parent once the editor instance exists so it can mount BubbleMenu.
+  useEffect(() => {
+    if (editor && onEditorReady) onEditorReady(editor);
+  }, [editor, onEditorReady]);
+
   useImperativeHandle(ref, (): EditorV4Handle => ({
     insertText: (text: string) => {
       editor?.chain().focus().insertContent(text).run();
@@ -148,7 +170,8 @@ export const EditorV4 = forwardRef<EditorV4Handle, EditorV4Props>(function Edito
         attrs: { target: t, display: d, hasPipe: d !== t },
       }).run();
     },
-    focus: () => editor?.commands.focus(),
+    focus: () => { editor?.commands.focus(); },
+    getEditor: () => editor ?? null,
   }), [editor]);
 
   useEffect(() => {
@@ -170,7 +193,9 @@ export const EditorV4 = forwardRef<EditorV4Handle, EditorV4Props>(function Edito
 
   return (
     <div className="space-y-1.5">
+      {!hideToolbar && (
       <div className="flex items-center gap-0.5 px-1 flex-wrap">
+
         {buttons.map((b) => (
           <button
             key={b.title}
@@ -191,7 +216,9 @@ export const EditorV4 = forwardRef<EditorV4Handle, EditorV4Props>(function Edito
           </button>
         ))}
       </div>
+      )}
       <EditorContent editor={editor} />
+
     </div>
   );
 });

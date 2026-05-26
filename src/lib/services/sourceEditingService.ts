@@ -6,6 +6,7 @@ import { saveSource, type Source } from "@/lib/sources-storage";
 import { incrementDailyMapped } from "@/lib/planner-storage";
 import { autoFormatArticles } from "@/lib/article-autoformat";
 import { rebuildSourceFromHtml } from "@/lib/source-reader/source-html-pipeline";
+import { docToHtml, type EditorDoc } from "@/lib/editor-v4";
 
 export async function persistSourceHtml(
   source: Source,
@@ -13,6 +14,26 @@ export async function persistSourceHtml(
   onSourceUpdated?: (s: Source) => void,
 ): Promise<Source> {
   const updated = rebuildSourceFromHtml(source, rawHtml);
+  await saveSource(updated);
+  onSourceUpdated?.(updated);
+  return updated;
+}
+
+/**
+ * Persist the V4 AST as the canonical `contentDoc` and derive `htmlContent`
+ * via `docToHtml`. Outline / articles get rebuilt from the derived HTML.
+ *
+ * This is the write path used by `<EditorV4>` in-place editing — the AST is
+ * SSOT and HTML is a derivative kept for legacy readers (search, exports).
+ */
+export async function persistSourceDoc(
+  source: Source,
+  doc: EditorDoc,
+  onSourceUpdated?: (s: Source) => void,
+): Promise<Source> {
+  const html = docToHtml(doc);
+  const rebuilt = rebuildSourceFromHtml(source, html);
+  const updated: Source = { ...rebuilt, contentDoc: doc };
   await saveSource(updated);
   onSourceUpdated?.(updated);
   return updated;

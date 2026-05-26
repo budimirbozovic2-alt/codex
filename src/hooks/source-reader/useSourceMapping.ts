@@ -23,20 +23,19 @@ function dispatchAdd(addCard: AddCardFn, a: AddCardArgs) {
 /**
  * Selection→Essay mapping actions for the source reader. Pure orchestration:
  * builders live in `build-essay-payload`, side-effects in `commitMappingCreated`.
+ *
+ * BubbleMenu callers pass `(text, html)` directly. ExamSidebar mapping reads
+ * the *current* TipTap selection via a parent-supplied getter
+ * (`getSelectionPayload`) so we never reach into `window.getSelection()`.
  */
 export function useSourceMapping(source: Source) {
   const { addCard, patchCard } = useCardOnlyActions();
 
-  const handleConvertToEssay = useCallback(() => {
+  const handleConvertToEssay = useCallback((text: string, html: string) => {
     const {
-      selection, setSelection, setSplitResult, setSplitSummaryOpen,
-      setSplitMode, initSplitWizard,
+      setSplitResult, setSplitSummaryOpen, setSplitMode, initSplitWizard,
     } = useSourceReaderStore.getState();
-    if (!selection) return;
-    const text = selection.text;
-    const html = selection.html;
-    setSelection(null);
-    window.getSelection()?.removeAllRanges();
+    if (!text || text.trim().length === 0) return;
     const plainSnippet = text.trim();
     const safe = sanitizeHtml(html || `<p>${text}</p>`);
     const fallbackTitle = firstWords(plainSnippet, 7) || "Novi esej";
@@ -96,15 +95,13 @@ export function useSourceMapping(source: Source) {
     });
   }, [source, addCard]);
 
-  const handleLinkToExisting = useCallback(() => {
-    const { selection, setLinkSelectedText, setLinkSelectedHtml, setLinkModalOpen, setSelection } =
+  const handleLinkToExisting = useCallback((text: string, html: string) => {
+    const { setLinkSelectedText, setLinkSelectedHtml, setLinkModalOpen } =
       useSourceReaderStore.getState();
-    if (!selection) return;
-    setLinkSelectedText(selection.text);
-    setLinkSelectedHtml(selection.html);
+    if (!text) return;
+    setLinkSelectedText(text);
+    setLinkSelectedHtml(html);
     setLinkModalOpen(true);
-    setSelection(null);
-    window.getSelection()?.removeAllRanges();
   }, []);
 
   const handleLinkConfirm = useCallback((cardId: string, appendSnippet: boolean = true) => {
@@ -119,16 +116,15 @@ export function useSourceMapping(source: Source) {
     toast.success("Esej uspješno povezan!", { description: `Povezano sa izvorom "${source.title}"` });
   }, [patchCard, source.id, source.title]);
 
-  const handleMapSelection = useCallback((questionId: string) => {
-    const { selection, examQuestions, setSelection, setExamQuestions } = useSourceReaderStore.getState();
-    if (!selection) return;
-    const text = selection.text;
-    const html = selection.html;
+  const handleMapSelection = useCallback((
+    questionId: string,
+    payload: { text: string; html: string } | null,
+  ) => {
+    const { examQuestions, setExamQuestions } = useSourceReaderStore.getState();
+    if (!payload || !payload.text) return;
     const question = examQuestions.find((q) => q.id === questionId);
     if (!question) return;
-    setSelection(null);
-    window.getSelection()?.removeAllRanges();
-    const result = buildEssayFromSelection(text, html, question.text, source);
+    const result = buildEssayFromSelection(payload.text, payload.html, question.text, source);
     dispatchAdd(addCard, result.args);
     setExamQuestions((prev) =>
       prev.map((q) => (q.id === questionId ? { ...q, done: true, moduleCount: result.moduleCount } : q)),
