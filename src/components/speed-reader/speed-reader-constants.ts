@@ -1,6 +1,7 @@
 import type { Card } from "@/lib/spaced-repetition";
 import type { Source } from "@/lib/sources-storage";
 import { stripHtml, sanitizeHtml } from "@/lib/sanitize";
+import { deriveHtml } from "@/lib/editor-v4/derived";
 
 export const WPM_OPTIONS = [100, 150, 200, 250, 300, 400, 500];
 export const FONT_SIZES = [

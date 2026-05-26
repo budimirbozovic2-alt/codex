@@ -112,10 +112,14 @@ export function buildImportPlan(
 
   for (const row of toImport) {
     if (row.isGroup) {
-      const sections = row.articles.map((art) => ({
-        title: `Član ${art.articleNum}${art.title ? ` — ${art.title}` : ""}`,
-        content: sanitizeHtml(art.contentHtml),
-      }));
+      const sections = row.articles.map((art) => {
+        const html = sanitizeHtml(art.contentHtml);
+        return {
+          title: `Član ${art.articleNum}${art.title ? ` — ${art.title}` : ""}`,
+          content: html,
+          contentDoc: htmlToDoc(html),
+        };
+      });
       const sourceModules: SourceModule[] = row.articles.map((art, index) => ({
         id: crypto.randomUUID(),
         order: index,

@@ -2,6 +2,7 @@ import type { Card } from "@/lib/spaced-repetition";
 import type { Source } from "@/lib/db";
 import { loadSourcesByCategory } from "@/lib/sources-storage";
 import { stripHtmlText } from "@/lib/sanitize";
+import { derivePlainText } from "@/lib/editor-v4/derived";
 
 export interface AutoLinkPair {
   card: Card;
@@ -64,7 +65,8 @@ export async function findBulkAutoLinkSuggestions(
       // Substring match in section content
       if (!matched && labelLower.length >= 3) {
         for (const section of card.sections) {
-          const contentPlain = stripHtml(section.content);
+          // PR-7c (M3 #9): derive from contentDoc (SSOT). Legacy `section.content` undefined post-v22.
+          const contentPlain = derivePlainText(section.contentDoc).toLowerCase();
           if (contentPlain.includes(labelLower)) {
             matched = true;
             break;
