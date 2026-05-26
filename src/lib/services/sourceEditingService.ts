@@ -43,7 +43,10 @@ export async function persistAutoFormat(
   source: Source,
   onSourceUpdated?: (s: Source) => void,
 ): Promise<{ count: number; source: Source | null }> {
-  const result = autoFormatArticles(source.htmlContent);
+  // PR-7c (M3 #5): derive HTML from canonical contentDoc — legacy htmlContent
+  // is dropped post-v22.
+  const baseHtml = docToHtml(source.contentDoc);
+  const result = autoFormatArticles(baseHtml);
   if (result.count === 0) return { count: 0, source: null };
   const updated = await persistSourceHtml(source, result.html, onSourceUpdated);
   return { count: result.count, source: updated };

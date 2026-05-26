@@ -66,7 +66,8 @@ export function buildSegments(selectedCards: Card[]): { segments: Segment[]; wor
 export function buildSourceSegments(source: Source): { segments: Segment[]; wordEntries: WordEntry[] } {
   const segments: Segment[] = [];
   const wordEntries: WordEntry[] = [];
-  const html = source.htmlContent || "";
+  // PR-7c (M3 #7): derive HTML from AST — legacy htmlContent dropped post-v22.
+  const html = deriveHtml(source.contentDoc);
   if (!html) return { segments, wordEntries };
 
   const parser = new DOMParser();
