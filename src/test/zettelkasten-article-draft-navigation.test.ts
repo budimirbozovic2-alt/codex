@@ -1,8 +1,7 @@
 /**
  * Regression: cleanup-flush must save the OLD article when activeId changes.
  *
- * Before the fix, cleanup used a `flushRef` synced to the latest closure,
- * so navigating A→B flushed B's draft (null) instead of A's edits → silent loss.
+ * PR-7b: write path is AST-only — uses `updateDraftDoc` + EditorDoc fixture.
  */
 import "fake-indexeddb/auto";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -10,6 +9,8 @@ import { act, renderHook } from "@testing-library/react";
 import { db } from "@/lib/db";
 import { newArticle, saveArticle } from "@/lib/zettelkasten-storage";
 import { useArticleDraft } from "@/hooks/zettelkasten/useArticleDraft";
+import { htmlToDoc } from "@/lib/editor-v4";
+import { deriveMarkdown } from "@/lib/editor-v4/derived";
 
 const SUBJECT = "subject-nav";
 
@@ -31,14 +32,12 @@ describe("useArticleDraft — save-on-navigate", () => {
     );
 
     act(() => result.current.enterEdit(a));
-    act(() => result.current.updateDraft({ content: "edits in A" }));
+    act(() => result.current.updateDraftDoc(htmlToDoc("<p>edits in A</p>")));
 
-    // Navigate to B (mimics ZettelExplorerPanel onOpen → setActiveId(b)).
     await act(async () => { rerender({ id: b.id }); });
-    // Allow microtasks for the cleanup-triggered async flush to settle.
     await act(async () => { await Promise.resolve(); });
 
     const persistedA = (await db.knowledgeBaseArticles.get(a.id))!;
-    expect(persistedA.content).toBe("edits in A");
+    expect(deriveMarkdown(persistedA.contentDoc)).toContain("edits in A");
   });
 });

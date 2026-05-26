@@ -60,24 +60,25 @@ describe("editor-v4 codec round-trip (cards)", () => {
 });
 
 describe("useSectionEditor", () => {
-  it("seeds contentDoc from editCard's legacy content when not present", () => {
+  it("seeds contentDoc from editCard sections", () => {
     const card = {
       ...createCard("Q", [{ title: "S1", content: "<p>legacy</p>" }], "cat-1"),
       type: "essay" as const,
     };
     const { result } = renderHook(() => useSectionEditor(card));
     expect(result.current.sections[0].contentDoc?.version).toBe(4);
-    expect(result.current.sections[0].content).toBe("<p>legacy</p>");
+    expect(docToHtml(result.current.sections[0].contentDoc!)).toContain("legacy");
   });
 
-  it("updateSectionDoc syncs contentDoc and derives content via docToHtml", () => {
+  it("updateSectionDoc stores contentDoc as canonical payload (no per-keystroke HTML derivation)", () => {
     const { result } = renderHook(() => useSectionEditor(null));
     const next = htmlToDoc("<p>updated <em>body</em></p>");
     act(() => {
       result.current.updateSectionDoc(0, next);
     });
     expect(result.current.sections[0].contentDoc).toEqual(next);
-    expect(result.current.sections[0].content).toContain("<em>body</em>");
+    // PR-7b: `content` HTML is no longer derived on keystroke; reads use deriveHtml().
+    expect(docToHtml(result.current.sections[0].contentDoc!)).toContain("<em>body</em>");
   });
 
   it("addSection seeds a fresh contentDoc", () => {
@@ -94,6 +95,7 @@ describe("useSectionEditor", () => {
       ...createCard("Q", [{ title: "S1", content: "<p>a</p><p>b</p><p>c</p>" }], "cat-1"),
       type: "essay" as const,
     };
+    // PR-7b: handleCut derives HTML from contentDoc when legacy `content` is absent.
     const { result } = renderHook(() => useSectionEditor(card));
     act(() => {
       result.current.handleCut(0, 1);

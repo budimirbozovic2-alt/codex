@@ -24,7 +24,8 @@ import { useDirtyDialog } from "@/hooks/useDirtyDialog";
 import DirtyConfirmBar from "@/components/ui/dirty-confirm-bar";
 import { afterDialogClose } from "@/lib/dialog-utils";
 import { EditorV4 } from "@/components/editor-v4/EditorV4";
-import { docToHtml, htmlToDoc, docToPlainText, type EditorDoc } from "@/lib/editor-v4";
+import { htmlToDoc, type EditorDoc } from "@/lib/editor-v4";
+import { deriveHtml, derivePlainText } from "@/lib/editor-v4/derived";
 
 interface Props {
   source: Source;
@@ -46,9 +47,10 @@ export default function SourceEditor({ source, categoryId, onClose, onSourceUpda
   // Update source text — held as canonical V4 AST; legacy HTML derived on save.
   const [newDoc, setNewDoc] = useState<EditorDoc | null>(null);
   const [editorKey, setEditorKey] = useState(0);
-  const newText = useMemo(() => (newDoc ? docToHtml(newDoc) : ""), [newDoc]);
+  // PR-7b: HTML is NOT derived on keystroke — only when save handler runs.
+  // `hasPastedText` uses cached `derivePlainText` (WeakMap by doc ref).
   const hasPastedText = useMemo(
-    () => Boolean(newDoc && docToPlainText(newDoc).trim().length > 0),
+    () => Boolean(newDoc && derivePlainText(newDoc).trim().length > 0),
     [newDoc],
   );
   const [textOpen, setTextOpen] = useState(false);
@@ -114,8 +116,8 @@ export default function SourceEditor({ source, categoryId, onClose, onSourceUpda
     let articles = source.articles;
 
     // If user pasted new text, update HTML
-    if (hasPastedText) {
-      const cleanHtml = sanitizeHtml(newText);
+    if (hasPastedText && newDoc) {
+      const cleanHtml = sanitizeHtml(deriveHtml(newDoc));
       const { promoteHeadings } = await import("@/lib/heading-promotion");
       const promotedHtml = promoteHeadings(cleanHtml);
       htmlContent = injectHeadingIds(promotedHtml);
@@ -165,7 +167,7 @@ export default function SourceEditor({ source, categoryId, onClose, onSourceUpda
     }
 
     await commitSave(htmlContent, outline, articles);
-  }, [source, title, slMarkings, dateStr, isExclusive, sourceKind, newText, hasPastedText, bulkFlagNeedsReview]);
+  }, [source, title, slMarkings, dateStr, isExclusive, sourceKind, newDoc, hasPastedText, bulkFlagNeedsReview]);
 
   const commitSave = useCallback(async (htmlContent: string, outline: Source["outline"], articles: Source["articles"]) => {
     const updated: Source = {

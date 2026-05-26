@@ -54,7 +54,8 @@ describe("useArticleDraft — contentDoc seed + flush", () => {
     expect(result.current.draft?.contentDoc.version).toBe(4);
     expect(result.current.draft?.contentDoc.content?.type).toBe("doc");
 
-    // Doc update via updateDraftDoc — markdown derivative must follow.
+    // Doc update via updateDraftDoc — PR-7b keeps `contentDoc` as SSOT; markdown
+    // is derived only at flush, NOT per keystroke.
     const nextDoc = {
       version: 4 as const,
       content: {
@@ -63,7 +64,7 @@ describe("useArticleDraft — contentDoc seed + flush", () => {
       },
     };
     act(() => result.current.updateDraftDoc(nextDoc));
-    expect(result.current.draft?.content).toContain("novi sadrzaj");
+    expect(result.current.draft?.contentDoc).toEqual(nextDoc);
 
     await act(async () => { await result.current.flush(); });
     const persisted = (await db.knowledgeBaseArticles.get(article.id))!;

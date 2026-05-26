@@ -1,7 +1,8 @@
 import { useState, useCallback } from "react";
 import type { Card } from "@/lib/spaced-repetition";
 import { parseHtmlToParagraphs, type SectionInput, type CardType, type ValidationErrors } from "./validation";
-import { htmlToDoc, docToHtml, type EditorDoc } from "@/lib/editor-v4";
+import { htmlToDoc, type EditorDoc } from "@/lib/editor-v4";
+import { deriveHtml } from "@/lib/editor-v4/derived";
 
 function seedDoc(content: string, existing?: EditorDoc): EditorDoc {
   if (existing && existing.version === 4) return existing;
@@ -44,13 +45,13 @@ export function useSectionEditor(editCard?: Card | null) {
   }, []);
 
   /**
-   * Primary write path for section content from <EditorV4>. Stores the AST
-   * as the canonical payload and derives `content` (HTML) on the fly so the
-   * PR-4 SafeHtml fallback path keeps working until reads are fully flipped.
+   * PR-7b: AST is the canonical write payload. Legacy `content` HTML is no
+   * longer derived on every keystroke — reads use `deriveHtml(contentDoc)`
+   * via the WeakMap shim when an HTML view is required.
    */
   const updateSectionDoc = useCallback((index: number, doc: EditorDoc) => {
     setSections(prev => prev.map((s, i) => (
-      i === index ? { ...s, contentDoc: doc, content: docToHtml(doc) } : s
+      i === index ? { ...s, contentDoc: doc } : s
     )));
   }, []);
 
@@ -67,7 +68,9 @@ export function useSectionEditor(editCard?: Card | null) {
   const handleCut = useCallback((sectionIndex: number, paragraphIndex: number) => {
     setSections(prev => {
       const section = prev[sectionIndex];
-      const paragraphs = parseHtmlToParagraphs(section.content);
+      // PR-7b: contentDoc is SSOT — derive HTML once here for paragraph splitting.
+      const sourceHtml = section.content ?? deriveHtml(section.contentDoc);
+      const paragraphs = parseHtmlToParagraphs(sourceHtml);
       if (paragraphIndex <= 0 || paragraphIndex >= paragraphs.length) return prev;
 
       const beforeContent = paragraphs.slice(0, paragraphIndex).map(p => `<p>${p}</p>`).join("");

@@ -149,6 +149,12 @@ export async function ensureIndexArticle(
   subjectName: string,
   suggestedLinks: readonly string[] = [],
 ): Promise<KnowledgeBaseArticle> {
+  // PR-7b: hoist dynamic imports OUT of the Dexie transaction. `await import()`
+  // releases the microtask queue and Dexie marks the rw tx as inactive, which
+  // surfaces as `TransactionInactiveError` on the next .put() call.
+  const { htmlToDoc } = await import("@/lib/editor-v4");
+  const { mdToHtml } = await import("@/lib/editor-v4/migrate");
+
   return db.transaction("rw", db.knowledgeBaseArticles, async () => {
     // 1. Existing Index?
     const all = await db.knowledgeBaseArticles
@@ -178,10 +184,6 @@ export async function ensureIndexArticle(
       .filter(Boolean)
       .slice(0, 8);
 
-    // IMPORTANT: We avoid using literal `[[...]]` syntax inside the descriptive
-    // intro paragraph — wiki-link parsing would treat those as real references
-    // and inflate backlink counts toward unintended pseudo-targets like
-    // `wiki-linkove`. We use single brackets in prose as visual hint only.
     const intro = `Dobrodošli u Zettelkasten predmeta **${subjectName.trim()}**. Ovo je Vaša polazna tačka za istraživanje gradiva. Krećite se kroz mrežu znanja klikom na [wiki-linkove] — kada kliknete na link koji još ne postoji, automatski se kreira novi članak.`;
 
     const body = links.length > 0
@@ -189,8 +191,6 @@ export async function ensureIndexArticle(
       : `${intro}\n\n_Počnite kucanjem prvog wiki-linka da kreirate novi članak i započnete mrežu._`;
 
     const now = Date.now();
-    const { htmlToDoc } = await import("@/lib/editor-v4");
-    const { mdToHtml } = await import("@/lib/editor-v4/migrate");
     const article: KnowledgeBaseArticle = {
       id: crypto.randomUUID(),
       subjectId,
