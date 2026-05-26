@@ -9,6 +9,7 @@ import { toast } from "sonner";
 import { useCardOnlyActions } from "@/contexts/AppContext";
 import { useCardsBySource } from "@/store";
 import { detectArticles } from "@/lib/auto-split-engine";
+import { deriveHtml } from "@/lib/editor-v4/derived";
 import type { Source } from "@/lib/sources-storage";
 import {
   buildArticleRows, mergeRows, ungroupRow, buildImportPlan,
@@ -55,9 +56,10 @@ export function useAutoSplitImport(open: boolean, source: Source) {
   const [mergeNameDialog, setMergeNameDialog] = useState(false);
   const [mergeName, setMergeName] = useState("");
 
+  // PR-7c (M3 #8): derive HTML from contentDoc — legacy htmlContent dropped.
   const detected = useMemo(
-    () => (open ? detectArticles(source.htmlContent) : []),
-    [open, source.htmlContent],
+    () => (open ? detectArticles(deriveHtml(source.contentDoc)) : []),
+    [open, source.contentDoc],
   );
   // Granular selector — re-renders only when cards linked to THIS source
   // change. The defensive `phase === "preview"` guard below remains, but it

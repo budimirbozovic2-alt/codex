@@ -2,9 +2,9 @@ import { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { X, ExternalLink, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { sanitizeHtml } from "@/lib/sanitize";
 import type { Source } from "@/lib/db";
 import { ContentRenderer } from "@/components/ui/ContentRenderer";
+import { deriveHtml } from "@/lib/editor-v4/derived";
 
 interface Props {
   source: Source;
@@ -13,12 +13,13 @@ interface Props {
 }
 
 /**
- * Read-only side panel that renders a Source's HTML for parallel reading
- * while the user writes notes. Minimal — no outline, no editing.
+ * Read-only side panel rendering a Source for parallel reading. PR-7c (M3 #4):
+ * legacy `source.htmlContent` is dropped post-v22 — derive HTML from the
+ * canonical `contentDoc` (cached via WeakMap in `derived.ts`).
  */
 export default function SourceSidePanel({ source, categoryId, onClose }: Props) {
   const navigate = useNavigate();
-  const html = useMemo(() => sanitizeHtml(source.htmlContent ?? ""), [source.htmlContent]);
+  const html = useMemo(() => deriveHtml(source.contentDoc), [source.contentDoc]);
 
   const openFullReader = () => {
     sessionStorage.setItem("sr-open-source-id", source.id);

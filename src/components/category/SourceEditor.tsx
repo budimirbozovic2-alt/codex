@@ -111,7 +111,10 @@ export default function SourceEditor({ source, categoryId, onClose, onSourceUpda
 
   // ─── Save with diff check ────────────────────────────
   const handleSave = useCallback(async () => {
-    let htmlContent = source.htmlContent;
+    // PR-7c (M3 #6): legacy `source.htmlContent` is dropped post-v22 —
+    // derive the comparison baseline from the canonical AST.
+    const baseHtml = deriveHtml(source.contentDoc);
+    let htmlContent = baseHtml;
     let outline = source.outline;
     let articles = source.articles;
 
@@ -125,14 +128,14 @@ export default function SourceEditor({ source, categoryId, onClose, onSourceUpda
       articles = parseArticles(htmlContent);
 
       // Run diff and check for affected cards
-      if (source.htmlContent && bulkFlagNeedsReview) {
-        const diffResult = compareVersions(source.htmlContent, htmlContent);
+      if (baseHtml && bulkFlagNeedsReview) {
+        const diffResult = compareVersions(baseHtml, htmlContent);
         const changedIds = getChangedArticleIds(diffResult);
 
         if (changedIds.size > 0) {
           // Find cards linked to this source with anchors in changed articles
           const linkedCards = await db.cards.where("sourceId").equals(source.id).toArray();
-          const oldArticles = parseArticles(source.htmlContent);
+          const oldArticles = parseArticles(baseHtml);
           const affectedCardIds: string[] = [];
 
           for (const card of linkedCards) {

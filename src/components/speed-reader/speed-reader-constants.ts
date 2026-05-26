@@ -1,6 +1,7 @@
 import type { Card } from "@/lib/spaced-repetition";
 import type { Source } from "@/lib/sources-storage";
 import { stripHtml, sanitizeHtml } from "@/lib/sanitize";
+import { deriveHtml } from "@/lib/editor-v4/derived";
 
 export const WPM_OPTIONS = [100, 150, 200, 250, 300, 400, 500];
 export const FONT_SIZES = [
@@ -66,7 +67,8 @@ export function buildSegments(selectedCards: Card[]): { segments: Segment[]; wor
 export function buildSourceSegments(source: Source): { segments: Segment[]; wordEntries: WordEntry[] } {
   const segments: Segment[] = [];
   const wordEntries: WordEntry[] = [];
-  const html = source.htmlContent || "";
+  // PR-7c (M3 #7): derive HTML from AST — legacy htmlContent dropped post-v22.
+  const html = deriveHtml(source.contentDoc);
   if (!html) return { segments, wordEntries };
 
   const parser = new DOMParser();

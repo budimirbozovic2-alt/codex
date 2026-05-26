@@ -25,7 +25,7 @@ import { backlinkIndex } from "@/lib/backlink-index";
 import type { ZettelEditorHandle } from "@/components/zettelkasten/ZettelEditor";
 import { usePersistedDraftMirror } from "@/hooks/usePersistedDraftMirror";
 import { htmlToDoc, type EditorDoc } from "@/lib/editor-v4";
-import { deriveMarkdown } from "@/lib/editor-v4/derived";
+import { deriveMarkdown, isDocEmpty } from "@/lib/editor-v4/derived";
 import { mdToHtml } from "@/lib/editor-v4/migrate";
 
 import { logger } from "@/lib/logger";
@@ -77,7 +77,9 @@ function seedDoc(a: KnowledgeBaseArticle): EditorDoc {
 function fromArticle(a: KnowledgeBaseArticle): Draft {
   return {
     title: a.title,
-    content: a.content,
+    // PR-7c (M3 #10): `a.content` is deprecated/optional post-v22; default
+    // to empty string so the Draft contract (required `content`) holds.
+    content: a.content ?? "",
     contentDoc: seedDoc(a),
     linkedSourceIds: a.linkedSourceIds ?? [],
     tags: a.tags ?? [],
@@ -194,7 +196,10 @@ export function useArticleDraft({ activeId, categoryId, setArticles }: Input): A
 
   const resetForArticle = useCallback(
     (article: KnowledgeBaseArticle | null, opts?: { autoEditEmpty?: boolean }) => {
-      if (article && opts?.autoEditEmpty && article.content.trim().length === 0) {
+      // PR-7c (M3 #10): legacy `article.content.trim()` crashed when the
+      // column was dropped (undefined). The AST is SSOT now; `isDocEmpty`
+      // walks `contentDoc` and falls back to derivedPlainText.
+      if (article && opts?.autoEditEmpty && isDocEmpty(article.contentDoc)) {
         setDraft(fromArticle(article));
         setIsEditing(true);
       } else {

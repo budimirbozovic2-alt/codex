@@ -174,12 +174,15 @@ export const EditorV4 = forwardRef<EditorV4Handle, EditorV4Props>(function Edito
     getEditor: () => editor ?? null,
   }), [editor]);
 
+  // PR-7c (M1): depend on `editor` so each prior TipTap instance is destroyed
+  // when the `extensions` memo (placeholder-driven) re-instantiates the editor.
+  // Previously the `[]` deps captured only the first editor → silent leak of
+  // ProseMirror views + DOM listeners across the component's lifetime.
   useEffect(() => {
     return () => {
       editor?.destroy();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [editor]);
 
   if (!editor) return null;
 

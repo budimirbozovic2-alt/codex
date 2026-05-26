@@ -1,7 +1,6 @@
 import { Search, BookOpen, Zap, FileText, Network, ArrowRight } from "lucide-react";
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { sanitizeHtml } from "@/lib/sanitize";
 import { useDebounce } from "@/hooks/useDebounce";
 import { Card } from "@/lib/spaced-repetition";
 import { type Source } from "@/lib/sources-storage";
@@ -10,7 +9,7 @@ import { useMindMaps } from "@/hooks/useMindMaps";
 import { useCardData, useCategoryData } from "@/contexts/AppContext";
 import Modal from "@/components/ui/DialogShell";
 import { taskScheduler } from "@/lib/scheduler";
-import { SafeHtml } from "@/components/ui/safe-html";
+import { derivePlainText } from "@/lib/editor-v4/derived";
 
 interface Props {
   open: boolean;
@@ -32,14 +31,25 @@ interface SearchResult {
   mindmapId?: string;
 }
 
-import { stripHtmlText as stripHtml } from "@/lib/sanitize";
-
-function highlightMatch(text: string, query: string): string {
-  if (!query) return sanitizeHtml(text);
+/**
+ * PR-7c (M2): pure-JSX highlight — splits the title around case-insensitive
+ * matches of `query` and wraps them in `<mark>` React nodes. Replaces the
+ * old `SafeHtml(highlightMatch(...))` path (HTML string + DOMPurify).
+ */
+function HighlightedTitle({ text, query, className }: { text: string; query: string; className?: string }) {
+  if (!query) return <span className={className}>{text}</span>;
   const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const clean = sanitizeHtml(text);
-  // G3 fix: don't re-sanitize after adding <mark> — input is already sanitized above
-  return clean.replace(new RegExp(`(${escaped})`, "gi"), '<mark class="bg-primary/30 text-foreground rounded-sm px-0.5">$1</mark>');
+  const re = new RegExp(`(${escaped})`, "gi");
+  const parts = text.split(re);
+  return (
+    <span className={className}>
+      {parts.map((part, i) =>
+        i % 2 === 1
+          ? <mark key={i} className="bg-primary/30 text-foreground rounded-sm px-0.5">{part}</mark>
+          : <span key={i}>{part}</span>,
+      )}
+    </span>
+  );
 }
 
 export default function GlobalSearch({ open, onClose, onNavigateToCard }: Props) {
@@ -87,7 +97,7 @@ export default function GlobalSearch({ open, onClose, onNavigateToCard }: Props)
       .filter((c) => {
         const questionMatch = c.question.toLowerCase().includes(q);
         const contentMatch = c.sections.some((s) =>
-          stripHtml(s.content).toLowerCase().includes(q) || s.title.toLowerCase().includes(q)
+          derivePlainText(s.contentDoc).toLowerCase().includes(q) || s.title.toLowerCase().includes(q)
         );
         return questionMatch || contentMatch;
       })
@@ -272,11 +282,10 @@ export default function GlobalSearch({ open, onClose, onNavigateToCard }: Props)
                   >
                     <div className="flex items-center gap-2">
                       {iconMap[result.icon]}
-                      <SafeHtml
-                        as="span"
+                      <HighlightedTitle
                         className="font-medium truncate flex-1"
-                        html={highlightMatch(result.title, query)}
-                        trusted
+                        text={result.title}
+                        query={query}
                       />
                       {result.type !== "card" && (
                         <ArrowRight className="h-3 w-3 text-muted-foreground shrink-0" />
