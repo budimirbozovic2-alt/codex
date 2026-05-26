@@ -55,7 +55,7 @@ export function AddCardDialog({ open, onOpenChange, categoryId, addCard, addFlas
       if (mode === "flash") {
         addFlashCard(q, a, categoryId);
       } else {
-        addCard(q, [{ title: st, contentDoc: (await import("@/lib/editor-v4")).htmlToDoc(sc) }], categoryId);
+        addCard(q, [{ title: st, contentDoc: htmlToDoc(sc) }], categoryId);
       }
       toast.success("Kartica kreirana.");
     });
