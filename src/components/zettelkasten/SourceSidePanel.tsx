@@ -61,7 +61,6 @@ export default function SourceSidePanel({ source, categoryId, onClose }: Props) 
       <ContentRenderer
         className="prose prose-sm dark:prose-invert max-w-none p-4 overflow-y-auto flex-1 text-foreground"
         doc={source.contentDoc}
-        html={html || '<p class="text-muted-foreground italic">Izvor nema sadržaja.</p>'}
       />
     </div>
   );

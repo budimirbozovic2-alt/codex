@@ -1,15 +1,15 @@
 /**
  * <EditorView> + <ContentRenderer> read-only render path tests.
  *
- * PR-7c: ContentRenderer collapsed to AST-only. Both `doc` and `html` flow
- * through `<EditorView>` (TipTap V4). SafeHtml fallback + key-parts HTML
- * highlight are gone — key parts are now `keyPart` marks inside the AST.
+ * PR-7d M2.1: ContentRenderer delegates to <AstNodeRenderer> (pure React
+ * walker, no TipTap). The `html` fallback prop is gone — callers must
+ * pre-convert via `htmlToDoc` at the boundary.
  */
 import { describe, it, expect } from "vitest";
 import { render } from "@testing-library/react";
 import { ContentRenderer } from "@/components/ui/ContentRenderer";
 import { EditorView } from "@/lib/editor-v4/EditorView";
-import type { EditorDoc } from "@/lib/editor-v4";
+import { htmlToDoc, type EditorDoc } from "@/lib/editor-v4";
 
 const richDoc: EditorDoc = {
   version: 4,
@@ -46,39 +46,31 @@ describe("EditorView (V4 read-only)", () => {
   });
 });
 
-describe("ContentRenderer", () => {
-  it("uses AST branch when contentDoc is V4 — ignores `html` fallback", () => {
-    const { container } = render(
-      <ContentRenderer
-        doc={richDoc}
-        html="<p>fallback should not render</p>"
-        className="card-prose"
-      />,
-    );
-    expect(container.querySelector(".ProseMirror")).not.toBeNull();
-    expect(container.textContent).not.toContain("fallback should not render");
+describe("ContentRenderer (AST walker)", () => {
+  it("renders V4 doc through pure React — heading, bold, wiki-link, key-part, mindmap", () => {
+    const { container } = render(<ContentRenderer doc={richDoc} className="card-prose" />);
+    expect(container.querySelector("h2")?.textContent).toBe("Naslov");
+    expect(container.querySelector("strong")?.textContent).toBe("Bold");
+    expect(container.querySelector("a[data-wikilink='Ugovor']")).not.toBeNull();
+    expect(container.querySelector("mark.key-part-highlight")?.textContent).toBe("kljuc");
+    expect(container.querySelector("[data-mindmap='mm-1']")).not.toBeNull();
+    // No ProseMirror instance — this is the perf win.
+    expect(container.querySelector(".ProseMirror")).toBeNull();
   });
 
-  it("converts legacy HTML to AST and renders through EditorView when doc is missing", () => {
-    const { container } = render(
-      <ContentRenderer
-        html="<p>Hello <script>alert(1)</script>world</p>"
-        className="legacy"
-      />,
-    );
-    const pm = container.querySelector(".ProseMirror") as HTMLElement | null;
-    expect(pm).not.toBeNull();
-    // htmlToDoc's schema is a whitelist — <script> is discarded structurally.
-    expect(pm?.innerHTML).not.toContain("<script");
-    expect(pm?.textContent).toContain("Hello");
-    expect(pm?.textContent).toContain("world");
-  });
-
-  it("treats doc objects whose version is not 4 as missing and falls back to html", () => {
+  it("renders empty when doc is missing or wrong version", () => {
+    const { container: c1 } = render(<ContentRenderer doc={null} />);
+    expect(c1.textContent).toBe("");
     const stale = { version: 3, content: { type: "doc", content: [] } } as unknown as EditorDoc;
-    const { container } = render(
-      <ContentRenderer doc={stale} html="<p>legacy</p>" />,
-    );
-    expect(container.querySelector(".ProseMirror")?.textContent).toContain("legacy");
+    const { container: c2 } = render(<ContentRenderer doc={stale} />);
+    expect(c2.textContent).toBe("");
+  });
+
+  it("boundary conversion: htmlToDoc → ContentRenderer renders legacy HTML safely", () => {
+    const doc = htmlToDoc("<p>Hello <script>alert(1)</script>world</p>");
+    const { container } = render(<ContentRenderer doc={doc} />);
+    expect(container.querySelector("script")).toBeNull();
+    expect(container.textContent).toContain("Hello");
+    expect(container.textContent).toContain("world");
   });
 });
