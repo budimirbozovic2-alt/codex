@@ -6,6 +6,8 @@
  * No React, no DB, no toasts — fully unit-testable.
  */
 import { sanitizeHtml } from "@/lib/sanitize";
+import { htmlToDoc } from "@/lib/editor-v4";
+import type { EditorDoc } from "@/lib/editor-v4/types";
 import { createCard, type Card, type SourceModule } from "@/lib/spaced-repetition";
 import { createTextAnchor, type Source } from "@/lib/sources-storage";
 import type { DetectedArticle } from "@/lib/auto-split-engine";
@@ -25,7 +27,7 @@ export interface ArticleRow {
 
 export interface CardUpdatePatch {
   question: string;
-  sections: { title: string; content: string }[];
+  sections: { title: string; content?: string; contentDoc: EditorDoc }[];
   sourceId: string;
   textAnchor: string;
   originalSourceSnippet: string;
@@ -134,7 +136,8 @@ export function buildImportPlan(
       toCreate.push(card);
     } else {
       const art = row.articles[0];
-      const sections = [{ title: "Odgovor", content: sanitizeHtml(art.contentHtml) }];
+      const sectionHtml = sanitizeHtml(art.contentHtml);
+      const sections = [{ title: "Odgovor", content: sectionHtml, contentDoc: htmlToDoc(sectionHtml) }];
       const anchor = createTextAnchor(art.plainSnippet);
       if (row.status === "exists" && row.existingCardId) {
         toUpdate.push({
