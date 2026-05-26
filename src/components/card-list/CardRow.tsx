@@ -5,7 +5,7 @@ import type { FrequencyTag } from "@/lib/sr/types";
 
 import { ContentRenderer } from "@/components/ui/ContentRenderer";
 import { format } from "date-fns";
-import TextSelectionTooltip from "@/components/TextSelectionTooltip";
+import { CardSelectionEditor } from "./CardSelectionEditor";
 import { ScoreBadge, RetentionBadge, SectionBar } from "./CardBadges";
 import CardContextMenu from "./CardContextMenu";
 import FrequencyMenu from "./FrequencyMenu";
