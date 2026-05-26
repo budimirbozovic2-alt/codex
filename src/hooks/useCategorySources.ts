@@ -1,30 +1,27 @@
-import { useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import {
   loadSources,
   loadSourcesByCategory,
-  onSourcesChanged,
   type Source,
 } from "@/lib/sources-storage";
-import { useIsMountedRef } from "@/hooks/useIsMountedRef";
+import { queryKeys } from "@/lib/query/keys";
+
+const EMPTY: Source[] = [];
 
 /**
  * SSOT subscription for sources scoped to a single category.
- * Re-fetches automatically when ANY source mutation fires (saveSource/deleteSource/invalidateSourcesCache).
+ * PR-7f M1 — TanStack Query read-path; invalidacija dolazi automatski iz
+ * `bridges.ts` koji sluša `onSourcesChanged` i invalidira `['sources']`.
  */
 export function useCategorySources(categoryId: string | undefined): Source[] {
-  const [sources, setSources] = useState<Source[]>([]);
-  const mounted = useIsMountedRef();
-
-  useEffect(() => {
-    if (!categoryId) { setSources([]); return; }
-    const reload = () => {
-      loadSourcesByCategory(categoryId).then(s => { if (mounted.current) setSources(s); });
-    };
-    reload();
-    return onSourcesChanged(reload);
-  }, [categoryId, mounted]);
-
-  return sources;
+  const { data } = useQuery({
+    queryKey: categoryId
+      ? queryKeys.sources.byCategory(categoryId)
+      : ["sources", "cat", "__none__"],
+    queryFn: () => loadSourcesByCategory(categoryId as string),
+    enabled: !!categoryId,
+  });
+  return data ?? EMPTY;
 }
 
 /**
@@ -32,17 +29,10 @@ export function useCategorySources(categoryId: string | undefined): Source[] {
  * Backed by the module-level cache in sources-storage.ts.
  */
 export function useAllSources(enabled: boolean = true): Source[] {
-  const [sources, setSources] = useState<Source[]>([]);
-  const mounted = useIsMountedRef();
-
-  useEffect(() => {
-    if (!enabled) return;
-    const reload = () => {
-      loadSources().then(s => { if (mounted.current) setSources(s); });
-    };
-    reload();
-    return onSourcesChanged(reload);
-  }, [enabled, mounted]);
-
-  return sources;
+  const { data } = useQuery({
+    queryKey: queryKeys.sources.all(),
+    queryFn: () => loadSources(),
+    enabled,
+  });
+  return data ?? EMPTY;
 }

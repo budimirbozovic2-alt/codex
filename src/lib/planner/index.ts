@@ -31,7 +31,7 @@ export type {
   DailyPhaseProgress,
 } from "./types";
 
-export { initPlannerCache } from "./cache";
+export { initPlannerCache, onPlannerChanged, type PlannerChangeKind } from "./cache";
 export { loadPlanner, savePlanner } from "./config";
 export { calcVelocity, calcEstimatedFinish, getProjectionText } from "./velocity";
 export { calcPhaseProgress, getPhaseDisciplinePct } from "./phases";
