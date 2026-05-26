@@ -17,11 +17,11 @@ interface UseCardActionsProps {
   subcategories: Record<string, string[]>;
   categoryRecords?: CategoryRecord[];
   editCard?: Card | null;
-  onSave: (question: string, sections: { title: string; content: string }[], categoryId: string, subcategoryId?: string, chapterId?: string) => void;
+  onSave: (question: string, sections: SectionInput[], categoryId: string, subcategoryId?: string, chapterId?: string) => void;
   onSaveFlash: (question: string, answer: string, categoryId: string, subcategoryId?: string) => void;
   onUpdate?: (id: string, updates: {
     question?: string;
-    sections?: { title: string; content: string }[];
+    sections?: SectionInput[];
     categoryId?: string;
     subcategoryId?: string;
     chapterId?: string;
