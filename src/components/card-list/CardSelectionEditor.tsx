@@ -39,14 +39,11 @@ interface Props extends CardMetadata {
 
 /**
  * Read-only `<EditorV4>` wrapper that mounts a TipTap `CardBubbleMenu` for
- * card content. Replaces the legacy `TextSelectionTooltip` DOM-selection
- * tooltip — selection is now owned by ProseMirror and the menu floats via
+ * card content. Selection is owned by ProseMirror and the menu floats via
  * Floating UI (TipTap v3 native).
  *
- * Highlights for `card.keyParts` are not re-applied here (the AST branch
- * relies on the `keyPart` mark living inside `contentDoc`). The legacy
- * runtime overlay produced by `HighlightedSection` only affected the
- * SafeHtml render path and is intentionally not ported.
+ * Highlights for `card.keyParts` rely on the `keyPart` mark inside
+ * `contentDoc`; runtime overlays are not re-applied.
  */
 export function CardSelectionEditor({
   cardId, question, category, subcategoryId, tags, keyParts, categoryId,

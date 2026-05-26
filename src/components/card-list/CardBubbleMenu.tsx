@@ -17,12 +17,11 @@ interface Props {
 /**
  * TipTap-native BubbleMenu for card views (CardRow expanded body + Recall).
  *
- * Mirrors the legacy `TextSelectionTooltip` action set:
+ * Actions:
  *  - Always: "Mnemo kuka" → clone selection into mnemonic workshop.
  *  - Optional: "Ključni dio" toggle (delegates to `onToggleKeyPart`).
  *
- * Selection state is owned by ProseMirror — we never touch
- * `window.getSelection()` here.
+ * Selection state is owned by ProseMirror.
  */
 export function CardBubbleMenu({ editor, onAddMnemo, onToggleKeyPart, keyParts }: Props) {
   const getSelectionText = useCallback((): string | null => {
