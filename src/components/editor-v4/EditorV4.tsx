@@ -43,6 +43,12 @@ interface EditorV4Props {
   /** Invoked when user clicks the mindmap toolbar button. */
   onPickMindmap?: () => void;
   className?: string;
+  /** When false, mounts editor in read-only mode (BubbleMenu still tracks selection). */
+  editable?: boolean;
+  /** Hide the static toolbar (e.g. when a BubbleMenu fully owns formatting). */
+  hideToolbar?: boolean;
+  /** Fires once when the TipTap editor is ready (and again if it changes). */
+  onEditorReady?: (editor: Editor) => void;
 }
 
 const SAFE_IMAGE_MIME = new Set(["image/png", "image/jpeg", "image/gif", "image/webp"]);
