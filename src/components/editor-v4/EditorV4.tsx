@@ -78,6 +78,9 @@ export const EditorV4 = forwardRef<EditorV4Handle, EditorV4Props>(function Edito
   embedKind = "card",
   onPickMindmap,
   className,
+  editable = true,
+  hideToolbar = false,
+  onEditorReady,
 }, ref) {
   const extensions = useMemo(() => [
     ...editorV4Extensions,
@@ -91,7 +94,7 @@ export const EditorV4 = forwardRef<EditorV4Handle, EditorV4Props>(function Edito
   const editor = useEditor({
     extensions,
     content: initialDoc.content,
-    editable: true,
+    editable,
     immediatelyRender: false,
     editorProps: {
       attributes: {
@@ -131,6 +134,18 @@ export const EditorV4 = forwardRef<EditorV4Handle, EditorV4Props>(function Edito
   }, [editor, categoryId]);
 
   useImperativeHandle(ref, (): EditorV4Handle => ({
+  // Keep editable in sync with prop changes (read↔edit toggle in SourceContent).
+  useEffect(() => {
+    if (!editor) return;
+    if (editor.isEditable !== editable) editor.setEditable(editable);
+  }, [editor, editable]);
+
+  // Notify parent once the editor instance exists so it can mount BubbleMenu.
+  useEffect(() => {
+    if (editor && onEditorReady) onEditorReady(editor);
+  }, [editor, onEditorReady]);
+
+  useImperativeHandle(ref, (): EditorV4Handle => ({
     insertText: (text: string) => {
       editor?.chain().focus().insertContent(text).run();
     },
@@ -156,7 +171,8 @@ export const EditorV4 = forwardRef<EditorV4Handle, EditorV4Props>(function Edito
         attrs: { target: t, display: d, hasPipe: d !== t },
       }).run();
     },
-    focus: () => editor?.commands.focus(),
+    focus: () => { editor?.commands.focus(); },
+    getEditor: () => editor ?? null,
   }), [editor]);
 
   useEffect(() => {
