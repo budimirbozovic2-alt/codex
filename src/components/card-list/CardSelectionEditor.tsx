@@ -45,12 +45,12 @@ interface Props extends CardMetadata {
  */
 export function CardSelectionEditor({
   cardId, question, category, subcategoryId, tags, keyParts, categoryId,
-  contentDoc, html, className, onMarkKeyPart,
+  contentDoc, className, onMarkKeyPart,
 }: Props) {
   const initialDoc = useMemo<EditorDoc>(() => {
     if (contentDoc && contentDoc.version === 4 && contentDoc.content) return contentDoc;
-    return htmlToDoc(html ?? "");
-  }, [contentDoc, html]);
+    return htmlToDoc("");
+  }, [contentDoc]);
 
   const [editor, setEditor] = useState<Editor | null>(null);
 
