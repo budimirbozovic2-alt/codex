@@ -8,6 +8,7 @@ import {
 } from "../mnemonic-storage";
 import { useCategoryData } from "@/contexts/AppContext";
 import { ContentRenderer } from "@/components/ui/ContentRenderer";
+import { htmlToDoc } from "@/lib/editor-v4";
 import { motion, AnimatePresence } from "framer-motion";
 import { STATUS_CONFIG, HOOK_TYPE_CONFIG } from "./card-item/configs";
 import { MajorSystemHints } from "./card-item/MajorSystemHints";
