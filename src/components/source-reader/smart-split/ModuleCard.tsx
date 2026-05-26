@@ -61,12 +61,7 @@ export function ModuleCard({
           </button>
         </div>
         <div className="flex-1 min-w-0">
-          <RichTextEditorV4
-            value={edit.question}
-            onChange={(v) => onUpdateEdit(i, { question: v })}
-            placeholder={mod.title || "Naziv cjeline..."}
-            minimal
-          />
+          <TitleEditor value={edit.question} onChange={(v) => onUpdateEdit(i, { question: v })} placeholder={mod.title || "Naziv cjeline..."} />
         </div>
         <button
           type="button"
@@ -105,7 +100,7 @@ export function ModuleCard({
         />
       ) : (
         <div className={cn(edit.skipped && "opacity-50 pointer-events-none")}>
-          <RichTextEditorV4
+          <BodyEditor
             value={mod.contentHtml}
             onChange={(html) => {
               const plain = htmlToPlain(html);
