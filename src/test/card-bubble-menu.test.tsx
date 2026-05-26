@@ -64,9 +64,10 @@ describe("CardSelectionEditor (PR-7a / M5)", () => {
   });
 
   it("does not render the legacy TextSelectionTooltip module", async () => {
-    // Importing the deleted file would throw — regression guard.
-    await expect(
-      import("@/components/TextSelectionTooltip" as string)
-    ).rejects.toBeTruthy();
+    const fs = await import("node:fs");
+    const path = await import("node:path");
+    expect(
+      fs.existsSync(path.resolve(process.cwd(), "src/components/TextSelectionTooltip.tsx"))
+    ).toBe(false);
   });
 });
