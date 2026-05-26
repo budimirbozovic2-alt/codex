@@ -182,7 +182,13 @@ export function useCardImport() {
   // mutation, no manual schedulePersist, no setCardMapState.
   const importCards = useCallback(
     (newCards: { question: string; sections: { title: string; content: string }[] }[], category: string) => {
-      const created = newCards.map((c) => createCard(c.question, c.sections, category));
+      const created = newCards.map((c) =>
+        createCard(
+          c.question,
+          c.sections.map((s) => ({ title: s.title, contentDoc: htmlToDoc(s.content) })),
+          category,
+        ),
+      );
       const now = Date.now();
       created.forEach((c) => { c.updatedAt = now; });
       if (created.length > 0) cardRepository.bulkPut(created);
