@@ -48,4 +48,7 @@ export default defineConfig(({ mode }) => ({
   build: {
     emptyOutDir: true,
   },
+  worker: {
+    format: "es",
+  },
 }));
