@@ -9,6 +9,7 @@ import {
 import { useCategoryData } from "@/contexts/AppContext";
 import { ContentRenderer } from "@/components/ui/ContentRenderer";
 import { htmlToDoc } from "@/lib/editor-v4";
+import { deriveHtml } from "@/lib/editor-v4/derived";
 import { motion, AnimatePresence } from "framer-motion";
 import { STATUS_CONFIG, HOOK_TYPE_CONFIG } from "./card-item/configs";
 import { MajorSystemHints } from "./card-item/MajorSystemHints";
@@ -17,10 +18,10 @@ import { HookEditor } from "./card-item/HookEditor";
 import { TagsEditor } from "./card-item/TagsEditor";
 import { useCardItemEditing } from "../hooks/useCardItemEditing";
 
-// PR-7c (M2): RichTextEditor deleted. MnemonicCard sections still persist as
-// HTML strings (their schema is unrelated to PR-7b's `contentDoc`), so the
-// V4 wrapper preserves the existing `(value, onChange)` contract.
-const RichTextEditorV4 = lazy(() => import("@/components/editor-v4/RichTextEditorV4"));
+// PR-7e M2: shim removed. MnemonicCard sections still persist as HTML
+// strings (separate schema from FSRS `contentDoc`), so we seed the V4
+// editor with `htmlToDoc` once per mount and emit HTML via `deriveHtml`.
+const EditorV4 = lazy(() => import("@/components/editor-v4/EditorV4"));
 
 interface Props {
   card: MnemonicCard;
@@ -144,12 +145,11 @@ function WorkshopCardItemInner({ card, isExpanded, onToggle, onUpdateCard, onDel
                               </button>
                             )}
                           </div>
-                          <RichTextEditorV4
+                          <MnemonicSectionEditor
                             value={s.content}
                             onChange={(val) => updateSectionContent(i, val)}
-                            placeholder="Unesite sadržaj..."
-                            minimal
                           />
+
                         </div>
                       ))}
                     </div>
