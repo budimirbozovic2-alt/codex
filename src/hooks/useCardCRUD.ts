@@ -71,7 +71,7 @@ export function useCardCRUD() {
       id: string,
       updates: {
         question?: string;
-        sections?: { title: string; content: string; contentDoc?: EditorDoc }[];
+        sections?: { title: string; content?: string; contentDoc: EditorDoc }[];
         categoryId?: string;
         subcategoryId?: string;
         chapterId?: string;
