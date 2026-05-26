@@ -34,9 +34,10 @@ export default function LinkToExistingCardModal({
   open, onOpenChange, sourceId, sourceLabel, selectedText, selectedHtml, cards, onLink,
 }: Props) {
   const [search, setSearch] = useState("");
-  // PR-7c (M2): preview rendered through the AST surface — selectedHtml is
-  // small (a user selection), htmlToDoc is cheap, no SafeHtml/DOMPurify.
+  // PR-7d (M2.1): convert HTML preview to AST at the boundary.
   const previewHtml = selectedHtml || (selectedText ? `<p>${selectedText}</p>` : "");
+  const previewDoc = useMemo(() => previewHtml ? htmlToDoc(previewHtml) : null, [previewHtml]);
+
 
   // Pre-filter: unlinked, essay-only, same category
   // sourceLabel may be a category name or a source title (fallback for unmigrated sources)
