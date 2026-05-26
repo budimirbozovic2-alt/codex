@@ -87,7 +87,7 @@ export default function LinkToExistingCardModal({
               <p className="text-xs text-muted-foreground mb-1">Označeni tekst:</p>
               <ContentRenderer
                 className="text-xs prose prose-xs max-w-none card-prose line-clamp-4"
-                html={previewHtml}
+                doc={previewDoc}
               />
             </div>
           )}
