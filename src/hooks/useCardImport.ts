@@ -1,6 +1,7 @@
 import { useCallback } from "react";
 import { toast } from "sonner";
 import { createCard } from "@/lib/spaced-repetition";
+import { htmlToDoc } from "@/lib/editor-v4";
 import { invalidateSourcesCache } from "@/lib/sources-storage";
 import { BackupSchema, type ParsedBackup } from "@/lib/migrations/backup-schema";
 import { migrateBackup, migrateRaw, BackupVersionError } from "@/lib/backup/migrate";
