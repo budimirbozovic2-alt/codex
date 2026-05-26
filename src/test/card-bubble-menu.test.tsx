@@ -33,7 +33,6 @@ describe("CardSelectionEditor (PR-7a / M5)", () => {
         category="cat-1"
         categoryId="cat-1"
         contentDoc={doc}
-        html=""
       />
     );
     await waitMicroTask();
@@ -46,14 +45,15 @@ describe("CardSelectionEditor (PR-7a / M5)", () => {
     expect(container.querySelector("[data-mnemo-tooltip]")).toBeNull();
   });
 
-  it("falls back to htmlToDoc when contentDoc is missing", async () => {
+  it("renders provided contentDoc with marks intact", async () => {
+    const doc = htmlToDoc("<p><strong>fallback</strong> putanja</p>");
     const { container } = render(
       <CardSelectionEditor
         cardId="c2"
         question="?"
         category="cat-1"
         categoryId="cat-1"
-        html="<p><strong>fallback</strong> putanja</p>"
+        contentDoc={doc}
       />
     );
     await waitMicroTask();
