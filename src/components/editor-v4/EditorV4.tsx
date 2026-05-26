@@ -1,6 +1,6 @@
 import { useEditor, EditorContent, type Editor } from "@tiptap/react";
 import Placeholder from "@tiptap/extension-placeholder";
-import { forwardRef, useEffect, useImperativeHandle, useMemo } from "react";
+import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef } from "react";
 import {
   Bold, Italic, Underline as UnderlineIcon, Heading2, List, ListOrdered,
   Highlighter, Star, Undo2, Redo2, Map as MapIcon, Link2,
@@ -82,14 +82,22 @@ export const EditorV4 = forwardRef<EditorV4Handle, EditorV4Props>(function Edito
   hideToolbar = false,
   onEditorReady,
 }, ref) {
+  // PR-7d M2.3: placeholder lives behind a ref so changing the prop does NOT
+  // re-instantiate the editor (which would reset selection, history, scroll).
+  // Placeholder.configure accepts a function for `placeholder`; we resolve
+  // through the ref so the latest value is read on every render of the empty
+  // editor decoration.
+  const placeholderRef = useRef(placeholder ?? "");
+  placeholderRef.current = placeholder ?? "";
+
   const extensions = useMemo(() => [
     ...editorV4Extensions,
     SmartPaste,
     Placeholder.configure({
-      placeholder: placeholder ?? "",
+      placeholder: () => placeholderRef.current,
       emptyEditorClass: "is-editor-empty",
     }),
-  ], [placeholder]);
+  ], []);
 
   const editor = useEditor({
     extensions,
