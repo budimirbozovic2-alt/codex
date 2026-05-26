@@ -89,9 +89,12 @@ export interface Source {
   categoryId: string;
   title: string;
   date: string;
-  htmlContent: string;
-  /** V4 canonical AST — lazily populated by `ensureSourceDoc` (PR-3, additive). */
-  contentDoc?: EditorDoc;
+  /**
+   * PR-7b: canonical AST is the only content payload. Legacy `htmlContent`
+   * column was deleted in Dexie v22. Derive HTML via `deriveHtml(contentDoc)`
+   * from `@/lib/editor-v4/derived` when needed for export/preview.
+   */
+  contentDoc: EditorDoc;
   outline: { id: string; text: string; level: number }[];
   articles: SourceArticle[];
   version: number;
@@ -156,9 +159,13 @@ export interface KnowledgeBaseArticle {
   id: string;
   subjectId: string;          // === categoryId
   title: string;
-  content: string;            // markdown (legacy SSOT during PR-3)
-  /** V4 canonical AST — lazily populated by `ensureArticleDoc` (PR-3, additive). */
-  contentDoc?: EditorDoc;
+  /**
+   * PR-7b: canonical AST is the only content payload. Legacy `content`
+   * (markdown) column was deleted in Dexie v22. Derive markdown via
+   * `deriveMarkdown(contentDoc)` for export; backlink-index walks `contentDoc`
+   * directly via `iterateWikiLinksFromDoc`.
+   */
+  contentDoc: EditorDoc;
   linkedSourceIds: string[];
   rootSubcategoryId?: string;
   /** True for the per-subject "Index" article (entry-point). Cannot be deleted. */

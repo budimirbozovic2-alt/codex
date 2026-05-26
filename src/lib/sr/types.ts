@@ -12,13 +12,13 @@ export enum SectionState {
 export interface Section {
   id: string;
   title: string;
-  content: string;
   /**
-   * V4 canonical AST (editor-v4). Optional during PR-3 (additive); populated
-   * lazily by `ensureCardDoc` on load. Renderer still consumes `content`
-   * (legacy HTML) until PR-4 flips the read path.
+   * PR-7b: canonical AST is the ONLY content payload. Legacy `content` (HTML)
+   * column was deleted in Dexie v22. Read-sites that need text/html/markdown
+   * derive lazily via `deriveHtml` / `derivePlainText` / `deriveMarkdown` from
+   * `src/lib/editor-v4/derived.ts` (WeakMap-cached per doc reference).
    */
-  contentDoc?: EditorDoc;
+  contentDoc: EditorDoc;
   state: SectionState;
   stability: number;
   difficulty: number;

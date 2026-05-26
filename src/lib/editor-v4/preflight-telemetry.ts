@@ -46,11 +46,11 @@ async function streamToElectron(blob: Blob): Promise<boolean> {
       return false;
     }
   }
-  const finalPath = await window.electronAPI.backupStreamFinish();
-  if (typeof finalPath === "string" && finalPath.length > 0) {
-    localStorage.setItem(FLAG_BACKUP_PATH, finalPath);
+  const finished = await window.electronAPI.backupStreamFinish();
+  if (finished) {
+    localStorage.setItem(FLAG_BACKUP_PATH, `electron-default-${Date.now()}`);
   }
-  return !!finalPath;
+  return !!finished;
 }
 
 async function withTimeout<T>(p: Promise<T>, ms: number): Promise<T | "timeout"> {
