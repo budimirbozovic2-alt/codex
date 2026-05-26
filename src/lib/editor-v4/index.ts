@@ -10,4 +10,6 @@ export { KeyPart } from "./extensions/key-part";
 export { SmartPaste } from "./extensions/smart-paste";
 export { preprocessHtml, MINDMAP_RE } from "./patterns";
 export type { EditorDoc, JSONContent } from "./types";
+export type { Editor } from "@tiptap/react";
+
 
