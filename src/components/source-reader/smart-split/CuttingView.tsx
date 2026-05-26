@@ -1,5 +1,5 @@
 import { Scissors } from "lucide-react";
-import { SafeHtml } from "@/components/ui/safe-html";
+import { ContentRenderer } from "@/components/ui/ContentRenderer";
 
 interface Props {
   blocks: string[];
@@ -48,10 +48,11 @@ export function CuttingView({ blocks, onCut, onCancel }: Props) {
               <div className="flex-1 h-px bg-warning/30 group-hover:bg-warning" />
             </button>
           )}
-          <SafeHtml
+          <ContentRenderer
             className="text-sm px-2 py-1 rounded prose prose-sm max-w-none dark:prose-invert"
             html={blk}
           />
+
         </div>
       ))}
     </div>

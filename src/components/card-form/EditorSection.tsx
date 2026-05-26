@@ -2,7 +2,7 @@ import { Plus, X, ChevronUp, ChevronDown, Scissors, Zap, FileText } from "lucide
 import React, { memo, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { SafeHtml } from "@/components/ui/safe-html";
+import { ContentRenderer } from "@/components/ui/ContentRenderer";
 import EditorV4 from "@/components/editor-v4/EditorV4";
 import { htmlToDoc, docToHtml, type EditorDoc } from "@/lib/editor-v4";
 import { parseHtmlToParagraphs } from "@/hooks/useCardActions";
@@ -41,7 +41,7 @@ function CuttingView({ content, onCut, onCancel }: {
               <div className="flex-1 h-px bg-warning/30 group-hover:bg-warning" />
             </button>
           )}
-          <SafeHtml className="text-sm px-2 py-1 rounded" html={p} />
+          <ContentRenderer className="text-sm px-2 py-1 rounded" html={p} />
         </div>
       ))}
     </div>

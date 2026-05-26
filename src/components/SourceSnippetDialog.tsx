@@ -3,13 +3,13 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/lib/spaced-repetition";
-import { highlightKeyParts } from "@/lib/highlight-key-parts";
-import { SafeHtml } from "@/components/ui/safe-html";
-import { useEffect, useState } from "react";
+import { ContentRenderer } from "@/components/ui/ContentRenderer";
+import { Fragment, useEffect, useState } from "react";
 
 import { getSource, confirmCardReview, type Source } from "@/lib/sources-storage";
 import { toast } from "sonner";
 import { afterDialogClose } from "@/lib/dialog-utils";
+
 interface Props {
   card: Card;
   open: boolean;
@@ -28,8 +28,6 @@ export default function SourceSnippetDialog({ card, open, onOpenChange, onReview
   }, [open, card.sourceId]);
 
   if (!card.sourceId || !card.originalSourceSnippet) return null;
-
-  const essayHtml = card.sections.map(s => s.content).join("<hr/>");
 
   const handleConfirmReview = async () => {
     setConfirming(true);
@@ -60,7 +58,7 @@ export default function SourceSnippetDialog({ card, open, onOpenChange, onReview
         </DialogHeader>
 
         <div className="grid grid-cols-2 gap-4 flex-1 overflow-hidden">
-          {/* Left: user's essay */}
+          {/* Left: user's essay — PR-7c: key-parts stored as AST marks inside contentDoc. */}
           <div className="flex flex-col min-h-0">
             <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2 flex items-center gap-1.5">
               <span className="w-2 h-2 rounded-full bg-primary" />
@@ -68,7 +66,12 @@ export default function SourceSnippetDialog({ card, open, onOpenChange, onReview
             </h4>
             <div className="flex-1 overflow-y-auto rounded-lg border bg-card p-4 prose prose-sm max-w-none prose-headings:text-foreground prose-p:text-foreground/90 prose-ul:text-foreground/90 prose-ol:text-foreground/90 prose-li:text-foreground/90">
               <p className="font-medium text-foreground mb-3">{card.question}</p>
-              <SafeHtml html={highlightKeyParts(essayHtml, card.keyParts)} trusted />
+              {card.sections.map((s, i) => (
+                <Fragment key={s.id ?? i}>
+                  {i > 0 && <hr />}
+                  <ContentRenderer doc={s.contentDoc} html={s.content} />
+                </Fragment>
+              ))}
             </div>
           </div>
 
