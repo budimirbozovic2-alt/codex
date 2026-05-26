@@ -37,25 +37,46 @@ export function enqueueWrite(label: string, op: () => Promise<unknown>): void {
 }
 
 
+// ─── Change emitter (PR-7f M1 — TanStack bridge) ─────────
+export type PlannerChangeKind =
+  | "config"
+  | "discipline"
+  | "dailyMapped"
+  | "lastRedistribute";
+
+type PlannerListener = (kind: PlannerChangeKind) => void;
+const _plannerListeners = new Set<PlannerListener>();
+
+export function onPlannerChanged(fn: PlannerListener): () => void {
+  _plannerListeners.add(fn);
+  return () => { _plannerListeners.delete(fn); };
+}
+
+function _notify(kind: PlannerChangeKind): void {
+  for (const fn of _plannerListeners) {
+    try { fn(kind); } catch { /* swallow */ }
+  }
+}
+
 // ─── Accessors (sync) ────────────────────────────────────
 export const plannerCache = {
   get: (): PlannerConfig => _plannerCache,
-  set: (next: PlannerConfig): void => { _plannerCache = next; },
+  set: (next: PlannerConfig): void => { _plannerCache = next; _notify("config"); },
 };
 
 export const disciplineCache = {
   get: (): DisciplineEntry[] => _disciplineCache,
-  set: (next: DisciplineEntry[]): void => { _disciplineCache = next; },
+  set: (next: DisciplineEntry[]): void => { _disciplineCache = next; _notify("discipline"); },
 };
 
 export const dailyMappedCache = {
   get: (): DailyMappedSlot => _dailyMapped,
-  set: (next: DailyMappedSlot): void => { _dailyMapped = next; },
+  set: (next: DailyMappedSlot): void => { _dailyMapped = next; _notify("dailyMapped"); },
 };
 
 export const lastRedistributeCache = {
   get: (): string => _lastRedistributeDate,
-  set: (next: string): void => { _lastRedistributeDate = next; },
+  set: (next: string): void => { _lastRedistributeDate = next; _notify("lastRedistribute"); },
 };
 
 // ─── Boot ────────────────────────────────────────────────
