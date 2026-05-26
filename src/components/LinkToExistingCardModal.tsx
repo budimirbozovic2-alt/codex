@@ -9,6 +9,7 @@ import type { Card } from "@/lib/spaced-repetition";
 import { useCategoryData } from "@/contexts/AppContext";
 import { afterDialogClose } from "@/lib/dialog-utils";
 import { ContentRenderer } from "@/components/ui/ContentRenderer";
+import { htmlToDoc } from "@/lib/editor-v4";
 
 interface Props {
   open: boolean;
