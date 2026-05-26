@@ -18,6 +18,8 @@ export interface EditorV4Handle {
   /** Insert a `wikiLink` node (or wrap selection). */
   insertWikiLink: (target: string, display?: string) => void;
   focus: () => void;
+  /** Raw TipTap editor instance — parent can mount `<BubbleMenu editor={...}>`. */
+  getEditor: () => Editor | null;
 }
 
 interface EditorV4Props {
