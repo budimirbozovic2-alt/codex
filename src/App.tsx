@@ -12,6 +12,8 @@ import { usePersistingState } from "@/hooks/usePersistingState";
 import { RefreshCw } from "lucide-react";
 import { PageSkeleton } from "@/components/ui/page-skeleton";
 import { installBodyPointerEventsGuard } from "@/lib/body-pointer-events-guard";
+import { QueryClientProvider } from "@tanstack/react-query";
+import { queryClient } from "@/lib/query/client";
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 // Lazy-loaded route pages
