@@ -199,7 +199,7 @@ export default function ZettelPreview({
         onClick={handleClick}
       >
         {useDocPath ? (
-          <ContentRenderer doc={doc} html={markdown} />
+          <ContentRenderer doc={doc} />
         ) : (
           <>
             {segments.length === 0 && (

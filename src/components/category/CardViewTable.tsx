@@ -186,7 +186,7 @@ export default function CardViewTable({
                             <span className={cn("text-[10px] font-medium", secStab.color)}>S: {section.stability.toFixed(1)}</span>
                           </div>
                         </div>
-                        <ContentRenderer className="text-xs prose prose-xs max-w-none line-clamp-4 card-prose" doc={section.contentDoc} html={section.content} />
+                        <ContentRenderer className="text-xs prose prose-xs max-w-none line-clamp-4 card-prose" doc={section.contentDoc} />
                       </div>
                     );
                   })}

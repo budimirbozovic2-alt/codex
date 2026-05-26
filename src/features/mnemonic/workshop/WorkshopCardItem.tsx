@@ -8,6 +8,7 @@ import {
 } from "../mnemonic-storage";
 import { useCategoryData } from "@/contexts/AppContext";
 import { ContentRenderer } from "@/components/ui/ContentRenderer";
+import { htmlToDoc } from "@/lib/editor-v4";
 import { motion, AnimatePresence } from "framer-motion";
 import { STATUS_CONFIG, HOOK_TYPE_CONFIG } from "./card-item/configs";
 import { MajorSystemHints } from "./card-item/MajorSystemHints";
@@ -157,7 +158,7 @@ function WorkshopCardItemInner({ card, isExpanded, onToggle, onUpdateCard, onDel
                   card.sections.map((s, i) => (
                     <div key={i} className="rounded-lg bg-secondary/30 p-3">
                       <p className="text-xs font-medium text-muted-foreground mb-1">{s.title}</p>
-                      <ContentRenderer className="text-sm prose prose-sm max-w-none card-prose" html={s.content} />
+                      <MnemonicSectionContent html={s.content} />
                     </div>
                   ))
                 )}
@@ -238,6 +239,11 @@ function WorkshopCardItemInner({ card, isExpanded, onToggle, onUpdateCard, onDel
       </AnimatePresence>
     </div>
   );
+}
+
+function MnemonicSectionContent({ html }: { html: string }) {
+  const doc = useMemo(() => htmlToDoc(html || ""), [html]);
+  return <ContentRenderer className="text-sm prose prose-sm max-w-none card-prose" doc={doc} />;
 }
 
 const WorkshopCardItem = memo(WorkshopCardItemInner);

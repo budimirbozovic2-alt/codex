@@ -9,6 +9,7 @@ import type { Card } from "@/lib/spaced-repetition";
 import { useCategoryData } from "@/contexts/AppContext";
 import { afterDialogClose } from "@/lib/dialog-utils";
 import { ContentRenderer } from "@/components/ui/ContentRenderer";
+import { htmlToDoc } from "@/lib/editor-v4";
 
 interface Props {
   open: boolean;
@@ -33,9 +34,10 @@ export default function LinkToExistingCardModal({
   open, onOpenChange, sourceId, sourceLabel, selectedText, selectedHtml, cards, onLink,
 }: Props) {
   const [search, setSearch] = useState("");
-  // PR-7c (M2): preview rendered through the AST surface — selectedHtml is
-  // small (a user selection), htmlToDoc is cheap, no SafeHtml/DOMPurify.
+  // PR-7d (M2.1): convert HTML preview to AST at the boundary.
   const previewHtml = selectedHtml || (selectedText ? `<p>${selectedText}</p>` : "");
+  const previewDoc = useMemo(() => previewHtml ? htmlToDoc(previewHtml) : null, [previewHtml]);
+
 
   // Pre-filter: unlinked, essay-only, same category
   // sourceLabel may be a category name or a source title (fallback for unmigrated sources)
@@ -85,7 +87,7 @@ export default function LinkToExistingCardModal({
               <p className="text-xs text-muted-foreground mb-1">Označeni tekst:</p>
               <ContentRenderer
                 className="text-xs prose prose-xs max-w-none card-prose line-clamp-4"
-                html={previewHtml}
+                doc={previewDoc}
               />
             </div>
           )}

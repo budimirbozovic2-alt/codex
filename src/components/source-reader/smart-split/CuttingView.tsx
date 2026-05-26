@@ -1,10 +1,22 @@
+import { useMemo } from "react";
 import { Scissors } from "lucide-react";
 import { ContentRenderer } from "@/components/ui/ContentRenderer";
+import { htmlToDoc } from "@/lib/editor-v4";
 
 interface Props {
   blocks: string[];
   onCut: (blockIndex: number) => void;
   onCancel: () => void;
+}
+
+function Block({ html }: { html: string }) {
+  const doc = useMemo(() => htmlToDoc(html), [html]);
+  return (
+    <ContentRenderer
+      className="text-sm px-2 py-1 rounded prose prose-sm max-w-none dark:prose-invert"
+      doc={doc}
+    />
+  );
 }
 
 /** Inline cutting view — operates on HTML blocks and preserves formatting. */
@@ -48,11 +60,7 @@ export function CuttingView({ blocks, onCut, onCancel }: Props) {
               <div className="flex-1 h-px bg-warning/30 group-hover:bg-warning" />
             </button>
           )}
-          <ContentRenderer
-            className="text-sm px-2 py-1 rounded prose prose-sm max-w-none dark:prose-invert"
-            html={blk}
-          />
-
+          <Block html={blk} />
         </div>
       ))}
     </div>

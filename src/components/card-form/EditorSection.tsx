@@ -29,21 +29,28 @@ function CuttingView({ content, onCut, onCancel }: {
         <button type="button" onClick={onCancel} className="text-xs text-muted-foreground hover:text-foreground">Otkaži</button>
       </div>
       {paragraphs.map((p, idx) => (
-        <div key={idx}>
-          {idx > 0 && (
-            <button
-              type="button"
-              onClick={() => onCut(idx)}
-              className="w-full flex items-center gap-2 py-1.5 group hover:bg-warning/10 rounded transition-colors my-0.5"
-            >
-              <div className="flex-1 h-px bg-warning/30 group-hover:bg-warning" />
-              <Scissors className="h-3.5 w-3.5 text-warning/50 group-hover:text-warning transition-colors rotate-90" />
-              <div className="flex-1 h-px bg-warning/30 group-hover:bg-warning" />
-            </button>
-          )}
-          <ContentRenderer className="text-sm px-2 py-1 rounded" html={p} />
-        </div>
+        <ParagraphRow key={idx} html={p} idx={idx} onCut={onCut} />
       ))}
+    </div>
+  );
+}
+
+function ParagraphRow({ html, idx, onCut }: { html: string; idx: number; onCut: (i: number) => void }) {
+  const doc = useMemo(() => htmlToDoc(html), [html]);
+  return (
+    <div>
+      {idx > 0 && (
+        <button
+          type="button"
+          onClick={() => onCut(idx)}
+          className="w-full flex items-center gap-2 py-1.5 group hover:bg-warning/10 rounded transition-colors my-0.5"
+        >
+          <div className="flex-1 h-px bg-warning/30 group-hover:bg-warning" />
+          <Scissors className="h-3.5 w-3.5 text-warning/50 group-hover:text-warning transition-colors rotate-90" />
+          <div className="flex-1 h-px bg-warning/30 group-hover:bg-warning" />
+        </button>
+      )}
+      <ContentRenderer className="text-sm px-2 py-1 rounded" doc={doc} />
     </div>
   );
 }

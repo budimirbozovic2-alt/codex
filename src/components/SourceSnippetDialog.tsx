@@ -69,7 +69,7 @@ export default function SourceSnippetDialog({ card, open, onOpenChange, onReview
               {card.sections.map((s, i) => (
                 <Fragment key={s.id ?? i}>
                   {i > 0 && <hr />}
-                  <ContentRenderer doc={s.contentDoc} html={s.content} />
+                  <ContentRenderer doc={s.contentDoc} />
                 </Fragment>
               ))}
             </div>

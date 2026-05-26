@@ -329,7 +329,6 @@ export default function PassiveReader({ cards, subcategoryNodes, categoryId, onE
                   <ContentRenderer
                     className="prose prose-sm max-w-none card-prose"
                     doc={sec.contentDoc}
-                    html={sec.content || ""}
                   />
                 </section>
               ))}
