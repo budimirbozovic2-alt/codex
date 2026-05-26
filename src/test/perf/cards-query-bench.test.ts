@@ -1,12 +1,12 @@
-// Phase 0 bench — IDB liveQuery vs RAM filter for cardsByCategory.
+// Bench — indexed Dexie query vs RAM filter for cardsByCategory.
 //
-// Not a unit test of behavior; this is a perf gate that future phases use
-// to decide whether to flip USE_DB_LIVE_SELECTORS on. Runs under happy-dom
-// with fake-indexeddb (vitest setup), so absolute numbers are NOT
+// Not a unit test of behavior; perf gate to ensure the indexed read keeps
+// pace with an in-memory `.filter()` on the same dataset. Runs under
+// happy-dom with fake-indexeddb (vitest setup), so absolute numbers are NOT
 // production timings — they are ordinal comparisons. The bench passes when
-// the indexed Dexie query is within 2x of an in-memory `.filter()` on the
+// the indexed Dexie query is within 5x of an in-memory `.filter()` on the
 // same dataset, which is a strong signal that on real IDB (with native
-// b-trees) it will win.
+// b-trees) it will win comfortably.
 import "fake-indexeddb/auto";
 import { describe, it, expect, beforeAll } from "vitest";
 import { db } from "@/lib/db";
