@@ -25,12 +25,12 @@ describe("WriteResult", () => {
   it("wrapWrite maps QUOTA_EXCEEDED throws", async () => {
     const r = await wrapWrite<number>(() => { throw new Error("QUOTA_EXCEEDED"); });
     expect(r.ok).toBe(false);
-    if (!r.ok) expect(r.error.code).toBe("QUOTA_EXCEEDED");
+    expect((r as { ok: false; error: { code: string } }).error.code).toBe("QUOTA_EXCEEDED");
   });
 
   it("wrapWrite maps generic throws to PERSIST_FAILED", async () => {
     const r = await wrapWrite<number>(() => { throw new Error("boom"); });
     expect(r.ok).toBe(false);
-    if (!r.ok) expect(r.error.code).toBe("PERSIST_FAILED");
+    expect((r as { ok: false; error: { code: string } }).error.code).toBe("PERSIST_FAILED");
   });
 });
