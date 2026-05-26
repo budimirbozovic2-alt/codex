@@ -12,14 +12,9 @@ export enum SectionState {
 export interface Section {
   id: string;
   title: string;
-  /**
-   * @deprecated PR-7b: legacy HTML column. v22 destructive upgrade deletes
-   * this column from IDB when telemetry flag is healthy. Consumers should
-   * migrate to `deriveHtml(contentDoc)` / `derivePlainText(contentDoc)` from
-   * `@/lib/editor-v4/derived`. New writes MUST omit this field.
-   */
-  content?: string;
-  /** PR-7b: canonical AST. Required on all new writes. */
+  /** Canonical AST payload — required on all writes. Legacy `content` HTML
+   *  was removed in PR-7e M4. Derive HTML/plain text via
+   *  `@/lib/editor-v4/derived` when a string view is needed. */
   contentDoc: EditorDoc;
   state: SectionState;
   stability: number;

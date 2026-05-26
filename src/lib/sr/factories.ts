@@ -5,17 +5,11 @@ import { htmlToDoc } from "@/lib/editor-v4";
 
 const EMPTY_DOC: EditorDoc = { version: 4, content: { type: "doc", content: [] } };
 
-function ensureDoc(content: string, doc?: EditorDoc): EditorDoc {
-  if (doc && doc.version === 4) return doc;
-  if (!content || !content.trim()) return EMPTY_DOC;
-  return htmlToDoc(content);
-}
-
-export function createSection(title: string, content: string, contentDoc?: EditorDoc): Section {
+export function createSection(title: string, contentDoc: EditorDoc = EMPTY_DOC): Section {
   return {
     id: crypto.randomUUID(),
     title,
-    contentDoc: ensureDoc(content, contentDoc),
+    contentDoc: contentDoc && contentDoc.version === 4 ? contentDoc : EMPTY_DOC,
     state: SectionState.New,
     stability: 0,
     difficulty: 5,
@@ -29,11 +23,16 @@ export function createSection(title: string, content: string, contentDoc?: Edito
   };
 }
 
-export function createCard(question: string, sections: { title: string; content: string; contentDoc?: EditorDoc }[], categoryId: string, subcategoryId?: string): Card {
+export function createCard(
+  question: string,
+  sections: { title: string; contentDoc: EditorDoc }[],
+  categoryId: string,
+  subcategoryId?: string,
+): Card {
   return {
     id: crypto.randomUUID(),
     question,
-    sections: sections.map((s) => createSection(s.title, s.content, s.contentDoc)),
+    sections: sections.map((s) => createSection(s.title, s.contentDoc)),
     categoryId,
     subcategoryId: subcategoryId || "",
     createdAt: Date.now(),
@@ -46,7 +45,7 @@ export function createFlashCard(question: string, answer: string, categoryId: st
   return {
     id: crypto.randomUUID(),
     question,
-    sections: [createSection("Odgovor", answer)],
+    sections: [createSection("Odgovor", htmlToDoc(answer))],
     categoryId,
     subcategoryId: subcategoryId || "",
     createdAt: Date.now(),
