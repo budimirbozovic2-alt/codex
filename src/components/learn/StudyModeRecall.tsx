@@ -5,7 +5,7 @@ import { Card } from "@/lib/spaced-repetition";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { CardSelectionEditor } from "@/components/card-list/CardSelectionEditor";
-import { HighlightedSection, useKeyPartsMatcher } from "@/lib/highlight-key-parts";
+
 import SessionHeader from "./SessionHeader";
 import QuestionDots from "./QuestionDots";
 import GradeButtons from "./GradeButtons";
