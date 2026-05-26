@@ -123,10 +123,11 @@ export function useArticleDraft({ activeId, categoryId, setArticles }: Input): A
     // PR-7b: markdown derived ONCE here on flush, never on keystroke.
     const markdownDerived = deriveMarkdown(currentDraft.contentDoc);
 
+    // PR-7b: derived markdown is the canonical text-shape comparison; per-ref
+    // contentDoc equality would always fail across IDB round-trips.
     const dirty =
       titleClean !== fresh.title ||
-      markdownDerived !== fresh.content ||
-      currentDraft.contentDoc !== fresh.contentDoc ||
+      markdownDerived !== (fresh.content ?? "") ||
       !sameStringSet(currentDraft.linkedSourceIds, fresh.linkedSourceIds ?? []) ||
       !sameStringSet(tagsClean, fresh.tags ?? []) ||
       !sameStringSet(aliasesClean, fresh.aliases ?? []);
