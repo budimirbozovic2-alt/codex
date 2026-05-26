@@ -217,3 +217,18 @@ export function SmartSplitSummaryDialog({ source, onSmartSplitConfirm }: Props) 
     </Dialog>
   );
 }
+
+/** Inline editor seam — uncontrolled, seeded once per mount. PR-7e M2. */
+function ParentTitleEditor({ value, onChange }: { value: string; onChange: (html: string) => void }) {
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const initialDoc = useMemo(() => htmlToDoc(value ?? ""), []);
+  return (
+    <EditorV4
+      initialDoc={initialDoc}
+      onChange={(doc) => onChange(deriveHtml(doc))}
+      placeholder="Unesite naslov eseja..."
+      minimal
+    />
+  );
+}
+
