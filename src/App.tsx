@@ -133,6 +133,7 @@ const App = () => {
         </HashRouter>
       </div>
     </TooltipProvider>
+    </QueryClientProvider>
   );
 };
 
