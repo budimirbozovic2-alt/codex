@@ -62,7 +62,7 @@ describe("editor-v4 codec round-trip (cards)", () => {
 describe("useSectionEditor", () => {
   it("seeds contentDoc from editCard sections", () => {
     const card = {
-      ...createCard("Q", [{ title: "S1", content: "<p>legacy</p>" }], "cat-1"),
+      ...createCard("Q", [{ title: "S1", contentDoc: htmlToDoc("<p>legacy</p>") }], "cat-1"),
       type: "essay" as const,
     };
     const { result } = renderHook(() => useSectionEditor(card));
