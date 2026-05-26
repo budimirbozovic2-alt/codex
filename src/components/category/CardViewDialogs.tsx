@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect } from "react";
+import { htmlToDoc } from "@/lib/editor-v4";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -54,7 +55,7 @@ export function AddCardDialog({ open, onOpenChange, categoryId, addCard, addFlas
       if (mode === "flash") {
         addFlashCard(q, a, categoryId);
       } else {
-        addCard(q, [{ title: st, contentDoc: (await import("@/lib/editor-v4")).htmlToDoc(sc) }], categoryId);
+        addCard(q, [{ title: st, contentDoc: htmlToDoc(sc) }], categoryId);
       }
       toast.success("Kartica kreirana.");
     });

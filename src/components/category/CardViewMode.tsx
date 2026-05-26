@@ -25,7 +25,7 @@ interface Props {
   subcategoryNodes: SubcategoryNode[];
   patchCard: (id: string, fn: (c: Card) => Card) => void;
   setFrequency: (cardId: string, value: FrequencyTag | null) => void;
-  addCard: (question: string, sections: { title: string; content: string }[], category: string, subcategory?: string, chapter?: string) => Card;
+  addCard: (question: string, sections: { title: string; contentDoc: import("@/lib/editor-v4").EditorDoc }[], category: string, subcategory?: string, chapter?: string) => Card;
   addFlashCard: (question: string, answer: string, category: string, subcategory?: string) => Card;
   bulkAddFlashCards: (pairs: { question: string; answer: string }[], categoryId: string, subcategoryId?: string) => void;
   onDelete?: (id: string) => void;

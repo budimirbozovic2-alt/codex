@@ -62,7 +62,7 @@ describe("editor-v4 codec round-trip (cards)", () => {
 describe("useSectionEditor", () => {
   it("seeds contentDoc from editCard sections", () => {
     const card = {
-      ...createCard("Q", [{ title: "S1", content: "<p>legacy</p>" }], "cat-1"),
+      ...createCard("Q", [{ title: "S1", contentDoc: htmlToDoc("<p>legacy</p>") }], "cat-1"),
       type: "essay" as const,
     };
     const { result } = renderHook(() => useSectionEditor(card));
@@ -92,7 +92,7 @@ describe("useSectionEditor", () => {
 
   it("handleCut splits both content and contentDoc", () => {
     const card = {
-      ...createCard("Q", [{ title: "S1", content: "<p>a</p><p>b</p><p>c</p>" }], "cat-1"),
+      ...createCard("Q", [{ title: "S1", contentDoc: htmlToDoc("<p>a</p><p>b</p><p>c</p>") }], "cat-1"),
       type: "essay" as const,
     };
     // PR-7b: handleCut derives HTML from contentDoc when legacy `content` is absent.
@@ -111,7 +111,7 @@ describe("useSectionEditor", () => {
 describe("factories", () => {
   it("createSection forwards contentDoc", () => {
     const doc = htmlToDoc("<p>x</p>");
-    const s = createSection("title", "<p>x</p>", doc);
+    const s = createSection("title", doc);
     expect(s.contentDoc).toEqual(doc);
   });
 
@@ -119,7 +119,7 @@ describe("factories", () => {
     const doc = htmlToDoc("<p>y</p>");
     const card = createCard(
       "Q",
-      [{ title: "S1", content: "<p>y</p>", contentDoc: doc }],
+      [{ title: "S1", contentDoc: doc }],
       "cat-1",
     );
     expect(card.sections[0].contentDoc).toEqual(doc);

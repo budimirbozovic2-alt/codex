@@ -80,7 +80,7 @@ describe("Smart-Split — sections carry contentDoc", () => {
     expect(args).toHaveLength(2);
     for (const a of args) {
       expect(a.sections[0].contentDoc?.version).toBe(4);
-      expect(a.sections[0].content).toContain("<p>");
+      expect(a.sections[0].contentDoc).toBeTruthy();
     }
   });
 

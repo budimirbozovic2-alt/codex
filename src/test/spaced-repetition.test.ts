@@ -21,7 +21,7 @@ import {
 
 function makeSection(overrides: Partial<Section> = {}): Section {
   return {
-    ...createSection("Test", "Content"),
+    ...createSection("Test"),
     ...overrides,
   };
 }

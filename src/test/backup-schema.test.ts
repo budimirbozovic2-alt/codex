@@ -120,7 +120,7 @@ describe("BackupSchema", () => {
     });
     expect(result.success).toBe(true);
     if (result.success) {
-      const content = result.data.sections[0].content;
+      const content = (result.data.sections[0] as unknown as { content: string }).content;
       expect(content).not.toContain("onerror");
     }
   });
