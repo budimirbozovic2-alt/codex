@@ -24,7 +24,8 @@ import { sameStringSet } from "@/lib/struct-eq";
 import { backlinkIndex } from "@/lib/backlink-index";
 import type { ZettelEditorHandle } from "@/components/zettelkasten/ZettelEditor";
 import { usePersistedDraftMirror } from "@/hooks/usePersistedDraftMirror";
-import { htmlToDoc, docToMarkdown, type EditorDoc } from "@/lib/editor-v4";
+import { htmlToDoc, type EditorDoc } from "@/lib/editor-v4";
+import { deriveMarkdown } from "@/lib/editor-v4/derived";
 import { mdToHtml } from "@/lib/editor-v4/migrate";
 
 import { logger } from "@/lib/logger";
@@ -119,10 +120,13 @@ export function useArticleDraft({ activeId, categoryId, setArticles }: Input): A
     const titleClean = currentDraft.title.trim() || "Bez naslova";
     const tagsClean = normalizeTagList(currentDraft.tags);
     const aliasesClean = normalizeAliasList(currentDraft.aliases);
+    // PR-7b: markdown derived ONCE here on flush, never on keystroke.
+    const markdownDerived = deriveMarkdown(currentDraft.contentDoc);
 
     const dirty =
       titleClean !== fresh.title ||
-      currentDraft.content !== fresh.content ||
+      markdownDerived !== fresh.content ||
+      currentDraft.contentDoc !== fresh.contentDoc ||
       !sameStringSet(currentDraft.linkedSourceIds, fresh.linkedSourceIds ?? []) ||
       !sameStringSet(tagsClean, fresh.tags ?? []) ||
       !sameStringSet(aliasesClean, fresh.aliases ?? []);
@@ -131,7 +135,7 @@ export function useArticleDraft({ activeId, categoryId, setArticles }: Input): A
     const next: KnowledgeBaseArticle = {
       ...fresh,
       title: titleClean,
-      content: currentDraft.content,
+      content: markdownDerived,
       contentDoc: currentDraft.contentDoc,
       linkedSourceIds: currentDraft.linkedSourceIds,
       tags: tagsClean,
@@ -173,13 +177,11 @@ export function useArticleDraft({ activeId, categoryId, setArticles }: Input): A
   }, []);
 
   /**
-   * SSOT-respecting helper: update the AST and re-derive legacy markdown
-   * once, so wiki-link auto-create / backlink-index scans (which still read
-   * `content`) stay synchronized without each editor caller having to call
-   * `docToMarkdown` themselves.
+   * PR-7b: AST-only keystroke path. Legacy markdown is NOT derived per stroke;
+   * `flush()` computes it once via `deriveMarkdown` before persisting.
    */
   const updateDraftDoc = useCallback((doc: EditorDoc) => {
-    setDraft(prev => prev ? { ...prev, contentDoc: doc, content: docToMarkdown(doc) } : prev);
+    setDraft(prev => prev ? { ...prev, contentDoc: doc } : prev);
   }, []);
 
   const saveAndClose = useCallback(async () => {
