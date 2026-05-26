@@ -115,3 +115,34 @@ export function ModuleCard({
     </div>
   );
 }
+
+/**
+ * Inline editor seams — PR-7e M2. Each wraps `<EditorV4>` so the parent
+ * keeps its `(value, onChange)` HTML-string contract while the editor stays
+ * uncontrolled (seeded once per mount, identical to the deleted shim).
+ */
+function TitleEditor({ value, onChange, placeholder }: { value: string; onChange: (html: string) => void; placeholder?: string }) {
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const initialDoc = useMemo(() => htmlToDoc(value ?? ""), []);
+  return (
+    <EditorV4
+      initialDoc={initialDoc}
+      onChange={(doc) => onChange(deriveHtml(doc))}
+      placeholder={placeholder}
+      minimal
+    />
+  );
+}
+
+function BodyEditor({ value, onChange, placeholder }: { value: string; onChange: (html: string) => void; placeholder?: string }) {
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const initialDoc = useMemo(() => htmlToDoc(value ?? ""), []);
+  return (
+    <EditorV4
+      initialDoc={initialDoc}
+      onChange={(doc) => onChange(deriveHtml(doc))}
+      placeholder={placeholder}
+    />
+  );
+}
+
