@@ -1,121 +1,111 @@
-import { memo, useCallback, useEffect, useMemo, useRef } from "react";
-import { sanitizeHtml } from "@/lib/sanitize";
-import { SourceEditToolbar } from "./SourceEditToolbar";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { EditorV4 } from "@/components/editor-v4/EditorV4";
+import type { EditorV4Handle } from "@/components/editor-v4/EditorV4";
+import { htmlToDoc, type EditorDoc, type Editor } from "@/lib/editor-v4";
+import { persistSourceDoc } from "@/lib/services/sourceEditingService";
+import { taskScheduler } from "@/lib/scheduler";
+import { usePersistedDraftMirror } from "@/hooks/usePersistedDraftMirror";
+import type { Source } from "@/lib/sources-storage";
+import { cn } from "@/lib/utils";
 
 interface Props {
-  html: string;
-  onMouseUp: () => void;
-  contentRef: React.RefObject<HTMLDivElement>;
-  editMode?: boolean;
-  onFormat?: (command: string, value?: string) => void;
-  onInput?: () => void;
+  source: Source;
+  editMode: boolean;
+  onSourceUpdated?: (s: Source) => void;
+  /** Receives the TipTap editor instance so the parent can mount BubbleMenu. */
+  onEditorReady: (editor: Editor | null) => void;
 }
 
-export const SourceContent = memo(function SourceContent({
-  html, onMouseUp, contentRef, editMode, onFormat, onInput,
-}: Props) {
-  const initializedRef = useRef(false);
-  const safeHtml = useMemo(() => sanitizeHtml(html), [html]);
+/**
+ * In-place source viewer/editor backed by `<EditorV4>`.
+ *
+ * - `contentDoc` (AST) is SSOT — `htmlContent` is derived via `docToHtml`.
+ * - When `editMode === false`, the editor is read-only but TipTap still tracks
+ *   selection so the parent `<SourceBubbleMenu>` keeps working.
+ * - Autosave: 1s debounce via `taskScheduler`; drafts mirrored to IDB.
+ * - Heading anchor icons are re-applied as a post-render DOM enhancement on
+ *   the ProseMirror root so smooth-scroll navigation stays intact.
+ */
+export function SourceContent({ source, editMode, onSourceUpdated, onEditorReady }: Props) {
+  const initialDoc = useMemo<EditorDoc>(
+    () => source.contentDoc ?? htmlToDoc(source.htmlContent),
+    // Re-compute when underlying source identity flips; updates within the
+    // same source come through the editor itself.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [source.id],
+  );
 
-  const handleClick = useCallback((e: React.MouseEvent) => {
-    if (editMode) return;
-    const target = e.target as HTMLElement;
-    const heading = target.closest("h1, h2, h3");
-    if (heading && heading.id) {
-      heading.scrollIntoView({ behavior: "smooth", block: "start" });
-    }
-  }, [editMode]);
+  const editorRef = useRef<EditorV4Handle>(null);
+  const [draftJson, setDraftJson] = useState<string>(JSON.stringify(initialDoc));
 
-  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
-    if (!editMode) return;
-    if (e.ctrlKey || e.metaKey) {
-      if (e.key === "b") { e.preventDefault(); onFormat?.("bold"); }
-      else if (e.key === "i") { e.preventDefault(); onFormat?.("italic"); }
-      else if (e.key === "u") { e.preventDefault(); onFormat?.("underline"); }
-    }
-  }, [editMode, onFormat]);
+  // Debounced autosave — synchronous mutation snapshot, async persist.
+  const persistDebounced = useMemo(
+    () => taskScheduler.debounce(
+      async (doc: EditorDoc) => {
+        await persistSourceDoc(source, doc, onSourceUpdated);
+      },
+      1000,
+      { label: `sourceContent:${source.id}`, pauseWhenHidden: false },
+    ),
+    [source, onSourceUpdated],
+  );
 
-  const handlePaste = useCallback((e: React.ClipboardEvent) => {
-    if (!editMode) return;
-    // X1: strict MIME whitelist — exclude svg+xml (script vector)
-    const SAFE_IMAGE_MIME = new Set(["image/png", "image/jpeg", "image/gif", "image/webp"]);
-    const items = e.clipboardData?.items;
-    if (items) {
-      for (const item of Array.from(items)) {
-        if (SAFE_IMAGE_MIME.has(item.type)) {
-          e.preventDefault();
-          const file = item.getAsFile();
-          if (!file) return;
-          const reader = new FileReader();
-          reader.onload = () => {
-            document.execCommand("insertHTML", false, `<img src="${reader.result}" style="max-width:100%" />`);
-            onInput?.();
-          };
-          reader.readAsDataURL(file);
-          return;
-        }
-      }
-    }
-  }, [editMode, onInput]);
+  useEffect(() => () => { persistDebounced.cancel(); }, [persistDebounced]);
 
-  const enhanceHeadings = useCallback((node: HTMLDivElement | null) => {
-    if (!node) return;
-    (contentRef as React.MutableRefObject<HTMLDivElement>).current = node;
+  const handleChange = useCallback((doc: EditorDoc) => {
+    setDraftJson(JSON.stringify(doc));
+    persistDebounced(doc);
+  }, [persistDebounced]);
 
-    if (editMode) {
-      // In edit mode, set innerHTML only once (avoid cursor reset)
-      if (!initializedRef.current) {
-        node.innerHTML = safeHtml;
-        initializedRef.current = true;
-      }
-    } else {
-      initializedRef.current = false;
-    }
+  usePersistedDraftMirror({
+    key: `source:${source.id}`,
+    source: "source-html",
+    enabled: draftJson !== JSON.stringify(initialDoc),
+    payload: draftJson,
+  });
 
-    node.querySelectorAll("h1[id], h2[id], h3[id]").forEach(h => {
+  // Post-render heading anchor enhancement (kept for navigation UX parity).
+  useEffect(() => {
+    const root = document.querySelector(".source-content-host .ProseMirror");
+    if (!root) return;
+    root.querySelectorAll<HTMLElement>("h1[id], h2[id], h3[id]").forEach(h => {
       if (h.querySelector(".heading-link-icon")) return;
       const icon = document.createElement("span");
       icon.className = "heading-link-icon";
-      icon.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>`;
+      icon.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>';
       h.appendChild(icon);
     });
-  }, [contentRef, safeHtml, editMode]);
-
-  // Reset initialized flag when switching out of edit mode
-  useEffect(() => {
-    if (!editMode) initializedRef.current = false;
-  }, [editMode]);
-
-  const contentClass = `rounded-lg border bg-card p-6 prose prose-sm max-w-none
-    prose-headings:text-foreground prose-headings:cursor-pointer prose-headings:hover:text-primary prose-headings:transition-colors
-    prose-p:text-foreground/90
-    prose-strong:text-foreground prose-a:text-primary
-    prose-ul:text-foreground/90 prose-ol:text-foreground/90
-    prose-li:text-foreground/90
-    [&_h1[id]]:relative [&_h1[id]]:group [&_h2[id]]:relative [&_h2[id]]:group [&_h3[id]]:relative [&_h3[id]]:group
-    [&_.heading-link-icon]:inline-flex [&_.heading-link-icon]:items-center [&_.heading-link-icon]:ml-2
-    [&_.heading-link-icon]:text-muted-foreground/40 [&_.heading-link-icon]:opacity-0
-    [&_h1:hover_.heading-link-icon]:opacity-100 [&_h2:hover_.heading-link-icon]:opacity-100 [&_h3:hover_.heading-link-icon]:opacity-100
-    [&_.heading-link-icon]:transition-opacity [&_.heading-link-icon]:duration-200
-    ${editMode ? "outline-none ring-1 ring-primary/30 focus:ring-primary/60" : ""}`;
+  }, [draftJson]);
 
   return (
-    <div className="space-y-2">
-      {editMode && onFormat && (
-        <SourceEditToolbar onFormat={onFormat} />
-      )}
-      <div
-        ref={enhanceHeadings}
-        className={contentClass}
-        contentEditable={editMode}
-        suppressContentEditableWarning
-        onMouseUp={onMouseUp}
-        onClick={handleClick}
-        onKeyDown={handleKeyDown}
-        onPaste={handlePaste}
-        onInput={onInput}
-        {...(!editMode ? { dangerouslySetInnerHTML: { __html: safeHtml } } : {})}
+    <div className={cn(
+      "source-content-host space-y-2",
+      // Prose styling lives on the ProseMirror root.
+    )}>
+      <EditorV4
+        ref={editorRef}
+        initialDoc={initialDoc}
+        editable={editMode}
+        hideToolbar
+        onChange={handleChange}
+        onEditorReady={onEditorReady}
+        categoryId={source.categoryId}
+        embedKind="source"
+        className={cn(
+          "rounded-lg border bg-card p-6 prose prose-sm max-w-none",
+          "prose-headings:text-foreground prose-headings:cursor-pointer prose-headings:hover:text-primary prose-headings:transition-colors",
+          "prose-p:text-foreground prose-strong:text-foreground prose-a:text-primary",
+          "prose-ul:text-foreground prose-ol:text-foreground prose-li:text-foreground",
+          "[&_h1[id]]:relative [&_h1[id]]:group [&_h2[id]]:relative [&_h2[id]]:group [&_h3[id]]:relative [&_h3[id]]:group",
+          "[&_.heading-link-icon]:inline-flex [&_.heading-link-icon]:items-center [&_.heading-link-icon]:ml-2",
+          "[&_.heading-link-icon]:text-muted-foreground/40 [&_.heading-link-icon]:opacity-0",
+          "[&_h1:hover_.heading-link-icon]:opacity-100 [&_h2:hover_.heading-link-icon]:opacity-100 [&_h3:hover_.heading-link-icon]:opacity-100",
+          "[&_.heading-link-icon]:transition-opacity [&_.heading-link-icon]:duration-200",
+          editMode && "ring-1 ring-primary/30",
+        )}
       />
     </div>
   );
-});
+}
+
+export default SourceContent;
