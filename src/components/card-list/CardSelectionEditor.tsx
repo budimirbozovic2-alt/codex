@@ -24,10 +24,8 @@ interface CardMetadata {
 }
 
 interface Props extends CardMetadata {
-  /** Canonical AST (preferred). Falls back to `html` when missing. */
-  contentDoc?: EditorDoc | null;
-  /** Legacy HTML — used to seed the read-only editor when `contentDoc` is absent. */
-  html: string;
+  /** Canonical AST. Required since PR-7d. */
+  contentDoc: EditorDoc;
   className?: string;
   /**
    * Optional callback for "Ključni dio" toggle. When provided, the BubbleMenu
