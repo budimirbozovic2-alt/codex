@@ -4,6 +4,7 @@ import { Card, SRSettings } from "@/lib/spaced-repetition";
 import { setLastBackupTime } from "@/lib/storage";
 import type { CategoryRecord } from "@/lib/db-schema";
 import { streamBackup, tableSpec, type ProgressFn } from "@/lib/backup/export-stream";
+import { deriveHtml } from "@/lib/editor-v4/derived";
 
 const IPC_BASE64_LIMIT_MB = 50;
 const IPC_BYTES_LIMIT_MB = 500;

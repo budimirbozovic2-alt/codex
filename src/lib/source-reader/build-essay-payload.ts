@@ -35,7 +35,7 @@ function buildSectionDoc(html: string): EditorDoc | undefined {
 
 export interface AddCardArgs {
   question: string;
-  sections: { title: string; content: string; contentDoc?: EditorDoc }[];
+  sections: { title: string; contentDoc: EditorDoc }[];
   categoryId: string;
   subId?: string;
   chapId?: string;
@@ -53,7 +53,7 @@ function fromSeparatePlan(plan: SeparateCardPlan, source: Source, subId?: string
   const content = sanitizeHtml(plan.module.contentHtml);
   return {
     question: plan.question,
-    sections: [{ title: "Odgovor", content, contentDoc: buildSectionDoc(content) }],
+    sections: [{ title: "Odgovor", contentDoc: buildSectionDoc(content) ?? htmlToDoc(content) }],
     categoryId: source.categoryId,
     subId,
     chapId,
@@ -79,7 +79,7 @@ export function buildSeparateEssaysFromModules(
 function fromCombinedPlan(plan: CombinedCardPlan, source: Source, subId?: string, chapId?: string): AddCardArgs {
   const sections = plan.modules.map(({ question, module: mod }) => {
     const content = sanitizeHtml(mod.contentHtml);
-    return { title: question, content, contentDoc: buildSectionDoc(content) };
+    return { title: question, contentDoc: buildSectionDoc(content) ?? htmlToDoc(content) };
   });
   const sourceModules: SourceModule[] = plan.modules.map(({ question, module: mod }, index) => ({
     id: crypto.randomUUID(),
@@ -176,7 +176,7 @@ export function buildEssayFromSelection(
   return {
     args: {
       question: questionText,
-      sections: [{ title: "Odgovor", content: fallbackContent, contentDoc: buildSectionDoc(fallbackContent) }],
+      sections: [{ title: "Odgovor", contentDoc: buildSectionDoc(fallbackContent) ?? htmlToDoc(fallbackContent) }],
       categoryId: source.categoryId,
       options: {
         sourceId: source.id,

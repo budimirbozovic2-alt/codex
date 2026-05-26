@@ -17,6 +17,7 @@ import {
   EMPTY_HIERARCHY_ORDER,
 } from "@/lib/card-ordering";
 import { getCardMasteryLevel } from "@/lib/mastery";
+import { derivePlainText } from "@/lib/editor-v4/derived";
 import type { FrequencyFilterValue } from "@/components/category/CardViewFilterBar";
 
 export type FilterTypeValue = "all" | "essay" | "flash" | "mnemonic";
