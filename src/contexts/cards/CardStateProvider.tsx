@@ -7,11 +7,10 @@
 //
 // File path preserved for backwards-compat with the public re-exports.
 // ═══════════════════════════════════════════════════════════════════════════
-import { useMemo, useSyncExternalStore, type ReactNode } from "react";
+import { useMemo, type ReactNode } from "react";
 import { Card, SRSettings } from "@/lib/spaced-repetition";
 import { ReviewLogEntry } from "@/lib/storage";
-import { mapToArray, type CardMap } from "@/lib/persist-queue";
-import { cardMapStore } from "@/store";
+import { useCardsArray } from "@/store";
 import { useCategoryData } from "./CategoryStateProvider";
 import { useCardAggregates } from "./useCardAggregates";
 import {
@@ -22,23 +21,11 @@ import {
 } from "@/store/reviewSettingsStore";
 import { useBootState } from "@/contexts/boot/BootStateProvider";
 
-// ─── Cards array selector — cached by cardMap reference ─────────────────
-let _cardsCacheMap: CardMap | null = null;
-let _cardsCacheArr: Card[] = [];
-function getCardsArray(): Card[] {
-  const map = cardMapStore.getState().cardMap;
-  if (map === _cardsCacheMap) return _cardsCacheArr;
-  _cardsCacheMap = map;
-  _cardsCacheArr = mapToArray(map);
-  return _cardsCacheArr;
-}
-
+// PR-7d M3.1: cards array selector lives in useCardMapStore (`useCardsArray`).
+// The two dual caches (persist-queue `_mapVersion`/`_cachedArray` and the
+// local `_cardsCacheMap`/`_cardsCacheArr` here) have been consolidated.
 function useCards(): Card[] {
-  return useSyncExternalStore(
-    cardMapStore.subscribe,
-    getCardsArray,
-    getCardsArray,
-  );
+  return useCardsArray();
 }
 
 // ─── Public read hooks ──────────────────────────────────────────────────

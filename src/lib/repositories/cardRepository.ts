@@ -12,7 +12,6 @@ import type { Card } from "@/lib/spaced-repetition";
 import { invalidateCoverageCache } from "@/lib/coverage-analysis";
 import { sameSourceModules } from "@/lib/struct-eq";
 import {
-  bumpMapVersion,
   schedulePersist,
   persistQueue,
   type CardMap,
