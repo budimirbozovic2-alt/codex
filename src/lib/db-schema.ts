@@ -360,8 +360,41 @@ class MemoriaDB extends Dexie {
     // Backfill je LAZY (vidi `src/lib/editor-v4/lazy-migrate.ts`) — upgrade
     // hook ne dira postojeće rekorde i ne kompromituje boot performanse.
     this.version(21).stores({});
+
+    // v22 — PR-7c · destructive cleanup of legacy text columns.
+    // Gated by preflight telemetry (`v4_telemetry_healthy=true` in localStorage),
+    // which is set ONLY after lazy-migration reaches 100% AND a forced backup
+    // succeeds. If the flag is missing, the upgrade hook bails (early return)
+    // and the legacy columns survive untouched — the next boot retries
+    // preflight. This guarantees we never drop data from unmigrated rows.
+    this.version(22).stores({}).upgrade(async tx => {
+      let healthy = false;
+      try {
+        healthy = typeof localStorage !== "undefined"
+          && localStorage.getItem("v4_telemetry_healthy") === "true";
+      } catch { /* localStorage unavailable in some envs */ }
+      if (!healthy) {
+        logger.warn("[MemoriaDB v22] preflight not healthy — skipping destructive cleanup");
+        return;
+      }
+      // Strip legacy HTML/markdown columns now that AST is SSOT.
+      await tx.table("cards").toCollection().modify((c: { sections?: Array<{ content?: unknown }> }) => {
+        if (!Array.isArray(c.sections)) return;
+        for (const s of c.sections) {
+          if (s && "content" in s) delete s.content;
+        }
+      });
+      await tx.table("sources").toCollection().modify((s: { htmlContent?: unknown }) => {
+        if (s && "htmlContent" in s) delete s.htmlContent;
+      });
+      await tx.table("knowledgeBaseArticles").toCollection().modify((a: { content?: unknown }) => {
+        if (a && "content" in a) delete a.content;
+      });
+      logger.log("[MemoriaDB v22] legacy text columns dropped");
+    });
   }
 }
+
 
 export const db = new MemoriaDB();
 
