@@ -1,6 +1,9 @@
+import { useMemo } from "react";
 import { ChevronDown, ChevronUp, Scissors, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import RichTextEditorV4 from "@/components/editor-v4/RichTextEditorV4";
+import { EditorV4 } from "@/components/editor-v4/EditorV4";
+import { htmlToDoc } from "@/lib/editor-v4";
+import { deriveHtml } from "@/lib/editor-v4/derived";
 import { cn } from "@/lib/utils";
 import { htmlToPlain, splitHtmlIntoBlocks, type SelectionModule } from "@/lib/selection-split-engine";
 import type { defaultEdit } from "@/lib/split-wizard-build";
