@@ -193,7 +193,9 @@ export const EditorV4 = forwardRef<EditorV4Handle, EditorV4Props>(function Edito
 
   return (
     <div className="space-y-1.5">
+      {!hideToolbar && (
       <div className="flex items-center gap-0.5 px-1 flex-wrap">
+
         {buttons.map((b) => (
           <button
             key={b.title}
