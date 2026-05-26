@@ -12,7 +12,6 @@ import type { Card } from "@/lib/spaced-repetition";
 import { invalidateCoverageCache } from "@/lib/coverage-analysis";
 import { sameSourceModules } from "@/lib/struct-eq";
 import {
-  bumpMapVersion,
   schedulePersist,
   persistQueue,
   type CardMap,
@@ -38,7 +37,6 @@ export function snapshot(): CardMap {
 function commitSingle(card: Card): void {
   schedulePersist({ type: "put", card });
   setCardMap((prev) => ({ ...prev, [card.id]: card }));
-  bumpMapVersion();
 }
 
 function commitBulk(cards: Card[]): void {
@@ -49,7 +47,6 @@ function commitBulk(cards: Card[]): void {
     for (const c of cards) next[c.id] = c;
     return next;
   });
-  bumpMapVersion();
 }
 
 function commitDelete(id: string): void {
@@ -60,7 +57,6 @@ function commitDelete(id: string): void {
     delete next[id];
     return next;
   });
-  bumpMapVersion();
 }
 
 // ─── Write primitives ─────────────────────────────────────────────────────
@@ -171,13 +167,11 @@ export function applySyncDelta(rows: Card[], deletedIds: string[]): void {
     for (const id of deletedIds) delete next[id];
     return next;
   });
-  bumpMapVersion();
 }
 
 /** Replace the entire cardMap atom. Bootstrap / restore only. */
 export function replaceAll(map: CardMap): void {
   setCardMap({ ...map });
-  bumpMapVersion();
 }
 
 // ─── External-invalidation helper ─────────────────────────────────────────

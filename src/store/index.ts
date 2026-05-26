@@ -11,6 +11,7 @@
 export {
   cardMapStore,
   useCardMap,
+  useCardsArray,
   getCardMap,
   replaceCardMap,
   setCardMap,
