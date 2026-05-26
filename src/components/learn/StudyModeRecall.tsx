@@ -151,7 +151,6 @@ export default function StudyModeRecall({
                         keyParts={card.keyParts}
                         categoryId={card.categoryId}
                         contentDoc={section.contentDoc}
-                        html={section.content}
                         className="text-sm leading-relaxed prose prose-sm max-w-none card-prose"
                         onMarkKeyPart={onAddKeyPart ? (text: string) => onAddKeyPart(card.id, text) : undefined}
                       />
@@ -202,7 +201,6 @@ export default function StudyModeRecall({
                         keyParts={card.keyParts}
                         categoryId={card.categoryId}
                         contentDoc={section.contentDoc}
-                        html={section.content}
                         className="text-sm leading-relaxed prose prose-sm max-w-none card-prose"
                         onMarkKeyPart={onAddKeyPart ? (text: string) => onAddKeyPart(card.id, text) : undefined}
                       />

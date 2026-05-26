@@ -161,7 +161,6 @@ const CardRow = memo(function CardRow({
                     keyParts={card.keyParts}
                     categoryId={card.categoryId}
                     contentDoc={s.contentDoc}
-                    html={s.content}
                     className="text-sm text-muted-foreground card-prose"
                     onMarkKeyPart={onAddKeyPart ? (text: string) => onAddKeyPart(card.id, text) : undefined}
                   />
