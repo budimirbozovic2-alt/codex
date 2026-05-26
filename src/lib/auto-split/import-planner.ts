@@ -136,7 +136,8 @@ export function buildImportPlan(
       toCreate.push(card);
     } else {
       const art = row.articles[0];
-      const sections = [{ title: "Odgovor", content: sanitizeHtml(art.contentHtml) }];
+      const sectionHtml = sanitizeHtml(art.contentHtml);
+      const sections = [{ title: "Odgovor", content: sectionHtml, contentDoc: htmlToDoc(sectionHtml) }];
       const anchor = createTextAnchor(art.plainSnippet);
       if (row.status === "exists" && row.existingCardId) {
         toUpdate.push({
