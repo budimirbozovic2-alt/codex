@@ -1,40 +1,20 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// Phase 1 + Phase 2 — Granular card selectors.
+// PR-7e M1 — RAM-only granular card selectors (single source of truth).
 //
-// Phase 1 shipped RAM-only selectors over `cardMapStore`. Phase 2 adds Dexie
-// liveQuery siblings in `useCardSelectorsFromDb.ts` and routes both through a
-// hybrid façade controlled by the `USE_DB_LIVE_SELECTORS` flag.
+// Phase 1 + Phase 2 dual-read façade dismantled. Selectors read from
+// `cardMapStore` directly. The Dexie liveQuery siblings + diff harness are
+// gone — RAM is committed SSOT now that the Ref-Delta persistence model in
+// `cardRepository` keeps the map synchronously consistent with IDB writes.
 //
-//   ┌── caller (View component) ─────────────────────────────────────┐
-//   │  useCardsByCategory(id)   ← FAÇADE (this file)                 │
-//   │       │                                                         │
-//   │       ├── useCardsByCategoryRam(id)   (cardMapStore subscriber) │
-//   │       └── useCardsByCategoryFromDb(id) (Dexie liveQuery)        │
-//   │                                                                 │
-//   │  Both hooks always run (stable hook order). Return value is     │
-//   │  chosen by `isFeatureEnabled("USE_DB_LIVE_SELECTORS")`, which   │
-//   │  is snapshot-stable for the session. In DEV, divergences are    │
-//   │  diffed and logged once per (selector, key) to surface drift    │
-//   │  during the dual-read validation window.                        │
-//   └─────────────────────────────────────────────────────────────────┘
-//
-// Rules of Hooks: the flag is read ONCE per session (snapshot in
-// `feature-flags.ts`), so the conditional return below is safe — hook order
-// across renders is stable.
+// Indexed Dexie helpers (`cardsByCategory`, etc.) still exist in
+// `@/lib/db/queries/cards` for bootstrap loaders and the `useCardsBySource`
+// granular selector — only the React-hook fan-out over `liveQuery` was
+// removed.
 // ─────────────────────────────────────────────────────────────────────────────
-import { useSyncExternalStore, useRef, useEffect } from "react";
+import { useSyncExternalStore, useRef } from "react";
 import { cardMapStore } from "./useCardMapStore";
 import type { Card } from "@/lib/spaced-repetition";
 import type { CardMap } from "@/lib/persist-queue";
-import { isFeatureEnabled } from "@/lib/feature-flags";
-import {
-  useCardsByCategoryFromDb,
-  useCardsBySubcategoryFromDb,
-  useCardsByChapterFromDb,
-  useCardCountByCategoryFromDb,
-  useCardByIdFromDb,
-} from "./useCardSelectorsFromDb";
-import { logger } from "@/lib/logger";
 
 const EMPTY: readonly Card[] = Object.freeze([]);
 
@@ -76,7 +56,7 @@ function createCardSetSelector<K>(
 
         // Shallow-equal vs last result — if every matched card reference is
         // unchanged AND the key is unchanged, return prior array to suppress
-        // re-render in pure-rerender scenarios (BroadcastChannel sync, etc).
+        // re-render in pure-rerender scenarios.
         const prev = cache.current.result;
         const same =
           keyEq(cache.current.key, key) &&
@@ -92,7 +72,7 @@ function createCardSetSelector<K>(
   };
 }
 
-// ── Phase 1 — RAM selectors (still used as the fallback path) ──────────────
+// ── RAM selectors (public — single implementation) ────────────────────────
 
 export const useCardsByCategoryRam = createCardSetSelector<string>(
   (c, id) => c.categoryId === id,
@@ -129,95 +109,33 @@ export function useCardByIdRam(id: string | undefined | null): Card | null {
   );
 }
 
-// ── Phase 2 — dual-read diff logger (DEV only) ─────────────────────────────
-
-const DEV = Boolean(import.meta.env?.DEV);
-const _loggedDivergence = new Set<string>();
-
-function logDivergenceOnce(
-  selector: string,
-  key: string,
-  ramLen: number,
-  dbLen: number,
-): void {
-  if (!DEV) return;
-  const tag = `${selector}:${key}:${ramLen}/${dbLen}`;
-  if (_loggedDivergence.has(tag)) return;
-  _loggedDivergence.add(tag);
-  logger.warn(
-    `[phase2-diff] ${selector}(${key}) RAM=${ramLen} IDB=${dbLen} — investigate drift`,
-  );
-}
-
-function useDualReadDiff(
-  selector: string,
-  key: string | undefined | null,
-  ram: readonly Card[],
-  db: readonly Card[],
-): void {
-  useEffect(() => {
-    if (!DEV || !key) return;
-    if (ram.length !== db.length) {
-      logDivergenceOnce(selector, key, ram.length, db.length);
-      return;
-    }
-    // Shallow id-set comparison (cheap, no allocations beyond the Set).
-    const ramIds = new Set(ram.map((c) => c.id));
-    let mismatched = 0;
-    for (const c of db) if (!ramIds.has(c.id)) mismatched++;
-    if (mismatched > 0) logDivergenceOnce(selector, key, ram.length, db.length);
-  }, [selector, key, ram, db]);
-}
-
-// ── Phase 2 — Hybrid façades (PUBLIC API) ──────────────────────────────────
+// ── PUBLIC API — un-suffixed names retained for view code. ────────────────
 //
-// Both underlying hooks run on every render so hook order stays stable. The
-// flag — snapshot-stable per session — selects which result is returned.
-
-const USE_DB = isFeatureEnabled("USE_DB_LIVE_SELECTORS");
+// These were façades during the dual-read window (PR-7d). Now they are
+// thin re-exports so existing imports keep compiling without churn.
 
 export function useCardsByCategory(categoryId: string | undefined): readonly Card[] {
-  const ram = useCardsByCategoryRam(categoryId);
-  const db = useCardsByCategoryFromDb(categoryId);
-  useDualReadDiff("useCardsByCategory", categoryId, ram, db);
-  return USE_DB ? db : ram;
+  return useCardsByCategoryRam(categoryId);
 }
 
 export function useCardsBySubcategory(
   subcategoryId: string | undefined,
-  categoryId?: string,
+  _categoryId?: string,
 ): readonly Card[] {
-  const ram = useCardsBySubcategoryRam(subcategoryId);
-  const db = useCardsBySubcategoryFromDb(subcategoryId, categoryId);
-  useDualReadDiff("useCardsBySubcategory", subcategoryId, ram, db);
-  return USE_DB ? db : ram;
+  return useCardsBySubcategoryRam(subcategoryId);
 }
 
 export function useCardsByChapter(
   chapterId: string | undefined,
-  categoryId?: string,
+  _categoryId?: string,
 ): readonly Card[] {
-  const ram = useCardsByChapterRam(chapterId);
-  const db = useCardsByChapterFromDb(chapterId, categoryId);
-  useDualReadDiff("useCardsByChapter", chapterId, ram, db);
-  return USE_DB ? db : ram;
+  return useCardsByChapterRam(chapterId);
 }
 
 export function useCardCountByCategory(categoryId: string | undefined): number {
-  const ram = useCardCountByCategoryRam(categoryId);
-  const db = useCardCountByCategoryFromDb(categoryId);
-  // Cheap primitive diff — no useEffect needed.
-  if (DEV && categoryId && ram !== db) {
-    logDivergenceOnce("useCardCountByCategory", categoryId, ram, db);
-  }
-  return USE_DB ? db : ram;
+  return useCardCountByCategoryRam(categoryId);
 }
 
 export function useCardById(id: string | undefined | null): Card | null {
-  const ram = useCardByIdRam(id);
-  const db = useCardByIdFromDb(id);
-  if (DEV && id && ram && db && ram.id !== db.id) {
-    logDivergenceOnce("useCardById", id, ram ? 1 : 0, db ? 1 : 0);
-  }
-  return USE_DB ? db : ram;
+  return useCardByIdRam(id);
 }
