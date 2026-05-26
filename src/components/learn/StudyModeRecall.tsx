@@ -4,8 +4,8 @@ import { taskScheduler } from "@/lib/scheduler";
 import { Card } from "@/lib/spaced-repetition";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
-import TextSelectionTooltip from "@/components/TextSelectionTooltip";
-import { HighlightedSection, useKeyPartsMatcher } from "@/lib/highlight-key-parts";
+import { CardSelectionEditor } from "@/components/card-list/CardSelectionEditor";
+
 import SessionHeader from "./SessionHeader";
 import QuestionDots from "./QuestionDots";
 import GradeButtons from "./GradeButtons";
@@ -48,8 +48,6 @@ export default function StudyModeRecall({
   strictRecall = false,
 }: Props) {
   const [phase, setPhase] = useState<RecallPhase>("open");
-  // Phase C / P2-1: compile keypart matcher once per card, share across sections.
-  const keyPartsMatcher = useKeyPartsMatcher(card.keyParts);
   const [leechCount, setLeechCount] = useState(0);
 
   const sections = card.sections ?? [];
@@ -139,22 +137,32 @@ export default function StudyModeRecall({
 
           {!isCompleted && phase === "open" && (
             <>
-              <TextSelectionTooltip cardId={card.id} question={card.question} category={card.categoryId} subcategoryId={card.subcategoryId} tags={card.tags} keyParts={card.keyParts} onMarkKeyPart={onAddKeyPart ? (text: string) => onAddKeyPart(card.id, text) : undefined}>
-                <div className="space-y-3">
-                  {sections.length > 0 ? (
-                    sections.map(section => (
-                      <div key={section.id} className="rounded-xl border bg-card p-4">
-                        <p className="font-medium text-sm mb-2">{section.title}</p>
-                        <HighlightedSection content={section.content} keyParts={card.keyParts} className="text-sm leading-relaxed whitespace-pre-wrap prose prose-sm max-w-none card-prose" />
-                      </div>
-                    ))
-                  ) : (
-                    <div className="rounded-xl border bg-card p-4 text-sm text-muted-foreground italic">
-                      Nema dostupnog sadržaja odgovora.
+              <div className="space-y-3">
+                {sections.length > 0 ? (
+                  sections.map(section => (
+                    <div key={section.id} className="rounded-xl border bg-card p-4">
+                      <p className="font-medium text-sm mb-2">{section.title}</p>
+                      <CardSelectionEditor
+                        cardId={card.id}
+                        question={card.question}
+                        category={card.categoryId}
+                        subcategoryId={card.subcategoryId}
+                        tags={card.tags}
+                        keyParts={card.keyParts}
+                        categoryId={card.categoryId}
+                        contentDoc={section.contentDoc}
+                        html={section.content}
+                        className="text-sm leading-relaxed prose prose-sm max-w-none card-prose"
+                        onMarkKeyPart={onAddKeyPart ? (text: string) => onAddKeyPart(card.id, text) : undefined}
+                      />
                     </div>
-                  )}
-                </div>
-              </TextSelectionTooltip>
+                  ))
+                ) : (
+                  <div className="rounded-xl border bg-card p-4 text-sm text-muted-foreground italic">
+                    Nema dostupnog sadržaja odgovora.
+                  </div>
+                )}
+              </div>
               <div className="rounded-xl border bg-card p-6 space-y-3 text-center">
                 <p className="text-sm text-muted-foreground">
                   Pažljivo pročitaj pitanje i odgovor. Kada budeš spreman, potvrdi i pokušaj odgovor reprodukovati iz sjećanja.
@@ -180,22 +188,32 @@ export default function StudyModeRecall({
 
           {!isCompleted && phase === "reveal" && (
             <>
-              <TextSelectionTooltip cardId={card.id} question={card.question} category={card.categoryId} subcategoryId={card.subcategoryId} tags={card.tags} keyParts={card.keyParts} onMarkKeyPart={onAddKeyPart ? (text: string) => onAddKeyPart(card.id, text) : undefined}>
-                <div className="space-y-3">
-                  {sections.length > 0 ? (
-                    sections.map(section => (
-                      <div key={section.id} className="rounded-xl border bg-card p-4">
-                        <p className="font-medium text-sm mb-2">{section.title}</p>
-                        <HighlightedSection content={section.content} keyParts={card.keyParts} className="text-sm leading-relaxed whitespace-pre-wrap prose prose-sm max-w-none card-prose" />
-                      </div>
-                    ))
-                  ) : (
-                    <div className="rounded-xl border bg-card p-4 text-sm text-muted-foreground italic">
-                      Nema dostupnog sadržaja odgovora.
+              <div className="space-y-3">
+                {sections.length > 0 ? (
+                  sections.map(section => (
+                    <div key={section.id} className="rounded-xl border bg-card p-4">
+                      <p className="font-medium text-sm mb-2">{section.title}</p>
+                      <CardSelectionEditor
+                        cardId={card.id}
+                        question={card.question}
+                        category={card.categoryId}
+                        subcategoryId={card.subcategoryId}
+                        tags={card.tags}
+                        keyParts={card.keyParts}
+                        categoryId={card.categoryId}
+                        contentDoc={section.contentDoc}
+                        html={section.content}
+                        className="text-sm leading-relaxed prose prose-sm max-w-none card-prose"
+                        onMarkKeyPart={onAddKeyPart ? (text: string) => onAddKeyPart(card.id, text) : undefined}
+                      />
                     </div>
-                  )}
-                </div>
-              </TextSelectionTooltip>
+                  ))
+                ) : (
+                  <div className="rounded-xl border bg-card p-4 text-sm text-muted-foreground italic">
+                    Nema dostupnog sadržaja odgovora.
+                  </div>
+                )}
+              </div>
               <div className="rounded-xl border bg-card p-4">
                 <GradeButtons onGrade={handleGrade} hint="Ocijeni koliko si dobro znao odgovor (4 = napredak na sljedeću)" />
               </div>
