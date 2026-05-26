@@ -123,43 +123,55 @@ const CardRow = memo(function CardRow({
       )}
 
       {expanded && (
-        <TextSelectionTooltip cardId={card.id} question={card.question} category={card.categoryId} subcategoryId={card.subcategoryId} tags={card.tags} keyParts={card.keyParts} onMarkKeyPart={onAddKeyPart ? (text: string) => onAddKeyPart(card.id, text) : undefined}>
-          <div className="px-5 pb-5 space-y-3 border-t pt-4 max-h-[60vh] overflow-y-auto">
-            {isFlash ? (
-              <ContentRenderer
-                className="text-sm text-muted-foreground card-prose"
-                doc={card.sections[0]?.contentDoc}
-                html={card.sections[0]?.content || ""}
-                highlight={{ keyParts: card.keyParts }}
-              />
-            ) : (
-              card.sections.map(s => {
-                const sScore = getSectionScore(s);
-                const sRetention = getRetrievability(s);
-                return (
-                  <div key={s.id} className="space-y-1.5">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium">{s.title}</span>
-                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                        <ScoreBadge score={sScore} />
-                        <RetentionBadge retention={sRetention} />
-                        <span>S: {s.stability?.toFixed(1) ?? 0}d</span>
-                        <span>Sljedeće: {format(new Date(s.nextReview), "dd.MM")}</span>
-                      </div>
+        <div className="px-5 pb-5 space-y-3 border-t pt-4 max-h-[60vh] overflow-y-auto">
+          {isFlash ? (
+            <CardSelectionEditor
+              cardId={card.id}
+              question={card.question}
+              category={card.categoryId}
+              subcategoryId={card.subcategoryId}
+              tags={card.tags}
+              keyParts={card.keyParts}
+              categoryId={card.categoryId}
+              contentDoc={card.sections[0]?.contentDoc}
+              html={card.sections[0]?.content || ""}
+              className="text-sm text-muted-foreground card-prose"
+              onMarkKeyPart={onAddKeyPart ? (text: string) => onAddKeyPart(card.id, text) : undefined}
+            />
+          ) : (
+            card.sections.map(s => {
+              const sScore = getSectionScore(s);
+              const sRetention = getRetrievability(s);
+              return (
+                <div key={s.id} className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium">{s.title}</span>
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <ScoreBadge score={sScore} />
+                      <RetentionBadge retention={sRetention} />
+                      <span>S: {s.stability?.toFixed(1) ?? 0}d</span>
+                      <span>Sljedeće: {format(new Date(s.nextReview), "dd.MM")}</span>
                     </div>
-                    <SectionBar score={sScore} />
-                    <ContentRenderer
-                      className="text-sm text-muted-foreground line-clamp-2 card-prose"
-                      doc={s.contentDoc}
-                      html={s.content}
-                      highlight={{ keyParts: card.keyParts }}
-                    />
                   </div>
-                );
-              })
-            )}
-          </div>
-        </TextSelectionTooltip>
+                  <SectionBar score={sScore} />
+                  <CardSelectionEditor
+                    cardId={card.id}
+                    question={card.question}
+                    category={card.categoryId}
+                    subcategoryId={card.subcategoryId}
+                    tags={card.tags}
+                    keyParts={card.keyParts}
+                    categoryId={card.categoryId}
+                    contentDoc={s.contentDoc}
+                    html={s.content}
+                    className="text-sm text-muted-foreground card-prose"
+                    onMarkKeyPart={onAddKeyPart ? (text: string) => onAddKeyPart(card.id, text) : undefined}
+                  />
+                </div>
+              );
+            })
+          )}
+        </div>
       )}
     </div>
   );
