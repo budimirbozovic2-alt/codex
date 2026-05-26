@@ -13,6 +13,7 @@ const SUBJECT = "subj-aliases";
 function art(id: string, title: string, content = "", aliases?: string[]): KnowledgeBaseArticle {
   return {
     id, subjectId: SUBJECT, title, content,
+    contentDoc: { version: 4, content: { type: "doc", content: [] } },
     linkedSourceIds: [], aliases,
     createdAt: 0, updatedAt: 0,
   };

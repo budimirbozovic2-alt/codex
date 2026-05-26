@@ -89,9 +89,14 @@ export interface Source {
   categoryId: string;
   title: string;
   date: string;
-  htmlContent: string;
-  /** V4 canonical AST — lazily populated by `ensureSourceDoc` (PR-3, additive). */
-  contentDoc?: EditorDoc;
+  /**
+   * @deprecated PR-7b: legacy HTML column. v22 destructive upgrade deletes
+   * this from IDB when telemetry is healthy. Migrate consumers to
+   * `deriveHtml(source.contentDoc)`.
+   */
+  htmlContent?: string;
+  /** PR-7b: canonical AST. Required on all new writes. */
+  contentDoc: EditorDoc;
   outline: { id: string; text: string; level: number }[];
   articles: SourceArticle[];
   version: number;
@@ -156,9 +161,15 @@ export interface KnowledgeBaseArticle {
   id: string;
   subjectId: string;          // === categoryId
   title: string;
-  content: string;            // markdown (legacy SSOT during PR-3)
-  /** V4 canonical AST — lazily populated by `ensureArticleDoc` (PR-3, additive). */
-  contentDoc?: EditorDoc;
+  /**
+   * @deprecated PR-7b: legacy markdown column. v22 destructive upgrade
+   * deletes this from IDB when telemetry is healthy. Migrate consumers to
+   * `deriveMarkdown(article.contentDoc)` / `derivePlainText(article.contentDoc)`
+   * and backlink-index to AST-walking via `iterateWikiLinksFromDoc`.
+   */
+  content?: string;
+  /** PR-7b: canonical AST. Required on all new writes. */
+  contentDoc: EditorDoc;
   linkedSourceIds: string[];
   rootSubcategoryId?: string;
   /** True for the per-subject "Index" article (entry-point). Cannot be deleted. */

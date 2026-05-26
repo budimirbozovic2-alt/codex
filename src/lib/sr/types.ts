@@ -12,13 +12,15 @@ export enum SectionState {
 export interface Section {
   id: string;
   title: string;
-  content: string;
   /**
-   * V4 canonical AST (editor-v4). Optional during PR-3 (additive); populated
-   * lazily by `ensureCardDoc` on load. Renderer still consumes `content`
-   * (legacy HTML) until PR-4 flips the read path.
+   * @deprecated PR-7b: legacy HTML column. v22 destructive upgrade deletes
+   * this column from IDB when telemetry flag is healthy. Consumers should
+   * migrate to `deriveHtml(contentDoc)` / `derivePlainText(contentDoc)` from
+   * `@/lib/editor-v4/derived`. New writes MUST omit this field.
    */
-  contentDoc?: EditorDoc;
+  content?: string;
+  /** PR-7b: canonical AST. Required on all new writes. */
+  contentDoc: EditorDoc;
   state: SectionState;
   stability: number;
   difficulty: number;

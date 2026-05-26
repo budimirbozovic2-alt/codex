@@ -1,12 +1,21 @@
 // Builder/factory functions for Section, Card, and FlashCard.
 import { Section, SectionState, Card, ErrorLogEntry, ErrorStatus } from "./types";
 import type { EditorDoc } from "@/lib/editor-v4/types";
+import { htmlToDoc } from "@/lib/editor-v4";
+
+const EMPTY_DOC: EditorDoc = { version: 4, content: { type: "doc", content: [] } };
+
+function ensureDoc(content: string, doc?: EditorDoc): EditorDoc {
+  if (doc && doc.version === 4) return doc;
+  if (!content || !content.trim()) return EMPTY_DOC;
+  return htmlToDoc(content);
+}
 
 export function createSection(title: string, content: string, contentDoc?: EditorDoc): Section {
-  const base: Section = {
+  return {
     id: crypto.randomUUID(),
     title,
-    content,
+    contentDoc: ensureDoc(content, contentDoc),
     state: SectionState.New,
     stability: 0,
     difficulty: 5,
@@ -18,8 +27,6 @@ export function createSection(title: string, content: string, contentDoc?: Edito
     scheduledDays: 0,
     firstReviewPending: false,
   };
-  if (contentDoc) base.contentDoc = contentDoc;
-  return base;
 }
 
 export function createCard(question: string, sections: { title: string; content: string; contentDoc?: EditorDoc }[], categoryId: string, subcategoryId?: string): Card {

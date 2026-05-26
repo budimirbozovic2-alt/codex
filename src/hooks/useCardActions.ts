@@ -6,7 +6,8 @@ import type { CardDraftSnapshot } from "./useCardDraftAutosave";
 import { useSectionEditor } from "./card-actions/useSectionEditor";
 import { useCardMetadata } from "./card-actions/useCardMetadata";
 import { useCardDraft } from "./card-actions/useCardDraft";
-import { validate, parseHtmlToParagraphs } from "./card-actions/validation";
+import { validate, parseHtmlToParagraphs, type SectionInput } from "./card-actions/validation";
+import { htmlToDoc } from "@/lib/editor-v4";
 
 // Re-exports for back-compat with existing consumers.
 export type { SectionInput, CardType, FormWidth, ValidationErrors } from "./card-actions/validation";
@@ -17,11 +18,11 @@ interface UseCardActionsProps {
   subcategories: Record<string, string[]>;
   categoryRecords?: CategoryRecord[];
   editCard?: Card | null;
-  onSave: (question: string, sections: { title: string; content: string }[], categoryId: string, subcategoryId?: string, chapterId?: string) => void;
+  onSave: (question: string, sections: SectionInput[], categoryId: string, subcategoryId?: string, chapterId?: string) => void;
   onSaveFlash: (question: string, answer: string, categoryId: string, subcategoryId?: string) => void;
   onUpdate?: (id: string, updates: {
     question?: string;
-    sections?: { title: string; content: string }[];
+    sections?: SectionInput[];
     categoryId?: string;
     subcategoryId?: string;
     chapterId?: string;
@@ -53,7 +54,7 @@ export function useCardActions({ categories, categoryRecords, editCard, onSave, 
     editor.setCardType(d.cardType);
     editor.setQuestion(d.question);
     editor.setFlashAnswer(d.flashAnswer);
-    editor.setSections(d.sections.length > 0 ? d.sections : [{ title: "Cjelina 1", content: "" }]);
+    editor.setSections(d.sections.length > 0 ? d.sections : [{ title: "Cjelina 1", content: "", contentDoc: htmlToDoc("") }]);
     meta.setCategoryId(d.categoryId);
     meta.setSubcategoryId(d.subcategoryId);
     meta.setChapterId(d.chapterId);
@@ -87,7 +88,7 @@ export function useCardActions({ categories, categoryRecords, editCard, onSave, 
         if (editCard && onUpdate) {
           onUpdate(editCard.id, {
             question: editor.question,
-            sections: [{ title: "Odgovor", content: editor.flashAnswer }],
+            sections: [{ title: "Odgovor", content: editor.flashAnswer, contentDoc: htmlToDoc(editor.flashAnswer) }],
             categoryId: cat, subcategoryId: sub, chapterId: ch,
             ...(meta.frequencyTag ? { frequencyTag: meta.frequencyTag as FrequencyTag } : {}),
             ...(meta.sourceType ? { sourceType: meta.sourceType as CardSourceType } : {}),

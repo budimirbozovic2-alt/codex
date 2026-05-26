@@ -123,7 +123,7 @@ export function newArticle(
     id: crypto.randomUUID(),
     subjectId,
     title: title.trim() || "Bez naslova",
-    content: "",
+    contentDoc: { version: 4, content: { type: "doc", content: [] } },
     linkedSourceIds: [],
     rootSubcategoryId,
     createdAt: now,
@@ -189,11 +189,14 @@ export async function ensureIndexArticle(
       : `${intro}\n\n_Počnite kucanjem prvog wiki-linka da kreirate novi članak i započnete mrežu._`;
 
     const now = Date.now();
+    const { htmlToDoc } = await import("@/lib/editor-v4");
+    const { mdToHtml } = await import("@/lib/editor-v4/migrate");
     const article: KnowledgeBaseArticle = {
       id: crypto.randomUUID(),
       subjectId,
       title: subjectName.trim() || "Predmet",
       content: body,
+      contentDoc: htmlToDoc(mdToHtml(body)),
       linkedSourceIds: [],
       isIndex: true,
       createdAt: now,
