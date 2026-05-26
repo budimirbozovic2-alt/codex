@@ -125,7 +125,7 @@ export function useCardViewFilters({
         if (haystack.includes(q)) return true;
         const sectionHit = (card.sections ?? []).some((s) => {
           const t = (s.title ?? "").toLowerCase();
-          const c = (s.content ?? "").toLowerCase();
+          const c = derivePlainText(s.contentDoc).toLowerCase();
           return t.includes(q) || c.includes(q);
         });
         if (!sectionHit) return false;

@@ -30,7 +30,7 @@ export function useCardCRUD() {
   const addCard = useCallback(
     (
       question: string,
-      sections: { title: string; content: string; contentDoc?: EditorDoc }[],
+      sections: { title: string; contentDoc: EditorDoc }[],
       categoryId: string,
       subcategoryId?: string,
       chapterId?: string,
@@ -71,7 +71,7 @@ export function useCardCRUD() {
       id: string,
       updates: {
         question?: string;
-        sections?: { title: string; content?: string; contentDoc: EditorDoc }[];
+        sections?: { title: string; contentDoc: EditorDoc }[];
         categoryId?: string;
         subcategoryId?: string;
         chapterId?: string;
@@ -106,14 +106,9 @@ export function useCardCRUD() {
               c.sections.find((es) => es.title === s.title) ||
               c.sections[idx];
             if (existing) {
-              return {
-                ...existing,
-                title: s.title,
-                content: s.content,
-                contentDoc: s.contentDoc ?? existing.contentDoc,
-              };
+              return { ...existing, title: s.title, contentDoc: s.contentDoc };
             }
-            return createSection(s.title, s.content, s.contentDoc);
+            return createSection(s.title, s.contentDoc);
           });
         }
         return newCard;
@@ -139,7 +134,7 @@ export function useCardCRUD() {
     const newCards = card.sections.map((section) => ({
       ...createCard(
         card.question,
-        [{ title: section.title, content: section.content }],
+        [{ title: section.title, contentDoc: section.contentDoc }],
         card.categoryId,
         card.subcategoryId,
       ),

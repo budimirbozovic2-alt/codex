@@ -44,7 +44,7 @@ export function buildSegments(selectedCards: Card[]): { segments: Segment[]; wor
   selectedCards.forEach((card, ci) => {
     card.sections.forEach((sec, si) => {
       const titleWords = (sec.title || "").split(/\s+/).filter(Boolean);
-      const contentText = stripHtml(sec.content);
+      const contentText = derivePlainText(sec.contentDoc);
       const contentWords = contentText.split(/\s+/).filter(Boolean);
       if (titleWords.length === 0 && contentWords.length === 0) return;
       const segIdx = segments.length;

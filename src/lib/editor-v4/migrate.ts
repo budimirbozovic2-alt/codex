@@ -175,7 +175,7 @@ export function migrateCard(card: Card): MigrateResult<Card> {
   const warnings: string[] = [];
   const nextSections = card.sections.map((s) => {
     if (isV4Doc(s.contentDoc)) return s;
-    const html = s.content ?? "";
+    const html = (s as { content?: string }).content ?? "";
     if (!html.trim()) {
       mutated = true;
       return { ...s, contentDoc: { version: 4 as const, content: { type: "doc", content: [] } satisfies JSONContent } };

@@ -206,7 +206,7 @@ export function buildLinkPatch(
     ...base,
     sections: [
       ...card.sections,
-      createSection("Isječak iz izvora", sanitizeHtml(snippetHtml || snippetText)),
+      createSection("Isječak iz izvora", htmlToDoc(sanitizeHtml(snippetHtml || snippetText))),
     ],
   };
 }

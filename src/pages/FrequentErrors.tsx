@@ -113,7 +113,7 @@ export default function FrequentErrors({ cards, categoryRecords, onClearErrorLog
 
     cards.forEach((card) => {
       // Collect all section content for sentence matching
-      const allContent = card.sections.map((s) => s.content).join(" ");
+      const allContent = card.sections.map((s) => derivePlainText(s.contentDoc)).join(" ");
       (card.errorLog || []).forEach((entry) => {
         cardIdsWithErrors.add(card.id);
         allErrors.push({
