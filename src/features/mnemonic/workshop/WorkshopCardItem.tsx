@@ -7,7 +7,7 @@ import {
   extractNumbers, detectEnumerationItems,
 } from "../mnemonic-storage";
 import { useCategoryData } from "@/contexts/AppContext";
-import { SafeHtml } from "@/components/ui/safe-html";
+import { ContentRenderer } from "@/components/ui/ContentRenderer";
 import { motion, AnimatePresence } from "framer-motion";
 import { STATUS_CONFIG, HOOK_TYPE_CONFIG } from "./card-item/configs";
 import { MajorSystemHints } from "./card-item/MajorSystemHints";
@@ -16,7 +16,10 @@ import { HookEditor } from "./card-item/HookEditor";
 import { TagsEditor } from "./card-item/TagsEditor";
 import { useCardItemEditing } from "../hooks/useCardItemEditing";
 
-const RichTextEditor = lazy(() => import("@/components/RichTextEditor"));
+// PR-7c (M2): RichTextEditor deleted. MnemonicCard sections still persist as
+// HTML strings (their schema is unrelated to PR-7b's `contentDoc`), so the
+// V4 wrapper preserves the existing `(value, onChange)` contract.
+const RichTextEditorV4 = lazy(() => import("@/components/editor-v4/RichTextEditorV4"));
 
 interface Props {
   card: MnemonicCard;
@@ -140,7 +143,7 @@ function WorkshopCardItemInner({ card, isExpanded, onToggle, onUpdateCard, onDel
                               </button>
                             )}
                           </div>
-                          <RichTextEditor
+                          <RichTextEditorV4
                             value={s.content}
                             onChange={(val) => updateSectionContent(i, val)}
                             placeholder="Unesite sadržaj..."
@@ -154,7 +157,7 @@ function WorkshopCardItemInner({ card, isExpanded, onToggle, onUpdateCard, onDel
                   card.sections.map((s, i) => (
                     <div key={i} className="rounded-lg bg-secondary/30 p-3">
                       <p className="text-xs font-medium text-muted-foreground mb-1">{s.title}</p>
-                      <SafeHtml className="text-sm prose prose-sm max-w-none card-prose" html={s.content} />
+                      <ContentRenderer className="text-sm prose prose-sm max-w-none card-prose" html={s.content} />
                     </div>
                   ))
                 )}

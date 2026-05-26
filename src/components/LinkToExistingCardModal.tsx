@@ -7,9 +7,8 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import type { Card } from "@/lib/spaced-repetition";
 import { useCategoryData } from "@/contexts/AppContext";
-import { sanitizeHtml } from "@/lib/sanitize";
 import { afterDialogClose } from "@/lib/dialog-utils";
-import { SafeHtml } from "@/components/ui/safe-html";
+import { ContentRenderer } from "@/components/ui/ContentRenderer";
 
 interface Props {
   open: boolean;
@@ -34,10 +33,9 @@ export default function LinkToExistingCardModal({
   open, onOpenChange, sourceId, sourceLabel, selectedText, selectedHtml, cards, onLink,
 }: Props) {
   const [search, setSearch] = useState("");
-  const previewHtml = useMemo(
-    () => sanitizeHtml(selectedHtml || selectedText),
-    [selectedHtml, selectedText],
-  );
+  // PR-7c (M2): preview rendered through the AST surface — selectedHtml is
+  // small (a user selection), htmlToDoc is cheap, no SafeHtml/DOMPurify.
+  const previewHtml = selectedHtml || (selectedText ? `<p>${selectedText}</p>` : "");
 
   // Pre-filter: unlinked, essay-only, same category
   // sourceLabel may be a category name or a source title (fallback for unmigrated sources)
@@ -85,7 +83,7 @@ export default function LinkToExistingCardModal({
           {selectedText && (
             <div className="rounded-md border bg-muted/50 p-2.5 max-h-24 overflow-y-auto">
               <p className="text-xs text-muted-foreground mb-1">Označeni tekst:</p>
-              <SafeHtml
+              <ContentRenderer
                 className="text-xs prose prose-xs max-w-none card-prose line-clamp-4"
                 html={previewHtml}
               />

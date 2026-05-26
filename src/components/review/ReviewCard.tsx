@@ -3,7 +3,7 @@ import { useState, useMemo, useEffect, useCallback, useRef, lazy, Suspense } fro
 import { Card, Section, isLeech, formatInterval, SRSettings } from "@/lib/spaced-repetition";
 import { isEarlyReview } from "@/lib/review-mode-builder";
 import { useCategoryData } from "@/contexts/AppContext";
-import { HighlightedSection } from "@/lib/highlight-key-parts";
+import { EditorView } from "@/lib/editor-v4/EditorView";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
@@ -252,7 +252,7 @@ export default function ReviewCard({
                     <span className="text-xs uppercase tracking-widest text-muted-foreground">{section.title}</span>
                   )}
                 </div>
-                <HighlightedSection content={section.content} keyParts={card.keyParts} className={`${!isFlash ? "mt-4" : ""} text-base leading-relaxed whitespace-pre-wrap`} />
+                <EditorView doc={section.contentDoc} className={`${!isFlash ? "mt-4" : ""} text-base leading-relaxed prose prose-sm max-w-none card-prose`} />
                 <p className="mt-3 text-[10px] text-muted-foreground/60 flex items-center gap-1">
                   Označi tekst + pritisni <kbd className="px-1 py-0.5 rounded bg-secondary border text-[9px] font-mono">N</kbd> za bilježenje greške
                 </p>
