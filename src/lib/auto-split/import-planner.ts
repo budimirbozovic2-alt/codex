@@ -27,7 +27,7 @@ export interface ArticleRow {
 
 export interface CardUpdatePatch {
   question: string;
-  sections: { title: string; content: string }[];
+  sections: { title: string; content?: string; contentDoc: EditorDoc }[];
   sourceId: string;
   textAnchor: string;
   originalSourceSnippet: string;
