@@ -71,14 +71,16 @@ describe("SourceContent (PR-7a / M5)", () => {
   });
 
   it("does not render the legacy SourceTooltip / SourceContextMenu modules", async () => {
-    await expect(
-      import("@/components/source-reader/SourceTooltip" as string)
-    ).rejects.toBeTruthy();
-    await expect(
-      import("@/components/source-reader/SourceContextMenu" as string)
-    ).rejects.toBeTruthy();
-    await expect(
-      import("@/hooks/source-reader/useSourceSelection" as string)
-    ).rejects.toBeTruthy();
+    const fs = await import("node:fs");
+    const path = await import("node:path");
+    const gone = [
+      "src/components/source-reader/SourceTooltip.tsx",
+      "src/components/source-reader/SourceContextMenu.tsx",
+      "src/components/source-reader/SourceEditToolbar.tsx",
+      "src/hooks/source-reader/useSourceSelection.ts",
+    ];
+    for (const rel of gone) {
+      expect(fs.existsSync(path.resolve(process.cwd(), rel))).toBe(false);
+    }
   });
 });
