@@ -1,10 +1,17 @@
 import { useState, useMemo, useCallback } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Card as SRCard } from "@/lib/spaced-repetition";
 import { ReviewLogEntry } from "@/lib/storage";
 import { CategoryRecord } from "@/lib/db";
 import { analyticsClient } from "@/lib/analytics/workerClient";
-import { useDeferredCompute } from "@/hooks/useDeferredCompute";
 import type { PlannerConfig } from "@/lib/planner-storage";
+import { queryKeys } from "@/lib/query/keys";
+import {
+  hashReviewLog,
+  hashCards,
+  hashCategories,
+  hashPlannerConfig,
+} from "@/lib/query/hash";
 
 // R2 fix: lazy-import planner-storage to avoid eagerly loading 577-line module + date-fns
 type PlannerModule = typeof import("@/lib/planner-storage");
@@ -32,28 +39,48 @@ export function usePlannerData(cards: SRCard[], reviewLog: ReviewLogEntry[], cat
   const remaining = totalSections - learnedSections;
   const overallPct = totalSections > 0 ? Math.round((learnedSections / totalSections) * 100) : 0;
 
-  const velocity = useDeferredCompute(async () => {
-    const mod = await getPlannerModule();
-    return mod.calcVelocity(reviewLog, 7);
-  }, [reviewLog]);
+  // ── Stable hashes (zaobilaze object-identity refetch loop) ──
+  const reviewLogHash = useMemo(() => hashReviewLog(reviewLog), [reviewLog]);
+  const cardsHash = useMemo(() => hashCards(cards), [cards]);
+  const categoryHash = useMemo(() => hashCategories(categoryRecords), [categoryRecords]);
+  const configHash = useMemo(() => hashPlannerConfig(config), [config]);
 
-  const estimatedFinish = useDeferredCompute(async () => {
-    if (velocity === null) return null;
-    const mod = await getPlannerModule();
-    return mod.calcEstimatedFinish(remaining, velocity);
-  }, [remaining, velocity]);
+  const { data: velocity = null } = useQuery({
+    queryKey: queryKeys.planner.velocity(reviewLogHash, 7),
+    queryFn: async () => {
+      const mod = await getPlannerModule();
+      return mod.calcVelocity(reviewLog, 7);
+    },
+  });
 
-  const plannerStatus = useDeferredCompute(async () => {
-    if (estimatedFinish === null) return null;
-    const mod = await getPlannerModule();
-    return mod.getPlannerStatus(estimatedFinish, config.finalGoalDate, config.bufferPercent);
-  }, [estimatedFinish, config.finalGoalDate, config.bufferPercent]);
+  const { data: estimatedFinish = null } = useQuery({
+    queryKey: queryKeys.planner.estimatedFinish(remaining, velocity),
+    queryFn: async () => {
+      if (velocity === null) return null;
+      const mod = await getPlannerModule();
+      return mod.calcEstimatedFinish(remaining, velocity);
+    },
+    enabled: velocity !== null,
+  });
+
+  const { data: plannerStatus = null } = useQuery({
+    queryKey: queryKeys.planner.plannerStatus(estimatedFinish, config.finalGoalDate, config.bufferPercent),
+    queryFn: async () => {
+      if (estimatedFinish === null) return null;
+      const mod = await getPlannerModule();
+      return mod.getPlannerStatus(estimatedFinish, config.finalGoalDate, config.bufferPercent);
+    },
+    enabled: estimatedFinish !== null,
+  });
 
   // Subject-oriented plan
-  const subjectPlans = useDeferredCompute(async () => {
-    const mod = await getPlannerModule();
-    return mod.generateStudyPlan(config, categoryRecords, cards);
-  }, [config, categoryRecords, cards]);
+  const { data: subjectPlans = null } = useQuery({
+    queryKey: queryKeys.planner.subjectPlans(configHash, categoryHash, cardsHash),
+    queryFn: async () => {
+      const mod = await getPlannerModule();
+      return mod.generateStudyPlan(config, categoryRecords, cards);
+    },
+  });
 
   // Learning/review ratio
   const learningRatio = useMemo(() => {
@@ -65,11 +92,15 @@ export function usePlannerData(cards: SRCard[], reviewLog: ReviewLogEntry[], cat
   }, [overallPct]);
 
   // Smart suggestion uses global remaining (no phase)
-  const smartSuggestion = useDeferredCompute(async () => {
-    if (velocity === null) return null;
-    const mod = await getPlannerModule();
-    return mod.getSmartSuggestion(null, cards, config.finalGoalDate, velocity, config.bufferPercent);
-  }, [cards, config.finalGoalDate, velocity, config.bufferPercent]);
+  const { data: smartSuggestion = null } = useQuery({
+    queryKey: queryKeys.planner.smartSuggestion(cardsHash, config.finalGoalDate, velocity, config.bufferPercent),
+    queryFn: async () => {
+      if (velocity === null) return null;
+      const mod = await getPlannerModule();
+      return mod.getSmartSuggestion(null, cards, config.finalGoalDate, velocity, config.bufferPercent);
+    },
+    enabled: velocity !== null,
+  });
 
   const dueCount = useMemo(() => {
     const now = Date.now();
@@ -78,11 +109,15 @@ export function usePlannerData(cards: SRCard[], reviewLog: ReviewLogEntry[], cat
     return count;
   }, [cards]);
 
-  const timeRec = useDeferredCompute(async () => {
-    if (!smartSuggestion || velocity === null) return null;
-    const mod = await getPlannerModule();
-    return mod.calcDailyTimeRecommendation(smartSuggestion.suggestedToday, velocity, dueCount);
-  }, [smartSuggestion, velocity, dueCount]);
+  const { data: timeRec = null } = useQuery({
+    queryKey: queryKeys.planner.timeRec(smartSuggestion?.suggestedToday ?? null, velocity, dueCount),
+    queryFn: async () => {
+      if (!smartSuggestion || velocity === null) return null;
+      const mod = await getPlannerModule();
+      return mod.calcDailyTimeRecommendation(smartSuggestion.suggestedToday, velocity, dueCount);
+    },
+    enabled: !!smartSuggestion && velocity !== null,
+  });
 
   const debt = useMemo<import("@/types/planner").CognitiveDebtItem | null>(() => {
     if (!smartSuggestion) return null;
@@ -95,34 +130,51 @@ export function usePlannerData(cards: SRCard[], reviewLog: ReviewLogEntry[], cat
     };
   }, [smartSuggestion]);
 
-  const disciplineLog = useDeferredCompute(async () => {
-    const mod = await getPlannerModule();
-    return mod.loadDisciplineLog();
-  }, []);
+  const { data: disciplineLog = null } = useQuery({
+    queryKey: queryKeys.planner.disciplineLog(),
+    queryFn: async () => {
+      const mod = await getPlannerModule();
+      return mod.loadDisciplineLog();
+    },
+  });
 
-  const disciplineTrend = useDeferredCompute(async () => {
-    const mod = await getPlannerModule();
-    return mod.getDisciplineTrend(30);
-  }, []);
+  const { data: disciplineTrend = null } = useQuery({
+    queryKey: queryKeys.planner.disciplineTrend(30),
+    queryFn: async () => {
+      const mod = await getPlannerModule();
+      return mod.getDisciplineTrend(30);
+    },
+  });
 
-  const phaseDisciplinePct = useDeferredCompute(async () => {
-    if (!disciplineLog) return 0;
-    const mod = await getPlannerModule();
-    return mod.getPhaseDisciplinePct(disciplineLog);
-  }, [disciplineLog]);
+  const { data: phaseDisciplinePct = 0 } = useQuery({
+    queryKey: queryKeys.planner.phaseDisciplinePct(),
+    queryFn: async () => {
+      if (!disciplineLog) return 0;
+      const mod = await getPlannerModule();
+      return mod.getPhaseDisciplinePct(disciplineLog);
+    },
+    enabled: !!disciplineLog,
+  });
 
-  const burnupData = useDeferredCompute(async () => {
-    const mod = await getPlannerModule();
-    return mod.buildBurnupData(reviewLog, totalSections, config.finalGoalDate, config.bufferPercent);
-  }, [reviewLog, totalSections, config.finalGoalDate, config.bufferPercent]);
+  const { data: burnupData = null } = useQuery({
+    queryKey: queryKeys.planner.burnup(reviewLogHash, totalSections, config.finalGoalDate, config.bufferPercent),
+    queryFn: async () => {
+      const mod = await getPlannerModule();
+      return mod.buildBurnupData(reviewLog, totalSections, config.finalGoalDate, config.bufferPercent);
+    },
+  });
 
-  const projectionText = useDeferredCompute(async () => {
-    if (velocity === null) return "";
-    const mod = await getPlannerModule();
-    return mod.getProjectionText(velocity, remaining, config.finalGoalDate, config.bufferPercent);
-  }, [velocity, remaining, config.finalGoalDate, config.bufferPercent]);
+  const { data: projectionText = "" } = useQuery({
+    queryKey: queryKeys.planner.projectionText(velocity, remaining, config.finalGoalDate, config.bufferPercent),
+    queryFn: async () => {
+      if (velocity === null) return "";
+      const mod = await getPlannerModule();
+      return mod.getProjectionText(velocity, remaining, config.finalGoalDate, config.bufferPercent);
+    },
+    enabled: velocity !== null,
+  });
 
-  const streaks = useDeferredCompute(async () => {
+  const streaks = useMemo(() => {
     if (!disciplineLog) return { streak: 0, bestStreak: 0 };
     let streak = 0;
     const sorted = [...disciplineLog].sort((a, b) => b.date.localeCompare(a.date));
@@ -141,13 +193,16 @@ export function usePlannerData(cards: SRCard[], reviewLog: ReviewLogEntry[], cat
 
   const isConfigured = config.dailyAvailableMinutes > 0 && !!config.finalGoalDate;
 
-  const retentionRisk = useDeferredCompute(async () => {
-    const catIds = categoryRecords.map(r => r.id);
-    if (catIds.length === 0) return [];
-    await getPlannerModule();
-    const result = await analyticsClient.runCategoryStability(cards, catIds, config.finalGoalDate ?? null);
-    return [...result].sort((a, b) => a.avgRetrievability - b.avgRetrievability);
-  }, [cards, categoryRecords, config.finalGoalDate]);
+  const { data: retentionRisk = [] } = useQuery({
+    queryKey: queryKeys.planner.retentionRisk(cardsHash, categoryHash, config.finalGoalDate ?? null),
+    queryFn: async () => {
+      const catIds = categoryRecords.map(r => r.id);
+      if (catIds.length === 0) return [];
+      await getPlannerModule();
+      const result = await analyticsClient.runCategoryStability(cards, catIds, config.finalGoalDate ?? null);
+      return [...result].sort((a, b) => a.avgRetrievability - b.avgRetrievability);
+    },
+  });
 
   const save = useCallback(async (updated: PlannerConfig) => {
     setConfig(updated);
@@ -165,7 +220,7 @@ export function usePlannerData(cards: SRCard[], reviewLog: ReviewLogEntry[], cat
     retentionRisk,
     disciplineLog, disciplineTrend, phaseDisciplinePct,
     burnupData, projectionText,
-    streak: streaks?.streak ?? 0, 
+    streak: streaks?.streak ?? 0,
     bestStreak: streaks?.bestStreak ?? 0,
   };
 }
