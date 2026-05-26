@@ -13,11 +13,13 @@ export interface Section {
   id: string;
   title: string;
   /**
-   * PR-7b: canonical AST is the ONLY content payload. Legacy `content` (HTML)
-   * column was deleted in Dexie v22. Read-sites that need text/html/markdown
-   * derive lazily via `deriveHtml` / `derivePlainText` / `deriveMarkdown` from
-   * `src/lib/editor-v4/derived.ts` (WeakMap-cached per doc reference).
+   * @deprecated PR-7b: legacy HTML column. v22 destructive upgrade deletes
+   * this column from IDB when telemetry flag is healthy. Consumers should
+   * migrate to `deriveHtml(contentDoc)` / `derivePlainText(contentDoc)` from
+   * `@/lib/editor-v4/derived`. New writes MUST omit this field.
    */
+  content?: string;
+  /** PR-7b: canonical AST. Required on all new writes. */
   contentDoc: EditorDoc;
   state: SectionState;
   stability: number;

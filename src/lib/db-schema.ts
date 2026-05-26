@@ -90,10 +90,12 @@ export interface Source {
   title: string;
   date: string;
   /**
-   * PR-7b: canonical AST is the only content payload. Legacy `htmlContent`
-   * column was deleted in Dexie v22. Derive HTML via `deriveHtml(contentDoc)`
-   * from `@/lib/editor-v4/derived` when needed for export/preview.
+   * @deprecated PR-7b: legacy HTML column. v22 destructive upgrade deletes
+   * this from IDB when telemetry is healthy. Migrate consumers to
+   * `deriveHtml(source.contentDoc)`.
    */
+  htmlContent?: string;
+  /** PR-7b: canonical AST. Required on all new writes. */
   contentDoc: EditorDoc;
   outline: { id: string; text: string; level: number }[];
   articles: SourceArticle[];
@@ -160,11 +162,13 @@ export interface KnowledgeBaseArticle {
   subjectId: string;          // === categoryId
   title: string;
   /**
-   * PR-7b: canonical AST is the only content payload. Legacy `content`
-   * (markdown) column was deleted in Dexie v22. Derive markdown via
-   * `deriveMarkdown(contentDoc)` for export; backlink-index walks `contentDoc`
-   * directly via `iterateWikiLinksFromDoc`.
+   * @deprecated PR-7b: legacy markdown column. v22 destructive upgrade
+   * deletes this from IDB when telemetry is healthy. Migrate consumers to
+   * `deriveMarkdown(article.contentDoc)` / `derivePlainText(article.contentDoc)`
+   * and backlink-index to AST-walking via `iterateWikiLinksFromDoc`.
    */
+  content?: string;
+  /** PR-7b: canonical AST. Required on all new writes. */
   contentDoc: EditorDoc;
   linkedSourceIds: string[];
   rootSubcategoryId?: string;
