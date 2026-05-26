@@ -216,7 +216,9 @@ export const EditorV4 = forwardRef<EditorV4Handle, EditorV4Props>(function Edito
           </button>
         ))}
       </div>
+      )}
       <EditorContent editor={editor} />
+
     </div>
   );
 });
