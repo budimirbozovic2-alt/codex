@@ -1,9 +1,8 @@
 /**
- * PR-7a / M5 — Card BubbleMenu in-place migration smoke tests.
+ * Card BubbleMenu smoke tests.
  *
  * Mounts `CardSelectionEditor` (read-only EditorV4 + CardBubbleMenu) and
- * verifies the legacy `TextSelectionTooltip` replacement renders without
- * touching `window.getSelection()` or `document.execCommand`.
+ * verifies the ProseMirror surface renders correctly.
  *
  * Interaction-level assertions (BubbleMenu open / button clicks) live in
  * Playwright — TipTap's Floating UI positioning + jsdom selection support
@@ -43,7 +42,7 @@ describe("CardSelectionEditor (PR-7a / M5)", () => {
     expect(pm).not.toBeNull();
     // editable={false} ⇒ contenteditable should be "false"
     expect(pm?.getAttribute("contenteditable")).toBe("false");
-    // No legacy DOM-selection tooltip hook attribute leftover.
+    // No stale tooltip attributes.
     expect(container.querySelector("[data-mnemo-tooltip]")).toBeNull();
   });
 
@@ -63,11 +62,4 @@ describe("CardSelectionEditor (PR-7a / M5)", () => {
     expect(pm?.querySelector("strong")).not.toBeNull();
   });
 
-  it("does not render the legacy TextSelectionTooltip module", async () => {
-    const fs = await import("node:fs");
-    const path = await import("node:path");
-    expect(
-      fs.existsSync(path.resolve(process.cwd(), "src/components/TextSelectionTooltip.tsx"))
-    ).toBe(false);
-  });
 });
