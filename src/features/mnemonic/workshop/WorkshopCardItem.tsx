@@ -241,5 +241,10 @@ function WorkshopCardItemInner({ card, isExpanded, onToggle, onUpdateCard, onDel
   );
 }
 
+function MnemonicSectionContent({ html }: { html: string }) {
+  const doc = useMemo(() => htmlToDoc(html || ""), [html]);
+  return <ContentRenderer className="text-sm prose prose-sm max-w-none card-prose" doc={doc} />;
+}
+
 const WorkshopCardItem = memo(WorkshopCardItemInner);
 export default WorkshopCardItem;
