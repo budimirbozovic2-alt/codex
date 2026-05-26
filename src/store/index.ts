@@ -36,21 +36,8 @@ export {
   useCardByIdRam,
 } from "./useCardSelectors";
 
-/**
- * Dexie-backed selectors. Public so the hybrid façade above can route into
- * them when `USE_DB_LIVE_SELECTORS` is enabled. Prefer the un-suffixed hooks
- * for normal view code — they pick the right backend automatically.
- */
-export {
-  useCardsByCategoryFromDb,
-  useCardsBySubcategoryFromDb,
-  useCardsByChapterFromDb,
-  useCardsBySourceFromDb,
-  useCardCountByCategoryFromDb,
-  useCardByIdFromDb,
-} from "./useCardSelectorsFromDb";
-
 export { useCardsBySource } from "./useCardsBySource";
+
 
 // ── Category store + selectors ─────────────────────────────────────────────
 export {

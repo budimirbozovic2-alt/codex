@@ -1,6 +1,9 @@
+import { useMemo } from "react";
 import { ChevronDown, ChevronUp, Scissors, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import RichTextEditorV4 from "@/components/editor-v4/RichTextEditorV4";
+import { EditorV4 } from "@/components/editor-v4/EditorV4";
+import { htmlToDoc } from "@/lib/editor-v4";
+import { deriveHtml } from "@/lib/editor-v4/derived";
 import { cn } from "@/lib/utils";
 import { htmlToPlain, splitHtmlIntoBlocks, type SelectionModule } from "@/lib/selection-split-engine";
 import type { defaultEdit } from "@/lib/split-wizard-build";
@@ -58,12 +61,7 @@ export function ModuleCard({
           </button>
         </div>
         <div className="flex-1 min-w-0">
-          <RichTextEditorV4
-            value={edit.question}
-            onChange={(v) => onUpdateEdit(i, { question: v })}
-            placeholder={mod.title || "Naziv cjeline..."}
-            minimal
-          />
+          <TitleEditor value={edit.question} onChange={(v) => onUpdateEdit(i, { question: v })} placeholder={mod.title || "Naziv cjeline..."} />
         </div>
         <button
           type="button"
@@ -102,7 +100,7 @@ export function ModuleCard({
         />
       ) : (
         <div className={cn(edit.skipped && "opacity-50 pointer-events-none")}>
-          <RichTextEditorV4
+          <BodyEditor
             value={mod.contentHtml}
             onChange={(html) => {
               const plain = htmlToPlain(html);
@@ -117,3 +115,34 @@ export function ModuleCard({
     </div>
   );
 }
+
+/**
+ * Inline editor seams — PR-7e M2. Each wraps `<EditorV4>` so the parent
+ * keeps its `(value, onChange)` HTML-string contract while the editor stays
+ * uncontrolled (seeded once per mount, identical to the deleted shim).
+ */
+function TitleEditor({ value, onChange, placeholder }: { value: string; onChange: (html: string) => void; placeholder?: string }) {
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const initialDoc = useMemo(() => htmlToDoc(value ?? ""), []);
+  return (
+    <EditorV4
+      initialDoc={initialDoc}
+      onChange={(doc) => onChange(deriveHtml(doc))}
+      placeholder={placeholder}
+      minimal
+    />
+  );
+}
+
+function BodyEditor({ value, onChange, placeholder }: { value: string; onChange: (html: string) => void; placeholder?: string }) {
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const initialDoc = useMemo(() => htmlToDoc(value ?? ""), []);
+  return (
+    <EditorV4
+      initialDoc={initialDoc}
+      onChange={(doc) => onChange(deriveHtml(doc))}
+      placeholder={placeholder}
+    />
+  );
+}
+

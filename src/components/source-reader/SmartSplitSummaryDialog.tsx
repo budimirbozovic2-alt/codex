@@ -2,7 +2,9 @@ import { Wand2, PenSquare, Plus, FileText } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import RichTextEditorV4 from "@/components/editor-v4/RichTextEditorV4";
+import { EditorV4 } from "@/components/editor-v4/EditorV4";
+import { htmlToDoc } from "@/lib/editor-v4";
+import { deriveHtml } from "@/lib/editor-v4/derived";
 import type { Source } from "@/lib/sources-storage";
 import { useSourceReaderStore } from "@/store";
 import { useCategoryData } from "@/contexts/AppContext";
@@ -130,12 +132,8 @@ export function SmartSplitSummaryDialog({ source, onSmartSplitConfirm }: Props) 
 
             <div className="space-y-2">
               <label className="text-sm font-medium text-muted-foreground">Naslov eseja</label>
-              <RichTextEditorV4
-                value={splitParentName}
-                onChange={setSplitParentName}
-                placeholder="Unesite naslov eseja..."
-                minimal
-              />
+              <ParentTitleEditor value={splitParentName} onChange={setSplitParentName} />
+
             </div>
 
             <div className="space-y-3">
@@ -219,3 +217,18 @@ export function SmartSplitSummaryDialog({ source, onSmartSplitConfirm }: Props) 
     </Dialog>
   );
 }
+
+/** Inline editor seam — uncontrolled, seeded once per mount. PR-7e M2. */
+function ParentTitleEditor({ value, onChange }: { value: string; onChange: (html: string) => void }) {
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const initialDoc = useMemo(() => htmlToDoc(value ?? ""), []);
+  return (
+    <EditorV4
+      initialDoc={initialDoc}
+      onChange={(doc) => onChange(deriveHtml(doc))}
+      placeholder="Unesite naslov eseja..."
+      minimal
+    />
+  );
+}
+
