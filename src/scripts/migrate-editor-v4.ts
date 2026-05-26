@@ -59,7 +59,7 @@ export function runMigrationDryRun(payload: unknown): Report {
       const res = migrateCard(card);
       if (res.changed) report.migrated.cards++;
       for (const w of res.warnings) {
-        const src = card.sections.map((s) => s.content).join("\n");
+        const src = card.sections.map((s) => (s as { content?: string }).content ?? "").join("\n");
         report.samplesWithDataLoss.push({ kind: "card", id: card.id, warning: w, snippet: snippet(src) });
       }
     } catch (err) {
@@ -67,7 +67,7 @@ export function runMigrationDryRun(payload: unknown): Report {
       report.samplesWithDataLoss.push({
         kind: "card", id: card.id,
         warning: `EXCEPTION: ${(err as Error).message}`,
-        snippet: snippet(card.sections?.[0]?.content ?? ""),
+        snippet: snippet((card.sections?.[0] as { content?: string } | undefined)?.content ?? ""),
       });
     }
   }

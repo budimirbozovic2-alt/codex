@@ -5,17 +5,17 @@ import { Input } from "@/components/ui/input";
 import { ContentRenderer } from "@/components/ui/ContentRenderer";
 import EditorV4 from "@/components/editor-v4/EditorV4";
 import { htmlToDoc, docToHtml, type EditorDoc } from "@/lib/editor-v4";
-import { parseHtmlToParagraphs } from "@/hooks/useCardActions";
+import { splitDocByTopLevelBlocks } from "@/lib/editor-v4/split-blocks";
 import type { SectionInput, CardType, ValidationErrors } from "@/hooks/useCardActions";
 
-// ── Cutting View (paragraph splitter) ───────────────────
-function CuttingView({ content, onCut, onCancel }: {
-  content: string;
-  onCut: (paragraphIndex: number) => void;
+// ── Cutting View (block splitter — operates on AST, no HTML round-trip) ──
+function CuttingView({ doc, onCut, onCancel }: {
+  doc: EditorDoc;
+  onCut: (blockIndex: number) => void;
   onCancel: () => void;
 }) {
-  const paragraphs = parseHtmlToParagraphs(content);
-  if (paragraphs.length <= 1) {
+  const blocks = useMemo(() => splitDocByTopLevelBlocks(doc), [doc]);
+  if (blocks.length <= 1) {
     return (
       <div className="text-sm text-muted-foreground text-center py-4">
         Nema dovoljno paragrafa za rezanje. Dodajte više teksta.
@@ -28,15 +28,14 @@ function CuttingView({ content, onCut, onCancel }: {
         <span className="text-xs font-medium text-warning">Kliknite na makazice da izrežete</span>
         <button type="button" onClick={onCancel} className="text-xs text-muted-foreground hover:text-foreground">Otkaži</button>
       </div>
-      {paragraphs.map((p, idx) => (
-        <ParagraphRow key={idx} html={p} idx={idx} onCut={onCut} />
+      {blocks.map((block, idx) => (
+        <BlockRow key={idx} doc={block} idx={idx} onCut={onCut} />
       ))}
     </div>
   );
 }
 
-function ParagraphRow({ html, idx, onCut }: { html: string; idx: number; onCut: (i: number) => void }) {
-  const doc = useMemo(() => htmlToDoc(html), [html]);
+function BlockRow({ doc, idx, onCut }: { doc: EditorDoc; idx: number; onCut: (i: number) => void }) {
   return (
     <div>
       {idx > 0 && (
@@ -194,7 +193,7 @@ const SectionEditor = memo(function SectionEditor({
 }: SectionEditorProps) {
   // Seed AST once per mount; React `key` (index) drives remount on splits/reorders.
   const initialDoc = useMemo(
-    () => section.contentDoc ?? htmlToDoc(section.content || ""),
+    () => section.contentDoc,
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [],
   );
@@ -239,7 +238,7 @@ const SectionEditor = memo(function SectionEditor({
       </div>
       {cuttingActive ? (
         <CuttingView
-          content={section.content}
+          doc={section.contentDoc}
           onCut={(pIdx) => handleCut(i, pIdx)}
           onCancel={() => setCuttingIndex(null)}
         />

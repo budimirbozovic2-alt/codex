@@ -1,29 +1,25 @@
 import { useState, useCallback } from "react";
 import type { Card } from "@/lib/spaced-repetition";
-import { parseHtmlToParagraphs, type SectionInput, type CardType, type ValidationErrors } from "./validation";
+import type { SectionInput, CardType, ValidationErrors } from "./validation";
 import { htmlToDoc, type EditorDoc } from "@/lib/editor-v4";
-import { deriveHtml } from "@/lib/editor-v4/derived";
-
-function seedDoc(content: string, existing?: EditorDoc): EditorDoc {
-  if (existing && existing.version === 4) return existing;
-  return htmlToDoc(content || "");
-}
+import { derivePlainText } from "@/lib/editor-v4/derived";
+import { sliceDocAtBlock, splitDocByTopLevelBlocks, blockPlainText } from "@/lib/editor-v4/split-blocks";
 
 export function useSectionEditor(editCard?: Card | null) {
   const [cardType, setCardType] = useState<CardType>(editCard?.type || "essay");
   const [question, setQuestion] = useState(editCard?.question ?? "");
   const [flashAnswer, setFlashAnswer] = useState(
-    editCard?.type === "flash" ? editCard.sections[0]?.content ?? "" : "",
+    // PR-7e M4: flash answer derived from AST — no legacy `content` read.
+    editCard?.type === "flash" ? derivePlainText(editCard.sections[0]?.contentDoc) : "",
   );
   const [sections, setSections] = useState<SectionInput[]>(() => {
     if (editCard && editCard.type !== "flash") {
       return editCard.sections.map(s => ({
         title: s.title,
-        content: s.content,
-        contentDoc: seedDoc(s.content, s.contentDoc),
+        contentDoc: s.contentDoc,
       }));
     }
-    return [{ title: "Cjelina 1", content: "", contentDoc: htmlToDoc("") }];
+    return [{ title: "Cjelina 1", contentDoc: htmlToDoc("") }];
   });
   const [cuttingIndex, setCuttingIndex] = useState<number | null>(null);
   const [validationErrors, setValidationErrors] = useState<ValidationErrors>({});
@@ -32,7 +28,7 @@ export function useSectionEditor(editCard?: Card | null) {
   const addSection = useCallback(() => {
     setSections(prev => [
       ...prev,
-      { title: `Cjelina ${prev.length + 1}`, content: "", contentDoc: htmlToDoc("") },
+      { title: `Cjelina ${prev.length + 1}`, contentDoc: htmlToDoc("") },
     ]);
   }, []);
 
@@ -45,9 +41,7 @@ export function useSectionEditor(editCard?: Card | null) {
   }, []);
 
   /**
-   * PR-7b: AST is the canonical write payload. Legacy `content` HTML is no
-   * longer derived on every keystroke — reads use `deriveHtml(contentDoc)`
-   * via the WeakMap shim when an HTML view is required.
+   * PR-7e M3: contentDoc is the canonical write payload — no derived HTML.
    */
   const updateSectionDoc = useCallback((index: number, doc: EditorDoc) => {
     setSections(prev => prev.map((s, i) => (
@@ -65,32 +59,24 @@ export function useSectionEditor(editCard?: Card | null) {
     });
   }, []);
 
-  const handleCut = useCallback((sectionIndex: number, paragraphIndex: number) => {
+  /**
+   * PR-7e M3: block-level cut operates on AST directly. The block at
+   * `blockIndex` becomes the title of the new section; everything before
+   * stays in the current section, everything after seeds the new section.
+   */
+  const handleCut = useCallback((sectionIndex: number, blockIndex: number) => {
     setSections(prev => {
       const section = prev[sectionIndex];
-      // PR-7b: contentDoc is SSOT — derive HTML once here for paragraph splitting.
-      const sourceHtml = section.content ?? deriveHtml(section.contentDoc);
-      const paragraphs = parseHtmlToParagraphs(sourceHtml);
-      if (paragraphIndex <= 0 || paragraphIndex >= paragraphs.length) return prev;
+      const blocks = splitDocByTopLevelBlocks(section.contentDoc);
+      if (blockIndex <= 0 || blockIndex >= blocks.length) return prev;
 
-      const beforeContent = paragraphs.slice(0, paragraphIndex).map(p => `<p>${p}</p>`).join("");
-      const rawTitle = paragraphs[paragraphIndex].replace(/<[^>]*>/g, "");
-      const tempEl = document.createElement("span");
-      tempEl.innerHTML = rawTitle;
-      const newTitle = (tempEl.textContent || rawTitle).trim();
-      const afterContent = paragraphs.slice(paragraphIndex + 1).map(p => `<p>${p}</p>`).join("");
+      const newTitle = blockPlainText(blocks[blockIndex]) || `Cjelina ${prev.length + 1}`;
+      const { before } = sliceDocAtBlock(section.contentDoc, blockIndex);
+      const { after } = sliceDocAtBlock(section.contentDoc, blockIndex + 1);
 
       const updated = [...prev];
-      updated[sectionIndex] = {
-        ...updated[sectionIndex],
-        content: beforeContent,
-        contentDoc: htmlToDoc(beforeContent),
-      };
-      updated.splice(sectionIndex + 1, 0, {
-        title: newTitle,
-        content: afterContent,
-        contentDoc: htmlToDoc(afterContent),
-      });
+      updated[sectionIndex] = { ...updated[sectionIndex], contentDoc: before };
+      updated.splice(sectionIndex + 1, 0, { title: newTitle, contentDoc: after });
       return updated;
     });
     setCuttingIndex(null);

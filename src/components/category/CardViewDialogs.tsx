@@ -17,7 +17,7 @@ interface AddDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   categoryId: string;
-  addCard: (question: string, sections: { title: string; content: string }[], category: string, subcategory?: string, chapter?: string) => Card;
+  addCard: (question: string, sections: { title: string; contentDoc: import("@/lib/editor-v4").EditorDoc }[], category: string, subcategory?: string, chapter?: string) => Card;
   addFlashCard: (question: string, answer: string, category: string, subcategory?: string) => Card;
   /** Initial creation mode. Re-applied each time the dialog opens. */
   defaultMode?: "essay" | "flash";
@@ -54,7 +54,7 @@ export function AddCardDialog({ open, onOpenChange, categoryId, addCard, addFlas
       if (mode === "flash") {
         addFlashCard(q, a, categoryId);
       } else {
-        addCard(q, [{ title: st, content: sc }], categoryId);
+        addCard(q, [{ title: st, contentDoc: (await import("@/lib/editor-v4")).htmlToDoc(sc) }], categoryId);
       }
       toast.success("Kartica kreirana.");
     });

@@ -1,7 +1,7 @@
 import type { Card } from "@/lib/spaced-repetition";
 import type { Source } from "@/lib/sources-storage";
 import { stripHtml, sanitizeHtml } from "@/lib/sanitize";
-import { deriveHtml } from "@/lib/editor-v4/derived";
+import { deriveHtml, derivePlainText } from "@/lib/editor-v4/derived";
 
 export const WPM_OPTIONS = [100, 150, 200, 250, 300, 400, 500];
 export const FONT_SIZES = [
@@ -44,7 +44,7 @@ export function buildSegments(selectedCards: Card[]): { segments: Segment[]; wor
   selectedCards.forEach((card, ci) => {
     card.sections.forEach((sec, si) => {
       const titleWords = (sec.title || "").split(/\s+/).filter(Boolean);
-      const contentText = stripHtml(sec.content);
+      const contentText = derivePlainText(sec.contentDoc);
       const contentWords = contentText.split(/\s+/).filter(Boolean);
       if (titleWords.length === 0 && contentWords.length === 0) return;
       const segIdx = segments.length;

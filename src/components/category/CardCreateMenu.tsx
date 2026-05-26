@@ -11,6 +11,7 @@ import { AddCardDialog } from "./CardViewDialogs";
 import MassFlashImportTrigger from "./MassFlashImportTrigger";
 import type { Card } from "@/lib/spaced-repetition";
 import { afterDialogClose } from "@/lib/dialog-utils";
+import { htmlToDoc, type EditorDoc } from "@/lib/editor-v4";
 
 const DocxImporter = lazy(() => import("@/features/docx-importer").then(m => ({ default: m.DocxImporter })));
 
@@ -25,7 +26,7 @@ interface Props {
   allCategoryNames: string[];
   addCard: (
     question: string,
-    sections: { title: string; content: string }[],
+    sections: { title: string; contentDoc: EditorDoc }[],
     category: string,
     subcategory?: string,
     chapter?: string,

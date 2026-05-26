@@ -1,6 +1,7 @@
 import { useCallback } from "react";
 import { toast } from "sonner";
 import { createCard } from "@/lib/spaced-repetition";
+import { htmlToDoc } from "@/lib/editor-v4";
 import { invalidateSourcesCache } from "@/lib/sources-storage";
 import { BackupSchema, type ParsedBackup } from "@/lib/migrations/backup-schema";
 import { migrateBackup, migrateRaw, BackupVersionError } from "@/lib/backup/migrate";
@@ -182,7 +183,13 @@ export function useCardImport() {
   // mutation, no manual schedulePersist, no setCardMapState.
   const importCards = useCallback(
     (newCards: { question: string; sections: { title: string; content: string }[] }[], category: string) => {
-      const created = newCards.map((c) => createCard(c.question, c.sections, category));
+      const created = newCards.map((c) =>
+        createCard(
+          c.question,
+          c.sections.map((s) => ({ title: s.title, contentDoc: htmlToDoc(s.content) })),
+          category,
+        ),
+      );
       const now = Date.now();
       created.forEach((c) => { c.updatedAt = now; });
       if (created.length > 0) cardRepository.bulkPut(created);

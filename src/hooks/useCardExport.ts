@@ -4,6 +4,7 @@ import { Card, SRSettings } from "@/lib/spaced-repetition";
 import { setLastBackupTime } from "@/lib/storage";
 import type { CategoryRecord } from "@/lib/db-schema";
 import { streamBackup, tableSpec, type ProgressFn } from "@/lib/backup/export-stream";
+import { deriveHtml } from "@/lib/editor-v4/derived";
 
 const IPC_BASE64_LIMIT_MB = 50;
 const IPC_BYTES_LIMIT_MB = 500;
@@ -94,7 +95,7 @@ export function useCardExport({ cards, srSettings }: UseCardExportDeps) {
           const t = {
             id: c.id,
             question: c.question,
-            sections: c.sections.map((s) => ({ title: s.title, content: s.content })),
+            sections: c.sections.map((s) => ({ title: s.title, content: deriveHtml(s.contentDoc) })),
             categoryId: c.categoryId,
             subcategoryId: c.subcategoryId || "",
             chapterId: c.chapterId || "",
@@ -112,7 +113,7 @@ export function useCardExport({ cards, srSettings }: UseCardExportDeps) {
       if (i === 0 && cards.length > 0) {
         parts.push(cards.map((c) => JSON.stringify({
           id: c.id, question: c.question,
-          sections: c.sections.map((s) => ({ title: s.title, content: s.content })),
+          sections: c.sections.map((s) => ({ title: s.title, content: deriveHtml(s.contentDoc) })),
           categoryId: c.categoryId, subcategoryId: c.subcategoryId || "",
           chapterId: c.chapterId || "", type: c.type, tags: c.tags || [],
         })).join(","));
