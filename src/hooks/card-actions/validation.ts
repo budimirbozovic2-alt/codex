@@ -3,10 +3,10 @@ import type { EditorDoc } from "@/lib/editor-v4/types";
 
 export interface SectionInput {
   title: string;
-  /** Legacy HTML — od PR-5 derivirano iz contentDoc preko docToHtml. */
-  content: string;
-  /** V4 canonical AST — primarni write payload od PR-5. */
-  contentDoc?: EditorDoc;
+  /** @deprecated PR-7b: legacy HTML. Use `contentDoc` for new writes. */
+  content?: string;
+  /** PR-7b: canonical AST — primary write payload. */
+  contentDoc: EditorDoc;
 }
 
 export type CardType = "essay" | "flash";
@@ -61,9 +61,27 @@ export function validate(
       errors.flashAnswer = "Odgovor ne smije biti prazan.";
     }
   } else {
-    if (sections.some(s => !stripHtmlText(s.content))) {
+    // PR-7b: validate from AST plain text — keystroke loop no longer maintains
+    // a derived `content` HTML string on every change.
+    if (sections.some(s => {
+      const fromDoc = s.contentDoc ? sectionPlainTextLen(s.contentDoc) : 0;
+      const fromLegacy = s.content ? stripHtmlText(s.content).length : 0;
+      return fromDoc === 0 && fromLegacy === 0;
+    })) {
       errors.sections = "Sve cjeline moraju imati sadržaj.";
     }
   }
   return errors;
+}
+
+function sectionPlainTextLen(doc: EditorDoc): number {
+  // Inline cheap walker — avoids importing the WeakMap shim from the hot path.
+  let len = 0;
+  const walk = (n: { type?: string; text?: string; content?: unknown[] } | undefined) => {
+    if (!n) return;
+    if (n.type === "text" && typeof n.text === "string") len += n.text.trim().length;
+    if (Array.isArray(n.content)) for (const c of n.content) walk(c as typeof n);
+  };
+  walk(doc.content as Parameters<typeof walk>[0]);
+  return len;
 }

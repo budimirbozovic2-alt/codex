@@ -254,6 +254,8 @@ export const BackupSourceSchema = z
       title: s.title,
       date: s.date,
       htmlContent: s.htmlContent,
+      // PR-7b: legacy backup → synth empty AST; lazy-migrate fills on first load.
+      contentDoc: { version: 4, content: { type: "doc", content: [] } },
       outline: s.outline as Source["outline"],
       articles: s.articles as Source["articles"],
       version: s.version,
@@ -391,6 +393,8 @@ export const BackupKnowledgeBaseArticleSchema = z
       subjectId: a.subjectId,
       title: a.title,
       content: a.content,
+      // PR-7b: legacy backup → synth empty AST; lazy-migrate fills on first load.
+      contentDoc: { version: 4, content: { type: "doc", content: [] } },
       linkedSourceIds: a.linkedSourceIds,
       rootSubcategoryId: typeof a.rootSubcategoryId === "string" ? a.rootSubcategoryId : undefined,
       isIndex: a.isIndex,

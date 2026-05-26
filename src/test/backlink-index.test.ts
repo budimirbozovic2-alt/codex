@@ -15,6 +15,7 @@ function art(id: string, title: string, content: string, subj = SUBJ): Knowledge
     subjectId: subj,
     title,
     content,
+    contentDoc: { version: 4, content: { type: "doc", content: [] } },
     linkedSourceIds: [],
     createdAt: 0,
     updatedAt: 0,

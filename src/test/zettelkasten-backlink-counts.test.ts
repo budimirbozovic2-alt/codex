@@ -14,6 +14,7 @@ function art(id: string, title: string, content = "", isIndex = false): Knowledg
     subjectId: SUBJECT,
     title,
     content,
+    contentDoc: { version: 4, content: { type: "doc", content: [] } },
     linkedSourceIds: [],
     isIndex,
     createdAt: 0,

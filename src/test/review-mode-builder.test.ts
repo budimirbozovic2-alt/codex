@@ -24,11 +24,12 @@ function makeSection(overrides: Partial<Section> = {}): Section {
     id: crypto.randomUUID(),
     title: "S",
     content: "C",
+    contentDoc: { version: 4, content: { type: "doc", content: [{ type: "paragraph", content: [{ type: "text", text: "C" }] }] } },
     state: SectionState.Review,
     stability: 10,
     difficulty: 5,
     interval: 10,
-    nextReview: NOW - DAY, // due by default
+    nextReview: NOW - DAY,
     lastReviewed: NOW - 11 * DAY,
     lapses: 0,
     elapsedDays: 11,

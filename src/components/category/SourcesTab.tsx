@@ -57,12 +57,14 @@ export default function SourcesTab({ categoryId, sources, onOpenReader, onSource
       const articles = parseArticles(injectedHtml);
       const title = file.name.replace(/\.docx?$/i, "");
 
+      const { htmlToDoc } = await import("@/lib/editor-v4");
       const newSource: Source = {
         id: crypto.randomUUID(),
         categoryId,
         title,
         date: new Date().toISOString().slice(0, 10),
         htmlContent: promotedHtml,
+        contentDoc: htmlToDoc(promotedHtml),
         outline,
         articles,
         version: 1,
