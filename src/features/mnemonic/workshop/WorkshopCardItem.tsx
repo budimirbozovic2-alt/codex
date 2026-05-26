@@ -246,5 +246,20 @@ function MnemonicSectionContent({ html }: { html: string }) {
   return <ContentRenderer className="text-sm prose prose-sm max-w-none card-prose" doc={doc} />;
 }
 
+/** Inline editor seam — uncontrolled, seeded once per mount. PR-7e M2. */
+function MnemonicSectionEditor({ value, onChange }: { value: string; onChange: (html: string) => void }) {
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const initialDoc = useMemo(() => htmlToDoc(value ?? ""), []);
+  return (
+    <EditorV4
+      initialDoc={initialDoc}
+      onChange={(doc) => onChange(deriveHtml(doc))}
+      placeholder="Unesite sadržaj..."
+      minimal
+    />
+  );
+}
+
 const WorkshopCardItem = memo(WorkshopCardItemInner);
 export default WorkshopCardItem;
+
