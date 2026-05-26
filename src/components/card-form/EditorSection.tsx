@@ -193,7 +193,7 @@ const SectionEditor = memo(function SectionEditor({
 }: SectionEditorProps) {
   // Seed AST once per mount; React `key` (index) drives remount on splits/reorders.
   const initialDoc = useMemo(
-    () => section.contentDoc ?? htmlToDoc(section.content || ""),
+    () => section.contentDoc,
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [],
   );
@@ -238,7 +238,7 @@ const SectionEditor = memo(function SectionEditor({
       </div>
       {cuttingActive ? (
         <CuttingView
-          content={section.content}
+          doc={section.contentDoc}
           onCut={(pIdx) => handleCut(i, pIdx)}
           onCancel={() => setCuttingIndex(null)}
         />
