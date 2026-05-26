@@ -75,6 +75,7 @@ const App = () => {
   }, [isSaving]);
 
   return (
+    <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <div className="flex flex-col h-screen relative" data-app-mounted>
         <TitleBar />
