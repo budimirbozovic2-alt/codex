@@ -132,12 +132,8 @@ export function SmartSplitSummaryDialog({ source, onSmartSplitConfirm }: Props) 
 
             <div className="space-y-2">
               <label className="text-sm font-medium text-muted-foreground">Naslov eseja</label>
-              <RichTextEditorV4
-                value={splitParentName}
-                onChange={setSplitParentName}
-                placeholder="Unesite naslov eseja..."
-                minimal
-              />
+              <ParentTitleEditor value={splitParentName} onChange={setSplitParentName} />
+
             </div>
 
             <div className="space-y-3">
