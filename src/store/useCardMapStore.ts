@@ -14,6 +14,7 @@
 import { createStore } from "zustand/vanilla";
 import { useSyncExternalStore } from "react";
 import type { CardMap } from "@/lib/persist-queue";
+import type { Card } from "@/lib/spaced-repetition";
 
 interface CardMapState {
   cardMap: CardMap;
@@ -29,6 +30,30 @@ export function useCardMap(): CardMap {
     cardMapStore.subscribe,
     () => cardMapStore.getState().cardMap,
     () => cardMapStore.getState().cardMap,
+  );
+}
+
+// ─── Cards array selector (PR-7d M3.1) ────────────────────────────────
+// Cached by cardMap reference — `setCardMap` always produces a new map on
+// mutation, so this gives stable arrays across renders without a separate
+// version counter. Replaces the dual caches in persist-queue and
+// CardStateProvider.
+let _arrCacheMap: CardMap | null = null;
+let _arrCache: Card[] = [];
+function getCardsArray(): Card[] {
+  const map = cardMapStore.getState().cardMap;
+  if (map === _arrCacheMap) return _arrCache;
+  _arrCacheMap = map;
+  _arrCache = Object.values(map);
+  return _arrCache;
+}
+
+/** React subscription hook — stable reference until cardMap mutates. */
+export function useCardsArray(): Card[] {
+  return useSyncExternalStore(
+    cardMapStore.subscribe,
+    getCardsArray,
+    getCardsArray,
   );
 }
 
