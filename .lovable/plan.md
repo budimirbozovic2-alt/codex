@@ -1,105 +1,138 @@
 
-# PR-7d: Audit Resolution — Priprema za OPFS SQLite + TanStack Query
+# PR-7d M2 + M3 — Performance, Write API, Cache Cleanup
 
-Cilj: ukloniti tehnički dug iz PR-7a/b/c i ostaviti codebase u "single source of truth" stanju prije OPFS+TanStack migracije. Plan slijedi prioritete iz audit-a (P0 → P1 → P2). P3 i DIO D (OPFS/FK/test adapter) ostaju za zasebne PR-ove.
-
----
-
-## Milestone 1 — P0: Crash prevencija prije v22 destrukcije
-
-### M1.1 Završiti M3 derive-fallback (audit C1)
-Zamijeniti preostale legacy text reads sa `deriveHtml(section.contentDoc)` / `derivePlainText`:
-- `src/components/card-form/EditorSection.tsx:235` — `content={section.content}` → `deriveHtml(section.contentDoc)`.
-- `src/components/learn/StudyModeRecall.tsx:154, 205` — drop `html={section.content}`, ostaviti `doc=...` only.
-- `src/components/category/CardViewTable.tsx:189` — drop `html` prop.
-- `src/components/SourceSnippetDialog.tsx:72` — drop `html` prop.
-- `src/features/mnemonic/workshop/WorkshopCardItem.tsx:160` — drop `html`, dodati `doc={s.contentDoc}`.
-- `src/lib/migrations/backup-schema.ts:256` — `htmlContent: deriveHtml(s.contentDoc)` (ili izbaciti polje + bumpovati backup verziju → koristiti opciju 1 zbog kompatibilnosti sa starim backup fajlovima).
-
-### M1.2 Ukloniti deprecated polja iz tipova (audit C2)
-Posle M1.1:
-- `Section.content?: string` → ukloniti iz `src/lib/sr/types.ts`.
-- `Source.htmlContent?` → ukloniti iz `src/lib/types`.
-- `KnowledgeBaseArticle.content?` → ukloniti.
-
-TS compiler kao alarm — popraviti svaki preostali read-site dok `bunx tsc --noEmit` ne prođe čisto. IDB row tipovi (migration shim u `migrate.ts`) ostaju netaknuti jer čitaju pre-v22 shape.
-
-### M1.3 Demontirati dual-read scaffolding (audit C5)
-Donesena odluka: **svi selectors idu kroz Dexie liveQuery** (`*FromDb`). Razlog: TanStack Query će kasnije wrap-ovati taj layer; RAM duplikat bi blokirao deterministički query key model.
-
-- Obrisati `useDualReadDiff` (linije 152–174) i RAM varijante (`useCardsByCategoryRam` itd.) iz `src/store/useCardSelectors.ts`.
-- Façade funkcije (`useCardsByCategory`, `useCardCountByCategory`, `useCardById`) → direktni re-export iz `useCardSelectorsFromDb.ts`.
-- `cardMapStore` ostaje SAMO kao optimistic-update overlay za pending writes (koristi se u `cardRepository` write path-u). Nikad više kao primarni read.
-- Ukloniti `USE_DB_LIVE_SELECTORS` flag iz `src/lib/feature-flags.ts`.
+Nastavak PR-7d. M1 (P0 crash + dual-read demontaža) je gotov. Sada slijede performance regresije iz audit-a i priprema cache površine za TanStack/OPFS migraciju.
 
 ---
 
-## Milestone 2 — P1: Perf regresije + write API unifikacija
+## Milestone 2 — P1: Perf + Write API
 
-### M2.1 AST-only `ContentRenderer` + pure `AstNodeRenderer` (audit C3)
-- Ukloniti `html` prop iz `ContentRenderer` (svi konzumeri sada šalju `doc` nakon M1.1).
-- Napisati `src/components/ui/AstNodeRenderer.tsx` — pure React walker kroz `EditorDoc.content`, emituje JSX (paragraf, heading, lista, bold/italic marks, wiki-link, keyPart highlight, mindmap embed placeholder). Bez TipTap instance.
-- Prebaciti read-only call-sites na `AstNodeRenderer`:
-  - `CardViewTable` (virtualizovan listing — najveći win)
-  - `StudyModeRecall` reveal/read faza
-  - `SourceSnippetDialog`
-  - Smart-Split `CuttingView` blokovi (`src/components/source-reader/smart-split/CuttingView.tsx:51-54`)
-  - `EditorSection` preview (`src/components/card-form/EditorSection.tsx:44`)
-- `EditorView` (TipTap read-only) ostaje SAMO za bogate render kontekste gdje treba interaktivnost (Zettelkasten article body, npr.).
+### M2.1 `AstNodeRenderer` + AST-only `ContentRenderer`
 
-### M2.2 Eliminisati `RichTextEditorV4` shim (audit C4)
-Migrirati 3 konzumera da drže `contentDoc` u local state-u:
+**Problem:** trenutni `ContentRenderer` per-row spawn-uje cijeli TipTap `EditorView` instance (ProseMirror schema, plugins, transactions). U virtualizovanim listama (`CardViewTable`) to je 10–50× skuplje od prethodnog `SafeHtml` pristupa.
+
+**Rješenje:** pure React walker koji emituje JSX direktno iz AST node-ova — bez TipTap-a, bez DOM mutationa.
+
+Koraci:
+1. Kreirati `src/components/ui/AstNodeRenderer.tsx`:
+   - Prima `doc: EditorDoc`, mapuje `content.content[]` rekurzivno.
+   - Pokriti node tipove: `paragraph`, `heading` (level 1–3), `bulletList`/`orderedList`/`listItem`, `blockquote`, `codeBlock`, `hardBreak`, `text`.
+   - Mark tipovi: `bold`, `italic`, `underline`, `code`, `keyPart` (klasa za highlight), `link` (`<a target="_blank" rel="noopener">`), `wikiLink` (interni handler).
+   - Mindmap embed (`::mindmap[id]`) → placeholder div sa data-attrom; klik handler dolazi iz parent context-a (prop callback).
+   - Snapshot test sa fixturama iz `src/test/fixtures/editor-html/*` da AST → JSX pokriva sve postojeće node tipove.
+
+2. Refactor `ContentRenderer.tsx`:
+   - Ukloniti `html` prop u potpunosti.
+   - Internal: ako `doc?.version === 4` → `<AstNodeRenderer>`; inače prazan render.
+   - `EditorView` (TipTap read-only) **ostaje** samo za bogate kontekste gdje treba klik na interne node-ove (Zettelkasten article body) — eksplicitno preko `<EditorView>` importa, ne preko `ContentRenderer`-a.
+
+3. Migrirati read-only call-site-ove na novi `ContentRenderer` (sa samo `doc` propom):
+   - `src/components/category/CardViewTable.tsx` — najveći perf win (virtualizovan).
+   - `src/components/learn/StudyModeRecall.tsx` (reveal/read faza).
+   - `src/components/SourceSnippetDialog.tsx`.
+   - `src/components/source-reader/smart-split/CuttingView.tsx` blokovi.
+   - `src/components/card-form/EditorSection.tsx` preview.
+   - `src/components/LinkToExistingCardModal.tsx`.
+   - `src/components/subject-cards/PassiveReader.tsx`.
+   - `src/components/zettelkasten/SourceSidePanel.tsx`.
+   - `src/components/zettelkasten/ZettelPreview.tsx` (provjeriti da li traži klik na wikilink — ako da, ostaje `EditorView`).
+
+### M2.2 Eliminisati `RichTextEditorV4` shim
+
+Trenutno 3 konzumera koriste shim koji wrap-uje `EditorV4` i emituje HTML (kontradikcija sa AST-as-SSOT politikom):
+
 - `src/components/source-reader/smart-split/ModuleCard.tsx`
 - `src/components/source-reader/SmartSplitSummaryDialog.tsx`
 - `src/features/mnemonic/workshop/WorkshopCardItem.tsx`
 
-Promijeniti store/parent shape: `htmlContent: string` → `contentDoc: EditorDoc` u smart-split modules tipu i mnemonic workshop card item-u. Sve `onChange(html)` postaju `onChange(doc)`. Eksport pipeline (smart-split → final card) može pozvati `deriveHtml` na samom write boundary-u ako je to zaista potrebno.
+Akcije:
+1. U svakom konzumeru zamijeniti local state `htmlContent: string` sa `contentDoc: EditorDoc`.
+2. `onChange(html)` → `onChange(doc)`.
+3. Parent store/types update:
+   - Smart-split module tip (gdje god `htmlContent` živi u smart-split state-u) → `contentDoc: EditorDoc`.
+   - Mnemonic workshop card item draft → `contentDoc`.
+4. Eksport boundary (smart-split → kartica koja ide u `cardRepository.put`) je već AST-native poslije PR-7b, pa nema dodatnog kombera.
+5. **Lazy migration** u storage learn layeru: ako load naiđe na stari `htmlContent` string u localStorage draft-u, konvertovati preko `htmlToDoc` pri load-u i odmah re-save-ovati.
+6. Obrisati `src/components/editor-v4/RichTextEditorV4.tsx`.
 
-Obrisati `src/components/editor-v4/RichTextEditorV4.tsx`.
+### M2.3 Fix `EditorV4` placeholder churn
 
-### M2.3 Popraviti `EditorV4` placeholder churn (audit A5)
-`src/components/editor-v4/EditorV4.tsx:177-182` — odvojiti placeholder od `extensions` memo-a tako da promjena `placeholder`-a ne re-instancira editor. Konkretno: koristiti TipTap `Placeholder.configure({placeholder: () => latestPlaceholderRef.current})` sa `useLatestRef`. Editor se i dalje uništava u cleanup-u, ali ne i na svaki placeholder change.
+`src/components/editor-v4/EditorV4.tsx:177-182` — `placeholder` je u `extensions` memo dependency listi, pa svaka promjena placeholder stringa re-instancira cijeli ProseMirror editor (gubi se selection, scroll, history).
 
-### M2.4 Standardizovati write API shape (audit C9)
-Konvergirati sve write funkcije na `(input) => Promise<Result>` sa eksplicitnim error tipom:
-- `cardRepository.put/bulkPut` → async, vraća `{ok: true} | {ok: false, error}`.
-- `saveSource`, `saveArticle` — već async, samo ujednačiti return shape.
-- `categoryRepository.commit` — već usklađen.
+Fix:
+- `useLatestRef(placeholder)` pattern.
+- `Placeholder.configure({ placeholder: () => latestPlaceholderRef.current })`.
+- Skinuti `placeholder` iz extensions memo deps; editor se i dalje uništava u unmount cleanup-u, ali ne na placeholder change.
 
-Cilj: TanStack `useMutation` može generičko wrapovati sve domene istom `onSuccess/onError` semantikom kasnije.
+### M2.4 Standardizacija write API shape
+
+Pripremno za TanStack `useMutation` — sve write funkcije moraju vratiti uniformni rezultat tip:
+
+```ts
+type WriteResult<T = void> = { ok: true; value: T } | { ok: false; error: WriteError };
+```
+
+Targets:
+- `cardRepository.put` / `bulkPut` → async, vraća `WriteResult<Card>` / `WriteResult<Card[]>`.
+- `saveSource`, `saveArticle` → ujednačiti return shape (već async).
+- `categoryRepository.commit` — već usklađen, samo verifikovati shape.
+
+Caller-i koji ne čitaju return value → no-op. Caller-i koji baca/await — refactor na `if (!res.ok) { ... }`.
 
 ---
 
-## Milestone 3 — P2: Čišćenje keš površine
+## Milestone 3 — P2: Cache površina
 
-### M3.1 Deduplicirati cards keševe (audit B1, C6)
-- Ukloniti `_mapVersion`/`_cachedArray` iz `src/lib/persist-queue.ts:21-30`.
-- Ukloniti `_cardsCacheMap`/`_cardsCacheArr` iz `src/contexts/cards/CardStateProvider.tsx:28-37`.
-- Konsolidovati u jedan selector iznad `cardMapStore` (`useCardsArray()` u `useCardMapStore`).
+### M3.1 Deduplicirati cards keševe
 
-### M3.2 PersistAdapter interface (audit C10)
-Izvući IDB-specific write logiku iza interface-a, bez mijenjanja ponašanja:
-- `src/lib/persistence/PersistAdapter.ts` — interface: `bulkApply(ops)`, `recoverPending()`.
-- `src/lib/persistence/idb-outbox-adapter.ts` — trenutna implementacija (`outboxPut` → `put` → `outbox.bulkDelete`).
-- `persist-queue.ts` zove adapter umjesto direktno Dexie.
+Trenutno tri konkurentska keša za istu kartice kolekciju:
+- `_mapVersion`/`_cachedArray` u `src/lib/persist-queue.ts:21-30`.
+- `_cardsCacheMap`/`_cardsCacheArr` u `src/contexts/cards/CardStateProvider.tsx:28-37`.
+- `cardMapStore` (Zustand) — pravi SSOT.
 
-OPFS SQLite adapter dolazi u zasebnom PR-u, ali interface je spreman.
+Akcije:
+1. Ukloniti `_mapVersion`/`_cachedArray` + `bumpMapVersion()` poziv iz `persist-queue.ts`.
+2. Ukloniti `_cardsCacheMap`/`_cardsCacheArr` iz `CardStateProvider.tsx`.
+3. Dodati `useCardsArray()` selector iznad `cardMapStore` koji koristi `useShallow` ili `useMemo` referenciranjem na map verziju.
+4. Svi konzumeri `Object.values(cardMap)` → `useCardsArray()`.
+
+### M3.2 `PersistAdapter` interface
+
+Izvući IDB-specific write logiku iza interface-a, BEZ promjene ponašanja (priprema za OPFS SQLite adapter u zasebnom PR-u):
+
+1. Kreirati `src/lib/persistence/PersistAdapter.ts`:
+   ```ts
+   export interface PersistAdapter {
+     bulkApply(ops: PersistAction[]): Promise<void>;
+     recoverPending(): Promise<PersistAction[]>;
+   }
+   ```
+2. Kreirati `src/lib/persistence/idb-outbox-adapter.ts` — trenutna implementacija (`outboxPut` → `put` → `outbox.bulkDelete`) preseljena iza interface-a.
+3. `persist-queue.ts` instancira jedan adapter (DI-friendly factory za test override) i poziva ga umjesto direktnog Dexie poziva.
+4. OPFS adapter dolazi u zasebnom PR-u; ovaj korak samo otvara šav.
 
 ---
 
 ## Milestone 4 — Verifikacija
 
 - `bunx tsc --noEmit` — clean.
-- `bunx vitest run` — svi testovi prolaze; adaptirati/obrisati testove koji su importovali RAM selectore ili `RichTextEditorV4`.
-- Smoke pass: Review, Smart-Split, SourceReader, Zettelkasten preview, GlobalSearch, StudyMode, CardViewTable (virtualizovano scroll-anje).
+- `bunx vitest run` — svi prolaze. Posebno:
+  - `AstNodeRenderer` snapshot suite (novi).
+  - Postojeći `editor-view-readonly.test.tsx` — adaptirati na `ContentRenderer` bez `html` propa.
+- Manual smoke (preview):
+  - `CardViewTable` virtualizovan scroll na velikoj kategoriji — vidljiv pad u CPU profile-u.
+  - Smart-Split (Cutting + Summary) — drag, edit, save.
+  - Mnemonic workshop — edit card item, save.
+  - Study Mode reveal.
+  - Zettelkasten preview (klik na wikilink i dalje radi — `EditorView` ostaje).
 
 ---
 
-## Eksplicitno IZVAN scope-a (zasebni PR-ovi)
+## Eksplicitno izvan scope-a
 
-- **P3**: C7 (zettelkasten keš), C8 (event-bus redukcija) — kozmetika, ne blokira.
-- **DIO D**: OPFS SQLite migracija, FK CASCADE shema (D3), backlink table denormalizacija (D4), test adapter (D8), `outbox` brisanje (D5). Ovi pripadaju OPFS PR-u, ne ovom audit-resolution PR-u.
-- Sigurnosna mreža: v22 destrukcija ostaje gated na `v4_telemetry_healthy === "true"` (već urađeno u PR-7c) — ovaj PR ne otvara taj gate niti mijenja preflight politiku.
+- **P3**: zettelkasten cache, event-bus redukcija — kozmetika.
+- **DIO D**: OPFS SQLite migracija, FK CASCADE, backlink denorm tabela, test adapter, `outbox` brisanje — zaseban PR (PersistAdapter iz M3.2 je samo šav).
+- Bilo kakva promjena v22 destrukcijskog gate-a (`v4_telemetry_healthy`).
 
 ---
 
@@ -107,8 +140,9 @@ OPFS SQLite adapter dolazi u zasebnom PR-u, ali interface je spreman.
 
 | Milestone | Rizik | Mitigacija |
 |---|---|---|
-| M1.1+M1.2 | TS može otkriti više read-site-ova nego što audit lista | Iterativno popraviti dok `tsc` ne prođe |
-| M1.3 | RAM selector je default u DEV-u — uklanjanje mijenja read path za svakog developera | Smoke test svih primarnih view-ova prije merge-a |
-| M2.1 | `AstNodeRenderer` mora pokrivati sve schema node tipove | Reuse fixture set iz `src/test/fixtures/editor-html/*` kao snapshot test |
-| M2.2 | Smart-split/mnemonic store shape promjena = migration na postojećim draftovima | Lazy migration u storage layer-u: ako naiđe na `htmlContent` string, konvertuj `htmlToDoc` pri load-u |
-| M2.4 | Promjena return shape-a `cardRepository.put` može razbiti pozive | Grep-and-replace; većina caller-a ne čita povratnu vrijednost |
+| M2.1 | `AstNodeRenderer` može propustiti rijetki node tip → prazan render | Snapshot test sa fixture set-om; fallback `<span data-unknown={type}/>` u dev modu sa `logger.warn` |
+| M2.2 | Stari smart-split/mnemonic draftovi u localStorage imaju `htmlContent` string | Lazy `htmlToDoc` migracija u load path-u storage-a |
+| M2.3 | `useLatestRef` pattern može maskirati zaista željen reset | Verifikovati da svi caller-i koji žele reset koriste `key={...}` na `EditorV4` |
+| M2.4 | Promjena return shape-a `cardRepository.put` | Grep-and-replace; većina caller-a ignoriše povratnu vrijednost |
+| M3.1 | Uklanjanje keša može uvesti O(n) regresiju ako `Object.values` curi u render path | `useCardsArray()` koristi referencijalnu stabilnost preko verziong-a u `cardMapStore` |
+| M3.2 | Pogrešna apstrakcija → suvišan refactor kad dođe OPFS | Adapter interface namjerno minimalan (`bulkApply` + `recoverPending`); ostalo u sljedećem PR-u |
