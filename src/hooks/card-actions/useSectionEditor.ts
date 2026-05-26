@@ -2,6 +2,7 @@ import { useState, useCallback } from "react";
 import type { Card } from "@/lib/spaced-repetition";
 import { parseHtmlToParagraphs, type SectionInput, type CardType, type ValidationErrors } from "./validation";
 import { htmlToDoc, type EditorDoc } from "@/lib/editor-v4";
+import { deriveHtml } from "@/lib/editor-v4/derived";
 
 function seedDoc(content: string, existing?: EditorDoc): EditorDoc {
   if (existing && existing.version === 4) return existing;
@@ -67,7 +68,9 @@ export function useSectionEditor(editCard?: Card | null) {
   const handleCut = useCallback((sectionIndex: number, paragraphIndex: number) => {
     setSections(prev => {
       const section = prev[sectionIndex];
-      const paragraphs = parseHtmlToParagraphs(section.content);
+      // PR-7b: contentDoc is SSOT — derive HTML once here for paragraph splitting.
+      const sourceHtml = section.content ?? deriveHtml(section.contentDoc);
+      const paragraphs = parseHtmlToParagraphs(sourceHtml);
       if (paragraphIndex <= 0 || paragraphIndex >= paragraphs.length) return prev;
 
       const beforeContent = paragraphs.slice(0, paragraphIndex).map(p => `<p>${p}</p>`).join("");
