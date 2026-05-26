@@ -2,7 +2,7 @@ import { Wand2, PenSquare, Plus, FileText } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import RichTextEditor from "@/components/RichTextEditor";
+import RichTextEditorV4 from "@/components/editor-v4/RichTextEditorV4";
 import type { Source } from "@/lib/sources-storage";
 import { useSourceReaderStore } from "@/store";
 import { useCategoryData } from "@/contexts/AppContext";
@@ -130,7 +130,7 @@ export function SmartSplitSummaryDialog({ source, onSmartSplitConfirm }: Props) 
 
             <div className="space-y-2">
               <label className="text-sm font-medium text-muted-foreground">Naslov eseja</label>
-              <RichTextEditor
+              <RichTextEditorV4
                 value={splitParentName}
                 onChange={setSplitParentName}
                 placeholder="Unesite naslov eseja..."

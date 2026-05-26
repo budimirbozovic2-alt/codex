@@ -1,6 +1,6 @@
 import { ChevronDown, ChevronUp, Scissors, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import RichTextEditor from "@/components/RichTextEditor";
+import RichTextEditorV4 from "@/components/editor-v4/RichTextEditorV4";
 import { cn } from "@/lib/utils";
 import { htmlToPlain, splitHtmlIntoBlocks, type SelectionModule } from "@/lib/selection-split-engine";
 import type { defaultEdit } from "@/lib/split-wizard-build";
@@ -58,7 +58,7 @@ export function ModuleCard({
           </button>
         </div>
         <div className="flex-1 min-w-0">
-          <RichTextEditor
+          <RichTextEditorV4
             value={edit.question}
             onChange={(v) => onUpdateEdit(i, { question: v })}
             placeholder={mod.title || "Naziv cjeline..."}
@@ -102,7 +102,7 @@ export function ModuleCard({
         />
       ) : (
         <div className={cn(edit.skipped && "opacity-50 pointer-events-none")}>
-          <RichTextEditor
+          <RichTextEditorV4
             value={mod.contentHtml}
             onChange={(html) => {
               const plain = htmlToPlain(html);
