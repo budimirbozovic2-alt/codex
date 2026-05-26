@@ -64,7 +64,7 @@ export function usePlannerData(cards: SRCard[], reviewLog: ReviewLogEntry[], cat
   });
 
   const { data: plannerStatus = null } = useQuery({
-    queryKey: queryKeys.planner.plannerStatus(estimatedFinish, config.finalGoalDate, config.bufferPercent),
+    queryKey: queryKeys.planner.plannerStatus(estimatedFinish ? estimatedFinish.getTime() : null, config.finalGoalDate, config.bufferPercent),
     queryFn: async () => {
       if (estimatedFinish === null) return null;
       const mod = await getPlannerModule();
