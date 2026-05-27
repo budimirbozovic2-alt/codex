@@ -9,6 +9,8 @@ import type { QueryClient } from "@tanstack/react-query";
 import { onSourcesChanged } from "@/lib/sources-storage";
 import { onPlannerChanged, type PlannerChangeKind } from "@/lib/planner";
 import { onDraftsChanged, onSettingsChanged, onCardsChanged } from "@/lib/db/queries";
+import { onMindMapsChanged } from "@/lib/mindmap-storage";
+import { subscribeMnemonics } from "@/features/mnemonic/mnemonic-storage/cards-repo";
 
 let _installed = false;
 
@@ -49,6 +51,20 @@ export function installQueryBridges(qc: QueryClient): void {
   // to RAM + persist-queue. Invalidates every scoped cards query.
   onCardsChanged(() => {
     void qc.invalidateQueries({ queryKey: ["cards"] });
+  });
+
+  // ── Mind maps ───────────────────────────────────────────
+  // SSOT façade (`mindmap-storage`) emituje nakon save/delete/invalidate.
+  onMindMapsChanged(() => {
+    void qc.invalidateQueries({ queryKey: ["mindMaps"] });
+  });
+
+  // ── Mnemonics (cards + major-system + test-log) ─────────
+  // `subscribeMnemonics` se fire-uje iz cards-repo nakon bulkPut/delete.
+  // Major-system i test-log dijele istu invalidacionu zonu (sve čita
+  // mnemonic feature, scopovi su pod istim prefixom).
+  subscribeMnemonics(() => {
+    void qc.invalidateQueries({ queryKey: ["mnemonics"] });
   });
 
   // ── Settings (prefix "" = sve mutacije) ─────────────────

@@ -52,4 +52,22 @@ export const queryKeys = {
     plannerStatus: (estimatedFinish: number | null, finalGoalDate: string, buffer: number) =>
       ["planner", "status", estimatedFinish, finalGoalDate, buffer] as const,
   },
+  mindMaps: {
+    root: ["mindMaps"] as const,
+    all: () => ["mindMaps", "all"] as const,
+    byCategory: (categoryId: string) => ["mindMaps", "cat", categoryId] as const,
+    byId: (id: string) => ["mindMaps", "id", id] as const,
+  },
+  mnemonics: {
+    root: ["mnemonics"] as const,
+    all: () => ["mnemonics", "all"] as const,
+    byCategory: (categoryId: string) => ["mnemonics", "cat", categoryId] as const,
+    majorSystem: () => ["mnemonics", "majorSystem"] as const,
+    testLog: () => ["mnemonics", "testLog"] as const,
+    testLogByCard: (cardId: string) => ["mnemonics", "testLog", "card", cardId] as const,
+  },
+  knowledgeBase: {
+    root: ["knowledgeBase"] as const,
+    all: () => ["knowledgeBase", "all"] as const,
+  },
 } as const;
