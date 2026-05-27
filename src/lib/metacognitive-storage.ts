@@ -1,5 +1,6 @@
 import { ReviewLogEntry } from "./storage";
 import { db } from "./db";
+import { getSetting, putSetting } from "@/lib/db/queries";
 
 import { logger } from "@/lib/logger";
 // ═══════════════════════════════════════════════════════════
@@ -22,22 +23,22 @@ export async function initMetacognitiveCache(): Promise<void> {
   try {
     const cutoff90 = Date.now() - 90 * 86400000;
     const cutoffDate = new Date(cutoff90).toISOString().slice(0, 10);
-    const [diary, calibration, latency, slippage, activity, analysisRow, appEntryRow] = await Promise.all([
+    const [diary, calibration, latency, slippage, activity, analysisVal, appEntryVal] = await Promise.all([
       db.diary.toArray(),
       db.calibrationLog.where("timestamp").above(cutoff90).toArray(),
       db.latencyLog.where("timestamp").above(cutoff90).toArray(),
       db.slippageLog.where("date").above(cutoffDate).toArray(),
       db.activityLog.where("timestamp").above(cutoff90).toArray(),
-      db.settings.get("lastAnalysisDate"),
-      db.settings.get("appEntry"),
+      getSetting<string>("lastAnalysisDate"),
+      getSetting<typeof _appEntry>("appEntry"),
     ]);
     _diaryCache = diary;
     _calibrationCache = calibration;
     _latencyCache = latency;
     _slippageCache = slippage;
     _activityCache = activity;
-    _lastAnalysisDate = (analysisRow?.value as string) ?? null;
-    _appEntry = (appEntryRow?.value as typeof _appEntry) ?? null;
+    _lastAnalysisDate = analysisVal ?? null;
+    _appEntry = appEntryVal ?? null;
     _cacheReady = true;
   } catch (err) {
     logger.warn("[metacognitive] cache init failed, using empty defaults", err);
@@ -181,7 +182,7 @@ export function recordAppEntry() {
   const today = new Date().toISOString().slice(0, 10);
   if (_appEntry && _appEntry.date === today) return;
   _appEntry = { date: today, time: Date.now() };
-  db.settings.put({ key: "appEntry", value: _appEntry }).catch((e) => logger.warn("[silent]", e));
+  putSetting("appEntry", _appEntry).catch((e) => logger.warn("[silent]", e));
 }
 
 export function recordFirstAction() {
@@ -192,7 +193,7 @@ export function recordFirstAction() {
 
     const slippageMs = Date.now() - _appEntry.time;
     _appEntry = { ..._appEntry, actionRecorded: true };
-    db.settings.put({ key: "appEntry", value: _appEntry }).catch((e) => logger.warn("[silent]", e));
+    putSetting("appEntry", _appEntry).catch((e) => logger.warn("[silent]", e));
 
     const slippageEntry: SlippageEntry = { date: today, appEntryTime: _appEntry.time, firstActionTime: Date.now(), slippageMs };
     _slippageCache = [..._slippageCache, slippageEntry];

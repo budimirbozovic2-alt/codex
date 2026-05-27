@@ -30,10 +30,11 @@ export async function setupElectronIPC() {
   if (!window.electronAPI) return;
 
   const { db } = await import("./db");
+  const { getSetting } = await import("@/lib/db/queries");
 
   const buildBackupData = async () => {
     const [
-      cards, categories, reviewLog, srSettingsRow,
+      cards, categories, reviewLog, srSettingsValue,
       sources, mindMaps, diary,
       calibrationLog, latencyLog, slippageLog,
       activityLog, disciplineLog, pomodoroLog,
@@ -41,7 +42,7 @@ export async function setupElectronIPC() {
       db.cards.toArray(),
       db.categories.toArray(),
       db.reviewLog.toArray(),
-      db.settings.get("srSettings").then(r => r?.value ?? null),
+      getSetting<unknown>("srSettings"),
       db.sources.toArray(),
       db.mindMaps.toArray(),
       db.diary.toArray(),
@@ -61,17 +62,17 @@ export async function setupElectronIPC() {
       }
     });
 
-    // Read planner data from IDB
-    const [plannerConfigRow, dailyMappedRow, dailyMappedDateRow] = await Promise.all([
-      db.settings.get("plannerConfig"),
-      db.settings.get("dailyMapped"),
-      db.settings.get("dailyMappedDate"),
+    // Read planner data via settings repo (SQLite-primary)
+    const [plannerConfigVal, dailyMappedVal, dailyMappedDateVal] = await Promise.all([
+      getSetting<unknown>("plannerConfig"),
+      getSetting<unknown>("dailyMapped"),
+      getSetting<unknown>("dailyMappedDate"),
     ]);
 
     const localStorageData: Record<string, unknown> = {};
-    if (plannerConfigRow?.value) localStorageData["sr-planner-config"] = plannerConfigRow.value;
-    if (dailyMappedRow?.value != null) localStorageData["sr-daily-mapped-count"] = dailyMappedRow.value;
-    if (dailyMappedDateRow?.value) localStorageData["sr-daily-mapped-date"] = dailyMappedDateRow.value;
+    if (plannerConfigVal != null) localStorageData["sr-planner-config"] = plannerConfigVal;
+    if (dailyMappedVal != null) localStorageData["sr-daily-mapped-count"] = dailyMappedVal;
+    if (dailyMappedDateVal != null) localStorageData["sr-daily-mapped-date"] = dailyMappedDateVal;
 
     const lsKeys = [
       "sr-app-settings", "sr-mnemonic-workshop",
@@ -96,7 +97,7 @@ export async function setupElectronIPC() {
       localStorageData,
       timestamp: Date.now()
     };
-    if (srSettingsRow) data["srSettings"] = srSettingsRow;
+    if (srSettingsValue != null) data["srSettings"] = { key: "srSettings", value: srSettingsValue };
     return data;
   };
 

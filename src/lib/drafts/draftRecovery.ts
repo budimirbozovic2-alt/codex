@@ -8,7 +8,7 @@
  * remains the responsibility of those views — this scan is just the
  * "you have unfinished business" nudge that runs once per app session.
  */
-import { db } from "@/lib/db-schema";
+import { listAllDrafts, bulkDeleteDrafts } from "@/lib/db/queries";
 import { logger } from "@/lib/logger";
 import { toast } from "sonner";
 
@@ -22,7 +22,7 @@ export async function recoverDraftsOnBoot(): Promise<void> {
 
   let rows;
   try {
-    rows = await db.drafts.toArray();
+    rows = await listAllDrafts();
   } catch (err) {
     logger.warn("[draft-recovery] scan failed", err);
     return;
@@ -33,7 +33,7 @@ export async function recoverDraftsOnBoot(): Promise<void> {
   const stale = rows.filter(r => now - r.updatedAt > STALE_MS);
   if (stale.length > 0) {
     try {
-      await db.drafts.bulkDelete(stale.map(r => r.key));
+      await bulkDeleteDrafts(stale.map(r => r.key));
     } catch (err) {
       logger.warn("[draft-recovery] stale cleanup failed", err);
     }

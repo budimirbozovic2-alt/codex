@@ -95,9 +95,9 @@ export function loadAppSettings(): AppSettings {
 
 export function saveAppSettings(settings: AppSettings): void {
   const json = JSON.stringify(settings);
-  // Primary: IDB (canonical source)
-  import("./db").then(({ db }) => {
-    db.settings.put({ key: "appSettings", value: settings }).catch((e) => logger.warn("[settings] IDB write failed", e));
+  // Primary: SQLite via settings repo (Dexie mirror is written by the repo).
+  import("@/lib/db/queries").then(({ putSetting }) => {
+    putSetting("appSettings", settings).catch((e) => logger.warn("[settings] put failed", e));
   }).catch(() => {});
   // Mirror to localStorage for fast sync reads (cache, not source of truth)
   try { localStorage.setItem(APP_SETTINGS_KEY, json); } catch {}
@@ -118,18 +118,17 @@ export async function loadAppSettingsAsync(): Promise<AppSettings> {
       };
     }
   } catch {}
-  // Fallback to IDB
+  // Fallback to SQLite via settings repo
   try {
-    const { db } = await import("./db");
-    const row = await db.settings.get("appSettings");
-    if (row?.value) {
-      const parsed = row.value as Partial<AppSettings>;
+    const { getSetting } = await import("@/lib/db/queries");
+    const value = await getSetting<Partial<AppSettings>>("appSettings");
+    if (value) {
       const restored = {
         ...DEFAULT_APP_SETTINGS,
-        ...parsed,
-        dashboardWidgets: { ...DEFAULT_APP_SETTINGS.dashboardWidgets, ...parsed.dashboardWidgets },
-        pomodoro: { ...DEFAULT_APP_SETTINGS.pomodoro, ...parsed.pomodoro },
-        notifications: { ...DEFAULT_APP_SETTINGS.notifications, ...parsed.notifications },
+        ...value,
+        dashboardWidgets: { ...DEFAULT_APP_SETTINGS.dashboardWidgets, ...value.dashboardWidgets },
+        pomodoro: { ...DEFAULT_APP_SETTINGS.pomodoro, ...value.pomodoro },
+        notifications: { ...DEFAULT_APP_SETTINGS.notifications, ...value.notifications },
       };
       // Restore to localStorage for fast sync reads
       try { localStorage.setItem(APP_SETTINGS_KEY, JSON.stringify(restored)); } catch {}
@@ -181,12 +180,12 @@ export async function isAutoBackupOverdueAsync(settings: AppSettings): Promise<b
     const str = localStorage.getItem("sr-last-backup");
     if (str) lastTs = JSON.parse(str);
   } catch {}
-  // Fallback to IDB
+  // Fallback to SQLite via settings repo
   if (!lastTs) {
     try {
-      const { db } = await import("./db");
-      const row = await db.settings.get("sr-last-backup");
-      if (row?.value) lastTs = row.value as number;
+      const { getSetting } = await import("@/lib/db/queries");
+      const value = await getSetting<number>("sr-last-backup");
+      if (typeof value === "number") lastTs = value;
     } catch {}
   }
   if (!lastTs) return false;

@@ -38,14 +38,14 @@ export async function initSubjectSettingsCache(): Promise<void> {
   if (_initialized) return;
   _initialized = true;
   try {
-    const { db } = await import("./db");
-    const rows = await db.settings.where("key").startsWith(PREFIX).toArray();
+    const { listSettingsByPrefix, putSetting } = await import("@/lib/db/queries");
+    const rows = await listSettingsByPrefix<SubjectSettings>(PREFIX);
     for (const row of rows) {
       const id = row.key.slice(PREFIX.length);
-      _cache.set(id, row.value as SubjectSettings);
+      _cache.set(id, row.value);
     }
-    // Legacy: hydrate from localStorage for keys not yet in IDB, then mirror
-    // them back to IDB so the next boot is IDB-only.
+    // Legacy: hydrate from localStorage for keys not yet in the repo, then
+    // mirror them back so the next boot is repo-only.
     if (typeof localStorage !== "undefined") {
       for (let i = 0; i < localStorage.length; i++) {
         const k = localStorage.key(i);
@@ -57,12 +57,12 @@ export async function initSubjectSettingsCache(): Promise<void> {
           if (!raw) continue;
           const parsed = JSON.parse(raw) as SubjectSettings;
           _cache.set(id, parsed);
-          db.settings.put({ key: k, value: parsed }).catch(() => {});
+          putSetting(k, parsed).catch(() => {});
         } catch { /* skip malformed entry */ }
       }
     }
   } catch (err) {
-    logger.warn("[subject-settings] IDB hydrate failed; falling back to localStorage", err);
+    logger.warn("[subject-settings] repo hydrate failed; falling back to localStorage", err);
   }
 }
 
@@ -84,19 +84,19 @@ export function saveSubjectSettings(categoryId: string, settings: SubjectSetting
   const json = JSON.stringify(settings);
   // localStorage stays as a fast-read mirror.
   try { localStorage.setItem(PREFIX + categoryId, json); } catch { /* quota */ }
-  // IDB is canonical and is the source for backups + restore.
-  import("./db").then(({ db }) => {
-    db.settings.put({ key: PREFIX + categoryId, value: settings })
-      .catch((err) => logger.warn("[subject-settings] IDB put failed", err));
+  // SQLite (via repo) is canonical and is the source for backups + restore.
+  import("@/lib/db/queries").then(({ putSetting }) => {
+    putSetting(PREFIX + categoryId, settings)
+      .catch((err) => logger.warn("[subject-settings] put failed", err));
   }).catch(() => {});
 }
 
 export function clearSubjectSettings(categoryId: string): void {
   _cache.delete(categoryId);
   try { localStorage.removeItem(PREFIX + categoryId); } catch { /* noop */ }
-  import("./db").then(({ db }) => {
-    db.settings.delete(PREFIX + categoryId)
-      .catch((err) => logger.warn("[subject-settings] IDB delete failed", err));
+  import("@/lib/db/queries").then(({ deleteSetting }) => {
+    deleteSetting(PREFIX + categoryId)
+      .catch((err) => logger.warn("[subject-settings] delete failed", err));
   }).catch(() => {});
 }
 
