@@ -18,7 +18,8 @@
  * the repo only exposes the data plane.
  */
 import type { SqlExecutor } from "@/lib/persistence/sqlite/executor";
-import { db, type Source, type Card } from "@/lib/db";
+import { db, type Source } from "@/lib/db";
+import type { Card } from "@/lib/spaced-repetition";
 import { logger } from "@/lib/logger";
 
 // ─── Executor accessor ──────────────────────────────────────────────────
