@@ -64,3 +64,11 @@ export {
   bulkPutMnemonics,
   deleteMnemonic,
 } from "./mnemonics";
+export {
+  getArticle as getKnowledgeBaseArticle,
+  listArticlesBySubject,
+  findArticleByTitle,
+  putArticle as putKnowledgeBaseArticle,
+  bulkPutArticles as bulkPutKnowledgeBaseArticles,
+  deleteArticle as deleteKnowledgeBaseArticle,
+} from "./knowledge-base";
