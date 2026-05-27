@@ -8,12 +8,28 @@
  * Walled per architecture memory: deep imports into sibling files are
  * forbidden, the barrel is the single seam.
  */
-export { cardsBySource } from "./cards";
+// PR-9 A1b P1.5 — cards read path (SQLite-primary, Dexie fallback).
+export {
+  listAllCards,
+  getCardsByIds,
+  cardsByCategory,
+  cardsBySubcategory,
+  cardsByChapter,
+  cardsByType,
+  cardsBySource,
+  cardsByTag,
+  cardCountByCategory,
+  cardCountByChapter,
+  cardCountByType,
+  onCardsChanged,
+  notifyCardsChanged,
+} from "./cards";
 
 // Re-export legacy query helpers that still live in `src/lib/db-queries.ts`
 // so hooks have a single, sanctioned entry-point and never reach `@/lib/db`.
+// `idbLoadCards`/`idbLoadCardsByChapter` are deprecated — P1.5 callers should
+// prefer `listAllCards` / `cardsByChapter` from the cards repo above.
 export {
-  idbLoadCardsByChapter,
   idbLoadSettings,
   idbSaveSettings,
 } from "@/lib/db-queries";

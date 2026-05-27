@@ -8,7 +8,7 @@
 import type { QueryClient } from "@tanstack/react-query";
 import { onSourcesChanged } from "@/lib/sources-storage";
 import { onPlannerChanged, type PlannerChangeKind } from "@/lib/planner";
-import { onDraftsChanged, onSettingsChanged } from "@/lib/db/queries";
+import { onDraftsChanged, onSettingsChanged, onCardsChanged } from "@/lib/db/queries";
 
 let _installed = false;
 
@@ -42,6 +42,13 @@ export function installQueryBridges(qc: QueryClient): void {
   // ── Drafts ──────────────────────────────────────────────
   onDraftsChanged(() => {
     void qc.invalidateQueries({ queryKey: ["drafts"] });
+  });
+
+  // ── Cards (P1.5) ────────────────────────────────────────
+  // Fired by `notifyCardsChanged` after a `cardRepository` write commits
+  // to RAM + persist-queue. Invalidates every scoped cards query.
+  onCardsChanged(() => {
+    void qc.invalidateQueries({ queryKey: ["cards"] });
   });
 
   // ── Settings (prefix "" = sve mutacije) ─────────────────
