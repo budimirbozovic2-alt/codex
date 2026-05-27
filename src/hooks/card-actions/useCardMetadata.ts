@@ -35,8 +35,8 @@ export function useCardMetadata({ categories, categoryRecords, editCard }: Props
   const [linkedGazetteInfo, setLinkedGazetteInfo] = useState<string | null>(null);
   useEffect(() => {
     if (!editCard?.sourceId) { setLinkedGazetteInfo(null); return; }
-    import("@/lib/db").then(({ db }) => {
-      db.sources.get(editCard.sourceId!).then(source => {
+    import("@/lib/db/queries").then(({ getSource }) => {
+      getSource(editCard.sourceId!).then(source => {
         setLinkedGazetteInfo(source?.officialGazetteInfo ?? null);
       });
     });
