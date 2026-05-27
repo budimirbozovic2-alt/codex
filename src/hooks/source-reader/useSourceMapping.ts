@@ -13,6 +13,7 @@ import {
   type AddCardArgs,
 } from "@/lib/source-reader/build-essay-payload";
 import { commitMappingCreated } from "@/lib/services/sourceEditingService";
+import { usePlannerMutations } from "@/hooks/planner/usePlannerMutations";
 
 type AddCardFn = ReturnType<typeof useCardOnlyActions>["addCard"];
 
@@ -30,6 +31,12 @@ function dispatchAdd(addCard: AddCardFn, a: AddCardArgs) {
  */
 export function useSourceMapping(source: Source) {
   const { addCard, patchCard } = useCardOnlyActions();
+  const { incrementMapped } = usePlannerMutations();
+  const commitMapping = (count: number) => {
+    if (count <= 0) return;
+    incrementMapped.mutate(count);
+    commitMappingCreated(count, { skipPlanner: true });
+  };
 
   const handleConvertToEssay = useCallback((text: string, html: string) => {
     const {
@@ -71,7 +78,7 @@ export function useSourceMapping(source: Source) {
       for (const args of argsList) dispatchAdd(addCard, args);
       setSplitCreatedCount(argsList.length);
       setSplitDone(true);
-      commitMappingCreated(argsList.length);
+      commitMapping(argsList.length);
       toast.success(`Generisano ${argsList.length} kartica`, { description: `Iz "${source.title}"` });
       return;
     }
@@ -89,7 +96,7 @@ export function useSourceMapping(source: Source) {
     const moduleCount = args.options?.sourceModules?.length ?? 1;
     setSplitCreatedCount(moduleCount);
     setSplitDone(true);
-    commitMappingCreated(moduleCount);
+    commitMapping(moduleCount);
     toast.success(`Generisano 1 esej sa ${moduleCount} modula`, {
       description: `${splitResult.rangeLabel} iz "${source.title}"`,
     });
@@ -129,7 +136,7 @@ export function useSourceMapping(source: Source) {
     setExamQuestions((prev) =>
       prev.map((q) => (q.id === questionId ? { ...q, done: true, moduleCount: result.moduleCount } : q)),
     );
-    commitMappingCreated(result.moduleCount);
+    commitMapping(result.moduleCount);
     if (result.moduleCount > 1 && result.rangeLabel) {
       toast.success(`Esej kreiran: ${result.moduleCount} modula`, {
         description: `${result.rangeLabel} → "${question.text.slice(0, 50)}..."`,

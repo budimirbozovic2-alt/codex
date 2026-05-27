@@ -12,6 +12,7 @@ async function getPlannerModule(): Promise<PlannerModule> {
 }
 import type { CategoryRecord } from "@/lib/db";
 import { StudyFlowData } from "@/components/dashboard/StudyFlowWidget";
+import { usePlannerMutations } from "@/hooks/planner/usePlannerMutations";
 
 import { loadAppSettings } from "@/lib/app-settings";
 import { useDeferredCompute } from "@/hooks/useDeferredCompute";
@@ -170,7 +171,9 @@ export function useDashboardData(
   }, [dailyGoal]);
   
 
-  // Record discipline for yesterday (side effect — must be in useEffect, not useMemo)
+  // Record discipline for yesterday — PR-7f M3a: kroz useMutation (bridge
+  // invalidira ['planner','discipline'] nakon notify).
+  const { recordDiscipline } = usePlannerMutations();
   const disciplineRecordedRef = useRef<string>("");
   useEffect(() => {
     const yesterday = new Date();
@@ -186,10 +189,10 @@ export function useDashboardData(
       const yReviews = reviewLog.filter(e => e.timestamp >= yStart && e.timestamp < yEnd).length;
       const slippageLog = loadSlippageLog();
       const ySlippage = slippageLog.find(s => s.date === yKey)?.slippageMs ?? null;
-      mod.recordDayDiscipline(yKey, yReviews, dailyGoal, ySlippage);
+      recordDiscipline.mutate({ date: yKey, reviewsDone: yReviews, dailyGoal, slippageMs: ySlippage });
       disciplineRecordedRef.current = yKey;
     })();
-  }, [reviewLog, dailyGoal]);
+  }, [reviewLog, dailyGoal, recordDiscipline]);
 
   const energyLevel = getEnergyLevel();
 

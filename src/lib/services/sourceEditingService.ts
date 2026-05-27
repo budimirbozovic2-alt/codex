@@ -52,9 +52,12 @@ export async function persistAutoFormat(
   return { count: result.count, source: updated };
 }
 
-/** Notify planner + global listeners that N new mappings were committed. */
-export function commitMappingCreated(count: number): void {
+/** Notify planner + global listeners that N new mappings were committed.
+ *  PR-7f M3a: React callers should prefer `usePlannerMutations().incrementMapped`
+ *  i proslijediti `{ skipPlanner: true }` da se planner ne udvostruči.
+ */
+export function commitMappingCreated(count: number, opts?: { skipPlanner?: boolean }): void {
   if (count <= 0) return;
-  incrementDailyMapped(count);
+  if (!opts?.skipPlanner) incrementDailyMapped(count);
   window.dispatchEvent(new CustomEvent("codex-mapping-created"));
 }

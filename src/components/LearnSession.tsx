@@ -6,11 +6,13 @@ import { addActivityEntry } from "@/lib/metacognitive-storage";
 import SessionComplete from "./learn/SessionComplete";
 import FilterSetup from "./learn/FilterSetup";
 import { LearnSessionProps, ViewWidth } from "./learn/types";
+import { usePlannerMutations } from "@/hooks/planner/usePlannerMutations";
 
 const StudyModeRecall = lazy(() => import("./learn/StudyModeRecall"));
 
 export default function LearnSession({ cards, categories, categoryRecords, subcategories, onMarkRead, onReviewSection, onBack, onEdit, onAddKeyPart, dueCount = 0, reviewLog: reviewLogProp = [], initialFilters, restoreSnapshot, onSessionStateChange }: LearnSessionProps) {
   const isStrictRecall = initialFilters?.mode === "strict-recall";
+  const { recordDiscipline } = usePlannerMutations();
   const [selectedCategory, setSelectedCategory] = useState<string | null>(restoreSnapshot?.selectedCategory ?? initialFilters?.categoryId ?? null);
   const [selectedSubcategory, setSelectedSubcategory] = useState<string | null>(restoreSnapshot?.selectedSubcategory ?? initialFilters?.subcategoryId ?? null);
   const [selectedChapter, setSelectedChapter] = useState<string | null>(restoreSnapshot?.selectedChapter ?? null);
@@ -201,16 +203,17 @@ export default function LearnSession({ cards, categories, categoryRecords, subca
       activityLoggedRef.current = true;
       addActivityEntry({ timestamp: Date.now(), type: "learn-active", durationMs: elapsed });
       (async () => { try {
-        const { loadPlanner, calcVelocity, getSmartSuggestion, recordDayDiscipline } = await import("@/lib/planner-storage");
+        const { loadPlanner, calcVelocity, getSmartSuggestion } = await import("@/lib/planner-storage");
         const plannerConfig = loadPlanner();
         const velocity = calcVelocity(reviewLogProp, 7);
         const suggestion = getSmartSuggestion(null, cards, plannerConfig.finalGoalDate, velocity, plannerConfig.bufferPercent ?? 15);
         const dailyGoal = suggestion?.suggestedToday ?? 0;
         const today = new Date().toISOString().slice(0, 10);
         const reviewsDoneToday = reviewLogProp.filter(e => new Date(e.timestamp).toISOString().slice(0, 10) === today).length;
-        recordDayDiscipline(today, reviewsDoneToday, dailyGoal, null);
+        recordDiscipline.mutate({ date: today, reviewsDone: reviewsDoneToday, dailyGoal, slippageMs: null });
       } catch {} })();
     }
+
 
     return (
       <SessionComplete
