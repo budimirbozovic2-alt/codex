@@ -38,14 +38,14 @@ export async function initSubjectSettingsCache(): Promise<void> {
   if (_initialized) return;
   _initialized = true;
   try {
-    const { db } = await import("./db");
-    const rows = await db.settings.where("key").startsWith(PREFIX).toArray();
+    const { listSettingsByPrefix, putSetting } = await import("@/lib/db/queries");
+    const rows = await listSettingsByPrefix<SubjectSettings>(PREFIX);
     for (const row of rows) {
       const id = row.key.slice(PREFIX.length);
-      _cache.set(id, row.value as SubjectSettings);
+      _cache.set(id, row.value);
     }
-    // Legacy: hydrate from localStorage for keys not yet in IDB, then mirror
-    // them back to IDB so the next boot is IDB-only.
+    // Legacy: hydrate from localStorage for keys not yet in the repo, then
+    // mirror them back so the next boot is repo-only.
     if (typeof localStorage !== "undefined") {
       for (let i = 0; i < localStorage.length; i++) {
         const k = localStorage.key(i);
@@ -57,12 +57,12 @@ export async function initSubjectSettingsCache(): Promise<void> {
           if (!raw) continue;
           const parsed = JSON.parse(raw) as SubjectSettings;
           _cache.set(id, parsed);
-          db.settings.put({ key: k, value: parsed }).catch(() => {});
+          putSetting(k, parsed).catch(() => {});
         } catch { /* skip malformed entry */ }
       }
     }
   } catch (err) {
-    logger.warn("[subject-settings] IDB hydrate failed; falling back to localStorage", err);
+    logger.warn("[subject-settings] repo hydrate failed; falling back to localStorage", err);
   }
 }
 
