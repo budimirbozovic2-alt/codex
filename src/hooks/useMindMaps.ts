@@ -1,40 +1,30 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
 import {
   loadMindMaps,
   getMindMap,
-  onMindMapsChanged,
 } from "@/lib/mindmap-storage";
 import type { MindMapDoc } from "@/lib/db";
-import { useIsMountedRef } from "@/hooks/useIsMountedRef";
+import { queryKeys } from "@/lib/query/keys";
+
+const EMPTY: MindMapDoc[] = [];
 
 /**
- * SSOT subscription for ALL mind maps. Backed by module-level cache + listeners
- * in mindmap-storage.ts.
+ * SSOT subscription for ALL mind maps via TanStack Query.
+ * PR-7f M2 — invalidacija dolazi automatski iz `bridges.ts`
+ * (`onMindMapsChanged` → `['mindMaps']`).
  */
 export function useMindMaps(enabled: boolean = true): { mindMaps: MindMapDoc[]; ready: boolean } {
-  const [mindMaps, setMindMaps] = useState<MindMapDoc[]>([]);
-  const [ready, setReady] = useState(false);
-  const mounted = useIsMountedRef();
-
-  useEffect(() => {
-    if (!enabled) return;
-    const reload = () => {
-      loadMindMaps().then(all => {
-        if (!mounted.current) return;
-        setMindMaps(all);
-        setReady(true);
-      });
-    };
-    reload();
-    return onMindMapsChanged(reload);
-  }, [enabled, mounted]);
-
-  return { mindMaps, ready };
+  const { data, isSuccess } = useQuery({
+    queryKey: queryKeys.mindMaps.all(),
+    queryFn: () => loadMindMaps(),
+    enabled,
+  });
+  return { mindMaps: data ?? EMPTY, ready: isSuccess };
 }
 
 /**
  * Derived view: mind maps filtered by `categoryId`.
- * Re-renders only when underlying list changes (listener-driven).
  */
 export function useMindMapsByCategory(categoryId?: string): { mindMaps: MindMapDoc[]; ready: boolean } {
   const { mindMaps, ready } = useMindMaps();
@@ -46,21 +36,16 @@ export function useMindMapsByCategory(categoryId?: string): { mindMaps: MindMapD
 }
 
 /**
- * Single mind map by id, kept fresh via listener subscription.
+ * Single mind map by id, kept fresh via TanStack cache.
  * Returns `undefined` while loading, `null` when not found.
  */
 export function useMindMap(id: string | undefined): MindMapDoc | null | undefined {
-  const [doc, setDoc] = useState<MindMapDoc | null | undefined>(undefined);
-  const mounted = useIsMountedRef();
-
-  useEffect(() => {
-    if (!id) { setDoc(null); return; }
-    const reload = () => {
-      getMindMap(id).then(d => { if (mounted.current) setDoc(d ?? null); });
-    };
-    reload();
-    return onMindMapsChanged(reload);
-  }, [id, mounted]);
-
-  return doc;
+  const { data, isFetched } = useQuery({
+    queryKey: id ? queryKeys.mindMaps.byId(id) : ["mindMaps", "id", "__none__"],
+    queryFn: async () => (await getMindMap(id as string)) ?? null,
+    enabled: !!id,
+  });
+  if (!id) return null;
+  if (!isFetched) return undefined;
+  return data ?? null;
 }
