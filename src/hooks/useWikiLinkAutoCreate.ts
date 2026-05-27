@@ -55,6 +55,8 @@ export function useWikiLinkAutoCreate({
   articles,
   setArticles,
 }: UseWikiLinkAutoCreateParams): void {
+  const { bulkCreate: bulkCreateMutation } = useKnowledgeBaseMutations();
+  const bulkCreateRef = useLatestRef(bulkCreateMutation);
   // Always-current title lookup. A ref keeps this O(N_articles) work out of
   // the render path and lets the auto-create effect read fresh data without
   // re-subscribing.
