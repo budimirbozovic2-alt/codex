@@ -42,3 +42,10 @@ export {
   listSettingsByPrefix,
   onSettingsChanged,
 } from "./settings";
+export {
+  getSource,
+  listAllSources,
+  listSourcesByCategory,
+  putSource,
+  deleteSourceAndUnlinkCards,
+} from "./sources";
