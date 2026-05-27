@@ -56,11 +56,25 @@ export default function SourceEditor({ source, categoryId, onClose, onSourceUpda
   );
   const [textOpen, setTextOpen] = useState(false);
 
-  // DOCX upload
-  const [docxParsing, setDocxParsing] = useState(false);
-  const [docxFileName, setDocxFileName] = useState("");
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const dropZoneRef = useRef<HTMLDivElement>(null);
+  // DOCX upload — owned by `useSourceDocxIngest` (R1 refactor).
+  const {
+    docxParsing,
+    docxFileName,
+    fileInputRef,
+    dropZoneRef,
+    handleDocxFile,
+    handleDrop,
+    handleDragOver,
+  } = useSourceDocxIngest({
+    onParsed: (doc) => {
+      setNewDoc(doc);
+      setEditorKey((k) => k + 1);
+      setDirty(true);
+    },
+  });
+
+  // Indexed read for linked cards — no direct `db` import.
+  const { fetchLinkedCards } = useLinkedCards();
 
   // Diff preview
   const [diffPending, setDiffPending] = useState<{
@@ -75,40 +89,6 @@ export default function SourceEditor({ source, categoryId, onClose, onSourceUpda
     }
   }, [title, slMarkings, dateStr, isExclusive, sourceKind, source]);
 
-  // ─── DOCX file handling ───────────────────────────────
-  const handleDocxFile = useCallback(async (file: File) => {
-    if (!file.name.endsWith(".docx")) {
-      toast.error("Pogrešan format", { description: "Podržani su samo .docx fajlovi." });
-      return;
-    }
-    setDocxParsing(true);
-    setDocxFileName(file.name);
-    try {
-      const arrayBuffer = await file.arrayBuffer();
-      const html = await parseDocxInWorker(arrayBuffer);
-      setNewDoc(htmlToDoc(html));
-      setEditorKey((k) => k + 1);
-      setDirty(true);
-      toast.success("DOCX učitan", { description: `${file.name} uspješno parsiran.` });
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : "Neuspješno čitanje DOCX fajla.";
-      toast.error("Greška pri parsiranju", { description: message });
-    } finally {
-      setDocxParsing(false);
-    }
-  }, []);
-
-  const handleDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    const file = e.dataTransfer.files[0];
-    if (file) handleDocxFile(file);
-  }, [handleDocxFile]);
-
-  const handleDragOver = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-  }, []);
 
   // ─── Save with diff check ────────────────────────────
   const handleSave = useCallback(async () => {
