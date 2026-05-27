@@ -88,3 +88,14 @@ export {
   bulkPutArticles as bulkPutKnowledgeBaseArticles,
   deleteArticle as deleteKnowledgeBaseArticle,
 } from "./knowledge-base";
+// PR-9 A1b P1.6 — mnemonic aux tables (Major System + test log).
+export {
+  listAllPegs as listAllMajorSystemPegs,
+  bulkPutPegs as bulkPutMajorSystemPegs,
+} from "./major-system";
+export type { MajorSystemPeg } from "./major-system";
+export {
+  listAllTestLogEntries,
+  listTestLogEntriesByCard,
+  addTestLogEntry,
+} from "./mnemonic-test-log";

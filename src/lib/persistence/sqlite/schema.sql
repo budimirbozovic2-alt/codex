@@ -124,3 +124,22 @@ CREATE INDEX IF NOT EXISTS idx_kb_subject              ON knowledgeBaseArticles(
 CREATE INDEX IF NOT EXISTS idx_kb_subject_updatedAt    ON knowledgeBaseArticles(subjectId, updatedAt);
 CREATE INDEX IF NOT EXISTS idx_kb_subject_title_nocase ON knowledgeBaseArticles(subjectId, title COLLATE NOCASE);
 CREATE INDEX IF NOT EXISTS idx_kb_subject_isIndex      ON knowledgeBaseArticles(subjectId, isIndex);
+
+-- PR-9 A1b P1.6 — Major System pegs (00..99) and the mnemonic test log.
+-- `majorSystem` mirrors the Dexie shape exactly: numeric PK, peg term.
+-- `mnemonicTestLog` is append-only; `id` is auto-assigned to preserve the
+-- Dexie `++id` semantics so test callers don't need to supply one.
+CREATE TABLE IF NOT EXISTS majorSystem (
+  id    INTEGER PRIMARY KEY,
+  peg   TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS mnemonicTestLog (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  cardId     TEXT NOT NULL,
+  timestamp  INTEGER NOT NULL,
+  success    INTEGER NOT NULL,
+  payload    TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_mnemonic_test_card ON mnemonicTestLog(cardId);
+CREATE INDEX IF NOT EXISTS idx_mnemonic_test_time ON mnemonicTestLog(timestamp);

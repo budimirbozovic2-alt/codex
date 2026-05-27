@@ -1,12 +1,14 @@
 // Major System I/O + number → peg resolution.
+// PR-9 A1b P1.6: delegates all DB I/O to the SQLite-primary repository.
+// Dexie writes happen via the repo's mirror path during soak.
 
-import { db } from "@/lib/db";
 import { logger } from "@/lib/logger";
+import { listAllPegs, bulkPutPegs } from "@/lib/db/queries/major-system";
 import { DEFAULT_MAJOR_SYSTEM, JOKER_LOCATIONS } from "./constants";
 
 export async function loadMajorSystem(): Promise<Record<number, string>> {
   try {
-    const records = await db.majorSystem.toArray();
+    const records = await listAllPegs();
     if (records.length === 0) return DEFAULT_MAJOR_SYSTEM;
     const system: Record<number, string> = {};
     records.forEach(r => { system[r.id] = r.peg; });
@@ -20,7 +22,7 @@ export async function loadMajorSystem(): Promise<Record<number, string>> {
 export async function saveMajorSystem(system: Record<number, string>): Promise<void> {
   try {
     const records = Object.entries(system).map(([id, peg]) => ({ id: parseInt(id, 10), peg }));
-    await db.majorSystem.bulkPut(records);
+    await bulkPutPegs(records);
   } catch (err) {
     logger.error("[mnemonic-storage] saveMajorSystem failed", err);
   }

@@ -40,6 +40,8 @@ export interface MigrationCounts {
   mindMaps: number;
   mnemonics: number;
   knowledgeBaseArticles: number;
+  majorSystem: number;
+  mnemonicTestLog: number;
 }
 
 export interface MigrationReport {
@@ -96,6 +98,12 @@ const MNEMONIC_SQL =
   "INSERT OR REPLACE INTO mnemonics (id, categoryId, subcategoryId, mnemonicStatus, hookType, createdAt, payload) VALUES (?, ?, ?, ?, ?, ?, ?)";
 const KB_ARTICLE_SQL =
   "INSERT OR REPLACE INTO knowledgeBaseArticles (id, subjectId, title, updatedAt, isIndex, payload) VALUES (?, ?, ?, ?, ?, ?)";
+const MAJOR_SYSTEM_SQL =
+  "INSERT OR REPLACE INTO majorSystem (id, peg) VALUES (?, ?)";
+// AUTOINCREMENT: pass explicit id when the Dexie row already has one so the
+// migration is idempotent across retries; otherwise SQLite assigns it.
+const MNEMONIC_TEST_LOG_SQL =
+  "INSERT OR REPLACE INTO mnemonicTestLog (id, cardId, timestamp, success, payload) VALUES (?, ?, ?, ?, ?)";
 
 async function copyTable<T>(
   exec: SqlExecutor,
@@ -134,7 +142,7 @@ export async function migrateFromIdb(exec: SqlExecutor): Promise<MigrationReport
   if (await isAlreadyMigrated(exec)) {
     return {
       alreadyComplete: true,
-      counts: { categories: 0, sources: 0, cards: 0, mindMaps: 0, mnemonics: 0, knowledgeBaseArticles: 0 },
+      counts: { categories: 0, sources: 0, cards: 0, mindMaps: 0, mnemonics: 0, knowledgeBaseArticles: 0, majorSystem: 0, mnemonicTestLog: 0 },
       durationMs: 0,
     };
   }
@@ -208,6 +216,35 @@ export async function migrateFromIdb(exec: SqlExecutor): Promise<MigrationReport
       ],
       KB_ARTICLE_SQL,
       "SELECT COUNT(*) AS n FROM knowledgeBaseArticles",
+    ),
+    // PR-9 A1b P1.6 — Major System pegs. Numeric PK; cast satisfies the
+    // streamTable generic which is keyed on string for the common case.
+    majorSystem: await copyTable(
+      exec,
+      "majorSystem",
+      db.majorSystem as unknown as import("dexie").Table<{ id: number; peg: string }, string>,
+      (p) => [p.id, p.peg],
+      MAJOR_SYSTEM_SQL,
+      "SELECT COUNT(*) AS n FROM majorSystem",
+    ),
+    // PR-9 A1b P1.6 — Mnemonic test log. AUTOINCREMENT id; pass-through when
+    // Dexie row already has one. Append-only, no FK.
+    mnemonicTestLog: await copyTable(
+      exec,
+      "mnemonicTestLog",
+      db.mnemonicTestLog as unknown as import("dexie").Table<
+        { id?: number; cardId: string; timestamp: number; success: boolean },
+        string
+      >,
+      (e) => [
+        e.id ?? null,
+        e.cardId,
+        e.timestamp,
+        e.success ? 1 : 0,
+        JSON.stringify(e),
+      ],
+      MNEMONIC_TEST_LOG_SQL,
+      "SELECT COUNT(*) AS n FROM mnemonicTestLog",
     ),
   };
 
