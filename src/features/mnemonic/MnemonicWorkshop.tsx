@@ -59,17 +59,6 @@ const STATUS_FILTERS: { value: MnemonicStatus | "all"; label: string; icon: type
 
 export default function MnemonicWorkshop({ cards, onUpdateCard, onDeleteCard, categoryRecords = [] }: Props) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [filterStatus, setFilterStatus] = useState<MnemonicStatus | "all">("all");
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
-  const [selectedSubcategory, setSelectedSubcategory] = useState<string | null>(null);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [sortBy, setSortBy] = useState<"newest" | "status" | "category" | "success">("newest");
-  const [majorSystem, setMajorSystem] = useState<Record<number, string>>({});
-  const debouncedSearch = useDebounce(searchQuery, 300);
-
-  useEffect(() => {
-    loadMajorSystem().then(setMajorSystem);
-  }, []);
 
   const idToName = useMemo(() => {
     const m: Record<string, string> = {};
@@ -80,57 +69,15 @@ export default function MnemonicWorkshop({ cards, onUpdateCard, onDeleteCard, ca
     return m;
   }, [categoryRecords]);
 
-  // Build category tree
-  const categoryTree = useMemo(() => {
-    const tree: Record<string, Set<string>> = {};
-    cards.forEach(c => {
-      if (!tree[c.categoryId]) tree[c.categoryId] = new Set();
-      if (c.subcategoryId) tree[c.categoryId].add(c.subcategoryId);
-    });
-    return tree;
-  }, [cards]);
-
-  const categories = useMemo(() => Object.keys(categoryTree).sort(), [categoryTree]);
-
-  // Filter cards
-  const filtered = useMemo(() => {
-    let result = cards;
-    if (filterStatus !== "all") result = result.filter(c => c.mnemonicStatus === filterStatus);
-    if (selectedCategory) result = result.filter(c => c.categoryId === selectedCategory);
-    if (selectedSubcategory) result = result.filter(c => c.subcategoryId === selectedSubcategory);
-    if (debouncedSearch) {
-      const q = debouncedSearch.toLowerCase();
-      result = result.filter(c =>
-        c.question.toLowerCase().includes(q) ||
-        c.mnemonicVideo.toLowerCase().includes(q) ||
-        c.acronym.toLowerCase().includes(q) ||
-        c.sections.some(s => s.content.toLowerCase().includes(q))
-      );
-    }
-    // Sort
-    const statusOrder: Record<MnemonicStatus, number> = { "new": 0, "in-workshop": 1, "ready": 2 };
-    const sorted = [...result].sort((a, b) => {
-      switch (sortBy) {
-        case "status":
-          return statusOrder[a.mnemonicStatus] - statusOrder[b.mnemonicStatus];
-        case "category":
-          return (idToName[a.categoryId] ?? a.categoryId).localeCompare(idToName[b.categoryId] ?? b.categoryId) || (idToName[a.subcategoryId ?? ""] ?? "").localeCompare(idToName[b.subcategoryId ?? ""] ?? "");
-        case "success": {
-          const aRate = a.testCount > 0 ? a.successCount / a.testCount : -1;
-          const bRate = b.testCount > 0 ? b.successCount / b.testCount : -1;
-          return aRate - bRate; // worst first
-        }
-        default:
-          return b.createdAt - a.createdAt; // newest first
-      }
-    });
-    return sorted;
-  }, [cards, filterStatus, selectedCategory, selectedSubcategory, debouncedSearch, sortBy, idToName]);
-
-  const subcategories = useMemo(
-    () => selectedCategory ? [...(categoryTree[selectedCategory] || [])].sort() : [],
-    [selectedCategory, categoryTree]
-  );
+  const {
+    filterStatus, setFilterStatus,
+    selectedCategory, setSelectedCategory,
+    selectedSubcategory, setSelectedSubcategory,
+    searchQuery, setSearchQuery,
+    sortBy, setSortBy,
+    debouncedSearch, majorSystem,
+    categories, subcategories, filtered, statusCounts, categoryCounts,
+  } = useWorkshopFilters({ cards, idToName });
 
   const handleToggle = useCallback((id: string) => {
     setExpandedId(prev => prev === id ? null : id);
@@ -156,8 +103,6 @@ export default function MnemonicWorkshop({ cards, onUpdateCard, onDeleteCard, ca
   }), [filtered, expandedId, handleToggle, onUpdateCard, onDeleteCard, majorSystem]);
 
   // Reset list when expanded card changes (row heights change).
-  // The new react-window API recomputes row heights automatically when the
-  // `rowHeight` callback identity changes; nudging via `scrollToRow` is enough.
   useEffect(() => {
     if (listRef.current && expandedId) {
       const idx = filtered.findIndex(c => c.id === expandedId);
@@ -165,12 +110,7 @@ export default function MnemonicWorkshop({ cards, onUpdateCard, onDeleteCard, ca
     }
   }, [expandedId, filtered]);
 
-  const statusCounts = useMemo(() => ({
-    all: cards.length,
-    new: cards.filter(c => c.mnemonicStatus === "new").length,
-    "in-workshop": cards.filter(c => c.mnemonicStatus === "in-workshop").length,
-    ready: cards.filter(c => c.mnemonicStatus === "ready").length,
-  }), [cards]);
+
 
    return (
     <div className="max-w-4xl mx-auto space-y-5">
