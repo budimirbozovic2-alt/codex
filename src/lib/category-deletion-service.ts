@@ -85,11 +85,9 @@ async function cascadeSqlite(
     await tx.run("DELETE FROM mindMaps  WHERE categoryId = ?", [categoryId]);
     await tx.run("DELETE FROM mnemonics WHERE categoryId = ?", [categoryId]);
   });
-
-  // Best-effort row counts for telemetry — read AFTER the tx commits.
-  // (SQLite changes() inside the wrapped tx isn't exposed by SqlExecutor.)
-  result.mindMaps = 1; // signal "ran cascade"; precise count not surfaced.
-  result.mnemonics = 1;
+  // Telemetry counts come from the Dexie mirror block below (Dexie API
+  // returns affected-row counts; SqlExecutor doesn't surface changes()).
+  void result;
 }
 
 export async function cascadeDeleteCategoryDomains(
