@@ -23,6 +23,8 @@ export {
   cardCountByType,
   onCardsChanged,
   notifyCardsChanged,
+  deleteCardsByCategoryDexie,
+  reparentCardsByCategoryDexie,
 } from "./cards";
 
 // Re-export legacy query helpers that still live in `src/lib/db-queries.ts`
