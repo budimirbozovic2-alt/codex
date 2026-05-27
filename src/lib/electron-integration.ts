@@ -97,7 +97,7 @@ export async function setupElectronIPC() {
       localStorageData,
       timestamp: Date.now()
     };
-    if (srSettingsRow) data["srSettings"] = srSettingsRow;
+    if (srSettingsValue != null) data["srSettings"] = { key: "srSettings", value: srSettingsValue };
     return data;
   };
 
