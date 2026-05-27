@@ -1,6 +1,12 @@
 /**
- * Source Editing Service — sole owner of source persistence + planner side-effects
- * for the source-reader flows.
+ * Source Editing Service — pure builders + (legacy) persistence helpers
+ * for source-reader flows.
+ *
+ * PR-7f M3d: React callers should prefer the pure `buildSource*` helpers and
+ * commit through `useSourceMutations().save` (which provides optimistic UI
+ * + bridge invalidation). The `persistSource*` wrappers remain for
+ * non-React callers (e.g. lazy migrations) that still want a one-shot
+ * derive→save with a direct `onSourceUpdated` callback.
  */
 import { saveSource, type Source } from "@/lib/sources-storage";
 import { incrementDailyMapped } from "@/lib/planner-storage";
@@ -8,32 +14,50 @@ import { autoFormatArticles } from "@/lib/article-autoformat";
 import { rebuildSourceFromHtml } from "@/lib/source-reader/source-html-pipeline";
 import { docToHtml, type EditorDoc } from "@/lib/editor-v4";
 
+// ── Pure builders (no IO) ──────────────────────────────────
+
+/** Derive a fully rebuilt Source from raw HTML (outline + articles refreshed). */
+export function buildSourceFromHtml(source: Source, rawHtml: string): Source {
+  return rebuildSourceFromHtml(source, rawHtml);
+}
+
+/**
+ * Build a Source where the V4 AST is canonical and `htmlContent` is derived
+ * via `docToHtml`. Outline / articles get rebuilt from that derived HTML.
+ */
+export function buildSourceFromDoc(source: Source, doc: EditorDoc): Source {
+  const html = docToHtml(doc);
+  const rebuilt = rebuildSourceFromHtml(source, html);
+  return { ...rebuilt, contentDoc: doc };
+}
+
+/** Build an auto-formatted Source; returns `null` if there were no matches. */
+export function buildAutoFormatSource(source: Source): { count: number; source: Source | null } {
+  const baseHtml = docToHtml(source.contentDoc);
+  const result = autoFormatArticles(baseHtml);
+  if (result.count === 0) return { count: 0, source: null };
+  return { count: result.count, source: buildSourceFromHtml(source, result.html) };
+}
+
+// ── Legacy persistence wrappers (non-React callers) ────────
+
 export async function persistSourceHtml(
   source: Source,
   rawHtml: string,
   onSourceUpdated?: (s: Source) => void,
 ): Promise<Source> {
-  const updated = rebuildSourceFromHtml(source, rawHtml);
+  const updated = buildSourceFromHtml(source, rawHtml);
   await saveSource(updated);
   onSourceUpdated?.(updated);
   return updated;
 }
 
-/**
- * Persist the V4 AST as the canonical `contentDoc` and derive `htmlContent`
- * via `docToHtml`. Outline / articles get rebuilt from the derived HTML.
- *
- * This is the write path used by `<EditorV4>` in-place editing — the AST is
- * SSOT and HTML is a derivative kept for legacy readers (search, exports).
- */
 export async function persistSourceDoc(
   source: Source,
   doc: EditorDoc,
   onSourceUpdated?: (s: Source) => void,
 ): Promise<Source> {
-  const html = docToHtml(doc);
-  const rebuilt = rebuildSourceFromHtml(source, html);
-  const updated: Source = { ...rebuilt, contentDoc: doc };
+  const updated = buildSourceFromDoc(source, doc);
   await saveSource(updated);
   onSourceUpdated?.(updated);
   return updated;
@@ -43,13 +67,11 @@ export async function persistAutoFormat(
   source: Source,
   onSourceUpdated?: (s: Source) => void,
 ): Promise<{ count: number; source: Source | null }> {
-  // PR-7c (M3 #5): derive HTML from canonical contentDoc — legacy htmlContent
-  // is dropped post-v22.
-  const baseHtml = docToHtml(source.contentDoc);
-  const result = autoFormatArticles(baseHtml);
-  if (result.count === 0) return { count: 0, source: null };
-  const updated = await persistSourceHtml(source, result.html, onSourceUpdated);
-  return { count: result.count, source: updated };
+  const built = buildAutoFormatSource(source);
+  if (!built.source) return built;
+  await saveSource(built.source);
+  onSourceUpdated?.(built.source);
+  return built;
 }
 
 /** Notify planner + global listeners that N new mappings were committed.
