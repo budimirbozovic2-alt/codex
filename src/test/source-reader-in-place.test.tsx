@@ -40,12 +40,14 @@ const baseSource = (overrides: Partial<Source> = {}): Source => ({
 describe("SourceContent (PR-7a / M5)", () => {
   it("mounts EditorV4 in read mode by default", async () => {
     const { container } = render(
-      <SourceContent
-        source={baseSource()}
-        editMode={false}
-        onSourceUpdated={() => {}}
-        onEditorReady={() => {}}
-      />
+      wrap(
+        <SourceContent
+          source={baseSource()}
+          editMode={false}
+          onSourceUpdated={() => {}}
+          onEditorReady={() => {}}
+        />
+      )
     );
     await waitMicroTask();
     const pm = container.querySelector(".ProseMirror") as HTMLElement | null;
@@ -55,21 +57,25 @@ describe("SourceContent (PR-7a / M5)", () => {
 
   it("flips contenteditable when editMode toggles", async () => {
     const { container, rerender } = render(
-      <SourceContent
-        source={baseSource()}
-        editMode={false}
-        onSourceUpdated={() => {}}
-        onEditorReady={() => {}}
-      />
+      wrap(
+        <SourceContent
+          source={baseSource()}
+          editMode={false}
+          onSourceUpdated={() => {}}
+          onEditorReady={() => {}}
+        />
+      )
     );
     await waitMicroTask();
     rerender(
-      <SourceContent
-        source={baseSource()}
-        editMode={true}
-        onSourceUpdated={() => {}}
-        onEditorReady={() => {}}
-      />
+      wrap(
+        <SourceContent
+          source={baseSource()}
+          editMode={true}
+          onSourceUpdated={() => {}}
+          onEditorReady={() => {}}
+        />
+      )
     );
     await waitMicroTask();
     const pm = container.querySelector(".ProseMirror") as HTMLElement | null;
