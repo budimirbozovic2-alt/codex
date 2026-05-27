@@ -104,3 +104,23 @@ CREATE TABLE IF NOT EXISTS drafts (
 );
 CREATE INDEX IF NOT EXISTS idx_drafts_source    ON drafts(source);
 CREATE INDEX IF NOT EXISTS idx_drafts_updatedAt ON drafts(updatedAt);
+
+-- PR-9 A1b P1.4 — Zettelkasten articles (knowledge base).
+-- subjectId === categoryId. `title` is denormalised for case-insensitive
+-- lookups via the COLLATE NOCASE compound index, mirroring the Dexie
+-- `[subjectId+title]` index used by `findArticleByTitle`.
+-- `isIndex` is denormalised so the per-subject Index article lookup is a
+-- single indexed equality probe.
+CREATE TABLE IF NOT EXISTS knowledgeBaseArticles (
+  id           TEXT PRIMARY KEY,
+  subjectId    TEXT NOT NULL,
+  title        TEXT NOT NULL,
+  updatedAt    INTEGER NOT NULL,
+  isIndex      INTEGER NOT NULL DEFAULT 0,
+  payload      TEXT NOT NULL,
+  FOREIGN KEY (subjectId) REFERENCES categories(id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS idx_kb_subject              ON knowledgeBaseArticles(subjectId);
+CREATE INDEX IF NOT EXISTS idx_kb_subject_updatedAt    ON knowledgeBaseArticles(subjectId, updatedAt);
+CREATE INDEX IF NOT EXISTS idx_kb_subject_title_nocase ON knowledgeBaseArticles(subjectId, title COLLATE NOCASE);
+CREATE INDEX IF NOT EXISTS idx_kb_subject_isIndex      ON knowledgeBaseArticles(subjectId, isIndex);
