@@ -4,11 +4,27 @@ import { logger } from "@/lib/logger";
 
 /**
  * Runtime Electron detector — single source of truth for "are we running
- * inside the desktop shell?". Used by storage-layer gates (e.g. the
- * IDB→SQLite migration in PR-8) that must NOT execute in browser builds.
+ * inside the desktop shell?". Returns `false` only in the Vite dev preview
+ * (where we tolerate a browser shell for HMR convenience). Production
+ * builds assert desktop via {@link assertDesktop} below.
  */
 export function isElectron(): boolean {
   return typeof window !== "undefined" && Boolean(window.electronAPI);
+}
+
+/**
+ * Pure Desktop guard (P3 PR-8 finale). Throws in production builds if the
+ * renderer is not hosted by the Electron shell. Call once from `main.tsx`
+ * before mounting React. Dev builds skip the check so `bun run dev` keeps
+ * working in a browser tab.
+ */
+export function assertDesktop(): void {
+  if (!import.meta.env.PROD) return;
+  if (isElectron()) return;
+  throw new Error(
+    "[pure-desktop] This build targets the Electron desktop shell only. " +
+      "The web build was deprecated in P3 PR-8.",
+  );
 }
 export async function setupElectronIPC() {
   if (!window.electronAPI) return;
