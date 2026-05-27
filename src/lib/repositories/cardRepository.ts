@@ -297,6 +297,8 @@ export const cardRepository = {
   putAsync,
   bulkPutAsync,
   removeAsync,
+  patchAsync,
+  bulkPatchAsync,
   // external invalidation
   reloadFromIdb: reloadCardsFromIdb,
 };
