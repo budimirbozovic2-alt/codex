@@ -26,8 +26,9 @@ import type { WriteResult } from "@/lib/persistence/write-result";
 import { logger } from "@/lib/logger";
 
 function assertOk<T>(r: WriteResult<T>): T {
-  if (r.ok) return r.value;
-  throw new Error(r.error.message || r.error.code);
+  if (r.ok === true) return r.value;
+  const e = r.error;
+  throw new Error(e.message || e.code);
 }
 
 interface GradeInput {
