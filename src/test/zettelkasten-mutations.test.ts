@@ -54,6 +54,7 @@ describe("useArticleMutations.wikiLink", () => {
         activeArticle: null,
         draftApi,
       }),
+      { wrapper },
     );
 
     await act(async () => {
