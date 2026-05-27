@@ -75,7 +75,7 @@ export async function cascadeDeleteCategoryDomains(
   // 1. SQLite — one tx (re-parent/purge cards+sources, then DELETE FROM
   //    categories → FK CASCADE on mindMaps/mnemonics/knowledgeBaseArticles).
   const sqlResult = await categoryRepository.deleteAsync(categoryId, opts);
-  if (!sqlResult.ok) {
+  if (sqlResult.ok === false) {
     logger.error("[category-deletion] sqlite cascade failed", sqlResult.error);
     throw new Error(sqlResult.error.message);
   }
