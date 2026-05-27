@@ -1,29 +1,37 @@
 /**
  * One-shot IDB → SQLite migration — PR-8 M2.
  *
- * Runs once on Electron boot when the `migrated-from-idb-v1` flag is missing
- * from the SQLite `kv` table. Reads each Dexie table in id-ordered pages and
- * bulk-inserts into SQLite inside a single transaction per table.
+ * Runs once on Electron boot when `kv['migrated-from-idb-v1']` is missing.
+ * Reads each Dexie table in id-ordered pages and bulk-inserts into SQLite
+ * inside a single transaction per table.
  *
  * Safety rails:
- *   • Row-count verification per table. Mismatch → rollback that table's tx.
- *     The flag is NOT set, so the user keeps booting on IDB and the failure
- *     is logged for the health monitor.
- *   • Dexie data is NEVER deleted by this script. PR-9 owns retirement.
- *   • FK constraints are deferred to the very end so legacy orphans (if any)
- *     don't block migration of the parent rows; orphans are dropped with a
- *     one-line warning per table.
+ *   • Per-table row-count verification. After all rows of a table are read
+ *     and inserted, we count both sides; mismatch throws inside the SQLite
+ *     `transaction(...)` so the COMMIT becomes a ROLLBACK. The flag is NOT
+ *     written, so the next boot retries the whole migration. Dexie data is
+ *     never deleted.
+ *   • Parent tables (categories, sources) are copied before children so FK
+ *     CASCADE constraints don't reject child inserts.
+ *   • All errors are wrapped in `MigrationAbort` so the boot orchestrator
+ *     can decide whether to surface or swallow — current wiring swallows so
+ *     the user keeps booting on IDB and the failure goes to the logger.
  *
- * Not wired into `runSchema` in this PR — wiring happens in the release that
- * also flips `ENABLE_SQLITE_PRIMARY` so we can roll the whole feature
- * together. The script is exported for manual triggering and tests.
+ * NOT a transactional read of Dexie: an in-flight write during migration
+ * may leave the SQLite side slightly behind. That's acceptable because the
+ * adapter is still IDB-primary in this PR — SQLite is dormant. The next
+ * write after activation will reach SQLite via the regular adapter path.
  */
 import { db } from "@/lib/db";
-import type { SqlExecutor } from "./executor";
+import type { Table } from "dexie";
+import type { SqlBindValue, SqlExecutor } from "./executor";
 import { bindCardInsert, CARD_INSERT_SQL } from "./row-codecs";
 import { logger } from "@/lib/logger";
 
 export const MIGRATION_FLAG_KEY = "migrated-from-idb-v1";
+
+/** Page size for Dexie `offset/limit` reads — keeps memory bounded on big libraries. */
+const PAGE_SIZE = 500;
 
 export interface MigrationCounts {
   categories: number;
@@ -39,6 +47,14 @@ export interface MigrationReport {
   durationMs: number;
 }
 
+export class MigrationAbort extends Error {
+  constructor(public table: keyof MigrationCounts, public reason: string, cause?: unknown) {
+    const causeMsg = cause instanceof Error ? `: ${cause.message}` : "";
+    super(`[sqlite:migrate] aborted at table=${table} (${reason})${causeMsg}`);
+    this.name = "MigrationAbort";
+  }
+}
+
 async function isAlreadyMigrated(exec: SqlExecutor): Promise<boolean> {
   const rows = await exec.all<{ value: string }>(
     "SELECT value FROM kv WHERE key = ?",
@@ -47,77 +63,67 @@ async function isAlreadyMigrated(exec: SqlExecutor): Promise<boolean> {
   return rows.length > 0;
 }
 
-async function copyCategories(exec: SqlExecutor): Promise<number> {
-  const rows = await db.categories.toArray();
-  await exec.transaction(async (tx) => {
-    for (const c of rows) {
-      await tx.run(
-        "INSERT OR REPLACE INTO categories (id, name, sortOrder, color, payload) VALUES (?, ?, ?, ?, ?)",
-        [c.id, c.name, c.sortOrder ?? 0, c.color ?? null, JSON.stringify(c)],
-      );
-    }
-  });
-  return rows.length;
+/**
+ * Stream a Dexie table page-by-page via `orderBy('id').offset(o).limit(n)`.
+ * Pages are processed by `onPage` inside the caller's existing transaction.
+ */
+async function streamTable<T>(
+  table: Table<T, string>,
+  onPage: (rows: T[]) => Promise<void>,
+): Promise<number> {
+  let offset = 0;
+  let total = 0;
+  // eslint-disable-next-line no-constant-condition
+  while (true) {
+    const page = await table.orderBy("id").offset(offset).limit(PAGE_SIZE).toArray();
+    if (page.length === 0) break;
+    await onPage(page);
+    total += page.length;
+    if (page.length < PAGE_SIZE) break;
+    offset += PAGE_SIZE;
+  }
+  return total;
 }
 
-async function copySources(exec: SqlExecutor): Promise<number> {
-  const rows = await db.sources.toArray();
-  await exec.transaction(async (tx) => {
-    for (const s of rows) {
-      await tx.run(
-        "INSERT OR REPLACE INTO sources (id, categoryId, title, version, createdAt, sourceKind, payload) VALUES (?, ?, ?, ?, ?, ?, ?)",
-        [
-          s.id, s.categoryId, s.title,
-          (s as { version?: number }).version ?? 1,
-          (s as { createdAt?: number }).createdAt ?? Date.now(),
-          (s as { sourceKind?: string }).sourceKind ?? null,
-          JSON.stringify(s),
-        ],
-      );
-    }
-  });
-  return rows.length;
-}
+const CATEGORY_SQL =
+  "INSERT OR REPLACE INTO categories (id, name, sortOrder, color, payload) VALUES (?, ?, ?, ?, ?)";
+const SOURCE_SQL =
+  "INSERT OR REPLACE INTO sources (id, categoryId, title, version, createdAt, sourceKind, payload) VALUES (?, ?, ?, ?, ?, ?, ?)";
+const MINDMAP_SQL =
+  "INSERT OR REPLACE INTO mindMaps (id, categoryId, title, updatedAt, payload) VALUES (?, ?, ?, ?, ?)";
+const MNEMONIC_SQL =
+  "INSERT OR REPLACE INTO mnemonics (id, categoryId, subcategoryId, mnemonicStatus, hookType, createdAt, payload) VALUES (?, ?, ?, ?, ?, ?, ?)";
 
-async function copyCards(exec: SqlExecutor): Promise<number> {
-  const rows = await db.cards.toArray();
-  await exec.transaction(async (tx) => {
-    for (const c of rows) await tx.run(CARD_INSERT_SQL, bindCardInsert(c));
-  });
-  return rows.length;
-}
-
-async function copyMindMaps(exec: SqlExecutor): Promise<number> {
-  const rows = await db.mindMaps.toArray();
-  await exec.transaction(async (tx) => {
-    for (const m of rows) {
-      await tx.run(
-        "INSERT OR REPLACE INTO mindMaps (id, categoryId, title, updatedAt, payload) VALUES (?, ?, ?, ?, ?)",
-        [m.id, m.categoryId, m.title, m.updatedAt ?? Date.now(), JSON.stringify(m)],
-      );
-    }
-  });
-  return rows.length;
-}
-
-async function copyMnemonics(exec: SqlExecutor): Promise<number> {
-  const rows = await db.mnemonics.toArray();
-  await exec.transaction(async (tx) => {
-    for (const m of rows) {
-      await tx.run(
-        "INSERT OR REPLACE INTO mnemonics (id, categoryId, subcategoryId, mnemonicStatus, hookType, createdAt, payload) VALUES (?, ?, ?, ?, ?, ?, ?)",
-        [
-          m.id, m.categoryId,
-          (m as { subcategoryId?: string }).subcategoryId ?? null,
-          (m as { mnemonicStatus?: string }).mnemonicStatus ?? null,
-          (m as { hookType?: string }).hookType ?? null,
-          (m as { createdAt?: number }).createdAt ?? Date.now(),
-          JSON.stringify(m),
-        ],
-      );
-    }
-  });
-  return rows.length;
+async function copyTable<T>(
+  exec: SqlExecutor,
+  table: keyof MigrationCounts,
+  source: Table<T, string>,
+  toRow: (row: T) => readonly SqlBindValue[],
+  sql: string,
+  destCountSql: string,
+): Promise<number> {
+  let inserted = 0;
+  try {
+    await exec.transaction(async (tx) => {
+      inserted = await streamTable<T>(source, async (page) => {
+        for (const row of page) {
+          await tx.run(sql, toRow(row));
+        }
+      });
+      const destRows = await tx.all<{ n: number }>(destCountSql);
+      const destCount = Number(destRows[0]?.n ?? 0);
+      if (destCount !== inserted) {
+        throw new MigrationAbort(
+          table,
+          `row-count mismatch (dexie=${inserted}, sqlite=${destCount}) — rolling back`,
+        );
+      }
+    });
+  } catch (err) {
+    if (err instanceof MigrationAbort) throw err;
+    throw new MigrationAbort(table, "tx failed", err);
+  }
+  return inserted;
 }
 
 export async function migrateFromIdb(exec: SqlExecutor): Promise<MigrationReport> {
@@ -130,16 +136,67 @@ export async function migrateFromIdb(exec: SqlExecutor): Promise<MigrationReport
     };
   }
 
-  // FK CASCADE is already declared on the schema; copy parents first so child
-  // inserts pass referential integrity.
   const counts: MigrationCounts = {
-    categories: await copyCategories(exec),
-    sources:    await copySources(exec),
-    cards:      await copyCards(exec),
-    mindMaps:   await copyMindMaps(exec),
-    mnemonics:  await copyMnemonics(exec),
+    // Parents first — FK CASCADE in schema.sql requires the referenced rows
+    // to exist before child inserts run.
+    categories: await copyTable(
+      exec,
+      "categories",
+      db.categories,
+      (c) => [c.id, c.name, c.sortOrder ?? 0, c.color ?? null, JSON.stringify(c)],
+      CATEGORY_SQL,
+      "SELECT COUNT(*) AS n FROM categories",
+    ),
+    sources: await copyTable(
+      exec,
+      "sources",
+      db.sources,
+      (s) => [
+        s.id, s.categoryId, s.title,
+        (s as { version?: number }).version ?? 1,
+        (s as { createdAt?: number }).createdAt ?? Date.now(),
+        (s as { sourceKind?: string }).sourceKind ?? null,
+        JSON.stringify(s),
+      ],
+      SOURCE_SQL,
+      "SELECT COUNT(*) AS n FROM sources",
+    ),
+    cards: await copyTable(
+      exec,
+      "cards",
+      db.cards,
+      (c) => bindCardInsert(c),
+      CARD_INSERT_SQL,
+      "SELECT COUNT(*) AS n FROM cards",
+    ),
+    mindMaps: await copyTable(
+      exec,
+      "mindMaps",
+      db.mindMaps,
+      (m) => [m.id, m.categoryId, m.title, m.updatedAt ?? Date.now(), JSON.stringify(m)],
+      MINDMAP_SQL,
+      "SELECT COUNT(*) AS n FROM mindMaps",
+    ),
+    mnemonics: await copyTable(
+      exec,
+      "mnemonics",
+      db.mnemonics,
+      (m) => [
+        m.id, m.categoryId,
+        (m as { subcategoryId?: string }).subcategoryId ?? null,
+        (m as { mnemonicStatus?: string }).mnemonicStatus ?? null,
+        (m as { hookType?: string }).hookType ?? null,
+        (m as { createdAt?: number }).createdAt ?? Date.now(),
+        JSON.stringify(m),
+      ],
+      MNEMONIC_SQL,
+      "SELECT COUNT(*) AS n FROM mnemonics",
+    ),
   };
 
+  // Flag commit happens OUTSIDE the per-table txes so a crash between the
+  // last table and the flag write simply re-runs the migration (idempotent
+  // via INSERT OR REPLACE). Dexie data is intentionally NOT deleted — PR-9.
   await exec.run(
     "INSERT OR REPLACE INTO kv (key, value) VALUES (?, ?)",
     [MIGRATION_FLAG_KEY, JSON.stringify({ at: Date.now(), counts })],
