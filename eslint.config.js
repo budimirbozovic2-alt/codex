@@ -330,6 +330,36 @@ export default tseslint.config(
     },
   },
 
+  // B4/B8 — Zabrana runtime uvoza @/lib/db iz UI sloja.
+  // Dozvoljen je samo `import type` (allowTypeImports).
+  // Motivacija: OPFS SQLite + TanStack Query — DB pristup mora ići kroz
+  // custom hookove (npr. useSourceDocxIngest), ne direktno iz komponenti.
+  {
+    files: ["src/components/**/*.{ts,tsx}", "src/hooks/**/*.{ts,tsx}"],
+    rules: {
+      "@typescript-eslint/no-restricted-imports": [
+        "error",
+        {
+          paths: [
+            {
+              name: "@/lib/db",
+              message:
+                "Runtime import @/lib/db iz UI sloja je zabranjen. Koristi custom hook (npr. useSourceDocxIngest) ili import type za interfejse.",
+              allowTypeImports: true,
+            },
+          ],
+          patterns: [
+            {
+              group: ["@/lib/db/*"],
+              message:
+                "Runtime import @/lib/db/* iz UI sloja je zabranjen. Koristi custom hook ili prebaci logiku u src/lib/* servis.",
+            },
+          ],
+        },
+      ],
+    },
+  },
+
   // G7 — Raw setTimeout/setInterval allow-list.
   //
   // Disables `no-restricted-syntax` (which carries the timer guards from
