@@ -45,6 +45,9 @@ markBootStep("main:error-handlers-registered");
 // ── Guarded async bootstrap ──
 (async () => {
   try {
+    // Pure Desktop guard — no-op in dev, throws in PROD browser builds.
+    const { assertDesktop } = await import("./lib/electron-integration");
+    assertDesktop();
     markBootStep("main:parallel-import-start");
     const [{ initColorTheme }, { default: App }, { createRoot }, { eventBus }, { setDbEventEmitter }] = await Promise.all([
       import("./lib/app-settings"),
