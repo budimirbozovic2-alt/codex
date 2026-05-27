@@ -1,12 +1,16 @@
 // Isolated mnemonic test log I/O.
+// PR-9 A1b P1.6: delegates to SQLite-primary repo (Dexie mirror during soak).
 
-import { db } from "@/lib/db";
 import { logger } from "@/lib/logger";
+import {
+  listAllTestLogEntries,
+  addTestLogEntry,
+} from "@/lib/db/queries/mnemonic-test-log";
 import type { MnemonicTestLogEntry } from "./types";
 
 export async function loadMnemonicTestLog(): Promise<MnemonicTestLogEntry[]> {
   try {
-    return await db.mnemonicTestLog.toArray();
+    return await listAllTestLogEntries();
   } catch (err) {
     logger.error("[mnemonic-storage] loadMnemonicTestLog failed", err);
     return [];
@@ -15,7 +19,7 @@ export async function loadMnemonicTestLog(): Promise<MnemonicTestLogEntry[]> {
 
 export async function addMnemonicTestEntry(entry: MnemonicTestLogEntry): Promise<void> {
   try {
-    await db.mnemonicTestLog.add(entry);
+    await addTestLogEntry(entry);
   } catch (err) {
     logger.error("[mnemonic-storage] addMnemonicTestEntry failed", err);
   }
