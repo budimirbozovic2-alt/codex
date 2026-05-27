@@ -115,7 +115,7 @@ export default function SourceEditor({ source, categoryId, onClose, onSourceUpda
 
         if (changedIds.size > 0) {
           // Find cards linked to this source with anchors in changed articles
-          const linkedCards = await db.cards.where("sourceId").equals(source.id).toArray();
+          const linkedCards = await fetchLinkedCards(source.id);
           const oldArticles = parseArticles(baseHtml);
           const affectedCardIds: string[] = [];
 
