@@ -12,6 +12,7 @@ async function getPlannerModule(): Promise<PlannerModule> {
 }
 import type { CategoryRecord } from "@/lib/db";
 import { StudyFlowData } from "@/components/dashboard/StudyFlowWidget";
+import { usePlannerMutations } from "@/hooks/planner/usePlannerMutations";
 
 import { loadAppSettings } from "@/lib/app-settings";
 import { useDeferredCompute } from "@/hooks/useDeferredCompute";
