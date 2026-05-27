@@ -87,13 +87,13 @@ export function useArticleMutations(input: Input): ArticleMutationsApi {
       return;
     }
     if (!confirm(`Obrisati članak "${activeArticle.title}"?`)) return;
-    await deleteArticle(activeArticle.id);
+    await removeMutation.mutateAsync({ id: activeArticle.id, subjectId: activeArticle.subjectId });
     backlinkIndex.removeArticle(activeArticle.subjectId, activeArticle.id);
     setArticles(prev => prev.filter(a => a.id !== activeArticle.id));
     setActiveId(indexArticleId && indexArticleId !== activeArticle.id ? indexArticleId : null);
     draftApi.exitEdit();
     toast.success("Članak obrisan");
-  }, [activeArticle, indexArticleId, setArticles, setActiveId, draftApi]);
+  }, [activeArticle, indexArticleId, setArticles, setActiveId, draftApi, removeMutation]);
 
   const wikiLink = useCallback(async (title: string) => {
     if (!categoryId) return;
