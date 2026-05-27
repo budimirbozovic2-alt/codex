@@ -1,17 +1,39 @@
 import { taskScheduler } from "@/lib/scheduler";
 
 export async function performEmergencyExport(timeoutMs = 3000) {
-  const { db } = await import("@/lib/db");
+  // PR-9 A1b P1.B — backup-readers seam (SQLite-primary where migrated).
+  const {
+    readAllCardsForBackup,
+    readAllCategoriesForBackup,
+    readAllSourcesForBackup,
+    readAllMindMapsForBackup,
+    readAllDisciplineLogForBackup,
+    readReviewLog,
+    readDiary,
+    readCalibrationLog,
+    readLatencyLog,
+    readSlippageLog,
+    readActivityLog,
+    readPomodoroLog,
+  } = await import("@/lib/db/queries");
 
   const exportTask = async () => {
     const [
       cards, categories, sources, reviewLog, mindMaps, diary,
       calibrationLog, latencyLog, slippageLog, activityLog, disciplineLog, pomodoroLog,
     ] = await Promise.all([
-      db.cards.toArray(), db.categories.toArray(), db.sources.toArray(),
-      db.reviewLog.toArray(), db.mindMaps.toArray(), db.diary.toArray(),
-      db.calibrationLog.toArray(), db.latencyLog.toArray(), db.slippageLog.toArray(),
-      db.activityLog.toArray(), db.disciplineLog.toArray(), db.pomodoroLog.toArray(),
+      readAllCardsForBackup(),
+      readAllCategoriesForBackup(),
+      readAllSourcesForBackup(),
+      readReviewLog(),
+      readAllMindMapsForBackup(),
+      readDiary(),
+      readCalibrationLog(),
+      readLatencyLog(),
+      readSlippageLog(),
+      readActivityLog(),
+      readAllDisciplineLogForBackup(),
+      readPomodoroLog(),
     ]);
 
     // Derive subcategories from CategoryRecords
@@ -42,4 +64,3 @@ export async function performEmergencyExport(timeoutMs = 3000) {
 
   return Promise.race([exportTask(), timeout]);
 }
-
