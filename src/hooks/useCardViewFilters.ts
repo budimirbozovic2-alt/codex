@@ -10,7 +10,8 @@
  */
 import { useCallback, useMemo, useState, useEffect } from "react";
 import { type Card } from "@/lib/spaced-repetition";
-import { type CategoryRecord, idbLoadCardsByChapter } from "@/lib/db";
+import type { CategoryRecord } from "@/lib/db";
+import { idbLoadCardsByChapter } from "@/lib/db/queries";
 import {
   buildHierarchyOrder,
   compareCardsByHierarchy,

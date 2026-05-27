@@ -10,7 +10,7 @@
  * single seam to swap in a `useQuery` without touching `SourceEditor`.
  */
 import { useCallback } from "react";
-import { cardsBySource } from "@/lib/db/queries/cards";
+import { cardsBySource } from "@/lib/db/queries";
 import type { Card } from "@/lib/spaced-repetition";
 
 export interface UseLinkedCardsApi {

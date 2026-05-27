@@ -4,7 +4,7 @@ import { motion } from "framer-motion";
 import InfoPanel from "@/components/InfoPanel";
 import { Card as SRCard } from "@/lib/spaced-repetition";
 import { ReviewLogEntry } from "@/lib/storage";
-import { CategoryRecord } from "@/lib/db";
+import type { CategoryRecord } from "@/lib/db";
 import { cn } from "@/lib/utils";
 import { usePlannerData } from "@/hooks/usePlannerData";
 import OperationsTab from "./planner/OperationsTab";

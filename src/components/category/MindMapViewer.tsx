@@ -9,7 +9,7 @@ import {
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import MindMapNodeComponent from "@/components/mindmap/MindMapNode";
-import { MindMapDoc, type MindMapNodeRecord } from "@/lib/db";
+import type { MindMapDoc, MindMapNodeRecord } from "@/lib/db";
 
 const nodeTypes = { mindMapNode: MindMapNodeComponent };
 const noop = () => {};

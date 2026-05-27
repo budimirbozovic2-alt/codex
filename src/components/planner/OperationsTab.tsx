@@ -4,7 +4,7 @@ import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { PlannerConfig, calcRebalancedQuota } from "@/lib/planner-storage";
-import { CategoryRecord } from "@/lib/db";
+import type { CategoryRecord } from "@/lib/db";
 import { format, differenceInDays } from "date-fns";
 import { cn } from "@/lib/utils";
 import SubjectCard from "./SubjectCard";
