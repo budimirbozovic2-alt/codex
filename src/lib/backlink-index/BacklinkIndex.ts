@@ -23,55 +23,18 @@
  *     2. `upsertArticle(subjectId, article)`  — incremental, run on save.
  *     3. `removeArticle(subjectId, articleId)` — on delete.
  *
- * - `BroadcastChannel` keeps tabs in sync via `kb-article:upserted/removed`
- *   events from `event-bus.ts`. Bootstrap re-fetches the article list when a
- *   foreign-tab event arrives for a subject we have indexed.
+ * - Post Task-B the EventBus is gone — callers (`useArticleMutations`,
+ *   `useArticleDraft`, `useWikiLinkAutoCreate`) invoke `upsertArticle`
+ *   / `removeArticle` directly after each IDB write.
  *
- * - React integration via `useSyncExternalStore` so `BacklinksPanel` re-renders
- *   only when the slice it cares about (one target title in one subject)
- *   actually changes.
+ * - React integration (see `./use-backlinks.ts`) uses `useSyncExternalStore`
+ *   so `BacklinksPanel` re-renders only when the slice it cares about
+ *   (one target title in one subject) actually changes.
  */
-import { useSyncExternalStore } from "react";
-import type { KnowledgeBaseArticle } from "./zettelkasten-storage";
-import { eventBus, EVENT_TYPES } from "./event-bus";
-import { iterateWikiLinks, normalizeKey } from "./zettelkasten-wiki-link";
-
-export interface BacklinkEntry {
-  /** Source article that contains the link. */
-  articleId: string;
-  /** Cached display title (raw) for the source article. */
-  title: string;
-  /** ~80 char window around the first match. */
-  snippet: string;
-}
-
-interface SubjectState {
-  byTarget: Map<string, Set<string>>;
-  snippets: Map<string, string>; // key = `${sourceId}::${normTitle}`
-  articleLinks: Map<string, Set<string>>; // sourceId → set of normalized targets (canonical)
-  titleById: Map<string, string>; // articleId → raw title (for snippet rendering)
-  /** Reverse map: any indexable key (alias or canonical title, normalized) → owning article id. */
-  keyToArticleId: Map<string, string>;
-  /** Per-article keys we contributed to keyToArticleId (so we can remove them on update/delete). */
-  articleKeys: Map<string, Set<string>>;
-  /** Monotonic version per (subject, normTitle); useSyncExternalStore tracks this. */
-  versionByTarget: Map<string, number>;
-  /** Subscribers per normTitle for fine-grained re-renders. */
-  subsByTarget: Map<string, Set<() => void>>;
-}
-
-const SNIPPET_PAD = 40;
-
-function norm(title: string): string {
-  return normalizeKey(title);
-}
-
-function snippetFor(content: string, idx: number, matchLen: number): string {
-  const start = Math.max(0, idx - SNIPPET_PAD);
-  const end = Math.min(content.length, idx + matchLen + SNIPPET_PAD);
-  const raw = content.slice(start, end).replace(/\s+/g, " ").trim();
-  return (start > 0 ? "…" : "") + raw + (end < content.length ? "…" : "");
-}
+import type { KnowledgeBaseArticle } from "../zettelkasten-storage";
+import { iterateWikiLinks } from "../zettelkasten-wiki-link";
+import type { BacklinkEntry, SubjectState } from "./types";
+import { norm, snippetFor } from "./normalize";
 
 class BacklinkIndex {
   private subjects: Map<string, SubjectState> = new Map();
@@ -371,65 +334,5 @@ class BacklinkIndex {
   }
 }
 
+export { BacklinkIndex };
 export const backlinkIndex = new BacklinkIndex();
-
-// Note: BacklinkIndex was previously fed via EventBus (KB_ARTICLE_UPSERTED /
-// KB_ARTICLE_REMOVED). Post Task-B the bus is gone — callers
-// (`useArticleMutations`, `useArticleDraft`, `useWikiLinkAutoCreate`) invoke
-// `backlinkIndex.upsertArticle` / `removeArticle` directly after each IDB
-// write, which is simpler, synchronous, and removes one indirection.
-
-
-/**
- * React hook: returns the live backlink list for a (subject, target) pair.
- * Re-renders only when that specific slot's version bumps.
- */
-export function useBacklinks(
-  subjectId: string,
-  targetTitle: string,
-  excludeArticleId?: string,
-  paused = false,
-): BacklinkEntry[] {
-  // Snapshot caches the array reference between version bumps to satisfy
-  // useSyncExternalStore's "stable snapshot" contract. Key = subj+title+excl+ver.
-  const subscribe = (cb: () => void) => backlinkIndex.subscribe(subjectId, targetTitle, cb);
-  const getSnapshot = () => {
-    if (paused) return pausedRef(subjectId, targetTitle, excludeArticleId);
-    return memoizedSnapshot(subjectId, targetTitle, excludeArticleId);
-  };
-  const getServerSnapshot = () => EMPTY;
-  return useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
-}
-
-const EMPTY: BacklinkEntry[] = [];
-
-// Per-key snapshot cache so identical version yields identical reference.
-const snapshotCache = new Map<string, { v: number; data: BacklinkEntry[] }>();
-function memoizedSnapshot(subjectId: string, targetTitle: string, excludeArticleId?: string): BacklinkEntry[] {
-  const key = `${subjectId}::${norm(targetTitle)}::${excludeArticleId ?? ""}`;
-  const v = backlinkIndex.getVersion(subjectId, targetTitle);
-  const cached = snapshotCache.get(key);
-  if (cached && cached.v === v) return cached.data;
-  const data = backlinkIndex.getBacklinks(subjectId, targetTitle, excludeArticleId);
-  snapshotCache.set(key, { v, data });
-  return data;
-}
-
-// When `paused`, freeze the last known snapshot so editing doesn't trigger
-// recomputation. The cached snapshot stays valid until pause is lifted.
-const pausedCache = new Map<string, BacklinkEntry[]>();
-function pausedRef(subjectId: string, targetTitle: string, excludeArticleId?: string): BacklinkEntry[] {
-  const key = `${subjectId}::${norm(targetTitle)}::${excludeArticleId ?? ""}::paused`;
-  let v = pausedCache.get(key);
-  if (!v) {
-    v = memoizedSnapshot(subjectId, targetTitle, excludeArticleId);
-    pausedCache.set(key, v);
-  }
-  return v;
-}
-
-/** Clear the paused snapshot for this slot (call when leaving edit mode). */
-export function clearPausedBacklinks(subjectId: string, targetTitle: string, excludeArticleId?: string): void {
-  const key = `${subjectId}::${norm(targetTitle)}::${excludeArticleId ?? ""}::paused`;
-  pausedCache.delete(key);
-}
