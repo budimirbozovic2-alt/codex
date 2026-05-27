@@ -238,7 +238,7 @@ class MemoriaDB extends Dexie {
   mnemonicTestLog!: Table<MnemonicTestLogEntry & { id?: number }, number>;
   knowledgeBaseArticles!: Table<KnowledgeBaseArticle, string>;
   drafts!: Table<DraftRecord, string>;
-  outbox!: Table<OutboxRecord, string>;
+  // outbox table removed in v23 (A1a); see comment above OutboxRecord.
 
   constructor() {
     super("MemoriaDB");
