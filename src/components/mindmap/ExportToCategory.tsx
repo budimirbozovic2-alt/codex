@@ -23,6 +23,7 @@ interface Props {
 
 export default function ExportToCategory({ open, onOpenChange, currentTitle, currentNodes, currentEdges, mode }: Props) {
   const { categoryRecords } = useCategoryData();
+  const { save } = useMindMapMutations();
   const [title, setTitle] = useState(currentTitle);
   const [categoryId, setCategoryId] = useState("");
   const [saving, setSaving] = useState(false);
