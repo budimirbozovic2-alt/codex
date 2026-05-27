@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef, useMemo } from "react";
+import { useState, useCallback, useEffect, useMemo } from "react";
 import { Save, Calendar as CalendarIcon, FileUp, Loader2 } from "lucide-react";
 import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
@@ -10,12 +10,11 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar } from "@/components/ui/calendar";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { type Source, type SourceKind, db } from "@/lib/db";
+import type { Source, SourceKind } from "@/lib/db";
 import { saveSource, extractOutline } from "@/lib/sources-storage";
 import { sanitizeHtml } from "@/lib/sanitize";
 import { injectHeadingIds } from "@/lib/sources-storage";
 import { parseArticles, compareVersions, getChangedArticleIds, matchAnchorToArticle } from "@/lib/article-parser";
-import { parseDocxInWorker } from "@/features/docx-importer";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { ChevronRight } from "lucide-react";
@@ -24,8 +23,10 @@ import { useDirtyDialog } from "@/hooks/useDirtyDialog";
 import DirtyConfirmBar from "@/components/ui/dirty-confirm-bar";
 import { afterDialogClose } from "@/lib/dialog-utils";
 import { EditorV4 } from "@/components/editor-v4/EditorV4";
-import { htmlToDoc, type EditorDoc } from "@/lib/editor-v4";
+import { type EditorDoc } from "@/lib/editor-v4";
 import { deriveHtml, derivePlainText } from "@/lib/editor-v4/derived";
+import { useSourceDocxIngest } from "@/hooks/source-reader/useSourceDocxIngest";
+import { useLinkedCards } from "@/hooks/source-reader/useLinkedCards";
 
 interface Props {
   source: Source;
@@ -55,11 +56,25 @@ export default function SourceEditor({ source, categoryId, onClose, onSourceUpda
   );
   const [textOpen, setTextOpen] = useState(false);
 
-  // DOCX upload
-  const [docxParsing, setDocxParsing] = useState(false);
-  const [docxFileName, setDocxFileName] = useState("");
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const dropZoneRef = useRef<HTMLDivElement>(null);
+  // DOCX upload — owned by `useSourceDocxIngest` (R1 refactor).
+  const {
+    docxParsing,
+    docxFileName,
+    fileInputRef,
+    dropZoneRef,
+    handleDocxFile,
+    handleDrop,
+    handleDragOver,
+  } = useSourceDocxIngest({
+    onParsed: (doc) => {
+      setNewDoc(doc);
+      setEditorKey((k) => k + 1);
+      setDirty(true);
+    },
+  });
+
+  // Indexed read for linked cards — no direct `db` import.
+  const { fetchLinkedCards } = useLinkedCards();
 
   // Diff preview
   const [diffPending, setDiffPending] = useState<{
@@ -74,40 +89,6 @@ export default function SourceEditor({ source, categoryId, onClose, onSourceUpda
     }
   }, [title, slMarkings, dateStr, isExclusive, sourceKind, source]);
 
-  // ─── DOCX file handling ───────────────────────────────
-  const handleDocxFile = useCallback(async (file: File) => {
-    if (!file.name.endsWith(".docx")) {
-      toast.error("Pogrešan format", { description: "Podržani su samo .docx fajlovi." });
-      return;
-    }
-    setDocxParsing(true);
-    setDocxFileName(file.name);
-    try {
-      const arrayBuffer = await file.arrayBuffer();
-      const html = await parseDocxInWorker(arrayBuffer);
-      setNewDoc(htmlToDoc(html));
-      setEditorKey((k) => k + 1);
-      setDirty(true);
-      toast.success("DOCX učitan", { description: `${file.name} uspješno parsiran.` });
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : "Neuspješno čitanje DOCX fajla.";
-      toast.error("Greška pri parsiranju", { description: message });
-    } finally {
-      setDocxParsing(false);
-    }
-  }, []);
-
-  const handleDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    const file = e.dataTransfer.files[0];
-    if (file) handleDocxFile(file);
-  }, [handleDocxFile]);
-
-  const handleDragOver = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-  }, []);
 
   // ─── Save with diff check ────────────────────────────
   const handleSave = useCallback(async () => {
@@ -134,7 +115,7 @@ export default function SourceEditor({ source, categoryId, onClose, onSourceUpda
 
         if (changedIds.size > 0) {
           // Find cards linked to this source with anchors in changed articles
-          const linkedCards = await db.cards.where("sourceId").equals(source.id).toArray();
+          const linkedCards = await fetchLinkedCards(source.id);
           const oldArticles = parseArticles(baseHtml);
           const affectedCardIds: string[] = [];
 
@@ -170,7 +151,7 @@ export default function SourceEditor({ source, categoryId, onClose, onSourceUpda
     }
 
     await commitSave(htmlContent, outline, articles);
-  }, [source, title, slMarkings, dateStr, isExclusive, sourceKind, newDoc, hasPastedText, bulkFlagNeedsReview]);
+  }, [source, title, slMarkings, dateStr, isExclusive, sourceKind, newDoc, hasPastedText, bulkFlagNeedsReview, fetchLinkedCards]);
 
   const commitSave = useCallback(async (htmlContent: string, outline: Source["outline"], articles: Source["articles"]) => {
     const updated: Source = {
