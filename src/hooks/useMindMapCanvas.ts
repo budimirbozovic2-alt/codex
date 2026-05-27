@@ -11,7 +11,7 @@ import {
 } from "@xyflow/react";
 import { type MindMapNodeData } from "@/components/mindmap/MindMapNode";
 import type { MindMapDoc, MindMapEdgeRecord, MindMapNodeRecord } from "@/lib/db";
-import { saveMindMap } from "@/lib/mindmap-storage";
+import { useMindMapMutations } from "@/hooks/mindmap/useMindMapMutations";
 import { toast } from "sonner";
 import { getId, HIERARCHY_TEMPLATES, PROCEDURE_TEMPLATES, type NodeTemplate } from "@/components/mindmap/mindmap-constants";
 import { autoLayout } from "@/components/mindmap/mindmap-utils";
