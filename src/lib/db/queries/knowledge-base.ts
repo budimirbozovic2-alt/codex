@@ -36,7 +36,24 @@ async function tryGetExecutor(): Promise<SqlExecutor | null> {
   }
 }
 
+// ─── Change emitter (PR-7f M2 — TanStack bridge) ────────────────────────
+
+type KnowledgeBaseListener = () => void;
+const _kbListeners = new Set<KnowledgeBaseListener>();
+
+export function onKnowledgeBaseChanged(fn: KnowledgeBaseListener): () => void {
+  _kbListeners.add(fn);
+  return () => { _kbListeners.delete(fn); };
+}
+
+export function notifyKnowledgeBaseChanged(): void {
+  for (const fn of _kbListeners) {
+    try { fn(); } catch { /* swallow */ }
+  }
+}
+
 // ─── Codec ──────────────────────────────────────────────────────────────
+
 
 function decodeArticle(row: { payload: string }): KnowledgeBaseArticle | null {
   try { return JSON.parse(row.payload) as KnowledgeBaseArticle; }
