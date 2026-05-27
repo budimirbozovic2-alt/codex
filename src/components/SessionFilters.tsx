@@ -1,12 +1,14 @@
 import { Flame, Lock, type LucideIcon } from "lucide-react";
-import { useMemo, type ComponentType } from "react";
+import { type ComponentType } from "react";
 import { FREQUENCY_TAGS } from "@/lib/sr/format";
 import type { FrequencyTag } from "@/lib/sr/types";
 import { motion } from "framer-motion";
 
 import ScrollableRow from "@/components/ScrollableRow";
 import type { Card } from "@/lib/spaced-repetition";
-import type { CategoryRecord, ChapterNode } from "@/lib/db";
+import type { CategoryRecord } from "@/lib/db";
+import { useSessionFilterCounts } from "@/hooks/session/useSessionFilterCounts";
+
 
 export interface SortControlOption<T extends string = string> {
   key: T;
