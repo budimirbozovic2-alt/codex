@@ -19,13 +19,23 @@ export interface FlashPair {
 }
 import { setCardFrequency } from "@/lib/sr/frequency";
 import { cardRepository } from "@/lib/repositories";
+import { useCardMutations } from "@/hooks/card/useCardMutations";
 
 import { logger } from "@/lib/logger";
 
 export function useCardCRUD() {
-  const patchCard = useCallback((id: string, patcher: (card: Card) => Card) => {
-    cardRepository.patch(id, patcher);
-  }, []);
+  const { save, remove, bulkUpsert, gradeSection } = useCardMutations();
+
+  // patchCard remains a fire-and-forget surface (void return) so the many
+  // sync consumers (useCardAnnotations, etc.) keep their signatures, but
+  // internally we route through the gradeSection mutation so onError
+  // rollback + ['cards'] invalidation flow uniformly.
+  const patchCard = useCallback(
+    (id: string, patcher: (card: Card) => Card) => {
+      void gradeSection.mutateAsync({ cardId: id, patcher });
+    },
+    [gradeSection],
+  );
 
   const addCard = useCallback(
     (
@@ -51,19 +61,19 @@ export function useCardCRUD() {
       if (extra?.childCardIds) card.childCardIds = extra.childCardIds;
       if (extra?.sourceModules) card.sourceModules = extra.sourceModules;
       if (extra?.tags && extra.tags.length > 0) card.tags = extra.tags;
-      cardRepository.put(card);
+      void save.mutateAsync(card);
       return card;
     },
-    [],
+    [save],
   );
 
   const addFlashCard = useCallback(
     (question: string, answer: string, categoryId: string, subcategoryId?: string) => {
       const card = createFlashCard(question, answer, categoryId, subcategoryId);
-      cardRepository.put(card);
+      void save.mutateAsync(card);
       return card;
     },
-    [],
+    [save],
   );
 
   const updateCard = useCallback(
@@ -85,68 +95,80 @@ export function useCardCRUD() {
         sourceType?: CardSourceType;
       },
     ) => {
-      cardRepository.patch(id, (c) => {
-        const newCard = { ...c };
-        if (updates.question) newCard.question = updates.question;
-        if (updates.categoryId) newCard.categoryId = updates.categoryId;
-        if (updates.subcategoryId !== undefined) newCard.subcategoryId = updates.subcategoryId;
-        if (updates.chapterId !== undefined) newCard.chapterId = updates.chapterId;
-        if (updates.sourceId !== undefined) newCard.sourceId = updates.sourceId;
-        if (updates.textAnchor !== undefined) newCard.textAnchor = updates.textAnchor;
-        if (updates.originalSourceSnippet !== undefined) newCard.originalSourceSnippet = updates.originalSourceSnippet;
-        if (updates.childCardIds !== undefined) newCard.childCardIds = updates.childCardIds;
-        if (updates.sourceModules !== undefined) newCard.sourceModules = updates.sourceModules;
-        if (updates.needsReview !== undefined) newCard.needsReview = updates.needsReview;
-        if (updates.frequencyTag !== undefined) newCard.frequencyTag = updates.frequencyTag;
-        if (updates.sourceType !== undefined) newCard.sourceType = updates.sourceType;
-        if (updates.sections) {
-          newCard.sections = updates.sections.map((s, idx) => {
-            const existing =
-              c.sections.find((es) => (s as { id?: string }).id && es.id === (s as { id?: string }).id) ||
-              c.sections.find((es) => es.title === s.title) ||
-              c.sections[idx];
-            if (existing) {
-              return { ...existing, title: s.title, contentDoc: s.contentDoc };
-            }
-            return createSection(s.title, s.contentDoc);
-          });
-        }
-        return newCard;
+      void gradeSection.mutateAsync({
+        cardId: id,
+        patcher: (c) => {
+          const newCard = { ...c };
+          if (updates.question) newCard.question = updates.question;
+          if (updates.categoryId) newCard.categoryId = updates.categoryId;
+          if (updates.subcategoryId !== undefined) newCard.subcategoryId = updates.subcategoryId;
+          if (updates.chapterId !== undefined) newCard.chapterId = updates.chapterId;
+          if (updates.sourceId !== undefined) newCard.sourceId = updates.sourceId;
+          if (updates.textAnchor !== undefined) newCard.textAnchor = updates.textAnchor;
+          if (updates.originalSourceSnippet !== undefined) newCard.originalSourceSnippet = updates.originalSourceSnippet;
+          if (updates.childCardIds !== undefined) newCard.childCardIds = updates.childCardIds;
+          if (updates.sourceModules !== undefined) newCard.sourceModules = updates.sourceModules;
+          if (updates.needsReview !== undefined) newCard.needsReview = updates.needsReview;
+          if (updates.frequencyTag !== undefined) newCard.frequencyTag = updates.frequencyTag;
+          if (updates.sourceType !== undefined) newCard.sourceType = updates.sourceType;
+          if (updates.sections) {
+            newCard.sections = updates.sections.map((s, idx) => {
+              const existing =
+                c.sections.find((es) => (s as { id?: string }).id && es.id === (s as { id?: string }).id) ||
+                c.sections.find((es) => es.title === s.title) ||
+                c.sections[idx];
+              if (existing) {
+                return { ...existing, title: s.title, contentDoc: s.contentDoc };
+              }
+              return createSection(s.title, s.contentDoc);
+            });
+          }
+          return newCard;
+        },
       });
       toast.success("Kartica ažurirana.");
     },
-    [],
+    [gradeSection],
   );
 
-  const deleteCard = useCallback((id: string) => {
-    try {
-      cardRepository.remove(id);
-      toast.success("Kartica obrisana.");
-    } catch (err) {
-      logger.error("[useCardCRUD.deleteCard] failed", err);
-      toast.error("Brisanje nije uspjelo.");
-    }
-  }, []);
+  const deleteCard = useCallback(
+    (id: string) => {
+      try {
+        void remove.mutateAsync(id);
+        toast.success("Kartica obrisana.");
+      } catch (err) {
+        logger.error("[useCardCRUD.deleteCard] failed", err);
+        toast.error("Brisanje nije uspjelo.");
+      }
+    },
+    [remove],
+  );
 
-  const splitCard = useCallback((id: string) => {
-    const card = cardRepository.get(id);
-    if (!card || card.sections.length <= 1) return;
-    const newCards = card.sections.map((section) => ({
-      ...createCard(
-        card.question,
-        [{ title: section.title, contentDoc: section.contentDoc }],
-        card.categoryId,
-        card.subcategoryId,
-      ),
-      sections: [{ ...section }],
-    }));
-    cardRepository.bulkPut(newCards);
-    cardRepository.remove(id);
-  }, []);
+  const splitCard = useCallback(
+    (id: string) => {
+      const card = cardRepository.get(id);
+      if (!card || card.sections.length <= 1) return;
+      const newCards = card.sections.map((section) => ({
+        ...createCard(
+          card.question,
+          [{ title: section.title, contentDoc: section.contentDoc }],
+          card.categoryId,
+          card.subcategoryId,
+        ),
+        sections: [{ ...section }],
+      }));
+      void bulkUpsert.mutateAsync(newCards);
+      void remove.mutateAsync(id);
+    },
+    [bulkUpsert, remove],
+  );
 
-  const bulkAddCards = useCallback((newCards: Card[]) => {
-    cardRepository.bulkPut(newCards);
-  }, []);
+  const bulkAddCards = useCallback(
+    (newCards: Card[]) => {
+      void bulkUpsert.mutateAsync(newCards);
+    },
+    [bulkUpsert],
+  );
 
   const bulkAddFlashCards = useCallback(
     (pairs: FlashPair[], categoryId: string, defaultSubcategoryId?: string) => {
@@ -161,14 +183,20 @@ export function useCardCRUD() {
         if (p.chapterId) card.chapterId = p.chapterId;
         return card;
       });
-      cardRepository.bulkPut(newCards);
+      void bulkUpsert.mutateAsync(newCards);
     },
-    [],
+    [bulkUpsert],
   );
 
-  const setFrequency = useCallback((id: string, value: FrequencyTag | null) => {
-    cardRepository.patch(id, (c) => setCardFrequency(c, value));
-  }, []);
+  const setFrequency = useCallback(
+    (id: string, value: FrequencyTag | null) => {
+      void gradeSection.mutateAsync({
+        cardId: id,
+        patcher: (c) => setCardFrequency(c, value),
+      });
+    },
+    [gradeSection],
+  );
 
   return { patchCard, addCard, addFlashCard, updateCard, deleteCard, splitCard, bulkAddCards, bulkAddFlashCards, setFrequency };
 }

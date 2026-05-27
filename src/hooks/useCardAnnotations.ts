@@ -11,7 +11,7 @@ import {
 } from "@/lib/spaced-repetition";
 import { ReviewLogEntry } from "@/lib/storage";
 import { reviewLogRepository } from "@/lib/repositories";
-import { cardRepository } from "@/lib/repositories";
+import { useCardMutations } from "@/hooks/card/useCardMutations";
 import { getExaminerProfileSync } from "@/lib/examiner-profile-cache";
 import { patchReviewLog } from "@/store/reviewSettingsStore";
 
@@ -23,6 +23,7 @@ interface UseCardAnnotationsParams {
 export function useCardAnnotations({
   patchCard,
 }: UseCardAnnotationsParams) {
+  const { bulkPatch } = useCardMutations();
 
 
   // O(1) review — surgical IDB write (patchCard handles persist via Ref-Delta)
@@ -167,19 +168,28 @@ export function useCardAnnotations({
   );
 
   // Bulk-flag — single bulk write via repository.
-  const bulkFlagNeedsReview = useCallback((cardIds: string[]) => {
-    cardRepository.bulkPatch(cardIds, (c) => ({ ...c, needsReview: true }));
-  }, []);
+  const bulkFlagNeedsReview = useCallback(
+    (cardIds: string[]) => {
+      void bulkPatch.mutateAsync({
+        cardIds,
+        patcher: (c) => ({ ...c, needsReview: true }),
+      });
+    },
+    [bulkPatch],
+  );
 
   const bulkUpdateChapter = useCallback(
     (updates: { id: string; chapterId: string | undefined; chapterOrder: number }[]) => {
       const map = new Map(updates.map((u) => [u.id, u]));
-      cardRepository.bulkPatch(updates.map((u) => u.id), (c) => {
-        const u = map.get(c.id)!;
-        return { ...c, chapterId: u.chapterId ?? "", chapterOrder: u.chapterOrder };
+      void bulkPatch.mutateAsync({
+        cardIds: updates.map((u) => u.id),
+        patcher: (c) => {
+          const u = map.get(c.id)!;
+          return { ...c, chapterId: u.chapterId ?? "", chapterOrder: u.chapterOrder };
+        },
       });
     },
-    [],
+    [bulkPatch],
   );
 
   return {
