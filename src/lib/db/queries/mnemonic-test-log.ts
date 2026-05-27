@@ -87,23 +87,20 @@ export async function listTestLogEntriesByCard(cardId: string): Promise<Mnemonic
 
 export async function addTestLogEntry(entry: MnemonicTestLogEntry): Promise<void> {
   const exec = await tryGetExecutor();
-  if (exec) {
-    try {
-      await exec.run(INSERT_SQL, [
-        entry.cardId,
-        entry.timestamp,
-        entry.success ? 1 : 0,
-        JSON.stringify(entry),
-      ]);
-    } catch (err) {
-      logger.warn("[mnemonic-test-log-repo] sqlite add failed", err);
-      throw err;
-    }
+  if (!exec) {
+    const { assertDesktop } = await import("@/lib/electron-integration");
+    assertDesktop();
+    return;
   }
   try {
-    await db.mnemonicTestLog.add(entry);
+    await exec.run(INSERT_SQL, [
+      entry.cardId,
+      entry.timestamp,
+      entry.success ? 1 : 0,
+      JSON.stringify(entry),
+    ]);
   } catch (err) {
-    logger.warn("[mnemonic-test-log-repo] dexie mirror add failed", err);
+    logger.warn("[mnemonic-test-log-repo] sqlite add failed", err);
     throw err;
   }
 }
