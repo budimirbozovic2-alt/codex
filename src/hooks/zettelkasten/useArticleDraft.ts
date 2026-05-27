@@ -15,7 +15,6 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
   getArticle,
-  saveArticle,
   type KnowledgeBaseArticle,
 } from "@/lib/zettelkasten-storage";
 import { normalizeAliasList } from "@/lib/zettelkasten-aliases";
@@ -27,6 +26,7 @@ import { usePersistedDraftMirror } from "@/hooks/usePersistedDraftMirror";
 import { htmlToDoc, type EditorDoc } from "@/lib/editor-v4";
 import { deriveMarkdown, isDocEmpty } from "@/lib/editor-v4/derived";
 import { mdToHtml } from "@/lib/editor-v4/migrate";
+import { useKnowledgeBaseMutations } from "@/hooks/zettelkasten/useKnowledgeBaseMutations";
 
 import { logger } from "@/lib/logger";
 export interface Draft {
