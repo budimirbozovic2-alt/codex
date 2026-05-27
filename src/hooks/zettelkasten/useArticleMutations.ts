@@ -13,14 +13,12 @@
 import { useCallback, useEffect, useRef } from "react";
 import { toast } from "sonner";
 import {
-  saveArticle,
-  deleteArticle,
   newArticle,
-  bulkCreateArticlesIfMissing,
   findArticleByTitle,
   type KnowledgeBaseArticle,
 } from "@/lib/zettelkasten-storage";
 import { backlinkIndex } from "@/lib/backlink-index";
+import { useKnowledgeBaseMutations } from "@/hooks/zettelkasten/useKnowledgeBaseMutations";
 import type { ArticleDraftApi } from "./useArticleDraft";
 
 interface Input {
