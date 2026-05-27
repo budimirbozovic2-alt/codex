@@ -114,11 +114,11 @@ export function useArticleMutations(input: Input): ArticleMutationsApi {
     if (!pending) {
       pending = (async (): Promise<string | null> => {
         try {
-          const created = await bulkCreateArticlesIfMissing(
-            categoryId,
-            [trimmed],
-            activeArticle?.rootSubcategoryId,
-          );
+          const created = await bulkCreateMutation.mutateAsync({
+            subjectId: categoryId,
+            titles: [trimmed],
+            rootSubcategoryId: activeArticle?.rootSubcategoryId,
+          });
           if (created.length > 0) {
             const article = created[0];
             setArticles(prev => [article, ...prev]);
@@ -137,7 +137,7 @@ export function useArticleMutations(input: Input): ArticleMutationsApi {
 
     const id = await pending;
     if (id) open(id);
-  }, [categoryId, activeArticle, setArticles, draftApi, open]);
+  }, [categoryId, activeArticle, setArticles, draftApi, open, bulkCreateMutation]);
 
   return { create, open, backToIndex, remove, wikiLink };
 }
