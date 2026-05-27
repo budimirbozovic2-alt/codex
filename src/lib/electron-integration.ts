@@ -34,7 +34,7 @@ export async function setupElectronIPC() {
 
   const buildBackupData = async () => {
     const [
-      cards, categories, reviewLog, srSettingsRow,
+      cards, categories, reviewLog, srSettingsValue,
       sources, mindMaps, diary,
       calibrationLog, latencyLog, slippageLog,
       activityLog, disciplineLog, pomodoroLog,
@@ -42,7 +42,7 @@ export async function setupElectronIPC() {
       db.cards.toArray(),
       db.categories.toArray(),
       db.reviewLog.toArray(),
-      db.settings.get("srSettings").then(r => r?.value ?? null),
+      getSetting<unknown>("srSettings"),
       db.sources.toArray(),
       db.mindMaps.toArray(),
       db.diary.toArray(),
