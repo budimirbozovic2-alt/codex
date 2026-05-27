@@ -62,17 +62,17 @@ export async function setupElectronIPC() {
       }
     });
 
-    // Read planner data from IDB
-    const [plannerConfigRow, dailyMappedRow, dailyMappedDateRow] = await Promise.all([
-      db.settings.get("plannerConfig"),
-      db.settings.get("dailyMapped"),
-      db.settings.get("dailyMappedDate"),
+    // Read planner data via settings repo (SQLite-primary)
+    const [plannerConfigVal, dailyMappedVal, dailyMappedDateVal] = await Promise.all([
+      getSetting<unknown>("plannerConfig"),
+      getSetting<unknown>("dailyMapped"),
+      getSetting<unknown>("dailyMappedDate"),
     ]);
 
     const localStorageData: Record<string, unknown> = {};
-    if (plannerConfigRow?.value) localStorageData["sr-planner-config"] = plannerConfigRow.value;
-    if (dailyMappedRow?.value != null) localStorageData["sr-daily-mapped-count"] = dailyMappedRow.value;
-    if (dailyMappedDateRow?.value) localStorageData["sr-daily-mapped-date"] = dailyMappedDateRow.value;
+    if (plannerConfigVal != null) localStorageData["sr-planner-config"] = plannerConfigVal;
+    if (dailyMappedVal != null) localStorageData["sr-daily-mapped-count"] = dailyMappedVal;
+    if (dailyMappedDateVal != null) localStorageData["sr-daily-mapped-date"] = dailyMappedDateVal;
 
     const lsKeys = [
       "sr-app-settings", "sr-mnemonic-workshop",
