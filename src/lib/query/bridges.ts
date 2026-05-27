@@ -6,6 +6,7 @@
  * Pozvati JEDNOM (iz `client.ts`). Idempotentno — drugi poziv je no-op.
  */
 import type { QueryClient } from "@tanstack/react-query";
+import { queryKeys } from "@/lib/query/keys";
 import { onSourcesChanged } from "@/lib/sources-storage";
 import { onPlannerChanged, type PlannerChangeKind } from "@/lib/planner";
 import { onDraftsChanged, onSettingsChanged, onCardsChanged, onKnowledgeBaseChanged } from "@/lib/db/queries";
