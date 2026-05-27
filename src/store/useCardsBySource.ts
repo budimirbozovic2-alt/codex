@@ -14,12 +14,13 @@ import { useSyncExternalStore, useRef } from "react";
 import { cardMapStore } from "./useCardMapStore";
 import type { Card } from "@/lib/spaced-repetition";
 import type { CardMap } from "@/lib/persist-queue";
+import type { SourceIdLike } from "@/lib/ids";
 
 const EMPTY: readonly Card[] = Object.freeze([]);
 
 interface SelectorCache {
   map: CardMap | null;
-  sourceId: string | undefined;
+  sourceId: SourceIdLike | undefined;
   result: readonly Card[];
 }
 
@@ -28,7 +29,7 @@ interface SelectorCache {
  * reference: a new array is only produced when the set of matching
  * cards changes. Pass `undefined`/empty string to opt out.
  */
-export function useCardsBySource(sourceId: string | undefined): readonly Card[] {
+export function useCardsBySource(sourceId: SourceIdLike | undefined): readonly Card[] {
   const cache = useRef<SelectorCache>({ map: null, sourceId: undefined, result: EMPTY });
 
   return useSyncExternalStore(

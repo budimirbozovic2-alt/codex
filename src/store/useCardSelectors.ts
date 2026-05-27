@@ -15,6 +15,12 @@ import { useSyncExternalStore, useRef } from "react";
 import { cardMapStore } from "./useCardMapStore";
 import type { Card } from "@/lib/spaced-repetition";
 import type { CardMap } from "@/lib/persist-queue";
+import type {
+  CategoryIdLike,
+  SubcategoryIdLike,
+  ChapterIdLike,
+  CardIdLike,
+} from "@/lib/ids";
 
 const EMPTY: readonly Card[] = Object.freeze([]);
 
@@ -74,17 +80,17 @@ function createCardSetSelector<K>(
 
 // ── RAM selectors (public — single implementation) ────────────────────────
 
-export const useCardsByCategoryRam = createCardSetSelector<string>(
+export const useCardsByCategoryRam = createCardSetSelector<CategoryIdLike>(
   (c, id) => c.categoryId === id,
 );
-export const useCardsBySubcategoryRam = createCardSetSelector<string>(
+export const useCardsBySubcategoryRam = createCardSetSelector<SubcategoryIdLike>(
   (c, id) => c.subcategoryId === id,
 );
-export const useCardsByChapterRam = createCardSetSelector<string>(
+export const useCardsByChapterRam = createCardSetSelector<ChapterIdLike>(
   (c, id) => c.chapterId === id,
 );
 
-export function useCardCountByCategoryRam(categoryId: string | undefined): number {
+export function useCardCountByCategoryRam(categoryId: CategoryIdLike | undefined): number {
   return useSyncExternalStore(
     cardMapStore.subscribe,
     () => {
@@ -98,7 +104,7 @@ export function useCardCountByCategoryRam(categoryId: string | undefined): numbe
   );
 }
 
-export function useCardByIdRam(id: string | undefined | null): Card | null {
+export function useCardByIdRam(id: CardIdLike | undefined | null): Card | null {
   return useSyncExternalStore(
     cardMapStore.subscribe,
     () => {
@@ -114,28 +120,28 @@ export function useCardByIdRam(id: string | undefined | null): Card | null {
 // These were façades during the dual-read window (PR-7d). Now they are
 // thin re-exports so existing imports keep compiling without churn.
 
-export function useCardsByCategory(categoryId: string | undefined): readonly Card[] {
+export function useCardsByCategory(categoryId: CategoryIdLike | undefined): readonly Card[] {
   return useCardsByCategoryRam(categoryId);
 }
 
 export function useCardsBySubcategory(
-  subcategoryId: string | undefined,
-  _categoryId?: string,
+  subcategoryId: SubcategoryIdLike | undefined,
+  _categoryId?: CategoryIdLike,
 ): readonly Card[] {
   return useCardsBySubcategoryRam(subcategoryId);
 }
 
 export function useCardsByChapter(
-  chapterId: string | undefined,
-  _categoryId?: string,
+  chapterId: ChapterIdLike | undefined,
+  _categoryId?: CategoryIdLike,
 ): readonly Card[] {
   return useCardsByChapterRam(chapterId);
 }
 
-export function useCardCountByCategory(categoryId: string | undefined): number {
+export function useCardCountByCategory(categoryId: CategoryIdLike | undefined): number {
   return useCardCountByCategoryRam(categoryId);
 }
 
-export function useCardById(id: string | undefined | null): Card | null {
+export function useCardById(id: CardIdLike | undefined | null): Card | null {
   return useCardByIdRam(id);
 }
