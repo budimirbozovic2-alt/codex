@@ -377,6 +377,13 @@ class MemoriaDB extends Dexie {
       });
       logger.log("[MemoriaDB v22] legacy text columns dropped");
     });
+
+    // v23 — A1a: drop the `outbox` write-ahead log table. SQLite WAL is now
+    // the SSOT for durability; the application-level outbox is redundant.
+    // Passing `null` for a store name removes it from the schema.
+    this.version(23).stores({
+      outbox: null,
+    });
   }
 }
 
