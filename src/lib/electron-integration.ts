@@ -30,6 +30,7 @@ export async function setupElectronIPC() {
   if (!window.electronAPI) return;
 
   const { db } = await import("./db");
+  const { getSetting } = await import("@/lib/db/queries");
 
   const buildBackupData = async () => {
     const [
