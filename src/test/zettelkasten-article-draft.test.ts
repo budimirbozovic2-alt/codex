@@ -36,7 +36,7 @@ describe("useArticleDraft", () => {
 
     const setArticles = vi.fn();
     const { result } = renderHook(() =>
-      useArticleDraft({ activeId: article.id, categoryId: SUBJECT, setArticles }),
+      useArticleDraft({ activeId: article.id, categoryId: SUBJECT, setArticles }), { wrapper },
     );
 
     act(() => result.current.enterEdit(article));
@@ -53,7 +53,7 @@ describe("useArticleDraft", () => {
 
     const setArticles = vi.fn();
     const { result } = renderHook(() =>
-      useArticleDraft({ activeId: article.id, categoryId: SUBJECT, setArticles }),
+      useArticleDraft({ activeId: article.id, categoryId: SUBJECT, setArticles }), { wrapper },
     );
     act(() => result.current.enterEdit(article));
     act(() => result.current.updateDraft({
@@ -78,7 +78,7 @@ describe("useArticleDraft", () => {
 
     const setArticles = vi.fn();
     const { result } = renderHook(() =>
-      useArticleDraft({ activeId: article.id, categoryId: SUBJECT, setArticles }),
+      useArticleDraft({ activeId: article.id, categoryId: SUBJECT, setArticles }), { wrapper },
     );
     act(() => result.current.enterEdit(article));
     act(() => result.current.updateDraftDoc(htmlToDoc("<p>user-typed body</p>")));
