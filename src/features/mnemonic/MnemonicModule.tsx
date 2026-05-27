@@ -1,118 +1,43 @@
 import { CheckCircle2, Brain, Wrench, FlaskConical, Sparkles, Hash, HelpCircle, Film, Type } from "lucide-react";
 import InfoPanel from "@/components/InfoPanel";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { useState, useCallback, useMemo, useEffect } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { useCardOnlyActions, useCategoryData } from "@/contexts/AppContext";
 import {
   MnemonicCard,
-  loadMnemonicCards,
-  loadMnemonicCardsByCategory,
   saveMnemonicCards,
   addMnemonicTestEntry,
   getMnemonicStats,
-  subscribeMnemonics,
 } from "./mnemonic-storage";
-import { useIsMountedRef } from "@/hooks/useIsMountedRef";
+import { useMnemonicCards } from "@/hooks/mnemonic/useMnemonicCards";
 
 import { motion, AnimatePresence } from "framer-motion";
 import MnemonicWorkshop from "./MnemonicWorkshop";
 import MnemonicTest from "./MnemonicTest";
 import MajorSystemSettings from "./MajorSystemSettings";
 import OnboardingModal, { type OnboardingSlide, hasSeenOnboarding } from "@/components/OnboardingModal";
-
-const MNEMO_ONBOARDING_KEY = "sr-mnemo-onboarding-seen";
-
-const MNEMO_SLIDES: OnboardingSlide[] = [
-  {
-    icon: Brain,
-    iconColor: "bg-primary/15 text-primary",
-    title: "Dobrodošli u Memorizaciju",
-    content:
-      "Izolovani sistem za kreiranje i testiranje mentalnih kuka. Označi kartice tagom \u201eMemorizacija\u201c (ikona mozga) u bazi podataka da ih dodaš ovdje.",
-  },
-  {
-    icon: Film,
-    iconColor: "bg-primary/15 text-primary",
-    title: "Mentalni video",
-    content:
-      "Opiši živopisnu vizuelnu scenu koju povezuješ sa gradivom. Što dramatičnija i bizarnija slika, to bolje pamćenje. Koristi boje, pokrete i emocije.",
-  },
-  {
-    icon: Type,
-    iconColor: "bg-warning/15 text-warning",
-    title: "Akronim",
-    content:
-      "Za nabrajanja, sistem automatski detektuje stavke i sugeriše prva slova. Smisli riječ ili frazu od tih slova za brzo prisjećanje.",
-  },
-  {
-    icon: Hash,
-    iconColor: "bg-accent-foreground/15 text-accent-foreground",
-    title: "Major sistem",
-    content:
-      "Brojevi u tekstu se automatski pretvaraju u riječi pomoću fonetskog koda (0=OSA, 1=DUH...). Konfiguriši tablice u sekciji \u201eMentalne tablice\u201c.",
-  },
-  {
-    icon: FlaskConical,
-    iconColor: "bg-success/15 text-success",
-    title: "Testiranje",
-    content:
-      "Sistem prikazuje pitanje, a ti imaš 3 sekunde da prizoveš mentalnu sliku. Vidiš samo svoj okidač, ne originalni tekst. Prati uspješnost kroz statistiku.",
-  },
-];
-
-interface Props {
-  /** When true, hides the global header/onboarding chrome (used inside subject tabs). */
-  embedded?: boolean;
-  /** When set, restricts cards & stats to a single subject. */
-  categoryFilter?: string;
-}
-
+...
 export default function MnemonicModule({ embedded = false, categoryFilter }: Props = {}) {
   const { patchCard } = useCardOnlyActions();
   const { categoryRecords } = useCategoryData();
-  const [cards, setCardsState] = useState<MnemonicCard[]>([]);
+  // PR-7f M2 — TanStack read-path; invalidacija via `subscribeMnemonics` bridge.
+  const { cards } = useMnemonicCards(categoryFilter);
 
   const [subView, setSubView] = useState<"menu" | "workshop" | "test">("menu");
   const [majorOpen, setMajorOpen] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(() => !embedded && !hasSeenOnboarding(MNEMO_ONBOARDING_KEY));
 
-  // ═══════════════════════════════════════════════════════════════════════════
-  // FIX S3: Memory Leak & Race Condition Prevention
-  // ═══════════════════════════════════════════════════════════════════════════
-  const mounted = useIsMountedRef();
-  useEffect(() => {
-    // B2: when scoped to a single subject, use the indexed loader instead of
-    // pulling the global mnemonic table only to discard most rows in memory.
-    const load = (): Promise<MnemonicCard[]> =>
-      categoryFilter
-        ? loadMnemonicCardsByCategory(categoryFilter)
-        : loadMnemonicCards();
-
-    load().then((loadedCards) => {
-      if (mounted.current) setCardsState(loadedCards);
-    });
-
-    return subscribeMnemonics(() => {
-      load().then((loadedCards) => {
-        if (mounted.current) setCardsState(loadedCards);
-      });
-    });
-  }, [categoryFilter, mounted]);
-
-  // ═══════════════════════════════════════════════════════════════════════════
-  // FIX S3: Idempotent React Updater (Separating side-effects from setState)
-  // ═══════════════════════════════════════════════════════════════════════════
-  const setCards = useCallback(async (updater: (prev: MnemonicCard[]) => MnemonicCard[]) => {
-    // Čistimo React StrictMode upozorenja. Side-efekti ne idu unutar setState!
-    setCardsState((prev) => {
-      const next = updater(prev);
-      // saveMnemonicCards notifies subscribers internally — no event needed.
-      Promise.resolve().then(() => {
-        saveMnemonicCards(next);
-      });
+  // Mutation helper — reads freshest snapshot from query cache, applies updater,
+  // persists via `saveMnemonicCards` which fires `notifyMnemonics` → bridge
+  // invalidira ['mnemonics'] → useQuery automatski re-fetcha.
+  const setCards = useCallback(
+    async (updater: (prev: MnemonicCard[]) => MnemonicCard[]) => {
+      const next = updater(cards);
+      await saveMnemonicCards(next);
       return next;
-    });
-  }, []);
+    },
+    [cards],
+  );
 
   const updateCard = useCallback(
     async (id: string, updates: Partial<MnemonicCard>) => {
