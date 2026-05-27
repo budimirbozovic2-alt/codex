@@ -8,12 +8,18 @@
  */
 import "fake-indexeddb/auto";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { createElement } from "react";
 import { act, renderHook } from "@testing-library/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { db } from "@/lib/db";
 import { newArticle, saveArticle } from "@/lib/zettelkasten-storage";
 import { useArticleDraft } from "@/hooks/zettelkasten/useArticleDraft";
 import { htmlToDoc } from "@/lib/editor-v4";
 import { deriveMarkdown } from "@/lib/editor-v4/derived";
+
+const qc = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
+const wrapper = ({ children }: { children: React.ReactNode }) =>
+  createElement(QueryClientProvider, { client: qc }, children);
 
 const SUBJECT = "subject-draft";
 
