@@ -59,12 +59,12 @@ export function useArticleMutations(input: Input): ArticleMutationsApi {
     const t = (title ?? prompt("Naslov novog članka:") ?? "").trim();
     if (!t) return;
     const article = newArticle(categoryId, t);
-    await saveArticle(article);
+    await saveMutation.mutateAsync(article);
     setArticles(prev => [article, ...prev]);
     backlinkIndex.upsertArticle(categoryId, article);
     setActiveId(article.id);
     draftApi.enterEdit(article);
-  }, [categoryId, setArticles, setActiveId, draftApi]);
+  }, [categoryId, setArticles, setActiveId, draftApi, saveMutation]);
 
   const open = useCallback((id: string) => {
     setReadingSourceId(null);
