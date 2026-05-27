@@ -107,7 +107,9 @@ export function saveLastRedistribute(value: string): Promise<void> {
 
 // ─── disciplineLog writes ───────────────────────────────────────────────
 
-export async function saveDisciplineLog(entries: ReadonlyArray<{ date: string }>): Promise<void> {
+export async function saveDisciplineLog<T extends { date: string }>(
+  entries: ReadonlyArray<T>,
+): Promise<void> {
   const exec = await tryGetExecutor();
   if (exec) {
     try {
@@ -128,7 +130,11 @@ export async function saveDisciplineLog(entries: ReadonlyArray<{ date: string }>
   try {
     await db.transaction("rw", db.disciplineLog, async () => {
       await db.disciplineLog.clear();
-      if (entries.length > 0) await db.disciplineLog.bulkAdd(entries as { date: string }[]);
+      if (entries.length > 0) {
+        await db.disciplineLog.bulkAdd(
+          entries as unknown as Parameters<typeof db.disciplineLog.bulkAdd>[0],
+        );
+      }
     });
   } catch (err) {
     logger.warn("[planner-repo] dexie mirror disciplineLog failed", err);
