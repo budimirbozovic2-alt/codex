@@ -5,11 +5,10 @@ import { useState, useCallback, useMemo } from "react";
 import { useCardOnlyActions, useCategoryData } from "@/contexts/AppContext";
 import {
   MnemonicCard,
-  saveMnemonicCards,
-  addMnemonicTestEntry,
   getMnemonicStats,
 } from "./mnemonic-storage";
 import { useMnemonicCards } from "@/hooks/mnemonic/useMnemonicCards";
+import { useMnemonicMutations } from "@/hooks/mnemonic/useMnemonicMutations";
 
 import { motion, AnimatePresence } from "framer-motion";
 import MnemonicWorkshop from "./MnemonicWorkshop";
@@ -69,21 +68,22 @@ export default function MnemonicModule({ embedded = false, categoryFilter }: Pro
   const { categoryRecords } = useCategoryData();
   // PR-7f M2 — TanStack read-path; invalidacija via `subscribeMnemonics` bridge.
   const { cards } = useMnemonicCards(categoryFilter);
+  // PR-7f M3c — write-path via useMutation (optimistic + rollback).
+  const { saveCards, deleteCard: deleteCardMutation, logTestResult } = useMnemonicMutations();
 
   const [subView, setSubView] = useState<"menu" | "workshop" | "test">("menu");
   const [majorOpen, setMajorOpen] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(() => !embedded && !hasSeenOnboarding(MNEMO_ONBOARDING_KEY));
 
-  // Mutation helper — reads freshest snapshot from query cache, applies updater,
-  // persists via `saveMnemonicCards` which fires `notifyMnemonics` → bridge
-  // invalidira ['mnemonics'] → useQuery automatski re-fetcha.
+  // Mutation helper — applies updater to freshest cards snapshot then
+  // dispatches optimistic mutation. Rollback handled inside the hook.
   const setCards = useCallback(
     async (updater: (prev: MnemonicCard[]) => MnemonicCard[]) => {
       const next = updater(cards);
-      await saveMnemonicCards(next);
+      await saveCards.mutateAsync(next);
       return next;
     },
-    [cards],
+    [cards, saveCards],
   );
 
   const updateCard = useCallback(
@@ -112,9 +112,9 @@ export default function MnemonicModule({ embedded = false, categoryFilter }: Pro
 
   const deleteCard = useCallback(
     async (id: string) => {
-      await setCards((prev) => prev.filter((c) => c.id !== id));
+      await deleteCardMutation.mutateAsync(id);
     },
-    [setCards],
+    [deleteCardMutation],
   );
 
   const recordResult = useCallback(
@@ -131,9 +131,9 @@ export default function MnemonicModule({ embedded = false, categoryFilter }: Pro
           };
         }),
       );
-      await addMnemonicTestEntry({ timestamp: Date.now(), cardId, success });
+      await logTestResult.mutateAsync({ timestamp: Date.now(), cardId, success });
     },
-    [setCards],
+    [setCards, logTestResult],
   );
 
   const visibleCards = useMemo(

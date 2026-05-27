@@ -1,12 +1,14 @@
 import { RotateCcw } from "lucide-react";
 import { useState, useEffect } from "react";
-import { saveMajorSystem, DEFAULT_MAJOR_SYSTEM } from "./mnemonic-storage";
+import { DEFAULT_MAJOR_SYSTEM } from "./mnemonic-storage";
 import { useMajorSystem } from "@/hooks/mnemonic/useMajorSystem";
+import { useMnemonicMutations } from "@/hooks/mnemonic/useMnemonicMutations";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 
 export default function MajorSystemSettings() {
   const { system: savedSystem, ready } = useMajorSystem();
+  const { saveMajor } = useMnemonicMutations();
   const [system, setSystem] = useState<Record<number, string>>(DEFAULT_MAJOR_SYSTEM);
 
   // Sync local draft from query cache (initial load + external invalidations).
@@ -19,14 +21,14 @@ export default function MajorSystemSettings() {
   };
 
   const handleSave = async () => {
-    await saveMajorSystem(system);
+    await saveMajor.mutateAsync(system);
     toast.success("Izmjene sačuvane");
   };
 
   const handleReset = async () => {
     const next = { ...DEFAULT_MAJOR_SYSTEM };
     setSystem(next);
-    await saveMajorSystem(next);
+    await saveMajor.mutateAsync(next);
   };
 
   const hasChanges = (() => {
