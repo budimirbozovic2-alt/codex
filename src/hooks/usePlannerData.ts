@@ -26,7 +26,7 @@ async function getPlannerModule(): Promise<PlannerModule> {
 
 
 export function usePlannerData(cards: SRCard[], reviewLog: ReviewLogEntry[], categoryRecords: CategoryRecord[]) {
-  const qc = useQueryClient();
+
 
   // PR-7f M2 — config kroz TanStack; bridge invalidira ['planner'] na svaki
   // `plannerCache.set` (kind="config"), pa useQuery sam re-fetcha.
