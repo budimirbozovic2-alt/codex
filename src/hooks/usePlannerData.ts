@@ -1,10 +1,11 @@
-import { useState, useMemo, useCallback } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useMemo, useCallback } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card as SRCard } from "@/lib/spaced-repetition";
 import { ReviewLogEntry } from "@/lib/storage";
 import type { CategoryRecord } from "@/lib/db";
 import { analyticsClient } from "@/lib/analytics/workerClient";
 import type { PlannerConfig } from "@/lib/planner-storage";
+import { DEFAULT_CONFIG } from "@/lib/planner/types";
 import { queryKeys } from "@/lib/query/keys";
 import {
   hashReviewLog,
@@ -21,14 +22,22 @@ async function getPlannerModule(): Promise<PlannerModule> {
   return _plannerMod;
 }
 
+
+
 export function usePlannerData(cards: SRCard[], reviewLog: ReviewLogEntry[], categoryRecords: CategoryRecord[]) {
-  const [config, setConfig] = useState(() => {
-    // Initial sync load for config to avoid UI flicker
-    // This is fine as it's a small JSON object from localStorage
-    const saved = localStorage.getItem("sr-planner-config");
-    if (!saved) return { dailyAvailableMinutes: 0, finalGoalDate: "", bufferPercent: 15 };
-    try { return JSON.parse(saved); } catch { return { dailyAvailableMinutes: 0, finalGoalDate: "", bufferPercent: 15 }; }
+  const qc = useQueryClient();
+
+  // PR-7f M2 — config kroz TanStack; bridge invalidira ['planner'] na svaki
+  // `plannerCache.set` (kind="config"), pa useQuery sam re-fetcha.
+  const { data: config = DEFAULT_CONFIG } = useQuery({
+    queryKey: queryKeys.planner.config(),
+    queryFn: async () => {
+      const mod = await getPlannerModule();
+      return mod.loadPlanner();
+    },
+    initialData: DEFAULT_CONFIG,
   });
+
 
   const totalSections = useMemo(() => cards.reduce((s, c) => s + c.sections.length, 0), [cards]);
   const learnedSections = useMemo(() => {
@@ -205,10 +214,14 @@ export function usePlannerData(cards: SRCard[], reviewLog: ReviewLogEntry[], cat
   });
 
   const save = useCallback(async (updated: PlannerConfig) => {
-    setConfig(updated);
+    // Optimistic seed for ['planner','config'] — bridge će invalidirati
+    // odmah nakon `plannerCache.set` u savePlanner, ali optimistic snapshot
+    // eliminira flicker između setData i refetcha.
+    qc.setQueryData(queryKeys.planner.config(), updated);
     const mod = await getPlannerModule();
     mod.savePlanner(updated);
-  }, []);
+  }, [qc]);
+
 
   return {
     config, save, isConfigured,
