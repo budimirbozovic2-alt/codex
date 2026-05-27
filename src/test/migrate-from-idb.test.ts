@@ -48,6 +48,8 @@ const fakeDb = {
   mindMaps: fakeTable<{ id: string; categoryId: string; title: string; updatedAt: number }>([]),
   mnemonics: fakeTable<{ id: string; categoryId: string; createdAt: number }>([]),
   knowledgeBaseArticles: fakeTable<{ id: string; subjectId: string; title: string; updatedAt: number; isIndex?: boolean }>([]),
+  majorSystem: fakeTable<{ id: number; peg: string }>([]),
+  mnemonicTestLog: fakeTable<{ id?: number; cardId: string; timestamp: number; success: boolean }>([]),
 };
 
 vi.mock("@/lib/db", () => ({ db: fakeDb }));
