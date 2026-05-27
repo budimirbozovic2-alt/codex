@@ -11,7 +11,8 @@ import { Calendar } from "@/components/ui/calendar";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import type { Source, SourceKind } from "@/lib/db";
-import { saveSource, extractOutline } from "@/lib/sources-storage";
+import { extractOutline } from "@/lib/sources-storage";
+import { useSourceMutations } from "@/hooks/source/useSourceMutations";
 import { sanitizeHtml } from "@/lib/sanitize";
 import { injectHeadingIds } from "@/lib/sources-storage";
 import { parseArticles, compareVersions, getChangedArticleIds, matchAnchorToArticle } from "@/lib/article-parser";
@@ -44,6 +45,7 @@ export default function SourceEditor({ source, categoryId, onClose, onSourceUpda
   const [isExclusive, setIsExclusive] = useState(source.isExclusive || false);
   const [sourceKind, setSourceKind] = useState<SourceKind>(source.sourceKind ?? "propis");
   const [dirty, setDirty] = useState(false);
+  const { save: saveMutation } = useSourceMutations();
 
   // Update source text — held as canonical V4 AST; legacy HTML derived on save.
   const [newDoc, setNewDoc] = useState<EditorDoc | null>(null);
@@ -167,7 +169,7 @@ export default function SourceEditor({ source, categoryId, onClose, onSourceUpda
       version: (source.version || 1) + (hasPastedText ? 1 : 0),
       updatedAt: Date.now(),
     };
-    await saveSource(updated);
+    await saveMutation.mutateAsync(updated);
     setDirty(false);
     setNewDoc(null);
     onClose();
@@ -175,13 +177,13 @@ export default function SourceEditor({ source, categoryId, onClose, onSourceUpda
       onSourceUpdated(updated);
       toast.success("Izvor sačuvan", { description: updated.title });
     });
-  }, [source, title, slMarkings, dateStr, isExclusive, sourceKind, hasPastedText, onSourceUpdated, onClose]);
+  }, [source, title, slMarkings, dateStr, isExclusive, sourceKind, hasPastedText, onSourceUpdated, onClose, saveMutation]);
 
   const handleDiffConfirm = useCallback(async () => {
     if (!diffPending) return;
     const { affectedCardIds, updatedSource } = diffPending;
 
-    await saveSource(updatedSource);
+    await saveMutation.mutateAsync(updatedSource);
     setDirty(false);
     setNewDoc(null);
     setDiffPending(null);
@@ -197,7 +199,7 @@ export default function SourceEditor({ source, categoryId, onClose, onSourceUpda
           : updatedSource.title,
       });
     });
-  }, [diffPending, bulkFlagNeedsReview, onSourceUpdated, onClose]);
+  }, [diffPending, bulkFlagNeedsReview, onSourceUpdated, onClose, saveMutation]);
 
   const isDirty = dirty || hasPastedText;
   const { pendingClose, requestClose, cancelClose, confirmDiscard } = useDirtyDialog(isDirty, onClose);
