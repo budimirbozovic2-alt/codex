@@ -211,25 +211,10 @@ export interface DraftRecord {
   updatedAt: number;
 }
 
-/**
- * Write-ahead log entry for `persist-queue`. Each in-flight card mutation
- * has at most one outbox row keyed by cardId (last-write-wins). The flush
- * transaction applies the card mutation AND deletes the outbox row in a
- * single Dexie `rw` tx — a crash mid-flush leaves the outbox row intact and
- * `recoverOutboxOnBoot()` re-applies it on next session.
- *
- * Replaces the `sessionStorage["codex-flush-pending"]` flag (v19 and earlier)
- * which only told the user "previous session had interrupted writes" without
- * recovering anything.
- */
-export interface OutboxRecord {
-  /** Card ID — primary key. Last write of the same id overwrites the row. */
-  cardId: string;
-  op: "put" | "delete";
-  /** Full card snapshot for `put`; undefined for `delete`. */
-  card?: Card;
-  ts: number;
-}
+// v20 introduced an `outbox` write-ahead log table for `persist-queue`.
+// Dropped in v23 (A1a) — SQLite WAL is the SSOT for durability and crash
+// recovery; the application-level outbox became redundant. The interface
+// and table accessor have been removed; the v23 upgrade hook deletes the store.
 
 // V7: Set of pending rejecters. Single-slot lost concurrent open() calls.
 const _blockedRejecters = new Set<(err: Error) => void>();
@@ -253,7 +238,7 @@ class MemoriaDB extends Dexie {
   mnemonicTestLog!: Table<MnemonicTestLogEntry & { id?: number }, number>;
   knowledgeBaseArticles!: Table<KnowledgeBaseArticle, string>;
   drafts!: Table<DraftRecord, string>;
-  outbox!: Table<OutboxRecord, string>;
+  // outbox table removed in v23 (A1a); see comment above OutboxRecord.
 
   constructor() {
     super("MemoriaDB");
@@ -391,6 +376,13 @@ class MemoriaDB extends Dexie {
         if (a && "content" in a) delete a.content;
       });
       logger.log("[MemoriaDB v22] legacy text columns dropped");
+    });
+
+    // v23 — A1a: drop the `outbox` write-ahead log table. SQLite WAL is now
+    // the SSOT for durability; the application-level outbox is redundant.
+    // Passing `null` for a store name removes it from the schema.
+    this.version(23).stores({
+      outbox: null,
     });
   }
 }

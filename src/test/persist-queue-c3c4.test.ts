@@ -9,18 +9,13 @@ vi.mock("@/lib/db", () => ({
 }));
 
 // Stub Dexie schema: transaction passes through to the callback so the
-// mocked idbBulkApply is actually invoked; outbox ops are no-ops.
+// mocked idbBulkApply is actually invoked. The outbox table was removed
+// in v23 (A1a); no need to stub it any more.
 vi.mock("@/lib/db-schema", () => {
-  const outbox = {
-    put: vi.fn().mockResolvedValue(undefined),
-    bulkDelete: vi.fn().mockResolvedValue(undefined),
-    toArray: vi.fn().mockResolvedValue([]),
-  };
   const cards = {};
   return {
     db: {
       cards,
-      outbox,
       transaction: (_mode: string, ..._args: unknown[]) => {
         const fn = _args[_args.length - 1] as () => Promise<unknown>;
         return Promise.resolve(fn());
