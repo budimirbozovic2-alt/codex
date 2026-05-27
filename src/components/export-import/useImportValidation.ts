@@ -105,7 +105,7 @@ export async function validateImportFile(
 
     onProgress(72, "Provjera relacionog integriteta…");
     await yieldUI();
-    const existingCats = await db.categories.toArray();
+    const existingCats = await readAllCategoriesForBackup();
     if (errors.length === 0) {
       const validCategoryIds = new Set<string>();
       if (parsed.categories && Array.isArray(parsed.categories) && !isLegacyCategoryFormat) {
