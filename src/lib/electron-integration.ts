@@ -1,6 +1,15 @@
 import { persistQueue } from "@/lib/persist-queue";
 
 import { logger } from "@/lib/logger";
+
+/**
+ * Runtime Electron detector — single source of truth for "are we running
+ * inside the desktop shell?". Used by storage-layer gates (e.g. the
+ * IDB→SQLite migration in PR-8) that must NOT execute in browser builds.
+ */
+export function isElectron(): boolean {
+  return typeof window !== "undefined" && Boolean(window.electronAPI);
+}
 export async function setupElectronIPC() {
   if (!window.electronAPI) return;
 

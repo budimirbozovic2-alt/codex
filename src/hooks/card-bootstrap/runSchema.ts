@@ -44,10 +44,38 @@ export async function runSchema(): Promise<void> {
 
   // Step 3: Outbox WAL recovery — re-apply card writes koji su crash-ovali u flush-u.
   try {
-    transition({ type: "SCHEMA_PROGRESS", pct: 80, label: "Outbox recovery…" });
+    transition({ type: "SCHEMA_PROGRESS", pct: 70, label: "Outbox recovery…" });
     await withTimeout(recoverOutboxOnBoot(), 3000, "outbox recovery", { recovered: 0 });
   } catch (e) {
     throw new SchemaError("outboxRecovery", e);
+  }
+
+  // Step 4 (PR-8 M2): One-shot IDB → SQLite migration. Electron-only because
+  // OPFS-SAH-pool is unreliable in browsers today. SOFT-FAIL: failure here
+  // does NOT throw SchemaError — the SQLite adapter is dormant in this
+  // release, so the user keeps booting on IDB while the failure is logged
+  // for the health monitor. The migration retries on the next boot.
+  try {
+    transition({ type: "SCHEMA_PROGRESS", pct: 90, label: "SQLite migracija…" });
+    const { isElectron } = await import("@/lib/electron-integration");
+    if (isElectron()) {
+      const [{ getOpfsSqliteExecutor }, { migrateFromIdb }] = await Promise.all([
+        import("@/lib/persistence/sqlite/client"),
+        import("@/lib/persistence/sqlite/migrate-from-idb"),
+      ]);
+      const exec = await getOpfsSqliteExecutor();
+      const report = await withTimeout(
+        migrateFromIdb(exec),
+        15000,
+        "sqlite migration",
+        { alreadyComplete: true, counts: { categories: 0, sources: 0, cards: 0, mindMaps: 0, mnemonics: 0 }, durationMs: 0 },
+      );
+      if (!report.alreadyComplete) {
+        logger.info("[boot] sqlite migration", report);
+      }
+    }
+  } catch (e) {
+    logger.warn("[boot] sqlite migration failed (soft) — user continues on IDB", e);
   }
 
   markBootStep("cards:schema-done");
