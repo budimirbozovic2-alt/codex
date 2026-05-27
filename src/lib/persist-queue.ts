@@ -1,7 +1,7 @@
 import { toast } from "sonner";
 import { Card } from "@/lib/spaced-repetition";
 import { logger } from "@/lib/logger";
-import { idbOutboxAdapter } from "@/lib/persistence/idb-outbox-adapter";
+import { idbAdapter } from "@/lib/persistence/idb-adapter";
 import { getDefaultAdapter } from "@/lib/persistence/adapter-factory";
 import { hasMigrationFlagSync } from "@/lib/persistence/sqlite/migrate-from-idb";
 import type { PersistAdapter } from "@/lib/persistence/PersistAdapter";
@@ -21,14 +21,13 @@ export type PersistAction =
   | { type: "delete"; id: string }
   | { type: "bulk"; cards: Card[] };
 
-// ─── Adapter wiring (PR-7d M3.2 / Pure Desktop finale) ──
-// All IDB-specific writes go through the adapter. Pure Desktop default:
-// pick SQLite-primary when the one-shot migration flag is present in
-// localStorage (mirrored from SQLite kv on previous boot). On first boot
-// after deploy, falls back to IDB-primary + SQLite mirror until the boot
-// migration completes; next boot promotes SQLite.
+// ─── Adapter wiring (Pure Desktop / post A1a) ───────────
+// All persistence goes through a `PersistAdapter`. Defaults to SQLite-primary
+// + IDB mirror once the one-shot migration flag is present in localStorage.
+// Pre-migration boots use IDB-primary + SQLite mirror so the next boot can
+// flip primary cleanly.
 function pickInitialAdapter(): PersistAdapter {
-  if (typeof window === "undefined") return idbOutboxAdapter;
+  if (typeof window === "undefined") return idbAdapter;
   const isElectron = Boolean((window as { electronAPI?: unknown }).electronAPI);
   return getDefaultAdapter({
     isElectron,
@@ -44,6 +43,7 @@ export function __setPersistAdapter(adapter: PersistAdapter): void {
 function getAdapter(): PersistAdapter {
   return _adapter;
 }
+
 
 function createPersistQueue() {
   // Coalesce by id: last write wins; delete after put cancels put; put after delete cancels delete.
