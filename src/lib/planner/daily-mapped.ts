@@ -1,13 +1,12 @@
 /** Daily-mapped counter + midnight auto-redistribute. */
 import { addDays } from "date-fns";
-import { db } from "../db";
 import type { Card } from "../spaced-repetition";
 import {
   dailyMappedCache,
   disciplineCache,
   lastRedistributeCache,
-  enqueueWrite,
 } from "./cache";
+import { saveDailyMapped, saveLastRedistribute } from "@/lib/db/queries";
 import { calcRebalancedQuota } from "./suggestions";
 
 function getTodayKey(): string {
@@ -26,8 +25,7 @@ export function incrementDailyMapped(amount: number = 1): number {
   const newCount = current + amount;
   const next = { date: today, count: newCount };
   dailyMappedCache.set(next);
-  const snapshot = { ...next };
-  enqueueWrite("incrementDailyMapped", () => db.settings.put({ key: "dailyMapped", value: snapshot }));
+  void saveDailyMapped({ ...next });
   return newCount;
 }
 
@@ -42,7 +40,7 @@ export function autoRedistributeIfNeeded(
   const entry = disciplineCache.get().find(e => e.date === yesterday);
   if (!entry || entry.planCompletion >= 90) {
     lastRedistributeCache.set(today);
-    enqueueWrite("lastRedistribute(skip)", () => db.settings.put({ key: "lastRedistribute", value: today }));
+    void saveLastRedistribute(today);
     return null;
   }
 
@@ -53,6 +51,6 @@ export function autoRedistributeIfNeeded(
   if (!result) return null;
 
   lastRedistributeCache.set(today);
-  enqueueWrite("lastRedistribute(apply)", () => db.settings.put({ key: "lastRedistribute", value: today }));
+  void saveLastRedistribute(today);
   return { redistributed: true, newQuota: result.newDailyQuota };
 }

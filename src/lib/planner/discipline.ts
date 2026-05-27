@@ -1,7 +1,7 @@
-/** Discipline log: sync read, serialized write, classification, debt + trend. */
+/** Discipline log: sync read, write through SQLite-primary repo, classification, debt + trend. */
 import { addDays } from "date-fns";
-import { db } from "../db";
-import { disciplineCache, enqueueWrite } from "./cache";
+import { disciplineCache } from "./cache";
+import { savePlannerDisciplineLog } from "@/lib/db/queries";
 import type { DisciplineEntry, DisciplineStatus } from "./types";
 
 export function loadDisciplineLog(): DisciplineEntry[] {
@@ -10,12 +10,7 @@ export function loadDisciplineLog(): DisciplineEntry[] {
 
 export function saveDisciplineLog(log: DisciplineEntry[]) {
   disciplineCache.set(log);
-  enqueueWrite("saveDisciplineLog", () =>
-    db.transaction("rw", db.disciplineLog, async () => {
-      await db.disciplineLog.clear();
-      if (log.length > 0) await db.disciplineLog.bulkAdd(log);
-    }),
-  );
+  void savePlannerDisciplineLog(log);
 }
 
 export function calcDisciplineStatus(
