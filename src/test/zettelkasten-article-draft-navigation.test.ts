@@ -34,7 +34,7 @@ describe("useArticleDraft — save-on-navigate", () => {
     const { result, rerender } = renderHook(
       ({ id }: { id: string }) =>
         useArticleDraft({ activeId: id, categoryId: SUBJECT, setArticles }),
-      { initialProps: { id: a.id } },
+      { initialProps: { id: a.id }, wrapper },
     );
 
     act(() => result.current.enterEdit(a));
