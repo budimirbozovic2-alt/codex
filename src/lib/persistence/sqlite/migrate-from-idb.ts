@@ -225,3 +225,126 @@ export function hasMigrationFlagSync(): boolean {
     return false;
   }
 }
+
+// ─────────────────────────────────────────────────────────────────────────
+// PR-9 M2 — Read-path migration (planner KV + disciplineLog + drafts).
+//
+// Runs ONCE per browser profile (separate flag from PR-8 v1 so users that
+// already migrated cards don't have to redo it). All three sub-steps run
+// inside their own SQLite transaction so a failure in one leaves the
+// others intact and the unset flag triggers a clean retry next boot.
+// Dexie rows are NOT deleted — they stay as rollback insurance until B1.
+// ─────────────────────────────────────────────────────────────────────────
+
+export const PR9_READPATH_FLAG_KEY = "migrated-readpath-pr9-v1";
+
+const PLANNER_KV_KEYS = ["plannerConfig", "dailyMapped", "lastRedistribute"] as const;
+
+export interface ReadPathMigrationCounts {
+  plannerKv: number;
+  disciplineLog: number;
+  drafts: number;
+}
+
+export interface ReadPathMigrationReport {
+  alreadyComplete: boolean;
+  counts: ReadPathMigrationCounts;
+  durationMs: number;
+}
+
+async function isReadPathMigrated(exec: SqlExecutor): Promise<boolean> {
+  const rows = await exec.all<{ value: string }>(
+    "SELECT value FROM kv WHERE key = ?",
+    [PR9_READPATH_FLAG_KEY],
+  );
+  return rows.length > 0;
+}
+
+export async function migratePr9ReadPathFromIdb(
+  exec: SqlExecutor,
+): Promise<ReadPathMigrationReport> {
+  const t0 = Date.now();
+  if (await isReadPathMigrated(exec)) {
+    return {
+      alreadyComplete: true,
+      counts: { plannerKv: 0, disciplineLog: 0, drafts: 0 },
+      durationMs: 0,
+    };
+  }
+
+  let plannerKv = 0;
+  let disciplineCount = 0;
+  let draftsCount = 0;
+
+  // ── Planner KV ────────────────────────────────────────────────────────
+  try {
+    await exec.transaction(async (tx) => {
+      for (const key of PLANNER_KV_KEYS) {
+        const row = await db.settings.get(key);
+        if (row?.value === undefined) continue;
+        await tx.run(
+          "INSERT OR REPLACE INTO kv (key, value) VALUES (?, ?)",
+          [key, JSON.stringify(row.value)],
+        );
+        plannerKv++;
+      }
+    });
+  } catch (err) {
+    logger.warn("[sqlite:pr9] planner KV migration failed", err);
+  }
+
+  // ── Discipline log ────────────────────────────────────────────────────
+  try {
+    const entries = await db.disciplineLog.toArray();
+    await exec.transaction(async (tx) => {
+      // Bulk reset is fine — discipline rows are append-only, no FK refs.
+      await tx.run("DELETE FROM disciplineLog");
+      for (const e of entries) {
+        const date = (e as { date?: string }).date;
+        if (!date) continue;
+        await tx.run(
+          "INSERT OR REPLACE INTO disciplineLog (date, payload) VALUES (?, ?)",
+          [date, JSON.stringify(e)],
+        );
+        disciplineCount++;
+      }
+    });
+  } catch (err) {
+    logger.warn("[sqlite:pr9] discipline log migration failed", err);
+  }
+
+  // ── Drafts ────────────────────────────────────────────────────────────
+  try {
+    const drafts = await db.drafts.toArray();
+    await exec.transaction(async (tx) => {
+      await tx.run("DELETE FROM drafts");
+      for (const d of drafts) {
+        const draft = d as { key?: string; source?: string; updatedAt?: number };
+        if (!draft.key || !draft.source) continue;
+        await tx.run(
+          "INSERT OR REPLACE INTO drafts (key, source, updatedAt, payload) VALUES (?, ?, ?, ?)",
+          [draft.key, draft.source, draft.updatedAt ?? Date.now(), JSON.stringify(d)],
+        );
+        draftsCount++;
+      }
+    });
+  } catch (err) {
+    logger.warn("[sqlite:pr9] drafts migration failed", err);
+  }
+
+  const counts: ReadPathMigrationCounts = {
+    plannerKv,
+    disciplineLog: disciplineCount,
+    drafts: draftsCount,
+  };
+
+  await exec.run(
+    "INSERT OR REPLACE INTO kv (key, value) VALUES (?, ?)",
+    [PR9_READPATH_FLAG_KEY, JSON.stringify({ at: Date.now(), counts })],
+  );
+
+  const durationMs = Date.now() - t0;
+  logger.info("[sqlite] PR-9 read-path migration complete", { counts, durationMs });
+  return { alreadyComplete: false, counts, durationMs };
+}
+
