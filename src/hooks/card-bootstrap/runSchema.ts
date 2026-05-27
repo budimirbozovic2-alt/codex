@@ -63,7 +63,7 @@ export async function runSchema(): Promise<void> {
         migrateMod.migrateFromIdb(exec),
         15000,
         "sqlite migration",
-        { alreadyComplete: true, counts: { categories: 0, sources: 0, cards: 0, mindMaps: 0, mnemonics: 0 }, durationMs: 0 },
+        { alreadyComplete: true, counts: { categories: 0, sources: 0, cards: 0, mindMaps: 0, mnemonics: 0, knowledgeBaseArticles: 0 }, durationMs: 0 },
       );
       if (!report.alreadyComplete) {
         logger.info("[boot] sqlite migration", report);

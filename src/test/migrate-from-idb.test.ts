@@ -47,6 +47,7 @@ const fakeDb = {
   ]),
   mindMaps: fakeTable<{ id: string; categoryId: string; title: string; updatedAt: number }>([]),
   mnemonics: fakeTable<{ id: string; categoryId: string; createdAt: number }>([]),
+  knowledgeBaseArticles: fakeTable<{ id: string; subjectId: string; title: string; updatedAt: number; isIndex?: boolean }>([]),
 };
 
 vi.mock("@/lib/db", () => ({ db: fakeDb }));
@@ -62,7 +63,7 @@ interface MockState {
 
 function createExecutor(): SqlExecutor {
   const state: MockState = {
-    tables: { cards: new Map(), categories: new Map(), sources: new Map(), mindMaps: new Map(), mnemonics: new Map() },
+    tables: { cards: new Map(), categories: new Map(), sources: new Map(), mindMaps: new Map(), mnemonics: new Map(), knowledgeBaseArticles: new Map() },
     kv: new Map(),
     snapshot: null,
     inTx: false,
@@ -158,7 +159,7 @@ describe("migrateFromIdb", () => {
     const report = await migrateFromIdb(executor);
 
     expect(report.alreadyComplete).toBe(false);
-    expect(report.counts).toEqual({ categories: 2, sources: 1, cards: 3, mindMaps: 0, mnemonics: 0 });
+    expect(report.counts).toEqual({ categories: 2, sources: 1, cards: 3, mindMaps: 0, mnemonics: 0, knowledgeBaseArticles: 0 });
     expect(state.tables.categories.size).toBe(2);
     expect(state.tables.cards.size).toBe(3);
     expect(state.kv.has(MIGRATION_FLAG_KEY)).toBe(true);

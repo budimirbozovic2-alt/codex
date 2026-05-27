@@ -1,50 +1,47 @@
-import { db, type KnowledgeBaseArticle } from "./db";
+/**
+ * Zettelkasten storage façade — PR-9 A1b P1.4.
+ *
+ * Delegates all DB I/O to `@/lib/db/queries/knowledge-base`. Complex
+ * open-or-create transactions (`bulkCreateArticlesIfMissing`,
+ * `ensureIndexArticle`) keep their Dexie `rw` transaction for atomic
+ * lookup-and-insert semantics, then mirror the freshly created rows into
+ * SQLite via `bulkPutArticles` so the SQLite-primary read path sees them on
+ * the next query.
+ */
+import { type KnowledgeBaseArticle, db } from "./db";
 import { assertTagsNormalized } from "./zettelkasten-tags";
 import { assertAliasesNormalized } from "./zettelkasten-aliases";
+import {
+  getArticle as repoGetArticle,
+  listArticlesBySubject as repoListBySubject,
+  findArticleByTitle as repoFindByTitle,
+  putArticle as repoPutArticle,
+  bulkPutArticles as repoBulkPut,
+  deleteArticle as repoDeleteArticle,
+} from "./db/queries/knowledge-base";
 
 import { logger } from "@/lib/logger";
 export type { KnowledgeBaseArticle };
 
 export async function loadArticlesBySubject(subjectId: string): Promise<KnowledgeBaseArticle[]> {
-  const all = await db.knowledgeBaseArticles.where("subjectId").equals(subjectId).toArray();
-  return all.sort((a, b) => b.updatedAt - a.updatedAt);
+  return repoListBySubject(subjectId);
 }
 
 export async function getArticle(id: string): Promise<KnowledgeBaseArticle | undefined> {
-  return db.knowledgeBaseArticles.get(id);
+  return repoGetArticle(id);
 }
 
-/** Case-insensitive title lookup within a subject. Used to resolve [[wiki-links]].
- *  Fast path: uses the [subjectId+title] compound index for an exact (trimmed) match.
- *  Slow path: falls back to a filtered, short-circuiting scan for case-insensitive match. */
+/** Case-insensitive title lookup within a subject. Used to resolve [[wiki-links]]. */
 export async function findArticleByTitle(
   subjectId: string,
   title: string
 ): Promise<KnowledgeBaseArticle | undefined> {
-  const trimmed = title.trim();
-  if (!trimmed) return undefined;
-
-  // Fast path — O(log N) compound index hit for exact case match.
-  const exact = await db.knowledgeBaseArticles
-    .where("[subjectId+title]")
-    .equals([subjectId, trimmed])
-    .first();
-  if (exact) return exact;
-
-  // Slow path — short-circuits on the first case-insensitive match,
-  // avoiding loading the entire subject's articles into memory.
-  const normalized = trimmed.toLowerCase();
-  return db.knowledgeBaseArticles
-    .where("subjectId")
-    .equals(subjectId)
-    .filter(a => a.title.trim().toLowerCase() === normalized)
-    .first();
+  return repoFindByTitle(subjectId, title);
 }
 
 export async function saveArticle(article: KnowledgeBaseArticle): Promise<void> {
   // Audit #11: Assume the UI (Editor) has already normalized tags and aliases.
   // We only perform assertive validation here to prevent data corruption.
-  // This avoids redundant re-processing on every autosave/write.
   if (import.meta.env.DEV) {
     assertTagsNormalized(article.tags);
     assertAliasesNormalized(article.aliases);
@@ -53,7 +50,7 @@ export async function saveArticle(article: KnowledgeBaseArticle): Promise<void> 
   // V6: bubble persistence failures up — caller decides whether to surface a
   // toast and skip the optimistic UI update. No silent swallow.
   try {
-    await db.knowledgeBaseArticles.put({ ...article, updatedAt: Date.now() });
+    await repoPutArticle({ ...article, updatedAt: Date.now() });
   } catch (err) {
     logger.error("[zettelkasten-storage] saveArticle failed", err);
     throw err;
@@ -61,16 +58,14 @@ export async function saveArticle(article: KnowledgeBaseArticle): Promise<void> 
 }
 
 export async function deleteArticle(id: string): Promise<void> {
-  await db.knowledgeBaseArticles.delete(id);
+  await repoDeleteArticle(id);
 }
 
 /**
  * Atomically create placeholder articles for a batch of titles within a subject,
- * skipping any title that already exists (case-insensitive). Runs the entire
- * lookup + insert pass inside a single `rw` Dexie transaction with `bulkPut`,
- * eliminating per-title round-trips during wiki-link auto-creation while typing.
- *
- * Returns the freshly created articles (in input order, deduped case-insensitively).
+ * skipping any title that already exists (case-insensitive). The Dexie `rw`
+ * transaction guarantees the lookup-and-insert is atomic; the post-commit
+ * mirror writes the new rows into SQLite in a single transaction.
  */
 export async function bulkCreateArticlesIfMissing(
   subjectId: string,
@@ -89,7 +84,7 @@ export async function bulkCreateArticlesIfMissing(
   }
   if (seen.size === 0) return [];
 
-  return db.transaction("rw", db.knowledgeBaseArticles, async () => {
+  const created = await db.transaction("rw", db.knowledgeBaseArticles, async () => {
     // Single indexed range scan over the subject (uses `subjectId` index),
     // O(N_subject) once per batch instead of O(N_subject * titles.length).
     const existingTitles = new Set<string>();
@@ -102,7 +97,6 @@ export async function bulkCreateArticlesIfMissing(
     for (const [low, original] of seen) {
       if (existingTitles.has(low)) continue;
       toCreate.push(newArticle(subjectId, original, rootSubcategoryId));
-      // Guard against duplicates within the same batch.
       existingTitles.add(low);
     }
 
@@ -111,6 +105,15 @@ export async function bulkCreateArticlesIfMissing(
     }
     return toCreate;
   });
+
+  // Mirror the freshly created rows into SQLite. Dexie already has them.
+  if (created.length > 0) {
+    try { await repoBulkPut(created); }
+    catch (err) {
+      logger.warn("[zettelkasten-storage] sqlite mirror after bulkCreate failed", err);
+    }
+  }
+  return created;
 }
 
 export function newArticle(
@@ -133,29 +136,21 @@ export function newArticle(
 
 /**
  * Ensure a subject has exactly one Index article (entry-point for organic
- * exploration). Atomic open-or-create within a single Dexie `rw` transaction:
- *
- * 1. If an article with `isIndex=true` already exists for the subject → return it.
- * 2. Else, if a regular article whose title (case-insensitive, trimmed) matches
- *    `subjectName` exists → promote it to Index (set `isIndex=true`).
- * 3. Else → create a new Index article seeded with an onboarding markdown body.
- *    When `suggestedLinks` are provided, they appear as `[[wiki-links]]` so the
- *    user can immediately start branching out.
- *
- * Multiple concurrent callers race-safely: only one Index can exist per subject.
+ * exploration). Atomic open-or-create within a single Dexie `rw` transaction;
+ * any write side-effect is mirrored to SQLite afterwards.
  */
 export async function ensureIndexArticle(
   subjectId: string,
   subjectName: string,
   suggestedLinks: readonly string[] = [],
 ): Promise<KnowledgeBaseArticle> {
-  // PR-7b: hoist dynamic imports OUT of the Dexie transaction. `await import()`
-  // releases the microtask queue and Dexie marks the rw tx as inactive, which
-  // surfaces as `TransactionInactiveError` on the next .put() call.
+  // PR-7b: hoist dynamic imports OUT of the Dexie transaction.
   const { htmlToDoc } = await import("@/lib/editor-v4");
   const { mdToHtml } = await import("@/lib/editor-v4/migrate");
 
-  return db.transaction("rw", db.knowledgeBaseArticles, async () => {
+  let mirrorTarget: KnowledgeBaseArticle | null = null;
+
+  const result = await db.transaction("rw", db.knowledgeBaseArticles, async () => {
     // 1. Existing Index?
     const all = await db.knowledgeBaseArticles
       .where("subjectId")
@@ -165,7 +160,7 @@ export async function ensureIndexArticle(
     const existingIndex = all.find(a => a.isIndex === true);
     if (existingIndex) return existingIndex;
 
-    // 2. Promote a same-titled article (migration path for pre-existing data).
+    // 2. Promote a same-titled article.
     const normSubject = subjectName.trim().toLowerCase();
     const candidate = all.find(a => a.title.trim().toLowerCase() === normSubject);
     if (candidate) {
@@ -175,6 +170,7 @@ export async function ensureIndexArticle(
         updatedAt: Date.now(),
       };
       await db.knowledgeBaseArticles.put(promoted);
+      mirrorTarget = promoted;
       return promoted;
     }
 
@@ -203,6 +199,15 @@ export async function ensureIndexArticle(
       updatedAt: now,
     };
     await db.knowledgeBaseArticles.put(article);
+    mirrorTarget = article;
     return article;
   });
+
+  if (mirrorTarget) {
+    try { await repoBulkPut([mirrorTarget]); }
+    catch (err) {
+      logger.warn("[zettelkasten-storage] sqlite mirror after ensureIndex failed", err);
+    }
+  }
+  return result;
 }

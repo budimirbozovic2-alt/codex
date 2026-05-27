@@ -34,6 +34,22 @@ const PR9_M1_DISCIPLINE_DRAFTS_SQL = `
   CREATE INDEX IF NOT EXISTS idx_drafts_updatedAt ON drafts(updatedAt);
 `;
 
+const PR9_A1B_P14_KB_ARTICLES_SQL = `
+  CREATE TABLE IF NOT EXISTS knowledgeBaseArticles (
+    id           TEXT PRIMARY KEY,
+    subjectId    TEXT NOT NULL,
+    title        TEXT NOT NULL,
+    updatedAt    INTEGER NOT NULL,
+    isIndex      INTEGER NOT NULL DEFAULT 0,
+    payload      TEXT NOT NULL,
+    FOREIGN KEY (subjectId) REFERENCES categories(id) ON DELETE CASCADE
+  );
+  CREATE INDEX IF NOT EXISTS idx_kb_subject              ON knowledgeBaseArticles(subjectId);
+  CREATE INDEX IF NOT EXISTS idx_kb_subject_updatedAt    ON knowledgeBaseArticles(subjectId, updatedAt);
+  CREATE INDEX IF NOT EXISTS idx_kb_subject_title_nocase ON knowledgeBaseArticles(subjectId, title COLLATE NOCASE);
+  CREATE INDEX IF NOT EXISTS idx_kb_subject_isIndex      ON knowledgeBaseArticles(subjectId, isIndex);
+`;
+
 const MIGRATIONS: readonly Migration[] = [
   { version: 1, label: "init", sql: schemaSql },
   // PR-9 M1 — read-path migration: disciplineLog + drafts move off Dexie.
@@ -42,6 +58,8 @@ const MIGRATIONS: readonly Migration[] = [
   // appEntry) remain Dexie-backed until a follow-up — they ride the same
   // `kv` table when they move.
   { version: 2, label: "pr9-m1-discipline-drafts", sql: PR9_M1_DISCIPLINE_DRAFTS_SQL },
+  // PR-9 A1b P1.4 — Zettelkasten articles move to SQLite-primary.
+  { version: 3, label: "pr9-a1b-p14-kb-articles", sql: PR9_A1B_P14_KB_ARTICLES_SQL },
 ];
 
 export const TARGET_USER_VERSION = MIGRATIONS[MIGRATIONS.length - 1].version;
