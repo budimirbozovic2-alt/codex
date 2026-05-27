@@ -108,12 +108,19 @@ function createExecutor(): SqlExecutor {
     };
     state.inTx = true;
     try {
-      const result = await fn({ run, all, exec, transaction, close });
+      // Delegate back to `api` (defined below) so test-time monkey-patching
+      // of `api.run` is visible inside the transaction body.
+      const result = await fn({
+        run: (sql, params) => api.run(sql, params),
+        all: (sql, params) => api.all(sql, params),
+        exec: (sql) => api.exec(sql),
+        transaction: api.transaction,
+        close: api.close,
+      });
       state.snapshot = null;
       state.inTx = false;
       return result;
     } catch (err) {
-      // ROLLBACK
       if (state.snapshot) {
         state.tables = state.snapshot.tables;
         state.kv = state.snapshot.kv;
@@ -126,9 +133,9 @@ function createExecutor(): SqlExecutor {
 
   const close: SqlExecutor["close"] = async () => { /* noop */ };
 
-  // Expose internal state for assertions.
-  (run as unknown as { _state: MockState })._state = state;
-  return { run, all, exec, transaction, close };
+  const api: SqlExecutor = { run, all, exec, transaction, close };
+  (api.run as unknown as { _state: MockState })._state = state;
+  return api;
 }
 
 beforeEach(() => { vi.clearAllMocks(); });
