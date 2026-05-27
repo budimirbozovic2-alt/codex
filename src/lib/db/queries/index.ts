@@ -23,8 +23,6 @@ export {
   cardCountByType,
   onCardsChanged,
   notifyCardsChanged,
-  deleteCardsByCategoryDexie,
-  reparentCardsByCategoryDexie,
 } from "./cards";
 
 // Re-export legacy query helpers that still live in `src/lib/db-queries.ts`
@@ -66,8 +64,6 @@ export {
   listSourcesByCategory,
   putSource,
   deleteSourceAndUnlinkCards,
-  deleteSourcesByCategoryDexie,
-  reparentSourcesByCategoryDexie,
 } from "./sources";
 export {
   getMindMap,
@@ -75,7 +71,6 @@ export {
   listMindMapsByCategory,
   putMindMap,
   deleteMindMap,
-  deleteMindMapsByCategoryDexie,
 } from "./mind-maps";
 export {
   getMnemonic,
@@ -84,7 +79,6 @@ export {
   putMnemonic,
   bulkPutMnemonics,
   deleteMnemonic,
-  deleteMnemonicsByCategoryDexie,
 } from "./mnemonics";
 export {
   getArticle as getKnowledgeBaseArticle,
@@ -93,7 +87,6 @@ export {
   putArticle as putKnowledgeBaseArticle,
   bulkPutArticles as bulkPutKnowledgeBaseArticles,
   deleteArticle as deleteKnowledgeBaseArticle,
-  deleteArticlesBySubjectDexie,
   onKnowledgeBaseChanged,
   notifyKnowledgeBaseChanged,
 } from "./knowledge-base";
