@@ -31,6 +31,12 @@ function dispatchAdd(addCard: AddCardFn, a: AddCardArgs) {
  */
 export function useSourceMapping(source: Source) {
   const { addCard, patchCard } = useCardOnlyActions();
+  const { incrementMapped } = usePlannerMutations();
+  const commitMapping = (count: number) => {
+    if (count <= 0) return;
+    incrementMapped.mutate(count);
+    commitMappingCreated(count, { skipPlanner: true });
+  };
 
   const handleConvertToEssay = useCallback((text: string, html: string) => {
     const {
