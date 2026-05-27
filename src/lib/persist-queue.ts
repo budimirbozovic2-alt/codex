@@ -75,7 +75,6 @@ function createPersistQueue() {
   }
 
   function enqueue(action: PersistAction) {
-    const adapter = getAdapter();
     if (action.type === "put") {
       const id = action.card.id;
       if (import.meta.env.DEV && pendingDeletes.has(id)) {
@@ -94,7 +93,6 @@ function createPersistQueue() {
       }
       pendingDeletes.delete(id);
       pendingPuts.set(id, { card: action.card, seq: ++globalSeq });
-      void adapter.enqueueWal({ kind: "put", card: action.card });
     } else if (action.type === "delete") {
       const id = action.id;
       if (import.meta.env.DEV && pendingPuts.has(id)) {
@@ -102,7 +100,6 @@ function createPersistQueue() {
       }
       pendingPuts.delete(id);
       pendingDeletes.set(id, { seq: ++globalSeq });
-      void adapter.enqueueWal({ kind: "delete", id });
     } else {
       for (const c of action.cards) {
         if (import.meta.env.DEV && pendingDeletes.has(c.id)) {
@@ -110,11 +107,11 @@ function createPersistQueue() {
         }
         pendingDeletes.delete(c.id);
         pendingPuts.set(c.id, { card: c, seq: ++globalSeq });
-        void adapter.enqueueWal({ kind: "put", card: c });
       }
     }
     notify();
   }
+
 
   function hasPending() {
     return pendingPuts.size > 0 || pendingDeletes.size > 0;
