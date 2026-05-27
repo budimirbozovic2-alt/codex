@@ -1,4 +1,5 @@
-import { db } from "@/lib/db";
+// PR-9 A1b P1.B — reads route through the backup-readers SQLite-primary seam.
+import { readAllCategoriesForBackup, listAllCards } from "@/lib/db/queries";
 import { yieldUI } from "@/lib/backup/yield-ui";
 import { migrateRaw, BackupVersionError, BACKUP_SCHEMA_VERSION } from "@/lib/backup/migrate";
 import type { ImportValidation } from "./types";
