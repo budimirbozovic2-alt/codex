@@ -2,7 +2,7 @@ import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react"
 import ExamSidebar from "@/components/ExamSidebar";
 import { cn } from "@/lib/utils";
 import type { Source } from "@/lib/sources-storage";
-import { saveSource } from "@/lib/sources-storage";
+import { useSourceMutations } from "@/hooks/source/useSourceMutations";
 import { useSourceReaderStore, WIDTH_CLASSES } from "@/store";
 import { taskScheduler, type TaskHandle } from "@/lib/scheduler";
 
@@ -58,6 +58,7 @@ export default function SourceReader({ source, onBack, onSourceUpdated }: Props)
   }, [editor]);
 
   const { saveCards: saveMnemoCards } = useMnemonicMutations();
+  const { save: saveSourceMutation } = useSourceMutations();
   const handleMnemoFromSelection = useCallback(async (text: string) => {
     const cards = await loadMnemonicCards();
     const clone = createMnemonicCardFromSelection(
@@ -97,9 +98,11 @@ export default function SourceReader({ source, onBack, onSourceUpdated }: Props)
       lastSavedJsonRef.current = json;
       const current = sourceRef.current;
       const next: Source = { ...current, examQuestions, updatedAt: Date.now() };
-      saveSource(next).then(() => onSourceUpdatedRef.current?.(next)).catch(err => {
-        logger.error("[SourceReader] failed to persist examQuestions", err);
-      });
+      saveSourceMutation.mutateAsync(next)
+        .then(() => onSourceUpdatedRef.current?.(next))
+        .catch(err => {
+          logger.error("[SourceReader] failed to persist examQuestions", err);
+        });
     }, 800, { label: `source-reader:exam-questions:${source.id}` });
     return () => {
       if (saveTimerRef.current !== null) {
@@ -107,7 +110,7 @@ export default function SourceReader({ source, onBack, onSourceUpdated }: Props)
         saveTimerRef.current = null;
       }
     };
-  }, [examQuestions, source.id]);
+  }, [examQuestions, source.id, saveSourceMutation]);
 
   useEffect(() => () => useSourceReaderStore.getState().reset(), []);
 
