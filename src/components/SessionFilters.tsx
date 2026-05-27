@@ -85,62 +85,24 @@ export default function SessionFilters({
   lockedCategory,
 }: SessionFiltersProps) {
   const tripleMode = !!onFrequencyFilterChange;
-  // Helper to resolve UUID → display name
+  // Helper to resolve category UUID → display name
   const catName = (id: string) => categoryRecords?.find(r => r.id === id)?.name ?? id;
-  const subNameMap = useMemo(() => {
-    const m: Record<string, string> = {};
-    for (const r of (categoryRecords || []))
-      for (const n of (r.subcategories || [])) {
-        if (typeof n === 'object' && n.id) m[n.id] = n.name;
-        for (const ch of (n.chapters || []))
-          if (typeof ch === 'object' && ch.id) m[ch.id] = ch.name;
-      }
-    return m;
-  }, [categoryRecords]);
   const availableSubs = selectedCategory ? (subcategories[selectedCategory] || []) : [];
 
-  const chapterPosMap = useMemo(() => {
-    const m: Record<string, number> = {};
-    for (const r of (categoryRecords || [])) {
-      for (const sub of (r.subcategories || [])) {
-        if (typeof sub === 'object' && sub.chapters) {
-          sub.chapters.forEach((ch: ChapterNode | string, i: number) => {
-            const id = typeof ch === 'string' ? ch : ch.id;
-            const order = typeof ch === 'string' ? i : (ch.sortOrder ?? i);
-            m[id] = order;
-          });
-        }
-      }
-    }
-    return m;
-  }, [categoryRecords]);
-
-  const chaptersInSub = useMemo(() => {
-    if (!selectedSubcategory) return [];
-    return Array.from(new Set(
-      cards.filter(c => c.categoryId === selectedCategory && c.subcategoryId === selectedSubcategory && c.chapterId)
-        .map(c => c.chapterId!)
-    )).sort((a, b) => (chapterPosMap[a] ?? 999) - (chapterPosMap[b] ?? 999));
-  }, [cards, selectedCategory, selectedSubcategory, chapterPosMap]);
-
-  // Live count: how many cards match the currently selected filters
-  const filteredCount = useMemo(() => {
-    return cards.filter(c => {
-      if (selectedCategory && c.categoryId !== selectedCategory) return false;
-      if (selectedSubcategory && c.subcategoryId !== selectedSubcategory) return false;
-      if (selectedChapter && c.chapterId !== selectedChapter) return false;
-      if (filterType === "essay" && c.type !== "essay") return false;
-      if (filterType === "flash" && c.type !== "flash") return false;
-      if (tripleMode) {
-        if (frequencyFilter && frequencyFilter !== "all" && c.frequencyTag !== frequencyFilter) return false;
-      } else if (filterExamFrequent) {
-        if (c.frequencyTag !== "često") return false;
-      }
-      return true;
-    }).length;
-  }, [cards, selectedCategory, selectedSubcategory, selectedChapter, filterType, filterExamFrequent, tripleMode, frequencyFilter]);
+  const { subNameMap, chaptersInSub, filteredCount, categoryCounts } = useSessionFilterCounts({
+    cards,
+    categoryRecords,
+    selectedCategory,
+    selectedSubcategory,
+    selectedChapter,
+    filterType,
+    filterExamFrequent,
+    tripleMode,
+    frequencyFilter,
+  });
 
   if (categories.length < 1) return null;
+
 
   return (
     <div className="glass-card rounded-xl p-5 space-y-4">
