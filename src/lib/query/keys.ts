@@ -11,6 +11,20 @@ export const queryKeys = {
     all: () => ["sources", "all"] as const,
     byCategory: (categoryId: string) => ["sources", "cat", categoryId] as const,
   },
+  cards: {
+    root: ["cards"] as const,
+    all: () => ["cards", "all"] as const,
+    byCategory: (categoryId: string) => ["cards", "cat", categoryId] as const,
+    bySubcategory: (categoryId: string, subcategoryId: string) =>
+      ["cards", "subcat", categoryId, subcategoryId] as const,
+    byChapter: (categoryId: string, chapterId: string) =>
+      ["cards", "chap", categoryId, chapterId] as const,
+    byType: (categoryId: string, type: string) =>
+      ["cards", "type", categoryId, type] as const,
+    bySource: (sourceId: string) => ["cards", "source", sourceId] as const,
+    countByCategory: (categoryId: string) =>
+      ["cards", "count", "cat", categoryId] as const,
+  },
   planner: {
     root: ["planner"] as const,
     config: () => ["planner", "config"] as const,
