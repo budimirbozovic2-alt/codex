@@ -1,78 +1,49 @@
-# P2 PR-7f M3 — `mnemonic-storage.ts` decomposition (split-only, 0 behavior change)
+# P3 PR-8 — OPFS SQLite adapter + outbox decommission (M1+M3+M4 shipped, dormant)
 
-## Goal
+## Shipped scope
 
-`src/features/mnemonic/mnemonic-storage.ts` (374 LOC) bundles 7 concerns: types, constants, a one-shot localStorage→IDB migration, Major System I/O, mnemonic cards repo + change-notifier, factory helpers, test-log I/O, stats, and content-analysis utilities. Split into a folder, barrel-exporting the identical public surface. Zero logic change, zero call-site change for the 14 importers.
+M1 infrastructure, M3 adapter factory, M4 SQL FK CASCADE schema. **No production write path changes** — `getDefaultAdapter()` returns `idbOutboxAdapter` unconditionally until a follow-up PR sets `enableSqlitePrimary=true`. This keeps the SQLite branch reviewable and unit-tested in isolation while the read-path (PR-9) catches up.
 
-## Target structure
+## Files added
 
-```text
-src/features/mnemonic/mnemonic-storage/
-├── index.ts          # barrel — re-exports everything currently exported
-├── types.ts          # MnemonicStatus, HookType, HookMode, MnemonicCard, MnemonicTestLogEntry
-├── constants.ts      # DEFAULT_MAJOR_SYSTEM, JOKER_LOCATIONS, storage keys
-├── migrate.ts        # migrateMnemonicsFromLocalStorageToIDB
-├── major-system.ts   # loadMajorSystem, saveMajorSystem, resolveNumber
-├── cards-repo.ts     # loadMnemonicCards, loadMnemonicCardsByCategory,
-│                     # saveMnemonicCards, deleteMnemonicCard,
-│                     # subscribeMnemonics (+ internal notifyMnemonics)
-├── card-factory.ts   # detectHookType, createMnemonicCard, createMnemonicCardFromSelection
-├── test-log.ts       # loadMnemonicTestLog, addMnemonicTestEntry
-├── stats.ts          # getMnemonicStats
-└── content-utils.ts  # extractNumbers, detectEnumerationItems
-```
+- `src/lib/persistence/sqlite/executor.ts` — `SqlExecutor` interface (run/all/exec/transaction/close).
+- `src/lib/persistence/sqlite/schema.sql` — tables + indexes + FK CASCADE; categories/sources/cards/mindMaps/mnemonics/kv.
+- `src/lib/persistence/sqlite/migration-runner.ts` — `PRAGMA user_version` ladder, foreign_keys + WAL.
+- `src/lib/persistence/sqlite/client.ts` — lazy `getOpfsSqliteExecutor()` singleton with OPFS-SAH-pool VFS + :memory: soft-fall-back.
+- `src/lib/persistence/sqlite/row-codecs.ts` — Card encode/decode + `CARD_INSERT_SQL`.
+- `src/lib/persistence/sqlite/migrate-from-idb.ts` — M2 one-shot copy gated by `kv['migrated-from-idb-v1']`.
+- `src/lib/persistence/opfs-sqlite-adapter.ts` — `PersistAdapter` impl; `enqueueWal`/`recoverPending` no-ops by design.
+- `src/lib/persistence/mirroring-adapter.ts` — fan-out wrapper (primary awaited, secondary fire-and-forget).
+- `src/lib/persistence/adapter-factory.ts` — single decision point; defaults to IDB.
+- `src/test/opfs-sqlite-adapter.test.ts` — 5 tests, all green.
 
-Old path `src/features/mnemonic/mnemonic-storage.ts` is deleted; folder `index.ts` claims the module specifier `@/features/mnemonic/mnemonic-storage`. All 14 importers keep their import lines unchanged.
+## Dep
 
-## Internal wiring
-
-- `card-factory.ts` imports `detectEnumerationItems` from `./content-utils` (currently a same-file call) and types from `./types`.
-- `cards-repo.ts` owns the listener Set + `notifyMnemonics` (private). Public `subscribeMnemonics` lives here.
-- `migrate.ts` imports `MNEMONIC_CARDS_KEY`/`MAJOR_SYSTEM_KEY`/`MNEMONIC_TEST_LOG_KEY` from `./constants` and `MnemonicCard` from `./types`.
-- `major-system.ts` imports `DEFAULT_MAJOR_SYSTEM`, `JOKER_LOCATIONS` from `./constants`.
-- All DB-touching files import `db` from `@/lib/db` and `logger` from `@/lib/logger` directly — no shared "infra" file needed.
-
-No circular imports.
-
-## Public API (unchanged)
-
-Barrel re-exports the exact set already exported by the monolith:
-
-```ts
-export type { MnemonicStatus, HookType, HookMode, MnemonicCard, MnemonicTestLogEntry } from "./types";
-export { DEFAULT_MAJOR_SYSTEM, JOKER_LOCATIONS } from "./constants";
-export { migrateMnemonicsFromLocalStorageToIDB } from "./migrate";
-export { loadMajorSystem, saveMajorSystem, resolveNumber } from "./major-system";
-export {
-  loadMnemonicCards, loadMnemonicCardsByCategory,
-  saveMnemonicCards, deleteMnemonicCard, subscribeMnemonics,
-} from "./cards-repo";
-export { detectHookType, createMnemonicCard, createMnemonicCardFromSelection } from "./card-factory";
-export { loadMnemonicTestLog, addMnemonicTestEntry } from "./test-log";
-export { getMnemonicStats } from "./stats";
-export { extractNumbers, detectEnumerationItems } from "./content-utils";
-```
+`@sqlite.org/sqlite-wasm@3.53.0-build1` (lazy-imported only inside `client.ts`; SSR / Node test paths never touch the wasm runtime).
 
 ## Verification
 
-1. `bunx tsc --noEmit` — 0 errors.
-2. `rg "from ['\"]@/features/mnemonic/mnemonic-storage['\"]" src` — 14 hits, unchanged.
-3. Smoke: existing mnemonic tests (if any) keep passing.
+- `bunx vitest run src/test/opfs-sqlite-adapter.test.ts` → 5/5 passing.
+- `bunx tsc --noEmit` → 0 errors (harness).
+- `rg "getDefaultAdapter\\(" src/` → only definition site; persist-queue still uses `idbOutboxAdapter` directly (intentional — no behavior change).
 
-## Out of scope (deferred)
+## Deferred to follow-up PR (PR-8.1 / PR-9)
 
-- Migrating `subscribeMnemonics` to TanStack Query invalidation bridge (next milestone).
-- Removing the localStorage migration (one-shot, still needed for legacy installs).
-- Re-architecting `detectHookType` / `detectEnumerationItems` (cosmetic refactor).
-- Any change to DB schema, factory defaults, or stats math.
+1. Vite copy plugin to vendor `.wasm` + worker into `public/sqlite/` for Electron `file://` and dev server.
+2. Wire `migrateFromIdb()` into `src/hooks/card-bootstrap/runSchema.ts` (Step 4 "SQLite migracija…") behind `isElectron()`.
+3. Call `__setPersistAdapter(getDefaultAdapter({...flags}))` from `persist-queue.ts` module init.
+4. Dexie v23: drop `outbox` table once migration flag is set.
+5. Collapse `category-deletion-service.ts` to a single `DELETE FROM categories` for the SQLite adapter (FK CASCADE takes over); IDB code path keeps the manual cascade.
+6. Read-path migration off Dexie (planner / examiner / drafts tables, Zustand hydration, TanStack Query bridges).
 
 ## Risks
 
-- **Path ambiguity**: deleting the old `.ts` in the same patch as creating the folder avoids it.
-- **Re-export drift**: barrel must mirror the current export set exactly; verified by importer-count grep above.
+- OPFS-SAH-pool reliability across Electron versions: not exercised in this PR (adapter dormant). Smoke test required before flipping the factory.
+- `.wasm` packaging: must be added to `electron-builder` `extraResources`; smoke-test by booting the packaged binary headlessly.
+- Migration row-count verification: current script has no rollback-on-mismatch guard yet; add before wiring into boot.
 
 ## LOC
 
-- Removed: 1 file, 374 lines.
-- Added: 10 files, ~395 lines (overhead = imports/exports + file headers, no logic added).
-- Net diff: roughly +60/-50, well under the M3 budget.
+- Added: ~720 (8 source files + 1 test file).
+- Removed: 0 — dormant rollout, no callsite changes.
+- Net diff: +720. Follow-up PRs will subtract ~500 (outbox table, manual cascade, Dexie tables) once SQLite goes live.
