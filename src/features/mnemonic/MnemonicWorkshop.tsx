@@ -1,14 +1,15 @@
 import { Brain, Wrench, FolderOpen, Search, Sparkles, ArrowUpDown, CheckCircle2 } from "lucide-react";
 import { useState, useMemo, useCallback, useEffect, useRef } from "react";
-import { MnemonicCard, MnemonicStatus, loadMajorSystem } from "./mnemonic-storage";
+import { MnemonicCard, MnemonicStatus } from "./mnemonic-storage";
 import { type CategoryRecord } from "@/lib/db";
 import { List, type RowComponentProps, type ListImperativeAPI } from "react-window";
 
 import InfoPanel from "@/components/InfoPanel";
 import WorkshopCardItem from "./workshop/WorkshopCardItem";
 import ScrollableRow from "@/components/ScrollableRow";
-import { useDebounce } from "@/hooks/useDebounce";
+import { useWorkshopFilters } from "@/hooks/mnemonic/useWorkshopFilters";
 import { motion, AnimatePresence } from "framer-motion";
+
 
 const COLLAPSED_HEIGHT = 72;
 const EXPANDED_BASE = 400;
