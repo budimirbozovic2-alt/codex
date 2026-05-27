@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useCategoryData } from "@/contexts/AppContext";
-import { saveMindMap } from "@/lib/mindmap-storage";
+import { useMindMapMutations } from "@/hooks/mindmap/useMindMapMutations";
 import type { MindMapDoc } from "@/lib/db";
 import type { Node, Edge } from "@xyflow/react";
 import { toast } from "sonner";
