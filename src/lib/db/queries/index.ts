@@ -17,3 +17,28 @@ export {
   idbLoadSettings,
   idbSaveSettings,
 } from "@/lib/db-queries";
+
+// PR-9 M3 — SQLite-primary read/write repos.
+export {
+  loadPlannerSnapshot,
+  savePlannerConfig,
+  saveDailyMapped,
+  saveLastRedistribute,
+  saveDisciplineLog as savePlannerDisciplineLog,
+} from "./planner";
+export {
+  getDraft,
+  putDraft,
+  deleteDraft,
+  bulkDeleteDrafts,
+  listDraftsBySource,
+  listAllDrafts,
+  onDraftsChanged,
+} from "./drafts";
+export {
+  getSetting,
+  putSetting,
+  deleteSetting,
+  listSettingsByPrefix,
+  onSettingsChanged,
+} from "./settings";
