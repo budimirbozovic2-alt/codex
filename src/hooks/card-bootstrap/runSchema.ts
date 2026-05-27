@@ -59,19 +59,30 @@ export async function runSchema(): Promise<void> {
     transition({ type: "SCHEMA_PROGRESS", pct: 90, label: "SQLite migracija…" });
     const { isElectron } = await import("@/lib/electron-integration");
     if (isElectron()) {
-      const [{ getOpfsSqliteExecutor }, { migrateFromIdb }] = await Promise.all([
+      const [{ getOpfsSqliteExecutor }, migrateMod] = await Promise.all([
         import("@/lib/persistence/sqlite/client"),
         import("@/lib/persistence/sqlite/migrate-from-idb"),
       ]);
       const exec = await getOpfsSqliteExecutor();
       const report = await withTimeout(
-        migrateFromIdb(exec),
+        migrateMod.migrateFromIdb(exec),
         15000,
         "sqlite migration",
         { alreadyComplete: true, counts: { categories: 0, sources: 0, cards: 0, mindMaps: 0, mnemonics: 0 }, durationMs: 0 },
       );
       if (!report.alreadyComplete) {
         logger.info("[boot] sqlite migration", report);
+      }
+      // PR-9 M2 — read-path migration (planner KV + disciplineLog + drafts).
+      // Independent flag, so retries cleanly if a transient failure occurs.
+      const pr9Report = await withTimeout(
+        migrateMod.migratePr9ReadPathFromIdb(exec),
+        10000,
+        "sqlite pr9 read-path migration",
+        { alreadyComplete: true, counts: { plannerKv: 0, disciplineLog: 0, drafts: 0 }, durationMs: 0 },
+      );
+      if (!pr9Report.alreadyComplete) {
+        logger.info("[boot] sqlite pr9 read-path migration", pr9Report);
       }
     }
   } catch (e) {

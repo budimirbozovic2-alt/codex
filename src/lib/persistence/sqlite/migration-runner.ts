@@ -17,10 +17,31 @@ interface Migration {
   sql: string;
 }
 
+const PR9_M1_DISCIPLINE_DRAFTS_SQL = `
+  CREATE TABLE IF NOT EXISTS disciplineLog (
+    date     TEXT PRIMARY KEY,
+    payload  TEXT NOT NULL
+  );
+  CREATE INDEX IF NOT EXISTS idx_discipline_date ON disciplineLog(date);
+
+  CREATE TABLE IF NOT EXISTS drafts (
+    key        TEXT PRIMARY KEY,
+    source     TEXT NOT NULL,
+    updatedAt  INTEGER NOT NULL,
+    payload    TEXT NOT NULL
+  );
+  CREATE INDEX IF NOT EXISTS idx_drafts_source    ON drafts(source);
+  CREATE INDEX IF NOT EXISTS idx_drafts_updatedAt ON drafts(updatedAt);
+`;
+
 const MIGRATIONS: readonly Migration[] = [
   { version: 1, label: "init", sql: schemaSql },
-  // PR-9 placeholder: add planner / examiner / drafts here once read-path
-  // hydration moves off Dexie.
+  // PR-9 M1 — read-path migration: disciplineLog + drafts move off Dexie.
+  // The KV table for planner config / dailyMapped / lastRedistribute already
+  // exists from v1. Settings (appSettings, subjectSettings:*, srSettings,
+  // appEntry) remain Dexie-backed until a follow-up — they ride the same
+  // `kv` table when they move.
+  { version: 2, label: "pr9-m1-discipline-drafts", sql: PR9_M1_DISCIPLINE_DRAFTS_SQL },
 ];
 
 export const TARGET_USER_VERSION = MIGRATIONS[MIGRATIONS.length - 1].version;

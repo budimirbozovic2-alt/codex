@@ -1,35 +1,126 @@
-# Sesija 1: Re-audit nalaz — nema posla za izvršiti
+# Sesija 2 — S3: Read-path migracija (planner + drafts) iz Dexie u SQLite + TanStack
 
-Detaljnim pretragama izvora utvrđeno je da su sve četiri ciljane stavke (S1 + S2 + A4 + B5) **već implementirane**. Audit dump koji opisuje stanje "treba uraditi" odražava codebase prije nedavnih PR-ova (vjerovatno PR-7d M2.1 / PR-7e M4).
+Cilj: ukloniti Dexie sa hot read-patha za sve preostale tabele koje učestvuju u UI render ciklusu, kako bi se otključali A1 (drop IDB outbox), A2 (collapse `categoryDeletionService`) i B1 (drop `dexie` dep).
 
-## Šta je provjereno
+## Skopiranje (po nalazu eksploracije)
 
-| # | Cilj | Status u trenutnom kodu | Dokaz |
-|---|------|------------------------|-------|
-| **S1** | Ukloniti `useDualReadDiff` + `useCardSelectorsFromDb` façade iz `src/store/useCardSelectors.ts` | ✅ Done | Fajl počinje komentarom "Phase 1 + Phase 2 dual-read façade dismantled". Nijedan grep hit u `src/` za `useDualReadDiff` ni `useCardSelectorsFromDb`. Selektori (`useCardsByCategoryRam` itd.) su čisti `useSyncExternalStore` nad `cardMapStore`. |
-| **S2** | `EditorSection.CuttingView` mora čitati `section.contentDoc`, ne `section.content` | ✅ Done | `src/components/card-form/EditorSection.tsx:196,240-241` već prosleđuje `section.contentDoc`. Jedini grep hit za `section.content` u cijelom `src/` je komentar u `src/lib/auto-link-suggestion.ts:68` koji objašnjava zašto se NE čita. |
-| **A4** | Ukloniti `Section.content?: string` iz tipova | ✅ Done | `src/lib/sr/types.ts:12-29` — `Section` ima samo `contentDoc: EditorDoc` (required). Komentar: "Legacy `content` HTML was removed in PR-7e M4." |
-| **B5** | Obrisati `html` prop sa svih `ContentRenderer` (`<n>`) konzumera | ✅ Done | `src/components/ui/ContentRenderer.tsx` već prihvata samo `doc?: EditorDoc \| null`. Svih ~10 call-site-ova (CardViewTable, EditorSection, SourceSnippetDialog, PassiveReader, ZettelPreview, WorkshopCardItem, CuttingView, itd.) već prosleđuje `doc={…contentDoc}`. Nijedan ne prosleđuje `html=`. |
+| Domain | Trenutni read | Status |
+|---|---|---|
+| **Planner** | `db.settings(plannerConfig, dailyMapped, lastRedistribute)` + `db.disciplineLog` | **Migrira** |
+| **Drafts** | `db.drafts` (key, source, updatedAt) | **Migrira** |
+| **Examiner profile** | `categoryRecords` (RAM projection iz `categories.payload`) | **Već SQLite-backed**, izvan obima |
+| **App/Subject settings** | `db.settings(appSettings, subjectSettings:*, srSettings, appEntry, sr-last-backup)` | **Migrira** (isti KV mehanizam kao planner) |
+| **Metacognitive (appEntry)** | `db.settings(appEntry, lastAnalysisDate)` | Migrira sa settings |
 
-## Dodatne sondaže (radi sigurnosti)
+`db.activityLog` / `db.pomodoroLog` / `db.knowledgeBaseArticles` ostaju izvan obima (nisu na hot read-pathu, koriste se samo u emergency-export i health monitor count-u — A1/B1 ih briše nakon zasebnog soak-a).
 
-- `useLiveQuery` u UI-u: jedini hit je komentar u `useLinkedCards.ts` ("keeps the dialog free of `useLiveQuery` re-renders") — pravilo poštovano.
-- Runtime `@/lib/db` u UI/hooks: svi UI hitovi su `import type` (ESLint pravilo iz prethodne sesije važi). Runtime importi ostali samo u storage sloju (`mnemonic-storage/*`) i 2 dynamic importa (`useCardExport`, `DatabaseRecoveryPanel`) koji su izvan UI render-patha.
+## Faze
 
-## Posljedica
+### Faza 1 — Schema + codecs (PR-9 M1)
 
-- Net LOC delta = **0** (nema šta da se obriše).
-- "Tihi v22 crash" više nije reachable jer A4 + S2 garantuju da nijedan read-path ne dira nepostojeći `section.content`.
-- TanStack rollout (Sesija 2 / S3) je već otključan — nema više dual-read patha koji bi ga blokirao.
+`src/lib/persistence/sqlite/schema.sql`:
 
-## Preporuka
+```sql
+CREATE TABLE IF NOT EXISTS disciplineLog (
+  date     TEXT PRIMARY KEY,    -- YYYY-MM-DD
+  payload  TEXT NOT NULL        -- DisciplineEntry JSON
+);
+CREATE INDEX IF NOT EXISTS idx_discipline_date ON disciplineLog(date);
 
-Preskočiti Sesiju 1 i prijeći direktno na **Sesiju 2 — S3: migracija read-patha (planner / examiner / drafts) iz Dexie u SQLite + TanStack**. To je najveći LOC bonus (~-1500), otključava A1 (drop IDB outbox), A2 (collapse categoryDeletionService) i B1 (drop dexie dep).
+CREATE TABLE IF NOT EXISTS drafts (
+  key        TEXT PRIMARY KEY,
+  source     TEXT NOT NULL,     -- "zettelkasten-article" | "source-html" | "card-form" | …
+  updatedAt  INTEGER NOT NULL,
+  payload    TEXT NOT NULL      -- DraftRecord JSON
+);
+CREATE INDEX IF NOT EXISTS idx_drafts_source     ON drafts(source);
+CREATE INDEX IF NOT EXISTS idx_drafts_updatedAt  ON drafts(updatedAt);
+```
 
-## Akcioni koraci (ako odobriš ovaj nalaz)
+KV (`kv`) tabela već postoji — `plannerConfig`, `dailyMapped`, `lastRedistribute`, `appSettings`, `subjectSettings:<uuid>`, `srSettings`, `appEntry`, `lastAnalysisDate`, `sr-last-backup` idu kao JSON-stringovi pod istim ključevima.
 
-1. Ažurirati `mem://index.md` Core sekciju ili dodati kratku napomenu da je v22 contentDoc cutover potvrđen kao zatvoren (jedan red).
-2. Označiti S1/S2/A4/B5 kao DONE u eksternom auditu (offline za korisnika).
-3. Otvoriti novi planni zahtjev za S3 (Sesija 2) — to je samostalna velika promjena i tražim novu rundu eksploracije prije nego što napišem plan.
+Codecs (`row-codecs.ts`): dodaj `encodeDraft / decodeDraft`, `encodeDiscipline / decodeDiscipline`. KV value je `JSON.stringify(value)` — jedna utility funkcija `kvGet<T>(key)` / `kvPut<T>(key, value)` u `executor` wrapperu.
 
-**Ništa od ovoga ne mijenja kod**; ako želiš da ja samo ažuriram memory napomenu, reci pa ću to uraditi u build modu.
+### Faza 2 — Migration runner (PR-9 M2)
+
+`src/lib/persistence/sqlite/migrate-from-idb.ts`: dodaj korake koji čitaju iz Dexie i upisuju u nove SQLite tabele unutar jedne `SqlExecutor.transaction`:
+
+```text
+migrate-from-idb.ts
+├─ migrateSettings(idb → sqlite.kv)      // svi ključevi pod whitelistom
+├─ migrateDisciplineLog(idb → sqlite.disciplineLog)
+└─ migrateDrafts(idb → sqlite.drafts)
+```
+
+Migracija je idempotentna: čeka da postojeći PR-8 koraci završe, pa overwriteuje SQLite snapshot ako je `kv("migration-flag-v9")` < target verzije. Stari Dexie redovi ostaju netaknuti do A1 (PR-10).
+
+### Faza 3 — Repository sloj
+
+Novi moduli koji izoluju SQL od potrošača:
+
+```text
+src/lib/db/queries/
+├─ planner.ts        // loadPlanner(), saveDiscipline(), kvGet/kvPut
+├─ drafts.ts         // putDraft, getDraft, listDraftsBySource, deleteDraft
+└─ settings.ts       // appSettings + subjectSettings + srSettings
+```
+
+Svaki potpis ostaje isti kao trenutni Dexie helper (drop-in zamjena) — tako da call-site refactor bude trivijalan.
+
+### Faza 4 — Cut-over potrošača
+
+Sve sljedeće datoteke prebacuju import sa `@/lib/db` na novi repository:
+
+- `src/lib/planner/cache.ts` (initPlannerCache) → `@/lib/db/queries/planner`
+- `src/lib/planner/config.ts`, `daily-mapped.ts`, `discipline.ts` → isti repo (writes preko `SqlExecutor.transaction`, `enqueueWrite` mutex se ukida — SQLite ACID je SSOT, vidi `mem://architecture/sqlite-ssot-cutover`)
+- `src/lib/drafts/draftsTable.ts`, `draftRecovery.ts` → `@/lib/db/queries/drafts`
+- `src/lib/app-settings.ts`, `src/lib/subject-settings.ts`, `src/lib/metacognitive-storage.ts` → `@/lib/db/queries/settings`
+- `src/lib/electron-integration.ts` (export bundle) → repo getteri umjesto direktnog `db.settings.get`
+- `src/lib/category-deletion-service.ts:71,114-145` ostaje na Dexie privremeno (A2 ga collapsuje u jednu SQL DELETE u sljedećoj sesiji)
+
+### Faza 5 — TanStack bridge (PR-7f M2)
+
+`onPlannerChanged` u `planner/cache.ts` već postoji i emituje 4 kind-a. Dodaj:
+
+- `onDraftsChanged()` emitter u `drafts/draftsTable.ts` (puzano na svaki `put`/`delete`)
+- U `src/lib/query/bridges.ts` (postojeći fajl ako ima, ili novi) registruj invalidate handler-e:
+  ```ts
+  onPlannerChanged(kind => qc.invalidateQueries({ queryKey: ["planner", kind] }));
+  onDraftsChanged(()  => qc.invalidateQueries({ queryKey: ["drafts"] }));
+  ```
+- `useQuery` hookovi: `usePlannerConfig`, `useDisciplineLog`, `useDraftBySource(source)` — svi sa `staleTime: Infinity` jer su RAM cache + manual invalidacija.
+
+### Faza 6 — Verifikacija + memory update
+
+1. `rg -n "db\.(settings|disciplineLog|drafts)" src/ | grep -v persistence` mora vratiti samo `category-deletion-service.ts` (A2 target) i `emergency-export.ts` / `healthService.ts` (read-only count, izvan hot patha).
+2. Pokrenuti postojeće vitest setove (`migration-runner`, `planner-cache`, `draftRecovery`) — svi prolaze.
+3. Boot smoke: `initPlannerCache` izvršava se < 50 ms, `recoverDraftsOnBoot` ne baca toast za migrirane drafts.
+4. Ažurirati `mem://architecture/sqlite-ssot-cutover` napomenu: planner + drafts + KV settings sad SQLite-primary; jedini preostali Dexie reader je `category-deletion-service` (čeka A2) i `emergency-export` + audit count-eri (čekaju A1/B1).
+
+## Procjena LOC delta
+
+- `+` ~250 LOC: schema rows, codecs, 3 nova repo modula, 2 nova `useQuery` hook-a.
+- `−` ~150 LOC: direktni Dexie pozivi iz 8 fajlova, `enqueueWrite` mutex i `createKeyedMutex` poziv u planner-u (SQLite ACID zamjenjuje).
+
+Neto: ~+100 LOC u ovoj sesiji, ali otključava ~-1500 LOC u A1 (drop IDB outbox + Dexie v23 mirror) i ~-250 u A2.
+
+## Ne-ciljevi (explicit out of scope)
+
+- `db.cards` / `db.sources` / `db.mindMaps` / `db.categories` / `db.mnemonics` — već SQLite-primary kroz PR-8.
+- `db.activityLog`, `db.pomodoroLog`, `db.knowledgeBaseArticles` — A1 ih briše bez migracije (nepotrebni).
+- Drop `dexie` dependency — B1, čeka da `category-deletion-service` i emergency-export migriraju.
+- Backup/restore format — `backup-schema.ts` već prepoznaje sve KV ključeve; codec ostaje JSON-kompatibilan.
+
+## Rizici
+
+- **Migracija starih korisnika**: prvi boot nakon PR-9 mora pročitati IDB jednom; ako Dexie open fail-uje (npr. browser blocking IDB), planner pada na default. Mitigacija: try/catch oko `migrateSettings/Drafts/Discipline` sa `logger.warn` + nastavak boot-a sa praznim KV.
+- **Race između starih write-ova u Dexie i novih u SQLite**: tokom soak-a A1 oba kanala su živa za read-only fallback. Ovdje ne zapisujemo više u Dexie za planner/drafts/settings — kompletan cut-over.
+- **Test coverage**: `vitest` setup za SQLite koristi `better-sqlite3` shim — postojeći `executor.test.ts` pattern mora se proširiti za `disciplineLog` i `drafts` tabele.
+
+## Akcioni redoslijed (jedan PR, tri commit-a)
+
+1. **Commit A (schema + codecs + migracija)**: Faza 1 + 2, testovi za codec i migration-runner step.
+2. **Commit B (repo + cut-over)**: Faza 3 + 4. Build mora proći, svi vitest setovi green.
+3. **Commit C (TanStack bridge + memory update)**: Faza 5 + 6.
+
+Reci da li želiš da krenem direktno sa Commit A, ili prvo da provjerim neke specifične detalje (npr. tačan oblik `kv` payload-a za `subjectSettings:*` ključeve sa prefiksom).
