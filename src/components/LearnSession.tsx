@@ -6,6 +6,7 @@ import { addActivityEntry } from "@/lib/metacognitive-storage";
 import SessionComplete from "./learn/SessionComplete";
 import FilterSetup from "./learn/FilterSetup";
 import { LearnSessionProps, ViewWidth } from "./learn/types";
+import { usePlannerMutations } from "@/hooks/planner/usePlannerMutations";
 
 const StudyModeRecall = lazy(() => import("./learn/StudyModeRecall"));
 
