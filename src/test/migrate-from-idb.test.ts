@@ -47,6 +47,7 @@ const fakeDb = {
   ]),
   mindMaps: fakeTable<{ id: string; categoryId: string; title: string; updatedAt: number }>([]),
   mnemonics: fakeTable<{ id: string; categoryId: string; createdAt: number }>([]),
+  knowledgeBaseArticles: fakeTable<{ id: string; subjectId: string; title: string; updatedAt: number; isIndex?: boolean }>([]),
 };
 
 vi.mock("@/lib/db", () => ({ db: fakeDb }));
@@ -62,7 +63,7 @@ interface MockState {
 
 function createExecutor(): SqlExecutor {
   const state: MockState = {
-    tables: { cards: new Map(), categories: new Map(), sources: new Map(), mindMaps: new Map(), mnemonics: new Map() },
+    tables: { cards: new Map(), categories: new Map(), sources: new Map(), mindMaps: new Map(), mnemonics: new Map(), knowledgeBaseArticles: new Map() },
     kv: new Map(),
     snapshot: null,
     inTx: false,
