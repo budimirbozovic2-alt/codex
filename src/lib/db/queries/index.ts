@@ -56,3 +56,11 @@ export {
   putMindMap,
   deleteMindMap,
 } from "./mind-maps";
+export {
+  getMnemonic,
+  listAllMnemonics,
+  listMnemonicsByCategory,
+  putMnemonic,
+  bulkPutMnemonics,
+  deleteMnemonic,
+} from "./mnemonics";

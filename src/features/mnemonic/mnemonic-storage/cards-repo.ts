@@ -1,13 +1,21 @@
-// Mnemonic cards repository: IDB CRUD + local change-notifier
-// (post Task-B replacement for the legacy MNEMONICS_UPDATED bus event).
+// Mnemonic cards repository: SQLite-primary CRUD + local change-notifier.
+//
+// P1.3 — DB I/O delegated to `@/lib/db/queries/mnemonics` (SQLite-primary,
+// Dexie mirror). This module retains the listener-based change notifier
+// (`subscribeMnemonics`) consumed across the mnemonic feature.
 
-import { db } from "@/lib/db";
 import { logger } from "@/lib/logger";
+import {
+  listAllMnemonics,
+  listMnemonicsByCategory,
+  bulkPutMnemonics,
+  deleteMnemonic as repoDeleteMnemonic,
+} from "@/lib/db/queries/mnemonics";
 import type { MnemonicCard } from "./types";
 
 export async function loadMnemonicCards(): Promise<MnemonicCard[]> {
   try {
-    return await db.mnemonics.toArray();
+    return await listAllMnemonics();
   } catch (err) {
     logger.error("[mnemonic-storage] loadMnemonicCards failed", err);
     return [];
@@ -15,14 +23,12 @@ export async function loadMnemonicCards(): Promise<MnemonicCard[]> {
 }
 
 /**
- * B2: Indexed scoped loader. Uses the `categoryId` index added in v10
- * (previously dead weight — every consumer was doing global `toArray()` +
- * JS-side filter). Subject-scoped views should use this to avoid pulling
- * N×subjects worth of mnemonic cards into memory only to discard most.
+ * B2: Indexed scoped loader. Now routes through the SQLite-primary repo
+ * (which falls back to the Dexie `categoryId` index in the web preview).
  */
 export async function loadMnemonicCardsByCategory(categoryId: string): Promise<MnemonicCard[]> {
   try {
-    return await db.mnemonics.where("categoryId").equals(categoryId).toArray();
+    return await listMnemonicsByCategory(categoryId);
   } catch (err) {
     logger.error("[mnemonic-storage] loadMnemonicCardsByCategory failed", err);
     return [];
@@ -43,7 +49,7 @@ function notifyMnemonics(): void {
 
 export async function saveMnemonicCards(cards: MnemonicCard[]): Promise<void> {
   try {
-    await db.mnemonics.bulkPut(cards);
+    await bulkPutMnemonics(cards);
     notifyMnemonics();
   } catch (err) {
     logger.error("[mnemonic-storage] saveMnemonicCards failed", err);
@@ -52,7 +58,7 @@ export async function saveMnemonicCards(cards: MnemonicCard[]): Promise<void> {
 
 export async function deleteMnemonicCard(id: string): Promise<void> {
   try {
-    await db.mnemonics.delete(id);
+    await repoDeleteMnemonic(id);
     notifyMnemonics();
   } catch (err) {
     logger.error("[mnemonic-storage] deleteMnemonicCard failed", err);
