@@ -2,6 +2,8 @@ import { toast } from "sonner";
 import { Card } from "@/lib/spaced-repetition";
 import { logger } from "@/lib/logger";
 import { idbOutboxAdapter } from "@/lib/persistence/idb-outbox-adapter";
+import { getDefaultAdapter } from "@/lib/persistence/adapter-factory";
+import { hasMigrationFlagSync } from "@/lib/persistence/sqlite/migrate-from-idb";
 import type { PersistAdapter } from "@/lib/persistence/PersistAdapter";
 
 // ─── Internal Map type for O(1) access ──────────────────
@@ -28,11 +30,6 @@ export type PersistAction =
 function pickInitialAdapter(): PersistAdapter {
   if (typeof window === "undefined") return idbOutboxAdapter;
   const isElectron = Boolean((window as { electronAPI?: unknown }).electronAPI);
-  // Lazy require avoids pulling sqlite-wasm into the dev bundle at this scope.
-  const { getDefaultAdapter } = require("@/lib/persistence/adapter-factory") as
-    typeof import("@/lib/persistence/adapter-factory");
-  const { hasMigrationFlagSync } = require("@/lib/persistence/sqlite/migrate-from-idb") as
-    typeof import("@/lib/persistence/sqlite/migrate-from-idb");
   return getDefaultAdapter({
     isElectron,
     migrationComplete: hasMigrationFlagSync(),
