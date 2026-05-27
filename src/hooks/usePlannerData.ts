@@ -213,14 +213,12 @@ export function usePlannerData(cards: SRCard[], reviewLog: ReviewLogEntry[], cat
     },
   });
 
-  const save = useCallback(async (updated: PlannerConfig) => {
-    // Optimistic seed for ['planner','config'] — bridge će invalidirati
-    // odmah nakon `plannerCache.set` u savePlanner, ali optimistic snapshot
-    // eliminira flicker između setData i refetcha.
-    qc.setQueryData(queryKeys.planner.config(), updated);
-    const mod = await getPlannerModule();
-    mod.savePlanner(updated);
-  }, [qc]);
+  // PR-7f M3a — save kroz useMutation (optimistic + rollback via ctx.prev).
+  // Bridge `onPlannerChanged('config')` invalidira ['planner'] nakon notify.
+  const { saveConfig } = usePlannerMutations();
+  const save = useCallback((updated: PlannerConfig) => {
+    saveConfig.mutate(updated);
+  }, [saveConfig]);
 
 
   return {
