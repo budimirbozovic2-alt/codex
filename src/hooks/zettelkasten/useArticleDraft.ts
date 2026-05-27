@@ -92,6 +92,8 @@ export function useArticleDraft({ activeId, categoryId, setArticles }: Input): A
   const [isEditing, setIsEditing] = useState(false);
   const editorRef = useRef<ZettelEditorHandle | null>(null);
   const { save: saveMutation } = useKnowledgeBaseMutations();
+  const saveMutationRef = useRef(saveMutation);
+  useEffect(() => { saveMutationRef.current = saveMutation; }, [saveMutation]);
 
   // Audit V4: Use a ref to track the latest draft state. This ensures that
   // the `flush` callback (and its calls during cleanup/unmount) always see
