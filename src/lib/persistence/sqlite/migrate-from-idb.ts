@@ -94,6 +94,8 @@ const MINDMAP_SQL =
   "INSERT OR REPLACE INTO mindMaps (id, categoryId, title, updatedAt, payload) VALUES (?, ?, ?, ?, ?)";
 const MNEMONIC_SQL =
   "INSERT OR REPLACE INTO mnemonics (id, categoryId, subcategoryId, mnemonicStatus, hookType, createdAt, payload) VALUES (?, ?, ?, ?, ?, ?, ?)";
+const KB_ARTICLE_SQL =
+  "INSERT OR REPLACE INTO knowledgeBaseArticles (id, subjectId, title, updatedAt, isIndex, payload) VALUES (?, ?, ?, ?, ?, ?)";
 
 async function copyTable<T>(
   exec: SqlExecutor,
@@ -132,7 +134,7 @@ export async function migrateFromIdb(exec: SqlExecutor): Promise<MigrationReport
   if (await isAlreadyMigrated(exec)) {
     return {
       alreadyComplete: true,
-      counts: { categories: 0, sources: 0, cards: 0, mindMaps: 0, mnemonics: 0 },
+      counts: { categories: 0, sources: 0, cards: 0, mindMaps: 0, mnemonics: 0, knowledgeBaseArticles: 0 },
       durationMs: 0,
     };
   }
@@ -192,6 +194,20 @@ export async function migrateFromIdb(exec: SqlExecutor): Promise<MigrationReport
       ],
       MNEMONIC_SQL,
       "SELECT COUNT(*) AS n FROM mnemonics",
+    ),
+    // PR-9 A1b P1.4 — Zettelkasten articles. FK on subjectId → categories.
+    knowledgeBaseArticles: await copyTable(
+      exec,
+      "knowledgeBaseArticles",
+      db.knowledgeBaseArticles,
+      (a) => [
+        a.id, a.subjectId, a.title,
+        a.updatedAt ?? Date.now(),
+        a.isIndex ? 1 : 0,
+        JSON.stringify(a),
+      ],
+      KB_ARTICLE_SQL,
+      "SELECT COUNT(*) AS n FROM knowledgeBaseArticles",
     ),
   };
 
