@@ -41,7 +41,12 @@ export function subscribeMnemonics(cb: () => void): () => void {
   _mnemonicListeners.add(cb);
   return () => { _mnemonicListeners.delete(cb); };
 }
-function notifyMnemonics(): void {
+/**
+ * Fire-and-forget notify for mnemonic-domain mutations.
+ * Exported so sibling repos (major-system, test-log) can signal through the
+ * single mnemonic emitter consumed by the TanStack bridge.
+ */
+export function notifyMnemonics(): void {
   for (const cb of _mnemonicListeners) {
     try { cb(); } catch { /* ignore listener errors */ }
   }
