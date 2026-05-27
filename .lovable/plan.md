@@ -1,112 +1,111 @@
+# B1 — cardRepository Collapse
 
-# A2 — categoryDeletion collapse
+## Recon napomena (važno — odstupanje od originalnog brifa)
 
-Cilj: jedna SQL transakcija, garantovan integritet preko FK CASCADE, manje LOC u service-u, čistija repo granica (Dexie pristup samo kroz helpere). Re-parent (`purgeCards=false`) ostaje podržan.
+Tvoj brief kaže: „AppContext projection (categoryRecords) gradi se iz QueryClient cache snapshot-a kroz selektor hook `useCategoryRecords`." To **ne stoji** za trenutno stanje:
 
-## Stanje
+- `categoryRecords` se gradi u `src/contexts/cards/CategoryStateProvider.tsx` iz Zustand `categoryStore` (`useSyncExternalStore`), **ne** iz `cardRepository`.
+- `cardRepository` ne učestvuje u kategorijskoj projekciji. Ono što stvarno drži je: in-RAM `cardMapStore` commit-i, `schedulePersist`, coverage cache invalidacija, `sameSourceModules` diff i `reloadFromIdb`.
 
-- `schema.sql`: sve potrebne FK CASCADE već postoje — `sources/cards/mindMaps/mnemonics/knowledgeBaseArticles → categories(id) ON DELETE CASCADE`, plus `cards.sourceId → sources(id) ON DELETE SET NULL`. `drafts/disciplineLog/majorSystem/mnemonicTestLog/kv` nisu category-scoped pa nemaju FK (nepromijenjeno).
-- `PRAGMA foreign_keys = ON` postavlja `migration-runner.ts` na boot.
-- Današnji service: paralelni SQLite tx koji eksplicitno briše cards/sources/mindMaps/mnemonics + Dexie tx koji ponavlja sve, plus settings KV i planner scrub. Categories red sam po sebi ne brišemo iz SQLite-a (writer ide kroz `idbSaveCategories`), pa FK CASCADE nikad ne okida iz orchestrator-ovog optimističnog patha.
+Zaključak: B1 se ograničava na razbijanje `cardRepository.ts` sloja. `categoryRecords` ostaje netaknut — to spada u zasebni A-pravac (npr. A1c kad migriramo `categoryStore` na QueryClient).
 
-## Promjene
+## Stanje poslije M3
 
-### 1. `categoryRepository.deleteAsync(id)` — novi SQLite-primary delete
+Aktivni call-site-ovi `cardRepository`-ja:
 
-`src/lib/repositories/categoryRepository.ts`:
-- Dodati `deleteAsync(id: string, opts: { purgeCards: boolean; fallbackId: string }): Promise<WriteResult<void>>`.
-- Jedna `exec.transaction`:
-  - Ako `purgeCards === false && fallbackId`: `UPDATE cards SET categoryId=?, subcategoryId=NULL, chapterId=NULL, updatedAt=? WHERE categoryId=?` + `UPDATE sources SET categoryId=? WHERE categoryId=?` (re-parent prije DELETE).
-  - Zatim **jedini** `DELETE FROM categories WHERE id = ?` — FK CASCADE briše mindMaps + mnemonics + knowledgeBaseArticles (i, u `purgeCards=true` slučaju, cards + sources).
-- Nakon tx: `await persistQueue.cleanup()`, Dexie mirror delete (preko helpera, vidi #2), KV scrub (vidi #3), zatim notify bridges (vidi #4).
-- Eksportovati kroz repo barrel.
+| Caller | Šta poziva |
+|---|---|
+| `useCardMutations.ts` (M3) | `putAsync / bulkPutAsync / removeAsync / patchAsync / bulkPatchAsync / reloadFromIdb` |
+| `useCardCRUD.ts` | `cardRepository.get(id)` (jedan sync lookup) |
+| `useCardImport.ts` | `replaceAll`, `bulkPut` |
+| `useCategoryManagement.ts` | `applySyncDelta`, `bulkPut`, `bulkPatch` |
+| `useCardSyncEffects.ts` | `clearLinks`, `clearNeedsReview` |
+| `useCardBootstrap.ts` | `replaceAll` |
+| `useHealthMonitor.ts`, `RemapFromBackupDialog.tsx` | `reloadFromIdb` |
+| `lib/editor-v4/lazy-migrate.ts` | `snapshot`, `bulkPut` |
 
-### 2. Repo-level `delete*ByCategory` helperi (Dexie mirror)
+Cilj: ukloniti repo objekat, ostaviti čist data-flow `UI → useMutation → queries/* (SQLite) → notify → useQuery`.
 
-Novi async helperi (svaki bez keyedMutex-a — SQLite tx je already-serialised, Dexie ovde služi samo kao mirror dok A1c ne ukloni Dexie):
+## Plan
 
-- `cardRepository.deleteByCategoryAsync(id)` / `cardRepository.reparentByCategoryAsync(fromId, toId)` → `src/lib/repositories/cardRepository.ts`
-- `sourceRepository.deleteByCategoryAsync(id)` / `sourceRepository.reparentByCategoryAsync(...)` → novi ili postojeći `sourceRepository`
-- `mindMapRepository.deleteByCategoryAsync(id)`
-- `mnemonicRepository.deleteByCategoryAsync(id)`
-- `knowledgeBaseRepository.deleteBySubjectAsync(id)`
+### 1. Novi modul: `src/lib/cards/cardMapWrites.ts`
 
-Svi vraćaju `WriteResult<number>` (broj obrisanih/affected redova za telemetriju). Implementacija: `db.<table>.where(...).equals(id).delete()` ili `.modify(...)` za reparent.
+Preseliti **sve sync primitive** iz `cardRepository.ts` 1:1 kao named exports — bez agregatnog objekta:
 
-### 3. Service skraćenje
-
-`src/lib/category-deletion-service.ts` se skuplja na ~60 LOC:
-
-```ts
-export async function cascadeDeleteCategoryDomains(
-  categoryId, { purgeCards, fallbackId }
-): Promise<CascadeResult> {
-  // 1. SQLite — jedan tx (re-parent + DELETE FROM categories, FK CASCADE)
-  await categoryRepository.deleteAsync(categoryId, { purgeCards, fallbackId });
-
-  // 2. Dexie mirror — preko repo helpera
-  const [cardsN, srcN, mmN, mnN, kbN] = await Promise.all([
-    purgeCards
-      ? cardRepository.deleteByCategoryAsync(categoryId)
-      : cardRepository.reparentByCategoryAsync(categoryId, fallbackId),
-    purgeCards
-      ? sourceRepository.deleteByCategoryAsync(categoryId)
-      : sourceRepository.reparentByCategoryAsync(categoryId, fallbackId),
-    mindMapRepository.deleteByCategoryAsync(categoryId),
-    mnemonicRepository.deleteByCategoryAsync(categoryId),
-    knowledgeBaseRepository.deleteBySubjectAsync(categoryId),
-  ]);
-
-  // 3. KV (settings + planner scrub) — postojeća logika, nedirnuta
-  // 4. notify*Changed (bridges sve invalidiraju kroz QueryClient)
-  // 5. cache invalidations (mindmap-cache, examiner-profile, backlinkIndex)
-  return { cards: cardsN, sources: srcN, mindMaps: mmN, mnemonics: mnN, articles: kbN, … };
-}
+```text
+getCard, snapshot
+put, bulkPut, remove, patch, bulkPatch
+clearLinks, clearNeedsReview
+applySyncDelta, replaceAll
 ```
 
-Uklonjeno:
-- Lokalni `cascadeSqlite` helper (logika preseljena u `categoryRepository.deleteAsync`).
-- Manuelni `db.transaction("rw", […])` blok i direktni `db.cards/sources/mindMaps/mnemonics/knowledgeBaseArticles` pozivi.
-- `keyedMutex` reference oko brisanja (ako ih ima — service ih trenutno ne zove direktno, ali repo helperi se NEĆE zaviti u mutex).
+Interni `commitSingle / commitBulk / commitDelete` ostaju privatni helperi. Svaki commit i dalje radi `schedulePersist` + `setCardMap` + `notifyCardsChanged`. Coverage-cache invalidacija ostaje u `remove` i `patch` (logika nepromenjena, samo nova lokacija).
 
-### 4. Notifications
+### 2. `reloadCardsFromIdb` → standalone
 
-Nakon completion: pozvati `notifyCardsChanged()`, `onSourcesChanged` listener fire (kroz `sources-storage.invalidate`), `onMindMapsChanged`, `subscribeMnemonics` emit, `notifyKnowledgeBaseChanged()`. Bridges (`src/lib/query/bridges.ts`) invalidiraju sve relevantne queryKey-eve.
+Preseliti u isti modul (`cardMapWrites.ts`) kao named export. Sekvencer (`_fetchSequence`) ostaje lokalni, surgical/full grana nepromenjena. Koristi `listAllCards` / `getCardsByIds` iz `@/lib/db/queries`.
 
-### 5. Orchestrator (`useCategoryManagement.deleteCategory`)
+### 3. Async WriteResult wrappers → inline u `useCardMutations.ts`
 
-Nepromijenjen javno. Interno: pre-cascade `cardRepository.applySyncDelta` (RAM optimizam) ostaje — daje trenutnu UI reakciju. Service call ostaje isti potpis.
+`putAsync / bulkPutAsync / removeAsync / patchAsync / bulkPatchAsync` imaju **samo jednog konzumenta** (M3 `useCardMutations`). Umesto da postoje kao zasebni sloj, `mutationFn` direktno radi:
+
+```text
+mutationFn: (card) => wrapWrite(async () => {
+  cardMapWrites.put(card);
+  await persistQueue.cleanup();
+  return card;
+})
+```
+
+Time async sloj nestaje iz repository „API"-ja i sjedinjuje se sa mutation hook-om.
+
+### 4. Repoint imports
+
+Svaki call-site dobija nove import putanje:
+
+```text
+useCardCRUD            → import { getCard } from "@/lib/cards/cardMapWrites"
+useCardImport          → { replaceAll, bulkPut }
+useCategoryManagement  → { applySyncDelta, bulkPut, bulkPatch }
+useCardSyncEffects     → { clearLinks, clearNeedsReview }
+useCardBootstrap       → { replaceAll }
+useHealthMonitor       → { reloadCardsFromIdb }
+RemapFromBackupDialog  → { reloadCardsFromIdb }
+lazy-migrate           → { snapshot, bulkPut }
+useCardMutations       → { put, bulkPut, remove, patch, bulkPatch } (+ inline async wrappers)
+```
+
+### 5. Brisanje + ESLint zid
+
+- Obrisati `src/lib/repositories/cardRepository.ts`.
+- Iz `src/lib/repositories/index.ts` ukloniti `export { cardRepository, reloadCardsFromIdb }` red.
+- ESLint Public API Wall (`eslint.config.js`):
+  - skinuti deprecated pravilo za deep-import `@/lib/repositories/cardRepository`;
+  - **dodati** novi zid: `@/lib/cards/*` se sme importovati iz bilo gde (write primitive sloj), ali interni helperi se ne re-eksportuju kroz `@/lib/repositories`.
+- Verifikacija: `bun run lint` + targeted `tsc --noEmit` (run-uje ga harness, ne mi).
 
 ### 6. Test
 
-`src/test/category-deletion.test.ts` (novi):
-- Boot Vitest sa fakeIndexedDB + mock OPFS executor (postojeći helperi u `src/test/utils/`).
-- Seed: kategorija A sa N cards / M sources / 2 mindMaps / 3 mnemonics / 4 KB articles preko repo API-ja.
-- Slučaj 1 — `purgeCards: true`:
-  - `cascadeDeleteCategoryDomains(A.id, { purgeCards: true, fallbackId: "" })`.
-  - Assert SQLite: `categories/cards/sources/mindMaps/mnemonics/knowledgeBaseArticles WHERE *=A.id` svi prazni.
-  - Assert RAM projekcije (`categoryStore`, `cardStore`, sources cache) prazne za A.
-- Slučaj 2 — `purgeCards: false` sa fallback B:
-  - Assert cards/sources premješteni na B sa `subcategoryId/chapterId = undefined`.
-  - Assert mindMaps/mnemonics/KB articles obrisani (FK CASCADE).
-  - Assert `categories` red za A obrisan, B netaknut.
-- Slučaj 3 — KV scrub: seed `subject_settings:A` i `plannerConfig.subjectOrder=[A,B]` → assert ključ obrisan i `subjectOrder=[B]`.
+- `src/test/card-repository-delete.test.ts`:
+  - Ako pokriva isti put kao postojeći M3 mutation test (`useCardMutations.deleteCard` → SQLite delete + RAM evict) → **obrisati** (redundantno).
+  - Ako pokriva nešto jedinstveno (npr. coverage-cache invalidaciju na delete) → portati na `useCardMutations.deleteCard.mutateAsync(id)` i preimenovati u `card-mutations-delete.test.ts`.
+- Smoke pass: postojeći `card-selectors`, `use-cards-by-source` testovi treba da prođu bez izmena (čitaju iz `cardMapStore`-a koji nije pomeren).
+
+### 7. Memory update
+
+`mem://architecture/sqlite-ssot-cutover` — dopisati:
+
+> `cardRepository` sloj uklonjen. Sync RAM commit-i žive u `@/lib/cards/cardMapWrites`. Async writes idu isključivo kroz `useCardMutations` (TanStack). `reloadCardsFromIdb` je standalone helper u istom modulu.
 
 ## Tehnički detalji
 
-- `WriteResult<T>` već postoji u `src/lib/persistence/write-result.ts` (M3f).
-- `persistQueue.cleanup()` osigurava da boot-time read odmah vidi novo stanje.
-- FK CASCADE kroz SQLite pokriva sve child tabele — schema već usklađena, nikakva migracija ne treba.
-- Nema novih runtime errora — postojeća HMR-only React `useState` greška iz M3f je dev-only artefakt i nije A2 scope.
-- Zero-any: svi novi async helperi tipovani sa `WriteResult<number>` / `WriteResult<void>`.
+- `cardMapWrites.ts` ostaje **čist od React-a** i čisto sinhron osim `reloadCardsFromIdb` — može da se importuje iz hookova i iz `lazy-migrate` skripte.
+- `WriteResult` shape iz `@/lib/persistence/write-result` ostaje neizmenjen; `wrapWrite` se sada poziva iz `useCardMutations` direktno.
+- Nema promene u `persist-queue` ni `cardMapStore` API-ju — samo seljakanje thin sloja.
+- `categoryRecords` ostaje izvan scope-a (vidi recon napomenu).
 
-## Očekivani efekat
+## Net izlaz
 
-- `category-deletion-service.ts` ~184 → ~70 LOC.
-- Service više ne importuje `db` direktno (samo repo barrels + KV queries) — zatvara Public API Walls.
-- Jedna SQLite transakcija pokriva sav child-row teardown; Dexie mirror je striktno opcionalan i ide preko repo helpera (lako se isključuje u A1c).
-- Garantovan referencijalni integritet (sirota mindMap/mnemonic/KB-article rows postaju nemogući).
-
-## Memory update
-
-Po završetku: ažurirati `mem://features/data-integrity-v4` da reflektuje "jedna SQLite tx + FK CASCADE; Dexie mirror kroz repo helpere; keyedMutex uklonjen iz deletion patha".
+- Obrisano: `src/lib/repositories/cardRepository.ts` (~304 LOC) + agregatni objekat.
+- Dodato: `src/lib/cards/cardMapWrites.ts` (~180 LOC sync primitive + reload) — neto **~120 LOC manje**, jedan agregatni sloj eliminisan.
+- Data-flow: `UI → useMutation → wrapWrite(cardMapWrites + persistQueue) → SQLite + notify → useQuery / store`.

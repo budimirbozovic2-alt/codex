@@ -6,7 +6,7 @@ import { cascadeDeleteCategoryDomains } from "@/lib/category-deletion-service";
 import { toast } from "sonner";
 import { optimisticCategoryUpdate } from "@/lib/category-service";
 import { stableLegacyId } from "@/lib/stable-id";
-import { cardRepository } from "@/lib/repositories";
+import { applySyncDelta as cardMapApplySyncDelta, bulkPut as cardMapBulkPut, bulkPatch as cardMapBulkPatch } from "@/lib/cards/cardMapWrites";
 import { getCardMap, getCategoryStoreRecords } from "@/store";
 
 import { logger } from "@/lib/logger";
@@ -108,7 +108,7 @@ export function useCategoryManagement() {
         for (const [id, c] of Object.entries(ref)) {
           if (c.categoryId === categoryId) toDelete.push(id);
         }
-        if (toDelete.length > 0) cardRepository.applySyncDelta([], toDelete);
+        if (toDelete.length > 0) cardMapApplySyncDelta([], toDelete);
       } else {
         // Phase 3b: build per-card updates and apply RAM-only through
         // applySyncDelta. IDB persistence is owned by the cascade tx.
@@ -119,7 +119,7 @@ export function useCategoryManagement() {
             changed.push({ ...c, categoryId: fallbackId, subcategoryId: undefined, chapterId: undefined, updatedAt: now });
           }
         }
-        if (changed.length > 0) cardRepository.applySyncDelta(changed, []);
+        if (changed.length > 0) cardMapApplySyncDelta(changed, []);
       }
 
       (async () => {
@@ -194,7 +194,7 @@ export function useCategoryManagement() {
           void id;
         }
       }
-      if (changed.length > 0) cardRepository.bulkPut(changed);
+      if (changed.length > 0) cardMapBulkPut(changed);
     },
     [setCategoryRecords],
   );
@@ -202,7 +202,7 @@ export function useCategoryManagement() {
   const bulkUpdateSubcategory = useCallback((ids: string[], subcategoryId: string) => {
     // Phase 3b — bulkPatch resolves ids → patches → bulkPut atomically.
     if (ids.length === 0) return;
-    cardRepository.bulkPatch(ids, (c) => ({ ...c, subcategoryId }));
+    cardMapBulkPatch(ids, (c) => ({ ...c, subcategoryId }));
   }, []);
 
   const addChapter = useCallback((categoryId: string, subcategoryId: string, chapterName: string) => {
@@ -253,7 +253,7 @@ export function useCategoryManagement() {
         void id;
       }
     }
-    if (changed.length > 0) cardRepository.bulkPut(changed);
+    if (changed.length > 0) cardMapBulkPut(changed);
 
     optimisticCategoryUpdate(
       setCategoryRecords,

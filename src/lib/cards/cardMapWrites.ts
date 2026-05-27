@@ -1,12 +1,13 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// Card Repository — single source of truth for card mutations.
+// Card map writes — sync RAM commit primitives (post B1 collapse).
 //
-// Post Task-B: the EventBus CARDS_UPDATED fan-out has been removed. Every
-// write mutates the Zustand `cardMapStore` inline, which is the SSOT all
-// consumers subscribe to via `useSyncExternalStore`. The previous self/
-// external "invalidator" dance is replaced by an explicit `reloadCardsFromIdb`
-// helper that external callers (HealthMonitor, RemapFromBackupDialog) invoke
-// directly when they bypass the repository to write to IDB.
+// Replaces the old `@/lib/repositories/cardRepository` aggregator. This module
+// owns the optimistic in-RAM commits against Zustand `cardMapStore`,
+// schedules persistence via `persistQueue`, and emits `notifyCardsChanged`
+// so the TanStack bridge (`onCardsChanged → invalidateQueries(['cards'])`)
+// can react. Async + WriteResult wrappers live inside `useCardMutations`.
+//
+// Pure module, no React. May be imported from hooks, services, scripts.
 // ─────────────────────────────────────────────────────────────────────────────
 import type { Card } from "@/lib/spaced-repetition";
 import { invalidateCoverageCache } from "@/lib/coverage-analysis";
@@ -16,13 +17,13 @@ import {
   persistQueue,
   type CardMap,
 } from "@/lib/persist-queue";
+import { setCardMap, getCardMap } from "@/store/useCardMapStore";
 import {
-  setCardMap,
-  getCardMap,
-} from "@/store/useCardMapStore";
-import { listAllCards, getCardsByIds, notifyCardsChanged } from "@/lib/db/queries";
+  listAllCards,
+  getCardsByIds,
+  notifyCardsChanged,
+} from "@/lib/db/queries";
 import { logger } from "@/lib/logger";
-import { wrapWrite, type WriteResult } from "@/lib/persistence/write-result";
 
 // ─── Read primitives ──────────────────────────────────────────────────────
 export function getCard(id: string): Card | undefined {
@@ -33,7 +34,7 @@ export function snapshot(): CardMap {
   return getCardMap();
 }
 
-// ─── Internal helpers ─────────────────────────────────────────────────────
+// ─── Internal commit helpers ──────────────────────────────────────────────
 function commitSingle(card: Card): void {
   schedulePersist({ type: "put", card });
   setCardMap((prev) => ({ ...prev, [card.id]: card }));
@@ -62,7 +63,7 @@ function commitDelete(id: string): void {
   notifyCardsChanged();
 }
 
-// ─── Write primitives ─────────────────────────────────────────────────────
+// ─── Sync write primitives ────────────────────────────────────────────────
 
 /** Insert or replace a card. Stamps `updatedAt`. */
 export function put(card: Card): void {
@@ -87,8 +88,7 @@ export function remove(id: string): void {
 
 /**
  * Apply a structural patch to a single card. Invalidates coverage cache only
- * if the linked-source snippet/modules actually changed — same contract as
- * the legacy `patchCard` it replaces.
+ * if the linked-source snippet/modules actually changed.
  */
 export function patch(id: string, patcher: (card: Card) => Card): Card | undefined {
   const card = getCardMap()[id];
@@ -178,9 +178,9 @@ export function replaceAll(map: CardMap): void {
 }
 
 // ─── External-invalidation helper ─────────────────────────────────────────
-// Replaces the old CARDS_UPDATED bus + cardMapInvalidator. Callers that
-// write to IDB outside the repository (HealthMonitor cleanups, Remap-from-
-// backup) must invoke this to bring RAM back in sync.
+// Callers that write to IDB outside the write primitives above (HealthMonitor
+// cleanups, Remap-from-backup, persist-flush failures) must invoke this to
+// bring RAM back in sync with the durable SSOT.
 
 /** Above this surgical refetch falls back to a full reload (cheaper at scale). */
 const SURGICAL_LIMIT = 200;
@@ -188,9 +188,9 @@ const SURGICAL_LIMIT = 200;
 let _fetchSequence = 0;
 
 /**
- * Re-read the given card ids (surgical) or the whole table (full) from IDB
- * and apply the delta to the in-memory store. Idempotent — concurrent calls
- * are sequenced and only the latest delta is committed.
+ * Re-read the given card ids (surgical) or the whole table (full) from the
+ * durable store and apply the delta to the in-memory map. Idempotent —
+ * concurrent calls are sequenced and only the latest delta is committed.
  */
 export async function reloadCardsFromIdb(cardIds?: string[]): Promise<void> {
   const currentSequence = ++_fetchSequence;
@@ -198,7 +198,7 @@ export async function reloadCardsFromIdb(cardIds?: string[]): Promise<void> {
     await persistQueue.cleanup();
     if (currentSequence !== _fetchSequence) return;
 
-    // Surgical path — repo-routed bulk lookup (SQLite-primary, Dexie fallback).
+    // Surgical path — bulk lookup via queries layer (SQLite-primary).
     if (cardIds && cardIds.length > 0 && cardIds.length <= SURGICAL_LIMIT) {
       const rows = await getCardsByIds(cardIds);
       if (currentSequence !== _fetchSequence) return;
@@ -211,7 +211,7 @@ export async function reloadCardsFromIdb(cardIds?: string[]): Promise<void> {
       return;
     }
 
-    // Full reload via the cards repo (SQLite-primary).
+    // Full reload via the cards queries (SQLite-primary).
     const loaded = await listAllCards();
     if (currentSequence !== _fetchSequence) return;
     const map: CardMap = {};
@@ -219,86 +219,6 @@ export async function reloadCardsFromIdb(cardIds?: string[]): Promise<void> {
     replaceAll(map);
     notifyCardsChanged();
   } catch (err) {
-    logger.warn("[cardRepository] reloadCardsFromIdb failed", err);
+    logger.warn("[cardMapWrites] reloadCardsFromIdb failed", err);
   }
 }
-
-// ─── Async WriteResult variants (PR-7d M2.4) ──────────────────────────────
-// Optimistic commit + awaited persist flush, wrapped in the unified
-// `WriteResult` shape so future TanStack `useMutation` integrations have a
-// uniform onSuccess/onError contract. Existing sync callers stay untouched.
-
-export function putAsync(card: Card): Promise<WriteResult<Card>> {
-  return wrapWrite(async () => {
-    const stamped = card.updatedAt ? card : { ...card, updatedAt: Date.now() };
-    commitSingle(stamped);
-    await persistQueue.cleanup();
-    return stamped;
-  });
-}
-
-export function bulkPutAsync(cards: Card[]): Promise<WriteResult<Card[]>> {
-  return wrapWrite(async () => {
-    if (cards.length === 0) return [];
-    const now = Date.now();
-    const stamped = cards.map((c) => (c.updatedAt ? c : { ...c, updatedAt: now }));
-    commitBulk(stamped);
-    await persistQueue.cleanup();
-    return stamped;
-  });
-}
-
-export function removeAsync(id: string): Promise<WriteResult<void>> {
-  return wrapWrite(async () => {
-    const card = getCardMap()[id];
-    if (card?.sourceId) invalidateCoverageCache(card.sourceId);
-    commitDelete(id);
-    await persistQueue.cleanup();
-  });
-}
-
-export function patchAsync(
-  id: string,
-  patcher: (card: Card) => Card,
-): Promise<WriteResult<Card | undefined>> {
-  return wrapWrite(async () => {
-    const updated = patch(id, patcher);
-    await persistQueue.cleanup();
-    return updated;
-  });
-}
-
-export function bulkPatchAsync(
-  ids: string[],
-  patcher: (card: Card) => Card,
-): Promise<WriteResult<Card[]>> {
-  return wrapWrite(async () => {
-    const updated = bulkPatch(ids, patcher);
-    await persistQueue.cleanup();
-    return updated;
-  });
-}
-
-export const cardRepository = {
-  // reads
-  get: getCard,
-  snapshot,
-  // writes (sync optimistic)
-  put,
-  bulkPut,
-  remove,
-  patch,
-  bulkPatch,
-  clearLinks,
-  clearNeedsReview,
-  applySyncDelta,
-  replaceAll,
-  // writes (async + WriteResult — M2.4)
-  putAsync,
-  bulkPutAsync,
-  removeAsync,
-  patchAsync,
-  bulkPatchAsync,
-  // external invalidation
-  reloadFromIdb: reloadCardsFromIdb,
-};

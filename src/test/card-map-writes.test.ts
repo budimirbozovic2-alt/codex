@@ -1,8 +1,9 @@
-// Regression test for C4 deletion bug:
+// Regression test for C4 deletion bug (ported to cardMapWrites after B1):
 // `delete cardMapRefFacade.current[id]` happened BEFORE `setCardMap(prev=>…)`,
-// and because the facade and the store share the same atom, the `if (!prev[id])
-// return prev` guard short-circuited — no notify, UI never re-rendered the
-// deletion even though the card was gone from the in-memory map.
+// and because the facade and the store share the same atom, the
+// `if (!prev[id]) return prev` guard short-circuited — no notify, UI never
+// re-rendered the deletion even though the card was gone from the in-memory
+// map. Now covered against the post-B1 `cardMapWrites` primitives.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@/lib/db", () => ({
@@ -15,26 +16,31 @@ vi.mock("@/lib/coverage-analysis", () => ({
   invalidateCoverageCache: vi.fn(),
 }));
 
-import { cardRepository } from "@/lib/repositories/cardRepository";
+import {
+  put,
+  bulkPut,
+  remove,
+  applySyncDelta,
+} from "@/lib/cards/cardMapWrites";
 import { cardMapStore, getCardMap, replaceCardMap, cardMapRefFacade } from "@/store/useCardMapStore";
 import type { Card } from "@/lib/spaced-repetition";
 
 const mkCard = (id: string): Card => ({ id, question: `q-${id}`, sections: [], categoryId: "c1" } as unknown as Card);
 
-describe("cardRepository — store/ref unified atom (C4)", () => {
+describe("cardMapWrites — store/ref unified atom (C4 regression)", () => {
   beforeEach(() => replaceCardMap({}));
   afterEach(() => replaceCardMap({}));
 
   it("remove() emits a store notification with a NEW reference", () => {
-    cardRepository.put(mkCard("a"));
-    cardRepository.put(mkCard("b"));
+    put(mkCard("a"));
+    put(mkCard("b"));
     const before = getCardMap();
     expect(before.a).toBeDefined();
 
     const seen: Record<string, Card>[] = [];
     const unsub = cardMapStore.subscribe((s) => { seen.push(s.cardMap); });
 
-    cardRepository.remove("a");
+    remove("a");
 
     unsub();
     expect(seen.length).toBe(1);
@@ -46,10 +52,10 @@ describe("cardRepository — store/ref unified atom (C4)", () => {
   });
 
   it("remove() of an unknown id is a no-op (no notification)", () => {
-    cardRepository.put(mkCard("a"));
+    put(mkCard("a"));
     const listener = vi.fn();
     const unsub = cardMapStore.subscribe(listener);
-    cardRepository.remove("ghost");
+    remove("ghost");
     unsub();
     expect(listener).not.toHaveBeenCalled();
   });
@@ -58,9 +64,9 @@ describe("cardRepository — store/ref unified atom (C4)", () => {
     const listener = vi.fn();
     const unsub = cardMapStore.subscribe(listener);
 
-    cardRepository.put(mkCard("a"));
-    cardRepository.bulkPut([mkCard("b"), mkCard("c")]);
-    cardRepository.applySyncDelta([mkCard("d")], ["a"]);
+    put(mkCard("a"));
+    bulkPut([mkCard("b"), mkCard("c")]);
+    applySyncDelta([mkCard("d")], ["a"]);
 
     unsub();
     expect(listener).toHaveBeenCalledTimes(3);
