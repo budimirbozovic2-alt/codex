@@ -159,7 +159,7 @@ describe("migrateFromIdb", () => {
     const report = await migrateFromIdb(executor);
 
     expect(report.alreadyComplete).toBe(false);
-    expect(report.counts).toEqual({ categories: 2, sources: 1, cards: 3, mindMaps: 0, mnemonics: 0 });
+    expect(report.counts).toEqual({ categories: 2, sources: 1, cards: 3, mindMaps: 0, mnemonics: 0, knowledgeBaseArticles: 0 });
     expect(state.tables.categories.size).toBe(2);
     expect(state.tables.cards.size).toBe(3);
     expect(state.kv.has(MIGRATION_FLAG_KEY)).toBe(true);
