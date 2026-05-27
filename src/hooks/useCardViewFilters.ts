@@ -8,10 +8,12 @@
  * from the parent (the parent owns those because they're shared with the
  * mastery dial / search bar that live outside the view).
  */
-import { useCallback, useMemo, useState, useEffect } from "react";
+import { useCallback, useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { type Card } from "@/lib/spaced-repetition";
 import type { CategoryRecord } from "@/lib/db";
-import { idbLoadCardsByChapter } from "@/lib/db/queries";
+import { cardsByChapter } from "@/lib/db/queries";
+import { queryKeys } from "@/lib/query/keys";
 import {
   buildHierarchyOrder,
   compareCardsByHierarchy,
@@ -69,16 +71,17 @@ export function useCardViewFilters({
   const [filterType, setFilterType] = useState<FilterTypeValue>(initialType ?? "all");
   const [filterFrequency, setFilterFrequency] = useState<FrequencyFilterValue>(initialFrequency ?? "all");
 
-  // Audit #7: Local override for chapter-filtered cards to avoid loading all cards into memory
-  const [chapterOverride, setChapterOverride] = useState<Card[] | null>(null);
-
-  useEffect(() => {
-    if (filterChapter !== ALL) {
-      idbLoadCardsByChapter(categoryId, filterChapter).then(setChapterOverride);
-    } else {
-      setChapterOverride(null);
-    }
-  }, [filterChapter, categoryId]);
+  // Audit #7: chapter-scoped fetch via TanStack so card mutations invalidate
+  // automatically (no more useEffect + setState dance). `enabled` keeps the
+  // query dormant when no chapter filter is active.
+  const chapterEnabled = filterChapter !== ALL && !!categoryId && !!filterChapter;
+  const { data: chapterOverride = null } = useQuery({
+    queryKey: chapterEnabled
+      ? queryKeys.cards.byChapter(categoryId, filterChapter)
+      : ["cards", "chap", "__none__"],
+    queryFn: () => cardsByChapter(categoryId, filterChapter),
+    enabled: chapterEnabled,
+  });
 
   const categoryRecord = useMemo(
     () => allCategories.find((c) => c.id === categoryId) ?? null,
