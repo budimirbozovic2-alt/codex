@@ -40,6 +40,8 @@ export interface MigrationCounts {
   mindMaps: number;
   mnemonics: number;
   knowledgeBaseArticles: number;
+  majorSystem: number;
+  mnemonicTestLog: number;
 }
 
 export interface MigrationReport {
