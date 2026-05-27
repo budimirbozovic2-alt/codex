@@ -6,13 +6,13 @@
  * of running `cards.filter(...).length` for every category button on every
  * keystroke.
  */
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useDebounce } from "@/hooks/useDebounce";
 import {
   type MnemonicCard,
   type MnemonicStatus,
-  loadMajorSystem,
 } from "@/features/mnemonic/mnemonic-storage";
+import { useMajorSystem } from "@/hooks/mnemonic/useMajorSystem";
 
 export type WorkshopSortKey = "newest" | "status" | "category" | "success";
 export type WorkshopStatusFilter = MnemonicStatus | "all";
@@ -34,12 +34,8 @@ export function useWorkshopFilters({ cards, idToName }: Args) {
   const [selectedSubcategory, setSelectedSubcategory] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState<WorkshopSortKey>("newest");
-  const [majorSystem, setMajorSystem] = useState<Record<number, string>>({});
+  const { system: majorSystem } = useMajorSystem();
   const debouncedSearch = useDebounce(searchQuery, 300);
-
-  useEffect(() => {
-    loadMajorSystem().then(setMajorSystem);
-  }, []);
 
   // Single pass over cards builds tree + per-category count + status counts.
   const { categoryTree, categoryCounts, statusCounts } = useMemo(() => {

@@ -1,18 +1,15 @@
 import { CheckCircle2, Brain, Wrench, FlaskConical, Sparkles, Hash, HelpCircle, Film, Type } from "lucide-react";
 import InfoPanel from "@/components/InfoPanel";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { useState, useCallback, useMemo, useEffect } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { useCardOnlyActions, useCategoryData } from "@/contexts/AppContext";
 import {
   MnemonicCard,
-  loadMnemonicCards,
-  loadMnemonicCardsByCategory,
   saveMnemonicCards,
   addMnemonicTestEntry,
   getMnemonicStats,
-  subscribeMnemonics,
 } from "./mnemonic-storage";
-import { useIsMountedRef } from "@/hooks/useIsMountedRef";
+import { useMnemonicCards } from "@/hooks/mnemonic/useMnemonicCards";
 
 import { motion, AnimatePresence } from "framer-motion";
 import MnemonicWorkshop from "./MnemonicWorkshop";
@@ -70,49 +67,24 @@ interface Props {
 export default function MnemonicModule({ embedded = false, categoryFilter }: Props = {}) {
   const { patchCard } = useCardOnlyActions();
   const { categoryRecords } = useCategoryData();
-  const [cards, setCardsState] = useState<MnemonicCard[]>([]);
+  // PR-7f M2 — TanStack read-path; invalidacija via `subscribeMnemonics` bridge.
+  const { cards } = useMnemonicCards(categoryFilter);
 
   const [subView, setSubView] = useState<"menu" | "workshop" | "test">("menu");
   const [majorOpen, setMajorOpen] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(() => !embedded && !hasSeenOnboarding(MNEMO_ONBOARDING_KEY));
 
-  // ═══════════════════════════════════════════════════════════════════════════
-  // FIX S3: Memory Leak & Race Condition Prevention
-  // ═══════════════════════════════════════════════════════════════════════════
-  const mounted = useIsMountedRef();
-  useEffect(() => {
-    // B2: when scoped to a single subject, use the indexed loader instead of
-    // pulling the global mnemonic table only to discard most rows in memory.
-    const load = (): Promise<MnemonicCard[]> =>
-      categoryFilter
-        ? loadMnemonicCardsByCategory(categoryFilter)
-        : loadMnemonicCards();
-
-    load().then((loadedCards) => {
-      if (mounted.current) setCardsState(loadedCards);
-    });
-
-    return subscribeMnemonics(() => {
-      load().then((loadedCards) => {
-        if (mounted.current) setCardsState(loadedCards);
-      });
-    });
-  }, [categoryFilter, mounted]);
-
-  // ═══════════════════════════════════════════════════════════════════════════
-  // FIX S3: Idempotent React Updater (Separating side-effects from setState)
-  // ═══════════════════════════════════════════════════════════════════════════
-  const setCards = useCallback(async (updater: (prev: MnemonicCard[]) => MnemonicCard[]) => {
-    // Čistimo React StrictMode upozorenja. Side-efekti ne idu unutar setState!
-    setCardsState((prev) => {
-      const next = updater(prev);
-      // saveMnemonicCards notifies subscribers internally — no event needed.
-      Promise.resolve().then(() => {
-        saveMnemonicCards(next);
-      });
+  // Mutation helper — reads freshest snapshot from query cache, applies updater,
+  // persists via `saveMnemonicCards` which fires `notifyMnemonics` → bridge
+  // invalidira ['mnemonics'] → useQuery automatski re-fetcha.
+  const setCards = useCallback(
+    async (updater: (prev: MnemonicCard[]) => MnemonicCard[]) => {
+      const next = updater(cards);
+      await saveMnemonicCards(next);
       return next;
-    });
-  }, []);
+    },
+    [cards],
+  );
 
   const updateCard = useCallback(
     async (id: string, updates: Partial<MnemonicCard>) => {
