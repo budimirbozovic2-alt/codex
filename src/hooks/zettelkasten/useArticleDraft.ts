@@ -149,7 +149,7 @@ export function useArticleDraft({ activeId, categoryId, setArticles }: Input): A
       updatedAt: Date.now(),
     };
     try {
-      await saveMutation.mutateAsync(next);
+      await saveMutationRef.current.mutateAsync(next);
     } catch (err) {
       logger.error("[zettelkasten] saveArticle failed", err);
       toast.error("Članak NIJE sačuvan. Kopirajte tekst prije navigacije.");
@@ -160,7 +160,7 @@ export function useArticleDraft({ activeId, categoryId, setArticles }: Input): A
       backlinkIndex.upsertArticle(categoryId, next);
     }
     return next;
-  }, [activeId, categoryId, setArticles, saveMutation]);
+  }, [activeId, categoryId, setArticles]);
 
   // Cleanup-flush on activeId change OR unmount. Capture the CURRENT flush
   // (bound to the OLD activeId) so navigation A→B saves A, not B.
