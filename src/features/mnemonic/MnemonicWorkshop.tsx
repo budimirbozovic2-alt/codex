@@ -193,7 +193,7 @@ export default function MnemonicWorkshop({ cards, onUpdateCard, onDeleteCard, ca
               Sve
             </button>
             {categories.map(cat => {
-              const count = cards.filter(c => c.categoryId === cat).length;
+              const count = categoryCounts.get(cat) ?? 0;
               return (
                 <button
                   key={cat}
