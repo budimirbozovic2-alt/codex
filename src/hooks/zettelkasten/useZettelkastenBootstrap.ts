@@ -1,27 +1,30 @@
 /**
  * Bootstrap loader for the Zettelkasten subject view.
  *
- * Responsibilities:
- *  - Load all articles for the subject from IDB.
- *  - Ensure an Index article exists (auto-create or promote during migration).
- *  - Merge the (possibly newly created) Index back into the article list.
- *  - Warm the per-subject `backlinkIndex` ONCE — subsequent re-mounts skip the
- *    full O(N × avgLinks) rebuild because incremental upserts via the eventBus
- *    subscription keep the index hot.
+ * PR-7f M3g — articles now flow through TanStack Query
+ * (`useKnowledgeBaseArticlesBySubject`). The old `useState +
+ * loadArticlesBySubject` reader is gone; bridge invalidation
+ * (`onKnowledgeBaseChanged → invalidateQueries(['knowledgeBase'])`) keeps
+ * the cache hot after every write.
  *
- * The dependency array intentionally avoids the full `categoryRec` object so
- * orthogonal mutations (e.g. a subcategory rename) don't trigger reload
- * storms. Only `categoryId`, the subject's name, and a stable join of its
- * subcategory names participate.
+ * Responsibilities retained:
+ *  - Ensure an Index article exists once per subject (auto-create / promote).
+ *  - Warm the per-subject `backlinkIndex` ONCE — subsequent re-mounts skip
+ *    the full O(N × avgLinks) rebuild because incremental upserts via the
+ *    eventBus subscription keep the index hot.
+ *  - Expose a `setArticles` writer that funnels into the query cache so the
+ *    existing optimistic call-sites (mutations, draft flush, wiki auto-
+ *    create) keep working without each one talking to TanStack directly.
  */
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import {
-  loadArticlesBySubject,
   ensureIndexArticle,
   type KnowledgeBaseArticle,
 } from "@/lib/zettelkasten-storage";
 import { backlinkIndex } from "@/lib/backlink-index";
-import { useIsMountedRef } from "@/hooks/useIsMountedRef";
+import { queryKeys } from "@/lib/query/keys";
+import { useKnowledgeBaseArticlesBySubject } from "./useKnowledgeBaseArticles";
 
 interface BootstrapInput {
   categoryId: string | undefined;
@@ -39,43 +42,74 @@ interface BootstrapResult {
 export function useZettelkastenBootstrap(
   { categoryId, subjectName, subcategoryNames }: BootstrapInput,
 ): BootstrapResult & { initialActiveId: string | null } {
-  const [articles, setArticles] = useState<KnowledgeBaseArticle[]>([]);
-  const [loading, setLoading] = useState(true);
+  const qc = useQueryClient();
+  const { data: articles, isLoading } = useKnowledgeBaseArticlesBySubject(categoryId);
   const [initialActiveId, setInitialActiveId] = useState<string | null>(null);
+  const [ensuring, setEnsuring] = useState<boolean>(true);
 
   // Stable seed key so subcategory list identity changes don't reboot the view
   // unless their *content* differs.
   const seedNamesKey = useMemo(() => subcategoryNames.join("\u0001"), [subcategoryNames]);
 
-  const mounted = useIsMountedRef();
-
+  // Run ensureIndexArticle once per (subjectId, seedNamesKey). Its internal
+  // putArticle fires `notifyKnowledgeBaseChanged`, which the bridge picks up
+  // and refetches the byCategory query — no manual list merging required.
   useEffect(() => {
-    if (!categoryId || !subjectName) return;
-    setLoading(true);
-    loadArticlesBySubject(categoryId).then(async (list) => {
-      if (!mounted.current) return;
-      const idx = await ensureIndexArticle(categoryId, subjectName, subcategoryNames);
-      if (!mounted.current) return;
-
-      const merged = list.some(a => a.id === idx.id)
-        ? list.map(a => a.id === idx.id ? idx : a)
-        : [idx, ...list];
-
-      setArticles(merged);
-      // Idempotent: only the FIRST mount per subject pays the rebuild cost.
-      if (!backlinkIndex.hasSubject(categoryId)) {
-        backlinkIndex.rebuildFromAll(categoryId, merged);
-      }
+    if (!categoryId || !subjectName) {
+      setEnsuring(false);
+      return;
+    }
+    let cancelled = false;
+    setEnsuring(true);
+    ensureIndexArticle(categoryId, subjectName, subcategoryNames).then((idx) => {
+      if (cancelled) return;
       setInitialActiveId(prev => prev ?? idx.id);
-      setLoading(false);
+      setEnsuring(false);
     });
+    return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [categoryId, subjectName, seedNamesKey]);
+
+  // Idempotent backlink warm-up — only the FIRST settled load per subject
+  // pays the rebuild cost. `backlinkIndex.hasSubject` guards re-renders.
+  const warmedFor = useRef<string | null>(null);
+  useEffect(() => {
+    if (!categoryId || articles.length === 0) return;
+    if (warmedFor.current === categoryId) return;
+    if (!backlinkIndex.hasSubject(categoryId)) {
+      backlinkIndex.rebuildFromAll(categoryId, articles);
+    }
+    warmedFor.current = categoryId;
+  }, [categoryId, articles]);
+
+  // Funnel optimistic edits from mutation hooks back into the query cache.
+  // Preserves the legacy `(prev) => next` updater contract so existing
+  // call-sites (useArticleDraft, useArticleMutations, useWikiLinkAutoCreate)
+  // keep working unchanged.
+  const setArticles = useCallback<React.Dispatch<React.SetStateAction<KnowledgeBaseArticle[]>>>(
+    (updater) => {
+      if (!categoryId) return;
+      const key = queryKeys.knowledgeBase.byCategory(categoryId);
+      qc.setQueryData<KnowledgeBaseArticle[]>(key, (prev) => {
+        const base = prev ?? [];
+        return typeof updater === "function"
+          ? (updater as (p: KnowledgeBaseArticle[]) => KnowledgeBaseArticle[])(base)
+          : updater;
+      });
+    },
+    [qc, categoryId],
+  );
 
   const indexArticleId = useMemo(
     () => articles.find(a => a.isIndex)?.id ?? null,
     [articles],
   );
 
-  return { articles, setArticles, loading, indexArticleId, initialActiveId };
+  return {
+    articles,
+    setArticles,
+    loading: isLoading || ensuring,
+    indexArticleId,
+    initialActiveId,
+  };
 }
