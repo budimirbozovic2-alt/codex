@@ -1,136 +1,112 @@
-# Roadmap: koraci 5–10 (SQLite SSOT + TanStack cut-over)
 
-Cilj: dovršiti tranziciju sa Dexie+Ref-Delta na **SQLite-primary + TanStack `useQuery`/`useMutation`**, kolapsirati legacy adaptere, ukloniti Dexie kao runtime zavisnost i očistiti web build.
+# A2 — categoryDeletion collapse
 
-Polazna tačka: bridges.ts pokriva sources / planner / drafts / cards / settings / mindMaps / mnemonics. Repos za sve domain tabele (cards, sources, mindMaps, drafts, knowledgeBase, mnemonics, majorSystem, mnemonicTestLog, planner snapshot) već su SQLite-primary sa Dexie mirror-om.
+Cilj: jedna SQL transakcija, garantovan integritet preko FK CASCADE, manje LOC u service-u, čistija repo granica (Dexie pristup samo kroz helpere). Re-parent (`purgeCards=false`) ostaje podržan.
 
----
+## Stanje
 
-## 5. PR-7f M2 — `useQuery` roll-out (preostali hookovi)
+- `schema.sql`: sve potrebne FK CASCADE već postoje — `sources/cards/mindMaps/mnemonics/knowledgeBaseArticles → categories(id) ON DELETE CASCADE`, plus `cards.sourceId → sources(id) ON DELETE SET NULL`. `drafts/disciplineLog/majorSystem/mnemonicTestLog/kv` nisu category-scoped pa nemaju FK (nepromijenjeno).
+- `PRAGMA foreign_keys = ON` postavlja `migration-runner.ts` na boot.
+- Današnji service: paralelni SQLite tx koji eksplicitno briše cards/sources/mindMaps/mnemonics + Dexie tx koji ponavlja sve, plus settings KV i planner scrub. Categories red sam po sebi ne brišemo iz SQLite-a (writer ide kroz `idbSaveCategories`), pa FK CASCADE nikad ne okida iz orchestrator-ovog optimističnog patha.
 
-**Scope:** Zamijeniti sve preostale `useEffect + useState + listener` čitače sa `useQuery` koristeći već postojeće bridges + queryKeys.
+## Promjene
 
-Migracije (svaka = 1 hook + verifikacija):
+### 1. `categoryRepository.deleteAsync(id)` — novi SQLite-primary delete
 
-- `useMindMaps`, `useMindMapsByCategory`, `useMindMap(id)` → `useQuery({ queryKey: queryKeys.mindMaps.*, queryFn: loadMindMaps / getMindMap })`. Skinuti `loadMindMaps` interni cache (TanStack postaje cache).
-- `useMnemonicCards`, `useMnemonicCardsByCategory` → `queryKeys.mnemonics.*`.
-- `useKnowledgeBaseArticles` (Zettel index) → `queryKeys.knowledgeBase.all()`; treba dodati `onKnowledgeBaseChanged` emitter u `queries/knowledge-base.ts` + bridge granu.
-- `useMajorSystem`, `useMnemonicTestLog` → `queryKeys.mnemonics.majorSystem/testLog*`; dodati emittere u oba repo modula i bridge grane.
-- `useCategorySources` već koristi listener — prevesti na `useQuery` (`queryKeys.sources.byCategory`).
-- `usePlannerData`: lokalni `config` u `useState/localStorage` → `useQuery({ queryKey: queryKeys.planner.config(), queryFn: loadPlanner })` + `setConfig` zamijeniti sa `useMutation`-om (priprema za M3).
+`src/lib/repositories/categoryRepository.ts`:
+- Dodati `deleteAsync(id: string, opts: { purgeCards: boolean; fallbackId: string }): Promise<WriteResult<void>>`.
+- Jedna `exec.transaction`:
+  - Ako `purgeCards === false && fallbackId`: `UPDATE cards SET categoryId=?, subcategoryId=NULL, chapterId=NULL, updatedAt=? WHERE categoryId=?` + `UPDATE sources SET categoryId=? WHERE categoryId=?` (re-parent prije DELETE).
+  - Zatim **jedini** `DELETE FROM categories WHERE id = ?` — FK CASCADE briše mindMaps + mnemonics + knowledgeBaseArticles (i, u `purgeCards=true` slučaju, cards + sources).
+- Nakon tx: `await persistQueue.cleanup()`, Dexie mirror delete (preko helpera, vidi #2), KV scrub (vidi #3), zatim notify bridges (vidi #4).
+- Eksportovati kroz repo barrel.
 
-**Verifikacija po hooku:** targeted vitest + ručno klikanje preview-a; potvrditi da invalidacija stiže iz bridges (DevTools query log).
+### 2. Repo-level `delete*ByCategory` helperi (Dexie mirror)
 
-**Izlaz:** nula `useEffect`+listener parova za read-path. Module-level cache-evi (`_cache` u sources-storage, mindmap-storage) postaju mrtvi i obrisivi u koraku 9.
+Novi async helperi (svaki bez keyedMutex-a — SQLite tx je already-serialised, Dexie ovde služi samo kao mirror dok A1c ne ukloni Dexie):
 
----
+- `cardRepository.deleteByCategoryAsync(id)` / `cardRepository.reparentByCategoryAsync(fromId, toId)` → `src/lib/repositories/cardRepository.ts`
+- `sourceRepository.deleteByCategoryAsync(id)` / `sourceRepository.reparentByCategoryAsync(...)` → novi ili postojeći `sourceRepository`
+- `mindMapRepository.deleteByCategoryAsync(id)`
+- `mnemonicRepository.deleteByCategoryAsync(id)`
+- `knowledgeBaseRepository.deleteBySubjectAsync(id)`
 
-## 6. A2 — `categoryDeletion` collapse
+Svi vraćaju `WriteResult<number>` (broj obrisanih/affected redova za telemetriju). Implementacija: `db.<table>.where(...).equals(id).delete()` ili `.modify(...)` za reparent.
 
-**Stanje:** `categoryDeletionService` radi atomski cascade preko Dexie + ručno gađa svaku tabelu, plus paralelno SQLite FK CASCADE već radi posao na SQLite strani.
+### 3. Service skraćenje
 
-**Plan:**
-1. Verifikovati da `schema.sql` ima `ON DELETE CASCADE` za sve child tabele (sources, cards, mindMaps, knowledgeBaseArticles, mnemonics, drafts, plannerEntries) — dopuniti gdje fali.
-2. Service skratiti na: `DELETE FROM categories WHERE id = ?` u jednoj `SqlExecutor.transaction`, zatim `notify*Changed` za sve domene (bridges rade ostalo).
-3. Dexie mirror briše svoj dio kroz repo-level `delete*ByCategory` helpere (privremeno, do A1c).
-4. Skinuti per-tabela ručne loop-ove i `keyedMutex` oko brisanja — SQLite ACID je dovoljan.
-5. Test: `category-deletion.test.ts` — seed kategoriju sa N=children kroz repo API, obrisati, assert-ovati prazno stanje u SQLite + RAM projekcijama.
+`src/lib/category-deletion-service.ts` se skuplja na ~60 LOC:
 
-**Izlaz:** ~150 LOC manje, jedna transakcija, garantovan integritet preko FK.
-
----
-
-## 7. PR-7f M3 — `useMutation` cut-over
-
-**Scope:** Zamijeniti sve direktne `repo.commit*` + `notify*Changed` pozive sa `useMutation` (onMutate optimistic, onError rollback). Bridges nastavljaju invalidirati nakon `notify*` koji repo i dalje firea u `onSettled`.
-
-Prioritet:
-
-- **Cards** (najveći ROI): `useCardActions` (`saveCard`, `deleteCard`, `bulkUpsert`, `gradeSection`) — sve preko `useMutation`; ukloniti `cardCommandBus` poziv za DB pisanja (Core memorija već kaže DEPRECATED). Zadržati `keyedMutex` samo za UI flow guard-ove.
-- **Sources**: `saveSource`, `deleteSource`, `linkEssay` u `useSourceActions`.
-- **MindMaps**: `useMindMapActions` (save/delete/duplicate).
-- **Mnemonics + MajorSystem + TestLog**: feature-level akcije.
-- **Knowledge base (Zettel)**: `saveArticle`, `deleteArticle`, alias mutate.
-- **Planner**: `savePlanner`, `recordDayDiscipline`, `incrementDailyMapped` — `useMutation` sa optimistic update plannera config-a.
-
-**Konvencija:**
 ```ts
-const mut = useMutation({
-  mutationFn: (input) => repo.commit(input),
-  onMutate: async (input) => { /* snapshot + cache.setQueryData */ },
-  onError: (_e, _input, ctx) => { /* rollback iz ctx */ },
-  onSettled: () => qc.invalidateQueries({ queryKey: [...] }),
-});
+export async function cascadeDeleteCategoryDomains(
+  categoryId, { purgeCards, fallbackId }
+): Promise<CascadeResult> {
+  // 1. SQLite — jedan tx (re-parent + DELETE FROM categories, FK CASCADE)
+  await categoryRepository.deleteAsync(categoryId, { purgeCards, fallbackId });
+
+  // 2. Dexie mirror — preko repo helpera
+  const [cardsN, srcN, mmN, mnN, kbN] = await Promise.all([
+    purgeCards
+      ? cardRepository.deleteByCategoryAsync(categoryId)
+      : cardRepository.reparentByCategoryAsync(categoryId, fallbackId),
+    purgeCards
+      ? sourceRepository.deleteByCategoryAsync(categoryId)
+      : sourceRepository.reparentByCategoryAsync(categoryId, fallbackId),
+    mindMapRepository.deleteByCategoryAsync(categoryId),
+    mnemonicRepository.deleteByCategoryAsync(categoryId),
+    knowledgeBaseRepository.deleteBySubjectAsync(categoryId),
+  ]);
+
+  // 3. KV (settings + planner scrub) — postojeća logika, nedirnuta
+  // 4. notify*Changed (bridges sve invalidiraju kroz QueryClient)
+  // 5. cache invalidations (mindmap-cache, examiner-profile, backlinkIndex)
+  return { cards: cardsN, sources: srcN, mindMaps: mmN, mnemonics: mnN, articles: kbN, … };
+}
 ```
 
-**Verifikacija:** po-feature integ test + ručna provjera offline rollback-a (throw u repo → UI vraća prethodno stanje).
+Uklonjeno:
+- Lokalni `cascadeSqlite` helper (logika preseljena u `categoryRepository.deleteAsync`).
+- Manuelni `db.transaction("rw", […])` blok i direktni `db.cards/sources/mindMaps/mnemonics/knowledgeBaseArticles` pozivi.
+- `keyedMutex` reference oko brisanja (ako ih ima — service ih trenutno ne zove direktno, ali repo helperi se NEĆE zaviti u mutex).
 
-**Izlaz:** `Ref-Delta` pattern potpuno eliminisan iz pozivnih mjesta; AppContext više ne radi optimistic ref mutacije.
+### 4. Notifications
 
----
+Nakon completion: pozvati `notifyCardsChanged()`, `onSourcesChanged` listener fire (kroz `sources-storage.invalidate`), `onMindMapsChanged`, `subscribeMnemonics` emit, `notifyKnowledgeBaseChanged()`. Bridges (`src/lib/query/bridges.ts`) invalidiraju sve relevantne queryKey-eve.
 
-## 8. B1 — `cardRepository` collapse
+### 5. Orchestrator (`useCategoryManagement.deleteCategory`)
 
-**Stanje:** `cardRepository` je sloj koji još drži RAM projekciju, listenere i delta-merge logiku iz Ref-Delta ere.
+Nepromijenjen javno. Interno: pre-cascade `cardRepository.applySyncDelta` (RAM optimizam) ostaje — daje trenutnu UI reakciju. Service call ostaje isti potpis.
 
-**Plan:**
-1. Identifikovati šta još koristi `cardRepository` (poslije M3 to je samo bootstrap reload i `categoryRecords` projection u AppContext).
-2. Premjestiti `listAllCards` / `getCardsByIds` direktno u `queries/cards.ts` (već je tamo) — repo postaje pass-through.
-3. `loadInitialData` poziva `listAllCards` direktno; AppContext projection (`categoryRecords`) gradi se iz QueryClient cache snapshot-a kroz selektor hook `useCategoryRecords`.
-4. Obrisati `src/lib/repositories/cardRepository.ts` i njegov barrel re-export; ESLint Public API Wall verifikuje da nema visećih importova.
-5. Test: `card-repository-delete` test prebaciti na repo API (`queries/cards`) ili obrisati ako je redundantan sa M3 testovima.
+### 6. Test
 
-**Izlaz:** Jedan sloj manje, čist `UI → useQuery → queries/* → SQLite` data-flow.
+`src/test/category-deletion.test.ts` (novi):
+- Boot Vitest sa fakeIndexedDB + mock OPFS executor (postojeći helperi u `src/test/utils/`).
+- Seed: kategorija A sa N cards / M sources / 2 mindMaps / 3 mnemonics / 4 KB articles preko repo API-ja.
+- Slučaj 1 — `purgeCards: true`:
+  - `cascadeDeleteCategoryDomains(A.id, { purgeCards: true, fallbackId: "" })`.
+  - Assert SQLite: `categories/cards/sources/mindMaps/mnemonics/knowledgeBaseArticles WHERE *=A.id` svi prazni.
+  - Assert RAM projekcije (`categoryStore`, `cardStore`, sources cache) prazne za A.
+- Slučaj 2 — `purgeCards: false` sa fallback B:
+  - Assert cards/sources premješteni na B sa `subcategoryId/chapterId = undefined`.
+  - Assert mindMaps/mnemonics/KB articles obrisani (FK CASCADE).
+  - Assert `categories` red za A obrisan, B netaknut.
+- Slučaj 3 — KV scrub: seed `subject_settings:A` i `plannerConfig.subjectOrder=[A,B]` → assert ključ obrisan i `subjectOrder=[B]`.
 
----
+## Tehnički detalji
 
-## 9. A1c — Drop Dexie mirror + drop dexie dep
+- `WriteResult<T>` već postoji u `src/lib/persistence/write-result.ts` (M3f).
+- `persistQueue.cleanup()` osigurava da boot-time read odmah vidi novo stanje.
+- FK CASCADE kroz SQLite pokriva sve child tabele — schema već usklađena, nikakva migracija ne treba.
+- Nema novih runtime errora — postojeća HMR-only React `useState` greška iz M3f je dev-only artefakt i nije A2 scope.
+- Zero-any: svi novi async helperi tipovani sa `WriteResult<number>` / `WriteResult<void>`.
 
-**Predu­slov:** Koraci 5–8 prošli i jedan soak release sa SQLite-primary u produkciji bez Dexie fallback hit-ova (telemetry counter na `tryGetExecutor() == null` mora biti 0 u DEV i PROD).
+## Očekivani efekat
 
-**Plan:**
-1. U svakom `queries/*` modulu ukloniti Dexie mirror grane (`await db.X.put` poslije SQLite write) i Dexie fallback čitače. Repo postaje SQLite-only; ako executor nije dostupan, baci `assertDesktop`.
-2. Obrisati `src/lib/db/index.ts` (Dexie schema), `recoverOutboxOnBoot`, `outbox` tabelu, `migrate-from-idb.ts` ostaviti samo kao no-op koji proverava da je migracija već odrađena (čita SQLite flag) — kod prvog clean install-a bez IDB-a samo skroz preskoči.
-3. `package.json`: `bun remove dexie dexie-react-hooks`. Provjeriti da nigdje nije ostao `useLiveQuery` (već zabranjen Core pravilom).
-4. Bridges: ukloniti SSOT façade kešove (`_cache` u `sources-storage`, `mindmap-storage`) — TanStack je jedini cache.
-5. Migration runner: schema v4 ostaje, ali `migrate-from-idb` zamijeniti sa `assertNoLegacyIdb` (warn + telemetry ako neko ima staru IDB, jednokratni eksport tool ostaje za podršku).
-6. Verifikacija: full E2E pas (boot, CRUD, backup, restore, category delete, planner) bez Dexie u bundle-u (`vite build` + `rg dexie dist/` → nula).
+- `category-deletion-service.ts` ~184 → ~70 LOC.
+- Service više ne importuje `db` direktno (samo repo barrels + KV queries) — zatvara Public API Walls.
+- Jedna SQLite transakcija pokriva sav child-row teardown; Dexie mirror je striktno opcionalan i ide preko repo helpera (lako se isključuje u A1c).
+- Garantovan referencijalni integritet (sirota mindMap/mnemonic/KB-article rows postaju nemogući).
 
-**Izlaz:** Bundle -~80 KB, jedan SSOT, jedan write path, jedan transaction model.
+## Memory update
 
----
-
-## 10. Finale — Web cleanup + memory sanitize
-
-1. **Web build deprecation finalize:** `assertDesktop` u svim entry tačkama; `index.html` web fallback stranica sa "Download desktop" CTA umjesto app shell-a. Skinuti `vite-plugin-pwa` i sve mobile/PWA artefakte.
-2. **Code dead-removal sweep:** `knip` ili `ts-prune` za pronalaženje mrtvog koda nakon koraka 5–9; obrisati. Posebno: stari `event-bus`, `BroadcastChannel` artefakti, `useLiveQuery` adapteri, neiskorišćeni `keyedMutex` instance.
-3. **ESLint walls dopuniti:** zabraniti import `dexie`, `dexie-react-hooks` iz bilo gdje; zabraniti direktan `db.*` pristup (sve kroz `@/lib/db/queries`).
-4. **Memory sanitize:** ažurirati Core pravila i memorije:
-   - `architecture/sqlite-ssot-cutover` → "DONE, Dexie removed".
-   - `architecture/storage-and-persistence-v6` → arhivirati (zamijeniti `storage-v7-sqlite-only`).
-   - `architecture/idb-ssot-migration` → obrisati (više nije relevantno).
-   - `technical-choices/ref-delta-persistence-v4`, `card-command-bus`, `service-layer-pattern` (Dexie mutex) → obrisati ili označiti DEPRECATED.
-   - `technical-choices/dexie-query-strategy` → obrisati.
-   - `architecture/tanstack-query-read-path` → unaprijediti na "TanStack je SSOT cache za read+write".
-5. **Docs:** kratki `docs/architecture/data-flow.md` sa dijagramom UI → useQuery → SQLite, jedan ekran.
-6. **Release notes + soak window:** dvije nedjelje produkcijskog soak-a sa telemetry watchom na FK violations, transaction failures, query cache miss rate.
-
----
-
-## Tehnički detalji (suho)
-
-- **Query invalidation granularnost:** bridges trenutno invalidiraju cijeli `["domain"]` prefix. U M3 razbiti po scope-u (`["cards","cat",id]`) tamo gdje je hot path (CategoryView re-render budget).
-- **Optimistic snapshot keys:** `useMutation.onMutate` mora pozvati `qc.cancelQueries` + `qc.getQueryData` za sve overlap-ujuće ključeve; helper `snapshotAndPatch(qc, keys, patcher)` ide u `src/lib/query/optimistic.ts`.
-- **Boot order:** poslije A1c, `ensureDbOpen` (SQLite) postaje sinkroni preduslov za `installQueryBridges`. `BootStateProvider` već to garantuje; samo skinuti Dexie boot granu.
-- **Test strategija:** za svaki PR — jedan unit test po novom hook-u + jedan integ test koji verifikuje da bridge invalidacija stiže do `useQuery` cache-a (već postoji obrazac u `query-bridges.test.ts`).
-- **Telemetry:** dodati counter `sqlite.fallback.dexie` koji se inkrementira kad god `tryGetExecutor` vrati null u repo modulima — gate za korak 9.
-
-## Sekvenca i zavisnosti
-
-```text
-5 (M2 useQuery)  ──┐
-                   ├──► 7 (M3 useMutation) ──► 8 (B1 collapse) ──► 9 (A1c drop Dexie) ──► 10 (finale)
-6 (A2 cascade)   ──┘
-```
-
-Koraci 5 i 6 se mogu raditi paralelno. 7 zahtijeva 5. 8 zahtijeva 7. 9 zahtijeva 7+8 i jedan soak window. 10 zatvara.
+Po završetku: ažurirati `mem://features/data-integrity-v4` da reflektuje "jedna SQLite tx + FK CASCADE; Dexie mirror kroz repo helpere; keyedMutex uklonjen iz deletion patha".
