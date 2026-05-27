@@ -9,8 +9,8 @@ import {
 import {
   createMnemonicCardFromSelection,
   loadMnemonicCards,
-  saveMnemonicCards,
 } from "@/features/mnemonic";
+import { useMnemonicMutations } from "@/hooks/mnemonic/useMnemonicMutations";
 import { CardBubbleMenu } from "./CardBubbleMenu";
 
 interface CardMetadata {
@@ -53,18 +53,19 @@ export function CardSelectionEditor({
   }, [contentDoc]);
 
   const [editor, setEditor] = useState<Editor | null>(null);
+  const { saveCards: saveMnemoCards } = useMnemonicMutations();
 
   const handleAddMnemo = useCallback(async (text: string) => {
     const cards = await loadMnemonicCards();
     const clone = createMnemonicCardFromSelection(
       cardId, question, text, category, subcategoryId, tags,
     );
-    await saveMnemonicCards([...cards, clone]);
+    await saveMnemoCards.mutateAsync([...cards, clone]);
     toast("Dodano u Mnemo radionicu", {
       description: `"${text.slice(0, 40)}${text.length > 40 ? "…" : ""}"`,
     });
     editor?.commands.blur();
-  }, [cardId, question, category, subcategoryId, tags, editor]);
+  }, [cardId, question, category, subcategoryId, tags, editor, saveMnemoCards]);
 
   const handleToggleKeyPart = useCallback((text: string, isMarked: boolean) => {
     if (!onMarkKeyPart) return;

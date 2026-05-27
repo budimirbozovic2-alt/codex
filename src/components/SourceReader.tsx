@@ -14,7 +14,8 @@ import { SourceBubbleMenu } from "@/components/source-reader/SourceBubbleMenu";
 import { SmartSplitSummaryDialog } from "@/components/source-reader/SmartSplitSummaryDialog";
 import { docToHtml, type Editor } from "@/lib/editor-v4";
 import { toast } from "sonner";
-import { createMnemonicCardFromSelection, loadMnemonicCards, saveMnemonicCards } from "@/features/mnemonic";
+import { createMnemonicCardFromSelection, loadMnemonicCards } from "@/features/mnemonic";
+import { useMnemonicMutations } from "@/hooks/mnemonic/useMnemonicMutations";
 
 import { logger } from "@/lib/logger";
 const AutoSplitDialog = lazy(() => import("@/components/AutoSplitDialog"));
@@ -56,14 +57,15 @@ export default function SourceReader({ source, onBack, onSourceUpdated }: Props)
     return { text, html: docToHtml({ version: 4, content: docJson }) };
   }, [editor]);
 
+  const { saveCards: saveMnemoCards } = useMnemonicMutations();
   const handleMnemoFromSelection = useCallback(async (text: string) => {
     const cards = await loadMnemonicCards();
     const clone = createMnemonicCardFromSelection(
       source.id, source.title, text, source.categoryId, undefined, []
     );
-    await saveMnemonicCards([...cards, clone]);
+    await saveMnemoCards.mutateAsync([...cards, clone]);
     toast("Dodano u Mnemo radionicu", { description: `"${text.slice(0, 40)}${text.length > 40 ? "…" : ""}"` });
-  }, [source.id, source.title, source.categoryId]);
+  }, [source.id, source.title, source.categoryId, saveMnemoCards]);
 
   const handleMapWithSelection = useCallback((qId: string) => {
     actions.handleMapSelection(qId, getSelectionPayload());
