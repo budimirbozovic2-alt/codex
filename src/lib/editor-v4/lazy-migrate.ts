@@ -17,7 +17,7 @@
 import { logger } from "@/lib/logger";
 import { taskScheduler } from "@/lib/scheduler";
 import { db } from "@/lib/db";
-import * as cardRepository from "@/lib/repositories/cardRepository";
+import * as cardMapWrites from "@/lib/cards/cardMapWrites";
 import { saveSource } from "@/lib/sources-storage";
 import { saveArticle } from "@/lib/zettelkasten-storage";
 import { migrateCard, migrateSource, migrateArticle } from "./migrate";
@@ -48,7 +48,7 @@ export function kickoffEditorV4Migration(): void {
 
 async function migrateAllCards(): Promise<void> {
   try {
-    const snapshot = cardRepository.snapshot();
+    const snapshot = cardMapWrites.snapshot();
     const cards = Object.values(snapshot) as Card[];
     const pending: Card[] = [];
     for (const c of cards) {
@@ -57,7 +57,7 @@ async function migrateAllCards(): Promise<void> {
     }
     if (pending.length === 0) return;
     for (let i = 0; i < pending.length; i += BATCH) {
-      cardRepository.bulkPut(pending.slice(i, i + BATCH));
+      cardMapWrites.bulkPut(pending.slice(i, i + BATCH));
     }
     logger.log(`[editor-v4] migrated ${pending.length}/${cards.length} cards`);
   } catch (err) {
