@@ -95,9 +95,9 @@ export function loadAppSettings(): AppSettings {
 
 export function saveAppSettings(settings: AppSettings): void {
   const json = JSON.stringify(settings);
-  // Primary: IDB (canonical source)
-  import("./db").then(({ db }) => {
-    db.settings.put({ key: "appSettings", value: settings }).catch((e) => logger.warn("[settings] IDB write failed", e));
+  // Primary: SQLite via settings repo (Dexie mirror is written by the repo).
+  import("@/lib/db/queries").then(({ putSetting }) => {
+    putSetting("appSettings", settings).catch((e) => logger.warn("[settings] put failed", e));
   }).catch(() => {});
   // Mirror to localStorage for fast sync reads (cache, not source of truth)
   try { localStorage.setItem(APP_SETTINGS_KEY, json); } catch {}
