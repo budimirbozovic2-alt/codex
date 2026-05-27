@@ -180,12 +180,12 @@ export async function isAutoBackupOverdueAsync(settings: AppSettings): Promise<b
     const str = localStorage.getItem("sr-last-backup");
     if (str) lastTs = JSON.parse(str);
   } catch {}
-  // Fallback to IDB
+  // Fallback to SQLite via settings repo
   if (!lastTs) {
     try {
-      const { db } = await import("./db");
-      const row = await db.settings.get("sr-last-backup");
-      if (row?.value) lastTs = row.value as number;
+      const { getSetting } = await import("@/lib/db/queries");
+      const value = await getSetting<number>("sr-last-backup");
+      if (typeof value === "number") lastTs = value;
     } catch {}
   }
   if (!lastTs) return false;
