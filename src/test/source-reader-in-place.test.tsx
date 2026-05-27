@@ -11,8 +11,14 @@
  */
 import { describe, it, expect } from "vitest";
 import { render } from "@testing-library/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { SourceContent } from "@/components/source-reader/SourceContent";
 import type { Source } from "@/lib/sources-storage";
+
+function wrap(ui: React.ReactNode) {
+  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  return <QueryClientProvider client={qc}>{ui}</QueryClientProvider>;
+}
 
 function waitMicroTask() {
   return new Promise<void>((r) => setTimeout(r, 0));
@@ -34,12 +40,14 @@ const baseSource = (overrides: Partial<Source> = {}): Source => ({
 describe("SourceContent (PR-7a / M5)", () => {
   it("mounts EditorV4 in read mode by default", async () => {
     const { container } = render(
-      <SourceContent
-        source={baseSource()}
-        editMode={false}
-        onSourceUpdated={() => {}}
-        onEditorReady={() => {}}
-      />
+      wrap(
+        <SourceContent
+          source={baseSource()}
+          editMode={false}
+          onSourceUpdated={() => {}}
+          onEditorReady={() => {}}
+        />
+      )
     );
     await waitMicroTask();
     const pm = container.querySelector(".ProseMirror") as HTMLElement | null;
@@ -49,21 +57,25 @@ describe("SourceContent (PR-7a / M5)", () => {
 
   it("flips contenteditable when editMode toggles", async () => {
     const { container, rerender } = render(
-      <SourceContent
-        source={baseSource()}
-        editMode={false}
-        onSourceUpdated={() => {}}
-        onEditorReady={() => {}}
-      />
+      wrap(
+        <SourceContent
+          source={baseSource()}
+          editMode={false}
+          onSourceUpdated={() => {}}
+          onEditorReady={() => {}}
+        />
+      )
     );
     await waitMicroTask();
     rerender(
-      <SourceContent
-        source={baseSource()}
-        editMode={true}
-        onSourceUpdated={() => {}}
-        onEditorReady={() => {}}
-      />
+      wrap(
+        <SourceContent
+          source={baseSource()}
+          editMode={true}
+          onSourceUpdated={() => {}}
+          onEditorReady={() => {}}
+        />
+      )
     );
     await waitMicroTask();
     const pm = container.querySelector(".ProseMirror") as HTMLElement | null;

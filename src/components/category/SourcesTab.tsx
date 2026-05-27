@@ -1,7 +1,7 @@
 import { useState, useCallback, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { type Source } from "@/lib/db";
-import { saveSource, deleteSource } from "@/lib/sources-storage";
+import { useSourceMutations } from "@/hooks/source/useSourceMutations";
 import { sanitizeHtml } from "@/lib/sanitize";
 import { parseArticles } from "@/lib/article-parser";
 import { extractOutline, injectHeadingIds } from "@/lib/sources-storage";
@@ -36,6 +36,7 @@ export default function SourcesTab({ categoryId, sources, onOpenReader, onSource
   const { mindMaps, ready: mindMapsReady } = useMindMapsByCategory(categoryId);
   const mindMapsLoading = !mindMapsReady;
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { save: saveMutation, remove: removeMutation } = useSourceMutations();
 
   const propisSources = useMemo(() => sources.filter(s => (s.sourceKind ?? "propis") === "propis"), [sources]);
   const skriptaSources = useMemo(() => sources.filter(s => s.sourceKind === "skripta"), [sources]);
@@ -73,23 +74,21 @@ export default function SourcesTab({ categoryId, sources, onOpenReader, onSource
         sourceKind: activeSourceTab === "mape" ? "propis" : activeSourceTab,
       };
 
-      await saveSource(newSource);
-      // saveSource notifies listeners (SSOT) — no manual invalidate needed.
+      await saveMutation.mutateAsync(newSource);
       toast.success(`Izvor "${title}" uspješno importovan.`);
     } catch (err) {
       toast.error(`Greška pri importu: ${err instanceof Error ? err.message : "Nepoznata greška"}`);
     } finally {
       setImporting(false);
     }
-  }, [categoryId, activeSourceTab]);
+  }, [categoryId, activeSourceTab, saveMutation]);
 
   const handleDelete = useCallback(async () => {
     if (!deleteTarget) return;
     setDeleting(true);
     const title = deleteTarget.title;
     try {
-      await deleteSource(deleteTarget.id);
-      // deleteSource notifies listeners (SSOT) — no manual invalidate needed.
+      await removeMutation.mutateAsync({ id: deleteTarget.id, categoryId: deleteTarget.categoryId });
       setDeleteTarget(null);
       afterDialogClose(() => toast.success(`Izvor "${title}" obrisan.`));
     } catch {
@@ -97,7 +96,7 @@ export default function SourcesTab({ categoryId, sources, onOpenReader, onSource
     } finally {
       setDeleting(false);
     }
-  }, [deleteTarget]);
+  }, [deleteTarget, removeMutation]);
 
   return (
     <>

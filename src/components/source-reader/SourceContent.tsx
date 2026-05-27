@@ -2,7 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { EditorV4 } from "@/components/editor-v4/EditorV4";
 import type { EditorV4Handle } from "@/components/editor-v4/EditorV4";
 import { htmlToDoc, type EditorDoc, type Editor } from "@/lib/editor-v4";
-import { persistSourceDoc } from "@/lib/services/sourceEditingService";
+import { buildSourceFromDoc } from "@/lib/services/sourceEditingService";
+import { useSourceMutations } from "@/hooks/source/useSourceMutations";
 import { taskScheduler } from "@/lib/scheduler";
 import { usePersistedDraftMirror } from "@/hooks/usePersistedDraftMirror";
 import type { Source } from "@/lib/sources-storage";
@@ -23,8 +24,8 @@ interface Props {
  * - When `editMode === false`, the editor is read-only but TipTap still tracks
  *   selection so the parent `<SourceBubbleMenu>` keeps working.
  * - Autosave: 1s debounce via `taskScheduler`; drafts mirrored to IDB.
- * - Heading anchor icons are re-applied as a post-render DOM enhancement on
- *   the ProseMirror root so smooth-scroll navigation stays intact.
+ * - PR-7f M3d: persistence goes through `useSourceMutations().save` so the
+ *   read cache flips optimistically and any error rolls back the AST too.
  */
 export function SourceContent({ source, editMode, onSourceUpdated, onEditorReady }: Props) {
   const initialDoc = useMemo<EditorDoc>(
@@ -37,17 +38,20 @@ export function SourceContent({ source, editMode, onSourceUpdated, onEditorReady
 
   const editorRef = useRef<EditorV4Handle>(null);
   const [draftJson, setDraftJson] = useState<string>(JSON.stringify(initialDoc));
+  const { save: saveMutation } = useSourceMutations();
 
   // Debounced autosave — synchronous mutation snapshot, async persist.
   const persistDebounced = useMemo(
     () => taskScheduler.debounce(
       async (doc: EditorDoc) => {
-        await persistSourceDoc(source, doc, onSourceUpdated);
+        const next = buildSourceFromDoc(source, doc);
+        await saveMutation.mutateAsync(next);
+        onSourceUpdated?.(next);
       },
       1000,
       { label: `sourceContent:${source.id}`, pauseWhenHidden: false },
     ),
-    [source, onSourceUpdated],
+    [source, onSourceUpdated, saveMutation],
   );
 
   useEffect(() => () => { persistDebounced.cancel(); }, [persistDebounced]);
