@@ -49,3 +49,10 @@ export {
   putSource,
   deleteSourceAndUnlinkCards,
 } from "./sources";
+export {
+  getMindMap,
+  listAllMindMaps,
+  listMindMapsByCategory,
+  putMindMap,
+  deleteMindMap,
+} from "./mind-maps";

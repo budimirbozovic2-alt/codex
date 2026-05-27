@@ -1,6 +1,15 @@
-import { db, MindMapDoc } from "./db";
-
+/**
+ * Mind maps SSOT façade — A1b P1.2.
+ *
+ * Data plane delegates to `@/lib/db/queries/mind-maps` (SQLite-primary,
+ * Dexie mirror). This module preserves the in-memory cache + listener
+ * subscription contract so 40+ consumers (and `useMindMaps`) keep working
+ * without import churn.
+ */
+import type { MindMapDoc } from "./db";
+import * as repo from "./db/queries/mind-maps";
 import { logger } from "@/lib/logger";
+
 // ── In-memory cache (parnjak sources-storage.ts) ──
 let _cache: MindMapDoc[] | null = null;
 
@@ -28,17 +37,14 @@ export function invalidateMindMapsCache(): void {
 
 export async function loadMindMaps(): Promise<MindMapDoc[]> {
   if (_cache) return _cache;
-  const all = await db.mindMaps.orderBy("updatedAt").reverse().toArray();
+  const all = await repo.listAllMindMaps();
   _cache = all;
   return all;
 }
 
 export async function saveMindMap(doc: MindMapDoc): Promise<void> {
-  // V6: only invalidate + notify AFTER a confirmed write. Otherwise a failed
-  // put would invalidate the cache, force a reload from stale IDB, and drop
-  // the user's drawing.
   try {
-    await db.mindMaps.put(doc);
+    await repo.putMindMap(doc);
   } catch (err) {
     logger.error("[mindmap-storage] saveMindMap failed", err);
     throw err;
@@ -49,17 +55,16 @@ export async function saveMindMap(doc: MindMapDoc): Promise<void> {
 
 export async function deleteMindMap(id: string): Promise<void> {
   _cache = null;
-  await db.mindMaps.delete(id);
+  await repo.deleteMindMap(id);
   _notify();
 }
 
 export async function getMindMap(id: string): Promise<MindMapDoc | undefined> {
-  // Hit cache when available to avoid IDB roundtrip from many EmbeddedMindMap nodes.
   if (_cache) {
     const hit = _cache.find(d => d.id === id);
     if (hit) return hit;
   }
-  return db.mindMaps.get(id);
+  return repo.getMindMap(id);
 }
 
 // V12: HMR cleanup — prevent leaking Set-level listeners across module reloads.
