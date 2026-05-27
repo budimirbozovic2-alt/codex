@@ -1,14 +1,13 @@
-import { useMemo } from "react";
 import { AlertTriangle, Shield, Zap, ArrowRightLeft, HeartPulse, Eye, Wrench } from "lucide-react";
-import { Card, getErrorStatus } from "@/lib/spaced-repetition";
+import { Card } from "@/lib/spaced-repetition";
 import { ReviewLogEntry } from "@/lib/storage";
 import { Progress } from "@/components/ui/progress";
 import { calcWeakHooks } from "@/lib/cognitive-analytics";
 import { analyticsClient } from "@/lib/analytics/workerClient";
 import { loadPlanner } from "@/lib/planner-storage";
-import { loadCalibration, loadLatency } from "@/lib/metacognitive-storage";
 import LazyChart from "@/components/LazyChart";
 import InfoPanel from "@/components/InfoPanel";
+import { useCognitiveStats } from "@/hooks/useCognitiveStats";
 
 interface Props {
   cards: Card[];
@@ -33,49 +32,8 @@ export default function CognitiveAnalytics({ cards, categories, reviewLog, catNa
   const isScoped = !!categoryId;
 
   // ─── Per-subject data counters (used inside InfoPanels) ───
-  const counts = useMemo(() => {
-    const cardIds = new Set(cards.map(c => c.id));
-
-    let cardsWithErrors = 0;
-    let activeErrors = 0;
-    let totalErrors = 0;
-    let sectionsWithReview = 0;
-    let totalSections = 0;
-
-    cards.forEach(c => {
-      const log = c.errorLog || [];
-      if (log.length > 0) cardsWithErrors++;
-      log.forEach(e => {
-        totalErrors++;
-        if (getErrorStatus(e) !== "mastered") activeErrors++;
-      });
-      c.sections.forEach(s => {
-        totalSections++;
-        if (s.lastReviewed) sectionsWithReview++;
-      });
-    });
-
-    // Calibration & latency are global stores; filter to this subject's cards.
-    const calibration = loadCalibration();
-    const latency = loadLatency();
-    const subjectCalibration = calibration.filter(e => cardIds.has(e.cardId)).length;
-    const subjectLatency = latency.filter(e => cardIds.has(e.cardId)).length;
-
-    const planner = loadPlanner();
-
-    return {
-      cards: cards.length,
-      cardsWithErrors,
-      activeErrors,
-      totalErrors,
-      sectionsWithReview,
-      totalSections,
-      reviewLog: reviewLog.length,
-      subjectCalibration,
-      subjectLatency,
-      examDate: planner.finalGoalDate,
-    };
-  }, [cards, reviewLog]);
+  const counts = useCognitiveStats(cards, reviewLog);
+  const examDateLabel = counts.examDate || "nije postavljen";
 
   return (
     <div className="space-y-6">
@@ -147,7 +105,7 @@ export default function CognitiveAnalytics({ cards, categories, reviewLog, catNa
             <ul className="space-y-0.5 pt-1">
               <DataRow label="Sekcije ukupno" value={counts.totalSections} />
               <DataRow label="Sekcije sa istorijom ponavljanja" value={counts.sectionsWithReview} />
-              <DataRow label="Datum cilja (planner)" value={counts.examDate || "nije postavljen"} />
+              <DataRow label="Datum cilja (planner)" value={examDateLabel} />
             </ul>
           </InfoPanel>
         }
@@ -157,7 +115,7 @@ export default function CognitiveAnalytics({ cards, categories, reviewLog, catNa
         ) : (
           <div className="space-y-3">
             <p className="text-xs text-muted-foreground">{isScoped ? "Procijenjeno vrijeme do zaborava za ovaj predmet." : "Procijenjeno vrijeme do zaborava po kategoriji."}</p>
-            {stabilityData.sort((a, b) => a.avgStability - b.avgStability).map(cat => {
+            {[...stabilityData].sort((a, b) => a.avgStability - b.avgStability).map(cat => {
               const retPct = Math.round(cat.avgRetrievability * 100);
               const stabDays = Math.round(cat.avgStability * 10) / 10;
               return (
