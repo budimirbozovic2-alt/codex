@@ -8,7 +8,7 @@
  * Walled per architecture memory: deep imports into sibling files are
  * forbidden, the barrel is the single seam.
  */
-export { cardsBySource, cardsBySource$ } from "./cards";
+export { cardsBySource } from "./cards";
 
 // Re-export legacy query helpers that still live in `src/lib/db-queries.ts`
 // so hooks have a single, sanctioned entry-point and never reach `@/lib/db`.
