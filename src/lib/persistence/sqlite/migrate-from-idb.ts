@@ -39,6 +39,7 @@ export interface MigrationCounts {
   cards: number;
   mindMaps: number;
   mnemonics: number;
+  knowledgeBaseArticles: number;
 }
 
 export interface MigrationReport {
