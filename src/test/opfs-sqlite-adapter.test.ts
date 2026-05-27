@@ -73,13 +73,6 @@ describe("opfsSqliteAdapter", () => {
     expect(mock.bulkCallCount).toBe(0);
   });
 
-  it("enqueueWal / recoverPending are no-ops (SQLite owns durability)", async () => {
-    const mock = createMockExecutor();
-    const adapter = createOpfsSqliteAdapter({ getExecutor: async () => mock });
-    await adapter.enqueueWal({ kind: "put", card: makeCard("x") });
-    const r = await adapter.recoverPending();
-    expect(r).toEqual({ recovered: 0 });
-  });
 });
 
 describe("mirroringAdapter", () => {
@@ -87,13 +80,9 @@ describe("mirroringAdapter", () => {
     const calls: string[] = [];
     const primary: PersistAdapter = {
       async bulkApply() { calls.push("p"); },
-      async enqueueWal() { /* */ },
-      async recoverPending() { return { recovered: 0 }; },
     };
     const secondary: PersistAdapter = {
       async bulkApply() { calls.push("s"); },
-      async enqueueWal() { /* */ },
-      async recoverPending() { return { recovered: 0 }; },
     };
     const adapter = createMirroringAdapter(primary, secondary);
     await adapter.bulkApply([makeCard("a")], []);
@@ -105,15 +94,12 @@ describe("mirroringAdapter", () => {
   it("secondary failures do not reject primary writes", async () => {
     const primary: PersistAdapter = {
       async bulkApply() { /* ok */ },
-      async enqueueWal() { /* */ },
-      async recoverPending() { return { recovered: 0 }; },
     };
     const secondary: PersistAdapter = {
       async bulkApply() { throw new Error("secondary down"); },
-      async enqueueWal() { /* */ },
-      async recoverPending() { return { recovered: 0 }; },
     };
     const adapter = createMirroringAdapter(primary, secondary);
     await expect(adapter.bulkApply([makeCard("a")], [])).resolves.toBeUndefined();
   });
 });
+

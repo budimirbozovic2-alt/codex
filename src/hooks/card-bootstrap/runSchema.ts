@@ -6,7 +6,7 @@
  * SCHEMA_FAIL → schema-error → BootRecoveryGate prikazuje SchemaErrorScreen.
  */
 import { migrateFromLocalStorage } from "@/lib/db";
-import { recoverOutboxOnBoot } from "@/lib/persist-queue";
+// Outbox recovery removed in A1a — SQLite WAL handles durability.
 import { markBootStep } from "@/lib/boot-trace";
 import { transition } from "@/lib/boot";
 import { logger } from "@/lib/logger";
@@ -42,13 +42,8 @@ export async function runSchema(): Promise<void> {
     throw new SchemaError("migrateMnemonics", e);
   }
 
-  // Step 3: Outbox WAL recovery — re-apply card writes koji su crash-ovali u flush-u.
-  try {
-    transition({ type: "SCHEMA_PROGRESS", pct: 70, label: "Outbox recovery…" });
-    await withTimeout(recoverOutboxOnBoot(), 3000, "outbox recovery", { recovered: 0 });
-  } catch (e) {
-    throw new SchemaError("outboxRecovery", e);
-  }
+  // Step 3 removed (A1a): outbox WAL recovery — SQLite WAL replaces it.
+
 
   // Step 4 (PR-8 M2): One-shot IDB → SQLite migration. Electron-only because
   // OPFS-SAH-pool is unreliable in browsers today. SOFT-FAIL: failure here

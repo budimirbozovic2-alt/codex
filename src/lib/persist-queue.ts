@@ -1,7 +1,7 @@
 import { toast } from "sonner";
 import { Card } from "@/lib/spaced-repetition";
 import { logger } from "@/lib/logger";
-import { idbOutboxAdapter } from "@/lib/persistence/idb-outbox-adapter";
+import { idbAdapter } from "@/lib/persistence/idb-adapter";
 import { getDefaultAdapter } from "@/lib/persistence/adapter-factory";
 import { hasMigrationFlagSync } from "@/lib/persistence/sqlite/migrate-from-idb";
 import type { PersistAdapter } from "@/lib/persistence/PersistAdapter";
@@ -21,14 +21,13 @@ export type PersistAction =
   | { type: "delete"; id: string }
   | { type: "bulk"; cards: Card[] };
 
-// ─── Adapter wiring (PR-7d M3.2 / Pure Desktop finale) ──
-// All IDB-specific writes go through the adapter. Pure Desktop default:
-// pick SQLite-primary when the one-shot migration flag is present in
-// localStorage (mirrored from SQLite kv on previous boot). On first boot
-// after deploy, falls back to IDB-primary + SQLite mirror until the boot
-// migration completes; next boot promotes SQLite.
+// ─── Adapter wiring (Pure Desktop / post A1a) ───────────
+// All persistence goes through a `PersistAdapter`. Defaults to SQLite-primary
+// + IDB mirror once the one-shot migration flag is present in localStorage.
+// Pre-migration boots use IDB-primary + SQLite mirror so the next boot can
+// flip primary cleanly.
 function pickInitialAdapter(): PersistAdapter {
-  if (typeof window === "undefined") return idbOutboxAdapter;
+  if (typeof window === "undefined") return idbAdapter;
   const isElectron = Boolean((window as { electronAPI?: unknown }).electronAPI);
   return getDefaultAdapter({
     isElectron,
@@ -44,6 +43,7 @@ export function __setPersistAdapter(adapter: PersistAdapter): void {
 function getAdapter(): PersistAdapter {
   return _adapter;
 }
+
 
 function createPersistQueue() {
   // Coalesce by id: last write wins; delete after put cancels put; put after delete cancels delete.
@@ -75,7 +75,6 @@ function createPersistQueue() {
   }
 
   function enqueue(action: PersistAction) {
-    const adapter = getAdapter();
     if (action.type === "put") {
       const id = action.card.id;
       if (import.meta.env.DEV && pendingDeletes.has(id)) {
@@ -94,7 +93,6 @@ function createPersistQueue() {
       }
       pendingDeletes.delete(id);
       pendingPuts.set(id, { card: action.card, seq: ++globalSeq });
-      void adapter.enqueueWal({ kind: "put", card: action.card });
     } else if (action.type === "delete") {
       const id = action.id;
       if (import.meta.env.DEV && pendingPuts.has(id)) {
@@ -102,7 +100,6 @@ function createPersistQueue() {
       }
       pendingPuts.delete(id);
       pendingDeletes.set(id, { seq: ++globalSeq });
-      void adapter.enqueueWal({ kind: "delete", id });
     } else {
       for (const c of action.cards) {
         if (import.meta.env.DEV && pendingDeletes.has(c.id)) {
@@ -110,11 +107,11 @@ function createPersistQueue() {
         }
         pendingDeletes.delete(c.id);
         pendingPuts.set(c.id, { card: c, seq: ++globalSeq });
-        void adapter.enqueueWal({ kind: "put", card: c });
       }
     }
     notify();
   }
+
 
   function hasPending() {
     return pendingPuts.size > 0 || pendingDeletes.size > 0;
@@ -255,18 +252,7 @@ if (import.meta.hot) {
   });
 }
 
-/**
- * Boot-time outbox recovery — delegates to the persist adapter.
- */
-export async function recoverOutboxOnBoot(): Promise<{ recovered: number }> {
-  return getAdapter().recoverPending();
-}
+// Outbox crash-recovery (`recoverOutboxOnBoot` / `checkInterruptedFlush`)
+// was removed in A1a — SQLite WAL is the durability primitive now and the
+// Dexie `outbox` table is dropped in v23. Boot no longer runs a recovery step.
 
-/**
- * @deprecated Use `recoverOutboxOnBoot()` — the sessionStorage flag was
- * replaced by the durable `outbox` table in v20. Stub kept so legacy callers
- * compile; it forwards to the recovery path and discards the result.
- */
-export function checkInterruptedFlush(): void {
-  void recoverOutboxOnBoot();
-}

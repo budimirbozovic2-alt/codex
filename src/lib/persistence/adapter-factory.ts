@@ -1,10 +1,10 @@
 /**
- * Adapter factory — PR-8 M3 / Pure Desktop finale.
+ * Adapter factory — PR-9 M4 (post A1a).
  *
  * Single decision point for which `PersistAdapter` the persist queue uses.
  *
  * Decision matrix (Pure Desktop):
- *   • Non-Electron (Vite dev preview only)            → IDB outbox adapter.
+ *   • Non-Electron (Vite dev preview only)            → IDB adapter.
  *   • Electron + migration flag NOT set yet           → MirroringAdapter
  *                                                       (IDB primary, SQLite
  *                                                       mirror) — populates
@@ -19,7 +19,7 @@
  * deprecated; the flag is retained as a kill-switch for emergency rollback.
  */
 import type { PersistAdapter } from "./PersistAdapter";
-import { idbOutboxAdapter } from "./idb-outbox-adapter";
+import { idbAdapter } from "./idb-adapter";
 import { opfsSqliteAdapter } from "./opfs-sqlite-adapter";
 import { createMirroringAdapter } from "./mirroring-adapter";
 
@@ -34,14 +34,14 @@ interface FactoryOptions {
 
 export function getDefaultAdapter(opts: FactoryOptions = {}): PersistAdapter {
   const enableSqlite = opts.enableSqlitePrimary !== false; // default true
-  if (!opts.isElectron) return idbOutboxAdapter;
-  if (!enableSqlite) return idbOutboxAdapter;
+  if (!opts.isElectron) return idbAdapter;
+  if (!enableSqlite) return idbAdapter;
   if (!opts.migrationComplete) {
     // Lockstep mirror: IDB stays primary so existing read paths are unaffected,
     // SQLite catches every write so the next boot can flip primary cleanly.
-    return createMirroringAdapter(idbOutboxAdapter, opfsSqliteAdapter);
+    return createMirroringAdapter(idbAdapter, opfsSqliteAdapter);
   }
   // Migration complete — SQLite primary, IDB mirrored for one release as
-  // rollback insurance. PR-9 removes the IDB mirror.
-  return createMirroringAdapter(opfsSqliteAdapter, idbOutboxAdapter);
+  // rollback insurance. The Dexie-mirror cut-off comes in a follow-up PR.
+  return createMirroringAdapter(opfsSqliteAdapter, idbAdapter);
 }
