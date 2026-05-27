@@ -188,7 +188,7 @@ export default function SessionFilters({
               <Lock className="h-3 w-3" />
               <span>{catName(lockedCategory)}</span>
               <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-primary/15">
-                {cards.filter(card => card.categoryId === lockedCategory).length}
+                {categoryCounts.get(lockedCategory) ?? 0}
               </span>
             </span>
           </div>
@@ -216,7 +216,7 @@ export default function SessionFilters({
                 )}
                 <span className="relative z-10">{catName(c)}</span>
                 <span className={`relative z-10 text-[10px] px-1.5 py-0.5 rounded-full ${selectedCategory === c ? "bg-primary-foreground/20" : "bg-secondary"}`}>
-                  {cards.filter(card => card.categoryId === c).length}
+                  {categoryCounts.get(c) ?? 0}
                 </span>
               </motion.button>
             ))}
