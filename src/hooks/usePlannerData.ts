@@ -5,6 +5,7 @@ import { ReviewLogEntry } from "@/lib/storage";
 import type { CategoryRecord } from "@/lib/db";
 import { analyticsClient } from "@/lib/analytics/workerClient";
 import type { PlannerConfig } from "@/lib/planner-storage";
+import { DEFAULT_CONFIG } from "@/lib/planner/types";
 import { queryKeys } from "@/lib/query/keys";
 import {
   hashReviewLog,
@@ -21,7 +22,7 @@ async function getPlannerModule(): Promise<PlannerModule> {
   return _plannerMod;
 }
 
-const DEFAULT_CONFIG: PlannerConfig = { dailyAvailableMinutes: 0, finalGoalDate: "", bufferPercent: 15 };
+
 
 export function usePlannerData(cards: SRCard[], reviewLog: ReviewLogEntry[], categoryRecords: CategoryRecord[]) {
   const qc = useQueryClient();
