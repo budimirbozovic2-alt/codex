@@ -1,6 +1,5 @@
 import { useParams, Link, useNavigate } from "react-router-dom";
-import { useCardData, useCategoryData, useCategoryActions } from "@/contexts/AppContext";
-import { useCardsByCategory } from "@/store";
+import { useCategoryActions } from "@/contexts/AppContext";
 import { useMemo, useState } from "react";
 import {
   ArrowLeft, BookMarked, Brain, RefreshCw, AlertTriangle,
@@ -14,50 +13,26 @@ import { Button } from "@/components/ui/button";
 import {
   Tooltip, TooltipContent, TooltipProvider, TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { getCardMasteryLevel, getMasteryColor, MASTERY_LEVELS } from "@/lib/mastery";
-import { SectionState, type Card } from "@/lib/spaced-repetition";
+import { getMasteryColor, MASTERY_LEVELS } from "@/lib/mastery";
 import { buildQuery } from "@/lib/url-params";
+import { useSubjectDashboardModel } from "@/hooks/useSubjectDashboardModel";
 
 export default function SubjectDashboard() {
   const { categoryId } = useParams<{ categoryId: string }>();
-  const { categoryRecords } = useCategoryData();
-  const { dueCards } = useCardData();
-  const subjectCardsRo = useCardsByCategory(categoryId);
-  const subjectCards = useMemo(() => subjectCardsRo as readonly Card[] as Card[], [subjectCardsRo]);
-
-  const categoryRec = useMemo(
-    () => categoryRecords.find(r => r.id === categoryId),
-    [categoryRecords, categoryId],
-  );
-  const categoryName = categoryRec?.name ?? "Nepoznat predmet";
-
+  const navigate = useNavigate();
   const { updateExaminerProfile } = useCategoryActions();
+
+  const {
+    categoryRec,
+    categoryName,
+    subjectCards,
+    subjectSubcategories,
+    subjectDueCount,
+    subProgressData,
+  } = useSubjectDashboardModel(categoryId);
+
   const [infoOpen, setInfoOpen] = useState(false);
   const [matrixOpen, setMatrixOpen] = useState(false);
-  const navigate = useNavigate();
-
-  const subjectSubcategories = useMemo(
-    () => (categoryRec?.subcategories ?? []).map(s => ({ id: s.id, name: s.name })),
-    [categoryRec],
-  );
-
-  // Local sub/chapter bucketing over the (already-filtered) subject card set —
-  // O(N) over subject cards only, no global index.
-  const { bySubcategory, byChapter } = useMemo(() => {
-    const bySub = new Map<string, Card[]>();
-    const byCh = new Map<string, Card[]>();
-    for (const c of subjectCards) {
-      if (c.subcategoryId) {
-        const arr = bySub.get(c.subcategoryId);
-        if (arr) arr.push(c); else bySub.set(c.subcategoryId, [c]);
-      }
-      if (c.chapterId) {
-        const arr = byCh.get(c.chapterId);
-        if (arr) arr.push(c); else byCh.set(c.chapterId, [c]);
-      }
-    }
-    return { bySubcategory: bySub, byChapter: byCh };
-  }, [subjectCards]);
 
   const handleMatrixStart = (f: MatrixFilters) => {
     const qs = buildQuery({
@@ -70,39 +45,6 @@ export default function SubjectDashboard() {
     });
     navigate(`/learn${qs}`);
   };
-
-  // ─── Knowledge progress data ──────────────────────────
-  const subProgressData = useMemo(() => {
-    if (!categoryId || !categoryRec) return [];
-    const subs = categoryRec.subcategories ?? [];
-
-    return subs.map(sub => {
-      const subCards = bySubcategory.get(sub.id) ?? [];
-      const totalSections = subCards.reduce((s, c) => s + (c.sections?.length ?? 0), 0);
-      const learnedSections = subCards.reduce(
-        (s, c) => s + (c.sections?.filter(sec => sec.state !== SectionState.New).length ?? 0), 0,
-      );
-      const pct = totalSections > 0 ? Math.round((learnedSections / totalSections) * 100) : 0;
-      const avgMastery = subCards.length > 0
-        ? Math.round(subCards.reduce((s, c) => s + getCardMasteryLevel(c), 0) / subCards.length)
-        : 0;
-
-      const chapters = (sub.chapters ?? []).map(ch => {
-        const chCards = byChapter.get(ch.id) ?? [];
-        const chTotal = chCards.reduce((s, c) => s + (c.sections?.length ?? 0), 0);
-        const chLearned = chCards.reduce(
-          (s, c) => s + (c.sections?.filter(sec => sec.state !== SectionState.New).length ?? 0), 0,
-        );
-        const chPct = chTotal > 0 ? Math.round((chLearned / chTotal) * 100) : 0;
-        const chMastery = chCards.length > 0
-          ? Math.round(chCards.reduce((s, c) => s + getCardMasteryLevel(c), 0) / chCards.length)
-          : 0;
-        return { id: ch.id, name: ch.name, cardCount: chCards.length, pct: chPct, mastery: chMastery };
-      });
-
-      return { id: sub.id, name: sub.name, cardCount: subCards.length, pct, mastery: avgMastery, chapters };
-    });
-  }, [categoryId, categoryRec, bySubcategory, byChapter]);
 
   const knowledgeBaseCards = useMemo(() => [
     {
@@ -124,11 +66,6 @@ export default function SubjectDashboard() {
       desc: "Uređivanje i raspored kartica",
     },
   ], [categoryId]);
-
-  const subjectDueCount = useMemo(
-    () => dueCards.filter(c => c.categoryId === categoryId).length,
-    [dueCards, categoryId],
-  );
 
   const coreActions = useMemo(() => [
     {
