@@ -23,6 +23,7 @@ const SNAP_THRESHOLD = 20;
 
 export function useMindMapCanvas(doc: MindMapDoc) {
   const { screenToFlowPosition, fitView } = useReactFlow();
+  const { save: saveMutation } = useMindMapMutations();
   const [title, setTitle] = useState(doc.title);
   const [dirty, setDirty] = useState(false);
   const [deletedStack, setDeletedStack] = useState<{ nodes: Node[]; edges: Edge[] }[]>([]);
