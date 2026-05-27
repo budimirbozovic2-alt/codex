@@ -15,6 +15,12 @@ import { useSyncExternalStore, useRef } from "react";
 import { cardMapStore } from "./useCardMapStore";
 import type { Card } from "@/lib/spaced-repetition";
 import type { CardMap } from "@/lib/persist-queue";
+import type {
+  CategoryIdLike,
+  SubcategoryIdLike,
+  ChapterIdLike,
+  CardIdLike,
+} from "@/lib/ids";
 
 const EMPTY: readonly Card[] = Object.freeze([]);
 
