@@ -182,7 +182,7 @@ export function recordAppEntry() {
   const today = new Date().toISOString().slice(0, 10);
   if (_appEntry && _appEntry.date === today) return;
   _appEntry = { date: today, time: Date.now() };
-  db.settings.put({ key: "appEntry", value: _appEntry }).catch((e) => logger.warn("[silent]", e));
+  putSetting("appEntry", _appEntry).catch((e) => logger.warn("[silent]", e));
 }
 
 export function recordFirstAction() {
@@ -193,7 +193,7 @@ export function recordFirstAction() {
 
     const slippageMs = Date.now() - _appEntry.time;
     _appEntry = { ..._appEntry, actionRecorded: true };
-    db.settings.put({ key: "appEntry", value: _appEntry }).catch((e) => logger.warn("[silent]", e));
+    putSetting("appEntry", _appEntry).catch((e) => logger.warn("[silent]", e));
 
     const slippageEntry: SlippageEntry = { date: today, appEntryTime: _appEntry.time, firstActionTime: Date.now(), slippageMs };
     _slippageCache = [..._slippageCache, slippageEntry];
