@@ -24,6 +24,7 @@ export async function saveMajorSystem(system: Record<number, string>): Promise<v
   try {
     const records = Object.entries(system).map(([id, peg]) => ({ id: parseInt(id, 10), peg }));
     await bulkPutPegs(records);
+    notifyMnemonics();
   } catch (err) {
     logger.error("[mnemonic-storage] saveMajorSystem failed", err);
   }
