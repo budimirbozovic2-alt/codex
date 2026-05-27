@@ -84,19 +84,19 @@ export function saveSubjectSettings(categoryId: string, settings: SubjectSetting
   const json = JSON.stringify(settings);
   // localStorage stays as a fast-read mirror.
   try { localStorage.setItem(PREFIX + categoryId, json); } catch { /* quota */ }
-  // IDB is canonical and is the source for backups + restore.
-  import("./db").then(({ db }) => {
-    db.settings.put({ key: PREFIX + categoryId, value: settings })
-      .catch((err) => logger.warn("[subject-settings] IDB put failed", err));
+  // SQLite (via repo) is canonical and is the source for backups + restore.
+  import("@/lib/db/queries").then(({ putSetting }) => {
+    putSetting(PREFIX + categoryId, settings)
+      .catch((err) => logger.warn("[subject-settings] put failed", err));
   }).catch(() => {});
 }
 
 export function clearSubjectSettings(categoryId: string): void {
   _cache.delete(categoryId);
   try { localStorage.removeItem(PREFIX + categoryId); } catch { /* noop */ }
-  import("./db").then(({ db }) => {
-    db.settings.delete(PREFIX + categoryId)
-      .catch((err) => logger.warn("[subject-settings] IDB delete failed", err));
+  import("@/lib/db/queries").then(({ deleteSetting }) => {
+    deleteSetting(PREFIX + categoryId)
+      .catch((err) => logger.warn("[subject-settings] delete failed", err));
   }).catch(() => {});
 }
 
