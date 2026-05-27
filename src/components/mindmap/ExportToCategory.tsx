@@ -51,7 +51,7 @@ export default function ExportToCategory({ open, onOpenChange, currentTitle, cur
         createdAt: Date.now(),
         updatedAt: Date.now(),
       };
-      await saveMindMap(snapshot);
+      await save.mutateAsync(snapshot);
       onOpenChange(false);
       afterDialogClose(() => toast.success("Mapa eksportovana u predmet."));
     } catch (err) {
