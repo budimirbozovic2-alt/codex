@@ -67,6 +67,13 @@ export function installQueryBridges(qc: QueryClient): void {
     void qc.invalidateQueries({ queryKey: ["mnemonics"] });
   });
 
+  // ── Knowledge base (Zettel) ─────────────────────────────
+  // notifyKnowledgeBaseChanged se fire-uje iz queries/knowledge-base.ts
+  // nakon put/bulkPut/delete; bulkCreate/ensureIndex prolaze kroz bulkPut.
+  onKnowledgeBaseChanged(() => {
+    void qc.invalidateQueries({ queryKey: ["knowledgeBase"] });
+  });
+
   // ── Settings (prefix "" = sve mutacije) ─────────────────
   onSettingsChanged("", (key: string) => {
     void qc.invalidateQueries({ queryKey: ["settings", key] });
