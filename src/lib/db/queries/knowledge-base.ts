@@ -214,6 +214,7 @@ export async function putArticle(article: KnowledgeBaseArticle): Promise<void> {
     logger.warn("[kb-articles-repo] dexie mirror put failed", { id: article.id, err });
     throw err;
   }
+  notifyKnowledgeBaseChanged();
 }
 
 /** Batch mirror for post-tx flows (bulkCreateArticlesIfMissing, ensureIndexArticle). */
@@ -240,6 +241,7 @@ export async function bulkPutArticles(articles: readonly KnowledgeBaseArticle[])
   catch (err) {
     logger.warn("[kb-articles-repo] dexie mirror bulkPut failed", err);
   }
+  notifyKnowledgeBaseChanged();
 }
 
 export async function deleteArticle(id: string): Promise<void> {
@@ -255,4 +257,6 @@ export async function deleteArticle(id: string): Promise<void> {
     logger.warn("[kb-articles-repo] dexie delete failed", { id, err });
     throw err;
   }
+  notifyKnowledgeBaseChanged();
 }
+
