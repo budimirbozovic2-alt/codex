@@ -6,15 +6,14 @@
 // which is genuinely lifecycle-bound.
 import { useEffect } from "react";
 import { onCardLinksCleared, onCardReviewConfirmed } from "@/lib/sources-storage";
-import { cardRepository } from "@/lib/repositories";
+import { clearLinks, clearNeedsReview } from "@/lib/cards/cardMapWrites";
 
 export function useCardSyncEffects(): void {
   useEffect(() => onCardLinksCleared((ids) => {
-    cardRepository.clearLinks(ids);
+    clearLinks(ids);
   }), []);
 
   useEffect(() => onCardReviewConfirmed((cardId) => {
-    cardRepository.clearNeedsReview(cardId);
+    clearNeedsReview(cardId);
   }), []);
 }
-

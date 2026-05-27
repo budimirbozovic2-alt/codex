@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { arrayToMap } from "@/lib/persist-queue";
 import { markBootStep } from "@/lib/boot-trace";
 import { transition, getBootState, installSplashBridge } from "@/lib/boot";
-import { cardRepository } from "@/lib/repositories";
+import { replaceAll as cardMapReplaceAll } from "@/lib/cards/cardMapWrites";
 import { categoryRepository } from "@/lib/repositories";
 import { replaceReviewLog, seedSrSettings } from "@/store/reviewSettingsStore";
 import {
@@ -81,7 +81,7 @@ export function useCardBootstrap() {
         markBootStep("cards:data-load-done", `${cards.length} cards`);
 
         if (import.meta.env.DEV) logger.log("[boot:diag] setting state — cards:", cards.length, "categories:", finalRecords.length);
-        cardRepository.replaceAll(arrayToMap(cards));
+        cardMapReplaceAll(arrayToMap(cards));
         categoryRepository.replaceAll(finalRecords);
         replaceReviewLog(log);
         seedSrSettings(settings);

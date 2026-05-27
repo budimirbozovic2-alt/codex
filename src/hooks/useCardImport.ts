@@ -9,7 +9,7 @@ import { yieldUI } from "@/lib/backup/yield-ui";
 import { applyImportAtomically, type ImportStrategy } from "@/lib/backup/import-transaction";
 import { parseJsonInWorker } from "@/lib/zip-service";
 import { clearReviewSession } from "@/lib/review-session-storage";
-import { cardRepository } from "@/lib/repositories";
+import { replaceAll as cardMapReplaceAll, bulkPut as cardMapBulkPut } from "@/lib/cards/cardMapWrites";
 import { categoryRepository } from "@/lib/repositories";
 import { getCardMap } from "@/store";
 import { replaceReviewLog, updateSRSettings } from "@/store/reviewSettingsStore";
@@ -123,7 +123,7 @@ export function useCardImport() {
         //       cardRepository.replaceAll handles setCardMap + bumpMapVersion
         //       + CARDS_UPDATED emit). cardMapRef reads stay live via the C4
         //       unified atom; no explicit ref mutation required.
-        cardRepository.replaceAll(result2.nextMap);
+        cardMapReplaceAll(result2.nextMap);
         // Phase 5C — categories go through the repository → mirror.
         categoryRepository.replaceAll(result2.freshCategories);
         if (result2.reviewLogApplied) setReviewLog(result2.reviewLogApplied);
@@ -192,7 +192,7 @@ export function useCardImport() {
       );
       const now = Date.now();
       created.forEach((c) => { c.updatedAt = now; });
-      if (created.length > 0) cardRepository.bulkPut(created);
+      if (created.length > 0) cardMapBulkPut(created);
     },
     [],
   );
