@@ -13,17 +13,19 @@
 import type { SqlExecutor } from "@/lib/persistence/sqlite/executor";
 import { db, type DraftRecord } from "@/lib/db-schema";
 import { logger } from "@/lib/logger";
+import { notifyExecutorNull } from "./_shared/executor-telemetry";
 
 // ─── Executor accessor ──────────────────────────────────────────────────
 
 async function tryGetExecutor(): Promise<SqlExecutor | null> {
   try {
     const { isElectron } = await import("@/lib/electron-integration");
-    if (!isElectron()) return null;
+    if (!isElectron()) { notifyExecutorNull("drafts", "non-electron"); return null; }
     const { getOpfsSqliteExecutor } = await import("@/lib/persistence/sqlite/client");
     return await getOpfsSqliteExecutor();
   } catch (err) {
     logger.warn("[drafts-repo] sqlite executor unavailable, using Dexie fallback", err);
+    notifyExecutorNull("drafts", "error");
     return null;
   }
 }

@@ -111,3 +111,13 @@ export {
 // PR-9 A1b P1.B — consolidated backup/health read seam (SQLite-primary
 // where possible, explicit Dexie read-replicas where not yet migrated).
 export * from "./backup-readers";
+
+// PR-9 A1c-0 — executor miss telemetry (pre-condition gate for dropping
+// the Dexie mirror). Aggregate count must stay at 0 for one soak cycle
+// before A1c-1 may delete the fallback branches.
+export {
+  getExecutorMissCounts,
+  getTotalExecutorMisses,
+  onExecutorMiss,
+} from "./_shared/executor-telemetry";
+export type { ExecutorMissReason } from "./_shared/executor-telemetry";
