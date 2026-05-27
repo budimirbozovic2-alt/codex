@@ -201,74 +201,58 @@ export async function findArticleByTitle(
 
 export async function putArticle(article: KnowledgeBaseArticle): Promise<void> {
   const exec = await tryGetExecutor();
-  // Schema requires subjectId NOT NULL — skip SQLite for unscoped rows
-  // (should never happen in practice; defensive guard mirrors mind-maps).
-  if (exec && article.subjectId) {
-    try {
-      await exec.run(INSERT_SQL, bindRow(article));
-    } catch (err) {
-      logger.warn("[kb-articles-repo] sqlite put failed", { id: article.id, err });
-      throw err;
-    }
+  if (!exec) {
+    const { assertDesktop } = await import("@/lib/electron-integration");
+    assertDesktop();
+    return;
   }
-  try { await db.knowledgeBaseArticles.put(article); }
-  catch (err) {
-    logger.warn("[kb-articles-repo] dexie mirror put failed", { id: article.id, err });
+  if (!article.subjectId) {
+    logger.warn("[kb-articles-repo] put skipped — missing subjectId", { id: article.id });
+    return;
+  }
+  try {
+    await exec.run(INSERT_SQL, bindRow(article));
+  } catch (err) {
+    logger.warn("[kb-articles-repo] sqlite put failed", { id: article.id, err });
     throw err;
   }
   notifyKnowledgeBaseChanged();
 }
 
-/** Batch mirror for post-tx flows (bulkCreateArticlesIfMissing, ensureIndexArticle). */
+/** Batch writer for post-tx flows (bulkCreateArticlesIfMissing, ensureIndexArticle). */
 export async function bulkPutArticles(articles: readonly KnowledgeBaseArticle[]): Promise<void> {
   if (articles.length === 0) return;
   const exec = await tryGetExecutor();
-  if (exec) {
-    try {
-      await exec.transaction(async (tx) => {
-        for (const a of articles) {
-          if (!a.subjectId) continue;
-          await tx.run(INSERT_SQL, bindRow(a));
-        }
-      });
-    } catch (err) {
-      logger.warn("[kb-articles-repo] sqlite bulkPut failed", { n: articles.length, err });
-      throw err;
-    }
+  if (!exec) {
+    const { assertDesktop } = await import("@/lib/electron-integration");
+    assertDesktop();
+    return;
   }
-  // Dexie mirror is a no-op when the upstream caller already wrote to Dexie
-  // inside its own rw transaction. Kept as a safety net for callers that
-  // skipped that step.
-  try { await db.knowledgeBaseArticles.bulkPut([...articles]); }
-  catch (err) {
-    logger.warn("[kb-articles-repo] dexie mirror bulkPut failed", err);
+  try {
+    await exec.transaction(async (tx) => {
+      for (const a of articles) {
+        if (!a.subjectId) continue;
+        await tx.run(INSERT_SQL, bindRow(a));
+      }
+    });
+  } catch (err) {
+    logger.warn("[kb-articles-repo] sqlite bulkPut failed", { n: articles.length, err });
+    throw err;
   }
   notifyKnowledgeBaseChanged();
 }
 
 export async function deleteArticle(id: string): Promise<void> {
   const exec = await tryGetExecutor();
-  if (exec) {
-    try { await exec.run("DELETE FROM knowledgeBaseArticles WHERE id = ?", [id]); }
-    catch (err) {
-      logger.warn("[kb-articles-repo] sqlite delete failed", { id, err });
-    }
+  if (!exec) {
+    const { assertDesktop } = await import("@/lib/electron-integration");
+    assertDesktop();
+    return;
   }
-  try { await db.knowledgeBaseArticles.delete(id); }
+  try { await exec.run("DELETE FROM knowledgeBaseArticles WHERE id = ?", [id]); }
   catch (err) {
-    logger.warn("[kb-articles-repo] dexie delete failed", { id, err });
+    logger.warn("[kb-articles-repo] sqlite delete failed", { id, err });
     throw err;
   }
   notifyKnowledgeBaseChanged();
-}
-
-
-// ── A2 — Dexie mirror helper for category-deletion cascade ──────────────
-export async function deleteArticlesBySubjectDexie(subjectId: string): Promise<number> {
-  try {
-    return await db.knowledgeBaseArticles.where("subjectId").equals(subjectId).delete();
-  } catch (err) {
-    logger.warn("[kb-articles-repo] dexie deleteBySubject failed", { subjectId, err });
-    return 0;
-  }
 }
