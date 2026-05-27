@@ -199,6 +199,21 @@ export function cardsByTag(tag: string, limit = 500): Promise<Card[]> {
 
 // ── Counts ───────────────────────────────────────────────────────────────
 
+export async function countAllCards(): Promise<number> {
+  const exec = await tryGetExecutor();
+  if (exec) {
+    try {
+      const rows = await exec.all<{ n: number }>("SELECT COUNT(*) AS n FROM cards");
+      return Number(rows[0]?.n ?? 0);
+    } catch (err) {
+      logger.warn("[cards-repo] sqlite countAll failed", err);
+    }
+  }
+  try { return await db.cards.count(); }
+  catch { return 0; }
+}
+
+
 export async function cardCountByCategory(categoryId: string): Promise<number> {
   const exec = await tryGetExecutor();
   if (exec) {
