@@ -142,7 +142,7 @@ export async function migrateFromIdb(exec: SqlExecutor): Promise<MigrationReport
   if (await isAlreadyMigrated(exec)) {
     return {
       alreadyComplete: true,
-      counts: { categories: 0, sources: 0, cards: 0, mindMaps: 0, mnemonics: 0, knowledgeBaseArticles: 0 },
+      counts: { categories: 0, sources: 0, cards: 0, mindMaps: 0, mnemonics: 0, knowledgeBaseArticles: 0, majorSystem: 0, mnemonicTestLog: 0 },
       durationMs: 0,
     };
   }
