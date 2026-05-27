@@ -1,13 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import {
-  bulkCreateArticlesIfMissing,
-  type KnowledgeBaseArticle,
-} from "@/lib/zettelkasten-storage";
+import { type KnowledgeBaseArticle } from "@/lib/zettelkasten-storage";
 import { backlinkIndex } from "@/lib/backlink-index";
 import { iterateWikiLinks, normalizeKey } from "@/lib/zettelkasten-wiki-link";
 import { useLatestRef } from "@/hooks/useLatestRef";
 import { taskScheduler } from "@/lib/scheduler";
+import { useKnowledgeBaseMutations } from "@/hooks/zettelkasten/useKnowledgeBaseMutations";
 
 
 import { logger } from "@/lib/logger";
