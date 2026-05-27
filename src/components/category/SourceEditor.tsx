@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef, useMemo } from "react";
+import { useState, useCallback, useEffect, useMemo } from "react";
 import { Save, Calendar as CalendarIcon, FileUp, Loader2 } from "lucide-react";
 import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
@@ -10,12 +10,11 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar } from "@/components/ui/calendar";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { type Source, type SourceKind, db } from "@/lib/db";
+import type { Source, SourceKind } from "@/lib/db";
 import { saveSource, extractOutline } from "@/lib/sources-storage";
 import { sanitizeHtml } from "@/lib/sanitize";
 import { injectHeadingIds } from "@/lib/sources-storage";
 import { parseArticles, compareVersions, getChangedArticleIds, matchAnchorToArticle } from "@/lib/article-parser";
-import { parseDocxInWorker } from "@/features/docx-importer";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { ChevronRight } from "lucide-react";
@@ -24,8 +23,10 @@ import { useDirtyDialog } from "@/hooks/useDirtyDialog";
 import DirtyConfirmBar from "@/components/ui/dirty-confirm-bar";
 import { afterDialogClose } from "@/lib/dialog-utils";
 import { EditorV4 } from "@/components/editor-v4/EditorV4";
-import { htmlToDoc, type EditorDoc } from "@/lib/editor-v4";
+import { type EditorDoc } from "@/lib/editor-v4";
 import { deriveHtml, derivePlainText } from "@/lib/editor-v4/derived";
+import { useSourceDocxIngest } from "@/hooks/source-reader/useSourceDocxIngest";
+import { useLinkedCards } from "@/hooks/source-reader/useLinkedCards";
 
 interface Props {
   source: Source;
