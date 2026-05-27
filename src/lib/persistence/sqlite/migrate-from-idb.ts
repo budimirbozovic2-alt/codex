@@ -217,6 +217,35 @@ export async function migrateFromIdb(exec: SqlExecutor): Promise<MigrationReport
       KB_ARTICLE_SQL,
       "SELECT COUNT(*) AS n FROM knowledgeBaseArticles",
     ),
+    // PR-9 A1b P1.6 — Major System pegs. Numeric PK; cast satisfies the
+    // streamTable generic which is keyed on string for the common case.
+    majorSystem: await copyTable(
+      exec,
+      "majorSystem",
+      db.majorSystem as unknown as import("dexie").Table<{ id: number; peg: string }, string>,
+      (p) => [p.id, p.peg],
+      MAJOR_SYSTEM_SQL,
+      "SELECT COUNT(*) AS n FROM majorSystem",
+    ),
+    // PR-9 A1b P1.6 — Mnemonic test log. AUTOINCREMENT id; pass-through when
+    // Dexie row already has one. Append-only, no FK.
+    mnemonicTestLog: await copyTable(
+      exec,
+      "mnemonicTestLog",
+      db.mnemonicTestLog as unknown as import("dexie").Table<
+        { id?: number; cardId: string; timestamp: number; success: boolean },
+        string
+      >,
+      (e) => [
+        e.id ?? null,
+        e.cardId,
+        e.timestamp,
+        e.success ? 1 : 0,
+        JSON.stringify(e),
+      ],
+      MNEMONIC_TEST_LOG_SQL,
+      "SELECT COUNT(*) AS n FROM mnemonicTestLog",
+    ),
   };
 
   // Flag commit happens OUTSIDE the per-table txes so a crash between the
