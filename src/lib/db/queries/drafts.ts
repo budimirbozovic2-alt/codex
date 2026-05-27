@@ -128,47 +128,49 @@ export async function listAllDrafts(): Promise<DraftRecord[]> {
 
 export async function putDraft(record: DraftRecord): Promise<void> {
   const exec = await tryGetExecutor();
-  if (exec) {
-    try {
-      const enc = encodeDraft(record);
-      await exec.run(
-        "INSERT OR REPLACE INTO drafts (key, source, updatedAt, payload) VALUES (?, ?, ?, ?)",
-        [enc.key, enc.source, enc.updatedAt, enc.payload],
-      );
-    } catch (err) {
-      logger.warn("[drafts-repo] sqlite put failed", { key: record.key, err });
-    }
+  if (!exec) {
+    const { assertDesktop } = await import("@/lib/electron-integration");
+    assertDesktop();
+    return;
   }
-  // Dexie mirror (soak insurance).
-  try { await db.drafts.put(record); }
-  catch (err) { logger.warn("[drafts-repo] dexie mirror put failed", { key: record.key, err }); }
+  try {
+    const enc = encodeDraft(record);
+    await exec.run(
+      "INSERT OR REPLACE INTO drafts (key, source, updatedAt, payload) VALUES (?, ?, ?, ?)",
+      [enc.key, enc.source, enc.updatedAt, enc.payload],
+    );
+  } catch (err) {
+    logger.warn("[drafts-repo] sqlite put failed", { key: record.key, err });
+  }
   _notify();
 }
 
 export async function deleteDraft(key: string): Promise<void> {
   const exec = await tryGetExecutor();
-  if (exec) {
-    try { await exec.run("DELETE FROM drafts WHERE key = ?", [key]); }
-    catch (err) { logger.warn("[drafts-repo] sqlite delete failed", { key, err }); }
+  if (!exec) {
+    const { assertDesktop } = await import("@/lib/electron-integration");
+    assertDesktop();
+    return;
   }
-  try { await db.drafts.delete(key); }
-  catch (err) { logger.warn("[drafts-repo] dexie mirror delete failed", { key, err }); }
+  try { await exec.run("DELETE FROM drafts WHERE key = ?", [key]); }
+  catch (err) { logger.warn("[drafts-repo] sqlite delete failed", { key, err }); }
   _notify();
 }
 
 export async function bulkDeleteDrafts(keys: string[]): Promise<void> {
   if (keys.length === 0) return;
   const exec = await tryGetExecutor();
-  if (exec) {
-    try {
-      await exec.transaction(async (tx) => {
-        for (const k of keys) await tx.run("DELETE FROM drafts WHERE key = ?", [k]);
-      });
-    } catch (err) {
-      logger.warn("[drafts-repo] sqlite bulk delete failed", err);
-    }
+  if (!exec) {
+    const { assertDesktop } = await import("@/lib/electron-integration");
+    assertDesktop();
+    return;
   }
-  try { await db.drafts.bulkDelete(keys); }
-  catch (err) { logger.warn("[drafts-repo] dexie mirror bulk delete failed", err); }
+  try {
+    await exec.transaction(async (tx) => {
+      for (const k of keys) await tx.run("DELETE FROM drafts WHERE key = ?", [k]);
+    });
+  } catch (err) {
+    logger.warn("[drafts-repo] sqlite bulk delete failed", err);
+  }
   _notify();
 }
