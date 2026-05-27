@@ -64,3 +64,33 @@ export type {
   HeadingMenuState,
   SplitResultState,
 } from "./useSourceReaderStore";
+
+// ── Phase 6 — Branded ID types + edge converters ───────────────────────────
+// Re-exported through the `@/store` barrel so view / hook code that already
+// consumes selectors can pick up the brand machinery without reaching into
+// `@/lib/ids` directly. Converters are runtime no-ops outside of DEV.
+export {
+  asCategoryId,
+  asSubcategoryId,
+  asChapterId,
+  asCardId,
+  asSourceId,
+  isCategoryId,
+  isSubcategoryId,
+  isChapterId,
+  isCardId,
+  isSourceId,
+  isUuidLike,
+} from "@/lib/ids";
+export type {
+  CategoryId,
+  SubcategoryId,
+  ChapterId,
+  CardId,
+  SourceId,
+  CategoryIdLike,
+  SubcategoryIdLike,
+  ChapterIdLike,
+  CardIdLike,
+  SourceIdLike,
+} from "@/lib/ids";
