@@ -252,18 +252,7 @@ if (import.meta.hot) {
   });
 }
 
-/**
- * Boot-time outbox recovery — delegates to the persist adapter.
- */
-export async function recoverOutboxOnBoot(): Promise<{ recovered: number }> {
-  return getAdapter().recoverPending();
-}
+// Outbox crash-recovery (`recoverOutboxOnBoot` / `checkInterruptedFlush`)
+// was removed in A1a — SQLite WAL is the durability primitive now and the
+// Dexie `outbox` table is dropped in v23. Boot no longer runs a recovery step.
 
-/**
- * @deprecated Use `recoverOutboxOnBoot()` — the sessionStorage flag was
- * replaced by the durable `outbox` table in v20. Stub kept so legacy callers
- * compile; it forwards to the recovery path and discards the result.
- */
-export function checkInterruptedFlush(): void {
-  void recoverOutboxOnBoot();
-}
