@@ -45,6 +45,9 @@ markBootStep("main:error-handlers-registered");
 // ── Guarded async bootstrap ──
 (async () => {
   try {
+    // Pure Desktop guard — no-op in dev, throws in PROD browser builds.
+    const { assertDesktop } = await import("./lib/electron-integration");
+    assertDesktop();
     markBootStep("main:parallel-import-start");
     const [{ initColorTheme }, { default: App }, { createRoot }, { eventBus }, { setDbEventEmitter }] = await Promise.all([
       import("./lib/app-settings"),
@@ -99,18 +102,21 @@ markBootStep("main:error-handlers-registered");
   }
 })();
 
-// ── Service Worker registration ──
-if ("serviceWorker" in navigator && !window.electronAPI) {
+// ── Service Worker cleanup (Pure Desktop — P3 PR-8 finale) ──
+// We no longer register a service worker. This block remains for one release
+// to unregister stale SWs from any user who installed a previous web build.
+// Scheduled for full removal in PR-9.
+if ("serviceWorker" in navigator) {
   window.addEventListener("load", async () => {
-    if (!import.meta.env.PROD) {
+    try {
       const registrations = await navigator.serviceWorker.getRegistrations();
-      await Promise.all(registrations.map((registration) => registration.unregister()));
+      await Promise.all(registrations.map((r) => r.unregister()));
       if ("caches" in window) {
         const keys = await caches.keys();
-        await Promise.all(keys.map((key) => caches.delete(key)));
+        await Promise.all(keys.map((k) => caches.delete(k)));
       }
-      return;
+    } catch {
+      /* no-op — desktop shell has no SW anyway */
     }
-    navigator.serviceWorker.register("./sw.js");
   });
 }

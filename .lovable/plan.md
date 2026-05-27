@@ -1,58 +1,64 @@
-# P3 PR-8 — OPFS SQLite adapter + IDB→SQLite migration (M1+M2+M3+M4 shipped, adapter dormant)
+# P3 PR-8 finale — "Pure Desktop" (SHIPPED)
 
-## Shipped scope
+Production target is now exclusively Electron. Web build is deprecated; `bun run dev` still works in a browser tab for HMR convenience but production assertion throws in `main.tsx` if the renderer is not hosted by Electron.
 
-M1 infrastructure, M2 one-shot data migration wired into `runSchema` as soft-fail Step 4 (Electron-only), M3 adapter factory, M4 SQL FK CASCADE schema. **No production write path changes** — `getDefaultAdapter()` is not called from `persist-queue` yet; the IDB outbox adapter remains the sole runtime backend. SQLite is populated in lockstep but read by no one until a follow-up PR sets `enableSqlitePrimary=true`.
+## Shipped changes
 
-## Files added
+### 1. PWA surface removed
+- `public/sw.js` — DELETED.
+- `public/manifest.json` — DELETED.
+- `index.html` — removed `<link rel="manifest">`, `<meta name="theme-color">`, `<link rel="apple-touch-icon">`.
+- `src/main.tsx` — register call removed; cleanup `unregister()` + cache purge retained for one release to clean up stale SWs from previous web installs.
 
-- `src/lib/persistence/sqlite/executor.ts` — `SqlExecutor` interface.
-- `src/lib/persistence/sqlite/schema.sql` — tables, indexes, FK CASCADE.
-- `src/lib/persistence/sqlite/migration-runner.ts` — `PRAGMA user_version` ladder.
-- `src/lib/persistence/sqlite/client.ts` — lazy `getOpfsSqliteExecutor()` with OPFS-SAH-pool + `:memory:` soft-fallback.
-- `src/lib/persistence/sqlite/row-codecs.ts` — Card encode/decode.
-- `src/lib/persistence/sqlite/migrate-from-idb.ts` — paged copy + row-count verification + rollback (`MigrationAbort`).
-- `src/lib/persistence/opfs-sqlite-adapter.ts` — `PersistAdapter` impl.
-- `src/lib/persistence/mirroring-adapter.ts` — fan-out wrapper.
-- `src/lib/persistence/adapter-factory.ts` — single decision point; defaults to IDB.
-- `src/test/opfs-sqlite-adapter.test.ts` — 5 tests.
-- `src/test/migrate-from-idb.test.ts` — 3 tests.
+### 2. Desktop assertion
+- `src/lib/electron-integration.ts` — added `assertDesktop()`. No-op in dev (`!import.meta.env.PROD`), throws in production if `!isElectron()`.
+- `src/main.tsx` — calls `assertDesktop()` first thing inside the async bootstrap.
 
-## Files modified
+### 3. SQLite-primary cutover (gated by migration flag)
+- `src/lib/persistence/adapter-factory.ts` — decision matrix:
+  - `!isElectron` → `idbOutboxAdapter` (dev preview only).
+  - `isElectron + !migrationComplete` → `MirroringAdapter(IDB primary, SQLite mirror)`.
+  - `isElectron + migrationComplete` → `MirroringAdapter(SQLite primary, IDB mirror)`.
+- `src/lib/persistence/sqlite/migrate-from-idb.ts` — on success, also writes `localStorage[MIGRATION_FLAG_KEY]` so module-init code can sync-detect completion. New `hasMigrationFlagSync()` export.
+- `src/lib/persist-queue.ts` — `pickInitialAdapter()` at module load reads `window.electronAPI` + `hasMigrationFlagSync()` and calls `getDefaultAdapter()`. SQLite primary turns on automatically on the boot *after* the migration completes.
 
-- `src/lib/electron-integration.ts` — added `isElectron()` runtime detector.
-- `src/hooks/card-bootstrap/runSchema.ts` — added Step 4 "SQLite migracija…" (15s timeout, Electron-gated, soft-fail).
+### 4. SQLite WASM packaging
+- `vite.config.ts` — added `copySqliteWasmPlugin` (inline, no new deps) that copies `sqlite3.wasm`, `sqlite3-opfs-async-proxy.js`, `sqlite3-worker1.mjs` into `dist/sqlite/` during build so the Electron renderer can resolve them under `file://`.
 
-## Dep
+### 5. Build scripts
+- `package.json` — added `build:renderer` (alias of `build`), `build:desktop` (renderer + electron-builder), and `build:web` that exits with a deprecation message. `build` stays as `vite build` for the Lovable harness type-check.
 
-`@sqlite.org/sqlite-wasm@3.53.0-build1` (lazy-imported only inside `client.ts`).
+### 6. Drafts comment update
+- `src/lib/drafts/draftRegistry.ts` — replaced BroadcastChannel comment with "single Electron window — no cross-window sync".
 
 ## Verification
-
+- `bunx tsc --noEmit` → 0 errors.
 - `bunx vitest run src/test/opfs-sqlite-adapter.test.ts src/test/migrate-from-idb.test.ts` → 8/8 passing.
-- `bunx tsc --noEmit` → 0 errors (harness).
-- Boot order: `runSchema` Steps 1–3 unchanged; Step 4 added at pct=90.
 
-## Migration safety contract (M2)
+## Adapter rollout timeline
 
-1. Gated by `kv['migrated-from-idb-v1']` — second run is a single `SELECT` no-op.
-2. Reads each Dexie table in 500-row pages via `orderBy('id').offset/limit`.
-3. Each table's INSERTs + final `COUNT(*)` verification run in one `transaction(...)`. Mismatch throws `MigrationAbort` inside the callback → SQLite rolls back, Dexie untouched.
-4. Parents copied before children (categories → sources → cards / mindMaps / mnemonics) so FK CASCADE constraints don't reject child inserts.
-5. Flag written OUTSIDE per-table txes — a crash between the last table commit and the flag write simply re-runs the whole migration (idempotent via `INSERT OR REPLACE`).
-6. Failure in `runSchema` Step 4 does NOT throw `SchemaError` — it's logged via `logger.warn` and the user continues to boot on IDB. Next boot retries.
+```
+Boot N (post-deploy, first run):
+  persist-queue init → flag absent → IDB-primary + SQLite mirror
+  runSchema Step 4   → copy IDB → SQLite → write flag (kv + localStorage)
+  Steady state       → writes hit both
 
-## Deferred to PR-9
+Boot N+1 (and beyond):
+  persist-queue init → flag present → SQLite-primary + IDB mirror
+  Steady state       → reads still IDB (until PR-9), writes hit both
+```
 
-1. Vite copy plugin to vendor `.wasm` + worker into `public/sqlite/` for Electron `file://` and dev server.
-2. Call `__setPersistAdapter(getDefaultAdapter({enableSqlitePrimary: true, migrationComplete: hasFlag(), isElectron: isElectron()}))` from `persist-queue.ts` module init.
-3. Dexie v23: drop `outbox` table once SQLite goes primary.
-4. Collapse `category-deletion-service.ts` to a single `DELETE FROM categories` for the SQLite adapter (FK CASCADE takes over); IDB code path keeps the manual cascade.
-5. Read-path migration off Dexie (planner / examiner / drafts tables, Zustand hydration, TanStack Query bridges).
+## Out of scope (PR-9)
 
-## LOC
+1. Read-path migration off Dexie to SQLite + TanStack Query (planner, examiner, drafts).
+2. Drop IDB `outbox` table (Dexie v23) + drop IDB mirror once SQLite primary has soaked.
+3. Collapse `category-deletion-service.ts` to a single `DELETE FROM categories` for the SQLite path (FK CASCADE).
+4. Remove `isElectron()` else branches in 8 callsites once dev preview support is retired.
+5. Remove SW cleanup block from `main.tsx`.
+6. Drop `dexie` dep once all tables migrate.
 
-- Added: ~820 (10 source/schema files + 2 test files).
-- Modified: +50 (runSchema Step 4, isElectron helper).
-- Removed: 0 — adapter dormant, no callsite changes.
-- Net diff: +870. PR-9 will subtract ~500 (outbox table, manual cascade, retired Dexie tables) once SQLite goes live.
+## LOC delta
+- Deleted: ~210 (sw.js, manifest.json, PWA tags).
+- Added: ~95 (assertDesktop, adapter factory matrix, hasMigrationFlagSync, Vite WASM copy, persist-queue init).
+- Modified: ~25 (package scripts, draftRegistry comment).
+- Net: **−90**.

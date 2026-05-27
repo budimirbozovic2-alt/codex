@@ -6,9 +6,8 @@
  * unsaved changes?" dialogs) subscribe to the snapshot to know whether to
  * block the action.
  *
- * In-process only — cross-tab synchronization is handled separately if/when
- * we need it (BroadcastChannel can plug in via `markDirty` / `markClean`
- * listeners without changing this module's surface).
+ * In-process only — Pure Desktop runs as a single Electron window, so
+ * cross-window draft sync is intentionally not implemented.
  */
 
 type Listener = (dirtyKeys: ReadonlySet<string>) => void;

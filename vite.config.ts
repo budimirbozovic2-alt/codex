@@ -1,10 +1,33 @@
-import { defineConfig } from "vite";
+import { defineConfig, type Plugin } from "vite";
 import react from "@vitejs/plugin-react-swc";
 import path from "path";
-import { readFileSync } from "fs";
+import { readFileSync, copyFileSync, mkdirSync, existsSync } from "fs";
 
 const pkg = JSON.parse(readFileSync("./package.json", "utf-8"));
 import { componentTagger } from "lovable-tagger";
+
+/**
+ * Pure Desktop (P3 PR-8 finale): copy the `@sqlite.org/sqlite-wasm` runtime
+ * into `dist/sqlite/` so the OPFS SQLite adapter can load under `file://`
+ * in the packaged Electron renderer. No-op in dev (Vite serves from
+ * node_modules directly).
+ */
+function copySqliteWasmPlugin(): Plugin {
+  return {
+    name: "copy-sqlite-wasm",
+    apply: "build",
+    closeBundle() {
+      const src = path.resolve(__dirname, "node_modules/@sqlite.org/sqlite-wasm/dist");
+      const dst = path.resolve(__dirname, "dist/sqlite");
+      if (!existsSync(src)) return;
+      mkdirSync(dst, { recursive: true });
+      for (const file of ["sqlite3.wasm", "sqlite3-opfs-async-proxy.js", "sqlite3-worker1.mjs"]) {
+        const from = path.join(src, file);
+        if (existsSync(from)) copyFileSync(from, path.join(dst, file));
+      }
+    },
+  };
+}
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
@@ -16,7 +39,7 @@ export default defineConfig(({ mode }) => ({
       overlay: false,
     },
   },
-  plugins: [react(), mode === "development" && componentTagger()].filter(Boolean),
+  plugins: [react(), mode === "development" && componentTagger(), copySqliteWasmPlugin()].filter(Boolean),
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
