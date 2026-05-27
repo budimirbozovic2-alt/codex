@@ -1,26 +1,47 @@
-// ─── Category Deletion Service (Commit D — PR-9 M3) ───────
-// Single cascade for `deleteCategory`. SQLite is SSOT for cards / sources /
-// mindMaps / mnemonics — those run in a single `SqlExecutor.transaction`
-// (native ACID, no JS keyed mutex needed). Dexie is mirrored in the same
-// flow as rollback insurance until A1 drops the mirror entirely.
+// ─── Category Deletion Service (A2 — collapsed) ──────────────────────────
+// Single cascade entry-point for `deleteCategory`.
 //
-// Domains still Dexie-only (no SQLite schema yet):
-//   • knowledgeBaseArticles (Zettelkasten) — migrates in a later PR
+// SQLite path: one transaction inside `categoryRepository.deleteAsync` —
+// re-parents (or purges) cards + sources, then `DELETE FROM categories`.
+// FK CASCADE on the schema wipes mindMaps / mnemonics / knowledgeBaseArticles
+// automatically. No JS keyed mutex needed — SQLite ACID is the only
+// write-serialisation primitive (Core memory).
 //
-// Settings KV (subject_settings, plannerConfig) go through the new
-// settings repo so SQLite + Dexie stay in sync automatically.
+// Dexie mirror: every child-table tear-down goes through the per-domain
+// `*ByCategoryDexie` helpers exposed from `@/lib/db/queries`. The service
+// no longer imports `db` directly.
 //
-// Cards + sources still get the optional re-parent semantics from the
-// orchestrator (purgeCards toggle) here.
-import { db } from "@/lib/db";
-import { invalidateMindMapsCache } from "@/lib/mindmap-storage";
+// KV scope (subject_settings, plannerConfig refs) has no FK relationship —
+// scrubbed here explicitly.
+import {
+  invalidateMindMapsCache,
+  onMindMapsChanged as _onMindMapsChanged,
+} from "@/lib/mindmap-storage";
 import { invalidateSourcesCache } from "@/lib/sources-storage";
 import { clearSubjectSettings } from "@/lib/subject-settings";
 import { invalidateExaminerProfile } from "@/lib/examiner-profile-cache";
 import { backlinkIndex } from "@/lib/backlink-index";
-import { getSetting, putSetting, deleteSetting } from "@/lib/db/queries";
-import type { SqlExecutor } from "@/lib/persistence/sqlite/executor";
+import {
+  getSetting,
+  putSetting,
+  deleteSetting,
+  notifyCardsChanged,
+  notifyKnowledgeBaseChanged,
+  deleteCardsByCategoryDexie,
+  reparentCardsByCategoryDexie,
+  deleteSourcesByCategoryDexie,
+  reparentSourcesByCategoryDexie,
+  deleteMindMapsByCategoryDexie,
+  deleteMnemonicsByCategoryDexie,
+  deleteArticlesBySubjectDexie,
+} from "@/lib/db/queries";
+import { categoryRepository } from "@/lib/repositories";
+import { notifyMnemonics } from "@/features/mnemonic/mnemonic-storage";
 import { logger } from "@/lib/logger";
+
+// Hint to bundler that the listener registry stays alive — bridges import
+// the same module so this re-export is just a paranoia anchor.
+void _onMindMapsChanged;
 
 const SUBJECT_SETTINGS_PREFIX = "subject_settings:";
 
@@ -41,58 +62,9 @@ interface PlannerConfigShape {
   [k: string]: unknown;
 }
 
-async function tryGetExecutor(): Promise<SqlExecutor | null> {
-  try {
-    const { isElectron } = await import("@/lib/electron-integration");
-    if (!isElectron()) return null;
-    const { getOpfsSqliteExecutor } = await import("@/lib/persistence/sqlite/client");
-    return await getOpfsSqliteExecutor();
-  } catch (err) {
-    logger.warn("[category-deletion] sqlite executor unavailable, Dexie-only path", err);
-    return null;
-  }
-}
-
-/** Re-parent or purge cards + sources + mindMaps + mnemonics in one SQLite tx. */
-async function cascadeSqlite(
-  exec: SqlExecutor,
-  categoryId: string,
-  opts: { purgeCards: boolean; fallbackId: string },
-  result: CascadeResult,
-): Promise<void> {
-  await exec.transaction(async (tx) => {
-    if (opts.purgeCards) {
-      // FK CASCADE on cards.sourceId would null-out sourceId after sources
-      // deletion; we delete cards first to keep semantics explicit.
-      await tx.run("DELETE FROM cards   WHERE categoryId = ?", [categoryId]);
-      await tx.run("DELETE FROM sources WHERE categoryId = ?", [categoryId]);
-    } else if (opts.fallbackId) {
-      const now = Date.now();
-      // Re-parent cards (clear subcategory/chapter — fallback may have a
-      // different taxonomy). Payload JSON is re-serialised by codecs on
-      // subsequent reads; the indexed columns are what readers query on.
-      await tx.run(
-        `UPDATE cards
-           SET categoryId = ?, subcategoryId = NULL, chapterId = NULL, updatedAt = ?
-         WHERE categoryId = ?`,
-        [opts.fallbackId, now, categoryId],
-      );
-      await tx.run(
-        "UPDATE sources SET categoryId = ? WHERE categoryId = ?",
-        [opts.fallbackId, categoryId],
-      );
-    }
-    await tx.run("DELETE FROM mindMaps  WHERE categoryId = ?", [categoryId]);
-    await tx.run("DELETE FROM mnemonics WHERE categoryId = ?", [categoryId]);
-  });
-  // Telemetry counts come from the Dexie mirror block below (Dexie API
-  // returns affected-row counts; SqlExecutor doesn't surface changes()).
-  void result;
-}
-
 export async function cascadeDeleteCategoryDomains(
   categoryId: string,
-  opts: { purgeCards: boolean; fallbackId: string }
+  opts: { purgeCards: boolean; fallbackId: string },
 ): Promise<CascadeResult> {
   const result: CascadeResult = {
     articles: 0, mindMaps: 0, mnemonics: 0, settings: 0,
@@ -100,45 +72,38 @@ export async function cascadeDeleteCategoryDomains(
   };
   if (!categoryId) return result;
 
-  // ── 1. SQLite-resident domains (cards / sources / mindMaps / mnemonics) ──
-  const exec = await tryGetExecutor();
-  if (exec) {
-    try {
-      await cascadeSqlite(exec, categoryId, opts, result);
-    } catch (err) {
-      logger.error("[category-deletion] sqlite cascade failed", err);
-      throw err;
-    }
+  // 1. SQLite — one tx (re-parent/purge cards+sources, then DELETE FROM
+  //    categories → FK CASCADE on mindMaps/mnemonics/knowledgeBaseArticles).
+  const sqlResult = await categoryRepository.deleteAsync(categoryId, opts);
+  if (sqlResult.ok === false) {
+    logger.error("[category-deletion] sqlite cascade failed", sqlResult.error);
+    throw new Error(sqlResult.error.message);
   }
 
-  // ── 2. Dexie mirror (rollback insurance + Zettelkasten Dexie-only) ──
-  await db.transaction(
-    "rw",
-    [db.knowledgeBaseArticles, db.mindMaps, db.mnemonics, db.cards, db.sources],
-    async () => {
-      if (opts.purgeCards) {
-        result.cardsAffected = await db.cards.where("categoryId").equals(categoryId).delete();
-        result.sourcesAffected = await db.sources.where("categoryId").equals(categoryId).delete();
-      } else if (opts.fallbackId) {
-        const now = Date.now();
-        result.cardsAffected = await db.cards.where("categoryId").equals(categoryId).modify({
-          categoryId: opts.fallbackId,
-          subcategoryId: undefined,
-          chapterId: undefined,
-          updatedAt: now,
-        });
-        result.sourcesAffected = await db.sources.where("categoryId").equals(categoryId).modify({
-          categoryId: opts.fallbackId,
-        });
-      }
-      result.articles  = await db.knowledgeBaseArticles.where("subjectId").equals(categoryId).delete();
-      result.mindMaps  = await db.mindMaps.where("categoryId").equals(categoryId).delete();
-      result.mnemonics = await db.mnemonics.where("categoryId").equals(categoryId).delete();
-    },
-  );
+  // 2. Dexie mirror — parallel per-domain helpers. SQLite already committed,
+  //    so partial failures here only affect the soak-window mirror.
+  const [cardsN, sourcesN, mindMapsN, mnemonicsN, articlesN] = await Promise.all([
+    opts.purgeCards
+      ? deleteCardsByCategoryDexie(categoryId)
+      : opts.fallbackId
+        ? reparentCardsByCategoryDexie(categoryId, opts.fallbackId)
+        : Promise.resolve(0),
+    opts.purgeCards
+      ? deleteSourcesByCategoryDexie(categoryId)
+      : opts.fallbackId
+        ? reparentSourcesByCategoryDexie(categoryId, opts.fallbackId)
+        : Promise.resolve(0),
+    deleteMindMapsByCategoryDexie(categoryId),
+    deleteMnemonicsByCategoryDexie(categoryId),
+    deleteArticlesBySubjectDexie(categoryId),
+  ]);
+  result.cardsAffected = cardsN;
+  result.sourcesAffected = sourcesN;
+  result.mindMaps = mindMapsN;
+  result.mnemonics = mnemonicsN;
+  result.articles = articlesN;
 
-  // ── 3. Settings KV (per-subject overrides + planner scrub) ──
-  // Routed through the new settings repo so SQLite + Dexie stay in sync.
+  // 3. KV (settings + planner scrub) — no FK, must be explicit.
   const settingsKey = SUBJECT_SETTINGS_PREFIX + categoryId;
   const existed = await getSetting<unknown>(settingsKey);
   if (existed !== undefined) {
@@ -173,7 +138,10 @@ export async function cascadeDeleteCategoryDomains(
     }
   }
 
-  // ── 4. Post-commit cache invalidation ──
+  // 4. Notify bridges — TanStack invalidates all affected query keys.
+  notifyCardsChanged();
+  notifyKnowledgeBaseChanged();
+  notifyMnemonics();
   if (result.mindMaps > 0) invalidateMindMapsCache();
   if (result.settings > 0) clearSubjectSettings(categoryId);
   invalidateExaminerProfile(categoryId);

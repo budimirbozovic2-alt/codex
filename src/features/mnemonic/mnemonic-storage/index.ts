@@ -21,6 +21,7 @@ export {
   saveMnemonicCards,
   deleteMnemonicCard,
   subscribeMnemonics,
+  notifyMnemonics,
 } from "./cards-repo";
 
 export {
