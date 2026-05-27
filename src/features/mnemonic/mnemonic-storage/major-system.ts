@@ -4,6 +4,7 @@
 
 import { logger } from "@/lib/logger";
 import { listAllPegs, bulkPutPegs } from "@/lib/db/queries/major-system";
+import { notifyMnemonics } from "./cards-repo";
 import { DEFAULT_MAJOR_SYSTEM, JOKER_LOCATIONS } from "./constants";
 
 export async function loadMajorSystem(): Promise<Record<number, string>> {
