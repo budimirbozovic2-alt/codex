@@ -1,18 +1,17 @@
 import { FileText, Upload, ArrowRight, Zap, BookOpen } from "lucide-react";
-import { useState, useCallback } from "react";
-import { sanitizeHtml } from "@/lib/sanitize";
 import { afterDialogClose } from "@/lib/dialog-utils";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-// mammoth loaded dynamically to avoid 164KB eager bundle
-
-interface ParsedCard {
-  question: string;
-  sections: { title: string; content: string }[];
-}
-
-type CardType = "essay" | "flash";
+import {
+  useDocxImportFlow,
+  type CardType,
+} from "./useDocxImportFlow";
+import type {
+  HeadingLevel,
+  ParsedCard,
+  SplitMode,
+} from "@/lib/docx/splitIntoSections";
 
 interface Props {
   open: boolean;
@@ -20,9 +19,6 @@ interface Props {
   categories: string[];
   onImport: (cards: ParsedCard[], category: string, cardType: CardType) => void;
 }
-
-type HeadingLevel = "h1" | "h2" | "h3";
-type SplitMode = "heading" | "delimiter";
 
 const headingLabels: Record<HeadingLevel, string> = {
   h1: "Heading 1",
@@ -36,160 +32,22 @@ const splitModeLabels: Record<SplitMode, string> = {
 };
 
 export default function DocxImporter({ open, onClose, categories, onImport }: Props) {
-  const [file, setFile] = useState<File | null>(null);
-  const [htmlContent, setHtmlContent] = useState<string>("");
-  const [questionSplitMode, setQuestionSplitMode] = useState<SplitMode>("heading");
-  const [sectionSplitMode, setSectionSplitMode] = useState<SplitMode>("heading");
-  const [splitHeading, setSplitHeading] = useState<HeadingLevel>("h1");
-  const [sectionHeading, setSectionHeading] = useState<HeadingLevel>("h2");
-  const [delimiter, setDelimiter] = useState("");
-  const [sectionDelimiter, setSectionDelimiter] = useState("");
-  const [parsedCards, setParsedCards] = useState<ParsedCard[]>([]);
-  const [category, setCategory] = useState(categories[0] ?? "");
-  const [newCategory, setNewCategory] = useState("");
-  const [step, setStep] = useState<"upload" | "configure" | "preview">("upload");
-  const [cardType, setCardType] = useState<CardType>("essay");
+  const flow = useDocxImportFlow(categories[0] ?? "");
+  const { splitConfig, updateSplitConfig } = flow;
 
-  const handleFileSelect = useCallback(async (f: File) => {
-    setFile(f);
-    try {
-      const arrayBuffer = await f.arrayBuffer();
-      const mammoth = (await import("mammoth")).default;
-      const result = await mammoth.convertToHtml({
-        arrayBuffer,
-      }, {
-        styleMap: [
-          "p[style-name='List Paragraph'] => p.list-paragraph:fresh",
-        ],
-      });
-      setHtmlContent(sanitizeHtml(result.value));
-      setStep("configure");
-    } catch {
-      alert("Greška pri čitanju DOCX fajla.");
-    }
-  }, []);
-
-  // Helper: split collected content into sections based on sectionSplitMode
-  const splitIntoSections = useCallback((contentHtml: string): { title: string; content: string }[] => {
-    if (!contentHtml.trim()) return [];
-
-    const tempDoc = new DOMParser().parseFromString(contentHtml, "text/html");
-    const elements = Array.from(tempDoc.body.children);
-    const sections: { title: string; content: string }[] = [];
-    let secTitle = "";
-    let secContent = "";
-
-    const flushSec = () => {
-      if (secContent.trim()) {
-        sections.push({
-          title: secTitle || `Cjelina ${sections.length + 1}`,
-          content: secContent.trim(),
-        });
-      }
-      secTitle = "";
-      secContent = "";
-    };
-
-    if (sectionSplitMode === "heading") {
-      for (const el of elements) {
-        const tag = el.tagName.toLowerCase();
-        if (tag === sectionHeading) {
-          flushSec();
-          secTitle = el.textContent?.trim() || "";
-        } else {
-          secContent += el.outerHTML + "\n";
-        }
-      }
-    } else {
-      const secDelim = sectionDelimiter.trim();
-      if (secDelim) {
-        for (const el of elements) {
-          const text = el.textContent?.trim() || "";
-          if (text.startsWith(secDelim)) {
-            flushSec();
-            secTitle = text;
-          } else {
-            secContent += el.outerHTML + "\n";
-          }
-        }
-      } else {
-        // No delimiter specified — single section
-        return [{ title: "Odgovor", content: contentHtml.trim() }];
-      }
-    }
-
-    flushSec();
-    return sections.length > 0 ? sections : [{ title: "Odgovor", content: contentHtml.trim() }];
-  }, [sectionSplitMode, sectionHeading, sectionDelimiter]);
-
-  const parseContent = useCallback(() => {
-    if (!htmlContent) return;
-
-    const parser = new DOMParser();
-    const doc = parser.parseFromString(htmlContent, "text/html");
-    const elements = Array.from(doc.body.children);
-    const cards: ParsedCard[] = [];
-    let currentQuestion = "";
-    let currentContent = "";
-
-    const flushCard = () => {
-      if (currentQuestion.trim() && currentContent.trim()) {
-        const sections = splitIntoSections(currentContent);
-        if (sections.length > 0) {
-          cards.push({ question: currentQuestion.trim(), sections });
-        }
-      }
-      currentQuestion = "";
-      currentContent = "";
-    };
-
-    if (questionSplitMode === "heading") {
-      for (const el of elements) {
-        const tag = el.tagName.toLowerCase();
-        if (tag === splitHeading) {
-          flushCard();
-          currentQuestion = el.textContent?.trim() || "";
-        } else if (currentQuestion) {
-          currentContent += el.outerHTML + "\n";
-        }
-      }
-    } else {
-      const delim = delimiter.trim();
-      if (!delim) return;
-      for (const el of elements) {
-        const text = el.textContent?.trim() || "";
-        if (text.startsWith(delim)) {
-          flushCard();
-          currentQuestion = text;
-        } else if (currentQuestion) {
-          currentContent += el.outerHTML + "\n";
-        }
-      }
-    }
-
-    flushCard();
-    setParsedCards(cards);
-    setStep("preview");
-  }, [htmlContent, questionSplitMode, splitHeading, delimiter, splitIntoSections]);
+  const handleReset = () => {
+    flow.reset();
+    onClose();
+  };
 
   const handleImport = () => {
-    const cat = newCategory.trim() || category;
-    const cards = parsedCards;
-    const type = cardType;
+    const cat = flow.newCategory.trim() || flow.category;
+    const cards = flow.parsedCards;
+    const type = flow.cardType;
     // Root-cause: zatvori dijalog PRVO; uvoz mijenja AppContext + IDB i
     // pokreće toast — sve to mora čekati Radix unmount cleanup.
     handleReset();
     afterDialogClose(() => onImport(cards, cat, type));
-  };
-
-  const handleReset = () => {
-    setFile(null);
-    setHtmlContent("");
-    setParsedCards([]);
-    setStep("upload");
-    setNewCategory("");
-    setCardType("essay");
-    onClose();
   };
 
   return (
@@ -199,7 +57,7 @@ export default function DocxImporter({ open, onClose, categories, onImport }: Pr
           <DialogTitle className="text-2xl font-semibold">Uvezi iz DOCX fajla</DialogTitle>
         </DialogHeader>
 
-        {step === "upload" && (
+        {flow.step === "upload" && (
           <div className="space-y-4 py-4">
             <label className="flex flex-col items-center justify-center gap-4 rounded-xl border-2 border-dashed p-12 cursor-pointer hover:border-primary hover:bg-primary/5 transition-colors">
               <FileText className="h-10 w-10 text-muted-foreground" />
@@ -213,17 +71,17 @@ export default function DocxImporter({ open, onClose, categories, onImport }: Pr
                 className="hidden"
                 onChange={(e) => {
                   const f = e.target.files?.[0];
-                  if (f) handleFileSelect(f);
+                  if (f) flow.handleFileSelect(f);
                 }}
               />
             </label>
           </div>
         )}
 
-        {step === "configure" && (
+        {flow.step === "configure" && (
           <div className="space-y-6 py-4">
             <p className="text-sm text-muted-foreground">
-              Fajl "<span className="font-medium text-foreground">{file?.name}</span>" je učitan. Odaberite kako da se podijeli na kartice.
+              Fajl "<span className="font-medium text-foreground">{flow.file?.name}</span>" je učitan. Odaberite kako da se podijeli na kartice.
             </p>
 
             <div className="space-y-4">
@@ -233,21 +91,21 @@ export default function DocxImporter({ open, onClose, categories, onImport }: Pr
                 <div className="flex gap-2">
                   <button
                     type="button"
-                    onClick={() => setCardType("essay")}
-                    className={`flex-1 flex items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${cardType === "essay" ? "bg-primary text-primary-foreground" : "bg-secondary text-secondary-foreground"}`}
+                    onClick={() => flow.setCardType("essay")}
+                    className={`flex-1 flex items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${flow.cardType === "essay" ? "bg-primary text-primary-foreground" : "bg-secondary text-secondary-foreground"}`}
                   >
                     <BookOpen className="h-4 w-4" /> Esejska
                   </button>
                   <button
                     type="button"
-                    onClick={() => setCardType("flash")}
-                    className={`flex-1 flex items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${cardType === "flash" ? "bg-primary text-primary-foreground" : "bg-secondary text-secondary-foreground"}`}
+                    onClick={() => flow.setCardType("flash")}
+                    className={`flex-1 flex items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${flow.cardType === "flash" ? "bg-primary text-primary-foreground" : "bg-secondary text-secondary-foreground"}`}
                   >
                     <Zap className="h-4 w-4" /> Blic
                   </button>
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  {cardType === "essay" ? "Pitanja sa cjelinama — za duže odgovore" : "Kratka pitanja sa jednim odgovorom"}
+                  {flow.cardType === "essay" ? "Pitanja sa cjelinama — za duže odgovore" : "Kratka pitanja sa jednim odgovorom"}
                 </p>
               </div>
 
@@ -259,15 +117,18 @@ export default function DocxImporter({ open, onClose, categories, onImport }: Pr
                     <button
                       key={m}
                       type="button"
-                      onClick={() => setQuestionSplitMode(m)}
-                      className={`flex-1 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${questionSplitMode === m ? "bg-primary text-primary-foreground" : "bg-secondary text-secondary-foreground"}`}
+                      onClick={() => updateSplitConfig({ questionSplitMode: m })}
+                      className={`flex-1 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${splitConfig.questionSplitMode === m ? "bg-primary text-primary-foreground" : "bg-secondary text-secondary-foreground"}`}
                     >
                       {splitModeLabels[m]}
                     </button>
                   ))}
                 </div>
-                {questionSplitMode === "heading" ? (
-                  <Select value={splitHeading} onValueChange={(v) => setSplitHeading(v as HeadingLevel)}>
+                {splitConfig.questionSplitMode === "heading" ? (
+                  <Select
+                    value={splitConfig.splitHeading}
+                    onValueChange={(v) => updateSplitConfig({ splitHeading: v as HeadingLevel })}
+                  >
                     <SelectTrigger className="bg-card">
                       <SelectValue />
                     </SelectTrigger>
@@ -280,8 +141,8 @@ export default function DocxImporter({ open, onClose, categories, onImport }: Pr
                 ) : (
                   <div className="space-y-1">
                     <input
-                      value={delimiter}
-                      onChange={(e) => setDelimiter(e.target.value)}
+                      value={splitConfig.delimiter}
+                      onChange={(e) => updateSplitConfig({ delimiter: e.target.value })}
                       placeholder='npr. "čl." ili "Pitanje:"'
                       className="flex h-10 w-full rounded-md border border-input bg-card px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                     />
@@ -291,28 +152,35 @@ export default function DocxImporter({ open, onClose, categories, onImport }: Pr
               </div>
 
               {/* Section split mode — only for essay */}
-              {cardType === "essay" && (<div className="space-y-2">
+              {flow.cardType === "essay" && (<div className="space-y-2">
                 <label className="text-sm font-medium">Razdvajanje cjelina unutar pitanja</label>
                 <div className="flex gap-2">
                   {(["heading", "delimiter"] as SplitMode[]).map((m) => (
                     <button
                       key={m}
                       type="button"
-                      onClick={() => setSectionSplitMode(m)}
-                      className={`flex-1 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${sectionSplitMode === m ? "bg-primary text-primary-foreground" : "bg-secondary text-secondary-foreground"}`}
+                      onClick={() => updateSplitConfig({ sectionSplitMode: m })}
+                      className={`flex-1 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${splitConfig.sectionSplitMode === m ? "bg-primary text-primary-foreground" : "bg-secondary text-secondary-foreground"}`}
                     >
                       {splitModeLabels[m]}
                     </button>
                   ))}
                 </div>
-                {sectionSplitMode === "heading" ? (
-                  <Select value={sectionHeading} onValueChange={(v) => setSectionHeading(v as HeadingLevel)}>
+                {splitConfig.sectionSplitMode === "heading" ? (
+                  <Select
+                    value={splitConfig.sectionHeading}
+                    onValueChange={(v) => updateSplitConfig({ sectionHeading: v as HeadingLevel })}
+                  >
                     <SelectTrigger className="bg-card">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
                       {(["h1", "h2", "h3"] as HeadingLevel[]).map((h) => (
-                        <SelectItem key={h} value={h} disabled={questionSplitMode === "heading" && h === splitHeading}>
+                        <SelectItem
+                          key={h}
+                          value={h}
+                          disabled={splitConfig.questionSplitMode === "heading" && h === splitConfig.splitHeading}
+                        >
                           {headingLabels[h]} = nova cjelina
                         </SelectItem>
                       ))}
@@ -321,8 +189,8 @@ export default function DocxImporter({ open, onClose, categories, onImport }: Pr
                 ) : (
                   <div className="space-y-1">
                     <input
-                      value={sectionDelimiter}
-                      onChange={(e) => setSectionDelimiter(e.target.value)}
+                      value={splitConfig.sectionDelimiter}
+                      onChange={(e) => updateSplitConfig({ sectionDelimiter: e.target.value })}
                       placeholder='npr. "Stav" ili opciono prazno'
                       className="flex h-10 w-full rounded-md border border-input bg-card px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                     />
@@ -335,7 +203,7 @@ export default function DocxImporter({ open, onClose, categories, onImport }: Pr
               <div className="space-y-2">
                 <label className="text-sm font-medium">Kategorija</label>
                 <div className="flex gap-2">
-                  <Select value={category} onValueChange={setCategory}>
+                  <Select value={flow.category} onValueChange={flow.setCategory}>
                     <SelectTrigger className="bg-card">
                       <SelectValue />
                     </SelectTrigger>
@@ -347,8 +215,8 @@ export default function DocxImporter({ open, onClose, categories, onImport }: Pr
                   </Select>
                   <input
                     placeholder="Ili nova..."
-                    value={newCategory}
-                    onChange={(e) => setNewCategory(e.target.value)}
+                    value={flow.newCategory}
+                    onChange={(e) => flow.setNewCategory(e.target.value)}
                     className="flex h-10 rounded-md border border-input bg-card px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring w-40"
                   />
                 </div>
@@ -356,22 +224,22 @@ export default function DocxImporter({ open, onClose, categories, onImport }: Pr
             </div>
 
             <div className="flex gap-3">
-              <Button variant="outline" onClick={() => setStep("upload")} className="flex-1">Nazad</Button>
-              <Button onClick={parseContent} className="flex-1">
+              <Button variant="outline" onClick={() => flow.setStep("upload")} className="flex-1">Nazad</Button>
+              <Button onClick={flow.parseContent} className="flex-1">
                 Pregledaj <ArrowRight className="h-4 w-4 ml-2" />
               </Button>
             </div>
           </div>
         )}
 
-        {step === "preview" && (
+        {flow.step === "preview" && (
           <div className="space-y-6 py-4">
             <p className="text-sm text-muted-foreground">
-              Pronađeno <span className="font-medium text-foreground">{parsedCards.length}</span> pitanja. Pregledajte prije uvoza.
+              Pronađeno <span className="font-medium text-foreground">{flow.parsedCards.length}</span> pitanja. Pregledajte prije uvoza.
             </p>
 
             <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2">
-              {parsedCards.map((card, i) => (
+              {flow.parsedCards.map((card, i) => (
                 <div key={i} className="rounded-xl border bg-card p-4 space-y-2">
                   <p className="font-medium text-sm">{card.question}</p>
                   <div className="flex flex-wrap gap-1.5">
@@ -383,7 +251,7 @@ export default function DocxImporter({ open, onClose, categories, onImport }: Pr
                   </div>
                 </div>
               ))}
-              {parsedCards.length === 0 && (
+              {flow.parsedCards.length === 0 && (
                 <p className="text-sm text-muted-foreground text-center py-8">
                   Nisu pronađena pitanja. Provjerite postavke podjele.
                 </p>
@@ -391,9 +259,9 @@ export default function DocxImporter({ open, onClose, categories, onImport }: Pr
             </div>
 
             <div className="flex gap-3">
-              <Button variant="outline" onClick={() => setStep("configure")} className="flex-1">Nazad</Button>
-              <Button onClick={handleImport} className="flex-1" disabled={parsedCards.length === 0}>
-                <Upload className="h-4 w-4 mr-2" /> Uvezi {parsedCards.length} pitanja
+              <Button variant="outline" onClick={() => flow.setStep("configure")} className="flex-1">Nazad</Button>
+              <Button onClick={handleImport} className="flex-1" disabled={flow.parsedCards.length === 0}>
+                <Upload className="h-4 w-4 mr-2" /> Uvezi {flow.parsedCards.length} pitanja
               </Button>
             </div>
           </div>
