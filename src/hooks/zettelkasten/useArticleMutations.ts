@@ -47,6 +47,7 @@ export function useArticleMutations(input: Input): ArticleMutationsApi {
   } = input;
 
   const wikiLinkInFlightRef = useRef<Map<string, Promise<string | null>>>(new Map());
+  const { save: saveMutation, remove: removeMutation, bulkCreate: bulkCreateMutation } = useKnowledgeBaseMutations();
 
   // Mirror articles into a ref so `open` doesn't churn its identity on every
   // upsert/delete (would cascade re-renders into ZettelExplorerPanel).
