@@ -20,8 +20,7 @@ import {
   setCardMap,
   getCardMap,
 } from "@/store/useCardMapStore";
-import { db } from "@/lib/db";
-import { idbLoadCards } from "@/lib/db-queries";
+import { listAllCards, getCardsByIds, notifyCardsChanged } from "@/lib/db/queries";
 import { logger } from "@/lib/logger";
 import { wrapWrite, type WriteResult } from "@/lib/persistence/write-result";
 
@@ -38,6 +37,7 @@ export function snapshot(): CardMap {
 function commitSingle(card: Card): void {
   schedulePersist({ type: "put", card });
   setCardMap((prev) => ({ ...prev, [card.id]: card }));
+  notifyCardsChanged();
 }
 
 function commitBulk(cards: Card[]): void {
@@ -48,6 +48,7 @@ function commitBulk(cards: Card[]): void {
     for (const c of cards) next[c.id] = c;
     return next;
   });
+  notifyCardsChanged();
 }
 
 function commitDelete(id: string): void {
@@ -58,6 +59,7 @@ function commitDelete(id: string): void {
     delete next[id];
     return next;
   });
+  notifyCardsChanged();
 }
 
 // ─── Write primitives ─────────────────────────────────────────────────────
@@ -196,24 +198,26 @@ export async function reloadCardsFromIdb(cardIds?: string[]): Promise<void> {
     await persistQueue.cleanup();
     if (currentSequence !== _fetchSequence) return;
 
-    // Surgical path
+    // Surgical path — repo-routed bulk lookup (SQLite-primary, Dexie fallback).
     if (cardIds && cardIds.length > 0 && cardIds.length <= SURGICAL_LIMIT) {
-      const rows = await db.cards.bulkGet(cardIds);
+      const rows = await getCardsByIds(cardIds);
       if (currentSequence !== _fetchSequence) return;
       const fetched = rows.filter((r): r is Card => !!r);
       const fetchedIds = new Set(fetched.map((c) => c.id));
       const deletedIds = cardIds.filter((id) => !fetchedIds.has(id));
       if (fetched.length === 0 && deletedIds.length === 0) return;
       applySyncDelta(fetched, deletedIds);
+      notifyCardsChanged();
       return;
     }
 
-    // Full reload
-    const loaded = await idbLoadCards();
+    // Full reload via the cards repo (SQLite-primary).
+    const loaded = await listAllCards();
     if (currentSequence !== _fetchSequence) return;
     const map: CardMap = {};
     for (const c of loaded) map[c.id] = c;
     replaceAll(map);
+    notifyCardsChanged();
   } catch (err) {
     logger.warn("[cardRepository] reloadCardsFromIdb failed", err);
   }

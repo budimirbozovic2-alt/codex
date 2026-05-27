@@ -1,11 +1,11 @@
 import {
-  idbLoadCards,
   idbLoadRecentReviewLog,
   idbLoadSettings,
   seedDefaultCategories,
   db,
   type CategoryRecord,
 } from "@/lib/db";
+import { listAllCards } from "@/lib/db/queries";
 import { Card, SRSettings, DEFAULT_SR_SETTINGS } from "@/lib/spaced-repetition";
 import { ReviewLogEntry } from "@/lib/storage";
 import { markBootStep } from "@/lib/boot-trace";
@@ -46,7 +46,7 @@ export async function loadInitialData(): Promise<InitialData> {
 
   // B2: Parallelize all independent IDB loads
   const [cards, catRecords, log, settings] = await Promise.all([
-    withTimeout(idbLoadCards(), 5000, "cards load", [] as Card[]),
+    withTimeout(listAllCards(), 5000, "cards load", [] as Card[]),
     withTimeout(seedDefaultCategories(), 2500, "categories load", [] as CategoryRecord[]),
     withTimeout(idbLoadRecentReviewLog(90), 2500, "review log load", [] as ReviewLogEntry[]),
     withTimeout(idbLoadSettings<SRSettings>("srSettings", DEFAULT_SR_SETTINGS), 2500, "settings load", DEFAULT_SR_SETTINGS),
