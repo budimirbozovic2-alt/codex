@@ -19,10 +19,27 @@ export type PersistAction =
   | { type: "delete"; id: string }
   | { type: "bulk"; cards: Card[] };
 
-// ─── Adapter wiring (PR-7d M3.2) ────────────────────────
-// All IDB-specific writes go through the adapter. OPFS SQLite adapter will
-// swap in here without touching the queue logic.
-let _adapter: PersistAdapter = idbOutboxAdapter;
+// ─── Adapter wiring (PR-7d M3.2 / Pure Desktop finale) ──
+// All IDB-specific writes go through the adapter. Pure Desktop default:
+// pick SQLite-primary when the one-shot migration flag is present in
+// localStorage (mirrored from SQLite kv on previous boot). On first boot
+// after deploy, falls back to IDB-primary + SQLite mirror until the boot
+// migration completes; next boot promotes SQLite.
+function pickInitialAdapter(): PersistAdapter {
+  if (typeof window === "undefined") return idbOutboxAdapter;
+  const isElectron = Boolean((window as { electronAPI?: unknown }).electronAPI);
+  // Lazy require avoids pulling sqlite-wasm into the dev bundle at this scope.
+  const { getDefaultAdapter } = require("@/lib/persistence/adapter-factory") as
+    typeof import("@/lib/persistence/adapter-factory");
+  const { hasMigrationFlagSync } = require("@/lib/persistence/sqlite/migrate-from-idb") as
+    typeof import("@/lib/persistence/sqlite/migrate-from-idb");
+  return getDefaultAdapter({
+    isElectron,
+    migrationComplete: hasMigrationFlagSync(),
+    enableSqlitePrimary: true,
+  });
+}
+let _adapter: PersistAdapter = pickInitialAdapter();
 /** Test seam — swap the persistence backend (e.g. in-memory adapter in vitest). */
 export function __setPersistAdapter(adapter: PersistAdapter): void {
   _adapter = adapter;

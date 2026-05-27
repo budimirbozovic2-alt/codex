@@ -202,7 +202,26 @@ export async function migrateFromIdb(exec: SqlExecutor): Promise<MigrationReport
     [MIGRATION_FLAG_KEY, JSON.stringify({ at: Date.now(), counts })],
   );
 
+  // Mirror the flag into localStorage so the persist-queue module init
+  // (runs before any async SQLite read) can sync-detect completion on the
+  // *next* boot and flip the adapter to SQLite-primary.
+  try {
+    if (typeof localStorage !== "undefined") {
+      localStorage.setItem(MIGRATION_FLAG_KEY, String(Date.now()));
+    }
+  } catch { /* private mode or quota — non-fatal */ }
+
   const durationMs = Date.now() - t0;
   logger.info("[sqlite] IDB→SQLite migration complete", { counts, durationMs });
   return { alreadyComplete: false, counts, durationMs };
+}
+
+/** Sync check used by `persist-queue` module init to pick the right adapter. */
+export function hasMigrationFlagSync(): boolean {
+  try {
+    return typeof localStorage !== "undefined"
+      && localStorage.getItem(MIGRATION_FLAG_KEY) !== null;
+  } catch {
+    return false;
+  }
 }
