@@ -6,6 +6,7 @@
  * Pozvati JEDNOM (iz `client.ts`). Idempotentno — drugi poziv je no-op.
  */
 import type { QueryClient } from "@tanstack/react-query";
+import { queryKeys } from "@/lib/query/keys";
 import { onSourcesChanged } from "@/lib/sources-storage";
 import { onPlannerChanged, type PlannerChangeKind } from "@/lib/planner";
 import { onDraftsChanged, onSettingsChanged, onCardsChanged, onKnowledgeBaseChanged } from "@/lib/db/queries";
@@ -29,14 +30,18 @@ export function installQueryBridges(qc: QueryClient): void {
       case "config":
         // Config change invalidira derived calcove (plans, burnup, suggestion,
         // projection, status) jer sve uzimaju bufferPercent/finalGoalDate.
-        void qc.invalidateQueries({ queryKey: ["planner"] });
+        // Optimistic seed iz `usePlannerMutations.saveConfig` ostaje validan —
+        // queryFn vraća isti `plannerCache.get()`.
+        void qc.invalidateQueries({ queryKey: queryKeys.planner.root });
         break;
       case "discipline":
+        // Scoped: discipline log/trend/phasePct dijele prefix.
         void qc.invalidateQueries({ queryKey: ["planner", "discipline"] });
         break;
       case "dailyMapped":
       case "lastRedistribute":
-        void qc.invalidateQueries({ queryKey: ["planner"] });
+        // No TanStack query reads these — counter ide kroz useDeferredCompute
+        // u useDashboardData. Bridge bi nepotrebno refetchao plans/burnup/etc.
         break;
     }
   });

@@ -11,7 +11,7 @@ import {
 } from "@xyflow/react";
 import { type MindMapNodeData } from "@/components/mindmap/MindMapNode";
 import type { MindMapDoc, MindMapEdgeRecord, MindMapNodeRecord } from "@/lib/db";
-import { saveMindMap } from "@/lib/mindmap-storage";
+import { useMindMapMutations } from "@/hooks/mindmap/useMindMapMutations";
 import { toast } from "sonner";
 import { getId, HIERARCHY_TEMPLATES, PROCEDURE_TEMPLATES, type NodeTemplate } from "@/components/mindmap/mindmap-constants";
 import { autoLayout } from "@/components/mindmap/mindmap-utils";
@@ -23,6 +23,7 @@ const SNAP_THRESHOLD = 20;
 
 export function useMindMapCanvas(doc: MindMapDoc) {
   const { screenToFlowPosition, fitView } = useReactFlow();
+  const { save: saveMutation } = useMindMapMutations();
   const [title, setTitle] = useState(doc.title);
   const [dirty, setDirty] = useState(false);
   const [deletedStack, setDeletedStack] = useState<{ nodes: Node[]; edges: Edge[] }[]>([]);
@@ -247,7 +248,7 @@ export function useMindMapCanvas(doc: MindMapDoc) {
         return { ...rest, data: cleanData };
       });
       const updated: MindMapDoc = { ...doc, title, nodes: cleanNodes, edges, updatedAt: Date.now() };
-      await saveMindMap(updated);
+      await saveMutation.mutateAsync(updated);
       setDirty(false);
       toast.success("Mapa sačuvana");
     } catch (err) {
@@ -255,7 +256,7 @@ export function useMindMapCanvas(doc: MindMapDoc) {
       toast.error("Mapa NIJE sačuvana — pokušajte ponovo.");
       throw err;
     }
-  }, [doc, title, nodes, edges]);
+  }, [doc, title, nodes, edges, saveMutation]);
 
   // Auto-save 30s
   useEffect(() => {

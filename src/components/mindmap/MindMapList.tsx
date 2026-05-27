@@ -1,8 +1,8 @@
 import { Plus, Trash2, Map, GitBranch, Workflow, HelpCircle } from "lucide-react";
 import { useState } from "react";
 import type { MindMapDoc, MindMapMode } from "@/lib/db";
-import { deleteMindMap, saveMindMap } from "@/lib/mindmap-storage";
 import { useMindMaps } from "@/hooks/useMindMaps";
+import { useMindMapMutations } from "@/hooks/mindmap/useMindMapMutations";
 import { Button } from "@/components/ui/button";
 import { AnimatePresence } from "framer-motion";
 import InfoPanel from "@/components/InfoPanel";
@@ -19,6 +19,7 @@ interface Props {
 
 export default function MindMapList({ onOpen, showOnboarding, onShowOnboarding, onCloseOnboarding }: Props) {
   const { mindMaps: maps, ready } = useMindMaps();
+  const { save, remove } = useMindMapMutations();
   const [showCreate, setShowCreate] = useState(false);
   const loading = !ready;
 
@@ -33,13 +34,13 @@ export default function MindMapList({ onOpen, showOnboarding, onShowOnboarding, 
       createdAt: Date.now(),
       updatedAt: Date.now(),
     };
-    await saveMindMap(doc);
+    await save.mutateAsync(doc);
     onOpen(doc);
   };
 
   const handleDelete = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    await deleteMindMap(id);
+    await remove.mutateAsync(id);
     // Listener auto-refreshes the list — no manual refresh() call.
   };
 
