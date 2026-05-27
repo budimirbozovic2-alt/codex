@@ -87,6 +87,8 @@ export {
   putArticle as putKnowledgeBaseArticle,
   bulkPutArticles as bulkPutKnowledgeBaseArticles,
   deleteArticle as deleteKnowledgeBaseArticle,
+  onKnowledgeBaseChanged,
+  notifyKnowledgeBaseChanged,
 } from "./knowledge-base";
 // PR-9 A1b P1.6 — mnemonic aux tables (Major System + test log).
 export {
