@@ -1,5 +1,6 @@
 import { useMemo, useCallback } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
+import { usePlannerMutations } from "@/hooks/planner/usePlannerMutations";
 import { Card as SRCard } from "@/lib/spaced-repetition";
 import { ReviewLogEntry } from "@/lib/storage";
 import type { CategoryRecord } from "@/lib/db";
