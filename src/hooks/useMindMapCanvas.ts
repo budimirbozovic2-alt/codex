@@ -248,7 +248,7 @@ export function useMindMapCanvas(doc: MindMapDoc) {
         return { ...rest, data: cleanData };
       });
       const updated: MindMapDoc = { ...doc, title, nodes: cleanNodes, edges, updatedAt: Date.now() };
-      await saveMindMap(updated);
+      await saveMutation.mutateAsync(updated);
       setDirty(false);
       toast.success("Mapa sačuvana");
     } catch (err) {
@@ -256,7 +256,7 @@ export function useMindMapCanvas(doc: MindMapDoc) {
       toast.error("Mapa NIJE sačuvana — pokušajte ponovo.");
       throw err;
     }
-  }, [doc, title, nodes, edges]);
+  }, [doc, title, nodes, edges, saveMutation]);
 
   // Auto-save 30s
   useEffect(() => {
