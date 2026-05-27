@@ -50,6 +50,23 @@ const PR9_A1B_P14_KB_ARTICLES_SQL = `
   CREATE INDEX IF NOT EXISTS idx_kb_subject_isIndex      ON knowledgeBaseArticles(subjectId, isIndex);
 `;
 
+const PR9_A1B_P16_MNEMONIC_AUX_SQL = `
+  CREATE TABLE IF NOT EXISTS majorSystem (
+    id    INTEGER PRIMARY KEY,
+    peg   TEXT NOT NULL
+  );
+
+  CREATE TABLE IF NOT EXISTS mnemonicTestLog (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    cardId     TEXT NOT NULL,
+    timestamp  INTEGER NOT NULL,
+    success    INTEGER NOT NULL,
+    payload    TEXT NOT NULL
+  );
+  CREATE INDEX IF NOT EXISTS idx_mnemonic_test_card ON mnemonicTestLog(cardId);
+  CREATE INDEX IF NOT EXISTS idx_mnemonic_test_time ON mnemonicTestLog(timestamp);
+`;
+
 const MIGRATIONS: readonly Migration[] = [
   { version: 1, label: "init", sql: schemaSql },
   // PR-9 M1 — read-path migration: disciplineLog + drafts move off Dexie.
@@ -60,6 +77,8 @@ const MIGRATIONS: readonly Migration[] = [
   { version: 2, label: "pr9-m1-discipline-drafts", sql: PR9_M1_DISCIPLINE_DRAFTS_SQL },
   // PR-9 A1b P1.4 — Zettelkasten articles move to SQLite-primary.
   { version: 3, label: "pr9-a1b-p14-kb-articles", sql: PR9_A1B_P14_KB_ARTICLES_SQL },
+  // PR-9 A1b P1.6 — Major System + mnemonic test log move to SQLite-primary.
+  { version: 4, label: "pr9-a1b-p16-mnemonic-aux", sql: PR9_A1B_P16_MNEMONIC_AUX_SQL },
 ];
 
 export const TARGET_USER_VERSION = MIGRATIONS[MIGRATIONS.length - 1].version;
