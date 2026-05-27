@@ -1,5 +1,6 @@
 import { ReviewLogEntry } from "./storage";
 import { db } from "./db";
+import { getSetting, putSetting } from "@/lib/db/queries";
 
 import { logger } from "@/lib/logger";
 // ═══════════════════════════════════════════════════════════
