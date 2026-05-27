@@ -284,3 +284,40 @@ export function notifyCardsChanged(): void {
     try { fn(); } catch (err) { logger.warn("[cards-repo] listener threw", err); }
   }
 }
+
+// ── A2 — Dexie mirror helpers for the category-deletion cascade ─────────
+// SQLite side is handled by a single tx + FK CASCADE in
+// `categoryRepository.deleteAsync`. These helpers exist so the
+// category-deletion service never touches `db.cards` directly (Public API
+// Walls) and so they can be retired in a single sweep when the Dexie
+// mirror is dropped (A1c).
+
+/** Delete every Dexie `cards` row whose categoryId matches. Returns count. */
+export async function deleteCardsByCategoryDexie(categoryId: string): Promise<number> {
+  try {
+    return await db.cards.where("categoryId").equals(categoryId).delete();
+  } catch (err) {
+    logger.warn("[cards-repo] dexie deleteByCategory failed", { categoryId, err });
+    return 0;
+  }
+}
+
+/** Re-parent Dexie `cards` from one category to another, clearing sub/chapter. */
+export async function reparentCardsByCategoryDexie(
+  fromCategoryId: string,
+  toCategoryId: string,
+): Promise<number> {
+  try {
+    const now = Date.now();
+    return await db.cards.where("categoryId").equals(fromCategoryId).modify({
+      categoryId: toCategoryId,
+      subcategoryId: undefined,
+      chapterId: undefined,
+      updatedAt: now,
+    });
+  } catch (err) {
+    logger.warn("[cards-repo] dexie reparentByCategory failed",
+      { fromCategoryId, toCategoryId, err });
+    return 0;
+  }
+}
