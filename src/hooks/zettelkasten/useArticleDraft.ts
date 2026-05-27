@@ -15,7 +15,6 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
   getArticle,
-  saveArticle,
   type KnowledgeBaseArticle,
 } from "@/lib/zettelkasten-storage";
 import { normalizeAliasList } from "@/lib/zettelkasten-aliases";
@@ -27,6 +26,7 @@ import { usePersistedDraftMirror } from "@/hooks/usePersistedDraftMirror";
 import { htmlToDoc, type EditorDoc } from "@/lib/editor-v4";
 import { deriveMarkdown, isDocEmpty } from "@/lib/editor-v4/derived";
 import { mdToHtml } from "@/lib/editor-v4/migrate";
+import { useKnowledgeBaseMutations } from "@/hooks/zettelkasten/useKnowledgeBaseMutations";
 
 import { logger } from "@/lib/logger";
 export interface Draft {
@@ -91,6 +91,9 @@ export function useArticleDraft({ activeId, categoryId, setArticles }: Input): A
   const [draft, setDraft] = useState<Draft | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const editorRef = useRef<ZettelEditorHandle | null>(null);
+  const { save: saveMutation } = useKnowledgeBaseMutations();
+  const saveMutationRef = useRef(saveMutation);
+  useEffect(() => { saveMutationRef.current = saveMutation; }, [saveMutation]);
 
   // Audit V4: Use a ref to track the latest draft state. This ensures that
   // the `flush` callback (and its calls during cleanup/unmount) always see
@@ -146,7 +149,7 @@ export function useArticleDraft({ activeId, categoryId, setArticles }: Input): A
       updatedAt: Date.now(),
     };
     try {
-      await saveArticle(next);
+      await saveMutation.mutateAsync(next);
     } catch (err) {
       logger.error("[zettelkasten] saveArticle failed", err);
       toast.error("Članak NIJE sačuvan. Kopirajte tekst prije navigacije.");
@@ -157,7 +160,7 @@ export function useArticleDraft({ activeId, categoryId, setArticles }: Input): A
       backlinkIndex.upsertArticle(categoryId, next);
     }
     return next;
-  }, [activeId, categoryId, setArticles]); // Removed 'draft' from dependencies
+  }, [activeId, categoryId, setArticles, saveMutation]);
 
   // Cleanup-flush on activeId change OR unmount. Capture the CURRENT flush
   // (bound to the OLD activeId) so navigation A→B saves A, not B.

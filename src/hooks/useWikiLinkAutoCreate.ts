@@ -1,13 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import {
-  bulkCreateArticlesIfMissing,
-  type KnowledgeBaseArticle,
-} from "@/lib/zettelkasten-storage";
+import { type KnowledgeBaseArticle } from "@/lib/zettelkasten-storage";
 import { backlinkIndex } from "@/lib/backlink-index";
 import { iterateWikiLinks, normalizeKey } from "@/lib/zettelkasten-wiki-link";
 import { useLatestRef } from "@/hooks/useLatestRef";
 import { taskScheduler } from "@/lib/scheduler";
+import { useKnowledgeBaseMutations } from "@/hooks/zettelkasten/useKnowledgeBaseMutations";
 
 
 import { logger } from "@/lib/logger";
@@ -57,6 +55,8 @@ export function useWikiLinkAutoCreate({
   articles,
   setArticles,
 }: UseWikiLinkAutoCreateParams): void {
+  const { bulkCreate: bulkCreateMutation } = useKnowledgeBaseMutations();
+  const bulkCreateRef = useLatestRef(bulkCreateMutation);
   // Always-current title lookup. A ref keeps this O(N_articles) work out of
   // the render path and lets the auto-create effect read fresh data without
   // re-subscribing.
@@ -160,11 +160,11 @@ export function useWikiLinkAutoCreate({
 
     let cancelled = false;
     const handle = taskScheduler.setTimeout(async () => {
-      const created = await bulkCreateArticlesIfMissing(
-        categoryId,
-        pending,
-        rootSubcategoryIdRef.current ?? undefined,
-      );
+      const created = await bulkCreateRef.current.mutateAsync({
+        subjectId: categoryId,
+        titles: pending,
+        rootSubcategoryId: rootSubcategoryIdRef.current ?? undefined,
+      });
       if (cancelled) return;
       if (created.length > 0) {
         // Optimistically expand the in-memory title set so the next keystroke

@@ -69,5 +69,7 @@ export const queryKeys = {
   knowledgeBase: {
     root: ["knowledgeBase"] as const,
     all: () => ["knowledgeBase", "all"] as const,
+    byCategory: (subjectId: string) => ["knowledgeBase", "cat", subjectId] as const,
+    byId: (id: string) => ["knowledgeBase", "id", id] as const,
   },
 } as const;

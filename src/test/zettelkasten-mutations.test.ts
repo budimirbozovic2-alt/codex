@@ -3,11 +3,17 @@
  */
 import "fake-indexeddb/auto";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { createElement } from "react";
 import { act, renderHook } from "@testing-library/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { db } from "@/lib/db";
 import { loadArticlesBySubject } from "@/lib/zettelkasten-storage";
 import { useArticleMutations } from "@/hooks/zettelkasten/useArticleMutations";
 import type { ArticleDraftApi } from "@/hooks/zettelkasten/useArticleDraft";
+
+const qc = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
+const wrapper = ({ children }: { children: React.ReactNode }) =>
+  createElement(QueryClientProvider, { client: qc }, children);
 
 const SUBJECT = "subject-mut";
 
@@ -48,6 +54,7 @@ describe("useArticleMutations.wikiLink", () => {
         activeArticle: null,
         draftApi,
       }),
+      { wrapper },
     );
 
     await act(async () => {
