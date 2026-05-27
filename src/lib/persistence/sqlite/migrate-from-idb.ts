@@ -98,6 +98,12 @@ const MNEMONIC_SQL =
   "INSERT OR REPLACE INTO mnemonics (id, categoryId, subcategoryId, mnemonicStatus, hookType, createdAt, payload) VALUES (?, ?, ?, ?, ?, ?, ?)";
 const KB_ARTICLE_SQL =
   "INSERT OR REPLACE INTO knowledgeBaseArticles (id, subjectId, title, updatedAt, isIndex, payload) VALUES (?, ?, ?, ?, ?, ?)";
+const MAJOR_SYSTEM_SQL =
+  "INSERT OR REPLACE INTO majorSystem (id, peg) VALUES (?, ?)";
+// AUTOINCREMENT: pass explicit id when the Dexie row already has one so the
+// migration is idempotent across retries; otherwise SQLite assigns it.
+const MNEMONIC_TEST_LOG_SQL =
+  "INSERT OR REPLACE INTO mnemonicTestLog (id, cardId, timestamp, success, payload) VALUES (?, ?, ?, ?, ?)";
 
 async function copyTable<T>(
   exec: SqlExecutor,
