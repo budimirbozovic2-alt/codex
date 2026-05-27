@@ -257,6 +257,28 @@ export function removeAsync(id: string): Promise<WriteResult<void>> {
   });
 }
 
+export function patchAsync(
+  id: string,
+  patcher: (card: Card) => Card,
+): Promise<WriteResult<Card | undefined>> {
+  return wrapWrite(async () => {
+    const updated = patch(id, patcher);
+    await persistQueue.cleanup();
+    return updated;
+  });
+}
+
+export function bulkPatchAsync(
+  ids: string[],
+  patcher: (card: Card) => Card,
+): Promise<WriteResult<Card[]>> {
+  return wrapWrite(async () => {
+    const updated = bulkPatch(ids, patcher);
+    await persistQueue.cleanup();
+    return updated;
+  });
+}
+
 export const cardRepository = {
   // reads
   get: getCard,
@@ -275,6 +297,8 @@ export const cardRepository = {
   putAsync,
   bulkPutAsync,
   removeAsync,
+  patchAsync,
+  bulkPatchAsync,
   // external invalidation
   reloadFromIdb: reloadCardsFromIdb,
 };
