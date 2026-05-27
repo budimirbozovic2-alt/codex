@@ -331,11 +331,21 @@ export default tseslint.config(
   },
 
   // B4/B8 — Zabrana runtime uvoza @/lib/db iz UI sloja.
-  // Dozvoljen je samo `import type` (allowTypeImports).
+  // Dozvoljen je samo `import type` (allowTypeImports) i sanctioned barrel
+  // `@/lib/db/queries` (Public API wall — hooks consume queries directly).
   // Motivacija: OPFS SQLite + TanStack Query — DB pristup mora ići kroz
-  // custom hookove (npr. useSourceDocxIngest), ne direktno iz komponenti.
+  // queries barrel ili custom hook, nikad direktno iz UI komponenti.
+  //
+  // Allow-list (sanctioned exceptions, infrastructure that cannot route
+  // through a hook because it IS the boot/import infrastructure):
+  //   • src/hooks/card-bootstrap/**          — boot orchestrator (opens DB)
+  //   • src/components/export-import/**      — backup/import validator (FK checks)
   {
     files: ["src/components/**/*.{ts,tsx}", "src/hooks/**/*.{ts,tsx}"],
+    ignores: [
+      "src/hooks/card-bootstrap/**",
+      "src/components/export-import/**",
+    ],
     rules: {
       "@typescript-eslint/no-restricted-imports": [
         "error",
@@ -344,21 +354,33 @@ export default tseslint.config(
             {
               name: "@/lib/db",
               message:
-                "Runtime import @/lib/db iz UI sloja je zabranjen. Koristi custom hook (npr. useSourceDocxIngest) ili import type za interfejse.",
+                "Runtime import @/lib/db iz UI sloja je zabranjen. Koristi @/lib/db/queries barrel (u hookovima) ili `import type` za interfejse.",
               allowTypeImports: true,
             },
           ],
           patterns: [
             {
-              group: ["@/lib/db/*"],
+              // Block deep imports into @/lib/db except the sanctioned
+              // `queries` barrel. Negated extglob keeps `@/lib/db/queries`
+              // accessible while still blocking siblings like `@/lib/db/foo`.
+              group: ["@/lib/db/*", "!@/lib/db/queries"],
               message:
-                "Runtime import @/lib/db/* iz UI sloja je zabranjen. Koristi custom hook ili prebaci logiku u src/lib/* servis.",
+                "Runtime import @/lib/db/* iz UI sloja je zabranjen. Koristi @/lib/db/queries barrel (Public API wall) ili custom hook.",
+              allowTypeImports: true,
+            },
+            {
+              group: ["@/lib/db/queries/*"],
+              message:
+                "Importuj iz `@/lib/db/queries` barrel-a — `queries/*` je interno (Public API wall).",
+              allowTypeImports: true,
             },
           ],
         },
       ],
     },
   },
+
+
 
   // G7 — Raw setTimeout/setInterval allow-list.
   //

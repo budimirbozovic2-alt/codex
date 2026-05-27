@@ -10,7 +10,7 @@ import {
   useReactFlow,
 } from "@xyflow/react";
 import { type MindMapNodeData } from "@/components/mindmap/MindMapNode";
-import { MindMapDoc, MindMapEdgeRecord, type MindMapNodeRecord } from "@/lib/db";
+import type { MindMapDoc, MindMapEdgeRecord, MindMapNodeRecord } from "@/lib/db";
 import { saveMindMap } from "@/lib/mindmap-storage";
 import { toast } from "sonner";
 import { getId, HIERARCHY_TEMPLATES, PROCEDURE_TEMPLATES, type NodeTemplate } from "@/components/mindmap/mindmap-constants";

@@ -2,7 +2,7 @@ import { useState, useMemo, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card as SRCard } from "@/lib/spaced-repetition";
 import { ReviewLogEntry } from "@/lib/storage";
-import { CategoryRecord } from "@/lib/db";
+import type { CategoryRecord } from "@/lib/db";
 import { analyticsClient } from "@/lib/analytics/workerClient";
 import type { PlannerConfig } from "@/lib/planner-storage";
 import { queryKeys } from "@/lib/query/keys";
