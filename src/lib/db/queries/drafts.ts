@@ -69,11 +69,11 @@ export async function getDraft(key: string): Promise<DraftRecord | undefined> {
   const exec = await tryGetExecutor();
   if (exec) {
     try {
-      const row = await exec.get<{ payload: string }>(
-        "SELECT payload FROM drafts WHERE key = ?", [key],
+      const rows = await exec.all<{ payload: string }>(
+        "SELECT payload FROM drafts WHERE key = ? LIMIT 1", [key],
       );
-      if (!row) return undefined;
-      const decoded = decodeDraft(row);
+      if (rows.length === 0) return undefined;
+      const decoded = decodeDraft(rows[0]);
       return decoded ?? undefined;
     } catch (err) {
       logger.warn("[drafts-repo] sqlite get failed", { key, err });
