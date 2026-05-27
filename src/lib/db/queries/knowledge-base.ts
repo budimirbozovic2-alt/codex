@@ -87,6 +87,28 @@ export async function getArticle(id: string): Promise<KnowledgeBaseArticle | und
   }
 }
 
+/** Backup/health readers — full unscoped dump, sorted by updatedAt DESC. */
+export async function listAllArticles(): Promise<KnowledgeBaseArticle[]> {
+  const exec = await tryGetExecutor();
+  if (exec) {
+    try {
+      const rows = await exec.all<{ payload: string }>(
+        "SELECT payload FROM knowledgeBaseArticles ORDER BY updatedAt DESC",
+      );
+      return rows.map(decodeArticle).filter((d): d is KnowledgeBaseArticle => d !== null);
+    } catch (err) {
+      logger.warn("[kb-articles-repo] sqlite listAll failed", err);
+    }
+  }
+  try {
+    const all = await db.knowledgeBaseArticles.toArray();
+    return all.sort((a, b) => b.updatedAt - a.updatedAt);
+  } catch (err) {
+    logger.warn("[kb-articles-repo] dexie listAll failed", err);
+    return [];
+  }
+}
+
 /** Sorted by updatedAt DESC (matches the legacy Dexie order). */
 export async function listArticlesBySubject(subjectId: string): Promise<KnowledgeBaseArticle[]> {
   const exec = await tryGetExecutor();

@@ -1,4 +1,5 @@
-import { db } from "@/lib/db";
+// PR-9 A1b P1.B — reads route through the backup-readers SQLite-primary seam.
+import { readAllCategoriesForBackup, listAllCards } from "@/lib/db/queries";
 import { yieldUI } from "@/lib/backup/yield-ui";
 import { migrateRaw, BackupVersionError, BACKUP_SCHEMA_VERSION } from "@/lib/backup/migrate";
 import type { ImportValidation } from "./types";
@@ -104,7 +105,7 @@ export async function validateImportFile(
 
     onProgress(72, "Provjera relacionog integriteta…");
     await yieldUI();
-    const existingCats = await db.categories.toArray();
+    const existingCats = await readAllCategoriesForBackup();
     if (errors.length === 0) {
       const validCategoryIds = new Set<string>();
       if (parsed.categories && Array.isArray(parsed.categories) && !isLegacyCategoryFormat) {
@@ -140,7 +141,7 @@ export async function validateImportFile(
 
     onProgress(82, "Provjera duplikata…");
 
-    const freshCards = await db.cards.toArray();
+    const freshCards = await listAllCards();
     const existingIds = new Set(freshCards.map((c) => c.id));
     const duplicateCount = importedCards.filter((c) => typeof c.id === "string" && existingIds.has(c.id)).length;
 

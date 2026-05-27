@@ -29,29 +29,44 @@ export function assertDesktop(): void {
 export async function setupElectronIPC() {
   if (!window.electronAPI) return;
 
-  const { db } = await import("./db");
-  const { getSetting } = await import("@/lib/db/queries");
+  const {
+    getSetting,
+    readAllCardsForBackup,
+    readAllCategoriesForBackup,
+    readAllSourcesForBackup,
+    readAllMindMapsForBackup,
+    readAllDisciplineLogForBackup,
+    readReviewLog,
+    readDiary,
+    readCalibrationLog,
+    readLatencyLog,
+    readSlippageLog,
+    readActivityLog,
+    readPomodoroLog,
+  } = await import("@/lib/db/queries");
 
   const buildBackupData = async () => {
+    // PR-9 A1b P1.B — SQLite-primary readers via the backup-readers seam;
+    // unmigrated logs flow through the explicit Dexie read-replicas below.
     const [
       cards, categories, reviewLog, srSettingsValue,
       sources, mindMaps, diary,
       calibrationLog, latencyLog, slippageLog,
       activityLog, disciplineLog, pomodoroLog,
     ] = await Promise.all([
-      db.cards.toArray(),
-      db.categories.toArray(),
-      db.reviewLog.toArray(),
+      readAllCardsForBackup(),
+      readAllCategoriesForBackup(),
+      readReviewLog(),
       getSetting<unknown>("srSettings"),
-      db.sources.toArray(),
-      db.mindMaps.toArray(),
-      db.diary.toArray(),
-      db.calibrationLog.toArray(),
-      db.latencyLog.toArray(),
-      db.slippageLog.toArray(),
-      db.activityLog.toArray(),
-      db.disciplineLog.toArray(),
-      db.pomodoroLog.toArray(),
+      readAllSourcesForBackup(),
+      readAllMindMapsForBackup(),
+      readDiary(),
+      readCalibrationLog(),
+      readLatencyLog(),
+      readSlippageLog(),
+      readActivityLog(),
+      readAllDisciplineLogForBackup(),
+      readPomodoroLog(),
     ]);
 
     // Build subcategories map from CategoryRecord

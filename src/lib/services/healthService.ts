@@ -1,5 +1,21 @@
 import { db } from "@/lib/db";
 import { getStorageUsage } from "@/lib/storage";
+import {
+  // SQLite-primary readers via the backup-readers seam (P1.B).
+  countCards,
+  countSources,
+  countMindMaps,
+  countDiscipline,
+  countReviewLog,
+  countDiary,
+  countCalibration,
+  countLatency,
+  countSlippage,
+  countActivity,
+  countPomodoro,
+  readAllCategoriesForBackup,
+  listAllCards,
+} from "@/lib/db/queries";
 
 export interface TableStat {
   name: string;
@@ -37,18 +53,21 @@ export interface HealthReport {
   crashLog: CrashEntry[];
 }
 
+// PR-9 A1b P1.B — counters route through the backup-readers seam. Card,
+// source, mind-map, and discipline-log counts hit SQLite when the Electron
+// shell is up; the remaining log tables stay Dexie-backed until A1c.
 const TABLE_DEFS: ReadonlyArray<{ name: string; counter: () => Promise<number> }> = [
-  { name: "Kartice",      counter: () => db.cards.count() },
-  { name: "Review Log",   counter: () => db.reviewLog.count() },
-  { name: "Pomodoro Log", counter: () => db.pomodoroLog.count() },
-  { name: "Dnevnik",      counter: () => db.diary.count() },
-  { name: "Kalibracija",  counter: () => db.calibrationLog.count() },
-  { name: "Latencija",    counter: () => db.latencyLog.count() },
-  { name: "Slippage",     counter: () => db.slippageLog.count() },
-  { name: "Aktivnosti",   counter: () => db.activityLog.count() },
-  { name: "Disciplina",   counter: () => db.disciplineLog.count() },
-  { name: "Izvori",       counter: () => db.sources.count() },
-  { name: "Mape uma",     counter: () => db.mindMaps.count() },
+  { name: "Kartice",      counter: countCards },
+  { name: "Review Log",   counter: countReviewLog },
+  { name: "Pomodoro Log", counter: countPomodoro },
+  { name: "Dnevnik",      counter: countDiary },
+  { name: "Kalibracija",  counter: countCalibration },
+  { name: "Latencija",    counter: countLatency },
+  { name: "Slippage",     counter: countSlippage },
+  { name: "Aktivnosti",   counter: countActivity },
+  { name: "Disciplina",   counter: countDiscipline },
+  { name: "Izvori",       counter: countSources },
+  { name: "Mape uma",     counter: countMindMaps },
 ];
 
 export async function fetchTableCounts(): Promise<TableStat[]> {
@@ -65,7 +84,14 @@ export async function fetchStorageSnapshot(): Promise<StorageSnapshot> {
 }
 
 export async function detectIntegrityIssues(): Promise<IntegrityIssues> {
-  const allCategories = await db.categories.toArray();
+  // PR-9 A1b P1.B — both reads now flow through the SQLite-primary seam.
+  // listAllCards loads the full set once (was a Dexie cursor previously);
+  // acceptable trade-off because OPFS SQLite reads are near-sync and the
+  // hot path needs the full payload to spot stale chapter/sub links.
+  const [allCategories, allCards] = await Promise.all([
+    readAllCategoriesForBackup(),
+    listAllCards(),
+  ]);
 
   const validIds = new Set(allCategories.map(c => c.id));
   const subUuids = new Set<string>();
@@ -88,9 +114,7 @@ export async function detectIntegrityIssues(): Promise<IntegrityIssues> {
   const staleSubCardIds: string[] = [];
   const staleChapCardIds: string[] = [];
 
-  // ✅ ODLICNO (Audit V4): Koristimo .each() kursor umjesto .toArray()
-  // Ovo eliminira O(N) RAM alokaciju i sprječava OOM krah kod 20k+ kartica.
-  await db.cards.each(c => {
+  for (const c of allCards) {
     // 1. Orphans (categoryId missing in validIds)
     if (c.categoryId && !validIds.has(c.categoryId)) {
       orphanCardIds.push(c.id);
@@ -111,7 +135,7 @@ export async function detectIntegrityIssues(): Promise<IntegrityIssues> {
       }
       if (isStale) staleChapCardIds.push(c.id);
     }
-  });
+  }
 
   return {
     orphans: { count: orphanCardIds.length, cardIds: orphanCardIds },
@@ -140,14 +164,15 @@ export interface CleanOrphansResult {
 }
 
 export async function cleanOrphans(cardIds: string[]): Promise<CleanOrphansResult> {
-  const categories = await db.categories.toArray();
+  const categories = await readAllCategoriesForBackup();
   if (categories.length === 0) {
     throw new Error("Nema kategorija za premještanje kartica");
   }
   const fallback = categories[0];
 
-  // Audit V4: Optimized bulk update using modify() to avoid N+1 query problem.
-  // This executes a single collection update instead of N separate IDB transactions.
+  // Write path stays on Dexie for now — cardRepository owns the SQLite
+  // mirror and we don't want two writers racing on the same rows. A2 / B1
+  // will collapse this into a single transactional cardRepository call.
   await db.cards.where("id").anyOf(cardIds).modify({
     categoryId: fallback.id,
     subcategoryId: "",
