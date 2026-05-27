@@ -360,13 +360,15 @@ export default tseslint.config(
           ],
           patterns: [
             {
-              group: ["@/lib/db/*"],
+              // Block deep imports into @/lib/db except the sanctioned
+              // `queries` barrel. Negated extglob keeps `@/lib/db/queries`
+              // accessible while still blocking siblings like `@/lib/db/foo`.
+              group: ["@/lib/db/*", "!@/lib/db/queries"],
               message:
                 "Runtime import @/lib/db/* iz UI sloja je zabranjen. Koristi @/lib/db/queries barrel (Public API wall) ili custom hook.",
               allowTypeImports: true,
             },
             {
-              // The sanctioned queries barrel is allowed; deep imports into it are not.
               group: ["@/lib/db/queries/*"],
               message:
                 "Importuj iz `@/lib/db/queries` barrel-a — `queries/*` je interno (Public API wall).",
@@ -378,34 +380,6 @@ export default tseslint.config(
     },
   },
 
-  // Hooks may consume the sanctioned `@/lib/db/queries` barrel directly
-  // (re-enable it explicitly because the block above forbids `@/lib/db/*`).
-  {
-    files: ["src/hooks/**/*.{ts,tsx}"],
-    rules: {
-      "@typescript-eslint/no-restricted-imports": [
-        "error",
-        {
-          paths: [
-            {
-              name: "@/lib/db",
-              message:
-                "Runtime import @/lib/db iz UI sloja je zabranjen. Koristi @/lib/db/queries barrel ili `import type`.",
-              allowTypeImports: true,
-            },
-          ],
-          patterns: [
-            {
-              group: ["@/lib/db/queries/*"],
-              message:
-                "Importuj iz `@/lib/db/queries` barrel-a — `queries/*` je interno (Public API wall).",
-              allowTypeImports: true,
-            },
-          ],
-        },
-      ],
-    },
-  },
 
 
   // G7 — Raw setTimeout/setInterval allow-list.
