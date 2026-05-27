@@ -13,6 +13,7 @@
 import type { SqlExecutor } from "@/lib/persistence/sqlite/executor";
 import { db } from "@/lib/db";
 import { logger } from "@/lib/logger";
+import { notifyExecutorNull } from "./_shared/executor-telemetry";
 
 export interface MajorSystemPeg {
   id: number;
@@ -22,11 +23,12 @@ export interface MajorSystemPeg {
 async function tryGetExecutor(): Promise<SqlExecutor | null> {
   try {
     const { isElectron } = await import("@/lib/electron-integration");
-    if (!isElectron()) return null;
+    if (!isElectron()) { notifyExecutorNull("majorSystem", "non-electron"); return null; }
     const { getOpfsSqliteExecutor } = await import("@/lib/persistence/sqlite/client");
     return await getOpfsSqliteExecutor();
   } catch (err) {
     logger.warn("[major-system-repo] sqlite executor unavailable, using Dexie fallback", err);
+    notifyExecutorNull("majorSystem", "error");
     return null;
   }
 }

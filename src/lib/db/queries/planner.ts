@@ -19,16 +19,18 @@ import type { SqlExecutor } from "@/lib/persistence/sqlite/executor";
 import { kvGet, kvPut } from "@/lib/persistence/sqlite/kv";
 import { db } from "@/lib/db";
 import { logger } from "@/lib/logger";
+import { notifyExecutorNull } from "./_shared/executor-telemetry";
 
 /** Lazy executor accessor — null in non-Electron contexts. */
 async function tryGetExecutor(): Promise<SqlExecutor | null> {
   try {
     const { isElectron } = await import("@/lib/electron-integration");
-    if (!isElectron()) return null;
+    if (!isElectron()) { notifyExecutorNull("planner", "non-electron"); return null; }
     const { getOpfsSqliteExecutor } = await import("@/lib/persistence/sqlite/client");
     return await getOpfsSqliteExecutor();
   } catch (err) {
     logger.warn("[planner-repo] sqlite executor unavailable, using Dexie fallback", err);
+    notifyExecutorNull("planner", "error");
     return null;
   }
 }
