@@ -160,11 +160,11 @@ export function useWikiLinkAutoCreate({
 
     let cancelled = false;
     const handle = taskScheduler.setTimeout(async () => {
-      const created = await bulkCreateArticlesIfMissing(
-        categoryId,
-        pending,
-        rootSubcategoryIdRef.current ?? undefined,
-      );
+      const created = await bulkCreateRef.current.mutateAsync({
+        subjectId: categoryId,
+        titles: pending,
+        rootSubcategoryId: rootSubcategoryIdRef.current ?? undefined,
+      });
       if (cancelled) return;
       if (created.length > 0) {
         // Optimistically expand the in-memory title set so the next keystroke
