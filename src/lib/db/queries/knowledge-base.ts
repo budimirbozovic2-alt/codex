@@ -36,7 +36,24 @@ async function tryGetExecutor(): Promise<SqlExecutor | null> {
   }
 }
 
+// ─── Change emitter (PR-7f M2 — TanStack bridge) ────────────────────────
+
+type KnowledgeBaseListener = () => void;
+const _kbListeners = new Set<KnowledgeBaseListener>();
+
+export function onKnowledgeBaseChanged(fn: KnowledgeBaseListener): () => void {
+  _kbListeners.add(fn);
+  return () => { _kbListeners.delete(fn); };
+}
+
+export function notifyKnowledgeBaseChanged(): void {
+  for (const fn of _kbListeners) {
+    try { fn(); } catch { /* swallow */ }
+  }
+}
+
 // ─── Codec ──────────────────────────────────────────────────────────────
+
 
 function decodeArticle(row: { payload: string }): KnowledgeBaseArticle | null {
   try { return JSON.parse(row.payload) as KnowledgeBaseArticle; }
@@ -197,6 +214,7 @@ export async function putArticle(article: KnowledgeBaseArticle): Promise<void> {
     logger.warn("[kb-articles-repo] dexie mirror put failed", { id: article.id, err });
     throw err;
   }
+  notifyKnowledgeBaseChanged();
 }
 
 /** Batch mirror for post-tx flows (bulkCreateArticlesIfMissing, ensureIndexArticle). */
@@ -223,6 +241,7 @@ export async function bulkPutArticles(articles: readonly KnowledgeBaseArticle[])
   catch (err) {
     logger.warn("[kb-articles-repo] dexie mirror bulkPut failed", err);
   }
+  notifyKnowledgeBaseChanged();
 }
 
 export async function deleteArticle(id: string): Promise<void> {
@@ -238,4 +257,6 @@ export async function deleteArticle(id: string): Promise<void> {
     logger.warn("[kb-articles-repo] dexie delete failed", { id, err });
     throw err;
   }
+  notifyKnowledgeBaseChanged();
 }
+

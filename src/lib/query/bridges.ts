@@ -8,7 +8,7 @@
 import type { QueryClient } from "@tanstack/react-query";
 import { onSourcesChanged } from "@/lib/sources-storage";
 import { onPlannerChanged, type PlannerChangeKind } from "@/lib/planner";
-import { onDraftsChanged, onSettingsChanged, onCardsChanged } from "@/lib/db/queries";
+import { onDraftsChanged, onSettingsChanged, onCardsChanged, onKnowledgeBaseChanged } from "@/lib/db/queries";
 import { onMindMapsChanged } from "@/lib/mindmap-storage";
 import { subscribeMnemonics } from "@/features/mnemonic/mnemonic-storage/cards-repo";
 
@@ -65,6 +65,13 @@ export function installQueryBridges(qc: QueryClient): void {
   // mnemonic feature, scopovi su pod istim prefixom).
   subscribeMnemonics(() => {
     void qc.invalidateQueries({ queryKey: ["mnemonics"] });
+  });
+
+  // ── Knowledge base (Zettel) ─────────────────────────────
+  // notifyKnowledgeBaseChanged se fire-uje iz queries/knowledge-base.ts
+  // nakon put/bulkPut/delete; bulkCreate/ensureIndex prolaze kroz bulkPut.
+  onKnowledgeBaseChanged(() => {
+    void qc.invalidateQueries({ queryKey: ["knowledgeBase"] });
   });
 
   // ── Settings (prefix "" = sve mutacije) ─────────────────

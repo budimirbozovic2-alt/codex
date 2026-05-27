@@ -4,6 +4,7 @@
 
 import { logger } from "@/lib/logger";
 import { listAllPegs, bulkPutPegs } from "@/lib/db/queries/major-system";
+import { notifyMnemonics } from "./cards-repo";
 import { DEFAULT_MAJOR_SYSTEM, JOKER_LOCATIONS } from "./constants";
 
 export async function loadMajorSystem(): Promise<Record<number, string>> {
@@ -23,6 +24,7 @@ export async function saveMajorSystem(system: Record<number, string>): Promise<v
   try {
     const records = Object.entries(system).map(([id, peg]) => ({ id: parseInt(id, 10), peg }));
     await bulkPutPegs(records);
+    notifyMnemonics();
   } catch (err) {
     logger.error("[mnemonic-storage] saveMajorSystem failed", err);
   }
