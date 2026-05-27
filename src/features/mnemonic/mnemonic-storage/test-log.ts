@@ -21,6 +21,7 @@ export async function loadMnemonicTestLog(): Promise<MnemonicTestLogEntry[]> {
 export async function addMnemonicTestEntry(entry: MnemonicTestLogEntry): Promise<void> {
   try {
     await addTestLogEntry(entry);
+    notifyMnemonics();
   } catch (err) {
     logger.error("[mnemonic-storage] addMnemonicTestEntry failed", err);
   }
