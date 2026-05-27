@@ -1,5 +1,12 @@
-import { db, type Source } from "./db";
+import { type Source } from "./db";
 import { parseArticles } from "./article-parser";
+import {
+  getSource as repoGetSource,
+  listAllSources,
+  listSourcesByCategory,
+  putSource,
+  deleteSourceAndUnlinkCards,
+} from "@/lib/db/queries/sources";
 
 import { logger } from "@/lib/logger";
 export type { Source };
@@ -55,21 +62,21 @@ export function invalidateSourcesCache(): void {
 
 export async function loadSources(): Promise<Source[]> {
   if (_cache) return _cache;
-  const sources = await db.sources.toArray();
+  const sources = await listAllSources();
   _cache = sources;
   return sources;
 }
 
 /** Load sources scoped to a single category */
 export async function loadSourcesByCategory(categoryId: string): Promise<Source[]> {
-  return db.sources.where("categoryId").equals(categoryId).toArray();
+  return listSourcesByCategory(categoryId);
 }
 
 export async function saveSource(source: Source): Promise<void> {
   // V6: NEVER invalidate cache or notify listeners on failure — that would
   // make consumers reload from a stale DB and silently drop the user's edit.
   try {
-    await db.sources.put(source);
+    await putSource(source);
   } catch (err) {
     logger.error("[sources-storage] saveSource failed", err);
     throw err;
@@ -81,21 +88,7 @@ export async function saveSource(source: Source): Promise<void> {
 export async function deleteSource(id: string): Promise<void> {
   _cache = null;
 
-  const clearedIds: string[] = [];
-  await db.transaction("rw", [db.sources, db.cards], async () => {
-    const linkedCards = await db.cards.where("sourceId").equals(id).toArray();
-    if (linkedCards.length > 0) {
-      const cleaned = linkedCards.map(c => ({
-        ...c,
-        sourceId: undefined,
-        textAnchor: undefined,
-        needsReview: undefined,
-      }));
-      await db.cards.bulkPut(cleaned);
-      clearedIds.push(...linkedCards.map(c => c.id));
-    }
-    await db.sources.delete(id);
-  });
+  const clearedIds = await deleteSourceAndUnlinkCards(id);
 
   // F5: Notify in-memory card state about cleared links
   if (clearedIds.length > 0) {
@@ -108,8 +101,9 @@ export async function deleteSource(id: string): Promise<void> {
 }
 
 export async function getSource(id: string): Promise<Source | undefined> {
-  return db.sources.get(id);
+  return repoGetSource(id);
 }
+
 
 /** Extract heading outline from HTML */
 export function extractOutline(html: string): { id: string; text: string; level: number }[] {
