@@ -65,7 +65,7 @@ interface MockState {
 
 function createExecutor(): SqlExecutor {
   const state: MockState = {
-    tables: { cards: new Map(), categories: new Map(), sources: new Map(), mindMaps: new Map(), mnemonics: new Map(), knowledgeBaseArticles: new Map() },
+    tables: { cards: new Map(), categories: new Map(), sources: new Map(), mindMaps: new Map(), mnemonics: new Map(), knowledgeBaseArticles: new Map(), majorSystem: new Map(), mnemonicTestLog: new Map() },
     kv: new Map(),
     snapshot: null,
     inTx: false,
