@@ -8,6 +8,7 @@
 import type { QueryClient } from "@tanstack/react-query";
 import { onSourcesChanged } from "@/lib/sources-storage";
 import { onPlannerChanged, type PlannerChangeKind } from "@/lib/planner";
+import { onDraftsChanged, onSettingsChanged } from "@/lib/db/queries";
 
 let _installed = false;
 
@@ -35,6 +36,20 @@ export function installQueryBridges(qc: QueryClient): void {
       case "lastRedistribute":
         void qc.invalidateQueries({ queryKey: ["planner"] });
         break;
+    }
+  });
+
+  // ── Drafts ──────────────────────────────────────────────
+  onDraftsChanged(() => {
+    void qc.invalidateQueries({ queryKey: ["drafts"] });
+  });
+
+  // ── Settings (prefix "" = sve mutacije) ─────────────────
+  onSettingsChanged("", (key: string) => {
+    void qc.invalidateQueries({ queryKey: ["settings", key] });
+    // Subject overrides — invalidate scoped subject hooks.
+    if (key.startsWith("sr-subject-settings-")) {
+      void qc.invalidateQueries({ queryKey: ["subject-settings"] });
     }
   });
 }

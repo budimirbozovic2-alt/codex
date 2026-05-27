@@ -1,6 +1,6 @@
-/** Config CRUD — sync getters backed by `cache`, IDB writes through `enqueueWrite`. */
-import { db } from "../db";
-import { plannerCache, enqueueWrite } from "./cache";
+/** Config CRUD — sync getter backed by `cache`, write delegated to SQLite-primary repo. */
+import { plannerCache } from "./cache";
+import { savePlannerConfig } from "@/lib/db/queries";
 import type { PlannerConfig } from "./types";
 
 export function loadPlanner(): PlannerConfig {
@@ -9,5 +9,6 @@ export function loadPlanner(): PlannerConfig {
 
 export function savePlanner(config: PlannerConfig): void {
   plannerCache.set(config);
-  enqueueWrite("savePlanner", () => db.settings.put({ key: "plannerConfig", value: config }));
+  // Fire-and-forget; SQLite executor + Dexie mirror both handle errors internally.
+  void savePlannerConfig(config);
 }
