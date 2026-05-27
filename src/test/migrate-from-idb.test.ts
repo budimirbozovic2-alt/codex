@@ -68,7 +68,11 @@ function createExecutor(): SqlExecutor {
     inTx: false,
   };
 
+  // Test hook: a predicate returning true silently drops that INSERT.
+  let dropFilter: ((sql: string, params: readonly SqlBindValue[]) => boolean) | null = null;
+
   const handleInsert = (sql: string, params: readonly SqlBindValue[]): void => {
+    if (dropFilter && dropFilter(sql, params)) return;
     const m = /INSERT OR REPLACE INTO (\w+)/i.exec(sql);
     if (!m) return;
     const tbl = m[1];
@@ -83,6 +87,8 @@ function createExecutor(): SqlExecutor {
   const run: SqlExecutor["run"] = async (sql, params = []) => {
     handleInsert(sql, params);
   };
+
+  const setDropFilter = (fn: typeof dropFilter): void => { dropFilter = fn; };
 
   const all: SqlExecutor["all"] = async <T = SqlRow>(sql: string, params: readonly SqlBindValue[] = []) => {
     const countMatch = /SELECT COUNT\(\*\) AS n FROM (\w+)/i.exec(sql);
@@ -134,7 +140,8 @@ function createExecutor(): SqlExecutor {
   const close: SqlExecutor["close"] = async () => { /* noop */ };
 
   const api: SqlExecutor = { run, all, exec, transaction, close };
-  (api.run as unknown as { _state: MockState })._state = state;
+  (api.run as unknown as { _state: MockState; _setDropFilter: typeof setDropFilter })._state = state;
+  (api.run as unknown as { _setDropFilter: typeof setDropFilter })._setDropFilter = setDropFilter;
   return api;
 }
 
