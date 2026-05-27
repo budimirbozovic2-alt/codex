@@ -155,3 +155,13 @@ export async function deleteMindMap(id: string): Promise<void> {
     throw err;
   }
 }
+
+// ── A2 — Dexie mirror helper for category-deletion cascade ──────────────
+export async function deleteMindMapsByCategoryDexie(categoryId: string): Promise<number> {
+  try {
+    return await db.mindMaps.where("categoryId").equals(categoryId).delete();
+  } catch (err) {
+    logger.warn("[mindmaps-repo] dexie deleteByCategory failed", { categoryId, err });
+    return 0;
+  }
+}

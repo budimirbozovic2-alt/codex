@@ -224,3 +224,32 @@ export async function deleteSourceAndUnlinkCards(id: string): Promise<string[]> 
 
   return clearedIds;
 }
+
+// ── A2 — Dexie mirror helpers for category-deletion cascade ─────────────
+// SQLite side handled by single tx + FK CASCADE in categoryRepository.
+
+/** Delete every Dexie `sources` row whose categoryId matches. Returns count. */
+export async function deleteSourcesByCategoryDexie(categoryId: string): Promise<number> {
+  try {
+    return await db.sources.where("categoryId").equals(categoryId).delete();
+  } catch (err) {
+    logger.warn("[sources-repo] dexie deleteByCategory failed", { categoryId, err });
+    return 0;
+  }
+}
+
+/** Re-parent Dexie `sources` from one category to another. */
+export async function reparentSourcesByCategoryDexie(
+  fromCategoryId: string,
+  toCategoryId: string,
+): Promise<number> {
+  try {
+    return await db.sources.where("categoryId").equals(fromCategoryId).modify({
+      categoryId: toCategoryId,
+    });
+  } catch (err) {
+    logger.warn("[sources-repo] dexie reparentByCategory failed",
+      { fromCategoryId, toCategoryId, err });
+    return 0;
+  }
+}

@@ -260,3 +260,13 @@ export async function deleteArticle(id: string): Promise<void> {
   notifyKnowledgeBaseChanged();
 }
 
+
+// ── A2 — Dexie mirror helper for category-deletion cascade ──────────────
+export async function deleteArticlesBySubjectDexie(subjectId: string): Promise<number> {
+  try {
+    return await db.knowledgeBaseArticles.where("subjectId").equals(subjectId).delete();
+  } catch (err) {
+    logger.warn("[kb-articles-repo] dexie deleteBySubject failed", { subjectId, err });
+    return 0;
+  }
+}
