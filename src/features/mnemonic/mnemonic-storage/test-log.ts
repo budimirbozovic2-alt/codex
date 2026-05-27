@@ -6,6 +6,7 @@ import {
   listAllTestLogEntries,
   addTestLogEntry,
 } from "@/lib/db/queries/mnemonic-test-log";
+import { notifyMnemonics } from "./cards-repo";
 import type { MnemonicTestLogEntry } from "./types";
 
 export async function loadMnemonicTestLog(): Promise<MnemonicTestLogEntry[]> {
