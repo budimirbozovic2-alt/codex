@@ -105,7 +105,7 @@ export default function CognitiveAnalytics({ cards, categories, reviewLog, catNa
             <ul className="space-y-0.5 pt-1">
               <DataRow label="Sekcije ukupno" value={counts.totalSections} />
               <DataRow label="Sekcije sa istorijom ponavljanja" value={counts.sectionsWithReview} />
-              <DataRow label="Datum cilja (planner)" value={counts.examDate || "nije postavljen"} />
+              <DataRow label="Datum cilja (planner)" value={examDateLabel} />
             </ul>
           </InfoPanel>
         }
@@ -115,7 +115,7 @@ export default function CognitiveAnalytics({ cards, categories, reviewLog, catNa
         ) : (
           <div className="space-y-3">
             <p className="text-xs text-muted-foreground">{isScoped ? "Procijenjeno vrijeme do zaborava za ovaj predmet." : "Procijenjeno vrijeme do zaborava po kategoriji."}</p>
-            {stabilityData.sort((a, b) => a.avgStability - b.avgStability).map(cat => {
+            {[...stabilityData].sort((a, b) => a.avgStability - b.avgStability).map(cat => {
               const retPct = Math.round(cat.avgRetrievability * 100);
               const stabDays = Math.round(cat.avgStability * 10) / 10;
               return (
