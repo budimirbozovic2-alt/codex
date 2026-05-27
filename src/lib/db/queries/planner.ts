@@ -74,6 +74,50 @@ export async function loadPlannerSnapshot(): Promise<PlannerHydrationSnapshot> {
   };
 }
 
+/**
+ * Discipline-log dump for backup/health snapshots. SQLite-primary with a
+ * Dexie fallback; keeps the date-ascending order the planner already uses
+ * everywhere else.
+ */
+export async function listAllDisciplineLog(): Promise<unknown[]> {
+  const exec = await tryGetExecutor();
+  if (exec) {
+    try {
+      const rows = await exec.all<{ payload: string }>(
+        "SELECT payload FROM disciplineLog ORDER BY date ASC",
+      );
+      return rows
+        .map((r) => {
+          try { return JSON.parse(r.payload) as unknown; } catch { return null; }
+        })
+        .filter((x): x is unknown => x !== null);
+    } catch (err) {
+      logger.warn("[planner-repo] sqlite listAllDisciplineLog failed", err);
+    }
+  }
+  try { return await db.disciplineLog.toArray(); }
+  catch (err) {
+    logger.warn("[planner-repo] dexie listAllDisciplineLog failed", err);
+    return [];
+  }
+}
+
+export async function countDisciplineLog(): Promise<number> {
+  const exec = await tryGetExecutor();
+  if (exec) {
+    try {
+      const rows = await exec.all<{ n: number }>(
+        "SELECT COUNT(*) AS n FROM disciplineLog",
+      );
+      return Number(rows[0]?.n ?? 0);
+    } catch (err) {
+      logger.warn("[planner-repo] sqlite countDisciplineLog failed", err);
+    }
+  }
+  try { return await db.disciplineLog.count(); }
+  catch { return 0; }
+}
+
 // ─── KV writes ──────────────────────────────────────────────────────────
 
 async function putKv(key: string, value: unknown): Promise<void> {
