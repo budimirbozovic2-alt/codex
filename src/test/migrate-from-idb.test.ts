@@ -178,17 +178,19 @@ describe("migrateFromIdb", () => {
     );
     const executor = createExecutor();
     const state = (executor.run as unknown as { _state: MockState })._state;
+    const setDropFilter = (executor.run as unknown as {
+      _setDropFilter: (fn: ((sql: string) => boolean) | null) => void;
+    })._setDropFilter;
 
     // Force a count mismatch on `cards` by swallowing one INSERT.
-    const realRun = executor.run.bind(executor);
     let dropped = false;
-    executor.run = async (sql, params) => {
+    setDropFilter((sql) => {
       if (!dropped && /INSERT OR REPLACE INTO cards/i.test(sql)) {
         dropped = true;
-        return; // silently lose this row
+        return true;
       }
-      await realRun(sql, params);
-    };
+      return false;
+    });
 
     await expect(migrateFromIdb(executor)).rejects.toBeInstanceOf(MigrationAbort);
 
