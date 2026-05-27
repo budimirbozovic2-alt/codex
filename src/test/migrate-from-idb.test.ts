@@ -53,10 +53,10 @@ vi.mock("@/lib/db", () => ({ db: fakeDb }));
 
 // ── In-memory SqlExecutor honouring tx semantics ──────────────────────────
 interface MockState {
-  tables: { [name: string]: Map<string, unknown[]> };
+  tables: Record<string, Map<string, unknown[]>>;
   kv: Map<string, string>;
   /** Snapshot stack for nested BEGIN/COMMIT — we only need depth 1 for migration. */
-  snapshot: { tables: typeof MockState.prototype.tables; kv: Map<string, string> } | null;
+  snapshot: { tables: Record<string, Map<string, unknown[]>>; kv: Map<string, string> } | null;
   inTx: boolean;
 }
 
@@ -103,7 +103,7 @@ function createExecutor(): SqlExecutor {
     state.snapshot = {
       tables: Object.fromEntries(
         Object.entries(state.tables).map(([k, v]) => [k, new Map(v)]),
-      ) as typeof state.tables,
+      ),
       kv: new Map(state.kv),
     };
     state.inTx = true;
