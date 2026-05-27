@@ -1,4 +1,4 @@
-// ─── Category Deletion Service (A2 — collapsed) ──────────────────────────
+// ─── Category Deletion Service (A1c-1 — SQLite-only cascade) ─────────────
 // Single cascade entry-point for `deleteCategory`.
 //
 // SQLite path: one transaction inside `categoryRepository.deleteAsync` —
@@ -7,9 +7,9 @@
 // automatically. No JS keyed mutex needed — SQLite ACID is the only
 // write-serialisation primitive (Core memory).
 //
-// Dexie mirror: every child-table tear-down goes through the per-domain
-// `*ByCategoryDexie` helpers exposed from `@/lib/db/queries`. The service
-// no longer imports `db` directly.
+// A1c-1: Dexie mirror helpers were dropped after soak — SQLite + FK CASCADE
+// is now the only path. The service no longer issues any per-domain
+// Dexie deletes.
 //
 // KV scope (subject_settings, plannerConfig refs) has no FK relationship —
 // scrubbed here explicitly.
@@ -27,13 +27,6 @@ import {
   deleteSetting,
   notifyCardsChanged,
   notifyKnowledgeBaseChanged,
-  deleteCardsByCategoryDexie,
-  reparentCardsByCategoryDexie,
-  deleteSourcesByCategoryDexie,
-  reparentSourcesByCategoryDexie,
-  deleteMindMapsByCategoryDexie,
-  deleteMnemonicsByCategoryDexie,
-  deleteArticlesBySubjectDexie,
 } from "@/lib/db/queries";
 import { categoryRepository } from "@/lib/repositories";
 import { notifyMnemonics } from "@/features/mnemonic/mnemonic-storage";
@@ -80,28 +73,7 @@ export async function cascadeDeleteCategoryDomains(
     throw new Error(sqlResult.error.message);
   }
 
-  // 2. Dexie mirror — parallel per-domain helpers. SQLite already committed,
-  //    so partial failures here only affect the soak-window mirror.
-  const [cardsN, sourcesN, mindMapsN, mnemonicsN, articlesN] = await Promise.all([
-    opts.purgeCards
-      ? deleteCardsByCategoryDexie(categoryId)
-      : opts.fallbackId
-        ? reparentCardsByCategoryDexie(categoryId, opts.fallbackId)
-        : Promise.resolve(0),
-    opts.purgeCards
-      ? deleteSourcesByCategoryDexie(categoryId)
-      : opts.fallbackId
-        ? reparentSourcesByCategoryDexie(categoryId, opts.fallbackId)
-        : Promise.resolve(0),
-    deleteMindMapsByCategoryDexie(categoryId),
-    deleteMnemonicsByCategoryDexie(categoryId),
-    deleteArticlesBySubjectDexie(categoryId),
-  ]);
-  result.cardsAffected = cardsN;
-  result.sourcesAffected = sourcesN;
-  result.mindMaps = mindMapsN;
-  result.mnemonics = mnemonicsN;
-  result.articles = articlesN;
+
 
   // 3. KV (settings + planner scrub) — no FK, must be explicit.
   const settingsKey = SUBJECT_SETTINGS_PREFIX + categoryId;

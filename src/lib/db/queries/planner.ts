@@ -124,18 +124,15 @@ export async function countDisciplineLog(): Promise<number> {
 
 async function putKv(key: string, value: unknown): Promise<void> {
   const exec = await tryGetExecutor();
-  if (exec) {
-    try {
-      await kvPut(exec, key, value);
-    } catch (err) {
-      logger.warn(`[planner-repo] sqlite kvPut(${key}) failed`, err);
-    }
+  if (!exec) {
+    const { assertDesktop } = await import("@/lib/electron-integration");
+    assertDesktop();
+    return;
   }
-  // Dexie mirror — keeps electron backup / legacy readers in sync.
   try {
-    await db.settings.put({ key, value });
+    await kvPut(exec, key, value);
   } catch (err) {
-    logger.warn(`[planner-repo] dexie mirror(${key}) failed`, err);
+    logger.warn(`[planner-repo] sqlite kvPut(${key}) failed`, err);
   }
 }
 
@@ -157,32 +154,22 @@ export async function saveDisciplineLog<T extends { date: string }>(
   entries: ReadonlyArray<T>,
 ): Promise<void> {
   const exec = await tryGetExecutor();
-  if (exec) {
-    try {
-      await exec.transaction(async (tx) => {
-        await tx.run("DELETE FROM disciplineLog");
-        for (const e of entries) {
-          await tx.run(
-            "INSERT OR REPLACE INTO disciplineLog (date, payload) VALUES (?, ?)",
-            [e.date, JSON.stringify(e)],
-          );
-        }
-      });
-    } catch (err) {
-      logger.warn("[planner-repo] sqlite saveDisciplineLog failed", err);
-    }
+  if (!exec) {
+    const { assertDesktop } = await import("@/lib/electron-integration");
+    assertDesktop();
+    return;
   }
-  // Dexie mirror.
   try {
-    await db.transaction("rw", db.disciplineLog, async () => {
-      await db.disciplineLog.clear();
-      if (entries.length > 0) {
-        await db.disciplineLog.bulkAdd(
-          entries as unknown as Parameters<typeof db.disciplineLog.bulkAdd>[0],
+    await exec.transaction(async (tx) => {
+      await tx.run("DELETE FROM disciplineLog");
+      for (const e of entries) {
+        await tx.run(
+          "INSERT OR REPLACE INTO disciplineLog (date, payload) VALUES (?, ?)",
+          [e.date, JSON.stringify(e)],
         );
       }
     });
   } catch (err) {
-    logger.warn("[planner-repo] dexie mirror disciplineLog failed", err);
+    logger.warn("[planner-repo] sqlite saveDisciplineLog failed", err);
   }
 }

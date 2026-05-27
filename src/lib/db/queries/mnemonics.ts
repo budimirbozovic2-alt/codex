@@ -125,16 +125,14 @@ export async function listMnemonicsByCategory(categoryId: string): Promise<Mnemo
 
 export async function putMnemonic(card: MnemonicCard): Promise<void> {
   const exec = await tryGetExecutor();
-  if (exec) {
-    try { await exec.run(INSERT_SQL, bindMnemonic(card)); }
-    catch (err) {
-      logger.warn("[mnemonics-repo] sqlite put failed", { id: card.id, err });
-      throw err;
-    }
+  if (!exec) {
+    const { assertDesktop } = await import("@/lib/electron-integration");
+    assertDesktop();
+    return;
   }
-  try { await db.mnemonics.put(card); }
+  try { await exec.run(INSERT_SQL, bindMnemonic(card)); }
   catch (err) {
-    logger.warn("[mnemonics-repo] dexie mirror put failed", { id: card.id, err });
+    logger.warn("[mnemonics-repo] sqlite put failed", { id: card.id, err });
     throw err;
   }
 }
@@ -142,46 +140,33 @@ export async function putMnemonic(card: MnemonicCard): Promise<void> {
 export async function bulkPutMnemonics(cards: MnemonicCard[]): Promise<void> {
   if (cards.length === 0) return;
   const exec = await tryGetExecutor();
-  if (exec) {
-    try {
-      await exec.transaction(async (tx) => {
-        for (const c of cards) {
-          await tx.run(INSERT_SQL, bindMnemonic(c));
-        }
-      });
-    } catch (err) {
-      logger.warn("[mnemonics-repo] sqlite bulkPut failed", err);
-      throw err;
-    }
+  if (!exec) {
+    const { assertDesktop } = await import("@/lib/electron-integration");
+    assertDesktop();
+    return;
   }
-  try { await db.mnemonics.bulkPut(cards); }
-  catch (err) {
-    logger.warn("[mnemonics-repo] dexie mirror bulkPut failed", err);
+  try {
+    await exec.transaction(async (tx) => {
+      for (const c of cards) {
+        await tx.run(INSERT_SQL, bindMnemonic(c));
+      }
+    });
+  } catch (err) {
+    logger.warn("[mnemonics-repo] sqlite bulkPut failed", err);
     throw err;
   }
 }
 
 export async function deleteMnemonic(id: string): Promise<void> {
   const exec = await tryGetExecutor();
-  if (exec) {
-    try { await exec.run("DELETE FROM mnemonics WHERE id = ?", [id]); }
-    catch (err) {
-      logger.warn("[mnemonics-repo] sqlite delete failed", { id, err });
-    }
+  if (!exec) {
+    const { assertDesktop } = await import("@/lib/electron-integration");
+    assertDesktop();
+    return;
   }
-  try { await db.mnemonics.delete(id); }
+  try { await exec.run("DELETE FROM mnemonics WHERE id = ?", [id]); }
   catch (err) {
-    logger.warn("[mnemonics-repo] dexie delete failed", { id, err });
+    logger.warn("[mnemonics-repo] sqlite delete failed", { id, err });
     throw err;
-  }
-}
-
-// ── A2 — Dexie mirror helper for category-deletion cascade ──────────────
-export async function deleteMnemonicsByCategoryDexie(categoryId: string): Promise<number> {
-  try {
-    return await db.mnemonics.where("categoryId").equals(categoryId).delete();
-  } catch (err) {
-    logger.warn("[mnemonics-repo] dexie deleteByCategory failed", { categoryId, err });
-    return 0;
   }
 }

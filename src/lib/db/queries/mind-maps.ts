@@ -121,49 +121,40 @@ export async function listMindMapsByCategory(categoryId: string): Promise<MindMa
 
 export async function putMindMap(doc: MindMapDoc): Promise<void> {
   const exec = await tryGetExecutor();
-  // Schema requires categoryId NOT NULL — skip SQLite for unscoped docs.
-  if (exec && doc.categoryId) {
-    try {
-      await exec.run(INSERT_SQL, [
-        doc.id,
-        doc.categoryId,
-        doc.title,
-        doc.updatedAt,
-        JSON.stringify(doc),
-      ]);
-    } catch (err) {
-      logger.warn("[mindmaps-repo] sqlite put failed", { id: doc.id, err });
-      throw err;
-    }
+  if (!exec) {
+    const { assertDesktop } = await import("@/lib/electron-integration");
+    assertDesktop();
+    return;
   }
-  try { await db.mindMaps.put(doc); }
-  catch (err) {
-    logger.warn("[mindmaps-repo] dexie mirror put failed", { id: doc.id, err });
+  // Schema requires categoryId NOT NULL — skip SQLite for unscoped docs.
+  if (!doc.categoryId) {
+    logger.warn("[mindmaps-repo] put skipped — missing categoryId", { id: doc.id });
+    return;
+  }
+  try {
+    await exec.run(INSERT_SQL, [
+      doc.id,
+      doc.categoryId,
+      doc.title,
+      doc.updatedAt,
+      JSON.stringify(doc),
+    ]);
+  } catch (err) {
+    logger.warn("[mindmaps-repo] sqlite put failed", { id: doc.id, err });
     throw err;
   }
 }
 
 export async function deleteMindMap(id: string): Promise<void> {
   const exec = await tryGetExecutor();
-  if (exec) {
-    try { await exec.run("DELETE FROM mindMaps WHERE id = ?", [id]); }
-    catch (err) {
-      logger.warn("[mindmaps-repo] sqlite delete failed", { id, err });
-    }
+  if (!exec) {
+    const { assertDesktop } = await import("@/lib/electron-integration");
+    assertDesktop();
+    return;
   }
-  try { await db.mindMaps.delete(id); }
+  try { await exec.run("DELETE FROM mindMaps WHERE id = ?", [id]); }
   catch (err) {
-    logger.warn("[mindmaps-repo] dexie delete failed", { id, err });
+    logger.warn("[mindmaps-repo] sqlite delete failed", { id, err });
     throw err;
-  }
-}
-
-// ── A2 — Dexie mirror helper for category-deletion cascade ──────────────
-export async function deleteMindMapsByCategoryDexie(categoryId: string): Promise<number> {
-  try {
-    return await db.mindMaps.where("categoryId").equals(categoryId).delete();
-  } catch (err) {
-    logger.warn("[mindmaps-repo] dexie deleteByCategory failed", { categoryId, err });
-    return 0;
   }
 }

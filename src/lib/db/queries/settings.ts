@@ -105,22 +105,24 @@ export async function listSettingsByPrefix<T = unknown>(
 
 export async function putSetting<T>(key: string, value: T): Promise<void> {
   const exec = await tryGetExecutor();
-  if (exec) {
-    try { await kvPut<T>(exec, key, value); }
-    catch (err) { logger.warn("[settings-repo] sqlite put failed", { key, err }); }
+  if (!exec) {
+    const { assertDesktop } = await import("@/lib/electron-integration");
+    assertDesktop();
+    return;
   }
-  try { await db.settings.put({ key, value }); }
-  catch (err) { logger.warn("[settings-repo] dexie mirror put failed", { key, err }); }
+  try { await kvPut<T>(exec, key, value); }
+  catch (err) { logger.warn("[settings-repo] sqlite put failed", { key, err }); }
   _notify(key);
 }
 
 export async function deleteSetting(key: string): Promise<void> {
   const exec = await tryGetExecutor();
-  if (exec) {
-    try { await exec.run("DELETE FROM kv WHERE key = ?", [key]); }
-    catch (err) { logger.warn("[settings-repo] sqlite delete failed", { key, err }); }
+  if (!exec) {
+    const { assertDesktop } = await import("@/lib/electron-integration");
+    assertDesktop();
+    return;
   }
-  try { await db.settings.delete(key); }
-  catch (err) { logger.warn("[settings-repo] dexie mirror delete failed", { key, err }); }
+  try { await exec.run("DELETE FROM kv WHERE key = ?", [key]); }
+  catch (err) { logger.warn("[settings-repo] sqlite delete failed", { key, err }); }
   _notify(key);
 }

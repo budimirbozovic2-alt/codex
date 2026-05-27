@@ -61,22 +61,19 @@ export async function listAllPegs(): Promise<MajorSystemPeg[]> {
 export async function bulkPutPegs(pegs: MajorSystemPeg[]): Promise<void> {
   if (pegs.length === 0) return;
   const exec = await tryGetExecutor();
-  if (exec) {
-    try {
-      await exec.transaction(async (tx) => {
-        for (const p of pegs) {
-          await tx.run(INSERT_SQL, [p.id, p.peg]);
-        }
-      });
-    } catch (err) {
-      logger.warn("[major-system-repo] sqlite bulkPut failed", err);
-      throw err;
-    }
+  if (!exec) {
+    const { assertDesktop } = await import("@/lib/electron-integration");
+    assertDesktop();
+    return;
   }
   try {
-    await db.majorSystem.bulkPut(pegs);
+    await exec.transaction(async (tx) => {
+      for (const p of pegs) {
+        await tx.run(INSERT_SQL, [p.id, p.peg]);
+      }
+    });
   } catch (err) {
-    logger.warn("[major-system-repo] dexie mirror bulkPut failed", err);
+    logger.warn("[major-system-repo] sqlite bulkPut failed", err);
     throw err;
   }
 }
