@@ -13,6 +13,7 @@ import {
   type AddCardArgs,
 } from "@/lib/source-reader/build-essay-payload";
 import { commitMappingCreated } from "@/lib/services/sourceEditingService";
+import { usePlannerMutations } from "@/hooks/planner/usePlannerMutations";
 
 type AddCardFn = ReturnType<typeof useCardOnlyActions>["addCard"];
 
