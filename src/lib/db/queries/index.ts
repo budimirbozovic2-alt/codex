@@ -99,3 +99,6 @@ export {
   listTestLogEntriesByCard,
   addTestLogEntry,
 } from "./mnemonic-test-log";
+// PR-9 A1b P1.B — consolidated backup/health read seam (SQLite-primary
+// where possible, explicit Dexie read-replicas where not yet migrated).
+export * from "./backup-readers";
