@@ -141,7 +141,7 @@ export async function validateImportFile(
 
     onProgress(82, "Provjera duplikata…");
 
-    const freshCards = await db.cards.toArray();
+    const freshCards = await listAllCards();
     const existingIds = new Set(freshCards.map((c) => c.id));
     const duplicateCount = importedCards.filter((c) => typeof c.id === "string" && existingIds.has(c.id)).length;
 
