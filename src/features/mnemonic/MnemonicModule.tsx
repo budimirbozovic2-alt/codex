@@ -16,7 +16,54 @@ import MnemonicWorkshop from "./MnemonicWorkshop";
 import MnemonicTest from "./MnemonicTest";
 import MajorSystemSettings from "./MajorSystemSettings";
 import OnboardingModal, { type OnboardingSlide, hasSeenOnboarding } from "@/components/OnboardingModal";
-...
+
+const MNEMO_ONBOARDING_KEY = "sr-mnemo-onboarding-seen";
+
+const MNEMO_SLIDES: OnboardingSlide[] = [
+  {
+    icon: Brain,
+    iconColor: "bg-primary/15 text-primary",
+    title: "Dobrodošli u Memorizaciju",
+    content:
+      "Izolovani sistem za kreiranje i testiranje mentalnih kuka. Označi kartice tagom \u201eMemorizacija\u201c (ikona mozga) u bazi podataka da ih dodaš ovdje.",
+  },
+  {
+    icon: Film,
+    iconColor: "bg-primary/15 text-primary",
+    title: "Mentalni video",
+    content:
+      "Opiši živopisnu vizuelnu scenu koju povezuješ sa gradivom. Što dramatičnija i bizarnija slika, to bolje pamćenje. Koristi boje, pokrete i emocije.",
+  },
+  {
+    icon: Type,
+    iconColor: "bg-warning/15 text-warning",
+    title: "Akronim",
+    content:
+      "Za nabrajanja, sistem automatski detektuje stavke i sugeriše prva slova. Smisli riječ ili frazu od tih slova za brzo prisjećanje.",
+  },
+  {
+    icon: Hash,
+    iconColor: "bg-accent-foreground/15 text-accent-foreground",
+    title: "Major sistem",
+    content:
+      "Brojevi u tekstu se automatski pretvaraju u riječi pomoću fonetskog koda (0=OSA, 1=DUH...). Konfiguriši tablice u sekciji \u201eMentalne tablice\u201c.",
+  },
+  {
+    icon: FlaskConical,
+    iconColor: "bg-success/15 text-success",
+    title: "Testiranje",
+    content:
+      "Sistem prikazuje pitanje, a ti imaš 3 sekunde da prizoveš mentalnu sliku. Vidiš samo svoj okidač, ne originalni tekst. Prati uspješnost kroz statistiku.",
+  },
+];
+
+interface Props {
+  /** When true, hides the global header/onboarding chrome (used inside subject tabs). */
+  embedded?: boolean;
+  /** When set, restricts cards & stats to a single subject. */
+  categoryFilter?: string;
+}
+
 export default function MnemonicModule({ embedded = false, categoryFilter }: Props = {}) {
   const { patchCard } = useCardOnlyActions();
   const { categoryRecords } = useCategoryData();
