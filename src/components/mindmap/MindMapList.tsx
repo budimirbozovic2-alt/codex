@@ -1,8 +1,8 @@
 import { Plus, Trash2, Map, GitBranch, Workflow, HelpCircle } from "lucide-react";
 import { useState } from "react";
 import type { MindMapDoc, MindMapMode } from "@/lib/db";
-import { deleteMindMap, saveMindMap } from "@/lib/mindmap-storage";
 import { useMindMaps } from "@/hooks/useMindMaps";
+import { useMindMapMutations } from "@/hooks/mindmap/useMindMapMutations";
 import { Button } from "@/components/ui/button";
 import { AnimatePresence } from "framer-motion";
 import InfoPanel from "@/components/InfoPanel";
