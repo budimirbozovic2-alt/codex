@@ -83,3 +83,24 @@ CREATE TABLE IF NOT EXISTS kv (
   key    TEXT PRIMARY KEY,
   value  TEXT NOT NULL
 );
+
+-- PR-9 M1 — discipline log (one row per YYYY-MM-DD).
+-- Date is the natural PK; payload carries the full DisciplineEntry JSON.
+CREATE TABLE IF NOT EXISTS disciplineLog (
+  date     TEXT PRIMARY KEY,
+  payload  TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_discipline_date ON disciplineLog(date);
+
+-- PR-9 M1 — autosave drafts (zettelkasten article, source-html, card-form…).
+-- Composite key is stable per call-site (e.g. "cardform:edit:<cardId>").
+-- Source index supports `listDraftsBySource`; updatedAt index supports the
+-- boot-time stale-cleanup sweep in draftRecovery.
+CREATE TABLE IF NOT EXISTS drafts (
+  key        TEXT PRIMARY KEY,
+  source     TEXT NOT NULL,
+  updatedAt  INTEGER NOT NULL,
+  payload    TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_drafts_source    ON drafts(source);
+CREATE INDEX IF NOT EXISTS idx_drafts_updatedAt ON drafts(updatedAt);
