@@ -85,16 +85,20 @@ export {
   onKnowledgeBaseChanged,
   notifyKnowledgeBaseChanged,
 } from "./knowledge-base";
-// PR-9 A1b P1.6 — mnemonic aux tables (Major System + test log).
 export {
-  listAllPegs as listAllMajorSystemPegs,
-  bulkPutPegs as bulkPutMajorSystemPegs,
-} from "./major-system";
-export type { MajorSystemPeg } from "./major-system";
-export {
-  listAllTestLogEntries,
-  listTestLogEntriesByCard,
-  addTestLogEntry,
+  listAllReviewLog, countReviewLog, clearReviewLog, bulkPutReviewLog, loadRecentReviewLog,
+  listAllPomodoroLog, countPomodoroLog, clearPomodoroLog, bulkPutPomodoroLog,
+  listAllDiary, countDiary, clearDiary, bulkPutDiary,
+  listAllCalibrationLog, countCalibrationLog, clearCalibrationLog, bulkPutCalibrationLog,
+  listAllLatencyLog, countLatencyLog, clearLatencyLog, bulkPutLatencyLog,
+  listAllSlippageLog, countSlippageLog, clearSlippageLog, bulkPutSlippageLog,
+  listAllActivityLog, countActivityLog, clearActivityLog, bulkPutActivityLog,
+  // F6.2 — windowed reads, single-row add, prune.
+  loadCalibrationLogSince, loadLatencyLogSince, loadActivityLogSince, loadSlippageLogSinceDate,
+  addCalibrationLogEntry, addLatencyLogEntry, addActivityLogEntry, addSlippageLogEntry,
+  pruneAutoIncTable,
+} from "./logs";
+
 } from "./mnemonic-test-log";
 // PR-9 A1c-3 nastavak — log tables (reviewLog/pomodoroLog/diary/
 // calibrationLog/latencyLog/slippageLog/activityLog) SQLite-primary.
