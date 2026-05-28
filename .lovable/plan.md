@@ -111,7 +111,7 @@ return decodeRows(await exec.query(SELECT ...));
 - `card-selectors.test`, `use-cards-by-source.test`, `category-deletion.test` već prolaze na SQLite path-u (provereno u B1).
 - `sources-storage`/`mindmap-storage` integracioni testovi — ako postoje cache assert linije, ukloniti.
 
-## A1c-3 — Backup/restore + heal/migrate pipeline cut-over
+## A1c-3 — Backup/restore + heal/migrate pipeline cut-over  🟡 PARTIAL
 
 Ovo je najveći chunk po LOC. Backup pipeline trenutno striming-uje Dexie tabele.
 
