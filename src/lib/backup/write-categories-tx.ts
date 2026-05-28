@@ -87,9 +87,8 @@ export async function writeCategoriesTx(
             });
           }
         }
-        for (const cat of newRecs) {
-          await tx.run(CATEGORY_INSERT_SQL, bindCategory(cat));
-        }
+        await tx.runMany(CATEGORY_INSERT_SQL, newRecs.map((cat) => bindCategory(cat)));
+
         working = [...freshCategories, ...newRecs];
       }
     }
