@@ -1,73 +1,111 @@
-# Fix: Boot loads entire card table into RAM
+# Phase 3 — Preostali audit (S2, S3, S4, S5, S7, S8, S9, S10, S11)
 
-## Diagnoza
+Devet stavki podijeljenih u 3 grupe po prirodi posla. Cilj: ukloniti mrtvi kod, smanjiti read amplification i očistiti modularne granice. Nema novih feature-a, sve su čisto interne izmjene.
 
-`src/hooks/card-bootstrap/loadInitialData.ts:44-49` blokira boot na `withTimeout(listAllCards(), 5000)`. Cijela `cards` tabela putuje preko worker boundary u RAM prije nego što UI uopće postane spreman. `useCardBootstrap.ts:86` zatim `cardMapReplaceAll` puni `cardMapStore` i (preko subscribera u `useCardMapStore.ts:71-73`) TanStack `['cards','all']`.
+---
 
-**Pravi greenfield fix** (potpuna eliminacija RAM mape) zahtijeva migraciju svih selektora (`useCardsByCategoryRam`, `useCardsBySubcategoryRam`, `useCardsByChapterRam`, `useCardCountByCategoryRam`, `useCardByIdRam`, `useCardsBySource`, `useCardsArray`, `useCardMap`) na scoped TanStack queries (`cardsByCategory` itd.). To je 2–3x veći PR od ovog. Predlažem **dvije faze** — ovaj PR isporučuje Fazu 1 (uklanja blokiranje boota, što je glavni performance simptom), Faza 2 ostaje kao posebna stavka.
+## Grupa A — Read-path optimizacije (S2, S3, S9)
 
-## Faza 1 — Defer card load off boot critical path (THIS PR)
+### S2 🔴 — `useKnowledgeBaseArticles` reloads ALL articles per subject view
+**Problem:** `useKnowledgeBaseArticlesBySubject` poziva `loadArticlesBySubject(subjectId)` koji vraća `payload` JSON za sve članke subjekta (često 100+ rows), čak i kad UI treba samo listu naslova/index meta-podatke za sidebar.
 
-### Cilj
-Boot dostiže `READY` bez čekanja `listAllCards()`. Kartice se učitavaju u pozadini odmah nakon prvog frame-a, populiraju `cardMapStore` (i preko subscribe-a TanStack cache), bez splash blokiranja.
+**Plan:**
+1. Dodati `listArticleHeadersBySubject(subjectId)` u `src/lib/db/queries/knowledge-base.ts` koji vraća samo `{id, subjectId, title, updatedAt, isIndex}` (bez `payload`) — koristi nove kolone iz schema umjesto `JSON.parse`.
+2. Novi hook `useKnowledgeBaseHeadersBySubject(subjectId)` u `useKnowledgeBaseArticles.ts`. Ostavlja postojeći `useKnowledgeBaseArticlesBySubject` za rijetke slučajeve kojima zaista treba pun payload (npr. backlink rebuild).
+3. Migrirati liste/sidebare na headers hook (audit konzumenata — `ZettelkastenSidebar`, eventualno `ArticleListPanel`).
 
-### Promjene
+### S3 🔴 — `countSources` / `countMindMaps` fetch full rows
+**Problem:** `src/lib/db/queries/backup-readers.ts` linija 82-83: `(await listAllSources()).length` dekodira sve JSON payloade samo da dobije broj.
 
-**1. `src/hooks/card-bootstrap/loadInitialData.ts`**
-- Ukloniti `listAllCards()` iz `Promise.all`.
-- Vratiti `cards: []` u `InitialData` (ili promijeniti tip: `cards?: undefined`, ali jednostavnije zadržati `[]` za type stabilnost i označiti deferred).
-- Dodati novi export `loadCardsDeferred(): Promise<Card[]>` — wrapper oko `withTimeout(listAllCards(), 8000, "cards load (deferred)", [])`.
+**Plan:**
+1. Dodati `countAllSources()` u `src/lib/db/queries/sources.ts` i `countAllMindMaps()` u `mind-maps.ts` koji rade `SELECT COUNT(*)`.
+2. U `backup-readers.ts` zamijeniti dvije problematične linije sa novim count funkcijama (analogno postojećem `countAllCards`).
+3. Healthservice nastavlja koristiti iste imenovane exporte — zero diff za pozivaoca.
 
-**2. `src/hooks/useCardBootstrap.ts`**
-- Nakon `transition({ type: "READY" })` i `markBootStep("cards:ready")`, schedule-ati deferred load:
-  ```ts
-  scheduleIdle(async () => {
-    markBootStep("cards:deferred-load-start");
-    const cards = await loadCardsDeferred();
-    cardMapReplaceAll(arrayToMap(cards));
-    markBootStep("cards:deferred-load-done", `${cards.length} cards`);
-  });
-  ```
-- `scheduleIdle` helper: `requestIdleCallback(fn, { timeout: 1000 })` s fallback-om na `setTimeout(fn, 0)` (zbog Electron-a, gdje rIC postoji u modernim Chromium verzijama).
-- Greška u deferred loadu: log + jednokratni toast "Kartice se učitavaju u pozadini, pokušajte ponovo iz Health Monitora", ne blokira UI.
+### S9 🟡 — KB `isIndex` kolona postoji ali se nikad ne queryja
+**Problem:** Schema ima `idx_kb_subject_isIndex`, ali sve KB lookup operacije rade `JSON.parse(payload)` + JS filter umjesto da koriste indexed kolonu.
 
-**3. Splash poruke** (`src/hooks/card-bootstrap/loadInitialData.ts:54`)
-- Maknuti `${cards.length} kartica učitano` poruku (cards je 0 u ovoj fazi). Zamijeniti generičkim `"Učitavanje gotovo"`.
+**Plan:**
+1. Dodati `getIndexArticle(subjectId)` koji vraća payload za red gdje je `isIndex = 1` (1 row, jedan indexed seek).
+2. Refaktorisati `ensureIndexArticle` u `zettelkasten-storage.ts` da prvo proba `getIndexArticle` umjesto skeniranja `loadArticlesBySubject + .find(a => a.isIndex)`.
+3. Headers query (S2) već vraća `isIndex`, pa konzumenti koji žele "ima li index?" prelaze na headers.
 
-**4. Selektori (`useCardsByCategoryRam` itd.)**
-- Bez izmjena. Vraćaju `EMPTY` dok deferred load ne završi; nakon `cardMapReplaceAll`, `useSyncExternalStore` re-renderira sve subscriber-e (već se to dešava na svakom mutate-u).
+---
 
-**5. Testovi**
-- `src/test/card-map-writes.test.ts`: bez izmjena (testira write-path).
-- Dodati `src/test/boot-deferred-cards.test.ts`: mock `bootDb`/`runSchema`/`runHeal`, verifikovati da `useCardBootstrap` dostiže `ready === true` prije nego što `listAllCards` mock resolve-uje.
-- Update `src/test/perf/cards-query-bench.test.ts` ako test ovisi o eager bootu (vjerovatno ne — direktno poziva `listAllCards`).
+## Grupa B — Mutation/write korektnost (S4, S7, S10)
 
-**6. Memory update**
-- `mem://architecture/storage-and-persistence-v6` (ili nasljednik): dodati "Boot deferiše cards load — `loadInitialData` ne čeka `listAllCards`; kartice se streamaju u RAM nakon prvog frame-a via `scheduleIdle`."
+### S4 🔴 — `cards.ts` decoder swallows `CardDecodeError`
+**Problem:** `decodeRows`/`getCardsByIds` u `src/lib/db/queries/cards.ts` (linije 44-78) hvataju `CardDecodeError` i samo logiraju warning + skip-uju red. Korumpirana kartica tiho nestaje iz UI bez ikakvog korisničkog signala.
 
-### Validacija
-- `tsc --noEmit` → 0 grešaka.
-- `vitest run` → 586/589 (postojeći baseline) + novi boot test.
-- Manualna smoke provjera u preview: Dashboard widget i CategoryView prikazuju kratko "0 kartica" pa se popunjavaju (može trebati skeleton state — vidi Otvoreno).
+**Plan:**
+1. Sakupljati skip-ovane id-jeve u `decodeRows`; ako lista nije prazna, emitovati `notifyCorruptCards(ids)` event (novi mali emitter u `cards.ts`).
+2. Wire-ovati listener u `useHealthMonitor` koji povećava brojač "corruptCards" i prikazuje warning chip u Health UI. Nema toast spama — tihi indikator + zapis.
+3. Health snapshot dobija novo polje `corruptCardIds: string[]` (capped na 50) za debugging.
 
-### Otvoreno (decision needed po izvršenju)
-- **Skeleton vs prazan state**: tokom deferred load prozora (50–500ms), `useCardsByCategory(id)` vraća `EMPTY`. Views (CategoryView, Dashboard) trenutno renderiraju "Nema kartica". Dvije opcije:
-  - **A**: Pustiti kratki prazan state (najjednostavnije, vjerovatno neprimjetno na <200ms loadu).
-  - **B**: Eksponirati `useBootCardsReady()` hook (čita boot state) i prikazati skeleton dok je `false`.
-  
-  Predlažem **A** za Fazu 1; ako se ispostavi da je trep vizuelno primjetan, dodajemo B u follow-upu.
+### S7 🟡 — `useCardMutations` `snapshot()` ne hvata scoped queries
+**Problem:** `snapshot()` čita samo `['cards','all']`. Sve scoped queryje (`['cards','cat',id]`, `byChapter`, `bySource`, `byId`) `rollback()` ne vraća — TanStack ih `cancelQueries` zaustavi, ali nakon greške ostaju stale dok bridges ne tickne novi `notifyCardsChanged` (koji se ne emituje na rollback).
 
-## Faza 2 — Eliminacija RAM mape (NOT in this PR)
+**Plan:**
+1. `snapshot()` proširiti: pored `all`, čitati sve aktivne queryje pod `queryKeys.cards.root` preko `qc.getQueriesData({queryKey: queryKeys.cards.root})` i sačuvati niz `[key, data]` parova.
+2. `rollback()` iterira kroz snapshot i radi `qc.setQueryData(key, data)` za svaki sačuvan key. Postojeći Zustand sync poziv ostaje.
+3. Tip `RollbackCtx` postaje `{ entries: Array<[QueryKey, unknown]> }`.
 
-Posebna stavka za kasnije:
-- Migrirati `useCardsByCategoryRam` → `useQuery(['cards','category',id], () => cardsByCategory(id))`.
-- Isti pattern za subcategory/chapter/source/byId/count.
-- Ukloniti `cardMapReplaceAll` iz boota potpuno.
-- Demontirati `cardMapStore` kao SSOT — postaje pomoćni cache za persist-queue diffing (ili ga sasvim ukloniti ako persist-queue ne treba RAM snapshot).
-- Cijena: ~15–20 consumer files, novi query keys, invalidacija nakon mutacija.
+### S10 🟡 — Bulk writes su per-row `tx.run` (worker chatter)
+**Problem:** `bulkPutArticles` u `knowledge-base.ts` (i analogno u još par repozitorijuma) radi `for (a of articles) { await tx.run(INSERT_SQL, bindRow(a)) }` — N round-tripova worker boundary za N redova.
 
-## Out of scope
-- `decodeRows` error policy (audit Section 3).
-- `COUNT(*)` optimizacije za sources/mindMaps (audit Section 2).
-- Zettelkasten `listAllArticles` redesign.
-- Bulk `tx.run` per row u `logs.ts` / `bulkPutMnemonics`.
+**Plan:**
+1. Audit-bulk-write helper: `tx.runMany(sql, paramsBatches)` u `SqlExecutor` interfejsu, koji u workeru priprema 1 prepared statement i izvršava ga u petlji bez extra postMessage round-tripova.
+2. Implementacija u `opfs-sqlite-worker.ts` (`stmt.bind/step/reset` u JS petlji).
+3. Migrirati `bulkPutArticles`, `bulkPutCards` (ako postoji per-row), `bulkUpsertMindMaps`, `bulkUpsertSources` na novi helper. Mjeriti: očekivani win ~5-10ms za 100 redova.
+
+---
+
+## Grupa C — Mrtvi kod / modularne granice (S5, S8, S11)
+
+### S5 🟡 — Planner query keys hashed-into-key → cache bloat
+**Problem:** Keys u `queryKeys.planner.*` (linije 37-53 u `query/keys.ts`) imaju hash inpute baked-in (`reviewLogHash`, `cardsHash`, `categoryHash`, `configHash`). Svaka promjena bilo kog inputa kreira novi entry u cache-u; stari ostaju zauvijek dok ne GC-uje TanStack (zadano 5min `gcTime`, ali sa Infinity stale-time mogu se gomilati).
+
+**Plan:**
+1. Refaktorisati `queryKeys.planner.*` da hash-ovi izađu iz `queryKey` u `queryFn` closure-e. Key postaje stabilan: `['planner','plans']`, `['planner','suggestion']`, itd.
+2. Hash-evi se prosljeđuju kao `useQuery` `meta` ili kao dio closure-a u `queryFn` — refetch trigger postaje eksplicitni `invalidateQueries` iz `bridges.ts` (`planner` change emit već postoji).
+3. Tweak `bridges.ts` da `kind: "config"` invalidira potrebne planner prefixe (već radi, samo se mijenja granularity).
+
+### S8 🟡 — Drafts + settings bridge listeneri mrtvi
+**Problem:** `bridges.ts` poziva `onDraftsChanged`/`onSettingsChanged`, ali u cijelom kodu nijednom se ne zove `notifyDraftsChanged`/`notifySettingsChanged`. Listeneri se nikad ne triggeraju → invalidacija drafts/settings queryja se ne dešava.
+
+**Plan:**
+1. U `src/lib/db/queries/drafts.ts` i `settings.ts` dodati pozive `notifyDraftsChanged()` / `notifySettingsChanged(key)` u svaku write putanju (`putDraft`, `deleteDraft`, `putSetting`, `deleteSetting`).
+2. Verifikovati da nema dvostrukog emisija (npr. iz zustand-a).
+3. Test: simulirati `putSetting('sr-subject-settings-X', …)` i provjeriti da `['subject-settings']` query observere prima invalidaciju.
+
+### S11 🟡 — `category-deletion-service` planner scrub pripada planner modulu
+**Problem:** `src/lib/category-deletion-service.ts` linije 86-110 manipulišu `plannerConfig` shape-om direktno (zna za `subjectOrder`, `hardSubjects`, `phases`). To je cross-modul coupling.
+
+**Plan:**
+1. Premjestiti scrub logiku u `src/lib/planner/planner-storage` (npr. `scrubCategoryFromPlannerConfig(categoryId): Promise<boolean>`).
+2. `category-deletion-service` poziva samo `scrubCategoryFromPlannerConfig(categoryId)` i postavlja `result.plannerScrubbed = await ...`.
+3. Test ostaje funkcionalno isti; planner zna svoj shape, deletion service zna samo kontrakt.
+
+---
+
+## Tehnički detalji
+
+**Redoslijed implementacije (jedan PR sekvencijalno):**
+1. S8 (najmanji, čisti mrtvi kod — quick win)
+2. S3 + S2 + S9 (KB/counts read-path zajedno, dijele knowledge-base.ts izmjene)
+3. S11 (premjesti planner scrub)
+4. S5 (planner keys — zahtijeva pažljiv test)
+5. S7 (mutations snapshot)
+6. S10 (`runMany` helper — najveći worker izmjene)
+7. S4 (corrupt cards emitter + Health UI)
+
+**Testovi:** Svaka stavka dobija/nadograđuje unit test. Health Monitor i Planner imaju postojeće suite-ove koji moraju ostati zeleni. Cilj: zadržati baseline 590/591 passing.
+
+**Memory ažuriranja:**
+- `mem://architecture/tanstack-query-read-path` — dodati Phase 3 napomene (S2/S5/S7).
+- `mem://architecture/storage-and-persistence-v6` — dokumentovati `runMany` (S10) i `notifyCorruptCards` (S4).
+- Razmotriti novi `mem://features/health-monitor-v3` ako S4 doda novi metric.
+
+**Ono što NIJE u scope-u:** A1d (full Dexie removal), Pure-Desktop redo signalisanje, mnemonic refaktor.
+
+Nakon prihvaćanja plana implementiraću po redoslijedu, sa verifikacijom (`tsc --noEmit` + targeted tests) nakon svake grupe.
