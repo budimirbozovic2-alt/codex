@@ -1,9 +1,5 @@
-import {
-  idbLoadRecentReviewLog,
-  idbLoadSettings,
-  seedDefaultCategories,
-  db,
-} from "@/lib/db";
+import { seedDefaultCategories } from "@/lib/db";
+import { reviewLogRepository, settingsRepository } from "@/lib/repositories";
 import type { CategoryRecord } from "@/lib/db-types";
 import { listAllCards } from "@/lib/db/queries";
 import { Card, SRSettings, DEFAULT_SR_SETTINGS } from "@/lib/spaced-repetition";
