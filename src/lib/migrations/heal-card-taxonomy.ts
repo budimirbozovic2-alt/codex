@@ -1,4 +1,9 @@
-import { db } from "@/lib/db";
+import {
+  listAllCards,
+  readAllCategoriesForBackup,
+} from "@/lib/db/queries";
+import * as cardMapWrites from "@/lib/cards/cardMapWrites";
+import type { Card } from "@/lib/spaced-repetition";
 
 import { logger } from "@/lib/logger";
 const FLAG_KEY = "taxonomy-healed-v1";
@@ -21,6 +26,10 @@ export interface HealReport {
  * than the card's `subcategoryId` (chapter wins → reset chapter only).
  *
  * Idempotent + flagged via localStorage so it never runs twice.
+ *
+ * PR-9 A1c-3: reads through `listAllCards`/`readAllCategoriesForBackup`,
+ * writes via `cardMapWrites.bulkPut` (SQLite-primary + RAM commit). No
+ * Dexie touch left.
  */
 export async function healCardTaxonomy(force = false): Promise<HealReport> {
   const empty: HealReport = {
@@ -37,8 +46,8 @@ export async function healCardTaxonomy(force = false): Promise<HealReport> {
 
   try {
     const [cards, categories] = await Promise.all([
-      db.cards.toArray(),
-      db.categories.toArray(),
+      listAllCards(),
+      readAllCategoriesForBackup(),
     ]);
 
     const subUuids = new Set<string>();
@@ -61,10 +70,10 @@ export async function healCardTaxonomy(force = false): Promise<HealReport> {
     let staleSub = 0;
     let staleChap = 0;
     let mismatch = 0;
-    const updates: Array<Promise<unknown>> = [];
+    const patched: Card[] = [];
 
     for (const card of cards) {
-      const patch: Partial<typeof card> = {};
+      const patch: Partial<Card> = {};
       const subStale = !!card.subcategoryId && !subUuids.has(card.subcategoryId);
       const chapStale = !!card.chapterId && !chapUuids.has(card.chapterId);
       const chapMismatch =
@@ -88,12 +97,12 @@ export async function healCardTaxonomy(force = false): Promise<HealReport> {
       }
 
       if (Object.keys(patch).length > 0) {
-        updates.push(db.cards.update(card.id, patch));
+        patched.push({ ...card, ...patch });
       }
     }
 
-    if (updates.length > 0) {
-      await Promise.all(updates);
+    if (patched.length > 0) {
+      cardMapWrites.bulkPut(patched);
     }
 
     if (typeof localStorage !== "undefined") {
