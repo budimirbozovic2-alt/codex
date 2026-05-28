@@ -98,19 +98,23 @@ export {
 } from "./mnemonic-test-log";
 // PR-9 A1c-3 nastavak — log tables (reviewLog/pomodoroLog/diary/
 // calibrationLog/latencyLog/slippageLog/activityLog) SQLite-primary.
+// F6.3 cleanup: `clear*` and unused `bulkPut*` (everything except
+// `bulkPutReviewLog`) removed — restore writes inline via
+// `writeSatelliteTablesTx`, runtime appends go through `add*Entry`.
 export {
-  listAllReviewLog, countReviewLog, clearReviewLog, bulkPutReviewLog, loadRecentReviewLog,
-  listAllPomodoroLog, countPomodoroLog, clearPomodoroLog, bulkPutPomodoroLog,
-  listAllDiary, countDiary, clearDiary, bulkPutDiary,
-  listAllCalibrationLog, countCalibrationLog, clearCalibrationLog, bulkPutCalibrationLog,
-  listAllLatencyLog, countLatencyLog, clearLatencyLog, bulkPutLatencyLog,
-  listAllSlippageLog, countSlippageLog, clearSlippageLog, bulkPutSlippageLog,
-  listAllActivityLog, countActivityLog, clearActivityLog, bulkPutActivityLog,
+  listAllReviewLog, countReviewLog, bulkPutReviewLog, loadRecentReviewLog,
+  listAllPomodoroLog, countPomodoroLog,
+  listAllDiary, countDiary,
+  listAllCalibrationLog, countCalibrationLog,
+  listAllLatencyLog, countLatencyLog,
+  listAllSlippageLog, countSlippageLog,
+  listAllActivityLog, countActivityLog,
   // F6.2 — windowed reads, single-row add, prune.
   loadCalibrationLogSince, loadLatencyLogSince, loadActivityLogSince, loadSlippageLogSinceDate,
   addCalibrationLogEntry, addLatencyLogEntry, addActivityLogEntry, addSlippageLogEntry,
   pruneAutoIncTable,
 } from "./logs";
+
 
 // A1c-4 F1 — categories aggregate root (SQLite-primary).
 export {

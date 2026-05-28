@@ -93,11 +93,9 @@ async function countTable(table: string): Promise<number> {
   return Number(rows[0]?.n ?? 0);
 }
 
-async function clearTable(table: string): Promise<void> {
-  const exec = await requireExecutor(`clear:${table}`);
-  if (!exec) return;
-  await exec.run(`DELETE FROM ${table}`);
-}
+// `clearTable` helper removed — restore path issues `DELETE FROM <table>`
+// inline inside `writeSatelliteTablesTx`, no generic clear consumer remains.
+
 
 // Bulk insert for auto-inc tables. `preserveId=true` keeps backup ids stable
 // (used by restore); otherwise SQLite assigns fresh ROWIDs.
@@ -145,10 +143,9 @@ async function bulkInsertAutoInc<T>(
 
 // ── Per-table public API ─────────────────────────────────────────────────
 
-// reviewLog (cardId, timestamp)
+// reviewLog (cardId, timestamp) — bulkPut used by reviewLogRepository batch flush.
 export const listAllReviewLog = (): Promise<ReviewLogEntry[]> => listAllAutoInc("reviewLog");
 export const countReviewLog = () => countTable("reviewLog");
-export const clearReviewLog = () => clearTable("reviewLog");
 export const bulkPutReviewLog = (rows: readonly AutoIncRow<ReviewLogEntry>[]) =>
   bulkInsertAutoInc<ReviewLogEntry>(
     "reviewLog",
@@ -172,23 +169,16 @@ export async function loadRecentReviewLog(days: number): Promise<ReviewLogEntry[
   return decode<ReviewLogEntry>(rows);
 }
 
-// pomodoroLog (timestamp)
+// pomodoroLog/calibrationLog/latencyLog/slippageLog/activityLog —
+// read + count only. Writes go through dedicated add*Entry helpers (F6.2)
+// for runtime appends and through `writeSatelliteTablesTx` for restore;
+// the legacy `bulkPut*` / `clear*` helpers were dropped as dead code.
 export const listAllPomodoroLog = (): Promise<PomodoroLogEntry[]> => listAllAutoInc("pomodoroLog");
 export const countPomodoroLog = () => countTable("pomodoroLog");
-export const clearPomodoroLog = () => clearTable("pomodoroLog");
-export const bulkPutPomodoroLog = (rows: readonly AutoIncRow<PomodoroLogEntry>[]) =>
-  bulkInsertAutoInc<PomodoroLogEntry>(
-    "pomodoroLog",
-    rows,
-    { timestamp: (r) => Number(r.timestamp ?? 0) },
-    { preserveId: true },
-  );
 
-// calibrationLog
 export const listAllCalibrationLog = (): Promise<CalibrationEntry[]> => listAllAutoInc("calibrationLog");
 export const countCalibrationLog = () => countTable("calibrationLog");
-export const clearCalibrationLog = () => clearTable("calibrationLog");
-export const bulkPutCalibrationLog = (rows: readonly AutoIncRow<CalibrationEntry>[]) =>
+const bulkPutCalibrationLog = (rows: readonly AutoIncRow<CalibrationEntry>[]) =>
   bulkInsertAutoInc<CalibrationEntry>(
     "calibrationLog",
     rows,
@@ -199,11 +189,9 @@ export const bulkPutCalibrationLog = (rows: readonly AutoIncRow<CalibrationEntry
     { preserveId: true },
   );
 
-// latencyLog
 export const listAllLatencyLog = (): Promise<LatencyEntry[]> => listAllAutoInc("latencyLog");
 export const countLatencyLog = () => countTable("latencyLog");
-export const clearLatencyLog = () => clearTable("latencyLog");
-export const bulkPutLatencyLog = (rows: readonly AutoIncRow<LatencyEntry>[]) =>
+const bulkPutLatencyLog = (rows: readonly AutoIncRow<LatencyEntry>[]) =>
   bulkInsertAutoInc<LatencyEntry>(
     "latencyLog",
     rows,
@@ -214,11 +202,9 @@ export const bulkPutLatencyLog = (rows: readonly AutoIncRow<LatencyEntry>[]) =>
     { preserveId: true },
   );
 
-// slippageLog (date)
 export const listAllSlippageLog = (): Promise<SlippageEntry[]> => listAllAutoInc("slippageLog");
 export const countSlippageLog = () => countTable("slippageLog");
-export const clearSlippageLog = () => clearTable("slippageLog");
-export const bulkPutSlippageLog = (rows: readonly AutoIncRow<SlippageEntry>[]) =>
+const bulkPutSlippageLog = (rows: readonly AutoIncRow<SlippageEntry>[]) =>
   bulkInsertAutoInc<SlippageEntry>(
     "slippageLog",
     rows,
@@ -226,11 +212,9 @@ export const bulkPutSlippageLog = (rows: readonly AutoIncRow<SlippageEntry>[]) =
     { preserveId: true },
   );
 
-// activityLog
 export const listAllActivityLog = (): Promise<ActivityEntry[]> => listAllAutoInc("activityLog");
 export const countActivityLog = () => countTable("activityLog");
-export const clearActivityLog = () => clearTable("activityLog");
-export const bulkPutActivityLog = (rows: readonly AutoIncRow<ActivityEntry>[]) =>
+const bulkPutActivityLog = (rows: readonly AutoIncRow<ActivityEntry>[]) =>
   bulkInsertAutoInc<ActivityEntry>(
     "activityLog",
     rows,
@@ -238,7 +222,7 @@ export const bulkPutActivityLog = (rows: readonly AutoIncRow<ActivityEntry>[]) =
     { preserveId: true },
   );
 
-// diary (UUID PK)
+// diary (UUID PK) — read only at this seam (restore writes inline).
 export async function listAllDiary(): Promise<DiaryEntry[]> {
   const exec = await requireExecutor("listAll:diary");
   if (!exec) return [];
@@ -246,20 +230,8 @@ export async function listAllDiary(): Promise<DiaryEntry[]> {
   return decode<DiaryEntry>(rows);
 }
 export const countDiary = () => countTable("diary");
-export const clearDiary = () => clearTable("diary");
-export async function bulkPutDiary(rows: readonly DiaryEntry[]): Promise<void> {
-  if (rows.length === 0) return;
-  const exec = await requireExecutor("bulk:diary");
-  if (!exec) return;
-  await exec.transaction(async (tx) => {
-    for (const r of rows) {
-      await tx.run(
-        "INSERT OR REPLACE INTO diary (id, date, payload) VALUES (?, ?, ?)",
-        [r.id, r.date ?? "", JSON.stringify(r)],
-      );
-    }
-  });
-}
+
+
 
 
 // ── F6.2 helpers — windowed reads + single-row add + prune ───────────────
