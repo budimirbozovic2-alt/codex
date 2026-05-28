@@ -235,7 +235,7 @@ class TestExecutor implements SqlExecutor {
     sql: string,
     params: readonly SqlBindValue[] = [],
   ): Promise<void> {
-    const trimmed = sql.trim();
+    const trimmed = sql.replace(/\s+/g, " ").trim();
 
     // DDL / PRAGMA / ALTER / BEGIN/COMMIT/ROLLBACK — noop. (BEGIN/COMMIT are
     // also invoked through `transaction()`, which is the documented contract.)
