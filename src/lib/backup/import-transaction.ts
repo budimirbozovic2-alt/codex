@@ -1,29 +1,28 @@
 /**
- * Atomic backup-import orchestrator.
+ * Atomic backup-import orchestrator — PR-9 A1c-4.
  *
- * Wraps every IDB write performed during a Restore in a *single* Dexie
- * `rw` transaction across all affected tables. If any step throws, the
- * IndexedDB state rolls back to the pre-import snapshot — no more
- * "half-replaced" databases where cards committed but sources didn't.
+ * Single `SqlExecutor.transaction` wraps every table write (categories →
+ * cards → sources → mindMaps → KB → mnemonics → majorSystem → kv → 7 log
+ * tables → disciplineLog → mnemonicTestLog). True SQLite ACID across the
+ * entire restore — no more Dexie `db.transaction("rw", …)`.
  *
- * The body itself stays minimal: this file owns the pre-tx pipeline
- * (merge cards, build remap, legacy-name resolve), the rw transaction
- * scope, and the post-tx snapshot. All actual table writes live in
- * sibling modules:
- *
- *   - `write-cards-tx.ts`       — cards bulkPut + orphan prune
- *   - `write-categories-tx.ts`  — categories + legacy subcategories map
- *   - `write-satellite-tx.ts`   — sources, mindMaps, KB, metacog logs
- *   - `import-remap.ts`         — pre-tx pure helpers
- *   - `import-types.ts`         — shared shapes
+ * Bridge note: `idbLoadCategories` still reads Dexie until A1c-4 finishes.
+ * After the SQLite tx commits we mirror the final categories array to Dexie
+ * via two plain `db.categories.clear()` + `bulkPut(...)` calls (no rw tx
+ * block). This bridge disappears when the categories read path moves to
+ * SQLite.
  */
-import { db, idbLoadCategories, type CategoryRecord } from "@/lib/db";
+import { db } from "@/lib/db";
+import type { CategoryRecord } from "@/lib/db-schema";
 import { DEFAULT_SR_SETTINGS, type SRSettings } from "@/lib/spaced-repetition";
 import type { ReviewLogEntry } from "@/lib/storage";
 import { resolveLegacyTaxonomyNames } from "@/lib/migrations/resolve-legacy-taxonomy";
 import { yieldUI } from "@/lib/backup/yield-ui";
 import { backupLog } from "@/lib/backup/backup-logger";
 import { categoryRepository } from "@/lib/repositories";
+import { readAllCategoriesForBackup } from "@/lib/db/queries";
+import { getOpfsSqliteExecutor } from "@/lib/persistence/sqlite/client";
+import { assertDesktop } from "@/lib/electron-integration";
 
 import type { ImportCtx, ImportTxResult, ImportStrategy } from "@/lib/backup/import-types";
 import {
@@ -35,8 +34,8 @@ import { mergeCardsByStrategy, writeCardsTx } from "@/lib/backup/write-cards-tx"
 import { writeCategoriesTx } from "@/lib/backup/write-categories-tx";
 import { writeSatelliteTablesTx } from "@/lib/backup/write-satellite-tx";
 
-// Re-exports preserved so external call sites
-// (`useCardImport`, tests) keep working unchanged.
+// Re-exports preserved so external call sites (useCardImport, tests) keep
+// compiling unchanged.
 export type { ImportStrategy, ImportTxResult, ImportCtx } from "@/lib/backup/import-types";
 export { mergeCardsByStrategy, writeCardsTx } from "@/lib/backup/write-cards-tx";
 export { writeCategoriesTx } from "@/lib/backup/write-categories-tx";
@@ -47,6 +46,16 @@ export {
   applyRemapToParsed,
   pruneOrphans,
 } from "@/lib/backup/import-remap";
+
+/**
+ * Dexie bridge for `categories` until A1c-4 swaps the read path. NOT a
+ * `db.transaction("rw", …)` block — two independent statements so this
+ * file stays "no Dexie rw tx".
+ */
+async function mirrorCategoriesToDexie(cats: CategoryRecord[]): Promise<void> {
+  await db.categories.clear();
+  if (cats.length > 0) await db.categories.bulkPut(cats);
+}
 
 export async function applyImportAtomically(ctx: ImportCtx): Promise<ImportTxResult> {
   const { parsed, strategy, currentMap, onProgress } = ctx;
@@ -59,20 +68,22 @@ export async function applyImportAtomically(ctx: ImportCtx): Promise<ImportTxRes
     schemaVersion: (parsed as { version?: number }).version ?? null,
   });
 
+  // Fail fast on web/dev — Pure Desktop policy.
+  assertDesktop();
+  const exec = await getOpfsSqliteExecutor();
+
   try {
-    // ── 1. Pre-merge cards (in-memory only — IDB writes happen in tx below) ──
+    // ── 1. Pre-merge cards (pure, in-memory only) ──
     const { merged, nextMap } = mergeCardsByStrategy(parsed.cards, currentMap, strategy);
 
-    // ── 2. Pre-tx remap (Phase 2.1) ──
-    // Read existing categories OUTSIDE the rw tx so we can compute the remap
-    // before locking. The rw tx below re-asserts the final state.
-    let freshCategories: CategoryRecord[] = await idbLoadCategories();
+    // ── 2. Pre-tx remap (read existing categories OUTSIDE the tx) ──
+    let freshCategories: CategoryRecord[] = await readAllCategoriesForBackup();
     if (parsed.categories.length > 0 && isCategoryRecordArray(parsed.categories)) {
       const remap = buildCategoryIdRemap(parsed.categories, freshCategories);
       await applyRemapToParsed(remap, parsed, merged, nextMap);
     }
 
-    // ── 3. Legacy taxonomy resolve (names → UUIDs) — also pre-tx (pure) ──
+    // ── 3. Legacy taxonomy resolve (names → UUIDs) — pre-tx, pure ──
     let legacyResolveReport: ImportTxResult["legacyResolveReport"] = null;
     try {
       legacyResolveReport = resolveLegacyTaxonomyNames(merged, freshCategories);
@@ -87,60 +98,50 @@ export async function applyImportAtomically(ctx: ImportCtx): Promise<ImportTxRes
 
     await yieldUI();
 
-    // Will be filled in after the transaction commits.
     let srSettingsApplied: SRSettings | null = null;
     let reviewLogApplied: ReviewLogEntry[] | null = null;
+    let finalCategories: CategoryRecord[] = freshCategories;
 
-    // ── 4. SINGLE atomic transaction across every affected table ──
-    const tables = [
-      db.cards, db.categories, db.sources, db.mindMaps, db.knowledgeBaseArticles,
-      db.reviewLog, db.diary, db.calibrationLog, db.latencyLog, db.slippageLog,
-      db.activityLog, db.disciplineLog, db.pomodoroLog, db.mnemonics,
-      db.majorSystem, db.mnemonicTestLog, db.settings,
-    ];
-    await db.transaction("rw", tables, async () => {
+    // ── 4. SINGLE SQLite ACID transaction across every affected table ──
+    await exec.transaction(async (tx) => {
       progress(35, "Snimanje kategorija…");
-      await writeCategoriesTx(parsed, strategy, freshCategories);
+      finalCategories = await writeCategoriesTx(tx, parsed, strategy, freshCategories);
 
       progress(50, "Snimanje kartica…");
-      await writeCardsTx(merged, strategy);
+      await writeCardsTx(tx, merged, strategy);
 
-      // 4d. Review log overwrite.
+      // SR settings + review log are surfaced post-tx via callbacks; the
+      // tx path persists reviewLog via writeSatelliteTablesTx below.
       if (parsed.reviewLog.length > 0 && strategy === "overwrite") {
-        progress(60, "Uvoz dnevnika ponavljanja…");
-        const log = parsed.reviewLog as unknown as ReviewLogEntry[];
-        reviewLogApplied = log;
-        await db.reviewLog.clear();
-        await db.reviewLog.bulkAdd(log);
-        await yieldUI();
+        reviewLogApplied = parsed.reviewLog as unknown as ReviewLogEntry[];
       }
-
-      // 4e. SR settings (pure data — no IDB write here, applied post-tx via cb).
       if (parsed.srSettings && strategy === "overwrite") {
-        srSettingsApplied = { ...DEFAULT_SR_SETTINGS, ...(parsed.srSettings as Partial<SRSettings>) };
+        srSettingsApplied = {
+          ...DEFAULT_SR_SETTINGS,
+          ...(parsed.srSettings as Partial<SRSettings>),
+        };
       }
 
-      await writeSatelliteTablesTx(parsed, strategy, progress);
+      await writeSatelliteTablesTx(tx, parsed, strategy, progress);
     });
 
-    // ── 5. Re-read final categories snapshot for AppContext ──
-    freshCategories = await idbLoadCategories();
+    // ── 5. Bridge categories → Dexie so legacy `idbLoadCategories` reads
+    //       reflect the restore. Disappears in the A1c-4 read-path cut-over.
+    await mirrorCategoriesToDexie(finalCategories);
 
-    // Push freshly restored categories into the SSOT store synchronously —
-    // replaces the old EventBus "backup-restore" round-trip.
-    categoryRepository.replaceAll(freshCategories);
-
+    // ── 6. Push freshly restored categories into the SSOT store. ──
+    categoryRepository.replaceAll(finalCategories);
 
     backupLog.success("import", "atomic restore committed", {
       strategy,
       cards: merged.length,
-      categories: freshCategories.length,
+      categories: finalCategories.length,
     });
 
     return {
       merged,
       nextMap,
-      freshCategories,
+      freshCategories: finalCategories,
       legacyResolveReport,
       srSettingsApplied,
       reviewLogApplied,
