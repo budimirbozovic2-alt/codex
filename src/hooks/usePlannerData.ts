@@ -57,6 +57,19 @@ export function usePlannerData(cards: SRCard[], reviewLog: ReviewLogEntry[], cat
   const categoryHash = useMemo(() => hashCategories(categoryRecords), [categoryRecords]);
   const configHash = useMemo(() => hashPlannerConfig(config), [config]);
 
+  // S5: stable planner keys — invalidate on hash change so queryFn re-runs
+  // without inflating the cache with hash-discriminated slots.
+  useEffect(() => {
+    void qc.invalidateQueries({ queryKey: queryKeys.planner.velocity() });
+    void qc.invalidateQueries({ queryKey: queryKeys.planner.burnup() });
+  }, [qc, reviewLogHash]);
+
+  useEffect(() => {
+    void qc.invalidateQueries({ queryKey: queryKeys.planner.subjectPlans() });
+    void qc.invalidateQueries({ queryKey: queryKeys.planner.smartSuggestion() });
+    void qc.invalidateQueries({ queryKey: queryKeys.planner.retentionRisk() });
+  }, [qc, cardsHash, categoryHash, configHash]);
+
   // S5: stable keys. Hash changes drive invalidation via the effect below,
   // not by mutating queryKey identity (which would bloat cache).
   const { data: velocity = null } = useQuery({
