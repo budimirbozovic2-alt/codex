@@ -12,6 +12,7 @@ import { withTimeout } from "./withTimeout";
 import { logger } from "@/lib/logger";
 
 export interface InitialData {
+  /** Always empty in Phase 1 — cards are loaded off the critical path via `loadCardsDeferred`. */
   cards: Card[];
   catRecords: CategoryRecord[];
   log: ReviewLogEntry[];
@@ -37,23 +38,30 @@ export async function loadInitialData(): Promise<InitialData> {
 
   splashProgress(25, "Učitavanje podataka…");
   transition({ type: "LOAD_PROGRESS", pct: 25, label: "Učitavanje podataka…" });
-  if (import.meta.env.DEV) logger.log("[boot:diag] step 4: loading data (parallel)");
+  if (import.meta.env.DEV) logger.log("[boot:diag] step 4: loading data (parallel, cards deferred)");
   markBootStep("cards:data-load-start");
 
-  // B2: Parallelize all independent IDB loads
-  const [cards, catRecords, log, settings] = await Promise.all([
-    withTimeout(listAllCards(), 5000, "cards load", [] as Card[]),
+  // Phase 1: cards are NO LONGER on the boot critical path — they stream in
+  // post-READY via `loadCardsDeferred` scheduled by `useCardBootstrap`.
+  const [catRecords, log, settings] = await Promise.all([
     withTimeout(seedDefaultCategories(), 2500, "categories load", [] as CategoryRecord[]),
     withTimeout(reviewLogRepository.loadRecent(90), 2500, "review log load", [] as ReviewLogEntry[]),
     withTimeout(settingsRepository.load<SRSettings>("srSettings", DEFAULT_SR_SETTINGS), 2500, "settings load", DEFAULT_SR_SETTINGS),
   ]);
 
-  // Legacy frequency-tag migracija je premještena u `runHeal` (Phase 2b).
-
-
-  splashProgress(60, `${cards.length} kartica učitano`);
-  transition({ type: "LOAD_PROGRESS", pct: 60, label: `${cards.length} kartica učitano` });
+  splashProgress(60, "Učitavanje gotovo");
+  transition({ type: "LOAD_PROGRESS", pct: 60, label: "Učitavanje gotovo" });
   if (import.meta.env.DEV) logger.log("[boot:diag] categories loaded:", catRecords.length, catRecords.map((r: CategoryRecord) => r.name));
 
-  return { cards, catRecords, log, settings };
+  return { cards: [], catRecords, log, settings };
 }
+
+/**
+ * Phase 1 — cards load deferred off the boot critical path. Called from
+ * `useCardBootstrap` via `taskScheduler.idle` after READY transition.
+ * Wider timeout (8s) since this no longer blocks UI.
+ */
+export async function loadCardsDeferred(): Promise<Card[]> {
+  return withTimeout(listAllCards(), 8000, "cards load (deferred)", [] as Card[]);
+}
+
