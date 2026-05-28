@@ -101,6 +101,17 @@ export {
   listTestLogEntriesByCard,
   addTestLogEntry,
 } from "./mnemonic-test-log";
+// PR-9 A1c-3 nastavak — log tables (reviewLog/pomodoroLog/diary/
+// calibrationLog/latencyLog/slippageLog/activityLog) SQLite-primary.
+export {
+  listAllReviewLog, countReviewLog, clearReviewLog, bulkPutReviewLog,
+  listAllPomodoroLog, countPomodoroLog, clearPomodoroLog, bulkPutPomodoroLog,
+  listAllDiary, countDiary, clearDiary, bulkPutDiary,
+  listAllCalibrationLog, countCalibrationLog, clearCalibrationLog, bulkPutCalibrationLog,
+  listAllLatencyLog, countLatencyLog, clearLatencyLog, bulkPutLatencyLog,
+  listAllSlippageLog, countSlippageLog, clearSlippageLog, bulkPutSlippageLog,
+  listAllActivityLog, countActivityLog, clearActivityLog, bulkPutActivityLog,
+} from "./logs";
 // PR-9 A1b P1.B — consolidated backup/health read seam (SQLite-primary
 // where possible, explicit Dexie read-replicas where not yet migrated).
 export * from "./backup-readers";
