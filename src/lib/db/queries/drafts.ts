@@ -5,7 +5,7 @@
  * throw into the React tree.
  */
 import type { SqlExecutor } from "@/lib/persistence/sqlite/executor";
-import { type DraftRecord } from "@/lib/db-schema";
+import { type DraftRecord } from "@/lib/db-types";
 import { logger } from "@/lib/logger";
 import { notifyExecutorNull } from "./_shared/executor-telemetry";
 

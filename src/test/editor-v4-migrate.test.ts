@@ -12,7 +12,7 @@ import { migrateCard, migrateSource, migrateArticle } from "@/lib/editor-v4/migr
 import { runMigrationDryRun } from "@/scripts/migrate-editor-v4";
 import { docToHtml } from "@/lib/editor-v4/codecs/doc-to-html";
 import type { Card } from "@/lib/spaced-repetition";
-import type { Source, KnowledgeBaseArticle } from "@/lib/db-schema";
+import type { Source, KnowledgeBaseArticle } from "@/lib/db-types";
 
 const fixturePath = resolve(__dirname, "fixtures/editor-v4-backup.json");
 const fixture = JSON.parse(readFileSync(fixturePath, "utf-8")) as {

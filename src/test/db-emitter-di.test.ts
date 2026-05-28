@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { setDbEventEmitter, setDbErrorState } from "@/lib/db-schema";
+import { setDbEventEmitter, setDbErrorState } from "@/lib/db-error";
 import { EVENT_TYPES } from "@/lib/event-bus-types";
 
 describe("db-schema — W1 DI emitter", () => {

@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
-import type { ExamQuestion } from "@/lib/db-schema";
+import type { ExamQuestion } from "@/lib/db-types";
 
 export type { ExamQuestion };
 

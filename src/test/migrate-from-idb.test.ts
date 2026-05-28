@@ -52,7 +52,7 @@ const fakeDb = {
   mnemonicTestLog: fakeTable<{ id?: number; cardId: string; timestamp: number; success: boolean }>([]),
 };
 
-vi.mock("@/lib/db", () => ({ db: fakeDb }));
+vi.mock("@/lib/legacy/idb-dexie", () => ({ db: fakeDb }));
 
 // ── In-memory SqlExecutor honouring tx semantics ──────────────────────────
 interface MockState {

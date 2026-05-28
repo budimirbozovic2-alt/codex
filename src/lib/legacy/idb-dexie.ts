@@ -1,37 +1,33 @@
 import Dexie, { type Table } from "dexie";
-import { Card } from "./spaced-repetition";
-import { ReviewLogEntry, PomodoroLogEntry } from "./types/logs";
-import type { DiaryEntry, CalibrationEntry, LatencyEntry, SlippageEntry, ActivityEntry } from "./metacognitive-storage";
-import type { DisciplineEntry } from "./planner-storage";
-import { EVENT_TYPES, type EventType } from "./event-bus-types";
+import { Card } from "../spaced-repetition";
+import { ReviewLogEntry, PomodoroLogEntry } from "../types/logs";
+import type { DiaryEntry, CalibrationEntry, LatencyEntry, SlippageEntry, ActivityEntry } from "../metacognitive-storage";
+import type { DisciplineEntry } from "../planner-storage";
 import type { MnemonicCard, MnemonicTestLogEntry } from "@/features/mnemonic";
-import { logger } from "./logger";
+import { logger } from "../logger";
+import {
+  setDbErrorState,
+  startUnblockWatch,
+  scheduleTimeoutReload,
+  registerBlockedRejecter,
+  unregisterBlockedRejecter,
+  rejectAllBlocked,
+  emitBlockedThrottled,
+  getDbErrorState,
+} from "../db-error";
 
-
-// ─── W1: Inversion-of-Control emitter ─────────────────────
-// `db-schema` does NOT import the EventBus instance — instead, the bootstrap
-// (src/main.tsx) injects an emitter via `setDbEventEmitter`. This breaks the
-// `db-schema` ↔ `event-bus` cycle and makes calls debuggable by name.
-type DbEmitter = (type: EventType, payload?: unknown) => void;
-type TabCounter = () => number;
-let _emit: DbEmitter = () => { /* no-op default (SSR / test without bus) */ };
-let _getTabCount: TabCounter = () => 1;
-export function setDbEventEmitter(emit: DbEmitter, getTabCount?: TabCounter): void {
-  _emit = emit;
-  if (getTabCount) _getTabCount = getTabCount;
-}
-
-// ─── Global DB error state (reactive signal for UI) ─────
-// Module-level snapshot for early-boot async callers (no React context yet).
-// All set/clear operations MUST go through `setDbErrorState` so that the
-// React-side `DbErrorProvider` (subscribed to DB_ERROR_CHANGED) stays in sync.
-export type DbErrorState = { type: "version" | "timeout"; message: string } | null;
-export let dbErrorState: DbErrorState = null;
-export function getDbErrorState(): DbErrorState { return dbErrorState; }
-export function setDbErrorState(next: DbErrorState): void {
-  dbErrorState = next;
-  try { _emit(EVENT_TYPES.DB_ERROR_CHANGED, next); } catch { /* noop */ }
-}
+// A1c Phase 2: error-state machinery, IoC emitter, and the unblock watchdog
+// were extracted to `db-error.ts` (Dexie-free). React-side imports should
+// route through there; this module now only ships the Dexie shell + open.
+// Re-export the Dexie-free utilities for backwards compat during codemod.
+export {
+  setDbEventEmitter,
+  setDbErrorState,
+  getDbErrorState,
+  startUnblockWatch,
+  __teardownDbWatchdog,
+  type DbErrorState,
+} from "../db-error";
 
 // ─── Domain types ───────────────────────────────────────
 // Single source of truth lives in `db-types.ts` (Dexie-free). Re-export
@@ -54,22 +50,16 @@ export type {
   MindMapDoc,
   KnowledgeBaseArticle,
   DraftRecord,
-} from "./db-types";
+} from "../db-types";
 import type {
   CategoryRecord,
   Source,
   MindMapDoc,
   KnowledgeBaseArticle,
   DraftRecord,
-} from "./db-types";
+} from "../db-types";
 
-// v20 introduced an `outbox` write-ahead log table for `persist-queue`.
-// Dropped in v23 (A1a) — SQLite WAL is the SSOT for durability and crash
-// recovery; the application-level outbox became redundant. The interface
-// and table accessor have been removed; the v23 upgrade hook deletes the store.
 
-// V7: Set of pending rejecters. Single-slot lost concurrent open() calls.
-const _blockedRejecters = new Set<(err: Error) => void>();
 
 class MemoriaDB extends Dexie {
   categories!: Table<CategoryRecord, string>;
@@ -232,7 +222,6 @@ class MemoriaDB extends Dexie {
 
     // v23 — A1a: drop the `outbox` write-ahead log table. SQLite WAL is now
     // the SSOT for durability; the application-level outbox is redundant.
-    // Passing `null` for a store name removes it from the schema.
     this.version(23).stores({
       outbox: null,
     });
@@ -242,24 +231,13 @@ class MemoriaDB extends Dexie {
 
 export const db = new MemoriaDB();
 
-// M5: Debounce DB_BLOCKED bursts (Dexie can fire `blocked` repeatedly when
-// multiple connections pile up). 250 ms edge window collapses bursts into one.
-let _lastBlockedEmitAt = 0;
-function emitBlockedThrottled() {
-  const now = Date.now();
-  if (now - _lastBlockedEmitAt < 250) return;
-  _lastBlockedEmitAt = now;
-  _emit(EVENT_TYPES.DB_BLOCKED);
-}
 
-// Register blocked handler ONCE at module level
+// Register blocked handler ONCE at module level — uses the shared
+// throttled emitter + rejecter set in `db-error.ts`.
 db.on("blocked", () => {
   logger.warn("[MemoriaDB] DB open blocked by another connection");
   emitBlockedThrottled();
-  for (const r of _blockedRejecters) {
-    try { r(new Error("DB_BLOCKED")); } catch { /* noop */ }
-  }
-  _blockedRejecters.clear();
+  rejectAllBlocked(new Error("DB_BLOCKED"));
 });
 
 db.on("versionchange", () => {
@@ -267,45 +245,6 @@ db.on("versionchange", () => {
   emitBlockedThrottled();
   db.close();
 });
-
-// Watch for unblocking conditions — only start interval when error state is set
-let reloadScheduled = false;
-let unblockIntervalId: ReturnType<typeof setInterval> | null = null;
-
-/**
- * Phase C / P2-2: stop and reset the unblock watchdog. Exposed so HMR can
- * dispose the stale `setInterval` before the module re-evaluates — otherwise
- * Vite leaves orphaned timers ticking every 2s across reloads.
- */
-export function __teardownDbWatchdog(): void {
-  if (unblockIntervalId !== null) {
-    clearInterval(unblockIntervalId);
-    unblockIntervalId = null;
-  }
-  reloadScheduled = false;
-}
-
-export function startUnblockWatch() {
-  if (unblockIntervalId) return; // already running
-  unblockIntervalId = setInterval(() => {
-    if (!dbErrorState) {
-      clearInterval(unblockIntervalId!);
-      unblockIntervalId = null;
-      return;
-    }
-    if (dbErrorState.type === "timeout" && _getTabCount() <= 1) {
-      if (import.meta.env.DEV) logger.log("[MemoriaDB] Only one tab remains, clearing blocked state...");
-      setDbErrorState(null);
-      _emit(EVENT_TYPES.DB_UNBLOCKED);
-      clearInterval(unblockIntervalId!);
-      unblockIntervalId = null;
-      if (!reloadScheduled) {
-        reloadScheduled = true;
-        setTimeout(() => window.location.reload(), 1000);
-      }
-    }
-  }, 2000);
-}
 
 /**
  * Open database. On VersionError/UpgradeError, delete DB and reopen fresh.
@@ -320,16 +259,16 @@ export async function ensureDbOpen(timeoutMs = 6000): Promise<boolean> {
         db.open(),
         new Promise<never>((_, reject) => {
           rejecter = reject;
-          _blockedRejecters.add(reject);
+          registerBlockedRejecter(reject);
           timer = setTimeout(() => reject(new Error("DB_OPEN_TIMEOUT")), timeoutMs);
         }),
       ]);
       clearTimeout(timer);
-      if (rejecter) _blockedRejecters.delete(rejecter);
+      if (rejecter) unregisterBlockedRejecter(rejecter);
       return true;
     } catch (err: unknown) {
       clearTimeout(timer);
-      if (rejecter) _blockedRejecters.delete(rejecter);
+      if (rejecter) unregisterBlockedRejecter(rejecter);
       const e = err instanceof Error ? err : new Error(String(err));
       logger.error("[MemoriaDB] open failed:", e.name, e.message);
 
@@ -351,14 +290,7 @@ export async function ensureDbOpen(timeoutMs = 6000): Promise<boolean> {
             ? "Baza je blokirana od strane drugog taba. Zatvorite ostale tabove i osvježite."
             : "Baza podataka se nije otvorila u predviđenom roku.",
         });
-
-        setTimeout(() => {
-          if (dbErrorState?.type === "timeout" && !reloadScheduled) {
-            reloadScheduled = true;
-            logger.log("[MemoriaDB] Blocked timeout (30s), reloading...");
-            window.location.reload();
-          }
-        }, 30000);
+        scheduleTimeoutReload(30000);
         startUnblockWatch();
       }
       return false;
@@ -366,7 +298,7 @@ export async function ensureDbOpen(timeoutMs = 6000): Promise<boolean> {
   };
 
   let ok = await tryOpen();
-  if (!ok && !dbErrorState) {
+  if (!ok && !getDbErrorState()) {
     try {
       await new Promise(r => setTimeout(r, 200));
       ok = await tryOpen();
@@ -382,7 +314,8 @@ export async function ensureDbOpen(timeoutMs = 6000): Promise<boolean> {
 
 // Phase C / P2-2: HMR teardown so Vite reload doesn't leak watchdog intervals.
 if (import.meta.hot) {
-  import.meta.hot.dispose(() => {
+  import.meta.hot.dispose(async () => {
+    const { __teardownDbWatchdog } = await import("../db-error");
     __teardownDbWatchdog();
   });
 }

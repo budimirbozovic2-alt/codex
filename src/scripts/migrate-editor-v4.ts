@@ -24,7 +24,7 @@ import { readFileSync } from "node:fs";
 import { migrateRaw } from "@/lib/backup/migrate";
 import { migrateCard, migrateSource, migrateArticle } from "@/lib/editor-v4/migrate";
 import type { Card } from "@/lib/spaced-repetition";
-import type { Source, KnowledgeBaseArticle } from "@/lib/db-schema";
+import type { Source, KnowledgeBaseArticle } from "@/lib/db-types";
 
 interface Report {
   migrated: { cards: number; sources: number; articles: number };

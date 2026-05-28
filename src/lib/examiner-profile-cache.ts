@@ -10,7 +10,7 @@
 //     surviving deletions or in-session subject switches.
 //   * `invalidateExaminerProfile` is the explicit single-entry escape hatch.
 
-import type { ExaminerProfile } from "./db-schema";
+import type { ExaminerProfile } from "./db-types";
 
 const _cache = new Map<string, ExaminerProfile | undefined>();
 

@@ -25,8 +25,8 @@ const LEARN_PROGRESS_KEY = "sr-learn-progress";
 const LAST_BACKUP_KEY = "sr-last-backup";
 
 export async function addPomodoroEntry(entry: PomodoroLogEntry): Promise<void> {
-  const { db } = await import("@/lib/db");
-  await db.pomodoroLog.add(entry);
+  const { addPomodoroLogEntry } = await import("@/lib/db/queries");
+  await addPomodoroLogEntry(entry);
 }
 
 export interface PomodoroStatsResult {
@@ -38,14 +38,15 @@ export interface PomodoroStatsResult {
 }
 
 export async function getPomodoroStats(): Promise<PomodoroStatsResult> {
-  const { db } = await import("@/lib/db");
+  const { loadPomodoroLogSince, countPomodoroLogByType } = await import("@/lib/db/queries");
   const todayStart = new Date().setHours(0, 0, 0, 0);
   const weekStart = todayStart - new Date().getDay() * 86400000;
 
-  // O2 fix: single query — range from weekStart covers both today and week stats
+  // A1c-P1: SQLite-primary. Window from weekStart covers today+week stats;
+  // total focus count is a single COUNT(*) by JSON-extracted type field.
   const [log, total] = await Promise.all([
-    db.pomodoroLog.where("timestamp").aboveOrEqual(weekStart).toArray(),
-    db.pomodoroLog.where("type").equals("focus").count(),
+    loadPomodoroLogSince(weekStart),
+    countPomodoroLogByType("focus"),
   ]);
 
   let todayCount = 0, todayMinutes = 0, weekCount = 0, weekMinutes = 0;
@@ -67,6 +68,7 @@ export async function getPomodoroStats(): Promise<PomodoroStatsResult> {
     total,
   };
 }
+
 
 export async function loadLearnProgress(): Promise<Record<string, LearnCardProgress>> {
   try {

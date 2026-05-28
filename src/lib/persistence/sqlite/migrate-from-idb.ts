@@ -22,7 +22,7 @@
  * adapter is still IDB-primary in this PR — SQLite is dormant. The next
  * write after activation will reach SQLite via the regular adapter path.
  */
-import { db } from "@/lib/db";
+import { db } from "@/lib/legacy/idb-dexie";
 import type { Table } from "dexie";
 import type { SqlBindValue, SqlExecutor } from "./executor";
 import { bindCardInsert, CARD_INSERT_SQL } from "./row-codecs";

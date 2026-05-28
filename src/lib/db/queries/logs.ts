@@ -169,12 +169,33 @@ export async function loadRecentReviewLog(days: number): Promise<ReviewLogEntry[
   return decode<ReviewLogEntry>(rows);
 }
 
-// pomodoroLog/calibrationLog/latencyLog/slippageLog/activityLog —
-// read + count only. Writes go through dedicated add*Entry helpers (F6.2)
-// for runtime appends and through `writeSatelliteTablesTx` for restore;
-// the legacy `bulkPut*` / `clear*` helpers were dropped as dead code.
+// pomodoroLog (timestamp) — read + count + single-row append.
+// Faza A1c-Phase1: storage.ts pomodoro pipeline moved off Dexie.
+// Restore writes stay inline in `writeSatelliteTablesTx`.
 export const listAllPomodoroLog = (): Promise<PomodoroLogEntry[]> => listAllAutoInc("pomodoroLog");
 export const countPomodoroLog = () => countTable("pomodoroLog");
+const bulkPutPomodoroLog = (rows: readonly AutoIncRow<PomodoroLogEntry>[]) =>
+  bulkInsertAutoInc<PomodoroLogEntry>(
+    "pomodoroLog",
+    rows,
+    { timestamp: (r) => Number(r.timestamp ?? 0) },
+    { preserveId: true },
+  );
+export const addPomodoroLogEntry = (e: PomodoroLogEntry) =>
+  bulkPutPomodoroLog([e as AutoIncRow<PomodoroLogEntry>]);
+export const loadPomodoroLogSince = (cutoff: number) =>
+  loadSinceNumeric<PomodoroLogEntry>("pomodoroLog", "timestamp", cutoff);
+/** Total count filtered by `type` field stored inside the JSON payload. */
+export async function countPomodoroLogByType(type: string): Promise<number> {
+  const exec = await requireExecutor("countPomodoroLogByType");
+  if (!exec) return 0;
+  const rows = await exec.all<{ n: number }>(
+    "SELECT COUNT(*) AS n FROM pomodoroLog WHERE json_extract(payload,'$.type') = ?",
+    [type],
+  );
+  return Number(rows[0]?.n ?? 0);
+}
+
 
 export const listAllCalibrationLog = (): Promise<CalibrationEntry[]> => listAllAutoInc("calibrationLog");
 export const countCalibrationLog = () => countTable("calibrationLog");

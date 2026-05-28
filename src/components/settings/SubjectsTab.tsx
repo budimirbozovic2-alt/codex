@@ -1,6 +1,6 @@
 import { FolderOpen } from "lucide-react";
 import CategoryManager from "@/components/CategoryManager";
-import type { CategoryRecord } from "@/lib/db-schema";
+import type { CategoryRecord } from "@/lib/db-types";
 
 interface Props {
   categories: string[];

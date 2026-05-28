@@ -5,7 +5,7 @@
  * čitati podatke. Ako bilo koja padne, throw-uje i orchestrator emituje
  * SCHEMA_FAIL → schema-error → BootRecoveryGate prikazuje SchemaErrorScreen.
  */
-import { migrateFromLocalStorage } from "@/lib/db";
+import { migrateFromLocalStorage } from "@/lib/db-seed";
 // Outbox recovery removed in A1a — SQLite WAL handles durability.
 import { markBootStep } from "@/lib/boot-trace";
 import { transition } from "@/lib/boot";

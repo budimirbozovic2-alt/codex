@@ -54,7 +54,7 @@ markBootStep("main:error-handlers-registered");
       import("./App"),
       import("react-dom/client"),
       import("./lib/event-bus"),
-      import("./lib/db-schema"),
+      import("./lib/db-error"),
     ]);
     markBootStep("main:parallel-import-done");
 

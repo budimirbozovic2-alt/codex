@@ -19,7 +19,7 @@ function reloadWindow() {
 async function resetDb() {
   if (!window.confirm("Brišem lokalnu bazu i restartujem aplikaciju. Podaci koji nisu backup-ovani biće izgubljeni. Nastaviti?")) return;
   try {
-    const { db } = await import("@/lib/db");
+    const { db } = await import("@/lib/legacy/idb-dexie");
     db?.close();
     await new Promise<void>((resolve, reject) => {
       const req = indexedDB.deleteDatabase("codex");

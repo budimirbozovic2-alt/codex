@@ -103,7 +103,8 @@ export {
 // `writeSatelliteTablesTx`, runtime appends go through `add*Entry`.
 export {
   listAllReviewLog, countReviewLog, bulkPutReviewLog, loadRecentReviewLog,
-  listAllPomodoroLog, countPomodoroLog,
+  listAllPomodoroLog, countPomodoroLog, addPomodoroLogEntry, loadPomodoroLogSince, countPomodoroLogByType,
+
   listAllDiary, countDiary,
   listAllCalibrationLog, countCalibrationLog,
   listAllLatencyLog, countLatencyLog,

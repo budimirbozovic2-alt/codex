@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { startUnblockWatch, __teardownDbWatchdog } from "@/lib/db-schema";
+import { startUnblockWatch, __teardownDbWatchdog } from "@/lib/db-error";
 
 describe("db-schema watchdog teardown (Phase C / P2-2)", () => {
   it("startUnblockWatch + __teardownDbWatchdog clears interval idempotently", () => {
