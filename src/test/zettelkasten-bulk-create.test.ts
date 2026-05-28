@@ -12,10 +12,9 @@
  *  5. Hot race: N parallel calls for the same title ⇒ exactly one row.
  *  6. Disjoint parallel batches all succeed independently.
  */
-import "fake-indexeddb/auto";
 import { beforeEach, describe, expect, it } from "vitest";
 
-import { db } from "@/lib/db";
+import { kbTestDb as db } from "./helpers/kb-test-db";
 import {
   bulkCreateArticlesIfMissing,
   loadArticlesBySubject,

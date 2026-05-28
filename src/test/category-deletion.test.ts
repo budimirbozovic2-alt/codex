@@ -9,9 +9,8 @@
  * we need to guard: the orchestrator wires the helpers correctly and KV
  * scrub still happens.
  */
-import "fake-indexeddb/auto";
 import { beforeEach, describe, expect, it } from "vitest";
-import { db } from "@/lib/db";
+import { kbTestDb as db } from "./helpers/kb-test-db";
 import { cascadeDeleteCategoryDomains } from "@/lib/category-deletion-service";
 import { putSetting, getSetting } from "@/lib/db/queries";
 

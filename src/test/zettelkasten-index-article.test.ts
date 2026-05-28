@@ -6,9 +6,8 @@
  *  4. Subject scoping — Index in subject A is independent from subject B.
  *  5. Suggested links populate the body; absence yields a minimal onboarding text.
  */
-import "fake-indexeddb/auto";
 import { beforeEach, describe, expect, it } from "vitest";
-import { db } from "@/lib/db";
+import { kbTestDb as db } from "./helpers/kb-test-db";
 import { ensureIndexArticle, newArticle } from "@/lib/zettelkasten-storage";
 
 const SUBJECT_A = "subj-A";
