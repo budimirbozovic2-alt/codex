@@ -25,14 +25,9 @@ export {
   notifyCardsChanged,
 } from "./cards";
 
-// Re-export legacy query helpers that still live in `src/lib/db-queries.ts`
-// so hooks have a single, sanctioned entry-point and never reach `@/lib/db`.
-// `idbLoadCards`/`idbLoadCardsByChapter` are deprecated — P1.5 callers should
-// prefer `listAllCards` / `cardsByChapter` from the cards repo above.
-export {
-  idbLoadSettings,
-  idbSaveSettings,
-} from "@/lib/db-queries";
+// A1c-4 F2 — legacy `idbLoadSettings`/`idbSaveSettings` aliases removed.
+// Callers must use `getSetting` / `putSetting` from this barrel (re-exported
+// further down) or go through `settingsRepository`.
 
 // PR-9 M3 — SQLite-primary read/write repos.
 export {
