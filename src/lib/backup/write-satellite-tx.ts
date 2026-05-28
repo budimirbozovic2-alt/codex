@@ -148,12 +148,12 @@ async function writeDiaryTx(
     return;
   }
   if (strategy === "overwrite") await tx.run("DELETE FROM diary");
-  for (const r of rows) {
-    await tx.run(
-      "INSERT OR REPLACE INTO diary (id, date, payload) VALUES (?, ?, ?)",
-      [r.id, r.date ?? "", JSON.stringify(r)],
-    );
-  }
+  await tx.runMany(
+    "INSERT OR REPLACE INTO diary (id, date, payload) VALUES (?, ?, ?)",
+    rows.map((r) => [r.id, r.date ?? "", JSON.stringify(r)]),
+  );
+}
+
 }
 
 async function writeDisciplineLogTx(
