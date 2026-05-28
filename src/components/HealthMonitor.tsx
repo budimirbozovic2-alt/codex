@@ -94,8 +94,29 @@ export default function HealthMonitor() {
           ) : (
             <div className="flex items-center gap-2 rounded-lg border bg-muted/30 p-3 text-xs">
               <ShieldCheck className="h-4 w-4 text-success" />
-              <span className="text-muted-foreground">Nema orphan zapisa — podaci su konzistentni</span>
-            </div>
+          )}
+
+          {corruptCardIds.length > 0 && (
+            <Alert variant="destructive">
+              <AlertTriangle className="h-4 w-4" />
+              <AlertTitle className="flex items-center gap-2">
+                Oštećene kartice (decode failure)
+                <Badge variant="destructive" className="text-[10px]">{corruptCardIds.length}</Badge>
+              </AlertTitle>
+              <AlertDescription className="text-xs space-y-1">
+                <div>
+                  Sljedeći payload nisu prošli JSON dekodiranje i preskočeni
+                  su pri zadnjem čitanju iz SQLite-a:
+                </div>
+                <code className="block break-all rounded bg-muted/40 p-2 text-[10px]">
+                  {corruptCardIds.slice(0, 20).join(", ")}
+                  {corruptCardIds.length > 20 ? "…" : ""}
+                </code>
+              </AlertDescription>
+            </Alert>
+          )}
+
+
           )}
 
           {(staleSub.count > 0 || staleChap.count > 0) && (
