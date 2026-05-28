@@ -4,7 +4,7 @@
 // The harness is an in-memory JS map, so absolute numbers are NOT
 // production timings — they are ordinal comparisons confirming the
 // indexed `cardsByCategory` reader doesn't regress to O(N²).
-import { describe, it, expect, beforeAll } from "vitest";
+import { describe, it, expect, beforeEach } from "vitest";
 import { cardsByCategory, listAllCards } from "@/lib/db/queries/cards";
 import { seedTestSqliteTable } from "@/test/sqlite-harness";
 import type { Card } from "@/lib/spaced-repetition";
@@ -26,7 +26,9 @@ const CAT_A = "cat-A";
 const CAT_B = "cat-B";
 
 describe("Phase 0 — cardsByCategory bench (SQLite harness)", () => {
-  beforeAll(() => {
+  // Seed in beforeEach (not beforeAll) — the global setup.ts resets the
+  // SQLite harness state between every test, so a beforeAll seed gets wiped.
+  beforeEach(() => {
     const all: Card[] = [];
     for (let i = 0; i < SIZES[SIZES.length - 1]; i++) {
       all.push(makeCard(i, i % 3 === 0 ? CAT_A : CAT_B));
@@ -46,6 +48,7 @@ describe("Phase 0 — cardsByCategory bench (SQLite harness)", () => {
       })),
     );
   });
+
 
   for (const N of SIZES) {
     it(`indexed query stays within 5x of RAM filter at N=${N}`, async () => {

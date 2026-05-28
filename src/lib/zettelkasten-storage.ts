@@ -26,6 +26,31 @@ import {
 import { logger } from "@/lib/logger";
 export type { KnowledgeBaseArticle };
 
+// ─── Per-subject async mutex ─────────────────────────────────────────────
+// Serializes `bulkCreateArticlesIfMissing` and `ensureIndexArticle` for the
+// same subject so the read-then-write window can't duplicate rows under
+// parallel wiki-link clicks (10 simultaneous [[Cilj]] taps → 1 row).
+const _subjectLocks = new Map<string, Promise<unknown>>();
+async function withSubjectLock<T>(subjectId: string, fn: () => Promise<T>): Promise<T> {
+  const prev = _subjectLocks.get(subjectId) ?? Promise.resolve();
+  let release!: () => void;
+  const next = new Promise<void>((r) => { release = r; });
+  const chained = prev.then(() => next);
+  _subjectLocks.set(subjectId, chained);
+  try {
+    await prev;
+    return await fn();
+  } finally {
+    release();
+    // Drop the lock entry only if no later caller has chained behind us.
+    if (_subjectLocks.get(subjectId) === chained) {
+      _subjectLocks.delete(subjectId);
+    }
+  }
+}
+
+
+
 export async function loadArticlesBySubject(subjectId: string): Promise<KnowledgeBaseArticle[]> {
   return repoListBySubject(subjectId);
 }
@@ -81,25 +106,31 @@ export async function bulkCreateArticlesIfMissing(
   }
   if (seen.size === 0) return [];
 
-  const existing = await repoListBySubject(subjectId);
-  const existingTitles = new Set(existing.map(a => a.title.trim().toLowerCase()));
+  // Serialize read-then-write per subject so 10 parallel wiki-link clicks
+  // on the same [[title]] converge on a single row instead of racing the
+  // existence check.
+  return withSubjectLock(subjectId, async () => {
+    const existing = await repoListBySubject(subjectId);
+    const existingTitles = new Set(existing.map(a => a.title.trim().toLowerCase()));
 
-  const toCreate: KnowledgeBaseArticle[] = [];
-  for (const [low, original] of seen) {
-    if (existingTitles.has(low)) continue;
-    toCreate.push(newArticle(subjectId, original, rootSubcategoryId));
-    existingTitles.add(low);
-  }
-
-  if (toCreate.length > 0) {
-    try { await repoBulkPut(toCreate); }
-    catch (err) {
-      logger.error("[zettelkasten-storage] bulkCreateArticlesIfMissing failed", err);
-      throw err;
+    const toCreate: KnowledgeBaseArticle[] = [];
+    for (const [low, original] of seen) {
+      if (existingTitles.has(low)) continue;
+      toCreate.push(newArticle(subjectId, original, rootSubcategoryId));
+      existingTitles.add(low);
     }
-  }
-  return toCreate;
+
+    if (toCreate.length > 0) {
+      try { await repoBulkPut(toCreate); }
+      catch (err) {
+        logger.error("[zettelkasten-storage] bulkCreateArticlesIfMissing failed", err);
+        throw err;
+      }
+    }
+    return toCreate;
+  });
 }
+
 
 export function newArticle(
   subjectId: string,
@@ -121,60 +152,63 @@ export function newArticle(
 
 /**
  * Ensure a subject has exactly one Index article (entry-point for organic
- * exploration). Read-then-write via SQLite — single-user desktop, race window
- * is benign.
+ * exploration). Read-then-write is serialized per subject via the in-process
+ * mutex so parallel callers converge on a single Index row.
  */
 export async function ensureIndexArticle(
   subjectId: string,
   subjectName: string,
   suggestedLinks: readonly string[] = [],
 ): Promise<KnowledgeBaseArticle> {
+
   const { htmlToDoc } = await import("@/lib/editor-v4");
   const { mdToHtml } = await import("@/lib/editor-v4/migrate");
 
-  const all = await repoListBySubject(subjectId);
+  return withSubjectLock(subjectId, async () => {
+    const all = await repoListBySubject(subjectId);
 
-  // 1. Existing Index?
-  const existingIndex = all.find(a => a.isIndex === true);
-  if (existingIndex) return existingIndex;
+    // 1. Existing Index?
+    const existingIndex = all.find(a => a.isIndex === true);
+    if (existingIndex) return existingIndex;
 
-  // 2. Promote a same-titled article.
-  const normSubject = subjectName.trim().toLowerCase();
-  const candidate = all.find(a => a.title.trim().toLowerCase() === normSubject);
-  if (candidate) {
-    const promoted: KnowledgeBaseArticle = {
-      ...candidate,
+    // 2. Promote a same-titled article.
+    const normSubject = subjectName.trim().toLowerCase();
+    const candidate = all.find(a => a.title.trim().toLowerCase() === normSubject);
+    if (candidate) {
+      const promoted: KnowledgeBaseArticle = {
+        ...candidate,
+        isIndex: true,
+        updatedAt: Date.now(),
+      };
+      await repoPutArticle(promoted);
+      return promoted;
+    }
+
+    // 3. Create a fresh Index with onboarding content.
+    const links = suggestedLinks
+      .map(s => s.trim())
+      .filter(Boolean)
+      .slice(0, 8);
+
+    const intro = `Dobrodošli u Zettelkasten predmeta **${subjectName.trim()}**. Ovo je Vaša polazna tačka za istraživanje gradiva. Krećite se kroz mrežu znanja klikom na [wiki-linkove] — kada kliknete na link koji još ne postoji, automatski se kreira novi članak.`;
+
+    const body = links.length > 0
+      ? `${intro}\n\n## Predložene oblasti za istraživanje\n\n${links.map(l => `- [[${l}]]`).join("\n")}\n\n_Slobodno mijenjajte ovaj članak — Zettelkasten raste organski._`
+      : `${intro}\n\n_Počnite kucanjem prvog wiki-linka da kreirate novi članak i započnete mrežu._`;
+
+    const now = Date.now();
+    const article: KnowledgeBaseArticle = {
+      id: crypto.randomUUID(),
+      subjectId,
+      title: subjectName.trim() || "Predmet",
+      content: body,
+      contentDoc: htmlToDoc(mdToHtml(body)),
+      linkedSourceIds: [],
       isIndex: true,
-      updatedAt: Date.now(),
+      createdAt: now,
+      updatedAt: now,
     };
-    await repoPutArticle(promoted);
-    return promoted;
-  }
-
-  // 3. Create a fresh Index with onboarding content.
-  const links = suggestedLinks
-    .map(s => s.trim())
-    .filter(Boolean)
-    .slice(0, 8);
-
-  const intro = `Dobrodošli u Zettelkasten predmeta **${subjectName.trim()}**. Ovo je Vaša polazna tačka za istraživanje gradiva. Krećite se kroz mrežu znanja klikom na [wiki-linkove] — kada kliknete na link koji još ne postoji, automatski se kreira novi članak.`;
-
-  const body = links.length > 0
-    ? `${intro}\n\n## Predložene oblasti za istraživanje\n\n${links.map(l => `- [[${l}]]`).join("\n")}\n\n_Slobodno mijenjajte ovaj članak — Zettelkasten raste organski._`
-    : `${intro}\n\n_Počnite kucanjem prvog wiki-linka da kreirate novi članak i započnete mrežu._`;
-
-  const now = Date.now();
-  const article: KnowledgeBaseArticle = {
-    id: crypto.randomUUID(),
-    subjectId,
-    title: subjectName.trim() || "Predmet",
-    content: body,
-    contentDoc: htmlToDoc(mdToHtml(body)),
-    linkedSourceIds: [],
-    isIndex: true,
-    createdAt: now,
-    updatedAt: now,
-  };
-  await repoPutArticle(article);
-  return article;
+    await repoPutArticle(article);
+    return article;
+  });
 }
