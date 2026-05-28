@@ -56,6 +56,7 @@ export {
 export {
   getSource,
   listAllSources,
+  countAllSources,
   listSourcesByCategory,
   putSource,
   deleteSourceAndUnlinkCards,
@@ -63,6 +64,7 @@ export {
 export {
   getMindMap,
   listAllMindMaps,
+  countAllMindMaps,
   listMindMapsByCategory,
   putMindMap,
   deleteMindMap,

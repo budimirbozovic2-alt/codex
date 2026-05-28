@@ -62,6 +62,13 @@ export async function listAllMindMaps(): Promise<MindMapDoc[]> {
   return rows.map(decodeMindMap).filter((d): d is MindMapDoc => d !== null);
 }
 
+export async function countAllMindMaps(): Promise<number> {
+  const exec = await requireExecutor("countAllMindMaps");
+  if (!exec) return 0;
+  const rows = await exec.all<{ n: number }>("SELECT COUNT(*) AS n FROM mindMaps");
+  return Number(rows[0]?.n ?? 0);
+}
+
 export async function listMindMapsByCategory(categoryId: string): Promise<MindMapDoc[]> {
   const exec = await requireExecutor("listMindMapsByCategory");
   if (!exec) return [];

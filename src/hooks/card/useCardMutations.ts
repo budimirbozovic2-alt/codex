@@ -18,7 +18,7 @@
  * memory). SQLite ACID + persistQueue ordering is the only serialization
  * primitive.
  */
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient, type QueryKey } from "@tanstack/react-query";
 import { toast } from "sonner";
 import type { Card } from "@/lib/spaced-repetition";
 import * as cardMapWrites from "@/lib/cards/cardMapWrites";
@@ -44,7 +44,7 @@ interface BulkPatchInput {
 }
 
 interface RollbackCtx {
-  prev: readonly Card[] | undefined;
+  entries: Array<[QueryKey, unknown]>;
 }
 
 // ─── Inline async + WriteResult wrappers ──────────────────────────────────
@@ -108,19 +108,20 @@ function bulkPatchAsync(
 export function useCardMutations() {
   const qc = useQueryClient();
 
-  /** Snapshot `['cards','all']` and cancel in-flight refetches. */
+  /** S7: snapshot every active query under `cards.root`. */
   async function snapshot(): Promise<RollbackCtx> {
     await qc.cancelQueries({ queryKey: queryKeys.cards.root });
-    return { prev: qc.getQueryData<Card[]>(queryKeys.cards.all()) };
+    const entries = qc.getQueriesData({ queryKey: queryKeys.cards.root });
+    return { entries: entries.map(([k, v]) => [k, v]) };
   }
 
   /** Restore snapshot on persist failure and resync Zustand mirror. */
   function rollback(ctx: RollbackCtx | undefined, ids: string[]) {
-    if (ctx?.prev !== undefined) {
-      qc.setQueryData<Card[]>(queryKeys.cards.all(), [...ctx.prev]);
+    if (ctx?.entries) {
+      for (const [key, data] of ctx.entries) {
+        if (data !== undefined) qc.setQueryData(key, data);
+      }
     }
-    // Zustand mirror also needs to be brought back in sync — granular
-    // selectors read from it directly.
     void cardMapWrites.reloadCardsFromDb(ids);
   }
 

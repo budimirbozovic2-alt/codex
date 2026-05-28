@@ -22,12 +22,11 @@ import { clearSubjectSettings } from "@/lib/subject-settings";
 import { invalidateExaminerProfile } from "@/lib/examiner-profile-cache";
 import { backlinkIndex } from "@/lib/backlink-index";
 import {
-  getSetting,
-  putSetting,
-  deleteSetting,
   notifyCardsChanged,
   notifyKnowledgeBaseChanged,
 } from "@/lib/db/queries";
+import { deleteSetting, getSetting } from "@/lib/db/queries";
+import { scrubCategoryFromPlannerConfig } from "@/lib/planner";
 import { categoryRepository } from "@/lib/repositories";
 import { notifyMnemonics } from "@/features/mnemonic/mnemonic-storage";
 import { logger } from "@/lib/logger";
@@ -46,13 +45,6 @@ export interface CascadeResult {
   plannerScrubbed: boolean;
   cardsAffected: number;
   sourcesAffected: number;
-}
-
-interface PlannerConfigShape {
-  subjectOrder?: string[];
-  hardSubjects?: string[];
-  phases?: { categories?: string[] }[];
-  [k: string]: unknown;
 }
 
 export async function cascadeDeleteCategoryDomains(
@@ -83,32 +75,10 @@ export async function cascadeDeleteCategoryDomains(
     result.settings = 1;
   }
 
-  const planner = await getSetting<PlannerConfigShape>("plannerConfig");
-  if (planner && typeof planner === "object") {
-    const cfg: PlannerConfigShape = { ...planner };
-    let dirty = false;
-    if (Array.isArray(cfg.subjectOrder) && cfg.subjectOrder.includes(categoryId)) {
-      cfg.subjectOrder = cfg.subjectOrder.filter(id => id !== categoryId);
-      dirty = true;
-    }
-    if (Array.isArray(cfg.hardSubjects) && cfg.hardSubjects.includes(categoryId)) {
-      cfg.hardSubjects = cfg.hardSubjects.filter(id => id !== categoryId);
-      dirty = true;
-    }
-    if (Array.isArray(cfg.phases)) {
-      cfg.phases = cfg.phases.map(ph => {
-        if (Array.isArray(ph.categories) && ph.categories.includes(categoryId)) {
-          dirty = true;
-          return { ...ph, categories: ph.categories.filter(id => id !== categoryId) };
-        }
-        return ph;
-      });
-    }
-    if (dirty) {
-      await putSetting("plannerConfig", cfg);
-      result.plannerScrubbed = true;
-    }
-  }
+  // Planner scrub delegated to planner module (S11). Service knows only
+  // the contract — planner owns its config shape and persistence.
+  result.plannerScrubbed = scrubCategoryFromPlannerConfig(categoryId);
+
 
   // 4. Notify bridges — TanStack invalidates all affected query keys.
   notifyCardsChanged();

@@ -19,8 +19,8 @@
 import { listAllCategories } from "./categories";
 import type { CategoryRecord } from "@/lib/db-types";
 import { listAllCards, countAllCards } from "./cards";
-import { listAllSources } from "./sources";
-import { listAllMindMaps } from "./mind-maps";
+import { listAllSources, countAllSources } from "./sources";
+import { listAllMindMaps, countAllMindMaps } from "./mind-maps";
 import { listAllMnemonics } from "./mnemonics";
 import { listAllArticles } from "./knowledge-base";
 import { listAllPegs } from "./major-system";
@@ -79,8 +79,8 @@ export async function readSettingsTableRaw(): Promise<unknown[]> {
 // ─── Count helpers for the health monitor ───────────────────────────────
 
 export const countCards = countAllCards;
-export const countSources = async (): Promise<number> => (await listAllSources()).length;
-export const countMindMaps = async (): Promise<number> => (await listAllMindMaps()).length;
+export const countSources = countAllSources;
+export const countMindMaps = countAllMindMaps;
 export const countDiscipline = countDisciplineLog;
 
 export const countReviewLog = _countReviewLog;

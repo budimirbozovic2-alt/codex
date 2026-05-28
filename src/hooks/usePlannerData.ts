@@ -1,5 +1,5 @@
-import { useMemo, useCallback } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useMemo, useCallback, useEffect } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { usePlannerMutations } from "@/hooks/planner/usePlannerMutations";
 import { Card as SRCard } from "@/lib/spaced-repetition";
 import { ReviewLogEntry } from "@/lib/storage";
@@ -26,6 +26,8 @@ async function getPlannerModule(): Promise<PlannerModule> {
 
 
 export function usePlannerData(cards: SRCard[], reviewLog: ReviewLogEntry[], categoryRecords: CategoryRecord[]) {
+  const qc = useQueryClient();
+
 
 
   // PR-7f M2 — config kroz TanStack; bridge invalidira ['planner'] na svaki
@@ -55,16 +57,39 @@ export function usePlannerData(cards: SRCard[], reviewLog: ReviewLogEntry[], cat
   const categoryHash = useMemo(() => hashCategories(categoryRecords), [categoryRecords]);
   const configHash = useMemo(() => hashPlannerConfig(config), [config]);
 
+  // S5: stable planner keys — invalidate on hash change so queryFn re-runs
+  // without inflating the cache with hash-discriminated slots.
+  useEffect(() => {
+    void qc.invalidateQueries({ queryKey: queryKeys.planner.velocity() });
+    void qc.invalidateQueries({ queryKey: queryKeys.planner.burnup() });
+  }, [qc, reviewLogHash]);
+
+  useEffect(() => {
+    void qc.invalidateQueries({ queryKey: queryKeys.planner.subjectPlans() });
+    void qc.invalidateQueries({ queryKey: queryKeys.planner.smartSuggestion() });
+    void qc.invalidateQueries({ queryKey: queryKeys.planner.retentionRisk() });
+  }, [qc, cardsHash, categoryHash, configHash]);
+
+  // S5: stable keys. Hash changes drive invalidation via the effect below,
+  // not by mutating queryKey identity (which would bloat cache).
   const { data: velocity = null } = useQuery({
-    queryKey: queryKeys.planner.velocity(reviewLogHash, 7),
+    queryKey: queryKeys.planner.velocity(),
     queryFn: async () => {
       const mod = await getPlannerModule();
       return mod.calcVelocity(reviewLog, 7);
     },
   });
 
+  // Cascade: velocity / scalar inputs change → derived planner queries refetch.
+  useEffect(() => {
+    void qc.invalidateQueries({ queryKey: queryKeys.planner.estimatedFinish() });
+    void qc.invalidateQueries({ queryKey: queryKeys.planner.plannerStatus() });
+    void qc.invalidateQueries({ queryKey: queryKeys.planner.projectionText() });
+    void qc.invalidateQueries({ queryKey: queryKeys.planner.timeRec() });
+  }, [qc, velocity, remaining, configHash]);
+
   const { data: estimatedFinish = null } = useQuery({
-    queryKey: queryKeys.planner.estimatedFinish(remaining, velocity),
+    queryKey: queryKeys.planner.estimatedFinish(),
     queryFn: async () => {
       if (velocity === null) return null;
       const mod = await getPlannerModule();
@@ -74,7 +99,7 @@ export function usePlannerData(cards: SRCard[], reviewLog: ReviewLogEntry[], cat
   });
 
   const { data: plannerStatus = null } = useQuery({
-    queryKey: queryKeys.planner.plannerStatus(estimatedFinish ? estimatedFinish.getTime() : null, config.finalGoalDate, config.bufferPercent),
+    queryKey: queryKeys.planner.plannerStatus(),
     queryFn: async () => {
       if (estimatedFinish === null) return null;
       const mod = await getPlannerModule();
@@ -85,7 +110,7 @@ export function usePlannerData(cards: SRCard[], reviewLog: ReviewLogEntry[], cat
 
   // Subject-oriented plan
   const { data: subjectPlans = null } = useQuery({
-    queryKey: queryKeys.planner.subjectPlans(configHash, categoryHash, cardsHash),
+    queryKey: queryKeys.planner.subjectPlans(),
     queryFn: async () => {
       const mod = await getPlannerModule();
       return mod.generateStudyPlan(config, categoryRecords, cards);
@@ -103,7 +128,7 @@ export function usePlannerData(cards: SRCard[], reviewLog: ReviewLogEntry[], cat
 
   // Smart suggestion uses global remaining (no phase)
   const { data: smartSuggestion = null } = useQuery({
-    queryKey: queryKeys.planner.smartSuggestion(cardsHash, config.finalGoalDate, velocity, config.bufferPercent),
+    queryKey: queryKeys.planner.smartSuggestion(),
     queryFn: async () => {
       if (velocity === null) return null;
       const mod = await getPlannerModule();
@@ -120,7 +145,7 @@ export function usePlannerData(cards: SRCard[], reviewLog: ReviewLogEntry[], cat
   }, [cards]);
 
   const { data: timeRec = null } = useQuery({
-    queryKey: queryKeys.planner.timeRec(smartSuggestion?.suggestedToday ?? null, velocity, dueCount),
+    queryKey: queryKeys.planner.timeRec(),
     queryFn: async () => {
       if (!smartSuggestion || velocity === null) return null;
       const mod = await getPlannerModule();
@@ -167,7 +192,7 @@ export function usePlannerData(cards: SRCard[], reviewLog: ReviewLogEntry[], cat
   });
 
   const { data: burnupData = null } = useQuery({
-    queryKey: queryKeys.planner.burnup(reviewLogHash, totalSections, config.finalGoalDate, config.bufferPercent),
+    queryKey: queryKeys.planner.burnup(),
     queryFn: async () => {
       const mod = await getPlannerModule();
       return mod.buildBurnupData(reviewLog, totalSections, config.finalGoalDate, config.bufferPercent);
@@ -175,7 +200,7 @@ export function usePlannerData(cards: SRCard[], reviewLog: ReviewLogEntry[], cat
   });
 
   const { data: projectionText = "" } = useQuery({
-    queryKey: queryKeys.planner.projectionText(velocity, remaining, config.finalGoalDate, config.bufferPercent),
+    queryKey: queryKeys.planner.projectionText(),
     queryFn: async () => {
       if (velocity === null) return "";
       const mod = await getPlannerModule();
@@ -204,7 +229,7 @@ export function usePlannerData(cards: SRCard[], reviewLog: ReviewLogEntry[], cat
   const isConfigured = config.dailyAvailableMinutes > 0 && !!config.finalGoalDate;
 
   const { data: retentionRisk = [] } = useQuery({
-    queryKey: queryKeys.planner.retentionRisk(cardsHash, categoryHash, config.finalGoalDate ?? null),
+    queryKey: queryKeys.planner.retentionRisk(),
     queryFn: async () => {
       const catIds = categoryRecords.map(r => r.id);
       if (catIds.length === 0) return [];
