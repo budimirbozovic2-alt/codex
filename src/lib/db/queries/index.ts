@@ -104,7 +104,7 @@ export {
 // PR-9 A1c-3 nastavak — log tables (reviewLog/pomodoroLog/diary/
 // calibrationLog/latencyLog/slippageLog/activityLog) SQLite-primary.
 export {
-  listAllReviewLog, countReviewLog, clearReviewLog, bulkPutReviewLog,
+  listAllReviewLog, countReviewLog, clearReviewLog, bulkPutReviewLog, loadRecentReviewLog,
   listAllPomodoroLog, countPomodoroLog, clearPomodoroLog, bulkPutPomodoroLog,
   listAllDiary, countDiary, clearDiary, bulkPutDiary,
   listAllCalibrationLog, countCalibrationLog, clearCalibrationLog, bulkPutCalibrationLog,
