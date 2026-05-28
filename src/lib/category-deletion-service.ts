@@ -47,13 +47,6 @@ export interface CascadeResult {
   sourcesAffected: number;
 }
 
-interface PlannerConfigShape {
-  subjectOrder?: string[];
-  hardSubjects?: string[];
-  phases?: { categories?: string[] }[];
-  [k: string]: unknown;
-}
-
 export async function cascadeDeleteCategoryDomains(
   categoryId: string,
   opts: { purgeCards: boolean; fallbackId: string },
