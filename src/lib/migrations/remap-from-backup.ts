@@ -8,7 +8,12 @@
  * Ne mijenja: question, sections, FSRS state, categoryId.
  */
 
-import { db } from "@/lib/db";
+import {
+  listAllCards,
+  readAllCategoriesForBackup,
+} from "@/lib/db/queries";
+import * as cardMapWrites from "@/lib/cards/cardMapWrites";
+import type { Card } from "@/lib/spaced-repetition";
 import { yieldUI } from "@/lib/backup/yield-ui";
 import {
   isMinimalBackup,
@@ -127,12 +132,12 @@ export async function remapFromBackup(
   const { oldSubInfo, oldCatNameById } = buildOldIndex(backup.categories);
 
   const [catRecords, currentCards] = await Promise.all([
-    db.categories.toArray(),
-    db.cards.toArray(),
+    readAllCategoriesForBackup(),
+    listAllCards(),
   ]);
   const current = buildCurrentIndex(catRecords as unknown as DbCategoryLike[]);
 
-  const currentById = new Map(currentCards.map((c) => [c.id, c]));
+  const currentById = new Map<string, Card>(currentCards.map((c) => [c.id, c]));
   const patches: CardPatch[] = [];
 
   const total = backup.cards.length;
@@ -228,19 +233,19 @@ export async function remapFromBackup(
   if (!options.dryRun && patches.length > 0) {
     onProgress(85, `Primjena izmjena (${patches.length})…`);
     try {
-      await db.transaction("rw", db.cards, async () => {
-        let i = 0;
-        for (const p of patches) {
-          await db.cards.update(p.id, {
-            subcategoryId: p.subcategoryId,
-            chapterId: p.chapterId,
-          });
-          if (++i % 500 === 0) {
-            onProgress(85 + Math.round((i / patches.length) * 13), `Zapis ${i}/${patches.length}…`);
-            await yieldUI();
-          }
-        }
-      });
+      // PR-9 A1c-3: write through SQLite-primary cardMapWrites (no Dexie tx).
+      // Build full updated Card objects since cardMapWrites.bulkPut takes
+      // complete records — atomicity is provided by the underlying SQLite
+      // executor on flush.
+      const updated: Card[] = [];
+      for (const p of patches) {
+        const cur = currentById.get(p.id);
+        if (!cur) continue;
+        updated.push({ ...cur, subcategoryId: p.subcategoryId, chapterId: p.chapterId });
+      }
+      cardMapWrites.bulkPut(updated);
+      onProgress(98, `Zapis ${updated.length}/${patches.length}…`);
+      await yieldUI();
     } catch (err) {
       report.errors.push(
         `Greška pri zapisu u bazu: ${err instanceof Error ? err.message : String(err)}`

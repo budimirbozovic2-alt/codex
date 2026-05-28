@@ -16,10 +16,16 @@
  */
 import { logger } from "@/lib/logger";
 import { taskScheduler } from "@/lib/scheduler";
-import { db } from "@/lib/db";
 import * as cardMapWrites from "@/lib/cards/cardMapWrites";
 import { saveSource } from "@/lib/sources-storage";
 import { saveArticle } from "@/lib/zettelkasten-storage";
+import {
+  listAllSources,
+} from "@/lib/db/queries";
+import {
+  listAllArticles,
+  putArticle as putKnowledgeBaseArticle,
+} from "@/lib/db/queries/knowledge-base";
 import { migrateCard, migrateSource, migrateArticle } from "./migrate";
 import type { Card } from "@/lib/spaced-repetition";
 import type { Source, KnowledgeBaseArticle } from "@/lib/db-schema";
@@ -67,7 +73,7 @@ async function migrateAllCards(): Promise<void> {
 
 async function migrateAllSources(): Promise<void> {
   try {
-    const sources = (await db.sources.toArray()) as Source[];
+    const sources = (await listAllSources()) as Source[];
     let n = 0;
     for (const s of sources) {
       const res = migrateSource(s);
@@ -87,15 +93,15 @@ async function migrateAllSources(): Promise<void> {
 
 async function migrateAllArticles(): Promise<void> {
   try {
-    const articles = (await db.knowledgeBaseArticles.toArray()) as KnowledgeBaseArticle[];
+    const articles = (await listAllArticles()) as KnowledgeBaseArticle[];
     let n = 0;
     for (const a of articles) {
       const res = migrateArticle(a);
       if (!res.changed) continue;
       try {
         // `saveArticle` rewrites `updatedAt` — undesirable for a silent backfill.
-        // Bypass it with a direct put to preserve the original timestamp.
-        await db.knowledgeBaseArticles.put(res.record);
+        // Bypass it via the SQLite-primary repo writer (no Dexie mirror).
+        await putKnowledgeBaseArticle(res.record);
         n++;
       } catch (err) {
         logger.warn(`[editor-v4] put article(${a.id}) failed`, err);

@@ -4,13 +4,15 @@
  * sa sljedećim — boot uvijek napreduje, degradacija je vidljiva preko
  * `useBootState().skipped[]`.
  */
-import { db, type CategoryRecord } from "@/lib/db";
+import { type CategoryRecord } from "@/lib/db";
 import { type Card, DEFAULT_SR_SETTINGS } from "@/lib/spaced-repetition";
 import { markBootStep } from "@/lib/boot-trace";
 import { transition } from "@/lib/boot";
 import { logger } from "@/lib/logger";
 import { withTimeout } from "./withTimeout";
 import { normalizeCategoryShapes } from "./normalizeCategoryShapes";
+import * as cardMapWrites from "@/lib/cards/cardMapWrites";
+import { categoryRepository } from "@/lib/repositories";
 
 export interface HealInput {
   cards: Card[];
@@ -64,10 +66,9 @@ export async function runHeal({ cards, catRecords }: HealInput): Promise<HealRes
       cards[i] = next;
       mutatedCards.push(next);
     }
-    if (mutatedCards.length > 0 && db) {
-      db.cards.bulkPut(mutatedCards).catch((e: unknown) =>
-        logger.warn("[boot] frequency tag migration persist failed", e),
-      );
+    if (mutatedCards.length > 0) {
+      // PR-9 A1c-3: persist through cardMapWrites (SQLite-primary + RAM commit).
+      cardMapWrites.bulkPut(mutatedCards);
     }
   } catch (e) {
     logger.warn("[boot] heal step 'frequencyTag' failed, skipping", e);
@@ -82,12 +83,16 @@ export async function runHeal({ cards, catRecords }: HealInput): Promise<HealRes
     const { records, needsPersist } = normalizeCategoryShapes(cards, catRecords);
     finalRecords = records;
 
-    if (needsPersist && db) {
+    if (needsPersist) {
       try {
-        await Promise.all(
-          records.map((rec) =>
-            db.categories.update(rec.id, { subcategories: rec.subcategories }),
-          ),
+        // PR-9 A1c-3: persist normalized category records through the
+        // categoryRepository SSOT (Zustand store + idbSaveCategories) instead
+        // of per-row Dexie updates. The updater replaces matching ids and
+        // keeps untouched rows untouched.
+        const byId = new Map(records.map((r) => [r.id, r]));
+        await categoryRepository.commit(
+          (prev) => prev.map((r) => byId.get(r.id) ?? r),
+          "heal:categoryShapes",
         );
       } catch (persistErr) {
         // Persist fail je sub-step koji ne lomi boot — koristimo records u memoriji.

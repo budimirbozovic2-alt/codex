@@ -15,6 +15,12 @@
 import { db } from "@/lib/db";
 import { streamBackup, tableSpec } from "@/lib/backup/export-stream";
 import { logger } from "@/lib/logger";
+import {
+  listAllCards,
+  listAllSources,
+  // `bulkPutArticles` export is for KB; we just need read for ratio.
+} from "@/lib/db/queries";
+import { listAllArticles } from "@/lib/db/queries/knowledge-base";
 import type { Table } from "dexie";
 
 const FLAG_HEALTHY = "v4_telemetry_healthy";
@@ -61,10 +67,13 @@ async function withTimeout<T>(p: Promise<T>, ms: number): Promise<T | "timeout">
 }
 
 async function computeMigrationRatio(): Promise<number> {
+  // PR-9 A1c-3: read through SQLite-primary repos. Dexie fallback is no
+  // longer consulted — assertDesktop inside the queries layer handles
+  // non-Electron environments by returning [] (telemetry stays at 0).
   const [cards, sources, articles] = await Promise.all([
-    db.cards.toArray(),
-    db.sources.toArray(),
-    db.knowledgeBaseArticles.toArray(),
+    listAllCards(),
+    listAllSources(),
+    listAllArticles(),
   ]);
   let total = 0;
   let ok = 0;
