@@ -1,5 +1,5 @@
-import { db } from "@/lib/db";
 import { getStorageUsage } from "@/lib/storage";
+import * as cardMapWrites from "@/lib/cards/cardMapWrites";
 import {
   // SQLite-primary readers via the backup-readers seam (P1.B).
   countCards,
@@ -15,6 +15,7 @@ import {
   countPomodoro,
   readAllCategoriesForBackup,
   listAllCards,
+  getCardsByIds,
 } from "@/lib/db/queries";
 
 export interface TableStat {
