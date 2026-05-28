@@ -74,7 +74,8 @@ function bulkPutAsync(cards: Card[]): Promise<WriteResult<Card[]>> {
 
 function removeAsync(id: string): Promise<WriteResult<void>> {
   return wrapWrite(async () => {
-    cardMapWrites.remove(id);
+    // Phase 2b: async-fallback — hydrates RAM from SQLite if cold.
+    await cardMapWrites.removeAsync(id);
     await persistQueue.cleanup();
   });
 }
@@ -84,7 +85,8 @@ function patchAsync(
   patcher: (card: Card) => Card,
 ): Promise<WriteResult<Card | undefined>> {
   return wrapWrite(async () => {
-    const updated = cardMapWrites.patch(id, patcher);
+    // Phase 2b: async-fallback — hydrates RAM from SQLite if cold.
+    const updated = await cardMapWrites.patchAsync(id, patcher);
     await persistQueue.cleanup();
     return updated;
   });
@@ -95,11 +97,13 @@ function bulkPatchAsync(
   patcher: (card: Card) => Card,
 ): Promise<WriteResult<Card[]>> {
   return wrapWrite(async () => {
-    const updated = cardMapWrites.bulkPatch(ids, patcher);
+    // Phase 2b: async-fallback — hydrates RAM from SQLite if cold.
+    const updated = await cardMapWrites.bulkPatchAsync(ids, patcher);
     await persistQueue.cleanup();
     return updated;
   });
 }
+
 
 export function useCardMutations() {
   const qc = useQueryClient();

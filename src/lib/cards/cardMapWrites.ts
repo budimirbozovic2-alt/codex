@@ -225,7 +225,51 @@ export async function reloadCardsFromDb(cardIds?: string[]): Promise<void> {
     logger.warn("[cardMapWrites] reloadCardsFromDb failed", err);
   }
 }
-
 /** @deprecated B1 rename — use `reloadCardsFromDb`. Kept as alias for legacy callers. */
 export const reloadCardsFromIdb = reloadCardsFromDb;
+
+// ─── Phase 2b: async-fallback write primitives ────────────────────────────
+// `cardMapStore` is no longer hydrated at boot — sync `patch`/`remove`/
+// `bulkPatch` miss the RAM map until a TanStack query (`useCardsBy*`) has
+// seeded it. These async variants do a SQLite lookup on a RAM miss, seed
+// the map, then delegate to the sync commit primitive. Callers in
+// `useCardMutations` use these so a "cold" UI path (e.g. grading a card
+// reached via deep link before any list rendered) still works.
+
+async function ensureWarm(ids: readonly string[]): Promise<void> {
+  const map = getCardMap();
+  const missing = ids.filter((id) => !(id in map));
+  if (missing.length === 0) return;
+  const rows = await getCardsByIds(missing);
+  const seed: Card[] = [];
+  for (const r of rows) if (r) seed.push(r);
+  if (seed.length === 0) return;
+  setCardMap((prev) => {
+    const next = { ...prev };
+    for (const c of seed) next[c.id] = c;
+    return next;
+  });
+}
+
+export async function patchAsync(
+  id: string,
+  patcher: (card: Card) => Card,
+): Promise<Card | undefined> {
+  await ensureWarm([id]);
+  return patch(id, patcher);
+}
+
+export async function removeAsync(id: string): Promise<void> {
+  await ensureWarm([id]);
+  remove(id);
+}
+
+export async function bulkPatchAsync(
+  ids: string[],
+  patcher: (card: Card) => Card,
+): Promise<Card[]> {
+  if (ids.length === 0) return [];
+  await ensureWarm(ids);
+  return bulkPatch(ids, patcher);
+}
 

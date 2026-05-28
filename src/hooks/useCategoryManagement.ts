@@ -6,12 +6,10 @@ import { cascadeDeleteCategoryDomains } from "@/lib/category-deletion-service";
 import { toast } from "sonner";
 import { optimisticCategoryUpdate } from "@/lib/category-service";
 import { stableLegacyId } from "@/lib/stable-id";
-import { applySyncDelta as cardMapApplySyncDelta, bulkPut as cardMapBulkPut, bulkPatch as cardMapBulkPatch } from "@/lib/cards/cardMapWrites";
-import { getCardMap, getCategoryStoreRecords } from "@/store";
-
+import { bulkPut as cardMapBulkPut } from "@/lib/cards/cardMapWrites";
+import { cardsBySubcategory, cardsByChapter, getCardsByIds } from "@/lib/db/queries";
+import { getCategoryStoreRecords, setCategoryStoreRecords } from "@/store";
 import { logger } from "@/lib/logger";
-
-import { setCategoryStoreRecords } from "@/store";
 
 // Stable module-level setter — proxies into the categoryStore mirror.
 const setCategoryRecords: React.Dispatch<React.SetStateAction<CategoryRecord[]>> = (action) => {
@@ -55,9 +53,6 @@ function getNodes(rec: CategoryRecord): SubcategoryNode[] {
 }
 
 export function useCategoryManagement() {
-
-  
-  
   const addCategory = useCallback(
     (name: string) => {
       const newId = crypto.randomUUID();
@@ -68,7 +63,7 @@ export function useCategoryManagement() {
         "addCategory"
       );
     },
-    [setCategoryRecords],
+    [],
   );
 
   const renameCategory = useCallback(
@@ -80,12 +75,16 @@ export function useCategoryManagement() {
       );
       invalidateSourcesCache();
     },
-    [setCategoryRecords],
+    [],
   );
 
+  // Audit A2 / Phase 2b — deleteCategory no longer scans the RAM cardMap.
+  // The atomic SQL transaction in `categoryRepository.deleteAsync` handles
+  // cards + sources re-parent/purge in a single ACID step, and FK CASCADE
+  // wipes mindMaps / mnemonics / knowledgeBaseArticles. TanStack consumers
+  // are refreshed via `notifyCardsChanged()` inside `cascadeDeleteCategoryDomains`.
   const deleteCategory = useCallback(
     (categoryId: string, purgeCards = false) => {
-      // I1 fix: pre-compute fallbackId BEFORE optimistic update to avoid async race
       const currentRecs = getCategoryRecords();
       const remaining = currentRecs.filter(r => r.id !== categoryId);
       const fallbackId = remaining.length > 0 ? remaining[0].id : "";
@@ -95,40 +94,10 @@ export function useCategoryManagement() {
         prev => prev.filter(r => r.id !== categoryId),
         "deleteCategory"
       );
-      const now = Date.now();
 
-      // fallbackId already computed above
-
-      if (purgeCards) {
-        // Phase 3b: collect ids only and route through repository.applySyncDelta
-        // which performs the RAM delete + CARDS_UPDATED emit. IDB rows are
-        // dropped atomically inside cascadeDeleteCategoryDomains below.
-        const toDelete: string[] = [];
-        const ref = getCardMap();
-        for (const [id, c] of Object.entries(ref)) {
-          if (c.categoryId === categoryId) toDelete.push(id);
-        }
-        if (toDelete.length > 0) cardMapApplySyncDelta([], toDelete);
-      } else {
-        // Phase 3b: build per-card updates and apply RAM-only through
-        // applySyncDelta. IDB persistence is owned by the cascade tx.
-        const changed: Card[] = [];
-        const ref = getCardMap();
-        for (const [id, c] of Object.entries(ref)) {
-          if (c.categoryId === categoryId) {
-            changed.push({ ...c, categoryId: fallbackId, subcategoryId: undefined, chapterId: undefined, updatedAt: now });
-          }
-        }
-        if (changed.length > 0) cardMapApplySyncDelta(changed, []);
-      }
-
-      (async () => {
+      void (async () => {
         try {
-          // A1+F1: atomic cascade across all category-keyed side-stores
-          // (knowledgeBaseArticles, mindMaps, mnemonics, settings, planner refs,
-          // AND cards/sources).
           await cascadeDeleteCategoryDomains(categoryId, { purgeCards, fallbackId });
-
           invalidateSourcesCache();
         } catch (err) {
           logger.error("[deleteCategory] cascade failed", err);
@@ -136,9 +105,8 @@ export function useCategoryManagement() {
         }
       })();
     },
-    [setCategoryRecords, getCategoryRecords],
+    [],
   );
-
 
   const addSubcategory = useCallback(
     (categoryId: string, subName: string) => {
@@ -153,7 +121,7 @@ export function useCategoryManagement() {
         "addSubcategory"
       );
     },
-    [setCategoryRecords],
+    [],
   );
 
   const renameSubcategory = useCallback(
@@ -167,11 +135,15 @@ export function useCategoryManagement() {
         }),
         "renameSubcategory"
       );
-      // Nema potrebe za ažuriranjem kartica jer referenciraju subcategoryId koji se NE mijenja
+      // Cards reference subcategoryId (stable) — no card update needed.
     },
-    [setCategoryRecords],
+    [],
   );
 
+  // Phase 2b — subcategories live in categories.payload JSON, so FK CASCADE
+  // doesn't apply. We source affected cards from SQLite (RAM cache is no
+  // longer hydrated at boot), clear sub/chapter refs, and persist via the
+  // standard cardMapWrites.bulkPut path (persistQueue + notifyCardsChanged).
   const deleteSubcategory = useCallback(
     (categoryId: string, subcategoryId: string) => {
       optimisticCategoryUpdate(
@@ -183,26 +155,38 @@ export function useCategoryManagement() {
         }),
         "deleteSubcategory"
       );
-      
-      // Phase 3b — repository.bulkPut handles persist + RAM + emit.
-      const now = Date.now();
-      const ref = getCardMap();
-      const changed: Card[] = [];
-      for (const [id, c] of Object.entries(ref)) {
-        if (c.categoryId === categoryId && c.subcategoryId === subcategoryId) {
-          changed.push({ ...c, subcategoryId: undefined, chapterId: undefined, updatedAt: now });
-          void id;
+
+      void (async () => {
+        try {
+          const rows = await cardsBySubcategory(categoryId, subcategoryId);
+          if (rows.length === 0) return;
+          const now = Date.now();
+          const changed: Card[] = rows.map(c => ({
+            ...c, subcategoryId: undefined, chapterId: undefined, updatedAt: now,
+          }));
+          cardMapBulkPut(changed);
+        } catch (err) {
+          logger.error("[deleteSubcategory] clear refs failed", err);
         }
-      }
-      if (changed.length > 0) cardMapBulkPut(changed);
+      })();
     },
-    [setCategoryRecords],
+    [],
   );
 
   const bulkUpdateSubcategory = useCallback((ids: string[], subcategoryId: string) => {
-    // Phase 3b — bulkPatch resolves ids → patches → bulkPut atomically.
     if (ids.length === 0) return;
-    cardMapBulkPatch(ids, (c) => ({ ...c, subcategoryId }));
+    // Phase 2b — fetch via SQLite, mutate, bulkPut. RAM map may be cold.
+    void (async () => {
+      try {
+        const rows = await getCardsByIds(ids);
+        const now = Date.now();
+        const changed: Card[] = [];
+        for (const r of rows) if (r) changed.push({ ...r, subcategoryId, updatedAt: now });
+        if (changed.length > 0) cardMapBulkPut(changed);
+      } catch (err) {
+        logger.error("[bulkUpdateSubcategory] failed", err);
+      }
+    })();
   }, []);
 
   const addChapter = useCallback((categoryId: string, subcategoryId: string, chapterName: string) => {
@@ -222,7 +206,7 @@ export function useCategoryManagement() {
       }),
       "addChapter"
     );
-  }, [setCategoryRecords]);
+  }, []);
 
   const renameChapter = useCallback((categoryId: string, subcategoryId: string, chapterId: string, newName: string) => {
     optimisticCategoryUpdate(
@@ -240,20 +224,24 @@ export function useCategoryManagement() {
       }),
       "renameChapter"
     );
-  }, [setCategoryRecords]);
+  }, []);
 
+  // Phase 2b — chapter ids live in categories.payload JSON, no FK CASCADE.
+  // Fetch cards by chapter from SQLite, clear chapterId, persist.
   const deleteChapter = useCallback((categoryId: string, subcategoryId: string, chapterId: string) => {
-    // Phase 3b — repository.bulkPut handles persist + RAM + emit.
-    const now = Date.now();
-    const ref = getCardMap();
-    const changed: Card[] = [];
-    for (const [id, c] of Object.entries(ref)) {
-      if (c.categoryId === categoryId && c.subcategoryId === subcategoryId && c.chapterId === chapterId) {
-        changed.push({ ...c, chapterId: undefined, updatedAt: now });
-        void id;
+    void (async () => {
+      try {
+        const rows = await cardsByChapter(categoryId, chapterId);
+        const affected = rows.filter(c => c.subcategoryId === subcategoryId);
+        if (affected.length > 0) {
+          const now = Date.now();
+          const changed: Card[] = affected.map(c => ({ ...c, chapterId: undefined, updatedAt: now }));
+          cardMapBulkPut(changed);
+        }
+      } catch (err) {
+        logger.error("[deleteChapter] clear refs failed", err);
       }
-    }
-    if (changed.length > 0) cardMapBulkPut(changed);
+    })();
 
     optimisticCategoryUpdate(
       setCategoryRecords,
@@ -270,7 +258,7 @@ export function useCategoryManagement() {
       }),
       "deleteChapter"
     );
-  }, [setCategoryRecords]);
+  }, []);
 
   const reorderSubcategories = useCallback((categoryId: string, orderedIds: string[]) => {
     optimisticCategoryUpdate(
@@ -287,7 +275,7 @@ export function useCategoryManagement() {
       }),
       "reorderSubcategories"
     );
-  }, [setCategoryRecords]);
+  }, []);
 
   const reorderChapters = useCallback((categoryId: string, subcategoryId: string, orderedIds: string[]) => {
     optimisticCategoryUpdate(
@@ -310,7 +298,7 @@ export function useCategoryManagement() {
       }),
       "reorderChapters"
     );
-  }, [setCategoryRecords]);
+  }, []);
 
   const reorderCategories = useCallback((orderedIds: string[]) => {
     optimisticCategoryUpdate(
@@ -324,7 +312,7 @@ export function useCategoryManagement() {
       },
       "reorderCategories"
     );
-  }, [setCategoryRecords]);
+  }, []);
 
   const updateExaminerProfile = useCallback(
     (categoryId: string, profile: ExaminerProfile) => {
@@ -338,7 +326,7 @@ export function useCategoryManagement() {
         "updateExaminerProfile"
       );
     },
-    [setCategoryRecords],
+    [],
   );
 
   return {
