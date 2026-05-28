@@ -1,8 +1,0 @@
-version: 3.0.0
-files:
-  - url: CODEX-Setup-3.0.0.exe
-    sha512: lCkrUdiS+tRLSmgpnCo31Woj9REIxPr5ubbBG252/gIOePoL8U8JQAdJy47qkSVsDQewnlVs4678rU0VgKLPXA==
-    size: 110048615
-path: CODEX-Setup-3.0.0.exe
-sha512: lCkrUdiS+tRLSmgpnCo31Woj9REIxPr5ubbBG252/gIOePoL8U8JQAdJy47qkSVsDQewnlVs4678rU0VgKLPXA==
-releaseDate: '2026-05-14T17:07:11.434Z'
