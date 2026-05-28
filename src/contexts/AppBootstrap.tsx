@@ -12,7 +12,7 @@
  * provider tree from the pre-cleanup architecture.
  */
 import { useEffect } from "react";
-import { flushReviewLogQueue } from "@/lib/db";
+import { reviewLogRepository } from "@/lib/repositories";
 import { persistQueue } from "@/lib/persist-queue";
 import { useCardBootstrap } from "@/hooks/useCardBootstrap";
 import { useCardSyncEffects } from "@/contexts/cards/useCardSyncEffects";
