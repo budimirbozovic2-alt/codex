@@ -116,7 +116,12 @@ export function installQueryBridges(qc: QueryClient): void {
 
 /** Test-only helper — resetuje internal flag tako da test može re-instalirati bridge sa svježim mockom. */
 export function _resetBridgesForTest(): void {
+  while (_unsubs.length > 0) {
+    const off = _unsubs.pop();
+    try { off?.(); } catch { /* ignore */ }
+  }
   _installed = false;
   _flushCardsInvalidateForTest();
 }
+
 
