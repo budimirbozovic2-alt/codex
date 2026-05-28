@@ -16,7 +16,7 @@
  * Consumers must NEVER reach into `db.X.toArray()` for backup/health
  * snapshots — go through this module so the repo wall stays clean.
  */
-import { idbLoadCategories } from "@/lib/db-queries";
+import { listAllCategories } from "./categories";
 import type { CategoryRecord } from "@/lib/db-schema";
 import { listAllCards, countAllCards } from "./cards";
 import { listAllSources } from "./sources";
