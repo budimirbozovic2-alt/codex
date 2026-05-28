@@ -186,21 +186,30 @@ async function writeMnemonicTestLogTx(
     return;
   }
   if (strategy === "overwrite") await tx.run("DELETE FROM mnemonicTestLog");
+  const withId: (string | number)[][] = [];
+  const noId: (string | number)[][] = [];
   for (const r of rows) {
     const cleaned: Record<string, unknown> = { ...r };
     delete cleaned.id;
     if (r.id !== undefined && r.id !== null) {
-      await tx.run(
-        "INSERT OR REPLACE INTO mnemonicTestLog (id, cardId, timestamp, success, payload) VALUES (?, ?, ?, ?, ?)",
-        [Number(r.id), r.cardId, Number(r.timestamp ?? 0), r.success ? 1 : 0, JSON.stringify(cleaned)],
-      );
+      withId.push([Number(r.id), r.cardId, Number(r.timestamp ?? 0), r.success ? 1 : 0, JSON.stringify(cleaned)]);
     } else {
-      await tx.run(
-        "INSERT INTO mnemonicTestLog (cardId, timestamp, success, payload) VALUES (?, ?, ?, ?)",
-        [r.cardId, Number(r.timestamp ?? 0), r.success ? 1 : 0, JSON.stringify(cleaned)],
-      );
+      noId.push([r.cardId, Number(r.timestamp ?? 0), r.success ? 1 : 0, JSON.stringify(cleaned)]);
     }
   }
+  if (withId.length > 0) {
+    await tx.runMany(
+      "INSERT OR REPLACE INTO mnemonicTestLog (id, cardId, timestamp, success, payload) VALUES (?, ?, ?, ?, ?)",
+      withId,
+    );
+  }
+  if (noId.length > 0) {
+    await tx.runMany(
+      "INSERT INTO mnemonicTestLog (cardId, timestamp, success, payload) VALUES (?, ?, ?, ?)",
+      noId,
+    );
+  }
+
 }
 
 // ─── Main entry point ───────────────────────────────────────────────────
