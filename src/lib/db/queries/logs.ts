@@ -130,7 +130,7 @@ async function bulkInsertAutoInc<T>(
       insertCols.push("payload");
       placeholders.push("?");
       // Strip volatile `id` from payload — it is sourced from the column.
-      const cleaned: Record<string, unknown> = { ...row };
+      const cleaned: Record<string, unknown> = { ...(row as unknown as Record<string, unknown>) };
       delete cleaned.id;
       values.push(JSON.stringify(cleaned));
 
