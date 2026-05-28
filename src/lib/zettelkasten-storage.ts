@@ -106,25 +106,31 @@ export async function bulkCreateArticlesIfMissing(
   }
   if (seen.size === 0) return [];
 
-  const existing = await repoListBySubject(subjectId);
-  const existingTitles = new Set(existing.map(a => a.title.trim().toLowerCase()));
+  // Serialize read-then-write per subject so 10 parallel wiki-link clicks
+  // on the same [[title]] converge on a single row instead of racing the
+  // existence check.
+  return withSubjectLock(subjectId, async () => {
+    const existing = await repoListBySubject(subjectId);
+    const existingTitles = new Set(existing.map(a => a.title.trim().toLowerCase()));
 
-  const toCreate: KnowledgeBaseArticle[] = [];
-  for (const [low, original] of seen) {
-    if (existingTitles.has(low)) continue;
-    toCreate.push(newArticle(subjectId, original, rootSubcategoryId));
-    existingTitles.add(low);
-  }
-
-  if (toCreate.length > 0) {
-    try { await repoBulkPut(toCreate); }
-    catch (err) {
-      logger.error("[zettelkasten-storage] bulkCreateArticlesIfMissing failed", err);
-      throw err;
+    const toCreate: KnowledgeBaseArticle[] = [];
+    for (const [low, original] of seen) {
+      if (existingTitles.has(low)) continue;
+      toCreate.push(newArticle(subjectId, original, rootSubcategoryId));
+      existingTitles.add(low);
     }
-  }
-  return toCreate;
+
+    if (toCreate.length > 0) {
+      try { await repoBulkPut(toCreate); }
+      catch (err) {
+        logger.error("[zettelkasten-storage] bulkCreateArticlesIfMissing failed", err);
+        throw err;
+      }
+    }
+    return toCreate;
+  });
 }
+
 
 export function newArticle(
   subjectId: string,
