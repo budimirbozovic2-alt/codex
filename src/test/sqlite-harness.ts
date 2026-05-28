@@ -360,7 +360,9 @@ class TestExecutor implements SqlExecutor {
     sql: string,
     params: readonly SqlBindValue[] = [],
   ): Promise<T[]> {
-    const trimmed = sql.trim();
+    // Normalize whitespace (incl. newlines) so multi-line SQL strings — used
+    // by `findArticleByTitle` and friends — match the single-line regexes.
+    const trimmed = sql.replace(/\s+/g, " ").trim();
 
     const count = RE_COUNT.exec(trimmed);
     if (count) {
