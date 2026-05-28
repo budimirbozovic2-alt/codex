@@ -63,7 +63,6 @@ export async function writeCategoriesTx(
         working = [...freshCategories, ...toInsert];
       }
 
-      }
     } else {
       // Legacy `string[]` format — synthesize CategoryRecord[] from names.
       const legacyNames = parsed.categories;
