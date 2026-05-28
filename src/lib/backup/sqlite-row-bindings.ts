@@ -102,7 +102,7 @@ export function bindKbArticle(a: KnowledgeBaseArticle): SqlBindValue[] {
   ];
 }
 
-export function bindMajorSystemPeg(p: { id: number; peg: string }): SqlBindValue[] {
+export function bindMajorSystemPeg(p: { id: number; peg?: string }): SqlBindValue[] {
   return [Number(p.id), String(p.peg ?? "")];
 }
 
