@@ -29,7 +29,7 @@ export default function ReviewSession({ dueCards, allCards, categoryRecords, srS
   // Check for saved session on mount (IDB with localStorage migration)
   useEffect(() => {
     (async () => {
-      let state = await (await getSetting<SavedSessionState | null>(SESSION_KEY)) ?? null;
+      let state = (await getSetting<SavedSessionState | null>(SESSION_KEY)) ?? null;
       // Migrate from localStorage if IDB empty
       if (!state) {
         try {
