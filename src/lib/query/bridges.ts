@@ -14,6 +14,8 @@ import { onMindMapsChanged } from "@/lib/mindmap-storage";
 import { subscribeMnemonics } from "@/features/mnemonic/mnemonic-storage/cards-repo";
 
 let _installed = false;
+const _unsubs: Array<() => void> = [];
+
 
 // ── Cards invalidation debouncer ────────────────────────────────────────
 // `notifyCardsChanged` fires once per Zustand commit. A burst (bulk import,
