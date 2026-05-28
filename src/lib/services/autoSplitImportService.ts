@@ -33,7 +33,7 @@ export async function executeImportPlan(
   await persistQueue.flush();
   // A1c-4 F6: SQLite-primary count. Field name stays `idbCount` for backward
   // compat with the hook return shape; it now reflects the SQLite cards table.
-  const idbCount = await countAllCards();
+  const idbCount = await countCards();
   deps.onProgress?.(100);
   return {
     created: plan.toCreate.length,
