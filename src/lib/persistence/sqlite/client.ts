@@ -74,6 +74,17 @@ function wrapDb(db: SqliteDb): SqlExecutor {
   const run = async (sql: string, params: readonly SqlBindValue[] = []): Promise<void> => {
     db.exec({ sql, bind: params.length > 0 ? params : undefined });
   };
+  const runMany = async (
+    sql: string,
+    paramsBatches: readonly (readonly SqlBindValue[])[],
+  ): Promise<void> => {
+    // sqlite-wasm `oo1.exec` does not expose a prepared-statement reuse API,
+    // so we loop sync inside a single microtask — no await between rows,
+    // which collapses the N awaits a per-row `tx.run` loop would create.
+    for (const params of paramsBatches) {
+      db.exec({ sql, bind: params.length > 0 ? params : undefined });
+    }
+  };
   const all = async <T = SqlRow>(sql: string, params: readonly SqlBindValue[] = []): Promise<T[]> => {
     const result = db.exec({
       sql,
@@ -88,7 +99,7 @@ function wrapDb(db: SqliteDb): SqlExecutor {
   const transaction = async <T>(fn: (tx: SqlExecutor) => Promise<T>): Promise<T> => {
     await exec("BEGIN");
     try {
-      const result = await fn({ run, all, exec, transaction, close });
+      const result = await fn({ run, runMany, all, exec, transaction, close });
       await exec("COMMIT");
       return result;
     } catch (err) {
@@ -97,8 +108,9 @@ function wrapDb(db: SqliteDb): SqlExecutor {
     }
   };
   const close = async (): Promise<void> => { try { db.close(); } catch { /* idempotent */ } };
-  return { run, all, exec, transaction, close };
+  return { run, runMany, all, exec, transaction, close };
 }
+
 
 /** Test seam — reset cached singleton (vitest only). */
 export function __resetSqliteClient(): void { _executorPromise = null; }
