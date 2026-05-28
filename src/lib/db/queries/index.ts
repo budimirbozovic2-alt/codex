@@ -23,7 +23,10 @@ export {
   cardCountByType,
   onCardsChanged,
   notifyCardsChanged,
+  getRecentCorruptCardIds,
+  onCorruptCards,
 } from "./cards";
+
 
 // A1c-4 F2 — legacy `idbLoadSettings`/`idbSaveSettings` aliases removed.
 // Callers must use `getSetting` / `putSetting` from this barrel (re-exported
