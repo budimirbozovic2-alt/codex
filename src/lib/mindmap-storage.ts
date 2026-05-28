@@ -1,17 +1,14 @@
 /**
- * Mind maps SSOT façade — A1b P1.2.
+ * Mind maps SSOT façade — A1c-2.
  *
- * Data plane delegates to `@/lib/db/queries/mind-maps` (SQLite-primary,
- * Dexie mirror). This module preserves the in-memory cache + listener
- * subscription contract so 40+ consumers (and `useMindMaps`) keep working
- * without import churn.
+ * Data plane delegates to `@/lib/db/queries/mind-maps` (SQLite-only).
+ * The in-memory façade cache was removed; TanStack Query is now the single
+ * read cache. Listener API (`onMindMapsChanged`) remains as the bridge
+ * between writers and the TanStack query bridge.
  */
 import type { MindMapDoc } from "./db";
 import * as repo from "./db/queries/mind-maps";
 import { logger } from "@/lib/logger";
-
-// ── In-memory cache (parnjak sources-storage.ts) ──
-let _cache: MindMapDoc[] | null = null;
 
 // ── Listener-based invalidation signaling ──
 type MindMapListener = () => void;
@@ -29,17 +26,13 @@ function _notify(): void {
   });
 }
 
-/** Invalidate the in-memory mind maps cache (call after external mutations like import/restore). */
+/** Notify downstream caches (TanStack bridge listens here). */
 export function invalidateMindMapsCache(): void {
-  _cache = null;
   _notify();
 }
 
 export async function loadMindMaps(): Promise<MindMapDoc[]> {
-  if (_cache) return _cache;
-  const all = await repo.listAllMindMaps();
-  _cache = all;
-  return all;
+  return repo.listAllMindMaps();
 }
 
 export async function saveMindMap(doc: MindMapDoc): Promise<void> {
@@ -49,28 +42,21 @@ export async function saveMindMap(doc: MindMapDoc): Promise<void> {
     logger.error("[mindmap-storage] saveMindMap failed", err);
     throw err;
   }
-  _cache = null;
   _notify();
 }
 
 export async function deleteMindMap(id: string): Promise<void> {
-  _cache = null;
   await repo.deleteMindMap(id);
   _notify();
 }
 
 export async function getMindMap(id: string): Promise<MindMapDoc | undefined> {
-  if (_cache) {
-    const hit = _cache.find(d => d.id === id);
-    if (hit) return hit;
-  }
   return repo.getMindMap(id);
 }
 
-// V12: HMR cleanup — prevent leaking Set-level listeners across module reloads.
+// V12: HMR cleanup
 if (import.meta.hot) {
   import.meta.hot.dispose(() => {
     _listeners.clear();
-    _cache = null;
   });
 }

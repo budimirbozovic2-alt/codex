@@ -27,10 +27,10 @@ export function confirmCardReview(cardId: string): void {
   }
 }
 
-// ── In-memory sources cache (H4 fix) ──
-let _cache: Source[] | null = null;
-
 // ── Event-based invalidation signaling ──
+// A1c-2: the in-memory façade cache was removed; TanStack Query is now the
+// only read cache. `invalidateSourcesCache` and `onSourcesChanged` remain
+// as the bridge between writers (repo) and the TanStack query bridge.
 type SourceListener = () => void;
 const _listeners = new Set<SourceListener>();
 
@@ -54,17 +54,13 @@ function _notify(): void {
   _listeners.forEach(fn => fn());
 }
 
-/** Invalidate the in-memory sources cache (call after external mutations like import) */
+/** Invalidate downstream caches (TanStack bridge listens here). */
 export function invalidateSourcesCache(): void {
-  _cache = null;
   _notify();
 }
 
 export async function loadSources(): Promise<Source[]> {
-  if (_cache) return _cache;
-  const sources = await listAllSources();
-  _cache = sources;
-  return sources;
+  return listAllSources();
 }
 
 /** Load sources scoped to a single category */
@@ -73,21 +69,16 @@ export async function loadSourcesByCategory(categoryId: string): Promise<Source[
 }
 
 export async function saveSource(source: Source): Promise<void> {
-  // V6: NEVER invalidate cache or notify listeners on failure — that would
-  // make consumers reload from a stale DB and silently drop the user's edit.
   try {
     await putSource(source);
   } catch (err) {
     logger.error("[sources-storage] saveSource failed", err);
     throw err;
   }
-  _cache = null;
   _notify();
 }
 
 export async function deleteSource(id: string): Promise<void> {
-  _cache = null;
-
   const clearedIds = await deleteSourceAndUnlinkCards(id);
 
   // F5: Notify in-memory card state about cleared links
@@ -201,13 +192,11 @@ export function extractOfficialGazette(html: string): string | undefined {
   return undefined;
 }
 
-// V12: HMR cleanup — without this, every hot-reload stacks new listener
-// Set entries while old subscribers stay registered, multiplying state mutations.
+// V12: HMR cleanup
 if (import.meta.hot) {
   import.meta.hot.dispose(() => {
     _listeners.clear();
     _cardLinkListeners.clear();
     _reviewListeners.clear();
-    _cache = null;
   });
 }
