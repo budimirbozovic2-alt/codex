@@ -15,9 +15,38 @@ import { subscribeMnemonics } from "@/features/mnemonic/mnemonic-storage/cards-r
 
 let _installed = false;
 
+// ── Cards invalidation debouncer ────────────────────────────────────────
+// `notifyCardsChanged` fires once per Zustand commit. A burst (bulk import,
+// FSRS grade-many, restore, taxonomy migration) can stack hundreds of
+// notifications in a single tick. Each one calling `invalidateQueries`
+// triggers a refetch on every active `['cards', …]` consumer — that's the
+// re-render storm.
+//
+// We coalesce into a single trailing invalidation per ~16ms window
+// (≈1 animation frame). All scoped cards queries share the `["cards"]`
+// prefix, so one invalidation handles every consumer.
+const CARDS_DEBOUNCE_MS = 16;
+let _cardsTimer: ReturnType<typeof setTimeout> | null = null;
+
+function scheduleCardsInvalidate(qc: QueryClient): void {
+  if (_cardsTimer !== null) return;
+  _cardsTimer = setTimeout(() => {
+    _cardsTimer = null;
+    void qc.invalidateQueries({ queryKey: ["cards"] });
+  }, CARDS_DEBOUNCE_MS);
+}
+
+/** Test seam — drain the pending invalidation immediately. */
+export function _flushCardsInvalidateForTest(): void {
+  if (_cardsTimer === null) return;
+  clearTimeout(_cardsTimer);
+  _cardsTimer = null;
+}
+
 export function installQueryBridges(qc: QueryClient): void {
   if (_installed) return;
   _installed = true;
+
 
   // ── Sources ─────────────────────────────────────────────
   onSourcesChanged(() => {
