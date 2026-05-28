@@ -44,7 +44,7 @@ interface BulkPatchInput {
 }
 
 interface RollbackCtx {
-  prev: readonly Card[] | undefined;
+  entries: Array<[QueryKey, unknown]>;
 }
 
 // ─── Inline async + WriteResult wrappers ──────────────────────────────────
