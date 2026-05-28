@@ -225,8 +225,6 @@ export async function reloadCardsFromDb(cardIds?: string[]): Promise<void> {
     logger.warn("[cardMapWrites] reloadCardsFromDb failed", err);
   }
 }
-/** @deprecated B1 rename — use `reloadCardsFromDb`. Kept as alias for legacy callers. */
-export const reloadCardsFromIdb = reloadCardsFromDb;
 
 // ─── Phase 2b: async-fallback write primitives ────────────────────────────
 // `cardMapStore` is no longer hydrated at boot — sync `patch`/`remove`/
