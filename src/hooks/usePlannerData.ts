@@ -57,8 +57,10 @@ export function usePlannerData(cards: SRCard[], reviewLog: ReviewLogEntry[], cat
   const categoryHash = useMemo(() => hashCategories(categoryRecords), [categoryRecords]);
   const configHash = useMemo(() => hashPlannerConfig(config), [config]);
 
+  // S5: stable keys. Hash changes drive invalidation via the effect below,
+  // not by mutating queryKey identity (which would bloat cache).
   const { data: velocity = null } = useQuery({
-    queryKey: queryKeys.planner.velocity(reviewLogHash, 7),
+    queryKey: queryKeys.planner.velocity(),
     queryFn: async () => {
       const mod = await getPlannerModule();
       return mod.calcVelocity(reviewLog, 7);
@@ -66,7 +68,7 @@ export function usePlannerData(cards: SRCard[], reviewLog: ReviewLogEntry[], cat
   });
 
   const { data: estimatedFinish = null } = useQuery({
-    queryKey: queryKeys.planner.estimatedFinish(remaining, velocity),
+    queryKey: queryKeys.planner.estimatedFinish(),
     queryFn: async () => {
       if (velocity === null) return null;
       const mod = await getPlannerModule();
@@ -76,7 +78,7 @@ export function usePlannerData(cards: SRCard[], reviewLog: ReviewLogEntry[], cat
   });
 
   const { data: plannerStatus = null } = useQuery({
-    queryKey: queryKeys.planner.plannerStatus(estimatedFinish ? estimatedFinish.getTime() : null, config.finalGoalDate, config.bufferPercent),
+    queryKey: queryKeys.planner.plannerStatus(),
     queryFn: async () => {
       if (estimatedFinish === null) return null;
       const mod = await getPlannerModule();
@@ -87,7 +89,7 @@ export function usePlannerData(cards: SRCard[], reviewLog: ReviewLogEntry[], cat
 
   // Subject-oriented plan
   const { data: subjectPlans = null } = useQuery({
-    queryKey: queryKeys.planner.subjectPlans(configHash, categoryHash, cardsHash),
+    queryKey: queryKeys.planner.subjectPlans(),
     queryFn: async () => {
       const mod = await getPlannerModule();
       return mod.generateStudyPlan(config, categoryRecords, cards);
