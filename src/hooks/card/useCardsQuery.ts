@@ -58,8 +58,13 @@ export function useAllCards(): readonly Card[] {
   return data ?? EMPTY;
 }
 
-export function useCardsByCategory(categoryId: string | undefined): readonly Card[] {
-  const { data } = useQuery({
+/**
+ * Internal scoped query — shared by tuple-returning `useCardsByCategory`
+ * and status-aware `useCardsByCategoryWithStatus`. One subscription per
+ * call site; React-Query dedupes by queryKey across both.
+ */
+function useCardsByCategoryQuery(categoryId: string | undefined) {
+  return useQuery({
     queryKey: categoryId ? queryKeys.cards.byCategory(categoryId) : ["cards", "cat", "_disabled"],
     queryFn: async () => {
       const rows = await cardsByCategory(categoryId!);
@@ -69,7 +74,24 @@ export function useCardsByCategory(categoryId: string | undefined): readonly Car
     enabled: !!categoryId,
     staleTime: Infinity,
   });
+}
+
+export function useCardsByCategory(categoryId: string | undefined): readonly Card[] {
+  const { data } = useCardsByCategoryQuery(categoryId);
   return data ?? EMPTY;
+}
+
+/**
+ * Status-aware variant for skeleton/Suspense-style loading UI. Returned
+ * shape stays narrow on purpose — only the bits CategoryView actually
+ * needs. `isLoading` is true ONLY for first fetch (no cached data yet);
+ * `isFetching` covers any in-flight refetch.
+ */
+export function useCardsByCategoryWithStatus(
+  categoryId: string | undefined,
+): { cards: readonly Card[]; isLoading: boolean; isFetching: boolean } {
+  const { data, isLoading, isFetching } = useCardsByCategoryQuery(categoryId);
+  return { cards: data ?? EMPTY, isLoading, isFetching };
 }
 
 export function useCardsBySubcategory(

@@ -13,15 +13,30 @@ const EMPTY: Source[] = [];
  * PR-7f M1 — TanStack Query read-path; invalidacija dolazi automatski iz
  * `bridges.ts` koji sluša `onSourcesChanged` i invalidira `['sources']`.
  */
-export function useCategorySources(categoryId: string | undefined): Source[] {
-  const { data } = useQuery({
+function useCategorySourcesQuery(categoryId: string | undefined) {
+  return useQuery({
     queryKey: categoryId
       ? queryKeys.sources.byCategory(categoryId)
       : ["sources", "cat", "__none__"],
     queryFn: () => loadSourcesByCategory(categoryId as string),
     enabled: !!categoryId,
   });
+}
+
+export function useCategorySources(categoryId: string | undefined): Source[] {
+  const { data } = useCategorySourcesQuery(categoryId);
   return data ?? EMPTY;
+}
+
+/**
+ * Status-aware variant for skeleton UI on initial subject load.
+ * Pilot ("No more empty blinks") — see .lovable/plan.md.
+ */
+export function useCategorySourcesWithStatus(
+  categoryId: string | undefined,
+): { sources: Source[]; isLoading: boolean; isFetching: boolean } {
+  const { data, isLoading, isFetching } = useCategorySourcesQuery(categoryId);
+  return { sources: data ?? EMPTY, isLoading, isFetching };
 }
 
 /**
