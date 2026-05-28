@@ -1,8 +1,10 @@
 /**
- * Unit tests for the Dexie-backed CardForm draft autosave (PR6).
+ * Unit tests for the CardForm draft autosave (PR6).
+ *
+ * F6 final-Dexie-drop: routes through SQLite drafts repo via the harness;
+ * direct Dexie poking is gone.
  */
-import "fake-indexeddb/auto";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 import { renderHook, waitFor } from "@testing-library/react";
 
 import {
@@ -11,8 +13,7 @@ import {
   useCardDraftAutosave,
   type CardDraftSnapshot,
 } from "@/hooks/useCardDraftAutosave";
-import { db } from "@/lib/db-schema";
-import { putDraft } from "@/lib/drafts/draftsTable";
+import { getDraft, putDraft } from "@/lib/db/queries";
 
 const baseDraft = (overrides: Partial<CardDraftSnapshot> = {}): CardDraftSnapshot => ({
   cardType: "essay",
@@ -27,16 +28,8 @@ const baseDraft = (overrides: Partial<CardDraftSnapshot> = {}): CardDraftSnapsho
   ...overrides,
 });
 
-const getStored = (key: string) => db.drafts.get(key);
+const getStored = (key: string) => getDraft(key);
 const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
-
-beforeEach(async () => {
-  await db.drafts.clear();
-});
-
-afterEach(async () => {
-  await db.drafts.clear();
-});
 
 describe("buildDraftKey", () => {
   it("uses edit slot when editCardId is provided", () => {
@@ -50,7 +43,7 @@ describe("buildDraftKey", () => {
 });
 
 describe("useCardDraftAutosave", () => {
-  it("debounces writes and persists meaningful drafts to Dexie", async () => {
+  it("debounces writes and persists meaningful drafts", async () => {
     const key = "cardform:new:cat-1";
     const draft = baseDraft({ question: "Šta je ugovor o radu?" });
 
