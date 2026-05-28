@@ -59,10 +59,13 @@ const fakeSource: Source = {
 describe("useAutoSplitImport — phase persistence", () => {
   it("stays in 'done' after import even when cards context updates", async () => {
     mockCards.current = [];
+    const { makeQueryWrapper } = await import("./helpers/queryWrapper");
+    const wrapper = makeQueryWrapper();
     const { result, rerender } = renderHook(
       ({ open }: { open: boolean }) => useAutoSplitImport(open, fakeSource),
-      { initialProps: { open: true } },
+      { initialProps: { open: true }, wrapper },
     );
+
 
     expect(result.current.phase).toBe("preview");
     expect(result.current.rows.length).toBe(1);

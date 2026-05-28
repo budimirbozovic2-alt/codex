@@ -12,6 +12,10 @@ import { describe, it, expect, vi } from "vitest";
 import { render } from "@testing-library/react";
 import { CardSelectionEditor } from "@/components/card-list/CardSelectionEditor";
 import { htmlToDoc } from "@/lib/editor-v4";
+import { makeQueryWrapper } from "./helpers/queryWrapper";
+
+const Wrapper = makeQueryWrapper();
+
 
 vi.mock("@/features/mnemonic", () => ({
   loadMnemonicCards: vi.fn(async () => []),
@@ -27,14 +31,17 @@ describe("CardSelectionEditor (PR-7a / M5)", () => {
   it("mounts read-only EditorV4 from contentDoc and exposes ProseMirror surface", async () => {
     const doc = htmlToDoc("<p>Ovo je test sadržaj jedne sekcije.</p>");
     const { container } = render(
-      <CardSelectionEditor
-        cardId="c1"
-        question="Pitanje?"
-        category="cat-1"
-        categoryId="cat-1"
-        contentDoc={doc}
-      />
+      <Wrapper>
+        <CardSelectionEditor
+          cardId="c1"
+          question="Pitanje?"
+          category="cat-1"
+          categoryId="cat-1"
+          contentDoc={doc}
+        />
+      </Wrapper>
     );
+
     await waitMicroTask();
 
     const pm = container.querySelector(".ProseMirror") as HTMLElement | null;
@@ -48,14 +55,17 @@ describe("CardSelectionEditor (PR-7a / M5)", () => {
   it("renders provided contentDoc with marks intact", async () => {
     const doc = htmlToDoc("<p><strong>fallback</strong> putanja</p>");
     const { container } = render(
-      <CardSelectionEditor
-        cardId="c2"
-        question="?"
-        category="cat-1"
-        categoryId="cat-1"
-        contentDoc={doc}
-      />
+      <Wrapper>
+        <CardSelectionEditor
+          cardId="c2"
+          question="?"
+          category="cat-1"
+          categoryId="cat-1"
+          contentDoc={doc}
+        />
+      </Wrapper>
     );
+
     await waitMicroTask();
     const pm = container.querySelector(".ProseMirror");
     expect(pm?.textContent).toContain("fallback");

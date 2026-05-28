@@ -115,33 +115,19 @@ export function useCardByIdRam(id: CardIdLike | undefined | null): Card | null {
   );
 }
 
-// ── PUBLIC API — un-suffixed names retained for view code. ────────────────
+// ── PUBLIC API — Phase 2a: now delegates to TanStack scoped queries. ──────
 //
-// These were façades during the dual-read window (PR-7d). Now they are
-// thin re-exports so existing imports keep compiling without churn.
+// The `*Ram` variants above remain as the Zustand-backed implementation,
+// used by unit tests (`card-selectors.test.tsx`) that don't want a
+// QueryClientProvider. View code uses the un-suffixed names which read
+// through TanStack (event-invalidated via `onCardsChanged` bridge), keeping
+// `cardMapStore` as an internal write-side cache fed by query `seedCardMap`.
 
-export function useCardsByCategory(categoryId: CategoryIdLike | undefined): readonly Card[] {
-  return useCardsByCategoryRam(categoryId);
-}
+export {
+  useCardsByCategory,
+  useCardsBySubcategory,
+  useCardsByChapter,
+  useCardCountByCategory,
+  useCardById,
+} from "@/hooks/card/useCardsQuery";
 
-export function useCardsBySubcategory(
-  subcategoryId: SubcategoryIdLike | undefined,
-  _categoryId?: CategoryIdLike,
-): readonly Card[] {
-  return useCardsBySubcategoryRam(subcategoryId);
-}
-
-export function useCardsByChapter(
-  chapterId: ChapterIdLike | undefined,
-  _categoryId?: CategoryIdLike,
-): readonly Card[] {
-  return useCardsByChapterRam(chapterId);
-}
-
-export function useCardCountByCategory(categoryId: CategoryIdLike | undefined): number {
-  return useCardCountByCategoryRam(categoryId);
-}
-
-export function useCardById(id: CardIdLike | undefined | null): Card | null {
-  return useCardByIdRam(id);
-}
