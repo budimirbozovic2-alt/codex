@@ -4,7 +4,7 @@
  * Invalidacija je event-driven: `subscribeMnemonics` u `bridges.ts`
  * invalidira `['mnemonics']` kad god mnemonic repo emituje promjenu.
  */
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import {
   loadMnemonicCards,
   loadMnemonicCardsByCategory,
@@ -24,6 +24,8 @@ export function useMnemonicCards(categoryFilter?: string): {
       : queryKeys.mnemonics.all(),
     queryFn: () =>
       categoryFilter ? loadMnemonicCardsByCategory(categoryFilter) : loadMnemonicCards(),
+    // C1 — keep previous filter's cards visible during refetch.
+    placeholderData: keepPreviousData,
   });
   return { cards: data ?? EMPTY, ready: isSuccess };
 }

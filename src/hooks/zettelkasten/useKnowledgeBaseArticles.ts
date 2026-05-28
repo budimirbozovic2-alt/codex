@@ -11,20 +11,15 @@
  *  - `useAllKnowledgeBaseArticles()` — unscoped (backup / health),
  *    keyed on `queryKeys.knowledgeBase.all()`.
  */
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import {
   loadArticlesBySubject,
   type KnowledgeBaseArticle,
 } from "@/lib/zettelkasten-storage";
-import {
-  listAllArticles,
-  listArticleHeadersBySubject,
-  type KnowledgeBaseArticleHeader,
-} from "@/lib/db/queries/knowledge-base";
+import { listAllArticles } from "@/lib/db/queries/knowledge-base";
 import { queryKeys } from "@/lib/query/keys";
 
 const EMPTY: KnowledgeBaseArticle[] = [];
-const EMPTY_HEADERS: KnowledgeBaseArticleHeader[] = [];
 
 export function useKnowledgeBaseArticlesBySubject(
   subjectId: string | undefined,
@@ -35,6 +30,9 @@ export function useKnowledgeBaseArticlesBySubject(
       : ["knowledgeBase", "cat", "__none__"],
     queryFn: () => loadArticlesBySubject(subjectId as string),
     enabled: !!subjectId,
+    // C1 — keep previous subject's data visible while the next subject's
+    // query is fetching, so swapping in Zettel doesn't flash empty.
+    placeholderData: keepPreviousData,
   });
   return { data: data ?? EMPTY, isLoading: !!subjectId && isPending };
 }
@@ -48,21 +46,7 @@ export function useAllKnowledgeBaseArticles(enabled: boolean = true): KnowledgeB
   return data ?? EMPTY;
 }
 
-/**
- * S2 — header-only listing (id/title/updatedAt/isIndex). No `payload` JSON
- * parse, no full content. Use this for sidebars, navigators, and any UI
- * that doesn't need article body. Same query cache scope as the full
- * variant but a sibling key so the two don't collide.
- */
-export function useKnowledgeBaseHeadersBySubject(
-  subjectId: string | undefined,
-): { data: KnowledgeBaseArticleHeader[]; isLoading: boolean } {
-  const { data, isPending } = useQuery({
-    queryKey: subjectId
-      ? [...queryKeys.knowledgeBase.byCategory(subjectId), "headers"] as const
-      : ["knowledgeBase", "cat", "__none__", "headers"],
-    queryFn: () => listArticleHeadersBySubject(subjectId as string),
-    enabled: !!subjectId,
-  });
-  return { data: data ?? EMPTY_HEADERS, isLoading: !!subjectId && isPending };
-}
+// B3 — `useKnowledgeBaseHeadersBySubject` removed: had zero call-sites and
+// duplicated the `byCategory` invalidation cycle. If a header-only view
+// returns, derive it via TanStack `select` over the existing byCategory
+// query so headers share the same cache slot as the full article list.
