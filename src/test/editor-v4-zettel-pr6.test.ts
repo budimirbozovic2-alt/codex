@@ -35,8 +35,7 @@ const SOURCE = {
   createdAt: 0, updatedAt: 0,
 } as unknown as Source;
 
-beforeEach(async () => {
-  await db.knowledgeBaseArticles.clear();
+beforeEach(() => {
   vi.restoreAllMocks();
 });
 
