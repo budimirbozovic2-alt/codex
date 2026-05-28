@@ -17,6 +17,12 @@ import { categoryRepository } from "@/lib/repositories";
 export interface HealInput {
   cards: Card[];
   catRecords: CategoryRecord[];
+  /**
+   * When true, suppress boot state machine transitions (HEAL_START/PROGRESS/DONE/STEP_FAIL).
+   * Used by deferred boot path where heal runs AFTER `READY` and must not
+   * regress the splash state. Trace markers are still emitted.
+   */
+  silent?: boolean;
 }
 
 export interface HealResult {
@@ -26,10 +32,11 @@ export interface HealResult {
   mutatedCards: Card[];
 }
 
-export async function runHeal({ cards, catRecords }: HealInput): Promise<HealResult> {
+export async function runHeal({ cards, catRecords, silent = false }: HealInput): Promise<HealResult> {
   markBootStep("cards:heal-start");
-  transition({ type: "HEAL_START" });
+  if (!silent) transition({ type: "HEAL_START" });
   const skipped: string[] = [];
+
 
   // ─── Step 1: card taxonomy heal (stale subcategoryId/chapterId references) ───
   try {
