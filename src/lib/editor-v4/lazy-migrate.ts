@@ -28,7 +28,7 @@ import {
 } from "@/lib/db/queries/knowledge-base";
 import { migrateCard, migrateSource, migrateArticle } from "./migrate";
 import type { Card } from "@/lib/spaced-repetition";
-import type { Source, KnowledgeBaseArticle } from "@/lib/db-schema";
+import type { Source, KnowledgeBaseArticle } from "@/lib/db-types";
 
 const BATCH = 25;
 

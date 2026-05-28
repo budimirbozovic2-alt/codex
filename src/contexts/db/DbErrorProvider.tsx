@@ -9,7 +9,7 @@
 import { useSyncExternalStore, type ReactNode } from "react";
 import { eventBus } from "@/lib/event-bus";
 import { EVENT_TYPES } from "@/lib/event-bus-types";
-import { getDbErrorState, type DbErrorState } from "@/lib/db-schema";
+import { getDbErrorState, type DbErrorState } from "@/lib/db-error";
 
 function sameDbError(a: DbErrorState, b: DbErrorState): boolean {
   if (a === b) return true;

@@ -2,7 +2,7 @@ import { useCallback } from "react";
 import { toast } from "sonner";
 import { Card, SRSettings } from "@/lib/spaced-repetition";
 import { setLastBackupTime } from "@/lib/storage";
-import type { CategoryRecord } from "@/lib/db-schema";
+import type { CategoryRecord } from "@/lib/db-types";
 import { streamBackup, sourceSpec, type ProgressFn } from "@/lib/backup/export-stream";
 import { deriveHtml } from "@/lib/editor-v4/derived";
 import {

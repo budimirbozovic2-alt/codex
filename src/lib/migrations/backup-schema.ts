@@ -20,7 +20,7 @@ import type {
   Source,
   MindMapDoc,
   KnowledgeBaseArticle,
-} from "@/lib/db-schema";
+} from "@/lib/db-types";
 import type { MnemonicCard } from "@/features/mnemonic";
 
 // ─── Primitive helpers ──────────────────────────────────

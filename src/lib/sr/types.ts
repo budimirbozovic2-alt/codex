@@ -1,5 +1,5 @@
 // FSRS v5 — Domain types only (no runtime logic). Re-exported via spaced-repetition.ts.
-export type { ExaminerProfile } from "../db-schema";
+export type { ExaminerProfile } from "../db-types";
 import type { EditorDoc } from "@/lib/editor-v4/types";
 
 export enum SectionState {

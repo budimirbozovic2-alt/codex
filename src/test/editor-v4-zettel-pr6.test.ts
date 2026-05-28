@@ -20,7 +20,7 @@ import {
 } from "@/lib/source-reader/build-essay-payload";
 import { defaultEdit } from "@/lib/split-wizard-build";
 import type { SelectionModule } from "@/lib/selection-split-engine";
-import type { Source } from "@/lib/db-schema";
+import type { Source } from "@/lib/db-types";
 
 const SUBJECT = "subject-pr6";
 

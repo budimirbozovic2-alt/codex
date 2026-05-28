@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
 import Modal from "@/components/ui/DialogShell";
-import type { CategoryRecord } from "@/lib/db-schema";
+import type { CategoryRecord } from "@/lib/db-types";
 import { afterDialogClose } from "@/lib/dialog-utils";
 
 interface Props {

@@ -10,7 +10,7 @@
  * pretvara takve nazive u trenutno-validne UUID-ove iz `CategoryRecord`-a.
  */
 
-import type { CategoryRecord } from "@/lib/db-schema";
+import type { CategoryRecord } from "@/lib/db-types";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 

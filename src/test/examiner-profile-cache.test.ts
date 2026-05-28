@@ -9,7 +9,7 @@
  *     "primed, profile absent".
  */
 import { beforeEach, describe, expect, it } from "vitest";
-import type { ExaminerProfile } from "@/lib/db-schema";
+import type { ExaminerProfile } from "@/lib/db-types";
 import {
   _clearExaminerProfileCache,
   getExaminerProfileSync,

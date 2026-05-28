@@ -9,7 +9,7 @@
  * supported. Legacy `parsed.subcategories` flat map is folded into the
  * appropriate `CategoryRecord.subcategories[]` and re-inserted.
  */
-import { type CategoryRecord, type SubcategoryNode } from "@/lib/db-schema";
+import { type CategoryRecord, type SubcategoryNode } from "@/lib/db-types";
 import type { SqlExecutor } from "@/lib/persistence/sqlite/executor";
 import type { ParsedBackup } from "@/lib/migrations/backup-schema";
 import type { ImportStrategy } from "@/lib/backup/import-types";

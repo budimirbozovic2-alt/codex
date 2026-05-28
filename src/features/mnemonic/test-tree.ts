@@ -2,7 +2,7 @@
  * Pure derivations for the mnemonic test selector. No React, no I/O.
  */
 import type { MnemonicCard, HookType } from "./mnemonic-storage";
-import type { CategoryRecord } from "@/lib/db-schema";
+import type { CategoryRecord } from "@/lib/db-types";
 
 export interface TestFilter {
   category: string | null;

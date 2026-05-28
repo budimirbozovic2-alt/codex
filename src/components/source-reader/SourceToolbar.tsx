@@ -3,7 +3,7 @@ import { memo } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import type { Source, SourceKind } from "@/lib/db-schema";
+import type { Source, SourceKind } from "@/lib/db-types";
 import { SourceHeader } from "./SourceHeader";
 import { useSourceReaderStore, type ReaderWidth } from "@/store";
 

@@ -9,7 +9,7 @@
  * from the runtime types.
  */
 import type { Card, Section } from "@/lib/spaced-repetition";
-import type { Source, KnowledgeBaseArticle } from "@/lib/db-schema";
+import type { Source, KnowledgeBaseArticle } from "@/lib/db-types";
 import { htmlToDoc } from "@/lib/editor-v4";
 import { mdToHtml } from "@/lib/editor-v4/migrate";
 import { SectionState } from "@/lib/spaced-repetition";

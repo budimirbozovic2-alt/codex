@@ -17,7 +17,7 @@
  * snapshots — go through this module so the repo wall stays clean.
  */
 import { listAllCategories } from "./categories";
-import type { CategoryRecord } from "@/lib/db-schema";
+import type { CategoryRecord } from "@/lib/db-types";
 import { listAllCards, countAllCards } from "./cards";
 import { listAllSources } from "./sources";
 import { listAllMindMaps } from "./mind-maps";

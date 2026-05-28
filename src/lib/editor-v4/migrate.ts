@@ -14,7 +14,7 @@
  * of a previous run is a no-op.
  */
 import type { Card } from "@/lib/spaced-repetition";
-import type { Source, KnowledgeBaseArticle } from "@/lib/db-schema";
+import type { Source, KnowledgeBaseArticle } from "@/lib/db-types";
 import type { EditorDoc, JSONContent } from "./types";
 import { htmlToDoc } from "./codecs/html-to-doc";
 import { MINDMAP_RE } from "./patterns";

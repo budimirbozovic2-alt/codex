@@ -19,7 +19,7 @@ import type {
   MindMapDoc,
   KnowledgeBaseArticle,
   Source,
-} from "@/lib/db-schema";
+} from "@/lib/db-types";
 import type { MnemonicCard } from "@/features/mnemonic";
 
 // ─── INSERT SQL constants ────────────────────────────────────────────────
