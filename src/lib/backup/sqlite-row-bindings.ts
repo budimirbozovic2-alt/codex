@@ -18,8 +18,8 @@ import type {
   CategoryRecord,
   MindMapDoc,
   KnowledgeBaseArticle,
+  Source,
 } from "@/lib/db-schema";
-import type { Source } from "@/lib/sources-storage";
 import type { MnemonicCard } from "@/features/mnemonic";
 
 // ─── INSERT SQL constants ────────────────────────────────────────────────
