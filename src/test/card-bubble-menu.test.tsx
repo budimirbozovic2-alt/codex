@@ -12,6 +12,10 @@ import { describe, it, expect, vi } from "vitest";
 import { render } from "@testing-library/react";
 import { CardSelectionEditor } from "@/components/card-list/CardSelectionEditor";
 import { htmlToDoc } from "@/lib/editor-v4";
+import { makeQueryWrapper } from "./helpers/queryWrapper";
+
+const Wrapper = makeQueryWrapper();
+
 
 vi.mock("@/features/mnemonic", () => ({
   loadMnemonicCards: vi.fn(async () => []),
