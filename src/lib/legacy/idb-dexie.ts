@@ -1,10 +1,10 @@
 import Dexie, { type Table } from "dexie";
-import { Card } from "./spaced-repetition";
-import { ReviewLogEntry, PomodoroLogEntry } from "./types/logs";
-import type { DiaryEntry, CalibrationEntry, LatencyEntry, SlippageEntry, ActivityEntry } from "./metacognitive-storage";
-import type { DisciplineEntry } from "./planner-storage";
+import { Card } from "../spaced-repetition";
+import { ReviewLogEntry, PomodoroLogEntry } from "../types/logs";
+import type { DiaryEntry, CalibrationEntry, LatencyEntry, SlippageEntry, ActivityEntry } from "../metacognitive-storage";
+import type { DisciplineEntry } from "../planner-storage";
 import type { MnemonicCard, MnemonicTestLogEntry } from "@/features/mnemonic";
-import { logger } from "./logger";
+import { logger } from "../logger";
 import {
   setDbErrorState,
   startUnblockWatch,
@@ -14,7 +14,7 @@ import {
   rejectAllBlocked,
   emitBlockedThrottled,
   getDbErrorState,
-} from "./db-error";
+} from "../db-error";
 
 // A1c Phase 2: error-state machinery, IoC emitter, and the unblock watchdog
 // were extracted to `db-error.ts` (Dexie-free). React-side imports should
@@ -27,7 +27,7 @@ export {
   startUnblockWatch,
   __teardownDbWatchdog,
   type DbErrorState,
-} from "./db-error";
+} from "../db-error";
 
 // ─── Domain types ───────────────────────────────────────
 // Single source of truth lives in `db-types.ts` (Dexie-free). Re-export
@@ -50,14 +50,14 @@ export type {
   MindMapDoc,
   KnowledgeBaseArticle,
   DraftRecord,
-} from "./db-types";
+} from "../db-types";
 import type {
   CategoryRecord,
   Source,
   MindMapDoc,
   KnowledgeBaseArticle,
   DraftRecord,
-} from "./db-types";
+} from "../db-types";
 
 
 
@@ -315,7 +315,7 @@ export async function ensureDbOpen(timeoutMs = 6000): Promise<boolean> {
 // Phase C / P2-2: HMR teardown so Vite reload doesn't leak watchdog intervals.
 if (import.meta.hot) {
   import.meta.hot.dispose(async () => {
-    const { __teardownDbWatchdog } = await import("./db-error");
+    const { __teardownDbWatchdog } = await import("../db-error");
     __teardownDbWatchdog();
   });
 }
