@@ -71,9 +71,8 @@ export async function writeCategoriesTx(
           id: crypto.randomUUID(), name, sortOrder: i, subcategories: [],
         }));
         await tx.run("DELETE FROM categories");
-        for (const cat of allRecs) {
-          await tx.run(CATEGORY_INSERT_SQL, bindCategory(cat));
-        }
+        await tx.runMany(CATEGORY_INSERT_SQL, allRecs.map((cat) => bindCategory(cat)));
+
         working = allRecs;
       } else {
         const existingNames = new Set(freshCategories.map((r) => r.name));
