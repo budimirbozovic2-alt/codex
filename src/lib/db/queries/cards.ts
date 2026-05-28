@@ -129,7 +129,7 @@ export async function getCardsByIds(ids: readonly string[]): Promise<(Card | und
   return ids.map((id) => byId.get(id));
 }
 
-}
+
 
 // ── Indexed scoped readers ───────────────────────────────────────────────
 
