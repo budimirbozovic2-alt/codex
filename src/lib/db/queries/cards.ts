@@ -117,11 +117,18 @@ export async function getCardsByIds(ids: readonly string[]): Promise<(Card | und
     ids as readonly string[],
   );
   const byId = new Map<string, Card>();
+  const failed: string[] = [];
   for (const row of rows) {
     try { byId.set(row.id, decodeCard(row as unknown as Record<string, string>)); }
-    catch (err) { logger.warn("[cards-repo] decode failed in bulkGet", { id: row.id, err }); }
+    catch (err) {
+      if (err instanceof CardDecodeError) failed.push(err.id);
+      logger.warn("[cards-repo] decode failed in bulkGet", { id: row.id, err });
+    }
   }
+  if (failed.length > 0) recordCorruptIds(failed);
   return ids.map((id) => byId.get(id));
+}
+
 }
 
 // ── Indexed scoped readers ───────────────────────────────────────────────
