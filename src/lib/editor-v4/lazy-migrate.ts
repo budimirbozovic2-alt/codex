@@ -16,10 +16,16 @@
  */
 import { logger } from "@/lib/logger";
 import { taskScheduler } from "@/lib/scheduler";
-import { db } from "@/lib/db";
 import * as cardMapWrites from "@/lib/cards/cardMapWrites";
 import { saveSource } from "@/lib/sources-storage";
 import { saveArticle } from "@/lib/zettelkasten-storage";
+import {
+  listAllSources,
+} from "@/lib/db/queries";
+import {
+  listAllArticles,
+  putArticle as putKnowledgeBaseArticle,
+} from "@/lib/db/queries/knowledge-base";
 import { migrateCard, migrateSource, migrateArticle } from "./migrate";
 import type { Card } from "@/lib/spaced-repetition";
 import type { Source, KnowledgeBaseArticle } from "@/lib/db-schema";
