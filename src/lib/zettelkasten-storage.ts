@@ -32,8 +32,6 @@ export type { KnowledgeBaseArticle };
 // parallel wiki-link clicks (10 simultaneous [[Cilj]] taps → 1 row).
 const _subjectLocks = new Map<string, Promise<unknown>>();
 async function withSubjectLock<T>(subjectId: string, fn: () => Promise<T>): Promise<T> {
-const _subjectLocks = new Map<string, Promise<unknown>>();
-async function withSubjectLock<T>(subjectId: string, fn: () => Promise<T>): Promise<T> {
   const prev = _subjectLocks.get(subjectId) ?? Promise.resolve();
   let release!: () => void;
   const next = new Promise<void>((r) => { release = r; });
@@ -51,7 +49,6 @@ async function withSubjectLock<T>(subjectId: string, fn: () => Promise<T>): Prom
   }
 }
 
-}
 
 
 export async function loadArticlesBySubject(subjectId: string): Promise<KnowledgeBaseArticle[]> {
