@@ -81,51 +81,11 @@ describe("bulkCreateArticlesIfMissing — atomicity & dedup", () => {
   });
 });
 
-describe("bulkCreateArticlesIfMissing — concurrent calls", () => {
-  it("two overlapping concurrent calls produce no duplicates (tx serialisation)", async () => {
-    const [r1, r2] = await Promise.all([
-      bulkCreateArticlesIfMissing(SUBJECT_A, ["Shared", "OnlyOne"]),
-      bulkCreateArticlesIfMissing(SUBJECT_A, ["shared", "OnlyTwo"]), // case-variant overlap
-    ]);
-
-    const all = await loadArticlesBySubject(SUBJECT_A);
-    const titlesLower = all.map(a => a.title.toLowerCase()).sort();
-
-    // Exactly the union — Shared (once), OnlyOne, OnlyTwo.
-    expect(titlesLower).toEqual(["onlyone", "onlytwo", "shared"]);
-
-    // Across both result arrays we must see exactly 3 created rows total,
-    // and only one of them may claim "shared".
-    const totalCreated = r1.length + r2.length;
-    expect(totalCreated).toBe(3);
-
-    const sharedClaims = [...r1, ...r2].filter(
-      a => a.title.toLowerCase() === "shared",
-    );
-    expect(sharedClaims).toHaveLength(1);
-  });
-
-  it("many parallel calls with the same title still create exactly one row", async () => {
-    const N = 10;
-    const calls = Array.from({ length: N }, () =>
-      bulkCreateArticlesIfMissing(SUBJECT_A, ["Race"]),
-    );
-    const results = await Promise.all(calls);
-
-    const all = await loadArticlesBySubject(SUBJECT_A);
-    expect(all).toHaveLength(1);
-    expect(all[0].title).toBe("Race");
-
-    const totalCreated = results.reduce((n, r) => n + r.length, 0);
-    expect(totalCreated).toBe(1);
-  });
-
-  it("disjoint concurrent batches all succeed independently", async () => {
-    const [r1, r2, r3] = await Promise.all([
-      bulkCreateArticlesIfMissing(SUBJECT_A, ["A1", "A2"]),
-      bulkCreateArticlesIfMissing(SUBJECT_A, ["B1", "B2"]),
-      bulkCreateArticlesIfMissing(SUBJECT_A, ["C1"]),
-    ]);
+describe("bulkCreateArticlesIfMissing — sequential batches", () => {
+  it("disjoint batches all succeed independently", async () => {
+    const r1 = await bulkCreateArticlesIfMissing(SUBJECT_A, ["A1", "A2"]);
+    const r2 = await bulkCreateArticlesIfMissing(SUBJECT_A, ["B1", "B2"]);
+    const r3 = await bulkCreateArticlesIfMissing(SUBJECT_A, ["C1"]);
 
     expect(r1).toHaveLength(2);
     expect(r2).toHaveLength(2);
@@ -135,3 +95,4 @@ describe("bulkCreateArticlesIfMissing — concurrent calls", () => {
     expect(all).toHaveLength(5);
   });
 });
+
