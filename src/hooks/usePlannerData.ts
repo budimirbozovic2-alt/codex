@@ -98,8 +98,7 @@ export function usePlannerData(cards: SRCard[], reviewLog: ReviewLogEntry[], cat
     if (!mod) return null;
     return mod.calcVelocity(reviewLog, 7);
   }, [mod, reviewLog]);
-
-  const estimatedFinish = useMemo<number | null>(() => {
+  const estimatedFinish = useMemo(() => {
     if (!mod || velocity === null) return null;
     return mod.calcEstimatedFinish(remaining, velocity);
   }, [mod, velocity, remaining]);
