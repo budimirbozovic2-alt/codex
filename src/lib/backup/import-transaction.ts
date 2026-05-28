@@ -41,15 +41,8 @@ export {
   pruneOrphans,
 } from "@/lib/backup/import-remap";
 
-/**
- * Dexie bridge for `categories` until A1c-4 swaps the read path. NOT a
- * `db.transaction("rw", …)` block — two independent statements so this
- * file stays "no Dexie rw tx".
- */
-async function mirrorCategoriesToDexie(cats: CategoryRecord[]): Promise<void> {
-  await db.categories.clear();
-  if (cats.length > 0) await db.categories.bulkPut(cats);
-}
+
+
 
 export async function applyImportAtomically(ctx: ImportCtx): Promise<ImportTxResult> {
   const { parsed, strategy, currentMap, onProgress } = ctx;
