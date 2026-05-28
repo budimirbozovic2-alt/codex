@@ -4,7 +4,7 @@
  * SQLite-only read/write for the `mindMaps` table.
  */
 import type { SqlExecutor } from "@/lib/persistence/sqlite/executor";
-import { type MindMapDoc } from "@/lib/db";
+import type { MindMapDoc } from "@/lib/db-types";
 import { logger } from "@/lib/logger";
 import { notifyExecutorNull } from "./_shared/executor-telemetry";
 

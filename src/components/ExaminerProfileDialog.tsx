@@ -5,7 +5,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import type { ExaminerProfile, ExaminerDifficulty, PreferredAnswerType } from "@/lib/db";
+import type { ExaminerProfile, ExaminerDifficulty, PreferredAnswerType } from "@/lib/db-types";
 import { useDirtyDialog } from "@/hooks/useDirtyDialog";
 import DirtyConfirmBar from "@/components/ui/dirty-confirm-bar";
 import { afterDialogClose } from "@/lib/dialog-utils";

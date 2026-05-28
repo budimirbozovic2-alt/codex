@@ -6,7 +6,7 @@
  * import the shapes without pulling the orchestrator's transactional code.
  */
 import type { Card, SRSettings } from "@/lib/spaced-repetition";
-import type { CategoryRecord } from "@/lib/db";
+import type { CategoryRecord } from "@/lib/db-types";
 import type { ReviewLogEntry } from "@/lib/storage";
 import type { ParsedBackup } from "@/lib/migrations/backup-schema";
 

@@ -5,7 +5,7 @@ import { Card } from "@/lib/spaced-repetition";
 import { Button } from "@/components/ui/button";
 import { useCardActions } from "@/hooks/useCardActions";
 import type { SectionInput, FormWidth } from "@/hooks/useCardActions";
-import type { CategoryRecord } from "@/lib/db";
+import type { CategoryRecord } from "@/lib/db-types";
 import { Skeleton } from "@/components/ui/skeleton";
 import MetadataSection from "@/components/card-form/MetadataSection";
 

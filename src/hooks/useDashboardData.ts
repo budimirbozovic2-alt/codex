@@ -10,7 +10,7 @@ async function getPlannerModule(): Promise<PlannerModule> {
   if (!_plannerMod) _plannerMod = await import("@/lib/planner-storage");
   return _plannerMod;
 }
-import type { CategoryRecord } from "@/lib/db";
+import type { CategoryRecord } from "@/lib/db-types";
 import { StudyFlowData } from "@/components/dashboard/StudyFlowWidget";
 import { usePlannerMutations } from "@/hooks/planner/usePlannerMutations";
 

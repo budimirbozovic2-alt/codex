@@ -2,7 +2,8 @@
 // No bus events, no invalidator.
 import "fake-indexeddb/auto";
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { db, type CategoryRecord } from "@/lib/db";
+import { db } from "@/lib/db";
+import type { CategoryRecord } from "@/lib/db-types";
 import {
   categoryRepository,
   commit,

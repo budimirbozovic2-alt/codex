@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useCategoryData } from "@/contexts/AppContext";
 import { useMindMapMutations } from "@/hooks/mindmap/useMindMapMutations";
-import type { MindMapDoc } from "@/lib/db";
+import type { MindMapDoc } from "@/lib/db-types";
 import type { Node, Edge } from "@xyflow/react";
 import { toast } from "sonner";
 import { FolderDown } from "lucide-react";

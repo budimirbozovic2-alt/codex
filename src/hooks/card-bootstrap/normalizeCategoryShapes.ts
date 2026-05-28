@@ -9,7 +9,7 @@
  *   • Phantom prune: uklanjanje UUID-imenovanih subcat/chapter čvorova
  *     bez ijedne kartice.
  */
-import type { CategoryRecord, SubcategoryNode, ChapterNode } from "@/lib/db";
+import type { CategoryRecord, SubcategoryNode, ChapterNode } from "@/lib/db-types";
 import type { Card } from "@/lib/spaced-repetition";
 import { stableLegacyId } from "@/lib/stable-id";
 

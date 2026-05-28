@@ -3,8 +3,8 @@ import {
   idbLoadSettings,
   seedDefaultCategories,
   db,
-  type CategoryRecord,
 } from "@/lib/db";
+import type { CategoryRecord } from "@/lib/db-types";
 import { listAllCards } from "@/lib/db/queries";
 import { Card, SRSettings, DEFAULT_SR_SETTINGS } from "@/lib/spaced-repetition";
 import { ReviewLogEntry } from "@/lib/storage";

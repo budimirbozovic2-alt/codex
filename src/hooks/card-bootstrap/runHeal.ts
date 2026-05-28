@@ -4,7 +4,7 @@
  * sa sljedećim — boot uvijek napreduje, degradacija je vidljiva preko
  * `useBootState().skipped[]`.
  */
-import { type CategoryRecord } from "@/lib/db";
+import type { CategoryRecord } from "@/lib/db-types";
 import { type Card, DEFAULT_SR_SETTINGS } from "@/lib/spaced-repetition";
 import { markBootStep } from "@/lib/boot-trace";
 import { transition } from "@/lib/boot";

@@ -14,7 +14,7 @@ import {
 import {
   type Card, SectionState, getCardRetrievability,
 } from "@/lib/spaced-repetition";
-import type { SubcategoryNode } from "@/lib/db";
+import type { SubcategoryNode } from "@/lib/db-types";
 import { ContentRenderer } from "@/components/ui/ContentRenderer";
 
 interface Props {

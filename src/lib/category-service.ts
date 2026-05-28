@@ -8,7 +8,7 @@
 // React setter argument se ignoriše (mirror subscription će re-renderovati
 // provider automatski). Postojeći call sites kompajliraju bez izmjena.
 
-import { type CategoryRecord, type SubcategoryNode, type ChapterNode } from "@/lib/db";
+import type { CategoryRecord, SubcategoryNode, ChapterNode } from "@/lib/db-types";
 import { commitCategoryRecords as repositoryCommit } from "@/lib/repositories";
 
 // ─── Optimistic update (Phase 5C shim → repository) ───

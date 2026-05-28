@@ -1,4 +1,4 @@
-import { type CategoryRecord, type SubcategoryNode, type ChapterNode } from "@/lib/db";
+import type { CategoryRecord, SubcategoryNode, ChapterNode } from "@/lib/db-types";
 import { categoryRepository } from "@/lib/repositories";
 import { Card } from "@/lib/spaced-repetition";
 import { stableLegacyId } from "@/lib/stable-id";

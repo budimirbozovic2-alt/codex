@@ -5,7 +5,7 @@ import {
   type HierarchyOrder,
 } from "@/lib/card-ordering";
 import type { Card } from "@/lib/spaced-repetition";
-import type { CategoryRecord } from "@/lib/db";
+import type { CategoryRecord } from "@/lib/db-types";
 
 function mkCard(partial: Partial<Card> & { id: string }): Card {
   // Minimal viable card — only fields touched by the comparator matter.

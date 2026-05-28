@@ -7,7 +7,7 @@
  */
 import { useMemo } from "react";
 import type { Card } from "@/lib/spaced-repetition";
-import type { CategoryRecord, ChapterNode } from "@/lib/db";
+import type { CategoryRecord, ChapterNode } from "@/lib/db-types";
 import type { FrequencyTag } from "@/lib/sr/types";
 
 interface Args {

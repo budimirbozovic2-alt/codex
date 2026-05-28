@@ -5,7 +5,7 @@ import { motion } from "framer-motion";
 import SessionFilters from "@/components/SessionFilters";
 import { Button } from "@/components/ui/button";
 import { SortMode } from "./types";
-import type { CategoryRecord } from "@/lib/db";
+import type { CategoryRecord } from "@/lib/db-types";
 
 interface Props {
   cards: Card[];

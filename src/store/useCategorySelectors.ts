@@ -14,7 +14,7 @@
 //
 // Public API is unchanged at runtime — existing call sites keep working.
 // ─────────────────────────────────────────────────────────────────────────────
-import type { CategoryRecord, SubcategoryNode, ChapterNode } from "@/lib/db";
+import type { CategoryRecord, SubcategoryNode, ChapterNode } from "@/lib/db-types";
 import type { CategoryIdLike, SubcategoryIdLike } from "@/lib/ids";
 import {
   useCategoryFromStore,

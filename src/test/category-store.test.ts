@@ -6,7 +6,7 @@ import {
   getCategoryStoreRecords,
   __resetCategoryStoreForTests,
 } from "@/store/useCategoryStore";
-import type { CategoryRecord } from "@/lib/db";
+import type { CategoryRecord } from "@/lib/db-types";
 
 function makeRec(id: string, subs: Array<{ id: string; chapters?: string[] }> = []): CategoryRecord {
   return {

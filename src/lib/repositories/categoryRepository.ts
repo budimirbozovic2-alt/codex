@@ -14,7 +14,8 @@
 // `category-deletion-service.ts` via the per-domain `*ByCategoryDexie`
 // helpers exposed from `@/lib/db/queries`.
 // ─────────────────────────────────────────────────────────────────────────────
-import { idbLoadCategories, idbSaveCategories, type CategoryRecord } from "@/lib/db";
+import { idbLoadCategories, idbSaveCategories } from "@/lib/db";
+import type { CategoryRecord } from "@/lib/db-types";
 import { toast } from "sonner";
 import { logger } from "@/lib/logger";
 import { createKeyedMutex } from "@/lib/concurrency";

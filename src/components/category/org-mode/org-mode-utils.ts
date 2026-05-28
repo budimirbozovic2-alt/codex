@@ -1,5 +1,5 @@
 import { type Card } from "@/lib/spaced-repetition";
-import { type SubcategoryNode } from "@/lib/db";
+import type { SubcategoryNode } from "@/lib/db-types";
 
 export interface TreeNode {
   subcategory: string;

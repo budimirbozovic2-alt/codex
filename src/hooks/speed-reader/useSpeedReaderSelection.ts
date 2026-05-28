@@ -11,7 +11,7 @@
  */
 import { useCallback, useEffect, useMemo, useReducer, useRef } from "react";
 import type { Card } from "@/lib/spaced-repetition";
-import type { SubcategoryNode } from "@/lib/db";
+import type { SubcategoryNode } from "@/lib/db-types";
 
 export type TypeFilter = "all" | "essay" | "flash";
 

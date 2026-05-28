@@ -4,7 +4,7 @@ import {
   loadMindMaps,
   getMindMap,
 } from "@/lib/mindmap-storage";
-import type { MindMapDoc } from "@/lib/db";
+import type { MindMapDoc } from "@/lib/db-types";
 import { queryKeys } from "@/lib/query/keys";
 
 const EMPTY: MindMapDoc[] = [];

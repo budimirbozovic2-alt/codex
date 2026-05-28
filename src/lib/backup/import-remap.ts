@@ -10,7 +10,7 @@
  * transaction so the locked tx body stays as short as possible.
  */
 import type { Card } from "@/lib/spaced-repetition";
-import type { CategoryRecord } from "@/lib/db";
+import type { CategoryRecord } from "@/lib/db-types";
 import type { ParsedBackup } from "@/lib/migrations/backup-schema";
 import { yieldUI } from "@/lib/backup/yield-ui";
 

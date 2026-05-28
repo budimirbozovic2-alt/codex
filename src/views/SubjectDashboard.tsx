@@ -7,7 +7,7 @@ import {
 } from "lucide-react";
 import ExaminerProfileDialog from "@/components/ExaminerProfileDialog";
 import MatrixFilterDialog, { type MatrixFilters } from "@/components/learn/MatrixFilterDialog";
-import type { ExaminerProfile } from "@/lib/db";
+import type { ExaminerProfile } from "@/lib/db-types";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 import {

@@ -1,7 +1,7 @@
 import { useParams } from "react-router-dom";
 import { useState, useCallback, useMemo, useEffect } from "react";
 import { getCardMasteryLevel, MASTERY_LEVELS } from "@/lib/mastery";
-import { type Source } from "@/lib/db";
+import type { Source } from "@/lib/db-types";
 import type { Card } from "@/lib/spaced-repetition";
 import { useCategorySources } from "@/hooks/useCategorySources";
 import { useCardData, useCategoryData, useCardOnlyActions } from "@/contexts/AppContext";

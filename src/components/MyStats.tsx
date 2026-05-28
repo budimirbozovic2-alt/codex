@@ -6,7 +6,7 @@ import { motion } from "framer-motion";
 import InfoPanel from "@/components/InfoPanel";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Card, SRSettings } from "@/lib/spaced-repetition";
-import { type CategoryRecord } from "@/lib/db";
+import type { CategoryRecord } from "@/lib/db-types";
 import { ReviewLogEntry } from "@/lib/storage";
 import { TabSkeleton } from "@/components/ui/page-skeleton";
 import { useStatsData } from "@/hooks/useStatsData";

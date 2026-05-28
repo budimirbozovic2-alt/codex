@@ -12,7 +12,7 @@ import { IdealFocus } from "./dashboard/IdealFocus";
 import { VelocityWidget } from "./dashboard/VelocityWidget";
 import { StatusIconsRow } from "./dashboard/StatusIconsRow";
 import { StudyFlowWidget } from "./dashboard/StudyFlowWidget";
-import type { CategoryRecord } from "@/lib/db";
+import type { CategoryRecord } from "@/lib/db-types";
 import { QuickActions } from "./dashboard/QuickActions";
 import { ToolCards } from "./dashboard/ToolCards";
 import { BackupCard } from "./dashboard/BackupCard";

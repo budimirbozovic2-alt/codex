@@ -12,7 +12,7 @@ import {
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import MindMapNodeComponent from "./MindMapNode";
-import type { MindMapDoc } from "@/lib/db";
+import type { MindMapDoc } from "@/lib/db-types";
 import ExportToCategory from "./ExportToCategory";
 import { SnapGuideLines } from "./mindmap-utils";
 import EdgeSettingsPanel from "./EdgeSettingsPanel";

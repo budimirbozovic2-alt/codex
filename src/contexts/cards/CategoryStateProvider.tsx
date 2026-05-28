@@ -8,7 +8,7 @@
  * mounted exactly once in `<AppBootstrap />`.
  */
 import { useEffect, useMemo, useSyncExternalStore, type ReactNode } from "react";
-import type { CategoryRecord } from "@/lib/db";
+import type { CategoryRecord } from "@/lib/db-types";
 import { primeExaminerProfilesFromRecords } from "@/lib/examiner-profile-cache";
 import { categoryStore } from "@/store";
 

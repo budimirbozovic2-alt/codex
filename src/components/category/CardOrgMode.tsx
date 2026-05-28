@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 import { DndContext, pointerWithin, DragOverlay, MeasuringStrategy } from "@dnd-kit/core";
 import { GripVertical } from "lucide-react";
 import { type Card } from "@/lib/spaced-repetition";
-import { type SubcategoryNode } from "@/lib/db";
+import type { SubcategoryNode } from "@/lib/db-types";
 import { buildTree } from "./org-mode/org-mode-utils";
 import { CardDragOverlay } from "./org-mode/OrgCardTiles";
 import { OrgSubcategoryPanel } from "./org-mode/OrgSubcategoryPanel";
