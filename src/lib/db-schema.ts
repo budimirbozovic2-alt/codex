@@ -218,7 +218,19 @@ class MemoriaDB extends Dexie {
         if (a && "content" in a) delete a.content;
       });
       logger.log("[MemoriaDB v22] legacy text columns dropped");
+    });
+
+    // v23 — A1a: drop the `outbox` write-ahead log table. SQLite WAL is now
+    // the SSOT for durability; the application-level outbox is redundant.
+    this.version(23).stores({
+      outbox: null,
+    });
+  }
+}
+
+
 export const db = new MemoriaDB();
+
 
 // Register blocked handler ONCE at module level — uses the shared
 // throttled emitter + rejecter set in `db-error.ts`.
@@ -318,6 +330,3 @@ if (import.meta.hot) {
 // Phase C / P2-2: HMR teardown so Vite reload doesn't leak watchdog intervals.
 if (import.meta.hot) {
   import.meta.hot.dispose(() => {
-    __teardownDbWatchdog();
-  });
-}
