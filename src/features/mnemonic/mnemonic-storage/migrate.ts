@@ -9,7 +9,7 @@
 import { logger } from "@/lib/logger";
 import {
   bulkPutMnemonics,
-  bulkPutPegs,
+  bulkPutMajorSystemPegs,
   addTestLogEntry,
 } from "@/lib/db/queries";
 import type { MnemonicCard } from "./types";
