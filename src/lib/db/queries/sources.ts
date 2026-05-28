@@ -96,6 +96,13 @@ export async function listAllSources(): Promise<Source[]> {
   return rows.map(decodeSource).filter((s): s is Source => s !== null);
 }
 
+export async function countAllSources(): Promise<number> {
+  const exec = await requireExecutor("countAllSources");
+  if (!exec) return 0;
+  const rows = await exec.all<{ n: number }>("SELECT COUNT(*) AS n FROM sources");
+  return Number(rows[0]?.n ?? 0);
+}
+
 export async function listSourcesByCategory(categoryId: string): Promise<Source[]> {
   const exec = await requireExecutor("listSourcesByCategory");
   if (!exec) return [];
