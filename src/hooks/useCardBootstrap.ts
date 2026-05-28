@@ -7,6 +7,7 @@ import { replaceAll as cardMapReplaceAll } from "@/lib/cards/cardMapWrites";
 
 import { categoryRepository } from "@/lib/repositories";
 import { replaceReviewLog, seedSrSettings } from "@/store/reviewSettingsStore";
+import { taskScheduler } from "@/lib/scheduler/taskScheduler";
 import {
   splashProgress,
   showSplashError,
@@ -17,7 +18,7 @@ import {
 import { bootDb } from "./card-bootstrap/bootDb";
 import { runSchema, SchemaError } from "./card-bootstrap/runSchema";
 import { runHeal } from "./card-bootstrap/runHeal";
-import { loadInitialData } from "./card-bootstrap/loadInitialData";
+import { loadInitialData, loadCardsDeferred } from "./card-bootstrap/loadInitialData";
 
 import { logger } from "@/lib/logger";
 
@@ -33,6 +34,11 @@ function inSchemaPhase(): boolean {
 /**
  * Boot orchestrator — eksplicitan tro-fazni DAG. State writes route directly
  * into Zustand stores via the repositories — no setter props required.
+ *
+ * Phase 1 (deferred cards): cards are NOT loaded on the critical path.
+ * Boot reaches READY with `cardMapStore` empty; selectors render empty
+ * collections until `loadCardsDeferred` finishes in the background (via
+ * `taskScheduler.idle`) and runs `runHeal` on the now-resident dataset.
  */
 export function useCardBootstrap() {
   const [ready, setReady] = useState(false);
@@ -72,27 +78,53 @@ export function useCardBootstrap() {
         if (!ok) return; // bootDb je već emitovao SCHEMA_FAIL / version / blocked
         await runSchema();
 
-        // ─── Phase 2: load ───
-        const { cards, catRecords, log, settings } = await loadInitialData();
+        // ─── Phase 2: load (cards deferred) ───
+        const { catRecords, log, settings } = await loadInitialData();
 
-        // ─── Phase 2b: heal (never throws) ───
-        const { finalRecords } = await runHeal({ cards, catRecords });
-
-        // ─── Phase 3: render ───
+        // ─── Phase 3: render (without cards) ───
         splashProgress(95, "Finalizacija…");
-        markBootStep("cards:data-load-done", `${cards.length} cards`);
+        markBootStep("cards:data-load-done", "0 cards (deferred)");
 
-        if (import.meta.env.DEV) logger.log("[boot:diag] setting state — cards:", cards.length, "categories:", finalRecords.length);
-        cardMapReplaceAll(arrayToMap(cards));
-        categoryRepository.replaceAll(finalRecords);
+        if (import.meta.env.DEV) logger.log("[boot:diag] setting state — categories:", catRecords.length, "(cards deferred)");
+        categoryRepository.replaceAll(catRecords);
         replaceReviewLog(log);
         seedSrSettings(settings);
-
 
         splashProgress(100, "Spremno!");
         transition({ type: "LOAD_PROGRESS", pct: 100, label: "Spremno!" });
         transition({ type: "READY" });
         markBootStep("cards:ready");
+
+        // ─── Phase 4: deferred cards load + heal (off critical path) ───
+        taskScheduler.idle(
+          () => {
+            void (async () => {
+              try {
+                markBootStep("cards:deferred-load-start");
+                const cards = await loadCardsDeferred();
+                cardMapReplaceAll(arrayToMap(cards));
+                markBootStep("cards:deferred-load-done", `${cards.length} cards`);
+
+                // Heal runs on the resident dataset. Never throws (best-effort).
+                const { finalRecords } = await runHeal({ cards, catRecords });
+                // Patch categoryRepository with healed records (no-op if heal unchanged).
+                const byId = new Map(finalRecords.map((r) => [r.id, r]));
+                try {
+                  await categoryRepository.commit(
+                    (prev) => prev.map((r) => byId.get(r.id) ?? r),
+                    "boot:deferred-heal-apply",
+                  );
+                } catch (e) {
+                  logger.warn("[boot] deferred heal categoryRepository.commit failed (non-fatal)", e);
+                }
+              } catch (e) {
+                logger.warn("[boot] deferred cards load/heal failed (non-fatal)", e);
+                markBootStep("cards:deferred-load-failed", msg(e));
+              }
+            })();
+          },
+          { label: "boot:deferred-cards", timeoutMs: 1500, fallbackMs: 0 },
+        );
       } catch (error) {
         const errMsg = msg(error);
         logger.error("[boot] orchestrator failed", error);
@@ -120,3 +152,4 @@ export function useCardBootstrap() {
 
   return { ready };
 }
+
