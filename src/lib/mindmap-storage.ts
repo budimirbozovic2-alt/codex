@@ -6,7 +6,7 @@
  * read cache. Listener API (`onMindMapsChanged`) remains as the bridge
  * between writers and the TanStack query bridge.
  */
-import type { MindMapDoc } from "./db";
+import type { MindMapDoc } from "./db-types";
 import * as repo from "./db/queries/mind-maps";
 import { logger } from "@/lib/logger";
 
