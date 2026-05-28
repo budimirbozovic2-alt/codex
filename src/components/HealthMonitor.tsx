@@ -44,6 +44,8 @@ export default function HealthMonitor() {
   const orphans = report?.integrity.orphans ?? { count: 0, cardIds: [] };
   const staleSub = report?.integrity.staleSub ?? { count: 0, cardIds: [] };
   const staleChap = report?.integrity.staleChap ?? { count: 0, cardIds: [] };
+  const corruptCardIds = report?.integrity.corruptCardIds ?? [];
+
   const crashLog = report?.crashLog ?? [];
   const totalRecords = tableStats.reduce((s, t) => s + t.count, 0);
 
