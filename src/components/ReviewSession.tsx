@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { Card, SRSettings } from "@/lib/spaced-repetition";
 import { addActivityEntry } from "@/lib/metacognitive-storage";
-import { idbLoadSettings, idbSaveSettings } from "@/lib/db/queries";
+import { getSetting, putSetting } from "@/lib/db/queries";
 import { ReviewMode, DueItem, ViewWidth, ReviewSessionProps } from "./review/review-constants";
 import { buildItemsForMode } from "@/lib/review-mode-builder";
 import ReviewSetup from "./review/ReviewSetup";
@@ -29,14 +29,14 @@ export default function ReviewSession({ dueCards, allCards, categoryRecords, srS
   // Check for saved session on mount (IDB with localStorage migration)
   useEffect(() => {
     (async () => {
-      let state = await idbLoadSettings<SavedSessionState | null>(SESSION_KEY, null);
+      let state = (await getSetting<SavedSessionState | null>(SESSION_KEY)) ?? null;
       // Migrate from localStorage if IDB empty
       if (!state) {
         try {
           const raw = localStorage.getItem(SESSION_KEY);
           if (raw) {
             state = JSON.parse(raw) as SavedSessionState;
-            await idbSaveSettings(SESSION_KEY, state);
+            await putSetting(SESSION_KEY, state);
             localStorage.removeItem(SESSION_KEY);
           }
         } catch (e) { logger.debug("[ReviewSession] session restore failed", e); }
@@ -48,13 +48,13 @@ export default function ReviewSession({ dueCards, allCards, categoryRecords, srS
       ) {
         setSavedSession(state);
       } else if (state) {
-        await idbSaveSettings(SESSION_KEY, null);
+        await putSetting(SESSION_KEY, null);
       }
     })();
   }, []);
 
   const clearSavedSession = useCallback(() => {
-    idbSaveSettings(SESSION_KEY, null).catch(() => {});
+    putSetting(SESSION_KEY, null).catch(() => {});
   }, []);
 
   // Log activity when session finishes
@@ -69,7 +69,7 @@ export default function ReviewSession({ dueCards, allCards, categoryRecords, srS
   const saveSessionState = useCallback(() => {
     if (mode === null || finished) return;
     const state: SavedSessionState = { mode, randomIndex, timestamp: Date.now() };
-    idbSaveSettings(SESSION_KEY, state).catch(() => {});
+    putSetting(SESSION_KEY, state).catch(() => {});
   }, [mode, randomIndex, finished]);
 
   const handlePauseSession = useCallback(() => {

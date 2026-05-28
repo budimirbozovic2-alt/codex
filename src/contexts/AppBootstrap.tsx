@@ -12,7 +12,7 @@
  * provider tree from the pre-cleanup architecture.
  */
 import { useEffect } from "react";
-import { flushReviewLogQueue } from "@/lib/db";
+import { reviewLogRepository } from "@/lib/repositories";
 import { persistQueue } from "@/lib/persist-queue";
 import { useCardBootstrap } from "@/hooks/useCardBootstrap";
 import { useCardSyncEffects } from "@/contexts/cards/useCardSyncEffects";
@@ -45,7 +45,7 @@ export function AppBootstrap(): null {
     if (electron?.onQuitBackupRequested) {
       unsubQuit = electron.onQuitBackupRequested(async () => {
         try {
-          await flushReviewLogQueue();
+          await reviewLogRepository.flush();
           await persistQueue.cleanup();
         } catch (err) {
           logger.error("[AppBootstrap] quit flush failed", err);
@@ -56,7 +56,7 @@ export function AppBootstrap(): null {
     }
     return () => {
       try { unsubQuit?.(); } catch { /* noop */ }
-      void flushReviewLogQueue();
+      void reviewLogRepository.flush();
       void persistQueue.cleanup();
     };
   }, []);

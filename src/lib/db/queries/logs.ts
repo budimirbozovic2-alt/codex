@@ -160,6 +160,18 @@ export const bulkPutReviewLog = (rows: readonly AutoIncRow<ReviewLogEntry>[]) =>
     { preserveId: true },
   );
 
+/** A1c-4 F2 — bounded-window reader used by boot to hydrate the RAM mirror. */
+export async function loadRecentReviewLog(days: number): Promise<ReviewLogEntry[]> {
+  const exec = await requireExecutor("loadRecent:reviewLog");
+  if (!exec) return [];
+  const cutoff = Date.now() - days * 86400000;
+  const rows = await exec.all<{ id: number; payload: string }>(
+    "SELECT id, payload FROM reviewLog WHERE timestamp >= ? ORDER BY timestamp ASC",
+    [cutoff],
+  );
+  return decode<ReviewLogEntry>(rows);
+}
+
 // pomodoroLog (timestamp)
 export const listAllPomodoroLog = (): Promise<PomodoroLogEntry[]> => listAllAutoInc("pomodoroLog");
 export const countPomodoroLog = () => countTable("pomodoroLog");

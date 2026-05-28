@@ -70,13 +70,13 @@ export async function getPomodoroStats(): Promise<PomodoroStatsResult> {
 
 export async function loadLearnProgress(): Promise<Record<string, LearnCardProgress>> {
   try {
-    const { idbLoadSettings } = await import("@/lib/db");
-    const idbData = await idbLoadSettings<Record<string, LearnCardProgress>>(LEARN_PROGRESS_KEY, {});
+    const { getSetting, putSetting } = await import("@/lib/db/queries");
+    const idbData = (await getSetting<Record<string, LearnCardProgress>>(LEARN_PROGRESS_KEY)) ?? {};
     if (Object.keys(idbData).length > 0) return idbData;
     // Fallback: migrate from localStorage
     const lsData = loadFromStorage<Record<string, LearnCardProgress>>(LEARN_PROGRESS_KEY, {});
     if (Object.keys(lsData).length > 0) {
-      await import("@/lib/db").then(m => m.idbSaveSettings(LEARN_PROGRESS_KEY, lsData));
+      await putSetting(LEARN_PROGRESS_KEY, lsData);
       localStorage.removeItem(LEARN_PROGRESS_KEY);
     }
     return lsData;
@@ -87,8 +87,8 @@ export async function loadLearnProgress(): Promise<Record<string, LearnCardProgr
 
 export async function saveLearnProgress(progress: Record<string, LearnCardProgress>): Promise<void> {
   try {
-    const { idbSaveSettings } = await import("@/lib/db");
-    await idbSaveSettings(LEARN_PROGRESS_KEY, progress);
+    const { putSetting } = await import("@/lib/db/queries");
+    await putSetting(LEARN_PROGRESS_KEY, progress);
   } catch {
     saveToStorage(LEARN_PROGRESS_KEY, progress);
   }
@@ -108,13 +108,13 @@ export async function getStorageUsage(): Promise<{ usedBytes: number; maxBytes: 
 // Backup reminder
 export async function getLastBackupTime(): Promise<number> {
   try {
-    const { idbLoadSettings } = await import("@/lib/db");
-    const idbVal = await idbLoadSettings<number>(LAST_BACKUP_KEY, 0);
+    const { getSetting, putSetting } = await import("@/lib/db/queries");
+    const idbVal = (await getSetting<number>(LAST_BACKUP_KEY)) ?? 0;
     if (idbVal > 0) return idbVal;
     // Fallback: migrate from localStorage
     const lsVal = loadFromStorage(LAST_BACKUP_KEY, 0);
     if (lsVal > 0) {
-      await import("@/lib/db").then(m => m.idbSaveSettings(LAST_BACKUP_KEY, lsVal));
+      await putSetting(LAST_BACKUP_KEY, lsVal);
       localStorage.removeItem(LAST_BACKUP_KEY);
     }
     return lsVal;
@@ -126,8 +126,8 @@ export async function getLastBackupTime(): Promise<number> {
 export async function setLastBackupTime(): Promise<void> {
   const now = Date.now();
   try {
-    const { idbSaveSettings } = await import("@/lib/db");
-    await idbSaveSettings(LAST_BACKUP_KEY, now);
+    const { putSetting } = await import("@/lib/db/queries");
+    await putSetting(LAST_BACKUP_KEY, now);
   } catch {
     saveToStorage(LAST_BACKUP_KEY, now);
   }
