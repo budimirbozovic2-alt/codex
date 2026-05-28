@@ -106,7 +106,12 @@ export {
   listAllLatencyLog, countLatencyLog, clearLatencyLog, bulkPutLatencyLog,
   listAllSlippageLog, countSlippageLog, clearSlippageLog, bulkPutSlippageLog,
   listAllActivityLog, countActivityLog, clearActivityLog, bulkPutActivityLog,
+  // F6.2 — windowed reads, single-row add, prune.
+  loadCalibrationLogSince, loadLatencyLogSince, loadActivityLogSince, loadSlippageLogSinceDate,
+  addCalibrationLogEntry, addLatencyLogEntry, addActivityLogEntry, addSlippageLogEntry,
+  pruneAutoIncTable,
 } from "./logs";
+
 // A1c-4 F1 — categories aggregate root (SQLite-primary).
 export {
   listAllCategories,

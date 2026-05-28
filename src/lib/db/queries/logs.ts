@@ -260,3 +260,69 @@ export async function bulkPutDiary(rows: readonly DiaryEntry[]): Promise<void> {
     }
   });
 }
+
+
+// ── F6.2 helpers — windowed reads + single-row add + prune ───────────────
+
+async function loadSinceNumeric<T>(
+  table: string, col: string, since: number,
+): Promise<T[]> {
+  const exec = await requireExecutor(`loadSince:${table}`);
+  if (!exec) return [];
+  const rows = await exec.all<{ id: number; payload: string }>(
+    `SELECT id, payload FROM ${table} WHERE ${col} > ? ORDER BY id ASC`,
+    [since],
+  );
+  return decode<T>(rows);
+}
+
+async function loadSinceText<T>(
+  table: string, col: string, since: string,
+): Promise<T[]> {
+  const exec = await requireExecutor(`loadSince:${table}`);
+  if (!exec) return [];
+  const rows = await exec.all<{ id: number; payload: string }>(
+    `SELECT id, payload FROM ${table} WHERE ${col} > ? ORDER BY id ASC`,
+    [since],
+  );
+  return decode<T>(rows);
+}
+
+export const loadCalibrationLogSince = (cutoff: number) =>
+  loadSinceNumeric<CalibrationEntry>("calibrationLog", "timestamp", cutoff);
+export const loadLatencyLogSince = (cutoff: number) =>
+  loadSinceNumeric<LatencyEntry>("latencyLog", "timestamp", cutoff);
+export const loadActivityLogSince = (cutoff: number) =>
+  loadSinceNumeric<ActivityEntry>("activityLog", "timestamp", cutoff);
+export const loadSlippageLogSinceDate = (cutoffDate: string) =>
+  loadSinceText<SlippageEntry>("slippageLog", "date", cutoffDate);
+
+export const addCalibrationLogEntry = (e: CalibrationEntry) =>
+  bulkPutCalibrationLog([e as AutoIncRow<CalibrationEntry>]);
+export const addLatencyLogEntry = (e: LatencyEntry) =>
+  bulkPutLatencyLog([e as AutoIncRow<LatencyEntry>]);
+export const addActivityLogEntry = (e: ActivityEntry) =>
+  bulkPutActivityLog([e as AutoIncRow<ActivityEntry>]);
+export const addSlippageLogEntry = (e: SlippageEntry) =>
+  bulkPutSlippageLog([e as AutoIncRow<SlippageEntry>]);
+
+/**
+ * Retention prune: keep newest `maxRetain` rows in an auto-inc log table.
+ * Uses a single DELETE bounded by id since auto-inc id is chronological.
+ */
+export async function pruneAutoIncTable(table: string, maxRetain: number): Promise<number> {
+  const exec = await requireExecutor(`prune:${table}`);
+  if (!exec) return 0;
+  const countRow = await exec.all<{ n: number }>(`SELECT COUNT(*) AS n FROM ${table}`);
+  const total = Number(countRow[0]?.n ?? 0);
+  if (total <= maxRetain) return 0;
+  const cutoffRow = await exec.all<{ id: number }>(
+    `SELECT id FROM ${table} ORDER BY id DESC LIMIT 1 OFFSET ?`,
+    [maxRetain],
+  );
+  const cutoff = cutoffRow[0]?.id;
+  if (cutoff === undefined) return 0;
+  await exec.run(`DELETE FROM ${table} WHERE id <= ?`, [cutoff]);
+  return total - maxRetain;
+}
+
