@@ -31,14 +31,17 @@ describe("CardSelectionEditor (PR-7a / M5)", () => {
   it("mounts read-only EditorV4 from contentDoc and exposes ProseMirror surface", async () => {
     const doc = htmlToDoc("<p>Ovo je test sadržaj jedne sekcije.</p>");
     const { container } = render(
-      <CardSelectionEditor
-        cardId="c1"
-        question="Pitanje?"
-        category="cat-1"
-        categoryId="cat-1"
-        contentDoc={doc}
-      />
+      <Wrapper>
+        <CardSelectionEditor
+          cardId="c1"
+          question="Pitanje?"
+          category="cat-1"
+          categoryId="cat-1"
+          contentDoc={doc}
+        />
+      </Wrapper>
     );
+
     await waitMicroTask();
 
     const pm = container.querySelector(".ProseMirror") as HTMLElement | null;
