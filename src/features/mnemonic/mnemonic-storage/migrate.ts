@@ -57,7 +57,7 @@ export async function migrateMnemonicsFromLocalStorageToIDB(): Promise<number> {
 
     // SQLite-primary writes. Each bulk helper opens its own ACID transaction.
     if (transformedCards.length > 0) await bulkPutMnemonics(transformedCards);
-    if (majorRecords.length > 0)    await bulkPutPegs(majorRecords);
+    if (majorRecords.length > 0)    await bulkPutMajorSystemPegs(majorRecords);
     for (const entry of testLog) await addTestLogEntry(entry);
 
     // FLAG only after all bulk writes succeed.
