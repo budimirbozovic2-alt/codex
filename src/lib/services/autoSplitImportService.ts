@@ -5,7 +5,7 @@
  * the SQLite card count post-write. The hook only sees a clean Promise<ImportResult>.
  */
 import { persistQueue } from "@/lib/persist-queue";
-import { countAllCards } from "@/lib/db/queries";
+import { countCards } from "@/lib/db/queries";
 import type { Card } from "@/lib/spaced-repetition";
 import type { ImportPlan, CardUpdatePatch } from "@/lib/auto-split/import-planner";
 
