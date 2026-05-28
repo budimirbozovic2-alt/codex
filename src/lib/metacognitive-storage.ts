@@ -1,10 +1,22 @@
 import { ReviewLogEntry } from "./storage";
-import { db } from "./db";
-import { getSetting, putSetting } from "@/lib/db/queries";
+import {
+  getSetting,
+  putSetting,
+  listAllDiary,
+  loadCalibrationLogSince,
+  loadLatencyLogSince,
+  loadActivityLogSince,
+  loadSlippageLogSinceDate,
+  addCalibrationLogEntry,
+  addLatencyLogEntry,
+  addActivityLogEntry,
+  addSlippageLogEntry,
+} from "@/lib/db/queries";
 
 import { logger } from "@/lib/logger";
 // ═══════════════════════════════════════════════════════════
-// IN-MEMORY CACHE — populated from IDB at boot, no localStorage
+// IN-MEMORY CACHE — F6.2: hidriran iz SQLite repozitorija
+// (Dexie putanja je dropped). RAM projekcija stoji nepromijenjena.
 // ═══════════════════════════════════════════════════════════
 let _diaryCache: DiaryEntry[] = [];
 let _calibrationCache: CalibrationEntry[] = [];
@@ -16,19 +28,19 @@ let _appEntry: { date: string; time: number; actionRecorded?: boolean } | null =
 let _cacheReady = false;
 
 /**
- * Initialize all metacognitive caches from IndexedDB.
- * Called once at boot after ensureDbOpen succeeds.
+ * Initialize all metacognitive caches from SQLite at boot.
+ * Called once after ensureDbOpen succeeds.
  */
 export async function initMetacognitiveCache(): Promise<void> {
   try {
     const cutoff90 = Date.now() - 90 * 86400000;
     const cutoffDate = new Date(cutoff90).toISOString().slice(0, 10);
     const [diary, calibration, latency, slippage, activity, analysisVal, appEntryVal] = await Promise.all([
-      db.diary.toArray(),
-      db.calibrationLog.where("timestamp").above(cutoff90).toArray(),
-      db.latencyLog.where("timestamp").above(cutoff90).toArray(),
-      db.slippageLog.where("date").above(cutoffDate).toArray(),
-      db.activityLog.where("timestamp").above(cutoff90).toArray(),
+      listAllDiary(),
+      loadCalibrationLogSince(cutoff90),
+      loadLatencyLogSince(cutoff90),
+      loadSlippageLogSinceDate(cutoffDate),
+      loadActivityLogSince(cutoff90),
       getSetting<string>("lastAnalysisDate"),
       getSetting<typeof _appEntry>("appEntry"),
     ]);
@@ -57,64 +69,31 @@ export interface DiaryEntry {
 }
 
 // NOTE: `loadDiary` / `saveDiary` su uklonjeni 2026-05 — nisu imali pozivaoca.
-// `DiaryEntry` interfejs i `_diaryCache` su zadržani jer ih `db-schema.ts`
-// koristi za tipiziranje `db.diary` tabele i očuvanje istorijskih zapisa.
+// `DiaryEntry` interfejs i `_diaryCache` su zadržani jer ih queries/logs.ts
+// koristi za tipiziranje `diary` tabele.
 
 
 // ─── Calibration (confidence before reveal) ──────────────
 //
 // STATUS: READ-ONLY / LEGACY (od uklanjanja "Procjena sigurnosti A–E" iz Konsolidacije).
-//
-// Konsolidacija (ReviewCard) više NE generiše nove `CalibrationEntry` zapise.
-// Postojeći podaci u IndexedDB (`db.calibrationLog`) ostaju netaknuti i koriste se za:
-//   - `CalibrationTab` (Statistika → Kalibracija) — istorijski grafici
-//   - `analytics/blind-spots.ts` (`calcBlindSpots`) — detekcija slijepih tačaka iz prošlih sesija
-//   - Backup/Export/Import i Health Monitor — integritet baze
-//
-// Public API koji ostaje podržan:
-//   - `loadCalibration()`           — čita keš
-//   - `addCalibrationEntry(entry)`  — i dalje izložen (npr. za buduće surface-e koji bi
-//                                      htjeli ručno snimiti samoprocjenu); trenutno NEMA aktivnog pozivaoca
-//   - `getCalibrationStats(entries)` — agregacija za prikaz
-//
-// (Ranije uklonjeni bulk/per-card calibration helperi su namjerno izostavljeni
-// iz dokumentacije da ne posluže kao "podsjetnik" za reintrodukciju.)
 
-/**
- * Zapis o kalibraciji samoprocjene (confidence) vs. stvarne ocjene (actualGrade).
- * Generiše se istorijski; novi zapisi se trenutno NE kreiraju iz Konsolidacije.
- */
 export interface CalibrationEntry {
   timestamp: number;
   cardId: string;
   sectionId: string;
-  /** Samoprocjena sigurnosti prije otkrivanja odgovora (1–5). */
   confidence: number;
-  /** FSRS ocjena nakon otkrivanja (1–4). */
   actualGrade: number;
   category: string;
 }
 
-/**
- * Vraća sve kalibracione zapise iz in-memory keša (poslednjih 90 dana).
- * Read-only API — bezbjedno za prikaz statistika.
- */
 export function loadCalibration(): CalibrationEntry[] {
   return _calibrationCache;
 }
 
-
-/**
- * Dodaje novi kalibracioni zapis u keš i IndexedDB.
- *
- * NAPOMENA: Trenutno NEMA aktivnog pozivaoca u aplikaciji (UI "Procjena sigurnosti A–E"
- * je uklonjen iz Konsolidacije). Funkcija je zadržana kao stabilan public API
- * za eventualne buduće surface-e (npr. ručno označavanje sigurnosti u Learn sesiji).
- */
 export function addCalibrationEntry(entry: CalibrationEntry) {
   _calibrationCache = [..._calibrationCache, entry];
   if (_calibrationCache.length > 2000) _calibrationCache = _calibrationCache.slice(-2000);
-  db.calibrationLog.add(entry).catch((e) => logger.warn("[silent]", e));
+  addCalibrationLogEntry(entry).catch((e) => logger.warn("[silent]", e));
 }
 
 // ─── Recall Latency ──────────────────────────────────────
@@ -131,22 +110,15 @@ export function loadLatency(): LatencyEntry[] {
   return _latencyCache;
 }
 
-// `saveLatency` uklonjen 2026-05 — bulk overwrite nije imao pozivaoca.
-// Zapisi se dodaju isključivo preko `addLatencyEntry`.
-
 export function addLatencyEntry(entry: LatencyEntry) {
   _latencyCache = [..._latencyCache, entry];
   if (_latencyCache.length > 2000) _latencyCache = _latencyCache.slice(-2000);
-  db.latencyLog.add(entry).catch((e) => logger.warn("[silent]", e));
+  addLatencyLogEntry(entry).catch((e) => logger.warn("[silent]", e));
 }
 
 // ─── Self-analysis reminder ─────────────────────────────
-//
-// `getLastAnalysisDate`, `setLastAnalysisDate`, `isAnalysisNeededToday`,
-// i `getTodayReviewStats` su uklonjeni 2026-05 — ostali su bez pozivaoca
-// nakon redizajna Dashboard-a. `_lastAnalysisDate` keš i ključ
-// `settings.lastAnalysisDate` u IDB se i dalje hidriraju u `initMetacognitiveCache`
-// radi forward-compat (ako budući widget zatreba podsjetnik).
+// `_lastAnalysisDate` keš + `settings.lastAnalysisDate` se hidriraju u
+// `initMetacognitiveCache` radi forward-compat.
 
 export function getCalibrationStats(entries: CalibrationEntry[]) {
   if (entries.length === 0) return { overconfident: 0, underconfident: 0, calibrated: 0, total: 0, avgDelta: 0 };
@@ -197,7 +169,7 @@ export function recordFirstAction() {
 
     const slippageEntry: SlippageEntry = { date: today, appEntryTime: _appEntry.time, firstActionTime: Date.now(), slippageMs };
     _slippageCache = [..._slippageCache, slippageEntry];
-    db.slippageLog.add(slippageEntry).catch((e) => logger.warn("[silent]", e));
+    addSlippageLogEntry(slippageEntry).catch((e) => logger.warn("[silent]", e));
   } catch (err) {
     logger.warn("[metacognitive] recordFirstAction failed", err);
   }
@@ -218,8 +190,6 @@ export interface ActivityEntry {
   category?: string;
 }
 
-// `TimeReservoir`, `getReservoir` i `TimeDistribution` su INTERNI tipovi/helpers
-// (de-eksportovani 2026-05) — koriste se samo unutar agregacionih funkcija ovog modula.
 type TimeReservoir = "review" | "learning" | "creative" | "analysis";
 
 function getReservoir(type: ActivityType): TimeReservoir {
@@ -251,12 +221,10 @@ export const RESERVOIR_COLORS: Record<TimeReservoir, string> = {
   analysis: "hsl(var(--muted-foreground))",
 };
 
-// `loadActivityLog` uklonjen 2026-05 — nije imao pozivaoca.
-
 export function addActivityEntry(entry: ActivityEntry) {
   _activityCache = [..._activityCache, entry];
   if (_activityCache.length > 2000) _activityCache = _activityCache.slice(-2000);
-  db.activityLog.add(entry).catch((e) => logger.warn("[silent]", e));
+  addActivityLogEntry(entry).catch((e) => logger.warn("[silent]", e));
 }
 
 interface TimeDistribution {
