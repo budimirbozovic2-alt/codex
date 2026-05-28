@@ -107,7 +107,7 @@ export function usePlannerData(cards: SRCard[], reviewLog: ReviewLogEntry[], cat
 
   // Smart suggestion uses global remaining (no phase)
   const { data: smartSuggestion = null } = useQuery({
-    queryKey: queryKeys.planner.smartSuggestion(cardsHash, config.finalGoalDate, velocity, config.bufferPercent),
+    queryKey: queryKeys.planner.smartSuggestion(),
     queryFn: async () => {
       if (velocity === null) return null;
       const mod = await getPlannerModule();
@@ -124,7 +124,7 @@ export function usePlannerData(cards: SRCard[], reviewLog: ReviewLogEntry[], cat
   }, [cards]);
 
   const { data: timeRec = null } = useQuery({
-    queryKey: queryKeys.planner.timeRec(smartSuggestion?.suggestedToday ?? null, velocity, dueCount),
+    queryKey: queryKeys.planner.timeRec(),
     queryFn: async () => {
       if (!smartSuggestion || velocity === null) return null;
       const mod = await getPlannerModule();
@@ -171,7 +171,7 @@ export function usePlannerData(cards: SRCard[], reviewLog: ReviewLogEntry[], cat
   });
 
   const { data: burnupData = null } = useQuery({
-    queryKey: queryKeys.planner.burnup(reviewLogHash, totalSections, config.finalGoalDate, config.bufferPercent),
+    queryKey: queryKeys.planner.burnup(),
     queryFn: async () => {
       const mod = await getPlannerModule();
       return mod.buildBurnupData(reviewLog, totalSections, config.finalGoalDate, config.bufferPercent);
@@ -179,7 +179,7 @@ export function usePlannerData(cards: SRCard[], reviewLog: ReviewLogEntry[], cat
   });
 
   const { data: projectionText = "" } = useQuery({
-    queryKey: queryKeys.planner.projectionText(velocity, remaining, config.finalGoalDate, config.bufferPercent),
+    queryKey: queryKeys.planner.projectionText(),
     queryFn: async () => {
       if (velocity === null) return "";
       const mod = await getPlannerModule();
@@ -208,7 +208,7 @@ export function usePlannerData(cards: SRCard[], reviewLog: ReviewLogEntry[], cat
   const isConfigured = config.dailyAvailableMinutes > 0 && !!config.finalGoalDate;
 
   const { data: retentionRisk = [] } = useQuery({
-    queryKey: queryKeys.planner.retentionRisk(cardsHash, categoryHash, config.finalGoalDate ?? null),
+    queryKey: queryKeys.planner.retentionRisk(),
     queryFn: async () => {
       const catIds = categoryRecords.map(r => r.id);
       if (catIds.length === 0) return [];
