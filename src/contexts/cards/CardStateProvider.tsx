@@ -35,14 +35,12 @@ function useCards(): Card[] {
 
 interface CardStateContextValue {
   cards: Card[];
-
-  cards: readonly Card[];
-
   dueCards: Card[];
   stats: { due: number; total: number; totalSections: number; learnedSections: number; leechCount: number };
   cardCountByCategory: Record<string, number>;
   ready: boolean;
 }
+
 
 export function useCardData(): CardStateContextValue {
   const cards = useCards();
