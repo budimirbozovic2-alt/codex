@@ -57,7 +57,7 @@ export interface HealthReport {
   crashLog: CrashEntry[];
 }
 
-}
+
 
 // PR-9 A1b P1.B — counters route through the backup-readers seam. Card,
 // source, mind-map, and discipline-log counts hit SQLite when the Electron
