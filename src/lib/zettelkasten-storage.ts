@@ -153,8 +153,6 @@ export function newArticle(
 /**
  * Ensure a subject has exactly one Index article (entry-point for organic
  * exploration). Read-then-write via SQLite — single-user desktop, race window
- * is benign.
- */
 export async function ensureIndexArticle(
   subjectId: string,
   subjectName: string,
@@ -163,49 +161,54 @@ export async function ensureIndexArticle(
   const { htmlToDoc } = await import("@/lib/editor-v4");
   const { mdToHtml } = await import("@/lib/editor-v4/migrate");
 
-  const all = await repoListBySubject(subjectId);
+  return withSubjectLock(subjectId, async () => {
+    const all = await repoListBySubject(subjectId);
 
-  // 1. Existing Index?
-  const existingIndex = all.find(a => a.isIndex === true);
-  if (existingIndex) return existingIndex;
+    // 1. Existing Index?
+    const existingIndex = all.find(a => a.isIndex === true);
+    if (existingIndex) return existingIndex;
 
-  // 2. Promote a same-titled article.
-  const normSubject = subjectName.trim().toLowerCase();
-  const candidate = all.find(a => a.title.trim().toLowerCase() === normSubject);
-  if (candidate) {
-    const promoted: KnowledgeBaseArticle = {
-      ...candidate,
+    // 2. Promote a same-titled article.
+    const normSubject = subjectName.trim().toLowerCase();
+    const candidate = all.find(a => a.title.trim().toLowerCase() === normSubject);
+    if (candidate) {
+      const promoted: KnowledgeBaseArticle = {
+        ...candidate,
+        isIndex: true,
+        updatedAt: Date.now(),
+      };
+      await repoPutArticle(promoted);
+      return promoted;
+    }
+
+    // 3. Create a fresh Index with onboarding content.
+    const links = suggestedLinks
+      .map(s => s.trim())
+      .filter(Boolean)
+      .slice(0, 8);
+
+    const intro = `Dobrodošli u Zettelkasten predmeta **${subjectName.trim()}**. Ovo je Vaša polazna tačka za istraživanje gradiva. Krećite se kroz mrežu znanja klikom na [wiki-linkove] — kada kliknete na link koji još ne postoji, automatski se kreira novi članak.`;
+
+    const body = links.length > 0
+      ? `${intro}\n\n## Predložene oblasti za istraživanje\n\n${links.map(l => `- [[${l}]]`).join("\n")}\n\n_Slobodno mijenjajte ovaj članak — Zettelkasten raste organski._`
+      : `${intro}\n\n_Počnite kucanjem prvog wiki-linka da kreirate novi članak i započnete mrežu._`;
+
+    const now = Date.now();
+    const article: KnowledgeBaseArticle = {
+      id: crypto.randomUUID(),
+      subjectId,
+      title: subjectName.trim() || "Predmet",
+      content: body,
+      contentDoc: htmlToDoc(mdToHtml(body)),
+      linkedSourceIds: [],
       isIndex: true,
-      updatedAt: Date.now(),
+      createdAt: now,
+      updatedAt: now,
     };
-    await repoPutArticle(promoted);
-    return promoted;
-  }
+    await repoPutArticle(article);
+    return article;
+  });
+}
 
-  // 3. Create a fresh Index with onboarding content.
-  const links = suggestedLinks
-    .map(s => s.trim())
-    .filter(Boolean)
-    .slice(0, 8);
-
-  const intro = `Dobrodošli u Zettelkasten predmeta **${subjectName.trim()}**. Ovo je Vaša polazna tačka za istraživanje gradiva. Krećite se kroz mrežu znanja klikom na [wiki-linkove] — kada kliknete na link koji još ne postoji, automatski se kreira novi članak.`;
-
-  const body = links.length > 0
-    ? `${intro}\n\n## Predložene oblasti za istraživanje\n\n${links.map(l => `- [[${l}]]`).join("\n")}\n\n_Slobodno mijenjajte ovaj članak — Zettelkasten raste organski._`
-    : `${intro}\n\n_Počnite kucanjem prvog wiki-linka da kreirate novi članak i započnete mrežu._`;
-
-  const now = Date.now();
-  const article: KnowledgeBaseArticle = {
-    id: crypto.randomUUID(),
-    subjectId,
-    title: subjectName.trim() || "Predmet",
-    content: body,
-    contentDoc: htmlToDoc(mdToHtml(body)),
-    linkedSourceIds: [],
-    isIndex: true,
-    createdAt: now,
-    updatedAt: now,
-  };
-  await repoPutArticle(article);
   return article;
 }
