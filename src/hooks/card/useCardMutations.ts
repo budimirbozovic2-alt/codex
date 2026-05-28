@@ -18,7 +18,7 @@
  * memory). SQLite ACID + persistQueue ordering is the only serialization
  * primitive.
  */
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient, type QueryKey } from "@tanstack/react-query";
 import { toast } from "sonner";
 import type { Card } from "@/lib/spaced-repetition";
 import * as cardMapWrites from "@/lib/cards/cardMapWrites";
