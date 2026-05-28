@@ -3,8 +3,27 @@ import { toast } from "sonner";
 import { Card, SRSettings } from "@/lib/spaced-repetition";
 import { setLastBackupTime } from "@/lib/storage";
 import type { CategoryRecord } from "@/lib/db-schema";
-import { streamBackup, tableSpec, type ProgressFn } from "@/lib/backup/export-stream";
+import { streamBackup, sourceSpec, type ProgressFn } from "@/lib/backup/export-stream";
 import { deriveHtml } from "@/lib/editor-v4/derived";
+import {
+  readAllCardsForBackup,
+  readAllCategoriesForBackup,
+  readAllSourcesForBackup,
+  readAllMindMapsForBackup,
+  readAllKbArticlesForBackup,
+  readAllMnemonicsForBackup,
+  readAllMajorSystemForBackup,
+  readAllMnemonicTestLogForBackup,
+  readAllDisciplineLogForBackup,
+  readReviewLog,
+  readDiary,
+  readCalibrationLog,
+  readLatencyLog,
+  readSlippageLog,
+  readActivityLog,
+  readPomodoroLog,
+  readSettingsTableRaw,
+} from "@/lib/db/queries";
 
 const IPC_BASE64_LIMIT_MB = 50;
 const IPC_BYTES_LIMIT_MB = 500;
@@ -70,56 +89,53 @@ function deriveSubMap(catRecords: CategoryRecord[]): Record<string, string[]> {
   return subMap;
 }
 
+// PR-9 A1c-3 nastavak — projection helper for template export.
+// Templates carry a minimal card shape (no FSRS state, no logs).
+function projectCardToTemplate(c: Card) {
+  return {
+    id: c.id,
+    question: c.question,
+    sections: c.sections.map((s) => ({ title: s.title, content: deriveHtml(s.contentDoc) })),
+    categoryId: c.categoryId,
+    subcategoryId: c.subcategoryId || "",
+    chapterId: c.chapterId || "",
+    type: c.type,
+    tags: c.tags || [],
+  };
+}
+
 export function useCardExport({ cards, srSettings }: UseCardExportDeps) {
   const exportTemplate = useCallback(
     async (compress: boolean, onProgress: ProgressFn) => {
-      const { db } = await import("@/lib/db");
-
       const dateStr = new Date().toISOString().slice(0, 10);
 
-      // Templates don't carry logs; stream cards but project to template shape.
-      // Wrapped in a single read-only transaction so categories + cards form
-      // a consistent point-in-time snapshot even if the user is actively
-      // editing in another tab/process.
       onProgress(5, "Priprema templatea…");
-      const parts: BlobPart[] = [];
-      let i = 0;
-      await db.transaction("r", [db.categories, db.cards], async () => {
-        const catRecords = await db.categories.orderBy("sortOrder").toArray();
-        parts.push(`{"version":2,"type":"template"`);
-        parts.push(`,"categories":${JSON.stringify(catRecords)}`);
-        parts.push(`,"subcategories":${JSON.stringify(deriveSubMap(catRecords))}`);
-        parts.push(`,"cards":[`);
-        const total = await db.cards.count();
-        await db.cards.each((c) => {
-          const t = {
-            id: c.id,
-            question: c.question,
-            sections: c.sections.map((s) => ({ title: s.title, content: deriveHtml(s.contentDoc) })),
-            categoryId: c.categoryId,
-            subcategoryId: c.subcategoryId || "",
-            chapterId: c.chapterId || "",
-            type: c.type,
-            tags: c.tags || [],
-          };
-          parts.push((i === 0 ? "" : ",") + JSON.stringify(t));
-          i++;
-          if (i % 500 === 0) {
-            onProgress(10 + Math.round((i / Math.max(total, 1)) * 70), `Kartice ${i}/${total}`);
-          }
-        });
+      // PR-9 A1c-3 nastavak — read SQLite-primary repos (Dexie cut).
+      const [catRecords, allCards] = await Promise.all([
+        readAllCategoriesForBackup(),
+        readAllCardsForBackup(),
+      ]);
+      const sortedCats = [...catRecords].sort(
+        (a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0),
+      );
+
+      // Fallback: if SQLite is empty (dev shell) fall back to in-memory cards.
+      const cardSource: Card[] = allCards.length > 0 ? allCards : cards;
+
+      const blob = await streamBackup({
+        version: 2,
+        type: "template",
+        scalars: {
+          categories: sortedCats,
+          subcategories: deriveSubMap(sortedCats),
+        },
+        sources: [
+          sourceSpec("cards", async () => cardSource.map(projectCardToTemplate)),
+        ],
+        onProgress,
+        pStart: 10,
+        pEnd: 85,
       });
-      // Fall back to in-memory if IDB empty
-      if (i === 0 && cards.length > 0) {
-        parts.push(cards.map((c) => JSON.stringify({
-          id: c.id, question: c.question,
-          sections: c.sections.map((s) => ({ title: s.title, content: deriveHtml(s.contentDoc) })),
-          categoryId: c.categoryId, subcategoryId: c.subcategoryId || "",
-          chapterId: c.chapterId || "", type: c.type, tags: c.tags || [],
-        })).join(","));
-      }
-      parts.push("]}");
-      const blob = new Blob(parts, { type: "application/json" });
 
       try {
         if (compress) {
@@ -145,13 +161,13 @@ export function useCardExport({ cards, srSettings }: UseCardExportDeps) {
   const exportData = useCallback(
     async (compress: boolean, onProgress: ProgressFn) => {
       onProgress(2, "Priprema…");
-      const { db } = await import("@/lib/db");
 
-      // Pre-compute scalars that need to be embedded inline (small objects),
-      // and read the ordered category list once for `subcategories` map.
-      // The categories table is also streamed below for the array form, so
-      // this single sync read is cheap.
-      const catRecords = await db.categories.orderBy("sortOrder").toArray();
+      // PR-9 A1c-3 nastavak — categories come from SQLite-primary repo
+      // (still Dexie-backed under the hood until A1c-4; surface unchanged).
+      const catRecords = await readAllCategoriesForBackup();
+      const sortedCats = [...catRecords].sort(
+        (a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0),
+      );
 
       const localStorageData: Record<string, unknown> = {};
       const lsKeys = [
@@ -172,35 +188,29 @@ export function useCardExport({ cards, srSettings }: UseCardExportDeps) {
         version: 7,
         type: "full",
         scalars: {
-          subcategories: deriveSubMap(catRecords),
+          subcategories: deriveSubMap(sortedCats),
           srSettings,
           localStorageData,
         },
-        tables: [
-          tableSpec("cards", db.cards),
-          tableSpec("categories", db.categories, () => db.categories.orderBy("sortOrder")),
-          tableSpec("sources", db.sources),
-          tableSpec("mindMaps", db.mindMaps),
-          tableSpec("knowledgeBaseArticles", db.knowledgeBaseArticles),
-          tableSpec("diary", db.diary),
-          tableSpec("calibrationLog", db.calibrationLog),
-          tableSpec("latencyLog", db.latencyLog),
-          tableSpec("slippageLog", db.slippageLog),
-          tableSpec("activityLog", db.activityLog),
-          tableSpec("disciplineLog", db.disciplineLog),
-          tableSpec("pomodoroLog", db.pomodoroLog),
-          tableSpec("reviewLog", db.reviewLog),
-          tableSpec("mnemonics", db.mnemonics),
-          tableSpec("majorSystem", db.majorSystem),
-          tableSpec("mnemonicTestLog", db.mnemonicTestLog),
-          tableSpec("settings", db.settings),
+        sources: [
+          sourceSpec("cards", () => readAllCardsForBackup()),
+          sourceSpec("categories", async () => sortedCats),
+          sourceSpec("sources", () => readAllSourcesForBackup()),
+          sourceSpec("mindMaps", () => readAllMindMapsForBackup()),
+          sourceSpec("knowledgeBaseArticles", () => readAllKbArticlesForBackup()),
+          sourceSpec("diary", () => readDiary()),
+          sourceSpec("calibrationLog", () => readCalibrationLog()),
+          sourceSpec("latencyLog", () => readLatencyLog()),
+          sourceSpec("slippageLog", () => readSlippageLog()),
+          sourceSpec("activityLog", () => readActivityLog()),
+          sourceSpec("disciplineLog", () => readAllDisciplineLogForBackup()),
+          sourceSpec("pomodoroLog", () => readPomodoroLog()),
+          sourceSpec("reviewLog", () => readReviewLog()),
+          sourceSpec("mnemonics", () => readAllMnemonicsForBackup()),
+          sourceSpec("majorSystem", () => readAllMajorSystemForBackup()),
+          sourceSpec("mnemonicTestLog", () => readAllMnemonicTestLogForBackup()),
+          sourceSpec("settings", () => readSettingsTableRaw()),
         ],
-        txTables: [
-          db.cards, db.categories, db.sources, db.mindMaps, db.knowledgeBaseArticles,
-          db.diary, db.calibrationLog, db.latencyLog, db.slippageLog,
-          db.activityLog, db.disciplineLog, db.pomodoroLog, db.reviewLog,
-          db.mnemonics, db.majorSystem, db.mnemonicTestLog, db.settings,
-        ] as unknown as import("dexie").Table<unknown, unknown>[],
         onProgress,
         pStart: 5,
         pEnd: 80,
