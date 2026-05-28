@@ -58,13 +58,11 @@ export const readActivityLog = listAllActivityLog;
 export const readPomodoroLog = listAllPomodoroLog;
 
 /**
- * Categories are still Dexie-backed (the `categories` table stays the
- * aggregate root through A1c-3). Exposed via this seam so backup builders
- * have a single import surface — and so A1c-4 can swap the body without
- * touching any consumer.
+ * A1c-4 F1: categories aggregate root is SQLite-primary. Backup builders
+ * route through this seam so any future swap stays a one-line change.
  */
 export async function readAllCategoriesForBackup(): Promise<CategoryRecord[]> {
-  return idbLoadCategories();
+  return listAllCategories();
 }
 
 /**
