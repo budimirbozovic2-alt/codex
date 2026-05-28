@@ -112,11 +112,8 @@ export async function applyImportAtomically(ctx: ImportCtx): Promise<ImportTxRes
       await writeSatelliteTablesTx(tx, parsed, strategy, progress);
     });
 
-    // ── 5. Bridge categories → Dexie so legacy `idbLoadCategories` reads
-    //       reflect the restore. Disappears in the A1c-4 read-path cut-over.
-    await mirrorCategoriesToDexie(finalCategories);
-
-    // ── 6. Push freshly restored categories into the SSOT store. ──
+    // ── 5. Push freshly restored categories into the SSOT store. ──
+    //       SQLite is now the durable copy (no Dexie mirror after A1c-4 F1).
     categoryRepository.replaceAll(finalCategories);
 
     backupLog.success("import", "atomic restore committed", {
