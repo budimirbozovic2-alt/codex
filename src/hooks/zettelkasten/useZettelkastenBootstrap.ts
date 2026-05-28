@@ -34,6 +34,17 @@ interface BootstrapInput {
 
 interface BootstrapResult {
   articles: KnowledgeBaseArticle[];
+  /**
+   * @deprecated A1 — Ad-hoc cache writer kept for the brief refetch gap
+   * after `useKnowledgeBaseMutations.bulkCreate` (which has no optimistic
+   * `onMutate`). All DB writes MUST go through `useKnowledgeBaseMutations`
+   * (`save` / `remove` / `bulkCreate`) — those have proper snapshot /
+   * rollback / bridge invalidation. Do NOT introduce new `setArticles`
+   * call-sites; route through the mutation hooks instead. This funnel
+   * exists only for backwards compatibility with the existing draft +
+   * wiki-link flows and will be removed once `bulkCreate` grows an
+   * `onSuccess` cache-prepend.
+   */
   setArticles: React.Dispatch<React.SetStateAction<KnowledgeBaseArticle[]>>;
   loading: boolean;
   indexArticleId: string | null;
@@ -82,14 +93,15 @@ export function useZettelkastenBootstrap(
     warmedFor.current = categoryId;
   }, [categoryId, articles]);
 
-  // Funnel optimistic edits from mutation hooks back into the query cache.
-  // Preserves the legacy `(prev) => next` updater contract so existing
-  // call-sites (useArticleDraft, useArticleMutations, useWikiLinkAutoCreate)
-  // keep working unchanged.
+  // Funnel for the legacy `setArticles` writer (see @deprecated note on
+  // BootstrapResult). Wrapped in `cancelQueries` so a parallel refetch
+  // can't immediately overwrite the optimistic update before React
+  // commits — matches the snapshot/rollback contract used by mutations.
   const setArticles = useCallback<React.Dispatch<React.SetStateAction<KnowledgeBaseArticle[]>>>(
     (updater) => {
       if (!categoryId) return;
       const key = queryKeys.knowledgeBase.byCategory(categoryId);
+      void qc.cancelQueries({ queryKey: key });
       qc.setQueryData<KnowledgeBaseArticle[]>(key, (prev) => {
         const base = prev ?? [];
         return typeof updater === "function"
