@@ -107,10 +107,9 @@ export async function replaceAllCategories(
   if (!exec) return;
   await exec.transaction(async (tx) => {
     await tx.run("DELETE FROM categories");
-    for (const c of records) {
-      await tx.run(CATEGORY_INSERT_SQL, bindCategory(c));
-    }
+    await tx.runMany(CATEGORY_INSERT_SQL, records.map((c) => bindCategory(c)));
   });
+
 }
 
 /** Upsert a single category. */
