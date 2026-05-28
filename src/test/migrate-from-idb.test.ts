@@ -90,6 +90,9 @@ function createExecutor(): SqlExecutor {
   const run: SqlExecutor["run"] = async (sql, params = []) => {
     handleInsert(sql, params);
   };
+  const runMany: SqlExecutor["runMany"] = async (sql, batches) => {
+    for (const p of batches) handleInsert(sql, p);
+  };
 
   const setDropFilter = (fn: typeof dropFilter): void => { dropFilter = fn; };
 
