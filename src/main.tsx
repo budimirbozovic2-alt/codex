@@ -179,6 +179,8 @@ if (!isDesktopShell && import.meta.env.PROD) {
   }
 })();
 
+} // end web-CTA-guard else block
+
 // ── Service Worker cleanup (Pure Desktop — P3 PR-8 finale) ──
 // We no longer register a service worker. This block remains for one release
 // to unregister stale SWs from any user who installed a previous web build.
