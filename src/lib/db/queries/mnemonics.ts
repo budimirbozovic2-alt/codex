@@ -91,10 +91,9 @@ export async function bulkPutMnemonics(cards: MnemonicCard[]): Promise<void> {
   const exec = await requireExecutor("bulkPutMnemonics");
   if (!exec) return;
   await exec.transaction(async (tx) => {
-    for (const c of cards) {
-      await tx.run(INSERT_SQL, bindMnemonic(c));
-    }
+    await tx.runMany(INSERT_SQL, cards.map((c) => bindMnemonic(c)));
   });
+
 }
 
 export async function deleteMnemonic(id: string): Promise<void> {
