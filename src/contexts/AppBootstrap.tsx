@@ -45,7 +45,7 @@ export function AppBootstrap(): null {
     if (electron?.onQuitBackupRequested) {
       unsubQuit = electron.onQuitBackupRequested(async () => {
         try {
-          await flushReviewLogQueue();
+          await reviewLogRepository.flush();
           await persistQueue.cleanup();
         } catch (err) {
           logger.error("[AppBootstrap] quit flush failed", err);
@@ -56,7 +56,7 @@ export function AppBootstrap(): null {
     }
     return () => {
       try { unsubQuit?.(); } catch { /* noop */ }
-      void flushReviewLogQueue();
+      void reviewLogRepository.flush();
       void persistQueue.cleanup();
     };
   }, []);
