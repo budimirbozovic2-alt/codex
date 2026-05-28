@@ -14,10 +14,12 @@
  * `SqlBindValue[]` aligned with the `?` placeholders in the matching SQL.
  */
 import type { SqlBindValue } from "@/lib/persistence/sqlite/executor";
-import type { CategoryRecord } from "@/lib/db";
+import type {
+  CategoryRecord,
+  MindMapDoc,
+  KnowledgeBaseArticle,
+} from "@/lib/db-schema";
 import type { Source } from "@/lib/sources-storage";
-import type { MindMapDoc } from "@/lib/mindmap-storage";
-import type { KnowledgeBaseArticle } from "@/features/knowledge-base/types";
 import type { MnemonicCard } from "@/features/mnemonic";
 
 // ─── INSERT SQL constants ────────────────────────────────────────────────
