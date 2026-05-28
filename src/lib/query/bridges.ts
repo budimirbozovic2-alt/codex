@@ -51,12 +51,12 @@ export function installQueryBridges(qc: QueryClient): void {
 
 
   // ── Sources ─────────────────────────────────────────────
-  onSourcesChanged(() => {
+  _unsubs.push(onSourcesChanged(() => {
     void qc.invalidateQueries({ queryKey: ["sources"] });
-  });
+  }));
 
   // ── Planner ─────────────────────────────────────────────
-  onPlannerChanged((kind: PlannerChangeKind) => {
+  _unsubs.push(onPlannerChanged((kind: PlannerChangeKind) => {
     switch (kind) {
       case "config":
         // Config change invalidira derived calcove (plans, burnup, suggestion,
@@ -75,38 +75,38 @@ export function installQueryBridges(qc: QueryClient): void {
         // u useDashboardData. Bridge bi nepotrebno refetchao plans/burnup/etc.
         break;
     }
-  });
+  }));
 
   // ── Cards (P1.5) ────────────────────────────────────────
   // Fired by `notifyCardsChanged` after a `cardRepository` write commits
   // to RAM + persist-queue. Debounced ~16ms so a burst of Zustand commits
   // (bulk import, FSRS grade-many, restore) collapses into one invalidation
   // → one refetch per scoped query → one re-render per consumer.
-  onCardsChanged(() => {
+  _unsubs.push(onCardsChanged(() => {
     scheduleCardsInvalidate(qc);
-  });
-
+  }));
 
   // ── Mind maps ───────────────────────────────────────────
   // SSOT façade (`mindmap-storage`) emituje nakon save/delete/invalidate.
-  onMindMapsChanged(() => {
+  _unsubs.push(onMindMapsChanged(() => {
     void qc.invalidateQueries({ queryKey: ["mindMaps"] });
-  });
+  }));
 
   // ── Mnemonics (cards + major-system + test-log) ─────────
   // `subscribeMnemonics` se fire-uje iz cards-repo nakon bulkPut/delete.
   // Major-system i test-log dijele istu invalidacionu zonu (sve čita
   // mnemonic feature, scopovi su pod istim prefixom).
-  subscribeMnemonics(() => {
+  _unsubs.push(subscribeMnemonics(() => {
     void qc.invalidateQueries({ queryKey: ["mnemonics"] });
-  });
+  }));
 
   // ── Knowledge base (Zettel) ─────────────────────────────
   // notifyKnowledgeBaseChanged se fire-uje iz queries/knowledge-base.ts
   // nakon put/bulkPut/delete; bulkCreate/ensureIndex prolaze kroz bulkPut.
-  onKnowledgeBaseChanged(() => {
+  _unsubs.push(onKnowledgeBaseChanged(() => {
     void qc.invalidateQueries({ queryKey: ["knowledgeBase"] });
-  });
+  }));
+
 
   // NOTE: drafts + settings bridges removed (S8). Neither domain has any
   // TanStack `useQuery` consumer — autosave reads through Zustand mirrors
