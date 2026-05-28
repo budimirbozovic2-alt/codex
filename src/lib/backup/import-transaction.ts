@@ -1,19 +1,13 @@
 /**
- * Atomic backup-import orchestrator — PR-9 A1c-4.
+ * Atomic backup-import orchestrator — PR-9 A1c-4 F1.
  *
  * Single `SqlExecutor.transaction` wraps every table write (categories →
  * cards → sources → mindMaps → KB → mnemonics → majorSystem → kv → 7 log
  * tables → disciplineLog → mnemonicTestLog). True SQLite ACID across the
- * entire restore — no more Dexie `db.transaction("rw", …)`.
- *
- * Bridge note: `idbLoadCategories` still reads Dexie until A1c-4 finishes.
- * After the SQLite tx commits we mirror the final categories array to Dexie
- * via two plain `db.categories.clear()` + `bulkPut(...)` calls (no rw tx
- * block). This bridge disappears when the categories read path moves to
- * SQLite.
+ * entire restore — no more Dexie `db.transaction("rw", …)` and no more
+ * post-tx Dexie categories mirror (F1 cut-over).
  */
-import { db } from "@/lib/db";
-import type { CategoryRecord } from "@/lib/db-schema";
+import type { CategoryRecord } from "@/lib/db-types";
 import { DEFAULT_SR_SETTINGS, type SRSettings } from "@/lib/spaced-repetition";
 import type { ReviewLogEntry } from "@/lib/storage";
 import { resolveLegacyTaxonomyNames } from "@/lib/migrations/resolve-legacy-taxonomy";
