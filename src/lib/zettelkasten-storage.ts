@@ -18,6 +18,7 @@ import {
   getArticle as repoGetArticle,
   listArticlesBySubject as repoListBySubject,
   findArticleByTitle as repoFindByTitle,
+  getIndexArticle as repoGetIndexArticle,
   putArticle as repoPutArticle,
   bulkPutArticles as repoBulkPut,
   deleteArticle as repoDeleteArticle,
