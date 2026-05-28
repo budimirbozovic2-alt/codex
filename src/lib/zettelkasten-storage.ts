@@ -161,10 +161,6 @@ export async function ensureIndexArticle(
   suggestedLinks: readonly string[] = [],
 ): Promise<KnowledgeBaseArticle> {
 
-  subjectId: string,
-  subjectName: string,
-  suggestedLinks: readonly string[] = [],
-): Promise<KnowledgeBaseArticle> {
   const { htmlToDoc } = await import("@/lib/editor-v4");
   const { mdToHtml } = await import("@/lib/editor-v4/migrate");
 
