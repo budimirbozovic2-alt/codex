@@ -10,7 +10,7 @@
 import { useMemo, type ReactNode } from "react";
 import { Card, SRSettings } from "@/lib/spaced-repetition";
 import { ReviewLogEntry } from "@/lib/storage";
-import { useCardsArray } from "@/store";
+import { useAllCards } from "@/hooks/card/useCardsQuery";
 import { useCategoryData } from "./CategoryStateProvider";
 import { useCardAggregates } from "./useCardAggregates";
 import {
@@ -21,12 +21,13 @@ import {
 } from "@/store/reviewSettingsStore";
 import { useBootState } from "@/contexts/boot/BootStateProvider";
 
-// PR-7d M3.1: cards array selector lives in useCardMapStore (`useCardsArray`).
-// The two dual caches (persist-queue `_mapVersion`/`_cachedArray` and the
-// local `_cardsCacheMap`/`_cardsCacheArr` here) have been consolidated.
-function useCards(): Card[] {
-  return useCardsArray();
+// Phase 2a: cards array now comes from TanStack (`['cards','all']`),
+// invalidated by `onCardsChanged` bridge. `cardMapStore` stays as the
+// internal write-side cache for `cardMapWrites` sync lookups.
+function useCards(): readonly Card[] {
+  return useAllCards();
 }
+
 
 // ─── Public read hooks ──────────────────────────────────────────────────
 interface CardStateContextValue {
