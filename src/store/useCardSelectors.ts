@@ -125,6 +125,7 @@ export function useCardByIdRam(id: CardIdLike | undefined | null): Card | null {
 
 export {
   useCardsByCategory,
+  useCardsByCategoryWithStatus,
   useCardsBySubcategory,
   useCardsByChapter,
   useCardCountByCategory,

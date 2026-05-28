@@ -3,10 +3,11 @@ import { useState, useCallback, useMemo, useEffect } from "react";
 import { getCardMasteryLevel, MASTERY_LEVELS } from "@/lib/mastery";
 import type { Source } from "@/lib/db-types";
 import type { Card } from "@/lib/spaced-repetition";
-import { useCategorySources } from "@/hooks/useCategorySources";
+import { useCategorySourcesWithStatus } from "@/hooks/useCategorySources";
 import { useCardData, useCategoryData, useCardOnlyActions } from "@/contexts/AppContext";
-import { useCardsByCategory } from "@/store";
+import { useCardsByCategoryWithStatus } from "@/store";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { CategoryHeaderSkeleton, SourcesTabSkeleton } from "@/components/ui/list-skeleton";
 import SourceReader from "@/components/SourceReader";
 import SourcesTab from "@/components/category/SourcesTab";
 import SourcesBreadcrumb from "@/components/category/SourcesBreadcrumb";
@@ -26,11 +27,11 @@ export default function CategoryView() {
     [categoryRecords, categoryId]
   );
 
-  const cards = useCardsByCategory(categoryId) as Card[];
+  const { cards: cardsRO, isLoading: cardsLoading } = useCardsByCategoryWithStatus(categoryId);
+  const cards = cardsRO as Card[];
 
   // Sources: SSOT subscription via storage listener (W5 fix).
-  const sources = useCategorySources(categoryId);
-
+  const { sources, isLoading: sourcesLoading } = useCategorySourcesWithStatus(categoryId);
   const { bulkFlagNeedsReview } = useCardOnlyActions();
 
   // Sources: reader state only (editor/import/delete moved to SourcesTab)
@@ -66,10 +67,19 @@ export default function CategoryView() {
     );
   }
 
-  if (!ready) {
+  // Boot not yet ready, OR cards/sources still doing their first fetch with
+  // no cached data — show layout-shape skeleton instead of a generic spinner.
+  // Pilot ("No more empty blinks") — see .lovable/plan.md.
+  const showSkeleton =
+    !ready ||
+    (cardsLoading && cards.length === 0) ||
+    (sourcesLoading && sources.length === 0);
+
+  if (showSkeleton) {
     return (
-      <div className="flex items-center justify-center py-20">
-        <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+      <div className="space-y-6" data-testid="category-view-loading">
+        <CategoryHeaderSkeleton />
+        <SourcesTabSkeleton />
       </div>
     );
   }

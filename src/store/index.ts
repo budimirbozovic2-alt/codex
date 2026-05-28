@@ -25,6 +25,7 @@ export type {
 // ── Granular card selectors (RAM + hybrid façade) ──────────────────────────
 export {
   useCardsByCategory,
+  useCardsByCategoryWithStatus,
   useCardsBySubcategory,
   useCardsByChapter,
   useCardCountByCategory,

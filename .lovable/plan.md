@@ -1,111 +1,77 @@
-# Phase 3 — Preostali audit (S2, S3, S4, S5, S7, S8, S9, S10, S11)
+# Pilot: "No more empty blinks" — CategoryView
 
-Devet stavki podijeljenih u 3 grupe po prirodi posla. Cilj: ukloniti mrtvi kod, smanjiti read amplification i očistiti modularne granice. Nema novih feature-a, sve su čisto interne izmjene.
+**Pravac:** Polish & Perception · **Obim:** jedan pilot (1–2 dana) · **Pilot scope:** isključivo `CategoryView`
 
----
+## Problem koji rješavamo
 
-## Grupa A — Read-path optimizacije (S2, S3, S9)
+Trenutno na `CategoryView`:
 
-### S2 🔴 — `useKnowledgeBaseArticles` reloads ALL articles per subject view
-**Problem:** `useKnowledgeBaseArticlesBySubject` poziva `loadArticlesBySubject(subjectId)` koji vraća `payload` JSON za sve članke subjekta (često 100+ rows), čak i kad UI treba samo listu naslova/index meta-podatke za sidebar.
+1. Boot signal `ready` gating renderuje **generic spinner u centru ekrana** dok kartice ne stignu. Layout potpuno nestane.
+2. TanStack `useCardsByCategory` (već konzumiran u `src/hooks/card/useCardsQuery.ts`) vraća **`data ?? EMPTY`** — UI ne razlikuje "nema kartica" od "još se učitavaju". Brzo prebacivanje kategorija → **flash prazne liste** prije nego što stignu pravi podaci.
+3. Prebacivanje tabova (Kartice / Izvori / …) je instant cut — nema percepcije fluidnosti koju refaktoring (slim provider tree, AST renderer) sada omogućava.
 
-**Plan:**
-1. Dodati `listArticleHeadersBySubject(subjectId)` u `src/lib/db/queries/knowledge-base.ts` koji vraća samo `{id, subjectId, title, updatedAt, isIndex}` (bez `payload`) — koristi nove kolone iz schema umjesto `JSON.parse`.
-2. Novi hook `useKnowledgeBaseHeadersBySubject(subjectId)` u `useKnowledgeBaseArticles.ts`. Ostavlja postojeći `useKnowledgeBaseArticlesBySubject` za rijetke slučajeve kojima zaista treba pun payload (npr. backlink rebuild).
-3. Migrirati liste/sidebare na headers hook (audit konzumenata — `ZettelkastenSidebar`, eventualno `ArticleListPanel`).
+## Cilj
 
-### S3 🔴 — `countSources` / `countMindMaps` fetch full rows
-**Problem:** `src/lib/db/queries/backup-readers.ts` linija 82-83: `(await listAllSources()).length` dekodira sve JSON payloade samo da dobije broj.
+CategoryView nikad ne prikazuje (a) generic spinner, (b) prazan list kao loading state, (c) hard cut između tabova. Sve prelaze ili **layout-shape skeleton** ili **cross-fade view transition**.
 
-**Plan:**
-1. Dodati `countAllSources()` u `src/lib/db/queries/sources.ts` i `countAllMindMaps()` u `mind-maps.ts` koji rade `SELECT COUNT(*)`.
-2. U `backup-readers.ts` zamijeniti dvije problematične linije sa novim count funkcijama (analogno postojećem `countAllCards`).
-3. Healthservice nastavlja koristiti iste imenovane exporte — zero diff za pozivaoca.
+## Šta se gradi
 
-### S9 🟡 — KB `isIndex` kolona postoji ali se nikad ne queryja
-**Problem:** Schema ima `idx_kb_subject_isIndex`, ali sve KB lookup operacije rade `JSON.parse(payload)` + JS filter umjesto da koriste indexed kolonu.
+### 1. Skeleton primitive `<ListSkeleton>` + `<CategoryHeaderSkeleton>`
+Lokacija: `src/components/ui/list-skeleton.tsx` (novi). Koristi postojeći `src/components/ui/skeleton.tsx` kao bazu.
+- `<ListSkeleton rows={6} />` — N redova u istoj formi kao `CardViewTable` (avatar krug za retrievability ring + 2 linije teksta + mastery chip).
+- `<CategoryHeaderSkeleton />` — mastery distribucija bar + naslov + tab strip placeholders.
 
-**Plan:**
-1. Dodati `getIndexArticle(subjectId)` koji vraća payload za red gdje je `isIndex = 1` (1 row, jedan indexed seek).
-2. Refaktorisati `ensureIndexArticle` u `zettelkasten-storage.ts` da prvo proba `getIndexArticle` umjesto skeniranja `loadArticlesBySubject + .find(a => a.isIndex)`.
-3. Headers query (S2) već vraća `isIndex`, pa konzumenti koji žele "ima li index?" prelaze na headers.
+### 2. Status-aware varijante query hookova
+Lokacija: `src/hooks/card/useCardsQuery.ts` (proširuje, ne mijenja postojeće).
+- Dodati `useCardsByCategoryWithStatus(categoryId)` koji vraća `{ cards, isLoading, isFetching }`. Postojeći `useCardsByCategory` ostaje tuple-only za neimpaktovan call-site.
+- Analogno `useCategorySourcesWithStatus(categoryId)` u `src/hooks/useCategorySources.ts` (sources isto trenutno crta praznu listu dok ne stignu).
 
----
+### 3. View Transitions utility
+Lokacija: `src/lib/ui/view-transition.ts` (novi).
+```ts
+export function startViewTransition(fn: () => void): void
+```
+Wrap oko `document.startViewTransition` sa feature-detect fallbackom (instant cut u Electron ranijim verzijama ako ne podrži; trenutni Electron Chromium ≥111 podrži).
 
-## Grupa B — Mutation/write korektnost (S4, S7, S10)
+Tab-content shell dobija `style={{ viewTransitionName: 'category-tab-content' }}`. Cross-fade default; trajanje 220ms preko `index.css` (`::view-transition-old/new`).
 
-### S4 🔴 — `cards.ts` decoder swallows `CardDecodeError`
-**Problem:** `decodeRows`/`getCardsByIds` u `src/lib/db/queries/cards.ts` (linije 44-78) hvataju `CardDecodeError` i samo logiraju warning + skip-uju red. Korumpirana kartica tiho nestaje iz UI bez ikakvog korisničkog signala.
+### 4. CategoryView refactor (samo loading + tab transition)
+Lokacija: `src/views/CategoryView.tsx`.
+- Zamijeniti `if (!ready)` spinner sa kompletnim `<CategoryHeaderSkeleton /> + <ListSkeleton />` shellom.
+- Koristiti `useCardsByCategoryWithStatus` umjesto `useCardsByCategory`. Kad `isLoading && cards.length === 0` → `<ListSkeleton rows={8} />`. Inače renderuj prave kartice (refetch ne blinka).
+- Tab change handler: `startViewTransition(() => setActiveTab(next))`.
+- **Out of scope** u ovom pilotu: vizuelni redesign sadržaja, novi tabovi, izmjena CardList ponašanja, mutation transitions.
 
-**Plan:**
-1. Sakupljati skip-ovane id-jeve u `decodeRows`; ako lista nije prazna, emitovati `notifyCorruptCards(ids)` event (novi mali emitter u `cards.ts`).
-2. Wire-ovati listener u `useHealthMonitor` koji povećava brojač "corruptCards" i prikazuje warning chip u Health UI. Nema toast spama — tihi indikator + zapis.
-3. Health snapshot dobija novo polje `corruptCardIds: string[]` (capped na 50) za debugging.
+### 5. Test
+Lokacija: `src/test/category-view-loading.test.tsx` (novi, ~30 LOC).
+- Mount sa odgođenim `cardsByCategory` mockom → očekuj `ListSkeleton` u DOM-u.
+- Resolved query → skeleton zamijenjen pravim listom.
 
-### S7 🟡 — `useCardMutations` `snapshot()` ne hvata scoped queries
-**Problem:** `snapshot()` čita samo `['cards','all']`. Sve scoped queryje (`['cards','cat',id]`, `byChapter`, `bySource`, `byId`) `rollback()` ne vraća — TanStack ih `cancelQueries` zaustavi, ali nakon greške ostaju stale dok bridges ne tickne novi `notifyCardsChanged` (koji se ne emituje na rollback).
+## Što NIJE u pilotu (svjesno ograničeno)
 
-**Plan:**
-1. `snapshot()` proširiti: pored `all`, čitati sve aktivne queryje pod `queryKeys.cards.root` preko `qc.getQueriesData({queryKey: queryKeys.cards.root})` i sačuvati niz `[key, data]` parova.
-2. `rollback()` iterira kroz snapshot i radi `qc.setQueryData(key, data)` za svaki sačuvan key. Postojeći Zustand sync poziv ostaje.
-3. Tip `RollbackCtx` postaje `{ entries: Array<[QueryKey, unknown]> }`.
+- Suspense granice (zahtijeva veće prelome u tree-u — sljedeća iteracija).
+- Skeletoni u Zettelkasten, Planner, Subject Cards hubu (isti recept, ali kasniji passevi).
+- Animirane tranzicije unutar samog CardList-a (insert/remove).
+- Promjena vizuelnog stila bilo kog elementa — pilot je čisto perceptivni layer.
 
-### S10 🟡 — Bulk writes su per-row `tx.run` (worker chatter)
-**Problem:** `bulkPutArticles` u `knowledge-base.ts` (i analogno u još par repozitorijuma) radi `for (a of articles) { await tx.run(INSERT_SQL, bindRow(a)) }` — N round-tripova worker boundary za N redova.
+## Acceptance criteria
 
-**Plan:**
-1. Audit-bulk-write helper: `tx.runMany(sql, paramsBatches)` u `SqlExecutor` interfejsu, koji u workeru priprema 1 prepared statement i izvršava ga u petlji bez extra postMessage round-tripova.
-2. Implementacija u `opfs-sqlite-worker.ts` (`stmt.bind/step/reset` u JS petlji).
-3. Migrirati `bulkPutArticles`, `bulkPutCards` (ako postoji per-row), `bulkUpsertMindMaps`, `bulkUpsertSources` na novi helper. Mjeriti: očekivani win ~5-10ms za 100 redova.
+1. Hladan boot na `/category/:id` URL-u → korisnik vidi mastery-bar + tab strip + 8 row placeholdera, **nikad** centriran spinner.
+2. Prebacivanje između dvije kategorije (klik u sidebar-u) → stara lista cross-fade u skeleton ili novu listu; **nema flash-a prazne stranice**.
+3. Prebacivanje tabova (Kartice ↔ Izvori) → 220ms cross-fade umjesto hard cut-a (feature-detect fallback OK).
+4. `tsc --noEmit` clean, novi test prolazi, postojećih 592+ testova ostaju zeleni.
+5. Bundle delta: < +3 KB gzipped (skeleton je par divova + 1 CSS keyframe).
 
----
+## Tehnička napomena (za poslije pilota)
 
-## Grupa C — Mrtvi kod / modularne granice (S5, S8, S11)
+Ako pilot prođe estetski test, isti tri komponente (`*WithStatus` hook + `<ListSkeleton>` + `startViewTransition`) trivijalno se primjenjuju na:
+- `SubjectCardsView` (Edit/Structure tab swap)
+- `Dashboard` widget grid
+- `PlannerPage` subject plans
+- Zettelkasten `ZettelExplorerPanel` article load
 
-### S5 🟡 — Planner query keys hashed-into-key → cache bloat
-**Problem:** Keys u `queryKeys.planner.*` (linije 37-53 u `query/keys.ts`) imaju hash inpute baked-in (`reviewLogHash`, `cardsHash`, `categoryHash`, `configHash`). Svaka promjena bilo kog inputa kreira novi entry u cache-u; stari ostaju zauvijek dok ne GC-uje TanStack (zadano 5min `gcTime`, ali sa Infinity stale-time mogu se gomilati).
+Tj. pilot je istovremeno provjera obrasca koji će postati standard za sve liste/tab-switches u aplikaciji.
 
-**Plan:**
-1. Refaktorisati `queryKeys.planner.*` da hash-ovi izađu iz `queryKey` u `queryFn` closure-e. Key postaje stabilan: `['planner','plans']`, `['planner','suggestion']`, itd.
-2. Hash-evi se prosljeđuju kao `useQuery` `meta` ili kao dio closure-a u `queryFn` — refetch trigger postaje eksplicitni `invalidateQueries` iz `bridges.ts` (`planner` change emit već postoji).
-3. Tweak `bridges.ts` da `kind: "config"` invalidira potrebne planner prefixe (već radi, samo se mijenja granularity).
+## Procjena
 
-### S8 🟡 — Drafts + settings bridge listeneri mrtvi
-**Problem:** `bridges.ts` poziva `onDraftsChanged`/`onSettingsChanged`, ali u cijelom kodu nijednom se ne zove `notifyDraftsChanged`/`notifySettingsChanged`. Listeneri se nikad ne triggeraju → invalidacija drafts/settings queryja se ne dešava.
-
-**Plan:**
-1. U `src/lib/db/queries/drafts.ts` i `settings.ts` dodati pozive `notifyDraftsChanged()` / `notifySettingsChanged(key)` u svaku write putanju (`putDraft`, `deleteDraft`, `putSetting`, `deleteSetting`).
-2. Verifikovati da nema dvostrukog emisija (npr. iz zustand-a).
-3. Test: simulirati `putSetting('sr-subject-settings-X', …)` i provjeriti da `['subject-settings']` query observere prima invalidaciju.
-
-### S11 🟡 — `category-deletion-service` planner scrub pripada planner modulu
-**Problem:** `src/lib/category-deletion-service.ts` linije 86-110 manipulišu `plannerConfig` shape-om direktno (zna za `subjectOrder`, `hardSubjects`, `phases`). To je cross-modul coupling.
-
-**Plan:**
-1. Premjestiti scrub logiku u `src/lib/planner/planner-storage` (npr. `scrubCategoryFromPlannerConfig(categoryId): Promise<boolean>`).
-2. `category-deletion-service` poziva samo `scrubCategoryFromPlannerConfig(categoryId)` i postavlja `result.plannerScrubbed = await ...`.
-3. Test ostaje funkcionalno isti; planner zna svoj shape, deletion service zna samo kontrakt.
-
----
-
-## Tehnički detalji
-
-**Redoslijed implementacije (jedan PR sekvencijalno):**
-1. S8 (najmanji, čisti mrtvi kod — quick win)
-2. S3 + S2 + S9 (KB/counts read-path zajedno, dijele knowledge-base.ts izmjene)
-3. S11 (premjesti planner scrub)
-4. S5 (planner keys — zahtijeva pažljiv test)
-5. S7 (mutations snapshot)
-6. S10 (`runMany` helper — najveći worker izmjene)
-7. S4 (corrupt cards emitter + Health UI)
-
-**Testovi:** Svaka stavka dobija/nadograđuje unit test. Health Monitor i Planner imaju postojeće suite-ove koji moraju ostati zeleni. Cilj: zadržati baseline 590/591 passing.
-
-**Memory ažuriranja:**
-- `mem://architecture/tanstack-query-read-path` — dodati Phase 3 napomene (S2/S5/S7).
-- `mem://architecture/storage-and-persistence-v6` — dokumentovati `runMany` (S10) i `notifyCorruptCards` (S4).
-- Razmotriti novi `mem://features/health-monitor-v3` ako S4 doda novi metric.
-
-**Ono što NIJE u scope-u:** A1d (full Dexie removal), Pure-Desktop redo signalisanje, mnemonic refaktor.
-
-Nakon prihvaćanja plana implementiraću po redoslijedu, sa verifikacijom (`tsc --noEmit` + targeted tests) nakon svake grupe.
+Ukupno ~250 LOC novog koda + ~80 LOC izmjena. Realno 1 radni dan implementacije + 0.5 dana QA u Electron build-u.
