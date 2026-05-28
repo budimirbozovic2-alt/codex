@@ -209,6 +209,3 @@ export async function ensureIndexArticle(
     return article;
   });
 }
-
-  return article;
-}
