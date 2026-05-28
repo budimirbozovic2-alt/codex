@@ -128,10 +128,6 @@ export async function runV4Preflight(): Promise<PreflightResult> {
       pStart: 0,
       pEnd: 100,
     });
-      onProgress: () => { /* silent */ },
-      pStart: 0,
-      pEnd: 100,
-    });
 
     const ok = await streamToElectron(blob);
     if (!ok) {
