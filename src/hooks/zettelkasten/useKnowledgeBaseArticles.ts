@@ -47,3 +47,22 @@ export function useAllKnowledgeBaseArticles(enabled: boolean = true): KnowledgeB
   });
   return data ?? EMPTY;
 }
+
+/**
+ * S2 — header-only listing (id/title/updatedAt/isIndex). No `payload` JSON
+ * parse, no full content. Use this for sidebars, navigators, and any UI
+ * that doesn't need article body. Same query cache scope as the full
+ * variant but a sibling key so the two don't collide.
+ */
+export function useKnowledgeBaseHeadersBySubject(
+  subjectId: string | undefined,
+): { data: KnowledgeBaseArticleHeader[]; isLoading: boolean } {
+  const { data, isPending } = useQuery({
+    queryKey: subjectId
+      ? [...queryKeys.knowledgeBase.byCategory(subjectId), "headers"] as const
+      : ["knowledgeBase", "cat", "__none__", "headers"],
+    queryFn: () => listArticleHeadersBySubject(subjectId as string),
+    enabled: !!subjectId,
+  });
+  return { data: data ?? EMPTY_HEADERS, isLoading: !!subjectId && isPending };
+}
