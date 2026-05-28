@@ -1,4 +1,4 @@
-import { ensureDbOpen, getDbErrorState } from "@/lib/db";
+import { ensureDbOpen, getDbErrorState } from "@/lib/legacy/idb-dexie";
 import { scheduleLogPrune } from "@/lib/log-retention";
 import { markBootStep } from "@/lib/boot-trace";
 import { transition } from "@/lib/boot";
