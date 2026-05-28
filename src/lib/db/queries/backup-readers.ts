@@ -35,7 +35,7 @@ import {
   listAllActivityLog, countActivityLog as _countActivity,
   listAllPomodoroLog, countPomodoroLog as _countPomodoro,
 } from "./logs";
-import { idbLoadSettings } from "@/lib/db-queries";
+
 
 // ─── SQLite-primary reads ───────────────────────────────────────────────
 
