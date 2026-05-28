@@ -1,21 +1,13 @@
 /**
- * Drafts repository — PR-9 M3.
- *
- * SQLite-primary read/write for the `drafts` table. Pattern mirrors
- * `planner.ts` 1:1 — SQLite is SSOT in Electron, Dexie is a soak mirror
- * (for one release as rollback insurance + so legacy readers like
- * `emergency-export` continue to see fresh data), and a Dexie fallback in
- * the non-Electron Vite dev preview.
+ * Drafts repository — PR-9 A1c-2. SQLite-only.
  *
  * All functions swallow errors after logging — draft autosave must never
  * throw into the React tree.
  */
 import type { SqlExecutor } from "@/lib/persistence/sqlite/executor";
-import { db, type DraftRecord } from "@/lib/db-schema";
+import { type DraftRecord } from "@/lib/db-schema";
 import { logger } from "@/lib/logger";
 import { notifyExecutorNull } from "./_shared/executor-telemetry";
-
-// ─── Executor accessor ──────────────────────────────────────────────────
 
 async function tryGetExecutor(): Promise<SqlExecutor | null> {
   try {
@@ -24,10 +16,19 @@ async function tryGetExecutor(): Promise<SqlExecutor | null> {
     const { getOpfsSqliteExecutor } = await import("@/lib/persistence/sqlite/client");
     return await getOpfsSqliteExecutor();
   } catch (err) {
-    logger.warn("[drafts-repo] sqlite executor unavailable, using Dexie fallback", err);
+    logger.warn("[drafts-repo] sqlite executor unavailable", err);
     notifyExecutorNull("drafts", "error");
     return null;
   }
+}
+
+async function requireExecutor(label: string): Promise<SqlExecutor | null> {
+  const exec = await tryGetExecutor();
+  if (exec) return exec;
+  const { assertDesktop } = await import("@/lib/electron-integration");
+  assertDesktop();
+  logger.warn(`[drafts-repo] ${label} — no executor (dev shell)`);
+  return null;
 }
 
 // ─── Change emitter ─────────────────────────────────────────────────────
@@ -68,58 +69,42 @@ function decodeDraft(row: { payload: string }): DraftRecord | null {
 // ─── Read API ───────────────────────────────────────────────────────────
 
 export async function getDraft(key: string): Promise<DraftRecord | undefined> {
-  const exec = await tryGetExecutor();
-  if (exec) {
-    try {
-      const rows = await exec.all<{ payload: string }>(
-        "SELECT payload FROM drafts WHERE key = ? LIMIT 1", [key],
-      );
-      if (rows.length === 0) return undefined;
-      const decoded = decodeDraft(rows[0]);
-      return decoded ?? undefined;
-    } catch (err) {
-      logger.warn("[drafts-repo] sqlite get failed", { key, err });
-    }
-  }
-  try { return await db.drafts.get(key); }
-  catch (err) {
-    logger.warn("[drafts-repo] dexie get failed", { key, err });
+  const exec = await requireExecutor("getDraft");
+  if (!exec) return undefined;
+  try {
+    const rows = await exec.all<{ payload: string }>(
+      "SELECT payload FROM drafts WHERE key = ? LIMIT 1", [key],
+    );
+    if (rows.length === 0) return undefined;
+    return decodeDraft(rows[0]) ?? undefined;
+  } catch (err) {
+    logger.warn("[drafts-repo] sqlite get failed", { key, err });
     return undefined;
   }
 }
 
 export async function listDraftsBySource(source: string): Promise<DraftRecord[]> {
-  const exec = await tryGetExecutor();
-  if (exec) {
-    try {
-      const rows = await exec.all<{ payload: string }>(
-        "SELECT payload FROM drafts WHERE source = ?", [source],
-      );
-      return rows.map(decodeDraft).filter((r): r is DraftRecord => r !== null);
-    } catch (err) {
-      logger.warn("[drafts-repo] sqlite list failed", { source, err });
-    }
-  }
-  try { return await db.drafts.where("source").equals(source).toArray(); }
-  catch (err) {
-    logger.warn("[drafts-repo] dexie list failed", { source, err });
+  const exec = await requireExecutor("listDraftsBySource");
+  if (!exec) return [];
+  try {
+    const rows = await exec.all<{ payload: string }>(
+      "SELECT payload FROM drafts WHERE source = ?", [source],
+    );
+    return rows.map(decodeDraft).filter((r): r is DraftRecord => r !== null);
+  } catch (err) {
+    logger.warn("[drafts-repo] sqlite list failed", { source, err });
     return [];
   }
 }
 
 export async function listAllDrafts(): Promise<DraftRecord[]> {
-  const exec = await tryGetExecutor();
-  if (exec) {
-    try {
-      const rows = await exec.all<{ payload: string }>("SELECT payload FROM drafts");
-      return rows.map(decodeDraft).filter((r): r is DraftRecord => r !== null);
-    } catch (err) {
-      logger.warn("[drafts-repo] sqlite listAll failed", err);
-    }
-  }
-  try { return await db.drafts.toArray(); }
-  catch (err) {
-    logger.warn("[drafts-repo] dexie listAll failed", err);
+  const exec = await requireExecutor("listAllDrafts");
+  if (!exec) return [];
+  try {
+    const rows = await exec.all<{ payload: string }>("SELECT payload FROM drafts");
+    return rows.map(decodeDraft).filter((r): r is DraftRecord => r !== null);
+  } catch (err) {
+    logger.warn("[drafts-repo] sqlite listAll failed", err);
     return [];
   }
 }
@@ -127,12 +112,8 @@ export async function listAllDrafts(): Promise<DraftRecord[]> {
 // ─── Write API ──────────────────────────────────────────────────────────
 
 export async function putDraft(record: DraftRecord): Promise<void> {
-  const exec = await tryGetExecutor();
-  if (!exec) {
-    const { assertDesktop } = await import("@/lib/electron-integration");
-    assertDesktop();
-    return;
-  }
+  const exec = await requireExecutor("putDraft");
+  if (!exec) return;
   try {
     const enc = encodeDraft(record);
     await exec.run(
@@ -146,12 +127,8 @@ export async function putDraft(record: DraftRecord): Promise<void> {
 }
 
 export async function deleteDraft(key: string): Promise<void> {
-  const exec = await tryGetExecutor();
-  if (!exec) {
-    const { assertDesktop } = await import("@/lib/electron-integration");
-    assertDesktop();
-    return;
-  }
+  const exec = await requireExecutor("deleteDraft");
+  if (!exec) return;
   try { await exec.run("DELETE FROM drafts WHERE key = ?", [key]); }
   catch (err) { logger.warn("[drafts-repo] sqlite delete failed", { key, err }); }
   _notify();
@@ -159,12 +136,8 @@ export async function deleteDraft(key: string): Promise<void> {
 
 export async function bulkDeleteDrafts(keys: string[]): Promise<void> {
   if (keys.length === 0) return;
-  const exec = await tryGetExecutor();
-  if (!exec) {
-    const { assertDesktop } = await import("@/lib/electron-integration");
-    assertDesktop();
-    return;
-  }
+  const exec = await requireExecutor("bulkDeleteDrafts");
+  if (!exec) return;
   try {
     await exec.transaction(async (tx) => {
       for (const k of keys) await tx.run("DELETE FROM drafts WHERE key = ?", [k]);

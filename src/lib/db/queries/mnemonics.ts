@@ -1,23 +1,10 @@
 /**
- * Mnemonics repository — PR-9 A1b P1.3.
- *
- * SQLite-primary read/write for the `mnemonics` table. Mirrors the pattern
- * established by `sources.ts` / `mind-maps.ts`:
- *   1. Try SQLite (when running in Electron).
- *   2. Mirror write to Dexie for one soak release.
- *   3. Fall back to Dexie-only in Vite dev preview (no Electron shell).
- *
- * Listeners (`subscribeMnemonics`) stay in
- * `features/mnemonic/mnemonic-storage/cards-repo.ts` — this module only
- * exposes the data plane.
+ * Mnemonics repository — PR-9 A1c-2. SQLite-only.
  */
 import type { SqlExecutor } from "@/lib/persistence/sqlite/executor";
-import { db } from "@/lib/db";
 import { logger } from "@/lib/logger";
 import type { MnemonicCard } from "@/features/mnemonic/mnemonic-storage";
 import { notifyExecutorNull } from "./_shared/executor-telemetry";
-
-// ─── Executor accessor ──────────────────────────────────────────────────
 
 async function tryGetExecutor(): Promise<SqlExecutor | null> {
   try {
@@ -26,13 +13,20 @@ async function tryGetExecutor(): Promise<SqlExecutor | null> {
     const { getOpfsSqliteExecutor } = await import("@/lib/persistence/sqlite/client");
     return await getOpfsSqliteExecutor();
   } catch (err) {
-    logger.warn("[mnemonics-repo] sqlite executor unavailable, using Dexie fallback", err);
+    logger.warn("[mnemonics-repo] sqlite executor unavailable", err);
     notifyExecutorNull("mnemonics", "error");
     return null;
   }
 }
 
-// ─── Codec ──────────────────────────────────────────────────────────────
+async function requireExecutor(label: string): Promise<SqlExecutor | null> {
+  const exec = await tryGetExecutor();
+  if (exec) return exec;
+  const { assertDesktop } = await import("@/lib/electron-integration");
+  assertDesktop();
+  logger.warn(`[mnemonics-repo] ${label} — no executor (dev shell)`);
+  return null;
+}
 
 function decodeMnemonic(row: { payload: string }): MnemonicCard | null {
   try { return JSON.parse(row.payload) as MnemonicCard; }
@@ -60,113 +54,51 @@ function bindMnemonic(m: MnemonicCard): (string | number | null)[] {
   ];
 }
 
-// ─── Read API ───────────────────────────────────────────────────────────
-
 export async function getMnemonic(id: string): Promise<MnemonicCard | undefined> {
-  const exec = await tryGetExecutor();
-  if (exec) {
-    try {
-      const rows = await exec.all<{ payload: string }>(
-        "SELECT payload FROM mnemonics WHERE id = ? LIMIT 1", [id],
-      );
-      if (rows.length > 0) {
-        const decoded = decodeMnemonic(rows[0]);
-        if (decoded) return decoded;
-      }
-    } catch (err) {
-      logger.warn("[mnemonics-repo] sqlite get failed", { id, err });
-    }
-  }
-  try { return await db.mnemonics.get(id); }
-  catch (err) {
-    logger.warn("[mnemonics-repo] dexie get failed", { id, err });
-    return undefined;
-  }
+  const exec = await requireExecutor("getMnemonic");
+  if (!exec) return undefined;
+  const rows = await exec.all<{ payload: string }>(
+    "SELECT payload FROM mnemonics WHERE id = ? LIMIT 1", [id],
+  );
+  if (rows.length === 0) return undefined;
+  return decodeMnemonic(rows[0]) ?? undefined;
 }
 
 export async function listAllMnemonics(): Promise<MnemonicCard[]> {
-  const exec = await tryGetExecutor();
-  if (exec) {
-    try {
-      const rows = await exec.all<{ payload: string }>("SELECT payload FROM mnemonics");
-      const decoded = rows.map(decodeMnemonic).filter((d): d is MnemonicCard => d !== null);
-      if (decoded.length > 0) return decoded;
-    } catch (err) {
-      logger.warn("[mnemonics-repo] sqlite listAll failed", err);
-    }
-  }
-  try { return await db.mnemonics.toArray(); }
-  catch (err) {
-    logger.warn("[mnemonics-repo] dexie listAll failed", err);
-    return [];
-  }
+  const exec = await requireExecutor("listAllMnemonics");
+  if (!exec) return [];
+  const rows = await exec.all<{ payload: string }>("SELECT payload FROM mnemonics");
+  return rows.map(decodeMnemonic).filter((d): d is MnemonicCard => d !== null);
 }
 
 export async function listMnemonicsByCategory(categoryId: string): Promise<MnemonicCard[]> {
-  const exec = await tryGetExecutor();
-  if (exec) {
-    try {
-      const rows = await exec.all<{ payload: string }>(
-        "SELECT payload FROM mnemonics WHERE categoryId = ?", [categoryId],
-      );
-      return rows.map(decodeMnemonic).filter((d): d is MnemonicCard => d !== null);
-    } catch (err) {
-      logger.warn("[mnemonics-repo] sqlite listByCategory failed", { categoryId, err });
-    }
-  }
-  try { return await db.mnemonics.where("categoryId").equals(categoryId).toArray(); }
-  catch (err) {
-    logger.warn("[mnemonics-repo] dexie listByCategory failed", { categoryId, err });
-    return [];
-  }
+  const exec = await requireExecutor("listMnemonicsByCategory");
+  if (!exec) return [];
+  const rows = await exec.all<{ payload: string }>(
+    "SELECT payload FROM mnemonics WHERE categoryId = ?", [categoryId],
+  );
+  return rows.map(decodeMnemonic).filter((d): d is MnemonicCard => d !== null);
 }
 
-// ─── Write API ──────────────────────────────────────────────────────────
-
 export async function putMnemonic(card: MnemonicCard): Promise<void> {
-  const exec = await tryGetExecutor();
-  if (!exec) {
-    const { assertDesktop } = await import("@/lib/electron-integration");
-    assertDesktop();
-    return;
-  }
-  try { await exec.run(INSERT_SQL, bindMnemonic(card)); }
-  catch (err) {
-    logger.warn("[mnemonics-repo] sqlite put failed", { id: card.id, err });
-    throw err;
-  }
+  const exec = await requireExecutor("putMnemonic");
+  if (!exec) return;
+  await exec.run(INSERT_SQL, bindMnemonic(card));
 }
 
 export async function bulkPutMnemonics(cards: MnemonicCard[]): Promise<void> {
   if (cards.length === 0) return;
-  const exec = await tryGetExecutor();
-  if (!exec) {
-    const { assertDesktop } = await import("@/lib/electron-integration");
-    assertDesktop();
-    return;
-  }
-  try {
-    await exec.transaction(async (tx) => {
-      for (const c of cards) {
-        await tx.run(INSERT_SQL, bindMnemonic(c));
-      }
-    });
-  } catch (err) {
-    logger.warn("[mnemonics-repo] sqlite bulkPut failed", err);
-    throw err;
-  }
+  const exec = await requireExecutor("bulkPutMnemonics");
+  if (!exec) return;
+  await exec.transaction(async (tx) => {
+    for (const c of cards) {
+      await tx.run(INSERT_SQL, bindMnemonic(c));
+    }
+  });
 }
 
 export async function deleteMnemonic(id: string): Promise<void> {
-  const exec = await tryGetExecutor();
-  if (!exec) {
-    const { assertDesktop } = await import("@/lib/electron-integration");
-    assertDesktop();
-    return;
-  }
-  try { await exec.run("DELETE FROM mnemonics WHERE id = ?", [id]); }
-  catch (err) {
-    logger.warn("[mnemonics-repo] sqlite delete failed", { id, err });
-    throw err;
-  }
+  const exec = await requireExecutor("deleteMnemonic");
+  if (!exec) return;
+  await exec.run("DELETE FROM mnemonics WHERE id = ?", [id]);
 }

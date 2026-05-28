@@ -1,17 +1,7 @@
 /**
- * Major System repository — PR-9 A1b P1.6.
- *
- * SQLite-primary read/write for the `majorSystem` table (numeric id → peg
- * term). Mirrors the pattern used by sources/mind-maps/mnemonics:
- *   1. Try SQLite when running in Electron.
- *   2. Mirror writes into Dexie for one soak release.
- *   3. Fall back to Dexie-only in non-Electron contexts (dev preview).
- *
- * The Major System is small (~100 rows) and read in full by the workshop UI,
- * so the API is intentionally coarse: `listAllPegs` + `bulkPutPegs`.
+ * Major System repository — PR-9 A1c-2. SQLite-only.
  */
 import type { SqlExecutor } from "@/lib/persistence/sqlite/executor";
-import { db } from "@/lib/db";
 import { logger } from "@/lib/logger";
 import { notifyExecutorNull } from "./_shared/executor-telemetry";
 
@@ -27,53 +17,39 @@ async function tryGetExecutor(): Promise<SqlExecutor | null> {
     const { getOpfsSqliteExecutor } = await import("@/lib/persistence/sqlite/client");
     return await getOpfsSqliteExecutor();
   } catch (err) {
-    logger.warn("[major-system-repo] sqlite executor unavailable, using Dexie fallback", err);
+    logger.warn("[major-system-repo] sqlite executor unavailable", err);
     notifyExecutorNull("majorSystem", "error");
     return null;
   }
 }
 
-const INSERT_SQL =
-  "INSERT OR REPLACE INTO majorSystem (id, peg) VALUES (?, ?)";
+async function requireExecutor(label: string): Promise<SqlExecutor | null> {
+  const exec = await tryGetExecutor();
+  if (exec) return exec;
+  const { assertDesktop } = await import("@/lib/electron-integration");
+  assertDesktop();
+  logger.warn(`[major-system-repo] ${label} — no executor (dev shell)`);
+  return null;
+}
+
+const INSERT_SQL = "INSERT OR REPLACE INTO majorSystem (id, peg) VALUES (?, ?)";
 
 export async function listAllPegs(): Promise<MajorSystemPeg[]> {
-  const exec = await tryGetExecutor();
-  if (exec) {
-    try {
-      const rows = await exec.all<{ id: number; peg: string }>(
-        "SELECT id, peg FROM majorSystem ORDER BY id",
-      );
-      if (rows.length > 0) {
-        return rows.map((r) => ({ id: Number(r.id), peg: String(r.peg) }));
-      }
-    } catch (err) {
-      logger.warn("[major-system-repo] sqlite listAll failed", err);
-    }
-  }
-  try {
-    return await db.majorSystem.toArray();
-  } catch (err) {
-    logger.warn("[major-system-repo] dexie listAll failed", err);
-    return [];
-  }
+  const exec = await requireExecutor("listAllPegs");
+  if (!exec) return [];
+  const rows = await exec.all<{ id: number; peg: string }>(
+    "SELECT id, peg FROM majorSystem ORDER BY id",
+  );
+  return rows.map((r) => ({ id: Number(r.id), peg: String(r.peg) }));
 }
 
 export async function bulkPutPegs(pegs: MajorSystemPeg[]): Promise<void> {
   if (pegs.length === 0) return;
-  const exec = await tryGetExecutor();
-  if (!exec) {
-    const { assertDesktop } = await import("@/lib/electron-integration");
-    assertDesktop();
-    return;
-  }
-  try {
-    await exec.transaction(async (tx) => {
-      for (const p of pegs) {
-        await tx.run(INSERT_SQL, [p.id, p.peg]);
-      }
-    });
-  } catch (err) {
-    logger.warn("[major-system-repo] sqlite bulkPut failed", err);
-    throw err;
-  }
+  const exec = await requireExecutor("bulkPutPegs");
+  if (!exec) return;
+  await exec.transaction(async (tx) => {
+    for (const p of pegs) {
+      await tx.run(INSERT_SQL, [p.id, p.peg]);
+    }
+  });
 }
