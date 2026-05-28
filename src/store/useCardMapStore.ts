@@ -15,6 +15,8 @@ import { createStore } from "zustand/vanilla";
 import { useSyncExternalStore } from "react";
 import type { CardMap } from "@/lib/persist-queue";
 import type { Card } from "@/lib/spaced-repetition";
+import { queryClient } from "@/lib/query/client";
+import { queryKeys } from "@/lib/query/keys";
 
 interface CardMapState {
   cardMap: CardMap;
@@ -56,6 +58,20 @@ export function useCardsArray(): Card[] {
     getCardsArray,
   );
 }
+
+// ─── B1 Cards cut-over: one-way mirror Zustand → TanStack Query ───────
+// The Zustand atom remains the synchronous RAM source (persist-queue,
+// cardMapWrites, and granular selectors read from it). After every commit
+// we push the snapshot into the TanStack cache so that:
+//  1. `useAllCards()` (TanStack consumer) sees live data without a refetch.
+//  2. Bridge `onCardsChanged → invalidateQueries(['cards'])` is no longer a
+//     ghost cache — the data it invalidates is real and current.
+// One-way push avoids the bidirectional loop trap (TanStack refetch would
+// otherwise overwrite optimistic Zustand state mid-mutation).
+cardMapStore.subscribe((state) => {
+  queryClient.setQueryData<Card[]>(queryKeys.cards.all(), Object.values(state.cardMap));
+});
+
 
 /** Synchronous read — equivalent to the old `cardMapRef.current`. */
 export function getCardMap(): CardMap {

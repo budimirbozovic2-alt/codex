@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
-import { reloadCardsFromIdb } from "@/lib/cards/cardMapWrites";
+import { reloadCardsFromDb } from "@/lib/cards/cardMapWrites";
 import {
   buildHealthReport,
   cleanOrphans as svcCleanOrphans,
@@ -55,7 +55,7 @@ export function useHealthMonitor(): UseHealthMonitor {
         ...prev,
         integrity: { ...prev.integrity, orphans: { count: 0, cardIds: [] } },
       } : prev);
-      await reloadCardsFromIdb(cardIds);
+      await reloadCardsFromDb(cardIds);
     } catch (err) {
       logger.error("[health] cleanup failed", err);
       toast.error(err instanceof Error ? err.message : "Greška pri čišćenju");
@@ -73,7 +73,7 @@ export function useHealthMonitor(): UseHealthMonitor {
       const r = await svcHealStaleLinks();
       const total = r.staleSubcategoryReset + r.staleChapterReset + r.mismatchChapterReset;
       toast.success(`${total} zastarjelih veza očišćeno`);
-      await reloadCardsFromIdb(
+      await reloadCardsFromDb(
         Array.from(new Set([...staleSub.cardIds, ...staleChap.cardIds])),
       );
       await refresh();

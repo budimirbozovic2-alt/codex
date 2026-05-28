@@ -189,10 +189,13 @@ let _fetchSequence = 0;
 
 /**
  * Re-read the given card ids (surgical) or the whole table (full) from the
- * durable store and apply the delta to the in-memory map. Idempotent —
- * concurrent calls are sequenced and only the latest delta is committed.
+ * durable SQLite store and apply the delta to the in-memory map. Idempotent
+ * — concurrent calls are sequenced and only the latest delta is committed.
+ *
+ * B1 rename: was `reloadCardsFromIdb` (last Dexie naming leak). Backed by
+ * `listAllCards` / `getCardsByIds` which are SQLite-primary post A1c.
  */
-export async function reloadCardsFromIdb(cardIds?: string[]): Promise<void> {
+export async function reloadCardsFromDb(cardIds?: string[]): Promise<void> {
   const currentSequence = ++_fetchSequence;
   try {
     await persistQueue.cleanup();
@@ -219,6 +222,10 @@ export async function reloadCardsFromIdb(cardIds?: string[]): Promise<void> {
     replaceAll(map);
     notifyCardsChanged();
   } catch (err) {
-    logger.warn("[cardMapWrites] reloadCardsFromIdb failed", err);
+    logger.warn("[cardMapWrites] reloadCardsFromDb failed", err);
   }
 }
+
+/** @deprecated B1 rename — use `reloadCardsFromDb`. Kept as alias for legacy callers. */
+export const reloadCardsFromIdb = reloadCardsFromDb;
+

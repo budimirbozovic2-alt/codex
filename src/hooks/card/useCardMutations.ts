@@ -7,19 +7,24 @@
  * a `WriteResult`. The bridge (`onCardsChanged → invalidateQueries(['cards'])`)
  * picks up `notifyCardsChanged` emitted inside the commit helpers.
  *
- * onError rollback: re-read the affected ids from IDB via
- * `reloadCardsFromIdb` to bring RAM back in sync with the durable SSOT.
+ * B1 cards cut-over — `onMutate` cancels in-flight queries, snapshots the
+ * TanStack `['cards','all']` cache, and applies an optimistic patch. On
+ * error we restore the snapshot AND call `reloadCardsFromDb` to resync the
+ * Zustand mirror (which the granular selectors still read). The
+ * Zustand→TanStack mirror in `useCardMapStore` keeps the cache live during
+ * the synchronous commit so observers don't flash empty.
  *
  * `cardCommandBus` / `keyedMutex` around DB writes are DEPRECATED (Core
  * memory). SQLite ACID + persistQueue ordering is the only serialization
  * primitive.
  */
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import type { Card } from "@/lib/spaced-repetition";
 import * as cardMapWrites from "@/lib/cards/cardMapWrites";
 import { persistQueue } from "@/lib/persist-queue";
 import { wrapWrite, type WriteResult } from "@/lib/persistence/write-result";
+import { queryKeys } from "@/lib/query/keys";
 import { logger } from "@/lib/logger";
 
 function assertOk<T>(r: WriteResult<T>): T {
@@ -36,6 +41,10 @@ interface GradeInput {
 interface BulkPatchInput {
   cardIds: string[];
   patcher: (card: Card) => Card;
+}
+
+interface RollbackCtx {
+  prev: readonly Card[] | undefined;
 }
 
 // ─── Inline async + WriteResult wrappers ──────────────────────────────────
@@ -93,50 +102,73 @@ function bulkPatchAsync(
 }
 
 export function useCardMutations() {
-  const save = useMutation<Card, Error, Card>({
+  const qc = useQueryClient();
+
+  /** Snapshot `['cards','all']` and cancel in-flight refetches. */
+  async function snapshot(): Promise<RollbackCtx> {
+    await qc.cancelQueries({ queryKey: queryKeys.cards.root });
+    return { prev: qc.getQueryData<Card[]>(queryKeys.cards.all()) };
+  }
+
+  /** Restore snapshot on persist failure and resync Zustand mirror. */
+  function rollback(ctx: RollbackCtx | undefined, ids: string[]) {
+    if (ctx?.prev !== undefined) {
+      qc.setQueryData<Card[]>(queryKeys.cards.all(), [...ctx.prev]);
+    }
+    // Zustand mirror also needs to be brought back in sync — granular
+    // selectors read from it directly.
+    void cardMapWrites.reloadCardsFromDb(ids);
+  }
+
+  const save = useMutation<Card, Error, Card, RollbackCtx>({
     mutationFn: async (card) => assertOk(await putAsync(card)),
-    onError: (err, card) => {
+    onMutate: () => snapshot(),
+    onError: (err, card, ctx) => {
       logger.error("[useCardMutations] save persist failed", { id: card.id, err });
       toast.error("Snimanje kartice nije uspjelo — vraćam stanje.");
-      void cardMapWrites.reloadCardsFromIdb([card.id]);
+      rollback(ctx, [card.id]);
     },
   });
 
-  const remove = useMutation<void, Error, string>({
+  const remove = useMutation<void, Error, string, RollbackCtx>({
     mutationFn: async (id) => { assertOk(await removeAsync(id)); },
-    onError: (err, id) => {
+    onMutate: () => snapshot(),
+    onError: (err, id, ctx) => {
       logger.error("[useCardMutations] remove persist failed", { id, err });
       toast.error("Brisanje nije uspjelo — vraćam stanje.");
-      void cardMapWrites.reloadCardsFromIdb([id]);
+      rollback(ctx, [id]);
     },
   });
 
-  const bulkUpsert = useMutation<Card[], Error, Card[]>({
+  const bulkUpsert = useMutation<Card[], Error, Card[], RollbackCtx>({
     mutationFn: async (cards) => assertOk(await bulkPutAsync(cards)),
-    onError: (err, cards) => {
+    onMutate: () => snapshot(),
+    onError: (err, cards, ctx) => {
       logger.error("[useCardMutations] bulkUpsert persist failed", { n: cards.length, err });
       toast.error("Snimanje serije kartica nije uspjelo — vraćam stanje.");
-      void cardMapWrites.reloadCardsFromIdb(cards.map(c => c.id));
+      rollback(ctx, cards.map(c => c.id));
     },
   });
 
-  const gradeSection = useMutation<Card | undefined, Error, GradeInput>({
+  const gradeSection = useMutation<Card | undefined, Error, GradeInput, RollbackCtx>({
     mutationFn: async ({ cardId, patcher }) =>
       assertOk(await patchAsync(cardId, patcher)),
-    onError: (err, { cardId }) => {
+    onMutate: () => snapshot(),
+    onError: (err, { cardId }, ctx) => {
       logger.error("[useCardMutations] gradeSection persist failed", { cardId, err });
       toast.error("Snimanje gradacije nije uspjelo — vraćam stanje.");
-      void cardMapWrites.reloadCardsFromIdb([cardId]);
+      rollback(ctx, [cardId]);
     },
   });
 
-  const bulkPatch = useMutation<Card[], Error, BulkPatchInput>({
+  const bulkPatch = useMutation<Card[], Error, BulkPatchInput, RollbackCtx>({
     mutationFn: async ({ cardIds, patcher }) =>
       assertOk(await bulkPatchAsync(cardIds, patcher)),
-    onError: (err, { cardIds }) => {
+    onMutate: () => snapshot(),
+    onError: (err, { cardIds }, ctx) => {
       logger.error("[useCardMutations] bulkPatch persist failed", { n: cardIds.length, err });
       toast.error("Bulk izmjena nije uspjela — vraćam stanje.");
-      void cardMapWrites.reloadCardsFromIdb(cardIds);
+      rollback(ctx, cardIds);
     },
   });
 
