@@ -9,10 +9,18 @@
  * `legacy/idb-dexie` chunk out of memory and out of the network for every
  * post-migration boot.
  */
-import type { SqlExecutor } from "./executor";
-import { MIGRATION_FLAG_KEY } from "./migrate-from-idb";
-import { isElectron } from "@/lib/electron-integration";
-import { logger } from "@/lib/logger";
+ import type { SqlExecutor } from "./executor";
+ import { isElectron } from "@/lib/electron-integration";
+ import { logger } from "@/lib/logger";
+
+/**
+ * A1c Phase 6: inlined to break the static-import edge from `migration-status`
+ * → `migrate-from-idb` → `legacy/idb-dexie`. The canonical export still lives
+ * in `migrate-from-idb.ts`; this MUST stay in sync with it. Keeping it as a
+ * literal here ensures the Dexie shell is NEVER pulled into the eager boot
+ * graph (verified via `rg "Dexie" dist/assets/App-*.js` = 0).
+ */
+const MIGRATION_FLAG_KEY = "migrated-from-idb-v1";
 
 /** Returns `true` iff `migrated-from-idb-v1` is present in the SQLite kv table. */
 export async function isSqliteMigrationComplete(exec: SqlExecutor): Promise<boolean> {
