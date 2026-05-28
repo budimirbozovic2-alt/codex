@@ -1,8 +1,7 @@
 import { useEffect, useRef, useState } from "react";
-import { arrayToMap } from "@/lib/persist-queue";
 import { markBootStep } from "@/lib/boot-trace";
 import { transition, getBootState, installSplashBridge } from "@/lib/boot";
-import { replaceAll as cardMapReplaceAll } from "@/lib/cards/cardMapWrites";
+import { notifyCardsChanged } from "@/lib/db/queries";
 
 
 import { categoryRepository } from "@/lib/repositories";
@@ -96,14 +95,19 @@ export function useCardBootstrap() {
         markBootStep("cards:ready");
 
         // ─── Phase 4: deferred cards load + heal (off critical path) ───
+        // Phase 2b: we NEVER mirror the full table into Zustand. The cards
+        // array is fetched solely so `runHeal` can perform legacy migrations
+        // (taxonomy + frequencyTag). After heal, `notifyCardsChanged()`
+        // invalidates TanStack `['cards']` and the UI re-queries SQLite on
+        // demand via scoped hooks. `cardMapStore` stays empty until a UI
+        // selector seeds it.
         taskScheduler.idle(
           () => {
             void (async () => {
               try {
                 markBootStep("cards:deferred-load-start");
                 const cards = await loadCardsDeferred();
-                cardMapReplaceAll(arrayToMap(cards));
-                markBootStep("cards:deferred-load-done", `${cards.length} cards`);
+                markBootStep("cards:deferred-load-done", `${cards.length} cards (heal-only)`);
 
                 // Heal runs on the resident dataset. Never throws (best-effort).
                 const { finalRecords } = await runHeal({ cards, catRecords, silent: true });
@@ -117,6 +121,9 @@ export function useCardBootstrap() {
                 } catch (e) {
                   logger.warn("[boot] deferred heal categoryRepository.commit failed (non-fatal)", e);
                 }
+
+                // Wake any mounted card consumers — they were rendering EMPTY.
+                notifyCardsChanged();
               } catch (e) {
                 logger.warn("[boot] deferred cards load/heal failed (non-fatal)", e);
                 markBootStep("cards:deferred-load-failed", msg(e));
@@ -125,6 +132,7 @@ export function useCardBootstrap() {
           },
           { label: "boot:deferred-cards", timeoutMs: 1500, fallbackMs: 0 },
         );
+
       } catch (error) {
         const errMsg = msg(error);
         logger.error("[boot] orchestrator failed", error);
