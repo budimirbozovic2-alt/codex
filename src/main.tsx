@@ -42,6 +42,83 @@ window.onunhandledrejection = (event) => {
 
 markBootStep("main:error-handlers-registered");
 
+// ── Web build deprecation (A1c finale) ──
+// Pure Desktop: PROD browser builds short-circuit to a branded CTA instead
+// of attempting to mount React or touch SQLite. Dev keeps full app for
+// `bun run dev` workflow. `assertDesktop` inside the bootstrap remains as
+// defense-in-depth.
+const isDesktopShell =
+  typeof window !== "undefined" && Boolean((window as { electronAPI?: unknown }).electronAPI);
+
+function renderDesktopOnlyCta(): void {
+  const splash = document.getElementById("app-splash");
+  if (splash) splash.remove();
+  const root = document.getElementById("root");
+  if (!root) return;
+  root.innerHTML = `
+    <main style="
+      min-height:100vh;
+      display:flex;align-items:center;justify-content:center;
+      padding:32px;
+      background:radial-gradient(ellipse at center, #152238 0%, #0a1628 100%);
+      font-family:'Segoe UI', system-ui, -apple-system, sans-serif;
+      color:#e0e7ff;
+    ">
+      <article style="
+        max-width:560px;width:100%;
+        background:rgba(20,32,56,0.72);
+        border:1px solid rgba(99,131,201,0.22);
+        border-radius:24px;
+        padding:48px 40px;
+        box-shadow:0 24px 80px rgba(0,0,0,0.45);
+        text-align:center;
+      ">
+        <img src="./app-logo-favicon.png" alt="CODEX" width="72" height="72"
+             style="display:block;margin:0 auto 24px;border-radius:16px;" />
+        <h1 style="margin:0 0 12px;font-size:30px;font-weight:700;letter-spacing:0.01em;color:#f4f6ff;">
+          CODEX je desktop aplikacija
+        </h1>
+        <p style="margin:0 0 28px;line-height:1.6;font-size:16px;color:#b8c4e3;">
+          Web verzija je deprecated. Preuzmi desktop build za pun pristup
+          OPFS SQLite bazi, offline radu i Electron sigurnosnom sloju.
+        </p>
+        <a href="https://github.com/budimirbozovic2-alt/memoria-mne/releases/latest"
+           target="_blank" rel="noopener noreferrer"
+           style="
+             display:inline-block;
+             padding:14px 28px;
+             background:linear-gradient(135deg,#3b6fa0 0%,#1e3a5f 100%);
+             color:#f4f6ff;
+             text-decoration:none;
+             font-weight:600;
+             font-size:15px;
+             letter-spacing:0.02em;
+             border-radius:12px;
+             box-shadow:0 8px 24px rgba(30,58,95,0.5);
+             transition:transform 0.15s ease, box-shadow 0.15s ease;
+           "
+           onmouseover="this.style.transform='translateY(-1px)';this.style.boxShadow='0 12px 32px rgba(30,58,95,0.6)';"
+           onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='0 8px 24px rgba(30,58,95,0.5)';">
+          Preuzmi za desktop
+        </a>
+        <p style="margin:24px 0 0;font-size:13px;color:#8a9bc4;">
+          <a href="https://github.com/budimirbozovic2-alt/memoria-mne/releases/latest"
+             target="_blank" rel="noopener noreferrer"
+             style="color:#8a9bc4;text-decoration:underline;">
+            Saznaj više o desktop verziji
+          </a>
+        </p>
+      </article>
+    </main>
+  `;
+  document.title = "CODEX — Preuzmi za desktop";
+}
+
+if (!isDesktopShell && import.meta.env.PROD) {
+  renderDesktopOnlyCta();
+  // Halt all further bootstrap — no React, no SQLite, no electron IPC.
+} else {
+
 // ── Guarded async bootstrap ──
 (async () => {
   try {
@@ -101,6 +178,8 @@ markBootStep("main:error-handlers-registered");
     return;
   }
 })();
+
+} // end web-CTA-guard else block
 
 // ── Service Worker cleanup (Pure Desktop — P3 PR-8 finale) ──
 // We no longer register a service worker. This block remains for one release
