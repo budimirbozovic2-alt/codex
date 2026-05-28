@@ -77,10 +77,13 @@ export function installQueryBridges(qc: QueryClient): void {
 
   // ── Cards (P1.5) ────────────────────────────────────────
   // Fired by `notifyCardsChanged` after a `cardRepository` write commits
-  // to RAM + persist-queue. Invalidates every scoped cards query.
+  // to RAM + persist-queue. Debounced ~16ms so a burst of Zustand commits
+  // (bulk import, FSRS grade-many, restore) collapses into one invalidation
+  // → one refetch per scoped query → one re-render per consumer.
   onCardsChanged(() => {
-    void qc.invalidateQueries({ queryKey: ["cards"] });
+    scheduleCardsInvalidate(qc);
   });
+
 
   // ── Mind maps ───────────────────────────────────────────
   // SSOT façade (`mindmap-storage`) emituje nakon save/delete/invalidate.
