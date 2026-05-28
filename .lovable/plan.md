@@ -111,7 +111,22 @@ return decodeRows(await exec.query(SELECT ...));
 - `card-selectors.test`, `use-cards-by-source.test`, `category-deletion.test` već prolaze na SQLite path-u (provereno u B1).
 - `sources-storage`/`mindmap-storage` integracioni testovi — ako postoje cache assert linije, ukloniti.
 
-## A1c-3 — Backup/restore + heal/migrate pipeline cut-over  🟡 PARTIAL
+## A1c-3 — Backup/restore + heal/migrate pipeline cut-over  🟡 PARTIAL (nastavak — log tables done)
+
+### Progres (A1c-3 nastavak, ovaj PR)
+
+- ✅ SQLite schema v5 (`pr9-a1c3-log-tables`): `reviewLog`, `pomodoroLog`, `diary`, `calibrationLog`, `latencyLog`, `slippageLog`, `activityLog` — sve sa `INTEGER PRIMARY KEY AUTOINCREMENT` (osim `diary` koji ima UUID PK) + denormalizovane indekse za `cardId/timestamp/date` query-je.
+- ✅ `src/lib/db/queries/logs.ts` — SQLite-primary readers (`listAll*`, `count*`), writers (`bulkPut*` sa `preserveId=true` za backup restore koji nosi postojeće id-jeve), i `clear*` per-tabela.
+- ✅ `backup-readers.ts` — sve log read funkcije sad gađaju SQLite direktno (`listAllReviewLog` etc.). Uklonjeni svi `// dexie-only-read-replica` shimovi i `safeDexieReadAll/safeDexieCount` helperi. Jedini preostali Dexie read u ovom modulu je `readAllCategoriesForBackup` (categories ostaju aggregate root do A1c-4).
+- ✅ `queries/index.ts` barrel — re-exportuje `bulkPut*`/`clear*` log helpere za sledeću fazu (write-side cut-over u `write-satellite-tx.ts`).
+
+### Deferred (sledeći A1c-3 podkorak)
+- **Write-side**: `write-cards-tx.ts` (→ `cardMapWrites.bulkPut` + flush), `write-categories-tx.ts` (→ `categoryRepository.replaceAll/commit`), `write-satellite-tx.ts` (→ queries/* `bulkPut*` + `bulkPut*Log*`).
+- **Orchestrator**: `import-transaction.ts` Dexie `db.transaction("rw", tables, …)` wrapper postaje obsolete; svaka repo CRUD je već SQLite ACID. Drop the wrapper, sekvencijalni pozivi su dovoljni (FK CASCADE čisti satellite tablice kad se kategorija obriše).
+- **Export streaming**: `export-stream.ts` + `useCardExport.ts` — Dexie `Table.each` cursor pattern zameniti sa `listAll*` iz `backup-readers` (jednokratni read pa serijalizacija u worker batcheve; gubi se "1 row in heap" property, ali smo iznad SQLite-a sa cijelim payloadom koji već stane u RAM — kompromis prihvatljiv za PR-9, ako bude problem dodajemo SQL cursor stream u repos).
+- **Heal/normalizeCategories** (već urađeno u prethodnom A1c-3 koraku) i preflight-telemetry (već urađeno).
+
+## A1c-3 — Backup/restore + heal/migrate pipeline cut-over  🟡 PARTIAL (originalni plan)
 
 Ovo je najveći chunk po LOC. Backup pipeline trenutno striming-uje Dexie tabele.
 
