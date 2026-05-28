@@ -167,12 +167,11 @@ async function writeDisciplineLogTx(
   }
   if (strategy === "overwrite") await tx.run("DELETE FROM disciplineLog");
   for (const r of rows) {
-    await tx.run(
-      "INSERT OR REPLACE INTO disciplineLog (date, payload) VALUES (?, ?)",
-      [String(r.date ?? ""), JSON.stringify(r)],
-    );
-  }
-}
+  await tx.runMany(
+    "INSERT OR REPLACE INTO disciplineLog (date, payload) VALUES (?, ?)",
+    rows.map((r) => [String(r.date ?? ""), JSON.stringify(r)]),
+  );
+
 
 async function writeMnemonicTestLogTx(
   tx: SqlExecutor,
