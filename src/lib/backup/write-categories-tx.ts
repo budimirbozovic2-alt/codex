@@ -40,9 +40,11 @@ export async function writeCategoriesTx(
         // any backup categories whose name already exists were remapped,
         // so a wipe + bulk insert here is safe.
         await tx.run("DELETE FROM categories");
-        for (const cat of parsed.categories) {
-          await tx.run(CATEGORY_INSERT_SQL, bindCategory(cat));
-        }
+        await tx.runMany(
+          CATEGORY_INSERT_SQL,
+          parsed.categories.map((cat) => bindCategory(cat)),
+        );
+
         working = [...parsed.categories];
         // FK sweep: only after categories are finalized.
         const validIds = new Set(parsed.categories.map((c) => c.id));
