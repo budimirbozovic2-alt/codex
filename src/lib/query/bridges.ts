@@ -46,11 +46,6 @@ export function installQueryBridges(qc: QueryClient): void {
     }
   });
 
-  // ── Drafts ──────────────────────────────────────────────
-  onDraftsChanged(() => {
-    void qc.invalidateQueries({ queryKey: ["drafts"] });
-  });
-
   // ── Cards (P1.5) ────────────────────────────────────────
   // Fired by `notifyCardsChanged` after a `cardRepository` write commits
   // to RAM + persist-queue. Invalidates every scoped cards query.
@@ -79,14 +74,12 @@ export function installQueryBridges(qc: QueryClient): void {
     void qc.invalidateQueries({ queryKey: ["knowledgeBase"] });
   });
 
-  // ── Settings (prefix "" = sve mutacije) ─────────────────
-  onSettingsChanged("", (key: string) => {
-    void qc.invalidateQueries({ queryKey: ["settings", key] });
-    // Subject overrides — invalidate scoped subject hooks.
-    if (key.startsWith("sr-subject-settings-")) {
-      void qc.invalidateQueries({ queryKey: ["subject-settings"] });
-    }
-  });
+  // NOTE: drafts + settings bridges removed (S8). Neither domain has any
+  // TanStack `useQuery` consumer — autosave reads through Zustand mirrors
+  // and settings through their own listener seams. Re-add when/if a
+  // useQuery hook is introduced for these keys.
+}
+
 }
 
 /** Test-only helper — resetuje internal flag tako da test može re-instalirati bridge sa svježim mockom. */
