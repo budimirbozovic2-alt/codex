@@ -41,28 +41,7 @@ export async function kvPut<T>(exec: SqlExecutor, key: string, value: T): Promis
   );
 }
 
-export async function kvDelete(exec: SqlExecutor, key: string): Promise<void> {
-  await exec.run("DELETE FROM kv WHERE key = ?", [key]);
-}
+// `kvDelete` and `kvGetMany` removed in F6.3 — no consumers. The kv table
+// is purged per-key via `deleteSetting` (settings repo) and read row-by-row
+// via `kvGet`; bulk hydration paths build their own queries.
 
-/** Bulk read for migration / hydration paths (planner cold start). */
-export async function kvGetMany<T>(
-  exec: SqlExecutor,
-  keys: readonly string[],
-): Promise<Map<string, T>> {
-  if (keys.length === 0) return new Map();
-  const placeholders = keys.map(() => "?").join(",");
-  const rows = await exec.all<{ key: string; value: string }>(
-    `SELECT key, value FROM kv WHERE key IN (${placeholders})`,
-    keys as readonly string[],
-  );
-  const out = new Map<string, T>();
-  for (const row of rows) {
-    try {
-      out.set(row.key, JSON.parse(row.value) as T);
-    } catch (err) {
-      throw new KvDecodeError(row.key, err);
-    }
-  }
-  return out;
-}
