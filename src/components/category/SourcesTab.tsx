@@ -15,6 +15,7 @@ import { format } from "date-fns";
 import { toast } from "sonner";
 import SourceEditor from "@/components/category/SourceEditor";
 import { afterDialogClose } from "@/lib/dialog-utils";
+import { startViewTransition } from "@/lib/ui/view-transition";
 
 interface SourcesTabProps {
   categoryId: string;
@@ -100,8 +101,17 @@ export default function SourcesTab({ categoryId, sources, onOpenReader, onSource
 
   return (
     <>
-      <Tabs value={activeSourceTab} onValueChange={(v) => setActiveSourceTab(v as SourceTabValue)} className="w-full">
-        <div className="flex items-center justify-between mb-3">
+      <Tabs
+        value={activeSourceTab}
+        onValueChange={(v) =>
+          startViewTransition(() => setActiveSourceTab(v as SourceTabValue))
+        }
+        className="w-full"
+      >
+        <div
+          className="flex items-center justify-between mb-3"
+          style={{ viewTransitionName: "sources-tab-strip" } as React.CSSProperties}
+        >
           <TabsList>
             <TabsTrigger value="propis" className="gap-1.5">
               Propisi
