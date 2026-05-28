@@ -13,13 +13,17 @@
  */
 import { useQuery } from "@tanstack/react-query";
 import {
+import { useQuery } from "@tanstack/react-query";
+import {
   loadArticlesBySubject,
   type KnowledgeBaseArticle,
 } from "@/lib/zettelkasten-storage";
-import { listAllArticles } from "@/lib/db/queries/knowledge-base";
+import {
+  listAllArticles,
+  listArticleHeadersBySubject,
+  type KnowledgeBaseArticleHeader,
+} from "@/lib/db/queries/knowledge-base";
 import { queryKeys } from "@/lib/query/keys";
-
-const EMPTY: KnowledgeBaseArticle[] = [];
 
 export function useKnowledgeBaseArticlesBySubject(
   subjectId: string | undefined,
