@@ -1,64 +1,64 @@
 /**
- * Streaming backup serializer.
+ * Streaming backup serializer — PR-9 A1c-3 nastavak.
  *
- * Replaces the previous "load every table with `toArray()` then run a single
- * `JSON.stringify` over the whole payload" pattern with a per-table cursor
- * (`Table.each`) that writes each row directly into a `Blob` parts array.
+ * Post Dexie cut-over: rows come from SQLite-primary repos (via the
+ * `@/lib/db/queries` barrel) instead of `Dexie.Table.each`. The wire
+ * shape of the emitted JSON is unchanged so backup files remain
+ * forward/backward-compatible.
  *
- * Properties:
- * - One row in JS heap at a time per table (cursor-driven), instead of every
- *   row of every table simultaneously. Peak RAM scales with the largest single
- *   row (e.g. one Source's `htmlContent`), not with the size of the database.
- * - The whole snapshot is produced inside a single Dexie read transaction so
- *   the resulting file is a consistent point-in-time view even if the user
- *   keeps editing during export.
- * - Cooperative `yieldUI()` between chunks keeps the main thread responsive
- *   and lets the real progress bar repaint.
+ * Per source we accept either:
+ *   - a one-shot `rows()` reader returning the full row array (today's
+ *     SQLite repos — `listAll*`), or
+ *   - an `rowsAsync()` async iterable yielding rows/chunks (reserved for
+ *     a future SQL cursor pass when payloads grow past ~50 MB and the
+ *     "whole table in RAM" compromise stops being acceptable).
  *
- * Yielding inside a Dexie transaction is safe: Dexie holds the IDB lock,
- * not the JS thread, and the transaction stays open until its last awaited
- * write resolves.
+ * Output batching, worker-side `JSON.stringify`, and `yieldUI()` between
+ * chunks are preserved — peak heap is still bounded by `WORKER_BATCH` ×
+ * row size during the serialisation phase, even though the read phase
+ * materialises the whole table in one shot.
+ *
+ * Snapshot consistency note: SQLite WAL gives per-statement snapshot
+ * isolation, not cross-statement. If the user is actively editing during
+ * an export, individual table reads are consistent but the union across
+ * tables may straddle a write. Acceptable for backup workflows; if cross-
+ * table consistency becomes a requirement we'll wrap the whole read pass
+ * in a single `SqlExecutor.transaction(..., "DEFERRED")` block.
  */
 
-import type Dexie from "dexie";
-import type { Table } from "dexie";
-import { db } from "@/lib/db";
 import { yieldUI } from "@/lib/backup/yield-ui";
 import { serializeRowsInWorker } from "@/lib/backup/json-serialize-client";
 import { backupLog } from "@/lib/backup/backup-logger";
 
 export type ProgressFn = (pct: number, message: string) => void;
 
-interface StreamTableSpec {
-  /** JSON key in the resulting backup object */
-  key: string;
-  /** Dexie table to stream. `null` skips emission (used for synthetic keys) */
-  table: Table<unknown, unknown> | null;
-  /** Optional ordered cursor (e.g. `categories.orderBy("sortOrder")`) */
-  collection?: () => { each: (cb: (row: unknown) => unknown) => Promise<unknown> };
-}
-
 /**
- * Build a `StreamTableSpec` from a typed Dexie table. Concentrates the single
- * unavoidable Dexie variance cast (`Table<T,K>` is invariant in T/K) in one
- * generic helper instead of leaking `as unknown as Table<unknown,unknown>` to
- * every call site.
+ * Single table/source emission descriptor.
+ *
+ * `rows`: async one-shot loader (preferred path — matches today's SQLite
+ *   `listAll*` repos). Result is JSON-serialised in worker batches.
+ * `rowsAsync`: optional async iterable yielding either single rows or
+ *   pre-chunked batches. Wins over `rows` when present.
  */
-export function tableSpec<T, K>(
-  key: string,
-  table: Table<T, K>,
-  collection?: () => { each: (cb: (row: T) => unknown) => Promise<unknown> },
-): StreamTableSpec {
-  return {
-    key,
-    table: table as unknown as Table<unknown, unknown>,
-    collection: collection as StreamTableSpec["collection"],
-  };
+export interface ExportSourceSpec {
+  /** JSON key in the resulting backup object. */
+  key: string;
+  /** One-shot reader: returns the full row array. */
+  rows?: () => Promise<readonly unknown[]>;
+  /**
+   * Cursor-style reader. Each yielded value can be either a single row
+   * (`unknown`) or a pre-batched array (`unknown[]`). Pre-batched arrays
+   * are emitted as-is without further chunking.
+   */
+  rowsAsync?: () => AsyncIterable<unknown | readonly unknown[]>;
 }
 
-/** Same idea as `tableSpec` but for the `txTables` scope array. */
-export function txScope(...tables: Table<unknown, unknown>[] | Table<unknown>[]): Table<unknown, unknown>[] {
-  return tables as Table<unknown, unknown>[];
+/** Convenience helper for the common one-shot path. */
+export function sourceSpec(
+  key: string,
+  rows: () => Promise<readonly unknown[]>,
+): ExportSourceSpec {
+  return { key, rows };
 }
 
 // Rows per worker batch. Tuned for two competing concerns:
@@ -71,33 +71,22 @@ const WORKER_BATCH = 500;
 
 async function emitArray(
   parts: BlobPart[],
-  spec: StreamTableSpec,
+  spec: ExportSourceSpec,
   onProgress: ProgressFn,
   pStart: number,
   pEnd: number,
 ): Promise<number> {
-  if (!spec.table && !spec.collection) {
-    parts.push(`"${spec.key}":[]`);
-    return 0;
-  }
-  const total = spec.table ? await spec.table.count() : 0;
   parts.push(`"${spec.key}":[`);
 
-  // Buffer rows up to WORKER_BATCH, then off-thread `JSON.stringify` the
-  // batch and push the result into `parts`. Dexie's `Collection.each`
-  // awaits an async callback before advancing the IDB cursor, so this
-  // bounded-buffer pattern keeps peak heap at one batch × row size while
-  // still doing the heavy work off the main thread.
   let i = 0;
-  let batch: unknown[] = [];
   let isFirstBatch = true;
 
-  const flush = async () => {
+  const flushBatch = async (batch: readonly unknown[], total: number) => {
     if (batch.length === 0) return;
     const chunk = await serializeRowsInWorker(batch);
     parts.push(isFirstBatch ? chunk : "," + chunk);
     isFirstBatch = false;
-    batch = [];
+    i += batch.length;
     const pct = total > 0
       ? pStart + Math.round(((pEnd - pStart) * Math.min(i, total)) / Math.max(total, 1))
       : pEnd;
@@ -105,16 +94,42 @@ async function emitArray(
     await yieldUI();
   };
 
-  const cursor = spec.collection ? spec.collection() : spec.table!;
-  await cursor.each(async (row: unknown) => {
-    batch.push(row);
-    i++;
-    if (batch.length >= WORKER_BATCH) await flush();
-  });
-  await flush();
+  // ── Cursor path (preferred when available) ─────────────────────────
+  if (spec.rowsAsync) {
+    let buffer: unknown[] = [];
+    for await (const item of spec.rowsAsync()) {
+      if (Array.isArray(item)) {
+        // Pre-batched chunk from the producer — flush buffer first, then
+        // emit the chunk wholesale.
+        if (buffer.length > 0) { await flushBatch(buffer, 0); buffer = []; }
+        await flushBatch(item, 0);
+      } else {
+        buffer.push(item);
+        if (buffer.length >= WORKER_BATCH) {
+          await flushBatch(buffer, 0);
+          buffer = [];
+        }
+      }
+    }
+    if (buffer.length > 0) await flushBatch(buffer, 0);
+    parts.push("]");
+    onProgress(pEnd, `${spec.key} ${i}`);
+    await yieldUI();
+    return i;
+  }
 
+  // ── One-shot path ──────────────────────────────────────────────────
+  if (!spec.rows) {
+    parts.push("]");
+    return 0;
+  }
+  const all = await spec.rows();
+  const total = all.length;
+  for (let start = 0; start < all.length; start += WORKER_BATCH) {
+    await flushBatch(all.slice(start, start + WORKER_BATCH), total);
+  }
   parts.push("]");
-  onProgress(pEnd, `${spec.key} ${i}/${total || i}`);
+  onProgress(pEnd, `${spec.key} ${i}/${total}`);
   await yieldUI();
   return i;
 }
@@ -124,10 +139,8 @@ export interface StreamBackupOptions {
   type: "full" | "template";
   /** Inline scalar/object fields written into the JSON object as-is */
   scalars: Record<string, unknown>;
-  /** Tables streamed as JSON arrays */
-  tables: StreamTableSpec[];
-  /** Read-tx scope */
-  txTables: Table<unknown, unknown>[];
+  /** Tables/sources streamed as JSON arrays */
+  sources: ExportSourceSpec[];
   onProgress: ProgressFn;
   /** Progress range reserved for streaming (pStart..pEnd) */
   pStart?: number;
@@ -135,17 +148,17 @@ export interface StreamBackupOptions {
 }
 
 export async function streamBackup(opts: StreamBackupOptions): Promise<Blob> {
-  const { version, type, scalars, tables, txTables, onProgress } = opts;
+  const { version, type, scalars, sources, onProgress } = opts;
   const pStart = opts.pStart ?? 10;
   const pEnd = opts.pEnd ?? 80;
 
   backupLog.start("export", "streamBackup begin", {
     version,
     type,
-    tables: tables.map((t) => t.key),
+    sources: sources.map((t) => t.key),
   });
 
-  onProgress(pStart, "Otvaranje read-snapshot transakcije…");
+  onProgress(pStart, "Otvaranje read-snapshot…");
 
   const parts: BlobPart[] = [];
   parts.push(`{"version":${JSON.stringify(version)},"type":${JSON.stringify(type)}`);
@@ -154,18 +167,16 @@ export async function streamBackup(opts: StreamBackupOptions): Promise<Blob> {
   }
 
   const span = pEnd - pStart;
-  const stepPct = span / Math.max(tables.length, 1);
+  const stepPct = span / Math.max(sources.length, 1);
 
   try {
-    await (db as unknown as Dexie).transaction("r", txTables, async () => {
-      for (let idx = 0; idx < tables.length; idx++) {
-        const spec = tables[idx];
-        parts.push(",");
-        const a = pStart + Math.round(stepPct * idx);
-        const b = pStart + Math.round(stepPct * (idx + 1));
-        await emitArray(parts, spec, onProgress, a, b);
-      }
-    });
+    for (let idx = 0; idx < sources.length; idx++) {
+      const spec = sources[idx];
+      parts.push(",");
+      const a = pStart + Math.round(stepPct * idx);
+      const b = pStart + Math.round(stepPct * (idx + 1));
+      await emitArray(parts, spec, onProgress, a, b);
+    }
 
     parts.push("}");
     onProgress(pEnd, "Finalizacija…");
