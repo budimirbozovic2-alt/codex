@@ -15,7 +15,7 @@
  * to the end of their respective group via MAX_SAFE_INTEGER fallbacks.
  */
 import type { Card } from "./spaced-repetition";
-import type { CategoryRecord } from "./db";
+import type { CategoryRecord } from "./db-types";
 
 const TAIL = Number.MAX_SAFE_INTEGER;
 
