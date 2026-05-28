@@ -123,7 +123,62 @@ export async function findArticleByTitle(
   return decodeArticle(rows[0]) ?? undefined;
 }
 
-// ─── Write API ──────────────────────────────────────────────────────────
+// ─── Header / index lookups (no JSON.parse) ────────────────────────────
+
+export type KnowledgeBaseArticleHeader = {
+  id: string;
+  subjectId: string;
+  title: string;
+  updatedAt: number;
+  isIndex: boolean;
+};
+
+function decodeHeaderRow(row: {
+  id: string; subjectId: string; title: string; updatedAt: number; isIndex: number;
+}): KnowledgeBaseArticleHeader {
+  return {
+    id: row.id,
+    subjectId: row.subjectId,
+    title: row.title,
+    updatedAt: Number(row.updatedAt),
+    isIndex: !!row.isIndex,
+  };
+}
+
+export async function listArticleHeadersBySubject(
+  subjectId: string,
+): Promise<KnowledgeBaseArticleHeader[]> {
+  const exec = await requireExecutor("listArticleHeadersBySubject");
+  if (!exec) return [];
+  const rows = await exec.all<{
+    id: string; subjectId: string; title: string; updatedAt: number; isIndex: number;
+  }>(
+    `SELECT id, subjectId, title, updatedAt, isIndex
+       FROM knowledgeBaseArticles
+       WHERE subjectId = ?
+       ORDER BY updatedAt DESC`,
+    [subjectId],
+  );
+  return rows.map(decodeHeaderRow);
+}
+
+/** Indexed lookup — uses idx_kb_subject_isIndex. Single row. */
+export async function getIndexArticle(
+  subjectId: string,
+): Promise<KnowledgeBaseArticle | undefined> {
+  const exec = await requireExecutor("getIndexArticle");
+  if (!exec) return undefined;
+  const rows = await exec.all<{ payload: string }>(
+    `SELECT payload FROM knowledgeBaseArticles
+       WHERE subjectId = ? AND isIndex = 1
+       ORDER BY updatedAt DESC
+       LIMIT 1`,
+    [subjectId],
+  );
+  if (rows.length === 0) return undefined;
+  return decodeArticle(rows[0]) ?? undefined;
+}
+
 
 export async function putArticle(article: KnowledgeBaseArticle): Promise<void> {
   const exec = await requireExecutor("putArticle");
