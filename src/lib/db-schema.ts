@@ -5,7 +5,8 @@ import type { DiaryEntry, CalibrationEntry, LatencyEntry, SlippageEntry, Activit
 import type { DisciplineEntry } from "./planner-storage";
 import { EVENT_TYPES, type EventType } from "./event-bus-types";
 import type { MnemonicCard, MnemonicTestLogEntry } from "@/features/mnemonic";
-import type { EditorDoc } from "./editor-v4/types";
+import { logger } from "./logger";
+
 
 // ─── W1: Inversion-of-Control emitter ─────────────────────
 // `db-schema` does NOT import the EventBus instance — instead, the bootstrap
