@@ -154,7 +154,6 @@ async function writeDiaryTx(
   );
 }
 
-}
 
 async function writeDisciplineLogTx(
   tx: SqlExecutor,
