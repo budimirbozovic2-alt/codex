@@ -258,9 +258,9 @@ export async function bulkPutDiary(rows: readonly DiaryEntry[]): Promise<void> {
         [r.id, r.date ?? "", JSON.stringify(r)],
       );
     }
-    }
   });
 }
+
 
 // ── F6.2 helpers — windowed reads + single-row add + prune ───────────────
 
