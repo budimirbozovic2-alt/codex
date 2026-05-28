@@ -16,7 +16,9 @@ import {
   readAllCategoriesForBackup,
   listAllCards,
   getCardsByIds,
+  getRecentCorruptCardIds,
 } from "@/lib/db/queries";
+
 
 export interface TableStat {
   name: string;
