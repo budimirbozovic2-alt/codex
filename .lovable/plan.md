@@ -153,7 +153,28 @@ Ovo je najveći chunk po LOC. Backup pipeline trenutno striming-uje Dexie tabele
   - testovi koji čitaju iz `db.X.toArray()` → mockovati `listAll*` iz `@/lib/db/queries`.
   - testovi koji pišu kroz Dexie direktno → ili portati na `*Async` mutaciju ili spin-up SQLite WASM in-memory u `setup.ts`.
 
-## A1c-4 — Drop Dexie schema, runner i dep
+## A1c-4 — Drop Dexie schema, runner i dep  🟡 PARTIAL (F4 done)
+
+### Progres (A1c-4 step 1 — type extraction)
+
+- ✅ `src/lib/db-types.ts` kreiran — Dexie-free single source of truth za sve domain tipove (`CategoryRecord`, `Source`, `MindMapDoc`, `KnowledgeBaseArticle`, `DraftRecord`, `SubcategoryNode`, `ChapterNode`, `ExaminerProfile`, varijante, `MindMap*Record`, `Exam*`).
+- ✅ `db-schema.ts` re-eksportuje tipove iz `db-types.ts` (backwards compat shim).
+- ✅ Codemod 63 fajla: svi `import type { ... } from "@/lib/db"` i čisti `import { type X } from "@/lib/db"` preusmereni na `@/lib/db-types`. Mixed value+type importi (`categoryRepository`, `loadInitialData`, `category-repository.test`) ručno razdvojeni.
+- ✅ Net rezultat: 89 → **25** `from "@/lib/db"` value imports preostalo (svi su pravi run-time blokeri, ne tip-only re-exporti).
+
+### Preostali Dexie value imports (po fazama za naredne PR-ove)
+
+**F1 — categoryRepository → SQLite:** `categoryRepository.ts` (`idbLoad/SaveCategories`), `import-transaction.ts` (`db.categories.bulkPut` bridge). Treba: dodati `src/lib/db/queries/categories.ts` (`listAllCategories`, `bulkPutCategories`, `clearCategories`) koristeći postojeću SQLite `categories` tabelu + `bindCategory` iz `sqlite-row-bindings.ts`.
+
+**F2 — settings + reviewLog repos → SQLite:** `settingsRepository.ts` (`idbSave/LoadSettings` → već postoji `putSetting`/`getSetting` u queries/settings), `reviewLogRepository.ts` (`flushReviewLogQueue` → već postoji `bulkPutReviewLog` u queries/logs).
+
+**F3 — services + boot path:** `healthService.ts`/`autoSplitImportService.ts` (`db.cards.toArray()` → `listAllCards`), `loadInitialData.ts`/`bootDb.ts`/`runSchema.ts`/`AppBootstrap.tsx` (`ensureDbOpen`/`migrateFromLocalStorage`/`flushReviewLogQueue` — uklanjaju se ili zamenjuju SQLite ekvivalentima), `mnemonic-storage/migrate.ts`.
+
+**F5 — SQLite test harness:** in-memory `SqlExecutor` mock (Map-backed per tabela), `vi.mock("@/lib/electron-integration", () => ({ isElectron: () => true }))` u `src/test/setup.ts`. Bez ovoga F1-F3 razbijaju ~12 test fajlova jer `tryGetExecutor` vraća `null` u jsdom-u. Preostali Dexie-direct testovi (`zettelkasten-*.test`, `category-*.test`, `editor-v4-zettel-pr6.test`, `cards-query-bench.test`, `persist-queue-c3c4.test`) migriraju se nakon harnessa.
+
+**F6 — finalni drop:** posle F1-F5 zelenih: obrisati `db-schema.ts`, `db-queries.ts`, `db-seed.ts`, `db.ts`, `idb-adapter.ts`; prepisati `migrate-from-idb.ts` u `assertNoLegacyIdb.ts`; `bun remove dexie dexie-react-hooks`; ESLint dexie-import guard.
+
+
 
 Tek kad A1c-1/2/3 prođu sve testove i 1 soak ciklus, finalni korak:
 
