@@ -152,8 +152,15 @@ export function newArticle(
 
 /**
  * Ensure a subject has exactly one Index article (entry-point for organic
- * exploration). Read-then-write via SQLite — single-user desktop, race window
+ * exploration). Read-then-write is serialized per subject via the in-process
+ * mutex so parallel callers converge on a single Index row.
+ */
 export async function ensureIndexArticle(
+  subjectId: string,
+  subjectName: string,
+  suggestedLinks: readonly string[] = [],
+): Promise<KnowledgeBaseArticle> {
+
   subjectId: string,
   subjectName: string,
   suggestedLinks: readonly string[] = [],
