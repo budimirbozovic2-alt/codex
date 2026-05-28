@@ -19,8 +19,8 @@
 import { listAllCategories } from "./categories";
 import type { CategoryRecord } from "@/lib/db-types";
 import { listAllCards, countAllCards } from "./cards";
-import { listAllSources } from "./sources";
-import { listAllMindMaps } from "./mind-maps";
+import { listAllSources, countAllSources } from "./sources";
+import { listAllMindMaps, countAllMindMaps } from "./mind-maps";
 import { listAllMnemonics } from "./mnemonics";
 import { listAllArticles } from "./knowledge-base";
 import { listAllPegs } from "./major-system";
