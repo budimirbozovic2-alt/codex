@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import {
   loadMindMaps,
   getMindMap,
@@ -38,12 +38,17 @@ export function useMindMapsByCategory(categoryId?: string): { mindMaps: MindMapD
 /**
  * Single mind map by id, kept fresh via TanStack cache.
  * Returns `undefined` while loading, `null` when not found.
+ *
+ * C1 — `keepPreviousData` smooths id-switching in the editor: when the
+ * user opens a different map the previous doc stays visible until the
+ * new one resolves, avoiding a blank-canvas flash.
  */
 export function useMindMap(id: string | undefined): MindMapDoc | null | undefined {
   const { data, isFetched } = useQuery({
     queryKey: id ? queryKeys.mindMaps.byId(id) : ["mindMaps", "id", "__none__"],
     queryFn: async () => (await getMindMap(id as string)) ?? null,
     enabled: !!id,
+    placeholderData: keepPreviousData,
   });
   if (!id) return null;
   if (!isFetched) return undefined;

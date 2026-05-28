@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import {
   loadSources,
   loadSourcesByCategory,
@@ -12,6 +12,10 @@ const EMPTY: Source[] = [];
  * SSOT subscription for sources scoped to a single category.
  * PR-7f M1 — TanStack Query read-path; invalidacija dolazi automatski iz
  * `bridges.ts` koji sluša `onSourcesChanged` i invalidira `['sources']`.
+ *
+ * C1 — `placeholderData: keepPreviousData` keeps the previous category's
+ * sources visible while the next category is fetching, preventing flash-
+ * to-empty when swapping inside the SourcesTab.
  */
 function useCategorySourcesQuery(categoryId: string | undefined) {
   return useQuery({
@@ -20,6 +24,7 @@ function useCategorySourcesQuery(categoryId: string | undefined) {
       : ["sources", "cat", "__none__"],
     queryFn: () => loadSourcesByCategory(categoryId as string),
     enabled: !!categoryId,
+    placeholderData: keepPreviousData,
   });
 }
 

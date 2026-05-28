@@ -499,5 +499,35 @@ export default tseslint.config(
       ],
     },
   },
+
+  // ─────────────────────────────────────────────────────────────────────
+  // W9 — `*Ram` card selectors are test-only.
+  //
+  // The granular Zustand-backed selectors (`useCardsByCategoryRam`, etc.)
+  // exist only as a `QueryClientProvider`-free fallback for unit tests in
+  // `card-selectors.test.tsx`. Production code MUST read through the
+  // TanStack variants (un-suffixed names re-exported from `@/store`).
+  // Importing a `*Ram` selector outside the allow-list defeats the
+  // "TanStack is the cards read path" invariant (Core memory, mem://
+  // architecture/tanstack-query-read-path).
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    files: ["src/**/*.{ts,tsx}"],
+    ignores: [
+      "src/test/**",
+      "src/store/useCardSelectors.ts",
+    ],
+    rules: {
+      "no-restricted-syntax": [
+        "error",
+        {
+          selector:
+            "ImportSpecifier[imported.name=/^(useCardsByCategoryRam|useCardsBySubcategoryRam|useCardsByChapterRam|useCardCountByCategoryRam|useCardByIdRam)$/]",
+          message:
+            "*Ram selektori su test-only (W9). Koristi TanStack varijante iz @/store (npr. useCardsByCategory).",
+        },
+      ],
+    },
+  },
 );
 

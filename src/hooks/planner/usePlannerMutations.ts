@@ -29,15 +29,19 @@ interface DailyMappedCtx {} // counter — bez optimistic seeda (UI ne čita iz 
 export function usePlannerMutations() {
   const qc = useQueryClient();
 
+  // B2 — `mod.savePlanner(cfg)` is synchronous and fires
+  // `notifyPlannerChanged("config")` inside the same tick. The bridge
+  // invalidates `['planner']` root → `planner.config()` refetches before
+  // React commits, so an optimistic `setQueryData` here was never visible
+  // to the UI. We keep `cancelQueries + snapshot` for rollback only.
   const saveConfig = useMutation<void, Error, PlannerConfig, ConfigCtx>({
     mutationFn: async (cfg) => {
       const mod = await getPlannerModule();
       mod.savePlanner(cfg);
     },
-    onMutate: async (cfg) => {
+    onMutate: async () => {
       await qc.cancelQueries({ queryKey: queryKeys.planner.config() });
       const prev = qc.getQueryData<PlannerConfig>(queryKeys.planner.config());
-      qc.setQueryData(queryKeys.planner.config(), cfg);
       return { prev };
     },
     onError: (_e, _cfg, ctx) => {
@@ -45,7 +49,7 @@ export function usePlannerMutations() {
         qc.setQueryData(queryKeys.planner.config(), ctx.prev);
       }
     },
-    // onSettled: bridge već invalidira ['planner'] na `notifyPlannerChanged('config')`.
+    // onSettled: bridge already invalidates ['planner'] via notify.
   });
 
   const recordDiscipline = useMutation<

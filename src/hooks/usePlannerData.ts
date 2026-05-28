@@ -15,7 +15,13 @@ import {
   hashPlannerConfig,
 } from "@/lib/query/hash";
 
-// R2 fix: lazy-import planner-storage to avoid eagerly loading 577-line module + date-fns
+// R2 fix: lazy-import planner-storage to avoid eagerly loading 577-line module + date-fns.
+// B1 refactor: module reference is loaded ONCE via a TanStack query slot
+// (`['planner','module']`) and reused by all derived `useMemo` blocks. This
+// lets us drop the per-calc `useQuery` indirection (and its 3 useEffect
+// invalidation cascades) — pure functions of (cards, reviewLog, config,
+// categoryRecords) belong in `useMemo`, not in TanStack cache slots that
+// the bridge already invalidates from a different angle.
 type PlannerModule = typeof import("@/lib/planner-storage");
 let _plannerMod: PlannerModule | null = null;
 async function getPlannerModule(): Promise<PlannerModule> {
@@ -23,24 +29,49 @@ async function getPlannerModule(): Promise<PlannerModule> {
   return _plannerMod;
 }
 
-
-
 export function usePlannerData(cards: SRCard[], reviewLog: ReviewLogEntry[], categoryRecords: CategoryRecord[]) {
   const qc = useQueryClient();
 
+  // ── Async I/O reads (stay on TanStack) ───────────────────────────────
 
+  // Planner module reference — loaded once, then available to every
+  // derived `useMemo` below. Stale-time is implicitly Infinity via the
+  // QueryClient default; `_plannerMod` is also module-cached.
+  const { data: mod } = useQuery({
+    queryKey: ["planner", "module"] as const,
+    queryFn: getPlannerModule,
+  });
 
   // PR-7f M2 — config kroz TanStack; bridge invalidira ['planner'] na svaki
   // `plannerCache.set` (kind="config"), pa useQuery sam re-fetcha.
   const { data: config = DEFAULT_CONFIG } = useQuery({
     queryKey: queryKeys.planner.config(),
     queryFn: async () => {
-      const mod = await getPlannerModule();
-      return mod.loadPlanner();
+      const m = mod ?? (await getPlannerModule());
+      return m.loadPlanner();
     },
     initialData: DEFAULT_CONFIG,
   });
 
+  const { data: disciplineLog = null } = useQuery({
+    queryKey: queryKeys.planner.disciplineLog(),
+    queryFn: async () => {
+      const m = mod ?? (await getPlannerModule());
+      return m.loadDisciplineLog();
+    },
+    enabled: !!mod,
+  });
+
+  const { data: disciplineTrend = null } = useQuery({
+    queryKey: queryKeys.planner.disciplineTrend(30),
+    queryFn: async () => {
+      const m = mod ?? (await getPlannerModule());
+      return m.getDisciplineTrend(30);
+    },
+    enabled: !!mod,
+  });
+
+  // ── Counts / sync derivations ────────────────────────────────────────
 
   const totalSections = useMemo(() => cards.reduce((s, c) => s + c.sections.length, 0), [cards]);
   const learnedSections = useMemo(() => {
@@ -51,92 +82,6 @@ export function usePlannerData(cards: SRCard[], reviewLog: ReviewLogEntry[], cat
   const remaining = totalSections - learnedSections;
   const overallPct = totalSections > 0 ? Math.round((learnedSections / totalSections) * 100) : 0;
 
-  // ── Stable hashes (zaobilaze object-identity refetch loop) ──
-  const reviewLogHash = useMemo(() => hashReviewLog(reviewLog), [reviewLog]);
-  const cardsHash = useMemo(() => hashCards(cards), [cards]);
-  const categoryHash = useMemo(() => hashCategories(categoryRecords), [categoryRecords]);
-  const configHash = useMemo(() => hashPlannerConfig(config), [config]);
-
-  // S5: stable planner keys — invalidate on hash change so queryFn re-runs
-  // without inflating the cache with hash-discriminated slots.
-  useEffect(() => {
-    void qc.invalidateQueries({ queryKey: queryKeys.planner.velocity() });
-    void qc.invalidateQueries({ queryKey: queryKeys.planner.burnup() });
-  }, [qc, reviewLogHash]);
-
-  useEffect(() => {
-    void qc.invalidateQueries({ queryKey: queryKeys.planner.subjectPlans() });
-    void qc.invalidateQueries({ queryKey: queryKeys.planner.smartSuggestion() });
-    void qc.invalidateQueries({ queryKey: queryKeys.planner.retentionRisk() });
-  }, [qc, cardsHash, categoryHash, configHash]);
-
-  // S5: stable keys. Hash changes drive invalidation via the effect below,
-  // not by mutating queryKey identity (which would bloat cache).
-  const { data: velocity = null } = useQuery({
-    queryKey: queryKeys.planner.velocity(),
-    queryFn: async () => {
-      const mod = await getPlannerModule();
-      return mod.calcVelocity(reviewLog, 7);
-    },
-  });
-
-  // Cascade: velocity / scalar inputs change → derived planner queries refetch.
-  useEffect(() => {
-    void qc.invalidateQueries({ queryKey: queryKeys.planner.estimatedFinish() });
-    void qc.invalidateQueries({ queryKey: queryKeys.planner.plannerStatus() });
-    void qc.invalidateQueries({ queryKey: queryKeys.planner.projectionText() });
-    void qc.invalidateQueries({ queryKey: queryKeys.planner.timeRec() });
-  }, [qc, velocity, remaining, configHash]);
-
-  const { data: estimatedFinish = null } = useQuery({
-    queryKey: queryKeys.planner.estimatedFinish(),
-    queryFn: async () => {
-      if (velocity === null) return null;
-      const mod = await getPlannerModule();
-      return mod.calcEstimatedFinish(remaining, velocity);
-    },
-    enabled: velocity !== null,
-  });
-
-  const { data: plannerStatus = null } = useQuery({
-    queryKey: queryKeys.planner.plannerStatus(),
-    queryFn: async () => {
-      if (estimatedFinish === null) return null;
-      const mod = await getPlannerModule();
-      return mod.getPlannerStatus(estimatedFinish, config.finalGoalDate, config.bufferPercent);
-    },
-    enabled: estimatedFinish !== null,
-  });
-
-  // Subject-oriented plan
-  const { data: subjectPlans = null } = useQuery({
-    queryKey: queryKeys.planner.subjectPlans(),
-    queryFn: async () => {
-      const mod = await getPlannerModule();
-      return mod.generateStudyPlan(config, categoryRecords, cards);
-    },
-  });
-
-  // Learning/review ratio
-  const learningRatio = useMemo(() => {
-    // This is a simple calculation, no need for deferred
-    const learnPct = Math.max(10, 100 - overallPct);
-    const reviewPct = 100 - learnPct;
-    const label = learnPct > 70 ? "Fokus na učenje" : learnPct > 40 ? "Balansirano" : "Fokus na ponavljanje";
-    return { learnPct, reviewPct, label };
-  }, [overallPct]);
-
-  // Smart suggestion uses global remaining (no phase)
-  const { data: smartSuggestion = null } = useQuery({
-    queryKey: queryKeys.planner.smartSuggestion(),
-    queryFn: async () => {
-      if (velocity === null) return null;
-      const mod = await getPlannerModule();
-      return mod.getSmartSuggestion(null, cards, config.finalGoalDate, velocity, config.bufferPercent);
-    },
-    enabled: velocity !== null,
-  });
-
   const dueCount = useMemo(() => {
     const now = Date.now();
     let count = 0;
@@ -144,15 +89,62 @@ export function usePlannerData(cards: SRCard[], reviewLog: ReviewLogEntry[], cat
     return count;
   }, [cards]);
 
-  const { data: timeRec = null } = useQuery({
-    queryKey: queryKeys.planner.timeRec(),
-    queryFn: async () => {
-      if (!smartSuggestion || velocity === null) return null;
-      const mod = await getPlannerModule();
-      return mod.calcDailyTimeRecommendation(smartSuggestion.suggestedToday, velocity, dueCount);
-    },
-    enabled: !!smartSuggestion && velocity !== null,
-  });
+  // ── Pure-sync derived calcs (useMemo, gated on `mod`) ────────────────
+  //
+  // Each block returns `null` (or its zero value) until the planner module
+  // is loaded. The original `useQuery` versions did the same via `enabled`.
+
+  const velocity = useMemo<number | null>(() => {
+    if (!mod) return null;
+    return mod.calcVelocity(reviewLog, 7);
+  }, [mod, reviewLog]);
+  const estimatedFinish = useMemo(() => {
+    if (!mod || velocity === null) return null;
+    return mod.calcEstimatedFinish(remaining, velocity);
+  }, [mod, velocity, remaining]);
+
+  const plannerStatus = useMemo(() => {
+    if (!mod || estimatedFinish === null) return null;
+    return mod.getPlannerStatus(estimatedFinish, config.finalGoalDate, config.bufferPercent);
+  }, [mod, estimatedFinish, config.finalGoalDate, config.bufferPercent]);
+
+  const subjectPlans = useMemo(() => {
+    if (!mod) return null;
+    return mod.generateStudyPlan(config, categoryRecords, cards);
+  }, [mod, config, categoryRecords, cards]);
+
+  const smartSuggestion = useMemo(() => {
+    if (!mod || velocity === null) return null;
+    return mod.getSmartSuggestion(null, cards, config.finalGoalDate, velocity, config.bufferPercent);
+  }, [mod, velocity, cards, config.finalGoalDate, config.bufferPercent]);
+
+  const timeRec = useMemo(() => {
+    if (!mod || !smartSuggestion || velocity === null) return null;
+    return mod.calcDailyTimeRecommendation(smartSuggestion.suggestedToday, velocity, dueCount);
+  }, [mod, smartSuggestion, velocity, dueCount]);
+
+  const burnupData = useMemo(() => {
+    if (!mod) return null;
+    return mod.buildBurnupData(reviewLog, totalSections, config.finalGoalDate, config.bufferPercent);
+  }, [mod, reviewLog, totalSections, config.finalGoalDate, config.bufferPercent]);
+
+  const projectionText = useMemo<string>(() => {
+    if (!mod || velocity === null) return "";
+    return mod.getProjectionText(velocity, remaining, config.finalGoalDate, config.bufferPercent);
+  }, [mod, velocity, remaining, config.finalGoalDate, config.bufferPercent]);
+
+  const phaseDisciplinePct = useMemo<number>(() => {
+    if (!mod || !disciplineLog) return 0;
+    return mod.getPhaseDisciplinePct(disciplineLog);
+  }, [mod, disciplineLog]);
+
+  // Learning/review ratio
+  const learningRatio = useMemo(() => {
+    const learnPct = Math.max(10, 100 - overallPct);
+    const reviewPct = 100 - learnPct;
+    const label = learnPct > 70 ? "Fokus na učenje" : learnPct > 40 ? "Balansirano" : "Fokus na ponavljanje";
+    return { learnPct, reviewPct, label };
+  }, [overallPct]);
 
   const debt = useMemo<import("@/types/planner").CognitiveDebtItem | null>(() => {
     if (!smartSuggestion) return null;
@@ -164,50 +156,6 @@ export function usePlannerData(cards: SRCard[], reviewLog: ReviewLogEntry[], cat
       message: `Kognitivni dug: ${debtCards} kartica iznad održivog dnevnog tempa.`,
     };
   }, [smartSuggestion]);
-
-  const { data: disciplineLog = null } = useQuery({
-    queryKey: queryKeys.planner.disciplineLog(),
-    queryFn: async () => {
-      const mod = await getPlannerModule();
-      return mod.loadDisciplineLog();
-    },
-  });
-
-  const { data: disciplineTrend = null } = useQuery({
-    queryKey: queryKeys.planner.disciplineTrend(30),
-    queryFn: async () => {
-      const mod = await getPlannerModule();
-      return mod.getDisciplineTrend(30);
-    },
-  });
-
-  const { data: phaseDisciplinePct = 0 } = useQuery({
-    queryKey: queryKeys.planner.phaseDisciplinePct(),
-    queryFn: async () => {
-      if (!disciplineLog) return 0;
-      const mod = await getPlannerModule();
-      return mod.getPhaseDisciplinePct(disciplineLog);
-    },
-    enabled: !!disciplineLog,
-  });
-
-  const { data: burnupData = null } = useQuery({
-    queryKey: queryKeys.planner.burnup(),
-    queryFn: async () => {
-      const mod = await getPlannerModule();
-      return mod.buildBurnupData(reviewLog, totalSections, config.finalGoalDate, config.bufferPercent);
-    },
-  });
-
-  const { data: projectionText = "" } = useQuery({
-    queryKey: queryKeys.planner.projectionText(),
-    queryFn: async () => {
-      if (velocity === null) return "";
-      const mod = await getPlannerModule();
-      return mod.getProjectionText(velocity, remaining, config.finalGoalDate, config.bufferPercent);
-    },
-    enabled: velocity !== null,
-  });
 
   const streaks = useMemo(() => {
     if (!disciplineLog) return { streak: 0, bestStreak: 0 };
@@ -226,18 +174,38 @@ export function usePlannerData(cards: SRCard[], reviewLog: ReviewLogEntry[], cat
     return { streak, bestStreak: best };
   }, [disciplineLog]);
 
-  const isConfigured = config.dailyAvailableMinutes > 0 && !!config.finalGoalDate;
+  // ── Async derivation kept on TanStack (Web Worker call) ──────────────
+  //
+  // `retentionRisk` cannot be a `useMemo` because the analytics worker is
+  // async. We keep ONE narrow invalidation effect (down from 9) that fires
+  // when its inputs change. Bridge `['planner']` invalidation also covers
+  // config writes; this effect catches cards/categoryRecords changes which
+  // don't go through `notifyPlannerChanged`.
+  const reviewLogHash = useMemo(() => hashReviewLog(reviewLog), [reviewLog]);
+  const cardsHash = useMemo(() => hashCards(cards), [cards]);
+  const categoryHash = useMemo(() => hashCategories(categoryRecords), [categoryRecords]);
+  const configHash = useMemo(() => hashPlannerConfig(config), [config]);
+
+  useEffect(() => {
+    void qc.invalidateQueries({ queryKey: queryKeys.planner.retentionRisk() });
+  }, [qc, cardsHash, categoryHash, configHash]);
+
+  // Suppress unused-var lint without changing public surface — hashes are
+  // computed for the effect above; reviewLogHash is reserved for future use
+  // (currently unused but kept stable for symmetry / call-site refactors).
+  void reviewLogHash;
 
   const { data: retentionRisk = [] } = useQuery({
     queryKey: queryKeys.planner.retentionRisk(),
     queryFn: async () => {
       const catIds = categoryRecords.map(r => r.id);
       if (catIds.length === 0) return [];
-      await getPlannerModule();
       const result = await analyticsClient.runCategoryStability(cards, catIds, config.finalGoalDate ?? null);
       return [...result].sort((a, b) => a.avgRetrievability - b.avgRetrievability);
     },
   });
+
+  const isConfigured = config.dailyAvailableMinutes > 0 && !!config.finalGoalDate;
 
   // PR-7f M3a — save kroz useMutation (optimistic + rollback via ctx.prev).
   // Bridge `onPlannerChanged('config')` invalidira ['planner'] nakon notify.
@@ -245,7 +213,6 @@ export function usePlannerData(cards: SRCard[], reviewLog: ReviewLogEntry[], cat
   const save = useCallback((updated: PlannerConfig) => {
     saveConfig.mutate(updated);
   }, [saveConfig]);
-
 
   return {
     config, save, isConfigured,
