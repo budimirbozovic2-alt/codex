@@ -22,7 +22,11 @@ export type {
   CardMapSetter,
 } from "./useCardMapStore";
 
-// ── Granular card selectors (RAM + hybrid façade) ──────────────────────────
+// ── Granular card selectors (TanStack-backed) ──────────────────────────────
+// Note: `*Ram` variants live in `./useCardSelectors` and are test-only.
+// They are NOT re-exported here — production code must use the TanStack
+// path (event-invalidated via `onCardsChanged` bridge). ESLint W9 enforces
+// this wall (see eslint.config.js).
 export {
   useCardsByCategory,
   useCardsByCategoryWithStatus,
@@ -30,11 +34,6 @@ export {
   useCardsByChapter,
   useCardCountByCategory,
   useCardById,
-  useCardsByCategoryRam,
-  useCardsBySubcategoryRam,
-  useCardsByChapterRam,
-  useCardCountByCategoryRam,
-  useCardByIdRam,
 } from "./useCardSelectors";
 
 export { useCardsBySource } from "./useCardsBySource";
