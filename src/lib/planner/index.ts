@@ -33,6 +33,7 @@ export type {
 
 export { initPlannerCache, onPlannerChanged, type PlannerChangeKind } from "./cache";
 export { loadPlanner, savePlanner } from "./config";
+export { scrubCategoryFromPlannerConfig } from "./scrub";
 export { calcVelocity, calcEstimatedFinish, getProjectionText } from "./velocity";
 export { calcPhaseProgress, getPhaseDisciplinePct } from "./phases";
 export {
