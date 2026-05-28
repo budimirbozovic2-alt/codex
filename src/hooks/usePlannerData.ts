@@ -1,5 +1,5 @@
-import { useMemo, useCallback } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useMemo, useCallback, useEffect } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { usePlannerMutations } from "@/hooks/planner/usePlannerMutations";
 import { Card as SRCard } from "@/lib/spaced-repetition";
 import { ReviewLogEntry } from "@/lib/storage";
