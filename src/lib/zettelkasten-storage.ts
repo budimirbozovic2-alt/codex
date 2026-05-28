@@ -32,20 +32,25 @@ export type { KnowledgeBaseArticle };
 // parallel wiki-link clicks (10 simultaneous [[Cilj]] taps → 1 row).
 const _subjectLocks = new Map<string, Promise<unknown>>();
 async function withSubjectLock<T>(subjectId: string, fn: () => Promise<T>): Promise<T> {
+const _subjectLocks = new Map<string, Promise<unknown>>();
+async function withSubjectLock<T>(subjectId: string, fn: () => Promise<T>): Promise<T> {
   const prev = _subjectLocks.get(subjectId) ?? Promise.resolve();
   let release!: () => void;
   const next = new Promise<void>((r) => { release = r; });
-  _subjectLocks.set(subjectId, prev.then(() => next));
+  const chained = prev.then(() => next);
+  _subjectLocks.set(subjectId, chained);
   try {
     await prev;
     return await fn();
   } finally {
     release();
-    // Cleanup if no newer caller queued behind us.
-    if (_subjectLocks.get(subjectId) === prev.then(() => next)) {
+    // Drop the lock entry only if no later caller has chained behind us.
+    if (_subjectLocks.get(subjectId) === chained) {
       _subjectLocks.delete(subjectId);
     }
   }
+}
+
 }
 
 
