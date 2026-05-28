@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { renderHook, act } from "@testing-library/react";
-import { useCardsBySource } from "@/store/useCardsBySource";
+import { useCardsBySourceRam as useCardsBySource } from "@/store/useCardsBySource";
 import { replaceCardMap, setCardMap } from "@/store/useCardMapStore";
 import type { Card } from "@/lib/spaced-repetition";
 import type { CardMap } from "@/lib/persist-queue";
