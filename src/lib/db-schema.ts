@@ -32,184 +32,39 @@ export function setDbErrorState(next: DbErrorState): void {
   try { _emit(EVENT_TYPES.DB_ERROR_CHANGED, next); } catch { /* noop */ }
 }
 
-// ─── Database Schema ────────────────────────────────────
-
-export interface ChapterNode {
-  id: string;
-  name: string;
-  sortOrder: number;
-}
-
-export interface SubcategoryNode {
-  id: string;
-  name: string;
-  chapters: ChapterNode[];
-  sortOrder: number;
-}
-
-export type ExaminerDifficulty = "tezak" | "lak";
-export type PreferredAnswerType = "esej" | "definicija" | "potpitanja";
-
-export interface ExaminerProfile {
-  difficulty?: ExaminerDifficulty;
-  preferredAnswerType?: PreferredAnswerType;
-  notes?: string;
-  updatedAt?: number;
-}
-
-export interface CategoryRecord {
-  id: string;
-  name: string;
-  sortOrder: number;
-  subcategories: SubcategoryNode[];
-  color?: string;
-  examinerProfile?: ExaminerProfile;
-}
-
-export interface SourceArticle {
-  id: string;
-  number: number;
-  title: string;
-  text: string;
-}
-
-export type SourceKind = "propis" | "skripta";
-
-/** Per-source exam-question state (W3): persisted on the Source record itself
- *  so the user's mapping progress survives reload, navigation, and app quit. */
-export interface ExamQuestion {
-  id: string;
-  text: string;
-  done: boolean;
-  moduleCount?: number;
-}
-
-export interface Source {
-  id: string;
-  categoryId: string;
-  title: string;
-  date: string;
-  /**
-   * @deprecated PR-7b: legacy HTML column. v22 destructive upgrade deletes
-   * this from IDB when telemetry is healthy. Migrate consumers to
-   * `deriveHtml(source.contentDoc)`.
-   */
-  htmlContent?: string;
-  /** PR-7b: canonical AST. Required on all new writes. */
-  contentDoc: EditorDoc;
-  outline: { id: string; text: string; level: number }[];
-  articles: SourceArticle[];
-  version: number;
-  createdAt: number;
-  updatedAt: number;
-  officialGazetteInfo?: string;
-  slMarkings?: string;
-  isExclusive?: boolean;
-  sourceKind?: SourceKind;
-  /** Per-source exam questions (pending + done). Optional — older records lack it. */
-  examQuestions?: ExamQuestion[];
-}
-
-export type MindMapMode = "hierarchy" | "procedure";
-
-export interface MindMapNodeData {
-  label?: string;
-  shape?: string;
-  colorTheme?: string;
-  [key: string]: unknown;
-}
-
-// `style` and `label` widened to match @xyflow/react's `Node` / `Edge` shapes
-// so persisted records and live canvas state are mutually assignable without
-// `as any` casts at the IDB boundary.
+// ─── Domain types ───────────────────────────────────────
+// Single source of truth lives in `db-types.ts` (Dexie-free). Re-export
+// here for backwards compat until the A1c-4 final drop.
+export type {
+  ChapterNode,
+  SubcategoryNode,
+  ExaminerDifficulty,
+  PreferredAnswerType,
+  ExaminerProfile,
+  CategoryRecord,
+  SourceArticle,
+  SourceKind,
+  ExamQuestion,
+  Source,
+  MindMapMode,
+  MindMapNodeData,
+  MindMapNodeRecord,
+  MindMapEdgeRecord,
+  MindMapDoc,
+  KnowledgeBaseArticle,
+  DraftRecord,
+} from "./db-types";
+import type {
+  CategoryRecord,
+  Source,
+  MindMapDoc,
+  KnowledgeBaseArticle,
+  DraftRecord,
+} from "./db-types";
 import type { CSSProperties, ReactNode } from "react";
 
-import { logger } from "@/lib/logger";
-export interface MindMapNodeRecord {
-  id: string;
-  type?: string;
-  position: { x: number; y: number };
-  data: MindMapNodeData;
-  style?: CSSProperties;
-  [key: string]: unknown;
-}
-
-export interface MindMapEdgeRecord {
-  id: string;
-  source: string;
-  target: string;
-  type?: string;
-  label?: ReactNode;
-  style?: CSSProperties;
-  animated?: boolean;
-  data?: Record<string, unknown>;
-  [key: string]: unknown;
-}
-
-export interface MindMapDoc {
-  id: string;
-  categoryId?: string;
-  title: string;
-  mode: MindMapMode;
-  nodes: MindMapNodeRecord[];
-  edges: MindMapEdgeRecord[];
-  createdAt: number;
-  updatedAt: number;
-}
-
-export interface KnowledgeBaseArticle {
-  id: string;
-  subjectId: string;          // === categoryId
-  title: string;
-  /**
-   * @deprecated PR-7b: legacy markdown column. v22 destructive upgrade
-   * deletes this from IDB when telemetry is healthy. Migrate consumers to
-   * `deriveMarkdown(article.contentDoc)` / `derivePlainText(article.contentDoc)`
-   * and backlink-index to AST-walking via `iterateWikiLinksFromDoc`.
-   */
-  content?: string;
-  /** PR-7b: canonical AST. Required on all new writes. */
-  contentDoc: EditorDoc;
-  linkedSourceIds: string[];
-  rootSubcategoryId?: string;
-  /** True for the per-subject "Index" article (entry-point). Cannot be deleted. */
-  isIndex?: boolean;
-  /**
-   * Lightweight, free-form tags used purely as Explorer-side filters.
-   * They do NOT impose any structure on the Zettelkasten — articles can
-   * exist without any tags, tags can exist on a single article, and they
-   * never feed search, navigation, or persistence beyond the panel filter.
-   * Always normalized: lowercase, trimmed, no `#` prefix, deduped.
-   */
-  tags?: string[];
-  /**
-   * Case-form synonyms (e.g. "krivičnog djela" for the article
-   * "Krivično djelo"). The backlink index treats each alias as a secondary
-   * key that resolves to the article's canonical title; the auto-link
-   * pipeline uses them to suppress duplicate placeholder creation.
-   * Always normalized: lowercase, trimmed, no wiki-link metachars, deduped.
-   * See `src/lib/zettelkasten-aliases.ts` for the normalization contract.
-   */
-  aliases?: string[];
-  createdAt: number;
-  updatedAt: number;
-}
-
-/**
- * Persisted draft snapshot for `useDraftAutosave({ persistDraft: true })`.
- * Survives tab close / app crash so the user can resume an in-progress edit.
- * Cleared on `saveNow()` success or explicit `discard()`. `payload` is opaque
- * JSON owned by the caller; the registry never inspects it.
- */
-export interface DraftRecord {
-  /** Stable composite key, e.g. `cardform:edit:<cardId>`. */
-  key: string;
-  /** Producer tag ("card-form", "article", "source-edit", ...). */
-  source: string;
-  /** Caller-owned JSON snapshot. */
-  payload: unknown;
-  updatedAt: number;
-}
+// Suppress unused-import warning for re-export-only types used in Dexie tables below.
+type _Unused = CSSProperties | ReactNode;
 
 // v20 introduced an `outbox` write-ahead log table for `persist-queue`.
 // Dropped in v23 (A1a) — SQLite WAL is the SSOT for durability and crash
