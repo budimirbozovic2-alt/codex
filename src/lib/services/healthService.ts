@@ -154,7 +154,7 @@ export async function detectIntegrityIssues(): Promise<IntegrityIssues> {
   };
 }
 
-}
+
 
 export function loadCrashLog(): CrashEntry[] {
   try {
