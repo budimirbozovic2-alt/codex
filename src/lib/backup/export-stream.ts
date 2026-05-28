@@ -83,7 +83,7 @@ async function emitArray(
 
   const flushBatch = async (batch: readonly unknown[], total: number) => {
     if (batch.length === 0) return;
-    const chunk = await serializeRowsInWorker(batch);
+    const chunk = await serializeRowsInWorker(batch as unknown[]);
     parts.push(isFirstBatch ? chunk : "," + chunk);
     isFirstBatch = false;
     i += batch.length;
