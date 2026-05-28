@@ -1,4 +1,4 @@
-import { type Source } from "./db";
+import type { Source } from "./db-types";
 import { parseArticles } from "./article-parser";
 import {
   getSource as repoGetSource,

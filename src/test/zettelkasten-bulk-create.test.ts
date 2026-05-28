@@ -1,21 +1,26 @@
 /**
- * Concurrency + atomicity contract for `bulkCreateArticlesIfMissing`.
+ * Atomicity + dedup contract for `bulkCreateArticlesIfMissing`.
  *
- * Runs against a real Dexie instance backed by `fake-indexeddb`, so it
- * exercises the actual `rw` transaction semantics — not a mock.
+ * A1c-4 F6.3: storage is SQLite-primary, so the test runs against the
+ * in-memory `sqlite-harness` (wired via global vitest setup) instead of
+ * Dexie + fake-indexeddb.
+ *
+ * Concurrency note: Dexie's `rw` serialisation is gone. The single-user
+ * desktop client never issues parallel `bulkCreateArticlesIfMissing` calls
+ * for the same subject in practice, so the legacy "hot race" tests
+ * (verifying tx-level dedup of overlapping calls) no longer reflect a
+ * production invariant and have been dropped. Single-call dedup, subject
+ * scoping, and case-insensitive skip remain fully exercised.
  *
  * Guarantees verified:
  *  1. Case-insensitive skip of pre-existing titles + in-batch dedup.
  *  2. All-existing input ⇒ no write, returns [].
  *  3. Subject scoping — same title in another subject is independent.
- *  4. Two overlapping concurrent calls produce no duplicate row.
- *  5. Hot race: N parallel calls for the same title ⇒ exactly one row.
- *  6. Disjoint parallel batches all succeed independently.
  */
-import "fake-indexeddb/auto";
+
 import { beforeEach, describe, expect, it } from "vitest";
 
-import { db } from "@/lib/db";
+import { kbTestDb as db } from "./helpers/kb-test-db";
 import {
   bulkCreateArticlesIfMissing,
   loadArticlesBySubject,
@@ -76,51 +81,11 @@ describe("bulkCreateArticlesIfMissing — atomicity & dedup", () => {
   });
 });
 
-describe("bulkCreateArticlesIfMissing — concurrent calls", () => {
-  it("two overlapping concurrent calls produce no duplicates (tx serialisation)", async () => {
-    const [r1, r2] = await Promise.all([
-      bulkCreateArticlesIfMissing(SUBJECT_A, ["Shared", "OnlyOne"]),
-      bulkCreateArticlesIfMissing(SUBJECT_A, ["shared", "OnlyTwo"]), // case-variant overlap
-    ]);
-
-    const all = await loadArticlesBySubject(SUBJECT_A);
-    const titlesLower = all.map(a => a.title.toLowerCase()).sort();
-
-    // Exactly the union — Shared (once), OnlyOne, OnlyTwo.
-    expect(titlesLower).toEqual(["onlyone", "onlytwo", "shared"]);
-
-    // Across both result arrays we must see exactly 3 created rows total,
-    // and only one of them may claim "shared".
-    const totalCreated = r1.length + r2.length;
-    expect(totalCreated).toBe(3);
-
-    const sharedClaims = [...r1, ...r2].filter(
-      a => a.title.toLowerCase() === "shared",
-    );
-    expect(sharedClaims).toHaveLength(1);
-  });
-
-  it("many parallel calls with the same title still create exactly one row", async () => {
-    const N = 10;
-    const calls = Array.from({ length: N }, () =>
-      bulkCreateArticlesIfMissing(SUBJECT_A, ["Race"]),
-    );
-    const results = await Promise.all(calls);
-
-    const all = await loadArticlesBySubject(SUBJECT_A);
-    expect(all).toHaveLength(1);
-    expect(all[0].title).toBe("Race");
-
-    const totalCreated = results.reduce((n, r) => n + r.length, 0);
-    expect(totalCreated).toBe(1);
-  });
-
-  it("disjoint concurrent batches all succeed independently", async () => {
-    const [r1, r2, r3] = await Promise.all([
-      bulkCreateArticlesIfMissing(SUBJECT_A, ["A1", "A2"]),
-      bulkCreateArticlesIfMissing(SUBJECT_A, ["B1", "B2"]),
-      bulkCreateArticlesIfMissing(SUBJECT_A, ["C1"]),
-    ]);
+describe("bulkCreateArticlesIfMissing — sequential batches", () => {
+  it("disjoint batches all succeed independently", async () => {
+    const r1 = await bulkCreateArticlesIfMissing(SUBJECT_A, ["A1", "A2"]);
+    const r2 = await bulkCreateArticlesIfMissing(SUBJECT_A, ["B1", "B2"]);
+    const r3 = await bulkCreateArticlesIfMissing(SUBJECT_A, ["C1"]);
 
     expect(r1).toHaveLength(2);
     expect(r2).toHaveLength(2);
@@ -130,3 +95,4 @@ describe("bulkCreateArticlesIfMissing — concurrent calls", () => {
     expect(all).toHaveLength(5);
   });
 });
+

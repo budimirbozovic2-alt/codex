@@ -18,10 +18,9 @@
  *   - Asserting version increments deterministically instead of polling.
  *   - Using event capture to verify backlink index is updated before test assertions.
  */
-import "fake-indexeddb/auto";
 import { beforeEach, afterEach, describe, expect, it, vi } from "vitest";
 
-import { db } from "@/lib/db";
+import { kbTestDb as db } from "./helpers/kb-test-db";
 import {
   bulkCreateArticlesIfMissing,
   findArticleByTitle,

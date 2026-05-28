@@ -1,12 +1,11 @@
 /**
  * In-flight dedupe of parallel wiki-link clicks on the same placeholder title.
  */
-import "fake-indexeddb/auto";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createElement } from "react";
 import { act, renderHook } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { db } from "@/lib/db";
+import { kbTestDb as db } from "./helpers/kb-test-db";
 import { loadArticlesBySubject } from "@/lib/zettelkasten-storage";
 import { useArticleMutations } from "@/hooks/zettelkasten/useArticleMutations";
 import type { ArticleDraftApi } from "@/hooks/zettelkasten/useArticleDraft";
