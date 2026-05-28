@@ -15,7 +15,7 @@ export default function DatabaseRecoveryPanel({ error }: Props) {
       return;
     }
     try {
-      const { db } = await import("@/lib/db");
+      const { db } = await import("@/lib/legacy/idb-dexie");
       await db.delete();
     } catch (e) {
       logger.error("[DatabaseRecovery] delete failed", e);
