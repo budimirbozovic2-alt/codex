@@ -80,8 +80,6 @@ export function installQueryBridges(qc: QueryClient): void {
   // useQuery hook is introduced for these keys.
 }
 
-}
-
 /** Test-only helper — resetuje internal flag tako da test može re-instalirati bridge sa svježim mockom. */
 export function _resetBridgesForTest(): void {
   _installed = false;
