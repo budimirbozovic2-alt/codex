@@ -80,6 +80,14 @@ export function usePlannerData(cards: SRCard[], reviewLog: ReviewLogEntry[], cat
     },
   });
 
+  // Cascade: velocity / scalar inputs change → derived planner queries refetch.
+  useEffect(() => {
+    void qc.invalidateQueries({ queryKey: queryKeys.planner.estimatedFinish() });
+    void qc.invalidateQueries({ queryKey: queryKeys.planner.plannerStatus() });
+    void qc.invalidateQueries({ queryKey: queryKeys.planner.projectionText() });
+    void qc.invalidateQueries({ queryKey: queryKeys.planner.timeRec() });
+  }, [qc, velocity, remaining, configHash]);
+
   const { data: estimatedFinish = null } = useQuery({
     queryKey: queryKeys.planner.estimatedFinish(),
     queryFn: async () => {
