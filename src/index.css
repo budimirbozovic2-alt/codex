@@ -911,3 +911,24 @@ input[type="number"] {
 }
 
 
+/* ─── View Transitions API — Polish & Perception pilot ───
+   220ms cross-fade between snapshots of any element tagged with
+   `view-transition-name`. Falls back to instant swap when API is
+   unsupported (older Electron, jsdom). Honours reduced-motion. */
+::view-transition-old(root),
+::view-transition-new(root),
+::view-transition-old(sources-tab-strip),
+::view-transition-new(sources-tab-strip),
+::view-transition-old(category-tab-content),
+::view-transition-new(category-tab-content) {
+  animation-duration: 220ms;
+  animation-timing-function: cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none !important;
+  }
+}
+
