@@ -55,10 +55,14 @@ export async function writeCategoriesTx(
         for (const c of freshCategories) existingByName.set(c.name.toLowerCase(), c.id);
         const toInsert = parsed.categories.filter(
           (cr) => !existingByName.has(cr.name.toLowerCase()),
-        await tx.runMany(CATEGORY_INSERT_SQL, toInsert.map((cat) => bindCategory(cat)));
-
-        }
+        );
+        await tx.runMany(
+          CATEGORY_INSERT_SQL,
+          toInsert.map((cat) => bindCategory(cat)),
+        );
         working = [...freshCategories, ...toInsert];
+      }
+
       }
     } else {
       // Legacy `string[]` format — synthesize CategoryRecord[] from names.
