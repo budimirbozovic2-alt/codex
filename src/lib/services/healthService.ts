@@ -171,16 +171,22 @@ export async function cleanOrphans(cardIds: string[]): Promise<CleanOrphansResul
   }
   const fallback = categories[0];
 
-  // Write path stays on Dexie for now — cardRepository owns the SQLite
-  // mirror and we don't want two writers racing on the same rows. A2 / B1
-  // will collapse this into a single transactional cardRepository call.
-  await db.cards.where("id").anyOf(cardIds).modify({
-    categoryId: fallback.id,
-    subcategoryId: "",
-    chapterId: ""
-  });
+  // A1c-4 F6: SQLite-primary write. Load the affected cards, mutate the
+  // taxonomy fields in JS, then commit through `cardMapWrites.bulkPut` —
+  // schedules persistence via persistQueue → SQLite adapter AND updates
+  // the in-RAM Zustand mirror in lockstep. No Dexie writes anywhere.
+  const loaded = await getCardsByIds(cardIds);
+  const patched = loaded
+    .filter((c): c is NonNullable<typeof c> => c !== undefined)
+    .map((c) => ({
+      ...c,
+      categoryId: fallback.id,
+      subcategoryId: "",
+      chapterId: "",
+    }));
+  cardMapWrites.bulkPut(patched);
 
-  return { fallbackCategoryName: fallback.name, movedCount: cardIds.length };
+  return { fallbackCategoryName: fallback.name, movedCount: patched.length };
 }
 
 export async function healStaleLinks() {
