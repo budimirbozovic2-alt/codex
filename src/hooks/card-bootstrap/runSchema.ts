@@ -1,16 +1,17 @@
 /**
  * PR-2 — Phase 1: schema upgrade + legacy data migracije + WAL recovery.
  *
- * Sve operacije koje *moraju* uspjeti prije nego što app uopšte može
- * čitati podatke. Ako bilo koja padne, throw-uje i orchestrator emituje
- * SCHEMA_FAIL → schema-error → BootRecoveryGate prikazuje SchemaErrorScreen.
+ * A1c Phase 4: when the SQLite migration flag is set, ALL Dexie-bound
+ * legacy paths (localStorage→IDB, mnemonics→IDB, IDB→SQLite) are skipped.
+ * SQLite is the sole SSOT, so there is nothing to migrate and no reason to
+ * load the Dexie shell.
  */
-import { migrateFromLocalStorage } from "@/lib/db-seed";
-// Outbox recovery removed in A1a — SQLite WAL handles durability.
 import { markBootStep } from "@/lib/boot-trace";
 import { transition } from "@/lib/boot";
 import { logger } from "@/lib/logger";
 import { withTimeout } from "./withTimeout";
+import { isElectron } from "@/lib/electron-integration";
+import { isSqliteMigrationComplete } from "@/lib/persistence/sqlite/migration-status";
 
 export class SchemaError extends Error {
   constructor(public step: string, cause: unknown) {
@@ -24,10 +25,27 @@ export async function runSchema(): Promise<void> {
   markBootStep("cards:schema-start");
   transition({ type: "SCHEMA_START" });
 
+  // A1c Phase 4 — fast path: if SQLite is already the SSOT, skip all
+  // legacy migrations (and the Dexie shell load they require).
+  if (isElectron()) {
+    try {
+      const { getOpfsSqliteExecutor } = await import("@/lib/persistence/sqlite/client");
+      const exec = await getOpfsSqliteExecutor();
+      if (await isSqliteMigrationComplete(exec)) {
+        markBootStep("cards:schema-done", "sqlite-only");
+        transition({ type: "SCHEMA_DONE" });
+        return;
+      }
+    } catch (e) {
+      logger.warn("[boot] schema preflight failed — falling back to legacy migrations", e);
+    }
+  }
+
   // Step 1: Dexie verzioni upgrade (i legacy localStorage migracija).
   try {
     transition({ type: "SCHEMA_PROGRESS", pct: 20, label: "Schema upgrade…" });
     if (import.meta.env.DEV) logger.log("[boot:diag] schema step 1: migrateFromLocalStorage");
+    const { migrateFromLocalStorage } = await import("@/lib/db-seed");
     await withTimeout(migrateFromLocalStorage(), 3000, "migration", undefined);
   } catch (e) {
     throw new SchemaError("migrateFromLocalStorage", e);
@@ -44,15 +62,13 @@ export async function runSchema(): Promise<void> {
 
   // Step 3 removed (A1a): outbox WAL recovery — SQLite WAL replaces it.
 
-
   // Step 4 (PR-8 M2): One-shot IDB → SQLite migration. Electron-only because
   // OPFS-SAH-pool is unreliable in browsers today. SOFT-FAIL: failure here
-  // does NOT throw SchemaError — the SQLite adapter is dormant in this
-  // release, so the user keeps booting on IDB while the failure is logged
-  // for the health monitor. The migration retries on the next boot.
+  // does NOT throw SchemaError — the user keeps booting on IDB while the
+  // failure is logged for the health monitor. The migration retries on the
+  // next boot. Subsequent boots take the fast path above and skip this.
   try {
     transition({ type: "SCHEMA_PROGRESS", pct: 90, label: "SQLite migracija…" });
-    const { isElectron } = await import("@/lib/electron-integration");
     if (isElectron()) {
       const [{ getOpfsSqliteExecutor }, migrateMod] = await Promise.all([
         import("@/lib/persistence/sqlite/client"),
@@ -69,7 +85,6 @@ export async function runSchema(): Promise<void> {
         logger.info("[boot] sqlite migration", report);
       }
       // PR-9 M2 — read-path migration (planner KV + disciplineLog + drafts).
-      // Independent flag, so retries cleanly if a transient failure occurs.
       const pr9Report = await withTimeout(
         migrateMod.migratePr9ReadPathFromIdb(exec),
         10000,
@@ -87,3 +102,4 @@ export async function runSchema(): Promise<void> {
   markBootStep("cards:schema-done");
   transition({ type: "SCHEMA_DONE" });
 }
+
