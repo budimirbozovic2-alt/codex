@@ -7,12 +7,11 @@
  *  2. Smart-Split builders attach `contentDoc` to each section payload so
  *     freshly created cards don't have to wait for lazy-migrate.
  */
-import "fake-indexeddb/auto";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createElement } from "react";
 import { act, renderHook } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { db } from "@/lib/db";
+import { getKnowledgeBaseArticle } from "@/lib/db/queries";
 import { newArticle, saveArticle } from "@/lib/zettelkasten-storage";
 import { useArticleDraft } from "@/hooks/zettelkasten/useArticleDraft";
 import {
@@ -36,8 +35,7 @@ const SOURCE = {
   createdAt: 0, updatedAt: 0,
 } as unknown as Source;
 
-beforeEach(async () => {
-  await db.knowledgeBaseArticles.clear();
+beforeEach(() => {
   vi.restoreAllMocks();
 });
 
@@ -73,7 +71,7 @@ describe("useArticleDraft — contentDoc seed + flush", () => {
     expect(result.current.draft?.contentDoc).toEqual(nextDoc);
 
     await act(async () => { await result.current.flush(); });
-    const persisted = (await db.knowledgeBaseArticles.get(article.id))!;
+    const persisted = (await getKnowledgeBaseArticle(article.id))!;
     expect(persisted.contentDoc?.version).toBe(4);
     expect(persisted.content).toContain("novi sadrzaj");
   });

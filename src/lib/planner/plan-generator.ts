@@ -1,7 +1,7 @@
 /** Subject-oriented plan generator + learning/review ratio heuristic. */
 import { addDays, differenceInDays } from "date-fns";
 import type { Card } from "../spaced-repetition";
-import type { CategoryRecord } from "../db";
+import type { CategoryRecord } from "../db-types";
 import type { SubjectPlan, SubjectUnit, LearningReviewRatio } from "@/types/planner";
 import type { PlannerConfig } from "./types";
 
