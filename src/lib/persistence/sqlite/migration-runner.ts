@@ -67,6 +67,65 @@ const PR9_A1B_P16_MNEMONIC_AUX_SQL = `
   CREATE INDEX IF NOT EXISTS idx_mnemonic_test_time ON mnemonicTestLog(timestamp);
 `;
 
+const PR9_A1C3_LOG_TABLES_SQL = `
+  -- PR-9 A1c-3 nastavak — log tables move to SQLite-primary.
+  -- All auto-inc tables use INTEGER PRIMARY KEY AUTOINCREMENT (== Dexie ++id).
+  -- payload column carries the full JSON entry; denormalised columns power the
+  -- handful of indexed queries (cardId/timestamp/date lookups).
+  CREATE TABLE IF NOT EXISTS reviewLog (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    cardId     TEXT NOT NULL,
+    timestamp  INTEGER NOT NULL,
+    payload    TEXT NOT NULL
+  );
+  CREATE INDEX IF NOT EXISTS idx_review_card_time ON reviewLog(cardId, timestamp);
+  CREATE INDEX IF NOT EXISTS idx_review_time      ON reviewLog(timestamp);
+
+  CREATE TABLE IF NOT EXISTS pomodoroLog (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    timestamp  INTEGER NOT NULL,
+    payload    TEXT NOT NULL
+  );
+  CREATE INDEX IF NOT EXISTS idx_pomodoro_time ON pomodoroLog(timestamp);
+
+  CREATE TABLE IF NOT EXISTS diary (
+    id       TEXT PRIMARY KEY,
+    date     TEXT NOT NULL,
+    payload  TEXT NOT NULL
+  );
+  CREATE INDEX IF NOT EXISTS idx_diary_date ON diary(date);
+
+  CREATE TABLE IF NOT EXISTS calibrationLog (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    cardId     TEXT NOT NULL,
+    timestamp  INTEGER NOT NULL,
+    payload    TEXT NOT NULL
+  );
+  CREATE INDEX IF NOT EXISTS idx_calibration_card_time ON calibrationLog(cardId, timestamp);
+
+  CREATE TABLE IF NOT EXISTS latencyLog (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    cardId     TEXT NOT NULL,
+    timestamp  INTEGER NOT NULL,
+    payload    TEXT NOT NULL
+  );
+  CREATE INDEX IF NOT EXISTS idx_latency_card_time ON latencyLog(cardId, timestamp);
+
+  CREATE TABLE IF NOT EXISTS slippageLog (
+    id       INTEGER PRIMARY KEY AUTOINCREMENT,
+    date     TEXT NOT NULL,
+    payload  TEXT NOT NULL
+  );
+  CREATE INDEX IF NOT EXISTS idx_slippage_date ON slippageLog(date);
+
+  CREATE TABLE IF NOT EXISTS activityLog (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    timestamp  INTEGER NOT NULL,
+    payload    TEXT NOT NULL
+  );
+  CREATE INDEX IF NOT EXISTS idx_activity_time ON activityLog(timestamp);
+`;
+
 const MIGRATIONS: readonly Migration[] = [
   { version: 1, label: "init", sql: schemaSql },
   // PR-9 M1 — read-path migration: disciplineLog + drafts move off Dexie.
@@ -79,6 +138,9 @@ const MIGRATIONS: readonly Migration[] = [
   { version: 3, label: "pr9-a1b-p14-kb-articles", sql: PR9_A1B_P14_KB_ARTICLES_SQL },
   // PR-9 A1b P1.6 — Major System + mnemonic test log move to SQLite-primary.
   { version: 4, label: "pr9-a1b-p16-mnemonic-aux", sql: PR9_A1B_P16_MNEMONIC_AUX_SQL },
+  // PR-9 A1c-3 nastavak — log tables (reviewLog, pomodoroLog, diary,
+  // calibrationLog, latencyLog, slippageLog, activityLog) move to SQLite.
+  { version: 5, label: "pr9-a1c3-log-tables", sql: PR9_A1C3_LOG_TABLES_SQL },
 ];
 
 export const TARGET_USER_VERSION = MIGRATIONS[MIGRATIONS.length - 1].version;
