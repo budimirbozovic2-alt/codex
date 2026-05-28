@@ -71,7 +71,7 @@ describe("useArticleDraft — contentDoc seed + flush", () => {
     expect(result.current.draft?.contentDoc).toEqual(nextDoc);
 
     await act(async () => { await result.current.flush(); });
-    const persisted = (await db.knowledgeBaseArticles.get(article.id))!;
+    const persisted = (await getKnowledgeBaseArticle(article.id))!;
     expect(persisted.contentDoc?.version).toBe(4);
     expect(persisted.content).toContain("novi sadrzaj");
   });
