@@ -101,7 +101,7 @@ async function clearTable(table: string): Promise<void> {
 
 // Bulk insert for auto-inc tables. `preserveId=true` keeps backup ids stable
 // (used by restore); otherwise SQLite assigns fresh ROWIDs.
-async function bulkInsertAutoInc<T extends Record<string, unknown>>(
+async function bulkInsertAutoInc<T>(
   table: string,
   rows: readonly AutoIncRow<T>[],
   cols: { [col: string]: (row: T) => string | number | null },
