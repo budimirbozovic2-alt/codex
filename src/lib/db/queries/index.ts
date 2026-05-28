@@ -86,6 +86,13 @@ export {
   notifyKnowledgeBaseChanged,
 } from "./knowledge-base";
 export {
+  listAllTestLogEntries,
+  listTestLogEntriesByCard,
+  addTestLogEntry,
+} from "./mnemonic-test-log";
+// PR-9 A1c-3 nastavak — log tables (reviewLog/pomodoroLog/diary/
+// calibrationLog/latencyLog/slippageLog/activityLog) SQLite-primary.
+export {
   listAllReviewLog, countReviewLog, clearReviewLog, bulkPutReviewLog, loadRecentReviewLog,
   listAllPomodoroLog, countPomodoroLog, clearPomodoroLog, bulkPutPomodoroLog,
   listAllDiary, countDiary, clearDiary, bulkPutDiary,
@@ -99,18 +106,6 @@ export {
   pruneAutoIncTable,
 } from "./logs";
 
-} from "./mnemonic-test-log";
-// PR-9 A1c-3 nastavak — log tables (reviewLog/pomodoroLog/diary/
-// calibrationLog/latencyLog/slippageLog/activityLog) SQLite-primary.
-export {
-  listAllReviewLog, countReviewLog, clearReviewLog, bulkPutReviewLog, loadRecentReviewLog,
-  listAllPomodoroLog, countPomodoroLog, clearPomodoroLog, bulkPutPomodoroLog,
-  listAllDiary, countDiary, clearDiary, bulkPutDiary,
-  listAllCalibrationLog, countCalibrationLog, clearCalibrationLog, bulkPutCalibrationLog,
-  listAllLatencyLog, countLatencyLog, clearLatencyLog, bulkPutLatencyLog,
-  listAllSlippageLog, countSlippageLog, clearSlippageLog, bulkPutSlippageLog,
-  listAllActivityLog, countActivityLog, clearActivityLog, bulkPutActivityLog,
-} from "./logs";
 // A1c-4 F1 — categories aggregate root (SQLite-primary).
 export {
   listAllCategories,
