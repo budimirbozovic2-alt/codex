@@ -1,7 +1,7 @@
 import { Brain, Wrench, FolderOpen, Search, Sparkles, ArrowUpDown, CheckCircle2 } from "lucide-react";
 import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import { MnemonicCard, MnemonicStatus } from "./mnemonic-storage";
-import { type CategoryRecord } from "@/lib/db";
+import type { CategoryRecord } from "@/lib/db-types";
 import { List, type RowComponentProps, type ListImperativeAPI } from "react-window";
 
 import InfoPanel from "@/components/InfoPanel";

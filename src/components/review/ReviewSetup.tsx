@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import OnboardingModal, { hasSeenOnboarding } from "@/components/OnboardingModal";
 import { DueItem, ReviewMode, REVIEW_ONBOARDING_KEY, REVIEW_SLIDES } from "./review-constants";
 import { buildStabilizationItems, buildCriticalItems, buildHardestItems } from "@/lib/review-mode-builder";
-import type { CategoryRecord } from "@/lib/db";
+import type { CategoryRecord } from "@/lib/db-types";
 import InfoPanel from "@/components/InfoPanel";
 
 type FilterType = "all" | "essay" | "flash";

@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { X, ExternalLink, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import type { Source } from "@/lib/db";
+import type { Source } from "@/lib/db-types";
 import { ContentRenderer } from "@/components/ui/ContentRenderer";
 import { deriveHtml } from "@/lib/editor-v4/derived";
 

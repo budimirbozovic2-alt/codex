@@ -7,7 +7,7 @@
  */
 import type { Card } from "@/lib/spaced-repetition";
 import type { ReviewLogEntry } from "@/lib/storage";
-import type { CategoryRecord } from "@/lib/db";
+import type { CategoryRecord } from "@/lib/db-types";
 
 export function hashReviewLog(log: ReviewLogEntry[]): string {
   if (log.length === 0) return "empty";

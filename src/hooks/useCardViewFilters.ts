@@ -11,7 +11,7 @@
 import { useCallback, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { type Card } from "@/lib/spaced-repetition";
-import type { CategoryRecord } from "@/lib/db";
+import type { CategoryRecord } from "@/lib/db-types";
 import { cardsByChapter } from "@/lib/db/queries";
 import { queryKeys } from "@/lib/query/keys";
 import {

@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { type Card, SectionState } from "@/lib/spaced-repetition";
 import type { FrequencyTag } from "@/lib/sr/types";
 import { getFrequencyMeta } from "@/lib/sr/frequency";
-import { type CategoryRecord } from "@/lib/db";
+import type { CategoryRecord } from "@/lib/db-types";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import FrequencyMenu from "@/components/card-list/FrequencyMenu";

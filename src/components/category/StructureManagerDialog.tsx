@@ -8,7 +8,7 @@ import {
   Plus, ChevronDown, ChevronRight, Edit2, Trash2, Check, X,
   ArrowUp, ArrowDown, FolderOpen, BookOpen, AlertTriangle,
 } from "lucide-react";
-import type { SubcategoryNode, ChapterNode } from "@/lib/db";
+import type { SubcategoryNode, ChapterNode } from "@/lib/db-types";
 import { stableLegacyId } from "@/lib/stable-id";
 import { cn } from "@/lib/utils";
 

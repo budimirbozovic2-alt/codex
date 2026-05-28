@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { useCardData, useCategoryData, useCardOnlyActions, useCategoryActions, useUIContext, useBackupActions } from "@/contexts/AppContext";
 import { useCardsByCategory } from "@/store";
 import CardCreateMenu from "@/components/category/CardCreateMenu";
-import type { SubcategoryNode } from "@/lib/db";
+import type { SubcategoryNode } from "@/lib/db-types";
 import type { Card } from "@/lib/spaced-repetition";
 
 import { useEditReturn } from "@/hooks/useEditReturn";

@@ -3,7 +3,7 @@ import { Trash2, Tag, X, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { type Card } from "@/lib/spaced-repetition";
 import type { FrequencyTag } from "@/lib/sr/types";
-import { type CategoryRecord, type SubcategoryNode } from "@/lib/db";
+import type { CategoryRecord, SubcategoryNode } from "@/lib/db-types";
 import { toast } from "sonner";
 import CardViewTable from "./CardViewTable";
 import CardViewFilterBar, { type FrequencyFilterValue } from "./CardViewFilterBar";

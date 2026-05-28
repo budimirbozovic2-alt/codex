@@ -1,5 +1,5 @@
 import { useCallback, useMemo } from "react";
-import type { CategoryRecord } from "@/lib/db";
+import type { CategoryRecord } from "@/lib/db-types";
 import { Card, FrequencyTag, CardSourceType } from "@/lib/spaced-repetition";
 import { toast } from "sonner";
 import type { CardDraftSnapshot } from "./useCardDraftAutosave";

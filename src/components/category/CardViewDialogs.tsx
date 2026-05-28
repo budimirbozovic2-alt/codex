@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { type CategoryRecord } from "@/lib/db";
+import type { CategoryRecord } from "@/lib/db-types";
 import type { Card } from "@/lib/spaced-repetition";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";

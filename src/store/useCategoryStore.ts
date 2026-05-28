@@ -15,7 +15,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 import { createStore } from "zustand/vanilla";
 import { useSyncExternalStore, useRef } from "react";
-import type { CategoryRecord, SubcategoryNode, ChapterNode } from "@/lib/db";
+import type { CategoryRecord, SubcategoryNode, ChapterNode } from "@/lib/db-types";
 import type { CategoryIdLike, SubcategoryIdLike } from "@/lib/ids";
 
 interface CategoryIndex {

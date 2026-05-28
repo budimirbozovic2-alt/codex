@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ChevronRight, ChevronDown, Layers, FolderTree, BookMarked } from "lucide-react";
-import type { SubcategoryNode } from "@/lib/db";
+import type { SubcategoryNode } from "@/lib/db-types";
 
 interface Props {
   subcategoryNodes: SubcategoryNode[];

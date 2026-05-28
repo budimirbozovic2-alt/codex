@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { usePlannerMutations } from "@/hooks/planner/usePlannerMutations";
 import { Card as SRCard } from "@/lib/spaced-repetition";
 import { ReviewLogEntry } from "@/lib/storage";
-import type { CategoryRecord } from "@/lib/db";
+import type { CategoryRecord } from "@/lib/db-types";
 import { analyticsClient } from "@/lib/analytics/workerClient";
 import type { PlannerConfig } from "@/lib/planner-storage";
 import { DEFAULT_CONFIG } from "@/lib/planner/types";

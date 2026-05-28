@@ -6,7 +6,7 @@ import { motion } from "framer-motion";
 
 import ScrollableRow from "@/components/ScrollableRow";
 import type { Card } from "@/lib/spaced-repetition";
-import type { CategoryRecord } from "@/lib/db";
+import type { CategoryRecord } from "@/lib/db-types";
 import { useSessionFilterCounts } from "@/hooks/session/useSessionFilterCounts";
 
 

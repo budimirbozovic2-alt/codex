@@ -1,6 +1,6 @@
 import { Plus, Trash2, Map, GitBranch, Workflow, HelpCircle } from "lucide-react";
 import { useState } from "react";
-import type { MindMapDoc, MindMapMode } from "@/lib/db";
+import type { MindMapDoc, MindMapMode } from "@/lib/db-types";
 import { useMindMaps } from "@/hooks/useMindMaps";
 import { useMindMapMutations } from "@/hooks/mindmap/useMindMapMutations";
 import { Button } from "@/components/ui/button";

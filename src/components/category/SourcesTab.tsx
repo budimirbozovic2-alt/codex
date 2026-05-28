@@ -1,6 +1,6 @@
 import { useState, useCallback, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { type Source } from "@/lib/db";
+import type { Source } from "@/lib/db-types";
 import { useSourceMutations } from "@/hooks/source/useSourceMutations";
 import { sanitizeHtml } from "@/lib/sanitize";
 import { parseArticles } from "@/lib/article-parser";

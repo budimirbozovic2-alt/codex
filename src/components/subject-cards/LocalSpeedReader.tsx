@@ -15,7 +15,7 @@ import {
 import {
   type Card, SectionState, getCardRetrievability,
 } from "@/lib/spaced-repetition";
-import type { SubcategoryNode } from "@/lib/db";
+import type { SubcategoryNode } from "@/lib/db-types";
 import SpeedReaderControls from "@/components/speed-reader/SpeedReaderControls";
 import { retentionColor } from "@/components/speed-reader/retention-color";
 import { useSpeedReaderSelection } from "@/hooks/speed-reader/useSpeedReaderSelection";

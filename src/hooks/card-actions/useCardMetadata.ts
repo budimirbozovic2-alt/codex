@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import type { CategoryRecord, SubcategoryNode } from "@/lib/db";
+import type { CategoryRecord, SubcategoryNode } from "@/lib/db-types";
 import type { Card, FrequencyTag, CardSourceType } from "@/lib/spaced-repetition";
 import type { FormWidth } from "./validation";
 

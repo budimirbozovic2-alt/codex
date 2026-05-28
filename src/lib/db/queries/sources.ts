@@ -6,7 +6,7 @@
  * become no-ops; PROD throws via `assertDesktop`.
  */
 import type { SqlExecutor } from "@/lib/persistence/sqlite/executor";
-import { type Source } from "@/lib/db";
+import type { Source } from "@/lib/db-types";
 import type { Card } from "@/lib/spaced-repetition";
 import { logger } from "@/lib/logger";
 import { notifyExecutorNull } from "./_shared/executor-telemetry";

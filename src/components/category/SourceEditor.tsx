@@ -10,7 +10,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar } from "@/components/ui/calendar";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import type { Source, SourceKind } from "@/lib/db";
+import type { Source, SourceKind } from "@/lib/db-types";
 import { extractOutline } from "@/lib/sources-storage";
 import { useSourceMutations } from "@/hooks/source/useSourceMutations";
 import { sanitizeHtml } from "@/lib/sanitize";

@@ -3,7 +3,7 @@
  * SQLite-only read/write.
  */
 import type { SqlBindValue, SqlExecutor } from "@/lib/persistence/sqlite/executor";
-import { type KnowledgeBaseArticle } from "@/lib/db";
+import type { KnowledgeBaseArticle } from "@/lib/db-types";
 import { logger } from "@/lib/logger";
 import { notifyExecutorNull } from "./_shared/executor-telemetry";
 
