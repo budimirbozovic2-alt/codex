@@ -1,4 +1,5 @@
-import { db, type CategoryRecord, type SubcategoryNode, type ChapterNode } from "@/lib/db";
+import { type CategoryRecord, type SubcategoryNode, type ChapterNode } from "@/lib/db";
+import { categoryRepository } from "@/lib/repositories";
 import { Card } from "@/lib/spaced-repetition";
 import { stableLegacyId } from "@/lib/stable-id";
 
@@ -100,14 +101,13 @@ export async function normalizeCategories(
     updatedRecords.push({ ...r, subcategories: nodes });
   }
 
-  // ISPRAVLJEN BLOK ZA PERZISTENCIJU:
-  if (needsPersist && db) {
+  // PR-9 A1c-3: persist through categoryRepository SSOT (no per-row Dexie).
+  if (needsPersist) {
     try {
-      // Čekamo da se svi upisi završe prije nego proglasimo boot uspješnim
-      await Promise.all(
-        updatedRecords.map((rec) =>
-          db.categories.update(rec.id, { subcategories: rec.subcategories })
-        )
+      const byId = new Map(updatedRecords.map((r) => [r.id, r]));
+      await categoryRepository.commit(
+        (prev) => prev.map((r) => byId.get(r.id) ?? r),
+        "boot:normalizeCategories",
       );
     } catch (err: unknown) {
       const e = err instanceof Error ? err : new Error(String(err));
