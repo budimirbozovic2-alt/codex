@@ -55,14 +55,17 @@ describe("CardSelectionEditor (PR-7a / M5)", () => {
   it("renders provided contentDoc with marks intact", async () => {
     const doc = htmlToDoc("<p><strong>fallback</strong> putanja</p>");
     const { container } = render(
-      <CardSelectionEditor
-        cardId="c2"
-        question="?"
-        category="cat-1"
-        categoryId="cat-1"
-        contentDoc={doc}
-      />
+      <Wrapper>
+        <CardSelectionEditor
+          cardId="c2"
+          question="?"
+          category="cat-1"
+          categoryId="cat-1"
+          contentDoc={doc}
+        />
+      </Wrapper>
     );
+
     await waitMicroTask();
     const pm = container.querySelector(".ProseMirror");
     expect(pm?.textContent).toContain("fallback");
