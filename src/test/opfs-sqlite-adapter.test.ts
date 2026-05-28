@@ -4,12 +4,13 @@
  * We don't load the wasm runtime in vitest — full OPFS coverage lives in the
  * Electron smoke step. These tests exercise the adapter's transactional
  * contract and the row codecs end-to-end against a minimal SQL-shaped mock.
+ *
+ * The mirroring adapter was retired in A1c-4 (SQLite is the only backend),
+ * so this file now only covers the OPFS adapter.
  */
 import { describe, it, expect } from "vitest";
 import type { SqlBindValue, SqlExecutor, SqlRow } from "@/lib/persistence/sqlite/executor";
 import { createOpfsSqliteAdapter } from "@/lib/persistence/opfs-sqlite-adapter";
-import { createMirroringAdapter } from "@/lib/persistence/mirroring-adapter";
-import type { PersistAdapter } from "@/lib/persistence/PersistAdapter";
 import type { Card } from "@/lib/spaced-repetition";
 
 interface Row { id: string; payload: string }
@@ -72,34 +73,4 @@ describe("opfsSqliteAdapter", () => {
     await adapter.bulkApply([], []);
     expect(mock.bulkCallCount).toBe(0);
   });
-
 });
-
-describe("mirroringAdapter", () => {
-  it("forwards writes to both primary and secondary", async () => {
-    const calls: string[] = [];
-    const primary: PersistAdapter = {
-      async bulkApply() { calls.push("p"); },
-    };
-    const secondary: PersistAdapter = {
-      async bulkApply() { calls.push("s"); },
-    };
-    const adapter = createMirroringAdapter(primary, secondary);
-    await adapter.bulkApply([makeCard("a")], []);
-    // Allow fire-and-forget secondary to resolve.
-    await new Promise((r) => setTimeout(r, 0));
-    expect(calls.sort()).toEqual(["p", "s"]);
-  });
-
-  it("secondary failures do not reject primary writes", async () => {
-    const primary: PersistAdapter = {
-      async bulkApply() { /* ok */ },
-    };
-    const secondary: PersistAdapter = {
-      async bulkApply() { throw new Error("secondary down"); },
-    };
-    const adapter = createMirroringAdapter(primary, secondary);
-    await expect(adapter.bulkApply([makeCard("a")], [])).resolves.toBeUndefined();
-  });
-});
-

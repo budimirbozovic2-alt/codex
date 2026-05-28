@@ -1,9 +1,7 @@
 import { toast } from "sonner";
 import { Card } from "@/lib/spaced-repetition";
 import { logger } from "@/lib/logger";
-import { idbAdapter } from "@/lib/persistence/idb-adapter";
 import { getDefaultAdapter } from "@/lib/persistence/adapter-factory";
-import { hasMigrationFlagSync } from "@/lib/persistence/sqlite/migrate-from-idb";
 import type { PersistAdapter } from "@/lib/persistence/PersistAdapter";
 
 // ─── Internal Map type for O(1) access ──────────────────
@@ -21,19 +19,15 @@ export type PersistAction =
   | { type: "delete"; id: string }
   | { type: "bulk"; cards: Card[] };
 
-// ─── Adapter wiring (Pure Desktop / post A1a) ───────────
-// All persistence goes through a `PersistAdapter`. Defaults to SQLite-primary
-// + IDB mirror once the one-shot migration flag is present in localStorage.
-// Pre-migration boots use IDB-primary + SQLite mirror so the next boot can
-// flip primary cleanly.
+// ─── Adapter wiring (Pure Desktop, SQLite-only) ─────────
+// All persistence goes through SQLite/OPFS via the adapter factory. The
+// IDB mirror and migration-flag dance were dropped in A1c-4 once the
+// one-shot IDB→SQLite migration was retired.
 function pickInitialAdapter(): PersistAdapter {
-  if (typeof window === "undefined") return idbAdapter;
-  const isElectron = Boolean((window as { electronAPI?: unknown }).electronAPI);
-  return getDefaultAdapter({
-    isElectron,
-    migrationComplete: hasMigrationFlagSync(),
-    enableSqlitePrimary: true,
-  });
+  const isElectron =
+    typeof window !== "undefined" &&
+    Boolean((window as { electronAPI?: unknown }).electronAPI);
+  return getDefaultAdapter({ isElectron });
 }
 let _adapter: PersistAdapter = pickInitialAdapter();
 /** Test seam — swap the persistence backend (e.g. in-memory adapter in vitest). */
