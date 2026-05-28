@@ -192,8 +192,7 @@ let _fetchSequence = 0;
  * durable SQLite store and apply the delta to the in-memory map. Idempotent
  * — concurrent calls are sequenced and only the latest delta is committed.
  *
- * B1 rename: was `reloadCardsFromIdb` (last Dexie naming leak). Backed by
- * `listAllCards` / `getCardsByIds` which are SQLite-primary post A1c.
+ * Backed by `listAllCards` / `getCardsByIds` which are SQLite-primary post A1c.
  */
 export async function reloadCardsFromDb(cardIds?: string[]): Promise<void> {
   const currentSequence = ++_fetchSequence;
