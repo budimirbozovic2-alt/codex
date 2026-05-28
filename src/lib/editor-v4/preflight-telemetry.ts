@@ -12,16 +12,14 @@
  * The forced backup uses the existing `streamBackup` + Electron stream IPC
  * (`backupStreamStart/Chunk/Finish`) — no new file format introduced.
  */
-import { db } from "@/lib/db";
-import { streamBackup, tableSpec } from "@/lib/backup/export-stream";
+import { streamBackup, sourceSpec } from "@/lib/backup/export-stream";
 import { logger } from "@/lib/logger";
 import {
   listAllCards,
   listAllSources,
-  // `bulkPutArticles` export is for KB; we just need read for ratio.
+  readAllCategoriesForBackup,
 } from "@/lib/db/queries";
 import { listAllArticles } from "@/lib/db/queries/knowledge-base";
-import type { Table } from "dexie";
 
 const FLAG_HEALTHY = "v4_telemetry_healthy";
 const FLAG_SKIP_REASON = "v4_skip_reason";
