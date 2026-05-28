@@ -1,14 +1,22 @@
 /**
- * Card-merge + cards-table write helpers for backup import.
+ * Card-merge + cards-table write helpers for backup import (PR-9 A1c-4).
  *
- * `mergeCardsByStrategy` is pure (runs pre-tx). `writeCardsTx` runs
- * *inside* the orchestrator's rw transaction and assumes the parent
- * transaction owns the IDB lock — it issues raw `db.cards.bulkPut` /
- * `bulkDelete` calls and yields between batches.
+ * `mergeCardsByStrategy` is pure (runs pre-tx). `writeCardsTx` now runs
+ * inside the orchestrator's **SQLite** `exec.transaction` and writes via
+ * `tx.run(CARD_INSERT_SQL, bindCardInsert(...))`. The Dexie `db.cards.*`
+ * code path is gone — cards persist solely through SQLite.
+ *
+ * Overwrite strategy: `DELETE FROM cards` (FK CASCADE will not fire because
+ * the parent rows are being rewritten in the same tx) followed by per-row
+ * INSERTs. Non-overwrite strategies issue INSERT OR REPLACE for the merged
+ * subset only and leave existing rows in place.
  */
-import { db } from "@/lib/db";
 import type { Card } from "@/lib/spaced-repetition";
-import { yieldUI } from "@/lib/backup/yield-ui";
+import type { SqlExecutor } from "@/lib/persistence/sqlite/executor";
+import {
+  CARD_INSERT_SQL,
+  bindCardInsert,
+} from "@/lib/persistence/sqlite/row-codecs";
 import type { ImportStrategy } from "@/lib/backup/import-types";
 
 /** Pre-merge imported cards into the in-memory map per strategy (pure). */
@@ -39,14 +47,19 @@ export function mergeCardsByStrategy(
   return { merged, nextMap };
 }
 
-/** Section 4c: bulk write cards, prune orphans on overwrite. */
-export async function writeCardsTx(merged: Card[], strategy: ImportStrategy): Promise<void> {
-  if (merged.length > 0) await db.cards.bulkPut(merged);
+/**
+ * SQLite-primary cards write. Must run inside the orchestrator's outer
+ * `exec.transaction` so the BEGIN/COMMIT scope spans every table.
+ */
+export async function writeCardsTx(
+  tx: SqlExecutor,
+  merged: Card[],
+  strategy: ImportStrategy,
+): Promise<void> {
   if (strategy === "overwrite") {
-    const allCardKeys = await db.cards.toCollection().primaryKeys();
-    const importedIdSet = new Set(merged.map((c) => c.id));
-    const orphanKeys = allCardKeys.filter((k) => !importedIdSet.has(k as string));
-    if (orphanKeys.length > 0) await db.cards.bulkDelete(orphanKeys);
+    await tx.run("DELETE FROM cards");
   }
-  await yieldUI();
+  for (const card of merged) {
+    await tx.run(CARD_INSERT_SQL, bindCardInsert(card));
+  }
 }
