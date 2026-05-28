@@ -37,11 +37,12 @@ export interface CrashEntry {
   firstSeen: string;
   lastSeen: string;
 }
-
 export interface IntegrityIssues {
   orphans: OrphanResult;
   staleSub: OrphanResult;
   staleChap: OrphanResult;
+  /** Card ids that failed to decode from SQLite payload (last 50). */
+  corruptCardIds: string[];
 }
 
 export interface StorageSnapshot {
@@ -54,6 +55,8 @@ export interface HealthReport {
   storage: StorageSnapshot;
   integrity: IntegrityIssues;
   crashLog: CrashEntry[];
+}
+
 }
 
 // PR-9 A1b P1.B — counters route through the backup-readers seam. Card,
