@@ -6,11 +6,9 @@
 // map. Now covered against the post-B1 `cardMapWrites` primitives.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("@/lib/db", () => ({
-  idbBulkApply: vi.fn().mockResolvedValue(undefined),
-  idbBulkPutCards: vi.fn().mockResolvedValue(undefined),
-  idbDeleteCard: vi.fn().mockResolvedValue(undefined),
-}));
+// F6.1: stale `@/lib/db` mock removed — cardMapWrites routes through
+// `@/lib/db/queries` and never touched these legacy helpers post-B1.
+
 
 vi.mock("@/lib/coverage-analysis", () => ({
   invalidateCoverageCache: vi.fn(),
