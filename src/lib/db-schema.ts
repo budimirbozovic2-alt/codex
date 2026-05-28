@@ -62,10 +62,6 @@ import type {
   KnowledgeBaseArticle,
   DraftRecord,
 } from "./db-types";
-import type { CSSProperties, ReactNode } from "react";
-
-// Suppress unused-import warning for re-export-only types used in Dexie tables below.
-type _Unused = CSSProperties | ReactNode;
 
 // v20 introduced an `outbox` write-ahead log table for `persist-queue`.
 // Dropped in v23 (A1a) — SQLite WAL is the SSOT for durability and crash
