@@ -94,6 +94,8 @@ export default function HealthMonitor() {
           ) : (
             <div className="flex items-center gap-2 rounded-lg border bg-muted/30 p-3 text-xs">
               <ShieldCheck className="h-4 w-4 text-success" />
+              <span className="text-muted-foreground">Nema orphan zapisa — podaci su konzistentni</span>
+            </div>
           )}
 
           {corruptCardIds.length > 0 && (
@@ -117,7 +119,6 @@ export default function HealthMonitor() {
           )}
 
 
-          )}
 
           {(staleSub.count > 0 || staleChap.count > 0) && (
             <Alert className="border-warning/50 bg-warning/10">
