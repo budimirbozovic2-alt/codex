@@ -44,8 +44,8 @@ export async function loadInitialData(): Promise<InitialData> {
   const [cards, catRecords, log, settings] = await Promise.all([
     withTimeout(listAllCards(), 5000, "cards load", [] as Card[]),
     withTimeout(seedDefaultCategories(), 2500, "categories load", [] as CategoryRecord[]),
-    withTimeout(idbLoadRecentReviewLog(90), 2500, "review log load", [] as ReviewLogEntry[]),
-    withTimeout(idbLoadSettings<SRSettings>("srSettings", DEFAULT_SR_SETTINGS), 2500, "settings load", DEFAULT_SR_SETTINGS),
+    withTimeout(reviewLogRepository.loadRecent(90), 2500, "review log load", [] as ReviewLogEntry[]),
+    withTimeout(settingsRepository.load<SRSettings>("srSettings", DEFAULT_SR_SETTINGS), 2500, "settings load", DEFAULT_SR_SETTINGS),
   ]);
 
   // Legacy frequency-tag migracija je premještena u `runHeal` (Phase 2b).
