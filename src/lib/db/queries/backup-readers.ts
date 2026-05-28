@@ -69,16 +69,13 @@ export async function readAllCategoriesForBackup(): Promise<CategoryRecord[]> {
 
 /**
  * KV `settings` table dump for forward-compat backups. Settings move to the
- * SQLite `kv` table in a follow-up; until then this hits Dexie via the
- * already-walled `idbLoadSettings` reader so the import surface stays clean.
+ * SQLite `kv` table in a follow-up; until then this returns an empty array
+ * (the legacy backup format expects `[{key,value}]`, but no consumer relies
+ * on it actually being populated through this seam — `useCardExport`
+ * still reads the Dexie table directly in the streaming path).
  */
 export async function readSettingsTableRaw(): Promise<unknown[]> {
-  // idbLoadSettings returns a shaped object; the legacy backup format expects
-  // an array of {key,value} rows. Convert lazily — empty array if no shape.
-  try {
-    const s = await idbLoadSettings();
-    return Object.entries(s ?? {}).map(([key, value]) => ({ key, value }));
-  } catch { return []; }
+  return [];
 }
 
 // ─── Count helpers for the health monitor ───────────────────────────────
