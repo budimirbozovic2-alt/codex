@@ -1,20 +1,18 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // Category Repository — primary writer for `categoryRecords`.
 //
-// Post Task-B: the EventBus CATEGORIES_UPDATED fan-out is gone. Every write
-// goes through Zustand `categoryStore`, which is the SSOT all readers
-// subscribe to via `useSyncExternalStore`. External callers that bypass
-// this repository (e.g. backup-restore) push directly into the store via
+// A1c-4 F1: SQLite-primary. The Dexie `categories` mirror is gone — durable
+// persistence runs through `queries/categories.ts` (single SQL transaction
+// per commit). Zustand `categoryStore` remains the RAM SSOT all readers
+// subscribe to via `useSyncExternalStore`; external callers that bypass this
+// repository (e.g. backup-restore) still push directly into the store via
 // `setCategoryStoreRecords`.
 //
 // A2 — `deleteAsync` runs a single SQLite transaction that re-parents (or
-// purges) cards + sources, then deletes the category row. FK CASCADE on
-// the schema then wipes mindMaps / mnemonics / knowledgeBaseArticles in
-// the same atomic step. The Dexie mirror tear-down is orchestrated by
-// `category-deletion-service.ts` via the per-domain `*ByCategoryDexie`
-// helpers exposed from `@/lib/db/queries`.
+// purges) cards + sources, then deletes the category row. FK CASCADE on the
+// schema then wipes mindMaps / mnemonics / knowledgeBaseArticles in the same
+// atomic step.
 // ─────────────────────────────────────────────────────────────────────────────
-import { idbLoadCategories, idbSaveCategories } from "@/lib/db";
 import type { CategoryRecord } from "@/lib/db-types";
 import { toast } from "sonner";
 import { logger } from "@/lib/logger";
@@ -25,6 +23,10 @@ import {
 } from "@/store/useCategoryStore";
 import { wrapWrite, type WriteResult } from "@/lib/persistence/write-result";
 import type { SqlExecutor } from "@/lib/persistence/sqlite/executor";
+import {
+  listAllCategories,
+  replaceAllCategories,
+} from "@/lib/db/queries";
 
 // ─── Read primitives ─────────────────────────────────────────────────────
 export function getCategorySnapshot(): CategoryRecord[] {
@@ -35,21 +37,23 @@ export function getCategorySnapshot(): CategoryRecord[] {
 
 /**
  * Full replace — bootstrap, restore. Pushes into the SSOT synchronously.
- * Does NOT persist to IDB on its own (the upstream caller — e.g.
+ * Does NOT persist to SQLite on its own (the upstream caller — e.g.
  * `applyImportAtomically`, `loadInitialData` — has already done that).
  */
 export function replaceAll(records: CategoryRecord[]): void {
   setCategoryStoreRecords(records);
 }
 
-// Mutex for serialising IDB writes — prevents concurrent overwrites when
-// two optimistic updates race (e.g. fast double-click on reorder).
+// Mutex for serialising SQLite writes — prevents concurrent overwrites when
+// two optimistic updates race (e.g. fast double-click on reorder). SQLite's
+// own transaction would still serialise at the FS layer, but read-modify-
+// write here needs the mutex to avoid stale-snapshot overwrites.
 const _saveMutex = createKeyedMutex();
 
 /**
- * Optimistic commit: mutates the mirror inline, then persists to IDB inside
- * a serialised mutex. On persist failure, rolls back from fresh IDB state
- * (preferred) or the pre-commit snapshot.
+ * Optimistic commit: mutates the mirror inline, then persists to SQLite
+ * inside a serialised mutex. On persist failure, rolls back from fresh
+ * SQLite state (preferred) or the pre-commit snapshot.
  */
 export async function commit(
   updater: (prev: CategoryRecord[]) => CategoryRecord[],
@@ -61,18 +65,18 @@ export async function commit(
 
   return _saveMutex.runExclusive(null, async () => {
     try {
-      // Re-read fresh IDB inside the mutex, then re-apply the updater to
+      // Re-read fresh SQLite inside the mutex, then re-apply the updater to
       // avoid stale-closure overwrites (matches the legacy contract).
-      const fresh = await idbLoadCategories();
+      const fresh = await listAllCategories();
       const next = updater(fresh);
-      await idbSaveCategories(next);
+      await replaceAllCategories(next);
       // Keep the mirror in sync with the canonical persisted state.
       setCategoryStoreRecords(next);
     } catch (e) {
-      logger.error(`[${label}] IDB persist failed, rolling back`, e);
+      logger.error(`[${label}] SQLite persist failed, rolling back`, e);
       try {
-        const fromIdb = await idbLoadCategories();
-        setCategoryStoreRecords(fromIdb);
+        const fromDb = await listAllCategories();
+        setCategoryStoreRecords(fromDb);
       } catch {
         setCategoryStoreRecords(snapshot);
       }
@@ -108,9 +112,7 @@ export interface DeleteCategoryOpts {
  * automatically; cards + sources are handled explicitly so the `purgeCards`
  * vs. re-parent semantics survive (FK can't conditionally null-out).
  *
- * Returns ok even if the SQLite executor isn't available (Vite dev, tests
- * without the wasm worker) — callers still rely on the Dexie mirror sweep
- * orchestrated by `category-deletion-service`.
+ * Returns ok even if the SQLite executor isn't available (Vite dev shell).
  */
 export function deleteAsync(
   id: string,
@@ -119,14 +121,11 @@ export function deleteAsync(
   return wrapWrite(async () => {
     if (!id) return;
     const exec = await tryGetExecutor();
-    if (!exec) return; // Dexie-only environment — service handles the mirror.
+    if (!exec) return;
 
     await exec.transaction(async (tx) => {
       if (opts.purgeCards) {
-        // Explicit DELETE keeps semantics obvious; FK CASCADE would also
-        // wipe these on the categories DELETE below, but reading the SQL
-        // top-to-bottom is clearer with the explicit purge.
-        await tx.run("DELETE FROM cards   WHERE categoryId = ?", [id]);
+        await tx.run("DELETE FROM cards WHERE categoryId = ?", [id]);
         await tx.run("DELETE FROM sources WHERE categoryId = ?", [id]);
       } else if (opts.fallbackId) {
         const now = Date.now();

@@ -112,6 +112,16 @@ export {
   listAllSlippageLog, countSlippageLog, clearSlippageLog, bulkPutSlippageLog,
   listAllActivityLog, countActivityLog, clearActivityLog, bulkPutActivityLog,
 } from "./logs";
+// A1c-4 F1 — categories aggregate root (SQLite-primary).
+export {
+  listAllCategories,
+  getCategory,
+  countCategories,
+  replaceAllCategories,
+  putCategory,
+  bulkPutCategories,
+  clearCategories,
+} from "./categories";
 // PR-9 A1b P1.B — consolidated backup/health read seam (SQLite-primary
 // where possible, explicit Dexie read-replicas where not yet migrated).
 export * from "./backup-readers";

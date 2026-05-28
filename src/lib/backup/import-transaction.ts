@@ -1,19 +1,13 @@
 /**
- * Atomic backup-import orchestrator — PR-9 A1c-4.
+ * Atomic backup-import orchestrator — PR-9 A1c-4 F1.
  *
  * Single `SqlExecutor.transaction` wraps every table write (categories →
  * cards → sources → mindMaps → KB → mnemonics → majorSystem → kv → 7 log
  * tables → disciplineLog → mnemonicTestLog). True SQLite ACID across the
- * entire restore — no more Dexie `db.transaction("rw", …)`.
- *
- * Bridge note: `idbLoadCategories` still reads Dexie until A1c-4 finishes.
- * After the SQLite tx commits we mirror the final categories array to Dexie
- * via two plain `db.categories.clear()` + `bulkPut(...)` calls (no rw tx
- * block). This bridge disappears when the categories read path moves to
- * SQLite.
+ * entire restore — no more Dexie `db.transaction("rw", …)` and no more
+ * post-tx Dexie categories mirror (F1 cut-over).
  */
-import { db } from "@/lib/db";
-import type { CategoryRecord } from "@/lib/db-schema";
+import type { CategoryRecord } from "@/lib/db-types";
 import { DEFAULT_SR_SETTINGS, type SRSettings } from "@/lib/spaced-repetition";
 import type { ReviewLogEntry } from "@/lib/storage";
 import { resolveLegacyTaxonomyNames } from "@/lib/migrations/resolve-legacy-taxonomy";
@@ -47,15 +41,8 @@ export {
   pruneOrphans,
 } from "@/lib/backup/import-remap";
 
-/**
- * Dexie bridge for `categories` until A1c-4 swaps the read path. NOT a
- * `db.transaction("rw", …)` block — two independent statements so this
- * file stays "no Dexie rw tx".
- */
-async function mirrorCategoriesToDexie(cats: CategoryRecord[]): Promise<void> {
-  await db.categories.clear();
-  if (cats.length > 0) await db.categories.bulkPut(cats);
-}
+
+
 
 export async function applyImportAtomically(ctx: ImportCtx): Promise<ImportTxResult> {
   const { parsed, strategy, currentMap, onProgress } = ctx;
@@ -125,11 +112,8 @@ export async function applyImportAtomically(ctx: ImportCtx): Promise<ImportTxRes
       await writeSatelliteTablesTx(tx, parsed, strategy, progress);
     });
 
-    // ── 5. Bridge categories → Dexie so legacy `idbLoadCategories` reads
-    //       reflect the restore. Disappears in the A1c-4 read-path cut-over.
-    await mirrorCategoriesToDexie(finalCategories);
-
-    // ── 6. Push freshly restored categories into the SSOT store. ──
+    // ── 5. Push freshly restored categories into the SSOT store. ──
+    //       SQLite is now the durable copy (no Dexie mirror after A1c-4 F1).
     categoryRepository.replaceAll(finalCategories);
 
     backupLog.success("import", "atomic restore committed", {

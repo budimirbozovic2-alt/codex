@@ -1,6 +1,12 @@
-import { db, type CategoryRecord } from "./db-schema";
-
+// A1c-4 F1 — seed switched to SQLite via `queries/categories`. Dexie copy
+// is gone. Boot still calls `seedDefaultCategories()` from `loadInitialData`.
+import type { CategoryRecord } from "./db-types";
+import {
+  listAllCategories,
+  bulkPutCategories,
+} from "./db/queries";
 import { logger } from "@/lib/logger";
+
 // ─── Default Categories ─────────────────────────────────
 
 export const DEFAULT_CATEGORIES: { name: string; color?: string }[] = [
@@ -26,20 +32,22 @@ export function createDefaultCategories(): CategoryRecord[] {
 }
 
 /**
- * Seed default categories if the table is empty.
+ * Load all categories from SQLite. Seeds defaults only on a virgin install
+ * (empty table). Returns the in-memory snapshot the boot loader pushes into
+ * the Zustand `categoryStore`.
  */
 export async function seedDefaultCategories(): Promise<CategoryRecord[]> {
-  const count = await db.categories.count();
-  if (count > 0) {
-    return db.categories.orderBy("sortOrder").toArray();
-  }
+  const existing = await listAllCategories();
+  if (existing.length > 0) return existing;
   const defaults = createDefaultCategories();
-  await db.categories.bulkPut(defaults);
-  if (import.meta.env.DEV) logger.log(`[MemoriaDB] Seeded ${defaults.length} default categories`);
+  await bulkPutCategories(defaults);
+  if (import.meta.env.DEV) {
+    logger.log(`[seed] Inserted ${defaults.length} default categories`);
+  }
   return defaults;
 }
 
-// ─── Migration: no-op for v7 (clean slate) ─────────────
+// ─── Migration: cleanup legacy localStorage flags ──────
 export async function migrateFromLocalStorage(): Promise<void> {
   try {
     localStorage.removeItem("idb-migrated-v1");
