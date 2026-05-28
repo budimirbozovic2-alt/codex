@@ -1,17 +1,7 @@
 /**
- * Mnemonic test log repository — PR-9 A1b P1.6.
- *
- * Append-only event log for mnemonic workshop test outcomes. The SQLite
- * table uses AUTOINCREMENT to preserve the Dexie `++id` semantics — callers
- * never supply an id. Reads return entries sorted by timestamp ascending so
- * downstream consumers can compute rolling stats without re-sorting.
- *
- * Pattern mirrors the rest of the queries module: SQLite-primary on
- * Electron, Dexie mirror for one soak release, Dexie fallback in dev
- * preview where the OPFS executor isn't available.
+ * Mnemonic test log repository — PR-9 A1c-2. SQLite-only.
  */
 import type { SqlExecutor } from "@/lib/persistence/sqlite/executor";
-import { db } from "@/lib/db";
 import { logger } from "@/lib/logger";
 import type { MnemonicTestLogEntry } from "@/features/mnemonic/mnemonic-storage";
 import { notifyExecutorNull } from "./_shared/executor-telemetry";
@@ -23,10 +13,19 @@ async function tryGetExecutor(): Promise<SqlExecutor | null> {
     const { getOpfsSqliteExecutor } = await import("@/lib/persistence/sqlite/client");
     return await getOpfsSqliteExecutor();
   } catch (err) {
-    logger.warn("[mnemonic-test-log-repo] sqlite executor unavailable, using Dexie fallback", err);
+    logger.warn("[mnemonic-test-log-repo] sqlite executor unavailable", err);
     notifyExecutorNull("mnemonicTestLog", "error");
     return null;
   }
+}
+
+async function requireExecutor(label: string): Promise<SqlExecutor | null> {
+  const exec = await tryGetExecutor();
+  if (exec) return exec;
+  const { assertDesktop } = await import("@/lib/electron-integration");
+  assertDesktop();
+  logger.warn(`[mnemonic-test-log-repo] ${label} — no executor (dev shell)`);
+  return null;
 }
 
 const INSERT_SQL = `
@@ -43,64 +42,31 @@ function decode(row: { payload: string }): MnemonicTestLogEntry | null {
 }
 
 export async function listAllTestLogEntries(): Promise<MnemonicTestLogEntry[]> {
-  const exec = await tryGetExecutor();
-  if (exec) {
-    try {
-      const rows = await exec.all<{ payload: string }>(
-        "SELECT payload FROM mnemonicTestLog ORDER BY timestamp ASC, id ASC",
-      );
-      if (rows.length > 0) {
-        return rows.map(decode).filter((d): d is MnemonicTestLogEntry => d !== null);
-      }
-    } catch (err) {
-      logger.warn("[mnemonic-test-log-repo] sqlite listAll failed", err);
-    }
-  }
-  try {
-    return await db.mnemonicTestLog.toArray();
-  } catch (err) {
-    logger.warn("[mnemonic-test-log-repo] dexie listAll failed", err);
-    return [];
-  }
+  const exec = await requireExecutor("listAllTestLogEntries");
+  if (!exec) return [];
+  const rows = await exec.all<{ payload: string }>(
+    "SELECT payload FROM mnemonicTestLog ORDER BY timestamp ASC, id ASC",
+  );
+  return rows.map(decode).filter((d): d is MnemonicTestLogEntry => d !== null);
 }
 
 export async function listTestLogEntriesByCard(cardId: string): Promise<MnemonicTestLogEntry[]> {
-  const exec = await tryGetExecutor();
-  if (exec) {
-    try {
-      const rows = await exec.all<{ payload: string }>(
-        "SELECT payload FROM mnemonicTestLog WHERE cardId = ? ORDER BY timestamp ASC, id ASC",
-        [cardId],
-      );
-      return rows.map(decode).filter((d): d is MnemonicTestLogEntry => d !== null);
-    } catch (err) {
-      logger.warn("[mnemonic-test-log-repo] sqlite listByCard failed", { cardId, err });
-    }
-  }
-  try {
-    return await db.mnemonicTestLog.where("cardId").equals(cardId).toArray();
-  } catch (err) {
-    logger.warn("[mnemonic-test-log-repo] dexie listByCard failed", { cardId, err });
-    return [];
-  }
+  const exec = await requireExecutor("listTestLogEntriesByCard");
+  if (!exec) return [];
+  const rows = await exec.all<{ payload: string }>(
+    "SELECT payload FROM mnemonicTestLog WHERE cardId = ? ORDER BY timestamp ASC, id ASC",
+    [cardId],
+  );
+  return rows.map(decode).filter((d): d is MnemonicTestLogEntry => d !== null);
 }
 
 export async function addTestLogEntry(entry: MnemonicTestLogEntry): Promise<void> {
-  const exec = await tryGetExecutor();
-  if (!exec) {
-    const { assertDesktop } = await import("@/lib/electron-integration");
-    assertDesktop();
-    return;
-  }
-  try {
-    await exec.run(INSERT_SQL, [
-      entry.cardId,
-      entry.timestamp,
-      entry.success ? 1 : 0,
-      JSON.stringify(entry),
-    ]);
-  } catch (err) {
-    logger.warn("[mnemonic-test-log-repo] sqlite add failed", err);
-    throw err;
-  }
+  const exec = await requireExecutor("addTestLogEntry");
+  if (!exec) return;
+  await exec.run(INSERT_SQL, [
+    entry.cardId,
+    entry.timestamp,
+    entry.success ? 1 : 0,
+    JSON.stringify(entry),
+  ]);
 }

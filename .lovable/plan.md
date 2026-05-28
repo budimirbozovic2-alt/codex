@@ -70,7 +70,15 @@ Konkretni write helperi (`putAsync`, `bulkPutAsync`, `delete*`, `reparent*`, KV 
 ### Test
 - Postojeći testovi koji oslanjaju na Dexie mirror (`category-deletion.test.ts` asserti pravljeni za oba sloja) prebaciti samo na SQLite assert.
 
-## A1c-2 — Drop Dexie fallback čitače + façade kešovi
+## A1c-2 — Drop Dexie fallback čitače + façade kešovi  ✅ DONE
+
+- 10 `queries/*` modula: svi `list*`/`get*`/`find*`/`count*` helperi su sad SQLite-only kroz `requireExecutor(label)`. Ako executor nedostaje u DEV shell-u, vraćaju siguran default (`[]`, `undefined`, `0`) i logguju; PROD throw-uje kroz `assertDesktop`.
+- `sources-storage.ts`: `_cache: Source[] | null` uklonjen. `loadSources()`/`loadSourcesByCategory()` su sad thin wrapperi oko `queries/sources`. `invalidateSourcesCache()` zadržan kao thin `_notify` wrapper radi backward-compat za pozivače poput `useCategoryManagement`.
+- `mindmap-storage.ts`: `_cache: MindMapDoc[] | null` uklonjen. `loadMindMaps()`/`getMindMap()` idu direktno na `queries/mind-maps`. `invalidateMindMapsCache()` zadržan kao `_notify` wrapper.
+- `notifyExecutorNull()` calls zadržani u `tryGetExecutor` — služe kao pasivna defense-in-depth metrika; per-call site `requireExecutor` osigurava da reads ne mogu tiho promašiti.
+- Backup-readers (`backup-readers.ts`) i dalje Dexie-only za `reviewLog`/`diary`/`calibrationLog`/itd. — to ide u A1c-3.
+
+
 
 Cilj: svaki `queries/*` read helper čita **samo** SQLite. Façade kešovi (`_cache` u `sources-storage`/`mindmap-storage`) idu napolje — TanStack QueryClient je jedini cache.
 
