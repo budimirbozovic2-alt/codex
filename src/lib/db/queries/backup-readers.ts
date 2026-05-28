@@ -79,8 +79,8 @@ export async function readSettingsTableRaw(): Promise<unknown[]> {
 // ─── Count helpers for the health monitor ───────────────────────────────
 
 export const countCards = countAllCards;
-export const countSources = async (): Promise<number> => (await listAllSources()).length;
-export const countMindMaps = async (): Promise<number> => (await listAllMindMaps()).length;
+export const countSources = countAllSources;
+export const countMindMaps = countAllMindMaps;
 export const countDiscipline = countDisciplineLog;
 
 export const countReviewLog = _countReviewLog;
