@@ -106,7 +106,7 @@ export function useCardBootstrap() {
                 markBootStep("cards:deferred-load-done", `${cards.length} cards`);
 
                 // Heal runs on the resident dataset. Never throws (best-effort).
-                const { finalRecords } = await runHeal({ cards, catRecords });
+                const { finalRecords } = await runHeal({ cards, catRecords, silent: true });
                 // Patch categoryRepository with healed records (no-op if heal unchanged).
                 const byId = new Map(finalRecords.map((r) => [r.id, r]));
                 try {
