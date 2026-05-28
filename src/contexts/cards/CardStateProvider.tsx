@@ -24,9 +24,13 @@ import { useBootState } from "@/contexts/boot/BootStateProvider";
 // Phase 2a: cards array now comes from TanStack (`['cards','all']`),
 // invalidated by `onCardsChanged` bridge. `cardMapStore` stays as the
 // internal write-side cache for `cardMapWrites` sync lookups.
-function useCards(): readonly Card[] {
-  return useAllCards();
+function useCards(): Card[] {
+  // TanStack returns `readonly Card[]`; downstream consumers expect mutable
+  // arrays. Treated as same-reference cast (no copy) — array contents are
+  // already immutable upstream so it's safe in practice.
+  return useAllCards() as Card[];
 }
+
 
 
 // ─── Public read hooks ──────────────────────────────────────────────────
