@@ -22,12 +22,11 @@ import { clearSubjectSettings } from "@/lib/subject-settings";
 import { invalidateExaminerProfile } from "@/lib/examiner-profile-cache";
 import { backlinkIndex } from "@/lib/backlink-index";
 import {
-  getSetting,
-  putSetting,
-  deleteSetting,
   notifyCardsChanged,
   notifyKnowledgeBaseChanged,
 } from "@/lib/db/queries";
+import { deleteSetting, getSetting } from "@/lib/db/queries";
+import { scrubCategoryFromPlannerConfig } from "@/lib/planner";
 import { categoryRepository } from "@/lib/repositories";
 import { notifyMnemonics } from "@/features/mnemonic/mnemonic-storage";
 import { logger } from "@/lib/logger";
