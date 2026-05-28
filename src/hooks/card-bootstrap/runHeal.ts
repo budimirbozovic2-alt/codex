@@ -40,7 +40,7 @@ export async function runHeal({ cards, catRecords, silent = false }: HealInput):
 
   // ─── Step 1: card taxonomy heal (stale subcategoryId/chapterId references) ───
   try {
-    transition({ type: "HEAL_PROGRESS", pct: 20, label: "Heal taksonomije…" });
+    if (!silent) transition({ type: "HEAL_PROGRESS", pct: 20, label: "Heal taksonomije…" });
     const { healCardTaxonomy } = await import("@/lib/migrations/heal-card-taxonomy");
     const report = await withTimeout(healCardTaxonomy(), 3000, "taxonomy heal", null);
     if (report && !report.skipped && (report.staleSubcategoryReset + report.staleChapterReset + report.mismatchChapterReset) > 0) {
@@ -48,14 +48,14 @@ export async function runHeal({ cards, catRecords, silent = false }: HealInput):
     }
   } catch (e) {
     logger.warn("[boot] heal step 'taxonomy' failed, skipping", e);
-    transition({ type: "HEAL_STEP_FAIL", step: "taxonomy" });
+    if (!silent) transition({ type: "HEAL_STEP_FAIL", step: "taxonomy" });
     skipped.push("taxonomy");
   }
 
   // ─── Step 2: legacy frequency tag migration ───
   const mutatedCards: Card[] = [];
   try {
-    transition({ type: "HEAL_PROGRESS", pct: 45, label: "Frequency tag migracija…" });
+    if (!silent) transition({ type: "HEAL_PROGRESS", pct: 45, label: "Frequency tag migracija…" });
     const { LEGACY_FREQUENT_TAG, LEGACY_RARE_TAG, stripLegacyFrequencyTags } = await import("@/lib/sr/frequency");
     for (let i = 0; i < cards.length; i++) {
       const card = cards[i];
@@ -79,14 +79,14 @@ export async function runHeal({ cards, catRecords, silent = false }: HealInput):
     }
   } catch (e) {
     logger.warn("[boot] heal step 'frequencyTag' failed, skipping", e);
-    transition({ type: "HEAL_STEP_FAIL", step: "frequencyTag" });
+    if (!silent) transition({ type: "HEAL_STEP_FAIL", step: "frequencyTag" });
     skipped.push("frequencyTag");
   }
 
   // ─── Step 3: category shape normalization (legacy → SubcategoryNode, phantom prune) ───
   let finalRecords = catRecords;
   try {
-    transition({ type: "HEAL_PROGRESS", pct: 75, label: "Normalizacija kategorija…" });
+    if (!silent) transition({ type: "HEAL_PROGRESS", pct: 75, label: "Normalizacija kategorija…" });
     const { records, needsPersist } = normalizeCategoryShapes(cards, catRecords);
     finalRecords = records;
 
@@ -104,23 +104,23 @@ export async function runHeal({ cards, catRecords, silent = false }: HealInput):
       } catch (persistErr) {
         // Persist fail je sub-step koji ne lomi boot — koristimo records u memoriji.
         logger.warn("[boot] heal step 'categoryShapes' persist failed (in-memory only)", persistErr);
-        transition({ type: "HEAL_STEP_FAIL", step: "categoryShapesPersist" });
+        if (!silent) transition({ type: "HEAL_STEP_FAIL", step: "categoryShapesPersist" });
         skipped.push("categoryShapesPersist");
       }
     }
   } catch (e) {
     logger.warn("[boot] heal step 'categoryShapes' failed, skipping", e);
-    transition({ type: "HEAL_STEP_FAIL", step: "categoryShapes" });
+    if (!silent) transition({ type: "HEAL_STEP_FAIL", step: "categoryShapes" });
     skipped.push("categoryShapes");
   }
 
   // ─── Done ───
-  transition({ type: "HEAL_PROGRESS", pct: 100, label: "Heal završen" });
+  if (!silent) transition({ type: "HEAL_PROGRESS", pct: 100, label: "Heal završen" });
   markBootStep(
     skipped.length > 0 ? "boot:heal-degraded" : "cards:heal-done",
     skipped.length > 0 ? skipped.join(",") : undefined,
   );
-  transition({ type: "HEAL_DONE" });
+  if (!silent) transition({ type: "HEAL_DONE" });
 
   // Silence unused import warning for DEFAULT_SR_SETTINGS in some envs (no-op).
   void DEFAULT_SR_SETTINGS;
