@@ -112,9 +112,8 @@ export async function writeCategoriesTx(
           sortOrder: r.subcategories.length + i,
         }));
       return { ...r, subcategories: [...r.subcategories, ...newNodes] };
-    });
-    for (const cat of updated) {
-      await tx.run(CATEGORY_INSERT_SQL, bindCategory(cat));
+    await tx.runMany(CATEGORY_INSERT_SQL, updated.map((cat) => bindCategory(cat)));
+
     }
     working = updated;
   }
