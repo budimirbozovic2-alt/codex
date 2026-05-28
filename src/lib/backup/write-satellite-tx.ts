@@ -225,23 +225,24 @@ export async function writeSatelliteTablesTx(
 
   if (parsed.sources.length > 0) {
     if (strategy === "overwrite") await tx.run("DELETE FROM sources");
-    for (const s of parsed.sources) await tx.run(SOURCE_INSERT_SQL, bindSource(s));
+    await tx.runMany(SOURCE_INSERT_SQL, parsed.sources.map((s) => bindSource(s)));
   } else if (strategy === "overwrite") {
     await tx.run("DELETE FROM sources");
   }
 
   if (parsed.mindMaps.length > 0) {
     if (strategy === "overwrite") await tx.run("DELETE FROM mindMaps");
-    for (const m of parsed.mindMaps) await tx.run(MINDMAP_INSERT_SQL, bindMindMap(m));
+    await tx.runMany(MINDMAP_INSERT_SQL, parsed.mindMaps.map((m) => bindMindMap(m)));
   } else if (strategy === "overwrite") {
     await tx.run("DELETE FROM mindMaps");
   }
 
   if (parsed.knowledgeBaseArticles.length > 0) {
     if (strategy === "overwrite") await tx.run("DELETE FROM knowledgeBaseArticles");
-    for (const a of parsed.knowledgeBaseArticles) {
-      await tx.run(KB_ARTICLE_INSERT_SQL, bindKbArticle(a));
-    }
+    await tx.runMany(
+      KB_ARTICLE_INSERT_SQL,
+      parsed.knowledgeBaseArticles.map((a) => bindKbArticle(a)),
+    );
   } else if (strategy === "overwrite") {
     await tx.run("DELETE FROM knowledgeBaseArticles");
   }
@@ -249,16 +250,17 @@ export async function writeSatelliteTablesTx(
   // Mnemonics + Major System.
   if (parsed.mnemonics.length > 0) {
     if (strategy === "overwrite") await tx.run("DELETE FROM mnemonics");
-    for (const m of parsed.mnemonics) await tx.run(MNEMONIC_INSERT_SQL, bindMnemonic(m));
+    await tx.runMany(MNEMONIC_INSERT_SQL, parsed.mnemonics.map((m) => bindMnemonic(m)));
   } else if (strategy === "overwrite") {
     await tx.run("DELETE FROM mnemonics");
   }
 
   if (parsed.majorSystem.length > 0) {
     if (strategy === "overwrite") await tx.run("DELETE FROM majorSystem");
-    for (const p of parsed.majorSystem) {
-      await tx.run(MAJOR_SYSTEM_INSERT_SQL, bindMajorSystemPeg(p));
-    }
+    await tx.runMany(
+      MAJOR_SYSTEM_INSERT_SQL,
+      parsed.majorSystem.map((p) => bindMajorSystemPeg(p)),
+    );
   } else if (strategy === "overwrite") {
     await tx.run("DELETE FROM majorSystem");
   }
