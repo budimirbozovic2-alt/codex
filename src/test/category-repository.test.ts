@@ -1,8 +1,5 @@
-// Post Task-B — categoryRepository writes directly to the SSOT store.
-// No bus events, no invalidator.
-import "fake-indexeddb/auto";
+// A1c-4 F1/F2 — categoryRepository writes through SQLite.
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { db } from "@/lib/db";
 import type { CategoryRecord } from "@/lib/db-types";
 import {
   categoryRepository,
@@ -13,6 +10,8 @@ import {
   categoryStore,
   __resetCategoryStoreForTests,
 } from "@/store/useCategoryStore";
+import { listAllCategories } from "@/lib/db/queries";
+import { getTestSqlExecutor } from "./sqlite-harness";
 
 const tick = (ms = 10) => new Promise((r) => setTimeout(r, ms));
 
@@ -21,10 +20,8 @@ function rec(id: string, name = id): CategoryRecord {
 }
 
 describe("categoryRepository", () => {
-  beforeEach(async () => {
+  beforeEach(() => {
     __resetCategoryStoreForTests();
-    await db.open();
-    await db.categories.clear();
   });
   afterEach(() => {
     __resetCategoryStoreForTests();
@@ -35,16 +32,17 @@ describe("categoryRepository", () => {
     expect(categoryStore.getState().records.map(r => r.id)).toEqual(["a", "b"]);
   });
 
-  it("commit pushes optimistic state immediately and persists to IDB", async () => {
+  it("commit pushes optimistic state immediately and persists to SQLite", async () => {
     await commit(() => [rec("x"), rec("y")], "test-commit");
     expect(categoryStore.getState().records.map(r => r.id)).toEqual(["x", "y"]);
-    const persisted = await db.categories.toArray();
+    const persisted = await listAllCategories();
     expect(persisted.map(r => r.id).sort()).toEqual(["x", "y"]);
   });
 
-  it("commit rolls back the mirror when IDB persist throws", async () => {
+  it("commit rolls back the mirror when SQLite persist throws", async () => {
     replaceAll([rec("orig")]);
-    const spy = vi.spyOn(db.categories, "bulkPut").mockRejectedValueOnce(new Error("boom"));
+    const exec = getTestSqlExecutor();
+    const spy = vi.spyOn(exec, "transaction").mockRejectedValueOnce(new Error("boom"));
     await commit(() => [rec("opt")], "rollback-check");
     await tick();
     const ids = categoryStore.getState().records.map(r => r.id);
