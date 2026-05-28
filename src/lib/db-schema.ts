@@ -319,14 +319,3 @@ if (import.meta.hot) {
     __teardownDbWatchdog();
   });
 }
-
-      return false;
-    }
-  }
-
-  return ok;
-}
-
-// Phase C / P2-2: HMR teardown so Vite reload doesn't leak watchdog intervals.
-if (import.meta.hot) {
-  import.meta.hot.dispose(() => {
