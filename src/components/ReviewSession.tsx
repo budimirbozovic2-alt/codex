@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { Card, SRSettings } from "@/lib/spaced-repetition";
 import { addActivityEntry } from "@/lib/metacognitive-storage";
-import { idbLoadSettings, idbSaveSettings } from "@/lib/db/queries";
+import { getSetting, putSetting } from "@/lib/db/queries";
 import { ReviewMode, DueItem, ViewWidth, ReviewSessionProps } from "./review/review-constants";
 import { buildItemsForMode } from "@/lib/review-mode-builder";
 import ReviewSetup from "./review/ReviewSetup";
