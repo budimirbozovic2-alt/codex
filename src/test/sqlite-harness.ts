@@ -124,6 +124,21 @@ function parseWhere(
       });
       continue;
     }
+    // TRIM(col) = ? COLLATE NOCASE  (case-insensitive, trimmed equality)
+    const trimNocase =
+      /^TRIM\((\w+)\)\s*=\s*\?\s+COLLATE\s+NOCASE$/i.exec(part);
+    if (trimNocase) {
+      const col = trimNocase[1];
+      const slot = paramOffset + consumed;
+      consumed++;
+      predicates.push((row, p) => {
+        const v = row[col];
+        if (typeof v !== "string") return false;
+        const needle = String(p[slot] ?? "");
+        return v.trim().toLowerCase() === needle.trim().toLowerCase();
+      });
+      continue;
+    }
     // col = ?  /  col IS ?  /  col != ?
     const eqMatch = /^(\w+)\s*(=|!=|<>|<=|>=|<|>)\s*\?$/i.exec(part);
     if (eqMatch) {

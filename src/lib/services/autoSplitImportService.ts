@@ -2,10 +2,10 @@
  * Auto-Split Import Service — sole owner of side-effects for auto-split.
  *
  * Wraps `bulkAddCards` / `updateCard`, drains the persist queue, and verifies
- * the IDB card count post-write. The hook only sees a clean Promise<ImportResult>.
+ * the SQLite card count post-write. The hook only sees a clean Promise<ImportResult>.
  */
 import { persistQueue } from "@/lib/persist-queue";
-import { db } from "@/lib/db";
+import { countCards } from "@/lib/db/queries";
 import type { Card } from "@/lib/spaced-repetition";
 import type { ImportPlan, CardUpdatePatch } from "@/lib/auto-split/import-planner";
 
@@ -31,7 +31,9 @@ export async function executeImportPlan(
   for (const u of plan.toUpdate) deps.updateCard(u.id, u.patch);
   deps.onProgress?.(50);
   await persistQueue.flush();
-  const idbCount = await db.cards.count();
+  // A1c-4 F6: SQLite-primary count. Field name stays `idbCount` for backward
+  // compat with the hook return shape; it now reflects the SQLite cards table.
+  const idbCount = await countCards();
   deps.onProgress?.(100);
   return {
     created: plan.toCreate.length,
