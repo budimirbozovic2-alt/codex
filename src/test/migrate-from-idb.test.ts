@@ -129,8 +129,6 @@ function createExecutor(): SqlExecutor {
         transaction: api.transaction,
         close: api.close,
       });
-
-      });
       state.snapshot = null;
       state.inTx = false;
       return result;
@@ -147,7 +145,8 @@ function createExecutor(): SqlExecutor {
 
   const close: SqlExecutor["close"] = async () => { /* noop */ };
 
-  const api: SqlExecutor = { run, all, exec, transaction, close };
+  const api: SqlExecutor = { run, runMany, all, exec, transaction, close };
+
   (api.run as unknown as { _state: MockState; _setDropFilter: typeof setDropFilter })._state = state;
   (api.run as unknown as { _setDropFilter: typeof setDropFilter })._setDropFilter = setDropFilter;
   return api;
