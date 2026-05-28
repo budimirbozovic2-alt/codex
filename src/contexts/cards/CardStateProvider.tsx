@@ -33,8 +33,9 @@ function useCards(): Card[] {
 
 
 
-// ─── Public read hooks ──────────────────────────────────────────────────
 interface CardStateContextValue {
+  cards: Card[];
+
   cards: readonly Card[];
 
   dueCards: Card[];
