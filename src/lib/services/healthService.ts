@@ -147,7 +147,13 @@ export async function detectIntegrityIssues(): Promise<IntegrityIssues> {
     orphans: { count: orphanCardIds.length, cardIds: orphanCardIds },
     staleSub: { count: staleSubCardIds.length, cardIds: staleSubCardIds },
     staleChap: { count: staleChapCardIds.length, cardIds: staleChapCardIds },
+    // `listAllCards` above ran `decodeRows`, which logs any decode failures
+    // to the cards-repo ring buffer. Snapshot it here so the UI sees the
+    // ids that just failed (capped at 50).
+    corruptCardIds: getRecentCorruptCardIds(),
   };
+}
+
 }
 
 export function loadCrashLog(): CrashEntry[] {
