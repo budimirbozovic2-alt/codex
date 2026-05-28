@@ -1,11 +1,12 @@
-// M1+A1 — Settings repository facade.
-import { idbSaveSettings, idbLoadSettings } from "@/lib/db";
+// A1c-4 F2 — Settings repository facade. SQLite-primary via the kv table.
+import { getSetting, putSetting } from "@/lib/db/queries";
 
 export const settingsRepository = {
   async load<T>(key: string, fallback: T): Promise<T> {
-    return idbLoadSettings<T>(key, fallback);
+    const v = await getSetting<T>(key);
+    return v === undefined ? fallback : v;
   },
   async save(key: string, value: unknown): Promise<void> {
-    return idbSaveSettings(key, value);
+    await putSetting(key, value);
   },
 };
