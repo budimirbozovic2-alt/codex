@@ -121,13 +121,15 @@ function createExecutor(): SqlExecutor {
     state.inTx = true;
     try {
       // Delegate back to `api` (defined below) so test-time monkey-patching
-      // of `api.run` is visible inside the transaction body.
       const result = await fn({
         run: (sql, params) => api.run(sql, params),
+        runMany: (sql, batches) => api.runMany(sql, batches),
         all: (sql, params) => api.all(sql, params),
         exec: (sql) => api.exec(sql),
         transaction: api.transaction,
         close: api.close,
+      });
+
       });
       state.snapshot = null;
       state.inTx = false;
