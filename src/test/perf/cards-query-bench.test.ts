@@ -1,16 +1,12 @@
-// Bench — indexed Dexie query vs RAM filter for cardsByCategory.
+// Bench — indexed SQLite query vs RAM filter for cardsByCategory.
 //
-// Not a unit test of behavior; perf gate to ensure the indexed read keeps
-// pace with an in-memory `.filter()` on the same dataset. Runs under
-// happy-dom with fake-indexeddb (vitest setup), so absolute numbers are NOT
-// production timings — they are ordinal comparisons. The bench passes when
-// the indexed Dexie query is within 5x of an in-memory `.filter()` on the
-// same dataset, which is a strong signal that on real IDB (with native
-// b-trees) it will win comfortably.
-import "fake-indexeddb/auto";
+// F6 final-Dexie-drop: was Dexie-vs-RAM; now SQLite-harness-vs-RAM.
+// The harness is an in-memory JS map, so absolute numbers are NOT
+// production timings — they are ordinal comparisons confirming the
+// indexed `cardsByCategory` reader doesn't regress to O(N²).
 import { describe, it, expect, beforeAll } from "vitest";
-import { db } from "@/lib/db";
-import { cardsByCategory } from "@/lib/db/queries/cards";
+import { cardsByCategory, listAllCards } from "@/lib/db/queries/cards";
+import { seedTestSqliteTable } from "@/test/sqlite-harness";
 import type { Card } from "@/lib/spaced-repetition";
 
 function makeCard(i: number, categoryId: string): Card {
@@ -22,27 +18,38 @@ function makeCard(i: number, categoryId: string): Card {
     createdAt: i,
     readCount: 0,
     type: i % 2 === 0 ? "essay" : "flash",
-  };
+  } as unknown as Card;
 }
 
 const SIZES = [1_000, 5_000];
 const CAT_A = "cat-A";
 const CAT_B = "cat-B";
 
-describe("Phase 0 — cardsByCategory bench", () => {
-  beforeAll(async () => {
-    await db.open();
-    await db.cards.clear();
+describe("Phase 0 — cardsByCategory bench (SQLite harness)", () => {
+  beforeAll(() => {
     const all: Card[] = [];
     for (let i = 0; i < SIZES[SIZES.length - 1]; i++) {
       all.push(makeCard(i, i % 3 === 0 ? CAT_A : CAT_B));
     }
-    await db.cards.bulkPut(all);
+    // Seed directly; the cards repo reader projects from `payload` JSON +
+    // denormalised columns used for the `categoryId = ?` indexed lookup.
+    seedTestSqliteTable(
+      "cards",
+      all.map((c) => ({
+        id: c.id,
+        categoryId: c.categoryId,
+        chapterId: null,
+        subcategoryId: null,
+        sourceId: null,
+        type: c.type,
+        payload: JSON.stringify(c),
+      })),
+    );
   });
 
   for (const N of SIZES) {
-    it(`indexed query stays within 2x of RAM filter at N=${N}`, async () => {
-      const ram: Card[] = await db.cards.limit(N).toArray();
+    it(`indexed query stays within 5x of RAM filter at N=${N}`, async () => {
+      const ram: Card[] = (await listAllCards()).slice(0, N);
 
       const t0 = performance.now();
       const ramHits = ram.filter((c) => c.categoryId === CAT_A);
@@ -52,15 +59,12 @@ describe("Phase 0 — cardsByCategory bench", () => {
       const idbHits = await cardsByCategory(CAT_A);
       const tIdb = performance.now() - t1;
 
-      // sanity: indexed result is non-empty and only the matching category
       expect(idbHits.length).toBeGreaterThan(0);
       expect(idbHits.every((c) => c.categoryId === CAT_A)).toBe(true);
-      // ordinal check (sandbox-only — real IDB is much faster)
       expect(tIdb).toBeLessThan(Math.max(tRam * 5, 50));
-      // record numbers in CI logs for trend tracking
       // eslint-disable-next-line no-console
       console.log(
-        `[bench cardsByCategory N=${N}] ram=${tRam.toFixed(2)}ms idb=${tIdb.toFixed(2)}ms ramHits=${ramHits.length} idbHits=${idbHits.length}`,
+        `[bench cardsByCategory N=${N}] ram=${tRam.toFixed(2)}ms sqlite=${tIdb.toFixed(2)}ms ramHits=${ramHits.length} idbHits=${idbHits.length}`,
       );
     });
   }
