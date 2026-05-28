@@ -165,13 +165,13 @@ export async function ensureIndexArticle(
   const { htmlToDoc } = await import("@/lib/editor-v4");
   const { mdToHtml } = await import("@/lib/editor-v4/migrate");
 
+  return withSubjectLock(subjectId, async () => {
     // 1. Existing Index? (S9 — indexed seek instead of scan + JSON.parse)
     const existingIndex = await repoGetIndexArticle(subjectId);
     if (existingIndex) return existingIndex;
 
     // Fallback: scan for a same-titled promotable article (no Index row yet).
     const all = await repoListBySubject(subjectId);
-    if (existingIndex) return existingIndex;
 
     // 2. Promote a same-titled article.
     const normSubject = subjectName.trim().toLowerCase();
