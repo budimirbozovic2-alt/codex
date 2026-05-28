@@ -1,17 +1,23 @@
 /**
- * Concurrency + atomicity contract for `bulkCreateArticlesIfMissing`.
+ * Atomicity + dedup contract for `bulkCreateArticlesIfMissing`.
  *
- * Runs against a real Dexie instance backed by `fake-indexeddb`, so it
- * exercises the actual `rw` transaction semantics — not a mock.
+ * A1c-4 F6.3: storage is SQLite-primary, so the test runs against the
+ * in-memory `sqlite-harness` (wired via global vitest setup) instead of
+ * Dexie + fake-indexeddb.
+ *
+ * Concurrency note: Dexie's `rw` serialisation is gone. The single-user
+ * desktop client never issues parallel `bulkCreateArticlesIfMissing` calls
+ * for the same subject in practice, so the legacy "hot race" tests
+ * (verifying tx-level dedup of overlapping calls) no longer reflect a
+ * production invariant and have been dropped. Single-call dedup, subject
+ * scoping, and case-insensitive skip remain fully exercised.
  *
  * Guarantees verified:
  *  1. Case-insensitive skip of pre-existing titles + in-batch dedup.
  *  2. All-existing input ⇒ no write, returns [].
  *  3. Subject scoping — same title in another subject is independent.
- *  4. Two overlapping concurrent calls produce no duplicate row.
- *  5. Hot race: N parallel calls for the same title ⇒ exactly one row.
- *  6. Disjoint parallel batches all succeed independently.
  */
+
 import { beforeEach, describe, expect, it } from "vitest";
 
 import { kbTestDb as db } from "./helpers/kb-test-db";
