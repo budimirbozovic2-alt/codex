@@ -118,15 +118,16 @@ export async function runV4Preflight(): Promise<PreflightResult> {
       version: 7,
       type: "full",
       scalars: { preflight: true, ts: Date.now() },
-      tables: [
-        tableSpec("cards", db.cards),
-        tableSpec("sources", db.sources),
-        tableSpec("knowledgeBaseArticles", db.knowledgeBaseArticles),
-        tableSpec("categories", db.categories),
+      sources: [
+        sourceSpec("cards", () => listAllCards()),
+        sourceSpec("sources", () => listAllSources()),
+        sourceSpec("knowledgeBaseArticles", () => listAllArticles()),
+        sourceSpec("categories", () => readAllCategoriesForBackup()),
       ],
-      txTables: [
-        db.cards, db.sources, db.knowledgeBaseArticles, db.categories,
-      ] as unknown as Table<unknown, unknown>[],
+      onProgress: () => { /* silent */ },
+      pStart: 0,
+      pEnd: 100,
+    });
       onProgress: () => { /* silent */ },
       pStart: 0,
       pEnd: 100,
