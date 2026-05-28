@@ -90,6 +90,9 @@ function createExecutor(): SqlExecutor {
   const run: SqlExecutor["run"] = async (sql, params = []) => {
     handleInsert(sql, params);
   };
+  const runMany: SqlExecutor["runMany"] = async (sql, batches) => {
+    for (const p of batches) handleInsert(sql, p);
+  };
 
   const setDropFilter = (fn: typeof dropFilter): void => { dropFilter = fn; };
 
@@ -118,9 +121,9 @@ function createExecutor(): SqlExecutor {
     state.inTx = true;
     try {
       // Delegate back to `api` (defined below) so test-time monkey-patching
-      // of `api.run` is visible inside the transaction body.
       const result = await fn({
         run: (sql, params) => api.run(sql, params),
+        runMany: (sql, batches) => api.runMany(sql, batches),
         all: (sql, params) => api.all(sql, params),
         exec: (sql) => api.exec(sql),
         transaction: api.transaction,
@@ -142,7 +145,8 @@ function createExecutor(): SqlExecutor {
 
   const close: SqlExecutor["close"] = async () => { /* noop */ };
 
-  const api: SqlExecutor = { run, all, exec, transaction, close };
+  const api: SqlExecutor = { run, runMany, all, exec, transaction, close };
+
   (api.run as unknown as { _state: MockState; _setDropFilter: typeof setDropFilter })._state = state;
   (api.run as unknown as { _setDropFilter: typeof setDropFilter })._setDropFilter = setDropFilter;
   return api;

@@ -16,7 +16,9 @@ import {
   readAllCategoriesForBackup,
   listAllCards,
   getCardsByIds,
+  getRecentCorruptCardIds,
 } from "@/lib/db/queries";
+
 
 export interface TableStat {
   name: string;
@@ -35,11 +37,12 @@ export interface CrashEntry {
   firstSeen: string;
   lastSeen: string;
 }
-
 export interface IntegrityIssues {
   orphans: OrphanResult;
   staleSub: OrphanResult;
   staleChap: OrphanResult;
+  /** Card ids that failed to decode from SQLite payload (last 50). */
+  corruptCardIds: string[];
 }
 
 export interface StorageSnapshot {
@@ -53,6 +56,8 @@ export interface HealthReport {
   integrity: IntegrityIssues;
   crashLog: CrashEntry[];
 }
+
+
 
 // PR-9 A1b P1.B — counters route through the backup-readers seam. Card,
 // source, mind-map, and discipline-log counts hit SQLite when the Electron
@@ -142,8 +147,14 @@ export async function detectIntegrityIssues(): Promise<IntegrityIssues> {
     orphans: { count: orphanCardIds.length, cardIds: orphanCardIds },
     staleSub: { count: staleSubCardIds.length, cardIds: staleSubCardIds },
     staleChap: { count: staleChapCardIds.length, cardIds: staleChapCardIds },
+    // `listAllCards` above ran `decodeRows`, which logs any decode failures
+    // to the cards-repo ring buffer. Snapshot it here so the UI sees the
+    // ids that just failed (capped at 50).
+    corruptCardIds: getRecentCorruptCardIds(),
   };
 }
+
+
 
 export function loadCrashLog(): CrashEntry[] {
   try {

@@ -40,9 +40,11 @@ export async function writeCategoriesTx(
         // any backup categories whose name already exists were remapped,
         // so a wipe + bulk insert here is safe.
         await tx.run("DELETE FROM categories");
-        for (const cat of parsed.categories) {
-          await tx.run(CATEGORY_INSERT_SQL, bindCategory(cat));
-        }
+        await tx.runMany(
+          CATEGORY_INSERT_SQL,
+          parsed.categories.map((cat) => bindCategory(cat)),
+        );
+
         working = [...parsed.categories];
         // FK sweep: only after categories are finalized.
         const validIds = new Set(parsed.categories.map((c) => c.id));
@@ -54,11 +56,13 @@ export async function writeCategoriesTx(
         const toInsert = parsed.categories.filter(
           (cr) => !existingByName.has(cr.name.toLowerCase()),
         );
-        for (const cat of toInsert) {
-          await tx.run(CATEGORY_INSERT_SQL, bindCategory(cat));
-        }
+        await tx.runMany(
+          CATEGORY_INSERT_SQL,
+          toInsert.map((cat) => bindCategory(cat)),
+        );
         working = [...freshCategories, ...toInsert];
       }
+
     } else {
       // Legacy `string[]` format — synthesize CategoryRecord[] from names.
       const legacyNames = parsed.categories;
@@ -67,9 +71,8 @@ export async function writeCategoriesTx(
           id: crypto.randomUUID(), name, sortOrder: i, subcategories: [],
         }));
         await tx.run("DELETE FROM categories");
-        for (const cat of allRecs) {
-          await tx.run(CATEGORY_INSERT_SQL, bindCategory(cat));
-        }
+        await tx.runMany(CATEGORY_INSERT_SQL, allRecs.map((cat) => bindCategory(cat)));
+
         working = allRecs;
       } else {
         const existingNames = new Set(freshCategories.map((r) => r.name));
@@ -84,9 +87,8 @@ export async function writeCategoriesTx(
             });
           }
         }
-        for (const cat of newRecs) {
-          await tx.run(CATEGORY_INSERT_SQL, bindCategory(cat));
-        }
+        await tx.runMany(CATEGORY_INSERT_SQL, newRecs.map((cat) => bindCategory(cat)));
+
         working = [...freshCategories, ...newRecs];
       }
     }
@@ -111,11 +113,10 @@ export async function writeCategoriesTx(
         }));
       return { ...r, subcategories: [...r.subcategories, ...newNodes] };
     });
-    for (const cat of updated) {
-      await tx.run(CATEGORY_INSERT_SQL, bindCategory(cat));
-    }
+    await tx.runMany(CATEGORY_INSERT_SQL, updated.map((cat) => bindCategory(cat)));
     working = updated;
   }
+
 
   return working;
 }

@@ -107,10 +107,9 @@ export async function replaceAllCategories(
   if (!exec) return;
   await exec.transaction(async (tx) => {
     await tx.run("DELETE FROM categories");
-    for (const c of records) {
-      await tx.run(CATEGORY_INSERT_SQL, bindCategory(c));
-    }
+    await tx.runMany(CATEGORY_INSERT_SQL, records.map((c) => bindCategory(c)));
   });
+
 }
 
 /** Upsert a single category. */
@@ -126,12 +125,10 @@ export async function bulkPutCategories(
 ): Promise<void> {
   if (records.length === 0) return;
   const exec = await requireExecutor("bulkPut");
-  if (!exec) return;
   await exec.transaction(async (tx) => {
-    for (const c of records) {
-      await tx.run(CATEGORY_INSERT_SQL, bindCategory(c));
-    }
+    await tx.runMany(CATEGORY_INSERT_SQL, records.map((c) => bindCategory(c)));
   });
+
 }
 
 /** Wipe every category row. Restore overwrite mode + test fixtures. */

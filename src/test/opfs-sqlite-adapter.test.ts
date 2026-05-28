@@ -28,7 +28,11 @@ function createMockExecutor(): SqlExecutor & { rows: Map<string, Row>; txDepth: 
         rows.delete(String(params[0]));
       }
     },
+    async runMany(sql: string, batches: readonly (readonly SqlBindValue[])[]) {
+      for (const p of batches) await exec.run(sql, p);
+    },
     async all<T = SqlRow>(): Promise<T[]> { return [] as T[]; },
+
     async exec() { /* no-op for non-DML */ },
     async transaction<T>(fn: (tx: SqlExecutor) => Promise<T>): Promise<T> {
       state.txDepth++;

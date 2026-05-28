@@ -196,11 +196,12 @@ export async function bulkPutArticles(articles: readonly KnowledgeBaseArticle[])
   const exec = await requireExecutor("bulkPutArticles");
   if (!exec) return;
   await exec.transaction(async (tx) => {
-    for (const a of articles) {
-      if (!a.subjectId) continue;
-      await tx.run(INSERT_SQL, bindRow(a));
-    }
+    const batches = articles
+      .filter((a) => Boolean(a.subjectId))
+      .map((a) => bindRow(a));
+    if (batches.length > 0) await tx.runMany(INSERT_SQL, batches);
   });
+
   notifyKnowledgeBaseChanged();
 }
 

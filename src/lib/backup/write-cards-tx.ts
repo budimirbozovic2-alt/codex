@@ -59,7 +59,8 @@ export async function writeCardsTx(
   if (strategy === "overwrite") {
     await tx.run("DELETE FROM cards");
   }
-  for (const card of merged) {
-    await tx.run(CARD_INSERT_SQL, bindCardInsert(card));
+  if (merged.length > 0) {
+    await tx.runMany(CARD_INSERT_SQL, merged.map((c) => bindCardInsert(c)));
   }
 }
+

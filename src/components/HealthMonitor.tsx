@@ -44,6 +44,8 @@ export default function HealthMonitor() {
   const orphans = report?.integrity.orphans ?? { count: 0, cardIds: [] };
   const staleSub = report?.integrity.staleSub ?? { count: 0, cardIds: [] };
   const staleChap = report?.integrity.staleChap ?? { count: 0, cardIds: [] };
+  const corruptCardIds = report?.integrity.corruptCardIds ?? [];
+
   const crashLog = report?.crashLog ?? [];
   const totalRecords = tableStats.reduce((s, t) => s + t.count, 0);
 
@@ -95,6 +97,28 @@ export default function HealthMonitor() {
               <span className="text-muted-foreground">Nema orphan zapisa — podaci su konzistentni</span>
             </div>
           )}
+
+          {corruptCardIds.length > 0 && (
+            <Alert variant="destructive">
+              <AlertTriangle className="h-4 w-4" />
+              <AlertTitle className="flex items-center gap-2">
+                Oštećene kartice (decode failure)
+                <Badge variant="destructive" className="text-[10px]">{corruptCardIds.length}</Badge>
+              </AlertTitle>
+              <AlertDescription className="text-xs space-y-1">
+                <div>
+                  Sljedeći payload nisu prošli JSON dekodiranje i preskočeni
+                  su pri zadnjem čitanju iz SQLite-a:
+                </div>
+                <code className="block break-all rounded bg-muted/40 p-2 text-[10px]">
+                  {corruptCardIds.slice(0, 20).join(", ")}
+                  {corruptCardIds.length > 20 ? "…" : ""}
+                </code>
+              </AlertDescription>
+            </Alert>
+          )}
+
+
 
           {(staleSub.count > 0 || staleChap.count > 0) && (
             <Alert className="border-warning/50 bg-warning/10">

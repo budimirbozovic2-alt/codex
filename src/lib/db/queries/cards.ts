@@ -13,7 +13,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 import type { SqlExecutor } from "@/lib/persistence/sqlite/executor";
 import type { Card } from "@/lib/spaced-repetition";
-import { decodeCard } from "@/lib/persistence/sqlite/row-codecs";
+import { decodeCard, CardDecodeError } from "@/lib/persistence/sqlite/row-codecs";
 import { logger } from "@/lib/logger";
 import { notifyExecutorNull } from "./_shared/executor-telemetry";
 
@@ -41,14 +41,61 @@ async function requireExecutor(label: string): Promise<SqlExecutor | null> {
   return null;
 }
 
+// ── Corruption telemetry ─────────────────────────────────────────────────
+//
+// `decodeCard` throws `CardDecodeError` on malformed JSON or missing required
+// keys. Readers below catch and skip those rows so the UI keeps rendering,
+// but the failed ids are appended to a bounded ring buffer + broadcast on a
+// listener channel so the Health Monitor can surface them.
+const CORRUPT_RING_MAX = 50;
+const _corruptIds = new Set<string>();
+type CorruptListener = (ids: readonly string[]) => void;
+const _corruptListeners = new Set<CorruptListener>();
+
+function recordCorruptIds(ids: readonly string[]): void {
+  if (ids.length === 0) return;
+  for (const id of ids) {
+    _corruptIds.add(id);
+    if (_corruptIds.size > CORRUPT_RING_MAX) {
+      // Drop the oldest (Set iteration is insertion order).
+      const first = _corruptIds.values().next().value;
+      if (first !== undefined) _corruptIds.delete(first);
+    }
+  }
+  const snapshot = Array.from(_corruptIds);
+  for (const fn of _corruptListeners) {
+    try { fn(snapshot); } catch (err) { logger.warn("[cards-repo] corrupt listener threw", err); }
+  }
+}
+
+/** Snapshot of recent decode-failure ids (capped at 50). */
+export function getRecentCorruptCardIds(): string[] {
+  return Array.from(_corruptIds);
+}
+
+/** Subscribe to corruption events. Fires synchronously on each batch. */
+export function onCorruptCards(fn: CorruptListener): () => void {
+  _corruptListeners.add(fn);
+  return () => { _corruptListeners.delete(fn); };
+}
+
+/** Test seam — wipe the ring buffer between test cases. */
+export function __resetCorruptCardIds(): void { _corruptIds.clear(); }
+
 function decodeRows(rows: readonly { payload: string }[]): Card[] {
   const out: Card[] = [];
+  const failed: string[] = [];
   for (const row of rows) {
     try { out.push(decodeCard(row as unknown as Record<string, string>)); }
-    catch (err) { logger.warn("[cards-repo] decode failed, skipping row", err); }
+    catch (err) {
+      if (err instanceof CardDecodeError) failed.push(err.id);
+      logger.warn("[cards-repo] decode failed, skipping row", err);
+    }
   }
+  if (failed.length > 0) recordCorruptIds(failed);
   return out;
 }
+
 
 // ── Bulk readers ─────────────────────────────────────────────────────────
 
@@ -70,12 +117,19 @@ export async function getCardsByIds(ids: readonly string[]): Promise<(Card | und
     ids as readonly string[],
   );
   const byId = new Map<string, Card>();
+  const failed: string[] = [];
   for (const row of rows) {
     try { byId.set(row.id, decodeCard(row as unknown as Record<string, string>)); }
-    catch (err) { logger.warn("[cards-repo] decode failed in bulkGet", { id: row.id, err }); }
+    catch (err) {
+      if (err instanceof CardDecodeError) failed.push(err.id);
+      logger.warn("[cards-repo] decode failed in bulkGet", { id: row.id, err });
+    }
   }
+  if (failed.length > 0) recordCorruptIds(failed);
   return ids.map((id) => byId.get(id));
 }
+
+
 
 // ── Indexed scoped readers ───────────────────────────────────────────────
 

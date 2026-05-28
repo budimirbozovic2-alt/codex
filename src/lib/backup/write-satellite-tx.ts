@@ -148,13 +148,12 @@ async function writeDiaryTx(
     return;
   }
   if (strategy === "overwrite") await tx.run("DELETE FROM diary");
-  for (const r of rows) {
-    await tx.run(
-      "INSERT OR REPLACE INTO diary (id, date, payload) VALUES (?, ?, ?)",
-      [r.id, r.date ?? "", JSON.stringify(r)],
-    );
-  }
+  await tx.runMany(
+    "INSERT OR REPLACE INTO diary (id, date, payload) VALUES (?, ?, ?)",
+    rows.map((r) => [r.id, r.date ?? "", JSON.stringify(r)]),
+  );
 }
+
 
 async function writeDisciplineLogTx(
   tx: SqlExecutor,
@@ -167,13 +166,12 @@ async function writeDisciplineLogTx(
     return;
   }
   if (strategy === "overwrite") await tx.run("DELETE FROM disciplineLog");
-  for (const r of rows) {
-    await tx.run(
-      "INSERT OR REPLACE INTO disciplineLog (date, payload) VALUES (?, ?)",
-      [String(r.date ?? ""), JSON.stringify(r)],
-    );
-  }
+  await tx.runMany(
+    "INSERT OR REPLACE INTO disciplineLog (date, payload) VALUES (?, ?)",
+    rows.map((r) => [String(r.date ?? ""), JSON.stringify(r)]),
+  );
 }
+
 
 async function writeMnemonicTestLogTx(
   tx: SqlExecutor,
@@ -188,21 +186,30 @@ async function writeMnemonicTestLogTx(
     return;
   }
   if (strategy === "overwrite") await tx.run("DELETE FROM mnemonicTestLog");
+  const withId: (string | number)[][] = [];
+  const noId: (string | number)[][] = [];
   for (const r of rows) {
     const cleaned: Record<string, unknown> = { ...r };
     delete cleaned.id;
     if (r.id !== undefined && r.id !== null) {
-      await tx.run(
-        "INSERT OR REPLACE INTO mnemonicTestLog (id, cardId, timestamp, success, payload) VALUES (?, ?, ?, ?, ?)",
-        [Number(r.id), r.cardId, Number(r.timestamp ?? 0), r.success ? 1 : 0, JSON.stringify(cleaned)],
-      );
+      withId.push([Number(r.id), r.cardId, Number(r.timestamp ?? 0), r.success ? 1 : 0, JSON.stringify(cleaned)]);
     } else {
-      await tx.run(
-        "INSERT INTO mnemonicTestLog (cardId, timestamp, success, payload) VALUES (?, ?, ?, ?)",
-        [r.cardId, Number(r.timestamp ?? 0), r.success ? 1 : 0, JSON.stringify(cleaned)],
-      );
+      noId.push([r.cardId, Number(r.timestamp ?? 0), r.success ? 1 : 0, JSON.stringify(cleaned)]);
     }
   }
+  if (withId.length > 0) {
+    await tx.runMany(
+      "INSERT OR REPLACE INTO mnemonicTestLog (id, cardId, timestamp, success, payload) VALUES (?, ?, ?, ?, ?)",
+      withId,
+    );
+  }
+  if (noId.length > 0) {
+    await tx.runMany(
+      "INSERT INTO mnemonicTestLog (cardId, timestamp, success, payload) VALUES (?, ?, ?, ?)",
+      noId,
+    );
+  }
+
 }
 
 // ─── Main entry point ───────────────────────────────────────────────────
@@ -218,23 +225,24 @@ export async function writeSatelliteTablesTx(
 
   if (parsed.sources.length > 0) {
     if (strategy === "overwrite") await tx.run("DELETE FROM sources");
-    for (const s of parsed.sources) await tx.run(SOURCE_INSERT_SQL, bindSource(s));
+    await tx.runMany(SOURCE_INSERT_SQL, parsed.sources.map((s) => bindSource(s)));
   } else if (strategy === "overwrite") {
     await tx.run("DELETE FROM sources");
   }
 
   if (parsed.mindMaps.length > 0) {
     if (strategy === "overwrite") await tx.run("DELETE FROM mindMaps");
-    for (const m of parsed.mindMaps) await tx.run(MINDMAP_INSERT_SQL, bindMindMap(m));
+    await tx.runMany(MINDMAP_INSERT_SQL, parsed.mindMaps.map((m) => bindMindMap(m)));
   } else if (strategy === "overwrite") {
     await tx.run("DELETE FROM mindMaps");
   }
 
   if (parsed.knowledgeBaseArticles.length > 0) {
     if (strategy === "overwrite") await tx.run("DELETE FROM knowledgeBaseArticles");
-    for (const a of parsed.knowledgeBaseArticles) {
-      await tx.run(KB_ARTICLE_INSERT_SQL, bindKbArticle(a));
-    }
+    await tx.runMany(
+      KB_ARTICLE_INSERT_SQL,
+      parsed.knowledgeBaseArticles.map((a) => bindKbArticle(a)),
+    );
   } else if (strategy === "overwrite") {
     await tx.run("DELETE FROM knowledgeBaseArticles");
   }
@@ -242,16 +250,17 @@ export async function writeSatelliteTablesTx(
   // Mnemonics + Major System.
   if (parsed.mnemonics.length > 0) {
     if (strategy === "overwrite") await tx.run("DELETE FROM mnemonics");
-    for (const m of parsed.mnemonics) await tx.run(MNEMONIC_INSERT_SQL, bindMnemonic(m));
+    await tx.runMany(MNEMONIC_INSERT_SQL, parsed.mnemonics.map((m) => bindMnemonic(m)));
   } else if (strategy === "overwrite") {
     await tx.run("DELETE FROM mnemonics");
   }
 
   if (parsed.majorSystem.length > 0) {
     if (strategy === "overwrite") await tx.run("DELETE FROM majorSystem");
-    for (const p of parsed.majorSystem) {
-      await tx.run(MAJOR_SYSTEM_INSERT_SQL, bindMajorSystemPeg(p));
-    }
+    await tx.runMany(
+      MAJOR_SYSTEM_INSERT_SQL,
+      parsed.majorSystem.map((p) => bindMajorSystemPeg(p)),
+    );
   } else if (strategy === "overwrite") {
     await tx.run("DELETE FROM majorSystem");
   }

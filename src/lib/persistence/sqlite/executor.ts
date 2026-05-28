@@ -16,6 +16,12 @@ export type SqlRow = Record<string, SqlBindValue>;
 export interface SqlExecutor {
   /** Run a single statement that returns no rows (DDL, INSERT, DELETE…). */
   run(sql: string, params?: readonly SqlBindValue[]): Promise<void>;
+  /**
+   * Run the same statement once per parameter batch. Implementations may
+   * bind once and reuse the prepared statement, avoiding worker-IPC chatter
+   * vs. an `await tx.run()` loop. Order is preserved; failure aborts.
+   */
+  runMany(sql: string, paramsBatches: readonly (readonly SqlBindValue[])[]): Promise<void>;
   /** Run a parameterised SELECT and return all rows. */
   all<T = SqlRow>(sql: string, params?: readonly SqlBindValue[]): Promise<T[]>;
   /** Execute a multi-statement script (semicolon-separated DDL etc.). */
@@ -25,3 +31,4 @@ export interface SqlExecutor {
   /** Release native resources (worker, file handles). Idempotent. */
   close(): Promise<void>;
 }
+

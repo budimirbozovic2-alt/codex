@@ -417,6 +417,13 @@ class TestExecutor implements SqlExecutor {
     throw new Error(`[sqlite-harness] unsupported SELECT: ${trimmed}`);
   }
 
+  async runMany(
+    sql: string,
+    paramsBatches: readonly (readonly SqlBindValue[])[],
+  ): Promise<void> {
+    for (const params of paramsBatches) await this.run(sql, params);
+  }
+
   async exec(sql: string): Promise<void> {
     // Multi-statement DDL — split and noop each. Only handle CREATE/PRAGMA.
     const stmts = sql.split(";").map((s) => s.trim()).filter(Boolean);

@@ -48,8 +48,7 @@ export async function bulkPutPegs(pegs: MajorSystemPeg[]): Promise<void> {
   const exec = await requireExecutor("bulkPutPegs");
   if (!exec) return;
   await exec.transaction(async (tx) => {
-    for (const p of pegs) {
-      await tx.run(INSERT_SQL, [p.id, p.peg]);
-    }
+    await tx.runMany(INSERT_SQL, pegs.map((p) => [p.id, p.peg]));
   });
+
 }
