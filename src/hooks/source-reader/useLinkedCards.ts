@@ -4,10 +4,10 @@
  * Extracted from `SourceEditor.tsx` (R1) so UI components stop importing
  * `db` directly. The fetcher is imperative (called inside the save handler)
  * rather than reactive, which matches the original call-site semantics and
- * keeps the dialog free of `useLiveQuery` re-renders.
+ * keeps the dialog free of reactive re-renders.
  *
- * When the read-path moves to TanStack Query (PR-9), this hook becomes the
- * single seam to swap in a `useQuery` without touching `SourceEditor`.
+ * PR-9 A1c-3: cardsBySource already routes through SQLite-primary
+ * queries/cards.ts — no Dexie touch left here.
  */
 import { useCallback } from "react";
 import { cardsBySource } from "@/lib/db/queries";
