@@ -119,19 +119,17 @@ export default function EmptyState({ type, onAction, actionLabel, diagnostics, i
   const ctaLabel = actionLabel || preset?.actionLabel || "Dodaj";
 
   return (
-    <div
-      className="animate-in fade-in slide-in-from-bottom-5 duration-400 flex flex-col items-center justify-center py-16 text-center space-y-5"
-    >
-      <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center">
-        <Icon className="h-7 w-7 text-muted-foreground" />
+    <div className="animate-fade-up flex flex-col items-center justify-center py-20 text-center space-y-6">
+      <div className="w-20 h-20 rounded-full bg-muted flex items-center justify-center ring-1 ring-hairline shadow-soft">
+        <Icon className="h-8 w-8 text-muted-foreground" strokeWidth={1.5} />
       </div>
-      <div className="space-y-1.5 max-w-xs">
-        <h3 className="text-lg font-semibold">{heading}</h3>
-        <p className="text-sm text-muted-foreground">{desc}</p>
+      <div className="space-y-2 max-w-sm">
+        <h3 className="text-display text-2xl text-foreground text-balance">{heading}</h3>
+        <p className="text-sm text-muted-foreground text-pretty leading-relaxed">{desc}</p>
       </div>
       {onAction && (
-        <Button onClick={onAction} variant="outline" className="gap-2">
-          <Icon className="h-4 w-4" /> {ctaLabel}
+        <Button onClick={onAction} variant="outline" className="gap-2 hover-lift pressable">
+          <Icon className="h-4 w-4" strokeWidth={1.6} /> {ctaLabel}
         </Button>
       )}
     </div>
