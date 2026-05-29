@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { SubcategoryNode } from "@/lib/db-types";
 import { readCached, writeCached } from "@/lib/settings-cache";
 
@@ -64,17 +64,19 @@ export function usePassiveReaderFilters(
     writeCached(FILTER_STORAGE_PREFIX + categoryId, { subFilter, chapterFilter, typeFilter });
   }, [categoryId, subFilter, chapterFilter, typeFilter]);
 
-  return {
+  const resetAll = useCallback(() => {
+    setSubFilter("all");
+    setChapterFilter("all");
+    setTypeFilter("all");
+  }, []);
+
+  return useMemo<PassiveReaderFiltersAPI>(() => ({
     subFilter,
     chapterFilter,
     typeFilter,
     setSubFilter,
     setChapterFilter,
     setTypeFilter,
-    resetAll: () => {
-      setSubFilter("all");
-      setChapterFilter("all");
-      setTypeFilter("all");
-    },
-  };
+    resetAll,
+  }), [subFilter, chapterFilter, typeFilter, resetAll]);
 }
