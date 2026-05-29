@@ -1,78 +1,182 @@
-## Premium UI — preostale preporuke
+# Motion sa inženjerskom disciplinom
 
-Tipografija, surface tokeni, sjenke, `animate-fade-up`, `hover-lift`, `text-display + tabular`, eyebrow labele, sticky-nav refinement, BackupCard/QuickActions i animacijski sloj su već uvedeni u prethodnim koracima. Plan ispod pokriva **samo ono što nedostaje** da dovršimo "premium" osjećaj.
+## Kontekst (zatečeno stanje)
 
----
+- `framer-motion@^12.36.0` je **već instaliran** i importovan u **36 fajlova** (memorija koja kaže "framer-motion uklonjen" je netačna i biće osvježena).
+- Svaki fajl koristi puni `motion.*` import — bundle nosi cijeli motion paket eagerno (~35 KB gzip), iako većini korisnika treba samo `fade/scale`.
+- `prefers-reduced-motion` se poštuje samo u 3 fajla (`index.css`, `useCountUp`, `RouteTransition`) — preostalih 33 ignoriše korisničke postavke.
+- Nema centralnih `duration`/`easing`/`stagger` tokena → svaki autor je smišljao svoje brojeve (0.2s, 0.3s, 0.25s, 0.4s pomiješano).
+- Nema `LayoutGroup`/`layoutId` strategije — propušteni funkcionalni dobici (kontinuitet pri otvaranju Zettel članka, reorder backlinkova, FSRS flip).
 
-### 1. Count-up animacije na KPI brojkama  (sekcija 4)
-- Mini hook `useCountUp(value, { duration: 600, easing })` u `src/hooks/useCountUp.ts` — `requestAnimationFrame` petlja, `prefers-reduced-motion` respect, **bez** dodavanja motion lib.
-- Primjena: `CoreStats.due`, `VelocityWidget.velocity`, `weakest.score %`, `ExamProgressBar` brojevi.
-- Zadržati `.tabular` da skok cifara ne pomjera layout.
-
-### 2. ProgressRing → radial-gradient + drop-shadow  (sekcija 5)
-- `src/components/ProgressRing.tsx`: zamijeniti solid `stroke` sa `<defs><linearGradient/></defs>` (primary → primary-glow), dodati `filter: drop-shadow(0 2px 6px hsl(var(--primary)/0.25))`.
-- Track stroke → `hsl(var(--surface-2))` umjesto `--muted`.
-- Boja se mapira preko `mastery-color` tokena (zelena/žuta/crvena) — gradijent koristi `currentColor` + 70%-stop varijantu.
-
-### 3. SettingsPage — vazduh + kompaktne kontrole  (sekcija 5)
-- `SRSettingsPanel` i sve `*Tab.tsx` (`AlgorithmTab`, `PersonalizationTab`, `WorkflowTab`, `SubjectsTab`, `SystemTab`):
-  - sekcije `space-y-6` → `space-y-10`
-  - kartica `py-6` → `py-8`, `gap-4` → `gap-6`
-  - svi `Input`/`Select`/`Button` u Settingsu → `h-9` (override preko className-a, ne globalno)
-  - section heading → `.text-display text-xl` + `.text-eyebrow` iznad
-
-### 4. OnboardingModal — premium first-impression  (sekcija 5)
-- `src/components/onboarding/OnboardingModal.tsx` (i njegov tree):
-  - Hero ilustracija/ikon header sa `bg-gradient-to-br from-primary/8 via-surface-2 to-transparent`
-  - Naslov `.text-display text-4xl tracking-tighter`, podnaslov `.text-eyebrow` iznad
-  - Step indikator: hairline progress (1px traka) umjesto dotova
-  - Footer dugmad: primarno `shadow-elevated hover-lift pressable`, sekundarno ghost
-  - Spring open animacija (CSS `cubic-bezier(0.34, 1.56, 0.64, 1)` 280ms)
-
-### 5. Page-transition sloj  (sekcija 6)
-- `src/components/RouteTransition.tsx`: thin wrapper koji slušajući `location.pathname` re-mountuje children sa `animate-fade-up` (0.22s).
-- Umotati `<Routes>` u `App.tsx` (linija 96-128). Bez biblioteke, čisti CSS.
-- `prefers-reduced-motion` → no-op.
-
-### 6. Konsistentnost ikona — stroke sweep  (sekcija 7)
-- Codemod-podržan ručni sweep: u `src/components/**` i `src/views/**`, **svim Lucide ikonama BEZ `strokeWidth` propa** dodati `strokeWidth={1.6}` (default 2 = pre-debelo).
-- Iznimke: ikone unutar dugmadi `size="sm"` ostaju 2 zbog čitljivosti na malom.
-- Procijenjeno ~60 tačaka — radi se ciljano u top-level layout/dashboard/zettelkasten/cards fajlovima.
-
-### 7. Borderi: jeftin AI-look sweep  (sekcija 3 — preostalo)
-- Globalni replace u **non-form, non-input** kontekstima: `border-border` (full opacity) → `border-hairline` ili `border-border/40`.
-- Inpute/select/checkbox **ostavljamo** na punom border-u (čitljivost forme).
-- Fokus na: `zettelkasten/*` (Explorer, Preview, Backlinks, EmbeddedMindMap), `AutoSplitDialog`, `MindMapPickerDialog`, `SubjectDashboard`.
-
-### 8. Splash screen polish  (sekcija 7)
-- `public/splash.html` (92 LOC trenutno):
-  - Pozadinski radial-gradient `at 30% 20%, hsl(220 30% 16%) → hsl(220 40% 8%)`
-  - Centrirani CODEX brand mark (SVG inline, gold accent stroke)
-  - Pulse animacija na tagline-u (0.6 → 1 opacity, 1.6s ease), bez spinnera
-  - `font-family: 'Fraunces', serif` za "CODEX" wordmark; tagline DM Sans 13px tracking +0.18em uppercase
-
-### 9. Loading skeleton sweep  (sekcija 4)
-- `src/components/ui/skeleton-premium.tsx` (već imamo `.skeleton-premium` utility) → React komponenta `<SkeletonRow lines={3} />` i `<SkeletonCard />`.
-- Zamijeniti `Loader2` spinnere u top-3 mjesta: `Dashboard` initial load, `CategoryView` cards loader, `ZettelkastenView` index loader.
+**Cilj:** ne dodavati nove dekorativne animacije. Konsolidovati postojeće, smanjiti bundle, učiniti svaku animaciju funkcionalnom ili je ukloniti.
 
 ---
 
-### Redoslijed implementacije
-1. ProgressRing gradient + count-up hook  (najvidljiviji wow)
-2. RouteTransition wrapper  (osjeti se odmah pri navigaciji)
-3. SettingsPage spacing + h-9 controls
-4. OnboardingModal
-5. Stroke sweep + border sweep (ručno, ciljano)
-6. Splash polish + skeleton sweep (cleanup)
+## Filozofija — kada motion smije postojati
 
-### Tehničke odluke
-- **Bez novih dependency-ja** — sve čistim CSS-om i RAF-om. Memory: framer-motion je već uklonjen (`performance-optimization-v5`), poštujemo.
-- Sve nove CSS animacije idu u `src/index.css` ispod postojećih premium utility-ja.
-- Sve nove utility klase poštuju `prefers-reduced-motion`.
-- Tabular nums i `.text-display` se već automatski lance kroz utility — ne duplicirati.
+| Smije | Ne smije |
+|---|---|
+| Kontinuitet (element ostaje isti, mijenja kontekst) | Ulazak liste kartica jedna po jedna sa 80ms staggerom |
+| Potvrda akcije (FSRS grade, save, delete) | Bounce/spring na tekstu naslova |
+| Orijentacija pažnje na promjenu (toast, novi backlink) | Animirani gradient u pozadini |
+| Drag feedback (lift, drop zone highlight) | "Wow" intro animacije |
+| Layout shift maskiranje (skeleton → content) | Bilo šta preko 240ms ako blokira interakciju |
 
-### Što NE radimo
-- Ne dodajemo motion library (poštujemo postojeću odluku).
-- Ne diramo Electron preload/CSP.
-- Ne mijenjamo postojeću palette/theme strukturu — samo nadograđujemo surface i hairline tokene koji već postoje.
-- Ne refaktorišemo god-fajlove iz audita (`PassiveReader`, `backup-schema`) — to ide u zaseban refactor PR.
+**Tvrdo pravilo:** trajanje > 240ms zahtijeva pisani razlog u komentaru iznad. Sve preko 400ms je zabranjeno bez izuzetka.
+
+---
+
+## 1. Centralni motion sistem (`src/lib/motion/`)
+
+Novi modul, jedan ulazni barrel:
+
+```
+src/lib/motion/
+  tokens.ts          // duration, easing, stagger konstante
+  MotionProvider.tsx // LazyMotion + MotionConfig wrapper
+  primitives.tsx     // FadeUp, CrossFade, ListItem, Presence
+  index.ts           // public barrel
+```
+
+### `tokens.ts`
+```ts
+export const DURATION = {
+  instant: 0.12,  // mikro-interakcija (hover, focus ring)
+  fast:    0.18,  // toast, popover, tooltip
+  base:    0.22,  // page transition, modal open
+  slow:    0.32,  // layout shift, FSRS card flip
+} as const;
+
+export const EASE = {
+  out:     [0.22, 0.61, 0.36, 1] as const,  // standard izlaz
+  in:      [0.42, 0, 0.58, 1] as const,
+  spring:  { type: "spring", stiffness: 360, damping: 30 } as const,
+} as const;
+
+export const STAGGER = { tight: 0.03, loose: 0.06 } as const;
+```
+
+Sve postojeće `transition={{ duration: 0.3 }}` se zamjenjuju sa `DURATION.base` + `EASE.out`.
+
+### `MotionProvider.tsx`
+Mountuje se jednom u `AppContext.tsx`:
+```tsx
+<LazyMotion features={domAnimation} strict>
+  <MotionConfig reducedMotion="user" transition={{ duration: DURATION.base, ease: EASE.out }}>
+    {children}
+  </MotionConfig>
+</LazyMotion>
+```
+
+- `LazyMotion` + `strict` → koristi se `<m.div>` umjesto `<motion.div>` → bundle pada sa **~35 KB → ~6 KB** za većinu ekrana (drag/layout funkcije se lazy-loaduju samo gdje treba).
+- `reducedMotion="user"` → SVE animacije automatski poštuju OS postavku, bez ručnih `useReducedMotion()` checkova po fajlu.
+- Default `transition` znači da `<m.div animate={{ opacity: 1 }}>` nasljeđuje token bez ponavljanja.
+
+### `primitives.tsx` — 4 funkcionalna primitiva
+```tsx
+<FadeUp delay?>      // ulazak skeleton → content (DURATION.base, 6px translate)
+<CrossFade>          // toggle između dva stanja (DURATION.fast)
+<ListItem layoutId>  // za reorder liste (backlinks, planner, palace)
+<Presence>           // tanki AnimatePresence wrapper sa default exit-om
+```
+
+Nema više od 4. Ako neko poželi peti, plan se mijenja, ne fajl.
+
+---
+
+## 2. Migracija postojećih 36 fajlova (mehanička)
+
+| Korak | Što | Kako |
+|---|---|---|
+| 2a | `import { motion } from "framer-motion"` → `import { m } from "framer-motion"` | sed sweep, 36 fajlova |
+| 2b | `<motion.div>` → `<m.div>` | sed sweep |
+| 2c | Ukloniti pojedinačne `transition={{ duration: X }}` koje se poklapaju sa default tokenom | grep + ručno |
+| 2d | Ukloniti pojedinačne `useReducedMotion()` checkove — sada globalno | grep + ručno |
+
+Rizik: `LazyMotion strict` baca grešku ako negdje ostane `motion.*` (umjesto `m.*`). To je željeno — ESLint pravilo blokira regresiju.
+
+---
+
+## 3. Funkcionalni dobici (ne nove animacije — bolje postojeće)
+
+Svaka stavka zamjenjuje postojeću ad-hoc animaciju, ne dodaje novu površinu.
+
+| Mjesto | Trenutno | Nakon | Zašto je funkcionalno |
+|---|---|---|---|
+| `ReviewCard` grade | fade in novog pitanja | horizontal slide u smjeru ocjene (Again←, Good→) | korisnik vizuelno potvrdi smjer ocjene, smanjuje miss-tap |
+| `ZettelPreview` open | scale-in | `layoutId` cross-fade iz Explorer naslova | kontinuitet — vidi se da je to isti članak |
+| `BacklinksPanel` reorder | re-render | `<m.li layout>` na izmjenu | bez "popovanja" novog backlinka, fokus ostaje |
+| `CardOrgMode` drag | dnd-kit default | `EASE.spring` na drop | "physical" osjećaj, ne dekorativan |
+| `OnboardingModal` step | fade | `CrossFade` sa fiksnom visinom | ne pomjera dugmad, ruka ostaje na CTA |
+| `RouteTransition` | fade-up CSS | `m.div key={pathname}` sa `DURATION.base` | jedinstveno sa ostatkom, automatski reduced-motion |
+
+**Nigdje ne dodajemo motion gdje ga nema.** Sidebar, sticky nav, KPI brojevi, Settings tabovi — ostaju CSS-only.
+
+---
+
+## 4. Što se UKLANJA
+
+- `framer-motion` import u `ProgressRing.tsx` — to je SVG arc, ne treba motion (već imamo CSS animaciju i `useCountUp`).
+- `motion` u `ForgettingCurve.tsx`, `DashboardChart.tsx`, `LazyChart.tsx`, `MyStats.tsx` (4 grafička fajla) — Recharts ima built-in `isAnimationActive`, framer je tu duplikat.
+- `MnemonicTest*` (4 fajla) intro animacije > 300ms — skraćuju se na `DURATION.base` ili briše.
+
+Procjena: **~10 fajlova ostaje bez framer importa** nakon čišćenja, **26 ostaje** ali sa `m.*` i tokenima.
+
+---
+
+## 5. ESLint zaštita regresije
+
+Dodaje se pravilo u `eslint.config.js`:
+
+```js
+// W10 — Disciplinovan motion
+{
+  files: ["src/**/*.{ts,tsx}"],
+  ignores: ["src/lib/motion/**", "src/contexts/AppContext.tsx"],
+  rules: {
+    "no-restricted-imports": ["error", {
+      paths: [{
+        name: "framer-motion",
+        importNames: ["motion", "MotionConfig", "LazyMotion"],
+        message: "Use `m` (LazyMotion) and import tokens from @/lib/motion."
+      }]
+    }],
+  },
+},
+```
+
+`motion.*` u kodu trigeruje grešku; `m.*` prolazi. `MotionProvider` smije importovati pune simbole.
+
+---
+
+## 6. Bundle i performanse — očekivani efekat
+
+- **-25 KB gzip** sa eager motion paketa (LazyMotion + tree-shake).
+- **0 KB dodatih** — sve već postoji.
+- Smanjen broj re-rendera u Review sesiji (CrossFade ima fiksnu visinu → bez layout thrash).
+- `reducedMotion="user"` → korisnici sa OS postavkom dobijaju instant tranzicije, bez ručnog koda.
+
+---
+
+## 7. Redoslijed implementacije (4 inkrementa, bez velikog PR-a)
+
+1. **Tokeni + MotionProvider + ESLint pravilo** (1 fajl novi, AppContext mountuje, eslint update). Validacija: app radi, postojeći `motion.*` baca lint warning.
+2. **Migracija `motion.*` → `m.*` u 36 fajlova** + uklanjanje per-file `useReducedMotion`. Mehanička, sed-driven.
+3. **Brisanje motion importa iz 10 fajlova** gdje je dekorativan (grafovi, ProgressRing, intro screens).
+4. **Funkcionalna nadogradnja (sekcija 3, 6 mjesta)** — jedan po jedan, sa QA na preview-u.
+
+Nakon koraka 4 — update memory: `mem://style/motion-discipline-v1` sa tokenima i pravilima.
+
+---
+
+## Tehnička sažeta lista promjena
+
+- Novi: `src/lib/motion/{tokens,MotionProvider,primitives,index}.ts(x)`
+- Dirano: `src/contexts/AppContext.tsx` (wrap children u `MotionProvider`)
+- Dirano: 36 fajlova (`motion` → `m`)
+- Obrisano: framer importi iz ~10 fajlova
+- Dirano: `eslint.config.js` (W10 pravilo)
+- Dirano: 6 fajlova za funkcionalne nadogradnje (sekcija 3)
+- Memorija: `mem://technical-choices/performance-optimization-v5` se ažurira (framer NIJE uklonjen, sada je disciplinovan); novi memo `mem://style/motion-discipline-v1`
+
+Nema novih dependency-ja. Nema novih dekorativnih površina. Bundle pada, regresija je blokirana lintom.
