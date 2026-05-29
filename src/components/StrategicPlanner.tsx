@@ -1,5 +1,5 @@
 import { Target, BarChart3, Map as MapIcon, Gauge, HelpCircle } from "lucide-react";
-import { useState, lazy, Suspense, useCallback } from "react";
+import { useState, lazy, Suspense, useMemo } from "react";
 import { m } from "framer-motion";
 import InfoPanel from "@/components/InfoPanel";
 import { Card as SRCard } from "@/lib/spaced-repetition";
@@ -35,6 +35,13 @@ export default function StrategicPlanner({ cards, categories, categoryRecords, r
   const data = usePlannerData(cards, reviewLog, categoryRecords);
   const [activeTab, setActiveTab] = useState<"operations" | "roadmap" | "discipline">("operations");
   const [showWizard, setShowWizard] = useState(!data.isConfigured);
+
+  // Stable derived value — avoids recreating { name } object on each render.
+  const currentPhase = useMemo(() => {
+    if (!data.subjectPlans) return null;
+    const p = data.subjectPlans.find(p => p.pct < 100);
+    return p ? { name: p.categoryName } : null;
+  }, [data.subjectPlans]);
 
   return (
     <div className="space-y-6">
@@ -109,7 +116,7 @@ export default function StrategicPlanner({ cards, categories, categoryRecords, r
         </div>
       </m.div>
 
-      {data.subjectPlans === null ? (
+      {!data.isReady ? (
         <PlannerTabSkeleton variant={activeTab} />
       ) : (
         <Suspense fallback={<PlannerTabSkeleton variant={activeTab} />}>
