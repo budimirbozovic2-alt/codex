@@ -8,7 +8,7 @@ interface Props {
   variant: "operations" | "roadmap" | "discipline";
 }
 
-const SHELL = "rounded-xl bg-card/50 border border-border/60 animate-pulse";
+const SHELL = "skeleton-premium rounded-xl border border-border/60";
 
 export default function PlannerTabSkeleton({ variant }: Props) {
   const blocks =
