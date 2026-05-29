@@ -163,8 +163,8 @@ export function installQueryBridges(qc: QueryClient): void {
   // to RAM + persist-queue. Debounced ~16ms so a burst of Zustand commits
   // (bulk import, FSRS grade-many, restore) collapses into one invalidation
   // → one refetch per scoped query → one re-render per consumer.
-  _unsubs.push(onCardsChanged(() => {
-    scheduleCardsInvalidate(qc);
+  _unsubs.push(onCardsChanged((scope) => {
+    scheduleCardsInvalidate(qc, scope);
   }));
 
   // ── Mind maps ───────────────────────────────────────────
