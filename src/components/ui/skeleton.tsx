@@ -3,7 +3,6 @@ import { cn } from "@/lib/utils";
 /**
  * Premium shimmer skeleton — single source of truth for loading placeholders.
  * Honours `prefers-reduced-motion` via Tailwind's `motion-reduce` variant.
- * Replaces the legacy `.skeleton-premium` CSS class (removed from index.css).
  */
 function Skeleton({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
   return (
