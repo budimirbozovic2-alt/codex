@@ -105,7 +105,7 @@ export default function StrategicPlanner({ cards, categories, categoryRecords, r
           velocity={data.velocity}
           remaining={data.remaining}
           estimatedFinish={data.estimatedFinish}
-          plannerStatus={data.plannerStatus}
+          plannerStatus={data.plannerStatus ?? { status: "no-goal", daysLate: 0 }}
           smartSuggestion={data.smartSuggestion}
           timeRec={data.timeRec}
           debt={data.debt}
