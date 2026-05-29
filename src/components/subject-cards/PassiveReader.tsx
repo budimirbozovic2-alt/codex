@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { lazy, Suspense, useMemo } from "react";
 import { BookOpen, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { Card } from "@/lib/spaced-repetition";
@@ -7,8 +7,24 @@ import { usePassiveReaderFilters } from "./passive-reader/usePassiveReaderFilter
 import { usePassiveReaderNavigation } from "./passive-reader/usePassiveReaderNavigation";
 import { useCardStats } from "./passive-reader/useCardStats";
 import { PassiveReaderFilters } from "./passive-reader/PassiveReaderFilters";
-import { PassiveReaderCard } from "./passive-reader/PassiveReaderCard";
 import { PassiveReaderPager } from "./passive-reader/PassiveReaderPager";
+
+// Lazy: pulls ContentRenderer (Tiptap) out of the initial SubjectCardsView chunk.
+const PassiveReaderCard = lazy(() =>
+  import("./passive-reader/PassiveReaderCard").then(m => ({ default: m.PassiveReaderCard })),
+);
+
+function PassiveReaderCardSkeleton() {
+  return (
+    <div
+      className="skeleton-premium rounded-2xl border border-border/60"
+      style={{ height: 420 }}
+      role="status"
+      aria-busy="true"
+      aria-label="Učitavanje kartice…"
+    />
+  );
+}
 
 interface Props {
   cards: Card[];
@@ -74,7 +90,9 @@ export default function PassiveReader({
           Nema kartica za prikaz uz odabrane filtere.
         </div>
       ) : (
-        <PassiveReaderCard card={current} stats={stats} />
+        <Suspense fallback={<PassiveReaderCardSkeleton />}>
+          <PassiveReaderCard card={current} stats={stats} />
+        </Suspense>
       )}
 
       <PassiveReaderPager
