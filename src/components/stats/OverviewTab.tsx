@@ -201,7 +201,7 @@ export default function OverviewTab({
       </ErrorBoundary>
 
       {ratioHistory && ratioHistory.some(d => d["Stvarni ponavljanje"] !== null) && (
-        <Suspense fallback={<div className="h-[280px] glass-card rounded-xl animate-pulse" />}>
+        <Suspense fallback={<Skeleton className="h-[280px] rounded-xl" />}>
           <DashboardChart ratioHistory={ratioHistory} targetReviewPct={focusRatio.targetReviewPct} />
         </Suspense>
       )}
