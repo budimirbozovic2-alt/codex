@@ -221,7 +221,7 @@
      THEME: Forest — deep green earth tones
      ═══════════════════════════════════════════ */
   [data-theme="forest"] {
-    --gold: 43 74% 49%;
+    --gold: 32 65% 48%;
     --gold-foreground: 0 0% 100%;
     --background: 0 0% 100%;
     --foreground: 150 12% 12%;
@@ -241,7 +241,7 @@
     --muted: 100 8% 95%;
     --muted-foreground: 140 8% 44%;
 
-    --accent: 152 50% 32%;
+    --accent: 38 70% 45%;
     --accent-foreground: 0 0% 100%;
 
     --destructive: 0 65% 48%;
@@ -251,7 +251,7 @@
     --input: 100 10% 90%;
     --ring: 152 50% 32%;
 
-    --success: 152 50% 32%;
+    --success: 145 55% 38%;
     --success-foreground: 0 0% 100%;
     --warning: 40 75% 48%;
     --warning-foreground: 0 0% 100%;
@@ -267,7 +267,7 @@
   }
 
   .dark[data-theme="forest"] {
-    --gold: 43 74% 55%;
+    --gold: 32 70% 55%;
     --gold-foreground: 0 0% 100%;
     --background: 150 14% 7%;
     --foreground: 80 12% 88%;
@@ -287,7 +287,7 @@
     --muted: 150 10% 14%;
     --muted-foreground: 140 8% 52%;
 
-    --accent: 152 55% 42%;
+    --accent: 35 72% 55%;
     --accent-foreground: 150 14% 7%;
 
     --destructive: 0 55% 42%;
@@ -297,8 +297,8 @@
     --input: 150 10% 16%;
     --ring: 152 55% 42%;
 
-    --success: 152 50% 42%;
-    --success-foreground: 0 0% 100%;
+    --success: 142 55% 50%;
+    --success-foreground: 150 14% 7%;
     --warning: 40 70% 50%;
     --warning-foreground: 0 0% 100%;
 
