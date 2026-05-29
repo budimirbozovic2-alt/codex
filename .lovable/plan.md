@@ -1,89 +1,104 @@
+
 ## Cilj
 
-Smanjiti broj re-fetcheva i re-rendera tokom bursta `notifyCardsChanged()` (bulk import, FSRS grade-many, restore, taxonomy migracije) tako što:
+1. Generisati brendirane CODEX ikonice u svim formatima koje electron-builder traži (`.ico` za Windows, `.icns` za macOS, `.png` za Linux), tako da `npm run dist:win` / `dist:mac` više ne pucaju na "missing icon".
+2. Splitovati glavni `App-*.js` chunk (~1.05 MB / 335 KB gz) ispod 500 KB preko `build.rollupOptions.output.manualChunks` u `vite.config.ts`.
 
-1. **Per-scope debounce** — koalesciramo izmjene u **Set tačnih query ključeva** (`['cards','cat',X]`, `['cards','source',Y]`, …) umjesto da uvijek invalidiramo cijeli `['cards']` prefix. Consumeri koji nisu pogođeni ne refeta-uju.
-2. **Max-wait cap** — pod dugim, kontinuiranim burstom (npr. 30s bulk import koji emituje notifikacije svakih par ms) trailing debounce nikad ne istekne. Dodajemo hard cap (250ms) — ako se prozor stalno resetuje, flush se ipak izvrši.
+---
 
-Fallback ostaje siguran: poziv bez scope payload-a (`notifyCardsChanged()` bez argumenta) i dalje proizvodi **prefix invalidaciju** (`['cards']`). Postojeći call-site-ovi rade bez izmjene.
+## Dio 1 — CODEX ikonice
 
-## Promjene
+### Dizajn
 
-### 1. `src/lib/db/queries/cards.ts` — proširi event API
+Konzistentno sa već postojećim brendingom (memory: *Visual Identity v2* — midnight navy CODEX icon):
+- Pozadina: midnight navy (`#0F172A` / tamna varijanta već u temi).
+- Glif: bijelo "C" sa serifnim/zakošenim "X" overlayem, ili monogram "CX". Predlažem zatvoreni krug + bijeli "CODEX" monogram u centru — čitljivo i na 16×16.
+- Bez gradienta na malim veličinama (zbog kompresije u `.ico` 16/24/32/48).
+
+### Generisanje (build mode)
+
+1. `imagegen--generate_image` (premium, transparent_background=false) na 1024×1024 → `build/icon-source.png` (master).
+2. Iz mastera napraviti sve potrebne veličine pomoću ImageMagick-a (kroz `nix run nixpkgs#imagemagick`):
+   - `public/app-icon.ico` — multi-size `.ico` (16, 24, 32, 48, 64, 128, 256).
+   - `build/app-icon.icns` — preko `png2icns` (`nix run nixpkgs#libicns`) iz seta 16/32/64/128/256/512/1024 png-ova.
+   - `build/icon.png` — 512×512 za Linux AppImage.
+   - `public/app-logo.png` — 256×256, zamjenjuje postojeći logo u `TitleBar.tsx` (ostaje ista putanja, samo svježa verzija).
+   - `public/favicon.png` — 64×64 (opciono, za dev preview).
+3. Update `electron-builder` configa u `package.json`:
+   - `win.icon: "public/app-icon.ico"` — već postavljen, samo fajl sad postoji.
+   - `mac.icon: "build/app-icon.icns"` — već postavljen.
+   - Dodati `linux.icon: "build/icon.png"` (ako Linux target postoji nakon prethodne odluke; ako ne, preskočiti).
+
+### Verifikacija
+
+- `file public/app-icon.ico` → potvrda multi-resolution ICO.
+- `file build/app-icon.icns` → potvrda ICNS magic bytes.
+- QA: konvertovati `.ico` natrag u PNG i vizuelno provjeriti 16/32/256 veličine (čitljivost na malim dimenzijama je čest problem).
+
+---
+
+## Dio 2 — App chunk split
+
+### Trenutno stanje
+
+`dist/assets/App-*.js` = 1.05 MB (gzip 335 KB). Sve eager-loaded biblioteke završavaju u jednom chunku jer Vite/Rollup po defaultu drži cijeli `node_modules` graf zajedno.
+
+### Strategija — `manualChunks` funkcija
+
+U `vite.config.ts` dodati `build.rollupOptions.output.manualChunks`:
 
 ```ts
-export type CardsScope =
-  | { kind: "all" }                                    // prefix invalidate
-  | { kind: "category"; categoryId: string }
-  | { kind: "subcategory"; categoryId: string; subcategoryId: string }
-  | { kind: "chapter"; categoryId: string; chapterId: string }
-  | { kind: "source"; sourceId: string }
-  | { kind: "ids"; categoryIds?: string[]; sourceIds?: string[] }; // bulk pošalje skupove
-
-export type CardsChangedListener = (scope: CardsScope) => void;
-
-export function notifyCardsChanged(scope: CardsScope = { kind: "all" }): void { … }
+build: {
+  emptyOutDir: true,
+  rollupOptions: {
+    output: {
+      manualChunks(id) {
+        if (!id.includes("node_modules")) return;
+        if (id.includes("react-router")) return "vendor-router";
+        if (id.match(/node_modules\/(react|react-dom|scheduler)\//))
+          return "vendor-react";
+        if (id.includes("@tanstack/react-query")) return "vendor-query";
+        if (id.includes("framer-motion") || id.includes("motion-dom") || id.includes("motion-utils"))
+          return "vendor-motion";
+        if (id.includes("recharts") || id.includes("d3-")) return "vendor-charts";
+        if (id.includes("@radix-ui")) return "vendor-radix";
+        if (id.includes("dompurify") || id.includes("lucide-react"))
+          return "vendor-ui-utils";
+      },
+    },
+  },
+},
 ```
 
-`onCardsChanged` ostaje, samo callback dobija `scope`. Stari pozivi (`notifyCardsChanged()`) ostaju validni.
+### Zašto baš ovi chunkovi
 
-### 2. `src/lib/query/bridges.ts` — per-scope debouncer + max-wait
+- **vendor-react**: stabilan, rijetko mijenja → dugoročni cache hit.
+- **vendor-router**: mali, ali odvojen radi cache stabilnosti.
+- **vendor-query**: TanStack je centralni read-path, dijeli ga cijela app.
+- **vendor-motion**: framer-motion je težak (~80 KB gz), koristi se na više mjesta.
+- **vendor-charts**: recharts + d3-* su najteži single grupa (~100+ KB gz), koristi ih samo StatsPage → idealan kandidat za split (može čak biti i lazy preko `import()` u StatsPage, ali manualChunks već daje 90% benefita).
+- **vendor-radix**: Radix primitivi su rasprostranjeni, ali grupisanje smanjuje duplikate.
+- **vendor-ui-utils**: lucide ikone + DOMPurify; lucide tree-shake-uje, ali bundling ostatka pomaže.
 
-```text
-window = 16ms trailing  (postojeće — kratki burst → 1 frame)
-maxWait = 250ms hard cap  (dug burst → flush forsiran)
-```
+Očekivani rezultat: App chunk pada na ~300-400 KB (gz ~100-130 KB), vendor chunkovi ~100-200 KB svaki, ispod 500 KB praga.
 
-Stanje:
-- `_pendingKeys: Set<string>` — serijalizovani query ključevi (`JSON.stringify`).
-- `_pendingPrefix: boolean` — ako iko emituje `{kind:"all"}`, kolapsiramo na prefix flush.
-- `_trailingTimer`, `_maxWaitTimer`.
+### Verifikacija
 
-Algoritam (`scheduleCardsInvalidate(qc, scope)`):
-1. Ako `scope.kind === "all"` → `_pendingPrefix = true; _pendingKeys.clear()`.
-2. Inače, dodaj sve odgovarajuće `queryKeys.cards.*` u `_pendingKeys` (npr. za `kind:"category"` dodaj `byCategory`, `countByCategory`; za `kind:"ids"` map-uj svaki id).
-3. `clearTimeout(_trailingTimer); _trailingTimer = setTimeout(flush, 16)`.
-4. Ako `_maxWaitTimer === null` → `_maxWaitTimer = setTimeout(flush, 250)`.
+1. `bunx vite build` → provjeriti veličine u outputu.
+2. Potvrditi da nema warninga `Some chunks are larger than 500 kB`.
+3. Smoke test u preview-u (`/` ruta) — provjeriti da nema runtime grešaka oko duplikata React-a (zato je `dedupe: ["react", "react-dom"]` već u configu — ostaje).
+4. Pokrenuti postojeće testove (`bunx vitest run`) — manualChunks ne dira test bundler, ali sanity check.
 
-`flush()`:
-- Clear oba timera.
-- Ako `_pendingPrefix` → `invalidateQueries({ queryKey: ["cards"] })`, isprazni Set.
-- Inače → za svaki ključ u Set-u `invalidateQueries({ queryKey: parsed, exact: true })`.
+---
 
-### 3. Pozivaoci — opcionalni upgrade na scoped emit
+## Out of scope
 
-Bez izmjene rade. Za maksimalnu korist mijenjamo samo "vrele" pozive:
+- Bez promjena u Electron `.cjs` entry fajlovima.
+- Bez Linux electron-builder targeta osim ako prethodno nije odobreno.
+- Bez dirаnja `LabEditor` i drugih već-lazy ruta — one su već split-ovane.
 
-- `cards-bulk-mutations.ts` (A2) — već zna `categoryId`/`subcategoryId`/`chapterId` → emit `{kind:"category"|"subcategory"|"chapter", …}`.
-- `cardRepository.put/bulkPut/delete` u `cardMapWrites.ts` — emit `{kind:"ids", categoryIds:[…], sourceIds:[…]}` (zna iz upisane kartice).
-- `category-deletion-service.ts` — emit `{kind:"category", categoryId}`.
-- `useCardBootstrap.ts` heal → emit `{kind:"all"}` (eksplicitno, jer dira sve scope-ove).
+## Fajlovi koji se mijenjaju
 
-Ostali pozivi (kojih nema mnogo) ostaju `{kind:"all"}` defaultom.
-
-### 4. Test seam
-
-- Proširi `_flushCardsInvalidateForTest()` da gasi oba timera i isprazni Set.
-- Dodaj export `_getPendingCardsKeysForTest()` za inspekciju.
-
-### 5. Testovi (`src/test/query-bridges.test.ts` proširi)
-
-- Postojeći "100 notify → 1 invalidate" test ostaje (sve unscoped) — pokriva prefix kolaps.
-- Novi: 50 `notify({kind:"category", categoryId:"A"})` + 50 `notify({kind:"category", categoryId:"B"})` → tačno 2 `invalidateQueries` poziva sa `exact:true`, nijedan prefix.
-- Novi: mix `{kind:"all"}` + scoped → degraduje na 1 prefix invalidate (escalation).
-- Novi (max-wait): emit svakih 10ms x 30 (300ms ukupno) → trailing se stalno resetuje, ali `flush` se forsira na ~250ms; očekujemo **2** invalidacije (jedan na maxWait, jedan trailing nakon zadnjeg emita).
-
-### 6. Verifikacija
-
-- `tsc --noEmit` clean.
-- `bunx vitest run src/test/query-bridges.test.ts src/test/cards-mirror-and-rollback.test.tsx` — svi prolaze.
-- Postojeći `cards-mirror-and-rollback.test.tsx` ne mora se mijenjati (koristi `notifyCardsChanged()` bez argumenta → prefix put).
-
-## Memorija
-
-Update `mem://architecture/tanstack-query-read-path` napomena: "cards bridge: per-scope Set debounce (16ms trailing + 250ms max-wait), unscoped emit eskalira na prefix".
-
-## Što NE radim
-
-- Ne dirma se `setQueryData` push mirror (ostaje uklonjen po Phase 2b).
-- Ostali bridges (sources/planner/mindMaps/mnemonics/knowledgeBase) ostaju nepromijenjeni — oni nemaju isti burst profil.
+- `vite.config.ts` — dodati `rollupOptions.output.manualChunks`.
+- `package.json` — eventualno dodati `linux.icon` u `build` config.
+- **Novi fajlovi**: `public/app-icon.ico`, `build/app-icon.icns`, `build/icon.png`, `build/icon-source.png`, `public/app-logo.png` (overwrite), opciono `public/favicon.png`.
