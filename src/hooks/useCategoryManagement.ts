@@ -144,10 +144,9 @@ export function useCategoryManagement() {
     [],
   );
 
-  // Phase 2b — subcategories live in categories.payload JSON, so FK CASCADE
-  // doesn't apply. We source affected cards from SQLite (RAM cache is no
-  // longer hydrated at boot), clear sub/chapter refs, and persist via the
-  // standard cardMapWrites.bulkPut path (persistQueue + notifyCardsChanged).
+  // A2 collapse — one SQLite UPDATE (json_set/json_remove keeps payload in
+  // sync with indexed columns). Replaces SELECT → mutate → cardMapBulkPut
+  // round-trip. TanStack consumers refresh via notifyCardsChanged().
   const deleteSubcategory = useCallback(
     (categoryId: string, subcategoryId: string) => {
       optimisticCategoryUpdate(
@@ -162,13 +161,8 @@ export function useCategoryManagement() {
 
       void (async () => {
         try {
-          const rows = await cardsBySubcategory(categoryId, subcategoryId);
-          if (rows.length === 0) return;
-          const now = Date.now();
-          const changed: Card[] = rows.map(c => ({
-            ...c, subcategoryId: undefined, chapterId: undefined, updatedAt: now,
-          }));
-          cardMapBulkPut(changed);
+          await clearCardsSubcategoryRefs(categoryId, subcategoryId);
+          notifyCardsChanged();
         } catch (err) {
           logger.error("[deleteSubcategory] clear refs failed", err);
         }
@@ -179,14 +173,11 @@ export function useCategoryManagement() {
 
   const bulkUpdateSubcategory = useCallback((ids: string[], subcategoryId: string) => {
     if (ids.length === 0) return;
-    // Phase 2b — fetch via SQLite, mutate, bulkPut. RAM map may be cold.
+    // A2 collapse — single chunked UPDATE tx (json_set keeps payload in sync).
     void (async () => {
       try {
-        const rows = await getCardsByIds(ids);
-        const now = Date.now();
-        const changed: Card[] = [];
-        for (const r of rows) if (r) changed.push({ ...r, subcategoryId, updatedAt: now });
-        if (changed.length > 0) cardMapBulkPut(changed);
+        await reassignCardsSubcategory(ids, subcategoryId);
+        notifyCardsChanged();
       } catch (err) {
         logger.error("[bulkUpdateSubcategory] failed", err);
       }
