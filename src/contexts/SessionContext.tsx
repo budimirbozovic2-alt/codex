@@ -2,6 +2,7 @@ import { createContext, useContext, useState, useCallback, useRef, useMemo, useE
 import { Card } from "@/lib/spaced-repetition";
 import { ReviewLogEntry } from "@/lib/storage";
 import { persistQueue } from "@/lib/persist-queue";
+import { logger } from "@/lib/logger";
 
 // ─── Types ──────────────────────────────────────────────
 export interface QueuedReview {
@@ -128,9 +129,10 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     // queue subscription above until the last write resolves.
     try {
       await persistQueue.flush();
-    } catch (e) {
-      console.warn("[session] persist flush failed", e);
+    } catch (err: unknown) {
+      logger.warn("[session] persist flush failed", err);
     }
+
 
     setIsEnding(false);
   }, []);

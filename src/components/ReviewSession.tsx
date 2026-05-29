@@ -1,20 +1,20 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { Card, SRSettings } from "@/lib/spaced-repetition";
 import { addActivityEntry } from "@/lib/metacognitive-storage";
-import { getSetting, putSetting } from "@/lib/db/queries";
 import { ReviewMode, DueItem, ViewWidth, ReviewSessionProps } from "./review/review-constants";
 import { buildItemsForMode } from "@/lib/review-mode-builder";
 import ReviewSetup from "./review/ReviewSetup";
 import ReviewCard from "./review/ReviewCard";
 import ReviewComplete from "./review/ReviewComplete";
-import { REVIEW_SESSION_KEY as SESSION_KEY } from "@/lib/review-session-storage";
+import {
+  loadSavedReviewSession,
+  saveReviewSession,
+  clearSavedReviewSession,
+  type SavedReviewSession,
+} from "@/lib/review-session-storage";
 
-import { logger } from "@/lib/logger";
-interface SavedSessionState {
-  mode: ReviewMode;
-  randomIndex: number;
-  timestamp: number;
-}
+type SavedSessionState = SavedReviewSession;
+
 
 export default function ReviewSession({ dueCards, allCards, categoryRecords, srSettings, onReviewSection, onLogError, onBack, lockedCategory, autoMode }: ReviewSessionProps) {
   const [mode, setMode] = useState<ReviewMode>(null);
@@ -26,35 +26,16 @@ export default function ReviewSession({ dueCards, allCards, categoryRecords, srS
   const [savedSession, setSavedSession] = useState<SavedSessionState | null>(null);
   const reviewStartRef = useRef(Date.now());
 
-  // Check for saved session on mount (IDB with localStorage migration)
+  // Check for saved session on mount (storage module owns IDB + migration)
   useEffect(() => {
     (async () => {
-      let state = (await getSetting<SavedSessionState | null>(SESSION_KEY)) ?? null;
-      // Migrate from localStorage if IDB empty
-      if (!state) {
-        try {
-          const raw = localStorage.getItem(SESSION_KEY);
-          if (raw) {
-            state = JSON.parse(raw) as SavedSessionState;
-            await putSetting(SESSION_KEY, state);
-            localStorage.removeItem(SESSION_KEY);
-          }
-        } catch (e) { logger.debug("[ReviewSession] session restore failed", e); }
-      }
-      if (
-        state && typeof state === "object" &&
-        typeof state.timestamp === "number" && Number.isFinite(state.timestamp) &&
-        Date.now() - state.timestamp < 2 * 60 * 60 * 1000
-      ) {
-        setSavedSession(state);
-      } else if (state) {
-        await putSetting(SESSION_KEY, null);
-      }
+      const state = await loadSavedReviewSession();
+      if (state) setSavedSession(state);
     })();
   }, []);
 
   const clearSavedSession = useCallback(() => {
-    putSetting(SESSION_KEY, null).catch(() => {});
+    void clearSavedReviewSession();
   }, []);
 
   // Log activity when session finishes
@@ -69,8 +50,9 @@ export default function ReviewSession({ dueCards, allCards, categoryRecords, srS
   const saveSessionState = useCallback(() => {
     if (mode === null || finished) return;
     const state: SavedSessionState = { mode, randomIndex, timestamp: Date.now() };
-    putSetting(SESSION_KEY, state).catch(() => {});
+    void saveReviewSession(state);
   }, [mode, randomIndex, finished]);
+
 
   const handlePauseSession = useCallback(() => {
     saveSessionState();

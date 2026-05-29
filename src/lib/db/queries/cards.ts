@@ -87,8 +87,8 @@ function decodeRows(rows: readonly { payload: string }[]): Card[] {
   const out: Card[] = [];
   const failed: string[] = [];
   for (const row of rows) {
-    try { out.push(decodeCard(row as unknown as Record<string, string>)); }
-    catch (err) {
+    try { out.push(decodeCard(row)); }
+    catch (err: unknown) {
       if (err instanceof CardDecodeError) failed.push(err.id);
       logger.warn("[cards-repo] decode failed, skipping row", err);
     }
@@ -96,6 +96,7 @@ function decodeRows(rows: readonly { payload: string }[]): Card[] {
   if (failed.length > 0) recordCorruptIds(failed);
   return out;
 }
+
 
 
 // ── Bulk readers ─────────────────────────────────────────────────────────
@@ -122,13 +123,14 @@ export async function getCardsByIds(ids: readonly string[]): Promise<(Card | und
   const byId = new Map<string, Card>();
   const failed: string[] = [];
   for (const row of rows) {
-    try { byId.set(row.id, decodeCard(row as unknown as Record<string, string>)); }
-    catch (err) {
+    try { byId.set(row.id, decodeCard(row)); }
+    catch (err: unknown) {
       if (err instanceof CardDecodeError) failed.push(err.id);
       logger.warn("[cards-repo] decode failed in bulkGet", { id: row.id, err });
     }
   }
   if (failed.length > 0) recordCorruptIds(failed);
+
   return ids.map((id) => byId.get(id));
 }
 

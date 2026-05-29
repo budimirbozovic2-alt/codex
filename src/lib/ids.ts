@@ -82,12 +82,16 @@ function brand<T extends string>(family: string, value: string): T {
     if (DEV) throw new Error(`as${family}: value "${value}" is not a UUID-shaped id`);
     if (!_warned.has(tag)) {
       _warned.add(tag);
-      // eslint-disable-next-line no-console
-      console.warn(`[ids] non-UUID value coerced to ${family}: "${value}"`);
+      // Lazy import: ids.ts is on the cold path of every barrel; avoid a
+      // top-level logger dependency that would pull it into early chunks.
+      void import("@/lib/logger").then(({ logger }) => {
+        logger.warn(`[ids] non-UUID value coerced to ${family}: "${value}"`);
+      }).catch(() => { /* logger unavailable — silent */ });
     }
   }
   return value as T;
 }
+
 
 export const asCategoryId    = (v: string): CategoryId    => brand<CategoryId>("CategoryId", v);
 export const asSubcategoryId = (v: string): SubcategoryId => brand<SubcategoryId>("SubcategoryId", v);
