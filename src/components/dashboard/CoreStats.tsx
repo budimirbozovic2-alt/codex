@@ -15,9 +15,9 @@ export const CoreStats = memo(function CoreStats({ due, pendingFirstReview, weak
         <div className="animate-in fade-in slide-in-from-bottom-4 duration-300 glass-card p-5 space-y-2 hover:border-gold/40 transition-colors cursor-pointer"
           style={{ animationDelay: "80ms", animationFillMode: "both" }}>
           <Clock className="h-5 w-5 text-primary mb-1" />
-          <p className="text-4xl font-bold">{due}</p>
-          <p className="text-sm text-muted-foreground">Za ponavljanje</p>
-          {pendingFirstReview > 0 && <p className="text-xs text-primary">+ {pendingFirstReview} čeka prvo pon.</p>}
+          <p className="text-display text-5xl font-semibold tabular leading-none">{due}</p>
+          <p className="text-eyebrow text-muted-foreground">Za ponavljanje</p>
+          {pendingFirstReview > 0 && <p className="text-xs text-primary tabular">+ {pendingFirstReview} čeka prvo pon.</p>}
         </div>
       </Link>
       {weakest ? (
