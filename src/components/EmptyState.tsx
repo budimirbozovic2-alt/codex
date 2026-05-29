@@ -62,20 +62,18 @@ export default function EmptyState({ type, onAction, actionLabel, diagnostics, i
 
   if (type === "review") {
     return (
-      <div
-        className="animate-in fade-in slide-in-from-bottom-6 duration-500 flex flex-col items-center justify-center py-20 text-center space-y-6"
-      >
+      <div className="animate-fade-up flex flex-col items-center justify-center py-24 text-center space-y-7">
         <div className="relative">
-          <div className="w-24 h-24 rounded-full bg-success/10 flex items-center justify-center">
-            <Brain className="h-10 w-10 text-success" />
+          <div className="w-28 h-28 rounded-full bg-success/10 flex items-center justify-center shadow-soft ring-1 ring-hairline">
+            <Brain className="h-11 w-11 text-success" strokeWidth={1.4} />
           </div>
-          <div className="absolute -top-1 -right-1 w-6 h-6 rounded-full bg-success/20 flex items-center justify-center animate-pulse">
-            <span className="text-success text-xs">✓</span>
+          <div className="absolute -top-1 -right-1 w-7 h-7 rounded-full bg-success/20 flex items-center justify-center animate-subtle-pulse">
+            <span className="text-success text-xs font-semibold">✓</span>
           </div>
         </div>
-        <div className="space-y-2 max-w-sm">
-          <h2 className="text-2xl font-semibold">Sve je ponovljeno!</h2>
-          <p className="text-muted-foreground">
+        <div className="space-y-3 max-w-md">
+          <h2 className="text-display text-4xl text-foreground text-balance">Sve je ponovljeno!</h2>
+          <p className="text-muted-foreground text-pretty leading-relaxed">
             Nemate kartica za ponavljanje danas. Odlično — vaše znanje je ažurno. Vratite se sutra!
           </p>
         </div>
