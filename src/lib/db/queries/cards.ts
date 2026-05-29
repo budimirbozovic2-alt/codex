@@ -16,6 +16,7 @@ import type { Card } from "@/lib/spaced-repetition";
 import { decodeCard, CardDecodeError } from "@/lib/persistence/sqlite/row-codecs";
 import { logger } from "@/lib/logger";
 import { notifyExecutorNull } from "./_shared/executor-telemetry";
+import { withSqlTiming } from "./_shared/sql-timing";
 
 // ── Executor accessor ────────────────────────────────────────────────────
 
@@ -136,12 +137,14 @@ export async function getCardsByIds(ids: readonly string[]): Promise<(Card | und
 // ── Indexed scoped readers ───────────────────────────────────────────────
 
 export async function cardsByCategory(categoryId: string): Promise<Card[]> {
-  const exec = await requireExecutor("cardsByCategory");
-  if (!exec) return [];
-  const rows = await exec.all<{ payload: string }>(
-    "SELECT payload FROM cards WHERE categoryId = ?", [categoryId],
-  );
-  return decodeRows(rows);
+  return withSqlTiming("cardsByCategory", async () => {
+    const exec = await requireExecutor("cardsByCategory");
+    if (!exec) return [];
+    const rows = await exec.all<{ payload: string }>(
+      "SELECT payload FROM cards WHERE categoryId = ?", [categoryId],
+    );
+    return decodeRows(rows);
+  });
 }
 
 export async function cardsBySubcategory(
