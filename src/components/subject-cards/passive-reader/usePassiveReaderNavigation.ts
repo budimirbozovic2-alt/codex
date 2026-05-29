@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useGlobalHotkey } from "@/hooks/useGlobalHotkey";
 import type { Card } from "@/lib/spaced-repetition";
 import type { PassiveReaderFiltersAPI } from "./usePassiveReaderFilters";
@@ -55,9 +55,11 @@ export function usePassiveReaderNavigation({
     { ignoreInEditable: true },
   );
 
-  return {
-    index,
-    next: () => setIndex(i => Math.min(i + 1, Math.max(0, filtered.length - 1))),
-    prev: () => setIndex(i => Math.max(i - 1, 0)),
-  };
+  const next = useCallback(
+    () => setIndex(i => Math.min(i + 1, Math.max(0, filtered.length - 1))),
+    [filtered.length],
+  );
+  const prev = useCallback(() => setIndex(i => Math.max(i - 1, 0)), []);
+
+  return { index, next, prev };
 }

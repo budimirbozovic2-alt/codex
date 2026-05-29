@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { Activity, AlertTriangle, Sparkles } from "lucide-react";
 import {
   Tooltip, TooltipContent, TooltipProvider, TooltipTrigger,
@@ -17,7 +18,7 @@ interface Props {
   stats: CardStats | null;
 }
 
-export function PassiveReaderCard({ card, stats }: Props) {
+function PassiveReaderCardImpl({ card, stats }: Props) {
   return (
     <article className="glass-card rounded-2xl p-8 space-y-5">
       <header className="space-y-2">
@@ -103,3 +104,5 @@ export function PassiveReaderCard({ card, stats }: Props) {
     </article>
   );
 }
+
+export const PassiveReaderCard = memo(PassiveReaderCardImpl);
