@@ -21,6 +21,15 @@ export default {
   			sans: [
   				'DM Sans',
   				'sans-serif'
+  			],
+  			// Premium display family used ONLY for hero/section headings,
+  			// signature numerics, and editorial accents. Fraunces ships with
+  			// optical sizing — pair with `text-display` utility in index.css.
+  			display: [
+  				'Fraunces',
+  				'ui-serif',
+  				'Georgia',
+  				'serif'
   			]
   		},
   		colors: {
@@ -29,6 +38,16 @@ export default {
   			ring: 'hsl(var(--ring))',
   			background: 'hsl(var(--background))',
   			foreground: 'hsl(var(--foreground))',
+  			// ── Premium surface stack ─────────────────────────────
+  			// Three layered surfaces sitting above `background` give cards,
+  			// nested cards, and elevated overlays a perceivable depth
+  			// without resorting to heavy borders or shadows.
+  			surface: {
+  				1: 'hsl(var(--surface-1))',
+  				2: 'hsl(var(--surface-2))',
+  				3: 'hsl(var(--surface-3))'
+  			},
+  			'hairline': 'hsl(var(--hairline))',
   			primary: {
   				DEFAULT: 'hsl(var(--primary))',
   				foreground: 'hsl(var(--primary-foreground))'
@@ -104,6 +123,18 @@ export default {
   			md: 'calc(var(--radius) - 2px)',
   			sm: 'calc(var(--radius) - 4px)'
   		},
+  		// ── Premium shadow stack ──────────────────────────────
+  		// Multi-layer shadows derived from `--shadow-color` so they
+  		// adapt naturally to both light and dark themes. Use sparingly:
+  		// `shadow-soft` for resting cards, `shadow-elevated` on hover,
+  		// `shadow-floating` for popovers and command palettes.
+  		boxShadow: {
+  			'soft':       'var(--shadow-soft)',
+  			'elevated':   'var(--shadow-elevated)',
+  			'floating':   'var(--shadow-floating)',
+  			'inset-line': 'inset 0 1px 0 0 hsl(var(--hairline))',
+  			'ring-focus': '0 0 0 2px hsl(var(--background)), 0 0 0 4px hsl(var(--ring) / 0.55)'
+  		},
   		// Centralized z-index scale. Use these semantic tokens (e.g. `z-modal`,
   		// `z-overlay`) instead of arbitrary `z-[NN]` values so layering stays
   		// predictable across modals, popovers and global overlays.
@@ -123,30 +154,50 @@ export default {
   		},
   		keyframes: {
   			'accordion-down': {
-  				from: {
-  					height: '0'
-  				},
-  				to: {
-  					height: 'var(--radix-accordion-content-height)'
-  				}
+  				from: { height: '0' },
+  				to: { height: 'var(--radix-accordion-content-height)' }
   			},
   			'accordion-up': {
-  				from: {
-  					height: 'var(--radix-accordion-content-height)'
-  				},
-  				to: {
-  					height: '0'
-  				}
+  				from: { height: 'var(--radix-accordion-content-height)' },
+  				to: { height: '0' }
   			},
   			shimmer: {
-  				'100%': {
-  					transform: 'translateX(100%)'
-  				}
+  				'100%': { transform: 'translateX(100%)' }
+  			},
+  			// ── Premium micro-motion ──────────────────────────
+  			'fade-in': {
+  				'0%':   { opacity: '0' },
+  				'100%': { opacity: '1' }
+  			},
+  			'fade-up': {
+  				'0%':   { opacity: '0', transform: 'translateY(12px)' },
+  				'100%': { opacity: '1', transform: 'translateY(0)' }
+  			},
+  			'fade-down': {
+  				'0%':   { opacity: '0', transform: 'translateY(-8px)' },
+  				'100%': { opacity: '1', transform: 'translateY(0)' }
+  			},
+  			'scale-in': {
+  				'0%':   { opacity: '0', transform: 'scale(0.96)' },
+  				'100%': { opacity: '1', transform: 'scale(1)' }
+  			},
+  			'subtle-pulse': {
+  				'0%, 100%': { opacity: '1' },
+  				'50%':      { opacity: '0.72' }
   			}
   		},
   		animation: {
   			'accordion-down': 'accordion-down 0.2s ease-out',
-  			'accordion-up': 'accordion-up 0.2s ease-out'
+  			'accordion-up':   'accordion-up 0.2s ease-out',
+  			'fade-in':        'fade-in 0.28s cubic-bezier(0.22, 0.61, 0.36, 1) both',
+  			'fade-up':        'fade-up 0.34s cubic-bezier(0.22, 0.61, 0.36, 1) both',
+  			'fade-down':      'fade-down 0.28s cubic-bezier(0.22, 0.61, 0.36, 1) both',
+  			'scale-in':       'scale-in 0.22s cubic-bezier(0.22, 0.61, 0.36, 1) both',
+  			'shimmer':        'shimmer 1.6s linear infinite',
+  			'subtle-pulse':   'subtle-pulse 2.4s ease-in-out infinite'
+  		},
+  		transitionTimingFunction: {
+  			'premium': 'cubic-bezier(0.22, 0.61, 0.36, 1)'
   		}
   	}
   },
