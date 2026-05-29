@@ -150,6 +150,8 @@ export default function StrategicPlanner({ cards, categories, categoryRecords, r
           phaseDisciplinePct={data.phaseDisciplinePct}
         />
       )}
+        </>
+      )}
     </div>
   );
 }
