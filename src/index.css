@@ -506,7 +506,7 @@
      THEME: Midnight — pure dark-first theme
      ═══════════════════════════════════════════ */
   [data-theme="midnight"] {
-    --gold: 43 74% 49%;
+    --gold: 220 10% 68%;
     --gold-foreground: 0 0% 100%;
     --background: 0 0% 100%;
     --foreground: 230 15% 12%;
@@ -517,7 +517,7 @@
     --popover: 0 0% 100%;
     --popover-foreground: 230 15% 12%;
 
-    --primary: 245 50% 48%;
+    --primary: 250 45% 38%;
     --primary-foreground: 0 0% 100%;
 
     --secondary: 230 12% 93%;
@@ -526,7 +526,7 @@
     --muted: 230 10% 95%;
     --muted-foreground: 230 8% 45%;
 
-    --accent: 245 50% 48%;
+    --accent: 270 50% 55%;
     --accent-foreground: 0 0% 100%;
 
     --destructive: 0 68% 50%;
@@ -534,7 +534,7 @@
 
     --border: 230 12% 90%;
     --input: 230 12% 90%;
-    --ring: 245 50% 48%;
+    --ring: 250 45% 38%;
 
     --success: 165 42% 36%;
     --success-foreground: 0 0% 100%;
@@ -543,18 +543,18 @@
 
     --sidebar-background: 230 10% 97%;
     --sidebar-foreground: 230 15% 12%;
-    --sidebar-primary: 245 50% 48%;
+    --sidebar-primary: 250 45% 38%;
     --sidebar-primary-foreground: 0 0% 100%;
     --sidebar-accent: 230 12% 93%;
     --sidebar-accent-foreground: 230 15% 20%;
     --sidebar-border: 230 12% 90%;
-    --sidebar-ring: 245 50% 48%;
+    --sidebar-ring: 250 45% 38%;
   }
 
   .dark[data-theme="midnight"] {
-    --gold: 43 74% 55%;
+    --gold: 220 8% 78%;
     --gold-foreground: 0 0% 100%;
-    --background: 230 18% 5%;
+    --background: 230 18% 6%;
     --foreground: 230 12% 88%;
 
     --card: 230 16% 9%;
@@ -564,7 +564,7 @@
     --popover-foreground: 230 12% 88%;
 
     --primary: 245 55% 62%;
-    --primary-foreground: 230 18% 5%;
+    --primary-foreground: 230 18% 6%;
 
     --secondary: 230 14% 15%;
     --secondary-foreground: 230 10% 80%;
@@ -572,8 +572,8 @@
     --muted: 230 14% 13%;
     --muted-foreground: 230 8% 52%;
 
-    --accent: 245 55% 62%;
-    --accent-foreground: 230 18% 5%;
+    --accent: 270 55% 68%;
+    --accent-foreground: 230 18% 6%;
 
     --destructive: 0 55% 42%;
     --destructive-foreground: 0 0% 100%;
@@ -582,15 +582,15 @@
     --input: 230 14% 15%;
     --ring: 245 55% 62%;
 
-    --success: 165 38% 42%;
-    --success-foreground: 0 0% 100%;
+    --success: 165 42% 46%;
+    --success-foreground: 230 18% 6%;
     --warning: 38 65% 52%;
     --warning-foreground: 0 0% 100%;
 
     --sidebar-background: 230 16% 7%;
     --sidebar-foreground: 230 12% 88%;
     --sidebar-primary: 245 55% 62%;
-    --sidebar-primary-foreground: 230 18% 5%;
+    --sidebar-primary-foreground: 230 18% 6%;
     --sidebar-accent: 230 14% 15%;
     --sidebar-accent-foreground: 230 10% 80%;
     --sidebar-border: 230 14% 15%;
