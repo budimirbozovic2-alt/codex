@@ -11,6 +11,7 @@ import OperationsTab from "./planner/OperationsTab";
 import RoadmapTab from "./planner/RoadmapTab";
 import DisciplineTab from "./planner/DisciplineTab";
 import PlannerSetupWizard from "./planner/PlannerSetupWizard";
+import PlannerTabSkeleton from "./planner/PlannerTabSkeleton";
 
 interface Props {
   cards: SRCard[];
@@ -98,12 +99,7 @@ export default function StrategicPlanner({ cards, categories, categoryRecords, r
       </m.div>
 
       {data.subjectPlans === null ? (
-        <div className="space-y-3" aria-busy="true" aria-live="polite">
-          <div className="h-24 rounded-xl bg-card/50 border animate-pulse" />
-          <div className="h-40 rounded-xl bg-card/50 border animate-pulse" />
-          <div className="h-32 rounded-xl bg-card/50 border animate-pulse" />
-          <p className="sr-only">Učitavanje planera…</p>
-        </div>
+        <PlannerTabSkeleton variant={activeTab} />
       ) : (
         <>
       {activeTab === "operations" && (
