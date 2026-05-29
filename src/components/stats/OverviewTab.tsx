@@ -2,6 +2,7 @@ import { memo, lazy, Suspense } from "react";
 import { TrendingUp, Brain, Layers, Clock } from "lucide-react";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { ChartTooltip } from "@/components/ui/chart-tooltip";
+import { Skeleton } from "@/components/ui/skeleton";
 import { m } from "framer-motion";
 
 import { Card } from "@/lib/spaced-repetition";
@@ -182,12 +183,12 @@ export default function OverviewTab({
           <ErrorBoundary compact label="Grafikon aktivnosti">
             {chartsReady && activityData
               ? <ActivityChart data={activityData} />
-              : <div className="h-[260px] glass-card rounded-xl animate-pulse" />}
+              : <Skeleton className="h-[260px] rounded-xl" />}
           </ErrorBoundary>
           <ErrorBoundary compact label="Distribucija znanja">
             {chartsReady && masteryData
               ? <MasteryPieChart data={masteryData} />
-              : <div className="h-[260px] glass-card rounded-xl animate-pulse" />}
+              : <Skeleton className="h-[260px] rounded-xl" />}
           </ErrorBoundary>
           <ErrorBoundary compact label="Kategorije">
             <CategoryBarChart data={categoryChartData} />
@@ -200,7 +201,7 @@ export default function OverviewTab({
       </ErrorBoundary>
 
       {ratioHistory && ratioHistory.some(d => d["Stvarni ponavljanje"] !== null) && (
-        <Suspense fallback={<div className="h-[280px] glass-card rounded-xl animate-pulse" />}>
+        <Suspense fallback={<Skeleton className="h-[280px] rounded-xl" />}>
           <DashboardChart ratioHistory={ratioHistory} targetReviewPct={focusRatio.targetReviewPct} />
         </Suspense>
       )}
