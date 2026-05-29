@@ -6,12 +6,13 @@
  * are enforced inside the reducer, not by chained useEffects.
  *
  * Two side effects only:
- *   1) persist the filter triple to localStorage when it changes
+ *   1) persist the filter triple via settings-cache (SQLite SSOT + sync mirror)
  *   2) reconcile against fresh taxonomy / cards / initialCardId
  */
 import { useCallback, useEffect, useMemo, useReducer, useRef } from "react";
 import type { Card } from "@/lib/spaced-repetition";
 import type { SubcategoryNode } from "@/lib/db-types";
+import { readCached, writeCached } from "@/lib/settings-cache";
 
 export type TypeFilter = "all" | "essay" | "flash";
 
@@ -25,20 +26,16 @@ export interface SelectionState {
 const FILTER_KEY = "speed-reader-filters:";
 
 function loadFilters(categoryId: string): Omit<SelectionState, "index"> {
-  try {
-    const raw = localStorage.getItem(FILTER_KEY + categoryId);
-    if (!raw) return { subFilter: "all", chapterFilter: "all", typeFilter: "all" };
-    const p = JSON.parse(raw) as Partial<SelectionState>;
-    const tf = p.typeFilter;
-    return {
-      subFilter: typeof p.subFilter === "string" ? p.subFilter : "all",
-      chapterFilter: typeof p.chapterFilter === "string" ? p.chapterFilter : "all",
-      typeFilter: tf === "essay" || tf === "flash" ? tf : "all",
-    };
-  } catch {
-    return { subFilter: "all", chapterFilter: "all", typeFilter: "all" };
-  }
+  const defaults = { subFilter: "all", chapterFilter: "all", typeFilter: "all" as TypeFilter };
+  const p = readCached<Partial<SelectionState>>(FILTER_KEY + categoryId, defaults);
+  const tf = p.typeFilter;
+  return {
+    subFilter: typeof p.subFilter === "string" ? p.subFilter : "all",
+    chapterFilter: typeof p.chapterFilter === "string" ? p.chapterFilter : "all",
+    typeFilter: tf === "essay" || tf === "flash" ? tf : "all",
+  };
 }
+
 
 type Action =
   | { type: "SET_SUB"; value: string }
@@ -170,15 +167,11 @@ export function useSpeedReaderSelection({
 
   const current = filtered[index];
 
-  // Persist filter triple
+  // Persist filter triple (SQLite SSOT + sync localStorage mirror)
   useEffect(() => {
-    try {
-      localStorage.setItem(
-        FILTER_KEY + categoryId,
-        JSON.stringify({ subFilter, chapterFilter, typeFilter }),
-      );
-    } catch { /* ignore */ }
+    writeCached(FILTER_KEY + categoryId, { subFilter, chapterFilter, typeFilter });
   }, [categoryId, subFilter, chapterFilter, typeFilter]);
+
 
   // Reconcile against fresh taxonomy / card list / initialCardId
   const consumedRef = useRef<string | null>(null);

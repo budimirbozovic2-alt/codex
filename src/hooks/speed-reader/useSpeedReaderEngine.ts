@@ -14,14 +14,15 @@ import {
   type Segment, type WordEntry,
 } from "@/components/speed-reader/speed-reader-constants";
 import { loadTTSSettings, saveTTSSettings, type TTSSettings } from "@/lib/tts";
+import { readCached, writeCached } from "@/lib/settings-cache";
 
 const TTS_MODE_KEY = "sr-tts-mode";
 
 function loadTtsMode(): "natural" | "wpm" {
-  try {
-    return localStorage.getItem(TTS_MODE_KEY) === "wpm" ? "wpm" : "natural";
-  } catch { return "natural"; }
+  const v = readCached<string>(TTS_MODE_KEY, "natural");
+  return v === "wpm" ? "wpm" : "natural";
 }
+
 
 export function useSpeedReaderEngine(current: Card | undefined) {
   const { segments, wordEntries } = useMemo(() => {
@@ -44,8 +45,9 @@ export function useSpeedReaderEngine(current: Card | undefined) {
   const [ttsMode, setTtsModeState] = useState<"natural" | "wpm">(loadTtsMode);
   const setTtsMode = useCallback((mode: "natural" | "wpm") => {
     setTtsModeState(mode);
-    try { localStorage.setItem(TTS_MODE_KEY, mode); } catch { /* ignore */ }
+    writeCached(TTS_MODE_KEY, mode);
   }, []);
+
   const [ttsSettings, setTtsSettings] = useState<TTSSettings>(loadTTSSettings);
   const [showTtsSettings, setShowTtsSettings] = useState(false);
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
