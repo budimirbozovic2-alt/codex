@@ -48,24 +48,18 @@ describe("query bridges (PR-7f M1)", () => {
     beforeEach(() => { vi.useFakeTimers(); });
     afterEach(() => { vi.useRealTimers(); });
 
-    it("coalesces a burst of notifyCardsChanged into a single invalidation", () => {
-      // 100 rapid commits in the same tick
+    const cardsCalls = () => invalidateSpy.mock.calls.filter(
+      ([arg]) => Array.isArray((arg as { queryKey: unknown }).queryKey)
+        && ((arg as { queryKey: string[] }).queryKey[0] === "cards"),
+    );
+
+    it("coalesces a burst of unscoped notifyCardsChanged into a single prefix invalidation", () => {
       for (let i = 0; i < 100; i++) notifyCardsChanged();
+      expect(cardsCalls().length).toBe(0);
 
-      // Nothing fired synchronously — debounced.
-      const cardsCalls = invalidateSpy.mock.calls.filter(
-        ([arg]) => Array.isArray((arg as { queryKey: unknown }).queryKey)
-          && ((arg as { queryKey: string[] }).queryKey[0] === "cards"),
-      );
-      expect(cardsCalls.length).toBe(0);
-
-      // Advance past the 16ms window.
       vi.advanceTimersByTime(20);
 
-      const after = invalidateSpy.mock.calls.filter(
-        ([arg]) => Array.isArray((arg as { queryKey: unknown }).queryKey)
-          && ((arg as { queryKey: string[] }).queryKey[0] === "cards"),
-      );
+      const after = cardsCalls();
       expect(after.length).toBe(1);
       expect(after[0][0]).toEqual({ queryKey: ["cards"] });
     });
@@ -77,11 +71,50 @@ describe("query bridges (PR-7f M1)", () => {
       notifyCardsChanged();
       vi.advanceTimersByTime(20);
 
-      const cardsCalls = invalidateSpy.mock.calls.filter(
-        ([arg]) => Array.isArray((arg as { queryKey: unknown }).queryKey)
-          && ((arg as { queryKey: string[] }).queryKey[0] === "cards"),
-      );
-      expect(cardsCalls.length).toBe(2);
+      expect(cardsCalls().length).toBe(2);
+    });
+
+    it("invalidates only affected scoped keys for category emits", () => {
+      for (let i = 0; i < 50; i++) {
+        notifyCardsChanged({ kind: "category", categoryId: "A" });
+        notifyCardsChanged({ kind: "category", categoryId: "B" });
+      }
+      vi.advanceTimersByTime(20);
+
+      const keys = cardsCalls().map(([arg]) => (arg as { queryKey: readonly unknown[] }).queryKey);
+      // Should NOT include the bare ["cards"] prefix — that's only on unscoped escalation.
+      expect(keys.some(k => k.length === 1 && k[0] === "cards")).toBe(false);
+      // Should include both category prefixes.
+      expect(keys).toContainEqual(["cards", "cat", "A"]);
+      expect(keys).toContainEqual(["cards", "cat", "B"]);
+      // Should include the shared "all" slice once.
+      expect(keys.filter(k => k[1] === "all").length).toBe(1);
+    });
+
+    it("escalates to ['cards'] prefix when an unscoped emit joins scoped ones", () => {
+      notifyCardsChanged({ kind: "category", categoryId: "A" });
+      notifyCardsChanged(); // unscoped escalates
+      notifyCardsChanged({ kind: "category", categoryId: "B" });
+      vi.advanceTimersByTime(20);
+
+      const calls = cardsCalls();
+      expect(calls.length).toBe(1);
+      expect(calls[0][0]).toEqual({ queryKey: ["cards"] });
+    });
+
+    it("forces a flush at max-wait when the trailing window keeps resetting", () => {
+      // 30 emits, every 10ms = 300ms continuous burst; trailing (16ms) never expires.
+      for (let i = 0; i < 30; i++) {
+        notifyCardsChanged();
+        vi.advanceTimersByTime(10);
+      }
+      // After ~300ms wall-time we should have seen at least one max-wait flush.
+      const midCount = cardsCalls().length;
+      expect(midCount).toBeGreaterThanOrEqual(1);
+
+      // Drain the final trailing window.
+      vi.advanceTimersByTime(20);
+      expect(cardsCalls().length).toBeGreaterThanOrEqual(midCount);
     });
   });
 });
