@@ -8,6 +8,7 @@ import {
 } from "../mnemonic-storage";
 import { useCategoryData } from "@/contexts/AppContext";
 import { ContentRenderer } from "@/components/ui/ContentRenderer";
+import { Skeleton } from "@/components/ui/skeleton";
 import { htmlToDoc } from "@/lib/editor-v4";
 import { deriveHtml } from "@/lib/editor-v4/derived";
 import { m, AnimatePresence } from "framer-motion";
