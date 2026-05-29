@@ -1,96 +1,89 @@
+## Cilj
 
-# Mini-audit: Sync SQL na main thread-u + chunked streaming plan
+Smanjiti broj re-fetcheva i re-rendera tokom bursta `notifyCardsChanged()` (bulk import, FSRS grade-many, restore, taxonomy migracije) tako što:
 
-## Kontekst
+1. **Per-scope debounce** — koalesciramo izmjene u **Set tačnih query ključeva** (`['cards','cat',X]`, `['cards','source',Y]`, …) umjesto da uvijek invalidiramo cijeli `['cards']` prefix. Consumeri koji nisu pogođeni ne refeta-uju.
+2. **Max-wait cap** — pod dugim, kontinuiranim burstom (npr. 30s bulk import koji emituje notifikacije svakih par ms) trailing debounce nikad ne istekne. Dodajemo hard cap (250ms) — ako se prozor stalno resetuje, flush se ipak izvrši.
 
-OPFS-SAH-pool VFS radi u **renderer (main) thread-u** — nema `postMessage`/structured-clone overhead-a (nema klasičnog Mammoth problema), ali **svaki `exec.all()` blokira UI** dok wasm SQLite čita stranice. Bez mjerenja ne znamo koji pozivi prelaze 16ms budget za frame.
+Fallback ostaje siguran: poziv bez scope payload-a (`notifyCardsChanged()` bez argumenta) i dalje proizvodi **prefix invalidaciju** (`['cards']`). Postojeći call-site-ovi rade bez izmjene.
 
-## Sumnjivih 5 poziva (kandidati za mjerenje)
+## Promjene
 
-Identifikovano grep-om kroz `src/lib/db/queries/*`:
+### 1. `src/lib/db/queries/cards.ts` — proširi event API
 
-| # | Poziv | Lokacija | Tipičan call site | Procjenjeni rizik |
-|---|---|---|---|---|
-| 1 | `listAllCards()` | `cards.ts:105` `SELECT payload FROM cards` | `loadCardsDeferred` (boot heal), `readAllCardsForBackup` | **VISOK** — 10k–20k redova, JSON.parse svake | 
-| 2 | `listCardsByCategory(id)` | `cards.ts:115` indeksiran `WHERE categoryId=?` | TanStack `useCardsByCategory` na svakom subject switch-u | **SREDNJI** — 500–3000 redova |
-| 3 | `listAllReviewLog()` / `listAllLog<T>` | `logs.ts:83/165/265/277` | Backup, analytics worker hidracija, stats | **VISOK** — može preći 50k entry-ja |
-| 4 | `listAllSources()` / `listAllMindMaps()` | `sources.ts:95`, `mind-maps.ts:59` | Backup, health monitor, zettelkasten boot | **SREDNJI** — payload-i krupni (HTML/mind-map JSON) |
-| 5 | `listAllArticles()` (Zettelkasten) | `knowledge-base.ts:80` | `useZettelkastenBootstrap` na ulazu u Zettel view | **SREDNJI/VISOK** — articles imaju veliki HTML payload |
+```ts
+export type CardsScope =
+  | { kind: "all" }                                    // prefix invalidate
+  | { kind: "category"; categoryId: string }
+  | { kind: "subcategory"; categoryId: string; subcategoryId: string }
+  | { kind: "chapter"; categoryId: string; chapterId: string }
+  | { kind: "source"; sourceId: string }
+  | { kind: "ids"; categoryIds?: string[]; sourceIds?: string[] }; // bulk pošalje skupove
 
-## Pristup (3 faze, **measure-first, optimize-second**)
+export type CardsChangedListener = (scope: CardsScope) => void;
 
-### Faza A — Telemetrija (0.5 dana)
+export function notifyCardsChanged(scope: CardsScope = { kind: "all" }): void { … }
+```
 
-1. Dodati `src/lib/db/queries/_shared/sql-timing.ts`:
-   - `withSqlTiming(label, fn)` wrapper: `performance.mark(`sql:${label}:start`)`, izvrši, `performance.measure`, `performance.mark(`sql:${label}:end`)`.
-   - Module-level histogram (count, sum, p50, p95, max) po label-u.
-   - DevTools handle `window.__codex_sqlTimings` (pattern iz `executor-telemetry`).
-   - Threshold: ako `dur > 16` → `logger.warn` u DEV.
-2. Instrumentirati **samo 5 kandidata** + `bulkApply` (već postoji u `opfs-sqlite-adapter`) — 1-line wrap, bez API izmjena.
-3. Dodati `src/test/sql-timing.test.ts` (počni/zaustavi, p95 obračun).
+`onCardsChanged` ostaje, samo callback dobija `scope`. Stari pozivi (`notifyCardsChanged()`) ostaju validni.
 
-### Faza B — Mjerenje (0.25 dana, lokalno, ručno)
+### 2. `src/lib/query/bridges.ts` — per-scope debouncer + max-wait
 
-User pokrene tipičan flow:
-1. Boot (deferred cards load + heal).
-2. Subject switch × 3 (cold + warm).
-3. Backup export.
-4. Otvori Zettelkasten view.
-5. Otvori Stats / Analytics.
+```text
+window = 16ms trailing  (postojeće — kratki burst → 1 frame)
+maxWait = 250ms hard cap  (dug burst → flush forsiran)
+```
 
-Snimi `window.__codex_sqlTimings` snapshot u JSON, ubaci u `.lovable/sql-perf-report.json`.
+Stanje:
+- `_pendingKeys: Set<string>` — serijalizovani query ključevi (`JSON.stringify`).
+- `_pendingPrefix: boolean` — ako iko emituje `{kind:"all"}`, kolapsiramo na prefix flush.
+- `_trailingTimer`, `_maxWaitTimer`.
 
-**Odluka gate**:
-- Svi p95 < 16ms → **STOP, ne premještaj ništa**, samo zadrži telemetriju u DEV.
-- p95 16–50ms → razmotri `requestIdleCallback` chunked yield na main thread-u (jeftino, bez worker-a).
-- p95 > 50ms → kandidat za worker offload.
+Algoritam (`scheduleCardsInvalidate(qc, scope)`):
+1. Ako `scope.kind === "all"` → `_pendingPrefix = true; _pendingKeys.clear()`.
+2. Inače, dodaj sve odgovarajuće `queryKeys.cards.*` u `_pendingKeys` (npr. za `kind:"category"` dodaj `byCategory`, `countByCategory`; za `kind:"ids"` map-uj svaki id).
+3. `clearTimeout(_trailingTimer); _trailingTimer = setTimeout(flush, 16)`.
+4. Ako `_maxWaitTimer === null` → `_maxWaitTimer = setTimeout(flush, 250)`.
 
-### Faza C — Worker offload (uslovno, 0.75 dana, samo za dokazano teške)
+`flush()`:
+- Clear oba timera.
+- Ako `_pendingPrefix` → `invalidateQueries({ queryKey: ["cards"] })`, isprazni Set.
+- Inače → za svaki ključ u Set-u `invalidateQueries({ queryKey: parsed, exact: true })`.
 
-Samo za pozive koji prelaze gate. Strategija:
+### 3. Pozivaoci — opcionalni upgrade na scoped emit
 
-1. **Novi worker** `src/workers/sqlite-read.worker.ts` — drži *vlastiti* SQLite handle preko `kSahPoolUtil`-a otvorenog u **read-only modu** (`SQLITE_OPEN_READONLY`) na isti OPFS direktorij. WAL omogućava paralelne read-ove dok writer ostaje na main thread-u (jedan writer pravilo SQLite-a se poštuje).
-2. **Chunked streaming protokol**:
-   ```
-   main → worker: { type: "query", id, sql, params, chunkSize: 500 }
-   worker → main: { type: "chunk", id, rows: [...500] }   // ponavljano
-   worker → main: { type: "done", id }
-   ```
-   Worker u petlji `LIMIT 500 OFFSET k` (ili keyset paginacija po `rowid`) i `postMessage` nakon svake stranice — main thread spaja u TanStack cache **inkrementalno** uz `keepPreviousData`.
-3. **Read seam** `src/lib/db/queries/_shared/stream-reader.ts`:
-   - `streamAll<T>(label, sql, params, onChunk)` — wrap oko worker RPC-a.
-   - Fallback: ako worker nije dostupan (test env), poziva direktno `exec.all` — kontrakt ostaje identičan.
-4. Migrirati **samo dokazane teške** pozive (vjerovatno: `listAllCards`, `listAllReviewLog`, `readAllArticlesForBackup`). Ostali ostaju sync.
-5. Bridge: `notifyCardsChanged()` itd. trigger-uje worker `pragma wal_checkpoint(PASSIVE)` da reader vidi nove podatke (alternativa: reader otvara konekciju per-query).
+Bez izmjene rade. Za maksimalnu korist mijenjamo samo "vrele" pozive:
 
-### Faza D — Verifikacija (0.25 dana)
+- `cards-bulk-mutations.ts` (A2) — već zna `categoryId`/`subcategoryId`/`chapterId` → emit `{kind:"category"|"subcategory"|"chapter", …}`.
+- `cardRepository.put/bulkPut/delete` u `cardMapWrites.ts` — emit `{kind:"ids", categoryIds:[…], sourceIds:[…]}` (zna iz upisane kartice).
+- `category-deletion-service.ts` — emit `{kind:"category", categoryId}`.
+- `useCardBootstrap.ts` heal → emit `{kind:"all"}` (eksplicitno, jer dira sve scope-ove).
 
-- Re-run mjerenja iz Faze B sa migriranim pozivima → uporedi p95 prije/poslije, upiši delta u `.lovable/sql-perf-report.json`.
-- Acceptance: nijedan instrumentirani poziv ne smije imati **single contiguous main-thread block > 16ms**.
-- Testovi: `sql-timing.test.ts`, novi `stream-reader.test.ts` (mock worker, verifikuj chunk ordering + final assembly), postojeći `opfs-sqlite-adapter.test.ts` ostaje zelen.
+Ostali pozivi (kojih nema mnogo) ostaju `{kind:"all"}` defaultom.
+
+### 4. Test seam
+
+- Proširi `_flushCardsInvalidateForTest()` da gasi oba timera i isprazni Set.
+- Dodaj export `_getPendingCardsKeysForTest()` za inspekciju.
+
+### 5. Testovi (`src/test/query-bridges.test.ts` proširi)
+
+- Postojeći "100 notify → 1 invalidate" test ostaje (sve unscoped) — pokriva prefix kolaps.
+- Novi: 50 `notify({kind:"category", categoryId:"A"})` + 50 `notify({kind:"category", categoryId:"B"})` → tačno 2 `invalidateQueries` poziva sa `exact:true`, nijedan prefix.
+- Novi: mix `{kind:"all"}` + scoped → degraduje na 1 prefix invalidate (escalation).
+- Novi (max-wait): emit svakih 10ms x 30 (300ms ukupno) → trailing se stalno resetuje, ali `flush` se forsira na ~250ms; očekujemo **2** invalidacije (jedan na maxWait, jedan trailing nakon zadnjeg emita).
+
+### 6. Verifikacija
+
 - `tsc --noEmit` clean.
+- `bunx vitest run src/test/query-bridges.test.ts src/test/cards-mirror-and-rollback.test.tsx` — svi prolaze.
+- Postojeći `cards-mirror-and-rollback.test.tsx` ne mora se mijenjati (koristi `notifyCardsChanged()` bez argumenta → prefix put).
 
-## Tehnički detalji
+## Memorija
 
-**Zašto ne premještati sve odmah**: Worker SQLite reader zahtjeva drugu konekciju na isti OPFS file — sa SAH pool VFS-om to znači dodatni file lock slot i konfiguraciju. Cijena nije besplatna. **Ne plaćaj cijenu prije dokaza**.
+Update `mem://architecture/tanstack-query-read-path` napomena: "cards bridge: per-scope Set debounce (16ms trailing + 250ms max-wait), unscoped emit eskalira na prefix".
 
-**Zašto chunked yield** (a ne čist offload): UI ne mora čekati cijeli rezultat — TanStack može renderovati listu inkrementalno sa `placeholderData: keepPreviousData` (već urađeno u prethodnom phase-u za sources/cards/mnemonics/KB). Streaming = brži first-paint čak i kad je ukupno vrijeme isto.
+## Što NE radim
 
-**Šta NIJE u scope-u**:
-- Selectivno kolone (`SELECT id, categoryId` umjesto `SELECT payload`) — odvojen optimization (codec rewrite).
-- Per-row JSON.parse u worker-u — može u sljedećoj iteraciji.
-- Promjena WAL/checkpoint politike.
-- Nove TanStack queryKeys.
-
-## Estimat
-
-- Faza A: 0.5 dana
-- Faza B: 0.25 dana (user-driven)
-- Faza C: 0.75 dana (uslovno, vjerovatno 1–2 poziva)
-- Faza D: 0.25 dana
-- **Ukupno: 1.25–1.75 dana**, sa jasnim go/no-go gate-om poslije Faze B.
-
-## Files koji bi se mijenjali
-
-- **Faza A (sigurno)**: `src/lib/db/queries/_shared/sql-timing.ts` (novo), `cards.ts`, `logs.ts`, `sources.ts`, `mind-maps.ts`, `knowledge-base.ts` (po 1 wrap line), `src/test/sql-timing.test.ts` (novo).
-- **Faza C (uslovno)**: `src/workers/sqlite-read.worker.ts` (novo), `src/lib/db/queries/_shared/stream-reader.ts` (novo), 1–2 queries fajla migrirana na `streamAll`, `vite.config.ts` (worker entry ako treba).
+- Ne dirma se `setQueryData` push mirror (ostaje uklonjen po Phase 2b).
+- Ostali bridges (sources/planner/mindMaps/mnemonics/knowledgeBase) ostaju nepromijenjeni — oni nemaju isti burst profil.

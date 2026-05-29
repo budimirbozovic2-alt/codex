@@ -162,7 +162,7 @@ export function useCategoryManagement() {
       void (async () => {
         try {
           await clearCardsSubcategoryRefs(categoryId, subcategoryId);
-          notifyCardsChanged();
+          notifyCardsChanged({ kind: "subcategory", categoryId, subcategoryId });
         } catch (err) {
           logger.error("[deleteSubcategory] clear refs failed", err);
         }
@@ -174,6 +174,7 @@ export function useCategoryManagement() {
   const bulkUpdateSubcategory = useCallback((ids: string[], subcategoryId: string) => {
     if (ids.length === 0) return;
     // A2 collapse — single chunked UPDATE tx (json_set keeps payload in sync).
+    // No single categoryId — emit unscoped so all category views refresh.
     void (async () => {
       try {
         await reassignCardsSubcategory(ids, subcategoryId);
@@ -226,7 +227,7 @@ export function useCategoryManagement() {
     void (async () => {
       try {
         await clearCardsChapterRefs(categoryId, subcategoryId, chapterId);
-        notifyCardsChanged();
+        notifyCardsChanged({ kind: "chapter", categoryId, chapterId });
       } catch (err) {
         logger.error("[deleteChapter] clear refs failed", err);
       }
