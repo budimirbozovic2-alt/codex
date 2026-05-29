@@ -1,7 +1,7 @@
 import "@/index.css";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { HashRouter, Routes, Route, useParams } from "react-router-dom";
+import { HashRouter, Routes, Route, Navigate, useParams } from "react-router-dom";
 import { AppProvider } from "@/contexts/AppContext";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import MainLayout from "@/components/MainLayout";
@@ -108,6 +108,7 @@ const App = () => {
                     <Route path="/edit" element={<ErrorBoundary label="Uređivanje"><EditPage /></ErrorBoundary>} />
                     <Route path="/settings" element={<ErrorBoundary label="Podešavanja"><SettingsPage /></ErrorBoundary>} />
                     <Route path="/planner" element={<PlannerPage />} />
+                    <Route path="/planer" element={<Navigate to="/planner" replace />} />
                     <Route path="/stats" element={<StatsPage />} />
                     <Route path="/categories" element={<ErrorBoundary label="Kategorije"><CategoriesRoutePage /></ErrorBoundary>} />
 
