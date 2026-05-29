@@ -327,38 +327,38 @@
     --popover: 0 0% 100%;
     --popover-foreground: 220 20% 10%;
 
-    --primary: 210 65% 42%;
+    --primary: 205 70% 40%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 210 16% 93%;
+    --secondary: 200 18% 93%;
     --secondary-foreground: 220 18% 20%;
 
-    --muted: 210 14% 95%;
+    --muted: 200 16% 95%;
     --muted-foreground: 215 10% 44%;
 
-    --accent: 210 65% 42%;
+    --accent: 175 55% 42%;
     --accent-foreground: 0 0% 100%;
 
     --destructive: 0 68% 50%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 210 16% 90%;
-    --input: 210 16% 90%;
-    --ring: 210 65% 42%;
+    --border: 200 16% 90%;
+    --input: 200 16% 90%;
+    --ring: 205 70% 40%;
 
-    --success: 170 45% 36%;
+    --success: 170 50% 36%;
     --success-foreground: 0 0% 100%;
     --warning: 35 75% 50%;
     --warning-foreground: 0 0% 100%;
 
-    --sidebar-background: 210 12% 97%;
+    --sidebar-background: 200 14% 97%;
     --sidebar-foreground: 220 20% 10%;
-    --sidebar-primary: 210 65% 42%;
+    --sidebar-primary: 205 70% 40%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 210 16% 93%;
+    --sidebar-accent: 200 18% 93%;
     --sidebar-accent-foreground: 220 18% 20%;
-    --sidebar-border: 210 16% 90%;
-    --sidebar-ring: 210 65% 42%;
+    --sidebar-border: 200 16% 90%;
+    --sidebar-ring: 205 70% 40%;
   }
 
   .dark[data-theme="ocean"] {
@@ -373,7 +373,7 @@
     --popover: 220 16% 11%;
     --popover-foreground: 210 18% 90%;
 
-    --primary: 210 70% 55%;
+    --primary: 205 75% 56%;
     --primary-foreground: 220 18% 7%;
 
     --secondary: 220 14% 17%;
@@ -382,7 +382,7 @@
     --muted: 220 14% 15%;
     --muted-foreground: 215 10% 54%;
 
-    --accent: 210 70% 55%;
+    --accent: 175 60% 52%;
     --accent-foreground: 220 18% 7%;
 
     --destructive: 0 58% 44%;
@@ -390,21 +390,21 @@
 
     --border: 220 14% 17%;
     --input: 220 14% 17%;
-    --ring: 210 70% 55%;
+    --ring: 205 75% 56%;
 
-    --success: 170 40% 42%;
-    --success-foreground: 0 0% 100%;
+    --success: 170 50% 46%;
+    --success-foreground: 220 18% 7%;
     --warning: 35 70% 52%;
     --warning-foreground: 0 0% 100%;
 
     --sidebar-background: 220 16% 9%;
     --sidebar-foreground: 210 18% 90%;
-    --sidebar-primary: 210 70% 55%;
+    --sidebar-primary: 205 75% 56%;
     --sidebar-primary-foreground: 220 18% 7%;
     --sidebar-accent: 220 14% 17%;
     --sidebar-accent-foreground: 210 16% 84%;
     --sidebar-border: 220 14% 17%;
-    --sidebar-ring: 210 70% 55%;
+    --sidebar-ring: 205 75% 56%;
   }
 
   /* ═══════════════════════════════════════════
