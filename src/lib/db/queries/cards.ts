@@ -100,10 +100,12 @@ function decodeRows(rows: readonly { payload: string }[]): Card[] {
 // ── Bulk readers ─────────────────────────────────────────────────────────
 
 export async function listAllCards(): Promise<Card[]> {
-  const exec = await requireExecutor("listAllCards");
-  if (!exec) return [];
-  const rows = await exec.all<{ payload: string }>("SELECT payload FROM cards");
-  return decodeRows(rows);
+  return withSqlTiming("listAllCards", async () => {
+    const exec = await requireExecutor("listAllCards");
+    if (!exec) return [];
+    const rows = await exec.all<{ payload: string }>("SELECT payload FROM cards");
+    return decodeRows(rows);
+  });
 }
 
 /** Surgical lookup by ids. */
