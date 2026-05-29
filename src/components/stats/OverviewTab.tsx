@@ -183,12 +183,12 @@ export default function OverviewTab({
           <ErrorBoundary compact label="Grafikon aktivnosti">
             {chartsReady && activityData
               ? <ActivityChart data={activityData} />
-              : <div className="h-[260px] glass-card rounded-xl animate-pulse" />}
+              : <Skeleton className="h-[260px] rounded-xl" />}
           </ErrorBoundary>
           <ErrorBoundary compact label="Distribucija znanja">
             {chartsReady && masteryData
               ? <MasteryPieChart data={masteryData} />
-              : <div className="h-[260px] glass-card rounded-xl animate-pulse" />}
+              : <Skeleton className="h-[260px] rounded-xl" />}
           </ErrorBoundary>
           <ErrorBoundary compact label="Kategorije">
             <CategoryBarChart data={categoryChartData} />
