@@ -97,6 +97,15 @@ export default function StrategicPlanner({ cards, categories, categoryRecords, r
         </div>
       </m.div>
 
+      {data.subjectPlans === null ? (
+        <div className="space-y-3" aria-busy="true" aria-live="polite">
+          <div className="h-24 rounded-xl bg-card/50 border animate-pulse" />
+          <div className="h-40 rounded-xl bg-card/50 border animate-pulse" />
+          <div className="h-32 rounded-xl bg-card/50 border animate-pulse" />
+          <p className="sr-only">Učitavanje planera…</p>
+        </div>
+      ) : (
+        <>
       {activeTab === "operations" && (
         <OperationsTab
           config={data.config}
@@ -140,6 +149,8 @@ export default function StrategicPlanner({ cards, categories, categoryRecords, r
           currentPhase={(() => { const p = data.subjectPlans.find(p => p.pct < 100); return p ? { name: p.categoryName } : null; })()}
           phaseDisciplinePct={data.phaseDisciplinePct}
         />
+      )}
+        </>
       )}
     </div>
   );
