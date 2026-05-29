@@ -9,7 +9,7 @@ import type { QueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/query/keys";
 import { onSourcesChanged } from "@/lib/sources-storage";
 import { onPlannerChanged, type PlannerChangeKind } from "@/lib/planner";
-import { onCardsChanged, onKnowledgeBaseChanged } from "@/lib/db/queries";
+import { onCardsChanged, onKnowledgeBaseChanged, type CardsScope } from "@/lib/db/queries";
 import { onMindMapsChanged } from "@/lib/mindmap-storage";
 import { subscribeMnemonics } from "@/features/mnemonic/mnemonic-storage/cards-repo";
 
@@ -17,32 +17,113 @@ let _installed = false;
 const _unsubs: Array<() => void> = [];
 
 
-// ── Cards invalidation debouncer ────────────────────────────────────────
-// `notifyCardsChanged` fires once per Zustand commit. A burst (bulk import,
-// FSRS grade-many, restore, taxonomy migration) can stack hundreds of
-// notifications in a single tick. Each one calling `invalidateQueries`
-// triggers a refetch on every active `['cards', …]` consumer — that's the
-// re-render storm.
+// ── Cards invalidation debouncer (per-scope + max-wait) ──────────────────
 //
-// We coalesce into a single trailing invalidation per ~16ms window
-// (≈1 animation frame). All scoped cards queries share the `["cards"]`
-// prefix, so one invalidation handles every consumer.
-const CARDS_DEBOUNCE_MS = 16;
-let _cardsTimer: ReturnType<typeof setTimeout> | null = null;
+// `notifyCardsChanged(scope?)` fires once per write commit. A burst (bulk
+// import, FSRS grade-many, restore, taxonomy migration) can stack hundreds
+// of notifications in a single tick.
+//
+// Strategy:
+//   • Each scoped notification expands into a SET of partial query keys
+//     (serialized as JSON strings) covering only the slices it affects.
+//   • An unscoped (`kind:"all"`) notification escalates to a single
+//     `["cards"]` prefix invalidation — covers every consumer.
+//   • A trailing debounce (16ms ≈ 1 frame) collapses bursts in the same tick.
+//   • A max-wait cap (250ms) forces a flush during long, continuous bursts
+//     where the trailing window keeps resetting (e.g. multi-second imports
+//     that emit every few ms).
+const CARDS_TRAILING_MS = 16;
+const CARDS_MAX_WAIT_MS = 250;
 
-function scheduleCardsInvalidate(qc: QueryClient): void {
-  if (_cardsTimer !== null) return;
-  _cardsTimer = setTimeout(() => {
-    _cardsTimer = null;
+let _trailingTimer: ReturnType<typeof setTimeout> | null = null;
+let _maxWaitTimer: ReturnType<typeof setTimeout> | null = null;
+let _pendingPrefix = false;
+const _pendingKeys = new Set<string>(); // JSON-serialized query keys
+
+function keysForScope(scope: CardsScope): readonly (readonly string[])[] {
+  switch (scope.kind) {
+    case "all":
+      return []; // signals prefix escalation; caller handles flag
+    case "category": {
+      const { categoryId } = scope;
+      return [
+        queryKeys.cards.all(),
+        queryKeys.cards.byCategory(categoryId),
+        ["cards", "subcat", categoryId],
+        ["cards", "chap", categoryId],
+        ["cards", "type", categoryId],
+        queryKeys.cards.countByCategory(categoryId),
+      ];
+    }
+    case "subcategory": {
+      const { categoryId, subcategoryId } = scope;
+      return [
+        queryKeys.cards.all(),
+        queryKeys.cards.byCategory(categoryId),
+        queryKeys.cards.bySubcategory(categoryId, subcategoryId),
+        queryKeys.cards.countByCategory(categoryId),
+      ];
+    }
+    case "chapter": {
+      const { categoryId, chapterId } = scope;
+      return [
+        queryKeys.cards.all(),
+        queryKeys.cards.byCategory(categoryId),
+        queryKeys.cards.byChapter(categoryId, chapterId),
+        queryKeys.cards.countByCategory(categoryId),
+      ];
+    }
+    case "source":
+      return [queryKeys.cards.all(), queryKeys.cards.bySource(scope.sourceId)];
+  }
+}
+
+function flushCardsInvalidate(qc: QueryClient): void {
+  if (_trailingTimer !== null) { clearTimeout(_trailingTimer); _trailingTimer = null; }
+  if (_maxWaitTimer !== null) { clearTimeout(_maxWaitTimer); _maxWaitTimer = null; }
+
+  if (_pendingPrefix) {
+    _pendingPrefix = false;
+    _pendingKeys.clear();
     void qc.invalidateQueries({ queryKey: ["cards"] });
-  }, CARDS_DEBOUNCE_MS);
+    return;
+  }
+
+  if (_pendingKeys.size === 0) return;
+  const keys = Array.from(_pendingKeys);
+  _pendingKeys.clear();
+  for (const serialized of keys) {
+    const queryKey = JSON.parse(serialized) as readonly unknown[];
+    void qc.invalidateQueries({ queryKey });
+  }
+}
+
+function scheduleCardsInvalidate(qc: QueryClient, scope: CardsScope): void {
+  if (scope.kind === "all") {
+    _pendingPrefix = true;
+    _pendingKeys.clear();
+  } else if (!_pendingPrefix) {
+    for (const key of keysForScope(scope)) {
+      _pendingKeys.add(JSON.stringify(key));
+    }
+  }
+
+  // Reset trailing window on every emit.
+  if (_trailingTimer !== null) clearTimeout(_trailingTimer);
+  _trailingTimer = setTimeout(() => flushCardsInvalidate(qc), CARDS_TRAILING_MS);
+
+  // Arm max-wait only on the first emit of a window.
+  if (_maxWaitTimer === null) {
+    _maxWaitTimer = setTimeout(() => flushCardsInvalidate(qc), CARDS_MAX_WAIT_MS);
+  }
 }
 
 /** Test seam — drain the pending invalidation immediately. */
 export function _flushCardsInvalidateForTest(): void {
-  if (_cardsTimer === null) return;
-  clearTimeout(_cardsTimer);
-  _cardsTimer = null;
+  if (_trailingTimer !== null) { clearTimeout(_trailingTimer); _trailingTimer = null; }
+  if (_maxWaitTimer !== null) { clearTimeout(_maxWaitTimer); _maxWaitTimer = null; }
+  _pendingPrefix = false;
+  _pendingKeys.clear();
 }
 
 export function installQueryBridges(qc: QueryClient): void {
