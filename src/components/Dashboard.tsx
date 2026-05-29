@@ -37,10 +37,14 @@ export default function Dashboard({ stats, categoryStats, categories, categoryRe
     studyFlowData,
   } = useDashboardData(stats, categoryStats, categories, categoryRecords, cards, reviewLog, srSettings);
   return (
-    <div className="space-y-6 relative">
-      <h2 className="text-2xl font-bold text-foreground flex items-center gap-2">
-        <Home className="h-6 w-6 text-primary" /> Početna tabla
-      </h2>
+    <div className="space-y-8 relative animate-fade-in">
+      <header className="space-y-2 pb-2">
+        <p className="text-eyebrow">Pregled</p>
+        <h2 className="text-display text-4xl md:text-5xl text-foreground text-balance flex items-baseline gap-3">
+          Početna tabla
+          <Home className="h-5 w-5 text-primary/70 self-center" strokeWidth={1.5} />
+        </h2>
+      </header>
 
       {/* Warnings strip — promoted to the top so alerts are immediately visible */}
       {wc.showStatusIcons && (
