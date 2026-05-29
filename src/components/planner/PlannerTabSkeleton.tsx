@@ -10,18 +10,38 @@ interface Props {
 
 const SHELL = "skeleton-premium rounded-xl border border-border/60";
 
+const VARIANT_LABEL: Record<Props["variant"], string> = {
+  operations: "Učitavanje kartice Operacije…",
+  roadmap: "Učitavanje kartice Plan puta…",
+  discipline: "Učitavanje kartice Disciplina…",
+};
+
 export default function PlannerTabSkeleton({ variant }: Props) {
   const blocks =
     variant === "operations" ? [96, 160, 128, 112] :
     variant === "roadmap"    ? [80, 280, 120]       :
                                [64, 180, 96, 96];
 
+  const label = VARIANT_LABEL[variant];
+
   return (
-    <div className="space-y-3" aria-busy="true" aria-live="polite">
+    <div
+      className="space-y-3"
+      role="status"
+      aria-busy="true"
+      aria-live="polite"
+      aria-label={label}
+    >
       {blocks.map((h, i) => (
-        <div key={i} className={SHELL} style={{ height: h }} />
+        <div
+          key={i}
+          className={SHELL}
+          style={{ height: h }}
+          role="presentation"
+          aria-hidden="true"
+        />
       ))}
-      <p className="sr-only">Učitavanje planera…</p>
+      <p className="sr-only">{label} Sadržaj će se prikazati za nekoliko trenutaka.</p>
     </div>
   );
 }
