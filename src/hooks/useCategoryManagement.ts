@@ -227,7 +227,7 @@ export function useCategoryManagement() {
     void (async () => {
       try {
         await clearCardsChapterRefs(categoryId, subcategoryId, chapterId);
-        notifyCardsChanged();
+        notifyCardsChanged({ kind: "chapter", categoryId, chapterId });
       } catch (err) {
         logger.error("[deleteChapter] clear refs failed", err);
       }
