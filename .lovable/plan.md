@@ -1,104 +1,56 @@
 
-## Cilj
+## Pronalazak
 
-1. Generisati brendirane CODEX ikonice u svim formatima koje electron-builder traži (`.ico` za Windows, `.icns` za macOS, `.png` za Linux), tako da `npm run dist:win` / `dist:mac` više ne pucaju na "missing icon".
-2. Splitovati glavni `App-*.js` chunk (~1.05 MB / 335 KB gz) ispod 500 KB preko `build.rollupOptions.output.manualChunks` u `vite.config.ts`.
+### Bug #1 — "Nova kartica" 404 ✅ root cause potvrđen
+`src/views/DashboardPage.tsx:38` → `setView("create")` → `navigate("/create")` → ruta `/create` ne postoji u `App.tsx`.
 
----
+### Bug #2 — "Strateški planer" 404 — interesantan nalaz
+Pretražio sam **cijeli `src/`** za string `/planer` (bez drugog `n`) — `grep -rEn '"/planer"|/planer[^n]|/planer$' src/` — i **nema nijednog hit-a u izvornom kodu**. Sve referencije su `"/planner"` (ToolCards, MainLayout, Breadcrumbs).
 
-## Dio 1 — CODEX ikonice
-
-### Dizajn
-
-Konzistentno sa već postojećim brendingom (memory: *Visual Identity v2* — midnight navy CODEX icon):
-- Pozadina: midnight navy (`#0F172A` / tamna varijanta već u temi).
-- Glif: bijelo "C" sa serifnim/zakošenim "X" overlayem, ili monogram "CX". Predlažem zatvoreni krug + bijeli "CODEX" monogram u centru — čitljivo i na 16×16.
-- Bez gradienta na malim veličinama (zbog kompresije u `.ico` 16/24/32/48).
-
-### Generisanje (build mode)
-
-1. `imagegen--generate_image` (premium, transparent_background=false) na 1024×1024 → `build/icon-source.png` (master).
-2. Iz mastera napraviti sve potrebne veličine pomoću ImageMagick-a (kroz `nix run nixpkgs#imagemagick`):
-   - `public/app-icon.ico` — multi-size `.ico` (16, 24, 32, 48, 64, 128, 256).
-   - `build/app-icon.icns` — preko `png2icns` (`nix run nixpkgs#libicns`) iz seta 16/32/64/128/256/512/1024 png-ova.
-   - `build/icon.png` — 512×512 za Linux AppImage.
-   - `public/app-logo.png` — 256×256, zamjenjuje postojeći logo u `TitleBar.tsx` (ostaje ista putanja, samo svježa verzija).
-   - `public/favicon.png` — 64×64 (opciono, za dev preview).
-3. Update `electron-builder` configa u `package.json`:
-   - `win.icon: "public/app-icon.ico"` — već postavljen, samo fajl sad postoji.
-   - `mac.icon: "build/app-icon.icns"` — već postavljen.
-   - Dodati `linux.icon: "build/icon.png"` (ako Linux target postoji nakon prethodne odluke; ako ne, preskočiti).
-
-### Verifikacija
-
-- `file public/app-icon.ico` → potvrda multi-resolution ICO.
-- `file build/app-icon.icns` → potvrda ICNS magic bytes.
-- QA: konvertovati `.ico` natrag u PNG i vizuelno provjeriti 16/32/256 veličine (čitljivost na malim dimenzijama je čest problem).
+To znači da typo `/planer` koji vidiš u console-u dolazi iz **starog buildovanog `dist/`** koji još uvijek koristi instalirana Electron aplikacija (svježi `vite build` neće reproducirati grešku jer source je čist). Praktično: bug je verovatno već popravljen u izvoru u nekom ranijem commitu, ali tvoj instalirani `.exe`/`.dmg` ima stari bundle.
 
 ---
 
-## Dio 2 — App chunk split
+## Popravke
 
-### Trenutno stanje
+### 1. Empty dashboard CTA → otvori Onboarding modal
 
-`dist/assets/App-*.js` = 1.05 MB (gzip 335 KB). Sve eager-loaded biblioteke završavaju u jednom chunku jer Vite/Rollup po defaultu drži cijeli `node_modules` graf zajedno.
+`src/views/DashboardPage.tsx`:
+- Ukloniti `onAction={() => setView("create")}` (mrtva ruta).
+- Promijeniti u `onAction={() => setShowOnboarding(true)}` — koristi već postojeći `OnboardingModal` koji je već lazy-loaded u istoj komponenti.
+- `actionLabel` po potrebi promijeniti u npr. "Počni vodič" da odražava namjeru (provjerit ću trenutni label u `EmptyState`).
 
-### Strategija — `manualChunks` funkcija
+Bonus: na kraju onboarding-a (`onComplete`), navigirati korisnika na `/categories` da kreira prvi subject — to logički zatvara flow "prazan dashboard → vodič → kreiraj kategoriju → dodaj kartice".
 
-U `vite.config.ts` dodati `build.rollupOptions.output.manualChunks`:
+### 2. Planner — defensive alias + svjež build
 
-```ts
-build: {
-  emptyOutDir: true,
-  rollupOptions: {
-    output: {
-      manualChunks(id) {
-        if (!id.includes("node_modules")) return;
-        if (id.includes("react-router")) return "vendor-router";
-        if (id.match(/node_modules\/(react|react-dom|scheduler)\//))
-          return "vendor-react";
-        if (id.includes("@tanstack/react-query")) return "vendor-query";
-        if (id.includes("framer-motion") || id.includes("motion-dom") || id.includes("motion-utils"))
-          return "vendor-motion";
-        if (id.includes("recharts") || id.includes("d3-")) return "vendor-charts";
-        if (id.includes("@radix-ui")) return "vendor-radix";
-        if (id.includes("dompurify") || id.includes("lucide-react"))
-          return "vendor-ui-utils";
-      },
-    },
-  },
-},
-```
+Pošto izvor ne sadrži typo, jedini siguran fix je:
+- **Rebuild i reinstall Electron app** sa svježim `dist/` (ovo je glavno rješenje).
+- **Defensive alias** u `App.tsx`: dodati `<Route path="/planer" element={<Navigate to="/planner" replace />} />` da pokrije sve eventualne preostale stale linkove (interne ili eksterne bookmark-e). Cijena: jedna linija, nula maintenance.
 
-### Zašto baš ovi chunkovi
+### 3. Sanity cleanup — mrtve mape u UIProvider
 
-- **vendor-react**: stabilan, rijetko mijenja → dugoročni cache hit.
-- **vendor-router**: mali, ali odvojen radi cache stabilnosti.
-- **vendor-query**: TanStack je centralni read-path, dijeli ga cijela app.
-- **vendor-motion**: framer-motion je težak (~80 KB gz), koristi se na više mjesta.
-- **vendor-charts**: recharts + d3-* su najteži single grupa (~100+ KB gz), koristi ih samo StatsPage → idealan kandidat za split (može čak biti i lazy preko `import()` u StatsPage, ali manualChunks već daje 90% benefita).
-- **vendor-radix**: Radix primitivi su rasprostranjeni, ali grupisanje smanjuje duplikate.
-- **vendor-ui-utils**: lucide ikone + DOMPurify; lucide tree-shake-uje, ali bundling ostatka pomaže.
-
-Očekivani rezultat: App chunk pada na ~300-400 KB (gz ~100-130 KB), vendor chunkovi ~100-200 KB svaki, ispod 500 KB praga.
-
-### Verifikacija
-
-1. `bunx vite build` → provjeriti veličine u outputu.
-2. Potvrditi da nema warninga `Some chunks are larger than 500 kB`.
-3. Smoke test u preview-u (`/` ruta) — provjeriti da nema runtime grešaka oko duplikata React-a (zato je `dedupe: ["react", "react-dom"]` već u configu — ostaje).
-4. Pokrenuti postojeće testove (`bunx vitest run`) — manualChunks ne dira test bundler, ali sanity check.
+`src/contexts/routing/useCurrentView.ts`:
+- Ukloniti `create: "/create"` iz `VIEW_TO_PATH` (i `"create"` iz `View` union-a) jer ne postoji ruta. Time se sprečava budući regres istog tipa — TypeScript će uhvatiti svaki `setView("create")` poziv.
+- Provjeriti sve call-site `setView(...)` (kratak grep) i prilagoditi ako još neko zove `"create"`.
 
 ---
+
+## Verifikacija
+
+1. **Build**: `bunx vite build` — provjeriti da nema TS grešaka oko uklonjenog `"create"` view-a.
+2. **Smoke u preview-u**: na `/` (prazan dashboard) klik EmptyState → otvara se OnboardingModal, ne 404.
+3. **Planer**: u preview-u (svjež bundle bez typo) klik ToolCards → `/planner` se otvara čisto. Defensive alias provjeriti ručno: navigacija na `#/planer` redirektuje na `#/planner`.
+4. **Tests**: postojeći `category-view-contract.test.ts` i `category-view-loading.test.tsx` — sanity da ostale rute rade.
+
+## Fajlovi
+
+- `src/views/DashboardPage.tsx` — onAction → onboarding
+- `src/contexts/routing/useCurrentView.ts` — ukloniti `"create"` view + path
+- `src/App.tsx` — dodati `/planer` → `/planner` redirect alias
+- (opciono) `src/components/EmptyState.tsx` — label refinement ako trenutni ne odgovara
 
 ## Out of scope
 
-- Bez promjena u Electron `.cjs` entry fajlovima.
-- Bez Linux electron-builder targeta osim ako prethodno nije odobreno.
-- Bez dirаnja `LabEditor` i drugih već-lazy ruta — one su već split-ovane.
-
-## Fajlovi koji se mijenjaju
-
-- `vite.config.ts` — dodati `rollupOptions.output.manualChunks`.
-- `package.json` — eventualno dodati `linux.icon` u `build` config.
-- **Novi fajlovi**: `public/app-icon.ico`, `build/app-icon.icns`, `build/icon.png`, `build/icon-source.png`, `public/app-logo.png` (overwrite), opciono `public/favicon.png`.
+- Bez promjena na `EditPage`, `PlannerPage` ili `StrategicPlanner` (rade ispravno).
+- Bez novih ruta `/create` — odluka je da global "create" ne postoji; kartice se kreiraju per-subject.
