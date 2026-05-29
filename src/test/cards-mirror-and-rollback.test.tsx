@@ -182,7 +182,7 @@ describe("useCardMutations.save — rollback on persist failure", () => {
         .catch(() => undefined);
     });
 
-    expect(result.current.save.isError).toBe(true);
+    await waitFor(() => expect(result.current.save.isError).toBe(true));
     expect(qc.getQueryData(queryKeys.cards.all())).toEqual(initialAll);
     expect(qc.getQueryData(queryKeys.cards.byCategory("cat-X"))).toEqual(initialByCat);
     expect(putMock).toHaveBeenCalledTimes(1);
