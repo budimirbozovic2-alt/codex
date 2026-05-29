@@ -12,7 +12,7 @@ interface Props {
 
 export const DailyBriefing = memo(function DailyBriefing({ briefText, timeRecMessage, todayReviews, dailyGoal, goalProgress, streak }: Props) {
   return (
-    <div className="animate-in fade-in slide-in-from-bottom-4 duration-300 glass-card p-5 space-y-4"
+    <div className="animate-fade-up glass-card p-5 space-y-4"
       style={{ animationDelay: "200ms", animationFillMode: "both" }}>
       <div className="flex items-center gap-2">
         <Brain className="h-4 w-4 text-primary" />

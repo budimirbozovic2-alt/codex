@@ -80,7 +80,7 @@ export default function Dashboard({ stats, categoryStats, categories, categoryRe
           )}
 
           {wc.showProgressRing && plannerData && plannerData.activePhase && (
-            <div className="animate-in fade-in slide-in-from-bottom-4 duration-300 glass-card p-5 h-full flex flex-col">
+            <div className="animate-fade-up glass-card p-5 h-full flex flex-col">
               <div className="flex items-center gap-2 mb-4">
                 <Target className="h-4 w-4 text-primary" />
                 <h3 className="text-sm font-medium">Progres faze: {plannerData.activePhase.name}</h3>

@@ -24,7 +24,7 @@ export const StatusIconsRow = memo(function StatusIconsRow({ icons, onExport, st
       <div
         role="status"
         aria-label="Sistemska upozorenja"
-        className="animate-in fade-in slide-in-from-top-2 duration-300 flex items-center gap-2 flex-wrap rounded-lg border border-border/60 bg-card/60 px-3 py-2 w-full"
+        className="animate-fade-up flex items-center gap-2 flex-wrap rounded-lg border border-border/60 bg-card/60 px-3 py-2 w-full"
         style={{ animationDelay: "40ms", animationFillMode: "both" }}>
         {icons.map(si => (
           <Tooltip key={si.key}>

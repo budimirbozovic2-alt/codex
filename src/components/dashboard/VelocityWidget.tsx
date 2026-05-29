@@ -13,7 +13,7 @@ export const VelocityWidget = memo(function VelocityWidget({ velocityData, weake
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
       {showVelocity && (
-        <div className="animate-in fade-in slide-in-from-bottom-4 duration-300 glass-card p-5 space-y-2"
+        <div className="animate-fade-up glass-card p-5 space-y-2"
           style={{ animationDelay: "320ms", animationFillMode: "both" }}>
           <div className="flex items-center gap-2">
             <TrendingUp className="h-4 w-4 text-primary" />
@@ -22,7 +22,7 @@ export const VelocityWidget = memo(function VelocityWidget({ velocityData, weake
           {velocityData ? (
             <>
               <div className="flex items-baseline gap-2">
-                <p className="text-3xl font-semibold tabular-nums">{velocityData.velocity}</p>
+                <p className="text-display text-4xl font-semibold tabular leading-none">{velocityData.velocity}</p>
                 <span className="text-sm text-muted-foreground">sekcija/dan</span>
               </div>
               <p className="text-xs text-muted-foreground">
@@ -37,7 +37,7 @@ export const VelocityWidget = memo(function VelocityWidget({ velocityData, weake
         </div>
       )}
       {showWeakCategories && weakestCategories.length > 0 && (
-        <div className="animate-in fade-in slide-in-from-bottom-4 duration-300 glass-card p-5 space-y-3"
+        <div className="animate-fade-up glass-card p-5 space-y-3"
           style={{ animationDelay: "360ms", animationFillMode: "both" }}>
           <div className="flex items-center gap-2">
             <BarChart3 className="h-4 w-4 text-primary" />

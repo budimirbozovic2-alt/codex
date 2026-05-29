@@ -10,12 +10,12 @@ export const QuickActions = memo(function QuickActions({ dueCount, hasCards }: P
   if (!hasCards || dueCount === 0) return null;
 
   return (
-    <div className="animate-in fade-in slide-in-from-bottom-3 duration-300 flex items-center gap-3 flex-wrap"
+    <div className="animate-fade-up flex items-center gap-3 flex-wrap"
       style={{ animationDelay: "40ms", animationFillMode: "both" }}>
       <Link to="/review"
-        className="flex items-center gap-2 px-4 py-2.5 rounded-lg border bg-card text-sm font-medium hover:bg-secondary transition-colors">
-        <RotateCcw className="h-4 w-4 text-warning" />
-        Ponovi dospjele ({dueCount})
+        className="hover-lift pressable flex items-center gap-2 px-4 py-2.5 rounded-lg border border-hairline bg-card text-sm font-medium shadow-soft">
+        <RotateCcw className="h-4 w-4 text-warning" strokeWidth={1.6} />
+        Ponovi dospjele <span className="tabular text-muted-foreground">({dueCount})</span>
       </Link>
     </div>
   );

@@ -226,17 +226,17 @@ export default function SRSettingsPanel({ settings, onUpdate }: Props) {
       ) : (
         /* Global mode — full tabs */
         <Tabs defaultValue={initialTab} className="w-full">
-          <div className={`sticky top-0 z-10 bg-background pb-4 -mx-1 px-1 transition-shadow duration-200 ${scrolled ? "shadow-md" : ""}`}>
-            <TabsList className="grid w-full grid-cols-5">
-              <TabsTrigger value="algorithm">Algoritam</TabsTrigger>
-              <TabsTrigger value="personalization">Personalizacija</TabsTrigger>
-              <TabsTrigger value="workflow">Tok rada</TabsTrigger>
-              <TabsTrigger value="subjects" className="gap-1.5">
-                <FolderOpen className="h-3.5 w-3.5" />
+          <div className={`sticky top-0 z-10 -mx-1 px-1 pt-2 pb-4 transition-all duration-300 ${scrolled ? "bg-background/85 backdrop-blur-md border-b border-hairline shadow-soft" : "bg-background"}`}>
+            <TabsList className="grid w-full grid-cols-5 bg-surface-2/60 p-1 h-11">
+              <TabsTrigger value="algorithm" className="text-eyebrow data-[state=active]:shadow-soft">Algoritam</TabsTrigger>
+              <TabsTrigger value="personalization" className="text-eyebrow data-[state=active]:shadow-soft">Personalizacija</TabsTrigger>
+              <TabsTrigger value="workflow" className="text-eyebrow data-[state=active]:shadow-soft">Tok rada</TabsTrigger>
+              <TabsTrigger value="subjects" className="text-eyebrow gap-1.5 data-[state=active]:shadow-soft">
+                <FolderOpen className="h-3.5 w-3.5" strokeWidth={1.6} />
                 Predmeti
               </TabsTrigger>
-              <TabsTrigger value="system" className="gap-1.5">
-                <Database className="h-3.5 w-3.5" />
+              <TabsTrigger value="system" className="text-eyebrow gap-1.5 data-[state=active]:shadow-soft">
+                <Database className="h-3.5 w-3.5" strokeWidth={1.6} />
                 Sistem
               </TabsTrigger>
             </TabsList>
