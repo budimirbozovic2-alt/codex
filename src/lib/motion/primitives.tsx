@@ -5,7 +5,6 @@
 // dobrodošle u učnoj aplikaciji gdje je brzina misli najvažnija.
 // ─────────────────────────────────────────────────────────────────────────────
 import { ReactNode, HTMLAttributes } from "react";
-// eslint-disable-next-line no-restricted-imports
 import { m, AnimatePresence, HTMLMotionProps } from "framer-motion";
 import { DURATION, EASE, TRANSLATE_PX } from "./tokens";
 

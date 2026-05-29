@@ -16,7 +16,6 @@
 // importa iz framer-motion. ESLint W10 pravilo blokira ostatak aplikacije.
 // ─────────────────────────────────────────────────────────────────────────────
 import { ReactNode } from "react";
-// eslint-disable-next-line no-restricted-imports
 import { LazyMotion, MotionConfig, domAnimation } from "framer-motion";
 import { DURATION, EASE } from "./tokens";
 
