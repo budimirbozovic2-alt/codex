@@ -1,5 +1,6 @@
 import { TrendingUp, BarChart3 } from "lucide-react";
 import { memo } from "react";
+import { useCountUp } from "@/hooks/useCountUp";
 interface Props {
   velocityData: { velocity: number; trend: "up" | "down" | "flat" } | null;
   weakestCategories: { name: string; score: number; total: number }[];
@@ -8,6 +9,7 @@ interface Props {
 }
 
 export const VelocityWidget = memo(function VelocityWidget({ velocityData, weakestCategories, showVelocity, showWeakCategories }: Props) {
+  const velAnim = useCountUp(velocityData?.velocity ?? 0, { duration: 700, decimals: 1 });
   if (!showVelocity && !showWeakCategories) return null;
 
   return (
@@ -16,13 +18,13 @@ export const VelocityWidget = memo(function VelocityWidget({ velocityData, weake
         <div className="animate-fade-up glass-card p-5 space-y-2"
           style={{ animationDelay: "320ms", animationFillMode: "both" }}>
           <div className="flex items-center gap-2">
-            <TrendingUp className="h-4 w-4 text-primary" />
-            <h3 className="text-sm font-medium">Brzina učenja</h3>
+            <TrendingUp className="h-4 w-4 text-primary" strokeWidth={1.6} />
+            <h3 className="text-eyebrow">Brzina učenja</h3>
           </div>
           {velocityData ? (
             <>
               <div className="flex items-baseline gap-2">
-                <p className="text-display text-4xl font-semibold tabular leading-none">{velocityData.velocity}</p>
+                <p className="text-display text-4xl font-semibold tabular leading-none">{velAnim}</p>
                 <span className="text-sm text-muted-foreground">sekcija/dan</span>
               </div>
               <p className="text-xs text-muted-foreground">

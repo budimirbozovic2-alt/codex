@@ -2,6 +2,7 @@ import "@/index.css";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { HashRouter, Routes, Route, Navigate, useParams } from "react-router-dom";
+import { RouteTransition } from "@/components/RouteTransition";
 import { AppProvider } from "@/contexts/AppContext";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import MainLayout from "@/components/MainLayout";
@@ -93,6 +94,7 @@ const App = () => {
             <ErrorBoundary>
               <MainLayout>
                 <Suspense fallback={<PageSkeleton />}>
+                  <RouteTransition>
                   <Routes>
                     <Route path="/" element={<ErrorBoundary label="Početna"><DashboardPage /></ErrorBoundary>} />
                     <Route path="/category/:categoryId" element={<CategoryViewWrapper />} />
@@ -126,6 +128,7 @@ const App = () => {
                     )}
                     <Route path="*" element={<ErrorBoundary label="404"><NotFound /></ErrorBoundary>} />
                   </Routes>
+                  </RouteTransition>
                 </Suspense>
               </MainLayout>
               <ProcessingOverlay />
