@@ -7,6 +7,7 @@ import { BackupSchema, type ParsedBackup } from "@/lib/migrations/backup-schema"
 import { migrateBackup, migrateRaw, BackupVersionError } from "@/lib/backup/migrate";
 import { yieldUI } from "@/lib/backup/yield-ui";
 import { applyImportAtomically, type ImportStrategy } from "@/lib/backup/import-transaction";
+import { sliceParsedBackup, type ImportSlice } from "@/lib/backup/import-slice";
 import { parseJsonInWorker } from "@/lib/zip-service";
 import { clearReviewSession } from "@/lib/review-session-storage";
 import { replaceAll as cardMapReplaceAll, bulkPut as cardMapBulkPut } from "@/lib/cards/cardMapWrites";
@@ -53,6 +54,7 @@ export function useCardImport() {
       file: File,
       strategy: ImportStrategy = "skip",
       onProgress?: ImportProgress,
+      slice: ImportSlice = "full",
     ) => {
       const progress: ImportProgress = onProgress ?? (() => { /* noop */ });
       try {
@@ -104,6 +106,10 @@ export function useCardImport() {
           logger.error("[useCardImport] migrate failed", err);
           return;
         }
+
+        // ── 4b. Apply slice: in "cards-and-taxonomy" mode, zero out every
+        //        satellite domain so the ACID tx writes only cards + categories. ──
+        parsed = sliceParsedBackup(parsed, slice);
 
         if (parsed.cards.length === 0 && (!Array.isArray(parsed.categories) || parsed.categories.length === 0)) {
           toast.error("Fajl ne sadrži kartice ni kategorije za uvoz.");

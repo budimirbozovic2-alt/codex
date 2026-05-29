@@ -8,9 +8,10 @@ interface Props {
   currentCardsCount: number;
   onConfirm: () => void;
   onCancel: () => void;
+  extraControls?: React.ReactNode;
 }
 
-export function ImportConfirmStep({ validation, currentCardsCount, onConfirm, onCancel }: Props) {
+export function ImportConfirmStep({ validation, currentCardsCount, onConfirm, onCancel, extraControls }: Props) {
   return (
     <>
       <DialogHeader>
@@ -90,6 +91,8 @@ export function ImportConfirmStep({ validation, currentCardsCount, onConfirm, on
               </p>
             </div>
           )}
+
+          {extraControls}
 
           <div className="flex gap-2">
             <Button onClick={onConfirm} className="flex-1">Potvrdi import</Button>
