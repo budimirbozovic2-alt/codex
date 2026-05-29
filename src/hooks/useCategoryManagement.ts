@@ -221,18 +221,12 @@ export function useCategoryManagement() {
     );
   }, []);
 
-  // Phase 2b — chapter ids live in categories.payload JSON, no FK CASCADE.
-  // Fetch cards by chapter from SQLite, clear chapterId, persist.
+  // A2 collapse — single SQLite UPDATE keeps payload + columns in sync.
   const deleteChapter = useCallback((categoryId: string, subcategoryId: string, chapterId: string) => {
     void (async () => {
       try {
-        const rows = await cardsByChapter(categoryId, chapterId);
-        const affected = rows.filter(c => c.subcategoryId === subcategoryId);
-        if (affected.length > 0) {
-          const now = Date.now();
-          const changed: Card[] = affected.map(c => ({ ...c, chapterId: undefined, updatedAt: now }));
-          cardMapBulkPut(changed);
-        }
+        await clearCardsChapterRefs(categoryId, subcategoryId, chapterId);
+        notifyCardsChanged();
       } catch (err) {
         logger.error("[deleteChapter] clear refs failed", err);
       }
