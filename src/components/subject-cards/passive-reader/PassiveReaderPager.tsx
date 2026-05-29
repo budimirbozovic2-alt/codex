@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -8,7 +9,7 @@ interface Props {
   onNext: () => void;
 }
 
-export function PassiveReaderPager({ index, total, onPrev, onNext }: Props) {
+function PassiveReaderPagerImpl({ index, total, onPrev, onNext }: Props) {
   return (
     <div className="flex items-center justify-between gap-3">
       <Button variant="outline" onClick={onPrev} disabled={index <= 0} className="gap-1.5">
@@ -28,3 +29,5 @@ export function PassiveReaderPager({ index, total, onPrev, onNext }: Props) {
     </div>
   );
 }
+
+export const PassiveReaderPager = memo(PassiveReaderPagerImpl);
