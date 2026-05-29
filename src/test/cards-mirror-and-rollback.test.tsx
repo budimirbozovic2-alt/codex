@@ -75,8 +75,11 @@ function makeWrapper(qc: QueryClient) {
 }
 
 function makeQc(): QueryClient {
+  // gcTime intentionally large: `setQueryData` with no active observer
+  // would otherwise be evicted immediately and our snapshot/rollback
+  // assertions would see `undefined`.
   return new QueryClient({
-    defaultOptions: { queries: { retry: false, gcTime: 0 } },
+    defaultOptions: { queries: { retry: false, gcTime: 5 * 60_000 } },
   });
 }
 
