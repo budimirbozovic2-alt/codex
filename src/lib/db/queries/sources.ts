@@ -10,6 +10,7 @@ import type { Source } from "@/lib/db-types";
 import type { Card } from "@/lib/spaced-repetition";
 import { logger } from "@/lib/logger";
 import { notifyExecutorNull } from "./_shared/executor-telemetry";
+import { withSqlTiming } from "./_shared/sql-timing";
 
 // ─── Executor accessor ──────────────────────────────────────────────────
 
@@ -90,10 +91,12 @@ export async function getSource(id: string): Promise<Source | undefined> {
 }
 
 export async function listAllSources(): Promise<Source[]> {
-  const exec = await requireExecutor("listAllSources");
-  if (!exec) return [];
-  const rows = await exec.all<{ payload: string }>("SELECT payload FROM sources");
-  return rows.map(decodeSource).filter((s): s is Source => s !== null);
+  return withSqlTiming("listAllSources", async () => {
+    const exec = await requireExecutor("listAllSources");
+    if (!exec) return [];
+    const rows = await exec.all<{ payload: string }>("SELECT payload FROM sources");
+    return rows.map(decodeSource).filter((s): s is Source => s !== null);
+  });
 }
 
 export async function countAllSources(): Promise<number> {

@@ -7,6 +7,7 @@ import type { SqlExecutor } from "@/lib/persistence/sqlite/executor";
 import type { MindMapDoc } from "@/lib/db-types";
 import { logger } from "@/lib/logger";
 import { notifyExecutorNull } from "./_shared/executor-telemetry";
+import { withSqlTiming } from "./_shared/sql-timing";
 
 async function tryGetExecutor(): Promise<SqlExecutor | null> {
   try {
@@ -54,12 +55,14 @@ export async function getMindMap(id: string): Promise<MindMapDoc | undefined> {
 }
 
 export async function listAllMindMaps(): Promise<MindMapDoc[]> {
-  const exec = await requireExecutor("listAllMindMaps");
-  if (!exec) return [];
-  const rows = await exec.all<{ payload: string }>(
-    "SELECT payload FROM mindMaps ORDER BY updatedAt DESC",
-  );
-  return rows.map(decodeMindMap).filter((d): d is MindMapDoc => d !== null);
+  return withSqlTiming("listAllMindMaps", async () => {
+    const exec = await requireExecutor("listAllMindMaps");
+    if (!exec) return [];
+    const rows = await exec.all<{ payload: string }>(
+      "SELECT payload FROM mindMaps ORDER BY updatedAt DESC",
+    );
+    return rows.map(decodeMindMap).filter((d): d is MindMapDoc => d !== null);
+  });
 }
 
 export async function countAllMindMaps(): Promise<number> {

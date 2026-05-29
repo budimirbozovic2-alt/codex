@@ -6,6 +6,7 @@ import type { SqlBindValue, SqlExecutor } from "@/lib/persistence/sqlite/executo
 import type { KnowledgeBaseArticle } from "@/lib/db-types";
 import { logger } from "@/lib/logger";
 import { notifyExecutorNull } from "./_shared/executor-telemetry";
+import { withSqlTiming } from "./_shared/sql-timing";
 
 async function tryGetExecutor(): Promise<SqlExecutor | null> {
   try {
@@ -85,12 +86,14 @@ export async function getArticle(id: string): Promise<KnowledgeBaseArticle | und
 }
 
 export async function listAllArticles(): Promise<KnowledgeBaseArticle[]> {
-  const exec = await requireExecutor("listAllArticles");
-  if (!exec) return [];
-  const rows = await exec.all<{ payload: string }>(
-    "SELECT payload FROM knowledgeBaseArticles ORDER BY updatedAt DESC",
-  );
-  return rows.map(decodeArticle).filter((d): d is KnowledgeBaseArticle => d !== null);
+  return withSqlTiming("listAllArticles", async () => {
+    const exec = await requireExecutor("listAllArticles");
+    if (!exec) return [];
+    const rows = await exec.all<{ payload: string }>(
+      "SELECT payload FROM knowledgeBaseArticles ORDER BY updatedAt DESC",
+    );
+    return rows.map(decodeArticle).filter((d): d is KnowledgeBaseArticle => d !== null);
+  });
 }
 
 export async function listArticlesBySubject(subjectId: string): Promise<KnowledgeBaseArticle[]> {
