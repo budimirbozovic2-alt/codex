@@ -6,8 +6,12 @@ import { cascadeDeleteCategoryDomains } from "@/lib/category-deletion-service";
 import { toast } from "sonner";
 import { optimisticCategoryUpdate } from "@/lib/category-service";
 import { stableLegacyId } from "@/lib/stable-id";
-import { bulkPut as cardMapBulkPut } from "@/lib/cards/cardMapWrites";
-import { cardsBySubcategory, cardsByChapter, getCardsByIds } from "@/lib/db/queries";
+import {
+  clearCardsSubcategoryRefs,
+  clearCardsChapterRefs,
+  reassignCardsSubcategory,
+  notifyCardsChanged,
+} from "@/lib/db/queries";
 import { getCategoryStoreRecords, setCategoryStoreRecords } from "@/store";
 import { logger } from "@/lib/logger";
 
