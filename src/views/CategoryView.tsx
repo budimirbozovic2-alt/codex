@@ -93,14 +93,17 @@ export default function CategoryView() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8 animate-fade-in">
       {/* Breadcrumb + context indicator */}
       <SourcesBreadcrumb categoryId={categoryId!} categoryName={category.name} />
 
       {/* Header */}
-      <div className="flex items-center gap-3">
-        <h1 className="text-2xl font-bold text-foreground flex-1">{category.name}</h1>
-      </div>
+      <header className="space-y-2 pb-1">
+        <p className="text-eyebrow">Kategorija</p>
+        <h1 className="text-display text-4xl md:text-5xl text-foreground text-balance">
+          {category.name}
+        </h1>
+      </header>
 
       {/* Mastery progress bar (informational only) */}
       {masteryDist && (

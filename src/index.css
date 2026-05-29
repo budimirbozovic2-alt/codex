@@ -617,6 +617,32 @@
     --node-amber: 38 92% 50%;
     --node-red: 0 72% 51%;
     --node-purple: 270 60% 55%;
+
+    /* ─── Premium surface stack (light) ─────────────────────
+       Three subtly-stepped surfaces above `--background` for
+       resting, raised, and floating elements. Light-theme uses
+       cool grays drifting 2-3% in luminance per step. */
+    --surface-1: 0 0% 100%;
+    --surface-2: 220 20% 98.4%;
+    --surface-3: 220 18% 96.2%;
+
+    /* Hairline divider — thinner-perceiving than --border. */
+    --hairline: 220 14% 91%;
+
+    /* ─── Premium multi-layer shadows (light) ───────────────
+       Stacked shadows mimic real ambient + key lighting. Use via
+       shadow-soft / shadow-elevated / shadow-floating utilities. */
+    --shadow-soft:
+      0 1px 1px hsl(220 25% 12% / 0.04),
+      0 2px 6px -2px hsl(220 25% 12% / 0.06);
+    --shadow-elevated:
+      0 1px 2px hsl(220 25% 12% / 0.05),
+      0 8px 24px -8px hsl(220 25% 12% / 0.12),
+      0 16px 32px -16px hsl(220 25% 12% / 0.08);
+    --shadow-floating:
+      0 2px 4px hsl(220 25% 12% / 0.06),
+      0 14px 30px -10px hsl(220 25% 12% / 0.16),
+      0 28px 64px -16px hsl(220 25% 12% / 0.18);
   }
 
   .dark {
@@ -635,6 +661,30 @@
     --node-amber: 38 85% 58%;
     --node-red: 0 65% 58%;
     --node-purple: 270 55% 62%;
+
+    /* ─── Premium surface stack (dark) ──────────────────────
+       Dark-theme inverts the step direction — each surface
+       sits ~2% LIGHTER than `--background` to feel raised. */
+    --surface-1: 220 16% 11%;
+    --surface-2: 220 15% 13.5%;
+    --surface-3: 220 14% 16%;
+
+    --hairline: 220 12% 18%;
+
+    /* ─── Premium multi-layer shadows (dark) ────────────────
+       Dark-theme shadows are deeper (use --shadow-color black at
+       higher alpha) so cards still "lift" against dark backgrounds. */
+    --shadow-soft:
+      0 1px 1px hsl(0 0% 0% / 0.35),
+      0 2px 6px -2px hsl(0 0% 0% / 0.45);
+    --shadow-elevated:
+      0 1px 2px hsl(0 0% 0% / 0.45),
+      0 8px 24px -8px hsl(0 0% 0% / 0.55),
+      0 16px 32px -16px hsl(0 0% 0% / 0.55);
+    --shadow-floating:
+      0 2px 4px hsl(0 0% 0% / 0.5),
+      0 14px 30px -10px hsl(0 0% 0% / 0.6),
+      0 28px 64px -16px hsl(0 0% 0% / 0.65);
   }
 }
 
@@ -646,13 +696,122 @@
   body {
     @apply bg-background text-foreground;
     font-family: 'DM Sans', sans-serif;
+    /* Premium typography: contextual alternates + tabular figures everywhere,
+       crisper rendering on macOS/Linux, balanced kerning. */
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    font-feature-settings: "cv11", "ss01", "ss03", "kern";
+    font-variant-numeric: tabular-nums lining-nums;
   }
 
   h1, h2, h3, h4, h5, h6 {
     font-family: 'DM Sans', sans-serif;
     font-weight: 600;
+    letter-spacing: -0.011em;
+  }
+
+  h1 { letter-spacing: -0.022em; }
+  h2 { letter-spacing: -0.018em; }
+  h3 { letter-spacing: -0.014em; }
+
+  /* Premium focus ring — applied globally to interactive elements
+     that haven't opted out. Two-layer ring (background gap + ring)
+     reads cleanly on any surface. */
+  :focus-visible {
+    outline: none;
+    box-shadow: var(--tw-ring-shadow, 0 0 0 2px hsl(var(--background)), 0 0 0 4px hsl(var(--ring) / 0.55));
+    border-radius: calc(var(--radius) - 4px);
+    transition: box-shadow 160ms cubic-bezier(0.22, 0.61, 0.36, 1);
   }
 }
+
+/* ─── Premium typography utilities ─────────────────────────
+   .text-display    — editorial Fraunces for hero headings.
+   .text-eyebrow    — uppercase micro-label above section titles.
+   .tabular         — locked-width digits for KPIs / counters.
+   .text-balance    — better wrapping for short headings (CSS L4). */
+.text-display {
+  font-family: 'Fraunces', ui-serif, Georgia, serif;
+  font-optical-sizing: auto;
+  font-weight: 500;
+  letter-spacing: -0.028em;
+  font-feature-settings: "ss01", "ss02", "kern";
+}
+.text-eyebrow {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: hsl(var(--muted-foreground));
+}
+.tabular {
+  font-variant-numeric: tabular-nums lining-nums;
+  font-feature-settings: "tnum", "lnum";
+}
+.text-balance {
+  text-wrap: balance;
+}
+.text-pretty {
+  text-wrap: pretty;
+}
+
+/* ─── Premium interaction utilities ────────────────────────
+   .hover-lift    — card raises subtly on hover (use on Links/buttons).
+   .pressable     — slight press-down on active for tactile feedback.
+   .ring-premium  — explicit utility when :focus-visible default isn't right. */
+.hover-lift {
+  transition: transform 220ms cubic-bezier(0.22, 0.61, 0.36, 1),
+              box-shadow 220ms cubic-bezier(0.22, 0.61, 0.36, 1),
+              border-color 220ms cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+.hover-lift:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-elevated);
+}
+.pressable:active {
+  transform: translateY(0) scale(0.985);
+  transition-duration: 80ms;
+}
+.ring-premium:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px hsl(var(--background)), 0 0 0 4px hsl(var(--ring) / 0.55);
+}
+
+/* ─── Premium skeleton shimmer ─────────────────────────────
+   Apply `.skeleton-premium` to any block; gradient sweeps L→R
+   over a muted base. Honours `prefers-reduced-motion`. */
+.skeleton-premium {
+  position: relative;
+  overflow: hidden;
+  background: hsl(var(--muted));
+  border-radius: calc(var(--radius) - 4px);
+}
+.skeleton-premium::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(
+    90deg,
+    transparent,
+    hsl(var(--foreground) / 0.06),
+    transparent
+  );
+  animation: shimmer 1.6s linear infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .skeleton-premium::after { animation: none; }
+  .hover-lift, .pressable { transition: none; }
+}
+
+/* ─── Premium hairline divider ─────────────────────────────
+   `border-hairline` is thinner-perceiving than default --border;
+   use between dense rows (settings, KPI groups). */
+.border-hairline { border-color: hsl(var(--hairline)); }
+.divide-hairline > * + * { border-top: 1px solid hsl(var(--hairline)); }
+
+
 
 /* ─── Prose light mode: anchor body text to design tokens ───
    Mirrored on `.ProseMirror` so the V4 TipTap read-only EditorView matches
@@ -768,22 +927,27 @@
 }
 
 
-/* ─── Glassmorphism Card ─────────────────────────── */
+/* ─── Glassmorphism Card ───────────────────────────
+   Promoted to the premium surface stack: `--surface-2` base,
+   hairline border, soft multi-layer shadow at rest. */
 .glass-card {
-  background: hsl(var(--card) / 0.75);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid hsl(var(--border) / 0.5);
-  border-radius: calc(var(--radius) + 4px);
+  background: hsl(var(--surface-2) / 0.85);
+  backdrop-filter: blur(14px) saturate(1.05);
+  -webkit-backdrop-filter: blur(14px) saturate(1.05);
+  border: 1px solid hsl(var(--hairline));
+  border-radius: calc(var(--radius) + 2px);
+  box-shadow: var(--shadow-soft);
+  transition: box-shadow 220ms cubic-bezier(0.22, 0.61, 0.36, 1),
+              border-color 220ms cubic-bezier(0.22, 0.61, 0.36, 1),
+              transform 220ms cubic-bezier(0.22, 0.61, 0.36, 1);
 }
 
-/* ─── Forum Tablet (matches glass-card) ──────────── */
-
+/* ─── Forum Tablet (matches glass-card aesthetics) ──────── */
 .forum-tablet {
-  background: hsl(var(--card) / 0.75);
-  border: 1px solid hsl(var(--border) / 0.4);
+  background: hsl(var(--surface-2) / 0.85);
+  border: 1px solid hsl(var(--hairline));
   border-radius: var(--radius);
-  box-shadow: 0 1px 3px hsl(0 0% 0% / 0.04);
+  box-shadow: var(--shadow-soft);
 }
 
 /* ─── Key Part Highlights ─────────────────────────── */

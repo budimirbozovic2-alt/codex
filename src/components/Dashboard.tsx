@@ -37,10 +37,14 @@ export default function Dashboard({ stats, categoryStats, categories, categoryRe
     studyFlowData,
   } = useDashboardData(stats, categoryStats, categories, categoryRecords, cards, reviewLog, srSettings);
   return (
-    <div className="space-y-6 relative">
-      <h2 className="text-2xl font-bold text-foreground flex items-center gap-2">
-        <Home className="h-6 w-6 text-primary" /> Početna tabla
-      </h2>
+    <div className="space-y-8 relative animate-fade-in">
+      <header className="space-y-2 pb-2">
+        <p className="text-eyebrow">Pregled</p>
+        <h2 className="text-display text-4xl md:text-5xl text-foreground text-balance flex items-baseline gap-3">
+          Početna tabla
+          <Home className="h-5 w-5 text-primary/70 self-center" strokeWidth={1.5} />
+        </h2>
+      </header>
 
       {/* Warnings strip — promoted to the top so alerts are immediately visible */}
       {wc.showStatusIcons && (
@@ -64,9 +68,9 @@ export default function Dashboard({ stats, categoryStats, categories, categoryRe
         - The actions <aside> is lg:sticky so Strateški planer / Statistika
           NEVER scroll out of the viewport regardless of planner payload size.
       */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
         {/* Analytics column (everything dynamic) */}
-        <div className="lg:col-span-2 space-y-6 min-w-0">
+        <div className="lg:col-span-2 space-y-8 min-w-0">
           {wc.showCoreStats && (
             <CoreStats
               due={stats.due}
@@ -145,7 +149,7 @@ export default function Dashboard({ stats, categoryStats, categories, categoryRe
         {/* Action rail — locked, sticky on lg+, scrolls inner overflow on smaller widths */}
         <aside
           aria-label="Brze akcije"
-          className="lg:col-span-1 lg:sticky lg:top-4 self-start space-y-4 min-w-0 lg:max-h-[calc(100vh-2rem)] lg:overflow-y-auto pr-1"
+          className="lg:col-span-1 lg:sticky lg:top-4 self-start space-y-5 min-w-0 lg:max-h-[calc(100vh-2rem)] lg:overflow-y-auto pr-1"
         >
           <QuickActions dueCount={stats.due} hasCards={cards.length > 0} />
           <ToolCards />
