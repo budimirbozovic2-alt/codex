@@ -248,8 +248,22 @@ export async function cardCountByType(categoryId: string, type: Card["type"]): P
 }
 
 // ── Cache invalidation hook for TanStack bridges ─────────────────────────
+//
+// `CardsScope` lets writers tell the bridge exactly which slices changed,
+// so the per-scope debouncer in `query/bridges.ts` can invalidate only
+// affected query keys instead of the whole `["cards"]` prefix.
+//
+// Default = `{ kind: "all" }` for legacy callers — emits a prefix
+// invalidation just like before.
 
-type CardsChangedListener = () => void;
+export type CardsScope =
+  | { kind: "all" }
+  | { kind: "category"; categoryId: string }
+  | { kind: "subcategory"; categoryId: string; subcategoryId: string }
+  | { kind: "chapter"; categoryId: string; chapterId: string }
+  | { kind: "source"; sourceId: string };
+
+type CardsChangedListener = (scope: CardsScope) => void;
 const _listeners = new Set<CardsChangedListener>();
 
 export function onCardsChanged(fn: CardsChangedListener): () => void {
@@ -257,8 +271,8 @@ export function onCardsChanged(fn: CardsChangedListener): () => void {
   return () => { _listeners.delete(fn); };
 }
 
-export function notifyCardsChanged(): void {
+export function notifyCardsChanged(scope: CardsScope = { kind: "all" }): void {
   for (const fn of _listeners) {
-    try { fn(); } catch (err) { logger.warn("[cards-repo] listener threw", err); }
+    try { fn(scope); } catch (err) { logger.warn("[cards-repo] listener threw", err); }
   }
 }
