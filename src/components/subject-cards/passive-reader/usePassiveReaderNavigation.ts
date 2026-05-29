@@ -26,6 +26,7 @@ export function usePassiveReaderNavigation({
 
   // External focus request — two-phase: clear filters, then jump.
   const consumedRef = useRef<string | null>(null);
+  const resetAll = filters.resetAll;
   useEffect(() => {
     if (!initialCardId || consumedRef.current === initialCardId) return;
     const exists = cards.find(c => c.id === initialCardId);
@@ -36,13 +37,13 @@ export function usePassiveReaderNavigation({
     }
     const idx = filtered.findIndex(c => c.id === initialCardId);
     if (idx === -1) {
-      filters.resetAll();
+      resetAll();
       return;
     }
     setIndex(idx);
     consumedRef.current = initialCardId;
     onInitialConsumed?.();
-  }, [initialCardId, cards, filtered, filters, onInitialConsumed]);
+  }, [initialCardId, cards, filtered, resetAll, onInitialConsumed]);
 
   useGlobalHotkey(
     e => e.key === "ArrowRight" || e.key === "ArrowLeft",
