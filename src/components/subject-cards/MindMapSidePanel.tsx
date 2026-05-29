@@ -59,7 +59,7 @@ export default function MindMapSidePanel({ categoryId, onClose }: Props) {
         <Button asChild size="sm" variant="ghost" className="h-7 gap-1 text-xs">
           <Link to={`/subject/${categoryId}/mind-maps`}>
             <ExternalLink className="h-3.5 w-3.5" />
-            <span className="hidden md:inline">Sve mape</span>
+            <span>Sve mape</span>
           </Link>
         </Button>
         <Button

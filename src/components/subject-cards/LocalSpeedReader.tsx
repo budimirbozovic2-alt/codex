@@ -153,12 +153,12 @@ export default function LocalSpeedReader({
             handleNextWord={eng.handleNextWord}
           />
 
-          <article className="glass-card rounded-2xl p-6 md:p-8 space-y-5">
+          <article className="glass-card rounded-2xl p-8 space-y-5">
             <header className="space-y-2">
               <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
                 Brzo čitanje
               </p>
-              <h2 className="text-xl md:text-2xl font-semibold text-foreground leading-tight">
+              <h2 className="text-2xl font-semibold text-foreground leading-tight">
                 {current.question}
               </h2>
 

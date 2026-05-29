@@ -1,21 +1,14 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import { useGlobalHotkey } from "@/hooks/useGlobalHotkey";
-import {
-  ChevronLeft, ChevronRight, BookOpen,
-  Pencil, Activity, Sparkles, AlertTriangle,
-} from "lucide-react";
+import { useMemo } from "react";
+import { BookOpen, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from "@/components/ui/select";
-import {
-  Tooltip, TooltipContent, TooltipProvider, TooltipTrigger,
-} from "@/components/ui/tooltip";
-import {
-  type Card, SectionState, getCardRetrievability,
-} from "@/lib/spaced-repetition";
+import type { Card } from "@/lib/spaced-repetition";
 import type { SubcategoryNode } from "@/lib/db-types";
-import { ContentRenderer } from "@/components/ui/ContentRenderer";
+import { usePassiveReaderFilters } from "./passive-reader/usePassiveReaderFilters";
+import { usePassiveReaderNavigation } from "./passive-reader/usePassiveReaderNavigation";
+import { useCardStats } from "./passive-reader/useCardStats";
+import { PassiveReaderFilters } from "./passive-reader/PassiveReaderFilters";
+import { PassiveReaderCard } from "./passive-reader/PassiveReaderCard";
+import { PassiveReaderPager } from "./passive-reader/PassiveReaderPager";
 
 interface Props {
   cards: Card[];
@@ -28,202 +21,35 @@ interface Props {
   onInitialConsumed?: () => void;
 }
 
-function retentionColor(pct: number): string {
-  if (pct >= 80) return "text-success";
-  if (pct >= 50) return "text-warning";
-  return "text-destructive";
-}
-
-const FILTER_STORAGE_PREFIX = "passive-reader-filters:";
-
-type TypeFilter = "all" | "essay" | "flash";
-
-interface PersistedFilters {
-  subFilter: string;
-  chapterFilter: string;
-  typeFilter: TypeFilter;
-}
-
-function loadPersistedFilters(categoryId: string): PersistedFilters {
-  if (typeof window === "undefined" || !categoryId) {
-    return { subFilter: "all", chapterFilter: "all", typeFilter: "all" };
-  }
-  try {
-    const raw = window.localStorage.getItem(FILTER_STORAGE_PREFIX + categoryId);
-    if (!raw) return { subFilter: "all", chapterFilter: "all", typeFilter: "all" };
-    const parsed = JSON.parse(raw) as Partial<PersistedFilters>;
-    const tf = parsed.typeFilter;
-    return {
-      subFilter: typeof parsed.subFilter === "string" ? parsed.subFilter : "all",
-      chapterFilter: typeof parsed.chapterFilter === "string" ? parsed.chapterFilter : "all",
-      typeFilter: tf === "essay" || tf === "flash" ? tf : "all",
-    };
-  } catch {
-    return { subFilter: "all", chapterFilter: "all", typeFilter: "all" };
-  }
-}
-
-export default function PassiveReader({ cards, subcategoryNodes, categoryId, onEditCard, initialCardId, onInitialConsumed }: Props) {
-  // Lazy init from localStorage so previously selected filters return on mount.
-  const [subFilter, setSubFilter] = useState<string>(() => loadPersistedFilters(categoryId).subFilter);
-  const [chapterFilter, setChapterFilter] = useState<string>(() => loadPersistedFilters(categoryId).chapterFilter);
-  const [typeFilter, setTypeFilter] = useState<TypeFilter>(() => loadPersistedFilters(categoryId).typeFilter);
-  const [index, setIndex] = useState(0);
-
-  // Validate persisted filters against the current taxonomy — drop stale IDs.
-  useEffect(() => {
-    if (subFilter !== "all" && !subcategoryNodes.some(s => s.id === subFilter)) {
-      setSubFilter("all");
-      setChapterFilter("all");
-      return;
-    }
-    if (chapterFilter !== "all") {
-      const sub = subcategoryNodes.find(s => s.id === subFilter);
-      const validChapter = sub?.chapters?.some(ch => ch.id === chapterFilter) ?? false;
-      if (!validChapter) setChapterFilter("all");
-    }
-  }, [subcategoryNodes, subFilter, chapterFilter]);
-
-  // Persist filter selection per category.
-  useEffect(() => {
-    if (typeof window === "undefined" || !categoryId) return;
-    try {
-      window.localStorage.setItem(
-        FILTER_STORAGE_PREFIX + categoryId,
-        JSON.stringify({ subFilter, chapterFilter, typeFilter }),
-      );
-    } catch {
-      /* quota or privacy mode — ignore */
-    }
-  }, [categoryId, subFilter, chapterFilter, typeFilter]);
-
-  const chapters = useMemo(() => {
-    if (subFilter === "all") return [];
-    const sub = subcategoryNodes.find(s => s.id === subFilter);
-    return sub?.chapters ?? [];
-  }, [subFilter, subcategoryNodes]);
+export default function PassiveReader({
+  cards, subcategoryNodes, categoryId, onEditCard, initialCardId, onInitialConsumed,
+}: Props) {
+  const filters = usePassiveReaderFilters(categoryId, subcategoryNodes);
 
   const filtered = useMemo(() => {
     let list = cards.slice();
-    if (subFilter !== "all") list = list.filter(c => c.subcategoryId === subFilter);
-    if (chapterFilter !== "all") list = list.filter(c => c.chapterId === chapterFilter);
-    if (typeFilter !== "all") list = list.filter(c => c.type === typeFilter);
+    if (filters.subFilter !== "all") list = list.filter(c => c.subcategoryId === filters.subFilter);
+    if (filters.chapterFilter !== "all") list = list.filter(c => c.chapterId === filters.chapterFilter);
+    if (filters.typeFilter !== "all") list = list.filter(c => c.type === filters.typeFilter);
     return list.sort((a, b) => (a.createdAt ?? 0) - (b.createdAt ?? 0));
-  }, [cards, subFilter, chapterFilter, typeFilter]);
+  }, [cards, filters.subFilter, filters.chapterFilter, filters.typeFilter]);
 
-  // Reset index when filters change
-  useEffect(() => { setIndex(0); }, [subFilter, chapterFilter, typeFilter]);
-  // Clamp index if list shrinks
-  useEffect(() => {
-    if (index > 0 && index >= filtered.length) setIndex(Math.max(0, filtered.length - 1));
-  }, [filtered.length, index]);
-
-  // ── Focus a specific card requested from outside (quick action from card list) ──
-  // Two-phase: (1) if the card isn't in `filtered` due to active filters, clear them
-  // and re-run on the next render. (2) once visible, set index to it and notify parent.
-  const consumedInitialRef = useRef<string | null>(null);
-  useEffect(() => {
-    if (!initialCardId || consumedInitialRef.current === initialCardId) return;
-    const target = cards.find(c => c.id === initialCardId);
-    if (!target) {
-      // Card no longer exists — drop the request silently.
-      consumedInitialRef.current = initialCardId;
-      onInitialConsumed?.();
-      return;
-    }
-    const idx = filtered.findIndex(c => c.id === initialCardId);
-    if (idx === -1) {
-      // Filters are hiding it — clear them and retry on next render.
-      if (subFilter !== "all") setSubFilter("all");
-      if (chapterFilter !== "all") setChapterFilter("all");
-      if (typeFilter !== "all") setTypeFilter("all");
-      return;
-    }
-    setIndex(idx);
-    consumedInitialRef.current = initialCardId;
-    onInitialConsumed?.();
-  }, [initialCardId, cards, filtered, subFilter, chapterFilter, typeFilter, onInitialConsumed]);
-
-  // Keyboard navigation
-  useGlobalHotkey(
-    e => e.key === "ArrowRight" || e.key === "ArrowLeft",
-    e => {
-      if (e.key === "ArrowRight") setIndex(i => Math.min(i + 1, Math.max(0, filtered.length - 1)));
-      else setIndex(i => Math.max(i - 1, 0));
-    },
-    [filtered.length],
-    { ignoreInEditable: true },
-  );
+  const { index, next, prev } = usePassiveReaderNavigation({
+    cards, filtered, filters, initialCardId, onInitialConsumed,
+  });
 
   const current = filtered[index];
-
-  // ── FSRS stats for current card ──
-  const stats = useMemo(() => {
-    if (!current) return null;
-    const sections = current.sections ?? [];
-    const reviewed = sections.filter(s => s.state !== SectionState.New);
-    const allNew = sections.length > 0 && reviewed.length === 0;
-    const lapses = sections.reduce((sum, s) => sum + (s.lapses ?? 0), 0);
-    const avgStability = reviewed.length === 0
-      ? 0
-      : reviewed.reduce((sum, s) => sum + (s.stability ?? 0), 0) / reviewed.length;
-    const retention = getCardRetrievability(current);
-    return {
-      reads: current.readCount ?? 0,
-      lapses,
-      avgStability,
-      retention,
-      allNew,
-    };
-  }, [current]);
+  const stats = useCardStats(current);
 
   return (
     <div className="space-y-4">
-      {/* Filters */}
-      <div className="flex flex-wrap items-center gap-2">
-        <Select value={subFilter} onValueChange={(v) => { setSubFilter(v); setChapterFilter("all"); }}>
-          <SelectTrigger className="h-9 w-[220px]">
-            <SelectValue placeholder="Potkategorija" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Sve potkategorije</SelectItem>
-            {subcategoryNodes.map(s => (
-              <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+      <PassiveReaderFilters
+        filters={filters}
+        subcategoryNodes={subcategoryNodes}
+        total={filtered.length}
+        index={index}
+      />
 
-        {subFilter !== "all" && chapters.length > 0 && (
-          <Select value={chapterFilter} onValueChange={setChapterFilter}>
-            <SelectTrigger className="h-9 w-[220px]">
-              <SelectValue placeholder="Glava" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Sve glave</SelectItem>
-              {chapters.map(ch => (
-                <SelectItem key={ch.id} value={ch.id}>{ch.name}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        )}
-
-        <Select value={typeFilter} onValueChange={(v) => setTypeFilter(v as TypeFilter)}>
-          <SelectTrigger className="h-9 w-[160px]">
-            <SelectValue placeholder="Tip" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Svi tipovi</SelectItem>
-            <SelectItem value="essay">Esejska</SelectItem>
-            <SelectItem value="flash">Blic</SelectItem>
-          </SelectContent>
-        </Select>
-
-        <div className="ml-auto text-xs text-muted-foreground">
-          {filtered.length === 0 ? "Nema kartica" : `${index + 1} / ${filtered.length}`}
-        </div>
-      </div>
-
-      {/* Edit shortcut */}
       {current && (
         <div className="flex flex-wrap items-center gap-2">
           <div className="ml-auto">
@@ -242,124 +68,21 @@ export default function PassiveReader({ cards, subcategoryNodes, categoryId, onE
         </div>
       )}
 
-      {/* Workspace */}
       {!current ? (
         <div className="glass-card rounded-xl p-12 text-center text-sm text-muted-foreground">
           <BookOpen className="h-10 w-10 mx-auto mb-3 opacity-30" />
           Nema kartica za prikaz uz odabrane filtere.
         </div>
       ) : (
-        <div className="grid gap-4 grid-cols-1">
-          {/* Card column */}
-          <article className="glass-card rounded-2xl p-6 md:p-8 space-y-5">
-            <header className="space-y-2">
-              <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
-                Pasivno čitanje
-              </p>
-              <h2 className="text-xl md:text-2xl font-semibold text-foreground leading-tight">
-                {current.question}
-              </h2>
-
-              {/* FSRS stat chips */}
-              {stats && (
-                <TooltipProvider delayDuration={250}>
-                  <div className="flex flex-wrap items-center gap-1.5 pt-1">
-                    {stats.allNew && (
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium bg-primary/10 text-primary">
-                        <Sparkles className="h-3 w-3" /> Nova
-                      </span>
-                    )}
-
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] bg-muted/40 text-muted-foreground">
-                          <Activity className="h-3 w-3" /> {stats.reads} pregleda
-                        </span>
-                      </TooltipTrigger>
-                      <TooltipContent>Ukupan broj prikaza ove kartice</TooltipContent>
-                    </Tooltip>
-
-                    {stats.lapses > 0 && (
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] bg-destructive/10 text-destructive">
-                            <AlertTriangle className="h-3 w-3" /> {stats.lapses} grešaka
-                          </span>
-                        </TooltipTrigger>
-                        <TooltipContent>Broj zaboravljanja (lapses) po sekcijama</TooltipContent>
-                      </Tooltip>
-                    )}
-
-                    {!stats.allNew && stats.avgStability > 0 && (
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] bg-muted/40 text-muted-foreground">
-                            Snaga ~{stats.avgStability < 1
-                              ? `${Math.round(stats.avgStability * 24)}h`
-                              : `${Math.round(stats.avgStability)}d`}
-                          </span>
-                        </TooltipTrigger>
-                        <TooltipContent>Prosječna FSRS stabilnost preko sekcija</TooltipContent>
-                      </Tooltip>
-                    )}
-
-                    {!stats.allNew && (
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold bg-muted/40 ${retentionColor(stats.retention)}`}>
-                            Retencija {stats.retention}%
-                          </span>
-                        </TooltipTrigger>
-                        <TooltipContent>Trenutna procijenjena vjerovatnoća prisjećanja</TooltipContent>
-                      </Tooltip>
-                    )}
-                  </div>
-                </TooltipProvider>
-              )}
-            </header>
-
-            <div className="space-y-4">
-              {(current.sections ?? []).map((sec, i) => (
-                <section key={i} className="space-y-1.5">
-                  {sec.title && (
-                    <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                      {sec.title}
-                    </h3>
-                  )}
-                  <ContentRenderer
-                    className="prose prose-sm max-w-none card-prose"
-                    doc={sec.contentDoc}
-                  />
-                </section>
-              ))}
-            </div>
-          </article>
-
-        </div>
+        <PassiveReaderCard card={current} stats={stats} />
       )}
 
-      {/* Pager */}
-      <div className="flex items-center justify-between gap-3">
-        <Button
-          variant="outline"
-          onClick={() => setIndex(i => Math.max(i - 1, 0))}
-          disabled={index <= 0}
-          className="gap-1.5"
-        >
-          <ChevronLeft className="h-4 w-4" /> Prethodna
-        </Button>
-        <p className="text-[11px] text-muted-foreground hidden sm:block">
-          Tastatura: ← / → za navigaciju
-        </p>
-        <Button
-          variant="outline"
-          onClick={() => setIndex(i => Math.min(i + 1, Math.max(0, filtered.length - 1)))}
-          disabled={index >= filtered.length - 1}
-          className="gap-1.5"
-        >
-          Sljedeća <ChevronRight className="h-4 w-4" />
-        </Button>
-      </div>
+      <PassiveReaderPager
+        index={index}
+        total={filtered.length}
+        onPrev={prev}
+        onNext={next}
+      />
     </div>
   );
 }
