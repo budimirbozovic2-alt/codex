@@ -1,6 +1,6 @@
 import { BookOpen, ChevronRight, ArrowUp, ArrowDown } from "lucide-react";
 import React from "react";
-import { motion } from "framer-motion";
+import { m } from "framer-motion";
 import { getMasteryColor } from "@/lib/mastery";
 
 interface SubcategoryCardProps {
@@ -22,7 +22,7 @@ function SubcategoryCardInner({
   reorderMode, isOstalo, onNavigate, onMoveUp, onMoveDown,
 }: SubcategoryCardProps) {
   return (
-    <motion.div
+    <m.div
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: index * 0.04, duration: 0.25 }}
@@ -68,7 +68,7 @@ function SubcategoryCardInner({
           <ChevronRight className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
         )}
       </button>
-    </motion.div>
+    </m.div>
   );
 }
 

@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { useState, useMemo } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { motion, AnimatePresence } from "framer-motion";
+import { m, AnimatePresence } from "framer-motion";
 import Modal from "@/components/ui/DialogShell";
 import type { CategoryRecord } from "@/lib/db-types";
 import { afterDialogClose } from "@/lib/dialog-utils";
@@ -108,7 +108,7 @@ export default function CategoryManager({
             
 
             return (
-              <motion.div
+              <m.div
                 key={cat}
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -246,7 +246,7 @@ export default function CategoryManager({
                     <span className="text-xs text-muted-foreground">{subs.length} podkategorija (upravljanje u kategoriji)</span>
                   </div>
                 )}
-              </motion.div>
+              </m.div>
             );
           })}
         </AnimatePresence>

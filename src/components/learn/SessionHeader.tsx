@@ -5,7 +5,7 @@ import { getFrequencyMeta } from "@/lib/sr/frequency";
 import { ViewWidth, viewWidthClasses, viewWidthLabels } from "./types";
 
 import { useCategoryData } from "@/contexts/AppContext";
-import { motion } from "framer-motion";
+import { m } from "framer-motion";
 import ShortcutsHint from "@/components/ShortcutsHint";
 
 const AR_SHORTCUTS = [
@@ -65,7 +65,7 @@ const SessionHeader = React.memo(function SessionHeader({
 
       {/* Progress bar */}
       <div className="w-full h-1.5 rounded-full bg-secondary overflow-hidden">
-        <motion.div
+        <m.div
           className="h-full bg-primary rounded-full"
           animate={{ width: `${((currentIndex + 1) / totalCards) * 100}%` }}
           transition={{ duration: 0.3 }}

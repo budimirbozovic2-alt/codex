@@ -8,7 +8,7 @@ import InfoPanel from "@/components/InfoPanel";
 import WorkshopCardItem from "./workshop/WorkshopCardItem";
 import ScrollableRow from "@/components/ScrollableRow";
 import { useWorkshopFilters } from "@/hooks/mnemonic/useWorkshopFilters";
-import { motion, AnimatePresence } from "framer-motion";
+import { m, AnimatePresence } from "framer-motion";
 
 
 const COLLAPSED_HEIGHT = 72;
@@ -213,7 +213,7 @@ export default function MnemonicWorkshop({ cards, onUpdateCard, onDeleteCard, ca
 
           <AnimatePresence>
             {selectedCategory && subcategories.length > 0 && (
-              <motion.div
+              <m.div
                 initial={{ opacity: 0, height: 0 }}
                 animate={{ opacity: 1, height: "auto" }}
                 exit={{ opacity: 0, height: 0 }}
@@ -241,7 +241,7 @@ export default function MnemonicWorkshop({ cards, onUpdateCard, onDeleteCard, ca
                     </button>
                   ))}
                 </ScrollableRow>
-              </motion.div>
+              </m.div>
             )}
           </AnimatePresence>
         </div>

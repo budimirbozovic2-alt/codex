@@ -1,5 +1,5 @@
 import { ArrowLeft, CheckCircle, Timer, XCircle, Zap } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
+import { m, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import type { MnemonicCard } from "../mnemonic-storage";
 import type { SessionStats } from "../hooks/useTestEngine";
@@ -40,7 +40,7 @@ export default function MnemonicTestRunner({
       </div>
 
       <div className="h-1.5 rounded-full bg-secondary overflow-hidden">
-        <motion.div
+        <m.div
           className="h-full bg-primary rounded-full"
           initial={{ width: 0 }}
           animate={{ width: `${(currentIndex / queueLength) * 100}%` }}
@@ -48,7 +48,7 @@ export default function MnemonicTestRunner({
       </div>
 
       <AnimatePresence mode="wait">
-        <motion.div
+        <m.div
           key={currentCard.id + currentIndex}
           initial={{ opacity: 0, x: 30 }}
           animate={{ opacity: 1, x: 0 }}
@@ -70,14 +70,14 @@ export default function MnemonicTestRunner({
           )}
 
           {showTrigger && !timedOut && (
-            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
+            <m.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
               <div className="space-y-1">
                 <div className="flex items-center justify-between text-xs">
                   <span className="flex items-center gap-1 text-muted-foreground"><Timer className="h-3 w-3" /> Vrijeme za prizivanje</span>
                   <span className={`font-mono font-bold tabular-nums ${timeLeft <= 1 ? "text-destructive" : "text-primary"}`}>{timeLeft.toFixed(1)}s</span>
                 </div>
                 <div className="h-2 rounded-full bg-secondary overflow-hidden">
-                  <motion.div
+                  <m.div
                     className={`h-full rounded-full transition-colors ${timeLeft <= 1 ? "bg-destructive" : "bg-primary"}`}
                     style={{ width: `${(timeLeft / recallLimit) * 100}%` }}
                   />
@@ -106,11 +106,11 @@ export default function MnemonicTestRunner({
                   <CheckCircle className="h-4 w-4" /> Znam!
                 </Button>
               </div>
-            </motion.div>
+            </m.div>
           )}
 
           {timedOut && (
-            <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="space-y-4">
+            <m.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="space-y-4">
               <div className="rounded-lg bg-destructive/10 border border-destructive/20 p-4 text-center space-y-2">
                 <Timer className="h-8 w-8 mx-auto text-destructive" />
                 <p className="text-sm font-medium text-destructive">Vrijeme isteklo!</p>
@@ -126,9 +126,9 @@ export default function MnemonicTestRunner({
               <Button onClick={() => onAnswer(false)} variant="outline" className="w-full gap-2 border-destructive/30 text-destructive hover:bg-destructive/10">
                 <XCircle className="h-4 w-4" /> Dalje (netačno)
               </Button>
-            </motion.div>
+            </m.div>
           )}
-        </motion.div>
+        </m.div>
       </AnimatePresence>
     </div>
   );

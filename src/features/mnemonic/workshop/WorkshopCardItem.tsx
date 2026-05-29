@@ -10,7 +10,7 @@ import { useCategoryData } from "@/contexts/AppContext";
 import { ContentRenderer } from "@/components/ui/ContentRenderer";
 import { htmlToDoc } from "@/lib/editor-v4";
 import { deriveHtml } from "@/lib/editor-v4/derived";
-import { motion, AnimatePresence } from "framer-motion";
+import { m, AnimatePresence } from "framer-motion";
 import { STATUS_CONFIG, HOOK_TYPE_CONFIG } from "./card-item/configs";
 import { MajorSystemHints } from "./card-item/MajorSystemHints";
 import { EnumerationHints } from "./card-item/EnumerationHints";
@@ -93,7 +93,7 @@ function WorkshopCardItemInner({ card, isExpanded, onToggle, onUpdateCard, onDel
 
       <AnimatePresence>
         {isExpanded && (
-          <motion.div
+          <m.div
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: "auto", opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
@@ -234,7 +234,7 @@ function WorkshopCardItemInner({ card, isExpanded, onToggle, onUpdateCard, onDel
                 )}
               </div>
             </div>
-          </motion.div>
+          </m.div>
         )}
       </AnimatePresence>
     </div>

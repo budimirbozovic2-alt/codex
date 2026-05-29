@@ -4,7 +4,7 @@ import { Card, Section, isLeech, formatInterval, SRSettings } from "@/lib/spaced
 import { isEarlyReview } from "@/lib/review-mode-builder";
 import { useCategoryData } from "@/contexts/AppContext";
 import { EditorView } from "@/lib/editor-v4/EditorView";
-import { motion, AnimatePresence } from "framer-motion";
+import { m, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { addLatencyEntry } from "@/lib/metacognitive-storage";
@@ -144,7 +144,7 @@ export default function ReviewCard({
       </div>
 
       <div className="w-full h-1.5 rounded-full bg-secondary overflow-hidden">
-        <motion.div
+        <m.div
           className="h-full bg-primary rounded-full"
           initial={{ width: 0 }}
           animate={{ width: `${(progress / total) * 100}%` }}
@@ -154,7 +154,7 @@ export default function ReviewCard({
 
       {/* Leech warning */}
       {sectionIsLeech && (
-        <motion.div
+        <m.div
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
           className="flex items-center gap-3 rounded-xl border border-destructive/30 bg-destructive/5 p-4"
@@ -166,12 +166,12 @@ export default function ReviewCard({
               Pala {lapses}× — razmislite o podjeli na manje dijelove ili drugačijem pristupu učenju.
             </p>
           </div>
-        </motion.div>
+        </m.div>
       )}
 
       {/* Early review notice — sekcija ranjiva za FSRS scheduling distortion */}
       {!sectionIsLeech && isEarlyReview(section) && (
-        <motion.div
+        <m.div
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
           className="flex items-center gap-3 rounded-xl border border-warning/30 bg-warning/5 p-3"
@@ -181,11 +181,11 @@ export default function ReviewCard({
             <strong className="text-warning">Prijevremena konsolidacija.</strong>{" "}
             FSRS će smanjiti rast intervala jer kartica još nije dospjela.
           </p>
-        </motion.div>
+        </m.div>
       )}
 
       <AnimatePresence mode="wait">
-        <motion.div
+        <m.div
           key={`${card.id}-${section.id}`}
           initial={{ opacity: 0, x: 40 }}
           animate={{ opacity: 1, x: 0 }}
@@ -245,7 +245,7 @@ export default function ReviewCard({
               </Button>
             </div>
           ) : (
-            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
+            <m.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
               <div className="rounded-xl bg-secondary/50 border p-8 select-text">
                 <div className="flex items-center justify-between">
                   {!isFlash && (
@@ -264,9 +264,9 @@ export default function ReviewCard({
                 enabled={showAnswer}
               />
 
-            </motion.div>
+            </m.div>
           )}
-        </motion.div>
+        </m.div>
       </AnimatePresence>
 
       {hasSource && snippetOpen && SourceSnippetDialog && (

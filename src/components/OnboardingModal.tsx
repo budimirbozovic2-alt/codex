@@ -1,6 +1,6 @@
 import { ArrowRight, ArrowLeft, X, CheckCircle2 } from "lucide-react";
 import { useState, useId } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { m, AnimatePresence } from "framer-motion";
 
 import Modal from "@/components/ui/DialogShell";
 import { Button } from "@/components/ui/button";
@@ -85,7 +85,7 @@ export default function OnboardingModal(props: Props) {
 
         {/* Content */}
         <AnimatePresence mode="wait">
-          <motion.div
+          <m.div
             key={step}
             initial={{ opacity: 0, x: 24 }}
             animate={{ opacity: 1, x: 0 }}
@@ -113,7 +113,7 @@ export default function OnboardingModal(props: Props) {
             {slide.bullets && (
               <ul className="space-y-3 mb-10">
                 {slide.bullets.map((bullet, i) => (
-                  <motion.li
+                  <m.li
                     key={i}
                     initial={{ opacity: 0, x: 10 }}
                     animate={{ opacity: 1, x: 0 }}
@@ -122,7 +122,7 @@ export default function OnboardingModal(props: Props) {
                   >
                     <span className="mt-1.5 h-1.5 w-1.5 rounded-full bg-primary shrink-0 shadow-[0_0_8px_hsl(var(--primary)/0.5)]" />
                     <span className="text-foreground/80">{bullet}</span>
-                  </motion.li>
+                  </m.li>
                 ))}
               </ul>
             )}
@@ -144,7 +144,7 @@ export default function OnboardingModal(props: Props) {
                 </Button>
               )}
             </div>
-          </motion.div>
+          </m.div>
         </AnimatePresence>
       </>
     </Modal>

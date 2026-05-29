@@ -1,7 +1,7 @@
 import { BookOpen, ArrowLeft, ListOrdered, TrendingDown, Eye } from "lucide-react";
 import { Card } from "@/lib/spaced-repetition";
 import type { FrequencyTag } from "@/lib/sr/types";
-import { motion } from "framer-motion";
+import { m } from "framer-motion";
 import SessionFilters from "@/components/SessionFilters";
 import { Button } from "@/components/ui/button";
 import { SortMode } from "./types";
@@ -45,7 +45,7 @@ export default function FilterSetup({
   onStart, onBack,
 }: Props) {
   return (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="max-w-3xl mx-auto space-y-8 py-10">
+    <m.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="max-w-3xl mx-auto space-y-8 py-10">
       <div>
         <button onClick={onBack} className="text-muted-foreground hover:text-foreground flex items-center gap-1 mb-6">
           <ArrowLeft className="h-4 w-4" /> Nazad
@@ -78,6 +78,6 @@ export default function FilterSetup({
       <Button onClick={onStart} className="w-full py-6 text-base" disabled={sortedCardsCount === 0}>
         <BookOpen className="h-4 w-4 mr-2" /> Počni učenje
       </Button>
-    </motion.div>
+    </m.div>
   );
 }

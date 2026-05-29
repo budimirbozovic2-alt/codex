@@ -1,4 +1,4 @@
-import { motion } from "framer-motion";
+import { m } from "framer-motion";
 import { useId } from "react";
 import { useCountUp } from "@/hooks/useCountUp";
 
@@ -50,7 +50,7 @@ export default function ProgressRing({
             stroke="hsl(var(--surface-2))"
             strokeWidth={strokeWidth}
           />
-          <motion.circle
+          <m.circle
             cx={size / 2}
             cy={size / 2}
             r={radius}

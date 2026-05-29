@@ -1,7 +1,7 @@
 import { RefreshCw } from "lucide-react";
 import { useState, useCallback, useRef, ReactNode } from "react";
 
-import { motion, AnimatePresence } from "framer-motion";
+import { m, AnimatePresence } from "framer-motion";
 import { Skeleton } from "@/components/ui/skeleton";
 import { logger } from "@/lib/logger";
 interface Props<T> {
@@ -45,7 +45,7 @@ export default function LazyChart<T>({ label, icon, compute, children, delay = 0
   }, []);
 
   return (
-    <motion.div
+    <m.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: delay * 0.1 }}
@@ -69,7 +69,7 @@ export default function LazyChart<T>({ label, icon, compute, children, delay = 0
 
       <AnimatePresence mode="wait">
         {loading ? (
-          <motion.div
+          <m.div
             key="loading"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -82,26 +82,26 @@ export default function LazyChart<T>({ label, icon, compute, children, delay = 0
               <Skeleton className="h-4 w-24" />
               <Skeleton className="h-4 w-20" />
             </div>
-          </motion.div>
+          </m.div>
         ) : computed && data !== null ? (
-          <motion.div
+          <m.div
             key="content"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
           >
             {children(data)}
-          </motion.div>
+          </m.div>
         ) : (
-          <motion.div
+          <m.div
             key="empty"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             className="py-8 text-center text-muted-foreground"
           >
             <p className="text-sm">Klikni <RefreshCw className="h-3.5 w-3.5 inline mx-1" /> za proračun</p>
-          </motion.div>
+          </m.div>
         )}
       </AnimatePresence>
-    </motion.div>
+    </m.div>
   );
 }

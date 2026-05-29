@@ -10,7 +10,7 @@ import {
 import { useMnemonicCards } from "@/hooks/mnemonic/useMnemonicCards";
 import { useMnemonicMutations } from "@/hooks/mnemonic/useMnemonicMutations";
 
-import { motion, AnimatePresence } from "framer-motion";
+import { m, AnimatePresence } from "framer-motion";
 import MnemonicWorkshop from "./MnemonicWorkshop";
 import MnemonicTest from "./MnemonicTest";
 import MajorSystemSettings from "./MajorSystemSettings";
@@ -244,7 +244,7 @@ export default function MnemonicModule({ embedded = false, categoryFilter }: Pro
 
       {/* Menu options */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <motion.button
+        <m.button
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
           onClick={() => setSubView("workshop")}
@@ -253,9 +253,9 @@ export default function MnemonicModule({ embedded = false, categoryFilter }: Pro
           <Wrench className="h-8 w-8 text-warning" />
           <h3 className="text-lg font-medium">Radionica mentalnih kuka</h3>
           <p className="text-sm text-muted-foreground">Kreiraj mentalne videe i akronime za kartice.</p>
-        </motion.button>
+        </m.button>
 
-        <motion.button
+        <m.button
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
           onClick={() => setSubView("test")}
@@ -264,9 +264,9 @@ export default function MnemonicModule({ embedded = false, categoryFilter }: Pro
           <FlaskConical className="h-8 w-8 text-primary" />
           <h3 className="text-lg font-medium">Testiranje mentalnih kuka</h3>
           <p className="text-sm text-muted-foreground">Testiraj koliko dobro pamtiš uz pomoć mentalnih slika.</p>
-        </motion.button>
+        </m.button>
 
-        <motion.button
+        <m.button
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
           onClick={() => setMajorOpen(true)}
@@ -275,7 +275,7 @@ export default function MnemonicModule({ embedded = false, categoryFilter }: Pro
           <Hash className="h-8 w-8 text-accent-foreground" />
           <h3 className="text-lg font-medium">Mentalne tablice</h3>
           <p className="text-sm text-muted-foreground">Prilagodi Major sistem termine za brojeve 0–100.</p>
-        </motion.button>
+        </m.button>
       </div>
 
       {visibleCards.length === 0 && (

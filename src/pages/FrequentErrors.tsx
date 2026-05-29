@@ -6,7 +6,7 @@ import type { CategoryRecord } from "@/lib/db-types";
 import { getSubcategoryName } from "@/lib/category-service";
 
 
-import { motion, AnimatePresence } from "framer-motion";
+import { m, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 interface AggregatedError {
@@ -82,7 +82,7 @@ function ProgressBar({ count, successes, streak }: { count: number; successes: n
         )}
       </div>
       <div className="w-full h-1.5 rounded-full bg-secondary overflow-hidden">
-        <motion.div
+        <m.div
           initial={{ width: 0 }}
           animate={{ width: `${pct}%` }}
           transition={{ duration: 0.5 }}
@@ -212,17 +212,17 @@ export default function FrequentErrors({ cards, categoryRecords, onClearErrorLog
       )}
 
       {totalErrors === 0 ? (
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-center py-16 space-y-4">
+        <m.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-center py-16 space-y-4">
           <Target className="h-12 w-12 text-muted-foreground/30 mx-auto" />
           <p className="text-muted-foreground">
             Tokom ponavljanja, označi tekst koji si promašio i pritisni <kbd className="px-1.5 py-0.5 rounded bg-secondary border text-xs font-mono">N</kbd> da zabilježiš grešku.
           </p>
-        </motion.div>
+        </m.div>
       ) : (
         <div className="space-y-6">
           {/* Active errors (Critical + Recovering) */}
           {activeGroups.map(([category, errors]) => (
-            <motion.div
+            <m.div
               key={category}
               initial={{ opacity: 0, y: 15 }}
               animate={{ opacity: 1, y: 0 }}
@@ -256,7 +256,7 @@ export default function FrequentErrors({ cards, categoryRecords, onClearErrorLog
                   </div>
                 ))}
               </div>
-            </motion.div>
+            </m.div>
           ))}
 
           {/* Clear error log per card */}
@@ -297,7 +297,7 @@ export default function FrequentErrors({ cards, categoryRecords, onClearErrorLog
 
               <AnimatePresence>
                 {showMastered && (
-                  <motion.div
+                  <m.div
                     initial={{ height: 0, opacity: 0 }}
                     animate={{ height: "auto", opacity: 1 }}
                     exit={{ height: 0, opacity: 0 }}
@@ -328,7 +328,7 @@ export default function FrequentErrors({ cards, categoryRecords, onClearErrorLog
                         </div>
                       </div>
                     ))}
-                  </motion.div>
+                  </m.div>
                 )}
               </AnimatePresence>
             </div>

@@ -2,7 +2,7 @@ import { Flame, Lock, type LucideIcon } from "lucide-react";
 import { type ComponentType } from "react";
 import { FREQUENCY_TAGS } from "@/lib/sr/format";
 import type { FrequencyTag } from "@/lib/sr/types";
-import { motion } from "framer-motion";
+import { m } from "framer-motion";
 
 import ScrollableRow from "@/components/ScrollableRow";
 import type { Card } from "@/lib/spaced-repetition";
@@ -194,31 +194,31 @@ export default function SessionFilters({
           </div>
         ) : (
           <ScrollableRow>
-            <motion.button
+            <m.button
               onClick={() => onSelectCategory(null)}
               className={`${PILL_BASE} ${!selectedCategory ? PILL_ACTIVE : PILL_IDLE}`}
               whileTap={{ scale: 0.95 }}
             >
               {!selectedCategory && (
-                <motion.span layoutId={`${layoutPrefix}-cat-pill`} className="absolute inset-0 rounded-md bg-primary shadow-sm" transition={{ type: "spring", duration: 0.35, bounce: 0.15 }} />
+                <m.span layoutId={`${layoutPrefix}-cat-pill`} className="absolute inset-0 rounded-md bg-primary shadow-sm" transition={{ type: "spring", duration: 0.35, bounce: 0.15 }} />
               )}
               <span className="relative z-10">Sve</span>
-            </motion.button>
+            </m.button>
             {categories.map((c) => (
-              <motion.button
+              <m.button
                 key={c}
                 onClick={() => onSelectCategory(c)}
                 className={`${PILL_BASE} flex items-center gap-1.5 ${selectedCategory === c ? PILL_ACTIVE : PILL_IDLE}`}
                 whileTap={{ scale: 0.95 }}
               >
                 {selectedCategory === c && (
-                  <motion.span layoutId={`${layoutPrefix}-cat-pill`} className="absolute inset-0 rounded-md bg-primary shadow-sm" transition={{ type: "spring", duration: 0.35, bounce: 0.15 }} />
+                  <m.span layoutId={`${layoutPrefix}-cat-pill`} className="absolute inset-0 rounded-md bg-primary shadow-sm" transition={{ type: "spring", duration: 0.35, bounce: 0.15 }} />
                 )}
                 <span className="relative z-10">{catName(c)}</span>
                 <span className={`relative z-10 text-[10px] px-1.5 py-0.5 rounded-full ${selectedCategory === c ? "bg-primary-foreground/20" : "bg-secondary"}`}>
                   {categoryCounts.get(c) ?? 0}
                 </span>
-              </motion.button>
+              </m.button>
             ))}
           </ScrollableRow>
         )}
@@ -241,28 +241,28 @@ export default function SessionFilters({
           </div>
         ) : (
           <ScrollableRow>
-            <motion.button
+            <m.button
               onClick={() => onSelectSubcategory(null)}
               className={`${PILL_BASE} ${!selectedSubcategory ? PILL_ACTIVE : PILL_IDLE}`}
               whileTap={{ scale: 0.95 }}
             >
               {!selectedSubcategory && (
-                <motion.span layoutId={`${layoutPrefix}-subcat-pill`} className="absolute inset-0 rounded-md bg-primary shadow-sm" transition={{ type: "spring", duration: 0.3, bounce: 0.15 }} />
+                <m.span layoutId={`${layoutPrefix}-subcat-pill`} className="absolute inset-0 rounded-md bg-primary shadow-sm" transition={{ type: "spring", duration: 0.3, bounce: 0.15 }} />
               )}
               <span className="relative z-10">Sve</span>
-            </motion.button>
+            </m.button>
             {availableSubs.map((sc) => (
-              <motion.button
+              <m.button
                 key={sc}
                 onClick={() => onSelectSubcategory(sc)}
                 className={`${PILL_BASE} ${selectedSubcategory === sc ? PILL_ACTIVE : PILL_IDLE}`}
                 whileTap={{ scale: 0.95 }}
               >
                 {selectedSubcategory === sc && (
-                  <motion.span layoutId={`${layoutPrefix}-subcat-pill`} className="absolute inset-0 rounded-md bg-primary shadow-sm" transition={{ type: "spring", duration: 0.3, bounce: 0.15 }} />
+                  <m.span layoutId={`${layoutPrefix}-subcat-pill`} className="absolute inset-0 rounded-md bg-primary shadow-sm" transition={{ type: "spring", duration: 0.3, bounce: 0.15 }} />
                 )}
                 <span className="relative z-10">{subNameMap[sc] || sc}</span>
-              </motion.button>
+              </m.button>
             ))}
           </ScrollableRow>
         )}
@@ -285,28 +285,28 @@ export default function SessionFilters({
           </div>
         ) : (
           <ScrollableRow>
-            <motion.button
+            <m.button
               onClick={() => onSelectChapter(null)}
               className={`${PILL_BASE} ${!selectedChapter ? PILL_ACTIVE : PILL_IDLE}`}
               whileTap={{ scale: 0.95 }}
             >
               {!selectedChapter && (
-                <motion.span layoutId={`${layoutPrefix}-chapter-pill`} className="absolute inset-0 rounded-md bg-primary shadow-sm" transition={{ type: "spring", duration: 0.3, bounce: 0.15 }} />
+                <m.span layoutId={`${layoutPrefix}-chapter-pill`} className="absolute inset-0 rounded-md bg-primary shadow-sm" transition={{ type: "spring", duration: 0.3, bounce: 0.15 }} />
               )}
               <span className="relative z-10">Sve</span>
-            </motion.button>
+            </m.button>
             {chaptersInSub.map((ch) => (
-              <motion.button
+              <m.button
                 key={ch}
                 onClick={() => onSelectChapter(ch)}
                 className={`${PILL_BASE} ${selectedChapter === ch ? PILL_ACTIVE : PILL_IDLE}`}
                 whileTap={{ scale: 0.95 }}
               >
                 {selectedChapter === ch && (
-                  <motion.span layoutId={`${layoutPrefix}-chapter-pill`} className="absolute inset-0 rounded-md bg-primary shadow-sm" transition={{ type: "spring", duration: 0.3, bounce: 0.15 }} />
+                  <m.span layoutId={`${layoutPrefix}-chapter-pill`} className="absolute inset-0 rounded-md bg-primary shadow-sm" transition={{ type: "spring", duration: 0.3, bounce: 0.15 }} />
                 )}
                 <span className="relative z-10">{subNameMap[ch] || ch}</span>
-              </motion.button>
+              </m.button>
             ))}
           </ScrollableRow>
         )}

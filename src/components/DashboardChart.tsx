@@ -1,7 +1,7 @@
 import { TrendingUp } from "lucide-react";
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine } from "recharts";
 
-import { motion } from "framer-motion";
+import { m } from "framer-motion";
 interface ChartTooltipProps {
   active?: boolean;
   payload?: { name: string; value: number; color: string }[];
@@ -27,7 +27,7 @@ interface Props {
 
 export default function DashboardChart({ ratioHistory, targetReviewPct }: Props) {
   return (
-    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }}
+    <m.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }}
       className="rounded-xl bg-card border p-5 space-y-4">
       <div className="flex items-center gap-2">
         <TrendingUp className="h-4 w-4 text-primary" />
@@ -54,6 +54,6 @@ export default function DashboardChart({ ratioHistory, targetReviewPct }: Props)
         <span className="flex items-center gap-1.5"><span className="w-3 h-1 rounded-full bg-primary" /> Stvarni % ponavljanja</span>
         <span className="flex items-center gap-1.5"><span className="w-3 h-0.5 rounded-full bg-destructive" style={{ borderTop: "2px dashed" }} /> Idealni cilj</span>
       </div>
-    </motion.div>
+    </m.div>
   );
 }

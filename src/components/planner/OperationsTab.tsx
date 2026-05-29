@@ -1,6 +1,6 @@
 import { toast } from "sonner";
 import { Clock, RefreshCw, Shield, Flame, Zap, Lightbulb, AlertTriangle, Settings2, BookOpen, Brain } from "lucide-react";
-import { motion } from "framer-motion";
+import { m } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { PlannerConfig, calcRebalancedQuota } from "@/lib/planner-storage";
@@ -50,7 +50,7 @@ export default function OperationsTab({
   return (
     <>
       {/* ─── Subject Plans ─── */}
-      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
+      <m.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
         className="rounded-xl bg-card border p-5 space-y-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -101,10 +101,10 @@ export default function OperationsTab({
             </Button>
           </div>
         )}
-      </motion.div>
+      </m.div>
 
       {/* ─── Learning/Review Ratio ─── */}
-      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}
+      <m.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}
         className="rounded-xl bg-card border p-5 space-y-3">
         <div className="flex items-center gap-2">
           <BookOpen className="h-4 w-4 text-primary" />
@@ -125,11 +125,11 @@ export default function OperationsTab({
             <span className="text-[9px] font-bold text-success-foreground">Ponavljanje {learningRatio.reviewPct}%</span>
           </div>
         </div>
-      </motion.div>
+      </m.div>
 
       {/* ─── Retention Risk ─── */}
       {retentionRisk.length > 0 && (
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.17 }}
+        <m.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.17 }}
           className="rounded-xl bg-card border p-5 space-y-3">
           <div className="flex items-center gap-2">
             <Brain className="h-4 w-4 text-primary" />
@@ -158,11 +158,11 @@ export default function OperationsTab({
               );
             })}
           </div>
-        </motion.div>
+        </m.div>
       )}
 
       {/* ─── Reality Check ─── */}
-      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}
+      <m.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}
         className="rounded-xl bg-card border p-5 space-y-5">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -262,7 +262,7 @@ export default function OperationsTab({
             <p className="text-xs text-warning">{debt.message}</p>
           </div>
         )}
-      </motion.div>
+      </m.div>
     </>
   );
 }
