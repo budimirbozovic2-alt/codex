@@ -70,7 +70,7 @@ export default function WorkflowTab({ app, setApp, tts, setTts, voices }: Props)
             </div>
             <Select value={String(app.pomodoro.longBreakInterval)}
               onValueChange={(v) => setApp(prev => ({ ...prev, pomodoro: { ...prev.pomodoro, longBreakInterval: parseInt(v) } }))}>
-              <SelectTrigger className="w-24 bg-background">
+              <SelectTrigger className="w-24 h-9 bg-background">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -104,7 +104,7 @@ export default function WorkflowTab({ app, setApp, tts, setTts, voices }: Props)
           <label className="text-sm">Glas</label>
           <Select value={tts.voiceURI || "__default__"}
             onValueChange={(v) => setTts((p) => ({ ...p, voiceURI: v === "__default__" ? "" : v }))}>
-            <SelectTrigger className="bg-background">
+            <SelectTrigger className="h-9 bg-background">
               <SelectValue placeholder="Sistemski podrazumijevani" />
             </SelectTrigger>
             <SelectContent>
@@ -150,7 +150,7 @@ export default function WorkflowTab({ app, setApp, tts, setTts, voices }: Props)
             <div className="flex items-center gap-1.5">
               <Select value={String(app.notifications.reminderHour)}
                 onValueChange={(v) => setApp(prev => ({ ...prev, notifications: { ...prev.notifications, reminderHour: parseInt(v) } }))}>
-                <SelectTrigger className="w-20 bg-background">
+                <SelectTrigger className="w-20 h-9 bg-background">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -162,7 +162,7 @@ export default function WorkflowTab({ app, setApp, tts, setTts, voices }: Props)
               <span className="text-muted-foreground">:</span>
               <Select value={String(app.notifications.reminderMinute)}
                 onValueChange={(v) => setApp(prev => ({ ...prev, notifications: { ...prev.notifications, reminderMinute: parseInt(v) } }))}>
-                <SelectTrigger className="w-20 bg-background">
+                <SelectTrigger className="w-20 h-9 bg-background">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -186,7 +186,7 @@ export default function WorkflowTab({ app, setApp, tts, setTts, voices }: Props)
           </div>
           <Select value={String(app.autoBackupDays)}
             onValueChange={(v) => setApp(prev => ({ ...prev, autoBackupDays: parseInt(v) }))}>
-            <SelectTrigger className="w-28 bg-background">
+            <SelectTrigger className="w-28 h-9 bg-background">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
