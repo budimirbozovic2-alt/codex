@@ -334,6 +334,11 @@ export const BackupMnemonicSchema = z
     sections: z.array(MnemonicSectionSchema).default([]),
     categoryId: z.unknown().optional().transform((v) => (typeof v === "string" ? v : "")),
     subcategoryId: z.unknown().optional(),
+    // Legacy aliases (pre-UUID backups stored taxonomy as name strings).
+    // Mirrors the same pattern used by BackupCardSchema; the legacy-resolver
+    // in applyImportAtomically remaps name → UUID post-parse.
+    category: z.unknown().optional(),
+    subcategory: z.unknown().optional(),
     tags: StringArray,
     hookType: z.unknown().optional().transform((v) => (v === "rokovi" || v === "nabrajanja" || v === "ostalo" ? v : "ostalo")),
     hookMode: z.unknown().optional().transform((v) => (v === "video" || v === "acronym" ? v : "video")),
@@ -348,12 +353,18 @@ export const BackupMnemonicSchema = z
   })
   .strict()
   .transform((m): MnemonicCard => {
+    const catId =
+      typeof m.categoryId === "string" && m.categoryId ? m.categoryId :
+      typeof m.category === "string" ? m.category : "";
+    const subId =
+      typeof m.subcategoryId === "string" ? m.subcategoryId :
+      typeof m.subcategory === "string" ? m.subcategory : undefined;
     const out: MnemonicCard = {
       id: m.id,
       originalCardId: m.originalCardId,
       question: m.question,
       sections: m.sections as MnemonicCard["sections"],
-      categoryId: m.categoryId,
+      categoryId: catId,
       tags: m.tags,
       hookType: m.hookType,
       hookMode: m.hookMode,
@@ -366,7 +377,7 @@ export const BackupMnemonicSchema = z
       failCount: m.failCount,
       lastTested: m.lastTested,
     };
-    if (typeof m.subcategoryId === "string") out.subcategoryId = m.subcategoryId;
+    if (typeof subId === "string" && subId) out.subcategoryId = subId;
     return out;
   });
 
@@ -606,7 +617,7 @@ export const BackupSchema = z
     activityLog: lenientArray(BackupActivitySchema, "activityLog"),
     disciplineLog: lenientArray(BackupDisciplineSchema, "disciplineLog"),
     pomodoroLog: lenientArray(BackupPomodoroLogSchema, "pomodoroLog"),
-    mnemonics: z.array(BackupMnemonicSchema).default([]),
+    mnemonics: lenientArray(BackupMnemonicSchema, "mnemonics"),
     majorSystem: lenientArray(BackupMajorSystemSchema, "majorSystem"),
     mnemonicTestLog: lenientArray(BackupMnemonicTestLogSchema, "mnemonicTestLog"),
     knowledgeBaseArticles: z.array(BackupKnowledgeBaseArticleSchema).default([]),
