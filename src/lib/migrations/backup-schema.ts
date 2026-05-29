@@ -617,7 +617,7 @@ export const BackupSchema = z
     activityLog: lenientArray(BackupActivitySchema, "activityLog"),
     disciplineLog: lenientArray(BackupDisciplineSchema, "disciplineLog"),
     pomodoroLog: lenientArray(BackupPomodoroLogSchema, "pomodoroLog"),
-    mnemonics: z.array(BackupMnemonicSchema).default([]),
+    mnemonics: lenientArray(BackupMnemonicSchema, "mnemonics"),
     majorSystem: lenientArray(BackupMajorSystemSchema, "majorSystem"),
     mnemonicTestLog: lenientArray(BackupMnemonicTestLogSchema, "mnemonicTestLog"),
     knowledgeBaseArticles: z.array(BackupKnowledgeBaseArticleSchema).default([]),
