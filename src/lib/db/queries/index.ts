@@ -26,6 +26,7 @@ export {
   getRecentCorruptCardIds,
   onCorruptCards,
 } from "./cards";
+export type { CardsScope } from "./cards";
 export {
   clearCardsSubcategoryRefs,
   clearCardsChapterRefs,
