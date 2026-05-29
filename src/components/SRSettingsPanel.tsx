@@ -274,10 +274,10 @@ export default function SRSettingsPanel({ settings, onUpdate }: Props) {
 
       {/* Action buttons */}
       <div className="flex gap-3 pb-4">
-        <Button onClick={handleSave} disabled={!hasChanges} className="flex-1">
+        <Button onClick={handleSave} disabled={!hasChanges} className="flex-1 h-9">
           {isSubjectMode ? "Sačuvaj za predmet" : "Sačuvaj izmjene"}
         </Button>
-        <Button onClick={handleReset} variant="outline" disabled={isSubjectMode ? !overridesEnabled : isDefault}>
+        <Button onClick={handleReset} variant="outline" disabled={isSubjectMode ? !overridesEnabled : isDefault} className="h-9">
           <RotateCcw className="h-4 w-4 mr-2" />
           {isSubjectMode ? "Globalne vrijednosti" : "Podrazumijevano"}
         </Button>
