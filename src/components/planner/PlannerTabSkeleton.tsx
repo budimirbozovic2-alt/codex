@@ -1,14 +1,17 @@
+import { Skeleton } from "@/components/ui/skeleton";
+
 /**
  * Shared loading skeleton for planner tabs (Operations / Roadmap / Discipline).
  * Rendered while `usePlannerData().subjectPlans === null` (lazy planner
  * module still loading). Mirrors the rough shape of each tab so the layout
  * doesn't jump when real content arrives.
+ *
+ * Uses the shared `<Skeleton>` ui primitive — single source of truth for
+ * shimmer animation (previously duplicated as `.skeleton-premium` in CSS).
  */
 interface Props {
   variant: "operations" | "roadmap" | "discipline";
 }
-
-const SHELL = "skeleton-premium rounded-xl border border-border/60";
 
 const VARIANT_LABEL: Record<Props["variant"], string> = {
   operations: "Učitavanje kartice Operacije…",
@@ -33,11 +36,10 @@ export default function PlannerTabSkeleton({ variant }: Props) {
       aria-label={label}
     >
       {blocks.map((h, i) => (
-        <div
+        <Skeleton
           key={i}
-          className={SHELL}
+          className="rounded-xl border border-border/60"
           style={{ height: h }}
-          role="presentation"
           aria-hidden="true"
         />
       ))}

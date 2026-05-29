@@ -778,30 +778,13 @@
   box-shadow: 0 0 0 2px hsl(var(--background)), 0 0 0 4px hsl(var(--ring) / 0.55);
 }
 
-/* ─── Premium skeleton shimmer ─────────────────────────────
-   Apply `.skeleton-premium` to any block; gradient sweeps L→R
-   over a muted base. Honours `prefers-reduced-motion`. */
-.skeleton-premium {
-  position: relative;
-  overflow: hidden;
-  background: hsl(var(--muted));
-  border-radius: calc(var(--radius) - 4px);
-}
-.skeleton-premium::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  transform: translateX(-100%);
-  background: linear-gradient(
-    90deg,
-    transparent,
-    hsl(var(--foreground) / 0.06),
-    transparent
-  );
-  animation: shimmer 1.6s linear infinite;
-}
+/* ─── Skeleton shimmer ─────────────────────────────────────
+   The shimmer placeholder is now a single source of truth:
+   the `<Skeleton>` UI primitive in `components/ui/skeleton.tsx`
+   (Tailwind-only, honours `motion-reduce`). The legacy
+   `.skeleton-premium` class was removed in favour of that
+   component to avoid two parallel shimmer systems. */
 @media (prefers-reduced-motion: reduce) {
-  .skeleton-premium::after { animation: none; }
   .hover-lift, .pressable { transition: none; }
 }
 
