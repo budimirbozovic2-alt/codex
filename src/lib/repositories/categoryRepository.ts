@@ -129,15 +129,29 @@ export function deleteAsync(
         await tx.run("DELETE FROM sources WHERE categoryId = ?", [id]);
       } else if (opts.fallbackId) {
         const now = Date.now();
+        // A2 — keep JSON payload in sync with indexed columns via JSON1.
+        // Cards: new categoryId, drop subcategory/chapter refs.
         await tx.run(
           `UPDATE cards
-             SET categoryId = ?, subcategoryId = NULL, chapterId = NULL, updatedAt = ?
-           WHERE categoryId = ?`,
-          [opts.fallbackId, now, id],
+              SET categoryId    = ?,
+                  subcategoryId = NULL,
+                  chapterId     = NULL,
+                  updatedAt     = ?,
+                  payload       = json_set(
+                                    json_remove(payload, '$.subcategoryId', '$.chapterId'),
+                                    '$.categoryId', ?,
+                                    '$.updatedAt',  ?
+                                  )
+            WHERE categoryId = ?`,
+          [opts.fallbackId, now, opts.fallbackId, now, id],
         );
+        // Sources: mirror new categoryId into payload JSON too.
         await tx.run(
-          "UPDATE sources SET categoryId = ? WHERE categoryId = ?",
-          [opts.fallbackId, id],
+          `UPDATE sources
+              SET categoryId = ?,
+                  payload    = json_set(payload, '$.categoryId', ?)
+            WHERE categoryId = ?`,
+          [opts.fallbackId, opts.fallbackId, id],
         );
       }
       // Final blow — FK CASCADE wipes mindMaps + mnemonics + KB articles.

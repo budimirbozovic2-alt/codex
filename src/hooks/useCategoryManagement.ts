@@ -1,13 +1,17 @@
 import { useCallback } from "react";
-import { Card } from "@/lib/spaced-repetition";
+
 import type { CategoryRecord, SubcategoryNode, ChapterNode, ExaminerProfile } from "@/lib/db-types";
 import { invalidateSourcesCache } from "@/lib/sources-storage";
 import { cascadeDeleteCategoryDomains } from "@/lib/category-deletion-service";
 import { toast } from "sonner";
 import { optimisticCategoryUpdate } from "@/lib/category-service";
 import { stableLegacyId } from "@/lib/stable-id";
-import { bulkPut as cardMapBulkPut } from "@/lib/cards/cardMapWrites";
-import { cardsBySubcategory, cardsByChapter, getCardsByIds } from "@/lib/db/queries";
+import {
+  clearCardsSubcategoryRefs,
+  clearCardsChapterRefs,
+  reassignCardsSubcategory,
+  notifyCardsChanged,
+} from "@/lib/db/queries";
 import { getCategoryStoreRecords, setCategoryStoreRecords } from "@/store";
 import { logger } from "@/lib/logger";
 
@@ -140,10 +144,9 @@ export function useCategoryManagement() {
     [],
   );
 
-  // Phase 2b — subcategories live in categories.payload JSON, so FK CASCADE
-  // doesn't apply. We source affected cards from SQLite (RAM cache is no
-  // longer hydrated at boot), clear sub/chapter refs, and persist via the
-  // standard cardMapWrites.bulkPut path (persistQueue + notifyCardsChanged).
+  // A2 collapse — one SQLite UPDATE (json_set/json_remove keeps payload in
+  // sync with indexed columns). Replaces SELECT → mutate → cardMapBulkPut
+  // round-trip. TanStack consumers refresh via notifyCardsChanged().
   const deleteSubcategory = useCallback(
     (categoryId: string, subcategoryId: string) => {
       optimisticCategoryUpdate(
@@ -158,13 +161,8 @@ export function useCategoryManagement() {
 
       void (async () => {
         try {
-          const rows = await cardsBySubcategory(categoryId, subcategoryId);
-          if (rows.length === 0) return;
-          const now = Date.now();
-          const changed: Card[] = rows.map(c => ({
-            ...c, subcategoryId: undefined, chapterId: undefined, updatedAt: now,
-          }));
-          cardMapBulkPut(changed);
+          await clearCardsSubcategoryRefs(categoryId, subcategoryId);
+          notifyCardsChanged();
         } catch (err) {
           logger.error("[deleteSubcategory] clear refs failed", err);
         }
@@ -175,14 +173,11 @@ export function useCategoryManagement() {
 
   const bulkUpdateSubcategory = useCallback((ids: string[], subcategoryId: string) => {
     if (ids.length === 0) return;
-    // Phase 2b — fetch via SQLite, mutate, bulkPut. RAM map may be cold.
+    // A2 collapse — single chunked UPDATE tx (json_set keeps payload in sync).
     void (async () => {
       try {
-        const rows = await getCardsByIds(ids);
-        const now = Date.now();
-        const changed: Card[] = [];
-        for (const r of rows) if (r) changed.push({ ...r, subcategoryId, updatedAt: now });
-        if (changed.length > 0) cardMapBulkPut(changed);
+        await reassignCardsSubcategory(ids, subcategoryId);
+        notifyCardsChanged();
       } catch (err) {
         logger.error("[bulkUpdateSubcategory] failed", err);
       }
@@ -226,18 +221,12 @@ export function useCategoryManagement() {
     );
   }, []);
 
-  // Phase 2b — chapter ids live in categories.payload JSON, no FK CASCADE.
-  // Fetch cards by chapter from SQLite, clear chapterId, persist.
+  // A2 collapse — single SQLite UPDATE keeps payload + columns in sync.
   const deleteChapter = useCallback((categoryId: string, subcategoryId: string, chapterId: string) => {
     void (async () => {
       try {
-        const rows = await cardsByChapter(categoryId, chapterId);
-        const affected = rows.filter(c => c.subcategoryId === subcategoryId);
-        if (affected.length > 0) {
-          const now = Date.now();
-          const changed: Card[] = affected.map(c => ({ ...c, chapterId: undefined, updatedAt: now }));
-          cardMapBulkPut(changed);
-        }
+        await clearCardsChapterRefs(categoryId, subcategoryId, chapterId);
+        notifyCardsChanged();
       } catch (err) {
         logger.error("[deleteChapter] clear refs failed", err);
       }

@@ -26,6 +26,11 @@ export {
   getRecentCorruptCardIds,
   onCorruptCards,
 } from "./cards";
+export {
+  clearCardsSubcategoryRefs,
+  clearCardsChapterRefs,
+  reassignCardsSubcategory,
+} from "./cards-bulk-mutations";
 
 
 // A1c-4 F2 — legacy `idbLoadSettings`/`idbSaveSettings` aliases removed.
