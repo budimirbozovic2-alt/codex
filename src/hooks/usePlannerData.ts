@@ -216,6 +216,8 @@ export function usePlannerData(cards: SRCard[], reviewLog: ReviewLogEntry[], cat
 
   return {
     config, save, isConfigured,
+    /** True once the lazy planner module + derived calcs are ready. */
+    isReady: subjectPlans !== null,
     totalSections, learnedSections, remaining, overallPct, velocity,
     estimatedFinish, plannerStatus,
     subjectPlans, learningRatio,
