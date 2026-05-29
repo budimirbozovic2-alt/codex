@@ -6,8 +6,7 @@ import { Skeleton } from "@/components/ui/skeleton";
  * module still loading). Mirrors the rough shape of each tab so the layout
  * doesn't jump when real content arrives.
  *
- * Uses the shared `<Skeleton>` ui primitive — single source of truth for
- * shimmer animation (previously duplicated as `.skeleton-premium` in CSS).
+ * Uses the shared `<Skeleton>` ui primitive (single shimmer source of truth).
  */
 interface Props {
   variant: "operations" | "roadmap" | "discipline";
