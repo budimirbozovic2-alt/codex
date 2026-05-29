@@ -1,97 +1,78 @@
-# Analiza `codex-backup-2026-05-06.json` (v7, 21.8 MB)
+## Premium UI — preostale preporuke
 
-## Sažetak sadržaja
+Tipografija, surface tokeni, sjenke, `animate-fade-up`, `hover-lift`, `text-display + tabular`, eyebrow labele, sticky-nav refinement, BackupCard/QuickActions i animacijski sloj su već uvedeni u prethodnim koracima. Plan ispod pokriva **samo ono što nedostaje** da dovršimo "premium" osjećaj.
 
-| Tabela | Količina |
-|---|---|
-| categories | 9 (full UUID shape, sa subcategories/chapters) |
-| cards | 811 (1.573 sekcija) |
-| sources | 32 |
-| mindMaps | 3 |
-| knowledgeBaseArticles | 17 |
-| mnemonics | 2 |
-| majorSystem | 101 pegova |
-| reviewLog / activityLog / disciplineLog / slippageLog | 20 / 472 / 30 / 35 |
-| diary / latencyLog / pomodoroLog / mnemonicTestLog | 1 / 3 / 1 / 1 |
-| settings | 10 (uključuje `appSettings`, `examProfile` itd.) |
-| localStorageData | prisutno (sr-app-settings, dark-mode, tts...) |
+---
 
-`version: 7` poklapa se sa `BACKUP_SCHEMA_VERSION = 7`, pa migracijska skala (`migrateRaw` + `migrateBackup`) ne radi ništa — backup ide direktno u Zod.
+### 1. Count-up animacije na KPI brojkama  (sekcija 4)
+- Mini hook `useCountUp(value, { duration: 600, easing })` u `src/hooks/useCountUp.ts` — `requestAnimationFrame` petlja, `prefers-reduced-motion` respect, **bez** dodavanja motion lib.
+- Primjena: `CoreStats.due`, `VelocityWidget.velocity`, `weakest.score %`, `ExamProgressBar` brojevi.
+- Zadržati `.tabular` da skok cifara ne pomjera layout.
 
-## Ocjena: 95% spreman za uvoz, ali postoji JEDAN blokator
+### 2. ProgressRing → radial-gradient + drop-shadow  (sekcija 5)
+- `src/components/ProgressRing.tsx`: zamijeniti solid `stroke` sa `<defs><linearGradient/></defs>` (primary → primary-glow), dodati `filter: drop-shadow(0 2px 6px hsl(var(--primary)/0.25))`.
+- Track stroke → `hsl(var(--surface-2))` umjesto `--muted`.
+- Boja se mapira preko `mastery-color` tokena (zelena/žuta/crvena) — gradijent koristi `currentColor` + 70%-stop varijantu.
 
-### Blokator — strict schema na `BackupMnemonicSchema`
+### 3. SettingsPage — vazduh + kompaktne kontrole  (sekcija 5)
+- `SRSettingsPanel` i sve `*Tab.tsx` (`AlgorithmTab`, `PersonalizationTab`, `WorkflowTab`, `SubjectsTab`, `SystemTab`):
+  - sekcije `space-y-6` → `space-y-10`
+  - kartica `py-6` → `py-8`, `gap-4` → `gap-6`
+  - svi `Input`/`Select`/`Button` u Settingsu → `h-9` (override preko className-a, ne globalno)
+  - section heading → `.text-display text-xl` + `.text-eyebrow` iznad
 
-Provjerom svih ključeva, **mnemonici nose 2 legacy polja** koja schema ne dozvoljava:
+### 4. OnboardingModal — premium first-impression  (sekcija 5)
+- `src/components/onboarding/OnboardingModal.tsx` (i njegov tree):
+  - Hero ilustracija/ikon header sa `bg-gradient-to-br from-primary/8 via-surface-2 to-transparent`
+  - Naslov `.text-display text-4xl tracking-tighter`, podnaslov `.text-eyebrow` iznad
+  - Step indikator: hairline progress (1px traka) umjesto dotova
+  - Footer dugmad: primarno `shadow-elevated hover-lift pressable`, sekundarno ghost
+  - Spring open animacija (CSS `cubic-bezier(0.34, 1.56, 0.64, 1)` 280ms)
 
-```
-mnemonic extras: {'subcategory', 'category'}
-```
+### 5. Page-transition sloj  (sekcija 6)
+- `src/components/RouteTransition.tsx`: thin wrapper koji slušajući `location.pathname` re-mountuje children sa `animate-fade-up` (0.22s).
+- Umotati `<Routes>` u `App.tsx` (linija 96-128). Bez biblioteke, čisti CSS.
+- `prefers-reduced-motion` → no-op.
 
-`src/lib/migrations/backup-schema.ts:329` koristi `.strict()`, a top-level `BackupSchema` zove `z.array(BackupMnemonicSchema).default([])` (nije `lenientArray`). Posljedica: čim Zod naiđe na ova polja → cijeli `BackupSchema.safeParse` puca → `useCardImport` baca `BackupValidationError` → uvoz se zaustavlja prije nego se išta upiše.
+### 6. Konsistentnost ikona — stroke sweep  (sekcija 7)
+- Codemod-podržan ručni sweep: u `src/components/**` i `src/views/**`, **svim Lucide ikonama BEZ `strokeWidth` propa** dodati `strokeWidth={1.6}` (default 2 = pre-debelo).
+- Iznimke: ikone unutar dugmadi `size="sm"` ostaju 2 zbog čitljivosti na malom.
+- Procijenjeno ~60 tačaka — radi se ciljano u top-level layout/dashboard/zettelkasten/cards fajlovima.
 
-Sve ostale entitetske kolekcije su čiste:
-- `card extras: set()` ✅
-- `source extras: set()` ✅
-- `kb extras: set()` ✅
-- `category extras: set()` ✅
+### 7. Borderi: jeftin AI-look sweep  (sekcija 3 — preostalo)
+- Globalni replace u **non-form, non-input** kontekstima: `border-border` (full opacity) → `border-hairline` ili `border-border/40`.
+- Inpute/select/checkbox **ostavljamo** na punom border-u (čitljivost forme).
+- Fokus na: `zettelkasten/*` (Explorer, Preview, Backlinks, EmbeddedMindMap), `AutoSplitDialog`, `MindMapPickerDialog`, `SubjectDashboard`.
 
-### Šta još radi bez problema
+### 8. Splash screen polish  (sekcija 7)
+- `public/splash.html` (92 LOC trenutno):
+  - Pozadinski radial-gradient `at 30% 20%, hsl(220 30% 16%) → hsl(220 40% 8%)`
+  - Centrirani CODEX brand mark (SVG inline, gold accent stroke)
+  - Pulse animacija na tagline-u (0.6 → 1 opacity, 1.6s ease), bez spinnera
+  - `font-family: 'Fraunces', serif` za "CODEX" wordmark; tagline DM Sans 13px tracking +0.18em uppercase
 
-- **Cards**: schema već prima legacy `subcategory`/`chapter` aliase i tip `flash|essay`. Sva 811 kartica ima validne UUID-ove i sekcije sa `id`-em (0 bad).
-- **Categories**: već u novom UUID obliku (id + subcategories[].chapters[]) → `BackupCategoryRecordSchema` ih parsuje direktno, `buildCategoryIdRemap` će ih spojiti sa postojećih 9 oficijelnih po imenu (pa će zadržati postojeće UUID-ove i remapirati cards/sources/KB).
-- **Sources**: imaju `sourceKind`, `slMarkings`, `isExclusive` — sve dozvoljeno. `contentDoc` se sintetiše prazan AST i lazy-migrira na prvo otvaranje (PR-7b).
-- **KB articles**: 17 članaka, uključuje `isIndex` i `tags` — schema-OK.
-- **Satellite logovi** (review/activity/discipline/slippage/diary/latency/pomodoro/mnemonicTestLog/majorSystem): koriste `lenientArray` — jedan loš red ne ruši uvoz.
-- **Top-level `subcategories` (legacy name-keyed)** i **`localStorageData`**: BackupSchema ima `.passthrough()` na rootu, pa ih Zod tiho prihvata i ignoriše (`localStorageData` nikad ne stiže do SQLite-a, što je OK — preferencije već idu kroz `settings` tabelu).
-- **`srSettings`** sa `resistanceWeights` → parsuje se i primjenjuje kad je strategija `overwrite`.
+### 9. Loading skeleton sweep  (sekcija 4)
+- `src/components/ui/skeleton-premium.tsx` (već imamo `.skeleton-premium` utility) → React komponenta `<SkeletonRow lines={3} />` i `<SkeletonCard />`.
+- Zamijeniti `Loader2` spinnere u top-3 mjesta: `Dashboard` initial load, `CategoryView` cards loader, `ZettelkastenView` index loader.
 
-### Sekundarna zapažanja (nisu blokatori)
+---
 
-1. **`localStorageData` se baca** — ako korisnik očekuje da mu se vrati `sr-dark-mode`, `sr-tts-settings`, `sr-learn-progress`, neće. Ovo postoji u backupu ali nigdje u SQLite cutoveru. Možemo dodati most kasnije.
-2. **`top-level subcategories` (string nazivi)** — historijski format koji ostaje u backupu i kod novih exporta? Worth provjeriti zašto se exportuje ako je već unutar `categories[].subcategories[]`. Trošak: ~3 KB. Niskog prioriteta.
-3. **`mnemonic.category` / `mnemonic.subcategory` (string)** — moraju se ili dodati u schemu kao opcioni-i-ignorisani, ili `category` mora postati legacy alias za `categoryId` (slično kao `subcategory` → `subcategoryId` kod kartica).
+### Redoslijed implementacije
+1. ProgressRing gradient + count-up hook  (najvidljiviji wow)
+2. RouteTransition wrapper  (osjeti se odmah pri navigaciji)
+3. SettingsPage spacing + h-9 controls
+4. OnboardingModal
+5. Stroke sweep + border sweep (ručno, ciljano)
+6. Splash polish + skeleton sweep (cleanup)
 
-## Predloženi fix (minimalan, 1 fajl)
+### Tehničke odluke
+- **Bez novih dependency-ja** — sve čistim CSS-om i RAF-om. Memory: framer-motion je već uklonjen (`performance-optimization-v5`), poštujemo.
+- Sve nove CSS animacije idu u `src/index.css` ispod postojećih premium utility-ja.
+- Sve nove utility klase poštuju `prefers-reduced-motion`.
+- Tabular nums i `.text-display` se već automatski lance kroz utility — ne duplicirati.
 
-**`src/lib/migrations/backup-schema.ts` — `BackupMnemonicSchema`:**
-
-Dodati legacy opciona polja prije `.strict()` i mapirati ih u `categoryId`/`subcategoryId` u `.transform()` (isti pattern kao već postoji za `BackupCardSchema`):
-
-```ts
-// dodati u .object({ ... }) prije .strict():
-category: z.unknown().optional(),         // legacy alias za categoryId (name ili UUID)
-subcategory: z.unknown().optional(),      // legacy alias za subcategoryId
-
-// u .transform((m): MnemonicCard => { ... }):
-const catId =
-  typeof m.categoryId === "string" && m.categoryId ? m.categoryId :
-  typeof m.category === "string" ? m.category : "";
-const subId =
-  typeof m.subcategoryId === "string" ? m.subcategoryId :
-  typeof m.subcategory === "string" ? m.subcategory : undefined;
-// ... pa koristiti catId/subId u `out`.
-```
-
-Ako legacy vrijednost dođe kao *naziv* (a ne UUID), `resolveLegacyTaxonomyNames` u `applyImportAtomically` ionako mapira na UUID koristeći postojeće kategorije.
-
-### Bonus tvrdoglavost (opcionalno, ali jeftino)
-
-Zamijeniti `z.array(BackupMnemonicSchema).default([])` sa `lenientArray(BackupMnemonicSchema, "mnemonics")` na liniji ~609. Time se otklanja klasa grešaka gdje jedna pokvarena mnemonika u budućnosti ne ruši cio restore. Isti pattern bi imao smisla i za `cards`, `sources`, `mindMaps`, `knowledgeBaseArticles`, ali to je veća promjena i mijenja safety profile (tihi data-loss) — preporuka: ostaviti striktno za primary entities, lenient samo za mnemonics + logove.
-
-## Plan implementacije (1 koraka)
-
-1. Editovati `src/lib/migrations/backup-schema.ts`:
-   - U `BackupMnemonicSchema.object` dodati `category` i `subcategory` kao `z.unknown().optional()`.
-   - U `.transform()` resolvati alias u `categoryId`/`subcategoryId`.
-   - (Opcionalno) prebaciti `mnemonics` na `lenientArray` u `BackupSchema`.
-
-## Verifikacija
-
-- `bunx vitest run src/test/backup-schema.test.ts` — postojeći testovi moraju ostati zeleni.
-- Dodati jedan test fixture sa mnemonikom koja ima `category: "Krivično materijalno pravo"` i očekivati uspješan parse + resolvani `categoryId`.
-- Ručno: u desktop buildu povući `codex-backup-2026-05-06.json` u ExportImportDialog → očekivati `import-confirm` step (uvoz 9/811/32/17), bez `BackupValidationError`.
-
-## Odgovor na pitanje "da li ćemo moći da importujemo?"
-
-**Trenutno: NE** — strict schema na mnemonicima blokira parse. **Nakon predloženog 1-fajl fixa: DA**, sve relevantne tabele prolaze, kategorije će se mergeovati po imenu (zadržaće se postojeći 9 UUID-ova ako su isti, inače remap kroz `buildCategoryIdRemap`), kartice/sources/KB će biti remapirani na finalne kategorije UUID-ove, satellite logovi idu kroz `lenientArray` pa su sigurni. `localStorageData` se gubi (nije kritično — `appSettings` se ipak nalazi i u `settings[]`).
+### Što NE radimo
+- Ne dodajemo motion library (poštujemo postojeću odluku).
+- Ne diramo Electron preload/CSP.
+- Ne mijenjamo postojeću palette/theme strukturu — samo nadograđujemo surface i hairline tokene koji već postoje.
+- Ne refaktorišemo god-fajlove iz audita (`PassiveReader`, `backup-schema`) — to ide u zaseban refactor PR.

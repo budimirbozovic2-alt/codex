@@ -125,7 +125,7 @@ function ZettelExplorerPanelImpl({
 
   if (collapsed) {
     return (
-      <div className="flex flex-col items-center w-10 shrink-0 border-r border-border bg-card/30 py-2 gap-2">
+      <div className="flex flex-col items-center w-10 shrink-0 border-r border-hairline bg-card/30 py-2 gap-2">
         <Button
           type="button"
           variant="ghost"
@@ -151,9 +151,9 @@ function ZettelExplorerPanelImpl({
   }
 
   return (
-    <aside className="flex flex-col w-72 shrink-0 border-r border-border bg-card/30 h-full min-h-0">
+    <aside className="flex flex-col w-72 shrink-0 border-r border-hairline bg-card/30 h-full min-h-0">
       {/* Header */}
-      <div className="flex items-center justify-between px-3 py-2 border-b border-border">
+      <div className="flex items-center justify-between px-3 py-2 border-b border-hairline">
         <div className="flex items-center gap-1.5 text-sm font-semibold">
           <Compass className="h-4 w-4 text-primary" />
           Explorer
@@ -172,7 +172,7 @@ function ZettelExplorerPanelImpl({
       </div>
 
       {/* Search + sort */}
-      <div className="p-2 space-y-2 border-b border-border">
+      <div className="p-2 space-y-2 border-b border-hairline">
         <div className="relative">
           <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
           <Input
@@ -201,7 +201,7 @@ function ZettelExplorerPanelImpl({
 
       {/* Tag filter strip — only renders when at least one tag exists in the subject. */}
       {tagCounts.length > 0 && (
-        <div className="p-2 border-b border-border">
+        <div className="p-2 border-b border-hairline">
           <div className="flex items-center justify-between mb-1.5">
             <div className="flex items-center gap-1 text-[10px] uppercase tracking-wide text-muted-foreground">
               <Tag className="h-3 w-3" /> Tagovi
@@ -335,7 +335,7 @@ function ZettelExplorerPanelImpl({
       </div>
 
       {/* Footer: stats + create */}
-      <div className="border-t border-border p-2 space-y-2">
+      <div className="border-t border-hairline p-2 space-y-2">
         <div className="grid grid-cols-3 gap-1 text-center">
           <div className="px-1 py-1 rounded bg-muted/40">
             <div className="text-sm font-semibold leading-tight">{articles.length}</div>

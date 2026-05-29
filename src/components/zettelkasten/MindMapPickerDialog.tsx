@@ -58,7 +58,7 @@ export default function MindMapPickerDialog({ open, onOpenChange, categoryId, on
                 key={d.id}
                 type="button"
                 onClick={() => { onOpenChange(false); afterDialogClose(() => onPick(d.id, d.title)); }}
-                className="w-full text-left p-3 rounded-md border border-border hover:bg-accent/50 transition-colors flex items-center gap-2"
+                className="w-full text-left p-3 rounded-md border border-hairline hover:bg-accent/50 transition-colors flex items-center gap-2"
               >
                 <MapIcon className="h-4 w-4 text-primary shrink-0" />
                 <div className="min-w-0 flex-1">

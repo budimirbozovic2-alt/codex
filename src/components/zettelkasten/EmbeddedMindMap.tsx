@@ -16,7 +16,7 @@ export default function EmbeddedMindMap({ mindMapId, categoryId }: Props) {
 
   if (doc === undefined) {
     return (
-      <div className="my-4 rounded-md border border-border bg-card p-3 text-xs text-muted-foreground">
+      <div className="my-4 rounded-md border border-hairline bg-card p-3 text-xs text-muted-foreground">
         Učitavanje mape uma…
       </div>
     );
@@ -32,8 +32,8 @@ export default function EmbeddedMindMap({ mindMapId, categoryId }: Props) {
   }
 
   return (
-    <div className="my-4 rounded-md border border-border bg-card overflow-hidden">
-      <div className="flex items-center gap-2 px-3 py-2 border-b border-border bg-muted/30">
+    <div className="my-4 rounded-md border border-hairline bg-card overflow-hidden">
+      <div className="flex items-center gap-2 px-3 py-2 border-b border-hairline bg-muted/30">
         <MapIcon className="h-4 w-4 text-primary shrink-0" />
         <div className="min-w-0 flex-1">
           <div className="text-sm font-semibold truncate">{doc.title}</div>
