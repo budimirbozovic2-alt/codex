@@ -34,26 +34,26 @@ const PRESETS: Record<string, { icon: LucideIcon; title: string; description: st
 export default function EmptyState({ type, onAction, actionLabel, diagnostics, icon, title, description }: Props) {
   if (type === "dashboard") {
     return (
-      <div
-        className="animate-in fade-in slide-in-from-bottom-6 duration-500 flex flex-col items-center justify-center py-20 text-center space-y-6"
-      >
+      <div className="animate-fade-up flex flex-col items-center justify-center py-24 text-center space-y-7">
         <div className="relative">
-          <div className="w-24 h-24 rounded-full bg-primary/10 flex items-center justify-center">
-            <BookOpen className="h-10 w-10 text-primary" />
+          <div className="w-28 h-28 rounded-full bg-primary/10 flex items-center justify-center shadow-soft ring-1 ring-hairline">
+            <BookOpen className="h-11 w-11 text-primary" strokeWidth={1.4} />
           </div>
-          <div className="absolute -top-2 -right-2 animate-bounce">
-            <Sparkles className="h-6 w-6 text-warning" />
+          <div className="absolute -top-2 -right-2 animate-subtle-pulse">
+            <Sparkles className="h-6 w-6 text-warning" strokeWidth={1.6} />
           </div>
         </div>
-        <div className="space-y-2 max-w-sm">
-          <h2 className="text-2xl font-semibold">Počnite sa učenjem</h2>
-          <p className="text-muted-foreground">
+        <div className="space-y-3 max-w-md">
+          <h2 className="text-display text-4xl text-foreground text-balance">
+            Počnite sa učenjem
+          </h2>
+          <p className="text-muted-foreground text-pretty leading-relaxed">
             Kreirajte svoju prvu karticu i započnite put ka dugoročnom pamćenju kroz pametno ponavljanje.
           </p>
         </div>
         {onAction && (
-          <Button onClick={onAction} size="lg" className="gap-2">
-            <BookOpen className="h-4 w-4" /> Kreiraj prvu karticu
+          <Button onClick={onAction} size="lg" className="gap-2 hover-lift pressable shadow-soft">
+            <BookOpen className="h-4 w-4" strokeWidth={1.7} /> Kreiraj prvu karticu
           </Button>
         )}
       </div>
