@@ -78,12 +78,15 @@ function decode<T>(rows: readonly { payload: string; id?: number | string }[]): 
 async function listAllAutoInc<T>(
   table: string,
 ): Promise<T[]> {
-  const exec = await requireExecutor(`listAll:${table}`);
-  if (!exec) return [];
-  const rows = await exec.all<{ id: number; payload: string }>(
-    `SELECT id, payload FROM ${table} ORDER BY id ASC`,
-  );
-  return decode<T>(rows);
+  const { withSqlTiming } = await import("./_shared/sql-timing");
+  return withSqlTiming(`listAll:${table}`, async () => {
+    const exec = await requireExecutor(`listAll:${table}`);
+    if (!exec) return [];
+    const rows = await exec.all<{ id: number; payload: string }>(
+      `SELECT id, payload FROM ${table} ORDER BY id ASC`,
+    );
+    return decode<T>(rows);
+  });
 }
 
 async function countTable(table: string): Promise<number> {
