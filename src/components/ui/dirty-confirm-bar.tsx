@@ -57,7 +57,7 @@ export default function DirtyConfirmBar({
     <div
       role="alertdialog"
       aria-live="assertive"
-      className="mt-4 flex flex-col gap-3 rounded-lg border border-warning/40 bg-warning/10 p-3 sm:flex-row sm:items-center sm:justify-between animate-in fade-in slide-in-from-bottom-2 duration-200"
+      className="mt-4 flex flex-col gap-3 rounded-lg border border-warning/40 bg-warning/10 p-3 sm:flex-row sm:items-center sm:justify-between animate-fade-up"
     >
       <div className="flex items-start gap-2 text-sm text-foreground">
         <AlertTriangle className="h-4 w-4 text-warning flex-shrink-0 mt-0.5" />

@@ -12,7 +12,7 @@ export const CoreStats = memo(function CoreStats({ due, pendingFirstReview, weak
   return (
     <div className="grid grid-cols-2 gap-4">
       <Link to="/review">
-        <div className="animate-in fade-in slide-in-from-bottom-4 duration-300 glass-card p-5 space-y-2 hover:border-gold/40 transition-colors cursor-pointer"
+        <div className="animate-fade-up glass-card p-5 space-y-2 hover:border-gold/40 transition-colors cursor-pointer"
           style={{ animationDelay: "80ms", animationFillMode: "both" }}>
           <Clock className="h-5 w-5 text-primary mb-1" />
           <p className="text-display text-5xl font-semibold tabular leading-none">{due}</p>
@@ -22,7 +22,7 @@ export const CoreStats = memo(function CoreStats({ due, pendingFirstReview, weak
       </Link>
       {weakest ? (
         <Link to={`/category/${weakest.id}`}>
-          <div className="animate-in fade-in slide-in-from-bottom-4 duration-300 glass-card p-5 space-y-2 hover:border-gold/40 transition-colors cursor-pointer"
+          <div className="animate-fade-up glass-card p-5 space-y-2 hover:border-gold/40 transition-colors cursor-pointer"
             style={{ animationDelay: "140ms", animationFillMode: "both" }}>
             <TrendingDown className="h-5 w-5 text-destructive mb-1" />
             <p className="text-xl font-bold truncate" title={weakest.name}>{weakest.name}</p>
@@ -31,7 +31,7 @@ export const CoreStats = memo(function CoreStats({ due, pendingFirstReview, weak
           </div>
         </Link>
       ) : (
-        <div className="animate-in fade-in slide-in-from-bottom-4 duration-300 glass-card p-5 space-y-2 opacity-60"
+        <div className="animate-fade-up glass-card p-5 space-y-2 opacity-60"
           style={{ animationDelay: "140ms", animationFillMode: "both" }}>
           <TrendingDown className="h-5 w-5 text-muted-foreground mb-1" />
           <p className="text-xl font-bold">—</p>

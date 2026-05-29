@@ -80,7 +80,7 @@ const App = () => {
       <div className="flex flex-col h-screen relative" data-app-mounted>
         <TitleBar />
         {isSaving && (
-          <div className="absolute bottom-4 right-4 z-[9999] flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/90 text-primary-foreground shadow-lg animate-in fade-in slide-in-from-bottom-2 duration-300">
+          <div className="absolute bottom-4 right-4 z-[9999] flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/90 text-primary-foreground shadow-lg animate-fade-up">
             <RefreshCw className="h-3.5 w-3.5 animate-spin" />
             <span className="text-[11px] font-medium tracking-wide">
               {pendingCount > 10 ? `Spremanje (${pendingCount})...` : "Spremanje..."}

@@ -16,7 +16,7 @@ export function StudyFlowWidget({ data }: { data: StudyFlowData }) {
 
   return (
     <div
-      className="animate-in fade-in slide-in-from-bottom-4 duration-300 glass-card p-5 space-y-4"
+      className="animate-fade-up glass-card p-5 space-y-4"
       style={{ animationDelay: "100ms", animationFillMode: "both" }}
     >
       <div className="flex items-center gap-2">

@@ -12,7 +12,7 @@ export const ExamProgressBar = memo(function ExamProgressBar({ learnedSections, 
   const pct = totalSections > 0 ? Math.round((learnedSections / totalSections) * 100) : 0;
 
   return (
-    <div className="animate-in fade-in slide-in-from-bottom-4 duration-400 glass-card p-5 space-y-3"
+    <div className="animate-fade-up glass-card p-5 space-y-3"
       style={{ animationFillMode: "both" }}>
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
