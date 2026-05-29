@@ -778,12 +778,9 @@
   box-shadow: 0 0 0 2px hsl(var(--background)), 0 0 0 4px hsl(var(--ring) / 0.55);
 }
 
-/* ─── Skeleton shimmer ─────────────────────────────────────
-   The shimmer placeholder is now a single source of truth:
-   the `<Skeleton>` UI primitive in `components/ui/skeleton.tsx`
-   (Tailwind-only, honours `motion-reduce`). The legacy
-   `.skeleton-premium` class was removed in favour of that
-   component to avoid two parallel shimmer systems. */
+/* Skeleton shimmer: single source of truth is `<Skeleton>`
+   (src/components/ui/skeleton.tsx). Tailwind-only, honours
+   `motion-reduce`. Keyframe `shimmer` lives in tailwind.config.ts. */
 @media (prefers-reduced-motion: reduce) {
   .hover-lift, .pressable { transition: none; }
 }
