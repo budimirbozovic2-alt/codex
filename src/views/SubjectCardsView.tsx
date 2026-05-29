@@ -183,7 +183,7 @@ export default function SubjectCardsView() {
           <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground px-1">
             Učenje
           </p>
-          <TabsList className="w-full h-auto bg-transparent p-0 grid grid-cols-1 md:grid-cols-2 gap-3">
+          <TabsList className="w-full h-auto bg-transparent p-0 grid grid-cols-2 gap-3">
             <TabsTrigger
               value="read"
               className="relative w-full justify-start text-left h-auto rounded-xl p-5 gap-4 border-2 border-primary/50 bg-gradient-to-br from-primary/5 via-transparent to-primary/10 hover:border-primary hover:shadow-xl hover:shadow-primary/20 hover:-translate-y-0.5 transition-all data-[state=active]:border-primary data-[state=active]:shadow-xl data-[state=active]:shadow-primary/20 group"
