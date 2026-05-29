@@ -1,6 +1,7 @@
 import { lazy, Suspense, useMemo } from "react";
 import { BookOpen, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import type { Card } from "@/lib/spaced-repetition";
 import type { SubcategoryNode } from "@/lib/db-types";
 import { usePassiveReaderFilters } from "./passive-reader/usePassiveReaderFilters";
@@ -16,8 +17,8 @@ const PassiveReaderCard = lazy(() =>
 
 function PassiveReaderCardSkeleton() {
   return (
-    <div
-      className="skeleton-premium rounded-2xl border border-border/60"
+    <Skeleton
+      className="rounded-2xl border border-border/60"
       style={{ height: 420 }}
       role="status"
       aria-busy="true"
