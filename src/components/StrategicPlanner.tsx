@@ -1,5 +1,5 @@
 import { Target, BarChart3, Map as MapIcon, Gauge, HelpCircle } from "lucide-react";
-import { useState, useMemo } from "react";
+import { useState, lazy, Suspense, useCallback } from "react";
 import { m } from "framer-motion";
 import InfoPanel from "@/components/InfoPanel";
 import { Card as SRCard } from "@/lib/spaced-repetition";
@@ -7,11 +7,20 @@ import { ReviewLogEntry } from "@/lib/storage";
 import type { CategoryRecord } from "@/lib/db-types";
 import { cn } from "@/lib/utils";
 import { usePlannerData } from "@/hooks/usePlannerData";
-import OperationsTab from "./planner/OperationsTab";
-import RoadmapTab from "./planner/RoadmapTab";
-import DisciplineTab from "./planner/DisciplineTab";
 import PlannerSetupWizard from "./planner/PlannerSetupWizard";
 import PlannerTabSkeleton from "./planner/PlannerTabSkeleton";
+
+// Lazy-loaded tab chunks — skeleton doubles as both data-loading and code-loading fallback.
+const OperationsTab = lazy(() => import("./planner/OperationsTab"));
+const RoadmapTab    = lazy(() => import("./planner/RoadmapTab"));
+const DisciplineTab = lazy(() => import("./planner/DisciplineTab"));
+
+// Idempotent prefetch helpers — invoked on hover/focus of tab triggers.
+const prefetchers: Record<"operations" | "roadmap" | "discipline", () => void> = {
+  operations: () => { void import("./planner/OperationsTab"); },
+  roadmap:    () => { void import("./planner/RoadmapTab"); },
+  discipline: () => { void import("./planner/DisciplineTab"); },
+};
 
 interface Props {
   cards: SRCard[];
@@ -86,6 +95,8 @@ export default function StrategicPlanner({ cards, categories, categoryRecords, r
             <button
               key={tab.key}
               onClick={() => setActiveTab(tab.key)}
+              onMouseEnter={prefetchers[tab.key]}
+              onFocus={prefetchers[tab.key]}
               className={cn(
                 "flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-md text-sm font-medium transition-all",
                 activeTab === tab.key ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
@@ -101,7 +112,7 @@ export default function StrategicPlanner({ cards, categories, categoryRecords, r
       {data.subjectPlans === null ? (
         <PlannerTabSkeleton variant={activeTab} />
       ) : (
-        <>
+        <Suspense fallback={<PlannerTabSkeleton variant={activeTab} />}>
       {activeTab === "operations" && (
         <OperationsTab
           config={data.config}
@@ -146,7 +157,7 @@ export default function StrategicPlanner({ cards, categories, categoryRecords, r
           phaseDisciplinePct={data.phaseDisciplinePct}
         />
       )}
-        </>
+        </Suspense>
       )}
     </div>
   );
