@@ -2,6 +2,7 @@ import { createContext, useContext, useState, useCallback, useRef, useMemo, useE
 import { Card } from "@/lib/spaced-repetition";
 import { ReviewLogEntry } from "@/lib/storage";
 import { persistQueue } from "@/lib/persist-queue";
+import { logger } from "@/lib/logger";
 
 // ─── Types ──────────────────────────────────────────────
 export interface QueuedReview {
