@@ -1096,3 +1096,11 @@ input[type="number"] {
   }
 }
 
+
+/* Lucide icon stroke refinement — global sweep
+   Default Lucide strokeWidth is 2 which reads as chunky at small sizes.
+   1.6 keeps shape legibility while feeling refined. Components may still
+   override via the `strokeWidth` prop (size-sm icons often want 2). */
+.lucide {
+  stroke-width: 1.6;
+}
