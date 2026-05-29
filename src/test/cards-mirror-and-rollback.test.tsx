@@ -209,7 +209,7 @@ describe("useCardMutations.save — rollback on persist failure", () => {
       await result.current.save.mutateAsync(makeCard("c"));
     });
 
-    expect(result.current.save.isSuccess).toBe(true);
+    await waitFor(() => expect(result.current.save.isSuccess).toBe(true));
     // Cache unchanged — no rollback fired, no optimistic patch wired.
     expect(qc.getQueryData(queryKeys.cards.all())).toEqual(initialAll);
   });
