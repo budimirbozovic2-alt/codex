@@ -7,16 +7,18 @@
  */
 import { getSetting, putSetting } from "@/lib/db/queries";
 import { logger } from "@/lib/logger";
+import type { ReviewMode } from "@/components/review/review-constants";
 
 export const REVIEW_SESSION_KEY = "sr-review-session";
 
 const TTL_MS = 2 * 60 * 60 * 1000; // 2h
 
 export interface SavedReviewSession {
-  mode: string;
+  mode: ReviewMode;
   randomIndex: number;
   timestamp: number;
 }
+
 
 function isFreshSession(s: unknown): s is SavedReviewSession {
   if (!s || typeof s !== "object") return false;
