@@ -1,4 +1,5 @@
-import { motion } from "framer-motion";
+import { m } from "framer-motion";
+import { DURATION, EASE } from "@/lib/motion";
 import { useId } from "react";
 import { useCountUp } from "@/hooks/useCountUp";
 
@@ -50,7 +51,7 @@ export default function ProgressRing({
             stroke="hsl(var(--surface-2))"
             strokeWidth={strokeWidth}
           />
-          <motion.circle
+          <m.circle
             cx={size / 2}
             cy={size / 2}
             r={radius}
@@ -61,7 +62,7 @@ export default function ProgressRing({
             strokeDasharray={circumference}
             initial={{ strokeDashoffset: circumference }}
             animate={{ strokeDashoffset: offset }}
-            transition={{ duration: 0.9, ease: [0.22, 0.61, 0.36, 1] }}
+            transition={{ duration: DURATION.slow, ease: EASE.out }}
           />
         </svg>
         <div className="absolute inset-0 flex items-center justify-center">

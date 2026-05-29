@@ -1,7 +1,7 @@
 import { Target, Shield, Zap, BookOpen, ArrowLeft, Play, X as XIcon, HelpCircle, RotateCcw } from "lucide-react";
 import { useState, useMemo, useCallback } from "react";
 import { Card, SRSettings } from "@/lib/spaced-repetition";
-import { motion, AnimatePresence } from "framer-motion";
+import { m, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import OnboardingModal, { hasSeenOnboarding } from "@/components/OnboardingModal";
 import { DueItem, ReviewMode, REVIEW_ONBOARDING_KEY, REVIEW_SLIDES } from "./review-constants";
@@ -162,7 +162,7 @@ export default function ReviewSetup({
   const totalForMode = counts[mode];
 
   return (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="max-w-3xl mx-auto space-y-6 py-10">
+    <m.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="max-w-3xl mx-auto space-y-6 py-10">
       <AnimatePresence>
         {showOnboarding && (
           <OnboardingModal
@@ -233,7 +233,7 @@ export default function ReviewSetup({
 
       {/* Resume saved session */}
       {savedSession && (
-        <motion.div
+        <m.div
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
           className="rounded-xl border border-primary/30 bg-primary/5 p-4 flex items-center gap-3"
@@ -251,7 +251,7 @@ export default function ReviewSetup({
           <button onClick={onClearSavedSession} className="text-muted-foreground hover:text-foreground p-1" aria-label="Odbaci sačuvanu sesiju">
             <XIcon className="h-3.5 w-3.5" />
           </button>
-        </motion.div>
+        </m.div>
       )}
 
       {/* Mode cards (radio-style) */}
@@ -301,6 +301,6 @@ export default function ReviewSetup({
         <BookOpen className="h-4 w-4 mr-2" />
         Počni konsolidaciju ({totalForMode} sekcija)
       </Button>
-    </motion.div>
+    </m.div>
   );
 }

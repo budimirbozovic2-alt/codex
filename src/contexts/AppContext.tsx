@@ -20,6 +20,7 @@ import { UIProvider } from "./ui/UIProvider";
 import { SessionProvider } from "./SessionContext";
 import { BootRecoveryGate } from "./boot/BootRecoveryGate";
 import { useDbError } from "./db/DbErrorProvider";
+import { MotionProvider } from "@/lib/motion";
 
 const LazyDatabaseRecoveryPanel = lazy(() => import("@/components/DatabaseRecoveryPanel"));
 
@@ -68,15 +69,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
   return (
     <RecoveryGate>
       <AppBootstrap />
-      <PomodoroProvider>
-        <UIProvider>
-          <SessionProvider>
-            <BootRecoveryGate>
-              {children}
-            </BootRecoveryGate>
-          </SessionProvider>
-        </UIProvider>
-      </PomodoroProvider>
+      <MotionProvider>
+        <PomodoroProvider>
+          <UIProvider>
+            <SessionProvider>
+              <BootRecoveryGate>
+                {children}
+              </BootRecoveryGate>
+            </SessionProvider>
+          </UIProvider>
+        </PomodoroProvider>
+      </MotionProvider>
     </RecoveryGate>
   );
 }

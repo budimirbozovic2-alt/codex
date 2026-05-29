@@ -1,5 +1,5 @@
 import { BarChart3, Target } from "lucide-react";
-import { motion } from "framer-motion";
+import { m } from "framer-motion";
 import {
   AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer,
 } from "recharts";
@@ -23,7 +23,7 @@ export default function DisciplineTab({
   currentPhase, phaseDisciplinePct,
 }: Props) {
   return (
-    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
+    <m.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
       className="space-y-5">
 
       {/* Rocket Streak Widget */}
@@ -127,6 +127,6 @@ export default function DisciplineTab({
           </div>
         </div>
       )}
-    </motion.div>
+    </m.div>
   );
 }

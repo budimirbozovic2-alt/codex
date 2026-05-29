@@ -2,7 +2,7 @@ import { memo, lazy, Suspense } from "react";
 import { TrendingUp, Brain, Layers, Clock } from "lucide-react";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { ChartTooltip } from "@/components/ui/chart-tooltip";
-import { motion } from "framer-motion";
+import { m } from "framer-motion";
 
 import { Card } from "@/lib/spaced-repetition";
 import { ReviewLogEntry } from "@/lib/storage";
@@ -57,7 +57,7 @@ export interface TodayTimeStat {
 
 const ActivityChart = memo(function ActivityChart({ data }: { data: ActivityPoint[] }) {
   return (
-    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="glass-card rounded-xl p-5 space-y-4">
+    <m.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="glass-card rounded-xl p-5 space-y-4">
       <div className="flex items-center gap-2">
         <TrendingUp className="h-4 w-4 text-primary" />
         <h3 className="text-lg font-medium">Aktivnost (14 dana)</h3>
@@ -87,14 +87,14 @@ const ActivityChart = memo(function ActivityChart({ data }: { data: ActivityPoin
         <span className="flex items-center gap-1.5"><span className="w-3 h-1 rounded-full bg-primary" /> Ponavljanja</span>
         <span className="flex items-center gap-1.5"><span className="w-3 h-1 rounded-full bg-success" /> Nove kartice</span>
       </div>
-    </motion.div>
+    </m.div>
   );
 });
 
 const MasteryPieChart = memo(function MasteryPieChart({ data }: { data: { name: string; value: number }[] }) {
   if (data.length === 0) return null;
   return (
-    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} className="glass-card rounded-xl p-5 space-y-4">
+    <m.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} className="glass-card rounded-xl p-5 space-y-4">
       <div className="flex items-center gap-2">
         <Brain className="h-4 w-4 text-primary" />
         <h3 className="text-lg font-medium">Distribucija znanja</h3>
@@ -119,14 +119,14 @@ const MasteryPieChart = memo(function MasteryPieChart({ data }: { data: { name: 
           </span>
         ))}
       </div>
-    </motion.div>
+    </m.div>
   );
 });
 
 const CategoryBarChart = memo(function CategoryBarChart({ data }: { data: CategoryBarPoint[] }) {
   if (data.length === 0) return null;
   return (
-    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }} className="glass-card rounded-xl p-5 space-y-4 md:col-span-2">
+    <m.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }} className="glass-card rounded-xl p-5 space-y-4 md:col-span-2">
       <div className="flex items-center gap-2">
         <Layers className="h-4 w-4 text-primary" />
         <h3 className="text-lg font-medium">Znanje po kategorijama</h3>
@@ -141,7 +141,7 @@ const CategoryBarChart = memo(function CategoryBarChart({ data }: { data: Catego
           </BarChart>
         </ResponsiveContainer>
       </div>
-    </motion.div>
+    </m.div>
   );
 });
 
@@ -206,7 +206,7 @@ export default function OverviewTab({
       )}
 
       {todayTime && todayTime.totalMs > 60000 && (
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
+        <m.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
           className="glass-card rounded-xl p-5 space-y-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -234,7 +234,7 @@ export default function OverviewTab({
           <p className="text-xs text-muted-foreground">
             Neto kognitivni rad: {todayTime.cognitivePct}% • Logistika: {100 - todayTime.cognitivePct}%
           </p>
-        </motion.div>
+        </m.div>
       )}
     </div>
   );

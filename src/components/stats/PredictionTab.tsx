@@ -1,6 +1,6 @@
 import { CalendarClock } from "lucide-react";
 import { useMemo } from "react";
-import { motion } from "framer-motion";
+import { m } from "framer-motion";
 
 import { Card, SectionState } from "@/lib/spaced-repetition";
 import { ReviewLogEntry } from "@/lib/storage";
@@ -95,7 +95,7 @@ export default function PredictionTab({ cards, categories, reviewLog, catNameMap
           <div className="text-4xl font-bold">{overall.percent}%</div>
           <div className="flex-1">
             <div className="w-full h-3 rounded-full bg-secondary overflow-hidden">
-              <motion.div
+              <m.div
                 initial={{ width: 0 }}
                 animate={{ width: `${overall.percent}%` }}
                 transition={{ duration: 0.8, ease: "easeOut" }}

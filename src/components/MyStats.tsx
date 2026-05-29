@@ -1,7 +1,7 @@
 import { TrendingUp, Target, Clock, Flame, CalendarClock, Activity, BarChart3, HelpCircle } from "lucide-react";
 import { useState, useMemo, lazy, Suspense } from "react";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
-import { motion } from "framer-motion";
+import { FadeUp } from "@/lib/motion";
 
 import InfoPanel from "@/components/InfoPanel";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -47,7 +47,7 @@ export default function MyStats({ cards, categories, categoryRecords, subcategor
 
   return (
     <div className="space-y-8">
-      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
+      <FadeUp>
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-2xl font-bold text-foreground flex items-center gap-2"><BarChart3 className="h-6 w-6 text-primary" /> Statistika</h2>
@@ -83,7 +83,7 @@ export default function MyStats({ cards, categories, categoryRecords, subcategor
             )}
           </div>
         </div>
-      </motion.div>
+      </FadeUp>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <div className="space-y-1">

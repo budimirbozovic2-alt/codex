@@ -1,5 +1,5 @@
 import { ArrowLeft, Timer, Zap } from "lucide-react";
-import { motion } from "framer-motion";
+import { m } from "framer-motion";
 import { Button } from "@/components/ui/button";
 
 interface Props {
@@ -15,7 +15,7 @@ export default function MnemonicTestReminder({ recallLimit, queueLength, onBack,
       <button onClick={onBack} className="text-muted-foreground hover:text-foreground flex items-center gap-1">
         <ArrowLeft className="h-4 w-4" /> Nazad
       </button>
-      <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="text-center py-12 space-y-6">
+      <m.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="text-center py-12 space-y-6">
         <div className="h-20 w-20 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto">
           <Zap className="h-10 w-10 text-primary" />
         </div>
@@ -36,7 +36,7 @@ export default function MnemonicTestReminder({ recallLimit, queueLength, onBack,
         <Button onClick={onStart} size="lg" className="gap-2">
           <Zap className="h-4 w-4" /> Započni testiranje
         </Button>
-      </motion.div>
+      </m.div>
     </div>
   );
 }

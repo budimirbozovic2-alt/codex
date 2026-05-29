@@ -529,5 +529,31 @@ export default tseslint.config(
       ],
     },
   },
+
+  // ─── W10 — Disciplinovan motion ─────────────────────────────────────────
+  // framer-motion smije ulaziti u app SAMO kroz `@/lib/motion` barrel.
+  // Pojedinačni `motion.*` importi su zabranjeni (gube LazyMotion strict
+  // benefit). Koristi `m` iz @/lib/motion ili importuj primitive
+  // (FadeUp, CrossFade, ListItem, Presence). MotionProvider.tsx je jedini
+  // legitiman korisnik `motion`/`LazyMotion`/`MotionConfig` importa.
+  {
+    files: ["src/**/*.{ts,tsx}"],
+    ignores: ["src/lib/motion/**"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          paths: [
+            {
+              name: "framer-motion",
+              importNames: ["motion", "MotionConfig", "LazyMotion", "domAnimation", "domMax"],
+              message:
+                "Koristi @/lib/motion barrel (FadeUp/CrossFade/ListItem/Presence ili `m` iz framer-motion uz eslint-disable + opravdanje). `motion.*` razbija LazyMotion tree-shake (W10).",
+            },
+          ],
+        },
+      ],
+    },
+  },
 );
 

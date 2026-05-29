@@ -1,6 +1,6 @@
 import { Volume2, X, Play, Pause, VolumeX, RotateCcw, Timer, Coffee, Brain, SkipForward } from "lucide-react";
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
-import { motion } from "framer-motion";
+import { m } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -167,7 +167,7 @@ export default function ZenMode({ active, onToggle }: Props) {
   const currentInCycle = cycleCount % interval;
 
   return (
-    <motion.div
+    <m.div
       initial={{ opacity: 0, scale: 0.95 }}
       animate={{ opacity: 1, scale: 1 }}
       exit={{ opacity: 0, scale: 0.95 }}
@@ -201,7 +201,7 @@ export default function ZenMode({ active, onToggle }: Props) {
                 className="stroke-muted/40"
               />
               {/* Progress */}
-              <motion.circle
+              <m.circle
                 cx={RING_SIZE / 2} cy={RING_SIZE / 2} r={RADIUS}
                 fill="none" strokeWidth={STROKE_WIDTH}
                 strokeLinecap="round"
@@ -293,12 +293,12 @@ export default function ZenMode({ active, onToggle }: Props) {
             </SelectContent>
           </Select>
           {noiseOn && (
-            <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }}>
+            <m.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }}>
               <Slider value={[noiseVolume]} min={0.05} max={1} step={0.05} onValueChange={handleVolumeChange} className="py-1" />
-            </motion.div>
+            </m.div>
           )}
         </div>
       </div>
-    </motion.div>
+    </m.div>
   );
 }

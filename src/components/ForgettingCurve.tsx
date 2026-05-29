@@ -2,7 +2,7 @@ import { TrendingDown, Eye, EyeOff } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Card, SectionState } from "@/lib/spaced-repetition";
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from "recharts";
-import { motion } from "framer-motion";
+import { m } from "framer-motion";
 
 
 import { Button } from "@/components/ui/button";
@@ -100,14 +100,14 @@ export default function ForgettingCurve({ cards, categories }: Props) {
 
   if (reviewedSections.length === 0) {
     return (
-      <motion.div
+      <m.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         className="rounded-xl border bg-card p-6 text-center"
       >
         <TrendingDown className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
         <p className="text-muted-foreground">Ponovite barem jednu karticu da vidite prognozu znanja.</p>
-      </motion.div>
+      </m.div>
     );
   }
 
@@ -116,7 +116,7 @@ export default function ForgettingCurve({ cards, categories }: Props) {
     : [];
 
   return (
-    <motion.div
+    <m.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       className="space-y-4"
@@ -215,6 +215,6 @@ export default function ForgettingCurve({ cards, categories }: Props) {
           Ako danas prestanete sa učenjem, vaše pamćenje opada po formuli R = e<sup>−t/S</sup>
         </p>
       </div>
-    </motion.div>
+    </m.div>
   );
 }

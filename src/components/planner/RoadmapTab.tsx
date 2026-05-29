@@ -1,5 +1,5 @@
 import { TrendingUp, Zap } from "lucide-react";
-import { motion } from "framer-motion";
+import { m } from "framer-motion";
 import { Progress } from "@/components/ui/progress";
 import {
   AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, Line, ComposedChart,
@@ -22,7 +22,7 @@ export default function RoadmapTab({
   subjectPlans, bufferPercent,
 }: Props) {
   return (
-    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
+    <m.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
       className="space-y-5">
 
       {/* Burn-up Chart */}
@@ -105,6 +105,6 @@ export default function RoadmapTab({
           ))}
         </div>
       )}
-    </motion.div>
+    </m.div>
   );
 }

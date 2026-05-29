@@ -1,7 +1,7 @@
 import { BarChart3, Clock, Target, Trophy, Check } from "lucide-react";
 import React, { useEffect } from "react";
 
-import { motion } from "framer-motion";
+import { m } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { GRADE_LABELS } from "./types";
 
@@ -35,7 +35,7 @@ const SessionComplete = React.memo(function SessionComplete({
   ];
 
   return (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="max-w-md mx-auto space-y-8 py-16">
+    <m.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="max-w-md mx-auto space-y-8 py-16">
       <div className="text-center space-y-3">
         <div className="inline-flex p-4 rounded-2xl bg-gold/10 mb-2">
           <Trophy className="h-10 w-10 text-gold" />
@@ -79,7 +79,7 @@ const SessionComplete = React.memo(function SessionComplete({
       <Button onClick={onBack} className="w-full btn-imperial bg-primary hover:bg-primary/90 text-primary-foreground">
         <Check className="h-4 w-4 mr-2" /> Zaključi sesiju i sačuvaj napredak
       </Button>
-    </motion.div>
+    </m.div>
   );
 });
 

@@ -2,7 +2,7 @@ import { Info, X } from "lucide-react";
 import { useState } from "react";
 
 
-import { motion, AnimatePresence } from "framer-motion";
+import { m, AnimatePresence } from "framer-motion";
 interface InfoPanelProps {
   title: string;
   children: React.ReactNode;
@@ -24,7 +24,7 @@ export default function InfoPanel({ title, children }: InfoPanelProps) {
         {open && (
           <>
             <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
-            <motion.div
+            <m.div
               initial={{ opacity: 0, y: -8, scale: 0.95 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: -8, scale: 0.95 }}
@@ -39,7 +39,7 @@ export default function InfoPanel({ title, children }: InfoPanelProps) {
               <div className="text-xs text-muted-foreground space-y-2 leading-relaxed">
                 {children}
               </div>
-            </motion.div>
+            </m.div>
           </>
         )}
       </AnimatePresence>

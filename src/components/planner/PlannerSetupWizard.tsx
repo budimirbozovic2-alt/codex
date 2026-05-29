@@ -1,5 +1,5 @@
 import { useState, useId } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { m, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
@@ -79,7 +79,7 @@ export default function PlannerSetupWizard({ config, save, categoryRecords, card
         <div className="p-5 max-h-[60vh] overflow-y-auto">
           <AnimatePresence mode="wait">
             {step === 0 && (
-              <motion.div key="step0" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-5">
+              <m.div key="step0" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-5">
                 {/* Exam date */}
                 <div className="space-y-2">
                   <label className="text-sm font-medium flex items-center gap-2">
@@ -139,11 +139,11 @@ export default function PlannerSetupWizard({ config, save, categoryRecords, card
                   </div>
                   <p className="text-xs text-muted-foreground">Sistem računa kao da ispit počinje {buffer}% ranije, ostavljajući krajnji period za finalno ponavljanje.</p>
                 </div>
-              </motion.div>
+              </m.div>
             )}
 
             {step === 1 && (
-              <motion.div key="step1" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-3">
+              <m.div key="step1" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-3">
                 <p className="text-sm text-muted-foreground">Označi predmete koje smatraš posebno teškim. Oni će dobiti 50% više vremena u rasporedu.</p>
                 {categoryRecords.map(cat => {
                   const catCards = cards.filter(c => c.categoryId === cat.id);
@@ -166,11 +166,11 @@ export default function PlannerSetupWizard({ config, save, categoryRecords, card
                     </div>
                   );
                 })}
-              </motion.div>
+              </m.div>
             )}
 
             {step === 2 && (
-              <motion.div key="step2" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-3">
+              <m.div key="step2" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-3">
                 <p className="text-sm text-muted-foreground">Sistem je automatski generisao raspored na osnovu tvojih parametara. Klikni na predmet za detalje.</p>
                 {previewPlans.length > 0 ? (
                   previewPlans.map((plan, i) => (
@@ -179,7 +179,7 @@ export default function PlannerSetupWizard({ config, save, categoryRecords, card
                 ) : (
                   <p className="text-sm text-muted-foreground py-8 text-center">Nema podataka za generisanje plana. Provjeri da li imaš kartice u kategorijama.</p>
                 )}
-              </motion.div>
+              </m.div>
             )}
           </AnimatePresence>
         </div>

@@ -2,7 +2,7 @@ import { Eye, Check, AlertTriangle } from "lucide-react";
 import { useState, useCallback, useEffect, useRef } from "react";
 import { taskScheduler } from "@/lib/scheduler";
 import { Card } from "@/lib/spaced-repetition";
-import { motion, AnimatePresence } from "framer-motion";
+import { m, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { CardSelectionEditor } from "@/components/card-list/CardSelectionEditor";
 
@@ -131,7 +131,7 @@ export default function StudyModeRecall({
       )}
 
       <AnimatePresence mode="wait">
-        <motion.div key={`${card.id}-${phase}-${isCompleted ? "done" : "active"}`}
+        <m.div key={`${card.id}-${phase}-${isCompleted ? "done" : "active"}`}
           initial={{ opacity: 0, x: 40 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -40 }}
           transition={{ duration: 0.25 }} className="space-y-4">
 
@@ -230,7 +230,7 @@ export default function StudyModeRecall({
           )}
 
           <NavigationButtons currentIndex={currentIndex} totalCards={sortedCards.length} onPrev={goPrev} onNext={goNext} />
-        </motion.div>
+        </m.div>
       </AnimatePresence>
     </div>
   );

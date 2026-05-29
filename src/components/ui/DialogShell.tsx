@@ -1,6 +1,6 @@
 import { ReactNode, useId } from "react";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
-import { motion, AnimatePresence } from "framer-motion";
+import { m, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 
 interface DialogShellProps {
@@ -57,7 +57,7 @@ export default function DialogShell({
         {open && (
           <DialogPrimitive.Portal forceMount>
             <DialogPrimitive.Overlay asChild>
-              <motion.div
+              <m.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
@@ -71,7 +71,7 @@ export default function DialogShell({
               onInteractOutside={(e) => { if (!closeOnBackdrop) e.preventDefault(); }}
               asChild
             >
-              <motion.div
+              <m.div
                 initial={{ opacity: 0, scale: 0.96, y: align === "top" ? -10 : 8 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.96, y: align === "top" ? -10 : 8 }}
@@ -84,7 +84,7 @@ export default function DialogShell({
                   )}
                   {children}
                 </div>
-              </motion.div>
+              </m.div>
             </DialogPrimitive.Content>
           </DialogPrimitive.Portal>
         )}

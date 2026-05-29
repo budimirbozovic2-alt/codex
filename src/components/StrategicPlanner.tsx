@@ -1,6 +1,6 @@
 import { Target, BarChart3, Map as MapIcon, Gauge, HelpCircle } from "lucide-react";
 import { useState, useMemo } from "react";
-import { motion } from "framer-motion";
+import { m } from "framer-motion";
 import InfoPanel from "@/components/InfoPanel";
 import { Card as SRCard } from "@/lib/spaced-repetition";
 import { ReviewLogEntry } from "@/lib/storage";
@@ -38,7 +38,7 @@ export default function StrategicPlanner({ cards, categories, categoryRecords, r
         />
       )}
 
-      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
+      <m.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-2xl font-bold text-foreground flex items-center gap-2"><Gauge className="h-6 w-6 text-primary" /> Strateški planer</h2>
@@ -95,7 +95,7 @@ export default function StrategicPlanner({ cards, categories, categoryRecords, r
             </button>
           ))}
         </div>
-      </motion.div>
+      </m.div>
 
       {activeTab === "operations" && (
         <OperationsTab
