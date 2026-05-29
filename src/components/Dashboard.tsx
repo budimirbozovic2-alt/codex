@@ -149,7 +149,7 @@ export default function Dashboard({ stats, categoryStats, categories, categoryRe
         {/* Action rail — locked, sticky on lg+, scrolls inner overflow on smaller widths */}
         <aside
           aria-label="Brze akcije"
-          className="lg:col-span-1 lg:sticky lg:top-4 self-start space-y-4 min-w-0 lg:max-h-[calc(100vh-2rem)] lg:overflow-y-auto pr-1"
+          className="lg:col-span-1 lg:sticky lg:top-4 self-start space-y-5 min-w-0 lg:max-h-[calc(100vh-2rem)] lg:overflow-y-auto pr-1"
         >
           <QuickActions dueCount={stats.due} hasCards={cards.length > 0} />
           <ToolCards />
