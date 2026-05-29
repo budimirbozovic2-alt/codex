@@ -2,6 +2,7 @@ import { memo, lazy, Suspense } from "react";
 import { TrendingUp, Brain, Layers, Clock } from "lucide-react";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { ChartTooltip } from "@/components/ui/chart-tooltip";
+import { Skeleton } from "@/components/ui/skeleton";
 import { m } from "framer-motion";
 
 import { Card } from "@/lib/spaced-repetition";
