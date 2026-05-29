@@ -123,7 +123,7 @@ function ZettelkastenViewImpl() {
       />
 
       <div className="flex-1 min-w-0 flex flex-col">
-        <div className="flex items-center justify-between gap-3 px-4 py-2 border-b border-border">
+        <div className="flex items-center justify-between gap-3 px-4 py-2 border-b border-hairline">
           <div className="flex items-center gap-2 min-w-0">
             <Link
               to={`/subject/${categoryId}`}

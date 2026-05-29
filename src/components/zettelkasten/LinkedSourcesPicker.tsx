@@ -48,7 +48,7 @@ export default function LinkedSourcesPicker({ allSources, selectedIds, onChange 
           </Button>
         </PopoverTrigger>
         <PopoverContent align="start" className="w-72 p-0">
-          <div className="p-2 border-b border-border">
+          <div className="p-2 border-b border-hairline">
             <Input
               value={query}
               onChange={e => setQuery(e.target.value)}
@@ -89,7 +89,7 @@ export default function LinkedSourcesPicker({ allSources, selectedIds, onChange 
         return (
           <span
             key={id}
-            className="inline-flex items-center gap-1 h-7 pl-2 pr-1 rounded-md border border-border bg-secondary/40 text-[11px]"
+            className="inline-flex items-center gap-1 h-7 pl-2 pr-1 rounded-md border border-hairline bg-secondary/40 text-[11px]"
           >
             <span className="truncate max-w-[160px]">{s.title}</span>
             <button

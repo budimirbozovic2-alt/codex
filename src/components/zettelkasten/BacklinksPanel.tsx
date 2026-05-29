@@ -23,8 +23,8 @@ export default function BacklinksPanel({ subjectId, activeArticleId, activeTitle
   const backlinks = useBacklinks(subjectId, activeTitle, activeArticleId, isEditing);
 
   return (
-    <div className="rounded-md border border-border bg-card/60">
-      <div className="flex items-center gap-1.5 px-3 py-2 border-b border-border text-xs font-medium text-muted-foreground">
+    <div className="rounded-md border border-hairline bg-card/60">
+      <div className="flex items-center gap-1.5 px-3 py-2 border-b border-hairline text-xs font-medium text-muted-foreground">
         <ArrowLeftRight className="h-3.5 w-3.5" />
         Backlinks
         {isEditing && (

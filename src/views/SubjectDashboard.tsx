@@ -266,7 +266,7 @@ export default function SubjectDashboard() {
                 <Progress value={sub.pct} className="h-1.5" style={{ "--progress-color": getMasteryColor(sub.mastery) } as React.CSSProperties} />
 
                 {sub.chapters.length > 0 && (
-                  <div className="pl-4 space-y-1.5 pt-1 border-l border-border/40 ml-1">
+                  <div className="pl-4 space-y-1.5 pt-1 border-l border-hairline/40 ml-1">
                     {sub.chapters.map(ch => (
                       <div key={ch.id} className="flex items-center gap-2">
                         <span className="text-xs text-muted-foreground truncate flex-1">{ch.name}</span>
