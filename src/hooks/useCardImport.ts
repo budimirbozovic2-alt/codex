@@ -107,6 +107,10 @@ export function useCardImport() {
           return;
         }
 
+        // ── 4b. Apply slice: in "cards-and-taxonomy" mode, zero out every
+        //        satellite domain so the ACID tx writes only cards + categories. ──
+        parsed = sliceParsedBackup(parsed, slice);
+
         if (parsed.cards.length === 0 && (!Array.isArray(parsed.categories) || parsed.categories.length === 0)) {
           toast.error("Fajl ne sadrži kartice ni kategorije za uvoz.");
           return;
