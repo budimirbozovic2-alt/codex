@@ -22,7 +22,7 @@ export const VelocityWidget = memo(function VelocityWidget({ velocityData, weake
           {velocityData ? (
             <>
               <div className="flex items-baseline gap-2">
-                <p className="text-3xl font-semibold tabular-nums">{velocityData.velocity}</p>
+                <p className="text-display text-4xl font-semibold tabular leading-none">{velocityData.velocity}</p>
                 <span className="text-sm text-muted-foreground">sekcija/dan</span>
               </div>
               <p className="text-xs text-muted-foreground">

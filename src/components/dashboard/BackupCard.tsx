@@ -56,7 +56,7 @@ export const BackupCard = memo(function BackupCard() {
 
   return (
     <div
-      className="glass-card rounded-xl p-5 space-y-4 animate-fade-up"
+      className="glass-card hover-lift rounded-xl p-5 space-y-4 animate-fade-up"
       style={{ animationDelay: "120ms", animationFillMode: "both" }}
     >
       <div className="flex items-start gap-3">
