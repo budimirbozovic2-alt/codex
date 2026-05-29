@@ -68,9 +68,9 @@ export default function Dashboard({ stats, categoryStats, categories, categoryRe
         - The actions <aside> is lg:sticky so Strateški planer / Statistika
           NEVER scroll out of the viewport regardless of planner payload size.
       */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
         {/* Analytics column (everything dynamic) */}
-        <div className="lg:col-span-2 space-y-6 min-w-0">
+        <div className="lg:col-span-2 space-y-8 min-w-0">
           {wc.showCoreStats && (
             <CoreStats
               due={stats.due}
