@@ -1,5 +1,5 @@
 import { Target, BarChart3, Map as MapIcon, Gauge, HelpCircle } from "lucide-react";
-import { useState, lazy, Suspense, useCallback } from "react";
+import { useState, lazy, Suspense, useMemo } from "react";
 import { m } from "framer-motion";
 import InfoPanel from "@/components/InfoPanel";
 import { Card as SRCard } from "@/lib/spaced-repetition";
@@ -35,6 +35,16 @@ export default function StrategicPlanner({ cards, categories, categoryRecords, r
   const data = usePlannerData(cards, reviewLog, categoryRecords);
   const [activeTab, setActiveTab] = useState<"operations" | "roadmap" | "discipline">("operations");
   const [showWizard, setShowWizard] = useState(!data.isConfigured);
+
+  // Local narrows `subjectPlans` to `SubjectPlan[]` for the loaded branch.
+  const { subjectPlans } = data;
+
+  // Stable derived value — avoids recreating { name } object on each render.
+  const currentPhase = useMemo(() => {
+    if (!subjectPlans) return null;
+    const p = subjectPlans.find(p => p.pct < 100);
+    return p ? { name: p.categoryName } : null;
+  }, [subjectPlans]);
 
   return (
     <div className="space-y-6">
@@ -109,7 +119,7 @@ export default function StrategicPlanner({ cards, categories, categoryRecords, r
         </div>
       </m.div>
 
-      {data.subjectPlans === null ? (
+      {!data.isReady || subjectPlans === null ? (
         <PlannerTabSkeleton variant={activeTab} />
       ) : (
         <Suspense fallback={<PlannerTabSkeleton variant={activeTab} />}>
@@ -117,7 +127,7 @@ export default function StrategicPlanner({ cards, categories, categoryRecords, r
         <OperationsTab
           config={data.config}
           save={data.save}
-          subjectPlans={data.subjectPlans}
+          subjectPlans={subjectPlans}
           velocity={data.velocity}
           remaining={data.remaining}
           estimatedFinish={data.estimatedFinish}
@@ -142,7 +152,7 @@ export default function StrategicPlanner({ cards, categories, categoryRecords, r
           velocity={data.velocity}
           remaining={data.remaining}
           totalSections={data.totalSections}
-          subjectPlans={data.subjectPlans}
+          subjectPlans={subjectPlans}
           bufferPercent={data.config.bufferPercent}
         />
       )}
@@ -153,7 +163,7 @@ export default function StrategicPlanner({ cards, categories, categoryRecords, r
           disciplineTrend={data.disciplineTrend}
           streak={data.streak}
           bestStreak={data.bestStreak}
-          currentPhase={(() => { const p = data.subjectPlans.find(p => p.pct < 100); return p ? { name: p.categoryName } : null; })()}
+          currentPhase={currentPhase}
           phaseDisciplinePct={data.phaseDisciplinePct}
         />
       )}
