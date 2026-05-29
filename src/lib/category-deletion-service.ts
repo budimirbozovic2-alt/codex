@@ -81,7 +81,8 @@ export async function cascadeDeleteCategoryDomains(
 
 
   // 4. Notify bridges — TanStack invalidates all affected query keys.
-  notifyCardsChanged();
+  // Scoped emit: only this category's slices + the always-affected ['cards','all'].
+  notifyCardsChanged({ kind: "category", categoryId });
   notifyKnowledgeBaseChanged();
   notifyMnemonics();
   if (result.mindMaps > 0) invalidateMindMapsCache();
