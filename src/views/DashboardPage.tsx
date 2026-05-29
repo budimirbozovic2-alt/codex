@@ -35,7 +35,7 @@ export default function DashboardPage() {
     <ErrorBoundary label="Dashboard" onNavigateHome={() => setView("dashboard")}>
       {cards.length === 0 ? (
         <div className="space-y-6">
-          <EmptyState type="dashboard" onAction={() => setView("create")} />
+          <EmptyState type="dashboard" onAction={() => setShowOnboarding(true)} />
           <QuickActions dueCount={0} hasCards={false} />
           <ToolCards />
           <BackupCard />
