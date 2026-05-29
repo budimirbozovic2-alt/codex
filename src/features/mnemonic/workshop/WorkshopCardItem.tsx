@@ -123,7 +123,7 @@ function WorkshopCardItemInner({ card, isExpanded, onToggle, onUpdateCard, onDel
                 </div>
 
                 {editMode ? (
-                  <Suspense fallback={<div className="h-20 animate-pulse bg-secondary rounded-lg" />}>
+                  <Suspense fallback={<Skeleton className="h-20 rounded-lg" />}>
                     <div className="space-y-3">
                       <div>
                         <label className="text-[11px] text-muted-foreground">Pitanje</label>
