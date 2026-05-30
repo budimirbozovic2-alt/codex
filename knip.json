@@ -1,0 +1,22 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  "entry": [
+    "src/App.tsx",
+    "src/workers/**/*.ts",
+    "src/test/**/*.{ts,tsx}",
+    "src/scripts/**/*.ts",
+    "main.cjs",
+    "preload.cjs",
+    "electron/**/*.cjs"
+  ],
+  "project": [
+    "src/**/*.{ts,tsx}",
+    "!src/**/*.d.ts"
+  ],
+  "ignore": [
+    "src/lib/legacy/**"
+  ],
+  "ignoreDependencies": [
+    "@types/*"
+  ]
+}
