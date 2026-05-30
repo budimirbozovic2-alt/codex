@@ -1,64 +1,67 @@
 /**
- * PR-8 M2 — migrateFromIdb: paged copy, row-count verification, rollback on
- * mismatch. The Dexie side is mocked via vi.mock; the SQLite side is a small
- * in-memory executor that honours BEGIN/COMMIT/ROLLBACK so the count-check
- * abort path can be exercised.
+ * migrateFromIdb (Phase C): raw IDB reader + SQLite executor. The legacy
+ * Dexie shell is gone — we mock `@/lib/persistence/sqlite/idb-raw-reader`
+ * instead. SQLite side is an in-memory executor that honours
+ * BEGIN/COMMIT/ROLLBACK so the count-check abort path can be exercised.
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { SqlBindValue, SqlExecutor, SqlRow } from "@/lib/persistence/sqlite/executor";
 
-// ── Dexie mock ─────────────────────────────────────────────────────────────
-interface FakeTable<T> {
-  rows: T[];
-  orderBy(_k: string): { offset(o: number): { limit(n: number): { toArray(): Promise<T[]> } } };
-}
-function fakeTable<T>(rows: T[]): FakeTable<T> {
-  return {
-    rows,
-    orderBy() {
-      return {
-        offset(o: number) {
-          return {
-            limit(n: number) {
-              return { toArray: async () => rows.slice(o, o + n) };
-            },
-          };
-        },
-      };
-    },
-  };
-}
+// ── Raw IDB reader mock ───────────────────────────────────────────────────
+type StoreName =
+  | "categories" | "sources" | "cards" | "mindMaps" | "mnemonics"
+  | "knowledgeBaseArticles" | "majorSystem" | "mnemonicTestLog"
+  | "settings" | "disciplineLog" | "drafts";
 
-const fakeDb = {
-  categories: fakeTable<{ id: string; name: string; sortOrder: number; color?: string }>([
+const stores: Record<StoreName, unknown[]> = {
+  categories: [
     { id: "c1", name: "Cat 1", sortOrder: 0 },
     { id: "c2", name: "Cat 2", sortOrder: 1 },
-  ]),
-  sources: fakeTable<{ id: string; categoryId: string; title: string }>([
-    { id: "s1", categoryId: "c1", title: "S1" },
-  ]),
-  cards: fakeTable<{
-    id: string; question: string; sections: []; categoryId: string; createdAt: number;
-    readCount: number; type: "essay";
-  }>([
+  ],
+  sources: [{ id: "s1", categoryId: "c1", title: "S1" }],
+  cards: [
     { id: "k1", question: "Q1", sections: [], categoryId: "c1", createdAt: 1, readCount: 0, type: "essay" },
     { id: "k2", question: "Q2", sections: [], categoryId: "c1", createdAt: 2, readCount: 0, type: "essay" },
     { id: "k3", question: "Q3", sections: [], categoryId: "c2", createdAt: 3, readCount: 0, type: "essay" },
-  ]),
-  mindMaps: fakeTable<{ id: string; categoryId: string; title: string; updatedAt: number }>([]),
-  mnemonics: fakeTable<{ id: string; categoryId: string; createdAt: number }>([]),
-  knowledgeBaseArticles: fakeTable<{ id: string; subjectId: string; title: string; updatedAt: number; isIndex?: boolean }>([]),
-  majorSystem: fakeTable<{ id: number; peg: string }>([]),
-  mnemonicTestLog: fakeTable<{ id?: number; cardId: string; timestamp: number; success: boolean }>([]),
+  ],
+  mindMaps: [],
+  mnemonics: [],
+  knowledgeBaseArticles: [],
+  majorSystem: [],
+  mnemonicTestLog: [],
+  settings: [],
+  disciplineLog: [],
+  drafts: [],
 };
 
-vi.mock("@/lib/legacy/idb-dexie", () => ({ db: fakeDb }));
+const fakeIdb = { __fake: true } as unknown as IDBDatabase;
+
+vi.mock("@/lib/persistence/sqlite/idb-raw-reader", () => ({
+  openLegacyIdb: async () => fakeIdb,
+  streamStore: async <T,>(
+    _db: IDBDatabase,
+    name: StoreName,
+    onPage: (rows: T[]) => Promise<void>,
+    pageSize = 500,
+  ) => {
+    const rows = (stores[name] ?? []) as T[];
+    let total = 0;
+    for (let i = 0; i < rows.length; i += pageSize) {
+      const page = rows.slice(i, i + pageSize);
+      await onPage(page);
+      total += page.length;
+    }
+    return total;
+  },
+  listAllRows: async <T,>(_db: IDBDatabase, name: StoreName) =>
+    (stores[name] ?? []) as T[],
+  getKv: async <T,>(_db: IDBDatabase, _name: StoreName, _key: string) => undefined as T | undefined,
+}));
 
 // ── In-memory SqlExecutor honouring tx semantics ──────────────────────────
 interface MockState {
   tables: Record<string, Map<string, unknown[]>>;
   kv: Map<string, string>;
-  /** Snapshot stack for nested BEGIN/COMMIT — we only need depth 1 for migration. */
   snapshot: { tables: Record<string, Map<string, unknown[]>>; kv: Map<string, string> } | null;
   inTx: boolean;
 }
@@ -71,7 +74,6 @@ function createExecutor(): SqlExecutor {
     inTx: false,
   };
 
-  // Test hook: a predicate returning true silently drops that INSERT.
   let dropFilter: ((sql: string, params: readonly SqlBindValue[]) => boolean) | null = null;
 
   const handleInsert = (sql: string, params: readonly SqlBindValue[]): void => {
@@ -120,7 +122,6 @@ function createExecutor(): SqlExecutor {
     };
     state.inTx = true;
     try {
-      // Delegate back to `api` (defined below) so test-time monkey-patching
       const result = await fn({
         run: (sql, params) => api.run(sql, params),
         runMany: (sql, batches) => api.runMany(sql, batches),
@@ -155,7 +156,7 @@ function createExecutor(): SqlExecutor {
 beforeEach(() => { vi.clearAllMocks(); });
 
 describe("migrateFromIdb", () => {
-  it("copies every Dexie table and writes the migration flag", async () => {
+  it("copies every legacy store and writes the migration flag", async () => {
     const { migrateFromIdb, MIGRATION_FLAG_KEY } = await import(
       "@/lib/persistence/sqlite/migrate-from-idb"
     );
@@ -189,7 +190,6 @@ describe("migrateFromIdb", () => {
       _setDropFilter: (fn: ((sql: string) => boolean) | null) => void;
     })._setDropFilter;
 
-    // Force a count mismatch on `cards` by swallowing one INSERT.
     let dropped = false;
     setDropFilter((sql) => {
       if (!dropped && /INSERT OR REPLACE INTO cards/i.test(sql)) {
@@ -200,10 +200,7 @@ describe("migrateFromIdb", () => {
     });
 
     await expect(migrateFromIdb(executor)).rejects.toBeInstanceOf(MigrationAbort);
-
-    // Rollback restored the snapshot → cards table is empty again.
     expect(state.tables.cards.size).toBe(0);
-    // Flag was never set, so next boot retries.
     expect(state.kv.has(MIGRATION_FLAG_KEY)).toBe(false);
   });
 });
