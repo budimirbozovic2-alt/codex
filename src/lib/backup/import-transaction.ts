@@ -16,7 +16,7 @@ import { backupLog } from "@/lib/backup/backup-logger";
 import { categoryRepository } from "@/lib/repositories";
 import { readAllCategoriesForBackup } from "@/lib/db/queries";
 import { getOpfsSqliteExecutor } from "@/lib/persistence/sqlite/client";
-import { assertDesktop } from "@/lib/electron-integration";
+import { assertDesktop, isElectron } from "@/lib/electron-integration";
 
 import type { ImportCtx, ImportTxResult, ImportStrategy } from "@/lib/backup/import-types";
 import {
