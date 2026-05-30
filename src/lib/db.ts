@@ -1,6 +1,5 @@
-// A1c Phase 3: `@/lib/db` no longer re-exports the Dexie shell. Callers
-// that still need the legacy IDB surface must import from
-// `@/lib/legacy/idb-dexie` explicitly (lazy-loaded behind the migration
-// flag — see `bootDb.ts`). Domain types live in `@/lib/db-types`,
-// error utilities in `@/lib/db-error`, and seed helpers below.
+// Phase C: Dexie shell removed. Domain types live in `@/lib/db-types`,
+// error utilities in `@/lib/db-error`, runtime queries in `@/lib/db/queries`,
+// and the IDB→SQLite migration in `@/lib/persistence/sqlite/migrate-from-idb`.
+// This barrel only re-exports seed helpers.
 export * from "./db-seed";

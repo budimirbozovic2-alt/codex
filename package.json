@@ -87,7 +87,6 @@
     "clsx": "^2.1.1",
     "comlink": "^4.4.2",
     "date-fns": "^3.6.0",
-    "dexie": "^4.3.0",
     "diff-match-patch": "^1.0.5",
     "dompurify": "^3.3.3",
     "framer-motion": "^12.36.0",
