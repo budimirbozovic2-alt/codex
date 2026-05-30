@@ -2,9 +2,7 @@
  * Phase C — raw IDB reader for the one-shot IDB → SQLite migration.
  *
  * Replaces the Dexie shell as the migration source. Uses the native
- * IndexedDB API only, so the migration code path no longer imports Dexie
- * (the `@/lib/legacy/idb-dexie.ts` shell can be deleted once all callers
- * route through here).
+ * IndexedDB API only, so the migration code path no longer imports Dexie.
  *
  * Contract:
  *   • `openLegacyIdb()` returns `null` on fresh installs (no `MemoriaDB`
