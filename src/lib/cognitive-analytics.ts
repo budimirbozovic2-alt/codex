@@ -1,6 +1,8 @@
-// Barrel re-exports — backward compatibility
-export { calcInterferencePairs, type InterferencePair } from "./analytics/interference";
-export { calcCategoryStability, type CategoryStabilityInfo, calcStrategicRealityCheck, type StrategicAlert } from "./analytics/stability";
-export { calcStressPerformance, type StressPerformance, calcFrictionAnalysis, type FrictionInsight } from "./analytics/friction";
-export { calcBlindSpots, type BlindSpot, calcWeakHooks, type WeakHook } from "./analytics/blind-spots";
-export { calcRecoveryRate, type RecoveryStats } from "./analytics/recovery";
+/**
+ * Thin backward-compat shim. All real analytics live in `@/lib/analytics/*`.
+ * Only `calcWeakHooks` still has an external consumer; everything else was
+ * pruned (knip flagged unused re-exports). If a new caller appears, prefer
+ * importing directly from `@/lib/analytics/<topic>` instead of expanding
+ * this barrel.
+ */
+export { calcWeakHooks } from "./analytics/blind-spots";
