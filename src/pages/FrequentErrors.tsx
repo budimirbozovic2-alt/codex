@@ -1,13 +1,10 @@
-import { Trash2, AlertCircle, Target, TrendingUp, Trophy, ChevronDown, ChevronRight, Flame, ShieldCheck } from "lucide-react";
+import { Trash2, AlertCircle, Target, Trophy, ChevronDown, ChevronRight, Flame, ShieldCheck } from "lucide-react";
 import { useMemo, useState } from "react";
-import { Card, ErrorLogEntry, getErrorStatus, ErrorStatus } from "@/lib/spaced-repetition";
+import { getErrorStatus, type Card, type ErrorStatus } from "@/lib/spaced-repetition";
 import { derivePlainText } from "@/lib/editor-v4/derived";
-import type { CategoryRecord } from "@/lib/db-types";
-import { getSubcategoryName } from "@/lib/category-service";
-
-
+import { useCategoryData, useCardOnlyActions } from "@/contexts/AppContext";
+import { useCardsByCategory } from "@/store";
 import { m, AnimatePresence } from "framer-motion";
-import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 interface AggregatedError {
   text: string;
@@ -50,9 +47,7 @@ function HighlightedSentence({ sectionContent, errorText }: { sectionContent: st
 }
 
 interface Props {
-  cards: Card[];
-  categoryRecords: CategoryRecord[];
-  onClearErrorLog: (cardId: string) => void;
+  categoryId: string;
   embedded?: boolean;
 }
 
@@ -93,8 +88,12 @@ function ProgressBar({ count, successes, streak }: { count: number; successes: n
   );
 }
 
-export default function FrequentErrors({ cards, categoryRecords, onClearErrorLog, embedded }: Props) {
-  
+export default function FrequentErrors({ categoryId, embedded }: Props) {
+  const { categoryRecords } = useCategoryData();
+  const { clearErrorLog } = useCardOnlyActions();
+  const cardsRo = useCardsByCategory(categoryId);
+  const cards = useMemo(() => cardsRo as readonly Card[] as Card[], [cardsRo]);
+
   const [showMastered, setShowMastered] = useState(false);
 
   const catNameMap = useMemo(() => {
@@ -162,7 +161,7 @@ export default function FrequentErrors({ cards, categoryRecords, onClearErrorLog
   const masteredGroups = groupByCategory(mastered);
 
   const handleClear = (cardId: string, cardQuestion: string) => {
-    onClearErrorLog(cardId);
+    clearErrorLog(cardId);
     toast("Greške obrisane", { description: `Obrisane greške za: "${cardQuestion.length > 30 ? cardQuestion.slice(0, 30) + "…" : cardQuestion}"` });
   };
 
