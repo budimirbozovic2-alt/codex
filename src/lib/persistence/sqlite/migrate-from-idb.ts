@@ -1,36 +1,46 @@
 /**
- * One-shot IDB → SQLite migration — PR-8 M2.
+ * One-shot IDB → SQLite migration.
  *
  * Runs once on Electron boot when `kv['migrated-from-idb-v1']` is missing.
- * Reads each Dexie table in id-ordered pages and bulk-inserts into SQLite
- * inside a single transaction per table.
+ * Reads each legacy IDB object store via the raw cursor API
+ * (`@/lib/persistence/sqlite/idb-raw-reader`) and bulk-inserts into SQLite
+ * inside one transaction per table. **No Dexie import** — Phase C teardown.
  *
  * Safety rails:
  *   • Per-table row-count verification. After all rows of a table are read
  *     and inserted, we count both sides; mismatch throws inside the SQLite
  *     `transaction(...)` so the COMMIT becomes a ROLLBACK. The flag is NOT
- *     written, so the next boot retries the whole migration. Dexie data is
- *     never deleted.
+ *     written, so the next boot retries the whole migration. Legacy IDB
+ *     data is never deleted by this module.
  *   • Parent tables (categories, sources) are copied before children so FK
  *     CASCADE constraints don't reject child inserts.
- *   • All errors are wrapped in `MigrationAbort` so the boot orchestrator
- *     can decide whether to surface or swallow — current wiring swallows so
- *     the user keeps booting on IDB and the failure goes to the logger.
- *
- * NOT a transactional read of Dexie: an in-flight write during migration
- * may leave the SQLite side slightly behind. That's acceptable because the
- * adapter is still IDB-primary in this PR — SQLite is dormant. The next
- * write after activation will reach SQLite via the regular adapter path.
+ *   • `openLegacyIdb()` returning `null` (fresh install, no MemoriaDB) is
+ *     a happy path — we write the flag immediately and return
+ *     `alreadyComplete: true`.
  */
-import { db } from "@/lib/legacy/idb-dexie";
-import type { Table } from "dexie";
 import type { SqlBindValue, SqlExecutor } from "./executor";
 import { bindCardInsert, CARD_INSERT_SQL } from "./row-codecs";
+import {
+  openLegacyIdb,
+  streamStore,
+  listAllRows,
+  getKv,
+} from "./idb-raw-reader";
+import type { Card } from "@/lib/spaced-repetition";
+import type {
+  CategoryRecord,
+  Source,
+  MindMapDoc,
+  KnowledgeBaseArticle,
+  DraftRecord,
+} from "@/lib/db-types";
+import type { MnemonicCard, MnemonicTestLogEntry } from "@/features/mnemonic";
+import type { DisciplineEntry } from "@/lib/planner-storage";
 import { logger } from "@/lib/logger";
 
 export const MIGRATION_FLAG_KEY = "migrated-from-idb-v1";
 
-/** Page size for Dexie `offset/limit` reads — keeps memory bounded on big libraries. */
+/** Page size for cursor reads — keeps memory bounded on big libraries. */
 const PAGE_SIZE = 500;
 
 export interface MigrationCounts {
@@ -43,6 +53,11 @@ export interface MigrationCounts {
   majorSystem: number;
   mnemonicTestLog: number;
 }
+
+const ZERO_COUNTS: MigrationCounts = {
+  categories: 0, sources: 0, cards: 0, mindMaps: 0,
+  mnemonics: 0, knowledgeBaseArticles: 0, majorSystem: 0, mnemonicTestLog: 0,
+};
 
 export interface MigrationReport {
   alreadyComplete: boolean;
@@ -66,26 +81,16 @@ async function isAlreadyMigrated(exec: SqlExecutor): Promise<boolean> {
   return rows.length > 0;
 }
 
-/**
- * Stream a Dexie table page-by-page via `orderBy('id').offset(o).limit(n)`.
- * Pages are processed by `onPage` inside the caller's existing transaction.
- */
-async function streamTable<T>(
-  table: Table<T, string>,
-  onPage: (rows: T[]) => Promise<void>,
-): Promise<number> {
-  let offset = 0;
-  let total = 0;
-  // eslint-disable-next-line no-constant-condition
-  while (true) {
-    const page = await table.orderBy("id").offset(offset).limit(PAGE_SIZE).toArray();
-    if (page.length === 0) break;
-    await onPage(page);
-    total += page.length;
-    if (page.length < PAGE_SIZE) break;
-    offset += PAGE_SIZE;
-  }
-  return total;
+async function writeFlagsAndPersist(exec: SqlExecutor, counts: MigrationCounts): Promise<void> {
+  await exec.run(
+    "INSERT OR REPLACE INTO kv (key, value) VALUES (?, ?)",
+    [MIGRATION_FLAG_KEY, JSON.stringify({ at: Date.now(), counts })],
+  );
+  try {
+    if (typeof localStorage !== "undefined") {
+      localStorage.setItem(MIGRATION_FLAG_KEY, String(Date.now()));
+    }
+  } catch { /* private mode / quota — non-fatal */ }
 }
 
 const CATEGORY_SQL =
@@ -100,15 +105,14 @@ const KB_ARTICLE_SQL =
   "INSERT OR REPLACE INTO knowledgeBaseArticles (id, subjectId, title, updatedAt, isIndex, payload) VALUES (?, ?, ?, ?, ?, ?)";
 const MAJOR_SYSTEM_SQL =
   "INSERT OR REPLACE INTO majorSystem (id, peg) VALUES (?, ?)";
-// AUTOINCREMENT: pass explicit id when the Dexie row already has one so the
-// migration is idempotent across retries; otherwise SQLite assigns it.
 const MNEMONIC_TEST_LOG_SQL =
   "INSERT OR REPLACE INTO mnemonicTestLog (id, cardId, timestamp, success, payload) VALUES (?, ?, ?, ?, ?)";
 
-async function copyTable<T>(
+async function copyStore<T>(
   exec: SqlExecutor,
   table: keyof MigrationCounts,
-  source: Table<T, string>,
+  idb: IDBDatabase,
+  storeName: string,
   toRow: (row: T) => readonly SqlBindValue[],
   sql: string,
   destCountSql: string,
@@ -116,17 +120,17 @@ async function copyTable<T>(
   let inserted = 0;
   try {
     await exec.transaction(async (tx) => {
-      inserted = await streamTable<T>(source, async (page) => {
+      inserted = await streamStore<T>(idb, storeName, async (page) => {
         for (const row of page) {
           await tx.run(sql, toRow(row));
         }
-      });
+      }, PAGE_SIZE);
       const destRows = await tx.all<{ n: number }>(destCountSql);
       const destCount = Number(destRows[0]?.n ?? 0);
       if (destCount !== inserted) {
         throw new MigrationAbort(
           table,
-          `row-count mismatch (dexie=${inserted}, sqlite=${destCount}) — rolling back`,
+          `row-count mismatch (idb=${inserted}, sqlite=${destCount}) — rolling back`,
         );
       }
     });
@@ -140,134 +144,94 @@ async function copyTable<T>(
 export async function migrateFromIdb(exec: SqlExecutor): Promise<MigrationReport> {
   const t0 = Date.now();
   if (await isAlreadyMigrated(exec)) {
-    return {
-      alreadyComplete: true,
-      counts: { categories: 0, sources: 0, cards: 0, mindMaps: 0, mnemonics: 0, knowledgeBaseArticles: 0, majorSystem: 0, mnemonicTestLog: 0 },
-      durationMs: 0,
-    };
+    return { alreadyComplete: true, counts: ZERO_COUNTS, durationMs: 0 };
   }
 
-  const counts: MigrationCounts = {
-    // Parents first — FK CASCADE in schema.sql requires the referenced rows
-    // to exist before child inserts run.
-    categories: await copyTable(
-      exec,
-      "categories",
-      db.categories,
-      (c) => [c.id, c.name, c.sortOrder ?? 0, c.color ?? null, JSON.stringify(c)],
-      CATEGORY_SQL,
-      "SELECT COUNT(*) AS n FROM categories",
-    ),
-    sources: await copyTable(
-      exec,
-      "sources",
-      db.sources,
-      (s) => [
-        s.id, s.categoryId, s.title,
-        (s as { version?: number }).version ?? 1,
-        (s as { createdAt?: number }).createdAt ?? Date.now(),
-        (s as { sourceKind?: string }).sourceKind ?? null,
-        JSON.stringify(s),
-      ],
-      SOURCE_SQL,
-      "SELECT COUNT(*) AS n FROM sources",
-    ),
-    cards: await copyTable(
-      exec,
-      "cards",
-      db.cards,
-      (c) => bindCardInsert(c),
-      CARD_INSERT_SQL,
-      "SELECT COUNT(*) AS n FROM cards",
-    ),
-    mindMaps: await copyTable(
-      exec,
-      "mindMaps",
-      db.mindMaps,
-      (m) => [m.id, m.categoryId, m.title, m.updatedAt ?? Date.now(), JSON.stringify(m)],
-      MINDMAP_SQL,
-      "SELECT COUNT(*) AS n FROM mindMaps",
-    ),
-    mnemonics: await copyTable(
-      exec,
-      "mnemonics",
-      db.mnemonics,
-      (m) => [
-        m.id, m.categoryId,
-        (m as { subcategoryId?: string }).subcategoryId ?? null,
-        (m as { mnemonicStatus?: string }).mnemonicStatus ?? null,
-        (m as { hookType?: string }).hookType ?? null,
-        (m as { createdAt?: number }).createdAt ?? Date.now(),
-        JSON.stringify(m),
-      ],
-      MNEMONIC_SQL,
-      "SELECT COUNT(*) AS n FROM mnemonics",
-    ),
-    // PR-9 A1b P1.4 — Zettelkasten articles. FK on subjectId → categories.
-    knowledgeBaseArticles: await copyTable(
-      exec,
-      "knowledgeBaseArticles",
-      db.knowledgeBaseArticles,
-      (a) => [
-        a.id, a.subjectId, a.title,
-        a.updatedAt ?? Date.now(),
-        a.isIndex ? 1 : 0,
-        JSON.stringify(a),
-      ],
-      KB_ARTICLE_SQL,
-      "SELECT COUNT(*) AS n FROM knowledgeBaseArticles",
-    ),
-    // PR-9 A1b P1.6 — Major System pegs. Numeric PK; cast satisfies the
-    // streamTable generic which is keyed on string for the common case.
-    majorSystem: await copyTable(
-      exec,
-      "majorSystem",
-      db.majorSystem as unknown as import("dexie").Table<{ id: number; peg: string }, string>,
-      (p) => [p.id, p.peg],
-      MAJOR_SYSTEM_SQL,
-      "SELECT COUNT(*) AS n FROM majorSystem",
-    ),
-    // PR-9 A1b P1.6 — Mnemonic test log. AUTOINCREMENT id; pass-through when
-    // Dexie row already has one. Append-only, no FK.
-    mnemonicTestLog: await copyTable(
-      exec,
-      "mnemonicTestLog",
-      db.mnemonicTestLog as unknown as import("dexie").Table<
-        { id?: number; cardId: string; timestamp: number; success: boolean },
-        string
-      >,
-      (e) => [
-        e.id ?? null,
-        e.cardId,
-        e.timestamp,
-        e.success ? 1 : 0,
-        JSON.stringify(e),
-      ],
-      MNEMONIC_TEST_LOG_SQL,
-      "SELECT COUNT(*) AS n FROM mnemonicTestLog",
-    ),
-  };
+  const idb = await openLegacyIdb();
+  if (!idb) {
+    // Fresh install — no legacy IDB to copy. Write the flag so the boot
+    // fast-path triggers on every subsequent boot and we never probe again.
+    await writeFlagsAndPersist(exec, ZERO_COUNTS);
+    logger.info("[sqlite] no legacy IDB present — migration flag set");
+    return { alreadyComplete: true, counts: ZERO_COUNTS, durationMs: Date.now() - t0 };
+  }
 
-  // Flag commit happens OUTSIDE the per-table txes so a crash between the
-  // last table and the flag write simply re-runs the migration (idempotent
-  // via INSERT OR REPLACE). Dexie data is intentionally NOT deleted — PR-9.
-  await exec.run(
-    "INSERT OR REPLACE INTO kv (key, value) VALUES (?, ?)",
-    [MIGRATION_FLAG_KEY, JSON.stringify({ at: Date.now(), counts })],
-  );
-
-  // Mirror the flag into localStorage so the persist-queue module init
-  // (runs before any async SQLite read) can sync-detect completion on the
-  // *next* boot and flip the adapter to SQLite-primary.
   try {
-    if (typeof localStorage !== "undefined") {
-      localStorage.setItem(MIGRATION_FLAG_KEY, String(Date.now()));
-    }
-  } catch { /* private mode or quota — non-fatal */ }
+    const counts: MigrationCounts = {
+      // Parents first — FK CASCADE requires referenced rows to exist.
+      categories: await copyStore<CategoryRecord>(
+        exec, "categories", idb, "categories",
+        (c) => [c.id, c.name, c.sortOrder ?? 0, c.color ?? null, JSON.stringify(c)],
+        CATEGORY_SQL, "SELECT COUNT(*) AS n FROM categories",
+      ),
+      sources: await copyStore<Source>(
+        exec, "sources", idb, "sources",
+        (s) => [
+          s.id, s.categoryId, s.title,
+          (s as { version?: number }).version ?? 1,
+          (s as { createdAt?: number }).createdAt ?? Date.now(),
+          (s as { sourceKind?: string }).sourceKind ?? null,
+          JSON.stringify(s),
+        ],
+        SOURCE_SQL, "SELECT COUNT(*) AS n FROM sources",
+      ),
+      cards: await copyStore<Card>(
+        exec, "cards", idb, "cards",
+        (c) => bindCardInsert(c),
+        CARD_INSERT_SQL, "SELECT COUNT(*) AS n FROM cards",
+      ),
+      mindMaps: await copyStore<MindMapDoc>(
+        exec, "mindMaps", idb, "mindMaps",
+        (m) => [m.id, m.categoryId, m.title, m.updatedAt ?? Date.now(), JSON.stringify(m)],
+        MINDMAP_SQL, "SELECT COUNT(*) AS n FROM mindMaps",
+      ),
+      mnemonics: await copyStore<MnemonicCard>(
+        exec, "mnemonics", idb, "mnemonics",
+        (m) => [
+          m.id, m.categoryId,
+          (m as { subcategoryId?: string }).subcategoryId ?? null,
+          (m as { mnemonicStatus?: string }).mnemonicStatus ?? null,
+          (m as { hookType?: string }).hookType ?? null,
+          (m as { createdAt?: number }).createdAt ?? Date.now(),
+          JSON.stringify(m),
+        ],
+        MNEMONIC_SQL, "SELECT COUNT(*) AS n FROM mnemonics",
+      ),
+      knowledgeBaseArticles: await copyStore<KnowledgeBaseArticle>(
+        exec, "knowledgeBaseArticles", idb, "knowledgeBaseArticles",
+        (a) => [
+          a.id, a.subjectId, a.title,
+          a.updatedAt ?? Date.now(),
+          a.isIndex ? 1 : 0,
+          JSON.stringify(a),
+        ],
+        KB_ARTICLE_SQL, "SELECT COUNT(*) AS n FROM knowledgeBaseArticles",
+      ),
+      majorSystem: await copyStore<{ id: number; peg: string }>(
+        exec, "majorSystem", idb, "majorSystem",
+        (p) => [p.id, p.peg],
+        MAJOR_SYSTEM_SQL, "SELECT COUNT(*) AS n FROM majorSystem",
+      ),
+      mnemonicTestLog: await copyStore<MnemonicTestLogEntry & { id?: number }>(
+        exec, "mnemonicTestLog", idb, "mnemonicTestLog",
+        (e) => [
+          e.id ?? null,
+          e.cardId,
+          e.timestamp,
+          e.success ? 1 : 0,
+          JSON.stringify(e),
+        ],
+        MNEMONIC_TEST_LOG_SQL, "SELECT COUNT(*) AS n FROM mnemonicTestLog",
+      ),
+    };
 
-  const durationMs = Date.now() - t0;
-  logger.info("[sqlite] IDB→SQLite migration complete", { counts, durationMs });
-  return { alreadyComplete: false, counts, durationMs };
+    await writeFlagsAndPersist(exec, counts);
+    const durationMs = Date.now() - t0;
+    logger.info("[sqlite] IDB→SQLite migration complete", { counts, durationMs });
+    return { alreadyComplete: false, counts, durationMs };
+  } finally {
+    try { idb.close(); } catch { /* ignore */ }
+  }
 }
 
 /** Sync check used by `persist-queue` module init to pick the right adapter. */
@@ -283,11 +247,10 @@ export function hasMigrationFlagSync(): boolean {
 // ─────────────────────────────────────────────────────────────────────────
 // PR-9 M2 — Read-path migration (planner KV + disciplineLog + drafts).
 //
-// Runs ONCE per browser profile (separate flag from PR-8 v1 so users that
-// already migrated cards don't have to redo it). All three sub-steps run
-// inside their own SQLite transaction so a failure in one leaves the
-// others intact and the unset flag triggers a clean retry next boot.
-// Dexie rows are NOT deleted — they stay as rollback insurance until B1.
+// Runs ONCE per browser profile (separate flag from PR-8 v1). All three
+// sub-steps run inside their own SQLite transaction so a failure in one
+// leaves the others intact and the unset flag triggers a clean retry next
+// boot. Legacy IDB rows are NOT deleted — kept as rollback insurance.
 // ─────────────────────────────────────────────────────────────────────────
 
 export const PR9_READPATH_FLAG_KEY = "migrated-readpath-pr9-v1";
@@ -326,79 +289,95 @@ export async function migratePr9ReadPathFromIdb(
     };
   }
 
+  const idb = await openLegacyIdb();
+  if (!idb) {
+    // Fresh install — nothing to migrate. Set flag to skip future probes.
+    await exec.run(
+      "INSERT OR REPLACE INTO kv (key, value) VALUES (?, ?)",
+      [PR9_READPATH_FLAG_KEY, JSON.stringify({ at: Date.now(), counts: { plannerKv: 0, disciplineLog: 0, drafts: 0 } })],
+    );
+    return {
+      alreadyComplete: true,
+      counts: { plannerKv: 0, disciplineLog: 0, drafts: 0 },
+      durationMs: Date.now() - t0,
+    };
+  }
+
   let plannerKv = 0;
   let disciplineCount = 0;
   let draftsCount = 0;
 
-  // ── Planner KV ────────────────────────────────────────────────────────
   try {
-    await exec.transaction(async (tx) => {
-      for (const key of PLANNER_KV_KEYS) {
-        const row = await db.settings.get(key);
-        if (row?.value === undefined) continue;
-        await tx.run(
-          "INSERT OR REPLACE INTO kv (key, value) VALUES (?, ?)",
-          [key, JSON.stringify(row.value)],
-        );
-        plannerKv++;
-      }
-    });
-  } catch (err) {
-    logger.warn("[sqlite:pr9] planner KV migration failed", err);
+    // ── Planner KV ──────────────────────────────────────────────────────
+    try {
+      await exec.transaction(async (tx) => {
+        for (const key of PLANNER_KV_KEYS) {
+          const value = await getKv<unknown>(idb, "settings", key);
+          if (value === undefined) continue;
+          await tx.run(
+            "INSERT OR REPLACE INTO kv (key, value) VALUES (?, ?)",
+            [key, JSON.stringify(value)],
+          );
+          plannerKv++;
+        }
+      });
+    } catch (err) {
+      logger.warn("[sqlite:pr9] planner KV migration failed", err);
+    }
+
+    // ── Discipline log ──────────────────────────────────────────────────
+    try {
+      const entries = await listAllRows<DisciplineEntry & { id?: number }>(idb, "disciplineLog");
+      await exec.transaction(async (tx) => {
+        await tx.run("DELETE FROM disciplineLog");
+        for (const e of entries) {
+          const date = (e as { date?: string }).date;
+          if (!date) continue;
+          await tx.run(
+            "INSERT OR REPLACE INTO disciplineLog (date, payload) VALUES (?, ?)",
+            [date, JSON.stringify(e)],
+          );
+          disciplineCount++;
+        }
+      });
+    } catch (err) {
+      logger.warn("[sqlite:pr9] discipline log migration failed", err);
+    }
+
+    // ── Drafts ──────────────────────────────────────────────────────────
+    try {
+      const drafts = await listAllRows<DraftRecord>(idb, "drafts");
+      await exec.transaction(async (tx) => {
+        await tx.run("DELETE FROM drafts");
+        for (const d of drafts) {
+          const draft = d as { key?: string; source?: string; updatedAt?: number };
+          if (!draft.key || !draft.source) continue;
+          await tx.run(
+            "INSERT OR REPLACE INTO drafts (key, source, updatedAt, payload) VALUES (?, ?, ?, ?)",
+            [draft.key, draft.source, draft.updatedAt ?? Date.now(), JSON.stringify(d)],
+          );
+          draftsCount++;
+        }
+      });
+    } catch (err) {
+      logger.warn("[sqlite:pr9] drafts migration failed", err);
+    }
+
+    const counts: ReadPathMigrationCounts = {
+      plannerKv,
+      disciplineLog: disciplineCount,
+      drafts: draftsCount,
+    };
+
+    await exec.run(
+      "INSERT OR REPLACE INTO kv (key, value) VALUES (?, ?)",
+      [PR9_READPATH_FLAG_KEY, JSON.stringify({ at: Date.now(), counts })],
+    );
+
+    const durationMs = Date.now() - t0;
+    logger.info("[sqlite] PR-9 read-path migration complete", { counts, durationMs });
+    return { alreadyComplete: false, counts, durationMs };
+  } finally {
+    try { idb.close(); } catch { /* ignore */ }
   }
-
-  // ── Discipline log ────────────────────────────────────────────────────
-  try {
-    const entries = await db.disciplineLog.toArray();
-    await exec.transaction(async (tx) => {
-      // Bulk reset is fine — discipline rows are append-only, no FK refs.
-      await tx.run("DELETE FROM disciplineLog");
-      for (const e of entries) {
-        const date = (e as { date?: string }).date;
-        if (!date) continue;
-        await tx.run(
-          "INSERT OR REPLACE INTO disciplineLog (date, payload) VALUES (?, ?)",
-          [date, JSON.stringify(e)],
-        );
-        disciplineCount++;
-      }
-    });
-  } catch (err) {
-    logger.warn("[sqlite:pr9] discipline log migration failed", err);
-  }
-
-  // ── Drafts ────────────────────────────────────────────────────────────
-  try {
-    const drafts = await db.drafts.toArray();
-    await exec.transaction(async (tx) => {
-      await tx.run("DELETE FROM drafts");
-      for (const d of drafts) {
-        const draft = d as { key?: string; source?: string; updatedAt?: number };
-        if (!draft.key || !draft.source) continue;
-        await tx.run(
-          "INSERT OR REPLACE INTO drafts (key, source, updatedAt, payload) VALUES (?, ?, ?, ?)",
-          [draft.key, draft.source, draft.updatedAt ?? Date.now(), JSON.stringify(d)],
-        );
-        draftsCount++;
-      }
-    });
-  } catch (err) {
-    logger.warn("[sqlite:pr9] drafts migration failed", err);
-  }
-
-  const counts: ReadPathMigrationCounts = {
-    plannerKv,
-    disciplineLog: disciplineCount,
-    drafts: draftsCount,
-  };
-
-  await exec.run(
-    "INSERT OR REPLACE INTO kv (key, value) VALUES (?, ?)",
-    [PR9_READPATH_FLAG_KEY, JSON.stringify({ at: Date.now(), counts })],
-  );
-
-  const durationMs = Date.now() - t0;
-  logger.info("[sqlite] PR-9 read-path migration complete", { counts, durationMs });
-  return { alreadyComplete: false, counts, durationMs };
 }
-

@@ -1,24 +1,20 @@
 /**
- * A1c Phase 4 — flag-gated boot path.
+ * Phase C — flag-gated boot path.
  *
  * Cheap SELECT against the SQLite `kv` table to determine whether the
  * one-shot IDB → SQLite migration already completed on a previous boot.
  *
- * Used by `bootDb` / `runSchema` to skip loading the Dexie legacy shell
- * entirely on the common (post-migration) boot path. Keeps the lazy
- * `legacy/idb-dexie` chunk out of memory and out of the network for every
- * post-migration boot.
+ * Used by `bootDb` / `runSchema` to skip the migration probe entirely on
+ * the common (post-migration) boot path.
  */
  import type { SqlExecutor } from "./executor";
  import { isElectron } from "@/lib/electron-integration";
  import { logger } from "@/lib/logger";
 
 /**
- * A1c Phase 6: inlined to break the static-import edge from `migration-status`
- * → `migrate-from-idb` → `legacy/idb-dexie`. The canonical export still lives
- * in `migrate-from-idb.ts`; this MUST stay in sync with it. Keeping it as a
- * literal here ensures the Dexie shell is NEVER pulled into the eager boot
- * graph (verified via `rg "Dexie" dist/assets/App-*.js` = 0).
+ * Inlined to break the static-import edge from `migration-status` →
+ * `migrate-from-idb`. The canonical export still lives in
+ * `migrate-from-idb.ts`; this MUST stay in sync with it.
  */
 const MIGRATION_FLAG_KEY = "migrated-from-idb-v1";
 

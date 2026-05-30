@@ -437,32 +437,15 @@ export default tseslint.config(
   },
 
   // ─────────────────────────────────────────────────────────────────────
-  // A1c Finale — Dexie deprecation walls.
-  //
-  // Two protections:
-  //   W7  Ban static imports of `dexie` and `dexie-react-hooks` everywhere
-  //       except the legacy shell and the migration reader. Prevents the
-  //       Dexie library from being statically pulled into the eager App
-  //       chunk (defeats lazy `idb-dexie-*.js` chunk).
-  //   W8  Ban direct `db.<table>` member access (cards/sources/mindMaps/
-  //       …/disciplineLog/etc.) outside the legacy shell, the SQLite
-  //       queries layer, and the IDB→SQLite migration reader. Forces all
-  //       runtime DB access through `@/lib/db/queries` (SQLite-primary).
-  //
-  // Allow-listed paths (TIGHT — backup/ NOT exempt, it is verified clean):
-  //   • src/lib/legacy/**                            — Dexie shell itself
-  //   • src/lib/persistence/sqlite/migrate-from-idb.ts — IDB → SQLite reader
-  //   • src/test/**                                  — fixtures & integration
+  // Phase C — Dexie removal: the legacy shell is gone. Keep a hard-fail
+  // guard against any future `import "dexie"` / `import "dexie-react-hooks"`
+  // (or re-introduction of `@/lib/legacy/idb-dexie`) so we don't regress.
+  // Migration now reads raw IDB via `@/lib/persistence/sqlite/idb-raw-reader`.
   // ─────────────────────────────────────────────────────────────────────
   {
     files: ["src/**/*.{ts,tsx}"],
-    ignores: [
-      "src/lib/legacy/**",
-      "src/lib/persistence/sqlite/migrate-from-idb.ts",
-      "src/test/**",
-    ],
+    ignores: ["src/test/**"],
     rules: {
-      // W7 — Dexie static-import ban.
       "no-restricted-imports": [
         "error",
         {
@@ -470,7 +453,7 @@ export default tseslint.config(
             {
               name: "dexie",
               message:
-                "Dexie je deprecated (A1c). Koristi @/lib/db/queries za sve DB pristupe. Migracioni shell je u @/lib/legacy/idb-dexie i mora se učitati dinamički (await import).",
+                "Dexie je uklonjen (Phase C). Migracija ide preko @/lib/persistence/sqlite/idb-raw-reader; runtime DB pristup ide preko @/lib/db/queries.",
             },
             {
               name: "dexie-react-hooks",
@@ -482,19 +465,9 @@ export default tseslint.config(
             {
               group: ["@/lib/legacy/idb-dexie", "**/legacy/idb-dexie"],
               message:
-                "legacy/idb-dexie je dynamic-import-only — statički import povlači Dexie u eager App chunk. Koristi `await import('@/lib/legacy/idb-dexie')` (vidi mem://architecture/dexie-deprecation-a1c).",
+                "legacy/idb-dexie je uklonjen (Phase C). Koristi @/lib/db/queries za runtime ili @/lib/persistence/sqlite/idb-raw-reader za migraciju.",
             },
           ],
-        },
-      ],
-      // W8 — Direct db.<table> ban.
-      "no-restricted-syntax": [
-        "error",
-        {
-          selector:
-            "MemberExpression[object.name='db'][property.name=/^(cards|sources|mindMaps|mnemonics|categories|knowledgeBaseArticles|settings|drafts|disciplineLog|reviewLog|diary|calibration|latency|slippage|activity|pomodoro|majorSystem|mnemonicTestLog|outbox|kv)$/]",
-          message:
-            "Direktan db.<table> pristup je zabranjen (W8 — A1c). Koristi @/lib/db/queries (SQLite-primary). Allow-list: legacy/, queries/, migrate-from-idb.ts, src/test/.",
         },
       ],
     },

@@ -15,8 +15,12 @@ export default function DatabaseRecoveryPanel({ error }: Props) {
       return;
     }
     try {
-      const { db } = await import("@/lib/legacy/idb-dexie");
-      await db.delete();
+      await new Promise<void>((resolve) => {
+        const req = indexedDB.deleteDatabase("MemoriaDB");
+        req.onsuccess = () => resolve();
+        req.onerror = () => resolve();
+        req.onblocked = () => resolve();
+      });
     } catch (e) {
       logger.error("[DatabaseRecovery] delete failed", e);
     }
