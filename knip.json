@@ -1,0 +1,33 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  "entry": [
+    "src/main.tsx",
+    "src/App.tsx",
+    "src/workers/**/*.ts",
+    "src/test/**/*.{ts,tsx}",
+    "vite.config.ts",
+    "vitest.config.ts",
+    "tailwind.config.ts",
+    "postcss.config.js",
+    "eslint.config.js",
+    "main.cjs",
+    "preload.cjs",
+    "electron/**/*.cjs",
+    "src/scripts/**/*.ts"
+  ],
+  "project": [
+    "src/**/*.{ts,tsx}",
+    "!src/**/*.d.ts"
+  ],
+  "ignore": [
+    "src/lib/legacy/**",
+    "dist/**",
+    "release/**"
+  ],
+  "ignoreDependencies": [
+    "@types/*"
+  ],
+  "ignoreBinaries": [
+    "electron-builder"
+  ]
+}
