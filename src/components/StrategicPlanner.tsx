@@ -39,12 +39,19 @@ export default function StrategicPlanner({ cards, categories, categoryRecords, r
   // Local narrows `subjectPlans` to `SubjectPlan[]` for the loaded branch.
   const { subjectPlans } = data;
 
-  // Stable derived value — avoids recreating { name } object on each render.
-  const currentPhase = useMemo(() => {
-    if (!subjectPlans) return null;
-    const p = subjectPlans.find(p => p.pct < 100);
-    return p ? { name: p.categoryName } : null;
-  }, [subjectPlans]);
+  // Two-step memo: derive the primitive name first, then wrap into an object
+  // keyed on that string. As long as the active phase name is unchanged the
+  // `currentPhase` reference stays identical across `usePlannerData` ticks —
+  // DisciplineTab (memo'd consumer) skips re-render entirely.
+  const currentPhaseName = useMemo(
+    () => subjectPlans?.find(p => p.pct < 100)?.categoryName ?? null,
+    [subjectPlans],
+  );
+  const currentPhase = useMemo(
+    () => (currentPhaseName ? { name: currentPhaseName } : null),
+    [currentPhaseName],
+  );
+
 
   return (
     <div className="space-y-6">
