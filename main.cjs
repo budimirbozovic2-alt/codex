@@ -288,6 +288,7 @@ app.whenReady().then(() => {
       '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg',
       '.ico': 'image/x-icon', '.woff': 'font/woff', '.woff2': 'font/woff2',
       '.ttf': 'font/ttf', '.otf': 'font/otf',
+      '.wasm': 'application/wasm',
     };
     const serveIndex = async () => {
       const indexData = await fsp.readFile(path.join(distPath, 'index.html'));
@@ -318,6 +319,12 @@ app.whenReady().then(() => {
             headers: { 'Content-Type': mime },
           });
         } catch {
+          // For real assets (.wasm, .js, .css, fonts, images...) return 404
+          // instead of the SPA HTML fallback — otherwise WebAssembly.compile
+          // chokes with "magic number mismatch" on a 200 text/html body.
+          if (ext && ext !== '.html') {
+            return new Response('Not Found', { status: 404, headers: { 'Content-Type': 'text/plain' } });
+          }
           return serveIndex();
         }
       } catch (err) {

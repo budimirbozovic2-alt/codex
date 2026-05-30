@@ -16,7 +16,7 @@ import { backupLog } from "@/lib/backup/backup-logger";
 import { categoryRepository } from "@/lib/repositories";
 import { readAllCategoriesForBackup } from "@/lib/db/queries";
 import { getOpfsSqliteExecutor } from "@/lib/persistence/sqlite/client";
-import { assertDesktop } from "@/lib/electron-integration";
+import { assertDesktop, isElectron } from "@/lib/electron-integration";
 
 import type { ImportCtx, ImportTxResult, ImportStrategy } from "@/lib/backup/import-types";
 import {
@@ -66,9 +66,16 @@ export async function applyImportAtomically(ctx: ImportCtx): Promise<ImportTxRes
     schemaVersion: (parsed as { version?: number }).version ?? null,
   });
 
-  // Fail fast on web/dev — Pure Desktop policy.
-  assertDesktop();
-  const exec = await getOpfsSqliteExecutor();
+    // Fail fast on web/dev — Pure Desktop policy.
+    assertDesktop();
+    // Even in DEV (Vite preview tab / Lovable web preview) the OPFS-SAH-pool
+    // VFS isn't reliably available, and forcing it through `getOpfsSqliteExecutor`
+    // surfaces as a cryptic "Missing required OPFS APIs". Give the user a
+    // clear, actionable error instead.
+    if (!isElectron()) {
+      throw new Error("Uvoz backupa je dostupan samo u desktop aplikaciji (Electron). Preuzmi i pokreni desktop verziju, pa ponovi uvoz.");
+    }
+    const exec = await getOpfsSqliteExecutor();
 
   try {
     // ── 1. Pre-merge cards (pure, in-memory only) ──

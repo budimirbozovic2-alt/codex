@@ -40,8 +40,20 @@ export function getOpfsSqliteExecutor(): Promise<SqlExecutor> {
   if (_executorPromise) return _executorPromise;
   _executorPromise = (async () => {
     const mod = await import("@sqlite.org/sqlite-wasm");
-    const sqlite3InitModule = (mod as unknown as { default: () => Promise<SqliteApi> }).default;
-    const sqlite3: SqliteApi = await sqlite3InitModule();
+    const sqlite3InitModule = (mod as unknown as {
+      default: (cfg?: { locateFile?: (p: string) => string; print?: (...a: unknown[]) => void; printErr?: (...a: unknown[]) => void }) => Promise<SqliteApi>;
+    }).default;
+    // In packaged Electron the JS bundle lives at `app://localhost/assets/*`,
+    // so the default `new URL("sqlite3.wasm", import.meta.url)` resolves to
+    // `app://localhost/assets/sqlite3.wasm` (404 → HTML fallback → wasm magic
+    // mismatch). The `copy-sqlite-wasm` Vite plugin places the runtime at
+    // `dist/sqlite/`, served as `app://localhost/sqlite/*`.
+    const locateFile = (file: string): string => {
+      if (import.meta.env.PROD) return `/sqlite/${file}`;
+      // Dev (Vite) — let the bundler resolve via import.meta.url default.
+      return file;
+    };
+    const sqlite3: SqliteApi = await sqlite3InitModule({ locateFile });
 
     let db: SqliteDb;
     if (sqlite3.installOpfsSAHPoolVfs) {
