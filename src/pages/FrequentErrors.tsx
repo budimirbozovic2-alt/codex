@@ -1,13 +1,10 @@
-import { Trash2, AlertCircle, Target, TrendingUp, Trophy, ChevronDown, ChevronRight, Flame, ShieldCheck } from "lucide-react";
+import { Trash2, AlertCircle, Target, Trophy, ChevronDown, ChevronRight, Flame, ShieldCheck } from "lucide-react";
 import { useMemo, useState } from "react";
-import { Card, ErrorLogEntry, getErrorStatus, ErrorStatus } from "@/lib/spaced-repetition";
+import { getErrorStatus, type Card, type ErrorStatus } from "@/lib/spaced-repetition";
 import { derivePlainText } from "@/lib/editor-v4/derived";
-import type { CategoryRecord } from "@/lib/db-types";
-import { getSubcategoryName } from "@/lib/category-service";
-
-
+import { useCategoryData, useCardOnlyActions } from "@/contexts/AppContext";
+import { useCardsByCategory } from "@/store";
 import { m, AnimatePresence } from "framer-motion";
-import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 interface AggregatedError {
   text: string;
