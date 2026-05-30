@@ -24,6 +24,12 @@ import {
   buildCategoryIdRemap,
   applyRemapToParsed,
 } from "@/lib/backup/import-remap";
+import {
+  buildTaxonomyRemap,
+  applyTaxonomyRemap,
+  canMergeTaxonomy,
+  type TaxonomyRemap,
+} from "@/lib/backup/taxonomy-merge";
 import { mergeCardsByStrategy, writeCardsTx } from "@/lib/backup/write-cards-tx";
 import { writeCategoriesTx } from "@/lib/backup/write-categories-tx";
 import { writeSatelliteTablesTx } from "@/lib/backup/write-satellite-tx";
@@ -40,6 +46,11 @@ export {
   applyRemapToParsed,
   pruneOrphans,
 } from "@/lib/backup/import-remap";
+export {
+  buildTaxonomyRemap,
+  applyTaxonomyRemap,
+  canMergeTaxonomy,
+} from "@/lib/backup/taxonomy-merge";
 
 
 
@@ -63,17 +74,32 @@ export async function applyImportAtomically(ctx: ImportCtx): Promise<ImportTxRes
     // ── 1. Pre-merge cards (pure, in-memory only) ──
     const { merged, nextMap } = mergeCardsByStrategy(parsed.cards, currentMap, strategy);
 
-    // ── 2. Pre-tx remap (read existing categories OUTSIDE the tx) ──
-    let freshCategories: CategoryRecord[] = await readAllCategoriesForBackup();
-    if (parsed.categories.length > 0 && isCategoryRecordArray(parsed.categories)) {
-      const remap = buildCategoryIdRemap(parsed.categories, freshCategories);
-      await applyRemapToParsed(remap, parsed, merged, nextMap);
+    // ── 2. Pre-tx FULL taxonomy remap (cat + sub + chap) + merge. The new
+    //       `buildTaxonomyRemap` also adopts novel backup sub/chapters into
+    //       matched existing categories, so card.subcategoryId / chapterId
+    //       UUIDs survive the import instead of being wiped as orphans.
+    const freshCategories: CategoryRecord[] = await readAllCategoriesForBackup();
+    let taxonomy: TaxonomyRemap | null = null;
+    if (canMergeTaxonomy(parsed) && isCategoryRecordArray(parsed.categories)) {
+      taxonomy = buildTaxonomyRemap(parsed.categories, freshCategories, strategy);
+      await applyTaxonomyRemap(taxonomy, parsed, merged, nextMap);
+      backupLog.success("import", "taxonomy remap built", {
+        catRemaps: taxonomy.categoryRemap.size,
+        subRemaps: taxonomy.subcategoryRemap.size,
+        chapRemaps: taxonomy.chapterRemap.size,
+        toWrite: taxonomy.categoriesToWrite.length,
+        finalCats: taxonomy.mergedCategories.length,
+      });
     }
 
-    // ── 3. Legacy taxonomy resolve (names → UUIDs) — pre-tx, pure ──
+    // ── 3. Legacy taxonomy resolve (names → UUIDs) — pre-tx, pure.
+    //       Runs against the MERGED category tree so adopted nodes are
+    //       reachable when a legacy backup carries name-strings instead of
+    //       UUIDs in card.subcategoryId / chapterId.
+    const resolveAgainst = taxonomy?.mergedCategories ?? freshCategories;
     let legacyResolveReport: ImportTxResult["legacyResolveReport"] = null;
     try {
-      legacyResolveReport = resolveLegacyTaxonomyNames(merged, freshCategories);
+      legacyResolveReport = resolveLegacyTaxonomyNames(merged, resolveAgainst);
       for (const c of merged) nextMap[c.id] = c;
     } catch (err) {
       backupLog.warn(
@@ -92,7 +118,8 @@ export async function applyImportAtomically(ctx: ImportCtx): Promise<ImportTxRes
     // ── 4. SINGLE SQLite ACID transaction across every affected table ──
     await exec.transaction(async (tx) => {
       progress(35, "Snimanje kategorija…");
-      finalCategories = await writeCategoriesTx(tx, parsed, strategy, freshCategories);
+      finalCategories = await writeCategoriesTx(tx, parsed, strategy, freshCategories, taxonomy);
+
 
       progress(50, "Snimanje kartica…");
       await writeCardsTx(tx, merged, strategy);
