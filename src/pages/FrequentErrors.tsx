@@ -47,9 +47,7 @@ function HighlightedSentence({ sectionContent, errorText }: { sectionContent: st
 }
 
 interface Props {
-  cards: Card[];
-  categoryRecords: CategoryRecord[];
-  onClearErrorLog: (cardId: string) => void;
+  categoryId: string;
   embedded?: boolean;
 }
 
@@ -90,8 +88,12 @@ function ProgressBar({ count, successes, streak }: { count: number; successes: n
   );
 }
 
-export default function FrequentErrors({ cards, categoryRecords, onClearErrorLog, embedded }: Props) {
-  
+export default function FrequentErrors({ categoryId, embedded }: Props) {
+  const { categoryRecords } = useCategoryData();
+  const { clearErrorLog } = useCardOnlyActions();
+  const cardsRo = useCardsByCategory(categoryId);
+  const cards = useMemo(() => cardsRo as readonly Card[] as Card[], [cardsRo]);
+
   const [showMastered, setShowMastered] = useState(false);
 
   const catNameMap = useMemo(() => {
