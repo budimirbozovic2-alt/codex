@@ -161,7 +161,7 @@ export default function FrequentErrors({ categoryId, embedded }: Props) {
   const masteredGroups = groupByCategory(mastered);
 
   const handleClear = (cardId: string, cardQuestion: string) => {
-    onClearErrorLog(cardId);
+    clearErrorLog(cardId);
     toast("Greške obrisane", { description: `Obrisane greške za: "${cardQuestion.length > 30 ? cardQuestion.slice(0, 30) + "…" : cardQuestion}"` });
   };
 

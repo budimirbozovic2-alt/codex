@@ -1,7 +1,7 @@
 import { useMemo, lazy, Suspense } from "react";
 import { Link, useParams } from "react-router-dom";
 import { ArrowLeft, AlertTriangle, Brain } from "lucide-react";
-import { useCardData, useCategoryData, useReviewData, useCardOnlyActions } from "@/contexts/AppContext";
+import { useCardData, useCategoryData, useReviewData } from "@/contexts/AppContext";
 import { useCardsByCategory } from "@/store";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -15,7 +15,7 @@ export default function SubjectDiagnosticsPage() {
   const { ready } = useCardData();
   const { categoryRecords } = useCategoryData();
   const { reviewLog } = useReviewData();
-  const { clearErrorLog } = useCardOnlyActions();
+  
 
   const categoryRec = useMemo(
     () => categoryRecords.find(r => r.id === categoryId),
@@ -105,12 +105,7 @@ export default function SubjectDiagnosticsPage() {
 
         {/* Frequent errors (scoped) */}
         <section className="space-y-4">
-          <FrequentErrors
-            cards={subjectCards}
-            categoryRecords={categoryRecords}
-            onClearErrorLog={clearErrorLog}
-            embedded
-          />
+          <FrequentErrors categoryId={categoryId ?? ""} embedded />
         </section>
 
         {/* Cognitive analytics (scoped) */}
