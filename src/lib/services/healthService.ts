@@ -20,24 +20,27 @@ import {
 } from "@/lib/db/queries";
 
 
-export interface TableStat {
+// Internal shapes — composed into the only exported type (HealthReport).
+// Knip flagged these as unused public exports; dropping `export` keeps the
+// definitions local without disturbing their consumers below.
+interface TableStat {
   name: string;
   count: number;
 }
 
-export interface OrphanResult {
+interface OrphanResult {
   count: number;
   cardIds: string[];
 }
 
-export interface CrashEntry {
+interface CrashEntry {
   label: string;
   message: string;
   count: number;
   firstSeen: string;
   lastSeen: string;
 }
-export interface IntegrityIssues {
+interface IntegrityIssues {
   orphans: OrphanResult;
   staleSub: OrphanResult;
   staleChap: OrphanResult;
@@ -45,7 +48,7 @@ export interface IntegrityIssues {
   corruptCardIds: string[];
 }
 
-export interface StorageSnapshot {
+interface StorageSnapshot {
   idb: { usage: number; quota: number };
   ls: { usedBytes: number; maxBytes: number; percent: number };
 }
