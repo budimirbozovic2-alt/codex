@@ -7,10 +7,9 @@ interface Props {
   validation: ImportValidation;
   onChoose: (strategy: ImportStrategy) => void;
   onCancel: () => void;
-  extraControls?: React.ReactNode;
 }
 
-export function ImportConflictStep({ validation, onChoose, onCancel, extraControls }: Props) {
+export function ImportConflictStep({ validation, onChoose, onCancel }: Props) {
   return (
     <>
       <DialogHeader>
@@ -23,7 +22,6 @@ export function ImportConflictStep({ validation, onChoose, onCancel, extraContro
           {validation.duplicateCategoryCount > 0 && ` Pronađeno je i preklapanje kod ${validation.duplicateCategoryCount} predmeta.`}
         </DialogDescription>
       </DialogHeader>
-      {extraControls && <div className="pt-2">{extraControls}</div>}
       <div className="grid gap-3 py-4">
         <Button variant="outline" className="justify-start gap-3 h-auto py-4" onClick={() => onChoose("newer")}>
           <Clock className="h-5 w-5 text-primary" />

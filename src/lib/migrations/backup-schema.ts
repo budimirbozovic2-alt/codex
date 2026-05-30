@@ -270,31 +270,30 @@ export const BackupSourceSchema = z
 
 // ─── MindMap nodes/edges (with sanitized labels) ────────
 
-// TEMP RESCUE: ReactFlow v12 adds runtime keys (`measured`, `selected`, `dragging`)
-// to nodes/edges. Older backups serialized those keys, so `.strict()` rejected the
-// whole file. Relaxed to default `.strip()` for one-shot rescue import. Revert to
-// `.strict()` once user re-exports a clean backup in the new format.
-const MindMapNodeSchema = z.object({
-  id: z.string(),
-  type: z.unknown().optional(),
-  position: z.unknown().optional().transform((v) => (v && typeof v === "object" ? v : { x: 0, y: 0 })),
-  data: z.unknown().optional().transform((v) => {
-    if (!v || typeof v !== "object") return {};
-    const obj = v as Record<string, unknown>;
-    const out: Record<string, unknown> = { ...obj };
-    if (typeof obj.label === "string") out.label = sanitizeHtml(obj.label);
-    if (typeof obj.description === "string") out.description = sanitizeHtml(obj.description);
-    return out;
-  }),
-  style: z.unknown().optional(),
-});
+const MindMapNodeSchema = z
+  .object({
+    id: z.string(),
+    type: z.unknown().optional(),
+    position: z.unknown().optional().transform((v) => (v && typeof v === "object" ? v : { x: 0, y: 0 })),
+    data: z.unknown().optional().transform((v) => {
+      if (!v || typeof v !== "object") return {};
+      const obj = v as Record<string, unknown>;
+      const out: Record<string, unknown> = { ...obj };
+      if (typeof obj.label === "string") out.label = sanitizeHtml(obj.label);
+      if (typeof obj.description === "string") out.description = sanitizeHtml(obj.description);
+      return out;
+    }),
+    style: z.unknown().optional(),
+  })
+  .strict();
 
-// TEMP RESCUE: see MindMapNodeSchema comment above.
-const MindMapEdgeSchema = z.object({
-  id: z.string(),
-  source: z.string(),
-  target: z.string(),
-});
+const MindMapEdgeSchema = z
+  .object({
+    id: z.string(),
+    source: z.string(),
+    target: z.string(),
+  })
+  .strict();
 
 export const BackupMindMapSchema = z
   .object({

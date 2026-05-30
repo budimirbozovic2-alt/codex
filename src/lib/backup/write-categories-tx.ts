@@ -17,7 +17,6 @@ import {
   isCategoryRecordArray,
   pruneOrphans,
 } from "@/lib/backup/import-remap";
-import type { TaxonomyRemap } from "@/lib/backup/taxonomy-merge";
 import {
   CATEGORY_INSERT_SQL,
   bindCategory,
@@ -28,7 +27,6 @@ export async function writeCategoriesTx(
   parsed: ParsedBackup,
   strategy: ImportStrategy,
   freshCategories: CategoryRecord[],
-  taxonomy: TaxonomyRemap | null = null,
 ): Promise<CategoryRecord[]> {
   // Working set the caller can use for downstream post-tx mirroring.
   // Starts as a snapshot of `freshCategories` and is mutated to match the
@@ -38,9 +36,9 @@ export async function writeCategoriesTx(
   if (parsed.categories.length > 0) {
     if (isCategoryRecordArray(parsed.categories)) {
       if (strategy === "overwrite") {
-        // Overwrite: parsed wins wholesale. Pre-tx remaps are empty in this
-        // mode (see buildTaxonomyRemap), so satellite FKs already point to
-        // parsed UUIDs.
+        // Pre-tx remap already aligned satellite FKs to existing IDs;
+        // any backup categories whose name already exists were remapped,
+        // so a wipe + bulk insert here is safe.
         await tx.run("DELETE FROM categories");
         await tx.runMany(
           CATEGORY_INSERT_SQL,
@@ -51,20 +49,8 @@ export async function writeCategoriesTx(
         // FK sweep: only after categories are finalized.
         const validIds = new Set(parsed.categories.map((c) => c.id));
         pruneOrphans(parsed, validIds);
-      } else if (taxonomy) {
-        // Merge mode — adopt novel sub/chapters and persist the resulting
-        // category records. categoriesToWrite is the diff slice; mergedCategories
-        // is the final snapshot returned to AppContext.
-        if (taxonomy.categoriesToWrite.length > 0) {
-          await tx.runMany(
-            CATEGORY_INSERT_SQL,
-            taxonomy.categoriesToWrite.map((cat) => bindCategory(cat)),
-          );
-        }
-        working = [...taxonomy.mergedCategories];
       } else {
-        // Defensive fallback — should not happen because the orchestrator
-        // always builds a TaxonomyRemap when parsed.categories is modern.
+        // Non-overwrite: insert only categories that didn't get remapped.
         const existingByName = new Map<string, string>();
         for (const c of freshCategories) existingByName.set(c.name.toLowerCase(), c.id);
         const toInsert = parsed.categories.filter(
@@ -76,6 +62,7 @@ export async function writeCategoriesTx(
         );
         working = [...freshCategories, ...toInsert];
       }
+
     } else {
       // Legacy `string[]` format — synthesize CategoryRecord[] from names.
       const legacyNames = parsed.categories;
@@ -106,7 +93,6 @@ export async function writeCategoriesTx(
       }
     }
   }
-
 
   // Legacy `subcategories` map (only if legacy names format).
   const isNewCatFormat =

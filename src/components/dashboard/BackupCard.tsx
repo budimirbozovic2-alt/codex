@@ -112,8 +112,8 @@ export const BackupCard = memo(function BackupCard() {
           await exportData(compress, onProgress);
           refreshLastBackup();
         }}
-        onImport={async (file, strategy, onProgress, slice) => {
-          await importData(file, strategy, onProgress, slice);
+        onImport={async (file, strategy) => {
+          await importData(file, strategy);
           refreshLastBackup();
         }}
         cards={cards}
