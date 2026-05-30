@@ -85,6 +85,8 @@ export function useCardImport() {
         const result = BackupSchema.safeParse(raw);
         await yieldUI();
         if (!result.success) {
+          // Diagnostic: full Zod error tree to console for future invalid backups.
+          console.warn("[backup-validation] failed", result.error.flatten(), result.error.issues);
           const issues = result.error.issues.slice(0, 5);
           const summary = issues
             .map((iss) => `• ${iss.path.join(".") || "(root)"} — ${iss.message}`)
