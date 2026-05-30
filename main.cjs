@@ -288,6 +288,7 @@ app.whenReady().then(() => {
       '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg',
       '.ico': 'image/x-icon', '.woff': 'font/woff', '.woff2': 'font/woff2',
       '.ttf': 'font/ttf', '.otf': 'font/otf',
+      '.wasm': 'application/wasm',
     };
     const serveIndex = async () => {
       const indexData = await fsp.readFile(path.join(distPath, 'index.html'));
