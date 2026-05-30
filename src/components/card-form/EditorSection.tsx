@@ -3,7 +3,7 @@ import React, { memo, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ContentRenderer } from "@/components/ui/ContentRenderer";
-import EditorV4 from "@/components/editor-v4/EditorV4";
+import { EditorV4 } from "@/components/editor-v4/EditorV4";
 import { htmlToDoc, docToHtml, type EditorDoc } from "@/lib/editor-v4";
 import { splitDocByTopLevelBlocks } from "@/lib/editor-v4/split-blocks";
 import type { SectionInput, CardType, ValidationErrors } from "@/hooks/useCardActions";

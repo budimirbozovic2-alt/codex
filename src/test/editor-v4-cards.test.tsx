@@ -10,7 +10,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, act } from "@testing-library/react";
 import { renderHook } from "@testing-library/react";
-import EditorV4 from "@/components/editor-v4/EditorV4";
+import { EditorV4 } from "@/components/editor-v4/EditorV4";
 import { htmlToDoc, docToHtml, type EditorDoc } from "@/lib/editor-v4";
 import { useSectionEditor } from "@/hooks/card-actions/useSectionEditor";
 import { createSection, createCard } from "@/lib/sr/factories";
