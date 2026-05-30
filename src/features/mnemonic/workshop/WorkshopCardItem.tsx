@@ -22,7 +22,9 @@ import { useCardItemEditing } from "../hooks/useCardItemEditing";
 // PR-7e M2: shim removed. MnemonicCard sections still persist as HTML
 // strings (separate schema from FSRS `contentDoc`), so we seed the V4
 // editor with `htmlToDoc` once per mount and emit HTML via `deriveHtml`.
-const EditorV4 = lazy(() => import("@/components/editor-v4/EditorV4"));
+const EditorV4 = lazy(() =>
+  import("@/components/editor-v4/EditorV4").then(m => ({ default: m.EditorV4 })),
+);
 
 interface Props {
   card: MnemonicCard;

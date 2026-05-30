@@ -301,4 +301,4 @@ function buildToolbarButtons(editor: Editor, opts: ToolbarOpts): ToolbarBtn[] {
   return out;
 }
 
-export default EditorV4;
+

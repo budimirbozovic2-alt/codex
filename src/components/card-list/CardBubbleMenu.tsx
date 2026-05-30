@@ -88,4 +88,4 @@ export function CardBubbleMenu({ editor, onAddMnemo, onToggleKeyPart, keyParts }
   );
 }
 
-export default CardBubbleMenu;
+
