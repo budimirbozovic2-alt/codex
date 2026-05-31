@@ -23,7 +23,7 @@ export function onMindMapsChanged(fn: MindMapListener): () => void {
 
 function _notify(): void {
   _listeners.forEach(fn => {
-    try { fn(); } catch { /* swallow */ }
+    try { fn(); } catch (e) { logger.warn("[mindmap-storage] listener threw", e); }
   });
 }
 
