@@ -2,7 +2,9 @@ import { AppSettings, COLOR_THEMES, applyColorTheme } from "@/lib/app-settings";
 import { saveAppSettings } from "@/lib/app-settings";
 import { playGradeGood } from "@/lib/sounds";
 import { taskScheduler } from "@/lib/scheduler";
+import { logger } from "@/lib/logger";
 import { Switch } from "@/components/ui/switch";
+import { toast } from "sonner";
 
 interface Props {
   app: AppSettings;
