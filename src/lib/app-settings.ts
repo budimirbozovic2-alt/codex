@@ -95,19 +95,20 @@ export function loadAppSettings(): AppSettings {
   }
 }
 
-export function saveAppSettings(settings: AppSettings): void {
+export async function saveAppSettings(settings: AppSettings): Promise<void> {
   const json = JSON.stringify(settings);
-  // PR-G1 / C-2 fix: previously a dynamic `import(...).then(...).catch(() => {})`
-  // — the outer empty catch silently swallowed *both* bundler-level import
-  // failures and the SQLite write rejection, while localStorage still wrote
-  // successfully and gave false confidence. Static import + explicit logging
-  // surface real failures.
-  // SSOT: SQLite via settings repo.
-  putSetting("appSettings", settings).catch((e) =>
-    logger.error("[settings] put failed — SSOT write lost", e),
-  );
-  // Mirror to localStorage for fast sync reads (cache, not source of truth)
+  // Mirror to localStorage first for fast sync reads (cache, not SSOT).
   try { localStorage.setItem(APP_SETTINGS_KEY, json); } catch { /* noop */ }
+  // PR-G1 / C-2 final: await the SSOT write and re-throw on failure so the
+  // caller (UI toast) can react. Previously the `.catch(logger.error)`
+  // swallowed the rejection — localStorage mirror gave false-success even
+  // when SQLite write was dropped (data survives only until cache wipe).
+  try {
+    await putSetting("appSettings", settings);
+  } catch (err) {
+    logger.error("[settings] put failed — SSOT write lost", err);
+    throw err;
+  }
 }
 
 /** Load from IDB as fallback when localStorage is empty */
