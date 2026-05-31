@@ -164,7 +164,6 @@ describe("useCardMutations.save — rollback on persist failure", () => {
     const initialAll = [makeCard("a")];
     qc.setQueryData(queryKeys.cards.all(), initialAll);
 
-    // Hold the write in-flight; we assert the optimistic patch is visible.
     let resolveWrite: (v: Card) => void = () => {};
     putCardDirectMock.mockImplementation(
       (card: Card) => new Promise<Card>((res) => { resolveWrite = () => res(card); }),
@@ -175,8 +174,9 @@ describe("useCardMutations.save — rollback on persist failure", () => {
     });
 
     const newCard = makeCard("c");
+    let pending: Promise<unknown> | undefined;
     act(() => {
-      void result.current.save.mutateAsync(newCard).catch(() => undefined);
+      pending = result.current.save.mutateAsync(newCard).catch(() => undefined);
     });
 
     await waitFor(() => {
@@ -186,7 +186,8 @@ describe("useCardMutations.save — rollback on persist failure", () => {
 
     await act(async () => {
       resolveWrite(newCard);
-      await result.current.save.mutateAsync(newCard).catch(() => undefined);
+      await pending;
     });
   });
 });
+
