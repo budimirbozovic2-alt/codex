@@ -73,7 +73,7 @@ function wrapper(qc: QueryClient) {
 
 describe("useCardsByCategoryWithStatus", () => {
   it("flips isLoading from true to false once the query resolves", async () => {
-    let resolveFn: ((rows: never[]) => void) | null = null;
+    let resolveFn = null as ((rows: never[]) => void) | null;
     vi.mocked(cardsByCategory).mockImplementation(
       () =>
         new Promise<never[]>((resolve) => {

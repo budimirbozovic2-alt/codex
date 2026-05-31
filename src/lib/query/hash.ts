@@ -37,6 +37,6 @@ export function hashCategories(records: CategoryRecord[]): string {
   return records.map((r) => r.id).sort().join("|");
 }
 
-export function hashPlannerConfig(cfg: { dailyAvailableMinutes: number; finalGoalDate?: string; bufferPercent: number }): string {
+export function hashPlannerConfig(cfg: { dailyAvailableMinutes: number; finalGoalDate?: string | null; bufferPercent: number }): string {
   return `${cfg.dailyAvailableMinutes}:${cfg.finalGoalDate ?? ""}:${cfg.bufferPercent}`;
 }

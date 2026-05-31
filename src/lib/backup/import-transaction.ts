@@ -145,7 +145,7 @@ export async function applyImportAtomically(ctx: ImportCtx): Promise<ImportTxRes
       let scrubbed = 0;
       for (const card of merged) {
         if (card.sourceId && !validSourceIds.has(card.sourceId)) {
-          card.sourceId = null;
+          card.sourceId = undefined;
           scrubbed += 1;
         }
       }

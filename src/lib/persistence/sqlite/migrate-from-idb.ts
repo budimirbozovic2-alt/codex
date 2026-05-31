@@ -182,7 +182,7 @@ export async function migrateFromIdb(exec: SqlExecutor): Promise<MigrationReport
       ),
       mindMaps: await copyStore<MindMapDoc>(
         exec, "mindMaps", idb, "mindMaps",
-        (m) => [m.id, m.categoryId, m.title, m.updatedAt ?? Date.now(), JSON.stringify(m)],
+        (m) => [m.id, m.categoryId ?? null, m.title, m.updatedAt ?? Date.now(), JSON.stringify(m)],
         MINDMAP_SQL, "SELECT COUNT(*) AS n FROM mindMaps",
       ),
       mnemonics: await copyStore<MnemonicCard>(
