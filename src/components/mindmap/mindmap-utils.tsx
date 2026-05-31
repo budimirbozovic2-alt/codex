@@ -1,3 +1,8 @@
+/* eslint-disable react-refresh/only-export-components --
+ * Module bundles SnapGuideLines (component) + autoLayout (pure layout fn).
+ * Both are mind-map editor utilities consumed only by mindmap views; HMR
+ * boundary loss inside the editor is acceptable.
+ */
 import { useReactFlow, type Node, type Edge } from "@xyflow/react";
 
 // ── Snap guide lines ──

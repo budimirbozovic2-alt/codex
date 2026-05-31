@@ -1,3 +1,7 @@
+/* eslint-disable react-refresh/only-export-components --
+ * Co-exports `hasSeenOnboarding()` helper (1 line) tightly coupled to this
+ * onboarding's storage key. Splitting adds a file for no functional benefit.
+ */
 import { GitBranch, Workflow, MousePointerClick, CheckCircle2 } from "lucide-react";
 import OnboardingModal, { type OnboardingSlide, hasSeenOnboarding as _hasSeenOnboarding } from "@/components/OnboardingModal";
 
