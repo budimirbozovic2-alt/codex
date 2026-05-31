@@ -62,4 +62,13 @@ jobs:
         run: bun run lint -- --cache --cache-location .eslintcache --cache-strategy content
 
       - name: Tests
-        run: bun test
+        run: bun run test
+
+      # ── PR-G7 — Tooling guardrails suite (always rerun, no cache skip) ──
+      # Runs the full pr-g* regression net (timer discipline, DnD virtualization,
+      # render discipline, CardTableRow memo, tooling guardrails) so any silent
+      # downgrade of strict TS / ESLint / vitest isolation fails CI explicitly.
+      # Kept as a dedicated step (not folded into "Tests") so the GitHub
+      # checks UI shows it as its own pass/fail signal on every push & PR.
+      - name: PR-G7 guardrails suite
+        run: bunx vitest run pr-g4 pr-g5 pr-g6 pr-g7
