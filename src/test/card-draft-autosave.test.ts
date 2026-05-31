@@ -29,7 +29,6 @@ const baseDraft = (overrides: Partial<CardDraftSnapshot> = {}): CardDraftSnapsho
 });
 
 const getStored = (key: string) => getDraft(key);
-const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
 describe("buildDraftKey", () => {
   it("uses edit slot when editCardId is provided", () => {
@@ -50,13 +49,12 @@ describe("useCardDraftAutosave", () => {
     renderHook(() => useCardDraftAutosave(key, draft, true));
 
     expect(await getStored(key)).toBeUndefined();
-    await sleep(900);
     await waitFor(async () => {
       const row = await getStored(key);
       expect(row).toBeTruthy();
       const payload = row!.payload as CardDraftSnapshot & { savedAt: number };
       expect(payload.question).toBe("Šta je ugovor o radu?");
-    }, { timeout: 2000 });
+    }, { timeout: 2000, interval: 25 });
   });
 
   it("does not persist empty drafts and clears stale rows", async () => {
@@ -69,8 +67,7 @@ describe("useCardDraftAutosave", () => {
     });
 
     renderHook(() => useCardDraftAutosave(key, baseDraft(), true));
-    await sleep(900);
-    await waitFor(async () => { expect(await getStored(key)).toBeUndefined(); }, { timeout: 2000 });
+    await waitFor(async () => { expect(await getStored(key)).toBeUndefined(); }, { timeout: 2000, interval: 25 });
   });
 
   it("respects enabled=false (no writes)", async () => {
@@ -78,8 +75,12 @@ describe("useCardDraftAutosave", () => {
     const draft = baseDraft({ question: "should not write" });
 
     renderHook(() => useCardDraftAutosave(key, draft, false));
-    await sleep(900);
-    expect(await getStored(key)).toBeUndefined();
+    // No debounce is ever scheduled when enabled=false, so a short poll
+    // window is enough to assert the row stays absent without a wall-clock wait.
+    for (let i = 0; i < 5; i++) {
+      await new Promise((r) => setTimeout(r, 0));
+      expect(await getStored(key)).toBeUndefined();
+    }
   });
 
   it("clearDraft removes the row", async () => {
@@ -87,11 +88,10 @@ describe("useCardDraftAutosave", () => {
     const draft = baseDraft({ question: "to be cleared" });
 
     const { result } = renderHook(() => useCardDraftAutosave(key, draft, true));
-    await sleep(900);
-    await waitFor(async () => { expect(await getStored(key)).toBeTruthy(); }, { timeout: 2000 });
+    await waitFor(async () => { expect(await getStored(key)).toBeTruthy(); }, { timeout: 2000, interval: 25 });
 
     result.current.clearDraft();
-    await waitFor(async () => { expect(await getStored(key)).toBeUndefined(); }, { timeout: 2000 });
+    await waitFor(async () => { expect(await getStored(key)).toBeUndefined(); }, { timeout: 2000, interval: 25 });
   });
 });
 

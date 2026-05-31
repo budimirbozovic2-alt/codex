@@ -251,6 +251,8 @@ function MnemonicSectionContent({ html }: { html: string }) {
 
 /** Inline editor seam — uncontrolled, seeded once per mount. PR-7e M2. */
 function MnemonicSectionEditor({ value, onChange }: { value: string; onChange: (html: string) => void }) {
+  // Reason: editor is uncontrolled and seeded once per mount; including `value`
+  // in deps would reseed mid-edit and clobber the user's typing.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const initialDoc = useMemo(() => htmlToDoc(value ?? ""), []);
   return (

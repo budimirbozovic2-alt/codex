@@ -220,6 +220,8 @@ export function SmartSplitSummaryDialog({ source, onSmartSplitConfirm }: Props) 
 
 /** Inline editor seam — uncontrolled, seeded once per mount. PR-7e M2. */
 function ParentTitleEditor({ value, onChange }: { value: string; onChange: (html: string) => void }) {
+  // Reason: uncontrolled editor seeded once per mount; reseeding from `value`
+  // would clobber in-progress edits.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const initialDoc = useMemo(() => htmlToDoc(value ?? ""), []);
   return (

@@ -78,6 +78,8 @@ export function useZettelkastenBootstrap(
       setEnsuring(false);
     });
     return () => { cancelled = true; };
+    // Reason: `seedNamesKey` is a stable join of subcategoryNames; the array itself
+    // recreates on every render but the joined key is the real identity.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [categoryId, subjectName, seedNamesKey]);
 

@@ -29,6 +29,8 @@ export function useDeferredCompute<T>(compute: () => T | Promise<T>, deps: unkno
       cancelled = true;
       taskScheduler.cancel(handle);
     };
+    // Reason: `deps` is the explicit caller-supplied dep list; the compute fn is
+    // captured via closure on purpose so each recompute uses the latest inputs.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, deps);
 

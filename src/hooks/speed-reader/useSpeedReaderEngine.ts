@@ -166,6 +166,9 @@ export function useSpeedReaderEngine(current: Card | undefined) {
       ttsPlayingRef.current = false;
       if (ttsTimeoutRef.current) { clearTimeout(ttsTimeoutRef.current); ttsTimeoutRef.current = null; }
     };
+    // Reason: TTS segment playback restarts only on ttsEnabled/playing/ttsMode toggles;
+    // `segments`, `currentWordIdx`, and `speakSegment` are read intentionally as
+    // a snapshot so word-by-word advancement does not cancel/restart speech.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ttsEnabled, playing, ttsMode]);
 

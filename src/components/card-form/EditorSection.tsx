@@ -194,6 +194,8 @@ const SectionEditor = memo(function SectionEditor({
   // Seed AST once per mount; React `key` (index) drives remount on splits/reorders.
   const initialDoc = useMemo(
     () => section.contentDoc,
+    // Reason: editor is uncontrolled; reseeding from `section.contentDoc` on every
+    // keystroke would clobber the user's in-progress edit.
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [],
   );

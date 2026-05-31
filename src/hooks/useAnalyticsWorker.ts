@@ -23,6 +23,8 @@ export function useAnalyticsWorker<T>(
       .then((result) => { if (!cancelled) setData(result); })
       .catch((err) => { logger.warn("[useAnalyticsWorker] task failed", err); });
     return () => { cancelled = true; };
+    // Reason: `deps` is the explicit caller-controlled dep list; `task` is read via
+    // a ref so a fresh closure on every render does not retrigger the worker.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, deps);
 

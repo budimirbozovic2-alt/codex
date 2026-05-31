@@ -23,8 +23,8 @@ const mockAdapter: PersistAdapter = {
 };
 
 async function drain() {
-  // Let the 16ms debounce timer fire and microtasks settle.
-  await new Promise((r) => setTimeout(r, 50));
+  // Force-drain instead of sleeping past the 16ms debounce: flush() is a
+  // no-op when nothing is pending and otherwise awaits in-flight bulkApply.
   if (persistQueue.hasPending()) await persistQueue.flush();
 }
 

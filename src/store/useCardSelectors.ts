@@ -1,10 +1,9 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// PR-E4 — Pure TanStack re-export barrel.
+// Pure TanStack re-export barrel (PR-E).
 //
-// Historical Zustand-backed `*Ram` selectors (and the `cardMapStore` they
-// closed over) were deleted as part of the Dual-State removal. TanStack
-// Query is now the single in-memory store for cards; every consumer reads
-// through these scoped hooks, invalidated by the `onCardsChanged` bridge.
+// TanStack Query is the single in-memory store for cards. Every consumer
+// reads through these scoped hooks, invalidated by the `onCardsChanged`
+// bridge after each SQLite write.
 // ─────────────────────────────────────────────────────────────────────────────
 export {
   useCardsByCategory,

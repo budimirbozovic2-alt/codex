@@ -24,6 +24,8 @@ export function useGlobalHotkey(
     };
     window.addEventListener("keydown", cb, capture);
     return () => window.removeEventListener("keydown", cb, capture);
+    // Reason: `deps` is the caller-supplied dep list; matcher/handler are read at
+    // dispatch time inside the listener so they don't belong in the rebind deps.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, deps);
 }
