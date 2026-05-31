@@ -58,7 +58,11 @@ export function useDocxImportFlow(defaultCategory: string) {
     setFile(f);
     try {
       const arrayBuffer = await f.arrayBuffer();
-      const mammoth = (await import("mammoth")).default;
+      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+      // @ts-ignore — mammoth.browser nema vlastite tipove.
+      const mod = await import("mammoth/mammoth.browser");
+      const mammoth = (mod as unknown as { default?: { convertToHtml: (i: { arrayBuffer: ArrayBuffer }, opts?: unknown) => Promise<{ value: string }> } }).default
+        ?? (mod as unknown as { convertToHtml: (i: { arrayBuffer: ArrayBuffer }, opts?: unknown) => Promise<{ value: string }> });
       const result = await mammoth.convertToHtml(
         { arrayBuffer },
         {
@@ -69,8 +73,9 @@ export function useDocxImportFlow(defaultCategory: string) {
       );
       setHtmlContent(sanitizeHtml(result.value));
       setStep("configure");
-    } catch {
-      alert("Greška pri čitanju DOCX fajla.");
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Neuspješno čitanje DOCX fajla.";
+      alert(`Greška pri čitanju DOCX fajla: ${msg}`);
     }
   }, []);
 
