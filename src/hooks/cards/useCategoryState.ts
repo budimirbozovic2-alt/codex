@@ -7,7 +7,7 @@
  * hook with React-lifecycle side-effects (examiner cache prime) — it is
  * mounted exactly once in `<AppBootstrap />`.
  */
-import { useEffect, useMemo, useSyncExternalStore, type ReactNode } from "react";
+import { useEffect, useMemo, useSyncExternalStore } from "react";
 import type { CategoryRecord } from "@/lib/db-types";
 import { primeExaminerProfilesFromRecords } from "@/lib/examiner-profile-cache";
 import { categoryStore } from "@/store";
@@ -47,7 +47,3 @@ export function useCategoryStateBridge(): void {
   }, [categoryRecords]);
 }
 
-/** @deprecated Provider removed in v2 cleanup. Kept as no-op shim. */
-export function CategoryStateProvider({ children }: { children: ReactNode }) {
-  return <>{children}</>;
-}

@@ -6,7 +6,7 @@
  * Re-exporta `DbErrorProvider` no-op shim postoji samo radi backwards
  * kompatibilnosti — može se ukloniti čim svi pozivaoci skinu wrapper.
  */
-import { useSyncExternalStore, type ReactNode } from "react";
+import { useSyncExternalStore } from "react";
 import { eventBus } from "@/lib/event-bus";
 import { EVENT_TYPES } from "@/lib/event-bus-types";
 import { getDbErrorState, type DbErrorState } from "@/lib/db-error";
@@ -53,7 +53,3 @@ export function useDbError(): DbErrorState {
   return useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
 }
 
-/** @deprecated Provider je uklonjen; ostaje no-op shim radi backwards kompat. */
-export function DbErrorProvider({ children }: { children: ReactNode }) {
-  return <>{children}</>;
-}

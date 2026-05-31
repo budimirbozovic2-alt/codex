@@ -7,7 +7,7 @@
 //
 // File path preserved for backwards-compat with the public re-exports.
 // ═══════════════════════════════════════════════════════════════════════════
-import { useMemo, type ReactNode } from "react";
+import { useMemo } from "react";
 import { Card, SRSettings } from "@/lib/spaced-repetition";
 import { ReviewLogEntry } from "@/lib/storage";
 import { useAllCards } from "@/hooks/card/useCardsQuery";
@@ -87,7 +87,3 @@ export { useDbError } from "@/contexts/db/DbErrorProvider";
 // backwards-compat with any external imports).
 export { reviewSettingsStore };
 
-/** @deprecated Provider removed in v2 cleanup. Kept as no-op shim. */
-export function CardStateProvider({ children }: { children: ReactNode }) {
-  return <>{children}</>;
-}
