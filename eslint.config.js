@@ -112,71 +112,11 @@ export default tseslint.config(
       // legitimately need `any`). All production code must use strict types.
       "@typescript-eslint/no-explicit-any": "error",
 
-      // Block raw Tailwind palette colors in JSX/string literals.
-      // Forces use of semantic design tokens defined in src/index.css.
-      "no-restricted-syntax": [
-        "warn",
-        {
-          selector: `Literal[value=/${RAW_COLOR_PATTERN}/]`,
-          message:
-            "Raw Tailwind palette colors are forbidden. Use semantic tokens (success, warning, destructive, info, primary, mastery-*, node-*) defined in src/index.css.",
-        },
-        {
-          selector: `TemplateElement[value.raw=/${RAW_COLOR_PATTERN}/]`,
-          message:
-            "Raw Tailwind palette colors are forbidden. Use semantic tokens (success, warning, destructive, info, primary, mastery-*, node-*) defined in src/index.css.",
-        },
-        // W5: disallow string-literal event names on eventBus.{emit,subscribe,unsubscribe}.
-        // Forces the use of EVENT_TYPES.X constants so typos & stale names fail at lint time.
-        {
-          selector:
-            "CallExpression[callee.object.name='eventBus'][callee.property.name=/^(emit|subscribe|unsubscribe)$/] > Literal:first-child",
-          message:
-            "Koristi EVENT_TYPES.X umjesto string literala (W5).",
-        },
-        {
-          selector:
-            "CallExpression[callee.object.name='eventBus'][callee.property.name=/^(emit|subscribe|unsubscribe)$/] > TemplateLiteral:first-child",
-          message:
-            "Koristi EVENT_TYPES.X umjesto template-literal-a (W5).",
-        },
-        // G7: ban raw setTimeout / setInterval. Every timer must go through
-        // `taskScheduler` (src/lib/scheduler) so it participates in shutdown
-        // on `beforeunload` / Electron `before-quit`, can be inspected via
-        // `snapshot()`, and follows the `pauseWhenHidden` contract.
-        //
-        // Allow-list (per-file override below): timing-critical engines
-        // (Pomodoro, SpeedReader), pre-boot infrastructure (db-schema, splash,
-        // panic timer), low-level libraries that the scheduler itself sits on
-        // top of (persist-queue tick, event-bus heartbeat, zip-service idle,
-        // docx-parser race), and editor draft hooks that are scheduled for
-        // unified `useDraftAutosave` refactor (Task 2).
-        {
-          selector: "CallExpression[callee.name='setTimeout']",
-          message:
-            "Koristi taskScheduler.setTimeout() (src/lib/scheduler). Raw setTimeout je dozvoljen samo u whitelisted infrastrukturi i tight engine-ima (vidi eslint.config.js override).",
-        },
-        {
-          selector: "CallExpression[callee.name='setInterval']",
-          message:
-            "Koristi taskScheduler.setInterval() (src/lib/scheduler). Raw setInterval je dozvoljen samo u whitelisted engine-ima (vidi eslint.config.js override).",
-        },
-        {
-          selector:
-            "MemberExpression[object.name='window'][property.name=/^(setTimeout|setInterval)$/]",
-          message:
-            "Koristi taskScheduler iz src/lib/scheduler umjesto window.setTimeout/setInterval.",
-        },
-        // PR1 — Keyed mutex consolidation. Ad-hoc `let _pendingX = Promise.resolve()`
-        // serijalizacioni lanci moraju ići kroz `createKeyedMutex` iz
-        // `@/lib/concurrency`. Implementacija primitive je u `src/lib/concurrency/**`.
-        {
-          selector:
-            "VariableDeclarator[id.name=/^_?pending[A-Z]\\w*$/][init.type='CallExpression'][init.callee.object.name='Promise'][init.callee.property.name='resolve']",
-          message:
-            "Koristi createKeyedMutex() iz @/lib/concurrency umjesto ručnog `_pendingX = Promise.resolve()` lanca (PR1).",
-        },
-      ],
+      // E2 + E4: warn → error, single shared base spread into every block
+      // that sets `no-restricted-syntax` (flat-config arrays are replaced,
+      // not merged). Per-file exemptions live in dedicated override blocks
+      // with `"no-restricted-syntax": "off"` (G7 allow-list).
+      "no-restricted-syntax": ["error", ...BASE_RESTRICTED_SYNTAX],
 
     },
   },
