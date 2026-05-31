@@ -4,7 +4,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 // Mock heavy deps before importing the unit under test.
-vi.mock("@/lib/db", () => ({ seedDefaultCategories: vi.fn(async () => []) }));
+vi.mock("@/lib/db-seed", () => ({ seedDefaultCategories: vi.fn(async () => []) }));
 vi.mock("@/lib/repositories", () => ({
   reviewLogRepository: { loadRecent: vi.fn(async () => []) },
   settingsRepository: { load: vi.fn(async (_k: string, dflt: unknown) => dflt) },
