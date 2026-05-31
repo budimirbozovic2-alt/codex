@@ -41,13 +41,19 @@ export function buildAutoFormatSource(source: Source): { count: number; source: 
 
 // ── Legacy persistence wrappers (non-React callers) ────────
 
+async function persistOrThrow(s: Source): Promise<void> {
+  const res = await saveSource(s);
+  if (res.ok === true) return;
+  throw new Error(`[sourceEditingService] persist failed: ${res.error.code}`);
+}
+
 export async function persistSourceHtml(
   source: Source,
   rawHtml: string,
   onSourceUpdated?: (s: Source) => void,
 ): Promise<Source> {
   const updated = buildSourceFromHtml(source, rawHtml);
-  await saveSource(updated);
+  await persistOrThrow(updated);
   onSourceUpdated?.(updated);
   return updated;
 }
@@ -58,7 +64,7 @@ export async function persistSourceDoc(
   onSourceUpdated?: (s: Source) => void,
 ): Promise<Source> {
   const updated = buildSourceFromDoc(source, doc);
-  await saveSource(updated);
+  await persistOrThrow(updated);
   onSourceUpdated?.(updated);
   return updated;
 }
@@ -69,7 +75,7 @@ export async function persistAutoFormat(
 ): Promise<{ count: number; source: Source | null }> {
   const built = buildAutoFormatSource(source);
   if (!built.source) return built;
-  await saveSource(built.source);
+  await persistOrThrow(built.source);
   onSourceUpdated?.(built.source);
   return built;
 }
