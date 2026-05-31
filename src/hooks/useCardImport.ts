@@ -120,10 +120,12 @@ export function useCardImport() {
       progress(25, "Priprema podataka…");
       let result2: Awaited<ReturnType<typeof applyImportAtomically>>;
       try {
+        // Build baseline from SQLite (former RAM cardMap is gone post PR-E).
+        const baseline = arrayToMap(await listAllCards());
         result2 = await applyImportAtomically({
           parsed,
           strategy,
-          currentMap: getCardMap(),
+          currentMap: baseline,
           onProgress: progress,
         });
       } catch (err) {
@@ -133,8 +135,10 @@ export function useCardImport() {
         throw err instanceof Error ? err : new Error(msg);
       }
 
-      // ── 6. In-memory sync after the tx commits ──
-      cardMapReplaceAll(result2.nextMap);
+      // ── 6. Cache sync after the tx commits ──
+      // Atomic apply already wrote the cards to SQLite; announce so the
+      // bridge invalidates `['cards']` and consumers re-fetch.
+      announceCardsReplaced(result2.nextMap);
       categoryRepository.replaceAll(result2.freshCategories);
       if (result2.reviewLogApplied) setReviewLog(result2.reviewLogApplied);
       if (result2.srSettingsApplied) updateSRSettings(result2.srSettingsApplied);
