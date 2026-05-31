@@ -229,19 +229,11 @@ export default tseslint.config(
       "src/test/**",
     ],
     rules: {
+      // E4: spread BASE so this override doesn't drop the global guards.
       "no-restricted-syntax": [
         "error",
-        {
-          selector: "JSXAttribute[name.name='dangerouslySetInnerHTML']",
-          message:
-            "Koristi <SafeHtml html={...} /> umjesto sirovog `dangerouslySetInnerHTML`. Render-time DOMPurify je obavezna XSS odbrana (P0-3).",
-        },
-        {
-          selector:
-            "Property[key.name='dangerouslySetInnerHTML'][value.type='ObjectExpression']",
-          message:
-            "Koristi <SafeHtml html={...} /> umjesto sirovog `dangerouslySetInnerHTML` u createElement props-u (P0-3).",
-        },
+        ...BASE_RESTRICTED_SYNTAX,
+        ...W7_DANGEROUS_HTML,
       ],
     },
   },
