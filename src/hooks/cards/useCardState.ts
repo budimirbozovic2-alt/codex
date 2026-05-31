@@ -21,9 +21,9 @@ import {
 } from "@/store/reviewSettingsStore";
 import { useBootState } from "@/hooks/useBootState";
 
-// Phase 2a: cards array now comes from TanStack (`['cards','all']`),
-// invalidated by `onCardsChanged` bridge. `cardMapStore` stays as the
-// internal write-side cache for `cardMapWrites` sync lookups.
+// Post PR-E4: TanStack `['cards','all']` is the SOLE in-memory source for
+// cards, invalidated via the `onCardsChanged` bridge after each SQLite
+// write. The legacy `cardMapStore` / `cardMapWrites` modules are deleted.
 function useCards(): Card[] {
   // TanStack returns `readonly Card[]`; downstream consumers expect mutable
   // arrays. Treated as same-reference cast (no copy) — array contents are
