@@ -22,7 +22,8 @@ import type { ImportCtx, ImportTxResult, ImportStrategy } from "@/lib/backup/imp
 import {
   isCategoryRecordArray,
   buildCategoryIdRemap,
-  applyRemapToParsed,
+  applyRemapToParsedV2,
+  pruneOrphans,
 } from "@/lib/backup/import-remap";
 import { mergeCardsByStrategy, writeCardsTx } from "@/lib/backup/write-cards-tx";
 import { writeCategoriesTx } from "@/lib/backup/write-categories-tx";
@@ -38,6 +39,7 @@ export {
   isCategoryRecordArray,
   buildCategoryIdRemap,
   applyRemapToParsed,
+  applyRemapToParsedV2,
   pruneOrphans,
 } from "@/lib/backup/import-remap";
 
@@ -60,15 +62,21 @@ export async function applyImportAtomically(ctx: ImportCtx): Promise<ImportTxRes
   const exec = await getOpfsSqliteExecutor();
 
   try {
-    // ── 1. Pre-merge cards (pure, in-memory only) ──
-    const { merged, nextMap } = mergeCardsByStrategy(parsed.cards, currentMap, strategy);
-
-    // ── 2. Pre-tx remap (read existing categories OUTSIDE the tx) ──
+    // ── 1. Pre-tx remap (read existing categories OUTSIDE the tx) ──
+    //
+    // A2 fix: remap MUST run BEFORE `mergeCardsByStrategy`. Previously the
+    // remap ran post-merge against the `merged` array AND mutated the
+    // caller-owned `nextMap` (== { ...currentMap }) — silent state
+    // corruption for non-overwrite imports. `applyRemapToParsedV2` walks
+    // `parsed.cards` directly and touches no caller-owned map.
     let freshCategories: CategoryRecord[] = await readAllCategoriesForBackup();
     if (parsed.categories.length > 0 && isCategoryRecordArray(parsed.categories)) {
       const remap = buildCategoryIdRemap(parsed.categories, freshCategories);
-      await applyRemapToParsed(remap, parsed, merged, nextMap);
+      await applyRemapToParsedV2(remap, parsed);
     }
+
+    // ── 2. Pre-merge cards (pure, in-memory only) ──
+    const { merged, nextMap } = mergeCardsByStrategy(parsed.cards, currentMap, strategy);
 
     // ── 3. Legacy taxonomy resolve (names → UUIDs) — pre-tx, pure ──
     // Audit v2 / Wave A.5: previously a `try { … } catch { warn }` block.
