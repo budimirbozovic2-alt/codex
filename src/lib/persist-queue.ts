@@ -265,7 +265,6 @@ export const schedulePersist = persistQueue.schedule;
 
 // ─── Eager flush on tab hide (most reliable cross-browser signal) ────
 declare global {
-  // eslint-disable-next-line no-var
   var __codexPersistVisHandler: (() => void) | undefined;
 }
 
