@@ -16,7 +16,7 @@ interface Props {
 
 const SessionComplete = React.memo(function SessionComplete({
   sessionStartTime, totalGrades, modulesCompleted,
-  readCardsCount, completedCardsCount, onBack,
+  _readCardsCount, completedCardsCount, onBack,
 }: Props) {
   useEffect(() => {
     import("@/lib/sounds").then(m => m.playSessionComplete());

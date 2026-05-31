@@ -1,4 +1,4 @@
-import { ClipboardPaste, MapPin, Check, Trash2, X, ChevronDown, ChevronUp, FileText, PencilLine, Eraser, Loader2 } from "lucide-react";
+import { ClipboardPaste, MapPin, Check, X, ChevronDown, ChevronUp, FileText, PencilLine, Eraser, Loader2 } from "lucide-react";
 import { useState, useCallback, useEffect, useRef } from "react";
 import { taskScheduler } from "@/lib/scheduler";
 

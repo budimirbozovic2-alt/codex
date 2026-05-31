@@ -10,7 +10,6 @@ import {
 } from "lucide-react";
 import type { SubcategoryNode, ChapterNode } from "@/lib/db-types";
 import { stableLegacyId } from "@/lib/stable-id";
-import { cn } from "@/lib/utils";
 
 interface StructureManagerDialogProps {
   open: boolean;

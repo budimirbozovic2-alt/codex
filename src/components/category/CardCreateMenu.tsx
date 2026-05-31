@@ -11,7 +11,7 @@ import { AddCardDialog } from "./CardViewDialogs";
 import MassFlashImportTrigger from "./MassFlashImportTrigger";
 import type { Card } from "@/lib/spaced-repetition";
 import { afterDialogClose } from "@/lib/dialog-utils";
-import { htmlToDoc, type EditorDoc } from "@/lib/editor-v4";
+import { type EditorDoc } from "@/lib/editor-v4";
 
 const DocxImporter = lazy(() => import("@/features/docx-importer").then(m => ({ default: m.DocxImporter })));
 

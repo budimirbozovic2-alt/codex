@@ -18,7 +18,7 @@ import { readAllCategoriesForBackup } from "@/lib/db/queries";
 import { getOpfsSqliteExecutor } from "@/lib/persistence/sqlite/client";
 import { assertDesktop } from "@/lib/electron-integration";
 
-import type { ImportCtx, ImportTxResult, ImportStrategy } from "@/lib/backup/import-types";
+import type { ImportCtx, ImportTxResult } from "@/lib/backup/import-types";
 import {
   isCategoryRecordArray,
   buildCategoryIdRemap,

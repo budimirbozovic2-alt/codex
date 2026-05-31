@@ -16,7 +16,7 @@ interface Props {
   patchCard: (id: string, fn: (c: Card) => Card) => void;
 }
 
-export default function CardOrgMode({ cards, categoryId, subcategoryNodes, patchCard }: Props) {
+export default function CardOrgMode({ cards, _categoryId, subcategoryNodes, patchCard }: Props) {
   const [expandedSubs, setExpandedSubs] = useState<Set<string>>(() => new Set());
   const tree = useMemo(() => buildTree(cards, subcategoryNodes), [cards, subcategoryNodes]);
   const { activeCard, handleDragStart, handleDragEnd, assignChapter } = useCardOrgDnd({ cards, tree, patchCard });

@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback, useEffect, useRef, Suspense, lazy } from "react";
-import { Card, getCardScore } from "@/lib/spaced-repetition";
+import { getCardScore } from "@/lib/spaced-repetition";
 import type { FrequencyTag } from "@/lib/sr/types";
 import { LearnCardProgress, loadLearnProgress } from "@/lib/storage";
 import { addActivityEntry } from "@/lib/metacognitive-storage";
@@ -10,7 +10,7 @@ import { usePlannerMutations } from "@/hooks/planner/usePlannerMutations";
 
 const StudyModeRecall = lazy(() => import("./learn/StudyModeRecall"));
 
-export default function LearnSession({ cards, categories, categoryRecords, subcategories, onMarkRead, onReviewSection, onBack, onEdit, onAddKeyPart, dueCount = 0, reviewLog: reviewLogProp = [], initialFilters, restoreSnapshot, onSessionStateChange }: LearnSessionProps) {
+export default function LearnSession({ cards, categories, categoryRecords, subcategories, onMarkRead, onReviewSection, onBack, _onEdit, onAddKeyPart, _dueCount = 0, reviewLog: reviewLogProp = [], initialFilters, restoreSnapshot, onSessionStateChange }: LearnSessionProps) {
   const isStrictRecall = initialFilters?.mode === "strict-recall";
   const { recordDiscipline } = usePlannerMutations();
   const [selectedCategory, setSelectedCategory] = useState<string | null>(restoreSnapshot?.selectedCategory ?? initialFilters?.categoryId ?? null);
@@ -30,7 +30,7 @@ export default function LearnSession({ cards, categories, categoryRecords, subca
   const [readCards, setReadCards] = useState<Set<string>>(new Set());
   const [completedCards, setCompletedCards] = useState<Set<string>>(new Set());
   const [chainCompletedCards] = useState<Set<string>>(new Set());
-  const [progress, setProgress] = useState<Record<string, LearnCardProgress>>({});
+  const [_progress, setProgress] = useState<Record<string, LearnCardProgress>>({});
   const progressLoadedRef = useRef(false);
   useEffect(() => {
     if (progressLoadedRef.current) return;
@@ -62,7 +62,7 @@ export default function LearnSession({ cards, categories, categoryRecords, subca
     return categories.filter(c => cats.has(c));
   }, [cards, categories]);
 
-  const availableSubs = selectedCategory ? (subcategories[selectedCategory] || []) : [];
+  const _availableSubs = selectedCategory ? (subcategories[selectedCategory] || []) : [];
   const frequencyCounts = useMemo(() => {
     const counts: Record<FrequencyTag, number> = { "često": 0, "rijetko": 0, "nikad": 0 };
     for (const c of cards) {
@@ -205,7 +205,7 @@ export default function LearnSession({ cards, categories, categoryRecords, subca
       (async () => { try {
         const { loadPlanner, calcVelocity, getSmartSuggestion } = await import("@/domains/planner");
         const plannerConfig = loadPlanner();
-        const velocity = calcVelocity(reviewLogProp, 7);
+        const _velocity = calcVelocity(reviewLogProp, 7);
         const suggestion = getSmartSuggestion(null, cards, plannerConfig.finalGoalDate, plannerConfig.bufferPercent ?? 15);
         const dailyGoal = suggestion?.suggestedToday ?? 0;
         const today = new Date().toISOString().slice(0, 10);

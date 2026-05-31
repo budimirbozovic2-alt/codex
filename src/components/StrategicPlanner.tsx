@@ -31,7 +31,7 @@ interface Props {
   onShowOnboarding?: () => void;
 }
 
-export default function StrategicPlanner({ cards, categories, categoryRecords, reviewLog, onNavigateToDatabase, onShowOnboarding }: Props) {
+export default function StrategicPlanner({ cards, _categories, categoryRecords, reviewLog, onNavigateToDatabase, onShowOnboarding }: Props) {
   const data = usePlannerData(cards, reviewLog, categoryRecords);
   const [activeTab, setActiveTab] = useState<"operations" | "roadmap" | "discipline">("operations");
   const [showWizard, setShowWizard] = useState(!data.isConfigured);

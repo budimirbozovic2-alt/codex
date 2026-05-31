@@ -5,7 +5,6 @@ import { m } from "@/lib/motion";
 import { Card, SectionState } from "@/lib/spaced-repetition";
 import { ReviewLogEntry } from "@/lib/storage";
 import { getLearningVelocity } from "@/lib/metacognitive-storage";
-import { Progress } from "@/components/ui/progress";
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
 } from "recharts";

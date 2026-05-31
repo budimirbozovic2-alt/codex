@@ -1,7 +1,7 @@
 import { stripHtml } from "@/lib/sanitize";
 import { readCached, writeCached } from "@/lib/settings-cache";
 
-let currentUtterance: SpeechSynthesisUtterance | null = null;
+let _currentUtterance: SpeechSynthesisUtterance | null = null;
 
 export interface TTSSettings {
   rate: number;       // 0.5 - 2.0

@@ -1,4 +1,4 @@
-import { Edit2, Trash2, Check, X, Plus, FolderOpen, ChevronDown, ChevronRight, Tag, ExternalLink } from "lucide-react";
+import { Edit2, Trash2, Check, X, Plus, FolderOpen, ChevronDown, ChevronRight, Tag } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useState, useMemo } from "react";
 import { Input } from "@/components/ui/input";

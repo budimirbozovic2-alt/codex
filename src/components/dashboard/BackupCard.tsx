@@ -1,6 +1,5 @@
 import { Database, Download, Settings2, ShieldCheck, AlertTriangle } from "lucide-react";
 import { memo, useCallback, useEffect, useState } from "react";
-import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import ExportImportDialog from "@/components/ExportImportDialog";

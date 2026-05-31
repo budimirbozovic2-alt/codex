@@ -2,7 +2,7 @@ import { TrendingUp, Zap } from "lucide-react";
 import { m } from "@/lib/motion";
 import { Progress } from "@/components/ui/progress";
 import {
-  AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, Line, ComposedChart,
+  _AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, Line, ComposedChart,
 } from "recharts";
 import { ChartTooltip, PHASE_COLORS } from "./planner-constants";
 import type { BurnupDataPoint, SubjectPlan } from "@/types/planner";

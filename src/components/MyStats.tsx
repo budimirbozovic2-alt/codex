@@ -31,7 +31,7 @@ interface Props {
   onShowOnboarding?: () => void;
 }
 
-export default function MyStats({ cards, categories, categoryRecords, subcategories, categoryStats, reviewLog, srSettings, onShowPlanner, onShowOnboarding }: Props) {
+export default function MyStats({ cards, categories, categoryRecords, _subcategories, categoryStats, reviewLog, srSettings, _onShowPlanner, onShowOnboarding }: Props) {
   const [activeTab, setActiveTab] = useState<string>("overview");
 
   const catNameMap = useMemo(() => {

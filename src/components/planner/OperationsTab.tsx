@@ -1,8 +1,7 @@
 import { toast } from "sonner";
-import { Clock, RefreshCw, Shield, Flame, Zap, Lightbulb, AlertTriangle, Settings2, BookOpen, Brain } from "lucide-react";
+import { Clock, RefreshCw, Flame, Zap, Lightbulb, AlertTriangle, Settings2, BookOpen, Brain } from "lucide-react";
 import { m } from "@/lib/motion";
 import { Button } from "@/components/ui/button";
-import { Progress } from "@/components/ui/progress";
 import { PlannerConfig, calcRebalancedQuota } from "@/domains/planner";
 import type { CategoryRecord } from "@/lib/db-types";
 import { format, differenceInDays } from "date-fns";
@@ -32,7 +31,7 @@ interface Props {
 }
 
 export default function OperationsTab({
-  config, save, subjectPlans,
+  config, _save, subjectPlans,
   velocity, remaining, estimatedFinish, plannerStatus,
   smartSuggestion, timeRec, debt, dueCount, learningRatio, overallPct,
   retentionRisk, categoryRecords,
