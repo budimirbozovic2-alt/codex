@@ -23,6 +23,10 @@ export function useCardOnlyActions(): CardActionsValue {
   const annotations = useCardAnnotations({ patchCard: crud.patchCard });
   return useMemo(
     () => ({ ...crud, ...annotations }),
+    // Spreads above pull in all keys; granular deps below memoize on the
+    // stable function refs from each hook. Listing the parent objects would
+    // recreate on every render — these are intentional fine-grained deps.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [
       crud.patchCard, crud.addCard, crud.addFlashCard, crud.updateCard,
       crud.deleteCard, crud.splitCard, crud.bulkAddCards, crud.bulkAddFlashCards, crud.setFrequency,
@@ -37,6 +41,8 @@ export function useCategoryActions(): CategoryActionsValue {
   const actions = useCategoryManagement();
   return useMemo(
     () => actions,
+    // Granular method deps — see useCardOnlyActions rationale.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [
       actions.addCategory, actions.renameCategory, actions.deleteCategory,
       actions.addSubcategory, actions.renameSubcategory, actions.deleteSubcategory,
@@ -55,6 +61,8 @@ export function useBackupActions(): BackupActionsValue {
   const importApi = useCardImport();
   return useMemo(
     () => ({ ...exportApi, ...importApi }),
+    // Granular method deps — see useCardOnlyActions rationale.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [exportApi.exportData, exportApi.exportTemplate, importApi.importData, importApi.importCards],
   );
 }

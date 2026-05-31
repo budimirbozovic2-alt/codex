@@ -50,7 +50,7 @@ export default function StudyModeRecall({
   const [phase, setPhase] = useState<RecallPhase>("open");
   const [leechCount, setLeechCount] = useState(0);
 
-  const sections = card.sections ?? [];
+  const sections = useMemo(() => card.sections ?? [], [card.sections]);
   const isCompleted = completedCards.has(card.id);
 
   // Reset state when card changes
