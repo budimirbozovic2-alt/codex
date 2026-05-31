@@ -1,81 +1,92 @@
-## Dijagnoza
+# Root cause: splash skripta u `index.html` reloaduje stranicu svakih ~10s
 
-Prijašnji zaključak da je problem samo `sqlite3.wasm` više nije dovoljan: u trenutnom preview-u se vidi da se SQLite DEV fallback zaista pokreće, ali prekasno i na pogrešnom mjestu.
+## Šta sam našao
 
-Relevantni signali:
+`index.html` (linije 102–125) sadrži skriptu koja nakon 10 sekundi provjerava:
 
-- Boot dolazi do `ready`, ali tek oko 9.3s; panic timer je na 8s, pa korisnik lako vidi “blokadu” na splash ekranu.
-- `listAllCards`, `listAllSources`, `listAllArticles` traju oko 3s jer se prvi SQLite/WASM init dešava tokom read path-a, ne kontrolisano na početku.
-- Kôd i dalje ima mješavinu “read vrati [] ako executor ne postoji” i “write throw `NO_EXECUTOR`”, što stvara lažne uspjehe, prazne rezultate i pogrešne UI tokove.
-- DOCX import koristi generički `mammoth` entry u browser worker-u; za browser bundlere je sigurniji `mammoth/mammoth.browser`, a trenutni worker nema dovoljno robustan fallback/error surface.
-- Backup import UI zatvara dialog u `finally` čak i kad import logički ne uspije ili `useCardImport` interno samo toastuje i `return`-a, pa korisnik dobija utisak da je import “nemoguć” bez jasnog mjesta kvara.
+```js
+var appMounted = root && root.querySelector("[data-app-mounted]");
+if (appMounted) { ... return; }
+if (retries < MAX_RETRIES) {
+  sessionStorage.setItem(...);
+  status.textContent = "Pokušaj " + (retries+2) + " od " + (MAX_RETRIES+1) + "…";
+  setTimeout(() => window.location.reload(), 800);
+}
+```
 
-Glavni zajednički izvor problema je **nestabilan persistence boundary**: SQLite executor se lazy inicijalizuje, greške se na nekim mjestima pretvaraju u prazne nizove/no-op, a UI zatim nastavlja kao da je operacija uspjela.
+**Problem:** atribut `data-app-mounted` se **nigdje u kodu ne postavlja** (provjereno `rg -rn "data-app-mounted" src` → 0 rezultata). React mount, splash cleanup u `src/main.tsx` i `src/hooks/card-bootstrap/splash.ts` skidaju vizualni splash, ali nikad ne markiraju root element.
 
-## Posljedice istog izvora
+**Posljedica:** u svakom non-Electron okruženju (Lovable preview, `bun run dev` u browseru) skripta uvijek ulazi u retry granu nakon 10s i reloaduje tab. Session replay to potvrđuje **tačno**:
 
-Osim prijavljenih problema, isti obrazac može pogađati:
+- `t=0s` page loaded
+- `t=10s` "Pokušaj 2 od 3…" → reload
+- `t=21s` "Pokušaj 3 od 3…" → reload
+- `t=32s` fallback "Aplikacija se učitava duže…"
 
-- sporo prvo dodavanje/izmjenu kartice zbog `persistQueue.cleanup({ strict: true })` koji čeka cold SQLite init;
-- izvore i mentalne mape koje mogu ostati van prikaza ako TanStack invalidacija zakasni ili se izgubi;
-- backup restore koji može zatvoriti modal bez stvarnog uspjeha;
-- health/backup readere koji mogu tiho vratiti prazne podatke ako executor nije dostupan;
-- Zettelkasten/lazy migration tokove koji direktno zovu `saveSource`/slične funkcije bez TanStack rollback zaštite.
+## Zašto baš ova tri simptoma
 
-## Plan popravke
+Svaka operacija koja traje > 10 s od mounta (ili više od 10 s nakon zadnjeg uspješnog mounta) biva ubijena reloadom:
 
-1. **Stabilizovati SQLite executor ugovor**
-   - Uvesti jasan helper za “required executor”: write/backup/import tokovi moraju dobiti executor ili baciti eksplicitnu grešku.
-   - Ne koristiti prazne nizove kao signal za “nema baze” u kritičnim read path-ovima za backup/import.
-   - Zadržati DEV in-memory fallback, ali ga pokrenuti kontrolisano i ranije.
-   - Uskladiti Vite konfiguraciju za `@sqlite.org/sqlite-wasm` prema preporuci paketa: izbaciti ga iz `optimizeDeps` prebundle-a i zadržati eksplicitni WASM asset URL.
+1. **Dodavanje kartica blokira aplikaciju** — prvi `useMutation` write nakon SQLite prewarm-a + WAL commit u DEV in-memory fallback-u; reload usred `bulkApply` ostavlja TanStack `onMutate` snapshot bez resolve-a i UI ostaje u disabled state-u dok se ne dogodi sljedeći reload.
+2. **DOCX uvoz neuspješan** — `docx-worker` `postMessage` round-trip + parse većih `.docx` lako pređe 10s; reload uništi worker i `useDocxImportFlow` resolve nikad ne stigne, toast ostane „uspješan" iz ranije faze ili tiho propadne.
+3. **Backup import nemoguć** — `parseJsonInWorker` → Zod → `migrateBackup` → `applyImportAtomically` (per-domain tx) traje znatno duže od 10 s na ozbiljnijem backupu; reload prekine transakciju, dialog se zatvori, podaci nisu primijenjeni.
 
-2. **Ubrzati boot i ukloniti lažnu blokadu aplikacije**
-   - Pre-warm SQLite executor u boot fazi prije paralelnih `listAll*` poziva.
-   - Skinuti cold SQLite init sa `initMetacognitiveCache`/`initPlannerCache`/source/card read kritične staze gdje je moguće.
-   - Podesiti panic timer tako da ne proglašava kvar dok kontrolisani boot još radi normalno.
-   - Zadržati recovery UI za stvarne kvarove, ali ne forsirati “ready” usred validnog init-a.
+Sve tri „regresije" su zapravo **isti** kvar, ne tri odvojena.
 
-3. **Popraviti dodavanje kartica bez gubljenja rollback sigurnosti**
-   - Zadržati `strict` persistence provjeru nakon mutacija, ali nakon SQLite prewarm-a ona više ne smije čekati inicijalizaciju.
-   - Zamijeniti microtask spin u `persistQueue.cleanup()` stabilnijim drain/promise mehanizmom.
-   - Gdje je moguće, slati scoped `notifyCardsChanged` umjesto globalnog `kind: all`, da jedna kartica ne invalidira sve card query-je.
+## Verifikacija da prethodni fix-evi nisu pomogli
 
-4. **Popraviti DOCX izvor import**
-   - Prebaciti DOCX parser/worker na browser build: `mammoth/mammoth.browser`.
-   - Popraviti worker `postMessage` transfer da ne klonira nepotrebno buffer.
-   - Dodati pouzdan main-thread fallback ako worker bundle/import padne.
-   - Greške parsiranja prikazati jasno; success toast tek nakon stvarno parsiranog i sačuvanog izvora.
+Provjerio sam fajlove iz prošlog turn-a:
 
-5. **Popraviti source write + prikaz nakon save-a**
-   - U `useSourceMutations` dodati `onSuccess/onSettled` safety invalidaciju za `sources.all()` i `sources.byCategory(categoryId)`.
-   - Provjeriti sve call-site-ove koji zovu `saveSource` direktno: moraju unwrap-ovati `WriteResult` ili baciti grešku.
-   - Isti obrazac provjeriti za mind maps i Zettelkasten article writes.
+- `src/hooks/card-bootstrap/bootDb.ts` — SQLite prewarm radi, ali boot panic je 15 s; splash reload puca prije toga (10 s).
+- `src/hooks/useCardBootstrap.ts` — panic timer 15 s je interni boot fail-safe, ne dotiče `index.html` skriptu.
+- `src/features/docx-importer/docx-worker.ts` — switch na `mammoth.browser` riješio parse error, ali reload ga svejedno prekida.
+- `src/hooks/useCardImport.ts` / `ExportImportDialog.tsx` — error propagation i „dialog stays open on failure" su ispravni, ali full page reload zaobilazi sav React error handling.
 
-6. **Popraviti backup import tok**
-   - `useCardImport.importData` treba vratiti jasan rezultat ili baciti grešku; ne smije interno samo `toast + return` za hard failure kada ga dialog tretira kao uspjeh.
-   - `ExportImportDialog` zatvarati samo nakon potvrđenog uspješnog importa.
-   - `applyImportAtomically` treba koristiti isti required-executor ugovor i jasnu poruku ako persistence nije dostupan.
-   - Nakon uspješnog importa invalidirati sve relevantne query zone: cards, categories, sources, mindMaps, knowledgeBase, mnemonics, settings/review.
+Dakle: **nijedan od prethodnih popravki nije adresirao stvarni uzrok jer je on u `index.html`, ne u React/persistence sloju.**
 
-7. **Regresiona provjera**
-   - Dodati/podesiti testove za:
-     - više uzastopnih kartica bez blokiranja;
-     - DOCX parser fallback i error handling;
-     - source save vidljiv u scoped query cache-u;
-     - backup import koji ne zatvara dialog na neuspjeh;
-     - executor unavailable ne smije proizvoditi lažan uspjeh ili prazne backup podatke.
-   - Ručno provjeriti u preview-u: boot prelazi splash bez panike, dodavanje kartice radi, DOCX izvor se pojavi, backup import ostaje otvoren na grešci i zatvara se samo na uspjehu.
+## Plan rješenja (minimalan, jedna izmjena + sanity guard)
 
-## Kriterij uspjeha
+### 1. `index.html` — uslovi reload na stvarni mount + cleanup pri uspješnom mount-u
 
-- Boot nema 8s “panic” efekt u normalnom preview toku.
-- Prvo dodavanje kartice ne čeka cold SQLite init.
-- DOCX import daje stvarnu grešku ili stvarno prikazan novi izvor; nema lažnog success-a.
-- Backup import ne nestaje tiho; neuspjeh ostavlja dialog otvoren i pokazuje konkretan razlog.
-- Nema `read []` kao skrivenog persistence failure-a u kritičnim tokovima.
+- Splash skripta umjesto polling-a za nepostojeći atribut treba slušati event koji `main.tsx` emituje nakon `createRoot(...).render(<App />)`.
+- Konkretno: zamijeniti provjeru `root.querySelector("[data-app-mounted]")` sa provjerom postavljenog `window.__codexAppMounted === true` **i** zadržati DOM atribut kao fallback.
+- Timer mora biti otkaziv: čuvati `var t = setTimeout(...)` na window scope-u (`window.__codexSplashTimer`) tako da ga `main.tsx` može počistiti čim React mount uspije.
 
-<presentation-actions>
-  <presentation-open-history>View History</presentation-open-history>
-  <presentation-link url="https://docs.lovable.dev/tips-tricks/troubleshooting">Troubleshooting docs</presentation-link>
-</presentation-actions>
+### 2. `src/main.tsx` — signalizirati uspješan mount
+
+Odmah nakon `createRoot(...).render(<App />)`:
+
+- `window.__codexAppMounted = true`
+- `document.getElementById("root")?.setAttribute("data-app-mounted", "1")`
+- `clearTimeout(window.__codexSplashTimer)` i `sessionStorage.removeItem("__codex_boot_retries")`
+
+Time se splash retry petlja eliminira u **svim** okruženjima (Electron i preview), bez taknute persistence logike.
+
+### 3. (Opcionalno, defense-in-depth) Produžiti splash timeout sa 10 s na 20 s
+
+U Lovable preview-u cold SQLite WASM init + prvi mount može trajati 6–8 s; 10 s je preusko. 20 s ostavlja udobnu marginu, a stvarni mount signal iz koraka 2 u praksi otkaže timer prije toga.
+
+### 4. Validacija nakon implementacije
+
+- Otvoriti preview, potvrditi u replay-u da nema „Pokušaj 2/3 od 3…" tranzicija.
+- Dodati novu kategoriju → ne blokira.
+- Importovati `.docx` izvor → toast „uspješno" + izvor se pojavljuje.
+- Importovati backup .json → dialog ostaje otvoren do completion-a, podaci primijenjeni.
+
+## Tehnički detalji izmjena
+
+```text
+index.html (script blok linije 101–126):
+  - var t = setTimeout(function(){ ... }, 20000);
+  - window.__codexSplashTimer = t;
+  - provjera: var appMounted = window.__codexAppMounted || root.querySelector("[data-app-mounted]");
+
+src/main.tsx (odmah nakon createRoot().render):
+  + (window as any).__codexAppMounted = true;
+  + document.getElementById("root")?.setAttribute("data-app-mounted", "1");
+  + const tid = (window as any).__codexSplashTimer;
+  + if (tid) { clearTimeout(tid); (window as any).__codexSplashTimer = null; }
+  + try { sessionStorage.removeItem("__codex_boot_retries"); } catch {}
+```
+
+Nema izmjena u persistence / SQLite / docx / backup kodu — oni su funkcionalno ispravni; samo ih je gasio reload.
