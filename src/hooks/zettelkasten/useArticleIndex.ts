@@ -7,6 +7,7 @@
  */
 import { useMemo } from "react";
 import type { KnowledgeBaseArticle } from "@/lib/zettelkasten-storage";
+import { isDocEmpty } from "@/lib/editor-v4/derived";
 
 interface Input {
   articles: KnowledgeBaseArticle[];
