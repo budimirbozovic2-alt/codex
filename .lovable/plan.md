@@ -30,13 +30,39 @@ gdje pointer-move tokom DnD-a trigeruje render cijelog stabla, što je sa
   ponovo uvedu in-callback alokacije `availableChapters` / `chapterIdMap` /
   `otherSubs` / `subIdMap`.
 
+### 3. Virtualizacija DnD chapter liste (`react-window` v2 + dnd-kit shim)
+
+`src/components/category/org-mode/VirtualSortableCardList.tsx`:
+
+- `react-window` v2 `<List />` sa fixed `rowHeight = 50px` (SortableCardTile + gap).
+- **Shim:** parent `<SortableContext>` u `OrgSubcategoryPanel` ostaje SSOT
+  za potpunu listu ID-ova (`ch.cards.map(c => c.id)`). Virtualizovana
+  komponenta NE wrap-uje drugi `SortableContext` (duplo nesting kvari
+  dnd-kit index math). `<DragOverlay />` iz `CardOrgMode` (portal u
+  `document.body`) preživljava unmount source row-a kad virtualizator
+  scroll-uje granu van viewport-a.
+- `overscanCount = 8` pokriva edge drag-and-drop dok dnd-kit `useAutoScroll`
+  ne uhvati scrollable ancestor i ne dovuče sljedeće rows.
+- Threshold: `VIRTUALIZATION_THRESHOLD = 30`. Ispod toga inline render —
+  overhead virtualizacije (constant mount/unmount + `MeasuringStrategy.Always`)
+  ne isplati se za male liste.
+- Unassigned sekcija (`UnassignedCardRow` sa Select dropdown-ima) namjerno
+  ostavljena inline — varijabilna visina + portal Select-i komplikuju
+  virtualizaciju, a typično ima <20 stavki.
+
+### 4. Regresioni testovi
+
+- `src/test/pr-g5-render-discipline.test.ts` — 5 testova: memo guard za
+  panel/zone/row/tile + statički guard protiv re-uvođenja in-callback
+  alokacija.
+- `src/test/pr-g5-dnd-virtualization.test.ts` — 5 testova: memo guard za
+  `VirtualSortableCardList`, threshold sanity, panel wire-up,
+  no-nested-SortableContext invariant, `DragOverlay` portal shim
+  preživio u `CardOrgMode`.
+
 ## Što PR-G5 NE radi
 
-- Ne uvodi `react-window` virtuelizaciju u DnD listu — `dnd-kit` zahtijeva
-  kustom drag-overlay shim i mjerenje virtualizovanih ćelija. Trenutna
-  memoizacija pokriva 95% slučajeva (do ~500 kartica po panelu); puna
-  virtualizacija ostavljena kao opcioni follow-up ako se ikad pojavi panel
-  sa >1000 kartica.
+- Ne virtualizuje `UnassignedCardRow` (variable height, portal Select-i).
 - Ne dira `MnemonicWorkshop` koji već koristi `react-window`.
 - Ne mijenja DnD semantiku ni `useCardOrgDnd` hook.
 
