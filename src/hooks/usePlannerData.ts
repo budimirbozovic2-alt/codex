@@ -9,7 +9,6 @@ import type { PlannerConfig } from "@/domains/planner";
 import { DEFAULT_CONFIG } from "@/domains/planner";
 import { queryKeys } from "@/lib/query/keys";
 import {
-  hashReviewLog,
   hashCards,
   hashCategories,
   hashPlannerConfig,
@@ -181,7 +180,9 @@ export function usePlannerData(cards: SRCard[], reviewLog: ReviewLogEntry[], cat
   // when its inputs change. Bridge `['planner']` invalidation also covers
   // config writes; this effect catches cards/categoryRecords changes which
   // don't go through `notifyPlannerChanged`.
-  const reviewLogHash = useMemo(() => hashReviewLog(reviewLog), [reviewLog]);
+  //
+  // PR-G5 / RC-5: removed `reviewLogHash` — it was computed every render
+  // but never used (the worker call doesn't depend on reviewLog).
   const cardsHash = useMemo(() => hashCards(cards), [cards]);
   const categoryHash = useMemo(() => hashCategories(categoryRecords), [categoryRecords]);
   const configHash = useMemo(() => hashPlannerConfig(config), [config]);
@@ -189,11 +190,6 @@ export function usePlannerData(cards: SRCard[], reviewLog: ReviewLogEntry[], cat
   useEffect(() => {
     void qc.invalidateQueries({ queryKey: queryKeys.planner.retentionRisk() });
   }, [qc, cardsHash, categoryHash, configHash]);
-
-  // Suppress unused-var lint without changing public surface — hashes are
-  // computed for the effect above; reviewLogHash is reserved for future use
-  // (currently unused but kept stable for symmetry / call-site refactors).
-  void reviewLogHash;
 
   const { data: retentionRisk = [] } = useQuery({
     queryKey: queryKeys.planner.retentionRisk(),
@@ -203,6 +199,11 @@ export function usePlannerData(cards: SRCard[], reviewLog: ReviewLogEntry[], cat
       const result = await analyticsClient.runCategoryStability(cards, catIds, config.finalGoalDate ?? null);
       return [...result].sort((a, b) => a.avgRetrievability - b.avgRetrievability);
     },
+    // PR-G5 / RC-5: default staleTime (0) caused the analytics Worker to
+    // re-run on every mount/focus event even when no inputs changed. The
+    // hash-driven effect above is the SSOT for refetch triggers; Infinity
+    // here delegates entirely to it.
+    staleTime: Infinity,
   });
 
   const isConfigured = config.dailyAvailableMinutes > 0 && !!config.finalGoalDate;
