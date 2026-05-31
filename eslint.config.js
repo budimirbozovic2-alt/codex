@@ -531,5 +531,93 @@ export default tseslint.config(
       ],
     },
   },
+
+  // ─── W11/W12/W13 — Domain barrels (src/domains/*) ───────────────────────
+  // Each domain exposes a single barrel `@/domains/<name>`. Deep imports
+  // (`@/domains/<name>/internal-file`) are forbidden for all callers
+  // OUTSIDE the domain's own directory. The domain itself, plus `src/test`,
+  // is whitelisted via the `ignores` block so internal composition works.
+  {
+    files: ["src/**/*.{ts,tsx}"],
+    ignores: [
+      "src/domains/cards/**",
+      "src/domains/planner/**",
+      "src/domains/mnemonic/**",
+      "src/test/**",
+      // Legacy back-compat shims that intentionally re-export domain internals.
+      "src/lib/planner-storage.ts",
+      "src/lib/analytics/blind-spots.ts",
+    ],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: ["@/domains/cards/*"],
+              message:
+                "Deep import u cards domen je zabranjen (W11). Importuj iz `@/domains/cards` barrel-a.",
+            },
+            {
+              group: ["@/domains/planner/*"],
+              message:
+                "Deep import u planner domen je zabranjen (W12). Importuj iz `@/domains/planner` barrel-a.",
+            },
+            {
+              group: ["@/domains/mnemonic/*"],
+              message:
+                "Deep import u mnemonic domen je zabranjen (W13). Importuj iz `@/domains/mnemonic` barrel-a.",
+            },
+          ],
+        },
+      ],
+    },
+  },
+
+  // ─── W14 — Cross-domain isolation ────────────────────────────────────────
+  // A domain may NOT deep-import another domain's internals. The only
+  // sanctioned cross-domain seam is the public barrel. Combined with W11–W13
+  // this guarantees a stable contract surface between bounded contexts and
+  // lets each domain refactor its internals without ripples.
+  {
+    files: ["src/domains/cards/**/*.{ts,tsx}"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            { group: ["@/domains/planner/*", "@/domains/mnemonic/*"], message: "Cross-domain deep import (W14). Koristi barrel `@/domains/<other>`." },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    files: ["src/domains/planner/**/*.{ts,tsx}"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            { group: ["@/domains/cards/*", "@/domains/mnemonic/*"], message: "Cross-domain deep import (W14). Koristi barrel `@/domains/<other>`." },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    files: ["src/domains/mnemonic/**/*.{ts,tsx}"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            { group: ["@/domains/cards/*", "@/domains/planner/*"], message: "Cross-domain deep import (W14). Koristi barrel `@/domains/<other>`." },
+          ],
+        },
+      ],
+    },
+  },
 );
+
 
