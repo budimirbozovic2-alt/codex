@@ -79,11 +79,11 @@ async function migrateAllSources(): Promise<void> {
       const res = migrateSource(s);
       if (!res.changed) continue;
       try {
-        const res = await saveSource(res.record);
-        if (res.ok === true) {
+        const wr = await saveSource(res.record);
+        if (wr.ok === true) {
           n++;
         } else {
-          logger.warn(`[editor-v4] saveSource(${s.id}) failed`, res.error);
+          logger.warn(`[editor-v4] saveSource(${s.id}) failed`, wr.error);
         }
       } catch (err) {
         logger.warn(`[editor-v4] saveSource(${s.id}) failed`, err);
