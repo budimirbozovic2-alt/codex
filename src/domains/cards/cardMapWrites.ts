@@ -35,7 +35,16 @@ export function snapshot(): CardMap {
 }
 
 // ─── Internal commit helpers ──────────────────────────────────────────────
+// PR-B: every commit bumps `_writeEpoch`. `reloadCardsFromDb` captures the
+// epoch before it awaits SQLite and bails if a sync write landed during the
+// await — otherwise a stale full reload would overwrite the fresh RAM state.
+let _writeEpoch = 0;
+export function _getWriteEpoch(): number {
+  return _writeEpoch;
+}
+
 function commitSingle(card: Card): void {
+  _writeEpoch++;
   schedulePersist({ type: "put", card });
   setCardMap((prev) => ({ ...prev, [card.id]: card }));
   notifyCardsChanged();
@@ -43,6 +52,7 @@ function commitSingle(card: Card): void {
 
 function commitBulk(cards: Card[]): void {
   if (cards.length === 0) return;
+  _writeEpoch++;
   schedulePersist({ type: "bulk", cards });
   setCardMap((prev) => {
     const next = { ...prev };
@@ -53,6 +63,7 @@ function commitBulk(cards: Card[]): void {
 }
 
 function commitDelete(id: string): void {
+  _writeEpoch++;
   schedulePersist({ type: "delete", id });
   setCardMap((prev) => {
     if (!(id in prev)) return prev;
