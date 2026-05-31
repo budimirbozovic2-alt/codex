@@ -119,7 +119,7 @@ export async function listSourcesByCategory(categoryId: string): Promise<Source[
 
 export async function putSource(source: Source): Promise<void> {
   const exec = await requireExecutor("putSource");
-  if (!exec) return;
+  if (!exec) throw new Error("NO_EXECUTOR");
   await exec.run(INSERT_SQL, bindSource(source));
 }
 
