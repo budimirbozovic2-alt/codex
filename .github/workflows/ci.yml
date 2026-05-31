@@ -23,11 +23,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # ── Node + built-in npm cache (~/.npm keyed on package-lock.json) ──
-      - uses: actions/setup-node@v4
+      # ── Bun runtime ───────────────────────────────────────────────────
+      - uses: oven-sh/setup-bun@v1
         with:
-          node-version: "20"
-          cache: "npm"
+          bun-version: latest
 
       # ── ESLint + TypeScript incremental caches ─────────────────────────
       # `.eslintcache` and `.tsbuildinfo` make repeat runs 5–10x faster
@@ -41,26 +40,26 @@ jobs:
             node_modules/.cache
             **/*.tsbuildinfo
           key: >-
-            tooling-${{ runner.os }}-node20-${{ hashFiles('package-lock.json',
+            tooling-${{ runner.os }}-bun-${{ hashFiles('bun.lock',
             'eslint.config.js', 'tsconfig*.json') }}-${{ github.ref_name }}
           restore-keys: |
-            tooling-${{ runner.os }}-node20-${{ hashFiles('package-lock.json', 'eslint.config.js', 'tsconfig*.json') }}-
-            tooling-${{ runner.os }}-node20-
+            tooling-${{ runner.os }}-bun-${{ hashFiles('bun.lock', 'eslint.config.js', 'tsconfig*.json') }}-
+            tooling-${{ runner.os }}-bun-
 
       - name: Install dependencies
-        run: npm ci --prefer-offline --no-audit --fund=false
+        run: bun install --frozen-lockfile
 
       # ── Domain wall guard (W11–W14) — fast grep, runs first ────────────
       - name: Domain walls (W11–W14)
-        run: npm run lint:walls
+        run: bun run lint:walls
 
       # ── TypeScript (incremental via .tsbuildinfo) ──────────────────────
       - name: Typecheck
-        run: npx tsc -p tsconfig.app.json --noEmit --incremental --tsBuildInfoFile .tsbuildinfo --pretty false
+        run: bunx tsc -p tsconfig.app.json --noEmit --incremental --tsBuildInfoFile .tsbuildinfo --pretty false
 
       # ── ESLint with persistent cache ───────────────────────────────────
       - name: ESLint
-        run: npm run lint -- --cache --cache-location .eslintcache --cache-strategy content
+        run: bun run lint -- --cache --cache-location .eslintcache --cache-strategy content
 
       - name: Tests
-        run: npm test
+        run: bun test
