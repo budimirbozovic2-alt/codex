@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach } from "vitest";
 
 // M5 regression: DbErrorProvider must dedupe identical DbErrorState bursts so
 // downstream consumers don't re-render on every cascaded DB_BLOCKED emit.
-import { DbErrorProvider, useDbError } from "@/contexts/db/DbErrorProvider";
+import { useDbError } from "@/hooks/useDbError";
 import { eventBus } from "@/lib/event-bus";
 import { EVENT_TYPES } from "@/lib/event-bus-types";
 import { render } from "@testing-library/react";
@@ -19,7 +19,7 @@ describe("DbErrorProvider — M5 dedupe", () => {
   beforeEach(() => { renderCount = 0; });
 
   it("does not re-render on identical consecutive DB error states", () => {
-    render(<DbErrorProvider><Probe /></DbErrorProvider>);
+    render(<Probe />);
     const initial = renderCount;
 
     act(() => {
