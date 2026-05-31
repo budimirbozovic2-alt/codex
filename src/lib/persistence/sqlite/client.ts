@@ -65,10 +65,12 @@ export function getOpfsSqliteExecutor(): Promise<SqlExecutor> {
       db = new pool.OpfsSAHPoolDb(OPFS_DB_FILENAME);
       logger.info("[sqlite] opened OPFS-SAH-pool DB", { filename: OPFS_DB_FILENAME });
     } else {
-      // Fallback: transient in-memory DB. Loses durability — only acceptable
-      // as a soft-fail signal; the adapter factory should not select us here.
-      db = new sqlite3.oo1.DB(":memory:", "c");
-      logger.warn("[sqlite] OPFS-SAH-pool unavailable, using :memory: (non-durable)");
+      // Wave-1 fix: previously fell through to a transient `:memory:` DB.
+      // That silently substituted a non-durable backend (all writes lost on
+      // reload) with no signal to callers. Reject so the persist queue
+      // surfaces NO_EXECUTOR and the recovery UI warns the user instead.
+      logger.error("[sqlite] OPFS-SAH-pool VFS unavailable — refusing :memory: fallback");
+      throw new Error("OPFS_UNAVAILABLE");
     }
 
     const exec = wrapDb(db);
@@ -94,11 +96,19 @@ function wrapDb(db: SqliteDb): SqlExecutor {
     sql: string,
     paramsBatches: readonly (readonly SqlBindValue[])[],
   ): Promise<void> => {
-    // sqlite-wasm `oo1.exec` does not expose a prepared-statement reuse API,
-    // so we loop sync inside a single microtask — no await between rows,
-    // which collapses the N awaits a per-row `tx.run` loop would create.
-    for (const params of paramsBatches) {
-      db.exec({ sql, bind: params.length > 0 ? params : undefined });
+    // Wave-1 fix: previously looped raw `db.exec` with NO transaction. If
+    // a single statement threw at row N, rows 1..N-1 stayed committed and
+    // N+1..end were lost — no atomicity at the bulk-write boundary. Wrap
+    // the batch in an explicit BEGIN/COMMIT so a failure rolls back whole.
+    db.exec({ sql: "BEGIN" });
+    try {
+      for (const params of paramsBatches) {
+        db.exec({ sql, bind: params.length > 0 ? params : undefined });
+      }
+      db.exec({ sql: "COMMIT" });
+    } catch (err) {
+      try { db.exec({ sql: "ROLLBACK" }); } catch { /* already rolled back */ }
+      throw err;
     }
   };
   const all = async <T = SqlRow>(sql: string, params: readonly SqlBindValue[] = []): Promise<T[]> => {

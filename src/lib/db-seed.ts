@@ -40,14 +40,12 @@ export async function seedDefaultCategories(): Promise<CategoryRecord[]> {
   const existing = await listAllCategories();
   if (existing.length > 0) return existing;
   const defaults = createDefaultCategories();
-  try {
-    await bulkPutCategories(defaults);
-  } catch (err) {
-    // SQLite executor unavailable (e.g. wasm load failure in the preview
-    // shell). Still return the defaults so the UI has something to render —
-    // user-driven writes will surface the executor error explicitly.
-    logger.warn("[seed] bulkPutCategories failed — using in-memory defaults", err);
-  }
+  // Wave-1 fix: previously caught and swallowed `bulkPutCategories` failure
+  // and still returned `defaults`. The next boot would find SQLite empty,
+  // re-seed with brand-new UUIDs, and orphan every card that referenced
+  // the previous IDs. Re-throw so the boot caller surfaces the failure to
+  // the recovery UI instead of silently rotating category IDs.
+  await bulkPutCategories(defaults);
   if (import.meta.env.DEV) {
     logger.log(`[seed] Inserted ${defaults.length} default categories`);
   }
@@ -61,5 +59,7 @@ export async function migrateFromLocalStorage(): Promise<void> {
     localStorage.removeItem("idb-migrated-v2");
     localStorage.removeItem("codex-source-registry");
     localStorage.removeItem("codex-monument-types");
-  } catch { /* ignore */ }
+  } catch (e) {
+    logger.warn("[db-seed] legacy localStorage cleanup skipped", e);
+  }
 }
