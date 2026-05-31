@@ -100,7 +100,7 @@ function loadInitialWidth(): ReaderWidth {
   try {
     const saved = localStorage.getItem(WIDTH_STORAGE_KEY);
     if (saved && saved in WIDTH_CLASSES) return saved as ReaderWidth;
-  } catch {}
+  } catch { /* noop */ }
   return "M";
 }
 
@@ -134,7 +134,7 @@ export const useSourceReaderStore = create<SourceReaderState>((set, get) => ({
 
   setEditMode: (v) => set({ editMode: v }),
   setReaderWidth: (w) => {
-    try { localStorage.setItem(WIDTH_STORAGE_KEY, w); } catch {}
+    try { localStorage.setItem(WIDTH_STORAGE_KEY, w); } catch { /* noop */ }
     set({ readerWidth: w });
   },
   setOutlineOpen: (v) => set({ outlineOpen: v }),

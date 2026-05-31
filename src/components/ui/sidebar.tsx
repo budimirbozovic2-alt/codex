@@ -46,7 +46,7 @@ export function SidebarProvider({ children, defaultOpen = true }: SidebarProvide
 
   const setOpen = React.useCallback((value: boolean) => {
     setOpenState(value);
-    try { localStorage.setItem(SIDEBAR_COOKIE_KEY, String(value)); } catch {}
+    try { localStorage.setItem(SIDEBAR_COOKIE_KEY, String(value)); } catch { /* noop */ }
   }, []);
 
   const toggleSidebar = React.useCallback(() => setOpen(!open), [open, setOpen]);

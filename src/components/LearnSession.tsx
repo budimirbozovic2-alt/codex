@@ -211,7 +211,7 @@ export default function LearnSession({ cards, categories, categoryRecords, subca
         const today = new Date().toISOString().slice(0, 10);
         const reviewsDoneToday = reviewLogProp.filter(e => new Date(e.timestamp).toISOString().slice(0, 10) === today).length;
         recordDiscipline.mutate({ date: today, reviewsDone: reviewsDoneToday, dailyGoal, slippageMs: null });
-      } catch {} })();
+      } catch { /* noop */ } })();
     }
 
 

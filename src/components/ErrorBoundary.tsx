@@ -45,7 +45,7 @@ export class ErrorBoundary extends Component<Props, State> {
       const msg = error.message;
       const raw = localStorage.getItem(LOG_KEY);
       if (raw && raw.length > MAX_LOG_BYTES) {
-        try { localStorage.removeItem(LOG_KEY); } catch (_) {}
+        try { localStorage.removeItem(LOG_KEY); } catch (_) { /* noop */ }
       }
       let existing: CrashEntry[] = [];
       try { existing = raw && raw.length <= MAX_LOG_BYTES ? JSON.parse(raw) : []; } catch (_) { existing = []; }
@@ -66,11 +66,11 @@ export class ErrorBoundary extends Component<Props, State> {
       }
       if (existing.length > MAX_ENTRIES) existing.splice(0, existing.length - MAX_ENTRIES);
       localStorage.setItem(LOG_KEY, JSON.stringify(existing));
-    } catch (_) {}
+    } catch (_) { /* noop */ }
     // IPC error logging (Electron only)
     try {
       window.electronAPI?.logError?.(`[${this.props.label || "unknown"}] ${error.message}\n${error.stack || ""}`);
-    } catch (_) {}
+    } catch (_) { /* noop */ }
   }
 
   handleRetry = () => {

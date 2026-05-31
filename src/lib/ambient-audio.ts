@@ -199,7 +199,7 @@ export function startAmbient(track: AmbientTrack = "rain", volume = 0.3): void {
 
 export function stopAmbient(): void {
   for (const n of sourceNodes) {
-    try { (n as AudioBufferSourceNode).stop(); } catch {}
+    try { (n as AudioBufferSourceNode).stop(); } catch { /* noop */ }
     n.disconnect();
   }
   sourceNodes = [];

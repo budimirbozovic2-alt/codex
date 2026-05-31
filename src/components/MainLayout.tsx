@@ -67,7 +67,7 @@ const NudgeWatcher = memo(function NudgeWatcher() {
           });
           taskScheduler.setTimeout(() => { nudgeShownRef.current = false; }, 30 * 60 * 1000, { label: "MainLayout:nudgeCooldown" });
         }
-      } catch {}
+      } catch { /* noop */ }
     })();
     // Reason: nudge re-evaluates on route changes only; suggestion/progress are
     // read inline as a snapshot so they don't retrigger the toast cooldown.
