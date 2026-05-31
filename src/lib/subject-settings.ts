@@ -85,17 +85,25 @@ export function loadSubjectSettings(categoryId: string): SubjectSettings | null 
   }
 }
 
-export function saveSubjectSettings(categoryId: string, settings: SubjectSettings): void {
+export async function saveSubjectSettings(
+  categoryId: string,
+  settings: SubjectSettings,
+): Promise<void> {
   _cache.set(categoryId, settings);
   const json = JSON.stringify(settings);
-  // localStorage stays as a fast-read mirror.
+  // localStorage stays as a fast-read mirror (cache, not SSOT).
   try { localStorage.setItem(PREFIX + categoryId, json); } catch { /* quota */ }
-  // PR-G1 / C-2 fix: static import + explicit error logging. Previous
-  // dynamic-import + empty outer `.catch(() => {})` could silently drop the
-  // SQLite (SSOT) write while localStorage gave the user false confidence.
-  putSetting(PREFIX + categoryId, settings).catch((err) =>
-    logger.error("[subject-settings] put failed — SSOT write lost", err),
-  );
+  // PR-G1 / C-2 final: await the SSOT write and re-throw on failure so the
+  // caller (UI) can surface a toast instead of giving false-success feedback.
+  // Previously the `.catch(logger.error)` swallowed rejections; localStorage
+  // mirror would persist while SQLite write silently dropped — survives a
+  // browser cache wipe = data lost.
+  try {
+    await putSetting(PREFIX + categoryId, settings);
+  } catch (err) {
+    logger.error("[subject-settings] put failed — SSOT write lost", err);
+    throw err;
+  }
 }
 
 export function clearSubjectSettings(categoryId: string): void {
