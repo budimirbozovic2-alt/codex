@@ -141,15 +141,20 @@ export function useCardBootstrap() {
         markBootStep("cards:init-error", errMsg);
 
         if (error instanceof SchemaError || inSchemaPhase()) {
-          // Wave-2 fix: previously both branches of `cause` hard-coded
-          // "unknown" (dead ternary). `SchemaErrorCause` is a strict union;
-          // surface the failing step in the message so recovery UI shows it.
-          const cause: "unknown" | "timeout" = "unknown";
+          // Audit v2 / Wave B.5: `cause` can now actually distinguish a
+          // timeout from an unknown error — the boot orchestrator's panic
+          // path emits `cause: "timeout"` directly, and SchemaError messages
+          // contain "timeout" only when `withTimeout` reports the fallback
+          // branch. Pattern-match the failing step into the detail string
+          // so the recovery UI can show it.
+          const isTimeout = /timed out|timeout/i.test(errMsg);
+          const cause: "unknown" | "timeout" = isTimeout ? "timeout" : "unknown";
           const detail = error instanceof SchemaError ? `[${error.step}] ${errMsg}` : errMsg;
           transition({ type: "SCHEMA_FAIL", cause, message: detail });
         } else {
           transition({ type: "LOAD_FAIL", message: errMsg });
         }
+
         // Legacy splash error — BootRecoveryGate će preuzeti pravu UX.
         splashProgress(100, "Greška u pokretanju");
         showSplashError(errMsg || "Neočekivana greška pri učitavanju podataka.");
