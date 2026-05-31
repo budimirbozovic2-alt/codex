@@ -55,7 +55,11 @@ export function parseDocxInWorker(arrayBuffer: ArrayBuffer): Promise<string> {
 }
 
 async function fallbackParse(arrayBuffer: ArrayBuffer): Promise<string> {
-  const mammoth = (await import("mammoth")).default;
+  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+  // @ts-ignore — mammoth.browser nema vlastite tipove.
+  const mod = await import("mammoth/mammoth.browser");
+  const mammoth = (mod as unknown as { default?: { convertToHtml: (i: { arrayBuffer: ArrayBuffer }) => Promise<{ value: string }> } }).default
+    ?? (mod as unknown as { convertToHtml: (i: { arrayBuffer: ArrayBuffer }) => Promise<{ value: string }> });
   const result = await mammoth.convertToHtml({ arrayBuffer });
   return result.value;
 }
