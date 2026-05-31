@@ -1,4 +1,5 @@
 import { useState, useCallback } from "react";
+import { toast } from "sonner";
 
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Card } from "@/lib/spaced-repetition";
@@ -9,6 +10,7 @@ import { ImportConfirmStep } from "./export-import/ImportConfirmStep";
 import { ImportConflictStep } from "./export-import/ImportConflictStep";
 import { validateImportFile } from "./export-import/useImportValidation";
 import type { Step, ImportValidation, ImportStrategy } from "./export-import/types";
+import { logger } from "@/lib/logger";
 
 interface ExportImportDialogProps {
   open: boolean;
@@ -38,27 +40,68 @@ export default function ExportImportDialog({
 
   const handleExportTemplate = async () => {
     setStep("exporting");
-    try { await onExportTemplate(compress, onProgress); }
-    finally { handleOpenChange(false); }
+    try {
+      await onExportTemplate(compress, onProgress);
+      handleOpenChange(false);
+    } catch (err) {
+      // PR-H1: don't swallow errors. Keep dialog open + surface a toast so
+      // the user knows the export failed.
+      logger.error("[ExportImportDialog] export template failed", err);
+      toast.error("Izvoz template-a nije uspio.");
+      setStep("export");
+    }
   };
 
   const handleExportFull = async () => {
     setStep("exporting");
-    try { await onExportFull(compress, onProgress); }
-    finally { handleOpenChange(false); }
+    try {
+      await onExportFull(compress, onProgress);
+      handleOpenChange(false);
+    } catch (err) {
+      logger.error("[ExportImportDialog] export full failed", err);
+      toast.error("Puni izvoz nije uspio.");
+      setStep("export");
+    }
   };
 
   const handleFileSelected = async (file: File) => {
     setStep("import-validating");
     setProgressMsg("Validacija fajla...");
     setProgress(20);
-    const result = await validateImportFile(file, onProgress);
-    setValidation(result);
-    if (!result.valid) {
-      setStep("import-confirm");
-    } else if (result.duplicateCount > 0 || result.duplicateCategoryCount > 0) {
-      setStep("import-conflict");
-    } else {
+    try {
+      const result = await validateImportFile(file, onProgress);
+      setValidation(result);
+      if (!result.valid) {
+        setStep("import-confirm");
+      } else if (result.duplicateCount > 0 || result.duplicateCategoryCount > 0) {
+        setStep("import-conflict");
+      } else {
+        setStep("import-confirm");
+      }
+    } catch (err) {
+      // PR-H1: validateImportFile previously had no try/catch, so a worker
+      // or network crash froze the dialog on "import-validating" with no
+      // feedback. Synthesize an invalid-validation so the confirm step can
+      // render the error.
+      logger.error("[ExportImportDialog] validation failed", err);
+      const message = err instanceof Error ? err.message : "Nepoznata greška pri validaciji.";
+      toast.error(`Validacija nije uspjela: ${message}`);
+      setValidation({
+        file,
+        totalCards: 0,
+        totalCategories: 0,
+        hasProgress: false,
+        type: "unknown",
+        fileSizeKB: 0,
+        duplicateCount: 0,
+        duplicateCategoryCount: 0,
+        uniqueCount: 0,
+        valid: false,
+        errors: [message],
+        fileVersion: null,
+        appVersion: 0,
+        willMigrate: false,
+      });
       setStep("import-confirm");
     }
   };
@@ -74,10 +117,9 @@ export default function ExportImportDialog({
       setProgressMsg("Završeno.");
       handleOpenChange(false);
     } catch (err) {
-      // Neuspjeh: zadrži dialog otvoren da korisnik vidi šta nije prošlo
-      // (toast s detaljem već je emitovan iz useCardImport). Ne gutamo
-      // grešku — proslijedimo je u konzolu za health monitor.
-      console.warn("[ExportImportDialog] import failed", err);
+      // PR-H1: kroz logger umjesto console.warn (PROD esbuild.pure ne
+      // tree-shake-uje sve console kanale konzistentno).
+      logger.warn("[ExportImportDialog] import failed", err);
       setStep("import-confirm");
     }
   };

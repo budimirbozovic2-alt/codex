@@ -1,17 +1,21 @@
 /**
  * PR-E2 — Cards mutations on pure TanStack + direct SQLite writes.
+ * PR-H1 hardening:
+ *   - `gradeSection.mutationFn` reads pre-patch row directly from SQLite
+ *     (`getCardsByIds`) instead of from cache. The cache is already
+ *     optimistically patched by `onMutate`, so reading there would
+ *     re-apply the patcher and double-decay FSRS memory state.
+ *   - `settle()` invalidation is dropped from `save`/`remove`/`gradeSection`.
+ *     Single-card writes emit `notifyCardsChanged` from the `*Direct`
+ *     helpers, and the query bridge already invalidates the relevant
+ *     `['cards', …]` scopes. Bulk mutations keep `settle()` because they
+ *     touch many scoped slices the bridge may collapse.
  *
  * Each mutation:
  *   1. `onMutate` cancels in-flight `['cards', …]` queries and snapshots
- *      every active key. It then applies an optimistic patch to
- *      `['cards','all']` (and `['cards','byId',id]` where relevant) so
- *      consumers see the change synchronously.
- *   2. `mutationFn` writes directly to SQLite via `*Direct` helpers from
- *      `@/lib/db/queries`, which flush through `persistQueue` and emit
- *      `notifyCardsChanged` so the bridge re-invalidates the rest.
+ *      every active key, then applies an optimistic patch.
+ *   2. `mutationFn` writes directly to SQLite via `*Direct` helpers.
  *   3. `onError` restores the snapshot.
- *   4. `onSettled` invalidates the `cards.root` prefix as a safety net for
- *      scoped slices the optimistic patch did not touch.
  *
  * No Zustand RAM mirror, no `cardMapWrites`, no `cardCommandBus`.
  */
@@ -139,7 +143,12 @@ export function useCardMutations() {
     }
   }
 
-  /** Safety-net: invalidate the entire `['cards']` prefix after each settle. */
+  /**
+   * Safety-net for bulk mutations: invalidate the entire `['cards']` prefix
+   * after settle. NOT used for single-card mutations — those rely on the
+   * bridge's scoped invalidation triggered by `notifyCardsChanged` inside
+   * the `*Direct` helpers (PR-H1 fix: avoids double-invalidation storm).
+   */
   function settle(): void {
     void qc.invalidateQueries({ queryKey: queryKeys.cards.root });
   }
@@ -156,7 +165,6 @@ export function useCardMutations() {
       toast.error("Snimanje kartice nije uspjelo — vraćam stanje.");
       rollback(ctx);
     },
-    onSettled: settle,
   });
 
   const remove = useMutation<void, Error, string, RollbackCtx>({
@@ -171,7 +179,6 @@ export function useCardMutations() {
       toast.error("Brisanje nije uspjelo — vraćam stanje.");
       rollback(ctx);
     },
-    onSettled: settle,
   });
 
   const bulkUpsert = useMutation<Card[], Error, Card[], RollbackCtx>({
@@ -193,11 +200,11 @@ export function useCardMutations() {
 
   const gradeSection = useMutation<Card | undefined, Error, GradeInput, RollbackCtx>({
     mutationFn: async ({ cardId, patcher }) => {
-      // Resolve current from cache (optimistic patch already applied in
-      // onMutate); fall back to SQLite if cold.
-      const cached = qc.getQueryData<readonly Card[]>(queryKeys.cards.all());
-      const current = cached?.find((c) => c.id === cardId)
-        ?? (await getCardsByIds([cardId]))[0];
+      // PR-H1: read pre-patch row directly from SQLite. Reading from the
+      // TanStack cache would return the already-optimistically-patched
+      // card and re-apply `patcher`, doubling FSRS decay on every grade.
+      const rows = await getCardsByIds([cardId]);
+      const current = rows[0];
       if (!current) return undefined;
       const updated: Card = { ...patcher(current), updatedAt: Date.now() };
       await putCardDirect(updated);
@@ -213,7 +220,6 @@ export function useCardMutations() {
       toast.error("Snimanje gradacije nije uspjelo — vraćam stanje.");
       rollback(ctx);
     },
-    onSettled: settle,
   });
 
   const bulkPatch = useMutation<Card[], Error, BulkPatchInput, RollbackCtx>({
