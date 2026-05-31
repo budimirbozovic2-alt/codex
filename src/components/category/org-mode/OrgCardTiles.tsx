@@ -52,7 +52,10 @@ export const SortableCardTile = memo(function SortableCardTile({ card, index }: 
 );
 
 // ─── Droppable chapter zone ─────────────────────────────
-export function DroppableChapterZone({ subId, chapId, displayName, count, children }: {
+// PR-G5 / RC-5: memoized — `useDroppable` already isolates `isOver`,
+// so the zone re-renders only on hover-state flips, not on every pointer move
+// in unrelated panels.
+export const DroppableChapterZone = memo(function DroppableChapterZone({ subId, chapId, displayName, count, children }: {
   subId: string; chapId: string; displayName: string; count: number; children: React.ReactNode;
 }) {
   const dropId = chapterDropId(subId, chapId);
@@ -78,7 +81,7 @@ export function DroppableChapterZone({ subId, chapId, displayName, count, childr
       </div>
     </div>
   );
-}
+});
 
 // ─── Drag overlay (ghost) ───────────────────────────────
 export function CardDragOverlay({ card }: { card: Card }) {
@@ -91,7 +94,10 @@ export function CardDragOverlay({ card }: { card: Card }) {
 }
 
 // ─── Unassigned card with assign controls ───────────────
-export function UnassignedCardRow({
+// PR-G5 / RC-5: memoized with a stable comparator. Parent now hoists
+// `availableChapters` / `otherSubs` arrays and memoizes per-row callbacks,
+// so reference equality holds across unrelated re-renders.
+export const UnassignedCardRow = memo(function UnassignedCardRow({
   card, index, availableChapters, otherSubs, onAssignChapter, onMoveSub,
 }: {
   card: Card; index: number;
@@ -147,4 +153,13 @@ export function UnassignedCardRow({
       </div>
     </div>
   );
-}
+}, (prev, next) =>
+  prev.index === next.index &&
+  prev.card.id === next.card.id &&
+  prev.card.updatedAt === next.card.updatedAt &&
+  prev.card.question === next.card.question &&
+  prev.availableChapters === next.availableChapters &&
+  prev.otherSubs === next.otherSubs &&
+  prev.onAssignChapter === next.onAssignChapter &&
+  prev.onMoveSub === next.onMoveSub,
+);

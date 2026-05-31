@@ -1,3 +1,4 @@
+import { memo, useMemo, useCallback } from "react";
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { ChevronDown, ChevronRight, FolderOpen, Inbox } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -15,9 +16,45 @@ interface Props {
   patchCard: (id: string, fn: (c: Card) => Card) => void;
 }
 
-export function OrgSubcategoryPanel({ node, isExpanded, onToggle, tree, assignChapter, patchCard }: Props) {
+function OrgSubcategoryPanelInner({ node, isExpanded, onToggle, tree, assignChapter, patchCard }: Props) {
   const totalCards = node.chapters.reduce((sum, ch) => sum + ch.cards.length, 0) + node.unassigned.length;
   const isUnassigned = node.subcategory === "(Bez potkategorije)";
+
+  // PR-G5 / RC-5: hoist derived lookup maps to panel scope. Previously these
+  // were rebuilt inside the unassigned-card .map() on every render — O(n×m)
+  // per pointer-move during DnD. Now memoized per (node, tree) identity.
+  const availableChapters = useMemo(
+    () => node.chapters.map(ch => ch.chapter),
+    [node.chapters],
+  );
+  const chapterIdMap = useMemo(
+    () => new Map(node.chapters.map(ch => [ch.chapter, ch.chapterId])),
+    [node.chapters],
+  );
+  const otherSubs = useMemo(
+    () => tree.filter(n => n.subcategory !== node.subcategory).map(n => n.subcategory),
+    [tree, node.subcategory],
+  );
+  const subIdMap = useMemo(
+    () => new Map(tree.map(n => [n.subcategory, n.subcategoryId])),
+    [tree],
+  );
+
+  const makeAssignChapter = useCallback(
+    (cardId: string) => (v: string) => {
+      const chapUuid = chapterIdMap.get(v) || v;
+      assignChapter(cardId, chapUuid);
+    },
+    [chapterIdMap, assignChapter],
+  );
+
+  const makeMoveSub = useCallback(
+    (cardId: string) => (v: string) => {
+      const subUuid = subIdMap.get(v) || "";
+      patchCard(cardId, c => ({ ...c, subcategoryId: subUuid }));
+    },
+    [subIdMap, patchCard],
+  );
 
   return (
     <div
@@ -95,31 +132,17 @@ export function OrgSubcategoryPanel({ node, isExpanded, onToggle, tree, assignCh
                 </Badge>
               </div>
               <SortableContext items={node.unassigned.map(c => c.id)} strategy={verticalListSortingStrategy}>
-                {node.unassigned.map((card, idx) => {
-                  const availableChapters = node.chapters.map(ch => ch.chapter);
-                  const chapterIdMap = new Map(node.chapters.map(ch => [ch.chapter, ch.chapterId]));
-                  const otherSubs = tree
-                    .filter(n => n.subcategory !== node.subcategory)
-                    .map(n => n.subcategory);
-                  const subIdMap = new Map(tree.map(n => [n.subcategory, n.subcategoryId]));
-                  return (
-                    <UnassignedCardRow
-                      key={card.id}
-                      card={card}
-                      index={idx}
-                      availableChapters={availableChapters}
-                      otherSubs={otherSubs}
-                      onAssignChapter={v => {
-                        const chapUuid = chapterIdMap.get(v) || v;
-                        assignChapter(card.id, chapUuid);
-                      }}
-                      onMoveSub={v => {
-                        const subUuid = subIdMap.get(v) || "";
-                        patchCard(card.id, c => ({ ...c, subcategoryId: subUuid }));
-                      }}
-                    />
-                  );
-                })}
+                {node.unassigned.map((card, idx) => (
+                  <UnassignedCardRow
+                    key={card.id}
+                    card={card}
+                    index={idx}
+                    availableChapters={availableChapters}
+                    otherSubs={otherSubs}
+                    onAssignChapter={makeAssignChapter(card.id)}
+                    onMoveSub={makeMoveSub(card.id)}
+                  />
+                ))}
               </SortableContext>
             </div>
           )}
@@ -134,3 +157,8 @@ export function OrgSubcategoryPanel({ node, isExpanded, onToggle, tree, assignCh
     </div>
   );
 }
+
+// PR-G5 / RC-5: memoize so unrelated panel re-renders during DnD pointer-move
+// do not reconcile this subtree. Stable identity via `node`, `tree`,
+// `isExpanded` + stable callback refs from parent.
+export const OrgSubcategoryPanel = memo(OrgSubcategoryPanelInner);
