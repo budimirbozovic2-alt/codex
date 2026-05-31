@@ -119,7 +119,9 @@ describe("useAllCards — mirror via query bridge", () => {
     await waitFor(() => expect(result.current.length).toBe(1));
 
     currentRows = [makeCard("a"), makeCard("b")];
-    await new Promise((r) => setTimeout(r, 30));
+    // Yield several microtask/macrotask cycles instead of a wall-clock sleep.
+    // Without an explicit notifyCardsChanged, no refetch should ever occur.
+    for (let i = 0; i < 5; i++) await new Promise((r) => setTimeout(r, 0));
     expect(result.current.length).toBe(1);
   });
 });
