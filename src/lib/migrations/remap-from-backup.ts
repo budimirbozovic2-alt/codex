@@ -12,7 +12,7 @@ import {
   listAllCards,
   readAllCategoriesForBackup,
 } from "@/lib/db/queries";
-import * as cardMapWrites from "@/domains/cards";
+import { bulkPutCardsDirect } from "@/lib/db/queries";
 import type { Card } from "@/lib/spaced-repetition";
 import { yieldUI } from "@/lib/backup/yield-ui";
 import {
@@ -233,17 +233,14 @@ export async function remapFromBackup(
   if (!options.dryRun && patches.length > 0) {
     onProgress(85, `Primjena izmjena (${patches.length})…`);
     try {
-      // PR-9 A1c-3: write through SQLite-primary cardMapWrites (no Dexie tx).
-      // Build full updated Card objects since cardMapWrites.bulkPut takes
-      // complete records — atomicity is provided by the underlying SQLite
-      // executor on flush.
+      // PR-E3: SQLite-primary direct write (no Zustand RAM mirror).
       const updated: Card[] = [];
       for (const p of patches) {
         const cur = currentById.get(p.id);
         if (!cur) continue;
         updated.push({ ...cur, subcategoryId: p.subcategoryId, chapterId: p.chapterId });
       }
-      cardMapWrites.bulkPut(updated);
+      await bulkPutCardsDirect(updated);
       onProgress(98, `Zapis ${updated.length}/${patches.length}…`);
       await yieldUI();
     } catch (err) {

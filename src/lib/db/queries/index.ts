@@ -32,6 +32,16 @@ export {
   clearCardsChapterRefs,
   reassignCardsSubcategory,
 } from "./cards-bulk-mutations";
+// PR-E1 — direct SQLite write helpers (replace `cardMapWrites` sync RAM API).
+export {
+  putCardDirect,
+  bulkPutCardsDirect,
+  deleteCardDirect,
+  announceCardsReplaced,
+  clearCardLinksDirect,
+  clearCardNeedsReviewDirect,
+  snapshotAllCards,
+} from "./cards-writes";
 
 
 // A1c-4 F2 — legacy `idbLoadSettings`/`idbSaveSettings` aliases removed.

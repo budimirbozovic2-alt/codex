@@ -16,7 +16,7 @@
  */
 import { logger } from "@/lib/logger";
 import { taskScheduler } from "@/lib/scheduler";
-import * as cardMapWrites from "@/domains/cards";
+import { bulkPutCardsDirect, snapshotAllCards } from "@/lib/db/queries";
 import { saveSource } from "@/lib/sources-storage";
 import {
   listAllSources,
@@ -53,8 +53,7 @@ export function kickoffEditorV4Migration(): void {
 
 async function migrateAllCards(): Promise<void> {
   try {
-    const snapshot = cardMapWrites.snapshot();
-    const cards = Object.values(snapshot) as Card[];
+    const cards = await snapshotAllCards();
     const pending: Card[] = [];
     for (const c of cards) {
       const res = migrateCard(c);
@@ -62,7 +61,7 @@ async function migrateAllCards(): Promise<void> {
     }
     if (pending.length === 0) return;
     for (let i = 0; i < pending.length; i += BATCH) {
-      cardMapWrites.bulkPut(pending.slice(i, i + BATCH));
+      await bulkPutCardsDirect(pending.slice(i, i + BATCH));
     }
     logger.log(`[editor-v4] migrated ${pending.length}/${cards.length} cards`);
   } catch (err) {

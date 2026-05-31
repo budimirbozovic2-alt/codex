@@ -9,9 +9,13 @@ import { yieldUI } from "@/lib/backup/yield-ui";
 import { applyImportAtomically, type ImportStrategy } from "@/lib/backup/import-transaction";
 import { parseJsonInWorker } from "@/lib/zip-service";
 import { clearReviewSession } from "@/lib/review-session-storage";
-import { replaceAll as cardMapReplaceAll, bulkPut as cardMapBulkPut } from "@/domains/cards";
+import {
+  announceCardsReplaced,
+  bulkPutCardsDirect,
+  listAllCards,
+} from "@/lib/db/queries";
 import { categoryRepository } from "@/lib/repositories";
-import { getCardMap } from "@/store";
+import { arrayToMap } from "@/lib/persist-queue";
 import { replaceReviewLog, updateSRSettings } from "@/store/reviewSettingsStore";
 
 import { logger } from "@/lib/logger";
@@ -116,10 +120,12 @@ export function useCardImport() {
       progress(25, "Priprema podataka…");
       let result2: Awaited<ReturnType<typeof applyImportAtomically>>;
       try {
+        // Build baseline from SQLite (former RAM cardMap is gone post PR-E).
+        const baseline = arrayToMap(await listAllCards());
         result2 = await applyImportAtomically({
           parsed,
           strategy,
-          currentMap: getCardMap(),
+          currentMap: baseline,
           onProgress: progress,
         });
       } catch (err) {
@@ -129,8 +135,10 @@ export function useCardImport() {
         throw err instanceof Error ? err : new Error(msg);
       }
 
-      // ── 6. In-memory sync after the tx commits ──
-      cardMapReplaceAll(result2.nextMap);
+      // ── 6. Cache sync after the tx commits ──
+      // Atomic apply already wrote the cards to SQLite; announce so the
+      // bridge invalidates `['cards']` and consumers re-fetch.
+      announceCardsReplaced(result2.nextMap);
       categoryRepository.replaceAll(result2.freshCategories);
       if (result2.reviewLogApplied) setReviewLog(result2.reviewLogApplied);
       if (result2.srSettingsApplied) updateSRSettings(result2.srSettingsApplied);
@@ -181,9 +189,9 @@ export function useCardImport() {
     [setReviewLog, updateSRSettings],
   );
 
-  // Phase 3b — importCards now delegates to cardRepository.bulkPut which
-  // handles persist + RAM + CARDS_UPDATED emit atomically. No direct ref
-  // mutation, no manual schedulePersist, no setCardMapState.
+  // PR-E3 — importCards writes directly to SQLite via bulkPutCardsDirect.
+  // The bridge invalidates `['cards']` after the flush so any open scoped
+  // query refetches.
   const importCards = useCallback(
     (newCards: { question: string; sections: { title: string; content: string }[] }[], category: string) => {
       const created = newCards.map((c) =>
@@ -195,7 +203,7 @@ export function useCardImport() {
       );
       const now = Date.now();
       created.forEach((c) => { c.updatedAt = now; });
-      if (created.length > 0) cardMapBulkPut(created);
+      if (created.length > 0) void bulkPutCardsDirect(created);
     },
     [],
   );

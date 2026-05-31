@@ -1,5 +1,5 @@
 import { getStorageUsage } from "@/lib/storage";
-import * as cardMapWrites from "@/domains/cards";
+import { bulkPutCardsDirect } from "@/lib/db/queries";
 import {
   // SQLite-primary readers via the backup-readers seam (P1.B).
   countCards,
@@ -198,7 +198,7 @@ export async function cleanOrphans(cardIds: string[]): Promise<CleanOrphansResul
       subcategoryId: "",
       chapterId: "",
     }));
-  cardMapWrites.bulkPut(patched);
+  await bulkPutCardsDirect(patched);
 
   return { fallbackCategoryName: fallback.name, movedCount: patched.length };
 }
