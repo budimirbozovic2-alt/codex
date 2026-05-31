@@ -1,7 +1,6 @@
 import { scheduleLogPrune } from "@/lib/log-retention";
 import { markBootStep } from "@/lib/boot-trace";
 import { transition } from "@/lib/boot";
-import { splashProgress } from "./splash";
 import { isLegacyDexieBypassed, assertNoLegacyIdb } from "@/lib/persistence/sqlite/migration-status";
 
 /**
@@ -14,11 +13,16 @@ import { isLegacyDexieBypassed, assertNoLegacyIdb } from "@/lib/persistence/sqli
  *     Dexie load is required.
  *
  *   Non-Electron PROD is gated upstream by `assertDesktop` (download CTA).
+ *
+ * Audit v2 / Wave B.7: direct `splashProgress(5, "Otvaranje baze…")` call
+ * was removed — the bridge in `splashBridge.ts` already maps the
+ * `OPEN_START` transition to splash(5, "Otvaranje baze…") for free.
+ * Bridge is the single source of truth for splash DOM updates.
  */
 export async function bootDb(): Promise<{ ok: boolean }> {
   markBootStep("cards:init-start");
   transition({ type: "OPEN_START" });
-  splashProgress(5, "Otvaranje baze…");
+
 
   // Pre-warm SQLite executor (Electron OPFS ili DEV in-memory fallback) PRIJE
   // bilo kakvog read/write poziva. Bez ovoga prvi `listAllCards` / save kartice
