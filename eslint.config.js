@@ -105,7 +105,21 @@ export default tseslint.config(
     rules: {
       ...reactHooks.configs.recommended.rules,
       "react-refresh/only-export-components": ["warn", { allowConstantExport: true }],
-      "@typescript-eslint/no-unused-vars": "off",
+      // PR-G7: promote unused vars to error globally with _-prefix escape hatch.
+      // Incremental cleanup of pre-existing offenders happens in PR-G7a (drain).
+      // Use "warn" here to avoid blocking integration of PR-G2..G6 while the
+      // drain is in flight; tighten to "error" once backlog is empty.
+      "@typescript-eslint/no-unused-vars": [
+        "warn",
+        {
+          args: "after-used",
+          argsIgnorePattern: "^_",
+          varsIgnorePattern: "^_",
+          caughtErrors: "all",
+          caughtErrorsIgnorePattern: "^_",
+          ignoreRestSiblings: true,
+        },
+      ],
 
       // Zero-any policy — enforced as ERROR globally. Tests are exempted
       // via the dedicated `src/test/**` override block below (partial mocks

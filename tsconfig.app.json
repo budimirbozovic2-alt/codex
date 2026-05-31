@@ -22,7 +22,7 @@
       ]
     },
     "skipLibCheck": true,
-    "strict": false,
+    "strict": true,
     "strictNullChecks": true,
     "useUnknownInCatchVariables": true,
     "target": "ES2020",
@@ -33,5 +33,12 @@
   },
   "include": [
     "src"
+  ],
+  "exclude": [
+    "src/**/*.test.ts",
+    "src/**/*.test.tsx",
+    "src/**/*.spec.ts",
+    "src/**/*.spec.tsx",
+    "src/test/**"
   ]
 }

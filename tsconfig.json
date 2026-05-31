@@ -1,6 +1,7 @@
 {
   "compilerOptions": {
     "allowJs": true,
+    "strict": true,
     "noImplicitAny": false,
     "noUnusedLocals": false,
     "noUnusedParameters": false,
@@ -19,6 +20,9 @@
     },
     {
       "path": "./tsconfig.node.json"
+    },
+    {
+      "path": "./tsconfig.test.json"
     }
   ]
 }
