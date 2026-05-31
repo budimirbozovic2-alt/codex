@@ -33,9 +33,14 @@ describe("query bridges (PR-7f M1)", () => {
     expect(setSpy).toHaveBeenCalledWith(["planner", "config"], expect.objectContaining({ dailyAvailableMinutes: 42 }));
   });
 
-  it("invalidates ['planner','discipline'] on discipline change", () => {
+  it("pushes planner discipline snapshot via setQueryData (PR-C C1 — no invalidate)", () => {
+    const setSpy = vi.spyOn(qc, "setQueryData");
     disciplineCache.set([]);
-    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ["planner", "discipline"] });
+    expect(setSpy).toHaveBeenCalledWith(["planner", "discipline", "log"], expect.any(Array));
+    // Aligned with the config branch: setQueryData notifies subscribers in
+    // the same tick; the prior invalidateQueries opened a stale-flicker
+    // window and duplicated work. Confirm it no longer fires.
+    expect(invalidateSpy).not.toHaveBeenCalledWith({ queryKey: ["planner", "discipline"] });
   });
 
   it("is idempotent — second install is a no-op", () => {
