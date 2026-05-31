@@ -1,6 +1,6 @@
 /**
- * Backward-compat shim — the planner module was decomposed into `./planner/*`.
+ * Backward-compat shim — the planner domain lives at `@/domains/planner`.
  * Existing imports (`@/lib/planner-storage`) continue to work unchanged.
- * See `./planner/index.ts` for the responsibility map.
+ * See `src/domains/planner/index.ts` for the responsibility map.
  */
-export * from "./planner";
+export * from "@/domains/planner";
