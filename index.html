@@ -6,7 +6,7 @@
     <!-- Defense-in-depth CSP. Production Electron also sets this via response headers in main.cjs.
          'unsafe-inline' for scripts is required by the inline boot/retry script below;
          ws:/wss: are required by Vite HMR + Lovable preview. -->
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self' app:; script-src 'self' 'unsafe-inline' app:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: blob: https: app:; font-src 'self' data: app: https://fonts.gstatic.com; connect-src 'self' blob: app: ws: wss: https://fonts.gstatic.com https://fonts.googleapis.com; media-src 'self' blob: app:; object-src 'none'; base-uri 'self'; frame-ancestors 'none';">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self' app:; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' app:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: blob: https: app:; font-src 'self' data: app: https://fonts.gstatic.com; connect-src 'self' blob: app: ws: wss: https://fonts.gstatic.com https://fonts.googleapis.com; media-src 'self' blob: app:; object-src 'none'; base-uri 'self'; frame-ancestors 'none';">
     <title>CODEX — Sistem za memorizaciju</title>
     <meta name="description" content="Aplikacija za učenje esejskih pitanja pomoću SM-2 algoritma sa praćenjem znanja po cjelinama">
     <!-- PWA manifest & theme-color removed — Pure Desktop (P3 PR-8 finale). -->
@@ -100,7 +100,13 @@
     </div>
     <script>
       (function(){
-        var MAX_RETRIES=2;
+        // Wave-2 fix: environment-aware timer + retries. Electron should boot
+        // in <8s on a real machine; only the Lovable preview / browser dev
+        // needs the wider 20s budget. With the new mount signal coming from
+        // useCardBootstrap's finally block, retries are rarely needed.
+        var IS_ELECTRON = typeof window !== "undefined" && !!window.electronAPI;
+        var TIMEOUT = IS_ELECTRON ? 8000 : 20000;
+        var MAX_RETRIES = IS_ELECTRON ? 1 : 2;
         var RETRY_KEY="__codex_boot_retries";
         var retries=parseInt(sessionStorage.getItem(RETRY_KEY)||"0",10);
 
@@ -121,7 +127,7 @@
             if(splash){splash.style.transition="opacity 0.3s";splash.style.opacity="0";setTimeout(function(){if(splash.parentNode)splash.remove();},400);}
             if(fallback){fallback.style.display="flex";}
           }
-        },20000);
+        },TIMEOUT);
         window.__codexSplashTimer=t;
       })();
     </script>
