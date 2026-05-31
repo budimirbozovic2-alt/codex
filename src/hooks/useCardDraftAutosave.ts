@@ -92,11 +92,28 @@ export function useCardDraftAutosave(
 
   // Scheduler-owned debounce — flushes on shutdown and obeys `pauseWhenHidden: false`
   // so background saves never get starved.
+  //
+  // PR-C C7: when `draftKey` changes (e.g. user navigates between edit forms
+  // for two different cards), the previous debounce instance is replaced.
+  // Without an explicit flush of the prior instance, the last pending
+  // keystroke under the old key would be discarded — silent data loss.
+  // We track the live instance in a ref and flush+cancel it before useMemo
+  // recomputes a new debounced function for the new key.
+  const debouncedRef = useRef<ReturnType<typeof taskScheduler.debounce> | null>(null);
   const debounced = useMemo(
-    () => taskScheduler.debounce(flush, DEBOUNCE_MS, {
-      label: `cardform-draft:${draftKey}`,
-      pauseWhenHidden: false,
-    }),
+    () => {
+      const prev = debouncedRef.current;
+      if (prev) {
+        try { prev.flush(); } catch { /* noop */ }
+        try { prev.cancel(); } catch { /* noop */ }
+      }
+      const next = taskScheduler.debounce(flush, DEBOUNCE_MS, {
+        label: `cardform-draft:${draftKey}`,
+        pauseWhenHidden: false,
+      });
+      debouncedRef.current = next;
+      return next;
+    },
     [flush, draftKey],
   );
 
