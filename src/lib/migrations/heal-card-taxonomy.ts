@@ -27,9 +27,10 @@ export interface HealReport {
  *
  * Idempotent + flagged via localStorage so it never runs twice.
  *
- * PR-9 A1c-3: reads through `listAllCards`/`readAllCategoriesForBackup`,
- * writes via `cardMapWrites.bulkPut` (SQLite-primary + RAM commit). No
- * Dexie touch left.
+ * PR-E3: reads through `listAllCards` / `readAllCategoriesForBackup`,
+ * writes via `bulkPutCardsDirect` (SqlExecutor.transaction →
+ * `notifyCardsChanged` → TanStack bridge invalidates `['cards']`).
+ * The legacy `cardMapWrites` RAM module was deleted in PR-E.
  */
 export async function healCardTaxonomy(force = false): Promise<HealReport> {
   const empty: HealReport = {
