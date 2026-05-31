@@ -143,6 +143,8 @@ export interface KnowledgeBaseArticle {
   aliases?: string[];
   createdAt: number;
   updatedAt: number;
+  /** @deprecated Legacy markdown/HTML content. Use `contentDoc` (AST). Kept for IDB rows + test fixtures. */
+  content?: string;
 }
 
 // ─── Draft autosave ──────────────────────────────────────────────────────

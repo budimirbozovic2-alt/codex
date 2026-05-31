@@ -156,4 +156,63 @@ describe("backup import — invalid vs valid file (consistency contract)", () =>
     expect(after.find((r) => String(r.id).startsWith("cat-y"))).toBeUndefined();
     expect(after.find((r) => String(r.id).startsWith("cat-z"))).toBeUndefined();
   });
+
+  it("strips React Flow runtime keys from mind map nodes/edges instead of failing validation", () => {
+    const result = BackupSchema.safeParse({
+      version: 7,
+      type: "full",
+      cards: [],
+      categories: [],
+      sources: [],
+      mindMaps: [
+        {
+          id: "mm-1",
+          categoryId: "cat-a",
+          title: "Test map",
+          mode: "hierarchy",
+          nodes: [
+            {
+              id: "n1",
+              type: "default",
+              position: { x: 0, y: 0 },
+              data: { label: "Root" },
+              // React Flow runtime-internal flags that must be silently dropped:
+              measured: { width: 120, height: 40 },
+              selected: false,
+              dragging: false,
+              positionAbsolute: { x: 0, y: 0 },
+              width: 120,
+              height: 40,
+            },
+          ],
+          edges: [
+            {
+              id: "e1",
+              source: "n1",
+              target: "n1",
+              selected: false,
+              animated: true,
+            },
+          ],
+          createdAt: 1,
+          updatedAt: 1,
+        },
+      ],
+      knowledgeBaseArticles: [],
+      mnemonics: [],
+      reviewLog: [],
+      diary: [],
+    });
+
+    expect(result.success).toBe(true);
+    if (!result.success) return;
+    const node = result.data.mindMaps[0].nodes[0] as Record<string, unknown>;
+    expect(node.id).toBe("n1");
+    expect("measured" in node).toBe(false);
+    expect("selected" in node).toBe(false);
+    expect("dragging" in node).toBe(false);
+    const edge = result.data.mindMaps[0].edges[0] as Record<string, unknown>;
+    expect("selected" in edge).toBe(false);
+    expect("animated" in edge).toBe(false);
+  });
 });

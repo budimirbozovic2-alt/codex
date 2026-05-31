@@ -3,30 +3,34 @@ import { sanitizeHtml } from "@/lib/sanitize";
 import type { MindMapDoc } from "@/lib/db-types";
 import { SafeText, NumberWithDefault } from "./helpers";
 
-const MindMapNodeSchema = z
-  .object({
-    id: z.string(),
-    type: z.unknown().optional(),
-    position: z.unknown().optional().transform((v) => (v && typeof v === "object" ? v : { x: 0, y: 0 })),
-    data: z.unknown().optional().transform((v) => {
-      if (!v || typeof v !== "object") return {};
-      const obj = v as Record<string, unknown>;
-      const out: Record<string, unknown> = { ...obj };
-      if (typeof obj.label === "string") out.label = sanitizeHtml(obj.label);
-      if (typeof obj.description === "string") out.description = sanitizeHtml(obj.description);
-      return out;
-    }),
-    style: z.unknown().optional(),
-  })
-  .strict();
+// NOTE: Both node and edge schemas use Zod's default `.strip()` behavior
+// (no `.strict()`) so React Flow's runtime-internal flags
+// (measured, selected, dragging, positionAbsolute, width, height, resizing,
+// focusable, ...) are silently dropped on import instead of failing validation.
+// Only the whitelisted keys below are persisted into the rehydrated MindMapDoc.
+const MindMapNodeSchema = z.object({
+  id: z.string(),
+  type: z.unknown().optional(),
+  position: z.unknown().optional().transform((v) => (v && typeof v === "object" ? v : { x: 0, y: 0 })),
+  data: z.unknown().optional().transform((v) => {
+    if (!v || typeof v !== "object") return {};
+    const obj = v as Record<string, unknown>;
+    const out: Record<string, unknown> = { ...obj };
+    if (typeof obj.label === "string") out.label = sanitizeHtml(obj.label);
+    if (typeof obj.description === "string") out.description = sanitizeHtml(obj.description);
+    return out;
+  }),
+  style: z.unknown().optional(),
+});
 
-const MindMapEdgeSchema = z
-  .object({
-    id: z.string(),
-    source: z.string(),
-    target: z.string(),
-  })
-  .strict();
+const MindMapEdgeSchema = z.object({
+  id: z.string(),
+  source: z.string(),
+  target: z.string(),
+  label: z.unknown().optional(),
+  type: z.unknown().optional(),
+  data: z.unknown().optional(),
+});
 
 export const BackupMindMapSchema = z
   .object({
