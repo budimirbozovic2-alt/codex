@@ -107,27 +107,34 @@ export default function SRSettingsPanel({ settings, onUpdate }: Props) {
   const subjectNameRef = useLatestRef(subjectName);
 
   // ─── Save logic ────────────────────────────────────────
-  const handleSave = useCallback(() => {
+  const handleSave = useCallback(async () => {
     const curLocal = localRef.current;
     const curApp = appRef.current;
     const curTts = ttsRef.current;
     const curOverridesEnabled = overridesEnabledRef.current;
-    if (subjectId && curOverridesEnabled) {
-      const overrides: SubjectSettings = {
-        targetRetention: curApp.targetRetention,
-        leechThreshold: curLocal.leechThreshold,
-        dailyGoal: curLocal.dailyGoal,
-        resistanceWeights: curLocal.resistanceWeights,
-      };
-      saveSubjectSettings(subjectId, overrides);
-      toast.success(`Podešavanja za "${subjectNameRef.current}" sačuvana`);
-    } else if (subjectId && !curOverridesEnabled) {
-      clearSubjectSettings(subjectId);
-      toast.success("Subjektna podešavanja uklonjena — koriste se globalna");
-    } else {
-      onUpdate(curLocal);
-      saveTTSSettings(curTts);
-      saveAppSettings(curApp);
+    // PR-G1 / C-2: `save{App,Subject}Settings` now reject on SSOT failure.
+    // Surface a clear toast.error instead of falsely showing success.
+    try {
+      if (subjectId && curOverridesEnabled) {
+        const overrides: SubjectSettings = {
+          targetRetention: curApp.targetRetention,
+          leechThreshold: curLocal.leechThreshold,
+          dailyGoal: curLocal.dailyGoal,
+          resistanceWeights: curLocal.resistanceWeights,
+        };
+        await saveSubjectSettings(subjectId, overrides);
+        toast.success(`Podešavanja za "${subjectNameRef.current}" sačuvana`);
+      } else if (subjectId && !curOverridesEnabled) {
+        clearSubjectSettings(subjectId);
+        toast.success("Subjektna podešavanja uklonjena — koriste se globalna");
+      } else {
+        onUpdate(curLocal);
+        saveTTSSettings(curTts);
+        await saveAppSettings(curApp);
+      }
+    } catch (err) {
+      logger.error("[SRSettingsPanel] save failed", err);
+      toast.error("Postavke nisu sačuvane u bazu. Pokušaj ponovo.");
     }
     // Refs (appRef/localRef/overridesEnabledRef/subjectNameRef/ttsRef) hold
     // the latest values via the sync effect above; depending on them would
