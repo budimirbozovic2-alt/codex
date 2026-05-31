@@ -52,7 +52,6 @@ interface BootstrapResult {
 export function useZettelkastenBootstrap(
   { categoryId, subjectName, subcategoryNames }: BootstrapInput,
 ): BootstrapResult & { initialActiveId: string | null } {
-  const qc = useQueryClient();
   const { data: articles, isLoading } = useKnowledgeBaseArticlesBySubject(categoryId);
   const [initialActiveId, setInitialActiveId] = useState<string | null>(null);
   const [ensuring, setEnsuring] = useState<boolean>(true);
