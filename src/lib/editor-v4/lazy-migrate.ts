@@ -4,9 +4,9 @@
  * Called once from `<AppBootstrap />` after the initial card/source/article
  * load. Walks each domain in idle batches, runs the pure dispatcher from
  * `migrate.ts`, and persists the resulting `contentDoc` through the existing
- * repository write paths:
+ * write paths:
  *
- *   • cards    → `cardRepository.bulkPut` (rides the outbox / persist-queue)
+ *   • cards    → `bulkPutCardsDirect` (SQLite transaction; TanStack invalidates via the cards-changed bridge)
  *   • sources  → `saveSource` (debounced via repository)
  *   • articles → `saveArticle`
  *
