@@ -71,17 +71,17 @@ export async function applyImportAtomically(ctx: ImportCtx): Promise<ImportTxRes
     }
 
     // ── 3. Legacy taxonomy resolve (names → UUIDs) — pre-tx, pure ──
+    // Audit v2 / Wave A.5: previously a `try { … } catch { warn }` block.
+    // A failure inside `resolveLegacyTaxonomyNames` (which mutates `merged`
+    // in place) would still let the merged cards through to the ACID write
+    // with stale/null FK refs. The FK constraint may or may not catch
+    // it depending on the row data, and the user saw "Restore uspešan".
+    // We now let the exception propagate so the outer caller rolls back the
+    // transaction and surfaces the failure.
     let legacyResolveReport: ImportTxResult["legacyResolveReport"] = null;
-    try {
-      legacyResolveReport = resolveLegacyTaxonomyNames(merged, freshCategories);
-      for (const c of merged) nextMap[c.id] = c;
-    } catch (err) {
-      backupLog.warn(
-        "import",
-        "legacy taxonomy resolve failed",
-        err instanceof Error ? err.message : String(err),
-      );
-    }
+    legacyResolveReport = resolveLegacyTaxonomyNames(merged, freshCategories);
+    for (const c of merged) nextMap[c.id] = c;
+
 
     await yieldUI();
 
