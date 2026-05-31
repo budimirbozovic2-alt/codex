@@ -19,10 +19,7 @@ import path from "node:path";
 
 describe("Phase B / P1", () => {
   it("SessionContext: isProcessing clears as soon as queue drains (no setTimeout padding)", async () => {
-    const wrapper = ({ children }: { children: React.ReactNode }) => (
-      <SessionProvider>{children}</SessionProvider>
-    );
-    const { result } = renderHook(() => useSessionContext(), { wrapper });
+    const { result } = renderHook(() => useSessionContext());
 
     expect(result.current.isProcessing).toBe(false);
     act(() => result.current.startSession([], []));
