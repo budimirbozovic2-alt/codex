@@ -187,7 +187,7 @@ export function useCardBootstrap() {
     })();
 
     return () => clearTimeout(panicTimer);
-  }, []);
+  }, [dbError]);
 
   return { ready };
 }
