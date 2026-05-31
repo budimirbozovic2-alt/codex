@@ -5,7 +5,7 @@ import { Card as SRCard } from "@/lib/spaced-repetition";
 import { ReviewLogEntry } from "@/lib/storage";
 import type { CategoryRecord } from "@/lib/db-types";
 import { analyticsClient } from "@/lib/analytics/workerClient";
-import type { PlannerConfig } from "@/lib/planner-storage";
+import type { PlannerConfig } from "@/domains/planner";
 import { DEFAULT_CONFIG } from "@/domains/planner";
 import { queryKeys } from "@/lib/query/keys";
 import {
@@ -22,10 +22,10 @@ import {
 // invalidation cascades) — pure functions of (cards, reviewLog, config,
 // categoryRecords) belong in `useMemo`, not in TanStack cache slots that
 // the bridge already invalidates from a different angle.
-type PlannerModule = typeof import("@/lib/planner-storage");
+type PlannerModule = typeof import("@/domains/planner");
 let _plannerMod: PlannerModule | null = null;
 async function getPlannerModule(): Promise<PlannerModule> {
-  if (!_plannerMod) _plannerMod = await import("@/lib/planner-storage");
+  if (!_plannerMod) _plannerMod = await import("@/domains/planner");
   return _plannerMod;
 }
 

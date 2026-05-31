@@ -1,4 +1,4 @@
-import { seedDefaultCategories } from "@/lib/db";
+import { seedDefaultCategories } from "@/lib/db-seed";
 import { reviewLogRepository, settingsRepository } from "@/lib/repositories";
 import type { CategoryRecord } from "@/lib/db-types";
 import { listAllCards } from "@/lib/db/queries";
@@ -25,7 +25,7 @@ export async function loadInitialData(): Promise<InitialData> {
   transition({ type: "LOAD_PROGRESS", pct: 15, label: "Inicijalizacija keša…" });
   if (import.meta.env.DEV) logger.log("[boot:diag] step 3: initCaches");
   const { initMetacognitiveCache } = await import("@/lib/metacognitive-storage");
-  const { initPlannerCache } = await import("@/lib/planner-storage");
+  const { initPlannerCache } = await import("@/domains/planner");
   const { initSubjectSettingsCache } = await import("@/lib/subject-settings");
   await withTimeout(
     Promise.all([

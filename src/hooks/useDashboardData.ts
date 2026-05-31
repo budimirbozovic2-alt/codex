@@ -4,10 +4,10 @@ import { Card as SRCard, SRSettings, getPendingFirstReviewCount } from "@/lib/sp
 import { ReviewLogEntry, getStorageUsage, getLastBackupTime } from "@/lib/storage";
 import { loadSlippageLog } from "@/lib/metacognitive-storage";
 // R2 fix: lazy-import planner-storage to avoid eagerly loading 577-line module + date-fns
-type PlannerModule = typeof import("@/lib/planner-storage");
+type PlannerModule = typeof import("@/domains/planner");
 let _plannerMod: PlannerModule | null = null;
 async function getPlannerModule(): Promise<PlannerModule> {
-  if (!_plannerMod) _plannerMod = await import("@/lib/planner-storage");
+  if (!_plannerMod) _plannerMod = await import("@/domains/planner");
   return _plannerMod;
 }
 import type { CategoryRecord } from "@/lib/db-types";

@@ -9,7 +9,7 @@ import {
   calcLearningReviewRatio,
   getProjectionText,
   getPhaseDisciplinePct,
-} from "@/lib/planner-storage";
+} from "@/domains/planner";
 import type { ReviewLogEntry } from "@/lib/storage";
 import { addDays } from "date-fns";
 

@@ -4,7 +4,7 @@ import { ReviewLogEntry } from "@/lib/storage";
 import { Progress } from "@/components/ui/progress";
 import { calcWeakHooks } from "@/lib/cognitive-analytics";
 import { analyticsClient } from "@/lib/analytics/workerClient";
-import { loadPlanner } from "@/lib/planner-storage";
+import { loadPlanner } from "@/domains/planner";
 import LazyChart from "@/components/LazyChart";
 import InfoPanel from "@/components/InfoPanel";
 import { useCognitiveStats } from "@/hooks/useCognitiveStats";

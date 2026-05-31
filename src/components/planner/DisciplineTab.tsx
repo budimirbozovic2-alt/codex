@@ -3,7 +3,7 @@ import { m } from "framer-motion";
 import {
   AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer,
 } from "recharts";
-import { getDisciplineEmoji } from "@/lib/planner-storage";
+import { getDisciplineEmoji } from "@/domains/planner";
 import { cn } from "@/lib/utils";
 import { ChartTooltip } from "./planner-constants";
 import type { DisciplineLogEntry, DisciplineTrendPoint } from "@/types/planner";

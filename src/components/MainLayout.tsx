@@ -30,7 +30,7 @@ const NudgeWatcher = memo(function NudgeWatcher() {
   const { pathname } = useLocation();
   const prevPathRef = useRef(pathname);
   const nudgeShownRef = useRef(false);
-  const plannerModRef = useRef<typeof import("@/lib/planner-storage") | null>(null);
+  const plannerModRef = useRef<typeof import("@/domains/planner") | null>(null);
 
   const { cards } = useCardData();
   const { reviewLog } = useReviewData();
@@ -49,7 +49,7 @@ const NudgeWatcher = memo(function NudgeWatcher() {
     (async () => {
       try {
         if (!plannerModRef.current) {
-          plannerModRef.current = await import("@/lib/planner-storage");
+          plannerModRef.current = await import("@/domains/planner");
         }
         const { loadPlanner, getSmartSuggestion, calcVelocity, getDailyMappedCount } = plannerModRef.current;
         const planner = loadPlanner();

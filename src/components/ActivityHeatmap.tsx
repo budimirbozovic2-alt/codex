@@ -28,7 +28,7 @@ const INTENSITY_CLASSES = [
 export default function ActivityHeatmap({ reviewLog }: Props) {
   // R3 fix: defer discipline log load to avoid blocking paint
   const disciplineLog = useDeferredCompute(async () => {
-    const { loadDisciplineLog, getDisciplineEmoji } = await import("@/lib/planner-storage");
+    const { loadDisciplineLog, getDisciplineEmoji } = await import("@/domains/planner");
     const log = loadDisciplineLog();
     const map = new Map<string, string>();
     log.forEach(e => map.set(e.date, getDisciplineEmoji(e.status)));

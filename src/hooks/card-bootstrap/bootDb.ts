@@ -22,7 +22,7 @@ export async function bootDb(): Promise<{ ok: boolean }> {
 
   // Pre-warm SQLite executor (Electron OPFS ili DEV in-memory fallback) PRIJE
   // bilo kakvog read/write poziva. Bez ovoga prvi `listAllCards` / save kartice
-  // čeka cold WASM init ~1.5–3s (vidljivo kao "blokada" + 8s panic timer).
+  // čeka cold WASM init ~1.5–3s (vidljivo kao "blokada" + 22s panic timer).
   try {
     const { getOpfsSqliteExecutor } = await import("@/lib/persistence/sqlite/client");
     await getOpfsSqliteExecutor();

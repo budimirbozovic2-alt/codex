@@ -30,7 +30,6 @@ export {
   resolveNumber,
   extractNumbers,
   detectEnumerationItems,
-  migrateMnemonicsFromLocalStorageToIDB,
 } from "./mnemonic-storage";
 
 // Test-tree helpers used by tests + (formerly) by external test-utility callers.

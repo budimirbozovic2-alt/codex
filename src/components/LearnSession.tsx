@@ -203,7 +203,7 @@ export default function LearnSession({ cards, categories, categoryRecords, subca
       activityLoggedRef.current = true;
       addActivityEntry({ timestamp: Date.now(), type: "learn-active", durationMs: elapsed });
       (async () => { try {
-        const { loadPlanner, calcVelocity, getSmartSuggestion } = await import("@/lib/planner-storage");
+        const { loadPlanner, calcVelocity, getSmartSuggestion } = await import("@/domains/planner");
         const plannerConfig = loadPlanner();
         const velocity = calcVelocity(reviewLogProp, 7);
         const suggestion = getSmartSuggestion(null, cards, plannerConfig.finalGoalDate, velocity, plannerConfig.bufferPercent ?? 15);

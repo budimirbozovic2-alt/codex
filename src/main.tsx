@@ -120,11 +120,12 @@ if (!isDesktopShell && import.meta.env.PROD) {
 } else {
 
 // ── Guarded async bootstrap ──
+// Outer `isDesktopShell && PROD` guard above already short-circuits browser
+// builds to the download CTA, so the previous defense-in-depth
+// `await import("./lib/electron-integration"); assertDesktop()` was redundant
+// (Wave 4.8). Bootstrap proceeds straight to the parallel module import.
 (async () => {
   try {
-    // Pure Desktop guard — no-op in dev, throws in PROD browser builds.
-    const { assertDesktop } = await import("./lib/electron-integration");
-    assertDesktop();
     markBootStep("main:parallel-import-start");
     const [{ initColorTheme }, { default: App }, { createRoot }, { eventBus }, { setDbEventEmitter }] = await Promise.all([
       import("./lib/app-settings"),
@@ -188,21 +189,6 @@ if (!isDesktopShell && import.meta.env.PROD) {
 
 } // end web-CTA-guard else block
 
-// ── Service Worker cleanup (Pure Desktop — P3 PR-8 finale) ──
-// We no longer register a service worker. This block remains for one release
-// to unregister stale SWs from any user who installed a previous web build.
-// Scheduled for full removal in PR-9.
-if ("serviceWorker" in navigator) {
-  window.addEventListener("load", async () => {
-    try {
-      const registrations = await navigator.serviceWorker.getRegistrations();
-      await Promise.all(registrations.map((r) => r.unregister()));
-      if ("caches" in window) {
-        const keys = await caches.keys();
-        await Promise.all(keys.map((k) => caches.delete(k)));
-      }
-    } catch {
-      /* no-op — desktop shell has no SW anyway */
-    }
-  });
-}
+// Service Worker cleanup block removed in Wave 4 (PR-9 finished long ago).
+// CODEX has not registered an SW since the Pure Desktop cutover; the
+// previous unregister-on-load block was permanently dead code.

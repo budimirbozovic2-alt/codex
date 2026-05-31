@@ -153,9 +153,9 @@ export default tseslint.config(
     },
   },
 
-  // View-layer hardening: views must consume domain providers, not raw db.
-  // Sanctioned exceptions: source/mindmap-heavy views still call db directly
-  // because no dedicated provider exists for those domains yet.
+  // ─── W6 — View-layer Public API discipline ─────────────────────────────
+  // Views must consume domain providers, not raw infra. Source/mindmap-heavy
+  // views are sanctioned exceptions because no dedicated provider exists yet.
   {
     files: ["src/views/**/*.{ts,tsx}"],
     rules: {
@@ -164,10 +164,9 @@ export default tseslint.config(
         {
           paths: [
             {
-              name: "@/lib/db",
+              name: "@/lib/db-seed",
               message:
-                "Views must use domain providers (useCardData, useCategoryActions, useBackupActions, …) instead of importing the raw db instance. Type-only imports (import type … from '@/lib/db') are still allowed.",
-              importNames: ["db"],
+                "Views must use domain providers (useCardData, useCategoryActions, useBackupActions, …) instead of importing seed helpers directly (W6).",
             },
           ],
           patterns: [
@@ -189,7 +188,7 @@ export default tseslint.config(
             {
               group: ["@/lib/db/queries/*"],
               message:
-                "Importuj iz `@/lib/db` barrel-a — `queries/*` je interno (Public API wall).",
+                "Importuj iz `@/lib/db/queries` barrel-a — pojedinačni query moduli su interni (W8).",
             },
           ],
         },
@@ -197,11 +196,12 @@ export default tseslint.config(
     },
   },
 
-  // Phase A / P0-3: Ban raw `dangerouslySetInnerHTML` everywhere except the
-  // central `<SafeHtml>` wrapper and the few sanctioned read-only renderers
-  // that already feed pre-sanitized HTML straight from their pipeline.
-  // Every other call-site MUST route through `<SafeHtml>` so DOMPurify runs
-  // at render-time as defense-in-depth against XSS from user import.
+  // ─── W7 — Ban raw `dangerouslySetInnerHTML` (XSS hardening) ─────────────
+  // Every render-site MUST route through `<SafeHtml>` so DOMPurify runs at
+  // render-time as defense-in-depth against XSS from imported user data.
+  // Sanctioned exceptions: the `<SafeHtml>` wrapper itself and one read-only
+  // SourceContent renderer that feeds pre-sanitized HTML straight from its
+  // pipeline.
   {
     files: ["src/**/*.{ts,tsx}"],
     ignores: [
@@ -227,16 +227,16 @@ export default tseslint.config(
     },
   },
 
-  // Public API walls + Feature-Sliced boundaries.
+  // ─── W8 — Public API walls + Feature-Sliced boundaries ─────────────────
   //
   // Outside `src/features/X/`, code may only import `@/features/X` (its
   // barrel). Deep imports like `@/features/X/lib/internal` are forbidden.
   //
-  // Walled domains (`@/lib/repositories`, `@/store`, `@/lib/db/queries`)
-  // expose a single barrel each. Deep imports into them re-introduce the
-  // cross-module coupling we are eliminating during the IDB-as-SSOT
-  // migration — they are blocked here for every consumer outside the
-  // walled directory itself.
+  // Walled domains (`@/lib/repositories`, `@/store`, `@/lib/db/queries`,
+  // `@/lib/drafts`) expose a single barrel each. Deep imports re-introduce
+  // the cross-module coupling we eliminated during the IDB-as-SSOT
+  // migration — blocked here for every consumer outside the walled
+  // directory itself.
   {
     files: ["src/**/*.{ts,tsx}"],
     ignores: [
@@ -276,7 +276,7 @@ export default tseslint.config(
             {
               group: ["@/lib/db/queries/*"],
               message:
-                "Importuj iz `@/lib/db` barrel-a — `queries/*` je interno (Public API wall).",
+                "Importuj iz `@/lib/db/queries` barrel-a — pojedinačni query moduli su interni (W8).",
             },
             {
               group: ["@/lib/drafts/*"],
@@ -303,7 +303,7 @@ export default tseslint.config(
             { group: ["@/lib/db", "@/lib/db/*"], message: "_pure analytics ne smije pristupati IDB. Inject snapshote." },
             { group: ["@/lib/metacognitive-storage"], message: "_pure analytics ne smije čitati metacognitive-storage. Inject snapshote." },
             // Type-only imports from planner are allowed (`import type { ... }`); runtime reads are not.
-            { group: ["@/lib/planner-storage", "@/domains/planner", "@/domains/planner/*"], message: "_pure analytics ne smije čitati planner runtime. Inject snapshote (type-only import je dozvoljen).", allowTypeImports: true },
+            { group: ["@/domains/planner", "@/domains/planner/*"], message: "_pure analytics ne smije čitati planner runtime. Inject snapshote (type-only import je dozvoljen).", allowTypeImports: true },
             { group: ["@/domains/cards", "@/domains/cards/*"], message: "_pure analytics ne smije pristupati card domenu. Inject snapshote." },
             { group: ["@/domains/mnemonic", "@/domains/mnemonic/*"], message: "_pure analytics ne smije pristupati mnemonic domenu. Inject snapshote." },
             { group: ["@/contexts/*", "@/contexts/**"], message: "_pure analytics ne smije čitati React contexts." },
@@ -542,8 +542,7 @@ export default tseslint.config(
       "src/domains/planner/**",
       "src/domains/mnemonic/**",
       "src/test/**",
-      // Legacy back-compat shims that intentionally re-export domain internals.
-      "src/lib/planner-storage.ts",
+      // Legacy back-compat shim that intentionally re-exports domain internals.
       "src/lib/analytics/blind-spots.ts",
     ],
     rules: {

@@ -41,25 +41,24 @@ export async function runSchema(): Promise<void> {
     }
   }
 
-  // Step 1: Dexie verzioni upgrade (i legacy localStorage migracija).
+  // Step 1: legacy localStorage cleanup. Sentinel-gated so realistic users
+  // (no v22-era localStorage keys) skip the dynamic import entirely. Wave 4
+  // removed the mnemonic→IDB step — SQLite is SSOT and that path is dead.
+  const MIGRATIONS_CLEAN_FLAG = "codex-migrations-clean";
   try {
-    transition({ type: "SCHEMA_PROGRESS", pct: 20, label: "Schema upgrade…" });
-    if (import.meta.env.DEV) logger.log("[boot:diag] schema step 1: migrateFromLocalStorage");
-    const { migrateFromLocalStorage } = await import("@/lib/db-seed");
-    await withTimeout(migrateFromLocalStorage(), 3000, "migration", undefined);
+    if (localStorage.getItem(MIGRATIONS_CLEAN_FLAG) !== "1") {
+      transition({ type: "SCHEMA_PROGRESS", pct: 40, label: "Schema upgrade…" });
+      if (import.meta.env.DEV) logger.log("[boot:diag] schema step 1: migrateFromLocalStorage");
+      const { migrateFromLocalStorage } = await import("@/lib/db-seed");
+      await withTimeout(migrateFromLocalStorage(), 3000, "migration", undefined);
+      try { localStorage.setItem(MIGRATIONS_CLEAN_FLAG, "1"); } catch { /* private mode */ }
+    }
   } catch (e) {
     throw new SchemaError("migrateFromLocalStorage", e);
   }
 
-  // Step 2: Mnemonics localStorage → IDB migracija.
-  try {
-    transition({ type: "SCHEMA_PROGRESS", pct: 50, label: "Mnemonics migracija…" });
-    const { migrateMnemonicsFromLocalStorageToIDB } = await import("@/features/mnemonic");
-    await withTimeout(migrateMnemonicsFromLocalStorageToIDB(), 3000, "mnemonic migration", undefined);
-  } catch (e) {
-    throw new SchemaError("migrateMnemonics", e);
-  }
-
+  // Step 2 removed (Wave 4): mnemonics localStorage→IDB migration was a no-op
+  // for every user since SQLite became SSOT in A1c-4 F6.
   // Step 3 removed (A1a): outbox WAL recovery — SQLite WAL replaces it.
 
   // Step 4 (PR-8 M2): One-shot IDB → SQLite migration. Electron-only because
