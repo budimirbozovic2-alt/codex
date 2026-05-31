@@ -302,7 +302,10 @@ export default tseslint.config(
             { group: ["@/lib/storage", "@/lib/storage/*"], message: "_pure analytics ne smije čitati storage. Inject snapshote." },
             { group: ["@/lib/db", "@/lib/db/*"], message: "_pure analytics ne smije pristupati IDB. Inject snapshote." },
             { group: ["@/lib/metacognitive-storage"], message: "_pure analytics ne smije čitati metacognitive-storage. Inject snapshote." },
-            { group: ["@/lib/planner-storage", "@/lib/planner/*"], message: "_pure analytics ne smije čitati planner. Inject snapshote." },
+            // Type-only imports from planner are allowed (`import type { ... }`); runtime reads are not.
+            { group: ["@/lib/planner-storage", "@/domains/planner", "@/domains/planner/*"], message: "_pure analytics ne smije čitati planner runtime. Inject snapshote (type-only import je dozvoljen).", allowTypeImports: true },
+            { group: ["@/domains/cards", "@/domains/cards/*"], message: "_pure analytics ne smije pristupati card domenu. Inject snapshote." },
+            { group: ["@/domains/mnemonic", "@/domains/mnemonic/*"], message: "_pure analytics ne smije pristupati mnemonic domenu. Inject snapshote." },
             { group: ["@/contexts/*", "@/contexts/**"], message: "_pure analytics ne smije čitati React contexts." },
             { group: ["react", "react-dom"], message: "_pure analytics mora biti React-free (radi u Web Worker-u)." },
             { group: ["@/lib/event-bus", "@/lib/event-bus-types"], message: "_pure analytics ne smije emitovati event-bus." },
