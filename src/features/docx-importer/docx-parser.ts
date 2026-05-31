@@ -43,7 +43,11 @@ export function parseDocxInWorker(arrayBuffer: ArrayBuffer): Promise<string> {
         );
       };
 
-      worker.postMessage({ arrayBuffer }, [arrayBuffer.slice(0)]);
+      // Transfer the buffer (zero-copy) — caller no longer needs it after
+      // posting. The previous `arrayBuffer.slice(0)` allocated a copy AND
+      // transferred only the copy, leaving the worker with a buffer the
+      // main thread still owned (read failures on large files).
+      worker.postMessage({ arrayBuffer }, [arrayBuffer]);
     } catch {
       // Workers not supported — fallback
       fallbackParse(arrayBuffer).then(
