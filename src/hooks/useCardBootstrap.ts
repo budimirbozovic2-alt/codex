@@ -62,7 +62,12 @@ export function useCardBootstrap() {
     // OSIGURAČ: 22s ostavlja prostor za cold SQLite WASM init (~3s) + sve
     // migracije (Step 4 ima vlastiti 15s `withTimeout`) bez lažnog panike.
     // Prethodno 15s je tačno racovalo sa migration timeoutom u runSchema.
-    const panicTimer = setTimeout(() => {
+    //
+    // PR-G2 / H-1 fix: routed through `taskScheduler` so HMR re-mount /
+    // Electron quit drain the timer alongside every other scheduled task
+    // instead of leaving an invisible raw `setTimeout` chain. Cancellation
+    // happens via `taskScheduler.cancel(panicHandle)` in the cleanup path.
+    const panicHandle = taskScheduler.setTimeout(() => {
       setReady((currentReady) => {
         if (!currentReady) {
           logger.error("[boot] Panic timeout (22s)! Forsiram ready state.");
@@ -79,7 +84,7 @@ export function useCardBootstrap() {
         }
         return currentReady;
       });
-    }, 22000);
+    }, 22000, { label: "boot:panic-22s" });
 
     (async () => {
       try {
