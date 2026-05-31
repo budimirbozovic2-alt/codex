@@ -1,3 +1,4 @@
+import type React from "react";
 import { useCategoryData, useCardOnlyActions, useUIContext } from "@/contexts/AppContext";
 import { useCardById } from "@/store";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
