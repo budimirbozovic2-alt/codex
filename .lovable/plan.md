@@ -1,124 +1,92 @@
-# Phase C — Teardown `src/lib/legacy/idb-dexie.ts`
+# Refaktor: `src/lib` → `src/domains/*` (3 domena)
 
-Cilj: ukloniti zadnji Dexie modul iz repoa. Migracija ostaje funkcionalna za korisnike koji još nisu prešli na SQLite, ali bez ijednog Dexie importa.
+## Cilj
 
-## Pristup
+Izvući tri jasno odvojena bounded contexta iz `src/lib` u `src/domains/`, sa strogim ESLint walls oko svakog. Infra (`db`, `persistence`, `migrations`, `logger`, `sr`, `editor-v4`, `motion`, `analytics/_pure`, itd.) ostaje u `src/lib`.
 
-Migracija se prepisuje da čita IDB **raw** (preko native `IDBDatabase` cursora) umjesto kroz Dexie shell. Raw IDB ne zahtijeva schema deklaraciju za read-only kursor stream — open bez verzije vraća DB u njegovoj postojećoj verziji, što je sve što treba za jednokratni read-and-copy. Recovery panele takođe prevodimo na raw `indexedDB.deleteDatabase("MemoriaDB")`.
+## Granice domena (prvi prolaz)
 
----
-
-## Korak 1 — Raw IDB reader helper
-
-Novi fajl `src/lib/persistence/sqlite/idb-raw-reader.ts`:
-
-- `openLegacyIdb(): Promise<IDBDatabase | null>` — `indexedDB.open("MemoriaDB")` bez verzije; vraća `null` ako baza ne postoji (fresh install) ili ako enumeracija nije dostupna.
-- `streamStore<T>(db, storeName, onPage, pageSize=500): Promise<number>` — otvara read-only transakciju, kursor stream sa internim paging buffer-om, poziva `onPage(rows)`; vraća total count.
-- `countStore(db, storeName): Promise<number>` — `IDBObjectStore.count()`.
-- `getKv(db, storeName, key): Promise<unknown>` — za `settings` "tabelu" (key-value lookup za PR-9 planner KV).
-- `listAllRows<T>(db, storeName): Promise<T[]>` — za male tabele (`disciplineLog`, `drafts`).
-
-Svi helperi su strogo tipovani (generics, bez `any`); error handling preko `Promise<reject>` na `tx.onerror`/`req.onerror`.
-
-## Korak 2 — `migrate-from-idb.ts` bez Dexie
-
-Prepisati `src/lib/persistence/sqlite/migrate-from-idb.ts`:
-
-- Ukloniti `import { db } from "@/lib/legacy/idb-dexie"` i `import type { Table } from "dexie"`.
-- `migrateFromIdb(exec)`:
-  - `const idb = await openLegacyIdb()`. Ako je `null` → samo upiši `migrated-from-idb-v1` flag i vrati `{ alreadyComplete: true, counts: zero }`.
-  - Za svaki tabelu (categories → sources → cards → mindMaps → mnemonics → knowledgeBaseArticles → majorSystem → mnemonicTestLog), zamijeniti `streamTable(table, …)` sa `streamStore(idb, "<storeName>", …)`. `toRow` i SQL ostaju isti — tipovi rowova su već strukturalni (`CategoryRecord`, `Source`, `Card` …), čitamo ih iz `db-types`.
-  - Per-table row-count provjera ostaje (poređenje `streamStore` total vs `SELECT COUNT(*) FROM <table>`).
-  - Na samom kraju zatvoriti IDB konekciju (`idb.close()`).
-- `migratePr9ReadPathFromIdb(exec)`:
-  - `openLegacyIdb()` → `null`-guard isto.
-  - Planner KV: `getKv(idb, "settings", "plannerConfig" | …)`.
-  - Discipline log: `listAllRows(idb, "disciplineLog")`.
-  - Drafts: `listAllRows(idb, "drafts")`.
-
-`MIGRATION_FLAG_KEY`, `PR9_READPATH_FLAG_KEY`, `MigrationAbort`, `hasMigrationFlagSync` ostaju nepromijenjeni.
-
-## Korak 3 — Recovery panele na raw IDB
-
-**`src/contexts/boot/BootRecoveryGate.tsx`** — `resetDb()`:
-
-```ts
-async function resetDb() {
-  if (!window.confirm("…")) return;
-  await new Promise<void>((resolve) => {
-    const req = indexedDB.deleteDatabase("MemoriaDB");
-    req.onsuccess = req.onerror = req.onblocked = () => resolve();
-  });
-  reloadWindow();
-}
+```text
+src/domains/
+├── cards/
+│   ├── index.ts                ← jedini dozvoljen ulaz
+│   ├── types.ts                (← lib/card-types.ts ako postoji + iz lib/spaced-repetition-types)
+│   ├── repo/                   (cardMapWrites, card-fjs koje pišu u RAM/SQLite)
+│   ├── queries/                (re-export tankih wrappera nad @/lib/db/queries cards*)
+│   └── services/               (card import/export orkestracija ako je čisto card-bound)
+│
+├── planner/
+│   ├── index.ts                ← preseljen iz src/lib/planner/index.ts (1:1)
+│   ├── (svi postojeći planner/* fajlovi)
+│   └── _legacy-shim za stari `@/lib/planner-storage`
+│
+└── mnemonic/
+    ├── index.ts
+    ├── analytics/
+    │   └── weak-hooks.ts       (← lib/analytics/blind-spots.ts → calcWeakHooks; piše mnemonic IDB)
+    └── re-exports iz features/mnemonic/mnemonic-storage
+        (mnemonic ostaje fizički u features/mnemonic; domain barrel je façade)
 ```
 
-Trenutni kod briše bazu pod nazivom `"codex"` (pre-existing bug — pravi naziv je `MemoriaDB`). Fix ide uz ovu izmjenu.
+**Šta NE diram u ovom prolazu:**
+- `src/lib/db`, `src/lib/persistence`, `src/lib/migrations`, `src/lib/logger`, `src/lib/sr` (FSRS), `src/lib/editor-v4`, `src/lib/motion`, `src/lib/backlink-index`, `src/lib/repositories`, `src/lib/analytics/_pure` (čisti compute)
+- `src/features/mnemonic/*` fizički ostaje gdje jeste — `src/domains/mnemonic/index.ts` je samo barrel/façade da postoji jedinstveni ulaz
+- `src/store`, `src/contexts`, `src/hooks`, `src/views`, `src/components` — samo se ažuriraju import putanje
 
-**`src/components/DatabaseRecoveryPanel.tsx`** — `handleReset`: ista raw varijanta, bez `await import("@/lib/legacy/idb-dexie")` i bez `db.delete()`.
+## Pristup po koracima
 
-## Korak 4 — `bootDb.ts` bez Dexie fallbacka
+### 1. Cards domen (najveći ROI, najjasnija granica)
+- Kreirati `src/domains/cards/index.ts` barrel
+- Premjestiti: `src/lib/cards/*` → `src/domains/cards/repo/*` i `services/*`
+- Re-export cards-related queries iz `@/lib/db/queries` (cards, cards-bulk-mutations) kroz domain barrel
+- Zadržati shim `src/lib/cards/index.ts` koji re-exportuje iz `@/domains/cards` (1 deprecation cycle)
+- Rewrite svih importa `@/lib/cards/*` → `@/domains/cards` (codemod + ručno za edge case)
 
-Pošto Dexie shell nestaje, fallback grana iza `isLegacyDexieBypassed()` ne smije više pokušavati otvarati IDB schema-validation putanjom. Nova logika:
+### 2. Planner domen (najlakši — već je dekomponovan)
+- `git mv src/lib/planner → src/domains/planner` (logički)
+- `src/lib/planner-storage.ts` shim ažurirati da re-exportuje iz `@/domains/planner`
+- Ažurirati importe `@/lib/planner` i `@/lib/planner/*` → `@/domains/planner`
+- `loadPlannerSnapshot` & sl. ostaju u `@/lib/db/queries` (infra)
 
-```ts
-if (await isLegacyDexieBypassed()) {
-  // brzi put nepromijenjen
-  …
-  return { ok: true };
-}
+### 3. Mnemonic domen (façade only)
+- `src/domains/mnemonic/index.ts` re-exportuje iz `@/features/mnemonic`
+- Premjestiti `calcWeakHooks` iz `src/lib/analytics/blind-spots.ts` u `src/domains/mnemonic/analytics/weak-hooks.ts` (piše mnemonic IDB — pripada domenu)
+- `calcBlindSpots` ostaje u `lib/analytics` (čist OLAP)
+- Ažurirati importere `calcWeakHooks`
 
-// Non-bypassed boot: SQLite migracija će se izvršiti u runSchema (Step 4).
-// Boot se nastavlja bez otvaranja Dexie-ja. Ako ne-Electron PROD, već imamo
-// assertDesktop branded download CTA (vidi memory: dexie-deprecation-a1c).
-markBootStep("cards:db-open-done", "no-legacy");
-transition({ type: "OPEN_OK" });
-scheduleLogPrune();
-return { ok: true };
-```
+### 4. ESLint walls
+Dodati u `eslint.config.js` `no-restricted-imports` rules (W11/W12/W13):
+- **W11 cards wall**: zabraniti `@/domains/cards/*` deep import izvan `src/domains/cards/**`; dozvoliti samo `@/domains/cards`
+- **W12 planner wall**: ista logika
+- **W13 mnemonic wall**: ista logika
+- **W14 cross-domain wall**: `src/domains/X/**` ne smije importovati `src/domains/Y/**` deep — samo kroz Y-jev barrel
+- Domeni i dalje smiju importovati `@/lib/db/queries`, `@/lib/repositories`, `@/lib/logger`, `@/lib/persistence` (infra)
 
-`getDbErrorState` i `setDbErrorState` se i dalje koriste iz `@/lib/db-error` (taj modul je već Dexie-free — vidi komentar u idb-dexie.ts:18-22).
+### 5. Verifikacija
+- `tsc --noEmit` (preko harness build-a) prolazi
+- ESLint clean (svi novi walls prolaze)
+- `vitest run` — postojeći testovi prolaze bez izmjena (osim path update-a u par test fajlova)
+- `rg "@/lib/planner-storage"` — broj ostaje stabilan (shim radi)
+- Spot-check boot u preview-u: kartice se učitavaju, planner widget radi, mnemonic workshop otvara
 
-`runSchema.ts` Step 4 ostaje netaknut — sada poziva novi raw-IDB-only `migrateFromIdb`. Step 1 (`migrateFromLocalStorage`) i Step 2 (mnemonics LS→IDB) treba provjeriti — ako i oni pišu u Dexie, takođe ih treba prevesti ili dokazati da rade isključivo na localStorage targetu (mnemonic migracija piše u IDB MemoriaDB → treba je takođe prevesti na raw IDB writes, ili je ostaviti dok ne potvrdimo da je svi korisnici prošli). **Verifikacija prije implementacije**: pročitati `migrateFromLocalStorage` i `migrateMnemonicsFromLocalStorageToIDB` da utvrdimo da li i oni importuju iz `idb-dexie`. Ako da, dodaje se podkorak C4b da i njih prevedemo na raw IDB writes — inače plan ne uspijeva.
+### 6. Memory update
+Dodati novi memory file `mem://architecture/domains-layout-v1` i ažurirati Core u `mem://index.md`:
+> Domeni: `cards`, `planner`, `mnemonic` u `src/domains/*` sa ESLint wall-ovima (W11–W14). Infra ostaje u `src/lib`. Cross-domain importi samo kroz barrel.
 
-## Korak 5 — Re-exports iz `idb-dexie.ts`
+## Šta dobijamo
 
-`idb-dexie.ts` re-eksportuje `db-types` i `db-error` simbole za backwards compat. Verifikovati `rg "@/lib/legacy/idb-dexie" src` da niko ne uvozi te tipove kroz legacy path. Ako neko uvozi → preusmjeriti na `@/lib/db-types` / `@/lib/db-error` direktno.
+- 3 jasne granice umjesto 203-file `src/lib` monolita
+- ESLint-enforced contract — nema "slučajnog" deep importa između domena
+- Otvara put za sljedeći prolaz (sources, zettel, mindmaps) bez ponovne velike chirurgije
+- Memory + ARCHITECTURE.md mogu se kalibrisati nad realnom strukturom
 
-## Korak 6 — Brisanje i čišćenje
+## Rizici i mitigacije
 
-1. Obrisati `src/lib/legacy/idb-dexie.ts`.
-2. Ako je `src/lib/legacy/` prazan → obrisati i taj folder.
-3. `bun remove dexie`.
-4. `eslint.config.js`: ukloniti W7 (`dexie`/`dexie-react-hooks` ban + `legacy/idb-dexie` group ban) i W8 (`db.<table>` ban) — postaju bezbjedonosno bezpredmetni bez Dexie.
-5. `src/test/migrate-from-idb.test.ts`: zamijeniti `vi.mock("@/lib/legacy/idb-dexie", …)` sa mock-om novog raw IDB reader-a (`vi.mock("@/lib/persistence/sqlite/idb-raw-reader", …)`). Test feature parity: page-stream, row-count rollback, idempotency.
-6. Update komentara: `src/lib/db.ts:3` i `src/hooks/card-bootstrap/bootDb.ts:13-15` više ne referiraju lazy Dexie shell.
+- **Krivi import putevi nakon move-a** → koristim `rg` + ciljane sed/codemod prolaze, `tsc` kao safety net
+- **Circular imports cards ↔ planner** (preko reviewLog) → ako se pojavi, ekstraktovati zajednički tip u `src/lib/db-types` (već postoji)
+- **ESLint wall razbija postojeće importe** → walls dodajem TEK NAKON svih file move-ova, pa rješavam batch
+- **Velika diff** → svaki domen u zasebnom prolazu (cards → planner → mnemonic), ne sve odjednom
 
-## Korak 7 — Memory update
+## Trajanje (estimat)
 
-- `mem://index.md` Core / Dexie line: prepisati u "Dexie potpuno uklonjen. IDB→SQLite migracija čita raw IDB cursorom. Recovery briše bazu direktno preko indexedDB.deleteDatabase('MemoriaDB')."
-- Novi memory file `mem://architecture/dexie-removal-final` opisuje raw-IDB reader pattern.
-- Označiti `mem://architecture/dexie-deprecation-a1c` kao superseded.
-
-## Verifikacija
-
-- `bun run lint` — bez W7/W8 padova.
-- `tsc --noEmit`.
-- `bun run deadcode` — bez novih unused exports.
-- `vitest run src/test/migrate-from-idb.test.ts` — sve scenarije prolaze.
-- Smoke u Electron build-u:
-  1. Fresh install (no IDB) → migrate skip + flag set + ready.
-  2. Pre-seeded MemoriaDB sa par rekorda → migration copies, flag set, podaci čitljivi iz SQLite.
-  3. Recovery panel "Resetuj bazu" → IDB stvarno obrisan (DevTools verify).
-
-## Tehnički detalji (za nas)
-
-- Raw `indexedDB.open(name)` bez verzije: ako baza ne postoji, `onupgradeneeded` se okida sa `oldVersion=0` i mi je odmah abort-ujemo + `deleteDatabase` cleanup. Standardni pattern je: prvo `indexedDB.databases()` filter za `MemoriaDB`, pa tek open ako postoji.
-- Kursor read API: `store.openCursor()` → `cursor.continue()` u paging chunks; svaki `onsuccess` push-a row dok `cursor === null`.
-- Veličina paga: zadržati 500 (isti memory budžet kao Dexie put).
-
-## Rizik
-
-Srednji. Ključna pretpostavka: svi korisnici koji još rade na IDB imaju kompatibilnu schemu (≥ v18 ili v22). Pošto raw cursor stream čita whatever je u IDB-u, schema mismatchi koje je Dexie ranije reportovao kao `VersionError` više se ne dešavaju — IDB se otvara as-is i kopira što ima. To zapravo eliminiše "Resetuj bazu na schema mismatch" UX, ali zauzvrat garantuje da migracija prođe bez Dexie-ja.
-
-Trebam li krenuti sa Korakom 1 ili prvo provjeriti zavisnosti `migrateFromLocalStorage` / mnemonics LS→IDB migracije (Korak 4 verifikacija) i izvjestiti prije implementacije?
+~60–80 file move-ova + ~150–250 import line edits. Realno 1 dug session, ali isporučivo iterativno (svaki domen može da se merge-uje samostalno).
