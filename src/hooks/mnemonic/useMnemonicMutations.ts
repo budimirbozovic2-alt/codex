@@ -12,9 +12,12 @@
  */
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/query/keys";
-import { bulkPutMnemonics, deleteMnemonic as repoDeleteMnemonic } from "@/lib/db/queries/mnemonics";
-import { bulkPutPegs } from "@/lib/db/queries/major-system";
-import { addTestLogEntry } from "@/lib/db/queries/mnemonic-test-log";
+import {
+  bulkPutMnemonics,
+  deleteMnemonic as repoDeleteMnemonic,
+  bulkPutMajorSystemPegs as bulkPutPegs,
+  addTestLogEntry,
+} from "@/lib/db/queries";
 import { notifyMnemonics } from "@/features/mnemonic/mnemonic-storage/cards-repo";
 import type {
   MnemonicCard,
