@@ -44,12 +44,6 @@ export function EditorView({ doc, className }: Props) {
 
   useEffect(() => {
     if (!editor) return;
-    // Initial mount: editor.create already used `doc.content`, so record the
-    // snapshot and skip the redundant setContent.
-    if (lastSerialized.current === null) {
-      lastSerialized.current = serialized;
-      return;
-    }
     if (lastSerialized.current === serialized) return;
     lastSerialized.current = serialized;
     editor.commands.setContent(doc.content, { emitUpdate: false });
