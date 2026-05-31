@@ -8,7 +8,7 @@
  * Walled per architecture memory: deep imports into sibling files are
  * forbidden, the barrel is the single seam.
  */
-// PR-9 A1b P1.5 — cards read path (SQLite-primary, Dexie fallback).
+// Cards read path — OPFS SQLite SSOT (Dexie removed in Phase C).
 export {
   listAllCards,
   getCardsByIds,
