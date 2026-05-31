@@ -189,9 +189,9 @@ export function useCardImport() {
     [setReviewLog, updateSRSettings],
   );
 
-  // Phase 3b — importCards now delegates to cardRepository.bulkPut which
-  // handles persist + RAM + CARDS_UPDATED emit atomically. No direct ref
-  // mutation, no manual schedulePersist, no setCardMapState.
+  // PR-E3 — importCards writes directly to SQLite via bulkPutCardsDirect.
+  // The bridge invalidates `['cards']` after the flush so any open scoped
+  // query refetches.
   const importCards = useCallback(
     (newCards: { question: string; sections: { title: string; content: string }[] }[], category: string) => {
       const created = newCards.map((c) =>
@@ -203,7 +203,7 @@ export function useCardImport() {
       );
       const now = Date.now();
       created.forEach((c) => { c.updatedAt = now; });
-      if (created.length > 0) cardMapBulkPut(created);
+      if (created.length > 0) void bulkPutCardsDirect(created);
     },
     [],
   );
