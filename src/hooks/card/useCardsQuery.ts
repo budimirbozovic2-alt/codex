@@ -163,6 +163,9 @@ export function useCardCountsByCategoryMap(
       out[id] = results[i]?.data ?? 0;
     });
     return out;
+    // Reason: `idsKey` and `dataKey` are stable string projections of the unstable
+    // `categoryIds`/`results` arrays; including the arrays themselves would invalidate
+    // the memo every render even when contents are identical.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [idsKey, dataKey]);
 }
