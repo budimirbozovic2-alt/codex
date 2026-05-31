@@ -50,17 +50,18 @@ export function useCardBootstrap() {
     initialLoadDone.current = true;
     installSplashBridge();
 
-    // OSIGURAČ: ako se boot ne završi za 8s, emituj LOAD_FAIL i prikaži recovery UI
+    // OSIGURAČ: ako se boot ne završi za 15s, emituj LOAD_FAIL i prikaži recovery UI.
+    // 15s ostavlja prostor za cold SQLite WASM init (~3s) + sve migracije bez lažnog panike.
     const panicTimer = setTimeout(() => {
       setReady((currentReady) => {
         if (!currentReady) {
-          logger.error("[boot] Panic timeout (8s)! Forsiram ready state.");
+          logger.error("[boot] Panic timeout (15s)! Forsiram ready state.");
           const state = getBootState();
           if (state.type !== "ready" && state.type !== "schema-error" && state.type !== "load-error") {
             if (inSchemaPhase()) {
-              transition({ type: "SCHEMA_FAIL", cause: "timeout", message: "Boot panic timeout (8s)" });
+              transition({ type: "SCHEMA_FAIL", cause: "timeout", message: "Boot panic timeout (15s)" });
             } else {
-              transition({ type: "LOAD_FAIL", message: "Boot panic timeout (8s)" });
+              transition({ type: "LOAD_FAIL", message: "Boot panic timeout (15s)" });
             }
           }
           forceRemoveSplash();
@@ -68,7 +69,7 @@ export function useCardBootstrap() {
         }
         return currentReady;
       });
-    }, 8000);
+    }, 15000);
 
     (async () => {
       try {

@@ -53,127 +53,130 @@ export function useCardImport() {
       file: File,
       strategy: ImportStrategy = "skip",
       onProgress?: ImportProgress,
-    ) => {
+    ): Promise<void> => {
       const progress: ImportProgress = onProgress ?? (() => { /* noop */ });
+
+      // ── 1. Parse off-thread ──
+      progress(5, "Čitanje fajla…");
+      let raw: unknown;
       try {
-        // ── 1. Parse off-thread (Phase 3a) ──
-        progress(5, "Čitanje fajla…");
-        let raw: unknown;
-        try {
-          raw = await parseJsonInWorker(file);
-        } catch (err) {
-          toast.error(`Neispravan fajl: ${err instanceof Error ? err.message : "ne mogu pročitati JSON."}`);
-          return;
-        }
+        raw = await parseJsonInWorker(file);
+      } catch (err) {
+        const msg = `Neispravan fajl: ${err instanceof Error ? err.message : "ne mogu pročitati JSON."}`;
+        toast.error(msg);
+        throw new Error(msg);
+      }
 
-        // ── 2. Pre-Zod migration (Phase 4.1) ──
-        progress(15, "Migracija formata…");
-        try {
-          raw = migrateRaw(raw);
-        } catch (err) {
-          if (err instanceof BackupVersionError) toast.error(err.message);
-          else toast.error("Migracija backupa nije uspjela.");
-          return;
-        }
-        await yieldUI();
+      // ── 2. Pre-Zod migration ──
+      progress(15, "Migracija formata…");
+      try {
+        raw = migrateRaw(raw);
+      } catch (err) {
+        const msg = err instanceof BackupVersionError ? err.message : "Migracija backupa nije uspjela.";
+        toast.error(msg);
+        throw err instanceof Error ? err : new Error(msg);
+      }
+      await yieldUI();
 
-        // ── 3. Zod validation (Phase 1.1: yield around the sync hot loop) ──
-        progress(20, "Validacija šeme…");
-        await yieldUI();
-        const result = BackupSchema.safeParse(raw);
-        await yieldUI();
-        if (!result.success) {
-          const issues = result.error.issues.slice(0, 5);
-          const summary = issues
-            .map((iss) => `• ${iss.path.join(".") || "(root)"} — ${iss.message}`)
-            .join("\n");
-          const more = result.error.issues.length > issues.length
-            ? `\n…i još ${result.error.issues.length - issues.length} grešaka.`
-            : "";
-          toast.error(`Backup nije validan:\n${summary}${more}`);
-          return;
-        }
+      // ── 3. Zod validation ──
+      progress(20, "Validacija šeme…");
+      await yieldUI();
+      const result = BackupSchema.safeParse(raw);
+      await yieldUI();
+      if (!result.success) {
+        const issues = result.error.issues.slice(0, 5);
+        const summary = issues
+          .map((iss) => `• ${iss.path.join(".") || "(root)"} — ${iss.message}`)
+          .join("\n");
+        const more = result.error.issues.length > issues.length
+          ? `\n…i još ${result.error.issues.length - issues.length} grešaka.`
+          : "";
+        toast.error(`Backup nije validan:\n${summary}${more}`);
+        throw new Error("Backup nije validan");
+      }
 
-        // ── 4. Post-Zod migration ladder (idempotent on already-migrated input) ──
-        let parsed: ParsedBackup;
-        try {
-          parsed = migrateBackup(result.data);
-        } catch (err) {
-          if (err instanceof BackupVersionError) toast.error(err.message);
-          else toast.error("Migracija backupa nije uspjela.");
-          logger.error("[useCardImport] migrate failed", err);
-          return;
-        }
+      // ── 4. Post-Zod migration ladder ──
+      let parsed: ParsedBackup;
+      try {
+        parsed = migrateBackup(result.data);
+      } catch (err) {
+        const msg = err instanceof BackupVersionError ? err.message : "Migracija backupa nije uspjela.";
+        toast.error(msg);
+        logger.error("[useCardImport] migrate failed", err);
+        throw err instanceof Error ? err : new Error(msg);
+      }
 
-        if (parsed.cards.length === 0 && (!Array.isArray(parsed.categories) || parsed.categories.length === 0)) {
-          toast.error("Fajl ne sadrži kartice ni kategorije za uvoz.");
-          return;
-        }
+      if (parsed.cards.length === 0 && (!Array.isArray(parsed.categories) || parsed.categories.length === 0)) {
+        const msg = "Fajl ne sadrži kartice ni kategorije za uvoz.";
+        toast.error(msg);
+        throw new Error(msg);
+      }
 
-        // ── 5. Atomic transactional apply (Phases 1.3 + 2.1) ──
-        progress(25, "Priprema podataka…");
-        const result2 = await applyImportAtomically({
+      // ── 5. Atomic transactional apply ──
+      progress(25, "Priprema podataka…");
+      let result2: Awaited<ReturnType<typeof applyImportAtomically>>;
+      try {
+        result2 = await applyImportAtomically({
           parsed,
           strategy,
           currentMap: getCardMap(),
           onProgress: progress,
         });
+      } catch (err) {
+        const msg = `Greška pri uvozu: ${err instanceof Error ? err.message : "atomic apply failed."}`;
+        toast.error(msg);
+        logger.error("[useCardImport] applyImportAtomically failed", err);
+        throw err instanceof Error ? err : new Error(msg);
+      }
 
-        // ── 6. In-memory sync after the tx commits (Phase 3b: single
-        //       cardRepository.replaceAll handles setCardMap + bumpMapVersion
-        //       + CARDS_UPDATED emit). cardMapRef reads stay live via the C4
-        //       unified atom; no explicit ref mutation required.
-        cardMapReplaceAll(result2.nextMap);
-        // Phase 5C — categories go through the repository → mirror.
-        categoryRepository.replaceAll(result2.freshCategories);
-        if (result2.reviewLogApplied) setReviewLog(result2.reviewLogApplied);
-        if (result2.srSettingsApplied) updateSRSettings(result2.srSettingsApplied);
-        invalidateSourcesCache();
+      // ── 6. In-memory sync after the tx commits ──
+      cardMapReplaceAll(result2.nextMap);
+      categoryRepository.replaceAll(result2.freshCategories);
+      if (result2.reviewLogApplied) setReviewLog(result2.reviewLogApplied);
+      if (result2.srSettingsApplied) updateSRSettings(result2.srSettingsApplied);
+      invalidateSourcesCache();
 
-        // ── 7. localStorage restore (whitelist + sanitize) ──
-        if (parsed.localStorageData && typeof parsed.localStorageData === "object") {
-          for (const [key, value] of Object.entries(parsed.localStorageData as Record<string, unknown>)) {
-            if (!ALLOWED_LS_KEYS.has(key)) continue;
-            try {
-              const parsedVal = typeof value === "string" ? JSON.parse(value) : value;
-              const clean = sanitizeLSValue(parsedVal);
-              localStorage.setItem(key, JSON.stringify(clean));
-            } catch {
-              if (typeof value === "string" && !/[<>]/.test(value)) {
-                localStorage.setItem(key, value);
-              }
+      // ── 7. localStorage restore (whitelist + sanitize) ──
+      if (parsed.localStorageData && typeof parsed.localStorageData === "object") {
+        for (const [key, value] of Object.entries(parsed.localStorageData as Record<string, unknown>)) {
+          if (!ALLOWED_LS_KEYS.has(key)) continue;
+          try {
+            const parsedVal = typeof value === "string" ? JSON.parse(value) : value;
+            const clean = sanitizeLSValue(parsedVal);
+            localStorage.setItem(key, JSON.stringify(clean));
+          } catch {
+            if (typeof value === "string" && !/[<>]/.test(value)) {
+              localStorage.setItem(key, value);
             }
           }
         }
-        if (strategy === "overwrite") {
-          clearReviewSession();
-        }
-
-        // ── 8. Toast summary ──
-        const extraParts: string[] = [];
-        const lr = result2.legacyResolveReport;
-        if (lr) {
-          const okSum = lr.resolvedSubcategory + lr.resolvedChapter;
-          const failSum = lr.unresolvedSubcategory + lr.unresolvedChapter;
-          if (okSum > 0) extraParts.push(`mapirano ${okSum} legacy imena (${lr.resolvedSubcategory} podkat. + ${lr.resolvedChapter} glava)`);
-          if (failSum > 0) extraParts.push(`bez para resetovano ${failSum} (${lr.unresolvedSubcategory} podkat. + ${lr.unresolvedChapter} glava)`);
-        }
-        if (parsed.sources.length > 0) extraParts.push(`${parsed.sources.length} izvora`);
-        if (parsed.mindMaps.length > 0) extraParts.push(`${parsed.mindMaps.length} mentalnih mapa`);
-        if (parsed.diary.length > 0) extraParts.push(`${parsed.diary.length} dnevničkih zapisa`);
-        if (parsed.mnemonics.length > 0) extraParts.push(`${parsed.mnemonics.length} mnemoničkih kartica`);
-        if (parsed.disciplineLog.length > 0) extraParts.push("disciplinski log");
-        if (Array.isArray(parsed.settings) && parsed.settings.length > 0) {
-          extraParts.push(`${parsed.settings.length} postavki`);
-        }
-        if (parsed.pomodoroLog.length > 0) extraParts.push(`${parsed.pomodoroLog.length} pomodoro zapisa`);
-        if (parsed.localStorageData) extraParts.push("lokalna podešavanja");
-        const extraMsg = extraParts.length > 0 ? ` + ${extraParts.join(", ")}` : "";
-        progress(100, "Završeno.");
-        toast.success(`Uspješno uvezeno ${parsed.cards.length} kartica${extraMsg}.`);
-      } catch (err) {
-        toast.error(`Greška pri uvozu: ${err instanceof Error ? err.message : "Neispravan format fajla."}`);
       }
+      if (strategy === "overwrite") {
+        clearReviewSession();
+      }
+
+      // ── 8. Toast summary ──
+      const extraParts: string[] = [];
+      const lr = result2.legacyResolveReport;
+      if (lr) {
+        const okSum = lr.resolvedSubcategory + lr.resolvedChapter;
+        const failSum = lr.unresolvedSubcategory + lr.unresolvedChapter;
+        if (okSum > 0) extraParts.push(`mapirano ${okSum} legacy imena (${lr.resolvedSubcategory} podkat. + ${lr.resolvedChapter} glava)`);
+        if (failSum > 0) extraParts.push(`bez para resetovano ${failSum} (${lr.unresolvedSubcategory} podkat. + ${lr.unresolvedChapter} glava)`);
+      }
+      if (parsed.sources.length > 0) extraParts.push(`${parsed.sources.length} izvora`);
+      if (parsed.mindMaps.length > 0) extraParts.push(`${parsed.mindMaps.length} mentalnih mapa`);
+      if (parsed.diary.length > 0) extraParts.push(`${parsed.diary.length} dnevničkih zapisa`);
+      if (parsed.mnemonics.length > 0) extraParts.push(`${parsed.mnemonics.length} mnemoničkih kartica`);
+      if (parsed.disciplineLog.length > 0) extraParts.push("disciplinski log");
+      if (Array.isArray(parsed.settings) && parsed.settings.length > 0) {
+        extraParts.push(`${parsed.settings.length} postavki`);
+      }
+      if (parsed.pomodoroLog.length > 0) extraParts.push(`${parsed.pomodoroLog.length} pomodoro zapisa`);
+      if (parsed.localStorageData) extraParts.push("lokalna podešavanja");
+      const extraMsg = extraParts.length > 0 ? ` + ${extraParts.join(", ")}` : "";
+      progress(100, "Završeno.");
+      toast.success(`Uspješno uvezeno ${parsed.cards.length} kartica${extraMsg}.`);
     },
     [setReviewLog, updateSRSettings],
   );

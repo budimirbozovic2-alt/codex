@@ -115,6 +115,9 @@ function createPersistQueue() {
   const MAX_RETRY = 3;
 
   let inFlightCount = 0;
+  // Resolvers koji čekaju da `inFlightCount` padne na 0.
+  // Pozivamo ih iz finally bloka u `flush()` umjesto da spin-amo microtask petlju.
+  const idleResolvers: Array<() => void> = [];
   // Last flush error — surfaced to interactive callers via `cleanup({ strict })`
   // so TanStack mutations can roll back instead of falsely succeeding.
   let _lastFlushError: Error | null = null;
@@ -172,9 +175,6 @@ function createPersistQueue() {
 
       logger.error(`[persistQueue] flush failed (attempt ${_retryAttempt + 1}/${MAX_RETRY})`, err);
 
-      // NO_EXECUTOR is a structural failure (wasm load broken / dev shell) —
-      // retrying it just burns time and produces a multi-second latency
-      // for every card mutation. Surface it immediately instead.
       const isNoExecutor = e.message === "NO_EXECUTOR";
 
       if (!isNoExecutor && _retryAttempt < MAX_RETRY) {
@@ -191,6 +191,11 @@ function createPersistQueue() {
       }
     } finally {
       inFlightCount--;
+      // Probudi cleanup() pozivaoce čim je posljednji in-flight flush gotov.
+      if (inFlightCount === 0 && idleResolvers.length > 0) {
+        const resolvers = idleResolvers.splice(0, idleResolvers.length);
+        for (const r of resolvers) r();
+      }
     }
   }
 
@@ -207,14 +212,12 @@ function createPersistQueue() {
       clearTimeout(timer);
       timer = null;
     }
-    // Reset error tracking before a strict drain so we only see errors
-    // produced by THIS flush, not leftovers from a previous background flush.
     if (opts.strict) _lastFlushError = null;
     if (hasPending()) {
       await flush();
     }
-    while (inFlightCount > 0) {
-      await new Promise<void>(r => queueMicrotask(r));
+    if (inFlightCount > 0) {
+      await new Promise<void>((resolve) => { idleResolvers.push(resolve); });
     }
     if (opts.strict && _lastFlushError) {
       const err = _lastFlushError;

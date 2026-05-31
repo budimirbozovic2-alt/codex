@@ -72,8 +72,11 @@ export default function ExportImportDialog({
       await onImport(validation.file, strategy, onProgress);
       setProgress(100);
       setProgressMsg("Završeno.");
-    } finally {
       handleOpenChange(false);
+    } catch {
+      // Neuspjeh: zadrži dialog otvoren da korisnik vidi šta nije prošlo
+      // (toast s detaljem već je emitovan iz useCardImport).
+      setStep("import-confirm");
     }
   };
 
