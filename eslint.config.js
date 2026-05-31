@@ -503,14 +503,11 @@ export default tseslint.config(
       "src/store/useCardSelectors.ts",
     ],
     rules: {
+      // E4: spread BASE so this override doesn't drop the global guards.
       "no-restricted-syntax": [
         "error",
-        {
-          selector:
-            "ImportSpecifier[imported.name=/^(useCardsByCategoryRam|useCardsBySubcategoryRam|useCardsByChapterRam|useCardCountByCategoryRam|useCardByIdRam)$/]",
-          message:
-            "*Ram selektori su test-only (W9). Koristi TanStack varijante iz @/store (npr. useCardsByCategory).",
-        },
+        ...BASE_RESTRICTED_SYNTAX,
+        ...W9_RAM_SELECTORS,
       ],
     },
   },
