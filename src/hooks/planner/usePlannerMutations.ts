@@ -24,7 +24,7 @@ async function getPlannerModule(): Promise<PlannerModule> {
 
 interface ConfigCtx { prev: PlannerConfig | undefined }
 interface DisciplineCtx { prev: DisciplineEntry[] | undefined }
-interface DailyMappedCtx {} // counter — bez optimistic seeda (UI ne čita iz cache-a direktno)
+type DailyMappedCtx = Record<string, never>; // counter — bez optimistic seeda (UI ne čita iz cache-a direktno)
 
 export function usePlannerMutations() {
   const qc = useQueryClient();
