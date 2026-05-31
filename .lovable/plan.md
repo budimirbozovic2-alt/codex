@@ -1,119 +1,82 @@
-# Provider Cleanup v2 — finalna pasovina
-
-Cilj: srušiti preostale React Context wrappere koji još uvijek nose stanje, ukloniti shim no-op providere i preorganizovati `src/contexts/` tako da samo prave kompozicione tačke ostaju "konteksti". Sve ostalo prelazi u Zustand store-ove ili `src/hooks/`.
-
-## Trenutno stanje (post-v1)
-
-```text
-App.tsx
-└── QueryClientProvider → TooltipProvider → HashRouter
-    └── AppProvider (composition root)
-        └── RecoveryGate → AppBootstrap → MotionProvider
-            └── PomodoroProvider          ← pravi Context, split tick/stable
-                └── UIProvider             ← pravi Context, ima HMR fallback hack
-                    └── SessionProvider    ← pravi Context, snapshot+queues
-                        └── BootRecoveryGate
-                            └── children
-```
-
-7 wrappera. 3 prava Context-a sa stanjem + 3 deprecated no-op shim fajla (`CardStateProvider`, `CategoryStateProvider`, `DbErrorProvider`) + 1 misleading naziv (`BootStateProvider.tsx` koji je samo hook).
+# Build plan — Opcije B + C
 
 ## Cilj
+Vratiti funkcionalnost u web preview-u (lovable.app) **bez** mijenjanja Pure Desktop semantike, i istovremeno otvrdnuti writere tako da nikad više ne dođe do tihog gubitka podataka kad executor nije dostupan.
 
-```text
-App.tsx
-└── QueryClientProvider → TooltipProvider → HashRouter
-    └── AppProvider
-        └── RecoveryGate → AppBootstrap → MotionProvider → BootRecoveryGate
-            └── children
-```
+---
 
-4 wrappera. Niti jedan domenski Context.
+## Korak 1 — In-memory SQLite executor (Opcija B, srž)
 
-## Korak po korak
+**Cilj**: jedan accessor za executor koji u `!isElectron() && DEV` vraća radni in-memory executor, da svih 9 query modula automatski profitira bez izmjena.
 
-### Korak 1 — Pomodoro → Zustand (`src/store/usePomodoroStore.ts`)
+**Novi fajl**: `src/lib/persistence/sqlite/dev-fallback.ts`
+- Eksportuje `getDevFallbackExecutor(): Promise<SqlExecutor>` (singleton).
+- Implementacija: koristi `@sqlite.org/sqlite-wasm` **bez OPFS-SAH-pool** (otvara `:memory:` DB u istom workeru). Wasm modul je ionako već u bundle-u za Electron; u browseru radi isto, samo nije durable.
+- Pokreće isti `runMigrations` da DDL bude identičan produkciji.
+- Loguje jednom: „[sqlite] DEV in-memory fallback aktivan — podaci nestaju na refresh".
 
-- Kreirati novi store sa shape: `{ mode, seconds, running, cycleCount, toggle(), reset(), _tick() }`.
-- Interval logiku premjestiti u modul-level subscriber (singleton tajmer aktivan dok `running===true`); pretplata na `loadAppSettings()` cached ref ostaje.
-- Single hook API: `usePomodoroStore(selector)` u stilu Zustand-a.
-- Backward-compat shimovi u `@/contexts/AppContext`:
-  - `usePomodoroStable()` → `usePomodoroStore(s => ({mode,running,cycleCount,toggle:s.toggle,reset:s.reset}), shallow)`
-  - `usePomodoroTick()` → `usePomodoroStore(s => ({seconds:s.seconds}))`
-  - `usePomodoroContext()` → composed selector
-  Označiti shimove `@deprecated` i otvoriti follow-up za migraciju pozivalaca (header/sidebar samo).
-- `PomodoroProvider` postaje no-op shim (nije više u tree-u).
+**Izmjena**: `src/lib/persistence/sqlite/client.ts`
+- Dodati pomoćnu funkciju `resolveExecutor()` koju koriste i query moduli i adapter:
+  ```ts
+  export async function resolveExecutor(): Promise<SqlExecutor | null> {
+    if (isElectron()) return getOpfsSqliteExecutor();
+    if (!import.meta.env.PROD) {
+      const { getDevFallbackExecutor } = await import("./dev-fallback");
+      return getDevFallbackExecutor();
+    }
+    return null;
+  }
+  ```
 
-### Korak 2 — Session → Zustand (`src/store/useSessionStore.ts`)
+**Izmjena**: 9 query modula u `src/lib/db/queries/*.ts` + `categoryRepository`
+- Zamijeniti lokalne `tryGetExecutor` funkcije pozivom na `resolveExecutor()`.
+- `requireExecutor` ostaje, ali sada samo logira u PROD non-Electron (gdje već `assertDesktop` baca).
 
-- Shape: `{ isSessionActive, isEnding, queuePending, snapshot, reviewQueue, errorQueue, readQueue, queueSize, startSession, endSession, queueReview, queueError, queueMarkRead }`.
-- Derivacija `isProcessing = isEnding || queuePending` kao selektor.
-- `persistQueue.subscribe(...)` se mountira jednom u modul-level inicijalizatoru (poziva se prvi put kad se selektor izvrši ili lazy iz storea).
-- `useSessionContext()` postaje thin wrapper koji čita kroz selektore (drop-in API).
-- Test fajl `src/test/phase-b-p1.test.tsx` se ažurira da ne wrapuje sa `SessionProvider` (više nije potreban).
-- `SessionProvider` postaje no-op shim.
+**Izmjena**: `src/lib/persistence/adapter-factory.ts`
+- `noopAdapter` ostaje za PROD non-Electron (nedostižno zbog `assertDesktop`).
+- U DEV non-Electron vraćati novi `devSqliteAdapter` koji koristi isti `resolveExecutor`.
 
-### Korak 3 — UIProvider → Zustand + route hook
+## Korak 2 — Otvrdnjivanje `categoryRepository.commit` (Opcija C/1)
 
-- `editingCardId` ide u `useUIStore` (mali Zustand store sa SSOT mirror već u modul scopeu — eliminiše paralelni `_currentEditingCardId` slot jer Zustand `getState()` već daje sync čitanje).
-- `view` ostaje izveden iz `useCurrentView()` (route-bound, ne stanje).
-- `setView` se eksportuje kao tanak helper hook `useSetView()` (samo wrapper nad `useNavigate`).
-- `handleToggleTag` se eksponira direktno iz `useCardOnlyActions()` (već postoji `toggleTag` tamo) — eliminiše konvenijencijski layer.
-- Side-effects (`recordAppEntry`, `useNotificationScheduler`, `useActivityTracker`) se preselje u `AppBootstrap` (već je single mount point).
-- `useUIContext()` postaje shim koji vraća kompozit iz storea + view + setView (drop-in API), označen `@deprecated` za narednu pasovinu.
-- HMR fallback (`UI_FALLBACK` + `console.warn`) se uklanja — više nema providera kojeg HMR može da odveže.
-- `UIProvider` postaje no-op shim (nije u tree-u).
+**Izmjena**: `src/lib/repositories/categoryRepository.ts`
+- Ako `replaceAllCategories` ne može potvrditi (executor null), **NE** raditi `setCategoryStoreRecords(next)` izvedeno iz `listAllCategories()` (`[]`).
+- Konkretno: razdvojiti put — `listAllCategories` vraća `null` umjesto `[]` kad nema executora; u tom slučaju zadržati optimistic snapshot i samo logirati upozorenje.
+- Test: dodati `category-repository-no-executor.test.ts` koji simulira null executor i provjerava da RAM mirror ne biva pregažen.
 
-### Korak 4 — Brisanje shim fajlova i preimenovanja
+## Korak 3 — Otvrdnjivanje `persist-queue` retry-ja (Opcija C/2)
 
-- Obrisati prazne shim komponente iz: `CardStateProvider.tsx`, `CategoryStateProvider.tsx`, `DbErrorProvider.tsx`, `PomodoroProvider.tsx`, `UIProvider.tsx`, `SessionContext.tsx` (zadržati hooks/store API kao module fajlove).
-- Preseliti hookove u tačnije lokacije:
-  - `src/contexts/boot/BootStateProvider.tsx` → `src/hooks/useBootState.ts`
-  - `src/contexts/db/DbErrorProvider.tsx` → `src/hooks/useDbError.ts` (modul-level subscribe ostaje)
-  - `src/contexts/routing/useCurrentView.ts` → `src/hooks/useCurrentView.ts`
-  - `src/contexts/cards/useCategoryStateBridge` → `src/hooks/useCategoryStateBridge.ts`
-  - `src/contexts/cards/useCardAggregates.ts` → `src/hooks/useCardAggregates.ts`
-  - `src/contexts/cards/useCardSyncEffects.ts` → `src/hooks/useCardSyncEffects.ts`
-- `src/contexts/` zadržava samo: `AppContext.tsx` (composition root + barrel re-exports), `AppBootstrap.tsx`, `boot/BootRecoveryGate.tsx`, `cards/actions-contexts.ts` + `cards/useActions.ts` (Actions tri-Context koje radi po dizajnu).
+**Izmjena**: `src/lib/persist-queue.ts`
+- Razlikovati tipove grešaka iz adaptera:
+  - `NO_EXECUTOR` (nova klasa greške koju baca `resolveExecutor` kad ne uspije i u DEV-u) → NE retryati, samo jednom logirati, isprazniti queue (tretirati kao no-op). Eliminiše ~1.5 s latenciju koju trenutno trpe `addCard`/`gradeSection`.
+  - Stvarne SQL greške → postojeća petlja sa exponential backoff-om.
+- `noopAdapter.bulkApply` zadržava postojeću semantiku ali se više neće koristiti u DEV-u (Korak 1 obezbjeđuje pravi adapter).
 
-### Korak 5 — Verifikacija
+## Korak 4 — Eksplicitni `WriteResult` za izvore i mind-mapove (Opcija C/3)
 
-- `tsc --noEmit` clean.
-- `npm run lint:walls` clean (nove putanje ne udaraju ni jedan domain wall).
-- `npm run lint` clean (ili u okviru postojećeg max-warnings).
-- `vitest run` — postojeći 611+ testovi prolaze; ažurirana 1–2 test fajla (`phase-b-p1`, ev. UIProvider testovi ako ih ima).
-- Spot-check u preview-u:
-  - Pomodoro timer broji svake sekunde, toggle/reset rade, header se ne re-renderuje na tick.
-  - Učenje + ponavljanje sesija: start → grade nekoliko kartica → end; processing overlay pravilno pokazuje "Spremanje" dok `persistQueue` ne drenira.
-  - Edit dijalog: otvori, izađi, vrati se (SSOT mirror radi).
-  - Refresh nakon promjene foldera ne razbija UI (HMR fallback eliminisan bez regresije).
-- Bundle: očekivano malo smanjenje (Context wrappers + duplicate ref state ide u Zustand).
+**Izmjena**: `src/lib/sources-storage.ts` i `src/lib/mind-maps-storage.ts` (analogno)
+- `saveSource` i `saveMindMap` vraćaju `Promise<WriteResult<void>>` umjesto `Promise<void>`.
+- Postojeći pozivaoci (`useSourceMutations`, `SourcesTab`, itd.) — provjeravaju rezultat i prikazuju pravu poruku (toast.error sa „Snimanje nije uspjelo" kad `ok === false`).
+- Time se i u edge slučajevima izbjegava lažni success toast.
 
-### Korak 6 — Memory update
+## Korak 5 — Verifikacija
 
-Ažurirati `mem://architecture/provider-cleanup-v1` na v2 (ili dodati novi `provider-cleanup-v2`):
-- Tree pao 7→4 wrappera.
-- Pomodoro, Session, UI state migrirani na Zustand store-ove.
-- `src/contexts/` reduced na composition root + AppBootstrap + BootRecoveryGate + Actions contexts.
-- Pure hookovi preseljeni u `src/hooks/`.
+1. `tsc --noEmit` (automatski preko buildera).
+2. `npm run lint:walls` + `npm run lint`.
+3. `vitest run` — fokus na: `category-repository.test.ts`, `persist-queue-c3c4.test.ts`, novi `category-repository-no-executor.test.ts`, postojeći `executor-telemetry.test.ts`.
+4. Smoke u preview-u: dodati 3 kategorije → sve ostaju vidljive nakon dodavanja sljedeće; dodati izvor → odmah se pojavi u SourcesTab; dodati karticu → mutacija završava < 200 ms.
+5. Provjera runtime errora `StatusIconsRow.tsx` — ako je još uvijek prisutan, hard reload Vite cache-a.
 
-Ažurirati Core u `mem://index.md`:
-> Provideri: `AppContext → RecoveryGate → AppBootstrap → MotionProvider → BootRecoveryGate`. Domenski state je u Zustand store-ovima (`useCardMapStore`, `categoryStore`, `reviewSettingsStore`, `useSessionStore`, `usePomodoroStore`, `useUIStore`). Actions su jedini Context wrapper unutar `AppBootstrap` (`ActionsProvider` sa 3 ko-locirana Context-a).
+## Korak 6 — Memory update
 
-## Tehnički detalji
+- Update `mem://architecture/storage-and-persistence-v6` (ili novi v7-fallback): napomena da `resolveExecutor` daje DEV in-memory fallback; pravilo „SQLite-only" ostaje samo za PROD.
+- Update Core memorije: linija o `tryGetExecutor` → `resolveExecutor`.
 
-- **Pomodoro tajmer kao singleton**: `usePomodoroStore` subscriber pokreće `setInterval` kad `running` postaje true i clearuje kad postaje false. Drži se postojećeg whitelista u `eslint.config.js` za raw `setInterval` u engine kodu.
-- **Backward-compat shimovi**: zadržavamo `useUIContext`, `useSessionContext`, `usePomodoro*` u `@/contexts/AppContext` barrelu sa `@deprecated` markerima. Velika migracija pozivalaca je follow-up (svjesno se izbjegava 50+ touch-points u jednom prolazu).
-- **Test izolacija**: Zustand store-ovi dobijaju test reset helper (`__resetForTests`) tamo gdje već nemaju, da bi `vitest` setup mogao očistiti stanje između testova. `src/test/setup.ts` se ažurira ako treba.
-- **Render performance**: glavni dobitak je eliminacija UIProvider re-rendera (svaki `editingCardId` set rerenderuje cijelo stablo) — Zustand selektor scope-uje rerendere na consumere koji čitaju to polje.
+---
 
-## Rizici i mitigacije
+## Procjena obima
 
-- **Pomodoro tajmer drift**: pomjeranje iz React efekta u Zustand može uvesti dvostruki tajmer ako se subscriber neispravno mountuje. Mitigacija: subscriber se inicijalizuje lazy u modulu (jedanput), uz idempotent guard.
-- **Session test fajl**: `phase-b-p1.test.tsx` koristi `renderHook` sa `SessionProvider` wrapperom. Mora se ažurirati paralelno sa storeom; izolovano u Korak 2.
-- **HMR regresija**: uklanjanje `UIProvider` fallback-a teoretski može razotkriti drugi HMR problem. Mitigacija: Zustand store je modul-level (preživljava HMR po default-u), pa fallback i nije bio fundamentalno potreban.
-- **Veliki diff**: ~10 izbrisanih/preseljenih fajlova + ~6 novih store fajlova + svi importi koji su išli kroz `src/contexts/*` putanje. Mitigacija: brišemo POSLE move-ova, shimovi u barrelu drže drop-in API.
+- **Novi fajlovi**: 2 (`dev-fallback.ts`, `category-repository-no-executor.test.ts`).
+- **Izmjene**: ~12 fajlova (9 query modula + `client.ts` + `categoryRepository.ts` + `adapter-factory.ts` + `persist-queue.ts` + `sources-storage.ts` + `mind-maps-storage.ts`).
+- Mergeable u jednoj rundi; svaki korak zasebno testabilan.
 
-## Estimat
-
-~12–18 izmijenjenih fajlova + 4 nova store fajla + brisanje 5 shim fajlova. Realno 1 srednji session, isporučivo iterativno po koracima (svaki korak može da se merge-uje samostalno).
+Potvrdi pa prelazim u build.
