@@ -34,6 +34,9 @@ const stores: Record<StoreName, unknown[]> = {
   drafts: [],
 };
 
+/** Tests can populate this to force `listAllRows(<store>)` to reject. */
+const throwOnList = new Set<StoreName>();
+
 const fakeIdb = { __fake: true } as unknown as IDBDatabase;
 
 vi.mock("@/lib/persistence/sqlite/idb-raw-reader", () => ({
