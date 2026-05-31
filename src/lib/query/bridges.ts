@@ -8,7 +8,7 @@
 import type { QueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/query/keys";
 import { onSourcesChanged } from "@/lib/sources-storage";
-import { onPlannerChanged, type PlannerChangeKind } from "@/domains/planner";
+import { onPlannerChanged, type PlannerChangeKind, loadPlanner, loadDisciplineLog } from "@/domains/planner";
 import { onCardsChanged, onKnowledgeBaseChanged, type CardsScope } from "@/lib/db/queries";
 import { onMindMapsChanged } from "@/lib/mindmap-storage";
 import { subscribeMnemonics } from "@/features/mnemonic/mnemonic-storage/cards-repo";
@@ -137,23 +137,27 @@ export function installQueryBridges(qc: QueryClient): void {
   }));
 
   // ── Planner ─────────────────────────────────────────────
+  // D.4: push cache snapshots straight into TanStack via setQueryData so
+  // `useQuery` data matches the sync `loadPlanner()`/`loadDisciplineLog()`
+  // getters in the same tick (no invalidate-then-refetch divergence window).
+  // Derived calcs still re-run because their queryKey prefix is the same
+  // mutation source and TanStack notifies subscribers on setQueryData.
   _unsubs.push(onPlannerChanged((kind: PlannerChangeKind) => {
     switch (kind) {
       case "config":
-        // Config change invalidira derived calcove (plans, burnup, suggestion,
-        // projection, status) jer sve uzimaju bufferPercent/finalGoalDate.
-        // Optimistic seed iz `usePlannerMutations.saveConfig` ostaje validan —
-        // queryFn vraća isti `plannerCache.get()`.
-        void qc.invalidateQueries({ queryKey: queryKeys.planner.root });
+        qc.setQueryData(queryKeys.planner.config(), loadPlanner());
+        // Derived calcs that read planner config (plans, burnup, suggestion,
+        // projection, status) live in usePlannerData useMemos keyed off
+        // `config` — no extra invalidation needed.
         break;
       case "discipline":
-        // Scoped: discipline log/trend/phasePct dijele prefix.
+        qc.setQueryData(queryKeys.planner.disciplineLog(), loadDisciplineLog());
         void qc.invalidateQueries({ queryKey: ["planner", "discipline"] });
         break;
       case "dailyMapped":
       case "lastRedistribute":
         // No TanStack query reads these — counter ide kroz useDeferredCompute
-        // u useDashboardData. Bridge bi nepotrebno refetchao plans/burnup/etc.
+        // u useDashboardData.
         break;
     }
   }));
