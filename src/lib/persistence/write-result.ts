@@ -23,6 +23,7 @@ export type WriteErrorCode =
   | "NOT_FOUND"
   | "CONFLICT"
   | "QUOTA_EXCEEDED"
+  | "NO_EXECUTOR"
   | "PERSIST_FAILED"
   | "UNKNOWN";
 
