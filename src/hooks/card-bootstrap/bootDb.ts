@@ -20,6 +20,18 @@ export async function bootDb(): Promise<{ ok: boolean }> {
   transition({ type: "OPEN_START" });
   splashProgress(5, "Otvaranje baze…");
 
+  // Pre-warm SQLite executor (Electron OPFS ili DEV in-memory fallback) PRIJE
+  // bilo kakvog read/write poziva. Bez ovoga prvi `listAllCards` / save kartice
+  // čeka cold WASM init ~1.5–3s (vidljivo kao "blokada" + 8s panic timer).
+  try {
+    const { getOpfsSqliteExecutor } = await import("@/lib/persistence/sqlite/client");
+    await getOpfsSqliteExecutor();
+    markBootStep("cards:sqlite-prewarm-done");
+  } catch (e) {
+    markBootStep("cards:sqlite-prewarm-failed", e instanceof Error ? e.message : String(e));
+    // Ne prekidamo boot — recovery UI / fallback i dalje rade.
+  }
+
   if (await isLegacyDexieBypassed()) {
     markBootStep("cards:db-open-done", "sqlite-only");
     transition({ type: "OPEN_OK" });
@@ -28,8 +40,6 @@ export async function bootDb(): Promise<{ ok: boolean }> {
     return { ok: true };
   }
 
-  // Pre-migration boot (or fresh install). runSchema → migrateFromIdb will
-  // handle data import via raw IDB cursor. No Dexie open needed here.
   markBootStep("cards:db-open-done", "no-legacy");
   transition({ type: "OPEN_OK" });
   scheduleLogPrune();
