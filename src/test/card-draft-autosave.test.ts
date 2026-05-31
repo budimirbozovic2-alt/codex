@@ -14,6 +14,7 @@ import {
   type CardDraftSnapshot,
 } from "@/hooks/useCardDraftAutosave";
 import { getDraft, putDraft } from "@/lib/db/queries";
+import { flushMacrotasks } from "./helpers/timers";
 
 const baseDraft = (overrides: Partial<CardDraftSnapshot> = {}): CardDraftSnapshot => ({
   cardType: "essay",
