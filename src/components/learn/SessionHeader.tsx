@@ -5,7 +5,7 @@ import { getFrequencyMeta } from "@/lib/sr/frequency";
 import { ViewWidth, viewWidthClasses, viewWidthLabels } from "./types";
 
 import { useCategoryData } from "@/contexts/AppContext";
-import { m } from "framer-motion";
+import { m } from "@/lib/motion";
 import ShortcutsHint from "@/components/ShortcutsHint";
 
 const AR_SHORTCUTS = [

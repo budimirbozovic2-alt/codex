@@ -2,7 +2,7 @@ import { Info, X } from "lucide-react";
 import { useState } from "react";
 
 
-import { m, AnimatePresence } from "framer-motion";
+import { m, AnimatePresence } from "@/lib/motion";
 interface InfoPanelProps {
   title: string;
   children: React.ReactNode;

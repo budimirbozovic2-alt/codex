@@ -1,6 +1,6 @@
 import { toast } from "sonner";
 import { Clock, RefreshCw, Shield, Flame, Zap, Lightbulb, AlertTriangle, Settings2, BookOpen, Brain } from "lucide-react";
-import { m } from "framer-motion";
+import { m } from "@/lib/motion";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { PlannerConfig, calcRebalancedQuota } from "@/domains/planner";

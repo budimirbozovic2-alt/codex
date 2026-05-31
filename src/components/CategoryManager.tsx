@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { useState, useMemo } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { m, AnimatePresence } from "framer-motion";
+import { m, AnimatePresence } from "@/lib/motion";
 import Modal from "@/components/ui/DialogShell";
 import type { CategoryRecord } from "@/lib/db-types";
 import { afterDialogClose } from "@/lib/dialog-utils";

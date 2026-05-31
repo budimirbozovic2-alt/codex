@@ -4,7 +4,7 @@ import { Card, Section, isLeech, formatInterval, SRSettings } from "@/lib/spaced
 import { isEarlyReview } from "@/lib/review-mode-builder";
 import { useCategoryData } from "@/contexts/AppContext";
 import { EditorView } from "@/lib/editor-v4/EditorView";
-import { m, AnimatePresence } from "framer-motion";
+import { m, AnimatePresence } from "@/lib/motion";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { addLatencyEntry } from "@/lib/metacognitive-storage";

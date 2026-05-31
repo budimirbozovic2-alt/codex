@@ -2,7 +2,7 @@ import { TrendingDown, Eye, EyeOff } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Card, SectionState } from "@/lib/spaced-repetition";
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from "recharts";
-import { m } from "framer-motion";
+import { m } from "@/lib/motion";
 
 
 import { Button } from "@/components/ui/button";

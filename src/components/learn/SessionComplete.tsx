@@ -1,7 +1,7 @@
 import { BarChart3, Clock, Target, Trophy, Check } from "lucide-react";
 import React, { useEffect } from "react";
 
-import { m } from "framer-motion";
+import { m } from "@/lib/motion";
 import { Button } from "@/components/ui/button";
 import { GRADE_LABELS } from "./types";
 

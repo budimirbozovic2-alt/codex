@@ -1,6 +1,6 @@
 import { Gauge } from "lucide-react";
 import { memo } from "react";
-import { m } from "framer-motion";
+import { m } from "@/lib/motion";
 interface FocusRatio {
   progress: number;
   targetReviewPct: number;

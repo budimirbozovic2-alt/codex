@@ -4,7 +4,7 @@ import { getErrorStatus, type Card, type ErrorStatus } from "@/lib/spaced-repeti
 import { derivePlainText } from "@/lib/editor-v4/derived";
 import { useCategoryData, useCardOnlyActions } from "@/contexts/AppContext";
 import { useCardsByCategory } from "@/store";
-import { m, AnimatePresence } from "framer-motion";
+import { m, AnimatePresence } from "@/lib/motion";
 import { toast } from "sonner";
 interface AggregatedError {
   text: string;

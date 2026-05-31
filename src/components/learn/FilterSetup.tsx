@@ -1,7 +1,7 @@
 import { BookOpen, ArrowLeft, ListOrdered, TrendingDown, Eye } from "lucide-react";
 import { Card } from "@/lib/spaced-repetition";
 import type { FrequencyTag } from "@/lib/sr/types";
-import { m } from "framer-motion";
+import { m } from "@/lib/motion";
 import SessionFilters from "@/components/SessionFilters";
 import { Button } from "@/components/ui/button";
 import { SortMode } from "./types";

@@ -10,6 +10,85 @@ import tseslint from "typescript-eslint";
 const RAW_COLOR_PATTERN =
   String.raw`(text|bg|border|ring|stroke|fill|shadow|outline|divide|from|via|to)-(red|green|blue|yellow|orange|purple|pink|amber|emerald|rose|indigo|violet|cyan|teal|sky|lime|fuchsia)-\d{2,3}`;
 
+// ─── E4 — Shared no-restricted-syntax base ──────────────────────────────────
+// ESLint flat-config rules merge per key, but array-valued rules are REPLACED
+// (not merged) by later blocks. Any override block that sets
+// `no-restricted-syntax` for a subset of files would otherwise silently drop
+// the global guards (raw colors, W5 event-bus, G7 timers, PR1 mutex). Every
+// per-file `no-restricted-syntax` block below spreads this base in.
+const BASE_RESTRICTED_SYNTAX = [
+  {
+    selector: `Literal[value=/${RAW_COLOR_PATTERN}/]`,
+    message:
+      "Raw Tailwind palette colors are forbidden. Use semantic tokens (success, warning, destructive, info, primary, mastery-*, node-*) defined in src/index.css.",
+  },
+  {
+    selector: `TemplateElement[value.raw=/${RAW_COLOR_PATTERN}/]`,
+    message:
+      "Raw Tailwind palette colors are forbidden. Use semantic tokens (success, warning, destructive, info, primary, mastery-*, node-*) defined in src/index.css.",
+  },
+  // W5: disallow string-literal event names on eventBus.{emit,subscribe,unsubscribe}.
+  {
+    selector:
+      "CallExpression[callee.object.name='eventBus'][callee.property.name=/^(emit|subscribe|unsubscribe)$/] > Literal:first-child",
+    message: "Koristi EVENT_TYPES.X umjesto string literala (W5).",
+  },
+  {
+    selector:
+      "CallExpression[callee.object.name='eventBus'][callee.property.name=/^(emit|subscribe|unsubscribe)$/] > TemplateLiteral:first-child",
+    message: "Koristi EVENT_TYPES.X umjesto template-literal-a (W5).",
+  },
+  // G7: ban raw setTimeout / setInterval (use taskScheduler).
+  {
+    selector: "CallExpression[callee.name='setTimeout']",
+    message:
+      "Koristi taskScheduler.setTimeout() (src/lib/scheduler). Raw setTimeout je dozvoljen samo u whitelisted infrastrukturi i tight engine-ima (vidi eslint.config.js override).",
+  },
+  {
+    selector: "CallExpression[callee.name='setInterval']",
+    message:
+      "Koristi taskScheduler.setInterval() (src/lib/scheduler). Raw setInterval je dozvoljen samo u whitelisted engine-ima (vidi eslint.config.js override).",
+  },
+  {
+    selector:
+      "MemberExpression[object.name='window'][property.name=/^(setTimeout|setInterval)$/]",
+    message:
+      "Koristi taskScheduler iz src/lib/scheduler umjesto window.setTimeout/setInterval.",
+  },
+  // PR1 — Keyed mutex consolidation.
+  {
+    selector:
+      "VariableDeclarator[id.name=/^_?pending[A-Z]\\w*$/][init.type='CallExpression'][init.callee.object.name='Promise'][init.callee.property.name='resolve']",
+    message:
+      "Koristi createKeyedMutex() iz @/lib/concurrency umjesto ručnog `_pendingX = Promise.resolve()` lanca (PR1).",
+  },
+];
+
+// W7 — Ban raw `dangerouslySetInnerHTML`. Layered on top of BASE.
+const W7_DANGEROUS_HTML = [
+  {
+    selector: "JSXAttribute[name.name='dangerouslySetInnerHTML']",
+    message:
+      "Koristi <SafeHtml html={...} /> umjesto sirovog `dangerouslySetInnerHTML`. Render-time DOMPurify je obavezna XSS odbrana (P0-3).",
+  },
+  {
+    selector:
+      "Property[key.name='dangerouslySetInnerHTML'][value.type='ObjectExpression']",
+    message:
+      "Koristi <SafeHtml html={...} /> umjesto sirovog `dangerouslySetInnerHTML` u createElement props-u (P0-3).",
+  },
+];
+
+// W9 — *Ram card selectors are test-only.
+const W9_RAM_SELECTORS = [
+  {
+    selector:
+      "ImportSpecifier[imported.name=/^(useCardsByCategoryRam|useCardsBySubcategoryRam|useCardsByChapterRam|useCardCountByCategoryRam|useCardByIdRam)$/]",
+    message:
+      "*Ram selektori su test-only (W9). Koristi TanStack varijante iz @/store (npr. useCardsByCategory).",
+  },
+];
+
 export default tseslint.config(
   { ignores: ["dist", "electron/**", "main.cjs", "preload.cjs"] },
   {
@@ -33,71 +112,11 @@ export default tseslint.config(
       // legitimately need `any`). All production code must use strict types.
       "@typescript-eslint/no-explicit-any": "error",
 
-      // Block raw Tailwind palette colors in JSX/string literals.
-      // Forces use of semantic design tokens defined in src/index.css.
-      "no-restricted-syntax": [
-        "warn",
-        {
-          selector: `Literal[value=/${RAW_COLOR_PATTERN}/]`,
-          message:
-            "Raw Tailwind palette colors are forbidden. Use semantic tokens (success, warning, destructive, info, primary, mastery-*, node-*) defined in src/index.css.",
-        },
-        {
-          selector: `TemplateElement[value.raw=/${RAW_COLOR_PATTERN}/]`,
-          message:
-            "Raw Tailwind palette colors are forbidden. Use semantic tokens (success, warning, destructive, info, primary, mastery-*, node-*) defined in src/index.css.",
-        },
-        // W5: disallow string-literal event names on eventBus.{emit,subscribe,unsubscribe}.
-        // Forces the use of EVENT_TYPES.X constants so typos & stale names fail at lint time.
-        {
-          selector:
-            "CallExpression[callee.object.name='eventBus'][callee.property.name=/^(emit|subscribe|unsubscribe)$/] > Literal:first-child",
-          message:
-            "Koristi EVENT_TYPES.X umjesto string literala (W5).",
-        },
-        {
-          selector:
-            "CallExpression[callee.object.name='eventBus'][callee.property.name=/^(emit|subscribe|unsubscribe)$/] > TemplateLiteral:first-child",
-          message:
-            "Koristi EVENT_TYPES.X umjesto template-literal-a (W5).",
-        },
-        // G7: ban raw setTimeout / setInterval. Every timer must go through
-        // `taskScheduler` (src/lib/scheduler) so it participates in shutdown
-        // on `beforeunload` / Electron `before-quit`, can be inspected via
-        // `snapshot()`, and follows the `pauseWhenHidden` contract.
-        //
-        // Allow-list (per-file override below): timing-critical engines
-        // (Pomodoro, SpeedReader), pre-boot infrastructure (db-schema, splash,
-        // panic timer), low-level libraries that the scheduler itself sits on
-        // top of (persist-queue tick, event-bus heartbeat, zip-service idle,
-        // docx-parser race), and editor draft hooks that are scheduled for
-        // unified `useDraftAutosave` refactor (Task 2).
-        {
-          selector: "CallExpression[callee.name='setTimeout']",
-          message:
-            "Koristi taskScheduler.setTimeout() (src/lib/scheduler). Raw setTimeout je dozvoljen samo u whitelisted infrastrukturi i tight engine-ima (vidi eslint.config.js override).",
-        },
-        {
-          selector: "CallExpression[callee.name='setInterval']",
-          message:
-            "Koristi taskScheduler.setInterval() (src/lib/scheduler). Raw setInterval je dozvoljen samo u whitelisted engine-ima (vidi eslint.config.js override).",
-        },
-        {
-          selector:
-            "MemberExpression[object.name='window'][property.name=/^(setTimeout|setInterval)$/]",
-          message:
-            "Koristi taskScheduler iz src/lib/scheduler umjesto window.setTimeout/setInterval.",
-        },
-        // PR1 — Keyed mutex consolidation. Ad-hoc `let _pendingX = Promise.resolve()`
-        // serijalizacioni lanci moraju ići kroz `createKeyedMutex` iz
-        // `@/lib/concurrency`. Implementacija primitive je u `src/lib/concurrency/**`.
-        {
-          selector:
-            "VariableDeclarator[id.name=/^_?pending[A-Z]\\w*$/][init.type='CallExpression'][init.callee.object.name='Promise'][init.callee.property.name='resolve']",
-          message:
-            "Koristi createKeyedMutex() iz @/lib/concurrency umjesto ručnog `_pendingX = Promise.resolve()` lanca (PR1).",
-        },
-      ],
+      // E2 + E4: warn → error, single shared base spread into every block
+      // that sets `no-restricted-syntax` (flat-config arrays are replaced,
+      // not merged). Per-file exemptions live in dedicated override blocks
+      // with `"no-restricted-syntax": "off"` (G7 allow-list).
+      "no-restricted-syntax": ["error", ...BASE_RESTRICTED_SYNTAX],
 
     },
   },
@@ -210,19 +229,11 @@ export default tseslint.config(
       "src/test/**",
     ],
     rules: {
+      // E4: spread BASE so this override doesn't drop the global guards.
       "no-restricted-syntax": [
         "error",
-        {
-          selector: "JSXAttribute[name.name='dangerouslySetInnerHTML']",
-          message:
-            "Koristi <SafeHtml html={...} /> umjesto sirovog `dangerouslySetInnerHTML`. Render-time DOMPurify je obavezna XSS odbrana (P0-3).",
-        },
-        {
-          selector:
-            "Property[key.name='dangerouslySetInnerHTML'][value.type='ObjectExpression']",
-          message:
-            "Koristi <SafeHtml html={...} /> umjesto sirovog `dangerouslySetInnerHTML` u createElement props-u (P0-3).",
-        },
+        ...BASE_RESTRICTED_SYNTAX,
+        ...W7_DANGEROUS_HTML,
       ],
     },
   },
@@ -384,58 +395,8 @@ export default tseslint.config(
   },
 
 
-
-  // G7 — Raw setTimeout/setInterval allow-list.
-  //
-  // Disables `no-restricted-syntax` (which carries the timer guards from
-  // the global block) ONLY for files that legitimately need raw timers:
-  //
-  //   • src/lib/scheduler/**        — the implementation itself
-  //   • src/lib/persist-queue.ts    — frame-coalescer + retry tick; predates
-  //                                    and underpins scheduler bootstrap
-  //   • src/lib/db-schema.ts        — pre-boot DB open / blocked-tab recovery
-  //   • src/lib/db-queries.ts       — reviewLog debounce hot path
-  //   • src/lib/event-bus.ts        — heartbeat / cleanup interval (singleton)
-  //   • src/lib/zip-service.ts      — idle-timeout worker teardown
-  //   • src/lib/electron-integration.ts — IPC timeout race wrapper
-  //   • src/lib/backup/yield-ui.ts  — alternative to scheduler for Dexie txs
-  //   • src/main.tsx                 — splash removal pre-scheduler init
-  //   • src/hooks/useCardBootstrap.ts — boot panic timer
-  //   • src/hooks/useNotificationScheduler.ts — global 60s polling
-  //   • src/hooks/speed-reader/useSpeedReaderEngine.ts — RSVP timing
-  //   • src/features/mnemonic/hooks/useTestEngine.ts — test countdown
-  //   • src/features/docx-importer/docx-parser.ts — worker timeout race
-  //   • src/components/db/BlockingModal.tsx — pre-boot DB poll
-  //   • src/components/ZenMode.tsx — 1s timer tick
-  //
-  // Task 2 group MIGRATED to taskScheduler (PR completed): useCardDraftAutosave,
-  // useSourceEditing, useArticleDraft, useWikiLinkAutoCreate, useMindMapCanvas,
-  // useNodeEditing, SourceReader.
-  {
-    files: [
-      "src/lib/scheduler/**",
-      "src/lib/persist-queue.ts",
-      "src/lib/db-schema.ts",
-      "src/lib/db-queries.ts",
-      "src/lib/event-bus.ts",
-      "src/lib/zip-service.ts",
-      "src/lib/electron-integration.ts",
-      "src/lib/backup/yield-ui.ts",
-      "src/main.tsx",
-      "src/hooks/useCardBootstrap.ts",
-      "src/hooks/useNotificationScheduler.ts",
-      "src/hooks/speed-reader/useSpeedReaderEngine.ts",
-      "src/features/mnemonic/hooks/useTestEngine.ts",
-      "src/features/docx-importer/docx-parser.ts",
-      "src/components/db/BlockingModal.tsx",
-      "src/components/ZenMode.tsx",
-      // Test files legitimately use raw timers for fake-timer scenarios.
-      "src/test/**",
-    ],
-    rules: {
-      "no-restricted-syntax": "off",
-    },
-  },
+  // (G7 allow-list block moved to the END of the config so it can disable
+  // the timer guards re-introduced by W7/W9 spread of BASE_RESTRICTED_SYNTAX.)
 
   // ─────────────────────────────────────────────────────────────────────
   // Phase C — Dexie removal: the legacy shell is gone. Keep a hard-fail
@@ -492,14 +453,11 @@ export default tseslint.config(
       "src/store/useCardSelectors.ts",
     ],
     rules: {
+      // E4: spread BASE so this override doesn't drop the global guards.
       "no-restricted-syntax": [
         "error",
-        {
-          selector:
-            "ImportSpecifier[imported.name=/^(useCardsByCategoryRam|useCardsBySubcategoryRam|useCardsByChapterRam|useCardCountByCategoryRam|useCardByIdRam)$/]",
-          message:
-            "*Ram selektori su test-only (W9). Koristi TanStack varijante iz @/store (npr. useCardsByCategory).",
-        },
+        ...BASE_RESTRICTED_SYNTAX,
+        ...W9_RAM_SELECTORS,
       ],
     },
   },
@@ -520,7 +478,10 @@ export default tseslint.config(
           paths: [
             {
               name: "framer-motion",
-              importNames: ["motion", "MotionConfig", "LazyMotion", "domAnimation", "domMax"],
+              // E5: `m` je takođe banovan — barrel @/lib/motion re-exportuje
+              // `m` i `AnimatePresence` tako da app sloj ide isključivo kroz
+              // jednu tačku ulaza (LazyMotion strict + tree-shake intaktan).
+              importNames: ["m", "motion", "MotionConfig", "LazyMotion", "domAnimation", "domMax"],
               message:
                 "Koristi @/lib/motion barrel (FadeUp/CrossFade/ListItem/Presence ili `m` iz framer-motion uz eslint-disable + opravdanje). `motion.*` razbija LazyMotion tree-shake (W10).",
             },
@@ -615,6 +576,40 @@ export default tseslint.config(
       ],
     },
   },
+
+  // ─── G7 — Raw setTimeout/setInterval allow-list (MUST be last) ──────────
+  // Placed at end so it overrides BASE_RESTRICTED_SYNTAX spread by W7/W9.
+  // Files here legitimately need raw timers (engines, pre-boot infra, IPC
+  // race wrappers, debounce hot paths, repository fire-and-forget logs).
+  {
+    files: [
+      "src/lib/scheduler/**",
+      "src/lib/persist-queue.ts",
+      "src/lib/db-schema.ts",
+      "src/lib/db-queries.ts",
+      "src/lib/event-bus.ts",
+      "src/lib/zip-service.ts",
+      "src/lib/electron-integration.ts",
+      "src/lib/backup/yield-ui.ts",
+      "src/lib/query/bridges.ts",
+      "src/lib/repositories/reviewLogRepository.ts",
+      "src/main.tsx",
+      "src/hooks/useCardBootstrap.ts",
+      "src/hooks/useNotificationScheduler.ts",
+      "src/hooks/speed-reader/useSpeedReaderEngine.ts",
+      "src/features/mnemonic/hooks/useTestEngine.ts",
+      "src/features/docx-importer/docx-parser.ts",
+      "src/components/db/BlockingModal.tsx",
+      "src/components/ZenMode.tsx",
+      "src/store/usePomodoroStore.ts",
+      // Test files legitimately use raw timers for fake-timer scenarios.
+      "src/test/**",
+    ],
+    rules: {
+      "no-restricted-syntax": "off",
+    },
+  },
 );
+
 
 

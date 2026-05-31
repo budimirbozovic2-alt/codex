@@ -158,7 +158,7 @@ export function useDashboardData(
     const status = mod.getPlannerStatus(estimated, plannerConfig.finalGoalDate, plannerConfig.bufferPercent ?? 15);
     const suggestion = mod.getSmartSuggestion(null, cards, plannerConfig.finalGoalDate, plannerConfig.bufferPercent ?? 15);
     const timeRec = suggestion ? mod.calcDailyTimeRecommendation(suggestion.suggestedToday, stats.due) : null;
-    const activePhase = null;
+    const activePhase: { name: string; pct: number; learned: number; total: number } | null = null;
     const dailyMapped = mod.getDailyMappedCount();
     const dailyQuota = suggestion?.suggestedToday ?? 0;
     const redistResult = mod.autoRedistributeIfNeeded(cards, plannerConfig.finalGoalDate, plannerConfig.bufferPercent ?? 15);

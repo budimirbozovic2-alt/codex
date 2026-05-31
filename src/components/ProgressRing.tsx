@@ -1,4 +1,4 @@
-import { m } from "framer-motion";
+import { m } from "@/lib/motion";
 import { DURATION, EASE } from "@/lib/motion";
 import { useId } from "react";
 import { useCountUp } from "@/hooks/useCountUp";

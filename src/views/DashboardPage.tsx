@@ -9,7 +9,7 @@ import { ToolCards } from "@/components/dashboard/ToolCards";
 import { BackupCard } from "@/components/dashboard/BackupCard";
 
 import InfoPanel from "@/components/InfoPanel";
-import { AnimatePresence } from "framer-motion";
+import { AnimatePresence } from "@/lib/motion";
 const OnboardingModal = lazy(() => import("@/components/OnboardingModal"));
 
 export default function DashboardPage() {

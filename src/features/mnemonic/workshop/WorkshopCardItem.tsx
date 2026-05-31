@@ -11,7 +11,7 @@ import { ContentRenderer } from "@/components/ui/ContentRenderer";
 import { Skeleton } from "@/components/ui/skeleton";
 import { htmlToDoc } from "@/lib/editor-v4";
 import { deriveHtml } from "@/lib/editor-v4/derived";
-import { m, AnimatePresence } from "framer-motion";
+import { m, AnimatePresence } from "@/lib/motion";
 import { STATUS_CONFIG, HOOK_TYPE_CONFIG } from "./card-item/configs";
 import { MajorSystemHints } from "./card-item/MajorSystemHints";
 import { EnumerationHints } from "./card-item/EnumerationHints";

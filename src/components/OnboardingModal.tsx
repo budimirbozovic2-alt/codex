@@ -1,6 +1,6 @@
 import { ArrowRight, ArrowLeft, X, CheckCircle2 } from "lucide-react";
 import { useState, useId } from "react";
-import { m, AnimatePresence } from "framer-motion";
+import { m, AnimatePresence } from "@/lib/motion";
 
 import Modal from "@/components/ui/DialogShell";
 import { Button } from "@/components/ui/button";

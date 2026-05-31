@@ -1,5 +1,5 @@
 import { TrendingUp, Zap } from "lucide-react";
-import { m } from "framer-motion";
+import { m } from "@/lib/motion";
 import { Progress } from "@/components/ui/progress";
 import {
   AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, Line, ComposedChart,

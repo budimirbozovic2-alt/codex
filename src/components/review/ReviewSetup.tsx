@@ -1,7 +1,7 @@
 import { Target, Shield, Zap, BookOpen, ArrowLeft, Play, X as XIcon, HelpCircle, RotateCcw } from "lucide-react";
 import { useState, useMemo, useCallback } from "react";
 import { Card, SRSettings } from "@/lib/spaced-repetition";
-import { m, AnimatePresence } from "framer-motion";
+import { m, AnimatePresence } from "@/lib/motion";
 import { Button } from "@/components/ui/button";
 import OnboardingModal, { hasSeenOnboarding } from "@/components/OnboardingModal";
 import { DueItem, ReviewMode, REVIEW_ONBOARDING_KEY, REVIEW_SLIDES } from "./review-constants";

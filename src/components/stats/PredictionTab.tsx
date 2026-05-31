@@ -1,6 +1,6 @@
 import { CalendarClock } from "lucide-react";
 import { useMemo } from "react";
-import { m } from "framer-motion";
+import { m } from "@/lib/motion";
 
 import { Card, SectionState } from "@/lib/spaced-repetition";
 import { ReviewLogEntry } from "@/lib/storage";

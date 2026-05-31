@@ -1,6 +1,6 @@
 import { BookOpen } from "lucide-react";
 import { useEffect } from "react";
-import { m } from "framer-motion";
+import { m } from "@/lib/motion";
 import { Button } from "@/components/ui/button";
 export default function ReviewComplete({ onBack }: { onBack: () => void }) {
   useEffect(() => {
