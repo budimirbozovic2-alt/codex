@@ -55,12 +55,10 @@ export function useSourceMutations() {
       qc.setQueryData(queryKeys.sources.all(), ctx.prevAll);
       qc.setQueryData(queryKeys.sources.byCategory(ctx.categoryId), ctx.prevByCat);
     },
-    onSuccess: (_data, next) => {
-      // Safety net: ako `_notify()` → bridge invalidacija propusti window
-      // (cancelQueries race, HMR, itd.), eksplicitno refetchuj scoped + all.
-      void qc.invalidateQueries({ queryKey: queryKeys.sources.byCategory(next.categoryId) });
-      void qc.invalidateQueries({ queryKey: queryKeys.sources.all() });
-    },
+    // No onSuccess refetch: `saveSource` fires `onSourcesChanged`, which the
+    // bridges listener (with HMR-safe singleton, `bridges.ts`) turns into a
+    // single `invalidateQueries(['sources'])`. The previous "safety net" was a
+    // leftover from a since-fixed HMR bug and caused double refetches.
   });
 
   const remove = useMutation<void, Error, { id: string; categoryId: string }, RemoveCtx>({
