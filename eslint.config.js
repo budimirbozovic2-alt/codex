@@ -576,6 +576,40 @@ export default tseslint.config(
       ],
     },
   },
+
+  // ─── G7 — Raw setTimeout/setInterval allow-list (MUST be last) ──────────
+  // Placed at end so it overrides BASE_RESTRICTED_SYNTAX spread by W7/W9.
+  // Files here legitimately need raw timers (engines, pre-boot infra, IPC
+  // race wrappers, debounce hot paths, repository fire-and-forget logs).
+  {
+    files: [
+      "src/lib/scheduler/**",
+      "src/lib/persist-queue.ts",
+      "src/lib/db-schema.ts",
+      "src/lib/db-queries.ts",
+      "src/lib/event-bus.ts",
+      "src/lib/zip-service.ts",
+      "src/lib/electron-integration.ts",
+      "src/lib/backup/yield-ui.ts",
+      "src/lib/query/bridges.ts",
+      "src/lib/repositories/reviewLogRepository.ts",
+      "src/main.tsx",
+      "src/hooks/useCardBootstrap.ts",
+      "src/hooks/useNotificationScheduler.ts",
+      "src/hooks/speed-reader/useSpeedReaderEngine.ts",
+      "src/features/mnemonic/hooks/useTestEngine.ts",
+      "src/features/docx-importer/docx-parser.ts",
+      "src/components/db/BlockingModal.tsx",
+      "src/components/ZenMode.tsx",
+      "src/store/usePomodoroStore.ts",
+      // Test files legitimately use raw timers for fake-timer scenarios.
+      "src/test/**",
+    ],
+    rules: {
+      "no-restricted-syntax": "off",
+    },
+  },
 );
+
 
 
