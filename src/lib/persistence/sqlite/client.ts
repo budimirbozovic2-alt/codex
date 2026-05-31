@@ -56,9 +56,8 @@ export function getOpfsSqliteExecutor(): Promise<SqlExecutor> {
     return _executorPromise;
   }
   _executorPromise = (async () => {
-    const mod = await import("@sqlite.org/sqlite-wasm");
-    const sqlite3InitModule = (mod as unknown as { default: () => Promise<SqliteApi> }).default;
-    const sqlite3: SqliteApi = await sqlite3InitModule();
+    const { initSqliteWasm } = await import("./sqlite-init");
+    const sqlite3: SqliteApi = await initSqliteWasm<SqliteApi>();
 
     let db: SqliteDb;
     if (sqlite3.installOpfsSAHPoolVfs) {

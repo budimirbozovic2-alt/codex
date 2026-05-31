@@ -50,10 +50,12 @@ export function useSourceMutations() {
     },
     onError: (_err, _next, ctx) => {
       if (!ctx) return;
-      if (ctx.prevAll !== undefined) qc.setQueryData(queryKeys.sources.all(), ctx.prevAll);
-      if (ctx.prevByCat !== undefined) {
-        qc.setQueryData(queryKeys.sources.byCategory(ctx.categoryId), ctx.prevByCat);
-      }
+      // Always restore — including `undefined`, which removes the optimistic
+      // ghost entry from caches that didn't exist before this mutation.
+      // (Without this, a failed save leaves the new source visible in the UI
+      // even though it was never persisted.)
+      qc.setQueryData(queryKeys.sources.all(), ctx.prevAll);
+      qc.setQueryData(queryKeys.sources.byCategory(ctx.categoryId), ctx.prevByCat);
     },
   });
 
@@ -74,10 +76,8 @@ export function useSourceMutations() {
     },
     onError: (_err, vars, ctx) => {
       if (!ctx) return;
-      if (ctx.prevAll !== undefined) qc.setQueryData(queryKeys.sources.all(), ctx.prevAll);
-      if (ctx.prevByCat !== undefined) {
-        qc.setQueryData(queryKeys.sources.byCategory(vars.categoryId), ctx.prevByCat);
-      }
+      qc.setQueryData(queryKeys.sources.all(), ctx.prevAll);
+      qc.setQueryData(queryKeys.sources.byCategory(vars.categoryId), ctx.prevByCat);
     },
   });
 

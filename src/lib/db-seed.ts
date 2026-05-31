@@ -40,7 +40,14 @@ export async function seedDefaultCategories(): Promise<CategoryRecord[]> {
   const existing = await listAllCategories();
   if (existing.length > 0) return existing;
   const defaults = createDefaultCategories();
-  await bulkPutCategories(defaults);
+  try {
+    await bulkPutCategories(defaults);
+  } catch (err) {
+    // SQLite executor unavailable (e.g. wasm load failure in the preview
+    // shell). Still return the defaults so the UI has something to render —
+    // user-driven writes will surface the executor error explicitly.
+    logger.warn("[seed] bulkPutCategories failed — using in-memory defaults", err);
+  }
   if (import.meta.env.DEV) {
     logger.log(`[seed] Inserted ${defaults.length} default categories`);
   }

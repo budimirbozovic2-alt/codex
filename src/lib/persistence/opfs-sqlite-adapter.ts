@@ -23,7 +23,15 @@ export function createOpfsSqliteAdapter(deps: OpfsSqliteAdapterDeps = {}): Persi
 
   async function bulkApply(puts: readonly Card[], deletes: readonly string[]): Promise<void> {
     if (puts.length === 0 && deletes.length === 0) return;
-    const exec = await getExec();
+    let exec;
+    try {
+      exec = await getExec();
+    } catch {
+      // SQLite runtime unavailable (e.g. wasm asset broken in the dev shell).
+      // Surface a stable code so persistQueue can short-circuit retries and
+      // the TanStack mutation can roll back instead of hanging.
+      throw new Error("NO_EXECUTOR");
+    }
     await exec.transaction(async (tx) => {
       for (const card of puts) {
         await tx.run(CARD_INSERT_SQL, bindCardInsert(card));

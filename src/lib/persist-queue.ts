@@ -115,6 +115,9 @@ function createPersistQueue() {
   const MAX_RETRY = 3;
 
   let inFlightCount = 0;
+  // Last flush error — surfaced to interactive callers via `cleanup({ strict })`
+  // so TanStack mutations can roll back instead of falsely succeeding.
+  let _lastFlushError: Error | null = null;
 
   async function flush() {
     timer = null;
@@ -134,12 +137,14 @@ function createPersistQueue() {
         snapDels.map(([id]) => id),
       );
       _retryAttempt = 0;
+      _lastFlushError = null;
       if (import.meta.env.DEV) {
         const dur = (performance.now() - t0).toFixed(1);
         logger.debug(`[persistQueue] flush ok puts=${snapPuts.length} deletes=${snapDels.length} ${dur}ms`);
       }
     } catch (err: unknown) {
       const e = err instanceof Error ? err : new Error(String(err));
+      _lastFlushError = e;
 
       // Re-enqueue stale snapshot only where not superseded by a newer write.
       for (const [id, entry] of snapPuts) {
@@ -166,7 +171,13 @@ function createPersistQueue() {
       }
 
       logger.error(`[persistQueue] flush failed (attempt ${_retryAttempt + 1}/${MAX_RETRY})`, err);
-      if (_retryAttempt < MAX_RETRY) {
+
+      // NO_EXECUTOR is a structural failure (wasm load broken / dev shell) —
+      // retrying it just burns time and produces a multi-second latency
+      // for every card mutation. Surface it immediately instead.
+      const isNoExecutor = e.message === "NO_EXECUTOR";
+
+      if (!isNoExecutor && _retryAttempt < MAX_RETRY) {
         const delay = 200 * Math.pow(2, _retryAttempt);
         _retryAttempt++;
         if (timer === null) {
@@ -174,7 +185,9 @@ function createPersistQueue() {
         }
       } else {
         _retryAttempt = 0;
-        toast.error("Pisanje u bazu nije uspjelo nakon više pokušaja. HITNO eksportujte backup!");
+        if (!isNoExecutor) {
+          toast.error("Pisanje u bazu nije uspjelo nakon više pokušaja. HITNO eksportujte backup!");
+        }
       }
     } finally {
       inFlightCount--;
@@ -187,16 +200,26 @@ function createPersistQueue() {
     timer = window.setTimeout(flush, 16);
   }
 
-  async function cleanup(): Promise<void> {
+  interface CleanupOpts { strict?: boolean }
+
+  async function cleanup(opts: CleanupOpts = {}): Promise<void> {
     if (timer !== null) {
       clearTimeout(timer);
       timer = null;
     }
+    // Reset error tracking before a strict drain so we only see errors
+    // produced by THIS flush, not leftovers from a previous background flush.
+    if (opts.strict) _lastFlushError = null;
     if (hasPending()) {
       await flush();
     }
     while (inFlightCount > 0) {
       await new Promise<void>(r => queueMicrotask(r));
+    }
+    if (opts.strict && _lastFlushError) {
+      const err = _lastFlushError;
+      _lastFlushError = null;
+      throw err;
     }
   }
 
