@@ -49,10 +49,18 @@ export function buildDraftKey(editCardId: string | null | undefined, categoryId:
 }
 
 function isMeaningful(d: CardDraftSnapshot): boolean {
-  const stripped = (s: string) => s.replace(/<[^>]*>/g, "").trim();
+  const stripped = (s: string | undefined | null) =>
+    typeof s === "string" ? s.replace(/<[^>]*>/g, "").trim() : "";
   if (stripped(d.question)) return true;
   if (d.cardType === "flash" && stripped(d.flashAnswer)) return true;
-  if (d.cardType === "essay" && d.sections.some(s => stripped(s.content))) return true;
+  if (d.cardType === "essay" && d.sections.some(s => {
+    if (stripped(s.content)) return true;
+    // PR-7b: contentDoc je SSOT; legacy `content` može biti undefined.
+    const docText = s.contentDoc?.content?.content
+      ? JSON.stringify(s.contentDoc.content).replace(/[^\p{L}\p{N}]/gu, "").trim()
+      : "";
+    return docText.length > 0;
+  })) return true;
   return false;
 }
 
