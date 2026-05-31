@@ -10,6 +10,7 @@ import type { PersistAdapter } from "./PersistAdapter";
 import type { SqlExecutor } from "./sqlite/executor";
 import { bindCardInsert, CARD_INSERT_SQL } from "./sqlite/row-codecs";
 import { getOpfsSqliteExecutor } from "./sqlite/client";
+import { logger } from "@/lib/logger";
 
 const CARD_DELETE_SQL = "DELETE FROM cards WHERE id = ?";
 
