@@ -1,51 +1,57 @@
-# PR-G7 (RC-7): Tooling guardrails — strict TS + ESLint regression net
+# PR-G8 (RC-8): `noImplicitAny: true` u sva tri tsconfig-a
 
-Cilj: zaključati postojeću strict TypeScript + ESLint poziciju tako da je
-silent regresija (downgrade `error`→`warn`, isključen `strictNullChecks`,
-ručno gašenje vitest izolacije) odmah uhvaćena u CI, ne tek na review-u.
+Cilj: zatvoriti posljednju rupu zero-any politike — TypeScript je do sada
+implicitno tretirao neoznačene parametre/funkcije kao `any` bez ESLint
+greške jer ESLint guard hvata samo *eksplicitni* `: any`. PR-G8 flipuje
+`noImplicitAny` na `true` u svim tsconfig-ovima i drain-uje rezultujuće
+greške.
 
-PR-G7 NE uvodi nove rule-ove — sve diskretne stroge stavke (`no-explicit-any`
-= error, `no-unused-vars` = error, W7 dangerouslySetInnerHTML ban, G7
-raw-timer ban, `strict` + `strictNullChecks`, vitest `clearMocks` /
-`restoreMocks`) već su uvedene u ranijim PR-ovima (RC-1..RC-6, PR-G4).
-G7 ih samo **proklamuje invarijantama** preko statičkog testa.
+## Drain rezultat
+
+`bunx tsc -p tsconfig.app.json --noEmit` nakon flipa: **samo 5 grešaka**,
+sve u `src/views/SubjectCardsView.tsx`, sve TS7022/TS7023 ("implicitly
+has type 'any' because it does not have a type annotation and is
+referenced directly or indirectly in its own initializer").
+
+Root cause je jedna inference petlja:
+
+```text
+buildExtras: () => ({ tab, manageMode, ... })
+        │           inferred return
+        ▼
+useEditReturn<EditReturnSnapshot>({ buildExtras })
+        │           inferred initialSnapshot
+        ▼
+useState<...>(initialSnapshot?.tab ...) → tab, manageMode, ...
+        │           referenced by buildExtras
+        ▼
+(cycle)
+```
 
 ## Izmjene
 
-### 1. `src/test/pr-g7-tooling-guardrails.test.ts` (novo)
-Statički regresioni guard sa 6 nezavisnih očekivanja, jedan po
-root-cause-u:
+### 1. `src/views/SubjectCardsView.tsx` (1 linija anotacije)
+- `buildExtras: (): Partial<EditReturnSnapshot> => ({ ... })`
+- Eksplicitan povratni tip prekida cikličnu inferenciju; sve ostale state
+  varijable se sad uredno tipuju iz `useEditReturn<EditReturnSnapshot>`.
 
-- **RC-7a — vitest isolation:** `vitest.config.ts` mora zadržati
-  `clearMocks: true` i `restoreMocks: true`. Sprječava da `vi.spyOn`
-  procuri između testova i maskira regresiju.
-- **RC-7b — type-erosion:** `eslint.config.js` mora držati globalno
-  `@typescript-eslint/no-explicit-any` = `"error"`, nikad `"warn"`.
-- **RC-7c — dead-code drift:** Globalni
-  `@typescript-eslint/no-unused-vars` mora biti `["error", …]`.
-- **RC-7d — null-safety:** `strict` i `strictNullChecks` true u
-  `tsconfig.app.json`, `tsconfig.test.json` i `tsconfig.json`.
-- **RC-7e — XSS guard (W7):** `JSXAttribute[name.name='dangerouslySetInnerHTML']`
-  i `W7_DANGEROUS_HTML` selektori i dalje wired u ESLint configu.
-- **RC-7f — G7 timer base ban:** `BASE_RESTRICTED_SYNTAX` i dalje sadrži
-  `setTimeout`/`setInterval` selektore, tako da svaki override blok koji
-  spread-uje BASE zadržava timer ban.
+### 2. `tsconfig.app.json`, `tsconfig.test.json`, `tsconfig.json`
+- `"noImplicitAny": false` → `"noImplicitAny": true`.
 
-Svaka tvrdnja je read + regex/JSON.parse na config fajlu — deterministička,
-zero-dependency, ~10ms total.
+### 3. `src/test/pr-g7-tooling-guardrails.test.ts` (RC-7d ažuriran)
+- Postojeća tvrdnja za `strict` + `strictNullChecks` proširena: sad takođe
+  zahtijeva `noImplicitAny === true` u sva 3 config-a. Sprječava silent
+  regression nazad na implicit-any.
 
-## Što PR-G7 NE radi
+## Što PR-G8 NE radi
 
-- Ne flipuje `noImplicitAny` na `true` (ostaje `false` u
-  `tsconfig.app.json`); to bi otvorilo zaseban drain i ide u eventualni
-  PR-G8.
-- Ne pokreće ESLint/tsc iz testa — CI workflow (`.github/workflows/ci.yml`)
-  i dalje ima dedicated lint+typecheck job. G7 je samo regression-net za
-  *konfiguraciju* tih jobova.
-- Ne mijenja proizvodni kod.
+- Ne dira proizvodno ponašanje — `noImplicitAny` je kompajl-time guard,
+  generisani kod identičan.
+- Ne flipuje `noUncheckedIndexedAccess` / `exactOptionalPropertyTypes` —
+  to su zaseban drain (vjerovatno PR-G9).
 
 ## Verifikacija
 
-- `bunx vitest run pr-g4 pr-g5 pr-g6 pr-g7` — **21/21 ✓**
-  (svih 6 G7 guard-ova prošlo prve iteracije).
-- `bunx tsc --noEmit` — 0 grešaka.
+- `bunx tsc --noEmit` (sva 3 projekta) — 0 grešaka nakon fixa.
+- `bunx vitest run pr-g4 pr-g5 pr-g6 pr-g7` — **21/21 ✓**, novi RC-7d guard
+  uključen.
