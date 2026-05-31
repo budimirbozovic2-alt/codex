@@ -3,7 +3,7 @@ import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useDebounce } from "@/hooks/useDebounce";
 import { Card } from "@/lib/spaced-repetition";
-import { type Source } from "@/lib/sources-storage";
+
 import { useAllSources } from "@/hooks/useCategorySources";
 import { useMindMaps } from "@/hooks/useMindMaps";
 import { useCardData, useCategoryData } from "@/contexts/AppContext";

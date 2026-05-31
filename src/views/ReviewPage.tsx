@@ -18,7 +18,7 @@ export default function ReviewPage() {
   const [searchParams] = useSearchParams();
   const lockedCategory = getParam(searchParams, "category");
   const modeParam = getParam(searchParams, "mode");
-  const autoMode = (modeParam === "critical" || modeParam === "stabilization" || modeParam === "hardest")
+  const _autoMode = (modeParam === "critical" || modeParam === "stabilization" || modeParam === "hardest")
     ? modeParam
     : undefined;
 

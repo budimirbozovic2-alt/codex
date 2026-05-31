@@ -2,7 +2,7 @@ import { memo } from "react";
 import { useSortable } from "@dnd-kit/sortable";
 import { useDroppable } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
-import { GripVertical, BookOpen, Inbox } from "lucide-react";
+import { GripVertical, BookOpen } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { type Card } from "@/lib/spaced-repetition";

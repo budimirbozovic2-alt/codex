@@ -23,9 +23,8 @@ import { sameStringSet } from "@/lib/struct-eq";
 import { backlinkIndex } from "@/lib/backlink-index";
 import type { ZettelEditorHandle } from "@/components/zettelkasten/ZettelEditor";
 import { usePersistedDraftMirror } from "@/hooks/usePersistedDraftMirror";
-import { htmlToDoc, type EditorDoc } from "@/lib/editor-v4";
+import { type EditorDoc } from "@/lib/editor-v4";
 import { deriveMarkdown, isDocEmpty } from "@/lib/editor-v4/derived";
-import { mdToHtml } from "@/lib/editor-v4/migrate";
 import { useKnowledgeBaseMutations } from "@/hooks/zettelkasten/useKnowledgeBaseMutations";
 
 import { logger } from "@/lib/logger";

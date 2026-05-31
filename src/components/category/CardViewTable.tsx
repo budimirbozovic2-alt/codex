@@ -8,7 +8,6 @@ import type { FrequencyTag } from "@/lib/sr/types";
 import { getFrequencyMeta } from "@/lib/sr/frequency";
 import type { CategoryRecord } from "@/lib/db-types";
 import { cn } from "@/lib/utils";
-import { toast } from "sonner";
 import FrequencyMenu from "@/components/card-list/FrequencyMenu";
 
 function stabilityLabel(s: number): { text: string; color: string } {
@@ -39,7 +38,7 @@ export default function CardViewTable({
   filteredCards, allCategories, expandedId, onToggle,
   selectionMode, selectedIds, onToggleSelection,
   setFrequency, onEdit, onPassiveRead, onDelete, onOpenMoveModal,
-  hasActiveFilters, totalCount, onResetFilters,
+  hasActiveFilters, totalCount: _totalCount, onResetFilters,
 }: Props) {
   return (
     <div className="space-y-1">

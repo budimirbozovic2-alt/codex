@@ -45,7 +45,7 @@ export default function StudyModeRecall({
   onMarkRead, onReviewSection, onAddKeyPart,
   goToCard, goNext, goPrev, onBack,
   setCompletedCards, setTotalGrades, setModulesCompleted, updateProgress,
-  strictRecall = false,
+  strictRecall: _strictRecall = false,
 }: Props) {
   const [phase, setPhase] = useState<RecallPhase>("open");
   const [leechCount, setLeechCount] = useState(0);

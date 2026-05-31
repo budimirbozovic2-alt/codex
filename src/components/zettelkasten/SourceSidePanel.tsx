@@ -19,7 +19,7 @@ interface Props {
  */
 export default function SourceSidePanel({ source, categoryId, onClose }: Props) {
   const navigate = useNavigate();
-  const html = useMemo(() => deriveHtml(source.contentDoc), [source.contentDoc]);
+  const _html = useMemo(() => deriveHtml(source.contentDoc), [source.contentDoc]);
 
   const openFullReader = () => {
     sessionStorage.setItem("sr-open-source-id", source.id);

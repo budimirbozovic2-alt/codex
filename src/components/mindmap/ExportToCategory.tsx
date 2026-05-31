@@ -54,7 +54,7 @@ export default function ExportToCategory({ open, onOpenChange, currentTitle, cur
       await save.mutateAsync(snapshot);
       onOpenChange(false);
       afterDialogClose(() => toast.success("Mapa eksportovana u predmet."));
-    } catch (err) {
+    } catch (_err) {
       toast.error("Greška pri eksportu.");
     } finally {
       setSaving(false);

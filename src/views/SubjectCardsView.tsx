@@ -1,8 +1,7 @@
 import { useParams, useNavigate } from "react-router-dom";
 import { useCallback, useMemo, useRef, useState } from "react";
-import { BookOpen, Search, X, Pencil, Sparkles, Zap } from "lucide-react";
+import { BookOpen, Search, X, Sparkles, Zap } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
 import { useCardData, useCategoryData, useCardOnlyActions, useCategoryActions, useUIContext, useBackupActions } from "@/contexts/AppContext";

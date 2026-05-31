@@ -10,7 +10,7 @@ import {
   useReactFlow,
 } from "@xyflow/react";
 import { type MindMapNodeData } from "@/components/mindmap/MindMapNode";
-import type { MindMapDoc, MindMapEdgeRecord, MindMapNodeRecord } from "@/lib/db-types";
+import type { MindMapDoc, MindMapEdgeRecord } from "@/lib/db-types";
 import { useMindMapMutations } from "@/hooks/mindmap/useMindMapMutations";
 import { toast } from "sonner";
 import { getId, HIERARCHY_TEMPLATES, PROCEDURE_TEMPLATES, type NodeTemplate } from "@/components/mindmap/mindmap-constants";
@@ -26,7 +26,7 @@ export function useMindMapCanvas(doc: MindMapDoc) {
   const { save: saveMutation } = useMindMapMutations();
   const [title, setTitle] = useState(doc.title);
   const [dirty, setDirty] = useState(false);
-  const [deletedStack, setDeletedStack] = useState<{ nodes: Node[]; edges: Edge[] }[]>([]);
+  const [_deletedStack, setDeletedStack] = useState<{ nodes: Node[]; edges: Edge[] }[]>([]);
   const [presentationMode, setPresentationMode] = useState(false);
   const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null);
   const [exportOpen, setExportOpen] = useState(false);

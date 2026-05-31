@@ -20,7 +20,7 @@ function saveToStorage<T>(key: string, value: T): void {
 
 // ─── Active functions (still used) ───────────────────────
 
-const POMODORO_LOG_KEY = "sr-pomodoro-log";
+const _POMODORO_LOG_KEY = "sr-pomodoro-log";
 const LEARN_PROGRESS_KEY = "sr-learn-progress";
 const LAST_BACKUP_KEY = "sr-last-backup";
 

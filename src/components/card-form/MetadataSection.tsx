@@ -44,9 +44,9 @@ const MetadataSection = memo(function MetadataSection({
   cardType, categoryId, setCategoryId, subcategoryId, setSubcategoryId, chapterId, setChapterId,
   categories, availableSubs, availableChapters,
   newCategory, setNewCategory, showNewCat, setShowNewCat,
-  newSubcategory, setNewSubcategory, showNewSub, setShowNewSub,
-  newChapter, setNewChapter, showNewChapter, setShowNewChapter,
-  linkedGazetteInfo, sourceId, categoryRecords = [],
+  newSubcategory: _newSubcategory, setNewSubcategory: _setNewSubcategory, showNewSub: _showNewSub, setShowNewSub: _setShowNewSub,
+  newChapter: _newChapter, setNewChapter: _setNewChapter, showNewChapter: _showNewChapter, setShowNewChapter: _setShowNewChapter,
+  linkedGazetteInfo, sourceId: _sourceId, categoryRecords = [],
   frequencyTag, setFrequencyTag, sourceType, setSourceType,
 }: MetadataSectionProps) {
   const catNameMap = Object.fromEntries(categoryRecords.map(r => [r.id, r.name]));

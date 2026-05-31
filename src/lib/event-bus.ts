@@ -11,7 +11,7 @@
  * HMR re-evaluacija ne spawnuje drugi bus i ne duplira listenere.
  */
 
-import { EVENT_TYPES, type EventType, type EventMessage } from "./event-bus-types";
+import { type EventType, type EventMessage } from "./event-bus-types";
 import { logger } from "@/lib/logger";
 export { EVENT_TYPES, type EventType, type EventMessage } from "./event-bus-types";
 

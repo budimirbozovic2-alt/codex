@@ -105,12 +105,12 @@ export default tseslint.config(
     rules: {
       ...reactHooks.configs.recommended.rules,
       "react-refresh/only-export-components": ["warn", { allowConstantExport: true }],
-      // PR-G7: promote unused vars to error globally with _-prefix escape hatch.
-      // Incremental cleanup of pre-existing offenders happens in PR-G7a (drain).
-      // Use "warn" here to avoid blocking integration of PR-G2..G6 while the
-      // drain is in flight; tighten to "error" once backlog is empty.
+      // PR-G7a: drain complete (67 → 0). Promoted to "error" — new unused
+      // vars/imports/args fail the build. Use the `^_` prefix (or
+      // `original: _alias` for destructured props) when a variable is
+      // intentionally unused (interface contract, future-use, etc.).
       "@typescript-eslint/no-unused-vars": [
-        "warn",
+        "error",
         {
           args: "after-used",
           argsIgnorePattern: "^_",

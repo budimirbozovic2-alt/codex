@@ -99,7 +99,7 @@ const FILTER_TYPE_OPTIONS: { value: FilterType; label: string }[] = [
 ];
 
 export default function ReviewSetup({
-  dueCards, allCards, categoryRecords, srSettings,
+  dueCards, allCards, categoryRecords: _categoryRecords, srSettings,
   onSelectMode, onBack, savedSession, onResumeSession, onClearSavedSession,
   lockedCategory,
 }: ReviewSetupProps) {

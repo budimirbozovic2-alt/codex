@@ -84,7 +84,7 @@ export default function ActivityHeatmap({ reviewLog }: Props) {
       col++;
     }
 
-    const totalWeeks = col;
+    const _totalWeeks = col;
     const grid: typeof cells[number][][] = Array.from({ length: 7 }, () => []);
     cells.forEach((cell, i) => {
       const row = i % 7;

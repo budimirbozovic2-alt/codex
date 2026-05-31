@@ -31,7 +31,7 @@ function SubBadge({ categoryId, subcategoryId }: { categoryId: string; subcatego
 }
 
 export default function LinkToExistingCardModal({
-  open, onOpenChange, sourceId, sourceLabel, selectedText, selectedHtml, cards, onLink,
+  open, onOpenChange, sourceId: _sourceId, sourceLabel, selectedText, selectedHtml, cards, onLink,
 }: Props) {
   const [search, setSearch] = useState("");
   // PR-7d (M2.1): convert HTML preview to AST at the boundary.
