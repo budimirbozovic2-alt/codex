@@ -120,11 +120,12 @@ if (!isDesktopShell && import.meta.env.PROD) {
 } else {
 
 // ── Guarded async bootstrap ──
+// Outer `isDesktopShell && PROD` guard above already short-circuits browser
+// builds to the download CTA, so the previous defense-in-depth
+// `await import("./lib/electron-integration"); assertDesktop()` was redundant
+// (Wave 4.8). Bootstrap proceeds straight to the parallel module import.
 (async () => {
   try {
-    // Pure Desktop guard — no-op in dev, throws in PROD browser builds.
-    const { assertDesktop } = await import("./lib/electron-integration");
-    assertDesktop();
     markBootStep("main:parallel-import-start");
     const [{ initColorTheme }, { default: App }, { createRoot }, { eventBus }, { setDbEventEmitter }] = await Promise.all([
       import("./lib/app-settings"),
