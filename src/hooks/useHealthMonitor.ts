@@ -55,7 +55,7 @@ export function useHealthMonitor(): UseHealthMonitor {
         ...prev,
         integrity: { ...prev.integrity, orphans: { count: 0, cardIds: [] } },
       } : prev);
-      await reloadCardsFromDb(cardIds);
+      notifyCardsChanged();
     } catch (err) {
       logger.error("[health] cleanup failed", err);
       toast.error(err instanceof Error ? err.message : "Greška pri čišćenju");
@@ -73,9 +73,7 @@ export function useHealthMonitor(): UseHealthMonitor {
       const r = await svcHealStaleLinks();
       const total = r.staleSubcategoryReset + r.staleChapterReset + r.mismatchChapterReset;
       toast.success(`${total} zastarjelih veza očišćeno`);
-      await reloadCardsFromDb(
-        Array.from(new Set([...staleSub.cardIds, ...staleChap.cardIds])),
-      );
+      notifyCardsChanged();
       await refresh();
     } catch (err) {
       logger.error("[health] heal failed", err);
