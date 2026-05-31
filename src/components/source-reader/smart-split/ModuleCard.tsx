@@ -122,6 +122,8 @@ export function ModuleCard({
  * uncontrolled (seeded once per mount, identical to the deleted shim).
  */
 function TitleEditor({ value, onChange, placeholder }: { value: string; onChange: (html: string) => void; placeholder?: string }) {
+  // Reason: uncontrolled editor seeded once per mount; reseeding from `value`
+  // would clobber in-progress edits.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const initialDoc = useMemo(() => htmlToDoc(value ?? ""), []);
   return (
@@ -135,6 +137,8 @@ function TitleEditor({ value, onChange, placeholder }: { value: string; onChange
 }
 
 function BodyEditor({ value, onChange, placeholder }: { value: string; onChange: (html: string) => void; placeholder?: string }) {
+  // Reason: uncontrolled editor seeded once per mount; reseeding from `value`
+  // would clobber in-progress edits.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const initialDoc = useMemo(() => htmlToDoc(value ?? ""), []);
   return (
