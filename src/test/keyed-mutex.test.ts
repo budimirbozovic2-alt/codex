@@ -1,7 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { createKeyedMutex } from "@/lib/concurrency/keyedMutex";
-
-const tick = (ms = 0) => new Promise<void>(r => setTimeout(r, ms));
+import { tick } from "./helpers/timers";
 
 describe("createKeyedMutex", () => {
   it("serijalizuje pozive pod istim ključem (FIFO)", async () => {

@@ -12,8 +12,8 @@ import {
 } from "@/store/useCategoryStore";
 import { listAllCategories } from "@/lib/db/queries";
 import { getTestSqlExecutor } from "./sqlite-harness";
-
-const tick = (ms = 10) => new Promise((r) => setTimeout(r, ms));
+// PR-G8: shared helper — replaces the local `tick` defined here.
+// (See src/test/helpers/timers.ts for the rationale.)
 
 function rec(id: string, name = id): CategoryRecord {
   return { id, name, sortOrder: 0, subcategories: [] };
@@ -45,8 +45,9 @@ describe("categoryRepository", () => {
     const spy = vi.spyOn(exec, "transaction").mockRejectedValueOnce(new Error("boom"));
     // Wave-1 hardening: commit now re-throws so callers can react (toast,
     // retry). The mirror must still roll back to the pre-commit snapshot.
+    // PR-G8: the `await expect(...).rejects` already settles the rejection
+    // before assertions run — no extra `tick()` flush is needed (RC-9).
     await expect(commit(() => [rec("opt")], "rollback-check")).rejects.toThrow(/boom/);
-    await tick();
     const ids = categoryStore.getState().records.map(r => r.id);
     expect(ids).not.toEqual(["opt"]);
     spy.mockRestore();
