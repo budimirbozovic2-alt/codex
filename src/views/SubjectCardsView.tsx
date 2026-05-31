@@ -91,7 +91,9 @@ export default function SubjectCardsView() {
   const { initialSnapshot, stash: stashEditReturn } = useEditReturn<EditReturnSnapshot>({
     path: `/subject/${categoryId}/cards`,
     categoryId,
-    buildExtras: () => ({
+    // PR-G8: explicit return type breaks the noImplicitAny inference cycle
+    // (buildExtras → tab/manageMode → useState init → initialSnapshot → useEditReturn<T>).
+    buildExtras: (): Partial<EditReturnSnapshot> => ({
       tab,
       manageMode,
       searchQuery,

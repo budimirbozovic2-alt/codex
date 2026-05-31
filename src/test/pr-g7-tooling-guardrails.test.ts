@@ -49,12 +49,16 @@ describe("PR-G7 — Tooling guardrails", () => {
     expect(/"@typescript-eslint\/no-unused-vars":\s*\[\s*"warn"/.test(cfg)).toBe(false);
   });
 
-  it("RC-7d: TypeScript keeps strict + strictNullChecks on (app + test)", () => {
+  it("RC-7d / PR-G8: strict + strictNullChecks + noImplicitAny on in all tsconfigs", () => {
     for (const path of ["tsconfig.app.json", "tsconfig.test.json", "tsconfig.json"]) {
       const cfg = JSON.parse(read(path));
       const co = cfg.compilerOptions ?? {};
       expect(co.strict, `${path} strict`).toBe(true);
       expect(co.strictNullChecks, `${path} strictNullChecks`).toBe(true);
+      // PR-G8: noImplicitAny flipped to true (drain was just 5 errors in
+      // SubjectCardsView, fixed by annotating buildExtras return type to
+      // break the useEditReturn generic inference cycle).
+      expect(co.noImplicitAny, `${path} noImplicitAny`).toBe(true);
     }
   });
 
