@@ -56,7 +56,7 @@ jobs:
 
       # ── TypeScript (incremental via .tsbuildinfo) ──────────────────────
       - name: Typecheck
-        run: npx tsc -b --pretty false
+        run: npx tsc -p tsconfig.app.json --noEmit --incremental --tsBuildInfoFile .tsbuildinfo --pretty false
 
       # ── ESLint with persistent cache ───────────────────────────────────
       - name: ESLint
