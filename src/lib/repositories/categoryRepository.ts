@@ -51,9 +51,15 @@ export function replaceAll(records: CategoryRecord[]): void {
 const _saveMutex = createKeyedMutex();
 
 /**
- * Optimistic commit: mutates the mirror inline, then persists to SQLite
- * inside a serialised mutex. On persist failure, rolls back from fresh
- * SQLite state (preferred) or the pre-commit snapshot.
+ * Optimistic commit: applies the updater to the current RAM snapshot, pushes
+ * the optimistic value into the SSOT store, then persists to SQLite inside a
+ * serialised mutex.
+ *
+ * On persist failure we ALWAYS roll back to the pre-commit snapshot —
+ * never to a fresh `listAllCategories()`, because when the SQLite executor
+ * is unavailable that helper returns `[]` and would wipe every category
+ * (this is the root cause of "adding a second category deletes the first"
+ * in the Vite preview shell).
  */
 export async function commit(
   updater: (prev: CategoryRecord[]) => CategoryRecord[],
@@ -65,21 +71,13 @@ export async function commit(
 
   return _saveMutex.runExclusive(null, async () => {
     try {
-      // Re-read fresh SQLite inside the mutex, then re-apply the updater to
-      // avoid stale-closure overwrites (matches the legacy contract).
-      const fresh = await listAllCategories();
-      const next = updater(fresh);
-      await replaceAllCategories(next);
-      // Keep the mirror in sync with the canonical persisted state.
-      setCategoryStoreRecords(next);
+      // Persist the exact RAM snapshot the user is looking at. SQLite ACID
+      // makes the read-modify-write dance redundant; serialising via the
+      // mutex prevents two concurrent commits from racing.
+      await replaceAllCategories(optimistic);
     } catch (e) {
       logger.error(`[${label}] SQLite persist failed, rolling back`, e);
-      try {
-        const fromDb = await listAllCategories();
-        setCategoryStoreRecords(fromDb);
-      } catch {
-        setCategoryStoreRecords(snapshot);
-      }
+      setCategoryStoreRecords(snapshot);
       toast.error("Greška", { description: "Promjena nije sačuvana." });
     }
   }, `category:${label}`);
