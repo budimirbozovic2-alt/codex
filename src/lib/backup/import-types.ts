@@ -15,7 +15,7 @@ export type ImportStrategy = "keep" | "overwrite" | "skip" | "newer";
 export interface ImportTxResult {
   /** Cards that should land in the in-memory map (post-merge). */
   merged: Card[];
-  /** Final cardId → Card map snapshot, ready for setCardMapState. */
+  /** Final cardId → Card snapshot, passed to `announceCardsReplaced` so the TanStack bridge invalidates `['cards']` after the import transaction commits. */
   nextMap: Record<string, Card>;
   /** Final categoryRecords snapshot for AppContext. */
   freshCategories: CategoryRecord[];

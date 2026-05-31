@@ -56,8 +56,8 @@ export async function deleteCardDirect(id: string): Promise<void> {
  *
  * Implementation note: the atomic import already wrote the rows in a
  * dedicated SQL transaction. We just emit the change signal and let the
- * bridge invalidate `['cards']`. Accepts `CardMap` for call-site symmetry
- * with the deprecated `replaceCardMap`.
+ * bridge invalidate `['cards']`. Accepts `CardMap` for legacy call-site
+ * signature parity; the argument is intentionally unused.
  */
 export function announceCardsReplaced(_nextMap: CardMap): void {
   void _nextMap; // signature parity; data already in SQLite

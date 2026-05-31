@@ -1,68 +1,67 @@
-## PR-E3 — Status nakon revizije
+## PR-E4 — Status: već je shipped
 
-Tokom istraživanja sam prošao SVE pisače koje PR-E3 navodi (Import, Heal, Migracije) i utvrdio da je **substantivni dio migracije već urađen** kroz PR-E2/E4. Svi pisači koriste `*Direct` API + `notifyCardsChanged` / `announceCardsReplaced`. Nema više nijedne **žive** referencu na `cardMapWrites.*` funkcije.
+Provjerio sam stanje na disku i u importima. **Velika čistka iz PR-E4 je već izvršena** — sva fizička brisanja su urađena u prethodnim PR-E rundama:
 
-### Šta je već migrirano (verified)
+### Verifikacija (sve potvrđeno)
 
-| Mjesto | Pisač | Status |
-|---|---|---|
-| `src/hooks/useCardImport.ts` | `importData` → `applyImportAtomically` (SqlExecutor.transaction) + `announceCardsReplaced(nextMap)` | ✅ Direct + bridge invalidate |
-| `src/hooks/useCardImport.ts` | `importCards` (bulk Q&A import) | ✅ `bulkPutCardsDirect` |
-| `src/lib/backup/import-transaction.ts` | Atomic restore — `writeCardsTx` unutar `SqlExecutor.transaction` | ✅ Tx + post-tx `announceCardsReplaced` u pozivaocu |
-| `src/lib/migrations/heal-card-taxonomy.ts` | One-shot heal (stale sub/chapter UUID-i) | ✅ `bulkPutCardsDirect` |
-| `src/lib/migrations/remap-from-backup.ts` | Remap nakon legacy backupa | ✅ `bulkPutCardsDirect` |
-| `src/lib/services/healthService.ts` | Health repair (`healHierarchy`) | ✅ `bulkPutCardsDirect` |
-| `src/domains/cards/index.ts` | Public barrel | ✅ prazan (legacy `cardMapWrites` modul obrisan) |
+| Stavka | Status |
+|---|---|
+| `src/store/useCardMapStore.ts` | ❌ ne postoji (obrisano) |
+| `src/store/useCardsBySource.ts` | ❌ ne postoji (obrisano) |
+| `src/domains/cards/cardMapWrites.ts` | ❌ ne postoji (obrisano) |
+| `src/domains/cards/index.ts` | ✅ prazan barrel (`export {}`) — zadržan radi ESLint W11 wall-a |
+| `src/store/index.ts` | ✅ čist — eksportuje samo TanStack selektore, category store, source reader, brand helpers |
+| `src/store/useCardSelectors.ts` | ✅ čisti re-export barrel iz `@/hooks/card/useCardsQuery` |
+| Live identifikator `cardMapWrites.*` u kodu | 0 call-sites (rg potvrđuje) |
+| ESLint guard `Identifier[name='cardMapWrites']` | ✅ aktivan u `BASE_RESTRICTED_SYNTAX` (PR-E3) |
 
-### Šta je ostalo (sve stari komentari)
+Zustand `cardMap` **fizički ne postoji** — TanStack Query je već jedini in-memory store za kartice.
 
-`rg "cardMapWrites\." src` vraća **0 call-sites** i samo **3 stale doc-comment reference** koje upućuju na ime modula koji više ne postoji:
+### Šta je realno ostalo (sitni mrtvi tragovi u komentarima i jedan deprecated naziv)
 
-1. `src/lib/db/queries/cards-writes.ts:69` — `// the former cardMapWrites.clearLinks semantics`
-2. `src/lib/migrations/heal-card-taxonomy.ts:31` — `// writes via cardMapWrites.bulkPut`
-3. `src/lib/services/healthService.ts:189` — `// then commit through cardMapWrites.bulkPut`
+`rg "cardMapWrites|cardMapStore|setCardMapState|replaceCardMap"` pokazuje 9 referenci — sve su **doc-komentari ili istorijski markeri**. Tri od njih su činjenično netačne (referenciraju brisane API-je kao da su živi):
 
-Dodatno, `heal-card-taxonomy.ts` ima zastario PR-marker (`PR-9 A1c-3` umjesto `PR-E3`).
+1. **`src/lib/backup/import-types.ts:18`** — `/** Final cardId → Card map snapshot, ready for setCardMapState. */`
+   `setCardMapState` ne postoji. Treba: `ready for announceCardsReplaced (post-tx invalidate)`.
+
+2. **`src/lib/db/queries/cards-writes.ts:60`** — `with the deprecated replaceCardMap`
+   `replaceCardMap` ne postoji. Treba ukloniti spomen ili preformulisati u "(legacy `CardMap` signature parity)".
+
+3. **`src/hooks/cards/useCardState.ts:24-26`** — komentar tvrdi da `cardMapStore` "stays as the internal write-side cache for `cardMapWrites` sync lookups". Oba modula su obrisana. Treba: TanStack `['cards','all']` invalidiran kroz `onCardsChanged` bridge — jedini izvor.
+
+4. **Istorijski OK** (zadrži, opisuju ŠTA je deprecated): `useCardsQuery.ts:6`, `useCardMutations.ts:16`, `db/queries/index.ts:35`, `heal-card-taxonomy.ts:33`, `healthService.ts:192`, `domains/cards/index.ts:4`, `cards-mirror-and-rollback.test.tsx:4`. Ovi eksplicitno govore "X was deleted in PR-E" i korisni su future readerima.
 
 ---
 
-## Plan: čisto kozmetičko zatvaranje PR-E3
+## Plan — finalni cleanup + memory promovisanje statusa
 
-### 1. Osvježiti 3 stale komentara
+### 1. Ispraviti 3 stale komentara (faktografski netačni)
 
-- `cards-writes.ts:67-71` — `cardMapWrites.clearLinks` → `legacy clearLinks RAM-commit` (sa napomenom da je modul obrisan u PR-E2).
-- `heal-card-taxonomy.ts:24-32` — preformulisati JSDoc: pisanje ide kroz `bulkPutCardsDirect` (SqlExecutor.transaction → `notifyCardsChanged`). Update PR-marker na **PR-E3**.
-- `healthService.ts:185-201` — analogna preformulacija inline komentara.
+- `import-types.ts:18` → opisati `nextMap` u terminima `announceCardsReplaced`.
+- `cards-writes.ts:60` → ukloniti spomen `replaceCardMap`, samo "signature parity sa legacy `CardMap` tipom".
+- `useCardState.ts:24-26` → preformulisati: "TanStack `['cards','all']` je jedini izvor; invalidiran kroz `onCardsChanged` bridge nakon SQLite pisanja. Legacy `cardMapStore` obrisan u PR-E4."
 
-### 2. Regression guard (ESLint `no-restricted-syntax`)
+### 2. Verifikacija da nije ostao niti jedan import koji bi pukao
 
-U `eslint.config.js` dodati pravilo koje banuje identifikator `cardMapWrites` u source kodu (sa allow-listom za `*.md`/komentare ako bude trebalo). Pošto modul više ne postoji, svaki novi `cardMapWrites.*` poziv bi i tako pukao u TS-u — ali eksplicitno ESLint pravilo služi kao **stalni semantički wall** koji čuva PR-E invariantu, slično kao W7 (Dexie) i W10 (motion) već imamo.
+- `rg "from .@/store/useCardMapStore" src` → mora biti 0.
+- `rg "from .@/domains/cards/cardMapWrites" src` → mora biti 0.
+- `bunx tsc -p tsconfig.app.json --noEmit` → zeleno.
+- `bun run lint` → zeleno (ESLint guard već postoji iz PR-E3).
+- `bunx vitest run src/test/cards-mirror-and-rollback.test.tsx src/test/import-transaction-split.test.ts` → svi prolaze.
 
-Predlog:
-```js
-{
-  selector: "MemberExpression[object.name='cardMapWrites']",
-  message: "cardMapWrites is deleted (PR-E). Use *Direct helpers from @/lib/db/queries.",
-}
-```
+### 3. Memorija
 
-### 3. Memory update
+- Update `mem://architecture/cards-tanstack-ssot` jednom rečenicom: "PR-E4 Great Purge confirmed shipped — useCardMapStore.ts, useCardsBySource.ts, cardMapWrites.ts physically gone; rg živih referenci = 0; ESLint W (PR-E3 guard) blokira regresiju."
+- Core memoriju (mem://index.md) ne diramo — već kaže "DELETED (PR-E)".
 
-Osvježiti `mem://architecture/cards-tanstack-ssot` jednom rečenicom: "PR-E3 verified — Import/Heal/Migrations all on `*Direct` + `announceCardsReplaced`; zero `cardMapWrites` call-sites remain."
+### 4. Šta NE treba dirati
 
-### 4. Verifikacija
-
-- `bun run lint` (novo pravilo zelen­o, ostalo netaknuto).
-- `bunx tsc -p tsconfig.app.json --noEmit`.
-- `bun test` — postojeći `import-transaction-split` i `cards-mirror-and-rollback` testovi pokrivaju ovaj put.
+- `src/domains/cards/index.ts` (`export {}`) — namjerno prazan da W11 wall ostane živ za buduće potrebe. Ne brišemo.
+- `src/store/useCardSelectors.ts` — iako je samo re-export, drži se odvojeno radi konzistencije sa `useCategorySelectors`. Inlinovanje nije scope PR-E4.
+- ESLint W11 wall — ostaje.
 
 ### Tehnički detalji
 
-Nijedna runtime promjena. Sve 4 stavke su komentari + lint-konfiguracija + memo. Nema migration SQL-a, nema novih API endpointa, nema novih file-ova osim možda jednog mem fajla.
+Promjene su isključivo komentari + memo. Nema runtime promjena, nema deps, nema TS strukturnih promjena. 3 fajla edituju, 1 memo fajl ažurira.
 
-### Šta NIJE u skopu (otvorena pitanja za PR-E4 ili posebne PR-ove)
-
-- `categoryRepository.replaceAll(...)` u `import-transaction.ts:176` se zove _unutar_ `applyImportAtomically`, a `useCardImport.ts:142` zove istu metodu **drugi put** post-tx. To je suvišno (double-replace), ali nije PR-E3 scope — ako želiš, otvorim PR-E3a.
-- Provjera da li `applyImportAtomically` izvršava `notifyCardsChanged` _unutar_ svog `try` bloka (trenutno se to oslanja na pozivaoca `announceCardsReplaced`). Ako neki drugi pozivalac u budućnosti zaboravi pozvati `announceCardsReplaced`, cache će ostati ustajao. Mogli bismo prebaciti notifikaciju u sam `applyImportAtomically` (post-commit). Reci ako želiš da uđe u PR-E3.
-
-Reci `Implement plan` ako prihvataš ovaj minimalni cleanup, ili mi reci da li želiš da se PR-E3 proširi sa stavkom o `applyImportAtomically` self-notify (preporučujem — to je realna runtime tvrdoća, ne kozmetika).
+Reci `Implement plan` da izvršim.
