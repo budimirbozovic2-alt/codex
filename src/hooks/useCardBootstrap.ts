@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { markBootStep } from "@/lib/boot-trace";
 import { transition, getBootState, installSplashBridge } from "@/lib/boot";
 import { notifyCardsChanged } from "@/lib/db/queries";
+import { useDbError } from "@/hooks/useDbError";
 
 
 import { categoryRepository } from "@/lib/repositories";
