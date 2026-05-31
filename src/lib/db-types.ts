@@ -67,8 +67,6 @@ export interface Source {
   categoryId: string;
   title: string;
   date: string;
-  /** @deprecated Legacy HTML column (dropped in Dexie v22). */
-  htmlContent?: string;
   contentDoc: EditorDoc;
   outline: { id: string; text: string; level: number }[];
   articles: SourceArticle[];
@@ -130,8 +128,6 @@ export interface MindMapDoc {
 export interface KnowledgeBaseArticle {
   id: string;
   subjectId: string;
-  /** @deprecated Legacy markdown column (dropped in Dexie v22). */
-  content?: string;
   title: string;
   contentDoc: EditorDoc;
   linkedSourceIds: string[];
