@@ -58,20 +58,11 @@ export function useDocxImportFlow(defaultCategory: string) {
     setFile(f);
     try {
       const arrayBuffer = await f.arrayBuffer();
-      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-      // @ts-ignore — mammoth.browser nema vlastite tipove.
-      const mod = await import("mammoth/mammoth.browser");
-      const mammoth = (mod as unknown as { default?: { convertToHtml: (i: { arrayBuffer: ArrayBuffer }, opts?: unknown) => Promise<{ value: string }> } }).default
-        ?? (mod as unknown as { convertToHtml: (i: { arrayBuffer: ArrayBuffer }, opts?: unknown) => Promise<{ value: string }> });
-      const result = await mammoth.convertToHtml(
-        { arrayBuffer },
-        {
-          styleMap: [
-            "p[style-name='List Paragraph'] => p.list-paragraph:fresh",
-          ],
-        },
-      );
-      setHtmlContent(sanitizeHtml(result.value));
+      // Wave 5: parse off the main thread via the docx Web Worker; falls back
+      // to in-thread mammoth automatically if Workers aren't available.
+      const { parseDocxInWorker } = await import("./docx-parser");
+      const html = await parseDocxInWorker(arrayBuffer);
+      setHtmlContent(sanitizeHtml(html));
       setStep("configure");
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Neuspješno čitanje DOCX fajla.";
