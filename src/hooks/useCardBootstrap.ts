@@ -174,7 +174,7 @@ export function useCardBootstrap() {
         showSplashError(errMsg || "Neočekivana greška pri učitavanju podataka.");
       } finally {
         setReady(true);
-        clearTimeout(panicTimer);
+        taskScheduler.cancel(panicHandle);
         cleanupSplash();
         notifyElectronReady();
         // Wave-2 fix: signal splash retry script AFTER React boot truly
@@ -191,7 +191,7 @@ export function useCardBootstrap() {
       }
     })();
 
-    return () => clearTimeout(panicTimer);
+    return () => taskScheduler.cancel(panicHandle);
   }, [dbError]);
 
   return { ready };
