@@ -25,8 +25,12 @@ export default function EditPage() {
     navigateBack();
   };
 
-  const handleUpdate = (id: string, u: Partial<Card>) => {
-    updateCard(id, u);
+  // PR-G7: narrow to CardForm's onUpdate signature (SectionInput[] is the
+  // editor-shape, not Card['sections']). strictFunctionTypes (enabled with
+  // strict:true) makes function params contravariant — using Partial<Card>
+  // here would be wider than the prop expects and fail assignability.
+  const handleUpdate: React.ComponentProps<typeof CardForm>["onUpdate"] = (id, u) => {
+    updateCard(id, u as Partial<Card>);
     setEditingCardId(null);
     navigateBack();
   };
