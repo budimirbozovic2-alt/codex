@@ -121,7 +121,8 @@ describe("useAllCards — mirror via query bridge", () => {
     currentRows = [makeCard("a"), makeCard("b")];
     // Yield several microtask/macrotask cycles instead of a wall-clock sleep.
     // Without an explicit notifyCardsChanged, no refetch should ever occur.
-    for (let i = 0; i < 5; i++) await new Promise((r) => setTimeout(r, 0));
+    // PR-G8: shared flushMacrotasks helper (RC-8).
+    await flushMacrotasks(5);
     expect(result.current.length).toBe(1);
   });
 });

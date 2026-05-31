@@ -78,7 +78,8 @@ describe("useCardDraftAutosave", () => {
     // No debounce is ever scheduled when enabled=false, so a short poll
     // window is enough to assert the row stays absent without a wall-clock wait.
     for (let i = 0; i < 5; i++) {
-      await new Promise((r) => setTimeout(r, 0));
+      // PR-G8: was `await new Promise(r => setTimeout(r, 0))` — use shared helper.
+      await flushMacrotasks();
       expect(await getStored(key)).toBeUndefined();
     }
   });
