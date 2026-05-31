@@ -19,7 +19,7 @@ import {
   bulkPut,
   remove,
   applySyncDelta,
-} from "@/lib/cards/cardMapWrites";
+} from "@/domains/cards";
 import { cardMapStore, getCardMap, replaceCardMap, cardMapRefFacade } from "@/store/useCardMapStore";
 import type { Card } from "@/lib/spaced-repetition";
 

@@ -30,6 +30,7 @@ export type {
   DisciplineEntry,
   DailyPhaseProgress,
 } from "./types";
+export { DEFAULT_CONFIG } from "./types";
 
 export { initPlannerCache, onPlannerChanged, type PlannerChangeKind } from "./cache";
 export { loadPlanner, savePlanner } from "./config";

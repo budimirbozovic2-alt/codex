@@ -26,7 +26,7 @@ import {
   notifyKnowledgeBaseChanged,
 } from "@/lib/db/queries";
 import { deleteSetting, getSetting } from "@/lib/db/queries";
-import { scrubCategoryFromPlannerConfig } from "@/lib/planner";
+import { scrubCategoryFromPlannerConfig } from "@/domains/planner";
 import { categoryRepository } from "@/lib/repositories";
 import { notifyMnemonics } from "@/features/mnemonic/mnemonic-storage";
 import { logger } from "@/lib/logger";

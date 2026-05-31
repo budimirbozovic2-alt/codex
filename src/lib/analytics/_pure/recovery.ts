@@ -1,6 +1,6 @@
 // Pure recovery-rate analytics. Receives `disciplineLog` snapshot.
 import { differenceInDays } from "date-fns";
-import type { DisciplineEntry } from "../../planner/types";
+import type { DisciplineEntry } from "@/domains/planner";
 
 export interface RecoveryStats {
   avgRecoveryDays: number;

@@ -1,6 +1,6 @@
 /** Daily-mapped counter + midnight auto-redistribute. */
 import { addDays } from "date-fns";
-import type { Card } from "../spaced-repetition";
+import type { Card } from "@/lib/spaced-repetition";
 import {
   dailyMappedCache,
   disciplineCache,

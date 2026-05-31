@@ -16,7 +16,7 @@
  */
 import { logger } from "@/lib/logger";
 import { taskScheduler } from "@/lib/scheduler";
-import * as cardMapWrites from "@/lib/cards/cardMapWrites";
+import * as cardMapWrites from "@/domains/cards";
 import { saveSource } from "@/lib/sources-storage";
 import { saveArticle } from "@/lib/zettelkasten-storage";
 import {

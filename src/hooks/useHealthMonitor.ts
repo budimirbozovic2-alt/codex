@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
-import { reloadCardsFromDb } from "@/lib/cards/cardMapWrites";
+import { reloadCardsFromDb } from "@/domains/cards";
 import {
   buildHealthReport,
   cleanOrphans as svcCleanOrphans,

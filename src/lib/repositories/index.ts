@@ -6,7 +6,7 @@
 // eslint.config.js — "Public API walls").
 //
 // Note: cardRepository was collapsed (B1). Sync RAM commits live in
-// `@/lib/cards/cardMapWrites`; async writes go through
+// `@/domains/cards`; async writes go through
 // `useCardMutations` (TanStack).
 // ─────────────────────────────────────────────────────────────────────────────
 

@@ -1,6 +1,6 @@
 /** Velocity, finish projection, and human-readable projection text. */
 import { addDays, differenceInDays, startOfDay } from "date-fns";
-import type { ReviewLogEntry } from "../storage";
+import type { ReviewLogEntry } from "@/lib/storage";
 import { calcRebalancedQuota } from "./suggestions";
 
 export function calcVelocity(reviewLog: ReviewLogEntry[], days: number = 7): number {

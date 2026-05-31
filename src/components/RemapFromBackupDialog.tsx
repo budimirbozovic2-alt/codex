@@ -15,7 +15,7 @@ import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
 import { remapFromBackup, type BackupRemapReport } from "@/lib/migrations/remap-from-backup";
 import { yieldUI } from "@/lib/backup/yield-ui";
-import { reloadCardsFromDb } from "@/lib/cards/cardMapWrites";
+import { reloadCardsFromDb } from "@/domains/cards";
 
 interface RemapFromBackupDialogProps {
   open: boolean;

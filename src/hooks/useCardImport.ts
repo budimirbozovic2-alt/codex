@@ -9,7 +9,7 @@ import { yieldUI } from "@/lib/backup/yield-ui";
 import { applyImportAtomically, type ImportStrategy } from "@/lib/backup/import-transaction";
 import { parseJsonInWorker } from "@/lib/zip-service";
 import { clearReviewSession } from "@/lib/review-session-storage";
-import { replaceAll as cardMapReplaceAll, bulkPut as cardMapBulkPut } from "@/lib/cards/cardMapWrites";
+import { replaceAll as cardMapReplaceAll, bulkPut as cardMapBulkPut } from "@/domains/cards";
 import { categoryRepository } from "@/lib/repositories";
 import { getCardMap } from "@/store";
 import { replaceReviewLog, updateSRSettings } from "@/store/reviewSettingsStore";

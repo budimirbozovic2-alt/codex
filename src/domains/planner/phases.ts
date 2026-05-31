@@ -1,5 +1,5 @@
 /** Phase-level progress aggregations. */
-import type { Card } from "../spaced-repetition";
+import type { Card } from "@/lib/spaced-repetition";
 import type { StudyPhase, PhaseProgress, DisciplineEntry } from "./types";
 
 export function calcPhaseProgress(phase: StudyPhase, cards: Card[]): PhaseProgress {
