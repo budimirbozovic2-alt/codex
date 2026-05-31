@@ -1,17 +1,14 @@
 /**
  * Public API barrel for the `cards` domain.
  *
- * All external callers (hooks, contexts, components, services) MUST import
- * from `@/domains/cards` — deep imports into sibling files are blocked by
- * ESLint wall W11 outside `src/domains/cards/**`.
+ * Post PR-E4 the domain owns nothing in-RAM. The legacy `cardMapWrites`
+ * sync RAM-commit module + Zustand `cardMapStore` have been deleted; all
+ * card writes flow through `@/lib/db/queries` (`putCardDirect`,
+ * `bulkPutCardsDirect`, `deleteCardDirect`, …) and reads flow through
+ * TanStack Query hooks in `@/hooks/card/useCardsQuery`.
  *
- * Composition:
- *   • Sync RAM-commit primitives over the Zustand `cardMapStore` live here
- *     in `cardMapWrites.ts` (the post-B1 collapse target).
- *   • Async write wrappers + optimistic UI use `useCardMutations` (hooks).
- *   • Read path uses TanStack Query bridges over `@/lib/db/queries.cards*`.
- *
- * Infra (db, persistence, sr/FSRS, logger, persist-queue) stays under
- * `@/lib/*` — this barrel re-exports nothing infra-level.
+ * This barrel is intentionally empty — kept so the ESLint W11 wall
+ * (no deep imports into `src/domains/cards/**`) still has a sanctioned
+ * seam should the domain re-grow public surface area in the future.
  */
-export * from "./cardMapWrites";
+export {};

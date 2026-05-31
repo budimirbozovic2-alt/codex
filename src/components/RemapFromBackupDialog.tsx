@@ -15,7 +15,7 @@ import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
 import { remapFromBackup, type BackupRemapReport } from "@/lib/migrations/remap-from-backup";
 import { yieldUI } from "@/lib/backup/yield-ui";
-import { reloadCardsFromDb } from "@/domains/cards";
+import { notifyCardsChanged } from "@/lib/db/queries";
 
 interface RemapFromBackupDialogProps {
   open: boolean;
@@ -115,7 +115,7 @@ export default function RemapFromBackupDialog({
       } else {
         toast.success(`Remap uspješan: ${total} izmjena na karticama.`);
       }
-      await reloadCardsFromDb();
+      notifyCardsChanged();
       onApplied?.();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Greška pri primjeni remapa.");
