@@ -1,57 +1,236 @@
-# PR-G8 (RC-8): `noImplicitAny: true` u sva tri tsconfig-a
+# Deep Audit — Konsolidovani izvještaj i predloženi PR-ovi
 
-Cilj: zatvoriti posljednju rupu zero-any politike — TypeScript je do sada
-implicitno tretirao neoznačene parametre/funkcije kao `any` bez ESLint
-greške jer ESLint guard hvata samo *eksplicitni* `: any`. PR-G8 flipuje
-`noImplicitAny` na `true` u svim tsconfig-ovima i drain-uje rezultujuće
-greške.
+4 paralelna audit agenta vratila ukupno **~95 nalaza**. Filterisao sam ih
+po impact-u i grupisao u **7 PR bundle-ova (PR-H1 → PR-H7)**, redoslijed
+preporučen po stvarnoj šteti × cijena fixa.
 
-## Drain rezultat
+Tri stavke u "CRITICAL" tier-u su **ćutke aktivne greške u produkciji**
+(double-FSRS-decay, XSS rupa, broad invalidation storm). One ulaze u PR-H1
+i moraju ići prve.
 
-`bunx tsc -p tsconfig.app.json --noEmit` nakon flipa: **samo 5 grešaka**,
-sve u `src/views/SubjectCardsView.tsx`, sve TS7022/TS7023 ("implicitly
-has type 'any' because it does not have a type annotation and is
-referenced directly or indirectly in its own initializer").
+---
 
-Root cause je jedna inference petlja:
+## PR-H1 — CRITICAL fixes (data corruption, XSS, perf storm)
+
+Po jedan bug, sve jednodnevne hirurške izmjene. Svaka stavka dolazi sa
+regresionim guard testom.
+
+### 1. **`gradeSection` dvaput primjenjuje FSRS patcher** 🔴
+`src/hooks/card/useCardMutations.ts:198-203`
+`onMutate` zove `optimisticPatch(qc, cardId, patcher)`, a zatim `mutationFn`
+čita **već-patchovanu** karticu iz cache-a i ponovo primjenjuje isti
+patcher prije upisa u SQLite. FSRS memorija se duplo dekejuje na svaku
+ocjenu.
+- **Fix:** `mutationFn` čita pre-patch karticu iz SQLite (`getCardsByIds`),
+  ili `onMutate` predaje snapshot kroz mutation context.
+- **Guard:** test koji ocijeni karticu i provjeri da je `stability` jednak
+  FSRS-očekivanoj vrijednosti za jednu primjenu, ne dvije.
+
+### 2. **`autoFormatArticles` zapisuje `innerHTML` bez DOMPurify** 🔴
+`src/lib/article-autoformat.ts:28,35`
+`el.innerHTML = \`<strong>${el.innerHTML}</strong>\`` na user-supplied
+izvoru — XSS payload u "Član X" bloku se re-injektuje neočišćen. Krši W7
+posture.
+- **Fix:** `document.createElement("strong")` + `appendChild` umjesto
+  innerHTML round-trip.
+- **Guard:** test koji ubaci `<img src=x onerror=...>` u članak i provjeri
+  da ne preživi format korak.
+
+### 3. **`settle()` invalidira cijeli `['cards']` korijen na svakom write-u** 🔴
+`src/hooks/card/useCardMutations.ts:156`
+`save`/`remove`/`gradeSection` zovu broad invalidate iako bridge već
+emituje scoped invalidation kroz `notifyCardsChanged`. Dupla refetch
+ekplozija na svaki kartični write.
+- **Fix:** `settle()` ostaje samo u `bulkUpsert`/`bulkPatch`; ukloniti iz
+  single-card mutations.
+- **Guard:** spy na `qc.invalidateQueries`, ocijeni karticu, expect ≤ 1
+  scoped poziv.
+
+### 4. **`ExportImportDialog` proguta sve greške i zaledi UI** 🔴
+`src/components/ExportImportDialog.tsx:43,49,53`
+Bez `try/catch` oko `validateImportFile`; finally + zatvori dijalog na
+export failure → nula feedback-a korisniku.
+- **Fix:** wrap u try/catch, prikaži error step + toast.
+
+### 5. **`console.error/warn` u produkcijskim runtime handler-ima** 🟠
+`src/main.tsx:44,47,125`, `src/components/ExportImportDialog.tsx:76`,
+`src/lib/migrations/backup-schema/helpers.ts`
+Vite `esbuild.pure` ne tree-shake-uje `console.error`. Stack-trace-ovi i
+schema warning-i cure u packaged Electron build.
+- **Fix:** sve kroz `logger.error`/`logger.warn`.
+
+---
+
+## PR-H2 — Optimistic mutation safety net
+
+Svi pisači sem cards trenutno nemaju `onSettled` safety net + neki write-i
+su fire-and-forget pa SQLite failure tiho razilazi RAM od DB.
+
+- **`useSourceMutations` bez `onSettled`** (`src/hooks/source/useSourceMutations.ts:58-61`)
+  → dodati invalidate fallback ako bridge listener detached.
+- **`saveDisciplineLog` fire-and-forget** (`src/domains/planner/discipline.ts:13`)
+  → await + rollback `disciplineCache` na throw.
+- **`reviewLogApplied` samo za `overwrite` strategiju**
+  (`src/lib/backup/import-transaction.ts:161-163`) → set za sve strategije
+  gdje je `parsed.reviewLog.length > 0`.
+- **`deleteSourceAndUnlinkCards` parse failure ostavi dangling `sourceId`
+  u JSON payload-u** (`src/lib/db/queries/sources.ts:~130`) → `json_remove`
+  u catch grani.
+- **`void saveReviewSession(state)` u ReviewSession** → await + toast na
+  failure.
+
+Guard: serija testova koji emuluju SQLite throw u svakom write helper-u i
+provjere da RAM cache rollback-uje.
+
+---
+
+## PR-H3 — Perf: search index + worker offload
+
+### A. GlobalSearch full-text index
+`src/components/GlobalSearch.tsx:98-100` i `useCardViewFilters.ts:133`
+`derivePlainText(s.contentDoc).toLowerCase()` zove se po sekciji × po
+kartici × po keystroke. Trenutno WeakMap kešira plain, ali ne lowercased.
+- **Fix:**
+  1. Drugi WeakMap layer u `derived.ts` za lowercased verziju.
+  2. Pre-build flat `Map<cardId, searchString>` u `useMemo([cards])`,
+     filter nad tim umjesto nad sekcijama.
+
+### B. Heavy memos na main thread
+- `useCognitiveStats.ts:16-23` — 3 storage read-a unutar `useMemo`
+  po cards change → zamijeniti stable selektorima.
+- `usePlannerData.ts:110` — `generateStudyPlan` (577 LoC) sinkrono u memo
+  → routirati kroz `analyticsClient` (worker već postoji).
+- `useDashboardData.ts:164-177` — `autoRedistributeIfNeeded` re-trigger na
+  svaku optimističku patch (novi `cards` ref) → gate na stable
+  `hashCards(id+updatedAt)`.
+
+### C. BackupCard / NudgeWatcher prekomjerno subscribe-uju
+`src/components/dashboard/BackupCard.tsx:21`, `src/components/MainLayout.tsx:38`
+Ne renderuju `cards` — samo ga drže u closure-u za rijetki click handler.
+- **Fix:** zamijeniti `useCardData()` sa `qc.getQueryData(...)` u callback
+  trenutku → uklanja subscription, eliminiše re-render na svaku karticu.
+
+---
+
+## PR-H4 — Wall violations (W6/W8) + orchestrator pattern
+
+ESLint nije ulovio jer su importi iz `@/lib/db/queries` (sanctioned
+barrel), ali kontekst pogrešan.
+
+### Wall fixes
+- `components/RemapFromBackupDialog.tsx:18` — `notifyCardsChanged` direktno
+  iz UI komponente → premjestiti u hook.
+- `components/export-import/useImportValidation.ts` — hook (no JSX) pod
+  `components/` putanjom; lomi Fast Refresh konvenciju → move u
+  `src/hooks/useImportValidation.ts`.
+- `components/SRSettingsPanel.tsx:12`, `components/SourceReader.tsx:6`,
+  `SourceToolbar.tsx:8`, `SmartSplitSummaryDialog.tsx:9` — direktan
+  `@/store` import iz duboko ugnježdene komponente → kompozicija kroz
+  parent hook.
+
+### Orchestrator drain
+Komponente koje treba pretvoriti u dumb render + extract hook:
+- `LearnSession.tsx` (13× useState + `loadLearnProgress` + `addActivityEntry`
+  inline) → `useLearnSession` hook.
+- `ReviewSession.tsx` (7× useState + `loadSavedReviewSession`) → `useReviewSession`.
+- `ZenMode.tsx` (`addPomodoroEntry`/`getPomodoroStats` direktno) → kroz
+  postojeći `usePomodoro` hook.
+- `ReviewCard.tsx:10` (`addLatencyEntry` inline) → `useLatencyTracker` hook.
+
+ESLint rule dodatak: blokirati direktan `@/lib/metacognitive-storage` import
+iz `src/components/**`.
+
+---
+
+## PR-H5 — A11y baseline (W15)
+
+- **Skip-to-content target nedostaje `tabIndex={-1}`**
+  (`src/components/MainLayout.tsx:227`) — fokus skoči se tiho gubi u
+  WebKit/Firefox.
+- **Form fields bez `aria-invalid` / `aria-describedby`**
+  (`src/components/card-form/MetadataSection.tsx`, `CardForm.tsx`) — 18
+  kontrola, 0 anotacija; greške nisu programski povezane sa poljem.
+- **`<label>` bez `htmlFor`** na Radix `<SelectTrigger>` u MetadataSection.
+- **Dialog focus return** — custom (non-Radix) dijalozi (`ExamSidebar`,
+  `LinkToExistingCardModal`) ne vraćaju fokus na trigger.
+- **ReviewCard `Space` `preventDefault()` window-wide** — guard sa
+  `isEditableTarget(document.activeElement)`.
+- **Hotkey hardening:** dodati `{ ignoreInEditable: true }` u
+  `useGlobalHotkey` poziv iz `ReviewCard.tsx:74`.
+
+Nove ESLint rule (W15): warn na `useGlobalHotkey` poziv bez `opts` argument.
+
+---
+
+## PR-H6 — CardViewTable virtualizacija + memo stabilnost
+
+- `CardViewTable` nema virtuelizaciju iako iste table mogu imati 200-500
+  redova → primijeniti `react-window` po šablonu iz PR-G5
+  (`VirtualSortableCardList` može poslužiti kao referenca).
+- `CardViewMode.tsx:325` — inline arrow `onOpenMoveModal` busta `React.memo`
+  na svakom render-u → wrap u `useCallback([])`.
+- `CardViewMode.tsx:69-75` — `onFiltersChange` snapshot kao novi objekat
+  literal na svaki state change → `useMemo` snapshot + `useCallback`.
+- `AppSidebar` — `useCategoryStatsData` vraća novu referencu i kad su
+  brojevi identični → `shallowEqual` selektor.
+- `useDashboardData.ts:219-234` — O(N×M) `categoryRecords.find` u `.map()`
+  → pre-build `Map<id, name>`.
+
+---
+
+## PR-H7 — Dead code / duplikati / test gap drain
+
+### Dead/passthrough
+- `hooks/useSession.ts` — 100% re-export iz `@/store/useSessionStore`,
+  3 call site-a → inline + delete (3 file delta).
+- `lib/cognitive-analytics.ts` — comment kaže "thin shim", samo
+  `calcWeakHooks` se koristi → inline + delete.
+- `domains/cards/index.ts` — prazan `export {}`, ESLint wall radi po path
+  pattern-u, ne barrel → ili populate ili dodati jasan TOMBSTONE komentar.
+
+### Duplikati
+- `crypto.randomUUID()` na 17+ call site-ova → router kroz `@/lib/ids`
+  factory funkcije sa branded ID-ovima.
+- `Section` interface duplo (`lib/sr/types.ts:12` vs
+  `lib/docx/splitIntoSections.ts:28`) sa nekompatibilnim oblicima →
+  rename docx verzije u `SectionDto`.
+- `addActivityEntry` direktno u `LearnSession:204` i `ReviewSession:43`
+  iako `useActivityTracker` hook već postoji → migrirati call site-ove.
+- `mindmap-constants.ts:4` — `let nodeIdCounter` mutable counter u "pure
+  constants" file-u → `crypto.randomUUID()` ili `@/lib/ids`.
+
+### Test gap
+Dodati po jedan smoke + jedan happy-path test za:
+- `lib/metacognitive-storage.ts` — `addActivityEntry`, `getCalibrationStats`,
+  `getLearningVelocity` (0 testova).
+- `lib/backup/import-remap.ts` + `write-satellite-tx.ts` — remap nakon
+  schema-version mismatch (0 testova).
+- `lib/review-session-storage.ts` — pause/resume round-trip (0 testova).
+
+---
+
+## Tehnički detalji za implementaciju
 
 ```text
-buildExtras: () => ({ tab, manageMode, ... })
-        │           inferred return
-        ▼
-useEditReturn<EditReturnSnapshot>({ buildExtras })
-        │           inferred initialSnapshot
-        ▼
-useState<...>(initialSnapshot?.tab ...) → tab, manageMode, ...
-        │           referenced by buildExtras
-        ▼
-(cycle)
+PR redoslijed (preporučen):
+  PR-H1 (kritičnih 5)        ─┐
+  PR-H2 (mutation safety)    │  Sigurnost + data integritet first
+  PR-H3 (perf — search/worker)
+  PR-H4 (walls + orchestrator)  Arhitekturna disciplina
+  PR-H5 (a11y baseline)
+  PR-H6 (table virt + memo)     Final perf polish
+  PR-H7 (dead code drain)
 ```
 
-## Izmjene
+**Stvari koje NISU u planu** (svjesno isključeno):
+- Migracije IDB → SQLite već su drain-ovane (Phase C).
+- Stavke označene kao P2 housekeeping (i18n layer, branded-ID rebranding
+  postojećih ID-ova) — ne donose dovoljno value-a za sada.
+- Sve što duplira posao iz PR-G3..G8.
 
-### 1. `src/views/SubjectCardsView.tsx` (1 linija anotacije)
-- `buildExtras: (): Partial<EditReturnSnapshot> => ({ ... })`
-- Eksplicitan povratni tip prekida cikličnu inferenciju; sve ostale state
-  varijable se sad uredno tipuju iz `useEditReturn<EditReturnSnapshot>`.
+**Estimat:** PR-H1 = ~3h, PR-H2 = ~4h, PR-H3 = ~6h, PR-H4 = ~8h, PR-H5 =
+~5h, PR-H6 = ~4h, PR-H7 = ~6h. Ukupno ~36h fokusiranog rada za potpuni
+drain.
 
-### 2. `tsconfig.app.json`, `tsconfig.test.json`, `tsconfig.json`
-- `"noImplicitAny": false` → `"noImplicitAny": true`.
-
-### 3. `src/test/pr-g7-tooling-guardrails.test.ts` (RC-7d ažuriran)
-- Postojeća tvrdnja za `strict` + `strictNullChecks` proširena: sad takođe
-  zahtijeva `noImplicitAny === true` u sva 3 config-a. Sprječava silent
-  regression nazad na implicit-any.
-
-## Što PR-G8 NE radi
-
-- Ne dira proizvodno ponašanje — `noImplicitAny` je kompajl-time guard,
-  generisani kod identičan.
-- Ne flipuje `noUncheckedIndexedAccess` / `exactOptionalPropertyTypes` —
-  to su zaseban drain (vjerovatno PR-G9).
-
-## Verifikacija
-
-- `bunx tsc --noEmit` (sva 3 projekta) — 0 grešaka nakon fixa.
-- `bunx vitest run pr-g4 pr-g5 pr-g6 pr-g7` — **21/21 ✓**, novi RC-7d guard
-  uključen.
+Predlažem da krenemo sa **PR-H1** odmah — to su 4-5 small but mean bugova
+koji rade tihu štetu već danas.
