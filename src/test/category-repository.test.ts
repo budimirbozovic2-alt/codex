@@ -43,7 +43,9 @@ describe("categoryRepository", () => {
     replaceAll([rec("orig")]);
     const exec = getTestSqlExecutor();
     const spy = vi.spyOn(exec, "transaction").mockRejectedValueOnce(new Error("boom"));
-    await commit(() => [rec("opt")], "rollback-check");
+    // Wave-1 hardening: commit now re-throws so callers can react (toast,
+    // retry). The mirror must still roll back to the pre-commit snapshot.
+    await expect(commit(() => [rec("opt")], "rollback-check")).rejects.toThrow(/boom/);
     await tick();
     const ids = categoryStore.getState().records.map(r => r.id);
     expect(ids).not.toEqual(["opt"]);
