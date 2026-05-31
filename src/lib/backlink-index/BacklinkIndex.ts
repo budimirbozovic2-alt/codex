@@ -154,8 +154,11 @@ class BacklinkIndex {
     const links = new Set<string>();
     const seenInThis = new Set<string>();
     const selfTitle = norm(a.title);
-    // `content` (markdown) was dropped — derive once from the AST.
-    const body = deriveMarkdown(a.contentDoc);
+    // `content` (markdown) is deprecated but legacy/synthetic articles (tests,
+    // un-migrated rows) may still carry only the markdown string. Prefer the
+    // AST derivation; fall back to `a.content` so the index stays correct.
+    const derived = deriveMarkdown(a.contentDoc);
+    const body = derived || (typeof a.content === "string" ? a.content : "");
     for (const m of iterateWikiLinks(body)) {
       const targetKey = norm(m.target);
       if (!targetKey) continue;

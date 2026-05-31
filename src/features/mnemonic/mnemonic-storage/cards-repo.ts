@@ -48,7 +48,7 @@ export function subscribeMnemonics(cb: () => void): () => void {
  */
 export function notifyMnemonics(): void {
   for (const cb of _mnemonicListeners) {
-    try { cb(); } catch { /* ignore listener errors */ }
+    try { cb(); } catch (e) { logger.warn("[mnemonic-storage] listener threw", e); }
   }
 }
 

@@ -9,6 +9,10 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { kbTestDb as db } from "./helpers/kb-test-db";
 import { ensureIndexArticle, newArticle } from "@/lib/zettelkasten-storage";
+import { deriveMarkdown } from "@/lib/editor-v4/derived";
+
+const md = (a: { contentDoc?: unknown; content?: string }) =>
+  deriveMarkdown(a.contentDoc as never) || a.content || "";
 
 const SUBJECT_A = "subj-A";
 const SUBJECT_B = "subj-B";
@@ -23,8 +27,8 @@ describe("ensureIndexArticle", () => {
     expect(idx.isIndex).toBe(true);
     expect(idx.title).toBe("Ustavno pravo");
     expect(idx.subjectId).toBe(SUBJECT_A);
-    expect(idx.content).toContain("[[Načela]]");
-    expect(idx.content).toContain("[[Organi vlasti]]");
+    expect(md(idx)).toContain("[[Načela]]");
+    expect(md(idx)).toContain("[[Organi vlasti]]");
 
     const all = await db.knowledgeBaseArticles.where("subjectId").equals(SUBJECT_A).toArray();
     expect(all).toHaveLength(1);
@@ -60,7 +64,7 @@ describe("ensureIndexArticle", () => {
 
     expect(idx.id).toBe(pre.id); // same row
     expect(idx.isIndex).toBe(true);
-    expect(idx.content).toBe("Postojeći sadržaj"); // content preserved
+    expect(md(idx)).toBe("Postojeći sadržaj"); // content preserved
 
     const all = await db.knowledgeBaseArticles.where("subjectId").equals(SUBJECT_A).toArray();
     expect(all).toHaveLength(1);
@@ -88,18 +92,18 @@ describe("ensureIndexArticle", () => {
 
   it("falls back to minimal onboarding text when no suggested links provided", async () => {
     const idx = await ensureIndexArticle(SUBJECT_A, "Predmet bez podkat.", []);
-    expect(idx.content).toContain("Dobrodošli");
-    expect(idx.content).not.toContain("[[");
-    expect(idx.content).toContain("Počnite kucanjem prvog wiki-linka");
+    expect(md(idx)).toContain("Dobrodošli");
+    expect(md(idx)).not.toContain("[[");
+    expect(md(idx)).toContain("Počnite kucanjem prvog wiki-linka");
   });
 
   it("caps suggested links at 8 to avoid wall-of-links onboarding", async () => {
     const many = Array.from({ length: 20 }, (_, i) => `Tema ${i}`);
     const idx = await ensureIndexArticle(SUBJECT_A, "Predmet", many);
-    const linkMatches = idx.content.match(/\[\[/g) ?? [];
+    const linkMatches = md(idx).match(/\[\[/g) ?? [];
     expect(linkMatches.length).toBeLessThanOrEqual(8);
-    expect(idx.content).toContain("[[Tema 0]]");
-    expect(idx.content).toContain("[[Tema 7]]");
-    expect(idx.content).not.toContain("[[Tema 8]]");
+    expect(md(idx)).toContain("[[Tema 0]]");
+    expect(md(idx)).toContain("[[Tema 7]]");
+    expect(md(idx)).not.toContain("[[Tema 8]]");
   });
 });
