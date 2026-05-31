@@ -24,7 +24,6 @@
  *     auto-scrolls and unmounted rows mount on demand.
  */
 import { memo, useMemo } from "react";
-import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { List, type RowComponentProps } from "react-window";
 import { type Card } from "@/lib/spaced-repetition";
 import { SortableCardTile } from "./OrgCardTiles";
@@ -57,21 +56,22 @@ interface Props {
 }
 
 function VirtualSortableCardListInner({ cards }: Props) {
-  const ids = useMemo(() => cards.map(c => c.id), [cards]);
   const rowProps = useMemo<RowData>(() => ({ cards }), [cards]);
   const height = Math.min(cards.length * ITEM_SIZE, MAX_VIRTUAL_HEIGHT);
 
+  // NOTE: the parent <SortableContext> in OrgSubcategoryPanel already owns
+  // the full ordered ID list (`ch.cards.map(c => c.id)`). We deliberately do
+  // NOT wrap a second SortableContext here — nesting would create a duplicate
+  // sortable scope and confuse dnd-kit's index resolution.
   return (
-    <SortableContext items={ids} strategy={verticalListSortingStrategy}>
-      <List
-        rowCount={cards.length}
-        rowHeight={ITEM_SIZE}
-        rowComponent={CardRow}
-        rowProps={rowProps}
-        overscanCount={8}
-        style={{ height, width: "100%" }}
-      />
-    </SortableContext>
+    <List
+      rowCount={cards.length}
+      rowHeight={ITEM_SIZE}
+      rowComponent={CardRow}
+      rowProps={rowProps}
+      overscanCount={8}
+      style={{ height, width: "100%" }}
+    />
   );
 }
 
