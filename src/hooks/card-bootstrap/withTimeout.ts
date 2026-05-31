@@ -32,7 +32,7 @@ export async function withTimeout<T>(task: Promise<T>, timeoutMs: number, label:
     return await Promise.race([task, timeoutPromise]);
   } finally {
     if (handle !== null) {
-      try { taskScheduler.clearTimeout(handle); } catch { /* no-op */ }
+      try { taskScheduler.cancel(handle); } catch { /* no-op */ }
     }
     if (timedOut) {
       logger.warn(`[boot] ${label} timed out after ${timeoutMs}ms — using fallback`);
