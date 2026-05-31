@@ -528,7 +528,10 @@ export default tseslint.config(
           paths: [
             {
               name: "framer-motion",
-              importNames: ["motion", "MotionConfig", "LazyMotion", "domAnimation", "domMax"],
+              // E5: `m` je takođe banovan — barrel @/lib/motion re-exportuje
+              // `m` i `AnimatePresence` tako da app sloj ide isključivo kroz
+              // jednu tačku ulaza (LazyMotion strict + tree-shake intaktan).
+              importNames: ["m", "motion", "MotionConfig", "LazyMotion", "domAnimation", "domMax"],
               message:
                 "Koristi @/lib/motion barrel (FadeUp/CrossFade/ListItem/Presence ili `m` iz framer-motion uz eslint-disable + opravdanje). `motion.*` razbija LazyMotion tree-shake (W10).",
             },
