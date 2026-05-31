@@ -57,10 +57,7 @@ function isMeaningful(d: CardDraftSnapshot): boolean {
   if (d.cardType === "essay" && d.sections.some(s => {
     if (stripped(s.content)) return true;
     // PR-7b: contentDoc je SSOT; legacy `content` može biti undefined.
-    const docText = s.contentDoc?.content?.content
-      ? JSON.stringify(s.contentDoc.content).replace(/[^\p{L}\p{N}]/gu, "").trim()
-      : "";
-    return docText.length > 0;
+    return derivePlainText(s.contentDoc).trim().length > 0;
   })) return true;
   return false;
 }
