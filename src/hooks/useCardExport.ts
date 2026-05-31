@@ -239,7 +239,7 @@ export function useCardExport({ cards, srSettings }: UseCardExportDeps) {
         throw err;
       }
     },
-    [cards, srSettings],
+    [srSettings],
   );
 
   return { exportData, exportTemplate };

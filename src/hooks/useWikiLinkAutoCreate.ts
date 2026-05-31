@@ -193,5 +193,7 @@ export function useWikiLinkAutoCreate({
 
     // `articles` intentionally NOT a dep: `existingTitlesLowerRef` stays
     // fresh via the separate effect above, and `drainTick` covers tail drain.
+    // `bulkCreateRef` is a useRef — refs are stable and don't need to be deps.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [draftContent, isEditing, categoryId, drainTick, rootSubcategoryIdRef, setArticlesRef]);
 }

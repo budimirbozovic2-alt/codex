@@ -43,6 +43,8 @@ export default function PredictionTab({ cards, categories, reviewLog, catNameMap
         };
       })
       .sort((a, b) => b.percent - a.percent);
+    // catNameMap is a stable lookup keyed by UUID; renames don't affect predictions.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cards, categories, velocity]);
 
   const overall = useMemo(() => {

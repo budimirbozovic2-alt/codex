@@ -57,6 +57,8 @@ export default function LocalSpeedReader({
     cards, subcategoryNodes, categoryId, initialCardId, onInitialConsumed,
   });
   const eng = useSpeedReaderEngine(sel.current);
+  // `sel` itself is a stable hook result; `sel.current` is the dep we want.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   const stats = useMemo(() => computeStats(sel.current), [sel.current]);
 
   useGlobalHotkey(

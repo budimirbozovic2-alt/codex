@@ -149,11 +149,11 @@ export default function ReviewSetup({
     hardest: hardestItems.length,
   };
 
-  const itemsByMode: Record<ModeKey, DueItem[]> = {
+  const itemsByMode = useMemo<Record<ModeKey, DueItem[]>>(() => ({
     stabilization: stabilizationItems,
     critical: criticalItems,
     hardest: hardestItems,
-  };
+  }), [stabilizationItems, criticalItems, hardestItems]);
 
   const handleStartSession = useCallback(() => {
     onSelectMode(mode, selectedCategory, null, null, false, filterType, itemsByMode[mode]);
