@@ -105,23 +105,17 @@ export function useZettelkastenBootstrap(
     warmedFor.current = categoryId;
   }, [categoryId, articles]);
 
-  // Funnel for the legacy `setArticles` writer (see @deprecated note on
-  // BootstrapResult). Wrapped in `cancelQueries` so a parallel refetch
-  // can't immediately overwrite the optimistic update before React
-  // commits — matches the snapshot/rollback contract used by mutations.
+  // PR-G2 / H-7 fix: the previous explicit `cancelQueries` + `setQueryData`
+  // writer raced with the TanStack bridge — every mutation triggers
+  // `notifyKnowledgeBaseChanged` → `invalidateQueries(['knowledgeBase'])`,
+  // and if `cancelQueries` fired between the bridge's invalidate and the
+  // refetch, the cache was clobbered with stale optimistic data. Bridge
+  // invalidation is the only authoritative path; we keep `setArticles` as a
+  // typed no-op so the legacy call-sites compile, but cache writes flow
+  // exclusively through mutation hooks.
   const setArticles = useCallback<React.Dispatch<React.SetStateAction<KnowledgeBaseArticle[]>>>(
-    (updater) => {
-      if (!categoryId) return;
-      const key = queryKeys.knowledgeBase.byCategory(categoryId);
-      void qc.cancelQueries({ queryKey: key });
-      qc.setQueryData<KnowledgeBaseArticle[]>(key, (prev) => {
-        const base = prev ?? [];
-        return typeof updater === "function"
-          ? (updater as (p: KnowledgeBaseArticle[]) => KnowledgeBaseArticle[])(base)
-          : updater;
-      });
-    },
-    [qc, categoryId],
+    () => { /* no-op — bridge invalidation owns the cache */ },
+    [],
   );
 
   const indexArticleId = useMemo(
