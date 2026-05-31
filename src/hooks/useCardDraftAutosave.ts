@@ -4,6 +4,7 @@ import type { FrequencyTag, CardSourceType } from "@/lib/spaced-repetition";
 import { draftRegistry } from "@/lib/drafts/draftRegistry";
 import { putDraft, getDraft, deleteDraft } from "@/lib/drafts/draftsTable";
 import { taskScheduler } from "@/lib/scheduler";
+import { derivePlainText } from "@/lib/editor-v4/derived";
 import { logger } from "@/lib/logger";
 
 /**
