@@ -1,100 +1,81 @@
-## Nalaz
+## Dijagnoza
 
-Glavni izvor sva tri simptoma je isti: SQLite executor u Lovable/Vite preview-u ne nastaje, jer `@sqlite.org/sqlite-wasm` pokušava učitati `sqlite3.wasm` iz Vite prebundle putanje `node_modules/.vite/deps/sqlite3.wasm`, a server vraća HTML umjesto WASM-a.
+Prijašnji zaključak da je problem samo `sqlite3.wasm` više nije dovoljan: u trenutnom preview-u se vidi da se SQLite DEV fallback zaista pokreće, ali prekasno i na pogrešnom mjestu.
 
-Dokaz iz browser konzole:
+Relevantni signali:
 
-```text
-Incorrect response MIME type. Expected application/wasm
-expected magic word 00 61 73 6d, found 3c 21 64 6f
-[sqlite] dev-fallback open failed
-```
+- Boot dolazi do `ready`, ali tek oko 9.3s; panic timer je na 8s, pa korisnik lako vidi “blokadu” na splash ekranu.
+- `listAllCards`, `listAllSources`, `listAllArticles` traju oko 3s jer se prvi SQLite/WASM init dešava tokom read path-a, ne kontrolisano na početku.
+- Kôd i dalje ima mješavinu “read vrati [] ako executor ne postoji” i “write throw `NO_EXECUTOR`”, što stvara lažne uspjehe, prazne rezultate i pogrešne UI tokove.
+- DOCX import koristi generički `mammoth` entry u browser worker-u; za browser bundlere je sigurniji `mammoth/mammoth.browser`, a trenutni worker nema dovoljno robustan fallback/error surface.
+- Backup import UI zatvara dialog u `finally` čak i kad import logički ne uspije ili `useCardImport` interno samo toastuje i `return`-a, pa korisnik dobija utisak da je import “nemoguć” bez jasnog mjesta kvara.
 
-`3c 21 64 6f` je početak `<!do...`, tj. HTML dokument, ne `.wasm` fajl.
+Glavni zajednički izvor problema je **nestabilan persistence boundary**: SQLite executor se lazy inicijalizuje, greške se na nekim mjestima pretvaraju u prazne nizove/no-op, a UI zatim nastavlja kao da je operacija uspjela.
 
-## Kako to proizvodi prijavljene simptome
+## Posljedice istog izvora
 
-1. **Kategorije se prepisuju / ostaje samo jedna**
-   - `categoryRepository.commit` prvo optimistično upiše RAM snapshot, ali zatim unutar mutexa ponovo čita “kanonsko” stanje iz SQLite-a (`src/lib/repositories/categoryRepository.ts:62-74`).
-   - Pošto executor ne postoji, `listAllCategories()` vraća `[]` (`src/lib/db/queries/categories.ts:66-71`).
-   - Updater se zato re-aplicira na praznu listu, pa druga dodata kategorija postaje jedina kategorija.
-   - Dodatni bug: `bulkPutCategories` nema `if (!exec) return/throw` prije `exec.transaction` (`src/lib/db/queries/categories.ts:127-128`), pa boot seed pada sa `Cannot read properties of null (reading 'transaction')`.
+Osim prijavljenih problema, isti obrazac može pogađati:
 
-2. **Izvori toastuju uspjeh, ali se ne prikazuju**
-   - Source read/write ide kroz isti executor (`src/lib/db/queries/sources.ts:19-35`, `src/lib/sources-storage.ts:73-80`).
-   - Kada executor padne, izvor nije stvarno upisan u SQLite; read query za listu izvora ostaje prazan.
-   - WriteResult refactor je dobar korak, ali ne rješava korijenski problem: bez ispravnog `.wasm` asseta nema baze iz koje se može čitati.
+- sporo prvo dodavanje/izmjenu kartice zbog `persistQueue.cleanup({ strict: true })` koji čeka cold SQLite init;
+- izvore i mentalne mape koje mogu ostati van prikaza ako TanStack invalidacija zakasni ili se izgubi;
+- backup restore koji može zatvoriti modal bez stvarnog uspjeha;
+- health/backup readere koji mogu tiho vratiti prazne podatke ako executor nije dostupan;
+- Zettelkasten/lazy migration tokove koji direktno zovu `saveSource`/slične funkcije bez TanStack rollback zaštite.
 
-3. **Dodavanje kartica je sporo**
-   - `useCardMutations` očekuje da `persistQueue.cleanup()` propagira persist greške (`src/hooks/card/useCardMutations.ts:55-60`).
-   - `persistQueue.flush()` trenutno hvata grešku, re-enqueue-uje snapshot i radi retry/backoff bez bacanja greške (`src/lib/persist-queue.ts:131-178`).
-   - Kada svaki pokušaj mora ponovo proći kroz neuspjeli sqlite-wasm init, jedna kartica dobija višesekundni latency i može ostati u lažno “uspješnom” stanju.
+## Plan popravke
 
-## Vjerovatne dodatne posljedice istog izvora
+1. **Stabilizovati SQLite executor ugovor**
+   - Uvesti jasan helper za “required executor”: write/backup/import tokovi moraju dobiti executor ili baciti eksplicitnu grešku.
+   - Ne koristiti prazne nizove kao signal za “nema baze” u kritičnim read path-ovima za backup/import.
+   - Zadržati DEV in-memory fallback, ali ga pokrenuti kontrolisano i ranije.
+   - Uskladiti Vite konfiguraciju za `@sqlite.org/sqlite-wasm` prema preporuci paketa: izbaciti ga iz `optimizeDeps` prebundle-a i zadržati eksplicitni WASM asset URL.
 
-Isti executor miss utiče i na:
+2. **Ubrzati boot i ukloniti lažnu blokadu aplikacije**
+   - Pre-warm SQLite executor u boot fazi prije paralelnih `listAll*` poziva.
+   - Skinuti cold SQLite init sa `initMetacognitiveCache`/`initPlannerCache`/source/card read kritične staze gdje je moguće.
+   - Podesiti panic timer tako da ne proglašava kvar dok kontrolisani boot još radi normalno.
+   - Zadržati recovery UI za stvarne kvarove, ali ne forsirati “ready” usred validnog init-a.
 
-- default seed predmeta na boot-u (`seedDefaultCategories`),
-- settings/planner/log read-path,
-- mind maps,
-- mnemonics,
-- knowledge base / Zettelkasten,
-- source editing i lazy editor-v4 migraciju,
-- card query invalidacije koje nakon refetcha vide praznu SQLite tabelu.
+3. **Popraviti dodavanje kartica bez gubljenja rollback sigurnosti**
+   - Zadržati `strict` persistence provjeru nakon mutacija, ali nakon SQLite prewarm-a ona više ne smije čekati inicijalizaciju.
+   - Zamijeniti microtask spin u `persistQueue.cleanup()` stabilnijim drain/promise mehanizmom.
+   - Gdje je moguće, slati scoped `notifyCardsChanged` umjesto globalnog `kind: all`, da jedna kartica ne invalidira sve card query-je.
 
-Dakle, ovo nije niz nezavisnih UI bugova nego sistemski kvar na SQLite runtime assetu + nekoliko mjesta gdje se executor miss tretira kao validno prazno stanje.
+4. **Popraviti DOCX izvor import**
+   - Prebaciti DOCX parser/worker na browser build: `mammoth/mammoth.browser`.
+   - Popraviti worker `postMessage` transfer da ne klonira nepotrebno buffer.
+   - Dodati pouzdan main-thread fallback ako worker bundle/import padne.
+   - Greške parsiranja prikazati jasno; success toast tek nakon stvarno parsiranog i sačuvanog izvora.
 
-## Plan rješenja
+5. **Popraviti source write + prikaz nakon save-a**
+   - U `useSourceMutations` dodati `onSuccess/onSettled` safety invalidaciju za `sources.all()` i `sources.byCategory(categoryId)`.
+   - Provjeriti sve call-site-ove koji zovu `saveSource` direktno: moraju unwrap-ovati `WriteResult` ili baciti grešku.
+   - Isti obrazac provjeriti za mind maps i Zettelkasten article writes.
 
-### 1. Popraviti učitavanje `sqlite3.wasm` u DEV i Electron buildu
+6. **Popraviti backup import tok**
+   - `useCardImport.importData` treba vratiti jasan rezultat ili baciti grešku; ne smije interno samo `toast + return` za hard failure kada ga dialog tretira kao uspjeh.
+   - `ExportImportDialog` zatvarati samo nakon potvrđenog uspješnog importa.
+   - `applyImportAtomically` treba koristiti isti required-executor ugovor i jasnu poruku ako persistence nije dostupan.
+   - Nakon uspješnog importa invalidirati sve relevantne query zone: cards, categories, sources, mindMaps, knowledgeBase, mnemonics, settings/review.
 
-- Uvesti eksplicitan Vite asset URL za WASM:
+7. **Regresiona provjera**
+   - Dodati/podesiti testove za:
+     - više uzastopnih kartica bez blokiranja;
+     - DOCX parser fallback i error handling;
+     - source save vidljiv u scoped query cache-u;
+     - backup import koji ne zatvara dialog na neuspjeh;
+     - executor unavailable ne smije proizvoditi lažan uspjeh ili prazne backup podatke.
+   - Ručno provjeriti u preview-u: boot prelazi splash bez panike, dodavanje kartice radi, DOCX izvor se pojavi, backup import ostaje otvoren na grešci i zatvara se samo na uspjehu.
 
-```ts
-import sqliteWasmUrl from "@sqlite.org/sqlite-wasm/sqlite3.wasm?url";
-```
+## Kriterij uspjeha
 
-- U `src/lib/persistence/sqlite/client.ts` i `src/lib/persistence/sqlite/dev-fallback.ts` pozivati sqlite initializer sa `locateFile`, tako da `sqlite3.wasm` uvijek ide na Vite-servirani asset URL, a ne na `node_modules/.vite/deps/sqlite3.wasm`.
-- Dodati mali shared helper npr. `src/lib/persistence/sqlite/sqlite-init.ts` da ne dupliramo init logiku između desktop klijenta i DEV fallbacka.
-- Po potrebi u `vite.config.ts` dodati `optimizeDeps.exclude: ["@sqlite.org/sqlite-wasm"]` ili zadržati explicit `locateFile` kao primarni osigurač. Cilj je da browser konzola više nema `Incorrect response MIME type` / `expected magic word` greške.
+- Boot nema 8s “panic” efekt u normalnom preview toku.
+- Prvo dodavanje kartice ne čeka cold SQLite init.
+- DOCX import daje stvarnu grešku ili stvarno prikazan novi izvor; nema lažnog success-a.
+- Backup import ne nestaje tiho; neuspjeh ostavlja dialog otvoren i pokazuje konkretan razlog.
+- Nema `read []` kao skrivenog persistence failure-a u kritičnim tokovima.
 
-### 2. Učiniti category write-path otporan na executor miss
-
-- Popraviti `bulkPutCategories`: ne smije dereferencirati `exec` ako je `null`.
-- Za write metode nad kategorijama (`replaceAllCategories`, `bulkPutCategories`, `putCategory`) uvesti jasnu `NO_EXECUTOR` grešku umjesto tihog no-op-a kada se radi o write operaciji.
-- U `categoryRepository.commit` ne smije se canonical re-read `[]` tretirati kao validna baza ako write ne može biti izvršen.
-  - Ako persist padne sa `NO_EXECUTOR`, vratiti snapshot ili zadržati prethodno validno RAM stanje, ali nikad ne zamijeniti postojeće kategorije rezultatom `updater([])`.
-  - Ovo direktno uklanja “drugi predmet briše prvi”.
-
-### 3. Poravnati card persistQueue sa WriteResult semantikom
-
-- `persistQueue.cleanup()` mora moći signalizirati grešku calleru; trenutno komentar u `useCardMutations` kaže da persist greške propagiraju, ali `flush()` ih proguta.
-- Dodati strict flush/cleanup režim za interaktivne mutacije:
-  - `NO_EXECUTOR` se ne retry-uje,
-  - SQL/FK greške se vraćaju mutaciji da TanStack rollback uradi svoje,
-  - background retry može ostati samo za situacije gdje je zaista opravdan, ali ne smije proizvoditi lažni uspjeh.
-- Time se uklanja višesekundno čekanje i lažni uspjeh pri dodavanju kartice kada baza nije dostupna ili FK ne postoji.
-
-### 4. Provjeriti source/mind-map WriteResult call-siteove
-
-- Potvrditi da svi source UI tokovi prikazuju success toast samo poslije `await mutateAsync(...)` koji je stvarno uspio.
-- Isto provjeriti za mind maps jer koriste isti obrazac (`saveMindMap` / `useMindMapMutations`).
-- Dodati zaštitu od optimistic cache “duhova”: ako write padne prije nego što je prethodni query postojao, rollback treba očistiti optimistički ubačeni item, ne samo vratiti `prevByCat` kada je definisan.
-
-### 5. Testovi i smoke provjera
-
-Dodati/regresiono pokriti:
-
-- `categoryRepository.commit`: postojeća kategorija + neuspjeli executor ne smije završiti kao `[nova]` ili `[]`.
-- `bulkPutCategories`: executor `null` ne smije baciti `Cannot read properties of null`.
-- `useSourceMutations`: write failure uklanja optimistic source iz cachea i ne ostavlja lažni prikaz.
-- `persistQueue.cleanup`: interaktivni card save dobija grešku kada adapter faila.
-
-Manual smoke u preview-u nakon implementacije:
-
-1. Konzola nema `sqlite3.wasm` MIME/magic-word greške.
-2. Boot učita default predmete.
-3. Dodati dva nova predmeta: oba ostaju prikazana.
-4. Dodati karticu: završava brzo i ostaje poslije refetcha.
-5. Importovati/sačuvati izvor: success toast se prikazuje samo ako se izvor vidi u listi.
-6. Provjeriti mind maps / Zettelkasten osnovni save jer dijele isti executor sloj.
+<presentation-actions>
+  <presentation-open-history>View History</presentation-open-history>
+  <presentation-link url="https://docs.lovable.dev/tips-tricks/troubleshooting">Troubleshooting docs</presentation-link>
+</presentation-actions>
