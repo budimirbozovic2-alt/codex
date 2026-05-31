@@ -65,6 +65,23 @@ export function useSpeedReaderEngine(current: Card | undefined) {
     return () => { window.speechSynthesis.removeEventListener("voiceschanged", load); };
   }, []);
 
+  // PR-G4 / M-6: hard unmount cleanup. Previously a card unmount mid-speech
+  // could leave `ttsTimeoutRef` armed (a subsequent `speakSegment` would call
+  // `setPlaying` on a torn-down component) and an active `speechSynthesis`
+  // utterance still talking. Mount-scoped effect with [] deps runs ONLY on
+  // unmount and tears down every TTS resource regardless of toggle state.
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
+      if (ttsTimeoutRef.current) { clearTimeout(ttsTimeoutRef.current); ttsTimeoutRef.current = null; }
+      ttsPlayingRef.current = false;
+      ttsUtteranceRef.current = null;
+      if ("speechSynthesis" in window) {
+        try { window.speechSynthesis.cancel(); } catch { /* noop */ }
+      }
+    };
+  }, []);
+
   // Reset cursor when card changes
   useEffect(() => {
     setCurrentWordIdx(0);
