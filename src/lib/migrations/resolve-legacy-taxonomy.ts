@@ -28,6 +28,7 @@ export interface LegacyResolveReport {
   unresolvedSubcategory: number;
   unresolvedChapter: number;
   alreadyValid: number;
+  ambiguousMatches: { value: string; matches: string[] }[];
 }
 
 interface NamedNode {
@@ -76,24 +77,28 @@ function buildIndex(records: CategoryRecord[]): CatIndex {
 /**
  * Pokušaj match-a string vrijednosti na ime u listi:
  * 1. Egzaktno (normalizovano).
- * 2. Bidirektionalni substring.
+ * 2. Bidirektionalni substring (min length 4 da se izbjegnu "1"/"a" promašaji).
  * 3. Tokenizovani prefiks bez interpunkcije ("1.a" → "Glava 1.a").
+ * Vraća { id, ambiguous } gdje je `ambiguous` lista alternativa kad je više od jednog matcha.
  */
-function findByName(value: string, list: NamedNode[]): string | undefined {
+function findByName(value: string, list: NamedNode[]): { id?: string; ambiguous?: string[] } {
   const v = normName(value);
-  if (!v) return undefined;
+  if (!v) return {};
   const exact = list.find((x) => x.norm === v);
-  if (exact) return exact.id;
-  const sub = list.find((x) => x.norm.includes(v) || v.includes(x.norm));
-  if (sub) return sub.id;
+  if (exact) return { id: exact.id };
+  if (v.length >= 4) {
+    const subs = list.filter((x) => x.norm.includes(v) || (x.norm.length >= 4 && v.includes(x.norm)));
+    if (subs.length === 1) return { id: subs[0].id };
+    if (subs.length > 1) return { id: subs[0].id, ambiguous: subs.map((s) => s.name) };
+  }
   const stripped = v.replace(/[.,;:()\s-]+/g, "");
   if (stripped.length >= 2) {
     const tok = list.find((x) =>
       x.norm.replace(/[.,;:()\s-]+/g, "").includes(stripped),
     );
-    if (tok) return tok.id;
+    if (tok) return { id: tok.id };
   }
-  return undefined;
+  return {};
 }
 
 /**
@@ -111,6 +116,7 @@ export function resolveLegacyTaxonomyNames(
     unresolvedSubcategory: 0,
     unresolvedChapter: 0,
     alreadyValid: 0,
+    ambiguousMatches: [],
   };
 
   for (const card of cards) {
@@ -125,9 +131,10 @@ export function resolveLegacyTaxonomyNames(
     if (curSubId) {
       const validUuid = isUuid(curSubId) && idx.subIdToCat.get(curSubId) === catId;
       if (!validUuid) {
-        const matched = subList ? findByName(curSubId, subList) : undefined;
-        if (matched) {
-          curSubId = matched;
+        const match = subList ? findByName(curSubId, subList) : {};
+        if (match.id) {
+          if (match.ambiguous) report.ambiguousMatches.push({ value: curSubId, matches: match.ambiguous });
+          curSubId = match.id;
           report.resolvedSubcategory++;
           touched = true;
         } else {
@@ -145,9 +152,10 @@ export function resolveLegacyTaxonomyNames(
       const validUuid =
         isUuid(curChapId) && idx.chapIdToSub.get(curChapId) === curSubId;
       if (!validUuid) {
-        const matched = chList ? findByName(curChapId, chList) : undefined;
-        if (matched) {
-          curChapId = matched;
+        const match = chList ? findByName(curChapId, chList) : {};
+        if (match.id) {
+          if (match.ambiguous) report.ambiguousMatches.push({ value: curChapId, matches: match.ambiguous });
+          curChapId = match.id;
           report.resolvedChapter++;
           touched = true;
         } else {

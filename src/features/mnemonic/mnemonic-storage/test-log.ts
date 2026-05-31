@@ -24,5 +24,6 @@ export async function addMnemonicTestEntry(entry: MnemonicTestLogEntry): Promise
     notifyMnemonics();
   } catch (err) {
     logger.error("[mnemonic-storage] addMnemonicTestEntry failed", err);
+    throw err;
   }
 }

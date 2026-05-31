@@ -8,7 +8,7 @@
  * synchronously and fire-and-forget the repo write.
  */
 import type { PlannerConfig, StudyDecade, DisciplineEntry } from "./types";
-import { DEFAULT_CONFIG } from "./types";
+import { DEFAULT_CONFIG, PLANNER_CONFIG_VERSION } from "./types";
 import { loadPlannerSnapshot } from "@/lib/db/queries";
 import { logger } from "@/lib/logger";
 
@@ -77,8 +77,10 @@ export async function initPlannerCache(): Promise<void> {
 
     if (snap.plannerConfig) {
       const parsed = snap.plannerConfig as Record<string, unknown>;
-      // Migrate old decades → phases
-      if ('decades' in parsed && !('phases' in parsed)) {
+      const version = typeof parsed.configVersion === "number" ? parsed.configVersion : 1;
+      // v1 → v2: rename `decades` (legacy) → `phases`. Guarded by version so a
+      // future shape that legitimately contains `decades` is not re-migrated.
+      if (version < 2 && 'decades' in parsed && !('phases' in parsed)) {
         const decades = (parsed as Record<string, unknown>).decades as StudyDecade[];
         const phases = decades.map((d: StudyDecade) => ({
           id: d.id,
@@ -88,9 +90,10 @@ export async function initPlannerCache(): Promise<void> {
         }));
         const migrated = { ...parsed, phases } as Record<string, unknown>;
         delete migrated.decades;
+        migrated.configVersion = PLANNER_CONFIG_VERSION;
         _plannerCache = { ...DEFAULT_CONFIG, ...(migrated as unknown as Partial<PlannerConfig>) };
       } else {
-        _plannerCache = { ...DEFAULT_CONFIG, ...(parsed as Partial<PlannerConfig>) };
+        _plannerCache = { ...DEFAULT_CONFIG, ...(parsed as Partial<PlannerConfig>), configVersion: PLANNER_CONFIG_VERSION };
       }
     }
 

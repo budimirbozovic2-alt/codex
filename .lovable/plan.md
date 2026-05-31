@@ -183,3 +183,21 @@ Za svaki wave: vitest pass + jedan e2e prolaz (cold boot + bulk import + reload 
 - E.1 backup forward-kompatibilnost: backup schema treba primati i `content` i `contentDoc` na mnemonic section nivou; export piše samo `contentDoc`.
 
 Plan je opisno potpun. Nakon vašeg odobrenja prelazim na build mode i počinjem od Wave A.1.
+
+---
+
+## Status — Deep Audit v2 implementation
+
+**Wave A** ✅ runMany BEGIN/COMMIT removed (A.1) · categoryRepository mutex hardened (A.2) · persist-queue MAX_RETRY rescue timer (A.3) · reviewLogRepository reschedule on retry (A.4) · resolveLegacyTaxonomyNames propagates errors (A.5).
+
+**Wave B** ✅ withTimeout no longer swallows task rejections (B.1) · AppBootstrap above RecoveryGate (B.2) · runHeal awaits bulkPut + persistQueue.flush (B.3) · taskScheduler beforeunload registered before render (B.4) · cause field corrected (B.5) · HMR dispose for bootStateMachine + splashBridge (B.6) · removed direct splashProgress (B.7).
+
+**Wave C** ✅ Source-mutation safety-net invalidations removed (C.1) · module-level listener catches log via logger.warn (C.2) · mnemonic write paths re-throw on failure (C.3) · useNotificationScheduler routes through taskScheduler (C.4).
+
+**Wave D** ✅ plan-generator pre-builds cards-by-cat + sub maps (D.1) · weak-hooks pre-groups latencyLog (D.2) · backlink snapshot caches bounded LRU(500) (D.3). ⏳ Deferred: D.4 planner cache SSOT, D.5 EditorView setContent guard.
+
+**Wave E** ✅ resolve-legacy-taxonomy substring requires min length 4 + reports ambiguousMatches (E.2) · editor-v4 inline-bold regex tolerates nested `*…*` (E.3) · PlannerConfig.configVersion gates decades→phases migration (E.4). ⏳ Deferred: E.1 MnemonicCard.sections.contentDoc (schema change, separate PR).
+
+**Wave F** ✅ remap-from-backup oldCatNameById removed (F.3) · lazy-migrate `void saveArticle` + dead import removed (F.4). ⏳ Deferred: F.1/F.2 planner dead params (keeps signature stable for 5 callers; ROI low).
+
+Test suite: 613/613 passing.

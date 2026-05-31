@@ -58,6 +58,7 @@ export async function saveMnemonicCards(cards: MnemonicCard[]): Promise<void> {
     notifyMnemonics();
   } catch (err) {
     logger.error("[mnemonic-storage] saveMnemonicCards failed", err);
+    throw err;
   }
 }
 
@@ -67,5 +68,6 @@ export async function deleteMnemonicCard(id: string): Promise<void> {
     notifyMnemonics();
   } catch (err) {
     logger.error("[mnemonic-storage] deleteMnemonicCard failed", err);
+    throw err;
   }
 }

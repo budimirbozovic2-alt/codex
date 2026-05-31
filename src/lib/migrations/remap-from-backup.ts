@@ -49,13 +49,13 @@ interface CurrentCatIndex {
 
 function buildOldIndex(categories: BackupCategory[]): {
   oldSubInfo: Map<string, OldSubInfo>;
-  oldCatNameById: Map<string, string>;
+
 } {
   const oldSubInfo = new Map<string, OldSubInfo>();
-  const oldCatNameById = new Map<string, string>();
+
   for (const cat of categories) {
     if (!cat?.id) continue;
-    oldCatNameById.set(cat.id, cat.name);
+
     for (const sub of cat.subcategories ?? []) {
       if (!sub?.id) continue;
       const chapters = new Map<string, string>();
@@ -65,7 +65,7 @@ function buildOldIndex(categories: BackupCategory[]): {
       oldSubInfo.set(sub.id, { catId: cat.id, subName: sub.name, chapters });
     }
   }
-  return { oldSubInfo, oldCatNameById };
+  return { oldSubInfo };
 }
 
 interface DbCategoryLike {
@@ -129,7 +129,7 @@ export async function remapFromBackup(
   const backup: MinimalBackup = backupJson;
   report.cardsInBackup = backup.cards.length;
 
-  const { oldSubInfo, oldCatNameById } = buildOldIndex(backup.categories);
+  const { oldSubInfo } = buildOldIndex(backup.categories);
 
   const [catRecords, currentCards] = await Promise.all([
     readAllCategoriesForBackup(),
@@ -254,8 +254,5 @@ export async function remapFromBackup(
   }
 
   onProgress(100, "Završeno.");
-  // Suppress unused warning
-  void oldCatNameById;
-
   return report;
 }
