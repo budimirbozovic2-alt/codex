@@ -127,14 +127,30 @@ if (!isDesktopShell && import.meta.env.PROD) {
 (async () => {
   try {
     markBootStep("main:parallel-import-start");
-    const [{ initColorTheme }, { default: App }, { createRoot }, { eventBus }, { setDbEventEmitter }] = await Promise.all([
+    const [
+      { initColorTheme },
+      { default: App },
+      { createRoot },
+      { eventBus },
+      { setDbEventEmitter },
+      { taskScheduler },
+    ] = await Promise.all([
       import("./lib/app-settings"),
       import("./App"),
       import("react-dom/client"),
       import("./lib/event-bus"),
       import("./lib/db-error"),
+      import("./lib/scheduler"),
     ]);
     markBootStep("main:parallel-import-done");
+
+    // Audit v2 / Wave B.4: register `beforeunload` BEFORE `render()` so any
+    // SQLite write React schedules during the first commit cycle is
+    // guaranteed to be flushed by `taskScheduler.shutdown()` if the user
+    // closes the window immediately. Previously the listener was registered
+    // ~one async tick after `render()`, leaving a microtask-sized data-loss
+    // window.
+    window.addEventListener("beforeunload", () => taskScheduler.shutdown());
 
     // W1: Inject EventBus into db-schema (Inversion of Control — breaks the
     // db-schema ↔ event-bus circular dependency). Only DB infrastructure
@@ -165,11 +181,6 @@ if (!isDesktopShell && import.meta.env.PROD) {
       console.error("[runtime] uncaught error", err || _msg);
     };
 
-    // Task Scheduler lifecycle — shut down all pending centralized timers on
-    // unload so no IDB write fires after the page is gone. Idempotent.
-    const { taskScheduler } = await import("./lib/scheduler");
-    window.addEventListener("beforeunload", () => taskScheduler.shutdown());
-
     // ── Electron IPC Setup ──
     if (window.electronAPI) {
       import("./lib/electron-integration").then(({ setupElectronIPC }) => {
@@ -179,6 +190,7 @@ if (!isDesktopShell && import.meta.env.PROD) {
         }
       });
     }
+
   } catch (err) {
     console.error("[boot] bootstrap failed", err);
     markBootStep("main:bootstrap-error", err instanceof Error ? err.message : String(err));
