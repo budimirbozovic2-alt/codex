@@ -15,6 +15,7 @@
  */
 import type { SqlBindValue, SqlExecutor, SqlRow } from "./executor";
 import { runMigrations } from "./migration-runner";
+import { initSqliteWasm } from "./sqlite-init";
 import { logger } from "@/lib/logger";
 
 interface SqliteDb {
@@ -31,9 +32,7 @@ let _loggedOnce = false;
 export function getDevFallbackExecutor(): Promise<SqlExecutor> {
   if (_executorPromise) return _executorPromise;
   _executorPromise = (async () => {
-    const mod = await import("@sqlite.org/sqlite-wasm");
-    const sqlite3InitModule = (mod as unknown as { default: () => Promise<SqliteApi> }).default;
-    const sqlite3: SqliteApi = await sqlite3InitModule();
+    const sqlite3 = await initSqliteWasm<SqliteApi>();
     const db = new sqlite3.oo1.DB(":memory:", "c");
     const exec = wrapDb(db);
     const { from, to } = await runMigrations(exec);
