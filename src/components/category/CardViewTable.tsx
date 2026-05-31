@@ -38,7 +38,7 @@ export default function CardViewTable({
   filteredCards, allCategories, expandedId, onToggle,
   selectionMode, selectedIds, onToggleSelection,
   setFrequency, onEdit, onPassiveRead, onDelete, onOpenMoveModal,
-  hasActiveFilters, _totalCount, onResetFilters,
+  hasActiveFilters, totalCount: _totalCount, onResetFilters,
 }: Props) {
   return (
     <div className="space-y-1">

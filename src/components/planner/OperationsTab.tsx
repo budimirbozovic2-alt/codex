@@ -31,7 +31,7 @@ interface Props {
 }
 
 export default function OperationsTab({
-  config, _save, subjectPlans,
+  config, save: _save, subjectPlans,
   velocity, remaining, estimatedFinish, plannerStatus,
   smartSuggestion, timeRec, debt, dueCount, learningRatio, overallPct,
   retentionRisk, categoryRecords,

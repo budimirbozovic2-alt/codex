@@ -43,7 +43,7 @@ interface Props {
   onFiltersChange?: (snap: CardViewFiltersSnapshot) => void;
 }
 
-export default function CardViewMode({ cards, categoryId, allCategories, subcategoryNodes, patchCard, setFrequency, _addCard, _addFlashCard, _bulkAddFlashCards, onDelete, onEdit, onPassiveRead, masteryFilter, onClearMasteryFilter, externalQuery, initialSubcategory, initialChapter, initialType, initialFrequency, onFiltersChange }: Props) {
+export default function CardViewMode({ cards, categoryId, allCategories, subcategoryNodes, patchCard, setFrequency, addCard: _addCard, addFlashCard: _addFlashCard, bulkAddFlashCards: _bulkAddFlashCards, onDelete, onEdit, onPassiveRead, masteryFilter, onClearMasteryFilter, externalQuery, initialSubcategory, initialChapter, initialType, initialFrequency, onFiltersChange }: Props) {
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [expandedId, setExpandedId] = useState<string | null>(null);

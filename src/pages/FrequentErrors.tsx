@@ -107,7 +107,7 @@ export default function FrequentErrors({ categoryId, embedded }: Props) {
     return map;
   }, [categoryRecords]);
 
-  const { criticalAndRecovering, mastered, totalErrors, _cardIdsWithErrors } = useMemo(() => {
+  const { criticalAndRecovering, mastered, totalErrors, cardIdsWithErrors: _cardIdsWithErrors } = useMemo(() => {
     const allErrors: AggregatedError[] = [];
     const cardIdsWithErrors = new Set<string>();
 

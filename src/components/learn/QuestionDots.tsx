@@ -11,7 +11,7 @@ interface Props {
 }
 
 const QuestionDots = React.memo(function QuestionDots({
-  cards, currentIndex, completedCards, _readCards, onSelect,
+  cards, currentIndex, completedCards, readCards: _readCards, onSelect,
 }: Props) {
   if (cards.length <= 1) return null;
 
