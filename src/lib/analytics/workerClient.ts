@@ -13,8 +13,7 @@
 import * as Comlink from "comlink";
 import { logger } from "@/lib/logger";
 import { loadCalibration, loadLatency } from "@/lib/metacognitive-storage";
-import { loadDisciplineLog } from "@/domains/planner/discipline";
-import { loadPlanner } from "@/domains/planner/config";
+import { loadDisciplineLog, loadPlanner } from "@/domains/planner";
 import type { AnalyticsSnapshots } from "./_pure/types";
 import type { AnalyticsWorkerAPI } from "../../workers/analytics.worker";
 
