@@ -12,6 +12,13 @@ import { logger } from "@/lib/logger";
 const _queue: ReviewLogEntry[] = [];
 let _timer: ReturnType<typeof setTimeout> | null = null;
 const DEBOUNCE_MS = 250;
+// PR-B: exponential backoff for persistent SQLite failures. Previously every
+// retry was re-scheduled at the base DEBOUNCE_MS, so a chronically failing
+// write (locked DB, disk pressure) produced a tight 250 ms retry loop that
+// flooded the logger and pinned the event loop. We now back off
+// 250 → 500 → 1s → 2s → … up to 30 s, and reset on the next successful drain.
+const MAX_BACKOFF_MS = 30_000;
+let _backoffMs = DEBOUNCE_MS;
 
 async function _drain(): Promise<void> {
   _timer = null;
@@ -19,24 +26,22 @@ async function _drain(): Promise<void> {
   const batch = _queue.splice(0, _queue.length);
   try {
     await bulkPutReviewLog(batch);
+    _backoffMs = DEBOUNCE_MS; // success → reset backoff
   } catch (err) {
     logger.error("[reviewLog] sqlite bulk write failed", err);
     _queue.unshift(...batch);
-    // Audit v2 / Wave A.4: previously this just re-enqueued and threw. The
-    // caller (`void _drain()` inside a setTimeout) discarded the rejection,
-    // so the timer was already null and no new flush was scheduled. In a
-    // quiet session the queue sat stranded until the user issued the next
-    // `append()` or backup/quit triggered a flush(). Schedule the retry
-    // ourselves so durability does not depend on user action.
-    _schedule();
+    // Schedule a retry ourselves with exponential backoff so durability
+    // does not depend on a follow-up append() and we don't hot-loop.
+    _backoffMs = Math.min(_backoffMs * 2, MAX_BACKOFF_MS);
+    _schedule(_backoffMs);
     throw err;
   }
 }
 
 
-function _schedule(): void {
+function _schedule(delayMs: number = DEBOUNCE_MS): void {
   if (_timer == null) {
-    _timer = setTimeout(() => { void _drain(); }, DEBOUNCE_MS);
+    _timer = setTimeout(() => { void _drain(); }, delayMs);
   }
 }
 
