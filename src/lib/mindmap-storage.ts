@@ -36,14 +36,14 @@ export async function loadMindMaps(): Promise<MindMapDoc[]> {
   return repo.listAllMindMaps();
 }
 
-export async function saveMindMap(doc: MindMapDoc): Promise<void> {
-  try {
-    await repo.putMindMap(doc);
-  } catch (err) {
-    logger.error("[mindmap-storage] saveMindMap failed", err);
-    throw err;
+export async function saveMindMap(doc: MindMapDoc): Promise<WriteResult<void>> {
+  const res = await wrapWrite(() => repo.putMindMap(doc));
+  if (res.ok === true) {
+    _notify();
+    return res;
   }
-  _notify();
+  logger.error("[mindmap-storage] saveMindMap failed", res.error);
+  return res;
 }
 
 export async function deleteMindMap(id: string): Promise<void> {
