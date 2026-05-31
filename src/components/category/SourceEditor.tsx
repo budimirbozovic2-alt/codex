@@ -229,23 +229,22 @@ export default function SourceEditor({ source, categoryId, onClose, onSourceUpda
             </div>
             <div className="space-y-1.5">
               <Label>Datum</Label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !dateObj && "text-muted-foreground")}>
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {dateObj ? format(dateObj, "PPP") : "Odaberi datum"}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={dateObj}
-                    onSelect={(d) => { setDateObj(d); if (d) setDateStr(format(d, "yyyy-MM-dd")); }}
-                    initialFocus
-                    className={cn("p-3 pointer-events-auto")}
-                  />
-                </PopoverContent>
-              </Popover>
+              <Input
+                type="date"
+                value={dateObj ? format(dateObj, "yyyy-MM-dd") : ""}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  if (v) {
+                    const d = new Date(v + "T00:00:00");
+                    setDateObj(d);
+                    setDateStr(v);
+                  } else {
+                    setDateObj(undefined);
+                    setDateStr("");
+                  }
+                }}
+                className={cn(!dateObj && "text-muted-foreground")}
+              />
             </div>
             <div className="flex items-center gap-3">
               <Switch id="exclusive" checked={isExclusive} onCheckedChange={setIsExclusive} />
