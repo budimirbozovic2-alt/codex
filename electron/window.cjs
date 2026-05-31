@@ -182,8 +182,10 @@ async function createWindow({ isDev, baseDir, configPath, logCrash, splash, onMa
   }
 
   // ── Load content ──
+  // PR-G8 (RC-10): use the same pinned port as main.cjs / vite.config.ts.
+  const devServerUrl = `http://localhost:${parseInt(process.env.VITE_DEV_SERVER_PORT || '8080', 10)}`;
   if (isDev) {
-    win.loadURL('http://localhost:8080');
+    win.loadURL(devServerUrl);
   } else {
     win.loadURL('app://localhost/index.html').catch((err) => {
       logCrash('loadURL-app-protocol-failed', err);
@@ -198,7 +200,7 @@ async function createWindow({ isDev, baseDir, configPath, logCrash, splash, onMa
     setTimeout(() => {
       if (!win.isDestroyed()) {
         if (isDev) {
-          win.loadURL('http://localhost:8080');
+          win.loadURL(devServerUrl);
         } else {
           win.loadURL('app://localhost/index.html').catch(() => {
             win.loadFile(getDistPath(isDev, baseDir, 'index.html')).catch(() => {});

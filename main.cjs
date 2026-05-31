@@ -76,13 +76,24 @@ process.on('unhandledRejection', (reason) => logCrash('unhandledRejection', reas
 // Every ipcMain.handle / ipcMain.on callback in the main process must call
 // assertTrustedSender(event) at its top. Rejects any frame whose URL is not
 // our packaged app:// origin (production) or the Vite dev server.
+//
+// PR-G8 (RC-10): pin the dev-server port. Previously we accepted ANY
+// http://localhost:* origin in dev which widened the trust surface unnecessarily —
+// if Vite ever fell back to a different port (e.g. 8080 busy → 8081) the loosened
+// check would still let the actual app through but also any other localhost service.
+// Now the port is sourced from VITE_DEV_SERVER_PORT (default 8080) and matched
+// exactly. Keep vite.config.ts `server.port` in sync with this env var.
+const DEV_SERVER_PORT = parseInt(process.env.VITE_DEV_SERVER_PORT || '8080', 10);
+const DEV_SERVER_ORIGIN = `http://localhost:${DEV_SERVER_PORT}`;
+
 function isTrustedSender(event) {
   try {
     const frame = event && event.senderFrame;
     const url = frame && frame.url;
     if (typeof url !== 'string' || url.length === 0) return false;
     if (url.startsWith('app://localhost')) return true;
-    if (url.startsWith('http://localhost:')) return true; // Vite dev server
+    // Dev: must match the exact pinned port, not any localhost port.
+    if (url.startsWith(`${DEV_SERVER_ORIGIN}/`) || url === DEV_SERVER_ORIGIN) return true;
     return false;
   } catch {
     return false;
@@ -355,7 +366,7 @@ app.whenReady().then(() => {
     contents.on('will-navigate', (event, navUrl) => {
       try {
         const u = new URL(navUrl);
-        const allowedDev = isDev && u.origin === 'http://localhost:8080';
+        const allowedDev = isDev && u.origin === DEV_SERVER_ORIGIN;
         const allowedProd = !isDev && u.protocol === 'app:';
         if (!allowedDev && !allowedProd) {
           event.preventDefault();

@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, beforeAll, afterAll, vi } from "vitest";
 import {
   calcVelocity,
   calcEstimatedFinish,
@@ -12,6 +12,20 @@ import {
 } from "@/domains/planner";
 import type { ReviewLogEntry } from "@/lib/storage";
 import { addDays } from "date-fns";
+
+// PR-G8 (RC-8): pin wall clock so day-boundary execution (e.g. midnight CI
+// runs) can never flip `new Date().toDateString()` / `Date.now()` between
+// setup and assertion. All planner math is deterministic relative to this
+// fixed instant. We use vi.setSystemTime instead of useFakeTimers so the
+// shared timers helper still resolves real microtasks if any test awaits.
+const FIXED_NOW = new Date("2026-06-15T12:00:00.000Z");
+beforeAll(() => {
+  vi.useFakeTimers({ shouldAdvanceTime: true });
+  vi.setSystemTime(FIXED_NOW);
+});
+afterAll(() => {
+  vi.useRealTimers();
+});
 
 // ─── calcVelocity ────────────────────────────────────────
 
