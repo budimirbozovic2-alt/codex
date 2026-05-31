@@ -20,7 +20,11 @@ export interface StudyDecade {
   startDate: string;
 }
 
+export const PLANNER_CONFIG_VERSION = 2;
+
 export interface PlannerConfig {
+  /** Explicit schema marker. Bumped when shape changes. */
+  configVersion?: number;
   finalGoalDate: string | null;
   createdAt: number;
   bufferPercent: number;
@@ -34,6 +38,7 @@ export interface PlannerConfig {
 }
 
 export const DEFAULT_CONFIG: PlannerConfig = {
+  configVersion: PLANNER_CONFIG_VERSION,
   finalGoalDate: null,
   createdAt: Date.now(),
   bufferPercent: 15,
