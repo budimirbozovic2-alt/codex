@@ -11,6 +11,7 @@ import {
 import type { KnowledgeBaseArticle } from "@/lib/zettelkasten-storage";
 import { backlinkIndex } from "@/lib/backlink-index";
 import { filterByActiveTags, getTagCounts, normalizeTag } from "@/lib/zettelkasten-tags";
+import { isDocEmpty } from "@/lib/editor-v4/derived";
 
 type SortMode = "recent" | "alpha" | "linked";
 
@@ -251,7 +252,7 @@ function ZettelExplorerPanelImpl({
           <ul className="space-y-0.5">
             {visible.map(a => {
               const isActive = a.id === activeId;
-              const isDraft = a.content.trim().length === 0;
+              const isDraft = isDocEmpty(a.contentDoc);
               const linkCount = counts.get(a.id) ?? 0;
               const articleTags = a.tags ?? [];
               const visibleTags = articleTags.slice(0, VISIBLE_ROW_TAGS);

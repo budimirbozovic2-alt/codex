@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { deriveMarkdown } from "@/lib/editor-v4/derived";
 import { Link, useParams } from "react-router-dom";
 import {
   ArrowLeft, Plus, Trash2, FileText, Compass,
@@ -74,11 +75,16 @@ function ZettelkastenViewImpl() {
     indexArticleId, activeArticle, draftApi,
   });
 
+  const draftMarkdown = useMemo(
+    () => (draft ? deriveMarkdown(draft.contentDoc) : undefined),
+    [draft],
+  );
+
   useWikiLinkAutoCreate({
     activeId,
     categoryId,
     isEditing,
-    draftContent: draft?.content,
+    draftContent: draftMarkdown,
     rootSubcategoryId: activeArticle?.rootSubcategoryId,
     articles,
     setArticles,
@@ -107,7 +113,7 @@ function ZettelkastenViewImpl() {
     ? (isEditing && draft ? draft.title : activeArticle.title)
     : "";
   const displayContent = activeArticle
-    ? (isEditing && draft ? draft.content : activeArticle.content)
+    ? (isEditing && draft ? (draftMarkdown ?? "") : deriveMarkdown(activeArticle.contentDoc))
     : "";
 
   return (

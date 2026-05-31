@@ -94,25 +94,26 @@ export default function SourceEditor({ source, categoryId, onClose, onSourceUpda
 
   // ─── Save with diff check ────────────────────────────
   const handleSave = useCallback(async () => {
-    // PR-7c (M3 #6): legacy `source.htmlContent` is dropped post-v22 —
-    // derive the comparison baseline from the canonical AST.
+    // `contentDoc` (AST) is the body SSOT; derive HTML only for diff/outline.
     const baseHtml = deriveHtml(source.contentDoc);
-    let htmlContent = baseHtml;
+    let nextHtml = baseHtml;
+    let nextDoc: EditorDoc | null = null;
     let outline = source.outline;
     let articles = source.articles;
 
-    // If user pasted new text, update HTML
+    // If user pasted new text, recompute outline/articles/contentDoc.
     if (hasPastedText && newDoc) {
       const cleanHtml = sanitizeHtml(deriveHtml(newDoc));
       const { promoteHeadings } = await import("@/lib/heading-promotion");
       const promotedHtml = promoteHeadings(cleanHtml);
-      htmlContent = injectHeadingIds(promotedHtml);
-      outline = extractOutline(htmlContent);
-      articles = parseArticles(htmlContent);
+      nextHtml = injectHeadingIds(promotedHtml);
+      outline = extractOutline(nextHtml);
+      articles = parseArticles(nextHtml);
+      nextDoc = newDoc;
 
       // Run diff and check for affected cards
       if (baseHtml && bulkFlagNeedsReview) {
-        const diffResult = compareVersions(baseHtml, htmlContent);
+        const diffResult = compareVersions(baseHtml, nextHtml);
         const changedIds = getChangedArticleIds(diffResult);
 
         if (changedIds.size > 0) {
@@ -139,7 +140,7 @@ export default function SourceEditor({ source, categoryId, onClose, onSourceUpda
               date: dateStr,
               isExclusive,
               sourceKind,
-              htmlContent,
+              contentDoc: nextDoc,
               outline,
               articles,
               version: (source.version || 1) + 1,
@@ -152,10 +153,10 @@ export default function SourceEditor({ source, categoryId, onClose, onSourceUpda
       }
     }
 
-    await commitSave(htmlContent, outline, articles);
+    await commitSave(nextDoc, outline, articles);
   }, [source, title, slMarkings, dateStr, isExclusive, sourceKind, newDoc, hasPastedText, bulkFlagNeedsReview, fetchLinkedCards]);
 
-  const commitSave = useCallback(async (htmlContent: string, outline: Source["outline"], articles: Source["articles"]) => {
+  const commitSave = useCallback(async (nextDoc: EditorDoc | null, outline: Source["outline"], articles: Source["articles"]) => {
     const updated: Source = {
       ...source,
       title: title.trim() || source.title,
@@ -163,7 +164,7 @@ export default function SourceEditor({ source, categoryId, onClose, onSourceUpda
       date: dateStr,
       isExclusive,
       sourceKind,
-      htmlContent,
+      contentDoc: nextDoc ?? source.contentDoc,
       outline,
       articles,
       version: (source.version || 1) + (hasPastedText ? 1 : 0),

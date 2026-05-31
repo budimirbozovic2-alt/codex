@@ -31,9 +31,7 @@ import { useKnowledgeBaseMutations } from "@/hooks/zettelkasten/useKnowledgeBase
 import { logger } from "@/lib/logger";
 export interface Draft {
   title: string;
-  /** Legacy markdown — derived from `contentDoc` whenever the doc changes. */
-  content: string;
-  /** Canonical V4 AST — primary write payload from PR-6 onward. */
+  /** Canonical V4 AST — sole body SSOT. */
   contentDoc: EditorDoc;
   linkedSourceIds: string[];
   tags: string[];
@@ -64,22 +62,14 @@ const EMPTY_DOC: EditorDoc = { version: 4, content: { type: "doc", content: [] }
 
 function seedDoc(a: KnowledgeBaseArticle): EditorDoc {
   if (a.contentDoc && a.contentDoc.version === 4 && a.contentDoc.content) return a.contentDoc;
-  const md = a.content ?? "";
-  if (!md.trim()) return EMPTY_DOC;
-  try {
-    return htmlToDoc(mdToHtml(md));
-  } catch (err) {
-    logger.warn("[zettelkasten] seedDoc failed, falling back to empty", err);
-    return EMPTY_DOC;
-  }
+  // Legacy `content` markdown column is gone — any pre-v22 record without a
+  // contentDoc should have been backfilled by lazy-migrate. Empty doc fallback.
+  return EMPTY_DOC;
 }
 
 function fromArticle(a: KnowledgeBaseArticle): Draft {
   return {
     title: a.title,
-    // PR-7c (M3 #10): `a.content` is deprecated/optional post-v22; default
-    // to empty string so the Draft contract (required `content`) holds.
-    content: a.content ?? "",
     contentDoc: seedDoc(a),
     linkedSourceIds: a.linkedSourceIds ?? [],
     tags: a.tags ?? [],
@@ -125,14 +115,14 @@ export function useArticleDraft({ activeId, categoryId, setArticles }: Input): A
     const titleClean = currentDraft.title.trim() || "Bez naslova";
     const tagsClean = normalizeTagList(currentDraft.tags);
     const aliasesClean = normalizeAliasList(currentDraft.aliases);
-    // PR-7b: markdown derived ONCE here on flush, never on keystroke.
+    // AST is canonical; compare derived markdown shape (cheap, stable across
+    // IDB round-trips) instead of per-ref `contentDoc` equality.
     const markdownDerived = deriveMarkdown(currentDraft.contentDoc);
+    const freshMarkdown = deriveMarkdown(fresh.contentDoc);
 
-    // PR-7b: derived markdown is the canonical text-shape comparison; per-ref
-    // contentDoc equality would always fail across IDB round-trips.
     const dirty =
       titleClean !== fresh.title ||
-      markdownDerived !== (fresh.content ?? "") ||
+      markdownDerived !== freshMarkdown ||
       !sameStringSet(currentDraft.linkedSourceIds, fresh.linkedSourceIds ?? []) ||
       !sameStringSet(tagsClean, fresh.tags ?? []) ||
       !sameStringSet(aliasesClean, fresh.aliases ?? []);
@@ -141,7 +131,6 @@ export function useArticleDraft({ activeId, categoryId, setArticles }: Input): A
     const next: KnowledgeBaseArticle = {
       ...fresh,
       title: titleClean,
-      content: markdownDerived,
       contentDoc: currentDraft.contentDoc,
       linkedSourceIds: currentDraft.linkedSourceIds,
       tags: tagsClean,
