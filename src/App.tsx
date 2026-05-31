@@ -12,7 +12,7 @@ import { lazy, Suspense, useEffect } from "react";
 import { usePersistingState } from "@/hooks/usePersistingState";
 import { RefreshCw } from "lucide-react";
 import { PageSkeleton } from "@/components/ui/page-skeleton";
-import { installBodyPointerEventsGuard } from "@/lib/body-pointer-events-guard";
+// PR-D D5: pointer-events guard now installed in `main.tsx` before render.
 import { QueryClientProvider } from "@tanstack/react-query";
 import { queryClient } from "@/lib/query/client";
 const NotFound = lazy(() => import("./pages/NotFound"));
