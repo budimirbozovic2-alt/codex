@@ -1,4 +1,6 @@
 import { logger } from "@/lib/logger";
+import { putSetting, getSetting } from "@/lib/db/queries";
+
 const APP_SETTINGS_KEY = "sr-app-settings";
 
 export type ColorTheme = "amber" | "slate" | "forest" | "ocean" | "rose" | "midnight";
@@ -95,10 +97,15 @@ export function loadAppSettings(): AppSettings {
 
 export function saveAppSettings(settings: AppSettings): void {
   const json = JSON.stringify(settings);
-  // Primary: SQLite via settings repo (Dexie mirror is written by the repo).
-  import("@/lib/db/queries").then(({ putSetting }) => {
-    putSetting("appSettings", settings).catch((e) => logger.warn("[settings] put failed", e));
-  }).catch(() => {});
+  // PR-G1 / C-2 fix: previously a dynamic `import(...).then(...).catch(() => {})`
+  // — the outer empty catch silently swallowed *both* bundler-level import
+  // failures and the SQLite write rejection, while localStorage still wrote
+  // successfully and gave false confidence. Static import + explicit logging
+  // surface real failures.
+  // SSOT: SQLite via settings repo.
+  putSetting("appSettings", settings).catch((e) =>
+    logger.error("[settings] put failed — SSOT write lost", e),
+  );
   // Mirror to localStorage for fast sync reads (cache, not source of truth)
   try { localStorage.setItem(APP_SETTINGS_KEY, json); } catch { /* noop */ }
 }
@@ -120,7 +127,6 @@ export async function loadAppSettingsAsync(): Promise<AppSettings> {
   } catch { /* noop */ }
   // Fallback to SQLite via settings repo
   try {
-    const { getSetting } = await import("@/lib/db/queries");
     const value = await getSetting<Partial<AppSettings>>("appSettings");
     if (value) {
       const restored = {
@@ -134,7 +140,7 @@ export async function loadAppSettingsAsync(): Promise<AppSettings> {
       try { localStorage.setItem(APP_SETTINGS_KEY, JSON.stringify(restored)); } catch { /* noop */ }
       return restored;
     }
-  } catch { /* noop */ }
+  } catch (err) { logger.warn("[settings] async load fallback failed", err); }
   return { ...DEFAULT_APP_SETTINGS };
 }
 
@@ -183,10 +189,9 @@ export async function isAutoBackupOverdueAsync(settings: AppSettings): Promise<b
   // Fallback to SQLite via settings repo
   if (!lastTs) {
     try {
-      const { getSetting } = await import("@/lib/db/queries");
       const value = await getSetting<number>("sr-last-backup");
       if (typeof value === "number") lastTs = value;
-    } catch { /* noop */ }
+    } catch (err) { logger.warn("[settings] backup-overdue fallback failed", err); }
   }
   if (!lastTs) return false;
   return Date.now() - lastTs > settings.autoBackupDays * 24 * 60 * 60 * 1000;
