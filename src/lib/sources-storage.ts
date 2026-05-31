@@ -68,14 +68,16 @@ export async function loadSourcesByCategory(categoryId: string): Promise<Source[
   return listSourcesByCategory(categoryId);
 }
 
-export async function saveSource(source: Source): Promise<void> {
-  try {
-    await putSource(source);
-  } catch (err) {
-    logger.error("[sources-storage] saveSource failed", err);
-    throw err;
+import { wrapWrite, type WriteResult } from "@/lib/persistence/write-result";
+
+export async function saveSource(source: Source): Promise<WriteResult<void>> {
+  const res = await wrapWrite(() => putSource(source));
+  if (!res.ok) {
+    logger.error("[sources-storage] saveSource failed", res.error);
+    return res;
   }
   _notify();
+  return res;
 }
 
 export async function deleteSource(id: string): Promise<void> {
