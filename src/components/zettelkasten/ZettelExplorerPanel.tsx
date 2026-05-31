@@ -11,6 +11,7 @@ import {
 import type { KnowledgeBaseArticle } from "@/lib/zettelkasten-storage";
 import { backlinkIndex } from "@/lib/backlink-index";
 import { filterByActiveTags, getTagCounts, normalizeTag } from "@/lib/zettelkasten-tags";
+import { isDocEmpty } from "@/lib/editor-v4/derived";
 
 type SortMode = "recent" | "alpha" | "linked";
 
