@@ -59,6 +59,13 @@ function createCardSetSelector<K>(
           const c = map[id];
           if (predicate(c, key)) matched.push(c);
         }
+        // PR-C C5: a pure reorder (manual sortOrder change) yields the same
+        // *set* of cards but in a different order, which would otherwise
+        // pass the length+positional check below and quietly hand consumers
+        // the prior (stale-order) array. Sort by id before comparing so the
+        // shallow check measures set identity, not insertion order; the
+        // caller-visible ordering is decided by downstream sort hooks.
+        matched.sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
 
         // Shallow-equal vs last result — if every matched card reference is
         // unchanged AND the key is unchanged, return prior array to suppress

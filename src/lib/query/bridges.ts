@@ -201,8 +201,13 @@ export function installQueryBridges(qc: QueryClient): void {
         qc.setQueryData(queryKeys.planner.config(), loadPlanner());
         break;
       case "discipline":
+        // PR-C C1: setQueryData notifies subscribers of this exact key in the
+        // same tick. The follow-up invalidateQueries on the `["planner",
+        // "discipline"]` prefix used to also schedule a refetch of the same
+        // key — that opened a stale-flicker window (TanStack briefly served
+        // the prior cached value while the refetch resolved) and duplicated
+        // work. Align with the `config` branch: setQueryData only.
         qc.setQueryData(queryKeys.planner.disciplineLog(), loadDisciplineLog());
-        void qc.invalidateQueries({ queryKey: ["planner", "discipline"] });
         break;
       case "dailyMapped":
       case "lastRedistribute":

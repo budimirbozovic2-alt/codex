@@ -101,7 +101,14 @@ function useStoreSlice<T>(
       cache.current = { snapshot: snap, key, result: out };
       return out;
     },
-    () => fallback,
+    // PR-C C6: read from the live store on first paint. The prior `fallback`
+    // server snapshot meant every fresh mount briefly served empty data even
+    // when the external store was already populated, producing a flash of
+    // "no subcategories / no chapters" before the first client snapshot.
+    () => {
+      if (!key) return fallback;
+      return compute(categoryStore.getState(), key);
+    },
   );
 }
 
