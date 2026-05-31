@@ -193,7 +193,9 @@ export function migrateSource(source: Source): MigrateResult<Source> {
   if (isV4Doc(source.contentDoc)) {
     return { record: source, changed: false, warnings: [] };
   }
-  const html = source.htmlContent ?? "";
+  // Legacy DB rows may still carry `htmlContent` even though the runtime
+  // type no longer exposes it — read it via a runtime cast.
+  const html = (source as unknown as { htmlContent?: string }).htmlContent ?? "";
   if (!html.trim()) {
     return {
       record: { ...source, contentDoc: { version: 4, content: { type: "doc", content: [] } } },
@@ -209,7 +211,8 @@ export function migrateArticle(article: KnowledgeBaseArticle): MigrateResult<Kno
   if (isV4Doc(article.contentDoc)) {
     return { record: article, changed: false, warnings: [] };
   }
-  const md = article.content ?? "";
+  // Legacy DB rows may still carry `content` markdown — runtime cast.
+  const md = (article as unknown as { content?: string }).content ?? "";
   if (!md.trim()) {
     return {
       record: { ...article, contentDoc: { version: 4, content: { type: "doc", content: [] } } },

@@ -76,15 +76,16 @@ export function runMigrationDryRun(payload: unknown): Report {
     try {
       const res = migrateSource(src);
       if (res.changed) report.migrated.sources++;
+      const legacyHtml = (src as unknown as { htmlContent?: string }).htmlContent ?? "";
       for (const w of res.warnings) {
-        report.samplesWithDataLoss.push({ kind: "source", id: src.id, warning: w, snippet: snippet(src.htmlContent) });
+        report.samplesWithDataLoss.push({ kind: "source", id: src.id, warning: w, snippet: snippet(legacyHtml) });
       }
     } catch (err) {
       report.failed.sources++;
       report.samplesWithDataLoss.push({
         kind: "source", id: src.id,
         warning: `EXCEPTION: ${(err as Error).message}`,
-        snippet: snippet(src.htmlContent ?? ""),
+        snippet: snippet((src as unknown as { htmlContent?: string }).htmlContent ?? ""),
       });
     }
   }
@@ -93,8 +94,9 @@ export function runMigrationDryRun(payload: unknown): Report {
     try {
       const res = migrateArticle(art);
       if (res.changed) report.migrated.articles++;
+      const legacyMd = (art as unknown as { content?: string }).content ?? "";
       for (const w of res.warnings) {
-        report.samplesWithDataLoss.push({ kind: "article", id: art.id, warning: w, snippet: snippet(art.content) });
+        report.samplesWithDataLoss.push({ kind: "article", id: art.id, warning: w, snippet: snippet(legacyMd) });
       }
     } catch (err) {
       report.failed.articles++;
