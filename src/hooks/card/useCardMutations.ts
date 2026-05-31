@@ -56,7 +56,7 @@ function putAsync(card: Card): Promise<WriteResult<Card>> {
   return wrapWrite(async () => {
     const stamped = card.updatedAt ? card : { ...card, updatedAt: Date.now() };
     cardMapWrites.put(stamped);
-    await persistQueue.cleanup();
+    await persistQueue.cleanup({ strict: true });
     return stamped;
   });
 }
@@ -67,7 +67,7 @@ function bulkPutAsync(cards: Card[]): Promise<WriteResult<Card[]>> {
     const now = Date.now();
     const stamped = cards.map((c) => (c.updatedAt ? c : { ...c, updatedAt: now }));
     cardMapWrites.bulkPut(stamped);
-    await persistQueue.cleanup();
+    await persistQueue.cleanup({ strict: true });
     return stamped;
   });
 }
@@ -76,7 +76,7 @@ function removeAsync(id: string): Promise<WriteResult<void>> {
   return wrapWrite(async () => {
     // Phase 2b: async-fallback — hydrates RAM from SQLite if cold.
     await cardMapWrites.removeAsync(id);
-    await persistQueue.cleanup();
+    await persistQueue.cleanup({ strict: true });
   });
 }
 
@@ -87,7 +87,7 @@ function patchAsync(
   return wrapWrite(async () => {
     // Phase 2b: async-fallback — hydrates RAM from SQLite if cold.
     const updated = await cardMapWrites.patchAsync(id, patcher);
-    await persistQueue.cleanup();
+    await persistQueue.cleanup({ strict: true });
     return updated;
   });
 }
@@ -99,7 +99,7 @@ function bulkPatchAsync(
   return wrapWrite(async () => {
     // Phase 2b: async-fallback — hydrates RAM from SQLite if cold.
     const updated = await cardMapWrites.bulkPatchAsync(ids, patcher);
-    await persistQueue.cleanup();
+    await persistQueue.cleanup({ strict: true });
     return updated;
   });
 }
