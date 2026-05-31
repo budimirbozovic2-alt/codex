@@ -103,7 +103,7 @@ export function runMigrationDryRun(payload: unknown): Report {
       report.samplesWithDataLoss.push({
         kind: "article", id: art.id,
         warning: `EXCEPTION: ${(err as Error).message}`,
-        snippet: snippet(art.content ?? ""),
+        snippet: snippet((art as unknown as { content?: string }).content ?? ""),
       });
     }
   }
