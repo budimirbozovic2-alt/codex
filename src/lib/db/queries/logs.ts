@@ -39,7 +39,7 @@ type AutoIncRow<T> = T & { id?: number };
 async function tryGetExecutor(): Promise<SqlExecutor | null> {
   try {
     const { isElectron } = await import("@/lib/electron-integration");
-    if (!isElectron()) { notifyExecutorNull("logs", "non-electron"); return null; }
+    if (!isElectron() && import.meta.env.PROD) { notifyExecutorNull("logs", "non-electron"); return null; }
     const { getOpfsSqliteExecutor } = await import("@/lib/persistence/sqlite/client");
     return await getOpfsSqliteExecutor();
   } catch (err) {

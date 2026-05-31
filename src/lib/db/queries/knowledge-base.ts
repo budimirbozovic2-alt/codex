@@ -11,7 +11,7 @@ import { withSqlTiming } from "./_shared/sql-timing";
 async function tryGetExecutor(): Promise<SqlExecutor | null> {
   try {
     const { isElectron } = await import("@/lib/electron-integration");
-    if (!isElectron()) { notifyExecutorNull("knowledgeBase", "non-electron"); return null; }
+    if (!isElectron() && import.meta.env.PROD) { notifyExecutorNull("knowledgeBase", "non-electron"); return null; }
     const { getOpfsSqliteExecutor } = await import("@/lib/persistence/sqlite/client");
     return await getOpfsSqliteExecutor();
   } catch (err) {
