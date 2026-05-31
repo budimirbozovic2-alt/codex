@@ -57,6 +57,8 @@ const ZettelEditor = forwardRef<ZettelEditorHandle, Props>(function ZettelEditor
     const md = value ?? "";
     if (!md.trim()) return EMPTY_DOC;
     return htmlToDoc(mdToHtml(md));
+    // Reason: editor is uncontrolled and seeded once per mount; remount on
+    // article switch is handled by the parent via React `key`.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
