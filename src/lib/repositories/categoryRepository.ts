@@ -51,35 +51,38 @@ const _saveMutex = createKeyedMutex();
 
 /**
  * Optimistic commit: pushes the optimistic value into the SSOT store, then
- * persists to SQLite inside a serialised mutex.
+ * persists to SQLite — both **inside** a serialised mutex so concurrent
+ * commits cannot race each other's rollback target.
  *
- * Wave-1 fix: rollback snapshot is captured INSIDE the mutex, so a second
- * concurrent commit cannot snapshot a dirty optimistic state from a first
- * still-in-flight commit. Errors are re-thrown so callers (TanStack
- * mutations, UI) can react instead of silently treating failed writes as OK.
+ * Audit v2 / Wave A.2: the previous Wave-1 fix moved only the rollback
+ * snapshot inside the mutex but left the optimistic write outside. For
+ * concurrent commits A→B and B→C in the same tick, when A failed the
+ * rollback target captured inside the mutex was already C (B's optimistic
+ * write had run before A's mutex turn). The guard `rollbackTo === optimistic`
+ * was false so the store stayed on C — A's true rollback target was lost.
+ *
+ * Fix: compute updater + apply + persist atomically. The mutex window is
+ * <1ms for typical workloads (≤9 categories); render latency is unaffected.
  */
 export async function commit(
   updater: (prev: CategoryRecord[]) => CategoryRecord[],
   label: string,
 ): Promise<void> {
-  const preOptimistic = getCategoryStoreRecords();
-  const optimistic = updater(preOptimistic);
-  setCategoryStoreRecords(optimistic);
-
   return _saveMutex.runExclusive(null, async () => {
-    // Re-read snapshot inside the mutex so we roll back to the value that
-    // was authoritative at mutex entry, not the stale pre-mutex value.
-    const rollbackTo = getCategoryStoreRecords();
+    const preOptimistic = getCategoryStoreRecords();
+    const optimistic = updater(preOptimistic);
+    setCategoryStoreRecords(optimistic);
     try {
       await replaceAllCategories(optimistic);
     } catch (e) {
       logger.error(`[${label}] SQLite persist failed, rolling back`, e);
-      setCategoryStoreRecords(rollbackTo === optimistic ? preOptimistic : rollbackTo);
+      setCategoryStoreRecords(preOptimistic);
       toast.error("Greška", { description: "Promjena nije sačuvana." });
       throw e instanceof Error ? e : new Error(String(e));
     }
   }, `category:${label}`);
 }
+
 
 // ─── A2 — SQLite-primary delete with FK CASCADE ──────────────────────────
 

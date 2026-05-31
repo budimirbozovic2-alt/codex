@@ -195,7 +195,17 @@ function createPersistQueue() {
         } else {
           toast.error("Pisanje u bazu nije uspjelo nakon više pokušaja. HITNO eksportujte backup!");
         }
+        // Audit v2 / Wave A.3: previously the re-enqueued snapshot sat in
+        // pendingPuts/pendingDeletes with NO follow-up timer. In a quiet
+        // session (user only reads) no later `schedule()` ever ran, so the
+        // pending writes never flushed; a reload then lost them silently.
+        // Arm a long-delay rescue flush so the queue keeps trying even if
+        // the user never writes again.
+        if (timer === null && hasPending()) {
+          timer = window.setTimeout(flush, 30_000);
+        }
       }
+
     } finally {
       inFlightCount--;
       isFlushRunning = false;
