@@ -1,12 +1,18 @@
-import { useCardData, useCategoryData, useCategoryActions, useUIContext } from "@/contexts/AppContext";
+import { useCategoryData, useCategoryActions, useUIContext } from "@/contexts/AppContext";
+import { useBootState } from "@/hooks/useBootState";
+import { useCardCountsByCategoryMap } from "@/store";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import CategoryManager from "@/components/CategoryManager";
 
 export default function CategoriesPage() {
-  const { cardCountByCategory, ready } = useCardData();
   const { categories, subcategories } = useCategoryData();
   const { addCategory, renameCategory, deleteCategory } = useCategoryActions();
   const { setView } = useUIContext();
+  const bootState = useBootState();
+  const ready = bootState.type === "ready";
+  // PR-F — counts come from SQL `SELECT COUNT(*)` per category, not from
+  // a reducer over `useAllCards()`. Each id has its own cached query.
+  const cardCountByCategory = useCardCountsByCategoryMap(categories);
 
   if (!ready) {
     return (
