@@ -17,6 +17,7 @@ export default function ReviewPage() {
   const { setView } = useUIContext();
   const session = useSessionContext();
   const [searchParams] = useSearchParams();
+  const location = useLocation();
   const lockedCategory = getParam(searchParams, "category");
   const modeParam = getParam(searchParams, "mode");
   const _autoMode = (modeParam === "critical" || modeParam === "stabilization" || modeParam === "hardest")
