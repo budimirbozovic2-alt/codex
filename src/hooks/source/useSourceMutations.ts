@@ -30,7 +30,10 @@ export function useSourceMutations() {
   const qc = useQueryClient();
 
   const save = useMutation<void, Error, Source, SaveCtx>({
-    mutationFn: (next) => saveSource(next),
+    mutationFn: async (next) => {
+      const res = await saveSource(next);
+      if (!res.ok) throw new Error(res.error.message);
+    },
     onMutate: async (next) => {
       const allKey = queryKeys.sources.all();
       const catKey = queryKeys.sources.byCategory(next.categoryId);
