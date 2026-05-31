@@ -93,7 +93,7 @@ const EditorSection = memo(function EditorSection({
   useEffect(() => {
     if (import.meta.env.DEV) {
       if (seedQuestionRef.current !== question || seedFlashRef.current !== flashAnswer) {
-        // eslint-disable-next-line no-console
+         
         console.warn(
           "[EditorSection] question/flashAnswer prop changed without remount. " +
           "Parent must set key={card.id} on EditorSection when swapping cards.",
