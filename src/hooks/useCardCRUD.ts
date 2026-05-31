@@ -18,7 +18,7 @@ export interface FlashPair {
   chapterId?: string;
 }
 import { setCardFrequency } from "@/lib/sr/frequency";
-import { getCard } from "@/domains/cards";
+import { getCardsByIds } from "@/lib/db/queries";
 import { useCardMutations } from "@/hooks/card/useCardMutations";
 
 import { logger } from "@/lib/logger";
@@ -146,7 +146,7 @@ export function useCardCRUD() {
 
   const splitCard = useCallback(
     async (id: string) => {
-      const card = getCard(id);
+      const [card] = await getCardsByIds([id]);
       if (!card || card.sections.length <= 1) return;
       const newCards = card.sections.map((section) => ({
         ...createCard(
