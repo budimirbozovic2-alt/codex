@@ -32,7 +32,8 @@ export function useSourceMutations() {
   const save = useMutation<void, Error, Source, SaveCtx>({
     mutationFn: async (next) => {
       const res = await saveSource(next);
-      if (!res.ok) throw new Error(res.error.message);
+      if (res.ok === true) return;
+      throw new Error(res.error.message);
     },
     onMutate: async (next) => {
       const allKey = queryKeys.sources.all();
