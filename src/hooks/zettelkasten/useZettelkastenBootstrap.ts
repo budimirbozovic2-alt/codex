@@ -17,13 +17,11 @@
  *    create) keep working without each one talking to TanStack directly.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
 import {
   ensureIndexArticle,
   type KnowledgeBaseArticle,
 } from "@/lib/zettelkasten-storage";
 import { backlinkIndex } from "@/lib/backlink-index";
-import { queryKeys } from "@/lib/query/keys";
 import { logger } from "@/lib/logger";
 import { useKnowledgeBaseArticlesBySubject } from "./useKnowledgeBaseArticles";
 
