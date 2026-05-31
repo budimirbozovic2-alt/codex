@@ -395,58 +395,8 @@ export default tseslint.config(
   },
 
 
-
-  // G7 — Raw setTimeout/setInterval allow-list.
-  //
-  // Disables `no-restricted-syntax` (which carries the timer guards from
-  // the global block) ONLY for files that legitimately need raw timers:
-  //
-  //   • src/lib/scheduler/**        — the implementation itself
-  //   • src/lib/persist-queue.ts    — frame-coalescer + retry tick; predates
-  //                                    and underpins scheduler bootstrap
-  //   • src/lib/db-schema.ts        — pre-boot DB open / blocked-tab recovery
-  //   • src/lib/db-queries.ts       — reviewLog debounce hot path
-  //   • src/lib/event-bus.ts        — heartbeat / cleanup interval (singleton)
-  //   • src/lib/zip-service.ts      — idle-timeout worker teardown
-  //   • src/lib/electron-integration.ts — IPC timeout race wrapper
-  //   • src/lib/backup/yield-ui.ts  — alternative to scheduler for Dexie txs
-  //   • src/main.tsx                 — splash removal pre-scheduler init
-  //   • src/hooks/useCardBootstrap.ts — boot panic timer
-  //   • src/hooks/useNotificationScheduler.ts — global 60s polling
-  //   • src/hooks/speed-reader/useSpeedReaderEngine.ts — RSVP timing
-  //   • src/features/mnemonic/hooks/useTestEngine.ts — test countdown
-  //   • src/features/docx-importer/docx-parser.ts — worker timeout race
-  //   • src/components/db/BlockingModal.tsx — pre-boot DB poll
-  //   • src/components/ZenMode.tsx — 1s timer tick
-  //
-  // Task 2 group MIGRATED to taskScheduler (PR completed): useCardDraftAutosave,
-  // useSourceEditing, useArticleDraft, useWikiLinkAutoCreate, useMindMapCanvas,
-  // useNodeEditing, SourceReader.
-  {
-    files: [
-      "src/lib/scheduler/**",
-      "src/lib/persist-queue.ts",
-      "src/lib/db-schema.ts",
-      "src/lib/db-queries.ts",
-      "src/lib/event-bus.ts",
-      "src/lib/zip-service.ts",
-      "src/lib/electron-integration.ts",
-      "src/lib/backup/yield-ui.ts",
-      "src/main.tsx",
-      "src/hooks/useCardBootstrap.ts",
-      "src/hooks/useNotificationScheduler.ts",
-      "src/hooks/speed-reader/useSpeedReaderEngine.ts",
-      "src/features/mnemonic/hooks/useTestEngine.ts",
-      "src/features/docx-importer/docx-parser.ts",
-      "src/components/db/BlockingModal.tsx",
-      "src/components/ZenMode.tsx",
-      // Test files legitimately use raw timers for fake-timer scenarios.
-      "src/test/**",
-    ],
-    rules: {
-      "no-restricted-syntax": "off",
-    },
-  },
+  // (G7 allow-list block moved to the END of the config so it can disable
+  // the timer guards re-introduced by W7/W9 spread of BASE_RESTRICTED_SYNTAX.)
 
   // ─────────────────────────────────────────────────────────────────────
   // Phase C — Dexie removal: the legacy shell is gone. Keep a hard-fail
