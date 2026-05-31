@@ -57,6 +57,10 @@ export default defineConfig(({ mode }) => ({
       "@radix-ui/react-tooltip",
       "lucide-react",
     ],
+    // Per @sqlite.org/sqlite-wasm README: ne prebund-uj — interni import.meta.url
+    // resolve-a wasm asset, što se kvari kroz Vite dep cache (HTML fallback,
+    // pogrešan MIME, "expected magic word" greška).
+    exclude: ["@sqlite.org/sqlite-wasm"],
   },
   define: {
     __APP_VERSION__: JSON.stringify(pkg.version),
