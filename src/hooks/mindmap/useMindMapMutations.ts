@@ -25,7 +25,11 @@ export function useMindMapMutations() {
   const qc = useQueryClient();
 
   const save = useMutation<void, Error, MindMapDoc, SaveCtx>({
-    mutationFn: (doc) => saveMindMap(doc),
+    mutationFn: async (doc) => {
+      const res = await saveMindMap(doc);
+      if (res.ok === true) return;
+      throw new Error(res.error.message);
+    },
     onMutate: async (doc) => {
       await qc.cancelQueries({ queryKey: queryKeys.mindMaps.root });
       const prevAll = qc.getQueryData<MindMapDoc[]>(queryKeys.mindMaps.all());
