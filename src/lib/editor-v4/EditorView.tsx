@@ -1,5 +1,5 @@
 import { useEditor, EditorContent } from "@tiptap/react";
-import { useEffect } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { cn } from "@/lib/utils";
 import { editorV4Extensions } from "./schema";
 import type { EditorDoc } from "./types";
@@ -19,8 +19,17 @@ interface Props {
  * Prose tokens (`.prose`) and card spacing (`.card-prose`) are mirrored on
  * `.ProseMirror` via index.css, so visual output matches the legacy SafeHtml
  * branch (Styling Prose Fixes v3 invariant).
+ *
+ * D.5 guard: parent re-renders that hand us a fresh `doc` object reference
+ * but identical content used to trigger a full `setContent` (ProseMirror
+ * resets selection + transaction state). We now compare a JSON-serialized
+ * snapshot of `doc.content` and only call `setContent` when it actually
+ * changes. The serialized string is also useful as a stable dep key.
  */
 export function EditorView({ doc, className }: Props) {
+  const serialized = useMemo(() => JSON.stringify(doc.content), [doc]);
+  const lastSerialized = useRef<string | null>(null);
+
   const editor = useEditor({
     extensions: editorV4Extensions,
     content: doc.content,
@@ -35,8 +44,10 @@ export function EditorView({ doc, className }: Props) {
 
   useEffect(() => {
     if (!editor) return;
+    if (lastSerialized.current === serialized) return;
+    lastSerialized.current = serialized;
     editor.commands.setContent(doc.content, { emitUpdate: false });
-  }, [doc, editor]);
+  }, [serialized, doc, editor]);
 
   useEffect(() => {
     return () => {

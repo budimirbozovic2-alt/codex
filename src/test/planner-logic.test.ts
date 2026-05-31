@@ -125,14 +125,14 @@ describe("calcDisciplineStatus", () => {
 
 describe("calcDailyTimeRecommendation", () => {
   it("converts sections to time", () => {
-    const r = calcDailyTimeRecommendation(10, 5, 10, 3);
+    const r = calcDailyTimeRecommendation(10, 10, 3);
     expect(r.totalMinutes).toBe(60); // (10+10)*3
     expect(r.hours).toBe(1);
     expect(r.minutes).toBe(0);
   });
 
   it("< 1 hour shows minutes only", () => {
-    const r = calcDailyTimeRecommendation(5, 5, 5, 3);
+    const r = calcDailyTimeRecommendation(5, 5, 3);
     expect(r.totalMinutes).toBe(30);
     expect(r.hours).toBe(0);
     expect(r.message).toContain("min");

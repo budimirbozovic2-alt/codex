@@ -55,7 +55,7 @@ const NudgeWatcher = memo(function NudgeWatcher() {
         const planner = loadPlanner();
         if (!planner.finalGoalDate || planner.phases.length === 0) return;
         const velocity = calcVelocity(reviewLog, 7);
-        const suggestion = getSmartSuggestion(null, cards, planner.finalGoalDate, velocity, planner.bufferPercent ?? 15);
+        const suggestion = getSmartSuggestion(null, cards, planner.finalGoalDate, planner.bufferPercent ?? 15);
         if (!suggestion || suggestion.suggestedToday <= 0) return;
         const dailyDone = getDailyMappedCount();
         const remaining = suggestion.suggestedToday - dailyDone;

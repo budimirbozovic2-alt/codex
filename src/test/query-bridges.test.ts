@@ -27,9 +27,10 @@ describe("query bridges (PR-7f M1)", () => {
     expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ["sources"] });
   });
 
-  it("invalidates ['planner'] on config change", () => {
+  it("pushes planner config snapshot via setQueryData (D.4 — no divergence window)", () => {
+    const setSpy = vi.spyOn(qc, "setQueryData");
     plannerCache.set({ ...DEFAULT_CONFIG, dailyAvailableMinutes: 42 });
-    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ["planner"] });
+    expect(setSpy).toHaveBeenCalledWith(["planner", "config"], expect.objectContaining({ dailyAvailableMinutes: 42 }));
   });
 
   it("invalidates ['planner','discipline'] on discipline change", () => {

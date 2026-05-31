@@ -115,12 +115,12 @@ export function usePlannerData(cards: SRCard[], reviewLog: ReviewLogEntry[], cat
 
   const smartSuggestion = useMemo(() => {
     if (!mod || velocity === null) return null;
-    return mod.getSmartSuggestion(null, cards, config.finalGoalDate, velocity, config.bufferPercent);
+    return mod.getSmartSuggestion(null, cards, config.finalGoalDate, config.bufferPercent);
   }, [mod, velocity, cards, config.finalGoalDate, config.bufferPercent]);
 
   const timeRec = useMemo(() => {
     if (!mod || !smartSuggestion || velocity === null) return null;
-    return mod.calcDailyTimeRecommendation(smartSuggestion.suggestedToday, velocity, dueCount);
+    return mod.calcDailyTimeRecommendation(smartSuggestion.suggestedToday, dueCount);
   }, [mod, smartSuggestion, velocity, dueCount]);
 
   const burnupData = useMemo(() => {
