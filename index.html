@@ -104,9 +104,9 @@
         var RETRY_KEY="__codex_boot_retries";
         var retries=parseInt(sessionStorage.getItem(RETRY_KEY)||"0",10);
 
-        setTimeout(function(){
+        var t=setTimeout(function(){
           var root=document.getElementById("root");
-          var appMounted=root&&root.querySelector("[data-app-mounted]");
+          var appMounted=(window.__codexAppMounted===true)||(root&&root.querySelector("[data-app-mounted]"));
           if(appMounted){sessionStorage.removeItem(RETRY_KEY);return;}
 
           if(retries<MAX_RETRIES){
@@ -121,9 +121,11 @@
             if(splash){splash.style.transition="opacity 0.3s";splash.style.opacity="0";setTimeout(function(){if(splash.parentNode)splash.remove();},400);}
             if(fallback){fallback.style.display="flex";}
           }
-        },10000);
+        },20000);
+        window.__codexSplashTimer=t;
       })();
     </script>
+
     <script type="module" src="./src/main.tsx"></script>
   </body>
 </html>
