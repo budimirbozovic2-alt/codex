@@ -88,3 +88,14 @@ export function __resetSplashBridgeForTests(): void {
   _installed = false;
   _lastHealing = null;
 }
+
+// Audit v2 / Wave B.6: HMR dispose. Paired with the same hook in
+// `bootStateMachine.ts` — otherwise one module can reset its singleton
+// while the other believes it is still installed, leaving the splash DOM
+// bridge dead for the rest of the HMR session.
+if (import.meta.hot) {
+  import.meta.hot.dispose(() => {
+    __resetSplashBridgeForTests();
+  });
+}
+
