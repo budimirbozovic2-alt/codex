@@ -227,16 +227,16 @@ export default tseslint.config(
     },
   },
 
-  // Public API walls + Feature-Sliced boundaries.
+  // ─── W8 — Public API walls + Feature-Sliced boundaries ─────────────────
   //
   // Outside `src/features/X/`, code may only import `@/features/X` (its
   // barrel). Deep imports like `@/features/X/lib/internal` are forbidden.
   //
-  // Walled domains (`@/lib/repositories`, `@/store`, `@/lib/db/queries`)
-  // expose a single barrel each. Deep imports into them re-introduce the
-  // cross-module coupling we are eliminating during the IDB-as-SSOT
-  // migration — they are blocked here for every consumer outside the
-  // walled directory itself.
+  // Walled domains (`@/lib/repositories`, `@/store`, `@/lib/db/queries`,
+  // `@/lib/drafts`) expose a single barrel each. Deep imports re-introduce
+  // the cross-module coupling we eliminated during the IDB-as-SSOT
+  // migration — blocked here for every consumer outside the walled
+  // directory itself.
   {
     files: ["src/**/*.{ts,tsx}"],
     ignores: [
