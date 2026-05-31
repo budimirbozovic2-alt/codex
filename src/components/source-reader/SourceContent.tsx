@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { EditorV4 } from "@/components/editor-v4/EditorV4";
 import type { EditorV4Handle } from "@/components/editor-v4/EditorV4";
-import { htmlToDoc, type EditorDoc, type Editor } from "@/lib/editor-v4";
+import { type EditorDoc, type Editor } from "@/lib/editor-v4";
 import { buildSourceFromDoc } from "@/lib/services/sourceEditingService";
 import { useSourceMutations } from "@/hooks/source/useSourceMutations";
 import { taskScheduler } from "@/lib/scheduler";
@@ -20,16 +20,18 @@ interface Props {
 /**
  * In-place source viewer/editor backed by `<EditorV4>`.
  *
- * - `contentDoc` (AST) is SSOT — `htmlContent` is derived via `docToHtml`.
+ * - `contentDoc` (AST) is the sole SSOT for the body — legacy HTML field is gone.
  * - When `editMode === false`, the editor is read-only but TipTap still tracks
  *   selection so the parent `<SourceBubbleMenu>` keeps working.
  * - Autosave: 1s debounce via `taskScheduler`; drafts mirrored to IDB.
  * - PR-7f M3d: persistence goes through `useSourceMutations().save` so the
  *   read cache flips optimistically and any error rolls back the AST too.
  */
+const EMPTY_DOC: EditorDoc = { version: 4, content: { type: "doc", content: [] } };
+
 export function SourceContent({ source, editMode, onSourceUpdated, onEditorReady }: Props) {
   const initialDoc = useMemo<EditorDoc>(
-    () => source.contentDoc ?? htmlToDoc(source.htmlContent),
+    () => source.contentDoc ?? EMPTY_DOC,
     // Re-compute when underlying source identity flips; updates within the
     // same source come through the editor itself.
     // eslint-disable-next-line react-hooks/exhaustive-deps

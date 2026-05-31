@@ -65,7 +65,6 @@ export default function SourcesTab({ categoryId, sources, onOpenReader, onSource
         categoryId,
         title,
         date: new Date().toISOString().slice(0, 10),
-        htmlContent: promotedHtml,
         contentDoc: htmlToDoc(promotedHtml),
         outline,
         articles,

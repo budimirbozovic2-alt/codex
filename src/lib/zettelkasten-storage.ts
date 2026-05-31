@@ -203,7 +203,6 @@ export async function ensureIndexArticle(
       id: crypto.randomUUID(),
       subjectId,
       title: subjectName.trim() || "Predmet",
-      content: body,
       contentDoc: htmlToDoc(mdToHtml(body)),
       linkedSourceIds: [],
       isIndex: true,
