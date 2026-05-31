@@ -1,105 +1,71 @@
-# PR-E — Eliminacija `cardMapStore` (Opcija B)
+## Iskreni nalaz prije plana
 
-Cilj: ukloniti dvojnu RAM mapu kartica. TanStack Query cache postaje JEDINI in-memory store za kartice. Optimistic UI ide isključivo kroz `onMutate` + `setQueryData`. Sync RAM lookup primitivi (`cardMapWrites.put/patch/remove/...`) se gase.
+**Tvrdnja #1 — `idb-dexie.ts` / `idb-adapter.ts` / `mirroring-adapter.ts` čekaju brisanje:**
+**Pogrešno.** Sva tri fajla **već ne postoje**. Provjerio sam:
+- `src/legacy/` i `src/lib/legacy/` — direktorija nema.
+- `src/lib/persistence/` sadrži samo `PersistAdapter.ts`, `adapter-factory.ts`, `opfs-sqlite-adapter.ts`, `sqlite/`, `write-result.ts`. Nema `idb-adapter.ts` ni `mirroring-adapter.ts`.
+- `rg` nigdje ne nalazi `idb-dexie`, `idbAdapter`, `MirroringAdapter` u `src/`.
 
-## Audit svih dodirnih tačaka (potpuna inventura)
+Memory `Dexie Removal Final (Phase C)` to već dokumentuje. **Ovdje nema posla.**
 
-### Write-side (sync RAM commit → mora postati async TanStack mutation)
+**Tvrdnja #2 — `src/contexts/cards/useCardAggregates.ts` i `src/lib/subject/aggregators.ts` vrte `.filter()`/`.reduce()` umjesto SQL `SELECT COUNT(*)` u Web Workeru:**
+Putanja prva je netačna (fajl je u `src/hooks/cards/useCardAggregates.ts`), ali zabrinutost je djelimično validna — uz važne ograde.
 
-| # | Lokacija | Trenutni API | Tip operacije |
-|---|---|---|---|
-| W1 | `useCardMutations.ts` | `cardMapWrites.put/bulkPut/remove/patchAsync/bulkPatchAsync` u 5 mutacija | core — već ima onMutate snapshot/rollback nad `cards.root` |
-| W2 | `useCardCRUD.ts:splitCard` | `getCard(id)` (sync RAM lookup) prije bulkUpsert | mora postati `getCardsByIds([id])` |
-| W3 | `useCardImport.ts:importData` | `cardMapReplaceAll(nextMap)` + `getCardMap()` za atomic apply | replace cache cijele tabele |
-| W4 | `useCardImport.ts:importCards` | `cardMapBulkPut(created)` | bulk insert + invalidate |
-| W5 | `useCardSyncEffects.ts` | `clearLinks(ids)`, `clearNeedsReview(id)` iz source callbacks | async write + invalidate |
-| W6 | `runHeal.ts` (step 2 frequencyTag) | `cardMapWrites.bulkPut(mutated)` + `persistQueue.flush()` | direktan SQLite bulkPut |
-| W7 | `lib/migrations/heal-card-taxonomy.ts` | `cardMapWrites.bulkPut(patched)` | isto |
-| W8 | `lib/migrations/remap-from-backup.ts` | `cardMapWrites.bulkPut(updated)` | isto |
-| W9 | `lib/services/healthService.ts:cleanOrphans` | `cardMapWrites.bulkPut(patched)` (loaded iz `getCardsByIds`) | isto |
-| W10 | `lib/editor-v4/lazy-migrate.ts:migrateAllCards` | `cardMapWrites.snapshot()` (cijela RAM mapa) + `bulkPut` | `listAllCards()` + bulk SQLite write |
-| W11 | `card-bootstrap/runHeal` poziv `loadCardsDeferred` | dohvata sve kartice u RAM samo za heal | nakon W6 — fetch lokalno u runHeal, ne sije cardMap |
+Šta agregatori zaista računaju:
+- `dueCards: Card[]` — pune Card objekte, ne broj.
+- `stats.due` — zahtijeva walk kroz `card.sections[*].state` i `nextReview` da bi se našao `minNonNewNextReview` po kartici.
+- `learnedSections`, `totalSections`, `leechCount` — section-level brojanja.
+- `categoryStats.score` — poziva `getSectionScore` (čisti FSRS) po sekciji, mean per category.
+- `cardCountByCategory` — jedino čisto brojanje.
 
-### Read-side (cija mapa se popunjava kroz `seedCardMap` — uzrok memorijske duplikacije)
+**Zašto SQL `SELECT COUNT(*)` u Web Workeru NIJE rješenje za 90% ovoga:**
+1. `sections` su pohranjene kao **JSON blob unutar `cards` reda**, nisu zasebna SQL tabela. Ne možeš `COUNT(*) FROM sections WHERE state != 'New'`.
+2. `nextReview`, `state`, `leech` su FSRS-derivisana polja unutar JSON-a — ni indeksa, ni WHERE.
+3. `score` se računa preko `getSectionScore` (čista FSRS funkcija u JS-u, ne SQL).
+4. `useAllCards()` ionako vuče sve kartice u TanStack za UI (CardList, SubjectDashboard, GlobalSearch). Worker bi računao nad istim podacima — duplikat preko `postMessage` granice, koja sama kreira 5–20 ms latencije.
+5. SQLite-WASM već radi na main threadu (OPFS adapter). Premještanje u Worker traži drugi konekcijski seam i FK-aware tx koordinaciju — značajno opsežnije od onog što ovaj task predlaže.
 
-| # | Lokacija | Posljedica |
-|---|---|---|
-| R1 | `hooks/card/useCardsQuery.ts` — svaki `useQuery` ima `seedCardMap(rows)` | OVO je root cause "Dual-State". Brise se kompletno. |
-| R2 | `store/useCardSelectors.ts` — `*Ram` selektori (used by `card-selectors.test.tsx`) | testovi se prepisuju da koriste TanStack hooks |
-| R3 | `store/useCardsBySource.ts` — `useCardsBySourceRam` | isto, samo za testove |
-| R4 | `store/useCardMapStore.ts` — `useCardMap`, `useCardsArray`, `cardMapRefFacade`, `replaceCardMap`, `setCardMap`, `getCardMap` | cijeli fajl se brise nakon migracije callsite-a |
-| R5 | `store/index.ts` — barrel export za sve gore | uklonjeno iz barela |
+**Šta JESTE realan win, bez Workera:**
+- `cardCountByCategory` se sada izvodi iz pune `cards` array umjesto da koristi već postojeći `useCardCountByCategory` (SQL `SELECT COUNT(*) AS n FROM cards WHERE categoryId = ?`). Ovaj hook postoji u `useCardsQuery.ts:125` ali ga **niko ne koristi** — `CategoriesPage`, `SRSettingsPanel`, `SubjectsTab`, `CategoryManager` svi vuku iz `useCardData().cardCountByCategory` (full reduce).
+- `useCardAggregates` može se podijeliti: `dueCards`/`stats`/`categoryStats` ostaju (JS, derivirano iz FSRS), ali `cardCountByCategory` izlazi iz hooka i ide na per-category SQL count.
 
-### Konzumenti `useCardData().cards` (cijela tabela u RAM-u — ostaje, ali sada **samo** kroz TanStack)
+## Plan: PR-F — Per-Category Count SQL Cutover
 
-`ReviewPage`, `PlannerPage`, `LearnPage`, `DashboardPage`, `StatsPage`, `GlobalSearch`, `MainLayout`, `BackupCard` — već idu kroz `useAllCards()` (TanStack `['cards','all']`). Bez izmjena nakon R1.
+Mali, fokusirani PR. Ne dira FSRS agregaciju (nema smisla u SQL), samo seli COUNT-only put na već postojeći SQL helper.
 
-## Strategija migracije (4 mikro-PR-a unutar PR-E grane)
+### Obim
 
-### PR-E1 — Direct SQLite write helper + cut seedCardMap
+**F1 — Granular count consumeri pređu na `useCardCountByCategory`**
+- `src/views/CategoriesPage.tsx` — zamijeniti `useCardData().cardCountByCategory[cat]` sa `useCardCountByCategory(cat)` per row.
+- `src/components/CategoryManager.tsx` — isto, `cardCountByCategory[cat]` lookups (linije 104, 288, 291, 298). Ovaj prima count kao prop, pa orchestrator (`CategoriesPage`) treba dati map ili hook (vidi F2).
+- `src/components/settings/SubjectsTab.tsx` — isto, props-driven.
+- `src/components/SRSettingsPanel.tsx:78` — `useCardData().cardCountByCategory`.
 
-1. Dodati `src/lib/db/queries/cards-writes.ts` sa:
-   - `putCardDirect(card: Card): Promise<void>` — `SqlExecutor.transaction` + `notifyCardsChanged`
-   - `bulkPutCardsDirect(cards: Card[]): Promise<void>` — isto, batch UPSERT
-   - `deleteCardDirect(id: string): Promise<void>`
-   - `replaceAllCardsDirect(map: CardMap): Promise<void>` — DELETE FROM cards + bulk insert u istoj tx, za import
-2. Ukloniti `seedCardMap()` iz `useCardsQuery.ts` (svih 7 query-ja). TanStack postaje jedini read SSOT — `cardMapStore` prestaje da se popunjava.
+**F2 — Mali wrapper hook za "map of counts" gdje je potreban**
+- Dodati `useCardCountsByCategoryMap(categoryIds: string[]): Record<string, number>` u `src/hooks/card/useCardsQuery.ts` — pokreće `useQueries` per ID, vraća stabilan map. TanStack dedupes po queryKey, ostali consumeri istog `categoryId` koriste isti cache.
+- Ova map ulazi u `CategoryManager` i `SubjectsTab` umjesto trenutnog props patterna.
 
-### PR-E2 — Optimistic mutations preko `setQueryData`
+**F3 — Skinuti `cardCountByCategory` iz `useCardAggregates` + `useCardData`**
+- `useCardAggregates` više ne vraća `cardCountByCategory` — ostaje samo `dueCards`, `stats`, `categoryStats`.
+- `useCardData` više ne vraća `cardCountByCategory`.
+- Update tipova: `CardStateContextValue`, `CategoriesPageProps`, `SRSettingsPanelProps`, `SubjectsTabProps`.
 
-Refaktor `useCardMutations.ts`:
-- `mutationFn` zove direktne SQLite write helpere (PR-E1) — ne `cardMapWrites.*`.
-- `onMutate` proširen: pored `cancelQueries` + `snapshot`, **odmah primjenjuje optimistic patch** na sve relevantne keševe:
-  - `['cards','all']` — set/replace/delete u nizu
-  - `['cards','cat',categoryId]`, `['cards','subcat',...]`, `['cards','chap',...]`, `['cards','source',...]`, `['cards','byId',id]`, `['cards','count',categoryId]` — invalidacija (ili targetirano `setQueryData` gdje je jeftino)
-- Pomoćnik `applyOptimisticCardPatch(qc, op)` centralizuje logiku (op = `{type:'put'|'remove'|'bulkPut'|'patch'|'bulkPatch', ...}`).
-- `onError` ostaje: restore snapshot. `reloadCardsFromDb` poziv se uklanja (više nema RAM mape za resync).
-- `onSettled` invalidira `cards.root` da pokupi serverskim podacima razlike koje optimistic nije pogodio (sigurnosna mreža).
+**F4 — Test pokrivenost**
+- Novi `card-count-by-category-sql.test.tsx`: provjerava da `useCardCountByCategory` vraća SQL count i invalidira se na `notifyCardsChanged`.
+- Postojeći `card-selectors.test`-style testovi nisu pogođeni (`useCardAggregates` testovi gađaju `dueCards`/`stats`/`categoryStats`).
 
-### PR-E3 — Migracija ostalih write callsite-ova (W2–W10)
+### Šta NE radimo (svjesno)
 
-Po fajlu, redom (svaki sa fokusiranim diff-om):
-- **W2** `splitCard`: `getCard(id)` → `(await getCardsByIds([id]))[0]`. Sve ostalo identično (već `await bulkUpsert.mutateAsync` pa `await remove.mutateAsync`).
-- **W3** `importData`: `cardMapReplaceAll(nextMap)` → `qc.setQueryData(['cards','all'], Object.values(nextMap))` + `qc.invalidateQueries({queryKey: queryKeys.cards.root})`; `getCardMap()` poziv za `applyImportAtomically.currentMap` zamijeniti `await listAllCards()` → mapa po id-u (atomic-tx već čita iz baze pa je ovo samo merge baseline).
-- **W4** `importCards`: koristiti `bulkUpsert.mutateAsync(created)` (postojeća TanStack mutacija).
-- **W5** `useCardSyncEffects`: novi mali `useClearCardLinksMutation` / `useClearNeedsReviewMutation` u istom modulu — direktan SQLite update + invalidate. Callback iz `onCardLinksCleared` poziva `mutate()`.
-- **W6** runHeal step 2: koristiti `bulkPutCardsDirect(mutatedCards)` (već je u `taskScheduler.idle` post-READY); zatim `notifyCardsChanged()` umjesto persist-queue flush-a.
-- **W7/W8/W9/W10**: `cardMapWrites.bulkPut(...)` → `bulkPutCardsDirect(...)`. Za W10 dodatno `cardMapWrites.snapshot()` → `await listAllCards()`.
+- **Ne** premještamo `useCardAggregates` u Web Worker — embedded JSON sekcije + FSRS score nije izvodljivo bez schema migracije + worker konekcije, a profit je sumnjiv (TanStack već dijeli iste podatke za UI).
+- **Ne** brišemo nepostojeće `idb-dexie`/`idb-adapter`/`mirroring-adapter` fajlove.
+- **Ne** mijenjamo `aggregateSubjectProgress` (`src/lib/subject/aggregators.ts`) — radi nad već scoped `useCardsByCategory` arrayom (jedan predmet, stotine kartica), pure funkcija, lako testabilno. Premještanje ovoga je gradient bez koristi.
 
-### PR-E4 — Brisanje mrtve infrastrukture
+### Tehnička napomena
 
-Tek kad PR-E3 zatvori posljednji import iz `@/domains/cards` koji koristi sync RAM API:
-1. Obrisati: `src/store/useCardMapStore.ts`, `src/store/useCardsBySource.ts` (RAM dio), `*Ram` selektori iz `src/store/useCardSelectors.ts`.
-2. `src/domains/cards/cardMapWrites.ts`: zadržati SAMO `reloadCardsFromDb` (preimenovati u `refreshCardsCache` → invalidira `['cards']`) i `notifyCardsChanged` re-export. Sve sync write primitive (`put/bulkPut/patch/remove/clearLinks/clearNeedsReview/replaceAll/snapshot/getCard/_writeEpoch/applySyncDelta/patchAsync/removeAsync/bulkPatchAsync`) — brisanje.
-3. `src/domains/cards/index.ts`: barel sad re-exportuje samo helpere iz tačke 2.
-4. `src/store/index.ts`: uklonjeni svi `cardMap*` re-exporti.
-5. ESLint zid W11 ostaje — sada čuva `@/domains/cards` koji je puno tanji.
+`useCardCountByCategory` već postoji i koristi `staleTime: Infinity` + `onCardsChanged` bridge za invalidaciju. Posle PR-E (TanStack SSOT), svaki write šalje `notifyCardsChanged()` → bridge → invalidate `['cards', ...]` prefix → count queries refetch. Konsistencija je već garantirana, samo se prešalta read seam s "in-memory reduce" na "SQL COUNT".
 
-### PR-E5 — Test prilagodba
+### Očekivani efekat
 
-| Test | Akcija |
-|---|---|
-| `card-selectors.test.tsx` | port na `useCardsByCategory` (TanStack) sa `QueryClientProvider` wrapper-om iz `test/helpers/queryWrapper.tsx`. RAM put-ovi → `qc.setQueryData(['cards','all'], rows)`. |
-| `use-cards-by-source.test.tsx` | isto kao gore, sa `['cards','source',id]`. |
-| `card-map-writes.test.ts` | brisanje (regression za fenomen koji više fizički nije moguć). Dodati novi `card-mutations-optimistic.test.tsx` koji pokriva onMutate setQueryData / onError rollback. |
-| `cards-mirror-and-rollback.test.tsx` | rewrite: ukloniti mock `@/domains/cards`; testira da `useCardMutations.save` → optimistic patch vidljiv na `useAllCards` prije server resolve, te rollback na error. |
-| Postojeći `query-bridges.test.ts`, `boot-deferred-cards.test.ts`, `phase-a-p0.test.tsx` | provjera da i dalje prolaze nepromijenjeni. |
-
-## Rizici i mitigacije
-
-- **Optimistic patch propusti scoped query**: `onSettled: invalidateQueries(cards.root)` je sigurnosna mreža. Korisnik vidi optimistic odmah, scoped views se osvježe u sljedećem tick-u.
-- **`splitCard` race**: PR-B fix (`await bulkUpsert.mutateAsync` pa `await remove.mutateAsync`) se zadržava — ne mijenjamo redoslijed, samo izvor podataka za `card` lookup.
-- **Import (W3) je najveći blok**: `applyImportAtomically` se ne dira — samo izvor `currentMap` se mijenja sa RAM na `listAllCards()`. Atomic tx u SQLite-u već garantuje konzistentnost.
-- **Memorija**: nakon PR-E1 RAM treba pasti za otprilike veličinu cardMap-a (jedan zapis manje, ne dva). TanStack jedini drži kartice u memoriji.
-- **`_writeEpoch` race guard iz PR-B**: postaje irelevantan jer više ne postoji "stari" sync RAM koji bi reload mogao pregaziti. `reloadCardsFromDb` → `refreshCardsCache` je sada čisto `invalidateQueries`.
-
-## Granica izvedbe
-
-Svi koraci se mogu uraditi i validirati testovima nakon **svakog mikro-PR-a**. Posljednji PR-E4 je čisto brisanje — dirnut će ~6 fajlova ali bez logičke izmjene jer su pozivaoci već migrirani.
-
-## Stavke koje se NE diraju
-
-- FSRS algoritam (PR-B fixes ostaju).
-- `persistQueue` postoji i dalje za batch ordering — write helperi iz PR-E1 ga koriste interno (`schedulePersist` + opcionalni `flush`).
-- `notifyCardsChanged` bridge — ostaje srce read-invalidacije.
-- Sve memory entries vezane za Ref-Delta DEPRECATED status — ostaju, ovaj PR ih samo dovršava.
+- Per-render rad u `CategoriesPage`, `SubjectsTab`, `SRSettingsPanel` pada sa O(N) reduce nad `useAllCards()` na O(1) lookup TanStack cachea (count value je broj).
+- `useCardData` više ne treba `useAllCards` čisto za count put — `dueCards`/`stats` ostaju, ali consumeri samo za count (kao Settings ekran) više ne forsiraju hidrataciju cijelog cards arraya kroz ovaj orchestrator.
+- Memory profil neznatno bolji; mjerljiv win je rerender cost na taxonomy-heavy ekranima.
