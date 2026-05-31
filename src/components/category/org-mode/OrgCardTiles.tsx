@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { useSortable } from "@dnd-kit/sortable";
 import { useDroppable } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
@@ -9,7 +10,11 @@ import { cn } from "@/lib/utils";
 import { chapterDropId } from "./org-mode-utils";
 
 // ─── Sortable card tile ─────────────────────────────────
-export function SortableCardTile({ card, index }: { card: Card; index: number }) {
+// PR-G6 / RC-6: memoized so a DnD drag (which re-renders the parent panel
+// per pointer move) doesn't reconcile 200+ tiles per frame. Stable comparator
+// over `card.id` + `card.updatedAt` + `index` — drag transforms are read from
+// `useSortable` and live in DOM style, not in props.
+export const SortableCardTile = memo(function SortableCardTile({ card, index }: { card: Card; index: number }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: card.id });
 
   const style = {
@@ -38,7 +43,13 @@ export function SortableCardTile({ card, index }: { card: Card; index: number })
       </Badge>
     </div>
   );
-}
+}, (prev, next) =>
+  prev.index === next.index &&
+  prev.card.id === next.card.id &&
+  prev.card.updatedAt === next.card.updatedAt &&
+  prev.card.question === next.card.question &&
+  prev.card.type === next.card.type,
+);
 
 // ─── Droppable chapter zone ─────────────────────────────
 export function DroppableChapterZone({ subId, chapId, displayName, count, children }: {
