@@ -156,8 +156,8 @@ export function useDashboardData(
     const remaining = stats.totalSections - stats.learnedSections;
     const estimated = mod.calcEstimatedFinish(remaining, velocity7);
     const status = mod.getPlannerStatus(estimated, plannerConfig.finalGoalDate, plannerConfig.bufferPercent ?? 15);
-    const suggestion = mod.getSmartSuggestion(null, cards, plannerConfig.finalGoalDate, velocity7, plannerConfig.bufferPercent ?? 15);
-    const timeRec = suggestion ? mod.calcDailyTimeRecommendation(suggestion.suggestedToday, velocity7, stats.due) : null;
+    const suggestion = mod.getSmartSuggestion(null, cards, plannerConfig.finalGoalDate, plannerConfig.bufferPercent ?? 15);
+    const timeRec = suggestion ? mod.calcDailyTimeRecommendation(suggestion.suggestedToday, stats.due) : null;
     const activePhase = null;
     const dailyMapped = mod.getDailyMappedCount();
     const dailyQuota = suggestion?.suggestedToday ?? 0;
@@ -167,7 +167,7 @@ export function useDashboardData(
 
   const cognitiveDebt = useDeferredCompute(async () => {
     const mod = await getPlannerModule();
-    return mod.getCognitiveDebt(dailyGoal);
+    return mod.getCognitiveDebt();
   }, [dailyGoal]);
   
 

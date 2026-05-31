@@ -206,7 +206,7 @@ export default function LearnSession({ cards, categories, categoryRecords, subca
         const { loadPlanner, calcVelocity, getSmartSuggestion } = await import("@/domains/planner");
         const plannerConfig = loadPlanner();
         const velocity = calcVelocity(reviewLogProp, 7);
-        const suggestion = getSmartSuggestion(null, cards, plannerConfig.finalGoalDate, velocity, plannerConfig.bufferPercent ?? 15);
+        const suggestion = getSmartSuggestion(null, cards, plannerConfig.finalGoalDate, plannerConfig.bufferPercent ?? 15);
         const dailyGoal = suggestion?.suggestedToday ?? 0;
         const today = new Date().toISOString().slice(0, 10);
         const reviewsDoneToday = reviewLogProp.filter(e => new Date(e.timestamp).toISOString().slice(0, 10) === today).length;
