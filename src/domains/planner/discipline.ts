@@ -45,10 +45,7 @@ export function recordDayDiscipline(
   return entry;
 }
 
-export function getCognitiveDebt(
-  dailyGoal: number,
-): { hasDebt: boolean; debtCards: number; message: string } | null {
-  void dailyGoal;
+export function getCognitiveDebt(): { hasDebt: boolean; debtCards: number; message: string } | null {
   const yesterday = addDays(new Date(), -1).toISOString().slice(0, 10);
   const entry = disciplineCache.get().find(e => e.date === yesterday);
   if (!entry || entry.status !== "lazy") return null;

@@ -8,7 +8,6 @@ export function getSmartSuggestion(
   phase: StudyPhase | null,
   cards: Card[],
   goalDateStr: string | null,
-  velocity: number,
   bufferPct: number,
 ): SmartSuggestion | null {
   if (!goalDateStr) return null;
@@ -66,9 +65,8 @@ export function getPlannerStatus(
 }
 
 export function calcDailyTimeRecommendation(
-  suggestedSections: number, velocity: number, dueCount: number, avgMinPerSection: number = 3,
+  suggestedSections: number, dueCount: number, avgMinPerSection: number = 3,
 ): { totalMinutes: number; hours: number; minutes: number; message: string } {
-  void velocity;
   const totalSections = suggestedSections + dueCount;
   const totalMinutes = Math.round(totalSections * avgMinPerSection);
   const hours = Math.floor(totalMinutes / 60);
