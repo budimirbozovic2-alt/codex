@@ -34,6 +34,9 @@ const stores: Record<StoreName, unknown[]> = {
   drafts: [],
 };
 
+/** Tests can populate this to force `listAllRows(<store>)` to reject. */
+const throwOnList = new Set<StoreName>();
+
 const fakeIdb = { __fake: true } as unknown as IDBDatabase;
 
 vi.mock("@/lib/persistence/sqlite/idb-raw-reader", () => ({
@@ -53,8 +56,10 @@ vi.mock("@/lib/persistence/sqlite/idb-raw-reader", () => ({
     }
     return total;
   },
-  listAllRows: async <T,>(_db: IDBDatabase, name: StoreName) =>
-    (stores[name] ?? []) as T[],
+  listAllRows: async <T,>(_db: IDBDatabase, name: StoreName) => {
+    if (throwOnList.has(name)) throw new Error(`forced fail: ${name}`);
+    return (stores[name] ?? []) as T[];
+  },
   getKv: async <T,>(_db: IDBDatabase, _name: StoreName, _key: string) => undefined as T | undefined,
 }));
 
@@ -202,5 +207,40 @@ describe("migrateFromIdb", () => {
     await expect(migrateFromIdb(executor)).rejects.toBeInstanceOf(MigrationAbort);
     expect(state.tables.cards.size).toBe(0);
     expect(state.kv.has(MIGRATION_FLAG_KEY)).toBe(false);
+  });
+});
+
+describe("migratePr9ReadPathFromIdb — partial failure", () => {
+  it("does NOT write the PR-9 read-path flag when one sub-step fails", async () => {
+    const { migratePr9ReadPathFromIdb, PR9_READPATH_FLAG_KEY } = await import(
+      "@/lib/persistence/sqlite/migrate-from-idb"
+    );
+    const executor = createExecutor();
+    const state = (executor.run as unknown as { _state: MockState })._state;
+
+    // Force the disciplineLog sub-step to throw at the listAllRows boundary.
+    // Planner KV (getKv → undefined) and drafts (empty list) still succeed.
+    throwOnList.add("disciplineLog");
+    try {
+      const report = await migratePr9ReadPathFromIdb(executor);
+      expect(report.alreadyComplete).toBe(false);
+      // The flag MUST remain unset so the next boot re-attempts the
+      // failed sub-step instead of silently skipping it forever.
+      expect(state.kv.has(PR9_READPATH_FLAG_KEY)).toBe(false);
+    } finally {
+      throwOnList.delete("disciplineLog");
+    }
+  });
+
+  it("writes the PR-9 read-path flag when ALL sub-steps succeed", async () => {
+    const { migratePr9ReadPathFromIdb, PR9_READPATH_FLAG_KEY } = await import(
+      "@/lib/persistence/sqlite/migrate-from-idb"
+    );
+    const executor = createExecutor();
+    const state = (executor.run as unknown as { _state: MockState })._state;
+
+    const report = await migratePr9ReadPathFromIdb(executor);
+    expect(report.alreadyComplete).toBe(false);
+    expect(state.kv.has(PR9_READPATH_FLAG_KEY)).toBe(true);
   });
 });
