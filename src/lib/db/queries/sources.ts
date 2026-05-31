@@ -119,7 +119,7 @@ export async function listSourcesByCategory(categoryId: string): Promise<Source[
 
 export async function putSource(source: Source): Promise<void> {
   const exec = await requireExecutor("putSource");
-  if (!exec) return;
+  if (!exec) throw new Error("NO_EXECUTOR");
   await exec.run(INSERT_SQL, bindSource(source));
 }
 
@@ -131,7 +131,7 @@ export async function putSource(source: Source): Promise<void> {
 export async function deleteSourceAndUnlinkCards(id: string): Promise<string[]> {
   const clearedIds: string[] = [];
   const exec = await requireExecutor("deleteSourceAndUnlinkCards");
-  if (!exec) return clearedIds;
+  if (!exec) throw new Error("NO_EXECUTOR");
 
   await exec.transaction(async (tx) => {
     const linked = await tx.all<{ id: string; payload: string }>(

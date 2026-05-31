@@ -84,7 +84,7 @@ export async function listMindMapsByCategory(categoryId: string): Promise<MindMa
 
 export async function putMindMap(doc: MindMapDoc): Promise<void> {
   const exec = await requireExecutor("putMindMap");
-  if (!exec) return;
+  if (!exec) throw new Error("NO_EXECUTOR");
   if (!doc.categoryId) {
     logger.warn("[mindmaps-repo] put skipped — missing categoryId", { id: doc.id });
     return;
@@ -100,6 +100,6 @@ export async function putMindMap(doc: MindMapDoc): Promise<void> {
 
 export async function deleteMindMap(id: string): Promise<void> {
   const exec = await requireExecutor("deleteMindMap");
-  if (!exec) return;
+  if (!exec) throw new Error("NO_EXECUTOR");
   await exec.run("DELETE FROM mindMaps WHERE id = ?", [id]);
 }

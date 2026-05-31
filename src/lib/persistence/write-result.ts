@@ -23,6 +23,7 @@ export type WriteErrorCode =
   | "NOT_FOUND"
   | "CONFLICT"
   | "QUOTA_EXCEEDED"
+  | "NO_EXECUTOR"
   | "PERSIST_FAILED"
   | "UNKNOWN";
 
@@ -46,6 +47,7 @@ export async function wrapWrite<T>(fn: () => T | Promise<T>): Promise<WriteResul
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);
     if (message === "QUOTA_EXCEEDED") return err("QUOTA_EXCEEDED", message, e);
+    if (message === "NO_EXECUTOR") return err("NO_EXECUTOR", message, e);
     return err("PERSIST_FAILED", message, e);
   }
 }
