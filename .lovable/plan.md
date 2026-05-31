@@ -1,72 +1,49 @@
-# PR-G5 (RC-5): Selektori i render disciplina (DnD Organizer)
+# PR-G6 (RC-6): Memoizacija — `CardViewTable` row extraction
 
-Cilj: smanjiti reconciliation cost u `CardOrgMode` (drag-and-drop organizator)
-gdje pointer-move tokom DnD-a trigeruje render cijelog stabla, što je sa
-200+ kartica i 5+ potkategorija dovodilo do dropped frame-ova.
+Cilj: eliminisati O(N×M) per-render trošak u tabeli kartica (Edit tab) gdje
+je svaki red rebuild-ovao taksonomske lookup-e (`allCategories.find(...)` +
+`.flatMap(...).find(...)`) unutar inline IIFE, a promjena state-a jednog
+reda (expand/select/freq menu) trigerovala render SVIH redova.
 
 ## Izmjene
 
-### 1. `OrgSubcategoryPanel` — hoisting derived maps
-- `availableChapters`, `chapterIdMap`, `otherSubs`, `subIdMap` su prebačeni
-  iz inner `node.unassigned.map(...)` callback-a na panel-scope kroz `useMemo`.
-- Per-row callbacks (`onAssignChapter`, `onMoveSub`) prebačeni u stabilne
-  `useCallback` faktorije (`makeAssignChapter`/`makeMoveSub`) — eliminiše
-  novu funkcijsku referencu na svaki render.
-- Komponenta sada izvezena kroz `React.memo(OrgSubcategoryPanelInner)`.
+### 1. `src/components/category/CardTableRow.tsx` (novo)
+- Sav red-level UI prebačen iz inline `filteredCards.map(...)` body-ja u
+  zasebnu komponentu.
+- `React.memo` sa custom komparatorom koji poredi `card`, `card.updatedAt`,
+  `isExpanded`, `isSelected`, `selectionMode`, `taxonomy` (referencno) i
+  sve handler reference.
+- Prima već **razrijeđene primitive**: `subName`, `subStale`, `chapName`,
+  `chapStale` (tip `CardTaxonomyResolved`) — bez pristupa
+  `allCategories[]` iznutra.
 
-### 2. `OrgCardTiles.tsx` — memoizacija drop zone-a i unassigned row-a
-- `DroppableChapterZone` wrap-ovan u `React.memo`. `useDroppable` već
-  izoluje `isOver` stanje → ostali pointer-move event-i ne reconcile-uju
-  zonu.
-- `UnassignedCardRow` wrap-ovan u `React.memo` sa custom komparatorom koji
-  poredi `card.updatedAt`, `index`, oba lookup array-a po identity-ju i obje
-  callback reference. Sve su sada stabilne nakon (1).
-- `SortableCardTile` već bio memoiziran (PR-G6/RC-6) — zadržan.
+### 2. `src/components/category/CardViewTable.tsx` (refactor)
+- Inline IIFE-i izbrisani.
+- Jedan `useMemo` gradi dvije lookup mape iz `allCategories`:
+  `subNameById: Map<string, string>`, `chapNameById: Map<string, string>`.
+  Trošak O(N) jednom po promjeni `allCategories` umjesto O(N×M) per render.
+- Drugi `useMemo` mapira `cardId → CardTaxonomyResolved` koristeći lookup
+  mape; referenca svake `taxonomy` vrijednosti je stabilna dok se
+  taksonomija ne promijeni, što omogućava da `React.memo` komparator
+  preskoči red.
+- Delegira render na `<CardTableRow />`.
 
-### 3. Regresioni test `src/test/pr-g5-render-discipline.test.ts`
-- Provjerava `$$typeof === Symbol.for("react.memo")` za sva četiri kompo-
-  nenta (panel, drop zone, unassigned row, sortable tile).
-- Statički guard: čita `OrgSubcategoryPanel.tsx` i fail-uje ako se ikad
-  ponovo uvedu in-callback alokacije `availableChapters` / `chapterIdMap` /
-  `otherSubs` / `subIdMap`.
+### 3. Regresioni test `src/test/pr-g6-card-table-row.test.ts`
+- Runtime memo guard za `CardTableRow`.
+- Statički guard: `CardViewTable.tsx` više NE sadrži
+  `allCategories.find(` niti `.subcategories?.flatMap(`.
+- Sanity: prisutni su `subNameById` / `chapNameById` i `<CardTableRow />`.
 
-### 3. Virtualizacija DnD chapter liste (`react-window` v2 + dnd-kit shim)
+## Što PR-G6 NE radi
 
-`src/components/category/org-mode/VirtualSortableCardList.tsx`:
-
-- `react-window` v2 `<List />` sa fixed `rowHeight = 50px` (SortableCardTile + gap).
-- **Shim:** parent `<SortableContext>` u `OrgSubcategoryPanel` ostaje SSOT
-  za potpunu listu ID-ova (`ch.cards.map(c => c.id)`). Virtualizovana
-  komponenta NE wrap-uje drugi `SortableContext` (duplo nesting kvari
-  dnd-kit index math). `<DragOverlay />` iz `CardOrgMode` (portal u
-  `document.body`) preživljava unmount source row-a kad virtualizator
-  scroll-uje granu van viewport-a.
-- `overscanCount = 8` pokriva edge drag-and-drop dok dnd-kit `useAutoScroll`
-  ne uhvati scrollable ancestor i ne dovuče sljedeće rows.
-- Threshold: `VIRTUALIZATION_THRESHOLD = 30`. Ispod toga inline render —
-  overhead virtualizacije (constant mount/unmount + `MeasuringStrategy.Always`)
-  ne isplati se za male liste.
-- Unassigned sekcija (`UnassignedCardRow` sa Select dropdown-ima) namjerno
-  ostavljena inline — varijabilna visina + portal Select-i komplikuju
-  virtualizaciju, a typično ima <20 stavki.
-
-### 4. Regresioni testovi
-
-- `src/test/pr-g5-render-discipline.test.ts` — 5 testova: memo guard za
-  panel/zone/row/tile + statički guard protiv re-uvođenja in-callback
-  alokacija.
-- `src/test/pr-g5-dnd-virtualization.test.ts` — 5 testova: memo guard za
-  `VirtualSortableCardList`, threshold sanity, panel wire-up,
-  no-nested-SortableContext invariant, `DragOverlay` portal shim
-  preživio u `CardOrgMode`.
-
-## Što PR-G5 NE radi
-
-- Ne virtualizuje `UnassignedCardRow` (variable height, portal Select-i).
-- Ne dira `MnemonicWorkshop` koji već koristi `react-window`.
-- Ne mijenja DnD semantiku ni `useCardOrgDnd` hook.
+- Ne uvodi virtuelizaciju u `CardViewTable` — `CardList` (drugi vidžet)
+  je već virtualizovan (mem://ui/card-list-ux), a Edit-tab tipično prikazuje
+  manje od 200 redova; row-level memoizacija je glavni win.
+- Ne dira `OrgSubcategoryPanel` / DnD (pokriveno u PR-G5).
+- Ne mijenja public API `CardViewTable`-a — `Props` interface identičan.
 
 ## Verifikacija
 
 - `bunx tsc --noEmit` — 0 grešaka.
-- `bunx vitest run pr-g5-render-discipline` — 5/5 ✓.
+- `bunx vitest run pr-g4 pr-g5 pr-g6` — 15/15 ✓ (svi prethodni guard-i
+  zadržani).
