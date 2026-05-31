@@ -5,9 +5,13 @@
  * IDB↔SQLite mirroring shim were dropped together with the one-shot
  * migration completion (Pure Desktop is SQLite-primary unconditionally).
  *
- * The non-Electron path (Vite dev preview in a browser) gets a noop adapter
- * so the persist queue still drains without throwing — durability there is
- * a non-goal.
+ * - Electron PROD: durable OPFS-SAH-pool.
+ * - Non-Electron DEV (lovable.app preview / `bun run dev` in a tab): the
+ *   same `opfsSqliteAdapter` is used, but its executor transparently falls
+ *   back to an in-memory SQLite (see `sqlite/client.ts` +
+ *   `sqlite/dev-fallback.ts`). Non-durable, but UI flows work.
+ * - Non-Electron PROD: unreachable — `assertDesktop()` throws at boot.
+ *   The historical `noopAdapter` is kept only as a defensive last resort.
  */
 import type { Card } from "@/lib/spaced-repetition";
 import type { PersistAdapter } from "./PersistAdapter";
@@ -20,11 +24,14 @@ interface FactoryOptions {
 
 const noopAdapter: PersistAdapter = {
   async bulkApply(_puts: readonly Card[], _deletes: readonly string[]): Promise<void> {
-    /* dev-preview only — SQLite/OPFS lives in Electron */
+    /* PROD non-Electron is blocked by assertDesktop; this is a defensive no-op. */
   },
 };
 
 export function getDefaultAdapter(opts: FactoryOptions = {}): PersistAdapter {
-  if (!opts.isElectron) return noopAdapter;
-  return opfsSqliteAdapter;
+  if (opts.isElectron) return opfsSqliteAdapter;
+  // Non-Electron DEV preview — opfsSqliteAdapter resolves to dev in-memory
+  // SQLite via getOpfsSqliteExecutor()'s fallback branch.
+  if (!import.meta.env.PROD) return opfsSqliteAdapter;
+  return noopAdapter;
 }
