@@ -11,9 +11,10 @@
 //         BootRecoveryGate (post-boot error UI)
 //           children
 //
-// PomodoroProvider, UIProvider, SessionProvider are no-op shims; their
-// state lives in Zustand stores (`usePomodoroStore`, `useUIStore`,
-// `useSessionStore`). Consumer hooks scope re-renders via selectors.
+// Pomodoro/UI/Session state lives in Zustand stores (`usePomodoroStore`,
+// `useUIStore`, `useSessionStore`) — the v1 Provider shims were dropped in
+// Provider Cleanup v2. Consumer hooks (`usePomodoroStable`, `useUIContext`,
+// etc.) scope re-renders via selectors.
 // ═══════════════════════════════════════════════════════════
 import { Suspense, lazy, ReactNode } from "react";
 import { AppBootstrap } from "./AppBootstrap";
