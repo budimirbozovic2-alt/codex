@@ -20,11 +20,18 @@ export async function calcWeakHooks(): Promise<WeakHook[]> {
   const THRESHOLD = 3000;
   const weakHooks: WeakHook[] = [];
 
+  // Pre-group latency by cardId — was O(N×M) via Array.filter inside forEach.
+  const latencyByCard = new Map<string, typeof latencyLog>();
+  for (const l of latencyLog) {
+    const arr = latencyByCard.get(l.cardId);
+    if (arr) arr.push(l); else latencyByCard.set(l.cardId, [l]);
+  }
+
   mnemonicCards.forEach(mc => {
     if (mc.mnemonicStatus === "new" && !mc.mnemonicVideo && !mc.acronym) return;
 
-    const cardLatencies = latencyLog.filter(l => l.cardId === mc.originalCardId);
-    if (cardLatencies.length < 2) return;
+    const cardLatencies = latencyByCard.get(mc.originalCardId);
+    if (!cardLatencies || cardLatencies.length < 2) return;
 
     const recent = cardLatencies.slice(-5);
     const avgLatency = recent.reduce((s, l) => s + l.latencyMs, 0) / recent.length;
