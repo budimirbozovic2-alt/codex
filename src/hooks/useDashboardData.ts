@@ -158,11 +158,12 @@ export function useDashboardData(
     const status = mod.getPlannerStatus(estimated, plannerConfig.finalGoalDate, plannerConfig.bufferPercent ?? 15);
     const suggestion = mod.getSmartSuggestion(null, cards, plannerConfig.finalGoalDate, plannerConfig.bufferPercent ?? 15);
     const timeRec = suggestion ? mod.calcDailyTimeRecommendation(suggestion.suggestedToday, stats.due) : null;
-    const activePhase: { name: string; pct: number; learned: number; total: number } | null = null;
+    type ActivePhase = { name: string; pct: number; learned: number; total: number };
+    const activePhase: ActivePhase | null = null;
     const dailyMapped = mod.getDailyMappedCount();
     const dailyQuota = suggestion?.suggestedToday ?? 0;
     const redistResult = mod.autoRedistributeIfNeeded(cards, plannerConfig.finalGoalDate, plannerConfig.bufferPercent ?? 15);
-    return { status, suggestion, timeRec, remaining, totalSections: stats.totalSections, learnedSections: stats.learnedSections, activePhase, dailyMapped, dailyQuota, redistResult };
+    return { status, suggestion, timeRec, remaining, totalSections: stats.totalSections, learnedSections: stats.learnedSections, activePhase: activePhase as ActivePhase | null, dailyMapped, dailyQuota, redistResult };
   }, [stats, velocity7, plannerConfig, cards]);
 
   const cognitiveDebt = useDeferredCompute(async () => {

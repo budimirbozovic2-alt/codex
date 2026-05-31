@@ -130,7 +130,7 @@ export function detectArticles(html: string): DetectedArticle[] {
         nextBoundary = j;
         // Only reserve the line before next article as its title
         // if there are multiple content lines between articles
-        const contentLinesBetween = [];
+        const contentLinesBetween: number[] = [];
         for (let k = i + 1; k < j; k++) {
           if (lines[k].text && !lines[k].isArticle && !lines[k].isHeading) {
             contentLinesBetween.push(k);
