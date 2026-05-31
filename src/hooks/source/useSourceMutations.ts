@@ -52,10 +52,14 @@ export function useSourceMutations() {
       if (!ctx) return;
       // Always restore — including `undefined`, which removes the optimistic
       // ghost entry from caches that didn't exist before this mutation.
-      // (Without this, a failed save leaves the new source visible in the UI
-      // even though it was never persisted.)
       qc.setQueryData(queryKeys.sources.all(), ctx.prevAll);
       qc.setQueryData(queryKeys.sources.byCategory(ctx.categoryId), ctx.prevByCat);
+    },
+    onSuccess: (_data, next) => {
+      // Safety net: ako `_notify()` → bridge invalidacija propusti window
+      // (cancelQueries race, HMR, itd.), eksplicitno refetchuj scoped + all.
+      void qc.invalidateQueries({ queryKey: queryKeys.sources.byCategory(next.categoryId) });
+      void qc.invalidateQueries({ queryKey: queryKeys.sources.all() });
     },
   });
 
@@ -78,6 +82,10 @@ export function useSourceMutations() {
       if (!ctx) return;
       qc.setQueryData(queryKeys.sources.all(), ctx.prevAll);
       qc.setQueryData(queryKeys.sources.byCategory(vars.categoryId), ctx.prevByCat);
+    },
+    onSuccess: (_data, vars) => {
+      void qc.invalidateQueries({ queryKey: queryKeys.sources.byCategory(vars.categoryId) });
+      void qc.invalidateQueries({ queryKey: queryKeys.sources.all() });
     },
   });
 
