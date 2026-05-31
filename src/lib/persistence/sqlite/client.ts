@@ -96,21 +96,21 @@ function wrapDb(db: SqliteDb): SqlExecutor {
     sql: string,
     paramsBatches: readonly (readonly SqlBindValue[])[],
   ): Promise<void> => {
-    // Wave-1 fix: previously looped raw `db.exec` with NO transaction. If
-    // a single statement threw at row N, rows 1..N-1 stayed committed and
-    // N+1..end were lost — no atomicity at the bulk-write boundary. Wrap
-    // the batch in an explicit BEGIN/COMMIT so a failure rolls back whole.
-    db.exec({ sql: "BEGIN" });
-    try {
-      for (const params of paramsBatches) {
-        db.exec({ sql, bind: params.length > 0 ? params : undefined });
-      }
-      db.exec({ sql: "COMMIT" });
-    } catch (err) {
-      try { db.exec({ sql: "ROLLBACK" }); } catch { /* already rolled back */ }
-      throw err;
+    // A2-v2 (Audit v2 / Wave A.1): `runMany` is NEVER self-atomic. Every
+    // current call site is `tx.runMany(...)` inside an outer
+    // `exec.transaction(async tx => …)` (see write-cards-tx, write-categories-tx,
+    // write-satellite-tx, queries/categories, queries/knowledge-base,
+    // queries/mnemonics, queries/major-system). The previous Wave-1.5 fix
+    // wrapped this in its own BEGIN/COMMIT, which produced
+    // `cannot start a transaction within a transaction` in PROD/OPFS for
+    // every backup restore. DEV (`dev-fallback.ts:runMany`) didn't have the
+    // wrapper, masking the regression. Callers that need atomicity must
+    // wrap in `transaction()`; standalone `runMany` is currently unused.
+    for (const params of paramsBatches) {
+      db.exec({ sql, bind: params.length > 0 ? params : undefined });
     }
   };
+
   const all = async <T = SqlRow>(sql: string, params: readonly SqlBindValue[] = []): Promise<T[]> => {
     const result = db.exec({
       sql,
