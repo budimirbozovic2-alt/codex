@@ -1,4 +1,5 @@
 import { useEffect, useCallback, useMemo } from "react";
+import { useLocation } from "react-router-dom";
 import { useSearchParams } from "react-router-dom";
 import { useCardData, useCategoryData, useReviewData, useCardOnlyActions, useUIContext } from "@/contexts/AppContext";
 import { useSessionContext, QueuedReview, QueuedError } from "@/hooks/useSession";
