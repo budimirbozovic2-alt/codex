@@ -24,6 +24,7 @@ import {
 } from "@/lib/zettelkasten-storage";
 import { backlinkIndex } from "@/lib/backlink-index";
 import { queryKeys } from "@/lib/query/keys";
+import { logger } from "@/lib/logger";
 import { useKnowledgeBaseArticlesBySubject } from "./useKnowledgeBaseArticles";
 
 interface BootstrapInput {
@@ -83,8 +84,7 @@ export function useZettelkastenBootstrap(
         // rejection (executor unavailable, schema mismatch) left
         // `setEnsuring(true)` forever — permanent spinner with zero feedback.
         if (cancelled) return;
-        // eslint-disable-next-line no-console
-        console.warn("[zettelkasten] ensureIndexArticle failed", err);
+        logger.warn("[zettelkasten] ensureIndexArticle failed", err);
         setEnsuring(false);
       });
     return () => { cancelled = true; };
