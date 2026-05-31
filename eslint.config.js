@@ -113,7 +113,7 @@ export default tseslint.config(
       "src/lib/persist-queue.ts",
       "src/lib/db-queries.ts",
       "src/lib/db-schema.ts",
-      "src/contexts/cards/**/*.{ts,tsx}",
+      "src/hooks/cards/**/*.{ts,tsx}",
     ],
     rules: {
       "@typescript-eslint/no-explicit-any": "error",
@@ -401,8 +401,7 @@ export default tseslint.config(
   //   • src/lib/backup/yield-ui.ts  — alternative to scheduler for Dexie txs
   //   • src/main.tsx                 — splash removal pre-scheduler init
   //   • src/hooks/useCardBootstrap.ts — boot panic timer
-  //   • src/contexts/pomodoro/usePomodoroEngine.ts — sub-frame timing
-  //   • src/contexts/ui/useNotificationScheduler.ts — global 60s polling
+  //   • src/hooks/useNotificationScheduler.ts — global 60s polling
   //   • src/hooks/speed-reader/useSpeedReaderEngine.ts — RSVP timing
   //   • src/features/mnemonic/hooks/useTestEngine.ts — test countdown
   //   • src/features/docx-importer/docx-parser.ts — worker timeout race
@@ -424,8 +423,7 @@ export default tseslint.config(
       "src/lib/backup/yield-ui.ts",
       "src/main.tsx",
       "src/hooks/useCardBootstrap.ts",
-      "src/contexts/pomodoro/usePomodoroEngine.ts",
-      "src/contexts/ui/useNotificationScheduler.ts",
+      "src/hooks/useNotificationScheduler.ts",
       "src/hooks/speed-reader/useSpeedReaderEngine.ts",
       "src/features/mnemonic/hooks/useTestEngine.ts",
       "src/features/docx-importer/docx-parser.ts",
