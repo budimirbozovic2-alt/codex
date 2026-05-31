@@ -207,6 +207,7 @@ let _fetchSequence = 0;
  */
 export async function reloadCardsFromDb(cardIds?: string[]): Promise<void> {
   const currentSequence = ++_fetchSequence;
+  const startEpoch = _writeEpoch;
   try {
     await persistQueue.cleanup();
     if (currentSequence !== _fetchSequence) return;
@@ -219,7 +220,17 @@ export async function reloadCardsFromDb(cardIds?: string[]): Promise<void> {
       const fetchedIds = new Set(fetched.map((c) => c.id));
       const deletedIds = cardIds.filter((id) => !fetchedIds.has(id));
       if (fetched.length === 0 && deletedIds.length === 0) return;
-      applySyncDelta(fetched, deletedIds);
+      // PR-B: if a sync write touched any of the requested ids while we
+      // awaited SQLite, skip the surgical delta — the RAM value is newer.
+      if (_writeEpoch !== startEpoch) {
+        const map = getCardMap();
+        const safeRows = fetched.filter((c) => !(c.id in map) || c === map[c.id]);
+        const safeDeleted = deletedIds.filter((id) => !(id in map));
+        if (safeRows.length === 0 && safeDeleted.length === 0) return;
+        applySyncDelta(safeRows, safeDeleted);
+      } else {
+        applySyncDelta(fetched, deletedIds);
+      }
       notifyCardsChanged();
       return;
     }
@@ -227,6 +238,13 @@ export async function reloadCardsFromDb(cardIds?: string[]): Promise<void> {
     // Full reload via the cards queries (SQLite-primary).
     const loaded = await listAllCards();
     if (currentSequence !== _fetchSequence) return;
+    // PR-B: if any sync write landed during the await, a `replaceAll` would
+    // clobber it. Bail and let the next notify-driven reload pick up the
+    // already-consistent state.
+    if (_writeEpoch !== startEpoch) {
+      logger.debug("[cardMapWrites] full reload skipped — concurrent write detected");
+      return;
+    }
     const map: CardMap = {};
     for (const c of loaded) map[c.id] = c;
     replaceAll(map);
