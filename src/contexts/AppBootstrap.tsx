@@ -44,7 +44,8 @@ export function AppBootstrap(): null {
   // UI-level effects (moved from UIProvider in Provider Cleanup v2).
   useEffect(() => { recordAppEntry(); }, []);
   useNotificationScheduler();
-  useActivityTracker(useCurrentView());
+  const view = useCurrentView();
+  useActivityTracker(view);
 
 
   // Electron quit + unmount drain — flush review log + persist queue.
