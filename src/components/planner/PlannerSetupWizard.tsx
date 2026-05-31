@@ -1,12 +1,11 @@
 import { useState, useId } from "react";
 import { m, AnimatePresence } from "@/lib/motion";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
-import { Calendar as CalendarUI } from "@/components/ui/calendar";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar, ArrowLeft, ArrowRight, Check, Clock, Shield } from "lucide-react";
-import { format, startOfDay, differenceInDays } from "date-fns";
+import { startOfDay, differenceInDays, format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { PlannerConfig, generateStudyPlan } from "@/domains/planner";
 import type { CategoryRecord } from "@/lib/db-types";
@@ -85,20 +84,16 @@ export default function PlannerSetupWizard({ config, save, categoryRecords, card
                   <label className="text-sm font-medium flex items-center gap-2">
                     <Calendar className="h-4 w-4 text-primary" /> Datum ispita
                   </label>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button variant="outline" className={cn("w-full justify-start", !goalDate && "text-muted-foreground")}>
-                        {goalDate ? format(goalDate, "dd.MM.yyyy") : "Odaberi datum ispita"}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
-                      <CalendarUI
-                        mode="single" selected={goalDate} onSelect={setGoalDate}
-                        disabled={(d) => d < startOfDay(new Date())} initialFocus
-                        className="p-3 pointer-events-auto"
-                      />
-                    </PopoverContent>
-                  </Popover>
+                  <Input
+                    type="date"
+                    value={goalDate ? format(goalDate, "yyyy-MM-dd") : ""}
+                    min={format(startOfDay(new Date()), "yyyy-MM-dd")}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      setGoalDate(v ? new Date(v + "T00:00:00") : undefined);
+                    }}
+                    className={cn(!goalDate && "text-muted-foreground")}
+                  />
                   {goalDate && (
                     <p className="text-xs text-muted-foreground">{differenceInDays(goalDate, new Date())} dana do ispita</p>
                   )}
