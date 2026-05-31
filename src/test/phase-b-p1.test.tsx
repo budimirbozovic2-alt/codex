@@ -11,7 +11,7 @@
 
 import { describe, it, expect } from "vitest";
 import { renderHook, act } from "@testing-library/react";
-import { SessionProvider, useSessionContext } from "@/hooks/useSession";
+import { useSessionContext } from "@/hooks/useSession";
 import { persistQueue } from "@/lib/persist-queue";
 import { serializeRowsInWorker } from "@/lib/backup/json-serialize-client";
 import fs from "node:fs";
