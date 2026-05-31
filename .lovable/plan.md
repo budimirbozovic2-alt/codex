@@ -1,71 +1,122 @@
-## Iskreni nalaz prije plana
+# PR-E1 — Enable `strictNullChecks` + fix planner/satellite mismatches
 
-**Tvrdnja #1 — `idb-dexie.ts` / `idb-adapter.ts` / `mirroring-adapter.ts` čekaju brisanje:**
-**Pogrešno.** Sva tri fajla **već ne postoje**. Provjerio sam:
-- `src/legacy/` i `src/lib/legacy/` — direktorija nema.
-- `src/lib/persistence/` sadrži samo `PersistAdapter.ts`, `adapter-factory.ts`, `opfs-sqlite-adapter.ts`, `sqlite/`, `write-result.ts`. Nema `idb-adapter.ts` ni `mirroring-adapter.ts`.
-- `rg` nigdje ne nalazi `idb-dexie`, `idbAdapter`, `MirroringAdapter` u `src/`.
+## Goal
 
-Memory `Dexie Removal Final (Phase C)` to već dokumentuje. **Ovdje nema posla.**
+Flip `strictNullChecks: true` in both `tsconfig.app.json` and `tsconfig.json`, then fix every TS2322/TS2339/TS2345/TS2349/TS18048 error TS surfaces. Build must pass clean. All 604 tests must remain green. No behavioral changes.
 
-**Tvrdnja #2 — `src/contexts/cards/useCardAggregates.ts` i `src/lib/subject/aggregators.ts` vrte `.filter()`/`.reduce()` umjesto SQL `SELECT COUNT(*)` u Web Workeru:**
-Putanja prva je netačna (fajl je u `src/hooks/cards/useCardAggregates.ts`), ali zabrinutost je djelimično validna — uz važne ograde.
+## Scope (16 errors, 9 files)
 
-Šta agregatori zaista računaju:
-- `dueCards: Card[]` — pune Card objekte, ne broj.
-- `stats.due` — zahtijeva walk kroz `card.sections[*].state` i `nextReview` da bi se našao `minNonNewNextReview` po kartici.
-- `learnedSections`, `totalSections`, `leechCount` — section-level brojanja.
-- `categoryStats.score` — poziva `getSectionScore` (čisti FSRS) po sekciji, mean per category.
-- `cardCountByCategory` — jedino čisto brojanje.
+### Group A — Planner type chain (the meat)
 
-**Zašto SQL `SELECT COUNT(*)` u Web Workeru NIJE rješenje za 90% ovoga:**
-1. `sections` su pohranjene kao **JSON blob unutar `cards` reda**, nisu zasebna SQL tabela. Ne možeš `COUNT(*) FROM sections WHERE state != 'New'`.
-2. `nextReview`, `state`, `leech` su FSRS-derivisana polja unutar JSON-a — ni indeksa, ni WHERE.
-3. `score` se računa preko `getSectionScore` (čista FSRS funkcija u JS-u, ne SQL).
-4. `useAllCards()` ionako vuče sve kartice u TanStack za UI (CardList, SubjectDashboard, GlobalSearch). Worker bi računao nad istim podacima — duplikat preko `postMessage` granice, koja sama kreira 5–20 ms latencije.
-5. SQLite-WASM već radi na main threadu (OPFS adapter). Premještanje u Worker traži drugi konekcijski seam i FK-aware tx koordinaciju — značajno opsežnije od onog što ovaj task predlaže.
+Root cause: `PlannerConfig.finalGoalDate: string | null` (in `src/domains/planner/types.ts`), but consumers/utilities type the same field as `string | undefined` or assume `string`. And `usePlannerData` legitimately returns `T | null` until the lazy planner module loads, but the Tab prop types declare `T` (non-nullable). The existing `if (!data.isReady || subjectPlans === null) <Skeleton />` gate at `StrategicPlanner.tsx:129` ensures non-null at runtime, but TS can't see through it.
 
-**Šta JESTE realan win, bez Workera:**
-- `cardCountByCategory` se sada izvodi iz pune `cards` array umjesto da koristi već postojeći `useCardCountByCategory` (SQL `SELECT COUNT(*) AS n FROM cards WHERE categoryId = ?`). Ovaj hook postoji u `useCardsQuery.ts:125` ali ga **niko ne koristi** — `CategoriesPage`, `SRSettingsPanel`, `SubjectsTab`, `CategoryManager` svi vuku iz `useCardData().cardCountByCategory` (full reduce).
-- `useCardAggregates` može se podijeliti: `dueCards`/`stats`/`categoryStats` ostaju (JS, derivirano iz FSRS), ali `cardCountByCategory` izlazi iz hooka i ide na per-category SQL count.
+**A1 — `src/lib/query/hash.ts:40` — `hashPlannerConfig` signature**
+Change `finalGoalDate?: string` → `finalGoalDate?: string | null`. Fixes `usePlannerData.ts:187` directly. Pure widening, no runtime change (template literal already does `?? ""`).
 
-## Plan: PR-F — Per-Category Count SQL Cutover
+**A2 — `src/components/StrategicPlanner.tsx:138,157,159,169,170` — narrow `data` past the ready-gate**
+The `data.velocity / data.burnupData / data.disciplineLog / data.disciplineTrend` fields are `T | null` in the hook return but the tabs require `T`. The runtime gate already guarantees non-null. Two implementation options:
 
-Mali, fokusirani PR. Ne dira FSRS agregaciju (nema smisla u SQL), samo seli COUNT-only put na već postojeći SQL helper.
+- (preferred) After the `!data.isReady || subjectPlans === null` early-return, alias `data` into a locally-typed const that asserts the non-null shape, e.g.
 
-### Obim
+  ```ts
+  // After the gate, the hook contract guarantees these are populated.
+  const ready = data as typeof data & {
+    velocity: number;
+    burnupData: BurnupDataPoint[];
+    disciplineLog: DisciplineLogEntry[];
+    disciplineTrend: DisciplineTrendPoint[];
+  };
+  ```
+  Then pass `ready.velocity`, `ready.burnupData`, etc., into the tab props. One cast, localized, no public-API change. Add a short comment pointing at the gate.
 
-**F1 — Granular count consumeri pređu na `useCardCountByCategory`**
-- `src/views/CategoriesPage.tsx` — zamijeniti `useCardData().cardCountByCategory[cat]` sa `useCardCountByCategory(cat)` per row.
-- `src/components/CategoryManager.tsx` — isto, `cardCountByCategory[cat]` lookups (linije 104, 288, 291, 298). Ovaj prima count kao prop, pa orchestrator (`CategoriesPage`) treba dati map ili hook (vidi F2).
-- `src/components/settings/SubjectsTab.tsx` — isto, props-driven.
-- `src/components/SRSettingsPanel.tsx:78` — `useCardData().cardCountByCategory`.
+- (alternative) Make tab prop types accept `T | null` and render their own skeleton fallbacks. Cleaner long-term but touches 3 tab components — out of scope for PR-E1.
 
-**F2 — Mali wrapper hook za "map of counts" gdje je potreban**
-- Dodati `useCardCountsByCategoryMap(categoryIds: string[]): Record<string, number>` u `src/hooks/card/useCardsQuery.ts` — pokreće `useQueries` per ID, vraća stabilan map. TanStack dedupes po queryKey, ostali consumeri istog `categoryId` koriste isti cache.
-- Ova map ulazi u `CategoryManager` i `SubjectsTab` umjesto trenutnog props patterna.
+We pick option A: minimal blast radius.
 
-**F3 — Skinuti `cardCountByCategory` iz `useCardAggregates` + `useCardData`**
-- `useCardAggregates` više ne vraća `cardCountByCategory` — ostaje samo `dueCards`, `stats`, `categoryStats`.
-- `useCardData` više ne vraća `cardCountByCategory`.
-- Update tipova: `CardStateContextValue`, `CategoriesPageProps`, `SRSettingsPanelProps`, `SubjectsTabProps`.
+### Group B — Dashboard activePhase dead-narrow
 
-**F4 — Test pokrivenost**
-- Novi `card-count-by-category-sql.test.tsx`: provjerava da `useCardCountByCategory` vraća SQL count i invalidira se na `notifyCardsChanged`.
-- Postojeći `card-selectors.test`-style testovi nisu pogođeni (`useCardAggregates` testovi gađaju `dueCards`/`stats`/`categoryStats`).
+**B1 — `src/hooks/useDashboardData.ts:161` — type the literal**
+`const activePhase = null` is inferred as `null`, which collapses `plannerData.activePhase && ...` to `never` at `Dashboard.tsx:86,93,95,95`. Annotate explicitly:
 
-### Šta NE radimo (svjesno)
+```ts
+const activePhase: { name: string; pct: number; learned: number; total: number } | null = null;
+```
 
-- **Ne** premještamo `useCardAggregates` u Web Worker — embedded JSON sekcije + FSRS score nije izvodljivo bez schema migracije + worker konekcije, a profit je sumnjiv (TanStack već dijeli iste podatke za UI).
-- **Ne** brišemo nepostojeće `idb-dexie`/`idb-adapter`/`mirroring-adapter` fajlove.
-- **Ne** mijenjamo `aggregateSubjectProgress` (`src/lib/subject/aggregators.ts`) — radi nad već scoped `useCardsByCategory` arrayom (jedan predmet, stotine kartica), pure funkcija, lako testabilno. Premještanje ovoga je gradient bez koristi.
+Already applied in the previous loop and works — verify it survives PR-E1 and that all 4 Dashboard errors clear.
 
-### Tehnička napomena
+### Group C — Satellite null/undefined mismatches
 
-`useCardCountByCategory` već postoji i koristi `staleTime: Infinity` + `onCardsChanged` bridge za invalidaciju. Posle PR-E (TanStack SSOT), svaki write šalje `notifyCardsChanged()` → bridge → invalidate `['cards', ...]` prefix → count queries refetch. Konsistencija je već garantirana, samo se prešalta read seam s "in-memory reduce" na "SQL COUNT".
+**C1 — `src/components/MainLayout.tsx:56` — optional chain on `planner.phases`**
+`planner.phases` is `Phase[] | undefined` post-strict. Replace `planner.phases.length === 0` with `(planner.phases?.length ?? 0) === 0`. Already applied; verify.
 
-### Očekivani efekat
+**C2 — `src/lib/auto-split-engine.ts:136` — type the empty array**
+`const contentLinesBetween = []` infers `never[]`. Annotate `const contentLinesBetween: number[] = []`. One-line fix.
 
-- Per-render rad u `CategoriesPage`, `SubjectsTab`, `SRSettingsPanel` pada sa O(N) reduce nad `useAllCards()` na O(1) lookup TanStack cachea (count value je broj).
-- `useCardData` više ne treba `useAllCards` čisto za count put — `dueCards`/`stats` ostaju, ali consumeri samo za count (kao Settings ekran) više ne forsiraju hidrataciju cijelog cards arraya kroz ovaj orchestrator.
-- Memory profil neznatno bolji; mjerljiv win je rerender cost na taxonomy-heavy ekranima.
+**C3 — `src/lib/backup/import-transaction.ts:148` — `Card.sourceId` is `string | undefined`**
+Assigning `null` violates the type. Change `card.sourceId = null` → `card.sourceId = undefined`. The scrub semantics are preserved (the optional field is cleared).
+
+**C4 — `src/lib/persistence/sqlite/migrate-from-idb.ts:185` — bind value coercion**
+`m.categoryId` on `MindMapDoc` may be `string | undefined`; `SqlBindValue` excludes `undefined`. Change to `m.categoryId ?? null` (matches the pattern used a few lines below at 192–195 for mnemonics).
+
+**C5 — `src/lib/source-reader/build-essay-payload.ts:161` — drop undefined contentDoc**
+`buildSectionDoc(content)` can return `EditorDoc | undefined`. The downstream type requires `EditorDoc`. Filter modules where `contentDoc` is undefined before assigning to `sections`, e.g.
+
+```ts
+const sections = modules
+  .map((mod) => {
+    const content = sanitizeHtml(mod.contentHtml);
+    return { title: mod.title, contentDoc: buildSectionDoc(content) };
+  })
+  .filter((s): s is { title: string; contentDoc: EditorDoc } => s.contentDoc !== undefined);
+```
+
+This drops malformed sections rather than crashing — same defensive posture used elsewhere in the import path. Verify the existing essay-payload tests still pass.
+
+### Group D — Test fixture
+
+**D1 — `src/test/category-view-loading.test.tsx:98` — resolveFn narrowing**
+TS narrows `let resolveFn = null` captured inside a Promise executor closure to `never` under strictNullChecks. Two paths:
+- Use a definite assertion: `resolveFn!([])` on line 98.
+- Or declare with an explicit `as` cast on the initial value: `let resolveFn = null as ((rows: never[]) => void) | null`.
+
+We pick the cast (safer, no `!` runtime expectation).
+
+## Implementation order
+
+1. Flip flags: `tsconfig.app.json` → add `"strictNullChecks": true`; `tsconfig.json` → set `"strictNullChecks": true`.
+2. Run `tsc -p tsconfig.app.json --noEmit` and confirm exactly the 16 errors documented above (no surprises).
+3. Apply A1 (hash signature widening).
+4. Apply A2 (StrategicPlanner narrowing alias).
+5. Apply B1, C1 (re-verify previous-loop fixes still apply).
+6. Apply C2–C5 in parallel.
+7. Apply D1.
+8. Re-run `tsc --noEmit` → 0 errors.
+9. Re-run `npx vitest run` → 604/604 green.
+10. Re-run `npm run lint` → no new violations.
+
+## Out of scope (deferred)
+
+- Enabling full `"strict": true` (also turns on `strictFunctionTypes`, `strictPropertyInitialization`, `alwaysStrict`, `strictBindCallApply`, `noImplicitThis`) — separate PR-E1b once null-checks land.
+- Refactoring planner tab prop types to accept nullable inputs.
+- `useDashboardData.activePhase` is always `null` in the current codebase; the Dashboard widget that consumes it is dead UI. Removal is a separate UX decision, not a type fix.
+
+## Risk
+
+Low. All edits are widenings, optional-chain insertions, or local casts. No control flow changes. The one defensive filter (C5) drops only malformed essay sections that would crash downstream anyway. Verified by full test run.
+
+## Files touched (9)
+
+- `tsconfig.app.json`, `tsconfig.json` — flag flip
+- `src/lib/query/hash.ts` — A1
+- `src/components/StrategicPlanner.tsx` — A2
+- `src/hooks/useDashboardData.ts` — B1 (already applied)
+- `src/components/MainLayout.tsx` — C1 (already applied)
+- `src/lib/auto-split-engine.ts` — C2
+- `src/lib/backup/import-transaction.ts` — C3
+- `src/lib/persistence/sqlite/migrate-from-idb.ts` — C4
+- `src/lib/source-reader/build-essay-payload.ts` — C5
+- `src/test/category-view-loading.test.tsx` — D1
+
+## Memory update on completion
+
+Append to `mem://index.md` Core: `TypeScript: strictNullChecks enabled. Treat null/undefined as distinct; widen optional fields explicitly.`
