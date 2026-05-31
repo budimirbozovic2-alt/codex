@@ -14,7 +14,7 @@ import type { CategoryRecord } from "@/lib/db-types";
 import { StudyFlowData } from "@/components/dashboard/StudyFlowWidget";
 import { usePlannerMutations } from "@/hooks/planner/usePlannerMutations";
 
-import { loadAppSettings } from "@/lib/app-settings";
+import { loadAppSettings, APP_SETTINGS_CHANGED_EVENT } from "@/lib/app-settings";
 import { useDeferredCompute } from "@/hooks/useDeferredCompute";
 import { startOfDay } from "date-fns";
 import { StatusIcon } from "@/components/dashboard/StatusIconsRow";
@@ -92,12 +92,20 @@ export function useDashboardData(
   reviewLog: ReviewLogEntry[],
   srSettings: SRSettings,
 ) {
-  // Listen for settings changes from other tabs/components
+  // Listen for settings changes from other tabs/components.
+  // PR-G3 (RC-3): `storage` event only fires cross-tab; in Pure Desktop
+  // (single window) it never triggers, so settings saved in this very tab
+  // would never refresh the dashboard. We also subscribe to a custom
+  // in-tab event dispatched by `saveAppSettings`.
   const [settingsVersion, forceSettingsRefresh] = useState(0);
   useEffect(() => {
     const handler = () => forceSettingsRefresh((n) => n + 1);
     window.addEventListener("storage", handler);
-    return () => window.removeEventListener("storage", handler);
+    window.addEventListener(APP_SETTINGS_CHANGED_EVENT, handler);
+    return () => {
+      window.removeEventListener("storage", handler);
+      window.removeEventListener(APP_SETTINGS_CHANGED_EVENT, handler);
+    };
   }, []);
   // settingsVersion drives recomputation via state bump — kept in deps despite
   // not being referenced inside the body. eslint can't see this indirection.

@@ -95,6 +95,15 @@ export function loadAppSettings(): AppSettings {
   }
 }
 
+/**
+ * PR-G3 (RC-3): same-tab refresh signal. The DOM `storage` event only
+ * fires in OTHER tabs/windows, so a Pure Desktop single-window app would
+ * never notify in-tab listeners (e.g. `useDashboardData`) after a settings
+ * write. Listeners now subscribe to this custom event in addition to (or
+ * instead of) `storage` to pick up same-tab changes.
+ */
+export const APP_SETTINGS_CHANGED_EVENT = "sr-app-settings-changed";
+
 export async function saveAppSettings(settings: AppSettings): Promise<void> {
   const json = JSON.stringify(settings);
   // Mirror to localStorage first for fast sync reads (cache, not SSOT).
@@ -109,6 +118,12 @@ export async function saveAppSettings(settings: AppSettings): Promise<void> {
     logger.error("[settings] put failed — SSOT write lost", err);
     throw err;
   }
+  // PR-G3: broadcast in-tab so listeners refresh without needing a reload.
+  try {
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent(APP_SETTINGS_CHANGED_EVENT));
+    }
+  } catch { /* noop */ }
 }
 
 /** Load from IDB as fallback when localStorage is empty */
