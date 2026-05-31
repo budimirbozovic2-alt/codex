@@ -57,11 +57,9 @@ function SubjectDashboardWrapper() {
 const App = () => {
   const { hasPending: isSaving, pendingCount } = usePersistingState();
 
-  // Install global guard for Radix Dialog `pointer-events: none` leak.
-  useEffect(() => {
-    const dispose = installBodyPointerEventsGuard();
-    return dispose;
-  }, []);
+  // PR-D D5: pointer-events guard installed in `main.tsx` before first
+  // render so it never misses the initial Radix Dialog commit. The guard
+  // is idempotent (singleton), so no per-mount install is needed here.
 
   useEffect(() => {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
