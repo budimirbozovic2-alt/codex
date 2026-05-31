@@ -13,7 +13,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/query/keys";
 import type { PlannerConfig } from "@/lib/planner-storage";
-import type { DisciplineEntry } from "@/domains/planner/types";
+import type { DisciplineEntry } from "@/domains/planner";
 
 type PlannerModule = typeof import("@/lib/planner-storage");
 let _plannerMod: PlannerModule | null = null;

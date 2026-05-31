@@ -6,7 +6,7 @@ import { ReviewLogEntry } from "@/lib/storage";
 import type { CategoryRecord } from "@/lib/db-types";
 import { analyticsClient } from "@/lib/analytics/workerClient";
 import type { PlannerConfig } from "@/lib/planner-storage";
-import { DEFAULT_CONFIG } from "@/domains/planner/types";
+import { DEFAULT_CONFIG } from "@/domains/planner";
 import { queryKeys } from "@/lib/query/keys";
 import {
   hashReviewLog,
