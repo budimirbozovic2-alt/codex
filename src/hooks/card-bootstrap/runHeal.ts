@@ -74,9 +74,16 @@ export async function runHeal({ cards, catRecords, silent = false }: HealInput):
       mutatedCards.push(next);
     }
     if (mutatedCards.length > 0) {
-      // PR-9 A1c-3: persist through cardMapWrites (SQLite-primary + RAM commit).
+      // Audit v2 / Wave B.3: previously fire-and-forget. `bulkPut` enqueues
+      // a persist op (`schedulePersist`) but doesn't flush, so if Electron's
+      // `beforeunload` fired immediately after heal the frequency-tag
+      // migration was lost. Sync enqueue then explicitly await flush so the
+      // migration is durable before this branch returns.
       cardMapWrites.bulkPut(mutatedCards);
+      const { persistQueue } = await import("@/lib/persist-queue");
+      await persistQueue.flush();
     }
+
   } catch (e) {
     logger.warn("[boot] heal step 'frequencyTag' failed, skipping", e);
     if (!silent) transition({ type: "HEAL_STEP_FAIL", step: "frequencyTag" });
