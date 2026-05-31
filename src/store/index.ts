@@ -13,22 +13,10 @@
 // them. If a new external consumer appears, re-add the specific type here.
 // ─────────────────────────────────────────────────────────────────────────────
 
-// ── Card map store (Zustand atom + ref facade) ─────────────────────────────
-export {
-  cardMapStore,
-  useCardMap,
-  useCardsArray,
-  getCardMap,
-  replaceCardMap,
-  setCardMap,
-  cardMapRefFacade,
-} from "./useCardMapStore";
-
-// ── Granular card selectors (TanStack-backed) ──────────────────────────────
-// Note: `*Ram` variants live in `./useCardSelectors` and are test-only.
-// They are NOT re-exported here — production code must use the TanStack
-// path (event-invalidated via `onCardsChanged` bridge). ESLint W9 enforces
-// this wall (see eslint.config.js).
+// ── Granular card selectors (TanStack-backed, single SSOT) ─────────────────
+// Post PR-E4: no more Zustand `cardMapStore` — TanStack Query is the only
+// in-memory store for cards. Selectors are scoped queries invalidated by
+// the `onCardsChanged` bridge.
 export {
   useCardsByCategory,
   useCardsByCategoryWithStatus,
@@ -36,9 +24,9 @@ export {
   useCardsByChapter,
   useCardCountByCategory,
   useCardById,
+  useCardsBySource,
 } from "./useCardSelectors";
 
-export { useCardsBySource } from "./useCardsBySource";
 
 
 // ── Category store + selectors ─────────────────────────────────────────────
