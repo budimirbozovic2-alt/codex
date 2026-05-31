@@ -115,14 +115,14 @@ export function useArticleDraft({ activeId, categoryId, setArticles }: Input): A
     const titleClean = currentDraft.title.trim() || "Bez naslova";
     const tagsClean = normalizeTagList(currentDraft.tags);
     const aliasesClean = normalizeAliasList(currentDraft.aliases);
-    // PR-7b: markdown derived ONCE here on flush, never on keystroke.
+    // AST is canonical; compare derived markdown shape (cheap, stable across
+    // IDB round-trips) instead of per-ref `contentDoc` equality.
     const markdownDerived = deriveMarkdown(currentDraft.contentDoc);
+    const freshMarkdown = deriveMarkdown(fresh.contentDoc);
 
-    // PR-7b: derived markdown is the canonical text-shape comparison; per-ref
-    // contentDoc equality would always fail across IDB round-trips.
     const dirty =
       titleClean !== fresh.title ||
-      markdownDerived !== (fresh.content ?? "") ||
+      markdownDerived !== freshMarkdown ||
       !sameStringSet(currentDraft.linkedSourceIds, fresh.linkedSourceIds ?? []) ||
       !sameStringSet(tagsClean, fresh.tags ?? []) ||
       !sameStringSet(aliasesClean, fresh.aliases ?? []);
@@ -131,7 +131,6 @@ export function useArticleDraft({ activeId, categoryId, setArticles }: Input): A
     const next: KnowledgeBaseArticle = {
       ...fresh,
       title: titleClean,
-      content: markdownDerived,
       contentDoc: currentDraft.contentDoc,
       linkedSourceIds: currentDraft.linkedSourceIds,
       tags: tagsClean,
