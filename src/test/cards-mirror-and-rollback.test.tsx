@@ -1,7 +1,7 @@
 /**
  * PR-E5 — Cards mutations: TanStack-only mirror + rollback contract.
  *
- * Post PR-E2/E4 there is no Zustand `cardMapStore` and no `cardMapWrites`
+ * Post PR-E (E2/E4) there is no Zustand `cardMapStore` and no `cardMapWrites`
  * sync RAM API. Writes go through `useCardMutations` → `*Direct` helpers in
  * `@/lib/db/queries`, which schedule via `persistQueue` and emit
  * `notifyCardsChanged`. The query bridge invalidates `['cards', ...]`,
