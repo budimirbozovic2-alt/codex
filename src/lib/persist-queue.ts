@@ -115,16 +115,19 @@ function createPersistQueue() {
   const MAX_RETRY = 3;
 
   let inFlightCount = 0;
+  let isFlushRunning = false;
   // Resolvers koji čekaju da `inFlightCount` padne na 0.
-  // Pozivamo ih iz finally bloka u `flush()` umjesto da spin-amo microtask petlju.
   const idleResolvers: Array<() => void> = [];
-  // Last flush error — surfaced to interactive callers via `cleanup({ strict })`
-  // so TanStack mutations can roll back instead of falsely succeeding.
   let _lastFlushError: Error | null = null;
 
   async function flush() {
+    // Wave-3 fix: entry guard. Previously the visibility-change handler
+    // could call `flush()` directly while a timer-scheduled flush was still
+    // in-flight, producing two overlapping snapshots.
+    if (isFlushRunning) return;
     timer = null;
     if (!hasPending()) return;
+    isFlushRunning = true;
 
     const snapPuts = Array.from(pendingPuts.entries());
     const snapDels = Array.from(pendingDeletes.entries());
@@ -185,12 +188,17 @@ function createPersistQueue() {
         }
       } else {
         _retryAttempt = 0;
-        if (!isNoExecutor) {
+        if (isNoExecutor) {
+          // Wave-3 fix: previously silent. NO_EXECUTOR meant data sits in the
+          // re-enqueued snapshot with no user feedback until a future write.
+          toast.error("Baza nedostupna — promjene nisu sačuvane. Provjerite preuzeti desktop build.");
+        } else {
           toast.error("Pisanje u bazu nije uspjelo nakon više pokušaja. HITNO eksportujte backup!");
         }
       }
     } finally {
       inFlightCount--;
+      isFlushRunning = false;
       // Probudi cleanup() pozivaoce čim je posljednji in-flight flush gotov.
       if (inFlightCount === 0 && idleResolvers.length > 0) {
         const resolvers = idleResolvers.splice(0, idleResolvers.length);
@@ -213,11 +221,16 @@ function createPersistQueue() {
       timer = null;
     }
     if (opts.strict) _lastFlushError = null;
-    if (hasPending()) {
-      await flush();
-    }
-    if (inFlightCount > 0) {
-      await new Promise<void>((resolve) => { idleResolvers.push(resolve); });
+    // Wave-3 fix: previously a single flush() + idle await missed any retry
+    // that flush() itself re-enqueued via setTimeout — cleanup() returned
+    // with items still pending. Loop up to MAX_RETRY+1 times.
+    let guard = 0;
+    while ((hasPending() || inFlightCount > 0) && guard <= MAX_RETRY + 1) {
+      if (hasPending()) await flush();
+      if (inFlightCount > 0) {
+        await new Promise<void>((resolve) => { idleResolvers.push(resolve); });
+      }
+      guard++;
     }
     if (opts.strict && _lastFlushError) {
       const err = _lastFlushError;
