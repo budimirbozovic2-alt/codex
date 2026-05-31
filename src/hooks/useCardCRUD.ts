@@ -145,7 +145,7 @@ export function useCardCRUD() {
   );
 
   const splitCard = useCallback(
-    (id: string) => {
+    async (id: string) => {
       const card = getCard(id);
       if (!card || card.sections.length <= 1) return;
       const newCards = card.sections.map((section) => ({
@@ -157,8 +157,17 @@ export function useCardCRUD() {
         ),
         sections: [{ ...section }],
       }));
-      void bulkUpsert.mutateAsync(newCards);
-      void remove.mutateAsync(id);
+      // PR-B: sequentially await bulkUpsert BEFORE remove. Firing both with
+      // `void` allowed `remove` to commit before `bulkUpsert` reached SQLite,
+      // so a crash in that window deleted the source card without persisting
+      // the splits — irreversible data loss.
+      try {
+        await bulkUpsert.mutateAsync(newCards);
+        await remove.mutateAsync(id);
+      } catch (err) {
+        logger.error("[useCardCRUD.splitCard] failed", err);
+        toast.error("Razdvajanje kartice nije uspjelo.");
+      }
     },
     [bulkUpsert, remove],
   );
