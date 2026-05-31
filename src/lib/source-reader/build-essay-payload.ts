@@ -143,7 +143,7 @@ export function buildEssayFromSelection(
     const { modules } = result;
     const sections = modules.map((mod) => {
       const content = sanitizeHtml(mod.contentHtml);
-      return { title: mod.title, content, contentDoc: buildSectionDoc(content) };
+      return { title: mod.title, content, contentDoc: buildSectionDoc(content) ?? htmlToDoc(content) };
     });
     const sourceModules: SourceModule[] = modules.map((mod, index) => ({
       id: crypto.randomUUID(),

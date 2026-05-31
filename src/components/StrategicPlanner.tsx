@@ -128,24 +128,33 @@ export default function StrategicPlanner({ cards, categories, categoryRecords, r
 
       {!data.isReady || subjectPlans === null ? (
         <PlannerTabSkeleton variant={activeTab} />
-      ) : (
+      ) : (() => {
+        // The `data.isReady` gate above guarantees these fields are populated.
+        // TS can't see through the runtime check, so we assert the non-null shape locally.
+        const ready = data as typeof data & {
+          velocity: number;
+          burnupData: import("@/types/planner").BurnupDataPoint[];
+          disciplineLog: import("@/types/planner").DisciplineLogEntry[];
+          disciplineTrend: import("@/types/planner").DisciplineTrendPoint[];
+        };
+        return (
         <Suspense fallback={<PlannerTabSkeleton variant={activeTab} />}>
       {activeTab === "operations" && (
         <OperationsTab
-          config={data.config}
-          save={data.save}
+          config={ready.config}
+          save={ready.save}
           subjectPlans={subjectPlans}
-          velocity={data.velocity}
-          remaining={data.remaining}
-          estimatedFinish={data.estimatedFinish}
-          plannerStatus={data.plannerStatus ?? { status: "no-goal", daysLate: 0 }}
-          smartSuggestion={data.smartSuggestion}
-          timeRec={data.timeRec}
-          debt={data.debt}
-          dueCount={data.dueCount}
-          learningRatio={data.learningRatio}
-          overallPct={data.overallPct}
-          retentionRisk={data.retentionRisk}
+          velocity={ready.velocity}
+          remaining={ready.remaining}
+          estimatedFinish={ready.estimatedFinish}
+          plannerStatus={ready.plannerStatus ?? { status: "no-goal", daysLate: 0 }}
+          smartSuggestion={ready.smartSuggestion}
+          timeRec={ready.timeRec}
+          debt={ready.debt}
+          dueCount={ready.dueCount}
+          learningRatio={ready.learningRatio}
+          overallPct={ready.overallPct}
+          retentionRisk={ready.retentionRisk}
           categoryRecords={categoryRecords}
           onNavigateToDatabase={onNavigateToDatabase}
           onOpenWizard={() => setShowWizard(true)}
@@ -154,28 +163,29 @@ export default function StrategicPlanner({ cards, categories, categoryRecords, r
 
       {activeTab === "roadmap" && (
         <RoadmapTab
-          burnupData={data.burnupData}
-          projectionText={data.projectionText}
-          velocity={data.velocity}
-          remaining={data.remaining}
-          totalSections={data.totalSections}
+          burnupData={ready.burnupData}
+          projectionText={ready.projectionText}
+          velocity={ready.velocity}
+          remaining={ready.remaining}
+          totalSections={ready.totalSections}
           subjectPlans={subjectPlans}
-          bufferPercent={data.config.bufferPercent}
+          bufferPercent={ready.config.bufferPercent}
         />
       )}
 
       {activeTab === "discipline" && (
         <DisciplineTab
-          disciplineLog={data.disciplineLog}
-          disciplineTrend={data.disciplineTrend}
-          streak={data.streak}
-          bestStreak={data.bestStreak}
+          disciplineLog={ready.disciplineLog}
+          disciplineTrend={ready.disciplineTrend}
+          streak={ready.streak}
+          bestStreak={ready.bestStreak}
           currentPhase={currentPhase}
-          phaseDisciplinePct={data.phaseDisciplinePct}
+          phaseDisciplinePct={ready.phaseDisciplinePct}
         />
       )}
         </Suspense>
-      )}
+        );
+      })()}
     </div>
   );
 }
