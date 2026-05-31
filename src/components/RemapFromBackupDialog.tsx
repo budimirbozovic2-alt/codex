@@ -115,7 +115,7 @@ export default function RemapFromBackupDialog({
       } else {
         toast.success(`Remap uspješan: ${total} izmjena na karticama.`);
       }
-      await reloadCardsFromDb();
+      notifyCardsChanged();
       onApplied?.();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Greška pri primjeni remapa.");
