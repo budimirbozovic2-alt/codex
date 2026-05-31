@@ -18,6 +18,7 @@ import SystemTab from "@/components/settings/SystemTab";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import { getParam } from "@/lib/url-params";
+import { logger } from "@/lib/logger";
 import { shallowEqual } from "@/lib/struct-eq";
 import { useLatestRef } from "@/hooks/useLatestRef";
 
