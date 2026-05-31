@@ -65,9 +65,10 @@ export function announceCardsReplaced(_nextMap: CardMap): void {
 }
 
 /**
- * Clear `sourceId`/`textAnchor`/`needsReview` for a set of cards. Mirrors
- * the former `cardMapWrites.clearLinks` semantics: skip cards that don't
- * actually have a sourceId, single batched write.
+ * Clear `sourceId`/`textAnchor`/`needsReview` for a set of cards. Replaces
+ * the legacy RAM `clearLinks` helper (module deleted in PR-E): skip cards
+ * that don't actually have a sourceId, single batched SQLite write, then
+ * `notifyCardsChanged` so the TanStack bridge invalidates `['cards']`.
  */
 export async function clearCardLinksDirect(cardIds: string[]): Promise<Card[]> {
   if (cardIds.length === 0) return [];

@@ -62,6 +62,16 @@ const BASE_RESTRICTED_SYNTAX = [
     message:
       "Koristi createKeyedMutex() iz @/lib/concurrency umjesto ručnog `_pendingX = Promise.resolve()` lanca (PR1).",
   },
+  // PR-E3 — `cardMapWrites` (legacy RAM commit module) je obrisan u PR-E.
+  // Bilo kakvo novo referenciranje ovog identifikatora znači regresiju nazad
+  // u Dual-State. Koristi `*Direct` helpere iz `@/lib/db/queries`
+  // (putCardDirect, bulkPutCardsDirect, deleteCardDirect, clearCardLinksDirect,
+  // announceCardsReplaced) — SqlExecutor.transaction + notifyCardsChanged.
+  {
+    selector: "Identifier[name='cardMapWrites']",
+    message:
+      "cardMapWrites je obrisan u PR-E. Koristi *Direct helpere iz @/lib/db/queries (PR-E3 wall).",
+  },
 ];
 
 // W7 — Ban raw `dangerouslySetInnerHTML`. Layered on top of BASE.

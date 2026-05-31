@@ -185,10 +185,11 @@ export async function cleanOrphans(cardIds: string[]): Promise<CleanOrphansResul
   }
   const fallback = categories[0];
 
-  // A1c-4 F6: SQLite-primary write. Load the affected cards, mutate the
-  // taxonomy fields in JS, then commit through `cardMapWrites.bulkPut` —
-  // schedules persistence via persistQueue → SQLite adapter AND updates
-  // the in-RAM Zustand mirror in lockstep. No Dexie writes anywhere.
+  // PR-E3: SQLite-primary write. Load the affected cards, mutate the
+  // taxonomy fields in JS, then commit through `bulkPutCardsDirect` —
+  // schedules persistence via persistQueue → SQLite adapter and emits
+  // `notifyCardsChanged` so the TanStack bridge invalidates `['cards']`.
+  // Legacy `cardMapWrites` RAM mirror was deleted in PR-E.
   const loaded = await getCardsByIds(cardIds);
   const patched = loaded
     .filter((c): c is NonNullable<typeof c> => c !== undefined)
