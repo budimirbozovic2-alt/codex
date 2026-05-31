@@ -10,6 +10,85 @@ import tseslint from "typescript-eslint";
 const RAW_COLOR_PATTERN =
   String.raw`(text|bg|border|ring|stroke|fill|shadow|outline|divide|from|via|to)-(red|green|blue|yellow|orange|purple|pink|amber|emerald|rose|indigo|violet|cyan|teal|sky|lime|fuchsia)-\d{2,3}`;
 
+// ─── E4 — Shared no-restricted-syntax base ──────────────────────────────────
+// ESLint flat-config rules merge per key, but array-valued rules are REPLACED
+// (not merged) by later blocks. Any override block that sets
+// `no-restricted-syntax` for a subset of files would otherwise silently drop
+// the global guards (raw colors, W5 event-bus, G7 timers, PR1 mutex). Every
+// per-file `no-restricted-syntax` block below spreads this base in.
+const BASE_RESTRICTED_SYNTAX = [
+  {
+    selector: `Literal[value=/${RAW_COLOR_PATTERN}/]`,
+    message:
+      "Raw Tailwind palette colors are forbidden. Use semantic tokens (success, warning, destructive, info, primary, mastery-*, node-*) defined in src/index.css.",
+  },
+  {
+    selector: `TemplateElement[value.raw=/${RAW_COLOR_PATTERN}/]`,
+    message:
+      "Raw Tailwind palette colors are forbidden. Use semantic tokens (success, warning, destructive, info, primary, mastery-*, node-*) defined in src/index.css.",
+  },
+  // W5: disallow string-literal event names on eventBus.{emit,subscribe,unsubscribe}.
+  {
+    selector:
+      "CallExpression[callee.object.name='eventBus'][callee.property.name=/^(emit|subscribe|unsubscribe)$/] > Literal:first-child",
+    message: "Koristi EVENT_TYPES.X umjesto string literala (W5).",
+  },
+  {
+    selector:
+      "CallExpression[callee.object.name='eventBus'][callee.property.name=/^(emit|subscribe|unsubscribe)$/] > TemplateLiteral:first-child",
+    message: "Koristi EVENT_TYPES.X umjesto template-literal-a (W5).",
+  },
+  // G7: ban raw setTimeout / setInterval (use taskScheduler).
+  {
+    selector: "CallExpression[callee.name='setTimeout']",
+    message:
+      "Koristi taskScheduler.setTimeout() (src/lib/scheduler). Raw setTimeout je dozvoljen samo u whitelisted infrastrukturi i tight engine-ima (vidi eslint.config.js override).",
+  },
+  {
+    selector: "CallExpression[callee.name='setInterval']",
+    message:
+      "Koristi taskScheduler.setInterval() (src/lib/scheduler). Raw setInterval je dozvoljen samo u whitelisted engine-ima (vidi eslint.config.js override).",
+  },
+  {
+    selector:
+      "MemberExpression[object.name='window'][property.name=/^(setTimeout|setInterval)$/]",
+    message:
+      "Koristi taskScheduler iz src/lib/scheduler umjesto window.setTimeout/setInterval.",
+  },
+  // PR1 — Keyed mutex consolidation.
+  {
+    selector:
+      "VariableDeclarator[id.name=/^_?pending[A-Z]\\w*$/][init.type='CallExpression'][init.callee.object.name='Promise'][init.callee.property.name='resolve']",
+    message:
+      "Koristi createKeyedMutex() iz @/lib/concurrency umjesto ručnog `_pendingX = Promise.resolve()` lanca (PR1).",
+  },
+];
+
+// W7 — Ban raw `dangerouslySetInnerHTML`. Layered on top of BASE.
+const W7_DANGEROUS_HTML = [
+  {
+    selector: "JSXAttribute[name.name='dangerouslySetInnerHTML']",
+    message:
+      "Koristi <SafeHtml html={...} /> umjesto sirovog `dangerouslySetInnerHTML`. Render-time DOMPurify je obavezna XSS odbrana (P0-3).",
+  },
+  {
+    selector:
+      "Property[key.name='dangerouslySetInnerHTML'][value.type='ObjectExpression']",
+    message:
+      "Koristi <SafeHtml html={...} /> umjesto sirovog `dangerouslySetInnerHTML` u createElement props-u (P0-3).",
+  },
+];
+
+// W9 — *Ram card selectors are test-only.
+const W9_RAM_SELECTORS = [
+  {
+    selector:
+      "ImportSpecifier[imported.name=/^(useCardsByCategoryRam|useCardsBySubcategoryRam|useCardsByChapterRam|useCardCountByCategoryRam|useCardByIdRam)$/]",
+    message:
+      "*Ram selektori su test-only (W9). Koristi TanStack varijante iz @/store (npr. useCardsByCategory).",
+  },
+];
+
 export default tseslint.config(
   { ignores: ["dist", "electron/**", "main.cjs", "preload.cjs"] },
   {
