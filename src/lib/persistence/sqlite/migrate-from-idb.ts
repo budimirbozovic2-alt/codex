@@ -35,7 +35,7 @@ import type {
   DraftRecord,
 } from "@/lib/db-types";
 import type { MnemonicCard, MnemonicTestLogEntry } from "@/features/mnemonic";
-import type { DisciplineEntry } from "@/lib/planner-storage";
+import type { DisciplineEntry } from "@/domains/planner";
 import { logger } from "@/lib/logger";
 
 export const MIGRATION_FLAG_KEY = "migrated-from-idb-v1";

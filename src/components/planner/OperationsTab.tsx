@@ -3,7 +3,7 @@ import { Clock, RefreshCw, Shield, Flame, Zap, Lightbulb, AlertTriangle, Setting
 import { m } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { PlannerConfig, calcRebalancedQuota } from "@/lib/planner-storage";
+import { PlannerConfig, calcRebalancedQuota } from "@/domains/planner";
 import type { CategoryRecord } from "@/lib/db-types";
 import { format, differenceInDays } from "date-fns";
 import { cn } from "@/lib/utils";

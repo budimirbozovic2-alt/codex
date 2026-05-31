@@ -15,7 +15,7 @@
  *   daily-mapped   — Daily-mapped counter + auto-redistribute
  *   plan-generator — Subject-oriented plan + learning/review ratio
  *
- * The legacy module path `@/lib/planner-storage` is kept as a thin re-export
+ * The legacy module path `@/domains/planner` is kept as a thin re-export
  * shim for backward compatibility.
  */
 

@@ -12,13 +12,13 @@
  */
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/query/keys";
-import type { PlannerConfig } from "@/lib/planner-storage";
+import type { PlannerConfig } from "@/domains/planner";
 import type { DisciplineEntry } from "@/domains/planner";
 
-type PlannerModule = typeof import("@/lib/planner-storage");
+type PlannerModule = typeof import("@/domains/planner");
 let _plannerMod: PlannerModule | null = null;
 async function getPlannerModule(): Promise<PlannerModule> {
-  if (!_plannerMod) _plannerMod = await import("@/lib/planner-storage");
+  if (!_plannerMod) _plannerMod = await import("@/domains/planner");
   return _plannerMod;
 }
 

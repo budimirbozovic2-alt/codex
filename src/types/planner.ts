@@ -1,4 +1,4 @@
-import type { DisciplineStatus } from "@/lib/planner-storage";
+import type { DisciplineStatus } from "@/domains/planner";
 
 /** A single data point on the burn-up chart */
 export interface BurnupDataPoint {

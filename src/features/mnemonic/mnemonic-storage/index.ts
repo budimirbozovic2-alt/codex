@@ -11,7 +11,6 @@ export type {
 
 export { DEFAULT_MAJOR_SYSTEM, JOKER_LOCATIONS } from "./constants";
 
-export { migrateMnemonicsFromLocalStorageToIDB } from "./migrate";
 
 export { loadMajorSystem, saveMajorSystem, resolveNumber } from "./major-system";
 
