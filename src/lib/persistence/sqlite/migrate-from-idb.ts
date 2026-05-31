@@ -306,6 +306,16 @@ export async function migratePr9ReadPathFromIdb(
   let plannerKv = 0;
   let disciplineCount = 0;
   let draftsCount = 0;
+  // PR-G2 fix: previously the PR9 read-path flag was written unconditionally
+  // after three independent try/catch sub-steps. If any sub-step failed, the
+  // flag was still written and the next boot's `isReadPathMigrated()` short-
+  // circuited — silently losing the retry guarantee for whichever stream had
+  // failed (planner KV / discipline log / drafts). Now we collect per-step
+  // success and ONLY write the flag when ALL three sub-steps succeed; partial
+  // failure leaves the flag absent so the next boot can re-attempt.
+  let plannerOk = false;
+  let disciplineOk = false;
+  let draftsOk = false;
 
   try {
     // ── Planner KV ──────────────────────────────────────────────────────
@@ -321,6 +331,7 @@ export async function migratePr9ReadPathFromIdb(
           plannerKv++;
         }
       });
+      plannerOk = true;
     } catch (err) {
       logger.warn("[sqlite:pr9] planner KV migration failed", err);
     }
@@ -340,6 +351,7 @@ export async function migratePr9ReadPathFromIdb(
           disciplineCount++;
         }
       });
+      disciplineOk = true;
     } catch (err) {
       logger.warn("[sqlite:pr9] discipline log migration failed", err);
     }
@@ -359,6 +371,7 @@ export async function migratePr9ReadPathFromIdb(
           draftsCount++;
         }
       });
+      draftsOk = true;
     } catch (err) {
       logger.warn("[sqlite:pr9] drafts migration failed", err);
     }
@@ -369,13 +382,21 @@ export async function migratePr9ReadPathFromIdb(
       drafts: draftsCount,
     };
 
-    await exec.run(
-      "INSERT OR REPLACE INTO kv (key, value) VALUES (?, ?)",
-      [PR9_READPATH_FLAG_KEY, JSON.stringify({ at: Date.now(), counts })],
-    );
+    const allOk = plannerOk && disciplineOk && draftsOk;
+    if (allOk) {
+      await exec.run(
+        "INSERT OR REPLACE INTO kv (key, value) VALUES (?, ?)",
+        [PR9_READPATH_FLAG_KEY, JSON.stringify({ at: Date.now(), counts })],
+      );
+    } else {
+      logger.warn(
+        "[sqlite:pr9] read-path migration partial failure — flag NOT written, will retry on next boot",
+        { plannerOk, disciplineOk, draftsOk, counts },
+      );
+    }
 
     const durationMs = Date.now() - t0;
-    logger.info("[sqlite] PR-9 read-path migration complete", { counts, durationMs });
+    logger.info("[sqlite] PR-9 read-path migration complete", { counts, durationMs, allOk });
     return { alreadyComplete: false, counts, durationMs };
   } finally {
     try { idb.close(); } catch { /* ignore */ }
