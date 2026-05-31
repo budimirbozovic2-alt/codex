@@ -11,7 +11,7 @@ import { transition } from "@/lib/boot";
 import { logger } from "@/lib/logger";
 import { withTimeout } from "./withTimeout";
 import { normalizeCategoryShapes } from "./normalizeCategoryShapes";
-import * as cardMapWrites from "@/domains/cards";
+import { bulkPutCardsDirect } from "@/lib/db/queries";
 import { categoryRepository } from "@/lib/repositories";
 
 export interface HealInput {
@@ -74,14 +74,9 @@ export async function runHeal({ cards, catRecords, silent = false }: HealInput):
       mutatedCards.push(next);
     }
     if (mutatedCards.length > 0) {
-      // Audit v2 / Wave B.3: previously fire-and-forget. `bulkPut` enqueues
-      // a persist op (`schedulePersist`) but doesn't flush, so if Electron's
-      // `beforeunload` fired immediately after heal the frequency-tag
-      // migration was lost. Sync enqueue then explicitly await flush so the
-      // migration is durable before this branch returns.
-      cardMapWrites.bulkPut(mutatedCards);
-      const { persistQueue } = await import("@/lib/persist-queue");
-      await persistQueue.flush();
+      // PR-E3: direct SQLite write — awaits persist-queue flush internally,
+      // then emits notifyCardsChanged so TanStack invalidates.
+      await bulkPutCardsDirect(mutatedCards);
     }
 
   } catch (e) {

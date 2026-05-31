@@ -2,7 +2,7 @@ import {
   listAllCards,
   readAllCategoriesForBackup,
 } from "@/lib/db/queries";
-import * as cardMapWrites from "@/domains/cards";
+import { bulkPutCardsDirect } from "@/lib/db/queries";
 import type { Card } from "@/lib/spaced-repetition";
 
 import { logger } from "@/lib/logger";
@@ -102,7 +102,7 @@ export async function healCardTaxonomy(force = false): Promise<HealReport> {
     }
 
     if (patched.length > 0) {
-      cardMapWrites.bulkPut(patched);
+      await bulkPutCardsDirect(patched);
     }
 
     if (typeof localStorage !== "undefined") {
