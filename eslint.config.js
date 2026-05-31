@@ -542,8 +542,7 @@ export default tseslint.config(
       "src/domains/planner/**",
       "src/domains/mnemonic/**",
       "src/test/**",
-      // Legacy back-compat shims that intentionally re-export domain internals.
-      "src/lib/planner-storage.ts",
+      // Legacy back-compat shim that intentionally re-exports domain internals.
       "src/lib/analytics/blind-spots.ts",
     ],
     rules: {
