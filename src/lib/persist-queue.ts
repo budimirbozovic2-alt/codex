@@ -242,6 +242,14 @@ function createPersistQueue() {
       }
       guard++;
     }
+    // PR-G1 / M-1 fix: flush() may have armed a 30s "rescue" timer (line
+    // 204-206) after exhausting retries. Without this final clear, the
+    // rescue timer survives quit/HMR teardown and fires `flush()` against
+    // a tornDown adapter, producing a confusing late error toast.
+    if (timer !== null) {
+      clearTimeout(timer);
+      timer = null;
+    }
     if (opts.strict && _lastFlushError) {
       const err = _lastFlushError;
       _lastFlushError = null;
