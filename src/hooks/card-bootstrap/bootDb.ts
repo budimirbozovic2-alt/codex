@@ -2,6 +2,7 @@ import { scheduleLogPrune } from "@/lib/log-retention";
 import { markBootStep } from "@/lib/boot-trace";
 import { transition } from "@/lib/boot";
 import { isLegacyDexieBypassed, assertNoLegacyIdb } from "@/lib/persistence/sqlite/migration-status";
+import { taskScheduler } from "@/lib/scheduler/taskScheduler";
 
 /**
  * Phase C: Dexie shell is gone. Boot path is now SQLite-only.
