@@ -7,7 +7,7 @@
  * unchanged inside `src/workers/analytics.worker.ts`.
  */
 import type { CalibrationEntry, LatencyEntry } from "../../metacognitive-storage";
-import type { DisciplineEntry, PlannerConfig } from "@/domains/planner/types";
+import type { DisciplineEntry, PlannerConfig } from "@/domains/planner";
 
 export interface AnalyticsSnapshots {
   calibration: CalibrationEntry[];
