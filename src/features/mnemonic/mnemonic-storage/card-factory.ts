@@ -1,7 +1,13 @@
 // Factory helpers: hook-type detection + MnemonicCard creation.
 
-import type { HookType, MnemonicCard } from "./types";
+import type { HookType, MnemonicCard, MnemonicSection } from "./types";
 import { detectEnumerationItems } from "./content-utils";
+import { htmlToDoc } from "@/lib/editor-v4/codecs/html-to-doc";
+
+// Dual-write contentDoc alongside legacy content string (E.1).
+function withDoc(s: { title: string; content: string }): MnemonicSection {
+  return { title: s.title, content: s.content, contentDoc: htmlToDoc(s.content || "") };
+}
 
 // Auto-detect hook type from content
 export function detectHookType(sections: { content: string }[]): HookType {
@@ -28,7 +34,7 @@ export function createMnemonicCardFromSelection(
     id: crypto.randomUUID(),
     originalCardId,
     question,
-    sections: [{ title: "Isječak", content: selectedText }],
+    sections: [withDoc({ title: "Isječak", content: selectedText })],
     categoryId,
     subcategoryId,
     tags: tags || [],
@@ -57,7 +63,7 @@ export function createMnemonicCard(
     id: crypto.randomUUID(),
     originalCardId,
     question,
-    sections,
+    sections: sections.map(withDoc),
     categoryId,
     subcategoryId,
     tags: tags || [],

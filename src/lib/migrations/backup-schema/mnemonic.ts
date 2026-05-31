@@ -9,8 +9,14 @@ import {
 } from "./helpers";
 
 const MnemonicSectionSchema = z
-  .object({ title: SafeText, content: SafeHtml })
-  .strict();
+  .object({
+    title: SafeText,
+    content: SafeHtml,
+    // E.1: contentDoc accepted but not validated structurally here — the
+    // editor-v4 schema validates on render, and missing contentDoc is
+    // backfilled by the lazy migrator. Passes through unknown shape.
+    contentDoc: z.unknown().optional(),
+  });
 
 export const BackupMnemonicSchema = z
   .object({
