@@ -36,19 +36,12 @@ export async function writeCategoriesTx(
   if (parsed.categories.length > 0) {
     if (isCategoryRecordArray(parsed.categories)) {
       if (strategy === "overwrite") {
-        // Pre-tx remap already aligned satellite FKs to existing IDs;
-        // any backup categories whose name already exists were remapped,
-        // so a wipe + bulk insert here is safe.
         await tx.run("DELETE FROM categories");
         await tx.runMany(
           CATEGORY_INSERT_SQL,
           parsed.categories.map((cat) => bindCategory(cat)),
         );
-
         working = [...parsed.categories];
-        // FK sweep: only after categories are finalized.
-        const validIds = new Set(parsed.categories.map((c) => c.id));
-        pruneOrphans(parsed, validIds);
       } else {
         // Non-overwrite: insert only categories that didn't get remapped.
         const existingByName = new Map<string, string>();
@@ -62,7 +55,6 @@ export async function writeCategoriesTx(
         );
         working = [...freshCategories, ...toInsert];
       }
-
     } else {
       // Legacy `string[]` format — synthesize CategoryRecord[] from names.
       const legacyNames = parsed.categories;
@@ -72,7 +64,6 @@ export async function writeCategoriesTx(
         }));
         await tx.run("DELETE FROM categories");
         await tx.runMany(CATEGORY_INSERT_SQL, allRecs.map((cat) => bindCategory(cat)));
-
         working = allRecs;
       } else {
         const existingNames = new Set(freshCategories.map((r) => r.name));
@@ -88,7 +79,6 @@ export async function writeCategoriesTx(
           }
         }
         await tx.runMany(CATEGORY_INSERT_SQL, newRecs.map((cat) => bindCategory(cat)));
-
         working = [...freshCategories, ...newRecs];
       }
     }
@@ -117,6 +107,15 @@ export async function writeCategoriesTx(
     working = updated;
   }
 
+  // ── FK sweep — UNCONDITIONAL (was overwrite-only). ──
+  // Any satellite row (sources/cards/mindMaps/mnemonics/KB) whose `categoryId`
+  // does not resolve against the FINAL category set is dropped here so the
+  // ACID INSERTs below never hit SQLITE_CONSTRAINT_FOREIGNKEY (787).
+  //
+  // For non-overwrite imports this previously skipped pruning entirely;
+  // partial backups with stale category refs would crash the whole tx.
+  const validIds = new Set(working.map((c) => c.id));
+  pruneOrphans(parsed, validIds);
 
   return working;
 }

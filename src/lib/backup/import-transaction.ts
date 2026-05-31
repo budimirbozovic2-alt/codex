@@ -26,14 +26,14 @@ import {
 } from "@/lib/backup/import-remap";
 import { mergeCardsByStrategy, writeCardsTx } from "@/lib/backup/write-cards-tx";
 import { writeCategoriesTx } from "@/lib/backup/write-categories-tx";
-import { writeSatelliteTablesTx } from "@/lib/backup/write-satellite-tx";
+import { writeSatelliteTablesTx, writeSourcesTx } from "@/lib/backup/write-satellite-tx";
 
 // Re-exports preserved so external call sites (useCardImport, tests) keep
 // compiling unchanged.
 export type { ImportStrategy, ImportTxResult, ImportCtx } from "@/lib/backup/import-types";
 export { mergeCardsByStrategy, writeCardsTx } from "@/lib/backup/write-cards-tx";
 export { writeCategoriesTx } from "@/lib/backup/write-categories-tx";
-export { writeSatelliteTablesTx } from "@/lib/backup/write-satellite-tx";
+export { writeSatelliteTablesTx, writeSourcesTx } from "@/lib/backup/write-satellite-tx";
 export {
   isCategoryRecordArray,
   buildCategoryIdRemap,
@@ -94,7 +94,29 @@ export async function applyImportAtomically(ctx: ImportCtx): Promise<ImportTxRes
       progress(35, "Snimanje kategorija…");
       finalCategories = await writeCategoriesTx(tx, parsed, strategy, freshCategories);
 
-      progress(50, "Snimanje kartica…");
+      // Sources MUST land before cards: cards have FK `sourceId → sources(id)`.
+      // Previously cards wrote first and any non-null sourceId triggered
+      // SQLITE_CONSTRAINT_FOREIGNKEY (787). writeSourcesTx returns the final
+      // valid source-id set so we can scrub stale refs from cards.
+      progress(45, "Snimanje izvora…");
+      const validSourceIds = await writeSourcesTx(tx, parsed, strategy);
+
+      // Defensive scrub: any card with a sourceId that no longer resolves
+      // (deleted source, partial backup, orphaned ref) gets nulled here
+      // instead of crashing the whole tx. ON DELETE SET NULL covers the
+      // delete path but not the initial INSERT.
+      let scrubbed = 0;
+      for (const card of merged) {
+        if (card.sourceId && !validSourceIds.has(card.sourceId)) {
+          card.sourceId = null;
+          scrubbed += 1;
+        }
+      }
+      if (scrubbed > 0) {
+        backupLog.warn("import", "scrubbed orphan card.sourceId refs", { count: scrubbed });
+      }
+
+      progress(55, "Snimanje kartica…");
       await writeCardsTx(tx, merged, strategy);
 
       // SR settings + review log are surfaced post-tx via callbacks; the
