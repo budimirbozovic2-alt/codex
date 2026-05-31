@@ -16,7 +16,7 @@
  *   - Lazy quantifiers + explicit character classes ⇒ no catastrophic
  *     backtracking on adversarial input.
  */
-export const WIKI_LINK_RE = /\[\[([^\[\]|]+?)(?:\|([^\[\]]+?))?\]\]/g;
+export const WIKI_LINK_RE = /\[\[([^[\]|]+?)(?:\|([^[\]]+?))?\]\]/g;
 
 export interface WikiLinkMatch {
   /** Trimmed target title (case preserved). */
