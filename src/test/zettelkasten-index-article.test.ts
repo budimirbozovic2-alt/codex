@@ -9,6 +9,10 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { kbTestDb as db } from "./helpers/kb-test-db";
 import { ensureIndexArticle, newArticle } from "@/lib/zettelkasten-storage";
+import { deriveMarkdown } from "@/lib/editor-v4/derived";
+
+const md = (a: { contentDoc?: unknown; content?: string }) =>
+  deriveMarkdown(a.contentDoc as never) || a.content || "";
 
 const SUBJECT_A = "subj-A";
 const SUBJECT_B = "subj-B";
