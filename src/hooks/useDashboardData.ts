@@ -14,7 +14,7 @@ import type { CategoryRecord } from "@/lib/db-types";
 import { StudyFlowData } from "@/components/dashboard/StudyFlowWidget";
 import { usePlannerMutations } from "@/hooks/planner/usePlannerMutations";
 
-import { loadAppSettings } from "@/lib/app-settings";
+import { loadAppSettings, APP_SETTINGS_CHANGED_EVENT } from "@/lib/app-settings";
 import { useDeferredCompute } from "@/hooks/useDeferredCompute";
 import { startOfDay } from "date-fns";
 import { StatusIcon } from "@/components/dashboard/StatusIconsRow";
