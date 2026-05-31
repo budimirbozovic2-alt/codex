@@ -129,7 +129,7 @@ export async function remapFromBackup(
   const backup: MinimalBackup = backupJson;
   report.cardsInBackup = backup.cards.length;
 
-  const { oldSubInfo, oldCatNameById } = buildOldIndex(backup.categories);
+  const { oldSubInfo } = buildOldIndex(backup.categories);
 
   const [catRecords, currentCards] = await Promise.all([
     readAllCategoriesForBackup(),
@@ -254,8 +254,5 @@ export async function remapFromBackup(
   }
 
   onProgress(100, "Završeno.");
-  // Suppress unused warning
-  void oldCatNameById;
-
   return report;
 }

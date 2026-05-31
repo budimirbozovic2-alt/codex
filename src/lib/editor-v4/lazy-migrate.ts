@@ -18,7 +18,6 @@ import { logger } from "@/lib/logger";
 import { taskScheduler } from "@/lib/scheduler";
 import * as cardMapWrites from "@/domains/cards";
 import { saveSource } from "@/lib/sources-storage";
-import { saveArticle } from "@/lib/zettelkasten-storage";
 import {
   listAllSources,
 } from "@/lib/db/queries";
@@ -117,8 +116,3 @@ async function migrateAllArticles(): Promise<void> {
   }
 }
 
-// Re-export `saveArticle` reference to keep the import non-tree-shaken even
-// though `migrateAllArticles` uses direct `db.put`. Future PRs that flip to
-// going through the storage layer (with `updatedAt` rewrite intentional) can
-// swap the implementation without changing call sites.
-void saveArticle;
