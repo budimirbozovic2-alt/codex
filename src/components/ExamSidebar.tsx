@@ -42,7 +42,7 @@ export default function ExamSidebar({ questions, onSetQuestions, onMapSelection,
   const handleSaveEdit = useCallback(() => {
     const lines = editText
       .split("\n")
-      .map(l => l.replace(/^\d+[.)\-]\s*/, "").trim())
+      .map(l => l.replace(/^\d+[.)-]\s*/, "").trim())
       .filter(l => l.length > 3);
 
     const newPending: ExamQuestion[] = lines.map(text => {
