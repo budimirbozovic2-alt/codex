@@ -131,7 +131,21 @@ export function calculateNextReview(
     finalNextReview = Date.now() + Math.min(calcMs, maxMs);
   }
 
-  if (isNew && grade === 3) {
+  if (isNew && grade === 1) {
+    // Again on a New card → very short learning step (1 min). Stay in
+    // Learning with firstReviewPending so the card resurfaces immediately
+    // instead of being scheduled by the raw 0.1d stability (~2.4h).
+    finalNextReview = Date.now() + 60 * 1000;
+    finalState = SectionState.Learning;
+    finalFirstReviewPending = true;
+  } else if (isNew && grade === 2) {
+    // Hard on a New card → short learning step (6 min). Without this the
+    // 1d stability would push the card a full day out before its first
+    // successful recall, defeating the learning phase.
+    finalNextReview = Date.now() + 6 * 60 * 1000;
+    finalState = SectionState.Learning;
+    finalFirstReviewPending = true;
+  } else if (isNew && grade === 3) {
     // Good on a New card → short learning step (15 min) before graduating.
     finalNextReview = Date.now() + 15 * 60 * 1000;
     finalState = SectionState.Learning;
