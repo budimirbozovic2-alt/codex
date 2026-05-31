@@ -6,6 +6,7 @@ import { type Card } from "@/lib/spaced-repetition";
 import { cn } from "@/lib/utils";
 import { type TreeNode } from "./org-mode-utils";
 import { SortableCardTile, DroppableChapterZone, UnassignedCardRow } from "./OrgCardTiles";
+import { VirtualSortableCardList, VIRTUALIZATION_THRESHOLD } from "./VirtualSortableCardList";
 
 interface Props {
   node: TreeNode;
@@ -111,6 +112,12 @@ function OrgSubcategoryPanelInner({ node, isExpanded, onToggle, tree, assignChap
                   <p className="text-[10px] text-muted-foreground italic text-center py-2">
                     Prevuci modul ovdje
                   </p>
+                ) : ch.cards.length > VIRTUALIZATION_THRESHOLD ? (
+                  // PR-G5 follow-up: virtualize large chapters. The inner
+                  // SortableContext above still owns the full ID list, so
+                  // dnd-kit ordering stays consistent even when the
+                  // virtualizer unmounts off-screen rows.
+                  <VirtualSortableCardList cards={ch.cards} />
                 ) : (
                   ch.cards.map((card, idx) => (
                     <SortableCardTile key={card.id} card={card} index={idx} />
