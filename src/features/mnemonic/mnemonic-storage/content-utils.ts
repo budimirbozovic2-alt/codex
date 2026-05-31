@@ -32,9 +32,9 @@ export function detectEnumerationItems(html: string): string[] {
   }
   // Fallback: plain-text patterns
   const text = html.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
-  const numbered = text.match(/\d+[\.\)]\s*[^,;\d]+/g);
+  const numbered = text.match(/\d+[.)]\s*[^,;\d]+/g);
   if (numbered && numbered.length >= 2) {
-    return numbered.map(s => s.replace(/^\d+[\.\)]\s*/, "").trim()).filter(Boolean);
+    return numbered.map(s => s.replace(/^\d+[.)]\s*/, "").trim()).filter(Boolean);
   }
   const semicoloned = text.split(/;\s*/);
   if (semicoloned.length >= 3) {

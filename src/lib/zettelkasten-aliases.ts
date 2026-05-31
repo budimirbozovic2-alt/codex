@@ -47,7 +47,7 @@ export function normalizeAlias(raw: string): string {
   if (!trimmed) return "";
   if (trimmed.length > ALIAS_LIMITS.maxLen) return "";
   // Forbid `[`, `]`, `|` — they collide with wiki-link syntax.
-  if (/[\[\]|]/.test(trimmed)) return "";
+  if (/[[\]|]/.test(trimmed)) return "";
   return trimmed;
 }
 

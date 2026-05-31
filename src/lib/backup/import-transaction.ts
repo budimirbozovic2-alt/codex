@@ -69,7 +69,7 @@ export async function applyImportAtomically(ctx: ImportCtx): Promise<ImportTxRes
     // caller-owned `nextMap` (== { ...currentMap }) — silent state
     // corruption for non-overwrite imports. `applyRemapToParsedV2` walks
     // `parsed.cards` directly and touches no caller-owned map.
-    let freshCategories: CategoryRecord[] = await readAllCategoriesForBackup();
+    const freshCategories: CategoryRecord[] = await readAllCategoriesForBackup();
     if (parsed.categories.length > 0 && isCategoryRecordArray(parsed.categories)) {
       const remap = buildCategoryIdRemap(parsed.categories, freshCategories);
       await applyRemapToParsedV2(remap, parsed);

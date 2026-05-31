@@ -7,14 +7,14 @@ export function markBootStep(step: string, meta?: string) {
   _trace.push(entry);
   try {
     logger.log(`[boot:${entry.ts}ms] ${step}${meta ? ' — ' + meta : ''}`);
-  } catch {}
+  } catch { /* noop */ }
   try {
     const el = document.getElementById("splash-phase");
     if (el) el.textContent = step;
-  } catch {}
+  } catch { /* noop */ }
   try {
     window.__bootTrace = _trace;
-  } catch {}
+  } catch { /* noop */ }
 }
 
 export function getBootTrace() {

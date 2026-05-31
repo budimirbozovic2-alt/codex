@@ -100,7 +100,7 @@ export function saveAppSettings(settings: AppSettings): void {
     putSetting("appSettings", settings).catch((e) => logger.warn("[settings] put failed", e));
   }).catch(() => {});
   // Mirror to localStorage for fast sync reads (cache, not source of truth)
-  try { localStorage.setItem(APP_SETTINGS_KEY, json); } catch {}
+  try { localStorage.setItem(APP_SETTINGS_KEY, json); } catch { /* noop */ }
 }
 
 /** Load from IDB as fallback when localStorage is empty */
@@ -117,7 +117,7 @@ export async function loadAppSettingsAsync(): Promise<AppSettings> {
         notifications: { ...DEFAULT_APP_SETTINGS.notifications, ...parsed.notifications },
       };
     }
-  } catch {}
+  } catch { /* noop */ }
   // Fallback to SQLite via settings repo
   try {
     const { getSetting } = await import("@/lib/db/queries");
@@ -131,10 +131,10 @@ export async function loadAppSettingsAsync(): Promise<AppSettings> {
         notifications: { ...DEFAULT_APP_SETTINGS.notifications, ...value.notifications },
       };
       // Restore to localStorage for fast sync reads
-      try { localStorage.setItem(APP_SETTINGS_KEY, JSON.stringify(restored)); } catch {}
+      try { localStorage.setItem(APP_SETTINGS_KEY, JSON.stringify(restored)); } catch { /* noop */ }
       return restored;
     }
-  } catch {}
+  } catch { /* noop */ }
   return { ...DEFAULT_APP_SETTINGS };
 }
 
@@ -179,14 +179,14 @@ export async function isAutoBackupOverdueAsync(settings: AppSettings): Promise<b
   try {
     const str = localStorage.getItem("sr-last-backup");
     if (str) lastTs = JSON.parse(str);
-  } catch {}
+  } catch { /* noop */ }
   // Fallback to SQLite via settings repo
   if (!lastTs) {
     try {
       const { getSetting } = await import("@/lib/db/queries");
       const value = await getSetting<number>("sr-last-backup");
       if (typeof value === "number") lastTs = value;
-    } catch {}
+    } catch { /* noop */ }
   }
   if (!lastTs) return false;
   return Date.now() - lastTs > settings.autoBackupDays * 24 * 60 * 60 * 1000;

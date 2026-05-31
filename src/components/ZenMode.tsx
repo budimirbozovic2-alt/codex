@@ -74,7 +74,7 @@ export default function ZenMode({ active, onToggle }: Props) {
       });
       // M1 fix: close AudioContext after last note to free system audio resources
       taskScheduler.setTimeout(() => ctx.close().catch(() => {}), 1500, { label: "ZenMode:audioCtxClose" });
-    } catch {}
+    } catch { /* noop */ }
   }, []);
 
   useEffect(() => {

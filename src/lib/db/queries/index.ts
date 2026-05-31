@@ -98,6 +98,7 @@ export {
 } from "./mnemonics";
 export {
   getArticle as getKnowledgeBaseArticle,
+  listAllArticles as listAllKnowledgeBaseArticles,
   listArticlesBySubject,
   findArticleByTitle,
   putArticle as putKnowledgeBaseArticle,

@@ -16,7 +16,7 @@ import {
   loadArticlesBySubject,
   type KnowledgeBaseArticle,
 } from "@/lib/zettelkasten-storage";
-import { listAllArticles } from "@/lib/db/queries/knowledge-base";
+import { listAllKnowledgeBaseArticles as listAllArticles } from "@/lib/db/queries";
 import { queryKeys } from "@/lib/query/keys";
 
 const EMPTY: KnowledgeBaseArticle[] = [];

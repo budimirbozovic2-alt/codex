@@ -57,7 +57,7 @@ function renderMarkdown(md: string, existingTitles: Set<string>, emptyTitles: Se
     // `|`) survive `escapeHtml` unchanged, so the same regex matches the
     // escaped string. Inner display text may have been escaped (e.g. `&`),
     // which is exactly what we want for the rendered anchor body.
-    return rawHtml.replace(/\[\[([^\[\]|]+?)(?:\|([^\[\]]+?))?\]\]/g, (_m, t: string, d?: string) => {
+    return rawHtml.replace(/\[\[([^[\]|]+?)(?:\|([^[\]]+?))?\]\]/g, (_m, t: string, d?: string) => {
       const target = t.trim();
       if (!target) return _m;
       const display = (d?.trim()) || target;

@@ -114,7 +114,7 @@ function createCafeBuffer(ctx: AudioContext): AudioBuffer {
 
     const mod1 = 0.6 + 0.4 * Math.sin(2 * Math.PI * 0.08 * t);
     const mod2 = 0.6 + 0.4 * Math.sin(2 * Math.PI * 0.13 * t + 1.5);
-    let sample = m2 * 1.5 * mod1 + m4 * 1.0 * mod2;
+    const sample = m2 * 1.5 * mod1 + m4 * 1.0 * mod2;
 
     if (Math.random() < 0.0008) {
       const freq0 = 3500 + Math.random() * 1500;
@@ -199,7 +199,7 @@ export function startAmbient(track: AmbientTrack = "rain", volume = 0.3): void {
 
 export function stopAmbient(): void {
   for (const n of sourceNodes) {
-    try { (n as AudioBufferSourceNode).stop(); } catch {}
+    try { (n as AudioBufferSourceNode).stop(); } catch { /* noop */ }
     n.disconnect();
   }
   sourceNodes = [];

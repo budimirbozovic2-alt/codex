@@ -41,7 +41,7 @@ export const SmartPaste = Extension.create({
 
             const html = cd.getData("text/html");
             const text = cd.getData("text/plain");
-            const hasWiki = /\[\[[^\[\]|]+?(\|[^\[\]]+?)?\]\]/.test(text + html);
+            const hasWiki = /\[\[[^[\]|]+?(\|[^[\]]+?)?\]\]/.test(text + html);
             const hasMindmap = /::mindmap\[[^\]\s]{8,}\]/.test(text + html);
             if (!hasWiki && !hasMindmap) return false; // nothing to enrich → default handler
 
