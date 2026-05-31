@@ -239,7 +239,7 @@ export async function writeSourcesTx(
   for (const s of parsed.sources) valid.add(s.id);
   if (strategy !== "overwrite") {
     // Existing rows survived — fold them in.
-    const rows = await tx.query<{ id: string }>("SELECT id FROM sources");
+    const rows = await tx.all<{ id: string }>("SELECT id FROM sources");
     for (const r of rows) valid.add(r.id);
   }
   return valid;
