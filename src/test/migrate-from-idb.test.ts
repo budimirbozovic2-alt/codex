@@ -56,8 +56,10 @@ vi.mock("@/lib/persistence/sqlite/idb-raw-reader", () => ({
     }
     return total;
   },
-  listAllRows: async <T,>(_db: IDBDatabase, name: StoreName) =>
-    (stores[name] ?? []) as T[],
+  listAllRows: async <T,>(_db: IDBDatabase, name: StoreName) => {
+    if (throwOnList.has(name)) throw new Error(`forced fail: ${name}`);
+    return (stores[name] ?? []) as T[];
+  },
   getKv: async <T,>(_db: IDBDatabase, _name: StoreName, _key: string) => undefined as T | undefined,
 }));
 
