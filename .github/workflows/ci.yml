@@ -48,15 +48,26 @@ jobs:
 
       # ── Bun global install cache ───────────────────────────────────────
       # Bun stores downloaded/extracted packages at ~/.bun/install/cache.
-      # Caching it makes `bun install --frozen-lockfile` a near no-op when
-      # the lockfile is unchanged. Keyed on bun.lock so any dep change
-      # invalidates cleanly; restore-keys allow partial reuse on bumps.
+      # Layered cache strategy for maximum reuse on small lockfile drift:
+      #
+      #   1. Exact hit  — same bun.lock → cache restored 1:1, install is a no-op.
+      #   2. Manifest tier — package.json unchanged (only transitive bumps in
+      #      bun.lock); reuse extracted tarballs, refetch only the deltas.
+      #   3. OS tier    — last resort, reuse whatever Bun packages exist for
+      #      this runner so a cold start still avoids re-downloading the
+      #      stable majority of deps (react, vite, etc.).
+      #
+      # On a restore-keys hit, the cache is read but NOT overwritten — the
+      # new `key` only saves on cache-miss, so partial reuse is always safe.
       - name: Restore Bun install cache
         uses: actions/cache@v4
         with:
           path: ~/.bun/install/cache
-          key: bun-cache-${{ runner.os }}-${{ hashFiles('bun.lock') }}
+          key: bun-cache-${{ runner.os }}-lock-${{ hashFiles('bun.lock') }}
           restore-keys: |
+            bun-cache-${{ runner.os }}-lock-
+            bun-cache-${{ runner.os }}-pkg-${{ hashFiles('package.json') }}
+            bun-cache-${{ runner.os }}-pkg-
             bun-cache-${{ runner.os }}-
 
       - name: Install dependencies
