@@ -100,7 +100,9 @@ function escapeHtml(s: string): string {
 function mdInline(raw: string): string {
   let s = escapeHtml(raw);
   s = s.replace(/`([^`]+)`/g, "<code>$1</code>");
-  s = s.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
+  // E.3: tolerate single `*` inside bold (e.g. `**bold *italic* bold**`) by
+  // matching any char that isn't `*`, or a `*` not followed by another `*`.
+  s = s.replace(/\*\*((?:[^*]|\*(?!\*))+)\*\*/g, "<strong>$1</strong>");
   s = s.replace(/\*([^*]+)\*/g, "<em>$1</em>");
   return s;
 }
