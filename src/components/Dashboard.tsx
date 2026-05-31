@@ -29,7 +29,7 @@ interface Props {
   onExport?: () => void;
 }
 
-export default function Dashboard({ stats, categoryStats, categories, categoryRecords, _subcategories, cards, reviewLog, srSettings, onExport }: Props) {
+export default function Dashboard({ stats, categoryStats, categories, categoryRecords, subcategories: _subcategories, cards, reviewLog, srSettings, onExport }: Props) {
   const {
     wc, todayReviews, dailyGoal, goalProgress, pendingFirstReview, streak,
     focusRatio, actualRatio, autoSuggestion, storageUsage, plannerData,

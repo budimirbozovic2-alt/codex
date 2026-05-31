@@ -10,7 +10,7 @@ import { usePlannerMutations } from "@/hooks/planner/usePlannerMutations";
 
 const StudyModeRecall = lazy(() => import("./learn/StudyModeRecall"));
 
-export default function LearnSession({ cards, categories, categoryRecords, subcategories, onMarkRead, onReviewSection, onBack, _onEdit, onAddKeyPart, _dueCount = 0, reviewLog: reviewLogProp = [], initialFilters, restoreSnapshot, onSessionStateChange }: LearnSessionProps) {
+export default function LearnSession({ cards, categories, categoryRecords, subcategories, onMarkRead, onReviewSection, onBack, onEdit: _onEdit, onAddKeyPart, dueCount: _dueCount = 0, reviewLog: reviewLogProp = [], initialFilters, restoreSnapshot, onSessionStateChange }: LearnSessionProps) {
   const isStrictRecall = initialFilters?.mode === "strict-recall";
   const { recordDiscipline } = usePlannerMutations();
   const [selectedCategory, setSelectedCategory] = useState<string | null>(restoreSnapshot?.selectedCategory ?? initialFilters?.categoryId ?? null);
