@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { recordFirstAction, addActivityEntry } from "@/lib/metacognitive-storage";
-import { VIEW_ACTIVITY_MAP, type View } from "../routing/useCurrentView";
+import { VIEW_ACTIVITY_MAP, type View } from "./useCurrentView";
 
 export function useActivityTracker(view: View) {
   useEffect(() => {
