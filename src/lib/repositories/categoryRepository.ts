@@ -24,7 +24,6 @@ import {
 import { wrapWrite, type WriteResult } from "@/lib/persistence/write-result";
 import type { SqlExecutor } from "@/lib/persistence/sqlite/executor";
 import {
-  listAllCategories,
   replaceAllCategories,
 } from "@/lib/db/queries";
 
