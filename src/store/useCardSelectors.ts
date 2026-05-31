@@ -12,6 +12,7 @@ export {
   useCardsBySubcategory,
   useCardsByChapter,
   useCardCountByCategory,
+  useCardCountsByCategoryMap,
   useCardById,
   useCardsBySource,
 } from "@/hooks/card/useCardsQuery";

@@ -37,7 +37,6 @@ interface CardStateContextValue {
   cards: Card[];
   dueCards: Card[];
   stats: { due: number; total: number; totalSections: number; learnedSections: number; leechCount: number };
-  cardCountByCategory: Record<string, number>;
   ready: boolean;
 }
 
@@ -47,10 +46,10 @@ export function useCardData(): CardStateContextValue {
   const { categories } = useCategoryData();
   const bootState = useBootState();
   const ready = bootState.type === "ready";
-  const { dueCards, stats, cardCountByCategory } = useCardAggregates(cards, categories);
+  const { dueCards, stats } = useCardAggregates(cards, categories);
   return useMemo(
-    () => ({ cards, dueCards, stats, cardCountByCategory, ready }),
-    [cards, dueCards, stats, cardCountByCategory, ready],
+    () => ({ cards, dueCards, stats, ready }),
+    [cards, dueCards, stats, ready],
   );
 }
 
