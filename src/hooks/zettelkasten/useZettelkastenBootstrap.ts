@@ -72,11 +72,21 @@ export function useZettelkastenBootstrap(
     }
     let cancelled = false;
     setEnsuring(true);
-    ensureIndexArticle(categoryId, subjectName, subcategoryNames).then((idx) => {
-      if (cancelled) return;
-      setInitialActiveId(prev => prev ?? idx.id);
-      setEnsuring(false);
-    });
+    ensureIndexArticle(categoryId, subjectName, subcategoryNames)
+      .then((idx) => {
+        if (cancelled) return;
+        setInitialActiveId(prev => prev ?? idx.id);
+        setEnsuring(false);
+      })
+      .catch((err) => {
+        // PR-G2 / L-4 fix: previously no `.catch`, so an `ensureIndexArticle`
+        // rejection (executor unavailable, schema mismatch) left
+        // `setEnsuring(true)` forever — permanent spinner with zero feedback.
+        if (cancelled) return;
+        // eslint-disable-next-line no-console
+        console.warn("[zettelkasten] ensureIndexArticle failed", err);
+        setEnsuring(false);
+      });
     return () => { cancelled = true; };
     // Reason: `seedNamesKey` is a stable join of subcategoryNames; the array itself
     // recreates on every render but the joined key is the real identity.
