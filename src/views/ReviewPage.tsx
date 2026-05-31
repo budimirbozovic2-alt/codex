@@ -37,6 +37,8 @@ export default function ReviewPage() {
 
   useEffect(() => {
     if (ready) session.startSession(scopedAllCards, reviewLog);
+    // Reason: review session is (re)started only on `ready`/`lockedCategory` transitions;
+    // scopedAllCards/reviewLog updates during a session would clobber FSRS scheduling.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ready, lockedCategory]);
 
