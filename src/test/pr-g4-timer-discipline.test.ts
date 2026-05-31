@@ -13,8 +13,6 @@ import { join, relative, sep } from "node:path";
 // ── Allow-list (mirrors eslint.config.js G7 override) ────────────────────
 const ALLOWLIST = new Set<string>([
   "src/lib/persist-queue.ts",
-  "src/lib/db-schema.ts",
-  "src/lib/db-queries.ts",
   "src/lib/event-bus.ts",
   "src/lib/zip-service.ts",
   "src/lib/electron-integration.ts",
@@ -71,7 +69,10 @@ function stripCommentsAndStrings(src: string): string {
   return s;
 }
 
-const RAW_TIMER_RE = /\b(?:window\s*\.\s*)?(setTimeout|setInterval)\s*\(/;
+// Match `setTimeout(` / `setInterval(` ONLY when used as a free call or via
+// `window.`. A leading `.` (e.g. `taskScheduler.setTimeout(`) is excluded
+// via negative look-behind — those are exactly the calls we WANT.
+const RAW_TIMER_RE = /(?<![.\w])(?:window\s*\.\s*)?(setTimeout|setInterval)\s*\(/;
 
 describe("PR-G4 timer discipline", () => {
   it("no src/** file outside the G7 allow-list contains raw setTimeout/setInterval", () => {

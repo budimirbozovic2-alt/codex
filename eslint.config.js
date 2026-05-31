@@ -618,8 +618,6 @@ export default tseslint.config(
     files: [
       "src/lib/scheduler/**",
       "src/lib/persist-queue.ts",
-      "src/lib/db-schema.ts",
-      "src/lib/db-queries.ts",
       "src/lib/event-bus.ts",
       "src/lib/zip-service.ts",
       "src/lib/electron-integration.ts",
