@@ -4,7 +4,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { QueryClient } from "@tanstack/react-query";
 import { _resetBridgesForTest, installQueryBridges } from "@/lib/query/bridges";
-import { plannerCache, disciplineCache } from "@/domains/planner";
+// Tests are whitelisted from W12 — deep import OK for inspecting domain internals.
+import { plannerCache, disciplineCache } from "@/domains/planner/cache";
 import { invalidateSourcesCache } from "@/lib/sources-storage";
 import { DEFAULT_CONFIG } from "@/domains/planner";
 import { notifyCardsChanged } from "@/lib/db/queries";
