@@ -9,7 +9,7 @@ import { notifyExecutorNull } from "./_shared/executor-telemetry";
 async function tryGetExecutor(): Promise<SqlExecutor | null> {
   try {
     const { isElectron } = await import("@/lib/electron-integration");
-    if (!isElectron()) { notifyExecutorNull("mnemonics", "non-electron"); return null; }
+    if (!isElectron() && import.meta.env.PROD) { notifyExecutorNull("mnemonics", "non-electron"); return null; }
     const { getOpfsSqliteExecutor } = await import("@/lib/persistence/sqlite/client");
     return await getOpfsSqliteExecutor();
   } catch (err) {

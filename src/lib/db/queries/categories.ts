@@ -24,7 +24,7 @@ import {
 async function tryGetExecutor(): Promise<SqlExecutor | null> {
   try {
     const { isElectron } = await import("@/lib/electron-integration");
-    if (!isElectron()) {
+    if (!isElectron() && import.meta.env.PROD) {
       notifyExecutorNull("categories", "non-electron");
       return null;
     }

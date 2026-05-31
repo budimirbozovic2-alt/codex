@@ -36,8 +36,25 @@ interface SqliteApi {
 
 let _executorPromise: Promise<SqlExecutor> | null = null;
 
+function isElectronRuntime(): boolean {
+  return typeof window !== "undefined" && Boolean((window as { electronAPI?: unknown }).electronAPI);
+}
+
 export function getOpfsSqliteExecutor(): Promise<SqlExecutor> {
   if (_executorPromise) return _executorPromise;
+  // Non-Electron DEV preview (lovable.app, `bun run dev` in a tab): use a
+  // real in-memory SQLite executor so writes actually persist within the
+  // session. See `dev-fallback.ts` for the rationale.
+  if (!isElectronRuntime() && !import.meta.env.PROD) {
+    _executorPromise = (async () => {
+      const { getDevFallbackExecutor } = await import("./dev-fallback");
+      return getDevFallbackExecutor();
+    })().catch((err) => {
+      _executorPromise = null;
+      throw err;
+    });
+    return _executorPromise;
+  }
   _executorPromise = (async () => {
     const mod = await import("@sqlite.org/sqlite-wasm");
     const sqlite3InitModule = (mod as unknown as { default: () => Promise<SqliteApi> }).default;
