@@ -1,16 +1,16 @@
 /**
- * One-way mirror sync + mutation rollback contract.
+ * PR-E5 — Cards mutations: TanStack-only mirror + rollback contract.
  *
- * Mirror: writes commit to Zustand (`cardMapWrites`) which emits
- * `notifyCardsChanged`. The TanStack bridge (`installQueryBridges`) debounces
- * those notifications into `invalidateQueries(['cards'])`, which triggers
- * `useAllCards` to refetch from the read SSOT (`listAllCards`). Test #1
- * proves that the bridge actually delivers live data to the hook.
+ * Post PR-E2/E4 there is no Zustand `cardMapStore` and no `cardMapWrites`
+ * sync RAM API. Writes go through `useCardMutations` → `*Direct` helpers in
+ * `@/lib/db/queries`, which schedule via `persistQueue` and emit
+ * `notifyCardsChanged`. The query bridge invalidates `['cards', ...]`,
+ * which causes `useAllCards` to refetch from `listAllCards`.
  *
- * Rollback: `useCardMutations.save.onMutate` snapshots every `['cards', …]`
- * query and `onError` restores them when the persist path throws. Test #2
- * proves the snapshot/restore covers MULTIPLE scoped keys, even when those
- * keys are mutated AFTER onMutate has already snapshotted.
+ * Mirror test: `notifyCardsChanged` → bridge invalidate → fresh rows hit
+ *   `useAllCards` consumers.
+ * Rollback test: when the direct write helper rejects, `onMutate` snapshots
+ *   every `['cards', …]` key and `onError` restores them.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { renderHook, waitFor, act } from "@testing-library/react";
@@ -24,9 +24,12 @@ import { queryKeys } from "@/lib/query/keys";
 import type { Card } from "@/lib/spaced-repetition";
 
 // ── Mocks ────────────────────────────────────────────────────────────────
-// `listAllCards` is the read SSOT for `['cards','all']`. We control its
-// return value to verify the bridge actually flows new data into the hook.
+// `listAllCards` feeds `['cards','all']`; we control its rows directly.
+// `putCardDirect` is the write seam invoked by `useCardMutations.save` —
+// throwing here triggers `onError → rollback`.
 let currentRows: Card[] = [];
+const putCardDirectMock = vi.fn();
+
 vi.mock("@/lib/db/queries", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/db/queries")>();
   return {
@@ -35,23 +38,10 @@ vi.mock("@/lib/db/queries", async (importOriginal) => {
     getCardsByIds: vi.fn(async (ids: string[]) =>
       ids.map((id) => currentRows.find((c) => c.id === id) ?? null),
     ),
+    putCardDirect: (...args: unknown[]) => putCardDirectMock(...args),
   };
 });
 
-// `cardMapWrites.put` is invoked synchronously inside the mutation's
-// `putAsync` wrapper. Throwing here forces `wrapWrite` to return
-// `{ ok: false }`, which surfaces as a rejected mutation and triggers
-// `onError → rollback`.
-const putMock = vi.fn();
-vi.mock("@/domains/cards", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@/domains/cards")>();
-  return {
-    ...actual,
-    put: (...args: unknown[]) => putMock(...args),
-  };
-});
-
-// Imports AFTER mocks so the hooks pick up the mocked modules.
 const { useAllCards } = await import("@/hooks/card/useCardsQuery");
 const { useCardMutations } = await import("@/hooks/card/useCardMutations");
 const { notifyCardsChanged } = await import("@/lib/db/queries");
@@ -75,9 +65,6 @@ function makeWrapper(qc: QueryClient) {
 }
 
 function makeQc(): QueryClient {
-  // gcTime intentionally large: `setQueryData` with no active observer
-  // would otherwise be evicted immediately and our snapshot/rollback
-  // assertions would see `undefined`.
   return new QueryClient({
     defaultOptions: { queries: { retry: false, gcTime: 5 * 60_000 } },
   });
@@ -86,7 +73,7 @@ function makeQc(): QueryClient {
 beforeEach(() => {
   _resetBridgesForTest();
   currentRows = [];
-  putMock.mockReset();
+  putCardDirectMock.mockReset();
 });
 
 afterEach(() => {
@@ -94,9 +81,9 @@ afterEach(() => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────
-// 1) Live mirror — bridge feeds fresh listAllCards() output to useAllCards
+// 1) Live mirror — bridge feeds fresh listAllCards() to useAllCards
 // ─────────────────────────────────────────────────────────────────────────
-describe("useAllCards — one-way mirror via query bridge", () => {
+describe("useAllCards — mirror via query bridge", () => {
   it("hydrates from listAllCards on first mount", async () => {
     const qc = makeQc();
     installQueryBridges(qc);
@@ -108,7 +95,7 @@ describe("useAllCards — one-way mirror via query bridge", () => {
     expect(result.current.map((c) => c.id).sort()).toEqual(["a", "b"]);
   });
 
-  it("re-renders with fresh rows after notifyCardsChanged → bridge invalidates ['cards']", async () => {
+  it("re-renders with fresh rows after notifyCardsChanged", async () => {
     const qc = makeQc();
     installQueryBridges(qc);
     currentRows = [makeCard("a")];
@@ -116,18 +103,14 @@ describe("useAllCards — one-way mirror via query bridge", () => {
     const { result } = renderHook(() => useAllCards(), { wrapper: makeWrapper(qc) });
     await waitFor(() => expect(result.current.length).toBe(1));
 
-    // Simulate a sync RAM write: source rows mutate, then notify fires.
     currentRows = [makeCard("a"), makeCard("b"), makeCard("c")];
-    act(() => {
-      notifyCardsChanged();
-    });
+    act(() => { notifyCardsChanged(); });
 
-    // Bridge debounces ~16ms then invalidates → useQuery refetches.
     await waitFor(() => expect(result.current.length).toBe(3), { timeout: 2000 });
     expect(result.current.map((c) => c.id).sort()).toEqual(["a", "b", "c"]);
   });
 
-  it("does NOT push data without notifyCardsChanged (mirror is event-driven, not polled)", async () => {
+  it("does NOT push data without notifyCardsChanged (event-driven, not polled)", async () => {
     const qc = makeQc();
     installQueryBridges(qc);
     currentRows = [makeCard("a")];
@@ -135,8 +118,6 @@ describe("useAllCards — one-way mirror via query bridge", () => {
     const { result } = renderHook(() => useAllCards(), { wrapper: makeWrapper(qc) });
     await waitFor(() => expect(result.current.length).toBe(1));
 
-    // Mutate the source WITHOUT firing notify. Hook must NOT see the change
-    // (staleTime: Infinity + no invalidation → cached value held).
     currentRows = [makeCard("a"), makeCard("b")];
     await new Promise((r) => setTimeout(r, 30));
     expect(result.current.length).toBe(1);
@@ -147,10 +128,10 @@ describe("useAllCards — one-way mirror via query bridge", () => {
 // 2) Rollback — snapshot/restore on persist failure
 // ─────────────────────────────────────────────────────────────────────────
 describe("useCardMutations.save — rollback on persist failure", () => {
-  it("restores every ['cards', …] snapshot when put throws mid-flight", async () => {
-    // Bridge intentionally NOT installed: we don't want `reloadCardsFromDb`
-    // (fired by the rollback path) to schedule a refetch that would clobber
-    // the restored snapshot before we assert.
+  it("restores every ['cards', …] snapshot when putCardDirect throws", async () => {
+    // Bridge intentionally NOT installed: avoid a settle-driven invalidation
+    // refetching from the mocked `listAllCards` and clobbering the restored
+    // snapshot before assertions run.
     const qc = makeQc();
 
     const initialAll = [makeCard("a"), makeCard("b")];
@@ -158,17 +139,7 @@ describe("useCardMutations.save — rollback on persist failure", () => {
     qc.setQueryData(queryKeys.cards.all(), initialAll);
     qc.setQueryData(queryKeys.cards.byCategory("cat-X"), initialByCat);
 
-    // `put` runs AFTER onMutate snapshots. We corrupt both cached keys here,
-    // then throw. The onError handler must restore both back to `initial*`.
-    putMock.mockImplementation(() => {
-      qc.setQueryData(queryKeys.cards.all(), [
-        ...initialAll,
-        makeCard("PHANTOM"),
-      ]);
-      qc.setQueryData(queryKeys.cards.byCategory("cat-X"), [
-        ...initialByCat,
-        makeCard("PHANTOM", "cat-X"),
-      ]);
+    putCardDirectMock.mockImplementation(async () => {
       throw new Error("disk full");
     });
 
@@ -185,32 +156,37 @@ describe("useCardMutations.save — rollback on persist failure", () => {
     await waitFor(() => expect(result.current.save.isError).toBe(true));
     expect(qc.getQueryData(queryKeys.cards.all())).toEqual(initialAll);
     expect(qc.getQueryData(queryKeys.cards.byCategory("cat-X"))).toEqual(initialByCat);
-    expect(putMock).toHaveBeenCalledTimes(1);
+    expect(putCardDirectMock).toHaveBeenCalledTimes(1);
   });
 
-  it("is a no-op for the cache when put succeeds (no spurious snapshot overwrite)", async () => {
+  it("optimistically patches ['cards','all'] before the write resolves", async () => {
     const qc = makeQc();
-
     const initialAll = [makeCard("a")];
     qc.setQueryData(queryKeys.cards.all(), initialAll);
 
-    // Success path: put returns void; bridge would normally invalidate via
-    // notifyCardsChanged, but with no bridge installed the cache is
-    // untouched — exactly what we want to assert here.
-    putMock.mockImplementation(() => {
-      /* commit succeeds */
-    });
+    // Hold the write in-flight; we assert the optimistic patch is visible.
+    let resolveWrite: (v: Card) => void = () => {};
+    putCardDirectMock.mockImplementation(
+      (card: Card) => new Promise<Card>((res) => { resolveWrite = () => res(card); }),
+    );
 
     const { result } = renderHook(() => useCardMutations(), {
       wrapper: makeWrapper(qc),
     });
 
-    await act(async () => {
-      await result.current.save.mutateAsync(makeCard("c"));
+    const newCard = makeCard("c");
+    act(() => {
+      void result.current.save.mutateAsync(newCard).catch(() => undefined);
     });
 
-    await waitFor(() => expect(result.current.save.isSuccess).toBe(true));
-    // Cache unchanged — no rollback fired, no optimistic patch wired.
-    expect(qc.getQueryData(queryKeys.cards.all())).toEqual(initialAll);
+    await waitFor(() => {
+      const cache = qc.getQueryData<readonly Card[]>(queryKeys.cards.all());
+      expect(cache?.map((c) => c.id).sort()).toEqual(["a", "c"]);
+    });
+
+    await act(async () => {
+      resolveWrite(newCard);
+      await result.current.save.mutateAsync(newCard).catch(() => undefined);
+    });
   });
 });
