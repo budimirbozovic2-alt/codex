@@ -2,8 +2,8 @@
 // delegates to `_pure/stability.ts`.
 import type { Card } from "../spaced-repetition";
 import type { ReviewLogEntry } from "../storage";
-import { loadDisciplineLog } from "../planner/discipline";
-import { loadPlanner } from "../planner/config";
+import { loadDisciplineLog } from "@/domains/planner/discipline";
+import { loadPlanner } from "@/domains/planner/config";
 import {
   calcCategoryStability,
   calcStrategicRealityCheck as calcStrategicRealityCheckPure,

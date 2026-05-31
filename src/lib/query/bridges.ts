@@ -8,7 +8,7 @@
 import type { QueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/query/keys";
 import { onSourcesChanged } from "@/lib/sources-storage";
-import { onPlannerChanged, type PlannerChangeKind } from "@/lib/planner";
+import { onPlannerChanged, type PlannerChangeKind } from "@/domains/planner";
 import { onCardsChanged, onKnowledgeBaseChanged, type CardsScope } from "@/lib/db/queries";
 import { onMindMapsChanged } from "@/lib/mindmap-storage";
 import { subscribeMnemonics } from "@/features/mnemonic/mnemonic-storage/cards-repo";

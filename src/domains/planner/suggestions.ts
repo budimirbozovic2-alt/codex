@@ -1,6 +1,6 @@
 /** Smart load balancing, rebalanced quota, status, and time recommendation. */
 import { addDays, differenceInDays } from "date-fns";
-import type { Card } from "../spaced-repetition";
+import type { Card } from "@/lib/spaced-repetition";
 import type { StudyPhase, SmartSuggestion, PlannerStatus } from "./types";
 import { calcPhaseProgress } from "./phases";
 

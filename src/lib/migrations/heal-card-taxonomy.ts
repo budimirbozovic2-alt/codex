@@ -2,7 +2,7 @@ import {
   listAllCards,
   readAllCategoriesForBackup,
 } from "@/lib/db/queries";
-import * as cardMapWrites from "@/lib/cards/cardMapWrites";
+import * as cardMapWrites from "@/domains/cards";
 import type { Card } from "@/lib/spaced-repetition";
 
 import { logger } from "@/lib/logger";

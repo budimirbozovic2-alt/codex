@@ -1,5 +1,5 @@
 import { getStorageUsage } from "@/lib/storage";
-import * as cardMapWrites from "@/lib/cards/cardMapWrites";
+import * as cardMapWrites from "@/domains/cards";
 import {
   // SQLite-primary readers via the backup-readers seam (P1.B).
   countCards,

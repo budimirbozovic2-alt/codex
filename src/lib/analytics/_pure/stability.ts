@@ -3,7 +3,7 @@
 import { addDays, differenceInDays, startOfDay } from "date-fns";
 import type { Card } from "../../spaced-repetition";
 import type { ReviewLogEntry } from "../../storage";
-import type { DisciplineEntry, PlannerConfig } from "../../planner/types";
+import type { DisciplineEntry, PlannerConfig } from "@/domains/planner/types";
 
 export interface CategoryStabilityInfo {
   category: string;

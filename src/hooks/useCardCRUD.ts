@@ -18,7 +18,7 @@ export interface FlashPair {
   chapterId?: string;
 }
 import { setCardFrequency } from "@/lib/sr/frequency";
-import { getCard } from "@/lib/cards/cardMapWrites";
+import { getCard } from "@/domains/cards";
 import { useCardMutations } from "@/hooks/card/useCardMutations";
 
 import { logger } from "@/lib/logger";

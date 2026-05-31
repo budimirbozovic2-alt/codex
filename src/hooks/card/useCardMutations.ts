@@ -1,7 +1,7 @@
 /**
  * PR-7f M3f — Cards cut-over (post B1 collapse).
  *
- * Wraps RAM-commit primitives from `@/lib/cards/cardMapWrites` in
+ * Wraps RAM-commit primitives from `@/domains/cards` in
  * `useMutation`. Each `mutationFn` performs the optimistic in-RAM commit,
  * awaits `persistQueue.cleanup()` so persist errors propagate, and returns
  * a `WriteResult`. The bridge (`onCardsChanged → invalidateQueries(['cards'])`)
@@ -21,7 +21,7 @@
 import { useMutation, useQueryClient, type QueryKey } from "@tanstack/react-query";
 import { toast } from "sonner";
 import type { Card } from "@/lib/spaced-repetition";
-import * as cardMapWrites from "@/lib/cards/cardMapWrites";
+import * as cardMapWrites from "@/domains/cards";
 import { persistQueue } from "@/lib/persist-queue";
 import { wrapWrite, type WriteResult } from "@/lib/persistence/write-result";
 import { queryKeys } from "@/lib/query/keys";

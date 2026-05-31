@@ -11,7 +11,7 @@ import { transition } from "@/lib/boot";
 import { logger } from "@/lib/logger";
 import { withTimeout } from "./withTimeout";
 import { normalizeCategoryShapes } from "./normalizeCategoryShapes";
-import * as cardMapWrites from "@/lib/cards/cardMapWrites";
+import * as cardMapWrites from "@/domains/cards";
 import { categoryRepository } from "@/lib/repositories";
 
 export interface HealInput {

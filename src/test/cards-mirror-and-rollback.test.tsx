@@ -43,8 +43,8 @@ vi.mock("@/lib/db/queries", async (importOriginal) => {
 // `{ ok: false }`, which surfaces as a rejected mutation and triggers
 // `onError → rollback`.
 const putMock = vi.fn();
-vi.mock("@/lib/cards/cardMapWrites", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@/lib/cards/cardMapWrites")>();
+vi.mock("@/domains/cards", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/domains/cards")>();
   return {
     ...actual,
     put: (...args: unknown[]) => putMock(...args),
