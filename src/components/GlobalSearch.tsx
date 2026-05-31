@@ -145,6 +145,10 @@ export default function GlobalSearch({ open, onClose, onNavigateToCard }: Props)
       });
 
     return out.slice(0, 20);
+    // `uuidToName` is a stable lookup from CategoryRecord context; including
+    // it would re-run search on every category rename. Search is scoped to
+    // cards/sources/mindmaps content, not name labels.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cards, sources, mindMaps, debouncedQuery]);
 
   useEffect(() => {

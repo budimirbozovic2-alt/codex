@@ -1,3 +1,7 @@
+/* eslint-disable react-refresh/only-export-components --
+ * Bundles STATUS_CONFIG + PHASE_COLORS constants alongside the ChartTooltip
+ * component — all consumed by the planner Recharts surfaces as a single unit.
+ */
 import { CheckCircle, AlertTriangle, XCircle, Target } from "lucide-react";
 import type { RechartsPayloadItem } from "@/types/planner";
 

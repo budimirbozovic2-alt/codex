@@ -186,7 +186,7 @@ export function useCardImport() {
       progress(100, "Završeno.");
       toast.success(`Uspješno uvezeno ${parsed.cards.length} kartica${extraMsg}.`);
     },
-    [setReviewLog, updateSRSettings],
+    [setReviewLog],
   );
 
   // PR-E3 — importCards writes directly to SQLite via bulkPutCardsDirect.

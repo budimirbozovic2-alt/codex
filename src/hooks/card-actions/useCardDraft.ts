@@ -25,7 +25,6 @@ export function useCardDraft({ editCardId, initialCategoryId, draftSnapshot, app
       setPendingDraftSavedAt(stored.savedAt);
     });
     return () => { cancelled = true; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [draftKey]);
 
   // Disable autosave while the restore banner is awaiting a decision so we

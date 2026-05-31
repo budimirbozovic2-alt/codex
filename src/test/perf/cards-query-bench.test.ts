@@ -65,7 +65,6 @@ describe("Phase 0 — cardsByCategory bench (SQLite harness)", () => {
       expect(idbHits.length).toBeGreaterThan(0);
       expect(idbHits.every((c) => c.categoryId === CAT_A)).toBe(true);
       expect(tIdb).toBeLessThan(Math.max(tRam * 5, 50));
-      // eslint-disable-next-line no-console
       console.log(
         `[bench cardsByCategory N=${N}] ram=${tRam.toFixed(2)}ms sqlite=${tIdb.toFixed(2)}ms ramHits=${ramHits.length} idbHits=${idbHits.length}`,
       );

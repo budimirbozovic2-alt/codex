@@ -129,6 +129,10 @@ export default function SRSettingsPanel({ settings, onUpdate }: Props) {
       saveTTSSettings(curTts);
       saveAppSettings(curApp);
     }
+    // Refs (appRef/localRef/overridesEnabledRef/subjectNameRef/ttsRef) hold
+    // the latest values via the sync effect above; depending on them would
+    // recreate the callback on every keystroke.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [subjectId, onUpdate]);
 
   const handleReset = useCallback(() => {

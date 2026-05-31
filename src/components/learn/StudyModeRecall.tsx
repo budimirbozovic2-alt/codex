@@ -1,5 +1,5 @@
 import { Eye, Check, AlertTriangle } from "lucide-react";
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { taskScheduler } from "@/lib/scheduler";
 import { Card } from "@/lib/spaced-repetition";
 import { m, AnimatePresence } from "@/lib/motion";
@@ -50,7 +50,7 @@ export default function StudyModeRecall({
   const [phase, setPhase] = useState<RecallPhase>("open");
   const [leechCount, setLeechCount] = useState(0);
 
-  const sections = card.sections ?? [];
+  const sections = useMemo(() => card.sections ?? [], [card.sections]);
   const isCompleted = completedCards.has(card.id);
 
   // Reset state when card changes

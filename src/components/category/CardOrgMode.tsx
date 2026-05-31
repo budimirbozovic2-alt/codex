@@ -25,6 +25,9 @@ export default function CardOrgMode({ cards, categoryId, subcategoryNodes, patch
     if (tree.length <= 3) {
       setExpandedSubs(new Set(tree.map(n => n.subcategory)));
     }
+    // Only react to tree size changing — content changes shouldn't reset
+    // the expanded set (would clobber user toggles).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tree.length]);
 
   const toggleSub = useCallback((sub: string) => {

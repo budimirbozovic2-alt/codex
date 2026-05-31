@@ -99,6 +99,9 @@ export function useDashboardData(
     window.addEventListener("storage", handler);
     return () => window.removeEventListener("storage", handler);
   }, []);
+  // settingsVersion drives recomputation via state bump — kept in deps despite
+  // not being referenced inside the body. eslint can't see this indirection.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   const appSettings = useMemo(() => loadAppSettings(), [settingsVersion]);
   const wc = appSettings.dashboardWidgets;
   const todayKey = getDayKey(Date.now());

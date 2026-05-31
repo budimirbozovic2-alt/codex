@@ -47,7 +47,6 @@ function _schedule(delayMs: number = DEBOUNCE_MS): void {
 
 // Flush on tab hide so the debounced queue can never silently drop entries.
 declare global {
-  // eslint-disable-next-line no-var
   var __codexReviewLogVisHandler: (() => void) | undefined;
 }
 function _onVisibility(): void {

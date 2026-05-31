@@ -171,6 +171,9 @@ export function useMindMapCanvas(doc: MindMapDoc) {
       }, eds)
     );
     setDirty(true);
+    // edgeStyle is computed inside the callback from isProcedure/edgeStroke;
+    // those are the real deps.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [setEdges, isProcedure, edgeStroke]);
 
   // ── Edge update/delete ──

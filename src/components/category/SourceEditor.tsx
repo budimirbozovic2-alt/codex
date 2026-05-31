@@ -154,6 +154,9 @@ export default function SourceEditor({ source, categoryId, onClose, onSourceUpda
     }
 
     await commitSave(nextDoc, outline, articles);
+    // commitSave is declared below and is intentionally not a dep: it closes
+    // over the same source/title/etc inputs as this callback.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [source, title, slMarkings, dateStr, isExclusive, sourceKind, newDoc, hasPastedText, bulkFlagNeedsReview, fetchLinkedCards]);
 
   const commitSave = useCallback(async (nextDoc: EditorDoc | null, outline: Source["outline"], articles: Source["articles"]) => {

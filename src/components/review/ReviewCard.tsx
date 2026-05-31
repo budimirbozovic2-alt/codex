@@ -68,7 +68,7 @@ export default function ReviewCard({
     if (!showAnswer) return;
     import("@/lib/sounds").then(m => m.playGradeSound(grade));
     onGrade(grade);
-  }, [showAnswer, card.id, section.id, onGrade]);
+  }, [showAnswer, onGrade]);
 
   // Keyboard shortcuts
   useGlobalHotkey(

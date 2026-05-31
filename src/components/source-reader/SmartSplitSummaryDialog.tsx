@@ -50,7 +50,7 @@ export function SmartSplitSummaryDialog({ source, onSmartSplitConfirm }: Props) 
     () => categoryRecords.find((c) => c.id === source.categoryId),
     [categoryRecords, source.categoryId],
   );
-  const subcategories = categoryRecord?.subcategories ?? [];
+  const subcategories = useMemo(() => categoryRecord?.subcategories ?? [], [categoryRecord]);
   const selectedSubcategory = useMemo(
     () => subcategories.find((s) => s.id === wizardSubcategoryId),
     [subcategories, wizardSubcategoryId],

@@ -1,3 +1,9 @@
+/* eslint-disable react-refresh/only-export-components --
+ * AppContext.tsx is an intentional barrel: it re-exports ~10 hooks from
+ * @/hooks/* alongside the AppProvider component to preserve historical
+ * import paths. Splitting would touch dozens of import sites with no
+ * functional benefit. Fast Refresh boundary loss is acceptable here.
+ */
 // ═══════════════════════════════════════════════════════════
 // COMPOSITION ROOT — Provider Cleanup v2 (finalized)
 //

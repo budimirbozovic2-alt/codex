@@ -1,122 +1,95 @@
-# PR-E1 — Enable `strictNullChecks` + fix planner/satellite mismatches
+# PR-E3a — Drain `react-refresh/only-export-components` + `react-hooks/exhaustive-deps` warnings
 
 ## Goal
 
-Flip `strictNullChecks: true` in both `tsconfig.app.json` and `tsconfig.json`, then fix every TS2322/TS2339/TS2345/TS2349/TS18048 error TS surfaces. Build must pass clean. All 604 tests must remain green. No behavioral changes.
+Get `npm run lint` to 0 warnings of these two rules so PR-E3 can flip `--max-warnings=80` → `0`. Strictly warning cleanup; no behavior changes. The 45 pre-existing **errors** in the codebase (empty-block, prefer-const, no-useless-escape, etc.) are out of scope — they will be tackled in PR-E3b. (`--max-warnings` doesn't gate errors; errors already break the build.)
 
-## Scope (16 errors, 9 files)
+## Baseline
 
-### Group A — Planner type chain (the meat)
+- **only-export-components**: 26 warnings across 10 files
+- **exhaustive-deps**: 21 warnings across 18 files
+- Plus 4 stale `Unused eslint-disable directive` lines to remove while we're in there.
 
-Root cause: `PlannerConfig.finalGoalDate: string | null` (in `src/domains/planner/types.ts`), but consumers/utilities type the same field as `string | undefined` or assume `string`. And `usePlannerData` legitimately returns `T | null` until the lazy planner module loads, but the Tab prop types declare `T` (non-nullable). The existing `if (!data.isReady || subjectPlans === null) <Skeleton />` gate at `StrategicPlanner.tsx:129` ensures non-null at runtime, but TS can't see through it.
+## Strategy
 
-**A1 — `src/lib/query/hash.ts:40` — `hashPlannerConfig` signature**
-Change `finalGoalDate?: string` → `finalGoalDate?: string | null`. Fixes `usePlannerData.ts:187` directly. Pure widening, no runtime change (template literal already does `?? ""`).
+### Group A — `react-refresh/only-export-components` (26 warnings)
 
-**A2 — `src/components/StrategicPlanner.tsx:138,157,159,169,170` — narrow `data` past the ready-gate**
-The `data.velocity / data.burnupData / data.disciplineLog / data.disciplineTrend` fields are `T | null` in the hook return but the tabs require `T`. The runtime gate already guarantees non-null. Two implementation options:
+Three buckets, each handled with the appropriate tool:
 
-- (preferred) After the `!data.isReady || subjectPlans === null` early-return, alias `data` into a locally-typed const that asserts the non-null shape, e.g.
+**A1 — shadcn primitives** (`badge.tsx`, `button.tsx`, `sidebar.tsx`, `sonner.tsx`): the rule fires because shadcn's canonical pattern co-exports `cva` variant configs (e.g. `buttonVariants`) and provider context hooks alongside the component. This is intentional and matches every shadcn project. **Fix**: add a single override block in `eslint.config.js` that disables `react-refresh/only-export-components` for `src/components/ui/**`. HMR boundary loss is irrelevant for leaf primitives.
 
-  ```ts
-  // After the gate, the hook contract guarantees these are populated.
-  const ready = data as typeof data & {
-    velocity: number;
-    burnupData: BurnupDataPoint[];
-    disciplineLog: DisciplineLogEntry[];
-    disciplineTrend: DisciplineTrendPoint[];
-  };
-  ```
-  Then pass `ready.velocity`, `ready.burnupData`, etc., into the tab props. One cast, localized, no public-API change. Add a short comment pointing at the gate.
+**A2 — barrel-style contexts** (`src/contexts/AppContext.tsx`): the file is an intentional re-export barrel (lines 28-52 re-export ~10 hooks from `@/hooks/*`). Splitting would touch dozens of import sites with zero functional benefit. **Fix**: add a single `/* eslint-disable react-refresh/only-export-components */` at the top of `AppContext.tsx` with a comment explaining the barrel rationale. (Per-file disable, not config-level — keeps the rule honest for future contexts.)
 
-- (alternative) Make tab prop types accept `T | null` and render their own skeleton fallbacks. Cleaner long-term but touches 3 tab components — out of scope for PR-E1.
+**A3 — project files where splitting is clean** (5 files):
 
-We pick option A: minimal blast radius.
+- `src/components/OnboardingModal.tsx` — extract `OnboardingSlide` type, `hasSeenOnboarding()`, `markOnboardingSeen()` into a sibling `OnboardingModal.helpers.ts`. Update the 2-3 import sites.
+- `src/components/mindmap/MindMapNode.tsx` — extract `ICON_REGISTRY`, `COLOR_OPTIONS`, `NodeShape`, `MindMapNodeData` into `MindMapNode.constants.ts`.
+- `src/components/mindmap/MindMapOnboarding.tsx` — extract `hasSeenOnboarding()` into `MindMapOnboarding.helpers.ts`.
+- `src/components/mindmap/mindmap-utils.tsx` — file contains one JSX component (`SnapGuideLines`) + one pure function (`autoLayout`). Move `autoLayout` to `mindmap-utils.ts` (pure file), keep `SnapGuideLines` in the `.tsx`.
+- `src/components/planner/planner-constants.tsx` — contains `STATUS_CONFIG`, `PHASE_COLORS` (constants) and `ChartTooltip` (component). Move constants to `planner-constants.ts` (rename the existing file), keep `ChartTooltip` in `ChartTooltip.tsx`. Update all import sites (grep first).
 
-### Group B — Dashboard activePhase dead-narrow
+### Group B — `react-hooks/exhaustive-deps` (21 warnings)
 
-**B1 — `src/hooks/useDashboardData.ts:161` — type the literal**
-`const activePhase = null` is inferred as `null`, which collapses `plannerData.activePhase && ...` to `never` at `Dashboard.tsx:86,93,95,95`. Annotate explicitly:
+Each warning gets one of three treatments, decided by reading the site:
 
-```ts
-const activePhase: { name: string; pct: number; learned: number; total: number } | null = null;
-```
+**B1 — Remove genuinely unnecessary deps** (the lint suggests "remove"):
+- `useCardExport.ts:242` — drop `cards`.
+- `useCardImport.ts:189` — drop `updateSRSettings` (it's a setter from outer scope).
+- `useDashboardData.ts:102` — drop `settingsVersion`.
+- `useCardDraft.ts` (`card.id`, `section.id` unnecessary deps) — drop them.
 
-Already applied in the previous loop and works — verify it survives PR-E1 and that all 4 Dashboard errors clear.
+**B2 — Add genuinely missing deps** (safe to include):
+- `useSourceMapping.ts:103, 147` — add `commitMapping`.
+- `useMindMapCanvas.ts:174` — add `edgeStyle`.
+- `SmartSplitSummaryDialog.tsx:148` — add `uuidToName`.
+- `LocalSpeedReader.tsx:157` — add `commitSave`.
+- `SubjectCardsView` (`tree` missing) — add `tree`.
+- `PredictionTab.tsx:46` — add `catNameMap`.
+- `useActions.ts` — add `annotations`, `crud`, `actions`, `exportApi`, `importApi` (these are stable context references; verify they aren't recreated each render — if they are, wrap upstream in `useMemo`).
 
-### Group C — Satellite null/undefined mismatches
+**B3 — Suppress with justification** (refs/intentional escape hatches): use `// eslint-disable-next-line react-hooks/exhaustive-deps` with a one-line `// Reason:` comment.
+- `useWikiLinkAutoCreate.ts:196` — `bulkCreateRef` is a `useRef`; refs don't need deps.
+- `ReviewSetup.tsx:60` — `sel.current` ref mutation.
+- `GlobalSearch.tsx:132` — 5 refs (`appRef`, `localRef`, `overridesEnabledRef`, `subjectNameRef`, `ttsRef`).
+- `CardOrgMode.tsx:53/SourceEditor.tsx:53` — "logical expression makes deps change" → wrap the upstream `sections`/`subcategories` derivation in `useMemo` (this is the suggested fix).
+- `ReviewCard.tsx:71` — drop `card.id`/`section.id` per the message (B1 actually).
+- `StudyModeRecall.tsx:152` — wrap `itemsByMode` in `useMemo` per the suggestion.
+- `SRSettingsPanel.tsx:28` — already-disabled but `Unused eslint-disable`; remove the stale directive.
 
-**C1 — `src/components/MainLayout.tsx:56` — optional chain on `planner.phases`**
-`planner.phases` is `Phase[] | undefined` post-strict. Replace `planner.phases.length === 0` with `(planner.phases?.length ?? 0) === 0`. Already applied; verify.
+### Group C — Stale `eslint-disable` directives (4)
 
-**C2 — `src/lib/auto-split-engine.ts:136` — type the empty array**
-`const contentLinesBetween = []` infers `never[]`. Annotate `const contentLinesBetween: number[] = []`. One-line fix.
-
-**C3 — `src/lib/backup/import-transaction.ts:148` — `Card.sourceId` is `string | undefined`**
-Assigning `null` violates the type. Change `card.sourceId = null` → `card.sourceId = undefined`. The scrub semantics are preserved (the optional field is cleared).
-
-**C4 — `src/lib/persistence/sqlite/migrate-from-idb.ts:185` — bind value coercion**
-`m.categoryId` on `MindMapDoc` may be `string | undefined`; `SqlBindValue` excludes `undefined`. Change to `m.categoryId ?? null` (matches the pattern used a few lines below at 192–195 for mnemonics).
-
-**C5 — `src/lib/source-reader/build-essay-payload.ts:161` — drop undefined contentDoc**
-`buildSectionDoc(content)` can return `EditorDoc | undefined`. The downstream type requires `EditorDoc`. Filter modules where `contentDoc` is undefined before assigning to `sections`, e.g.
-
-```ts
-const sections = modules
-  .map((mod) => {
-    const content = sanitizeHtml(mod.contentHtml);
-    return { title: mod.title, contentDoc: buildSectionDoc(content) };
-  })
-  .filter((s): s is { title: string; contentDoc: EditorDoc } => s.contentDoc !== undefined);
-```
-
-This drops malformed sections rather than crashing — same defensive posture used elsewhere in the import path. Verify the existing essay-payload tests still pass.
-
-### Group D — Test fixture
-
-**D1 — `src/test/category-view-loading.test.tsx:98` — resolveFn narrowing**
-TS narrows `let resolveFn = null` captured inside a Promise executor closure to `never` under strictNullChecks. Two paths:
-- Use a definite assertion: `resolveFn!([])` on line 98.
-- Or declare with an explicit `as` cast on the initial value: `let resolveFn = null as ((rows: never[]) => void) | null`.
-
-We pick the cast (safer, no `!` runtime expectation).
+Delete the unused directives flagged by ESLint:
+- `src/lib/persist-queue.ts:268` — unused `no-var` disable.
+- `src/lib/repositories/reviewLogRepository.ts:50` — unused `no-var` disable.
+- `src/test/perf/cards-query-bench.test.ts:68` — unused `no-console` disable.
+- `src/hooks/cards/useActions.ts:28` (or similar) — unused `exhaustive-deps` disable.
 
 ## Implementation order
 
-1. Flip flags: `tsconfig.app.json` → add `"strictNullChecks": true`; `tsconfig.json` → set `"strictNullChecks": true`.
-2. Run `tsc -p tsconfig.app.json --noEmit` and confirm exactly the 16 errors documented above (no surprises).
-3. Apply A1 (hash signature widening).
-4. Apply A2 (StrategicPlanner narrowing alias).
-5. Apply B1, C1 (re-verify previous-loop fixes still apply).
-6. Apply C2–C5 in parallel.
-7. Apply D1.
-8. Re-run `tsc --noEmit` → 0 errors.
-9. Re-run `npx vitest run` → 604/604 green.
-10. Re-run `npm run lint` → no new violations.
-
-## Out of scope (deferred)
-
-- Enabling full `"strict": true` (also turns on `strictFunctionTypes`, `strictPropertyInitialization`, `alwaysStrict`, `strictBindCallApply`, `noImplicitThis`) — separate PR-E1b once null-checks land.
-- Refactoring planner tab prop types to accept nullable inputs.
-- `useDashboardData.activePhase` is always `null` in the current codebase; the Dashboard widget that consumes it is dead UI. Removal is a separate UX decision, not a type fix.
+1. **A1**: add `src/components/ui/**` override block to `eslint.config.js` disabling `react-refresh/only-export-components`.
+2. **A2**: header-disable in `AppContext.tsx`.
+3. **A3**: split 5 project files; update import sites (use `rg` to find them first).
+4. **B1-B3**: walk each of the 18 files, apply the appropriate fix from above. Verify each change still type-checks and tests still pass.
+5. **C**: remove 4 stale directives.
+6. **Verify**: `npx eslint . --max-warnings=0` exits cleanly w.r.t. those two rules. (45 pre-existing errors will still surface — out of scope; PR-E3b will handle them. We confirm count of these two specific warnings = 0 via `npx eslint . 2>&1 | grep -cE "only-export-components|exhaustive-deps"`.)
+7. **Tests**: `bunx vitest run` → 604/604 must remain green.
+8. **Typecheck**: `npx tsc -p tsconfig.app.json --noEmit` → 0 errors.
 
 ## Risk
 
-Low. All edits are widenings, optional-chain insertions, or local casts. No control flow changes. The one defensive filter (C5) drops only malformed essay sections that would crash downstream anyway. Verified by full test run.
+Low-medium. B2 fixes ("add missing dep") can trigger re-render loops if the dep isn't actually stable upstream. Mitigation: where the suggested dep is a function/object from props/context, we verify it's memoized; if not, we wrap upstream first or fall back to B3 (suppress with reason).
 
-## Files touched (9)
+A3 file splits move declarations between files — risk is import path churn. Mitigation: grep all import sites before each split; verify tests + tsc after each file.
 
-- `tsconfig.app.json`, `tsconfig.json` — flag flip
-- `src/lib/query/hash.ts` — A1
-- `src/components/StrategicPlanner.tsx` — A2
-- `src/hooks/useDashboardData.ts` — B1 (already applied)
-- `src/components/MainLayout.tsx` — C1 (already applied)
-- `src/lib/auto-split-engine.ts` — C2
-- `src/lib/backup/import-transaction.ts` — C3
-- `src/lib/persistence/sqlite/migrate-from-idb.ts` — C4
-- `src/lib/source-reader/build-essay-payload.ts` — C5
-- `src/test/category-view-loading.test.tsx` — D1
+## Out of scope
 
-## Memory update on completion
+- 45 pre-existing **errors** (empty-block, prefer-const, no-useless-escape, no-empty-object-type, no-restricted-imports `knowledge-base`, no-require-imports in tailwind.config.ts). Tracked for PR-E3b.
+- Flipping `--max-warnings=80` → `0` in `package.json`. Done by PR-E3b once errors are also clean.
 
-Append to `mem://index.md` Core: `TypeScript: strictNullChecks enabled. Treat null/undefined as distinct; widen optional fields explicitly.`
+## Files touched (~30)
+
+- `eslint.config.js` (A1 override)
+- `src/contexts/AppContext.tsx` (A2 header)
+- 5 file splits + their import sites (A3)
+- 18 hook sites (B1-B3)
+- 4 stale-directive removals (C)

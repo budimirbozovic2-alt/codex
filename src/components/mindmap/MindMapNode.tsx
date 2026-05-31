@@ -1,3 +1,7 @@
+/* eslint-disable react-refresh/only-export-components --
+ * Re-exports ICON_REGISTRY / COLOR_OPTIONS / NodeShape / MindMapNodeData
+ * for legacy consumers (line 17). The real source is ./node/icon-registry.
+ */
 import { Copy } from "lucide-react";
 import { memo, useCallback, useState } from "react";
 import { Handle, Position, type NodeProps, NodeResizer } from "@xyflow/react";

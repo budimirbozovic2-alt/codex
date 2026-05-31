@@ -1,3 +1,8 @@
+/* eslint-disable react-refresh/only-export-components --
+ * Co-exports `hasSeenOnboarding` / `markOnboardingSeen` localStorage helpers
+ * tightly coupled to the modal lifecycle. Splitting would fragment a 3-line
+ * helper API across files for no benefit. HMR boundary loss is acceptable.
+ */
 import { ArrowRight, ArrowLeft, X, CheckCircle2 } from "lucide-react";
 import { useState, useId } from "react";
 import { m, AnimatePresence } from "@/lib/motion";

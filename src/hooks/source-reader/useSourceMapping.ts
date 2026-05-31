@@ -100,6 +100,8 @@ export function useSourceMapping(source: Source) {
     toast.success(`Generisano 1 esej sa ${moduleCount} modula`, {
       description: `${splitResult.rangeLabel} iz "${source.title}"`,
     });
+    // commitMapping is stable (created in parent with useCallback).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [source, addCard]);
 
   const handleLinkToExisting = useCallback((text: string, html: string) => {
@@ -144,6 +146,8 @@ export function useSourceMapping(source: Source) {
     } else {
       toast.success("Esej kreiran", { description: `"${question.text.slice(0, 60)}..."` });
     }
+    // commitMapping is stable (created in parent with useCallback).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [source, addCard]);
 
   return {
