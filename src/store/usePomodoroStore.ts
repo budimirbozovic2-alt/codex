@@ -59,6 +59,8 @@ export const usePomodoroStore = create<PomodoroStore>(createImpl);
 // module state); idempotent if accidentally re-attached.
 let _intervalId: number | null = null;
 let _wired = false;
+let _unsubscribe: (() => void) | null = null;
+let _onBeforeUnload: (() => void) | null = null;
 
 function clearTick(): void {
   if (_intervalId != null) {
@@ -101,7 +103,11 @@ function wireTickLoop(): void {
   _wired = true;
   let last = usePomodoroStore.getState().running;
   if (last) _intervalId = window.setInterval(tick, 1000);
-  usePomodoroStore.subscribe((state) => {
+  // PR-G4 / M-8: capture the unsubscribe so tests can fully tear down the
+  // listener. Without this, repeated test runs (or future HMR cycles) would
+  // stack duplicate subscribers — each calling `clearTick`/`setInterval` on
+  // every `running` flip, producing phantom ticks.
+  _unsubscribe = usePomodoroStore.subscribe((state) => {
     if (state.running === last) return;
     last = state.running;
     clearTick();
@@ -109,7 +115,8 @@ function wireTickLoop(): void {
   });
   // Browser/Electron lifecycle: clear timer on unload.
   if (typeof window !== "undefined") {
-    window.addEventListener("beforeunload", clearTick);
+    _onBeforeUnload = clearTick;
+    window.addEventListener("beforeunload", _onBeforeUnload);
   }
 }
 
@@ -121,6 +128,12 @@ if (typeof window !== "undefined") {
 // ─── Test helper ────────────────────────────────────────────────────────
 export function __resetPomodoroStoreForTests(): void {
   clearTick();
+  if (_unsubscribe) { _unsubscribe(); _unsubscribe = null; }
+  if (_onBeforeUnload && typeof window !== "undefined") {
+    window.removeEventListener("beforeunload", _onBeforeUnload);
+    _onBeforeUnload = null;
+  }
+  _wired = false;
   usePomodoroStore.setState({
     mode: "work",
     seconds: initialSeconds(),
