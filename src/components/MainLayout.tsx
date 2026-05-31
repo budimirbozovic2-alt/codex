@@ -46,11 +46,13 @@ const NudgeWatcher = memo(function NudgeWatcher() {
     if (SOURCE_ROUTES.some(r => pathname.startsWith(r))) return;
     if (nudgeShownRef.current) return;
 
+    let cancelled = false;
     (async () => {
       try {
         if (!plannerModRef.current) {
           plannerModRef.current = await import("@/domains/planner");
         }
+        if (cancelled) return;
         const { loadPlanner, getSmartSuggestion, calcVelocity, getDailyMappedCount } = plannerModRef.current;
         const planner = loadPlanner();
         if (!planner.finalGoalDate || (planner.phases?.length ?? 0) === 0) return;
@@ -59,6 +61,7 @@ const NudgeWatcher = memo(function NudgeWatcher() {
         if (!suggestion || suggestion.suggestedToday <= 0) return;
         const dailyDone = getDailyMappedCount();
         const remaining = suggestion.suggestedToday - dailyDone;
+        if (cancelled) return;
         if (remaining > 0 && dailyDone < suggestion.suggestedToday) {
           nudgeShownRef.current = true;
           toast("📌 Ostani fokusiran", {
@@ -69,6 +72,7 @@ const NudgeWatcher = memo(function NudgeWatcher() {
         }
       } catch { /* noop */ }
     })();
+    return () => { cancelled = true; };
     // Reason: nudge re-evaluates on route changes only; suggestion/progress are
     // read inline as a snapshot so they don't retrigger the toast cooldown.
     // eslint-disable-next-line react-hooks/exhaustive-deps

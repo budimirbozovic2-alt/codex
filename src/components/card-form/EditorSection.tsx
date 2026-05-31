@@ -1,5 +1,5 @@
 import { Plus, X, ChevronUp, ChevronDown, Scissors, Zap, FileText } from "lucide-react";
-import React, { memo, useMemo } from "react";
+import React, { memo, useMemo, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ContentRenderer } from "@/components/ui/ContentRenderer";
@@ -84,6 +84,23 @@ const EditorSection = memo(function EditorSection({
   // Seed AST for question + flash answer once per mount; thereafter the editor owns it.
   const questionDoc = useMemo(() => htmlToDoc(question || ""), []); // eslint-disable-line react-hooks/exhaustive-deps
   const flashAnswerDoc = useMemo(() => htmlToDoc(flashAnswer || ""), []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Dev-only contract guard: this component assumes the parent forces a remount
+  // via `key={card.id}` when switching cards. If `question`/`flashAnswer` mutate
+  // across renders WITHOUT a remount, the editor will silently keep the stale seed.
+  const seedQuestionRef = useRef(question);
+  const seedFlashRef = useRef(flashAnswer);
+  useEffect(() => {
+    if (import.meta.env.DEV) {
+      if (seedQuestionRef.current !== question || seedFlashRef.current !== flashAnswer) {
+        // eslint-disable-next-line no-console
+        console.warn(
+          "[EditorSection] question/flashAnswer prop changed without remount. " +
+          "Parent must set key={card.id} on EditorSection when swapping cards.",
+        );
+      }
+    }
+  }, [question, flashAnswer]);
 
   return (
     <div className="space-y-4">

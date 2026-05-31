@@ -47,11 +47,13 @@ export default function LearnPage() {
 
   useEffect(() => {
     if (ready) session.startSession(cards, reviewLog);
-    // Reason: session is started exactly once per `ready` transition; cards/reviewLog
-    // are captured by closure intentionally — re-running on every cards array change
-    // would restart the session and clobber in-flight learn state.
+    // Reason: session is started once per (ready, route-key) transition.
+    // `cards`/`reviewLog` are captured by closure intentionally — re-running on
+    // every card mutation would clobber in-flight learn state. `location.key`
+    // ensures a fresh nav to /learn re-fires this effect with current values
+    // instead of using a stale closure from the first mount.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ready]);
+  }, [ready, location.key]);
 
   const handleMarkRead = useCallback((id: string) => {
     const s = sessionRef.current;
