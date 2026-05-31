@@ -23,10 +23,8 @@ const mockAdapter: PersistAdapter = {
 };
 
 async function drain() {
-  // Poll until the 16ms debounce timer has fired and any pending batch has
-  // been flushed. Avoids a fixed wall-clock sleep that flakes on slow CI.
-  const { waitFor } = await import("@testing-library/react");
-  await waitFor(() => { expect(persistQueue.hasPending()).toBe(false); }, { timeout: 1000, interval: 5 });
+  // Force-drain instead of sleeping past the 16ms debounce: flush() is a
+  // no-op when nothing is pending and otherwise awaits in-flight bulkApply.
   if (persistQueue.hasPending()) await persistQueue.flush();
 }
 
