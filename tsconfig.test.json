@@ -2,7 +2,7 @@
   "extends": "./tsconfig.app.json",
   "compilerOptions": {
     "types": ["vitest/globals", "node"],
-    "noImplicitAny": false,
+    "noImplicitAny": true,
     "strict": true,
     "strictNullChecks": true,
     "noUnusedLocals": false,
