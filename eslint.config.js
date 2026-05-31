@@ -601,10 +601,19 @@ export default tseslint.config(
     },
   },
 
-  // ─── G7 — Raw setTimeout/setInterval allow-list (MUST be last) ──────────
+  // ─── G7 / PR-G4 — Raw setTimeout/setInterval allow-list (MUST be last) ──
   // Placed at end so it overrides BASE_RESTRICTED_SYNTAX spread by W7/W9.
-  // Files here legitimately need raw timers (engines, pre-boot infra, IPC
-  // race wrappers, debounce hot paths, repository fire-and-forget logs).
+  // PR-G4 tightening: BlockingModal and ZenMode were migrated to
+  // taskScheduler.setInterval and are no longer on this list. Files that
+  // remain here are either (a) the scheduler implementation itself, (b)
+  // pre-bootstrap infra that runs before `@/lib/scheduler` is imported
+  // (`src/main.tsx`), (c) module-level state-machine timers driving
+  // debounced ACID drains (persist-queue, query/bridges, reviewLogRepo),
+  // (d) tight sub-frame engines (SpeedReader RSVP, Pomodoro store,
+  // mnemonic test engine), or (e) IPC/per-op race wrappers around
+  // `Promise.race` (zip-service, electron-integration, docx-parser,
+  // backup yield-ui's `setTimeout(0)` UI-yield primitive). New entries
+  // require a written justification in the file header.
   {
     files: [
       "src/lib/scheduler/**",
@@ -623,8 +632,6 @@ export default tseslint.config(
       "src/hooks/speed-reader/useSpeedReaderEngine.ts",
       "src/features/mnemonic/hooks/useTestEngine.ts",
       "src/features/docx-importer/docx-parser.ts",
-      "src/components/db/BlockingModal.tsx",
-      "src/components/ZenMode.tsx",
       "src/store/usePomodoroStore.ts",
       // Test files legitimately use raw timers for fake-timer scenarios.
       "src/test/**",
