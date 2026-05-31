@@ -41,7 +41,7 @@ export function onPlannerChanged(fn: PlannerListener): () => void {
 
 function _notify(kind: PlannerChangeKind): void {
   for (const fn of _plannerListeners) {
-    try { fn(kind); } catch { /* swallow */ }
+    try { fn(kind); } catch (e) { logger.warn("[planner-cache] listener threw", e); }
   }
 }
 
