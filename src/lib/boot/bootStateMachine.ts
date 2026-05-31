@@ -207,3 +207,16 @@ export function __resetBootStateForTests(): void {
   _state = { type: "idle" };
   _listeners.clear();
 }
+
+// Audit v2 / Wave B.6: HMR dispose. Without this, Vite re-evaluates this
+// module independently of `splashBridge`, leaving the two modules
+// out-of-sync — either `_state`/`_listeners` reset while the bridge
+// still believes it is installed, or old listener closures point at the
+// stale module's `markBootStep`. Resetting on dispose keeps both modules
+// in lockstep for the rest of the HMR session (dev-only).
+if (import.meta.hot) {
+  import.meta.hot.dispose(() => {
+    __resetBootStateForTests();
+  });
+}
+
