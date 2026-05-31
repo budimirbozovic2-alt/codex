@@ -141,11 +141,12 @@ export function useCardBootstrap() {
         markBootStep("cards:init-error", errMsg);
 
         if (error instanceof SchemaError || inSchemaPhase()) {
-          // Wave-2 fix: previously both branches hard-coded "unknown" (dead
-          // ternary). Forward the SchemaError step so the recovery UI can
-          // tell the user which phase actually failed.
-          const cause = error instanceof SchemaError ? error.step : "unknown";
-          transition({ type: "SCHEMA_FAIL", cause, message: errMsg });
+          // Wave-2 fix: previously both branches of `cause` hard-coded
+          // "unknown" (dead ternary). `SchemaErrorCause` is a strict union;
+          // surface the failing step in the message so recovery UI shows it.
+          const cause: "unknown" | "timeout" = "unknown";
+          const detail = error instanceof SchemaError ? `[${error.step}] ${errMsg}` : errMsg;
+          transition({ type: "SCHEMA_FAIL", cause, message: detail });
         } else {
           transition({ type: "LOAD_FAIL", message: errMsg });
         }
