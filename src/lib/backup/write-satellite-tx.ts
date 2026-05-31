@@ -212,7 +212,40 @@ async function writeMnemonicTestLogTx(
 
 }
 
-// ─── Main entry point ───────────────────────────────────────────────────
+// ─── Sources (split out so it can run BEFORE cards) ─────────────────────
+//
+// Cards have FK `sourceId → sources(id)`. The previous orchestration ran
+// `writeCardsTx` BEFORE this satellite step, so any card with a non-null
+// `sourceId` collided with FK constraint 787 (SQLITE_CONSTRAINT_FOREIGNKEY)
+// on every restore. Sources now land first; cards follow.
+//
+// Returns the set of source IDs that exist in the DB after this write
+// (parsed sources + existing rows that survived). The caller uses it to
+// scrub stale `cards.sourceId` refs before the cards INSERT.
+export async function writeSourcesTx(
+  tx: SqlExecutor,
+  parsed: ParsedBackup,
+  strategy: ImportStrategy,
+): Promise<Set<string>> {
+  if (strategy === "overwrite") {
+    await tx.run("DELETE FROM sources");
+  }
+  if (parsed.sources.length > 0) {
+    await tx.runMany(SOURCE_INSERT_SQL, parsed.sources.map((s) => bindSource(s)));
+  }
+
+  // Build the final set of valid source IDs for downstream FK validation.
+  const valid = new Set<string>();
+  for (const s of parsed.sources) valid.add(s.id);
+  if (strategy !== "overwrite") {
+    // Existing rows survived — fold them in.
+    const rows = await tx.query<{ id: string }>("SELECT id FROM sources");
+    for (const r of rows) valid.add(r.id);
+  }
+  return valid;
+}
+
+// ─── Main entry point (everything EXCEPT sources, which run pre-cards) ──
 
 export async function writeSatelliteTablesTx(
   tx: SqlExecutor,
@@ -220,15 +253,9 @@ export async function writeSatelliteTablesTx(
   strategy: ImportStrategy,
   progress: ProgressFn,
 ): Promise<void> {
-  // 4f. sources / mindMaps / KB articles.
-  progress(70, "Uvoz izvora i mapa…");
-
-  if (parsed.sources.length > 0) {
-    if (strategy === "overwrite") await tx.run("DELETE FROM sources");
-    await tx.runMany(SOURCE_INSERT_SQL, parsed.sources.map((s) => bindSource(s)));
-  } else if (strategy === "overwrite") {
-    await tx.run("DELETE FROM sources");
-  }
+  // Sources are now written by `writeSourcesTx` BEFORE cards. Everything
+  // else (mindMaps, KB, mnemonics, majorSystem, kv, logs) lands here.
+  progress(70, "Uvoz mapa i izvora znanja…");
 
   if (parsed.mindMaps.length > 0) {
     if (strategy === "overwrite") await tx.run("DELETE FROM mindMaps");
@@ -247,7 +274,6 @@ export async function writeSatelliteTablesTx(
     await tx.run("DELETE FROM knowledgeBaseArticles");
   }
 
-  // Mnemonics + Major System.
   if (parsed.mnemonics.length > 0) {
     if (strategy === "overwrite") await tx.run("DELETE FROM mnemonics");
     await tx.runMany(MNEMONIC_INSERT_SQL, parsed.mnemonics.map((m) => bindMnemonic(m)));
