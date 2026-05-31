@@ -99,23 +99,25 @@ export async function countCategories(): Promise<number> {
  * Replace all categories atomically. Used by `categoryRepository.commit` and
  * by backup restore. Wraps DELETE + N×INSERT in a single SQL transaction so
  * a crash mid-write leaves the previous snapshot intact.
+ *
+ * Throws `NO_EXECUTOR` when SQLite is unavailable so the optimistic-commit
+ * caller can roll back instead of silently dropping the write.
  */
 export async function replaceAllCategories(
   records: readonly CategoryRecord[],
 ): Promise<void> {
   const exec = await requireExecutor("replaceAll");
-  if (!exec) return;
+  if (!exec) throw new Error("NO_EXECUTOR");
   await exec.transaction(async (tx) => {
     await tx.run("DELETE FROM categories");
     await tx.runMany(CATEGORY_INSERT_SQL, records.map((c) => bindCategory(c)));
   });
-
 }
 
 /** Upsert a single category. */
 export async function putCategory(c: CategoryRecord): Promise<void> {
   const exec = await requireExecutor("put");
-  if (!exec) return;
+  if (!exec) throw new Error("NO_EXECUTOR");
   await exec.run(CATEGORY_INSERT_SQL, bindCategory(c));
 }
 
@@ -125,15 +127,15 @@ export async function bulkPutCategories(
 ): Promise<void> {
   if (records.length === 0) return;
   const exec = await requireExecutor("bulkPut");
+  if (!exec) throw new Error("NO_EXECUTOR");
   await exec.transaction(async (tx) => {
     await tx.runMany(CATEGORY_INSERT_SQL, records.map((c) => bindCategory(c)));
   });
-
 }
 
 /** Wipe every category row. Restore overwrite mode + test fixtures. */
 export async function clearCategories(): Promise<void> {
   const exec = await requireExecutor("clear");
-  if (!exec) return;
+  if (!exec) throw new Error("NO_EXECUTOR");
   await exec.run("DELETE FROM categories");
 }
