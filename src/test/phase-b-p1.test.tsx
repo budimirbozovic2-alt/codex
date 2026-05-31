@@ -11,7 +11,7 @@
 
 import { describe, it, expect } from "vitest";
 import { renderHook, act } from "@testing-library/react";
-import { SessionProvider, useSessionContext } from "@/contexts/SessionContext";
+import { useSessionContext } from "@/hooks/useSession";
 import { persistQueue } from "@/lib/persist-queue";
 import { serializeRowsInWorker } from "@/lib/backup/json-serialize-client";
 import fs from "node:fs";
@@ -19,10 +19,7 @@ import path from "node:path";
 
 describe("Phase B / P1", () => {
   it("SessionContext: isProcessing clears as soon as queue drains (no setTimeout padding)", async () => {
-    const wrapper = ({ children }: { children: React.ReactNode }) => (
-      <SessionProvider>{children}</SessionProvider>
-    );
-    const { result } = renderHook(() => useSessionContext(), { wrapper });
+    const { result } = renderHook(() => useSessionContext());
 
     expect(result.current.isProcessing).toBe(false);
     act(() => result.current.startSession([], []));

@@ -15,14 +15,14 @@ import { useEffect } from "react";
 import { reviewLogRepository } from "@/lib/repositories";
 import { persistQueue } from "@/lib/persist-queue";
 import { useCardBootstrap } from "@/hooks/useCardBootstrap";
-import { useCardSyncEffects } from "@/contexts/cards/useCardSyncEffects";
-import { useCategoryStateBridge } from "@/contexts/cards/CategoryStateProvider";
+import { useCardSyncEffects } from "@/hooks/cards/useCardSyncEffects";
+import { useCategoryStateBridge } from "@/hooks/cards/useCategoryState";
 import { kickoffEditorV4Migration } from "@/lib/editor-v4/lazy-migrate";
 import { logger } from "@/lib/logger";
 import { recordAppEntry } from "@/lib/metacognitive-storage";
-import { useNotificationScheduler } from "@/contexts/ui/useNotificationScheduler";
-import { useActivityTracker } from "@/contexts/ui/useActivityTracker";
-import { useCurrentView } from "@/contexts/routing/useCurrentView";
+import { useNotificationScheduler } from "@/hooks/useNotificationScheduler";
+import { useActivityTracker } from "@/hooks/useActivityTracker";
+import { useCurrentView } from "@/hooks/useCurrentView";
 
 export function AppBootstrap(): null {
   // Category-side bridge: examiner cache prime on records change.

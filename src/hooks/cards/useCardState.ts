@@ -7,11 +7,11 @@
 //
 // File path preserved for backwards-compat with the public re-exports.
 // ═══════════════════════════════════════════════════════════════════════════
-import { useMemo, type ReactNode } from "react";
+import { useMemo } from "react";
 import { Card, SRSettings } from "@/lib/spaced-repetition";
 import { ReviewLogEntry } from "@/lib/storage";
 import { useAllCards } from "@/hooks/card/useCardsQuery";
-import { useCategoryData } from "./CategoryStateProvider";
+import { useCategoryData } from "./useCategoryState";
 import { useCardAggregates } from "./useCardAggregates";
 import {
   reviewSettingsStore,
@@ -19,7 +19,7 @@ import {
   useSrSettings,
   updateSRSettings as updateSRSettingsAction,
 } from "@/store/reviewSettingsStore";
-import { useBootState } from "@/contexts/boot/BootStateProvider";
+import { useBootState } from "@/hooks/useBootState";
 
 // Phase 2a: cards array now comes from TanStack (`['cards','all']`),
 // invalidated by `onCardsChanged` bridge. `cardMapStore` stays as the
@@ -81,13 +81,9 @@ export function useSettingsActions() {
   return useMemo(() => ({ updateSRSettings: updateSRSettingsAction }), []);
 }
 
-export { useDbError } from "@/contexts/db/DbErrorProvider";
+export { useDbError } from "@/hooks/useDbError";
 
 // Re-export the store handle for non-React callers (kept on this path for
 // backwards-compat with any external imports).
 export { reviewSettingsStore };
 
-/** @deprecated Provider removed in v2 cleanup. Kept as no-op shim. */
-export function CardStateProvider({ children }: { children: ReactNode }) {
-  return <>{children}</>;
-}

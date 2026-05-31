@@ -5,7 +5,7 @@ import {
   consumeEditReturnState,
   type BaseEditReturnSnapshot,
 } from "@/lib/edit-return";
-import { getCurrentEditingCardId } from "@/contexts/ui/UIProvider";
+import { getCurrentEditingCardId } from "@/hooks/useUI";
 import { useScrollRestore } from "./useScrollRestore";
 
 interface UseEditReturnOptions<S extends BaseEditReturnSnapshot> {

@@ -8,7 +8,7 @@
  * Reset DB akciju.
  */
 import { useCallback, type ReactNode } from "react";
-import { useBootState } from "./BootStateProvider";
+import { useBootState } from "@/hooks/useBootState";
 import { transition } from "@/lib/boot";
 import { logger } from "@/lib/logger";
 

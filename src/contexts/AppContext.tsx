@@ -18,37 +18,37 @@
 import { Suspense, lazy, ReactNode } from "react";
 import { AppBootstrap } from "./AppBootstrap";
 import { BootRecoveryGate } from "./boot/BootRecoveryGate";
-import { useDbError } from "./db/DbErrorProvider";
+import { useDbError } from "@/hooks/useDbError";
 import { MotionProvider } from "@/lib/motion";
 
 const LazyDatabaseRecoveryPanel = lazy(() => import("@/components/DatabaseRecoveryPanel"));
 
 // ─── Public re-exports (preserve existing import paths) ──
-export type { View } from "./routing/useCurrentView";
-export { useCurrentView } from "./routing/useCurrentView";
+export type { View } from "@/hooks/useCurrentView";
+export { useCurrentView } from "@/hooks/useCurrentView";
 
 export type { PomodoroState } from "@/store/usePomodoroStore";
 export {
   usePomodoroStable,
   usePomodoroTick,
   usePomodoroContext,
-} from "./pomodoro/PomodoroProvider";
+} from "@/hooks/usePomodoro";
 
-export { useUIContext } from "./ui/UIProvider";
+export { useUIContext } from "@/hooks/useUI";
 
 export {
   useCardData,
   useReviewData,
   useCategoryStatsData,
   useSettingsActions,
-} from "./cards/CardStateProvider";
-export { useCategoryData } from "./cards/CategoryStateProvider";
+} from "@/hooks/cards/useCardState";
+export { useCategoryData } from "@/hooks/cards/useCategoryState";
 export {
   useCardOnlyActions,
   useCategoryActions,
   useBackupActions,
-} from "./cards/useActions";
-export { useDbError } from "./db/DbErrorProvider";
+} from "@/hooks/cards/useActions";
+export { useDbError } from "@/hooks/useDbError";
 
 // ─── DB-error recovery gate (pre-boot) ───────────────────
 function RecoveryGate({ children }: { children: ReactNode }) {

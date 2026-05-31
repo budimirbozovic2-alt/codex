@@ -11,12 +11,12 @@ import { useCardAnnotations } from "@/hooks/useCardAnnotations";
 import { useCategoryManagement } from "@/hooks/useCategoryManagement";
 import { useCardExport } from "@/hooks/useCardExport";
 import { useCardImport } from "@/hooks/useCardImport";
-import { useCardData, useReviewData } from "./CardStateProvider";
+import { useCardData, useReviewData } from "./useCardState";
 import type {
   CardActionsValue,
   CategoryActionsValue,
   BackupActionsValue,
-} from "./actions-contexts";
+} from "./action-types";
 
 export function useCardOnlyActions(): CardActionsValue {
   const crud = useCardCRUD();

@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { renderHook, act } from "@testing-library/react";
 import { useEditReturn } from "@/hooks/useEditReturn";
-import { setEditingCardId } from "@/contexts/ui/UIProvider";
+import { setEditingCardId } from "@/hooks/useUI";
 
 // We read what was stashed by peeking at sessionStorage directly — same key
 // used by the lib (sr-edit-return-context:state).

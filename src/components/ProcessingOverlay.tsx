@@ -1,5 +1,5 @@
 import { Loader2, CheckCircle2, Brain } from "lucide-react";
-import { useSessionContext } from "@/contexts/SessionContext";
+import { useSessionContext } from "@/hooks/useSession";
 import { useState, useEffect } from "react";
 import { taskScheduler } from "@/lib/scheduler";
 

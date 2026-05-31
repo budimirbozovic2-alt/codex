@@ -8,7 +8,6 @@
  *   - usePomodoroTick()   — seconds (re-renders only when seconds change)
  *   - usePomodoroContext() — composite (legacy)
  */
-import type { ReactNode } from "react";
 import { usePomodoroStore, type PomodoroState } from "@/store/usePomodoroStore";
 
 export type { PomodoroState };
@@ -42,7 +41,3 @@ export function usePomodoroContext() {
   };
 }
 
-/** @deprecated Provider removed in v2 cleanup. Kept as no-op shim. */
-export function PomodoroProvider({ children }: { children: ReactNode }) {
-  return <>{children}</>;
-}

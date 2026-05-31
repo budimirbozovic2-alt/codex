@@ -5,7 +5,6 @@
  * existing callers (`LearnPage`, `ReviewPage`, `ProcessingOverlay`, tests)
  * continue to compile unchanged.
  */
-import type { ReactNode } from "react";
 
 export type {
   QueuedReview,
@@ -17,7 +16,3 @@ export type {
 
 export { useSessionContext } from "@/store/useSessionStore";
 
-/** @deprecated Provider removed in v2 cleanup. Kept as no-op shim. */
-export function SessionProvider({ children }: { children: ReactNode }) {
-  return <>{children}</>;
-}
