@@ -3,10 +3,23 @@
 import type { HookType, MnemonicCard, MnemonicSection } from "./types";
 import { detectEnumerationItems } from "./content-utils";
 import { htmlToDoc } from "@/lib/editor-v4/codecs/html-to-doc";
+import { metrics } from "@/lib/metrics";
+import { logger } from "@/lib/logger";
 
 // Dual-write contentDoc alongside legacy content string (E.1).
+// Defensive: htmlToDoc parses untrusted HTML — wrap in try/catch so a single
+// malformed section never blocks card creation. Failures are counted and the
+// section persists with `content` only; lazy-migrate will retry on next read.
 function withDoc(s: { title: string; content: string }): MnemonicSection {
-  return { title: s.title, content: s.content, contentDoc: htmlToDoc(s.content || "") };
+  try {
+    const contentDoc = htmlToDoc(s.content || "");
+    metrics.inc("mnemonic.dualWrite.ok");
+    return { title: s.title, content: s.content, contentDoc };
+  } catch (err) {
+    metrics.event("mnemonic.dualWrite.fail", { title: s.title, err: String(err) });
+    logger.error("[mnemonic:dualWrite] htmlToDoc failed", err);
+    return { title: s.title, content: s.content };
+  }
 }
 
 // Auto-detect hook type from content

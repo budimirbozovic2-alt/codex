@@ -12,6 +12,7 @@ import { onPlannerChanged, type PlannerChangeKind, loadPlanner, loadDisciplineLo
 import { onCardsChanged, onKnowledgeBaseChanged, type CardsScope } from "@/lib/db/queries";
 import { onMindMapsChanged } from "@/lib/mindmap-storage";
 import { subscribeMnemonics } from "@/features/mnemonic/mnemonic-storage/cards-repo";
+import { metrics } from "@/lib/metrics";
 
 let _installed = false;
 const _unsubs: Array<() => void> = [];
@@ -85,6 +86,7 @@ function flushCardsInvalidate(qc: QueryClient): void {
   if (_pendingPrefix) {
     _pendingPrefix = false;
     _pendingKeys.clear();
+    metrics.inc("bridges.cards.flush.prefix");
     void qc.invalidateQueries({ queryKey: ["cards"] });
     return;
   }
@@ -92,6 +94,8 @@ function flushCardsInvalidate(qc: QueryClient): void {
   if (_pendingKeys.size === 0) return;
   const keys = Array.from(_pendingKeys);
   _pendingKeys.clear();
+  metrics.inc("bridges.cards.flush.scoped");
+  metrics.observe("bridges.cards.flush.batchSize", keys.length);
   for (const serialized of keys) {
     const queryKey = JSON.parse(serialized) as readonly unknown[];
     void qc.invalidateQueries({ queryKey });
@@ -99,6 +103,7 @@ function flushCardsInvalidate(qc: QueryClient): void {
 }
 
 function scheduleCardsInvalidate(qc: QueryClient, scope: CardsScope): void {
+  metrics.inc(`bridges.cards.schedule.${scope.kind}`);
   if (scope.kind === "all") {
     _pendingPrefix = true;
     _pendingKeys.clear();
@@ -106,6 +111,10 @@ function scheduleCardsInvalidate(qc: QueryClient, scope: CardsScope): void {
     for (const key of keysForScope(scope)) {
       _pendingKeys.add(JSON.stringify(key));
     }
+  } else {
+    // Scoped event arrived while a prefix flush is already pending — it
+    // would be subsumed anyway. Track so we can spot suspicious churn.
+    metrics.inc("bridges.cards.schedule.subsumed");
   }
 
   // Reset trailing window on every emit.
@@ -133,6 +142,7 @@ export function installQueryBridges(qc: QueryClient): void {
 
   // ── Sources ─────────────────────────────────────────────
   _unsubs.push(onSourcesChanged(() => {
+    metrics.inc("bridges.sources.invalidate");
     void qc.invalidateQueries({ queryKey: ["sources"] });
   }));
 
@@ -143,12 +153,10 @@ export function installQueryBridges(qc: QueryClient): void {
   // Derived calcs still re-run because their queryKey prefix is the same
   // mutation source and TanStack notifies subscribers on setQueryData.
   _unsubs.push(onPlannerChanged((kind: PlannerChangeKind) => {
+    metrics.inc(`bridges.planner.${kind}`);
     switch (kind) {
       case "config":
         qc.setQueryData(queryKeys.planner.config(), loadPlanner());
-        // Derived calcs that read planner config (plans, burnup, suggestion,
-        // projection, status) live in usePlannerData useMemos keyed off
-        // `config` — no extra invalidation needed.
         break;
       case "discipline":
         qc.setQueryData(queryKeys.planner.disciplineLog(), loadDisciplineLog());
@@ -156,8 +164,6 @@ export function installQueryBridges(qc: QueryClient): void {
         break;
       case "dailyMapped":
       case "lastRedistribute":
-        // No TanStack query reads these — counter ide kroz useDeferredCompute
-        // u useDashboardData.
         break;
     }
   }));
@@ -174,6 +180,7 @@ export function installQueryBridges(qc: QueryClient): void {
   // ── Mind maps ───────────────────────────────────────────
   // SSOT façade (`mindmap-storage`) emituje nakon save/delete/invalidate.
   _unsubs.push(onMindMapsChanged(() => {
+    metrics.inc("bridges.mindMaps.invalidate");
     void qc.invalidateQueries({ queryKey: ["mindMaps"] });
   }));
 
@@ -182,6 +189,7 @@ export function installQueryBridges(qc: QueryClient): void {
   // Major-system i test-log dijele istu invalidacionu zonu (sve čita
   // mnemonic feature, scopovi su pod istim prefixom).
   _unsubs.push(subscribeMnemonics(() => {
+    metrics.inc("bridges.mnemonics.invalidate");
     void qc.invalidateQueries({ queryKey: ["mnemonics"] });
   }));
 
@@ -189,6 +197,7 @@ export function installQueryBridges(qc: QueryClient): void {
   // notifyKnowledgeBaseChanged se fire-uje iz queries/knowledge-base.ts
   // nakon put/bulkPut/delete; bulkCreate/ensureIndex prolaze kroz bulkPut.
   _unsubs.push(onKnowledgeBaseChanged(() => {
+    metrics.inc("bridges.knowledgeBase.invalidate");
     void qc.invalidateQueries({ queryKey: ["knowledgeBase"] });
   }));
 
