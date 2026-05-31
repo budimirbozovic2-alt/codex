@@ -22,9 +22,17 @@ async function _drain(): Promise<void> {
   } catch (err) {
     logger.error("[reviewLog] sqlite bulk write failed", err);
     _queue.unshift(...batch);
+    // Audit v2 / Wave A.4: previously this just re-enqueued and threw. The
+    // caller (`void _drain()` inside a setTimeout) discarded the rejection,
+    // so the timer was already null and no new flush was scheduled. In a
+    // quiet session the queue sat stranded until the user issued the next
+    // `append()` or backup/quit triggered a flush(). Schedule the retry
+    // ourselves so durability does not depend on user action.
+    _schedule();
     throw err;
   }
 }
+
 
 function _schedule(): void {
   if (_timer == null) {
