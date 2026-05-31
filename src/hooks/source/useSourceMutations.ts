@@ -81,10 +81,7 @@ export function useSourceMutations() {
       qc.setQueryData(queryKeys.sources.all(), ctx.prevAll);
       qc.setQueryData(queryKeys.sources.byCategory(vars.categoryId), ctx.prevByCat);
     },
-    onSuccess: (_data, vars) => {
-      void qc.invalidateQueries({ queryKey: queryKeys.sources.byCategory(vars.categoryId) });
-      void qc.invalidateQueries({ queryKey: queryKeys.sources.all() });
-    },
+    // No onSuccess refetch — see `save.onMutate` rationale above.
   });
 
   return { save, remove };
