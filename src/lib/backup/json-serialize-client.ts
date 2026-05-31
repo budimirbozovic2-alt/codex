@@ -82,6 +82,17 @@ export function terminateJsonSerializeWorker(): void {
   _pending.clear();
 }
 
+// PR-C C8: HMR-only teardown left the worker thread alive in PROD across
+// the entire app lifetime (the worker is created lazily on first export,
+// then never terminated). On a long-running Electron session that's a
+// dangling thread + retained module graph after every backup. Hook
+// pagehide/beforeunload so the worker shuts down when the renderer is going
+// away, in addition to the existing HMR dispose.
+if (typeof window !== "undefined") {
+  const onTerminate = () => terminateJsonSerializeWorker();
+  window.addEventListener("pagehide", onTerminate);
+  window.addEventListener("beforeunload", onTerminate);
+}
 if (import.meta.hot) {
   import.meta.hot.dispose(() => terminateJsonSerializeWorker());
 }
