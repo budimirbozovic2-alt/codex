@@ -41,6 +41,25 @@ let _maxWaitTimer: ReturnType<typeof setTimeout> | null = null;
 let _pendingPrefix = false;
 const _pendingKeys = new Set<string>(); // JSON-serialized query keys
 
+// ── Correlation tracing ─────────────────────────────────────────────
+// Each invalidation "cycle" (first schedule → flush) gets a stable short
+// id so that schedule/subsumed/flush events emitted across multiple ticks
+// can be stitched together post-mortem from the metrics event ring.
+//
+// Cycle lifecycle:
+//   • first schedule in idle state → mint id, record opened-at
+//   • subsequent schedules in the same window → reuse id, bump emit count
+//   • flush → emit close event with id, duration, emit count, key set size
+let _cycleId: string | null = null;
+let _cycleOpenedAt = 0;
+let _cycleEmits = 0;
+
+function newCycleId(): string {
+  // 6-char base36 is enough for log readability and uniqueness within a
+  // single session (cycles are rare; collisions are inconsequential).
+  return Math.random().toString(36).slice(2, 8);
+}
+
 function keysForScope(scope: CardsScope): readonly (readonly string[])[] {
   switch (scope.kind) {
     case "all":
@@ -83,19 +102,30 @@ function flushCardsInvalidate(qc: QueryClient): void {
   if (_trailingTimer !== null) { clearTimeout(_trailingTimer); _trailingTimer = null; }
   if (_maxWaitTimer !== null) { clearTimeout(_maxWaitTimer); _maxWaitTimer = null; }
 
+  const cycleId = _cycleId;
+  const duration = cycleId !== null ? Date.now() - _cycleOpenedAt : 0;
+  const emits = _cycleEmits;
+
   if (_pendingPrefix) {
     _pendingPrefix = false;
     _pendingKeys.clear();
     metrics.inc("bridges.cards.flush.prefix");
+    metrics.event("bridges.cards.cycle.flush", { cycleId, kind: "prefix", duration, emits });
+    _cycleId = null; _cycleEmits = 0;
     void qc.invalidateQueries({ queryKey: ["cards"] });
     return;
   }
 
-  if (_pendingKeys.size === 0) return;
+  if (_pendingKeys.size === 0) {
+    _cycleId = null; _cycleEmits = 0;
+    return;
+  }
   const keys = Array.from(_pendingKeys);
   _pendingKeys.clear();
   metrics.inc("bridges.cards.flush.scoped");
   metrics.observe("bridges.cards.flush.batchSize", keys.length);
+  metrics.event("bridges.cards.cycle.flush", { cycleId, kind: "scoped", duration, emits, batchSize: keys.length });
+  _cycleId = null; _cycleEmits = 0;
   for (const serialized of keys) {
     const queryKey = JSON.parse(serialized) as readonly unknown[];
     void qc.invalidateQueries({ queryKey });
@@ -103,6 +133,15 @@ function flushCardsInvalidate(qc: QueryClient): void {
 }
 
 function scheduleCardsInvalidate(qc: QueryClient, scope: CardsScope): void {
+  // Open a new cycle on the first schedule of an idle window.
+  if (_cycleId === null) {
+    _cycleId = newCycleId();
+    _cycleOpenedAt = Date.now();
+    _cycleEmits = 0;
+    metrics.event("bridges.cards.cycle.open", { cycleId: _cycleId, kind: scope.kind });
+  }
+  _cycleEmits += 1;
+
   metrics.inc(`bridges.cards.schedule.${scope.kind}`);
   if (scope.kind === "all") {
     _pendingPrefix = true;
@@ -115,6 +154,7 @@ function scheduleCardsInvalidate(qc: QueryClient, scope: CardsScope): void {
     // Scoped event arrived while a prefix flush is already pending — it
     // would be subsumed anyway. Track so we can spot suspicious churn.
     metrics.inc("bridges.cards.schedule.subsumed");
+    metrics.event("bridges.cards.cycle.subsumed", { cycleId: _cycleId, scope: scope.kind });
   }
 
   // Reset trailing window on every emit.
@@ -133,6 +173,8 @@ export function _flushCardsInvalidateForTest(): void {
   if (_maxWaitTimer !== null) { clearTimeout(_maxWaitTimer); _maxWaitTimer = null; }
   _pendingPrefix = false;
   _pendingKeys.clear();
+  _cycleId = null;
+  _cycleEmits = 0;
 }
 
 export function installQueryBridges(qc: QueryClient): void {
