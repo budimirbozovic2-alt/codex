@@ -67,7 +67,13 @@ export interface Source {
   categoryId: string;
   title: string;
   date: string;
-  contentDoc: EditorDoc;
+  /**
+   * @deprecated Legacy HTML mirror. No production code reads or writes this
+   * field anymore — `contentDoc` is the sole body SSOT. Kept optional only so
+   * legacy IDB rows and pre-existing test fixtures keep compiling; remove
+   * once the lazy migration is confirmed across all user databases.
+   */
+  htmlContent?: string;
   outline: { id: string; text: string; level: number }[];
   articles: SourceArticle[];
   version: number;
