@@ -1,16 +1,15 @@
 /**
- * Provider Cleanup v2 — `UIProvider` is a no-op shim.
+ * Provider Cleanup v3 — `UIProvider` no-op shim removed.
  *
  * Transient UI state (`editingCardId`) lives in `@/store/useUIStore`.
  * Side-effects (notifications scheduler, activity tracker, recordAppEntry)
- * moved to `<AppBootstrap />`. `view` stays derived from the route via
- * `useCurrentView()`. `setView` becomes a thin navigate wrapper.
+ * are mounted in `<AppBootstrap />`. `view` stays derived from the route
+ * via `useCurrentView()`. `setView` is a thin navigate wrapper.
  *
- * `useUIContext()` is kept as a drop-in composite hook for the existing
- * 8 call sites — marked deprecated for follow-up migration to direct
- * store reads.
+ * `useUIContext()` is kept as a drop-in composite hook for existing call
+ * sites — marked deprecated for follow-up migration to direct store reads.
  */
-import { useCallback, type ReactNode } from "react";
+import { useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useStore } from "zustand";
 import {
@@ -18,11 +17,10 @@ import {
   setEditingCardId as setEditingCardIdAction,
   getCurrentEditingCardId,
 } from "@/store/useUIStore";
-import { useCurrentView, VIEW_TO_PATH, type View } from "../routing/useCurrentView";
-import { useCardOnlyActions } from "../cards/useActions";
+import { useCurrentView, VIEW_TO_PATH, type View } from "./useCurrentView";
+import { useCardOnlyActions } from "./cards/useActions";
 
-// Re-export sync helpers under the legacy path for back-compat. Tests and
-// `useEditReturn` import these from `@/contexts/ui/UIProvider`.
+// Re-export sync helpers — used by `useEditReturn` and tests.
 export { getCurrentEditingCardId };
 export function setEditingCardId(id: string | null): void {
   setEditingCardIdAction(id);
@@ -53,7 +51,3 @@ export function useUIContext(): UIContextValue {
   return { view, setView, editingCardId, setEditingCardId: setEditingId, handleToggleTag };
 }
 
-/** @deprecated Provider removed in v2 cleanup. Kept as no-op shim. */
-export function UIProvider({ children }: { children: ReactNode }) {
-  return <>{children}</>;
-}
