@@ -65,15 +65,25 @@ function RecoveryGate({ children }: { children: ReactNode }) {
 }
 
 // ─── Composition root ────────────────────────────────────
+//
+// Audit v2 / Wave B.2: `AppBootstrap` lives **outside** `RecoveryGate` so a
+// transient `dbError → null` flip does NOT unmount the boot orchestrator
+// and rerun the entire `bootDb → runSchema → loadInitialData` DAG. The
+// single-shot `initialLoadDone` ref previously lived inside the remounted
+// instance and reset to `false` on every remount, causing duplicate boot
+// runs over an already-ready state machine.
 export function AppProvider({ children }: { children: ReactNode }) {
   return (
-    <RecoveryGate>
+    <>
       <AppBootstrap />
-      <MotionProvider>
-        <BootRecoveryGate>
-          {children}
-        </BootRecoveryGate>
-      </MotionProvider>
-    </RecoveryGate>
+      <RecoveryGate>
+        <MotionProvider>
+          <BootRecoveryGate>
+            {children}
+          </BootRecoveryGate>
+        </MotionProvider>
+      </RecoveryGate>
+    </>
   );
 }
+
