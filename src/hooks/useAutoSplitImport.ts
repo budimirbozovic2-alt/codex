@@ -78,6 +78,9 @@ export function useAutoSplitImport(open: boolean, source: Source) {
     setProgress(0);
     setImportedCount(0);
     setMergeNameDialog(false);
+    // Reason: dialog state is reseeded only when it opens or the source changes;
+    // `detected`/`linkedCards` are read intentionally as a snapshot to avoid
+    // re-resetting the preview while the user is editing rows.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, source.id]);
 
