@@ -102,13 +102,20 @@ export async function applyImportAtomically(ctx: ImportCtx): Promise<ImportTxRes
       progress(35, "Snimanje kategorija…");
       finalCategories = await writeCategoriesTx(tx, parsed, strategy, freshCategories);
 
-      // Defensive scrub: drop merged cards whose categoryId no longer
-      // resolves against the final category set. Without this, non-overwrite
-      // imports with stale categoryId or legacy backups (string[] cats →
-      // new UUIDs) crash with SQLITE_CONSTRAINT_FOREIGNKEY (787) on the
-      // cards INSERT. pruneOrphans handles satellites; merged cards are
-      // built by mergeCardsByStrategy and are not touched by it.
+      // A3 fix: pruneOrphans now lives in the orchestrator, BEFORE any
+      // satellite write. Previously called at the tail of writeCategoriesTx,
+      // which mutated `parsed.sources` in-place — `writeSourcesTx` then read
+      // the already-mutated list and silently dropped orphan source rows
+      // without any indication. Centralising the call here keeps the data
+      // flow auditable: categories land → orphans pruned → satellites write.
       const validCategoryIds = new Set(finalCategories.map((c) => c.id));
+      pruneOrphans(parsed, validCategoryIds);
+
+      // Defensive scrub: drop merged cards whose categoryId no longer
+      // resolves. With A2 (remap-before-merge) this is now a true safety
+      // net rather than the primary filter — non-overwrite imports whose
+      // backup has a categoryId not in either DB or `parsed.categories`
+      // would still otherwise crash on FK 787 at the cards INSERT.
       const beforeLen = merged.length;
       let droppedCards = 0;
       for (let i = merged.length - 1; i >= 0; i--) {
