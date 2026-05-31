@@ -15,7 +15,6 @@ import type { ParsedBackup } from "@/lib/migrations/backup-schema";
 import type { ImportStrategy } from "@/lib/backup/import-types";
 import {
   isCategoryRecordArray,
-  pruneOrphans,
 } from "@/lib/backup/import-remap";
 import {
   CATEGORY_INSERT_SQL,
@@ -107,15 +106,11 @@ export async function writeCategoriesTx(
     working = updated;
   }
 
-  // ── FK sweep — UNCONDITIONAL (was overwrite-only). ──
-  // Any satellite row (sources/cards/mindMaps/mnemonics/KB) whose `categoryId`
-  // does not resolve against the FINAL category set is dropped here so the
-  // ACID INSERTs below never hit SQLITE_CONSTRAINT_FOREIGNKEY (787).
-  //
-  // For non-overwrite imports this previously skipped pruning entirely;
-  // partial backups with stale category refs would crash the whole tx.
-  const validIds = new Set(working.map((c) => c.id));
-  pruneOrphans(parsed, validIds);
-
+  // A3 fix: pruneOrphans no longer runs here. The orchestrator
+  // (`applyImportAtomically`) calls it explicitly after this function
+  // returns, BEFORE any satellite write, so the data flow is auditable:
+  //   categories land → orphans pruned → sources write → cards write.
+  // Previously calling it here mutated `parsed.sources` in-place and the
+  // satellite write read the already-pruned list, silently dropping rows.
   return working;
 }

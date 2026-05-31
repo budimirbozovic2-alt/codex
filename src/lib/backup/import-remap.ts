@@ -36,7 +36,14 @@ export function buildCategoryIdRemap(
   return remap;
 }
 
-/** Apply a categoryId remap to all satellite tables in `parsed`, plus cards. */
+/**
+ * Apply a categoryId remap to all satellite tables in `parsed`, plus cards.
+ *
+ * @deprecated Use {@link applyRemapToParsedV2}. This signature accepts an
+ * external `cardMap` and mutates it in place, which corrupts caller-owned
+ * state (the live `currentMap` from `useCardImport`). Kept for backward
+ * compatibility with existing tests.
+ */
 export async function applyRemapToParsed(
   remap: Map<string, string>,
   parsed: ParsedBackup,
@@ -62,6 +69,34 @@ export async function applyRemapToParsed(
     if (r) card.categoryId = r;
     if (++j % 1000 === 0) await yieldUI();
   }
+  await applyRemapToSatellites(remap, parsed);
+}
+
+/**
+ * Apply a categoryId remap to `parsed.cards` and every satellite table.
+ *
+ * MUST be called BEFORE `mergeCardsByStrategy` so the merge sees the final
+ * (post-remap) `categoryId` on every imported card. Never touches caller-
+ * owned state (no `currentMap` / `cardMap` argument).
+ */
+export async function applyRemapToParsedV2(
+  remap: Map<string, string>,
+  parsed: ParsedBackup,
+): Promise<void> {
+  if (remap.size === 0) return;
+  let i = 0;
+  for (const card of parsed.cards) {
+    const r = remap.get(card.categoryId);
+    if (r) card.categoryId = r;
+    if (++i % 1000 === 0) await yieldUI();
+  }
+  await applyRemapToSatellites(remap, parsed);
+}
+
+async function applyRemapToSatellites(
+  remap: Map<string, string>,
+  parsed: ParsedBackup,
+): Promise<void> {
   for (const src of parsed.sources) {
     const r = remap.get(src.categoryId);
     if (r) src.categoryId = r;

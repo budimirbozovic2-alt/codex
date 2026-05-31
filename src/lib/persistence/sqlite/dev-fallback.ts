@@ -35,6 +35,9 @@ export function getDevFallbackExecutor(): Promise<SqlExecutor> {
     const sqlite3 = await initSqliteWasm<SqliteApi>();
     const db = new sqlite3.oo1.DB(":memory:", "c");
     const exec = wrapDb(db);
+    // A1 fix: connection-scoped pragma; emit before migrations so the very
+    // first DDL transaction also runs with FK enforcement on.
+    await exec.exec("PRAGMA foreign_keys = ON;");
     const { from, to } = await runMigrations(exec);
     if (!_loggedOnce) {
       _loggedOnce = true;
