@@ -1,15 +1,11 @@
-// M1 — aggregates (dueCards, stats, per-category) for CardStateProvider.
+// M1 — aggregates (dueCards, stats, per-category mastery) for CardStateProvider.
 //
-// Phase 4: bucket index retired. Bucket consumers (SubjectDashboard,
-// SubjectDiagnosticsPage) now read via granular store selectors
-// (`useCardsByCategory`, `useCardsBySubcategory`, `useCardsByChapter`) which
-// are O(1) lookups against `cardMapStore` with stable identity.
-//
-// What remains here are the *global* derivations that are still expensive
-// to recompute from selectors at the AppContext layer:
-//   • dueCards across all categories
-//   • global stats (due/total/sections/leech)
-//   • per-category counts and per-category mastery score
+// PR-F: `cardCountByCategory` derivation removed from this hook. Per-category
+// counts now come from SQL (`useCardCountByCategory` / `useCardCountsByCategoryMap`)
+// instead of a reducer over the full `useAllCards()` array. The remaining
+// derivations all need to walk `card.sections[*]` (FSRS-derived `state`,
+// `nextReview`, `leech`, `score`) which lives as embedded JSON inside each
+// card row, so they continue to run in JS.
 import { useCallback, useMemo, useRef } from "react";
 import {
   Card,
@@ -30,7 +26,6 @@ interface CardSummary {
 export interface CardAggregates {
   dueCards: Card[];
   stats: { due: number; total: number; totalSections: number; learnedSections: number; leechCount: number };
-  cardCountByCategory: Record<string, number>;
   categoryStats: Record<string, { score: number; total: number; due: number }>;
 }
 
@@ -73,12 +68,10 @@ export function useCardAggregates(cards: Card[], categories: string[]): CardAggr
     let learnedSections = 0;
     let leechCount = 0;
     const perCatAccum: Record<string, { scoreSum: number; total: number; due: number }> = {};
-    const countByCategory: Record<string, number> = {};
 
     for (const card of cards) {
       const sum = summarizeCard(card);
       const catKey = card.categoryId;
-      countByCategory[catKey] = (countByCategory[catKey] || 0) + 1;
       totalSections += sum.totalSections;
       learnedSections += sum.learnedSections;
       leechCount += sum.leechCount;
@@ -106,7 +99,6 @@ export function useCardAggregates(cards: Card[], categories: string[]): CardAggr
       learnedSections,
       leechCount,
       perCatAccum,
-      countByCategory,
       totalCards: cards.length,
     };
   }, [cards, summarizeCard]);
@@ -129,13 +121,6 @@ export function useCardAggregates(cards: Card[], categories: string[]): CardAggr
     [aggregate],
   );
 
-  const cardCountByCategory = useMemo(() => {
-    const out: Record<string, number> = {};
-    for (const cat of categories) out[cat] = 0;
-    for (const k in aggregate.countByCategory) out[k] = aggregate.countByCategory[k];
-    return out;
-  }, [aggregate.countByCategory, categories]);
-
   const categoryStats = useMemo(() => {
     const out: Record<string, { score: number; total: number; due: number }> = {};
     for (const cat of categories) {
@@ -147,5 +132,5 @@ export function useCardAggregates(cards: Card[], categories: string[]): CardAggr
     return out;
   }, [aggregate.perCatAccum, categories]);
 
-  return { dueCards, stats, cardCountByCategory, categoryStats };
+  return { dueCards, stats, categoryStats };
 }
