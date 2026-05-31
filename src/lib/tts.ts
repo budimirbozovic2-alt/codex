@@ -1,7 +1,9 @@
 import { stripHtml } from "@/lib/sanitize";
 import { readCached, writeCached } from "@/lib/settings-cache";
 
-const _currentUtterance: SpeechSynthesisUtterance | null = null;
+// PR-G7a: `currentUtterance` module var was assigned but never read — dead
+// state. Removed declaration + writes below (lines 57, 65). speechSynthesis
+// already tracks the active utterance internally; we don't need a mirror.
 
 export interface TTSSettings {
   rate: number;       // 0.5 - 2.0
@@ -54,7 +56,6 @@ export function speak(text: string, settings?: TTSSettings) {
     if (selected) utterance.voice = selected;
   }
 
-  currentUtterance = utterance;
   window.speechSynthesis.speak(utterance);
 }
 
@@ -62,7 +63,6 @@ export function stopSpeaking() {
   if ("speechSynthesis" in window) {
     window.speechSynthesis.cancel();
   }
-  currentUtterance = null;
 }
 
 export function isSpeaking(): boolean {
