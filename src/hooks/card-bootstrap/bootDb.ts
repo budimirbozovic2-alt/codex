@@ -37,16 +37,20 @@ export async function bootDb(): Promise<{ ok: boolean }> {
     // Ne prekidamo boot — recovery UI / fallback i dalje rade.
   }
 
+  // PR-G2 / #11 fix: previously `scheduleLogPrune()` fired here as a
+  // fire-and-forget promise concurrently with `runSchema()`, racing on the
+  // shared SQLite executor. Defer it to idle so the boot critical path
+  // (schema migrations, initial data load) owns the executor uncontested.
   if (await isLegacyDexieBypassed()) {
     markBootStep("cards:db-open-done", "sqlite-only");
     transition({ type: "OPEN_OK" });
-    scheduleLogPrune();
+    taskScheduler.idle(() => scheduleLogPrune(), { label: "boot:log-prune" });
     void assertNoLegacyIdb();
     return { ok: true };
   }
 
   markBootStep("cards:db-open-done", "no-legacy");
   transition({ type: "OPEN_OK" });
-  scheduleLogPrune();
+  taskScheduler.idle(() => scheduleLogPrune(), { label: "boot:log-prune" });
   return { ok: true };
 }
