@@ -73,9 +73,11 @@ export default function ExportImportDialog({
       setProgress(100);
       setProgressMsg("Završeno.");
       handleOpenChange(false);
-    } catch {
+    } catch (err) {
       // Neuspjeh: zadrži dialog otvoren da korisnik vidi šta nije prošlo
-      // (toast s detaljem već je emitovan iz useCardImport).
+      // (toast s detaljem već je emitovan iz useCardImport). Ne gutamo
+      // grešku — proslijedimo je u konzolu za health monitor.
+      console.warn("[ExportImportDialog] import failed", err);
       setStep("import-confirm");
     }
   };
