@@ -1,12 +1,11 @@
 import { useState, useId } from "react";
 import { m, AnimatePresence } from "@/lib/motion";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
-import { Calendar as CalendarUI } from "@/components/ui/calendar";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar, ArrowLeft, ArrowRight, Check, Clock, Shield } from "lucide-react";
-import { format, startOfDay, differenceInDays } from "date-fns";
+import { startOfDay, differenceInDays, format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { PlannerConfig, generateStudyPlan } from "@/domains/planner";
 import type { CategoryRecord } from "@/lib/db-types";
