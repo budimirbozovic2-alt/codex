@@ -196,11 +196,12 @@ export default tseslint.config(
     },
   },
 
-  // Phase A / P0-3: Ban raw `dangerouslySetInnerHTML` everywhere except the
-  // central `<SafeHtml>` wrapper and the few sanctioned read-only renderers
-  // that already feed pre-sanitized HTML straight from their pipeline.
-  // Every other call-site MUST route through `<SafeHtml>` so DOMPurify runs
-  // at render-time as defense-in-depth against XSS from user import.
+  // ─── W7 — Ban raw `dangerouslySetInnerHTML` (XSS hardening) ─────────────
+  // Every render-site MUST route through `<SafeHtml>` so DOMPurify runs at
+  // render-time as defense-in-depth against XSS from imported user data.
+  // Sanctioned exceptions: the `<SafeHtml>` wrapper itself and one read-only
+  // SourceContent renderer that feeds pre-sanitized HTML straight from its
+  // pipeline.
   {
     files: ["src/**/*.{ts,tsx}"],
     ignores: [
