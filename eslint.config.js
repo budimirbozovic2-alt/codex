@@ -557,16 +557,19 @@ export default tseslint.config(
               group: ["@/domains/cards/*"],
               message:
                 "Deep import u cards domen je zabranjen (W11). Importuj iz `@/domains/cards` barrel-a.",
+              allowTypeImports: true,
             },
             {
               group: ["@/domains/planner/*"],
               message:
                 "Deep import u planner domen je zabranjen (W12). Importuj iz `@/domains/planner` barrel-a.",
+              allowTypeImports: true,
             },
             {
               group: ["@/domains/mnemonic/*"],
               message:
                 "Deep import u mnemonic domen je zabranjen (W13). Importuj iz `@/domains/mnemonic` barrel-a.",
+              allowTypeImports: true,
             },
           ],
         },
