@@ -39,10 +39,15 @@ export default function ReviewPage() {
 
   useEffect(() => {
     if (ready) session.startSession(scopedAllCards, reviewLog);
-    // Reason: review session is (re)started only on `ready`/`lockedCategory` transitions;
-    // scopedAllCards/reviewLog updates during a session would clobber FSRS scheduling.
+    // PR-G3 (RC-3): include `location.key` so a fresh nav back to /review
+    // re-fires this effect with the latest scoped snapshot. Previously
+    // deps were `[ready, lockedCategory]` only — going Dashboard → Review
+    // → Dashboard → Review (same URL) kept the stale first-mount snapshot
+    // because neither dep changed. `scopedAllCards/reviewLog` are still
+    // captured by closure intentionally — re-running on every card
+    // mutation would clobber FSRS scheduling mid-session.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ready, lockedCategory]);
+  }, [ready, lockedCategory, location.key]);
 
   // FSRS diagnostics for empty state — scoped so the empty message reflects
   // the locked subject rather than the full library.
