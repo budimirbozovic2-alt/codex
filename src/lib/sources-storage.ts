@@ -72,11 +72,11 @@ import { wrapWrite, type WriteResult } from "@/lib/persistence/write-result";
 
 export async function saveSource(source: Source): Promise<WriteResult<void>> {
   const res = await wrapWrite(() => putSource(source));
-  if (res.ok) {
+  if (res.ok === true) {
     _notify();
-  } else {
-    logger.error("[sources-storage] saveSource failed", res.error);
+    return res;
   }
+  logger.error("[sources-storage] saveSource failed", res.error);
   return res;
 }
 
