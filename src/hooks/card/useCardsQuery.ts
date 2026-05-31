@@ -1,16 +1,16 @@
 /**
- * Phase 2a — Scoped TanStack Query consumers for the cards atom.
+ * PR-E1 — TanStack scoped queries are the SOLE in-memory cache for cards.
  *
- * Every UI selector in `@/store` now delegates here. Reads are TanStack-
- * managed (invalidated via bridge `onCardsChanged → invalidate(['cards'])`).
- * `cardMapStore` remains as an internal write-side cache for
- * `cardMapWrites.patch/remove/clearLinks` synchronous lookups — populated
- * by `select` hook below on every successful query, so any card the UI has
- * fetched is immediately available to sync mutators.
+ * Prior to PR-E each query had a `seedCardMap()` side-effect that mirrored
+ * every fetched row into a Zustand `cardMapStore`. That doubled memory and
+ * created a "Dual-State" where sync RAM lookups in `cardMapWrites` could
+ * diverge from TanStack data. PR-E removed the Zustand mirror; all
+ * mutations now write directly to SQLite via `cards-writes.ts` and update
+ * TanStack optimistically via `onMutate`.
  *
- * `staleTime: Infinity` because invalidation is event-driven (the bridge
- * fires on every cardMap commit). `refetchOnMount: false` would suppress
- * the cascade refetch after invalidation, so we leave the default.
+ * Invalidation flows through the `onCardsChanged → bridge → invalidate`
+ * path (debounced, scope-aware). `staleTime: Infinity` because we never
+ * refetch on focus/mount/reconnect.
  */
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -23,36 +23,15 @@ import {
   cardCountByCategory,
 } from "@/lib/db/queries";
 import { queryKeys } from "@/lib/query/keys";
-import { setCardMap } from "@/store/useCardMapStore";
 import type { Card } from "@/lib/spaced-repetition";
 
 const EMPTY: readonly Card[] = Object.freeze([]);
-
-/** Seed loaded rows into the Zustand RAM cache (write-side lookup table). */
-function seedCardMap(cards: readonly Card[] | undefined): void {
-  if (!cards || cards.length === 0) return;
-  setCardMap((prev) => {
-    let changed = false;
-    let next = prev;
-    for (const c of cards) {
-      if (prev[c.id] !== c) {
-        if (!changed) { next = { ...prev }; changed = true; }
-        next[c.id] = c;
-      }
-    }
-    return changed ? next : prev;
-  });
-}
 
 /** Unified `['cards','all']` query — also used by aggregates (stats, dueCards). */
 export function useAllCards(): readonly Card[] {
   const { data } = useQuery({
     queryKey: queryKeys.cards.all(),
-    queryFn: async () => {
-      const rows = await listAllCards();
-      seedCardMap(rows);
-      return rows;
-    },
+    queryFn: () => listAllCards(),
     staleTime: Infinity,
   });
   return data ?? EMPTY;
@@ -66,11 +45,7 @@ export function useAllCards(): readonly Card[] {
 function useCardsByCategoryQuery(categoryId: string | undefined) {
   return useQuery({
     queryKey: categoryId ? queryKeys.cards.byCategory(categoryId) : ["cards", "cat", "_disabled"],
-    queryFn: async () => {
-      const rows = await cardsByCategory(categoryId!);
-      seedCardMap(rows);
-      return rows;
-    },
+    queryFn: () => cardsByCategory(categoryId!),
     enabled: !!categoryId,
     staleTime: Infinity,
   });
@@ -102,11 +77,7 @@ export function useCardsBySubcategory(
     queryKey: subcategoryId && categoryId
       ? queryKeys.cards.bySubcategory(categoryId, subcategoryId)
       : ["cards", "subcat", "_disabled"],
-    queryFn: async () => {
-      const rows = await cardsBySubcategory(categoryId!, subcategoryId!);
-      seedCardMap(rows);
-      return rows;
-    },
+    queryFn: () => cardsBySubcategory(categoryId!, subcategoryId!),
     enabled: !!subcategoryId && !!categoryId,
     staleTime: Infinity,
   });
@@ -121,11 +92,7 @@ export function useCardsByChapter(
     queryKey: chapterId && categoryId
       ? queryKeys.cards.byChapter(categoryId, chapterId)
       : ["cards", "chap", "_disabled"],
-    queryFn: async () => {
-      const rows = await cardsByChapter(categoryId!, chapterId!);
-      seedCardMap(rows);
-      return rows;
-    },
+    queryFn: () => cardsByChapter(categoryId!, chapterId!),
     enabled: !!chapterId && !!categoryId,
     staleTime: Infinity,
   });
@@ -135,11 +102,7 @@ export function useCardsByChapter(
 export function useCardsBySource(sourceId: string | undefined): readonly Card[] {
   const { data } = useQuery({
     queryKey: sourceId ? queryKeys.cards.bySource(sourceId) : ["cards", "source", "_disabled"],
-    queryFn: async () => {
-      const rows = await cardsBySource(sourceId!);
-      seedCardMap(rows);
-      return rows;
-    },
+    queryFn: () => cardsBySource(sourceId!),
     enabled: !!sourceId,
     staleTime: Infinity,
   });
@@ -151,9 +114,7 @@ export function useCardById(id: string | undefined | null): Card | null {
     queryKey: id ? ["cards", "byId", id] as const : ["cards", "byId", "_disabled"] as const,
     queryFn: async () => {
       const rows = await getCardsByIds([id!]);
-      const card = rows[0] ?? null;
-      if (card) seedCardMap([card]);
-      return card;
+      return rows[0] ?? null;
     },
     enabled: !!id,
     staleTime: Infinity,
