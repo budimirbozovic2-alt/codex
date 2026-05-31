@@ -1,92 +1,119 @@
-# Refaktor: `src/lib` → `src/domains/*` (3 domena)
+# Provider Cleanup v2 — finalna pasovina
+
+Cilj: srušiti preostale React Context wrappere koji još uvijek nose stanje, ukloniti shim no-op providere i preorganizovati `src/contexts/` tako da samo prave kompozicione tačke ostaju "konteksti". Sve ostalo prelazi u Zustand store-ove ili `src/hooks/`.
+
+## Trenutno stanje (post-v1)
+
+```text
+App.tsx
+└── QueryClientProvider → TooltipProvider → HashRouter
+    └── AppProvider (composition root)
+        └── RecoveryGate → AppBootstrap → MotionProvider
+            └── PomodoroProvider          ← pravi Context, split tick/stable
+                └── UIProvider             ← pravi Context, ima HMR fallback hack
+                    └── SessionProvider    ← pravi Context, snapshot+queues
+                        └── BootRecoveryGate
+                            └── children
+```
+
+7 wrappera. 3 prava Context-a sa stanjem + 3 deprecated no-op shim fajla (`CardStateProvider`, `CategoryStateProvider`, `DbErrorProvider`) + 1 misleading naziv (`BootStateProvider.tsx` koji je samo hook).
 
 ## Cilj
 
-Izvući tri jasno odvojena bounded contexta iz `src/lib` u `src/domains/`, sa strogim ESLint walls oko svakog. Infra (`db`, `persistence`, `migrations`, `logger`, `sr`, `editor-v4`, `motion`, `analytics/_pure`, itd.) ostaje u `src/lib`.
-
-## Granice domena (prvi prolaz)
-
 ```text
-src/domains/
-├── cards/
-│   ├── index.ts                ← jedini dozvoljen ulaz
-│   ├── types.ts                (← lib/card-types.ts ako postoji + iz lib/spaced-repetition-types)
-│   ├── repo/                   (cardMapWrites, card-fjs koje pišu u RAM/SQLite)
-│   ├── queries/                (re-export tankih wrappera nad @/lib/db/queries cards*)
-│   └── services/               (card import/export orkestracija ako je čisto card-bound)
-│
-├── planner/
-│   ├── index.ts                ← preseljen iz src/lib/planner/index.ts (1:1)
-│   ├── (svi postojeći planner/* fajlovi)
-│   └── _legacy-shim za stari `@/lib/planner-storage`
-│
-└── mnemonic/
-    ├── index.ts
-    ├── analytics/
-    │   └── weak-hooks.ts       (← lib/analytics/blind-spots.ts → calcWeakHooks; piše mnemonic IDB)
-    └── re-exports iz features/mnemonic/mnemonic-storage
-        (mnemonic ostaje fizički u features/mnemonic; domain barrel je façade)
+App.tsx
+└── QueryClientProvider → TooltipProvider → HashRouter
+    └── AppProvider
+        └── RecoveryGate → AppBootstrap → MotionProvider → BootRecoveryGate
+            └── children
 ```
 
-**Šta NE diram u ovom prolazu:**
-- `src/lib/db`, `src/lib/persistence`, `src/lib/migrations`, `src/lib/logger`, `src/lib/sr` (FSRS), `src/lib/editor-v4`, `src/lib/motion`, `src/lib/backlink-index`, `src/lib/repositories`, `src/lib/analytics/_pure` (čisti compute)
-- `src/features/mnemonic/*` fizički ostaje gdje jeste — `src/domains/mnemonic/index.ts` je samo barrel/façade da postoji jedinstveni ulaz
-- `src/store`, `src/contexts`, `src/hooks`, `src/views`, `src/components` — samo se ažuriraju import putanje
+4 wrappera. Niti jedan domenski Context.
 
-## Pristup po koracima
+## Korak po korak
 
-### 1. Cards domen (najveći ROI, najjasnija granica)
-- Kreirati `src/domains/cards/index.ts` barrel
-- Premjestiti: `src/lib/cards/*` → `src/domains/cards/repo/*` i `services/*`
-- Re-export cards-related queries iz `@/lib/db/queries` (cards, cards-bulk-mutations) kroz domain barrel
-- Zadržati shim `src/lib/cards/index.ts` koji re-exportuje iz `@/domains/cards` (1 deprecation cycle)
-- Rewrite svih importa `@/lib/cards/*` → `@/domains/cards` (codemod + ručno za edge case)
+### Korak 1 — Pomodoro → Zustand (`src/store/usePomodoroStore.ts`)
 
-### 2. Planner domen (najlakši — već je dekomponovan)
-- `git mv src/lib/planner → src/domains/planner` (logički)
-- `src/lib/planner-storage.ts` shim ažurirati da re-exportuje iz `@/domains/planner`
-- Ažurirati importe `@/lib/planner` i `@/lib/planner/*` → `@/domains/planner`
-- `loadPlannerSnapshot` & sl. ostaju u `@/lib/db/queries` (infra)
+- Kreirati novi store sa shape: `{ mode, seconds, running, cycleCount, toggle(), reset(), _tick() }`.
+- Interval logiku premjestiti u modul-level subscriber (singleton tajmer aktivan dok `running===true`); pretplata na `loadAppSettings()` cached ref ostaje.
+- Single hook API: `usePomodoroStore(selector)` u stilu Zustand-a.
+- Backward-compat shimovi u `@/contexts/AppContext`:
+  - `usePomodoroStable()` → `usePomodoroStore(s => ({mode,running,cycleCount,toggle:s.toggle,reset:s.reset}), shallow)`
+  - `usePomodoroTick()` → `usePomodoroStore(s => ({seconds:s.seconds}))`
+  - `usePomodoroContext()` → composed selector
+  Označiti shimove `@deprecated` i otvoriti follow-up za migraciju pozivalaca (header/sidebar samo).
+- `PomodoroProvider` postaje no-op shim (nije više u tree-u).
 
-### 3. Mnemonic domen (façade only)
-- `src/domains/mnemonic/index.ts` re-exportuje iz `@/features/mnemonic`
-- Premjestiti `calcWeakHooks` iz `src/lib/analytics/blind-spots.ts` u `src/domains/mnemonic/analytics/weak-hooks.ts` (piše mnemonic IDB — pripada domenu)
-- `calcBlindSpots` ostaje u `lib/analytics` (čist OLAP)
-- Ažurirati importere `calcWeakHooks`
+### Korak 2 — Session → Zustand (`src/store/useSessionStore.ts`)
 
-### 4. ESLint walls
-Dodati u `eslint.config.js` `no-restricted-imports` rules (W11/W12/W13):
-- **W11 cards wall**: zabraniti `@/domains/cards/*` deep import izvan `src/domains/cards/**`; dozvoliti samo `@/domains/cards`
-- **W12 planner wall**: ista logika
-- **W13 mnemonic wall**: ista logika
-- **W14 cross-domain wall**: `src/domains/X/**` ne smije importovati `src/domains/Y/**` deep — samo kroz Y-jev barrel
-- Domeni i dalje smiju importovati `@/lib/db/queries`, `@/lib/repositories`, `@/lib/logger`, `@/lib/persistence` (infra)
+- Shape: `{ isSessionActive, isEnding, queuePending, snapshot, reviewQueue, errorQueue, readQueue, queueSize, startSession, endSession, queueReview, queueError, queueMarkRead }`.
+- Derivacija `isProcessing = isEnding || queuePending` kao selektor.
+- `persistQueue.subscribe(...)` se mountira jednom u modul-level inicijalizatoru (poziva se prvi put kad se selektor izvrši ili lazy iz storea).
+- `useSessionContext()` postaje thin wrapper koji čita kroz selektore (drop-in API).
+- Test fajl `src/test/phase-b-p1.test.tsx` se ažurira da ne wrapuje sa `SessionProvider` (više nije potreban).
+- `SessionProvider` postaje no-op shim.
 
-### 5. Verifikacija
-- `tsc --noEmit` (preko harness build-a) prolazi
-- ESLint clean (svi novi walls prolaze)
-- `vitest run` — postojeći testovi prolaze bez izmjena (osim path update-a u par test fajlova)
-- `rg "@/lib/planner-storage"` — broj ostaje stabilan (shim radi)
-- Spot-check boot u preview-u: kartice se učitavaju, planner widget radi, mnemonic workshop otvara
+### Korak 3 — UIProvider → Zustand + route hook
 
-### 6. Memory update
-Dodati novi memory file `mem://architecture/domains-layout-v1` i ažurirati Core u `mem://index.md`:
-> Domeni: `cards`, `planner`, `mnemonic` u `src/domains/*` sa ESLint wall-ovima (W11–W14). Infra ostaje u `src/lib`. Cross-domain importi samo kroz barrel.
+- `editingCardId` ide u `useUIStore` (mali Zustand store sa SSOT mirror već u modul scopeu — eliminiše paralelni `_currentEditingCardId` slot jer Zustand `getState()` već daje sync čitanje).
+- `view` ostaje izveden iz `useCurrentView()` (route-bound, ne stanje).
+- `setView` se eksportuje kao tanak helper hook `useSetView()` (samo wrapper nad `useNavigate`).
+- `handleToggleTag` se eksponira direktno iz `useCardOnlyActions()` (već postoji `toggleTag` tamo) — eliminiše konvenijencijski layer.
+- Side-effects (`recordAppEntry`, `useNotificationScheduler`, `useActivityTracker`) se preselje u `AppBootstrap` (već je single mount point).
+- `useUIContext()` postaje shim koji vraća kompozit iz storea + view + setView (drop-in API), označen `@deprecated` za narednu pasovinu.
+- HMR fallback (`UI_FALLBACK` + `console.warn`) se uklanja — više nema providera kojeg HMR može da odveže.
+- `UIProvider` postaje no-op shim (nije u tree-u).
 
-## Šta dobijamo
+### Korak 4 — Brisanje shim fajlova i preimenovanja
 
-- 3 jasne granice umjesto 203-file `src/lib` monolita
-- ESLint-enforced contract — nema "slučajnog" deep importa između domena
-- Otvara put za sljedeći prolaz (sources, zettel, mindmaps) bez ponovne velike chirurgije
-- Memory + ARCHITECTURE.md mogu se kalibrisati nad realnom strukturom
+- Obrisati prazne shim komponente iz: `CardStateProvider.tsx`, `CategoryStateProvider.tsx`, `DbErrorProvider.tsx`, `PomodoroProvider.tsx`, `UIProvider.tsx`, `SessionContext.tsx` (zadržati hooks/store API kao module fajlove).
+- Preseliti hookove u tačnije lokacije:
+  - `src/contexts/boot/BootStateProvider.tsx` → `src/hooks/useBootState.ts`
+  - `src/contexts/db/DbErrorProvider.tsx` → `src/hooks/useDbError.ts` (modul-level subscribe ostaje)
+  - `src/contexts/routing/useCurrentView.ts` → `src/hooks/useCurrentView.ts`
+  - `src/contexts/cards/useCategoryStateBridge` → `src/hooks/useCategoryStateBridge.ts`
+  - `src/contexts/cards/useCardAggregates.ts` → `src/hooks/useCardAggregates.ts`
+  - `src/contexts/cards/useCardSyncEffects.ts` → `src/hooks/useCardSyncEffects.ts`
+- `src/contexts/` zadržava samo: `AppContext.tsx` (composition root + barrel re-exports), `AppBootstrap.tsx`, `boot/BootRecoveryGate.tsx`, `cards/actions-contexts.ts` + `cards/useActions.ts` (Actions tri-Context koje radi po dizajnu).
+
+### Korak 5 — Verifikacija
+
+- `tsc --noEmit` clean.
+- `npm run lint:walls` clean (nove putanje ne udaraju ni jedan domain wall).
+- `npm run lint` clean (ili u okviru postojećeg max-warnings).
+- `vitest run` — postojeći 611+ testovi prolaze; ažurirana 1–2 test fajla (`phase-b-p1`, ev. UIProvider testovi ako ih ima).
+- Spot-check u preview-u:
+  - Pomodoro timer broji svake sekunde, toggle/reset rade, header se ne re-renderuje na tick.
+  - Učenje + ponavljanje sesija: start → grade nekoliko kartica → end; processing overlay pravilno pokazuje "Spremanje" dok `persistQueue` ne drenira.
+  - Edit dijalog: otvori, izađi, vrati se (SSOT mirror radi).
+  - Refresh nakon promjene foldera ne razbija UI (HMR fallback eliminisan bez regresije).
+- Bundle: očekivano malo smanjenje (Context wrappers + duplicate ref state ide u Zustand).
+
+### Korak 6 — Memory update
+
+Ažurirati `mem://architecture/provider-cleanup-v1` na v2 (ili dodati novi `provider-cleanup-v2`):
+- Tree pao 7→4 wrappera.
+- Pomodoro, Session, UI state migrirani na Zustand store-ove.
+- `src/contexts/` reduced na composition root + AppBootstrap + BootRecoveryGate + Actions contexts.
+- Pure hookovi preseljeni u `src/hooks/`.
+
+Ažurirati Core u `mem://index.md`:
+> Provideri: `AppContext → RecoveryGate → AppBootstrap → MotionProvider → BootRecoveryGate`. Domenski state je u Zustand store-ovima (`useCardMapStore`, `categoryStore`, `reviewSettingsStore`, `useSessionStore`, `usePomodoroStore`, `useUIStore`). Actions su jedini Context wrapper unutar `AppBootstrap` (`ActionsProvider` sa 3 ko-locirana Context-a).
+
+## Tehnički detalji
+
+- **Pomodoro tajmer kao singleton**: `usePomodoroStore` subscriber pokreće `setInterval` kad `running` postaje true i clearuje kad postaje false. Drži se postojećeg whitelista u `eslint.config.js` za raw `setInterval` u engine kodu.
+- **Backward-compat shimovi**: zadržavamo `useUIContext`, `useSessionContext`, `usePomodoro*` u `@/contexts/AppContext` barrelu sa `@deprecated` markerima. Velika migracija pozivalaca je follow-up (svjesno se izbjegava 50+ touch-points u jednom prolazu).
+- **Test izolacija**: Zustand store-ovi dobijaju test reset helper (`__resetForTests`) tamo gdje već nemaju, da bi `vitest` setup mogao očistiti stanje između testova. `src/test/setup.ts` se ažurira ako treba.
+- **Render performance**: glavni dobitak je eliminacija UIProvider re-rendera (svaki `editingCardId` set rerenderuje cijelo stablo) — Zustand selektor scope-uje rerendere na consumere koji čitaju to polje.
 
 ## Rizici i mitigacije
 
-- **Krivi import putevi nakon move-a** → koristim `rg` + ciljane sed/codemod prolaze, `tsc` kao safety net
-- **Circular imports cards ↔ planner** (preko reviewLog) → ako se pojavi, ekstraktovati zajednički tip u `src/lib/db-types` (već postoji)
-- **ESLint wall razbija postojeće importe** → walls dodajem TEK NAKON svih file move-ova, pa rješavam batch
-- **Velika diff** → svaki domen u zasebnom prolazu (cards → planner → mnemonic), ne sve odjednom
+- **Pomodoro tajmer drift**: pomjeranje iz React efekta u Zustand može uvesti dvostruki tajmer ako se subscriber neispravno mountuje. Mitigacija: subscriber se inicijalizuje lazy u modulu (jedanput), uz idempotent guard.
+- **Session test fajl**: `phase-b-p1.test.tsx` koristi `renderHook` sa `SessionProvider` wrapperom. Mora se ažurirati paralelno sa storeom; izolovano u Korak 2.
+- **HMR regresija**: uklanjanje `UIProvider` fallback-a teoretski može razotkriti drugi HMR problem. Mitigacija: Zustand store je modul-level (preživljava HMR po default-u), pa fallback i nije bio fundamentalno potreban.
+- **Veliki diff**: ~10 izbrisanih/preseljenih fajlova + ~6 novih store fajlova + svi importi koji su išli kroz `src/contexts/*` putanje. Mitigacija: brišemo POSLE move-ova, shimovi u barrelu drže drop-in API.
 
-## Trajanje (estimat)
+## Estimat
 
-~60–80 file move-ova + ~150–250 import line edits. Realno 1 dug session, ali isporučivo iterativno (svaki domen može da se merge-uje samostalno).
+~12–18 izmijenjenih fajlova + 4 nova store fajla + brisanje 5 shim fajlova. Realno 1 srednji session, isporučivo iterativno po koracima (svaki korak može da se merge-uje samostalno).

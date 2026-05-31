@@ -1,87 +1,59 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, ReactNode } from "react";
+/**
+ * Provider Cleanup v2 — `UIProvider` is a no-op shim.
+ *
+ * Transient UI state (`editingCardId`) lives in `@/store/useUIStore`.
+ * Side-effects (notifications scheduler, activity tracker, recordAppEntry)
+ * moved to `<AppBootstrap />`. `view` stays derived from the route via
+ * `useCurrentView()`. `setView` becomes a thin navigate wrapper.
+ *
+ * `useUIContext()` is kept as a drop-in composite hook for the existing
+ * 8 call sites — marked deprecated for follow-up migration to direct
+ * store reads.
+ */
+import { useCallback, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
-import { recordAppEntry } from "@/lib/metacognitive-storage";
-import { useCardOnlyActions } from "../cards/useActions";
+import { useStore } from "zustand";
+import {
+  uiStore,
+  setEditingCardId as setEditingCardIdAction,
+  getCurrentEditingCardId,
+} from "@/store/useUIStore";
 import { useCurrentView, VIEW_TO_PATH, type View } from "../routing/useCurrentView";
-import { useNotificationScheduler } from "./useNotificationScheduler";
-import { useActivityTracker } from "./useActivityTracker";
+import { useCardOnlyActions } from "../cards/useActions";
+
+// Re-export sync helpers under the legacy path for back-compat. Tests and
+// `useEditReturn` import these from `@/contexts/ui/UIProvider`.
+export { getCurrentEditingCardId };
+export function setEditingCardId(id: string | null): void {
+  setEditingCardIdAction(id);
+}
 
 interface UIContextValue {
   view: View;
   setView: (v: View) => void;
-  /** UUID-only edit target. EditPage resolves the live Card from cardMap on render. */
   editingCardId: string | null;
   setEditingCardId: (id: string | null) => void;
   handleToggleTag: (cardId: string, tag: string) => void;
 }
 
-const UIContext = createContext<UIContextValue | null>(null);
-
-const UI_FALLBACK: UIContextValue = {
-  view: "dashboard" as View,
-  setView: () => {},
-  editingCardId: null,
-  setEditingCardId: () => {},
-  handleToggleTag: () => {},
-};
-
-// M3: Synchronous SSOT mirror of `editingCardId`. The React state above is
-// the authoritative value for renders, but this slot lets non-React (or
-// just-after-setState) consumers read the latest id without each component
-// keeping its own ref. `useEditReturn` consults this when no `cardId` is
-// supplied, so `setEditingCardId(id)` followed by `stash()` always records
-// the freshest id, even from a stale closure.
-let _currentEditingCardId: string | null = null;
-export function getCurrentEditingCardId(): string | null {
-  return _currentEditingCardId;
-}
 /**
- * Test-only: directly set the SSOT mirror without going through the React
- * provider. Production code MUST use `setEditingCardId` from `useUIContext()`.
+ * @deprecated Composite shim. New code should read `editingCardId` from
+ * `@/store/useUIStore` and use `useCurrentView()` + `useNavigate()` directly.
  */
-export function setEditingCardId(id: string | null): void {
-  _currentEditingCardId = id;
-}
-
-export function useUIContext() {
-  const ctx = useContext(UIContext);
-  if (!ctx) {
-    if (import.meta.env.DEV) {
-      console.warn("[useUIContext] no provider — returning fallback (HMR transient)");
-      return UI_FALLBACK;
-    }
-    throw new Error("useUIContext must be used within UIProvider");
-  }
-  return ctx;
-}
-
-export function UIProvider({ children }: { children: ReactNode }) {
-  const { toggleTag } = useCardOnlyActions();
-  const navigate = useNavigate();
+export function useUIContext(): UIContextValue {
   const view = useCurrentView();
+  const navigate = useNavigate();
+  const editingCardId = useStore(uiStore, (s) => s.editingCardId);
+  const { toggleTag } = useCardOnlyActions();
 
-  const [editingCardId, _setEditingCardId] = useState<string | null>(null);
-  const setEditingCardId = useCallback((id: string | null) => {
-    _currentEditingCardId = id;
-    _setEditingCardId(id);
-  }, []);
+  const setView = useCallback((v: View) => { navigate(VIEW_TO_PATH[v]); }, [navigate]);
+  const setEditingId = useCallback((id: string | null) => { setEditingCardIdAction(id); }, []);
+  const handleToggleTag = useCallback((cardId: string, tag: string) => { toggleTag(cardId, tag); }, [toggleTag]);
 
-  useEffect(() => { recordAppEntry(); }, []);
+  return { view, setView, editingCardId, setEditingCardId: setEditingId, handleToggleTag };
+}
 
-  useNotificationScheduler();
-  useActivityTracker(view);
-
-  const setView = useCallback((v: View) => {
-    navigate(VIEW_TO_PATH[v]);
-  }, [navigate]);
-
-  const handleToggleTag = useCallback((cardId: string, tag: string) => {
-    toggleTag(cardId, tag);
-  }, [toggleTag]);
-
-  const value = useMemo<UIContextValue>(() => ({
-    view, setView, editingCardId, setEditingCardId, handleToggleTag,
-  }), [view, setView, editingCardId, setEditingCardId, handleToggleTag]);
-
-  return <UIContext.Provider value={value}>{children}</UIContext.Provider>;
+/** @deprecated Provider removed in v2 cleanup. Kept as no-op shim. */
+export function UIProvider({ children }: { children: ReactNode }) {
+  return <>{children}</>;
 }

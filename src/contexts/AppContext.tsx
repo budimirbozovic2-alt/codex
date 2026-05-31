@@ -1,23 +1,22 @@
 // ═══════════════════════════════════════════════════════════
-// COMPOSITION ROOT — Provider Cleanup v2
+// COMPOSITION ROOT — Provider Cleanup v2 (finalized)
 //
-// Single umbrella for all app-data wrappers. App.tsx now only mounts
-// Tooltip → HashRouter → AppProvider → MainLayout (3 wrappers).
+// App.tsx mounts: QueryClientProvider → TooltipProvider → HashRouter →
+//   AppProvider → MainLayout.
 //
-// Internal order:
+// AppProvider tree:
 //   RecoveryGate (DB error guard — pre-boot)
-//     AppBootstrap (DAG: schema → load → cross-module wiring)
-//     PomodoroProvider
-//       UIProvider
-//         SessionProvider
-//           BootRecoveryGate (boot-state guard — schema/load errors)
-//             children
+//     AppBootstrap (DAG: schema → load → cross-module wiring + UI side-fx)
+//       MotionProvider (LazyMotion+strict + MotionConfig — design-system)
+//         BootRecoveryGate (post-boot error UI)
+//           children
+//
+// PomodoroProvider, UIProvider, SessionProvider are no-op shims; their
+// state lives in Zustand stores (`usePomodoroStore`, `useUIStore`,
+// `useSessionStore`). Consumer hooks scope re-renders via selectors.
 // ═══════════════════════════════════════════════════════════
 import { Suspense, lazy, ReactNode } from "react";
 import { AppBootstrap } from "./AppBootstrap";
-import { PomodoroProvider } from "./pomodoro/PomodoroProvider";
-import { UIProvider } from "./ui/UIProvider";
-import { SessionProvider } from "./SessionContext";
 import { BootRecoveryGate } from "./boot/BootRecoveryGate";
 import { useDbError } from "./db/DbErrorProvider";
 import { MotionProvider } from "@/lib/motion";
@@ -28,7 +27,7 @@ const LazyDatabaseRecoveryPanel = lazy(() => import("@/components/DatabaseRecove
 export type { View } from "./routing/useCurrentView";
 export { useCurrentView } from "./routing/useCurrentView";
 
-export type { PomodoroState } from "./pomodoro/usePomodoroEngine";
+export type { PomodoroState } from "@/store/usePomodoroStore";
 export {
   usePomodoroStable,
   usePomodoroTick,
@@ -70,15 +69,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
     <RecoveryGate>
       <AppBootstrap />
       <MotionProvider>
-        <PomodoroProvider>
-          <UIProvider>
-            <SessionProvider>
-              <BootRecoveryGate>
-                {children}
-              </BootRecoveryGate>
-            </SessionProvider>
-          </UIProvider>
-        </PomodoroProvider>
+        <BootRecoveryGate>
+          {children}
+        </BootRecoveryGate>
       </MotionProvider>
     </RecoveryGate>
   );

@@ -19,6 +19,10 @@ import { useCardSyncEffects } from "@/contexts/cards/useCardSyncEffects";
 import { useCategoryStateBridge } from "@/contexts/cards/CategoryStateProvider";
 import { kickoffEditorV4Migration } from "@/lib/editor-v4/lazy-migrate";
 import { logger } from "@/lib/logger";
+import { recordAppEntry } from "@/lib/metacognitive-storage";
+import { useNotificationScheduler } from "@/contexts/ui/useNotificationScheduler";
+import { useActivityTracker } from "@/contexts/ui/useActivityTracker";
+import { useCurrentView } from "@/contexts/routing/useCurrentView";
 
 export function AppBootstrap(): null {
   // Category-side bridge: examiner cache prime on records change.
@@ -36,6 +40,12 @@ export function AppBootstrap(): null {
   // editor-v4 lazy backfill — scheduled in idle, idempotent. Runs once per
   // page lifetime; subsequent calls no-op.
   useEffect(() => { kickoffEditorV4Migration(); }, []);
+
+  // UI-level effects (moved from UIProvider in Provider Cleanup v2).
+  useEffect(() => { recordAppEntry(); }, []);
+  useNotificationScheduler();
+  const view = useCurrentView();
+  useActivityTracker(view);
 
 
   // Electron quit + unmount drain — flush review log + persist queue.
