@@ -609,6 +609,17 @@ export default tseslint.config(
       "no-restricted-syntax": "off",
     },
   },
+
+  // ─── shadcn/ui primitives — Fast Refresh exemption ─────────────────────
+  // Canonical shadcn pattern co-exports cva variants / context hooks alongside
+  // the component (e.g. buttonVariants, useSidebar). These are leaf primitives;
+  // HMR boundary loss is irrelevant. Splitting fragments upstream usage.
+  {
+    files: ["src/components/ui/**"],
+    rules: {
+      "react-refresh/only-export-components": "off",
+    },
+  },
 );
 
 
