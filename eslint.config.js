@@ -188,7 +188,7 @@ export default tseslint.config(
             {
               group: ["@/lib/db/queries/*"],
               message:
-                "Importuj iz `@/lib/db` barrel-a — `queries/*` je interno (Public API wall).",
+                "Importuj iz `@/lib/db/queries` barrel-a — pojedinačni query moduli su interni (W8).",
             },
           ],
         },
@@ -276,7 +276,7 @@ export default tseslint.config(
             {
               group: ["@/lib/db/queries/*"],
               message:
-                "Importuj iz `@/lib/db` barrel-a — `queries/*` je interno (Public API wall).",
+                "Importuj iz `@/lib/db/queries` barrel-a — pojedinačni query moduli su interni (W8).",
             },
             {
               group: ["@/lib/drafts/*"],
