@@ -1,92 +1,130 @@
-# Root cause: splash skripta u `index.html` reloaduje stranicu svakih ~10s
+# Deep Audit — Konsolidovani plan sanacije
 
-## Šta sam našao
+Tri paralelne analize (boot/lifecycle, persistence/mutacije, arhitektura/dead-code) otkrile su **30 nalaza**. Ovo je prioritizovan plan po riziku za podatke, ne po fajlovima.
 
-`index.html` (linije 102–125) sadrži skriptu koja nakon 10 sekundi provjerava:
+---
 
-```js
-var appMounted = root && root.querySelector("[data-app-mounted]");
-if (appMounted) { ... return; }
-if (retries < MAX_RETRIES) {
-  sessionStorage.setItem(...);
-  status.textContent = "Pokušaj " + (retries+2) + " od " + (MAX_RETRIES+1) + "…";
-  setTimeout(() => window.location.reload(), 800);
-}
-```
+## WAVE 1 — Tihi gubitak podataka (kritično, sanirati prvo)
 
-**Problem:** atribut `data-app-mounted` se **nigdje u kodu ne postavlja** (provjereno `rg -rn "data-app-mounted" src` → 0 rezultata). React mount, splash cleanup u `src/main.tsx` i `src/hooks/card-bootstrap/splash.ts` skidaju vizualni splash, ali nikad ne markiraju root element.
+Sva tri nalaza znače da korisnik vidi "uspjeh" u UI-ju, a podaci nisu u SQLite-u.
 
-**Posljedica:** u svakom non-Electron okruženju (Lovable preview, `bun run dev` u browseru) skripta uvijek ulazi u retry granu nakon 10s i reloaduje tab. Session replay to potvrđuje **tačno**:
+### 1.1 · DOCX import nikad ne piše kartice u SQLite
+`src/hooks/useCardImport.ts:198` zove `cardMapBulkPut(created)` (sync Zustand) bez `persistQueue.schedule`. Kartice se pojave u UI-ju, nestanu na reload. **Fix:** dodati `persistQueue.schedule({ type: "bulk", cards: created })` ili migrirati na `bulkPutAsync`.
 
-- `t=0s` page loaded
-- `t=10s` "Pokušaj 2 od 3…" → reload
-- `t=21s` "Pokušaj 3 od 3…" → reload
-- `t=32s` fallback "Aplikacija se učitava duže…"
+### 1.2 · `categoryRepository.commit` guta greške i ima race u snapshot-u
+`src/lib/repositories/categoryRepository.ts:67–82` hvata SQLite grešku, rolbekuje RAM, prikaže toast, ali **ne re-throw-a** — pozivaoci misle da je save uspio. Dodatno, `snapshot = getCategoryStoreRecords()` se uzima **prije** `_saveMutex.runExclusive`, pa drugi concurrent `commit` snima već dirty snapshot prvog. **Fix:** premjestiti snapshot capture unutar mutexa, re-throw greške.
 
-## Zašto baš ova tri simptoma
+### 1.3 · `db-seed` vraća in-memory defaults i kad write padne
+`src/lib/db-seed.ts:43–54` na grešku `bulkPutCategories` ipak vrati `defaults`. Sledeći boot — `listAllCategories()` prazan → seed se pokrene **ponovo** sa novim UUID-ovima. Sve kartice koje referenciraju stare UUID-ove postaju siročad. **Fix:** re-throw iz catch-a (ne vraćati defaults).
 
-Svaka operacija koja traje > 10 s od mounta (ili više od 10 s nakon zadnjeg uspješnog mounta) biva ubijena reloadom:
+### 1.4 · `categoryRepository.deleteAsync` tiho vraća OK kad executor je null
+`src/lib/repositories/categoryRepository.ts:120–121`. RAM kaže obrisano, SQLite zadrži red, kategorija se vrati na boot. **Fix:** `throw new Error("NO_EXECUTOR")` umjesto `return`.
 
-1. **Dodavanje kartica blokira aplikaciju** — prvi `useMutation` write nakon SQLite prewarm-a + WAL commit u DEV in-memory fallback-u; reload usred `bulkApply` ostavlja TanStack `onMutate` snapshot bez resolve-a i UI ostaje u disabled state-u dok se ne dogodi sljedeći reload.
-2. **DOCX uvoz neuspješan** — `docx-worker` `postMessage` round-trip + parse većih `.docx` lako pređe 10s; reload uništi worker i `useDocxImportFlow` resolve nikad ne stigne, toast ostane „uspješan" iz ranije faze ili tiho propadne.
-3. **Backup import nemoguć** — `parseJsonInWorker` → Zod → `migrateBackup` → `applyImportAtomically` (per-domain tx) traje znatno duže od 10 s na ozbiljnijem backupu; reload prekine transakciju, dialog se zatvori, podaci nisu primijenjeni.
+### 1.5 · `runMany` u SQLite client-u nema transakciju
+`src/lib/persistence/sqlite/client.ts:96–103` — hot path za bulk write. Greška u sredini → reda 1..N-1 commitovani, N..end izgubljeni, bez rollback-a. **Fix:** umotati u `BEGIN`/`COMMIT`/`ROLLBACK`.
 
-Sve tri „regresije" su zapravo **isti** kvar, ne tri odvojena.
+### 1.6 · `:memory:` fallback u OPFS client-u bez signala pozivaocu
+`src/lib/persistence/sqlite/client.ts:68–71` tiho zamijeni durable OPFS sa transientnim `:memory:` DB-om. Komentar sam kaže "adapter factory should not select us here", ali ne postoji runtime guard. **Fix:** reject promise umjesto fallback-a, ili izložiti `window.__codexDbDurable=false` koji health monitor surfajzuje kao trajni warning.
 
-## Verifikacija da prethodni fix-evi nisu pomogli
+---
 
-Provjerio sam fajlove iz prošlog turn-a:
+## WAVE 2 — Boot stabilnost i splash flasteri
 
-- `src/hooks/card-bootstrap/bootDb.ts` — SQLite prewarm radi, ali boot panic je 15 s; splash reload puca prije toga (10 s).
-- `src/hooks/useCardBootstrap.ts` — panic timer 15 s je interni boot fail-safe, ne dotiče `index.html` skriptu.
-- `src/features/docx-importer/docx-worker.ts` — switch na `mammoth.browser` riješio parse error, ali reload ga svejedno prekida.
-- `src/hooks/useCardImport.ts` / `ExportImportDialog.tsx` — error propagation i „dialog stays open on failure" su ispravni, ali full page reload zaobilazi sav React error handling.
+### 2.1 · `useCardBootstrap.ts:143` — `SchemaError.cause` uvijek `"unknown"`
+Dead ternary: `error instanceof SchemaError ? "unknown" : "unknown"`. Bila je tu `error.step`. Recovery UI nikad ne prikaže koji korak je pao. **Fix:** `error instanceof SchemaError ? error.step : "unknown"`.
 
-Dakle: **nijedan od prethodnih popravki nije adresirao stvarni uzrok jer je on u `index.html`, ne u React/persistence sloju.**
+### 2.2 · Panic timer (15s) racuje sa migration `withTimeout` (15s)
+`useCardBootstrap.ts:55` i `runSchema.ts:80` koriste istih 15s. Panic fire-uje *tokom* migracije, transitnira u `schema-error`, migracija odmah nakon toga rezolvira lažno OK. **Fix:** panic ≥ 22s ili migration timeout ≤ 10s; uskladiti.
 
-## Plan rješenja (minimalan, jedna izmjena + sanity guard)
+### 2.3 · `__codexAppMounted` se postavlja **prije** React commit-a
+`src/main.tsx:153,160` — `createRoot().render()` u React 18 je async; flag se postavi sinhronio na sledećoj liniji, prije bilo kog effect-a. **Fix:** premjestiti `window.__codexAppMounted = true` + `clearTimeout(__codexSplashTimer)` u `finally` blok `useCardBootstrap`-a, nakon `setReady(true)`.
 
-### 1. `index.html` — uslovi reload na stvarni mount + cleanup pri uspješnom mount-u
+### 2.4 · Splash retry: 60s totalni hang prije fallback-a
+`index.html:103,124` — 20s × (MAX_RETRIES=2 + 1). Treba environment-aware: `var TIMEOUT = window.electronAPI ? 8000 : 20000; var MAX_RETRIES = window.electronAPI ? 1 : 2;`. Nakon 2.3, retry je u praksi nepotreban.
 
-- Splash skripta umjesto polling-a za nepostojeći atribut treba slušati event koji `main.tsx` emituje nakon `createRoot(...).render(<App />)`.
-- Konkretno: zamijeniti provjeru `root.querySelector("[data-app-mounted]")` sa provjerom postavljenog `window.__codexAppMounted === true` **i** zadržati DOM atribut kao fallback.
-- Timer mora biti otkaziv: čuvati `var t = setTimeout(...)` na window scope-u (`window.__codexSplashTimer`) tako da ga `main.tsx` može počistiti čim React mount uspije.
+### 2.5 · CSP nedostaje `'wasm-unsafe-eval'`
+`index.html:9` meta-tag CSP nema `'wasm-unsafe-eval'` u `script-src`. U Chromium-u 95+ ovo je potrebno za WASM. Glavni `main.cjs` headeri možda jesu, ali meta-tag se evaluira u nekim modovima — može izazvati upravo "expected magic word" failure protiv kojeg `locateFile` workaround pokušava da brani. **Fix:** dodati `'wasm-unsafe-eval'` u `script-src` u meta i u `main.cjs`.
 
-### 2. `src/main.tsx` — signalizirati uspješan mount
+### 2.6 · `withTimeout` vraća fallback bez signaliziranja
+`src/hooks/card-bootstrap/withTimeout.ts:4–14`. Pozivaoci ne razlikuju "timeout vratio prazan array" od "stvarno prazan". `seedDefaultCategories` sa fallback `[]` i 2.5s budgetom → app boot-uje bez kategorija, bez greške. **Fix:** vratiti `{ value, timedOut: boolean }`, kritični pozivaoci moraju emitovati `LOAD_FAIL`.
 
-Odmah nakon `createRoot(...).render(<App />)`:
+---
 
-- `window.__codexAppMounted = true`
-- `document.getElementById("root")?.setAttribute("data-app-mounted", "1")`
-- `clearTimeout(window.__codexSplashTimer)` i `sessionStorage.removeItem("__codex_boot_retries")`
+## WAVE 3 — Persistence queue i mutacije
 
-Time se splash retry petlja eliminira u **svim** okruženjima (Electron i preview), bez taknute persistence logike.
+### 3.1 · `persist-queue.ts:180–191` — `NO_EXECUTOR` tihi gubitak
+Bez retry, bez toast-a. Pendingi su re-enqueueovani, ali jedini safety net je visibility change. **Fix:** prikazati distinkt toast, cap retries.
 
-### 3. (Opcionalno, defense-in-depth) Produžiti splash timeout sa 10 s na 20 s
+### 3.2 · `persist-queue.ts:202–206` — race između `schedule` timera i visibility flush
+Nema `isFlushRunning` boolean guard-a. **Fix:** entry guard u `flush()`.
 
-U Lovable preview-u cold SQLite WASM init + prvi mount može trajati 6–8 s; 10 s je preusko. 20 s ostavlja udobnu marginu, a stvarni mount signal iz koraka 2 u praksi otkaže timer prije toga.
+### 3.3 · `persist-queue.ts:210–227` — `cleanup()` ne drain-uje retry-jeve
+Jedan poziv `flush()`, pa provjeri `inFlightCount`. Ako je flush re-enqueueovao items na novi timer, cleanup vrati a items i dalje pending. **Fix:** `while (hasPending()) { await flush(); ... }` sa cap-om na MAX_RETRY+1.
 
-### 4. Validacija nakon implementacije
+### 3.4 · `opfs-sqlite-adapter.ts:29` — bare `catch {}` gubi originalni error
+WASM load fail, OPFS denial, quota error — svi se izgube. **Fix:** `Object.assign(new Error("NO_EXECUTOR"), { cause })` + `logger.error`.
 
-- Otvoriti preview, potvrditi u replay-u da nema „Pokušaj 2/3 od 3…" tranzicija.
-- Dodati novu kategoriju → ne blokira.
-- Importovati `.docx` izvor → toast „uspješno" + izvor se pojavljuje.
-- Importovati backup .json → dialog ostaje otvoren do completion-a, podaci primijenjeni.
+### 3.5 · `useSourceMutations.ts:58–63,86–89` — double invalidacija maskira slomljen bridge
+Komentar admituje da `_notify` bridge propušta nakon HMR-a. Root: `installQueryBridges` koristi modul-level `_installed = true` koji HMR ne resetuje. **Fix:** `import.meta.hot?.dispose(_resetBridgesForTest)`, pa skinuti `onSuccess` safety net-ove.
 
-## Tehnički detalji izmjena
+---
 
-```text
-index.html (script blok linije 101–126):
-  - var t = setTimeout(function(){ ... }, 20000);
-  - window.__codexSplashTimer = t;
-  - provjera: var appMounted = window.__codexAppMounted || root.querySelector("[data-app-mounted]");
+## WAVE 4 — Mrtav kod i deprecated scaffolding
 
-src/main.tsx (odmah nakon createRoot().render):
-  + (window as any).__codexAppMounted = true;
-  + document.getElementById("root")?.setAttribute("data-app-mounted", "1");
-  + const tid = (window as any).__codexSplashTimer;
-  + if (tid) { clearTimeout(tid); (window as any).__codexSplashTimer = null; }
-  + try { sessionStorage.removeItem("__codex_boot_retries"); } catch {}
-```
+### 4.1 · `src/lib/feature-flags.ts` — obrisati cijeli modul
+`REGISTRY = {}`, `FeatureFlagKey = never`, 0 pozivaoca. Trap za buduće flagove (silent `false`).
 
-Nema izmjena u persistence / SQLite / docx / backup kodu — oni su funkcionalno ispravni; samo ih je gasio reload.
+### 4.2 · `src/lib/db-error.ts:44–130` — obrisati 6 Dexie-era exporta
+`registerBlockedRejecter`, `unregisterBlockedRejecter`, `rejectAllBlocked`, `startUnblockWatch`, `scheduleTimeoutReload`, `emitBlockedThrottled` — 0 pozivaoca. `startUnblockWatch` sadrži raw `setInterval` koji curi timer slot za odsutni Dexie shell.
+
+### 4.3 · `src/lib/planner-storage.ts` — obrisati shim
+Jedna linija `export * from "@/domains/planner"`, 0 pozivaoca, ali ima permanentnu rupu u ESLint W11–W13 `ignores` listi.
+
+### 4.4 · `src/features/mnemonic/mnemonic-storage/migrate.ts` — obrisati legacy migration
+`migrateMnemonicsFromLocalStorageToIDB` čita localStorage ključeve koji ne postoje od v22. Re-export kroz tri barrel sloja.
+
+### 4.5 · `src/lib/db-types.ts` — ukloniti `htmlContent?` i `content?` deprecated polja sa `Card`
+0 write-pathova, ali tip dozvoljava silent undefined u JSON payload-u. Stara payload-a hendlovati eksplicitno u `decodeCard`.
+
+### 4.6 · `runSchema.ts:44–55` Steps 1+2 — sentinel-gate ili obrisati
+`migrateFromLocalStorage` i `migrateMnemonicsFromLocalStorageToIDB` se izvršavaju na **svaki** non-Electron boot, no-op za sve realne korisnike. Dodaje ~6s slow path-u. **Fix:** `localStorage.setItem("codex-migrations-clean","1")` sentinel ili brisanje.
+
+### 4.7 · `src/main.tsx:195–212` — Service Worker cleanup blok
+Komentar sam kaže "Scheduled for full removal in PR-9". PR-9 je završen. **Fix:** obrisati ili `sessionStorage` one-shot guard.
+
+### 4.8 · `src/main.tsx:126–127` — `assertDesktop()` redundantni async import
+Outer `isDesktopShell` gate već garantuje uslove. **Fix:** static import na vrh ili obrisati.
+
+### 4.9 · `src/lib/db.ts` — pure re-export barrel sa pogrešnim imenom
+Fajl koji se zove `db.ts` re-exportuje samo `db-seed.ts`. **Fix:** redirektovati pozivaoce na `@/lib/db-seed`, obrisati shim.
+
+---
+
+## WAVE 5 — Niže rangirani higijena nalazi
+
+- **DOCX worker:** `useDocxImportFlow.ts:57–79` zove `mammoth.convertToHtml` na main thread-u; cijela `docx-parser.ts` worker infrastruktura je dead code. Plus `docx-parser.ts:46` transferuje **kopiju** ArrayBuffer-a (`arrayBuffer.slice(0)`), original ostaje na main thread-u, worker primi prazan buffer. → wire worker, fix transfer list.
+- **`docx-worker.ts`** — odbacuje mammoth warnings, nema `self.onerror`.
+- **`ExportImportDialog.tsx:76`** — bare `catch {}`.
+- **`db-seed.ts:64`** — bare `catch {}` na localStorage cleanup.
+- **Komentari koji lažu:** `db-error.ts:24`, `healthService.ts:67`, `AppContext.tsx` header (referencira uklonjene Provider-e), `bootDb.ts:25` ("8s panic timer" → sad 15s).
+- **ESLint walls W6/W7/W8 unlabelled** — `eslint.config.js` numbering nedosljedan.
+
+---
+
+## Redoslijed implementacije i validacija
+
+1. **Wave 1** (svih 6) prvo — direktan rizik za podatke. Testovi: dodati 5 kategorija uzastopno, restartovati app, provjeriti da sve ostaju; importovati DOCX, restartovati, provjeriti kartice; pad-fault sa onemogućenim OPFS (DEV) → očekuje toast, ne tihi gubitak.
+2. **Wave 2** (boot stabilnost) — eliminacija svih reload/panic flastera. Validacija: spori cold boot (throttle CPU 4×) ne smije producirati lažni `schema-error`; mount signal mora doći iz stvarnog ready stanja.
+3. **Wave 3** (queue/mutacije) — fix HMR bridge pa skinuti `onSuccess` flaster.
+4. **Wave 4** (dead code) — siguran cleanup, manja površina za buduće bugove.
+5. **Wave 5** — kozmetika i komentari.
+
+Svaki wave: zaseban testni prolaz + run vitest. Backup/import e2e test (`card-import-flow-e2e.test.tsx`) mora biti zelen nakon Wave 1.
+
+---
+
+## Tehnički detalji
+
+Konkretne file:line lokacije i predloženi patch-evi su iznad. Ovo nije refactor projekat — preko 70% promjena su 1–5 linija po fajlu. Najveći diff je verovatno Wave 4.1+4.2+4.3+4.4 (brisanje modula), koji je čisto subtraktivan.
+
+Bez ovog plana: bilo koji budući "tihi" gubitak podataka biće teško dijagnostikovati jer 6 različitih mjesta swallow-uje greške. Plan eksplicitno otklanja "swallow + toast + return OK" anti-pattern svuda gdje se javlja.
