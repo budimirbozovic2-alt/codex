@@ -73,7 +73,8 @@ describe("useArticleDraft — contentDoc seed + flush", () => {
     await act(async () => { await result.current.flush(); });
     const persisted = (await getKnowledgeBaseArticle(article.id))!;
     expect(persisted.contentDoc?.version).toBe(4);
-    expect(persisted.content).toContain("novi sadrzaj");
+    const { deriveMarkdown } = await import("@/lib/editor-v4/derived");
+    expect(deriveMarkdown(persisted.contentDoc)).toContain("novi sadrzaj");
   });
 });
 
