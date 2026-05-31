@@ -1,5 +1,5 @@
 import { BarChart3, Target } from "lucide-react";
-import { m } from "framer-motion";
+import { m } from "@/lib/motion";
 import {
   AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer,
 } from "recharts";

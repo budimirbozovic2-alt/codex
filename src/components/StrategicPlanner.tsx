@@ -1,6 +1,6 @@
 import { Target, BarChart3, Map as MapIcon, Gauge, HelpCircle } from "lucide-react";
 import { useState, lazy, Suspense, useMemo } from "react";
-import { m } from "framer-motion";
+import { m } from "@/lib/motion";
 import InfoPanel from "@/components/InfoPanel";
 import { Card as SRCard } from "@/lib/spaced-repetition";
 import { ReviewLogEntry } from "@/lib/storage";

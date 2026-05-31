@@ -1,7 +1,7 @@
 import { RefreshCw } from "lucide-react";
 import { useState, useCallback, useRef, ReactNode } from "react";
 
-import { m, AnimatePresence } from "framer-motion";
+import { m, AnimatePresence } from "@/lib/motion";
 import { Skeleton } from "@/components/ui/skeleton";
 import { logger } from "@/lib/logger";
 interface Props<T> {

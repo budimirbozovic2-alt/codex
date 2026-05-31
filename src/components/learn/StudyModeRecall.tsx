@@ -2,7 +2,7 @@ import { Eye, Check, AlertTriangle } from "lucide-react";
 import { useState, useCallback, useEffect, useRef } from "react";
 import { taskScheduler } from "@/lib/scheduler";
 import { Card } from "@/lib/spaced-repetition";
-import { m, AnimatePresence } from "framer-motion";
+import { m, AnimatePresence } from "@/lib/motion";
 import { Button } from "@/components/ui/button";
 import { CardSelectionEditor } from "@/components/card-list/CardSelectionEditor";
 

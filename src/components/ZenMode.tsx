@@ -1,6 +1,6 @@
 import { Volume2, X, Play, Pause, VolumeX, RotateCcw, Timer, Coffee, Brain, SkipForward } from "lucide-react";
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
-import { m } from "framer-motion";
+import { m } from "@/lib/motion";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";

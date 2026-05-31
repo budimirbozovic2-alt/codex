@@ -4,7 +4,7 @@ import type { MindMapDoc, MindMapMode } from "@/lib/db-types";
 import { useMindMaps } from "@/hooks/useMindMaps";
 import { useMindMapMutations } from "@/hooks/mindmap/useMindMapMutations";
 import { Button } from "@/components/ui/button";
-import { AnimatePresence } from "framer-motion";
+import { AnimatePresence } from "@/lib/motion";
 import InfoPanel from "@/components/InfoPanel";
 import MindMapOnboarding from "@/components/mindmap/MindMapOnboarding";
 import { format } from "date-fns";

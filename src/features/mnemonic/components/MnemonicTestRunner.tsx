@@ -1,5 +1,5 @@
 import { ArrowLeft, CheckCircle, Timer, XCircle, Zap } from "lucide-react";
-import { m, AnimatePresence } from "framer-motion";
+import { m, AnimatePresence } from "@/lib/motion";
 import { Button } from "@/components/ui/button";
 import type { MnemonicCard } from "../mnemonic-storage";
 import type { SessionStats } from "../hooks/useTestEngine";

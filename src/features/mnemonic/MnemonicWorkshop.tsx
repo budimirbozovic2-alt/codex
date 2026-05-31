@@ -8,7 +8,7 @@ import InfoPanel from "@/components/InfoPanel";
 import WorkshopCardItem from "./workshop/WorkshopCardItem";
 import ScrollableRow from "@/components/ScrollableRow";
 import { useWorkshopFilters } from "@/hooks/mnemonic/useWorkshopFilters";
-import { m, AnimatePresence } from "framer-motion";
+import { m, AnimatePresence } from "@/lib/motion";
 
 
 const COLLAPSED_HEIGHT = 72;

@@ -10,7 +10,7 @@ import {
 import { useMnemonicCards } from "@/hooks/mnemonic/useMnemonicCards";
 import { useMnemonicMutations } from "@/hooks/mnemonic/useMnemonicMutations";
 
-import { m, AnimatePresence } from "framer-motion";
+import { m, AnimatePresence } from "@/lib/motion";
 import MnemonicWorkshop from "./MnemonicWorkshop";
 import MnemonicTest from "./MnemonicTest";
 import MajorSystemSettings from "./MajorSystemSettings";

@@ -1,6 +1,6 @@
 import { ReactNode, useId } from "react";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
-import { m, AnimatePresence } from "framer-motion";
+import { m, AnimatePresence } from "@/lib/motion";
 import { cn } from "@/lib/utils";
 
 interface DialogShellProps {

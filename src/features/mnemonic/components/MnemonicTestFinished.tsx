@@ -1,5 +1,5 @@
 import { ArrowLeft, Brain, RotateCcw } from "lucide-react";
-import { m } from "framer-motion";
+import { m } from "@/lib/motion";
 import { Button } from "@/components/ui/button";
 import type { SessionStats } from "../hooks/useTestEngine";
 
