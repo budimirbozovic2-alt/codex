@@ -153,9 +153,9 @@ export default tseslint.config(
     },
   },
 
-  // View-layer hardening: views must consume domain providers, not raw db.
-  // Sanctioned exceptions: source/mindmap-heavy views still call db directly
-  // because no dedicated provider exists for those domains yet.
+  // ─── W6 — View-layer Public API discipline ─────────────────────────────
+  // Views must consume domain providers, not raw infra. Source/mindmap-heavy
+  // views are sanctioned exceptions because no dedicated provider exists yet.
   {
     files: ["src/views/**/*.{ts,tsx}"],
     rules: {
@@ -164,10 +164,9 @@ export default tseslint.config(
         {
           paths: [
             {
-              name: "@/lib/db",
+              name: "@/lib/db-seed",
               message:
-                "Views must use domain providers (useCardData, useCategoryActions, useBackupActions, …) instead of importing the raw db instance. Type-only imports (import type … from '@/lib/db') are still allowed.",
-              importNames: ["db"],
+                "Views must use domain providers (useCardData, useCategoryActions, useBackupActions, …) instead of importing seed helpers directly (W6).",
             },
           ],
           patterns: [
