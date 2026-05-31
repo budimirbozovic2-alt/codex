@@ -74,6 +74,14 @@ export function getOpfsSqliteExecutor(): Promise<SqlExecutor> {
     }
 
     const exec = wrapDb(db);
+    // A1 fix: `PRAGMA foreign_keys` is connection-scoped and NOT persisted.
+    // Must be emitted on every open, before any DML or migrations run.
+    // Previously only set inside `runMigrations`, which early-returns once
+    // the DB is at TARGET_USER_VERSION — every post-migration boot opened
+    // the connection with FK enforcement OFF, allowing orphan satellite
+    // rows to slip through silently until the next import re-triggered the
+    // constraint via `DELETE FROM categories`.
+    await exec.exec("PRAGMA foreign_keys = ON;");
     const { from, to } = await runMigrations(exec);
     if (from !== to) logger.info(`[sqlite] migrated user_version ${from} → ${to}`);
     await exec.exec("PRAGMA wal_checkpoint(TRUNCATE);");
