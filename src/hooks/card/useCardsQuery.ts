@@ -12,7 +12,8 @@
  * path (debounced, scope-aware). `staleTime: Infinity` because we never
  * refetch on focus/mount/reconnect.
  */
-import { useQuery } from "@tanstack/react-query";
+import { useMemo } from "react";
+import { useQuery, useQueries } from "@tanstack/react-query";
 import {
   listAllCards,
   cardsByCategory,
@@ -130,4 +131,38 @@ export function useCardCountByCategory(categoryId: string | undefined): number {
     staleTime: Infinity,
   });
   return data ?? 0;
+}
+
+/**
+ * PR-F — Batched per-category counts as a stable `Record<categoryId, count>`.
+ *
+ * Replaces the legacy `useCardAggregates().cardCountByCategory` reducer over
+ * the full `useAllCards()` array. Each entry is backed by a SQL
+ * `SELECT COUNT(*) FROM cards WHERE categoryId = ?` query, cached under
+ * `queryKeys.cards.countByCategory(id)` and invalidated by the
+ * `onCardsChanged → bridges` flow on every write.
+ *
+ * Returned map identity is stable across renders when the underlying counts
+ * (and id list) are unchanged — safe to pass as a prop.
+ */
+export function useCardCountsByCategoryMap(
+  categoryIds: readonly string[],
+): Record<string, number> {
+  const results = useQueries({
+    queries: categoryIds.map((id) => ({
+      queryKey: queryKeys.cards.countByCategory(id),
+      queryFn: () => cardCountByCategory(id),
+      staleTime: Infinity,
+    })),
+  });
+  const idsKey = categoryIds.join("|");
+  const dataKey = results.map((r) => r.data ?? 0).join("|");
+  return useMemo(() => {
+    const out: Record<string, number> = {};
+    categoryIds.forEach((id, i) => {
+      out[id] = results[i]?.data ?? 0;
+    });
+    return out;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [idsKey, dataKey]);
 }
