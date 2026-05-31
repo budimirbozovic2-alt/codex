@@ -166,6 +166,15 @@ if (!isDesktopShell && import.meta.env.PROD) {
     initColorTheme();
     markBootStep("main:theme-init-done");
 
+    // PR-D D5: install the body-pointer-events guard BEFORE the first
+    // React render. Previously this lived in an `App.tsx` `useEffect`, so
+    // it only attached after the first paint — a Radix Dialog opened in
+    // the very first commit (e.g. an onboarding modal) could leak
+    // `pointer-events: none` on <body> before the guard was listening.
+    // The guard is idempotent and registered via `installed` singleton.
+    const { installBodyPointerEventsGuard } = await import("./lib/body-pointer-events-guard");
+    installBodyPointerEventsGuard();
+
     markBootStep("main:react-render-start");
     createRoot(document.getElementById("root")!).render(<App />);
     markBootStep("main:react-render-done");
