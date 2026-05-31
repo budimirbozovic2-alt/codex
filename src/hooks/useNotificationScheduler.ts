@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { loadAppSettings } from "@/lib/app-settings";
+import { taskScheduler } from "@/lib/scheduler";
 
 export function useNotificationScheduler() {
   useEffect(() => {
@@ -31,7 +32,10 @@ export function useNotificationScheduler() {
 
     const onVisChange = () => { if (document.visibilityState === "visible") refreshSettings(); };
     document.addEventListener("visibilitychange", onVisChange);
-    const interval = window.setInterval(check, 60000);
-    return () => { clearInterval(interval); document.removeEventListener("visibilitychange", onVisChange); };
+    const handle = taskScheduler.setInterval(check, 60000, { label: "notification:daily-reminder" });
+    return () => {
+      taskScheduler.cancel(handle);
+      document.removeEventListener("visibilitychange", onVisChange);
+    };
   }, []);
 }
