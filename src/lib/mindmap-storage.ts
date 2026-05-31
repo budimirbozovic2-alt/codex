@@ -9,6 +9,7 @@
 import type { MindMapDoc } from "./db-types";
 import * as repo from "./db/queries/mind-maps";
 import { logger } from "@/lib/logger";
+import { wrapWrite, type WriteResult } from "@/lib/persistence/write-result";
 
 // ── Listener-based invalidation signaling ──
 type MindMapListener = () => void;
