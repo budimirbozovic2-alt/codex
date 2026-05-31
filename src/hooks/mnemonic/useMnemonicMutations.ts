@@ -47,29 +47,58 @@ export function useMnemonicMutations() {
       await bulkPutMnemonics(next);
     },
     onMutate: async (next) => {
+      // PR-G1 / C-1 fix:
+      // `bulkPutMnemonics` is a per-id UPSERT, and callers (MnemonicModule
+      // with categoryFilter, SourceReader, CardSelectionEditor) pass only
+      // the cards they care about (typically a single category's subset).
+      // Earlier `setQueryData(all(), next)` therefore SILENTLY DROPPED every
+      // other category from the in-memory cache until bridge invalidation
+      // refetched it — a window in which any consumer of `mnemonics.all()`
+      // would see a truncated list. Fix: upsert-merge `next` into `prevAll`
+      // by id, and only touch byCategory caches for categories actually
+      // present in `next`.
       await qc.cancelQueries({ queryKey: queryKeys.mnemonics.root });
       const prevAll = qc.getQueryData<MnemonicCard[]>(queryKeys.mnemonics.all());
-      qc.setQueryData<MnemonicCard[]>(queryKeys.mnemonics.all(), next);
 
-      // Re-seed every scoped category cache that this write touches.
-      const byCat = new Map<string, MnemonicCard[]>();
+      const nextIds = new Set(next.map((c) => c.id));
+      const mergedAll: MnemonicCard[] = [
+        ...(prevAll ?? []).filter((c) => !nextIds.has(c.id)),
+        ...next,
+      ];
+      qc.setQueryData<MnemonicCard[]>(queryKeys.mnemonics.all(), mergedAll);
+
+      // Group `next` by the (new) categoryId so we can re-seed only the
+      // affected byCategory caches.
+      const byNextCat = new Map<string, MnemonicCard[]>();
       for (const c of next) {
-        const arr = byCat.get(c.categoryId) ?? [];
+        const arr = byNextCat.get(c.categoryId) ?? [];
         arr.push(c);
-        byCat.set(c.categoryId, arr);
+        byNextCat.set(c.categoryId, arr);
       }
-      // Also reset categories that previously held cards but are now empty.
-      for (const prev of prevAll ?? []) {
-        if (!byCat.has(prev.categoryId)) byCat.set(prev.categoryId, []);
+      // Also: if any card moved BETWEEN categories, the old category's
+      // cache needs the stale row removed. Detect by comparing prevAll's
+      // categoryId for each id in `next` against the new one.
+      const prevById = new Map<string, MnemonicCard>(
+        (prevAll ?? []).map((c) => [c.id, c]),
+      );
+      const touchedCats = new Set<string>(byNextCat.keys());
+      for (const c of next) {
+        const prevCat = prevById.get(c.id)?.categoryId;
+        if (prevCat && prevCat !== c.categoryId) touchedCats.add(prevCat);
       }
 
       const prevByCat: Record<string, MnemonicCard[] | undefined> = {};
-      byCat.forEach((arr, cat) => {
+      for (const cat of touchedCats) {
         prevByCat[cat] = qc.getQueryData<MnemonicCard[]>(
           queryKeys.mnemonics.byCategory(cat),
         );
-        qc.setQueryData<MnemonicCard[]>(queryKeys.mnemonics.byCategory(cat), arr);
-      });
+        const base = (prevByCat[cat] ?? []).filter((c) => !nextIds.has(c.id));
+        const additions = byNextCat.get(cat) ?? [];
+        qc.setQueryData<MnemonicCard[]>(
+          queryKeys.mnemonics.byCategory(cat),
+          [...base, ...additions],
+        );
+      }
       return { prevAll, prevByCat };
     },
     onError: (_e, _vars, ctx) => {

@@ -1,4 +1,9 @@
 import { logger } from "@/lib/logger";
+import {
+  listSettingsByPrefix,
+  putSetting,
+  deleteSetting,
+} from "@/lib/db/queries";
 /**
  * Per-subject algorithm overrides.
  *
@@ -38,7 +43,6 @@ export async function initSubjectSettingsCache(): Promise<void> {
   if (_initialized) return;
   _initialized = true;
   try {
-    const { listSettingsByPrefix, putSetting } = await import("@/lib/db/queries");
     const rows = await listSettingsByPrefix<SubjectSettings>(PREFIX);
     for (const row of rows) {
       const id = row.key.slice(PREFIX.length);
@@ -57,7 +61,9 @@ export async function initSubjectSettingsCache(): Promise<void> {
           if (!raw) continue;
           const parsed = JSON.parse(raw) as SubjectSettings;
           _cache.set(id, parsed);
-          putSetting(k, parsed).catch(() => {});
+          putSetting(k, parsed).catch((err) =>
+            logger.warn("[subject-settings] legacy mirror put failed", err),
+          );
         } catch { /* skip malformed entry */ }
       }
     }
@@ -84,20 +90,20 @@ export function saveSubjectSettings(categoryId: string, settings: SubjectSetting
   const json = JSON.stringify(settings);
   // localStorage stays as a fast-read mirror.
   try { localStorage.setItem(PREFIX + categoryId, json); } catch { /* quota */ }
-  // SQLite (via repo) is canonical and is the source for backups + restore.
-  import("@/lib/db/queries").then(({ putSetting }) => {
-    putSetting(PREFIX + categoryId, settings)
-      .catch((err) => logger.warn("[subject-settings] put failed", err));
-  }).catch(() => {});
+  // PR-G1 / C-2 fix: static import + explicit error logging. Previous
+  // dynamic-import + empty outer `.catch(() => {})` could silently drop the
+  // SQLite (SSOT) write while localStorage gave the user false confidence.
+  putSetting(PREFIX + categoryId, settings).catch((err) =>
+    logger.error("[subject-settings] put failed — SSOT write lost", err),
+  );
 }
 
 export function clearSubjectSettings(categoryId: string): void {
   _cache.delete(categoryId);
   try { localStorage.removeItem(PREFIX + categoryId); } catch { /* noop */ }
-  import("@/lib/db/queries").then(({ deleteSetting }) => {
-    deleteSetting(PREFIX + categoryId)
-      .catch((err) => logger.warn("[subject-settings] delete failed", err));
-  }).catch(() => {});
+  deleteSetting(PREFIX + categoryId).catch((err) =>
+    logger.error("[subject-settings] delete failed — SSOT row may leak", err),
+  );
 }
 
 /** Returns true if any overrides are saved for this subject */

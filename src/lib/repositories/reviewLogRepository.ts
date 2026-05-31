@@ -20,6 +20,12 @@ const DEBOUNCE_MS = 250;
 const MAX_BACKOFF_MS = 30_000;
 let _backoffMs = DEBOUNCE_MS;
 
+// PR-G1 / M-2 fix: track in-flight drain so `flush()` (called from quit /
+// backup paths) actually awaits any drain already in progress instead of
+// firing a second concurrent `_drain()` that may double-process re-queued
+// entries on failure paths.
+let _inFlight: Promise<void> | null = null;
+
 async function _drain(): Promise<void> {
   _timer = null;
   if (_queue.length === 0) return;
@@ -38,10 +44,15 @@ async function _drain(): Promise<void> {
   }
 }
 
+async function _drainGuarded(): Promise<void> {
+  if (_inFlight) return _inFlight;
+  _inFlight = _drain().finally(() => { _inFlight = null; });
+  return _inFlight;
+}
 
 function _schedule(delayMs: number = DEBOUNCE_MS): void {
   if (_timer == null) {
-    _timer = setTimeout(() => { void _drain(); }, delayMs);
+    _timer = setTimeout(() => { void _drainGuarded(); }, delayMs);
   }
 }
 
@@ -64,7 +75,10 @@ if (typeof document !== "undefined") {
 
 async function flush(): Promise<void> {
   if (_timer != null) { clearTimeout(_timer); _timer = null; }
-  await _drain();
+  // Wait for any in-flight drain to settle BEFORE starting a new one — this
+  // is what makes back-to-back `flush()` calls from quit-backup safe.
+  if (_inFlight) await _inFlight;
+  await _drainGuarded();
 }
 
 export const reviewLogRepository = {

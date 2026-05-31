@@ -1,5 +1,6 @@
 import { persistQueue } from "@/lib/persist-queue";
 import { reviewLogRepository } from "@/lib/repositories";
+import { toast } from "sonner";
 
 import { logger } from "@/lib/logger";
 
@@ -160,6 +161,14 @@ export async function setupElectronIPC() {
 
   // Sigurno zatvaranje uz flush queue-a
   const cleanupQuit = window.electronAPI.onQuitBackupRequested?.(async () => {
+    // PR-G1 / H-4 fix:
+    // Previously a 5 s `Promise.race` timeout silently won for users with
+    // large datasets (>5k cards + heavy review log). On timeout
+    // `notifyQuitBackupDone()` was still called and the user was never told
+    // the auto-backup had been dropped. Bumped to 30 s and the timeout
+    // branch now surfaces a toast so the user can re-trigger a manual
+    // backup before closing.
+    const QUIT_BACKUP_TIMEOUT_MS = 30_000;
     try {
       await Promise.race([
         (async () => {
@@ -171,10 +180,20 @@ export async function setupElectronIPC() {
           const data = await buildBackupData();
           await streamBackup(data);
         })(),
-        new Promise((_, reject) => setTimeout(() => reject(new Error("timeout")), 5000))
+        new Promise((_, reject) =>
+          setTimeout(
+            () => reject(new Error("quit-backup-timeout")),
+            QUIT_BACKUP_TIMEOUT_MS,
+          ),
+        ),
       ]);
     } catch (err) {
       logger.error("[quit-backup] failed, releasing lock:", err);
+      try {
+        toast.error(
+          "Auto-backup pri zatvaranju nije uspio. Pokrenite manualni backup prije sljedećeg zatvaranja.",
+        );
+      } catch { /* toast may be unavailable late in teardown */ }
     } finally {
       window.electronAPI!.notifyQuitBackupDone?.();
     }
