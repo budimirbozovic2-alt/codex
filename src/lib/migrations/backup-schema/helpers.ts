@@ -67,8 +67,12 @@ export function lenientArray<T extends z.ZodTypeAny>(schema: T, label: string) {
           }
         }
       }
-      if (dropped > 0 && typeof console !== "undefined") {
-        console.warn(`[backup-schema] ${label}: dropped ${dropped} invalid row(s). First: ${firstErr}`);
+      if (dropped > 0) {
+        // PR-H1: route through central logger so schema warnings respect
+        // the same prod-suppression contract as the rest of the app.
+        void import("@/lib/logger").then(({ logger }) => {
+          logger.warn(`[backup-schema] ${label}: dropped ${dropped} invalid row(s). First: ${firstErr}`);
+        });
       }
       return out;
     });

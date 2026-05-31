@@ -32,12 +32,19 @@ const showFatalBootError = (message: string) => {
 };
 
 window.onerror = (_message, _source, _lineno, _colno, error) => {
-  console.error("[boot] window.onerror", error || _message);
+  // PR-H1: route through logger to keep the prod-suppression contract
+  // consistent (Vite esbuild.pure does not tree-shake console.error
+  // reliably across all bundlers).
+  void import("./lib/logger").then(({ logger }) => {
+    logger.error("[boot] window.onerror", error || _message);
+  });
   showFatalBootError(error instanceof Error ? error.message : String(_message || "Nepoznata greška pri startu."));
 };
 
 window.onunhandledrejection = (event) => {
-  console.error("[boot] unhandledrejection", event.reason);
+  void import("./lib/logger").then(({ logger }) => {
+    logger.error("[boot] unhandledrejection", event.reason);
+  });
 };
 
 markBootStep("main:error-handlers-registered");
@@ -187,7 +194,9 @@ if (!isDesktopShell && import.meta.env.PROD) {
     // hook once `setReady(true)` runs.
 
     window.onerror = (_msg, _src, _ln, _col, err) => {
-      console.error("[runtime] uncaught error", err || _msg);
+      void import("./lib/logger").then(({ logger: log }) => {
+        log.error("[runtime] uncaught error", err || _msg);
+      });
     };
 
     // ── Electron IPC Setup ──
@@ -207,7 +216,9 @@ if (!isDesktopShell && import.meta.env.PROD) {
     }
 
   } catch (err) {
-    console.error("[boot] bootstrap failed", err);
+    void import("./lib/logger").then(({ logger }) => {
+      logger.error("[boot] bootstrap failed", err);
+    });
     markBootStep("main:bootstrap-error", err instanceof Error ? err.message : String(err));
     showFatalBootError(err instanceof Error ? err.message : String(err));
     return;
