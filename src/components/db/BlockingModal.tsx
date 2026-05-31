@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { eventBus, EVENT_TYPES } from "@/lib/event-bus";
 import { AlertCircle, MonitorOff, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { taskScheduler } from "@/lib/scheduler";
 
 /**
  * Hard-blocking modal that appears when IndexedDB is blocked by another tab.
@@ -27,15 +28,17 @@ export default function BlockingModal() {
   }, []);
 
   // P1: Tab-count polling only runs while the modal is actually blocking.
-  // Previously a setInterval ran for the entire app lifetime, causing
-  // continual re-renders and event-bus calls even when nothing was blocked.
+  // PR-G4: routed through taskScheduler so the timer participates in the
+  // global shutdown contract and is auto-cancelled on unmount.
   useEffect(() => {
     if (!isBlocked) return;
     setTabCount(eventBus.getTabCount());
-    const interval = setInterval(() => {
-      setTabCount(eventBus.getTabCount());
-    }, 2000);
-    return () => clearInterval(interval);
+    const handle = taskScheduler.setInterval(
+      () => setTabCount(eventBus.getTabCount()),
+      2000,
+      { label: "blockingModal:tabCount" },
+    );
+    return () => taskScheduler.cancel(handle);
   }, [isBlocked]);
 
   if (!isBlocked) return null;

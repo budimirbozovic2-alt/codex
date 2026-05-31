@@ -1,5 +1,5 @@
 import { Volume2, X, Play, Pause, VolumeX, RotateCcw, Timer, Coffee, Brain, SkipForward } from "lucide-react";
-import { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { m } from "@/lib/motion";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
@@ -36,8 +36,6 @@ export default function ZenMode({ active, onToggle }: Props) {
 
   // Load pomodoro stats on mount
   useEffect(() => { getPomodoroStats().then(setPomodoroStats); }, []);
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
   const totalForPhase = phase === "focus" ? FOCUS_DURATION : phase === "longBreak" ? LONG_BREAK_DURATION : BREAK_DURATION;
 
   useEffect(() => {
@@ -50,11 +48,18 @@ export default function ZenMode({ active, onToggle }: Props) {
     }
   }, [active]);
 
+  // PR-G4: countdown tick goes through taskScheduler (auto-cancel on unmount,
+  // participates in beforeunload/quit shutdown). 1s drift is well within the
+  // pomodoro tolerance budget — engines requiring sub-frame timing
+  // (SpeedReader RSVP, Pomodoro engine store) stay on raw timers.
   useEffect(() => {
-    if (timerRunning && seconds > 0) {
-      intervalRef.current = setInterval(() => setSeconds(s => s - 1), 1000);
-    }
-    return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
+    if (!timerRunning || seconds <= 0) return;
+    const handle = taskScheduler.setInterval(
+      () => setSeconds(s => s - 1),
+      1000,
+      { label: "zenMode:countdown" },
+    );
+    return () => taskScheduler.cancel(handle);
   }, [timerRunning, seconds]);
 
   const playChime = useCallback((type: "focus" | "break") => {
