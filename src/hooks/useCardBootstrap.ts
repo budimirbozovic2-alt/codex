@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { markBootStep } from "@/lib/boot-trace";
 import { transition, getBootState, installSplashBridge } from "@/lib/boot";
 import { notifyCardsChanged } from "@/lib/db/queries";
+import { useDbError } from "@/hooks/useDbError";
 
 
 import { categoryRepository } from "@/lib/repositories";
@@ -42,10 +43,18 @@ function inSchemaPhase(): boolean {
 export function useCardBootstrap() {
   const [ready, setReady] = useState(false);
   const initialLoadDone = useRef(false);
-
-
+  // PR-D D2: react to DB error state. If the previous boot tripped a
+  // schema/version/timeout error, the RecoveryGate renders the recovery
+  // panel and we MUST NOT keep cycling boot DAG hooks against the broken
+  // database. We defer all work until `dbError` clears (user confirms
+  // recovery → state flips to null → effect re-evaluates and runs once).
+  const dbError = useDbError();
 
   useEffect(() => {
+    if (dbError) {
+      markBootStep("boot:gated-on-db-error", dbError.type);
+      return;
+    }
     if (initialLoadDone.current) return;
     initialLoadDone.current = true;
     installSplashBridge();
@@ -178,7 +187,7 @@ export function useCardBootstrap() {
     })();
 
     return () => clearTimeout(panicTimer);
-  }, []);
+  }, [dbError]);
 
   return { ready };
 }

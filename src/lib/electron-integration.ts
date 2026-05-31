@@ -1,4 +1,5 @@
 import { persistQueue } from "@/lib/persist-queue";
+import { reviewLogRepository } from "@/lib/repositories";
 
 import { logger } from "@/lib/logger";
 
@@ -162,6 +163,10 @@ export async function setupElectronIPC() {
     try {
       await Promise.race([
         (async () => {
+          // PR-D D1: flush the review-log queue first — this used to live
+          // in a duplicate AppBootstrap handler; consolidating it here is
+          // what made it safe to delete that one.
+          await reviewLogRepository.flush();
           await persistQueue.flush();
           const data = await buildBackupData();
           await streamBackup(data);

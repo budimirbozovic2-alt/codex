@@ -48,24 +48,17 @@ export function AppBootstrap(): null {
   useActivityTracker(view);
 
 
-  // Electron quit + unmount drain — flush review log + persist queue.
+  // PR-D D1: quit-backup IPC handler lives **only** in
+  // `setupElectronIPC` (`lib/electron-integration.ts`). The previous
+  // duplicate registration here meant every quit triggered two flushes
+  // and two `notifyQuitBackupDone` IPC calls, racing on the shared
+  // persistQueue and risking a double-completion signal to the main
+  // process before the heavier streaming backup actually finished.
+  // AppBootstrap still owns the unmount-time drain — that is a React
+  // lifecycle concern, not an IPC concern, and runs only when this
+  // tree literally unmounts (HMR, tab close, route change).
   useEffect(() => {
-    const electron = typeof window !== "undefined" ? window.electronAPI : undefined;
-    let unsubQuit: (() => void) | undefined;
-    if (electron?.onQuitBackupRequested) {
-      unsubQuit = electron.onQuitBackupRequested(async () => {
-        try {
-          await reviewLogRepository.flush();
-          await persistQueue.cleanup();
-        } catch (err) {
-          logger.error("[AppBootstrap] quit flush failed", err);
-        } finally {
-          try { electron.notifyQuitBackupDone?.(); } catch { /* noop */ }
-        }
-      });
-    }
     return () => {
-      try { unsubQuit?.(); } catch { /* noop */ }
       void reviewLogRepository.flush();
       void persistQueue.cleanup();
     };
