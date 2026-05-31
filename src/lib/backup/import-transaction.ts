@@ -94,6 +94,28 @@ export async function applyImportAtomically(ctx: ImportCtx): Promise<ImportTxRes
       progress(35, "Snimanje kategorija…");
       finalCategories = await writeCategoriesTx(tx, parsed, strategy, freshCategories);
 
+      // Defensive scrub: drop merged cards whose categoryId no longer
+      // resolves against the final category set. Without this, non-overwrite
+      // imports with stale categoryId or legacy backups (string[] cats →
+      // new UUIDs) crash with SQLITE_CONSTRAINT_FOREIGNKEY (787) on the
+      // cards INSERT. pruneOrphans handles satellites; merged cards are
+      // built by mergeCardsByStrategy and are not touched by it.
+      const validCategoryIds = new Set(finalCategories.map((c) => c.id));
+      const beforeLen = merged.length;
+      let droppedCards = 0;
+      for (let i = merged.length - 1; i >= 0; i--) {
+        if (!validCategoryIds.has(merged[i].categoryId)) {
+          delete nextMap[merged[i].id];
+          merged.splice(i, 1);
+          droppedCards += 1;
+        }
+      }
+      if (droppedCards > 0) {
+        backupLog.warn("import", "dropped cards with orphan categoryId", {
+          dropped: droppedCards, before: beforeLen, after: merged.length,
+        });
+      }
+
       // Sources MUST land before cards: cards have FK `sourceId → sources(id)`.
       // Previously cards wrote first and any non-null sourceId triggered
       // SQLITE_CONSTRAINT_FOREIGNKEY (787). writeSourcesTx returns the final

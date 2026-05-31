@@ -82,7 +82,7 @@ export async function applyRemapToParsed(
   }
 }
 
-/** Drop satellite rows whose `categoryId` no longer exists. Overwrite-only. */
+/** Drop satellite rows whose `categoryId` no longer exists. */
 export function pruneOrphans(parsed: ParsedBackup, validCategoryIds: Set<string>): void {
   parsed.sources = parsed.sources.filter((s) => !s.categoryId || validCategoryIds.has(s.categoryId));
   parsed.mnemonics = parsed.mnemonics.filter((m) => !m.categoryId || validCategoryIds.has(m.categoryId));
@@ -90,4 +90,7 @@ export function pruneOrphans(parsed: ParsedBackup, validCategoryIds: Set<string>
     (a) => !a.subjectId || validCategoryIds.has(a.subjectId),
   );
   parsed.mindMaps = parsed.mindMaps.filter((m) => !m.categoryId || validCategoryIds.has(m.categoryId));
+  // Safety net: cards are written from `merged` in the hot path, but any
+  // future caller that writes directly from parsed.cards must not violate FK.
+  parsed.cards = parsed.cards.filter((c) => !c.categoryId || validCategoryIds.has(c.categoryId));
 }
