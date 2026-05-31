@@ -48,8 +48,13 @@ describe("PR-G5 — DnD virtualization", () => {
       resolve(process.cwd(), "src/components/category/org-mode/VirtualSortableCardList.tsx"),
       "utf8",
     );
-    expect(file).not.toMatch(/<SortableContext\b/);
-    expect(file).not.toMatch(/from\s+["']@dnd-kit\/sortable["']/);
+    // Strip JSDoc/line comments before scanning so doc references don't
+    // false-positive.
+    const code = file
+      .replace(/\/\*[\s\S]*?\*\//g, "")
+      .replace(/^\s*\/\/.*$/gm, "");
+    expect(code).not.toMatch(/<SortableContext\b/);
+    expect(code).not.toMatch(/from\s+["']@dnd-kit\/sortable["']/);
   });
 
   it("CardOrgMode still mounts <DragOverlay> via document.body portal (overlay shim)", () => {
