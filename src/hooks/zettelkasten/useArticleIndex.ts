@@ -42,7 +42,7 @@ export function useArticleIndex({ articles, activeId, isEditing }: Input): Resul
     if (isEditing) return new Set<string>();
     const set = new Set<string>();
     for (const a of articles) {
-      if (a.content.trim().length !== 0) continue;
+      if (!isDocEmpty(a.contentDoc)) continue;
       set.add(a.title.trim().toLowerCase());
       if (Array.isArray(a.aliases)) {
         for (const alias of a.aliases) set.add(alias.trim().toLowerCase());

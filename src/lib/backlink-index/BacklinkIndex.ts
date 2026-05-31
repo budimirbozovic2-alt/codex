@@ -33,6 +33,7 @@
  */
 import type { KnowledgeBaseArticle } from "../zettelkasten-storage";
 import { iterateWikiLinks } from "../zettelkasten-wiki-link";
+import { deriveMarkdown } from "../editor-v4/derived";
 import type { BacklinkEntry, SubjectState } from "./types";
 import { norm, snippetFor } from "./normalize";
 
@@ -153,7 +154,9 @@ class BacklinkIndex {
     const links = new Set<string>();
     const seenInThis = new Set<string>();
     const selfTitle = norm(a.title);
-    for (const m of iterateWikiLinks(a.content)) {
+    // `content` (markdown) was dropped — derive once from the AST.
+    const body = deriveMarkdown(a.contentDoc);
+    for (const m of iterateWikiLinks(body)) {
       const targetKey = norm(m.target);
       if (!targetKey) continue;
       // Resolve aliases → canonical title key.
@@ -171,7 +174,7 @@ class BacklinkIndex {
         s.byTarget.set(canonicalKey, bucket);
       }
       bucket.add(a.id);
-      s.snippets.set(`${a.id}::${canonicalKey}`, snippetFor(a.content, m.index, m.raw.length));
+      s.snippets.set(`${a.id}::${canonicalKey}`, snippetFor(body, m.index, m.raw.length));
     }
     if (links.size > 0) s.articleLinks.set(a.id, links);
   }
