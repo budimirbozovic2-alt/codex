@@ -6,35 +6,61 @@ on:
   pull_request:
     branches: [main]
 
+# Cancel superseded runs on the same ref (saves minutes on PR rebases).
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   guard:
-    name: Lint, domain walls & tests
+    name: Lint, domain walls, typecheck & tests
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    env:
+      # Skip Husky/Playwright/Electron post-install downloads in CI.
+      HUSKY: "0"
+      ELECTRON_SKIP_BINARY_DOWNLOAD: "1"
     steps:
       - uses: actions/checkout@v4
 
+      # ── Node + built-in npm cache (~/.npm keyed on package-lock.json) ──
       - uses: actions/setup-node@v4
         with:
           node-version: "20"
           cache: "npm"
 
-      - name: Install dependencies
-        run: npm ci
+      # ── ESLint + TypeScript incremental caches ─────────────────────────
+      # `.eslintcache` and `.tsbuildinfo` make repeat runs 5–10x faster
+      # on unchanged files. Keyed on lockfile + config so any toolchain
+      # bump invalidates cleanly.
+      - name: Restore lint & typecheck caches
+        uses: actions/cache@v4
+        with:
+          path: |
+            .eslintcache
+            node_modules/.cache
+            **/*.tsbuildinfo
+          key: >-
+            tooling-${{ runner.os }}-node20-${{ hashFiles('package-lock.json',
+            'eslint.config.js', 'tsconfig*.json') }}-${{ github.ref_name }}
+          restore-keys: |
+            tooling-${{ runner.os }}-node20-${{ hashFiles('package-lock.json', 'eslint.config.js', 'tsconfig*.json') }}-
+            tooling-${{ runner.os }}-node20-
 
-      # ── Domain wall guard (W11–W14) ────────────────────────────────────
-      # Fast grep-based check that mirrors the ESLint walls. Runs first so
-      # boundary violations fail the build with a focused report before
-      # the noisier full lint pass.
+      - name: Install dependencies
+        run: npm ci --prefer-offline --no-audit --fund=false
+
+      # ── Domain wall guard (W11–W14) — fast grep, runs first ────────────
       - name: Domain walls (W11–W14)
         run: npm run lint:walls
 
-      # ── Full ESLint (includes no-restricted-imports as ERROR) ──────────
-      # `--max-warnings=0` for the wall surface specifically: any
-      # no-restricted-imports violation is already error-level in
-      # eslint.config.js, so the existing lint script catches them.
+      # ── TypeScript (incremental via .tsbuildinfo) ──────────────────────
+      - name: Typecheck
+        run: npx tsc -p tsconfig.app.json --noEmit --incremental --tsBuildInfoFile .tsbuildinfo --pretty false
+
+      # ── ESLint with persistent cache ───────────────────────────────────
       - name: ESLint
-        run: npm run lint
+        run: npm run lint -- --cache --cache-location .eslintcache --cache-strategy content
 
       - name: Tests
         run: npm test
