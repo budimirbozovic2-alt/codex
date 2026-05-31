@@ -1,4 +1,5 @@
 import { persistQueue } from "@/lib/persist-queue";
+import { reviewLogRepository } from "@/lib/repositories";
 
 import { logger } from "@/lib/logger";
 
