@@ -50,34 +50,33 @@ export function replaceAll(records: CategoryRecord[]): void {
 const _saveMutex = createKeyedMutex();
 
 /**
- * Optimistic commit: applies the updater to the current RAM snapshot, pushes
- * the optimistic value into the SSOT store, then persists to SQLite inside a
- * serialised mutex.
+ * Optimistic commit: pushes the optimistic value into the SSOT store, then
+ * persists to SQLite inside a serialised mutex.
  *
- * On persist failure we ALWAYS roll back to the pre-commit snapshot —
- * never to a fresh `listAllCategories()`, because when the SQLite executor
- * is unavailable that helper returns `[]` and would wipe every category
- * (this is the root cause of "adding a second category deletes the first"
- * in the Vite preview shell).
+ * Wave-1 fix: rollback snapshot is captured INSIDE the mutex, so a second
+ * concurrent commit cannot snapshot a dirty optimistic state from a first
+ * still-in-flight commit. Errors are re-thrown so callers (TanStack
+ * mutations, UI) can react instead of silently treating failed writes as OK.
  */
 export async function commit(
   updater: (prev: CategoryRecord[]) => CategoryRecord[],
   label: string,
 ): Promise<void> {
-  const snapshot = getCategoryStoreRecords();
-  const optimistic = updater(snapshot);
+  const preOptimistic = getCategoryStoreRecords();
+  const optimistic = updater(preOptimistic);
   setCategoryStoreRecords(optimistic);
 
   return _saveMutex.runExclusive(null, async () => {
+    // Re-read snapshot inside the mutex so we roll back to the value that
+    // was authoritative at mutex entry, not the stale pre-mutex value.
+    const rollbackTo = getCategoryStoreRecords();
     try {
-      // Persist the exact RAM snapshot the user is looking at. SQLite ACID
-      // makes the read-modify-write dance redundant; serialising via the
-      // mutex prevents two concurrent commits from racing.
       await replaceAllCategories(optimistic);
     } catch (e) {
       logger.error(`[${label}] SQLite persist failed, rolling back`, e);
-      setCategoryStoreRecords(snapshot);
+      setCategoryStoreRecords(rollbackTo === optimistic ? preOptimistic : rollbackTo);
       toast.error("Greška", { description: "Promjena nije sačuvana." });
+      throw e instanceof Error ? e : new Error(String(e));
     }
   }, `category:${label}`);
 }
@@ -118,7 +117,10 @@ export function deleteAsync(
   return wrapWrite(async () => {
     if (!id) return;
     const exec = await tryGetExecutor();
-    if (!exec) return;
+    // Wave-1 fix: previously returned silently when executor was missing,
+    // which meant the RAM store appeared "deleted" but SQLite kept the row
+    // and the category reappeared on next boot.
+    if (!exec) throw new Error("NO_EXECUTOR");
 
     await exec.transaction(async (tx) => {
       if (opts.purgeCards) {

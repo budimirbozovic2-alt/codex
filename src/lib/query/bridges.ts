@@ -205,4 +205,17 @@ export function _resetBridgesForTest(): void {
   _flushCardsInvalidateForTest();
 }
 
+// Wave-3 fix: HMR dispose. Without this, Vite re-evaluates modules but the
+// module-level `_installed` flag remains set in the new module instance only
+// because the old module was disposed — except the OLD subscriptions stay
+// alive against a dead QueryClient. The result: source/cards/mindmap writes
+// silently stop invalidating, and `useSourceMutations` papered over this
+// with onSuccess safety-net invalidations. Dispose here makes the bridge
+// re-install cleanly on every HMR cycle.
+if (import.meta.hot) {
+  import.meta.hot.dispose(() => {
+    _resetBridgesForTest();
+  });
+}
+
 

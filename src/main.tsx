@@ -153,16 +153,12 @@ if (!isDesktopShell && import.meta.env.PROD) {
     createRoot(document.getElementById("root")!).render(<App />);
     markBootStep("main:react-render-done");
 
-    // Signaliziraj splash skripti u index.html da je mount uspio i otkaži
-    // njen 20s reload timer. Bez ovoga preview ulazi u beskonačnu reload
-    // petlju koja prekida dodavanje kartica, DOCX import i backup restore.
-    try {
-      (window as unknown as { __codexAppMounted?: boolean }).__codexAppMounted = true;
-      document.getElementById("root")?.setAttribute("data-app-mounted", "1");
-      const w = window as unknown as { __codexSplashTimer?: ReturnType<typeof setTimeout> | null };
-      if (w.__codexSplashTimer) { clearTimeout(w.__codexSplashTimer); w.__codexSplashTimer = null; }
-      sessionStorage.removeItem("__codex_boot_retries");
-    } catch { /* no-op */ }
+    // Wave-2 fix: the splash retry signal is now set inside
+    // `useCardBootstrap`'s finally block, after React truly mounts and the
+    // boot DAG resolves. Setting it here was premature — React 18's render
+    // is async and the flag fired before any effect or first commit. The
+    // splash timer stays armed in index.html and is cleared from the boot
+    // hook once `setReady(true)` runs.
 
     window.onerror = (_msg, _src, _ln, _col, err) => {
       console.error("[runtime] uncaught error", err || _msg);

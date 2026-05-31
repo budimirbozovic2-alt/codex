@@ -10,6 +10,7 @@ import type { PersistAdapter } from "./PersistAdapter";
 import type { SqlExecutor } from "./sqlite/executor";
 import { bindCardInsert, CARD_INSERT_SQL } from "./sqlite/row-codecs";
 import { getOpfsSqliteExecutor } from "./sqlite/client";
+import { logger } from "@/lib/logger";
 
 const CARD_DELETE_SQL = "DELETE FROM cards WHERE id = ?";
 
@@ -26,11 +27,14 @@ export function createOpfsSqliteAdapter(deps: OpfsSqliteAdapterDeps = {}): Persi
     let exec;
     try {
       exec = await getExec();
-    } catch {
-      // SQLite runtime unavailable (e.g. wasm asset broken in the dev shell).
-      // Surface a stable code so persistQueue can short-circuit retries and
-      // the TanStack mutation can roll back instead of hanging.
-      throw new Error("NO_EXECUTOR");
+    } catch (cause) {
+      // Wave-3 fix: preserve original cause instead of swallowing it. Without
+      // this, WASM load failures, OPFS denials and quota errors all collapse
+      // into an indistinguishable "NO_EXECUTOR" string with no telemetry.
+      logger.error("[opfs-adapter] executor unavailable", cause);
+      const err = new Error("NO_EXECUTOR") as Error & { cause?: unknown };
+      err.cause = cause;
+      throw err;
     }
     await exec.transaction(async (tx) => {
       for (const card of puts) {

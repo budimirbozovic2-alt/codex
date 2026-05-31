@@ -50,18 +50,19 @@ export function useCardBootstrap() {
     initialLoadDone.current = true;
     installSplashBridge();
 
-    // OSIGURAČ: ako se boot ne završi za 15s, emituj LOAD_FAIL i prikaži recovery UI.
-    // 15s ostavlja prostor za cold SQLite WASM init (~3s) + sve migracije bez lažnog panike.
+    // OSIGURAČ: 22s ostavlja prostor za cold SQLite WASM init (~3s) + sve
+    // migracije (Step 4 ima vlastiti 15s `withTimeout`) bez lažnog panike.
+    // Prethodno 15s je tačno racovalo sa migration timeoutom u runSchema.
     const panicTimer = setTimeout(() => {
       setReady((currentReady) => {
         if (!currentReady) {
-          logger.error("[boot] Panic timeout (15s)! Forsiram ready state.");
+          logger.error("[boot] Panic timeout (22s)! Forsiram ready state.");
           const state = getBootState();
           if (state.type !== "ready" && state.type !== "schema-error" && state.type !== "load-error") {
             if (inSchemaPhase()) {
-              transition({ type: "SCHEMA_FAIL", cause: "timeout", message: "Boot panic timeout (15s)" });
+              transition({ type: "SCHEMA_FAIL", cause: "timeout", message: "Boot panic timeout (22s)" });
             } else {
-              transition({ type: "LOAD_FAIL", message: "Boot panic timeout (15s)" });
+              transition({ type: "LOAD_FAIL", message: "Boot panic timeout (22s)" });
             }
           }
           forceRemoveSplash();
@@ -69,7 +70,7 @@ export function useCardBootstrap() {
         }
         return currentReady;
       });
-    }, 15000);
+    }, 22000);
 
     (async () => {
       try {
@@ -140,8 +141,12 @@ export function useCardBootstrap() {
         markBootStep("cards:init-error", errMsg);
 
         if (error instanceof SchemaError || inSchemaPhase()) {
-          const cause = error instanceof SchemaError ? "unknown" : "unknown";
-          transition({ type: "SCHEMA_FAIL", cause, message: errMsg });
+          // Wave-2 fix: previously both branches of `cause` hard-coded
+          // "unknown" (dead ternary). `SchemaErrorCause` is a strict union;
+          // surface the failing step in the message so recovery UI shows it.
+          const cause: "unknown" | "timeout" = "unknown";
+          const detail = error instanceof SchemaError ? `[${error.step}] ${errMsg}` : errMsg;
+          transition({ type: "SCHEMA_FAIL", cause, message: detail });
         } else {
           transition({ type: "LOAD_FAIL", message: errMsg });
         }
@@ -153,6 +158,17 @@ export function useCardBootstrap() {
         clearTimeout(panicTimer);
         cleanupSplash();
         notifyElectronReady();
+        // Wave-2 fix: signal splash retry script AFTER React boot truly
+        // completes (was previously set in main.tsx right after `render()`,
+        // which is before any effect or commit). This is the single point
+        // where we know the app is alive and rendering.
+        try {
+          (window as unknown as { __codexAppMounted?: boolean }).__codexAppMounted = true;
+          document.getElementById("root")?.setAttribute("data-app-mounted", "1");
+          const w = window as unknown as { __codexSplashTimer?: ReturnType<typeof setTimeout> | null };
+          if (w.__codexSplashTimer) { clearTimeout(w.__codexSplashTimer); w.__codexSplashTimer = null; }
+          sessionStorage.removeItem("__codex_boot_retries");
+        } catch { /* no-op */ }
       }
     })();
 
