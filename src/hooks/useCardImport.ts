@@ -9,9 +9,13 @@ import { yieldUI } from "@/lib/backup/yield-ui";
 import { applyImportAtomically, type ImportStrategy } from "@/lib/backup/import-transaction";
 import { parseJsonInWorker } from "@/lib/zip-service";
 import { clearReviewSession } from "@/lib/review-session-storage";
-import { replaceAll as cardMapReplaceAll, bulkPut as cardMapBulkPut } from "@/domains/cards";
+import {
+  announceCardsReplaced,
+  bulkPutCardsDirect,
+  listAllCards,
+} from "@/lib/db/queries";
 import { categoryRepository } from "@/lib/repositories";
-import { getCardMap } from "@/store";
+import { arrayToMap } from "@/lib/persist-queue";
 import { replaceReviewLog, updateSRSettings } from "@/store/reviewSettingsStore";
 
 import { logger } from "@/lib/logger";
