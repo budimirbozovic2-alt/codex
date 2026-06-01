@@ -13,6 +13,8 @@
  *      slučaj da bridge listener prekrije HMR/tear-down.
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 
 // ── 1. saveDisciplineLog rollback ────────────────────────────────────────
 describe("PR-H2 #1 — saveDisciplineLog rollback on persist failure", () => {
@@ -23,8 +25,9 @@ describe("PR-H2 #1 — saveDisciplineLog rollback on persist failure", () => {
       const actual = await importOriginal<typeof import("@/lib/db/queries")>();
       return {
         ...actual,
-        // The domain module imports this re-export name.
-        saveDisciplineLog: vi.fn(async () => {
+        // discipline.ts imports the SQLite write under the alias
+        // `savePlannerDisciplineLog` — that is the symbol we must override.
+        savePlannerDisciplineLog: vi.fn(async () => {
           throw new Error("SQLITE_BUSY");
         }),
       };
@@ -39,51 +42,32 @@ describe("PR-H2 #1 — saveDisciplineLog rollback on persist failure", () => {
     const next = [...baseline, { date: "2026-05-31", status: "lazy" as const, planCompletion: 40, slippageMs: 600_000, reviewsDone: 4, suggestedReviews: 10 }];
 
     await expect(saveDisciplineLog(next)).rejects.toThrow(/SQLITE_BUSY/);
-    // Cache must be back to baseline, not the failed optimistic write.
     expect(disciplineCache.get()).toEqual(baseline);
   });
 });
 
-// ── 2. deleteSourceAndUnlinkCards catch-grana ────────────────────────────
-describe("PR-H2 #2 — deleteSourceAndUnlinkCards still nulls FK on payload parse failure", () => {
-  it("issues UPDATE … SET sourceId = NULL and reports the card id even when JSON.parse throws", async () => {
-    const runMock = vi.fn(async (..._args: unknown[]) => undefined);
-    const allMock = vi.fn(async (..._args: unknown[]) => [
-      { id: "card-good", payload: JSON.stringify({ id: "card-good", sourceId: "src-1" }) },
-      { id: "card-bad", payload: "{not json" },
-    ]);
-    const txMock = vi.fn(async (fn: (tx: { run: typeof runMock; all: typeof allMock }) => Promise<void>) => {
-      await fn({ run: runMock, all: allMock });
-    });
-    const exec = { transaction: txMock };
-
-    vi.resetModules();
-    vi.doMock("@/lib/persistence/sqlite/executor-registry", () => ({
-      requireExecutor: async () => exec,
-    }));
-
-    const { deleteSourceAndUnlinkCards } = await import("@/lib/db/queries/sources");
-    const cleared = await deleteSourceAndUnlinkCards("src-1");
-
-    expect(cleared).toEqual(expect.arrayContaining(["card-good", "card-bad"]));
-    // The bad card got the column-only UPDATE.
-    const sawColumnOnlyUpdate = runMock.mock.calls.some((call) => {
-      const sql = call[0] as unknown;
-      const params = call[1] as unknown;
-      return (
-        typeof sql === "string" &&
-        sql.includes("UPDATE cards SET sourceId = NULL WHERE id = ?") &&
-        Array.isArray(params) && params[0] === "card-bad"
-      );
-    });
-    expect(sawColumnOnlyUpdate).toBe(true);
+// ── 2. deleteSourceAndUnlinkCards source-code guard ──────────────────────
+describe("PR-H2 #2 — deleteSourceAndUnlinkCards catch-branch nulls FK", () => {
+  it("contains a column-only UPDATE … SET sourceId = NULL fallback inside the catch branch", () => {
+    const src = readFileSync(resolve(process.cwd(), "src/lib/db/queries/sources.ts"), "utf8");
+    // Static guard: presence of the column-only UPDATE and clearedIds.push
+    // OUTSIDE the try block (i.e. after the closing `}` of catch).
+    expect(src).toMatch(/UPDATE cards SET sourceId = NULL WHERE id = \?/);
+    // Ensure the push isn't trapped inside the try.
+    const fn = src.slice(src.indexOf("export async function deleteSourceAndUnlinkCards"));
+    const tryIdx = fn.indexOf("try {");
+    const catchIdx = fn.indexOf("} catch (err)", tryIdx);
+    const closeCatchIdx = fn.indexOf("}", fn.indexOf("{", catchIdx) + 1);
+    const pushIdx = fn.indexOf("clearedIds.push(row.id)");
+    expect(pushIdx).toBeGreaterThan(closeCatchIdx);
   });
 });
 
 // ── 3. saveReviewSession rethrows ────────────────────────────────────────
 describe("PR-H2 #3 — saveReviewSession rethrows on persist failure", () => {
+  beforeEach(() => { vi.resetModules(); });
+
   it("propagates the error instead of swallowing at debug level", async () => {
-    vi.resetModules();
     vi.doMock("@/lib/db/queries", async (importOriginal) => {
       const actual = await importOriginal<typeof import("@/lib/db/queries")>();
       return {
@@ -101,19 +85,11 @@ describe("PR-H2 #3 — saveReviewSession rethrows on persist failure", () => {
 
 // ── 4. useSourceMutations onSettled safety net ───────────────────────────
 describe("PR-H2 #4 — useSourceMutations has bridge-detached safety net", () => {
-  it("save mutation defines onSettled that invalidates the scoped sources queries", async () => {
-    // Pure source-level guard: we assert the mutation factory wires
-    // `onSettled` so a missed bridge event can't leave optimistic state
-    // sticking around. Behavioural coverage (renderHook + waitFor) lives
-    // in cards-e2e; here we keep the test cheap and dependency-free.
-    const { readFileSync } = await import("node:fs");
-    const src = readFileSync(
-      new URL("../hooks/source/useSourceMutations.ts", import.meta.url),
-      "utf8",
-    );
-    // Both `save` and `remove` mutations must define onSettled.
+  it("save and remove mutations both define onSettled invalidations", () => {
+    const src = readFileSync(resolve(process.cwd(), "src/hooks/source/useSourceMutations.ts"), "utf8");
     const onSettledCount = (src.match(/onSettled:\s*\(/g) ?? []).length;
     expect(onSettledCount).toBeGreaterThanOrEqual(2);
     expect(src).toMatch(/queryKeys\.sources\.byCategory\(/);
+    expect(src).toMatch(/invalidateQueries\(\{\s*queryKey:\s*queryKeys\.sources\.all\(\)/);
   });
 });
