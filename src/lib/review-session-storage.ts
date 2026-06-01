@@ -59,7 +59,11 @@ export async function saveReviewSession(state: SavedReviewSession): Promise<void
   try {
     await putSetting(REVIEW_SESSION_KEY, state);
   } catch (err: unknown) {
-    logger.debug("[review-session-storage] save failed", err);
+    // PR-H2: rethrow so the caller (ReviewSession pause flow) can surface
+    // a toast and avoid silently losing the resume slot. Previously this
+    // was swallowed at debug level.
+    logger.warn("[review-session-storage] save failed", err);
+    throw err instanceof Error ? err : new Error(String(err));
   }
 }
 
