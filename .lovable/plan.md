@@ -61,26 +61,42 @@ schema warning-i cure u packaged Electron build.
 
 ---
 
-## PR-H2 — Optimistic mutation safety net
+## PR-H2 — Optimistic mutation safety net ✅ DONE
 
-Svi pisači sem cards trenutno nemaju `onSettled` safety net + neki write-i
-su fire-and-forget pa SQLite failure tiho razilazi RAM od DB.
+Implementirano:
 
-- **`useSourceMutations` bez `onSettled`** (`src/hooks/source/useSourceMutations.ts:58-61`)
-  → dodati invalidate fallback ako bridge listener detached.
-- **`saveDisciplineLog` fire-and-forget** (`src/domains/planner/discipline.ts:13`)
-  → await + rollback `disciplineCache` na throw.
-- **`reviewLogApplied` samo za `overwrite` strategiju**
-  (`src/lib/backup/import-transaction.ts:161-163`) → set za sve strategije
-  gdje je `parsed.reviewLog.length > 0`.
-- **`deleteSourceAndUnlinkCards` parse failure ostavi dangling `sourceId`
-  u JSON payload-u** (`src/lib/db/queries/sources.ts:~130`) → `json_remove`
-  u catch grani.
-- **`void saveReviewSession(state)` u ReviewSession** → await + toast na
-  failure.
+- **`useSourceMutations.save/remove`** — dodat `onSettled` safety-net koji
+  invalidira `queryKeys.sources.all()` i `byCategory(catId)`. Bridge listener
+  ostaje primarni okidač refetcha; ovo pokriva HMR/tear-down race u kojem
+  je listener trenutno odvojen.
+- **`saveDisciplineLog`** (`src/domains/planner/discipline.ts`) — sad async;
+  snapshotuje `disciplineCache`, await-a `savePlannerDisciplineLog`, i na
+  throw vraća cache + rethrowa. `recordDayDiscipline` postaje async; jedini
+  caller (`usePlannerMutations.recordDiscipline.mutationFn`) već awaitao.
+- **`src/lib/db/queries/planner.ts::saveDisciplineLog`** — više ne guta
+  greške; nakon `logger.warn` rethrowa, pa mutation rollback uopšte radi.
+- **`deleteSourceAndUnlinkCards`** (`src/lib/db/queries/sources.ts`) — u
+  catch grani re-encode-a sad izvršava `UPDATE cards SET sourceId = NULL`
+  (čisto kolonski fallback) i kartica se i dalje pushuje u `clearedIds`
+  tako da `_cardLinkListeners` čuju invalidaciju. Bez ovoga embedded JSON
+  `sourceId` kuca i nakon brisanja izvora.
+- **`saveReviewSession`** (`src/lib/review-session-storage.ts`) — sad
+  rethrowa umjesto `logger.debug` swallow-a.
+- **`ReviewSession.saveSessionState`** — await + `toast.error` na failure;
+  fallback static `toast`/`logger` importi (bez dynamic import noise-a).
 
-Guard: serija testova koji emuluju SQLite throw u svakom write helper-u i
-provjere da RAM cache rollback-uje.
+Guards (`src/test/pr-h2-mutation-safety-net.test.ts`):
+- #1 mock `savePlannerDisciplineLog` → throw, dokazuje rollback + rethrow.
+- #2 static guard u `sources.ts`: column-only UPDATE postoji, `clearedIds.push`
+  je nakon zatvaranja catch bloka.
+- #3 mock `putSetting` → throw, dokazuje da `saveReviewSession` propaguje.
+- #4 static guard: oba `onSettled`-a u `useSourceMutations.ts`.
+
+Reviewer ostavlja `reviewLogApplied` granu netaknutom — promjena na "svi
+strategi" je semantički non-trivial (`keep`/`skip` bi pregazili user log)
+i dolazi u zaseban PR sa explicit merge strategijom.
+
+Vitest: `pr-h1 pr-h2 pr-g7 cards-e2e-smoke` → 17/17 ✓.
 
 ---
 
