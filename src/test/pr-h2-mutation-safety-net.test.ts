@@ -94,7 +94,7 @@ describe("PR-H2 #3 — saveReviewSession rethrows on persist failure", () => {
 
     const { saveReviewSession } = await import("@/lib/review-session-storage");
     await expect(
-      saveReviewSession({ mode: "due", randomIndex: 0, timestamp: Date.now() }),
+      saveReviewSession({ mode: "critical", randomIndex: 0, timestamp: Date.now() }),
     ).rejects.toThrow(/DISK_FULL/);
   });
 });
