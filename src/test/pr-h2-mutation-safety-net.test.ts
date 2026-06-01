@@ -47,8 +47,8 @@ describe("PR-H2 #1 — saveDisciplineLog rollback on persist failure", () => {
 // ── 2. deleteSourceAndUnlinkCards catch-grana ────────────────────────────
 describe("PR-H2 #2 — deleteSourceAndUnlinkCards still nulls FK on payload parse failure", () => {
   it("issues UPDATE … SET sourceId = NULL and reports the card id even when JSON.parse throws", async () => {
-    const runMock = vi.fn(async () => undefined);
-    const allMock = vi.fn(async () => [
+    const runMock = vi.fn(async (..._args: unknown[]) => undefined);
+    const allMock = vi.fn(async (..._args: unknown[]) => [
       { id: "card-good", payload: JSON.stringify({ id: "card-good", sourceId: "src-1" }) },
       { id: "card-bad", payload: "{not json" },
     ]);
