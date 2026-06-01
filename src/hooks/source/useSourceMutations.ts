@@ -63,13 +63,10 @@ export function useSourceMutations() {
     // the event.
     onSettled: (_data, _err, vars) => {
       void qc.invalidateQueries({ queryKey: queryKeys.sources.all() });
-      const catId = (vars as Source | undefined)?.categoryId;
-      if (catId) void qc.invalidateQueries({ queryKey: queryKeys.sources.byCategory(catId) });
+      if (vars?.categoryId) {
+        void qc.invalidateQueries({ queryKey: queryKeys.sources.byCategory(vars.categoryId) });
+      }
     },
-    // No onSuccess refetch: `saveSource` fires `onSourcesChanged`, which the
-    // bridges listener (with HMR-safe singleton, `bridges.ts`) turns into a
-    // single `invalidateQueries(['sources'])`. The previous "safety net" was a
-    // leftover from a since-fixed HMR bug and caused double refetches.
   });
 
   const remove = useMutation<void, Error, { id: string; categoryId: string }, RemoveCtx>({
