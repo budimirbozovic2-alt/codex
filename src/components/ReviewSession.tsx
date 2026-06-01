@@ -56,9 +56,7 @@ export default function ReviewSession({ dueCards, allCards, categoryRecords, srS
     try {
       await saveReviewSession(state);
     } catch (err) {
-      const { toast } = await import("sonner");
       toast.error("Snimanje pauze nije uspjelo — sesija neće biti obnovljena.");
-      const { logger } = await import("@/lib/logger");
       logger.error("[ReviewSession] saveReviewSession failed", err);
     }
   }, [mode, randomIndex, finished]);
