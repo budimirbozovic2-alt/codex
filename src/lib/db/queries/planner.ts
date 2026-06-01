@@ -116,7 +116,7 @@ export async function saveDisciplineLog<T extends { date: string }>(
   entries: ReadonlyArray<T>,
 ): Promise<void> {
   const exec = await requireExecutor("saveDisciplineLog");
-  if (!exec) return;
+  if (!exec) throw new Error("NO_EXECUTOR");
   try {
     await exec.transaction(async (tx) => {
       await tx.run("DELETE FROM disciplineLog");
@@ -128,6 +128,10 @@ export async function saveDisciplineLog<T extends { date: string }>(
       }
     });
   } catch (err) {
+    // PR-H2: rethrow so the planner mutation can rollback its cache snapshot
+    // and surface the failure. Previously every failure was swallowed with a
+    // warn and the in-RAM disciplineCache silently diverged from disk.
     logger.warn("[planner-repo] sqlite saveDisciplineLog failed", err);
+    throw err instanceof Error ? err : new Error(String(err));
   }
 }

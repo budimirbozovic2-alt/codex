@@ -1,5 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
+import { toast } from "sonner";
 import { addActivityEntry } from "@/lib/metacognitive-storage";
+import { logger } from "@/lib/logger";
 import { ReviewMode, DueItem, ViewWidth, ReviewSessionProps } from "./review/review-constants";
 import { buildItemsForMode } from "@/lib/review-mode-builder";
 import ReviewSetup from "./review/ReviewSetup";
@@ -45,16 +47,23 @@ export default function ReviewSession({ dueCards, allCards, categoryRecords, srS
     }
   }, [finished, clearSavedSession]);
 
-  // Save session state for pause/resume
-  const saveSessionState = useCallback(() => {
+  // Save session state for pause/resume.
+  // PR-H2: await persistence and surface failures via toast so a failed
+  // pause-save doesn't silently drop the resume slot.
+  const saveSessionState = useCallback(async (): Promise<void> => {
     if (mode === null || finished) return;
     const state: SavedSessionState = { mode, randomIndex, timestamp: Date.now() };
-    void saveReviewSession(state);
+    try {
+      await saveReviewSession(state);
+    } catch (err) {
+      toast.error("Snimanje pauze nije uspjelo — sesija neće biti obnovljena.");
+      logger.error("[ReviewSession] saveReviewSession failed", err);
+    }
   }, [mode, randomIndex, finished]);
 
 
   const handlePauseSession = useCallback(() => {
-    saveSessionState();
+    void saveSessionState();
     onBack();
   }, [saveSessionState, onBack]);
 

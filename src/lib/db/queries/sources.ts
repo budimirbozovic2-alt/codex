@@ -150,10 +150,18 @@ export async function deleteSourceAndUnlinkCards(id: string): Promise<string[]> 
           "UPDATE cards SET sourceId = NULL, payload = ? WHERE id = ?",
           [JSON.stringify(cleaned), row.id],
         );
-        clearedIds.push(row.id);
       } catch (err) {
-        logger.warn("[sources-repo] card re-encode failed", { id: row.id, err });
+        // PR-H2: payload parse failed — we can't safely re-encode the JSON,
+        // but we MUST still null the FK column so the source DELETE below
+        // doesn't leave a dangling `sourceId` inside the embedded JSON
+        // (the column would be SET-NULL'd by the FK, but the in-payload
+        // copy that the app actually reads would still point at a deleted
+        // source). Cards-changed listeners still need to hear about this
+        // card so they can refetch, so include it in clearedIds.
+        logger.warn("[sources-repo] card re-encode failed; nulling FK column only", { id: row.id, err });
+        await tx.run("UPDATE cards SET sourceId = NULL WHERE id = ?", [row.id]);
       }
+      clearedIds.push(row.id);
     }
     await tx.run("DELETE FROM sources WHERE id = ?", [id]);
   });

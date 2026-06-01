@@ -8,9 +8,22 @@ export function loadDisciplineLog(): DisciplineEntry[] {
   return disciplineCache.get();
 }
 
-export function saveDisciplineLog(log: DisciplineEntry[]) {
+/**
+ * PR-H2: persistence is now awaited. On failure we restore the previous
+ * `disciplineCache` snapshot and rethrow so the TanStack mutation can
+ * surface the error (toast + UI rollback). Previously this was
+ * fire-and-forget (`void savePlannerDisciplineLog`) so a SQLite failure
+ * left RAM ahead of disk with no signal whatsoever.
+ */
+export async function saveDisciplineLog(log: DisciplineEntry[]): Promise<void> {
+  const prev = disciplineCache.get();
   disciplineCache.set(log);
-  void savePlannerDisciplineLog(log);
+  try {
+    await savePlannerDisciplineLog(log);
+  } catch (err) {
+    disciplineCache.set(prev);
+    throw err;
+  }
 }
 
 export function calcDisciplineStatus(
@@ -32,16 +45,16 @@ export function getDisciplineLabel(status: DisciplineStatus): string {
   switch (status) { case "diligent": return "Vrijedan"; case "neutral": return "Neutralan"; case "lazy": return "Lijen"; }
 }
 
-export function recordDayDiscipline(
+export async function recordDayDiscipline(
   date: string, reviewsDone: number, dailyGoal: number, slippageMs: number | null,
-): DisciplineEntry {
+): Promise<DisciplineEntry> {
   const status = calcDisciplineStatus(reviewsDone, dailyGoal, slippageMs);
   const completion = dailyGoal > 0 ? Math.round((reviewsDone / dailyGoal) * 100) : 0;
   const entry: DisciplineEntry = { date, status, planCompletion: completion, slippageMs, reviewsDone, suggestedReviews: dailyGoal };
   const log = [...disciplineCache.get()];
   const idx = log.findIndex(e => e.date === date);
   if (idx >= 0) log[idx] = entry; else log.push(entry);
-  saveDisciplineLog(log);
+  await saveDisciplineLog(log);
   return entry;
 }
 
