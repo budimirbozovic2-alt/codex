@@ -92,7 +92,13 @@ export function useSourceMutations() {
       qc.setQueryData(queryKeys.sources.all(), ctx.prevAll);
       qc.setQueryData(queryKeys.sources.byCategory(vars.categoryId), ctx.prevByCat);
     },
-    // No onSuccess refetch — see `save.onMutate` rationale above.
+    // PR-H2 safety net — see `save.onSettled` rationale above.
+    onSettled: (_data, _err, vars) => {
+      void qc.invalidateQueries({ queryKey: queryKeys.sources.all() });
+      if (vars?.categoryId) {
+        void qc.invalidateQueries({ queryKey: queryKeys.sources.byCategory(vars.categoryId) });
+      }
+    },
   });
 
   return { save, remove };
