@@ -16,6 +16,17 @@ export default defineConfig({
     clearMocks: true,
     restoreMocks: true,
     mockReset: false,
+    // ── RC-8: Test execution guarantees ────────────────────────────────────
+    // Explicit timeouts prevent hanging tests from blocking CI after 30s.
+    // Hook timeouts ensure setup/teardown are bounded independently.
+    testTimeout: 10000,
+    hookTimeout: 10000,
+    // Run tests sequentially within each file to avoid race conditions in
+    // shared state (e.g., SQLite in-memory harness, event emitters).
+    // Vitest 3.x isolates per file by default; this ensures stability.
+    singleThread: false,
+    // Increase reporters verbosity to catch early failures.
+    reporters: ["verbose"],
   },
   resolve: {
     alias: { "@": path.resolve(__dirname, "./src") },
