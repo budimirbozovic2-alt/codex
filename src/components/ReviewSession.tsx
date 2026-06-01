@@ -45,16 +45,25 @@ export default function ReviewSession({ dueCards, allCards, categoryRecords, srS
     }
   }, [finished, clearSavedSession]);
 
-  // Save session state for pause/resume
-  const saveSessionState = useCallback(() => {
+  // Save session state for pause/resume.
+  // PR-H2: await persistence and surface failures via toast so a failed
+  // pause-save doesn't silently drop the resume slot.
+  const saveSessionState = useCallback(async (): Promise<void> => {
     if (mode === null || finished) return;
     const state: SavedSessionState = { mode, randomIndex, timestamp: Date.now() };
-    void saveReviewSession(state);
+    try {
+      await saveReviewSession(state);
+    } catch (err) {
+      const { toast } = await import("sonner");
+      toast.error("Snimanje pauze nije uspjelo — sesija neće biti obnovljena.");
+      const { logger } = await import("@/lib/logger");
+      logger.error("[ReviewSession] saveReviewSession failed", err);
+    }
   }, [mode, randomIndex, finished]);
 
 
   const handlePauseSession = useCallback(() => {
-    saveSessionState();
+    void saveSessionState();
     onBack();
   }, [saveSessionState, onBack]);
 
