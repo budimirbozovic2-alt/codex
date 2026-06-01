@@ -55,6 +55,17 @@ export function useSourceMutations() {
       qc.setQueryData(queryKeys.sources.all(), ctx.prevAll);
       qc.setQueryData(queryKeys.sources.byCategory(ctx.categoryId), ctx.prevByCat);
     },
+    // PR-H2 safety net: the bridge listener (`onSourcesChanged →
+    // invalidate(['sources'])`) is the primary refetch trigger, but during
+    // HMR or partial mount tears the listener can be transiently detached.
+    // A single scoped invalidation here costs ~one redundant fetch in the
+    // happy path and prevents stale optimistic state if the bridge missed
+    // the event.
+    onSettled: (_data, _err, vars) => {
+      void qc.invalidateQueries({ queryKey: queryKeys.sources.all() });
+      const catId = (vars as Source | undefined)?.categoryId;
+      if (catId) void qc.invalidateQueries({ queryKey: queryKeys.sources.byCategory(catId) });
+    },
     // No onSuccess refetch: `saveSource` fires `onSourcesChanged`, which the
     // bridges listener (with HMR-safe singleton, `bridges.ts`) turns into a
     // single `invalidateQueries(['sources'])`. The previous "safety net" was a
