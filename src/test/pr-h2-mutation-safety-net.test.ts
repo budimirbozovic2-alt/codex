@@ -67,12 +67,15 @@ describe("PR-H2 #2 — deleteSourceAndUnlinkCards still nulls FK on payload pars
 
     expect(cleared).toEqual(expect.arrayContaining(["card-good", "card-bad"]));
     // The bad card got the column-only UPDATE.
-    const sawColumnOnlyUpdate = runMock.mock.calls.some(
-      ([sql, params]) =>
+    const sawColumnOnlyUpdate = runMock.mock.calls.some((call) => {
+      const sql = call[0] as unknown;
+      const params = call[1] as unknown;
+      return (
         typeof sql === "string" &&
         sql.includes("UPDATE cards SET sourceId = NULL WHERE id = ?") &&
-        Array.isArray(params) && params[0] === "card-bad",
-    );
+        Array.isArray(params) && params[0] === "card-bad"
+      );
+    });
     expect(sawColumnOnlyUpdate).toBe(true);
   });
 });
