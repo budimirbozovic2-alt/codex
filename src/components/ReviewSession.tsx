@@ -1,5 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
+import { toast } from "sonner";
 import { addActivityEntry } from "@/lib/metacognitive-storage";
+import { logger } from "@/lib/logger";
 import { ReviewMode, DueItem, ViewWidth, ReviewSessionProps } from "./review/review-constants";
 import { buildItemsForMode } from "@/lib/review-mode-builder";
 import ReviewSetup from "./review/ReviewSetup";
