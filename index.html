@@ -100,15 +100,28 @@
     </div>
     <script>
       (function(){
-        // Wave-2 fix: environment-aware timer + retries. Electron should boot
-        // in <8s on a real machine; only the Lovable preview / browser dev
-        // needs the wider 20s budget. With the new mount signal coming from
-        // useCardBootstrap's finally block, retries are rarely needed.
+        // Wave-3 fix: u browser preview-u (Lovable / `bun run dev` tab) cold
+        // start lako pređe 20s zbog Vite optimize-dep + SQLite WASM init.
+        // Prethodne 2 retry-reload-a su KVARILE boot (svaki reload briše
+        // Vite dep cache i WASM kompilaciju). Sada: Electron zadržava brzi
+        // 8s budžet + 1 retry; browser dobija širi 45s budžet i 0 retries
+        // (idemo direktno na fallback "Osveži aplikaciju" ako stvarno
+        // zaglavi — bez kontraproduktivne petlje).
         var IS_ELECTRON = typeof window !== "undefined" && !!window.electronAPI;
-        var TIMEOUT = IS_ELECTRON ? 8000 : 20000;
-        var MAX_RETRIES = IS_ELECTRON ? 1 : 2;
+        var TIMEOUT = IS_ELECTRON ? 8000 : 45000;
+        var MAX_RETRIES = IS_ELECTRON ? 1 : 0;
         var RETRY_KEY="__codex_boot_retries";
         var retries=parseInt(sessionStorage.getItem(RETRY_KEY)||"0",10);
+
+        // Reassuring poruka nakon 8s u browseru — korisnik ne misli da je
+        // zaglavljeno dok Vite optimize-dep + SQLite WASM rade prvi put.
+        if(!IS_ELECTRON){
+          setTimeout(function(){
+            if(window.__codexAppMounted===true)return;
+            var s=document.getElementById("splash-status");
+            if(s)s.textContent="Pripremam bazu, prvi put može do 30s…";
+          },8000);
+        }
 
         var t=setTimeout(function(){
           var root=document.getElementById("root");
