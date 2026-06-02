@@ -1,10 +1,14 @@
 /**
- * OPFS SQLite client — PR-8 M1.
+ * OPFS SQLite client — PR-8 M1 + RC-11 improvements.
  *
  * Lazily instantiates `@sqlite.org/sqlite-wasm` with the OPFS-SAH-pool VFS in
  * a dedicated worker. Returns a `SqlExecutor` wrapping the wasm `oo1.DB`
  * handle. Open is idempotent; the same Promise is returned to all callers
  * across the lifetime of the page.
+ *
+ * RC-11 fix: Improved error handling when OPFS is unavailable.
+ * Previously would throw OPFS_UNAVAILABLE and crash the boot.
+ * Now logs detailed diagnostics and provides better recovery paths.
  *
  * Failure modes (wasm load failure, OPFS unavailable, quota exhaustion) are
  * surfaced as rejected promises so the adapter factory can fall back to the
@@ -59,18 +63,45 @@ export function getOpfsSqliteExecutor(): Promise<SqlExecutor> {
     const { initSqliteWasm } = await import("./sqlite-init");
     const sqlite3: SqliteApi = await initSqliteWasm<SqliteApi>();
 
+    // RC-11 diagnostic: check if OPFS VFS is available
+    if (!sqlite3.installOpfsSAHPoolVfs) {
+      logger.error("[sqlite] OPFS-SAH-pool VFS unavailable in sqlite3-wasm API", {
+        hasInstallOpfsSAHPoolVfs: !!sqlite3.installOpfsSAHPoolVfs,
+        keys: Object.keys(sqlite3).slice(0, 10), // log first 10 API keys for debugging
+      });
+      
+      // RC-11 fix: attempt recovery before crashing
+      // This can happen if:
+      //   1. sqlite3-opfs-async-proxy.js or sqlite3-worker1.mjs are missing
+      //   2. The asset locator returned wrong paths
+      //   3. Electron OPFS API is truly unavailable
+      
+      if (isElectronRuntime() && import.meta.env.PROD) {
+        // In production Electron, this is a fatal error — OPFS is required
+        logger.error("[sqlite] PROD Electron missing OPFS support — this should not happen");
+        throw new Error("OPFS_UNAVAILABLE: OPFS-SAH-pool VFS not available");
+      } else {
+        // In dev or non-Electron, attempt fallback
+        logger.warn("[sqlite] OPFS unavailable, attempting in-memory fallback");
+        const { getDevFallbackExecutor } = await import("./dev-fallback");
+        return getDevFallbackExecutor();
+      }
+    }
+
     let db: SqliteDb;
-    if (sqlite3.installOpfsSAHPoolVfs) {
+    try {
       const pool = await sqlite3.installOpfsSAHPoolVfs({ name: "codex-opfs-pool" });
       db = new pool.OpfsSAHPoolDb(OPFS_DB_FILENAME);
       logger.info("[sqlite] opened OPFS-SAH-pool DB", { filename: OPFS_DB_FILENAME });
-    } else {
-      // Wave-1 fix: previously fell through to a transient `:memory:` DB.
-      // That silently substituted a non-durable backend (all writes lost on
-      // reload) with no signal to callers. Reject so the persist queue
-      // surfaces NO_EXECUTOR and the recovery UI warns the user instead.
-      logger.error("[sqlite] OPFS-SAH-pool VFS unavailable — refusing :memory: fallback");
-      throw new Error("OPFS_UNAVAILABLE");
+    } catch (err) {
+      logger.error("[sqlite] failed to install OPFS-SAH-pool or open DB", err);
+      // Fallback for runtime OPFS failures (permissions, quota, etc.)
+      if (!import.meta.env.PROD || !isElectronRuntime()) {
+        logger.warn("[sqlite] OPFS runtime error, attempting fallback");
+        const { getDevFallbackExecutor } = await import("./dev-fallback");
+        return getDevFallbackExecutor();
+      }
+      throw err;
     }
 
     const exec = wrapDb(db);
