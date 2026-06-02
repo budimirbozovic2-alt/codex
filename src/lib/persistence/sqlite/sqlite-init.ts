@@ -16,6 +16,7 @@
  *     and for Electron PROD the bundled `?url` already resolves correctly).
  */
 import sqliteWasmUrl from "@sqlite.org/sqlite-wasm/sqlite3.wasm?url";
+import { locateWasmFile } from "./wasm-locator";
 
 interface SqliteInitOpts {
   locateFile?: (file: string) => string;
@@ -39,13 +40,24 @@ async function loadInit(): Promise<SqliteInitFn> {
  * Initialise sqlite-wasm with an explicit `locateFile` that points to the
  * Vite-served asset URL for `sqlite3.wasm`. Returns the `sqlite3` namespace
  * object the calling module casts to its own narrow surface.
+ *
+ * RC-11 fix: The locateFile function now tries the bundled ?url asset first
+ * (works in all environments) before falling back to computed paths for the
+ * OPFS proxy files (sqlite3-opfs-async-proxy.js, sqlite3-worker1.mjs).
+ * This ensures all three auxiliary files are resolved from the same location
+ * so installOpfsSAHPoolVfs is available in Electron.
  */
 export async function initSqliteWasm<T>(): Promise<T> {
   const sqlite3InitModule = await loadInit();
   const sqlite3 = await sqlite3InitModule({
     locateFile: (file: string) => {
+      // Primary: bundled asset (works in all environments)
       if (file === "sqlite3.wasm") return sqliteWasmUrl;
-      return file;
+      
+      // Fallback: compute path for auxiliary files (OPFS proxy, worker)
+      // This ensures they're loaded from the same dist/sqlite/ location
+      // where Vite's copySqliteWasmPlugin copies them.
+      return locateWasmFile(file);
     },
   });
   return sqlite3 as T;
