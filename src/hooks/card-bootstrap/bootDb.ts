@@ -25,17 +25,16 @@ export async function bootDb(): Promise<{ ok: boolean }> {
   transition({ type: "OPEN_START" });
 
 
-  // Wave-3: SQLite executor prewarm više ne BLOKIRA boot kritičnu putanju.
-  // `main.tsx` ga već trigger-uje paralelno sa `Promise.all` dynamic import-om.
-  // `getOpfsSqliteExecutor()` je idempotentni singleton — prvi SQL poziv u
-  // `runSchema` / `loadInitialData` će prirodno await-ovati isti promise ako
-  // još nije gotov. Štedi ~3s sa kritične putanje u browser preview-u.
-  // Ovdje samo defenzivno re-trigger-ujemo (no-op ako je već u toku).
+  // Pre-warm SQLite executor (Electron OPFS ili DEV in-memory fallback) PRIJE
+  // bilo kakvog read/write poziva. Bez ovoga prvi `listAllCards` / save kartice
+  // čeka cold WASM init ~1.5–3s (vidljivo kao "blokada" + 22s panic timer).
   try {
-    void import("@/lib/persistence/sqlite/client").then((m) => m.getOpfsSqliteExecutor());
-    markBootStep("cards:sqlite-prewarm-scheduled");
+    const { getOpfsSqliteExecutor } = await import("@/lib/persistence/sqlite/client");
+    await getOpfsSqliteExecutor();
+    markBootStep("cards:sqlite-prewarm-done");
   } catch (e) {
     markBootStep("cards:sqlite-prewarm-failed", e instanceof Error ? e.message : String(e));
+    // Ne prekidamo boot — recovery UI / fallback i dalje rade.
   }
 
   // PR-G2 / #11 fix: previously `scheduleLogPrune()` fired here as a

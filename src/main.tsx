@@ -134,16 +134,6 @@ if (!isDesktopShell && import.meta.env.PROD) {
 (async () => {
   try {
     markBootStep("main:parallel-import-start");
-
-    // Wave-3 boot speedup: pokreni SQLite WASM init PARALELNO sa Vite
-    // dynamic-import resolve-om za `./App` i ostalih ~6 modula. Fire-and-
-    // forget — `bootDb` kasnije await-uje isti singleton i dobija već-topao
-    // executor (cold WASM init je ~3s u browser preview-u). Greške se
-    // ignorišu ovdje; pravi error handling je u `bootDb` / boot DAG putanji.
-    void import("./lib/persistence/sqlite/client")
-      .then((m) => m.getOpfsSqliteExecutor())
-      .catch(() => { /* surfaced later in bootDb */ });
-
     const [
       { initColorTheme },
       { default: App },
