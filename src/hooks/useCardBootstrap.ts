@@ -59,9 +59,11 @@ export function useCardBootstrap() {
     initialLoadDone.current = true;
     installSplashBridge();
 
-    // OSIGURAČ: 22s ostavlja prostor za cold SQLite WASM init (~3s) + sve
-    // migracije (Step 4 ima vlastiti 15s `withTimeout`) bez lažnog panike.
-    // Prethodno 15s je tačno racovalo sa migration timeoutom u runSchema.
+    // Wave-3: 35s panic ostavlja prostor za cold Vite optimize-dep + SQLite
+    // WASM init u browser preview-u. Mora biti < browser splash budžet (45s
+    // u index.html) ali > stvarnog cold boota (~10-25s u praksi). Prethodni
+    // 22s je pucao prije splash fallback-a i pokazivao lažni "load-error"
+    // iako bi boot prirodno završio.
     //
     // PR-G2 / H-1 fix: routed through `taskScheduler` so HMR re-mount /
     // Electron quit drain the timer alongside every other scheduled task
@@ -70,13 +72,13 @@ export function useCardBootstrap() {
     const panicHandle = taskScheduler.setTimeout(() => {
       setReady((currentReady) => {
         if (!currentReady) {
-          logger.error("[boot] Panic timeout (22s)! Forsiram ready state.");
+          logger.error("[boot] Panic timeout (35s)! Forsiram ready state.");
           const state = getBootState();
           if (state.type !== "ready" && state.type !== "schema-error" && state.type !== "load-error") {
             if (inSchemaPhase()) {
-              transition({ type: "SCHEMA_FAIL", cause: "timeout", message: "Boot panic timeout (22s)" });
+              transition({ type: "SCHEMA_FAIL", cause: "timeout", message: "Boot panic timeout (35s)" });
             } else {
-              transition({ type: "LOAD_FAIL", message: "Boot panic timeout (22s)" });
+              transition({ type: "LOAD_FAIL", message: "Boot panic timeout (35s)" });
             }
           }
           forceRemoveSplash();
@@ -84,7 +86,7 @@ export function useCardBootstrap() {
         }
         return currentReady;
       });
-    }, 22000, { label: "boot:panic-22s" });
+    }, 35000, { label: "boot:panic-35s" });
 
     (async () => {
       try {
