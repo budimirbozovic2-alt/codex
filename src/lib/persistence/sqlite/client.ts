@@ -91,13 +91,13 @@ export function getOpfsSqliteExecutor(): Promise<SqlExecutor> {
       logger.info("[sqlite] opened OPFS-SAH-pool DB", { filename: OPFS_DB_FILENAME });
     } catch (err) {
       logger.error("[sqlite] failed to install OPFS-SAH-pool or open DB", err);
-      // Fallback for runtime OPFS failures (permissions, quota, etc.)
-      if (!import.meta.env.PROD || !isElectronRuntime()) {
-        logger.warn("[sqlite] OPFS runtime error, attempting fallback");
-        const { getDevFallbackExecutor } = await import("./dev-fallback");
-        return getDevFallbackExecutor();
-      }
-      throw err;
+      // PR-H-OPFS: graceful fallback in ALL environments (incl. Electron PROD)
+      // so a permissions/quota/COOP regression degrades to in-memory instead
+      // of an unrecoverable boot crash. Durability is lost — bridge layer
+      // surfaces a toast in that case.
+      logger.warn("[sqlite] OPFS runtime error, attempting in-memory fallback");
+      const { getDevFallbackExecutor } = await import("./dev-fallback");
+      return getDevFallbackExecutor();
     }
 
     const exec = wrapDb(db);
