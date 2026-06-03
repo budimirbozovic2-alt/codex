@@ -63,29 +63,25 @@ export function getOpfsSqliteExecutor(): Promise<SqlExecutor> {
     const { initSqliteWasm } = await import("./sqlite-init");
     const sqlite3: SqliteApi = await initSqliteWasm<SqliteApi>();
 
-    // RC-11 diagnostic: check if OPFS VFS is available
+    // PR-H-OPFS diagnostic: surface why OPFS is or isn't available.
+    // Distinguishes "API missing" from "SAB missing due to COOP/COEP".
+    const diag = {
+      hasInstallOpfsSAHPoolVfs: !!sqlite3.installOpfsSAHPoolVfs,
+      crossOriginIsolated: typeof self !== "undefined" ? (self as unknown as { crossOriginIsolated?: boolean }).crossOriginIsolated : undefined,
+      hasSharedArrayBuffer: typeof SharedArrayBuffer !== "undefined",
+      hasNavigatorStorage: typeof navigator !== "undefined" && !!(navigator as Navigator & { storage?: { getDirectory?: unknown } }).storage?.getDirectory,
+    };
+
     if (!sqlite3.installOpfsSAHPoolVfs) {
-      logger.error("[sqlite] OPFS-SAH-pool VFS unavailable in sqlite3-wasm API", {
-        hasInstallOpfsSAHPoolVfs: !!sqlite3.installOpfsSAHPoolVfs,
-        keys: Object.keys(sqlite3).slice(0, 10), // log first 10 API keys for debugging
-      });
-      
-      // RC-11 fix: attempt recovery before crashing
-      // This can happen if:
-      //   1. sqlite3-opfs-async-proxy.js or sqlite3-worker1.mjs are missing
-      //   2. The asset locator returned wrong paths
-      //   3. Electron OPFS API is truly unavailable
-      
-      if (isElectronRuntime() && import.meta.env.PROD) {
-        // In production Electron, this is a fatal error — OPFS is required
-        logger.error("[sqlite] PROD Electron missing OPFS support — this should not happen");
-        throw new Error("OPFS_UNAVAILABLE: OPFS-SAH-pool VFS not available");
-      } else {
-        // In dev or non-Electron, attempt fallback
-        logger.warn("[sqlite] OPFS unavailable, attempting in-memory fallback");
-        const { getDevFallbackExecutor } = await import("./dev-fallback");
-        return getDevFallbackExecutor();
-      }
+      logger.error("[sqlite] OPFS-SAH-pool VFS unavailable", diag);
+
+      // PR-H-OPFS: even in Electron PROD, prefer a graceful in-memory
+      // fallback over a hard boot crash. The user gets a degraded but
+      // functional session and a clear toast instead of NO_EXECUTOR storms
+      // on every write.
+      logger.warn("[sqlite] falling back to in-memory executor (non-durable)");
+      const { getDevFallbackExecutor } = await import("./dev-fallback");
+      return getDevFallbackExecutor();
     }
 
     let db: SqliteDb;

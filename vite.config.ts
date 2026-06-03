@@ -38,6 +38,14 @@ export default defineConfig(({ mode }) => ({
     hmr: {
       overlay: false,
     },
+    // PR-H-OPFS: enable cross-origin isolation in dev so OPFS-SAH-pool VFS
+    // (SharedArrayBuffer-based) initializes when running `bun run dev` under
+    // Electron. Without these headers `installOpfsSAHPoolVfs` is undefined.
+    headers: {
+      "Cross-Origin-Opener-Policy": "same-origin",
+      "Cross-Origin-Embedder-Policy": "require-corp",
+      "Cross-Origin-Resource-Policy": "same-origin",
+    },
   },
   plugins: [react(), mode === "development" && componentTagger(), copySqliteWasmPlugin()].filter(Boolean),
   resolve: {

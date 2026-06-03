@@ -344,22 +344,37 @@ app.whenReady().then(() => {
   });
   session.defaultSession.setPermissionCheckHandler(() => false);
 
-  // ── CSP headers in production ──
-  if (!isDev) {
-    session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
-      if (details.url.startsWith('file://')) {
-        return callback({ responseHeaders: details.responseHeaders });
-      }
-      callback({
-        responseHeaders: {
-          ...details.responseHeaders,
-          'Content-Security-Policy': [
-            "default-src 'self' app:; script-src 'self' 'unsafe-inline' app:; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: app:; font-src 'self' data: app:; connect-src 'self' blob: app:; media-src 'self' blob: app:;"
-          ],
-        },
+  // ── CSP + Cross-Origin Isolation headers ──
+  // PR-H-OPFS: OPFS-SAH-pool VFS requires `crossOriginIsolated === true`
+  // (SharedArrayBuffer + Atomics.wait inside the OPFS proxy worker). Without
+  // COOP/COEP, Chromium leaves `installOpfsSAHPoolVfs` undefined and every
+  // SQLite write throws NO_EXECUTOR. CORP on responses lets the worker pull
+  // sqlite3.wasm / sqlite3-opfs-async-proxy.js / sqlite3-worker1.mjs under
+  // the isolated origin.
+  session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
+    if (details.url.startsWith('file://')) {
+      return callback({ responseHeaders: details.responseHeaders });
+    }
+    const extra = {
+      'Cross-Origin-Opener-Policy': ['same-origin'],
+      'Cross-Origin-Embedder-Policy': ['require-corp'],
+      'Cross-Origin-Resource-Policy': ['same-origin'],
+    };
+    if (isDev) {
+      return callback({
+        responseHeaders: { ...details.responseHeaders, ...extra },
       });
+    }
+    callback({
+      responseHeaders: {
+        ...details.responseHeaders,
+        ...extra,
+        'Content-Security-Policy': [
+          "default-src 'self' app:; script-src 'self' 'unsafe-inline' app:; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: app:; font-src 'self' data: app:; connect-src 'self' blob: app:; media-src 'self' blob: app:; worker-src 'self' blob: app:;"
+        ],
+      },
     });
-  }
+  });
 
   // ── Web-contents lockdown: block in-app navigation & new windows ──
   app.on('web-contents-created', (_e, contents) => {
