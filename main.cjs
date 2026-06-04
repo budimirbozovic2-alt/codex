@@ -300,7 +300,7 @@ app.whenReady().then(() => {
   const ISOLATION_HEADERS = {
     'Cross-Origin-Opener-Policy': 'same-origin',
     'Cross-Origin-Embedder-Policy': 'require-corp',
-    'Cross-Origin-Resource-Policy': 'same-origin',
+    'Cross-Origin-Resource-Policy': 'cross-origin',
   };
   const PROD_CSP = "default-src 'self' app:; script-src 'self' 'unsafe-inline' app:; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: app:; font-src 'self' data: app:; connect-src 'self' blob: app:; media-src 'self' blob: app:; worker-src 'self' blob: app:;";
 
