@@ -89,6 +89,8 @@ const App = () => {
           </div>
         )}
         <Sonner />
+        <DbDegradedWatcher />
+
         <HashRouter>
           <AppProvider>
             <ErrorBoundary>
