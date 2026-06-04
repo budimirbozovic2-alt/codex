@@ -123,3 +123,11 @@ Drugi `start` prepiše `activeStreamFile` bez da zatvori prvi.
 
 - Renderer state mašinu (TanStack/SQLite SSOT) — nalazi su isključivo build/transport sloj.
 - Persistence repo logiku — popravlja se samo header pipeline i UI signal za degraded state.
+
+---
+
+## Status
+
+- ✅ **Bundle 1 (PR-H-OPFS-FIX) implementiran** — C-1 (app:// ISOLATION_HEADERS u protocol.handle), C-2 (.wasm MIME), H-4 (Vite /sqlite dev middleware + wasm-locator), UX safety net (DbDegradedWatcher + db-degraded event). 10/10 guard testova prolazi.
+- ⏳ Bundle 2 (PR-H-BACKUP-IPC) — čeka odluku.
+- ⏳ Bundle 3 (PR-H-BUILD-CLEANUP) — čeka odluku.
