@@ -24,6 +24,21 @@ import { logger } from "@/lib/logger";
 
 const OPFS_DB_FILENAME = "/codex.sqlite3";
 
+/**
+ * PR-H-OPFS-FIX: dispatch a window event when SQLite cannot use the durable
+ * OPFS-SAH-pool VFS and falls back to an in-memory executor. Bridged to a
+ * blocking sonner toast by `DbDegradedWatcher` mounted in `App.tsx`. Without
+ * this signal, the renderer silently writes to a non-persistent store and
+ * the user only discovers data loss on the next restart.
+ */
+function emitDegraded(reason: "opfs-api-missing" | "opfs-runtime-error", diag?: unknown): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.dispatchEvent(new CustomEvent("db-degraded", { detail: { reason, diag } }));
+  } catch { /* noop */ }
+}
+
+
 // `@sqlite.org/sqlite-wasm` ships its own typings but they require DOM-only
 // types; we re-declare the slim surface we touch to keep this file portable.
 interface SqliteDb {
