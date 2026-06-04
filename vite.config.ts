@@ -43,14 +43,23 @@ function serveSqliteWasmDevPlugin(): Plugin {
       server.middlewares.use("/sqlite", (req, res, next) => {
         const url = req.url || "/";
         const safe = url.split("?")[0].replace(/^\/+/, "");
-        if (!/^[\w.\-]+$/.test(safe)) { res.statusCode = 400; return res.end("bad request"); }
+        if (!/^[\w.-]+$/.test(safe)) {
+          res.statusCode = 400;
+          return res.end("bad request");
+        }
         const filePath = path.join(wasmDir, safe);
-        if (!filePath.startsWith(wasmDir + path.sep)) { res.statusCode = 403; return res.end("forbidden"); }
+        if (!filePath.startsWith(wasmDir + path.sep)) {
+          res.statusCode = 403;
+          return res.end("forbidden");
+        }
         if (!existsSync(filePath)) return next();
         const ext = path.extname(filePath).toLowerCase();
-        const mime = ext === ".wasm" ? "application/wasm"
-          : ext === ".mjs" || ext === ".js" ? "application/javascript"
-          : "application/octet-stream";
+        const mime =
+          ext === ".wasm"
+            ? "application/wasm"
+            : ext === ".mjs" || ext === ".js"
+              ? "application/javascript"
+              : "application/octet-stream";
         res.setHeader("Content-Type", mime);
         res.setHeader("Cross-Origin-Resource-Policy", "same-origin");
         res.end(readFileSync(filePath));
@@ -58,7 +67,6 @@ function serveSqliteWasmDevPlugin(): Plugin {
     },
   };
 }
-
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
@@ -78,7 +86,12 @@ export default defineConfig(({ mode }) => ({
       "Cross-Origin-Resource-Policy": "same-origin",
     },
   },
-  plugins: [react(), mode === "development" && componentTagger(), copySqliteWasmPlugin(), serveSqliteWasmDevPlugin()].filter(Boolean),
+  plugins: [
+    react(),
+    mode === "development" && componentTagger(),
+    copySqliteWasmPlugin(),
+    serveSqliteWasmDevPlugin(),
+  ].filter(Boolean),
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
@@ -125,7 +138,8 @@ export default defineConfig(({ mode }) => ({
           if (id.includes("react-router")) return "vendor-router";
           if (/node_modules[\\/](react|react-dom|scheduler)[\\/]/.test(id)) return "vendor-react";
           if (id.includes("@tanstack/react-query")) return "vendor-query";
-          if (id.includes("framer-motion") || id.includes("motion-dom") || id.includes("motion-utils")) return "vendor-motion";
+          if (id.includes("framer-motion") || id.includes("motion-dom") || id.includes("motion-utils"))
+            return "vendor-motion";
           if (id.includes("recharts") || id.includes("/d3-") || id.includes("victory-vendor")) return "vendor-charts";
           if (id.includes("@radix-ui")) return "vendor-radix";
           if (id.includes("@tiptap") || id.includes("prosemirror")) return "vendor-tiptap";
