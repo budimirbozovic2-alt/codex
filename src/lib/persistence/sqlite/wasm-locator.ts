@@ -29,16 +29,19 @@ export function getWasmBasePath(): string {
     // Browser preview — not used in production, but keep working for DEV
     return "./sqlite/";
   }
-  
+
   if (isProduction()) {
     // Electron PROD: Vite plugin copies assets to dist/sqlite/
     return "./sqlite/";
   }
-  
-  // Electron DEV: Vite dev server serves from node_modules
-  // This path must match the Vite import resolution
-  return "./sqlite/";
+
+  // Electron DEV: Vite serves files via the `/sqlite/` alias declared in
+  // vite.config.ts (PR-H-OPFS-FIX H-4). Previously this returned "./sqlite/"
+  // which 404'd for the OPFS proxy + worker1 files because no asset existed
+  // at that path during dev — silently degrading SQLite to in-memory.
+  return "/sqlite/";
 }
+
 
 /**
  * Locator callback for sqlite3InitModule. This is passed to the WASM

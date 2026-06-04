@@ -24,6 +24,21 @@ import { logger } from "@/lib/logger";
 
 const OPFS_DB_FILENAME = "/codex.sqlite3";
 
+/**
+ * PR-H-OPFS-FIX: dispatch a window event when SQLite cannot use the durable
+ * OPFS-SAH-pool VFS and falls back to an in-memory executor. Bridged to a
+ * blocking sonner toast by `DbDegradedWatcher` mounted in `App.tsx`. Without
+ * this signal, the renderer silently writes to a non-persistent store and
+ * the user only discovers data loss on the next restart.
+ */
+function emitDegraded(reason: "opfs-api-missing" | "opfs-runtime-error", diag?: unknown): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.dispatchEvent(new CustomEvent("db-degraded", { detail: { reason, diag } }));
+  } catch { /* noop */ }
+}
+
+
 // `@sqlite.org/sqlite-wasm` ships its own typings but they require DOM-only
 // types; we re-declare the slim surface we touch to keep this file portable.
 interface SqliteDb {
@@ -80,6 +95,7 @@ export function getOpfsSqliteExecutor(): Promise<SqlExecutor> {
       // functional session and a clear toast instead of NO_EXECUTOR storms
       // on every write.
       logger.warn("[sqlite] falling back to in-memory executor (non-durable)");
+      emitDegraded("opfs-api-missing", diag);
       const { getDevFallbackExecutor } = await import("./dev-fallback");
       return getDevFallbackExecutor();
     }
@@ -96,9 +112,11 @@ export function getOpfsSqliteExecutor(): Promise<SqlExecutor> {
       // of an unrecoverable boot crash. Durability is lost — bridge layer
       // surfaces a toast in that case.
       logger.warn("[sqlite] OPFS runtime error, attempting in-memory fallback");
+      emitDegraded("opfs-runtime-error", { ...diag, error: String(err) });
       const { getDevFallbackExecutor } = await import("./dev-fallback");
       return getDevFallbackExecutor();
     }
+
 
     const exec = wrapDb(db);
     // A1 fix: `PRAGMA foreign_keys` is connection-scoped and NOT persisted.

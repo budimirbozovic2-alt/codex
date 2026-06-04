@@ -290,6 +290,20 @@ ipcMain.handle('read-file-bytes', async (event, filePath) => {
 });
 
 app.whenReady().then(() => {
+  // ── PR-H-OPFS-FIX (C-1): Cross-origin isolation headers MUST be set inside
+  // the `app://` protocol Response constructor. `protocol.handle` bypasses
+  // `session.webRequest.onHeadersReceived` entirely (Electron docs + Chromium
+  // network-service architecture), so the COOP/COEP block at line ~360 below
+  // never reaches packaged responses. Without these headers, `crossOriginIsolated`
+  // is `false`, `installOpfsSAHPoolVfs` is undefined, and SQLite silently
+  // degrades to in-memory → user data lost on restart.
+  const ISOLATION_HEADERS = {
+    'Cross-Origin-Opener-Policy': 'same-origin',
+    'Cross-Origin-Embedder-Policy': 'require-corp',
+    'Cross-Origin-Resource-Policy': 'same-origin',
+  };
+  const PROD_CSP = "default-src 'self' app:; script-src 'self' 'unsafe-inline' app:; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: app:; font-src 'self' data: app:; connect-src 'self' blob: app:; media-src 'self' blob: app:; worker-src 'self' blob: app:;";
+
   // ── Register app:// protocol handler for production ──
   if (!isDev) {
     const distPath = path.join(__dirname, 'dist');
@@ -299,12 +313,21 @@ app.whenReady().then(() => {
       '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg',
       '.ico': 'image/x-icon', '.woff': 'font/woff', '.woff2': 'font/woff2',
       '.ttf': 'font/ttf', '.otf': 'font/otf',
+      // PR-H-OPFS-FIX (C-2): sqlite3.wasm must be served as application/wasm
+      // so `WebAssembly.instantiateStreaming` succeeds. Without this it falls
+      // back to ArrayBuffer parsing (slower) or is blocked under strict CSP.
+      '.wasm': 'application/wasm',
     };
+    const buildHeaders = (mime) => ({
+      'Content-Type': mime,
+      ...ISOLATION_HEADERS,
+      'Content-Security-Policy': PROD_CSP,
+    });
     const serveIndex = async () => {
       const indexData = await fsp.readFile(path.join(distPath, 'index.html'));
       return new Response(indexData, {
         status: 200,
-        headers: { 'Content-Type': 'text/html' },
+        headers: buildHeaders('text/html'),
       });
     };
     protocol.handle('app', async (request) => {
@@ -326,7 +349,7 @@ app.whenReady().then(() => {
           const data = await fsp.readFile(resolved);
           return new Response(data, {
             status: 200,
-            headers: { 'Content-Type': mime },
+            headers: buildHeaders(mime),
           });
         } catch {
           return serveIndex();
@@ -338,43 +361,33 @@ app.whenReady().then(() => {
     });
   }
 
+
   // ── Permission lockdown: deny all default Chromium permission requests ──
   session.defaultSession.setPermissionRequestHandler((_webContents, _permission, callback) => {
     callback(false);
   });
   session.defaultSession.setPermissionCheckHandler(() => false);
 
-  // ── CSP + Cross-Origin Isolation headers ──
-  // PR-H-OPFS: OPFS-SAH-pool VFS requires `crossOriginIsolated === true`
-  // (SharedArrayBuffer + Atomics.wait inside the OPFS proxy worker). Without
-  // COOP/COEP, Chromium leaves `installOpfsSAHPoolVfs` undefined and every
-  // SQLite write throws NO_EXECUTOR. CORP on responses lets the worker pull
-  // sqlite3.wasm / sqlite3-opfs-async-proxy.js / sqlite3-worker1.mjs under
-  // the isolated origin.
+  // ── CSP + Cross-Origin Isolation headers for dev (HTTP) only ──
+  // PR-H-OPFS-FIX (C-1): PROD `app://` responses inject these headers directly
+  // inside `protocol.handle` above. `onHeadersReceived` does NOT see custom
+  // protocol Response objects, so injecting here in PROD would be a silent no-op.
+  // We still wire it for dev so the Vite HTTP server gets crossOriginIsolated.
+
   session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
-    if (details.url.startsWith('file://')) {
+    if (!isDev || details.url.startsWith('file://')) {
       return callback({ responseHeaders: details.responseHeaders });
-    }
-    const extra = {
-      'Cross-Origin-Opener-Policy': ['same-origin'],
-      'Cross-Origin-Embedder-Policy': ['require-corp'],
-      'Cross-Origin-Resource-Policy': ['same-origin'],
-    };
-    if (isDev) {
-      return callback({
-        responseHeaders: { ...details.responseHeaders, ...extra },
-      });
     }
     callback({
       responseHeaders: {
         ...details.responseHeaders,
-        ...extra,
-        'Content-Security-Policy': [
-          "default-src 'self' app:; script-src 'self' 'unsafe-inline' app:; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: app:; font-src 'self' data: app:; connect-src 'self' blob: app:; media-src 'self' blob: app:; worker-src 'self' blob: app:;"
-        ],
+        'Cross-Origin-Opener-Policy': ['same-origin'],
+        'Cross-Origin-Embedder-Policy': ['require-corp'],
+        'Cross-Origin-Resource-Policy': ['same-origin'],
       },
     });
   });
+
 
   // ── Web-contents lockdown: block in-app navigation & new windows ──
   app.on('web-contents-created', (_e, contents) => {

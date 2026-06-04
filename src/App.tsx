@@ -15,6 +15,8 @@ import { PageSkeleton } from "@/components/ui/page-skeleton";
 // PR-D D5: pointer-events guard now installed in `main.tsx` before render.
 import { QueryClientProvider } from "@tanstack/react-query";
 import { queryClient } from "@/lib/query/client";
+import { DbDegradedWatcher } from "@/components/DbDegradedWatcher";
+
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 // Lazy-loaded route pages
@@ -87,6 +89,8 @@ const App = () => {
           </div>
         )}
         <Sonner />
+        <DbDegradedWatcher />
+
         <HashRouter>
           <AppProvider>
             <ErrorBoundary>
