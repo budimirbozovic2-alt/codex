@@ -375,30 +375,25 @@ app.whenReady().then(() => {
   // SQLite write throws NO_EXECUTOR. CORP on responses lets the worker pull
   // sqlite3.wasm / sqlite3-opfs-async-proxy.js / sqlite3-worker1.mjs under
   // the isolated origin.
+  // ── CSP + Cross-Origin Isolation headers for dev (HTTP) only ──
+  // PROD `app://` responses inject these headers directly in `protocol.handle`
+  // above (see PR-H-OPFS-FIX C-1). `onHeadersReceived` does NOT see custom
+  // protocol Response objects, so injecting here in PROD would be a no-op.
+  // We still wire it for dev so the Vite HTTP server gets crossOriginIsolated.
   session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
-    if (details.url.startsWith('file://')) {
+    if (!isDev || details.url.startsWith('file://')) {
       return callback({ responseHeaders: details.responseHeaders });
-    }
-    const extra = {
-      'Cross-Origin-Opener-Policy': ['same-origin'],
-      'Cross-Origin-Embedder-Policy': ['require-corp'],
-      'Cross-Origin-Resource-Policy': ['same-origin'],
-    };
-    if (isDev) {
-      return callback({
-        responseHeaders: { ...details.responseHeaders, ...extra },
-      });
     }
     callback({
       responseHeaders: {
         ...details.responseHeaders,
-        ...extra,
-        'Content-Security-Policy': [
-          "default-src 'self' app:; script-src 'self' 'unsafe-inline' app:; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: app:; font-src 'self' data: app:; connect-src 'self' blob: app:; media-src 'self' blob: app:; worker-src 'self' blob: app:;"
-        ],
+        'Cross-Origin-Opener-Policy': ['same-origin'],
+        'Cross-Origin-Embedder-Policy': ['require-corp'],
+        'Cross-Origin-Resource-Policy': ['same-origin'],
       },
     });
   });
+
 
   // ── Web-contents lockdown: block in-app navigation & new windows ──
   app.on('web-contents-created', (_e, contents) => {
