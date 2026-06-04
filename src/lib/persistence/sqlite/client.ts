@@ -95,6 +95,7 @@ export function getOpfsSqliteExecutor(): Promise<SqlExecutor> {
       // functional session and a clear toast instead of NO_EXECUTOR storms
       // on every write.
       logger.warn("[sqlite] falling back to in-memory executor (non-durable)");
+      emitDegraded("opfs-api-missing", diag);
       const { getDevFallbackExecutor } = await import("./dev-fallback");
       return getDevFallbackExecutor();
     }
@@ -111,9 +112,11 @@ export function getOpfsSqliteExecutor(): Promise<SqlExecutor> {
       // of an unrecoverable boot crash. Durability is lost — bridge layer
       // surfaces a toast in that case.
       logger.warn("[sqlite] OPFS runtime error, attempting in-memory fallback");
+      emitDegraded("opfs-runtime-error", { ...diag, error: String(err) });
       const { getDevFallbackExecutor } = await import("./dev-fallback");
       return getDevFallbackExecutor();
     }
+
 
     const exec = wrapDb(db);
     // A1 fix: `PRAGMA foreign_keys` is connection-scoped and NOT persisted.
