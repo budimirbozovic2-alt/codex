@@ -29,6 +29,37 @@ function copySqliteWasmPlugin(): Plugin {
   };
 }
 
+/**
+ * PR-H-OPFS-FIX (H-4): serve `/sqlite/*` from `@sqlite.org/sqlite-wasm/dist`
+ * in dev so the OPFS proxy + worker1 files resolve under the wasm-locator's
+ * dev base path. Without this Electron DEV gets 404 and degrades to in-memory.
+ */
+function serveSqliteWasmDevPlugin(): Plugin {
+  return {
+    name: "serve-sqlite-wasm-dev",
+    apply: "serve",
+    configureServer(server) {
+      const wasmDir = path.resolve(__dirname, "node_modules/@sqlite.org/sqlite-wasm/dist");
+      server.middlewares.use("/sqlite", (req, res, next) => {
+        const url = req.url || "/";
+        const safe = url.split("?")[0].replace(/^\/+/, "");
+        if (!/^[\w.\-]+$/.test(safe)) { res.statusCode = 400; return res.end("bad request"); }
+        const filePath = path.join(wasmDir, safe);
+        if (!filePath.startsWith(wasmDir + path.sep)) { res.statusCode = 403; return res.end("forbidden"); }
+        if (!existsSync(filePath)) return next();
+        const ext = path.extname(filePath).toLowerCase();
+        const mime = ext === ".wasm" ? "application/wasm"
+          : ext === ".mjs" || ext === ".js" ? "application/javascript"
+          : "application/octet-stream";
+        res.setHeader("Content-Type", mime);
+        res.setHeader("Cross-Origin-Resource-Policy", "same-origin");
+        res.end(readFileSync(filePath));
+      });
+    },
+  };
+}
+
+
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
   base: "./",
