@@ -78,7 +78,7 @@ export default defineConfig(({ mode }) => ({
       "Cross-Origin-Resource-Policy": "same-origin",
     },
   },
-  plugins: [react(), mode === "development" && componentTagger(), copySqliteWasmPlugin()].filter(Boolean),
+  plugins: [react(), mode === "development" && componentTagger(), copySqliteWasmPlugin(), serveSqliteWasmDevPlugin()].filter(Boolean),
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
