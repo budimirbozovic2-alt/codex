@@ -368,18 +368,12 @@ app.whenReady().then(() => {
   });
   session.defaultSession.setPermissionCheckHandler(() => false);
 
-  // ── CSP + Cross-Origin Isolation headers ──
-  // PR-H-OPFS: OPFS-SAH-pool VFS requires `crossOriginIsolated === true`
-  // (SharedArrayBuffer + Atomics.wait inside the OPFS proxy worker). Without
-  // COOP/COEP, Chromium leaves `installOpfsSAHPoolVfs` undefined and every
-  // SQLite write throws NO_EXECUTOR. CORP on responses lets the worker pull
-  // sqlite3.wasm / sqlite3-opfs-async-proxy.js / sqlite3-worker1.mjs under
-  // the isolated origin.
   // ── CSP + Cross-Origin Isolation headers for dev (HTTP) only ──
-  // PROD `app://` responses inject these headers directly in `protocol.handle`
-  // above (see PR-H-OPFS-FIX C-1). `onHeadersReceived` does NOT see custom
-  // protocol Response objects, so injecting here in PROD would be a no-op.
+  // PR-H-OPFS-FIX (C-1): PROD `app://` responses inject these headers directly
+  // inside `protocol.handle` above. `onHeadersReceived` does NOT see custom
+  // protocol Response objects, so injecting here in PROD would be a silent no-op.
   // We still wire it for dev so the Vite HTTP server gets crossOriginIsolated.
+
   session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
     if (!isDev || details.url.startsWith('file://')) {
       return callback({ responseHeaders: details.responseHeaders });
