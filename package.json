@@ -22,6 +22,7 @@
     "deadcode:exports": "knip --include exports,types,nsExports,nsTypes,duplicates",
     "deadcode:files": "knip --include files",
     "electron": "electron main.cjs",
+    "verify:app-headers": "vite build && electron . --verify-headers",
     "dist": "npm run build && electron-builder",
     "dist:win": "npm run build && electron-builder --win",
     "dist:mac": "npm run build && electron-builder --mac"
