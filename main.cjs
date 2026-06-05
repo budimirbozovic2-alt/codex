@@ -416,6 +416,19 @@ app.whenReady().then(() => {
     contents.on('will-attach-webview', (event) => event.preventDefault());
   });
 
+  // ── PR-H-OPFS-FIX-3 (runtime smoke): --verify-headers mode ──
+  // Skips window creation and instead fetches every dist/ asset through the
+  // registered app:// protocol, asserting that COOP/COEP/CORP + CSP + correct
+  // Content-Type are present. Exits 0 on success, 1 on any failure.
+  if (process.argv.includes('--verify-headers')) {
+    const { run } = require(path.join(__dirname, 'electron', 'verify-headers.cjs'));
+    run().catch((err) => {
+      console.error('[verify-headers] fatal:', err);
+      app.exit(1);
+    });
+    return;
+  }
+
   const splash = createSplashWindow(isDev, __dirname);
   createWindow({
     isDev,
@@ -426,6 +439,7 @@ app.whenReady().then(() => {
     onMainWindow: setMainWindow,
     assertTrustedSender,
   });
+
 });
 
 // ── G1 Fix: Use app.exit(0) instead of app.quit() to avoid recursive before-quit ──
