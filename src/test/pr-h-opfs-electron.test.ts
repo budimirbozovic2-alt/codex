@@ -90,3 +90,40 @@ describe("PR-H-OPFS-FIX: app:// protocol must carry isolation + MIME headers", (
     expect(watcher).toMatch(/toast\.error/);
   });
 });
+
+describe("PR-H-OPFS-FIX-2: CSP + self-hosted fonts", () => {
+  it("main.cjs PROD_CSP allows 'unsafe-eval' and 'wasm-unsafe-eval'", () => {
+    const src = read("main.cjs");
+    const m = src.match(/PROD_CSP\s*=\s*"([^"]+)"/);
+    expect(m).toBeTruthy();
+    const csp = m![1];
+    expect(csp).toMatch(/'unsafe-eval'/);
+    expect(csp).toMatch(/'wasm-unsafe-eval'/);
+  });
+
+  it("main.cjs PROD_CSP does not allowlist Google Fonts origins", () => {
+    const src = read("main.cjs");
+    const m = src.match(/PROD_CSP\s*=\s*"([^"]+)"/);
+    const csp = m![1];
+    expect(csp).not.toMatch(/fonts\.googleapis\.com/);
+    expect(csp).not.toMatch(/fonts\.gstatic\.com/);
+  });
+
+  it("index.html has no Google Fonts references", () => {
+    const src = read("index.html");
+    expect(src).not.toMatch(/fonts\.googleapis\.com/);
+    expect(src).not.toMatch(/fonts\.gstatic\.com/);
+  });
+
+  it("public/splash.html has no Google Fonts references", () => {
+    const src = read("public/splash.html");
+    expect(src).not.toMatch(/fonts\.googleapis\.com/);
+    expect(src).not.toMatch(/fonts\.gstatic\.com/);
+  });
+
+  it("src/index.css self-hosts Fraunces from /fonts/", () => {
+    const src = read("src/index.css");
+    expect(src).toMatch(/font-family:\s*['"]Fraunces['"]/);
+    expect(src).toMatch(/url\(['"]\/fonts\/fraunces-latin\.woff2['"]\)/);
+  });
+});

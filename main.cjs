@@ -302,7 +302,11 @@ app.whenReady().then(() => {
     'Cross-Origin-Embedder-Policy': 'require-corp',
     'Cross-Origin-Resource-Policy': 'cross-origin',
   };
-  const PROD_CSP = "default-src 'self' app:; script-src 'self' 'unsafe-inline' app:; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: app:; font-src 'self' data: app:; connect-src 'self' blob: app:; media-src 'self' blob: app:; worker-src 'self' blob: app:;";
+  // PR-H-OPFS-FIX-2: add 'unsafe-eval' + 'wasm-unsafe-eval' (Zod / sqlite-wasm
+  // glue use eval/new Function — boot chain throws otherwise and silently
+  // falls back to in-memory). Fonts are self-hosted now, so no external
+  // origins required. Added object-src / base-uri / frame-ancestors hardening.
+  const PROD_CSP = "default-src 'self' app:; script-src 'self' 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval' app:; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: app:; font-src 'self' data: app:; connect-src 'self' blob: app:; media-src 'self' blob: app:; worker-src 'self' blob: app:; object-src 'none'; base-uri 'self'; frame-ancestors 'none';";
 
   // ── Register app:// protocol handler for production ──
   if (!isDev) {

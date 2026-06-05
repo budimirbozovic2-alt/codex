@@ -4,16 +4,14 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <!-- Defense-in-depth CSP. Production Electron also sets this via response headers in main.cjs.
-         'unsafe-inline' for scripts is required by the inline boot/retry script below;
+         PR-H-OPFS-FIX-2: fonts self-hosted (see src/index.css), no external origins.
+         'unsafe-eval'/'wasm-unsafe-eval' required by Zod schema compiler + sqlite-wasm glue;
          ws:/wss: are required by Vite HMR + Lovable preview. -->
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self' app:; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' app:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: blob: https: app:; font-src 'self' data: app: https://fonts.gstatic.com; connect-src 'self' blob: app: ws: wss: https://fonts.gstatic.com https://fonts.googleapis.com; media-src 'self' blob: app:; object-src 'none'; base-uri 'self'; frame-ancestors 'none';">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self' app:; script-src 'self' 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval' app:; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https: app:; font-src 'self' data: app:; connect-src 'self' blob: app: ws: wss:; media-src 'self' blob: app:; object-src 'none'; base-uri 'self'; frame-ancestors 'none';">
     <title>CODEX — Sistem za memorizaciju</title>
     <meta name="description" content="Aplikacija za učenje esejskih pitanja pomoću SM-2 algoritma sa praćenjem znanja po cjelinama">
     <!-- PWA manifest & theme-color removed — Pure Desktop (P3 PR-8 finale). -->
     <link rel="icon" href="./favicon.png" type="image/png" />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,500;9..144,600;9..144,700&display=swap" />
     <meta name="author" content="Lovable" />
     <link rel="canonical" href="https://memoria-mne.lovable.app/" />
     <meta property="og:locale" content="sr_RS" />
