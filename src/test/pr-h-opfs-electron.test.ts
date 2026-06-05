@@ -127,3 +127,69 @@ describe("PR-H-OPFS-FIX-2: CSP + self-hosted fonts", () => {
     expect(src).toMatch(/url\(['"]\/fonts\/fraunces-latin\.woff2['"]\)/);
   });
 });
+
+describe("PR-H-OPFS-FIX-3: every app:// Response carries isolation + CSP", () => {
+  const src = read("main.cjs");
+
+  it("ISOLATION_HEADERS constant pins COOP=same-origin, COEP=require-corp, CORP=cross-origin", () => {
+    const m = src.match(/ISOLATION_HEADERS\s*=\s*\{([\s\S]*?)\}/);
+    expect(m).toBeTruthy();
+    const block = m![1];
+    expect(block).toMatch(/['"]Cross-Origin-Opener-Policy['"]\s*:\s*['"]same-origin['"]/);
+    expect(block).toMatch(/['"]Cross-Origin-Embedder-Policy['"]\s*:\s*['"]require-corp['"]/);
+    expect(block).toMatch(/['"]Cross-Origin-Resource-Policy['"]\s*:\s*['"]cross-origin['"]/);
+  });
+
+  it("buildHeaders includes Content-Type + ISOLATION_HEADERS spread + CSP", () => {
+    const m = src.match(/buildHeaders\s*=\s*\([^)]*\)\s*=>\s*\(\{([\s\S]*?)\}\)/);
+    expect(m).toBeTruthy();
+    const body = m![1];
+    expect(body).toMatch(/['"]Content-Type['"]\s*:/);
+    expect(body).toMatch(/\.\.\.ISOLATION_HEADERS/);
+    expect(body).toMatch(/['"]Content-Security-Policy['"]\s*:\s*PROD_CSP/);
+  });
+
+  it("every `new Response(...)` inside protocol.handle('app', ...) uses buildHeaders", () => {
+    const handleIdx = src.indexOf("protocol.handle('app'");
+    expect(handleIdx).toBeGreaterThan(-1);
+    // Slice the handler body to the matching closing `});` — bounded scan is fine.
+    const block = src.slice(handleIdx, handleIdx + 4000);
+    const responses = block.match(/new Response\([\s\S]*?\}\s*\)/g) || [];
+    expect(responses.length).toBeGreaterThan(0);
+    for (const r of responses) {
+      expect(r).toMatch(/headers\s*:\s*buildHeaders\(/);
+    }
+    // serveIndex() (used as fallback inside the handler) must also use buildHeaders.
+    const serveIndexMatch = src.match(/serveIndex\s*=\s*async[\s\S]*?\};/);
+    expect(serveIndexMatch).toBeTruthy();
+    expect(serveIndexMatch![0]).toMatch(/headers\s*:\s*buildHeaders\(['"]text\/html['"]\)/);
+  });
+
+  it("MIME_TYPES covers every asset extension shipped in dist/ + public/", () => {
+    const required = [
+      ".html", ".js", ".mjs", ".css", ".json", ".svg",
+      ".png", ".jpg", ".jpeg", ".ico",
+      ".woff", ".woff2", ".ttf", ".otf",
+      ".wasm",
+    ];
+    const m = src.match(/MIME_TYPES\s*=\s*\{([\s\S]*?)\};/);
+    expect(m).toBeTruthy();
+    const block = m![1];
+    for (const ext of required) {
+      expect(block).toMatch(new RegExp(`['"]\\${ext}['"]\\s*:`));
+    }
+  });
+
+  it("--verify-headers runtime smoke entrypoint is wired in main.cjs and module exists", () => {
+    expect(src).toMatch(/--verify-headers/);
+    expect(src).toMatch(/electron[\/\\]+verify-headers\.cjs|verify-headers\.cjs/);
+    const mod = read("electron/verify-headers.cjs");
+    expect(mod).toMatch(/net\.fetch\(/);
+    expect(mod).toMatch(/cross-origin-opener-policy/);
+    expect(mod).toMatch(/cross-origin-embedder-policy/);
+    expect(mod).toMatch(/cross-origin-resource-policy/);
+    expect(mod).toMatch(/content-security-policy/);
+    expect(mod).toMatch(/app:\/\/localhost/);
+  });
+});
+
