@@ -103,9 +103,10 @@ export function getOpfsSqliteExecutor(): Promise<SqlExecutor> {
         } else {
           emitDegraded("opfs-runtime-error", result);
         }
-
+      }
 
       return getWorkerSqlExecutor();
+
     } catch (err) {
       // Worker itself failed to even boot — fall back to renderer-side
       // in-memory executor so the app keeps running with a clear warning.
