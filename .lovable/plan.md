@@ -1,74 +1,54 @@
-## Cilj
-Dokazati da **svaka** ruta servirana iz `protocol.handle('app', …)` (HTML, JS, CSS, WASM, woff2, png, svg, ico, json) u packaged Electron buildu nosi:
-- `Cross-Origin-Opener-Policy: same-origin`
-- `Cross-Origin-Embedder-Policy: require-corp`
-- `Cross-Origin-Resource-Policy: cross-origin`
-- `Content-Security-Policy: <PROD_CSP>`
-- ispravan `Content-Type`
+## Dijagnoza
 
-Ne samo HTML rute.
+Problem vjerovatno više nije COOP/COEP/CSP header. Header smoke kaže da su asset rute ispravne.
 
-## Trenutno stanje (analiza)
-`main.cjs` već koristi `buildHeaders(mime)` koji spreaduje `ISOLATION_HEADERS` + dodaje `Content-Security-Policy: PROD_CSP`. Pozvan je u obje grane `protocol.handle('app', …)`:
-- `serveIndex()` → fallback / SPA root
-- asset grana → `new Response(data, { status: 200, headers: buildHeaders(mime) })`
+Greška `Missing required OPFS APIs` dolazi iz `@sqlite.org/sqlite-wasm`: OPFS SAH VFS traži `FileSystemFileHandle.prototype.createSyncAccessHandle` i `navigator.storage.getDirectory`, ali SQLite ga trenutno pokušava instalirati iz renderer main thread-a (`client.ts` → `initSqliteWasm()` → `sqlite3.installOpfsSAHPoolVfs()`). SQLite dokumentacija kaže da su OPFS/SyncAccessHandle API-ji za ovaj VFS dostupni u Worker kontekstu, ne pouzdano u UI thread-u. Zato dev Electron i packaged build padaju u isti in-memory fallback.
 
-Teoretski ✅, ali nemamo automatski regresioni guard koji bi blokirao PR koji uvodi treću `new Response(...)` granu bez `buildHeaders`, niti runtime dokaz da Electron stvarno emituje te headere za sve MIME tipove.
+## Plan
 
-## Plan: dva sloja verifikacije
+1. **Uvesti Worker-backed SQLite executor**
+   - Dodati dedicated worker modul za SQLite/OPFS, npr. `src/lib/persistence/sqlite/opfs-worker.ts`.
+   - Worker inicijalizuje `@sqlite.org/sqlite-wasm`, poziva `installOpfsSAHPoolVfs()`, otvara `OpfsSAHPoolDb`, uključuje `PRAGMA foreign_keys = ON`, pokreće postojeće migracije i drži jedan trajni DB handle.
+   - Renderer više ne poziva OPFS SAH direktno.
 
-### 1) Statički guardovi — proširiti `src/test/pr-h-opfs-electron.test.ts`
-Novi `describe("PR-H-OPFS-FIX-3: every app:// Response carries isolation + CSP")` blok:
+2. **Dodati typed RPC bridge između renderer-a i worker-a**
+   - Uvesti minimalni request/response protocol za postojeći `SqlExecutor` surface:
+     - `run(sql, params)`
+     - `runMany(sql, paramsBatches)`
+     - `all(sql, params)`
+     - `exec(sql)`
+     - `transaction(ops)` ili serialized transaction queue
+     - `close()`
+   - Zadržati `SqlExecutor` interfejs za ostatak aplikacije, tako da query/repository sloj ostaje isti.
 
-- **Test A — strukturni**: izvuci tijelo `protocol.handle('app', …)` callbacka regexom; potvrdi da **svaki** `new Response(` unutar tog bloka prima `buildHeaders(` u `headers` polju. Ako iko ikad doda `new Response(data, { headers: { 'Content-Type': mime } })` bez `buildHeaders`, test pada.
-- **Test B — `buildHeaders` kompletnost**: parsiraj `buildHeaders = (mime) => ({ ... })` i potvrdi da rezultat sadrži sva 4 ključa: `Content-Type`, sva 3 isolation headera (preko spread-a `ISOLATION_HEADERS`), `Content-Security-Policy`.
-- **Test C — `ISOLATION_HEADERS` vrijednosti**: hardkodovani assert da konstanta sadrži `COOP=same-origin`, `COEP=require-corp`, `CORP=cross-origin` (regresija ako ih neko stišća na `unsafe-none`).
-- **Test D — MIME pokrivenost**: `MIME_TYPES` mora pokrivati minimalno `.html .js .mjs .css .json .svg .png .jpg .jpeg .ico .woff .woff2 .ttf .otf .wasm`. Ako se doda nova ekstenzija u `public/` (npr. `.webmanifest`), guard ne pada ali sprečava regresiju za postojeće.
-- **Test E — fallback grana**: `serveIndex()` također koristi `buildHeaders('text/html')`, ne sirov objekt.
+3. **Transakcije riješiti deterministički**
+   - Pošto trenutni API koristi `exec.transaction(async tx => { await tx.run(...); ... })`, worker wrapper mora očuvati isti oblik.
+   - Najsigurnija prva implementacija: renderer-side `transaction()` kreira transaction context/ID u worker-u; svi `tx.run/tx.all/tx.exec` pozivi idu serijski kroz isti context; na kraju `COMMIT`, na grešku `ROLLBACK`.
+   - Time se ne uvodi JS mutex za DB write path; samo RPC serializacija ka jednom worker-owned SQLite connection-u.
 
-Cilj: 5 novih `it(...)`, sve deterministički preko `readFileSync` + regex. Bez Electron runtime-a.
+4. **Popraviti asset resolution za worker**
+   - `locateFile` u worker kontekstu mora pokazivati na iste `/sqlite/*` fajlove u dev Electronu i `./sqlite/*` u packaged `app://localhost` buildu.
+   - Po potrebi razdvojiti `getWasmBasePath()` za renderer vs worker, jer `import.meta.env.PROD` i relative URL u worker-u mogu drugačije resolve-ati.
 
-### 2) Runtime smoke test — `scripts/verify-app-protocol-headers.cjs`
-Mali Node skript (CommonJS) koji se pokreće iz packaged Electron builda u headless modu:
+5. **Učvrstiti fallback ponašanje**
+   - U Electron PROD: ako OPFS worker ne može otvoriti trajnu bazu, prikazati postojeći `db-degraded` signal, ali u log ubaciti pun diagnostic snapshot iz worker-a (`crossOriginIsolated`, `hasSharedArrayBuffer`, `hasNavigatorStorage`, `hasFileSystemHandles`, `hasSyncAccessHandle`).
+   - U Electron DEV: fallback može ostati in-memory, ali samo nakon što OPFS worker jasno prijavi razlog.
+   - U običnom browser Vite preview-u: i dalje zadržati namjerni in-memory dev fallback jer nema `window.electronAPI`.
 
-```
-electron-release/MyApp-linux-x64/MyApp --verify-headers
-```
+6. **Dodati runtime smoke test za OPFS, ne samo headere**
+   - Proširiti `electron/verify-headers.cjs` ili dodati novi `electron/verify-opfs.cjs` sa `--verify-opfs` modom koji otvori realan renderer/worker kontekst i provjeri:
+     - `crossOriginIsolated === true`
+     - OPFS worker može otvoriti `OpfsSAHPoolDb`
+     - test tabela/ključ preživi reload procesa/prozora
+   - Dodati npm skriptu npr. `verify:opfs`.
 
-U `main.cjs` dodaj `--verify-headers` argument grananje (samo kad je flag prisutan):
-1. nakon `app.whenReady()` i registracije `app://` protokola, ne otvaraj prozor
-2. pokreni `BrowserWindow({ show: false, webPreferences: { offscreen: true } })`
-3. za svaki test URL (`/index.html`, prvi `/assets/*.js`, prvi `/assets/*.css`, `/sqlite/sqlite3.wasm`, `/fonts/fraunces-latin.woff2`, `/placeholder.svg`) izvedi `net.fetch('app://localhost/...')` (Electron `net` modul podržava custom protokol)
-4. asertuj da svaki response ima sva 4 očekivana headera + ispravan `Content-Type`
-5. izlistaj rezultat u JSON na stdout, `app.exit(0)` ili `app.exit(1)`
+7. **Test guardovi**
+   - Proširiti `src/test/pr-h-opfs-electron.test.ts` da regresijski zabrani direktan `installOpfsSAHPoolVfs()` iz renderer `client.ts`.
+   - Dodati test da `client.ts` koristi worker-backed executor u Electron runtime-u.
+   - Zadržati postojeće header/CSP testove.
 
-Lista URL-ova se generiše dinamički iz `dist/index.html` (parsiraj `<script src>` i `<link href>`) plus fiksni asset paths.
+## Očekivani rezultat
 
-### 3) CI wiring (opciono, dokumentovano u planu, ne pokretano sada)
-Dodaj npm skriptu:
-```
-"verify:app-headers": "vite build && electron . --verify-headers"
-```
-Statički test (1) trči u svakom `bunx vitest run`. Runtime test (2) je manuelan / pre-release jer zahtijeva Electron download (~150MB) i build (~1min).
-
-## Tehnički detalji
-
-### Datoteke
-- **Edit** `src/test/pr-h-opfs-electron.test.ts` — dodaj `describe("PR-H-OPFS-FIX-3: …")` sa 5 testova
-- **Edit** `main.cjs` — dodaj `process.argv.includes('--verify-headers')` granu prije `createWindow(...)`, koja poziva novi modul
-- **Create** `electron/verify-headers.cjs` — implementacija `--verify-headers` (Electron `net.fetch` + assertion + JSON izvještaj)
-- **Edit** `package.json` — `scripts.verify:app-headers`
-- **Edit** `.lovable/plan.md` — sažetak za istoriju
-
-### Izvršenje verifikacije nakon implementacije
-1. `bunx vitest run src/test/pr-h-opfs-electron.test.ts` — sva 20 testa (15 postojećih + 5 novih) zelena
-2. (opciono u sandbox-u) `bun add -D electron @electron/packager && npx vite build && npx electron . --verify-headers` — provjeri JSON izvještaj; svi URL-ovi moraju imati 4 očekivana headera
-
-### Out of scope
-- Bundle 2 (PR-H-BACKUP-IPC), Bundle 3 (PR-H-BUILD-CLEANUP) — odvojeni PR-ovi
-- DEV server headers (Vite plugin) — već pokriven postojećim testovima
-- CSP runtime validacija (eval, wasm-eval) — već pokriven u PR-H-OPFS-FIX-2
-
-## Rizici
-- `net.fetch` u Electron-u prihvata `app://` URL-ove tek od Electron 28+. Provjeriti `package.json` Electron verziju prije implementacije runtime grane; ako je niža, fallback je `BrowserWindow.loadURL` + `webContents.session.webRequest.onResponseStarted` capture.
-- Regex parsing `main.cjs` je krhak na format promjene. Drži regex labav (npr. `/new Response\([^)]*headers:\s*buildHeaders/`).
+- Electron dev više ne završava sa `[sqlite] DEV in-memory fallback aktivan` kada se pokrene kroz Electron.
+- Packaged Electron build otvara trajnu OPFS SQLite bazu i podaci ostaju nakon restarta.
+- Ako OPFS padne, log više neće biti generički; znaćemo tačno koji browser/Electron API fali.
