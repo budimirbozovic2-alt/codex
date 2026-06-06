@@ -22,3 +22,9 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Electron i dodatni build folderi
+dist-electron/
+release/
+build/
+out/

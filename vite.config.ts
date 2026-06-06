@@ -138,9 +138,9 @@ export default defineConfig(({ mode }) => ({
           if (id.includes("react-router")) return "vendor-router";
           if (/node_modules[\\/](react|react-dom|scheduler)[\\/]/.test(id)) return "vendor-react";
           if (id.includes("@tanstack/react-query")) return "vendor-query";
-          if (id.includes("framer-motion") || id.includes("motion-dom") || id.includes("motion-utils"))
-            return "vendor-motion";
-          if (id.includes("recharts") || id.includes("/d3-") || id.includes("victory-vendor")) return "vendor-charts";
+          if (id.includes("framer-motion") || id.includes("motion-dom") || id.includes("motion-utils")) return "vendor-motion";
+          if (id.includes("recharts")) return "vendor-recharts";
+          if (id.includes("/d3-") || id.includes("victory-vendor")) return "vendor-d3";
           if (id.includes("@radix-ui")) return "vendor-radix";
           if (id.includes("@tiptap") || id.includes("prosemirror")) return "vendor-tiptap";
           if (id.includes("@xyflow") || id.includes("reactflow")) return "vendor-xyflow";
