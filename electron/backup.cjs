@@ -4,36 +4,42 @@ const fs = require('fs');
 const fsp = fs.promises;
 
 const MAX_BACKUPS = 3;
-const BACKUP_INTERVAL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
+const BACKUP_INTERVAL_MS = 7 * 24 * 60 * 60 * 1000;
 
-// Default origin guard (used when caller does not inject one).
-function defaultAssertTrustedSender(event) {
-  const url = event && event.senderFrame && event.senderFrame.url;
-  if (typeof url !== 'string') throw new Error('Unauthorized IPC origin');
-  if (url.startsWith('app://localhost')) return;
-  if (url.startsWith('http://localhost:')) return;
-  throw new Error('Unauthorized IPC origin');
+function defaultAssertTrustedSender() {
+  throw new Error(
+    'CRITICAL: assertTrustedSender must be explicitly injected by main.cjs.'
+  );
 }
 
 function setupBackupSystem({ app, getMainWindow, logCrash, isDev, assertTrustedSender }) {
   const guard = assertTrustedSender || defaultAssertTrustedSender;
-
   const BACKUP_DIR = path.join(app.getPath('documents'), 'CodexBackups');
   const LAST_AUTO_BACKUP_PATH = path.join(app.getPath('userData'), 'last-auto-backup.json');
 
   async function ensureBackupDir() {
     try {
       await fsp.mkdir(BACKUP_DIR, { recursive: true });
-    } catch (_) {}
+    } catch (err) {
+      if (err.code !== 'EEXIST') logCrash('backup-mkdir', err);
+    }
   }
 
-  // ── O1 Fix: Parse timestamp from filename instead of statSync ──
+  function formatBackupTimestamp(date = new Date()) {
+    const pad = n => n.toString().padStart(2, '0');
+    return `${date.getUTCFullYear()}_${pad(date.getUTCMonth() + 1)}_${pad(date.getUTCDate())}_${pad(date.getUTCHours())}_${pad(date.getUTCMinutes())}`;
+  }
+
   function parseTimestampFromName(filename) {
-    // Format: Codex_AutoBackup_2026_04_13_12_30.json
-    const match = filename.match(/Codex_AutoBackup_(\d{4}_\d{2}_\d{2}_\d{2}_\d{2})/);
+    const match = filename.match(/Codex_AutoBackup_(\d{4})_(\d{2})_(\d{2})_(\d{2})_(\d{2})/);
     if (match) {
-      const parts = match[1].split('_');
-      return new Date(`${parts[0]}-${parts[1]}-${parts[2]}T${parts[3]}:${parts[4]}:00`).getTime() || 0;
+      return Date.UTC(
+        parseInt(match[1], 10),
+        parseInt(match[2], 10) - 1,
+        parseInt(match[3], 10),
+        parseInt(match[4], 10),
+        parseInt(match[5], 10)
+      );
     }
     return 0;
   }
@@ -45,13 +51,20 @@ function setupBackupSystem({ app, getMainWindow, logCrash, isDev, assertTrustedS
         .filter(f => f.startsWith('Codex_AutoBackup_') && f.endsWith('.json'))
         .map(f => ({ name: f, time: parseTimestampFromName(f) }))
         .sort((a, b) => b.time - a.time);
+
       while (files.length > MAX_BACKUPS) {
         const old = files.pop();
         if (old) {
-          try { await fsp.unlink(path.join(BACKUP_DIR, old.name)); } catch (_) {}
+          try { 
+            await fsp.unlink(path.join(BACKUP_DIR, old.name));
+          } catch (err) {
+            if (err.code !== 'ENOENT') logCrash('backup-cleanup-unlink', err);
+          }
         }
       }
-    } catch (_) {}
+    } catch (err) {
+      if (err.code !== 'ENOENT') logCrash('backup-cleanup', err);
+    }
   }
 
   async function getLastAutoBackupTime() {
@@ -59,7 +72,7 @@ function setupBackupSystem({ app, getMainWindow, logCrash, isDev, assertTrustedS
       const raw = await fsp.readFile(LAST_AUTO_BACKUP_PATH, 'utf-8');
       const data = JSON.parse(raw);
       return data.timestamp || 0;
-    } catch (_) {
+    } catch {
       return 0;
     }
   }
@@ -67,17 +80,17 @@ function setupBackupSystem({ app, getMainWindow, logCrash, isDev, assertTrustedS
   async function setLastAutoBackupTime() {
     try {
       await fsp.writeFile(LAST_AUTO_BACKUP_PATH, JSON.stringify({ timestamp: Date.now() }));
-    } catch (_) {}
+    } catch (err) {
+      logCrash('backup-timestamp-write', err);
+    }
   }
 
-  // ── B3 Fix: Async writeBackup ──
   async function writeBackup(jsonString) {
     try {
       await ensureBackupDir();
-      const now = new Date();
-      const ts = now.toISOString().replace(/[-:T]/g, '_').slice(0, 15);
-      const filename = `Codex_AutoBackup_${ts}.json`;
+      const filename = `Codex_AutoBackup_${formatBackupTimestamp()}.json`;
       await fsp.writeFile(path.join(BACKUP_DIR, filename), jsonString);
+      
       await cleanOldBackups();
       await setLastAutoBackupTime();
       return true;
@@ -99,22 +112,29 @@ function setupBackupSystem({ app, getMainWindow, logCrash, isDev, assertTrustedS
     mainWindow.webContents.send('backup-requested');
   }
 
-  // ── IPC Handlers ──
-  const MAX_BACKUP_BYTES = 200 * 1024 * 1024; // I2: 200 MB cap
+  const MAX_BACKUP_BYTES = 200 * 1024 * 1024;
+  const MAX_STREAM_BYTES = 500 * 1024 * 1024;
   
-  // Streaming Backup State
   let activeStreamPath = null;
   let activeStreamFile = null;
+  let activeStreamBytes = 0;
 
   ipcMain.handle('backup-stream-start', async (event) => {
     guard(event);
     try {
+      if (activeStreamFile || activeStreamPath) {
+        if (activeStreamFile) { try { await activeStreamFile.close(); } catch (_) {} }
+        if (activeStreamPath) { try { await fsp.unlink(activeStreamPath); } catch (_) {} }
+        activeStreamFile = null;
+        activeStreamPath = null;
+      }
+
       await ensureBackupDir();
-      const now = new Date();
-      const ts = now.toISOString().replace(/[-:T]/g, '_').slice(0, 15);
-      const filename = `Codex_AutoBackup_${ts}.json.tmp`;
+      const filename = `Codex_AutoBackup_${formatBackupTimestamp()}.json.tmp`;
       activeStreamPath = path.join(BACKUP_DIR, filename);
       activeStreamFile = await fsp.open(activeStreamPath, 'w');
+      activeStreamBytes = 0; 
+      
       return true;
     } catch (err) {
       logCrash('backup-stream-start-error', err);
@@ -125,9 +145,20 @@ function setupBackupSystem({ app, getMainWindow, logCrash, isDev, assertTrustedS
   ipcMain.handle('backup-stream-chunk', async (event, chunk) => {
     guard(event);
     if (!activeStreamFile) return false;
+    
     try {
-      // chunk is Uint8Array/Buffer
       const buf = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+      
+      activeStreamBytes += buf.length;
+      if (activeStreamBytes > MAX_STREAM_BYTES) {
+        await activeStreamFile.close();
+        await fsp.unlink(activeStreamPath);
+        activeStreamFile = null;
+        activeStreamPath = null;
+        logCrash('backup-stream-overflow', `Stream exceeded max size`);
+        return false;
+      }
+
       await activeStreamFile.appendFile(buf);
       return true;
     } catch (err) {
@@ -146,6 +177,7 @@ function setupBackupSystem({ app, getMainWindow, logCrash, isDev, assertTrustedS
       const finalPath = activeStreamPath.replace('.tmp', '');
       await fsp.rename(activeStreamPath, finalPath);
       activeStreamPath = null;
+      activeStreamBytes = 0;
 
       await cleanOldBackups();
       await setLastAutoBackupTime();
@@ -159,13 +191,14 @@ function setupBackupSystem({ app, getMainWindow, logCrash, isDev, assertTrustedS
   ipcMain.handle('backup-stream-abort', async (event) => {
     guard(event);
     if (activeStreamFile) {
-      await activeStreamFile.close();
+      try { await activeStreamFile.close(); } catch (_) {}
       activeStreamFile = null;
     }
     if (activeStreamPath) {
       try { await fsp.unlink(activeStreamPath); } catch (_) {}
       activeStreamPath = null;
     }
+    activeStreamBytes = 0;
     return true;
   });
 
@@ -173,7 +206,7 @@ function setupBackupSystem({ app, getMainWindow, logCrash, isDev, assertTrustedS
     guard(event);
     if (typeof jsonData !== 'string' || jsonData.length <= 2) return false;
     if (jsonData.length > MAX_BACKUP_BYTES) {
-      logCrash('backup-too-large', `Payload ${jsonData.length} bytes exceeds ${MAX_BACKUP_BYTES}`);
+      logCrash('backup-too-large', `Payload exceeds max backup bytes`);
       return false;
     }
     return writeBackup(jsonData);
@@ -190,23 +223,24 @@ function setupBackupSystem({ app, getMainWindow, logCrash, isDev, assertTrustedS
       await ensureBackupDir();
       const entries = await fsp.readdir(BACKUP_DIR);
       const candidates = entries.filter(f => f.startsWith('Codex_AutoBackup_') && f.endsWith('.json'));
+      
       const stats = await Promise.all(candidates.map(async (f) => {
         try {
           const stat = await fsp.stat(path.join(BACKUP_DIR, f));
-          return { name: f, time: stat.mtimeMs, size: stat.size };
+          return { name: f, time: parseTimestampFromName(f), size: stat.size };
         } catch {
           return null;
         }
       }));
+      
       const files = stats.filter(Boolean).sort((a, b) => b.time - a.time);
       const lastAutoBackup = await getLastAutoBackupTime();
       return { backupDir: BACKUP_DIR, files, lastAutoBackup };
-    } catch (_) {
+    } catch {
       return { backupDir: BACKUP_DIR, files: [], lastAutoBackup: 0 };
     }
   });
 
-  // Start auto-backup schedule
   let backupInterval = null;
   if (!isDev) {
     setTimeout(() => {
@@ -216,19 +250,19 @@ function setupBackupSystem({ app, getMainWindow, logCrash, isDev, assertTrustedS
   }
 
   return {
-    cleanup: () => { if (backupInterval) clearInterval(backupInterval); },
+    cleanup: () => { 
+      if (backupInterval) clearInterval(backupInterval);
+    },
     performBeforeQuitBackup: () => {
       const mainWindow = getMainWindow();
       if (!mainWindow || mainWindow.isDestroyed()) return Promise.resolve();
 
       const QUIT_BACKUP_TIMEOUT = 5000;
-      // Symmetric cleanup: ensure both timeout and listener are released
-      // exactly once whether the renderer responds in time or not.
       return new Promise(resolve => {
         let settled = false;
         let timeoutId = null;
+        
         const handler = (event) => {
-          // Origin-validate the renderer's quit-backup-done signal too.
           try { guard(event); } catch { return; }
           if (settled) return;
           settled = true;
@@ -236,6 +270,7 @@ function setupBackupSystem({ app, getMainWindow, logCrash, isDev, assertTrustedS
           ipcMain.removeListener('quit-backup-done', handler);
           resolve(undefined);
         };
+        
         ipcMain.once('quit-backup-done', handler);
         timeoutId = setTimeout(() => {
           if (settled) return;
@@ -243,10 +278,10 @@ function setupBackupSystem({ app, getMainWindow, logCrash, isDev, assertTrustedS
           ipcMain.removeListener('quit-backup-done', handler);
           resolve(undefined);
         }, QUIT_BACKUP_TIMEOUT);
+        
         try {
           mainWindow.webContents.send('quit-backup-requested');
-        } catch (err) {
-          // If the renderer is already gone, settle immediately.
+        } catch {
           if (!settled) {
             settled = true;
             clearTimeout(timeoutId);

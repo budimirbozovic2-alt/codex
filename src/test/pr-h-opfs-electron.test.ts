@@ -208,7 +208,7 @@ describe("PR-H-OPFS-FIX-3: every app:// Response carries isolation + CSP", () =>
 
   it("--verify-headers runtime smoke entrypoint is wired in main.cjs and module exists", () => {
     expect(src).toMatch(/--verify-headers/);
-    expect(src).toMatch(/electron[\/\\]+verify-headers\.cjs|verify-headers\.cjs/);
+    expect(src).toMatch(/electron[/\\]+verify-headers\.cjs|verify-headers\.cjs/);
     const mod = read("electron/verify-headers.cjs");
     expect(mod).toMatch(/net\.fetch\(/);
     expect(mod).toMatch(/cross-origin-opener-policy/);

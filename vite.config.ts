@@ -2,16 +2,10 @@ import { defineConfig, type Plugin } from "vite";
 import react from "@vitejs/plugin-react-swc";
 import path from "path";
 import { readFileSync, copyFileSync, mkdirSync, existsSync } from "fs";
-
-const pkg = JSON.parse(readFileSync("./package.json", "utf-8"));
 import { componentTagger } from "lovable-tagger";
 
-/**
- * Pure Desktop (P3 PR-8 finale): copy the `@sqlite.org/sqlite-wasm` runtime
- * into `dist/sqlite/` so the OPFS SQLite adapter can load under `file://`
- * in the packaged Electron renderer. No-op in dev (Vite serves from
- * node_modules directly).
- */
+const pkg = JSON.parse(readFileSync("./package.json", "utf-8"));
+
 function copySqliteWasmPlugin(): Plugin {
   return {
     name: "copy-sqlite-wasm",
@@ -21,7 +15,15 @@ function copySqliteWasmPlugin(): Plugin {
       const dst = path.resolve(__dirname, "dist/sqlite");
       if (!existsSync(src)) return;
       mkdirSync(dst, { recursive: true });
-      for (const file of ["sqlite3.wasm", "sqlite3-opfs-async-proxy.js", "sqlite3-worker1.mjs"]) {
+      
+      const files = [
+        "sqlite3.wasm", 
+        "sqlite3-opfs-async-proxy.js", 
+        "sqlite3-worker1.mjs", 
+        "index.mjs"
+      ];
+      
+      for (const file of files) {
         const from = path.join(src, file);
         if (existsSync(from)) copyFileSync(from, path.join(dst, file));
       }
@@ -29,11 +31,6 @@ function copySqliteWasmPlugin(): Plugin {
   };
 }
 
-/**
- * PR-H-OPFS-FIX (H-4): serve `/sqlite/*` from `@sqlite.org/sqlite-wasm/dist`
- * in dev so the OPFS proxy + worker1 files resolve under the wasm-locator's
- * dev base path. Without this Electron DEV gets 404 and degrades to in-memory.
- */
 function serveSqliteWasmDevPlugin(): Plugin {
   return {
     name: "serve-sqlite-wasm-dev",
@@ -68,7 +65,6 @@ function serveSqliteWasmDevPlugin(): Plugin {
   };
 }
 
-// https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
   base: "./",
   server: {
@@ -77,9 +73,6 @@ export default defineConfig(({ mode }) => ({
     hmr: {
       overlay: false,
     },
-    // PR-H-OPFS: enable cross-origin isolation in dev so OPFS-SAH-pool VFS
-    // (SharedArrayBuffer-based) initializes when running `bun run dev` under
-    // Electron. Without these headers `installOpfsSAHPoolVfs` is undefined.
     headers: {
       "Cross-Origin-Opener-Policy": "same-origin",
       "Cross-Origin-Embedder-Policy": "require-corp",
@@ -109,30 +102,22 @@ export default defineConfig(({ mode }) => ({
       "@radix-ui/react-tooltip",
       "lucide-react",
     ],
-    // Per @sqlite.org/sqlite-wasm README: ne prebund-uj — interni import.meta.url
-    // resolve-a wasm asset, što se kvari kroz Vite dep cache (HTML fallback,
-    // pogrešan MIME, "expected magic word" greška).
     exclude: ["@sqlite.org/sqlite-wasm"],
   },
   define: {
     __APP_VERSION__: JSON.stringify(pkg.version),
   },
   esbuild: {
-    // Strip console.* and debugger from production Electron build to prevent
-    // PII leaks into DevTools console. console.error is preserved so genuine
-    // crash signals still reach the crash log path. Dev builds keep all logs.
     drop: mode === "production" ? ["debugger"] : [],
-    pure: mode === "production" ? ["console.log", "console.info", "console.debug", "console.warn"] : [],
+    pure: mode === "production" 
+      ? ["console.log", "console.info", "console.debug", "console.warn"] 
+      : [],
   },
   build: {
     emptyOutDir: true,
+    sourcemap: false,
     rollupOptions: {
       output: {
-        /**
-         * Split eager vendor graph out of the main App chunk so it falls
-         * below the 500 KB warning threshold and benefits from long-term
-         * HTTP/file caching (stable libs change rarely vs. app code).
-         */
         manualChunks(id) {
           if (!id.includes("node_modules")) return;
           if (id.includes("react-router")) return "vendor-router";

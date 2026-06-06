@@ -3,11 +3,13 @@ const path = require('path');
 const fs = require('fs');
 const fsp = fs.promises;
 
-const isDev = !app.isPackaged;
+// PRAVO RJEŠENJE: Aplikacija je u DEV modu samo ako nije zapakovana
+// I ako je nismo eksplicitno pokrenuli u modu za testiranje produkcije (--verify-headers)
+const isDev = !app.isPackaged && !process.argv.includes('--verify-headers');
 
 // ── Register custom protocol BEFORE app.whenReady ──
-// This gives us a stable origin (app://localhost) so IndexedDB persists across restarts.
-// Under file:// the origin is opaque/null and Chromium may wipe storage.
+// This gives us a stable origin (app://localhost) so IndexedDB 
+// persists across restarts.
 if (!isDev) {
   protocol.registerSchemesAsPrivileged([
     {
@@ -28,7 +30,7 @@ const rendererLogPath = path.join(app.getPath('userData'), 'renderer-errors.log'
 
 // ── Log rotation (5 MB cap, single .old.log archive) ──
 const LOG_ROTATE_BYTES = 5 * 1024 * 1024;
-const _rotating = new Set(); // re-entrancy guard per file path
+const _rotating = new Set();
 async function rotateLogIfNeeded(targetPath) {
   if (_rotating.has(targetPath)) return;
   _rotating.add(targetPath);
@@ -38,7 +40,7 @@ async function rotateLogIfNeeded(targetPath) {
       const stat = await fsp.stat(targetPath);
       size = stat.size;
     } catch {
-      return; // file does not exist yet — nothing to rotate
+      return; 
     }
     if (size < LOG_ROTATE_BYTES) return;
     const oldPath = targetPath + '.old.log';
@@ -61,8 +63,6 @@ async function appendLogLine(targetPath, line) {
 }
 
 // ── Global Error Handler ──
-// Note: process-level handlers must remain synchronous-safe, but the actual IO
-// is dispatched async (fire-and-forget) so we do not block the event loop.
 function logCrash(label, err) {
   const timestamp = new Date().toISOString();
   const msg = `[${timestamp}] ${label}: ${err?.stack || err}\n`;
@@ -73,16 +73,6 @@ process.on('uncaughtException', (err) => logCrash('uncaughtException', err));
 process.on('unhandledRejection', (reason) => logCrash('unhandledRejection', reason));
 
 // ── IPC Origin Validation (Defense in Depth) ──
-// Every ipcMain.handle / ipcMain.on callback in the main process must call
-// assertTrustedSender(event) at its top. Rejects any frame whose URL is not
-// our packaged app:// origin (production) or the Vite dev server.
-//
-// PR-G8 (RC-10): pin the dev-server port. Previously we accepted ANY
-// http://localhost:* origin in dev which widened the trust surface unnecessarily —
-// if Vite ever fell back to a different port (e.g. 8080 busy → 8081) the loosened
-// check would still let the actual app through but also any other localhost service.
-// Now the port is sourced from VITE_DEV_SERVER_PORT (default 8080) and matched
-// exactly. Keep vite.config.ts `server.port` in sync with this env var.
 const DEV_SERVER_PORT = parseInt(process.env.VITE_DEV_SERVER_PORT || '8080', 10);
 const DEV_SERVER_ORIGIN = `http://localhost:${DEV_SERVER_PORT}`;
 
@@ -92,13 +82,13 @@ function isTrustedSender(event) {
     const url = frame && frame.url;
     if (typeof url !== 'string' || url.length === 0) return false;
     if (url.startsWith('app://localhost')) return true;
-    // Dev: must match the exact pinned port, not any localhost port.
     if (url.startsWith(`${DEV_SERVER_ORIGIN}/`) || url === DEV_SERVER_ORIGIN) return true;
     return false;
   } catch {
     return false;
   }
 }
+
 function assertTrustedSender(event) {
   if (!isTrustedSender(event)) {
     const url = (event && event.senderFrame && event.senderFrame.url) || '<unknown>';
@@ -117,7 +107,6 @@ const { createSplashWindow, createWindow } = require(path.join(__dirname, 'elect
 const { setupBackupSystem } = require(path.join(__dirname, 'electron', 'backup.cjs'));
 
 let mainWindow = null;
-
 const setMainWindow = (win) => { mainWindow = win; };
 const getMainWindow = () => mainWindow;
 
@@ -141,7 +130,7 @@ function isPathAllowed(filePath) {
   const dirs = ALLOWED_DIRS();
   const matchesPlain = dirs.some(dir => resolved.startsWith(dir + path.sep) || resolved === dir);
   if (!matchesPlain) return false;
-  // Defense-in-depth: resolve symlinks (when target exists) to prevent symlink-bypass.
+  
   try {
     const real = fs.realpathSync.native(resolved);
     return dirs.some(dir => {
@@ -150,7 +139,6 @@ function isPathAllowed(filePath) {
       return real.startsWith(realDir + path.sep) || real === realDir;
     });
   } catch {
-    // Path doesn't exist yet (e.g. save-file target) — plain check is sufficient.
     return true;
   }
 }
@@ -175,7 +163,7 @@ ipcMain.handle('log-error', async (event, message) => {
   return true;
 });
 
-// ── Native file dialogs (K2: sanitized options) ──
+// ── Native file dialogs ──
 ipcMain.handle('show-save-dialog', async (event, options) => {
   assertTrustedSender(event);
   const win = getMainWindow();
@@ -190,9 +178,8 @@ ipcMain.handle('show-open-dialog', async (event, options) => {
   return dialog.showOpenDialog(win, sanitizeDialogOptions(options));
 });
 
-// ── File operations (K1: path validation, B1/B2: async FS, I1: size cap) ──
-const MAX_SAVE_FILE_BYTES = 100 * 1024 * 1024; // 100 MB raw
-// Base64 expands by 4/3 (≈1.3334). Use exact ratio + small slack for data: prefix.
+// ── File operations ──
+const MAX_SAVE_FILE_BYTES = 100 * 1024 * 1024;
 const MAX_SAVE_FILE_BASE64_LEN = Math.ceil((MAX_SAVE_FILE_BYTES * 4) / 3) + 64;
 const BASE64_RE = /^[A-Za-z0-9+/=\r\n]+$/;
 
@@ -204,7 +191,7 @@ ipcMain.handle('save-file', async (event, filePath, base64Data) => {
       return false;
     }
     if (typeof base64Data !== 'string' || base64Data.length > MAX_SAVE_FILE_BASE64_LEN) {
-      logCrash('save-file-too-large', `Payload exceeds limit: ${typeof base64Data === 'string' ? base64Data.length : 'non-string'} bytes`);
+      logCrash('save-file-too-large', 'Payload exceeds limit');
       return false;
     }
     const cleanBase64 = base64Data.replace(/^data:.*?;base64,/, '');
@@ -235,12 +222,8 @@ ipcMain.handle('read-file', async (event, filePath) => {
   }
 });
 
-// ── Binary IPC variants (B2: drop the base64 expansion + 50MB cap) ──
-// Electron's IPC supports `Buffer`/`Uint8Array` natively via structured clone.
-// Skipping base64 saves ~33% bytes-on-wire AND the renderer-side allocation
-// of a payload-sized string, which is what previously OOM'd the main thread
-// during 100MB+ exports.
-const MAX_SAVE_FILE_BYTES_BIN = 500 * 1024 * 1024; // 500 MB raw
+// ── Binary IPC variants ──
+const MAX_SAVE_FILE_BYTES_BIN = 500 * 1024 * 1024;
 
 ipcMain.handle('save-file-bytes', async (event, filePath, bytes) => {
   assertTrustedSender(event);
@@ -249,16 +232,15 @@ ipcMain.handle('save-file-bytes', async (event, filePath, bytes) => {
       logCrash('save-file-bytes-blocked', `Path not allowed: ${filePath}`);
       return false;
     }
-    // `bytes` may arrive as Uint8Array (structured clone) or Buffer.
     const buf = Buffer.isBuffer(bytes)
       ? bytes
       : (bytes instanceof Uint8Array ? Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength) : null);
     if (!buf) {
-      logCrash('save-file-bytes-invalid', `Payload is not bytes: ${typeof bytes}`);
+       logCrash('save-file-bytes-invalid', `Payload is not bytes`);
       return false;
     }
     if (buf.length > MAX_SAVE_FILE_BYTES_BIN) {
-      logCrash('save-file-bytes-too-large', `Payload exceeds limit: ${buf.length} bytes`);
+      logCrash('save-file-bytes-too-large', `Payload exceeds limit`);
       return false;
     }
     await fsp.writeFile(filePath, buf);
@@ -278,10 +260,9 @@ ipcMain.handle('read-file-bytes', async (event, filePath) => {
     }
     const data = await fsp.readFile(filePath);
     if (data.length > MAX_SAVE_FILE_BYTES_BIN) {
-      logCrash('read-file-bytes-too-large', `File exceeds limit: ${data.length} bytes`);
+      logCrash('read-file-bytes-too-large', `File exceeds limit`);
       return null;
     }
-    // Return a plain Uint8Array view; structured clone transfers efficiently.
     return { data: new Uint8Array(data.buffer, data.byteOffset, data.byteLength), name: path.basename(filePath) };
   } catch (err) {
     logCrash('read-file-bytes', err);
@@ -290,25 +271,16 @@ ipcMain.handle('read-file-bytes', async (event, filePath) => {
 });
 
 app.whenReady().then(() => {
-  // ── PR-H-OPFS-FIX (C-1): Cross-origin isolation headers MUST be set inside
-  // the `app://` protocol Response constructor. `protocol.handle` bypasses
-  // `session.webRequest.onHeadersReceived` entirely (Electron docs + Chromium
-  // network-service architecture), so the COOP/COEP block at line ~360 below
-  // never reaches packaged responses. Without these headers, `crossOriginIsolated`
-  // is `false`, `installOpfsSAHPoolVfs` is undefined, and SQLite silently
-  // degrades to in-memory → user data lost on restart.
+  // ── PR-H-OPFS-FIX (C-1): Isolation headers ──
   const ISOLATION_HEADERS = {
     'Cross-Origin-Opener-Policy': 'same-origin',
     'Cross-Origin-Embedder-Policy': 'require-corp',
     'Cross-Origin-Resource-Policy': 'cross-origin',
   };
-  // PR-H-OPFS-FIX-2: add 'unsafe-eval' + 'wasm-unsafe-eval' (Zod / sqlite-wasm
-  // glue use eval/new Function — boot chain throws otherwise and silently
-  // falls back to in-memory). Fonts are self-hosted now, so no external
-  // origins required. Added object-src / base-uri / frame-ancestors hardening.
+  
+  // PR-H-OPFS-FIX-2: CSP Security Policies
   const PROD_CSP = "default-src 'self' app:; script-src 'self' 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval' app:; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: app:; font-src 'self' data: app:; connect-src 'self' blob: app:; media-src 'self' blob: app:; worker-src 'self' blob: app:; object-src 'none'; base-uri 'self'; frame-ancestors 'none';";
 
-  // ── Register app:// protocol handler for production ──
   if (!isDev) {
     const distPath = path.join(__dirname, 'dist');
     const MIME_TYPES = {
@@ -317,9 +289,6 @@ app.whenReady().then(() => {
       '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg',
       '.ico': 'image/x-icon', '.woff': 'font/woff', '.woff2': 'font/woff2',
       '.ttf': 'font/ttf', '.otf': 'font/otf',
-      // PR-H-OPFS-FIX (C-2): sqlite3.wasm must be served as application/wasm
-      // so `WebAssembly.instantiateStreaming` succeeds. Without this it falls
-      // back to ArrayBuffer parsing (slower) or is blocked under strict CSP.
       '.wasm': 'application/wasm',
     };
     const buildHeaders = (mime) => ({
@@ -327,6 +296,7 @@ app.whenReady().then(() => {
       ...ISOLATION_HEADERS,
       'Content-Security-Policy': PROD_CSP,
     });
+    
     const serveIndex = async () => {
       const indexData = await fsp.readFile(path.join(distPath, 'index.html'));
       return new Response(indexData, {
@@ -334,6 +304,7 @@ app.whenReady().then(() => {
         headers: buildHeaders('text/html'),
       });
     };
+    
     protocol.handle('app', async (request) => {
       try {
         const url = new URL(request.url);
@@ -341,14 +312,16 @@ app.whenReady().then(() => {
         if (filePath.endsWith('/') || filePath === distPath) {
           filePath = path.join(distPath, 'index.html');
         }
-        // ── Path traversal guard: ensure resolved path stays inside distPath ──
+        
         const resolved = path.resolve(filePath);
         if (resolved !== distPath && !resolved.startsWith(distPath + path.sep)) {
-          logCrash('app-protocol-traversal-blocked', `Blocked: ${request.url} → ${resolved}`);
+          logCrash('app-protocol-traversal-blocked', `Blocked: ${request.url}`);
           return serveIndex();
         }
+        
         const ext = path.extname(resolved).toLowerCase();
         const mime = MIME_TYPES[ext] || 'application/octet-stream';
+        
         try {
           const data = await fsp.readFile(resolved);
           return new Response(data, {
@@ -365,19 +338,18 @@ app.whenReady().then(() => {
     });
   }
 
-
-  // ── Permission lockdown: deny all default Chromium permission requests ──
-  session.defaultSession.setPermissionRequestHandler((_webContents, _permission, callback) => {
-    callback(false);
+  // ── M-6 Fix: Permission lockdown (Whitelist Clipboard) ──
+  const ALLOWED_PERMISSIONS = ['clipboard-read', 'clipboard-sanitized-write'];
+  
+  session.defaultSession.setPermissionRequestHandler((_webContents, permission, callback) => {
+    callback(ALLOWED_PERMISSIONS.includes(permission));
   });
-  session.defaultSession.setPermissionCheckHandler(() => false);
+  
+  session.defaultSession.setPermissionCheckHandler((_webContents, permission) => {
+    return ALLOWED_PERMISSIONS.includes(permission);
+  });
 
   // ── CSP + Cross-Origin Isolation headers for dev (HTTP) only ──
-  // PR-H-OPFS-FIX (C-1): PROD `app://` responses inject these headers directly
-  // inside `protocol.handle` above. `onHeadersReceived` does NOT see custom
-  // protocol Response objects, so injecting here in PROD would be a silent no-op.
-  // We still wire it for dev so the Vite HTTP server gets crossOriginIsolated.
-
   session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
     if (!isDev || details.url.startsWith('file://')) {
       return callback({ responseHeaders: details.responseHeaders });
@@ -391,7 +363,6 @@ app.whenReady().then(() => {
       },
     });
   });
-
 
   // ── Web-contents lockdown: block in-app navigation & new windows ──
   app.on('web-contents-created', (_e, contents) => {
@@ -412,14 +383,9 @@ app.whenReady().then(() => {
       if (/^https?:/i.test(url)) shell.openExternal(url);
       return { action: 'deny' };
     });
-    // Disable webview tag entirely
     contents.on('will-attach-webview', (event) => event.preventDefault());
   });
 
-  // ── PR-H-OPFS-FIX-3 (runtime smoke): --verify-headers mode ──
-  // Skips window creation and instead fetches every dist/ asset through the
-  // registered app:// protocol, asserting that COOP/COEP/CORP + CSP + correct
-  // Content-Type are present. Exits 0 on success, 1 on any failure.
   if (process.argv.includes('--verify-headers')) {
     const { run } = require(path.join(__dirname, 'electron', 'verify-headers.cjs'));
     run().catch((err) => {
@@ -439,10 +405,8 @@ app.whenReady().then(() => {
     onMainWindow: setMainWindow,
     assertTrustedSender,
   });
-
 });
 
-// ── G1 Fix: Use app.exit(0) instead of app.quit() to avoid recursive before-quit ──
 let isQuitting = false;
 app.on('before-quit', async (e) => {
   if (isQuitting) return;
@@ -454,7 +418,6 @@ app.on('before-quit', async (e) => {
   app.exit(0);
 });
 
-// ── Focus existing window if second instance attempted ──
 app.on('second-instance', () => {
   const win = getMainWindow();
   if (win) {
@@ -468,4 +431,4 @@ app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit();
 });
 
-} // end of gotLock else block
+}

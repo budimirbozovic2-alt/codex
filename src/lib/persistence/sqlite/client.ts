@@ -14,11 +14,11 @@
  * transaction semantics (BEGIN/COMMIT/ROLLBACK with a worker-side lock).
  *
  * Failure modes:
- *   • Worker init fails entirely → fall back to renderer in-memory DB and
- *     emit `db-degraded` event so the toast surfaces to the user.
- *   • Worker boots but OPFS install fails inside the worker → worker
- *     transparently uses `:memory:`; renderer reads `opfsMode=false` from
- *     the init reply and still emits `db-degraded`.
+ * • Worker init fails entirely → fall back to renderer in-memory DB and
+ * emit `db-degraded` event so the toast surfaces to the user.
+ * • Worker boots but OPFS install fails inside the worker → worker
+ * transparently uses `:memory:`; renderer reads `opfsMode=false` from
+ * the init reply and still emits `db-degraded`.
  *
  * Non-Electron DEV preview keeps the existing in-renderer in-memory
  * fallback so `bun run dev` in a browser tab continues to function for
@@ -120,7 +120,9 @@ export function getOpfsSqliteExecutor(): Promise<SqlExecutor> {
     }
   })().catch((err) => {
     _executorPromise = null;
-    logger.warn("[sqlite] open failed", err);
+    // O-5 Fix: Korištenje logger.error umjesto logger.warn kako esbuild
+    // ne bi nasilno obrisao ovaj log u produkcijskom Electron build-u.
+    logger.error("[sqlite] open failed", err);
     throw err;
   });
   return _executorPromise;
@@ -130,4 +132,3 @@ export function getOpfsSqliteExecutor(): Promise<SqlExecutor> {
 export function __resetSqliteClient(): void {
   _executorPromise = null;
 }
-
