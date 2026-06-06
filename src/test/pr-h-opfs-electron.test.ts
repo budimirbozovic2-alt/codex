@@ -31,16 +31,42 @@ describe("PR-H-OPFS: Electron cross-origin isolation", () => {
     expect(src).toMatch(/Cross-Origin-Embedder-Policy/);
   });
 
-  it("client.ts falls back to in-memory executor instead of throwing OPFS_UNAVAILABLE", () => {
+  it("client.ts no longer installs OPFS VFS from the renderer main thread (PR-H-OPFS-FIX-4)", () => {
     const src = read("src/lib/persistence/sqlite/client.ts");
+    // The OPFS SAH-pool VFS requires APIs that are only reliably available in
+    // a Worker context. Renderer-side install was the root cause of the
+    // "Missing required OPFS APIs" failure even with correct COOP/COEP/CORP.
+    expect(src).not.toMatch(/installOpfsSAHPoolVfs/);
     expect(src).not.toMatch(/throw new Error\(["']OPFS_UNAVAILABLE/);
     expect(src).toMatch(/getDevFallbackExecutor/);
     expect(src).toMatch(/crossOriginIsolated/);
     expect(src).toMatch(/hasSharedArrayBuffer/);
+    expect(src).toMatch(/worker-client|initWorkerExecutor/);
+  });
+
+  it("opfs-worker.ts owns the OPFS VFS install + runs migrations", () => {
+    const src = read("src/lib/persistence/sqlite/opfs-worker.ts");
+    expect(src).toMatch(/installOpfsSAHPoolVfs/);
+    expect(src).toMatch(/OpfsSAHPoolDb/);
+    expect(src).toMatch(/runMigrations/);
+    // Must declare itself as a worker module (Vite resolves the type:module worker import).
+    expect(src).toMatch(/self\.addEventListener\(["']message["']/);
+  });
+
+  it("worker-client.ts spawns the worker via Vite's `new URL(..., import.meta.url)` pattern", () => {
+    const src = read("src/lib/persistence/sqlite/worker-client.ts");
+    expect(src).toMatch(/new Worker\(\s*new URL\(["']\.\/opfs-worker\.ts["']/);
+    expect(src).toMatch(/type:\s*["']module["']/);
+    // Transaction RPC contract present.
+    expect(src).toMatch(/op:\s*["']begin["']/);
+    expect(src).toMatch(/op:\s*["']commit["']/);
+    expect(src).toMatch(/op:\s*["']rollback["']/);
   });
 });
 
+
 describe("PR-H-OPFS-FIX: app:// protocol must carry isolation + MIME headers", () => {
+
   it("main.cjs serves .wasm as application/wasm (C-2)", () => {
     const src = read("main.cjs");
     expect(src).toMatch(/['"]\.wasm['"]\s*:\s*['"]application\/wasm['"]/);
