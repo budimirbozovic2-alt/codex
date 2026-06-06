@@ -62,9 +62,11 @@ describe("PR-H-OPFS: Electron cross-origin isolation", () => {
     expect(src).toMatch(/op:\s*["']commit["']/);
     expect(src).toMatch(/op:\s*["']rollback["']/);
   });
+});
 
 
 describe("PR-H-OPFS-FIX: app:// protocol must carry isolation + MIME headers", () => {
+
   it("main.cjs serves .wasm as application/wasm (C-2)", () => {
     const src = read("main.cjs");
     expect(src).toMatch(/['"]\.wasm['"]\s*:\s*['"]application\/wasm['"]/);
