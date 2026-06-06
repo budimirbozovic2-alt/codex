@@ -98,12 +98,12 @@ export function getOpfsSqliteExecutor(): Promise<SqlExecutor> {
           error: result.initError,
           diag: result.diag,
         });
-        const reason: "opfs-api-missing" | "opfs-runtime-error" =
-          result.initError && /undefined|Missing required OPFS APIs/i.test(result.initError)
-            ? "opfs-api-missing"
-            : "opfs-runtime-error";
-        emitDegraded(reason, result);
-      }
+        if (result.initError && /undefined|Missing required OPFS APIs/i.test(result.initError)) {
+          emitDegraded("opfs-api-missing", result);
+        } else {
+          emitDegraded("opfs-runtime-error", result);
+        }
+
 
       return getWorkerSqlExecutor();
     } catch (err) {
