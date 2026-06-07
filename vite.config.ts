@@ -1,7 +1,9 @@
 import { defineConfig, type Plugin } from "vite";
 import react from "@vitejs/plugin-react-swc";
 import path from "path";
-import { readFileSync, copyFileSync, mkdirSync, existsSync } from "fs";
+import { 
+  readFileSync, copyFileSync, mkdirSync, existsSync 
+} from "fs";
 import { componentTagger } from "lovable-tagger";
 
 const pkg = JSON.parse(readFileSync("./package.json", "utf-8"));
@@ -11,7 +13,10 @@ function copySqliteWasmPlugin(): Plugin {
     name: "copy-sqlite-wasm",
     apply: "build",
     closeBundle() {
-      const src = path.resolve(__dirname, "node_modules/@sqlite.org/sqlite-wasm/dist");
+      const src = path.resolve(
+        __dirname, 
+        "node_modules/@sqlite.org/sqlite-wasm/dist"
+      );
       const dst = path.resolve(__dirname, "dist/sqlite");
       if (!existsSync(src)) return;
       mkdirSync(dst, { recursive: true });
@@ -25,7 +30,9 @@ function copySqliteWasmPlugin(): Plugin {
       
       for (const file of files) {
         const from = path.join(src, file);
-        if (existsSync(from)) copyFileSync(from, path.join(dst, file));
+        if (existsSync(from)) {
+          copyFileSync(from, path.join(dst, file));
+        }
       }
     },
   };
@@ -36,7 +43,10 @@ function serveSqliteWasmDevPlugin(): Plugin {
     name: "serve-sqlite-wasm-dev",
     apply: "serve",
     configureServer(server) {
-      const wasmDir = path.resolve(__dirname, "node_modules/@sqlite.org/sqlite-wasm/dist");
+      const wasmDir = path.resolve(
+        __dirname, 
+        "node_modules/@sqlite.org/sqlite-wasm/dist"
+      );
       server.middlewares.use("/sqlite", (req, res, next) => {
         const url = req.url || "/";
         const safe = url.split("?")[0].replace(/^\/+/, "");
@@ -57,8 +67,12 @@ function serveSqliteWasmDevPlugin(): Plugin {
             : ext === ".mjs" || ext === ".js"
               ? "application/javascript"
               : "application/octet-stream";
+              
         res.setHeader("Content-Type", mime);
-        res.setHeader("Cross-Origin-Resource-Policy", "same-origin");
+        res.setHeader(
+          "Cross-Origin-Resource-Policy", 
+          "same-origin"
+        );
         res.end(readFileSync(filePath));
       });
     },
@@ -89,7 +103,10 @@ export default defineConfig(({ mode }) => ({
     alias: {
       "@": path.resolve(__dirname, "./src"),
       react: path.resolve(__dirname, "node_modules/react"),
-      "react-dom": path.resolve(__dirname, "node_modules/react-dom"),
+      "react-dom": path.resolve(
+        __dirname, 
+        "node_modules/react-dom"
+      ),
     },
     dedupe: ["react", "react-dom", "react/jsx-runtime"],
   },
@@ -108,9 +125,11 @@ export default defineConfig(({ mode }) => ({
     __APP_VERSION__: JSON.stringify(pkg.version),
   },
   esbuild: {
-    // PR-H1 Optimizacija: Nasilno izrezivanje svih
-    // console.* poziva u produkcionom buildu.
-    drop: mode === "production" ? ["console", "debugger"] : [],
+    // O-8 Observability FIX: Ne izrezujemo error i warn
+    // logove u produkciji jer su nam neophodni za telemetriju.
+    pure: mode === "production" 
+      ? ["console.log", "console.info", "console.debug"] 
+      : [],
   },
   build: {
     emptyOutDir: true,
@@ -119,16 +138,51 @@ export default defineConfig(({ mode }) => ({
       output: {
         manualChunks(id) {
           if (!id.includes("node_modules")) return;
-          if (id.includes("react-router")) return "vendor-router";
-          if (/node_modules[\\/](react|react-dom|scheduler)[\\/]/.test(id)) return "vendor-react";
-          if (id.includes("@tanstack/react-query")) return "vendor-query";
-          if (id.includes("framer-motion") || id.includes("motion-dom") || id.includes("motion-utils")) return "vendor-motion";
+          if (id.includes("react-router")) {
+            return "vendor-router";
+          }
+          if (
+            /node_modules[\\/](react|react-dom|scheduler)[\\/]/
+            .test(id)
+          ) {
+            return "vendor-react";
+          }
+          if (id.includes("@tanstack/react-query")) {
+            return "vendor-query";
+          }
+          if (
+            id.includes("framer-motion") || 
+            id.includes("motion-dom") || 
+            id.includes("motion-utils")
+          ) {
+            return "vendor-motion";
+          }
           if (id.includes("recharts")) return "vendor-recharts";
-          if (id.includes("/d3-") || id.includes("victory-vendor")) return "vendor-d3";
+          if (
+            id.includes("/d3-") || 
+            id.includes("victory-vendor")
+          ) {
+            return "vendor-d3";
+          }
           if (id.includes("@radix-ui")) return "vendor-radix";
-          if (id.includes("@tiptap") || id.includes("prosemirror")) return "vendor-tiptap";
-          if (id.includes("@xyflow") || id.includes("reactflow")) return "vendor-xyflow";
-          if (id.includes("dompurify") || id.includes("lucide-react")) return "vendor-ui-utils";
+          if (
+            id.includes("@tiptap") || 
+            id.includes("prosemirror")
+          ) {
+            return "vendor-tiptap";
+          }
+          if (
+            id.includes("@xyflow") || 
+            id.includes("reactflow")
+          ) {
+            return "vendor-xyflow";
+          }
+          if (
+            id.includes("dompurify") || 
+            id.includes("lucide-react")
+          ) {
+            return "vendor-ui-utils";
+          }
         },
       },
     },

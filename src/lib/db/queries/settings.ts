@@ -1,5 +1,6 @@
 /**
- * Settings repository — PR-9 A1c-2. SQLite-only KV read/write.
+ * Settings repository — PR-9 A1c-2. 
+ * SQLite-only KV read/write.
  */
 import type { 
   SqlExecutor 
@@ -26,17 +27,9 @@ async function tryGetExecutor(): Promise<SqlExecutor | null> {
       "@/lib/persistence/sqlite/client"
     );
     
-    // PR-H7 ŠTIT: Čekamo bazu do 3 sekunde ako se modul tek budi
-    let exec = await getOpfsSqliteExecutor();
-    let retries = 30;
-    
-    while (!exec && retries > 0) {
-      await new Promise((res) => setTimeout(res, 100));
-      exec = await getOpfsSqliteExecutor();
-      retries--;
-    }
-    
-    return exec;
+    // Faza 4: Uklonjen mrtvi polling kod. Klijent baze 
+    // samostalno osigurava učitavanje ili baca grešku.
+    return await getOpfsSqliteExecutor();
   } catch (err) {
     logger.warn(
       "[settings-repo] sqlite executor unavailable", 

@@ -1,12 +1,18 @@
 import { useEffect, useRef, useState } from "react";
 import { markBootStep } from "@/lib/boot-trace";
-import { transition, getBootState, installSplashBridge } from "@/lib/boot";
+import { 
+  transition, 
+  getBootState, 
+  installSplashBridge 
+} from "@/lib/boot";
 import { notifyCardsChanged } from "@/lib/db/queries";
 import { useDbError } from "@/hooks/useDbError";
 
-
 import { categoryRepository } from "@/lib/repositories";
-import { replaceReviewLog, seedSrSettings } from "@/store/reviewSettingsStore";
+import { 
+  replaceReviewLog, 
+  seedSrSettings 
+} from "@/store/reviewSettingsStore";
 import { taskScheduler } from "@/lib/scheduler/taskScheduler";
 import {
   splashProgress,
@@ -18,7 +24,10 @@ import {
 import { bootDb } from "./card-bootstrap/bootDb";
 import { runSchema, SchemaError } from "./card-bootstrap/runSchema";
 import { runHeal } from "./card-bootstrap/runHeal";
-import { loadInitialData, loadCardsDeferred } from "./card-bootstrap/loadInitialData";
+import { 
+  loadInitialData, 
+  loadCardsDeferred 
+} from "./card-bootstrap/loadInitialData";
 
 import { logger } from "@/lib/logger";
 
@@ -32,22 +41,21 @@ function inSchemaPhase(): boolean {
 }
 
 /**
- * Boot orchestrator — eksplicitan tro-fazni DAG. State writes route directly
- * into Zustand stores via the repositories — no setter props required.
+ * Boot orchestrator — eksplicitan tro-fazni DAG. 
+ * State writes route direktno u Zustand store-ove.
  *
- * Phase 1 (deferred cards): cards are NOT loaded on the critical path.
- * Boot reaches READY with `cardMapStore` empty; selectors render empty
- * collections until `loadCardsDeferred` finishes in the background (via
- * `taskScheduler.idle`) and runs `runHeal` on the now-resident dataset.
+ * Phase 1 (deferred cards): kartice se NE učitavaju na
+ * kritičnoj putanji. Boot dostiže READY sa praznim
+ * `cardMapStore`-om; selektori rendersuju prazne
+ * kolekcije dok `loadCardsDeferred` ne završi u pozadini.
  */
 export function useCardBootstrap() {
   const [ready, setReady] = useState(false);
   const initialLoadDone = useRef(false);
-  // PR-D D2: react to DB error state. If the previous boot tripped a
-  // schema/version/timeout error, the RecoveryGate renders the recovery
-  // panel and we MUST NOT keep cycling boot DAG hooks against the broken
-  // database. We defer all work until `dbError` clears (user confirms
-  // recovery → state flips to null → effect re-evaluates and runs once).
+  
+  // PR-D D2: Reagujemo na DB error stanje. Ako je prethodni
+  // boot prekinut verzijom/timeout-om, RecoveryGate rendersuje
+  // panel i NE SMIJEMO ciklično pokretati boot DAG nad bazom.
   const dbError = useDbError();
 
   useEffect(() => {
@@ -59,24 +67,32 @@ export function useCardBootstrap() {
     initialLoadDone.current = true;
     installSplashBridge();
 
-    // OSIGURAČ: 22s ostavlja prostor za cold SQLite WASM init (~3s) + sve
-    // migracije (Step 4 ima vlastiti 15s `withTimeout`) bez lažnog panike.
-    // Prethodno 15s je tačno racovalo sa migration timeoutom u runSchema.
-    //
-    // PR-G2 / H-1 fix: routed through `taskScheduler` so HMR re-mount /
-    // Electron quit drain the timer alongside every other scheduled task
-    // instead of leaving an invisible raw `setTimeout` chain. Cancellation
-    // happens via `taskScheduler.cancel(panicHandle)` in the cleanup path.
+    // OSIGURAČ: 22s ostavlja prostor za cold SQLite WASM 
+    // init (~3s) + sve migracije bez lažne panike.
+    // Otklonjen raw setTimeout preko taskScheduler-a.
     const panicHandle = taskScheduler.setTimeout(() => {
       setReady((currentReady) => {
         if (!currentReady) {
-          logger.error("[boot] Panic timeout (22s)! Forsiram ready state.");
+          logger.error(
+            "[boot] Panic timeout (22s)! Forsiram ready."
+          );
           const state = getBootState();
-          if (state.type !== "ready" && state.type !== "schema-error" && state.type !== "load-error") {
+          if (
+            state.type !== "ready" && 
+            state.type !== "schema-error" && 
+            state.type !== "load-error"
+          ) {
             if (inSchemaPhase()) {
-              transition({ type: "SCHEMA_FAIL", cause: "timeout", message: "Boot panic timeout (22s)" });
+              transition({ 
+                type: "SCHEMA_FAIL", 
+                cause: "timeout", 
+                message: "Boot panic timeout (22s)" 
+              });
             } else {
-              transition({ type: "LOAD_FAIL", message: "Boot panic timeout (22s)" });
+              transition({ 
+                type: "LOAD_FAIL", 
+                message: "Boot panic timeout (22s)" 
+              });
             }
           }
           forceRemoveSplash();
@@ -90,63 +106,98 @@ export function useCardBootstrap() {
       try {
         // ─── Phase 1: schema ───
         const { ok } = await bootDb();
-        if (!ok) return; // bootDb je već emitovao SCHEMA_FAIL / version / blocked
+        if (!ok) return; 
         await runSchema();
 
         // ─── Phase 2: load (cards deferred) ───
-        const { catRecords, log, settings } = await loadInitialData();
+        const { 
+          catRecords, 
+          log, 
+          settings 
+        } = await loadInitialData();
 
         // ─── Phase 3: render (without cards) ───
         splashProgress(95, "Finalizacija…");
-        markBootStep("cards:data-load-done", "0 cards (deferred)");
+        markBootStep(
+          "cards:data-load-done", 
+          "0 cards (deferred)"
+        );
 
-        if (import.meta.env.DEV) logger.log("[boot:diag] setting state — categories:", catRecords.length, "(cards deferred)");
+        if (import.meta.env.DEV) {
+          logger.log(
+            "[boot:diag] setting state — categories:", 
+            catRecords.length, 
+            "(cards deferred)"
+          );
+        }
         categoryRepository.replaceAll(catRecords);
         replaceReviewLog(log);
         seedSrSettings(settings);
 
         splashProgress(100, "Spremno!");
-        transition({ type: "LOAD_PROGRESS", pct: 100, label: "Spremno!" });
+        transition({ 
+          type: "LOAD_PROGRESS", 
+          pct: 100, 
+          label: "Spremno!" 
+        });
         transition({ type: "READY" });
         markBootStep("cards:ready");
 
-        // ─── Phase 4: deferred cards load + heal (off critical path) ───
-        // Phase 2b: we NEVER mirror the full table into Zustand. The cards
-        // array is fetched solely so `runHeal` can perform legacy migrations
-        // (taxonomy + frequencyTag). After heal, `notifyCardsChanged()`
-        // invalidates TanStack `['cards']` and the UI re-queries SQLite on
-        // demand via scoped hooks. `cardMapStore` stays empty until a UI
-        // selector seeds it.
+        // ─── Phase 4: deferred cards load + heal ───
         taskScheduler.idle(
           () => {
             void (async () => {
               try {
                 markBootStep("cards:deferred-load-start");
                 const cards = await loadCardsDeferred();
-                markBootStep("cards:deferred-load-done", `${cards.length} cards (heal-only)`);
+                markBootStep(
+                  "cards:deferred-load-done", 
+                  `${cards.length} cards (heal-only)`
+                );
 
-                // Heal runs on the resident dataset. Never throws (best-effort).
-                const { finalRecords } = await runHeal({ cards, catRecords, silent: true });
-                // Patch categoryRepository with healed records (no-op if heal unchanged).
-                const byId = new Map(finalRecords.map((r) => [r.id, r]));
+                // Heal pokreće rezidentni dataset. Best-effort.
+                const { finalRecords } = await runHeal({ 
+                  cards, 
+                  catRecords, 
+                  silent: true 
+                });
+                
+                const byId = new Map(
+                  finalRecords.map((r) => [r.id, r])
+                );
                 try {
                   await categoryRepository.commit(
-                    (prev) => prev.map((r) => byId.get(r.id) ?? r),
+                    (prev) => prev.map(
+                      (r) => byId.get(r.id) ?? r
+                    ),
                     "boot:deferred-heal-apply",
                   );
                 } catch (e) {
-                  logger.warn("[boot] deferred heal categoryRepository.commit failed (non-fatal)", e);
+                  logger.warn(
+                    "[boot] deferred heal commit failed", 
+                    e
+                  );
                 }
 
-                // Wake any mounted card consumers — they were rendering EMPTY.
+                // Budimo montirane potrošače kartica
                 notifyCardsChanged();
               } catch (e) {
-                logger.warn("[boot] deferred cards load/heal failed (non-fatal)", e);
-                markBootStep("cards:deferred-load-failed", msg(e));
+                logger.warn(
+                  "[boot] deferred load failed", 
+                  e
+                );
+                markBootStep(
+                  "cards:deferred-load-failed", 
+                  msg(e)
+                );
               }
             })();
           },
-          { label: "boot:deferred-cards", timeoutMs: 1500, fallbackMs: 0 },
+          { 
+            label: "boot:deferred-cards", 
+            timeoutMs: 1500, 
+            fallbackMs: 0 
+          },
         );
 
       } catch (error) {
@@ -154,38 +205,50 @@ export function useCardBootstrap() {
         logger.error("[boot] orchestrator failed", error);
         markBootStep("cards:init-error", errMsg);
 
-        if (error instanceof SchemaError || inSchemaPhase()) {
-          // Audit v2 / Wave B.5: `cause` can now actually distinguish a
-          // timeout from an unknown error — the boot orchestrator's panic
-          // path emits `cause: "timeout"` directly, and SchemaError messages
-          // contain "timeout" only when `withTimeout` reports the fallback
-          // branch. Pattern-match the failing step into the detail string
-          // so the recovery UI can show it.
+        if (
+          error instanceof SchemaError || 
+          inSchemaPhase()
+        ) {
           const isTimeout = /timed out|timeout/i.test(errMsg);
-          const cause: "unknown" | "timeout" = isTimeout ? "timeout" : "unknown";
-          const detail = error instanceof SchemaError ? `[${error.step}] ${errMsg}` : errMsg;
-          transition({ type: "SCHEMA_FAIL", cause, message: detail });
+          const cause: "unknown" | "timeout" = isTimeout 
+            ? "timeout" 
+            : "unknown";
+          const detail = error instanceof SchemaError 
+            ? `[${error.step}] ${errMsg}` 
+            : errMsg;
+          transition({ 
+            type: "SCHEMA_FAIL", 
+            cause, 
+            message: detail 
+          });
         } else {
           transition({ type: "LOAD_FAIL", message: errMsg });
         }
 
-        // Legacy splash error — BootRecoveryGate će preuzeti pravu UX.
         splashProgress(100, "Greška u pokretanju");
-        showSplashError(errMsg || "Neočekivana greška pri učitavanju podataka.");
+        showSplashError(
+          errMsg || "Neočekivana greška pri učitavanju."
+        );
       } finally {
         setReady(true);
         taskScheduler.cancel(panicHandle);
         cleanupSplash();
         notifyElectronReady();
-        // Wave-2 fix: signal splash retry script AFTER React boot truly
-        // completes (was previously set in main.tsx right after `render()`,
-        // which is before any effect or commit). This is the single point
-        // where we know the app is alive and rendering.
+        
         try {
-          (window as unknown as { __codexAppMounted?: boolean }).__codexAppMounted = true;
-          document.getElementById("root")?.setAttribute("data-app-mounted", "1");
-          const w = window as unknown as { __codexSplashTimer?: ReturnType<typeof setTimeout> | null };
-          if (w.__codexSplashTimer) { clearTimeout(w.__codexSplashTimer); w.__codexSplashTimer = null; }
+          const wScope = window as unknown as { 
+            __codexAppMounted?: boolean;
+            __codexSplashTimer?: any;
+          };
+          wScope.__codexAppMounted = true;
+          
+          document.getElementById("root")
+            ?.setAttribute("data-app-mounted", "1");
+            
+          if (wScope.__codexSplashTimer) { 
+            clearTimeout(wScope.__codexSplashTimer); 
+            wScope.__codexSplashTimer = null; 
+          }
           sessionStorage.removeItem("__codex_boot_retries");
         } catch { /* no-op */ }
       }
@@ -196,4 +259,3 @@ export function useCardBootstrap() {
 
   return { ready };
 }
-

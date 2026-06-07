@@ -28,17 +28,10 @@ async function tryGetExecutor(): Promise<SqlExecutor | null> {
       "@/lib/persistence/sqlite/client"
     );
     
-    // PR-H7 ŠTIT: Čekamo bazu do 3 sekunde (30 * 100ms) ako kasni
-    let exec = await getOpfsSqliteExecutor();
-    let retries = 30;
-    
-    while (!exec && retries > 0) {
-      await new Promise((res) => setTimeout(res, 100));
-      exec = await getOpfsSqliteExecutor();
-      retries--;
-    }
-    
-    return exec;
+    // BUG B-6 / PR-G4 FIX: Mrtvi polling kod sa sirovim tajmerom 
+    // je u potpunosti uklonjen. client.ts samostalno garantuje
+    // pokretanje, retry i watchdog tajmaute.
+    return await getOpfsSqliteExecutor();
   } catch (err) {
     logger.warn(
       "[mindmaps-repo] sqlite executor unavailable", 

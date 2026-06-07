@@ -1,14 +1,15 @@
 /**
  * Public API barrel for `@/lib/db/queries`.
  *
- * Hooks consume this barrel directly (see ESLint `no-restricted-imports`
- * override for `src/hooks/**`). UI components remain blocked — they must
- * route through a hook.
+ * Hooks consume this barrel directly (see ESLint 
+ * `no-restricted-imports` override for `src/hooks/**`). 
+ * UI components remain blocked — they must route through a hook.
  *
- * Walled per architecture memory: deep imports into sibling files are
- * forbidden, the barrel is the single seam.
+ * Walled per architecture memory: deep imports into sibling 
+ * files are forbidden, the barrel is the single seam.
  */
-// Cards read path — OPFS SQLite SSOT (Dexie removed in Phase C).
+
+// Cards read path — OPFS SQLite SSOT
 export {
   listAllCards,
   getCardsByIds,
@@ -27,12 +28,14 @@ export {
   onCorruptCards,
 } from "./cards";
 export type { CardsScope } from "./cards";
+
 export {
   clearCardsSubcategoryRefs,
   clearCardsChapterRefs,
   reassignCardsSubcategory,
 } from "./cards-bulk-mutations";
-// PR-E1 — direct SQLite write helpers (replace `cardMapWrites` sync RAM API).
+
+// PR-E1 — direct SQLite write helpers
 export {
   putCardDirect,
   bulkPutCardsDirect,
@@ -43,11 +46,6 @@ export {
   snapshotAllCards,
 } from "./cards-writes";
 
-
-// A1c-4 F2 — legacy `idbLoadSettings`/`idbSaveSettings` aliases removed.
-// Callers must use `getSetting` / `putSetting` from this barrel (re-exported
-// further down) or go through `settingsRepository`.
-
 // PR-9 M3 — SQLite-primary read/write repos.
 export {
   loadPlannerSnapshot,
@@ -56,6 +54,8 @@ export {
   saveLastRedistribute,
   saveDisciplineLog as savePlannerDisciplineLog,
 } from "./planner";
+
+// VRATIO: Ponovo vuče iz lokalnog drafts fajla
 export {
   getDraft,
   putDraft,
@@ -65,6 +65,7 @@ export {
   listAllDrafts,
   onDraftsChanged,
 } from "./drafts";
+
 export {
   getSetting,
   putSetting,
@@ -72,6 +73,7 @@ export {
   listSettingsByPrefix,
   onSettingsChanged,
 } from "./settings";
+
 export {
   getSource,
   listAllSources,
@@ -80,6 +82,7 @@ export {
   putSource,
   deleteSourceAndUnlinkCards,
 } from "./sources";
+
 export {
   getMindMap,
   listAllMindMaps,
@@ -88,6 +91,7 @@ export {
   putMindMap,
   deleteMindMap,
 } from "./mind-maps";
+
 export {
   getMnemonic,
   listAllMnemonics,
@@ -96,6 +100,7 @@ export {
   bulkPutMnemonics,
   deleteMnemonic,
 } from "./mnemonics";
+
 export {
   getArticle as getKnowledgeBaseArticle,
   listAllArticles as listAllKnowledgeBaseArticles,
@@ -107,39 +112,53 @@ export {
   onKnowledgeBaseChanged,
   notifyKnowledgeBaseChanged,
 } from "./knowledge-base";
+
 // PR-9 A1b P1.6 — mnemonic aux tables (Major System + test log).
 export {
   listAllPegs as listAllMajorSystemPegs,
   bulkPutPegs as bulkPutMajorSystemPegs,
 } from "./major-system";
 export type { MajorSystemPeg } from "./major-system";
+
 export {
   listAllTestLogEntries,
   listTestLogEntriesByCard,
   addTestLogEntry,
 } from "./mnemonic-test-log";
-// PR-9 A1c-3 nastavak — log tables (reviewLog/pomodoroLog/diary/
-// calibrationLog/latencyLog/slippageLog/activityLog) SQLite-primary.
-// F6.3 cleanup: `clear*` and unused `bulkPut*` (everything except
-// `bulkPutReviewLog`) removed — restore writes inline via
-// `writeSatelliteTablesTx`, runtime appends go through `add*Entry`.
-export {
-  listAllReviewLog, countReviewLog, bulkPutReviewLog, loadRecentReviewLog,
-  listAllPomodoroLog, countPomodoroLog, addPomodoroLogEntry, loadPomodoroLogSince, countPomodoroLogByType,
 
-  listAllDiary, countDiary,
-  listAllCalibrationLog, countCalibrationLog,
-  listAllLatencyLog, countLatencyLog,
-  listAllSlippageLog, countSlippageLog,
-  listAllActivityLog, countActivityLog,
-  // F6.2 — windowed reads, single-row add, prune.
-  loadCalibrationLogSince, loadLatencyLogSince, loadActivityLogSince, loadSlippageLogSinceDate,
-  addCalibrationLogEntry, addLatencyLogEntry, addActivityLogEntry, addSlippageLogEntry,
+// Raščlanjeni i formatirani satelitski logovi baze podataka
+export {
+  listAllReviewLog,
+  countReviewLog,
+  bulkPutReviewLog,
+  loadRecentReviewLog,
+  listAllPomodoroLog,
+  countPomodoroLog,
+  addPomodoroLogEntry,
+  loadPomodoroLogSince,
+  countPomodoroLogByType,
+  listAllDiary,
+  countDiary,
+  listAllCalibrationLog,
+  countCalibrationLog,
+  listAllLatencyLog,
+  countLatencyLog,
+  listAllSlippageLog,
+  countSlippageLog,
+  listAllActivityLog,
+  countActivityLog,
+  loadCalibrationLogSince,
+  loadLatencyLogSince,
+  loadActivityLogSince,
+  loadSlippageLogSinceDate,
+  addCalibrationLogEntry,
+  addLatencyLogEntry,
+  addActivityLogEntry,
+  addSlippageLogEntry,
   pruneAutoIncTable,
 } from "./logs";
 
-
-// A1c-4 F1 — categories aggregate root (SQLite-primary).
+// A1c-4 F1 — categories aggregate root
 export {
   listAllCategories,
   getCategory,
@@ -149,16 +168,15 @@ export {
   bulkPutCategories,
   clearCategories,
 } from "./categories";
-// PR-9 A1b P1.B — consolidated backup/health read seam (SQLite-primary
-// where possible, explicit Dexie read-replicas where not yet migrated).
+
 export * from "./backup-readers";
 
-// PR-9 A1c-0 — executor miss telemetry (pre-condition gate for dropping
-// the Dexie mirror). Aggregate count must stay at 0 for one soak cycle
-// before A1c-1 may delete the fallback branches.
+// PR-9 A1c-0 — executor miss telemetry
 export {
   getExecutorMissCounts,
   getTotalExecutorMisses,
   onExecutorMiss,
 } from "./_shared/executor-telemetry";
-export type { ExecutorMissReason } from "./_shared/executor-telemetry";
+export type { 
+  ExecutorMissReason 
+} from "./_shared/executor-telemetry";

@@ -27,19 +27,12 @@ async function tryGetExecutor(): Promise<SqlExecutor | null> {
       "@/lib/persistence/sqlite/client"
     );
     
-    // PR-H7 ŠTIT: Čekamo bazu do 3 sekunde (30 * 100ms) ako kasni
-    let exec = await getOpfsSqliteExecutor();
-    let retries = 30;
-    
-    while (!exec && retries > 0) {
-      await new Promise((res) => setTimeout(res, 100));
-      exec = await getOpfsSqliteExecutor();
-      retries--;
-    }
-    
-    return exec;
+    return await getOpfsSqliteExecutor();
   } catch (err) {
-    logger.warn("[drafts-repo] sqlite executor unavailable", err);
+    logger.warn(
+      "[drafts-repo] sqlite executor unavailable", 
+      err
+    );
     notifyExecutorNull("drafts", "error");
     return null;
   }
@@ -89,7 +82,7 @@ function encodeDraft(record: DraftRecord): EncodedDraft {
   return {
     key: record.key,
     source: record.source,
-    updatedAt: record.updatedAt,
+    updatedAt: record.updatedAt ?? Date.now(),
     payload: JSON.stringify(record),
   };
 }
@@ -114,7 +107,8 @@ export async function getDraft(
   if (!exec) return undefined;
   try {
     const rows = await exec.all<{ payload: string }>(
-      "SELECT payload FROM drafts WHERE key = ? LIMIT 1", [key],
+      "SELECT payload FROM drafts WHERE key = ? LIMIT 1", 
+      [key],
     );
     if (rows.length === 0) return undefined;
     return decodeDraft(rows[0]) ?? undefined;
@@ -134,7 +128,8 @@ export async function listDraftsBySource(
   if (!exec) return [];
   try {
     const rows = await exec.all<{ payload: string }>(
-      "SELECT payload FROM drafts WHERE source = ?", [source],
+      "SELECT payload FROM drafts WHERE source = ?", 
+      [source],
     );
     return rows
       .map(decodeDraft)
@@ -166,7 +161,9 @@ export async function listAllDrafts(): Promise<DraftRecord[]> {
 
 // ─── Write API ──────────────────────────────────────────────────
 
-export async function putDraft(record: DraftRecord): Promise<void> {
+export async function putDraft(
+  record: DraftRecord
+): Promise<void> {
   const exec = await requireExecutor("putDraft");
   if (!exec) return;
   try {
@@ -210,12 +207,10 @@ export async function bulkDeleteDrafts(
   if (!exec) return;
   try {
     await exec.transaction(async (tx) => {
-      for (const k of keys) {
-        await tx.run(
-          "DELETE FROM drafts WHERE key = ?", 
-          [k]
-        );
-      }
+      await tx.runMany(
+        "DELETE FROM drafts WHERE key = ?",
+        keys.map((k) => [k])
+      );
     });
   } catch (err) {
     logger.warn(

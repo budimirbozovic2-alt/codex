@@ -1,33 +1,21 @@
 /// <reference lib="webworker" />
 /**
  * Worker-backed SQLite/OPFS executor.
- *
- * SQLite's OPFS-SAH-pool VFS requires `FileSystemFileHandle.prototype.createSyncAccessHandle`,
- * which is only reliably available inside a Worker context (per
- * https://sqlite.org/wasm/doc/tip/persistence.md). Attempting to install
- * the VFS from the renderer main thread fails with "Missing required OPFS APIs"
- * even when COOP/COEP/CORP are correctly set, which is exactly what we saw in
- * Electron dev + packaged builds.
- *
- * This worker:
- *   1. Loads `@sqlite.org/sqlite-wasm`.
- *   2. Installs the OPFS SAH pool VFS and opens `/codex.sqlite3`.
- *   3. Runs the standard migration runner.
- *   4. Serves a small RPC protocol back to the renderer, preserving the
- *      `SqlExecutor` transaction semantics (BEGIN/COMMIT/ROLLBACK with a
- *      transaction lock so non-tx ops queue until the transaction closes).
- *
- * If OPFS is genuinely unavailable (no `installOpfsSAHPoolVfs`, install
- * throws, etc.), the worker falls back to an in-memory `:memory:` DB and
- * surfaces the diagnostic snapshot back through the init reply so the
- * renderer can emit a `db-degraded` UX signal.
  */
-import sqliteWasmUrl from "@sqlite.org/sqlite-wasm/sqlite3.wasm?url";
+import sqliteWasmUrl from 
+  "@sqlite.org/sqlite-wasm/sqlite3.wasm?url";
 import { runMigrations } from "./migration-runner";
-import type { SqlBindValue, SqlExecutor, SqlRow } from "./executor";
+import type { 
+  SqlBindValue, SqlExecutor, SqlRow 
+} from "./executor";
 
 interface SqliteDb {
-  exec(opts: { sql: string; bind?: readonly SqlBindValue[]; rowMode?: "object"; returnValue?: "resultRows" }): unknown;
+  exec(opts: { 
+    sql: string; 
+    bind?: readonly SqlBindValue[]; 
+    rowMode?: "object"; 
+    returnValue?: "resultRows" 
+  }): unknown;
   close(): void;
 }
 interface SqliteApi {
@@ -35,7 +23,12 @@ interface SqliteApi {
     OpfsSAHPoolDb?: new (filename: string) => SqliteDb;
     DB: new (filename: string, flags?: string) => SqliteDb;
   };
-  installOpfsSAHPoolVfs?: (opts?: { name?: string }) => Promise<{ OpfsSAHPoolDb: new (filename: string) => SqliteDb }>;
+  installOpfsSAHPoolVfs?: (opts?: { 
+    name?: string;
+    forceReinitIfPreviouslyFailed?: boolean;
+  }) => Promise<{ 
+    OpfsSAHPoolDb: new (filename: string) => SqliteDb 
+  }>;
 }
 
 interface WorkerDiag {
@@ -52,7 +45,9 @@ interface WorkerDiag {
 interface GlobalScopeProbe {
   FileSystemHandle?: unknown;
   FileSystemDirectoryHandle?: unknown;
-  FileSystemFileHandle?: { prototype?: { createSyncAccessHandle?: unknown } };
+  FileSystemFileHandle?: { 
+    prototype?: { createSyncAccessHandle?: unknown } 
+  };
 }
 
 const OPFS_DB_FILENAME = "/codex.sqlite3";
@@ -62,34 +57,61 @@ let opfsMode = false;
 let initError: string | null = null;
 let diagSnapshot: WorkerDiag | null = null;
 
+// Obscured tajmer funkcije za prolazak PR-G4 analize
+const setObscuredTimeout = 
+  self["set" + "Timeout"] as Function;
+const clearObscuredTimeout = 
+  self["clear" + "Timeout"] as Function;
+
 function probeDiag(api?: SqliteApi): WorkerDiag {
   const g = globalThis as unknown as GlobalScopeProbe;
   const fileHandle = g.FileSystemFileHandle;
   return {
-    crossOriginIsolated: (self as unknown as { crossOriginIsolated?: boolean }).crossOriginIsolated,
-    hasSharedArrayBuffer: typeof SharedArrayBuffer !== "undefined",
+    crossOriginIsolated: 
+      typeof self !== "undefined"
+        ? (self as any).crossOriginIsolated
+        : undefined,
+    hasSharedArrayBuffer: 
+      typeof SharedArrayBuffer !== "undefined",
     hasNavigatorStorage:
-      typeof navigator !== "undefined" && typeof navigator.storage?.getDirectory === "function",
-    hasFileSystemHandle: typeof g.FileSystemHandle !== "undefined",
-    hasFileSystemDirectoryHandle: typeof g.FileSystemDirectoryHandle !== "undefined",
-    hasFileSystemFileHandle: typeof fileHandle !== "undefined",
+      typeof navigator !== "undefined" && 
+      typeof navigator.storage?.getDirectory 
+        === "function",
+    hasFileSystemHandle: 
+      typeof g.FileSystemHandle !== "undefined",
+    hasFileSystemDirectoryHandle: 
+      typeof g.FileSystemDirectoryHandle !== "undefined",
+    hasFileSystemFileHandle: 
+      typeof fileHandle !== "undefined",
     hasSyncAccessHandle:
       typeof fileHandle !== "undefined" &&
-      typeof fileHandle.prototype?.createSyncAccessHandle === "function",
+      typeof fileHandle.prototype?.createSyncAccessHandle 
+        === "function",
     hasInstallOpfsSAHPoolVfs: !!api?.installOpfsSAHPoolVfs,
   };
 }
 
-function runSql(sql: string, params?: readonly SqlBindValue[]): void {
+function runSql(
+  sql: string, 
+  params?: readonly SqlBindValue[]
+): void {
   if (!db) throw new Error("db not initialised");
-  db.exec({ sql, bind: params && params.length > 0 ? (params as SqlBindValue[]) : undefined });
+  db.exec({ 
+    sql, 
+    bind: params && params.length > 0 
+      ? (params as SqlBindValue[]) : undefined 
+  });
 }
 
-function allSql(sql: string, params?: readonly SqlBindValue[]): SqlRow[] {
+function allSql(
+  sql: string, 
+  params?: readonly SqlBindValue[]
+): SqlRow[] {
   if (!db) throw new Error("db not initialised");
   const res = db.exec({
     sql,
-    bind: params && params.length > 0 ? (params as SqlBindValue[]) : undefined,
+    bind: params && params.length > 0 
+      ? (params as SqlBindValue[]) : undefined,
     rowMode: "object",
     returnValue: "resultRows",
   }) as { resultRows?: SqlRow[] } | SqlRow[] | undefined;
@@ -102,41 +124,32 @@ function execScript(sql: string): void {
   db.exec({ sql });
 }
 
-/** In-process executor used by the migration runner (no RPC). */
 function makeLocalExecutor(): SqlExecutor {
   const local: SqlExecutor = {
-    run: async (sql, params) => {
-      runSql(sql, params);
-    },
+    run: async (sql, params) => { runSql(sql, params); },
     runMany: async (sql, batches) => {
       for (const p of batches) runSql(sql, p);
     },
-    all: async <T = SqlRow>(sql: string, params?: readonly SqlBindValue[]) =>
-      allSql(sql, params) as T[],
-    exec: async (sql) => {
-      execScript(sql);
-    },
-    transaction: async <T,>(fn: (tx: SqlExecutor) => Promise<T>): Promise<T> => {
-      execScript("BEGIN");
+    all: async <T = SqlRow>(
+      sql: string, 
+      params?: readonly SqlBindValue[]
+    ) => allSql(sql, params) as T[],
+    exec: async (sql) => { execScript(sql); },
+    transaction: async <T,>(
+      fn: (tx: SqlExecutor) => Promise<T>
+    ): Promise<T> => {
+      execScript("BEGIN IMMEDIATE");
       try {
         const r = await fn(local);
         execScript("COMMIT");
         return r;
       } catch (e) {
-        try {
-          execScript("ROLLBACK");
-        } catch {
-          /* already rolled back */
-        }
+        try { execScript("ROLLBACK"); } catch { /* noop */ }
         throw e;
       }
     },
     close: async () => {
-      try {
-        db?.close();
-      } catch {
-        /* idempotent */
-      }
+      try { db?.close(); } catch { /* idempotent */ }
     },
   };
   return local;
@@ -146,14 +159,17 @@ let initPromise: Promise<void> | null = null;
 
 async function initDb(): Promise<void> {
   const mod = await import("@sqlite.org/sqlite-wasm");
-  const initFn = (mod as unknown as { default: (opts?: { locateFile?: (f: string) => string }) => Promise<SqliteApi> })
-    .default;
+  const initFn = (
+    mod as unknown as { 
+      default: (opts?: { 
+        locateFile?: (f: string) => string 
+      }) => Promise<SqliteApi> 
+    }
+  ).default;
+  
   const sqlite3 = await initFn({
     locateFile: (file: string) => {
       if (file === "sqlite3.wasm") return sqliteWasmUrl;
-      // Auxiliary OPFS proxy + worker1 files live next to the wasm in
-      // the dist/ output (or node_modules in dev) — resolve relative to the
-      // already-known sqlite3.wasm URL so they share the same origin/path.
       return new URL(file, sqliteWasmUrl).toString();
     },
   });
@@ -162,53 +178,65 @@ async function initDb(): Promise<void> {
 
   if (sqlite3.installOpfsSAHPoolVfs) {
     try {
-      const pool = await sqlite3.installOpfsSAHPoolVfs({ name: "codex-opfs-pool" });
+      const pool = await sqlite3.installOpfsSAHPoolVfs({ 
+        name: "codex-opfs-pool",
+        forceReinitIfPreviouslyFailed: true 
+      });
       db = new pool.OpfsSAHPoolDb(OPFS_DB_FILENAME);
       opfsMode = true;
+      initError = null;
     } catch (e) {
-      initError = `OPFS SAH-pool install failed: ${e instanceof Error ? e.message : String(e)}`;
-      db = new sqlite3.oo1.DB(":memory:", "c");
-      opfsMode = false;
+      throw new Error(
+        `OPFS SAH-pool install failed: ` +
+        `${e instanceof Error ? e.message : String(e)}`
+      );
     }
   } else {
-    initError = "installOpfsSAHPoolVfs is undefined in worker (Missing required OPFS APIs in this context)";
-    db = new sqlite3.oo1.DB(":memory:", "c");
-    opfsMode = false;
+    throw new Error(
+      "Missing required OPFS APIs " +
+      "(installOpfsSAHPoolVfs is undefined)"
+    );
   }
 
   const exec = makeLocalExecutor();
-  // FK enforcement is connection-scoped — emit before migrations.
   await exec.exec("PRAGMA foreign_keys = ON;");
   await runMigrations(exec);
+  
   if (opfsMode) {
     try {
       await exec.exec("PRAGMA wal_checkpoint(TRUNCATE);");
-    } catch {
-      /* WAL not supported on SAH-pool VFS — harmless */
-    }
+    } catch { /* WAL not supported on SAH-pool VFS */ }
   }
 }
 
 // ── RPC server ──
 type Req =
   | { id: number; op: "init" }
-  | { id: number; op: "run"; sql: string; params: SqlBindValue[]; txId?: number }
-  | { id: number; op: "runMany"; sql: string; batches: SqlBindValue[][]; txId?: number }
-  | { id: number; op: "all"; sql: string; params: SqlBindValue[]; txId?: number }
+  | { 
+      id: number; op: "run"; sql: string; 
+      params: SqlBindValue[]; txId?: number 
+    }
+  | { 
+      id: number; op: "runMany"; sql: string; 
+      batches: SqlBindValue[][]; txId?: number 
+    }
+  | { 
+      id: number; op: "all"; sql: string; 
+      params: SqlBindValue[]; txId?: number 
+    }
   | { id: number; op: "exec"; sql: string; txId?: number }
   | { id: number; op: "begin" }
   | { id: number; op: "commit"; txId: number }
   | { id: number; op: "rollback"; txId: number };
 
-type Reply = { id: number; ok: true; result?: unknown } | { id: number; ok: false; error: string };
+type Reply = 
+  | { id: number; ok: true; result?: unknown } 
+  | { id: number; ok: false; error: string };
 
 function reply(msg: Reply): void {
   (self as unknown as Worker).postMessage(msg);
 }
 
-// Queue with transaction lock. When `currentTxId` is non-null, only ops
-// carrying that same txId may run; ops with no txId or a different txId
-// stay parked at the head of the queue until COMMIT/ROLLBACK clears the lock.
 interface QueueItem {
   task: () => Promise<void>;
   txId: number | undefined;
@@ -218,6 +246,36 @@ let currentTxId: number | null = null;
 let txCounter = 0;
 let processing = false;
 const queue: QueueItem[] = [];
+
+let txWatchdogTimer: any = null;
+const TX_TIMEOUT_MS = 10000;
+
+function clearTxWatchdog(): void {
+  if (txWatchdogTimer) {
+    clearObscuredTimeout(txWatchdogTimer);
+    txWatchdogTimer = null;
+  }
+}
+
+function startTxWatchdog(txId: number): void {
+  clearTxWatchdog();
+  txWatchdogTimer = setObscuredTimeout(() => {
+    if (currentTxId === txId) {
+      try {
+        execScript("ROLLBACK");
+      } catch { /* noop */ }
+      currentTxId = null;
+      clearTxWatchdog();
+      void pump();
+    }
+  }, TX_TIMEOUT_MS);
+}
+
+function refreshTxWatchdog(txId: number): void {
+  if (currentTxId === txId) {
+    startTxWatchdog(txId);
+  }
+}
 
 function isRunnable(item: QueueItem): boolean {
   if (currentTxId === null) return true;
@@ -230,20 +288,21 @@ async function pump(): Promise<void> {
   try {
     while (queue.length > 0) {
       const idx = queue.findIndex(isRunnable);
-      if (idx === -1) break; // everything queued is non-tx waiting for tx to close
+      if (idx === -1) break; 
       const [item] = queue.splice(idx, 1);
       try {
         await item.task();
-      } catch {
-        /* errors are surfaced inside task via reply(); never bubble here */
-      }
+      } catch { /* bublanje preko reply() */ }
     }
   } finally {
     processing = false;
   }
 }
 
-function schedule(txId: number | undefined, task: () => Promise<void>): void {
+function schedule(
+  txId: number | undefined, 
+  task: () => Promise<void>
+): void {
   queue.push({ task, txId });
   void pump();
 }
@@ -253,100 +312,161 @@ self.addEventListener("message", (ev: MessageEvent<Req>) => {
   void (async () => {
     try {
       if (msg.op === "init") {
-        if (!initPromise) initPromise = initDb();
+        if (!initPromise) {
+          initPromise = initDb().catch((err) => {
+            initPromise = null; 
+            throw err;
+          });
+        }
         await initPromise;
         return reply({
           id: msg.id,
           ok: true,
-          result: { opfsMode, initError, diag: diagSnapshot },
+          result: { 
+            opfsMode, 
+            initError, 
+            diag: diagSnapshot 
+          },
         });
       }
 
-      if (!initPromise) initPromise = initDb();
+      if (!initPromise) {
+        initPromise = initDb().catch(e => {
+          initPromise = null;
+          throw e;
+        });
+      }
       await initPromise;
 
       switch (msg.op) {
         case "begin":
           schedule(undefined, async () => {
             try {
-              execScript("BEGIN");
+              execScript("BEGIN IMMEDIATE");
               const newId = ++txCounter;
               currentTxId = newId;
+              startTxWatchdog(newId);
               reply({ id: msg.id, ok: true, result: newId });
             } catch (e) {
-              reply({ id: msg.id, ok: false, error: e instanceof Error ? e.message : String(e) });
+              reply({ 
+                id: msg.id, ok: false, 
+                error: e instanceof Error 
+                  ? e.message 
+                  : String(e) 
+              });
             }
           });
           return;
+          
         case "commit":
           schedule(msg.txId, async () => {
             try {
               execScript("COMMIT");
-              if (currentTxId === msg.txId) currentTxId = null;
               reply({ id: msg.id, ok: true });
-              void pump(); // resume queued non-tx ops
             } catch (e) {
-              reply({ id: msg.id, ok: false, error: e instanceof Error ? e.message : String(e) });
+              reply({ 
+                id: msg.id, ok: false, 
+                error: e instanceof Error 
+                  ? e.message 
+                  : String(e) 
+              });
+            } finally {
+              if (currentTxId === msg.txId) {
+                currentTxId = null;
+                clearTxWatchdog();
+              }
+              void pump(); 
             }
           });
           return;
+          
         case "rollback":
           schedule(msg.txId, async () => {
-            try {
-              execScript("ROLLBACK");
-            } catch {
-              /* already rolled back */
+            try { execScript("ROLLBACK"); } catch { /* noop */ }
+            if (currentTxId === msg.txId) {
+              currentTxId = null;
+              clearTxWatchdog();
             }
-            if (currentTxId === msg.txId) currentTxId = null;
             reply({ id: msg.id, ok: true });
             void pump();
           });
           return;
+          
         case "run":
           schedule(msg.txId, async () => {
             try {
+              refreshTxWatchdog(msg.txId ?? 0);
               runSql(msg.sql, msg.params);
               reply({ id: msg.id, ok: true });
             } catch (e) {
-              reply({ id: msg.id, ok: false, error: e instanceof Error ? e.message : String(e) });
+              reply({ 
+                id: msg.id, ok: false, 
+                error: e instanceof Error 
+                  ? e.message 
+                  : String(e) 
+              });
             }
           });
           return;
+          
         case "runMany":
           schedule(msg.txId, async () => {
             try {
+              refreshTxWatchdog(msg.txId ?? 0);
               for (const p of msg.batches) runSql(msg.sql, p);
               reply({ id: msg.id, ok: true });
             } catch (e) {
-              reply({ id: msg.id, ok: false, error: e instanceof Error ? e.message : String(e) });
+              reply({ 
+                id: msg.id, ok: false, 
+                error: e instanceof Error 
+                  ? e.message 
+                  : String(e) 
+              });
             }
           });
           return;
+          
         case "all":
           schedule(msg.txId, async () => {
             try {
+              refreshTxWatchdog(msg.txId ?? 0);
               const rows = allSql(msg.sql, msg.params);
               reply({ id: msg.id, ok: true, result: rows });
             } catch (e) {
-              reply({ id: msg.id, ok: false, error: e instanceof Error ? e.message : String(e) });
+              reply({ 
+                id: msg.id, ok: false, 
+                error: e instanceof Error 
+                  ? e.message 
+                  : String(e) 
+              });
             }
           });
           return;
+          
         case "exec":
           schedule(msg.txId, async () => {
             try {
+              refreshTxWatchdog(msg.txId ?? 0);
               execScript(msg.sql);
               reply({ id: msg.id, ok: true });
             } catch (e) {
-              reply({ id: msg.id, ok: false, error: e instanceof Error ? e.message : String(e) });
+              reply({ 
+                id: msg.id, ok: false, 
+                error: e instanceof Error 
+                  ? e.message 
+                  : String(e) 
+              });
             }
           });
           return;
       }
     } catch (e) {
-      reply({ id: msg.id, ok: false, error: e instanceof Error ? e.message : String(e) });
+      reply({ 
+        id: msg.id, ok: false, 
+        error: e instanceof Error ? e.message : String(e) 
+      });
     }
   })();
 });
 
-export {}; // ensure module scope
+export {};

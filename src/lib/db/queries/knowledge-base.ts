@@ -29,17 +29,9 @@ async function tryGetExecutor(): Promise<SqlExecutor | null> {
       "@/lib/persistence/sqlite/client"
     );
     
-    // PR-H7 ŠTIT: Čekamo bazu do 3 sekunde (30 * 100ms) ako kasni
-    let exec = await getOpfsSqliteExecutor();
-    let retries = 30;
-    
-    while (!exec && retries > 0) {
-      await new Promise((res) => setTimeout(res, 100));
-      exec = await getOpfsSqliteExecutor();
-      retries--;
-    }
-    
-    return exec;
+    // Faza 4: Očišćen mrtvi polling kod. Klijent baze sada 
+    // samostalno hendla timeout-e i oporavak workera.
+    return await getOpfsSqliteExecutor();
   } catch (err) {
     logger.warn(
       "[kb-articles-repo] sqlite executor unavailable", 
@@ -121,7 +113,8 @@ export async function getArticle(
   const exec = await requireExecutor("getArticle");
   if (!exec) return undefined;
   const rows = await exec.all<{ payload: string }>(
-    "SELECT payload FROM knowledgeBaseArticles WHERE id = ? LIMIT 1", 
+    "SELECT payload FROM knowledgeBaseArticles " +
+    "WHERE id = ? LIMIT 1", 
     [id],
   );
   if (rows.length === 0) return undefined;

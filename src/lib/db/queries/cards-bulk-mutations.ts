@@ -1,38 +1,46 @@
-// ─────────────────────────────────────────────────────────────────────────────
-// Cards bulk mutations — A2 collapse (json_set/json_remove pattern).
+// ─────────────────────────────────────────────────────────────────
+// Cards bulk mutations — A2 collapse (json_set/json_remove pattern)
 //
-// Single-statement UPDATEs that keep the denormalised indexed columns
-// (`subcategoryId`, `chapterId`, `updatedAt`) AND the JSON `payload` in sync
-// inside one SQLite transaction. The payload is the source of truth for
-// `decodeCard`, so any change to the indexed columns MUST mirror into
-// payload via SQLite's JSON1 functions or `getCard()` returns stale data.
-//
-// Replaces the legacy SELECT → mutate → cardMapBulkPut round-trip used by
-// `useCategoryManagement.deleteSubcategory / deleteChapter /
-// bulkUpdateSubcategory`. Each helper is one round-trip to the worker, no
-// JS decode, no per-row JSON re-encode.
-// ─────────────────────────────────────────────────────────────────────────────
-import type { SqlExecutor } from "@/lib/persistence/sqlite/executor";
+// Single-statement UPDATEs that keep the denormalised indexed 
+// columns (`subcategoryId`, `chapterId`, `updatedAt`) AND the JSON 
+// `payload` in sync inside one SQLite transaction. 
+// ─────────────────────────────────────────────────────────────────
+import type { 
+  SqlExecutor 
+} from "@/lib/persistence/sqlite/executor";
 import { logger } from "@/lib/logger";
-import { notifyExecutorNull } from "./_shared/executor-telemetry";
+import { 
+  notifyExecutorNull 
+} from "./_shared/executor-telemetry";
 
-async function tryGetExecutor(label: string): Promise<SqlExecutor | null> {
+async function tryGetExecutor(
+  label: string
+): Promise<SqlExecutor | null> {
   try {
-    const { isElectron } = await import("@/lib/electron-integration");
-    if (!isElectron() && import.meta.env.PROD) { notifyExecutorNull(label, "non-electron"); return null; }
-    const { getOpfsSqliteExecutor } = await import("@/lib/persistence/sqlite/client");
+    const { isElectron } = await import(
+      "@/lib/electron-integration"
+    );
+    if (!isElectron() && import.meta.env.PROD) { 
+      notifyExecutorNull(label, "non-electron"); 
+      return null; 
+    }
+    const { getOpfsSqliteExecutor } = await import(
+      "@/lib/persistence/sqlite/client"
+    );
     return await getOpfsSqliteExecutor();
   } catch (err) {
-    logger.warn(`[cards-bulk-mutations] ${label} executor unavailable`, err);
+    logger.warn(
+      `[cards-bulk-mutations] ${label} executor unavailable`, 
+      err
+    );
     notifyExecutorNull(label, "error");
     return null;
   }
 }
 
 /**
- * Clear `subcategoryId` + `chapterId` for every card under (categoryId,
- * subcategoryId). Used when a subcategory is deleted from the taxonomy.
- * Updates indexed columns AND payload in one statement.
+ * Clear `subcategoryId` + `chapterId` for every card under 
+ * (categoryId, subcategoryId). 
  */
 export async function clearCardsSubcategoryRefs(
   categoryId: string,
@@ -47,7 +55,11 @@ export async function clearCardsSubcategoryRefs(
             chapterId     = NULL,
             updatedAt     = ?,
             payload       = json_set(
-                              json_remove(payload, '$.subcategoryId', '$.chapterId'),
+                              json_remove(
+                                payload, 
+                                '$.subcategoryId', 
+                                '$.chapterId'
+                              ),
                               '$.updatedAt', ?
                             )
       WHERE categoryId = ? AND subcategoryId = ?`,
@@ -56,8 +68,8 @@ export async function clearCardsSubcategoryRefs(
 }
 
 /**
- * Clear `chapterId` for every card under (categoryId, subcategoryId,
- * chapterId). Used when a chapter is deleted from the taxonomy.
+ * Clear `chapterId` for every card under (categoryId, 
+ * subcategoryId, chapterId). 
  */
 export async function clearCardsChapterRefs(
   categoryId: string,
@@ -83,9 +95,9 @@ export async function clearCardsChapterRefs(
 }
 
 /**
- * Reassign a list of cards to a new subcategoryId. Used for the Structure
- * Manager's "bulk move" action. Chunked at 500 ids/IN-clause to keep within
- * SQLite's parameter limit comfortably.
+ * Reassign a list of cards to a new subcategoryId. 
+ * OPTIMIZACIJA: Koristi runMany umjesto IN(...) chunking-a za 
+ * maksimalne performanse RPC mosta i izbjegavanje SQL limita.
  */
 export async function reassignCardsSubcategory(
   ids: readonly string[],
@@ -95,21 +107,26 @@ export async function reassignCardsSubcategory(
   const exec = await tryGetExecutor("reassignCardsSubcategory");
   if (!exec) return;
   const now = Date.now();
-  const CHUNK = 500;
+
   await exec.transaction(async (tx) => {
-    for (let i = 0; i < ids.length; i += CHUNK) {
-      const slice = ids.slice(i, i + CHUNK);
-      const placeholders = slice.map(() => "?").join(",");
-      await tx.run(
-        `UPDATE cards
-            SET subcategoryId = ?,
-                updatedAt     = ?,
-                payload       = json_set(payload,
-                                         '$.subcategoryId', ?,
-                                         '$.updatedAt',     ?)
-          WHERE id IN (${placeholders})`,
-        [subcategoryId, now, subcategoryId, now, ...slice],
-      );
-    }
+    // Matrica parametara: za svaki ID spremamo niz vrijednosti
+    const batches = ids.map(id => [
+      subcategoryId, 
+      now, 
+      subcategoryId, 
+      now, 
+      id
+    ]);
+
+    await tx.runMany(
+      `UPDATE cards
+          SET subcategoryId = ?,
+              updatedAt     = ?,
+              payload       = json_set(payload,
+                                '$.subcategoryId', ?,
+                                '$.updatedAt',     ?)
+        WHERE id = ?`,
+      batches
+    );
   });
 }

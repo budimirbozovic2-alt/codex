@@ -3,7 +3,8 @@
 // SQLite-primary readers/writers for 7 log tables.
 // ─────────────────────────────────────────────────────────────────
 import type { 
-  SqlExecutor 
+  SqlExecutor, 
+  SqlBindValue 
 } from "@/lib/persistence/sqlite/executor";
 import type {
   DiaryEntry,
@@ -36,17 +37,9 @@ async function tryGetExecutor(): Promise<SqlExecutor | null> {
       "@/lib/persistence/sqlite/client"
     );
     
-    // PR-H7 ŠTIT: Čekamo bazu do 3 sekunde (30 * 100ms) ako kasni
-    let exec = await getOpfsSqliteExecutor();
-    let retries = 30;
-    
-    while (!exec && retries > 0) {
-      await new Promise((res) => setTimeout(res, 100));
-      exec = await getOpfsSqliteExecutor();
-      retries--;
-    }
-    
-    return exec;
+    // Faza 4: Mrtvi polling kod uklonjen. Klijent baze
+    // osigurava boot sequence i baca grešku ako padne.
+    return await getOpfsSqliteExecutor();
   } catch (err) {
     logger.warn("[logs-repo] sqlite executor unavailable", err);
     notifyExecutorNull("logs", "error");
@@ -77,7 +70,7 @@ function decode<T>(
       if (r.id !== undefined) {
         (parsed as unknown as { 
           id: number | string 
-            }).id = r.id;
+        }).id = r.id;
       }
       out.push(parsed);
     } catch (err) {
@@ -115,6 +108,7 @@ async function countTable(table: string): Promise<number> {
   return Number(rows[0]?.n ?? 0);
 }
 
+/** P-2 OPTIMIZACIJA: Masovni RPC runMany umjesto for petlje */
 async function bulkInsertAutoInc<T>(
   table: string,
   rows: readonly AutoIncRow<T>[],
@@ -124,41 +118,49 @@ async function bulkInsertAutoInc<T>(
   if (rows.length === 0) return;
   const exec = await requireExecutor(`bulk:${table}`);
   if (!exec) return;
+  
   const colNames = Object.keys(cols);
-  await exec.transaction(async (tx) => {
-    for (const row of rows) {
-      const values: (string | number | null)[] = [];
-      const placeholders: string[] = [];
-      const insertCols: string[] = [];
+  const insertCols: string[] = [];
+  const placeholders: string[] = [];
 
-      if (opts.preserveId && row.id !== undefined) {
-        insertCols.push("id");
-        placeholders.push("?");
-        values.push(Number(row.id));
-      }
-      for (const c of colNames) {
-        insertCols.push(c);
-        placeholders.push("?");
-        values.push(cols[c](row));
-      }
-      insertCols.push("payload");
-      placeholders.push("?");
-      
-      const cleaned: Record<string, unknown> = { 
-        ...(row as unknown as Record<string, unknown>) 
-      };
-      delete cleaned.id;
-      values.push(JSON.stringify(cleaned));
+  if (opts.preserveId) {
+    insertCols.push("id");
+    placeholders.push("?");
+  }
+  for (const c of colNames) {
+    insertCols.push(c);
+    placeholders.push("?");
+  }
+  insertCols.push("payload");
+  placeholders.push("?");
 
-      const verb = opts.preserveId 
-        ? "INSERT OR REPLACE" 
-        : "INSERT";
-      await tx.run(
-        `${verb} INTO ${table} (${insertCols.join(",")}) ` +
-        `VALUES (${placeholders.join(",")})`,
-        values,
-      );
+  const batches: SqlBindValue[][] = rows.map((row) => {
+    const values: SqlBindValue[] = [];
+    if (opts.preserveId && row.id !== undefined) {
+      values.push(Number(row.id));
+    } else if (opts.preserveId) {
+      values.push(null); // auto-inc null if missing
     }
+    
+    for (const c of colNames) {
+      values.push(cols[c](row) as SqlBindValue);
+    }
+    
+    const cleaned: Record<string, unknown> = { 
+      ...(row as unknown as Record<string, unknown>) 
+    };
+    delete cleaned.id;
+    values.push(JSON.stringify(cleaned) as SqlBindValue);
+    
+    return values;
+  });
+
+  const verb = opts.preserveId ? "INSERT OR REPLACE" : "INSERT";
+  const sql = `${verb} INTO ${table} (${insertCols.join(",")}) ` +
+              `VALUES (${placeholders.join(",")})`;
+
+  await exec.transaction(async (tx) => {
+    await tx.runMany(sql, batches);
   });
 }
 

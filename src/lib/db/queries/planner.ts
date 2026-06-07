@@ -24,17 +24,8 @@ async function tryGetExecutor(): Promise<SqlExecutor | null> {
       "@/lib/persistence/sqlite/client"
     );
     
-    // PR-H7 ŠTIT: Čekamo bazu do 3 sekunde (30 * 100ms) ako kasni
-    let exec = await getOpfsSqliteExecutor();
-    let retries = 30;
-    
-    while (!exec && retries > 0) {
-      await new Promise((res) => setTimeout(res, 100));
-      exec = await getOpfsSqliteExecutor();
-      retries--;
-    }
-    
-    return exec;
+    // Faza 4: Uklonjen mrtvi polling kod.
+    return await getOpfsSqliteExecutor();
   } catch (err) {
     logger.warn(
       "[planner-repo] sqlite executor unavailable", 
@@ -178,13 +169,17 @@ export function saveDailyMapped(value: unknown): Promise<void> {
   return putKv("dailyMapped", value);
 }
 
-export function saveLastRedistribute(value: string): Promise<void> {
+export function saveLastRedistribute(
+  value: string
+): Promise<void> {
   return putKv("lastRedistribute", value);
 }
 
 // ─── disciplineLog writes ───────────────────────────────────────
 
-export async function saveDisciplineLog<T extends { date: string }>(
+export async function saveDisciplineLog<
+  T extends { date: string }
+>(
   entries: ReadonlyArray<T>,
 ): Promise<void> {
   const exec = await requireExecutor("saveDisciplineLog");
@@ -192,11 +187,17 @@ export async function saveDisciplineLog<T extends { date: string }>(
   try {
     await exec.transaction(async (tx) => {
       await tx.run("DELETE FROM disciplineLog");
-      for (const e of entries) {
-        await tx.run(
+      
+      // OPTIMIZACIJA: runMany umjesto for-tx.run petlje
+      if (entries.length > 0) {
+        const batches = entries.map(e => [
+          e.date, 
+          JSON.stringify(e)
+        ]);
+        await tx.runMany(
           "INSERT OR REPLACE INTO disciplineLog (date, payload) " +
           "VALUES (?, ?)",
-          [e.date, JSON.stringify(e)],
+          batches
         );
       }
     });

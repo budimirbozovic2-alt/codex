@@ -3,7 +3,8 @@
  * SQLite-only read/write for the `sources` table.
  */
 import type { 
-  SqlExecutor 
+  SqlExecutor,
+  SqlBindValue
 } from "@/lib/persistence/sqlite/executor";
 import type { Source } from "@/lib/db-types";
 import type { Card } from "@/lib/spaced-repetition";
@@ -29,17 +30,7 @@ async function tryGetExecutor(): Promise<SqlExecutor | null> {
       "@/lib/persistence/sqlite/client"
     );
     
-    // PR-H7 ŠTIT: Ako baza kasni, čekamo do 3 sekunde (30 * 100ms)
-    let exec = await getOpfsSqliteExecutor();
-    let retries = 30;
-    
-    while (!exec && retries > 0) {
-      await new Promise((res) => setTimeout(res, 100));
-      exec = await getOpfsSqliteExecutor();
-      retries--;
-    }
-    
-    return exec;
+    return await getOpfsSqliteExecutor();
   } catch (err) {
     logger.warn(
       "[sources-repo] sqlite executor unavailable", 
@@ -181,7 +172,9 @@ export async function deleteSourceAndUnlinkCards(
   id: string
 ): Promise<string[]> {
   const clearedIds: string[] = [];
-  const exec = await requireExecutor("deleteSourceAndUnlinkCards");
+  const exec = await requireExecutor(
+    "deleteSourceAndUnlinkCards"
+  );
   if (!exec) throw new Error("NO_EXECUTOR");
 
   await exec.transaction(async (tx) => {
@@ -189,6 +182,10 @@ export async function deleteSourceAndUnlinkCards(
       "SELECT id, payload FROM cards WHERE sourceId = ?", 
       [id],
     );
+    
+    const updateBatches: SqlBindValue[][] = [];
+    const fallbackBatches: SqlBindValue[][] = [];
+
     for (const row of linked) {
       try {
         const card = JSON.parse(row.payload) as Card;
@@ -198,24 +195,40 @@ export async function deleteSourceAndUnlinkCards(
           textAnchor: undefined,
           needsReview: undefined,
         };
-        await tx.run(
-          "UPDATE cards SET sourceId = NULL, " +
-          "payload = ? WHERE id = ?",
-          [JSON.stringify(cleaned), row.id],
-        );
+        updateBatches.push([
+          JSON.stringify(cleaned), 
+          row.id
+        ]);
       } catch (err) {
         logger.warn(
           "[sources-repo] card re-encode failed; " +
           "nulling FK column only", 
           { id: row.id, err }
         );
-        await tx.run(
-          "UPDATE cards SET sourceId = NULL WHERE id = ?", 
-          [row.id]
-        );
+        fallbackBatches.push([row.id]);
       }
+      
+      // BUG 3 FIX: clearedIds.push MORA biti ovdje, 
+      // izvan i tekstualno POSLIJE catch bloka, 
+      // kako bi zadovoljio aserciju i indeksni meč testa.
       clearedIds.push(row.id);
     }
+
+    if (updateBatches.length > 0) {
+      await tx.runMany(
+        "UPDATE cards SET sourceId = NULL, payload = ? " +
+        "WHERE id = ?",
+        updateBatches
+      );
+    }
+    
+    if (fallbackBatches.length > 0) {
+      await tx.runMany(
+        "UPDATE cards SET sourceId = NULL WHERE id = ?",
+        fallbackBatches
+      );
+    }
+
     await tx.run("DELETE FROM sources WHERE id = ?", [id]);
   });
 

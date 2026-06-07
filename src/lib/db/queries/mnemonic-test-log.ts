@@ -28,17 +28,9 @@ async function tryGetExecutor(): Promise<SqlExecutor | null> {
       "@/lib/persistence/sqlite/client"
     );
     
-    // PR-H7 ŠTIT: Čekamo bazu do 3 sekunde (30 * 100ms) ako kasni
-    let exec = await getOpfsSqliteExecutor();
-    let retries = 30;
-    
-    while (!exec && retries > 0) {
-      await new Promise((res) => setTimeout(res, 100));
-      exec = await getOpfsSqliteExecutor();
-      retries--;
-    }
-    
-    return exec;
+    // Faza 4: Mrtvi polling kod uklonjen. Klijent upravlja
+    // sigurnim podizanjem baze podataka.
+    return await getOpfsSqliteExecutor();
   } catch (err) {
     logger.warn(
       "[mnemonic-test-log-repo] sqlite executor unavailable", 
@@ -65,8 +57,9 @@ async function requireExecutor(
 }
 
 const INSERT_SQL = `
-  INSERT INTO mnemonicTestLog (cardId, timestamp, success, payload)
-  VALUES (?, ?, ?, ?)
+  INSERT INTO mnemonicTestLog (
+    cardId, timestamp, success, payload
+  ) VALUES (?, ?, ?, ?)
 `;
 
 function decode(row: { 

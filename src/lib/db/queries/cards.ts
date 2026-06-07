@@ -31,17 +31,9 @@ async function tryGetExecutor(): Promise<SqlExecutor | null> {
       "@/lib/persistence/sqlite/client"
     );
     
-    // PR-H7 ŠTIT: Čekamo bazu do 3 sekunde (30 * 100ms) ako kasni
-    let exec = await getOpfsSqliteExecutor();
-    let retries = 30;
-    
-    while (!exec && retries > 0) {
-      await new Promise((res) => setTimeout(res, 100));
-      exec = await getOpfsSqliteExecutor();
-      retries--;
-    }
-    
-    return exec;
+    // Faza 4: Očišćen mrtvi polling kod. Klijent baze sada 
+    // samostalno hendla timeout-e i oporavak workera.
+    return await getOpfsSqliteExecutor();
   } catch (err) {
     logger.warn("[cards-repo] sqlite executor unavailable", err);
     notifyExecutorNull("cards", "error");
