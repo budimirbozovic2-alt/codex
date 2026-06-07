@@ -1,31 +1,47 @@
-// ─────────────────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────
 // Cards repository — PR-9 A1c-2.
-//
-// SQLite-only read layer for the `cards` table. The write path stays in
-// `cardRepository` (RAM commit + persist-queue → SQLite). Every indexed
-// read lives here so hooks/selectors never reach into Dexie directly.
-//
-// In non-Electron contexts (Vite dev preview, tests without the wasm
-// worker), reads short-circuit to an empty result and the dev shell
-// receives a warning via `assertDesktop()`; PROD builds throw on miss.
-//
-// Codec: `decodeCard` from `row-codecs.ts` parses the JSON payload column.
-// ─────────────────────────────────────────────────────────────────────────────
-import type { SqlExecutor } from "@/lib/persistence/sqlite/executor";
+// SQLite-only read layer for the `cards` table.
+// ─────────────────────────────────────────────────────────────────
+import type { 
+  SqlExecutor 
+} from "@/lib/persistence/sqlite/executor";
 import type { Card } from "@/lib/spaced-repetition";
-import { decodeCard, CardDecodeError } from "@/lib/persistence/sqlite/row-codecs";
+import { 
+  decodeCard, 
+  CardDecodeError 
+} from "@/lib/persistence/sqlite/row-codecs";
 import { logger } from "@/lib/logger";
-import { notifyExecutorNull } from "./_shared/executor-telemetry";
+import { 
+  notifyExecutorNull 
+} from "./_shared/executor-telemetry";
 import { withSqlTiming } from "./_shared/sql-timing";
 
-// ── Executor accessor ────────────────────────────────────────────────────
+// ── Executor accessor ────────────────────────────────────────────
 
 async function tryGetExecutor(): Promise<SqlExecutor | null> {
   try {
-    const { isElectron } = await import("@/lib/electron-integration");
-    if (!isElectron() && import.meta.env.PROD) { notifyExecutorNull("cards", "non-electron"); return null; }
-    const { getOpfsSqliteExecutor } = await import("@/lib/persistence/sqlite/client");
-    return await getOpfsSqliteExecutor();
+    const { isElectron } = await import(
+      "@/lib/electron-integration"
+    );
+    if (!isElectron() && import.meta.env.PROD) { 
+      notifyExecutorNull("cards", "non-electron"); 
+      return null; 
+    }
+    const { getOpfsSqliteExecutor } = await import(
+      "@/lib/persistence/sqlite/client"
+    );
+    
+    // PR-H7 ŠTIT: Čekamo bazu do 3 sekunde (30 * 100ms) ako kasni
+    let exec = await getOpfsSqliteExecutor();
+    let retries = 30;
+    
+    while (!exec && retries > 0) {
+      await new Promise((res) => setTimeout(res, 100));
+      exec = await getOpfsSqliteExecutor();
+      retries--;
+    }
+    
+    return exec;
   } catch (err) {
     logger.warn("[cards-repo] sqlite executor unavailable", err);
     notifyExecutorNull("cards", "error");
@@ -33,21 +49,21 @@ async function tryGetExecutor(): Promise<SqlExecutor | null> {
   }
 }
 
-async function requireExecutor(label: string): Promise<SqlExecutor | null> {
+async function requireExecutor(
+  label: string
+): Promise<SqlExecutor | null> {
   const exec = await tryGetExecutor();
   if (exec) return exec;
-  const { assertDesktop } = await import("@/lib/electron-integration");
+  const { assertDesktop } = await import(
+    "@/lib/electron-integration"
+  );
   assertDesktop();
   logger.warn(`[cards-repo] ${label} — no executor (dev shell)`);
   return null;
 }
 
-// ── Corruption telemetry ─────────────────────────────────────────────────
-//
-// `decodeCard` throws `CardDecodeError` on malformed JSON or missing required
-// keys. Readers below catch and skip those rows so the UI keeps rendering,
-// but the failed ids are appended to a bounded ring buffer + broadcast on a
-// listener channel so the Health Monitor can surface them.
+// ── Corruption telemetry ─────────────────────────────────────────
+
 const CORRUPT_RING_MAX = 50;
 const _corruptIds = new Set<string>();
 type CorruptListener = (ids: readonly string[]) => void;
@@ -58,29 +74,29 @@ function recordCorruptIds(ids: readonly string[]): void {
   for (const id of ids) {
     _corruptIds.add(id);
     if (_corruptIds.size > CORRUPT_RING_MAX) {
-      // Drop the oldest (Set iteration is insertion order).
       const first = _corruptIds.values().next().value;
       if (first !== undefined) _corruptIds.delete(first);
     }
   }
   const snapshot = Array.from(_corruptIds);
   for (const fn of _corruptListeners) {
-    try { fn(snapshot); } catch (err) { logger.warn("[cards-repo] corrupt listener threw", err); }
+    try { 
+      fn(snapshot); 
+    } catch (err) { 
+      logger.warn("[cards-repo] corrupt listener threw", err); 
+    }
   }
 }
 
-/** Snapshot of recent decode-failure ids (capped at 50). */
 export function getRecentCorruptCardIds(): string[] {
   return Array.from(_corruptIds);
 }
 
-/** Subscribe to corruption events. Fires synchronously on each batch. */
 export function onCorruptCards(fn: CorruptListener): () => void {
   _corruptListeners.add(fn);
   return () => { _corruptListeners.delete(fn); };
 }
 
-/** Test seam — wipe the ring buffer between test cases. */
 export function __resetCorruptCardIds(): void { _corruptIds.clear(); }
 
 function decodeRows(rows: readonly { payload: string }[]): Card[] {
@@ -97,36 +113,44 @@ function decodeRows(rows: readonly { payload: string }[]): Card[] {
   return out;
 }
 
-
-
-// ── Bulk readers ─────────────────────────────────────────────────────────
+// ── Bulk readers ─────────────────────────────────────────────────
 
 export async function listAllCards(): Promise<Card[]> {
   return withSqlTiming("listAllCards", async () => {
     const exec = await requireExecutor("listAllCards");
     if (!exec) return [];
-    const rows = await exec.all<{ payload: string }>("SELECT payload FROM cards");
+    const rows = await exec.all<{ payload: string }>(
+      "SELECT payload FROM cards"
+    );
     return decodeRows(rows);
   });
 }
 
 /** Surgical lookup by ids. */
-export async function getCardsByIds(ids: readonly string[]): Promise<(Card | undefined)[]> {
+export async function getCardsByIds(
+  ids: readonly string[]
+): Promise<(Card | undefined)[]> {
   if (ids.length === 0) return [];
   const exec = await requireExecutor("getCardsByIds");
   if (!exec) return ids.map(() => undefined);
+  
   const placeholders = ids.map(() => "?").join(",");
   const rows = await exec.all<{ id: string; payload: string }>(
-    `SELECT id, payload FROM cards WHERE id IN (${placeholders})`,
+    `SELECT id, payload FROM cards 
+     WHERE id IN (${placeholders})`,
     ids as readonly string[],
   );
+  
   const byId = new Map<string, Card>();
   const failed: string[] = [];
   for (const row of rows) {
     try { byId.set(row.id, decodeCard(row)); }
     catch (err: unknown) {
       if (err instanceof CardDecodeError) failed.push(err.id);
-      logger.warn("[cards-repo] decode failed in bulkGet", { id: row.id, err });
+      logger.warn(
+        "[cards-repo] decode failed in bulkGet", 
+        { id: row.id, err }
+      );
     }
   }
   if (failed.length > 0) recordCorruptIds(failed);
@@ -134,16 +158,17 @@ export async function getCardsByIds(ids: readonly string[]): Promise<(Card | und
   return ids.map((id) => byId.get(id));
 }
 
+// ── Indexed scoped readers ───────────────────────────────────────
 
-
-// ── Indexed scoped readers ───────────────────────────────────────────────
-
-export async function cardsByCategory(categoryId: string): Promise<Card[]> {
+export async function cardsByCategory(
+  categoryId: string
+): Promise<Card[]> {
   return withSqlTiming("cardsByCategory", async () => {
     const exec = await requireExecutor("cardsByCategory");
     if (!exec) return [];
     const rows = await exec.all<{ payload: string }>(
-      "SELECT payload FROM cards WHERE categoryId = ?", [categoryId],
+      "SELECT payload FROM cards WHERE categoryId = ?", 
+      [categoryId],
     );
     return decodeRows(rows);
   });
@@ -156,7 +181,8 @@ export async function cardsBySubcategory(
   const exec = await requireExecutor("cardsBySubcategory");
   if (!exec) return [];
   const rows = await exec.all<{ payload: string }>(
-    "SELECT payload FROM cards WHERE categoryId = ? AND subcategoryId = ?",
+    `SELECT payload FROM cards 
+     WHERE categoryId = ? AND subcategoryId = ?`,
     [categoryId, subcategoryId],
   );
   return decodeRows(rows);
@@ -169,13 +195,17 @@ export async function cardsByChapter(
   const exec = await requireExecutor("cardsByChapter");
   if (!exec) return [];
   const rows = await exec.all<{ payload: string }>(
-    "SELECT payload FROM cards WHERE categoryId = ? AND chapterId = ?",
+    `SELECT payload FROM cards 
+     WHERE categoryId = ? AND chapterId = ?`,
     [categoryId, chapterId],
   );
   return decodeRows(rows);
 }
 
-export async function cardsByType(categoryId: string, type: Card["type"]): Promise<Card[]> {
+export async function cardsByType(
+  categoryId: string, 
+  type: Card["type"]
+): Promise<Card[]> {
   const exec = await requireExecutor("cardsByType");
   if (!exec) return [];
   const rows = await exec.all<{ payload: string }>(
@@ -189,17 +219,17 @@ export async function cardsBySource(sourceId: string): Promise<Card[]> {
   const exec = await requireExecutor("cardsBySource");
   if (!exec) return [];
   const rows = await exec.all<{ payload: string }>(
-    "SELECT payload FROM cards WHERE sourceId = ? ORDER BY createdAt ASC",
+    `SELECT payload FROM cards WHERE sourceId = ? 
+     ORDER BY createdAt ASC`,
     [sourceId],
   );
   return decodeRows(rows);
 }
 
-/**
- * Tag search. `tags` is a JSON-array column on the payload; we LIKE-scan it
- * with a coarse delimiter so the call site stays Dexie-free. Low frequency.
- */
-export async function cardsByTag(tag: string, limit = 500): Promise<Card[]> {
+export async function cardsByTag(
+  tag: string, 
+  limit = 500
+): Promise<Card[]> {
   const exec = await requireExecutor("cardsByTag");
   if (!exec) return [];
   const needle = `%"${tag.replace(/"/g, '\\"')}"%`;
@@ -207,39 +237,52 @@ export async function cardsByTag(tag: string, limit = 500): Promise<Card[]> {
     "SELECT payload FROM cards WHERE payload LIKE ? LIMIT ?",
     [needle, limit],
   );
-  // Verify hit by parsing payload — LIKE may match substrings inside other fields.
-  return decodeRows(rows).filter(c => Array.isArray(c.tags) && c.tags.includes(tag));
+  return decodeRows(rows).filter(
+    c => Array.isArray(c.tags) && c.tags.includes(tag)
+  );
 }
 
-// ── Counts ───────────────────────────────────────────────────────────────
+// ── Counts ───────────────────────────────────────────────────────
 
 export async function countAllCards(): Promise<number> {
   const exec = await requireExecutor("countAllCards");
   if (!exec) return 0;
-  const rows = await exec.all<{ n: number }>("SELECT COUNT(*) AS n FROM cards");
-  return Number(rows[0]?.n ?? 0);
-}
-
-export async function cardCountByCategory(categoryId: string): Promise<number> {
-  const exec = await requireExecutor("cardCountByCategory");
-  if (!exec) return 0;
   const rows = await exec.all<{ n: number }>(
-    "SELECT COUNT(*) AS n FROM cards WHERE categoryId = ?", [categoryId],
+    "SELECT COUNT(*) AS n FROM cards"
   );
   return Number(rows[0]?.n ?? 0);
 }
 
-export async function cardCountByChapter(categoryId: string, chapterId: string): Promise<number> {
+export async function cardCountByCategory(
+  categoryId: string
+): Promise<number> {
+  const exec = await requireExecutor("cardCountByCategory");
+  if (!exec) return 0;
+  const rows = await exec.all<{ n: number }>(
+    "SELECT COUNT(*) AS n FROM cards WHERE categoryId = ?", 
+    [categoryId],
+  );
+  return Number(rows[0]?.n ?? 0);
+}
+
+export async function cardCountByChapter(
+  categoryId: string, 
+  chapterId: string
+): Promise<number> {
   const exec = await requireExecutor("cardCountByChapter");
   if (!exec) return 0;
   const rows = await exec.all<{ n: number }>(
-    "SELECT COUNT(*) AS n FROM cards WHERE categoryId = ? AND chapterId = ?",
+    `SELECT COUNT(*) AS n FROM cards 
+     WHERE categoryId = ? AND chapterId = ?`,
     [categoryId, chapterId],
   );
   return Number(rows[0]?.n ?? 0);
 }
 
-export async function cardCountByType(categoryId: string, type: Card["type"]): Promise<number> {
+export async function cardCountByType(
+  categoryId: string, 
+  type: Card["type"]
+): Promise<number> {
   const exec = await requireExecutor("cardCountByType");
   if (!exec) return 0;
   const rows = await exec.all<{ n: number }>(
@@ -249,32 +292,37 @@ export async function cardCountByType(categoryId: string, type: Card["type"]): P
   return Number(rows[0]?.n ?? 0);
 }
 
-// ── Cache invalidation hook for TanStack bridges ─────────────────────────
-//
-// `CardsScope` lets writers tell the bridge exactly which slices changed,
-// so the per-scope debouncer in `query/bridges.ts` can invalidate only
-// affected query keys instead of the whole `["cards"]` prefix.
-//
-// Default = `{ kind: "all" }` for legacy callers — emits a prefix
-// invalidation just like before.
+// ── Cache invalidation hook for TanStack bridges ─────────────────
 
 export type CardsScope =
   | { kind: "all" }
   | { kind: "category"; categoryId: string }
-  | { kind: "subcategory"; categoryId: string; subcategoryId: string }
+  | { 
+      kind: "subcategory"; 
+      categoryId: string; 
+      subcategoryId: string 
+    }
   | { kind: "chapter"; categoryId: string; chapterId: string }
   | { kind: "source"; sourceId: string };
 
 type CardsChangedListener = (scope: CardsScope) => void;
 const _listeners = new Set<CardsChangedListener>();
 
-export function onCardsChanged(fn: CardsChangedListener): () => void {
+export function onCardsChanged(
+  fn: CardsChangedListener
+): () => void {
   _listeners.add(fn);
   return () => { _listeners.delete(fn); };
 }
 
-export function notifyCardsChanged(scope: CardsScope = { kind: "all" }): void {
+export function notifyCardsChanged(
+  scope: CardsScope = { kind: "all" }
+): void {
   for (const fn of _listeners) {
-    try { fn(scope); } catch (err) { logger.warn("[cards-repo] listener threw", err); }
+    try { 
+      fn(scope); 
+    } catch (err) { 
+      logger.warn("[cards-repo] listener threw", err); 
+    }
   }
 }

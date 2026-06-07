@@ -7,9 +7,7 @@ const MAX_BACKUPS = 3;
 const BACKUP_INTERVAL_MS = 7 * 24 * 60 * 60 * 1000;
 
 function defaultAssertTrustedSender() {
-  throw new Error(
-    'CRITICAL: assertTrustedSender must be explicitly injected by main.cjs.'
-  );
+  throw new Error('CRITICAL: assertTrustedSender must be explicitly injected by main.cjs.');
 }
 
 function setupBackupSystem({ app, getMainWindow, logCrash, isDev, assertTrustedSender }) {

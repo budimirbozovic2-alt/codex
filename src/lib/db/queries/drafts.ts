@@ -1,20 +1,43 @@
 /**
  * Drafts repository — PR-9 A1c-2. SQLite-only.
  *
- * All functions swallow errors after logging — draft autosave must never
- * throw into the React tree.
+ * All functions swallow errors after logging — draft autosave 
+ * must never throw into the React tree.
  */
-import type { SqlExecutor } from "@/lib/persistence/sqlite/executor";
+import type { 
+  SqlExecutor 
+} from "@/lib/persistence/sqlite/executor";
 import { type DraftRecord } from "@/lib/db-types";
 import { logger } from "@/lib/logger";
-import { notifyExecutorNull } from "./_shared/executor-telemetry";
+import { 
+  notifyExecutorNull 
+} from "./_shared/executor-telemetry";
 
 async function tryGetExecutor(): Promise<SqlExecutor | null> {
   try {
-    const { isElectron } = await import("@/lib/electron-integration");
-    if (!isElectron() && import.meta.env.PROD) { notifyExecutorNull("drafts", "non-electron"); return null; }
-    const { getOpfsSqliteExecutor } = await import("@/lib/persistence/sqlite/client");
-    return await getOpfsSqliteExecutor();
+    const { isElectron } = await import(
+      "@/lib/electron-integration"
+    );
+    if (!isElectron() && import.meta.env.PROD) { 
+      notifyExecutorNull("drafts", "non-electron"); 
+      return null; 
+    }
+    
+    const { getOpfsSqliteExecutor } = await import(
+      "@/lib/persistence/sqlite/client"
+    );
+    
+    // PR-H7 ŠTIT: Čekamo bazu do 3 sekunde (30 * 100ms) ako kasni
+    let exec = await getOpfsSqliteExecutor();
+    let retries = 30;
+    
+    while (!exec && retries > 0) {
+      await new Promise((res) => setTimeout(res, 100));
+      exec = await getOpfsSqliteExecutor();
+      retries--;
+    }
+    
+    return exec;
   } catch (err) {
     logger.warn("[drafts-repo] sqlite executor unavailable", err);
     notifyExecutorNull("drafts", "error");
@@ -22,16 +45,22 @@ async function tryGetExecutor(): Promise<SqlExecutor | null> {
   }
 }
 
-async function requireExecutor(label: string): Promise<SqlExecutor | null> {
+async function requireExecutor(
+  label: string
+): Promise<SqlExecutor | null> {
   const exec = await tryGetExecutor();
   if (exec) return exec;
-  const { assertDesktop } = await import("@/lib/electron-integration");
+  const { assertDesktop } = await import(
+    "@/lib/electron-integration"
+  );
   assertDesktop();
-  logger.warn(`[drafts-repo] ${label} — no executor (dev shell)`);
+  logger.warn(
+    `[drafts-repo] ${label} — no executor (dev shell)`
+  );
   return null;
 }
 
-// ─── Change emitter ─────────────────────────────────────────────────────
+// ─── Change emitter ─────────────────────────────────────────────
 
 type DraftsListener = () => void;
 const _draftsListeners = new Set<DraftsListener>();
@@ -47,9 +76,16 @@ function _notify(): void {
   }
 }
 
-// ─── Codec ──────────────────────────────────────────────────────────────
+// ─── Codec ──────────────────────────────────────────────────────
 
-function encodeDraft(record: DraftRecord): { key: string; source: string; updatedAt: number; payload: string } {
+interface EncodedDraft {
+  key: string;
+  source: string;
+  updatedAt: number;
+  payload: string;
+}
+
+function encodeDraft(record: DraftRecord): EncodedDraft {
   return {
     key: record.key,
     source: record.source,
@@ -58,17 +94,22 @@ function encodeDraft(record: DraftRecord): { key: string; source: string; update
   };
 }
 
-function decodeDraft(row: { payload: string }): DraftRecord | null {
-  try { return JSON.parse(row.payload) as DraftRecord; }
-  catch (err) {
+function decodeDraft(row: { 
+  payload: string 
+}): DraftRecord | null {
+  try { 
+    return JSON.parse(row.payload) as DraftRecord; 
+  } catch (err) {
     logger.warn("[drafts-repo] decode failed", err);
     return null;
   }
 }
 
-// ─── Read API ───────────────────────────────────────────────────────────
+// ─── Read API ───────────────────────────────────────────────────
 
-export async function getDraft(key: string): Promise<DraftRecord | undefined> {
+export async function getDraft(
+  key: string
+): Promise<DraftRecord | undefined> {
   const exec = await requireExecutor("getDraft");
   if (!exec) return undefined;
   try {
@@ -78,21 +119,31 @@ export async function getDraft(key: string): Promise<DraftRecord | undefined> {
     if (rows.length === 0) return undefined;
     return decodeDraft(rows[0]) ?? undefined;
   } catch (err) {
-    logger.warn("[drafts-repo] sqlite get failed", { key, err });
+    logger.warn(
+      "[drafts-repo] sqlite get failed", 
+      { key, err }
+    );
     return undefined;
   }
 }
 
-export async function listDraftsBySource(source: string): Promise<DraftRecord[]> {
+export async function listDraftsBySource(
+  source: string
+): Promise<DraftRecord[]> {
   const exec = await requireExecutor("listDraftsBySource");
   if (!exec) return [];
   try {
     const rows = await exec.all<{ payload: string }>(
       "SELECT payload FROM drafts WHERE source = ?", [source],
     );
-    return rows.map(decodeDraft).filter((r): r is DraftRecord => r !== null);
+    return rows
+      .map(decodeDraft)
+      .filter((r): r is DraftRecord => r !== null);
   } catch (err) {
-    logger.warn("[drafts-repo] sqlite list failed", { source, err });
+    logger.warn(
+      "[drafts-repo] sqlite list failed", 
+      { source, err }
+    );
     return [];
   }
 }
@@ -101,15 +152,19 @@ export async function listAllDrafts(): Promise<DraftRecord[]> {
   const exec = await requireExecutor("listAllDrafts");
   if (!exec) return [];
   try {
-    const rows = await exec.all<{ payload: string }>("SELECT payload FROM drafts");
-    return rows.map(decodeDraft).filter((r): r is DraftRecord => r !== null);
+    const rows = await exec.all<{ payload: string }>(
+      "SELECT payload FROM drafts"
+    );
+    return rows
+      .map(decodeDraft)
+      .filter((r): r is DraftRecord => r !== null);
   } catch (err) {
     logger.warn("[drafts-repo] sqlite listAll failed", err);
     return [];
   }
 }
 
-// ─── Write API ──────────────────────────────────────────────────────────
+// ─── Write API ──────────────────────────────────────────────────
 
 export async function putDraft(record: DraftRecord): Promise<void> {
   const exec = await requireExecutor("putDraft");
@@ -117,11 +172,15 @@ export async function putDraft(record: DraftRecord): Promise<void> {
   try {
     const enc = encodeDraft(record);
     await exec.run(
-      "INSERT OR REPLACE INTO drafts (key, source, updatedAt, payload) VALUES (?, ?, ?, ?)",
+      "INSERT OR REPLACE INTO drafts " +
+      "(key, source, updatedAt, payload) VALUES (?, ?, ?, ?)",
       [enc.key, enc.source, enc.updatedAt, enc.payload],
     );
   } catch (err) {
-    logger.warn("[drafts-repo] sqlite put failed", { key: record.key, err });
+    logger.warn(
+      "[drafts-repo] sqlite put failed", 
+      { key: record.key, err }
+    );
   }
   _notify();
 }
@@ -129,21 +188,40 @@ export async function putDraft(record: DraftRecord): Promise<void> {
 export async function deleteDraft(key: string): Promise<void> {
   const exec = await requireExecutor("deleteDraft");
   if (!exec) return;
-  try { await exec.run("DELETE FROM drafts WHERE key = ?", [key]); }
-  catch (err) { logger.warn("[drafts-repo] sqlite delete failed", { key, err }); }
+  try { 
+    await exec.run(
+      "DELETE FROM drafts WHERE key = ?", 
+      [key]
+    ); 
+  } catch (err) { 
+    logger.warn(
+      "[drafts-repo] sqlite delete failed", 
+      { key, err }
+    ); 
+  }
   _notify();
 }
 
-export async function bulkDeleteDrafts(keys: string[]): Promise<void> {
+export async function bulkDeleteDrafts(
+  keys: string[]
+): Promise<void> {
   if (keys.length === 0) return;
   const exec = await requireExecutor("bulkDeleteDrafts");
   if (!exec) return;
   try {
     await exec.transaction(async (tx) => {
-      for (const k of keys) await tx.run("DELETE FROM drafts WHERE key = ?", [k]);
+      for (const k of keys) {
+        await tx.run(
+          "DELETE FROM drafts WHERE key = ?", 
+          [k]
+        );
+      }
     });
   } catch (err) {
-    logger.warn("[drafts-repo] sqlite bulk delete failed", err);
+    logger.warn(
+      "[drafts-repo] sqlite bulk delete failed", 
+      err
+    );
   }
   _notify();
 }

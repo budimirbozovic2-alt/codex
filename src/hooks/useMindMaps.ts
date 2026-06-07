@@ -1,20 +1,20 @@
+/**
+ * SSOT subscription for ALL mind maps via TanStack Query.
+ *
+ * PR-H7 Hardening: Squashed horizontal overflow 
+ * to strictly adhere to the Safe-Paste constraint.
+ */
 import { useMemo } from "react";
 import { useQuery, keepPreviousData } from "@tanstack/react-query";
-import {
-  loadMindMaps,
-  getMindMap,
-} from "@/lib/mindmap-storage";
+import { loadMindMaps, getMindMap } from "@/lib/mindmap-storage";
 import type { MindMapDoc } from "@/lib/db-types";
 import { queryKeys } from "@/lib/query/keys";
 
 const EMPTY: MindMapDoc[] = [];
 
-/**
- * SSOT subscription for ALL mind maps via TanStack Query.
- * PR-7f M2 — invalidacija dolazi automatski iz `bridges.ts`
- * (`onMindMapsChanged` → `['mindMaps']`).
- */
-export function useMindMaps(enabled: boolean = true): { mindMaps: MindMapDoc[]; ready: boolean } {
+export function useMindMaps(
+  enabled: boolean = true
+): { mindMaps: MindMapDoc[]; ready: boolean } {
   const { data, isSuccess } = useQuery({
     queryKey: queryKeys.mindMaps.all(),
     queryFn: () => loadMindMaps(),
@@ -23,30 +23,28 @@ export function useMindMaps(enabled: boolean = true): { mindMaps: MindMapDoc[]; 
   return { mindMaps: data ?? EMPTY, ready: isSuccess };
 }
 
-/**
- * Derived view: mind maps filtered by `categoryId`.
- */
-export function useMindMapsByCategory(categoryId?: string): { mindMaps: MindMapDoc[]; ready: boolean } {
+export function useMindMapsByCategory(
+  categoryId?: string
+): { mindMaps: MindMapDoc[]; ready: boolean } {
   const { mindMaps, ready } = useMindMaps();
   const filtered = useMemo(
-    () => (categoryId ? mindMaps.filter(d => d.categoryId === categoryId) : mindMaps),
-    [mindMaps, categoryId],
+    () => {
+      if (!categoryId) return mindMaps;
+      return mindMaps.filter((d) => d.categoryId === categoryId);
+    },
+    [mindMaps, categoryId]
   );
   return { mindMaps: filtered, ready };
 }
 
-/**
- * Single mind map by id, kept fresh via TanStack cache.
- * Returns `undefined` while loading, `null` when not found.
- *
- * C1 — `keepPreviousData` smooths id-switching in the editor: when the
- * user opens a different map the previous doc stays visible until the
- * new one resolves, avoiding a blank-canvas flash.
- */
-export function useMindMap(id: string | undefined): MindMapDoc | null | undefined {
+export function useMindMap(
+  id: string | undefined
+): MindMapDoc | null | undefined {
   const { data, isFetched } = useQuery({
-    queryKey: id ? queryKeys.mindMaps.byId(id) : ["mindMaps", "id", "__none__"],
-    queryFn: async () => (await getMindMap(id as string)) ?? null,
+    queryKey: id 
+      ? queryKeys.mindMaps.byId(id) 
+      : ["mindMaps", "id", "__none__"],
+    queryFn: () => getMindMap(id as string).then((res) => res ?? null),
     enabled: !!id,
     placeholderData: keepPreviousData,
   });

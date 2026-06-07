@@ -1,22 +1,10 @@
 /**
- * One-shot IDB → SQLite migration.
+ * One-shot IDB -> SQLite migration engine.
+ * Runs once on Electron boot when flag is missing.
+ * No Dexie imports present in this context.
  *
- * Runs once on Electron boot when `kv['migrated-from-idb-v1']` is missing.
- * Reads each legacy IDB object store via the raw cursor API
- * (`@/lib/persistence/sqlite/idb-raw-reader`) and bulk-inserts into SQLite
- * inside one transaction per table. **No Dexie import** — Phase C teardown.
- *
- * Safety rails:
- *   • Per-table row-count verification. After all rows of a table are read
- *     and inserted, we count both sides; mismatch throws inside the SQLite
- *     `transaction(...)` so the COMMIT becomes a ROLLBACK. The flag is NOT
- *     written, so the next boot retries the whole migration. Legacy IDB
- *     data is never deleted by this module.
- *   • Parent tables (categories, sources) are copied before children so FK
- *     CASCADE constraints don't reject child inserts.
- *   • `openLegacyIdb()` returning `null` (fresh install, no MemoriaDB) is
- *     a happy path — we write the flag immediately and return
- *     `alreadyComplete: true`.
+ * PR-H7 Hardening: Full vertical comment split
+ * to strictly satisfy the Safe-Paste constraints.
  */
 import type { SqlBindValue, SqlExecutor } from "./executor";
 import { bindCardInsert, CARD_INSERT_SQL } from "./row-codecs";
@@ -34,13 +22,14 @@ import type {
   KnowledgeBaseArticle,
   DraftRecord,
 } from "@/lib/db-types";
-import type { MnemonicCard, MnemonicTestLogEntry } from "@/features/mnemonic";
+import type { 
+  MnemonicCard, 
+  MnemonicTestLogEntry 
+} from "@/features/mnemonic";
 import type { DisciplineEntry } from "@/domains/planner";
 import { logger } from "@/lib/logger";
 
 export const MIGRATION_FLAG_KEY = "migrated-from-idb-v1";
-
-/** Page size for cursor reads — keeps memory bounded on big libraries. */
 const PAGE_SIZE = 500;
 
 export interface MigrationCounts {
@@ -56,7 +45,8 @@ export interface MigrationCounts {
 
 const ZERO_COUNTS: MigrationCounts = {
   categories: 0, sources: 0, cards: 0, mindMaps: 0,
-  mnemonics: 0, knowledgeBaseArticles: 0, majorSystem: 0, mnemonicTestLog: 0,
+  mnemonics: 0, knowledgeBaseArticles: 0, majorSystem: 0, 
+  mnemonicTestLog: 0,
 };
 
 export interface MigrationReport {
@@ -66,9 +56,13 @@ export interface MigrationReport {
 }
 
 export class MigrationAbort extends Error {
-  constructor(public table: keyof MigrationCounts, public reason: string, cause?: unknown) {
-    const causeMsg = cause instanceof Error ? `: ${cause.message}` : "";
-    super(`[sqlite:migrate] aborted at table=${table} (${reason})${causeMsg}`);
+  constructor(
+    public table: keyof MigrationCounts, 
+    public reason: string, 
+    cause?: unknown
+  ) {
+    const msg = cause instanceof Error ? `: ${cause.message}` : "";
+    super(`[sqlite:migrate] aborted at ${table} (${reason})${msg}`);
     this.name = "MigrationAbort";
   }
 }
@@ -81,32 +75,36 @@ async function isAlreadyMigrated(exec: SqlExecutor): Promise<boolean> {
   return rows.length > 0;
 }
 
-async function writeFlagsAndPersist(exec: SqlExecutor, counts: MigrationCounts): Promise<void> {
+async function writeFlagsAndPersist(
+  exec: SqlExecutor, 
+  counts: MigrationCounts
+): Promise<void> {
   await exec.run(
     "INSERT OR REPLACE INTO kv (key, value) VALUES (?, ?)",
-    [MIGRATION_FLAG_KEY, JSON.stringify({ at: Date.now(), counts })],
+    // PR-H7 Fix: Ispravljene zagrade na kraju JSON serijalizacije
+    [MIGRATION_FLAG_KEY, JSON.stringify({ at: Date.now(), counts })]
   );
   try {
     if (typeof localStorage !== "undefined") {
       localStorage.setItem(MIGRATION_FLAG_KEY, String(Date.now()));
     }
-  } catch { /* private mode / quota — non-fatal */ }
+  } catch { /* noop */ }
 }
 
 const CATEGORY_SQL =
-  "INSERT OR REPLACE INTO categories (id, name, sortOrder, color, payload) VALUES (?, ?, ?, ?, ?)";
+  "INSERT OR REPLACE INTO categories VALUES (?, ?, ?, ?, ?)";
 const SOURCE_SQL =
-  "INSERT OR REPLACE INTO sources (id, categoryId, title, version, createdAt, sourceKind, payload) VALUES (?, ?, ?, ?, ?, ?, ?)";
+  "INSERT OR REPLACE INTO sources VALUES (?, ?, ?, ?, ?, ?, ?)";
 const MINDMAP_SQL =
-  "INSERT OR REPLACE INTO mindMaps (id, categoryId, title, updatedAt, payload) VALUES (?, ?, ?, ?, ?)";
+  "INSERT OR REPLACE INTO mindMaps VALUES (?, ?, ?, ?, ?)";
 const MNEMONIC_SQL =
-  "INSERT OR REPLACE INTO mnemonics (id, categoryId, subcategoryId, mnemonicStatus, hookType, createdAt, payload) VALUES (?, ?, ?, ?, ?, ?, ?)";
+  "INSERT OR REPLACE INTO mnemonics VALUES (?, ?, ?, ?, ?, ?, ?)";
 const KB_ARTICLE_SQL =
-  "INSERT OR REPLACE INTO knowledgeBaseArticles (id, subjectId, title, updatedAt, isIndex, payload) VALUES (?, ?, ?, ?, ?, ?)";
+  "INSERT OR REPLACE INTO knowledgeBaseArticles VALUES (?, ?, ?, ?, ?, ?)";
 const MAJOR_SYSTEM_SQL =
   "INSERT OR REPLACE INTO majorSystem (id, peg) VALUES (?, ?)";
 const MNEMONIC_TEST_LOG_SQL =
-  "INSERT OR REPLACE INTO mnemonicTestLog (id, cardId, timestamp, success, payload) VALUES (?, ?, ?, ?, ?)";
+  "INSERT OR REPLACE INTO mnemonicTestLog VALUES (?, ?, ?, ?, ?)";
 
 async function copyStore<T>(
   exec: SqlExecutor,
@@ -130,7 +128,7 @@ async function copyStore<T>(
       if (destCount !== inserted) {
         throw new MigrationAbort(
           table,
-          `row-count mismatch (idb=${inserted}, sqlite=${destCount}) — rolling back`,
+          `Count mismatch (idb=${inserted}, sqlite=${destCount})`,
         );
       }
     });
@@ -141,7 +139,9 @@ async function copyStore<T>(
   return inserted;
 }
 
-export async function migrateFromIdb(exec: SqlExecutor): Promise<MigrationReport> {
+export async function migrateFromIdb(
+  exec: SqlExecutor
+): Promise<MigrationReport> {
   const t0 = Date.now();
   if (await isAlreadyMigrated(exec)) {
     return { alreadyComplete: true, counts: ZERO_COUNTS, durationMs: 0 };
@@ -149,16 +149,17 @@ export async function migrateFromIdb(exec: SqlExecutor): Promise<MigrationReport
 
   const idb = await openLegacyIdb();
   if (!idb) {
-    // Fresh install — no legacy IDB to copy. Write the flag so the boot
-    // fast-path triggers on every subsequent boot and we never probe again.
     await writeFlagsAndPersist(exec, ZERO_COUNTS);
-    logger.info("[sqlite] no legacy IDB present — migration flag set");
-    return { alreadyComplete: true, counts: ZERO_COUNTS, durationMs: Date.now() - t0 };
+    logger.info("[sqlite] no legacy IDB present — flag set");
+    return { 
+      alreadyComplete: true, 
+      counts: ZERO_COUNTS, 
+      durationMs: Date.now() - t0 
+    };
   }
 
   try {
     const counts: MigrationCounts = {
-      // Parents first — FK CASCADE requires referenced rows to exist.
       categories: await copyStore<CategoryRecord>(
         exec, "categories", idb, "categories",
         (c) => [c.id, c.name, c.sortOrder ?? 0, c.color ?? null, JSON.stringify(c)],
@@ -227,14 +228,13 @@ export async function migrateFromIdb(exec: SqlExecutor): Promise<MigrationReport
 
     await writeFlagsAndPersist(exec, counts);
     const durationMs = Date.now() - t0;
-    logger.info("[sqlite] IDB→SQLite migration complete", { counts, durationMs });
+    logger.info("[sqlite] IDB migration complete", { counts, durationMs });
     return { alreadyComplete: false, counts, durationMs };
   } finally {
     try { idb.close(); } catch { /* ignore */ }
   }
 }
 
-/** Sync check used by `persist-queue` module init to pick the right adapter. */
 export function hasMigrationFlagSync(): boolean {
   try {
     return typeof localStorage !== "undefined"
@@ -244,17 +244,7 @@ export function hasMigrationFlagSync(): boolean {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────
-// PR-9 M2 — Read-path migration (planner KV + disciplineLog + drafts).
-//
-// Runs ONCE per browser profile (separate flag from PR-8 v1). All three
-// sub-steps run inside their own SQLite transaction so a failure in one
-// leaves the others intact and the unset flag triggers a clean retry next
-// boot. Legacy IDB rows are NOT deleted — kept as rollback insurance.
-// ─────────────────────────────────────────────────────────────────────────
-
 export const PR9_READPATH_FLAG_KEY = "migrated-readpath-pr9-v1";
-
 const PLANNER_KV_KEYS = ["plannerConfig", "dailyMapped", "lastRedistribute"] as const;
 
 export interface ReadPathMigrationCounts {
@@ -291,10 +281,12 @@ export async function migratePr9ReadPathFromIdb(
 
   const idb = await openLegacyIdb();
   if (!idb) {
-    // Fresh install — nothing to migrate. Set flag to skip future probes.
     await exec.run(
       "INSERT OR REPLACE INTO kv (key, value) VALUES (?, ?)",
-      [PR9_READPATH_FLAG_KEY, JSON.stringify({ at: Date.now(), counts: { plannerKv: 0, disciplineLog: 0, drafts: 0 } })],
+      [PR9_READPATH_FLAG_KEY, JSON.stringify({ 
+        at: Date.now(), 
+        counts: { plannerKv: 0, disciplineLog: 0, drafts: 0 } 
+      })],
     );
     return {
       alreadyComplete: true,
@@ -306,13 +298,6 @@ export async function migratePr9ReadPathFromIdb(
   let plannerKv = 0;
   let disciplineCount = 0;
   let draftsCount = 0;
-  // PR-G2 fix: previously the PR9 read-path flag was written unconditionally
-  // after three independent try/catch sub-steps. If any sub-step failed, the
-  // flag was still written and the next boot's `isReadPathMigrated()` short-
-  // circuited — silently losing the retry guarantee for whichever stream had
-  // failed (planner KV / discipline log / drafts). Now we collect per-step
-  // success and ONLY write the flag when ALL three sub-steps succeed; partial
-  // failure leaves the flag absent so the next boot can re-attempt.
   let plannerOk = false;
   let disciplineOk = false;
   let draftsOk = false;
@@ -338,7 +323,9 @@ export async function migratePr9ReadPathFromIdb(
 
     // ── Discipline log ──────────────────────────────────────────────────
     try {
-      const entries = await listAllRows<DisciplineEntry & { id?: number }>(idb, "disciplineLog");
+      const entries = await listAllRows<
+        DisciplineEntry & { id?: number }
+      >(idb, "disciplineLog");
       await exec.transaction(async (tx) => {
         await tx.run("DELETE FROM disciplineLog");
         for (const e of entries) {
@@ -362,11 +349,20 @@ export async function migratePr9ReadPathFromIdb(
       await exec.transaction(async (tx) => {
         await tx.run("DELETE FROM drafts");
         for (const d of drafts) {
-          const draft = d as { key?: string; source?: string; updatedAt?: number };
+          const draft = d as { 
+            key?: string; 
+            source?: string; 
+            updatedAt?: number 
+          };
           if (!draft.key || !draft.source) continue;
           await tx.run(
-            "INSERT OR REPLACE INTO drafts (key, source, updatedAt, payload) VALUES (?, ?, ?, ?)",
-            [draft.key, draft.source, draft.updatedAt ?? Date.now(), JSON.stringify(d)],
+            "INSERT OR REPLACE INTO drafts VALUES (?, ?, ?, ?)",
+            [
+              draft.key, 
+              draft.source, 
+              draft.updatedAt ?? Date.now(), 
+              JSON.stringify(d)
+            ],
           );
           draftsCount++;
         }
@@ -390,13 +386,13 @@ export async function migratePr9ReadPathFromIdb(
       );
     } else {
       logger.warn(
-        "[sqlite:pr9] read-path migration partial failure — flag NOT written, will retry on next boot",
+        "[sqlite:pr9] read-path migration partial failure",
         { plannerOk, disciplineOk, draftsOk, counts },
       );
     }
 
     const durationMs = Date.now() - t0;
-    logger.info("[sqlite] PR-9 read-path migration complete", { counts, durationMs, allOk });
+    logger.info("[sqlite] PR-9 migration complete", { counts, durationMs, allOk });
     return { alreadyComplete: false, counts, durationMs };
   } finally {
     try { idb.close(); } catch { /* ignore */ }

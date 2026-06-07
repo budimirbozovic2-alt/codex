@@ -61,7 +61,7 @@ function createSplashWindow(isDev, baseDir) {
 }
 
 function defaultAssertTrustedSender() {
-  throw new Error(`CRITICAL: assertTrustedSender must be explicitly injected.`);
+  throw new Error('CRITICAL: assertTrustedSender must be explicitly injected.');
 }
 
 const MAX_CRASHES = 3;
@@ -131,13 +131,11 @@ async function createWindow({ isDev, baseDir, configPath, logCrash, splash, onMa
 
   onMainWindow(win);
 
-  // SILOM OTVARAMO KONZOLU ZA DIJAGNOSTIKU PRODUKCIJE:
   win.webContents.openDevTools();
 
   if (!isDev) {
     Menu.setApplicationMenu(null);
     win.webContents.on('before-input-event', (event, input) => {
-      // Izbačena je blokada za 'i' (Ctrl+Shift+I)
       if ((input.control && input.key.toLowerCase() === 'r') || input.key === 'F5') {
         event.preventDefault();
       }
@@ -198,7 +196,6 @@ async function createWindow({ isDev, baseDir, configPath, logCrash, splash, onMa
       } else {
         logCrash('crash-loop-detected', 'Too many crashes');
         const { dialog } = require('electron');
-        // KORISTIMO BACKTICKS DA PREŽIVIMO VS CODE FORMATIRANJE
         dialog.showErrorBox(
           `Aplikacija se neprestano rusi`,
           `Sistem je prijavio previse neocekivanih padova baze u kratkom roku. Aplikacija mora da se zatvori kako bi sprijecila ostecenje podataka.`

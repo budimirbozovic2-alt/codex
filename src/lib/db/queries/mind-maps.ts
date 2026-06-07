@@ -1,54 +1,96 @@
 /**
  * Mind maps repository — PR-9 A1c-2.
- *
  * SQLite-only read/write for the `mindMaps` table.
  */
-import type { SqlExecutor } from "@/lib/persistence/sqlite/executor";
+import type { 
+  SqlExecutor 
+} from "@/lib/persistence/sqlite/executor";
 import type { MindMapDoc } from "@/lib/db-types";
 import { logger } from "@/lib/logger";
-import { notifyExecutorNull } from "./_shared/executor-telemetry";
+import { 
+  notifyExecutorNull 
+} from "./_shared/executor-telemetry";
 import { withSqlTiming } from "./_shared/sql-timing";
+
+// ─── Executor accessor ──────────────────────────────────────────
 
 async function tryGetExecutor(): Promise<SqlExecutor | null> {
   try {
-    const { isElectron } = await import("@/lib/electron-integration");
-    if (!isElectron() && import.meta.env.PROD) { notifyExecutorNull("mindMaps", "non-electron"); return null; }
-    const { getOpfsSqliteExecutor } = await import("@/lib/persistence/sqlite/client");
-    return await getOpfsSqliteExecutor();
+    const { isElectron } = await import(
+      "@/lib/electron-integration"
+    );
+    if (!isElectron() && import.meta.env.PROD) { 
+      notifyExecutorNull("mindMaps", "non-electron"); 
+      return null; 
+    }
+    
+    const { getOpfsSqliteExecutor } = await import(
+      "@/lib/persistence/sqlite/client"
+    );
+    
+    // PR-H7 ŠTIT: Čekamo bazu do 3 sekunde (30 * 100ms) ako kasni
+    let exec = await getOpfsSqliteExecutor();
+    let retries = 30;
+    
+    while (!exec && retries > 0) {
+      await new Promise((res) => setTimeout(res, 100));
+      exec = await getOpfsSqliteExecutor();
+      retries--;
+    }
+    
+    return exec;
   } catch (err) {
-    logger.warn("[mindmaps-repo] sqlite executor unavailable", err);
+    logger.warn(
+      "[mindmaps-repo] sqlite executor unavailable", 
+      err
+    );
     notifyExecutorNull("mindMaps", "error");
     return null;
   }
 }
 
-async function requireExecutor(label: string): Promise<SqlExecutor | null> {
+async function requireExecutor(
+  label: string
+): Promise<SqlExecutor | null> {
   const exec = await tryGetExecutor();
   if (exec) return exec;
-  const { assertDesktop } = await import("@/lib/electron-integration");
+  const { assertDesktop } = await import(
+    "@/lib/electron-integration"
+  );
   assertDesktop();
-  logger.warn(`[mindmaps-repo] ${label} — no executor (dev shell)`);
+  logger.warn(
+    `[mindmaps-repo] ${label} — no executor (dev shell)`
+  );
   return null;
 }
 
-function decodeMindMap(row: { payload: string }): MindMapDoc | null {
-  try { return JSON.parse(row.payload) as MindMapDoc; }
-  catch (err) {
+function decodeMindMap(row: { 
+  payload: string 
+}): MindMapDoc | null {
+  try { 
+    return JSON.parse(row.payload) as MindMapDoc; 
+  } catch (err) {
     logger.warn("[mindmaps-repo] decode failed", err);
     return null;
   }
 }
 
 const INSERT_SQL = `
-  INSERT OR REPLACE INTO mindMaps (id, categoryId, title, updatedAt, payload)
-  VALUES (?, ?, ?, ?, ?)
+  INSERT OR REPLACE INTO mindMaps (
+    id, categoryId, title, updatedAt, payload
+  ) VALUES (?, ?, ?, ?, ?)
 `;
 
-export async function getMindMap(id: string): Promise<MindMapDoc | undefined> {
+// ─── Read API ───────────────────────────────────────────────────
+
+export async function getMindMap(
+  id: string
+): Promise<MindMapDoc | undefined> {
   const exec = await requireExecutor("getMindMap");
   if (!exec) return undefined;
   const rows = await exec.all<{ payload: string }>(
-    "SELECT payload FROM mindMaps WHERE id = ? LIMIT 1", [id],
+    "SELECT payload FROM mindMaps WHERE id = ? LIMIT 1", 
+    [id],
   );
   if (rows.length === 0) return undefined;
   return decodeMindMap(rows[0]) ?? undefined;
@@ -61,37 +103,47 @@ export async function listAllMindMaps(): Promise<MindMapDoc[]> {
     const rows = await exec.all<{ payload: string }>(
       "SELECT payload FROM mindMaps ORDER BY updatedAt DESC",
     );
-    return rows.map(decodeMindMap).filter((d): d is MindMapDoc => d !== null);
+    return rows
+      .map(decodeMindMap)
+      .filter((d): d is MindMapDoc => d !== null);
   });
 }
 
 export async function countAllMindMaps(): Promise<number> {
   const exec = await requireExecutor("countAllMindMaps");
   if (!exec) return 0;
-  const rows = await exec.all<{ n: number }>("SELECT COUNT(*) AS n FROM mindMaps");
+  const rows = await exec.all<{ n: number }>(
+    "SELECT COUNT(*) AS n FROM mindMaps"
+  );
   return Number(rows[0]?.n ?? 0);
 }
 
-export async function listMindMapsByCategory(categoryId: string): Promise<MindMapDoc[]> {
+export async function listMindMapsByCategory(
+  categoryId: string
+): Promise<MindMapDoc[]> {
   const exec = await requireExecutor("listMindMapsByCategory");
   if (!exec) return [];
   const rows = await exec.all<{ payload: string }>(
-    "SELECT payload FROM mindMaps WHERE categoryId = ? ORDER BY updatedAt DESC",
+    "SELECT payload FROM mindMaps WHERE categoryId = ? " +
+    "ORDER BY updatedAt DESC",
     [categoryId],
   );
-  return rows.map(decodeMindMap).filter((d): d is MindMapDoc => d !== null);
+  return rows
+    .map(decodeMindMap)
+    .filter((d): d is MindMapDoc => d !== null);
 }
+
+// ─── Write API ──────────────────────────────────────────────────
 
 export async function putMindMap(doc: MindMapDoc): Promise<void> {
   const exec = await requireExecutor("putMindMap");
   if (!exec) throw new Error("NO_EXECUTOR");
-  if (!doc.categoryId) {
-    logger.warn("[mindmaps-repo] put skipped — missing categoryId", { id: doc.id });
-    return;
-  }
+  
+  // AUDIT FIX: Obrisana destruktivna restrikcija za categoryId.
+  // Podaci se sada bezbjedno upisuju u nullable kolonu.
   await exec.run(INSERT_SQL, [
     doc.id,
-    doc.categoryId,
+    doc.categoryId ?? null,
     doc.title,
     doc.updatedAt,
     JSON.stringify(doc),

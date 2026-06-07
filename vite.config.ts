@@ -108,10 +108,9 @@ export default defineConfig(({ mode }) => ({
     __APP_VERSION__: JSON.stringify(pkg.version),
   },
   esbuild: {
-    drop: mode === "production" ? ["debugger"] : [],
-    pure: mode === "production" 
-      ? ["console.log", "console.info", "console.debug", "console.warn"] 
-      : [],
+    // PR-H1 Optimizacija: Nasilno izrezivanje svih
+    // console.* poziva u produkcionom buildu.
+    drop: mode === "production" ? ["console", "debugger"] : [],
   },
   build: {
     emptyOutDir: true,

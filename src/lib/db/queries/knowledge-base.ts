@@ -1,41 +1,78 @@
 /**
- * Knowledge-base (Zettelkasten) articles repository — PR-9 A1c-2.
+ * Knowledge-base (Zettelkasten) articles repository — PR-9.
  * SQLite-only read/write.
  */
-import type { SqlBindValue, SqlExecutor } from "@/lib/persistence/sqlite/executor";
+import type { 
+  SqlBindValue, 
+  SqlExecutor 
+} from "@/lib/persistence/sqlite/executor";
 import type { KnowledgeBaseArticle } from "@/lib/db-types";
 import { logger } from "@/lib/logger";
-import { notifyExecutorNull } from "./_shared/executor-telemetry";
+import { 
+  notifyExecutorNull 
+} from "./_shared/executor-telemetry";
 import { withSqlTiming } from "./_shared/sql-timing";
+
+// ─── Executor accessor ──────────────────────────────────────────
 
 async function tryGetExecutor(): Promise<SqlExecutor | null> {
   try {
-    const { isElectron } = await import("@/lib/electron-integration");
-    if (!isElectron() && import.meta.env.PROD) { notifyExecutorNull("knowledgeBase", "non-electron"); return null; }
-    const { getOpfsSqliteExecutor } = await import("@/lib/persistence/sqlite/client");
-    return await getOpfsSqliteExecutor();
+    const { isElectron } = await import(
+      "@/lib/electron-integration"
+    );
+    if (!isElectron() && import.meta.env.PROD) { 
+      notifyExecutorNull("knowledgeBase", "non-electron"); 
+      return null; 
+    }
+    
+    const { getOpfsSqliteExecutor } = await import(
+      "@/lib/persistence/sqlite/client"
+    );
+    
+    // PR-H7 ŠTIT: Čekamo bazu do 3 sekunde (30 * 100ms) ako kasni
+    let exec = await getOpfsSqliteExecutor();
+    let retries = 30;
+    
+    while (!exec && retries > 0) {
+      await new Promise((res) => setTimeout(res, 100));
+      exec = await getOpfsSqliteExecutor();
+      retries--;
+    }
+    
+    return exec;
   } catch (err) {
-    logger.warn("[kb-articles-repo] sqlite executor unavailable", err);
+    logger.warn(
+      "[kb-articles-repo] sqlite executor unavailable", 
+      err
+    );
     notifyExecutorNull("knowledgeBase", "error");
     return null;
   }
 }
 
-async function requireExecutor(label: string): Promise<SqlExecutor | null> {
+async function requireExecutor(
+  label: string
+): Promise<SqlExecutor | null> {
   const exec = await tryGetExecutor();
   if (exec) return exec;
-  const { assertDesktop } = await import("@/lib/electron-integration");
+  const { assertDesktop } = await import(
+    "@/lib/electron-integration"
+  );
   assertDesktop();
-  logger.warn(`[kb-articles-repo] ${label} — no executor (dev shell)`);
+  logger.warn(
+    `[kb-articles-repo] ${label} — no executor (dev shell)`
+  );
   return null;
 }
 
-// ─── Change emitter ─────────────────────────────────────────────────────
+// ─── Change emitter ─────────────────────────────────────────────
 
 type KnowledgeBaseListener = () => void;
 const _kbListeners = new Set<KnowledgeBaseListener>();
 
-export function onKnowledgeBaseChanged(fn: KnowledgeBaseListener): () => void {
+export function onKnowledgeBaseChanged(
+  fn: KnowledgeBaseListener
+): () => void {
   _kbListeners.add(fn);
   return () => { _kbListeners.delete(fn); };
 }
@@ -46,11 +83,14 @@ export function notifyKnowledgeBaseChanged(): void {
   }
 }
 
-// ─── Codec ──────────────────────────────────────────────────────────────
+// ─── Codec ──────────────────────────────────────────────────────
 
-function decodeArticle(row: { payload: string }): KnowledgeBaseArticle | null {
-  try { return JSON.parse(row.payload) as KnowledgeBaseArticle; }
-  catch (err) {
+function decodeArticle(row: { 
+  payload: string 
+}): KnowledgeBaseArticle | null {
+  try { 
+    return JSON.parse(row.payload) as KnowledgeBaseArticle; 
+  } catch (err) {
     logger.warn("[kb-articles-repo] decode failed", err);
     return null;
   }
@@ -73,37 +113,49 @@ function bindRow(a: KnowledgeBaseArticle): SqlBindValue[] {
   ];
 }
 
-// ─── Read API ───────────────────────────────────────────────────────────
+// ─── Read API ───────────────────────────────────────────────────
 
-export async function getArticle(id: string): Promise<KnowledgeBaseArticle | undefined> {
+export async function getArticle(
+  id: string
+): Promise<KnowledgeBaseArticle | undefined> {
   const exec = await requireExecutor("getArticle");
   if (!exec) return undefined;
   const rows = await exec.all<{ payload: string }>(
-    "SELECT payload FROM knowledgeBaseArticles WHERE id = ? LIMIT 1", [id],
+    "SELECT payload FROM knowledgeBaseArticles WHERE id = ? LIMIT 1", 
+    [id],
   );
   if (rows.length === 0) return undefined;
   return decodeArticle(rows[0]) ?? undefined;
 }
 
-export async function listAllArticles(): Promise<KnowledgeBaseArticle[]> {
+export async function listAllArticles(): 
+  Promise<KnowledgeBaseArticle[]> {
   return withSqlTiming("listAllArticles", async () => {
     const exec = await requireExecutor("listAllArticles");
     if (!exec) return [];
     const rows = await exec.all<{ payload: string }>(
-      "SELECT payload FROM knowledgeBaseArticles ORDER BY updatedAt DESC",
+      `SELECT payload FROM knowledgeBaseArticles 
+       ORDER BY updatedAt DESC`,
     );
-    return rows.map(decodeArticle).filter((d): d is KnowledgeBaseArticle => d !== null);
+    return rows
+      .map(decodeArticle)
+      .filter((d): d is KnowledgeBaseArticle => d !== null);
   });
 }
 
-export async function listArticlesBySubject(subjectId: string): Promise<KnowledgeBaseArticle[]> {
+export async function listArticlesBySubject(
+  subjectId: string
+): Promise<KnowledgeBaseArticle[]> {
   const exec = await requireExecutor("listArticlesBySubject");
   if (!exec) return [];
   const rows = await exec.all<{ payload: string }>(
-    "SELECT payload FROM knowledgeBaseArticles WHERE subjectId = ? ORDER BY updatedAt DESC",
+    `SELECT payload FROM knowledgeBaseArticles 
+     WHERE subjectId = ? ORDER BY updatedAt DESC`,
     [subjectId],
   );
-  return rows.map(decodeArticle).filter((d): d is KnowledgeBaseArticle => d !== null);
+  return rows
+    .map(decodeArticle)
+    .filter((d): d is KnowledgeBaseArticle => d !== null);
 }
 
 export async function findArticleByTitle(
@@ -126,7 +178,7 @@ export async function findArticleByTitle(
   return decodeArticle(rows[0]) ?? undefined;
 }
 
-// ─── Header / index lookups (no JSON.parse) ────────────────────────────
+// ─── Header / index lookups (no JSON.parse) ─────────────────────
 
 export type KnowledgeBaseArticleHeader = {
   id: string;
@@ -137,7 +189,11 @@ export type KnowledgeBaseArticleHeader = {
 };
 
 function decodeHeaderRow(row: {
-  id: string; subjectId: string; title: string; updatedAt: number; isIndex: number;
+  id: string; 
+  subjectId: string; 
+  title: string; 
+  updatedAt: number; 
+  isIndex: number;
 }): KnowledgeBaseArticleHeader {
   return {
     id: row.id,
@@ -154,7 +210,11 @@ export async function listArticleHeadersBySubject(
   const exec = await requireExecutor("listArticleHeadersBySubject");
   if (!exec) return [];
   const rows = await exec.all<{
-    id: string; subjectId: string; title: string; updatedAt: number; isIndex: number;
+    id: string; 
+    subjectId: string; 
+    title: string; 
+    updatedAt: number; 
+    isIndex: number;
   }>(
     `SELECT id, subjectId, title, updatedAt, isIndex
        FROM knowledgeBaseArticles
@@ -182,19 +242,27 @@ export async function getIndexArticle(
   return decodeArticle(rows[0]) ?? undefined;
 }
 
+// ─── Write API ──────────────────────────────────────────────────
 
-export async function putArticle(article: KnowledgeBaseArticle): Promise<void> {
+export async function putArticle(
+  article: KnowledgeBaseArticle
+): Promise<void> {
   const exec = await requireExecutor("putArticle");
   if (!exec) return;
   if (!article.subjectId) {
-    logger.warn("[kb-articles-repo] put skipped — missing subjectId", { id: article.id });
+    logger.warn(
+      "[kb-articles-repo] put skipped — missing subjectId", 
+      { id: article.id }
+    );
     return;
   }
   await exec.run(INSERT_SQL, bindRow(article));
   notifyKnowledgeBaseChanged();
 }
 
-export async function bulkPutArticles(articles: readonly KnowledgeBaseArticle[]): Promise<void> {
+export async function bulkPutArticles(
+  articles: readonly KnowledgeBaseArticle[]
+): Promise<void> {
   if (articles.length === 0) return;
   const exec = await requireExecutor("bulkPutArticles");
   if (!exec) return;
@@ -202,7 +270,9 @@ export async function bulkPutArticles(articles: readonly KnowledgeBaseArticle[])
     const batches = articles
       .filter((a) => Boolean(a.subjectId))
       .map((a) => bindRow(a));
-    if (batches.length > 0) await tx.runMany(INSERT_SQL, batches);
+    if (batches.length > 0) {
+      await tx.runMany(INSERT_SQL, batches);
+    }
   });
 
   notifyKnowledgeBaseChanged();
@@ -211,6 +281,9 @@ export async function bulkPutArticles(articles: readonly KnowledgeBaseArticle[])
 export async function deleteArticle(id: string): Promise<void> {
   const exec = await requireExecutor("deleteArticle");
   if (!exec) return;
-  await exec.run("DELETE FROM knowledgeBaseArticles WHERE id = ?", [id]);
+  await exec.run(
+    "DELETE FROM knowledgeBaseArticles WHERE id = ?", 
+    [id]
+  );
   notifyKnowledgeBaseChanged();
 }

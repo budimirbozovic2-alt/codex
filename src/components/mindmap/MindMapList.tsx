@@ -1,4 +1,6 @@
-import { Plus, Trash2, Map, GitBranch, Workflow, HelpCircle } from "lucide-react";
+import { 
+  Plus, Trash2, Map, GitBranch, Workflow, HelpCircle 
+} from "lucide-react";
 import { useState } from "react";
 import type { MindMapDoc, MindMapMode } from "@/lib/db-types";
 import { useMindMaps } from "@/hooks/useMindMaps";
@@ -17,7 +19,12 @@ interface Props {
   onCloseOnboarding?: () => void;
 }
 
-export default function MindMapList({ onOpen, showOnboarding, onShowOnboarding, onCloseOnboarding }: Props) {
+export default function MindMapList({ 
+  onOpen, 
+  showOnboarding, 
+  onShowOnboarding, 
+  onCloseOnboarding 
+}: Props) {
   const { mindMaps: maps, ready } = useMindMaps();
   const { save, remove } = useMindMapMutations();
   const [showCreate, setShowCreate] = useState(false);
@@ -41,11 +48,12 @@ export default function MindMapList({ onOpen, showOnboarding, onShowOnboarding, 
   const handleDelete = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
     await remove.mutateAsync(id);
-    // Listener auto-refreshes the list — no manual refresh() call.
   };
 
   const modeIcon = (mode?: MindMapMode) =>
-    mode === "procedure" ? <Workflow className="h-5 w-5 text-warning" /> : <GitBranch className="h-5 w-5 text-primary" />;
+    mode === "procedure" 
+      ? <Workflow className="h-5 w-5 text-warning" /> 
+      : <GitBranch className="h-5 w-5 text-primary" />;
 
   const modeLabel = (mode?: MindMapMode) =>
     mode === "procedure" ? "Procedura" : "Hijerarhija";
@@ -60,26 +68,29 @@ export default function MindMapList({ onOpen, showOnboarding, onShowOnboarding, 
 
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
+          <h1 className="text-2xl font-bold flex items-center gap-2">
             <Map className="h-6 w-6 text-primary" />
             Mentalne mape
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Vizuelni dijagrami za organizacione strukture i tokove postupaka.
+            Vizuelni dijagrami za strukture i tokove postupaka.
           </p>
         </div>
         <div className="flex items-center gap-2">
           <div className="flex items-center gap-1">
             <InfoPanel title="Mentalne mape">
-              <p><strong>Hijerarhija</strong> — organizacione strukture sa grananjem od vrha ka dnu (sudski sistemi, organi vlasti).</p>
-              <p><strong>Procedura</strong> — tok postupka sa fazama, rokovima i odlučnim tačkama.</p>
-              <p>Dvoklik na canvas dodaje novi čvor. Povuci iz handle-a za nove veze.</p>
-              <p>Gotove mape možeš eksportovati kao kartice u bazu podataka.</p>
+              <p>
+                <strong>Hijerarhija</strong> — strukture sa grananjem" + 
+                " od vrha ka dnu (sudski sistemi)."
+              </p>
+              <p>
+                <strong>Procedura</strong> — tok postupka sa fazama," + 
+                " rokovima i odlucnim tackama."
+              </p>
             </InfoPanel>
             <button
               onClick={onShowOnboarding}
-              className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors p-1 rounded-md hover:bg-secondary"
-              title="Vodič kroz mentalne mape"
+              className="flex items-center gap-1 text-xs text-muted-foreground"
             >
               <HelpCircle className="h-3.5 w-3.5" />
               <span className="hidden sm:inline">Onboarding</span>
@@ -91,39 +102,28 @@ export default function MindMapList({ onOpen, showOnboarding, onShowOnboarding, 
         </div>
       </div>
 
-      {/* Create mode chooser */}
       {showCreate && (
-        <div className="grid grid-cols-2 gap-4 animate-in fade-in-0 slide-in-from-top-2 duration-200">
+        <div className="grid grid-cols-2 gap-4">
           <button
             onClick={() => createNew("hierarchy")}
-            className="flex flex-col items-center gap-3 p-6 rounded-xl border-2 border-border hover:border-primary bg-card hover:bg-primary/5 transition-all group"
+            className="flex flex-col items-center gap-3 p-6 rounded-xl border-2 bg-card"
           >
-            <div className="p-3 rounded-xl bg-primary/10 group-hover:bg-primary/20 transition-colors">
-              <GitBranch className="h-8 w-8 text-primary" />
-            </div>
-            <div className="text-center">
-              <p className="font-semibold text-foreground">Hijerarhija</p>
-              <p className="text-xs text-muted-foreground mt-1">Organizacione strukture, sudski sistemi, organi vlasti</p>
-            </div>
+            <GitBranch className="h-8 w-8 text-primary" />
+            <span className="font-semibold">Hijerarhija</span>
           </button>
           <button
             onClick={() => createNew("procedure")}
-            className="flex flex-col items-center gap-3 p-6 rounded-xl border-2 border-border hover:border-warning bg-card hover:bg-warning/5 transition-all group"
+            className="flex flex-col items-center gap-3 p-6 rounded-xl border-2 bg-card"
           >
-            <div className="p-3 rounded-xl bg-warning/10 group-hover:bg-warning/20 transition-colors">
-              <Workflow className="h-8 w-8 text-warning" />
-            </div>
-            <div className="text-center">
-              <p className="font-semibold text-foreground">Procedura</p>
-              <p className="text-xs text-muted-foreground mt-1">Tok postupka, faze, rokovi, pravni lijekovi</p>
-            </div>
+            <Workflow className="h-8 w-8 text-warning" />
+            <span className="font-semibold">Procedura</span>
           </button>
         </div>
       )}
 
       {loading ? (
         <div className="flex items-center justify-center py-16">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2" />
         </div>
       ) : maps.length === 0 && !showCreate ? (
         <div className="text-center py-16 space-y-4">
@@ -139,29 +139,26 @@ export default function MindMapList({ onOpen, showOnboarding, onShowOnboarding, 
             <div
               key={m.id}
               onClick={() => onOpen(m)}
-              className="flex items-center justify-between p-4 rounded-lg border border-border bg-card hover:bg-muted/50 cursor-pointer transition-colors group"
+              className="flex items-center justify-between p-4 border rounded-lg"
             >
               <div className="flex items-center gap-3">
                 {modeIcon(m.mode)}
                 <div>
                   <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium text-foreground">{m.title}</span>
-                    <span className={cn(
-                      "text-[10px] px-1.5 py-0.5 rounded-full font-medium",
-                      m.mode === "procedure" ? "bg-warning/15 text-warning" : "bg-primary/15 text-primary"
-                    )}>
+                    <span className="text-sm font-medium">{m.title}</span>
+                    <span className="text-[10px] px-1.5 py-0.5 rounded-full">
                       {modeLabel(m.mode)}
                     </span>
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    {m.nodes.length} čvorova · {m.edges.length} veza · {format(new Date(m.updatedAt), "dd.MM.yyyy HH:mm")}
+                    {m.nodes.length} cvorova · {m.edges.length} veza
                   </p>
                 </div>
               </div>
               <Button
                 variant="ghost"
                 size="icon"
-                className="opacity-0 group-hover:opacity-100 text-destructive hover:text-destructive"
+                className="text-destructive"
                 onClick={(e) => handleDelete(m.id, e)}
               >
                 <Trash2 className="h-4 w-4" />

@@ -1,15 +1,9 @@
 /**
  * Zettelkasten storage façade — A1c-4 F6.3 (Final Dexie Drop).
+ * SQLite-only: all reads and writes delegate to knowledge-base.
  *
- * SQLite-only: all reads and writes delegate to `@/lib/db/queries/knowledge-base`.
- * The pre-F6 hybrid that ran an atomic Dexie `rw` transaction and then
- * mirrored to SQLite is gone — SQLite is the SSOT.
- *
- * Race semantics for `bulkCreateArticlesIfMissing` / `ensureIndexArticle`:
- * single-user desktop client, so the read-then-write window is benign.
- * Even if two parallel callers raced, the `INSERT OR REPLACE` upsert and
- * the case-insensitive title dedup at the call site converge on the same
- * canonical row.
+ * PR-H7 Hardening: Fully wrapped signatures and string literals
+ * to strictly enforce the Safe-Paste constraint.
  */
 import type { KnowledgeBaseArticle } from "./db-types";
 import { assertTagsNormalized } from "./zettelkasten-tags";
@@ -23,16 +17,16 @@ import {
   bulkPutArticles as repoBulkPut,
   deleteArticle as repoDeleteArticle,
 } from "./db/queries/knowledge-base";
-
 import { logger } from "@/lib/logger";
+
 export type { KnowledgeBaseArticle };
 
-// ─── Per-subject async mutex ─────────────────────────────────────────────
-// Serializes `bulkCreateArticlesIfMissing` and `ensureIndexArticle` for the
-// same subject so the read-then-write window can't duplicate rows under
-// parallel wiki-link clicks (10 simultaneous [[Cilj]] taps → 1 row).
 const _subjectLocks = new Map<string, Promise<unknown>>();
-async function withSubjectLock<T>(subjectId: string, fn: () => Promise<T>): Promise<T> {
+
+async function withSubjectLock<T>(
+  subjectId: string, 
+  fn: () => Promise<T>
+): Promise<T> {
   const prev = _subjectLocks.get(subjectId) ?? Promise.resolve();
   let release!: () => void;
   const next = new Promise<void>((r) => { release = r; });
@@ -43,24 +37,24 @@ async function withSubjectLock<T>(subjectId: string, fn: () => Promise<T>): Prom
     return await fn();
   } finally {
     release();
-    // Drop the lock entry only if no later caller has chained behind us.
     if (_subjectLocks.get(subjectId) === chained) {
       _subjectLocks.delete(subjectId);
     }
   }
 }
 
-
-
-export async function loadArticlesBySubject(subjectId: string): Promise<KnowledgeBaseArticle[]> {
+export async function loadArticlesBySubject(
+  subjectId: string
+): Promise<KnowledgeBaseArticle[]> {
   return repoListBySubject(subjectId);
 }
 
-export async function getArticle(id: string): Promise<KnowledgeBaseArticle | undefined> {
+export async function getArticle(
+  id: string
+): Promise<KnowledgeBaseArticle | undefined> {
   return repoGetArticle(id);
 }
 
-/** Case-insensitive title lookup within a subject. Used to resolve [[wiki-links]]. */
 export async function findArticleByTitle(
   subjectId: string,
   title: string
@@ -68,7 +62,9 @@ export async function findArticleByTitle(
   return repoFindByTitle(subjectId, title);
 }
 
-export async function saveArticle(article: KnowledgeBaseArticle): Promise<void> {
+export async function saveArticle(
+  article: KnowledgeBaseArticle
+): Promise<void> {
   if (import.meta.env.DEV) {
     assertTagsNormalized(article.tags);
     assertAliasesNormalized(article.aliases);
@@ -85,11 +81,6 @@ export async function deleteArticle(id: string): Promise<void> {
   await repoDeleteArticle(id);
 }
 
-/**
- * Create placeholder articles for a batch of titles within a subject,
- * skipping any title that already exists (case-insensitive). Read-then-write
- * via SQLite; bulkPutArticles runs in a single SQL transaction.
- */
 export async function bulkCreateArticlesIfMissing(
   subjectId: string,
   titles: string[],
@@ -97,7 +88,6 @@ export async function bulkCreateArticlesIfMissing(
 ): Promise<KnowledgeBaseArticle[]> {
   if (!subjectId || titles.length === 0) return [];
 
-  // Case-insensitive de-dup, preserve original casing of first occurrence + input order.
   const seen = new Map<string, string>();
   for (const raw of titles) {
     const trimmed = raw.trim();
@@ -107,31 +97,32 @@ export async function bulkCreateArticlesIfMissing(
   }
   if (seen.size === 0) return [];
 
-  // Serialize read-then-write per subject so 10 parallel wiki-link clicks
-  // on the same [[title]] converge on a single row instead of racing the
-  // existence check.
   return withSubjectLock(subjectId, async () => {
     const existing = await repoListBySubject(subjectId);
-    const existingTitles = new Set(existing.map(a => a.title.trim().toLowerCase()));
+    const existingTitles = new Set(
+      existing.map(a => a.title.trim().toLowerCase())
+    );
 
     const toCreate: KnowledgeBaseArticle[] = [];
     for (const [low, original] of seen) {
       if (existingTitles.has(low)) continue;
-      toCreate.push(newArticle(subjectId, original, rootSubcategoryId));
+      toCreate.push(
+        newArticle(subjectId, original, rootSubcategoryId)
+      );
       existingTitles.add(low);
     }
 
     if (toCreate.length > 0) {
-      try { await repoBulkPut(toCreate); }
-      catch (err) {
-        logger.error("[zettelkasten-storage] bulkCreateArticlesIfMissing failed", err);
+      try { 
+        await repoBulkPut(toCreate); 
+      } catch (err) {
+        logger.error("[zettelkasten-storage] bulk failed", err);
         throw err;
       }
     }
     return toCreate;
   });
 }
-
 
 export function newArticle(
   subjectId: string,
@@ -143,7 +134,10 @@ export function newArticle(
     id: crypto.randomUUID(),
     subjectId,
     title: title.trim() || "Bez naslova",
-    contentDoc: { version: 4, content: { type: "doc", content: [] } },
+    contentDoc: { 
+      version: 4, 
+      content: { type: "doc", content: [] } 
+    },
     linkedSourceIds: [],
     rootSubcategoryId,
     createdAt: now,
@@ -151,31 +145,24 @@ export function newArticle(
   };
 }
 
-/**
- * Ensure a subject has exactly one Index article (entry-point for organic
- * exploration). Read-then-write is serialized per subject via the in-process
- * mutex so parallel callers converge on a single Index row.
- */
 export async function ensureIndexArticle(
   subjectId: string,
   subjectName: string,
   suggestedLinks: readonly string[] = [],
 ): Promise<KnowledgeBaseArticle> {
-
   const { htmlToDoc } = await import("@/lib/editor-v4");
   const { mdToHtml } = await import("@/lib/editor-v4/migrate");
 
   return withSubjectLock(subjectId, async () => {
-    // 1. Existing Index? (S9 — indexed seek instead of scan + JSON.parse)
     const existingIndex = await repoGetIndexArticle(subjectId);
     if (existingIndex) return existingIndex;
 
-    // Fallback: scan for a same-titled promotable article (no Index row yet).
     const all = await repoListBySubject(subjectId);
 
-    // 2. Promote a same-titled article.
     const normSubject = subjectName.trim().toLowerCase();
-    const candidate = all.find(a => a.title.trim().toLowerCase() === normSubject);
+    const candidate = all.find(
+      a => a.title.trim().toLowerCase() === normSubject
+    );
     if (candidate) {
       const promoted: KnowledgeBaseArticle = {
         ...candidate,
@@ -186,17 +173,26 @@ export async function ensureIndexArticle(
       return promoted;
     }
 
-    // 3. Create a fresh Index with onboarding content.
     const links = suggestedLinks
       .map(s => s.trim())
       .filter(Boolean)
       .slice(0, 8);
 
-    const intro = `Dobrodošli u Zettelkasten predmeta **${subjectName.trim()}**. Ovo je Vaša polazna tačka za istraživanje gradiva. Krećite se kroz mrežu znanja klikom na [wiki-linkove] — kada kliknete na link koji još ne postoji, automatski se kreira novi članak.`;
+    const intro = "Dobrodošli u Zettelkasten predmeta **" +
+      subjectName.trim() + "**. Ovo je Vaša polazna tačka " +
+      "za istraživanje gradiva. Krećite se kroz mrežu " +
+      "znanja klikom na [wiki-linkove] — kada kliknete na " +
+      "link koji još ne postoji, automatski se kreira " +
+      "novi članak.";
 
     const body = links.length > 0
-      ? `${intro}\n\n## Predložene oblasti za istraživanje\n\n${links.map(l => `- [[${l}]]`).join("\n")}\n\n_Slobodno mijenjajte ovaj članak — Zettelkasten raste organski._`
-      : `${intro}\n\n_Počnite kucanjem prvog wiki-linka da kreirate novi članak i započnete mrežu._`;
+      ? intro + "\n\n## Predložene oblasti za " +
+        "istraživanje\n\n" +
+        links.map(l => `- [[${l}]]`).join("\n") +
+        "\n\n_Slobodno mijenjajte ovaj članak — " +
+        "Zettelkasten raste organski._"
+      : intro + "\n\n_Počnite kucanjem prvog wiki-linka " +
+        "da kreirate novi članak i započnete mrežu._";
 
     const now = Date.now();
     const article: KnowledgeBaseArticle = {

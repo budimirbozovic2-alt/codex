@@ -19,16 +19,17 @@ Object.defineProperty(window, "matchMedia", {
   }),
 });
 
-// ─── A1c-4 F5: SQLite test harness ────────────────────────────────────────
-// Make production repo helpers (`tryGetExecutor` → `isElectron() &&
-// getOpfsSqliteExecutor()`) resolve to a deterministic in-memory executor in
-// jsdom. Without this, every SQLite-primary reader returns `[]` and SQLite-
-// primary writers are no-ops. See src/test/sqlite-harness.ts.
+// PR-H7 Fix: Tiptap V4 viewport tracking zahtijeva
+// elementFromPoint metodu koju JSDOM nativno nema.
+if (typeof document !== "undefined") {
+  document.elementFromPoint = () => null;
+}
 
+// ─── A1c-4 F5: SQLite test harness ────────────────────────────────
 vi.mock("@/lib/electron-integration", async () => {
-  const actual = await vi.importActual<typeof import("@/lib/electron-integration")>(
-    "@/lib/electron-integration",
-  );
+  const actual = await vi.importActual<
+    typeof import("@/lib/electron-integration")
+  >("@/lib/electron-integration");
   return {
     ...actual,
     isElectron: () => true,

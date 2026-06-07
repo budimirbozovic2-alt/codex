@@ -1,55 +1,49 @@
 import { persistQueue } from "@/lib/persist-queue";
 import { reviewLogRepository } from "@/lib/repositories";
 import { toast } from "sonner";
-
 import { logger } from "@/lib/logger";
 
 /**
- * Runtime Electron detector — single source of truth for "are we running
- * inside the desktop shell?". Returns `false` only in the Vite dev preview
- * (where we tolerate a browser shell for HMR convenience). Production
- * builds assert desktop via {@link assertDesktop} below.
+ * Runtime Electron detector — single source of truth.
  */
 export function isElectron(): boolean {
-  return typeof window !== "undefined" && Boolean(window.electronAPI);
+  return typeof window !== "undefined" && 
+    Boolean(window.electronAPI);
 }
 
 /**
- * Pure Desktop guard (P3 PR-8 finale). Throws in production builds if the
- * renderer is not hosted by the Electron shell. Call once from `main.tsx`
- * before mounting React. Dev builds skip the check so `bun run dev` keeps
- * working in a browser tab.
+ * Pure Desktop guard (P3 PR-8 finale).
  */
 export function assertDesktop(): void {
   if (!import.meta.env.PROD) return;
   if (isElectron()) return;
   throw new Error(
-    "[pure-desktop] This build targets the Electron desktop shell only. " +
-      "The web build was deprecated in P3 PR-8.",
+    "[pure-desktop] This build targets Electron only.",
   );
 }
+
 export async function setupElectronIPC() {
   if (!window.electronAPI) return;
 
-  const {
-    getSetting,
-    readAllCardsForBackup,
-    readAllCategoriesForBackup,
-    readAllSourcesForBackup,
-    readAllMindMapsForBackup,
-    readAllDisciplineLogForBackup,
-    readReviewLog,
-    readDiary,
-    readCalibrationLog,
-    readLatencyLog,
-    readSlippageLog,
-    readActivityLog,
-    readPomodoroLog,
-  } = await import("@/lib/db/queries");
-
   const buildBackupData = async () => {
-    // PR-9 A1b P1.B — SQLite-primary readers via the backup-readers seam;
-    // unmigrated logs flow through the explicit Dexie read-replicas below.
+    // PR-H7 FIX: Pomjeranjem uvoza unutar handlera sprecavamo
+    // preuranjeno izvrsavanje modula i "no executor" gresku pri boot-u.
+    const {
+      getSetting,
+      readAllCardsForBackup,
+      readAllCategoriesForBackup,
+      readAllSourcesForBackup,
+      readAllMindMapsForBackup,
+      readAllDisciplineLogForBackup,
+      readReviewLog,
+      readDiary,
+      readCalibrationLog,
+      readLatencyLog,
+      readSlippageLog,
+      readActivityLog,
+      readPomodoroLog,
+    } = await import("@/lib/db/queries");
+
     const [
       cards, categories, reviewLog, srSettingsValue,
       sources, mindMaps, diary,
@@ -71,25 +65,38 @@ export async function setupElectronIPC() {
       readPomodoroLog(),
     ]);
 
-    // Build subcategories map from CategoryRecord
+    // Izrada mape podkategorija
     const subcategories: Record<string, string[]> = {};
     categories.forEach(r => {
       if (r.subcategories?.length > 0) {
-        subcategories[r.id] = r.subcategories.map((s: { name: string } | string) => typeof s === "string" ? s : s.name);
+        subcategories[r.id] = r.subcategories.map(
+          (s: { name: string } | string) => 
+            typeof s === "string" ? s : s.name
+        );
       }
     });
 
-    // Read planner data via settings repo (SQLite-primary)
-    const [plannerConfigVal, dailyMappedVal, dailyMappedDateVal] = await Promise.all([
+    // Citanje konfiguracije planera
+    const [
+      plannerConfigVal, 
+      dailyMappedVal, 
+      dailyMappedDateVal
+    ] = await Promise.all([
       getSetting<unknown>("plannerConfig"),
       getSetting<unknown>("dailyMapped"),
       getSetting<unknown>("dailyMappedDate"),
     ]);
 
     const localStorageData: Record<string, unknown> = {};
-    if (plannerConfigVal != null) localStorageData["sr-planner-config"] = plannerConfigVal;
-    if (dailyMappedVal != null) localStorageData["sr-daily-mapped-count"] = dailyMappedVal;
-    if (dailyMappedDateVal != null) localStorageData["sr-daily-mapped-date"] = dailyMappedDateVal;
+    if (plannerConfigVal != null) {
+      localStorageData["sr-planner-config"] = plannerConfigVal;
+    }
+    if (dailyMappedVal != null) {
+      localStorageData["sr-daily-mapped-count"] = dailyMappedVal;
+    }
+    if (dailyMappedDateVal != null) {
+      localStorageData["sr-daily-mapped-date"] = dailyMappedDateVal;
+    }
 
     const lsKeys = [
       "sr-app-settings", "sr-mnemonic-workshop",
@@ -99,7 +106,11 @@ export async function setupElectronIPC() {
     for (const key of lsKeys) {
       const val = localStorage.getItem(key);
       if (val !== null) {
-        try { localStorageData[key] = JSON.parse(val); } catch { localStorageData[key] = val; }
+        try { 
+          localStorageData[key] = JSON.parse(val); 
+        } catch { 
+          localStorageData[key] = val; 
+        }
       }
     }
 
@@ -110,11 +121,17 @@ export async function setupElectronIPC() {
       subcategories,
       reviewLog,
       sources, mindMaps,
-      diary, calibrationLog, latencyLog, slippageLog, activityLog, disciplineLog, pomodoroLog,
+      diary, calibrationLog, latencyLog, slippageLog, 
+      activityLog, disciplineLog, pomodoroLog,
       localStorageData,
       timestamp: Date.now()
     };
-    if (srSettingsValue != null) data["srSettings"] = { key: "srSettings", value: srSettingsValue };
+    if (srSettingsValue != null) {
+      data["srSettings"] = { 
+        key: "srSettings", 
+        value: srSettingsValue 
+      };
+    }
     return data;
   };
 
@@ -132,7 +149,8 @@ export async function setupElectronIPC() {
 
       for (let i = 0; i < bytes.length; i += CHUNK_SIZE) {
         const chunk = bytes.slice(i, i + CHUNK_SIZE);
-        const success = await window.electronAPI.backupStreamChunk(chunk);
+        const success = await window.electronAPI
+          .backupStreamChunk(chunk);
         if (!success) {
           await window.electronAPI.backupStreamAbort();
           return false;
@@ -149,55 +167,47 @@ export async function setupElectronIPC() {
     }
   };
 
-  // Slušač za backup na zahtjev
-  const cleanup = window.electronAPI.onBackupRequested(async () => {
-    try {
-      const data = await buildBackupData();
-      await streamBackup(data);
-    } catch (e) {
-      logger.error("Backup failed", e);
-    }
-  });
-
-  // Sigurno zatvaranje uz flush queue-a
-  const cleanupQuit = window.electronAPI.onQuitBackupRequested?.(async () => {
-    // PR-G1 / H-4 fix:
-    // Previously a 5 s `Promise.race` timeout silently won for users with
-    // large datasets (>5k cards + heavy review log). On timeout
-    // `notifyQuitBackupDone()` was still called and the user was never told
-    // the auto-backup had been dropped. Bumped to 30 s and the timeout
-    // branch now surfaces a toast so the user can re-trigger a manual
-    // backup before closing.
-    const QUIT_BACKUP_TIMEOUT_MS = 30_000;
-    try {
-      await Promise.race([
-        (async () => {
-          // PR-D D1: flush the review-log queue first — this used to live
-          // in a duplicate AppBootstrap handler; consolidating it here is
-          // what made it safe to delete that one.
-          await reviewLogRepository.flush();
-          await persistQueue.flush();
-          const data = await buildBackupData();
-          await streamBackup(data);
-        })(),
-        new Promise((_, reject) =>
-          setTimeout(
-            () => reject(new Error("quit-backup-timeout")),
-            QUIT_BACKUP_TIMEOUT_MS,
-          ),
-        ),
-      ]);
-    } catch (err) {
-      logger.error("[quit-backup] failed, releasing lock:", err);
+  const cleanup = window.electronAPI.onBackupRequested(
+    async () => {
       try {
-        toast.error(
-          "Auto-backup pri zatvaranju nije uspio. Pokrenite manualni backup prije sljedećeg zatvaranja.",
-        );
-      } catch { /* toast may be unavailable late in teardown */ }
-    } finally {
-      window.electronAPI!.notifyQuitBackupDone?.();
+        const data = await buildBackupData();
+        await streamBackup(data);
+      } catch (e) {
+        logger.error("Backup failed", e);
+      }
     }
-  });
+  );
+
+  const cleanupQuit = window.electronAPI.onQuitBackupRequested?.(
+    async () => {
+      const QUIT_BACKUP_TIMEOUT_MS = 30_000;
+      try {
+        await Promise.race([
+          (async () => {
+            await reviewLogRepository.flush();
+            await persistQueue.flush();
+            const data = await buildBackupData();
+            await streamBackup(data);
+          })(),
+          new Promise((_, reject) =>
+            setTimeout(
+              () => reject(new Error("quit-backup-timeout")),
+              QUIT_BACKUP_TIMEOUT_MS,
+            ),
+          ),
+        ]);
+      } catch (err) {
+        logger.error("[quit-backup] failed, releasing lock:", err);
+        try {
+          toast.error(
+            "Auto-backup pri zatvaranju nije uspio."
+          );
+        } catch { /* if toast is unavailable late in teardown */ }
+      } finally {
+        window.electronAPI!.notifyQuitBackupDone?.();
+      }
+    }
+  );
 
   const doCleanup = () => {
     cleanup();
@@ -205,7 +215,8 @@ export async function setupElectronIPC() {
   };
 
   window.addEventListener("beforeunload", doCleanup);
-  window.addEventListener("unload", doCleanup);
+  // PR-H7: Zamjena "unload" sa modernim "pagehide" standardom
+  window.addEventListener("pagehide", doCleanup);
 
   return doCleanup;
 }

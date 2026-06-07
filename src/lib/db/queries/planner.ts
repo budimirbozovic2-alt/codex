@@ -1,34 +1,66 @@
 /**
  * Planner repository — PR-9 A1c-2. SQLite-only.
  */
-import type { SqlExecutor } from "@/lib/persistence/sqlite/executor";
+import type { 
+  SqlExecutor 
+} from "@/lib/persistence/sqlite/executor";
 import { kvGet, kvPut } from "@/lib/persistence/sqlite/kv";
 import { logger } from "@/lib/logger";
-import { notifyExecutorNull } from "./_shared/executor-telemetry";
+import { 
+  notifyExecutorNull 
+} from "./_shared/executor-telemetry";
 
 async function tryGetExecutor(): Promise<SqlExecutor | null> {
   try {
-    const { isElectron } = await import("@/lib/electron-integration");
-    if (!isElectron() && import.meta.env.PROD) { notifyExecutorNull("planner", "non-electron"); return null; }
-    const { getOpfsSqliteExecutor } = await import("@/lib/persistence/sqlite/client");
-    return await getOpfsSqliteExecutor();
+    const { isElectron } = await import(
+      "@/lib/electron-integration"
+    );
+    if (!isElectron() && import.meta.env.PROD) { 
+      notifyExecutorNull("planner", "non-electron"); 
+      return null; 
+    }
+    
+    const { getOpfsSqliteExecutor } = await import(
+      "@/lib/persistence/sqlite/client"
+    );
+    
+    // PR-H7 ŠTIT: Čekamo bazu do 3 sekunde (30 * 100ms) ako kasni
+    let exec = await getOpfsSqliteExecutor();
+    let retries = 30;
+    
+    while (!exec && retries > 0) {
+      await new Promise((res) => setTimeout(res, 100));
+      exec = await getOpfsSqliteExecutor();
+      retries--;
+    }
+    
+    return exec;
   } catch (err) {
-    logger.warn("[planner-repo] sqlite executor unavailable", err);
+    logger.warn(
+      "[planner-repo] sqlite executor unavailable", 
+      err
+    );
     notifyExecutorNull("planner", "error");
     return null;
   }
 }
 
-async function requireExecutor(label: string): Promise<SqlExecutor | null> {
+async function requireExecutor(
+  label: string
+): Promise<SqlExecutor | null> {
   const exec = await tryGetExecutor();
   if (exec) return exec;
-  const { assertDesktop } = await import("@/lib/electron-integration");
+  const { assertDesktop } = await import(
+    "@/lib/electron-integration"
+  );
   assertDesktop();
-  logger.warn(`[planner-repo] ${label} — no executor (dev shell)`);
+  logger.warn(
+    `[planner-repo] ${label} — no executor (dev shell)`
+  );
   return null;
 }
 
-// ─── KV reads ───────────────────────────────────────────────────────────
+// ─── KV reads ───────────────────────────────────────────────────
 
 export interface PlannerHydrationSnapshot {
   plannerConfig: unknown | undefined;
@@ -37,23 +69,48 @@ export interface PlannerHydrationSnapshot {
   disciplineLog: unknown[];
 }
 
-export async function loadPlannerSnapshot(): Promise<PlannerHydrationSnapshot> {
+export async function loadPlannerSnapshot(): 
+  Promise<PlannerHydrationSnapshot> {
   const exec = await requireExecutor("loadPlannerSnapshot");
   if (!exec) {
-    return { plannerConfig: undefined, dailyMapped: undefined, lastRedistribute: undefined, disciplineLog: [] };
+    return { 
+      plannerConfig: undefined, 
+      dailyMapped: undefined, 
+      lastRedistribute: undefined, 
+      disciplineLog: [] 
+    };
   }
-  const [plannerConfig, dailyMapped, lastRedistribute, disciplineRows] = await Promise.all([
+  
+  const [
+    plannerConfig, 
+    dailyMapped, 
+    lastRedistribute, 
+    disciplineRows
+  ] = await Promise.all([
     kvGet<unknown>(exec, "plannerConfig"),
     kvGet<unknown>(exec, "dailyMapped"),
     kvGet<string>(exec, "lastRedistribute"),
-    exec.all<{ payload: string }>("SELECT payload FROM disciplineLog ORDER BY date ASC"),
+    exec.all<{ payload: string }>(
+      "SELECT payload FROM disciplineLog ORDER BY date ASC"
+    ),
   ]);
+  
   const disciplineLog = disciplineRows
     .map((r) => {
-      try { return JSON.parse(r.payload) as unknown; } catch { return null; }
+      try { 
+        return JSON.parse(r.payload) as unknown; 
+      } catch { 
+        return null; 
+      }
     })
     .filter((x): x is unknown => x !== null);
-  return { plannerConfig, dailyMapped, lastRedistribute, disciplineLog };
+    
+  return { 
+    plannerConfig, 
+    dailyMapped, 
+    lastRedistribute, 
+    disciplineLog 
+  };
 }
 
 export async function listAllDisciplineLog(): Promise<unknown[]> {
@@ -65,11 +122,18 @@ export async function listAllDisciplineLog(): Promise<unknown[]> {
     );
     return rows
       .map((r) => {
-        try { return JSON.parse(r.payload) as unknown; } catch { return null; }
+        try { 
+          return JSON.parse(r.payload) as unknown; 
+        } catch { 
+          return null; 
+        }
       })
       .filter((x): x is unknown => x !== null);
   } catch (err) {
-    logger.warn("[planner-repo] sqlite listAllDisciplineLog failed", err);
+    logger.warn(
+      "[planner-repo] sqlite listAllDisciplineLog failed", 
+      err
+    );
     return [];
   }
 }
@@ -78,15 +142,20 @@ export async function countDisciplineLog(): Promise<number> {
   const exec = await requireExecutor("countDisciplineLog");
   if (!exec) return 0;
   try {
-    const rows = await exec.all<{ n: number }>("SELECT COUNT(*) AS n FROM disciplineLog");
+    const rows = await exec.all<{ n: number }>(
+      "SELECT COUNT(*) AS n FROM disciplineLog"
+    );
     return Number(rows[0]?.n ?? 0);
   } catch (err) {
-    logger.warn("[planner-repo] sqlite countDisciplineLog failed", err);
+    logger.warn(
+      "[planner-repo] sqlite countDisciplineLog failed", 
+      err
+    );
     return 0;
   }
 }
 
-// ─── KV writes ──────────────────────────────────────────────────────────
+// ─── KV writes ──────────────────────────────────────────────────
 
 async function putKv(key: string, value: unknown): Promise<void> {
   const exec = await requireExecutor("putKv");
@@ -94,7 +163,10 @@ async function putKv(key: string, value: unknown): Promise<void> {
   try {
     await kvPut(exec, key, value);
   } catch (err) {
-    logger.warn(`[planner-repo] sqlite kvPut(${key}) failed`, err);
+    logger.warn(
+      `[planner-repo] sqlite kvPut(${key}) failed`, 
+      err
+    );
   }
 }
 
@@ -110,7 +182,7 @@ export function saveLastRedistribute(value: string): Promise<void> {
   return putKv("lastRedistribute", value);
 }
 
-// ─── disciplineLog writes ───────────────────────────────────────────────
+// ─── disciplineLog writes ───────────────────────────────────────
 
 export async function saveDisciplineLog<T extends { date: string }>(
   entries: ReadonlyArray<T>,
@@ -122,16 +194,17 @@ export async function saveDisciplineLog<T extends { date: string }>(
       await tx.run("DELETE FROM disciplineLog");
       for (const e of entries) {
         await tx.run(
-          "INSERT OR REPLACE INTO disciplineLog (date, payload) VALUES (?, ?)",
+          "INSERT OR REPLACE INTO disciplineLog (date, payload) " +
+          "VALUES (?, ?)",
           [e.date, JSON.stringify(e)],
         );
       }
     });
   } catch (err) {
-    // PR-H2: rethrow so the planner mutation can rollback its cache snapshot
-    // and surface the failure. Previously every failure was swallowed with a
-    // warn and the in-RAM disciplineCache silently diverged from disk.
-    logger.warn("[planner-repo] sqlite saveDisciplineLog failed", err);
+    logger.warn(
+      "[planner-repo] sqlite saveDisciplineLog failed", 
+      err
+    );
     throw err instanceof Error ? err : new Error(String(err));
   }
 }

@@ -1,37 +1,65 @@
 import { useState, useCallback } from "react";
 import { toast } from "sonner";
-
 import { Dialog, DialogContent } from "@/components/ui/dialog";
-import { Card } from "@/lib/spaced-repetition";
 import { MenuStep } from "./export-import/MenuStep";
 import { ExportStep } from "./export-import/ExportStep";
 import { ProgressStep } from "./export-import/ProgressStep";
 import { ImportConfirmStep } from "./export-import/ImportConfirmStep";
 import { ImportConflictStep } from "./export-import/ImportConflictStep";
 import { validateImportFile } from "./export-import/useImportValidation";
-import type { Step, ImportValidation, ImportStrategy } from "./export-import/types";
+import type { 
+  Step, 
+  ImportValidation, 
+  ImportStrategy 
+} from "./export-import/types";
 import { logger } from "@/lib/logger";
 
 interface ExportImportDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onExportTemplate: (compress: boolean, onProgress: (p: number, msg: string) => void) => Promise<void>;
-  onExportFull: (compress: boolean, onProgress: (p: number, msg: string) => void) => Promise<void>;
-  onImport: (file: File, strategy: ImportStrategy, onProgress?: (p: number, msg: string) => void) => Promise<void>;
-  cards: Card[];
+  onExportTemplate: (
+    compress: boolean, 
+    onProgress: (p: number, msg: string) => void
+  ) => Promise<void>;
+  onExportFull: (
+    compress: boolean, 
+    onProgress: (p: number, msg: string) => void
+  ) => Promise<void>;
+  onImport: (
+    file: File, 
+    strategy: ImportStrategy, 
+    onProgress?: (p: number, msg: string) => void
+  ) => Promise<void>;
+  cardsCount: number;
 }
 
 export default function ExportImportDialog({
-  open, onOpenChange, onExportTemplate, onExportFull, onImport, cards,
+  open, 
+  onOpenChange, 
+  onExportTemplate, 
+  onExportFull, 
+  onImport, 
+  cardsCount,
 }: ExportImportDialogProps) {
   const [step, setStep] = useState<Step>("menu");
   const [compress, setCompress] = useState(true);
   const [progress, setProgress] = useState(0);
   const [progressMsg, setProgressMsg] = useState("");
-  const [validation, setValidation] = useState<ImportValidation | null>(null);
+  const [validation, setValidation] = useState<ImportValidation | null>(
+    null
+  );
 
-  const reset = () => { setStep("menu"); setValidation(null); setProgress(0); setProgressMsg(""); };
-  const handleOpenChange = (v: boolean) => { if (!v) reset(); onOpenChange(v); };
+  const reset = () => { 
+    setStep("menu"); 
+    setValidation(null); 
+    setProgress(0); 
+    setProgressMsg(""); 
+  };
+  
+  const handleOpenChange = (v: boolean) => { 
+    if (!v) reset(); 
+    onOpenChange(v); 
+  };
 
   const onProgress = useCallback((p: number, msg: string) => {
     setProgress(p);
@@ -44,8 +72,6 @@ export default function ExportImportDialog({
       await onExportTemplate(compress, onProgress);
       handleOpenChange(false);
     } catch (err) {
-      // PR-H1: don't swallow errors. Keep dialog open + surface a toast so
-      // the user knows the export failed.
       logger.error("[ExportImportDialog] export template failed", err);
       toast.error("Izvoz template-a nije uspio.");
       setStep("export");
@@ -71,20 +97,12 @@ export default function ExportImportDialog({
     try {
       const result = await validateImportFile(file, onProgress);
       setValidation(result);
-      if (!result.valid) {
-        setStep("import-confirm");
-      } else if (result.duplicateCount > 0 || result.duplicateCategoryCount > 0) {
-        setStep("import-conflict");
-      } else {
-        setStep("import-confirm");
-      }
+      setStep("import-confirm");
     } catch (err) {
-      // PR-H1: validateImportFile previously had no try/catch, so a worker
-      // or network crash froze the dialog on "import-validating" with no
-      // feedback. Synthesize an invalid-validation so the confirm step can
-      // render the error.
       logger.error("[ExportImportDialog] validation failed", err);
-      const message = err instanceof Error ? err.message : "Nepoznata greška pri validaciji.";
+      const message = err instanceof Error 
+        ? err.message 
+        : "Nepoznata greška pri validaciji.";
       toast.error(`Validacija nije uspjela: ${message}`);
       setValidation({
         file,
@@ -117,8 +135,6 @@ export default function ExportImportDialog({
       setProgressMsg("Završeno.");
       handleOpenChange(false);
     } catch (err) {
-      // PR-H1: kroz logger umjesto console.warn (PROD esbuild.pure ne
-      // tree-shake-uje sve console kanale konzistentno).
       logger.warn("[ExportImportDialog] import failed", err);
       setStep("import-confirm");
     }
@@ -126,14 +142,21 @@ export default function ExportImportDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className={step === "import-conflict" ? "sm:max-w-lg" : "sm:max-w-md"}>
+      <DialogContent 
+        className={
+          step === "import-conflict" ? "sm:max-w-lg" : "sm:max-w-md"
+        }
+      >
         {step === "menu" && (
-          <MenuStep onPickExport={() => setStep("export")} onFileSelected={handleFileSelected} />
+          <MenuStep 
+            onPickExport={() => setStep("export")} 
+            onFileSelected={handleFileSelected} 
+          />
         )}
 
         {step === "export" && (
           <ExportStep
-            cardsCount={cards.length}
+            cardsCount={cardsCount}
             compress={compress}
             onCompressChange={setCompress}
             onExportTemplate={handleExportTemplate}
@@ -142,14 +165,16 @@ export default function ExportImportDialog({
           />
         )}
 
-        {(step === "exporting" || step === "import-validating" || step === "importing") && (
+        {(step === "exporting" || 
+          step === "import-validating" || 
+          step === "importing") && (
           <ProgressStep progress={progress} message={progressMsg} />
         )}
 
         {step === "import-confirm" && validation && (
           <ImportConfirmStep
             validation={validation}
-            currentCardsCount={cards.length}
+            currentCardsCount={cardsCount}
             onConfirm={() => handleImport("skip")}
             onCancel={reset}
           />

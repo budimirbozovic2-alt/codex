@@ -1,9 +1,15 @@
-import { Database, Download, Settings2, ShieldCheck, AlertTriangle } from "lucide-react";
-import { memo, useCallback, useEffect, useState } from "react";
+import { 
+  Database, Download, Settings2, ShieldCheck, AlertTriangle 
+} from "lucide-react";
+import React, { 
+  memo, useCallback, useEffect, useState 
+} from "react";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import ExportImportDialog from "@/components/ExportImportDialog";
-import { useBackupActions, useCardData } from "@/contexts/AppContext";
+import { 
+  useBackupActions, useCardData 
+} from "@/contexts/AppContext";
 import { getLastBackupTime } from "@/lib/storage";
 
 function formatAge(ts: number): { label: string; days: number } {
@@ -11,15 +17,22 @@ function formatAge(ts: number): { label: string; days: number } {
   const days = Math.floor((Date.now() - ts) / (24 * 60 * 60 * 1000));
   if (days <= 0) {
     const hours = Math.floor((Date.now() - ts) / (60 * 60 * 1000));
-    return { label: hours <= 0 ? "upravo sada" : `prije ${hours}h`, days };
+    return { 
+      label: hours <= 0 ? "upravo sada" : `prije ${hours}h`, 
+      days 
+    };
   }
   if (days === 1) return { label: "prije 1 dan", days };
   return { label: `prije ${days} dana`, days };
 }
 
-export const BackupCard = memo(function BackupCard() {
+export const BackupCard = memo(function BackupCard(): React.ReactElement {
   const { cards } = useCardData();
-  const { exportData, exportTemplate, importData } = useBackupActions();
+  const { 
+    exportData, 
+    exportTemplate, 
+    importData 
+  } = useBackupActions();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [lastBackup, setLastBackup] = useState<number>(0);
   const [quickRunning, setQuickRunning] = useState(false);
@@ -30,7 +43,9 @@ export const BackupCard = memo(function BackupCard() {
     getLastBackupTime().then(setLastBackup).catch(() => {});
   }, []);
 
-  useEffect(() => { refreshLastBackup(); }, [refreshLastBackup]);
+  useEffect(() => { 
+    refreshLastBackup(); 
+  }, [refreshLastBackup]);
 
   const handleQuickBackup = useCallback(async () => {
     if (quickRunning) return;
@@ -38,10 +53,13 @@ export const BackupCard = memo(function BackupCard() {
     setQuickProgress(0);
     setQuickMsg("Priprema...");
     try {
-      await exportData(true, (p, m) => { setQuickProgress(p); setQuickMsg(m); });
+      await exportData(true, (p, m) => { 
+        setQuickProgress(p); 
+        setQuickMsg(m); 
+      });
       refreshLastBackup();
     } catch {
-      // toast already fired by hook
+      // Greška je već obradjena unutar kuke
     } finally {
       setQuickRunning(false);
       setQuickProgress(0);
@@ -55,18 +73,37 @@ export const BackupCard = memo(function BackupCard() {
 
   return (
     <div
-      className="glass-card hover-lift rounded-xl p-5 space-y-4 animate-fade-up"
-      style={{ animationDelay: "120ms", animationFillMode: "both" }}
+      className="glass-card hover-lift rounded-xl p-5 space-y-4"
     >
       <div className="flex items-start gap-3">
-        <div className={`p-2.5 rounded-lg shrink-0 ${stale ? "bg-warning/10 text-warning" : "bg-primary/10 text-primary"}`}>
-          {stale ? <AlertTriangle className="h-5 w-5" /> : <ShieldCheck className="h-5 w-5" />}
+        <div 
+          className={
+            `p-2.5 rounded-lg shrink-0 ` + 
+            `${stale ? "bg-warning/10 text-warning" : "bg-primary/10 text-primary"}`
+          }
+        >
+          {stale ? (
+            <AlertTriangle className="h-5 w-5" />
+          ) : (
+            <ShieldCheck className="h-5 w-5" />
+          )}
         </div>
         <div className="min-w-0 flex-1">
-          <p className="font-semibold text-sm text-foreground">Backup &amp; vraćanje</p>
+          <p className="font-semibold text-sm text-foreground">
+            Backup &amp; vraćanje
+          </p>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Posljednji backup: <span className={stale ? "text-warning font-medium" : "text-foreground/80"}>{age.label}</span>
-            {never && <span className="text-warning"> — preporučujemo izvoz</span>}
+            Posljednji backup:{" "}
+            <span 
+              className={
+                stale ? "text-warning font-medium" : "text-foreground/80"
+              }
+            >
+              {age.label}
+            </span>
+            {never && (
+              <span className="text-warning"> — preporučujemo izvoz</span>
+            )}
           </p>
         </div>
       </div>
@@ -74,7 +111,9 @@ export const BackupCard = memo(function BackupCard() {
       {quickRunning ? (
         <div className="space-y-2">
           <Progress value={quickProgress} className="h-2" />
-          <p className="text-xs text-muted-foreground text-center">{quickMsg}</p>
+          <p className="text-xs text-muted-foreground text-center">
+            {quickMsg}
+          </p>
         </div>
       ) : (
         <div className="flex flex-wrap gap-2">
@@ -83,7 +122,11 @@ export const BackupCard = memo(function BackupCard() {
             className="gap-2"
             onClick={handleQuickBackup}
             disabled={cards.length === 0}
-            title={cards.length === 0 ? "Nema podataka za izvoz" : "Brzi pun backup (ZIP)"}
+            title={
+              cards.length === 0 
+                ? "Nema podataka za izvoz" 
+                : "Brzi pun backup (ZIP)"
+            }
           >
             <Download className="h-3.5 w-3.5" />
             Brzi backup
@@ -115,11 +158,10 @@ export const BackupCard = memo(function BackupCard() {
           await importData(file, strategy);
           refreshLastBackup();
         }}
-        cards={cards}
+        cardsCount={cards.length}
       />
     </div>
   );
 });
 
-// Re-export icon for legacy callers (no-op now)
 export const BackupCardIcon = Database;

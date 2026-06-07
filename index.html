@@ -2,134 +2,262 @@
 <html lang="sr">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <!-- Defense-in-depth CSP. Production Electron also sets this via response headers in main.cjs.
-         PR-H-OPFS-FIX-2: fonts self-hosted (see src/index.css), no external origins.
-         'unsafe-eval'/'wasm-unsafe-eval' required by Zod schema compiler + sqlite-wasm glue;
-         ws:/wss: are required by Vite HMR + Lovable preview. -->
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self' app:; script-src 'self' 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval' app:; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https: app:; font-src 'self' data: app:; connect-src 'self' blob: app: ws: wss:; media-src 'self' blob: app:; object-src 'none'; base-uri 'self'; frame-ancestors 'none';">
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0"
+    />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self' app:; script-src 'self' 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval' app:; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https: app:; font-src 'self' data: app:; connect-src 'self' blob: app: ws: wss:; media-src 'self' blob: app:; object-src 'none'; base-uri 'self';"
+    />
     <title>CODEX — Sistem za memorizaciju</title>
-    <meta name="description" content="Aplikacija za učenje esejskih pitanja pomoću SM-2 algoritma sa praćenjem znanja po cjelinama">
-    <!-- PWA manifest & theme-color removed — Pure Desktop (P3 PR-8 finale). -->
-    <link rel="icon" href="./favicon.png" type="image/png" />
-    <meta name="author" content="Lovable" />
-    <link rel="canonical" href="https://memoria-mne.lovable.app/" />
-    <meta property="og:locale" content="sr_RS" />
-    <meta property="og:url" content="https://memoria-mne.lovable.app/" />
-    <meta property="og:type" content="website" />
-    <meta property="og:image" content="https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/43649e63-a6ab-4b48-8e5f-1e8ac200b844/id-preview-ee68fc10--99857756-7c71-4c66-aaa0-500c2f766333.lovable.app-1773366301174.png">
-    <meta property="og:title" content="CODEX — Sistem za memorizaciju">
-    <meta property="og:description" content="Aplikacija za učenje esejskih pitanja pomoću SM-2 algoritma sa praćenjem znanja po cjelinama">
-    <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:image" content="https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/43649e63-a6ab-4b48-8e5f-1e8ac200b844/id-preview-ee68fc10--99857756-7c71-4c66-aaa0-500c2f766333.lovable.app-1773366301174.png">
-    <meta name="twitter:title" content="CODEX — Sistem za memorizaciju">
-    <meta name="twitter:description" content="Aplikacija za učenje esejskih pitanja pomoću SM-2 algoritma sa praćenjem znanja po cjelinama">
-    <script type="application/ld+json">
-    {
-      "@context": "https://schema.org",
-      "@type": "WebSite",
-      "name": "CODEX — Sistem za memorizaciju",
-      "url": "https://memoria-mne.lovable.app/",
-      "description": "Aplikacija za učenje esejskih pitanja pomoću SM-2 algoritma sa praćenjem znanja po cjelinama"
-    }
-    </script>
+    <meta
+      name="description"
+      content="Aplikacija za učenje esejskih pitanja"
+    />
+    <link
+      rel="icon"
+      href="./favicon.png"
+      type="image/png"
+    />
+    
+    <style>
+      @keyframes appSplashFade {
+        from { 
+          opacity: 0; 
+          transform: translateY(12px); 
+        }
+        to { 
+          opacity: 1; 
+          transform: translateY(0); 
+        }
+      }
+      @keyframes splashPulse {
+        0%, 100% {
+          transform: scale(1);
+          box-shadow: 0 8px 32px rgba(56, 130, 220, 0.35);
+        }
+        50% {
+          transform: scale(1.08);
+          box-shadow: 0 12px 40px rgba(56, 130, 220, 0.5);
+        }
+      }
+    </style>
   </head>
 
   <body>
-    <div id="root">
-      <!-- In-app splash that matches Electron splash, hidden once React mounts -->
-      <div id="app-splash" style="
-        position: fixed; inset: 0; z-index: 9999;
-        display: flex; align-items: center; justify-content: center;
-        background: radial-gradient(ellipse at center, #152238 0%, #0a1628 100%);
-        font-family: 'Segoe UI', system-ui, sans-serif;
+    <div id="root"></div>
+
+    <div
+      id="app-splash"
+      style="
+        position: fixed;
+        inset: 0;
+        z-index: 9999;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: radial-gradient(
+          ellipse at center, #152238 0%, #0a1628 100%
+        );
+        font-family: 'Segoe UI', sans-serif;
         color: #e0e0e0;
         transition: opacity 0.4s ease-out;
-      ">
-        <div style="text-align: center; animation: appSplashFade 0.5s ease-out;">
-          <div style="width: 80px; height: 80px; margin: 0 auto 20px;
-            border-radius: 50%; display: flex; align-items: center; justify-content: center;
+      "
+    >
+      <div
+        style="
+          text-align: center; 
+          animation: appSplashFade 0.5s ease-out;
+        "
+      >
+        <div
+          style="
+            width: 80px;
+            height: 80px;
+            margin: 0 auto 20px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
             box-shadow: 0 8px 32px rgba(56, 130, 220, 0.35);
-            animation: splashPulse 1.8s ease-in-out infinite;
+            animation: splashPulse 1.8s infinite;
             overflow: hidden;
-          "><img src="./logo-icon.png" alt="CODEX" style="width:100%;height:100%;object-fit:cover;"></div>
-          <h1 style="
-            font-size: 16px; font-weight: 700; letter-spacing: 0.25em; margin-bottom: 4px;
-            background: linear-gradient(90deg, #a0c4f0, #3882dc);
-            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+          "
+        >
+          <img
+            src="./logo-icon.png"
+            alt="CODEX"
+            style="width:100%;height:100%;object-fit:cover;"
+          />
+        </div>
+        <h1
+          style="
+            font-size: 16px;
+            font-weight: 700;
+            letter-spacing: 0.25em;
+            margin-bottom: 4px;
+            background: linear-gradient(
+              90deg, #a0c4f0, #3882dc
+            );
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
             text-transform: uppercase;
-          ">CODEX</h1>
-          <p style="font-size: 12px; color: #9ca3af; margin-bottom: 16px;">Pravosudni Sistem</p>
-          <p id="splash-status" style="font-size: 11px; color: #9ca3af; margin-bottom: 12px; min-height: 16px;">Pokretanje…</p>
-          <div style="width: 200px; height: 4px; margin: 0 auto; background: rgba(255,255,255,0.08); border-radius: 3px; overflow: hidden;">
-            <div id="splash-progress" style="width: 0%; height: 100%; background: linear-gradient(90deg, #3882dc, #5ba0f5); border-radius: 3px; transition: width 0.3s ease-out;"></div>
-          </div>
-          <p id="splash-percent" style="font-size: 10px; color: #6b7280; margin-top: 6px;">0%</p>
-          <p id="splash-phase" style="font-size: 9px; color: #4b5563; margin-top: 4px; font-family: monospace; min-height: 14px;"></p>
-          <div id="splash-error" style="display:none; margin-top: 16px; padding: 10px 16px; background: rgba(239,68,68,0.12); border: 1px solid rgba(239,68,68,0.3); border-radius: 8px; max-width: 260px;">
-            <p style="font-size: 12px; color: #f87171; font-weight: 600; margin-bottom: 4px;">⚠ Greška pri pokretanju</p>
-            <p id="splash-error-msg" style="font-size: 11px; color: #fca5a5; margin-bottom: 8px;">Baza podataka nije dostupna.</p>
-            <p style="font-size: 10px; color: #9ca3af;">Aplikacija će se pokrenuti u ograničenom režimu. Podaci možda neće biti sačuvani.</p>
-          </div>
+          "
+        >CODEX</h1>
+        <p
+          style="
+            font-size: 12px;
+            color: #9ca3af;
+            margin-bottom: 16px;
+          "
+        >
+          Pravosudni Sistem
+        </p>
+        <p
+          id="splash-status"
+          style="
+            font-size: 11px; 
+            color: #9ca3af; 
+            margin-bottom: 12px; 
+            min-height: 16px;
+          "
+        >
+          Pokretanje…
+        </p>
+        <div
+          style="
+            width: 200px;
+            height: 4px;
+            margin: 0 auto;
+            background: rgba(255,255,255,0.08);
+            border-radius: 3px;
+            overflow: hidden;
+          "
+        >
+          <div
+            id="splash-progress"
+            style="
+              width: 0%;
+              height: 100%;
+              background: linear-gradient(
+                90deg, #3882dc, #5ba0f5
+              );
+              border-radius: 3px;
+              transition: width 0.3s ease-out;
+            "
+          ></div>
         </div>
+        <p
+          id="splash-percent"
+          style="font-size: 10px; color: #6b7280; margin-top: 6px;"
+        >
+          0%
+        </p>
+        <p
+          id="splash-phase"
+          style="
+            font-size: 9px; 
+            color: #4b5563; 
+            margin-top: 4px; 
+            font-family: monospace; 
+            min-height: 14px;
+          "
+        ></p>
       </div>
-      <!-- Fallback UI: hidden by default, shown by 10s safety timer if app fails to boot -->
-      <div id="boot-fallback" style="
-        display: none; position: fixed; inset: 0; z-index: 10000;
-        align-items: center; justify-content: center;
-        background: radial-gradient(ellipse at center, #152238 0%, #0a1628 100%);
-        font-family: 'Segoe UI', system-ui, sans-serif; color: #e0e0e0;
-      ">
-        <div style="text-align: center; max-width: 420px; padding: 32px;">
-          <div style="width: 64px; height: 64px; margin: 0 auto 20px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: rgba(56,130,220,0.1); border: 1px solid rgba(56,130,220,0.25);">
-            <span style="font-size: 28px;">⏳</span>
-          </div>
-          <h1 style="font-size: 18px; font-weight: 700; letter-spacing: 0.08em; margin-bottom: 12px; background: linear-gradient(90deg, #a0c4f0, #3882dc); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">CODEX</h1>
-          <p style="font-size: 14px; line-height: 1.7; color: #d1d5db; margin-bottom: 8px;">Aplikacija se učitava duže nego što je očekivano.</p>
-          <p style="font-size: 12px; line-height: 1.6; color: #9ca3af; margin-bottom: 24px;">Ako ste u web preview-u, ovo je normalno zbog restrikcija okruženja. Molimo pokrenite aplikaciju lokalno preko <code style="background:rgba(255,255,255,0.08);padding:2px 6px;border-radius:4px;font-size:11px;">npm run dev</code> ili osvježite stranicu.</p>
-          <button onclick="window.location.reload()" style="padding: 10px 28px; background: linear-gradient(90deg, #3882dc, #5ba0f5); color: #fff; border: none; border-radius: 10px; font-size: 14px; font-weight: 600; cursor: pointer; letter-spacing: 0.02em; transition: opacity 0.2s;" onmouseover="this.style.opacity='0.85'" onmouseout="this.style.opacity='1'">Osveži aplikaciju</button>
-        </div>
-      </div>
-      <style>
-        @keyframes appSplashFade { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
-        @keyframes appSplashLoad { 0% { transform: translateX(-100%); } 100% { transform: translateX(400%); } }
-        @keyframes splashPulse { 0%, 100% { transform: scale(1); box-shadow: 0 8px 32px rgba(56,130,220,0.35); } 50% { transform: scale(1.08); box-shadow: 0 12px 40px rgba(56,130,220,0.5); } }
-      </style>
     </div>
+
+    <div
+      id="boot-fallback"
+      style="
+        display: none;
+        position: fixed;
+        inset: 0;
+        z-index: 10000;
+        align-items: center;
+        justify-content: center;
+        background: radial-gradient(
+          ellipse at center, #152238 0%, #0a1628 100%
+        );
+        font-family: 'Segoe UI', sans-serif;
+        color: #e0e0e0;
+      "
+    >
+      <div
+        style="
+          text-align: center;
+          max-width: 420px;
+          padding: 32px;
+        "
+      >
+        <div
+          style="
+            width: 64px;
+            height: 64px;
+            margin: 0 auto 20px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(56,130,220,0.1);
+            border: 1px solid rgba(56,130,220,0.25);
+          "
+        >
+          <span style="font-size: 28px;">⏳</span>
+        </div>
+        <h1 style="font-size: 18px; font-weight: 700;">CODEX</h1>
+        <p style="font-size: 14px; color: #d1d5db;">
+          Aplikacija se učitava duže nego što je očekivano.
+        </p>
+        <button
+          onclick="window.location.reload()"
+          style="padding: 10px 28px; cursor: pointer;"
+        >
+          Osveži aplikaciju
+        </button>
+      </div>
+    </div>
+
     <script>
       (function(){
-        // Wave-2 fix: environment-aware timer + retries. Electron should boot
-        // in <8s on a real machine; only the Lovable preview / browser dev
-        // needs the wider 20s budget. With the new mount signal coming from
-        // useCardBootstrap's finally block, retries are rarely needed.
-        var IS_ELECTRON = typeof window !== "undefined" && !!window.electronAPI;
+        var IS_ELECTRON = typeof window !== "undefined" &&
+          !!window.electronAPI;
         var TIMEOUT = IS_ELECTRON ? 8000 : 20000;
         var MAX_RETRIES = IS_ELECTRON ? 1 : 2;
-        var RETRY_KEY="__codex_boot_retries";
-        var retries=parseInt(sessionStorage.getItem(RETRY_KEY)||"0",10);
+        var RETRY_KEY = "__codex_boot_retries";
+        var retries = parseInt(
+          sessionStorage.getItem(RETRY_KEY) || "0", 10
+        );
 
-        var t=setTimeout(function(){
-          var root=document.getElementById("root");
-          var appMounted=(window.__codexAppMounted===true)||(root&&root.querySelector("[data-app-mounted]"));
-          if(appMounted){sessionStorage.removeItem(RETRY_KEY);return;}
-
-          if(retries<MAX_RETRIES){
-            sessionStorage.setItem(RETRY_KEY,String(retries+1));
-            var status=document.getElementById("splash-status");
-            if(status)status.textContent="Pokušaj "+(retries+2)+" od "+(MAX_RETRIES+1)+"…";
-            setTimeout(function(){window.location.reload();},800);
-          }else{
+        var t = setTimeout(function(){
+          var root = document.getElementById("root");
+          var appMounted = (window.__codexAppMounted === true) ||
+            (root && root.querySelector("[data-app-mounted]"));
+          if (appMounted) {
             sessionStorage.removeItem(RETRY_KEY);
-            var splash=document.getElementById("app-splash");
-            var fallback=document.getElementById("boot-fallback");
-            if(splash){splash.style.transition="opacity 0.3s";splash.style.opacity="0";setTimeout(function(){if(splash.parentNode)splash.remove();},400);}
-            if(fallback){fallback.style.display="flex";}
+            return;
           }
-        },TIMEOUT);
-        window.__codexSplashTimer=t;
+
+          if (retries < MAX_RETRIES) {
+            sessionStorage.setItem(RETRY_KEY, String(retries + 1));
+            window.location.reload();
+          } else {
+            sessionStorage.removeItem(RETRY_KEY);
+            var splash = document.getElementById("app-splash");
+            var fallback = document.getElementById("boot-fallback");
+            if (splash) {
+              splash.style.transition = "opacity 0.3s";
+              splash.style.opacity = "0";
+              setTimeout(function(){
+                if (splash.parentNode) splash.remove();
+              }, 400);
+            }
+            if (fallback) fallback.style.display = "flex";
+          }
+        }, TIMEOUT);
+        window.__codexSplashTimer = t;
       })();
     </script>
-
     <script type="module" src="./src/main.tsx"></script>
   </body>
 </html>

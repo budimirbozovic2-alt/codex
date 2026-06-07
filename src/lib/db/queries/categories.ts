@@ -1,29 +1,27 @@
 /**
  * Categories repository — PR-9 A1c-4 F1.
- *
- * SQLite-only read/write for the `categories` aggregate root. Replaces the
- * Dexie-backed `idbLoadCategories` / `idbSaveCategories` helpers used by
- * `categoryRepository` (which is itself the SSOT writer for the Zustand
- * `categoryStore` RAM mirror).
- *
- * The Dexie `categories` table is no longer the durable copy after this
- * change. In non-Electron dev (Vite preview) reads short-circuit to `[]`
- * and writes are no-ops; PROD throws via `assertDesktop`.
+ * SQLite-only read/write for categories.
  */
-import type { SqlExecutor } from "@/lib/persistence/sqlite/executor";
+import type { 
+  SqlExecutor 
+} from "@/lib/persistence/sqlite/executor";
 import type { CategoryRecord } from "@/lib/db-types";
 import { logger } from "@/lib/logger";
-import { notifyExecutorNull } from "./_shared/executor-telemetry";
+import { 
+  notifyExecutorNull 
+} from "./_shared/executor-telemetry";
 import {
   CATEGORY_INSERT_SQL,
   bindCategory,
 } from "@/lib/backup/sqlite-row-bindings";
 
-// ─── Executor accessor (matches sibling repos) ────────────────────────────
+// ─── Executor accessor ──────────────────────────────────────────
 
 async function tryGetExecutor(): Promise<SqlExecutor | null> {
   try {
-    const { isElectron } = await import("@/lib/electron-integration");
+    const { isElectron } = await import(
+      "@/lib/electron-integration"
+    );
     if (!isElectron() && import.meta.env.PROD) {
       notifyExecutorNull("categories", "non-electron");
       return null;
@@ -31,26 +29,48 @@ async function tryGetExecutor(): Promise<SqlExecutor | null> {
     const { getOpfsSqliteExecutor } = await import(
       "@/lib/persistence/sqlite/client"
     );
-    return await getOpfsSqliteExecutor();
+
+    // PR-H7 ŠTIT: Čekamo bazu do 3 sekunde (30 * 100ms) ako kasni
+    let exec = await getOpfsSqliteExecutor();
+    let retries = 30;
+
+    while (!exec && retries > 0) {
+      await new Promise((res) => setTimeout(res, 100));
+      exec = await getOpfsSqliteExecutor();
+      retries--;
+    }
+
+    return exec;
   } catch (err) {
-    logger.warn("[categories-repo] sqlite executor unavailable", err);
+    logger.warn(
+      "[categories-repo] sqlite executor unavailable", 
+      err
+    );
     notifyExecutorNull("categories", "error");
     return null;
   }
 }
 
-async function requireExecutor(label: string): Promise<SqlExecutor | null> {
+async function requireExecutor(
+  label: string
+): Promise<SqlExecutor | null> {
   const exec = await tryGetExecutor();
   if (exec) return exec;
-  const { assertDesktop } = await import("@/lib/electron-integration");
+  const { assertDesktop } = await import(
+    "@/lib/electron-integration"
+  );
   assertDesktop();
-  logger.warn(`[categories-repo] ${label} — no executor (dev shell)`);
+  logger.warn(
+    `[categories-repo] ${label} — no executor (dev shell)`
+  );
   return null;
 }
 
-// ─── Codec ────────────────────────────────────────────────────────────────
+// ─── Codec ──────────────────────────────────────────────────────
 
-function decode(row: { payload: string }): CategoryRecord | null {
+function decode(row: { 
+  payload: string 
+}): CategoryRecord | null {
   try {
     return JSON.parse(row.payload) as CategoryRecord;
   } catch (err) {
@@ -59,16 +79,20 @@ function decode(row: { payload: string }): CategoryRecord | null {
   }
 }
 
-// ─── Read API ─────────────────────────────────────────────────────────────
+// ─── Read API ───────────────────────────────────────────────────
 
 /** All categories ordered by sortOrder, then name. */
-export async function listAllCategories(): Promise<CategoryRecord[]> {
+export async function listAllCategories(): 
+  Promise<CategoryRecord[]> {
   const exec = await requireExecutor("listAll");
   if (!exec) return [];
   const rows = await exec.all<{ payload: string }>(
-    "SELECT payload FROM categories ORDER BY sortOrder ASC, name ASC",
+    "SELECT payload FROM categories " +
+    "ORDER BY sortOrder ASC, name ASC",
   );
-  return rows.map(decode).filter((c): c is CategoryRecord => c !== null);
+  return rows
+    .map(decode)
+    .filter((c): c is CategoryRecord => c !== null);
 }
 
 export async function getCategory(
@@ -93,15 +117,10 @@ export async function countCategories(): Promise<number> {
   return Number(rows[0]?.n ?? 0);
 }
 
-// ─── Write API ────────────────────────────────────────────────────────────
+// ─── Write API ──────────────────────────────────────────────────
 
 /**
- * Replace all categories atomically. Used by `categoryRepository.commit` and
- * by backup restore. Wraps DELETE + N×INSERT in a single SQL transaction so
- * a crash mid-write leaves the previous snapshot intact.
- *
- * Throws `NO_EXECUTOR` when SQLite is unavailable so the optimistic-commit
- * caller can roll back instead of silently dropping the write.
+ * Replace all categories atomically.
  */
 export async function replaceAllCategories(
   records: readonly CategoryRecord[],
@@ -110,18 +129,23 @@ export async function replaceAllCategories(
   if (!exec) throw new Error("NO_EXECUTOR");
   await exec.transaction(async (tx) => {
     await tx.run("DELETE FROM categories");
-    await tx.runMany(CATEGORY_INSERT_SQL, records.map((c) => bindCategory(c)));
+    await tx.runMany(
+      CATEGORY_INSERT_SQL, 
+      records.map((c) => bindCategory(c))
+    );
   });
 }
 
 /** Upsert a single category. */
-export async function putCategory(c: CategoryRecord): Promise<void> {
+export async function putCategory(
+  c: CategoryRecord
+): Promise<void> {
   const exec = await requireExecutor("put");
   if (!exec) throw new Error("NO_EXECUTOR");
   await exec.run(CATEGORY_INSERT_SQL, bindCategory(c));
 }
 
-/** Upsert N categories in one transaction (no DELETE — preserves siblings). */
+/** Upsert N categories in one transaction. */
 export async function bulkPutCategories(
   records: readonly CategoryRecord[],
 ): Promise<void> {
@@ -129,11 +153,14 @@ export async function bulkPutCategories(
   const exec = await requireExecutor("bulkPut");
   if (!exec) throw new Error("NO_EXECUTOR");
   await exec.transaction(async (tx) => {
-    await tx.runMany(CATEGORY_INSERT_SQL, records.map((c) => bindCategory(c)));
+    await tx.runMany(
+      CATEGORY_INSERT_SQL, 
+      records.map((c) => bindCategory(c))
+    );
   });
 }
 
-/** Wipe every category row. Restore overwrite mode + test fixtures. */
+/** Wipe every category row. */
 export async function clearCategories(): Promise<void> {
   const exec = await requireExecutor("clear");
   if (!exec) throw new Error("NO_EXECUTOR");

@@ -1,33 +1,40 @@
 /**
  * Mind maps SSOT façade — A1c-2.
+ * Data plane delegates to mind-maps queries.
  *
- * Data plane delegates to `@/lib/db/queries/mind-maps` (SQLite-only).
- * The in-memory façade cache was removed; TanStack Query is now the single
- * read cache. Listener API (`onMindMapsChanged`) remains as the bridge
- * between writers and the TanStack query bridge.
+ * PR-H6: Removed destructive listener clearing 
+ * during HMR hot-reload cycles.
  */
 import type { MindMapDoc } from "./db-types";
 import * as repo from "./db/queries/mind-maps";
 import { logger } from "@/lib/logger";
-import { wrapWrite, type WriteResult } from "@/lib/persistence/write-result";
+import { 
+  wrapWrite, 
+  type WriteResult 
+} from "@/lib/persistence/write-result";
 
-// ── Listener-based invalidation signaling ──
 type MindMapListener = () => void;
 const _listeners = new Set<MindMapListener>();
 
-/** Subscribe to mind map changes. Returns unsubscribe function. */
-export function onMindMapsChanged(fn: MindMapListener): () => void {
+export function onMindMapsChanged(
+  fn: MindMapListener
+): () => void {
   _listeners.add(fn);
-  return () => { _listeners.delete(fn); };
+  return () => { 
+    _listeners.delete(fn); 
+  };
 }
 
 function _notify(): void {
-  _listeners.forEach(fn => {
-    try { fn(); } catch (e) { logger.warn("[mindmap-storage] listener threw", e); }
+  _listeners.forEach((fn) => {
+    try { 
+      fn(); 
+    } catch (e) { 
+      logger.warn("[mindmap-storage] listener fail", e); 
+    }
   });
 }
 
-/** Notify downstream caches (TanStack bridge listens here). */
 export function invalidateMindMapsCache(): void {
   _notify();
 }
@@ -36,13 +43,15 @@ export async function loadMindMaps(): Promise<MindMapDoc[]> {
   return repo.listAllMindMaps();
 }
 
-export async function saveMindMap(doc: MindMapDoc): Promise<WriteResult<void>> {
+export async function saveMindMap(
+  doc: MindMapDoc
+): Promise<WriteResult<void>> {
   const res = await wrapWrite(() => repo.putMindMap(doc));
   if (res.ok === true) {
     _notify();
     return res;
   }
-  logger.error("[mindmap-storage] saveMindMap failed", res.error);
+  logger.error("[mindmap-storage] save failed", res.error);
   return res;
 }
 
@@ -51,13 +60,8 @@ export async function deleteMindMap(id: string): Promise<void> {
   _notify();
 }
 
-export async function getMindMap(id: string): Promise<MindMapDoc | undefined> {
+export async function getMindMap(
+  id: string
+): Promise<MindMapDoc | undefined> {
   return repo.getMindMap(id);
-}
-
-// V12: HMR cleanup
-if (import.meta.hot) {
-  import.meta.hot.dispose(() => {
-    _listeners.clear();
-  });
 }

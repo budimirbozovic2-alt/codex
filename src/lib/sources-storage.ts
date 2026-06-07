@@ -1,3 +1,10 @@
+/**
+ * Sources SSOT façade — A1c-2.
+ * Data plane delegates to queries/sources (SQLite-only).
+ *
+ * PR-H7 Hardening: Removed destructive listener drop
+ * on HMR updates to prevent multi-module breaking.
+ */
 import type { Source } from "./db-types";
 import { parseArticles } from "./article-parser";
 import {
@@ -7,54 +14,60 @@ import {
   putSource,
   deleteSourceAndUnlinkCards,
 } from "@/lib/db/queries/sources";
-
 import { logger } from "@/lib/logger";
+import { 
+  wrapWrite, 
+  type WriteResult 
+} from "@/lib/persistence/write-result";
+
 export type { Source };
 
-/** Confirm a card's review flag (clear needsReview) — delegates to listener (SSoT) */
 type ReviewConfirmListener = (cardId: string) => void;
 const _reviewListeners = new Set<ReviewConfirmListener>();
 
-/** Subscribe to card review confirmations. Returns unsubscribe. */
-export function onCardReviewConfirmed(fn: ReviewConfirmListener): () => void {
+export function onCardReviewConfirmed(
+  fn: ReviewConfirmListener
+): () => void {
   _reviewListeners.add(fn);
-  return () => { _reviewListeners.delete(fn); };
+  return () => { 
+    _reviewListeners.delete(fn); 
+  };
 }
 
 export function confirmCardReview(cardId: string): void {
   for (const fn of _reviewListeners) {
-    try { fn(cardId); } catch { /* swallow */ }
+    try { 
+      fn(cardId); 
+    } catch { /* swallow */ }
   }
 }
 
-// ── Event-based invalidation signaling ──
-// A1c-2: the in-memory façade cache was removed; TanStack Query is now the
-// only read cache. `invalidateSourcesCache` and `onSourcesChanged` remain
-// as the bridge between writers (repo) and the TanStack query bridge.
 type SourceListener = () => void;
 const _listeners = new Set<SourceListener>();
 
-// F5: Card-link-cleared listeners (notifies useCards to update in-memory cardMap)
 type CardLinkClearedListener = (clearedCardIds: string[]) => void;
 const _cardLinkListeners = new Set<CardLinkClearedListener>();
 
-/** Subscribe to card link cleared events (after source delete). Returns unsubscribe. */
-export function onCardLinksCleared(fn: CardLinkClearedListener): () => void {
+export function onCardLinksCleared(
+  fn: CardLinkClearedListener
+): () => void {
   _cardLinkListeners.add(fn);
-  return () => { _cardLinkListeners.delete(fn); };
+  return () => { 
+    _cardLinkListeners.delete(fn); 
+  };
 }
 
-/** Subscribe to source changes. Returns unsubscribe function. */
 export function onSourcesChanged(fn: SourceListener): () => void {
   _listeners.add(fn);
-  return () => { _listeners.delete(fn); };
+  return () => { 
+    _listeners.delete(fn); 
+  };
 }
 
 function _notify(): void {
-  _listeners.forEach(fn => fn());
+  _listeners.forEach((fn) => fn());
 }
 
-/** Invalidate downstream caches (TanStack bridge listens here). */
 export function invalidateSourcesCache(): void {
   _notify();
 }
@@ -63,14 +76,15 @@ export async function loadSources(): Promise<Source[]> {
   return listAllSources();
 }
 
-/** Load sources scoped to a single category */
-export async function loadSourcesByCategory(categoryId: string): Promise<Source[]> {
+export async function loadSourcesByCategory(
+  categoryId: string
+): Promise<Source[]> {
   return listSourcesByCategory(categoryId);
 }
 
-import { wrapWrite, type WriteResult } from "@/lib/persistence/write-result";
-
-export async function saveSource(source: Source): Promise<WriteResult<void>> {
+export async function saveSource(
+  source: Source
+): Promise<WriteResult<void>> {
   const res = await wrapWrite(() => putSource(source));
   if (res.ok === true) {
     _notify();
@@ -83,23 +97,26 @@ export async function saveSource(source: Source): Promise<WriteResult<void>> {
 export async function deleteSource(id: string): Promise<void> {
   const clearedIds = await deleteSourceAndUnlinkCards(id);
 
-  // F5: Notify in-memory card state about cleared links
   if (clearedIds.length > 0) {
     for (const fn of _cardLinkListeners) {
-      try { fn(clearedIds); } catch { /* swallow */ }
+      try { 
+        fn(clearedIds); 
+      } catch { /* swallow */ }
     }
   }
 
   _notify();
 }
 
-export async function getSource(id: string): Promise<Source | undefined> {
+export async function getSource(
+  id: string
+): Promise<Source | undefined> {
   return repoGetSource(id);
 }
 
-
-/** Extract heading outline from HTML */
-export function extractOutline(html: string): { id: string; text: string; level: number }[] {
+export function extractOutline(
+  html: string
+): { id: string; text: string; level: number }[] {
   const parser = new DOMParser();
   const doc = parser.parseFromString(html, "text/html");
   const headings = doc.querySelectorAll("h1, h2, h3, h4");
@@ -108,13 +125,16 @@ export function extractOutline(html: string): { id: string; text: string; level:
   headings.forEach((h, i) => {
     const level = parseInt(h.tagName[1]);
     const id = `src-heading-${i}`;
-    outline.push({ id, text: h.textContent?.trim() || `Heading ${i + 1}`, level });
+    outline.push({ 
+      id, 
+      text: h.textContent?.trim() || `Heading ${i + 1}`, 
+      level 
+    });
   });
 
   return outline;
 }
 
-/** Inject IDs into headings so we can scroll to them */
 export function injectHeadingIds(html: string): string {
   const parser = new DOMParser();
   const doc = parser.parseFromString(html, "text/html");
@@ -127,14 +147,16 @@ export function injectHeadingIds(html: string): string {
   return doc.body.innerHTML;
 }
 
-/** Generate a text anchor from selected text (first 80 chars normalized) */
 export function createTextAnchor(text: string): string {
-  return text.trim().substring(0, 80).toLowerCase().replace(/\s+/g, " ");
+  return text
+    .trim()
+    .substring(0, 80)
+    .toLowerCase()
+    .replace(/\s+/g, " ");
 }
 
-/** Parse and store articles from HTML */
 export function extractArticles(html: string) {
-  return parseArticles(html).map(a => ({
+  return parseArticles(html).map((a) => ({
     id: a.id,
     number: a.number,
     title: a.title,
@@ -142,32 +164,37 @@ export function extractArticles(html: string) {
   }));
 }
 
-/**
- * Extract official gazette info from the first ~10 paragraphs of HTML.
- * Looks for patterns like "Zakon je objavljen u", "objavljen u Službenom",
- * "Sl. list", "Službeni glasnik", etc.
- */
-export function extractOfficialGazette(html: string): string | undefined {
+export function extractOfficialGazette(
+  html: string
+): string | undefined {
   const parser = new DOMParser();
   const doc = parser.parseFromString(html, "text/html");
-  // Search first 30 elements and also full text for broader coverage
   const elements = Array.from(doc.body.children).slice(0, 30);
 
   const patterns = [
-    // "Zakon je objavljen u..."
     /zakon\s+je\s+objavljen\s+u[^.]*\./i,
-    // "objavljen(a) (je) u Službenom..."
-    /objavljen[a]?\s+(?:je\s+)?u\s+(?:"|„|")?služben[a-z]*\s+(?:list[a-z]*|glasnik[a-z]*|novin[a-z]*)[^.]*\./i,
-    // "Službeni list/glasnik/novine ... br. ..."
-    /(?:"|„|")?služben[a-z]*\s+(?:list[a-z]*|glasnik[a-z]*|novin[a-z]*)\s+[A-ZČĆŽŠĐa-zčćžšđ]+[^.]*br\.\s*\d[^.]*\./i,
-    // Short forms
+    new RegExp(
+      "objavljen[a]?\\s+(?:je\\s+)?u\\s+(?:\"|„|\")?" +
+      "služben[a-z]*\\s+(?:list[a-z]*|glasnik[a-z]*|" +
+      "novin[a-z]*)[^.]*\\.",
+      "i"
+    ),
+    new RegExp(
+      "(?:\"|„|\")?služben[a-z]*\\s+(?:list[a-z]*|" +
+      "glasnik[a-z]*|novin[a-z]*)\\s+[A-ZČĆŽŠĐa-zčć" +
+      "žšđ]+[^.]*br\\.\\s*\\d[^.]*\\.",
+      "i"
+    ),
     /sl\.\s*list[^.]*br\.\s*\d[^.]*\./i,
     /sl\.\s*glasnik[^.]*br\.\s*\d[^.]*\./i,
     /sl\.\s*novin[a-z]*[^.]*br\.\s*\d[^.]*\./i,
-    // "Narodne novine" (Croatian)
     /narodn[a-z]*\s+novin[a-z]*[^.]*br\.\s*\d[^.]*\./i,
-    // Broader: any mention with gazette number pattern
-    /(?:"|„|")?služben[a-z]*\s+(?:list[a-z]*|glasnik[a-z]*|novin[a-z]*)[^.]*\d+\/\d{4}[^.]*\./i,
+    new RegExp(
+      "(?:\"|„|\")?služben[a-z]*\\s+(?:list[a-z]*|" +
+      "glasnik[a-z]*|novin[a-z]*)[^.]*\\d+\\/\\d{4}" +
+      "[^.]*\\.",
+      "i"
+    ),
   ];
 
   for (const el of elements) {
@@ -182,7 +209,6 @@ export function extractOfficialGazette(html: string): string | undefined {
     }
   }
 
-  // Fallback: search entire text (some documents have it deeper)
   const fullText = doc.body.textContent || "";
   for (const pattern of patterns) {
     const match = fullText.match(pattern);
@@ -192,13 +218,4 @@ export function extractOfficialGazette(html: string): string | undefined {
   }
 
   return undefined;
-}
-
-// V12: HMR cleanup
-if (import.meta.hot) {
-  import.meta.hot.dispose(() => {
-    _listeners.clear();
-    _cardLinkListeners.clear();
-    _reviewListeners.clear();
-  });
 }

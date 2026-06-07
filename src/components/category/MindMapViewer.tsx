@@ -32,7 +32,12 @@ function ViewerInner({ doc }: { doc: MindMapDoc }) {
       edges={doc.edges || []}
       nodeTypes={nodeTypes}
       fitView
-      defaultEdgeOptions={{ style: { stroke: 'hsl(var(--muted-foreground))', strokeWidth: 2 } }}
+      defaultEdgeOptions={{ 
+        style: { 
+          stroke: 'hsl(var(--muted-foreground))', 
+          strokeWidth: 2 
+        } 
+      }}
       nodesDraggable={false}
       nodesConnectable={false}
       elementsSelectable={false}
@@ -41,9 +46,15 @@ function ViewerInner({ doc }: { doc: MindMapDoc }) {
       className="bg-background"
       deleteKeyCode={[]}
     >
-      <Controls className="!bg-card !border-border !shadow-md [&>button]:!bg-card [&>button]:!border-border [&>button]:!text-foreground [&>button:hover]:!bg-muted" />
+      <Controls 
+        className="!bg-card !border-border !shadow-md [&>button]:!bg-card" 
+      />
       <Background
-        variant={isProcedure ? BackgroundVariant.Lines : BackgroundVariant.Dots}
+        variant={
+          isProcedure 
+            ? BackgroundVariant.Lines 
+            : BackgroundVariant.Dots
+        }
         gap={20}
         size={1}
         color="hsl(var(--muted-foreground) / 0.1)"

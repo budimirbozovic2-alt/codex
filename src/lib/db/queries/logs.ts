@@ -1,28 +1,10 @@
-// ─────────────────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────
 // Log tables repository — PR-9 A1c-3 nastavak.
-//
-// SQLite-primary readers/writers for the 7 append-only / KV-shape log tables
-// that were Dexie-only through A1c-2:
-//
-//   - reviewLog        ++id, cardId, timestamp
-//   - pomodoroLog      ++id, timestamp
-//   - diary            uuid id, date
-//   - calibrationLog   ++id, cardId, timestamp
-//   - latencyLog       ++id, cardId, timestamp
-//   - slippageLog      ++id, date
-//   - activityLog      ++id, timestamp
-//
-// All rows live as a JSON `payload` plus a small set of denormalised columns
-// used for indexed lookups (matches the Dexie surface 1:1). Auto-increment
-// tables map Dexie's `++id` to SQLite `INTEGER PRIMARY KEY AUTOINCREMENT`;
-// `bulkAdd*` deliberately omits `id` from the INSERT so SQLite assigns it.
-// `bulkPut*` is used by backup restore which carries existing ids — we
-// preserve them via explicit-id INSERT OR REPLACE.
-//
-// Reads short-circuit to `[]`/`0` in non-Electron dev (with `assertDesktop`
-// warning); PROD throws via `assertDesktop`.
-// ─────────────────────────────────────────────────────────────────────────────
-import type { SqlExecutor } from "@/lib/persistence/sqlite/executor";
+// SQLite-primary readers/writers for 7 log tables.
+// ─────────────────────────────────────────────────────────────────
+import type { 
+  SqlExecutor 
+} from "@/lib/persistence/sqlite/executor";
 import type {
   DiaryEntry,
   CalibrationEntry,
@@ -30,18 +12,41 @@ import type {
   SlippageEntry,
   ActivityEntry,
 } from "@/lib/metacognitive-storage";
-import type { ReviewLogEntry, PomodoroLogEntry } from "@/lib/types/logs";
+import type { 
+  ReviewLogEntry, 
+  PomodoroLogEntry 
+} from "@/lib/types/logs";
 import { logger } from "@/lib/logger";
-import { notifyExecutorNull } from "./_shared/executor-telemetry";
+import { 
+  notifyExecutorNull 
+} from "./_shared/executor-telemetry";
 
 type AutoIncRow<T> = T & { id?: number };
 
 async function tryGetExecutor(): Promise<SqlExecutor | null> {
   try {
-    const { isElectron } = await import("@/lib/electron-integration");
-    if (!isElectron() && import.meta.env.PROD) { notifyExecutorNull("logs", "non-electron"); return null; }
-    const { getOpfsSqliteExecutor } = await import("@/lib/persistence/sqlite/client");
-    return await getOpfsSqliteExecutor();
+    const { isElectron } = await import(
+      "@/lib/electron-integration"
+    );
+    if (!isElectron() && import.meta.env.PROD) { 
+      notifyExecutorNull("logs", "non-electron"); 
+      return null; 
+    }
+    const { getOpfsSqliteExecutor } = await import(
+      "@/lib/persistence/sqlite/client"
+    );
+    
+    // PR-H7 ŠTIT: Čekamo bazu do 3 sekunde (30 * 100ms) ako kasni
+    let exec = await getOpfsSqliteExecutor();
+    let retries = 30;
+    
+    while (!exec && retries > 0) {
+      await new Promise((res) => setTimeout(res, 100));
+      exec = await getOpfsSqliteExecutor();
+      retries--;
+    }
+    
+    return exec;
   } catch (err) {
     logger.warn("[logs-repo] sqlite executor unavailable", err);
     notifyExecutorNull("logs", "error");
@@ -49,36 +54,48 @@ async function tryGetExecutor(): Promise<SqlExecutor | null> {
   }
 }
 
-async function requireExecutor(label: string): Promise<SqlExecutor | null> {
+async function requireExecutor(
+  label: string
+): Promise<SqlExecutor | null> {
   const exec = await tryGetExecutor();
   if (exec) return exec;
-  const { assertDesktop } = await import("@/lib/electron-integration");
+  const { assertDesktop } = await import(
+    "@/lib/electron-integration"
+  );
   assertDesktop();
   logger.warn(`[logs-repo] ${label} — no executor (dev shell)`);
   return null;
 }
 
-function decode<T>(rows: readonly { payload: string; id?: number | string }[]): T[] {
+function decode<T>(
+  rows: readonly { payload: string; id?: number | string }[]
+): T[] {
   const out: T[] = [];
   for (const r of rows) {
     try {
       const parsed = JSON.parse(r.payload) as T;
-      // For auto-inc tables, attach SQLite ROWID over whatever was in payload.
-      if (r.id !== undefined) (parsed as unknown as { id: number | string }).id = r.id;
+      if (r.id !== undefined) {
+        (parsed as unknown as { 
+          id: number | string 
+            }).id = r.id;
+      }
       out.push(parsed);
     } catch (err) {
-      logger.warn("[logs-repo] decode failed, skipping row", err);
+      logger.warn(
+        "[logs-repo] decode failed, skipping row", 
+        err
+      );
     }
   }
   return out;
 }
 
-// ── Generic auto-inc helpers ─────────────────────────────────────────────
+// ── Generic auto-inc helpers ─────────────────────────────────────
 
-async function listAllAutoInc<T>(
-  table: string,
-): Promise<T[]> {
-  const { withSqlTiming } = await import("./_shared/sql-timing");
+async function listAllAutoInc<T>(table: string): Promise<T[]> {
+  const { withSqlTiming } = await import(
+    "./_shared/sql-timing"
+  );
   return withSqlTiming(`listAll:${table}`, async () => {
     const exec = await requireExecutor(`listAll:${table}`);
     if (!exec) return [];
@@ -92,16 +109,12 @@ async function listAllAutoInc<T>(
 async function countTable(table: string): Promise<number> {
   const exec = await requireExecutor(`count:${table}`);
   if (!exec) return 0;
-  const rows = await exec.all<{ n: number }>(`SELECT COUNT(*) AS n FROM ${table}`);
+  const rows = await exec.all<{ n: number }>(
+    `SELECT COUNT(*) AS n FROM ${table}`
+  );
   return Number(rows[0]?.n ?? 0);
 }
 
-// `clearTable` helper removed — restore path issues `DELETE FROM <table>`
-// inline inside `writeSatelliteTablesTx`, no generic clear consumer remains.
-
-
-// Bulk insert for auto-inc tables. `preserveId=true` keeps backup ids stable
-// (used by restore); otherwise SQLite assigns fresh ROWIDs.
 async function bulkInsertAutoInc<T>(
   table: string,
   rows: readonly AutoIncRow<T>[],
@@ -130,26 +143,35 @@ async function bulkInsertAutoInc<T>(
       }
       insertCols.push("payload");
       placeholders.push("?");
-      // Strip volatile `id` from payload — it is sourced from the column.
-      const cleaned: Record<string, unknown> = { ...(row as unknown as Record<string, unknown>) };
+      
+      const cleaned: Record<string, unknown> = { 
+        ...(row as unknown as Record<string, unknown>) 
+      };
       delete cleaned.id;
       values.push(JSON.stringify(cleaned));
 
-      const verb = opts.preserveId ? "INSERT OR REPLACE" : "INSERT";
+      const verb = opts.preserveId 
+        ? "INSERT OR REPLACE" 
+        : "INSERT";
       await tx.run(
-        `${verb} INTO ${table} (${insertCols.join(",")}) VALUES (${placeholders.join(",")})`,
+        `${verb} INTO ${table} (${insertCols.join(",")}) ` +
+        `VALUES (${placeholders.join(",")})`,
         values,
       );
     }
   });
 }
 
-// ── Per-table public API ─────────────────────────────────────────────────
+// ── Per-table public API ─────────────────────────────────────────
 
-// reviewLog (cardId, timestamp) — bulkPut used by reviewLogRepository batch flush.
-export const listAllReviewLog = (): Promise<ReviewLogEntry[]> => listAllAutoInc("reviewLog");
+export const listAllReviewLog = (): Promise<ReviewLogEntry[]> => 
+  listAllAutoInc("reviewLog");
+  
 export const countReviewLog = () => countTable("reviewLog");
-export const bulkPutReviewLog = (rows: readonly AutoIncRow<ReviewLogEntry>[]) =>
+
+export const bulkPutReviewLog = (
+  rows: readonly AutoIncRow<ReviewLogEntry>[]
+) =>
   bulkInsertAutoInc<ReviewLogEntry>(
     "reviewLog",
     rows,
@@ -160,49 +182,67 @@ export const bulkPutReviewLog = (rows: readonly AutoIncRow<ReviewLogEntry>[]) =>
     { preserveId: true },
   );
 
-/** A1c-4 F2 — bounded-window reader used by boot to hydrate the RAM mirror. */
-export async function loadRecentReviewLog(days: number): Promise<ReviewLogEntry[]> {
+export async function loadRecentReviewLog(
+  days: number
+): Promise<ReviewLogEntry[]> {
   const exec = await requireExecutor("loadRecent:reviewLog");
   if (!exec) return [];
   const cutoff = Date.now() - days * 86400000;
   const rows = await exec.all<{ id: number; payload: string }>(
-    "SELECT id, payload FROM reviewLog WHERE timestamp >= ? ORDER BY timestamp ASC",
+    `SELECT id, payload FROM reviewLog 
+     WHERE timestamp >= ? ORDER BY timestamp ASC`,
     [cutoff],
   );
   return decode<ReviewLogEntry>(rows);
 }
 
-// pomodoroLog (timestamp) — read + count + single-row append.
-// Faza A1c-Phase1: storage.ts pomodoro pipeline moved off Dexie.
-// Restore writes stay inline in `writeSatelliteTablesTx`.
-export const listAllPomodoroLog = (): Promise<PomodoroLogEntry[]> => listAllAutoInc("pomodoroLog");
+export const listAllPomodoroLog = (): 
+  Promise<PomodoroLogEntry[]> => listAllAutoInc("pomodoroLog");
+  
 export const countPomodoroLog = () => countTable("pomodoroLog");
-const bulkPutPomodoroLog = (rows: readonly AutoIncRow<PomodoroLogEntry>[]) =>
+
+const bulkPutPomodoroLog = (
+  rows: readonly AutoIncRow<PomodoroLogEntry>[]
+) =>
   bulkInsertAutoInc<PomodoroLogEntry>(
     "pomodoroLog",
     rows,
     { timestamp: (r) => Number(r.timestamp ?? 0) },
     { preserveId: true },
   );
+  
 export const addPomodoroLogEntry = (e: PomodoroLogEntry) =>
   bulkPutPomodoroLog([e as AutoIncRow<PomodoroLogEntry>]);
+  
 export const loadPomodoroLogSince = (cutoff: number) =>
-  loadSinceNumeric<PomodoroLogEntry>("pomodoroLog", "timestamp", cutoff);
-/** Total count filtered by `type` field stored inside the JSON payload. */
-export async function countPomodoroLogByType(type: string): Promise<number> {
+  loadSinceNumeric<PomodoroLogEntry>(
+    "pomodoroLog", 
+    "timestamp", 
+    cutoff
+  );
+
+export async function countPomodoroLogByType(
+  type: string
+): Promise<number> {
   const exec = await requireExecutor("countPomodoroLogByType");
   if (!exec) return 0;
   const rows = await exec.all<{ n: number }>(
-    "SELECT COUNT(*) AS n FROM pomodoroLog WHERE json_extract(payload,'$.type') = ?",
+    `SELECT COUNT(*) AS n FROM pomodoroLog 
+     WHERE json_extract(payload,'$.type') = ?`,
     [type],
   );
   return Number(rows[0]?.n ?? 0);
 }
 
-
-export const listAllCalibrationLog = (): Promise<CalibrationEntry[]> => listAllAutoInc("calibrationLog");
-export const countCalibrationLog = () => countTable("calibrationLog");
-const bulkPutCalibrationLog = (rows: readonly AutoIncRow<CalibrationEntry>[]) =>
+export const listAllCalibrationLog = (): 
+  Promise<CalibrationEntry[]> => listAllAutoInc("calibrationLog");
+  
+export const countCalibrationLog = () => 
+  countTable("calibrationLog");
+  
+const bulkPutCalibrationLog = (
+  rows: readonly AutoIncRow<CalibrationEntry>[]
+) =>
   bulkInsertAutoInc<CalibrationEntry>(
     "calibrationLog",
     rows,
@@ -213,9 +253,14 @@ const bulkPutCalibrationLog = (rows: readonly AutoIncRow<CalibrationEntry>[]) =>
     { preserveId: true },
   );
 
-export const listAllLatencyLog = (): Promise<LatencyEntry[]> => listAllAutoInc("latencyLog");
+export const listAllLatencyLog = (): 
+  Promise<LatencyEntry[]> => listAllAutoInc("latencyLog");
+  
 export const countLatencyLog = () => countTable("latencyLog");
-const bulkPutLatencyLog = (rows: readonly AutoIncRow<LatencyEntry>[]) =>
+
+const bulkPutLatencyLog = (
+  rows: readonly AutoIncRow<LatencyEntry>[]
+) =>
   bulkInsertAutoInc<LatencyEntry>(
     "latencyLog",
     rows,
@@ -226,39 +271,55 @@ const bulkPutLatencyLog = (rows: readonly AutoIncRow<LatencyEntry>[]) =>
     { preserveId: true },
   );
 
-export const listAllSlippageLog = (): Promise<SlippageEntry[]> => listAllAutoInc("slippageLog");
+export const listAllSlippageLog = (): 
+  Promise<SlippageEntry[]> => listAllAutoInc("slippageLog");
+  
 export const countSlippageLog = () => countTable("slippageLog");
-const bulkPutSlippageLog = (rows: readonly AutoIncRow<SlippageEntry>[]) =>
+
+const bulkPutSlippageLog = (
+  rows: readonly AutoIncRow<SlippageEntry>[]
+) =>
   bulkInsertAutoInc<SlippageEntry>(
     "slippageLog",
     rows,
-    { date: (r) => (r as unknown as { date?: string }).date ?? "" },
+    { 
+      date: (r) => 
+        (r as unknown as { date?: string }).date ?? "" 
+    },
     { preserveId: true },
   );
 
-export const listAllActivityLog = (): Promise<ActivityEntry[]> => listAllAutoInc("activityLog");
+export const listAllActivityLog = (): 
+  Promise<ActivityEntry[]> => listAllAutoInc("activityLog");
+  
 export const countActivityLog = () => countTable("activityLog");
-const bulkPutActivityLog = (rows: readonly AutoIncRow<ActivityEntry>[]) =>
+
+const bulkPutActivityLog = (
+  rows: readonly AutoIncRow<ActivityEntry>[]
+) =>
   bulkInsertAutoInc<ActivityEntry>(
     "activityLog",
     rows,
-    { timestamp: (r) => Number((r as unknown as { timestamp?: number }).timestamp ?? 0) },
+    { 
+      timestamp: (r) => 
+        Number((r as unknown as { 
+          timestamp?: number 
+        }).timestamp ?? 0) 
+    },
     { preserveId: true },
   );
 
-// diary (UUID PK) — read only at this seam (restore writes inline).
 export async function listAllDiary(): Promise<DiaryEntry[]> {
   const exec = await requireExecutor("listAll:diary");
   if (!exec) return [];
-  const rows = await exec.all<{ payload: string }>("SELECT payload FROM diary ORDER BY date ASC");
+  const rows = await exec.all<{ payload: string }>(
+    "SELECT payload FROM diary ORDER BY date ASC"
+  );
   return decode<DiaryEntry>(rows);
 }
 export const countDiary = () => countTable("diary");
 
-
-
-
-// ── F6.2 helpers — windowed reads + single-row add + prune ───────────────
+// ── F6.2 helpers — windowed reads + single-row add + prune ───────
 
 async function loadSinceNumeric<T>(
   table: string, col: string, since: number,
@@ -266,7 +327,8 @@ async function loadSinceNumeric<T>(
   const exec = await requireExecutor(`loadSince:${table}`);
   if (!exec) return [];
   const rows = await exec.all<{ id: number; payload: string }>(
-    `SELECT id, payload FROM ${table} WHERE ${col} > ? ORDER BY id ASC`,
+    `SELECT id, payload FROM ${table} 
+     WHERE ${col} > ? ORDER BY id ASC`,
     [since],
   );
   return decode<T>(rows);
@@ -278,14 +340,19 @@ async function loadSinceText<T>(
   const exec = await requireExecutor(`loadSince:${table}`);
   if (!exec) return [];
   const rows = await exec.all<{ id: number; payload: string }>(
-    `SELECT id, payload FROM ${table} WHERE ${col} > ? ORDER BY id ASC`,
+    `SELECT id, payload FROM ${table} 
+     WHERE ${col} > ? ORDER BY id ASC`,
     [since],
   );
   return decode<T>(rows);
 }
 
 export const loadCalibrationLogSince = (cutoff: number) =>
-  loadSinceNumeric<CalibrationEntry>("calibrationLog", "timestamp", cutoff);
+  loadSinceNumeric<CalibrationEntry>(
+    "calibrationLog", 
+    "timestamp", 
+    cutoff
+  );
 export const loadLatencyLogSince = (cutoff: number) =>
   loadSinceNumeric<LatencyEntry>("latencyLog", "timestamp", cutoff);
 export const loadActivityLogSince = (cutoff: number) =>
@@ -302,14 +369,15 @@ export const addActivityLogEntry = (e: ActivityEntry) =>
 export const addSlippageLogEntry = (e: SlippageEntry) =>
   bulkPutSlippageLog([e as AutoIncRow<SlippageEntry>]);
 
-/**
- * Retention prune: keep newest `maxRetain` rows in an auto-inc log table.
- * Uses a single DELETE bounded by id since auto-inc id is chronological.
- */
-export async function pruneAutoIncTable(table: string, maxRetain: number): Promise<number> {
+export async function pruneAutoIncTable(
+  table: string, 
+  maxRetain: number
+): Promise<number> {
   const exec = await requireExecutor(`prune:${table}`);
   if (!exec) return 0;
-  const countRow = await exec.all<{ n: number }>(`SELECT COUNT(*) AS n FROM ${table}`);
+  const countRow = await exec.all<{ n: number }>(
+    `SELECT COUNT(*) AS n FROM ${table}`
+  );
   const total = Number(countRow[0]?.n ?? 0);
   if (total <= maxRetain) return 0;
   const cutoffRow = await exec.all<{ id: number }>(
@@ -321,4 +389,3 @@ export async function pruneAutoIncTable(table: string, maxRetain: number): Promi
   await exec.run(`DELETE FROM ${table} WHERE id <= ?`, [cutoff]);
   return total - maxRetain;
 }
-

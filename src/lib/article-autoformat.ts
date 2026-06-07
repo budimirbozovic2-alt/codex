@@ -1,15 +1,13 @@
 /**
- * Auto-formats legal articles ("Član X") in source HTML.
- * - Bolds the "Član X" line
+ * Auto-formats legal articles ("Clan X") in source HTML.
+ * - Bolds the "Clan X" line
  * - Bolds the preceding sibling (article name)
  * - Adds top margin for visual separation
  *
- * PR-H1: never round-trip user content through `innerHTML`. The previous
- * implementation read `el.innerHTML`, concatenated it inside a template
- * string, and assigned back — any pre-existing XSS payload survived the
- * round-trip unsanitized (e.g. `<img src=x onerror=…>`). The DOM-mutation
- * path below moves existing child nodes into a fresh `<strong>` element
- * with `appendChild`, which never re-parses HTML.
+ * PR-H1: Never round-trip user content through innerHTML.
+ * The DOM-mutation path below moves existing child nodes 
+ * into a fresh strong element with appendChild, 
+ * which never re-parses HTML.
  */
 
 const CLAN_REGEX = /^\s*[Čč]lan\s+\d+\.?\s*$/;
@@ -42,7 +40,7 @@ export function autoFormatArticles(html: string): { html: string; count: number 
 
     count++;
 
-    // Bold + margin on "Član X" line (no innerHTML round-trip).
+    // Bold + margin on "Clan X" line (no innerHTML round-trip).
     wrapChildrenInStrong(el);
     el.style.marginTop = "1.5em";
     el.dataset.articleFormatted = "1";
@@ -51,7 +49,7 @@ export function autoFormatArticles(html: string): { html: string; count: number 
     const prev = el.previousElementSibling as HTMLElement | null;
     if (prev && !prev.dataset.articleFormatted) {
       const prevText = (prev.textContent || "").trim();
-      // Don't bold if previous is already a heading or another Član
+      // Don't bold if previous is already a heading or another Clan
       if (prevText && !CLAN_REGEX.test(prevText) && !/^H[1-6]$/.test(prev.tagName)) {
         wrapChildrenInStrong(prev);
         prev.dataset.articleFormatted = "1";

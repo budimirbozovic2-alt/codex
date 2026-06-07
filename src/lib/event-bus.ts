@@ -1,19 +1,23 @@
 /**
- * Lean in-process pub/sub. Ranije je vozio BroadcastChannel + heartbeat
- * cross-tab mašineriju; ta funkcionalnost je dead code na desktop-only
- * Electron platformi (jedan prozor po procesu), pa je uklonjena.
+ * Lean in-process pub/sub system.
+ * Cross-tab overhead removed for desktop Electron.
  *
- * Public API (emit / subscribe / getListenerCount / getTabCount /
- * destroy / _softReset) je nepromijenjen — svi postojeći pozivaoci rade
- * bez izmjena. `getTabCount()` sada uvijek vraća 1.
+ * Pinned to globalThis via Symbol to survive HMR.
  *
- * Singleton je i dalje pinovan na `globalThis` preko `Symbol.for(...)` da
- * HMR re-evaluacija ne spawnuje drugi bus i ne duplira listenere.
+ * PR-H6: Fixed destructive softReset during HMR
+ * reload cycles to prevent multi-module listener drop.
  */
 
-import { type EventType, type EventMessage } from "./event-bus-types";
+import { 
+  type EventType, 
+  type EventMessage 
+} from "./event-bus-types";
 import { logger } from "@/lib/logger";
-export { EVENT_TYPES, type EventType, type EventMessage } from "./event-bus-types";
+export { 
+  EVENT_TYPES, 
+  type EventType, 
+  type EventMessage 
+} from "./event-bus-types";
 
 const BUS_KEY: unique symbol = Symbol.for("codex.eventbus") as never;
 
@@ -23,18 +27,21 @@ interface CodexGlobalSlots {
 const slots = globalThis as typeof globalThis & CodexGlobalSlots;
 
 class EventBus {
-  private listeners: Map<EventType, Set<(payload: unknown) => void>> = new Map();
+  private listeners: Map<
+    EventType, 
+    Set<(payload: unknown) => void>
+  > = new Map();
 
-  /** Cross-tab eliminisan na desktop-only platformi — uvijek 1. */
   getTabCount(): number {
     return 1;
   }
 
-  /** Diagnostic — total listener count, or per-type when given. */
   getListenerCount(type?: EventType): number {
     if (type) return this.listeners.get(type)?.size ?? 0;
     let total = 0;
-    for (const set of this.listeners.values()) total += set.size;
+    for (const set of this.listeners.values()) {
+      total += set.size;
+    }
     return total;
   }
 
@@ -48,13 +55,20 @@ class EventBus {
     this.dispatch(message);
   }
 
-  subscribe<T>(type: EventType, callback: (payload: T) => void): () => void {
+  subscribe<T>(
+    type: EventType, 
+    callback: (payload: T) => void
+  ): () => void {
     if (!this.listeners.has(type)) {
       this.listeners.set(type, new Set());
     }
-    this.listeners.get(type)!.add(callback as (payload: unknown) => void);
+    this.listeners.get(type)!.add(
+      callback as (payload: unknown) => void
+    );
     return () => {
-      this.listeners.get(type)?.delete(callback as (payload: unknown) => void);
+      this.listeners.get(type)?.delete(
+        callback as (payload: unknown) => void
+      );
     };
   }
 
@@ -65,29 +79,19 @@ class EventBus {
       try {
         callback(message.payload);
       } catch (err) {
-        logger.error(`[EventBus] Greška u listeneru za ${message.type}:`, err);
+        logger.error(
+          `[EventBus] Error in listener for ${message.type}:`, 
+          err
+        );
       }
     }
   }
 
-  /** Pre-bus više nije imao nikakav async resurs — listeners.clear() je sve. */
   destroy(): void {
     this.listeners.clear();
   }
-
-  /** Soft reset (HMR dispose). Identičan destroy-u u lean implementaciji. */
-  _softReset(): void {
-    this.listeners.clear();
-  }
 }
 
-// Singleton pinned to `globalThis` — preživljava HMR.
+// Singleton osiguran na globalThis nivou
 export const eventBus: EventBus =
   slots[BUS_KEY] ?? (slots[BUS_KEY] = new EventBus());
-
-if (import.meta.hot) {
-  import.meta.hot.dispose(() => {
-    try { eventBus._softReset(); } catch (e) { logger.warn("[EventBus] HMR softReset failed", e); }
-  });
-}
-
