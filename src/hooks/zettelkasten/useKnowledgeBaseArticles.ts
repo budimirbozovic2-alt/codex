@@ -26,7 +26,7 @@ export function useKnowledgeBaseArticlesBySubject(
 ): { data: KnowledgeBaseArticle[]; isLoading: boolean } {
   const { data, isPending } = useQuery({
     queryKey: subjectId
-      ? queryKeys.knowledgeBase.byCategory(subjectId)
+      ? queryKeys.knowledgeBase.bySubject(subjectId)
       : ["knowledgeBase", "cat", "__none__"],
     queryFn: () => loadArticlesBySubject(subjectId as string),
     enabled: !!subjectId,
