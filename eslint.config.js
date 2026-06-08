@@ -631,6 +631,10 @@ export default tseslint.config(
       "src/features/mnemonic/hooks/useTestEngine.ts",
       "src/features/docx-importer/docx-parser.ts",
       "src/store/usePomodoroStore.ts",
+      // OPFS SQLite worker — runs in WorkerGlobalScope with its own lifecycle
+      // (terminated on HMR dispose, beforeunload, and Electron quit), so the
+      // renderer-side taskScheduler is unreachable. Watchdog timer is local.
+      "src/lib/persistence/sqlite/opfs-worker.ts",
       // Test files legitimately use raw timers for fake-timer scenarios.
       "src/test/**",
     ],

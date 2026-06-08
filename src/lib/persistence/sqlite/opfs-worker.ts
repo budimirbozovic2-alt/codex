@@ -57,12 +57,15 @@ let opfsMode = false;
 let initError: string | null = null;
 let diagSnapshot: WorkerDiag | null = null;
 
-// Obscured tajmer funkcije za prolazak PR-G4 analize
-type TimerHost = Record<"setTimeout" | "clearTimeout", (...args: unknown[]) => unknown>;
-const setObscuredTimeout =
-  (self as unknown as TimerHost)["set" + "Timeout" as "setTimeout"];
-const clearObscuredTimeout =
-  (self as unknown as TimerHost)["clear" + "Timeout" as "clearTimeout"];
+// Worker has its own lifecycle (HMR dispose / beforeunload / Electron quit
+// terminate the Worker, which clears all its timers). Renderer-side
+// `taskScheduler` is unreachable from inside the Worker, so we bind the
+// global timer functions directly with the proper DOM lib signatures.
+// Allow-listed in eslint.config.js (PR-G4 G7 block).
+const setObscuredTimeout: (handler: () => void, timeout?: number) => number =
+  self.setTimeout.bind(self);
+const clearObscuredTimeout: (handle: number) => void =
+  self.clearTimeout.bind(self);
 
 function probeDiag(api?: SqliteApi): WorkerDiag {
   const g = globalThis as unknown as GlobalScopeProbe;
