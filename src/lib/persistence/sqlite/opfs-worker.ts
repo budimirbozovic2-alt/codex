@@ -367,7 +367,7 @@ self.addEventListener("message", (ev: MessageEvent<Req>) => {
 
       switch (msg.op) {
         case "begin":
-          schedule(undefined, async () => {
+          schedule(msg.id, undefined, async () => {
             try {
               execScript("BEGIN IMMEDIATE");
               const newId = ++txCounter;
@@ -386,7 +386,7 @@ self.addEventListener("message", (ev: MessageEvent<Req>) => {
           return;
           
         case "commit":
-          schedule(msg.txId, async () => {
+          schedule(msg.id, msg.txId, async () => {
             try {
               execScript("COMMIT");
               reply({ id: msg.id, ok: true });
@@ -408,7 +408,7 @@ self.addEventListener("message", (ev: MessageEvent<Req>) => {
           return;
           
         case "rollback":
-          schedule(msg.txId, async () => {
+          schedule(msg.id, msg.txId, async () => {
             try { execScript("ROLLBACK"); } catch { /* noop */ }
             if (currentTxId === msg.txId) {
               currentTxId = null;
@@ -420,7 +420,7 @@ self.addEventListener("message", (ev: MessageEvent<Req>) => {
           return;
           
         case "run":
-          schedule(msg.txId, async () => {
+          schedule(msg.id, msg.txId, async () => {
             try {
               refreshTxWatchdog(msg.txId ?? 0);
               runSql(msg.sql, msg.params);
@@ -437,7 +437,7 @@ self.addEventListener("message", (ev: MessageEvent<Req>) => {
           return;
           
         case "runMany":
-          schedule(msg.txId, async () => {
+          schedule(msg.id, msg.txId, async () => {
             try {
               refreshTxWatchdog(msg.txId ?? 0);
               for (const p of msg.batches) runSql(msg.sql, p);
@@ -454,7 +454,7 @@ self.addEventListener("message", (ev: MessageEvent<Req>) => {
           return;
           
         case "all":
-          schedule(msg.txId, async () => {
+          schedule(msg.id, msg.txId, async () => {
             try {
               refreshTxWatchdog(msg.txId ?? 0);
               const rows = allSql(msg.sql, msg.params);
@@ -471,7 +471,7 @@ self.addEventListener("message", (ev: MessageEvent<Req>) => {
           return;
           
         case "exec":
-          schedule(msg.txId, async () => {
+          schedule(msg.id, msg.txId, async () => {
             try {
               refreshTxWatchdog(msg.txId ?? 0);
               execScript(msg.sql);
