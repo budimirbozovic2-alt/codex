@@ -238,6 +238,7 @@ function reply(msg: Reply): void {
 }
 
 interface QueueItem {
+  msgId: number;
   task: () => Promise<void>;
   txId: number | undefined;
 }
@@ -257,6 +258,30 @@ function clearTxWatchdog(): void {
   }
 }
 
+/**
+ * K-1: Evict every queued item that belongs to `txId` and reply
+ * with an error so the renderer-side RPC promise rejects instead
+ * of hanging until the 15s RPC timeout. Without this, after a
+ * watchdog rollback `currentTxId` is reset to null and the orphan
+ * items (e.g. COMMIT of the rolled-back tx, follow-up runs) become
+ * "runnable" again and execute against auto-commit / next tx,
+ * risking data corruption.
+ */
+function purgeTx(txId: number, reason: string): void {
+  for (let i = queue.length - 1; i >= 0; i--) {
+    if (queue[i].txId === txId) {
+      const [item] = queue.splice(i, 1);
+      try {
+        reply({
+          id: item.msgId,
+          ok: false,
+          error: `[opfs-worker] ${reason} (txId=${txId})`,
+        });
+      } catch { /* noop */ }
+    }
+  }
+}
+
 function startTxWatchdog(txId: number): void {
   clearTxWatchdog();
   txWatchdogTimer = setObscuredTimeout(() => {
@@ -266,6 +291,7 @@ function startTxWatchdog(txId: number): void {
       } catch { /* noop */ }
       currentTxId = null;
       clearTxWatchdog();
+      purgeTx(txId, "Transaction watchdog rollback");
       void pump();
     }
   }, TX_TIMEOUT_MS);
@@ -300,10 +326,11 @@ async function pump(): Promise<void> {
 }
 
 function schedule(
-  txId: number | undefined, 
+  msgId: number,
+  txId: number | undefined,
   task: () => Promise<void>
 ): void {
-  queue.push({ task, txId });
+  queue.push({ msgId, task, txId });
   void pump();
 }
 
