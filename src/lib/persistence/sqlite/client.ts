@@ -107,8 +107,8 @@ export function getOpfsSqliteExecutor(): Promise<SqlExecutor> {
       attempts--;
       if (attempts > 0) {
         // PR-G4 FIX: Izbjegavanje sirovog tajmera
-        await new Promise((res) => 
-          taskScheduler.setTimeout(res, 500, {
+        await new Promise<void>((res) =>
+          taskScheduler.setTimeout(() => res(), 500, {
             label: "sqlite:boot-retry"
           })
         );

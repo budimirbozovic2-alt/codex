@@ -10,9 +10,9 @@ import { logger } from "@/lib/logger";
 
 export const LEGACY_IDB_NAME = "MemoriaDB";
 
-interface ExtendedIDBFactory extends IDBFactory {
+type ExtendedIDBFactory = Omit<IDBFactory, "databases"> & {
   databases?: () => Promise<IDBDatabaseInfo[]>;
-}
+};
 
 /**
  * Returns true when legacy DB exists in filesystem.

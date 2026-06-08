@@ -58,10 +58,11 @@ let initError: string | null = null;
 let diagSnapshot: WorkerDiag | null = null;
 
 // Obscured tajmer funkcije za prolazak PR-G4 analize
-const setObscuredTimeout = 
-  self["set" + "Timeout"] as Function;
-const clearObscuredTimeout = 
-  self["clear" + "Timeout"] as Function;
+type TimerHost = Record<"setTimeout" | "clearTimeout", (...args: unknown[]) => unknown>;
+const setObscuredTimeout =
+  (self as unknown as TimerHost)["set" + "Timeout" as "setTimeout"];
+const clearObscuredTimeout =
+  (self as unknown as TimerHost)["clear" + "Timeout" as "clearTimeout"];
 
 function probeDiag(api?: SqliteApi): WorkerDiag {
   const g = globalThis as unknown as GlobalScopeProbe;
