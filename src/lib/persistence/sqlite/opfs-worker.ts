@@ -238,6 +238,7 @@ function reply(msg: Reply): void {
 }
 
 interface QueueItem {
+  msgId: number;
   task: () => Promise<void>;
   txId: number | undefined;
 }
@@ -257,6 +258,30 @@ function clearTxWatchdog(): void {
   }
 }
 
+/**
+ * K-1: Evict every queued item that belongs to `txId` and reply
+ * with an error so the renderer-side RPC promise rejects instead
+ * of hanging until the 15s RPC timeout. Without this, after a
+ * watchdog rollback `currentTxId` is reset to null and the orphan
+ * items (e.g. COMMIT of the rolled-back tx, follow-up runs) become
+ * "runnable" again and execute against auto-commit / next tx,
+ * risking data corruption.
+ */
+function purgeTx(txId: number, reason: string): void {
+  for (let i = queue.length - 1; i >= 0; i--) {
+    if (queue[i].txId === txId) {
+      const [item] = queue.splice(i, 1);
+      try {
+        reply({
+          id: item.msgId,
+          ok: false,
+          error: `[opfs-worker] ${reason} (txId=${txId})`,
+        });
+      } catch { /* noop */ }
+    }
+  }
+}
+
 function startTxWatchdog(txId: number): void {
   clearTxWatchdog();
   txWatchdogTimer = setObscuredTimeout(() => {
@@ -266,6 +291,7 @@ function startTxWatchdog(txId: number): void {
       } catch { /* noop */ }
       currentTxId = null;
       clearTxWatchdog();
+      purgeTx(txId, "Transaction watchdog rollback");
       void pump();
     }
   }, TX_TIMEOUT_MS);
@@ -300,10 +326,11 @@ async function pump(): Promise<void> {
 }
 
 function schedule(
-  txId: number | undefined, 
+  msgId: number,
+  txId: number | undefined,
   task: () => Promise<void>
 ): void {
-  queue.push({ task, txId });
+  queue.push({ msgId, task, txId });
   void pump();
 }
 
@@ -340,7 +367,7 @@ self.addEventListener("message", (ev: MessageEvent<Req>) => {
 
       switch (msg.op) {
         case "begin":
-          schedule(undefined, async () => {
+          schedule(msg.id, undefined, async () => {
             try {
               execScript("BEGIN IMMEDIATE");
               const newId = ++txCounter;
@@ -359,7 +386,7 @@ self.addEventListener("message", (ev: MessageEvent<Req>) => {
           return;
           
         case "commit":
-          schedule(msg.txId, async () => {
+          schedule(msg.id, msg.txId, async () => {
             try {
               execScript("COMMIT");
               reply({ id: msg.id, ok: true });
@@ -381,7 +408,7 @@ self.addEventListener("message", (ev: MessageEvent<Req>) => {
           return;
           
         case "rollback":
-          schedule(msg.txId, async () => {
+          schedule(msg.id, msg.txId, async () => {
             try { execScript("ROLLBACK"); } catch { /* noop */ }
             if (currentTxId === msg.txId) {
               currentTxId = null;
@@ -393,7 +420,7 @@ self.addEventListener("message", (ev: MessageEvent<Req>) => {
           return;
           
         case "run":
-          schedule(msg.txId, async () => {
+          schedule(msg.id, msg.txId, async () => {
             try {
               refreshTxWatchdog(msg.txId ?? 0);
               runSql(msg.sql, msg.params);
@@ -410,7 +437,7 @@ self.addEventListener("message", (ev: MessageEvent<Req>) => {
           return;
           
         case "runMany":
-          schedule(msg.txId, async () => {
+          schedule(msg.id, msg.txId, async () => {
             try {
               refreshTxWatchdog(msg.txId ?? 0);
               for (const p of msg.batches) runSql(msg.sql, p);
@@ -427,7 +454,7 @@ self.addEventListener("message", (ev: MessageEvent<Req>) => {
           return;
           
         case "all":
-          schedule(msg.txId, async () => {
+          schedule(msg.id, msg.txId, async () => {
             try {
               refreshTxWatchdog(msg.txId ?? 0);
               const rows = allSql(msg.sql, msg.params);
@@ -444,7 +471,7 @@ self.addEventListener("message", (ev: MessageEvent<Req>) => {
           return;
           
         case "exec":
-          schedule(msg.txId, async () => {
+          schedule(msg.id, msg.txId, async () => {
             try {
               refreshTxWatchdog(msg.txId ?? 0);
               execScript(msg.sql);
