@@ -252,7 +252,7 @@ let txCounter = 0;
 let processing = false;
 const queue: QueueItem[] = [];
 
-let txWatchdogTimer: any = null;
+let txWatchdogTimer: number | null = null;
 const TX_TIMEOUT_MS = 10000;
 
 function clearTxWatchdog(): void {
