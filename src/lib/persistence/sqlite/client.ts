@@ -120,16 +120,17 @@ export function getOpfsSqliteExecutor(): Promise<SqlExecutor> {
       lastError
     );
     
-    // UX Safety net: test traži eksplicitan meč za oba path-a
+    // K-2: Single, accurate degraded event. The previous hard-coded
+    // duplicate `emitDegraded("opfs-api-missing", ...)` masked the
+    // real failure reason and triggered double-toasting in
+    // DbDegradedWatcher. The loop above already emits "opfs-api-missing"
+    // when the worker reports missing OPFS APIs; the post-loop path
+    // is strictly a runtime/init failure.
     emitDegraded("opfs-runtime-error", {
       error: lastError instanceof Error 
         ? lastError.message 
         : String(lastError),
       rendererDiag: rendererDiagSnapshot(),
-    });
-    
-    emitDegraded("opfs-api-missing", {
-      error: "OPFS activation failure fallback"
     });
 
     // --- FAZA 3: PROD HARD-FAIL FIX (B-3 i O-7) ---
