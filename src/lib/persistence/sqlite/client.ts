@@ -53,6 +53,14 @@ export function getOpfsSqliteExecutor(): Promise<SqlExecutor> {
       const { getDevFallbackExecutor } = await import(
         "./dev-fallback"
       );
+      // K-3: Browser DEV runs on a volatile in-memory executor.
+      // Emit a persistent degraded signal so DbDegradedWatcher can
+      // surface a "data will not persist" warning instead of letting
+      // the app look fully healthy.
+      emitDegraded("opfs-runtime-error", {
+        volatile: true,
+        reason: "dev-fallback (no Electron, browser DEV)",
+      });
       return getDevFallbackExecutor();
     })().catch((err) => {
       _executorPromise = null;
@@ -60,6 +68,7 @@ export function getOpfsSqliteExecutor(): Promise<SqlExecutor> {
     });
     return _executorPromise;
   }
+
 
   _executorPromise = (async () => {
     let attempts = 3;
