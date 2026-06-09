@@ -53,6 +53,14 @@ export function getOpfsSqliteExecutor(): Promise<SqlExecutor> {
       const { getDevFallbackExecutor } = await import(
         "./dev-fallback"
       );
+      // K-3: Browser DEV runs on a volatile in-memory executor.
+      // Emit a persistent degraded signal so DbDegradedWatcher can
+      // surface a "data will not persist" warning instead of letting
+      // the app look fully healthy.
+      emitDegraded("opfs-runtime-error", {
+        volatile: true,
+        reason: "dev-fallback (no Electron, browser DEV)",
+      });
       return getDevFallbackExecutor();
     })().catch((err) => {
       _executorPromise = null;
@@ -60,6 +68,7 @@ export function getOpfsSqliteExecutor(): Promise<SqlExecutor> {
     });
     return _executorPromise;
   }
+
 
   _executorPromise = (async () => {
     let attempts = 3;
@@ -141,10 +150,20 @@ export function getOpfsSqliteExecutor(): Promise<SqlExecutor> {
       );
     }
 
+    // K-3: Non-PROD Electron / browser PROD-but-not-Electron path —
+    // dev fallback is volatile. Emit an additional explicit "volatile"
+    // signal so DbDegradedWatcher keeps the warning sticky (the
+    // earlier opfs-runtime-error described the *init* failure; this
+    // one describes the *fallback consequence*).
+    emitDegraded("opfs-runtime-error", {
+      volatile: true,
+      reason: "dev-fallback (post-OPFS-failure)",
+    });
     const { getDevFallbackExecutor } = await import(
       "./dev-fallback"
     );
     return getDevFallbackExecutor();
+
   })().catch((err) => {
     _executorPromise = null;
     logger.error("[sqlite] open failed permanently", err);
