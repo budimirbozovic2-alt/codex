@@ -37,10 +37,15 @@ vi.mock("@/lib/electron-integration", async () => {
   };
 });
 
-vi.mock("@/lib/persistence/sqlite/client", () => ({
-  getOpfsSqliteExecutor: async () => getTestSqlExecutor(),
-  __resetSqliteClient: () => {},
-}));
+vi.mock("@/lib/persistence/sqlite/client", async () => {
+  const { __resetSqliteReadyForTests } = await import(
+    "@/lib/persistence/sqlite/readyMachine"
+  );
+  return {
+    getOpfsSqliteExecutor: async () => getTestSqlExecutor(),
+    __resetSqliteClient: () => __resetSqliteReadyForTests(),
+  };
+});
 
 beforeEach(() => {
   resetTestSqliteState();

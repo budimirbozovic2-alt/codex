@@ -29,8 +29,10 @@ export async function bootDb(): Promise<{ ok: boolean }> {
   // bilo kakvog read/write poziva. Bez ovoga prvi `listAllCards` / save kartice
   // čeka cold WASM init ~1.5–3s (vidljivo kao "blokada" + 22s panic timer).
   try {
-    const { getOpfsSqliteExecutor } = await import("@/lib/persistence/sqlite/client");
-    await getOpfsSqliteExecutor();
+    const { ensureSqliteReady } = await import(
+      "@/lib/persistence/sqlite/readyMachine"
+    );
+    await ensureSqliteReady();
     markBootStep("cards:sqlite-prewarm-done");
   } catch (e) {
     markBootStep("cards:sqlite-prewarm-failed", e instanceof Error ? e.message : String(e));

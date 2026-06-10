@@ -31,17 +31,19 @@ describe("PR-H-OPFS: Electron cross-origin isolation", () => {
     expect(src).toMatch(/Cross-Origin-Embedder-Policy/);
   });
 
-  it("client.ts no longer installs OPFS VFS from the renderer main thread (PR-H-OPFS-FIX-4)", () => {
-    const src = read("src/lib/persistence/sqlite/client.ts");
+  it("client.ts delegates to readyMachine; readyMachine owns OPFS boot (PR-H-OPFS-FIX-4, O-1)", () => {
+    const clientSrc = read("src/lib/persistence/sqlite/client.ts");
+    const readySrc = read("src/lib/persistence/sqlite/readyMachine.ts");
     // The OPFS SAH-pool VFS requires APIs that are only reliably available in
     // a Worker context. Renderer-side install was the root cause of the
     // "Missing required OPFS APIs" failure even with correct COOP/COEP/CORP.
-    expect(src).not.toMatch(/installOpfsSAHPoolVfs/);
-    expect(src).not.toMatch(/throw new Error\(["']OPFS_UNAVAILABLE/);
-    expect(src).toMatch(/getDevFallbackExecutor/);
-    expect(src).toMatch(/crossOriginIsolated/);
-    expect(src).toMatch(/hasSharedArrayBuffer/);
-    expect(src).toMatch(/worker-client|initWorkerExecutor/);
+    expect(clientSrc).not.toMatch(/installOpfsSAHPoolVfs/);
+    expect(clientSrc).not.toMatch(/throw new Error\(["']OPFS_UNAVAILABLE/);
+    expect(clientSrc).toMatch(/ensureSqliteReady/);
+    expect(readySrc).toMatch(/getDevFallbackExecutor/);
+    expect(readySrc).toMatch(/crossOriginIsolated/);
+    expect(readySrc).toMatch(/hasSharedArrayBuffer/);
+    expect(readySrc).toMatch(/worker-client|initWorkerExecutor/);
   });
 
   it("opfs-worker.ts owns the OPFS VFS install + runs migrations", () => {
@@ -101,8 +103,8 @@ describe("PR-H-OPFS-FIX: app:// protocol must carry isolation + MIME headers", (
     expect(src).toMatch(/middlewares\.use\(["']\/sqlite["']/);
   });
 
-  it("client.ts emits db-degraded event for both fallback paths (UX safety net)", () => {
-    const src = read("src/lib/persistence/sqlite/client.ts");
+  it("readyMachine.ts emits db-degraded event for both fallback paths (UX safety net)", () => {
+    const src = read("src/lib/persistence/sqlite/readyMachine.ts");
     expect(src).toMatch(/db-degraded/);
     expect(src).toMatch(/emitDegraded\(["']opfs-api-missing["']/);
     expect(src).toMatch(/emitDegraded\(["']opfs-runtime-error["']/);

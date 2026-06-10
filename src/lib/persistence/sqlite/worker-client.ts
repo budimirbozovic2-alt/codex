@@ -63,8 +63,10 @@ function terminateAndRejectAll(reason: string): void {
 function getWorker(): Worker {
   if (worker) return worker;
   
-  // Test compliance meč za URL i instanciranje u jednoj liniji:
-  worker = new Worker(new URL("./opfs-worker.ts", import.meta.url), { type: "module" });
+  worker = new Worker(
+    new URL("./opfs-worker.ts", import.meta.url), 
+    { type: "module" }
+  );
   
   worker.addEventListener(
     "message",
@@ -96,7 +98,6 @@ function rpc<T>(payload: Record<string, unknown>): Promise<T> {
   const id = ++msgId;
   
   return new Promise<T>((resolve, reject) => {
-    // PR-G4 Timer discipline fix sa taskScheduler-om
     const timer = taskScheduler.setTimeout(() => {
       if (pending.has(id)) {
         pending.delete(id);
@@ -191,11 +192,13 @@ export function __resetWorkerClient(): void {
   msgId = 0;
 }
 
+// B-5 / S-1 FIX: Graceful shutdown sprječava OPFS lock
 if (typeof window !== "undefined") {
   window.addEventListener("beforeunload", () => {
     if (worker) {
-      worker.terminate();
-      worker = null;
+      // Ne možemo await-ovati unutar beforeunload, 
+      // ali postMessage prolazi i pokreće clean-up u workeru
+      worker.postMessage({ id: ++msgId, op: "shutdown" });
     }
   });
 }
@@ -203,8 +206,12 @@ if (typeof window !== "undefined") {
 if (import.meta.hot) {
   import.meta.hot.dispose(() => {
     if (worker) {
-      worker.terminate();
-      worker = null;
+      // Tokom HMR-a šaljemo shutdown RPC i čekamo 
+      // da worker vrati 'ok' prije nego ga nasilno ugasimo
+      rpc({ op: "shutdown" }).finally(() => {
+        try { worker?.terminate(); } catch {}
+        worker = null;
+      });
     }
   });
 }

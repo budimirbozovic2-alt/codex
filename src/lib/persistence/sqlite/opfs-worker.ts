@@ -57,13 +57,9 @@ let opfsMode = false;
 let initError: string | null = null;
 let diagSnapshot: WorkerDiag | null = null;
 
-// Worker has its own lifecycle (HMR dispose / beforeunload / Electron quit
-// terminate the Worker, which clears all its timers). Renderer-side
-// `taskScheduler` is unreachable from inside the Worker, so we bind the
-// global timer functions directly with the proper DOM lib signatures.
-// Allow-listed in eslint.config.js (PR-G4 G7 block).
-const setObscuredTimeout: (handler: () => void, timeout?: number) => number =
-  self.setTimeout.bind(self);
+const setObscuredTimeout: (
+  handler: () => void, timeout?: number
+) => number = self.setTimeout.bind(self);
 const clearObscuredTimeout: (handle: number) => void =
   self.clearTimeout.bind(self);
 
@@ -231,7 +227,8 @@ type Req =
   | { id: number; op: "exec"; sql: string; txId?: number }
   | { id: number; op: "begin" }
   | { id: number; op: "commit"; txId: number }
-  | { id: number; op: "rollback"; txId: number };
+  | { id: number; op: "rollback"; txId: number }
+  | { id: number; op: "shutdown" }; // B-5/S-1 FIX: dodato u typ
 
 type Reply = 
   | { id: number; ok: true; result?: unknown } 
@@ -262,15 +259,6 @@ function clearTxWatchdog(): void {
   }
 }
 
-/**
- * K-1: Evict every queued item that belongs to `txId` and reply
- * with an error so the renderer-side RPC promise rejects instead
- * of hanging until the 15s RPC timeout. Without this, after a
- * watchdog rollback `currentTxId` is reset to null and the orphan
- * items (e.g. COMMIT of the rolled-back tx, follow-up runs) become
- * "runnable" again and execute against auto-commit / next tx,
- * risking data corruption.
- */
 function purgeTx(txId: number, reason: string): void {
   for (let i = queue.length - 1; i >= 0; i--) {
     if (queue[i].txId === txId) {
@@ -342,6 +330,22 @@ self.addEventListener("message", (ev: MessageEvent<Req>) => {
   const msg = ev.data;
   void (async () => {
     try {
+      // B-5 / S-1 FIX: Hitno presretanje shutdown-a
+      if (msg.op === "shutdown") {
+        clearTxWatchdog();
+        try {
+          if (currentTxId !== null) {
+             execScript("ROLLBACK");
+          }
+          if (db) db.close();
+        } catch { /* ignore errors during shutdown */ }
+        
+        reply({ id: msg.id, ok: true });
+        // Omogućavamo radniku da ugasi sopstveni thread
+        self.close();
+        return;
+      }
+
       if (msg.op === "init") {
         if (!initPromise) {
           initPromise = initDb().catch((err) => {

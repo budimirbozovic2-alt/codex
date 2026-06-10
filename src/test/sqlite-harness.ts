@@ -13,6 +13,8 @@
  * Wired into the global vitest setup via `installSqliteHarness()` which mocks
  * `@/lib/electron-integration` (so `isElectron() === true`) and
  * `@/lib/persistence/sqlite/client` (so `getOpfsSqliteExecutor()` returns the
+ * in-memory executor). FSM reset for integration tests that exercise the real
+ * client goes through `__resetSqliteClient()` → `__resetSqliteReadyForTests()`.
  * shared in-memory instance). Reset between tests via `resetTestSqliteState()`.
  */
 import type {
