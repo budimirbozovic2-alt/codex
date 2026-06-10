@@ -108,7 +108,7 @@ export function ensureSqliteReady(): Promise<SqlExecutor> {
     // ─── Branch A: browser DEV (no Electron) ────────────
     if (!isElectronRuntime() && !import.meta.env.PROD) {
       const { getDevFallbackExecutor } = await import("./dev-fallback");
-      const executor = getDevFallbackExecutor();
+      const executor = await getDevFallbackExecutor();
       emitDegraded("opfs-runtime-error", {
         volatile: true,
         reason: "dev-fallback (no Electron, browser DEV)",
