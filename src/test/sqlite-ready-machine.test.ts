@@ -49,12 +49,11 @@ describe("sqliteReadyMachine (O-1)", () => {
     expect(["ready", "degraded", "fatal"]).toContain(finalType);
   });
 
-  it("is idempotent — second call returns same promise / cached executor", async () => {
-    const p1 = ensureSqliteReady().catch(() => null);
-    const p2 = ensureSqliteReady().catch(() => null);
-    // While opening, both calls share the same in-flight promise.
+  it("is idempotent — second call returns same in-flight promise", async () => {
+    const p1 = ensureSqliteReady();
+    const p2 = ensureSqliteReady();
     expect(p1).toBe(p2);
-    await Promise.all([p1, p2]);
+    await Promise.allSettled([p1, p2]);
   });
 
   it("__resetSqliteReadyMachine clears state and listeners", () => {
