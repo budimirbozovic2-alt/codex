@@ -4,11 +4,9 @@
 // All external callers MUST import from this barrel. Deep imports are
 // blocked by ESLint outside the `src/lib/repositories/**` boundary (see
 // eslint.config.js — "Public API walls").
-//
-// Note: cardRepository was collapsed (B1). Sync RAM commits live in
-// `@/domains/cards`; async writes go through
-// `useCardMutations` (TanStack).
 // ─────────────────────────────────────────────────────────────────────────────
+
+export { cardRepository } from "./cardRepository";
 
 export {
   categoryRepository,

@@ -1,20 +1,20 @@
 /**
  * PR-E2 — Cards mutations on pure TanStack + direct SQLite writes.
  * PR-H1 hardening:
- *   - `gradeSection.mutationFn` reads pre-patch row directly from SQLite
- *     (`getCardsByIds`) instead of from cache. The cache is already
- *     optimistically patched by `onMutate`, so reading there would
- *     re-apply the patcher and double-decay FSRS memory state.
+ *   - `gradeSection.mutationFn` / `bulkPatch.mutationFn` delegate to
+ *     `cardRepository.patch` / `cardRepository.bulkPatch` which perform
+ *     atomic read-modify-write inside a single SQLite transaction, removing
+ *     the double-read risk and the cache-as-source-of-truth anti-pattern.
  *   - `settle()` invalidation is dropped from `save`/`remove`/`gradeSection`.
- *     Single-card writes emit `notifyCardsChanged` from the `*Direct`
- *     helpers, and the query bridge already invalidates the relevant
- *     `['cards', …]` scopes. Bulk mutations keep `settle()` because they
- *     touch many scoped slices the bridge may collapse.
+ *     Single-card writes emit `notifyCardsChanged` from the repository,
+ *     and the query bridge already invalidates the relevant `['cards', …]`
+ *     scopes. Bulk mutations keep `settle()` because they touch many scoped
+ *     slices the bridge may collapse.
  *
  * Each mutation:
  *   1. `onMutate` cancels in-flight `['cards', …]` queries and snapshots
  *      every active key, then applies an optimistic patch.
- *   2. `mutationFn` writes directly to SQLite via `*Direct` helpers.
+ *   2. `mutationFn` delegates to `cardRepository` (pure SQLite write).
  *   3. `onError` restores the snapshot.
  *
  * No Zustand RAM mirror, no `cardMapWrites`, no `cardCommandBus`.
@@ -22,12 +22,7 @@
 import { useMutation, useQueryClient, type QueryClient, type QueryKey } from "@tanstack/react-query";
 import { toast } from "sonner";
 import type { Card } from "@/lib/spaced-repetition";
-import {
-  putCardDirect,
-  bulkPutCardsDirect,
-  deleteCardDirect,
-  getCardsByIds,
-} from "@/lib/db/queries";
+import { cardRepository } from "@/lib/repositories";
 import { queryKeys } from "@/lib/query/keys";
 import { logger } from "@/lib/logger";
 
@@ -154,7 +149,7 @@ export function useCardMutations() {
   }
 
   const save = useMutation<Card, Error, Card, RollbackCtx>({
-    mutationFn: (card) => putCardDirect(card),
+    mutationFn: (card) => cardRepository.put(card),
     onMutate: async (card) => {
       const ctx = await snapshot();
       optimisticPut(qc, card.updatedAt ? card : { ...card, updatedAt: Date.now() });
@@ -168,7 +163,7 @@ export function useCardMutations() {
   });
 
   const remove = useMutation<void, Error, string, RollbackCtx>({
-    mutationFn: (id) => deleteCardDirect(id),
+    mutationFn: (id) => cardRepository.remove(id),
     onMutate: async (id) => {
       const ctx = await snapshot();
       optimisticRemove(qc, id);
@@ -182,7 +177,7 @@ export function useCardMutations() {
   });
 
   const bulkUpsert = useMutation<Card[], Error, Card[], RollbackCtx>({
-    mutationFn: (cards) => bulkPutCardsDirect(cards),
+    mutationFn: (cards) => cardRepository.bulkPut(cards),
     onMutate: async (cards) => {
       const ctx = await snapshot();
       const now = Date.now();
@@ -199,17 +194,7 @@ export function useCardMutations() {
   });
 
   const gradeSection = useMutation<Card | undefined, Error, GradeInput, RollbackCtx>({
-    mutationFn: async ({ cardId, patcher }) => {
-      // PR-H1: read pre-patch row directly from SQLite. Reading from the
-      // TanStack cache would return the already-optimistically-patched
-      // card and re-apply `patcher`, doubling FSRS decay on every grade.
-      const rows = await getCardsByIds([cardId]);
-      const current = rows[0];
-      if (!current) return undefined;
-      const updated: Card = { ...patcher(current), updatedAt: Date.now() };
-      await putCardDirect(updated);
-      return updated;
-    },
+    mutationFn: ({ cardId, patcher }) => cardRepository.patch(cardId, patcher),
     onMutate: async ({ cardId, patcher }) => {
       const ctx = await snapshot();
       optimisticPatch(qc, cardId, patcher);
@@ -223,26 +208,7 @@ export function useCardMutations() {
   });
 
   const bulkPatch = useMutation<Card[], Error, BulkPatchInput, RollbackCtx>({
-    mutationFn: async ({ cardIds, patcher }) => {
-      if (cardIds.length === 0) return [];
-      const cached = qc.getQueryData<readonly Card[]>(queryKeys.cards.all());
-      const byId = new Map<string, Card>();
-      if (cached) for (const c of cached) byId.set(c.id, c);
-      const missing = cardIds.filter((id) => !byId.has(id));
-      if (missing.length > 0) {
-        const rows = await getCardsByIds(missing);
-        for (const r of rows) if (r) byId.set(r.id, r);
-      }
-      const now = Date.now();
-      const updated: Card[] = [];
-      for (const id of cardIds) {
-        const cur = byId.get(id);
-        if (!cur) continue;
-        updated.push({ ...patcher(cur), updatedAt: now });
-      }
-      if (updated.length > 0) await bulkPutCardsDirect(updated);
-      return updated;
-    },
+    mutationFn: ({ cardIds, patcher }) => cardRepository.bulkPatch(cardIds, patcher),
     onMutate: async ({ cardIds, patcher }) => {
       const ctx = await snapshot();
       optimisticBulkPatch(qc, cardIds, patcher);

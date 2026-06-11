@@ -32,7 +32,18 @@ import type { Card } from "@/lib/spaced-repetition";
 
 // ── Storage-seam mocks ───────────────────────────────────────────────────
 let currentRows: Card[] = [];
-const putCardDirectMock = vi.fn();
+const cardPutMock = vi.fn();
+
+vi.mock("@/lib/repositories", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/repositories")>();
+  return {
+    ...actual,
+    cardRepository: {
+      ...(actual.cardRepository as object),
+      put: (...args: unknown[]) => cardPutMock(...args),
+    },
+  };
+});
 
 vi.mock("@/lib/db/queries", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/db/queries")>();
@@ -48,7 +59,6 @@ vi.mock("@/lib/db/queries", async (importOriginal) => {
     cardCountByCategory: vi.fn(async (id: string) =>
       currentRows.filter((c) => c.categoryId === id).length,
     ),
-    putCardDirect: (...args: unknown[]) => putCardDirectMock(...args),
   };
 });
 
@@ -83,7 +93,7 @@ function makeQc(): QueryClient {
 beforeEach(() => {
   _resetBridgesForTest();
   currentRows = [];
-  putCardDirectMock.mockReset();
+  cardPutMock.mockReset();
 });
 
 afterEach(() => {
@@ -103,8 +113,8 @@ describe("E2E smoke — create → mirror → rollback via putCardDirect/listAll
     await waitFor(() => expect(reader.result.current).toEqual([]));
 
     // ─── STEP 1: CREATE ────────────────────────────────────────────────
-    // putCardDirect succeeds; test pretends storage now holds the row.
-    putCardDirectMock.mockImplementation(async (card: Card) => {
+    // cardRepository.put succeeds; test pretends storage now holds the row.
+    cardPutMock.mockImplementation(async (card: Card) => {
       currentRows = [...currentRows, card];
       return card;
     });
@@ -117,8 +127,8 @@ describe("E2E smoke — create → mirror → rollback via putCardDirect/listAll
 
     // Optimistic patch already applied via onMutate — assert without
     // depending on the bridge's debounced invalidation.
-    expect(putCardDirectMock).toHaveBeenCalledTimes(1);
-    expect(putCardDirectMock).toHaveBeenCalledWith(created);
+    expect(cardPutMock).toHaveBeenCalledTimes(1);
+    expect(cardPutMock).toHaveBeenCalledWith(created);
     await waitFor(() =>
       expect(reader.result.current.map((c) => c.id)).toEqual(["c1"]),
     );
@@ -141,8 +151,8 @@ describe("E2E smoke — create → mirror → rollback via putCardDirect/listAll
     // Snapshot the mirrored cache, then attempt a doomed write. The
     // optimistic patch must appear briefly, then be reverted on error.
     const mirrored = reader.result.current;
-    putCardDirectMock.mockReset();
-    putCardDirectMock.mockImplementation(async () => {
+    cardPutMock.mockReset();
+    cardPutMock.mockImplementation(async () => {
       throw new Error("disk full");
     });
 
@@ -161,7 +171,7 @@ describe("E2E smoke — create → mirror → rollback via putCardDirect/listAll
     const after = qc.getQueryData<readonly Card[]>(queryKeys.cards.all()) ?? [];
     expect(after.map((c) => c.id).sort()).toEqual(["c1", "c2", "c3"]);
     expect(after.length).toBe(mirrored.length);
-    expect(putCardDirectMock).toHaveBeenCalledTimes(1);
-    expect(putCardDirectMock).toHaveBeenCalledWith(doomed);
+    expect(cardPutMock).toHaveBeenCalledTimes(1);
+    expect(cardPutMock).toHaveBeenCalledWith(doomed);
   });
 });

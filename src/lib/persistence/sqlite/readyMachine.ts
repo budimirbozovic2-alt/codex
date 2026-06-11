@@ -104,7 +104,7 @@ async function openExecutor(): Promise<SqlExecutor> {
       volatile: true,
       reason: "dev-fallback (no Electron, browser DEV)",
     });
-    const executor = getDevFallbackExecutor();
+    const executor = await getDevFallbackExecutor();
     setState({
       type: "degraded",
       executor,
@@ -183,7 +183,7 @@ async function openExecutor(): Promise<SqlExecutor> {
     reason: "dev-fallback (post-OPFS-failure)",
   });
   const { getDevFallbackExecutor } = await import("./dev-fallback");
-  const executor = getDevFallbackExecutor();
+  const executor = await getDevFallbackExecutor();
   setState({
     type: "degraded",
     executor,

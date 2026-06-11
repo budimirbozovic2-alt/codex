@@ -117,15 +117,35 @@ async function applyRemapToSatellites(
   }
 }
 
-/** Drop satellite rows whose `categoryId` no longer exists. */
+/** Drop satellite rows whose `categoryId` no longer exists, and sanitize empty strings. */
 export function pruneOrphans(parsed: ParsedBackup, validCategoryIds: Set<string>): void {
-  parsed.sources = parsed.sources.filter((s) => !s.categoryId || validCategoryIds.has(s.categoryId));
-  parsed.mnemonics = parsed.mnemonics.filter((m) => !m.categoryId || validCategoryIds.has(m.categoryId));
-  parsed.knowledgeBaseArticles = parsed.knowledgeBaseArticles.filter(
-    (a) => !a.subjectId || validCategoryIds.has(a.subjectId),
-  );
-  parsed.mindMaps = parsed.mindMaps.filter((m) => !m.categoryId || validCategoryIds.has(m.categoryId));
-  // Safety net: cards are written from `merged` in the hot path, but any
-  // future caller that writes directly from parsed.cards must not violate FK.
-  parsed.cards = parsed.cards.filter((c) => !c.categoryId || validCategoryIds.has(c.categoryId));
+  // Empty strings become undefined so SQLite writes NULL instead of throwing
+  // an FK-787 violation on a non-nullable foreign key column.
+  const cleanFk = (id: string | null | undefined) => (id === "" ? undefined : id);
+
+  parsed.sources = parsed.sources.filter((s) => {
+    s.categoryId = cleanFk(s.categoryId) as string | undefined;
+    return !s.categoryId || validCategoryIds.has(s.categoryId);
+  });
+
+  parsed.mnemonics = parsed.mnemonics.filter((m) => {
+    m.categoryId = cleanFk(m.categoryId) as string | undefined;
+    return !m.categoryId || validCategoryIds.has(m.categoryId);
+  });
+
+  parsed.knowledgeBaseArticles = parsed.knowledgeBaseArticles.filter((a) => {
+    a.subjectId = cleanFk(a.subjectId) as string | undefined;
+    return !a.subjectId || validCategoryIds.has(a.subjectId);
+  });
+
+  parsed.mindMaps = parsed.mindMaps.filter((m) => {
+    m.categoryId = cleanFk(m.categoryId) as string | undefined;
+    return !m.categoryId || validCategoryIds.has(m.categoryId);
+  });
+
+  // Safety net: cards are written from `merged` in the hot path.
+  parsed.cards = parsed.cards.filter((c) => {
+    c.categoryId = cleanFk(c.categoryId) as string;
+    return !c.categoryId || validCategoryIds.has(c.categoryId);
+  });
 }

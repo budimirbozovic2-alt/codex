@@ -44,6 +44,8 @@ vi.mock("@/lib/persistence/sqlite/client", async () => {
   return {
     getOpfsSqliteExecutor: async () => getTestSqlExecutor(),
     __resetSqliteClient: () => __resetSqliteReadyForTests(),
+    runInTransaction: async <T>(cb: (exec: ReturnType<typeof getTestSqlExecutor>) => Promise<T>) =>
+      getTestSqlExecutor().transaction(cb),
   };
 });
 

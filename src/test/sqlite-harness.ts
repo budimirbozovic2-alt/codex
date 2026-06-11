@@ -183,6 +183,22 @@ function parseWhere(
       predicates.push((row) => row[col] === lit);
       continue;
     }
+    // col IN (?,?,...) — needed for bulkPatch / bulk-read by ids
+    const inMatch = /^(\w+)\s+IN\s+\((\?(?:\s*,\s*\?)*)\)$/i.exec(part);
+    if (inMatch) {
+      const col = inMatch[1];
+      const placeholderCount = (inMatch[2].match(/\?/g) ?? []).length;
+      const slotStart = paramOffset + consumed;
+      consumed += placeholderCount;
+      predicates.push((row, p) => {
+        const val = row[col];
+        for (let i = slotStart; i < slotStart + placeholderCount; i++) {
+          if (val === p[i]) return true;
+        }
+        return false;
+      });
+      continue;
+    }
     throw new Error(`[sqlite-harness] unsupported WHERE clause: ${part}`);
   }
   return {

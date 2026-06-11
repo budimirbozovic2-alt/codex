@@ -26,10 +26,21 @@ import type { Card } from "@/lib/spaced-repetition";
 
 // ── Mocks ────────────────────────────────────────────────────────────────
 // `listAllCards` feeds `['cards','all']`; we control its rows directly.
-// `putCardDirect` is the write seam invoked by `useCardMutations.save` —
+// `cardRepository.put` is the write seam invoked by `useCardMutations.save` —
 // throwing here triggers `onError → rollback`.
 let currentRows: Card[] = [];
-const putCardDirectMock = vi.fn();
+const cardPutMock = vi.fn();
+
+vi.mock("@/lib/repositories", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/repositories")>();
+  return {
+    ...actual,
+    cardRepository: {
+      ...(actual.cardRepository as object),
+      put: (...args: unknown[]) => cardPutMock(...args),
+    },
+  };
+});
 
 vi.mock("@/lib/db/queries", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/db/queries")>();
@@ -39,7 +50,6 @@ vi.mock("@/lib/db/queries", async (importOriginal) => {
     getCardsByIds: vi.fn(async (ids: string[]) =>
       ids.map((id) => currentRows.find((c) => c.id === id) ?? null),
     ),
-    putCardDirect: (...args: unknown[]) => putCardDirectMock(...args),
   };
 });
 
@@ -74,7 +84,7 @@ function makeQc(): QueryClient {
 beforeEach(() => {
   _resetBridgesForTest();
   currentRows = [];
-  putCardDirectMock.mockReset();
+  cardPutMock.mockReset();
 });
 
 afterEach(() => {
@@ -132,7 +142,7 @@ describe("useAllCards — mirror via query bridge", () => {
 // 2) Rollback — snapshot/restore on persist failure
 // ─────────────────────────────────────────────────────────────────────────
 describe("useCardMutations.save — rollback on persist failure", () => {
-  it("restores every ['cards', …] snapshot when putCardDirect throws", async () => {
+  it("restores every ['cards', …] snapshot when cardRepository.put throws", async () => {
     // Bridge intentionally NOT installed: avoid a settle-driven invalidation
     // refetching from the mocked `listAllCards` and clobbering the restored
     // snapshot before assertions run.
@@ -143,9 +153,7 @@ describe("useCardMutations.save — rollback on persist failure", () => {
     qc.setQueryData(queryKeys.cards.all(), initialAll);
     qc.setQueryData(queryKeys.cards.byCategory("cat-X"), initialByCat);
 
-    putCardDirectMock.mockImplementation(async () => {
-      throw new Error("disk full");
-    });
+    cardPutMock.mockRejectedValue(new Error("disk full"));
 
     const { result } = renderHook(() => useCardMutations(), {
       wrapper: makeWrapper(qc),
@@ -160,7 +168,7 @@ describe("useCardMutations.save — rollback on persist failure", () => {
     await waitFor(() => expect(result.current.save.isError).toBe(true));
     expect(qc.getQueryData(queryKeys.cards.all())).toEqual(initialAll);
     expect(qc.getQueryData(queryKeys.cards.byCategory("cat-X"))).toEqual(initialByCat);
-    expect(putCardDirectMock).toHaveBeenCalledTimes(1);
+    expect(cardPutMock).toHaveBeenCalledTimes(1);
   });
 
   it("optimistically patches ['cards','all'] before the write resolves", async () => {
@@ -169,7 +177,7 @@ describe("useCardMutations.save — rollback on persist failure", () => {
     qc.setQueryData(queryKeys.cards.all(), initialAll);
 
     let resolveWrite: (v: Card) => void = () => {};
-    putCardDirectMock.mockImplementation(
+    cardPutMock.mockImplementation(
       (card: Card) => new Promise<Card>((res) => { resolveWrite = () => res(card); }),
     );
 

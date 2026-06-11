@@ -38,6 +38,7 @@ vi.mock("@/lib/db/queries", async (importOriginal) => {
 
 const { useCardMutations } = await import("@/hooks/card/useCardMutations");
 const { autoFormatArticles } = await import("@/lib/article-autoformat");
+const { cardRepository } = await import("@/lib/repositories");
 
 function makeCard(id: string, stability = 1): Card {
   return {
@@ -77,17 +78,12 @@ describe("PR-H1 #1 — gradeSection applies patcher exactly once", () => {
   it("reads pre-patch card from SQLite, not from optimistic cache", async () => {
     const qc = makeQc();
     const initial = makeCard("c1", /* stability */ 10);
-    qc.setQueryData(queryKeys.cards.all(), [initial]);
 
-    // SQLite returns the SAME pre-patch row.
-    getCardsByIdsMock.mockImplementation(async (ids: string[]) =>
-      ids.map((id) => (id === "c1" ? initial : null)),
-    );
-    let written: Card | undefined;
-    putCardDirectMock.mockImplementation(async (card: Card) => {
-      written = card;
-      return card;
-    });
+    // Pre-seed the card into SQLite so cardRepository.patch can find it.
+    await cardRepository.put(initial);
+
+    // Optimistic cache shows the same pre-patch row.
+    qc.setQueryData(queryKeys.cards.all(), [initial]);
 
     // Patcher halves stability. Applied once: 10 → 5. Applied twice: 10 → 2.5.
     const patcher = (c: Card): Card => ({
@@ -99,14 +95,16 @@ describe("PR-H1 #1 — gradeSection applies patcher exactly once", () => {
       wrapper: makeWrapper(qc),
     });
 
+    let written: Card | undefined;
     await act(async () => {
-      await result.current.gradeSection.mutateAsync({ cardId: "c1", patcher });
+      written = await result.current.gradeSection.mutateAsync({ cardId: "c1", patcher });
     });
 
     expect(written).toBeDefined();
     // Single application: 10 / 2 = 5. Double would be 2.5.
     expect((written as Card & { stability: number }).stability).toBe(5);
-    expect(getCardsByIdsMock).toHaveBeenCalledWith(["c1"]);
+    // cardRepository.patch performs the read-modify-write atomically inside
+    // a single SQLite transaction — getCardsByIds is no longer called directly.
   });
 });
 
