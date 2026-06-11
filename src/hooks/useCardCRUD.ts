@@ -95,7 +95,7 @@ export function useCardCRUD() {
         sourceType?: CardSourceType;
       },
     ) => {
-      void gradeSection.mutateAsync({
+      const p = gradeSection.mutateAsync({
         cardId: id,
         patcher: (c) => {
           const newCard = { ...c };
@@ -127,6 +127,7 @@ export function useCardCRUD() {
         },
       });
       toast.success("Kartica ažurirana.");
+      return p;
     },
     [gradeSection],
   );
@@ -173,9 +174,7 @@ export function useCardCRUD() {
   );
 
   const bulkAddCards = useCallback(
-    (newCards: Card[]) => {
-      void bulkUpsert.mutateAsync(newCards);
-    },
+    (newCards: Card[]) => bulkUpsert.mutateAsync(newCards),
     [bulkUpsert],
   );
 

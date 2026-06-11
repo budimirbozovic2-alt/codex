@@ -197,17 +197,35 @@ export function ensureSqliteReady(): Promise<SqlExecutor> {
   if (state.type === "ready" || state.type === "degraded") {
     return Promise.resolve(state.executor);
   }
+  if (state.type === "fatal") {
+    return Promise.reject(state.error);
+  }
   if (_initPromise) return _initPromise;
 
+  // #region agent log
+  const _prewarmStart = Date.now();
+  fetch('http://127.0.0.1:7244/ingest/bbcc467f-b810-4cc1-aebf-add63a6395ee',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'f62800'},body:JSON.stringify({sessionId:'f62800',location:'readyMachine.ts:ensureSqliteReady',message:'SQLite init starting (opening executor)',data:{state:state.type},hypothesisId:'A',runId:'run1',timestamp:Date.now()})}).catch(()=>{});
+  // #endregion
+
   setState({ type: "opening" });
-  _initPromise = openExecutor().catch((err) => {
-    _initPromise = null;
-    if (getSqliteReadyState().type !== "fatal") {
-      setState({ type: "fatal", error: err });
-    }
-    logger.error("[sqlite] open failed permanently", err);
-    throw err;
-  });
+  _initPromise = openExecutor()
+    .then((exec) => {
+      // #region agent log
+      fetch('http://127.0.0.1:7244/ingest/bbcc467f-b810-4cc1-aebf-add63a6395ee',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'f62800'},body:JSON.stringify({sessionId:'f62800',location:'readyMachine.ts:ensureSqliteReady',message:'SQLite init DONE',data:{elapsedMs:Date.now()-_prewarmStart,finalState:getSqliteReadyState().type},hypothesisId:'A',runId:'run1',timestamp:Date.now()})}).catch(()=>{});
+      // #endregion
+      return exec;
+    })
+    .catch((err) => {
+      // #region agent log
+      fetch('http://127.0.0.1:7244/ingest/bbcc467f-b810-4cc1-aebf-add63a6395ee',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'f62800'},body:JSON.stringify({sessionId:'f62800',location:'readyMachine.ts:ensureSqliteReady',message:'SQLite init FAILED',data:{elapsedMs:Date.now()-_prewarmStart,error:String(err)},hypothesisId:'A',runId:'run1',timestamp:Date.now()})}).catch(()=>{});
+      // #endregion
+      _initPromise = null;
+      if (getSqliteReadyState().type !== "fatal") {
+        setState({ type: "fatal", error: err });
+      }
+      logger.error("[sqlite] open failed permanently", err);
+      throw err;
+    });
 
   return _initPromise;
 }

@@ -2,7 +2,7 @@ import { ShieldAlert, AlertTriangle, Download, HardDrive } from "lucide-react";
 import { useMemo, useEffect, useRef, useState } from "react";
 import { Card as SRCard, SRSettings, getPendingFirstReviewCount } from "@/lib/spaced-repetition";
 import { ReviewLogEntry, getStorageUsage, getLastBackupTime } from "@/lib/storage";
-import { loadSlippageLog } from "@/lib/metacognitive-storage";
+import { loadSlippageLog } from "@/domains/metacognition/metacognitive-storage";
 // R2 fix: lazy-import planner-storage to avoid eagerly loading 577-line module + date-fns
 type PlannerModule = typeof import("@/domains/planner");
 let _plannerMod: PlannerModule | null = null;

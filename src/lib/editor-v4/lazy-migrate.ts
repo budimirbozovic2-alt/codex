@@ -17,7 +17,7 @@
 import { logger } from "@/lib/logger";
 import { taskScheduler } from "@/lib/scheduler";
 import { bulkPutCardsDirect, snapshotAllCards } from "@/lib/db/queries";
-import { saveSource } from "@/lib/sources-storage";
+import { saveSource } from "@/domains/sources/sources-storage";
 import {
   listAllSources,
 } from "@/lib/db/queries";

@@ -6,7 +6,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { backlinkIndex } from "@/lib/backlink-index";
 import { iterateWikiLinks } from "@/lib/zettelkasten-wiki-link";
 import { normalizeAliasList } from "@/lib/zettelkasten-aliases";
-import type { KnowledgeBaseArticle } from "@/lib/zettelkasten-storage";
+import type { KnowledgeBaseArticle } from "@/domains/zettelkasten/zettelkasten-storage";
 
 const SUBJECT = "subj-aliases";
 

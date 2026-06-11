@@ -4,7 +4,7 @@
  * outline → parseArticles → saveSource" sequence that previously appeared
  * in 4 callbacks.
  */
-import { extractOutline, injectHeadingIds, type Source } from "@/lib/sources-storage";
+import { extractOutline, injectHeadingIds, type Source } from "@/domains/sources/sources-storage";
 import { parseArticles } from "@/lib/article-parser";
 
 /**

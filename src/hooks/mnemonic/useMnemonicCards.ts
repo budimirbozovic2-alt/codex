@@ -1,7 +1,7 @@
 /**
  * PR-7f M2 — TanStack read-path za mnemonic kartice.
  *
- * Invalidacija je event-driven: `subscribeMnemonics` u `bridges.ts`
+ * Invalidacija je event-driven: `domain:changed{mnemonics}` u `bridges.ts`
  * invalidira `['mnemonics']` kad god mnemonic repo emituje promjenu.
  */
 import { useQuery, keepPreviousData } from "@tanstack/react-query";

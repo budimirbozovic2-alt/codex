@@ -1,4 +1,6 @@
-import { useCategoryData, useCategoryActions, useUIContext } from "@/contexts/AppContext";
+import { useCategoryActions } from "@/hooks/cards/useActions";
+import { useCategoryData } from "@/hooks/cards/useCategoryState";
+import { useUIContext } from "@/hooks/useUI";
 import { useBootState } from "@/hooks/useBootState";
 import { useCardCountsByCategoryMap } from "@/store";
 import { ErrorBoundary } from "@/components/ErrorBoundary";

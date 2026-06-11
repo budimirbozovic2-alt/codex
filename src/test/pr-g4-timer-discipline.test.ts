@@ -12,7 +12,6 @@ import { join, relative, sep } from "node:path";
 
 // ── Allow-list (mirrors eslint.config.js G7 override) ────────────────────
 const ALLOWLIST = new Set<string>([
-  "src/lib/persist-queue.ts",
   "src/lib/event-bus.ts",
   "src/lib/zip-service.ts",
   "src/lib/electron-integration.ts",

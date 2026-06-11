@@ -6,7 +6,7 @@
  * call `_pure` with these snapshots. This guarantees that the same code can run
  * unchanged inside `src/workers/analytics.worker.ts`.
  */
-import type { CalibrationEntry, LatencyEntry } from "../../metacognitive-storage";
+import type { CalibrationEntry, LatencyEntry } from "@/domains/metacognition/metacognitive-storage";
 import type { DisciplineEntry, PlannerConfig } from "@/domains/planner";
 
 export interface AnalyticsSnapshots {

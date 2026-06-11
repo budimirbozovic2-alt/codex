@@ -2,12 +2,12 @@ import { ArrowLeft, Eye, ChevronRight, AlertTriangle, Pause, Scale, Clock } from
 import { useState, useMemo, useEffect, useCallback, useRef, lazy, Suspense } from "react";
 import { Card, Section, isLeech, formatInterval, SRSettings } from "@/lib/spaced-repetition";
 import { isEarlyReview } from "@/lib/review-mode-builder";
-import { useCategoryData } from "@/contexts/AppContext";
+import { useCategoryData } from "@/hooks/cards/useCategoryState";
 import { EditorView } from "@/lib/editor-v4/EditorView";
 import { m, AnimatePresence } from "@/lib/motion";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { addLatencyEntry } from "@/lib/metacognitive-storage";
+import { addLatencyEntry } from "@/domains/metacognition/metacognitive-storage";
 import { shouldIgnoreGlobalKey } from "@/lib/global-overlay-state";
 import { useGlobalHotkey } from "@/hooks/useGlobalHotkey";
 import ShortcutsHint from "@/components/ShortcutsHint";

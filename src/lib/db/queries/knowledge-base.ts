@@ -12,6 +12,7 @@ import {
   notifyExecutorNull 
 } from "./_shared/executor-telemetry";
 import { withSqlTiming } from "./_shared/sql-timing";
+import { emitDomainChanged } from "@/lib/event-bus";
 
 // ─── Executor accessor ──────────────────────────────────────────
 
@@ -59,20 +60,8 @@ async function requireExecutor(
 
 // ─── Change emitter ─────────────────────────────────────────────
 
-type KnowledgeBaseListener = () => void;
-const _kbListeners = new Set<KnowledgeBaseListener>();
-
-export function onKnowledgeBaseChanged(
-  fn: KnowledgeBaseListener
-): () => void {
-  _kbListeners.add(fn);
-  return () => { _kbListeners.delete(fn); };
-}
-
 export function notifyKnowledgeBaseChanged(): void {
-  for (const fn of _kbListeners) {
-    try { fn(); } catch { /* swallow */ }
-  }
+  emitDomainChanged({ domain: "zettelkasten" });
 }
 
 // ─── Codec ──────────────────────────────────────────────────────

@@ -8,7 +8,7 @@ import {
 import type { SelectionModule } from "@/lib/selection-split-engine";
 import type { WizardModuleEdit } from "@/lib/split-wizard-build";
 import type { Card } from "@/lib/spaced-repetition";
-import type { Source } from "@/lib/sources-storage";
+import type { Source } from "@/domains/sources/sources-storage";
 
 const mod = (n: string, title: string, body = "Sadržaj"): SelectionModule => ({
   articleNum: n,

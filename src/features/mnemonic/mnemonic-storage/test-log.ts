@@ -1,5 +1,4 @@
 // Isolated mnemonic test log I/O.
-// PR-9 A1b P1.6: delegates to SQLite-primary repo (Dexie mirror during soak).
 
 import { logger } from "@/lib/logger";
 import {

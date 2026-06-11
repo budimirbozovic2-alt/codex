@@ -7,7 +7,7 @@
  */
 import { sanitizeHtml } from "@/lib/sanitize";
 import { createSection, type Card, type SourceModule } from "@/lib/spaced-repetition";
-import { createTextAnchor, type Source } from "@/lib/sources-storage";
+import { createTextAnchor, type Source } from "@/domains/sources/sources-storage";
 import { splitSelection, type SelectionModule } from "@/lib/selection-split-engine";
 import {
   buildSeparatePlans, buildCombinedPlan,

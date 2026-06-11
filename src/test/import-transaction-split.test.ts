@@ -219,13 +219,16 @@ describe("pruneOrphans", () => {
     expect(parsed.knowledgeBaseArticles.map((a) => a.id)).toEqual(["keep"]);
   });
 
-  it("keeps rows without a categoryId at all (e.g. global mindMaps)", () => {
+  it("drops mindMaps without a categoryId — categoryId is NOT NULL in the schema", () => {
+    // mindMaps.categoryId is TEXT NOT NULL with a FK constraint (PRAGMA foreign_keys = ON).
+    // Inserting a mindMap with categoryId = null / undefined / "" causes SQLITE_CONSTRAINT_FOREIGNKEY (787).
+    // pruneOrphans must drop these rows rather than keep them.
     const parsed = emptyParsed();
     parsed.mindMaps = [
-      { id: "global" },
+      { id: "no-category" },
     ] as unknown as ParsedBackup["mindMaps"];
     pruneOrphans(parsed, new Set(["live-1"]));
-    expect(parsed.mindMaps.map((m) => m.id)).toEqual(["global"]);
+    expect(parsed.mindMaps.map((m) => m.id)).toEqual([]);
   });
 });
 

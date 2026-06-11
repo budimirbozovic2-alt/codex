@@ -1,5 +1,5 @@
 import { FolderOpen } from "lucide-react";
-import { useUIContext } from "@/contexts/AppContext";
+import { useUIContext } from "@/hooks/useUI";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import CategoriesPage from "@/views/CategoriesPage";
 

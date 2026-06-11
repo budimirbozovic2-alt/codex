@@ -2,7 +2,7 @@ import { useState, useMemo, useCallback, useEffect, useRef, Suspense, lazy } fro
 import { getCardScore } from "@/lib/spaced-repetition";
 import type { FrequencyTag } from "@/lib/sr/types";
 import { LearnCardProgress, loadLearnProgress } from "@/lib/storage";
-import { addActivityEntry } from "@/lib/metacognitive-storage";
+import { addActivityEntry } from "@/domains/metacognition/metacognitive-storage";
 import SessionComplete from "./learn/SessionComplete";
 import FilterSetup from "./learn/FilterSetup";
 import { LearnSessionProps, ViewWidth } from "./learn/types";

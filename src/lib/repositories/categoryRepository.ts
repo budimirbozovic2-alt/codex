@@ -1,17 +1,15 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // Category Repository — primary writer for `categoryRecords`.
 //
-// A1c-4 F1: SQLite-primary. The Dexie `categories` mirror is gone — durable
-// persistence runs through `queries/categories.ts` (single SQL transaction
+// Persistence runs through `queries/categories.ts` (single SQL transaction
 // per commit). Zustand `categoryStore` remains the RAM SSOT all readers
 // subscribe to via `useSyncExternalStore`; external callers that bypass this
 // repository (e.g. backup-restore) still push directly into the store via
 // `setCategoryStoreRecords`.
 //
-// A2 — `deleteAsync` runs a single SQLite transaction that re-parents (or
-// purges) cards + sources, then deletes the category row. FK CASCADE on the
-// schema then wipes mindMaps / mnemonics / knowledgeBaseArticles in the same
-// atomic step.
+// `deleteAsync` runs a single SQLite transaction that re-parents (or purges)
+// cards + sources, then deletes the category row. FK CASCADE on the schema
+// then wipes mindMaps / mnemonics / knowledgeBaseArticles in the same step.
 // ─────────────────────────────────────────────────────────────────────────────
 import type { CategoryRecord } from "@/lib/db-types";
 import { toast } from "sonner";
@@ -24,8 +22,19 @@ import {
 import { wrapWrite, type WriteResult } from "@/lib/persistence/write-result";
 import type { SqlExecutor } from "@/lib/persistence/sqlite/executor";
 import {
+  deleteSetting,
+  getSetting,
+  notifyCardsChanged,
+  notifyKnowledgeBaseChanged,
   replaceAllCategories,
 } from "@/lib/db/queries";
+import { invalidateMindMapsCache } from "@/domains/mindmaps/mindmap-storage";
+import { invalidateSourcesCache } from "@/domains/sources/sources-storage";
+import { clearSubjectSettings } from "@/domains/subjects/subject-settings";
+import { invalidateExaminerProfile } from "@/lib/examiner-profile-cache";
+import { backlinkIndex } from "@/lib/backlink-index";
+import { scrubCategoryFromPlannerConfig } from "@/domains/planner";
+import { notifyMnemonics } from "@/features/mnemonic/mnemonic-storage";
 
 // ─── Read primitives ─────────────────────────────────────────────────────
 export function getCategorySnapshot(): CategoryRecord[] {
@@ -54,14 +63,7 @@ const _saveMutex = createKeyedMutex();
  * persists to SQLite — both **inside** a serialised mutex so concurrent
  * commits cannot race each other's rollback target.
  *
- * Audit v2 / Wave A.2: the previous Wave-1 fix moved only the rollback
- * snapshot inside the mutex but left the optimistic write outside. For
- * concurrent commits A→B and B→C in the same tick, when A failed the
- * rollback target captured inside the mutex was already C (B's optimistic
- * write had run before A's mutex turn). The guard `rollbackTo === optimistic`
- * was false so the store stayed on C — A's true rollback target was lost.
- *
- * Fix: compute updater + apply + persist atomically. The mutex window is
+ * Compute updater + apply + persist atomically. The mutex window is
  * <1ms for typical workloads (≤9 categories); render latency is unaffected.
  */
 export async function commit(
@@ -163,6 +165,64 @@ export function deleteAsync(
 }
 
 
+const SUBJECT_SETTINGS_PREFIX = "subject_settings:";
+
+export interface CascadeDeleteResult {
+  articles: number;
+  mindMaps: number;
+  mnemonics: number;
+  settings: number;
+  plannerScrubbed: boolean;
+  cardsAffected: number;
+  sourcesAffected: number;
+}
+
+/**
+ * Full category delete: SQLite cascade + KV scrub + cache invalidation.
+ * Call after optimistically removing the row from the in-memory store.
+ */
+export async function deleteCascade(
+  categoryId: string,
+  opts: DeleteCategoryOpts,
+): Promise<CascadeDeleteResult> {
+  const result: CascadeDeleteResult = {
+    articles: 0,
+    mindMaps: 0,
+    mnemonics: 0,
+    settings: 0,
+    plannerScrubbed: false,
+    cardsAffected: 0,
+    sourcesAffected: 0,
+  };
+  if (!categoryId) return result;
+
+  const sqlResult = await deleteAsync(categoryId, opts);
+  if (sqlResult.ok === false) {
+    logger.error("[category-repo] sqlite cascade failed", sqlResult.error);
+    throw new Error(sqlResult.error.message);
+  }
+
+  const settingsKey = SUBJECT_SETTINGS_PREFIX + categoryId;
+  const existed = await getSetting<unknown>(settingsKey);
+  if (existed !== undefined) {
+    await deleteSetting(settingsKey);
+    result.settings = 1;
+  }
+
+  result.plannerScrubbed = scrubCategoryFromPlannerConfig(categoryId);
+
+  notifyCardsChanged({ kind: "category", categoryId });
+  notifyKnowledgeBaseChanged();
+  notifyMnemonics();
+  if (result.mindMaps > 0) invalidateMindMapsCache();
+  if (result.settings > 0) clearSubjectSettings(categoryId);
+  invalidateExaminerProfile(categoryId);
+  backlinkIndex.clear(categoryId);
+  invalidateSourcesCache();
+
+  return result;
+}
+
 export const categoryRepository = {
   // reads
   snapshot: getCategorySnapshot,
@@ -170,4 +230,5 @@ export const categoryRepository = {
   commit,
   replaceAll,
   deleteAsync,
+  deleteCascade,
 };

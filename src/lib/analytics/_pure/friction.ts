@@ -1,6 +1,6 @@
 // Pure stress + friction analytics. Receives `latencyLog` snapshot.
 import type { ReviewLogEntry } from "../../storage";
-import type { LatencyEntry } from "../../metacognitive-storage";
+import type { LatencyEntry } from "@/domains/metacognition/metacognitive-storage";
 
 export interface StressPerformance {
   normalAvgGrade: number;

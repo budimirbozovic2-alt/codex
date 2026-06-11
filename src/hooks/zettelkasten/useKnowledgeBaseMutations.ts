@@ -10,7 +10,7 @@ import {
   deleteArticle,
   bulkCreateArticlesIfMissing,
   type KnowledgeBaseArticle,
-} from "@/lib/zettelkasten-storage";
+} from "@/domains/zettelkasten/zettelkasten-storage";
 
 interface SaveCtx {
   prevAll: KnowledgeBaseArticle[] | undefined;

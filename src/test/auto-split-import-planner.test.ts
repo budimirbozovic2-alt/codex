@@ -5,7 +5,7 @@ import {
 } from "@/lib/auto-split/import-planner";
 import type { DetectedArticle } from "@/lib/auto-split-engine";
 import type { Card } from "@/lib/spaced-repetition";
-import type { Source } from "@/lib/sources-storage";
+import type { Source } from "@/domains/sources/sources-storage";
 
 const art = (num: string, title = ""): DetectedArticle => ({
   articleNum: num,

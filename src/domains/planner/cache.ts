@@ -11,6 +11,10 @@ import type { PlannerConfig, StudyDecade, DisciplineEntry } from "./types";
 import { DEFAULT_CONFIG, PLANNER_CONFIG_VERSION } from "./types";
 import { loadPlannerSnapshot } from "@/lib/db/queries";
 import { logger } from "@/lib/logger";
+import {
+  emitDomainChanged,
+  type PlannerChangedKind,
+} from "@/lib/event-bus";
 
 
 interface DailyMappedSlot {
@@ -25,24 +29,12 @@ let _dailyMapped: DailyMappedSlot = { date: "", count: 0 };
 let _lastRedistributeDate: string = "";
 
 // ─── Change emitter (PR-7f M1 — TanStack bridge) ─────────
-export type PlannerChangeKind =
-  | "config"
-  | "discipline"
-  | "dailyMapped"
-  | "lastRedistribute";
+// PlannerChangedKind is defined in event-bus-types and re-exported from
+// event-bus for consumers that import it by the old name.
+export type { PlannerChangedKind as PlannerChangeKind };
 
-type PlannerListener = (kind: PlannerChangeKind) => void;
-const _plannerListeners = new Set<PlannerListener>();
-
-export function onPlannerChanged(fn: PlannerListener): () => void {
-  _plannerListeners.add(fn);
-  return () => { _plannerListeners.delete(fn); };
-}
-
-function _notify(kind: PlannerChangeKind): void {
-  for (const fn of _plannerListeners) {
-    try { fn(kind); } catch (e) { logger.warn("[planner-cache] listener threw", e); }
-  }
+function _notify(kind: PlannerChangedKind): void {
+  emitDomainChanged({ domain: "planner", kind });
 }
 
 // ─── Accessors (sync) ────────────────────────────────────

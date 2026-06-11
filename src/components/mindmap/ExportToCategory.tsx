@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useCategoryData } from "@/contexts/AppContext";
+import { useCategoryData } from "@/hooks/cards/useCategoryState";
 import { useMindMapMutations } from "@/hooks/mindmap/useMindMapMutations";
 import type { MindMapDoc } from "@/lib/db-types";
 import type { Node, Edge } from "@xyflow/react";

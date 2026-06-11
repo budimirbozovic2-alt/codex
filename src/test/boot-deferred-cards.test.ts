@@ -9,9 +9,9 @@ vi.mock("@/lib/repositories", () => ({
   reviewLogRepository: { loadRecent: vi.fn(async () => []) },
   settingsRepository: { load: vi.fn(async (_k: string, dflt: unknown) => dflt) },
 }));
-vi.mock("@/lib/metacognitive-storage", () => ({ initMetacognitiveCache: vi.fn(async () => {}) }));
+vi.mock("@/domains/metacognition/metacognitive-storage", () => ({ initMetacognitiveCache: vi.fn(async () => {}) }));
 vi.mock("@/domains/planner", () => ({ initPlannerCache: vi.fn(async () => {}) }));
-vi.mock("@/lib/subject-settings", () => ({ initSubjectSettingsCache: vi.fn(async () => {}) }));
+vi.mock("@/domains/subjects/subject-settings", () => ({ initSubjectSettingsCache: vi.fn(async () => {}) }));
 vi.mock("@/lib/boot", () => ({ transition: vi.fn() }));
 vi.mock("@/lib/boot-trace", () => ({ markBootStep: vi.fn() }));
 vi.mock("@/hooks/card-bootstrap/splash", () => ({ splashProgress: vi.fn() }));

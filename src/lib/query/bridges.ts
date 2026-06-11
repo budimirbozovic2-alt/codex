@@ -2,28 +2,23 @@
  * Module-level bridge — pumps invalidations into TanStack.
  * Pinned to globalThis via Symbol to survive Vite HMR.
  *
- * PR-H7 Hardening: Removed hardcoded array leakage
- * to guarantee centralized query key management.
+ * S1/S6 refactor: all domain change subscriptions now route through the
+ * unified event bus (`onDomainChanged`). The BRIDGES_KEY globalThis Symbol
+ * is retained for HMR idempotency — each HMR cycle re-evaluates this module
+ * and would re-register listeners without the guard.
  */
 import type { QueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/query/keys";
-import { onSourcesChanged } from "@/lib/sources-storage";
-import { 
-  onPlannerChanged, 
-  type PlannerChangeKind, 
-  loadPlanner, 
-  loadDisciplineLog 
+import {
+  onDomainChanged,
+  type DomainChangedPayload,
+} from "@/lib/event-bus";
+import {
+  loadPlanner,
+  loadDisciplineLog,
 } from "@/domains/planner";
-import { 
-  onCardsChanged, 
-  onKnowledgeBaseChanged, 
-  type CardsScope 
-} from "@/lib/db/queries";
-import { onMindMapsChanged } from "@/lib/mindmap-storage";
-import { 
-  subscribeMnemonics 
-} from "@/features/mnemonic/mnemonic-storage/cards-repo";
 import { metrics } from "@/lib/metrics";
+import type { CardsChangedScope } from "@/lib/event-bus-types";
 
 const BRIDGES_KEY = Symbol.for("codex.querybridges");
 
@@ -60,7 +55,7 @@ function newCycleId(): string {
 }
 
 function keysForScope(
-  scope: CardsScope
+  scope: CardsChangedScope
 ): readonly (readonly string[])[] {
   switch (scope.kind) {
     case "all":
@@ -159,7 +154,7 @@ function flushCardsInvalidate(qc: QueryClient): void {
 
 function scheduleCardsInvalidate(
   qc: QueryClient, 
-  scope: CardsScope
+  scope: CardsChangedScope
 ): void {
   if (_cycleId === null) {
     _cycleId = newCycleId();
@@ -221,46 +216,45 @@ export function installQueryBridges(qc: QueryClient): void {
   if (state.installed) return;
   state.installed = true;
 
-  state.unsubs.push(onSourcesChanged(() => {
-    metrics.inc("bridges.sources.invalidate");
-    void qc.invalidateQueries({ queryKey: ["sources"] });
-  }));
-
-  state.unsubs.push(onPlannerChanged((kind: PlannerChangeKind) => {
-    metrics.inc(`bridges.planner.${kind}`);
-    switch (kind) {
-      case "config":
-        qc.setQueryData(queryKeys.planner.config(), loadPlanner());
+  state.unsubs.push(onDomainChanged((payload: DomainChangedPayload) => {
+    switch (payload.domain) {
+      case "sources":
+        metrics.inc("bridges.sources.invalidate");
+        void qc.invalidateQueries({ queryKey: ["sources"] });
         break;
-      case "discipline":
-        qc.setQueryData(
-          queryKeys.planner.disciplineLog(), 
-          loadDisciplineLog()
-        );
+      case "planner":
+        metrics.inc(`bridges.planner.${payload.kind}`);
+        switch (payload.kind) {
+          case "config":
+            qc.setQueryData(queryKeys.planner.config(), loadPlanner());
+            break;
+          case "discipline":
+            qc.setQueryData(
+              queryKeys.planner.disciplineLog(), 
+              loadDisciplineLog()
+            );
+            break;
+          case "dailyMapped":
+          case "lastRedistribute":
+            break;
+        }
         break;
-      case "dailyMapped":
-      case "lastRedistribute":
+      case "cards":
+        scheduleCardsInvalidate(qc, payload.scope);
+        break;
+      case "mindmaps":
+        metrics.inc("bridges.mindMaps.invalidate");
+        void qc.invalidateQueries({ queryKey: ["mindMaps"] });
+        break;
+      case "mnemonics":
+        metrics.inc("bridges.mnemonics.invalidate");
+        void qc.invalidateQueries({ queryKey: ["mnemonics"] });
+        break;
+      case "zettelkasten":
+        metrics.inc("bridges.knowledgeBase.invalidate");
+        void qc.invalidateQueries({ queryKey: ["knowledgeBase"] });
         break;
     }
-  }));
-
-  state.unsubs.push(onCardsChanged((scope) => {
-    scheduleCardsInvalidate(qc, scope);
-  }));
-
-  state.unsubs.push(onMindMapsChanged(() => {
-    metrics.inc("bridges.mindMaps.invalidate");
-    void qc.invalidateQueries({ queryKey: ["mindMaps"] });
-  }));
-
-  state.unsubs.push(subscribeMnemonics(() => {
-    metrics.inc("bridges.mnemonics.invalidate");
-    void qc.invalidateQueries({ queryKey: ["mnemonics"] });
-  }));
-
-  state.unsubs.push(onKnowledgeBaseChanged(() => {
-    metrics.inc("bridges.knowledgeBase.invalidate");
-    void qc.invalidateQueries({ queryKey: ["knowledgeBase"] });
   }));
 }
 

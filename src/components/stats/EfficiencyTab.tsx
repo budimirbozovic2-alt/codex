@@ -5,7 +5,7 @@ import { useMemo } from "react";
 import {
   loadSlippageLog, getDeepWorkStats, getTimeDistribution,
   getWeeklyTimeDistribution, RESERVOIR_LABELS, RESERVOIR_COLORS,
-} from "@/lib/metacognitive-storage";
+} from "@/domains/metacognition/metacognitive-storage";
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, AreaChart, Area, CartesianGrid, Legend,

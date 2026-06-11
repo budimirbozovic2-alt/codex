@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { mergeSubjectOverrides, OVERRIDABLE_SUBJECT_KEYS } from "@/lib/subject-settings";
+import { mergeSubjectOverrides, OVERRIDABLE_SUBJECT_KEYS } from "@/domains/subjects/subject-settings";
 
 describe("mergeSubjectOverrides (Phase C / P2-3)", () => {
   const base = {

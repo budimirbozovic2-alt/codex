@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { toast } from "sonner";
-import { addActivityEntry } from "@/lib/metacognitive-storage";
+import { addActivityEntry } from "@/domains/metacognition/metacognitive-storage";
 import { logger } from "@/lib/logger";
 import { ReviewMode, DueItem, ViewWidth, ReviewSessionProps } from "./review/review-constants";
 import { buildItemsForMode } from "@/lib/review-mode-builder";
@@ -12,7 +12,7 @@ import {
   saveReviewSession,
   clearSavedReviewSession,
   type SavedReviewSession,
-} from "@/lib/review-session-storage";
+} from "@/domains/review/review-session-storage";
 
 type SavedSessionState = SavedReviewSession;
 

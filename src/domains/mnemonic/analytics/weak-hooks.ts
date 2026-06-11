@@ -1,7 +1,7 @@
 // Domain-scoped analytics: WRITES to mnemonic IDB (tags "slaba-kuka"),
 // therefore belongs inside the mnemonic domain — NOT in the OLAP layer.
 // Pure compute (`calcBlindSpots`) remains under `@/lib/analytics`.
-import { loadLatency } from "@/lib/metacognitive-storage";
+import { loadLatency } from "@/domains/metacognition/metacognitive-storage";
 import { loadMnemonicCards, saveMnemonicCards } from "@/features/mnemonic";
 
 export interface WeakHook {

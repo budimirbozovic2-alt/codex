@@ -209,7 +209,7 @@ export function usePlannerData(cards: SRCard[], reviewLog: ReviewLogEntry[], cat
   const isConfigured = config.dailyAvailableMinutes > 0 && !!config.finalGoalDate;
 
   // PR-7f M3a — save kroz useMutation (optimistic + rollback via ctx.prev).
-  // Bridge `onPlannerChanged('config')` invalidira ['planner'] nakon notify.
+  // Bridge `domain:changed{planner, config}` invalidira ['planner'] nakon notify.
   const { saveConfig } = usePlannerMutations();
   const save = useCallback((updated: PlannerConfig) => {
     saveConfig.mutate(updated);

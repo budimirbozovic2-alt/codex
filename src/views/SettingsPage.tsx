@@ -1,5 +1,5 @@
-import { useSettingsActions, useReviewData } from "@/contexts/AppContext";
-import { useUIContext } from "@/contexts/AppContext";
+import { useReviewData, useSettingsActions } from "@/hooks/cards/useCardState";
+import { useUIContext } from "@/hooks/useUI";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import SRSettingsPanel from "@/components/SRSettingsPanel";
 

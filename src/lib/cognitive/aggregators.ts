@@ -6,7 +6,7 @@
  */
 import { type Card, getErrorStatus } from "@/lib/spaced-repetition";
 import type { ReviewLogEntry } from "@/lib/storage";
-import type { CalibrationEntry, LatencyEntry } from "@/lib/metacognitive-storage";
+import type { CalibrationEntry, LatencyEntry } from "@/domains/metacognition/metacognitive-storage";
 
 export interface CognitiveCountsSnapshots {
   calibration: CalibrationEntry[];

@@ -1,5 +1,7 @@
 import type React from "react";
-import { useCategoryData, useCardOnlyActions, useUIContext } from "@/contexts/AppContext";
+import { useCardOnlyActions } from "@/hooks/cards/useActions";
+import { useCategoryData } from "@/hooks/cards/useCategoryState";
+import { useUIContext } from "@/hooks/useUI";
 import { useCardById } from "@/store";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import CardForm from "@/components/CardForm";
@@ -31,7 +33,7 @@ export default function EditPage() {
   // strict:true) makes function params contravariant — using Partial<Card>
   // here would be wider than the prop expects and fail assignability.
   const handleUpdate: React.ComponentProps<typeof CardForm>["onUpdate"] = (id, u) => {
-    updateCard(id, u as Partial<Card>);
+    void updateCard(id, u as Partial<Card>);
     setEditingCardId(null);
     navigateBack();
   };

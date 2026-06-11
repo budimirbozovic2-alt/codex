@@ -330,19 +330,27 @@ self.addEventListener("message", (ev: MessageEvent<Req>) => {
   const msg = ev.data;
   void (async () => {
     try {
-      // B-5 / S-1 FIX: Hitno presretanje shutdown-a
       if (msg.op === "shutdown") {
-        clearTxWatchdog();
-        try {
+        // Enqueue shutdown as the very last task so every in-flight write
+        // commits before the DB file is released. If the DB was never
+        // initialised we reply immediately without touching the queue.
+        if (!initPromise) {
+          reply({ id: msg.id, ok: true });
+          self.close();
+          return;
+        }
+        // Wait for init to settle (success or failure), then join the queue.
+        await initPromise.catch(() => { /* ignore init error */ });
+        schedule(msg.id, undefined, async () => {
+          clearTxWatchdog();
           if (currentTxId !== null) {
-             execScript("ROLLBACK");
+            try { execScript("ROLLBACK"); } catch { /* noop */ }
+            currentTxId = null;
           }
-          if (db) db.close();
-        } catch { /* ignore errors during shutdown */ }
-        
-        reply({ id: msg.id, ok: true });
-        // Omogućavamo radniku da ugasi sopstveni thread
-        self.close();
+          try { if (db) db.close(); } catch { /* idempotent */ }
+          reply({ id: msg.id, ok: true });
+          self.close();
+        });
         return;
       }
 

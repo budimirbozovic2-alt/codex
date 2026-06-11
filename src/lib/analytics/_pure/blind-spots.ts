@@ -2,7 +2,7 @@
 // (calcWeakHooks stays in `../blind-spots.ts` because it MUTATES mnemonic
 // cards in IDB — that's a write path, not OLAP.)
 import type { Card } from "../../spaced-repetition";
-import type { CalibrationEntry } from "../../metacognitive-storage";
+import type { CalibrationEntry } from "@/domains/metacognition/metacognitive-storage";
 
 export interface BlindSpot {
   cardId: string;

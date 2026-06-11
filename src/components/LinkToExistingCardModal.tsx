@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import type { Card } from "@/lib/spaced-repetition";
-import { useCategoryData } from "@/contexts/AppContext";
+import { useCategoryData } from "@/hooks/cards/useCategoryState";
 import { afterDialogClose } from "@/lib/dialog-utils";
 import { ContentRenderer } from "@/components/ui/ContentRenderer";
 import { htmlToDoc } from "@/lib/editor-v4";

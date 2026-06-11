@@ -1,10 +1,7 @@
-// Mnemonic cards repository: SQLite-primary CRUD + local change-notifier.
-//
-// P1.3 — DB I/O delegated to `@/lib/db/queries/mnemonics` (SQLite-primary,
-// Dexie mirror). This module retains the listener-based change notifier
-// (`subscribeMnemonics`) consumed across the mnemonic feature.
+// Mnemonic cards repository: SQLite-primary CRUD + domain event notifier.
 
 import { logger } from "@/lib/logger";
+import { emitDomainChanged } from "@/lib/event-bus";
 import {
   listAllMnemonics,
   listMnemonicsByCategory,
@@ -35,21 +32,13 @@ export async function loadMnemonicCardsByCategory(categoryId: string): Promise<M
   }
 }
 
-// ─── Local change-notifier (post Task-B replacement for MNEMONICS_UPDATED) ──
-const _mnemonicListeners = new Set<() => void>();
-export function subscribeMnemonics(cb: () => void): () => void {
-  _mnemonicListeners.add(cb);
-  return () => { _mnemonicListeners.delete(cb); };
-}
 /**
  * Fire-and-forget notify for mnemonic-domain mutations.
  * Exported so sibling repos (major-system, test-log) can signal through the
- * single mnemonic emitter consumed by the TanStack bridge.
+ * unified event bus consumed by the TanStack bridge.
  */
 export function notifyMnemonics(): void {
-  for (const cb of _mnemonicListeners) {
-    try { cb(); } catch (e) { logger.warn("[mnemonic-storage] listener threw", e); }
-  }
+  emitDomainChanged({ domain: "mnemonics" });
 }
 
 export async function saveMnemonicCards(cards: MnemonicCard[]): Promise<void> {

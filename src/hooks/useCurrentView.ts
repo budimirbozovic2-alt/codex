@@ -1,5 +1,5 @@
 import { useLocation } from "react-router-dom";
-import { ActivityType } from "@/lib/metacognitive-storage";
+import { ActivityType } from "@/domains/metacognition/metacognitive-storage";
 
 // ─── Types ──────────────────────────────────────────────
 export type View = "dashboard" | "edit" | "review" | "categories" | "learn" | "settings" | "stats" | "planner";

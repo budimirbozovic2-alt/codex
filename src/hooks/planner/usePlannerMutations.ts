@@ -4,7 +4,7 @@
  * Sve write-pozive na `planner-storage` rutiramo kroz `useMutation`:
  *   - optimistic `setQueryData` u onMutate (snapshot za rollback),
  *   - rollback iz onError ctx,
- *   - bridge (`onPlannerChanged → invalidateQueries(['planner'])`)
+ *   - bridge (`domain:changed{planner} → setQueryData(['planner'])`)
  *     automatski refetcha derived calcove nakon što repo emituje notify.
  *
  * Ref-Delta + ručno seedanje cache-a iz `usePlannerData.save` zamijenjeno

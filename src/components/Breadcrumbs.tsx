@@ -1,7 +1,7 @@
 import { ChevronRight } from "lucide-react";
 import { useLocation, Link } from "react-router-dom";
 import { useMemo, memo } from "react";
-import { useCategoryData } from "@/contexts/AppContext";
+import { useCategoryData } from "@/hooks/cards/useCategoryState";
 
 const ROUTE_LABELS: Record<string, string> = {
   "/": "Početna tabla",

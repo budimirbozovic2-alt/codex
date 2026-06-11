@@ -5,9 +5,9 @@
  * PR-H7 Hardening: Fully wrapped signatures and string literals
  * to strictly enforce the Safe-Paste constraint.
  */
-import type { KnowledgeBaseArticle } from "./db-types";
-import { assertTagsNormalized } from "./zettelkasten-tags";
-import { assertAliasesNormalized } from "./zettelkasten-aliases";
+import type { KnowledgeBaseArticle } from "@/lib/db-types";
+import { assertTagsNormalized } from "@/lib/zettelkasten-tags";
+import { assertAliasesNormalized } from "@/lib/zettelkasten-aliases";
 import {
   getArticle as repoGetArticle,
   listArticlesBySubject as repoListBySubject,
@@ -16,7 +16,7 @@ import {
   putArticle as repoPutArticle,
   bulkPutArticles as repoBulkPut,
   deleteArticle as repoDeleteArticle,
-} from "./db/queries/knowledge-base";
+} from "@/lib/db/queries/knowledge-base";
 import { logger } from "@/lib/logger";
 
 export type { KnowledgeBaseArticle };

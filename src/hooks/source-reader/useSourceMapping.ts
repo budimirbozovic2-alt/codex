@@ -1,7 +1,7 @@
 import { useCallback } from "react";
 import { toast } from "sonner";
-import { useCardOnlyActions } from "@/contexts/AppContext";
-import { type Source } from "@/lib/sources-storage";
+import { useCardOnlyActions } from "@/hooks/cards/useActions";
+import { type Source } from "@/domains/sources/sources-storage";
 import { useSourceReaderStore } from "@/store";
 import { firstWords, type SelectionModule } from "@/lib/selection-split-engine";
 import { sanitizeHtml } from "@/lib/sanitize";

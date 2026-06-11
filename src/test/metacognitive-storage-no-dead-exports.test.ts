@@ -3,7 +3,7 @@ import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join, resolve } from "node:path";
 
 /**
- * Static grep/AST guard: svaki `export` iz `src/lib/metacognitive-storage.ts`
+ * Static grep/AST guard: svaki `export` iz `src/domains/metacognition/metacognitive-storage.ts`
  * mora imati BAR JEDNOG potrošača izvan samog modula.
  *
  * Cilj: rano uočiti mrtve reference (npr. legacy API-je koji su preživjeli
@@ -14,7 +14,7 @@ import { join, resolve } from "node:path";
  * EXTERNALNO neiskorištene exporte koje TS/ESLint ne mogu vidjeti.
  */
 
-const MODULE_PATH = "src/lib/metacognitive-storage.ts";
+const MODULE_PATH = "src/domains/metacognition/metacognitive-storage.ts";
 const SRC_ROOT = resolve(__dirname, "..");
 
 // Eksplicitno dozvoljeni "rezervni" exporti — zadržani kao stabilan public API

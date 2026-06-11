@@ -6,7 +6,8 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { Badge } from "@/components/ui/badge";
-import { useCategoryData, useCategoryStatsData } from "@/contexts/AppContext";
+import { useCategoryData } from "@/hooks/cards/useCategoryState";
+import { useCategoryStatsData } from "@/hooks/cards/useCardState";
 
 const STATIC_NAV = [
   { path: "/", icon: Home, label: "Početna tabla" },

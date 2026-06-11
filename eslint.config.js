@@ -169,7 +169,7 @@ export default tseslint.config(
   // importi, lokalne varijable, parametri ili nedostupan kod — kako bi se
   // mrtve grane uočile u CI-ju, a ne u ručnoj reviziji.
   {
-    files: ["src/lib/metacognitive-storage.ts"],
+    files: ["src/domains/metacognition/metacognitive-storage.ts"],
     rules: {
       "@typescript-eslint/no-unused-vars": [
         "error",
@@ -336,7 +336,7 @@ export default tseslint.config(
           patterns: [
             { group: ["@/lib/storage", "@/lib/storage/*"], message: "_pure analytics ne smije čitati storage. Inject snapshote." },
             { group: ["@/lib/db", "@/lib/db/*"], message: "_pure analytics ne smije pristupati IDB. Inject snapshote." },
-            { group: ["@/lib/metacognitive-storage"], message: "_pure analytics ne smije čitati metacognitive-storage. Inject snapshote." },
+            { group: ["@/domains/metacognition/metacognitive-storage"], message: "_pure analytics ne smije čitati metacognitive-storage runtime. Inject snapshote (type-only import je dozvoljen).", allowTypeImports: true },
             // Type-only imports from planner are allowed (`import type { ... }`); runtime reads are not.
             { group: ["@/domains/planner", "@/domains/planner/*"], message: "_pure analytics ne smije čitati planner runtime. Inject snapshote (type-only import je dozvoljen).", allowTypeImports: true },
             { group: ["@/domains/cards", "@/domains/cards/*"], message: "_pure analytics ne smije pristupati card domenu. Inject snapshote." },

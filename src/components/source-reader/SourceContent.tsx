@@ -6,7 +6,7 @@ import { buildSourceFromDoc } from "@/lib/services/sourceEditingService";
 import { useSourceMutations } from "@/hooks/source/useSourceMutations";
 import { taskScheduler } from "@/lib/scheduler";
 import { usePersistedDraftMirror } from "@/hooks/usePersistedDraftMirror";
-import type { Source } from "@/lib/sources-storage";
+import type { Source } from "@/domains/sources/sources-storage";
 import { cn } from "@/lib/utils";
 
 interface Props {

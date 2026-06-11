@@ -6,11 +6,11 @@
  */
 import { useCallback, useEffect, useMemo, useReducer, useState } from "react";
 import { toast } from "sonner";
-import { useCardOnlyActions } from "@/contexts/AppContext";
+import { useCardOnlyActions } from "@/hooks/cards/useActions";
 import { useCardsBySource } from "@/store";
 import { detectArticles } from "@/lib/auto-split-engine";
 import { deriveHtml } from "@/lib/editor-v4/derived";
-import type { Source } from "@/lib/sources-storage";
+import type { Source } from "@/domains/sources/sources-storage";
 import {
   buildArticleRows, mergeRows, ungroupRow, buildImportPlan,
   type ArticleRow,

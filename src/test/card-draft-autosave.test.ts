@@ -4,8 +4,8 @@
  * F6 final-Dexie-drop: routes through SQLite drafts repo via the harness;
  * direct Dexie poking is gone.
  */
-import { describe, expect, it } from "vitest";
-import { renderHook, waitFor } from "@testing-library/react";
+import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
+import { act, renderHook } from "@testing-library/react";
 
 import {
   buildDraftKey,
@@ -14,7 +14,7 @@ import {
   type CardDraftSnapshot,
 } from "@/hooks/useCardDraftAutosave";
 import { getDraft, putDraft } from "@/lib/db/queries";
-import { flushMacrotasks } from "./helpers/timers";
+import { flushMicrotasks } from "./helpers/timers";
 
 const baseDraft = (overrides: Partial<CardDraftSnapshot> = {}): CardDraftSnapshot => ({
   cardType: "essay",
@@ -43,6 +43,13 @@ describe("buildDraftKey", () => {
 });
 
 describe("useCardDraftAutosave", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it("debounces writes and persists meaningful drafts", async () => {
     const key = "cardform:new:cat-1";
     const draft = baseDraft({ question: "Šta je ugovor o radu?" });
@@ -50,12 +57,15 @@ describe("useCardDraftAutosave", () => {
     renderHook(() => useCardDraftAutosave(key, draft, true));
 
     expect(await getStored(key)).toBeUndefined();
-    await waitFor(async () => {
-      const row = await getStored(key);
-      expect(row).toBeTruthy();
-      const payload = row!.payload as CardDraftSnapshot & { savedAt: number };
-      expect(payload.question).toBe("Šta je ugovor o radu?");
-    }, { timeout: 2000, interval: 25 });
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(600);
+      await flushMicrotasks();
+    });
+    const row = await getStored(key);
+    expect(row).toBeTruthy();
+    const payload = row!.payload as CardDraftSnapshot & { savedAt: number };
+    expect(payload.question).toBe("Šta je ugovor o radu?");
   });
 
   it("does not persist empty drafts and clears stale rows", async () => {
@@ -68,7 +78,11 @@ describe("useCardDraftAutosave", () => {
     });
 
     renderHook(() => useCardDraftAutosave(key, baseDraft(), true));
-    await waitFor(async () => { expect(await getStored(key)).toBeUndefined(); }, { timeout: 2000, interval: 25 });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(600);
+      await flushMicrotasks();
+    });
+    expect(await getStored(key)).toBeUndefined();
   });
 
   it("respects enabled=false (no writes)", async () => {
@@ -76,13 +90,10 @@ describe("useCardDraftAutosave", () => {
     const draft = baseDraft({ question: "should not write" });
 
     renderHook(() => useCardDraftAutosave(key, draft, false));
-    // No debounce is ever scheduled when enabled=false, so a short poll
-    // window is enough to assert the row stays absent without a wall-clock wait.
-    for (let i = 0; i < 5; i++) {
-      // PR-G8: was `await new Promise(r => setTimeout(r, 0))` — use shared helper.
-      await flushMacrotasks();
-      expect(await getStored(key)).toBeUndefined();
-    }
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(600);
+    });
+    expect(await getStored(key)).toBeUndefined();
   });
 
   it("clearDraft removes the row", async () => {
@@ -90,10 +101,19 @@ describe("useCardDraftAutosave", () => {
     const draft = baseDraft({ question: "to be cleared" });
 
     const { result } = renderHook(() => useCardDraftAutosave(key, draft, true));
-    await waitFor(async () => { expect(await getStored(key)).toBeTruthy(); }, { timeout: 2000, interval: 25 });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(600);
+      await flushMicrotasks();
+    });
+    expect(await getStored(key)).toBeTruthy();
 
-    result.current.clearDraft();
-    await waitFor(async () => { expect(await getStored(key)).toBeUndefined(); }, { timeout: 2000, interval: 25 });
+    await act(async () => {
+      result.current.clearDraft();
+      // clearDraft() fires void deleteDraft() — drain the async SQLite write
+      // before asserting the row is gone.
+      await flushMicrotasks();
+    });
+    expect(await getStored(key)).toBeUndefined();
   });
 });
 

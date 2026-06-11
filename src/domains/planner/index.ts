@@ -32,7 +32,7 @@ export type {
 } from "./types";
 export { DEFAULT_CONFIG } from "./types";
 
-export { initPlannerCache, onPlannerChanged, type PlannerChangeKind } from "./cache";
+export { initPlannerCache, type PlannerChangeKind } from "./cache";
 export { loadPlanner, savePlanner } from "./config";
 export { scrubCategoryFromPlannerConfig } from "./scrub";
 export { calcVelocity, calcEstimatedFinish, getProjectionText } from "./velocity";

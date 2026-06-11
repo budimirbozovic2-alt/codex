@@ -1,14 +1,10 @@
 /**
- * DB error / event facade (Phase C — Dexie removed).
+ * DB error / event facade.
  *
  * Provides the IoC seam used by `main.tsx` to inject `eventBus` into the
  * persistence layer (so DB infra events flow through without circular
  * dependency on `event-bus`), plus the shared `DbErrorState` consumed by
  * `useDbError` / `RecoveryGate`.
- *
- * The pre-A1c watchdog (blocked-rejecter registry, unblock interval, throttled
- * blocked emitter, scheduled reload) was tied to the Dexie shell and was
- * removed in Wave 4. SQLite native concurrency replaces all of it.
  */
 import { EVENT_TYPES, type EventType } from "./event-bus-types";
 
@@ -42,11 +38,3 @@ export function setDbErrorState(next: DbErrorState): void {
   try { _emit(EVENT_TYPES.DB_ERROR_CHANGED, next); } catch { /* noop */ }
 }
 
-/**
- * Watchdog teardown kept as a no-op for backwards compatibility with the
- * single remaining call site in `useDbError`. Safe to remove once that
- * consumer drops the import.
- */
-export function __teardownDbWatchdog(): void {
-  /* noop — A1c removed the unblock interval that this used to clear. */
-}

@@ -134,16 +134,33 @@ export default defineConfig(({ mode }) => ({
   build: {
     emptyOutDir: true,
     sourcemap: false,
+    // Electron 41 bundles Chromium 130 — target it directly so Vite/esbuild
+    // skips polyfills for features already native in that engine.
+    target: "chrome130",
     rollupOptions: {
       output: {
         manualChunks(id) {
-          if (!id.includes("node_modules")) return;
+          if (!id.includes("node_modules")) {
+            // Prevent app-level modules from being duplicated across async
+            // entry points when they are imported from multiple code paths.
+            if (id.includes("dev-fallback")) return "infra-dev-fallback";
+            if (id.includes("worker-client")) return "infra-worker-client";
+            if (id.includes("electron-integration")) return "infra-electron";
+            return;
+          }
           if (id.includes("react-router")) {
             return "vendor-router";
           }
+          // Keep React + Radix + sonner in one chunk. Splitting Radix out
+          // caused a circular dep in Electron prod: vendor-radix imported
+          // vendor-react while vendor-react pulled the shared CJS interop
+          // helper from infra-electron (where sonner lived), and
+          // infra-electron imported vendor-radix — React was still undefined
+          // when Radix called forwardRef.
           if (
-            /node_modules[\\/](react|react-dom|scheduler)[\\/]/
-            .test(id)
+            /node_modules[\\/](react|react-dom|scheduler)[\\/]/.test(id) ||
+            id.includes("@radix-ui") ||
+            id.includes("node_modules/sonner")
           ) {
             return "vendor-react";
           }
@@ -157,20 +174,14 @@ export default defineConfig(({ mode }) => ({
           ) {
             return "vendor-motion";
           }
-          if (id.includes("recharts")) return "vendor-recharts";
-          if (
-            id.includes("/d3-") || 
-            id.includes("victory-vendor")
-          ) {
-            return "vendor-d3";
-          }
-          if (id.includes("@radix-ui")) return "vendor-radix";
-          if (
-            id.includes("@tiptap") || 
-            id.includes("prosemirror")
-          ) {
-            return "vendor-tiptap";
-          }
+          // Do NOT manual-chunk recharts. A shared vendor-recharts chunk imports
+          // CJS interop helpers from infra-electron while infra-electron
+          // preloads vendor-recharts → TDZ crash (Cannot access 'A' before init).
+          // Keep recharts in lazy route chunks (Stats/Planner) instead.
+          //
+          // Same for @tiptap/prosemirror: infra-electron pulls editor-v4 codecs
+          // (docToHtml, htmlToDoc) while vendor-tiptap imported CJS helpers back
+          // from infra-electron → React.useState undefined at chunk init.
           if (
             id.includes("@xyflow") || 
             id.includes("reactflow")

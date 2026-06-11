@@ -25,6 +25,9 @@ export function showSplashError(msg: string) {
 }
 
 export function cleanupSplash() {
+  // #region agent log
+  fetch('http://127.0.0.1:7244/ingest/bbcc467f-b810-4cc1-aebf-add63a6395ee',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'f62800'},body:JSON.stringify({sessionId:'f62800',location:'splash.ts:cleanupSplash',message:'cleanupSplash called',data:{hasSplash:!!document.getElementById('app-splash'),hasFallback:!!document.getElementById('boot-fallback'),fallbackVisible:document.getElementById('boot-fallback')?.style?.display},hypothesisId:'B',runId:'run1',timestamp:Date.now()})}).catch(()=>{});
+  // #endregion
   try {
     const splash = document.getElementById("app-splash");
     if (splash) {
@@ -37,6 +40,9 @@ export function cleanupSplash() {
 }
 
 export function forceRemoveSplash() {
+  // #region agent log
+  fetch('http://127.0.0.1:7244/ingest/bbcc467f-b810-4cc1-aebf-add63a6395ee',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'f62800'},body:JSON.stringify({sessionId:'f62800',location:'splash.ts:forceRemoveSplash',message:'forceRemoveSplash called',data:{hasFallback:!!document.getElementById('boot-fallback')},hypothesisId:'B',runId:'run1',timestamp:Date.now()})}).catch(()=>{});
+  // #endregion
   try {
     const splash = document.getElementById("app-splash");
     if (splash) splash.remove();

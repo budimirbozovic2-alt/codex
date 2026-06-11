@@ -1,21 +1,20 @@
 import { useCallback } from "react";
 import { toast } from "sonner";
-import { createCard } from "@/lib/spaced-repetition";
+import { createCard, type Card as SpacedCard } from "@/lib/spaced-repetition";
 import { htmlToDoc } from "@/lib/editor-v4";
-import { invalidateSourcesCache } from "@/lib/sources-storage";
+import { invalidateSourcesCache } from "@/domains/sources/sources-storage";
 import { BackupSchema, type ParsedBackup } from "@/lib/migrations/backup-schema";
 import { migrateBackup, migrateRaw, BackupVersionError } from "@/lib/backup/migrate";
 import { yieldUI } from "@/lib/backup/yield-ui";
 import { applyImportAtomically, type ImportStrategy } from "@/lib/backup/import-transaction";
 import { parseJsonInWorker } from "@/lib/zip-service";
-import { clearReviewSession } from "@/lib/review-session-storage";
+import { clearReviewSession } from "@/domains/review/review-session-storage";
 import {
   announceCardsReplaced,
   bulkPutCardsDirect,
   listAllCards,
 } from "@/lib/db/queries";
 import { categoryRepository } from "@/lib/repositories";
-import { arrayToMap } from "@/lib/persist-queue";
 import { replaceReviewLog, updateSRSettings } from "@/store/reviewSettingsStore";
 
 import { logger } from "@/lib/logger";
@@ -121,7 +120,9 @@ export function useCardImport() {
       let result2: Awaited<ReturnType<typeof applyImportAtomically>>;
       try {
         // Build baseline from SQLite (former RAM cardMap is gone post PR-E).
-        const baseline = arrayToMap(await listAllCards());
+        const allCards = await listAllCards();
+        const baseline: Record<string, SpacedCard> = {};
+        for (const c of allCards) baseline[c.id] = c;
         result2 = await applyImportAtomically({
           parsed,
           strategy,

@@ -3,7 +3,7 @@
  *
  * Replaces the legacy `useState + useEffect + listener` pattern in
  * `useZettelkastenBootstrap`. Invalidation flows automatically via
- * `bridges.ts` (`onKnowledgeBaseChanged → invalidateQueries(['knowledgeBase'])`).
+ * `bridges.ts` (`domain:changed{zettelkasten} → invalidateQueries(['knowledgeBase'])`).
  *
  * Two flavours:
  *  - `useKnowledgeBaseArticlesBySubject(subjectId)` — primary view scope,
@@ -15,7 +15,7 @@ import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import {
   loadArticlesBySubject,
   type KnowledgeBaseArticle,
-} from "@/lib/zettelkasten-storage";
+} from "@/domains/zettelkasten/zettelkasten-storage";
 import { listAllKnowledgeBaseArticles as listAllArticles } from "@/lib/db/queries";
 import { queryKeys } from "@/lib/query/keys";
 

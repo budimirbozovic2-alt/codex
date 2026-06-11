@@ -26,7 +26,7 @@ import {
   findArticleByTitle,
   newArticle,
   type KnowledgeBaseArticle,
-} from "@/lib/zettelkasten-storage";
+} from "@/domains/zettelkasten/zettelkasten-storage";
 import { backlinkIndex } from "@/lib/backlink-index";
 
 const SUBJECT = "subject-integration";

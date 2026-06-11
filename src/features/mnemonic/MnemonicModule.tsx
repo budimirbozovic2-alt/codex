@@ -2,7 +2,8 @@ import { CheckCircle2, Brain, Wrench, FlaskConical, Sparkles, Hash, HelpCircle, 
 import InfoPanel from "@/components/InfoPanel";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useState, useCallback, useMemo } from "react";
-import { useCardOnlyActions, useCategoryData } from "@/contexts/AppContext";
+import { useCardOnlyActions } from "@/hooks/cards/useActions";
+import { useCategoryData } from "@/hooks/cards/useCategoryState";
 import {
   MnemonicCard,
   getMnemonicStats,
@@ -66,7 +67,7 @@ interface Props {
 export default function MnemonicModule({ embedded = false, categoryFilter }: Props = {}) {
   const { patchCard } = useCardOnlyActions();
   const { categoryRecords } = useCategoryData();
-  // PR-7f M2 — TanStack read-path; invalidacija via `subscribeMnemonics` bridge.
+  // PR-7f M2 — TanStack read-path; invalidacija via `domain:changed{mnemonics}` bridge.
   const { cards } = useMnemonicCards(categoryFilter);
   // PR-7f M3c — write-path via useMutation (optimistic + rollback).
   const { saveCards, deleteCard: deleteCardMutation, logTestResult } = useMnemonicMutations();

@@ -24,9 +24,17 @@ export async function loadInitialData(): Promise<InitialData> {
   splashProgress(15, "Inicijalizacija keša…");
   transition({ type: "LOAD_PROGRESS", pct: 15, label: "Inicijalizacija keša…" });
   if (import.meta.env.DEV) logger.log("[boot:diag] step 3: initCaches");
-  const { initMetacognitiveCache } = await import("@/lib/metacognitive-storage");
-  const { initPlannerCache } = await import("@/domains/planner");
-  const { initSubjectSettingsCache } = await import("@/lib/subject-settings");
+  // Load all three cache modules in parallel — previously sequential awaits
+  // added ~100-200 ms of unnecessary waterfall before the cache init started.
+  const [
+    { initMetacognitiveCache },
+    { initPlannerCache },
+    { initSubjectSettingsCache },
+  ] = await Promise.all([
+    import("@/domains/metacognition/metacognitive-storage"),
+    import("@/domains/planner"),
+    import("@/domains/subjects/subject-settings"),
+  ]);
   await withTimeout(
     Promise.all([
       initMetacognitiveCache().catch((e) => logger.warn("[silent]", e)),

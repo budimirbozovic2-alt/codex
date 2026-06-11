@@ -1,8 +1,8 @@
 /**
  * Phase B (P1) smoke tests.
  *
- * 1. SessionContext: `isProcessing` is now derived from
- *    `isEnding || persistQueue.hasPending()` — no setTimeout padding.
+ * 1. SessionContext: `isProcessing` is `isEnding || pendingMutations` —
+ *    no setTimeout padding.
  * 2. JSON serialize client falls back to synchronous stringify when no
  *    Worker is available (jsdom environment).
  * 3. Wiki-link auto-create no longer keeps `articles` in its main deps —
@@ -11,15 +11,23 @@
 
 import { describe, it, expect } from "vitest";
 import { renderHook, act } from "@testing-library/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useSessionContext } from "@/hooks/useSession";
-import { persistQueue } from "@/lib/persist-queue";
 import { serializeRowsInWorker } from "@/lib/backup/json-serialize-client";
 import fs from "node:fs";
 import path from "node:path";
 
+function makeWrapper() {
+  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  const Wrapper = ({ children }: { children: React.ReactNode }) => (
+    <QueryClientProvider client={qc}>{children}</QueryClientProvider>
+  );
+  return Wrapper;
+}
+
 describe("Phase B / P1", () => {
-  it("SessionContext: isProcessing clears as soon as queue drains (no setTimeout padding)", async () => {
-    const { result } = renderHook(() => useSessionContext());
+  it("SessionContext: isProcessing clears immediately after endSession resolves (no padding)", async () => {
+    const { result } = renderHook(() => useSessionContext(), { wrapper: makeWrapper() });
 
     expect(result.current.isProcessing).toBe(false);
     act(() => result.current.startSession([], []));
@@ -31,7 +39,6 @@ describe("Phase B / P1", () => {
 
     // With no pending writes, isProcessing must be false immediately after
     // endSession resolves — no arbitrary 200ms delay.
-    expect(persistQueue.hasPending()).toBe(false);
     expect(result.current.isProcessing).toBe(false);
   });
 

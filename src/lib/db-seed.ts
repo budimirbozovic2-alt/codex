@@ -1,5 +1,4 @@
-// A1c-4 F1 — seed switched to SQLite via `queries/categories`. Dexie copy
-// is gone. Boot still calls `seedDefaultCategories()` from `loadInitialData`.
+// Seed default categories via `queries/categories`. Called from `loadInitialData`.
 import type { CategoryRecord } from "./db-types";
 import {
   listAllCategories,
@@ -40,11 +39,8 @@ export async function seedDefaultCategories(): Promise<CategoryRecord[]> {
   const existing = await listAllCategories();
   if (existing.length > 0) return existing;
   const defaults = createDefaultCategories();
-  // Wave-1 fix: previously caught and swallowed `bulkPutCategories` failure
-  // and still returned `defaults`. The next boot would find SQLite empty,
-  // re-seed with brand-new UUIDs, and orphan every card that referenced
-  // the previous IDs. Re-throw so the boot caller surfaces the failure to
-  // the recovery UI instead of silently rotating category IDs.
+  // Re-throw on failure so the boot caller surfaces it to the recovery UI
+  // instead of silently seeding new UUIDs (which would orphan existing cards).
   await bulkPutCategories(defaults);
   if (import.meta.env.DEV) {
     logger.log(`[seed] Inserted ${defaults.length} default categories`);

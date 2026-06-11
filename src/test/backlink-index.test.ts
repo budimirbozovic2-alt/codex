@@ -4,7 +4,7 @@
  */
 import { describe, expect, it, beforeEach } from "vitest";
 import { backlinkIndex } from "@/lib/backlink-index";
-import type { KnowledgeBaseArticle } from "@/lib/zettelkasten-storage";
+import type { KnowledgeBaseArticle } from "@/domains/zettelkasten/zettelkasten-storage";
 
 const SUBJ = "subj-X";
 const SUBJ2 = "subj-Y";

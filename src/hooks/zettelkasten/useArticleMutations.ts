@@ -16,7 +16,7 @@ import {
   newArticle,
   findArticleByTitle,
   type KnowledgeBaseArticle,
-} from "@/lib/zettelkasten-storage";
+} from "@/domains/zettelkasten/zettelkasten-storage";
 import { backlinkIndex } from "@/lib/backlink-index";
 import { useKnowledgeBaseMutations } from "@/hooks/zettelkasten/useKnowledgeBaseMutations";
 import type { ArticleDraftApi } from "./useArticleDraft";

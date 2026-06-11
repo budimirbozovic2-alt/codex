@@ -1,6 +1,6 @@
 import { useCallback } from "react";
 import { toast } from "sonner";
-import type { Source } from "@/lib/sources-storage";
+import type { Source } from "@/domains/sources/sources-storage";
 import { buildAutoFormatSource } from "@/lib/services/sourceEditingService";
 import { useSourceMutations } from "@/hooks/source/useSourceMutations";
 

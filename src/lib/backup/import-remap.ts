@@ -119,9 +119,10 @@ async function applyRemapToSatellites(
 
 /** Drop satellite rows whose `categoryId` no longer exists, and sanitize empty strings. */
 export function pruneOrphans(parsed: ParsedBackup, validCategoryIds: Set<string>): void {
-  // Empty strings become undefined so SQLite writes NULL instead of throwing
-  // an FK-787 violation on a non-nullable foreign key column.
-  const cleanFk = (id: string | null | undefined) => (id === "" ? undefined : id);
+  // Empty strings and null become undefined so SQLite writes NULL instead of
+  // throwing an FK-787 violation on a non-nullable foreign key column.
+  const cleanFk = (id: string | null | undefined) =>
+    id == null || id === "" ? undefined : id;
 
   parsed.sources = parsed.sources.filter((s) => {
     s.categoryId = cleanFk(s.categoryId) as string | undefined;
@@ -138,14 +139,25 @@ export function pruneOrphans(parsed: ParsedBackup, validCategoryIds: Set<string>
     return !a.subjectId || validCategoryIds.has(a.subjectId);
   });
 
+  // #region agent log
+  const _mapsBeforeFilter = parsed.mindMaps.length;
+  // #endregion
   parsed.mindMaps = parsed.mindMaps.filter((m) => {
     m.categoryId = cleanFk(m.categoryId) as string | undefined;
-    return !m.categoryId || validCategoryIds.has(m.categoryId);
+    // mindMaps.categoryId is NOT NULL in the schema — unlike nullable FK columns
+    // (sources.categoryId, mnemonics.categoryId) this column CANNOT be NULL.
+    // A mindMap without a valid categoryId must be dropped, not kept.
+    // Keeping it (old `!m.categoryId` short-circuit) caused FK-787 because
+    // bindMindMap converts undefined back to "" which is not a valid category id.
+    return !!m.categoryId && validCategoryIds.has(m.categoryId);
   });
+  // #region agent log
+  fetch('http://127.0.0.1:7244/ingest/bbcc467f-b810-4cc1-aebf-add63a6395ee',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'f62800'},body:JSON.stringify({sessionId:'f62800',location:'import-remap.ts:pruneOrphans',message:'mindMaps pruned',data:{before:_mapsBeforeFilter,after:parsed.mindMaps.length,dropped:_mapsBeforeFilter-parsed.mindMaps.length,sample:parsed.mindMaps.slice(0,3).map(m=>({id:m.id,categoryId:m.categoryId})),validCategoryIds:Array.from(validCategoryIds)},hypothesisId:'FK-mindMap-null-categoryId',runId:'fix1',timestamp:Date.now()})}).catch(()=>{});
+  // #endregion
 
   // Safety net: cards are written from `merged` in the hot path.
   parsed.cards = parsed.cards.filter((c) => {
-    c.categoryId = cleanFk(c.categoryId) as string;
+    c.categoryId = cleanFk(c.categoryId) as string | undefined;
     return !c.categoryId || validCategoryIds.has(c.categoryId);
   });
 }

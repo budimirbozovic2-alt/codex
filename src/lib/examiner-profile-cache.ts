@@ -1,5 +1,5 @@
 // Synchronous, in-memory examiner-profile cache keyed by categoryId.
-// Primed from AppContext.categoryRecords on load and on every mutation,
+// Primed from categoryRecords on load and on every mutation,
 // so callers in the SRS hot-path (calculateNextReview / reviewSection)
 // can read it without async/await and without an "undefined first call".
 //

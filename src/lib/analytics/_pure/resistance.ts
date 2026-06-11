@@ -10,7 +10,7 @@
 import type { Card, Section } from "../../spaced-repetition";
 import { SectionState } from "../../spaced-repetition";
 import type { ReviewLogEntry } from "../../storage";
-import type { LatencyEntry } from "../../metacognitive-storage";
+import type { LatencyEntry } from "@/domains/metacognition/metacognitive-storage";
 
 export interface ResistanceWeights {
   lapses: number;

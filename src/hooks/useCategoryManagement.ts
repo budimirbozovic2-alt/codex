@@ -1,10 +1,9 @@
 import { useCallback } from "react";
 
 import type { CategoryRecord, SubcategoryNode, ChapterNode, ExaminerProfile } from "@/lib/db-types";
-import { invalidateSourcesCache } from "@/lib/sources-storage";
-import { cascadeDeleteCategoryDomains } from "@/lib/category-deletion-service";
+import { invalidateSourcesCache } from "@/domains/sources/sources-storage";
+import { categoryRepository } from "@/lib/repositories";
 import { toast } from "sonner";
-import { optimisticCategoryUpdate } from "@/lib/category-service";
 import { stableLegacyId } from "@/lib/stable-id";
 import {
   clearCardsSubcategoryRefs,
@@ -12,18 +11,8 @@ import {
   reassignCardsSubcategory,
   notifyCardsChanged,
 } from "@/lib/db/queries";
-import { getCategoryStoreRecords, setCategoryStoreRecords } from "@/store";
+import { getCategoryStoreRecords } from "@/store";
 import { logger } from "@/lib/logger";
-
-// Stable module-level setter — proxies into the categoryStore mirror.
-const setCategoryRecords: React.Dispatch<React.SetStateAction<CategoryRecord[]>> = (action) => {
-  const prev = getCategoryStoreRecords();
-  const next = typeof action === "function"
-    ? (action as (p: CategoryRecord[]) => CategoryRecord[])(prev)
-    : action;
-  if (next === prev) return;
-  setCategoryStoreRecords(next);
-};
 
 const getCategoryRecords = (): { id: string; name: string }[] => getCategoryStoreRecords();
 
@@ -61,10 +50,9 @@ export function useCategoryManagement() {
     (name: string) => {
       const newId = crypto.randomUUID();
       const newRec: CategoryRecord = { id: newId, name, sortOrder: 9999, subcategories: [] };
-      optimisticCategoryUpdate(
-        setCategoryRecords,
+      void categoryRepository.commit(
         prev => prev.some(r => r.id === newId) ? prev : [...prev, newRec],
-        "addCategory"
+        "addCategory",
       );
     },
     [],
@@ -72,10 +60,9 @@ export function useCategoryManagement() {
 
   const renameCategory = useCallback(
     (categoryId: string, newName: string) => {
-      optimisticCategoryUpdate(
-        setCategoryRecords,
+      void categoryRepository.commit(
         prev => prev.map(r => r.id === categoryId ? { ...r, name: newName } : r),
-        "renameCategory"
+        "renameCategory",
       );
       invalidateSourcesCache();
     },
@@ -86,22 +73,21 @@ export function useCategoryManagement() {
   // The atomic SQL transaction in `categoryRepository.deleteAsync` handles
   // cards + sources re-parent/purge in a single ACID step, and FK CASCADE
   // wipes mindMaps / mnemonics / knowledgeBaseArticles. TanStack consumers
-  // are refreshed via `notifyCardsChanged()` inside `cascadeDeleteCategoryDomains`.
+  // are refreshed via `notifyCardsChanged()` inside `categoryRepository.deleteCascade`.
   const deleteCategory = useCallback(
     (categoryId: string, purgeCards = false) => {
       const currentRecs = getCategoryRecords();
       const remaining = currentRecs.filter(r => r.id !== categoryId);
       const fallbackId = remaining.length > 0 ? remaining[0].id : "";
 
-      optimisticCategoryUpdate(
-        setCategoryRecords,
+      void categoryRepository.commit(
         prev => prev.filter(r => r.id !== categoryId),
-        "deleteCategory"
+        "deleteCategory",
       );
 
       void (async () => {
         try {
-          await cascadeDeleteCategoryDomains(categoryId, { purgeCards, fallbackId });
+          await categoryRepository.deleteCascade(categoryId, { purgeCards, fallbackId });
           invalidateSourcesCache();
         } catch (err) {
           logger.error("[deleteCategory] cascade failed", err);
@@ -114,8 +100,7 @@ export function useCategoryManagement() {
 
   const addSubcategory = useCallback(
     (categoryId: string, subName: string) => {
-      optimisticCategoryUpdate(
-        setCategoryRecords,
+      void categoryRepository.commit(
         prev => prev.map(r => {
           if (r.id !== categoryId) return r;
           const nodes = getNodes(r);
@@ -130,8 +115,7 @@ export function useCategoryManagement() {
 
   const renameSubcategory = useCallback(
     (categoryId: string, subcategoryId: string, newName: string) => {
-      optimisticCategoryUpdate(
-        setCategoryRecords,
+      void categoryRepository.commit(
         prev => prev.map(r => {
           if (r.id !== categoryId) return r;
           const nodes = getNodes(r);
@@ -149,8 +133,7 @@ export function useCategoryManagement() {
   // round-trip. TanStack consumers refresh via notifyCardsChanged().
   const deleteSubcategory = useCallback(
     (categoryId: string, subcategoryId: string) => {
-      optimisticCategoryUpdate(
-        setCategoryRecords,
+      void categoryRepository.commit(
         prev => prev.map(r => {
           if (r.id !== categoryId) return r;
           const nodes = getNodes(r);
@@ -186,8 +169,7 @@ export function useCategoryManagement() {
   }, []);
 
   const addChapter = useCallback((categoryId: string, subcategoryId: string, chapterName: string) => {
-    optimisticCategoryUpdate(
-      setCategoryRecords,
+    void categoryRepository.commit(
       prev => prev.map(r => {
         if (r.id !== categoryId) return r;
         const nodes = getNodes(r);
@@ -205,8 +187,7 @@ export function useCategoryManagement() {
   }, []);
 
   const renameChapter = useCallback((categoryId: string, subcategoryId: string, chapterId: string, newName: string) => {
-    optimisticCategoryUpdate(
-      setCategoryRecords,
+    void categoryRepository.commit(
       prev => prev.map(r => {
         if (r.id !== categoryId) return r;
         const nodes = getNodes(r);
@@ -233,8 +214,7 @@ export function useCategoryManagement() {
       }
     })();
 
-    optimisticCategoryUpdate(
-      setCategoryRecords,
+    void categoryRepository.commit(
       prev => prev.map(r => {
         if (r.id !== categoryId) return r;
         const nodes = getNodes(r);
@@ -251,8 +231,7 @@ export function useCategoryManagement() {
   }, []);
 
   const reorderSubcategories = useCallback((categoryId: string, orderedIds: string[]) => {
-    optimisticCategoryUpdate(
-      setCategoryRecords,
+    void categoryRepository.commit(
       prev => prev.map(r => {
         if (r.id !== categoryId) return r;
         const nodes = getNodes(r);
@@ -268,8 +247,7 @@ export function useCategoryManagement() {
   }, []);
 
   const reorderChapters = useCallback((categoryId: string, subcategoryId: string, orderedIds: string[]) => {
-    optimisticCategoryUpdate(
-      setCategoryRecords,
+    void categoryRepository.commit(
       prev => prev.map(r => {
         if (r.id !== categoryId) return r;
         const nodes = getNodes(r);
@@ -291,8 +269,7 @@ export function useCategoryManagement() {
   }, []);
 
   const reorderCategories = useCallback((orderedIds: string[]) => {
-    optimisticCategoryUpdate(
-      setCategoryRecords,
+    void categoryRepository.commit(
       prev => {
         const byId = new Map(prev.map(r => [r.id, r]));
         return orderedIds.map((id, i) => {
@@ -306,8 +283,7 @@ export function useCategoryManagement() {
 
   const updateExaminerProfile = useCallback(
     (categoryId: string, profile: ExaminerProfile) => {
-      optimisticCategoryUpdate(
-        setCategoryRecords,
+      void categoryRepository.commit(
         prev => prev.map(r =>
           r.id === categoryId
             ? { ...r, examinerProfile: { ...profile, updatedAt: Date.now() } }

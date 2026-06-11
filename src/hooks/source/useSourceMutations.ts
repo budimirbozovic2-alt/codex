@@ -11,7 +11,7 @@
  * reads converge automatically.
  */
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { saveSource, deleteSource, type Source } from "@/lib/sources-storage";
+import { saveSource, deleteSource, type Source } from "@/domains/sources/sources-storage";
 import { queryKeys } from "@/lib/query/keys";
 
 interface SaveCtx { prevAll?: Source[]; prevByCat?: Source[]; categoryId: string }

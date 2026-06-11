@@ -192,13 +192,26 @@ export function __resetWorkerClient(): void {
   msgId = 0;
 }
 
-// B-5 / S-1 FIX: Graceful shutdown sprječava OPFS lock
+// Graceful shutdown — queues db.close() inside the worker so all
+// in-flight writes commit before the OPFS file is released.
+// We also null the local reference so that if the user cancels the
+// navigation (beforeunload is preventable), the next getWorker() call
+// spawns a fresh worker instead of reusing the now-closed one.
 if (typeof window !== "undefined") {
   window.addEventListener("beforeunload", () => {
     if (worker) {
-      // Ne možemo await-ovati unutar beforeunload, 
-      // ali postMessage prolazi i pokreće clean-up u workeru
       worker.postMessage({ id: ++msgId, op: "shutdown" });
+      // Null immediately: if the tab stays alive after a cancelled unload,
+      // getWorker() will create a new instance rather than reuse the dead one.
+      worker = null;
+      // Reject any in-flight RPCs that will never receive a reply.
+      // Do not call terminateAndRejectAll here — that emits db-degraded, which
+      // is only for unexpected failures, not for a clean page exit.
+      const shutdownErr = new Error("[sqlite-rpc] Worker shutdown on beforeunload");
+      for (const p of pending.values()) {
+        try { p.reject(shutdownErr); } catch { /* swallow */ }
+      }
+      pending.clear();
     }
   });
 }

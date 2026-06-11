@@ -1,7 +1,7 @@
 import { ArrowLeft, Brain } from "lucide-react";
 import { useMemo } from "react";
 import type { MnemonicCard } from "./mnemonic-storage";
-import { useCategoryData } from "@/contexts/AppContext";
+import { useCategoryData } from "@/hooks/cards/useCategoryState";
 import { useTestEngine } from "./hooks/useTestEngine";
 import { buildUuidToName } from "./test-tree";
 import MnemonicTestSelector from "./components/MnemonicTestSelector";

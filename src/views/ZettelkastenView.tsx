@@ -5,14 +5,14 @@ import {
   ArrowLeft, Plus, Trash2, FileText, Compass,
   Pencil, Check, BookMarked,
 } from "lucide-react";
-import { useCategoryData } from "@/contexts/AppContext";
+import { useCategoryData } from "@/hooks/cards/useCategoryState";
 import { useWikiLinkAutoCreate } from "@/hooks/useWikiLinkAutoCreate";
 import { useZettelkastenBootstrap } from "@/hooks/zettelkasten/useZettelkastenBootstrap";
 import { useExplorerCollapsed } from "@/hooks/zettelkasten/useExplorerCollapsed";
 import { useArticleDraft } from "@/hooks/zettelkasten/useArticleDraft";
 import { useArticleIndex } from "@/hooks/zettelkasten/useArticleIndex";
 import { useArticleMutations } from "@/hooks/zettelkasten/useArticleMutations";
-import { type Source } from "@/lib/sources-storage";
+import { type Source } from "@/domains/sources/sources-storage";
 import { useCategorySources } from "@/hooks/useCategorySources";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";

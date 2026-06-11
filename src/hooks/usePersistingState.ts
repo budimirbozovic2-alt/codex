@@ -1,23 +1,16 @@
-import { useEffect, useState } from "react";
-import { persistQueue } from "@/lib/persist-queue";
+import { useMutationState } from "@tanstack/react-query";
 
 /**
- * Phase A / P0-2: zamijenjen 100ms `setInterval` polling sa observable
- * `persistQueue.subscribe()`. Re-render samo kad se queue stvarno mijenja.
+ * Tracks in-flight card mutations via TanStack Query so App.tsx can show
+ * the saving indicator and block the beforeunload unload guard while writes
+ * are pending. All mutations registered through `useMutation` (save, remove,
+ * bulkUpsert, gradeSection, bulkPatch) are counted automatically.
  */
 export function usePersistingState() {
-  const [hasPending, setHasPending] = useState<boolean>(() => persistQueue.hasPending());
-  const [pendingCount, setPendingCount] = useState<number>(() => persistQueue.getPendingCount());
+  const pendingCount = useMutationState({
+    filters: { status: "pending" },
+    select: () => 1,
+  }).length;
 
-  useEffect(() => {
-    const sync = () => {
-      setHasPending(persistQueue.hasPending());
-      setPendingCount(persistQueue.getPendingCount());
-    };
-    // Initial sync in case queue mutated between render and effect commit.
-    sync();
-    return persistQueue.subscribe(sync);
-  }, []);
-
-  return { hasPending, pendingCount };
+  return { hasPending: pendingCount > 0, pendingCount };
 }

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { type KnowledgeBaseArticle } from "@/lib/zettelkasten-storage";
+import { type KnowledgeBaseArticle } from "@/domains/zettelkasten/zettelkasten-storage";
 import { backlinkIndex } from "@/lib/backlink-index";
 import { iterateWikiLinks, normalizeKey } from "@/lib/zettelkasten-wiki-link";
 import { useLatestRef } from "@/hooks/useLatestRef";

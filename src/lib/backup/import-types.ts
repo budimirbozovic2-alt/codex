@@ -17,7 +17,7 @@ export interface ImportTxResult {
   merged: Card[];
   /** Final cardId → Card snapshot, passed to `announceCardsReplaced` so the TanStack bridge invalidates `['cards']` after the import transaction commits. */
   nextMap: Record<string, Card>;
-  /** Final categoryRecords snapshot for AppContext. */
+  /** Final categoryRecords snapshot for the category state bridge. */
   freshCategories: CategoryRecord[];
   /** Resolver report for the Toast summary. */
   legacyResolveReport: {

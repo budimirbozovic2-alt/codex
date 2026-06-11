@@ -1,5 +1,5 @@
 import { memo } from "react";
-import type { Source } from "@/lib/sources-storage";
+import type { Source } from "@/domains/sources/sources-storage";
 
 /**
  * Props for the SourceNavigation component.

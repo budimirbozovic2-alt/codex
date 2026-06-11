@@ -8,7 +8,7 @@
     />
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'self' app:; script-src 'self' 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval' app:; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https: app:; font-src 'self' data: app:; connect-src 'self' blob: app: ws: wss:; media-src 'self' blob: app:; object-src 'none'; base-uri 'self';"
+      content="default-src 'self' app:; script-src 'self' 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval' app:; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https: app:; font-src 'self' data: app:; connect-src 'self' blob: app: ws: wss: http://127.0.0.1:7244; media-src 'self' blob: app:; object-src 'none'; base-uri 'self';"
     />
     <title>CODEX — Sistem za memorizaciju</title>
     <meta
@@ -23,24 +23,20 @@
     
     <style>
       @keyframes appSplashFade {
-        from { 
-          opacity: 0; 
-          transform: translateY(12px); 
-        }
-        to { 
-          opacity: 1; 
-          transform: translateY(0); 
-        }
+        from { opacity: 0; transform: translateY(8px); }
+        to   { opacity: 1; transform: translateY(0); }
       }
-      @keyframes splashPulse {
-        0%, 100% {
-          transform: scale(1);
-          box-shadow: 0 8px 32px rgba(56, 130, 220, 0.35);
-        }
-        50% {
-          transform: scale(1.08);
-          box-shadow: 0 12px 40px rgba(56, 130, 220, 0.5);
-        }
+      @keyframes appSplashFloat {
+        0%, 100% { transform: translateY(0); }
+        50%      { transform: translateY(-3px); }
+      }
+      @keyframes appSplashGlow {
+        0%, 100% { opacity: 0.5; }
+        50%      { opacity: 1; }
+      }
+      @keyframes appSplashPulse {
+        0%, 100% { opacity: 0.4; transform: scale(0.9); }
+        50%      { opacity: 1;   transform: scale(1.15); }
       }
     </style>
   </head>
@@ -57,113 +53,111 @@
         display: flex;
         align-items: center;
         justify-content: center;
-        background: radial-gradient(
-          ellipse at center, #152238 0%, #0a1628 100%
-        );
-        font-family: 'Segoe UI', sans-serif;
-        color: #e0e0e0;
+        background:
+          radial-gradient(ellipse at 30% 20%, hsl(220 30% 16%) 0%, transparent 55%),
+          radial-gradient(ellipse at 80% 90%, hsl(220 40% 10%) 0%, transparent 60%),
+          linear-gradient(135deg, hsl(220 40% 9%) 0%, hsl(220 45% 6%) 100%);
+        font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+        color: hsl(220 20% 88%);
         transition: opacity 0.4s ease-out;
       "
     >
+      <!-- vignette overlay -->
+      <div style="
+        position: absolute; inset: 0; pointer-events: none;
+        background: radial-gradient(ellipse at center, transparent 40%, hsl(220 50% 4% / 0.6) 100%);
+      "></div>
+
       <div
         style="
-          text-align: center; 
-          animation: appSplashFade 0.5s ease-out;
+          text-align: center;
+          animation: appSplashFade 0.7s cubic-bezier(0.22, 0.61, 0.36, 1);
+          position: relative; z-index: 1;
         "
       >
-        <div
-          style="
-            width: 80px;
-            height: 80px;
-            margin: 0 auto 20px;
+        <!-- logo mark with floating animation + glow ring -->
+        <div style="
+          width: 84px; height: 84px;
+          margin: 0 auto 28px;
+          position: relative;
+          animation: appSplashFloat 3.2s ease-in-out infinite;
+        ">
+          <div style="
+            position: absolute; inset: -6px;
             border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            box-shadow: 0 8px 32px rgba(56, 130, 220, 0.35);
-            animation: splashPulse 1.8s infinite;
-            overflow: hidden;
-          "
-        >
+            box-shadow:
+              0 0 0 1px hsl(45 60% 60% / 0.18),
+              0 8px 40px hsl(45 70% 55% / 0.18);
+            animation: appSplashGlow 2.4s ease-in-out infinite;
+          "></div>
           <img
-            src="./logo-icon.png"
+            src="./app-logo.png"
             alt="CODEX"
-            style="width:100%;height:100%;object-fit:cover;"
+            style="width:100%;height:100%;display:block;object-fit:contain;border-radius:18px;"
           />
         </div>
-        <h1
-          style="
-            font-size: 16px;
-            font-weight: 700;
-            letter-spacing: 0.25em;
-            margin-bottom: 4px;
-            background: linear-gradient(
-              90deg, #a0c4f0, #3882dc
-            );
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            text-transform: uppercase;
-          "
-        >CODEX</h1>
-        <p
-          style="
-            font-size: 12px;
-            color: #9ca3af;
-            margin-bottom: 16px;
-          "
-        >
-          Pravosudni Sistem
-        </p>
-        <p
-          id="splash-status"
-          style="
-            font-size: 11px; 
-            color: #9ca3af; 
-            margin-bottom: 12px; 
-            min-height: 16px;
-          "
-        >
-          Pokretanje…
-        </p>
-        <div
-          style="
-            width: 200px;
-            height: 4px;
-            margin: 0 auto;
-            background: rgba(255,255,255,0.08);
-            border-radius: 3px;
-            overflow: hidden;
-          "
-        >
+
+        <h1 style="
+          font-family: Georgia, 'Times New Roman', serif;
+          font-size: 32px;
+          font-weight: 500;
+          letter-spacing: -0.02em;
+          margin-bottom: 8px;
+          background: linear-gradient(180deg, hsl(45 70% 78%) 0%, hsl(45 55% 55%) 100%);
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
+        ">CODEX</h1>
+
+        <p style="
+          font-size: 11px;
+          color: hsl(220 15% 55%);
+          margin-bottom: 28px;
+          letter-spacing: 0.22em;
+          text-transform: uppercase;
+          font-weight: 500;
+        ">Pravosudni sistem</p>
+
+        <!-- progress bar -->
+        <div style="
+          width: 180px; height: 2px;
+          margin: 0 auto 10px;
+          background: hsl(220 20% 20%);
+          border-radius: 2px; overflow: hidden;
+        ">
           <div
             id="splash-progress"
             style="
-              width: 0%;
-              height: 100%;
-              background: linear-gradient(
-                90deg, #3882dc, #5ba0f5
-              );
-              border-radius: 3px;
+              width: 0%; height: 100%;
+              background: linear-gradient(90deg, hsl(45 65% 50%), hsl(45 75% 65%));
+              border-radius: 2px;
               transition: width 0.3s ease-out;
             "
           ></div>
         </div>
+
         <p
-          id="splash-percent"
-          style="font-size: 10px; color: #6b7280; margin-top: 6px;"
-        >
-          0%
-        </p>
-        <p
-          id="splash-phase"
+          id="splash-status"
           style="
-            font-size: 9px; 
-            color: #4b5563; 
-            margin-top: 4px; 
-            font-family: monospace; 
+            font-size: 10px;
+            color: hsl(220 15% 45%);
             min-height: 14px;
+            margin-bottom: 20px;
           "
-        ></p>
+        >Pokretanje…</p>
+
+        <!-- pulsing dot (replaces percent label) -->
+        <div style="
+          width: 6px; height: 6px;
+          border-radius: 50%;
+          margin: 0 auto;
+          background: hsl(45 70% 60%);
+          box-shadow: 0 0 12px hsl(45 70% 60% / 0.7);
+          animation: appSplashPulse 1.4s ease-in-out infinite;
+        "></div>
+
+        <!-- hidden elements kept for JS compat -->
+        <p id="splash-percent" style="display:none"></p>
+        <p id="splash-phase"   style="display:none"></p>
       </div>
     </div>
 

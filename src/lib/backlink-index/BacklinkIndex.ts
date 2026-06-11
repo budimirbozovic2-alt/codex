@@ -31,7 +31,7 @@
  *   so `BacklinksPanel` re-renders only when the slice it cares about
  *   (one target title in one subject) actually changes.
  */
-import type { KnowledgeBaseArticle } from "../zettelkasten-storage";
+import type { KnowledgeBaseArticle } from "@/domains/zettelkasten/zettelkasten-storage";
 import { iterateWikiLinks } from "../zettelkasten-wiki-link";
 import { deriveMarkdown } from "../editor-v4/derived";
 import type { BacklinkEntry, SubjectState } from "./types";

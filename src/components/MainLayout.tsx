@@ -1,7 +1,10 @@
 import { ReactNode, useState, useEffect, useRef, lazy, Suspense, memo, useCallback } from "react";
 import Breadcrumbs from "@/components/Breadcrumbs";
 import { useLocation } from "react-router-dom";
-import { useUIContext, useCardData, useCategoryData, useCardOnlyActions, useBackupActions, useReviewData } from "@/contexts/AppContext";
+import { useBackupActions, useCardOnlyActions } from "@/hooks/cards/useActions";
+import { useCategoryData } from "@/hooks/cards/useCategoryState";
+import { useCardData, useReviewData } from "@/hooks/cards/useCardState";
+import { useUIContext } from "@/hooks/useUI";
 import ZenMode from "@/components/ZenMode";
 import AppSidebar from "@/components/AppSidebar";
 import BlockingModal from "@/components/db/BlockingModal";

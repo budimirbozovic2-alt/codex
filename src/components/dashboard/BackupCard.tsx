@@ -7,9 +7,8 @@ import React, {
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import ExportImportDialog from "@/components/ExportImportDialog";
-import { 
-  useBackupActions, useCardData 
-} from "@/contexts/AppContext";
+import { useBackupActions } from "@/hooks/cards/useActions";
+import { useCardData } from "@/hooks/cards/useCardState";
 import { getLastBackupTime } from "@/lib/storage";
 
 function formatAge(ts: number): { label: string; days: number } {

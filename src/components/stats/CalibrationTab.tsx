@@ -2,7 +2,7 @@ import { AlertTriangle, Archive } from "lucide-react";
 import { useMemo } from "react";
 
 
-import { loadCalibration, getCalibrationStats } from "@/lib/metacognitive-storage";
+import { loadCalibration, getCalibrationStats } from "@/domains/metacognition/metacognitive-storage";
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, CartesianGrid, Legend,

@@ -6,7 +6,7 @@ import { createElement } from "react";
 import { act, renderHook } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { kbTestDb as db } from "./helpers/kb-test-db";
-import { loadArticlesBySubject } from "@/lib/zettelkasten-storage";
+import { loadArticlesBySubject } from "@/domains/zettelkasten/zettelkasten-storage";
 import { useArticleMutations } from "@/hooks/zettelkasten/useArticleMutations";
 import type { ArticleDraftApi } from "@/hooks/zettelkasten/useArticleDraft";
 

@@ -1,6 +1,6 @@
 /**
  * PR-7f M2 — TanStack read-path za Major System pegove.
- * Invalidacija: `subscribeMnemonics` u `bridges.ts` (saveMajorSystem
+ * Invalidacija: `domain:changed{mnemonics}` u `bridges.ts` (saveMajorSystem
  * fire-uje `notifyMnemonics`).
  */
 import { useQuery } from "@tanstack/react-query";

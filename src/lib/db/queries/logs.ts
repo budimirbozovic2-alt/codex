@@ -12,7 +12,7 @@ import type {
   LatencyEntry,
   SlippageEntry,
   ActivityEntry,
-} from "@/lib/metacognitive-storage";
+} from "@/domains/metacognition/metacognitive-storage";
 import type { 
   ReviewLogEntry, 
   PomodoroLogEntry 

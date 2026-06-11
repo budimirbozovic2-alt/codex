@@ -8,7 +8,7 @@
 import "fake-indexeddb/auto";
 import { describe, expect, it, vi } from "vitest";
 import { act, renderHook } from "@testing-library/react";
-import type { Source } from "@/lib/sources-storage";
+import type { Source } from "@/domains/sources/sources-storage";
 
 // Mock the heavy context dependencies before importing the hook.
 const mockCards: { current: Array<{ id: string; sourceId?: string }> } = { current: [] };
@@ -17,8 +17,10 @@ const bulkAddCards = vi.fn((cards: Array<{ id: string; sourceId?: string }>) => 
 });
 const updateCard = vi.fn();
 
-vi.mock("@/contexts/AppContext", () => ({
+vi.mock("@/hooks/cards/useCardState", () => ({
   useCardData: () => ({ cards: mockCards.current }),
+}));
+vi.mock("@/hooks/cards/useActions", () => ({
   useCardOnlyActions: () => ({ bulkAddCards, updateCard }),
 }));
 

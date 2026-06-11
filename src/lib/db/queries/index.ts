@@ -109,7 +109,6 @@ export {
   putArticle as putKnowledgeBaseArticle,
   bulkPutArticles as bulkPutKnowledgeBaseArticles,
   deleteArticle as deleteKnowledgeBaseArticle,
-  onKnowledgeBaseChanged,
   notifyKnowledgeBaseChanged,
 } from "./knowledge-base";
 

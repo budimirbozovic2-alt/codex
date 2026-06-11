@@ -131,6 +131,7 @@ async function createWindow({ isDev, baseDir, configPath, logCrash, splash, onMa
 
   onMainWindow(win);
 
+  // DevTools temporarily enabled for production debug session (f62800)
   win.webContents.openDevTools();
 
   if (!isDev) {
@@ -164,19 +165,30 @@ async function createWindow({ isDev, baseDir, configPath, logCrash, splash, onMa
 
   let appReady = false;
 
-  const showWindow = (event) => {
+  const showWindow = (event, { fromFallback = false } = {}) => {
     if (currentReadyToken !== windowToken) return;
     if (event) { try { guard(event); } catch { return; } }
     if (appReady) return;
     appReady = true;
 
     if (splash && !splash.isDestroyed()) splash.destroy();
-    if (!win.isDestroyed()) win.show();
+
+    if (!win.isDestroyed()) {
+      // When the fallback fires the renderer hasn't called notifyElectronReady()
+      // yet, so #app-splash was never cleaned up. Remove it before the window
+      // becomes visible to avoid showing the HTML splash over the loaded UI.
+      if (fromFallback) {
+        win.webContents.executeJavaScript(
+          'try { var s = document.getElementById("app-splash"); if (s) s.remove(); } catch(_){}'
+        ).catch(() => {});
+      }
+      win.show();
+    }
   };
 
   ipcMain.removeListener('renderer-ready', showWindow);
   ipcMain.once('renderer-ready', showWindow);
-  const fallbackTimer = setTimeout(() => showWindow(), 6000);
+  const fallbackTimer = setTimeout(() => showWindow(null, { fromFallback: true }), 6000);
 
   win.webContents.on('render-process-gone', (_event, details) => {
     logCrash('render-process-gone', JSON.stringify(details));

@@ -25,7 +25,7 @@ import {
   bulkCreateArticlesIfMissing,
   loadArticlesBySubject,
   newArticle,
-} from "@/lib/zettelkasten-storage";
+} from "@/domains/zettelkasten/zettelkasten-storage";
 
 const SUBJECT_A = "subject-a";
 const SUBJECT_B = "subject-b";

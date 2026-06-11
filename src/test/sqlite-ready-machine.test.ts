@@ -145,7 +145,7 @@ describe("SQLite ready machine (O-1)", () => {
     expect(degradedEvents[1]?.detail?.reason).toBe("opfs-runtime-error");
   });
 
-  it("PROD Electron hard-fail → fatal, then retry after promise cleared", async () => {
+  it("PROD Electron hard-fail → fatal is permanent, subsequent calls re-throw immediately", async () => {
     vi.stubEnv("PROD", "true");
     (window as { electronAPI?: unknown }).electronAPI = {};
     initWorkerExecutor.mockResolvedValue({
@@ -161,14 +161,19 @@ describe("SQLite ready machine (O-1)", () => {
     await expect(ensureSqliteReady()).rejects.toThrow(/FatalError/);
     expect(getSqliteReadyState().type).toBe("fatal");
 
+    // Change the mock — but it must NOT be called again. Fatal is a permanent
+    // terminal state; ensureSqliteReady() must re-throw the stored error
+    // immediately without a new openExecutor() attempt.
     initWorkerExecutor.mockResolvedValue({
       opfsMode: true,
       diag: { mode: "opfs" },
     });
 
-    const executor = await ensureSqliteReady();
-    expect(executor).toBe(mockWorkerExecutor);
-    expect(getSqliteReadyState().type).toBe("ready");
+    await expect(ensureSqliteReady()).rejects.toThrow(/FatalError/);
+    expect(getSqliteReadyState().type).toBe("fatal");
+    // initWorkerExecutor was called only during the first attempt (3 retries),
+    // not again for the second ensureSqliteReady() call.
+    expect(initWorkerExecutor).toHaveBeenCalledTimes(3);
   });
 
   it("ensureSqliteReady is idempotent once ready", async () => {

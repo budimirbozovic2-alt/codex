@@ -15,7 +15,7 @@ import { logger } from "@/lib/logger";
 import { 
   loadCalibration, 
   loadLatency 
-} from "@/lib/metacognitive-storage";
+} from "@/domains/metacognition/metacognitive-storage";
 import { 
   loadDisciplineLog, 
   loadPlanner 

@@ -4,7 +4,7 @@ import type { Source } from "@/lib/db-types";
 import { useSourceMutations } from "@/hooks/source/useSourceMutations";
 import { sanitizeHtml } from "@/lib/sanitize";
 import { parseArticles } from "@/lib/article-parser";
-import { extractOutline, injectHeadingIds } from "@/lib/sources-storage";
+import { extractOutline, injectHeadingIds } from "@/domains/sources/sources-storage";
 import { useMindMapsByCategory } from "@/hooks/useMindMaps";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";

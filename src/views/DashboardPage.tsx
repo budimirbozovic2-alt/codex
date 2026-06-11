@@ -1,6 +1,8 @@
 import { HelpCircle } from "lucide-react";
 import { useState, lazy, Suspense } from "react";
-import { useCardData, useCategoryData, useCategoryStatsData, useReviewData, useUIContext } from "@/contexts/AppContext";
+import { useCategoryData } from "@/hooks/cards/useCategoryState";
+import { useCardData, useCategoryStatsData, useReviewData } from "@/hooks/cards/useCardState";
+import { useUIContext } from "@/hooks/useUI";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import Dashboard from "@/components/Dashboard";
 import EmptyState from "@/components/EmptyState";

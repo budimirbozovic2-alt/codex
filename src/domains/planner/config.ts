@@ -9,6 +9,5 @@ export function loadPlanner(): PlannerConfig {
 
 export function savePlanner(config: PlannerConfig): void {
   plannerCache.set(config);
-  // Fire-and-forget; SQLite executor + Dexie mirror both handle errors internally.
   void savePlannerConfig(config);
 }

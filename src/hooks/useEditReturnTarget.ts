@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { consumeEditReturn } from "@/lib/edit-return";
-import { useUIContext } from "@/contexts/AppContext";
+import { useUIContext } from "@/hooks/useUI";
 
 interface UseEditReturnTargetApi {
   /** Navigate to the stashed return path, or fall back to dashboard. */

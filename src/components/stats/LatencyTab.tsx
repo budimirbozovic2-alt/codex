@@ -2,7 +2,7 @@ import { Clock, AlertTriangle } from "lucide-react";
 import { useMemo } from "react";
 
 
-import { loadLatency, getLatencyStats } from "@/lib/metacognitive-storage";
+import { loadLatency, getLatencyStats } from "@/domains/metacognition/metacognitive-storage";
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell,
 } from "recharts";

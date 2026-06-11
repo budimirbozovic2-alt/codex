@@ -9,7 +9,7 @@
  */
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/query/keys";
-import { saveMindMap, deleteMindMap } from "@/lib/mindmap-storage";
+import { saveMindMap, deleteMindMap } from "@/domains/mindmaps/mindmap-storage";
 import type { MindMapDoc } from "@/lib/db-types";
 
 interface SaveCtx {

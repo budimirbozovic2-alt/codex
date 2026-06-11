@@ -1,5 +1,6 @@
 import { useMemo } from "react";
-import { useCardData, useCategoryData } from "@/contexts/AppContext";
+import { useCategoryData } from "@/hooks/cards/useCategoryState";
+import { useCardData } from "@/hooks/cards/useCardState";
 import { useCardsByCategory } from "@/store";
 import {
   aggregateSubjectProgress,

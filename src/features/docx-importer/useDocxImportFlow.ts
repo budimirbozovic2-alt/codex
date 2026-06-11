@@ -58,8 +58,6 @@ export function useDocxImportFlow(defaultCategory: string) {
     setFile(f);
     try {
       const arrayBuffer = await f.arrayBuffer();
-      // Wave 5: parse off the main thread via the docx Web Worker; falls back
-      // to in-thread mammoth automatically if Workers aren't available.
       const { parseDocxInWorker } = await import("./docx-parser");
       const html = await parseDocxInWorker(arrayBuffer);
       setHtmlContent(sanitizeHtml(html));

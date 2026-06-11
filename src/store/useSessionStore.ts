@@ -3,19 +3,34 @@
 //
 // Replaces the React `SessionProvider` Context. Buffers grade/error/markRead
 // actions during a session, takes an immutable snapshot of cards+log at
-// session start, and tracks `isProcessing` derived from `isEnding ||
-// persistQueue.hasPending()` so the UI stays in "spremanje" until writes
-// drain.
-//
-// Module-level subscription on `persistQueue` wires `queuePending` once at
-// first import — no React mount needed.
+// session start, and tracks `isProcessing` as `isEnding || pendingMutations`
+// so the UI stays in "spremanje" until session flush and in-flight writes drain.
 // ─────────────────────────────────────────────────────────────────────────────
+import { useMutationState } from "@tanstack/react-query";
 import { create } from "zustand";
 import { useShallow } from "zustand/react/shallow";
 import type { Card } from "@/lib/spaced-repetition";
 import type { ReviewLogEntry } from "@/lib/storage";
-import { persistQueue } from "@/lib/persist-queue";
+import { queryClient } from "@/lib/query/client";
 import { logger } from "@/lib/logger";
+import { taskScheduler } from "@/lib/scheduler";
+
+const MUTATION_DRAIN_TIMEOUT_MS = 15_000;
+
+/** Wait until TanStack has no in-flight mutations (replaces persistQueue drain). */
+async function waitForPendingMutations(timeoutMs = MUTATION_DRAIN_TIMEOUT_MS): Promise<void> {
+  if (queryClient.isMutating() === 0) return;
+  const deadline = Date.now() + timeoutMs;
+  while (queryClient.isMutating() > 0) {
+    if (Date.now() >= deadline) {
+      logger.warn("[session] pending mutations drain timeout");
+      return;
+    }
+    await new Promise<void>((resolve) => {
+      taskScheduler.setTimeout(() => resolve(), 16, { label: "session:mutation-drain-poll" });
+    });
+  }
+}
 
 export interface QueuedReview {
   cardId: string;
@@ -34,7 +49,6 @@ export interface SessionSnapshot {
 interface SessionState {
   isSessionActive: boolean;
   isEnding: boolean;
-  queuePending: boolean;
   snapshot: SessionSnapshot | null;
   reviewQueue: QueuedReview[];
   errorQueue: QueuedError[];
@@ -45,7 +59,6 @@ interface SessionState {
 const initialState: SessionState = {
   isSessionActive: false,
   isEnding: false,
-  queuePending: false,
   snapshot: null,
   reviewQueue: [],
   errorQueue: [],
@@ -54,17 +67,6 @@ const initialState: SessionState = {
 };
 
 export const sessionStore = create<SessionState>(() => ({ ...initialState }));
-
-// ─── Module-level persistQueue subscription ─────────────────────────────
-let _wired = false;
-function wirePersistQueue(): void {
-  if (_wired) return;
-  _wired = true;
-  const update = () => sessionStore.setState({ queuePending: persistQueue.hasPending() });
-  update();
-  persistQueue.subscribe(update);
-}
-if (typeof window !== "undefined") wirePersistQueue();
 
 // ─── Actions (module-level, stable references) ──────────────────────────
 export function startSession(cards: Card[], reviewLog: ReviewLogEntry[]): void {
@@ -79,9 +81,9 @@ export function startSession(cards: Card[], reviewLog: ReviewLogEntry[]): void {
 }
 
 export async function endSession(
-  flushReviews: (reviews: QueuedReview[]) => void,
-  flushErrors: (errors: QueuedError[]) => void,
-  flushReads: (reads: QueuedMarkRead[]) => void,
+  flushReviews: (reviews: QueuedReview[]) => void | Promise<void>,
+  flushErrors: (errors: QueuedError[]) => void | Promise<void>,
+  flushReads: (reads: QueuedMarkRead[]) => void | Promise<void>,
 ): Promise<void> {
   const s = sessionStore.getState();
   const reviews = [...s.reviewQueue];
@@ -97,21 +99,27 @@ export async function endSession(
     queueSize: 0,
   });
 
-  if (reviews.length > 0) flushReviews(reviews);
-  if (errors.length > 0) flushErrors(errors);
-  if (reads.length > 0) flushReads(reads);
-
   try {
-    await persistQueue.flush();
+    const tasks: (void | Promise<void>)[] = [];
+    if (reviews.length > 0) tasks.push(flushReviews(reviews));
+    if (errors.length > 0) tasks.push(flushErrors(errors));
+    if (reads.length > 0) tasks.push(flushReads(reads));
+    await Promise.all(tasks);
   } catch (err: unknown) {
-    logger.warn("[session] persist flush failed", err);
+    logger.warn("[session] flush failed", err);
   }
 
   sessionStore.setState({ isEnding: false });
 
-  // Drop snapshot once nothing is in flight.
+  await waitForPendingMutations();
+
   const post = sessionStore.getState();
-  if (!post.isEnding && !post.queuePending && !post.isSessionActive && post.snapshot) {
+  if (
+    !post.isEnding &&
+    !post.isSessionActive &&
+    post.snapshot &&
+    queryClient.isMutating() === 0
+  ) {
     sessionStore.setState({ snapshot: null });
   }
 }
@@ -149,16 +157,23 @@ export interface SessionApi {
 }
 
 export function useSessionContext(): SessionApi {
+  const pendingMutations = useMutationState({
+    filters: { status: "pending" },
+    select: () => 1,
+  }).length;
+
   const slice = sessionStore(
     useShallow((s) => ({
       isSessionActive: s.isSessionActive,
-      isProcessing: s.isEnding || s.queuePending,
+      isEnding: s.isEnding,
       snapshot: s.snapshot,
       queueSize: s.queueSize,
     })),
   );
+
   return {
     ...slice,
+    isProcessing: slice.isEnding || pendingMutations > 0,
     startSession,
     endSession,
     queueReview,

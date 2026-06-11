@@ -7,7 +7,7 @@
  */
 import { useMemo } from "react";
 import { useCardsByCategory, useCardsBySource } from "@/store";
-import type { Source } from "@/lib/sources-storage";
+import type { Source } from "@/domains/sources/sources-storage";
 import { useSourceMapping } from "@/hooks/source-reader/useSourceMapping";
 import { useSourceEditing } from "@/hooks/source-reader/useSourceEditing";
 import { useSourceReaderShortcuts } from "@/hooks/source-reader/useSourceReaderShortcuts";

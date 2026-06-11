@@ -1,6 +1,9 @@
 import { useEffect, useCallback, useMemo, useRef } from "react";
 import { useLocation } from "react-router-dom";
-import { useCardData, useCategoryData, useReviewData, useCardOnlyActions, useUIContext } from "@/contexts/AppContext";
+import { useCardOnlyActions } from "@/hooks/cards/useActions";
+import { useCategoryData } from "@/hooks/cards/useCategoryState";
+import { useCardData, useReviewData } from "@/hooks/cards/useCardState";
+import { useUIContext } from "@/hooks/useUI";
 import { useSessionContext, QueuedReview, QueuedError, QueuedMarkRead } from "@/hooks/useSession";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import LearnSession from "@/components/LearnSession";

@@ -1,17 +1,9 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// Executor telemetry — PR-9 A1c-0.
+// Executor telemetry.
 //
-// Pre-condition gate for dropping the Dexie mirror. Every `queries/*` module's
-// `tryGetExecutor()` calls `notifyExecutorNull(domain, reason)` whenever it
-// returns `null` (i.e. the SQLite executor is unavailable and the call site
-// is about to fall back to Dexie). The aggregate counter must stay at 0 for
-// one DEV soak week + one PROD release cycle before A1c-1 may drop the
-// fallback branches.
-//
-// Why a module-level map and not a Zustand store: this is pure boot-time
-// instrumentation, must not pull React or any heavy dep, must work inside
-// async-imported repo modules, and must be inspectable from DevTools without
-// a hook.
+// Module-level map (not a Zustand store): pure boot-time instrumentation,
+// must not pull React or any heavy dep, must work inside async-imported
+// repo modules, and must be inspectable from DevTools without a hook.
 // ─────────────────────────────────────────────────────────────────────────────
 import { logger } from "@/lib/logger";
 

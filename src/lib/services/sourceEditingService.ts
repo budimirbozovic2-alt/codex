@@ -8,7 +8,7 @@
  * non-React callers (e.g. lazy migrations) that still want a one-shot
  * derive→save with a direct `onSourceUpdated` callback.
  */
-import { saveSource, type Source } from "@/lib/sources-storage";
+import { saveSource, type Source } from "@/domains/sources/sources-storage";
 import { incrementDailyMapped } from "@/domains/planner";
 import { autoFormatArticles } from "@/lib/article-autoformat";
 import { rebuildSourceFromHtml } from "@/lib/source-reader/source-html-pipeline";

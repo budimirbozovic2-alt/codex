@@ -3,7 +3,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { HashRouter, Routes, Route, Navigate, useParams } from "react-router-dom";
 import { RouteTransition } from "@/components/RouteTransition";
-import { AppProvider } from "@/contexts/AppContext";
+import { AppProvider } from "@/contexts/AppProvider";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import MainLayout from "@/components/MainLayout";
 import TitleBar from "@/components/TitleBar";
@@ -56,12 +56,13 @@ function SubjectDashboardWrapper() {
   return <ErrorBoundary label="Predmet"><SubjectDashboard key={categoryId} /></ErrorBoundary>;
 }
 
-const App = () => {
+/**
+ * Rendered inside QueryClientProvider so usePersistingState can access
+ * the query client context. Previously this lived in App itself, which
+ * crashed because the hook ran before QueryClientProvider was mounted.
+ */
+function SavingIndicator() {
   const { hasPending: isSaving, pendingCount } = usePersistingState();
-
-  // PR-D D5: pointer-events guard installed in `main.tsx` before first
-  // render so it never misses the initial Radix Dialog commit. The guard
-  // is idempotent (singleton), so no per-mount install is needed here.
 
   useEffect(() => {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
@@ -75,19 +76,24 @@ const App = () => {
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
   }, [isSaving]);
 
+  if (!isSaving) return null;
+  return (
+    <div className="absolute bottom-4 right-4 z-[9999] flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/90 text-primary-foreground shadow-lg animate-fade-up">
+      <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+      <span className="text-[11px] font-medium tracking-wide">
+        {pendingCount > 10 ? `Spremanje (${pendingCount})...` : "Spremanje..."}
+      </span>
+    </div>
+  );
+}
+
+const App = () => {
   return (
     <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <div className="flex flex-col h-screen relative" data-app-mounted>
         <TitleBar />
-        {isSaving && (
-          <div className="absolute bottom-4 right-4 z-[9999] flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/90 text-primary-foreground shadow-lg animate-fade-up">
-            <RefreshCw className="h-3.5 w-3.5 animate-spin" />
-            <span className="text-[11px] font-medium tracking-wide">
-              {pendingCount > 10 ? `Spremanje (${pendingCount})...` : "Spremanje..."}
-            </span>
-          </div>
-        )}
+        <SavingIndicator />
         <Sonner />
         <DbDegradedWatcher />
 

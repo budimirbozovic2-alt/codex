@@ -5,8 +5,9 @@
  * PR-H7 Hardening: Removed destructive listener drop
  * on HMR updates to prevent multi-module breaking.
  */
-import type { Source } from "./db-types";
-import { parseArticles } from "./article-parser";
+import type { Source } from "@/lib/db-types";
+import { parseArticles } from "@/lib/article-parser";
+import { emitDomainChanged } from "@/lib/event-bus";
 import {
   getSource as repoGetSource,
   listAllSources,
@@ -42,9 +43,6 @@ export function confirmCardReview(cardId: string): void {
   }
 }
 
-type SourceListener = () => void;
-const _listeners = new Set<SourceListener>();
-
 type CardLinkClearedListener = (clearedCardIds: string[]) => void;
 const _cardLinkListeners = new Set<CardLinkClearedListener>();
 
@@ -57,19 +55,8 @@ export function onCardLinksCleared(
   };
 }
 
-export function onSourcesChanged(fn: SourceListener): () => void {
-  _listeners.add(fn);
-  return () => { 
-    _listeners.delete(fn); 
-  };
-}
-
-function _notify(): void {
-  _listeners.forEach((fn) => fn());
-}
-
 export function invalidateSourcesCache(): void {
-  _notify();
+  emitDomainChanged({ domain: "sources" });
 }
 
 export async function loadSources(): Promise<Source[]> {

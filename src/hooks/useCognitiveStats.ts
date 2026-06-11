@@ -9,7 +9,7 @@ import { useMemo } from "react";
 import type { Card } from "@/lib/spaced-repetition";
 import type { ReviewLogEntry } from "@/lib/storage";
 import { loadPlanner } from "@/domains/planner";
-import { loadCalibration, loadLatency } from "@/lib/metacognitive-storage";
+import { loadCalibration, loadLatency } from "@/domains/metacognition/metacognitive-storage";
 import { calcCognitiveCounts, type CognitiveCounts } from "@/lib/cognitive/aggregators";
 
 export function useCognitiveStats(cards: Card[], reviewLog: ReviewLogEntry[]): CognitiveCounts {

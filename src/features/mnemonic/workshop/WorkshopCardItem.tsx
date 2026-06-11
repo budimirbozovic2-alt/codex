@@ -6,7 +6,7 @@ import {
   MnemonicCard, MnemonicStatus, HookType,
   extractNumbers, detectEnumerationItems,
 } from "../mnemonic-storage";
-import { useCategoryData } from "@/contexts/AppContext";
+import { useCategoryData } from "@/hooks/cards/useCategoryState";
 import { ContentRenderer } from "@/components/ui/ContentRenderer";
 import { Skeleton } from "@/components/ui/skeleton";
 import { htmlToDoc } from "@/lib/editor-v4";

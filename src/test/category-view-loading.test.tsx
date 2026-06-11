@@ -1,8 +1,8 @@
 /**
  * Pilot: "No more empty blinks" — see .lovable/plan.md.
  *
- * We don't mount the full `CategoryView` (drags AppContext, react-router,
- * AppContext mutators). Instead we verify the building blocks:
+ * We don't mount the full `CategoryView` (drags card hooks, react-router,
+ * mutation actions). Instead we verify the building blocks:
  *
  *   1. `<ListSkeleton>` and `<SourcesTabSkeleton>` render the expected
  *      layout-shape placeholders (so the swap to real content has no

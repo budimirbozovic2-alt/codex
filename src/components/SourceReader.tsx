@@ -1,7 +1,7 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
 import ExamSidebar from "@/components/ExamSidebar";
 import { cn } from "@/lib/utils";
-import type { Source } from "@/lib/sources-storage";
+import type { Source } from "@/domains/sources/sources-storage";
 import { useSourceMutations } from "@/hooks/source/useSourceMutations";
 import { useSourceReaderStore, WIDTH_CLASSES } from "@/store";
 import { taskScheduler, type TaskHandle } from "@/lib/scheduler";

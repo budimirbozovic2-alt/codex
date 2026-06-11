@@ -6,7 +6,7 @@
  *   (knowledge map) and "Struktura" (structure) features have been moved
  *   to `SubjectDashboard` / `SubjectCardsView` and must never reappear here.
  *
- * Rather than mounting CategoryView (which drags in Dexie, AppContext, and
+ * Rather than mounting CategoryView (which drags in Dexie, card hooks, and
  * react-router), we statically inspect the source. This is fast, deterministic,
  * and catches regressions at the import/JSX layer — exactly where they would
  * be reintroduced.

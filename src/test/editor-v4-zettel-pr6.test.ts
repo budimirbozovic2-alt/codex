@@ -12,7 +12,7 @@ import { createElement } from "react";
 import { act, renderHook } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { getKnowledgeBaseArticle } from "@/lib/db/queries";
-import { newArticle, saveArticle } from "@/lib/zettelkasten-storage";
+import { newArticle, saveArticle } from "@/domains/zettelkasten/zettelkasten-storage";
 import { useArticleDraft } from "@/hooks/zettelkasten/useArticleDraft";
 import {
   buildSeparateEssaysFromModules,

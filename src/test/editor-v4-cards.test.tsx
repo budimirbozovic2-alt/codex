@@ -40,6 +40,24 @@ describe("EditorV4 (write path)", () => {
     const empty = container.querySelector(".ProseMirror p.is-editor-empty");
     expect(empty).not.toBeNull();
   });
+
+  it("syncs external initialDoc updates without remount (e.g. DOCX ingest)", async () => {
+    const onChange = vi.fn<(d: EditorDoc) => void>();
+    const empty = htmlToDoc("");
+    const uploaded = htmlToDoc("<p>uploaded docx text</p>");
+
+    const { container, rerender } = render(
+      <EditorV4 initialDoc={empty} onChange={onChange} />,
+    );
+    await waitMicroTask();
+    expect(container.querySelector(".ProseMirror")?.textContent ?? "").toBe("");
+
+    rerender(<EditorV4 initialDoc={uploaded} onChange={onChange} />);
+    await waitMicroTask();
+
+    expect(container.querySelector(".ProseMirror")?.textContent).toContain("uploaded docx text");
+    expect(onChange).not.toHaveBeenCalled();
+  });
 });
 
 describe("editor-v4 codec round-trip (cards)", () => {

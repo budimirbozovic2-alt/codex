@@ -4,7 +4,10 @@ import { BookOpen, Search, X, Sparkles, Zap } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 
-import { useCardData, useCategoryData, useCardOnlyActions, useCategoryActions, useUIContext, useBackupActions } from "@/contexts/AppContext";
+import { useBackupActions, useCardOnlyActions, useCategoryActions } from "@/hooks/cards/useActions";
+import { useCategoryData } from "@/hooks/cards/useCategoryState";
+import { useCardData } from "@/hooks/cards/useCardState";
+import { useUIContext } from "@/hooks/useUI";
 import { useCardsByCategory } from "@/store";
 import CardCreateMenu from "@/components/category/CardCreateMenu";
 import type { SubcategoryNode } from "@/lib/db-types";
@@ -56,8 +59,8 @@ export default function SubjectCardsView() {
   } = useCategoryActions();
   const { editingCardId, setEditingCardId } = useUIContext();
   const { importCards } = useBackupActions();
+
   const allCategoryNames = useMemo(() => categoryRecords.map(c => c.name), [categoryRecords]);
-  
 
   const category = useMemo(
     () => categoryRecords.find(c => c.id === categoryId) ?? null,
@@ -83,26 +86,33 @@ export default function SubjectCardsView() {
     return { essayCount: essay, flashCount: flash };
   }, [cards]);
 
-  // M3: editingCardId comes from UIContext SSOT (synchronously mirrored on
-  // setEditingCardId), so no per-component ref is needed.
-  // Live mirror of CardViewMode's internal filters; updated via onFiltersChange
+  // M3: Live mirror of CardViewMode's internal filters; updated via onFiltersChange
   // so buildExtras can capture the latest values at stash time.
   const cardViewFiltersRef = useRef<CardViewFiltersSnapshot | null>(null);
+
+  // Refs that let buildExtras read the latest state without being in its dep array,
+  // avoiding unnecessary re-creation on every search keystroke.
+  const tabRef = useRef<TabValue>("manage");
+  const manageModeRef = useRef<ManageMode>(DEFAULT_MANAGE_MODE);
+  const searchQueryRef = useRef<string>("");
+  const editingCardIdRef = useRef<string | null>(editingCardId ?? null);
+  editingCardIdRef.current = editingCardId ?? null;
+
+  const buildExtras = useCallback((): Partial<EditReturnSnapshot> => ({
+    tab: tabRef.current,
+    manageMode: manageModeRef.current,
+    searchQuery: searchQueryRef.current,
+    cvSubcategory: cardViewFiltersRef.current?.subcategory,
+    cvChapter: cardViewFiltersRef.current?.chapter,
+    cvType: cardViewFiltersRef.current?.type,
+    cvFrequency: cardViewFiltersRef.current?.frequency,
+    readerCardId: editingCardIdRef.current ?? undefined,
+  }), []);
+
   const { initialSnapshot, stash: stashEditReturn } = useEditReturn<EditReturnSnapshot>({
     path: `/subject/${categoryId}/cards`,
     categoryId,
-    // PR-G8: explicit return type breaks the noImplicitAny inference cycle
-    // (buildExtras → tab/manageMode → useState init → initialSnapshot → useEditReturn<T>).
-    buildExtras: (): Partial<EditReturnSnapshot> => ({
-      tab,
-      manageMode,
-      searchQuery,
-      cvSubcategory: cardViewFiltersRef.current?.subcategory,
-      cvChapter: cardViewFiltersRef.current?.chapter,
-      cvType: cardViewFiltersRef.current?.type,
-      cvFrequency: cardViewFiltersRef.current?.frequency,
-      readerCardId: editingCardId ?? undefined,
-    }),
+    buildExtras,
   });
 
   const restoredTab = initialSnapshot?.tab;
@@ -121,21 +131,39 @@ export default function SubjectCardsView() {
     () => (initialSnapshot?.tab === "speed" ? initialSnapshot.readerCardId ?? null : null)
   );
 
-  const handleEdit = (card: Card) => {
+  // Keep refs in sync with state so buildExtras always captures the latest values.
+  tabRef.current = tab;
+  manageModeRef.current = manageMode;
+  searchQueryRef.current = searchQuery;
+
+  // ── Stable event handlers ────────────────────────────────────────────────
+
+  const handleEdit = useCallback((card: Card) => {
     // M3: explicit id passed to stash → no reliance on SSOT timing.
     setEditingCardId(card.id);
     stashEditReturn(card.id);
     navigate("/edit");
-  };
+  }, [setEditingCardId, stashEditReturn, navigate]);
+
+  const handlePassiveRead = useCallback((card: Card) => {
+    setPendingPassiveCardId(card.id);
+    setTab("read");
+  }, []);
 
   const handleCardViewFiltersChange = useCallback((snap: CardViewFiltersSnapshot) => {
     cardViewFiltersRef.current = snap;
   }, []);
 
-  const handlePassiveRead = (card: Card) => {
-    setPendingPassiveCardId(card.id);
-    setTab("read");
-  };
+  const handleSearchChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchQuery(e.target.value);
+  }, []);
+
+  const handleClearSearch = useCallback(() => setSearchQuery(""), []);
+  const handleBackToManage = useCallback(() => setTab("manage"), []);
+  const handleTabChange = useCallback((v: string) => setTab(v as TabValue), []);
+  const handleOpenStructure = useCallback(() => setStructureOpen(true), []);
+  const handleConsumedPassiveId = useCallback(() => setPendingPassiveCardId(null), []);
+  const handleConsumedSpeedId = useCallback(() => setPendingSpeedCardId(null), []);
 
   if (!ready) {
     return (
@@ -161,7 +189,7 @@ export default function SubjectCardsView() {
         essayCount={essayCount}
         flashCount={flashCount}
         tab={tab}
-        onBackToManage={() => setTab("manage")}
+        onBackToManage={handleBackToManage}
         createMenuSlot={
           tab === "manage" ? (
             <CardCreateMenu
@@ -177,7 +205,7 @@ export default function SubjectCardsView() {
         }
       />
 
-      <Tabs value={tab} onValueChange={(v) => setTab(v as TabValue)} className="w-full space-y-4">
+      <Tabs value={tab} onValueChange={handleTabChange} className="w-full space-y-4">
 
         {/* ── Group: Učenje (featured) ── */}
         <div className="space-y-1.5">
@@ -229,7 +257,7 @@ export default function SubjectCardsView() {
           <ManageModeToolbar
             manageMode={manageMode}
             onChangeMode={setManageMode}
-            onOpenStructure={() => setStructureOpen(true)}
+            onOpenStructure={handleOpenStructure}
           />
 
           {manageMode === MANAGE_MODE.Edit ? (
@@ -239,14 +267,14 @@ export default function SubjectCardsView() {
                   <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
                   <Input
                     value={searchQuery}
-                    onChange={e => setSearchQuery(e.target.value)}
+                    onChange={handleSearchChange}
                     placeholder="Pretraži pitanja, odgovore, tagove..."
                     className="h-8 pl-8 text-xs"
                   />
                   {searchQuery && (
                     <button
                       type="button"
-                      onClick={() => setSearchQuery("")}
+                      onClick={handleClearSearch}
                       className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 rounded hover:bg-muted"
                       aria-label="Obriši pretragu"
                     >
@@ -269,7 +297,6 @@ export default function SubjectCardsView() {
                 onEdit={handleEdit}
                 onPassiveRead={handlePassiveRead}
                 externalQuery={searchQuery}
-                
                 initialSubcategory={initialSnapshot?.cvSubcategory}
                 initialChapter={initialSnapshot?.cvChapter}
                 initialType={initialSnapshot?.cvType}
@@ -294,7 +321,7 @@ export default function SubjectCardsView() {
             categoryId={categoryId!}
             onEditCard={handleEdit}
             initialCardId={pendingPassiveCardId}
-            onInitialConsumed={() => setPendingPassiveCardId(null)}
+            onInitialConsumed={handleConsumedPassiveId}
           />
         </TabsContent>
 
@@ -304,7 +331,7 @@ export default function SubjectCardsView() {
             subcategoryNodes={subcategoryNodes}
             categoryId={categoryId!}
             initialCardId={pendingSpeedCardId}
-            onInitialConsumed={() => setPendingSpeedCardId(null)}
+            onInitialConsumed={handleConsumedSpeedId}
           />
         </TabsContent>
       </Tabs>

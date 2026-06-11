@@ -1,6 +1,6 @@
 import { Calendar } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import type { Source } from "@/lib/sources-storage";
+import type { Source } from "@/domains/sources/sources-storage";
 
 /**
  * Props for the SourceHeader component.

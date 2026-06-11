@@ -6,7 +6,7 @@
  * auto-create batches) is avoided.
  */
 import { useMemo } from "react";
-import type { KnowledgeBaseArticle } from "@/lib/zettelkasten-storage";
+import type { KnowledgeBaseArticle } from "@/domains/zettelkasten/zettelkasten-storage";
 import { isDocEmpty } from "@/lib/editor-v4/derived";
 
 interface Input {

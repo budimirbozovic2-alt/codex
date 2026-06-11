@@ -4,7 +4,7 @@ import { Card, getCardScore } from "@/lib/spaced-repetition";
 import { getFrequencyMeta } from "@/lib/sr/frequency";
 import { ViewWidth, viewWidthClasses, viewWidthLabels } from "./types";
 
-import { useCategoryData } from "@/contexts/AppContext";
+import { useCategoryData } from "@/hooks/cards/useCategoryState";
 import { m } from "@/lib/motion";
 import ShortcutsHint from "@/components/ShortcutsHint";
 

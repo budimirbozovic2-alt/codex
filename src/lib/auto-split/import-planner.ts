@@ -9,7 +9,7 @@ import { sanitizeHtml } from "@/lib/sanitize";
 import { htmlToDoc } from "@/lib/editor-v4";
 import type { EditorDoc } from "@/lib/editor-v4/types";
 import { createCard, type Card, type SourceModule } from "@/lib/spaced-repetition";
-import { createTextAnchor, type Source } from "@/lib/sources-storage";
+import { createTextAnchor, type Source } from "@/domains/sources/sources-storage";
 import type { DetectedArticle } from "@/lib/auto-split-engine";
 
 export type ArticleStatus = "new" | "exists";

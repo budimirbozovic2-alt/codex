@@ -6,7 +6,7 @@
 // mnemonic bounded context, not in the OLAP layer. Re-exported here as
 // a deprecation shim — new code MUST import from `@/domains/mnemonic`.
 import { Card } from "../spaced-repetition";
-import { loadCalibration } from "../metacognitive-storage";
+import { loadCalibration } from "@/domains/metacognition/metacognitive-storage";
 import { calcBlindSpots as calcBlindSpotsPure, type BlindSpot } from "./_pure/blind-spots";
 
 export type { BlindSpot };

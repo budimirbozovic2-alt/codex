@@ -6,7 +6,8 @@ import { Card } from "@/lib/spaced-repetition";
 
 import { useAllSources } from "@/hooks/useCategorySources";
 import { useMindMaps } from "@/hooks/useMindMaps";
-import { useCardData, useCategoryData } from "@/contexts/AppContext";
+import { useCategoryData } from "@/hooks/cards/useCategoryState";
+import { useCardData } from "@/hooks/cards/useCardState";
 import Modal from "@/components/ui/DialogShell";
 import { taskScheduler } from "@/lib/scheduler";
 import { derivePlainText } from "@/lib/editor-v4/derived";

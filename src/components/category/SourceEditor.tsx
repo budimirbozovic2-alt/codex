@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useMemo } from "react";
-import { Save, FileUp, Loader2 } from "lucide-react";
+import { Save, FileUp, Loader2, ChevronRight } from "lucide-react";
 import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,14 +9,12 @@ import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import type { Source, SourceKind } from "@/lib/db-types";
-import { extractOutline } from "@/lib/sources-storage";
+
 import { useSourceMutations } from "@/hooks/source/useSourceMutations";
-import { sanitizeHtml } from "@/lib/sanitize";
-import { injectHeadingIds } from "@/lib/sources-storage";
-import { parseArticles, compareVersions, getChangedArticleIds, matchAnchorToArticle } from "@/lib/article-parser";
+import { compareVersions, getChangedArticleIds, matchAnchorToArticle, parseArticles } from "@/lib/article-parser";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import { ChevronRight } from "lucide-react";
+
 import SourceDiffPreview from "@/components/source-reader/SourceDiffPreview";
 import { useDirtyDialog } from "@/hooks/useDirtyDialog";
 import DirtyConfirmBar from "@/components/ui/dirty-confirm-bar";
@@ -26,6 +24,7 @@ import { type EditorDoc } from "@/lib/editor-v4";
 import { deriveHtml, derivePlainText } from "@/lib/editor-v4/derived";
 import { useSourceDocxIngest } from "@/hooks/source-reader/useSourceDocxIngest";
 import { useLinkedCards } from "@/hooks/source-reader/useLinkedCards";
+import { buildSourceFromDoc } from "@/lib/services/sourceEditingService";
 
 interface Props {
   source: Source;
@@ -45,18 +44,14 @@ export default function SourceEditor({ source, categoryId, onClose, onSourceUpda
   const [dirty, setDirty] = useState(false);
   const { save: saveMutation } = useSourceMutations();
 
-  // Update source text — held as canonical V4 AST; legacy HTML derived on save.
   const [newDoc, setNewDoc] = useState<EditorDoc | null>(null);
-  const [editorKey, setEditorKey] = useState(0);
-  // PR-7b: HTML is NOT derived on keystroke — only when save handler runs.
-  // `hasPastedText` uses cached `derivePlainText` (WeakMap by doc ref).
+  const [textOpen, setTextOpen] = useState(false);
+
   const hasPastedText = useMemo(
     () => Boolean(newDoc && derivePlainText(newDoc).trim().length > 0),
     [newDoc],
   );
-  const [textOpen, setTextOpen] = useState(false);
 
-  // DOCX upload — owned by `useSourceDocxIngest` (R1 refactor).
   const {
     docxParsing,
     docxFileName,
@@ -68,15 +63,12 @@ export default function SourceEditor({ source, categoryId, onClose, onSourceUpda
   } = useSourceDocxIngest({
     onParsed: (doc) => {
       setNewDoc(doc);
-      setEditorKey((k) => k + 1);
       setDirty(true);
     },
   });
 
-  // Indexed read for linked cards — no direct `db` import.
   const { fetchLinkedCards } = useLinkedCards();
 
-  // Diff preview
   const [diffPending, setDiffPending] = useState<{
     diffResult: import("@/lib/article-parser").DiffResult;
     affectedCardIds: string[];
@@ -89,33 +81,28 @@ export default function SourceEditor({ source, categoryId, onClose, onSourceUpda
     }
   }, [title, slMarkings, dateStr, isExclusive, sourceKind, source]);
 
-
-  // ─── Save with diff check ────────────────────────────
   const handleSave = useCallback(async () => {
-    // `contentDoc` (AST) is the body SSOT; derive HTML only for diff/outline.
-    const baseHtml = deriveHtml(source.contentDoc);
-    let nextHtml = baseHtml;
-    let nextDoc: EditorDoc | null = null;
-    let outline = source.outline;
-    let articles = source.articles;
+    let updatedSource: Source = {
+      ...source,
+      title: title.trim() || source.title,
+      slMarkings: slMarkings.trim() || undefined,
+      date: dateStr,
+      isExclusive,
+      sourceKind,
+    };
 
-    // If user pasted new text, recompute outline/articles/contentDoc.
     if (hasPastedText && newDoc) {
-      const cleanHtml = sanitizeHtml(deriveHtml(newDoc));
-      const { promoteHeadings } = await import("@/lib/heading-promotion");
-      const promotedHtml = promoteHeadings(cleanHtml);
-      nextHtml = injectHeadingIds(promotedHtml);
-      outline = extractOutline(nextHtml);
-      articles = parseArticles(nextHtml);
-      nextDoc = newDoc;
+      updatedSource = buildSourceFromDoc(updatedSource, newDoc);
+      updatedSource.version = (source.version || 1) + 1;
 
-      // Run diff and check for affected cards
-      if (baseHtml && bulkFlagNeedsReview) {
+      if (bulkFlagNeedsReview) {
+        const baseHtml = deriveHtml(source.contentDoc);
+        const nextHtml = deriveHtml(newDoc);
+
         const diffResult = compareVersions(baseHtml, nextHtml);
         const changedIds = getChangedArticleIds(diffResult);
 
         if (changedIds.size > 0) {
-          // Find cards linked to this source with anchors in changed articles
           const linkedCards = await fetchLinkedCards(source.id);
           const oldArticles = parseArticles(baseHtml);
           const affectedCardIds: string[] = [];
@@ -129,57 +116,29 @@ export default function SourceEditor({ source, categoryId, onClose, onSourceUpda
             }
           }
 
-          // Show diff preview if there are changes
           if (diffResult.summary.modified > 0 || diffResult.summary.added > 0 || diffResult.summary.removed > 0) {
-            const updated: Source = {
-              ...source,
-              title: title.trim() || source.title,
-              slMarkings: slMarkings.trim() || undefined,
-              date: dateStr,
-              isExclusive,
-              sourceKind,
-              contentDoc: nextDoc,
-              outline,
-              articles,
-              version: (source.version || 1) + 1,
-              updatedAt: Date.now(),
-            };
-            setDiffPending({ diffResult, affectedCardIds, updatedSource: updated });
-            return; // Wait for user confirmation
+            updatedSource.updatedAt = Date.now();
+            setDiffPending({ diffResult, affectedCardIds, updatedSource });
+            return;
           }
         }
       }
     }
 
-    await commitSave(nextDoc, outline, articles);
-    // commitSave is declared below and is intentionally not a dep: it closes
-    // over the same source/title/etc inputs as this callback.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [source, title, slMarkings, dateStr, isExclusive, sourceKind, newDoc, hasPastedText, bulkFlagNeedsReview, fetchLinkedCards]);
-
-  const commitSave = useCallback(async (nextDoc: EditorDoc | null, outline: Source["outline"], articles: Source["articles"]) => {
-    const updated: Source = {
-      ...source,
-      title: title.trim() || source.title,
-      slMarkings: slMarkings.trim() || undefined,
-      date: dateStr,
-      isExclusive,
-      sourceKind,
-      contentDoc: nextDoc ?? source.contentDoc,
-      outline,
-      articles,
-      version: (source.version || 1) + (hasPastedText ? 1 : 0),
-      updatedAt: Date.now(),
-    };
-    await saveMutation.mutateAsync(updated);
+    updatedSource.updatedAt = Date.now();
+    await saveMutation.mutateAsync(updatedSource);
     setDirty(false);
     setNewDoc(null);
     onClose();
     afterDialogClose(() => {
-      onSourceUpdated(updated);
-      toast.success("Izvor sačuvan", { description: updated.title });
+      onSourceUpdated(updatedSource);
+      toast.success("Izvor sačuvan", { description: updatedSource.title });
     });
-  }, [source, title, slMarkings, dateStr, isExclusive, sourceKind, hasPastedText, onSourceUpdated, onClose, saveMutation]);
+  }, [
+    source, title, slMarkings, dateStr, isExclusive, sourceKind,
+    hasPastedText, newDoc, bulkFlagNeedsReview, fetchLinkedCards,
+    saveMutation, onClose, onSourceUpdated,
+  ]);
 
   const handleDiffConfirm = useCallback(async () => {
     if (!diffPending) return;
@@ -272,14 +231,12 @@ export default function SourceEditor({ source, categoryId, onClose, onSourceUpda
               </div>
             )}
 
-            {/* Update source text with DOCX drop zone */}
             <Collapsible open={textOpen} onOpenChange={setTextOpen}>
               <CollapsibleTrigger className="flex items-center gap-2 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors">
                 <ChevronRight className={cn("h-3.5 w-3.5 transition-transform", textOpen && "rotate-90")} />
                 Ažuriraj tekst izvora
               </CollapsibleTrigger>
               <CollapsibleContent className="pt-2 space-y-2">
-                {/* DOCX Drag & Drop Zone */}
                 <div
                   ref={dropZoneRef}
                   onDrop={handleDrop}
@@ -316,7 +273,6 @@ export default function SourceEditor({ source, categoryId, onClose, onSourceUpda
                 <div className="text-[10px] text-muted-foreground text-center">ili napišite / zalijepite tekst direktno:</div>
 
                 <EditorV4
-                  key={`src-paste-${editorKey}`}
                   initialDoc={newDoc ?? { version: 4, content: { type: "doc", content: [] } }}
                   onChange={(doc) => { setNewDoc(doc); setDirty(true); }}
                   placeholder="Zalijepite novu verziju teksta ovdje. Postojeće kartice neće izgubiti linkove."
@@ -342,7 +298,6 @@ export default function SourceEditor({ source, categoryId, onClose, onSourceUpda
         </DialogContent>
       </Dialog>
 
-      {/* Diff Preview Dialog */}
       {diffPending && (
         <SourceDiffPreview
           diffResult={diffPending.diffResult}

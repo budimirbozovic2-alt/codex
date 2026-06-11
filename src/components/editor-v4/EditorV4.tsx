@@ -23,7 +23,7 @@ export interface EditorV4Handle {
 }
 
 interface EditorV4Props {
-  /** Initial document — read only on mount. Force reset with React `key`. */
+  /** Canonical document; external updates sync via `setContent` (no remount). */
   initialDoc: EditorDoc;
   /** Fires on every edit with the canonical V4 AST. */
   onChange: (doc: EditorDoc) => void;
@@ -90,6 +90,15 @@ export const EditorV4 = forwardRef<EditorV4Handle, EditorV4Props>(function Edito
   const placeholderRef = useRef(placeholder ?? "");
   placeholderRef.current = placeholder ?? "";
 
+  const initialDocRef = useRef(initialDoc);
+  initialDocRef.current = initialDoc;
+
+  // D.5-style guard (see EditorView): compare serialized AST so parent re-renders
+  // with a fresh object reference don't reset ProseMirror, but external updates
+  // (e.g. DOCX ingest) still flow in without a React `key` remount.
+  const serialized = useMemo(() => JSON.stringify(initialDoc.content), [initialDoc.content]);
+  const lastAppliedSerialized = useRef<string | null>(null);
+
   const extensions = useMemo(() => [
     ...editorV4Extensions,
     SmartPaste,
@@ -131,6 +140,21 @@ export const EditorV4 = forwardRef<EditorV4Handle, EditorV4Props>(function Edito
       onChange({ version: 4, content: editor.getJSON() });
     },
   });
+
+  // Sync external `initialDoc` changes (DOCX upload, parent reset) without remount.
+  useEffect(() => {
+    if (!editor) return;
+    if (lastAppliedSerialized.current === serialized) return;
+
+    const currentSerialized = JSON.stringify(editor.getJSON());
+    if (currentSerialized === serialized) {
+      lastAppliedSerialized.current = serialized;
+      return;
+    }
+
+    lastAppliedSerialized.current = serialized;
+    editor.commands.setContent(initialDocRef.current.content, { emitUpdate: false });
+  }, [serialized, editor]);
 
   // Wire categoryId into mindmap storage so nodeView can resolve embeds.
   useEffect(() => {

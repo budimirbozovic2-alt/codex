@@ -38,9 +38,18 @@ export async function bootDb(): Promise<{ ok: boolean }> {
     );
     await ensureSqliteReady();
     markBootStep("cards:sqlite-prewarm-done");
+    // #region agent log
+    fetch('http://127.0.0.1:7244/ingest/bbcc467f-b810-4cc1-aebf-add63a6395ee',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'f62800'},body:JSON.stringify({sessionId:'f62800',location:'bootDb.ts:ensureSqliteReady',message:'SQLite prewarm OK',data:{},hypothesisId:'electron-boot',runId:'electron-build',timestamp:Date.now()})}).catch(()=>{});
+    window.electronAPI?.logError?.('[boot-diag] SQLite prewarm OK');
+    // #endregion
   } catch (e) {
     markBootStep("cards:sqlite-prewarm-failed", e instanceof Error ? e.message : String(e));
     // Ne prekidamo boot — recovery UI / fallback i dalje rade.
+    // #region agent log
+    const _errMsg = e instanceof Error ? e.message : String(e);
+    fetch('http://127.0.0.1:7244/ingest/bbcc467f-b810-4cc1-aebf-add63a6395ee',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'f62800'},body:JSON.stringify({sessionId:'f62800',location:'bootDb.ts:ensureSqliteReady',message:'SQLite prewarm FAILED',data:{error:_errMsg},hypothesisId:'electron-boot',runId:'electron-build',timestamp:Date.now()})}).catch(()=>{});
+    window.electronAPI?.logError?.(`[boot-diag] SQLite prewarm FAILED: ${_errMsg}`);
+    // #endregion
   }
 
   // PR-G2 / #11 fix: previously `scheduleLogPrune()` fired here as a

@@ -6,7 +6,7 @@ import { Card } from "@/lib/spaced-repetition";
 import { ContentRenderer } from "@/components/ui/ContentRenderer";
 import { Fragment, useEffect, useState } from "react";
 
-import { getSource, confirmCardReview, type Source } from "@/lib/sources-storage";
+import { getSource, confirmCardReview, type Source } from "@/domains/sources/sources-storage";
 import { toast } from "sonner";
 import { afterDialogClose } from "@/lib/dialog-utils";
 

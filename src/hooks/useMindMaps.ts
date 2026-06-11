@@ -6,7 +6,7 @@
  */
 import { useMemo } from "react";
 import { useQuery, keepPreviousData } from "@tanstack/react-query";
-import { loadMindMaps, getMindMap } from "@/lib/mindmap-storage";
+import { loadMindMaps, getMindMap } from "@/domains/mindmaps/mindmap-storage";
 import type { MindMapDoc } from "@/lib/db-types";
 import { queryKeys } from "@/lib/query/keys";
 

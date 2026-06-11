@@ -172,7 +172,6 @@ export async function applyImportAtomically(ctx: ImportCtx): Promise<ImportTxRes
     });
 
     // ── 5. Push freshly restored categories into the SSOT store. ──
-    //       SQLite is now the durable copy (no Dexie mirror after A1c-4 F1).
     categoryRepository.replaceAll(finalCategories);
 
     backupLog.success("import", "atomic restore committed", {

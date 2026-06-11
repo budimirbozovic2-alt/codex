@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { Card, SRSettings, DEFAULT_SR_SETTINGS } from "@/lib/spaced-repetition";
 import { ReviewLogEntry } from "@/lib/storage";
-import { getTimeDistribution } from "@/lib/metacognitive-storage";
+import { getTimeDistribution } from "@/domains/metacognition/metacognitive-storage";
 import { useDeferredCompute } from "@/hooks/useDeferredCompute";
 import { useAnalyticsWorker } from "@/hooks/useAnalyticsWorker";
 import { analyticsClient } from "@/lib/analytics/workerClient";

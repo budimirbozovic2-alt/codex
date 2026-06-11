@@ -1,7 +1,8 @@
 import { useMemo, lazy, Suspense } from "react";
 import { Link, useParams } from "react-router-dom";
 import { ArrowLeft, AlertTriangle, Brain } from "lucide-react";
-import { useCardData, useCategoryData, useReviewData } from "@/contexts/AppContext";
+import { useCategoryData } from "@/hooks/cards/useCategoryState";
+import { useCardData, useReviewData } from "@/hooks/cards/useCardState";
 import { useCardsByCategory } from "@/store";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { Skeleton } from "@/components/ui/skeleton";

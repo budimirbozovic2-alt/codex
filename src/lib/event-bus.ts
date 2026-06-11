@@ -10,13 +10,18 @@
 
 import { 
   type EventType, 
-  type EventMessage 
+  type EventMessage,
+  type DomainChangedPayload,
+  EVENT_TYPES,
 } from "./event-bus-types";
 import { logger } from "@/lib/logger";
 export { 
   EVENT_TYPES, 
   type EventType, 
-  type EventMessage 
+  type EventMessage,
+  type DomainChangedPayload,
+  type CardsChangedScope,
+  type PlannerChangedKind,
 } from "./event-bus-types";
 
 const BUS_KEY: unique symbol = Symbol.for("codex.eventbus") as never;
@@ -95,3 +100,18 @@ class EventBus {
 // Singleton osiguran na globalThis nivou
 export const eventBus: EventBus =
   slots[BUS_KEY] ?? (slots[BUS_KEY] = new EventBus());
+
+// ─── Domain change helpers ───────────────────────────────────────────────────
+
+export function emitDomainChanged(payload: DomainChangedPayload): void {
+  eventBus.emit(EVENT_TYPES.DOMAIN_CHANGED, payload);
+}
+
+export function onDomainChanged(
+  cb: (payload: DomainChangedPayload) => void
+): () => void {
+  return eventBus.subscribe(
+    EVENT_TYPES.DOMAIN_CHANGED,
+    cb as (payload: unknown) => void,
+  );
+}

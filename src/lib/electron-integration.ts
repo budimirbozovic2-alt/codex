@@ -1,4 +1,3 @@
-import { persistQueue } from "@/lib/persist-queue";
 import { reviewLogRepository } from "@/lib/repositories";
 import { toast } from "sonner";
 import { logger } from "@/lib/logger";
@@ -185,7 +184,6 @@ export async function setupElectronIPC() {
         await Promise.race([
           (async () => {
             await reviewLogRepository.flush();
-            await persistQueue.flush();
             const data = await buildBackupData();
             await streamBackup(data);
           })(),

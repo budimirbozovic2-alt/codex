@@ -2,7 +2,8 @@ import { Trash2, AlertCircle, Target, Trophy, ChevronDown, ChevronRight, Flame, 
 import { useMemo, useState } from "react";
 import { getErrorStatus, type Card, type ErrorStatus } from "@/lib/spaced-repetition";
 import { derivePlainText } from "@/lib/editor-v4/derived";
-import { useCategoryData, useCardOnlyActions } from "@/contexts/AppContext";
+import { useCardOnlyActions } from "@/hooks/cards/useActions";
+import { useCategoryData } from "@/hooks/cards/useCategoryState";
 import { useCardsByCategory } from "@/store";
 import { m, AnimatePresence } from "@/lib/motion";
 import { toast } from "sonner";

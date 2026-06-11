@@ -1,6 +1,7 @@
 /**
  * Parse DOCX files using a Web Worker to avoid blocking the UI thread.
- * Falls back to main-thread parsing if Workers aren't available.
+ * This is a desktop-only app — Workers are always available in Electron.
+ * The error path re-throws so the caller can surface it to the user.
  */
 
 export function parseDocxInWorker(arrayBuffer: ArrayBuffer): Promise<string> {
@@ -58,12 +59,10 @@ export function parseDocxInWorker(arrayBuffer: ArrayBuffer): Promise<string> {
   });
 }
 
-async function fallbackParse(arrayBuffer: ArrayBuffer): Promise<string> {
-  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-  // @ts-ignore — mammoth.browser nema vlastite tipove.
-  const mod = await import("mammoth/mammoth.browser");
-  const mammoth = (mod as unknown as { default?: { convertToHtml: (i: { arrayBuffer: ArrayBuffer }) => Promise<{ value: string }> } }).default
-    ?? (mod as unknown as { convertToHtml: (i: { arrayBuffer: ArrayBuffer }) => Promise<{ value: string }> });
-  const result = await mammoth.convertToHtml({ arrayBuffer });
-  return result.value;
+// Fallback is intentionally a hard error: mammoth is only bundled inside
+// docx-worker.ts (off the main thread). Importing it here would double the
+// bundle size (~490 KB). In Electron, Workers always work; if the Worker
+// fails for an unexpected reason, the user is shown an error and can retry.
+async function fallbackParse(_arrayBuffer: ArrayBuffer): Promise<string> {
+  throw new Error("DOCX Worker nije uspio. Pokušajte ponovo ili provjerite fajl.");
 }

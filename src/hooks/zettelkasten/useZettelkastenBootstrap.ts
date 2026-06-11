@@ -4,7 +4,7 @@
  * PR-7f M3g — articles now flow through TanStack Query
  * (`useKnowledgeBaseArticlesBySubject`). The old `useState +
  * loadArticlesBySubject` reader is gone; bridge invalidation
- * (`onKnowledgeBaseChanged → invalidateQueries(['knowledgeBase'])`) keeps
+ * (`domain:changed{zettelkasten} → invalidateQueries(['knowledgeBase'])`) keeps
  * the cache hot after every write.
  *
  * Responsibilities retained:
@@ -20,7 +20,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ensureIndexArticle,
   type KnowledgeBaseArticle,
-} from "@/lib/zettelkasten-storage";
+} from "@/domains/zettelkasten/zettelkasten-storage";
 import { backlinkIndex } from "@/lib/backlink-index";
 import { logger } from "@/lib/logger";
 import { useKnowledgeBaseArticlesBySubject } from "./useKnowledgeBaseArticles";

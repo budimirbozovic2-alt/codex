@@ -14,7 +14,6 @@
     "build:dev": "vite build --mode development",
     "lint": "eslint . --max-warnings=0",
     "lint:walls": "node scripts/check-domain-walls.mjs",
-    "lint:critical": "eslint src/hooks/useCardImport.ts src/hooks/useCardExport.ts src/lib/migrations src/lib/sanitize.ts src/lib/persist-queue.ts src/lib/db-queries.ts src/lib/db-schema.ts src/contexts/cards",
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -46,6 +45,7 @@
       "target": "nsis",
       "icon": "public/app-icon.ico"
     },
+    "compression": "maximum",
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true

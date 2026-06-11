@@ -1,5 +1,6 @@
 import { lazy, Suspense } from "react";
-import { useCardData, useCategoryData, useReviewData } from "@/contexts/AppContext";
+import { useCategoryData } from "@/hooks/cards/useCategoryState";
+import { useCardData, useReviewData } from "@/hooks/cards/useCardState";
 import { PageSkeleton } from "@/components/ui/page-skeleton";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 

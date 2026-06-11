@@ -3,7 +3,7 @@ import {
   loadSources,
   loadSourcesByCategory,
   type Source,
-} from "@/lib/sources-storage";
+} from "@/domains/sources/sources-storage";
 import { queryKeys } from "@/lib/query/keys";
 
 const EMPTY: Source[] = [];

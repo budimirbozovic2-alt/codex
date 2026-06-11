@@ -100,10 +100,63 @@ async function bulkPatch(
   return updated;
 }
 
+/**
+ * Atomic read-modify-write: clear sourceId / textAnchor / needsReview for a
+ * set of cards in one transaction. Skips cards that have no sourceId.
+ */
+async function clearLinks(cardIds: string[]): Promise<Card[]> {
+  if (cardIds.length === 0) return [];
+  const updated: Card[] = [];
+  await runInTransaction(async (tx) => {
+    const placeholders = cardIds.map(() => "?").join(",");
+    const rows = await tx.all<{ id: string; payload: string }>(
+      `SELECT id, payload FROM cards WHERE id IN (${placeholders})`,
+      cardIds,
+    );
+    const now = Date.now();
+    for (const row of rows) {
+      const c = decodeCard(row);
+      if (!c.sourceId) continue;
+      const u: Card = { ...c, sourceId: undefined, textAnchor: undefined, needsReview: undefined, updatedAt: now };
+      updated.push(u);
+      await tx.run(CARD_INSERT_SQL, bindCardInsert(u));
+    }
+  });
+  if (updated.length > 0) notifyCardsChanged();
+  return updated;
+}
+
+/**
+ * Atomic read-modify-write: clear needsReview for one card.
+ * No-op and no notification if the card doesn't exist or has no needsReview.
+ */
+async function clearNeedsReview(id: string): Promise<Card | undefined> {
+  let written = false;
+  let result: Card | undefined;
+  await runInTransaction(async (tx) => {
+    const rows = await tx.all<{ id: string; payload: string }>(
+      "SELECT id, payload FROM cards WHERE id = ?",
+      [id],
+    );
+    const row = rows[0];
+    if (!row) return;
+    const c = decodeCard(row);
+    if (c.needsReview === undefined) { result = c; return; }
+    const updated: Card = { ...c, needsReview: undefined, updatedAt: Date.now() };
+    await tx.run(CARD_INSERT_SQL, bindCardInsert(updated));
+    result = updated;
+    written = true;
+  });
+  if (written) notifyCardsChanged();
+  return result;
+}
+
 export const cardRepository = {
   put,
   bulkPut,
   remove,
   patch,
   bulkPatch,
+  clearLinks,
+  clearNeedsReview,
 };

@@ -44,7 +44,7 @@ export default function DocxImporter({ open, onClose, categories, onImport }: Pr
     const cat = flow.newCategory.trim() || flow.category;
     const cards = flow.parsedCards;
     const type = flow.cardType;
-    // Root-cause: zatvori dijalog PRVO; uvoz mijenja AppContext + IDB i
+    // Root-cause: zatvori dijalog PRVO; uvoz mijenja card state + IDB i
     // pokreće toast — sve to mora čekati Radix unmount cleanup.
     handleReset();
     afterDialogClose(() => onImport(cards, cat, type));

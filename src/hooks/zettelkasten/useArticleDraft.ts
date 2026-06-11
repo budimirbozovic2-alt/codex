@@ -16,7 +16,7 @@ import { toast } from "sonner";
 import {
   getArticle,
   type KnowledgeBaseArticle,
-} from "@/lib/zettelkasten-storage";
+} from "@/domains/zettelkasten/zettelkasten-storage";
 import { normalizeAliasList } from "@/lib/zettelkasten-aliases";
 import { normalizeTagList } from "@/lib/zettelkasten-tags";
 import { sameStringSet } from "@/lib/struct-eq";

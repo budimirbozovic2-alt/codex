@@ -5,22 +5,22 @@
 // `removeArticle`. What remains here is the source-storage callback wiring,
 // which is genuinely lifecycle-bound.
 //
-// PR-E3: writes route through direct SQLite helpers — no Zustand RAM mirror.
+// Writes route through cardRepository (atomic runInTransaction — no queue).
 import { useEffect } from "react";
-import { onCardLinksCleared, onCardReviewConfirmed } from "@/lib/sources-storage";
-import { clearCardLinksDirect, clearCardNeedsReviewDirect } from "@/lib/db/queries";
+import { onCardLinksCleared, onCardReviewConfirmed } from "@/domains/sources/sources-storage";
+import { cardRepository } from "@/lib/repositories";
 import { logger } from "@/lib/logger";
 
 export function useCardSyncEffects(): void {
   useEffect(() => onCardLinksCleared((ids) => {
-    void clearCardLinksDirect(ids).catch((e) =>
-      logger.warn("[useCardSyncEffects] clearCardLinksDirect failed", e),
+    void cardRepository.clearLinks(ids).catch((e) =>
+      logger.warn("[useCardSyncEffects] clearLinks failed", e),
     );
   }), []);
 
   useEffect(() => onCardReviewConfirmed((cardId) => {
-    void clearCardNeedsReviewDirect(cardId).catch((e) =>
-      logger.warn("[useCardSyncEffects] clearCardNeedsReviewDirect failed", e),
+    void cardRepository.clearNeedsReview(cardId).catch((e) =>
+      logger.warn("[useCardSyncEffects] clearNeedsReview failed", e),
     );
   }), []);
 }

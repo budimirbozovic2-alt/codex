@@ -15,6 +15,11 @@ import {
   notifyExecutorNull 
 } from "./_shared/executor-telemetry";
 import { withSqlTiming } from "./_shared/sql-timing";
+import {
+  emitDomainChanged,
+  onDomainChanged,
+  type CardsChangedScope,
+} from "@/lib/event-bus";
 
 // ── Executor accessor ────────────────────────────────────────────
 
@@ -286,35 +291,20 @@ export async function cardCountByType(
 
 // ── Cache invalidation hook for TanStack bridges ─────────────────
 
-export type CardsScope =
-  | { kind: "all" }
-  | { kind: "category"; categoryId: string }
-  | { 
-      kind: "subcategory"; 
-      categoryId: string; 
-      subcategoryId: string 
-    }
-  | { kind: "chapter"; categoryId: string; chapterId: string }
-  | { kind: "source"; sourceId: string };
-
-type CardsChangedListener = (scope: CardsScope) => void;
-const _listeners = new Set<CardsChangedListener>();
+// CardsScope is an alias for CardsChangedScope from event-bus-types.
+// Kept as a re-export for backward compatibility with existing callers.
+export type CardsScope = CardsChangedScope;
 
 export function onCardsChanged(
-  fn: CardsChangedListener
+  fn: (scope: CardsScope) => void
 ): () => void {
-  _listeners.add(fn);
-  return () => { _listeners.delete(fn); };
+  return onDomainChanged((p) => {
+    if (p.domain === "cards") fn(p.scope);
+  });
 }
 
 export function notifyCardsChanged(
   scope: CardsScope = { kind: "all" }
 ): void {
-  for (const fn of _listeners) {
-    try { 
-      fn(scope); 
-    } catch (err) { 
-      logger.warn("[cards-repo] listener threw", err); 
-    }
-  }
+  emitDomainChanged({ domain: "cards", scope });
 }

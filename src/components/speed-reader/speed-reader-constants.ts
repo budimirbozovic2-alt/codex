@@ -1,5 +1,5 @@
 import type { Card } from "@/lib/spaced-repetition";
-import type { Source } from "@/lib/sources-storage";
+import type { Source } from "@/domains/sources/sources-storage";
 import { sanitizeHtml } from "@/lib/sanitize";
 import { deriveHtml, derivePlainText } from "@/lib/editor-v4/derived";
 

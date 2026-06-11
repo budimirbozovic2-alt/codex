@@ -42,8 +42,7 @@ export async function runSchema(): Promise<void> {
   }
 
   // Step 1: legacy localStorage cleanup. Sentinel-gated so realistic users
-  // (no v22-era localStorage keys) skip the dynamic import entirely. Wave 4
-  // removed the mnemonic→IDB step — SQLite is SSOT and that path is dead.
+  // (no v22-era localStorage keys) skip the dynamic import entirely.
   const MIGRATIONS_CLEAN_FLAG = "codex-migrations-clean";
   try {
     if (localStorage.getItem(MIGRATIONS_CLEAN_FLAG) !== "1") {
@@ -56,10 +55,6 @@ export async function runSchema(): Promise<void> {
   } catch (e) {
     throw new SchemaError("migrateFromLocalStorage", e);
   }
-
-  // Step 2 removed (Wave 4): mnemonics localStorage→IDB migration was a no-op
-  // for every user since SQLite became SSOT in A1c-4 F6.
-  // Step 3 removed (A1a): outbox WAL recovery — SQLite WAL replaces it.
 
   // Step 4 (PR-8 M2): One-shot IDB → SQLite migration. Electron-only because
   // OPFS-SAH-pool is unreliable in browsers today. SOFT-FAIL: failure here

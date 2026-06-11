@@ -1,5 +1,5 @@
 import { useParams, Link, useNavigate } from "react-router-dom";
-import { useCategoryActions } from "@/contexts/AppContext";
+import { useCategoryActions } from "@/hooks/cards/useActions";
 import { useMemo, useState } from "react";
 import {
   ArrowLeft, BookMarked, Brain, RefreshCw, AlertTriangle,

@@ -32,7 +32,7 @@ vi.mock("@/lib/backup/write-satellite-tx", async () => {
   };
 });
 
-// Avoid touching the AppContext SSOT mirror during these isolated tests.
+// Avoid touching the card-state SSOT mirror during these isolated tests.
 vi.mock("@/lib/repositories", async () => {
   const actual = await vi.importActual<typeof import("@/lib/repositories")>(
     "@/lib/repositories",
