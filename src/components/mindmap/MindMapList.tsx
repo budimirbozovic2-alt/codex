@@ -3,13 +3,14 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import type { MindMapDoc, MindMapMode } from "@/lib/db-types";
-import { useMindMaps } from "@/hooks/useMindMaps";
+import { useMindMapsByCategory } from "@/hooks/useMindMaps";
 import { useMindMapMutations } from "@/hooks/mindmap/useMindMapMutations";
 import { Button } from "@/components/ui/button";
 import { AnimatePresence } from "@/lib/motion";
 import InfoPanel from "@/components/InfoPanel";
 import MindMapOnboarding from "@/components/mindmap/MindMapOnboarding";
 interface Props {
+  categoryId: string;
   onOpen: (doc: MindMapDoc) => void;
   showOnboarding?: boolean;
   onShowOnboarding?: () => void;
@@ -17,12 +18,13 @@ interface Props {
 }
 
 export default function MindMapList({ 
+  categoryId,
   onOpen, 
   showOnboarding, 
   onShowOnboarding, 
   onCloseOnboarding 
 }: Props) {
-  const { mindMaps: maps, ready } = useMindMaps();
+  const { mindMaps: maps, ready } = useMindMapsByCategory(categoryId);
   const { save, remove } = useMindMapMutations();
   const [showCreate, setShowCreate] = useState(false);
   const loading = !ready;
@@ -31,6 +33,7 @@ export default function MindMapList({
     const isHierarchy = mode === "hierarchy";
     const doc: MindMapDoc = {
       id: crypto.randomUUID(),
+      categoryId,
       title: isHierarchy ? "Nova hijerarhija" : "Novi postupak",
       mode,
       nodes: [],
@@ -77,12 +80,10 @@ export default function MindMapList({
           <div className="flex items-center gap-1">
             <InfoPanel title="Mentalne mape">
               <p>
-                <strong>Hijerarhija</strong> — strukture sa grananjem" + 
-                " od vrha ka dnu (sudski sistemi)."
+                <strong>Hijerarhija</strong> — strukture sa grananjem od vrha ka dnu (sudski sistemi).
               </p>
               <p>
-                <strong>Procedura</strong> — tok postupka sa fazama," + 
-                " rokovima i odlucnim tackama."
+                <strong>Procedura</strong> — tok postupka sa fazama, rokovima i odlučnim tačkama.
               </p>
             </InfoPanel>
             <button

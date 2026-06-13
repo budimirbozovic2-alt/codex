@@ -31,7 +31,7 @@ interface Props {
 }
 
 export default function OperationsTab({
-  config, save: _save, subjectPlans,
+  config, save, subjectPlans,
   velocity, remaining, estimatedFinish, plannerStatus,
   smartSuggestion, timeRec, debt, dueCount, learningRatio, overallPct,
   retentionRisk, categoryRecords,
@@ -43,7 +43,10 @@ export default function OperationsTab({
   const handleRebalance = () => {
     const result = calcRebalancedQuota(remaining, config.finalGoalDate, config.bufferPercent);
     if (!result) return;
-    toast.success(`Nova preporučena kvota: ${result.newDailyQuota} sekcija/dan (${result.daysLeft} dana preostalo)`);
+    save({ ...config, dailyQuotaOverride: result.newDailyQuota });
+    toast.success(
+      `Plan nivelisan: ${result.newDailyQuota} cjelina/dan (${result.daysLeft} dana preostalo)`,
+    );
   };
 
   return (
@@ -230,10 +233,10 @@ export default function OperationsTab({
                   <p className="text-lg font-medium text-primary">{smartSuggestion.suggestedToday} novih cjelina</p>
                 )}
                 {timeRec && (
-                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <div className={`flex items-center gap-1.5 text-xs ${timeRec.fitsBudget ? "text-muted-foreground" : "text-warning"}`}>
                     <Clock className="h-3.5 w-3.5" />
                     <span>{timeRec.message}</span>
-                    <span className="text-[10px]">({dueCount} dospjelih + {smartSuggestion.suggestedToday} novih)</span>
+                    <span className="text-[10px] opacity-80">({dueCount} dospjelih + {smartSuggestion.suggestedToday} novih)</span>
                   </div>
                 )}
               </div>

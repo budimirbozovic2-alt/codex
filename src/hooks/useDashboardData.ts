@@ -168,7 +168,13 @@ export function useDashboardData(
     const estimated = mod.calcEstimatedFinish(remaining, velocity7);
     const status = mod.getPlannerStatus(estimated, plannerConfig.finalGoalDate, plannerConfig.bufferPercent ?? 15);
     const suggestion = mod.getSmartSuggestion(null, cards, plannerConfig.finalGoalDate, plannerConfig.bufferPercent ?? 15);
-    const timeRec = suggestion ? mod.calcDailyTimeRecommendation(suggestion.suggestedToday, stats.due) : null;
+    const timeRec = suggestion
+      ? mod.calcDailyTimeRecommendation(
+          suggestion.suggestedToday,
+          stats.due,
+          plannerConfig.dailyAvailableMinutes,
+        )
+      : null;
     type ActivePhase = { name: string; pct: number; learned: number; total: number };
     const activePhase: ActivePhase | null = null;
     const dailyMapped = mod.getDailyMappedCount();

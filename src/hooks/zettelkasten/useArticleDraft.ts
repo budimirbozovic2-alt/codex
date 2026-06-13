@@ -41,7 +41,6 @@ interface Draft {
 interface Input {
   activeId: string | null;
   categoryId: string | undefined;
-  setArticles: React.Dispatch<React.SetStateAction<KnowledgeBaseArticle[]>>;
 }
 
 export interface ArticleDraftApi {
@@ -76,7 +75,7 @@ function fromArticle(a: KnowledgeBaseArticle): Draft {
   };
 }
 
-export function useArticleDraft({ activeId, categoryId, setArticles }: Input): ArticleDraftApi {
+export function useArticleDraft({ activeId, categoryId }: Input): ArticleDraftApi {
   const [draft, setDraft] = useState<Draft | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const editorRef = useRef<ZettelEditorHandle | null>(null);
@@ -143,12 +142,11 @@ export function useArticleDraft({ activeId, categoryId, setArticles }: Input): A
       toast.error("Članak NIJE sačuvan. Kopirajte tekst prije navigacije.");
       return null;
     }
-    setArticles(prev => prev.map(a => a.id === next.id ? next : a));
     if (categoryId) {
       backlinkIndex.upsertArticle(categoryId, next);
     }
     return next;
-  }, [activeId, categoryId, setArticles]);
+  }, [activeId, categoryId]);
 
   // Cleanup-flush on activeId change OR unmount. Capture the CURRENT flush
   // (bound to the OLD activeId) so navigation A→B saves A, not B.

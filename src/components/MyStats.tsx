@@ -41,9 +41,9 @@ export default function MyStats({ cards, categories, categoryRecords, subcategor
   }, [categoryRecords]);
 
   const {
-    weights, focusRatio, ratioHistory, todayTime,
+    focusRatio, ratioHistory, todayTime,
     activityData, masteryData, categoryChartData, levelCounts,
-  } = useStatsData({ cards, categories, categoryStats, reviewLog, srSettings });
+  } = useStatsData({ cards, categories, categoryStats, reviewLog, srSettings, catNameMap });
 
   return (
     <div className="space-y-8">
@@ -125,7 +125,7 @@ export default function MyStats({ cards, categories, categoryRecords, subcategor
                 ratioHistory={ratioHistory}
                 todayTime={todayTime}
                 focusRatio={focusRatio}
-                
+                catNameMap={catNameMap}
               />
             </ErrorBoundary>
           </Suspense>
@@ -142,7 +142,7 @@ export default function MyStats({ cards, categories, categoryRecords, subcategor
         <TabsContent value="latency">
           <Suspense fallback={<TabSkeleton />}>
             <ErrorBoundary label="Latencija">
-              <LatencyTab />
+              <LatencyTab catNameMap={catNameMap} />
             </ErrorBoundary>
           </Suspense>
         </TabsContent>
@@ -150,7 +150,7 @@ export default function MyStats({ cards, categories, categoryRecords, subcategor
         <TabsContent value="resistance">
           <Suspense fallback={<TabSkeleton />}>
             <ErrorBoundary label="Otpor">
-              <ResistanceTab cards={cards} categories={categories} reviewLog={reviewLog} weights={weights} catNameMap={catNameMap} />
+              <ResistanceTab cards={cards} categories={categories} reviewLog={reviewLog} srSettings={srSettings} catNameMap={catNameMap} />
             </ErrorBoundary>
           </Suspense>
         </TabsContent>

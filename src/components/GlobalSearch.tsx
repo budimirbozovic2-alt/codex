@@ -1,4 +1,4 @@
-import { Search, BookOpen, Zap, FileText, Network, ArrowRight } from "lucide-react";
+import { Search, BookOpen, Zap, FileText, Network, ArrowRight, BookMarked } from "lucide-react";
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useDebounce } from "@/hooks/useDebounce";
@@ -11,6 +11,16 @@ import { useCardData } from "@/hooks/cards/useCardState";
 import Modal from "@/components/ui/DialogShell";
 import { taskScheduler } from "@/lib/scheduler";
 import { derivePlainText } from "@/lib/editor-v4/derived";
+import { useAllKnowledgeBaseArticles } from "@/hooks/zettelkasten/useKnowledgeBaseArticles";
+import type { KnowledgeBaseArticle } from "@/domains/zettelkasten/zettelkasten-storage";
+import { queueSourceReaderOpen } from "@/lib/source-reader/pending-source-open";
+
+function articleMatchesQuery(a: KnowledgeBaseArticle, q: string): boolean {
+  if (a.title.toLowerCase().includes(q)) return true;
+  if (a.aliases?.some((alias) => alias.toLowerCase().includes(q))) return true;
+  if (a.tags?.some((tag) => tag.toLowerCase().includes(q))) return true;
+  return derivePlainText(a.contentDoc).toLowerCase().includes(q);
+}
 
 interface Props {
   open: boolean;
@@ -18,18 +28,19 @@ interface Props {
   onNavigateToCard: (card: Card) => void;
 }
 
-type ResultType = "card" | "source" | "mindmap";
+type ResultType = "card" | "source" | "mindmap" | "article";
 
 interface SearchResult {
   id: string;
   type: ResultType;
   title: string;
   subtitle?: string;
-  icon: "essay" | "flash" | "source" | "mindmap";
+  icon: "essay" | "flash" | "source" | "mindmap" | "article";
   card?: Card;
   categoryId?: string;
   sourceId?: string;
   mindmapId?: string;
+  articleId?: string;
 }
 
 /**
@@ -78,6 +89,7 @@ export default function GlobalSearch({ open, onClose, onNavigateToCard }: Props)
   // Subscriptions are gated on `open` so the modal only pays the cost when shown.
   const sources = useAllSources(open);
   const { mindMaps } = useMindMaps(open);
+  const kbArticles = useAllKnowledgeBaseArticles(open);
 
   // Reset query/cursor + focus when opening
   useEffect(() => {
@@ -102,7 +114,7 @@ export default function GlobalSearch({ open, onClose, onNavigateToCard }: Props)
         );
         return questionMatch || contentMatch;
       })
-      .slice(0, 12)
+      .slice(0, 10)
       .forEach((c) => {
         out.push({
           id: c.id,
@@ -135,22 +147,42 @@ export default function GlobalSearch({ open, onClose, onNavigateToCard }: Props)
       .filter((m) => m.title.toLowerCase().includes(q))
       .slice(0, 5)
       .forEach((m) => {
+        const modeLabel = m.mode === "hierarchy" ? "Hijerarhija" : "Postupak";
+        const catLabel = m.categoryId ? (uuidToName[m.categoryId] ?? m.categoryId) : undefined;
         out.push({
           id: m.id,
           type: "mindmap",
           title: m.title,
-          subtitle: m.mode === "hierarchy" ? "Hijerarhija" : "Postupak",
+          subtitle: catLabel ? `${catLabel} · ${modeLabel}` : modeLabel,
           icon: "mindmap",
+          categoryId: m.categoryId,
           mindmapId: m.id,
+        });
+      });
+
+    // Search knowledge-base articles
+    kbArticles
+      .filter((a) => articleMatchesQuery(a, q))
+      .slice(0, 5)
+      .forEach((a) => {
+        const subjectLabel = uuidToName[a.subjectId] ?? a.subjectId;
+        out.push({
+          id: a.id,
+          type: "article",
+          title: a.title,
+          subtitle: a.isIndex ? `${subjectLabel} · Index` : subjectLabel,
+          icon: "article",
+          categoryId: a.subjectId,
+          articleId: a.id,
         });
       });
 
     return out.slice(0, 20);
     // `uuidToName` is a stable lookup from CategoryRecord context; including
     // it would re-run search on every category rename. Search is scoped to
-    // cards/sources/mindmaps content, not name labels.
+    // cards/sources/mindmaps/kb content, not name labels.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cards, sources, mindMaps, debouncedQuery]);
+  }, [cards, sources, mindMaps, kbArticles, debouncedQuery]);
 
   useEffect(() => {
     setSelectedIndex(0);
@@ -166,11 +198,12 @@ export default function GlobalSearch({ open, onClose, onNavigateToCard }: Props)
     if (result.type === "card" && result.card) {
       onNavigateToCard(result.card);
     } else if (result.type === "source" && result.categoryId) {
-      sessionStorage.setItem("sr-open-source-id", result.id);
+      queueSourceReaderOpen(result.sourceId ?? result.id);
       navigate(`/category/${result.categoryId}`);
-    } else if (result.type === "mindmap") {
-      sessionStorage.setItem("sr-open-mindmap-id", result.id);
-      navigate("/mind-map");
+    } else if (result.type === "mindmap" && result.categoryId && result.mindmapId) {
+      navigate(`/subject/${result.categoryId}/mind-maps?open=${result.mindmapId}`);
+    } else if (result.type === "article" && result.categoryId && result.articleId) {
+      navigate(`/subject/${result.categoryId}/zettelkasten?open=${result.articleId}`);
     }
     onClose();
   }, [onNavigateToCard, onClose, navigate]);
@@ -216,12 +249,14 @@ export default function GlobalSearch({ open, onClose, onNavigateToCard }: Props)
     flash: <Zap className="h-3.5 w-3.5 text-warning shrink-0" />,
     source: <FileText className="h-3.5 w-3.5 text-success shrink-0" />,
     mindmap: <Network className="h-3.5 w-3.5 text-accent-foreground shrink-0" />,
+    article: <BookMarked className="h-3.5 w-3.5 text-info shrink-0" />,
   };
 
   const typeLabel: Record<ResultType, string> = {
     card: "Moduli",
     source: "Izvori",
     mindmap: "Mentalne mape",
+    article: "Baza znanja",
   };
 
   // Group results by type
@@ -253,7 +288,7 @@ export default function GlobalSearch({ open, onClose, onNavigateToCard }: Props)
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder="Pretraži module, izvore, mentalne mape..."
+          placeholder="Pretraži module, izvore, baze znanja, mentalne mape..."
           className="flex-1 py-3.5 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
           aria-label="Pretraga"
         />
@@ -267,7 +302,7 @@ export default function GlobalSearch({ open, onClose, onNavigateToCard }: Props)
         {query.trim() && results.length === 0 && (
           <p className="text-sm text-muted-foreground text-center py-8">Nema rezultata za "{query}"</p>
         )}
-        {(["card", "source", "mindmap"] as ResultType[]).map((type) => {
+        {(["card", "article", "source", "mindmap"] as ResultType[]).map((type) => {
           const items = grouped[type];
           if (!items || items.length === 0) return null;
           return (

@@ -16,6 +16,7 @@ import {
   getRetrievability,
   isLeech,
 } from "@/lib/spaced-repetition";
+import { resolveEffectiveSrParams } from "@/domains/subjects/subject-settings";
 import type { ReviewMode } from "@/domains/review/types";
 
 export interface DueItem {
@@ -96,7 +97,8 @@ export function buildHardestItems(args: BuildArgs): DueItem[] {
   for (const card of args.allCards) {
     for (const section of card.sections) {
       if (section.state === SectionState.New) continue;
-      const sectionLeech = isLeech(section, args.srSettings);
+      const effectiveSr = resolveEffectiveSrParams(card.categoryId, args.srSettings).srSettings;
+      const sectionLeech = isLeech(section, effectiveSr);
       if (sectionLeech) {
         if (section.nextReview <= now + HARDEST_LEECH_GRACE_MS) {
           leechItems.push({ card, section });
@@ -114,6 +116,15 @@ export function buildHardestItems(args: BuildArgs): DueItem[] {
   const remaining = HARDEST_MAX_ITEMS - combined.length;
   if (remaining > 0) combined.push(...highDiffItems.slice(0, remaining));
   return combined.slice(0, HARDEST_MAX_ITEMS);
+}
+
+/** True when any consolidation mode has at least one eligible section. */
+export function hasConsolidationWork(args: BuildArgs): boolean {
+  return (
+    buildStabilizationItems(args).length > 0
+    || buildCriticalItems(args).length > 0
+    || buildHardestItems(args).length > 0
+  );
 }
 
 /** Dispatcher used by ReviewSession (resume + autoMode). */

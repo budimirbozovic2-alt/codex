@@ -154,7 +154,7 @@ export function SmartSplitSummaryDialog({ source, onSmartSplitConfirm }: Props) 
                 if (!edit) return null;
                 return (
                   <ModuleCard
-                    key={`mod-${i}`}
+                    key={mod.id}
                     index={i}
                     total={total}
                     mod={mod}

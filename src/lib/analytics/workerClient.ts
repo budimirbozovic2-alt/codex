@@ -216,35 +216,39 @@ export const analyticsClient = {
     cards: Parameters<AnalyticsWorkerAPI["runResistance"]>[0],
     categories: string[],
     reviewLog: Parameters<AnalyticsWorkerAPI["runResistance"]>[2],
-    weights: Parameters<AnalyticsWorkerAPI["runResistance"]>[3],
+    weightsByCategory: Parameters<AnalyticsWorkerAPI["runResistance"]>[3],
+    fallbackWeights: Parameters<AnalyticsWorkerAPI["runResistance"]>[4],
   ) {
     if (!isWorkerSupported) {
       return calcResistance(
-        cards, 
-        categories, 
-        reviewLog, 
-        loadLatency(), 
-        weights
+        cards,
+        categories,
+        reviewLog,
+        loadLatency(),
+        weightsByCategory,
+        fallbackWeights,
       );
     }
-    try { 
+    try {
       const snap = { latency: loadLatency() };
       return await getClient().runResistance(
-        cards, 
-        categories, 
-        reviewLog, 
-        weights, 
-        snap
-      ); 
-    } catch (err) { 
-      logger.error("[analytics] resistance fallback invoked", err); 
+        cards,
+        categories,
+        reviewLog,
+        weightsByCategory,
+        fallbackWeights,
+        snap,
+      );
+    } catch (err) {
+      logger.error("[analytics] resistance fallback invoked", err);
       return calcResistance(
-        cards, 
-        categories, 
-        reviewLog, 
-        loadLatency(), 
-        weights
-      ); 
+        cards,
+        categories,
+        reviewLog,
+        loadLatency(),
+        weightsByCategory,
+        fallbackWeights,
+      );
     }
   },
 

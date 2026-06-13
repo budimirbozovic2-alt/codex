@@ -32,6 +32,17 @@ interface BulkInput {
 }
 interface BulkCtx {
   prevByCat: KnowledgeBaseArticle[] | undefined;
+  prevAll: KnowledgeBaseArticle[] | undefined;
+}
+
+function prependArticles(
+  list: KnowledgeBaseArticle[],
+  created: readonly KnowledgeBaseArticle[],
+): KnowledgeBaseArticle[] {
+  if (created.length === 0) return list;
+  const existingIds = new Set(list.map((a) => a.id));
+  const toAdd = created.filter((a) => !existingIds.has(a.id));
+  return toAdd.length > 0 ? [...toAdd, ...list] : list;
 }
 
 function getKbCategoryKey(subjectId: string): readonly unknown[] {
@@ -169,20 +180,51 @@ export function useKnowledgeBaseMutations() {
         subjectId, titles, rootSubcategoryId
       ),
     onMutate: async ({ subjectId }) => {
-      await qc.cancelQueries({ 
-        queryKey: getKbCategoryKey(subjectId) 
+      await qc.cancelQueries({
+        queryKey: queryKeys.knowledgeBase.root,
       });
       const prevByCat = qc.getQueryData<KnowledgeBaseArticle[]>(
-        getKbCategoryKey(subjectId)
+        getKbCategoryKey(subjectId),
       );
-      return { prevByCat };
+      const prevAll = qc.getQueryData<KnowledgeBaseArticle[]>(
+        queryKeys.knowledgeBase.all(),
+      );
+      return { prevByCat, prevAll };
+    },
+    onSuccess: (created, { subjectId }) => {
+      if (created.length === 0) return;
+
+      const prevByCat = qc.getQueryData<KnowledgeBaseArticle[]>(
+        getKbCategoryKey(subjectId),
+      );
+      qc.setQueryData(
+        getKbCategoryKey(subjectId),
+        prependArticles(prevByCat ?? [], created),
+      );
+
+      const prevAll = qc.getQueryData<KnowledgeBaseArticle[]>(
+        queryKeys.knowledgeBase.all(),
+      );
+      if (prevAll !== undefined) {
+        qc.setQueryData(
+          queryKeys.knowledgeBase.all(),
+          prependArticles(prevAll, created),
+        );
+      }
+
+      for (const article of created) {
+        qc.setQueryData(queryKeys.knowledgeBase.byId(article.id), article);
+      }
     },
     onError: (_e, { subjectId }, ctx) => {
       if (ctx?.prevByCat !== undefined) {
         qc.setQueryData(
-          getKbCategoryKey(subjectId), 
-          ctx.prevByCat
+          getKbCategoryKey(subjectId),
+          ctx.prevByCat,
         );
+      }
+      if (ctx?.prevAll !== undefined) {
+        qc.setQueryData(queryKeys.knowledgeBase.all(), ctx.prevAll);
       }
     },
   });

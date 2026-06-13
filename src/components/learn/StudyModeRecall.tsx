@@ -5,6 +5,8 @@ import { Card } from "@/lib/spaced-repetition";
 import { m, AnimatePresence } from "@/lib/motion";
 import { Button } from "@/components/ui/button";
 import { CardSelectionEditor } from "@/components/card-list/CardSelectionEditor";
+import { useGlobalHotkey } from "@/hooks/useGlobalHotkey";
+import { shouldIgnoreGlobalKey } from "@/lib/global-overlay-state";
 
 import SessionHeader from "./SessionHeader";
 import QuestionDots from "./QuestionDots";
@@ -32,6 +34,7 @@ interface Props {
   setTotalGrades: React.Dispatch<React.SetStateAction<number[]>>;
   setModulesCompleted: React.Dispatch<React.SetStateAction<number>>;
   updateProgress: (cardId: string, update: Partial<LearnCardProgress>) => void;
+  cardProgress?: LearnCardProgress;
   strictRecall?: boolean;
 }
 
@@ -45,6 +48,7 @@ export default function StudyModeRecall({
   onMarkRead, onReviewSection, onAddKeyPart,
   goToCard, goNext, goPrev, onBack,
   setCompletedCards, setTotalGrades, setModulesCompleted, updateProgress,
+  cardProgress,
   strictRecall: _strictRecall = false,
 }: Props) {
   const [phase, setPhase] = useState<RecallPhase>("open");
@@ -53,11 +57,17 @@ export default function StudyModeRecall({
   const sections = useMemo(() => card.sections ?? [], [card.sections]);
   const isCompleted = completedCards.has(card.id);
 
-  // Reset state when card changes
+  // Restore in-progress state when navigating to a card (cross-session resume).
   useEffect(() => {
-    setPhase("open");
-    setLeechCount(0);
-  }, [card.id]);
+    if (!cardProgress || cardProgress.completed) {
+      setPhase("open");
+      setLeechCount(0);
+      return;
+    }
+    const savedPhase = cardProgress.phase;
+    setPhase(savedPhase === "recall" || savedPhase === "reveal" || savedPhase === "open" ? savedPhase : "open");
+    setLeechCount(cardProgress.failedAttempts ?? 0);
+  }, [card.id]); // eslint-disable-line react-hooks/exhaustive-deps -- restore only on card change
 
   // Guard ref: ensure onMarkRead fires exactly once per card
   // (kept across phase transitions to prevent feedback loops with SessionContext)
@@ -107,6 +117,26 @@ export default function StudyModeRecall({
       setPhase("recall");
     }
   }, [card.id, sections, leechCount, onReviewSection, setTotalGrades, setModulesCompleted, setCompletedCards, updateProgress, goNext]);
+
+  useGlobalHotkey(
+    () => true,
+    (e) => {
+      if (shouldIgnoreGlobalKey(e) || isCompleted) return;
+
+      if (e.key === " " && phase === "recall") {
+        e.preventDefault();
+        handleReveal();
+        return;
+      }
+
+      if (phase === "reveal" && ["1", "2", "3", "4"].includes(e.key)) {
+        e.preventDefault();
+        void import("@/lib/sounds").then((m) => m.playGradeSound(parseInt(e.key, 10)));
+        handleGrade(parseInt(e.key, 10));
+      }
+    },
+    [phase, isCompleted, handleReveal, handleGrade],
+  );
 
   const hideQuestion = phase === "recall";
 

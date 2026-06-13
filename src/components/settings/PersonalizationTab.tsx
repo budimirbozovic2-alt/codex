@@ -1,10 +1,7 @@
 import { AppSettings, COLOR_THEMES, applyColorTheme } from "@/lib/app-settings";
-import { saveAppSettings } from "@/lib/app-settings";
 import { playGradeGood } from "@/lib/sounds";
 import { taskScheduler } from "@/lib/scheduler";
-import { logger } from "@/lib/logger";
 import { Switch } from "@/components/ui/switch";
-import { toast } from "sonner";
 
 interface Props {
   app: AppSettings;
@@ -80,21 +77,10 @@ export default function PersonalizationTab({ app, setApp }: Props) {
             <p className="text-xs text-muted-foreground">Tonovi pri ocjenjivanju i završetku sesije</p>
           </div>
           <Switch checked={app.soundEffects}
-            onCheckedChange={async (v) => {
-              const prevVal = app.soundEffects;
+            onCheckedChange={(v) => {
               setApp(prev => ({ ...prev, soundEffects: v }));
               if (v) {
-                // PR-G1 / C-2: saveAppSettings now rejects on SSOT failure.
-                // Surface toast.error and revert optimistic UI so the toggle
-                // doesn't lie about persistence.
-                try {
-                  await saveAppSettings({ ...app, soundEffects: true });
-                  taskScheduler.setTimeout(() => playGradeGood(), 100, { label: "PersonalizationTab:soundPreview" });
-                } catch (err) {
-                  logger.error("[PersonalizationTab] sound toggle save failed", err);
-                  setApp(prev => ({ ...prev, soundEffects: prevVal }));
-                  toast.error("Postavke nisu sačuvane u bazu. Pokušaj ponovo.");
-                }
+                taskScheduler.setTimeout(() => playGradeGood(), 100, { label: "PersonalizationTab:soundPreview" });
               }
             }}
           />

@@ -7,6 +7,8 @@ interface Props {
   className?: string;
   onWikiLinkClick?: (target: string) => void;
   onMindmapClick?: (mindmapId: string) => void;
+  /** When set, `mindmapEmbed` nodes render live previews instead of placeholders. */
+  categoryId?: string;
 }
 
 /**
@@ -19,13 +21,14 @@ interface Props {
  * For interactive rich surfaces (Zettelkasten article body, etc.) import
  * `<EditorView>` from `@/lib/editor-v4` directly.
  */
-export function ContentRenderer({ doc, className, onWikiLinkClick, onMindmapClick }: Props) {
+export function ContentRenderer({ doc, className, onWikiLinkClick, onMindmapClick, categoryId }: Props) {
   return (
     <AstNodeRenderer
       doc={doc}
       className={className}
       onWikiLinkClick={onWikiLinkClick}
       onMindmapClick={onMindmapClick}
+      categoryId={categoryId}
     />
   );
 }

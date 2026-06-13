@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { deriveMarkdown } from "@/lib/editor-v4/derived";
-import { Link, useParams } from "react-router-dom";
+import { Link, useParams, useSearchParams } from "react-router-dom";
 import {
   ArrowLeft, Plus, Trash2, FileText, Compass,
   Pencil, Check, BookMarked,
@@ -32,10 +32,12 @@ import ZettelExplorerPanel from "@/components/zettelkasten/ZettelExplorerPanel";
 import ZettelTagEditor from "@/components/zettelkasten/ZettelTagEditor";
 import ZettelAliasEditor from "@/components/zettelkasten/ZettelAliasEditor";
 import MindMapPickerDialog from "@/components/zettelkasten/MindMapPickerDialog";
+import NewArticleDialog from "@/components/zettelkasten/NewArticleDialog";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 
 function ZettelkastenViewImpl() {
   const { categoryId } = useParams<{ categoryId: string }>();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { categoryRecords } = useCategoryData();
   const categoryRec = useMemo(
     () => categoryRecords.find(r => r.id === categoryId),
@@ -50,20 +52,17 @@ function ZettelkastenViewImpl() {
 
   const sources = useCategorySources(categoryId);
 
-  const { articles, setArticles, loading, indexArticleId, initialActiveId } =
+  const { articles, loading, indexArticleId, initialActiveId } =
     useZettelkastenBootstrap({ categoryId, subjectName, subcategoryNames });
 
   const [activeId, setActiveId] = useState<string | null>(null);
   const [readingSourceId, setReadingSourceId] = useState<string | null>(null);
   const [mmPickerOpen, setMmPickerOpen] = useState(false);
-
-  useEffect(() => {
-    if (initialActiveId && !activeId) setActiveId(initialActiveId);
-  }, [initialActiveId, activeId]);
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
 
   const { collapsed: explorerCollapsed, toggle: toggleExplorer } = useExplorerCollapsed();
 
-  const draftApi = useArticleDraft({ activeId, categoryId, setArticles });
+  const draftApi = useArticleDraft({ activeId, categoryId });
   const { draft, isEditing, editorRef } = draftApi;
 
   const { activeArticle, existingTitleSet, emptyTitleSet } = useArticleIndex({
@@ -71,14 +70,47 @@ function ZettelkastenViewImpl() {
   });
 
   const mutations = useArticleMutations({
-    categoryId, articles, setArticles, setActiveId, setReadingSourceId,
+    categoryId, articles, setActiveId, setReadingSourceId,
     indexArticleId, activeArticle, draftApi,
   });
+  const { open: openArticle } = mutations;
+
+  // Auto-open article when arriving with ?open={articleId} (GlobalSearch, wiki embeds).
+  useEffect(() => {
+    const openId = searchParams.get("open");
+    if (!openId || loading) return;
+
+    const clearOpenParam = () => {
+      const next = new URLSearchParams(searchParams);
+      if (!next.has("open")) return;
+      next.delete("open");
+      setSearchParams(next, { replace: true });
+    };
+
+    if (articles.some((a) => a.id === openId)) {
+      if (activeId !== openId) openArticle(openId);
+    }
+    clearOpenParam();
+  }, [searchParams, articles, loading, activeId, openArticle, setSearchParams]);
+
+  useEffect(() => {
+    if (searchParams.get("open")) return;
+    if (initialActiveId && !activeId) setActiveId(initialActiveId);
+  }, [initialActiveId, activeId, searchParams]);
 
   const draftMarkdown = useMemo(
     () => (draft ? deriveMarkdown(draft.contentDoc) : undefined),
     [draft],
   );
+
+  const existingTitlesForCreate = useMemo(() => {
+    const set = new Set<string>();
+    for (const a of articles) {
+      set.add(a.title.trim().toLowerCase());
+      for (const alias of a.aliases ?? []) set.add(alias.trim().toLowerCase());
+    }
+    return set;
+  }, [articles]);
 
   useWikiLinkAutoCreate({
     activeId,
@@ -87,7 +119,6 @@ function ZettelkastenViewImpl() {
     draftContent: draftMarkdown,
     rootSubcategoryId: activeArticle?.rootSubcategoryId,
     articles,
-    setArticles,
   });
 
   if (!categoryRec) {
@@ -117,6 +148,7 @@ function ZettelkastenViewImpl() {
     : "";
 
   return (
+    <>
     <div className="flex h-[calc(100vh-3rem)] w-full">
       <ZettelExplorerPanel
         subjectId={categoryId!}
@@ -125,7 +157,7 @@ function ZettelkastenViewImpl() {
         collapsed={explorerCollapsed}
         onToggleCollapsed={toggleExplorer}
         onOpen={mutations.open}
-        onCreate={() => mutations.create()}
+        onCreate={() => setCreateDialogOpen(true)}
       />
 
       <div className="flex-1 min-w-0 flex flex-col">
@@ -171,7 +203,7 @@ function ZettelkastenViewImpl() {
               <p className="text-muted-foreground">
                 Izaberite članak iz Explorer panela ili kreirajte novi da započnete istraživanje.
               </p>
-              <Button onClick={() => mutations.create()} variant="outline" size="sm" className="gap-1.5">
+              <Button onClick={() => setCreateDialogOpen(true)} variant="outline" size="sm" className="gap-1.5">
                 <Plus className="h-4 w-4" /> Novi članak
               </Button>
             </div>
@@ -310,6 +342,14 @@ function ZettelkastenViewImpl() {
         )}
       </div>
     </div>
+
+    <NewArticleDialog
+      open={createDialogOpen}
+      onOpenChange={setCreateDialogOpen}
+      existingTitles={existingTitlesForCreate}
+      onConfirm={(title) => { void mutations.create(title); }}
+    />
+    </>
   );
 }
 

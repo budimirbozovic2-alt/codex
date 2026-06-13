@@ -1,5 +1,5 @@
 import { Target, BarChart3, Map as MapIcon, Gauge, HelpCircle } from "lucide-react";
-import { useState, lazy, Suspense, useMemo } from "react";
+import { useState, lazy, Suspense, useMemo, useEffect } from "react";
 import { m } from "@/lib/motion";
 import InfoPanel from "@/components/InfoPanel";
 import { Card as SRCard } from "@/lib/spaced-repetition";
@@ -34,7 +34,17 @@ interface Props {
 export default function StrategicPlanner({ cards, categories: _categories, categoryRecords, reviewLog, onNavigateToDatabase, onShowOnboarding }: Props) {
   const data = usePlannerData(cards, reviewLog, categoryRecords);
   const [activeTab, setActiveTab] = useState<"operations" | "roadmap" | "discipline">("operations");
-  const [showWizard, setShowWizard] = useState(!data.isConfigured);
+  const [showWizard, setShowWizard] = useState(false);
+  const [wizardDismissed, setWizardDismissed] = useState(false);
+
+  useEffect(() => {
+    if (!data.isConfigLoaded) return;
+    if (data.isConfigured) {
+      setShowWizard(false);
+      return;
+    }
+    if (!wizardDismissed) setShowWizard(true);
+  }, [data.isConfigLoaded, data.isConfigured, wizardDismissed]);
 
   // Local narrows `subjectPlans` to `SubjectPlan[]` for the loaded branch.
   const { subjectPlans } = data;
@@ -61,7 +71,10 @@ export default function StrategicPlanner({ cards, categories: _categories, categ
           save={data.save}
           categoryRecords={categoryRecords}
           cards={cards}
-          onClose={() => setShowWizard(false)}
+          onClose={() => {
+            setShowWizard(false);
+            if (!data.isConfigured) setWizardDismissed(true);
+          }}
         />
       )}
 
@@ -129,13 +142,9 @@ export default function StrategicPlanner({ cards, categories: _categories, categ
       {!data.isReady || subjectPlans === null ? (
         <PlannerTabSkeleton variant={activeTab} />
       ) : (() => {
-        // The `data.isReady` gate above guarantees these fields are populated.
-        // TS can't see through the runtime check, so we assert the non-null shape locally.
         const ready = data as typeof data & {
           velocity: number;
           burnupData: import("@/types/planner").BurnupDataPoint[];
-          disciplineLog: import("@/types/planner").DisciplineLogEntry[];
-          disciplineTrend: import("@/types/planner").DisciplineTrendPoint[];
         };
         return (
         <Suspense fallback={<PlannerTabSkeleton variant={activeTab} />}>
@@ -157,7 +166,10 @@ export default function StrategicPlanner({ cards, categories: _categories, categ
           retentionRisk={ready.retentionRisk}
           categoryRecords={categoryRecords}
           onNavigateToDatabase={onNavigateToDatabase}
-          onOpenWizard={() => setShowWizard(true)}
+          onOpenWizard={() => {
+            setWizardDismissed(false);
+            setShowWizard(true);
+          }}
         />
       )}
 
@@ -173,14 +185,16 @@ export default function StrategicPlanner({ cards, categories: _categories, categ
         />
       )}
 
-      {activeTab === "discipline" && (
+      {activeTab === "discipline" && !data.isDisciplineReady ? (
+        <PlannerTabSkeleton variant="discipline" />
+      ) : activeTab === "discipline" && (
         <DisciplineTab
-          disciplineLog={ready.disciplineLog}
-          disciplineTrend={ready.disciplineTrend}
-          streak={ready.streak}
-          bestStreak={ready.bestStreak}
+          disciplineLog={data.disciplineLog}
+          disciplineTrend={data.disciplineTrend}
+          streak={data.streak}
+          bestStreak={data.bestStreak}
           currentPhase={currentPhase}
-          phaseDisciplinePct={ready.phaseDisciplinePct}
+          phaseDisciplinePct={data.phaseDisciplinePct}
         />
       )}
         </Suspense>

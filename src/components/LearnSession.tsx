@@ -1,18 +1,18 @@
 import { useState, useMemo, useCallback, useEffect, useRef, Suspense, lazy } from "react";
 import { getCardScore } from "@/lib/spaced-repetition";
 import type { FrequencyTag } from "@/lib/sr/types";
-import { LearnCardProgress, loadLearnProgress } from "@/lib/storage";
+import { LearnCardProgress, loadLearnProgress, saveLearnProgress } from "@/lib/storage";
 import { addActivityEntry } from "@/domains/metacognition/metacognitive-storage";
 import SessionComplete from "./learn/SessionComplete";
 import FilterSetup from "./learn/FilterSetup";
 import { LearnSessionProps, ViewWidth } from "./learn/types";
-import { usePlannerMutations } from "@/hooks/planner/usePlannerMutations";
+import { useSessionDiscipline } from "@/hooks/planner/useSessionDiscipline";
 
 const StudyModeRecall = lazy(() => import("./learn/StudyModeRecall"));
 
 export default function LearnSession({ cards, categories, categoryRecords, subcategories, onMarkRead, onReviewSection, onBack, onEdit: _onEdit, onAddKeyPart, dueCount: _dueCount = 0, reviewLog: reviewLogProp = [], initialFilters, restoreSnapshot, onSessionStateChange }: LearnSessionProps) {
   const isStrictRecall = initialFilters?.mode === "strict-recall";
-  const { recordDiscipline } = usePlannerMutations();
+  const { trackSection, resetSession, recordAfterSession } = useSessionDiscipline();
   const [selectedCategory, setSelectedCategory] = useState<string | null>(restoreSnapshot?.selectedCategory ?? initialFilters?.categoryId ?? null);
   const [selectedSubcategory, setSelectedSubcategory] = useState<string | null>(restoreSnapshot?.selectedSubcategory ?? initialFilters?.subcategoryId ?? null);
   const [selectedChapter, setSelectedChapter] = useState<string | null>(restoreSnapshot?.selectedChapter ?? null);
@@ -30,13 +30,24 @@ export default function LearnSession({ cards, categories, categoryRecords, subca
   const [readCards, setReadCards] = useState<Set<string>>(new Set());
   const [completedCards, setCompletedCards] = useState<Set<string>>(new Set());
   const [chainCompletedCards] = useState<Set<string>>(new Set());
-  const [_progress, setProgress] = useState<Record<string, LearnCardProgress>>({});
+  const [progress, setProgress] = useState<Record<string, LearnCardProgress>>({});
+  const [sessionFinished, setSessionFinished] = useState(false);
   const progressLoadedRef = useRef(false);
+  const progressReadyRef = useRef(false);
   useEffect(() => {
     if (progressLoadedRef.current) return;
     progressLoadedRef.current = true;
-    loadLearnProgress().then(setProgress);
+    loadLearnProgress().then((data) => {
+      setProgress(data);
+      progressReadyRef.current = true;
+    });
   }, []);
+
+  useEffect(() => {
+    if (!progressReadyRef.current) return;
+    const timer = setTimeout(() => { void saveLearnProgress(progress); }, 400);
+    return () => clearTimeout(timer);
+  }, [progress]);
 
   const [sessionStartTime] = useState(() => Date.now());
   const [totalGrades, setTotalGrades] = useState<number[]>([]);
@@ -131,20 +142,32 @@ export default function LearnSession({ cards, categories, categoryRecords, subca
     sessionStorage.setItem("sr-learn-current-index", String(index));
   }, []);
 
-  const goNext = useCallback(() => { if (currentIndex + 1 < sortedCards.length) goToCard(currentIndex + 1); }, [currentIndex, sortedCards.length, goToCard]);
+  const goNext = useCallback(() => {
+    if (currentIndex + 1 < sortedCards.length) {
+      goToCard(currentIndex + 1);
+    } else {
+      setSessionFinished(true);
+    }
+  }, [currentIndex, sortedCards.length, goToCard]);
   const goPrev = useCallback(() => { if (currentIndex > 0) goToCard(currentIndex - 1); }, [currentIndex, goToCard]);
 
   // Defensive clamp: ako filter smanji listu ispod currentIndex
   useEffect(() => {
+    if (sessionFinished) return;
     if (started && sortedCards.length > 0 && currentIndex >= sortedCards.length) {
       goToCard(sortedCards.length - 1);
     }
-  }, [started, sortedCards.length, currentIndex, goToCard]);
+  }, [started, sortedCards.length, currentIndex, goToCard, sessionFinished]);
 
   const handleMarkRead = useCallback((id: string) => {
     onMarkRead(id);
     setReadCards(prev => new Set(prev).add(id));
   }, [onMarkRead]);
+
+  const handleReviewSection = useCallback((cardId: string, sectionId: string, grade: number) => {
+    trackSection(cardId, sectionId);
+    onReviewSection(cardId, sectionId, grade);
+  }, [onReviewSection, trackSection]);
 
   // ── SETUP SCREEN (filter only, no mode selector) ──
   if (!started) {
@@ -173,7 +196,9 @@ export default function LearnSession({ cards, categories, categoryRecords, subca
           sessionStorage.setItem("sr-learn-current-index", "0");
           setReadCards(new Set());
           setCompletedCards(new Set());
+          setSessionFinished(false);
           activityLoggedRef.current = false;
+          resetSession();
           setStarted(true);
         }}
         onBack={onBack}
@@ -197,24 +222,13 @@ export default function LearnSession({ cards, categories, categoryRecords, subca
   }
 
   // ── FINISHED STATE ──
-  if (!card) {
+  if (sessionFinished || !card) {
     const elapsed = Date.now() - sessionStartTime;
     if (!activityLoggedRef.current && elapsed > 5000) {
       activityLoggedRef.current = true;
       addActivityEntry({ timestamp: Date.now(), type: "learn-active", durationMs: elapsed });
-      (async () => { try {
-        const { loadPlanner, calcVelocity, getSmartSuggestion } = await import("@/domains/planner");
-        const plannerConfig = loadPlanner();
-        const _velocity = calcVelocity(reviewLogProp, 7);
-        const suggestion = getSmartSuggestion(null, cards, plannerConfig.finalGoalDate, plannerConfig.bufferPercent ?? 15);
-        const dailyGoal = suggestion?.suggestedToday ?? 0;
-        const today = new Date().toISOString().slice(0, 10);
-        const reviewsDoneToday = reviewLogProp.filter(e => new Date(e.timestamp).toISOString().slice(0, 10) === today).length;
-        recordDiscipline.mutate({ date: today, reviewsDone: reviewsDoneToday, dailyGoal, slippageMs: null });
-      } catch { /* noop */ } })();
     }
-
-
+    recordAfterSession({ reviewLog: reviewLogProp, cards, elapsedMs: elapsed });
     return (
       <SessionComplete
         sessionStartTime={sessionStartTime} totalGrades={totalGrades}
@@ -233,10 +247,11 @@ export default function LearnSession({ cards, categories, categoryRecords, subca
         card={card} sortedCards={sortedCards} currentIndex={currentIndex}
         viewWidth={viewWidth} setViewWidth={setViewWidth}
         readCards={readCards} completedCards={completedCards} chainCompletedCards={chainCompletedCards}
-        onMarkRead={handleMarkRead} onReviewSection={onReviewSection} onAddKeyPart={onAddKeyPart}
+        onMarkRead={handleMarkRead} onReviewSection={handleReviewSection} onAddKeyPart={onAddKeyPart}
         goToCard={goToCard} goNext={goNext} goPrev={goPrev} onBack={isStrictRecall ? onBack : () => setStarted(false)}
         setCompletedCards={setCompletedCards} setTotalGrades={setTotalGrades}
         setModulesCompleted={setModulesCompleted} updateProgress={updateProgress}
+        cardProgress={progress[card.id]}
         strictRecall={isStrictRecall}
       />
     </Suspense>

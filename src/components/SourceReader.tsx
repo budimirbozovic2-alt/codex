@@ -7,6 +7,7 @@ import { useSourceReaderStore, WIDTH_CLASSES } from "@/store";
 import { taskScheduler, type TaskHandle } from "@/lib/scheduler";
 
 import { useSourceReaderActions } from "@/hooks/useSourceReaderActions";
+import { useSourceReaderShortcuts } from "@/hooks/source-reader/useSourceReaderShortcuts";
 import { SourceToolbar } from "@/components/source-reader/SourceToolbar";
 import { SourceContent } from "@/components/source-reader/SourceContent";
 import { SourceNavigation } from "@/components/source-reader/SourceNavigation";
@@ -72,6 +73,14 @@ export default function SourceReader({ source, onBack, onSourceUpdated }: Props)
     actions.handleMapSelection(qId, getSelectionPayload());
   }, [actions, getSelectionPayload]);
 
+  const handleConvertShortcut = useCallback(() => {
+    const payload = getSelectionPayload();
+    if (!payload) return;
+    actions.handleConvertToEssay(payload.text, payload.html);
+  }, [getSelectionPayload, actions]);
+
+  useSourceReaderShortcuts({ onConvertToEssay: handleConvertShortcut });
+
   // Rehydrate per-source examQuestions on mount/source switch
   const hydratedSourceIdRef = useRef<string | null>(null);
   useEffect(() => {
@@ -114,7 +123,19 @@ export default function SourceReader({ source, onBack, onSourceUpdated }: Props)
 
   useEffect(() => () => useSourceReaderStore.getState().reset(), []);
 
-  const hasSelection = !!getSelectionPayload();
+  const [hasSelection, setHasSelection] = useState(false);
+  useEffect(() => {
+    if (!editor) {
+      setHasSelection(false);
+      return;
+    }
+    const sync = () => setHasSelection(!!getSelectionPayload());
+    sync();
+    editor.on("selectionUpdate", sync);
+    return () => {
+      editor.off("selectionUpdate", sync);
+    };
+  }, [editor, getSelectionPayload]);
 
   return (
     <div className="space-y-4">

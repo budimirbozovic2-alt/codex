@@ -12,6 +12,7 @@
 import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import {
   loadArticlesBySubject,
+  loadAllArticles,
   type KnowledgeBaseArticle,
 } from "@/domains/zettelkasten/zettelkasten-storage";
 import { queryKeys } from "@/lib/query/keys";
@@ -32,6 +33,20 @@ export function useKnowledgeBaseArticlesBySubject(
     placeholderData: keepPreviousData,
   });
   return { data: data ?? EMPTY, isLoading: !!subjectId && isPending };
+}
+
+/**
+ * SSOT subscription for ALL knowledge-base articles (used by GlobalSearch).
+ */
+export function useAllKnowledgeBaseArticles(
+  enabled: boolean = true,
+): KnowledgeBaseArticle[] {
+  const { data } = useQuery({
+    queryKey: queryKeys.knowledgeBase.all(),
+    queryFn: () => loadAllArticles(),
+    enabled,
+  });
+  return data ?? EMPTY;
 }
 
 // B3 — `useKnowledgeBaseHeadersBySubject` removed: had zero call-sites and

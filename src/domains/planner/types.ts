@@ -31,6 +31,8 @@ export interface PlannerConfig {
   dailyAvailableMinutes: number;
   hardSubjects: string[];
   subjectOrder: string[];
+  /** Ručno nivelisana dnevna kvota (null = auto iz preostalog / dana). */
+  dailyQuotaOverride: number | null;
   /** @deprecated kept for migration */
   phases?: StudyPhase[];
   /** @deprecated migrated to phases */
@@ -45,6 +47,7 @@ export const DEFAULT_CONFIG: PlannerConfig = {
   dailyAvailableMinutes: 0,
   hardSubjects: [],
   subjectOrder: [],
+  dailyQuotaOverride: null,
 };
 
 export interface PhaseProgress {

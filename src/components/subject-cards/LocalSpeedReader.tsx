@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { shouldIgnoreGlobalKey } from "@/lib/global-overlay-state";
 import { useGlobalHotkey } from "@/hooks/useGlobalHotkey";
 import {
@@ -16,6 +16,7 @@ import {
   type Card, SectionState, getCardRetrievability,
 } from "@/lib/spaced-repetition";
 import type { SubcategoryNode } from "@/lib/db-types";
+import { useCardOnlyActions } from "@/hooks/cards/useActions";
 import SpeedReaderControls from "@/components/speed-reader/SpeedReaderControls";
 import { retentionColor } from "@/components/speed-reader/retention-color";
 import { useSpeedReaderSelection } from "@/hooks/speed-reader/useSpeedReaderSelection";
@@ -74,6 +75,19 @@ export default function LocalSpeedReader({
   );
 
   const { current, filtered, index, chapters, subFilter, chapterFilter, typeFilter } = sel;
+  const { markRead } = useCardOnlyActions();
+
+  const markedRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!current) {
+      markedRef.current = null;
+      return;
+    }
+    if (markedRef.current === current.id) return;
+    markedRef.current = current.id;
+    markRead(current.id);
+  }, [current?.id, markRead]);
+
   const { segments, totalWords, activeSegment, currentWordIdx, fontSize } = eng;
 
   return (

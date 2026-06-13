@@ -2,7 +2,6 @@
  * One-shot migration: explode `subcategories` / `chapters` from the legacy
  * JSON blob in `categories.payload` into relational tables.
  */
-import type { CategoryRecord } from "@/lib/db-types";
 import type { SqlExecutor } from "./executor";
 import {
   decodeCategoryPayload,

@@ -9,14 +9,9 @@ import type { Source } from "@/domains/sources/sources-storage";
 import { incrementDailyMapped } from "@/domains/planner";
 import { autoFormatArticles } from "@/lib/article-autoformat";
 import { rebuildSourceFromHtml } from "@/lib/source-reader/source-html-pipeline";
-import { docToHtml, type EditorDoc } from "@/lib/editor-v4";
+import { docToHtml, htmlToDoc, type EditorDoc } from "@/lib/editor-v4";
 
 // ── Pure builders (no IO) ──────────────────────────────────
-
-/** Derive a fully rebuilt Source from raw HTML (outline + articles refreshed). */
-function buildSourceFromHtml(source: Source, rawHtml: string): Source {
-  return rebuildSourceFromHtml(source, rawHtml);
-}
 
 /**
  * Build a Source where the V4 AST is canonical. Outline / articles get rebuilt
@@ -33,7 +28,7 @@ export function buildAutoFormatSource(source: Source): { count: number; source: 
   const baseHtml = docToHtml(source.contentDoc);
   const result = autoFormatArticles(baseHtml);
   if (result.count === 0) return { count: 0, source: null };
-  return { count: result.count, source: buildSourceFromHtml(source, result.html) };
+  return { count: result.count, source: buildSourceFromDoc(source, htmlToDoc(result.html)) };
 }
 
 /** Notify planner + global listeners that N new mappings were committed.

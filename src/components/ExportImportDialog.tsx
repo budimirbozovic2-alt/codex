@@ -14,6 +14,11 @@ import type {
 } from "./export-import/types";
 import { logger } from "@/lib/logger";
 
+function resolveImportStep(validation: ImportValidation): Step {
+  if (!validation.valid) return "import-confirm";
+  return validation.duplicateCount > 0 ? "import-conflict" : "import-confirm";
+}
+
 interface ExportImportDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -97,7 +102,7 @@ export default function ExportImportDialog({
     try {
       const result = await validateImportFile(file, onProgress);
       setValidation(result);
-      setStep("import-confirm");
+      setStep(resolveImportStep(result));
     } catch (err) {
       logger.error("[ExportImportDialog] validation failed", err);
       const message = err instanceof Error 
@@ -136,7 +141,7 @@ export default function ExportImportDialog({
       handleOpenChange(false);
     } catch (err) {
       logger.warn("[ExportImportDialog] import failed", err);
-      setStep("import-confirm");
+      setStep(validation ? resolveImportStep(validation) : "import-confirm");
     }
   };
 
@@ -175,7 +180,7 @@ export default function ExportImportDialog({
           <ImportConfirmStep
             validation={validation}
             currentCardsCount={cardsCount}
-            onConfirm={() => handleImport("skip")}
+            onConfirm={() => handleImport("keep")}
             onCancel={reset}
           />
         )}

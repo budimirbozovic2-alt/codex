@@ -8,6 +8,7 @@ import {
 describe("createEmptyModule", () => {
   it("returns a module with empty content and a default title", () => {
     const m = createEmptyModule();
+    expect(m.id).toBeTruthy();
     expect(m.articleNum).toBe("");
     expect(m.title).toBe("Novi modul");
     expect(m.contentText).toBe("");
@@ -21,7 +22,8 @@ describe("createEmptyModule", () => {
 });
 
 describe("splitModuleByDelimiter", () => {
-  const baseMod = (text: string, title = "Originalni modul"): SelectionModule => ({
+  const baseMod = (text: string, title = "Originalni modul", id = "base-mod"): SelectionModule => ({
+    id,
     articleNum: "",
     title,
     contentText: text,
@@ -70,6 +72,7 @@ describe("splitModuleByDelimiter", () => {
 
   it("preserves the original module's articleNum on the first chunk only", () => {
     const mod: SelectionModule = {
+      id: "mod-59",
       articleNum: "59",
       title: "čl. 59 Pojam",
       contentText: "Stav 1.\n\nStav 2.",

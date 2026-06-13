@@ -9,6 +9,7 @@ export function getSmartSuggestion(
   cards: Card[],
   goalDateStr: string | null,
   bufferPct: number,
+  quotaOverride: number | null = null,
 ): SmartSuggestion | null {
   if (!goalDateStr) return null;
   const goal = new Date(goalDateStr);
@@ -32,12 +33,14 @@ export function getSmartSuggestion(
 
   if (remaining <= 0) return { suggestedToday: 0, message: "Sve cjeline su naučene! 🎉", burnoutWarning: false };
   const needed = Math.ceil(remaining / daysLeft);
-  const burnoutWarning = needed > 60;
-  return {
-    suggestedToday: needed,
-    message: `Obradi bar ${needed} novih cjelina danas da ostaneš na planu.`,
-    burnoutWarning,
-  };
+  const suggestedToday =
+    quotaOverride != null && quotaOverride > 0 ? quotaOverride : needed;
+  const burnoutWarning = suggestedToday > 60;
+  const message =
+    quotaOverride != null && quotaOverride > 0
+      ? `Nivelisan plan: ${suggestedToday} novih cjelina/dan (${daysLeft} dana do cilja).`
+      : `Obradi bar ${suggestedToday} novih cjelina danas da ostaneš na planu.`;
+  return { suggestedToday, message, burnoutWarning };
 }
 
 export function calcRebalancedQuota(
@@ -64,13 +67,35 @@ export function getPlannerStatus(
   return { status: "red", daysLate: diff };
 }
 
+function formatMinutesLabel(totalMinutes: number): string {
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  if (hours > 0) return minutes > 0 ? `${hours}h ${minutes}min` : `${hours}h`;
+  return `${minutes} min`;
+}
+
 export function calcDailyTimeRecommendation(
-  suggestedSections: number, dueCount: number, avgMinPerSection: number = 3,
-): { totalMinutes: number; hours: number; minutes: number; message: string } {
+  suggestedSections: number,
+  dueCount: number,
+  dailyAvailableMinutes: number = 0,
+  avgMinPerSection: number = 3,
+): { totalMinutes: number; hours: number; minutes: number; message: string; fitsBudget: boolean } {
   const totalSections = suggestedSections + dueCount;
   const totalMinutes = Math.round(totalSections * avgMinPerSection);
   const hours = Math.floor(totalMinutes / 60);
   const minutes = totalMinutes % 60;
-  const message = hours > 0 ? `${hours}h ${minutes}min efektivnog učenja` : `${minutes} min efektivnog učenja`;
-  return { totalMinutes, hours, minutes, message };
+  const baseMessage =
+    hours > 0 ? `${hours}h ${minutes}min efektivnog učenja` : `${minutes} min efektivnog učenja`;
+
+  if (dailyAvailableMinutes <= 0) {
+    return { totalMinutes, hours, minutes, message: baseMessage, fitsBudget: true };
+  }
+
+  const budgetLabel = formatMinutesLabel(dailyAvailableMinutes);
+  const fitsBudget = totalMinutes <= dailyAvailableMinutes;
+  const message = fitsBudget
+    ? `${baseMessage} (unutar ${budgetLabel} dnevno)`
+    : `${baseMessage} — premašuje tvojih ${budgetLabel} dnevno`;
+
+  return { totalMinutes, hours, minutes, message, fitsBudget };
 }

@@ -100,6 +100,7 @@ export function useSplitModules() {
         htmlToPlain(titleBlock).replace(/\s+/g, " ").trim().slice(0, 200) || "Novi modul";
 
       const newModule: SelectionModule = {
+        id: crypto.randomUUID(),
         articleNum: "",
         title: newTitle,
         contentText: htmlToPlain(afterHtml),
@@ -114,6 +115,7 @@ export function useSplitModules() {
           contentText: htmlToPlain(beforeHtml),
           contentHtml: beforeHtml,
           plainSnippet: htmlToPlain(beforeHtml).trim() || out[moduleIdx].title,
+          editorRevision: (out[moduleIdx].editorRevision ?? 0) + 1,
         };
         out.splice(moduleIdx + 1, 0, newModule);
         return out;

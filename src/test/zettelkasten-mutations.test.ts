@@ -37,7 +37,6 @@ beforeEach(async () => {
 
 describe("useArticleMutations.wikiLink", () => {
   it("parallel clicks on same title result in exactly one created article", async () => {
-    const setArticles = vi.fn();
     const setActiveId = vi.fn();
     const setReadingSourceId = vi.fn();
     const draftApi = makeDraftApi();
@@ -46,7 +45,6 @@ describe("useArticleMutations.wikiLink", () => {
       useArticleMutations({
         categoryId: SUBJECT,
         articles: [],
-        setArticles,
         setActiveId,
         setReadingSourceId,
         indexArticleId: null,

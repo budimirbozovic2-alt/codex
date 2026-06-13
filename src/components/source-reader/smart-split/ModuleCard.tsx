@@ -101,6 +101,7 @@ export function ModuleCard({
       ) : (
         <div className={cn(edit.skipped && "opacity-50 pointer-events-none")}>
           <BodyEditor
+            key={`${mod.id}-${mod.editorRevision ?? 0}`}
             value={mod.contentHtml}
             onChange={(html) => {
               const plain = htmlToPlain(html);

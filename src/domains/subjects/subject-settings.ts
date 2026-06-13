@@ -1,4 +1,6 @@
 import { logger } from "@/lib/logger";
+import { loadAppSettings } from "@/lib/app-settings";
+import { DEFAULT_SR_SETTINGS, type SRSettings } from "@/lib/spaced-repetition";
 import {
   listSettingsByPrefix,
   putSetting,
@@ -139,5 +141,24 @@ export function mergeSubjectOverrides<T extends Partial<SubjectSettings>>(
     }
   }
   return merged;
+}
+
+export interface EffectiveSrParams {
+  targetRetention: number;
+  srSettings: SRSettings;
+}
+
+/** Global app/SR settings merged with per-subject overrides (sync hot-path). */
+export function resolveEffectiveSrParams(
+  categoryId: string,
+  globalSrSettings: SRSettings = DEFAULT_SR_SETTINGS,
+): EffectiveSrParams {
+  const overrides = loadSubjectSettings(categoryId);
+  const targetRetention = mergeSubjectOverrides(
+    { targetRetention: loadAppSettings().targetRetention },
+    overrides,
+  ).targetRetention;
+  const srSettings = mergeSubjectOverrides(globalSrSettings, overrides);
+  return { targetRetention, srSettings };
 }
 

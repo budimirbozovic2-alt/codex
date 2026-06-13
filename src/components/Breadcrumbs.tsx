@@ -11,6 +11,11 @@ const ROUTE_LABELS: Record<string, string> = {
   "/edit": "Uređivanje",
   "/categories": "Kategorije",
   "/settings": "Podešavanja",
+  "/settings/learning": "Učenje i memorija",
+  "/settings/app": "Aplikacija",
+  "/settings/app/personalization": "Personalizacija",
+  "/settings/app/workflow": "Workflow",
+  "/settings/data": "Podaci i sistem",
   "/stats": "Statistika",
   "/planner": "Strateški planer",
   "/forum": "Forum",
@@ -39,6 +44,25 @@ export default memo(function Breadcrumbs() {
 
   if (categoryId) {
     crumbs.push({ label: categoryName, path: null });
+  } else if (pathname.startsWith("/settings")) {
+    if (pathname === "/settings") {
+      crumbs.push({ label: "Podešavanja", path: null });
+    } else {
+      crumbs.push({ label: "Podešavanja", path: "/settings" });
+
+      const appSubMatch = pathname.match(/^\/settings\/app(?:\/(personalization|workflow))?$/);
+      if (appSubMatch) {
+        crumbs.push({ label: "Aplikacija", path: "/settings/app/personalization" });
+        const subKey = appSubMatch[1];
+        if (subKey) {
+          const subLabel = ROUTE_LABELS[`/settings/app/${subKey}`];
+          if (subLabel) crumbs.push({ label: subLabel, path: null });
+        }
+      } else {
+        const label = ROUTE_LABELS[pathname];
+        if (label) crumbs.push({ label, path: null });
+      }
+    }
   } else if (LAB_ROUTES.has(pathname)) {
     crumbs.push({ label: "Alati", path: null });
     const label = ROUTE_LABELS[pathname];

@@ -8,7 +8,6 @@ import Dashboard from "@/components/Dashboard";
 import EmptyState from "@/components/EmptyState";
 import { QuickActions } from "@/components/dashboard/QuickActions";
 import { ToolCards } from "@/components/dashboard/ToolCards";
-import { BackupCard } from "@/components/dashboard/BackupCard";
 
 import InfoPanel from "@/components/InfoPanel";
 import { AnimatePresence } from "@/lib/motion";
@@ -40,7 +39,6 @@ export default function DashboardPage() {
           <EmptyState type="dashboard" onAction={() => setShowOnboarding(true)} />
           <QuickActions dueCount={0} hasCards={false} />
           <ToolCards />
-          <BackupCard />
         </div>
       ) : (
         <div className="relative space-y-6">

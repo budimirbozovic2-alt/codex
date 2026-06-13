@@ -8,6 +8,7 @@ import { buildItemsForMode } from "@/lib/review-mode-builder";
 import ReviewSetup from "./review/ReviewSetup";
 import ReviewCard from "./review/ReviewCard";
 import ReviewComplete from "./review/ReviewComplete";
+import { useSessionDiscipline } from "@/hooks/planner/useSessionDiscipline";
 import {
   loadSavedReviewSession,
   saveReviewSession,
@@ -18,7 +19,7 @@ import {
 type SavedSessionState = SavedReviewSession;
 
 
-export default function ReviewSession({ dueCards, allCards, categoryRecords, srSettings, onReviewSection, onLogError, onBack, lockedCategory, autoMode }: ReviewSessionProps) {
+export default function ReviewSession({ dueCards, allCards, categoryRecords, srSettings, reviewLog, onReviewSection, onLogError, onBack, lockedCategory, autoMode }: ReviewSessionProps) {
   const [mode, setMode] = useState<ReviewMode>(null);
   const [items, setItems] = useState<DueItem[]>([]);
   const [randomIndex, setRandomIndex] = useState(0);
@@ -27,6 +28,26 @@ export default function ReviewSession({ dueCards, allCards, categoryRecords, srS
   const [viewWidth, setViewWidth] = useState<ViewWidth>("normal");
   const [savedSession, setSavedSession] = useState<SavedSessionState | null>(null);
   const reviewStartRef = useRef(Date.now());
+  const { trackSection, resetSession, recordAfterSession } = useSessionDiscipline();
+
+  const persistSessionDiscipline = useCallback(() => {
+    recordAfterSession({
+      reviewLog,
+      cards: allCards,
+      elapsedMs: Date.now() - reviewStartRef.current,
+    });
+  }, [recordAfterSession, reviewLog, allCards]);
+
+  const modeRef = useRef(mode);
+  modeRef.current = mode;
+  const persistRef = useRef(persistSessionDiscipline);
+  persistRef.current = persistSessionDiscipline;
+
+  useEffect(() => {
+    return () => {
+      if (modeRef.current !== null) persistRef.current();
+    };
+  }, []);
 
   // Check for saved session on mount (storage module owns SQLite kv + migration)
   useEffect(() => {
@@ -40,13 +61,14 @@ export default function ReviewSession({ dueCards, allCards, categoryRecords, srS
     void clearSavedReviewSession();
   }, []);
 
-  // Log activity when session finishes
+  // Log activity + discipline when session finishes
   useEffect(() => {
-    if (finished) {
-      addActivityEntry({ timestamp: Date.now(), type: "review", durationMs: Date.now() - reviewStartRef.current });
-      clearSavedSession();
-    }
-  }, [finished, clearSavedSession]);
+    if (!finished) return;
+    const elapsedMs = Date.now() - reviewStartRef.current;
+    addActivityEntry({ timestamp: Date.now(), type: "review", durationMs: elapsedMs });
+    persistSessionDiscipline();
+    clearSavedSession();
+  }, [finished, clearSavedSession, persistSessionDiscipline]);
 
   // Save session state for pause/resume.
   // PR-H2: await persistence and surface failures via toast so a failed
@@ -65,8 +87,20 @@ export default function ReviewSession({ dueCards, allCards, categoryRecords, srS
 
   const handlePauseSession = useCallback(() => {
     void saveSessionState();
+    persistSessionDiscipline();
     onBack();
-  }, [saveSessionState, onBack]);
+  }, [saveSessionState, persistSessionDiscipline, onBack]);
+
+  const handleExitSession = useCallback(() => {
+    persistSessionDiscipline();
+    onBack();
+  }, [persistSessionDiscipline, onBack]);
+
+  const handleBackToSetup = useCallback(() => {
+    persistSessionDiscipline();
+    resetSession();
+    setMode(null);
+  }, [persistSessionDiscipline, resetSession]);
 
   // C3 fix: Recompute items when resuming so currentItem is never undefined
   // Centralized via review-mode-builder so the picker (ReviewSetup) and
@@ -89,8 +123,10 @@ export default function ReviewSession({ dueCards, allCards, categoryRecords, srS
     setShowAnswer(false);
     setFinished(false);
     setSavedSession(null);
+    reviewStartRef.current = Date.now();
+    resetSession();
     clearSavedSession();
-  }, [autoMode, mode, computeItemsForMode, clearSavedSession]);
+  }, [autoMode, mode, computeItemsForMode, clearSavedSession, resetSession]);
 
   const resumeSession = useCallback(() => {
     if (!savedSession) return;
@@ -106,8 +142,10 @@ export default function ReviewSession({ dueCards, allCards, categoryRecords, srS
     setItems(resumeItems);
     setRandomIndex(safeIndex);
     setSavedSession(null);
+    reviewStartRef.current = Date.now();
+    resetSession();
     clearSavedSession();
-  }, [savedSession, clearSavedSession, computeItemsForMode]);
+  }, [savedSession, clearSavedSession, computeItemsForMode, resetSession]);
 
   const handleSelectMode = useCallback((
     selectedMode: ReviewMode,
@@ -123,8 +161,10 @@ export default function ReviewSession({ dueCards, allCards, categoryRecords, srS
     setRandomIndex(0);
     setShowAnswer(false);
     setFinished(false);
+    reviewStartRef.current = Date.now();
+    resetSession();
     clearSavedSession();
-  }, [clearSavedSession]);
+  }, [clearSavedSession, resetSession]);
 
   // ── Setup phase ──
   if (mode === null) {
@@ -150,6 +190,7 @@ export default function ReviewSession({ dueCards, allCards, categoryRecords, srS
 
   const handleGrade = (grade: number) => {
     if (!currentItem) return;
+    trackSection(currentItem.card.id, currentItem.section.id);
     onReviewSection(currentItem.card.id, currentItem.section.id, grade);
     if (randomIndex + 1 < items.length) {
       setRandomIndex((i) => i + 1);
@@ -177,7 +218,7 @@ export default function ReviewSession({ dueCards, allCards, categoryRecords, srS
       setShowAnswer={setShowAnswer}
       onGrade={handleGrade}
       onLogError={onLogError}
-      onBack={autoMode ? onBack : () => setMode(null)}
+      onBack={autoMode ? handleExitSession : handleBackToSetup}
       onPause={handlePauseSession}
       progress={randomIndex}
       total={items.length}

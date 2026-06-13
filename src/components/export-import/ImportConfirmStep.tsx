@@ -1,4 +1,4 @@
-import { AlertTriangle, ShieldCheck, Wand2 } from "lucide-react";
+import { AlertTriangle, ShieldCheck, Wand2, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import type { ImportValidation } from "./types";
@@ -50,7 +50,13 @@ export function ImportConfirmStep({ validation, currentCardsCount, onConfirm, on
               </div>
               <div>
                 <p className="text-muted-foreground text-xs">Tip</p>
-                <p className="font-medium">{validation.hasProgress ? "Pun backup" : "Template"}</p>
+                <p className="font-medium">
+                  {validation.type === "emergency-backup"
+                    ? "Hitni backup"
+                    : validation.hasProgress
+                      ? "Pun backup"
+                      : "Template"}
+                </p>
               </div>
               <div>
                 <p className="text-muted-foreground text-xs">Veličina</p>
@@ -63,7 +69,9 @@ export function ImportConfirmStep({ validation, currentCardsCount, onConfirm, on
                   <Wand2 className="h-3.5 w-3.5 text-primary flex-shrink-0" />
                   <span className="text-muted-foreground">Šema fajla:</span>
                   <span className="font-medium">v{validation.fileVersion} → v{validation.appVersion}</span>
-                  <span className="text-primary">(auto-migracija)</span>
+                  <span className="text-primary">
+                    {validation.type === "template" ? "(template, bez FSRS progresa)" : "(auto-migracija)"}
+                  </span>
                 </>
               ) : validation.fileVersion !== null ? (
                 <>
@@ -80,6 +88,24 @@ export function ImportConfirmStep({ validation, currentCardsCount, onConfirm, on
               )}
             </div>
           </div>
+
+          {validation.type === "emergency-backup" && (
+            <div className="flex items-start gap-2 rounded-lg border border-warning/30 bg-warning/5 p-3 text-sm">
+              <Info className="h-4 w-4 text-warning flex-shrink-0 mt-0.5" />
+              <p className="text-muted-foreground">
+                Legacy hitni backup (v5) — konvertuje se u v7 pri uvozu. Koristite isti Import dijalog.
+              </p>
+            </div>
+          )}
+
+          {validation.type === "template" && (
+            <div className="flex items-start gap-2 rounded-lg border border-primary/30 bg-primary/5 p-3 text-sm">
+              <Info className="h-4 w-4 text-primary flex-shrink-0 mt-0.5" />
+              <p className="text-muted-foreground">
+                Template uvoz dodaje kartice i predmete bez FSRS historije. Postojeći progres u bazi ostaje netaknut.
+              </p>
+            </div>
+          )}
 
           {validation.totalCards > 500 && (
             <div className="flex items-start gap-2 rounded-lg border border-warning/30 bg-warning/5 p-3 text-sm">

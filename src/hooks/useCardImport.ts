@@ -5,6 +5,8 @@ import type { EditorDoc } from "@/lib/editor-v4/types";
 import { invalidateSourcesCache } from "@/domains/sources/sources-storage";
 import { BackupSchema, type ParsedBackup } from "@/lib/migrations/backup-schema";
 import { migrateBackup, assertBackupVersion, BackupVersionError } from "@/lib/backup/migrate";
+import { convertTemplateToParsedBackup, isTemplateExport } from "@/lib/backup/template-import";
+import { convertEmergencyToParsedBackup, isLegacyEmergencyExport } from "@/lib/backup/emergency-import";
 import { yieldUI } from "@/lib/backup/yield-ui";
 import { applyImportAtomically, type ImportStrategy } from "@/lib/backup/import-transaction";
 import { parseJsonInWorker } from "@/lib/zip-service";
@@ -54,7 +56,7 @@ export function useCardImport() {
   const importData = useCallback(
     async (
       file: File,
-      strategy: ImportStrategy = "skip",
+      strategy: ImportStrategy = "keep",
       onProgress?: ImportProgress,
     ): Promise<void> => {
       const progress: ImportProgress = onProgress ?? (() => { /* noop */ });
@@ -70,45 +72,67 @@ export function useCardImport() {
         throw new Error(msg);
       }
 
-      // ── 2. Version gate (v7 only) ──
-      progress(15, "Provjera verzije…");
-      try {
-        assertBackupVersion(raw);
-      } catch (err) {
-        const msg = err instanceof BackupVersionError ? err.message : "Backup nije podržan.";
-        toast.error(msg);
-        throw err instanceof Error ? err : new Error(msg);
-      }
-      await yieldUI();
-
-      // ── 3. Zod validation ──
-      progress(20, "Validacija šeme…");
-      await yieldUI();
-      const result = BackupSchema.safeParse(raw);
-      await yieldUI();
-      if (!result.success) {
-        const issues = result.error.issues.slice(0, 5);
-        const summary = issues
-          .map((iss) => `• ${iss.path.join(".") || "(root)"} — ${iss.message}`)
-          .join("\n");
-        const more = result.error.issues.length > issues.length
-          ? `\n…i još ${result.error.issues.length - issues.length} grešaka.`
-          : "";
-        toast.error(`Backup nije validan:\n${summary}${more}`);
-        throw new Error("Backup nije validan");
-      }
-
-      // ── 4. Post-Zod migration ladder ──
+      // ── 2. Parse payload (v7 full backup or v2 template) ──
       let parsed: ParsedBackup;
-      try {
-        parsed = migrateBackup(result.data);
-      } catch (err) {
-        const msg = err instanceof BackupVersionError ? err.message : "Migracija backupa nije uspjela.";
-        toast.error(msg);
-        logger.error("[useCardImport] migrate failed", err);
-        throw err instanceof Error ? err : new Error(msg);
+
+      if (isTemplateExport(raw)) {
+        progress(15, "Konverzija templatea…");
+        try {
+          parsed = convertTemplateToParsedBackup(raw);
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : "Konverzija templatea nije uspjela.";
+          toast.error(msg);
+          throw err instanceof Error ? err : new Error(msg);
+        }
+        await yieldUI();
+      } else if (isLegacyEmergencyExport(raw)) {
+        progress(15, "Konverzija hitnog backupa…");
+        try {
+          parsed = convertEmergencyToParsedBackup(raw);
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : "Konverzija hitnog backupa nije uspjela.";
+          toast.error(msg);
+          throw err instanceof Error ? err : new Error(msg);
+        }
+        await yieldUI();
+      } else {
+        progress(15, "Provjera verzije…");
+        try {
+          assertBackupVersion(raw);
+        } catch (err) {
+          const msg = err instanceof BackupVersionError ? err.message : "Backup nije podržan.";
+          toast.error(msg);
+          throw err instanceof Error ? err : new Error(msg);
+        }
+        await yieldUI();
+
+        progress(20, "Validacija šeme…");
+        await yieldUI();
+        const result = BackupSchema.safeParse(raw);
+        await yieldUI();
+        if (!result.success) {
+          const issues = result.error.issues.slice(0, 5);
+          const summary = issues
+            .map((iss) => `• ${iss.path.join(".") || "(root)"} — ${iss.message}`)
+            .join("\n");
+          const more = result.error.issues.length > issues.length
+            ? `\n…i još ${result.error.issues.length - issues.length} grešaka.`
+            : "";
+          toast.error(`Backup nije validan:\n${summary}${more}`);
+          throw new Error("Backup nije validan");
+        }
+
+        try {
+          parsed = migrateBackup(result.data);
+        } catch (err) {
+          const msg = err instanceof BackupVersionError ? err.message : "Migracija backupa nije uspjela.";
+          toast.error(msg);
+          logger.error("[useCardImport] migrate failed", err);
+          throw err instanceof Error ? err : new Error(msg);
+        }
       }
 
+      // ── 3. Post-parse checks ──
       if (parsed.cards.length === 0 && (!Array.isArray(parsed.categories) || parsed.categories.length === 0)) {
         const msg = "Fajl ne sadrži kartice ni kategorije za uvoz.";
         toast.error(msg);
@@ -178,7 +202,12 @@ export function useCardImport() {
       if (parsed.localStorageData) extraParts.push("lokalna podešavanja");
       const extraMsg = extraParts.length > 0 ? ` + ${extraParts.join(", ")}` : "";
       progress(100, "Završeno.");
-      toast.success(`Uspješno uvezeno ${parsed.cards.length} kartica${extraMsg}.`);
+      const kind = parsed.type === "template"
+        ? "template"
+        : isLegacyEmergencyExport(raw)
+          ? "hitni backup"
+          : "backup";
+      toast.success(`Uspješno uvezen ${kind}: ${parsed.cards.length} kartica${extraMsg}.`);
     },
     [setReviewLog],
   );

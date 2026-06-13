@@ -132,6 +132,9 @@ export class ErrorBoundary extends Component<Props, State> {
         <p className="text-sm text-muted-foreground text-center max-w-md">
           {this.state.error?.message || "Neočekivana greška"}
         </p>
+        <p className="text-xs text-muted-foreground text-center max-w-md">
+          Sačuvani fajl je pun v7 backup — uvozite ga kroz Backup &amp; vraćanje → Import.
+        </p>
         <div className="flex gap-2 flex-wrap justify-center">
           <button
             onClick={this.handleEmergencyBackup}

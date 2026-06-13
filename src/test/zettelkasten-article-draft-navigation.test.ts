@@ -29,10 +29,9 @@ describe("useArticleDraft — save-on-navigate", () => {
     await saveArticle(a);
     await saveArticle(b);
 
-    const setArticles = vi.fn();
     const { result, rerender } = renderHook(
       ({ id }: { id: string }) =>
-        useArticleDraft({ activeId: id, categoryId: SUBJECT, setArticles }),
+        useArticleDraft({ activeId: id, categoryId: SUBJECT }),
       { initialProps: { id: a.id }, wrapper },
     );
 

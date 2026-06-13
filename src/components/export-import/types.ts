@@ -25,4 +25,4 @@ export interface ImportValidation {
   willMigrate: boolean;
 }
 
-export type ImportStrategy = "keep" | "overwrite" | "skip" | "newer";
+export type ImportStrategy = "keep" | "overwrite" | "newer";

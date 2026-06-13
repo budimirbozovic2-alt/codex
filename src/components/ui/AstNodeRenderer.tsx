@@ -2,6 +2,7 @@ import { memo, useMemo, Fragment, type ReactNode } from "react";
 import { cn } from "@/lib/utils";
 import type { EditorDoc, JSONContent } from "@/lib/editor-v4";
 import { logger } from "@/lib/logger";
+import EmbeddedMindMap from "@/components/zettelkasten/EmbeddedMindMap";
 
 /**
  * Pure React walker over the V4 AST (PR-7d M2.1).
@@ -21,6 +22,8 @@ interface Props {
   /** Optional handlers for atomic nodes. */
   onWikiLinkClick?: (target: string) => void;
   onMindmapClick?: (mindmapId: string) => void;
+  /** When set, `mindmapEmbed` nodes render live previews instead of placeholders. */
+  categoryId?: string;
 }
 
 type Mark = NonNullable<JSONContent["marks"]>[number];
@@ -79,6 +82,7 @@ function applyMarks(text: ReactNode, marks: Mark[] | undefined, keyBase: string)
 interface RenderCtx {
   onWikiLinkClick?: (target: string) => void;
   onMindmapClick?: (mindmapId: string) => void;
+  categoryId?: string;
 }
 
 function renderChildren(
@@ -144,6 +148,15 @@ function renderNode(node: JSONContent, key: string, ctx: RenderCtx): ReactNode {
     }
     case "mindmapEmbed": {
       const mindmapId = String(node.attrs?.mindmapId ?? "");
+      if (ctx.categoryId && mindmapId) {
+        return (
+          <EmbeddedMindMap
+            key={key}
+            mindMapId={mindmapId}
+            categoryId={ctx.categoryId}
+          />
+        );
+      }
       const handler = ctx.onMindmapClick;
       return (
         <div
@@ -167,14 +180,14 @@ function renderNode(node: JSONContent, key: string, ctx: RenderCtx): ReactNode {
   }
 }
 
-function AstNodeRendererImpl({ doc, className, onWikiLinkClick, onMindmapClick }: Props) {
+function AstNodeRendererImpl({ doc, className, onWikiLinkClick, onMindmapClick, categoryId }: Props) {
   const children = useMemo(() => {
     if (!doc || doc.version !== 4 || !doc.content) return null;
     const root = doc.content;
-    const ctx: RenderCtx = { onWikiLinkClick, onMindmapClick };
+    const ctx: RenderCtx = { onWikiLinkClick, onMindmapClick, categoryId };
     if (root.type === "doc") return renderChildren(root.content, "n", ctx);
     return renderNode(root, "n", ctx);
-  }, [doc, onWikiLinkClick, onMindmapClick]);
+  }, [doc, onWikiLinkClick, onMindmapClick, categoryId]);
 
   return <div className={cn(className)}>{children}</div>;
 }

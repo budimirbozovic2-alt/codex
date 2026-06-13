@@ -4,6 +4,7 @@ import {
   buildCriticalItems,
   buildHardestItems,
   buildItemsForMode,
+  hasConsolidationWork,
   isEarlyReview,
   HARDEST_DIFFICULT_GRACE_MS,
   HARDEST_LEECH_GRACE_MS,
@@ -235,6 +236,37 @@ describe("review-mode-builder", () => {
       expect(buildItemsForMode("stabilization", args)).toHaveLength(1);
       expect(buildItemsForMode("critical", args)).toHaveLength(1);
       expect(buildItemsForMode("hardest", args)).toHaveLength(0);
+    });
+  });
+
+  describe("hasConsolidationWork", () => {
+    it("returns false when all modes are empty", () => {
+      const future = makeSection({
+        difficulty: 5,
+        lapses: 0,
+        nextReview: NOW + 30 * DAY,
+      });
+      const card = makeCard([future]);
+      expect(hasConsolidationWork({
+        dueCards: [],
+        allCards: [card],
+        srSettings: DEFAULT_SR_SETTINGS,
+        now: NOW,
+      })).toBe(false);
+    });
+
+    it("returns true when only hardest mode has items (no due cards)", () => {
+      const leech = makeSection({
+        lapses: DEFAULT_SR_SETTINGS.leechThreshold,
+        nextReview: NOW + HARDEST_LEECH_GRACE_MS - DAY,
+      });
+      const card = makeCard([leech]);
+      expect(hasConsolidationWork({
+        dueCards: [],
+        allCards: [card],
+        srSettings: DEFAULT_SR_SETTINGS,
+        now: NOW,
+      })).toBe(true);
     });
   });
 

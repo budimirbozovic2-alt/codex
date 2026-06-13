@@ -51,6 +51,7 @@ export interface TimeRecommendation {
   hours: number;
   minutes: number;
   message: string;
+  fitsBudget: boolean;
 }
 
 /** Cognitive debt info */

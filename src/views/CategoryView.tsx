@@ -13,6 +13,10 @@ import { CategoryHeaderSkeleton, SourcesTabSkeleton } from "@/components/ui/list
 import SourceReader from "@/components/SourceReader";
 import SourcesTab from "@/components/category/SourcesTab";
 import SourcesBreadcrumb from "@/components/category/SourcesBreadcrumb";
+import {
+  consumePendingSourceOpen,
+  SOURCE_READER_OPEN_EVENT,
+} from "@/lib/source-reader/pending-source-open";
 
 export default function CategoryView() {
   const { categoryId } = useParams<{ categoryId: string }>();
@@ -37,14 +41,21 @@ export default function CategoryView() {
   // Sources: reader state only (editor/import/delete moved to SourcesTab)
   const [readerSource, setReaderSource] = useState<Source | null>(null);
 
-  // Auto-open source from GlobalSearch navigation
-  useEffect(() => {
-    const openId = sessionStorage.getItem("sr-open-source-id");
-    if (!openId || sources.length === 0) return;
-    sessionStorage.removeItem("sr-open-source-id");
-    const found = sources.find(s => s.id === openId);
+  // Auto-open source from GlobalSearch / Zettelkasten side panel (sessionStorage + event).
+  const openPendingSource = useCallback(() => {
+    const found = consumePendingSourceOpen(sources);
     if (found) setReaderSource(found);
   }, [sources]);
+
+  useEffect(() => {
+    openPendingSource();
+  }, [openPendingSource, categoryId]);
+
+  useEffect(() => {
+    const handler = () => { openPendingSource(); };
+    window.addEventListener(SOURCE_READER_OPEN_EVENT, handler);
+    return () => window.removeEventListener(SOURCE_READER_OPEN_EVENT, handler);
+  }, [openPendingSource]);
 
   // No-op: saveSource/deleteSource already notify listeners (SSOT).
   const handleSourceUpdated = useCallback(() => {}, []);

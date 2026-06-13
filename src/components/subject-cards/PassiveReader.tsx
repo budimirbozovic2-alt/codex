@@ -1,9 +1,10 @@
-import { lazy, Suspense, useMemo } from "react";
+import { lazy, Suspense, useEffect, useMemo, useRef } from "react";
 import { BookOpen, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { Card } from "@/lib/spaced-repetition";
 import type { SubcategoryNode } from "@/lib/db-types";
+import { useCardOnlyActions } from "@/hooks/cards/useActions";
 import { usePassiveReaderFilters } from "./passive-reader/usePassiveReaderFilters";
 import { usePassiveReaderNavigation } from "./passive-reader/usePassiveReaderNavigation";
 import { useCardStats } from "./passive-reader/useCardStats";
@@ -57,6 +58,19 @@ export default function PassiveReader({
 
   const current = filtered[index];
   const stats = useCardStats(current);
+  const { markRead } = useCardOnlyActions();
+
+  // Count one passive view per card display; guard re-fires when patchCard updates readCount.
+  const markedRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!current) {
+      markedRef.current = null;
+      return;
+    }
+    if (markedRef.current === current.id) return;
+    markedRef.current = current.id;
+    markRead(current.id);
+  }, [current?.id, markRead]);
 
   return (
     <div className="space-y-4">

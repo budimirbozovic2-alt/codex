@@ -1,11 +1,12 @@
 import { useMemo } from "react";
-import { Card, SRSettings, DEFAULT_SR_SETTINGS } from "@/lib/spaced-repetition";
+import { Card, SRSettings } from "@/lib/spaced-repetition";
 import { ReviewLogEntry } from "@/lib/storage";
 import { getTimeDistribution } from "@/domains/metacognition/metacognitive-storage";
 import { useDeferredCompute } from "@/hooks/useDeferredCompute";
 import { useAnalyticsWorker } from "@/hooks/useAnalyticsWorker";
 import { analyticsClient } from "@/lib/analytics/workerClient";
 import type { ChartBundle } from "@/lib/analytics/_pure/charts";
+import { formatCategoryLabel } from "@/components/stats/format-category-label";
 
 interface StatsInput {
   cards: Card[];
@@ -13,11 +14,10 @@ interface StatsInput {
   categoryStats: Record<string, { score: number; total: number; due: number }>;
   reviewLog: ReviewLogEntry[];
   srSettings: SRSettings;
+  catNameMap: Record<string, string>;
 }
 
-export function useStatsData({ cards, categories, categoryStats, reviewLog, srSettings }: StatsInput) {
-  const weights = srSettings?.resistanceWeights ?? DEFAULT_SR_SETTINGS.resistanceWeights;
-
+export function useStatsData({ cards, categories, categoryStats, reviewLog, srSettings, catNameMap }: StatsInput) {
   const focusRatio = useMemo(() => {
     if (srSettings.dailyGoal === 0) return { progress: 0, targetReviewPct: 5 };
     const progress = srSettings.dailyGoal > 0 && cards.length > 0
@@ -40,14 +40,13 @@ export function useStatsData({ cards, categories, categoryStats, reviewLog, srSe
     return categories
       .filter((cat) => categoryStats[cat]?.total > 0)
       .map((cat) => ({
-        name: cat.length > 12 ? cat.slice(0, 12) + "…" : cat,
+        name: formatCategoryLabel(cat, catNameMap),
         Znanje: categoryStats[cat].score,
         Kartice: categoryStats[cat].total,
       }));
-  }, [categories, categoryStats]);
+  }, [categories, categoryStats, catNameMap]);
 
   return {
-    weights,
     focusRatio,
     ratioHistory: charts?.ratioHistory ?? null,
     todayTime,

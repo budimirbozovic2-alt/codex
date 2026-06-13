@@ -45,6 +45,11 @@ export function useSrSettings(): SRSettings {
   );
 }
 
+/** Sync read for FSRS hot-path (reviewSection) without a React subscription. */
+export function getSrSettingsSnapshot(): SRSettings {
+  return reviewSettingsStore.getState().srSettings;
+}
+
 // ─── Actions ─────────────────────────────────────────────────────────────
 /**
  * RAM-only mutation (no SQLite write). Used by review-section hot path which

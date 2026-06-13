@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import type { Source } from "@/lib/db-types";
 import { ContentRenderer } from "@/components/ui/ContentRenderer";
 import { deriveHtml } from "@/lib/editor-v4/derived";
+import { queueSourceReaderOpen } from "@/lib/source-reader/pending-source-open";
 
 interface Props {
   source: Source;
@@ -22,7 +23,7 @@ export default function SourceSidePanel({ source, categoryId, onClose }: Props) 
   const _html = useMemo(() => deriveHtml(source.contentDoc), [source.contentDoc]);
 
   const openFullReader = () => {
-    sessionStorage.setItem("sr-open-source-id", source.id);
+    queueSourceReaderOpen(source.id);
     navigate(`/category/${categoryId}`);
   };
 

@@ -141,11 +141,19 @@ export function useCardExport({ srSettings }: UseCardExportDeps) {
           const zipBlob = await compressToZip(`codex-template-${dateStr}.json`, blob);
           onProgress(100, "Preuzimanje…");
           const r = await downloadFile(zipBlob, `codex-template-${dateStr}.zip`);
-          if (r.saved) toast.success("Template uspješno exportovan.");
+          if (r.saved) {
+            toast.success("Template uspješno exportovan.", {
+              description: "Uvoz: Backup & vraćanje → Import ovog fajla.",
+            });
+          }
         } else {
           onProgress(100, "Preuzimanje…");
           const r = await downloadFile(blob, `codex-template-${dateStr}.json`);
-          if (r.saved) toast.success("Template uspješno exportovan.");
+          if (r.saved) {
+            toast.success("Template uspješno exportovan.", {
+              description: "Uvoz: Backup & vraćanje → Import ovog fajla.",
+            });
+          }
         }
       } catch (err) {
         toast.error("Greška pri exportu templatea", { description: err instanceof Error ? err.message : String(err) });

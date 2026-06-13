@@ -105,6 +105,7 @@ if (!gotLock) {
 
 const { createSplashWindow, createWindow } = require(path.join(__dirname, 'electron', 'window.cjs'));
 const { setupBackupSystem } = require(path.join(__dirname, 'electron', 'backup.cjs'));
+const { setupUpdater } = require(path.join(__dirname, 'electron', 'updater.cjs'));
 
 let mainWindow = null;
 const setMainWindow = (win) => { mainWindow = win; };
@@ -116,6 +117,13 @@ const backup = setupBackupSystem({
   logCrash,
   isDev,
   assertTrustedSender,
+});
+
+setupUpdater({
+  isDev,
+  getMainWindow,
+  assertTrustedSender,
+  logCrash,
 });
 
 // ── K1 Fix: Path validation helper ──

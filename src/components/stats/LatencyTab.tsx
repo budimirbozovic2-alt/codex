@@ -3,11 +3,16 @@ import { useMemo } from "react";
 
 
 import { loadLatency, getLatencyStats } from "@/domains/metacognition/metacognitive-storage";
+import { formatCategoryLabel } from "@/components/stats/format-category-label";
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell,
 } from "recharts";
 
-export default function LatencyTab() {
+interface Props {
+  catNameMap: Record<string, string>;
+}
+
+export default function LatencyTab({ catNameMap }: Props) {
   const latency = useMemo(() => loadLatency(), []);
   const stats = useMemo(() => getLatencyStats(latency), [latency]);
 
@@ -32,11 +37,11 @@ export default function LatencyTab() {
       groups[e.category].push(e.latencyMs);
     });
     return Object.entries(groups).map(([cat, times]) => ({
-      category: cat.length > 15 ? cat.slice(0, 15) + "…" : cat,
+      category: formatCategoryLabel(cat, catNameMap, 15),
       avgLatency: +(times.reduce((a, b) => a + b, 0) / times.length / 1000).toFixed(1),
       count: times.length,
     })).sort((a, b) => b.avgLatency - a.avgLatency);
-  }, [latency]);
+  }, [latency, catNameMap]);
 
   if (latency.length === 0) {
     return (

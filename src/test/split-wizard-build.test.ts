@@ -8,6 +8,7 @@ import {
 import type { SelectionModule } from "@/lib/selection-split-engine";
 
 const M = (n: string, title: string, body = `body-${n}`): SelectionModule => ({
+  id: `mod-${n}`,
   articleNum: n,
   title,
   contentText: body,

@@ -15,7 +15,6 @@ import { StudyFlowWidget } from "./dashboard/StudyFlowWidget";
 import type { CategoryRecord } from "@/lib/db-types";
 import { QuickActions } from "./dashboard/QuickActions";
 import { ToolCards } from "./dashboard/ToolCards";
-import { BackupCard } from "./dashboard/BackupCard";
 
 interface Props {
   stats: { due: number; total: number; totalSections: number; learnedSections: number };
@@ -153,7 +152,6 @@ export default function Dashboard({ stats, categoryStats, categories, categoryRe
         >
           <QuickActions dueCount={stats.due} hasCards={cards.length > 0} />
           <ToolCards />
-          <BackupCard />
           {wc.showHeatmap && (
             <div className="overflow-x-auto -mx-1 px-1">
               <ActivityHeatmap reviewLog={reviewLog} />

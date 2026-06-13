@@ -16,6 +16,7 @@ import { PageSkeleton } from "@/components/ui/page-skeleton";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { queryClient } from "@/lib/query/client";
 import { DbDegradedWatcher } from "@/components/DbDegradedWatcher";
+import AppUpdateNotifier from "@/components/AppUpdateNotifier";
 
 const NotFound = lazy(() => import("./pages/NotFound"));
 
@@ -99,6 +100,7 @@ const App = () => {
 
         <HashRouter>
           <AppProvider>
+            <AppUpdateNotifier />
             <ErrorBoundary>
               <MainLayout>
                 <Suspense fallback={<PageSkeleton />}>
@@ -116,7 +118,7 @@ const App = () => {
                     <Route path="/review" element={<ErrorBoundary label="Ponavljanje"><ReviewPage /></ErrorBoundary>} />
                     <Route path="/learn" element={<ErrorBoundary label="Učenje"><LearnPage /></ErrorBoundary>} />
                     <Route path="/edit" element={<ErrorBoundary label="Uređivanje"><EditPage /></ErrorBoundary>} />
-                    <Route path="/settings" element={<ErrorBoundary label="Podešavanja"><SettingsPage /></ErrorBoundary>} />
+                    <Route path="/settings/*" element={<ErrorBoundary label="Podešavanja"><SettingsPage /></ErrorBoundary>} />
                     <Route path="/planner" element={<PlannerPage />} />
                     <Route path="/planer" element={<Navigate to="/planner" replace />} />
                     <Route path="/stats" element={<StatsPage />} />

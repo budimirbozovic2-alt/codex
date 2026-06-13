@@ -24,7 +24,6 @@ import type { ArticleDraftApi } from "./useArticleDraft";
 interface Input {
   categoryId: string | undefined;
   articles: KnowledgeBaseArticle[];
-  setArticles: React.Dispatch<React.SetStateAction<KnowledgeBaseArticle[]>>;
   setActiveId: React.Dispatch<React.SetStateAction<string | null>>;
   setReadingSourceId: React.Dispatch<React.SetStateAction<string | null>>;
   indexArticleId: string | null;
@@ -33,7 +32,7 @@ interface Input {
 }
 
 export interface ArticleMutationsApi {
-  create: (title?: string) => Promise<void>;
+  create: (title: string) => Promise<void>;
   open: (id: string) => void;
   backToIndex: () => Promise<void>;
   remove: () => Promise<void>;
@@ -42,7 +41,7 @@ export interface ArticleMutationsApi {
 
 export function useArticleMutations(input: Input): ArticleMutationsApi {
   const {
-    categoryId, articles, setArticles, setActiveId, setReadingSourceId,
+    categoryId, articles, setActiveId, setReadingSourceId,
     indexArticleId, activeArticle, draftApi,
   } = input;
 
@@ -54,17 +53,16 @@ export function useArticleMutations(input: Input): ArticleMutationsApi {
   const articlesRef = useRef(articles);
   useEffect(() => { articlesRef.current = articles; }, [articles]);
 
-  const create = useCallback(async (title?: string) => {
+  const create = useCallback(async (title: string) => {
     if (!categoryId) return;
-    const t = (title ?? prompt("Naslov novog članka:") ?? "").trim();
+    const t = title.trim();
     if (!t) return;
     const article = newArticle(categoryId, t);
     await saveMutation.mutateAsync(article);
-    setArticles(prev => [article, ...prev]);
     backlinkIndex.upsertArticle(categoryId, article);
     setActiveId(article.id);
     draftApi.enterEdit(article);
-  }, [categoryId, setArticles, setActiveId, draftApi, saveMutation]);
+  }, [categoryId, setActiveId, draftApi, saveMutation]);
 
   const open = useCallback((id: string) => {
     setReadingSourceId(null);
@@ -89,11 +87,10 @@ export function useArticleMutations(input: Input): ArticleMutationsApi {
     if (!confirm(`Obrisati članak "${activeArticle.title}"?`)) return;
     await removeMutation.mutateAsync({ id: activeArticle.id, subjectId: activeArticle.subjectId });
     backlinkIndex.removeArticle(activeArticle.subjectId, activeArticle.id);
-    setArticles(prev => prev.filter(a => a.id !== activeArticle.id));
     setActiveId(indexArticleId && indexArticleId !== activeArticle.id ? indexArticleId : null);
     draftApi.exitEdit();
     toast.success("Članak obrisan");
-  }, [activeArticle, indexArticleId, setArticles, setActiveId, draftApi, removeMutation]);
+  }, [activeArticle, indexArticleId, setActiveId, draftApi, removeMutation]);
 
   const wikiLink = useCallback(async (title: string) => {
     if (!categoryId) return;
@@ -121,7 +118,6 @@ export function useArticleMutations(input: Input): ArticleMutationsApi {
           });
           if (created.length > 0) {
             const article = created[0];
-            setArticles(prev => [article, ...prev]);
             backlinkIndex.upsertArticle(categoryId, article);
             toast.success(`Kreiran novi članak "${article.title}"`);
             return article.id;
@@ -137,7 +133,7 @@ export function useArticleMutations(input: Input): ArticleMutationsApi {
 
     const id = await pending;
     if (id) open(id);
-  }, [categoryId, activeArticle, setArticles, draftApi, open, bulkCreateMutation]);
+  }, [categoryId, activeArticle, draftApi, open, bulkCreateMutation]);
 
   return { create, open, backToIndex, remove, wikiLink };
 }

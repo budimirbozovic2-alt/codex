@@ -60,3 +60,11 @@ export {
   autoRedistributeIfNeeded,
 } from "./daily-mapped";
 export { generateStudyPlan, calcLearningReviewRatio } from "./plan-generator";
+export {
+  sectionReviewKey,
+  todayDateKey,
+  countUniqueSectionsOnDate,
+  resolveDailyDisciplineGoal,
+  buildSessionDisciplinePayload,
+} from "./session-discipline";
+export type { SessionDisciplineInput } from "./session-discipline";

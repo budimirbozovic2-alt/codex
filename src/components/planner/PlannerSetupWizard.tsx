@@ -40,6 +40,7 @@ export default function PlannerSetupWizard({ config, save, categoryRecords, card
     bufferPercent: buffer,
     hardSubjects,
     subjectOrder: categoryRecords.map(r => r.id),
+    dailyQuotaOverride: null,
   };
 
   const previewPlans = step === 2 ? generateStudyPlan(draftConfig, categoryRecords, cards) : [];

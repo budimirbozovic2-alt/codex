@@ -47,6 +47,7 @@ export function useSourceMapping(source: Source) {
     const safe = sanitizeHtml(html || `<p>${text}</p>`);
     const fallbackTitle = firstWords(plainSnippet, 7) || "Novi esej";
     const singleModule: SelectionModule = {
+      id: crypto.randomUUID(),
       articleNum: "",
       title: fallbackTitle,
       contentText: plainSnippet,

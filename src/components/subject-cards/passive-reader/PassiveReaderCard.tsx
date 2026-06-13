@@ -87,8 +87,8 @@ function PassiveReaderCardImpl({ card, stats }: Props) {
       </header>
 
       <div className="space-y-4">
-        {(card.sections ?? []).map((sec, i) => (
-          <section key={i} className="space-y-1.5">
+        {(card.sections ?? []).map((sec) => (
+          <section key={sec.id} className="space-y-1.5">
             {sec.title && (
               <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
                 {sec.title}

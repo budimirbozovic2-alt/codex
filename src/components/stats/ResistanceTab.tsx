@@ -2,8 +2,10 @@ import { Flame, Zap } from "lucide-react";
 import { useMemo } from "react";
 
 
-import { Card } from "@/lib/spaced-repetition";
+import { Card, SRSettings, DEFAULT_SR_SETTINGS } from "@/lib/spaced-repetition";
 import { ReviewLogEntry } from "@/lib/storage";
+import { resolveEffectiveSrParams } from "@/domains/subjects/subject-settings";
+import type { ResistanceWeights } from "@/lib/analytics/_pure/resistance";
 import { analyticsClient } from "@/lib/analytics/workerClient";
 import { useAnalyticsWorker } from "@/hooks/useAnalyticsWorker";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -23,14 +25,42 @@ interface Props {
   cards: Card[];
   categories: string[];
   reviewLog: ReviewLogEntry[];
-  weights: { lapses: number; latency: number; forgetting: number };
+  srSettings: SRSettings;
   catNameMap: Record<string, string>;
 }
 
-export default function ResistanceTab({ cards, categories, reviewLog, weights, catNameMap }: Props) {
+export default function ResistanceTab({ cards, categories, reviewLog, srSettings, catNameMap }: Props) {
+  const fallbackWeights = srSettings.resistanceWeights ?? DEFAULT_SR_SETTINGS.resistanceWeights;
+
+  const weightsByCategory = useMemo(() => {
+    const map: Record<string, ResistanceWeights> = {};
+    for (const cat of categories) {
+      map[cat] = resolveEffectiveSrParams(cat, srSettings).srSettings.resistanceWeights;
+    }
+    return map;
+  }, [categories, srSettings]);
+
+  const weightsKey = useMemo(
+    () =>
+      categories
+        .map((cat) => {
+          const w = weightsByCategory[cat];
+          return `${cat}:${w.lapses},${w.latency},${w.forgetting}`;
+        })
+        .join("|"),
+    [categories, weightsByCategory],
+  );
+
   const rawRows = useAnalyticsWorker(
-    () => analyticsClient.runResistance(cards, categories, reviewLog, weights),
-    [cards, categories, reviewLog, weights.lapses, weights.latency, weights.forgetting],
+    () =>
+      analyticsClient.runResistance(
+        cards,
+        categories,
+        reviewLog,
+        weightsByCategory,
+        fallbackWeights,
+      ),
+    [cards, categories, reviewLog, weightsKey, fallbackWeights],
   );
 
   const resistanceData = useMemo<ResistanceData[] | null>(() => {

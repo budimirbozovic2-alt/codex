@@ -47,14 +47,23 @@ function cardWorstRetrievability(card: Card): number {
   return any ? min : 0;
 }
 
+function normalizedWeightFactors(weights: ResistanceWeights) {
+  const wTotal = weights.lapses + weights.latency + weights.forgetting;
+  return {
+    wL: wTotal > 0 ? weights.lapses / wTotal : 0.33,
+    wLat: wTotal > 0 ? weights.latency / wTotal : 0.33,
+    wF: wTotal > 0 ? weights.forgetting / wTotal : 0.34,
+  };
+}
+
 export function calcResistance(
   cards: Card[],
   categories: string[],
   reviewLog: ReviewLogEntry[],
   latency: LatencyEntry[],
-  weights: ResistanceWeights,
+  weightsByCategory: Record<string, ResistanceWeights>,
+  fallbackWeights: ResistanceWeights,
 ): ResistanceRow[] {
-  // Bucket inputs once — avoids N*M filtering.
   const cardsByCat = new Map<string, Card[]>();
   for (const c of cards) {
     const list = cardsByCat.get(c.categoryId);
@@ -77,15 +86,13 @@ export function calcResistance(
     latSumByCat.set(l.category, acc);
   }
 
-  const wTotal = weights.lapses + weights.latency + weights.forgetting;
-  const wL = wTotal > 0 ? weights.lapses / wTotal : 0.33;
-  const wLat = wTotal > 0 ? weights.latency / wTotal : 0.33;
-  const wF = wTotal > 0 ? weights.forgetting / wTotal : 0.34;
-
   const rows: ResistanceRow[] = [];
   for (const cat of categories) {
     const catCards = cardsByCat.get(cat);
     if (!catCards || catCards.length === 0) continue;
+
+    const weights = weightsByCategory[cat] ?? fallbackWeights;
+    const { wL, wLat, wF } = normalizedWeightFactors(weights);
 
     const lapseCount = lapsesByCat.get(cat) ?? 0;
     const totalReviews = reviewsByCat.get(cat) ?? 0;

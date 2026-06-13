@@ -12,6 +12,7 @@ import type { Source } from "@/lib/db-types";
 import { makeSource, makeCard, makeSection } from "./factories";
 
 const mod = (n: string, title: string, body = "Sadržaj"): SelectionModule => ({
+  id: `mod-${n}`,
   articleNum: n,
   title,
   contentText: body,

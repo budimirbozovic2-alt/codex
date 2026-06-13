@@ -1,5 +1,5 @@
 import { TrendingDown, Eye, EyeOff } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useMemo, useState, useCallback } from "react";
 import { Card, SectionState } from "@/lib/spaced-repetition";
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import { m } from "@/lib/motion";
@@ -7,9 +7,11 @@ import { m } from "@/lib/motion";
 
 import { Button } from "@/components/ui/button";
 import { ChartTooltip } from "@/components/ui/chart-tooltip";
+import { formatCategoryLabel } from "@/components/stats/format-category-label";
 interface Props {
   cards: Card[];
   categories: string[];
+  catNameMap: Record<string, string>;
 }
 
 const COLORS = [
@@ -23,8 +25,13 @@ const COLORS = [
   "#f97316",
 ];
 
-export default function ForgettingCurve({ cards, categories }: Props) {
+export default function ForgettingCurve({ cards, categories, catNameMap }: Props) {
   const [showCategories, setShowCategories] = useState(false);
+
+  const categoryLabel = useCallback(
+    (categoryId: string) => formatCategoryLabel(categoryId, catNameMap, 15),
+    [catNameMap],
+  );
 
   // Get all reviewed sections with their stability
   const reviewedSections = useMemo(() => {
@@ -64,13 +71,13 @@ export default function ForgettingCurve({ cards, categories }: Props) {
               : day;
             return Math.exp(-elapsed / s.stability) * 100;
           });
-          point[cat] = Math.round(catRetentions.reduce((a, b) => a + b, 0) / catRetentions.length);
+          point[categoryLabel(cat)] = Math.round(catRetentions.reduce((a, b) => a + b, 0) / catRetentions.length);
         });
       }
 
       return point;
     });
-  }, [reviewedSections, categories, showCategories]);
+  }, [reviewedSections, categories, showCategories, categoryLabel]);
 
   // Calculate "evaporation" stats
   const evaporationStats = useMemo(() => {
@@ -200,7 +207,7 @@ export default function ForgettingCurve({ cards, categories }: Props) {
                   <Area
                     key={cat}
                     type="monotone"
-                    dataKey={cat}
+                    dataKey={categoryLabel(cat)}
                     stroke={COLORS[(i + 1) % COLORS.length]}
                     strokeWidth={1.5}
                     fill="transparent"

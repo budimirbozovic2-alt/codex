@@ -4,7 +4,7 @@ import type { MindMapDoc } from "@/lib/db-types";
 import MindMapList from "@/components/mindmap/MindMapList";
 import MindMapCanvas from "@/components/mindmap/MindMapCanvas";
 import { hasSeenOnboarding } from "@/components/mindmap/MindMapOnboarding";
-import { useMindMaps } from "@/hooks/useMindMaps";
+import { useMindMapsByCategory } from "@/hooks/useMindMaps";
 import { ArrowLeft } from "lucide-react";
 
 export default function SubjectMindMapPage() {
@@ -13,7 +13,7 @@ export default function SubjectMindMapPage() {
   const [activeDoc, setActiveDoc] = useState<MindMapDoc | null>(null);
   const [showOnboarding, setShowOnboarding] = useState(() => !hasSeenOnboarding());
 
-  const { mindMaps } = useMindMaps();
+  const { mindMaps } = useMindMapsByCategory(categoryId);
 
   // Auto-open a mind map when arriving with ?open={id}
   useEffect(() => {
@@ -27,6 +27,8 @@ export default function SubjectMindMapPage() {
       setSearchParams(next, { replace: true });
     }
   }, [searchParams, activeDoc, setSearchParams, mindMaps]);
+
+  if (!categoryId) return null;
 
   if (activeDoc) {
     return (
@@ -47,6 +49,7 @@ export default function SubjectMindMapPage() {
         </Link>
       </div>
       <MindMapList
+        categoryId={categoryId}
         onOpen={setActiveDoc}
         showOnboarding={showOnboarding}
         onShowOnboarding={() => setShowOnboarding(true)}

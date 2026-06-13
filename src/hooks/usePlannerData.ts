@@ -6,7 +6,7 @@ import { ReviewLogEntry } from "@/lib/storage";
 import type { CategoryRecord } from "@/lib/db-types";
 import { analyticsClient } from "@/lib/analytics/workerClient";
 import type { PlannerConfig } from "@/domains/planner";
-import { DEFAULT_CONFIG } from "@/domains/planner";
+import { DEFAULT_CONFIG, calcLearningReviewRatio } from "@/domains/planner";
 import { queryKeys } from "@/lib/query/keys";
 import {
   hashCards,
@@ -22,6 +22,10 @@ import {
 // categoryRecords) belong in `useMemo`, not in TanStack cache slots that
 // the bridge already invalidates from a different angle.
 type PlannerModule = typeof import("@/domains/planner");
+type DisciplineLogEntry = import("@/types/planner").DisciplineLogEntry;
+type DisciplineTrendPoint = import("@/types/planner").DisciplineTrendPoint;
+const EMPTY_DISCIPLINE_LOG: DisciplineLogEntry[] = [];
+const EMPTY_DISCIPLINE_TREND: DisciplineTrendPoint[] = [];
 let _plannerMod: PlannerModule | null = null;
 async function getPlannerModule(): Promise<PlannerModule> {
   if (!_plannerMod) _plannerMod = await import("@/domains/planner");
@@ -43,7 +47,7 @@ export function usePlannerData(cards: SRCard[], reviewLog: ReviewLogEntry[], cat
 
   // PR-7f M2 — config kroz TanStack; bridge invalidira ['planner'] na svaki
   // `plannerCache.set` (kind="config"), pa useQuery sam re-fetcha.
-  const { data: config = DEFAULT_CONFIG } = useQuery({
+  const { data: config = DEFAULT_CONFIG, isFetched: isConfigLoaded } = useQuery({
     queryKey: queryKeys.planner.config(),
     queryFn: async () => {
       const m = mod ?? (await getPlannerModule());
@@ -52,7 +56,7 @@ export function usePlannerData(cards: SRCard[], reviewLog: ReviewLogEntry[], cat
     initialData: DEFAULT_CONFIG,
   });
 
-  const { data: disciplineLog = null } = useQuery({
+  const { data: disciplineLogData = null, isPending: disciplineLogPending } = useQuery({
     queryKey: queryKeys.planner.disciplineLog(),
     queryFn: async () => {
       const m = mod ?? (await getPlannerModule());
@@ -61,7 +65,7 @@ export function usePlannerData(cards: SRCard[], reviewLog: ReviewLogEntry[], cat
     enabled: !!mod,
   });
 
-  const { data: disciplineTrend = null } = useQuery({
+  const { data: disciplineTrendData = null, isPending: disciplineTrendPending } = useQuery({
     queryKey: queryKeys.planner.disciplineTrend(30),
     queryFn: async () => {
       const m = mod ?? (await getPlannerModule());
@@ -69,6 +73,10 @@ export function usePlannerData(cards: SRCard[], reviewLog: ReviewLogEntry[], cat
     },
     enabled: !!mod,
   });
+
+  const disciplineLog = disciplineLogData ?? EMPTY_DISCIPLINE_LOG;
+  const disciplineTrend = disciplineTrendData ?? EMPTY_DISCIPLINE_TREND;
+  const isDisciplineReady = !!mod && !disciplineLogPending && !disciplineTrendPending;
 
   // ── Counts / sync derivations ────────────────────────────────────────
 
@@ -114,13 +122,17 @@ export function usePlannerData(cards: SRCard[], reviewLog: ReviewLogEntry[], cat
 
   const smartSuggestion = useMemo(() => {
     if (!mod || velocity === null) return null;
-    return mod.getSmartSuggestion(null, cards, config.finalGoalDate, config.bufferPercent);
-  }, [mod, velocity, cards, config.finalGoalDate, config.bufferPercent]);
+    return mod.getSmartSuggestion(null, cards, config.finalGoalDate, config.bufferPercent, config.dailyQuotaOverride);
+  }, [mod, velocity, cards, config.finalGoalDate, config.bufferPercent, config.dailyQuotaOverride]);
 
   const timeRec = useMemo(() => {
     if (!mod || !smartSuggestion || velocity === null) return null;
-    return mod.calcDailyTimeRecommendation(smartSuggestion.suggestedToday, dueCount);
-  }, [mod, smartSuggestion, velocity, dueCount]);
+    return mod.calcDailyTimeRecommendation(
+      smartSuggestion.suggestedToday,
+      dueCount,
+      config.dailyAvailableMinutes,
+    );
+  }, [mod, smartSuggestion, velocity, dueCount, config.dailyAvailableMinutes]);
 
   const burnupData = useMemo(() => {
     if (!mod) return null;
@@ -133,17 +145,14 @@ export function usePlannerData(cards: SRCard[], reviewLog: ReviewLogEntry[], cat
   }, [mod, velocity, remaining, config.finalGoalDate, config.bufferPercent]);
 
   const phaseDisciplinePct = useMemo<number>(() => {
-    if (!mod || !disciplineLog) return 0;
+    if (!mod || disciplineLog.length === 0) return 0;
     return mod.getPhaseDisciplinePct(disciplineLog);
   }, [mod, disciplineLog]);
 
-  // Learning/review ratio
-  const learningRatio = useMemo(() => {
-    const learnPct = Math.max(10, 100 - overallPct);
-    const reviewPct = 100 - learnPct;
-    const label = learnPct > 70 ? "Fokus na učenje" : learnPct > 40 ? "Balansirano" : "Fokus na ponavljanje";
-    return { learnPct, reviewPct, label };
-  }, [overallPct]);
+  const learningRatio = useMemo(
+    () => calcLearningReviewRatio(overallPct),
+    [overallPct],
+  );
 
   const debt = useMemo<import("@/types/planner").CognitiveDebtItem | null>(() => {
     if (!smartSuggestion) return null;
@@ -157,7 +166,7 @@ export function usePlannerData(cards: SRCard[], reviewLog: ReviewLogEntry[], cat
   }, [smartSuggestion]);
 
   const streaks = useMemo(() => {
-    if (!disciplineLog) return { streak: 0, bestStreak: 0 };
+    if (disciplineLog.length === 0) return { streak: 0, bestStreak: 0 };
     let streak = 0;
     const sorted = [...disciplineLog].sort((a, b) => b.date.localeCompare(a.date));
     for (const entry of sorted) {
@@ -215,8 +224,14 @@ export function usePlannerData(cards: SRCard[], reviewLog: ReviewLogEntry[], cat
     saveConfig.mutate(updated);
   }, [saveConfig]);
 
+  // Nivelisana kvota više nije potrebna kad je plan ponovo na zelenom.
+  useEffect(() => {
+    if (config.dailyQuotaOverride == null || plannerStatus?.status !== "green") return;
+    save({ ...config, dailyQuotaOverride: null });
+  }, [config, plannerStatus, save]);
+
   return {
-    config, save, isConfigured,
+    config, save, isConfigured, isConfigLoaded,
     /** True once the lazy planner module + derived calcs are ready. */
     isReady: subjectPlans !== null,
     totalSections, learnedSections, remaining, overallPct, velocity,
@@ -225,7 +240,7 @@ export function usePlannerData(cards: SRCard[], reviewLog: ReviewLogEntry[], cat
     smartSuggestion, dueCount,
     timeRec, debt,
     retentionRisk,
-    disciplineLog, disciplineTrend, phaseDisciplinePct,
+    disciplineLog, disciplineTrend, phaseDisciplinePct, isDisciplineReady,
     burnupData, projectionText,
     streak: streaks?.streak ?? 0,
     bestStreak: streaks?.bestStreak ?? 0,

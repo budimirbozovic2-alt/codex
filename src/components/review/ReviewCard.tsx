@@ -1,6 +1,7 @@
 import { ArrowLeft, Eye, ChevronRight, AlertTriangle, Pause, Scale, Clock } from "lucide-react";
 import { useState, useMemo, useEffect, useCallback, useRef, lazy, Suspense } from "react";
 import { Card, Section, isLeech, formatInterval, SRSettings } from "@/lib/spaced-repetition";
+import { resolveEffectiveSrParams } from "@/domains/subjects/subject-settings";
 import { isEarlyReview } from "@/lib/review-mode-builder";
 import { useCategoryData } from "@/hooks/cards/useCategoryState";
 import { EditorView } from "@/lib/editor-v4/EditorView";
@@ -39,6 +40,10 @@ export default function ReviewCard({
   
   const { categoryRecords } = useCategoryData();
   const catRecord = categoryRecords.find(r => r.id === card.categoryId);
+  const effectiveSrSettings = useMemo(
+    () => resolveEffectiveSrParams(card.categoryId, srSettings).srSettings,
+    [card.categoryId, srSettings],
+  );
   const catName = catRecord?.name ?? card.categoryId;
   const subName = catRecord?.subcategories?.find(s => s.id === card.subcategoryId)?.name ?? card.subcategoryId;
   const lastGradeRef = useRef<{ cardId: string; sectionId: string; grade: number } | null>(null);
@@ -100,7 +105,7 @@ export default function ReviewCard({
     [showAnswer, card.id, section.id, handleGradeWithCalibration, onLogError, handleRevealAnswer],
   );
 
-  const sectionIsLeech = isLeech(section, srSettings);
+  const sectionIsLeech = isLeech(section, effectiveSrSettings);
   const lapses = section.lapses || 0;
   const isFlash = card.type === "flash";
 
@@ -169,7 +174,7 @@ export default function ReviewCard({
         </m.div>
       )}
 
-      {/* Early review notice — sekcija ranjiva za FSRS scheduling distortion */}
+      {/* Early review — cramming guard blocks FSRS mutation until due */}
       {!sectionIsLeech && isEarlyReview(section) && (
         <m.div
           initial={{ opacity: 0, y: -10 }}
@@ -179,7 +184,7 @@ export default function ReviewCard({
           <Clock className="h-4 w-4 text-warning shrink-0" />
           <p className="text-xs text-muted-foreground">
             <strong className="text-warning">Prijevremena konsolidacija.</strong>{" "}
-            FSRS će smanjiti rast intervala jer kartica još nije dospjela.
+            Sekcija još nije dospjela — ocjena neće mijenjati interval ni stabilnost, samo će se zabilježiti dodir.
           </p>
         </m.div>
       )}

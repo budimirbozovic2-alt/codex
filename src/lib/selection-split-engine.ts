@@ -5,6 +5,10 @@
  */
 
 export interface SelectionModule {
+  /** Stable identity for React keys and editor remount after structural edits. */
+  id: string;
+  /** Bumped when `contentHtml` is replaced externally (e.g. manual cut). */
+  editorRevision?: number;
   /** e.g. "59" */
   articleNum: string;
   /** Title: "čl. 59 Pojam podnesaka" */
@@ -137,6 +141,7 @@ export function splitSelection(selectedText: string): SelectionSplitResult {
     const plainSnippet = `Član ${articleNum}\n${contentText}`;
 
     modules.push({
+      id: crypto.randomUUID(),
       articleNum,
       title: formattedTitle,
       contentText,
@@ -160,6 +165,7 @@ export function splitSelection(selectedText: string): SelectionSplitResult {
  */
 export function createEmptyModule(title = "Novi modul"): SelectionModule {
   return {
+    id: crypto.randomUUID(),
     articleNum: "",
     title,
     contentText: "",
@@ -274,11 +280,13 @@ export function splitModuleByDelimiter(
       : (firstWords(lines[0] || chunk, 7) || `Modul ${i + 1}`);
     const contentHtml = lines.map(l => `<p>${l}</p>`).join("\n");
     return {
+      id: i === 0 ? mod.id : crypto.randomUUID(),
       articleNum: i === 0 ? mod.articleNum : "",
       title,
       contentText: chunk,
       contentHtml,
       plainSnippet: chunk,
+      editorRevision: i === 0 ? (mod.editorRevision ?? 0) + 1 : 0,
     };
   });
 }

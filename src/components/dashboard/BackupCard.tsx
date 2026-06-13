@@ -153,8 +153,8 @@ export const BackupCard = memo(function BackupCard(): React.ReactElement {
           await exportData(compress, onProgress);
           refreshLastBackup();
         }}
-        onImport={async (file, strategy) => {
-          await importData(file, strategy);
+        onImport={async (file, strategy, onProgress) => {
+          await importData(file, strategy, onProgress);
           refreshLastBackup();
         }}
         cardsCount={cardsCount}

@@ -57,10 +57,18 @@ const api = {
     cards: Card[],
     categories: string[],
     reviewLog: ReviewLogEntry[],
-    weights: ResistanceWeights,
+    weightsByCategory: Record<string, ResistanceWeights>,
+    fallbackWeights: ResistanceWeights,
     snapshots: Pick<AnalyticsSnapshots, "latency">,
   ) {
-    return calcResistance(cards, categories, reviewLog, snapshots.latency, weights);
+    return calcResistance(
+      cards,
+      categories,
+      reviewLog,
+      snapshots.latency,
+      weightsByCategory,
+      fallbackWeights,
+    );
   },
   buildCharts(cards: Card[], reviewLog: ReviewLogEntry[], targetReviewPct: number): ChartBundle {
     return buildChartBundle(cards, reviewLog, targetReviewPct);

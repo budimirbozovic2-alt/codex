@@ -25,9 +25,13 @@ import { makeSource } from "./factories";
 
 const SUBJECT = "subject-pr6";
 
+const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+const wrapper = ({ children }: { children: React.ReactNode }) =>
+  createElement(QueryClientProvider, { client: qc }, children);
+
 const MODS: SelectionModule[] = [
-  { articleNum: "1", title: "Član 1", contentText: "alpha", contentHtml: "<p>alpha</p>", plainSnippet: "Član 1\nalpha" },
-  { articleNum: "2", title: "Član 2", contentText: "beta",  contentHtml: "<p>beta</p>",  plainSnippet: "Član 2\nbeta"  },
+  { id: "mod-1", articleNum: "1", title: "Član 1", contentText: "alpha", contentHtml: "<p>alpha</p>", plainSnippet: "Član 1\nalpha" },
+  { id: "mod-2", articleNum: "2", title: "Član 2", contentText: "beta",  contentHtml: "<p>beta</p>",  plainSnippet: "Član 2\nbeta"  },
 ];
 
 const SOURCE = makeSource({
@@ -58,12 +62,8 @@ describe("useArticleDraft — contentDoc seed + flush", () => {
     await saveArticle(article);
     const loaded = (await getKnowledgeBaseArticle(article.id))!;
 
-    const setArticles = vi.fn();
-    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    const wrapper = ({ children }: { children: React.ReactNode }) =>
-      createElement(QueryClientProvider, { client: qc }, children);
     const { result } = renderHook(() =>
-      useArticleDraft({ activeId: article.id, categoryId: SUBJECT, setArticles }),
+      useArticleDraft({ activeId: article.id, categoryId: SUBJECT }),
       { wrapper },
     );
 

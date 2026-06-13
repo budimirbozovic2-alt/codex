@@ -11,6 +11,7 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import ReviewSession from "@/components/ReviewSession";
 import EmptyState from "@/components/EmptyState";
 import { getParam } from "@/lib/url-params";
+import { hasConsolidationWork } from "@/lib/review-mode-builder";
 
 export default function ReviewPage() {
   const { cards, dueCards, ready } = useCardData();
@@ -23,7 +24,7 @@ export default function ReviewPage() {
   const location = useLocation();
   const lockedCategory = getParam(searchParams, "category");
   const modeParam = getParam(searchParams, "mode");
-  const _autoMode = (modeParam === "critical" || modeParam === "stabilization" || modeParam === "hardest")
+  const autoMode = (modeParam === "critical" || modeParam === "stabilization" || modeParam === "hardest")
     ? modeParam
     : undefined;
 
@@ -77,6 +78,15 @@ export default function ReviewPage() {
     return { totalCards: scopedAllCards.length, newSections, reviewSections, nextDueDate };
   }, [scopedAllCards]);
 
+  const consolidationAvailable = useMemo(
+    () => hasConsolidationWork({
+      dueCards: scopedDueCards,
+      allCards: scopedAllCards,
+      srSettings,
+    }),
+    [scopedDueCards, scopedAllCards, srSettings],
+  );
+
   const handleReviewSection = useCallback((cardId: string, sectionId: string, grade: number) => {
     if (session.isSessionActive) {
       session.queueReview(cardId, sectionId, grade);
@@ -113,19 +123,20 @@ export default function ReviewPage() {
 
   return (
     <ErrorBoundary label="Ponavljanje" onNavigateHome={() => setView("dashboard")}>
-      {scopedDueCards.length === 0 ? (
+      {!consolidationAvailable ? (
         <EmptyState type="review" diagnostics={diagnostics} />
       ) : (
         <ReviewSession
           dueCards={scopedDueCards}
           allCards={scopedAllCards}
           categoryRecords={categoryRecords}
-          
+          reviewLog={reviewLog}
           srSettings={srSettings}
           onReviewSection={handleReviewSection}
           onLogError={handleLogError}
           onBack={handleBack}
           lockedCategory={lockedCategory}
+          autoMode={autoMode}
         />
       )}
     </ErrorBoundary>

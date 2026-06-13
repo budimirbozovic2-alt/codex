@@ -8,12 +8,12 @@ import {
   RETENTION_MIN,
   RETENTION_MAX,
 } from "@/lib/spaced-repetition";
-import { loadAppSettings } from "@/lib/app-settings";
 import { ReviewLogEntry } from "@/lib/storage";
 import { reviewLogRepository } from "@/lib/repositories";
 import { useCardMutations } from "@/hooks/card/useCardMutations";
 import { getExaminerProfileSync } from "@/lib/examiner-profile-cache";
-import { patchReviewLog } from "@/store/reviewSettingsStore";
+import { resolveEffectiveSrParams } from "@/domains/subjects/subject-settings";
+import { getSrSettingsSnapshot, patchReviewLog } from "@/store/reviewSettingsStore";
 
 import { logger } from "@/lib/logger";
 interface UseCardAnnotationsParams {
@@ -28,12 +28,12 @@ export function useCardAnnotations({
   // O(1) review — surgical SQLite write (patchCard handles persist via Ref-Delta)
   const reviewSection = useCallback(
     (cardId: string, sectionId: string, grade: number) => {
-      const cachedRetention = loadAppSettings().targetRetention;
       const entry: ReviewLogEntry = { timestamp: Date.now(), cardId, sectionId, grade, category: "" };
 
       patchCard(cardId, (c) => {
         // Fill in category now that we have the card
         entry.category = c.categoryId;
+        const { targetRetention } = resolveEffectiveSrParams(c.categoryId, getSrSettingsSnapshot());
 
         let errorLog = c.errorLog;
         if (errorLog && errorLog.length > 0 && grade >= 3) {
@@ -57,14 +57,14 @@ export function useCardAnnotations({
         if (mods.reasons.length > 0) {
           entry.reasons = mods.reasons.map(r => ({ code: r.code, label: r.label }));
         }
-        entry.effectiveRetention = clamp(cachedRetention + mods.retentionBoost, RETENTION_MIN, RETENTION_MAX);
+        entry.effectiveRetention = clamp(targetRetention + mods.retentionBoost, RETENTION_MIN, RETENTION_MAX);
         entry.intervalMultiplier = mods.intervalMultiplier;
 
         return {
           ...c,
           ...(errorLog ? { errorLog } : {}),
           sections: c.sections.map((s) =>
-            s.id !== sectionId ? s : { ...s, ...calculateNextReview(s, grade, cachedRetention, adaptiveCtx) },
+            s.id !== sectionId ? s : { ...s, ...calculateNextReview(s, grade, targetRetention, adaptiveCtx) },
           ),
         };
       });

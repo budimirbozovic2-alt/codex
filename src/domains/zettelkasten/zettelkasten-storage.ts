@@ -11,6 +11,7 @@ import { assertAliasesNormalized } from "@/lib/zettelkasten-aliases";
 import {
   getArticle as repoGetArticle,
   listArticlesBySubject as repoListBySubject,
+  listAllArticles as repoListAll,
   findArticleByTitle as repoFindByTitle,
   getIndexArticle as repoGetIndexArticle,
   putArticle as repoPutArticle,
@@ -47,6 +48,10 @@ export async function loadArticlesBySubject(
   subjectId: string
 ): Promise<KnowledgeBaseArticle[]> {
   return repoListBySubject(subjectId);
+}
+
+export async function loadAllArticles(): Promise<KnowledgeBaseArticle[]> {
+  return repoListAll();
 }
 
 export async function getArticle(

@@ -1,11 +1,12 @@
 import { memo, lazy, Suspense } from "react";
-import { TrendingUp, Brain, Layers, Clock } from "lucide-react";
+import { TrendingUp, Brain, Layers, Clock, Signal } from "lucide-react";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { ChartTooltip } from "@/components/ui/chart-tooltip";
 import { Skeleton } from "@/components/ui/skeleton";
 import { m } from "@/lib/motion";
 
 import { Card } from "@/lib/spaced-repetition";
+import { MASTERY_LEVELS } from "@/lib/mastery";
 import { ReviewLogEntry } from "@/lib/storage";
 import ActivityHeatmap from "../ActivityHeatmap";
 import RetentionChart from "../RetentionChart";
@@ -146,6 +147,54 @@ const CategoryBarChart = memo(function CategoryBarChart({ data }: { data: Catego
   );
 });
 
+const MasteryLevelsChart = memo(function MasteryLevelsChart({ counts }: { counts: number[] }) {
+  const total = counts.reduce((sum, n) => sum + n, 0);
+  if (total === 0) return null;
+
+  return (
+    <m.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: 0.35 }}
+      className="glass-card rounded-xl p-5 space-y-4 md:col-span-2"
+    >
+      <div className="flex items-center gap-2">
+        <Signal className="h-4 w-4 text-primary" />
+        <h3 className="text-lg font-medium">Nivoi savladavanja (kartice)</h3>
+      </div>
+      <div className="flex h-3 rounded-full overflow-hidden bg-secondary">
+        {counts.map((count, i) => {
+          if (count === 0) return null;
+          const pct = (count / total) * 100;
+          return (
+            <div
+              key={i}
+              className="h-full transition-all"
+              style={{ width: `${pct}%`, backgroundColor: MASTERY_LEVELS[i].color }}
+              title={`${MASTERY_LEVELS[i].label}: ${count} (${Math.round(pct)}%)`}
+            />
+          );
+        })}
+      </div>
+      <div className="flex flex-wrap gap-x-4 gap-y-2 text-xs text-muted-foreground">
+        {counts.map((count, i) =>
+          count > 0 ? (
+            <span key={i} className="flex items-center gap-1.5">
+              <span
+                className="w-2.5 h-2.5 rounded-full shrink-0"
+                style={{ backgroundColor: MASTERY_LEVELS[i].color }}
+              />
+              {MASTERY_LEVELS[i].label}
+              <span className="tabular-nums text-foreground">{count}</span>
+              <span className="text-muted-foreground/70">({Math.round((count / total) * 100)}%)</span>
+            </span>
+          ) : null,
+        )}
+      </div>
+    </m.div>
+  );
+});
+
 interface OverviewTabProps {
   cards: Card[];
   categories: string[];
@@ -157,15 +206,15 @@ interface OverviewTabProps {
   ratioHistory: RatioHistoryPoint[] | null;
   todayTime: TodayTimeStat | null;
   focusRatio: { progress: number; targetReviewPct: number };
+  catNameMap: Record<string, string>;
 }
 
 export default function OverviewTab({
   cards, categories, reviewLog, activityData, masteryData, categoryChartData,
-  levelCounts, ratioHistory, todayTime, focusRatio,
+  levelCounts, ratioHistory, todayTime, focusRatio, catNameMap,
 }: OverviewTabProps) {
-  void levelCounts;
   const hasData = cards.length > 0;
-  const chartsReady = activityData !== null && masteryData !== null;
+  const chartsReady = activityData !== null && masteryData !== null && levelCounts !== null;
 
   return (
     <div className="space-y-6 mt-4">
@@ -193,11 +242,16 @@ export default function OverviewTab({
           <ErrorBoundary compact label="Kategorije">
             <CategoryBarChart data={categoryChartData} />
           </ErrorBoundary>
+          <ErrorBoundary compact label="Nivoi savladavanja">
+            {chartsReady && levelCounts
+              ? <MasteryLevelsChart counts={levelCounts} />
+              : <Skeleton className="h-[120px] rounded-xl md:col-span-2" />}
+          </ErrorBoundary>
         </div>
       )}
 
       <ErrorBoundary compact label="Kriva zaboravljanja">
-        <ForgettingCurve cards={cards} categories={categories} />
+        <ForgettingCurve cards={cards} categories={categories} catNameMap={catNameMap} />
       </ErrorBoundary>
 
       {ratioHistory && ratioHistory.some(d => d["Stvarni ponavljanje"] !== null) && (

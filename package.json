@@ -4,6 +4,10 @@
   "version": "3.0.0",
   "type": "module",
   "main": "main.cjs",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/budimirbozovic2-alt/memoria-mne.git"
+  },
   "scripts": {
     "prebuild": "rimraf dist release",
     "dev": "vite",
@@ -20,7 +24,8 @@
     "verify:app-headers": "vite build && electron . --verify-headers",
     "dist": "npm run build && electron-builder",
     "dist:win": "npm run build && electron-builder --win",
-    "dist:mac": "npm run build && electron-builder --mac"
+    "dist:mac": "npm run build && electron-builder --mac",
+    "dist:publish:win": "npm run build && electron-builder --win --publish always"
   },
   "build": {
     "appId": "com.codex.app",
@@ -28,6 +33,11 @@
     "directories": {
       "output": "release",
       "buildResources": "build"
+    },
+    "publish": {
+      "provider": "github",
+      "owner": "budimirbozovic2-alt",
+      "repo": "memoria-mne"
     },
     "asar": true,
     "files": [
@@ -87,6 +97,7 @@
     "date-fns": "^3.6.0",
     "diff-match-patch": "^1.0.5",
     "dompurify": "^3.3.3",
+    "electron-updater": "^6.8.9",
     "framer-motion": "^12.36.0",
     "jszip": "^3.10.1",
     "lucide-react": "^1.7.0",

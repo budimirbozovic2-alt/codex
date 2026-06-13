@@ -28,7 +28,7 @@ import { logger } from "@/lib/logger";
  *     `bulkCreateArticlesIfMissing`.
  *
  * The `articles` dependency is intentional: after a capped batch persists
- * (and `setArticles` grows the title set), we re-run on the next render so
+ * (and TanStack cache grows the title set), we re-run on the next render so
  * the still-unresolved tail can be drained even if the user paused typing.
  */
 const WIKI_LINK_BATCH_CAP = 50;
@@ -43,7 +43,6 @@ interface UseWikiLinkAutoCreateParams {
   draftContent: string | undefined;
   rootSubcategoryId: string | null | undefined;
   articles: KnowledgeBaseArticle[];
-  setArticles: React.Dispatch<React.SetStateAction<KnowledgeBaseArticle[]>>;
 }
 
 export function useWikiLinkAutoCreate({
@@ -53,7 +52,6 @@ export function useWikiLinkAutoCreate({
   draftContent,
   rootSubcategoryId,
   articles,
-  setArticles,
 }: UseWikiLinkAutoCreateParams): void {
   const { bulkCreate: bulkCreateMutation } = useKnowledgeBaseMutations();
   const bulkCreateRef = useLatestRef(bulkCreateMutation);
@@ -83,15 +81,12 @@ export function useWikiLinkAutoCreate({
   // Idempotency token bumped after every successful batch persist. Replaces
   // the previous `articles` dependency on the auto-create effect: instead of
   // re-running on every backlink/list update (which reset the debounce timer
-  // on each keystroke that hit `setArticles`), we re-run only when the
+  // on each keystroke that hit the cache), we re-run only when the
   // persisted set actually grew. Tail drain after a capped batch still works
   // because the persist callback bumps the token explicitly.
   const [drainTick, setDrainTick] = useState(0);
 
   // Always-fresh refs for collaborators read inside the debounced setTimeout.
-  // Switching to refs prevents re-binding the effect on identity changes of
-  // `setArticles` / `rootSubcategoryId`.
-  const setArticlesRef = useLatestRef(setArticles);
   const rootSubcategoryIdRef = useLatestRef(rootSubcategoryId ?? null);
 
   // Reset cadence tracking when switching articles.
@@ -174,7 +169,6 @@ export function useWikiLinkAutoCreate({
         for (const a of created) expanded.add(normalizeKey(a.title));
         existingTitlesLowerRef.current = expanded;
 
-        setArticlesRef.current(prev => [...created, ...prev]);
         for (const a of created) {
           backlinkIndex.upsertArticle(categoryId, a);
         }
@@ -195,5 +189,5 @@ export function useWikiLinkAutoCreate({
     // fresh via the separate effect above, and `drainTick` covers tail drain.
     // `bulkCreateRef` is a useRef — refs are stable and don't need to be deps.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [draftContent, isEditing, categoryId, drainTick, rootSubcategoryIdRef, setArticlesRef]);
+  }, [draftContent, isEditing, categoryId, drainTick, rootSubcategoryIdRef]);
 }

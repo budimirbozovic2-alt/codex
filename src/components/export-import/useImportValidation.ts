@@ -2,6 +2,8 @@
 import { readAllCategoriesForBackup, listAllCards } from "@/lib/db/queries";
 import { yieldUI } from "@/lib/backup/yield-ui";
 import { assertBackupVersion, BackupVersionError, BACKUP_SCHEMA_VERSION } from "@/lib/backup/migrate";
+import { isTemplateExport } from "@/lib/backup/template-import";
+import { isLegacyEmergencyExport } from "@/lib/backup/emergency-import";
 import type { ImportValidation } from "./types";
 
 export type ProgressFn = (pct: number, msg: string) => void;
@@ -18,12 +20,16 @@ export async function validateImportFile(
     const rawFileVersion = typeof parsed.version === "number" && Number.isFinite(parsed.version)
       ? Math.floor(parsed.version as number)
       : null;
+    const templateFile = isTemplateExport(parsed);
+    const emergencyFile = isLegacyEmergencyExport(parsed);
     let versionError: string | null = null;
-    try {
-      assertBackupVersion(parsed);
-    } catch (err) {
-      if (err instanceof BackupVersionError) versionError = err.message;
-      else versionError = err instanceof Error ? err.message : "Backup nije podržan.";
+    if (!templateFile && !emergencyFile) {
+      try {
+        assertBackupVersion(parsed);
+      } catch (err) {
+        if (err instanceof BackupVersionError) versionError = err.message;
+        else versionError = err instanceof Error ? err.message : "Backup nije podržan.";
+      }
     }
 
     onProgress(60, "Validacija podataka...");
@@ -152,7 +158,7 @@ export async function validateImportFile(
       file,
       totalCards: importedCards.length,
       totalCategories: Array.isArray(parsed.categories) ? (parsed.categories as unknown[]).length : 0,
-      hasProgress: parsed.type === "full",
+      hasProgress: emergencyFile || parsed.type === "full",
       type: typeof parsed.type === "string" ? parsed.type : "unknown",
       fileSizeKB: Math.round(file.size / 1024),
       duplicateCount,
@@ -162,7 +168,7 @@ export async function validateImportFile(
       errors,
       fileVersion: rawFileVersion,
       appVersion: BACKUP_SCHEMA_VERSION,
-      willMigrate: false,
+      willMigrate: templateFile || emergencyFile,
     };
   } catch (err) {
     return {

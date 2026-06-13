@@ -12,7 +12,9 @@ import { act, renderHook } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { kbTestDb as db } from "./helpers/kb-test-db";
 import { newArticle, saveArticle } from "@/domains/zettelkasten/zettelkasten-storage";
+import type { KnowledgeBaseArticle } from "@/domains/zettelkasten/zettelkasten-storage";
 import { useArticleDraft } from "@/hooks/zettelkasten/useArticleDraft";
+import { queryKeys } from "@/lib/query/keys";
 import { htmlToDoc } from "@/lib/editor-v4";
 import { deriveMarkdown } from "@/lib/editor-v4/derived";
 
@@ -31,9 +33,8 @@ describe("useArticleDraft", () => {
     const article = newArticle(SUBJECT, "Alpha");
     await saveArticle(article);
 
-    const setArticles = vi.fn();
     const { result } = renderHook(() =>
-      useArticleDraft({ activeId: article.id, categoryId: SUBJECT, setArticles }), { wrapper },
+      useArticleDraft({ activeId: article.id, categoryId: SUBJECT }), { wrapper },
     );
 
     act(() => result.current.enterEdit(article));
@@ -41,16 +42,14 @@ describe("useArticleDraft", () => {
     await act(async () => { await result.current.flush(); });
     const after = (await db.knowledgeBaseArticles.get(article.id))!;
     expect(after.updatedAt).toBe(before.updatedAt);
-    expect(setArticles).not.toHaveBeenCalled();
   });
 
   it("flush detects dirty title/content/tags/aliases and persists once", async () => {
     const article = newArticle(SUBJECT, "Beta");
     await saveArticle(article);
 
-    const setArticles = vi.fn();
     const { result } = renderHook(() =>
-      useArticleDraft({ activeId: article.id, categoryId: SUBJECT, setArticles }), { wrapper },
+      useArticleDraft({ activeId: article.id, categoryId: SUBJECT }), { wrapper },
     );
     act(() => result.current.enterEdit(article));
     act(() => result.current.updateDraft({
@@ -66,16 +65,18 @@ describe("useArticleDraft", () => {
     expect(deriveMarkdown(persisted.contentDoc)).toContain("new body");
     expect(persisted.tags).toEqual(["t1"]);
     expect(persisted.aliases).toEqual(["beta case"]); // normalized lowercase
-    expect(setArticles).toHaveBeenCalledTimes(1);
+    const cached = qc.getQueryData<KnowledgeBaseArticle>(
+      queryKeys.knowledgeBase.byId(article.id),
+    );
+    expect(cached?.title).toBe("Beta v2");
   });
 
   it("flush merges into FRESH persisted article (concurrent linkedSourceIds preserved)", async () => {
     const article = newArticle(SUBJECT, "Gamma");
     await saveArticle(article);
 
-    const setArticles = vi.fn();
     const { result } = renderHook(() =>
-      useArticleDraft({ activeId: article.id, categoryId: SUBJECT, setArticles }), { wrapper },
+      useArticleDraft({ activeId: article.id, categoryId: SUBJECT }), { wrapper },
     );
     act(() => result.current.enterEdit(article));
     act(() => result.current.updateDraftDoc(htmlToDoc("<p>user-typed body</p>")));

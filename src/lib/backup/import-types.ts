@@ -6,7 +6,7 @@ import type { CategoryRecord } from "@/lib/db-types";
 import type { ReviewLogEntry } from "@/lib/storage";
 import type { ParsedBackup } from "@/lib/migrations/backup-schema";
 
-export type ImportStrategy = "keep" | "overwrite" | "skip" | "newer";
+export type ImportStrategy = "keep" | "overwrite" | "newer";
 
 export interface ImportTxResult {
   merged: Card[];

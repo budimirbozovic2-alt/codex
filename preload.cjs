@@ -51,4 +51,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Binary file IO (preferred — no base64 expansion, 500 MB cap)
   saveFileBytes: (filePath, bytes) => ipcRenderer.invoke('save-file-bytes', filePath, bytes),
   readFileBytes: (filePath) => ipcRenderer.invoke('read-file-bytes', filePath),
+  // App updates (GitHub Releases via electron-updater)
+  checkForUpdates: () => ipcRenderer.invoke('app-check-for-updates'),
+  downloadUpdate: () => ipcRenderer.invoke('app-download-update'),
+  installUpdate: () => ipcRenderer.invoke('app-install-update'),
+  onAppUpdateEvent: (callback) => {
+    const handler = (_event, payload) => callback(payload);
+    ipcRenderer.on('app-update-event', handler);
+    return () => ipcRenderer.removeListener('app-update-event', handler);
+  },
 });
