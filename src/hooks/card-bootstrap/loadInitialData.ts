@@ -32,9 +32,9 @@ export async function loadInitialData(): Promise<InitialData> {
     import("@/domains/subjects/subject-settings"),
   ]);
   await Promise.all([
-    initMetacognitiveCache().catch((e) => logger.warn("[silent]", e)),
-    initPlannerCache().catch((e) => logger.warn("[silent]", e)),
-    initSubjectSettingsCache().catch((e) => logger.warn("[silent]", e)),
+    initMetacognitiveCache(),
+    initPlannerCache(),
+    initSubjectSettingsCache(),
   ]);
 
   splashProgress(25, "Učitavanje podataka…");

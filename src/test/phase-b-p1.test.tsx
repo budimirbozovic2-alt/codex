@@ -1,8 +1,7 @@
 /**
  * Phase B (P1) smoke tests.
  *
- * 1. SessionContext: `isProcessing` is `isEnding || pendingMutations` —
- *    no setTimeout padding.
+ * 1. SessionContext: `isProcessing` clears after endSession + mutation drain.
  * 2. JSON serialize client falls back to synchronous stringify when no
  *    Worker is available (jsdom environment).
  * 3. Wiki-link auto-create no longer keeps `articles` in its main deps —

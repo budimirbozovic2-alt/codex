@@ -9,11 +9,9 @@
  * PR-H3 Hardening: Added functional data selectors 
  * to prevent aggressive component re-render cascades.
  */
-import { useMemo } from "react";
 import { 
   useQuery, 
   useQueries, 
-  type UseQueryResult 
 } from "@tanstack/react-query";
 import {
   listAllCards,
@@ -133,27 +131,20 @@ export function useCardCountAll(): number {
 export function useCategoryDueCounts(
   categoryIds: readonly string[],
 ): Record<string, number> {
-  const results = useQueries({
+  return useQueries({
     queries: categoryIds.map((id) => ({
       queryKey: queryKeys.cards.byCategory(id),
       queryFn: () => cardsByCategory(id),
       staleTime: Infinity,
     })),
+    combine: (results) => {
+      const out: Record<string, number> = {};
+      categoryIds.forEach((id, i) => {
+        out[id] = countDueCards(results[i]?.data ?? EMPTY);
+      });
+      return out;
+    },
   });
-
-  const idsKey = categoryIds.join("|");
-  const dataKey = results.map((r) => r.dataUpdatedAt).join("|");
-
-  return useMemo(() => {
-    const out: Record<string, number> = {};
-    categoryIds.forEach((id, i) => {
-      const cards = (results[i] as UseQueryResult<readonly Card[]> | undefined)
-        ?.data ?? EMPTY;
-      out[id] = countDueCards(cards);
-    });
-    return out;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [idsKey, dataKey]);
 }
 
 /**
@@ -164,24 +155,18 @@ export function useCategoryDueCounts(
 export function useCardCountsByCategoryMap(
   categoryIds: readonly string[],
 ): Record<string, number> {
-  const results = useQueries({
+  return useQueries({
     queries: categoryIds.map((id) => ({
       queryKey: queryKeys.cards.countByCategory(id),
       queryFn: () => cardCountByCategory(id),
       staleTime: Infinity,
     })),
+    combine: (results) => {
+      const out: Record<string, number> = {};
+      categoryIds.forEach((id, i) => {
+        out[id] = results[i]?.data ?? 0;
+      });
+      return out;
+    },
   });
-
-  const idsKey = categoryIds.join("|");
-  const dataKey = results.map((r) => r.data ?? 0).join("|");
-
-  return useMemo(() => {
-    const out: Record<string, number> = {};
-    categoryIds.forEach((id, i) => {
-      out[id] = (results[i] as UseQueryResult<number> | undefined)
-        ?.data ?? 0;
-    });
-    return out;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [idsKey, dataKey]);
 }

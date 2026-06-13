@@ -3,10 +3,9 @@
 //
 // Replaces the React `SessionProvider` Context. Buffers grade/error/markRead
 // actions during a session, takes an immutable snapshot of cards+log at
-// session start, and tracks `isProcessing` as `isEnding || pendingMutations`
-// so the UI stays in "spremanje" until session flush and in-flight writes drain.
+// session start, and tracks `isProcessing` until session flush and in-flight
+// writes drain.
 // ─────────────────────────────────────────────────────────────────────────────
-import { useMutationState } from "@tanstack/react-query";
 import { create } from "zustand";
 import { useShallow } from "zustand/react/shallow";
 import type { Card } from "@/lib/spaced-repetition";
@@ -20,16 +19,21 @@ const MUTATION_DRAIN_TIMEOUT_MS = 15_000;
 /** Wait until TanStack has no in-flight mutations (replaces persistQueue drain). */
 async function waitForPendingMutations(timeoutMs = MUTATION_DRAIN_TIMEOUT_MS): Promise<void> {
   if (queryClient.isMutating() === 0) return;
-  const deadline = Date.now() + timeoutMs;
-  while (queryClient.isMutating() > 0) {
-    if (Date.now() >= deadline) {
+  return new Promise<void>((resolve) => {
+    const timer = taskScheduler.setTimeout(() => {
+      unsubscribe();
       logger.warn("[session] pending mutations drain timeout");
-      return;
-    }
-    await new Promise<void>((resolve) => {
-      taskScheduler.setTimeout(() => resolve(), 16, { label: "session:mutation-drain-poll" });
+      resolve();
+    }, timeoutMs, { label: "session:mutation-drain-timeout" });
+
+    const unsubscribe = queryClient.getMutationCache().subscribe(() => {
+      if (queryClient.isMutating() === 0) {
+        taskScheduler.cancel(timer);
+        unsubscribe();
+        resolve();
+      }
     });
-  }
+  });
 }
 
 export interface QueuedReview {
@@ -49,6 +53,7 @@ interface SessionSnapshot {
 interface SessionState {
   isSessionActive: boolean;
   isEnding: boolean;
+  isProcessing: boolean;
   snapshot: SessionSnapshot | null;
   reviewQueue: QueuedReview[];
   errorQueue: QueuedError[];
@@ -59,6 +64,7 @@ interface SessionState {
 const initialState: SessionState = {
   isSessionActive: false,
   isEnding: false,
+  isProcessing: false,
   snapshot: null,
   reviewQueue: [],
   errorQueue: [],
@@ -93,6 +99,7 @@ async function endSession(
   sessionStore.setState({
     isSessionActive: false,
     isEnding: true,
+    isProcessing: true,
     reviewQueue: [],
     errorQueue: [],
     readQueue: [],
@@ -120,7 +127,9 @@ async function endSession(
     post.snapshot &&
     queryClient.isMutating() === 0
   ) {
-    sessionStore.setState({ snapshot: null });
+    sessionStore.setState({ snapshot: null, isProcessing: false });
+  } else {
+    sessionStore.setState({ isProcessing: false });
   }
 }
 
@@ -157,15 +166,10 @@ interface SessionApi {
 }
 
 export function useSessionContext(): SessionApi {
-  const pendingMutations = useMutationState({
-    filters: { status: "pending" },
-    select: () => 1,
-  }).length;
-
   const slice = sessionStore(
     useShallow((s) => ({
       isSessionActive: s.isSessionActive,
-      isEnding: s.isEnding,
+      isProcessing: s.isProcessing,
       snapshot: s.snapshot,
       queueSize: s.queueSize,
     })),
@@ -173,7 +177,6 @@ export function useSessionContext(): SessionApi {
 
   return {
     ...slice,
-    isProcessing: slice.isEnding || pendingMutations > 0,
     startSession,
     endSession,
     queueReview,

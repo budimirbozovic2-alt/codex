@@ -1,19 +1,6 @@
 // FSRS v5 core scheduler. No types here — types live in ./types.
-import { loadAppSettings } from "../app-settings";
 import { Section, SectionState, SRSettings, DEFAULT_SR_SETTINGS, Card } from "./types";
 import { AdaptiveContext, computeAdaptiveModifiers, clamp, RETENTION_MIN, RETENTION_MAX } from "./adaptive";
-
-// Module-level cached retention to avoid repeated localStorage parse in hot paths
-let _cachedRetention: number | null = null;
-let _retentionCacheTime = 0;
-export function getCachedRetention(): number {
-  const now = Date.now();
-  if (_cachedRetention === null || now - _retentionCacheTime > 10000) {
-    _cachedRetention = loadAppSettings().targetRetention;
-    _retentionCacheTime = now;
-  }
-  return _cachedRetention;
-}
 
 const INITIAL_VALUES: Record<number, { stability: number; difficulty: number }> = {
   1: { stability: 0.1, difficulty: 6 },
@@ -113,11 +100,11 @@ export function calculateNextReview(
     }
   }
 
-  const baseRetention = targetRetention ?? getCachedRetention();
+  const baseRetention = targetRetention ?? 0.90;
   const mods = computeAdaptiveModifiers(ctx);
   const effectiveRetention = clamp(baseRetention + mods.retentionBoost, RETENTION_MIN, RETENTION_MAX);
   const rawInterval = Math.max(calculateInterval(newStability, effectiveRetention), 1 / (24 * 60));
-  const interval = rawInterval * mods.intervalMultiplier;
+  const interval = Math.min(rawInterval * mods.intervalMultiplier, 36500);
 
   let finalNextReview = Date.now() + interval * 24 * 60 * 60 * 1000;
   let finalState = newState;

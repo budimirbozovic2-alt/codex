@@ -92,7 +92,7 @@ export default function PassiveReader({
         </div>
       ) : (
         <Suspense fallback={<PassiveReaderCardSkeleton />}>
-          <PassiveReaderCard card={current} stats={stats} />
+          <PassiveReaderCard key={current.id} card={current} stats={stats} />
         </Suspense>
       )}
 

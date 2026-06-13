@@ -2,13 +2,13 @@ import { useCallback } from "react";
 import {
   Card,
   calculateNextReview,
-  getCachedRetention,
   computeAdaptiveModifiers,
   AdaptiveContext,
   clamp,
   RETENTION_MIN,
   RETENTION_MAX,
 } from "@/lib/spaced-repetition";
+import { loadAppSettings } from "@/lib/app-settings";
 import { ReviewLogEntry } from "@/lib/storage";
 import { reviewLogRepository } from "@/lib/repositories";
 import { useCardMutations } from "@/hooks/card/useCardMutations";
@@ -28,7 +28,7 @@ export function useCardAnnotations({
   // O(1) review — surgical SQLite write (patchCard handles persist via Ref-Delta)
   const reviewSection = useCallback(
     (cardId: string, sectionId: string, grade: number) => {
-      const cachedRetention = getCachedRetention();
+      const cachedRetention = loadAppSettings().targetRetention;
       const entry: ReviewLogEntry = { timestamp: Date.now(), cardId, sectionId, grade, category: "" };
 
       patchCard(cardId, (c) => {

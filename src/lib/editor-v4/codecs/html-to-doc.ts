@@ -17,7 +17,8 @@ import type { EditorDoc } from "../types";
  *   3. generateJSON — ProseMirror DOMParser over the schema, returning a
  *      JSONContent tree.
  */
-export function htmlToDoc(html: string): EditorDoc {
+export function htmlToDoc(html: string | null | undefined): EditorDoc {
+  if (!html) return { version: 4, content: { type: "doc", content: [{ type: "paragraph" }] } };
   const clean = DOMPurify.sanitize(html, {
     ADD_ATTR: ["data-wikilink", "data-display", "data-mindmap"],
   });

@@ -50,9 +50,9 @@ export function blockPlainText(block: EditorDoc): string {
   let out = "";
   const walk = (n: JSONContent | undefined) => {
     if (!n) return;
-    if (n.type === "text" && typeof n.text === "string") out += n.text;
+    if (n.type === "text" && typeof n.text === "string") out += n.text + " ";
     if (Array.isArray(n.content)) for (const c of n.content) walk(c);
   };
   walk(block.content);
-  return out.trim();
+  return out.replace(/\s+/g, " ").trim();
 }

@@ -29,9 +29,11 @@ type PendingMap = Map<
 >;
 
 let worker: Worker | null = null;
+let isShuttingDown = false;
 let msgId = 0;
 const pending: PendingMap = new Map();
 const RPC_TIMEOUT_MS = 15000;
+let txLock = Promise.resolve();
 
 function emitDegraded(
   reason: "opfs-runtime-error",
@@ -61,6 +63,9 @@ function terminateAndRejectAll(reason: string): void {
 }
 
 function getWorker(): Worker {
+  if (isShuttingDown) {
+    throw new Error("Aplikacija se gasi, nemoguće instancirati novog workera.");
+  }
   if (worker) return worker;
   
   worker = new Worker(
@@ -160,16 +165,28 @@ function makeExecutor(txId?: number): SqlExecutor {
       if (txId !== undefined) {
         return fn(makeExecutor(txId));
       }
-      const newTxId = await rpc<number>({ op: "begin" });
+
+      const previousLock = txLock;
+      let releaseLock!: () => void;
+      txLock = new Promise<void>((resolve) => {
+        releaseLock = resolve;
+      });
+      await previousLock;
+
       try {
-        const result = await fn(makeExecutor(newTxId));
-        await rpc<void>({ op: "commit", txId: newTxId });
-        return result;
-      } catch (err) {
+        const newTxId = await rpc<number>({ op: "begin" });
         try {
-          await rpc<void>({ op: "rollback", txId: newTxId });
-        } catch { /* already rolled back */ }
-        throw err;
+          const result = await fn(makeExecutor(newTxId));
+          await rpc<void>({ op: "commit", txId: newTxId });
+          return result;
+        } catch (err) {
+          try {
+            await rpc<void>({ op: "rollback", txId: newTxId });
+          } catch { /* already rolled back */ }
+          throw err;
+        }
+      } finally {
+        releaseLock();
       }
     },
     close: async () => {
@@ -188,6 +205,8 @@ function __resetWorkerClient(): void {
     worker?.terminate();
   } catch { /* noop */ }
   worker = null;
+  isShuttingDown = false;
+  txLock = Promise.resolve();
   pending.clear();
   msgId = 0;
 }
@@ -199,6 +218,7 @@ function __resetWorkerClient(): void {
 // spawns a fresh worker instead of reusing the now-closed one.
 if (typeof window !== "undefined") {
   window.addEventListener("beforeunload", () => {
+    isShuttingDown = true;
     if (worker) {
       worker.postMessage({ id: ++msgId, op: "shutdown" });
       // Null immediately: if the tab stays alive after a cancelled unload,
@@ -218,13 +238,16 @@ if (typeof window !== "undefined") {
 
 if (import.meta.hot) {
   import.meta.hot.dispose(() => {
+    isShuttingDown = true;
     if (worker) {
-      // Tokom HMR-a šaljemo shutdown RPC i čekamo 
-      // da worker vrati 'ok' prije nego ga nasilno ugasimo
-      rpc({ op: "shutdown" }).finally(() => {
-        try { worker?.terminate(); } catch { /* worker may already be gone */ }
-        worker = null;
-      });
+      worker.postMessage({ id: ++msgId, op: "shutdown" });
+      try { worker.terminate(); } catch { /* worker may already be gone */ }
+      worker = null;
+      const shutdownErr = new Error("[sqlite-rpc] Worker shutdown on HMR dispose");
+      for (const p of pending.values()) {
+        try { p.reject(shutdownErr); } catch { /* swallow */ }
+      }
+      pending.clear();
     }
   });
 }

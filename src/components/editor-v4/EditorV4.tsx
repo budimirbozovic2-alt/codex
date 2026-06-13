@@ -90,15 +90,6 @@ export const EditorV4 = forwardRef<EditorV4Handle, EditorV4Props>(function Edito
   const placeholderRef = useRef(placeholder ?? "");
   placeholderRef.current = placeholder ?? "";
 
-  const initialDocRef = useRef(initialDoc);
-  initialDocRef.current = initialDoc;
-
-  // D.5-style guard (see EditorView): compare serialized AST so parent re-renders
-  // with a fresh object reference don't reset ProseMirror, but external updates
-  // (e.g. DOCX ingest) still flow in without a React `key` remount.
-  const serialized = useMemo(() => JSON.stringify(initialDoc.content), [initialDoc.content]);
-  const lastAppliedSerialized = useRef<string | null>(null);
-
   const extensions = useMemo(() => [
     ...editorV4Extensions,
     SmartPaste,
@@ -142,19 +133,17 @@ export const EditorV4 = forwardRef<EditorV4Handle, EditorV4Props>(function Edito
   });
 
   // Sync external `initialDoc` changes (DOCX upload, parent reset) without remount.
+  const prevDocRef = useRef(initialDoc);
   useEffect(() => {
-    if (!editor) return;
-    if (lastAppliedSerialized.current === serialized) return;
+    if (!editor || initialDoc === prevDocRef.current) return;
+    prevDocRef.current = initialDoc;
 
-    const currentSerialized = JSON.stringify(editor.getJSON());
-    if (currentSerialized === serialized) {
-      lastAppliedSerialized.current = serialized;
-      return;
+    const currentJson = editor.getJSON();
+    // Stringify se sada okida SAMO kada parent zaista pošalje novu referencu, a ne pri svakom re-renderu
+    if (JSON.stringify(currentJson) !== JSON.stringify(initialDoc.content)) {
+      editor.commands.setContent(initialDoc.content, { emitUpdate: false });
     }
-
-    lastAppliedSerialized.current = serialized;
-    editor.commands.setContent(initialDocRef.current.content, { emitUpdate: false });
-  }, [serialized, editor]);
+  }, [initialDoc, editor]);
 
   // Wire categoryId into mindmap storage so nodeView can resolve embeds.
   useEffect(() => {
@@ -205,16 +194,6 @@ export const EditorV4 = forwardRef<EditorV4Handle, EditorV4Props>(function Edito
     focus: () => { editor?.commands.focus(); },
     getEditor: () => editor ?? null,
   }), [editor]);
-
-  // PR-7c (M1): depend on `editor` so each prior TipTap instance is destroyed
-  // when the `extensions` memo (placeholder-driven) re-instantiates the editor.
-  // Previously the `[]` deps captured only the first editor → silent leak of
-  // ProseMirror views + DOM listeners across the component's lifetime.
-  useEffect(() => {
-    return () => {
-      editor?.destroy();
-    };
-  }, [editor]);
 
   if (!editor) return null;
 
