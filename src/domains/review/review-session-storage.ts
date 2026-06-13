@@ -7,7 +7,7 @@
  */
 import { getSetting, putSetting } from "@/lib/db/queries";
 import { logger } from "@/lib/logger";
-import type { ReviewMode } from "@/components/review/review-constants";
+import type { ReviewMode } from "@/domains/review/types";
 
 const REVIEW_SESSION_KEY = "sr-review-session";
 

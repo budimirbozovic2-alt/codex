@@ -1,7 +1,6 @@
 // Pure helpers for analyzing card content: number extraction and
 // enumeration detection. No I/O, no React.
 
-// Extract numbers from HTML/text content
 export function extractNumbers(html: string): { number: number; context: string }[] {
   const text = html.replace(/<[^>]*>/g, "");
   const matches: { number: number; context: string }[] = [];
@@ -13,7 +12,6 @@ export function extractNumbers(html: string): { number: number; context: string 
       const start = Math.max(0, match.index - 20);
       const end = Math.min(text.length, match.index + match[0].length + 20);
       const context = text.slice(start, end).trim();
-      // Avoid duplicates
       if (!matches.some(m => m.number === num && m.context === context)) {
         matches.push({ number: num, context });
       }
@@ -22,15 +20,11 @@ export function extractNumbers(html: string): { number: number; context: string 
   return matches;
 }
 
-// Detect enumeration items from HTML content
-// Primary: actual <ul>/<ol> list items; Fallback: plain-text patterns
 export function detectEnumerationItems(html: string): string[] {
-  // Primary: HTML list items
   const liMatches = html.match(/<li[^>]*>(.*?)<\/li>/gi);
   if (liMatches && liMatches.length >= 2) {
     return liMatches.map(li => li.replace(/<[^>]*>/g, "").trim()).filter(Boolean);
   }
-  // Fallback: plain-text patterns
   const text = html.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
   const numbered = text.match(/\d+[.)]\s*[^,;\d]+/g);
   if (numbered && numbered.length >= 2) {

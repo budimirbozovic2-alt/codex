@@ -1,5 +1,7 @@
 import { z } from "zod";
-import type { MnemonicCard } from "@/features/mnemonic";
+import { htmlToDoc } from "@/lib/editor-v4";
+import type { MnemonicCard } from "@/domains/mnemonic";
+import { EMPTY_MNEMONIC_DOC } from "@/domains/mnemonic";
 import {
   SafeHtml,
   SafeText,
@@ -12,9 +14,22 @@ import {
 const MnemonicSectionSchema = z
   .object({
     title: SafeText,
-    contentDoc: EditorDocV4,
+    contentDoc: EditorDocV4.optional(),
+    content: SafeHtml.optional(),
   })
-  .strict();
+  .transform((s) => {
+    if (s.contentDoc) {
+      return { title: s.title, contentDoc: s.contentDoc };
+    }
+    if (s.content?.trim()) {
+      try {
+        return { title: s.title, contentDoc: htmlToDoc(s.content) };
+      } catch {
+        return { title: s.title, contentDoc: EMPTY_MNEMONIC_DOC };
+      }
+    }
+    return { title: s.title, contentDoc: EMPTY_MNEMONIC_DOC };
+  });
 
 export const BackupMnemonicSchema = z
   .object({

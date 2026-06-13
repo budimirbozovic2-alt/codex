@@ -3,11 +3,13 @@ import {
 } from "lucide-react";
 import { useMemo, memo, lazy, Suspense } from "react";
 import {
-  MnemonicCard, MnemonicStatus, HookType,
-  extractNumbers, detectEnumerationItems,
-  getMnemonicSectionHtml,
-  seedSectionDoc,
-} from "../mnemonic-storage";
+  type MnemonicCard,
+  type MnemonicStatus,
+  type HookType,
+  extractNumbers,
+  detectEnumerationItems,
+} from "@/domains/mnemonic";
+import { docToHtml } from "@/lib/editor-v4";
 import { useCategoryData } from "@/hooks/cards/useCategoryState";
 import { ContentRenderer } from "@/components/ui/ContentRenderer";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -58,7 +60,7 @@ function WorkshopCardItemInner({ card, isExpanded, onToggle, onUpdateCard, onDel
   const hookConf = HOOK_TYPE_CONFIG[card.hookType];
   const HookIcon = hookConf.icon;
 
-  const allContent = card.sections.map(getMnemonicSectionHtml).join(" ");
+  const allContent = card.sections.map((s) => docToHtml(s.contentDoc)).join(" ");
   const numbers = useMemo(() => (isExpanded ? extractNumbers(allContent) : []), [isExpanded, allContent]);
   const enumItems = useMemo(() => (isExpanded ? detectEnumerationItems(allContent) : []), [isExpanded, allContent]);
 
@@ -160,7 +162,7 @@ function WorkshopCardItemInner({ card, isExpanded, onToggle, onUpdateCard, onDel
                   card.sections.map((s, i) => (
                     <div key={i} className="rounded-lg bg-secondary/30 p-3">
                       <p className="text-xs font-medium text-muted-foreground mb-1">{s.title}</p>
-                      <MnemonicSectionContent doc={seedSectionDoc(s)} />
+                      <MnemonicSectionContent doc={s.contentDoc} />
                     </div>
                   ))
                 )}

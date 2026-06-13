@@ -1,6 +1,4 @@
-// Isolated stats aggregation (separate from main dashboard).
-
-import type { MnemonicCard } from "./types";
+import type { MnemonicCard } from "../types";
 
 export function getMnemonicStats(cards: MnemonicCard[]) {
   const total = cards.length;

@@ -18,11 +18,11 @@ import {
   bulkPutMajorSystemPegs as bulkPutPegs,
   addTestLogEntry,
 } from "@/lib/db/queries";
-import { notifyMnemonics } from "@/features/mnemonic/mnemonic-storage/cards-repo";
+import { notifyMnemonics } from "@/domains/mnemonic";
 import type {
   MnemonicCard,
   MnemonicTestLogEntry,
-} from "@/features/mnemonic/mnemonic-storage";
+} from "@/domains/mnemonic";
 
 interface SaveCardsCtx {
   prevAll: MnemonicCard[] | undefined;

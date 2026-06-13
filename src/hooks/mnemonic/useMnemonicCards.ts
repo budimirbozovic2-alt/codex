@@ -9,7 +9,7 @@ import {
   loadMnemonicCards,
   loadMnemonicCardsByCategory,
   type MnemonicCard,
-} from "@/features/mnemonic/mnemonic-storage";
+} from "@/domains/mnemonic";
 import { queryKeys } from "@/lib/query/keys";
 
 const EMPTY: MnemonicCard[] = [];

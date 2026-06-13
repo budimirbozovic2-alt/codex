@@ -1,19 +1,15 @@
-// Factory helpers: hook-type detection + MnemonicCard creation.
-
-import type { HookType, MnemonicCard, MnemonicSection } from "./types";
+import type { HookType, MnemonicCard, MnemonicSection } from "../types";
 import { detectEnumerationItems } from "./content-utils";
 import { htmlToDoc } from "@/lib/editor-v4/codecs/html-to-doc";
-import type { EditorDoc } from "@/lib/editor-v4/types";
 import { logger } from "@/lib/logger";
-
-const EMPTY_DOC: EditorDoc = { version: 4, content: { type: "doc", content: [] } };
+import { EMPTY_MNEMONIC_DOC } from "./mnemonic-section-codec";
 
 function sectionFromHtml(title: string, html: string): MnemonicSection {
   try {
     return { title, contentDoc: htmlToDoc(html || "") };
   } catch (err) {
     logger.error("[mnemonic:factory] htmlToDoc failed", err);
-    return { title, contentDoc: EMPTY_DOC };
+    return { title, contentDoc: EMPTY_MNEMONIC_DOC };
   }
 }
 

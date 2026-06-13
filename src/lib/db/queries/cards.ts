@@ -177,9 +177,7 @@ export async function cardsByTag(
 ): Promise<Card[]> {
   const exec = await requireSqlExecutor("cards:cardsByTag");
   const rows = await exec.all<{ payload: string }>(
-    `SELECT cards.payload FROM cards, json_each(cards.payload, '$.tags')
-     WHERE json_unquote(json_each.value) = ?
-     LIMIT ?`,
+    `SELECT cards.payload FROM cards, json_each(cards.payload, '$.tags') WHERE json_each.value = ? LIMIT ?`,
     [tag, limit],
   );
   return decodeRows(rows);

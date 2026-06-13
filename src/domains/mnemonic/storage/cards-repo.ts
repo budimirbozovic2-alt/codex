@@ -1,5 +1,3 @@
-// Mnemonic cards repository: SQLite-primary CRUD + domain event notifier.
-
 import { logger } from "@/lib/logger";
 import { emitDomainChanged } from "@/lib/event-bus";
 import {
@@ -7,7 +5,7 @@ import {
   listMnemonicsByCategory,
   bulkPutMnemonics,
 } from "@/lib/db/queries/mnemonics";
-import type { MnemonicCard } from "./types";
+import type { MnemonicCard } from "../types";
 
 export async function loadMnemonicCards(): Promise<MnemonicCard[]> {
   try {
@@ -18,9 +16,6 @@ export async function loadMnemonicCards(): Promise<MnemonicCard[]> {
   }
 }
 
-/**
- * B2: Indexed scoped loader via SQLite-primary repo.
- */
 export async function loadMnemonicCardsByCategory(categoryId: string): Promise<MnemonicCard[]> {
   try {
     return await listMnemonicsByCategory(categoryId);
@@ -30,11 +25,6 @@ export async function loadMnemonicCardsByCategory(categoryId: string): Promise<M
   }
 }
 
-/**
- * Fire-and-forget notify for mnemonic-domain mutations.
- * Exported so sibling repos (major-system, test-log) can signal through the
- * unified event bus consumed by the TanStack bridge.
- */
 export function notifyMnemonics(): void {
   emitDomainChanged({ domain: "mnemonics" });
 }

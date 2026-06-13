@@ -8,7 +8,7 @@
  * each phase are enforced by the action API rather than the caller.
  */
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { MnemonicCard } from "../mnemonic-storage";
+import type { MnemonicCard } from "@/domains/mnemonic";
 import { shuffle } from "../test-tree";
 
 export const RECALL_TIME_LIMIT = 3;

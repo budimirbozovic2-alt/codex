@@ -1,7 +1,7 @@
 /**
  * PR-2 — Phase 1: schema upgrade + WAL recovery.
  *
- * SQLite is the sole SSOT. Legacy MemoriaDB / Dexie import paths are removed.
+ * SQLite is the sole SSOT.
  */
 import { markBootStep } from "@/lib/boot-trace";
 import { transition } from "@/lib/boot";

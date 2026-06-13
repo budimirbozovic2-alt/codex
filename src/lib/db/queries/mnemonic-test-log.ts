@@ -2,9 +2,7 @@
  * Mnemonic test log repository — PR-9 A1c-2. SQLite-only.
  */
 import { logger } from "@/lib/logger";
-import type { 
-  MnemonicTestLogEntry 
-} from "@/features/mnemonic/mnemonic-storage";
+import type { MnemonicTestLogEntry } from "@/domains/mnemonic";
 import { requireSqlExecutor } from "./_shared/require-sql-executor";
 
 const INSERT_SQL = `

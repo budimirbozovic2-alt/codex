@@ -1,7 +1,7 @@
 /**
  * S11 — Planner scrub helper. Removes a categoryId from any planner config
  * reference (`subjectOrder`, `hardSubjects`, `phases[].categories`). Moved
- * out of `categoryRepository.deleteCascade` so the planner module owns its own
+ * out of `categoryDeletionOrchestrator` so the planner module owns its own
  * config shape; consumers only know the function contract.
  *
  * Returns `true` if the config was dirty and rewritten, `false` if nothing

@@ -9,7 +9,7 @@ import {
 import {
   createMnemonicCardFromSelection,
   loadMnemonicCards,
-} from "@/features/mnemonic";
+} from "@/domains/mnemonic";
 import { useMnemonicMutations } from "@/hooks/mnemonic/useMnemonicMutations";
 import { CardBubbleMenu } from "./CardBubbleMenu";
 

@@ -5,7 +5,7 @@ import {
   normalizeSectionForWrite,
   normalizeSectionOnRead,
   type MnemonicCard,
-} from "../mnemonic-storage";
+} from "@/domains/mnemonic";
 
 interface SectionDraft {
   title: string;

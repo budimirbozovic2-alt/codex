@@ -2,13 +2,11 @@
  * Mnemonics repository — PR-9 A1c-2. SQLite-only.
  */
 import { logger } from "@/lib/logger";
-import type { 
-  MnemonicCard 
-} from "@/features/mnemonic/mnemonic-storage";
+import type { MnemonicCard } from "@/domains/mnemonic";
 import {
   normalizeMnemonicCardForWrite,
-  normalizeMnemonicCardOnRead,
-} from "@/features/mnemonic/mnemonic-storage/mnemonic-section-codec";
+  normalizeMnemonicCardOnImport,
+} from "@/domains/mnemonic";
 import { requireSqlExecutor } from "./_shared/require-sql-executor";
 
 // ─── Codec ──────────────────────────────────────────────────────
@@ -17,8 +15,8 @@ function decodeMnemonic(row: {
   payload: string 
 }): MnemonicCard | null {
   try { 
-    const parsed = JSON.parse(row.payload) as MnemonicCard;
-    return normalizeMnemonicCardOnRead(parsed);
+    const parsed = JSON.parse(row.payload) as Record<string, unknown>;
+    return normalizeMnemonicCardOnImport(parsed);
   } catch (err) {
     logger.warn("[mnemonics-repo] decode failed", err);
     return null;

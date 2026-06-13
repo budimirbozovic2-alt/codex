@@ -70,7 +70,7 @@ const PR9_A1B_P16_MNEMONIC_AUX_SQL = `
 
 const PR9_A1C3_LOG_TABLES_SQL = `
   -- PR-9 A1c-3 nastavak — log tables move to SQLite-primary.
-  -- All auto-inc tables use INTEGER PRIMARY KEY AUTOINCREMENT (legacy Dexie ++id shape).
+  -- All auto-inc tables use INTEGER PRIMARY KEY AUTOINCREMENT.
   -- payload column carries the full JSON entry; denormalised columns power the
   -- handful of indexed queries (cardId/timestamp/date lookups).
   CREATE TABLE IF NOT EXISTS reviewLog (

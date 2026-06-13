@@ -3,7 +3,7 @@
  *
  * Centralizes the construction of `addCard`/`patchCard` arguments for the
  * three mapping flows (smart-split separate, smart-split combined, exam
- * mapping, link-to-existing). No React, no IDB.
+ * mapping, link-to-existing). No React, no storage I/O.
  */
 import { sanitizeHtml } from "@/lib/sanitize";
 import { createSection, type Card, type SourceModule } from "@/lib/spaced-repetition";

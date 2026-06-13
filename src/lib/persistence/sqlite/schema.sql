@@ -1,9 +1,7 @@
--- PR-8 M1 — initial SQLite schema mirroring the Dexie v22 surface for the
--- subset of tables that participate in the card write hot path. Tables not
--- touched by `bulkApply` (planner, examiner profile, mnemonic test log,
--- drafts) stay in Dexie for this PR and migrate in PR-9.
+-- PR-8 M1 — initial SQLite schema for the card write hot path and core
+-- entity tables. Remaining satellite tables were added in later migrations.
 --
--- Indexes mirror the Dexie compound indexes used by today's queries. SQLite
+-- Indexes mirror the original compound-index query patterns. SQLite
 -- column types are advisory (declarative type affinity) — domain shapes are
 -- enforced by `row-codecs.ts` on read/write.
 
@@ -44,7 +42,7 @@ CREATE TABLE IF NOT EXISTS cards (
   sourceType      TEXT,
   -- The full Card domain shape (sections, FSRS state, tags, key parts…) is
   -- serialised as JSON. Indexed columns are denormalised mirrors used by the
-  -- query layer. This matches the Dexie shape 1:1 so codecs are trivial.
+  -- query layer; the full domain shape lives in `payload` JSON.
   payload         TEXT NOT NULL,
   FOREIGN KEY (categoryId) REFERENCES categories(id) ON DELETE CASCADE,
   FOREIGN KEY (sourceId)   REFERENCES sources(id)    ON DELETE SET NULL
@@ -77,8 +75,7 @@ CREATE TABLE IF NOT EXISTS mnemonics (
 );
 CREATE INDEX IF NOT EXISTS idx_mnemonics_category ON mnemonics(categoryId);
 
--- KV replacement for the Dexie `settings` table. Used for migration flags
--- and any future scalar config we don't want to model relationally.
+-- KV store for app settings, migration flags, and scalar config.
 CREATE TABLE IF NOT EXISTS kv (
   key    TEXT PRIMARY KEY,
   value  TEXT NOT NULL
@@ -107,8 +104,7 @@ CREATE INDEX IF NOT EXISTS idx_drafts_updatedAt ON drafts(updatedAt);
 
 -- PR-9 A1b P1.4 — Zettelkasten articles (knowledge base).
 -- subjectId === categoryId. `title` is denormalised for case-insensitive
--- lookups via the COLLATE NOCASE compound index, mirroring the Dexie
--- `[subjectId+title]` index used by `findArticleByTitle`.
+-- lookups via the COLLATE NOCASE compound index used by `findArticleByTitle`.
 -- `isIndex` is denormalised so the per-subject Index article lookup is a
 -- single indexed equality probe.
 CREATE TABLE IF NOT EXISTS knowledgeBaseArticles (
@@ -126,9 +122,8 @@ CREATE INDEX IF NOT EXISTS idx_kb_subject_title_nocase ON knowledgeBaseArticles(
 CREATE INDEX IF NOT EXISTS idx_kb_subject_isIndex      ON knowledgeBaseArticles(subjectId, isIndex);
 
 -- PR-9 A1b P1.6 — Major System pegs (00..99) and the mnemonic test log.
--- `majorSystem` mirrors the Dexie shape exactly: numeric PK, peg term.
--- `mnemonicTestLog` is append-only; `id` is auto-assigned to preserve the
--- Dexie `++id` semantics so test callers don't need to supply one.
+-- `majorSystem`: numeric PK + peg term. `mnemonicTestLog` is append-only
+-- with auto-assigned INTEGER PRIMARY KEY.
 CREATE TABLE IF NOT EXISTS majorSystem (
   id    INTEGER PRIMARY KEY,
   peg   TEXT NOT NULL

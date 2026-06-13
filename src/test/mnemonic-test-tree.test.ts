@@ -5,7 +5,7 @@ import {
   buildUuidToName,
   filterTestable,
 } from "@/features/mnemonic";
-import type { MnemonicCard, HookType } from "@/features/mnemonic";
+import type { MnemonicCard, HookType } from "@/domains/mnemonic";
 import type { CategoryRecord } from "@/lib/db-types";
 
 function card(id: string, categoryId: string, subcategoryId: string | undefined, hookType: HookType): MnemonicCard {

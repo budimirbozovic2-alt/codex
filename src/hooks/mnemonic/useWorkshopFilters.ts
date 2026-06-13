@@ -11,7 +11,8 @@ import { useDebounce } from "@/hooks/useDebounce";
 import {
   type MnemonicCard,
   type MnemonicStatus,
-} from "@/features/mnemonic/mnemonic-storage";
+} from "@/domains/mnemonic";
+import { docToPlainText } from "@/lib/editor-v4";
 import { useMajorSystem } from "@/hooks/mnemonic/useMajorSystem";
 
 export type WorkshopSortKey = "newest" | "status" | "category" | "success";
@@ -70,7 +71,7 @@ export function useWorkshopFilters({ cards, idToName }: Args) {
           c.question.toLowerCase().includes(q) ||
           c.mnemonicVideo.toLowerCase().includes(q) ||
           c.acronym.toLowerCase().includes(q) ||
-          c.sections.some((s) => s.content.toLowerCase().includes(q)),
+          c.sections.some((s) => docToPlainText(s.contentDoc).toLowerCase().includes(q)),
       );
     }
     const sorted = [...result].sort((a, b) => {

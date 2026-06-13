@@ -1,50 +1,47 @@
 import { describe, expect, it } from "vitest";
 import { htmlToDoc } from "@/lib/editor-v4";
 import {
-  getMnemonicSectionHtml,
+  decodeLegacySection,
   migrateMnemonicCard,
   normalizeMnemonicCardForWrite,
+  normalizeMnemonicCardOnImport,
   normalizeSectionForWrite,
   normalizeSectionOnRead,
-  seedSectionDoc,
-} from "@/features/mnemonic/mnemonic-storage/mnemonic-section-codec";
-import type { MnemonicCard, MnemonicSection } from "@/features/mnemonic/mnemonic-storage/types";
+} from "@/domains/mnemonic";
+import type { MnemonicCard, MnemonicSection } from "@/domains/mnemonic";
 
 describe("mnemonic-section-codec", () => {
-  it("seedSectionDoc prefers contentDoc over legacy HTML", () => {
+  it("decodeLegacySection prefers contentDoc over legacy HTML", () => {
     const doc = htmlToDoc("<p>canonical</p>");
-    const section: MnemonicSection = {
+    const section = decodeLegacySection({
       title: "T",
       content: "<p>legacy</p>",
       contentDoc: doc,
-    };
-    expect(seedSectionDoc(section)).toBe(doc);
+    });
+    expect(section).toEqual({ title: "T", contentDoc: doc });
   });
 
-  it("seedSectionDoc synthesizes doc from legacy HTML when contentDoc missing", () => {
-    const section = { title: "T", content: "<p>legacy only</p>" } as MnemonicSection;
-    const doc = seedSectionDoc(section);
-    expect(doc.version).toBe(4);
-    expect(getMnemonicSectionHtml({ title: "T", contentDoc: doc })).toContain("legacy only");
+  it("decodeLegacySection synthesizes doc from legacy HTML at import boundary", () => {
+    const section = decodeLegacySection({ title: "T", content: "<p>legacy only</p>" });
+    expect(section.contentDoc.version).toBe(4);
+    expect(Object.hasOwn(section, "content")).toBe(false);
   });
 
   it("normalizeSectionForWrite persists contentDoc only", () => {
     const doc = htmlToDoc("<p>saved</p>");
     const out = normalizeSectionForWrite({ title: "T", contentDoc: doc });
     expect(out).toEqual({ title: "T", contentDoc: doc });
-    expect(out.content).toBeUndefined();
+    expect(Object.hasOwn(out, "content")).toBe(false);
   });
 
-  it("normalizeSectionOnRead strips legacy content field", () => {
-    const legacy = { title: "T", content: "<p>old</p>" } as MnemonicSection;
-    const out = normalizeSectionOnRead(legacy);
-    expect(out.contentDoc.version).toBe(4);
-    expect(out.content).toBeUndefined();
-    expect(getMnemonicSectionHtml(out)).toContain("old");
+  it("normalizeSectionOnRead ensures valid contentDoc", () => {
+    const doc = htmlToDoc("<p>ok</p>");
+    const out = normalizeSectionOnRead({ title: "T", contentDoc: doc });
+    expect(out).toEqual({ title: "T", contentDoc: doc });
   });
 
-  it("migrateMnemonicCard flags legacy HTML rows for idle persist", () => {
-    const card = {
+  it("normalizeMnemonicCardOnImport converts legacy section payloads", () => {
+    const record = normalizeMnemonicCardOnImport({
       id: "m1",
       originalCardId: "c1",
       question: "Q",
@@ -60,10 +57,31 @@ describe("mnemonic-section-codec", () => {
       successCount: 0,
       failCount: 0,
       lastTested: null,
-    } as MnemonicCard;
+    });
+    expect(record.sections[0].contentDoc.version).toBe(4);
+    expect(Object.hasOwn(record.sections[0], "content")).toBe(false);
+  });
+
+  it("migrateMnemonicCard flags invalid contentDoc rows for idle persist", () => {
+    const card = {
+      id: "m1",
+      originalCardId: "c1",
+      question: "Q",
+      sections: [{ title: "T", contentDoc: { version: 3, content: { type: "doc", content: [] } } }],
+      categoryId: "cat",
+      hookType: "ostalo",
+      hookMode: "video",
+      mnemonicVideo: "",
+      acronym: "",
+      mnemonicStatus: "new",
+      createdAt: 1,
+      testCount: 0,
+      successCount: 0,
+      failCount: 0,
+      lastTested: null,
+    } as unknown as MnemonicCard;
     const { changed, record } = migrateMnemonicCard(card);
     expect(changed).toBe(true);
-    expect(record.sections[0].content).toBeUndefined();
     expect(record.sections[0].contentDoc.version).toBe(4);
   });
 

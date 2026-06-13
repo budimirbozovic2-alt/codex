@@ -4,8 +4,7 @@
  * Pure encode helpers + INSERT SQL strings for every SQLite table the
  * Row encoders shared by the backup-import pipeline writes.
  * shape (same columns, same JSON payload semantics), so a restore lands rows
- * that are byte-identical to what the migration would have produced from a
- * Dexie snapshot.
+ * that are byte-identical to what a live SQLite export would produce.
  *
  * Cards reuse the canonical `bindCardInsert` + `CARD_INSERT_SQL` from
  * `persistence/sqlite/row-codecs.ts` — single writer for the cards row shape.
@@ -20,7 +19,7 @@ import type {
   KnowledgeBaseArticle,
   Source,
 } from "@/lib/db-types";
-import type { MnemonicCard } from "@/features/mnemonic";
+import type { MnemonicCard } from "@/domains/mnemonic";
 import { encodeCategoryPayload } from "@/lib/persistence/sqlite/category-codecs";
 
 // ─── INSERT SQL constants ────────────────────────────────────────────────

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createMnemonicCardFromSelection } from "@/features/mnemonic/mnemonic-storage/card-factory";
+import { createMnemonicCardFromSelection } from "@/domains/mnemonic";
 
 describe("createMnemonicCardFromSelection", () => {
   it("creates contentDoc-only sections (no legacy HTML dual-write)", () => {
@@ -11,7 +11,6 @@ describe("createMnemonicCardFromSelection", () => {
     );
     expect(card.sections).toHaveLength(1);
     expect(card.sections[0].contentDoc.version).toBe(4);
-    expect(card.sections[0].content).toBeUndefined();
     expect(Object.hasOwn(card.sections[0], "content")).toBe(false);
   });
 

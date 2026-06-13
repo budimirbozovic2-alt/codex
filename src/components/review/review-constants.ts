@@ -1,8 +1,8 @@
 import { Target, Shield, Zap, BookOpen } from "lucide-react";
 import { OnboardingSlide } from "@/components/OnboardingModal";
 import { Card, Section, SRSettings } from "@/lib/spaced-repetition";
+import type { ReviewMode } from "@/domains/review/types";
 
-export type ReviewMode = "stabilization" | "critical" | "hardest" | null;
 export type ViewWidth = "compact" | "normal" | "wide" | "full";
 
 export const viewWidthClasses: Record<ViewWidth, string> = {

@@ -16,13 +16,12 @@ import {
   getRetrievability,
   isLeech,
 } from "@/lib/spaced-repetition";
+import type { ReviewMode } from "@/domains/review/types";
 
 export interface DueItem {
   card: Card;
   section: Section;
 }
-
-export type ReviewMode = "stabilization" | "critical" | "hardest" | null;
 
 // Grace windows (ms) — how far ahead of `nextReview` a section may be pulled
 // into a mode. Stabilization & critical follow the strict FSRS schedule.

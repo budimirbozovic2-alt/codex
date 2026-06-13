@@ -6,8 +6,7 @@
  * rather than reactive, which matches the original call-site semantics and
  * keeps the dialog free of reactive re-renders.
  *
- * PR-9 A1c-3: cardsBySource already routes through SQLite-primary
- * queries/cards.ts — no Dexie touch left here.
+ * PR-9 A1c-3: cardsBySource routes through SQLite `queries/cards.ts`.
  */
 import { useCallback } from "react";
 import { cardsBySource } from "@/lib/db/queries";

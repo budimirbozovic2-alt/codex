@@ -53,7 +53,7 @@ export function isUuidLike(value: unknown): value is string {
 export const isCategoryId = (v: unknown): v is CategoryId => isUuidLike(v);
 
 // ── Edge converters ────────────────────────────────────────────────────────
-// Use at parsing boundaries: URL params, IDB reads, JSON imports, form input.
+// Use at parsing boundaries: URL params, SQLite reads, JSON imports, form input.
 // In dev, malformed values throw to surface bugs early; in prod they pass
 // through (logging once) so a single dirty record can't crash the app.
 

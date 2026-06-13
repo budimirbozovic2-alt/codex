@@ -1,6 +1,6 @@
 // Pure blind-spot detection — needs only Card[] + calibration snapshot.
-// (calcWeakHooks lives in `@/domains/mnemonic` — it MUTATES mnemonic
-// cards in IDB — that's a write path, not OLAP.)
+// (weak-hook tagging is orchestrated by `@/lib/services/weakHooksService` —
+// pure compute lives in `@/domains/mnemonic/analytics/weak-hooks`.)
 import type { Card } from "../../spaced-repetition";
 import type { CalibrationEntry } from "@/domains/metacognition/metacognitive-storage";
 

@@ -14,7 +14,7 @@ import { SourceBubbleMenu } from "@/components/source-reader/SourceBubbleMenu";
 import { SmartSplitSummaryDialog } from "@/components/source-reader/SmartSplitSummaryDialog";
 import { docToHtml, type Editor } from "@/lib/editor-v4";
 import { toast } from "sonner";
-import { createMnemonicCardFromSelection, loadMnemonicCards } from "@/features/mnemonic";
+import { createMnemonicCardFromSelection, loadMnemonicCards } from "@/domains/mnemonic";
 import { useMnemonicMutations } from "@/hooks/mnemonic/useMnemonicMutations";
 
 import { logger } from "@/lib/logger";

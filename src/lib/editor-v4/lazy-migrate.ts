@@ -30,7 +30,7 @@ import {
   bulkPutMnemonics,
   listAllMnemonics,
 } from "@/lib/db/queries/mnemonics";
-import { migrateMnemonicCard } from "@/features/mnemonic/mnemonic-storage/mnemonic-section-codec";
+import { migrateMnemonicCard } from "@/domains/mnemonic";
 import { migrateCard, migrateSource, migrateArticle } from "./migrate";
 import type { Card } from "@/lib/spaced-repetition";
 import type { Source, KnowledgeBaseArticle } from "@/lib/db-types";
@@ -111,7 +111,7 @@ async function migrateAllArticles(): Promise<void> {
       if (!res.changed) continue;
       try {
         // `saveArticle` rewrites `updatedAt` — undesirable for a silent backfill.
-        // Bypass it via the SQLite-primary repo writer (no Dexie mirror).
+        // Bypass it via the SQLite repo writer (no mirror layer).
         await putKnowledgeBaseArticle(res.record);
         n++;
       } catch (err) {

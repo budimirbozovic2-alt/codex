@@ -3,6 +3,7 @@ import { useCallback } from "react";
 import type { CategoryRecord, SubcategoryNode, ChapterNode, ExaminerProfile } from "@/lib/db-types";
 import { invalidateSourcesCache } from "@/domains/sources/sources-storage";
 import { categoryRepository } from "@/lib/repositories";
+import { deleteCategoryWithDependencies } from "@/lib/services/categoryDeletionOrchestrator";
 import { toast } from "sonner";
 import {
   clearCardsSubcategoryRefs,
@@ -47,10 +48,8 @@ export function useCategoryManagement() {
   );
 
   // Audit A2 / Phase 2b — deleteCategory no longer scans the RAM cardMap.
-  // The atomic SQL transaction in `categoryRepository.deleteAsync` handles
-  // cards + sources re-parent/purge in a single ACID step, and FK CASCADE
-  // wipes mindMaps / mnemonics / knowledgeBaseArticles. TanStack consumers
-  // are refreshed via `notifyCardsChanged()` inside `categoryRepository.deleteCascade`.
+  // SQLite delete runs via `categoryRepository.deleteAsync`; cross-domain
+  // cache cleanup is orchestrated by `deleteCategoryWithDependencies`.
   const deleteCategory = useCallback(
     (categoryId: string, purgeCards = false) => {
       const currentRecs = getCategoryRecords();
@@ -64,8 +63,7 @@ export function useCategoryManagement() {
 
       void (async () => {
         try {
-          await categoryRepository.deleteCascade(categoryId, { purgeCards, fallbackId });
-          invalidateSourcesCache();
+          await deleteCategoryWithDependencies(categoryId, { purgeCards, fallbackId });
         } catch (err) {
           logger.error("[deleteCategory] cascade failed", err);
           toast.error("Greška pri brisanju kategorije", { description: "Pokušajte ponovo." });

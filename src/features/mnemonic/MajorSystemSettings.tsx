@@ -1,6 +1,6 @@
 import { RotateCcw } from "lucide-react";
 import { useState, useEffect } from "react";
-import { DEFAULT_MAJOR_SYSTEM } from "./mnemonic-storage";
+import { DEFAULT_MAJOR_SYSTEM } from "@/domains/mnemonic";
 import { useMajorSystem } from "@/hooks/mnemonic/useMajorSystem";
 import { useMnemonicMutations } from "@/hooks/mnemonic/useMnemonicMutations";
 import { Button } from "@/components/ui/button";

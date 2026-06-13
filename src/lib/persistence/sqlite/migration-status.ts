@@ -1,5 +1,5 @@
 /**
- * SQLite boot flags — legacy IDB migration path removed after cut-over.
+ * SQLite boot flags.
  */
 import type { SqlExecutor } from "./executor";
 import { logger } from "@/lib/logger";

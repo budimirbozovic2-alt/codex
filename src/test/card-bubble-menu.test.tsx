@@ -17,7 +17,7 @@ import { makeQueryWrapper } from "./helpers/queryWrapper";
 const Wrapper = makeQueryWrapper();
 
 
-vi.mock("@/features/mnemonic", () => ({
+vi.mock("@/domains/mnemonic", () => ({
   loadMnemonicCards: vi.fn(async () => []),
   saveMnemonicCards: vi.fn(async () => {}),
   createMnemonicCardFromSelection: vi.fn(() => ({ id: "m1" })),

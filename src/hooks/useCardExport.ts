@@ -88,8 +88,7 @@ function deriveSubMap(catRecords: CategoryRecord[]): Record<string, string[]> {
   return subMap;
 }
 
-// PR-9 A1c-3 nastavak — projection helper for template export.
-// Templates carry a minimal card shape (no FSRS state, no logs).
+// Projection helper for template export — templates carry a minimal card shape.
 function projectCardToTemplate(c: Card) {
   return {
     id: c.id,
@@ -109,7 +108,7 @@ export function useCardExport({ srSettings }: UseCardExportDeps) {
       const dateStr = new Date().toISOString().slice(0, 10);
 
       onProgress(5, "Priprema templatea…");
-      // PR-9 A1c-3 — read SQLite-primary repos.
+      // Read from SQLite backup-readers.
       const [catRecords, allCards] = await Promise.all([
         readAllCategoriesForBackup(),
         readAllCardsForBackup(),
@@ -160,7 +159,7 @@ export function useCardExport({ srSettings }: UseCardExportDeps) {
     async (compress: boolean, onProgress: ProgressFn) => {
       onProgress(2, "Priprema…");
 
-      // PR-9 A1c-3 — categories via SQLite-primary backup-readers seam.
+      // Categories via SQLite backup-readers.
       const catRecords = await readAllCategoriesForBackup();
       const sortedCats = [...catRecords].sort(
         (a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0),

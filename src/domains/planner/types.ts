@@ -1,6 +1,6 @@
 /**
  * Shared types and defaults for the planner namespace.
- * Pure data — no IDB or React imports — so any sub-module can depend on it
+ * Pure data — no persistence or React imports — so any sub-module can depend on it
  * without creating cycles.
  */
 

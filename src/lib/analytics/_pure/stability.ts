@@ -1,5 +1,5 @@
 // Pure category-stability + strategic reality check. Receives planner snapshots
-// (loaded on main thread) so the worker never touches IDB.
+// (loaded on main thread) so the worker never touches storage.
 import { addDays, differenceInDays, startOfDay } from "date-fns";
 import type { Card } from "../../spaced-repetition";
 import type { ReviewLogEntry } from "../../storage";

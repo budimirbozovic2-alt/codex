@@ -10,6 +10,7 @@
 // `deleteAsync` runs a single SQLite transaction that re-parents (or purges)
 // cards + sources, then deletes the category row. FK CASCADE on the schema
 // then wipes mindMaps / mnemonics / knowledgeBaseArticles in the same step.
+// Cross-domain cache cleanup lives in `categoryDeletionOrchestrator`.
 // ─────────────────────────────────────────────────────────────────────────────
 import type { CategoryRecord } from "@/lib/db-types";
 import { toast } from "sonner";
@@ -21,20 +22,7 @@ import {
 } from "@/store/useCategoryStore";
 import { wrapWrite, type WriteResult } from "@/lib/persistence/write-result";
 import { requireSqlExecutor } from "@/lib/db/queries/_shared/require-sql-executor";
-import {
-  deleteSetting,
-  getSetting,
-  notifyCardsChanged,
-  notifyKnowledgeBaseChanged,
-  replaceAllCategories,
-} from "@/lib/db/queries";
-import { invalidateMindMapsCache } from "@/domains/mindmaps/mindmap-storage";
-import { invalidateSourcesCache } from "@/domains/sources/sources-storage";
-import { clearSubjectSettings } from "@/domains/subjects/subject-settings";
-import { invalidateExaminerProfile } from "@/lib/examiner-profile-cache";
-import { backlinkIndex } from "@/lib/backlink-index";
-import { scrubCategoryFromPlannerConfig } from "@/domains/planner";
-import { notifyMnemonics } from "@/features/mnemonic/mnemonic-storage";
+import { replaceAllCategories } from "@/lib/db/queries";
 
 // ─── Read primitives ─────────────────────────────────────────────────────
 function getCategorySnapshot(): CategoryRecord[] {
@@ -52,19 +40,12 @@ export function replaceAll(records: CategoryRecord[]): void {
   setCategoryStoreRecords(records);
 }
 
-// Mutex for serialising SQLite writes — prevents concurrent overwrites when
-// two optimistic updates race (e.g. fast double-click on reorder). SQLite's
-// own transaction would still serialise at the FS layer, but read-modify-
-// write here needs the mutex to avoid stale-snapshot overwrites.
 const _saveMutex = createKeyedMutex();
 
 /**
  * Optimistic commit: pushes the optimistic value into the SSOT store, then
  * persists to SQLite — both **inside** a serialised mutex so concurrent
  * commits cannot race each other's rollback target.
- *
- * Compute updater + apply + persist atomically. The mutex window is
- * <1ms for typical workloads (≤9 categories); render latency is unaffected.
  */
 export async function commit(
   updater: (prev: CategoryRecord[]) => CategoryRecord[],
@@ -88,7 +69,7 @@ export async function commit(
 
 // ─── A2 — SQLite-primary delete with FK CASCADE ──────────────────────────
 
-interface DeleteCategoryOpts {
+export interface DeleteCategoryOpts {
   /** When true: drop cards + sources for this category. When false: re-parent. */
   purgeCards: boolean;
   /** Re-parent target when `purgeCards === false`. Empty string skips re-parent. */
@@ -101,7 +82,7 @@ interface DeleteCategoryOpts {
  * automatically; cards + sources are handled explicitly so the `purgeCards`
  * vs. re-parent semantics survive (FK can't conditionally null-out).
  */
-function deleteAsync(
+export function deleteAsync(
   id: string,
   opts: DeleteCategoryOpts,
 ): Promise<WriteResult<void>> {
@@ -115,8 +96,6 @@ function deleteAsync(
         await tx.run("DELETE FROM sources WHERE categoryId = ?", [id]);
       } else if (opts.fallbackId) {
         const now = Date.now();
-        // A2 — keep JSON payload in sync with indexed columns via JSON1.
-        // Cards: new categoryId, drop subcategory/chapter refs.
         await tx.run(
           `UPDATE cards
               SET categoryId    = ?,
@@ -131,7 +110,6 @@ function deleteAsync(
             WHERE categoryId = ?`,
           [opts.fallbackId, now, opts.fallbackId, now, id],
         );
-        // Sources: mirror new categoryId into payload JSON too.
         await tx.run(
           `UPDATE sources
               SET categoryId = ?,
@@ -140,77 +118,14 @@ function deleteAsync(
           [opts.fallbackId, opts.fallbackId, id],
         );
       }
-      // Final blow — FK CASCADE wipes mindMaps + mnemonics + KB articles.
       await tx.run("DELETE FROM categories WHERE id = ?", [id]);
     });
   });
 }
 
-
-const SUBJECT_SETTINGS_PREFIX = "subject_settings:";
-
-interface CascadeDeleteResult {
-  articles: number;
-  mindMaps: number;
-  mnemonics: number;
-  settings: number;
-  plannerScrubbed: boolean;
-  cardsAffected: number;
-  sourcesAffected: number;
-}
-
-/**
- * Full category delete: SQLite cascade + KV scrub + cache invalidation.
- * Call after optimistically removing the row from the in-memory store.
- */
-async function deleteCascade(
-  categoryId: string,
-  opts: DeleteCategoryOpts,
-): Promise<CascadeDeleteResult> {
-  const result: CascadeDeleteResult = {
-    articles: 0,
-    mindMaps: 0,
-    mnemonics: 0,
-    settings: 0,
-    plannerScrubbed: false,
-    cardsAffected: 0,
-    sourcesAffected: 0,
-  };
-  if (!categoryId) return result;
-
-  const sqlResult = await deleteAsync(categoryId, opts);
-  if (sqlResult.ok === false) {
-    logger.error("[category-repo] sqlite cascade failed", sqlResult.error);
-    throw new Error(sqlResult.error.message);
-  }
-
-  const settingsKey = SUBJECT_SETTINGS_PREFIX + categoryId;
-  const existed = await getSetting<unknown>(settingsKey);
-  if (existed !== undefined) {
-    await deleteSetting(settingsKey);
-    result.settings = 1;
-  }
-
-  result.plannerScrubbed = scrubCategoryFromPlannerConfig(categoryId);
-
-  notifyCardsChanged({ kind: "category", categoryId });
-  notifyKnowledgeBaseChanged();
-  notifyMnemonics();
-  if (result.mindMaps > 0) invalidateMindMapsCache();
-  if (result.settings > 0) clearSubjectSettings(categoryId);
-  invalidateExaminerProfile(categoryId);
-  backlinkIndex.clear(categoryId);
-  invalidateSourcesCache();
-
-  return result;
-}
-
 export const categoryRepository = {
-  // reads
   snapshot: getCategorySnapshot,
-  // writes
   commit,
   replaceAll,
   deleteAsync,
-  deleteCascade,
 };

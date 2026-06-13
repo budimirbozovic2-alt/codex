@@ -6,7 +6,7 @@
 //
 //   • inspect what is currently scheduled (`snapshot()` for debugging),
 //   • shut everything down at `beforeunload` / Electron `before-quit` to
-//     avoid IDB writes after the page is gone,
+//     avoid SQLite writes after the page is gone,
 //   • optionally pause "idle" work while the tab is hidden, resuming when
 //     it becomes visible again,
 //   • drive everything from `vi.useFakeTimers()` in tests through one

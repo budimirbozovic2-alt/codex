@@ -7,7 +7,7 @@
  * payload(s) that the source-reader hook then dispatches via `addCard` /
  * `bulkAddCards`.
  *
- * Kept pure (no React, no IDB, no toasts) so it can be unit-tested without a
+ * Kept pure (no React, no storage I/O, no toasts) so it can be unit-tested without a
  * DOM. The hook is responsible for `crypto.randomUUID()`, sanitization, and
  * persistence.
  */

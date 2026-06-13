@@ -14,15 +14,14 @@ export const DEFAULT_MAJOR_SYSTEM: Record<number, string> = {
   100: "TASOS",
 };
 
-// Joker locations for numbers > 100
 export const JOKER_LOCATIONS: Record<number, string> = {
-  1: "Bazen",      // 100-199
-  2: "Svemir",     // 200-299
-  3: "Stadion",    // 300-399
-  4: "Piramida",   // 400-499
-  5: "Podmornica", // 500-599
-  6: "Vulkan",     // 600-699
-  7: "Zamak",      // 700-799
-  8: "Džungla",    // 800-899
-  9: "Ledenjak",   // 900-999
+  1: "Bazen",
+  2: "Svemir",
+  3: "Stadion",
+  4: "Piramida",
+  5: "Podmornica",
+  6: "Vulkan",
+  7: "Zamak",
+  8: "Džungla",
+  9: "Ledenjak",
 };

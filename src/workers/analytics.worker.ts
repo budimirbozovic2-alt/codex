@@ -2,7 +2,7 @@
  * Analytics worker — runs OLAP-style aggregations off the main thread.
  *
  * All callees live under `src/lib/analytics/_pure/**` and have ZERO
- * dependencies on storage, IDB, React, or DOM. The main thread snapshots
+ * dependencies on storage, React, or DOM. The main thread snapshots
  * any localStorage-backed data (calibration, latency, discipline log,
  * planner config) and passes it as part of the request payload.
  *

@@ -2,7 +2,7 @@ import {
   CheckCircle2, Sparkles, Wrench, Clock, List, MoreHorizontal,
   type LucideIcon,
 } from "lucide-react";
-import type { MnemonicStatus, HookType } from "../../mnemonic-storage";
+import type { MnemonicStatus, HookType } from "@/domains/mnemonic";
 
 export const STATUS_CONFIG: Record<MnemonicStatus, { label: string; icon: LucideIcon; color: string }> = {
   "new": { label: "Nova", icon: Sparkles, color: "text-muted-foreground" },

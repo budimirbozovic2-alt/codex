@@ -1,8 +1,22 @@
-// Domain-scoped analytics: WRITES to mnemonic IDB (tags "slaba-kuka"),
-// therefore belongs inside the mnemonic domain — NOT in the OLAP layer.
-// Pure compute (`calcBlindSpots`) remains under `@/lib/analytics`.
-import { loadLatency } from "@/domains/metacognition/metacognitive-storage";
-import { loadMnemonicCards, saveMnemonicCards } from "@/features/mnemonic/mnemonic-storage";
+// Pure weak-hook analytics — no I/O, no feature imports.
+// Orchestration (load + persist) lives in `@/lib/services/weakHooksService`.
+
+/** Minimal mnemonic card shape required by weak-hook analytics. */
+export interface WeakHookMnemonicInput {
+  id: string;
+  originalCardId: string;
+  question: string;
+  categoryId: string;
+  mnemonicStatus: string;
+  mnemonicVideo: string;
+  acronym: string;
+  tags?: string[];
+}
+
+export interface WeakHookLatencyInput {
+  cardId: string;
+  latencyMs: number;
+}
 
 export interface WeakHook {
   mnemonicCardId: string;
@@ -12,48 +26,61 @@ export interface WeakHook {
   category: string;
 }
 
-export async function calcWeakHooks(): Promise<WeakHook[]> {
-  const mnemonicCards = await loadMnemonicCards();
-  const latencyLog = loadLatency();
-  if (mnemonicCards.length === 0 || latencyLog.length === 0) return [];
+const WEAK_HOOK_THRESHOLD_MS = 3000;
+const WEAK_HOOK_TAG = "slaba-kuka";
 
-  const THRESHOLD = 3000;
+export interface CalcWeakHooksResult<T extends WeakHookMnemonicInput> {
+  weakHooks: WeakHook[];
+  /** Full card list with tags applied when any weak hooks were found; otherwise null. */
+  updatedCards: T[] | null;
+}
+
+export function calcWeakHooks<T extends WeakHookMnemonicInput>(
+  mnemonicCards: readonly T[],
+  latencyLog: readonly WeakHookLatencyInput[],
+): CalcWeakHooksResult<T> {
+  if (mnemonicCards.length === 0 || latencyLog.length === 0) {
+    return { weakHooks: [], updatedCards: null };
+  }
+
   const weakHooks: WeakHook[] = [];
 
-  // Pre-group latency by cardId — was O(N×M) via Array.filter inside forEach.
-  const latencyByCard = new Map<string, typeof latencyLog>();
+  const latencyByCard = new Map<string, WeakHookLatencyInput[]>();
   for (const l of latencyLog) {
     const arr = latencyByCard.get(l.cardId);
-    if (arr) arr.push(l); else latencyByCard.set(l.cardId, [l]);
+    if (arr) arr.push(l);
+    else latencyByCard.set(l.cardId, [l]);
   }
 
-  mnemonicCards.forEach(mc => {
-    if (mc.mnemonicStatus === "new" && !mc.mnemonicVideo && !mc.acronym) return;
+  let hasTagUpdates = false;
+  const updatedCards = mnemonicCards.map((mc) => {
+    if (mc.mnemonicStatus === "new" && !mc.mnemonicVideo && !mc.acronym) return mc;
 
     const cardLatencies = latencyByCard.get(mc.originalCardId);
-    if (!cardLatencies || cardLatencies.length < 2) return;
+    if (!cardLatencies || cardLatencies.length < 2) return mc;
 
     const recent = cardLatencies.slice(-5);
-    const avgLatency = recent.reduce((s, l) => s + l.latencyMs, 0) / recent.length;
+    const avgLatency =
+      recent.reduce((s, l) => s + l.latencyMs, 0) / recent.length;
 
-    if (avgLatency > THRESHOLD) {
-      weakHooks.push({
-        mnemonicCardId: mc.id,
-        originalCardId: mc.originalCardId,
-        question: mc.question,
-        avgLatencyMs: Math.round(avgLatency),
-        category: mc.categoryId,
-      });
+    if (avgLatency <= WEAK_HOOK_THRESHOLD_MS) return mc;
 
-      if (!mc.tags?.includes("slaba-kuka")) {
-        mc.tags = [...(mc.tags || []), "slaba-kuka"];
-      }
-    }
+    weakHooks.push({
+      mnemonicCardId: mc.id,
+      originalCardId: mc.originalCardId,
+      question: mc.question,
+      avgLatencyMs: Math.round(avgLatency),
+      category: mc.categoryId,
+    });
+
+    if (mc.tags?.includes(WEAK_HOOK_TAG)) return mc;
+
+    hasTagUpdates = true;
+    return { ...mc, tags: [...(mc.tags || []), WEAK_HOOK_TAG] };
   });
 
-  if (weakHooks.length > 0) {
-    await saveMnemonicCards(mnemonicCards);
-  }
-
-  return weakHooks;
+  return {
+    weakHooks,
+    updatedCards: weakHooks.length > 0 && hasTagUpdates ? updatedCards : null,
+  };
 }

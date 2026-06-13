@@ -1,5 +1,5 @@
 import { Hash, MapPin } from "lucide-react";
-import { resolveNumber } from "../../mnemonic-storage";
+import { resolveNumber } from "@/domains/mnemonic";
 
 interface Props {
   numbers: { number: number; context: string }[];

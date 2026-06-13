@@ -1,12 +1,3 @@
-// Public barrel for `@/features/mnemonic/mnemonic-storage`.
-
-export type {
-  MnemonicStatus,
-  HookType,
-  MnemonicCard,
-  MnemonicTestLogEntry,
-} from "./types";
-
 export { DEFAULT_MAJOR_SYSTEM } from "./constants";
 
 export { loadMajorSystem, resolveNumber } from "./major-system";
@@ -25,11 +16,14 @@ export { getMnemonicStats } from "./stats";
 export { extractNumbers, detectEnumerationItems } from "./content-utils";
 
 export {
-  seedSectionDoc,
-  getMnemonicSectionHtml,
+  EMPTY_MNEMONIC_DOC,
+  decodeLegacySection,
   normalizeSectionOnRead,
   normalizeSectionForWrite,
   normalizeMnemonicCardOnRead,
+  normalizeMnemonicCardOnImport,
   normalizeMnemonicCardForWrite,
   migrateMnemonicCard,
 } from "./mnemonic-section-codec";
+
+export type { LegacyMnemonicSectionPayload } from "./mnemonic-section-codec";

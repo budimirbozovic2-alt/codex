@@ -1,6 +1,6 @@
 import { ArrowLeft, Filter, FolderOpen, Zap, Clock, List, MoreHorizontal } from "lucide-react";
 import { useMemo, useState } from "react";
-import type { MnemonicCard, HookType } from "../mnemonic-storage";
+import type { MnemonicCard, HookType } from "@/domains/mnemonic";
 import { Button } from "@/components/ui/button";
 import {
   buildCategoryTree, buildHookTypeCounts, filterTestable,

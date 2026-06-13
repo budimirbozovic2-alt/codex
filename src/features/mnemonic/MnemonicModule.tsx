@@ -5,9 +5,9 @@ import { useState, useCallback, useMemo } from "react";
 import { useCardOnlyActions } from "@/hooks/cards/useActions";
 import { useCategoryData } from "@/hooks/cards/useCategoryState";
 import {
-  MnemonicCard,
+  type MnemonicCard,
   getMnemonicStats,
-} from "./mnemonic-storage";
+} from "@/domains/mnemonic";
 import { useMnemonicCards } from "@/hooks/mnemonic/useMnemonicCards";
 import { useMnemonicMutations } from "@/hooks/mnemonic/useMnemonicMutations";
 

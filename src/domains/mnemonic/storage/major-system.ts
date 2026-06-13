@@ -1,6 +1,3 @@
-// Major System I/O + number → peg resolution.
-// PR-9 A1b P1.6: delegates all DB I/O to the SQLite-primary repository.
-
 import { logger } from "@/lib/logger";
 import { listAllPegs } from "@/lib/db/queries/major-system";
 import { DEFAULT_MAJOR_SYSTEM, JOKER_LOCATIONS } from "./constants";
@@ -18,7 +15,6 @@ export async function loadMajorSystem(): Promise<Record<number, string>> {
   }
 }
 
-// Resolve a number to Major System term + optional joker location
 export function resolveNumber(num: number, majorSystem: Record<number, string>): { term: string; location?: string } {
   if (num <= 100) {
     return { term: majorSystem[num] || `(${num})` };

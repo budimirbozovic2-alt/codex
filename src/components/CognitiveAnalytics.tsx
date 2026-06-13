@@ -2,7 +2,7 @@ import { AlertTriangle, Shield, Zap, ArrowRightLeft, HeartPulse, Eye, Wrench } f
 import { Card } from "@/lib/spaced-repetition";
 import { ReviewLogEntry } from "@/lib/storage";
 import { Progress } from "@/components/ui/progress";
-import { calcWeakHooks } from "@/lib/cognitive-analytics";
+import { runWeakHooksAnalysis } from "@/lib/cognitive-analytics";
 import { analyticsClient } from "@/lib/analytics/workerClient";
 import { loadPlanner } from "@/domains/planner";
 import LazyChart from "@/components/LazyChart";
@@ -313,7 +313,7 @@ export default function CognitiveAnalytics({ cards, categories, reviewLog, catNa
         <LazyChart
           label="Slabe kuke"
           icon={<Wrench className="h-4 w-4 text-warning" />}
-          compute={() => calcWeakHooks()}
+          compute={() => runWeakHooksAnalysis()}
           delay={6}
         >
           {(weakHooks) => weakHooks.length === 0 ? (

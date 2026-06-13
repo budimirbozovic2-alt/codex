@@ -7,7 +7,7 @@ import { useQuery } from "@tanstack/react-query";
 import {
   loadMajorSystem,
   DEFAULT_MAJOR_SYSTEM,
-} from "@/features/mnemonic/mnemonic-storage";
+} from "@/domains/mnemonic";
 import { queryKeys } from "@/lib/query/keys";
 
 export function useMajorSystem(): {
