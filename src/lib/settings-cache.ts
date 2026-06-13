@@ -73,7 +73,7 @@ export function writeCached<T>(key: string, value: T): void {
 }
 
 /** Test seam: wipe RAM cache between cases. */
-export function __resetSettingsCache(): void {
+function __resetSettingsCache(): void {
   _cache.clear();
   _hydrated.clear();
 }

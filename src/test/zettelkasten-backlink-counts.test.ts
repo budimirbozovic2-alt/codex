@@ -4,22 +4,12 @@
  */
 import { beforeEach, describe, expect, it } from "vitest";
 import { backlinkIndex } from "@/lib/backlink-index";
-import type { KnowledgeBaseArticle } from "@/domains/zettelkasten/zettelkasten-storage";
+import { kbArticleFromMarkdown } from "./helpers/kb-article-fixture";
 
 const SUBJECT = "subj-counts";
 
-function art(id: string, title: string, content = "", isIndex = false): KnowledgeBaseArticle {
-  return {
-    id,
-    subjectId: SUBJECT,
-    title,
-    content,
-    contentDoc: { version: 4, content: { type: "doc", content: [] } },
-    linkedSourceIds: [],
-    isIndex,
-    createdAt: 0,
-    updatedAt: 0,
-  };
+function art(id: string, title: string, content = "", isIndex = false) {
+  return kbArticleFromMarkdown(SUBJECT, title, content, { id, isIndex });
 }
 
 beforeEach(() => {

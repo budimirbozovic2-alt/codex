@@ -40,9 +40,9 @@ describe("PR-H-OPFS: Electron cross-origin isolation", () => {
     expect(clientSrc).not.toMatch(/installOpfsSAHPoolVfs/);
     expect(clientSrc).not.toMatch(/throw new Error\(["']OPFS_UNAVAILABLE/);
     expect(clientSrc).toMatch(/ensureSqliteReady/);
-    expect(readySrc).toMatch(/getDevFallbackExecutor/);
-    expect(readySrc).toMatch(/crossOriginIsolated/);
-    expect(readySrc).toMatch(/hasSharedArrayBuffer/);
+    expect(readySrc).toMatch(/initWorkerExecutor/);
+    expect(readySrc).toMatch(/FatalError/);
+    expect(readySrc).not.toMatch(/getDevFallbackExecutor/);
     expect(readySrc).toMatch(/worker-client|initWorkerExecutor/);
   });
 
@@ -103,14 +103,16 @@ describe("PR-H-OPFS-FIX: app:// protocol must carry isolation + MIME headers", (
     expect(src).toMatch(/middlewares\.use\(["']\/sqlite["']/);
   });
 
-  it("readyMachine.ts emits db-degraded event for both fallback paths (UX safety net)", () => {
+  it("readyMachine.ts fail-fast on OPFS failure (no dev-fallback)", () => {
     const src = read("src/lib/persistence/sqlite/readyMachine.ts");
-    expect(src).toMatch(/db-degraded/);
-    expect(src).toMatch(/emitDegraded\(["']opfs-api-missing["']/);
-    expect(src).toMatch(/emitDegraded\(["']opfs-runtime-error["']/);
+    expect(src).not.toMatch(/getDevFallbackExecutor/);
+    expect(src).not.toMatch(/degraded/);
+    expect(src).toMatch(/FatalError/);
   });
 
-  it("DbDegradedWatcher is mounted in App.tsx", () => {
+  it("worker-client.ts can emit db-degraded on RPC failure; DbDegradedWatcher mounted", () => {
+    const worker = read("src/lib/persistence/sqlite/worker-client.ts");
+    expect(worker).toMatch(/db-degraded/);
     const app = read("src/App.tsx");
     expect(app).toMatch(/DbDegradedWatcher/);
     const watcher = read("src/components/DbDegradedWatcher.tsx");

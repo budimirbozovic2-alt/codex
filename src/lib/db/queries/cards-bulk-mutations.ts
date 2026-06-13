@@ -5,38 +5,7 @@
 // columns (`subcategoryId`, `chapterId`, `updatedAt`) AND the JSON 
 // `payload` in sync inside one SQLite transaction. 
 // ─────────────────────────────────────────────────────────────────
-import type { 
-  SqlExecutor 
-} from "@/lib/persistence/sqlite/executor";
-import { logger } from "@/lib/logger";
-import { 
-  notifyExecutorNull 
-} from "./_shared/executor-telemetry";
-
-async function tryGetExecutor(
-  label: string
-): Promise<SqlExecutor | null> {
-  try {
-    const { isElectron } = await import(
-      "@/lib/electron-integration"
-    );
-    if (!isElectron() && import.meta.env.PROD) { 
-      notifyExecutorNull(label, "non-electron"); 
-      return null; 
-    }
-    const { getOpfsSqliteExecutor } = await import(
-      "@/lib/persistence/sqlite/client"
-    );
-    return await getOpfsSqliteExecutor();
-  } catch (err) {
-    logger.warn(
-      `[cards-bulk-mutations] ${label} executor unavailable`, 
-      err
-    );
-    notifyExecutorNull(label, "error");
-    return null;
-  }
-}
+import { requireSqlExecutor } from "./_shared/require-sql-executor";
 
 /**
  * Clear `subcategoryId` + `chapterId` for every card under 
@@ -46,8 +15,7 @@ export async function clearCardsSubcategoryRefs(
   categoryId: string,
   subcategoryId: string,
 ): Promise<void> {
-  const exec = await tryGetExecutor("clearCardsSubcategoryRefs");
-  if (!exec) return;
+  const exec = await requireSqlExecutor("cards-bulk:clearCardsSubcategoryRefs");
   const now = Date.now();
   await exec.run(
     `UPDATE cards
@@ -76,8 +44,7 @@ export async function clearCardsChapterRefs(
   subcategoryId: string,
   chapterId: string,
 ): Promise<void> {
-  const exec = await tryGetExecutor("clearCardsChapterRefs");
-  if (!exec) return;
+  const exec = await requireSqlExecutor("cards-bulk:clearCardsChapterRefs");
   const now = Date.now();
   await exec.run(
     `UPDATE cards
@@ -104,8 +71,7 @@ export async function reassignCardsSubcategory(
   subcategoryId: string,
 ): Promise<void> {
   if (ids.length === 0) return;
-  const exec = await tryGetExecutor("reassignCardsSubcategory");
-  if (!exec) return;
+  const exec = await requireSqlExecutor("cards-bulk:reassignCardsSubcategory");
   const now = Date.now();
 
   await exec.transaction(async (tx) => {

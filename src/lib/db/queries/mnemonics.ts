@@ -1,59 +1,15 @@
 /**
  * Mnemonics repository — PR-9 A1c-2. SQLite-only.
  */
-import type { 
-  SqlExecutor 
-} from "@/lib/persistence/sqlite/executor";
 import { logger } from "@/lib/logger";
 import type { 
   MnemonicCard 
 } from "@/features/mnemonic/mnemonic-storage";
-import { 
-  notifyExecutorNull 
-} from "./_shared/executor-telemetry";
-
-// ─── Executor accessor ──────────────────────────────────────────
-
-async function tryGetExecutor(): Promise<SqlExecutor | null> {
-  try {
-    const { isElectron } = await import(
-      "@/lib/electron-integration"
-    );
-    if (!isElectron() && import.meta.env.PROD) { 
-      notifyExecutorNull("mnemonics", "non-electron"); 
-      return null; 
-    }
-    
-    const { getOpfsSqliteExecutor } = await import(
-      "@/lib/persistence/sqlite/client"
-    );
-    
-    // Faza 4: Mrtvi polling kod uklonjen.
-    return await getOpfsSqliteExecutor();
-  } catch (err) {
-    logger.warn(
-      "[mnemonics-repo] sqlite executor unavailable", 
-      err
-    );
-    notifyExecutorNull("mnemonics", "error");
-    return null;
-  }
-}
-
-async function requireExecutor(
-  label: string
-): Promise<SqlExecutor | null> {
-  const exec = await tryGetExecutor();
-  if (exec) return exec;
-  const { assertDesktop } = await import(
-    "@/lib/electron-integration"
-  );
-  assertDesktop();
-  logger.warn(
-    `[mnemonics-repo] ${label} — no executor (dev shell)`
-  );
-  return null;
-}
+import {
+  normalizeMnemonicCardForWrite,
+  normalizeMnemonicCardOnRead,
+} from "@/features/mnemonic/mnemonic-storage/mnemonic-section-codec";
+import { requireSqlExecutor } from "./_shared/require-sql-executor";
 
 // ─── Codec ──────────────────────────────────────────────────────
 
@@ -61,7 +17,8 @@ function decodeMnemonic(row: {
   payload: string 
 }): MnemonicCard | null {
   try { 
-    return JSON.parse(row.payload) as MnemonicCard; 
+    const parsed = JSON.parse(row.payload) as MnemonicCard;
+    return normalizeMnemonicCardOnRead(parsed);
   } catch (err) {
     logger.warn("[mnemonics-repo] decode failed", err);
     return null;
@@ -78,14 +35,15 @@ const INSERT_SQL = `
 function bindMnemonic(
   m: MnemonicCard
 ): (string | number | null)[] {
+  const normalized = normalizeMnemonicCardForWrite(m);
   return [
-    m.id,
-    m.categoryId,
-    m.subcategoryId ?? null,
-    m.mnemonicStatus ?? null,
-    m.hookType ?? null,
-    m.createdAt,
-    JSON.stringify(m),
+    normalized.id,
+    normalized.categoryId,
+    normalized.subcategoryId ?? null,
+    normalized.mnemonicStatus ?? null,
+    normalized.hookType ?? null,
+    normalized.createdAt,
+    JSON.stringify(normalized),
   ];
 }
 
@@ -94,8 +52,7 @@ function bindMnemonic(
 export async function getMnemonic(
   id: string
 ): Promise<MnemonicCard | undefined> {
-  const exec = await requireExecutor("getMnemonic");
-  if (!exec) return undefined;
+  const exec = await requireSqlExecutor("mnemonics:getMnemonic");
   const rows = await exec.all<{ payload: string }>(
     "SELECT payload FROM mnemonics WHERE id = ? LIMIT 1", 
     [id],
@@ -106,8 +63,7 @@ export async function getMnemonic(
 
 export async function listAllMnemonics(): 
   Promise<MnemonicCard[]> {
-  const exec = await requireExecutor("listAllMnemonics");
-  if (!exec) return [];
+  const exec = await requireSqlExecutor("mnemonics:listAllMnemonics");
   const rows = await exec.all<{ payload: string }>(
     "SELECT payload FROM mnemonics"
   );
@@ -119,8 +75,7 @@ export async function listAllMnemonics():
 export async function listMnemonicsByCategory(
   categoryId: string
 ): Promise<MnemonicCard[]> {
-  const exec = await requireExecutor("listMnemonicsByCategory");
-  if (!exec) return [];
+  const exec = await requireSqlExecutor("mnemonics:listMnemonicsByCategory");
   const rows = await exec.all<{ payload: string }>(
     "SELECT payload FROM mnemonics WHERE categoryId = ?", 
     [categoryId],
@@ -135,8 +90,7 @@ export async function listMnemonicsByCategory(
 export async function putMnemonic(
   card: MnemonicCard
 ): Promise<void> {
-  const exec = await requireExecutor("putMnemonic");
-  if (!exec) return;
+  const exec = await requireSqlExecutor("mnemonics:putMnemonic");
   await exec.run(INSERT_SQL, bindMnemonic(card));
 }
 
@@ -144,8 +98,7 @@ export async function bulkPutMnemonics(
   cards: MnemonicCard[]
 ): Promise<void> {
   if (cards.length === 0) return;
-  const exec = await requireExecutor("bulkPutMnemonics");
-  if (!exec) return;
+  const exec = await requireSqlExecutor("mnemonics:bulkPutMnemonics");
   await exec.transaction(async (tx) => {
     await tx.runMany(
       INSERT_SQL, 
@@ -155,8 +108,7 @@ export async function bulkPutMnemonics(
 }
 
 export async function deleteMnemonic(id: string): Promise<void> {
-  const exec = await requireExecutor("deleteMnemonic");
-  if (!exec) return;
+  const exec = await requireSqlExecutor("mnemonics:deleteMnemonic");
   await exec.run(
     "DELETE FROM mnemonics WHERE id = ?", 
     [id]

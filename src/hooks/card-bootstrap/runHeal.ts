@@ -9,10 +9,7 @@ import { type Card, DEFAULT_SR_SETTINGS } from "@/lib/spaced-repetition";
 import { markBootStep } from "@/lib/boot-trace";
 import { transition } from "@/lib/boot";
 import { logger } from "@/lib/logger";
-import { withTimeout } from "./withTimeout";
-import { normalizeCategoryShapes } from "./normalizeCategoryShapes";
 import { bulkPutCardsDirect } from "@/lib/db/queries";
-import { categoryRepository } from "@/lib/repositories";
 
 export interface HealInput {
   cards: Card[];
@@ -42,7 +39,7 @@ export async function runHeal({ cards, catRecords, silent = false }: HealInput):
   try {
     if (!silent) transition({ type: "HEAL_PROGRESS", pct: 20, label: "Heal taksonomije…" });
     const { healCardTaxonomy } = await import("@/lib/migrations/heal-card-taxonomy");
-    const report = await withTimeout(healCardTaxonomy(), 3000, "taxonomy heal", null);
+    const report = await healCardTaxonomy();
     if (report && !report.skipped && (report.staleSubcategoryReset + report.staleChapterReset + report.mismatchChapterReset) > 0) {
       logger.info("[boot] taxonomy healed", report);
     }
@@ -85,37 +82,6 @@ export async function runHeal({ cards, catRecords, silent = false }: HealInput):
     skipped.push("frequencyTag");
   }
 
-  // ─── Step 3: category shape normalization (legacy → SubcategoryNode, phantom prune) ───
-  let finalRecords = catRecords;
-  try {
-    if (!silent) transition({ type: "HEAL_PROGRESS", pct: 75, label: "Normalizacija kategorija…" });
-    const { records, needsPersist } = normalizeCategoryShapes(cards, catRecords);
-    finalRecords = records;
-
-    if (needsPersist) {
-      try {
-        // PR-9 A1c-3: persist normalized category records through the
-        // categoryRepository SSOT (Zustand store + idbSaveCategories) instead
-        // of per-row Dexie updates. The updater replaces matching ids and
-        // keeps untouched rows untouched.
-        const byId = new Map(records.map((r) => [r.id, r]));
-        await categoryRepository.commit(
-          (prev) => prev.map((r) => byId.get(r.id) ?? r),
-          "heal:categoryShapes",
-        );
-      } catch (persistErr) {
-        // Persist fail je sub-step koji ne lomi boot — koristimo records u memoriji.
-        logger.warn("[boot] heal step 'categoryShapes' persist failed (in-memory only)", persistErr);
-        if (!silent) transition({ type: "HEAL_STEP_FAIL", step: "categoryShapesPersist" });
-        skipped.push("categoryShapesPersist");
-      }
-    }
-  } catch (e) {
-    logger.warn("[boot] heal step 'categoryShapes' failed, skipping", e);
-    if (!silent) transition({ type: "HEAL_STEP_FAIL", step: "categoryShapes" });
-    skipped.push("categoryShapes");
-  }
-
   // ─── Done ───
   if (!silent) transition({ type: "HEAL_PROGRESS", pct: 100, label: "Heal završen" });
   markBootStep(
@@ -127,5 +93,5 @@ export async function runHeal({ cards, catRecords, silent = false }: HealInput):
   // Silence unused import warning for DEFAULT_SR_SETTINGS in some envs (no-op).
   void DEFAULT_SR_SETTINGS;
 
-  return { finalRecords, skippedSteps: skipped, mutatedCards };
+  return { finalRecords: catRecords, skippedSteps: skipped, mutatedCards };
 }

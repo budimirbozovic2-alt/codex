@@ -20,13 +20,6 @@ export function setDbEventEmitter(emit: DbEmitter, getTabCount?: TabCounter): vo
   if (getTabCount) _getTabCount = getTabCount;
 }
 
-/** Internal accessor used by infra-layer callers to forward DB events. */
-export function emitDbEvent(type: EventType, payload?: unknown): void {
-  try { _emit(type, payload); } catch { /* swallow */ }
-}
-
-export function getTabCount(): number { return _getTabCount(); }
-
 // ─── Global error state ────────────────────────────────────────────────
 export type DbErrorState = { type: "version" | "timeout"; message: string } | null;
 

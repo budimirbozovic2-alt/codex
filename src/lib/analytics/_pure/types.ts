@@ -15,5 +15,3 @@ export interface AnalyticsSnapshots {
   disciplineLog: DisciplineEntry[];
   planner: PlannerConfig | null;
 }
-
-export type { CalibrationEntry, LatencyEntry, DisciplineEntry, PlannerConfig };

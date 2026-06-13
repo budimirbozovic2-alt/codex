@@ -8,7 +8,7 @@
  * plus DDL (`CREATE TABLE/INDEX`, `PRAGMA`, `ALTER`) as no-ops.
  *
  * Transactions use snapshot rollback (single-level), mirroring the existing
- * `migrate-from-idb.test.ts` mock — that's the only depth our prod code uses.
+ * In-memory SQLite executor for vitest — no legacy IDB migration path.
  *
  * Wired into the global vitest setup via `installSqliteHarness()` which mocks
  * `@/lib/electron-integration` (so `isElectron() === true`) and
@@ -78,6 +78,97 @@ interface WhereClause {
   paramCount: number;
 }
 
+function parsePayloadObj(row: Row): Record<string, unknown> {
+  const raw = row.payload;
+  if (typeof raw !== "string") return {};
+  try {
+    return JSON.parse(raw) as Record<string, unknown>;
+  } catch {
+    return {};
+  }
+}
+
+interface JsonSetters {
+  paramCount: number;
+  apply: (row: Row, params: readonly SqlBindValue[]) => void;
+}
+
+/** Emulates SQLite json_set/json_remove UPDATE assignments used by cards repo. */
+function tryBuildJsonSetters(setClause: string): JsonSetters | null {
+  const s = setClause.replace(/\s+/g, " ").trim();
+
+  if (
+    /^sourceId = NULL, updatedAt = \?, payload = json_set\( json_remove\( payload, '\$\.sourceId', '\$\.textAnchor', '\$\.needsReview' \), '\$\.updatedAt', \? \)$/i.test(
+      s,
+    )
+  ) {
+    return {
+      paramCount: 2,
+      apply(row, params) {
+        row.sourceId = null;
+        row.updatedAt = params[0] ?? null;
+        const payload = parsePayloadObj(row);
+        delete payload.sourceId;
+        delete payload.textAnchor;
+        delete payload.needsReview;
+        payload.updatedAt = params[1];
+        row.payload = JSON.stringify(payload);
+      },
+    };
+  }
+
+  if (
+    /^updatedAt = \?, payload = json_set\( json_remove\(payload, '\$\.needsReview'\), '\$\.updatedAt', \? \)$/i.test(
+      s,
+    )
+  ) {
+    return {
+      paramCount: 2,
+      apply(row, params) {
+        row.updatedAt = params[0] ?? null;
+        const payload = parsePayloadObj(row);
+        delete payload.needsReview;
+        payload.updatedAt = params[1];
+        row.payload = JSON.stringify(payload);
+      },
+    };
+  }
+
+  if (
+    /^updatedAt = \?, payload = json_set\( json_set\(payload, '\$\.needsReview', json\('true'\)\), '\$\.updatedAt', \? \)$/i.test(
+      s,
+    )
+  ) {
+    return {
+      paramCount: 2,
+      apply(row, params) {
+        row.updatedAt = params[0] ?? null;
+        const payload = parsePayloadObj(row);
+        payload.needsReview = true;
+        payload.updatedAt = params[1];
+        row.payload = JSON.stringify(payload);
+      },
+    };
+  }
+
+  if (s.startsWith("chapterId = ?, updatedAt = ?, payload = json_set")) {
+    return {
+      paramCount: 5,
+      apply(row, params) {
+        row.chapterId = params[0] ?? null;
+        row.updatedAt = params[1] ?? null;
+        const payload = parsePayloadObj(row);
+        payload.chapterId = params[2];
+        payload.chapterOrder = params[3];
+        payload.updatedAt = params[4];
+        row.payload = JSON.stringify(payload);
+      },
+    };
+  }
+
+  return null;
+}
+
 function parseWhere(
   where: string,
   params: readonly SqlBindValue[],
@@ -100,6 +191,17 @@ function parseWhere(
     if (isNotNull) {
       const col = isNotNull[1];
       predicates.push((row) => row[col] !== null && row[col] !== undefined);
+      continue;
+    }
+    const jsonExtractNotNull =
+      /^json_extract\(payload,\s*'\$\.([^']+)'\)\s+IS\s+NOT\s+NULL$/i.exec(part);
+    if (jsonExtractNotNull) {
+      const key = jsonExtractNotNull[1];
+      predicates.push((row) => {
+        const payload = parsePayloadObj(row);
+        const v = payload[key];
+        return v !== undefined && v !== null;
+      });
       continue;
     }
     // col LIKE ?
@@ -336,6 +438,17 @@ class TestExecutor implements SqlExecutor {
       const whereClause = upd[3];
       const t = this.state.tables.get(table);
       if (!t) return;
+      const normalizedSet = setClause.replace(/\s+/g, " ");
+      const jsonSetters = tryBuildJsonSetters(normalizedSet);
+      if (jsonSetters) {
+        const where = parseWhere(whereClause, params, jsonSetters.paramCount);
+        for (const row of t.rows) {
+          if (where.match(row)) {
+            jsonSetters.apply(row, params);
+          }
+        }
+        return;
+      }
       const sets = setClause.split(",").map((s) => s.trim());
       const setters: Array<(row: Row, p: readonly SqlBindValue[]) => void> = [];
       let consumed = 0;
@@ -503,4 +616,11 @@ export function seedTestSqliteTable(name: string, rows: Row[]): void {
       t.nextRowid = (r.id as number) + 1;
     }
   }
+}
+
+/**
+ * Vitest wiring lives in `src/test/setup.ts` (vi.mock + beforeEach reset).
+ */
+export function installSqliteHarness(): void {
+  resetTestSqliteState();
 }

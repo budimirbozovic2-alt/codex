@@ -50,10 +50,6 @@ export function useCardBootstrap(): void {
     installSplashBridge();
     const ac = new AbortController();
     let bootDone = false;
-    // #region agent log
-    const _bootStart = Date.now();
-    fetch('http://127.0.0.1:7244/ingest/bbcc467f-b810-4cc1-aebf-add63a6395ee',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'f62800'},body:JSON.stringify({sessionId:'f62800',location:'useCardBootstrap.ts:useEffect',message:'Boot DAG starting',data:{ts:_bootStart},hypothesisId:'A',runId:'post-fix',timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
 
     const panicHandle = taskScheduler.setTimeout(() => {
       if (bootDone) return;
@@ -86,9 +82,6 @@ export function useCardBootstrap(): void {
       .finally(() => {
         bootDone = true;
         taskScheduler.cancel(panicHandle);
-        // #region agent log
-        fetch('http://127.0.0.1:7244/ingest/bbcc467f-b810-4cc1-aebf-add63a6395ee',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'f62800'},body:JSON.stringify({sessionId:'f62800',location:'useCardBootstrap.ts:finally',message:'Boot DAG finally — total duration',data:{totalMs:Date.now()-_bootStart,hasFallbackShowing:document.getElementById('boot-fallback')?.style?.display==='flex'},hypothesisId:'A',runId:'post-fix',timestamp:Date.now()})}).catch(()=>{});
-        // #endregion
         cleanupSplash();
         notifyElectronReady();
         applyBootMarkers();

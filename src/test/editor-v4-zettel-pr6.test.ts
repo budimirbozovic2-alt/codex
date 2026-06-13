@@ -3,11 +3,11 @@
  *
  * Covers two SSOT guarantees:
  *  1. `useArticleDraft` seeds `Draft.contentDoc` from a legacy markdown-only
- *     article and persists it on flush alongside derived markdown.
- *  2. Smart-Split builders attach `contentDoc` to each section payload so
- *     freshly created cards don't have to wait for lazy-migrate.
+ *     payload (decode backfill) and persists edits on flush.
+ *  2. Smart-Split builders attach `contentDoc` to each section payload at
+ *     creation time (no boot idle migration required).
  */
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { createElement } from "react";
 import { act, renderHook } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -20,7 +20,8 @@ import {
 } from "@/lib/source-reader/build-essay-payload";
 import { defaultEdit } from "@/lib/split-wizard-build";
 import type { SelectionModule } from "@/lib/selection-split-engine";
-import type { Source } from "@/lib/db-types";
+import { legacyKbArticlePayload } from "./helpers/kb-article-fixture";
+import { makeSource } from "./factories";
 
 const SUBJECT = "subject-pr6";
 
@@ -29,21 +30,33 @@ const MODS: SelectionModule[] = [
   { articleNum: "2", title: "Član 2", contentText: "beta",  contentHtml: "<p>beta</p>",  plainSnippet: "Član 2\nbeta"  },
 ];
 
-const SOURCE = {
-  id: "src-1", categoryId: "cat-1", title: "Zakon", date: "2024-01-01",
-  htmlContent: "<p>x</p>", outline: [], articles: [], version: 1,
-  createdAt: 0, updatedAt: 0,
-} as unknown as Source;
-
-beforeEach(() => {
-  vi.restoreAllMocks();
+const SOURCE = makeSource({
+  id: "src-1",
+  categoryId: "cat-1",
+  title: "Zakon",
+  date: "2024-01-01",
+  html: "<p>x</p>",
+  createdAt: 0,
+  updatedAt: 0,
 });
 
+function legacyMarkdownArticle(
+  subjectId: string,
+  title: string,
+  markdown: string,
+) {
+  return legacyKbArticlePayload(subjectId, title, markdown);
+}
+
 describe("useArticleDraft — contentDoc seed + flush", () => {
-  it("seeds Draft.contentDoc from a legacy markdown-only article and persists it on flush", async () => {
-    const article = newArticle(SUBJECT, "Legacy");
-    article.content = "# Naslov\n\nTekst sa [[Drugi članak]] linkom.";
+  it("seeds Draft.contentDoc from a legacy markdown-only payload and persists on flush", async () => {
+    const article = legacyMarkdownArticle(
+      SUBJECT,
+      "Legacy",
+      "# Naslov\n\nTekst sa [[Drugi članak]] linkom.",
+    );
     await saveArticle(article);
+    const loaded = (await getKnowledgeBaseArticle(article.id))!;
 
     const setArticles = vi.fn();
     const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -54,12 +67,10 @@ describe("useArticleDraft — contentDoc seed + flush", () => {
       { wrapper },
     );
 
-    act(() => result.current.enterEdit(article));
+    act(() => result.current.enterEdit(loaded));
     expect(result.current.draft?.contentDoc.version).toBe(4);
     expect(result.current.draft?.contentDoc.content?.type).toBe("doc");
 
-    // Doc update via updateDraftDoc — PR-7b keeps `contentDoc` as SSOT; markdown
-    // is derived only at flush, NOT per keystroke.
     const nextDoc = {
       version: 4 as const,
       content: {

@@ -6,7 +6,7 @@
  * assert against `persisted.contentDoc` (or derived markdown), not legacy
  * `content` string mutation via `updateDraft`.
  */
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createElement } from "react";
 import { act, renderHook } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -25,12 +25,10 @@ const SUBJECT = "subject-draft";
 beforeEach(async () => {
   await db.knowledgeBaseArticles.clear();
 });
-afterEach(() => vi.restoreAllMocks());
 
 describe("useArticleDraft", () => {
   it("flush is a no-op when draft equals fresh persisted article", async () => {
     const article = newArticle(SUBJECT, "Alpha");
-    article.content = deriveMarkdown(article.contentDoc);
     await saveArticle(article);
 
     const setArticles = vi.fn();

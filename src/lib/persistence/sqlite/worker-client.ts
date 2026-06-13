@@ -183,7 +183,7 @@ export function getWorkerSqlExecutor(): SqlExecutor {
   return makeExecutor();
 }
 
-export function __resetWorkerClient(): void {
+function __resetWorkerClient(): void {
   try {
     worker?.terminate();
   } catch { /* noop */ }
@@ -222,7 +222,7 @@ if (import.meta.hot) {
       // Tokom HMR-a šaljemo shutdown RPC i čekamo 
       // da worker vrati 'ok' prije nego ga nasilno ugasimo
       rpc({ op: "shutdown" }).finally(() => {
-        try { worker?.terminate(); } catch {}
+        try { worker?.terminate(); } catch { /* worker may already be gone */ }
         worker = null;
       });
     }

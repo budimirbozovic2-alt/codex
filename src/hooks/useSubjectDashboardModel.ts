@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { useCategoryData } from "@/hooks/cards/useCategoryState";
-import { useCardData } from "@/hooks/cards/useCardState";
+import { countDueCards } from "@/hooks/cards/useCardAggregates";
 import { useCardsByCategory } from "@/store";
 import {
   aggregateSubjectProgress,
@@ -8,7 +8,7 @@ import {
 } from "@/lib/subject/aggregators";
 import type { Card } from "@/lib/spaced-repetition";
 
-export interface SubjectSubcategoryRef {
+interface SubjectSubcategoryRef {
   id: string;
   name: string;
 }
@@ -33,7 +33,6 @@ export function useSubjectDashboardModel(
   categoryId: string | undefined,
 ): SubjectDashboardModel {
   const { categoryRecords } = useCategoryData();
-  const { dueCards } = useCardData();
   const subjectCardsRo = useCardsByCategory(categoryId);
   const subjectCards = useMemo(
     () => subjectCardsRo as readonly Card[] as Card[],
@@ -61,8 +60,8 @@ export function useSubjectDashboardModel(
   );
 
   const subjectDueCount = useMemo(
-    () => dueCards.filter((c) => c.categoryId === categoryId).length,
-    [dueCards, categoryId],
+    () => countDueCards(subjectCards),
+    [subjectCards],
   );
 
   return {

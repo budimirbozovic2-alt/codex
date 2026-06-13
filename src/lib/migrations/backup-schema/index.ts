@@ -12,8 +12,7 @@
  *  - satellite-logs.ts       — diary, calibration, latency, slippage,
  *                              activity, discipline, pomodoro, mnemonic-test,
  *                              major-system
- *  - root.ts                 — top-level BackupSchema, ParsedBackup types,
- *                              legacy MinimalBackup interfaces + helpers
+ *  - root.ts                 — top-level BackupSchema (v7), ParsedBackup
  *
  * Splitting the previous 697-line module keeps each schema unit independently
  * testable and trims the dep graph: callers that only need (say) the source

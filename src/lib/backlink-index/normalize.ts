@@ -4,7 +4,7 @@
  */
 import { normalizeKey } from "../zettelkasten-wiki-link";
 
-export const SNIPPET_PAD = 40;
+const SNIPPET_PAD = 40;
 
 export function norm(title: string): string {
   return normalizeKey(title);

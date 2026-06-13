@@ -6,7 +6,7 @@ const FILTER_STORAGE_PREFIX = "passive-reader-filters:";
 
 export type TypeFilter = "all" | "essay" | "flash";
 
-export interface PersistedFilters {
+interface PersistedFilters {
   subFilter: string;
   chapterFilter: string;
   typeFilter: TypeFilter;

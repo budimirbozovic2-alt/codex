@@ -6,7 +6,7 @@ import type {
 } from "@/lib/db-types";
 import { SafeHtml, SafeText, NumberWithDefault } from "./helpers";
 
-export const BackupChapterSchema: z.ZodType<ChapterNode> = z
+const BackupChapterSchema: z.ZodType<ChapterNode> = z
   .object({
     id: z.string(),
     name: SafeText,
@@ -14,7 +14,7 @@ export const BackupChapterSchema: z.ZodType<ChapterNode> = z
   })
   .strict() as unknown as z.ZodType<ChapterNode>;
 
-export const BackupSubcategorySchema: z.ZodType<SubcategoryNode> = z
+const BackupSubcategorySchema: z.ZodType<SubcategoryNode> = z
   .object({
     id: z.string(),
     name: SafeText,

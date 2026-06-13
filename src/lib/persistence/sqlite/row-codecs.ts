@@ -20,7 +20,7 @@ export class CardDecodeError extends Error {
   }
 }
 
-export interface CardRowBindings {
+interface CardRowBindings {
   id: SqlBindValue;
   categoryId: SqlBindValue;
   subcategoryId: SqlBindValue;
@@ -34,7 +34,7 @@ export interface CardRowBindings {
   payload: SqlBindValue;
 }
 
-export function encodeCard(card: Card): CardRowBindings {
+function encodeCard(card: Card): CardRowBindings {
   return {
     id: card.id,
     categoryId: card.categoryId,

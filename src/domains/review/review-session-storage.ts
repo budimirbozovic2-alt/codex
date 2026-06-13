@@ -9,7 +9,7 @@ import { getSetting, putSetting } from "@/lib/db/queries";
 import { logger } from "@/lib/logger";
 import type { ReviewMode } from "@/components/review/review-constants";
 
-export const REVIEW_SESSION_KEY = "sr-review-session";
+const REVIEW_SESSION_KEY = "sr-review-session";
 
 const TTL_MS = 2 * 60 * 60 * 1000; // 2h
 
@@ -31,7 +31,7 @@ function isFreshSession(s: unknown): s is SavedReviewSession {
 }
 
 /**
- * Load the saved session (IDB), one-shot migrating from legacy localStorage
+ * Load the saved session (SQLite `kv`), one-shot migrating from legacy localStorage
  * slot. Returns null when no fresh session exists; stale entries are evicted.
  */
 export async function loadSavedReviewSession(): Promise<SavedReviewSession | null> {
@@ -67,7 +67,7 @@ export async function saveReviewSession(state: SavedReviewSession): Promise<void
   }
 }
 
-/** Clear from IDB (preferred). */
+/** Clear from SQLite `kv` (preferred). */
 export async function clearSavedReviewSession(): Promise<void> {
   try {
     await putSetting(REVIEW_SESSION_KEY, null);

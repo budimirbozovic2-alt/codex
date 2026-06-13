@@ -3,9 +3,7 @@ import type { EditorDoc } from "@/lib/editor-v4/types";
 
 export interface SectionInput {
   title: string;
-  /** @deprecated PR-7b: legacy HTML. Use `contentDoc` for new writes. */
-  content?: string;
-  /** PR-7b: canonical AST — primary write payload. */
+  /** Canonical V4 AST — sole section body SSOT. */
   contentDoc: EditorDoc;
 }
 
@@ -16,34 +14,6 @@ export interface ValidationErrors {
   question?: string;
   flashAnswer?: string;
   sections?: string;
-}
-
-export function parseHtmlToParagraphs(html: string): string[] {
-  const div = document.createElement("div");
-  div.innerHTML = html;
-  const blocks: string[] = [];
-  const processNode = (node: Node) => {
-    if (node.nodeType === Node.TEXT_NODE) {
-      const text = node.textContent?.trim();
-      if (text) blocks.push(text);
-    } else if (node.nodeType === Node.ELEMENT_NODE) {
-      const el = node as HTMLElement;
-      const tag = el.tagName.toLowerCase();
-      if (["p", "div", "br", "li"].includes(tag)) {
-        const inner = el.innerHTML.trim();
-        if (inner && inner !== "<br>") blocks.push(inner);
-      } else {
-        const outer = el.outerHTML.trim();
-        if (outer) blocks.push(outer);
-      }
-    }
-  };
-  if (div.children.length === 0) {
-    const parts = html.split(/<br\s*\/?>/gi).map(s => s.trim()).filter(Boolean);
-    return parts.length > 0 ? parts : [html];
-  }
-  div.childNodes.forEach(processNode);
-  return blocks.length > 0 ? blocks : [html];
 }
 
 export function validate(
@@ -63,11 +33,7 @@ export function validate(
   } else {
     // PR-7b: validate from AST plain text — keystroke loop no longer maintains
     // a derived `content` HTML string on every change.
-    if (sections.some(s => {
-      const fromDoc = s.contentDoc ? sectionPlainTextLen(s.contentDoc) : 0;
-      const fromLegacy = s.content ? stripHtmlText(s.content).length : 0;
-      return fromDoc === 0 && fromLegacy === 0;
-    })) {
+    if (sections.some((s) => sectionPlainTextLen(s.contentDoc) === 0)) {
       errors.sections = "Sve cjeline moraju imati sadržaj.";
     }
   }

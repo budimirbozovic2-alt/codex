@@ -3,34 +3,26 @@
 import type { HookType, MnemonicCard, MnemonicSection } from "./types";
 import { detectEnumerationItems } from "./content-utils";
 import { htmlToDoc } from "@/lib/editor-v4/codecs/html-to-doc";
-import { metrics } from "@/lib/metrics";
+import type { EditorDoc } from "@/lib/editor-v4/types";
 import { logger } from "@/lib/logger";
 
-// Dual-write contentDoc alongside legacy content string (E.1).
-// Defensive: htmlToDoc parses untrusted HTML — wrap in try/catch so a single
-// malformed section never blocks card creation. Failures are counted and the
-// section persists with `content` only; lazy-migrate will retry on next read.
-function withDoc(s: { title: string; content: string }): MnemonicSection {
+const EMPTY_DOC: EditorDoc = { version: 4, content: { type: "doc", content: [] } };
+
+function sectionFromHtml(title: string, html: string): MnemonicSection {
   try {
-    const contentDoc = htmlToDoc(s.content || "");
-    metrics.inc("mnemonic.dualWrite.ok");
-    return { title: s.title, content: s.content, contentDoc };
+    return { title, contentDoc: htmlToDoc(html || "") };
   } catch (err) {
-    metrics.event("mnemonic.dualWrite.fail", { title: s.title, err: String(err) });
-    logger.error("[mnemonic:dualWrite] htmlToDoc failed", err);
-    return { title: s.title, content: s.content };
+    logger.error("[mnemonic:factory] htmlToDoc failed", err);
+    return { title, contentDoc: EMPTY_DOC };
   }
 }
 
-// Auto-detect hook type from content
-export function detectHookType(sections: { content: string }[]): HookType {
-  const allContent = sections.map(s => s.content).join(" ");
-  const text = allContent.replace(/<[^>]*>/g, " ");
-  // Check for deadlines/numbers patterns (rok, dan, mjesec, godina + numbers)
-  const deadlinePattern = /\b(rok|dana|dan|mjesec|godin|Year|frist|deadline|\d+\s*(dana|dan|mjeseci|godina|sati|h))\b/i;
+function detectHookTypeFromHtml(html: string): HookType {
+  const text = html.replace(/<[^>]*>/g, " ");
+  const deadlinePattern =
+    /\b(rok|dana|dan|mjesec|godin|Year|frist|deadline|\d+\s*(dana|dan|mjeseci|godina|sati|h))\b/i;
   if (deadlinePattern.test(text)) return "rokovi";
-  // Check for enumerations
-  const enumItems = detectEnumerationItems(allContent);
+  const enumItems = detectEnumerationItems(html);
   if (enumItems.length >= 2) return "nabrajanja";
   return "ostalo";
 }
@@ -47,40 +39,11 @@ export function createMnemonicCardFromSelection(
     id: crypto.randomUUID(),
     originalCardId,
     question,
-    sections: [withDoc({ title: "Isječak", content: selectedText })],
+    sections: [sectionFromHtml("Isječak", selectedText)],
     categoryId,
     subcategoryId,
     tags: tags || [],
-    hookType: detectHookType([{ content: selectedText }]),
-    hookMode: "video",
-    mnemonicVideo: "",
-    acronym: "",
-    mnemonicStatus: "new",
-    createdAt: Date.now(),
-    testCount: 0,
-    successCount: 0,
-    failCount: 0,
-    lastTested: null,
-  };
-}
-
-export function createMnemonicCard(
-  originalCardId: string,
-  question: string,
-  sections: { title: string; content: string }[],
-  categoryId: string,
-  subcategoryId?: string,
-  tags?: string[],
-): MnemonicCard {
-  return {
-    id: crypto.randomUUID(),
-    originalCardId,
-    question,
-    sections: sections.map(withDoc),
-    categoryId,
-    subcategoryId,
-    tags: tags || [],
-    hookType: detectHookType(sections),
+    hookType: detectHookTypeFromHtml(selectedText),
     hookMode: "video",
     mnemonicVideo: "",
     acronym: "",

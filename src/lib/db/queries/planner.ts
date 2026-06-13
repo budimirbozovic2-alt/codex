@@ -1,55 +1,9 @@
 /**
  * Planner repository — PR-9 A1c-2. SQLite-only.
  */
-import type { 
-  SqlExecutor 
-} from "@/lib/persistence/sqlite/executor";
 import { kvGet, kvPut } from "@/lib/persistence/sqlite/kv";
 import { logger } from "@/lib/logger";
-import { 
-  notifyExecutorNull 
-} from "./_shared/executor-telemetry";
-
-async function tryGetExecutor(): Promise<SqlExecutor | null> {
-  try {
-    const { isElectron } = await import(
-      "@/lib/electron-integration"
-    );
-    if (!isElectron() && import.meta.env.PROD) { 
-      notifyExecutorNull("planner", "non-electron"); 
-      return null; 
-    }
-    
-    const { getOpfsSqliteExecutor } = await import(
-      "@/lib/persistence/sqlite/client"
-    );
-    
-    // Faza 4: Uklonjen mrtvi polling kod.
-    return await getOpfsSqliteExecutor();
-  } catch (err) {
-    logger.warn(
-      "[planner-repo] sqlite executor unavailable", 
-      err
-    );
-    notifyExecutorNull("planner", "error");
-    return null;
-  }
-}
-
-async function requireExecutor(
-  label: string
-): Promise<SqlExecutor | null> {
-  const exec = await tryGetExecutor();
-  if (exec) return exec;
-  const { assertDesktop } = await import(
-    "@/lib/electron-integration"
-  );
-  assertDesktop();
-  logger.warn(
-    `[planner-repo] ${label} — no executor (dev shell)`
-  );
-  return null;
-}
+import { requireSqlExecutor } from "./_shared/require-sql-executor";
 
 // ─── KV reads ───────────────────────────────────────────────────
 
@@ -62,15 +16,7 @@ export interface PlannerHydrationSnapshot {
 
 export async function loadPlannerSnapshot(): 
   Promise<PlannerHydrationSnapshot> {
-  const exec = await requireExecutor("loadPlannerSnapshot");
-  if (!exec) {
-    return { 
-      plannerConfig: undefined, 
-      dailyMapped: undefined, 
-      lastRedistribute: undefined, 
-      disciplineLog: [] 
-    };
-  }
+  const exec = await requireSqlExecutor("planner:loadPlannerSnapshot");
   
   const [
     plannerConfig, 
@@ -105,8 +51,7 @@ export async function loadPlannerSnapshot():
 }
 
 export async function listAllDisciplineLog(): Promise<unknown[]> {
-  const exec = await requireExecutor("listAllDisciplineLog");
-  if (!exec) return [];
+  const exec = await requireSqlExecutor("planner:listAllDisciplineLog");
   try {
     const rows = await exec.all<{ payload: string }>(
       "SELECT payload FROM disciplineLog ORDER BY date ASC",
@@ -130,8 +75,7 @@ export async function listAllDisciplineLog(): Promise<unknown[]> {
 }
 
 export async function countDisciplineLog(): Promise<number> {
-  const exec = await requireExecutor("countDisciplineLog");
-  if (!exec) return 0;
+  const exec = await requireSqlExecutor("planner:countDisciplineLog");
   try {
     const rows = await exec.all<{ n: number }>(
       "SELECT COUNT(*) AS n FROM disciplineLog"
@@ -149,8 +93,7 @@ export async function countDisciplineLog(): Promise<number> {
 // ─── KV writes ──────────────────────────────────────────────────
 
 async function putKv(key: string, value: unknown): Promise<void> {
-  const exec = await requireExecutor("putKv");
-  if (!exec) return;
+  const exec = await requireSqlExecutor("planner:putKv");
   try {
     await kvPut(exec, key, value);
   } catch (err) {
@@ -182,8 +125,7 @@ export async function saveDisciplineLog<
 >(
   entries: ReadonlyArray<T>,
 ): Promise<void> {
-  const exec = await requireExecutor("saveDisciplineLog");
-  if (!exec) throw new Error("NO_EXECUTOR");
+  const exec = await requireSqlExecutor("planner:saveDisciplineLog");
   try {
     await exec.transaction(async (tx) => {
       await tx.run("DELETE FROM disciplineLog");

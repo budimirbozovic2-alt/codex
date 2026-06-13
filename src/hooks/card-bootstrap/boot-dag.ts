@@ -4,7 +4,7 @@
  */
 import { markBootStep } from "@/lib/boot-trace";
 import { transition, getBootState } from "@/lib/boot";
-import { notifyCardsChanged } from "@/lib/db/queries";
+import { emitCardsChangedForCategoryIds } from "@/lib/db/queries";
 import { categoryRepository } from "@/lib/repositories";
 import { replaceReviewLog, seedSrSettings } from "@/store/reviewSettingsStore";
 import { taskScheduler } from "@/lib/scheduler/taskScheduler";
@@ -15,8 +15,6 @@ import { bootDb } from "./bootDb";
 import { runSchema, SchemaError } from "./runSchema";
 import { runHeal } from "./runHeal";
 import { loadInitialData, loadCardsDeferred } from "./loadInitialData";
-
-export type BootPhase = "init" | "schema" | "data" | "ready";
 
 function msg(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
@@ -85,7 +83,7 @@ export async function runBootDag(signal: AbortSignal): Promise<void> {
 }
 
 /** Post-READY background work: deferred card load + taxonomy heal. */
-export function scheduleDeferredBoot(catRecords: CategoryRecord[]): void {
+function scheduleDeferredBoot(catRecords: CategoryRecord[]): void {
   taskScheduler.idle(
     () => {
       void (async () => {
@@ -110,7 +108,12 @@ export function scheduleDeferredBoot(catRecords: CategoryRecord[]): void {
             logger.warn("[boot] deferred heal commit failed", e);
           }
 
-          notifyCardsChanged();
+          emitCardsChangedForCategoryIds(finalRecords.map((r) => r.id));
+
+          // Idle backfill: persist contentDoc for any legacy card/source/article
+          // rows still stored as HTML/markdown-only payloads.
+          const { kickoffEditorV4Migration } = await import("@/lib/editor-v4/lazy-migrate");
+          kickoffEditorV4Migration();
         } catch (e) {
           logger.warn("[boot] deferred load failed", e);
           markBootStep("cards:deferred-load-failed", msg(e));

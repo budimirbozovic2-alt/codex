@@ -1,7 +1,5 @@
 import type { Card } from "@/lib/spaced-repetition";
-import type { Source } from "@/domains/sources/sources-storage";
-import { sanitizeHtml } from "@/lib/sanitize";
-import { deriveHtml, derivePlainText } from "@/lib/editor-v4/derived";
+import { derivePlainText } from "@/lib/editor-v4/derived";
 
 export const WPM_OPTIONS = [100, 150, 200, 250, 300, 400, 500];
 export const FONT_SIZES = [
@@ -10,9 +8,6 @@ export const FONT_SIZES = [
   { label: "L", value: "text-xl" },
   { label: "XL", value: "text-2xl" },
 ];
-
-export type ContentSource = "cards" | "sources";
-export type ReadMode = "subcategory" | "card" | "source";
 
 export interface Segment {
   cardQuestion: string;
@@ -28,8 +23,6 @@ export interface WordEntry {
   isTitle: boolean;
   segmentIdx: number;
 }
-
-export { stripHtml } from "@/lib/sanitize";
 
 export function cleanForTTS(text: string): string {
   return text
@@ -61,56 +54,6 @@ export function buildSegments(selectedCards: Card[]): { segments: Segment[]; wor
       });
     });
   });
-  return { segments, wordEntries };
-}
-
-export function buildSourceSegments(source: Source): { segments: Segment[]; wordEntries: WordEntry[] } {
-  const segments: Segment[] = [];
-  const wordEntries: WordEntry[] = [];
-  // PR-7c (M3 #7): derive HTML from AST — legacy htmlContent dropped post-v22.
-  const html = deriveHtml(source.contentDoc);
-  if (!html) return { segments, wordEntries };
-
-  const parser = new DOMParser();
-  const doc = parser.parseFromString(sanitizeHtml(html), "text/html");
-  const children = Array.from(doc.body.children);
-
-  let currentTitle = source.title;
-  let currentContent: string[] = [];
-
-  const flush = () => {
-    const text = currentContent.join(" ").trim();
-    if (!text) return;
-    const titleWords = currentTitle.split(/\s+/).filter(Boolean);
-    const contentWords = text.split(/\s+/).filter(Boolean);
-    if (titleWords.length === 0 && contentWords.length === 0) return;
-    const segIdx = segments.length;
-    const globalStart = wordEntries.length;
-    titleWords.forEach(w => wordEntries.push({ text: w, isTitle: true, segmentIdx: segIdx }));
-    contentWords.forEach(w => wordEntries.push({ text: w, isTitle: false, segmentIdx: segIdx }));
-    segments.push({
-      cardQuestion: source.title,
-      sectionTitle: currentTitle,
-      cardIndex: 0,
-      sectionIndex: segIdx,
-      words: [...titleWords, ...contentWords],
-      globalStartIdx: globalStart,
-    });
-  };
-
-  for (const el of children) {
-    const tag = el.tagName;
-    if (/^H[1-4]$/.test(tag)) {
-      flush();
-      currentTitle = el.textContent?.trim() || "Sekcija";
-      currentContent = [];
-    } else {
-      const t = el.textContent?.trim();
-      if (t) currentContent.push(t);
-    }
-  }
-  flush();
-
   return { segments, wordEntries };
 }
 

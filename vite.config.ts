@@ -4,8 +4,6 @@ import path from "path";
 import { 
   readFileSync, copyFileSync, mkdirSync, existsSync 
 } from "fs";
-import { componentTagger } from "lovable-tagger";
-
 const pkg = JSON.parse(readFileSync("./package.json", "utf-8"));
 
 function copySqliteWasmPlugin(): Plugin {
@@ -95,10 +93,9 @@ export default defineConfig(({ mode }) => ({
   },
   plugins: [
     react(),
-    mode === "development" && componentTagger(),
     copySqliteWasmPlugin(),
     serveSqliteWasmDevPlugin(),
-  ].filter(Boolean),
+  ],
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
@@ -141,64 +138,39 @@ export default defineConfig(({ mode }) => ({
       output: {
         manualChunks(id) {
           if (!id.includes("node_modules")) {
-            // Prevent app-level modules from being duplicated across async
-            // entry points when they are imported from multiple code paths.
-            if (id.includes("dev-fallback")) return "infra-dev-fallback";
             if (id.includes("worker-client")) return "infra-worker-client";
-            if (id.includes("electron-integration")) return "infra-electron";
             return;
           }
-          if (id.includes("react-router")) {
-            return "vendor-router";
-          }
-          // Keep React + Radix + sonner in one chunk. Splitting Radix out
-          // caused a circular dep in Electron prod: vendor-radix imported
-          // vendor-react while vendor-react pulled the shared CJS interop
-          // helper from infra-electron (where sonner lived), and
-          // infra-electron imported vendor-radix — React was still undefined
-          // when Radix called forwardRef.
+          // Single React vendor chunk: every lib that calls createContext /
+          // forwardRef at module init must live here (never in a separate
+          // vendor-* chunk that app code preloads at boot).
           if (
+            id.includes("react-router") ||
             /node_modules[\\/](react|react-dom|scheduler)[\\/]/.test(id) ||
             id.includes("@radix-ui") ||
-            id.includes("node_modules/sonner")
+            id.includes("node_modules/sonner") ||
+            id.includes("lucide-react") ||
+            id.includes("dompurify") ||
+            id.includes("@tanstack/react-query") ||
+            id.includes("framer-motion") ||
+            id.includes("motion-dom") ||
+            id.includes("motion-utils") ||
+            id.includes("@xyflow") ||
+            id.includes("reactflow")
           ) {
             return "vendor-react";
           }
-          if (id.includes("@tanstack/react-query")) {
-            return "vendor-query";
-          }
-          if (
-            id.includes("framer-motion") || 
-            id.includes("motion-dom") || 
-            id.includes("motion-utils")
-          ) {
-            return "vendor-motion";
-          }
-          // Do NOT manual-chunk recharts. A shared vendor-recharts chunk imports
-          // CJS interop helpers from infra-electron while infra-electron
-          // preloads vendor-recharts → TDZ crash (Cannot access 'A' before init).
-          // Keep recharts in lazy route chunks (Stats/Planner) instead.
-          //
-          // Same for @tiptap/prosemirror: infra-electron pulls editor-v4 codecs
-          // (docToHtml, htmlToDoc) while vendor-tiptap imported CJS helpers back
-          // from infra-electron → React.useState undefined at chunk init.
-          if (
-            id.includes("@xyflow") || 
-            id.includes("reactflow")
-          ) {
-            return "vendor-xyflow";
-          }
-          if (
-            id.includes("dompurify") || 
-            id.includes("lucide-react")
-          ) {
-            return "vendor-ui-utils";
-          }
+          // Do NOT manual-chunk recharts or @tiptap/prosemirror — keep them in
+          // lazy route / feature chunks to avoid shared vendor ↔ app cycles.
         },
       },
     },
   },
   worker: {
     format: "es",
+  },
+  test: {
+    setupFiles: ["src/test/setup.ts"],
+    environment: "jsdom",
   },
 }));

@@ -15,7 +15,7 @@
 import { getCardMasteryLevel } from "@/lib/mastery";
 import { SectionState, type Card } from "@/lib/spaced-repetition";
 
-export interface ChapterProgress {
+interface ChapterProgress {
   id: string;
   name: string;
   cardCount: number;
@@ -32,7 +32,7 @@ export interface SubProgress {
   chapters: ChapterProgress[];
 }
 
-export interface ChapterInput {
+interface ChapterInput {
   id: string;
   name: string;
 }

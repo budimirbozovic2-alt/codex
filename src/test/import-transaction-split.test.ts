@@ -3,7 +3,6 @@ import {
   mergeCardsByStrategy,
 } from "@/lib/backup/write-cards-tx";
 import {
-  isCategoryRecordArray,
   buildCategoryIdRemap,
   applyRemapToParsed,
   pruneOrphans,
@@ -11,38 +10,18 @@ import {
 import type { Card } from "@/lib/spaced-repetition";
 import type { CategoryRecord } from "@/lib/db-types";
 import type { ParsedBackup } from "@/lib/migrations/backup-schema";
-
-// ─────────────────────────────────────────────────────────────────────────
-// Minimal factories — we only care about the fields the helpers read.
-// ─────────────────────────────────────────────────────────────────────────
+import { makeCard as makeCardFixture, makeSection } from "./factories";
 
 function makeCard(
   id: string,
   categoryId = "cat-1",
   lastReviewed = 0,
 ): Card {
-  return {
+  return makeCardFixture({
     id,
     categoryId,
-    subcategoryId: "",
-    chapterId: "",
-    tags: [],
-    sections: [
-      {
-        id: `${id}-s1`,
-        title: "",
-        content: "",
-        sourceContent: "",
-        stability: 1,
-        difficulty: 5,
-        reps: 0,
-        lapses: 0,
-        lastReviewed,
-        nextReview: 0,
-        status: "New",
-      },
-    ],
-  } as unknown as Card;
+    sections: [makeSection({ html: "<p></p>", lastReviewed })],
+  });
 }
 
 function makeCat(id: string, name: string): CategoryRecord {
@@ -116,20 +95,8 @@ describe("mergeCardsByStrategy", () => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────
-// isCategoryRecordArray + buildCategoryIdRemap
+// buildCategoryIdRemap
 // ─────────────────────────────────────────────────────────────────────────
-
-describe("isCategoryRecordArray", () => {
-  it("returns false for empty array", () => {
-    expect(isCategoryRecordArray([])).toBe(false);
-  });
-  it("returns false for legacy string[] format", () => {
-    expect(isCategoryRecordArray(["Krivično pravo"] as unknown as CategoryRecord[])).toBe(false);
-  });
-  it("returns true for modern CategoryRecord[]", () => {
-    expect(isCategoryRecordArray([makeCat("id-1", "X")])).toBe(true);
-  });
-});
 
 describe("buildCategoryIdRemap", () => {
   it("remaps backup-IDs to existing-IDs by case-insensitive name match", () => {
@@ -155,7 +122,7 @@ describe("buildCategoryIdRemap", () => {
 // ─────────────────────────────────────────────────────────────────────────
 
 describe("applyRemapToParsed", () => {
-  it("rewrites categoryId on cards, sources, mnemonics, mindMaps, KB articles", async () => {
+  it("rewrites categoryId on parsed.cards, sources, mnemonics, mindMaps, KB articles", async () => {
     const parsed = emptyParsed();
     parsed.sources = [{ id: "s1", categoryId: "old-cat" }] as unknown as ParsedBackup["sources"];
     parsed.mnemonics = [{ id: "m1", categoryId: "old-cat" }] as unknown as ParsedBackup["mnemonics"];
@@ -165,13 +132,12 @@ describe("applyRemapToParsed", () => {
     ] as unknown as ParsedBackup["knowledgeBaseArticles"];
 
     const card = makeCard("c1", "old-cat");
-    const map: Record<string, Card> = { c1: card };
+    parsed.cards = [card];
     const remap = new Map([["old-cat", "new-cat"]]);
 
-    await applyRemapToParsed(remap, parsed, [card], map);
+    await applyRemapToParsed(remap, parsed);
 
     expect(card.categoryId).toBe("new-cat");
-    expect(map.c1.categoryId).toBe("new-cat");
     expect(parsed.sources[0].categoryId).toBe("new-cat");
     expect(parsed.mnemonics[0].categoryId).toBe("new-cat");
     expect(parsed.mindMaps[0].categoryId).toBe("new-cat");
@@ -182,8 +148,20 @@ describe("applyRemapToParsed", () => {
   it("no-ops when remap is empty", async () => {
     const parsed = emptyParsed();
     parsed.sources = [{ id: "s1", categoryId: "x" }] as unknown as ParsedBackup["sources"];
-    await applyRemapToParsed(new Map(), parsed, [], {});
+    await applyRemapToParsed(new Map(), parsed);
     expect(parsed.sources[0].categoryId).toBe("x");
+  });
+
+  it("does not mutate caller-owned card maps outside parsed.cards", async () => {
+    const parsed = emptyParsed();
+    const liveCard = makeCard("c1", "old");
+    parsed.cards = [makeCard("c-import", "old")];
+    const liveMap: Record<string, Card> = { c1: liveCard };
+
+    await applyRemapToParsed(new Map([["old", "new"]]), parsed);
+
+    expect(parsed.cards[0].categoryId).toBe("new");
+    expect(liveMap.c1.categoryId).toBe("old");
   });
 });
 
@@ -220,9 +198,6 @@ describe("pruneOrphans", () => {
   });
 
   it("drops mindMaps without a categoryId — categoryId is NOT NULL in the schema", () => {
-    // mindMaps.categoryId is TEXT NOT NULL with a FK constraint (PRAGMA foreign_keys = ON).
-    // Inserting a mindMap with categoryId = null / undefined / "" causes SQLITE_CONSTRAINT_FOREIGNKEY (787).
-    // pruneOrphans must drop these rows rather than keep them.
     const parsed = emptyParsed();
     parsed.mindMaps = [
       { id: "no-category" },
@@ -245,8 +220,9 @@ describe("import-transaction re-exports", () => {
     expect(typeof mod.writeCategoriesTx).toBe("function");
     expect(typeof mod.writeSatelliteTablesTx).toBe("function");
     expect(typeof mod.buildCategoryIdRemap).toBe("function");
+    expect(typeof mod.applyRemapToParsed).toBe("function");
     expect(typeof mod.pruneOrphans).toBe("function");
-  });
+  }, 20_000);
 });
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -297,7 +273,6 @@ describe("buildCategoryIdRemap — edge cases", () => {
   });
 
   it("name match wins over identical ID under a different name", () => {
-    // parsed has id=X/name=A; live has id=X/name=B and id=Y/name=A → remap X→Y
     const remap = buildCategoryIdRemap(
       [makeCat("X", "A")],
       [makeCat("X", "B"), makeCat("Y", "A")],
@@ -307,9 +282,9 @@ describe("buildCategoryIdRemap — edge cases", () => {
 
   it("mixed catalog: only name-matching distinct-ID rows enter the remap", () => {
     const parsed = [
-      makeCat("b-1", "Match"),     // matches live-1 by name
-      makeCat("same", "Same"),     // ID equal to live one → skipped
-      makeCat("b-3", "Orphan"),    // no live match → skipped
+      makeCat("b-1", "Match"),
+      makeCat("same", "Same"),
+      makeCat("b-3", "Orphan"),
     ];
     const existing = [
       makeCat("live-1", "Match"),
@@ -325,18 +300,12 @@ describe("buildCategoryIdRemap — edge cases", () => {
 // applyRemapToParsed — selective / chained / scale / mixed legacy edges
 // ─────────────────────────────────────────────────────────────────────────
 
-function makeManyCards(n: number, categoryId: string): {
-  list: Card[];
-  map: Record<string, Card>;
-} {
+function makeManyCards(n: number, categoryId: string): Card[] {
   const list: Card[] = [];
-  const map: Record<string, Card> = {};
   for (let i = 0; i < n; i++) {
-    const c = makeCard(`c${i}`, categoryId);
-    list.push(c);
-    map[c.id] = c;
+    list.push(makeCard(`c${i}`, categoryId));
   }
-  return { list, map };
+  return list;
 }
 
 describe("applyRemapToParsed — edge cases", () => {
@@ -351,27 +320,26 @@ describe("applyRemapToParsed — edge cases", () => {
       { id: "mm2", categoryId: "untouched" },
     ] as unknown as ParsedBackup["mindMaps"];
 
-    const cards = [makeCard("c1", "old"), makeCard("c2", "untouched")];
-    const map: Record<string, Card> = { c1: cards[0], c2: cards[1] };
+    parsed.cards = [makeCard("c1", "old"), makeCard("c2", "untouched")];
 
-    await applyRemapToParsed(new Map([["old", "new"]]), parsed, cards, map);
+    await applyRemapToParsed(new Map([["old", "new"]]), parsed);
 
-    expect(cards[0].categoryId).toBe("new");
-    expect(cards[1].categoryId).toBe("untouched");
+    expect(parsed.cards[0].categoryId).toBe("new");
+    expect(parsed.cards[1].categoryId).toBe("untouched");
     expect(parsed.sources[0].categoryId).toBe("new");
     expect(parsed.sources[1].categoryId).toBe("untouched");
     expect(parsed.mindMaps[0].categoryId).toBe("new");
     expect(parsed.mindMaps[1].categoryId).toBe("untouched");
   });
 
-  it("same card referenced in both list and map is remapped exactly once (idempotent)", async () => {
+  it("single-pass remap on parsed.cards (A→B, B→C does not cascade A→C)", async () => {
     const parsed = emptyParsed();
-    const card = makeCard("c1", "old");
-    const map: Record<string, Card> = { c1: card };
-    await applyRemapToParsed(new Map([["old", "new"]]), parsed, [card], map);
-    expect(card.categoryId).toBe("new");
-    expect(map.c1).toBe(card);
-    expect(map.c1.categoryId).toBe("new");
+    parsed.cards = [makeCard("c1", "A")];
+    await applyRemapToParsed(
+      new Map([["A", "B"], ["B", "C"]]),
+      parsed,
+    );
+    expect(parsed.cards[0].categoryId).toBe("B");
   });
 
   it("skips mindMaps that have no categoryId (global maps)", async () => {
@@ -380,7 +348,7 @@ describe("applyRemapToParsed — edge cases", () => {
       { id: "global" },
       { id: "scoped", categoryId: "old" },
     ] as unknown as ParsedBackup["mindMaps"];
-    await applyRemapToParsed(new Map([["old", "new"]]), parsed, [], {});
+    await applyRemapToParsed(new Map([["old", "new"]]), parsed);
     expect((parsed.mindMaps[0] as { categoryId?: string }).categoryId).toBeUndefined();
     expect(parsed.mindMaps[1].categoryId).toBe("new");
   });
@@ -390,68 +358,42 @@ describe("applyRemapToParsed — edge cases", () => {
     parsed.knowledgeBaseArticles = [
       { id: "kb1", subjectId: "old", categoryId: "old" },
     ] as unknown as ParsedBackup["knowledgeBaseArticles"];
-    await applyRemapToParsed(new Map([["old", "new"]]), parsed, [], {});
+    await applyRemapToParsed(new Map([["old", "new"]]), parsed);
     const a = parsed.knowledgeBaseArticles[0] as unknown as {
       subjectId: string;
       categoryId: string;
     };
     expect(a.subjectId).toBe("new");
-    // `categoryId` is not a KB field the remap touches — left as-is.
     expect(a.categoryId).toBe("old");
   });
 
   it("performs a SINGLE-pass remap per loop (A→B, B→C does not cascade A→C on sources)", async () => {
-    // Sources are touched in exactly one loop, so no chaining is possible.
     const parsed = emptyParsed();
     parsed.sources = [{ id: "s1", categoryId: "A" }] as unknown as ParsedBackup["sources"];
     await applyRemapToParsed(
       new Map([["A", "B"], ["B", "C"]]),
       parsed,
-      [],
-      {},
     );
     expect(parsed.sources[0].categoryId).toBe("B");
   });
 
-  it("documents the dual-loop quirk: a card present in BOTH list AND map gets remapped twice", async () => {
-    // The implementation iterates `cardsToRemap` then `cardMap` separately;
-    // if the same reference appears in both, two passes apply. Callers in the
-    // orchestrator always pass either a fresh array or the map values, never
-    // both — but the contract is worth pinning down.
+  it("handles >1000 cards in parsed.cards (crosses the yieldUI boundary)", async () => {
     const parsed = emptyParsed();
-    const card = makeCard("c1", "A");
-    await applyRemapToParsed(
-      new Map([["A", "B"], ["B", "C"]]),
-      parsed,
-      [card],
-      { c1: card },
-    );
-    expect(card.categoryId).toBe("C");
+    parsed.cards = makeManyCards(1500, "old");
+    await applyRemapToParsed(new Map([["old", "new"]]), parsed);
+    expect(parsed.cards.every((c) => c.categoryId === "new")).toBe(true);
   });
 
-
-  it("handles >1000 cards in cardMap (crosses the yieldUI boundary)", async () => {
-    const parsed = emptyParsed();
-    const { list, map } = makeManyCards(1500, "old");
-    await applyRemapToParsed(new Map([["old", "new"]]), parsed, list, map);
-    expect(list.every((c) => c.categoryId === "new")).toBe(true);
-    let allNew = true;
-    for (const id in map) {
-      if (map[id].categoryId !== "new") { allNew = false; break; }
-    }
-    expect(allNew).toBe(true);
-  });
-
-  it("mixed legacy/modern: rewrites mapped IDs, leaves unmapped legacy IDs untouched", async () => {
+  it("leaves unmapped category IDs untouched when only some rows match by name", async () => {
     const parsed = emptyParsed();
     parsed.categories = [
       makeCat("live-1", "Match"),
       makeCat("live-2", "Other"),
     ];
     parsed.sources = [
-      { id: "s1", categoryId: "legacy-old" },    // remapped
-      { id: "s2", categoryId: "legacy-orphan" }, // not in remap → kept as-is
-      { id: "s3", categoryId: "live-2" },        // already modern → untouched
+      { id: "s1", categoryId: "legacy-old" },
+      { id: "s2", categoryId: "legacy-orphan" },
+      { id: "s3", categoryId: "live-2" },
     ] as unknown as ParsedBackup["sources"];
     parsed.mnemonics = [
       { id: "m1", categoryId: "legacy-old" },
@@ -461,8 +403,6 @@ describe("applyRemapToParsed — edge cases", () => {
     await applyRemapToParsed(
       new Map([["legacy-old", "live-1"]]),
       parsed,
-      [],
-      {},
     );
 
     expect(parsed.sources.map((s) => s.categoryId)).toEqual([

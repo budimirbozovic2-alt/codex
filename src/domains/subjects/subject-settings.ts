@@ -7,12 +7,11 @@ import {
 /**
  * Per-subject algorithm overrides.
  *
- * F4: IDB is the SSOT. localStorage is kept only as a synchronous fast-read
- * cache, hydrated at boot from IDB so that restore-from-backup correctly
+ * F4: SQLite `kv` is the SSOT. localStorage is kept only as a synchronous fast-read
+ * cache, hydrated at boot from SQLite so that restore-from-backup correctly
  * surfaces overrides without requiring a manual reload (previously a Full
- * Restore wiped IDB but left stale localStorage, or — worse — restored IDB
- * rows that `loadSubjectSettings()` never observed because it read only
- * localStorage).
+ * Restore wiped SQLite but left stale localStorage, or — worse — restored rows
+ * that `loadSubjectSettings()` never observed because it read only localStorage).
  */
 
 const PREFIX = "sr-subject-settings-";
@@ -28,15 +27,15 @@ export interface SubjectSettings {
   resistanceWeights?: { lapses: number; latency: number; forgetting: number };
 }
 
-// In-memory cache: categoryId → settings. Populated at boot from IDB.
+// In-memory cache: categoryId → settings. Populated at boot from SQLite `kv`.
 const _cache: Map<string, SubjectSettings> = new Map();
 let _initialized = false;
 
 /**
- * Hydrate the subject-settings cache from IDB. Called once at boot from
- * useCardBootstrap (after ensureDbOpen succeeds). Subsequent calls are no-ops.
+ * Hydrate the subject-settings cache from SQLite. Called once at boot from
+ * useCardBootstrap (after DB open succeeds). Subsequent calls are no-ops.
  *
- * Reads BOTH the IDB `settings` table and any pre-existing localStorage entries
+ * Reads BOTH the SQLite `kv` table and any pre-existing localStorage entries
  * so legacy data is preserved on first run.
  */
 export async function initSubjectSettingsCache(): Promise<void> {
@@ -112,11 +111,6 @@ export function clearSubjectSettings(categoryId: string): void {
   deleteSetting(PREFIX + categoryId).catch((err) =>
     logger.error("[subject-settings] delete failed — SSOT row may leak", err),
   );
-}
-
-/** Returns true if any overrides are saved for this subject */
-export function hasSubjectOverrides(categoryId: string): boolean {
-  return loadSubjectSettings(categoryId) !== null;
 }
 
 /**

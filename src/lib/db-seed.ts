@@ -8,7 +8,7 @@ import { logger } from "@/lib/logger";
 
 // ─── Default Categories ─────────────────────────────────
 
-export const DEFAULT_CATEGORIES: { name: string; color?: string }[] = [
+const DEFAULT_CATEGORIES: { name: string; color?: string }[] = [
   { name: "Krivično materijalno pravo", color: "hsl(0, 70%, 50%)" },
   { name: "Krivično procesno pravo", color: "hsl(20, 70%, 50%)" },
   { name: "Građansko materijalno pravo", color: "hsl(210, 70%, 50%)" },
@@ -20,7 +20,7 @@ export const DEFAULT_CATEGORIES: { name: string; color?: string }[] = [
   { name: "Konvencijsko pravo", color: "hsl(330, 70%, 50%)" },
 ];
 
-export function createDefaultCategories(): CategoryRecord[] {
+function createDefaultCategories(): CategoryRecord[] {
   return DEFAULT_CATEGORIES.map((c, i) => ({
     id: crypto.randomUUID(),
     name: c.name,

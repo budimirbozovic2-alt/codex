@@ -23,10 +23,9 @@ interface UseCardAnnotationsParams {
 export function useCardAnnotations({
   patchCard,
 }: UseCardAnnotationsParams) {
-  const { bulkPatch } = useCardMutations();
+  const { bulkSetNeedsReview, bulkUpdateChapter } = useCardMutations();
 
-
-  // O(1) review — surgical IDB write (patchCard handles persist via Ref-Delta)
+  // O(1) review — surgical SQLite write (patchCard handles persist via Ref-Delta)
   const reviewSection = useCallback(
     (cardId: string, sectionId: string, grade: number) => {
       const cachedRetention = getCachedRetention();
@@ -71,7 +70,7 @@ export function useCardAnnotations({
       });
 
       // Persist review log OUTSIDE the state updater to avoid nested setState.
-      // Batched + debounced (250 ms) inside idbAddReviewLogEntry to avoid IDB queue floods.
+      // Batched + debounced (250 ms) inside reviewLogRepository to avoid write floods.
       try { reviewLogRepository.append(entry); }
       catch (err) {
         logger.error("[reviewSection] log enqueue failed", err);
@@ -167,29 +166,25 @@ export function useCardAnnotations({
     [patchCard],
   );
 
-  // Bulk-flag — single bulk write via repository.
+  // Bulk-flag — JSON-native write (no payload decode).
   const bulkFlagNeedsReview = useCallback(
     (cardIds: string[]) => {
-      void bulkPatch.mutateAsync({
-        cardIds,
-        patcher: (c) => ({ ...c, needsReview: true }),
-      });
+      void bulkSetNeedsReview.mutateAsync(cardIds);
     },
-    [bulkPatch],
+    [bulkSetNeedsReview],
   );
 
-  const bulkUpdateChapter = useCallback(
+  const bulkUpdateChapterHandler = useCallback(
     (updates: { id: string; chapterId: string | undefined; chapterOrder: number }[]) => {
-      const map = new Map(updates.map((u) => [u.id, u]));
-      void bulkPatch.mutateAsync({
-        cardIds: updates.map((u) => u.id),
-        patcher: (c) => {
-          const u = map.get(c.id)!;
-          return { ...c, chapterId: u.chapterId ?? "", chapterOrder: u.chapterOrder };
-        },
-      });
+      void bulkUpdateChapter.mutateAsync(
+        updates.map((u) => ({
+          id: u.id,
+          chapterId: u.chapterId ?? "",
+          chapterOrder: u.chapterOrder,
+        })),
+      );
     },
-    [bulkPatch],
+    [bulkUpdateChapter],
   );
 
   return {
@@ -200,6 +195,6 @@ export function useCardAnnotations({
     clearErrorLog,
     addKeyPart,
     bulkFlagNeedsReview,
-    bulkUpdateChapter,
+    bulkUpdateChapter: bulkUpdateChapterHandler,
   };
 }

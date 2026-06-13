@@ -1,5 +1,5 @@
 /* eslint-disable react-refresh/only-export-components --
- * Re-exports ICON_REGISTRY / COLOR_OPTIONS / NodeShape / MindMapNodeData
+ * Re-exports ICON_REGISTRY / NodeShape / MindMapNodeData
  * for legacy consumers (line 17). The real source is ./node/icon-registry.
  */
 import { Copy } from "lucide-react";
@@ -18,7 +18,7 @@ import { SettingsPanel } from "./node/SettingsPanel";
 import { useNodeEditing } from "@/hooks/mindmap/useNodeEditing";
 
 // Re-export for legacy consumers importing from the component module.
-export { ICON_REGISTRY, COLOR_OPTIONS, type NodeShape, type MindMapNodeData };
+export { ICON_REGISTRY, type NodeShape, type MindMapNodeData };
 
 const handleBase =
   "!w-3 !h-3 !min-w-[12px] !min-h-[12px] !border-2 !border-background !rounded-full !bg-primary opacity-0 group-hover:opacity-100 hover:!opacity-100 hover:!scale-125 transition-all duration-200 z-20";

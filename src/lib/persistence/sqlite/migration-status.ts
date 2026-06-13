@@ -1,24 +1,12 @@
 /**
- * Phase C — flag-gated boot path.
- *
- * Cheap SELECT against the SQLite `kv` table to determine whether the
- * one-shot IDB → SQLite migration already completed on a previous boot.
- *
- * Used by `bootDb` / `runSchema` to skip the migration probe entirely on
- * the common (post-migration) boot path.
+ * SQLite boot flags — legacy IDB migration path removed after cut-over.
  */
- import type { SqlExecutor } from "./executor";
- import { isElectron } from "@/lib/electron-integration";
- import { logger } from "@/lib/logger";
+import type { SqlExecutor } from "./executor";
+import { logger } from "@/lib/logger";
 
-/**
- * Inlined to break the static-import edge from `migration-status` →
- * `migrate-from-idb`. The canonical export still lives in
- * `migrate-from-idb.ts`; this MUST stay in sync with it.
- */
-const MIGRATION_FLAG_KEY = "migrated-from-idb-v1";
+export const MIGRATION_FLAG_KEY = "migrated-from-idb-v1";
+const PR9_READPATH_FLAG_KEY = "migrated-readpath-pr9-v1";
 
-/** Returns `true` iff `migrated-from-idb-v1` is present in the SQLite kv table. */
 export async function isSqliteMigrationComplete(exec: SqlExecutor): Promise<boolean> {
   const rows = await exec.all<{ value: string }>(
     "SELECT value FROM kv WHERE key = ?",
@@ -27,37 +15,31 @@ export async function isSqliteMigrationComplete(exec: SqlExecutor): Promise<bool
   return rows.length > 0;
 }
 
-/**
- * Combined preflight: opens the SQLite executor (Electron only) and returns
- * `true` if the migration flag is set. On non-Electron / failure returns
- * `false` so the caller falls back to the legacy Dexie path.
- */
-export async function isLegacyDexieBypassed(): Promise<boolean> {
-  if (!isElectron()) return false;
-  try {
-    const { getOpfsSqliteExecutor } = await import("./client");
-    const exec = await getOpfsSqliteExecutor();
-    return await isSqliteMigrationComplete(exec);
-  } catch (e) {
-    logger.warn("[boot] sqlite preflight failed — falling back to Dexie", e);
-    return false;
-  }
-}
-
-/**
- * Telemetry: if the migration flag is set yet the legacy `MemoriaDB` IDB
- * still exists, log a warning so the health monitor can surface it.
- * Non-throwing; uses the standard `indexedDB.databases()` enumeration so it
- * does NOT load Dexie or open a connection.
- */
-export async function assertNoLegacyIdb(): Promise<void> {
-  try {
-    if (typeof indexedDB === "undefined" || typeof indexedDB.databases !== "function") return;
-    const dbs = await indexedDB.databases();
-    if (dbs.some((d) => d.name === "MemoriaDB")) {
-      logger.warn("[boot] legacy-idb-residual: MemoriaDB IDB still present after SQLite migration");
+/** Stamp boot flags on fresh SQLite installs (no legacy MemoriaDB import). */
+export async function ensureSqliteBootstrapped(exec: SqlExecutor): Promise<void> {
+  if (!(await isSqliteMigrationComplete(exec))) {
+    await exec.run(
+      "INSERT OR REPLACE INTO kv (key, value) VALUES (?, ?)",
+      [MIGRATION_FLAG_KEY, JSON.stringify({ at: Date.now(), bootstrap: true })],
+    );
+    try {
+      if (typeof localStorage !== "undefined") {
+        localStorage.setItem(MIGRATION_FLAG_KEY, String(Date.now()));
+      }
+    } catch {
+      /* private mode */
     }
-  } catch {
-    /* enumeration unsupported / blocked — silent */
+    logger.info("[boot] sqlite bootstrap flag set");
+  }
+
+  const pr9 = await exec.all<{ value: string }>(
+    "SELECT value FROM kv WHERE key = ?",
+    [PR9_READPATH_FLAG_KEY],
+  );
+  if (pr9.length === 0) {
+    await exec.run(
+      "INSERT OR REPLACE INTO kv (key, value) VALUES (?, ?)",
+      [PR9_READPATH_FLAG_KEY, JSON.stringify({ at: Date.now() })],
+    );
   }
 }

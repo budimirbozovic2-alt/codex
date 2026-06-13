@@ -6,7 +6,6 @@ import {
   listAllMnemonics,
   listMnemonicsByCategory,
   bulkPutMnemonics,
-  deleteMnemonic as repoDeleteMnemonic,
 } from "@/lib/db/queries/mnemonics";
 import type { MnemonicCard } from "./types";
 
@@ -20,8 +19,7 @@ export async function loadMnemonicCards(): Promise<MnemonicCard[]> {
 }
 
 /**
- * B2: Indexed scoped loader. Now routes through the SQLite-primary repo
- * (which falls back to the Dexie `categoryId` index in the web preview).
+ * B2: Indexed scoped loader via SQLite-primary repo.
  */
 export async function loadMnemonicCardsByCategory(categoryId: string): Promise<MnemonicCard[]> {
   try {
@@ -47,16 +45,6 @@ export async function saveMnemonicCards(cards: MnemonicCard[]): Promise<void> {
     notifyMnemonics();
   } catch (err) {
     logger.error("[mnemonic-storage] saveMnemonicCards failed", err);
-    throw err;
-  }
-}
-
-export async function deleteMnemonicCard(id: string): Promise<void> {
-  try {
-    await repoDeleteMnemonic(id);
-    notifyMnemonics();
-  } catch (err) {
-    logger.error("[mnemonic-storage] deleteMnemonicCard failed", err);
     throw err;
   }
 }

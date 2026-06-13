@@ -37,7 +37,7 @@ export default function ExportToCategory({ open, onOpenChange, currentTitle, cur
     try {
       // Strip callback refs from node data
       const cleanNodes = currentNodes.map(({ data, ...rest }) => {
-        const { onUpdate, onDuplicate, ...cleanData } = data as Record<string, unknown>;
+        const { onUpdate: _onUpdate, onDuplicate: _onDuplicate, ...cleanData } = data as Record<string, unknown>;
         return { ...rest, data: cleanData };
       });
 

@@ -16,7 +16,3 @@ export function markBootStep(step: string, meta?: string) {
     window.__bootTrace = _trace;
   } catch { /* noop */ }
 }
-
-export function getBootTrace() {
-  return _trace;
-}

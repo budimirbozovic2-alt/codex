@@ -2,58 +2,9 @@
  * Settings repository — PR-9 A1c-2. 
  * SQLite-only KV read/write.
  */
-import type { 
-  SqlExecutor 
-} from "@/lib/persistence/sqlite/executor";
 import { kvGet, kvPut } from "@/lib/persistence/sqlite/kv";
 import { logger } from "@/lib/logger";
-import { 
-  notifyExecutorNull 
-} from "./_shared/executor-telemetry";
-
-// ─── Executor accessor ──────────────────────────────────────────
-
-async function tryGetExecutor(): Promise<SqlExecutor | null> {
-  try {
-    const { isElectron } = await import(
-      "@/lib/electron-integration"
-    );
-    if (!isElectron() && import.meta.env.PROD) { 
-      notifyExecutorNull("settings", "non-electron"); 
-      return null; 
-    }
-    
-    const { getOpfsSqliteExecutor } = await import(
-      "@/lib/persistence/sqlite/client"
-    );
-    
-    // Faza 4: Uklonjen mrtvi polling kod. Klijent baze 
-    // samostalno osigurava učitavanje ili baca grešku.
-    return await getOpfsSqliteExecutor();
-  } catch (err) {
-    logger.warn(
-      "[settings-repo] sqlite executor unavailable", 
-      err
-    );
-    notifyExecutorNull("settings", "error");
-    return null;
-  }
-}
-
-async function requireExecutor(
-  label: string
-): Promise<SqlExecutor | null> {
-  const exec = await tryGetExecutor();
-  if (exec) return exec;
-  const { assertDesktop } = await import(
-    "@/lib/electron-integration"
-  );
-  assertDesktop();
-  logger.warn(
-    `[settings-repo] ${label} — no executor (dev shell)`
-  );
-  return null;
-}
+import { requireSqlExecutor } from "./_shared/require-sql-executor";
 
 // ─── Change emitter (prefix-aware) ─────────────────────────────
 
@@ -85,8 +36,7 @@ function _notify(key: string): void {
 export async function getSetting<T>(
   key: string
 ): Promise<T | undefined> {
-  const exec = await requireExecutor("getSetting");
-  if (!exec) return undefined;
+  const exec = await requireSqlExecutor("settings:getSetting");
   try { 
     return await kvGet<T>(exec, key); 
   } catch (err) {
@@ -101,8 +51,7 @@ export async function getSetting<T>(
 export async function listSettingsByPrefix<T = unknown>(
   prefix: string,
 ): Promise<Array<{ key: string; value: T }>> {
-  const exec = await requireExecutor("listSettingsByPrefix");
-  if (!exec) return [];
+  const exec = await requireSqlExecutor("settings:listSettingsByPrefix");
   try {
     const rows = await exec.all<{ key: string; value: string }>(
       "SELECT key, value FROM kv WHERE key LIKE ?", 
@@ -136,8 +85,7 @@ export async function putSetting<T>(
   key: string, 
   value: T
 ): Promise<void> {
-  const exec = await requireExecutor("putSetting");
-  if (!exec) return;
+  const exec = await requireSqlExecutor("settings:putSetting");
   try { 
     await kvPut<T>(exec, key, value); 
   } catch (err) { 
@@ -150,8 +98,7 @@ export async function putSetting<T>(
 }
 
 export async function deleteSetting(key: string): Promise<void> {
-  const exec = await requireExecutor("deleteSetting");
-  if (!exec) return;
+  const exec = await requireSqlExecutor("settings:deleteSetting");
   try { 
     await exec.run("DELETE FROM kv WHERE key = ?", [key]); 
   } catch (err) { 

@@ -4,54 +4,9 @@
  * All functions swallow errors after logging — draft autosave 
  * must never throw into the React tree.
  */
-import type { 
-  SqlExecutor 
-} from "@/lib/persistence/sqlite/executor";
 import { type DraftRecord } from "@/lib/db-types";
 import { logger } from "@/lib/logger";
-import { 
-  notifyExecutorNull 
-} from "./_shared/executor-telemetry";
-
-async function tryGetExecutor(): Promise<SqlExecutor | null> {
-  try {
-    const { isElectron } = await import(
-      "@/lib/electron-integration"
-    );
-    if (!isElectron() && import.meta.env.PROD) { 
-      notifyExecutorNull("drafts", "non-electron"); 
-      return null; 
-    }
-    
-    const { getOpfsSqliteExecutor } = await import(
-      "@/lib/persistence/sqlite/client"
-    );
-    
-    return await getOpfsSqliteExecutor();
-  } catch (err) {
-    logger.warn(
-      "[drafts-repo] sqlite executor unavailable", 
-      err
-    );
-    notifyExecutorNull("drafts", "error");
-    return null;
-  }
-}
-
-async function requireExecutor(
-  label: string
-): Promise<SqlExecutor | null> {
-  const exec = await tryGetExecutor();
-  if (exec) return exec;
-  const { assertDesktop } = await import(
-    "@/lib/electron-integration"
-  );
-  assertDesktop();
-  logger.warn(
-    `[drafts-repo] ${label} — no executor (dev shell)`
-  );
-  return null;
-}
+import { requireSqlExecutor } from "./_shared/require-sql-executor";
 
 // ─── Change emitter ─────────────────────────────────────────────
 
@@ -103,8 +58,7 @@ function decodeDraft(row: {
 export async function getDraft(
   key: string
 ): Promise<DraftRecord | undefined> {
-  const exec = await requireExecutor("getDraft");
-  if (!exec) return undefined;
+  const exec = await requireSqlExecutor("drafts:getDraft");
   try {
     const rows = await exec.all<{ payload: string }>(
       "SELECT payload FROM drafts WHERE key = ? LIMIT 1", 
@@ -124,8 +78,7 @@ export async function getDraft(
 export async function listDraftsBySource(
   source: string
 ): Promise<DraftRecord[]> {
-  const exec = await requireExecutor("listDraftsBySource");
-  if (!exec) return [];
+  const exec = await requireSqlExecutor("drafts:listDraftsBySource");
   try {
     const rows = await exec.all<{ payload: string }>(
       "SELECT payload FROM drafts WHERE source = ?", 
@@ -144,8 +97,7 @@ export async function listDraftsBySource(
 }
 
 export async function listAllDrafts(): Promise<DraftRecord[]> {
-  const exec = await requireExecutor("listAllDrafts");
-  if (!exec) return [];
+  const exec = await requireSqlExecutor("drafts:listAllDrafts");
   try {
     const rows = await exec.all<{ payload: string }>(
       "SELECT payload FROM drafts"
@@ -164,8 +116,7 @@ export async function listAllDrafts(): Promise<DraftRecord[]> {
 export async function putDraft(
   record: DraftRecord
 ): Promise<void> {
-  const exec = await requireExecutor("putDraft");
-  if (!exec) return;
+  const exec = await requireSqlExecutor("drafts:putDraft");
   try {
     const enc = encodeDraft(record);
     await exec.run(
@@ -183,8 +134,7 @@ export async function putDraft(
 }
 
 export async function deleteDraft(key: string): Promise<void> {
-  const exec = await requireExecutor("deleteDraft");
-  if (!exec) return;
+  const exec = await requireSqlExecutor("drafts:deleteDraft");
   try { 
     await exec.run(
       "DELETE FROM drafts WHERE key = ?", 
@@ -203,8 +153,7 @@ export async function bulkDeleteDrafts(
   keys: string[]
 ): Promise<void> {
   if (keys.length === 0) return;
-  const exec = await requireExecutor("bulkDeleteDrafts");
-  if (!exec) return;
+  const exec = await requireSqlExecutor("drafts:bulkDeleteDrafts");
   try {
     await exec.transaction(async (tx) => {
       await tx.runMany(

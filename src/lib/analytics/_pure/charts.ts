@@ -4,14 +4,14 @@ import { format, subDays, startOfDay, eachDayOfInterval } from "date-fns";
 import { Card, SectionState, getSectionScore } from "../../spaced-repetition";
 import type { ReviewLogEntry } from "../../storage";
 
-export interface ActivityPoint {
+interface ActivityPoint {
   name: string;
   Ponavljanja: number;
   "Nove kartice": number;
 }
 
-export interface MasteryPoint { name: string; value: number }
-export interface RatioPoint {
+interface MasteryPoint { name: string; value: number }
+interface RatioPoint {
   name: string;
   "Stvarni ponavljanje": number | null;
   "Idealni cilj": number;
@@ -34,7 +34,7 @@ function masteryLevelPure(card: Card): number {
   return 5;
 }
 
-export function buildActivityData(reviewLog: ReviewLogEntry[], cards: Card[]): ActivityPoint[] {
+function buildActivityData(reviewLog: ReviewLogEntry[], cards: Card[]): ActivityPoint[] {
   const now = new Date();
   const days = eachDayOfInterval({ start: subDays(now, 13), end: now });
 
@@ -55,7 +55,7 @@ export function buildActivityData(reviewLog: ReviewLogEntry[], cards: Card[]): A
   });
 }
 
-export function buildMasteryData(cards: Card[]): MasteryPoint[] {
+function buildMasteryData(cards: Card[]): MasteryPoint[] {
   let novo = 0, ucenje = 0, napredno = 0, savladano = 0;
   cards.forEach((c) => {
     c.sections.forEach((s) => {
@@ -74,7 +74,7 @@ export function buildMasteryData(cards: Card[]): MasteryPoint[] {
   ].filter((d) => d.value > 0);
 }
 
-export function buildRatioHistory(reviewLog: ReviewLogEntry[], targetReviewPct: number): RatioPoint[] {
+function buildRatioHistory(reviewLog: ReviewLogEntry[], targetReviewPct: number): RatioPoint[] {
   const now = new Date();
   const days = eachDayOfInterval({ start: subDays(now, 13), end: now });
   const sectionFirstSeen = new Map<string, number>();
@@ -102,7 +102,7 @@ export function buildRatioHistory(reviewLog: ReviewLogEntry[], targetReviewPct: 
   });
 }
 
-export function buildLevelCounts(cards: Card[]): number[] {
+function buildLevelCounts(cards: Card[]): number[] {
   const counts = [0, 0, 0, 0, 0, 0];
   cards.forEach((c) => { counts[masteryLevelPure(c)]++; });
   return counts;

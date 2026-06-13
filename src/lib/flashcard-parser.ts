@@ -34,7 +34,7 @@ const MARKER_RE = /^[ \t]*([PpOo])[ \t]*:[ \t]?(.*)$/;
  *   - Collapse 3+ consecutive blank lines into exactly one blank line.
  *   - Trim leading/trailing blank lines around the whole input.
  */
-export function normalizeFlashcardInput(input: string): string {
+function normalizeFlashcardInput(input: string): string {
   if (!input || typeof input !== "string") return "";
   return input
     .replace(/^\uFEFF/, "")

@@ -11,7 +11,7 @@ import { useCardAnnotations } from "@/hooks/useCardAnnotations";
 import { useCategoryManagement } from "@/hooks/useCategoryManagement";
 import { useCardExport } from "@/hooks/useCardExport";
 import { useCardImport } from "@/hooks/useCardImport";
-import { useCardData, useReviewData } from "./useCardState";
+import { useReviewData } from "./useCardState";
 import type {
   CardActionsValue,
   CategoryActionsValue,
@@ -55,9 +55,8 @@ export function useCategoryActions(): CategoryActionsValue {
 }
 
 export function useBackupActions(): BackupActionsValue {
-  const { cards } = useCardData();
   const { srSettings } = useReviewData();
-  const exportApi = useCardExport({ cards, srSettings });
+  const exportApi = useCardExport({ srSettings });
   const importApi = useCardImport();
   return useMemo(
     () => ({ ...exportApi, ...importApi }),

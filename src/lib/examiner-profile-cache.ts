@@ -14,14 +14,6 @@ import type { ExaminerProfile } from "./db-types";
 
 const _cache = new Map<string, ExaminerProfile | undefined>();
 
-/** Synchronously set the profile for a category. */
-export function primeExaminerProfile(
-  categoryId: string,
-  profile: ExaminerProfile | undefined,
-): void {
-  _cache.set(categoryId, profile);
-}
-
 /**
  * Bulk prime — call once per `categoryRecords` change.
  *

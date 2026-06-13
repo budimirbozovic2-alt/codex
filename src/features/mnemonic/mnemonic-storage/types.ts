@@ -5,26 +5,20 @@ import type { EditorDoc } from "@/lib/editor-v4/types";
 
 export type MnemonicStatus = "new" | "in-workshop" | "ready";
 export type HookType = "rokovi" | "nabrajanja" | "ostalo";
-export type HookMode = "video" | "acronym";
+type HookMode = "video" | "acronym";
 
 /**
- * E.1 (Deep Audit v2) — additive contentDoc on mnemonic sections.
+ * E.1 (Deep Audit v2) — contentDoc SSOT on mnemonic sections.
  *
- * `content` is the legacy raw HTML string (still consumed by the workshop
- * UI / test runner). `contentDoc` is the canonical editor-v4 AST that
- * matches `Card.sections` and `Source.contentDoc`. Writers should dual-
- * populate both for one release cycle so backups round-trip cleanly while
- * the UI migrates off the HTML string.
- *
- * @deprecated `content` will become read-only once the workshop UI migrates
- * to `EditorView`. Read through `getMnemonicSectionHtml(s)` (TODO) so the
- * eventual flip is a one-line change.
+ * `contentDoc` is the canonical editor-v4 AST. Legacy `content` HTML may
+ * appear in old SQLite / backup payloads; repo decode synthesizes contentDoc
+ * via `seedSectionDoc`. Writers must not populate `content` (P2.3+).
  */
 export interface MnemonicSection {
   title: string;
-  /** @deprecated use contentDoc once the UI migrates; kept for back-compat. */
-  content: string;
-  contentDoc?: EditorDoc;
+  contentDoc: EditorDoc;
+  /** @deprecated Legacy HTML — read boundary only; never written after P2.3. */
+  content?: string;
 }
 
 export interface MnemonicCard {

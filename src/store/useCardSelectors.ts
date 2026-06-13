@@ -8,9 +8,6 @@
 export {
   useCardsByCategory,
   useCardsByCategoryWithStatus,
-  useCardsBySubcategory,
-  useCardsByChapter,
-  useCardCountByCategory,
   useCardCountsByCategoryMap,
   useCardById,
   useCardsBySource,

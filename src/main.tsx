@@ -32,9 +32,6 @@ const showFatalBootError = (message: string) => {
 };
 
 window.onerror = (_message, _source, _lineno, _colno, error) => {
-  // #region agent log
-  fetch('http://127.0.0.1:7244/ingest/bbcc467f-b810-4cc1-aebf-add63a6395ee',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'f62800'},body:JSON.stringify({sessionId:'f62800',location:'main.tsx:onerror',message:'window.onerror',data:{msg:String(_message),source:String(_source),error:String(error)},hypothesisId:'H3-H5',runId:'pre-fix',timestamp:Date.now()})}).catch(()=>{});
-  // #endregion
   // PR-H1: route through logger to keep the prod-suppression contract
   // consistent (Vite esbuild.pure does not tree-shake console.error
   // reliably across all bundlers).

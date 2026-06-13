@@ -164,7 +164,7 @@ export async function compressToZip(filename: string, blob: Blob): Promise<Blob>
 }
 
 /** Extract the first JSON file from a ZIP blob/file. Returns the JSON text. Throws if no JSON found. */
-export async function decompressJsonFromZip(file: Blob): Promise<string> {
+async function decompressJsonFromZip(file: Blob): Promise<string> {
   const arrayBuffer = await file.arrayBuffer();
   try {
     return (await runInWorker("decompress", { data: arrayBuffer })) as string;
@@ -206,7 +206,7 @@ export async function parseJsonInWorker(file: Blob): Promise<unknown> {
 }
 
 /** Test/HMR helper — terminates the worker and clears caches. */
-export function _resetZipService(): void {
+function _resetZipService(): void {
   if (_idleTimer) { clearTimeout(_idleTimer); _idleTimer = null; }
   rejectAllPending(new Error("zip-service reset"));
   if (_worker) { try { _worker.terminate(); } catch { /* noop */ } _worker = null; }

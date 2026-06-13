@@ -3,7 +3,7 @@
  *
  * Reproduces the exact open-or-create flow used by `ZettelkastenView.handleWikiLink`:
  *   1. In-flight `Map<normalizedTitle, Promise>` coalesces concurrent clicks.
- *   2. `bulkCreateArticlesIfMissing` runs inside one Dexie `rw` transaction.
+ *   2. `bulkCreateArticlesIfMissing` runs inside one SQLite transaction.
  *   3. On create, `KB_ARTICLE_UPSERTED` is emitted so the backlink index stays hot.
  *   4. On miss (already-existed branch), `findArticleByTitle` resolves the id.
  *
@@ -21,6 +21,7 @@
 import { beforeEach, afterEach, describe, expect, it, vi } from "vitest";
 
 import { kbTestDb as db } from "./helpers/kb-test-db";
+import { kbArticleFromMarkdown } from "./helpers/kb-article-fixture";
 import {
   bulkCreateArticlesIfMissing,
   findArticleByTitle,
@@ -176,10 +177,7 @@ describe("wiki-link integration — parallel clicks", () => {
     const versionBefore = backlinkIndex.getVersion(SUBJECT, "Cilj");
 
     // Now create a second article whose body links to "Cilj".
-    const linker: KnowledgeBaseArticle = {
-      ...newArticle(SUBJECT, "Linker"),
-      content: "Vidi [[Cilj]] za detalje.",
-    };
+    const linker = kbArticleFromMarkdown(SUBJECT, "Linker", "Vidi [[Cilj]] za detalje.");
     await db.knowledgeBaseArticles.put(linker);
     backlinkIndex.upsertArticle(SUBJECT, linker);
 
@@ -227,10 +225,7 @@ describe("wiki-link integration — parallel clicks", () => {
     expect(versionInitial).toBe(0);
 
     // Create and emit an article that links to "Some Title".
-    const linker = {
-      ...newArticle(SUBJECT, "Linker"),
-      content: "See [[Some Title]] here.",
-    };
+    const linker = kbArticleFromMarkdown(SUBJECT, "Linker", "See [[Some Title]] here.");
     await db.knowledgeBaseArticles.put(linker);
     backlinkIndex.upsertArticle(SUBJECT, linker);
 
@@ -249,10 +244,7 @@ describe("wiki-link integration — parallel clicks", () => {
   it("removal from backlink index is deterministic and updates version", async () => {
     // Setup: create target and linker articles.
     const target = newArticle(SUBJECT, "Target");
-    const linker = {
-      ...newArticle(SUBJECT, "Linker"),
-      content: "See [[Target]].",
-    };
+    const linker = kbArticleFromMarkdown(SUBJECT, "Linker", "See [[Target]].");
     await db.knowledgeBaseArticles.put(target);
     await db.knowledgeBaseArticles.put(linker);
 

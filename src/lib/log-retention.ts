@@ -5,7 +5,7 @@
  * query latency and backup size. On boot (idle) we keep only the newest
  * MAX_RETAIN entries per log table.
  *
- * F6.2: Dexie putanja je dropped — prune ide kroz SQLite repo
+ * F6.2: prune runs through the SQLite repo
  * (`pruneAutoIncTable` koristi `id` kao chronological cursor).
  */
 import { pruneAutoIncTable } from "@/lib/db/queries";
@@ -24,7 +24,7 @@ const LOG_TABLES = [
 
 let didRunThisSession = false;
 
-export async function pruneAppendOnlyLogs(): Promise<void> {
+async function pruneAppendOnlyLogs(): Promise<void> {
   if (didRunThisSession) return;
   didRunThisSession = true;
 
@@ -44,9 +44,4 @@ export function scheduleLogPrune(): void {
     () => { void pruneAppendOnlyLogs(); },
     { label: "log-retention:prune", priority: "idle", timeoutMs: 8000, fallbackMs: 4000 },
   );
-}
-
-/** Test-only hook to reset the session-once guard. */
-export function __resetLogRetentionForTests(): void {
-  didRunThisSession = false;
 }

@@ -4,11 +4,12 @@ import type { CategoryRecord, SubcategoryNode, ChapterNode, ExaminerProfile } fr
 import { invalidateSourcesCache } from "@/domains/sources/sources-storage";
 import { categoryRepository } from "@/lib/repositories";
 import { toast } from "sonner";
-import { stableLegacyId } from "@/lib/stable-id";
 import {
   clearCardsSubcategoryRefs,
   clearCardsChapterRefs,
   reassignCardsSubcategory,
+  fetchCardScopeRefs,
+  emitCardsChangedForRefs,
   notifyCardsChanged,
 } from "@/lib/db/queries";
 import { getCategoryStoreRecords } from "@/store";
@@ -17,32 +18,8 @@ import { logger } from "@/lib/logger";
 const getCategoryRecords = (): { id: string; name: string }[] => getCategoryStoreRecords();
 
 
-// ─── Helper: osigurava da čvorovi imaju UUID sistemsku strukturu ───
-// Legacy string nodes get a *deterministic* id (stableLegacyId) so re-running
-// normalization on the same record never mints a fresh UUID. This keeps
-// references from cards stable and prevents action-path id drift.
-function normalizeNode(s: unknown, i: number, parentScope: string): SubcategoryNode {
-  if (typeof s === "string") {
-    return { id: stableLegacyId(parentScope, s), name: s, chapters: [], sortOrder: i };
-  }
-  const obj = s as Partial<SubcategoryNode> & { name: string };
-  const subId = obj.id || stableLegacyId(parentScope, obj.name);
-  return {
-    id: subId,
-    name: obj.name,
-    chapters: ((obj.chapters || []) as unknown[]).map((ch, ci): ChapterNode => {
-      if (typeof ch === "string") {
-        return { id: stableLegacyId(subId, ch), name: ch, sortOrder: ci };
-      }
-      const c = ch as Partial<ChapterNode> & { name: string };
-      return { id: c.id || stableLegacyId(subId, c.name), name: c.name, sortOrder: c.sortOrder ?? ci };
-    }),
-    sortOrder: obj.sortOrder ?? i,
-  };
-}
-
 function getNodes(rec: CategoryRecord): SubcategoryNode[] {
-  return ((rec.subcategories || []) as unknown[]).map((s, i) => normalizeNode(s, i, rec.id));
+  return rec.subcategories ?? [];
 }
 
 export function useCategoryManagement() {
@@ -161,7 +138,12 @@ export function useCategoryManagement() {
     void (async () => {
       try {
         await reassignCardsSubcategory(ids, subcategoryId);
-        notifyCardsChanged();
+        const refs = await fetchCardScopeRefs(ids);
+        if (refs.length > 0) {
+          emitCardsChangedForRefs(refs);
+        } else {
+          notifyCardsChanged({ kind: "all" });
+        }
       } catch (err) {
         logger.error("[bulkUpdateSubcategory] failed", err);
       }

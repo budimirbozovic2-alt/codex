@@ -12,7 +12,7 @@ export type WriteResult<T = void> =
   | { ok: true; value: T }
   | { ok: false; error: WriteError };
 
-export interface WriteError {
+interface WriteError {
   code: WriteErrorCode;
   message: string;
   cause?: unknown;

@@ -6,12 +6,11 @@ import type { CardDraftSnapshot } from "./useCardDraftAutosave";
 import { useSectionEditor } from "./card-actions/useSectionEditor";
 import { useCardMetadata } from "./card-actions/useCardMetadata";
 import { useCardDraft } from "./card-actions/useCardDraft";
-import { validate, parseHtmlToParagraphs, type SectionInput } from "./card-actions/validation";
+import { validate, type SectionInput } from "./card-actions/validation";
 import { htmlToDoc } from "@/lib/editor-v4";
 
 // Re-exports for back-compat with existing consumers.
 export type { SectionInput, CardType, FormWidth, ValidationErrors } from "./card-actions/validation";
-export { parseHtmlToParagraphs };
 
 interface UseCardActionsProps {
   categories: string[];
@@ -54,7 +53,7 @@ export function useCardActions({ categories, categoryRecords, editCard, onSave, 
     editor.setCardType(d.cardType);
     editor.setQuestion(d.question);
     editor.setFlashAnswer(d.flashAnswer);
-    editor.setSections(d.sections.length > 0 ? d.sections : [{ title: "Cjelina 1", content: "", contentDoc: htmlToDoc("") }]);
+    editor.setSections(d.sections.length > 0 ? d.sections : [{ title: "Cjelina 1", contentDoc: htmlToDoc("") }]);
     meta.setCategoryId(d.categoryId);
     meta.setSubcategoryId(d.subcategoryId);
     meta.setChapterId(d.chapterId);
@@ -88,7 +87,7 @@ export function useCardActions({ categories, categoryRecords, editCard, onSave, 
         if (editCard && onUpdate) {
           onUpdate(editCard.id, {
             question: editor.question,
-            sections: [{ title: "Odgovor", content: editor.flashAnswer, contentDoc: htmlToDoc(editor.flashAnswer) }],
+            sections: [{ title: "Odgovor", contentDoc: htmlToDoc(editor.flashAnswer) }],
             categoryId: cat, subcategoryId: sub, chapterId: ch,
             ...(meta.frequencyTag ? { frequencyTag: meta.frequencyTag as FrequencyTag } : {}),
             ...(meta.sourceType ? { sourceType: meta.sourceType as CardSourceType } : {}),

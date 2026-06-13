@@ -1,5 +1,5 @@
 // Centralized log interfaces for the Memoria-MNE ecosystem.
-// These are used by both the persistence layer (Dexie) and the analytical engines.
+// These are used by both the persistence layer (SQLite) and the analytical engines.
 
 export interface ReviewLogEntry {
   timestamp: number;
@@ -19,7 +19,7 @@ export interface PomodoroLogEntry {
   durationMinutes: number;
 }
 
-export type LearnMode = "active-recall";
+type LearnMode = "active-recall";
 
 export interface LearnCardProgress {
   mode: LearnMode;

@@ -2,59 +2,12 @@
  * Sources repository — PR-9 A1c-2.
  * SQLite-only read/write for the `sources` table.
  */
-import type { 
-  SqlExecutor,
-  SqlBindValue
-} from "@/lib/persistence/sqlite/executor";
+import type { SqlBindValue } from "@/lib/persistence/sqlite/executor";
 import type { Source } from "@/lib/db-types";
 import type { Card } from "@/lib/spaced-repetition";
 import { logger } from "@/lib/logger";
-import { 
-  notifyExecutorNull 
-} from "./_shared/executor-telemetry";
 import { withSqlTiming } from "./_shared/sql-timing";
-
-// ─── Executor accessor ──────────────────────────────────────────
-
-async function tryGetExecutor(): Promise<SqlExecutor | null> {
-  try {
-    const { isElectron } = await import(
-      "@/lib/electron-integration"
-    );
-    if (!isElectron() && import.meta.env.PROD) { 
-      notifyExecutorNull("sources", "non-electron"); 
-      return null; 
-    }
-    
-    const { getOpfsSqliteExecutor } = await import(
-      "@/lib/persistence/sqlite/client"
-    );
-    
-    return await getOpfsSqliteExecutor();
-  } catch (err) {
-    logger.warn(
-      "[sources-repo] sqlite executor unavailable", 
-      err
-    );
-    notifyExecutorNull("sources", "error");
-    return null;
-  }
-}
-
-async function requireExecutor(
-  label: string
-): Promise<SqlExecutor | null> {
-  const exec = await tryGetExecutor();
-  if (exec) return exec;
-  const { assertDesktop } = await import(
-    "@/lib/electron-integration"
-  );
-  assertDesktop();
-  logger.warn(
-    `[sources-repo] ${label} — no executor (dev shell)`
-  );
-  return null;
-}
+import { requireSqlExecutor } from "./_shared/require-sql-executor";
 
 // ─── Codec ──────────────────────────────────────────────────────
 
@@ -111,8 +64,7 @@ function bindSource(s: Source): (string | number | null)[] {
 export async function getSource(
   id: string
 ): Promise<Source | undefined> {
-  const exec = await requireExecutor("getSource");
-  if (!exec) return undefined;
+  const exec = await requireSqlExecutor("sources:getSource");
   const rows = await exec.all<{ payload: string }>(
     "SELECT payload FROM sources WHERE id = ? LIMIT 1", 
     [id],
@@ -123,8 +75,7 @@ export async function getSource(
 
 export async function listAllSources(): Promise<Source[]> {
   return withSqlTiming("listAllSources", async () => {
-    const exec = await requireExecutor("listAllSources");
-    if (!exec) return [];
+    const exec = await requireSqlExecutor("sources:listAllSources");
     const rows = await exec.all<{ payload: string }>(
       "SELECT payload FROM sources"
     );
@@ -135,8 +86,7 @@ export async function listAllSources(): Promise<Source[]> {
 }
 
 export async function countAllSources(): Promise<number> {
-  const exec = await requireExecutor("countAllSources");
-  if (!exec) return 0;
+  const exec = await requireSqlExecutor("sources:countAllSources");
   const rows = await exec.all<{ n: number }>(
     "SELECT COUNT(*) AS n FROM sources"
   );
@@ -146,8 +96,7 @@ export async function countAllSources(): Promise<number> {
 export async function listSourcesByCategory(
   categoryId: string
 ): Promise<Source[]> {
-  const exec = await requireExecutor("listSourcesByCategory");
-  if (!exec) return [];
+  const exec = await requireSqlExecutor("sources:listSourcesByCategory");
   const rows = await exec.all<{ payload: string }>(
     "SELECT payload FROM sources WHERE categoryId = ?", 
     [categoryId],
@@ -160,8 +109,7 @@ export async function listSourcesByCategory(
 // ─── Write API ──────────────────────────────────────────────────
 
 export async function putSource(source: Source): Promise<void> {
-  const exec = await requireExecutor("putSource");
-  if (!exec) throw new Error("NO_EXECUTOR");
+  const exec = await requireSqlExecutor("sources:putSource");
   await exec.run(INSERT_SQL, bindSource(source));
 }
 
@@ -172,10 +120,7 @@ export async function deleteSourceAndUnlinkCards(
   id: string
 ): Promise<string[]> {
   const clearedIds: string[] = [];
-  const exec = await requireExecutor(
-    "deleteSourceAndUnlinkCards"
-  );
-  if (!exec) throw new Error("NO_EXECUTOR");
+  const exec = await requireSqlExecutor("sources:deleteSourceAndUnlinkCards");
 
   await exec.transaction(async (tx) => {
     const linked = await tx.all<{ id: string; payload: string }>(

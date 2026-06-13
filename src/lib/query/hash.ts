@@ -5,14 +5,7 @@
  * inline types, and enforced Safe-Paste compliance.
  */
 import type { Card } from "@/lib/spaced-repetition";
-import type { ReviewLogEntry } from "@/lib/storage";
 import type { CategoryRecord } from "@/lib/db-types";
-
-export function hashReviewLog(log: ReviewLogEntry[]): string {
-  if (log.length === 0) return "empty";
-  const last = log[log.length - 1];
-  return `${log.length}:${last?.timestamp ?? 0}`;
-}
 
 export function hashCards(cards: Card[]): string {
   if (cards.length === 0) return "empty";

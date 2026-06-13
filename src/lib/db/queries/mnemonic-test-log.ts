@@ -1,60 +1,11 @@
 /**
  * Mnemonic test log repository — PR-9 A1c-2. SQLite-only.
  */
-import type { 
-  SqlExecutor 
-} from "@/lib/persistence/sqlite/executor";
 import { logger } from "@/lib/logger";
 import type { 
   MnemonicTestLogEntry 
 } from "@/features/mnemonic/mnemonic-storage";
-import { 
-  notifyExecutorNull 
-} from "./_shared/executor-telemetry";
-
-// ─── Executor accessor ──────────────────────────────────────────
-
-async function tryGetExecutor(): Promise<SqlExecutor | null> {
-  try {
-    const { isElectron } = await import(
-      "@/lib/electron-integration"
-    );
-    if (!isElectron() && import.meta.env.PROD) { 
-      notifyExecutorNull("mnemonicTestLog", "non-electron"); 
-      return null; 
-    }
-    
-    const { getOpfsSqliteExecutor } = await import(
-      "@/lib/persistence/sqlite/client"
-    );
-    
-    // Faza 4: Mrtvi polling kod uklonjen. Klijent upravlja
-    // sigurnim podizanjem baze podataka.
-    return await getOpfsSqliteExecutor();
-  } catch (err) {
-    logger.warn(
-      "[mnemonic-test-log-repo] sqlite executor unavailable", 
-      err
-    );
-    notifyExecutorNull("mnemonicTestLog", "error");
-    return null;
-  }
-}
-
-async function requireExecutor(
-  label: string
-): Promise<SqlExecutor | null> {
-  const exec = await tryGetExecutor();
-  if (exec) return exec;
-  const { assertDesktop } = await import(
-    "@/lib/electron-integration"
-  );
-  assertDesktop();
-  logger.warn(
-    `[mnemonic-test-log-repo] ${label} — no executor (dev shell)`
-  );
-  return null;
-}
+import { requireSqlExecutor } from "./_shared/require-sql-executor";
 
 const INSERT_SQL = `
   INSERT INTO mnemonicTestLog (
@@ -77,8 +28,7 @@ function decode(row: {
 
 export async function listAllTestLogEntries(): 
   Promise<MnemonicTestLogEntry[]> {
-  const exec = await requireExecutor("listAllTestLogEntries");
-  if (!exec) return [];
+  const exec = await requireSqlExecutor("mnemonicTestLog:listAllTestLogEntries");
   const rows = await exec.all<{ payload: string }>(
     `SELECT payload FROM mnemonicTestLog 
      ORDER BY timestamp ASC, id ASC`,
@@ -91,8 +41,7 @@ export async function listAllTestLogEntries():
 export async function listTestLogEntriesByCard(
   cardId: string
 ): Promise<MnemonicTestLogEntry[]> {
-  const exec = await requireExecutor("listTestLogEntriesByCard");
-  if (!exec) return [];
+  const exec = await requireSqlExecutor("mnemonicTestLog:listTestLogEntriesByCard");
   const rows = await exec.all<{ payload: string }>(
     `SELECT payload FROM mnemonicTestLog 
      WHERE cardId = ? 
@@ -109,8 +58,7 @@ export async function listTestLogEntriesByCard(
 export async function addTestLogEntry(
   entry: MnemonicTestLogEntry
 ): Promise<void> {
-  const exec = await requireExecutor("addTestLogEntry");
-  if (!exec) return;
+  const exec = await requireSqlExecutor("mnemonicTestLog:addTestLogEntry");
   await exec.run(INSERT_SQL, [
     entry.cardId,
     entry.timestamp,

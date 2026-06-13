@@ -1,7 +1,6 @@
 /** Velocity, finish projection, and human-readable projection text. */
 import { addDays, differenceInDays, startOfDay } from "date-fns";
 import type { ReviewLogEntry } from "@/lib/storage";
-import { calcRebalancedQuota } from "./suggestions";
 
 export function calcVelocity(reviewLog: ReviewLogEntry[], days: number = 7): number {
   const cutoff = startOfDay(addDays(new Date(), -days)).getTime();
@@ -38,6 +37,3 @@ export function getProjectionText(
   }
   return `Sa tvojim trenutnim tempom (zadnjih 7 dana), završićeš bazu dana ${finish.toLocaleDateString("sr-Latn")}. To je ${diff} dana poslije tvog cilja.`;
 }
-
-// Re-export so existing callers can keep importing from one place.
-export { calcRebalancedQuota };

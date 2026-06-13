@@ -7,14 +7,14 @@
 // hooks (useReviewData) can both access the same source of truth without a
 // React Context — eliminating one whole layer of providers.
 //
-// IDB persistence still flows through `reviewLogRepository` /
-// `settingsRepository` exactly as before.
+// SQLite persistence flows through `reviewLogRepository` /
+// `settingsRepository`.
 // ─────────────────────────────────────────────────────────────────────────────
 import { createStore } from "zustand/vanilla";
 import { useSyncExternalStore } from "react";
 import { DEFAULT_SR_SETTINGS, type SRSettings } from "@/lib/spaced-repetition";
 import type { ReviewLogEntry } from "@/lib/storage";
-import { reviewLogRepository, settingsRepository } from "@/lib/repositories";
+import { settingsRepository } from "@/lib/repositories";
 
 interface ReviewSettingsState {
   reviewLog: ReviewLogEntry[];
@@ -23,7 +23,7 @@ interface ReviewSettingsState {
 
 const REVIEW_LOG_CAP = 5000;
 
-export const reviewSettingsStore = createStore<ReviewSettingsState>(() => ({
+const reviewSettingsStore = createStore<ReviewSettingsState>(() => ({
   reviewLog: [],
   srSettings: DEFAULT_SR_SETTINGS,
 }));
@@ -45,35 +45,9 @@ export function useSrSettings(): SRSettings {
   );
 }
 
-// ─── Sync reads (for non-React callers) ──────────────────────────────────
-export function getReviewLog(): ReviewLogEntry[] {
-  return reviewSettingsStore.getState().reviewLog;
-}
-
-export function getSrSettings(): SRSettings {
-  return reviewSettingsStore.getState().srSettings;
-}
-
 // ─── Actions ─────────────────────────────────────────────────────────────
-export function commitReviewEntry(entry: ReviewLogEntry): void {
-  reviewSettingsStore.setState((s) => {
-    const next = [...s.reviewLog, entry];
-    return { reviewLog: next.length > REVIEW_LOG_CAP ? next.slice(-REVIEW_LOG_CAP) : next };
-  });
-  reviewLogRepository.append(entry);
-}
-
-export function commitReviewEntries(entries: ReviewLogEntry[]): void {
-  if (entries.length === 0) return;
-  reviewSettingsStore.setState((s) => {
-    const next = [...s.reviewLog, ...entries];
-    return { reviewLog: next.length > REVIEW_LOG_CAP ? next.slice(-REVIEW_LOG_CAP) : next };
-  });
-  reviewLogRepository.appendMany(entries);
-}
-
 /**
- * RAM-only mutation (no IDB write). Used by review-section hot path which
+ * RAM-only mutation (no SQLite write). Used by review-section hot path which
  * persists via `reviewLogRepository.append` separately.
  */
 export function patchReviewLog(updater: (prev: ReviewLogEntry[]) => ReviewLogEntry[]): void {
@@ -94,15 +68,8 @@ export function updateSRSettings(settings: SRSettings): void {
 }
 
 /**
- * Boot-time seed (no IDB write — loaded from IDB upstream).
+ * Boot-time seed (no SQLite write — loaded from SQLite upstream).
  */
 export function seedSrSettings(settings: SRSettings): void {
   reviewSettingsStore.setState({ srSettings: settings });
-}
-
-export function __resetReviewSettingsStoreForTests(): void {
-  reviewSettingsStore.setState({
-    reviewLog: [],
-    srSettings: DEFAULT_SR_SETTINGS,
-  });
 }

@@ -1,54 +1,43 @@
-import "@testing-library/jest-dom";
-import { vi, beforeEach } from "vitest";
+import { beforeEach, vi } from "vitest";
+import "@testing-library/jest-dom/vitest";
+import type { SqlExecutor } from "@/lib/persistence/sqlite/executor";
 import {
   getTestSqlExecutor,
   resetTestSqliteState,
 } from "./sqlite-harness";
+import { __resetSqliteReadyForTests } from "@/lib/persistence/sqlite/readyMachine";
+import { __resetExecutorTelemetry } from "@/lib/db/queries/_shared/executor-telemetry";
 
-Object.defineProperty(window, "matchMedia", {
-  writable: true,
-  value: (query: string) => ({
-    matches: false,
-    media: query,
-    onchange: null,
-    addListener: () => {},
-    removeListener: () => {},
-    addEventListener: () => {},
-    removeEventListener: () => {},
-    dispatchEvent: () => {},
-  }),
-});
+const mockGetOpfsSqliteExecutor = vi.hoisted(() =>
+  vi.fn<[], Promise<SqlExecutor>>(),
+);
 
-// PR-H7 Fix: Tiptap V4 viewport tracking zahtijeva
-// elementFromPoint metodu koju JSDOM nativno nema.
-if (typeof document !== "undefined") {
-  document.elementFromPoint = () => null;
-}
+const mockRunInTransaction = vi.hoisted(() =>
+  vi.fn(
+    async <T>(cb: (executor: SqlExecutor) => Promise<T>): Promise<T> => {
+      const executor = getTestSqlExecutor();
+      return executor.transaction(cb);
+    },
+  ),
+);
 
-// ─── A1c-4 F5: SQLite test harness ────────────────────────────────
-vi.mock("@/lib/electron-integration", async () => {
-  const actual = await vi.importActual<
-    typeof import("@/lib/electron-integration")
-  >("@/lib/electron-integration");
-  return {
-    ...actual,
-    isElectron: () => true,
-    assertDesktop: () => {},
-  };
-});
+vi.mock("@/lib/electron-integration", () => ({
+  isElectron: () => true,
+  assertDesktop: () => {},
+  setupElectronIPC: vi.fn(async () => () => {}),
+}));
 
-vi.mock("@/lib/persistence/sqlite/client", async () => {
-  const { __resetSqliteReadyForTests } = await import(
-    "@/lib/persistence/sqlite/readyMachine"
-  );
-  return {
-    getOpfsSqliteExecutor: async () => getTestSqlExecutor(),
-    __resetSqliteClient: () => __resetSqliteReadyForTests(),
-    runInTransaction: async <T>(cb: (exec: ReturnType<typeof getTestSqlExecutor>) => Promise<T>) =>
-      getTestSqlExecutor().transaction(cb),
-  };
-});
+vi.mock("@/lib/persistence/sqlite/client", () => ({
+  getOpfsSqliteExecutor: (...args: unknown[]) =>
+    mockGetOpfsSqliteExecutor(...args),
+  runInTransaction: (...args: unknown[]) => mockRunInTransaction(...args),
+}));
 
 beforeEach(() => {
   resetTestSqliteState();
+  __resetSqliteReadyForTests();
+  __resetExecutorTelemetry();
+  mockGetOpfsSqliteExecutor.mockImplementation(() =>
+    Promise.resolve(getTestSqlExecutor()),
+  );
 });

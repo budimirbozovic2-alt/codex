@@ -3,7 +3,7 @@
  *
  * - `memoizedSnapshot`: stable array reference per (subject, target, exclude)
  *   while the index version is unchanged — required by `useSyncExternalStore`.
- * - `pausedRef` / `clearPausedBacklinks`: freeze the last snapshot while the
+ * - `pausedRef`: freeze the last snapshot while the
  *   editor is open, so typing doesn't churn the panel.
  *
  * Both caches are bounded LRU (500 entries) — without a cap they grow
@@ -66,14 +66,4 @@ export function pausedRef(
     lruSet(pausedCache, key, v);
   }
   return v;
-}
-
-/** Clear the paused snapshot for this slot (call when leaving edit mode). */
-export function clearPausedBacklinks(
-  subjectId: string,
-  targetTitle: string,
-  excludeArticleId?: string,
-): void {
-  const key = `${subjectId}::${norm(targetTitle)}::${excludeArticleId ?? ""}::paused`;
-  pausedCache.delete(key);
 }

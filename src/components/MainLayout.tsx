@@ -1,9 +1,12 @@
 import { ReactNode, useState, useEffect, useRef, lazy, Suspense, memo, useCallback } from "react";
 import Breadcrumbs from "@/components/Breadcrumbs";
 import { useLocation } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
 import { useBackupActions, useCardOnlyActions } from "@/hooks/cards/useActions";
 import { useCategoryData } from "@/hooks/cards/useCategoryState";
-import { useCardData, useReviewData } from "@/hooks/cards/useCardState";
+import { useReviewData } from "@/hooks/cards/useCardState";
+import { listAllCards } from "@/lib/db/queries";
+import { queryKeys } from "@/lib/query/keys";
 import { useUIContext } from "@/hooks/useUI";
 import ZenMode from "@/components/ZenMode";
 import AppSidebar from "@/components/AppSidebar";
@@ -11,6 +14,7 @@ import BlockingModal from "@/components/db/BlockingModal";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { hasSeenOnboarding } from "@/components/OnboardingModal";
 import { ONBOARDING_KEYS } from "@/components/onboarding/presets";
+import { derivePlainText } from "@/lib/editor-v4/derived";
 import { toast } from "sonner";
 import { Moon, Sun, Search, Focus, HelpCircle } from "lucide-react";
 import { setDarkMode } from "@/lib/app-settings";
@@ -26,16 +30,15 @@ const OnboardingModal = lazy(() => import("@/components/OnboardingModal"));
 
 const SOURCE_ROUTES = ["/categories", "/category/"];
 
-/** Isolated component for planner nudge — lazy-loads planner-storage */
-/** M2 fix: NudgeWatcher reads cards/reviewLog lazily via refs to avoid
- *  re-rendering on every card mutation. Only checks on route change. */
+/** M2 fix: NudgeWatcher fetches cards on route change only — no subscription
+ *  to `['cards','all']`, so card mutations don't re-render the layout shell. */
 const NudgeWatcher = memo(function NudgeWatcher() {
   const { pathname } = useLocation();
+  const queryClient = useQueryClient();
   const prevPathRef = useRef(pathname);
   const nudgeShownRef = useRef(false);
   const plannerModRef = useRef<typeof import("@/domains/planner") | null>(null);
 
-  const { cards } = useCardData();
   const { reviewLog } = useReviewData();
 
   useEffect(() => {
@@ -59,6 +62,12 @@ const NudgeWatcher = memo(function NudgeWatcher() {
         const { loadPlanner, getSmartSuggestion, calcVelocity, getDailyMappedCount } = plannerModRef.current;
         const planner = loadPlanner();
         if (!planner.finalGoalDate || (planner.phases?.length ?? 0) === 0) return;
+        const cards = await queryClient.fetchQuery({
+          queryKey: queryKeys.cards.all(),
+          queryFn: listAllCards,
+          staleTime: Infinity,
+        });
+        if (cancelled) return;
         const _velocity = calcVelocity(reviewLog, 7);
         const suggestion = getSmartSuggestion(null, cards, planner.finalGoalDate, planner.bufferPercent ?? 15);
         if (!suggestion || suggestion.suggestedToday <= 0) return;
@@ -135,7 +144,7 @@ const DocxImporterWrapper = memo(function DocxImporterWrapper({
         onImport={(docxCards, cat, cardType) => {
           if (cardType === "flash") {
             docxCards.forEach(c => {
-              const answer = c.sections.map(s => s.content).join("\n");
+              const answer = c.sections.map((s) => derivePlainText(s.contentDoc)).join("\n");
               addFlashCard(c.question, answer, cat);
             });
           } else {

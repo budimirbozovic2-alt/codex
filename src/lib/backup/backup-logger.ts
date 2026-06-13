@@ -47,5 +47,3 @@ export const backupLog = {
     else logger.error(fmt(scope, "error", msg), err);
   },
 } as const;
-
-export type BackupLogger = typeof backupLog;

@@ -23,7 +23,7 @@ export interface ParsedArticle {
   html: string;
 }
 
-export interface DiffSegment {
+interface DiffSegment {
   type: "equal" | "insert" | "delete";
   text: string;
 }
@@ -197,7 +197,7 @@ function splitHtmlByArticles(html: string, articleNumbers: number[]): string[] {
  * Character-level diff using diff-match-patch.
  * Produces precise diffs even when only a single word changes.
  */
-export function diffTexts(oldText: string, newText: string): DiffSegment[] {
+function diffTexts(oldText: string, newText: string): DiffSegment[] {
   const normalizedOld = oldText.replace(/\s+/g, " ").trim();
   const normalizedNew = newText.replace(/\s+/g, " ").trim();
 

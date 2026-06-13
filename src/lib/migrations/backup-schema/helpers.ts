@@ -6,6 +6,18 @@
  */
 import { z } from "zod";
 import { sanitizeHtml } from "@/lib/sanitize";
+import type { EditorDoc } from "@/lib/editor-v4/types";
+
+const EMPTY_DOC: EditorDoc = { version: 4, content: { type: "doc", content: [] } };
+
+/** Canonical v4 EditorDoc — required on all v7 backup bodies. */
+export const EditorDocV4 = z
+  .unknown()
+  .transform((v): EditorDoc => {
+    const doc = v as { version?: number; content?: unknown };
+    if (doc?.version === 4 && doc.content) return doc as EditorDoc;
+    return EMPTY_DOC;
+  });
 
 /** Coerce a value to string and run it through DOMPurify. */
 export const SafeHtml = z

@@ -4,11 +4,11 @@
  * All mutations:
  *  - Always `await draftApi.flush()` before navigation/state change so pending
  *    edits never get lost.
- *  - Emit the matching event-bus event after the IDB write succeeds.
+ *  - Emit the matching event-bus event after the SQLite write succeeds.
  *  - Own toast user-feedback (single source).
  *
  * The wiki-link in-flight dedupe guards against parallel clicks on the same
- * placeholder title (one IDB transaction, one toast).
+ * placeholder title (one SQLite transaction, one toast).
  */
 import { useCallback, useEffect, useRef } from "react";
 import { toast } from "sonner";

@@ -87,7 +87,7 @@ function reset(): void {
 }
 
 export const metrics = { inc, observe, event, snapshot, reset } as const;
-export type Metrics = typeof metrics;
+type Metrics = typeof metrics;
 
 // Expose for DevTools / Electron renderer crash capture.
 // Guarded so SSR/test environments without globalThis side-effects are safe.

@@ -41,7 +41,7 @@ export interface QueuedReview {
 export interface QueuedError { cardId: string; text: string }
 export interface QueuedMarkRead { cardId: string }
 
-export interface SessionSnapshot {
+interface SessionSnapshot {
   cards: Card[];
   reviewLog: ReviewLogEntry[];
 }
@@ -66,10 +66,10 @@ const initialState: SessionState = {
   queueSize: 0,
 };
 
-export const sessionStore = create<SessionState>(() => ({ ...initialState }));
+const sessionStore = create<SessionState>(() => ({ ...initialState }));
 
 // ─── Actions (module-level, stable references) ──────────────────────────
-export function startSession(cards: Card[], reviewLog: ReviewLogEntry[]): void {
+function startSession(cards: Card[], reviewLog: ReviewLogEntry[]): void {
   sessionStore.setState({
     snapshot: { cards: [...cards], reviewLog: [...reviewLog] },
     reviewQueue: [],
@@ -80,7 +80,7 @@ export function startSession(cards: Card[], reviewLog: ReviewLogEntry[]): void {
   });
 }
 
-export async function endSession(
+async function endSession(
   flushReviews: (reviews: QueuedReview[]) => void | Promise<void>,
   flushErrors: (errors: QueuedError[]) => void | Promise<void>,
   flushReads: (reads: QueuedMarkRead[]) => void | Promise<void>,
@@ -124,19 +124,19 @@ export async function endSession(
   }
 }
 
-export function queueReview(cardId: string, sectionId: string, grade: number): void {
+function queueReview(cardId: string, sectionId: string, grade: number): void {
   sessionStore.setState((s) => ({
     reviewQueue: [...s.reviewQueue, { cardId, sectionId, grade, timestamp: Date.now() }],
     queueSize: s.queueSize + 1,
   }));
 }
-export function queueError(cardId: string, text: string): void {
+function queueError(cardId: string, text: string): void {
   sessionStore.setState((s) => ({
     errorQueue: [...s.errorQueue, { cardId, text }],
     queueSize: s.queueSize + 1,
   }));
 }
-export function queueMarkRead(cardId: string): void {
+function queueMarkRead(cardId: string): void {
   sessionStore.setState((s) => ({
     readQueue: [...s.readQueue, { cardId }],
     queueSize: s.queueSize + 1,
@@ -144,7 +144,7 @@ export function queueMarkRead(cardId: string): void {
 }
 
 // ─── Drop-in hook (matches old `useSessionContext()` shape) ─────────────
-export interface SessionApi {
+interface SessionApi {
   isSessionActive: boolean;
   isProcessing: boolean;
   snapshot: SessionSnapshot | null;
@@ -180,8 +180,4 @@ export function useSessionContext(): SessionApi {
     queueError,
     queueMarkRead,
   };
-}
-
-export function __resetSessionStoreForTests(): void {
-  sessionStore.setState({ ...initialState });
 }

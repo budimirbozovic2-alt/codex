@@ -25,10 +25,11 @@ import type { ZettelEditorHandle } from "@/components/zettelkasten/ZettelEditor"
 import { usePersistedDraftMirror } from "@/hooks/usePersistedDraftMirror";
 import { type EditorDoc } from "@/lib/editor-v4";
 import { deriveMarkdown, isDocEmpty } from "@/lib/editor-v4/derived";
+import { migrateArticle } from "@/lib/editor-v4/migrate";
 import { useKnowledgeBaseMutations } from "@/hooks/zettelkasten/useKnowledgeBaseMutations";
 
 import { logger } from "@/lib/logger";
-export interface Draft {
+interface Draft {
   title: string;
   /** Canonical V4 AST — sole body SSOT. */
   contentDoc: EditorDoc;
@@ -50,7 +51,7 @@ export interface ArticleDraftApi {
   enterEdit: (article: KnowledgeBaseArticle) => void;
   exitEdit: () => void;
   updateDraft: (patch: Partial<Draft>) => void;
-  /** Update `contentDoc` and re-derive legacy `content` (markdown). */
+  /** Update `contentDoc` (canonical AST body). */
   updateDraftDoc: (doc: EditorDoc) => void;
   flush: () => Promise<KnowledgeBaseArticle | null>;
   saveAndClose: () => Promise<void>;
@@ -60,10 +61,9 @@ export interface ArticleDraftApi {
 const EMPTY_DOC: EditorDoc = { version: 4, content: { type: "doc", content: [] } };
 
 function seedDoc(a: KnowledgeBaseArticle): EditorDoc {
-  if (a.contentDoc && a.contentDoc.version === 4 && a.contentDoc.content) return a.contentDoc;
-  // Legacy `content` markdown column is gone — any pre-v22 record without a
-  // contentDoc should have been backfilled by lazy-migrate. Empty doc fallback.
-  return EMPTY_DOC;
+  // Same dispatcher as KB repo decode — covers stale in-memory rows that
+  // bypassed getArticle() (e.g. list cache before idle persist).
+  return migrateArticle(a).record.contentDoc ?? EMPTY_DOC;
 }
 
 function fromArticle(a: KnowledgeBaseArticle): Draft {
@@ -93,7 +93,7 @@ export function useArticleDraft({ activeId, categoryId, setArticles }: Input): A
     draftRef.current = draft;
   }, [draft]);
 
-  // Mirror the in-progress draft into the IDB `drafts` table for crash
+  // Mirror the in-progress draft into the SQLite `drafts` table for crash
   // recovery and register dirty state into the global registry so the central
   // nav-guard can see "article X is unsaved" without bespoke wiring.
   // Real persistence still happens via `flush()` on exit / navigation.
@@ -115,7 +115,7 @@ export function useArticleDraft({ activeId, categoryId, setArticles }: Input): A
     const tagsClean = normalizeTagList(currentDraft.tags);
     const aliasesClean = normalizeAliasList(currentDraft.aliases);
     // AST is canonical; compare derived markdown shape (cheap, stable across
-    // IDB round-trips) instead of per-ref `contentDoc` equality.
+    // SQLite round-trips) instead of per-ref `contentDoc` equality.
     const markdownDerived = deriveMarkdown(currentDraft.contentDoc);
     const freshMarkdown = deriveMarkdown(fresh.contentDoc);
 

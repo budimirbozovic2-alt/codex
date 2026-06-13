@@ -27,7 +27,7 @@ export default function ReviewSession({ dueCards, allCards, categoryRecords, srS
   const [savedSession, setSavedSession] = useState<SavedSessionState | null>(null);
   const reviewStartRef = useRef(Date.now());
 
-  // Check for saved session on mount (storage module owns IDB + migration)
+  // Check for saved session on mount (storage module owns SQLite kv + migration)
   useEffect(() => {
     (async () => {
       const state = await loadSavedReviewSession();

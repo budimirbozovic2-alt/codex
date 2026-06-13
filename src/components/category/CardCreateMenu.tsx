@@ -12,12 +12,13 @@ import MassFlashImportTrigger from "./MassFlashImportTrigger";
 import type { Card } from "@/lib/spaced-repetition";
 import { afterDialogClose } from "@/lib/dialog-utils";
 import { type EditorDoc } from "@/lib/editor-v4";
+import { derivePlainText } from "@/lib/editor-v4/derived";
 
 const DocxImporter = lazy(() => import("@/features/docx-importer").then(m => ({ default: m.DocxImporter })));
 
 interface ParsedEssay {
   question: string;
-  sections: { title: string; content: string }[];
+  sections: { title: string; contentDoc: EditorDoc }[];
 }
 
 interface Props {
@@ -181,7 +182,7 @@ export default function CardCreateMenu({
                   bulkAddFlashCards(
                     cards.map((c) => ({
                       question: c.question,
-                      answer: c.sections.map((s) => s.content).join("\n"),
+                      answer: c.sections.map((s) => derivePlainText(s.contentDoc)).join("\n"),
                     })),
                     cat,
                   );

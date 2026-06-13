@@ -8,7 +8,7 @@ export interface AdaptiveContext {
   examinerProfile?: ExaminerProfile;
 }
 
-export interface AdaptiveReason {
+interface AdaptiveReason {
   code:
     | "FREQ_CESTO" | "FREQ_RIJETKO" | "FREQ_NIKAD"
     | "EXAM_PREF_MATCH_ESEJ" | "EXAM_PREF_MATCH_DEFINICIJA" | "EXAM_PREF_MATCH_POTPITANJA"
@@ -26,9 +26,9 @@ export interface AdaptiveModifiers {
 
 export const RETENTION_MIN = 0.80;
 export const RETENTION_MAX = 0.98;
-export const RETENTION_BOOST_LIMIT = 0.05; // ±5pp absolute cap on combined adaptive boost
-export const INTERVAL_MULT_MIN = 0.5;
-export const INTERVAL_MULT_MAX = 1.5;
+const RETENTION_BOOST_LIMIT = 0.05; // ±5pp absolute cap on combined adaptive boost
+const INTERVAL_MULT_MIN = 0.5;
+const INTERVAL_MULT_MAX = 1.5;
 
 export function clamp(v: number, lo: number, hi: number): number {
   return Math.max(lo, Math.min(hi, v));

@@ -1,7 +1,7 @@
 // PR-9 A1b P1.B — reads route through the backup-readers SQLite-primary seam.
 import { readAllCategoriesForBackup, listAllCards } from "@/lib/db/queries";
 import { yieldUI } from "@/lib/backup/yield-ui";
-import { migrateRaw, BackupVersionError, BACKUP_SCHEMA_VERSION } from "@/lib/backup/migrate";
+import { assertBackupVersion, BackupVersionError, BACKUP_SCHEMA_VERSION } from "@/lib/backup/migrate";
 import type { ImportValidation } from "./types";
 
 export type ProgressFn = (pct: number, msg: string) => void;
@@ -13,20 +13,17 @@ export async function validateImportFile(
   try {
     onProgress(40, file.name.endsWith(".zip") ? "Dekompresija ZIP fajla..." : "Parsiranje podataka...");
     const { parseJsonInWorker } = await import("@/lib/zip-service");
-    let parsed = (await parseJsonInWorker(file)) as Record<string, unknown>;
+    const parsed = (await parseJsonInWorker(file)) as Record<string, unknown>;
 
     const rawFileVersion = typeof parsed.version === "number" && Number.isFinite(parsed.version)
       ? Math.floor(parsed.version as number)
       : null;
-    let willMigrate = false;
     let versionError: string | null = null;
     try {
-      const migrated = migrateRaw(parsed) as Record<string, unknown>;
-      if (rawFileVersion !== null && rawFileVersion < BACKUP_SCHEMA_VERSION) willMigrate = true;
-      parsed = migrated;
+      assertBackupVersion(parsed);
     } catch (err) {
       if (err instanceof BackupVersionError) versionError = err.message;
-      else versionError = err instanceof Error ? err.message : "Migracija backupa nije uspjela.";
+      else versionError = err instanceof Error ? err.message : "Backup nije podržan.";
     }
 
     onProgress(60, "Validacija podataka...");
@@ -40,10 +37,7 @@ export async function validateImportFile(
       errors.push("Fajl ne sadrži validan JSON objekat.");
     }
 
-    const isLegacyCategoryFormat = !!parsed.categories && Array.isArray(parsed.categories) &&
-      (parsed.categories as unknown[]).length > 0 && typeof (parsed.categories as unknown[])[0] === "string";
-
-    if (parsed.categories && Array.isArray(parsed.categories) && !isLegacyCategoryFormat) {
+    if (parsed.categories && Array.isArray(parsed.categories)) {
       for (let i = 0; i < (parsed.categories as Array<{ id: string; name?: string }>).length; i++) {
         const cat = (parsed.categories as Array<{ id: string; name?: string }>)[i];
         if (!isValidUUID(cat.id)) {
@@ -108,14 +102,12 @@ export async function validateImportFile(
     const existingCats = await readAllCategoriesForBackup();
     if (errors.length === 0) {
       const validCategoryIds = new Set<string>();
-      if (parsed.categories && Array.isArray(parsed.categories) && !isLegacyCategoryFormat) {
+      if (parsed.categories && Array.isArray(parsed.categories)) {
         (parsed.categories as Array<{ id: string }>).forEach((cat) => validCategoryIds.add(cat.id));
       }
       existingCats.forEach((cat) => validCategoryIds.add(cat.id));
 
-      const skipFKCheck = isLegacyCategoryFormat;
-
-      if (!skipFKCheck && importedCards.length > 0) {
+      if (importedCards.length > 0) {
         const cTotal = importedCards.length;
         for (let i = 0; i < cTotal; i++) {
           const c = importedCards[i];
@@ -126,7 +118,7 @@ export async function validateImportFile(
           if (i > 0 && i % 2000 === 0) await yieldUI();
         }
       }
-      if (!skipFKCheck && parsed.sources && Array.isArray(parsed.sources)) {
+      if (parsed.sources && Array.isArray(parsed.sources)) {
         const arr = parsed.sources as Array<{ categoryId?: string; title?: string }>;
         for (let i = 0; i < arr.length; i++) {
           const s = arr[i];
@@ -170,7 +162,7 @@ export async function validateImportFile(
       errors,
       fileVersion: rawFileVersion,
       appVersion: BACKUP_SCHEMA_VERSION,
-      willMigrate,
+      willMigrate: false,
     };
   } catch (err) {
     return {

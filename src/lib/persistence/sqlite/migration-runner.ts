@@ -10,6 +10,7 @@
  */
 import type { SqlExecutor } from "./executor";
 import schemaSql from "./schema.sql?raw";
+import { migrateCategoryTaxonomyToRelational } from "./category-taxonomy-migration";
 
 interface Migration {
   version: number;
@@ -69,7 +70,7 @@ const PR9_A1B_P16_MNEMONIC_AUX_SQL = `
 
 const PR9_A1C3_LOG_TABLES_SQL = `
   -- PR-9 A1c-3 nastavak — log tables move to SQLite-primary.
-  -- All auto-inc tables use INTEGER PRIMARY KEY AUTOINCREMENT (== Dexie ++id).
+  -- All auto-inc tables use INTEGER PRIMARY KEY AUTOINCREMENT (legacy Dexie ++id shape).
   -- payload column carries the full JSON entry; denormalised columns power the
   -- handful of indexed queries (cardId/timestamp/date lookups).
   CREATE TABLE IF NOT EXISTS reviewLog (
@@ -126,13 +127,31 @@ const PR9_A1C3_LOG_TABLES_SQL = `
   CREATE INDEX IF NOT EXISTS idx_activity_time ON activityLog(timestamp);
 `;
 
+const PR10_RELATIONAL_TAXONOMY_SQL = `
+  CREATE TABLE IF NOT EXISTS subcategories (
+    id           TEXT PRIMARY KEY,
+    categoryId   TEXT NOT NULL,
+    name         TEXT NOT NULL,
+    sortOrder    INTEGER NOT NULL DEFAULT 0,
+    FOREIGN KEY (categoryId) REFERENCES categories(id) ON DELETE CASCADE
+  );
+  CREATE INDEX IF NOT EXISTS idx_subcategories_category ON subcategories(categoryId);
+
+  CREATE TABLE IF NOT EXISTS chapters (
+    id             TEXT PRIMARY KEY,
+    subcategoryId  TEXT NOT NULL,
+    name           TEXT NOT NULL,
+    sortOrder      INTEGER NOT NULL DEFAULT 0,
+    FOREIGN KEY (subcategoryId) REFERENCES subcategories(id) ON DELETE CASCADE
+  );
+  CREATE INDEX IF NOT EXISTS idx_chapters_subcategory ON chapters(subcategoryId);
+`;
+
 const MIGRATIONS: readonly Migration[] = [
   { version: 1, label: "init", sql: schemaSql },
-  // PR-9 M1 — read-path migration: disciplineLog + drafts move off Dexie.
-  // The KV table for planner config / dailyMapped / lastRedistribute already
-  // exists from v1. Settings (appSettings, subjectSettings:*, srSettings,
-  // appEntry) remain Dexie-backed until a follow-up — they ride the same
-  // `kv` table when they move.
+  // PR-9 M1 — disciplineLog + drafts tables (SQLite-primary).
+  // Planner KV (`appSettings`, `subjectSettings:*`, `srSettings`, `appEntry`)
+  // also lives in the SQLite `kv` table.
   { version: 2, label: "pr9-m1-discipline-drafts", sql: PR9_M1_DISCIPLINE_DRAFTS_SQL },
   // PR-9 A1b P1.4 — Zettelkasten articles move to SQLite-primary.
   { version: 3, label: "pr9-a1b-p14-kb-articles", sql: PR9_A1B_P14_KB_ARTICLES_SQL },
@@ -141,9 +160,10 @@ const MIGRATIONS: readonly Migration[] = [
   // PR-9 A1c-3 nastavak — log tables (reviewLog, pomodoroLog, diary,
   // calibrationLog, latencyLog, slippageLog, activityLog) move to SQLite.
   { version: 5, label: "pr9-a1c3-log-tables", sql: PR9_A1C3_LOG_TABLES_SQL },
+  { version: 6, label: "pr10-relational-taxonomy", sql: PR10_RELATIONAL_TAXONOMY_SQL },
 ];
 
-export const TARGET_USER_VERSION = MIGRATIONS[MIGRATIONS.length - 1].version;
+const TARGET_USER_VERSION = MIGRATIONS[MIGRATIONS.length - 1].version;
 
 export async function runMigrations(exec: SqlExecutor): Promise<{ from: number; to: number }> {
   await exec.exec("PRAGMA foreign_keys = ON;");
@@ -164,6 +184,10 @@ export async function runMigrations(exec: SqlExecutor): Promise<{ from: number; 
       await tx.exec(`PRAGMA user_version = ${m.version}`);
     }
   });
+
+  if (TARGET_USER_VERSION >= 6) {
+    await migrateCategoryTaxonomyToRelational(exec);
+  }
 
   return { from: current, to: TARGET_USER_VERSION };
 }

@@ -7,8 +7,8 @@
 //
 // Šta ide odavde:
 //   • MotionProvider — mountuj jednom na vrhu app-a
-//   • Tokeni — DURATION, EASE, STAGGER, TRANSLATE_PX
-//   • Primitivi — FadeUp, CrossFade, ListItem, Presence
+//   • Tokeni — DURATION, EASE
+//   • Primitivi — FadeUp
 //
 // Za naprednije slučajeve (custom m.div sa layoutId), importuj
 // `m` direktno iz `framer-motion` ali sa eslint-disable komentarom
@@ -16,8 +16,8 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 export { MotionProvider } from "./MotionProvider";
-export { DURATION, EASE, STAGGER, TRANSLATE_PX } from "./tokens";
-export { FadeUp, CrossFade, ListItem, Presence } from "./primitives";
+export { DURATION, EASE } from "./tokens";
+export { FadeUp } from "./primitives";
 
 // `m` i `AnimatePresence` su jedini sankcionisani framer-motion primitivi.
 // Direktan `import { m } from "framer-motion"` je blokiran ESLint W10 pravilom

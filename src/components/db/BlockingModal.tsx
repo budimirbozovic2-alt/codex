@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { taskScheduler } from "@/lib/scheduler";
 
 /**
- * Hard-blocking modal that appears when IndexedDB is blocked by another tab.
+ * Hard-blocking modal when browser storage (OPFS / legacy IndexedDB) is blocked by another tab.
  * This happens during schema upgrades.
  */
 export default function BlockingModal() {

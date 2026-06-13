@@ -6,17 +6,15 @@ import {
   NumberWithDefault,
   NullableNumber,
   StringArray,
+  EditorDocV4,
 } from "./helpers";
 
 const MnemonicSectionSchema = z
   .object({
     title: SafeText,
-    content: SafeHtml,
-    // E.1: contentDoc accepted but not validated structurally here — the
-    // editor-v4 schema validates on render, and missing contentDoc is
-    // backfilled by the lazy migrator. Passes through unknown shape.
-    contentDoc: z.unknown().optional(),
-  });
+    contentDoc: EditorDocV4,
+  })
+  .strict();
 
 export const BackupMnemonicSchema = z
   .object({
@@ -25,12 +23,7 @@ export const BackupMnemonicSchema = z
     question: SafeHtml,
     sections: z.array(MnemonicSectionSchema).default([]),
     categoryId: z.unknown().optional().transform((v) => (typeof v === "string" ? v : "")),
-    subcategoryId: z.unknown().optional(),
-    // Legacy aliases (pre-UUID backups stored taxonomy as name strings).
-    // Mirrors the same pattern used by BackupCardSchema; the legacy-resolver
-    // in applyImportAtomically remaps name → UUID post-parse.
-    category: z.unknown().optional(),
-    subcategory: z.unknown().optional(),
+    subcategoryId: z.unknown().optional().transform((v) => (typeof v === "string" ? v : undefined)),
     tags: StringArray,
     hookType: z.unknown().optional().transform((v) => (v === "rokovi" || v === "nabrajanja" || v === "ostalo" ? v : "ostalo")),
     hookMode: z.unknown().optional().transform((v) => (v === "video" || v === "acronym" ? v : "video")),
@@ -45,18 +38,12 @@ export const BackupMnemonicSchema = z
   })
   .strict()
   .transform((m): MnemonicCard => {
-    const catId =
-      typeof m.categoryId === "string" && m.categoryId ? m.categoryId :
-      typeof m.category === "string" ? m.category : "";
-    const subId =
-      typeof m.subcategoryId === "string" ? m.subcategoryId :
-      typeof m.subcategory === "string" ? m.subcategory : undefined;
     const out: MnemonicCard = {
       id: m.id,
       originalCardId: m.originalCardId,
       question: m.question,
       sections: m.sections as MnemonicCard["sections"],
-      categoryId: catId,
+      categoryId: m.categoryId,
       tags: m.tags,
       hookType: m.hookType,
       hookMode: m.hookMode,
@@ -69,6 +56,6 @@ export const BackupMnemonicSchema = z
       failCount: m.failCount,
       lastTested: m.lastTested,
     };
-    if (typeof subId === "string" && subId) out.subcategoryId = subId;
+    if (m.subcategoryId) out.subcategoryId = m.subcategoryId;
     return out;
   });

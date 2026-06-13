@@ -13,7 +13,7 @@ import { shuffle } from "../test-tree";
 
 export const RECALL_TIME_LIMIT = 3;
 
-export type TestPhase = "selector" | "reminder" | "test" | "finished";
+type TestPhase = "selector" | "reminder" | "test" | "finished";
 
 export interface SessionStats { correct: number; wrong: number; }
 

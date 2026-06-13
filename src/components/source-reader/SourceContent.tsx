@@ -23,7 +23,7 @@ interface Props {
  * - `contentDoc` (AST) is the sole SSOT for the body — legacy HTML field is gone.
  * - When `editMode === false`, the editor is read-only but TipTap still tracks
  *   selection so the parent `<SourceBubbleMenu>` keeps working.
- * - Autosave: 1s debounce via `taskScheduler`; drafts mirrored to IDB.
+ * - Autosave: 1s debounce via `taskScheduler`; drafts mirrored to SQLite.
  * - PR-7f M3d: persistence goes through `useSourceMutations().save` so the
  *   read cache flips optimistically and any error rolls back the AST too.
  */

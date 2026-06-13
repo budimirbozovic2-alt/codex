@@ -1,25 +1,12 @@
 /**
  * Pre-transaction helpers for backup-import:
- *   - narrow legacy `categories` union
  *   - build categoryId remap by name
  *   - apply remap to cards + satellite tables
  *   - prune orphan satellite rows whose categoryId no longer exists
- *
- * All functions are pure (or memory-only mutating) — they perform no IDB
- * writes. They are invoked from the orchestrator before opening the rw
- * transaction so the locked tx body stays as short as possible.
  */
-import type { Card } from "@/lib/spaced-repetition";
-import type { CategoryRecord } from "@/lib/db-types";
 import type { ParsedBackup } from "@/lib/migrations/backup-schema";
 import { yieldUI } from "@/lib/backup/yield-ui";
-
-/** Narrow `parsed.categories` (legacy union of CategoryRecord[] | string[]). */
-export function isCategoryRecordArray(
-  v: ParsedBackup["categories"],
-): v is CategoryRecord[] {
-  return v.length > 0 && typeof v[0] === "object" && v[0] !== null && "id" in v[0];
-}
+import type { CategoryRecord } from "@/lib/db-types";
 
 /** Build a categoryId remap by lowercased name match against existing rows. */
 export function buildCategoryIdRemap(
@@ -37,49 +24,13 @@ export function buildCategoryIdRemap(
 }
 
 /**
- * Apply a categoryId remap to all satellite tables in `parsed`, plus cards.
- *
- * @deprecated Use {@link applyRemapToParsedV2}. This signature accepts an
- * external `cardMap` and mutates it in place, which corrupts caller-owned
- * state (the live `currentMap` from `useCardImport`). Kept for backward
- * compatibility with existing tests.
- */
-export async function applyRemapToParsed(
-  remap: Map<string, string>,
-  parsed: ParsedBackup,
-  cardsToRemap: Card[],
-  cardMap: Record<string, Card>,
-): Promise<void> {
-  if (remap.size === 0) return;
-  let i = 0;
-  for (const card of cardsToRemap) {
-    const r = remap.get(card.categoryId);
-    if (r) card.categoryId = r;
-    if (++i % 1000 === 0) await yieldUI();
-  }
-  // Stream-iterate the in-memory map instead of materializing
-  // `Object.values(cardMap)` (which allocates an N-sized array for a
-  // 15k+ card DB). `for…in` over a plain object enumerates own keys
-  // without any auxiliary allocation; periodic yields keep the UI thread
-  // responsive on very large maps.
-  let j = 0;
-  for (const id in cardMap) {
-    const card = cardMap[id];
-    const r = remap.get(card.categoryId);
-    if (r) card.categoryId = r;
-    if (++j % 1000 === 0) await yieldUI();
-  }
-  await applyRemapToSatellites(remap, parsed);
-}
-
-/**
  * Apply a categoryId remap to `parsed.cards` and every satellite table.
  *
  * MUST be called BEFORE `mergeCardsByStrategy` so the merge sees the final
- * (post-remap) `categoryId` on every imported card. Never touches caller-
- * owned state (no `currentMap` / `cardMap` argument).
+ * (post-remap) `categoryId` on every imported card. Mutates only `parsed` —
+ * never touches caller-owned maps (e.g. live `currentMap` from import UI).
  */
-export async function applyRemapToParsedV2(
+export async function applyRemapToParsed(
   remap: Map<string, string>,
   parsed: ParsedBackup,
 ): Promise<void> {
@@ -119,45 +70,36 @@ async function applyRemapToSatellites(
 
 /** Drop satellite rows whose `categoryId` no longer exists, and sanitize empty strings. */
 export function pruneOrphans(parsed: ParsedBackup, validCategoryIds: Set<string>): void {
-  // Empty strings and null become undefined so SQLite writes NULL instead of
-  // throwing an FK-787 violation on a non-nullable foreign key column.
   const cleanFk = (id: string | null | undefined) =>
     id == null || id === "" ? undefined : id;
 
   parsed.sources = parsed.sources.filter((s) => {
-    s.categoryId = cleanFk(s.categoryId) as string | undefined;
-    return !s.categoryId || validCategoryIds.has(s.categoryId);
+    const categoryId = cleanFk(s.categoryId);
+    if (categoryId !== undefined) s.categoryId = categoryId;
+    return !categoryId || validCategoryIds.has(categoryId);
   });
 
   parsed.mnemonics = parsed.mnemonics.filter((m) => {
-    m.categoryId = cleanFk(m.categoryId) as string | undefined;
-    return !m.categoryId || validCategoryIds.has(m.categoryId);
+    const categoryId = cleanFk(m.categoryId);
+    if (categoryId !== undefined) m.categoryId = categoryId;
+    return !categoryId || validCategoryIds.has(categoryId);
   });
 
   parsed.knowledgeBaseArticles = parsed.knowledgeBaseArticles.filter((a) => {
-    a.subjectId = cleanFk(a.subjectId) as string | undefined;
-    return !a.subjectId || validCategoryIds.has(a.subjectId);
+    const subjectId = cleanFk(a.subjectId);
+    if (subjectId !== undefined) a.subjectId = subjectId;
+    return !subjectId || validCategoryIds.has(subjectId);
   });
 
-  // #region agent log
-  const _mapsBeforeFilter = parsed.mindMaps.length;
-  // #endregion
   parsed.mindMaps = parsed.mindMaps.filter((m) => {
-    m.categoryId = cleanFk(m.categoryId) as string | undefined;
-    // mindMaps.categoryId is NOT NULL in the schema — unlike nullable FK columns
-    // (sources.categoryId, mnemonics.categoryId) this column CANNOT be NULL.
-    // A mindMap without a valid categoryId must be dropped, not kept.
-    // Keeping it (old `!m.categoryId` short-circuit) caused FK-787 because
-    // bindMindMap converts undefined back to "" which is not a valid category id.
-    return !!m.categoryId && validCategoryIds.has(m.categoryId);
+    const categoryId = cleanFk(m.categoryId);
+    if (categoryId !== undefined) m.categoryId = categoryId;
+    return !!categoryId && validCategoryIds.has(categoryId);
   });
-  // #region agent log
-  fetch('http://127.0.0.1:7244/ingest/bbcc467f-b810-4cc1-aebf-add63a6395ee',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'f62800'},body:JSON.stringify({sessionId:'f62800',location:'import-remap.ts:pruneOrphans',message:'mindMaps pruned',data:{before:_mapsBeforeFilter,after:parsed.mindMaps.length,dropped:_mapsBeforeFilter-parsed.mindMaps.length,sample:parsed.mindMaps.slice(0,3).map(m=>({id:m.id,categoryId:m.categoryId})),validCategoryIds:Array.from(validCategoryIds)},hypothesisId:'FK-mindMap-null-categoryId',runId:'fix1',timestamp:Date.now()})}).catch(()=>{});
-  // #endregion
 
-  // Safety net: cards are written from `merged` in the hot path.
   parsed.cards = parsed.cards.filter((c) => {
-    c.categoryId = cleanFk(c.categoryId) as string | undefined;
-    return !c.categoryId || validCategoryIds.has(c.categoryId);
+    const categoryId = cleanFk(c.categoryId);
+    if (categoryId !== undefined) c.categoryId = categoryId;
+    return !categoryId || validCategoryIds.has(categoryId);
   });
 }

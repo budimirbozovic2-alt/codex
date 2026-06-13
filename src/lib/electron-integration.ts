@@ -11,10 +11,9 @@ export function isElectron(): boolean {
 }
 
 /**
- * Pure Desktop guard (P3 PR-8 finale).
+ * Pure Desktop guard — Electron + OPFS SQLite required in all builds.
  */
 export function assertDesktop(): void {
-  if (!import.meta.env.PROD) return;
   if (isElectron()) return;
   throw new Error(
     "[pure-desktop] This build targets Electron only.",
@@ -68,10 +67,7 @@ export async function setupElectronIPC() {
     const subcategories: Record<string, string[]> = {};
     categories.forEach(r => {
       if (r.subcategories?.length > 0) {
-        subcategories[r.id] = r.subcategories.map(
-          (s: { name: string } | string) => 
-            typeof s === "string" ? s : s.name
-        );
+        subcategories[r.id] = r.subcategories.map((s) => s.name);
       }
     });
 
@@ -114,12 +110,17 @@ export async function setupElectronIPC() {
     }
 
     const data: Record<string, unknown> = {
-      version: 5, type: "full",
+      version: 7, type: "full",
       cards,
       categories: categories,
       subcategories,
       reviewLog,
       sources, mindMaps,
+      knowledgeBaseArticles: [],
+      mnemonics: [],
+      majorSystem: [],
+      mnemonicTestLog: [],
+      settings: [],
       diary, calibrationLog, latencyLog, slippageLog, 
       activityLog, disciplineLog, pomodoroLog,
       localStorageData,

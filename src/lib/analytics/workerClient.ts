@@ -20,7 +20,6 @@ import {
   loadDisciplineLog, 
   loadPlanner 
 } from "@/domains/planner";
-import type { AnalyticsSnapshots } from "./_pure/types";
 import type { AnalyticsWorkerAPI } from "../../workers/analytics.worker";
 
 import { calcInterferencePairs } from "./_pure/interference";
@@ -70,15 +69,6 @@ function getClient(): Client {
   _client = Comlink.wrap<AnalyticsWorkerAPI>(_worker);
   registerTerminate();
   return _client;
-}
-
-export function snapshot(): AnalyticsSnapshots {
-  return {
-    calibration: loadCalibration(),
-    latency: loadLatency(),
-    disciplineLog: loadDisciplineLog(),
-    planner: loadPlanner(),
-  };
 }
 
 export const analyticsClient = {

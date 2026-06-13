@@ -16,7 +16,7 @@ export const WIDTH_CLASSES: Record<ReaderWidth, string> = {
 
 const WIDTH_STORAGE_KEY = "codex-source-reader-width";
 
-export interface SelectionState {
+interface SelectionState {
   text: string;
   /** HTML markup of the selected range (preserves bold/italic/lists/headings). */
   html: string;
@@ -24,13 +24,13 @@ export interface SelectionState {
   y: number;
 }
 
-export interface HeadingMenuState {
+interface HeadingMenuState {
   x: number;
   y: number;
   element: HTMLElement;
 }
 
-export interface SplitResultState {
+interface SplitResultState {
   modules: SelectionModule[];
   rangeLabel: string;
   parentName: string;

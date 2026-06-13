@@ -71,7 +71,7 @@ export function serializeRowsInWorker(rows: unknown[]): Promise<string> {
 }
 
 /** Tear down the shared worker (HMR / tests). */
-export function terminateJsonSerializeWorker(): void {
+function terminateJsonSerializeWorker(): void {
   if (_worker) {
     try { _worker.terminate(); } catch { /* noop */ }
     _worker = null;

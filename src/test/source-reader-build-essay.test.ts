@@ -8,7 +8,8 @@ import {
 import type { SelectionModule } from "@/lib/selection-split-engine";
 import type { WizardModuleEdit } from "@/lib/split-wizard-build";
 import type { Card } from "@/lib/spaced-repetition";
-import type { Source } from "@/domains/sources/sources-storage";
+import type { Source } from "@/lib/db-types";
+import { makeSource, makeCard, makeSection } from "./factories";
 
 const mod = (n: string, title: string, body = "Sadržaj"): SelectionModule => ({
   articleNum: n,
@@ -21,11 +22,16 @@ const edit = (question?: string, tags: string[] = [], skipped = false): WizardMo
   question: question ?? "", tags, skipped,
 });
 
-const fakeSource = (): Source => ({
-  id: "s1", title: "Test", categoryId: "cat-1",
-  htmlContent: "", outline: [], articles: [], examQuestions: [],
-  createdAt: 0, updatedAt: 0,
-} as unknown as Source);
+const fakeSource = (): Source =>
+  makeSource({
+    id: "s1",
+    title: "Test",
+    categoryId: "cat-1",
+    html: "",
+    examQuestions: [],
+    createdAt: 0,
+    updatedAt: 0,
+  });
 
 describe("source-reader build-essay-payload", () => {
   describe("buildSeparateEssaysFromModules", () => {
@@ -83,10 +89,12 @@ describe("source-reader build-essay-payload", () => {
   });
 
   describe("buildLinkPatch", () => {
-    const card: Card = {
-      id: "c1", question: "Q", categoryId: "cat-1",
-      sections: [{ title: "Postojeća", content: "<p>old</p>" }],
-    } as unknown as Card;
+    const card: Card = makeCard({
+      id: "c1",
+      question: "Q",
+      categoryId: "cat-1",
+      sections: [makeSection({ title: "Postojeća", html: "<p>old</p>" })],
+    });
 
     it("appends a snippet section by default", () => {
       const patched = buildLinkPatch(card, "snippet text", "<p>snippet</p>", "src-1", true);

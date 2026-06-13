@@ -8,11 +8,11 @@ import { derivePlainText } from "@/lib/editor-v4/derived";
 import { logger } from "@/lib/logger";
 
 /**
- * Snapshot of in-progress card form state, persisted to the Dexie `drafts`
+ * Snapshot of in-progress card form state, persisted to the SQLite `drafts`
  * table so a tab close, refresh, or crash never destroys minutes of typing on
  * essay cards.
  *
- * PR6: migrated from LocalStorage → Dexie `drafts` table. Benefits:
+ * PR6: migrated from LocalStorage → SQLite `drafts` table. Benefits:
  *   • Unified with `usePersistedDraftMirror` / `useDraftAutosave` storage.
  *   • Boot-recovery scanner (`draftRecovery.ts`) automatically sees these rows.
  *   • Quota survives much larger essays than LocalStorage's ~5 MB cap.
@@ -54,11 +54,7 @@ function isMeaningful(d: CardDraftSnapshot): boolean {
     typeof s === "string" ? s.replace(/<[^>]*>/g, "").trim() : "";
   if (stripped(d.question)) return true;
   if (d.cardType === "flash" && stripped(d.flashAnswer)) return true;
-  if (d.cardType === "essay" && d.sections.some(s => {
-    if (stripped(s.content)) return true;
-    // PR-7b: contentDoc je SSOT; legacy `content` može biti undefined.
-    return derivePlainText(s.contentDoc).trim().length > 0;
-  })) return true;
+  if (d.cardType === "essay" && d.sections.some((s) => derivePlainText(s.contentDoc).trim().length > 0)) return true;
   return false;
 }
 
@@ -165,7 +161,7 @@ export function useCardDraftAutosave(
  * draft if present, fresh enough, and meaningful. Does NOT auto-apply — caller
  * decides whether to surface a "restore draft?" banner.
  *
- * PR6: async because the Dexie `drafts` table read is async. Callers should
+ * PR6: async because the SQLite `drafts` table read is async. Callers should
  * await inside a `useEffect` and `setState` on resolve.
  */
 export async function loadCardDraft(draftKey: string): Promise<StoredDraft | null> {

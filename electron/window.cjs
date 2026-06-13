@@ -106,6 +106,7 @@ async function createWindow({ isDev, baseDir, configPath, logCrash, splash, onMa
       preload: resolvePreloadPath(isDev, baseDir),
       webviewTag: false,
       spellcheck: false,
+      devTools: isDev,
     },
   });
 
@@ -131,16 +132,26 @@ async function createWindow({ isDev, baseDir, configPath, logCrash, splash, onMa
 
   onMainWindow(win);
 
-  // DevTools temporarily enabled for production debug session (f62800)
-  win.webContents.openDevTools();
-
   if (!isDev) {
     Menu.setApplicationMenu(null);
     win.webContents.on('before-input-event', (event, input) => {
-      if ((input.control && input.key.toLowerCase() === 'r') || input.key === 'F5') {
+      const key = input.key.toLowerCase();
+      const devToolsShortcut =
+        key === 'f12' ||
+        (input.control && input.shift && (key === 'i' || key === 'j' || key === 'c')) ||
+        (input.meta && input.alt && key === 'i');
+      if (
+        devToolsShortcut ||
+        (input.control && key === 'r') ||
+        key === 'f5'
+      ) {
         event.preventDefault();
       }
     });
+    win.webContents.on('devtools-opened', () => {
+      if (!win.isDestroyed()) win.webContents.closeDevTools();
+    });
+    win.webContents.closeDevTools();
   }
 
   const devServerUrl = `http://localhost:${parseInt(process.env.VITE_DEV_SERVER_PORT || '8080', 10)}`;

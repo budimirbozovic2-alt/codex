@@ -8,7 +8,6 @@ export type { LearnCardProgress };
 export type SortMode = "order" | "weakest" | "leastRead";
 export type VW = "compact" | "normal" | "wide" | "full";
 export type ViewWidth = VW;
-export type SetupStep = "filter" | "ready";
 
 export const viewWidthClasses: Record<VW, string> = {
   compact: "max-w-xl",

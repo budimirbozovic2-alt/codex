@@ -10,8 +10,6 @@ export type {
   QueuedReview,
   QueuedError,
   QueuedMarkRead,
-  SessionSnapshot,
-  SessionApi,
 } from "@/store/useSessionStore";
 
 export { useSessionContext } from "@/store/useSessionStore";

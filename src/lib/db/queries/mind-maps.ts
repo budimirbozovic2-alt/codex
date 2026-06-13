@@ -2,60 +2,10 @@
  * Mind maps repository — PR-9 A1c-2.
  * SQLite-only read/write for the `mindMaps` table.
  */
-import type { 
-  SqlExecutor 
-} from "@/lib/persistence/sqlite/executor";
 import type { MindMapDoc } from "@/lib/db-types";
 import { logger } from "@/lib/logger";
-import { 
-  notifyExecutorNull 
-} from "./_shared/executor-telemetry";
 import { withSqlTiming } from "./_shared/sql-timing";
-
-// ─── Executor accessor ──────────────────────────────────────────
-
-async function tryGetExecutor(): Promise<SqlExecutor | null> {
-  try {
-    const { isElectron } = await import(
-      "@/lib/electron-integration"
-    );
-    if (!isElectron() && import.meta.env.PROD) { 
-      notifyExecutorNull("mindMaps", "non-electron"); 
-      return null; 
-    }
-    
-    const { getOpfsSqliteExecutor } = await import(
-      "@/lib/persistence/sqlite/client"
-    );
-    
-    // BUG B-6 / PR-G4 FIX: Mrtvi polling kod sa sirovim tajmerom 
-    // je u potpunosti uklonjen. client.ts samostalno garantuje
-    // pokretanje, retry i watchdog tajmaute.
-    return await getOpfsSqliteExecutor();
-  } catch (err) {
-    logger.warn(
-      "[mindmaps-repo] sqlite executor unavailable", 
-      err
-    );
-    notifyExecutorNull("mindMaps", "error");
-    return null;
-  }
-}
-
-async function requireExecutor(
-  label: string
-): Promise<SqlExecutor | null> {
-  const exec = await tryGetExecutor();
-  if (exec) return exec;
-  const { assertDesktop } = await import(
-    "@/lib/electron-integration"
-  );
-  assertDesktop();
-  logger.warn(
-    `[mindmaps-repo] ${label} — no executor (dev shell)`
-  );
-  return null;
-}
+import { requireSqlExecutor } from "./_shared/require-sql-executor";
 
 function decodeMindMap(row: { 
   payload: string 
@@ -79,8 +29,7 @@ const INSERT_SQL = `
 export async function getMindMap(
   id: string
 ): Promise<MindMapDoc | undefined> {
-  const exec = await requireExecutor("getMindMap");
-  if (!exec) return undefined;
+  const exec = await requireSqlExecutor("mindMaps:getMindMap");
   const rows = await exec.all<{ payload: string }>(
     "SELECT payload FROM mindMaps WHERE id = ? LIMIT 1", 
     [id],
@@ -91,8 +40,7 @@ export async function getMindMap(
 
 export async function listAllMindMaps(): Promise<MindMapDoc[]> {
   return withSqlTiming("listAllMindMaps", async () => {
-    const exec = await requireExecutor("listAllMindMaps");
-    if (!exec) return [];
+    const exec = await requireSqlExecutor("mindMaps:listAllMindMaps");
     const rows = await exec.all<{ payload: string }>(
       "SELECT payload FROM mindMaps ORDER BY updatedAt DESC",
     );
@@ -103,8 +51,7 @@ export async function listAllMindMaps(): Promise<MindMapDoc[]> {
 }
 
 export async function countAllMindMaps(): Promise<number> {
-  const exec = await requireExecutor("countAllMindMaps");
-  if (!exec) return 0;
+  const exec = await requireSqlExecutor("mindMaps:countAllMindMaps");
   const rows = await exec.all<{ n: number }>(
     "SELECT COUNT(*) AS n FROM mindMaps"
   );
@@ -114,8 +61,7 @@ export async function countAllMindMaps(): Promise<number> {
 export async function listMindMapsByCategory(
   categoryId: string
 ): Promise<MindMapDoc[]> {
-  const exec = await requireExecutor("listMindMapsByCategory");
-  if (!exec) return [];
+  const exec = await requireSqlExecutor("mindMaps:listMindMapsByCategory");
   const rows = await exec.all<{ payload: string }>(
     "SELECT payload FROM mindMaps WHERE categoryId = ? " +
     "ORDER BY updatedAt DESC",
@@ -129,8 +75,7 @@ export async function listMindMapsByCategory(
 // ─── Write API ──────────────────────────────────────────────────
 
 export async function putMindMap(doc: MindMapDoc): Promise<void> {
-  const exec = await requireExecutor("putMindMap");
-  if (!exec) throw new Error("NO_EXECUTOR");
+  const exec = await requireSqlExecutor("mindMaps:putMindMap");
   
   // AUDIT FIX: Obrisana destruktivna restrikcija za categoryId.
   // Podaci se sada bezbjedno upisuju u nullable kolonu.
@@ -144,7 +89,6 @@ export async function putMindMap(doc: MindMapDoc): Promise<void> {
 }
 
 export async function deleteMindMap(id: string): Promise<void> {
-  const exec = await requireExecutor("deleteMindMap");
-  if (!exec) throw new Error("NO_EXECUTOR");
+  const exec = await requireSqlExecutor("mindMaps:deleteMindMap");
   await exec.run("DELETE FROM mindMaps WHERE id = ?", [id]);
 }

@@ -1,5 +1,5 @@
 import { getStorageUsage } from "@/lib/storage";
-import { bulkPutCardsDirect } from "@/lib/db/queries";
+import { bulkPutCardsDirect, cardToScopeRef, emitCardsChangedForRefs } from "@/lib/db/queries";
 import {
   // SQLite-primary readers via the backup-readers seam (P1.B).
   countCards,
@@ -62,9 +62,7 @@ export interface HealthReport {
 
 
 
-// A1c-4 F1+: counters route through the backup-readers seam. Every table
-// counter hits SQLite directly — Dexie was removed in Phase C, so no
-// counter falls back to IDB any longer.
+// A1c-4 F1+: counters route through the backup-readers seam — all SQLite-primary.
 const TABLE_DEFS: ReadonlyArray<{ name: string; counter: () => Promise<number> }> = [
   { name: "Kartice",      counter: countCards },
   { name: "Review Log",   counter: countReviewLog },
@@ -79,12 +77,12 @@ const TABLE_DEFS: ReadonlyArray<{ name: string; counter: () => Promise<number> }
   { name: "Mape uma",     counter: countMindMaps },
 ];
 
-export async function fetchTableCounts(): Promise<TableStat[]> {
+async function fetchTableCounts(): Promise<TableStat[]> {
   const counts = await Promise.all(TABLE_DEFS.map(t => t.counter()));
   return TABLE_DEFS.map((t, i) => ({ name: t.name, count: counts[i] }));
 }
 
-export async function fetchStorageSnapshot(): Promise<StorageSnapshot> {
+async function fetchStorageSnapshot(): Promise<StorageSnapshot> {
   const ls = await getStorageUsage();
   return {
     idb: { usage: ls.usedBytes, quota: ls.maxBytes },
@@ -92,11 +90,9 @@ export async function fetchStorageSnapshot(): Promise<StorageSnapshot> {
   };
 }
 
-export async function detectIntegrityIssues(): Promise<IntegrityIssues> {
-  // PR-9 A1b P1.B — both reads now flow through the SQLite-primary seam.
-  // listAllCards loads the full set once (was a Dexie cursor previously);
-  // acceptable trade-off because OPFS SQLite reads are near-sync and the
-  // hot path needs the full payload to spot stale chapter/sub links.
+async function detectIntegrityIssues(): Promise<IntegrityIssues> {
+  // Both reads flow through the SQLite-primary seam. listAllCards loads the
+  // full set once; acceptable for integrity heal because OPFS reads are fast
   const [allCategories, allCards] = await Promise.all([
     readAllCategoriesForBackup(),
     listAllCards(),
@@ -159,7 +155,7 @@ export async function detectIntegrityIssues(): Promise<IntegrityIssues> {
 
 
 
-export function loadCrashLog(): CrashEntry[] {
+function loadCrashLog(): CrashEntry[] {
   try {
     const raw = localStorage.getItem("codex-crash-log") || localStorage.getItem("memoria-crash-log");
     return raw ? JSON.parse(raw) as CrashEntry[] : [];
@@ -199,7 +195,11 @@ export async function cleanOrphans(cardIds: string[]): Promise<CleanOrphansResul
       subcategoryId: "",
       chapterId: "",
     }));
-  await bulkPutCardsDirect(patched);
+  await bulkPutCardsDirect(patched, { skipNotify: true });
+  emitCardsChangedForRefs([
+    ...loaded.filter(Boolean).map(cardToScopeRef),
+    ...patched.map(cardToScopeRef),
+  ]);
 
   return { fallbackCategoryName: fallback.name, movedCount: patched.length };
 }

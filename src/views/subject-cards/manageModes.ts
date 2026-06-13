@@ -46,7 +46,7 @@ export const MANAGE_MODES: readonly ManageModeDescriptor[] = [
   },
 ] as const;
 
-export const MANAGE_MODE_BY_ID: Record<ManageMode, ManageModeDescriptor> =
+const MANAGE_MODE_BY_ID: Record<ManageMode, ManageModeDescriptor> =
   MANAGE_MODES.reduce((acc, m) => {
     acc[m.id] = m;
     return acc;

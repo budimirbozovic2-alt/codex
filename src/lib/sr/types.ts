@@ -12,8 +12,7 @@ export enum SectionState {
 export interface Section {
   id: string;
   title: string;
-  /** Canonical AST payload — required on all writes. Legacy `content` HTML
-   *  was removed in PR-7e M4. Derive HTML/plain text via
+  /** Canonical AST payload — required on all writes. Derive HTML/plain text via
    *  `@/lib/editor-v4/derived` when a string view is needed. */
   contentDoc: EditorDoc;
   state: SectionState;
@@ -51,8 +50,6 @@ export interface SourceModule {
 
 export type FrequencyTag = "često" | "rijetko" | "nikad";
 export type CardSourceType = "skripta" | "zakon";
-/** Audit-requested alias for CardSourceType. */
-export type SourceType = CardSourceType;
 
 export interface Card {
   id: string;
@@ -78,13 +75,6 @@ export interface Card {
   sourceModules?: SourceModule[];
   frequencyTag?: FrequencyTag;
   sourceType?: CardSourceType;
-}
-
-export interface ReviewGrade {
-  label: string;
-  value: number;
-  description: string;
-  color: string;
 }
 
 export interface SRSettings {

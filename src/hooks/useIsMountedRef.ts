@@ -8,7 +8,7 @@ import { useEffect, useRef, type MutableRefObject } from "react";
  * `.then(...)` continuations where there's nothing to cancel — only state
  * writes to suppress.
  *
- * For cancellable async work (fetch, audio decode, long Dexie queries) prefer
+ * For cancellable async work (fetch, audio decode, long SQLite queries) prefer
  * an `AbortController` instead.
  */
 export function useIsMountedRef(): MutableRefObject<boolean> {

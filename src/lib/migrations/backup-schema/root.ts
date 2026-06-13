@@ -1,5 +1,4 @@
 import { z } from "zod";
-import type { CategoryRecord } from "@/lib/db-types";
 import { lenientArray } from "./helpers";
 import { BackupCardSchema } from "./cards";
 import { BackupCategoryRecordSchema } from "./taxonomy";
@@ -24,32 +23,14 @@ import {
   BackupMajorSystemSchema,
 } from "./satellite-logs";
 
-// ─── Top-level backup ───────────────────────────────────
+// ─── Top-level backup (v7 only) ───────────────────────────────────────────
 
 export const BackupSchema = z
   .object({
-    version: z.unknown().optional(),
-    type: z.unknown().optional(),
+    version: z.literal(7),
+    type: z.enum(["full", "template"]).optional(),
     cards: z.array(BackupCardSchema).default([]),
-    // Legacy backups had `categories: string[]` (names only). Accept either.
-    categories: z
-      .unknown()
-      .transform((v): CategoryRecord[] | string[] => {
-        if (!Array.isArray(v)) return [];
-        if (v.length === 0) return [];
-        const first = v[0];
-        // New format: object with id+name → parse via BackupCategoryRecordSchema
-        if (first && typeof first === "object" && "id" in first) {
-          const out: CategoryRecord[] = [];
-          for (const raw of v) {
-            const r = BackupCategoryRecordSchema.safeParse(raw);
-            if (r.success) out.push(r.data);
-          }
-          return out;
-        }
-        // Legacy format: array of name strings
-        return v.filter((s): s is string => typeof s === "string");
-      }),
+    categories: z.array(BackupCategoryRecordSchema).default([]),
     subcategories: z.unknown().optional(),
     reviewLog: lenientArray(BackupReviewLogEntrySchema, "reviewLog"),
     srSettings: z
@@ -76,74 +57,9 @@ export const BackupSchema = z
     settings: z.array(BackupSettingsEntrySchema).default([]),
     localStorageData: z.unknown().optional(),
   })
-  .passthrough();
+  .strict();
 
 export type ParsedBackup = z.infer<typeof BackupSchema>;
-export type ParsedCard = z.infer<typeof BackupCardSchema>;
-export type ParsedCategoryRecord = z.infer<typeof BackupCategoryRecordSchema>;
 
-// ─── Legacy minimal-backup shape (used by remap migrations) ─────
-
-export interface BackupChap {
-  id: string;
-  name: string;
-}
-
-export interface BackupSub {
-  id: string;
-  name: string;
-  chapters?: BackupChap[];
-}
-
-export interface BackupCategory {
-  id: string;
-  name: string;
-  subcategories?: BackupSub[];
-}
-
-export interface BackupCard {
-  id: string;
-  categoryId?: string;
-  subcategoryId?: string;
-  chapterId?: string;
-}
-
-export interface MinimalBackup {
-  categories: BackupCategory[];
-  cards: BackupCard[];
-  type?: string;
-  version?: number;
-}
-
-function isObj(v: unknown): v is Record<string, unknown> {
-  return typeof v === "object" && v !== null;
-}
-
-export function isMinimalBackup(json: unknown): json is MinimalBackup {
-  if (!isObj(json)) return false;
-  if (!Array.isArray(json.categories) || !Array.isArray(json.cards)) return false;
-  if (json.categories.length > 0) {
-    const c = json.categories[0];
-    if (!isObj(c) || typeof c.id !== "string" || typeof c.name !== "string") return false;
-  }
-  if (json.cards.length > 0) {
-    const c = json.cards[0];
-    if (!isObj(c) || typeof c.id !== "string") return false;
-  }
-  return true;
-}
-
-export function normalizeName(s: string | undefined): string {
-  return (s ?? "").trim().toLowerCase().replace(/\s+/g, " ");
-}
-
-/**
- * Strict type-guard wrapper around `BackupSchema.safeParse`.
- *
- * `useCardImport` calls `safeParse` directly so it can surface per-field error
- * paths in toasts. This export exists for callers that just need a boolean
- * predicate (drag-and-drop dropzones, restore preview, tests).
- */
-export function isValidBackupPayload(data: unknown): data is ParsedBackup {
-  return BackupSchema.safeParse(data).success;
-}
+/** Re-export for callers that validate version before parse. */
+export const BACKUP_SCHEMA_VERSION = 7;

@@ -1,9 +1,4 @@
-// Static data: Major System default pegs, joker locations, and legacy
-// localStorage keys used only by the one-shot migration.
-
-export const MAJOR_SYSTEM_KEY = "sr-major-system";
-export const MNEMONIC_CARDS_KEY = "sr-mnemonic-cards";
-export const MNEMONIC_TEST_LOG_KEY = "sr-mnemonic-test-log";
+// Static data: Major System default pegs and joker locations.
 
 export const DEFAULT_MAJOR_SYSTEM: Record<number, string> = {
   0: "OSA", 1: "DUH", 2: "NOA", 3: "MAO", 4: "RA", 5: "LI", 6: "ČAJ", 7: "OKO", 8: "UVO", 9: "PAJA",

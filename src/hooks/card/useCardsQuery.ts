@@ -18,14 +18,14 @@ import {
 import {
   listAllCards,
   cardsByCategory,
-  cardsBySubcategory,
-  cardsByChapter,
   cardsBySource,
   getCardsByIds,
   cardCountByCategory,
+  countAllCards,
 } from "@/lib/db/queries";
 import { queryKeys } from "@/lib/query/keys";
 import type { Card } from "@/lib/spaced-repetition";
+import { countDueCards } from "@/hooks/cards/useCardAggregates";
 
 const EMPTY: readonly Card[] = Object.freeze([]);
 
@@ -75,36 +75,6 @@ export function useCardsByCategoryWithStatus(
   return { cards: data ?? EMPTY, isLoading, isFetching };
 }
 
-export function useCardsBySubcategory(
-  subcategoryId: string | undefined,
-  categoryId?: string,
-): readonly Card[] {
-  const { data } = useQuery({
-    queryKey: subcategoryId && categoryId
-      ? queryKeys.cards.bySubcategory(categoryId, subcategoryId)
-      : ["cards", "subcat", "_disabled"],
-    queryFn: () => cardsBySubcategory(categoryId!, subcategoryId!),
-    enabled: !!subcategoryId && !!categoryId,
-    staleTime: Infinity,
-  });
-  return data ?? EMPTY;
-}
-
-export function useCardsByChapter(
-  chapterId: string | undefined,
-  categoryId?: string,
-): readonly Card[] {
-  const { data } = useQuery({
-    queryKey: chapterId && categoryId
-      ? queryKeys.cards.byChapter(categoryId, chapterId)
-      : ["cards", "chap", "_disabled"],
-    queryFn: () => cardsByChapter(categoryId!, chapterId!),
-    enabled: !!chapterId && !!categoryId,
-    staleTime: Infinity,
-  });
-  return data ?? EMPTY;
-}
-
 export function useCardsBySource(
   sourceId: string | undefined
 ): readonly Card[] {
@@ -144,6 +114,46 @@ export function useCardCountByCategory(
     staleTime: Infinity,
   });
   return data ?? 0;
+}
+
+/** SQL COUNT(*) — no payload decode. */
+export function useCardCountAll(): number {
+  const { data } = useQuery({
+    queryKey: queryKeys.cards.countAll(),
+    queryFn: countAllCards,
+    staleTime: Infinity,
+  });
+  return data ?? 0;
+}
+
+/**
+ * Per-category due counts via scoped category queries (reuses cached
+ * `cardsByCategory` rows when a subject view is already mounted).
+ */
+export function useCategoryDueCounts(
+  categoryIds: readonly string[],
+): Record<string, number> {
+  const results = useQueries({
+    queries: categoryIds.map((id) => ({
+      queryKey: queryKeys.cards.byCategory(id),
+      queryFn: () => cardsByCategory(id),
+      staleTime: Infinity,
+    })),
+  });
+
+  const idsKey = categoryIds.join("|");
+  const dataKey = results.map((r) => r.dataUpdatedAt).join("|");
+
+  return useMemo(() => {
+    const out: Record<string, number> = {};
+    categoryIds.forEach((id, i) => {
+      const cards = (results[i] as UseQueryResult<readonly Card[]> | undefined)
+        ?.data ?? EMPTY;
+      out[id] = countDueCards(cards);
+    });
+    return out;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [idsKey, dataKey]);
 }
 
 /**

@@ -26,7 +26,3 @@ export function getCurrentEditingCardId(): string | null {
 export function setEditingCardId(id: string | null): void {
   uiStore.setState({ editingCardId: id });
 }
-
-export function __resetUIStoreForTests(): void {
-  uiStore.setState({ editingCardId: null });
-}

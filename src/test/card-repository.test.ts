@@ -202,4 +202,68 @@ describe("cardRepository", () => {
     unsub();
     expect(count).toBe(1);
   });
+
+  // ── clearLinks (JSON-native) ─────────────────────────────────────────────
+
+  it("clearLinks removes sourceId from payload and indexed column", async () => {
+    await cardRepository.put(makeCard("cl-1", {
+      sourceId: "src-1",
+      textAnchor: "anchor",
+      needsReview: true,
+    }));
+    await cardRepository.clearLinks(["cl-1"]);
+    const card = (await listAllCards()).find((c) => c.id === "cl-1");
+    expect(card?.sourceId).toBeUndefined();
+    expect(card?.textAnchor).toBeUndefined();
+    expect(card?.needsReview).toBeUndefined();
+  });
+
+  it("clearLinks skips cards without sourceId", async () => {
+    await cardRepository.put(makeCard("cl-skip", { question: "keep" }));
+    let count = 0;
+    const unsub = onCardsChanged(() => count++);
+    const result = await cardRepository.clearLinks(["cl-skip"]);
+    unsub();
+    expect(result).toEqual([]);
+    expect(count).toBe(1);
+  });
+
+  // ── clearNeedsReview (JSON-native) ───────────────────────────────────────
+
+  it("clearNeedsReview removes needsReview flag", async () => {
+    await cardRepository.put(makeCard("cnr-1", { needsReview: true }));
+    await cardRepository.clearNeedsReview("cnr-1");
+    const card = (await listAllCards()).find((c) => c.id === "cnr-1");
+    expect(card?.needsReview).toBeUndefined();
+  });
+
+  it("clearNeedsReview is no-op when flag absent", async () => {
+    await cardRepository.put(makeCard("cnr-noop"));
+    let count = 0;
+    const unsub = onCardsChanged(() => count++);
+    await cardRepository.clearNeedsReview("cnr-noop");
+    unsub();
+    expect(count).toBe(0);
+  });
+
+  // ── bulkSetNeedsReview / bulkUpdateChapter (JSON-native) ───────────────
+
+  it("bulkSetNeedsReview sets flag on many cards", async () => {
+    await cardRepository.put(makeCard("bsr-1"));
+    await cardRepository.put(makeCard("bsr-2"));
+    await cardRepository.bulkSetNeedsReview(["bsr-1", "bsr-2"]);
+    const all = await listAllCards();
+    expect(all.find((c) => c.id === "bsr-1")?.needsReview).toBe(true);
+    expect(all.find((c) => c.id === "bsr-2")?.needsReview).toBe(true);
+  });
+
+  it("bulkUpdateChapter syncs chapterId column and payload", async () => {
+    await cardRepository.put(makeCard("buc-1", { chapterId: "old-ch", chapterOrder: 1 }));
+    await cardRepository.bulkUpdateChapter([
+      { id: "buc-1", chapterId: "new-ch", chapterOrder: 5 },
+    ]);
+    const card = (await listAllCards()).find((c) => c.id === "buc-1");
+    expect(card?.chapterId).toBe("new-ch");
+    expect(card?.chapterOrder).toBe(5);
+  });
 });

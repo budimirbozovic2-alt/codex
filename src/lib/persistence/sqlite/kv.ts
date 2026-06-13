@@ -12,7 +12,7 @@
  */
 import type { SqlExecutor } from "./executor";
 
-export class KvDecodeError extends Error {
+class KvDecodeError extends Error {
   constructor(public readonly key: string, cause: unknown) {
     const msg = cause instanceof Error ? cause.message : String(cause);
     super(`[sqlite:kv] decode failed for key=${key}: ${msg}`);

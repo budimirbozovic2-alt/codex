@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { NavLink } from "@/components/NavLink";
 import { Home, Settings as SettingsIcon, Scale } from "lucide-react";
 import {
@@ -7,7 +8,7 @@ import {
 } from "@/components/ui/sidebar";
 import { Badge } from "@/components/ui/badge";
 import { useCategoryData } from "@/hooks/cards/useCategoryState";
-import { useCategoryStatsData } from "@/hooks/cards/useCardState";
+import { useCategoryDueCounts } from "@/hooks/card/useCardsQuery";
 
 const STATIC_NAV = [
   { path: "/", icon: Home, label: "Početna tabla" },
@@ -18,7 +19,11 @@ export default function AppSidebar() {
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
   const { categoryRecords } = useCategoryData();
-  const { categoryStats } = useCategoryStatsData();
+  const categoryIds = useMemo(
+    () => categoryRecords.map((cat) => cat.id),
+    [categoryRecords],
+  );
+  const dueByCategory = useCategoryDueCounts(categoryIds);
 
   return (
     <Sidebar collapsible="icon">
@@ -62,8 +67,7 @@ export default function AppSidebar() {
               )}
 
               {categoryRecords.map((cat) => {
-                const st = categoryStats[cat.id];
-                const due = st?.due ?? 0;
+                const due = dueByCategory[cat.id] ?? 0;
 
                 return (
                   <SidebarMenuItem key={cat.id}>

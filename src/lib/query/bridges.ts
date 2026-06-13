@@ -59,7 +59,7 @@ function keysForScope(
 ): readonly (readonly string[])[] {
   switch (scope.kind) {
     case "all":
-      return [];
+      return [queryKeys.cards.countAll()];
     case "category": {
       const { categoryId } = scope;
       return [
@@ -70,6 +70,7 @@ function keysForScope(
         queryKeys.cards._chapRoot(categoryId),
         queryKeys.cards._typeRoot(categoryId),
         queryKeys.cards.countByCategory(categoryId),
+        queryKeys.cards.countAll(),
       ];
     }
     case "subcategory": {
@@ -79,6 +80,7 @@ function keysForScope(
         queryKeys.cards.byCategory(categoryId),
         queryKeys.cards.bySubcategory(categoryId, subcategoryId),
         queryKeys.cards.countByCategory(categoryId),
+        queryKeys.cards.countAll(),
       ];
     }
     case "chapter": {
@@ -88,12 +90,14 @@ function keysForScope(
         queryKeys.cards.byCategory(categoryId),
         queryKeys.cards.byChapter(categoryId, chapterId),
         queryKeys.cards.countByCategory(categoryId),
+        queryKeys.cards.countAll(),
       ];
     }
     case "source":
       return [
         queryKeys.cards.all(), 
-        queryKeys.cards.bySource(scope.sourceId)
+        queryKeys.cards.bySource(scope.sourceId),
+        queryKeys.cards.countAll(),
       ];
   }
 }
@@ -197,7 +201,7 @@ function scheduleCardsInvalidate(
   }
 }
 
-export function _flushCardsInvalidateForTest(): void {
+function _flushCardsInvalidateForTest(): void {
   if (_trailingTimer !== null) { 
     clearTimeout(_trailingTimer); 
     _trailingTimer = null; 

@@ -29,6 +29,22 @@ export interface CardAggregates {
   categoryStats: Record<string, { score: number; total: number; due: number }>;
 }
 
+/** Card-level due: earliest non-New section nextReview is in the past. */
+export function countDueCards(cards: readonly Card[]): number {
+  const now = Date.now();
+  let due = 0;
+  for (const card of cards) {
+    let minNonNewNextReview = Infinity;
+    for (const s of card.sections) {
+      if (s.state !== SectionState.New && s.nextReview < minNonNewNextReview) {
+        minNonNewNextReview = s.nextReview;
+      }
+    }
+    if (minNonNewNextReview <= now) due++;
+  }
+  return due;
+}
+
 export function useCardAggregates(cards: Card[], categories: string[]): CardAggregates {
   const cardSummaryCacheRef = useRef<WeakMap<Card, CardSummary>>(new WeakMap());
   const summarizeCard = useCallback((card: Card): CardSummary => {

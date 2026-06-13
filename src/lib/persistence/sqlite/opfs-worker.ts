@@ -69,7 +69,7 @@ function probeDiag(api?: SqliteApi): WorkerDiag {
   return {
     crossOriginIsolated: 
       typeof self !== "undefined"
-        ? (self as any).crossOriginIsolated
+        ? (self as WorkerGlobalScope & { crossOriginIsolated?: boolean }).crossOriginIsolated
         : undefined,
     hasSharedArrayBuffer: 
       typeof SharedArrayBuffer !== "undefined",

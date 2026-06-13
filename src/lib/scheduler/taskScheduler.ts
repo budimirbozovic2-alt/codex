@@ -19,9 +19,9 @@
 
 import { logger } from "@/lib/logger";
 
-export type Priority = "high" | "normal" | "idle";
+type Priority = "high" | "normal" | "idle";
 
-export interface ScheduleOptions {
+interface ScheduleOptions {
   /** Required, human-readable label used in `snapshot()` + dev warnings. */
   label: string;
   /** Default "normal". `"idle"` is auto-paused when `document.visibilityState === "hidden"`. */
@@ -71,7 +71,7 @@ interface IdleTaskRecord extends BaseTaskRecord {
 
 type TaskRecord = TimeoutTaskRecord | IntervalTaskRecord | IdleTaskRecord;
 
-export interface TaskSnapshot {
+interface TaskSnapshot {
   handle: TaskHandle;
   label: string;
   priority: Priority;

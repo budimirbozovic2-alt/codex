@@ -2,10 +2,7 @@
 // Log tables repository — PR-9 A1c-3 nastavak.
 // SQLite-primary readers/writers for 7 log tables.
 // ─────────────────────────────────────────────────────────────────
-import type { 
-  SqlExecutor, 
-  SqlBindValue 
-} from "@/lib/persistence/sqlite/executor";
+import type { SqlBindValue } from "@/lib/persistence/sqlite/executor";
 import type {
   DiaryEntry,
   CalibrationEntry,
@@ -18,47 +15,9 @@ import type {
   PomodoroLogEntry 
 } from "@/lib/types/logs";
 import { logger } from "@/lib/logger";
-import { 
-  notifyExecutorNull 
-} from "./_shared/executor-telemetry";
+import { requireSqlExecutor } from "./_shared/require-sql-executor";
 
 type AutoIncRow<T> = T & { id?: number };
-
-async function tryGetExecutor(): Promise<SqlExecutor | null> {
-  try {
-    const { isElectron } = await import(
-      "@/lib/electron-integration"
-    );
-    if (!isElectron() && import.meta.env.PROD) { 
-      notifyExecutorNull("logs", "non-electron"); 
-      return null; 
-    }
-    const { getOpfsSqliteExecutor } = await import(
-      "@/lib/persistence/sqlite/client"
-    );
-    
-    // Faza 4: Mrtvi polling kod uklonjen. Klijent baze
-    // osigurava boot sequence i baca grešku ako padne.
-    return await getOpfsSqliteExecutor();
-  } catch (err) {
-    logger.warn("[logs-repo] sqlite executor unavailable", err);
-    notifyExecutorNull("logs", "error");
-    return null;
-  }
-}
-
-async function requireExecutor(
-  label: string
-): Promise<SqlExecutor | null> {
-  const exec = await tryGetExecutor();
-  if (exec) return exec;
-  const { assertDesktop } = await import(
-    "@/lib/electron-integration"
-  );
-  assertDesktop();
-  logger.warn(`[logs-repo] ${label} — no executor (dev shell)`);
-  return null;
-}
 
 function decode<T>(
   rows: readonly { payload: string; id?: number | string }[]
@@ -90,8 +49,7 @@ async function listAllAutoInc<T>(table: string): Promise<T[]> {
     "./_shared/sql-timing"
   );
   return withSqlTiming(`listAll:${table}`, async () => {
-    const exec = await requireExecutor(`listAll:${table}`);
-    if (!exec) return [];
+    const exec = await requireSqlExecutor(`logs:listAll:${table}`);
     const rows = await exec.all<{ id: number; payload: string }>(
       `SELECT id, payload FROM ${table} ORDER BY id ASC`,
     );
@@ -100,8 +58,7 @@ async function listAllAutoInc<T>(table: string): Promise<T[]> {
 }
 
 async function countTable(table: string): Promise<number> {
-  const exec = await requireExecutor(`count:${table}`);
-  if (!exec) return 0;
+  const exec = await requireSqlExecutor(`logs:count:${table}`);
   const rows = await exec.all<{ n: number }>(
     `SELECT COUNT(*) AS n FROM ${table}`
   );
@@ -116,8 +73,7 @@ async function bulkInsertAutoInc<T>(
   opts: { preserveId?: boolean } = {},
 ): Promise<void> {
   if (rows.length === 0) return;
-  const exec = await requireExecutor(`bulk:${table}`);
-  if (!exec) return;
+  const exec = await requireSqlExecutor(`logs:bulk:${table}`);
   
   const colNames = Object.keys(cols);
   const insertCols: string[] = [];
@@ -187,8 +143,7 @@ export const bulkPutReviewLog = (
 export async function loadRecentReviewLog(
   days: number
 ): Promise<ReviewLogEntry[]> {
-  const exec = await requireExecutor("loadRecent:reviewLog");
-  if (!exec) return [];
+  const exec = await requireSqlExecutor("logs:loadRecent:reviewLog");
   const cutoff = Date.now() - days * 86400000;
   const rows = await exec.all<{ id: number; payload: string }>(
     `SELECT id, payload FROM reviewLog 
@@ -226,8 +181,7 @@ export const loadPomodoroLogSince = (cutoff: number) =>
 export async function countPomodoroLogByType(
   type: string
 ): Promise<number> {
-  const exec = await requireExecutor("countPomodoroLogByType");
-  if (!exec) return 0;
+  const exec = await requireSqlExecutor("logs:countPomodoroLogByType");
   const rows = await exec.all<{ n: number }>(
     `SELECT COUNT(*) AS n FROM pomodoroLog 
      WHERE json_extract(payload,'$.type') = ?`,
@@ -312,8 +266,7 @@ const bulkPutActivityLog = (
   );
 
 export async function listAllDiary(): Promise<DiaryEntry[]> {
-  const exec = await requireExecutor("listAll:diary");
-  if (!exec) return [];
+  const exec = await requireSqlExecutor("logs:listAll:diary");
   const rows = await exec.all<{ payload: string }>(
     "SELECT payload FROM diary ORDER BY date ASC"
   );
@@ -326,8 +279,7 @@ export const countDiary = () => countTable("diary");
 async function loadSinceNumeric<T>(
   table: string, col: string, since: number,
 ): Promise<T[]> {
-  const exec = await requireExecutor(`loadSince:${table}`);
-  if (!exec) return [];
+  const exec = await requireSqlExecutor(`logs:loadSince:${table}`);
   const rows = await exec.all<{ id: number; payload: string }>(
     `SELECT id, payload FROM ${table} 
      WHERE ${col} > ? ORDER BY id ASC`,
@@ -339,8 +291,7 @@ async function loadSinceNumeric<T>(
 async function loadSinceText<T>(
   table: string, col: string, since: string,
 ): Promise<T[]> {
-  const exec = await requireExecutor(`loadSince:${table}`);
-  if (!exec) return [];
+  const exec = await requireSqlExecutor(`logs:loadSince:${table}`);
   const rows = await exec.all<{ id: number; payload: string }>(
     `SELECT id, payload FROM ${table} 
      WHERE ${col} > ? ORDER BY id ASC`,
@@ -375,8 +326,7 @@ export async function pruneAutoIncTable(
   table: string, 
   maxRetain: number
 ): Promise<number> {
-  const exec = await requireExecutor(`prune:${table}`);
-  if (!exec) return 0;
+  const exec = await requireSqlExecutor(`logs:prune:${table}`);
   const countRow = await exec.all<{ n: number }>(
     `SELECT COUNT(*) AS n FROM ${table}`
   );

@@ -8,6 +8,4 @@
  * Hook surface lives in `@/hooks/useDraftRegistry` / `@/hooks/useDraftAutosave`
  * / `@/hooks/usePersistedDraftMirror` — those import this barrel internally.
  */
-export { draftRegistry } from "./draftRegistry";
-export { putDraft, getDraft, deleteDraft, listDraftsBySource } from "./draftsTable";
 export { recoverDraftsOnBoot } from "./draftRecovery";

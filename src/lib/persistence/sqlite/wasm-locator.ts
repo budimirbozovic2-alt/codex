@@ -2,18 +2,13 @@
  * WASM asset locator — fixes sqlite3-wasm OPFS proxy loading.
  *
  * Electron PROD: assets are in dist/sqlite/ (copied by Vite plugin)
- * Electron DEV: assets are in node_modules (served by Vite dev server)
- * Browser: uses in-memory fallback (dev-fallback.ts)
+ * Electron DEV: assets are served via Vite `/sqlite/` middleware
  *
  * The key issue: sqlite3-wasm expects installOpfsSAHPoolVfs to load
  * sqlite3-opfs-async-proxy.js and sqlite3-worker1.mjs from the SAME
  * origin/path as sqlite3.wasm. If they're not found, installOpfsSAHPoolVfs
  * is undefined and OPFS initialization fails.
  */
-
-function isElectronRuntime(): boolean {
-  return typeof window !== "undefined" && Boolean((window as { electronAPI?: unknown }).electronAPI);
-}
 
 function isProduction(): boolean {
   return import.meta.env.PROD;
@@ -24,12 +19,7 @@ function isProduction(): boolean {
  * Must match where the Vite plugin copies them (dist/sqlite/) and where
  * the dev server serves them (node_modules/@sqlite.org/sqlite-wasm/dist).
  */
-export function getWasmBasePath(): string {
-  if (!isElectronRuntime()) {
-    // Browser preview — not used in production, but keep working for DEV
-    return "./sqlite/";
-  }
-
+function getWasmBasePath(): string {
   if (isProduction()) {
     // Electron PROD: Vite plugin copies assets to dist/sqlite/
     return "./sqlite/";
@@ -38,7 +28,7 @@ export function getWasmBasePath(): string {
   // Electron DEV: Vite serves files via the `/sqlite/` alias declared in
   // vite.config.ts (PR-H-OPFS-FIX H-4). Previously this returned "./sqlite/"
   // which 404'd for the OPFS proxy + worker1 files because no asset existed
-  // at that path during dev — silently degrading SQLite to in-memory.
+  // at that path during dev — OPFS init fails loudly without WASM assets.
   return "/sqlite/";
 }
 

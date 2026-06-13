@@ -20,7 +20,7 @@ import {
   setCategoryStoreRecords,
 } from "@/store/useCategoryStore";
 import { wrapWrite, type WriteResult } from "@/lib/persistence/write-result";
-import type { SqlExecutor } from "@/lib/persistence/sqlite/executor";
+import { requireSqlExecutor } from "@/lib/db/queries/_shared/require-sql-executor";
 import {
   deleteSetting,
   getSetting,
@@ -37,7 +37,7 @@ import { scrubCategoryFromPlannerConfig } from "@/domains/planner";
 import { notifyMnemonics } from "@/features/mnemonic/mnemonic-storage";
 
 // ─── Read primitives ─────────────────────────────────────────────────────
-export function getCategorySnapshot(): CategoryRecord[] {
+function getCategorySnapshot(): CategoryRecord[] {
   return getCategoryStoreRecords();
 }
 
@@ -88,19 +88,7 @@ export async function commit(
 
 // ─── A2 — SQLite-primary delete with FK CASCADE ──────────────────────────
 
-async function tryGetExecutor(): Promise<SqlExecutor | null> {
-  try {
-    const { isElectron } = await import("@/lib/electron-integration");
-    if (!isElectron() && import.meta.env.PROD) return null;
-    const { getOpfsSqliteExecutor } = await import("@/lib/persistence/sqlite/client");
-    return await getOpfsSqliteExecutor();
-  } catch (err) {
-    logger.warn("[category-repo] sqlite executor unavailable", err);
-    return null;
-  }
-}
-
-export interface DeleteCategoryOpts {
+interface DeleteCategoryOpts {
   /** When true: drop cards + sources for this category. When false: re-parent. */
   purgeCards: boolean;
   /** Re-parent target when `purgeCards === false`. Empty string skips re-parent. */
@@ -112,20 +100,14 @@ export interface DeleteCategoryOpts {
  * FK CASCADE on the schema wipes mindMaps / mnemonics / knowledgeBaseArticles
  * automatically; cards + sources are handled explicitly so the `purgeCards`
  * vs. re-parent semantics survive (FK can't conditionally null-out).
- *
- * Returns ok even if the SQLite executor isn't available (Vite dev shell).
  */
-export function deleteAsync(
+function deleteAsync(
   id: string,
   opts: DeleteCategoryOpts,
 ): Promise<WriteResult<void>> {
   return wrapWrite(async () => {
     if (!id) return;
-    const exec = await tryGetExecutor();
-    // Wave-1 fix: previously returned silently when executor was missing,
-    // which meant the RAM store appeared "deleted" but SQLite kept the row
-    // and the category reappeared on next boot.
-    if (!exec) throw new Error("NO_EXECUTOR");
+    const exec = await requireSqlExecutor("category-repo:delete");
 
     await exec.transaction(async (tx) => {
       if (opts.purgeCards) {
@@ -167,7 +149,7 @@ export function deleteAsync(
 
 const SUBJECT_SETTINGS_PREFIX = "subject_settings:";
 
-export interface CascadeDeleteResult {
+interface CascadeDeleteResult {
   articles: number;
   mindMaps: number;
   mnemonics: number;
@@ -181,7 +163,7 @@ export interface CascadeDeleteResult {
  * Full category delete: SQLite cascade + KV scrub + cache invalidation.
  * Call after optimistically removing the row from the in-memory store.
  */
-export async function deleteCascade(
+async function deleteCascade(
   categoryId: string,
   opts: DeleteCategoryOpts,
 ): Promise<CascadeDeleteResult> {

@@ -9,6 +9,20 @@
  * files are forbidden, the barrel is the single seam.
  */
 
+export type { CardsScope } from "./cards";
+
+export {
+  cardToScopeRef,
+  emitCardsChanged,
+  emitCardsChangedForCard,
+  emitCardsChangedForCategoryIds,
+  emitCardsChangedForRefs,
+  emitCardsChangedForTransition,
+  emitAfterCardWrite,
+  fetchCardScopeRefs,
+} from "./cards-notify-scope";
+export type { CardScopeRef } from "./cards-notify-scope";
+
 // Cards read path — OPFS SQLite SSOT
 export {
   listAllCards,
@@ -19,6 +33,7 @@ export {
   cardsByType,
   cardsBySource,
   cardsByTag,
+  countAllCards,
   cardCountByCategory,
   cardCountByChapter,
   cardCountByType,
@@ -27,7 +42,6 @@ export {
   getRecentCorruptCardIds,
   onCorruptCards,
 } from "./cards";
-export type { CardsScope } from "./cards";
 
 export {
   clearCardsSubcategoryRefs,

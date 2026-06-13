@@ -1,5 +1,5 @@
 /**
- * Zettelkasten storage façade — A1c-4 F6.3 (Final Dexie Drop).
+ * Zettelkasten storage façade — SQLite-primary (A1c-4 F6.3).
  * SQLite-only: all reads and writes delegate to knowledge-base.
  *
  * PR-H7 Hardening: Fully wrapped signatures and string literals

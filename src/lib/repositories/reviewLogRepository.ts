@@ -1,6 +1,6 @@
 // A1c-4 F2 — Review-log repository facade. SQLite-primary.
 //
-// Mirrors the previous Dexie-debounced micro-queue: callers fire-and-forget
+// Mirrors the previous debounced micro-queue: callers fire-and-forget
 // `append`/`appendMany`; a 250 ms timer drains the queue via
 // `bulkPutReviewLog` (one ACID tx per batch). `flush()` force-drains before
 // backup/export/quit. `loadRecent(days)` is a bounded-window hydrator used

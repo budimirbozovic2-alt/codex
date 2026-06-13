@@ -2,7 +2,7 @@
  * Backup-import row-bindings — PR-9 A1c-4 prep.
  *
  * Pure encode helpers + INSERT SQL strings for every SQLite table the
- * backup-import pipeline writes. Mirrors `persistence/sqlite/migrate-from-idb.ts`
+ * Row encoders shared by the backup-import pipeline writes.
  * shape (same columns, same JSON payload semantics), so a restore lands rows
  * that are byte-identical to what the migration would have produced from a
  * Dexie snapshot.
@@ -21,6 +21,7 @@ import type {
   Source,
 } from "@/lib/db-types";
 import type { MnemonicCard } from "@/features/mnemonic";
+import { encodeCategoryPayload } from "@/lib/persistence/sqlite/category-codecs";
 
 // ─── INSERT SQL constants ────────────────────────────────────────────────
 
@@ -53,7 +54,7 @@ export function bindCategory(c: CategoryRecord): SqlBindValue[] {
     c.name,
     c.sortOrder ?? 0,
     (c as { color?: string }).color ?? null,
-    JSON.stringify(c),
+    encodeCategoryPayload(c),
   ];
 }
 

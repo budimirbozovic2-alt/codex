@@ -6,7 +6,7 @@
  *   • Debounced save via `taskScheduler.setTimeout` (single shutdown surface).
  *   • Latest-ref pattern so cleanup-flush never sees a stale closure.
  *   • Three exit triggers: `visibilitychange → hidden`, unmount, `beforeunload`.
- *   • Optional persisted recovery snapshot in the Dexie `drafts` table.
+ *   • Optional persisted recovery snapshot in the SQLite `drafts` table.
  *   • Centralized dirty registration so a single nav-guard can ask "is anything
  *     dirty?" without enumerating call sites.
  *
@@ -25,7 +25,7 @@ export interface DraftAutosaveOptions<T> {
   key: string;
   /** Producer tag for the `drafts` table when `persistDraft` is on. */
   source: string;
-  /** Current source-of-truth value (e.g. saved card from IDB). */
+  /** Current source-of-truth value (e.g. saved card from SQLite). */
   initial: T;
   /** Persist function. Must be idempotent — may be called multiple times. */
   save: (draft: T) => Promise<void>;
@@ -35,7 +35,7 @@ export interface DraftAutosaveOptions<T> {
   debounceMs?: number;
   /** Save on tab hide / unmount / beforeunload (default true). */
   saveOnExit?: boolean;
-  /** When true, mirror every change into the IDB `drafts` table for crash recovery. */
+  /** When true, mirror every change into the SQLite `drafts` table for crash recovery. */
   persistDraft?: boolean;
   /** Disable everything (e.g. while form is closed). Default true. */
   enabled?: boolean;

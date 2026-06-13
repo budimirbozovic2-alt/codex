@@ -24,7 +24,7 @@ import { logger } from "@/lib/logger";
  *     against the current pending size to avoid keystroke-spam).
  *   • Cadence trackers reset on `activeId` change so a fresh edit session
  *     starts from "idle" rather than inheriting the previous velocity.
- *   • All lookups + inserts run inside one Dexie `rw` transaction via
+ *   • All lookups + inserts run inside one SQLite transaction via
  *     `bulkCreateArticlesIfMissing`.
  *
  * The `articles` dependency is intentional: after a capped batch persists

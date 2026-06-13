@@ -6,7 +6,7 @@
  * so a direct end-to-end assertion is deferred to manual smoke check.
  */
 import { describe, it, expect } from "vitest";
-import { applyRemapToParsedV2, buildCategoryIdRemap } from "@/lib/backup/import-remap";
+import { applyRemapToParsed, buildCategoryIdRemap } from "@/lib/backup/import-remap";
 import { mergeCardsByStrategy } from "@/lib/backup/write-cards-tx";
 import type { Card } from "@/lib/spaced-repetition";
 import type { ParsedBackup } from "@/lib/migrations/backup-schema";
@@ -24,17 +24,17 @@ function emptyParsed(): ParsedBackup {
     knowledgeBaseArticles: [], majorSystem: [], diary: [], reviewLog: [],
     pomodoroLog: [], calibrationLog: [], latencyLog: [], slippageLog: [],
     activityLog: [], disciplineLog: [], mnemonicTestLog: [],
-    subcategories: {}, settings: [], srSettings: null, version: 8,
+    subcategories: {}, settings: [], srSettings: null, version: 7, type: "full",
   } as unknown as ParsedBackup;
 }
 
-describe("A2: applyRemapToParsedV2 runs pre-merge without mutating currentMap", () => {
+describe("A2: applyRemapToParsed runs pre-merge without mutating currentMap", () => {
   it("rewrites parsed.cards.categoryId so merge sees remapped value", async () => {
     const parsed = emptyParsed();
     parsed.cards = [makeCard("c1", "backup-A")];
     parsed.categories = [makeCat("backup-A", "Civilno")];
     const remap = buildCategoryIdRemap(parsed.categories, [makeCat("live-A", "Civilno")]);
-    await applyRemapToParsedV2(remap, parsed);
+    await applyRemapToParsed(remap, parsed);
     expect(parsed.cards[0].categoryId).toBe("live-A");
     const { merged, nextMap } = mergeCardsByStrategy(parsed.cards, {}, "overwrite");
     expect(merged[0].categoryId).toBe("live-A");
@@ -49,7 +49,7 @@ describe("A2: applyRemapToParsedV2 runs pre-merge without mutating currentMap", 
     parsed.cards = [makeCard("backup-1", "backup-A")];
     parsed.categories = [makeCat("backup-A", "Civilno")];
     const remap = buildCategoryIdRemap(parsed.categories, [makeCat("live-A", "Civilno")]);
-    await applyRemapToParsedV2(remap, parsed);
+    await applyRemapToParsed(remap, parsed);
     expect(currentMap).toBe(ref);
     expect(currentMap["live-1"].categoryId).toBe("live-A");
     const { merged, nextMap } = mergeCardsByStrategy(parsed.cards, currentMap, "keep");
@@ -62,7 +62,7 @@ describe("A2: applyRemapToParsedV2 runs pre-merge without mutating currentMap", 
     const parsed = emptyParsed();
     parsed.cards = [makeCard("c1", "x")];
     parsed.sources = [{ id: "s1", categoryId: "x" }] as unknown as ParsedBackup["sources"];
-    await applyRemapToParsedV2(new Map(), parsed);
+    await applyRemapToParsed(new Map(), parsed);
     expect(parsed.cards[0].categoryId).toBe("x");
     expect(parsed.sources[0].categoryId).toBe("x");
   });

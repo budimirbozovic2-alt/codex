@@ -75,7 +75,6 @@ async function downloadFile(blob: Blob, filename: string): Promise<{ saved: bool
 }
 
 interface UseCardExportDeps {
-  cards: Card[];
   srSettings: SRSettings;
 }
 
@@ -104,13 +103,13 @@ function projectCardToTemplate(c: Card) {
   };
 }
 
-export function useCardExport({ cards, srSettings }: UseCardExportDeps) {
+export function useCardExport({ srSettings }: UseCardExportDeps) {
   const exportTemplate = useCallback(
     async (compress: boolean, onProgress: ProgressFn) => {
       const dateStr = new Date().toISOString().slice(0, 10);
 
       onProgress(5, "Priprema templatea…");
-      // PR-9 A1c-3 nastavak — read SQLite-primary repos (Dexie cut).
+      // PR-9 A1c-3 — read SQLite-primary repos.
       const [catRecords, allCards] = await Promise.all([
         readAllCategoriesForBackup(),
         readAllCardsForBackup(),
@@ -119,8 +118,7 @@ export function useCardExport({ cards, srSettings }: UseCardExportDeps) {
         (a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0),
       );
 
-      // Fallback: if SQLite is empty (dev shell) fall back to in-memory cards.
-      const cardSource: Card[] = allCards.length > 0 ? allCards : cards;
+      const cardSource: Card[] = allCards;
 
       const blob = await streamBackup({
         version: 2,
@@ -155,15 +153,14 @@ export function useCardExport({ cards, srSettings }: UseCardExportDeps) {
         throw err;
       }
     },
-    [cards],
+    [srSettings],
   );
 
   const exportData = useCallback(
     async (compress: boolean, onProgress: ProgressFn) => {
       onProgress(2, "Priprema…");
 
-      // PR-9 A1c-3 nastavak — categories come from SQLite-primary repo
-      // (still Dexie-backed under the hood until A1c-4; surface unchanged).
+      // PR-9 A1c-3 — categories via SQLite-primary backup-readers seam.
       const catRecords = await readAllCategoriesForBackup();
       const sortedCats = [...catRecords].sort(
         (a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0),

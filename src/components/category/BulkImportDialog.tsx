@@ -30,7 +30,7 @@ interface Props {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   categoryId: string;
-  /** Bulk path — single state update + single IDB transaction for all parsed pairs.
+  /** Bulk path — single state update + single SQLite transaction for all parsed pairs.
    *  Replaces legacy per-row addFlashCard loop which froze UI on >100 imports. */
   bulkAddFlashCards: (
     pairs: { question: string; answer: string }[],

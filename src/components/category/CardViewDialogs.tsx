@@ -47,7 +47,7 @@ export function AddCardDialog({ open, onOpenChange, categoryId, addCard, addFlas
     const sc = newSectionContent.trim();
     const mode = addMode;
     // Root-cause: zatvori dijalog PRVO, pa odgodi mutaciju globalnog state-a
-    // (addCard / addFlashCard mijenjaju card state + IDB) i toast portal —
+    // (addCard / addFlashCard mijenjaju card state + SQLite) i toast portal —
     // to izbjegava Radix focus race koji ostavlja pointer-events: none.
     onOpenChange(false);
     setNewQuestion(""); setNewAnswer(""); setNewSectionTitle("Odgovor"); setNewSectionContent("");

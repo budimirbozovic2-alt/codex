@@ -29,12 +29,5 @@ export const EASE = {
   spring: { type: "spring" as const, stiffness: 360, damping: 30 },
 } as const;
 
-export const STAGGER = {
-  /** Bliske, brze stavke (chips, tags) */
-  tight: 0.03,
-  /** List items, dashboard widgets */
-  loose: 0.06,
-} as const;
-
 /** Translate u px za FadeUp ulazak — namjerno mali, "premium" je suzdržan */
 export const TRANSLATE_PX = 6;

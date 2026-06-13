@@ -22,7 +22,7 @@
 import { useMutation, useQueryClient, type QueryClient, type QueryKey } from "@tanstack/react-query";
 import { toast } from "sonner";
 import type { Card } from "@/lib/spaced-repetition";
-import { cardRepository } from "@/lib/repositories";
+import { cardRepository, type ChapterFieldUpdate } from "@/lib/repositories";
 import { queryKeys } from "@/lib/query/keys";
 import { logger } from "@/lib/logger";
 
@@ -222,5 +222,47 @@ export function useCardMutations() {
     onSettled: settle,
   });
 
-  return { save, remove, bulkUpsert, gradeSection, bulkPatch };
+  const bulkSetNeedsReview = useMutation<void, Error, string[], RollbackCtx>({
+    mutationFn: (cardIds) => cardRepository.bulkSetNeedsReview(cardIds),
+    onMutate: async (cardIds) => {
+      const ctx = await snapshot();
+      optimisticBulkPatch(qc, cardIds, (c) => ({ ...c, needsReview: true }));
+      return ctx;
+    },
+    onError: (err, cardIds, ctx) => {
+      logger.error("[useCardMutations] bulkSetNeedsReview persist failed", { n: cardIds.length, err });
+      toast.error("Označavanje kartica nije uspjelo — vraćam stanje.");
+      rollback(ctx);
+    },
+    onSettled: settle,
+  });
+
+  const bulkUpdateChapter = useMutation<void, Error, ChapterFieldUpdate[], RollbackCtx>({
+    mutationFn: (updates) => cardRepository.bulkUpdateChapter(updates),
+    onMutate: async (updates) => {
+      const ctx = await snapshot();
+      const map = new Map(updates.map((u) => [u.id, u]));
+      optimisticBulkPatch(qc, updates.map((u) => u.id), (c) => {
+        const u = map.get(c.id)!;
+        return { ...c, chapterId: u.chapterId, chapterOrder: u.chapterOrder };
+      });
+      return ctx;
+    },
+    onError: (err, updates, ctx) => {
+      logger.error("[useCardMutations] bulkUpdateChapter persist failed", { n: updates.length, err });
+      toast.error("Premještanje u poglavlje nije uspjelo — vraćam stanje.");
+      rollback(ctx);
+    },
+    onSettled: settle,
+  });
+
+  return {
+    save,
+    remove,
+    bulkUpsert,
+    gradeSection,
+    bulkPatch,
+    bulkSetNeedsReview,
+    bulkUpdateChapter,
+  };
 }

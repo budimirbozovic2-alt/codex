@@ -15,7 +15,7 @@ export function getCachedRetention(): number {
   return _cachedRetention;
 }
 
-export const INITIAL_VALUES: Record<number, { stability: number; difficulty: number }> = {
+const INITIAL_VALUES: Record<number, { stability: number; difficulty: number }> = {
   1: { stability: 0.1, difficulty: 6 },
   2: { stability: 1, difficulty: 5 },
   3: { stability: 3, difficulty: 4 },
@@ -31,7 +31,7 @@ function getElapsedDays(section: Section): number {
   return (Date.now() - section.lastReviewed) / (24 * 60 * 60 * 1000);
 }
 
-export function nextState(currentState: SectionState, grade: number): SectionState {
+function nextState(currentState: SectionState, grade: number): SectionState {
   switch (currentState) {
     case SectionState.New:
       return grade === 1 ? SectionState.Learning : grade <= 3 ? SectionState.Learning : SectionState.Review;
@@ -188,7 +188,7 @@ export function getPendingFirstReviewCount(cards: Card[]): number {
   return cards.reduce((sum, c) => sum + c.sections.filter((s) => s.firstReviewPending && s.nextReview <= Date.now()).length, 0);
 }
 
-export function getCardNextReview(card: Card): number {
+function getCardNextReview(card: Card): number {
   let min = Infinity;
   for (const s of card.sections) {
     if (s.state !== SectionState.New && s.nextReview < min) min = s.nextReview;

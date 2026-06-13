@@ -5,12 +5,13 @@ import { useMemo, memo, lazy, Suspense } from "react";
 import {
   MnemonicCard, MnemonicStatus, HookType,
   extractNumbers, detectEnumerationItems,
+  getMnemonicSectionHtml,
+  seedSectionDoc,
 } from "../mnemonic-storage";
 import { useCategoryData } from "@/hooks/cards/useCategoryState";
 import { ContentRenderer } from "@/components/ui/ContentRenderer";
 import { Skeleton } from "@/components/ui/skeleton";
-import { htmlToDoc } from "@/lib/editor-v4";
-import { deriveHtml } from "@/lib/editor-v4/derived";
+import type { EditorDoc } from "@/lib/editor-v4/types";
 import { m, AnimatePresence } from "@/lib/motion";
 import { STATUS_CONFIG, HOOK_TYPE_CONFIG } from "./card-item/configs";
 import { MajorSystemHints } from "./card-item/MajorSystemHints";
@@ -19,9 +20,7 @@ import { HookEditor } from "./card-item/HookEditor";
 import { TagsEditor } from "./card-item/TagsEditor";
 import { useCardItemEditing } from "../hooks/useCardItemEditing";
 
-// PR-7e M2: shim removed. MnemonicCard sections still persist as HTML
-// strings (separate schema from FSRS `contentDoc`), so we seed the V4
-// editor with `htmlToDoc` once per mount and emit HTML via `deriveHtml`.
+// PR-7e M2 → P2.2: workshop reads/writes section bodies via contentDoc SSOT.
 const EditorV4 = lazy(() =>
   import("@/components/editor-v4/EditorV4").then(m => ({ default: m.EditorV4 })),
 );
@@ -50,7 +49,7 @@ function WorkshopCardItemInner({ card, isExpanded, onToggle, onUpdateCard, onDel
   const {
     editMode, editQuestion, setEditQuestion, editSections,
     startEdit, saveEdit, cancelEdit,
-    updateSectionContent, removeSection,
+    updateSectionDoc, removeSection,
     confirmDelete, setConfirmDelete, handleDelete,
   } = useCardItemEditing(card, onUpdateCard, onDeleteCard);
 
@@ -59,7 +58,7 @@ function WorkshopCardItemInner({ card, isExpanded, onToggle, onUpdateCard, onDel
   const hookConf = HOOK_TYPE_CONFIG[card.hookType];
   const HookIcon = hookConf.icon;
 
-  const allContent = card.sections.map((s) => s.content).join(" ");
+  const allContent = card.sections.map(getMnemonicSectionHtml).join(" ");
   const numbers = useMemo(() => (isExpanded ? extractNumbers(allContent) : []), [isExpanded, allContent]);
   const enumItems = useMemo(() => (isExpanded ? detectEnumerationItems(allContent) : []), [isExpanded, allContent]);
 
@@ -149,8 +148,8 @@ function WorkshopCardItemInner({ card, isExpanded, onToggle, onUpdateCard, onDel
                             )}
                           </div>
                           <MnemonicSectionEditor
-                            value={s.content}
-                            onChange={(val) => updateSectionContent(i, val)}
+                            value={s.contentDoc}
+                            onChange={(doc) => updateSectionDoc(i, doc)}
                           />
 
                         </div>
@@ -161,7 +160,7 @@ function WorkshopCardItemInner({ card, isExpanded, onToggle, onUpdateCard, onDel
                   card.sections.map((s, i) => (
                     <div key={i} className="rounded-lg bg-secondary/30 p-3">
                       <p className="text-xs font-medium text-muted-foreground mb-1">{s.title}</p>
-                      <MnemonicSectionContent html={s.content} />
+                      <MnemonicSectionContent doc={seedSectionDoc(s)} />
                     </div>
                   ))
                 )}
@@ -244,21 +243,26 @@ function WorkshopCardItemInner({ card, isExpanded, onToggle, onUpdateCard, onDel
   );
 }
 
-function MnemonicSectionContent({ html }: { html: string }) {
-  const doc = useMemo(() => htmlToDoc(html || ""), [html]);
+function MnemonicSectionContent({ doc }: { doc: EditorDoc }) {
   return <ContentRenderer className="text-sm prose prose-sm max-w-none card-prose" doc={doc} />;
 }
 
-/** Inline editor seam — uncontrolled, seeded once per mount. PR-7e M2. */
-function MnemonicSectionEditor({ value, onChange }: { value: string; onChange: (html: string) => void }) {
+/** Inline editor seam — uncontrolled, seeded once per mount. PR-7e M2 / P2.2. */
+function MnemonicSectionEditor({
+  value,
+  onChange,
+}: {
+  value: EditorDoc;
+  onChange: (doc: EditorDoc) => void;
+}) {
   // Reason: editor is uncontrolled and seeded once per mount; including `value`
   // in deps would reseed mid-edit and clobber the user's typing.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  const initialDoc = useMemo(() => htmlToDoc(value ?? ""), []);
+  const initialDoc = useMemo(() => value, []);
   return (
     <EditorV4
       initialDoc={initialDoc}
-      onChange={(doc) => onChange(deriveHtml(doc))}
+      onChange={onChange}
       placeholder="Unesite sadržaj..."
       minimal
     />

@@ -20,7 +20,7 @@ const baseDraft = (overrides: Partial<CardDraftSnapshot> = {}): CardDraftSnapsho
   cardType: "essay",
   question: "",
   flashAnswer: "",
-  sections: [{ title: "Cjelina 1", content: "", contentDoc: { version: 4, content: { type: "doc", content: [] } } }],
+  sections: [{ title: "Cjelina 1", contentDoc: { version: 4, content: { type: "doc", content: [] } } }],
   categoryId: "cat-1",
   subcategoryId: "",
   chapterId: "",

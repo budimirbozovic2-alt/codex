@@ -12,7 +12,7 @@ import { createCard, type Card, type SourceModule } from "@/lib/spaced-repetitio
 import { createTextAnchor, type Source } from "@/domains/sources/sources-storage";
 import type { DetectedArticle } from "@/lib/auto-split-engine";
 
-export type ArticleStatus = "new" | "exists";
+type ArticleStatus = "new" | "exists";
 
 export interface ArticleRow {
   key: string;
@@ -27,7 +27,7 @@ export interface ArticleRow {
 
 export interface CardUpdatePatch {
   question: string;
-  sections: { title: string; content?: string; contentDoc: EditorDoc }[];
+  sections: { title: string; contentDoc: EditorDoc }[];
   sourceId: string;
   textAnchor: string;
   originalSourceSnippet: string;
@@ -116,7 +116,6 @@ export function buildImportPlan(
         const html = sanitizeHtml(art.contentHtml);
         return {
           title: `Član ${art.articleNum}${art.title ? ` — ${art.title}` : ""}`,
-          content: html,
           contentDoc: htmlToDoc(html),
         };
       });
@@ -141,7 +140,7 @@ export function buildImportPlan(
     } else {
       const art = row.articles[0];
       const sectionHtml = sanitizeHtml(art.contentHtml);
-      const sections = [{ title: "Odgovor", content: sectionHtml, contentDoc: htmlToDoc(sectionHtml) }];
+      const sections = [{ title: "Odgovor", contentDoc: htmlToDoc(sectionHtml) }];
       const anchor = createTextAnchor(art.plainSnippet);
       if (row.status === "exists" && row.existingCardId) {
         toUpdate.push({

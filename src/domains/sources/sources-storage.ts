@@ -6,7 +6,6 @@
  * on HMR updates to prevent multi-module breaking.
  */
 import type { Source } from "@/lib/db-types";
-import { parseArticles } from "@/lib/article-parser";
 import { emitDomainChanged } from "@/lib/event-bus";
 import {
   getSource as repoGetSource,
@@ -74,7 +73,7 @@ export async function saveSource(
 ): Promise<WriteResult<void>> {
   const res = await wrapWrite(() => putSource(source));
   if (res.ok === true) {
-    _notify();
+    invalidateSourcesCache();
     return res;
   }
   logger.error("[sources-storage] saveSource failed", res.error);
@@ -92,7 +91,7 @@ export async function deleteSource(id: string): Promise<void> {
     }
   }
 
-  _notify();
+  invalidateSourcesCache();
 }
 
 export async function getSource(
@@ -140,69 +139,4 @@ export function createTextAnchor(text: string): string {
     .substring(0, 80)
     .toLowerCase()
     .replace(/\s+/g, " ");
-}
-
-export function extractArticles(html: string) {
-  return parseArticles(html).map((a) => ({
-    id: a.id,
-    number: a.number,
-    title: a.title,
-    text: a.text,
-  }));
-}
-
-export function extractOfficialGazette(
-  html: string
-): string | undefined {
-  const parser = new DOMParser();
-  const doc = parser.parseFromString(html, "text/html");
-  const elements = Array.from(doc.body.children).slice(0, 30);
-
-  const patterns = [
-    /zakon\s+je\s+objavljen\s+u[^.]*\./i,
-    new RegExp(
-      "objavljen[a]?\\s+(?:je\\s+)?u\\s+(?:\"|„|\")?" +
-      "služben[a-z]*\\s+(?:list[a-z]*|glasnik[a-z]*|" +
-      "novin[a-z]*)[^.]*\\.",
-      "i"
-    ),
-    new RegExp(
-      "(?:\"|„|\")?služben[a-z]*\\s+(?:list[a-z]*|" +
-      "glasnik[a-z]*|novin[a-z]*)\\s+[A-ZČĆŽŠĐa-zčć" +
-      "žšđ]+[^.]*br\\.\\s*\\d[^.]*\\.",
-      "i"
-    ),
-    /sl\.\s*list[^.]*br\.\s*\d[^.]*\./i,
-    /sl\.\s*glasnik[^.]*br\.\s*\d[^.]*\./i,
-    /sl\.\s*novin[a-z]*[^.]*br\.\s*\d[^.]*\./i,
-    /narodn[a-z]*\s+novin[a-z]*[^.]*br\.\s*\d[^.]*\./i,
-    new RegExp(
-      "(?:\"|„|\")?služben[a-z]*\\s+(?:list[a-z]*|" +
-      "glasnik[a-z]*|novin[a-z]*)[^.]*\\d+\\/\\d{4}" +
-      "[^.]*\\.",
-      "i"
-    ),
-  ];
-
-  for (const el of elements) {
-    const text = (el.textContent || "").trim();
-    if (!text || text.length < 10) continue;
-
-    for (const pattern of patterns) {
-      const match = text.match(pattern);
-      if (match) {
-        return match[0].trim();
-      }
-    }
-  }
-
-  const fullText = doc.body.textContent || "";
-  for (const pattern of patterns) {
-    const match = fullText.match(pattern);
-    if (match) {
-      return match[0].trim();
-    }
-  }
-
-  return undefined;
 }

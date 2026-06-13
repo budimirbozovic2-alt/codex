@@ -4,22 +4,14 @@
  */
 import { describe, expect, it, beforeEach } from "vitest";
 import { backlinkIndex } from "@/lib/backlink-index";
-import type { KnowledgeBaseArticle } from "@/domains/zettelkasten/zettelkasten-storage";
+import type { KnowledgeBaseArticle } from "@/lib/db-types";
+import { kbArticleFromMarkdown } from "./helpers/kb-article-fixture";
 
 const SUBJ = "subj-X";
 const SUBJ2 = "subj-Y";
 
-function art(id: string, title: string, content: string, subj = SUBJ): KnowledgeBaseArticle {
-  return {
-    id,
-    subjectId: subj,
-    title,
-    content,
-    contentDoc: { version: 4, content: { type: "doc", content: [] } },
-    linkedSourceIds: [],
-    createdAt: 0,
-    updatedAt: 0,
-  };
+function art(id: string, title: string, content: string, subj = SUBJ) {
+  return kbArticleFromMarkdown(subj, title, content, { id });
 }
 
 beforeEach(() => {

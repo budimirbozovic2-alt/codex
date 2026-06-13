@@ -18,7 +18,7 @@
  */
 import { logger } from "@/lib/logger";
 
-export type SchemaErrorCause = "version" | "blocked" | "timeout" | "unknown";
+type SchemaErrorCause = "version" | "blocked" | "timeout" | "unknown";
 
 export type BootPhase =
   | { type: "idle" }

@@ -10,10 +10,9 @@
  * slippage/activity/pomodoro) live in SQLite too — the previous
  * `// dexie-only-read-replica` shims are gone.
  *
- * The `categories` aggregate root is the only remaining Dexie-backed read
- * here; it migrates in A1c-4 alongside the schema drop.
+ * The `categories` aggregate root is SQLite-primary via `listAllCategories`.
  *
- * Consumers must NEVER reach into `db.X.toArray()` for backup/health
+ * Consumers must NEVER reach into legacy browser DB APIs for backup/health
  * snapshots — go through this module so the repo wall stays clean.
  */
 import { listAllCategories } from "./categories";
@@ -66,11 +65,9 @@ export async function readAllCategoriesForBackup(): Promise<CategoryRecord[]> {
 }
 
 /**
- * KV `settings` table dump for forward-compat backups. Settings move to the
- * SQLite `kv` table in a follow-up; until then this returns an empty array
- * (the legacy backup format expects `[{key,value}]`, but no consumer relies
- * on it actually being populated through this seam — `useCardExport`
- * still reads the Dexie table directly in the streaming path).
+ * KV `settings` table dump for forward-compat backups. Returns an empty array
+ * until a dedicated KV export seam is wired; `useCardExport` reads settings
+ * from SQLite `kv` via other paths in the streaming builder.
  */
 export async function readSettingsTableRaw(): Promise<unknown[]> {
   return [];

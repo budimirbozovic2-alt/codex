@@ -20,7 +20,7 @@ export function isEditableTarget(target: EventTarget | null): boolean {
 }
 
 /** True when any Radix-style modal dialog is currently mounted and open. */
-export function isOverlayOpen(): boolean {
+function isOverlayOpen(): boolean {
   if (typeof document === "undefined") return false;
   return !!document.querySelector('[role="dialog"][data-state="open"]');
 }

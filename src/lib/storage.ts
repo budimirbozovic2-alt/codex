@@ -87,15 +87,6 @@ export async function loadLearnProgress(): Promise<Record<string, LearnCardProgr
   }
 }
 
-export async function saveLearnProgress(progress: Record<string, LearnCardProgress>): Promise<void> {
-  try {
-    const { putSetting } = await import("@/lib/db/queries");
-    await putSetting(LEARN_PROGRESS_KEY, progress);
-  } catch {
-    saveToStorage(LEARN_PROGRESS_KEY, progress);
-  }
-}
-
 // Storage usage (estimates localStorage footprint)
 export async function getStorageUsage(): Promise<{ usedBytes: number; maxBytes: number; percent: number }> {
   if (navigator.storage?.estimate) {

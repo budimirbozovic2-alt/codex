@@ -7,11 +7,10 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 export { cardRepository } from "./cardRepository";
+export type { ChapterFieldUpdate } from "./cardRepository";
 
 export {
   categoryRepository,
-  commit as commitCategoryRecords,
-  getCategorySnapshot,
 } from "./categoryRepository";
 
 export { reviewLogRepository } from "./reviewLogRepository";

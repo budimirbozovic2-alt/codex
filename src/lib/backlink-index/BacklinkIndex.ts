@@ -25,7 +25,7 @@
  *
  * - Post Task-B the EventBus is gone — callers (`useArticleMutations`,
  *   `useArticleDraft`, `useWikiLinkAutoCreate`) invoke `upsertArticle`
- *   / `removeArticle` directly after each IDB write.
+ *   / `removeArticle` directly after each SQLite write.
  *
  * - React integration (see `./use-backlinks.ts`) uses `useSyncExternalStore`
  *   so `BacklinksPanel` re-renders only when the slice it cares about
@@ -154,11 +154,9 @@ class BacklinkIndex {
     const links = new Set<string>();
     const seenInThis = new Set<string>();
     const selfTitle = norm(a.title);
-    // `content` (markdown) is deprecated but legacy/synthetic articles (tests,
-    // un-migrated rows) may still carry only the markdown string. Prefer the
-    // AST derivation; fall back to `a.content` so the index stays correct.
+    // `contentDoc` is the canonical body SSOT.
     const derived = deriveMarkdown(a.contentDoc);
-    const body = derived || (typeof a.content === "string" ? a.content : "");
+    const body = derived;
     for (const m of iterateWikiLinks(body)) {
       const targetKey = norm(m.target);
       if (!targetKey) continue;
@@ -340,5 +338,4 @@ class BacklinkIndex {
   }
 }
 
-export { BacklinkIndex };
 export const backlinkIndex = new BacklinkIndex();

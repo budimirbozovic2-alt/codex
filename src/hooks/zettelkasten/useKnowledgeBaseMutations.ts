@@ -34,16 +34,8 @@ interface BulkCtx {
   prevByCat: KnowledgeBaseArticle[] | undefined;
 }
 
-// BUG 5 FIX: Pomocna funkcija za bezbjednu ekstrakciju kljuca
 function getKbCategoryKey(subjectId: string): readonly unknown[] {
-  const kb = queryKeys.knowledgeBase as any;
-  if (typeof kb.byCategory === "function") {
-    return kb.byCategory(subjectId);
-  }
-  if (typeof kb.bySubject === "function") {
-    return kb.bySubject(subjectId);
-  }
-  return ["knowledgeBase", "cat", subjectId];
+  return queryKeys.knowledgeBase.bySubject(subjectId);
 }
 
 export function useKnowledgeBaseMutations() {

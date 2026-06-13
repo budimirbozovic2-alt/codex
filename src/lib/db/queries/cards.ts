@@ -2,62 +2,19 @@
 // Cards repository — PR-9 A1c-2.
 // SQLite-only read layer for the `cards` table.
 // ─────────────────────────────────────────────────────────────────
-import type { 
-  SqlExecutor 
-} from "@/lib/persistence/sqlite/executor";
 import type { Card } from "@/lib/spaced-repetition";
 import { 
   decodeCard, 
   CardDecodeError 
 } from "@/lib/persistence/sqlite/row-codecs";
 import { logger } from "@/lib/logger";
-import { 
-  notifyExecutorNull 
-} from "./_shared/executor-telemetry";
 import { withSqlTiming } from "./_shared/sql-timing";
+import { requireSqlExecutor } from "./_shared/require-sql-executor";
 import {
   emitDomainChanged,
   onDomainChanged,
   type CardsChangedScope,
 } from "@/lib/event-bus";
-
-// ── Executor accessor ────────────────────────────────────────────
-
-async function tryGetExecutor(): Promise<SqlExecutor | null> {
-  try {
-    const { isElectron } = await import(
-      "@/lib/electron-integration"
-    );
-    if (!isElectron() && import.meta.env.PROD) { 
-      notifyExecutorNull("cards", "non-electron"); 
-      return null; 
-    }
-    const { getOpfsSqliteExecutor } = await import(
-      "@/lib/persistence/sqlite/client"
-    );
-    
-    // Faza 4: Očišćen mrtvi polling kod. Klijent baze sada 
-    // samostalno hendla timeout-e i oporavak workera.
-    return await getOpfsSqliteExecutor();
-  } catch (err) {
-    logger.warn("[cards-repo] sqlite executor unavailable", err);
-    notifyExecutorNull("cards", "error");
-    return null;
-  }
-}
-
-async function requireExecutor(
-  label: string
-): Promise<SqlExecutor | null> {
-  const exec = await tryGetExecutor();
-  if (exec) return exec;
-  const { assertDesktop } = await import(
-    "@/lib/electron-integration"
-  );
-  assertDesktop();
-  logger.warn(`[cards-repo] ${label} — no executor (dev shell)`);
-  return null;
-}
 
 // ── Corruption telemetry ─────────────────────────────────────────
 
@@ -94,8 +51,6 @@ export function onCorruptCards(fn: CorruptListener): () => void {
   return () => { _corruptListeners.delete(fn); };
 }
 
-export function __resetCorruptCardIds(): void { _corruptIds.clear(); }
-
 function decodeRows(rows: readonly { payload: string }[]): Card[] {
   const out: Card[] = [];
   const failed: string[] = [];
@@ -114,8 +69,7 @@ function decodeRows(rows: readonly { payload: string }[]): Card[] {
 
 export async function listAllCards(): Promise<Card[]> {
   return withSqlTiming("listAllCards", async () => {
-    const exec = await requireExecutor("listAllCards");
-    if (!exec) return [];
+    const exec = await requireSqlExecutor("cards:listAllCards");
     const rows = await exec.all<{ payload: string }>(
       "SELECT payload FROM cards"
     );
@@ -128,8 +82,7 @@ export async function getCardsByIds(
   ids: readonly string[]
 ): Promise<(Card | undefined)[]> {
   if (ids.length === 0) return [];
-  const exec = await requireExecutor("getCardsByIds");
-  if (!exec) return ids.map(() => undefined);
+  const exec = await requireSqlExecutor("cards:getCardsByIds");
   
   const placeholders = ids.map(() => "?").join(",");
   const rows = await exec.all<{ id: string; payload: string }>(
@@ -161,8 +114,7 @@ export async function cardsByCategory(
   categoryId: string
 ): Promise<Card[]> {
   return withSqlTiming("cardsByCategory", async () => {
-    const exec = await requireExecutor("cardsByCategory");
-    if (!exec) return [];
+    const exec = await requireSqlExecutor("cards:cardsByCategory");
     const rows = await exec.all<{ payload: string }>(
       "SELECT payload FROM cards WHERE categoryId = ?", 
       [categoryId],
@@ -175,8 +127,7 @@ export async function cardsBySubcategory(
   categoryId: string,
   subcategoryId: string,
 ): Promise<Card[]> {
-  const exec = await requireExecutor("cardsBySubcategory");
-  if (!exec) return [];
+  const exec = await requireSqlExecutor("cards:cardsBySubcategory");
   const rows = await exec.all<{ payload: string }>(
     `SELECT payload FROM cards 
      WHERE categoryId = ? AND subcategoryId = ?`,
@@ -189,8 +140,7 @@ export async function cardsByChapter(
   categoryId: string,
   chapterId: string,
 ): Promise<Card[]> {
-  const exec = await requireExecutor("cardsByChapter");
-  if (!exec) return [];
+  const exec = await requireSqlExecutor("cards:cardsByChapter");
   const rows = await exec.all<{ payload: string }>(
     `SELECT payload FROM cards 
      WHERE categoryId = ? AND chapterId = ?`,
@@ -203,8 +153,7 @@ export async function cardsByType(
   categoryId: string, 
   type: Card["type"]
 ): Promise<Card[]> {
-  const exec = await requireExecutor("cardsByType");
-  if (!exec) return [];
+  const exec = await requireSqlExecutor("cards:cardsByType");
   const rows = await exec.all<{ payload: string }>(
     "SELECT payload FROM cards WHERE categoryId = ? AND type = ?",
     [categoryId, type],
@@ -213,8 +162,7 @@ export async function cardsByType(
 }
 
 export async function cardsBySource(sourceId: string): Promise<Card[]> {
-  const exec = await requireExecutor("cardsBySource");
-  if (!exec) return [];
+  const exec = await requireSqlExecutor("cards:cardsBySource");
   const rows = await exec.all<{ payload: string }>(
     `SELECT payload FROM cards WHERE sourceId = ? 
      ORDER BY createdAt ASC`,
@@ -224,26 +172,23 @@ export async function cardsBySource(sourceId: string): Promise<Card[]> {
 }
 
 export async function cardsByTag(
-  tag: string, 
-  limit = 500
+  tag: string,
+  limit = 500,
 ): Promise<Card[]> {
-  const exec = await requireExecutor("cardsByTag");
-  if (!exec) return [];
-  const needle = `%"${tag.replace(/"/g, '\\"')}"%`;
+  const exec = await requireSqlExecutor("cards:cardsByTag");
   const rows = await exec.all<{ payload: string }>(
-    "SELECT payload FROM cards WHERE payload LIKE ? LIMIT ?",
-    [needle, limit],
+    `SELECT cards.payload FROM cards, json_each(cards.payload, '$.tags')
+     WHERE json_unquote(json_each.value) = ?
+     LIMIT ?`,
+    [tag, limit],
   );
-  return decodeRows(rows).filter(
-    c => Array.isArray(c.tags) && c.tags.includes(tag)
-  );
+  return decodeRows(rows);
 }
 
 // ── Counts ───────────────────────────────────────────────────────
 
 export async function countAllCards(): Promise<number> {
-  const exec = await requireExecutor("countAllCards");
-  if (!exec) return 0;
+  const exec = await requireSqlExecutor("cards:countAllCards");
   const rows = await exec.all<{ n: number }>(
     "SELECT COUNT(*) AS n FROM cards"
   );
@@ -253,8 +198,7 @@ export async function countAllCards(): Promise<number> {
 export async function cardCountByCategory(
   categoryId: string
 ): Promise<number> {
-  const exec = await requireExecutor("cardCountByCategory");
-  if (!exec) return 0;
+  const exec = await requireSqlExecutor("cards:cardCountByCategory");
   const rows = await exec.all<{ n: number }>(
     "SELECT COUNT(*) AS n FROM cards WHERE categoryId = ?", 
     [categoryId],
@@ -266,8 +210,7 @@ export async function cardCountByChapter(
   categoryId: string, 
   chapterId: string
 ): Promise<number> {
-  const exec = await requireExecutor("cardCountByChapter");
-  if (!exec) return 0;
+  const exec = await requireSqlExecutor("cards:cardCountByChapter");
   const rows = await exec.all<{ n: number }>(
     `SELECT COUNT(*) AS n FROM cards 
      WHERE categoryId = ? AND chapterId = ?`,
@@ -280,8 +223,7 @@ export async function cardCountByType(
   categoryId: string, 
   type: Card["type"]
 ): Promise<number> {
-  const exec = await requireExecutor("cardCountByType");
-  if (!exec) return 0;
+  const exec = await requireSqlExecutor("cards:cardCountByType");
   const rows = await exec.all<{ n: number }>(
     "SELECT COUNT(*) AS n FROM cards WHERE categoryId = ? AND type = ?",
     [categoryId, type],

@@ -14,59 +14,20 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 // ── Granular card selectors (TanStack-backed, single SSOT) ─────────────────
-// Post PR-E4: no more Zustand `cardMapStore` — TanStack Query is the only
-// in-memory store for cards. Selectors are scoped queries invalidated by
-// the `onCardsChanged` bridge.
 export {
   useCardsByCategory,
   useCardsByCategoryWithStatus,
-  useCardsBySubcategory,
-  useCardsByChapter,
-  useCardCountByCategory,
   useCardCountsByCategoryMap,
   useCardById,
   useCardsBySource,
 } from "./useCardSelectors";
 
-
-
-// ── Category store + selectors ─────────────────────────────────────────────
-export {
-  useCategory,
-  useSubcategoriesByParent,
-  useChaptersBySubcategory,
-} from "./useCategorySelectors";
-
+// ── Category store ───────────────────────────────────────────────────────────
 export {
   categoryStore,
-  setCategoryStoreRecords,
   getCategoryStoreRecords,
-  useCategoryFromStore,
-  useSubcategoriesByParentFromStore,
-  useChaptersBySubcategoryFromStore,
-  useAllCategoryRecordsFromStore,
 } from "./useCategoryStore";
 
 // ── Source reader store ────────────────────────────────────────────────────
 export { useSourceReaderStore, WIDTH_CLASSES } from "./useSourceReaderStore";
 export type { ReaderWidth } from "./useSourceReaderStore";
-
-// ── Phase 6 — Branded ID runtime helpers ───────────────────────────────────
-// Re-exported through the `@/store` barrel so view / hook code that already
-// consumes selectors can pick up the brand machinery without reaching into
-// `@/lib/ids` directly. Converters are runtime no-ops outside of DEV.
-// Type aliases (`CategoryId`, `*IdLike`, …) are imported from `@/lib/ids`
-// directly by store internals — no consumers need them through this barrel.
-export {
-  asCategoryId,
-  asSubcategoryId,
-  asChapterId,
-  asCardId,
-  asSourceId,
-  isCategoryId,
-  isSubcategoryId,
-  isChapterId,
-  isCardId,
-  isSourceId,
-  isUuidLike,
-} from "@/lib/ids";

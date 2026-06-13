@@ -4,5 +4,3 @@
  */
 export { backlinkIndex } from "./BacklinkIndex";
 export { useBacklinks } from "./use-backlinks";
-export { clearPausedBacklinks } from "./snapshot-cache";
-export type { BacklinkEntry } from "./types";

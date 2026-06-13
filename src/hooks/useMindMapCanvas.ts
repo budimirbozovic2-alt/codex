@@ -278,7 +278,7 @@ export function useMindMapCanvas(doc: MindMapDoc) {
   useEffect(() => {
     const onBeforeUnload = (e: BeforeUnloadEvent) => {
       if (!dirtyRef.current) return;
-      // Best-effort save; browser may not await but Dexie write is queued.
+      // Best-effort save; browser may not await but SQLite write is queued.
       void saveRef.current().catch(() => { /* noop */ });
       e.preventDefault();
       e.returnValue = "";

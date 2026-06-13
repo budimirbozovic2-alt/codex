@@ -8,15 +8,12 @@
  * Two flavours:
  *  - `useKnowledgeBaseArticlesBySubject(subjectId)` — primary view scope,
  *    keyed on `queryKeys.knowledgeBase.byCategory(subjectId)`.
- *  - `useAllKnowledgeBaseArticles()` — unscoped (backup / health),
- *    keyed on `queryKeys.knowledgeBase.all()`.
  */
 import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import {
   loadArticlesBySubject,
   type KnowledgeBaseArticle,
 } from "@/domains/zettelkasten/zettelkasten-storage";
-import { listAllKnowledgeBaseArticles as listAllArticles } from "@/lib/db/queries";
 import { queryKeys } from "@/lib/query/keys";
 
 const EMPTY: KnowledgeBaseArticle[] = [];
@@ -35,15 +32,6 @@ export function useKnowledgeBaseArticlesBySubject(
     placeholderData: keepPreviousData,
   });
   return { data: data ?? EMPTY, isLoading: !!subjectId && isPending };
-}
-
-export function useAllKnowledgeBaseArticles(enabled: boolean = true): KnowledgeBaseArticle[] {
-  const { data } = useQuery({
-    queryKey: queryKeys.knowledgeBase.all(),
-    queryFn: () => listAllArticles(),
-    enabled,
-  });
-  return data ?? EMPTY;
 }
 
 // B3 — `useKnowledgeBaseHeadersBySubject` removed: had zero call-sites and

@@ -5,7 +5,7 @@
  * exports). Sub-modules are organized by responsibility:
  *
  *   types          — Pure data shapes + DEFAULT_CONFIG
- *   cache          — In-memory caches + serialized IDB write queue (mutex)
+ *   cache          — In-memory caches (SQLite-primary persistence)
  *   config         — Planner config CRUD
  *   velocity       — Velocity, finish projection, projection text
  *   phases         — Phase progress + discipline percentage

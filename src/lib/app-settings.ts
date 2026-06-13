@@ -1,5 +1,5 @@
 import { logger } from "@/lib/logger";
-import { putSetting, getSetting } from "@/lib/db/queries";
+import { putSetting } from "@/lib/db/queries";
 
 const APP_SETTINGS_KEY = "sr-app-settings";
 
@@ -14,7 +14,7 @@ export const COLOR_THEMES: { id: ColorTheme; label: string; preview: string }[] 
   { id: "midnight", label: "Ponoć", preview: "hsl(245, 50%, 48%)" },
 ];
 
-export interface DashboardWidgetConfig {
+interface DashboardWidgetConfig {
   showExamProgress: boolean;
   showCoreStats: boolean;
   showBriefing: boolean;
@@ -26,14 +26,14 @@ export interface DashboardWidgetConfig {
   showHeatmap: boolean;
 }
 
-export interface PomodoroConfig {
+interface PomodoroConfig {
   workMinutes: number;
   breakMinutes: number;
   longBreakMinutes: number;
   longBreakInterval: number; // every N work sessions
 }
 
-export interface NotificationConfig {
+interface NotificationConfig {
   enabled: boolean;
   reminderHour: number; // 0-23
   reminderMinute: number; // 0-59
@@ -126,40 +126,6 @@ export async function saveAppSettings(settings: AppSettings): Promise<void> {
   } catch { /* noop */ }
 }
 
-/** Load from IDB as fallback when localStorage is empty */
-export async function loadAppSettingsAsync(): Promise<AppSettings> {
-  try {
-    const data = localStorage.getItem(APP_SETTINGS_KEY);
-    if (data) {
-      const parsed = JSON.parse(data);
-      return {
-        ...DEFAULT_APP_SETTINGS,
-        ...parsed,
-        dashboardWidgets: { ...DEFAULT_APP_SETTINGS.dashboardWidgets, ...parsed.dashboardWidgets },
-        pomodoro: { ...DEFAULT_APP_SETTINGS.pomodoro, ...parsed.pomodoro },
-        notifications: { ...DEFAULT_APP_SETTINGS.notifications, ...parsed.notifications },
-      };
-    }
-  } catch { /* noop */ }
-  // Fallback to SQLite via settings repo
-  try {
-    const value = await getSetting<Partial<AppSettings>>("appSettings");
-    if (value) {
-      const restored = {
-        ...DEFAULT_APP_SETTINGS,
-        ...value,
-        dashboardWidgets: { ...DEFAULT_APP_SETTINGS.dashboardWidgets, ...value.dashboardWidgets },
-        pomodoro: { ...DEFAULT_APP_SETTINGS.pomodoro, ...value.pomodoro },
-        notifications: { ...DEFAULT_APP_SETTINGS.notifications, ...value.notifications },
-      };
-      // Restore to localStorage for fast sync reads
-      try { localStorage.setItem(APP_SETTINGS_KEY, JSON.stringify(restored)); } catch { /* noop */ }
-      return restored;
-    }
-  } catch (err) { logger.warn("[settings] async load fallback failed", err); }
-  return { ...DEFAULT_APP_SETTINGS };
-}
-
 export function applyColorTheme(theme: ColorTheme): void {
   document.documentElement.setAttribute("data-theme", theme);
 }
@@ -182,33 +148,4 @@ export function setDarkMode(dark: boolean): void {
   } else {
     document.documentElement.classList.remove("dark");
   }
-}
-
-export function isAutoBackupOverdue(settings: AppSettings): boolean {
-  if (settings.autoBackupDays <= 0) return false;
-  const lastBackupStr = localStorage.getItem("sr-last-backup");
-  if (!lastBackupStr) return false; // don't nag on first use
-  const last = JSON.parse(lastBackupStr);
-  if (!last || last === 0) return false;
-  return Date.now() - last > settings.autoBackupDays * 24 * 60 * 60 * 1000;
-}
-
-/** Async version that also checks IDB when localStorage is empty */
-export async function isAutoBackupOverdueAsync(settings: AppSettings): Promise<boolean> {
-  if (settings.autoBackupDays <= 0) return false;
-  let lastTs = 0;
-  // Try localStorage first
-  try {
-    const str = localStorage.getItem("sr-last-backup");
-    if (str) lastTs = JSON.parse(str);
-  } catch { /* noop */ }
-  // Fallback to SQLite via settings repo
-  if (!lastTs) {
-    try {
-      const value = await getSetting<number>("sr-last-backup");
-      if (typeof value === "number") lastTs = value;
-    } catch (err) { logger.warn("[settings] backup-overdue fallback failed", err); }
-  }
-  if (!lastTs) return false;
-  return Date.now() - lastTs > settings.autoBackupDays * 24 * 60 * 60 * 1000;
 }

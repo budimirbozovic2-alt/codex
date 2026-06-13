@@ -1,5 +1,5 @@
 import { 
-  Database, Download, Settings2, ShieldCheck, AlertTriangle 
+  Download, Settings2, ShieldCheck, AlertTriangle 
 } from "lucide-react";
 import React, { 
   memo, useCallback, useEffect, useState 
@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import ExportImportDialog from "@/components/ExportImportDialog";
 import { useBackupActions } from "@/hooks/cards/useActions";
-import { useCardData } from "@/hooks/cards/useCardState";
+import { useCardCountAll } from "@/hooks/card/useCardsQuery";
 import { getLastBackupTime } from "@/lib/storage";
 
 function formatAge(ts: number): { label: string; days: number } {
@@ -26,7 +26,7 @@ function formatAge(ts: number): { label: string; days: number } {
 }
 
 export const BackupCard = memo(function BackupCard(): React.ReactElement {
-  const { cards } = useCardData();
+  const cardsCount = useCardCountAll();
   const { 
     exportData, 
     exportTemplate, 
@@ -120,9 +120,9 @@ export const BackupCard = memo(function BackupCard(): React.ReactElement {
             size="sm"
             className="gap-2"
             onClick={handleQuickBackup}
-            disabled={cards.length === 0}
+            disabled={cardsCount === 0}
             title={
-              cards.length === 0 
+              cardsCount === 0
                 ? "Nema podataka za izvoz" 
                 : "Brzi pun backup (ZIP)"
             }
@@ -157,10 +157,8 @@ export const BackupCard = memo(function BackupCard(): React.ReactElement {
           await importData(file, strategy);
           refreshLastBackup();
         }}
-        cardsCount={cards.length}
+        cardsCount={cardsCount}
       />
     </div>
   );
 });
-
-export const BackupCardIcon = Database;

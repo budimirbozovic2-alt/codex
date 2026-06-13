@@ -259,14 +259,6 @@ export async function writeSatelliteTablesTx(
 
   if (parsed.mindMaps.length > 0) {
     if (strategy === "overwrite") await tx.run("DELETE FROM mindMaps");
-    // #region agent log
-    const _badMaps = parsed.mindMaps.filter(m => !(m as {categoryId?:string}).categoryId);
-    if (_badMaps.length > 0) {
-      fetch('http://127.0.0.1:7244/ingest/bbcc467f-b810-4cc1-aebf-add63a6395ee',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'f62800'},body:JSON.stringify({sessionId:'f62800',location:'write-satellite-tx.ts:writeSatelliteTablesTx',message:'ALERT: mindMaps with falsy categoryId about to be inserted',data:{count:_badMaps.length,samples:_badMaps.slice(0,3).map(m=>({id:m.id,categoryId:(m as {categoryId?:string}).categoryId}))},hypothesisId:'FK-mindMap-null-categoryId',runId:'fix1',timestamp:Date.now()})}).catch(()=>{});
-    } else {
-      fetch('http://127.0.0.1:7244/ingest/bbcc467f-b810-4cc1-aebf-add63a6395ee',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'f62800'},body:JSON.stringify({sessionId:'f62800',location:'write-satellite-tx.ts:writeSatelliteTablesTx',message:'mindMaps insert OK — all have valid categoryId',data:{count:parsed.mindMaps.length},hypothesisId:'FK-mindMap-null-categoryId',runId:'fix1',timestamp:Date.now()})}).catch(()=>{});
-    }
-    // #endregion
     await tx.runMany(MINDMAP_INSERT_SQL, parsed.mindMaps.map((m) => bindMindMap(m)));
   } else if (strategy === "overwrite") {
     await tx.run("DELETE FROM mindMaps");

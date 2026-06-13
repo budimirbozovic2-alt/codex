@@ -47,6 +47,7 @@ export const queryKeys = {
     ] as const,
     bySource: (sourceId: string) => 
       ["cards", "source", sourceId] as const,
+    countAll: () => ["cards", "count", "all"] as const,
     countByCategory: (categoryId: string) =>
       ["cards", "count", "cat", categoryId] as const,
   },

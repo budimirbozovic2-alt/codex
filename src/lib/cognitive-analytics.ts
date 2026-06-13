@@ -5,4 +5,4 @@
  * importing directly from `@/lib/analytics/<topic>` instead of expanding
  * this barrel.
  */
-export { calcWeakHooks } from "./analytics/blind-spots";
+export { calcWeakHooks } from "@/domains/mnemonic";

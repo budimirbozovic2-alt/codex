@@ -23,6 +23,7 @@ function uid(prefix = "id"): string {
 export interface MakeSectionInput {
   title?: string;
   html?: string;
+  lastReviewed?: number | null;
 }
 
 export function makeSection(input: MakeSectionInput = {}): Section {
@@ -36,7 +37,7 @@ export function makeSection(input: MakeSectionInput = {}): Section {
     difficulty: 0,
     interval: 0,
     nextReview: 0,
-    lastReviewed: null,
+    lastReviewed: input.lastReviewed ?? null,
     lapses: 0,
     elapsedDays: 0,
     scheduledDays: 0,

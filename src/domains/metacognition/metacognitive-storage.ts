@@ -7,7 +7,6 @@ import {
   loadLatencyLogSince,
   loadActivityLogSince,
   loadSlippageLogSinceDate,
-  addCalibrationLogEntry,
   addLatencyLogEntry,
   addActivityLogEntry,
   addSlippageLogEntry,
@@ -16,7 +15,7 @@ import {
 import { logger } from "@/lib/logger";
 // ═══════════════════════════════════════════════════════════
 // IN-MEMORY CACHE — F6.2: hidriran iz SQLite repozitorija
-// (Dexie putanja je dropped). RAM projekcija stoji nepromijenjena.
+// SQLite-primary persistence; RAM projection unchanged.
 // ═══════════════════════════════════════════════════════════
 let _diaryCache: DiaryEntry[] = [];
 let _calibrationCache: CalibrationEntry[] = [];
@@ -88,12 +87,6 @@ export interface CalibrationEntry {
 
 export function loadCalibration(): CalibrationEntry[] {
   return _calibrationCache;
-}
-
-export function addCalibrationEntry(entry: CalibrationEntry) {
-  _calibrationCache = [..._calibrationCache, entry];
-  if (_calibrationCache.length > 2000) _calibrationCache = _calibrationCache.slice(-2000);
-  addCalibrationLogEntry(entry).catch((e) => logger.warn("[silent]", e));
 }
 
 // ─── Recall Latency ──────────────────────────────────────

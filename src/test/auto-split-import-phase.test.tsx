@@ -5,10 +5,9 @@
  * cards-context update from bulkAddCards re-fired the effect and flipped
  * the UI from "done" back to "preview" (importedCount lost).
  */
-import "fake-indexeddb/auto";
 import { describe, expect, it, vi } from "vitest";
 import { act, renderHook } from "@testing-library/react";
-import type { Source } from "@/domains/sources/sources-storage";
+import { makeSource } from "./factories";
 
 // Mock the heavy context dependencies before importing the hook.
 const mockCards: { current: Array<{ id: string; sourceId?: string }> } = { current: [] };
@@ -47,16 +46,14 @@ vi.mock("@/lib/services/autoSplitImportService", () => ({
 
 import { useAutoSplitImport } from "@/hooks/useAutoSplitImport";
 
-const fakeSource: Source = {
+const fakeSource = makeSource({
   id: "src-1",
   categoryId: "cat-1",
   title: "Test",
-  htmlContent: "<p>x</p>",
-  outline: [],
-  articles: [],
+  html: "<p>x</p>",
   createdAt: 0,
   updatedAt: 0,
-} as unknown as Source;
+});
 
 describe("useAutoSplitImport — phase persistence", () => {
   it("stays in 'done' after import even when cards context updates", async () => {

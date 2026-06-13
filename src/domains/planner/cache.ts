@@ -60,8 +60,8 @@ export const lastRedistributeCache = {
 
 // ─── Boot ────────────────────────────────────────────────
 /**
- * Initialize planner caches from persistent storage (SQLite-primary, Dexie
- * fallback). Called once at boot after ensureDbOpen succeeds.
+ * Initialize planner caches from persistent storage (SQLite-primary).
+ * Called once at boot after the DB is ready.
  */
 export async function initPlannerCache(): Promise<void> {
   try {

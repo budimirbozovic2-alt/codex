@@ -4,7 +4,7 @@
  * the global dirty registry (for nav-guards).
  *
  * Unlike `useDraftAutosave` it does NOT debounce a real save — it only mirrors
- * the latest `payload` into the Dexie `drafts` table and reports dirty status.
+ * the latest `payload` into the SQLite `drafts` table and reports dirty status.
  * Use it from save-on-exit features (Zettelkasten article, source editor)
  * where the real persistence lives elsewhere.
  *
@@ -24,7 +24,7 @@ export interface PersistedDraftMirrorOptions {
   enabled: boolean;
   /** Latest snapshot — opaque JSON. */
   payload: unknown;
-  /** Debounce between writes to IDB (default 600 ms). */
+  /** Debounce between writes to SQLite (default 600 ms). */
   debounceMs?: number;
 }
 
@@ -33,7 +33,7 @@ export function usePersistedDraftMirror(opts: PersistedDraftMirrorOptions): void
   const payloadRef = useRef(payload);
   payloadRef.current = payload;
 
-  // Debounced IDB writer, owned by the scheduler.
+  // Debounced SQLite drafts writer, owned by the scheduler.
   const flushRef = useRef<(() => void) & { cancel: () => void; flush: () => void } | null>(null);
   useEffect(() => {
     const fn = taskScheduler.debounce(
@@ -72,7 +72,7 @@ export function usePersistedDraftMirror(opts: PersistedDraftMirrorOptions): void
     };
   }, [enabled, key]);
 
-  // Force a final IDB write on unmount so a crash in the next tick still has
+  // Force a final SQLite write on unmount so a crash in the next tick still has
   // the latest snapshot to recover from.
   useEffect(() => {
     return () => { flushRef.current?.flush(); };

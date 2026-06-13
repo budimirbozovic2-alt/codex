@@ -12,7 +12,6 @@ let audioCtx: AudioContext | null = null;
 let sourceNodes: AudioNode[] = [];
 let gainNode: GainNode | null = null;
 let playing = false;
-let currentTrack: AmbientTrack | null = null;
 
 function getCtx(): AudioContext {
   if (!audioCtx) audioCtx = new AudioContext();
@@ -194,7 +193,6 @@ export function startAmbient(track: AmbientTrack = "rain", volume = 0.3): void {
 
   sourceNodes = [src];
   playing = true;
-  currentTrack = track;
 }
 
 export function stopAmbient(): void {
@@ -206,7 +204,6 @@ export function stopAmbient(): void {
   if (gainNode) { gainNode.disconnect(); gainNode = null; }
   if (audioCtx) { audioCtx.close(); audioCtx = null; }
   playing = false;
-  currentTrack = null;
   bufferCache.clear();
 }
 
@@ -215,4 +212,3 @@ export function setAmbientVolume(v: number): void {
 }
 
 export function isAmbientPlaying(): boolean { return playing; }
-export function getCurrentTrack(): AmbientTrack | null { return currentTrack; }

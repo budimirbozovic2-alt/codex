@@ -1,5 +1,5 @@
 import {
-  CheckCircle2, Brain, Sparkles, Wrench, Clock, List, MoreHorizontal,
+  CheckCircle2, Sparkles, Wrench, Clock, List, MoreHorizontal,
   type LucideIcon,
 } from "lucide-react";
 import type { MnemonicStatus, HookType } from "../../mnemonic-storage";
@@ -15,5 +15,3 @@ export const HOOK_TYPE_CONFIG: Record<HookType, { label: string; icon: LucideIco
   "nabrajanja": { label: "Nabrajanja", icon: List },
   "ostalo": { label: "Ostalo", icon: MoreHorizontal },
 };
-
-export { Brain };

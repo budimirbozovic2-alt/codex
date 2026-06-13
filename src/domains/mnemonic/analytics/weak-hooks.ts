@@ -2,7 +2,7 @@
 // therefore belongs inside the mnemonic domain — NOT in the OLAP layer.
 // Pure compute (`calcBlindSpots`) remains under `@/lib/analytics`.
 import { loadLatency } from "@/domains/metacognition/metacognitive-storage";
-import { loadMnemonicCards, saveMnemonicCards } from "@/features/mnemonic";
+import { loadMnemonicCards, saveMnemonicCards } from "@/features/mnemonic/mnemonic-storage";
 
 export interface WeakHook {
   mnemonicCardId: string;

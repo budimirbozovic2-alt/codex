@@ -7,7 +7,6 @@ import { ReviewLogEntry } from "@/lib/storage";
 import { markBootStep } from "@/lib/boot-trace";
 import { transition } from "@/lib/boot";
 import { splashProgress } from "./splash";
-import { withTimeout } from "./withTimeout";
 
 import { logger } from "@/lib/logger";
 
@@ -20,12 +19,9 @@ export interface InitialData {
 }
 
 export async function loadInitialData(): Promise<InitialData> {
-  // Initialize in-memory caches from IDB (replaces localStorage)
   splashProgress(15, "Inicijalizacija keša…");
   transition({ type: "LOAD_PROGRESS", pct: 15, label: "Inicijalizacija keša…" });
   if (import.meta.env.DEV) logger.log("[boot:diag] step 3: initCaches");
-  // Load all three cache modules in parallel — previously sequential awaits
-  // added ~100-200 ms of unnecessary waterfall before the cache init started.
   const [
     { initMetacognitiveCache },
     { initPlannerCache },
@@ -35,26 +31,21 @@ export async function loadInitialData(): Promise<InitialData> {
     import("@/domains/planner"),
     import("@/domains/subjects/subject-settings"),
   ]);
-  await withTimeout(
-    Promise.all([
-      initMetacognitiveCache().catch((e) => logger.warn("[silent]", e)),
-      initPlannerCache().catch((e) => logger.warn("[silent]", e)),
-      initSubjectSettingsCache().catch((e) => logger.warn("[silent]", e)),
-    ]),
-    3000, "cache init", undefined
-  );
+  await Promise.all([
+    initMetacognitiveCache().catch((e) => logger.warn("[silent]", e)),
+    initPlannerCache().catch((e) => logger.warn("[silent]", e)),
+    initSubjectSettingsCache().catch((e) => logger.warn("[silent]", e)),
+  ]);
 
   splashProgress(25, "Učitavanje podataka…");
   transition({ type: "LOAD_PROGRESS", pct: 25, label: "Učitavanje podataka…" });
   if (import.meta.env.DEV) logger.log("[boot:diag] step 4: loading data (parallel, cards deferred)");
   markBootStep("cards:data-load-start");
 
-  // Phase 1: cards are NO LONGER on the boot critical path — they stream in
-  // post-READY via `loadCardsDeferred` scheduled by `useCardBootstrap`.
   const [catRecords, log, settings] = await Promise.all([
-    withTimeout(seedDefaultCategories(), 2500, "categories load", [] as CategoryRecord[]),
-    withTimeout(reviewLogRepository.loadRecent(90), 2500, "review log load", [] as ReviewLogEntry[]),
-    withTimeout(settingsRepository.load<SRSettings>("srSettings", DEFAULT_SR_SETTINGS), 2500, "settings load", DEFAULT_SR_SETTINGS),
+    seedDefaultCategories(),
+    reviewLogRepository.loadRecent(90),
+    settingsRepository.load<SRSettings>("srSettings", DEFAULT_SR_SETTINGS),
   ]);
 
   splashProgress(60, "Učitavanje gotovo");
@@ -64,12 +55,7 @@ export async function loadInitialData(): Promise<InitialData> {
   return { cards: [], catRecords, log, settings };
 }
 
-/**
- * Phase 1 — cards load deferred off the boot critical path. Called from
- * `useCardBootstrap` via `taskScheduler.idle` after READY transition.
- * Wider timeout (8s) since this no longer blocks UI.
- */
+/** Post-READY deferred card load — failures propagate to caller. */
 export async function loadCardsDeferred(): Promise<Card[]> {
-  return withTimeout(listAllCards(), 8000, "cards load (deferred)", [] as Card[]);
+  return listAllCards();
 }
-

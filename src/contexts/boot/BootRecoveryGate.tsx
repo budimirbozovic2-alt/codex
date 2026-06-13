@@ -60,7 +60,7 @@ export function BootRecoveryGate({ children }: { children: ReactNode }) {
     const causeMap: Record<string, string> = {
       version: "Verzija baze ne podudara se sa instaliranom aplikacijom. Vjerovatno je otvorena druga (starija/novija) verzija CODEX-a.",
       blocked: "Druga instanca CODEX-a drži bazu otključanom. Zatvorite druge prozore i pokušajte ponovo.",
-      timeout: "Baza se nije otvorila u predviđenom vremenu (6s). Disk ili IndexedDB su zauzeti.",
+      timeout: "Baza se nije otvorila u predviđenom vremenu (6s). Disk ili skladište preglednika su zauzeti.",
       unknown: "Neuspješno otvaranje ili migracija lokalne baze.",
     };
     return (

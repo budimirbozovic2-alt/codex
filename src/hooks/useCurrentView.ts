@@ -10,7 +10,7 @@ export const VIEW_TO_PATH: Record<View, string> = {
   stats: "/stats", planner: "/planner",
 };
 
-export const PATH_TO_VIEW: Record<string, View> = {};
+const PATH_TO_VIEW: Record<string, View> = {};
 Object.entries(VIEW_TO_PATH).forEach(([view, path]) => { PATH_TO_VIEW[path] = view as View; });
 
 export function useCurrentView(): View {

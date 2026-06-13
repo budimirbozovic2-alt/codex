@@ -1,10 +1,10 @@
 import { useCallback } from "react";
 import { toast } from "sonner";
 import { createCard, type Card as SpacedCard } from "@/lib/spaced-repetition";
-import { htmlToDoc } from "@/lib/editor-v4";
+import type { EditorDoc } from "@/lib/editor-v4/types";
 import { invalidateSourcesCache } from "@/domains/sources/sources-storage";
 import { BackupSchema, type ParsedBackup } from "@/lib/migrations/backup-schema";
-import { migrateBackup, migrateRaw, BackupVersionError } from "@/lib/backup/migrate";
+import { migrateBackup, assertBackupVersion, BackupVersionError } from "@/lib/backup/migrate";
 import { yieldUI } from "@/lib/backup/yield-ui";
 import { applyImportAtomically, type ImportStrategy } from "@/lib/backup/import-transaction";
 import { parseJsonInWorker } from "@/lib/zip-service";
@@ -70,12 +70,12 @@ export function useCardImport() {
         throw new Error(msg);
       }
 
-      // ── 2. Pre-Zod migration ──
-      progress(15, "Migracija formata…");
+      // ── 2. Version gate (v7 only) ──
+      progress(15, "Provjera verzije…");
       try {
-        raw = migrateRaw(raw);
+        assertBackupVersion(raw);
       } catch (err) {
-        const msg = err instanceof BackupVersionError ? err.message : "Migracija backupa nije uspjela.";
+        const msg = err instanceof BackupVersionError ? err.message : "Backup nije podržan.";
         toast.error(msg);
         throw err instanceof Error ? err : new Error(msg);
       }
@@ -166,13 +166,6 @@ export function useCardImport() {
 
       // ── 8. Toast summary ──
       const extraParts: string[] = [];
-      const lr = result2.legacyResolveReport;
-      if (lr) {
-        const okSum = lr.resolvedSubcategory + lr.resolvedChapter;
-        const failSum = lr.unresolvedSubcategory + lr.unresolvedChapter;
-        if (okSum > 0) extraParts.push(`mapirano ${okSum} legacy imena (${lr.resolvedSubcategory} podkat. + ${lr.resolvedChapter} glava)`);
-        if (failSum > 0) extraParts.push(`bez para resetovano ${failSum} (${lr.unresolvedSubcategory} podkat. + ${lr.unresolvedChapter} glava)`);
-      }
       if (parsed.sources.length > 0) extraParts.push(`${parsed.sources.length} izvora`);
       if (parsed.mindMaps.length > 0) extraParts.push(`${parsed.mindMaps.length} mentalnih mapa`);
       if (parsed.diary.length > 0) extraParts.push(`${parsed.diary.length} dnevničkih zapisa`);
@@ -194,13 +187,9 @@ export function useCardImport() {
   // The bridge invalidates `['cards']` after the flush so any open scoped
   // query refetches.
   const importCards = useCallback(
-    (newCards: { question: string; sections: { title: string; content: string }[] }[], category: string) => {
+    (newCards: { question: string; sections: { title: string; contentDoc: EditorDoc }[] }[], category: string) => {
       const created = newCards.map((c) =>
-        createCard(
-          c.question,
-          c.sections.map((s) => ({ title: s.title, contentDoc: htmlToDoc(s.content) })),
-          category,
-        ),
+        createCard(c.question, c.sections, category),
       );
       const now = Date.now();
       created.forEach((c) => { c.updatedAt = now; });

@@ -19,10 +19,7 @@ const SRC_ROOT = resolve(__dirname, "..");
 
 // Eksplicitno dozvoljeni "rezervni" exporti — zadržani kao stabilan public API
 // iako trenutno nemaju aktivnog pozivaoca. Mora biti opravdano u JSDoc-u modula.
-const RESERVED_EXPORTS = new Set<string>([
-  // `addCalibrationEntry` zadržan za buduće surface-e (vidi JSDoc u modulu).
-  "addCalibrationEntry",
-]);
+const RESERVED_EXPORTS = new Set<string>([]);
 
 function extractExportNames(source: string): string[] {
   const names = new Set<string>();

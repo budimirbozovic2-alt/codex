@@ -48,10 +48,6 @@ export function listTemplates(): FlashcardImportTemplate[] {
   return safeRead().sort((a, b) => b.updatedAt - a.updatedAt);
 }
 
-export function getTemplate(id: string): FlashcardImportTemplate | null {
-  return safeRead().find(t => t.id === id) ?? null;
-}
-
 /**
  * Upserts by trimmed name (case-insensitive). Returns the saved record, or
  * `null` if validation fails (empty name/body or oversize body).

@@ -1,5 +1,5 @@
 /**
- * Boot-time scan of the Dexie `drafts` table:
+ * Boot-time scan of the SQLite `drafts` table:
  *   1. Delete rows older than `STALE_MS` (7 days) — nobody will resume those.
  *   2. Surface a single informational toast for any remaining rows so the
  *      user knows recoverable work exists and where to find it.

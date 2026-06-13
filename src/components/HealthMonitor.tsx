@@ -1,6 +1,5 @@
-import { Activity, Database, HardDrive, RefreshCw, FileText, Brain, Clock, BookOpen, MapPin, Layers, AlertTriangle, Trash2, ShieldCheck, Wand2 } from "lucide-react";
-import { useState, type ReactNode } from "react";
-import RemapFromBackupDialog from "@/components/RemapFromBackupDialog";
+import { Activity, Database, HardDrive, RefreshCw, FileText, Brain, Clock, BookOpen, MapPin, Layers, AlertTriangle, Trash2, ShieldCheck } from "lucide-react";
+import type { ReactNode } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
@@ -36,7 +35,6 @@ export default function HealthMonitor() {
     report, loading, cleaning, healing, lastRefresh,
     refresh, cleanOrphans, healStaleLinks, clearCrashLog,
   } = useHealthMonitor();
-  const [remapOpen, setRemapOpen] = useState(false);
 
   const tableStats = report?.tableStats ?? [];
   const idb = report?.storage.idb ?? null;
@@ -142,16 +140,6 @@ export default function HealthMonitor() {
                 </div>
                 <div className="flex flex-wrap gap-2 mt-2">
                   <Button
-                    variant="default"
-                    size="sm"
-                    className="gap-1.5"
-                    onClick={() => setRemapOpen(true)}
-                    disabled={healing}
-                  >
-                    <Wand2 className="h-3 w-3" />
-                    Remap iz backupa
-                  </Button>
-                  <Button
                     variant="outline"
                     size="sm"
                     className="gap-1.5"
@@ -173,7 +161,7 @@ export default function HealthMonitor() {
             <div className="rounded-lg border bg-muted/30 p-3 space-y-1.5">
               <div className="flex items-center gap-1.5 text-xs font-medium">
                 <HardDrive className="h-3.5 w-3.5 text-primary" />
-                IndexedDB
+                SQLite (OPFS)
               </div>
               <p className="text-lg font-semibold">{formatBytes(idb.usage)}</p>
               <p className="text-[10px] text-muted-foreground">
@@ -257,11 +245,6 @@ export default function HealthMonitor() {
         </div>
       </CardContent>
     </Card>
-    <RemapFromBackupDialog
-      open={remapOpen}
-      onOpenChange={setRemapOpen}
-      onApplied={() => { void refresh(); }}
-    />
     </>
   );
 }

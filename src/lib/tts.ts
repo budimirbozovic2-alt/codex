@@ -10,7 +10,7 @@ export interface TTSSettings {
   voiceURI: string;   // selected voice URI or ""
 }
 
-export const DEFAULT_TTS_SETTINGS: TTSSettings = {
+const DEFAULT_TTS_SETTINGS: TTSSettings = {
   rate: 0.95,
   voiceURI: "",
 };
@@ -57,14 +57,4 @@ export function speak(text: string, settings?: TTSSettings) {
   }
 
   window.speechSynthesis.speak(utterance);
-}
-
-export function stopSpeaking() {
-  if ("speechSynthesis" in window) {
-    window.speechSynthesis.cancel();
-  }
-}
-
-export function isSpeaking(): boolean {
-  return "speechSynthesis" in window && window.speechSynthesis.speaking;
 }

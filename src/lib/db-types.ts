@@ -1,11 +1,7 @@
-// ─── Domain types extracted from db-schema (A1c-4 prep) ──────────────────
+// ─── Domain types (SQLite SSOT) ───────────────────────────────────────────
 //
-// Dexie-free type-only module. Everything UI/business-layer code references
-// (CategoryRecord, Source, MindMapDoc, KnowledgeBaseArticle, etc.) lives
-// here and is re-exported from `db-schema.ts` for backwards compat until
-// the final Dexie drop lands.
-//
-// Adding a new domain interface? Put it here, not in db-schema.ts.
+// Type-only module for UI/business-layer records. Adding a new domain
+// interface? Put it here.
 
 import type { CSSProperties, ReactNode } from "react";
 import type { EditorDoc } from "./editor-v4/types";
@@ -46,7 +42,7 @@ export interface CategoryRecord {
 
 // ─── Sources ─────────────────────────────────────────────────────────────
 
-export interface SourceArticle {
+interface SourceArticle {
   id: string;
   number: number;
   title: string;
@@ -67,12 +63,7 @@ export interface Source {
   categoryId: string;
   title: string;
   date: string;
-  /**
-   * @deprecated Legacy HTML mirror. No production code reads/writes this —
-   * `contentDoc` is the sole body SSOT. Kept optional only for legacy IDB
-   * rows and pre-existing test fixtures.
-   */
-  htmlContent?: string;
+  /** Canonical V4 AST — sole body SSOT. Derive HTML/plain text via `@/lib/editor-v4/derived`. */
   contentDoc: EditorDoc;
   outline: { id: string; text: string; level: number }[];
   articles: SourceArticle[];
@@ -90,7 +81,7 @@ export interface Source {
 
 export type MindMapMode = "hierarchy" | "procedure";
 
-export interface MindMapNodeData {
+interface MindMapNodeData {
   label?: string;
   shape?: string;
   colorTheme?: string;
@@ -143,8 +134,6 @@ export interface KnowledgeBaseArticle {
   aliases?: string[];
   createdAt: number;
   updatedAt: number;
-  /** @deprecated Legacy markdown/HTML content. Use `contentDoc` (AST). Kept for IDB rows + test fixtures. */
-  content?: string;
 }
 
 // ─── Draft autosave ──────────────────────────────────────────────────────

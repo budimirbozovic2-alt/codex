@@ -7,8 +7,11 @@
  * Behaviour mirrors the original inline implementation that lived inside
  * `DocxImporter.tsx`. Two-pass design: first split the document into card
  * envelopes (question + collected content), then for each envelope split
- * the content into named sections.
+ * the content into named sections. Output sections carry `contentDoc` (V4 AST).
  */
+
+import { htmlToDoc } from "@/lib/editor-v4";
+import type { EditorDoc } from "@/lib/editor-v4/types";
 
 export type HeadingLevel = "h1" | "h2" | "h3";
 export type SplitMode = "heading" | "delimiter";
@@ -25,14 +28,14 @@ export interface CardSplitOpts {
   delimiter: string;
 }
 
-export interface Section {
+interface ParsedSection {
   title: string;
-  content: string;
+  contentDoc: EditorDoc;
 }
 
 export interface ParsedCard {
   question: string;
-  sections: Section[];
+  sections: ParsedSection[];
 }
 
 /**
@@ -46,15 +49,15 @@ export interface ParsedCard {
  * If no sections are detected, the entire HTML is returned as a single
  * section titled "Odgovor" (preserves original fallback behaviour).
  */
-export function splitIntoSections(
+function splitIntoSections(
   contentHtml: string,
   opts: SectionSplitOpts,
-): Section[] {
+): ParsedSection[] {
   if (!contentHtml.trim()) return [];
 
   const tempDoc = new DOMParser().parseFromString(contentHtml, "text/html");
   const elements = Array.from(tempDoc.body.children);
-  const sections: Section[] = [];
+  const sections: ParsedSection[] = [];
   let secTitle = "";
   let secContent = "";
 
@@ -62,7 +65,7 @@ export function splitIntoSections(
     if (secContent.trim()) {
       sections.push({
         title: secTitle || `Cjelina ${sections.length + 1}`,
-        content: secContent.trim(),
+        contentDoc: htmlToDoc(secContent.trim()),
       });
     }
     secTitle = "";
@@ -93,14 +96,14 @@ export function splitIntoSections(
       }
     } else {
       // No delimiter specified — single section
-      return [{ title: "Odgovor", content: contentHtml.trim() }];
+      return [{ title: "Odgovor", contentDoc: htmlToDoc(contentHtml.trim()) }];
     }
   }
 
   flushSec();
   return sections.length > 0
     ? sections
-    : [{ title: "Odgovor", content: contentHtml.trim() }];
+    : [{ title: "Odgovor", contentDoc: htmlToDoc(contentHtml.trim()) }];
 }
 
 /**

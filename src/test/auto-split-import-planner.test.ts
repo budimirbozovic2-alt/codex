@@ -5,7 +5,8 @@ import {
 } from "@/lib/auto-split/import-planner";
 import type { DetectedArticle } from "@/lib/auto-split-engine";
 import type { Card } from "@/lib/spaced-repetition";
-import type { Source } from "@/domains/sources/sources-storage";
+import type { Source } from "@/lib/db-types";
+import { makeSource, makeCard } from "./factories";
 
 const art = (num: string, title = ""): DetectedArticle => ({
   articleNum: num,
@@ -16,25 +17,19 @@ const art = (num: string, title = ""): DetectedArticle => ({
   plainSnippet: `Član ${num}\nSadržaj člana ${num}.`,
 });
 
-const fakeSource = (): Source => ({
-  id: "src-1",
-  title: "Test Zakon",
-  categoryId: "cat-1",
-  htmlContent: "",
-  outline: [],
-  articles: [],
-  examQuestions: [],
-  createdAt: 0,
-  updatedAt: 0,
-} as unknown as Source);
+const fakeSource = (): Source =>
+  makeSource({
+    id: "src-1",
+    title: "Test Zakon",
+    categoryId: "cat-1",
+    html: "",
+    examQuestions: [],
+    createdAt: 0,
+    updatedAt: 0,
+  });
 
-const cardWith = (id: string, question: string, sourceId: string): Card => ({
-  id,
-  question,
-  sourceId,
-  sections: [],
-  categoryId: "cat-1",
-} as unknown as Card);
+const cardWith = (id: string, question: string, sourceId: string): Card =>
+  makeCard({ id, question, sourceId, categoryId: "cat-1", sections: [] });
 
 describe("auto-split import-planner", () => {
   describe("buildArticleRows", () => {

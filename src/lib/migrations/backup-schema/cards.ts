@@ -8,15 +8,16 @@ import {
   StringArray,
   FrequencyTagSchema,
   SourceTypeSchema,
+  EditorDocV4,
 } from "./helpers";
 
 // ─── FSRS Section ───────────────────────────────────────
 
-export const BackupSectionSchema = z
+const BackupSectionSchema = z
   .object({
     id: z.unknown().optional().transform((v) => (typeof v === "string" && v.length > 0 ? v : crypto.randomUUID())),
     title: SafeText,
-    content: SafeHtml,
+    contentDoc: EditorDocV4,
     state: NumberWithDefault(0),
     stability: NumberWithDefault(0),
     difficulty: NumberWithDefault(5),
@@ -28,7 +29,22 @@ export const BackupSectionSchema = z
     scheduledDays: NumberWithDefault(0),
     firstReviewPending: z.unknown().optional().transform((v) => (typeof v === "boolean" ? v : false)),
   })
-  .strict();
+  .strict()
+  .transform((s): Section => ({
+    id: s.id,
+    title: s.title,
+    contentDoc: s.contentDoc,
+    state: s.state,
+    stability: s.stability,
+    difficulty: s.difficulty,
+    interval: s.interval,
+    nextReview: s.nextReview,
+    lastReviewed: s.lastReviewed,
+    lapses: s.lapses,
+    elapsedDays: s.elapsedDays,
+    scheduledDays: s.scheduledDays,
+    firstReviewPending: s.firstReviewPending,
+  }));
 
 // ─── Card ────────────────────────────────────────────────
 
@@ -38,12 +54,8 @@ export const BackupCardSchema = z
     question: SafeHtml,
     sections: z.array(BackupSectionSchema).default([]),
     categoryId: z.unknown().optional().transform((v) => (typeof v === "string" ? v : "")),
-    // Legacy backups stored these as `subcategory` / `chapter` (name strings).
-    // Accept either spelling; the legacy-resolver later remaps names → UUIDs.
-    subcategoryId: z.unknown().optional(),
-    subcategory: z.unknown().optional(),
-    chapterId: z.unknown().optional(),
-    chapter: z.unknown().optional(),
+    subcategoryId: z.unknown().optional().transform((v) => (typeof v === "string" ? v : undefined)),
+    chapterId: z.unknown().optional().transform((v) => (typeof v === "string" ? v : undefined)),
     chapterOrder: z.unknown().optional(),
     createdAt: NumberWithDefault(Date.now()),
     updatedAt: z.unknown().optional(),
@@ -64,20 +76,13 @@ export const BackupCardSchema = z
   })
   .strict()
   .transform((c): Card => {
-    // Normalize legacy `subcategory` → `subcategoryId`, `chapter` → `chapterId`.
-    const subId =
-      typeof c.subcategoryId === "string" ? c.subcategoryId :
-      typeof c.subcategory === "string" ? c.subcategory : "";
-    const chapId =
-      typeof c.chapterId === "string" ? c.chapterId :
-      typeof c.chapter === "string" ? c.chapter : "";
     const out: Card = {
       id: c.id,
       question: c.question,
-      sections: c.sections as unknown as Section[],
+      sections: c.sections,
       categoryId: c.categoryId,
-      subcategoryId: subId || undefined,
-      chapterId: chapId || undefined,
+      subcategoryId: c.subcategoryId,
+      chapterId: c.chapterId,
       createdAt: c.createdAt,
       readCount: c.readCount,
       type: c.type,

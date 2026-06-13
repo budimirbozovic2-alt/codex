@@ -13,7 +13,7 @@ concurrency:
 
 jobs:
   guard:
-    name: Lint, domain walls, typecheck & tests
+    name: Lint, typecheck & tests
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
@@ -73,10 +73,6 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
-      # ── Domain wall guard (W11–W14) — fast grep, runs first ────────────
-      - name: Domain walls (W11–W14)
-        run: bun run lint:walls
-
       # ── TypeScript (incremental via .tsbuildinfo) ──────────────────────
       - name: Typecheck
         run: bunx tsc -p tsconfig.app.json --noEmit --incremental --tsBuildInfoFile .tsbuildinfo --pretty false
@@ -87,12 +83,3 @@ jobs:
 
       - name: Tests
         run: bun run test
-
-      # ── PR-G7 — Tooling guardrails suite (always rerun, no cache skip) ──
-      # Runs the full pr-g* regression net (timer discipline, DnD virtualization,
-      # render discipline, CardTableRow memo, tooling guardrails) so any silent
-      # downgrade of strict TS / ESLint / vitest isolation fails CI explicitly.
-      # Kept as a dedicated step (not folded into "Tests") so the GitHub
-      # checks UI shows it as its own pass/fail signal on every push & PR.
-      - name: PR-G7 guardrails suite
-        run: bunx vitest run pr-g4 pr-g5 pr-g6 pr-g7

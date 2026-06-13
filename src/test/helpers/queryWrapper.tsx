@@ -1,12 +1,13 @@
-import type { ReactNode } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import type { ReactNode } from "react";
 
-/** Shared test helper — wraps a renderHook/render tree in a fresh QueryClient. */
-export function makeQueryWrapper() {
-  const client = new QueryClient({
-    defaultOptions: { queries: { retry: false, gcTime: 0 } },
-  });
+export function makeQueryWrapper(client?: QueryClient) {
+  const qc =
+    client ??
+    new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
   return ({ children }: { children: ReactNode }) => (
-    <QueryClientProvider client={client}>{children}</QueryClientProvider>
+    <QueryClientProvider client={qc}>{children}</QueryClientProvider>
   );
 }

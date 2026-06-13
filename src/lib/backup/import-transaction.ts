@@ -10,7 +10,6 @@
 import type { CategoryRecord } from "@/lib/db-types";
 import { DEFAULT_SR_SETTINGS, type SRSettings } from "@/lib/spaced-repetition";
 import type { ReviewLogEntry } from "@/lib/storage";
-import { resolveLegacyTaxonomyNames } from "@/lib/migrations/resolve-legacy-taxonomy";
 import { yieldUI } from "@/lib/backup/yield-ui";
 import { backupLog } from "@/lib/backup/backup-logger";
 import { categoryRepository } from "@/lib/repositories";
@@ -20,9 +19,8 @@ import { assertDesktop } from "@/lib/electron-integration";
 
 import type { ImportCtx, ImportTxResult } from "@/lib/backup/import-types";
 import {
-  isCategoryRecordArray,
   buildCategoryIdRemap,
-  applyRemapToParsedV2,
+  applyRemapToParsed,
   pruneOrphans,
 } from "@/lib/backup/import-remap";
 import { mergeCardsByStrategy, writeCardsTx } from "@/lib/backup/write-cards-tx";
@@ -34,14 +32,8 @@ import { writeSatelliteTablesTx, writeSourcesTx } from "@/lib/backup/write-satel
 export type { ImportStrategy, ImportTxResult, ImportCtx } from "@/lib/backup/import-types";
 export { mergeCardsByStrategy, writeCardsTx } from "@/lib/backup/write-cards-tx";
 export { writeCategoriesTx } from "@/lib/backup/write-categories-tx";
-export { writeSatelliteTablesTx, writeSourcesTx } from "@/lib/backup/write-satellite-tx";
-export {
-  isCategoryRecordArray,
-  buildCategoryIdRemap,
-  applyRemapToParsed,
-  applyRemapToParsedV2,
-  pruneOrphans,
-} from "@/lib/backup/import-remap";
+export { writeSatelliteTablesTx } from "@/lib/backup/write-satellite-tx";
+export { buildCategoryIdRemap, applyRemapToParsed, pruneOrphans } from "@/lib/backup/import-remap";
 
 
 
@@ -67,27 +59,17 @@ export async function applyImportAtomically(ctx: ImportCtx): Promise<ImportTxRes
     // A2 fix: remap MUST run BEFORE `mergeCardsByStrategy`. Previously the
     // remap ran post-merge against the `merged` array AND mutated the
     // caller-owned `nextMap` (== { ...currentMap }) — silent state
-    // corruption for non-overwrite imports. `applyRemapToParsedV2` walks
+    // corruption for non-overwrite imports. `applyRemapToParsed` walks
     // `parsed.cards` directly and touches no caller-owned map.
     const freshCategories: CategoryRecord[] = await readAllCategoriesForBackup();
-    if (parsed.categories.length > 0 && isCategoryRecordArray(parsed.categories)) {
+    if (parsed.categories.length > 0) {
       const remap = buildCategoryIdRemap(parsed.categories, freshCategories);
-      await applyRemapToParsedV2(remap, parsed);
+      await applyRemapToParsed(remap, parsed);
     }
 
     // ── 2. Pre-merge cards (pure, in-memory only) ──
     const { merged, nextMap } = mergeCardsByStrategy(parsed.cards, currentMap, strategy);
 
-    // ── 3. Legacy taxonomy resolve (names → UUIDs) — pre-tx, pure ──
-    // Audit v2 / Wave A.5: previously a `try { … } catch { warn }` block.
-    // A failure inside `resolveLegacyTaxonomyNames` (which mutates `merged`
-    // in place) would still let the merged cards through to the ACID write
-    // with stale/null FK refs. The FK constraint may or may not catch
-    // it depending on the row data, and the user saw "Restore uspešan".
-    // We now let the exception propagate so the outer caller rolls back the
-    // transaction and surfaces the failure.
-    let legacyResolveReport: ImportTxResult["legacyResolveReport"] = null;
-    legacyResolveReport = resolveLegacyTaxonomyNames(merged, freshCategories);
     for (const c of merged) nextMap[c.id] = c;
 
 
@@ -184,7 +166,6 @@ export async function applyImportAtomically(ctx: ImportCtx): Promise<ImportTxRes
       merged,
       nextMap,
       freshCategories: finalCategories,
-      legacyResolveReport,
       srSettingsApplied,
       reviewLogApplied,
     };

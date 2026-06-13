@@ -13,7 +13,8 @@ import { describe, it, expect } from "vitest";
 import { render } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { SourceContent } from "@/components/source-reader/SourceContent";
-import type { Source } from "@/domains/sources/sources-storage";
+import type { Source } from "@/lib/db-types";
+import { makeSource } from "./factories";
 
 function wrap(ui: React.ReactNode) {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -24,18 +25,17 @@ function waitMicroTask() {
   return new Promise<void>((r) => setTimeout(r, 0));
 }
 
-const baseSource = (overrides: Partial<Source> = {}): Source => ({
-  id: "s1",
-  title: "Test",
-  categoryId: "cat-1",
-  htmlContent: "<p>Tijelo izvora — više od pet znakova.</p>",
-  outline: [],
-  articles: [],
-  examQuestions: [],
-  createdAt: 0,
-  updatedAt: 0,
-  ...overrides,
-} as unknown as Source);
+const baseSource = (overrides: Partial<Source> = {}): Source =>
+  makeSource({
+    id: "s1",
+    title: "Test",
+    categoryId: "cat-1",
+    html: "<p>Tijelo izvora — više od pet znakova.</p>",
+    examQuestions: [],
+    createdAt: 0,
+    updatedAt: 0,
+    ...overrides,
+  });
 
 describe("SourceContent (PR-7a / M5)", () => {
   it("mounts EditorV4 in read mode by default", async () => {

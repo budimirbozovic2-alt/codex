@@ -37,18 +37,6 @@ export type ChapterId     = string & { readonly [__chapterId]: "ChapterId" };
 export type CardId        = string & { readonly [__cardId]: "CardId" };
 export type SourceId      = string & { readonly [__sourceId]: "SourceId" };
 
-/**
- * "Input" aliases accepted by public APIs. Because brands extend `string`,
- * `CategoryId | string` collapses to `string` at the type level — but kept
- * explicit here as documentation: "this slot is semantically a CategoryId,
- * any string is tolerated for backwards-compat".
- */
-export type CategoryIdLike    = CategoryId    | string;
-export type SubcategoryIdLike = SubcategoryId | string;
-export type ChapterIdLike     = ChapterId     | string;
-export type CardIdLike        = CardId        | string;
-export type SourceIdLike      = SourceId      | string;
-
 // ── UUID-shape validation ──────────────────────────────────────────────────
 // Accepts both standard RFC-4122 UUIDs and our `legacy-…` deterministic ids
 // produced by `src/lib/stable-id.ts`. Anything else is considered malformed.
@@ -62,11 +50,7 @@ export function isUuidLike(value: unknown): value is string {
 // ── Type guards ────────────────────────────────────────────────────────────
 // All guards share the same UUID-shape predicate; the brand distinguishes
 // only the *intended* family, which the type-checker enforces at use sites.
-export const isCategoryId    = (v: unknown): v is CategoryId    => isUuidLike(v);
-export const isSubcategoryId = (v: unknown): v is SubcategoryId => isUuidLike(v);
-export const isChapterId     = (v: unknown): v is ChapterId     => isUuidLike(v);
-export const isCardId        = (v: unknown): v is CardId        => isUuidLike(v);
-export const isSourceId      = (v: unknown): v is SourceId      => isUuidLike(v);
+export const isCategoryId = (v: unknown): v is CategoryId => isUuidLike(v);
 
 // ── Edge converters ────────────────────────────────────────────────────────
 // Use at parsing boundaries: URL params, IDB reads, JSON imports, form input.

@@ -2,61 +2,13 @@
  * Knowledge-base (Zettelkasten) articles repository — PR-9.
  * SQLite-only read/write.
  */
-import type { 
-  SqlBindValue, 
-  SqlExecutor 
-} from "@/lib/persistence/sqlite/executor";
+import type { SqlBindValue } from "@/lib/persistence/sqlite/executor";
 import type { KnowledgeBaseArticle } from "@/lib/db-types";
 import { logger } from "@/lib/logger";
-import { 
-  notifyExecutorNull 
-} from "./_shared/executor-telemetry";
 import { withSqlTiming } from "./_shared/sql-timing";
+import { requireSqlExecutor } from "./_shared/require-sql-executor";
 import { emitDomainChanged } from "@/lib/event-bus";
-
-// ─── Executor accessor ──────────────────────────────────────────
-
-async function tryGetExecutor(): Promise<SqlExecutor | null> {
-  try {
-    const { isElectron } = await import(
-      "@/lib/electron-integration"
-    );
-    if (!isElectron() && import.meta.env.PROD) { 
-      notifyExecutorNull("knowledgeBase", "non-electron"); 
-      return null; 
-    }
-    
-    const { getOpfsSqliteExecutor } = await import(
-      "@/lib/persistence/sqlite/client"
-    );
-    
-    // Faza 4: Očišćen mrtvi polling kod. Klijent baze sada 
-    // samostalno hendla timeout-e i oporavak workera.
-    return await getOpfsSqliteExecutor();
-  } catch (err) {
-    logger.warn(
-      "[kb-articles-repo] sqlite executor unavailable", 
-      err
-    );
-    notifyExecutorNull("knowledgeBase", "error");
-    return null;
-  }
-}
-
-async function requireExecutor(
-  label: string
-): Promise<SqlExecutor | null> {
-  const exec = await tryGetExecutor();
-  if (exec) return exec;
-  const { assertDesktop } = await import(
-    "@/lib/electron-integration"
-  );
-  assertDesktop();
-  logger.warn(
-    `[kb-articles-repo] ${label} — no executor (dev shell)`
-  );
-  return null;
-}
+import { migrateArticle } from "@/lib/editor-v4/migrate";
 
 // ─── Change emitter ─────────────────────────────────────────────
 
@@ -66,11 +18,14 @@ export function notifyKnowledgeBaseChanged(): void {
 
 // ─── Codec ──────────────────────────────────────────────────────
 
-function decodeArticle(row: { 
-  payload: string 
+function decodeArticle(row: {
+  payload: string;
 }): KnowledgeBaseArticle | null {
-  try { 
-    return JSON.parse(row.payload) as KnowledgeBaseArticle; 
+  try {
+    const parsed = JSON.parse(row.payload) as KnowledgeBaseArticle;
+    // Decode-time backfill: legacy rows may still carry markdown-only `content`
+    // in the JSON payload. migrateArticle is idempotent for v4 docs.
+    return migrateArticle(parsed).record;
   } catch (err) {
     logger.warn("[kb-articles-repo] decode failed", err);
     return null;
@@ -97,27 +52,22 @@ function bindRow(a: KnowledgeBaseArticle): SqlBindValue[] {
 // ─── Read API ───────────────────────────────────────────────────
 
 export async function getArticle(
-  id: string
+  id: string,
 ): Promise<KnowledgeBaseArticle | undefined> {
-  const exec = await requireExecutor("getArticle");
-  if (!exec) return undefined;
+  const exec = await requireSqlExecutor("kb:getArticle");
   const rows = await exec.all<{ payload: string }>(
-    "SELECT payload FROM knowledgeBaseArticles " +
-    "WHERE id = ? LIMIT 1", 
+    "SELECT payload FROM knowledgeBaseArticles WHERE id = ? LIMIT 1",
     [id],
   );
   if (rows.length === 0) return undefined;
   return decodeArticle(rows[0]) ?? undefined;
 }
 
-export async function listAllArticles(): 
-  Promise<KnowledgeBaseArticle[]> {
+export async function listAllArticles(): Promise<KnowledgeBaseArticle[]> {
   return withSqlTiming("listAllArticles", async () => {
-    const exec = await requireExecutor("listAllArticles");
-    if (!exec) return [];
+    const exec = await requireSqlExecutor("kb:listAllArticles");
     const rows = await exec.all<{ payload: string }>(
-      `SELECT payload FROM knowledgeBaseArticles 
-       ORDER BY updatedAt DESC`,
+      `SELECT payload FROM knowledgeBaseArticles ORDER BY updatedAt DESC`,
     );
     return rows
       .map(decodeArticle)
@@ -126,12 +76,11 @@ export async function listAllArticles():
 }
 
 export async function listArticlesBySubject(
-  subjectId: string
+  subjectId: string,
 ): Promise<KnowledgeBaseArticle[]> {
-  const exec = await requireExecutor("listArticlesBySubject");
-  if (!exec) return [];
+  const exec = await requireSqlExecutor("kb:listArticlesBySubject");
   const rows = await exec.all<{ payload: string }>(
-    `SELECT payload FROM knowledgeBaseArticles 
+    `SELECT payload FROM knowledgeBaseArticles
      WHERE subjectId = ? ORDER BY updatedAt DESC`,
     [subjectId],
   );
@@ -147,8 +96,7 @@ export async function findArticleByTitle(
   const trimmed = title.trim();
   if (!trimmed) return undefined;
 
-  const exec = await requireExecutor("findArticleByTitle");
-  if (!exec) return undefined;
+  const exec = await requireSqlExecutor("kb:findArticleByTitle");
   const rows = await exec.all<{ payload: string }>(
     `SELECT payload FROM knowledgeBaseArticles
        WHERE subjectId = ?
@@ -160,59 +108,11 @@ export async function findArticleByTitle(
   return decodeArticle(rows[0]) ?? undefined;
 }
 
-// ─── Header / index lookups (no JSON.parse) ─────────────────────
-
-export type KnowledgeBaseArticleHeader = {
-  id: string;
-  subjectId: string;
-  title: string;
-  updatedAt: number;
-  isIndex: boolean;
-};
-
-function decodeHeaderRow(row: {
-  id: string; 
-  subjectId: string; 
-  title: string; 
-  updatedAt: number; 
-  isIndex: number;
-}): KnowledgeBaseArticleHeader {
-  return {
-    id: row.id,
-    subjectId: row.subjectId,
-    title: row.title,
-    updatedAt: Number(row.updatedAt),
-    isIndex: !!row.isIndex,
-  };
-}
-
-export async function listArticleHeadersBySubject(
-  subjectId: string,
-): Promise<KnowledgeBaseArticleHeader[]> {
-  const exec = await requireExecutor("listArticleHeadersBySubject");
-  if (!exec) return [];
-  const rows = await exec.all<{
-    id: string; 
-    subjectId: string; 
-    title: string; 
-    updatedAt: number; 
-    isIndex: number;
-  }>(
-    `SELECT id, subjectId, title, updatedAt, isIndex
-       FROM knowledgeBaseArticles
-       WHERE subjectId = ?
-       ORDER BY updatedAt DESC`,
-    [subjectId],
-  );
-  return rows.map(decodeHeaderRow);
-}
-
 /** Indexed lookup — uses idx_kb_subject_isIndex. Single row. */
 export async function getIndexArticle(
   subjectId: string,
 ): Promise<KnowledgeBaseArticle | undefined> {
-  const exec = await requireExecutor("getIndexArticle");
-  if (!exec) return undefined;
+  const exec = await requireSqlExecutor("kb:getIndexArticle");
   const rows = await exec.all<{ payload: string }>(
     `SELECT payload FROM knowledgeBaseArticles
        WHERE subjectId = ? AND isIndex = 1
@@ -227,27 +127,24 @@ export async function getIndexArticle(
 // ─── Write API ──────────────────────────────────────────────────
 
 export async function putArticle(
-  article: KnowledgeBaseArticle
+  article: KnowledgeBaseArticle,
 ): Promise<void> {
-  const exec = await requireExecutor("putArticle");
-  if (!exec) return;
   if (!article.subjectId) {
-    logger.warn(
-      "[kb-articles-repo] put skipped — missing subjectId", 
-      { id: article.id }
-    );
+    logger.warn("[kb-articles-repo] put skipped — missing subjectId", {
+      id: article.id,
+    });
     return;
   }
+  const exec = await requireSqlExecutor("kb:putArticle");
   await exec.run(INSERT_SQL, bindRow(article));
   notifyKnowledgeBaseChanged();
 }
 
 export async function bulkPutArticles(
-  articles: readonly KnowledgeBaseArticle[]
+  articles: readonly KnowledgeBaseArticle[],
 ): Promise<void> {
   if (articles.length === 0) return;
-  const exec = await requireExecutor("bulkPutArticles");
-  if (!exec) return;
+  const exec = await requireSqlExecutor("kb:bulkPutArticles");
   await exec.transaction(async (tx) => {
     const batches = articles
       .filter((a) => Boolean(a.subjectId))
@@ -261,11 +158,7 @@ export async function bulkPutArticles(
 }
 
 export async function deleteArticle(id: string): Promise<void> {
-  const exec = await requireExecutor("deleteArticle");
-  if (!exec) return;
-  await exec.run(
-    "DELETE FROM knowledgeBaseArticles WHERE id = ?", 
-    [id]
-  );
+  const exec = await requireSqlExecutor("kb:deleteArticle");
+  await exec.run("DELETE FROM knowledgeBaseArticles WHERE id = ?", [id]);
   notifyKnowledgeBaseChanged();
 }

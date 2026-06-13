@@ -6,7 +6,7 @@ import type { Card } from "@/lib/spaced-repetition";
 import { useCategorySourcesWithStatus } from "@/hooks/useCategorySources";
 import { useCardOnlyActions } from "@/hooks/cards/useActions";
 import { useCategoryData } from "@/hooks/cards/useCategoryState";
-import { useCardData } from "@/hooks/cards/useCardState";
+import { useCardReady } from "@/hooks/cards/useCardState";
 import { useCardsByCategoryWithStatus } from "@/store";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { CategoryHeaderSkeleton, SourcesTabSkeleton } from "@/components/ui/list-skeleton";
@@ -18,10 +18,8 @@ export default function CategoryView() {
   const { categoryId } = useParams<{ categoryId: string }>();
 
   // ── Boot-loaded context data (SSoT) ──
-  // `ready` still comes from useCardData (bootstrap signal); the cards array
-  // itself is now subscribed via a granular selector that only re-renders
-  // when this category's matched set changes.
-  const { ready } = useCardData();
+  // `ready` is boot signal only; cards come from scoped category query below.
+  const ready = useCardReady();
   const { categoryRecords } = useCategoryData();
 
   const category = useMemo(
