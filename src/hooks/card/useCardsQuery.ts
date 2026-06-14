@@ -20,10 +20,13 @@ import {
   getCardsByIds,
   cardCountByCategory,
   countAllCards,
+  getDueCardsFromDb,
+  countDueCardsFromDb,
+  countDueCardsByCategoryFromDb,
+  avgMasteryScoreByCategoryFromDb,
 } from "@/lib/db/queries";
 import { queryKeys } from "@/lib/query/keys";
 import type { Card } from "@/lib/spaced-repetition";
-import { countDueCards } from "@/hooks/cards/useCardAggregates";
 
 const EMPTY: readonly Card[] = Object.freeze([]);
 
@@ -124,23 +127,65 @@ export function useCardCountAll(): number {
   return data ?? 0;
 }
 
+/** SQL JOIN due cards — no full-table JSON scan. */
+export function useDueCards(limit?: number): readonly Card[] {
+  const { data } = useQuery({
+    queryKey: [...queryKeys.cards.due(), limit ?? "all"] as const,
+    queryFn: () => getDueCardsFromDb(Date.now(), limit ?? 50_000),
+    staleTime: Infinity,
+  });
+  return data ?? EMPTY;
+}
+
+/** SQL COUNT of due cards for dashboard badges. */
+export function useDueCardCount(): number {
+  const { data } = useQuery({
+    queryKey: queryKeys.cards.countDue(),
+    queryFn: () => countDueCardsFromDb(),
+    staleTime: Infinity,
+  });
+  return data ?? 0;
+}
+
 /**
- * Per-category due counts via scoped category queries (reuses cached
- * `cardsByCategory` rows when a subject view is already mounted).
+ * Per-category rounded average mastery scores via SQL AVG on mastery_score.
+ */
+export function useCategoryMasteryScores(
+  categoryIds: readonly string[],
+): Record<string, number> {
+  return useQueries({
+    queries: categoryIds.map((id) => ({
+      queryKey: queryKeys.cards.avgMasteryByCategory(id),
+      queryFn: () => avgMasteryScoreByCategoryFromDb(id),
+      staleTime: Infinity,
+    })),
+    combine: (results) => {
+      const out: Record<string, number> = {};
+      categoryIds.forEach((id, i) => {
+        out[id] = results[i]?.data ?? 0;
+      });
+      return out;
+    },
+  });
+}
+
+/**
+ * Per-category due counts via SQL JOIN on card_sections_index.
+ * No full-category payload decode.
  */
 export function useCategoryDueCounts(
   categoryIds: readonly string[],
 ): Record<string, number> {
   return useQueries({
     queries: categoryIds.map((id) => ({
-      queryKey: queryKeys.cards.byCategory(id),
-      queryFn: () => cardsByCategory(id),
+      queryKey: queryKeys.cards.countDueByCategory(id),
+      queryFn: () => countDueCardsByCategoryFromDb(id),
       staleTime: Infinity,
     })),
     combine: (results) => {
       const out: Record<string, number> = {};
       categoryIds.forEach((id, i) => {
-        out[id] = countDueCards(results[i]?.data ?? EMPTY);
+        out[id] = results[i]?.data ?? 0;
       });
       return out;
     },

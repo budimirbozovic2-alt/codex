@@ -1,5 +1,6 @@
 import { Wand2, PenSquare, Plus, FileText } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useShallow } from "zustand/react/shallow";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { EditorV4 } from "@/components/editor-v4/EditorV4";
@@ -26,18 +27,121 @@ interface Props {
  * `CuttingView`. Ovo file je samo Dialog shell + dirty-close flow.
  */
 export function SmartSplitSummaryDialog({ source, onSmartSplitConfirm }: Props) {
-  const open = useSourceReaderStore((s) => s.splitSummaryOpen);
-  const splitDone = useSourceReaderStore((s) => s.splitDone);
-  const splitResult = useSourceReaderStore((s) => s.splitResult);
-  const splitCreatedCount = useSourceReaderStore((s) => s.splitCreatedCount);
-  const splitParentName = useSourceReaderStore((s) => s.splitParentName);
-  const setSplitParentName = useSourceReaderStore((s) => s.setSplitParentName);
-  const setSplitSummaryOpen = useSourceReaderStore((s) => s.setSplitSummaryOpen);
-  const setSplitResult = useSourceReaderStore((s) => s.setSplitResult);
-  const wizardSubcategoryId = useSourceReaderStore((s) => s.wizardSubcategoryId);
-  const wizardChapterId = useSourceReaderStore((s) => s.wizardChapterId);
-  const setWizardSubcategoryId = useSourceReaderStore((s) => s.setWizardSubcategoryId);
-  const setWizardChapterId = useSourceReaderStore((s) => s.setWizardChapterId);
+  const {
+    open,
+    splitDone,
+    splitResult,
+    splitCreatedCount,
+    setSplitSummaryOpen,
+    setSplitResult,
+  } = useSourceReaderStore(
+    useShallow((s) => ({
+      open: s.splitSummaryOpen,
+      splitDone: s.splitDone,
+      splitResult: s.splitResult,
+      splitCreatedCount: s.splitCreatedCount,
+      setSplitSummaryOpen: s.setSplitSummaryOpen,
+      setSplitResult: s.setSplitResult,
+    })),
+  );
+
+  const performClose = useCallback(() => {
+    setSplitSummaryOpen(false);
+    setSplitResult(null);
+  }, [setSplitSummaryOpen, setSplitResult]);
+
+  const isWizardDirty = !!splitResult && !splitDone;
+
+  const { pendingClose, requestClose, cancelClose, confirmDiscard } = useDirtyDialog(
+    isWizardDirty,
+    performClose,
+  );
+
+  const handleOpenChange = (o: boolean) => { if (!o) requestClose(); };
+
+  return (
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      <DialogContent
+        className="max-w-3xl max-h-[90vh] overflow-y-auto"
+        onPointerDownOutside={(e) => { if (isWizardDirty) { e.preventDefault(); requestClose(); } }}
+        onEscapeKeyDown={(e) => { if (isWizardDirty) { e.preventDefault(); requestClose(); } }}
+      >
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Wand2 className="h-5 w-5 text-primary" />
+            {splitDone ? "Esej kreiran" : "Novi esej iz izvora"}
+          </DialogTitle>
+        </DialogHeader>
+
+        {open && (
+          splitDone ? (
+            <div className="space-y-4">
+              <div className="flex items-center gap-3 rounded-lg border border-success/30 bg-success/10 px-4 py-4">
+                <div className="h-8 w-8 rounded-full bg-success/20 flex items-center justify-center">
+                  <PenSquare className="h-4 w-4 text-success" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium">
+                    Uspješno kreiran esej sa {splitCreatedCount} {splitCreatedCount === 1 ? "modulom" : "modula"}
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    {splitResult?.rangeLabel} • Izvor: "{source.title}"
+                  </p>
+                </div>
+              </div>
+              <Button onClick={() => handleOpenChange(false)} className="w-full">Zatvori</Button>
+            </div>
+          ) : splitResult ? (
+            <SmartSplitWizardBody
+              source={source}
+              onSmartSplitConfirm={onSmartSplitConfirm}
+              onCancel={() => handleOpenChange(false)}
+            />
+          ) : null
+        )}
+
+        <DirtyConfirmBar
+          open={pendingClose}
+          onCancel={cancelClose}
+          onDiscard={confirmDiscard}
+          onSave={async () => { cancelClose(); onSmartSplitConfirm(); }}
+          message="Imate nesačuvan esej. Kartice još nisu kreirane."
+          saveLabel="Kreiraj esej"
+        />
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/** Wizard form — only mounted while dialog is open to avoid split-module store churn. */
+function SmartSplitWizardBody({
+  source,
+  onSmartSplitConfirm,
+  onCancel,
+}: {
+  source: Source;
+  onSmartSplitConfirm: () => void;
+  onCancel: () => void;
+}) {
+  const {
+    splitResult,
+    splitParentName,
+    setSplitParentName,
+    wizardSubcategoryId,
+    wizardChapterId,
+    setWizardSubcategoryId,
+    setWizardChapterId,
+  } = useSourceReaderStore(
+    useShallow((s) => ({
+      splitResult: s.splitResult,
+      splitParentName: s.splitParentName,
+      setSplitParentName: s.setSplitParentName,
+      wizardSubcategoryId: s.wizardSubcategoryId,
+      wizardChapterId: s.wizardChapterId,
+      setWizardSubcategoryId: s.setWizardSubcategoryId,
+      setWizardChapterId: s.setWizardChapterId,
+    })),
+  );
 
   const {
     splitModules, splitEdits, total, keptCount,
@@ -57,20 +161,6 @@ export function SmartSplitSummaryDialog({ source, onSmartSplitConfirm }: Props) 
   );
   const chapters = selectedSubcategory?.chapters ?? [];
 
-  const performClose = useCallback(() => {
-    setSplitSummaryOpen(false);
-    setSplitResult(null);
-  }, [setSplitSummaryOpen, setSplitResult]);
-
-  const isWizardDirty = !!splitResult && !splitDone;
-
-  const { pendingClose, requestClose, cancelClose, confirmDiscard } = useDirtyDialog(
-    isWizardDirty,
-    performClose,
-  );
-
-  const handleOpenChange = (o: boolean) => { if (!o) requestClose(); };
-
   // ── Cutting state — per-module index (one active at a time) ──
   const [cuttingIndex, setCuttingIndex] = useState<number | null>(null);
   useEffect(() => { setCuttingIndex(null); }, [total]);
@@ -86,39 +176,10 @@ export function SmartSplitSummaryDialog({ source, onSmartSplitConfirm }: Props) 
     ? `Kreiraj esej (${keptCount} ${keptCount === 1 ? "modul" : "modula"})`
     : "Kreiraj esej";
 
-  return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent
-        className="max-w-3xl max-h-[90vh] overflow-y-auto"
-        onPointerDownOutside={(e) => { if (isWizardDirty) { e.preventDefault(); requestClose(); } }}
-        onEscapeKeyDown={(e) => { if (isWizardDirty) { e.preventDefault(); requestClose(); } }}
-      >
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Wand2 className="h-5 w-5 text-primary" />
-            {splitDone ? "Esej kreiran" : "Novi esej iz izvora"}
-          </DialogTitle>
-        </DialogHeader>
+  if (!splitResult) return null;
 
-        {splitDone ? (
-          <div className="space-y-4">
-            <div className="flex items-center gap-3 rounded-lg border border-success/30 bg-success/10 px-4 py-4">
-              <div className="h-8 w-8 rounded-full bg-success/20 flex items-center justify-center">
-                <PenSquare className="h-4 w-4 text-success" />
-              </div>
-              <div>
-                <p className="text-sm font-medium">
-                  Uspješno kreiran esej sa {splitCreatedCount} {splitCreatedCount === 1 ? "modulom" : "modula"}
-                </p>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  {splitResult?.rangeLabel} • Izvor: "{source.title}"
-                </p>
-              </div>
-            </div>
-            <Button onClick={() => handleOpenChange(false)} className="w-full">Zatvori</Button>
-          </div>
-        ) : splitResult ? (
-          <div className="space-y-6">
+  return (
+    <div className="space-y-6">
             <div className="flex gap-2">
               <button
                 type="button"
@@ -185,7 +246,7 @@ export function SmartSplitSummaryDialog({ source, onSmartSplitConfirm }: Props) 
               <div className="flex-1 text-xs text-muted-foreground">
                 {splitResult.rangeLabel && <span>{splitResult.rangeLabel}</span>}
               </div>
-              <Button variant="outline" size="sm" onClick={() => handleOpenChange(false)}>Otkaži</Button>
+              <Button variant="outline" size="sm" onClick={onCancel}>Otkaži</Button>
               <Button
                 onClick={onSmartSplitConfirm}
                 className="gap-1.5"
@@ -202,19 +263,7 @@ export function SmartSplitSummaryDialog({ source, onSmartSplitConfirm }: Props) 
                 {confirmLabel}
               </Button>
             </div>
-          </div>
-        ) : null}
-
-        <DirtyConfirmBar
-          open={pendingClose}
-          onCancel={cancelClose}
-          onDiscard={confirmDiscard}
-          onSave={async () => { cancelClose(); onSmartSplitConfirm(); }}
-          message="Imate nesačuvan esej. Kartice još nisu kreirane."
-          saveLabel="Kreiraj esej"
-        />
-      </DialogContent>
-    </Dialog>
+    </div>
   );
 }
 

@@ -22,7 +22,7 @@ import { Card, SRSettings } from "@/lib/spaced-repetition";
 
 import { ReviewLogEntry } from "@/lib/storage";
 
-import { useAllCards, useCardCountAll } from "@/hooks/card/useCardsQuery";
+import { useAllCards, useCardCountAll, useDueCards, useDueCardCount, useCategoryDueCounts, useCardCountsByCategoryMap, useCategoryMasteryScores } from "@/hooks/card/useCardsQuery";
 
 import { useCategoryData } from "./useCategoryState";
 
@@ -99,21 +99,19 @@ interface CardStateContextValue {
 export function useCardData(): CardStateContextValue {
 
   const cards = useCards();
-
+  const dueCards = useDueCards() as Card[];
   const totalCards = useCardCountAll();
-
+  const dueCount = useDueCardCount();
   const { categories } = useCategoryData();
-
   const ready = useCardReady();
-
-  const { dueCards, stats: rawStats } = useCardAggregates(cards, categories);
-
+  const { stats: rawStats } = useCardAggregates(cards, categories);
   const stats = useMemo(
-
-    () => ({ ...rawStats, total: totalCards > 0 ? totalCards : rawStats.total }),
-
-    [rawStats, totalCards],
-
+    () => ({
+      ...rawStats,
+      due: dueCount,
+      total: totalCards > 0 ? totalCards : rawStats.total,
+    }),
+    [rawStats, dueCount, totalCards],
   );
 
   return useMemo(
@@ -162,11 +160,23 @@ interface CategoryStatsContextValue {
 
 export function useCategoryStatsData(): CategoryStatsContextValue {
 
-  const cards = useCards();
-
   const { categories } = useCategoryData();
 
-  const { categoryStats } = useCardAggregates(cards, categories);
+  const dueByCategory = useCategoryDueCounts(categories);
+  const countByCategory = useCardCountsByCategoryMap(categories);
+  const scoreByCategory = useCategoryMasteryScores(categories);
+
+  const categoryStats = useMemo(() => {
+    const out: Record<string, { score: number; total: number; due: number }> = {};
+    for (const cat of categories) {
+      out[cat] = {
+        score: scoreByCategory[cat] ?? 0,
+        total: countByCategory[cat] ?? 0,
+        due: dueByCategory[cat] ?? 0,
+      };
+    }
+    return out;
+  }, [categories, scoreByCategory, countByCategory, dueByCategory]);
 
   return useMemo(() => ({ categoryStats }), [categoryStats]);
 

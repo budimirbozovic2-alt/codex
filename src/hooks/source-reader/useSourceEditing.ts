@@ -3,6 +3,7 @@ import { toast } from "sonner";
 import type { Source } from "@/domains/sources/sources-storage";
 import { buildAutoFormatSource } from "@/lib/services/sourceEditingService";
 import { useSourceMutations } from "@/hooks/source/useSourceMutations";
+import { scrollToHeadingInEditor } from "@/lib/source-reader/heading-navigation";
 
 /**
  * Slim source-editing actions hook. After PR-7a the in-place editor
@@ -30,8 +31,9 @@ export function useSourceEditing(
   }, [source, onSourceUpdated, saveMutation]);
 
   const scrollToHeading = useCallback((id: string) => {
-    const el = document.getElementById(id);
-    if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+    if (!scrollToHeadingInEditor(id)) {
+      toast.info("Naslov nije pronađen u tekstu", { description: "Možda je uklonjen ili preimenovan." });
+    }
   }, []);
 
   return {

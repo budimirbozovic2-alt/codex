@@ -1,5 +1,6 @@
 import { ArrowLeft, Wand2, FileQuestion, List, X, Pencil, Type } from "lucide-react";
 import { memo } from "react";
+import { useShallow } from "zustand/react/shallow";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -25,17 +26,27 @@ interface Props {
  */
 export const SourceToolbar = memo(function SourceToolbar({ source, onBack, onAutoSplit, onAutoFormat }: Props) {
   const sourceKind: SourceKind = source.sourceKind ?? "propis";
-  const editMode = useSourceReaderStore(s => s.editMode);
-  const setEditMode = useSourceReaderStore(s => s.setEditMode);
-  const readerWidth = useSourceReaderStore(s => s.readerWidth);
-  const setReaderWidth = useSourceReaderStore(s => s.setReaderWidth);
-  const examOpen = useSourceReaderStore(s => s.examOpen);
-  const setExamOpen = useSourceReaderStore(s => s.setExamOpen);
-  const outlineOpen = useSourceReaderStore(s => s.outlineOpen);
-  const setOutlineOpen = useSourceReaderStore(s => s.setOutlineOpen);
-  const examQuestions = useSourceReaderStore(s => s.examQuestions);
+  const {
+    editMode, setEditMode,
+    readerWidth, setReaderWidth,
+    examOpen, setExamOpen,
+    outlineOpen, setOutlineOpen,
+  } = useSourceReaderStore(
+    useShallow((s) => ({
+      editMode: s.editMode,
+      setEditMode: s.setEditMode,
+      readerWidth: s.readerWidth,
+      setReaderWidth: s.setReaderWidth,
+      examOpen: s.examOpen,
+      setExamOpen: s.setExamOpen,
+      outlineOpen: s.outlineOpen,
+      setOutlineOpen: s.setOutlineOpen,
+    })),
+  );
 
-  const pendingCount = examQuestions.filter(q => !q.done).length;
+  const pendingCount = useSourceReaderStore(
+    (s) => s.examQuestions.filter((q) => !q.done).length,
+  );
 
   return (
     <div className="space-y-2">

@@ -11,6 +11,8 @@
 import type { SqlExecutor } from "./executor";
 import schemaSql from "./schema.sql?raw";
 import { migrateCategoryTaxonomyToRelational } from "./category-taxonomy-migration";
+import { migrateCardSectionsIndex } from "./card-sections-index-migration";
+import { migrateCardMasteryScores } from "./card-mastery-score-migration";
 
 interface Migration {
   version: number;
@@ -147,6 +149,22 @@ const PR10_RELATIONAL_TAXONOMY_SQL = `
   CREATE INDEX IF NOT EXISTS idx_chapters_subcategory ON chapters(subcategoryId);
 `;
 
+const PR11_CARD_SECTIONS_INDEX_SQL = `
+  CREATE TABLE IF NOT EXISTS card_sections_index (
+    card_id     TEXT NOT NULL REFERENCES cards(id) ON DELETE CASCADE,
+    section_id  TEXT NOT NULL,
+    state       INTEGER NOT NULL,
+    next_review INTEGER NOT NULL,
+    PRIMARY KEY (card_id, section_id)
+  );
+  CREATE INDEX IF NOT EXISTS idx_card_sections_review ON card_sections_index(next_review);
+  CREATE INDEX IF NOT EXISTS idx_card_sections_state ON card_sections_index(state);
+`;
+
+const PR12_CARD_MASTERY_SCORE_SQL = `
+  SELECT 1;
+`;
+
 const MIGRATIONS: readonly Migration[] = [
   { version: 1, label: "init", sql: schemaSql },
   // PR-9 M1 — disciplineLog + drafts tables (SQLite-primary).
@@ -161,6 +179,8 @@ const MIGRATIONS: readonly Migration[] = [
   // calibrationLog, latencyLog, slippageLog, activityLog) move to SQLite.
   { version: 5, label: "pr9-a1c3-log-tables", sql: PR9_A1C3_LOG_TABLES_SQL },
   { version: 6, label: "pr10-relational-taxonomy", sql: PR10_RELATIONAL_TAXONOMY_SQL },
+  { version: 7, label: "pr11-card-sections-index", sql: PR11_CARD_SECTIONS_INDEX_SQL },
+  { version: 8, label: "pr12-card-mastery-score", sql: PR12_CARD_MASTERY_SCORE_SQL },
 ];
 
 const TARGET_USER_VERSION = MIGRATIONS[MIGRATIONS.length - 1].version;
@@ -187,6 +207,14 @@ export async function runMigrations(exec: SqlExecutor): Promise<{ from: number; 
 
   if (TARGET_USER_VERSION >= 6) {
     await migrateCategoryTaxonomyToRelational(exec);
+  }
+
+  if (TARGET_USER_VERSION >= 7) {
+    await migrateCardSectionsIndex(exec);
+  }
+
+  if (TARGET_USER_VERSION >= 8) {
+    await migrateCardMasteryScores(exec);
   }
 
   return { from: current, to: TARGET_USER_VERSION };

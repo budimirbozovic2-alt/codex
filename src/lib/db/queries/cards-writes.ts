@@ -26,6 +26,7 @@ import {
   sqlClearCardLinksIn,
   SQL_CLEAR_NEEDS_REVIEW,
 } from "./cards-json-patches";
+import { syncCardSectionsIndex, syncCardSectionsIndexMany } from "@/lib/persistence/sqlite/card-sections-index";
 
 export interface DirectWriteOptions {
   /** Caller emits scoped invalidation (e.g. cross-category moves). */
@@ -42,7 +43,10 @@ export async function putCardDirect(
   opts?: DirectWriteOptions,
 ): Promise<Card> {
   const stamped = stamp(card, Date.now());
-  await runInTransaction((tx) => tx.run(CARD_INSERT_SQL, bindCardInsert(stamped)));
+  await runInTransaction(async (tx) => {
+    await tx.run(CARD_INSERT_SQL, bindCardInsert(stamped));
+    await syncCardSectionsIndex(tx, stamped);
+  });
   if (!opts?.skipNotify) emitAfterCardWrite(null, stamped);
   return stamped;
 }
@@ -55,9 +59,10 @@ export async function bulkPutCardsDirect(
   if (cards.length === 0) return [];
   const now = Date.now();
   const stamped = cards.map((c) => stamp(c, now));
-  await runInTransaction((tx) =>
-    tx.runMany(CARD_INSERT_SQL, stamped.map(bindCardInsert))
-  );
+  await runInTransaction(async (tx) => {
+    await tx.runMany(CARD_INSERT_SQL, stamped.map(bindCardInsert));
+    await syncCardSectionsIndexMany(tx, stamped);
+  });
   if (!opts?.skipNotify) {
     emitCardsChangedForRefs(stamped.map(cardToScopeRef));
   }

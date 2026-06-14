@@ -71,6 +71,16 @@ const RE_SELECT =
   /^\s*SELECT\s+(.+?)\s+FROM\s+(\w+)(?:\s+WHERE\s+(.+?))?(?:\s+ORDER\s+BY\s+(.+?))?(?:\s+LIMIT\s+(\?|\d+))?\s*;?\s*$/i;
 const RE_COUNT =
   /^\s*SELECT\s+COUNT\(\*\)\s+AS\s+n\s+FROM\s+(\w+)(?:\s+WHERE\s+(.+?))?\s*;?\s*$/i;
+const RE_COUNT_DISTINCT =
+  /^\s*SELECT\s+COUNT\s*\(\s*DISTINCT\s+(\w+)\s*\)\s+AS\s+n\s+FROM\s+(\w+)(?:\s+WHERE\s+(.+?))?\s*;?\s*$/i;
+const RE_UPSERT_CARD_SECTIONS =
+  /^\s*INSERT\s+INTO\s+card_sections_index\s*\(\s*card_id\s*,\s*section_id\s*,\s*state\s*,\s*next_review\s*\)\s*VALUES\s*\(\s*\?\s*,\s*\?\s*,\s*\?\s*,\s*\?\s*\)\s*ON\s+CONFLICT\s*\(\s*card_id\s*,\s*section_id\s*\)\s*DO\s+UPDATE\s+SET\s+state\s*=\s*excluded\.state\s*,\s*next_review\s*=\s*excluded\.next_review\s*$/i;
+const RE_DUE_CARDS_JOIN =
+  /^\s*SELECT\s+cards\.payload\s+FROM\s+cards\s+INNER\s+JOIN\s+card_sections_index\s+idx\s+ON\s+cards\.id\s*=\s*idx\.card_id\s+WHERE\s+idx\.state\s*!=\s*\?\s+AND\s+idx\.next_review\s*<=\s*\?\s+GROUP\s+BY\s+cards\.id\s+ORDER\s+BY\s+MIN\s*\(\s*idx\.next_review\s*\)\s+ASC\s+LIMIT\s*\?\s*$/i;
+const RE_COUNT_DUE_BY_CATEGORY =
+  /^\s*SELECT\s+COUNT\s*\(\s*DISTINCT\s+idx\.card_id\s*\)\s+AS\s+n\s+FROM\s+card_sections_index\s+idx\s+INNER\s+JOIN\s+cards\s+c\s+ON\s+c\.id\s*=\s*idx\.card_id\s+WHERE\s+c\.categoryId\s*=\s*\?\s+AND\s+idx\.state\s*!=\s*\?\s+AND\s+idx\.next_review\s*<=\s*\?\s*$/i;
+const RE_AVG_MASTERY_BY_CATEGORY =
+  /^\s*SELECT\s+ROUND\s*\(\s*AVG\s*\(\s*mastery_score\s*\)\s*\)\s+AS\s+score\s+FROM\s+cards\s+WHERE\s+categoryId\s*=\s*\?\s*$/i;
 
 interface WhereClause {
   match: (row: Row) => boolean;
@@ -367,6 +377,26 @@ class TestExecutor implements SqlExecutor {
       return;
     }
 
+    const upsertSections = RE_UPSERT_CARD_SECTIONS.exec(trimmed);
+    if (upsertSections) {
+      const t = getOrCreateTable(this.state, "card_sections_index");
+      const row: Row = {
+        card_id: params[0] ?? null,
+        section_id: params[1] ?? null,
+        state: params[2] ?? null,
+        next_review: params[3] ?? null,
+      };
+      const idx = t.rows.findIndex(
+        (r) => r.card_id === row.card_id && r.section_id === row.section_id,
+      );
+      if (idx >= 0) {
+        t.rows[idx] = { ...t.rows[idx], state: row.state, next_review: row.next_review };
+      } else {
+        t.rows.push(row);
+      }
+      return;
+    }
+
     const ins = RE_INSERT.exec(trimmed);
     if (ins) {
       const table = ins[1];
@@ -420,14 +450,32 @@ class TestExecutor implements SqlExecutor {
       const t = this.state.tables.get(table);
       if (!t) return;
       const where = parseWhere(delWhere[2], params, 0);
+      const removed =
+        table === "cards"
+          ? t.rows.filter((r) => where.match(r))
+          : [];
       t.rows = t.rows.filter((r) => !where.match(r));
+      if (table === "cards" && removed.length > 0) {
+        const idx = this.state.tables.get("card_sections_index");
+        if (idx) {
+          const ids = new Set(removed.map((r) => r.id));
+          idx.rows = idx.rows.filter((r) => !ids.has(r.card_id));
+        }
+      }
       return;
     }
 
     const delAll = RE_DELETE_ALL.exec(trimmed);
     if (delAll) {
-      const t = this.state.tables.get(delAll[1]);
-      if (t) t.rows = [];
+      const table = delAll[1];
+      const t = this.state.tables.get(table);
+      if (t) {
+        if (table === "cards") {
+          const idx = this.state.tables.get("card_sections_index");
+          if (idx) idx.rows = [];
+        }
+        t.rows = [];
+      }
       return;
     }
 
@@ -494,6 +542,97 @@ class TestExecutor implements SqlExecutor {
     // Normalize whitespace (incl. newlines) so multi-line SQL strings — used
     // by `findArticleByTitle` and friends — match the single-line regexes.
     const trimmed = sql.replace(/\s+/g, " ").trim();
+
+    const pragmaInfo = /^\s*PRAGMA\s+table_info\((\w+)\)\s*$/i.exec(trimmed);
+    if (pragmaInfo) {
+      const table = pragmaInfo[1];
+      const t = this.state.tables.get(table);
+      const sample = t?.rows[0];
+      if (sample) {
+        return Object.keys(sample).map((name) => ({ name })) as unknown as T[];
+      }
+      if (table === "cards") {
+        return [
+          { name: "id" }, { name: "categoryId" }, { name: "mastery_score" }, { name: "payload" },
+        ] as unknown as T[];
+      }
+      return [] as unknown as T[];
+    }
+
+    const dueJoin = RE_DUE_CARDS_JOIN.exec(trimmed);
+    if (dueJoin) {
+      const newState = Number(params[0]);
+      const nowMs = Number(params[1]);
+      const limit = Number(params[2]);
+      const cards = this.state.tables.get("cards")?.rows ?? [];
+      const idxRows = this.state.tables.get("card_sections_index")?.rows ?? [];
+      const dueByCard = new Map<string, number>();
+      for (const idx of idxRows) {
+        if (Number(idx.state) === newState) continue;
+        if (Number(idx.next_review) > nowMs) continue;
+        const cardId = String(idx.card_id);
+        const nr = Number(idx.next_review);
+        const prev = dueByCard.get(cardId);
+        if (prev === undefined || nr < prev) dueByCard.set(cardId, nr);
+      }
+      const ordered = [...dueByCard.entries()]
+        .sort((a, b) => a[1] - b[1])
+        .slice(0, limit)
+        .map(([id]) => id);
+      const byId = new Map(cards.map((r) => [String(r.id), r]));
+      return ordered
+        .map((id) => byId.get(id))
+        .filter((r): r is Row => r !== undefined)
+        .map((r) => ({ payload: r.payload })) as unknown as T[];
+    }
+
+    const countDueByCategory = RE_COUNT_DUE_BY_CATEGORY.exec(trimmed);
+    if (countDueByCategory) {
+      const categoryId = String(params[0]);
+      const newState = Number(params[1]);
+      const nowMs = Number(params[2]);
+      const cards = this.state.tables.get("cards")?.rows ?? [];
+      const idxRows = this.state.tables.get("card_sections_index")?.rows ?? [];
+      const cardsById = new Map(cards.map((r) => [String(r.id), r]));
+      const dueCards = new Set<string>();
+      for (const idx of idxRows) {
+        if (Number(idx.state) === newState) continue;
+        if (Number(idx.next_review) > nowMs) continue;
+        const cardId = String(idx.card_id);
+        const card = cardsById.get(cardId);
+        if (!card || String(card.categoryId) !== categoryId) continue;
+        dueCards.add(cardId);
+      }
+      return [{ n: dueCards.size } as unknown as T];
+    }
+
+    const avgMasteryByCategory = RE_AVG_MASTERY_BY_CATEGORY.exec(trimmed);
+    if (avgMasteryByCategory) {
+      const categoryId = String(params[0]);
+      const cards = this.state.tables.get("cards")?.rows ?? [];
+      const scores = cards
+        .filter((r) => String(r.categoryId) === categoryId)
+        .map((r) => Number(r.mastery_score ?? 0));
+      if (scores.length === 0) return [{ score: 0 } as unknown as T];
+      const avg = scores.reduce((a, b) => a + b, 0) / scores.length;
+      return [{ score: Math.round(avg) } as unknown as T];
+    }
+
+    const countDistinct = RE_COUNT_DISTINCT.exec(trimmed);
+    if (countDistinct) {
+      const col = countDistinct[1];
+      const table = countDistinct[2];
+      const whereStr = countDistinct[3];
+      const t = this.state.tables.get(table);
+      if (!t) return [{ n: 0 } as unknown as T];
+      let rows = t.rows;
+      if (whereStr) {
+        const where = parseWhere(whereStr, params, 0);
+        rows = rows.filter((r) => where.match(r));
+      }
+      const distinct = new Set(rows.map((r) => r[col]));
+      return [{ n: distinct.size } as unknown as T];
+    }
 
     const count = RE_COUNT.exec(trimmed);
     if (count) {

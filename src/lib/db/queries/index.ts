@@ -27,6 +27,10 @@ export type { CardScopeRef } from "./cards-notify-scope";
 export {
   listAllCards,
   getCardsByIds,
+  getDueCardsFromDb,
+  countDueCardsFromDb,
+  countDueCardsByCategoryFromDb,
+  avgMasteryScoreByCategoryFromDb,
   cardsByCategory,
   cardsBySubcategory,
   cardsByChapter,

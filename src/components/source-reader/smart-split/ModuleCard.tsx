@@ -61,7 +61,14 @@ export function ModuleCard({
           </button>
         </div>
         <div className="flex-1 min-w-0">
-          <TitleEditor value={edit.question} onChange={(v) => onUpdateEdit(i, { question: v })} placeholder={mod.title || "Naziv cjeline..."} />
+          <input
+            type="text"
+            className="w-full rounded-md border border-input bg-background px-2 py-1 text-sm"
+            value={edit.question}
+            onChange={(e) => onUpdateEdit(i, { question: e.target.value })}
+            placeholder={mod.title || "Naziv cjeline..."}
+            aria-label={`Naslov modula ${i + 1}`}
+          />
         </div>
         <button
           type="button"
@@ -114,26 +121,6 @@ export function ModuleCard({
 
       <ModuleTags edit={edit} onUpdate={(patch) => onUpdateEdit(i, patch)} />
     </div>
-  );
-}
-
-/**
- * Inline editor seams — PR-7e M2. Each wraps `<EditorV4>` so the parent
- * keeps its `(value, onChange)` HTML-string contract while the editor stays
- * uncontrolled (seeded once per mount, identical to the deleted shim).
- */
-function TitleEditor({ value, onChange, placeholder }: { value: string; onChange: (html: string) => void; placeholder?: string }) {
-  // Reason: uncontrolled editor seeded once per mount; reseeding from `value`
-  // would clobber in-progress edits.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const initialDoc = useMemo(() => htmlToDoc(value ?? ""), []);
-  return (
-    <EditorV4
-      initialDoc={initialDoc}
-      onChange={(doc) => onChange(deriveHtml(doc))}
-      placeholder={placeholder}
-      minimal
-    />
   );
 }
 

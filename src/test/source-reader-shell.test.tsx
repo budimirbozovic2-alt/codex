@@ -16,7 +16,6 @@ const mockSaveSource = vi.fn(async () => undefined);
 
 vi.mock("@/hooks/useSourceReaderActions", () => ({
   useSourceReaderActions: () => ({
-    derived: { cards: [], sourceCards: [], linkedCount: 0 },
     actions: {
       handleConvertToEssay: mockConvert,
       handleSmartSplitConfirm: vi.fn(),

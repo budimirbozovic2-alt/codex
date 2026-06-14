@@ -12,6 +12,16 @@ vi.mock("@/hooks/cards/useCategoryState", () => ({
   useCategoryData: () => ({ categoryRecords: [] }),
 }));
 
+vi.mock("@/components/editor-v4/EditorV4", () => ({
+  EditorV4: ({ onChange, placeholder }: { onChange?: (doc: unknown) => void; placeholder?: string }) => (
+    <textarea
+      data-testid="editor-v4-mock"
+      placeholder={placeholder}
+      onChange={(e) => onChange?.({ version: 4, content: { type: "doc", content: [] } })}
+    />
+  ),
+}));
+
 const MODULES: SelectionModule[] = [
   {
     id: "mod-a",
@@ -54,7 +64,7 @@ describe("SmartSplitSummaryDialog", () => {
     expect(screen.getByText("Novi esej iz izvora")).toBeInTheDocument();
     expect(screen.getByText("Modul 1")).toBeInTheDocument();
     expect(screen.getByText("Modul 2")).toBeInTheDocument();
-    expect(screen.getAllByText(/čl\. 1 Pojam/).length).toBeGreaterThan(0);
+    expect(screen.getByDisplayValue("čl. 1 Pojam")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: /Kreiraj esej/i }));
     expect(onConfirm).toHaveBeenCalledTimes(1);

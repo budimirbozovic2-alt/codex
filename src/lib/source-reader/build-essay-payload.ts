@@ -15,6 +15,12 @@ import {
 } from "@/lib/split-wizard-build";
 import { htmlToDoc, type EditorDoc } from "@/lib/editor-v4";
 import { logger } from "@/lib/logger";
+import {
+  normalizeQuestionTitle,
+  normalizeWizardEdits,
+  sourceKindToCardSourceType,
+} from "@/lib/source-reader/prepare-wizard-modules";
+import type { CardSourceType } from "@/lib/spaced-repetition";
 
 /**
  * Convert sanitized section HTML into its canonical V4 AST.
@@ -46,23 +52,35 @@ export interface AddCardArgs {
     childCardIds?: string[];
     sourceModules?: SourceModule[];
     tags?: string[];
+    sourceType?: CardSourceType;
+  };
+}
+
+function cardOptionsFromSource(
+  source: Source,
+  extra: Omit<NonNullable<AddCardArgs["options"]>, "sourceType"> & { sourceType?: CardSourceType },
+): NonNullable<AddCardArgs["options"]> {
+  return {
+    ...extra,
+    sourceId: source.id,
+    sourceType: extra.sourceType ?? sourceKindToCardSourceType(source.sourceKind),
   };
 }
 
 function fromSeparatePlan(plan: SeparateCardPlan, source: Source, subId?: string, chapId?: string): AddCardArgs {
   const content = sanitizeHtml(plan.module.contentHtml);
+  const question = normalizeQuestionTitle(plan.question);
   return {
-    question: plan.question,
+    question,
     sections: [{ title: "Odgovor", contentDoc: buildSectionDoc(content) ?? htmlToDoc(content) }],
     categoryId: source.categoryId,
     subId,
     chapId,
-    options: {
-      sourceId: source.id,
+    options: cardOptionsFromSource(source, {
       textAnchor: createTextAnchor(plan.module.plainSnippet),
       originalSourceSnippet: plan.module.plainSnippet,
       tags: plan.tags.length > 0 ? plan.tags : undefined,
-    },
+    }),
   };
 }
 
@@ -73,38 +91,42 @@ export function buildSeparateEssaysFromModules(
   subId?: string,
   chapId?: string,
 ): AddCardArgs[] {
-  return buildSeparatePlans(modules, edits).map((p) => fromSeparatePlan(p, source, subId, chapId));
+  return buildSeparatePlans(modules, normalizeWizardEdits(edits)).map((p) => fromSeparatePlan(p, source, subId, chapId));
 }
 
 function fromCombinedPlan(plan: CombinedCardPlan, source: Source, subId?: string, chapId?: string): AddCardArgs {
   const sections = plan.modules.map(({ question, module: mod }) => {
     const content = sanitizeHtml(mod.contentHtml);
-    return { title: question, contentDoc: buildSectionDoc(content) ?? htmlToDoc(content) };
+    const title = normalizeQuestionTitle(question);
+    return { title, contentDoc: buildSectionDoc(content) ?? htmlToDoc(content) };
   });
-  const sourceModules: SourceModule[] = plan.modules.map(({ question, module: mod }, index) => ({
-    id: crypto.randomUUID(),
-    order: index,
-    articleNum: mod.articleNum,
-    title: question,
-    question,
-    textAnchor: createTextAnchor(mod.plainSnippet),
-    originalSourceSnippet: mod.plainSnippet,
-  }));
+  const sourceModules: SourceModule[] = plan.modules.map(({ question, module: mod }, index) => {
+    const title = normalizeQuestionTitle(question);
+    return {
+      id: crypto.randomUUID(),
+      order: index,
+      articleNum: mod.articleNum,
+      title,
+      question: title,
+      textAnchor: createTextAnchor(mod.plainSnippet),
+      originalSourceSnippet: mod.plainSnippet,
+    };
+  });
   const combinedSnippet = plan.modules.map(({ module: mod }) => mod.plainSnippet).join("\n\n");
+  const parentName = normalizeQuestionTitle(plan.parentName);
   return {
-    question: plan.parentName,
+    question: parentName,
     sections,
     categoryId: source.categoryId,
     subId,
     chapId,
-    options: {
-      sourceId: source.id,
+    options: cardOptionsFromSource(source, {
       textAnchor: createTextAnchor(combinedSnippet),
       originalSourceSnippet: combinedSnippet,
       childCardIds: sourceModules.map((m) => m.id),
       sourceModules,
       tags: plan.tags.length > 0 ? plan.tags : undefined,
-    },
+    }),
   };
 }
 
@@ -116,7 +138,7 @@ export function buildCombinedEssayFromModules(
   subId?: string,
   chapId?: string,
 ): AddCardArgs | null {
-  const plan = buildCombinedPlan(modules, edits, parentName);
+  const plan = buildCombinedPlan(modules, normalizeWizardEdits(edits), normalizeQuestionTitle(parentName));
   if (!plan) return null;
   return fromCombinedPlan(plan, source, subId, chapId);
 }
@@ -138,35 +160,40 @@ export function buildEssayFromSelection(
   questionText: string,
   source: Source,
 ): ExamMappingResult {
-  const result = splitSelection(text);
+  const question = normalizeQuestionTitle(questionText);
+  const tryArticleSplit = source.sourceKind !== "skripta";
+  const result = tryArticleSplit ? splitSelection(text) : { hasArticles: false, modules: [], rangeLabel: "", parentName: "" };
   if (result.hasArticles && result.modules.length > 0) {
     const { modules } = result;
     const sections = modules.map((mod) => {
       const content = sanitizeHtml(mod.contentHtml);
-      return { title: mod.title, content, contentDoc: buildSectionDoc(content) ?? htmlToDoc(content) };
+      const title = normalizeQuestionTitle(mod.title);
+      return { title, contentDoc: buildSectionDoc(content) ?? htmlToDoc(content) };
     });
-    const sourceModules: SourceModule[] = modules.map((mod, index) => ({
-      id: crypto.randomUUID(),
-      order: index,
-      articleNum: mod.articleNum,
-      title: mod.title,
-      question: mod.title,
-      textAnchor: createTextAnchor(mod.plainSnippet),
-      originalSourceSnippet: mod.plainSnippet,
-    }));
+    const sourceModules: SourceModule[] = modules.map((mod, index) => {
+      const title = normalizeQuestionTitle(mod.title);
+      return {
+        id: crypto.randomUUID(),
+        order: index,
+        articleNum: mod.articleNum,
+        title,
+        question: title,
+        textAnchor: createTextAnchor(mod.plainSnippet),
+        originalSourceSnippet: mod.plainSnippet,
+      };
+    });
     const combinedSnippet = modules.map((m) => m.plainSnippet).join("\n\n");
     return {
       args: {
-        question: questionText,
+        question,
         sections,
         categoryId: source.categoryId,
-        options: {
-          sourceId: source.id,
+        options: cardOptionsFromSource(source, {
           textAnchor: createTextAnchor(combinedSnippet),
           originalSourceSnippet: combinedSnippet,
           childCardIds: sourceModules.map((m) => m.id),
           sourceModules,
-        },
+        }),
       },
       moduleCount: modules.length,
       rangeLabel: result.rangeLabel,
@@ -175,14 +202,13 @@ export function buildEssayFromSelection(
   const fallbackContent = sanitizeHtml(html || text);
   return {
     args: {
-      question: questionText,
+      question,
       sections: [{ title: "Odgovor", contentDoc: buildSectionDoc(fallbackContent) ?? htmlToDoc(fallbackContent) }],
       categoryId: source.categoryId,
-      options: {
-        sourceId: source.id,
+      options: cardOptionsFromSource(source, {
         textAnchor: createTextAnchor(text),
         originalSourceSnippet: text,
-      },
+      }),
     },
     moduleCount: 1,
   };

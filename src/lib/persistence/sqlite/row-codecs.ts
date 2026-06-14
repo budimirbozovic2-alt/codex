@@ -11,6 +11,7 @@
  */
 import type { Card } from "@/lib/spaced-repetition";
 import type { SqlBindValue, SqlRow } from "./executor";
+import { computeCardMasteryScore } from "./card-mastery-score";
 
 export class CardDecodeError extends Error {
   constructor(public readonly id: string, cause: unknown) {
@@ -31,6 +32,7 @@ interface CardRowBindings {
   sourceId: SqlBindValue;
   frequencyTag: SqlBindValue;
   sourceType: SqlBindValue;
+  masteryScore: SqlBindValue;
   payload: SqlBindValue;
 }
 
@@ -46,6 +48,7 @@ function encodeCard(card: Card): CardRowBindings {
     sourceId: card.sourceId ?? null,
     frequencyTag: card.frequencyTag ?? null,
     sourceType: card.sourceType ?? null,
+    masteryScore: computeCardMasteryScore(card),
     payload: JSON.stringify(card),
   };
 }
@@ -53,16 +56,16 @@ function encodeCard(card: Card): CardRowBindings {
 export const CARD_INSERT_SQL = `
   INSERT OR REPLACE INTO cards
     (id, categoryId, subcategoryId, chapterId, type, createdAt, updatedAt,
-     sourceId, frequencyTag, sourceType, payload)
+     sourceId, frequencyTag, sourceType, mastery_score, payload)
   VALUES (?,  ?,          ?,             ?,         ?,    ?,         ?,
-          ?,        ?,            ?,          ?)
+          ?,        ?,            ?,          ?,       ?)
 `;
 
 export function bindCardInsert(card: Card): SqlBindValue[] {
   const r = encodeCard(card);
   return [
     r.id, r.categoryId, r.subcategoryId, r.chapterId, r.type, r.createdAt,
-    r.updatedAt, r.sourceId, r.frequencyTag, r.sourceType, r.payload,
+    r.updatedAt, r.sourceId, r.frequencyTag, r.sourceType, r.masteryScore, r.payload,
   ];
 }
 

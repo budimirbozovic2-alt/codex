@@ -249,6 +249,14 @@ let txCounter = 0;
 let processing = false;
 const queue: QueueItem[] = [];
 
+/**
+ * Worker-side serialization invariant:
+ * - Every RPC is enqueued and drained by pump() one task at a time.
+ * - Active transactions (currentTxId) pin subsequent ops with matching txId.
+ * - Renderer withSerialLock (worker-client.ts) serializes non-tx RPC before
+ *   they reach this queue — defense in depth, not a conflict.
+ */
+
 let txWatchdogTimer: number | null = null;
 const TX_TIMEOUT_MS = 10000;
 

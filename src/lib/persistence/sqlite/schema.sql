@@ -40,6 +40,8 @@ CREATE TABLE IF NOT EXISTS cards (
   sourceId        TEXT,
   frequencyTag    TEXT,
   sourceType      TEXT,
+  -- Average section mastery score (0–100). Denormalised for per-category SQL AVG.
+  mastery_score   REAL NOT NULL DEFAULT 0,
   -- The full Card domain shape (sections, FSRS state, tags, key parts…) is
   -- serialised as JSON. Indexed columns are denormalised mirrors used by the
   -- query layer; the full domain shape lives in `payload` JSON.
@@ -138,3 +140,14 @@ CREATE TABLE IF NOT EXISTS mnemonicTestLog (
 );
 CREATE INDEX IF NOT EXISTS idx_mnemonic_test_card ON mnemonicTestLog(cardId);
 CREATE INDEX IF NOT EXISTS idx_mnemonic_test_time ON mnemonicTestLog(timestamp);
+
+-- PR-11 — FSRS section index for due-card lookups (avoids O(N) JSON scan).
+CREATE TABLE IF NOT EXISTS card_sections_index (
+  card_id     TEXT NOT NULL REFERENCES cards(id) ON DELETE CASCADE,
+  section_id  TEXT NOT NULL,
+  state       INTEGER NOT NULL,
+  next_review INTEGER NOT NULL,
+  PRIMARY KEY (card_id, section_id)
+);
+CREATE INDEX IF NOT EXISTS idx_card_sections_review ON card_sections_index(next_review);
+CREATE INDEX IF NOT EXISTS idx_card_sections_state ON card_sections_index(state);

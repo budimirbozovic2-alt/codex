@@ -43,13 +43,30 @@ describe("useSourceReaderShortcuts", () => {
     expect(onConvert).not.toHaveBeenCalled();
   });
 
-  it("S key is ignored when focus is in contenteditable", () => {
+  it("S key is ignored when focus is in contenteditable during edit mode", () => {
+    const onConvert = vi.fn();
+    useSourceReaderStore.getState().setEditMode(true);
+    renderHook(() => useSourceReaderShortcuts({ onConvertToEssay: onConvert }));
+
+    fireKey("s", { contentEditable: true });
+    expect(onConvert).not.toHaveBeenCalled();
+  });
+
+  it("S key works in read-only ProseMirror (contenteditable, editMode false)", () => {
     const onConvert = vi.fn();
     useSourceReaderStore.getState().setEditMode(false);
     renderHook(() => useSourceReaderShortcuts({ onConvertToEssay: onConvert }));
 
     fireKey("s", { contentEditable: true });
-    expect(onConvert).not.toHaveBeenCalled();
+    expect(onConvert).toHaveBeenCalledTimes(1);
+  });
+
+  it("M key toggles exam sidebar from read-only ProseMirror", () => {
+    useSourceReaderStore.getState().setEditMode(false);
+    renderHook(() => useSourceReaderShortcuts({ onConvertToEssay: vi.fn() }));
+
+    fireKey("m", { contentEditable: true });
+    expect(useSourceReaderStore.getState().examOpen).toBe(true);
   });
 
   it("M key toggles exam sidebar", () => {

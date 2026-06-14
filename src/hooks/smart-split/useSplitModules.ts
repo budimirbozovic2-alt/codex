@@ -1,4 +1,5 @@
 import { useCallback, useMemo } from "react";
+import { useShallow } from "zustand/react/shallow";
 import {
   createEmptyModule,
   htmlToPlain,
@@ -22,10 +23,19 @@ type EditDraft = ReturnType<typeof defaultEdit>;
  * 601-line dialog made the renderer drop to ~250 lines.
  */
 export function useSplitModules() {
-  const splitModules = useSourceReaderStore((s) => s.splitModules);
-  const splitEdits = useSourceReaderStore((s) => s.splitEdits);
-  const setSplitModules = useSourceReaderStore((s) => s.setSplitModules);
-  const setSplitEdits = useSourceReaderStore((s) => s.setSplitEdits);
+  const {
+    splitModules,
+    splitEdits,
+    setSplitModules,
+    setSplitEdits,
+  } = useSourceReaderStore(
+    useShallow((s) => ({
+      splitModules: s.splitModules,
+      splitEdits: s.splitEdits,
+      setSplitModules: s.setSplitModules,
+      setSplitEdits: s.setSplitEdits,
+    })),
+  );
 
   const total = splitModules.length;
   const keptCount = useMemo(

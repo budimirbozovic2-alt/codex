@@ -9,6 +9,7 @@ import type {
 } from "./executor";
 import { logger } from "@/lib/logger";
 import { taskScheduler } from "@/lib/scheduler/taskScheduler";
+import { withSerialLock, __resetSerialLockForTests } from "./serial-lock";
 
 export interface WorkerInitResult {
   opfsMode: boolean;
@@ -33,7 +34,10 @@ let isShuttingDown = false;
 let msgId = 0;
 const pending: PendingMap = new Map();
 const RPC_TIMEOUT_MS = 15000;
-let txLock = Promise.resolve();
+
+async function withLock<T>(fn: () => Promise<T>): Promise<T> {
+  return withSerialLock(fn);
+}
 
 function emitDegraded(
   reason: "opfs-runtime-error",
@@ -133,47 +137,51 @@ export async function initWorkerExecutor(): Promise<WorkerInitResult> {
 }
 
 function makeExecutor(txId?: number): SqlExecutor {
+  const maybeLock = <T>(fn: () => Promise<T>): Promise<T> => {
+    if (txId !== undefined) return fn();
+    return withLock(fn);
+  };
+
   const exec: SqlExecutor = {
     run: (sql, params = []) =>
-      rpc<void>({ 
-        op: "run", 
-        sql, 
-        params: Array.from(params), 
-        txId 
-      }),
+      maybeLock(() =>
+        rpc<void>({
+          op: "run",
+          sql,
+          params: Array.from(params),
+          txId,
+        }),
+      ),
     runMany: (sql, batches) =>
-      rpc<void>({
-        op: "runMany",
-        sql,
-        batches: batches.map((b) => Array.from(b)),
-        txId,
-      }),
+      maybeLock(() =>
+        rpc<void>({
+          op: "runMany",
+          sql,
+          batches: batches.map((b) => Array.from(b)),
+          txId,
+        }),
+      ),
     all: <T = SqlRow>(
-      sql: string, 
-      params: readonly SqlBindValue[] = []
+      sql: string,
+      params: readonly SqlBindValue[] = [],
     ) =>
-      rpc<T[]>({ 
-        op: "all", 
-        sql, 
-        params: Array.from(params), 
-        txId 
-      }),
-    exec: (sql) => rpc<void>({ op: "exec", sql, txId }),
+      maybeLock(() =>
+        rpc<T[]>({
+          op: "all",
+          sql,
+          params: Array.from(params),
+          txId,
+        }),
+      ),
+    exec: (sql) =>
+      maybeLock(() => rpc<void>({ op: "exec", sql, txId })),
     transaction: async <T,>(
-      fn: (tx: SqlExecutor) => Promise<T>
+      fn: (tx: SqlExecutor) => Promise<T>,
     ): Promise<T> => {
       if (txId !== undefined) {
         return fn(makeExecutor(txId));
       }
-
-      const previousLock = txLock;
-      let releaseLock!: () => void;
-      txLock = new Promise<void>((resolve) => {
-        releaseLock = resolve;
-      });
-      await previousLock;
-
-      try {
+      return withLock(async () => {
         const newTxId = await rpc<number>({ op: "begin" });
         try {
           const result = await fn(makeExecutor(newTxId));
@@ -182,12 +190,10 @@ function makeExecutor(txId?: number): SqlExecutor {
         } catch (err) {
           try {
             await rpc<void>({ op: "rollback", txId: newTxId });
-          } catch { /* already rolled back */ }
+          } catch { /* ignore */ }
           throw err;
         }
-      } finally {
-        releaseLock();
-      }
+      });
     },
     close: async () => {
       /* worker stays alive for the renderer's lifetime */
@@ -206,48 +212,47 @@ function __resetWorkerClient(): void {
   } catch { /* noop */ }
   worker = null;
   isShuttingDown = false;
-  txLock = Promise.resolve();
+  __resetSerialLockForTests();
   pending.clear();
   msgId = 0;
 }
 
-// Graceful shutdown — queues db.close() inside the worker so all
-// in-flight writes commit before the OPFS file is released.
-// We also null the local reference so that if the user cancels the
-// navigation (beforeunload is preventable), the next getWorker() call
-// spawns a fresh worker instead of reusing the now-closed one.
+function shutdownWorker(w: Worker): void {
+  void withSerialLock(async () => {}).finally(() => {
+    try {
+      w.postMessage({ id: ++msgId, op: "shutdown" });
+    } catch { /* noop */ }
+  });
+}
+
+function rejectPendingOnShutdown(reason: string): void {
+  const shutdownErr = new Error(`[sqlite-rpc] ${reason}`);
+  for (const p of pending.values()) {
+    try { p.reject(shutdownErr); } catch { /* swallow */ }
+  }
+  pending.clear();
+}
+
+// Graceful shutdown — drain renderer lock, then queue db.close() in the worker.
 if (typeof window !== "undefined") {
   window.addEventListener("beforeunload", () => {
     isShuttingDown = true;
-    if (worker) {
-      worker.postMessage({ id: ++msgId, op: "shutdown" });
-      // Null immediately: if the tab stays alive after a cancelled unload,
-      // getWorker() will create a new instance rather than reuse the dead one.
-      worker = null;
-      // Reject any in-flight RPCs that will never receive a reply.
-      // Do not call terminateAndRejectAll here — that emits db-degraded, which
-      // is only for unexpected failures, not for a clean page exit.
-      const shutdownErr = new Error("[sqlite-rpc] Worker shutdown on beforeunload");
-      for (const p of pending.values()) {
-        try { p.reject(shutdownErr); } catch { /* swallow */ }
-      }
-      pending.clear();
-    }
+    const w = worker;
+    if (!w) return;
+    worker = null;
+    shutdownWorker(w);
+    rejectPendingOnShutdown("Worker shutdown on beforeunload");
   });
 }
 
 if (import.meta.hot) {
   import.meta.hot.dispose(() => {
     isShuttingDown = true;
-    if (worker) {
-      worker.postMessage({ id: ++msgId, op: "shutdown" });
-      try { worker.terminate(); } catch { /* worker may already be gone */ }
-      worker = null;
-      const shutdownErr = new Error("[sqlite-rpc] Worker shutdown on HMR dispose");
-      for (const p of pending.values()) {
-        try { p.reject(shutdownErr); } catch { /* swallow */ }
-      }
-      pending.clear();
-    }
+    const w = worker;
+    if (!w) return;
+    worker = null;
+    shutdownWorker(w);
+    try { w.terminate(); } catch { /* worker may already be gone */ }
+    rejectPendingOnShutdown("Worker shutdown on HMR dispose");
   });
 }

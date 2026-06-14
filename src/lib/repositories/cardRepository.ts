@@ -53,16 +53,15 @@ import {
 } from "@/lib/db/queries/cards-notify-scope";
 
 import {
-
   sqlClearCardLinksIn,
-
   SQL_CLEAR_NEEDS_REVIEW,
-
   SQL_SET_NEEDS_REVIEW,
-
   SQL_UPDATE_CHAPTER,
-
 } from "@/lib/db/queries/cards-json-patches";
+import {
+  syncCardSectionsIndex,
+  syncCardSectionsIndexMany,
+} from "@/lib/persistence/sqlite/card-sections-index";
 
 
 
@@ -78,7 +77,10 @@ async function put(card: Card): Promise<Card> {
 
   const stamped = stamp(card, Date.now());
 
-  await runInTransaction((tx) => tx.run(CARD_INSERT_SQL, bindCardInsert(stamped)));
+  await runInTransaction(async (tx) => {
+    await tx.run(CARD_INSERT_SQL, bindCardInsert(stamped));
+    await syncCardSectionsIndex(tx, stamped);
+  });
 
   emitAfterCardWrite(null, stamped);
 
@@ -96,11 +98,10 @@ async function bulkPut(cards: Card[]): Promise<Card[]> {
 
   const stamped = cards.map((c) => stamp(c, now));
 
-  await runInTransaction((tx) =>
-
-    tx.runMany(CARD_INSERT_SQL, stamped.map(bindCardInsert))
-
-  );
+  await runInTransaction(async (tx) => {
+    await tx.runMany(CARD_INSERT_SQL, stamped.map(bindCardInsert));
+    await syncCardSectionsIndexMany(tx, stamped);
+  });
 
   emitCardsChangedForRefs(stamped.map(cardToScopeRef));
 
@@ -181,6 +182,7 @@ async function patch(
     const updated: Card = { ...patcher(current), updatedAt: Date.now() };
 
     await tx.run(CARD_INSERT_SQL, bindCardInsert(updated));
+    await syncCardSectionsIndex(tx, updated);
 
     result = updated;
 
@@ -253,6 +255,7 @@ async function bulkPatch(
     if (batches.length > 0) {
 
       await tx.runMany(CARD_INSERT_SQL, batches);
+      await syncCardSectionsIndexMany(tx, updated);
 
     }
 

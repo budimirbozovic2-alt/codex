@@ -1,4 +1,4 @@
-import { useCallback } from "react";
+import { useCallback, useMemo } from "react";
 import { toast } from "sonner";
 import { useCardOnlyActions } from "@/hooks/cards/useActions";
 import { type Source } from "@/domains/sources/sources-storage";
@@ -6,7 +6,6 @@ import { useSourceReaderStore } from "@/store";
 import { firstWords, type SelectionModule } from "@/lib/selection-split-engine";
 import { sanitizeHtml } from "@/lib/sanitize";
 import {
-  buildSeparateEssaysFromModules,
   buildCombinedEssayFromModules,
   buildEssayFromSelection,
   buildLinkPatch,
@@ -32,15 +31,15 @@ function dispatchAdd(addCard: AddCardFn, a: AddCardArgs) {
 export function useSourceMapping(source: Source) {
   const { addCard, patchCard } = useCardOnlyActions();
   const { incrementMapped } = usePlannerMutations();
-  const commitMapping = (count: number) => {
+  const commitMapping = useCallback((count: number) => {
     if (count <= 0) return;
     incrementMapped.mutate(count);
     commitMappingCreated(count, { skipPlanner: true });
-  };
+  }, [incrementMapped]);
 
   const handleConvertToEssay = useCallback((text: string, html: string) => {
     const {
-      setSplitResult, setSplitSummaryOpen, setSplitMode, initSplitWizard,
+      setSplitResult, setSplitSummaryOpen, initSplitWizard,
     } = useSourceReaderStore.getState();
     if (!text || text.trim().length === 0) return;
     const plainSnippet = text.trim();
@@ -56,33 +55,18 @@ export function useSourceMapping(source: Source) {
     };
     setSplitResult({ modules: [singleModule], rangeLabel: fallbackTitle, parentName: fallbackTitle });
     initSplitWizard([singleModule], fallbackTitle);
-    setSplitMode("combined");
     setSplitSummaryOpen(true);
   }, []);
 
   const handleSmartSplitConfirm = useCallback(async () => {
     const {
-      splitResult, splitModules, splitEdits, splitParentName, splitMode,
+      splitResult, splitModules, splitEdits, splitParentName,
       wizardSubcategoryId, wizardChapterId,
       setSplitCreatedCount, setSplitDone,
     } = useSourceReaderStore.getState();
     if (!splitResult || splitModules.length === 0) return;
     const subId = wizardSubcategoryId || undefined;
     const chapId = wizardChapterId || undefined;
-
-    if (splitMode === "separate") {
-      const argsList = buildSeparateEssaysFromModules(splitModules, splitEdits, source, subId, chapId);
-      if (argsList.length === 0) {
-        toast.error("Svi članovi su preskočeni — ništa za kreirati.");
-        return;
-      }
-      for (const args of argsList) dispatchAdd(addCard, args);
-      setSplitCreatedCount(argsList.length);
-      setSplitDone(true);
-      commitMapping(argsList.length);
-      toast.success(`Generisano ${argsList.length} kartica`, { description: `Iz "${source.title}"` });
-      return;
-    }
 
     const args = buildCombinedEssayFromModules(
       splitModules, splitEdits,
@@ -101,9 +85,7 @@ export function useSourceMapping(source: Source) {
     toast.success(`Generisano 1 esej sa ${moduleCount} modula`, {
       description: `${splitResult.rangeLabel} iz "${source.title}"`,
     });
-    // commitMapping is stable (created in parent with useCallback).
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [source, addCard]);
+  }, [source, addCard, commitMapping]);
 
   const handleLinkToExisting = useCallback((text: string, html: string) => {
     const { setLinkSelectedText, setLinkSelectedHtml, setLinkModalOpen } =
@@ -147,15 +129,19 @@ export function useSourceMapping(source: Source) {
     } else {
       toast.success("Esej kreiran", { description: `"${question.text.slice(0, 60)}..."` });
     }
-    // commitMapping is stable (created in parent with useCallback).
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [source, addCard]);
+  }, [source, addCard, commitMapping]);
 
-  return {
+  return useMemo(() => ({
     handleConvertToEssay,
     handleSmartSplitConfirm,
     handleLinkToExisting,
     handleLinkConfirm,
     handleMapSelection,
-  };
+  }), [
+    handleConvertToEssay,
+    handleSmartSplitConfirm,
+    handleLinkToExisting,
+    handleLinkConfirm,
+    handleMapSelection,
+  ]);
 }

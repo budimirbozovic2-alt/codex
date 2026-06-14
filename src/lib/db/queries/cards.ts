@@ -3,6 +3,7 @@
 // SQLite-only read layer for the `cards` table.
 // ─────────────────────────────────────────────────────────────────
 import type { Card } from "@/lib/spaced-repetition";
+import { SectionState } from "@/lib/spaced-repetition";
 import { 
   decodeCard, 
   CardDecodeError 
@@ -106,6 +107,77 @@ export async function getCardsByIds(
   if (failed.length > 0) recordCorruptIds(failed);
 
   return ids.map((id) => byId.get(id));
+}
+
+/** FSRS due cards via indexed JOIN (state != New, next_review <= now). */
+export async function getDueCardsFromDb(
+  nowMs: number,
+  limit = 100,
+): Promise<Card[]> {
+  return withSqlTiming("getDueCardsFromDb", async () => {
+    const exec = await requireSqlExecutor("cards:due");
+    const rows = await exec.all<{ payload: string }>(
+      `SELECT cards.payload
+         FROM cards
+         INNER JOIN card_sections_index idx ON cards.id = idx.card_id
+        WHERE idx.state != ? AND idx.next_review <= ?
+        GROUP BY cards.id
+        ORDER BY MIN(idx.next_review) ASC
+        LIMIT ?`,
+      [SectionState.New, nowMs, limit],
+    );
+    return decodeRows(rows);
+  });
+}
+
+/** Card count where earliest non-New section is due. */
+export async function countDueCardsFromDb(
+  nowMs: number = Date.now(),
+): Promise<number> {
+  return withSqlTiming("countDueCardsFromDb", async () => {
+    const exec = await requireSqlExecutor("cards:countDue");
+    const rows = await exec.all<{ n: number }>(
+      `SELECT COUNT(DISTINCT card_id) AS n
+         FROM card_sections_index
+        WHERE state != ? AND next_review <= ?`,
+      [SectionState.New, nowMs],
+    );
+    return Number(rows[0]?.n ?? 0);
+  });
+}
+
+/** Per-category rounded average mastery score — no payload decode. */
+export async function avgMasteryScoreByCategoryFromDb(
+  categoryId: string,
+): Promise<number> {
+  return withSqlTiming("avgMasteryScoreByCategoryFromDb", async () => {
+    const exec = await requireSqlExecutor("cards:avgMasteryByCategory");
+    const rows = await exec.all<{ score: number }>(
+      `SELECT ROUND(AVG(mastery_score)) AS score
+         FROM cards
+        WHERE categoryId = ?`,
+      [categoryId],
+    );
+    return Number(rows[0]?.score ?? 0);
+  });
+}
+
+/** Per-category due count via SQL JOIN — no payload decode. */
+export async function countDueCardsByCategoryFromDb(
+  categoryId: string,
+  nowMs: number = Date.now(),
+): Promise<number> {
+  return withSqlTiming("countDueCardsByCategoryFromDb", async () => {
+    const exec = await requireSqlExecutor("cards:countDueByCategory");
+    const rows = await exec.all<{ n: number }>(
+      `SELECT COUNT(DISTINCT idx.card_id) AS n
+         FROM card_sections_index idx
+         INNER JOIN cards c ON c.id = idx.card_id
+        WHERE c.categoryId = ? AND idx.state != ? AND idx.next_review <= ?`,
+      [categoryId, SectionState.New, nowMs],
+    );
+    return Number(rows[0]?.n ?? 0);
+  });
 }
 
 // ── Indexed scoped readers ───────────────────────────────────────

@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import type { ExamQuestion } from "@/components/ExamSidebar";
 import type { SelectionModule } from "@/lib/selection-split-engine";
-import type { WizardMode, WizardModuleEdit } from "@/lib/split-wizard-build";
+import type { WizardModuleEdit } from "@/lib/split-wizard-build";
 import { defaultEdit } from "@/lib/split-wizard-build";
 
 export type ReaderWidth = "S" | "M" | "L" | "XL" | "Full";
@@ -16,20 +16,6 @@ export const WIDTH_CLASSES: Record<ReaderWidth, string> = {
 
 const WIDTH_STORAGE_KEY = "codex-source-reader-width";
 
-interface SelectionState {
-  text: string;
-  /** HTML markup of the selected range (preserves bold/italic/lists/headings). */
-  html: string;
-  x: number;
-  y: number;
-}
-
-interface HeadingMenuState {
-  x: number;
-  y: number;
-  element: HTMLElement;
-}
-
 interface SplitResultState {
   modules: SelectionModule[];
   rangeLabel: string;
@@ -42,8 +28,6 @@ interface SourceReaderState {
   readerWidth: ReaderWidth;
   outlineOpen: boolean;
   examOpen: boolean;
-  selection: SelectionState | null;
-  headingMenu: HeadingMenuState | null;
 
   // Dialog state
   autoSplitOpen: boolean;
@@ -55,10 +39,6 @@ interface SourceReaderState {
   splitModules: SelectionModule[];
   /** Wizard: per-module question/tag/skip overrides, parallel array to splitModules. */
   splitEdits: WizardModuleEdit[];
-  /** Wizard: 'separate' = N cards, 'combined' = 1 essay with N module-sections. */
-  splitMode: WizardMode;
-  /** Wizard: index of the module currently being edited (0-based). */
-  splitStepIndex: number;
   /** Wizard: target subcategory UUID for ALL cards (empty = direct in subject). */
   wizardSubcategoryId: string;
   /** Wizard: target chapter UUID (empty = no chapter). Cleared when subcategory changes. */
@@ -73,8 +53,6 @@ interface SourceReaderState {
   setReaderWidth: (w: ReaderWidth) => void;
   setOutlineOpen: (v: boolean) => void;
   setExamOpen: (v: boolean) => void;
-  setSelection: (s: SelectionState | null) => void;
-  setHeadingMenu: (m: HeadingMenuState | null) => void;
   setAutoSplitOpen: (v: boolean) => void;
   setSplitSummaryOpen: (v: boolean) => void;
   setSplitResult: (v: SplitResultState | null) => void;
@@ -83,9 +61,7 @@ interface SourceReaderState {
   setSplitParentName: (v: string) => void;
   setSplitModules: (v: SelectionModule[] | ((prev: SelectionModule[]) => SelectionModule[])) => void;
   setSplitEdits: (v: WizardModuleEdit[] | ((prev: WizardModuleEdit[]) => WizardModuleEdit[])) => void;
-  setSplitMode: (v: WizardMode) => void;
-  setSplitStepIndex: (v: number | ((prev: number) => number)) => void;
-  /** Re-initialize wizard state for a fresh split (modules + default edits + step 0). */
+  /** Re-initialize wizard state for a fresh split (modules + default edits). */
   initSplitWizard: (modules: SelectionModule[], parentName: string) => void;
   setLinkModalOpen: (v: boolean) => void;
   setLinkSelectedText: (v: string) => void;
@@ -109,8 +85,6 @@ const initialState = {
   readerWidth: loadInitialWidth(),
   outlineOpen: true,
   examOpen: false,
-  selection: null as SelectionState | null,
-  headingMenu: null as HeadingMenuState | null,
   autoSplitOpen: false,
   splitSummaryOpen: false,
   splitResult: null as SplitResultState | null,
@@ -119,8 +93,6 @@ const initialState = {
   splitParentName: "",
   splitModules: [] as SelectionModule[],
   splitEdits: [] as WizardModuleEdit[],
-  splitMode: "combined" as WizardMode,
-  splitStepIndex: 0,
   linkModalOpen: false,
   linkSelectedText: "",
   linkSelectedHtml: "",
@@ -139,8 +111,6 @@ export const useSourceReaderStore = create<SourceReaderState>((set, get) => ({
   },
   setOutlineOpen: (v) => set({ outlineOpen: v }),
   setExamOpen: (v) => set({ examOpen: v }),
-  setSelection: (s) => set({ selection: s }),
-  setHeadingMenu: (m) => set({ headingMenu: m }),
   setAutoSplitOpen: (v) => set({ autoSplitOpen: v }),
   setSplitSummaryOpen: (v) => set({ splitSummaryOpen: v }),
   setSplitResult: (v) => set({ splitResult: v }),
@@ -161,19 +131,10 @@ export const useSourceReaderStore = create<SourceReaderState>((set, get) => ({
       set({ splitEdits: v });
     }
   },
-  setSplitMode: (v) => set({ splitMode: v }),
-  setSplitStepIndex: (v) => {
-    if (typeof v === "function") {
-      set({ splitStepIndex: v(get().splitStepIndex) });
-    } else {
-      set({ splitStepIndex: v });
-    }
-  },
   initSplitWizard: (modules, parentName) => set({
     splitModules: modules,
     splitEdits: modules.map((m) => defaultEdit(m)),
     splitParentName: parentName,
-    splitStepIndex: 0,
     splitDone: false,
     splitCreatedCount: 0,
     wizardSubcategoryId: "",

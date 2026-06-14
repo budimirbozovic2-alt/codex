@@ -59,6 +59,10 @@ export default function CategoryView() {
 
   // No-op: saveSource/deleteSource already notify listeners (SSOT).
   const handleSourceUpdated = useCallback(() => {}, []);
+  const handleReaderBack = useCallback(() => setReaderSource(null), []);
+  const handleReaderSourceUpdated = useCallback((updated: Source) => {
+    setReaderSource(updated);
+  }, []);
 
   const masteryDist = useMemo(() => {
     if (cards.length === 0) return null;
@@ -72,8 +76,8 @@ export default function CategoryView() {
     return (
       <SourceReader
         source={readerSource}
-        onBack={() => setReaderSource(null)}
-        onSourceUpdated={(updated) => { setReaderSource(updated); }}
+        onBack={handleReaderBack}
+        onSourceUpdated={handleReaderSourceUpdated}
       />
     );
   }

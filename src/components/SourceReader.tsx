@@ -1,12 +1,15 @@
-import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
+import { lazy, Suspense, memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useShallow } from "zustand/react/shallow";
 import ExamSidebar from "@/components/ExamSidebar";
 import { cn } from "@/lib/utils";
 import type { Source } from "@/domains/sources/sources-storage";
 import { useSourceMutations } from "@/hooks/source/useSourceMutations";
 import { useSourceReaderStore, WIDTH_CLASSES } from "@/store";
+import type { Card } from "@/lib/spaced-repetition";
 import { taskScheduler, type TaskHandle } from "@/lib/scheduler";
 
 import { useSourceReaderActions } from "@/hooks/useSourceReaderActions";
+import { useCardsBySource } from "@/store";
 import { useSourceReaderShortcuts } from "@/hooks/source-reader/useSourceReaderShortcuts";
 import { SourceToolbar } from "@/components/source-reader/SourceToolbar";
 import { SourceContent } from "@/components/source-reader/SourceContent";
@@ -28,22 +31,29 @@ interface Props {
   onSourceUpdated?: (source: Source) => void;
 }
 
-export default function SourceReader({ source, onBack, onSourceUpdated }: Props) {
-  const { derived, actions } = useSourceReaderActions(source, onSourceUpdated);
+export default memo(function SourceReader({ source, onBack, onSourceUpdated }: Props) {
+  const { actions } = useSourceReaderActions(source, onSourceUpdated);
 
-  const readerWidth = useSourceReaderStore(s => s.readerWidth);
-  const outlineOpen = useSourceReaderStore(s => s.outlineOpen);
-  const examOpen = useSourceReaderStore(s => s.examOpen);
-  const editMode = useSourceReaderStore(s => s.editMode);
-  const autoSplitOpen = useSourceReaderStore(s => s.autoSplitOpen);
-  const linkModalOpen = useSourceReaderStore(s => s.linkModalOpen);
-  const linkSelectedText = useSourceReaderStore(s => s.linkSelectedText);
-  const linkSelectedHtml = useSourceReaderStore(s => s.linkSelectedHtml);
-  const examQuestions = useSourceReaderStore(s => s.examQuestions);
-  const setExamQuestions = useSourceReaderStore(s => s.setExamQuestions);
+  const { readerWidth, outlineOpen, editMode } = useSourceReaderStore(
+    useShallow((s) => ({
+      readerWidth: s.readerWidth,
+      outlineOpen: s.outlineOpen,
+      editMode: s.editMode,
+    })),
+  );
 
   const [editor, setEditor] = useState<Editor | null>(null);
+  const [liveOutline, setLiveOutline] = useState(source.outline ?? []);
   const handleEditorReady = useCallback((e: Editor | null) => setEditor(e), []);
+
+  useEffect(() => {
+    setLiveOutline(source.outline ?? []);
+  }, [source.id, source.outline]);
+
+  const navigationSource = useMemo(
+    () => ({ ...source, outline: liveOutline }),
+    [source, liveOutline],
+  );
 
   /** Compute current TipTap selection payload (text + html via docToHtml). */
   const getSelectionPayload = useCallback((): { text: string; html: string } | null => {
@@ -59,7 +69,6 @@ export default function SourceReader({ source, onBack, onSourceUpdated }: Props)
   }, [editor]);
 
   const { saveCards: saveMnemoCards } = useMnemonicMutations();
-  const { save: saveSourceMutation } = useSourceMutations();
   const handleMnemoFromSelection = useCallback(async (text: string) => {
     const cards = await loadMnemonicCards();
     const clone = createMnemonicCardFromSelection(
@@ -81,7 +90,107 @@ export default function SourceReader({ source, onBack, onSourceUpdated }: Props)
 
   useSourceReaderShortcuts({ onConvertToEssay: handleConvertShortcut });
 
-  // Rehydrate per-source examQuestions on mount/source switch
+  useEffect(() => () => useSourceReaderStore.getState().reset(), []);
+
+  const [hasSelection, setHasSelection] = useState(false);
+  useEffect(() => {
+    if (!editor) {
+      setHasSelection(false);
+      return;
+    }
+    const sync = () => setHasSelection(!!getSelectionPayload());
+    sync();
+    editor.on("selectionUpdate", sync);
+    return () => {
+      editor.off("selectionUpdate", sync);
+    };
+  }, [editor, getSelectionPayload]);
+
+  return (
+    <div className="space-y-4">
+      <SourceToolbar
+        source={source}
+        onBack={onBack}
+        onAutoSplit={() => useSourceReaderStore.getState().setAutoSplitOpen(true)}
+        onAutoFormat={actions.handleAutoFormatArticles}
+      />
+
+      <div className="flex gap-4">
+        {outlineOpen && (
+          <SourceNavigation
+            source={navigationSource}
+            onScrollToHeading={actions.scrollToHeading}
+          />
+        )}
+
+        <div className={cn("flex-1 min-w-0 relative mx-auto px-6", WIDTH_CLASSES[readerWidth])}>
+          <SourceContent
+            source={source}
+            editMode={editMode}
+            onSourceUpdated={onSourceUpdated}
+            onOutlineChange={setLiveOutline}
+            onEditorReady={handleEditorReady}
+          />
+
+          {editor && (
+            <SourceBubbleMenu
+              editor={editor}
+              editMode={editMode}
+              onSplit={actions.handleConvertToEssay}
+              onLinkToExisting={actions.handleLinkToExisting}
+              onAddMnemo={handleMnemoFromSelection}
+            />
+          )}
+        </div>
+
+        <SourceReaderExamSidebar
+          source={source}
+          onSourceUpdated={onSourceUpdated}
+          onMapSelection={handleMapWithSelection}
+          hasSelection={hasSelection}
+        />
+      </div>
+
+      <SmartSplitSummaryDialog
+        source={source}
+        onSmartSplitConfirm={actions.handleSmartSplitConfirm}
+      />
+
+      <SourceReaderLazyModals
+        source={source}
+        onLink={actions.handleLinkConfirm}
+      />
+    </div>
+  );
+}, (prev, next) =>
+  prev.source.id === next.source.id
+  && prev.source.updatedAt === next.source.updatedAt
+  && prev.source.version === next.source.version
+  && prev.onBack === next.onBack
+  && prev.onSourceUpdated === next.onSourceUpdated,
+);
+
+/** Isolated exam sidebar — avoids re-rendering the editor shell on question edits. */
+function SourceReaderExamSidebar({
+  source,
+  onSourceUpdated,
+  onMapSelection,
+  hasSelection,
+}: {
+  source: Source;
+  onSourceUpdated?: (s: Source) => void;
+  onMapSelection: (qId: string) => void;
+  hasSelection: boolean;
+}) {
+  const { examOpen, examQuestions, setExamQuestions } = useSourceReaderStore(
+    useShallow((s) => ({
+      examOpen: s.examOpen,
+      examQuestions: s.examQuestions,
+      setExamQuestions: s.setExamQuestions,
+    })),
+  );
+  const { save: saveSourceMutation } = useSourceMutations();
+
   const hydratedSourceIdRef = useRef<string | null>(null);
   useEffect(() => {
     if (hydratedSourceIdRef.current === source.id) return;
@@ -89,7 +198,6 @@ export default function SourceReader({ source, onBack, onSourceUpdated }: Props)
     setExamQuestions(source.examQuestions ?? []);
   }, [source.id, source.examQuestions, setExamQuestions]);
 
-  // Debounced silent save back to the Source record
   const saveTimerRef = useRef<TaskHandle | null>(null);
   const lastSavedJsonRef = useRef<string>(JSON.stringify(source.examQuestions ?? []));
   const sourceRef = useRef(source);
@@ -121,94 +229,62 @@ export default function SourceReader({ source, onBack, onSourceUpdated }: Props)
     };
   }, [examQuestions, source.id, saveSourceMutation]);
 
-  useEffect(() => () => useSourceReaderStore.getState().reset(), []);
-
-  const [hasSelection, setHasSelection] = useState(false);
-  useEffect(() => {
-    if (!editor) {
-      setHasSelection(false);
-      return;
-    }
-    const sync = () => setHasSelection(!!getSelectionPayload());
-    sync();
-    editor.on("selectionUpdate", sync);
-    return () => {
-      editor.off("selectionUpdate", sync);
-    };
-  }, [editor, getSelectionPayload]);
+  if (!examOpen) return null;
 
   return (
-    <div className="space-y-4">
-      <SourceToolbar
-        source={source}
-        onBack={onBack}
-        onAutoSplit={() => useSourceReaderStore.getState().setAutoSplitOpen(true)}
-        onAutoFormat={actions.handleAutoFormatArticles}
-      />
+    <ExamSidebar
+      questions={examQuestions}
+      onSetQuestions={setExamQuestions}
+      onMapSelection={onMapSelection}
+      hasSelection={hasSelection}
+    />
+  );
+}
 
-      <div className="flex gap-4">
-        {outlineOpen && (
-          <SourceNavigation
-            source={source}
-            onScrollToHeading={actions.scrollToHeading}
-          />
-        )}
+/** Lazy modals — isolated from layout/editor subscriptions. */
+function SourceReaderLazyModals({
+  source,
+  onLink,
+}: {
+  source: Source;
+  onLink: (cardId: string, appendSnippet?: boolean) => void;
+}) {
+  const {
+    autoSplitOpen,
+    linkModalOpen,
+    linkSelectedText,
+    linkSelectedHtml,
+  } = useSourceReaderStore(
+    useShallow((s) => ({
+      autoSplitOpen: s.autoSplitOpen,
+      linkModalOpen: s.linkModalOpen,
+      linkSelectedText: s.linkSelectedText,
+      linkSelectedHtml: s.linkSelectedHtml,
+    })),
+  );
+  const sourceCards = useCardsBySource(linkModalOpen ? source.id : undefined);
 
-        <div className={cn("flex-1 min-w-0 relative mx-auto px-6", WIDTH_CLASSES[readerWidth])}>
-          <SourceContent
-            source={source}
-            editMode={editMode}
-            onSourceUpdated={onSourceUpdated}
-            onEditorReady={handleEditorReady}
-          />
-
-          {editor && (
-            <SourceBubbleMenu
-              editor={editor}
-              editMode={editMode}
-              onSplit={actions.handleConvertToEssay}
-              onLinkToExisting={actions.handleLinkToExisting}
-              onAddMnemo={handleMnemoFromSelection}
-            />
-          )}
-        </div>
-
-        {examOpen && (
-          <ExamSidebar
-            questions={examQuestions}
-            onSetQuestions={setExamQuestions}
-            onMapSelection={handleMapWithSelection}
-            hasSelection={hasSelection}
-          />
-        )}
-      </div>
-
-      <SmartSplitSummaryDialog
-        source={source}
-        onSmartSplitConfirm={actions.handleSmartSplitConfirm}
-      />
-
-      <Suspense fallback={null}>
-        {autoSplitOpen && (
-          <AutoSplitDialog
-            open={autoSplitOpen}
-            onClose={() => useSourceReaderStore.getState().setAutoSplitOpen(false)}
-            source={source}
-          />
-        )}
-        {linkModalOpen && (
-          <LinkToExistingCardModal
-            open={linkModalOpen}
-            onOpenChange={useSourceReaderStore.getState().setLinkModalOpen}
-            sourceId={source.id}
-            sourceLabel={source.categoryId || source.title || ""}
-            selectedText={linkSelectedText}
-            selectedHtml={linkSelectedHtml}
-            cards={derived.cards}
-            onLink={actions.handleLinkConfirm}
-          />
-        )}
-      </Suspense>
-    </div>
+  return (
+    <Suspense fallback={null}>
+      {autoSplitOpen && (
+        <AutoSplitDialog
+          open={autoSplitOpen}
+          onClose={() => useSourceReaderStore.getState().setAutoSplitOpen(false)}
+          source={source}
+        />
+      )}
+      {linkModalOpen && (
+        <LinkToExistingCardModal
+          open={linkModalOpen}
+          onOpenChange={useSourceReaderStore.getState().setLinkModalOpen}
+          sourceId={source.id}
+          sourceLabel={source.categoryId || source.title || ""}
+          selectedText={linkSelectedText}
+          selectedHtml={linkSelectedHtml}
+          cards={sourceCards as Card[]}
+          onLink={onLink}
+        />
+      )}
+    </Suspense>
   );
 }

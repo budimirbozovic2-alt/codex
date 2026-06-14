@@ -6,21 +6,15 @@
  * in `SourceReader` where the live TipTap editor selection is available.
  */
 import { useMemo } from "react";
-import { useCardsByCategory, useCardsBySource } from "@/store";
 import type { Source } from "@/domains/sources/sources-storage";
 import { useSourceMapping } from "@/hooks/source-reader/useSourceMapping";
 import { useSourceEditing } from "@/hooks/source-reader/useSourceEditing";
 
 export function useSourceReaderActions(source: Source, onSourceUpdated?: (source: Source) => void) {
-  const cards = useCardsByCategory(source.categoryId) as unknown as import("@/lib/spaced-repetition").Card[];
-
   const mapping = useSourceMapping(source);
   const editing = useSourceEditing(source, onSourceUpdated);
 
-  const sourceCards = useCardsBySource(source.id);
-
   return useMemo(() => ({
-    derived: { sourceCards, linkedCount: sourceCards.length, cards },
     actions: {
       handleConvertToEssay: mapping.handleConvertToEssay,
       handleSmartSplitConfirm: mapping.handleSmartSplitConfirm,
@@ -30,5 +24,5 @@ export function useSourceReaderActions(source: Source, onSourceUpdated?: (source
       handleAutoFormatArticles: editing.handleAutoFormatArticles,
       scrollToHeading: editing.scrollToHeading,
     },
-  }), [sourceCards, cards, mapping, editing]);
+  }), [mapping, editing]);
 }

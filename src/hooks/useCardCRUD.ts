@@ -51,6 +51,7 @@ export function useCardCRUD() {
         childCardIds?: string[];
         sourceModules?: SourceModule[];
         tags?: string[];
+        sourceType?: CardSourceType;
       },
     ) => {
       const card = createCard(question, sections, categoryId, subcategoryId);
@@ -61,6 +62,7 @@ export function useCardCRUD() {
       if (extra?.childCardIds) card.childCardIds = extra.childCardIds;
       if (extra?.sourceModules) card.sourceModules = extra.sourceModules;
       if (extra?.tags && extra.tags.length > 0) card.tags = extra.tags;
+      if (extra?.sourceType) card.sourceType = extra.sourceType;
       void save.mutateAsync(card);
       return card;
     },

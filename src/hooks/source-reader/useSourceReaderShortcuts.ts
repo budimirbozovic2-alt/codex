@@ -15,7 +15,11 @@ export function useSourceReaderShortcuts(opts: { onConvertToEssay: () => void })
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement;
-      if (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable) return;
+      if (target.tagName === "INPUT" || target.tagName === "TEXTAREA") return;
+      const { editMode } = useSourceReaderStore.getState();
+      // Block S/M in edit mode while typing in ProseMirror; allow in read-only reader.
+      if (editMode && target.isContentEditable) return;
+
       const s = useSourceReaderStore.getState();
       if (e.key === "s" || e.key === "S") {
         if (!s.editMode) { e.preventDefault(); onConvertToEssay(); }

@@ -7,6 +7,8 @@
 import { extractOutline, injectHeadingIds, type Source } from "@/domains/sources/sources-storage";
 import { parseArticles } from "@/lib/article-parser";
 
+export { extractOutlineFromDoc } from "./heading-navigation";
+
 /**
  * Rebuild outline + articles from raw container HTML. `contentDoc` (AST) is
  * the SSOT for the source body — callers that derive HTML from the AST and
