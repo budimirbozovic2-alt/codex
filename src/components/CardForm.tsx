@@ -112,7 +112,7 @@ export default function CardForm({
               Vrati me nazad
             </Button>
           )}
-          <h2 className="imperial-title">{editCard ? "Uredi modul" : "Novi modul"}</h2>
+          <h2 className="text-display text-2xl text-foreground">{editCard ? "Uredi modul" : "Novi modul"}</h2>
         </div>
         <div className="flex items-center gap-2">
           {editCard?.sourceId && (

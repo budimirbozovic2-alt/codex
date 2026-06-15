@@ -47,7 +47,7 @@ export default function LatencyTab({ catNameMap }: Props) {
     return (
       <div className="mt-8 text-center space-y-3 py-12">
         <Clock className="h-12 w-12 mx-auto text-muted-foreground/30" />
-        <h3 className="text-lg font-medium">Nema podataka o latenciji</h3>
+        <h3 className="text-eyebrow normal-case tracking-normal">Nema podataka o latenciji</h3>
         <p className="text-sm text-muted-foreground max-w-md mx-auto">
           Vrijeme od prikaza pitanja do klika na "Otkrij odgovor" automatski se mjeri tokom ponavljanja.
         </p>

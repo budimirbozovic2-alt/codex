@@ -53,11 +53,11 @@ export default function OperationsTab({
     <>
       {/* ─── Subject Plans ─── */}
       <m.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
-        className="rounded-xl bg-card border p-5 space-y-4">
+        className="glass-card p-5 space-y-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <BookOpen className="h-4 w-4 text-primary" />
-            <h3 className="text-lg font-medium">Plan po predmetima</h3>
+            <h3 className="text-eyebrow normal-case tracking-normal">Plan po predmetima</h3>
           </div>
           <div className="flex items-center gap-2">
             <span className="text-xs text-muted-foreground">
@@ -107,7 +107,7 @@ export default function OperationsTab({
 
       {/* ─── Learning/Review Ratio ─── */}
       <m.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}
-        className="rounded-xl bg-card border p-5 space-y-3">
+        className="glass-card p-5 space-y-3">
         <div className="flex items-center gap-2">
           <BookOpen className="h-4 w-4 text-primary" />
           <h3 className="text-sm font-medium">Omjer učenje / ponavljanje</h3>
@@ -132,7 +132,7 @@ export default function OperationsTab({
       {/* ─── Retention Risk ─── */}
       {retentionRisk.length > 0 && (
         <m.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.17 }}
-          className="rounded-xl bg-card border p-5 space-y-3">
+          className="glass-card p-5 space-y-3">
           <div className="flex items-center gap-2">
             <Brain className="h-4 w-4 text-primary" />
             <h3 className="text-sm font-medium">Rizik zaboravljanja do ispita</h3>
@@ -165,11 +165,11 @@ export default function OperationsTab({
 
       {/* ─── Reality Check ─── */}
       <m.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}
-        className="rounded-xl bg-card border p-5 space-y-5">
+        className="glass-card p-5 space-y-5">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Zap className="h-4 w-4 text-primary" />
-            <h3 className="text-lg font-medium">Reality Check</h3>
+            <h3 className="text-eyebrow normal-case tracking-normal">Reality Check</h3>
           </div>
           {plannerStatus.status === "red" && config.finalGoalDate && (
             <Button variant="outline" size="sm" onClick={handleRebalance} className="gap-1.5 text-xs">

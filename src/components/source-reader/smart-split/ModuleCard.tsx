@@ -39,7 +39,7 @@ export function ModuleCard({
     <div className={cn("rounded-xl border bg-card p-4 space-y-3", edit.skipped && "opacity-60")}>
       {/* Header: move + title + scissors + delete */}
       <div className="flex items-center gap-2">
-        <Badge variant="outline" className="text-[10px] flex-shrink-0">Modul {i + 1}</Badge>
+        <Badge variant="outline" className="text-[10px] flex-shrink-0">Cjelina {i + 1}</Badge>
         <div className="flex flex-col gap-0.5 flex-shrink-0">
           <button
             type="button"

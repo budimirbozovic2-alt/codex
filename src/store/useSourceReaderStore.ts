@@ -15,6 +15,35 @@ export const WIDTH_CLASSES: Record<ReaderWidth, string> = {
 };
 
 const WIDTH_STORAGE_KEY = "codex-source-reader-width";
+const FONT_SIZE_STORAGE_KEY = "codex-source-reader-font-size";
+const LINE_HEIGHT_STORAGE_KEY = "codex-source-reader-line-height";
+
+export type ReaderFontSize = "sm" | "base" | "lg";
+export type ReaderLineHeight = "normal" | "relaxed" | "loose";
+
+export const READER_FONT_SIZE_CLASS: Record<ReaderFontSize, string> = {
+  sm: "prose-sm",
+  base: "prose-base",
+  lg: "prose-lg",
+};
+
+export const READER_LINE_HEIGHT_VALUE: Record<ReaderLineHeight, string> = {
+  normal: "1.6",
+  relaxed: "1.75",
+  loose: "2",
+};
+
+export const READER_FONT_SIZE_LABELS: Record<ReaderFontSize, string> = {
+  sm: "Mali",
+  base: "Srednji",
+  lg: "Veliki",
+};
+
+export const READER_LINE_HEIGHT_LABELS: Record<ReaderLineHeight, string> = {
+  normal: "Normalan",
+  relaxed: "Prostran",
+  loose: "Rastresit",
+};
 
 interface SplitResultState {
   modules: SelectionModule[];
@@ -26,6 +55,8 @@ interface SourceReaderState {
   // UI state
   editMode: boolean;
   readerWidth: ReaderWidth;
+  readerFontSize: ReaderFontSize;
+  readerLineHeight: ReaderLineHeight;
   outlineOpen: boolean;
   examOpen: boolean;
 
@@ -51,6 +82,8 @@ interface SourceReaderState {
   // Actions
   setEditMode: (v: boolean) => void;
   setReaderWidth: (w: ReaderWidth) => void;
+  setReaderFontSize: (size: ReaderFontSize) => void;
+  setReaderLineHeight: (height: ReaderLineHeight) => void;
   setOutlineOpen: (v: boolean) => void;
   setExamOpen: (v: boolean) => void;
   setAutoSplitOpen: (v: boolean) => void;
@@ -72,6 +105,22 @@ interface SourceReaderState {
   reset: () => void;
 }
 
+function loadInitialLineHeight(): ReaderLineHeight {
+  try {
+    const saved = localStorage.getItem(LINE_HEIGHT_STORAGE_KEY);
+    if (saved === "normal" || saved === "relaxed" || saved === "loose") return saved;
+  } catch { /* noop */ }
+  return "relaxed";
+}
+
+function loadInitialFontSize(): ReaderFontSize {
+  try {
+    const saved = localStorage.getItem(FONT_SIZE_STORAGE_KEY);
+    if (saved === "sm" || saved === "base" || saved === "lg") return saved;
+  } catch { /* noop */ }
+  return "base";
+}
+
 function loadInitialWidth(): ReaderWidth {
   try {
     const saved = localStorage.getItem(WIDTH_STORAGE_KEY);
@@ -83,6 +132,8 @@ function loadInitialWidth(): ReaderWidth {
 const initialState = {
   editMode: false,
   readerWidth: loadInitialWidth(),
+  readerFontSize: loadInitialFontSize(),
+  readerLineHeight: loadInitialLineHeight(),
   outlineOpen: true,
   examOpen: false,
   autoSplitOpen: false,
@@ -108,6 +159,14 @@ export const useSourceReaderStore = create<SourceReaderState>((set, get) => ({
   setReaderWidth: (w) => {
     try { localStorage.setItem(WIDTH_STORAGE_KEY, w); } catch { /* noop */ }
     set({ readerWidth: w });
+  },
+  setReaderFontSize: (size) => {
+    try { localStorage.setItem(FONT_SIZE_STORAGE_KEY, size); } catch { /* noop */ }
+    set({ readerFontSize: size });
+  },
+  setReaderLineHeight: (height) => {
+    try { localStorage.setItem(LINE_HEIGHT_STORAGE_KEY, height); } catch { /* noop */ }
+    set({ readerLineHeight: height });
   },
   setOutlineOpen: (v) => set({ outlineOpen: v }),
   setExamOpen: (v) => set({ examOpen: v }),
@@ -152,5 +211,10 @@ export const useSourceReaderStore = create<SourceReaderState>((set, get) => ({
       set({ examQuestions: v });
     }
   },
-  reset: () => set({ ...initialState, readerWidth: loadInitialWidth() }),
+  reset: () => set({
+    ...initialState,
+    readerWidth: loadInitialWidth(),
+    readerFontSize: loadInitialFontSize(),
+    readerLineHeight: loadInitialLineHeight(),
+  }),
 }));

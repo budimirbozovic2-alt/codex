@@ -1,4 +1,4 @@
-import { ArrowLeft, Eye, ChevronRight, AlertTriangle, Pause, Scale, Clock } from "lucide-react";
+import { Eye, ChevronRight, AlertTriangle, Scale, Clock } from "lucide-react";
 import { useState, useMemo, useEffect, useCallback, useRef, lazy, Suspense } from "react";
 import { Card, Section, isLeech, formatInterval, SRSettings } from "@/lib/spaced-repetition";
 import { resolveEffectiveSrParams } from "@/domains/subjects/subject-settings";
@@ -11,8 +11,8 @@ import { toast } from "sonner";
 import { addLatencyEntry } from "@/domains/metacognition/metacognitive-storage";
 import { shouldIgnoreGlobalKey } from "@/lib/global-overlay-state";
 import { useGlobalHotkey } from "@/hooks/useGlobalHotkey";
-import ShortcutsHint from "@/components/ShortcutsHint";
 import GradeButtons from "@/components/learn/GradeButtons";
+import { SessionChrome } from "@/components/SessionChrome";
 import { ViewWidth, viewWidthClasses, viewWidthLabels, REVIEW_SHORTCUTS } from "./review-constants";
 interface ReviewCardProps {
   card: Card;
@@ -31,11 +31,12 @@ interface ReviewCardProps {
   viewWidth: ViewWidth;
   onViewWidthChange: (w: ViewWidth) => void;
   modeBadge?: { label: string; className: string };
+  lockedCategoryName?: string;
 }
 
 export default function ReviewCard({
   card, section, showAnswer, setShowAnswer, onGrade, onLogError, onBack, onPause,
-  progress, total, sectionIndex, totalSectionsInCard, srSettings, viewWidth, onViewWidthChange, modeBadge,
+  progress, total, sectionIndex, totalSectionsInCard, srSettings, viewWidth, onViewWidthChange, modeBadge, lockedCategoryName,
 }: ReviewCardProps) {
   
   const { categoryRecords } = useCategoryData();
@@ -111,23 +112,21 @@ export default function ReviewCard({
 
   return (
     <div className={`${viewWidthClasses[viewWidth]} mx-auto space-y-6 transition-all duration-300`}>
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <button onClick={onBack} className="text-muted-foreground hover:text-foreground flex items-center gap-1" aria-label="Nazad na listu">
-            <ArrowLeft className="h-4 w-4" /> Nazad
-          </button>
-          {onPause && (
-            <button onClick={onPause} className="text-muted-foreground hover:text-foreground flex items-center gap-1 px-2 py-1 rounded-md hover:bg-secondary text-xs" title="Pauziraj sesiju i nastavi kasnije" aria-label="Pauziraj sesiju">
-              <Pause className="h-3.5 w-3.5" /> Pauza
-            </button>
-          )}
-        </div>
-        <div className="flex items-center gap-3">
-          {modeBadge && (
-            <span className={`text-xs px-2 py-0.5 rounded-full flex items-center gap-1 ${modeBadge.className}`}>
-              {modeBadge.label}
-            </span>
-          )}
+      <SessionChrome
+        onBack={onBack}
+        backLabel="Nazad"
+        onPause={onPause}
+        modeBadge={modeBadge ? (
+          <span className={`text-xs px-2 py-0.5 rounded-full flex items-center gap-1 ${modeBadge.className}`}>
+            {modeBadge.label}
+          </span>
+        ) : undefined}
+        scopeBadge={lockedCategoryName ? (
+          <span className="text-xs px-2 py-0.5 rounded-full bg-secondary text-secondary-foreground truncate max-w-[12rem]">
+            {lockedCategoryName}
+          </span>
+        ) : undefined}
+        viewWidthControl={(
           <div className="hidden md:flex items-center gap-1 bg-secondary rounded-lg p-1">
             {(Object.keys(viewWidthClasses) as ViewWidth[]).map((w) => (
               <button
@@ -141,21 +140,12 @@ export default function ReviewCard({
               </button>
             ))}
           </div>
-          <span className="text-sm text-muted-foreground">
-            {progress + 1} / {total}
-          </span>
-          <ShortcutsHint shortcuts={REVIEW_SHORTCUTS} />
-        </div>
-      </div>
-
-      <div className="w-full h-1.5 rounded-full bg-secondary overflow-hidden">
-        <m.div
-          className="h-full bg-primary rounded-full"
-          initial={{ width: 0 }}
-          animate={{ width: `${(progress / total) * 100}%` }}
-          transition={{ duration: 0.3 }}
-        />
-      </div>
+        )}
+        progressLabel={`${progress + 1} / ${total}`}
+        progressCurrent={progress + 1}
+        progressTotal={total}
+        shortcuts={REVIEW_SHORTCUTS}
+      />
 
       {/* Leech warning */}
       {sectionIsLeech && (

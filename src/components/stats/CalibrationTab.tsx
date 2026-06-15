@@ -32,7 +32,7 @@ export default function CalibrationTab() {
     return (
       <div className="mt-8 text-center space-y-3 py-12">
         <Archive className="h-12 w-12 mx-auto text-muted-foreground/30" />
-        <h3 className="text-lg font-medium">Kalibracija je arhivirana</h3>
+        <h3 className="text-eyebrow normal-case tracking-normal">Kalibracija je arhivirana</h3>
         <p className="text-sm text-muted-foreground max-w-md mx-auto">
           „Procjena sigurnosti (A–E)" prije otkrivanja odgovora je uklonjena iz Konsolidacije.
           Novi kalibracioni zapisi se trenutno <strong>ne generišu</strong>, a istorijski podaci ovdje nisu pronađeni.

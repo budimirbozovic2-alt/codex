@@ -9,3 +9,4 @@
  * / `@/hooks/usePersistedDraftMirror` — those import this barrel internally.
  */
 export { recoverDraftsOnBoot } from "./draftRecovery";
+export { getDraft, deleteDraft, putDraft } from "./draftsTable";

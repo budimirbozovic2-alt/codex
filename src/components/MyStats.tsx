@@ -4,6 +4,7 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { FadeUp } from "@/lib/motion";
 
 import InfoPanel from "@/components/InfoPanel";
+import { PageHeader } from "@/components/ui/PageHeader";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Card, SRSettings } from "@/lib/spaced-repetition";
 import type { CategoryRecord } from "@/lib/db-types";
@@ -48,41 +49,43 @@ export default function MyStats({ cards, categories, categoryRecords, subcategor
   return (
     <div className="space-y-8">
       <FadeUp>
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-2xl font-bold text-foreground flex items-center gap-2"><BarChart3 className="h-6 w-6 text-primary" /> Statistika</h2>
-            <p className="text-muted-foreground mt-1">FSRS analitika, grafikoni i kvantitativni podaci</p>
-          </div>
-          <div className="flex items-center gap-1">
-            <InfoPanel title="Kako radi Statistika?">
-              <p><strong className="text-foreground">Pregled</strong> — heatmapa aktivnosti, distribucija znanja, kriva zaboravljanja, omjer ponavljanja (14 dana) i efektivno učenje danas.</p>
-              <p><strong className="text-foreground">Kalibracija</strong> — upoređuje procjenu sigurnosti (1-4) sa stvarnom ocjenom radi detekcije iluzije znanja.</p>
-              <p><strong className="text-foreground">Latencija</strong> — vrijeme do otkrivanja odgovora. Prag: &lt;3 sekunde.</p>
-              <p><strong className="text-foreground">Otpor</strong> — kombinovani skor lapsusa, latencije i zaboravljanja.</p>
-              <p><strong className="text-foreground">Predikcija</strong> — predikcija budućeg opterećenja po predmetima.</p>
-              <p><strong className="text-foreground">Efikasnost</strong> — omjer produktivnog učenja (Deep Work) naspram površnog (Shallow Work) sa trendom po sesijama.</p>
-              <div className="pt-1 border-t border-border mt-1">
-                <p className="font-medium text-foreground mb-1">Prečice</p>
-                <div className="space-y-1">
-                  <div className="flex items-center justify-between"><span>Brza pretraga</span><kbd className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-secondary text-secondary-foreground border">Ctrl+K</kbd></div>
-                  <div className="flex items-center justify-between"><span>Workflow sidebar</span><kbd className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-secondary text-secondary-foreground border">M</kbd></div>
-                  <div className="flex items-center justify-between"><span>Zatvori modal</span><kbd className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-secondary text-secondary-foreground border">ESC</kbd></div>
+        <PageHeader
+          eyebrow="Analitika"
+          title="Statistika"
+          subtitle="FSRS analitika, grafikoni i kvantitativni podaci"
+          titleIcon={<BarChart3 className="h-5 w-5 text-primary/70 self-center" strokeWidth={1.5} />}
+          actions={
+            <div className="flex items-center gap-1">
+              <InfoPanel title="Kako radi Statistika?">
+                <p><strong className="text-foreground">Pregled</strong> — heatmapa aktivnosti, distribucija znanja, kriva zaboravljanja, omjer ponavljanja (14 dana) i efektivno učenje danas.</p>
+                <p><strong className="text-foreground">Kalibracija</strong> — upoređuje procjenu sigurnosti (1-4) sa stvarnom ocjenom radi detekcije iluzije znanja.</p>
+                <p><strong className="text-foreground">Latencija</strong> — vrijeme do otkrivanja odgovora. Prag: &lt;3 sekunde.</p>
+                <p><strong className="text-foreground">Otpor</strong> — kombinovani skor lapsusa, latencije i zaboravljanja.</p>
+                <p><strong className="text-foreground">Predikcija</strong> — predikcija budućeg opterećenja po predmetima.</p>
+                <p><strong className="text-foreground">Efikasnost</strong> — omjer produktivnog učenja (Deep Work) naspram površnog (Shallow Work) sa trendom po sesijama.</p>
+                <div className="pt-1 border-t border-border mt-1">
+                  <p className="font-medium text-foreground mb-1">Prečice</p>
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between"><span>Brza pretraga</span><kbd className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-secondary text-secondary-foreground border">Ctrl+K</kbd></div>
+                    <div className="flex items-center justify-between"><span>Workflow sidebar</span><kbd className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-secondary text-secondary-foreground border">M</kbd></div>
+                    <div className="flex items-center justify-between"><span>Zatvori modal</span><kbd className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-secondary text-secondary-foreground border">ESC</kbd></div>
+                  </div>
                 </div>
-              </div>
-            </InfoPanel>
-            {onShowOnboarding && (
-              <button
-                onClick={onShowOnboarding}
-                className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors p-1 rounded-md hover:bg-secondary"
-                title="Vodič za statistiku"
-                aria-label="Vodič za statistiku"
-              >
-                <HelpCircle className="h-3.5 w-3.5" />
-                <span className="hidden sm:inline">Onboarding</span>
-              </button>
-            )}
-          </div>
-        </div>
+              </InfoPanel>
+              {onShowOnboarding && (
+                <button
+                  onClick={onShowOnboarding}
+                  className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors p-1 rounded-md hover:bg-secondary"
+                  title="Vodič za statistiku"
+                  aria-label="Vodič za statistiku"
+                >
+                  <HelpCircle className="h-3.5 w-3.5" />
+                  <span className="hidden sm:inline">Vodič</span>
+                </button>
+              )}
+            </div>
+          }
+        />
       </FadeUp>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">

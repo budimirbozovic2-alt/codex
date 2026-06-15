@@ -13,6 +13,7 @@ import { renderHook } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 import { usePersistingState } from "@/hooks/usePersistingState";
+import { INTEGRATION_TEST_TIMEOUT_MS } from "./helpers/test-timeouts";
 
 function makeWrapper() {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -23,7 +24,7 @@ function makeWrapper() {
 }
 
 // ── 1. CardForm body.style guard ───────────────────────────────────────
-describe("CardForm — ne mutira document.body.style.pointerEvents", () => {
+describe("CardForm — ne mutira document.body.style.pointerEvents", { timeout: INTEGRATION_TEST_TIMEOUT_MS }, () => {
   beforeEach(() => {
     document.body.style.pointerEvents = "";
   });

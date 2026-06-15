@@ -39,9 +39,21 @@ export function useCategorySources(categoryId: string | undefined): Source[] {
  */
 export function useCategorySourcesWithStatus(
   categoryId: string | undefined,
-): { sources: Source[]; isLoading: boolean; isFetching: boolean } {
-  const { data, isLoading, isFetching } = useCategorySourcesQuery(categoryId);
-  return { sources: data ?? EMPTY, isLoading, isFetching };
+): {
+  sources: Source[];
+  isLoading: boolean;
+  isFetching: boolean;
+  isError: boolean;
+  refetch: () => void;
+} {
+  const { data, isLoading, isFetching, isError, refetch } = useCategorySourcesQuery(categoryId);
+  return {
+    sources: data ?? EMPTY,
+    isLoading,
+    isFetching,
+    isError,
+    refetch: () => { void refetch(); },
+  };
 }
 
 /**

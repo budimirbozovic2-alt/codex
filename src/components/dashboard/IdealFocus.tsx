@@ -29,7 +29,7 @@ export const IdealFocus = memo(function IdealFocus({ focusRatio, actualRatio, au
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Gauge className="h-4 w-4 text-primary" />
-          <h3 className="text-sm font-medium">Idealni fokus danas</h3>
+          <h3 className="text-eyebrow normal-case tracking-normal">Idealni fokus danas</h3>
         </div>
         <span className="text-xs text-muted-foreground">Progres: {focusRatio.progress}%</span>
       </div>

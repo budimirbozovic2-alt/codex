@@ -2,6 +2,8 @@ import { ReactNode, useState, useEffect, useRef, lazy, Suspense, memo, useCallba
 import Breadcrumbs from "@/components/Breadcrumbs";
 import { useLocation } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
+import { useStore } from "zustand";
+import { uiStore } from "@/store/useUIStore";
 import { useBackupActions, useCardOnlyActions } from "@/hooks/cards/useActions";
 import { useCategoryData } from "@/hooks/cards/useCategoryState";
 import { useReviewData } from "@/hooks/cards/useCardState";
@@ -76,7 +78,7 @@ const NudgeWatcher = memo(function NudgeWatcher() {
         if (cancelled) return;
         if (remaining > 0 && dailyDone < suggestion.suggestedToday) {
           nudgeShownRef.current = true;
-          toast("📌 Ostani fokusiran", {
+          toast("Ostani fokusiran", {
             description: `Preostalo ti je još ${remaining} od ${suggestion.suggestedToday} planiranih sekcija za danas.`,
             duration: 5000,
           });
@@ -159,6 +161,7 @@ const DocxImporterWrapper = memo(function DocxImporterWrapper({
 
 export default function MainLayout({ children }: { children: ReactNode }) {
   const { pathname } = useLocation();
+  const immersiveMode = useStore(uiStore, (s) => s.immersiveMode);
 
   const [docxOpen, setDocxOpen] = useState(false);
   const [zenMode, setZenMode] = useState(false);
@@ -190,11 +193,11 @@ export default function MainLayout({ children }: { children: ReactNode }) {
   return (
     <SidebarProvider defaultOpen={true}>
       <div className="flex min-h-0 flex-1 w-full">
-        <AppSidebar />
+        {!immersiveMode && <AppSidebar />}
 
         <div className="flex-1 flex flex-col min-w-0">
-          {/* Compact header bar */}
           <a href="#main-content" className="skip-to-content">Preskoči na sadržaj</a>
+          {!immersiveMode && (
           <header className="sticky top-0 z-40 flex items-center h-11 px-4 border-b bg-background/90 backdrop-blur-md gap-2">
             <SidebarTrigger className="shrink-0" />
             <Breadcrumbs />
@@ -218,9 +221,9 @@ export default function MainLayout({ children }: { children: ReactNode }) {
             <button
               onClick={() => setZenMode(v => !v)}
               className={`p-1.5 rounded-md hover:bg-secondary transition-colors ${zenMode ? "text-primary bg-primary/10" : "text-muted-foreground"}`}
-              aria-label="Zen Mode"
+              aria-label="Zen režim"
               aria-pressed={zenMode}
-              title="Zen Mode"
+              title="Zen režim"
             >
               <Focus className="h-4 w-4" />
             </button>
@@ -233,11 +236,12 @@ export default function MainLayout({ children }: { children: ReactNode }) {
               {dark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
             </button>
           </header>
+          )}
 
           <NudgeWatcher />
 
-          <main id="main-content" className={`flex-1 px-4 md:px-8 py-6 w-full ${
-            isFullWidth ? "max-w-none" : "max-w-6xl mx-auto"
+          <main id="main-content" className={`flex-1 w-full ${
+            immersiveMode ? "px-4 md:px-6 py-4 max-w-none" : `px-4 md:px-8 py-6 ${isFullWidth ? "max-w-none" : "max-w-6xl mx-auto"}`
           }`}>
             {children}
           </main>

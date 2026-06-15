@@ -76,7 +76,7 @@ const SessionComplete = React.memo(function SessionComplete({
         </div>
       )}
 
-      <Button onClick={onBack} className="w-full btn-imperial bg-primary hover:bg-primary/90 text-primary-foreground">
+      <Button onClick={onBack} className="w-full bg-primary hover:bg-primary/90 text-primary-foreground">
         <Check className="h-4 w-4 mr-2" /> Zaključi sesiju i sačuvaj napredak
       </Button>
     </m.div>

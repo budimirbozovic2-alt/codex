@@ -117,7 +117,7 @@ export default function MnemonicWorkshop({ cards, onUpdateCard, onDeleteCard, ca
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="imperial-title flex items-center gap-3">
+          <h2 className="text-display text-2xl text-foreground flex items-center gap-3">
             <Wrench className="h-7 w-7 text-primary" /> Radionica mentalnih kuka
           </h2>
           <p className="text-muted-foreground mt-1 text-sm">Kreiraj mentalni video i akronim za svaku mnemo karticu.</p>

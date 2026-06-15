@@ -10,12 +10,21 @@ export function queueSourceReaderOpen(sourceId: string): void {
   );
 }
 
+export interface PendingSourceOpenResult<T extends { id: string }> {
+  source?: T;
+  /** Set when the pending id was cleared but no matching source exists. */
+  missedId?: string;
+}
+
 /** Read + clear the pending id and resolve it against the current source list. */
 export function consumePendingSourceOpen<T extends { id: string }>(
   sources: readonly T[],
-): T | undefined {
+): PendingSourceOpenResult<T> {
   const openId = sessionStorage.getItem(SR_OPEN_SOURCE_ID_KEY);
-  if (!openId || sources.length === 0) return undefined;
+  if (!openId) return {};
+  if (sources.length === 0) return {};
   sessionStorage.removeItem(SR_OPEN_SOURCE_ID_KEY);
-  return sources.find((s) => s.id === openId);
+  const found = sources.find((s) => s.id === openId);
+  if (found) return { source: found };
+  return { missedId: openId };
 }

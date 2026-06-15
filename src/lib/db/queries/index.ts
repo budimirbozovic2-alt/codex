@@ -9,7 +9,7 @@
  * files are forbidden, the barrel is the single seam.
  */
 
-export type { CardsScope } from "./cards";
+export type { CardsScope, MasteryDistribution } from "./cards";
 
 export {
   cardToScopeRef,
@@ -31,6 +31,7 @@ export {
   countDueCardsFromDb,
   countDueCardsByCategoryFromDb,
   avgMasteryScoreByCategoryFromDb,
+  masteryDistributionByCategoryFromDb,
   cardsByCategory,
   cardsBySubcategory,
   cardsByChapter,

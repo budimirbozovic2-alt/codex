@@ -98,7 +98,7 @@ export default function ActivityHeatmap({ reviewLog }: Props) {
 
   return (
     <div className="rounded-xl border bg-card p-4 space-y-2">
-      <h3 className="text-sm font-medium text-muted-foreground">Aktivnost</h3>
+      <h3 className="text-eyebrow normal-case tracking-normal mb-3">Aktivnost</h3>
 
       {/* Month labels */}
       <div className="flex gap-[3px] ml-6 text-[10px] text-muted-foreground">

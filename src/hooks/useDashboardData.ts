@@ -19,6 +19,7 @@ import { useDeferredCompute } from "@/hooks/useDeferredCompute";
 import { startOfDay } from "date-fns";
 import { StatusIcon } from "@/components/dashboard/StatusIconsRow";
 import { createElement } from "react";
+import { resolveActivePhaseFromPlans } from "@/lib/dashboard/active-phase";
 
 function getDayKey(ts: number): string {
   const d = new Date(ts);
@@ -176,12 +177,13 @@ export function useDashboardData(
         )
       : null;
     type ActivePhase = { name: string; pct: number; learned: number; total: number };
-    const activePhase: ActivePhase | null = null;
+    const subjectPlans = mod.generateStudyPlan(plannerConfig, categoryRecords, cards);
+    const activePhase: ActivePhase | null = resolveActivePhaseFromPlans(subjectPlans);
     const dailyMapped = mod.getDailyMappedCount();
     const dailyQuota = suggestion?.suggestedToday ?? 0;
     const redistResult = mod.autoRedistributeIfNeeded(cards, plannerConfig.finalGoalDate, plannerConfig.bufferPercent ?? 15);
-    return { status, suggestion, timeRec, remaining, totalSections: stats.totalSections, learnedSections: stats.learnedSections, activePhase: activePhase as ActivePhase | null, dailyMapped, dailyQuota, redistResult };
-  }, [stats, velocity7, plannerConfig, cards]);
+    return { status, suggestion, timeRec, remaining, totalSections: stats.totalSections, learnedSections: stats.learnedSections, activePhase, dailyMapped, dailyQuota, redistResult };
+  }, [stats, velocity7, plannerConfig, cards, categoryRecords]);
 
   const cognitiveDebt = useDeferredCompute(async () => {
     const mod = await getPlannerModule();

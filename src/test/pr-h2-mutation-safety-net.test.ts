@@ -15,9 +15,10 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { INTEGRATION_TEST_TIMEOUT_MS } from "./helpers/test-timeouts";
 
 // ── 1. saveDisciplineLog rollback ────────────────────────────────────────
-describe("PR-H2 #1 — saveDisciplineLog rollback on persist failure", () => {
+describe("PR-H2 #1 — saveDisciplineLog rollback on persist failure", { timeout: INTEGRATION_TEST_TIMEOUT_MS }, () => {
   beforeEach(() => { vi.resetModules(); });
 
   it("restores previous disciplineCache snapshot and rethrows when SQLite write fails", async () => {
@@ -64,7 +65,7 @@ describe("PR-H2 #2 — deleteSourceAndUnlinkCards catch-branch nulls FK", () => 
 });
 
 // ── 3. saveReviewSession rethrows ────────────────────────────────────────
-describe("PR-H2 #3 — saveReviewSession rethrows on persist failure", () => {
+describe("PR-H2 #3 — saveReviewSession rethrows on persist failure", { timeout: INTEGRATION_TEST_TIMEOUT_MS }, () => {
   beforeEach(() => { vi.resetModules(); });
 
   it("propagates the error instead of swallowing at debug level", async () => {

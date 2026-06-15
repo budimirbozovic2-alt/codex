@@ -16,6 +16,7 @@
     "lint": "eslint . --max-warnings=0",
     "preview": "vite preview",
     "test": "vitest run",
+    "test:ci": "vitest run",
     "test:watch": "vitest",
     "deadcode": "knip",
     "deadcode:exports": "knip --include exports,types,nsExports,nsTypes,duplicates",

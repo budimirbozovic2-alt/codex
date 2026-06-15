@@ -16,11 +16,11 @@ export default defineConfig({
     clearMocks: true,
     restoreMocks: true,
     mockReset: false,
-    // ── RC-8: Test execution guarantees ────────────────────────────────────
-    // Explicit timeouts prevent hanging tests from blocking CI after 30s.
-    // Hook timeouts ensure setup/teardown are bounded independently.
+    // ── RC-8 / TD-1: Test execution guarantees ─────────────────────────────
+    // Default 10s keeps fast feedback. Perf/integration describes opt into
+    // 20–30s via `describe(..., { timeout })` + `src/test/helpers/test-timeouts.ts`.
     testTimeout: 10000,
-    hookTimeout: 10000,
+    hookTimeout: 15000,
     // Run tests sequentially within each file to avoid race conditions in
     // shared state (e.g., SQLite in-memory harness, event emitters).
     // Vitest 3.x isolates per file by default; this ensures stability.

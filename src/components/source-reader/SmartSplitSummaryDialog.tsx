@@ -1,4 +1,4 @@
-import { Wand2, PenSquare, Plus, FileText } from "lucide-react";
+import { Wand2, PenSquare, Plus } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -82,7 +82,7 @@ export function SmartSplitSummaryDialog({ source, onSmartSplitConfirm }: Props) 
                 </div>
                 <div>
                   <p className="text-sm font-medium">
-                    Uspješno kreiran esej sa {splitCreatedCount} {splitCreatedCount === 1 ? "modulom" : "modula"}
+                    Uspješno kreiran esej sa {splitCreatedCount} {splitCreatedCount === 1 ? "cjelinom" : "cjelina"}
                   </p>
                   <p className="text-xs text-muted-foreground mt-0.5">
                     {splitResult?.rangeLabel} • Izvor: "{source.title}"
@@ -97,7 +97,11 @@ export function SmartSplitSummaryDialog({ source, onSmartSplitConfirm }: Props) 
               onSmartSplitConfirm={onSmartSplitConfirm}
               onCancel={() => handleOpenChange(false)}
             />
-          ) : null
+          ) : (
+            <div className="py-10 text-center text-sm text-muted-foreground" role="status">
+              Priprema modula…
+            </div>
+          )
         )}
 
         <DirtyConfirmBar
@@ -163,7 +167,8 @@ function SmartSplitWizardBody({
 
   // ── Cutting state — per-module index (one active at a time) ──
   const [cuttingIndex, setCuttingIndex] = useState<number | null>(null);
-  useEffect(() => { setCuttingIndex(null); }, [total]);
+  const [wizardStep, setWizardStep] = useState(0);
+  useEffect(() => { setCuttingIndex(null); setWizardStep(0); }, [total]);
 
   const handleCut = useCallback(
     (moduleIdx: number, blockIdx: number) => {
@@ -173,96 +178,131 @@ function SmartSplitWizardBody({
   );
 
   const confirmLabel = total > 1
-    ? `Kreiraj esej (${keptCount} ${keptCount === 1 ? "modul" : "modula"})`
+    ? `Kreiraj esej (${keptCount} ${keptCount === 1 ? "cjelina" : "cjelina"})`
     : "Kreiraj esej";
+
+  const STEPS = ["Moduli", "Metapodaci", "Potvrda"] as const;
 
   if (!splitResult) return null;
 
   return (
     <div className="space-y-6">
-            <div className="flex gap-2">
-              <button
-                type="button"
-                className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-colors flex-1 justify-center bg-primary text-primary-foreground"
-                aria-pressed="true"
-              >
-                <FileText className="h-4 w-4" />
-                Esejsko pitanje
-              </button>
+      <div className="flex items-center gap-2">
+        {STEPS.map((label, i) => (
+          <div key={label} className="flex items-center gap-2 flex-1 min-w-0">
+            <div
+              className={`h-7 w-7 rounded-full flex items-center justify-center text-xs font-semibold shrink-0 ${
+                i === wizardStep
+                  ? "bg-primary text-primary-foreground"
+                  : i < wizardStep
+                    ? "bg-success/15 text-success"
+                    : "bg-secondary text-muted-foreground"
+              }`}
+            >
+              {i + 1}
             </div>
+            <span className={`text-xs truncate ${i === wizardStep ? "text-foreground font-medium" : "text-muted-foreground"}`}>
+              {label}
+            </span>
+            {i < STEPS.length - 1 && <div className="h-px flex-1 bg-border min-w-2" />}
+          </div>
+        ))}
+      </div>
 
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-muted-foreground">Naslov eseja</label>
-              <ParentTitleEditor value={splitParentName} onChange={setSplitParentName} />
+      {wizardStep === 0 && (
+        <>
+          <div className="space-y-2">
+            <label className="text-eyebrow normal-case tracking-normal">Naslov eseja</label>
+            <ParentTitleEditor value={splitParentName} onChange={setSplitParentName} />
+          </div>
 
-            </div>
-
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <label className="text-sm font-medium text-muted-foreground">
-                  Cjeline odgovora
-                  <span className="ml-2 text-xs text-muted-foreground/70">
-                    ({keptCount} / {total})
-                  </span>
-                </label>
-                <Button type="button" variant="outline" size="sm" onClick={addNewModule}>
-                  <Plus className="h-3 w-3 mr-1" /> Dodaj cjelinu
-                </Button>
-              </div>
-
-              {splitModules.map((mod, i) => {
-                const edit = splitEdits[i];
-                if (!edit) return null;
-                return (
-                  <ModuleCard
-                    key={mod.id}
-                    index={i}
-                    total={total}
-                    mod={mod}
-                    edit={edit}
-                    isCutting={cuttingIndex === i}
-                    onMove={moveModule}
-                    onDelete={deleteModule}
-                    onToggleCut={(idx) => setCuttingIndex((cur) => (cur === idx ? null : idx))}
-                    onCut={handleCut}
-                    onCancelCut={() => setCuttingIndex(null)}
-                    onUpdateModule={updateModule}
-                    onUpdateEdit={updateEditAt}
-                  />
-                );
-              })}
-            </div>
-
-            <MetadataPanel
-              subcategories={subcategories}
-              chapters={chapters}
-              subcategoryId={wizardSubcategoryId}
-              chapterId={wizardChapterId}
-              onSubcategoryChange={setWizardSubcategoryId}
-              onChapterChange={setWizardChapterId}
-            />
-
-            <div className="flex items-center gap-2 pt-2 border-t">
-              <div className="flex-1 text-xs text-muted-foreground">
-                {splitResult.rangeLabel && <span>{splitResult.rangeLabel}</span>}
-              </div>
-              <Button variant="outline" size="sm" onClick={onCancel}>Otkaži</Button>
-              <Button
-                onClick={onSmartSplitConfirm}
-                className="gap-1.5"
-                disabled={keptCount === 0 || !htmlToPlain(splitParentName).trim()}
-                title={
-                  !htmlToPlain(splitParentName).trim()
-                    ? "Unesite naslov eseja"
-                    : keptCount === 0
-                      ? "Svi moduli su preskočeni"
-                      : "Kreiraj esej i sve module kao kartice"
-                }
-              >
-                <Wand2 className="h-3.5 w-3.5" />
-                {confirmLabel}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <label className="text-eyebrow normal-case tracking-normal">
+                Cjeline odgovora
+                <span className="ml-2 text-xs text-muted-foreground/70 font-normal normal-case tracking-normal">
+                  ({keptCount} / {total})
+                </span>
+              </label>
+              <Button type="button" variant="outline" size="sm" onClick={addNewModule}>
+                <Plus className="h-3 w-3 mr-1" /> Dodaj cjelinu
               </Button>
             </div>
+
+            {splitModules.map((mod, i) => {
+              const edit = splitEdits[i];
+              if (!edit) return null;
+              return (
+                <ModuleCard
+                  key={mod.id}
+                  index={i}
+                  total={total}
+                  mod={mod}
+                  edit={edit}
+                  isCutting={cuttingIndex === i}
+                  onMove={moveModule}
+                  onDelete={deleteModule}
+                  onToggleCut={(idx) => setCuttingIndex((cur) => (cur === idx ? null : idx))}
+                  onCut={handleCut}
+                  onCancelCut={() => setCuttingIndex(null)}
+                  onUpdateModule={updateModule}
+                  onUpdateEdit={updateEditAt}
+                />
+              );
+            })}
+          </div>
+        </>
+      )}
+
+      {wizardStep === 1 && (
+        <MetadataPanel
+          subcategories={subcategories}
+          chapters={chapters}
+          subcategoryId={wizardSubcategoryId}
+          chapterId={wizardChapterId}
+          onSubcategoryChange={setWizardSubcategoryId}
+          onChapterChange={setWizardChapterId}
+        />
+      )}
+
+      {wizardStep === 2 && (
+        <div className="glass-card rounded-xl p-5 space-y-3 text-sm">
+          <p><span className="text-muted-foreground">Naslov:</span> {htmlToPlain(splitParentName).trim() || "—"}</p>
+          <p><span className="text-muted-foreground">Cjelina:</span> {keptCount} / {total}</p>
+          {splitResult.rangeLabel && (
+            <p><span className="text-muted-foreground">Opseg:</span> {splitResult.rangeLabel}</p>
+          )}
+        </div>
+      )}
+
+      <div className="flex items-center gap-2 pt-2 border-t">
+        <div className="flex-1 text-xs text-muted-foreground">
+          Korak {wizardStep + 1} / {STEPS.length}
+        </div>
+        <Button variant="outline" size="sm" onClick={onCancel}>Otkaži</Button>
+        {wizardStep > 0 && (
+          <Button variant="outline" size="sm" onClick={() => setWizardStep((s) => s - 1)}>Nazad</Button>
+        )}
+        {wizardStep < STEPS.length - 1 ? (
+          <Button size="sm" onClick={() => setWizardStep((s) => s + 1)}>Dalje</Button>
+        ) : (
+          <Button
+            onClick={onSmartSplitConfirm}
+            className="gap-1.5"
+            disabled={keptCount === 0 || !htmlToPlain(splitParentName).trim()}
+            title={
+              !htmlToPlain(splitParentName).trim()
+                ? "Unesite naslov eseja"
+                : keptCount === 0
+                  ? "Sve cjeline su preskočene"
+                  : "Kreiraj esej i sve cjeline kao kartice"
+            }
+          >
+            <Wand2 className="h-3.5 w-3.5" />
+            {confirmLabel}
+          </Button>
+        )}
+      </div>
     </div>
   );
 }

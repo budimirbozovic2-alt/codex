@@ -254,7 +254,7 @@ export default function EfficiencyTab() {
       {slippageLog.length === 0 && deepWork.totalMs === 0 && (
         <div className="mt-8 text-center space-y-3 py-12">
           <Activity className="h-12 w-12 mx-auto text-muted-foreground/30" />
-          <h3 className="text-lg font-medium">Nema podataka o efikasnosti</h3>
+          <h3 className="text-eyebrow normal-case tracking-normal">Nema podataka o efikasnosti</h3>
           <p className="text-sm text-muted-foreground max-w-md mx-auto">
             Slippage i Deep Work omjer se automatski prate pri korištenju aplikacije.
           </p>

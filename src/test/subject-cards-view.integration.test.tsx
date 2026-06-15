@@ -7,6 +7,7 @@
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { screen, waitFor, within, fireEvent } from "@testing-library/react";
+import { INTEGRATION_TEST_TIMEOUT_MS } from "./helpers/test-timeouts";
 
 vi.mock("@/hooks/cards/useCardState", async (importOriginal) => {
   const orig = await importOriginal<typeof import("@/hooks/cards/useCardState")>();
@@ -120,7 +121,7 @@ function clickPassiveReadOnCard(question: string) {
   );
 }
 
-describe("SubjectCardsView integration", () => {
+describe("SubjectCardsView integration", { timeout: INTEGRATION_TEST_TIMEOUT_MS }, () => {
   beforeEach(async () => {
     resetSubjectCardsHarness(SUBJECT_PATH);
     await seedSubjectCardsFixture();

@@ -21,7 +21,7 @@ export function StudyFlowWidget({ data }: { data: StudyFlowData }) {
     >
       <div className="flex items-center gap-2">
         <ClipboardList className="h-4 w-4 text-primary" />
-        <h3 className="text-sm font-medium">Plan za danas</h3>
+        <h3 className="text-eyebrow normal-case tracking-normal">Plan za danas</h3>
       </div>
 
       <div className="space-y-1">

@@ -1,6 +1,7 @@
 import { Brain, Palette, Database, ChevronRight } from "lucide-react";
 import { Link } from "react-router-dom";
 import InfoPanel from "@/components/InfoPanel";
+import { PageHeader } from "@/components/ui/PageHeader";
 
 const SECTIONS = [
   {
@@ -26,22 +27,21 @@ const SECTIONS = [
 export default function SettingsHub() {
   return (
     <div className="max-w-2xl mx-auto space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="imperial-title">Podešavanja</h2>
-          <p className="text-sm text-muted-foreground mt-0.5">
-            Odaberi oblast koju želiš prilagoditi
-          </p>
-        </div>
-        <InfoPanel title="O podešavanjima">
-          <p><strong className="text-foreground">Učenje</strong> — FSRS v5, retencija, dnevni cilj.</p>
-          <p><strong className="text-foreground">Aplikacija</strong> — izgled, dashboard widgeti, sesija.</p>
-          <p><strong className="text-foreground">Podaci</strong> — backup, struktura predmeta, ažuriranja.</p>
-          <p className="text-xs text-muted-foreground pt-2">
-            Za override po predmetu otvori predmet → Podešavanja.
-          </p>
-        </InfoPanel>
-      </div>
+      <PageHeader
+        eyebrow="Sistem"
+        title="Podešavanja"
+        subtitle="Odaberi oblast koju želiš prilagoditi"
+        actions={(
+          <InfoPanel title="O podešavanjima">
+            <p><strong className="text-foreground">Učenje</strong> — FSRS v5, retencija, dnevni cilj.</p>
+            <p><strong className="text-foreground">Aplikacija</strong> — izgled, widgeti početne table, sesija.</p>
+            <p><strong className="text-foreground">Podaci</strong> — backup, struktura predmeta, ažuriranja.</p>
+            <p className="text-xs text-muted-foreground pt-2">
+              Za override po predmetu otvori predmet → Podešavanja.
+            </p>
+          </InfoPanel>
+        )}
+      />
 
       <div className="space-y-3">
         {SECTIONS.map(({ to, icon: Icon, title, description }) => (

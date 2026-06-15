@@ -14,6 +14,7 @@ import type { InitialFilters, LearnSessionSnapshot } from "@/components/learn/ty
 import { useEditReturn } from "@/hooks/useEditReturn";
 import type { BaseEditReturnSnapshot } from "@/lib/edit-return";
 import { getParam } from "@/lib/url-params";
+import { DataReadyGate, SessionSetupSkeleton } from "@/components/ui/loading";
 
 interface LearnEditReturnSnapshot extends BaseEditReturnSnapshot, LearnSessionSnapshot {}
 
@@ -97,33 +98,26 @@ export default function LearnPage() {
     setView("edit");
   }, [stashEditReturn, setEditingCardId, setView]);
 
-  if (!ready) {
-    return (
-      <div className="flex flex-col items-center justify-center py-20 gap-3">
-        <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-        <p className="text-sm text-muted-foreground">Priprema gradiva...</p>
-      </div>
-    );
-  }
-
   return (
-    <ErrorBoundary label="Učenje" onNavigateHome={() => setView("dashboard")}>
-      <LearnSession
-        cards={cards}
-        categories={categories}
-        categoryRecords={categoryRecords}
-        subcategories={subcategories}
-        onMarkRead={handleMarkRead}
-        onReviewSection={handleReviewSection}
-        onBack={handleBack}
-        onEdit={handleEdit}
-        onAddKeyPart={addKeyPart}
-        dueCount={stats.due}
-        reviewLog={reviewLog}
-        initialFilters={initialFilters}
-        restoreSnapshot={initialSnapshot ?? undefined}
-        onSessionStateChange={handleSessionStateChange}
-      />
-    </ErrorBoundary>
+    <DataReadyGate ready={ready} skeleton={<SessionSetupSkeleton />}>
+      <ErrorBoundary label="Učenje" onNavigateHome={() => setView("dashboard")}>
+        <LearnSession
+          cards={cards}
+          categories={categories}
+          categoryRecords={categoryRecords}
+          subcategories={subcategories}
+          onMarkRead={handleMarkRead}
+          onReviewSection={handleReviewSection}
+          onBack={handleBack}
+          onEdit={handleEdit}
+          onAddKeyPart={addKeyPart}
+          dueCount={stats.due}
+          reviewLog={reviewLog}
+          initialFilters={initialFilters}
+          restoreSnapshot={initialSnapshot ?? undefined}
+          onSessionStateChange={handleSessionStateChange}
+        />
+      </ErrorBoundary>
+    </DataReadyGate>
   );
 }

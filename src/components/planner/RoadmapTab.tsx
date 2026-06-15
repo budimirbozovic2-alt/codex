@@ -26,10 +26,10 @@ export default function RoadmapTab({
       className="space-y-5">
 
       {/* Burn-up Chart */}
-      <div className="rounded-xl bg-card border p-5 space-y-4">
+      <div className="glass-card p-5 space-y-4">
         <div className="flex items-center gap-2">
           <TrendingUp className="h-4 w-4 text-primary" />
-          <h3 className="text-lg font-medium">Burn-up Chart</h3>
+          <h3 className="text-eyebrow normal-case tracking-normal">Burn-up Chart</h3>
         </div>
 
         {burnupData.length > 2 ? (
@@ -64,10 +64,10 @@ export default function RoadmapTab({
       </div>
 
       {/* Simulation / Projection */}
-      <div className="rounded-xl bg-card border p-5 space-y-3">
+      <div className="glass-card p-5 space-y-3">
         <div className="flex items-center gap-2">
           <Zap className="h-4 w-4 text-primary" />
-          <h3 className="text-lg font-medium">Simulacija završetka</h3>
+          <h3 className="text-eyebrow normal-case tracking-normal">Simulacija završetka</h3>
         </div>
         <p className="text-sm text-muted-foreground leading-relaxed">{projectionText}</p>
         <div className="grid grid-cols-3 gap-3 pt-3 border-t">
@@ -88,7 +88,7 @@ export default function RoadmapTab({
 
       {/* Per-subject snapshot */}
       {subjectPlans.length > 0 && (
-        <div className="rounded-xl bg-card border p-5 space-y-3">
+        <div className="glass-card p-5 space-y-3">
           <h4 className="text-sm font-medium">Progres po predmetima</h4>
           {subjectPlans.map((p, i) => (
             <div key={p.categoryId} className="space-y-1">

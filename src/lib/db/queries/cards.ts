@@ -162,6 +162,36 @@ export async function avgMasteryScoreByCategoryFromDb(
   });
 }
 
+/** Six-bucket mastery distribution (levels 0–5) — no payload decode. */
+export type MasteryDistribution = readonly [
+  number, number, number, number, number, number,
+];
+
+const EMPTY_MASTERY_DISTRIBUTION: MasteryDistribution = [0, 0, 0, 0, 0, 0];
+
+export async function masteryDistributionByCategoryFromDb(
+  categoryId: string,
+): Promise<MasteryDistribution> {
+  return withSqlTiming("masteryDistributionByCategoryFromDb", async () => {
+    const exec = await requireSqlExecutor("cards:masteryDistByCategory");
+    const rows = await exec.all<{ mastery_level: number; n: number }>(
+      `SELECT mastery_level, COUNT(*) AS n
+         FROM cards
+        WHERE categoryId = ?
+        GROUP BY mastery_level`,
+      [categoryId],
+    );
+    const counts = [...EMPTY_MASTERY_DISTRIBUTION];
+    for (const row of rows) {
+      const level = Number(row.mastery_level);
+      if (level >= 0 && level <= 5) {
+        counts[level] = Number(row.n);
+      }
+    }
+    return counts as MasteryDistribution;
+  });
+}
+
 /** Per-category due count via SQL JOIN — no payload decode. */
 export async function countDueCardsByCategoryFromDb(
   categoryId: string,

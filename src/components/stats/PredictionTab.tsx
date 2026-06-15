@@ -73,7 +73,7 @@ export default function PredictionTab({ cards, categories, reviewLog, catNameMap
     return (
       <div className="mt-8 text-center space-y-3 py-12">
         <CalendarClock className="h-12 w-12 mx-auto text-muted-foreground/30" />
-        <h3 className="text-lg font-medium">Nema podataka za predikciju</h3>
+        <h3 className="text-eyebrow normal-case tracking-normal">Nema podataka za predikciju</h3>
         <p className="text-sm text-muted-foreground max-w-md mx-auto">
           Potrebno je bar nekoliko sesija ponavljanja da bi sistem mogao predvidjeti tempo završetka.
         </p>

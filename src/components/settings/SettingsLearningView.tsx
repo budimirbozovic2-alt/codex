@@ -31,7 +31,7 @@ export default function SettingsLearningView() {
             <ArrowLeft className="h-5 w-5" />
           </Link>
           <div className="min-w-0">
-            <h2 className="imperial-title truncate">Podešavanja — {subjectName}</h2>
+            <h2 className="text-display text-2xl text-foreground truncate">Podešavanja — {subjectName}</h2>
             <p className="text-sm text-muted-foreground mt-0.5">Algoritam prilagođen ovom predmetu</p>
           </div>
         </div>

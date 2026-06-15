@@ -1,15 +1,16 @@
-import { useParams } from "react-router-dom";
-import { useState, useCallback, useMemo, useEffect } from "react";
-import { getCardMasteryLevel, MASTERY_LEVELS } from "@/lib/mastery";
+import { useParams, Link } from "react-router-dom";
+import { useState, useCallback, useEffect, useMemo } from "react";
+import { MASTERY_LEVELS } from "@/lib/mastery";
 import type { Source } from "@/lib/db-types";
-import type { Card } from "@/lib/spaced-repetition";
 import { useCategorySourcesWithStatus } from "@/hooks/useCategorySources";
 import { useCardOnlyActions } from "@/hooks/cards/useActions";
 import { useCategoryData } from "@/hooks/cards/useCategoryState";
 import { useCardReady } from "@/hooks/cards/useCardState";
-import { useCardsByCategoryWithStatus } from "@/store";
+import { useMasteryDistributionByCategory } from "@/hooks/card/useCardsQuery";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { CategoryHeaderSkeleton, SourcesTabSkeleton } from "@/components/ui/list-skeleton";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { FetchErrorPanel } from "@/components/ui/FetchErrorPanel";
 import SourceReader from "@/components/SourceReader";
 import SourcesTab from "@/components/category/SourcesTab";
 import SourcesBreadcrumb from "@/components/category/SourcesBreadcrumb";
@@ -17,12 +18,15 @@ import {
   consumePendingSourceOpen,
   SOURCE_READER_OPEN_EVENT,
 } from "@/lib/source-reader/pending-source-open";
+import { setImmersiveMode, setTitleBarContext } from "@/store/useUIStore";
+import { getSourceContentDirty, resetSourceContentSave } from "@/store/useSourceContentSaveStore";
+import { useSourceReaderStore } from "@/store";
+import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
 
 export default function CategoryView() {
   const { categoryId } = useParams<{ categoryId: string }>();
 
-  // ── Boot-loaded context data (SSoT) ──
-  // `ready` is boot signal only; cards come from scoped category query below.
   const ready = useCardReady();
   const { categoryRecords } = useCategoryData();
 
@@ -31,20 +35,50 @@ export default function CategoryView() {
     [categoryRecords, categoryId]
   );
 
-  const { cards: cardsRO, isLoading: cardsLoading } = useCardsByCategoryWithStatus(categoryId);
-  const cards = cardsRO as Card[];
+  const {
+    distribution: masteryDist,
+    totalCards,
+    isLoading: masteryLoading,
+  } = useMasteryDistributionByCategory(categoryId);
 
-  // Sources: SSOT subscription via storage listener (W5 fix).
-  const { sources, isLoading: sourcesLoading } = useCategorySourcesWithStatus(categoryId);
+  const {
+    sources,
+    isLoading: sourcesLoading,
+    isError: sourcesError,
+    refetch: refetchSources,
+  } = useCategorySourcesWithStatus(categoryId);
   const { bulkFlagNeedsReview } = useCardOnlyActions();
 
-  // Sources: reader state only (editor/import/delete moved to SourcesTab)
   const [readerSource, setReaderSource] = useState<Source | null>(null);
 
-  // Auto-open source from GlobalSearch / Zettelkasten side panel (sessionStorage + event).
+  useEffect(() => {
+    setImmersiveMode(!!readerSource);
+    if (readerSource) {
+      useSourceReaderStore.setState({ outlineOpen: false, examOpen: false });
+      setTitleBarContext({
+        label: category?.name ?? "Kategorija",
+        detail: readerSource.title,
+      });
+    } else if (category) {
+      setTitleBarContext({ label: category.name });
+    } else {
+      setTitleBarContext(null);
+    }
+    return () => {
+      setImmersiveMode(false);
+      setTitleBarContext(null);
+    };
+  }, [readerSource, category]);
+
   const openPendingSource = useCallback(() => {
-    const found = consumePendingSourceOpen(sources);
-    if (found) setReaderSource(found);
+    const result = consumePendingSourceOpen(sources);
+    if (result.source) {
+      setReaderSource(result.source);
+    } else if (result.missedId) {
+      toast.error("Izvor nije pronađen", {
+        description: "Traženi dokument više ne postoji u ovoj kategoriji.",
+      });
+    }
   }, [sources]);
 
   useEffect(() => {
@@ -57,21 +91,22 @@ export default function CategoryView() {
     return () => window.removeEventListener(SOURCE_READER_OPEN_EVENT, handler);
   }, [openPendingSource]);
 
-  // No-op: saveSource/deleteSource already notify listeners (SSOT).
   const handleSourceUpdated = useCallback(() => {}, []);
-  const handleReaderBack = useCallback(() => setReaderSource(null), []);
+
+  const handleReaderBack = useCallback(() => {
+    const { editMode } = useSourceReaderStore.getState();
+    if (editMode && getSourceContentDirty()) {
+      const leave = window.confirm("Imate nesačuvane izmjene. Napustiti čitač bez čuvanja?");
+      if (!leave) return;
+    }
+    resetSourceContentSave();
+    setReaderSource(null);
+  }, []);
+
   const handleReaderSourceUpdated = useCallback((updated: Source) => {
     setReaderSource(updated);
   }, []);
 
-  const masteryDist = useMemo(() => {
-    if (cards.length === 0) return null;
-    const counts = [0, 0, 0, 0, 0, 0];
-    cards.forEach(c => { counts[getCardMasteryLevel(c)]++; });
-    return counts;
-  }, [cards]);
-
-  // Full-screen reader mode
   if (readerSource) {
     return (
       <SourceReader
@@ -82,12 +117,9 @@ export default function CategoryView() {
     );
   }
 
-  // Boot not yet ready, OR cards/sources still doing their first fetch with
-  // no cached data — show layout-shape skeleton instead of a generic spinner.
-  // Pilot ("No more empty blinks") — see .lovable/plan.md.
   const showSkeleton =
     !ready ||
-    (cardsLoading && cards.length === 0) ||
+    (masteryLoading && totalCards === 0) ||
     (sourcesLoading && sources.length === 0);
 
   if (showSkeleton) {
@@ -99,34 +131,50 @@ export default function CategoryView() {
     );
   }
 
+  if (sourcesError) {
+    return (
+      <FetchErrorPanel
+        title="Greška pri učitavanju izvora"
+        description="Podaci o izvorima nisu učitani. Provjerite bazu i pokušajte ponovo."
+        backTo="/categories"
+        backLabel="Nazad na predmete"
+        onRetry={() => void refetchSources()}
+      />
+    );
+  }
+
   if (!category) {
     return (
-      <div className="text-center py-20 text-muted-foreground">
-        Kategorija nije pronađena.
+      <div className="space-y-8 animate-fade-in">
+        <PageHeader
+          eyebrow="Kategorija"
+          title="Kategorija nije pronađena"
+          subtitle="Predmet možda više ne postoji ili je uklonjen."
+        />
+        <div className="flex justify-center">
+          <Button variant="outline" asChild>
+            <Link to="/categories">Nazad na predmete</Link>
+          </Button>
+        </div>
       </div>
     );
   }
 
   return (
     <div className="space-y-8 animate-fade-in">
-      {/* Breadcrumb + context indicator */}
       <SourcesBreadcrumb categoryId={categoryId!} categoryName={category.name} />
 
-      {/* Header */}
-      <header className="space-y-2 pb-1">
-        <p className="text-eyebrow">Kategorija</p>
-        <h1 className="text-display text-4xl md:text-5xl text-foreground text-balance">
-          {category.name}
-        </h1>
-      </header>
+      <PageHeader
+        eyebrow="Kategorija"
+        title={category.name}
+      />
 
-      {/* Mastery progress bar (informational only) */}
       {masteryDist && (
         <div className="space-y-1.5">
           <TooltipProvider delayDuration={200}>
             <div className="h-2.5 rounded-full overflow-hidden flex bg-secondary">
               {masteryDist.map((count, i) => {
-                const pct = (count / cards.length) * 100;
+                const pct = (count / totalCards) * 100;
                 return count > 0 ? (
                   <Tooltip key={i}>
                     <TooltipTrigger asChild>
@@ -169,7 +217,6 @@ export default function CategoryView() {
         </div>
       )}
 
-      {/* Sources only — Mapa znanja & Struktura moved to SubjectDashboard / SubjectCardsView */}
       <SourcesTab
         categoryId={categoryId!}
         sources={sources}

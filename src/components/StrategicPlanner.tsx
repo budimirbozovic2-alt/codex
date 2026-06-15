@@ -2,6 +2,7 @@ import { Target, BarChart3, Map as MapIcon, Gauge, HelpCircle } from "lucide-rea
 import { useState, lazy, Suspense, useMemo, useEffect } from "react";
 import { m } from "@/lib/motion";
 import InfoPanel from "@/components/InfoPanel";
+import { PageHeader } from "@/components/ui/PageHeader";
 import { Card as SRCard } from "@/lib/spaced-repetition";
 import { ReviewLogEntry } from "@/lib/storage";
 import type { CategoryRecord } from "@/lib/db-types";
@@ -79,41 +80,43 @@ export default function StrategicPlanner({ cards, categories: _categories, categ
       )}
 
       <m.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-2xl font-bold text-foreground flex items-center gap-2"><Gauge className="h-6 w-6 text-primary" /> Strateški planer</h2>
-            <p className="text-muted-foreground mt-1">Adaptivni sistem — plan se prilagođava tvom tempu</p>
-          </div>
-          <div className="flex items-center gap-1">
-            <InfoPanel title="Kako radi Strateški planer?">
-              <p><strong className="text-foreground">Plan po predmetima</strong> — sistem automatski generiše raspored na osnovu broja cjelina i težine predmeta. Teški predmeti dobijaju 1.5× više vremena.</p>
-              <p><strong className="text-foreground">Omjer učenje/ponavljanje</strong> — dinamički se prilagođava: na početku 90% učenje, pri kraju 90% ponavljanje.</p>
-              <p><strong className="text-foreground">Buffer %</strong> — sigurnosna zona (podrazumijevano 15%) — sistem računa kao da ispit počinje ranije.</p>
-              <p><strong className="text-foreground">Niveliši plan</strong> — raspoređuje kognitivni dug ravnomjerno na preostale dane.</p>
-              <p><strong className="text-foreground">Mapa puta</strong> — Burn-up grafikon i tekstualna simulacija završetka.</p>
-              <p><strong className="text-foreground">Disciplina</strong> — Rocket Streak, 14-dnevni grid i trend dosljednosti.</p>
-              <div className="pt-1 border-t border-border mt-1">
-                <p className="font-medium text-foreground mb-1">Prečice</p>
-                <div className="space-y-1">
-                  <div className="flex items-center justify-between"><span>Brza pretraga</span><kbd className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-secondary text-secondary-foreground border">Ctrl+K</kbd></div>
-                  <div className="flex items-center justify-between"><span>Workflow sidebar</span><kbd className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-secondary text-secondary-foreground border">M</kbd></div>
-                  <div className="flex items-center justify-between"><span>Zatvori modal</span><kbd className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-secondary text-secondary-foreground border">ESC</kbd></div>
+        <PageHeader
+          eyebrow="Planiranje"
+          title="Strateški planer"
+          subtitle="Adaptivni sistem — plan se prilagođava tvom tempu"
+          titleIcon={<Gauge className="h-5 w-5 text-primary/70 self-center" strokeWidth={1.5} />}
+          actions={
+            <div className="flex items-center gap-1">
+              <InfoPanel title="Kako radi Strateški planer?">
+                <p><strong className="text-foreground">Plan po predmetima</strong> — sistem automatski generiše raspored na osnovu broja cjelina i težine predmeta. Teški predmeti dobijaju 1.5× više vremena.</p>
+                <p><strong className="text-foreground">Omjer učenje/ponavljanje</strong> — dinamički se prilagođava: na početku 90% učenje, pri kraju 90% ponavljanje.</p>
+                <p><strong className="text-foreground">Buffer %</strong> — sigurnosna zona (podrazumijevano 15%) — sistem računa kao da ispit počinje ranije.</p>
+                <p><strong className="text-foreground">Niveliši plan</strong> — raspoređuje kognitivni dug ravnomjerno na preostale dane.</p>
+                <p><strong className="text-foreground">Mapa puta</strong> — Burn-up grafikon i tekstualna simulacija završetka.</p>
+                <p><strong className="text-foreground">Disciplina</strong> — Rocket Streak, 14-dnevni grid i trend dosljednosti.</p>
+                <div className="pt-1 border-t border-border mt-1">
+                  <p className="font-medium text-foreground mb-1">Prečice</p>
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between"><span>Brza pretraga</span><kbd className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-secondary text-secondary-foreground border">Ctrl+K</kbd></div>
+                    <div className="flex items-center justify-between"><span>Workflow sidebar</span><kbd className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-secondary text-secondary-foreground border">M</kbd></div>
+                    <div className="flex items-center justify-between"><span>Zatvori modal</span><kbd className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-secondary text-secondary-foreground border">ESC</kbd></div>
+                  </div>
                 </div>
-              </div>
-            </InfoPanel>
-            {onShowOnboarding && (
-              <button
-                onClick={onShowOnboarding}
-                className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors p-1 rounded-md hover:bg-secondary"
-                title="Vodič za planer"
-                aria-label="Vodič za planer"
-              >
-                <HelpCircle className="h-3.5 w-3.5" />
-                <span className="hidden sm:inline">Onboarding</span>
-              </button>
-            )}
-          </div>
-        </div>
+              </InfoPanel>
+              {onShowOnboarding && (
+                <button
+                  onClick={onShowOnboarding}
+                  className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors p-1 rounded-md hover:bg-secondary"
+                  title="Vodič za planer"
+                  aria-label="Vodič za planer"
+                >
+                  <HelpCircle className="h-3.5 w-3.5" />
+                  <span className="hidden sm:inline">Vodič</span>
+                </button>
+              )}
+            </div>
+          }
+        />
 
         {/* Tab navigation */}
         <div className="flex gap-1 mt-4 p-1 rounded-lg bg-secondary/50">

@@ -37,7 +37,7 @@ export default function DisciplineTab({
             <div className="flex items-center gap-2">
               <span className="text-2xl">🔥</span>
               <div>
-                <h3 className="text-lg font-medium">Rocket Streak</h3>
+                <h3 className="text-eyebrow normal-case tracking-normal">Rocket Streak</h3>
                 <p className="text-xs text-muted-foreground">Uzastopni 🚀 dani</p>
               </div>
             </div>
@@ -66,7 +66,7 @@ export default function DisciplineTab({
 
       {/* Phase discipline info */}
       {currentPhase && (
-        <div className="rounded-xl bg-card border p-4 flex items-center gap-3">
+        <div className="glass-card p-4 flex items-center gap-3">
           <Target className="h-4 w-4 text-primary flex-shrink-0" />
           <p className="text-sm text-muted-foreground">
             U fazi <span className="font-medium text-foreground">{currentPhase.name}</span>, tvoja dosljednost je{" "}
@@ -78,10 +78,10 @@ export default function DisciplineTab({
       )}
 
       {/* 14-day grid */}
-      <div className="rounded-xl bg-card border p-5 space-y-4">
+      <div className="glass-card p-5 space-y-4">
         <div className="flex items-center gap-2">
           <BarChart3 className="h-4 w-4 text-primary" />
-          <h3 className="text-lg font-medium">Disciplina — Posljednjih 14 dana</h3>
+          <h3 className="text-eyebrow normal-case tracking-normal">Disciplina — Posljednjih 14 dana</h3>
         </div>
         {disciplineLog.length === 0 ? (
           <p className="text-sm text-muted-foreground py-4 text-center">
@@ -107,7 +107,7 @@ export default function DisciplineTab({
 
       {/* Discipline trend */}
       {disciplineTrend.length > 3 && (
-        <div className="rounded-xl bg-card border p-5 space-y-4">
+        <div className="glass-card p-5 space-y-4">
           <h4 className="text-sm font-medium">Trend dosljednosti (7-dnevni prosjek)</h4>
           <div className="h-[180px]">
             <ResponsiveContainer width="100%" height="100%">

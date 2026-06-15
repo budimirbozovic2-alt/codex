@@ -79,4 +79,9 @@ describe("CategoryView contract", () => {
     expect(tabMatches.length).toBe(1);
     expect(tabMatches[0]).toMatch(/SourcesTab/);
   });
+
+  it("does NOT load full cards[] only for mastery bar (TD-2)", () => {
+    expect(CODE).not.toMatch(/useCardsByCategoryWithStatus/);
+    expect(CODE).toMatch(/useMasteryDistributionByCategory/);
+  });
 });

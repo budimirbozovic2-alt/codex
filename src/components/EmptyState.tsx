@@ -2,7 +2,7 @@ import { BookOpen, Brain, Sparkles, Info, FileText, Layers, type LucideIcon } fr
 import { Button } from "@/components/ui/button";
 
 interface Props {
-  type: "dashboard" | "review" | "cards" | "sources" | "generic";
+  type: "dashboard" | "review" | "cards" | "sources" | "learn-filter" | "generic";
   onAction?: () => void;
   actionLabel?: string;
   diagnostics?: {
@@ -28,6 +28,12 @@ const PRESETS: Record<string, { icon: LucideIcon; title: string; description: st
     title: "Nema izvora",
     description: "Dodajte izvor materijala — tekst, članak ili DOCX dokument.",
     actionLabel: "Dodaj izvor",
+  },
+  "learn-filter": {
+    icon: Layers,
+    title: "Nema kartica za filter",
+    description: "Promijenite filter ili kategoriju da biste nastavili učenje.",
+    actionLabel: "Promijeni filter",
   },
 };
 

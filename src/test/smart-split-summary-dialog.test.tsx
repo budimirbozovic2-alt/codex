@@ -62,10 +62,12 @@ describe("SmartSplitSummaryDialog", () => {
     render(<SmartSplitSummaryDialog source={source} onSmartSplitConfirm={onConfirm} />);
 
     expect(screen.getByText("Novi esej iz izvora")).toBeInTheDocument();
-    expect(screen.getByText("Modul 1")).toBeInTheDocument();
-    expect(screen.getByText("Modul 2")).toBeInTheDocument();
+    expect(screen.getByText("Cjelina 1")).toBeInTheDocument();
+    expect(screen.getByText("Cjelina 2")).toBeInTheDocument();
     expect(screen.getByDisplayValue("čl. 1 Pojam")).toBeInTheDocument();
 
+    fireEvent.click(screen.getByRole("button", { name: "Dalje" }));
+    fireEvent.click(screen.getByRole("button", { name: "Dalje" }));
     fireEvent.click(screen.getByRole("button", { name: /Kreiraj esej/i }));
     expect(onConfirm).toHaveBeenCalledTimes(1);
   });

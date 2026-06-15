@@ -1,0 +1,10 @@
+# Known false positives — one regex or literal per line.
+# Lines starting with # are comments.
+
+^Dashboard$
+^Settings$
+^Cancel$
+^Submit$
+data-testid
+aria-hidden
+eslint-disable

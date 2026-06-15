@@ -2,6 +2,7 @@ import { ChevronRight } from "lucide-react";
 import { useLocation, Link } from "react-router-dom";
 import { useMemo, memo } from "react";
 import { useCategoryData } from "@/hooks/cards/useCategoryState";
+import { getParam } from "@/lib/url-params";
 
 const ROUTE_LABELS: Record<string, string> = {
   "/": "Početna tabla",
@@ -25,8 +26,10 @@ const LAB_ROUTES = new Set(["/stats", "/planner"]);
 
 // O2 fix: memo prevents re-renders from parent when categoryRecords haven't changed
 export default memo(function Breadcrumbs() {
-  const { pathname } = useLocation();
+  const { pathname, search } = useLocation();
   const { categoryRecords } = useCategoryData();
+  const searchParams = useMemo(() => new URLSearchParams(search), [search]);
+  const scopedCategoryId = getParam(searchParams, "category");
 
   const categoryMatch = pathname.match(/^\/category\/([^/]+)/);
   const categoryId = categoryMatch?.[1];
@@ -35,6 +38,11 @@ export default memo(function Breadcrumbs() {
     if (!categoryId) return "";
     return categoryRecords.find(c => c.id === categoryId)?.name ?? "…";
   }, [categoryId, categoryRecords]);
+
+  const scopedCategoryName = useMemo(() => {
+    if (!scopedCategoryId) return "";
+    return categoryRecords.find(c => c.id === scopedCategoryId)?.name ?? "…";
+  }, [scopedCategoryId, categoryRecords]);
 
   if (pathname === "/") return null;
 
@@ -70,6 +78,9 @@ export default memo(function Breadcrumbs() {
   } else {
     const label = ROUTE_LABELS[pathname];
     if (label) crumbs.push({ label, path: null });
+    if ((pathname === "/review" || pathname === "/learn") && scopedCategoryName) {
+      crumbs.push({ label: scopedCategoryName, path: null });
+    }
   }
 
   if (crumbs.length <= 1) return null;

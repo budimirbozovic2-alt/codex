@@ -2,6 +2,7 @@
 // full cards table over the worker. `loadCardsDeferred` is the new
 // post-READY entrypoint and still resolves via `listAllCards`.
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { INTEGRATION_TEST_TIMEOUT_MS } from "./helpers/test-timeouts";
 
 // Mock heavy deps before importing the unit under test.
 vi.mock("@/lib/db-seed", () => ({ seedDefaultCategories: vi.fn(async () => []) }));
@@ -19,7 +20,7 @@ vi.mock("@/hooks/card-bootstrap/splash", () => ({ splashProgress: vi.fn() }));
 const listAllCardsMock = vi.fn();
 vi.mock("@/lib/db/queries", () => ({ listAllCards: listAllCardsMock }));
 
-describe("boot: deferred cards (Phase 1)", () => {
+describe("boot: deferred cards (Phase 1)", { timeout: INTEGRATION_TEST_TIMEOUT_MS }, () => {
   beforeEach(() => {
     listAllCardsMock.mockReset();
   });

@@ -959,23 +959,6 @@
   color: inherit;
 }
 
-/* ─── Imperial Title ─────────────────────────────── */
-
-.imperial-title {
-  font-family: 'DM Sans', sans-serif;
-  color: hsl(var(--foreground));
-  font-weight: 700;
-  font-size: 1.5rem;
-  line-height: 2rem;
-  letter-spacing: 0.025em;
-}
-
-/* ─── Simple Imperial Button ─────────────────────── */
-
-.btn-imperial {
-  border-color: hsl(var(--gold) / 0.3);
-}
-
 /* ─── INP Optimizations ──────────────────────────── */
 
 /* Eliminate 300ms tap delay on all interactive elements */

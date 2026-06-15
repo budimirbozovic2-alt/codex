@@ -9,8 +9,10 @@ import { useMindMapsByCategory } from "@/hooks/useMindMaps";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { FileText, Loader2, Eye, Pencil, Trash2, Map as MapIcon, Plus, GitBranch, Workflow } from "lucide-react";
+import { FileText, Loader2, Eye, Pencil, Trash2, Map as MapIcon, Plus, GitBranch, Workflow, Search } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import SourceEditor from "@/components/category/SourceEditor";
@@ -30,6 +32,7 @@ type SourceTabValue = "propis" | "skripta" | "mape";
 export default function SourcesTab({ categoryId, sources, onOpenReader, onSourceUpdated, bulkFlagNeedsReview }: SourcesTabProps) {
   const navigate = useNavigate();
   const [activeSourceTab, setActiveSourceTab] = useState<SourceTabValue>("propis");
+  const [searchQuery, setSearchQuery] = useState("");
   const [editorSource, setEditorSource] = useState<Source | null>(null);
   const [importing, setImporting] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Source | null>(null);
@@ -41,6 +44,19 @@ export default function SourcesTab({ categoryId, sources, onOpenReader, onSource
 
   const propisSources = useMemo(() => sources.filter(s => (s.sourceKind ?? "propis") === "propis"), [sources]);
   const skriptaSources = useMemo(() => sources.filter(s => s.sourceKind === "skripta"), [sources]);
+
+  const normalizedQuery = searchQuery.trim().toLowerCase();
+  const filterByQuery = useCallback(
+    <T extends { title: string }>(items: T[]) =>
+      normalizedQuery
+        ? items.filter(item => item.title.toLowerCase().includes(normalizedQuery))
+        : items,
+    [normalizedQuery],
+  );
+
+  const filteredPropis = useMemo(() => filterByQuery(propisSources), [filterByQuery, propisSources]);
+  const filteredSkripta = useMemo(() => filterByQuery(skriptaSources), [filterByQuery, skriptaSources]);
+  const filteredMindMaps = useMemo(() => filterByQuery(mindMaps), [filterByQuery, mindMaps]);
 
   const handleDocxImport = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -141,17 +157,47 @@ export default function SourcesTab({ categoryId, sources, onOpenReader, onSource
           />
         </div>
 
+        <div className="relative mb-4">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+          <Input
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Pretraži izvore i mape…"
+            className="pl-9 h-9"
+            aria-label="Pretraži izvore"
+          />
+        </div>
+
         {(["propis", "skripta"] as const).map(kind => {
-          const filtered = kind === "propis" ? propisSources : skriptaSources;
+          const all = kind === "propis" ? propisSources : skriptaSources;
+          const filtered = kind === "propis" ? filteredPropis : filteredSkripta;
           return (
             <TabsContent key={kind} value={kind}>
-              {filtered.length === 0 ? (
-                <div className="text-center py-16 space-y-3">
+              {all.length === 0 ? (
+                <div className="text-center py-16 space-y-4">
                   <FileText className="h-10 w-10 mx-auto text-muted-foreground/40" />
                   <p className="text-sm text-muted-foreground">
                     Nema {kind === "propis" ? "propisa" : "skripti"} u ovoj kategoriji.
                   </p>
-                  <p className="text-xs text-muted-foreground">Kliknite "Dodaj dokument" da biste započeli.</p>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={importing}
+                    onClick={() => fileInputRef.current?.click()}
+                    className="gap-2"
+                  >
+                    {importing
+                      ? <Loader2 className="h-4 w-4 animate-spin" />
+                      : <Plus className="h-4 w-4" />}
+                    Dodaj dokument
+                  </Button>
+                </div>
+              ) : filtered.length === 0 ? (
+                <div className="text-center py-16 space-y-3">
+                  <Search className="h-10 w-10 mx-auto text-muted-foreground/40" />
+                  <p className="text-sm text-muted-foreground">
+                    Nema rezultata za „{searchQuery.trim()}”.
+                  </p>
                 </div>
               ) : (
                 <div className="space-y-3">
@@ -206,8 +252,16 @@ export default function SourcesTab({ categoryId, sources, onOpenReader, onSource
 
         <TabsContent value="mape">
           {mindMapsLoading ? (
-            <div className="flex items-center justify-center py-12">
-              <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+            <div className="space-y-3 py-2" aria-busy="true">
+              {[0, 1, 2].map(i => (
+                <div key={i} className="flex items-center gap-3 rounded-lg border bg-card px-4 py-3">
+                  <Skeleton className="h-4 w-4 shrink-0 rounded" />
+                  <div className="flex-1 space-y-2">
+                    <Skeleton className="h-4 w-2/3" />
+                    <Skeleton className="h-3 w-1/3" />
+                  </div>
+                </div>
+              ))}
             </div>
           ) : mindMaps.length === 0 ? (
             <div className="text-center py-12 space-y-3">
@@ -216,9 +270,16 @@ export default function SourcesTab({ categoryId, sources, onOpenReader, onSource
                 Nema mentalnih mapa za ovaj predmet.
               </p>
             </div>
+          ) : filteredMindMaps.length === 0 ? (
+            <div className="text-center py-12 space-y-3">
+              <Search className="h-10 w-10 mx-auto text-muted-foreground/40" />
+              <p className="text-sm text-muted-foreground">
+                Nema rezultata za „{searchQuery.trim()}”.
+              </p>
+            </div>
           ) : (
             <div className="space-y-3">
-              {mindMaps.map(m => {
+              {filteredMindMaps.map(m => {
                 const ModeIcon = m.mode === "procedure" ? Workflow : GitBranch;
                 return (
                   <button

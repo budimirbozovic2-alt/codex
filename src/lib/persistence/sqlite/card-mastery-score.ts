@@ -4,6 +4,7 @@
  */
 import type { Card } from "@/lib/spaced-repetition";
 import { getSectionScore } from "@/lib/spaced-repetition";
+import { getCardMasteryLevel } from "@/lib/mastery";
 
 /** Matches `useCardAggregates` scoreAvg — float average, rounded at category level. */
 export function computeCardMasteryScore(card: Card): number {
@@ -13,4 +14,9 @@ export function computeCardMasteryScore(card: Card): number {
     scoreSum += getSectionScore(s);
   }
   return scoreSum / card.sections.length;
+}
+
+/** 0–5 bucket used by CategoryView mastery bar — mirrors `getCardMasteryLevel`. */
+export function computeCardMasteryLevel(card: Card): number {
+  return getCardMasteryLevel(card);
 }

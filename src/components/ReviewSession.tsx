@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { toast } from "sonner";
 import { addActivityEntry } from "@/domains/metacognition/metacognitive-storage";
 import { logger } from "@/lib/logger";
@@ -8,6 +8,8 @@ import { buildItemsForMode } from "@/lib/review-mode-builder";
 import ReviewSetup from "./review/ReviewSetup";
 import ReviewCard from "./review/ReviewCard";
 import ReviewComplete from "./review/ReviewComplete";
+import { SessionCardSkeleton } from "@/components/ui/loading";
+import { setImmersiveMode } from "@/store/useUIStore";
 import { useSessionDiscipline } from "@/hooks/planner/useSessionDiscipline";
 import {
   loadSavedReviewSession,
@@ -27,8 +29,20 @@ export default function ReviewSession({ dueCards, allCards, categoryRecords, srS
   const [finished, setFinished] = useState(false);
   const [viewWidth, setViewWidth] = useState<ViewWidth>("normal");
   const [savedSession, setSavedSession] = useState<SavedSessionState | null>(null);
+  const [savedSessionLoading, setSavedSessionLoading] = useState(true);
   const reviewStartRef = useRef(Date.now());
+  const sessionGradesRef = useRef<number[]>([]);
   const { trackSection, resetSession, recordAfterSession } = useSessionDiscipline();
+
+  useEffect(() => {
+    setImmersiveMode(mode !== null);
+    return () => { setImmersiveMode(false); };
+  }, [mode]);
+
+  const lockedCategoryName = useMemo(() => {
+    if (!lockedCategory) return undefined;
+    return categoryRecords.find(c => c.id === lockedCategory)?.name;
+  }, [lockedCategory, categoryRecords]);
 
   const persistSessionDiscipline = useCallback(() => {
     recordAfterSession({
@@ -52,8 +66,12 @@ export default function ReviewSession({ dueCards, allCards, categoryRecords, srS
   // Check for saved session on mount (storage module owns SQLite kv + migration)
   useEffect(() => {
     (async () => {
-      const state = await loadSavedReviewSession();
-      if (state) setSavedSession(state);
+      try {
+        const state = await loadSavedReviewSession();
+        if (state) setSavedSession(state);
+      } finally {
+        setSavedSessionLoading(false);
+      }
     })();
   }, []);
 
@@ -124,6 +142,7 @@ export default function ReviewSession({ dueCards, allCards, categoryRecords, srS
     setFinished(false);
     setSavedSession(null);
     reviewStartRef.current = Date.now();
+    sessionGradesRef.current = [];
     resetSession();
     clearSavedSession();
   }, [autoMode, mode, computeItemsForMode, clearSavedSession, resetSession]);
@@ -143,6 +162,7 @@ export default function ReviewSession({ dueCards, allCards, categoryRecords, srS
     setRandomIndex(safeIndex);
     setSavedSession(null);
     reviewStartRef.current = Date.now();
+    sessionGradesRef.current = [];
     resetSession();
     clearSavedSession();
   }, [savedSession, clearSavedSession, computeItemsForMode, resetSession]);
@@ -162,12 +182,16 @@ export default function ReviewSession({ dueCards, allCards, categoryRecords, srS
     setShowAnswer(false);
     setFinished(false);
     reviewStartRef.current = Date.now();
+    sessionGradesRef.current = [];
     resetSession();
     clearSavedSession();
   }, [clearSavedSession, resetSession]);
 
   // ── Setup phase ──
   if (mode === null) {
+    if (savedSessionLoading) {
+      return <SessionCardSkeleton />;
+    }
     return (
       <ReviewSetup
         dueCards={dueCards}
@@ -190,6 +214,7 @@ export default function ReviewSession({ dueCards, allCards, categoryRecords, srS
 
   const handleGrade = (grade: number) => {
     if (!currentItem) return;
+    sessionGradesRef.current.push(grade);
     trackSection(currentItem.card.id, currentItem.section.id);
     onReviewSection(currentItem.card.id, currentItem.section.id, grade);
     if (randomIndex + 1 < items.length) {
@@ -201,7 +226,14 @@ export default function ReviewSession({ dueCards, allCards, categoryRecords, srS
   };
 
   if (finished || !currentItem) {
-    return <ReviewComplete onBack={onBack} />;
+    return (
+      <ReviewComplete
+        onBack={onBack}
+        sessionStartTime={reviewStartRef.current}
+        totalGrades={sessionGradesRef.current}
+        sectionsReviewed={items.length}
+      />
+    );
   }
 
   const modeBadge = mode === "stabilization"
@@ -209,6 +241,10 @@ export default function ReviewSession({ dueCards, allCards, categoryRecords, srS
     : mode === "critical"
     ? { label: "Zadržavanje", className: "bg-warning/10 text-warning" }
     : { label: "Najteže", className: "bg-destructive/10 text-destructive" };
+
+  const cardSections = currentItem.card.sections;
+  const sectionIndex = Math.max(0, cardSections.findIndex(s => s.id === currentItem.section.id));
+  const totalSectionsInCard = cardSections.length;
 
   return (
     <ReviewCard
@@ -222,12 +258,13 @@ export default function ReviewSession({ dueCards, allCards, categoryRecords, srS
       onPause={handlePauseSession}
       progress={randomIndex}
       total={items.length}
-      sectionIndex={0}
-      totalSectionsInCard={1}
+      sectionIndex={sectionIndex}
+      totalSectionsInCard={totalSectionsInCard}
       srSettings={srSettings}
       viewWidth={viewWidth}
       onViewWidthChange={setViewWidth}
       modeBadge={modeBadge}
+      lockedCategoryName={lockedCategoryName}
     />
   );
 }

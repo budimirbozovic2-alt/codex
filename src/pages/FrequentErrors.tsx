@@ -180,7 +180,7 @@ export default function FrequentErrors({ categoryId, embedded }: Props) {
               <AlertCircle className="h-6 w-6 text-destructive" />
             </div>
             <div>
-              <h1 className="imperial-title">Najčešće greške</h1>
+              <h1 className="text-display text-2xl text-foreground">Najčešće greške</h1>
               <p className="text-muted-foreground text-sm mt-1">
                 {totalErrors === 0
                   ? "Još nema zabilježenih grešaka."

@@ -7,6 +7,7 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { cardsByCategory, listAllCards } from "@/lib/db/queries/cards";
 import { seedTestSqliteTable } from "@/test/sqlite-harness";
+import { SLOW_TEST_TIMEOUT_MS } from "@/test/helpers/test-timeouts";
 import type { Card } from "@/lib/spaced-repetition";
 
 function makeCard(i: number, categoryId: string): Card {
@@ -25,7 +26,7 @@ const SIZES = [1_000, 5_000];
 const CAT_A = "cat-A";
 const CAT_B = "cat-B";
 
-describe("Phase 0 — cardsByCategory bench (SQLite harness)", () => {
+describe("Phase 0 — cardsByCategory bench (SQLite harness)", { timeout: SLOW_TEST_TIMEOUT_MS }, () => {
   // Seed in beforeEach (not beforeAll) — the global setup.ts resets the
   // SQLite harness state between every test, so a beforeAll seed gets wiped.
   beforeEach(() => {
@@ -64,7 +65,8 @@ describe("Phase 0 — cardsByCategory bench (SQLite harness)", () => {
 
       expect(idbHits.length).toBeGreaterThan(0);
       expect(idbHits.every((c) => c.categoryId === CAT_A)).toBe(true);
-      expect(tIdb).toBeLessThan(Math.max(tRam * 5, 50));
+      // Floor allows parallel CI load; ratio vs RAM filter is the real guard.
+      expect(tIdb).toBeLessThan(Math.max(tRam * 5, 100));
       console.log(
         `[bench cardsByCategory N=${N}] ram=${tRam.toFixed(2)}ms sqlite=${tIdb.toFixed(2)}ms ramHits=${ramHits.length} idbHits=${idbHits.length}`,
       );

@@ -167,7 +167,7 @@ export default function BulkImportDialog({ open, onOpenChange, categoryId, bulkA
         onEscapeKeyDown={(e) => { if (isDirty) { e.preventDefault(); requestClose(); } }}
       >
         <DialogHeader>
-          <DialogTitle className="imperial-title text-lg">Masovni import blic pitanja</DialogTitle>
+          <DialogTitle className="text-display text-lg text-foreground">Masovni import blic pitanja</DialogTitle>
         </DialogHeader>
 
         {!parsed ? (

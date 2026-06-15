@@ -12,6 +12,7 @@ import ReviewSession from "@/components/ReviewSession";
 import EmptyState from "@/components/EmptyState";
 import { getParam } from "@/lib/url-params";
 import { hasConsolidationWork } from "@/lib/review-mode-builder";
+import { DataReadyGate, SessionSetupSkeleton } from "@/components/ui/loading";
 
 export default function ReviewPage() {
   const { cards, dueCards, ready } = useCardData();
@@ -28,10 +29,6 @@ export default function ReviewPage() {
     ? modeParam
     : undefined;
 
-  // When entry came from a Subject Dashboard (?category=UUID), hard-scope
-  // the entire dataset before it ever reaches the session — this guarantees
-  // mode counters, EmptyState diagnostics, and downstream queues all reflect
-  // *only* the locked subject. Without `?category=`, behaviour is global.
   const scopedDueCards = useMemo(
     () => lockedCategory ? dueCards.filter(c => c.categoryId === lockedCategory) : dueCards,
     [dueCards, lockedCategory],
@@ -43,18 +40,9 @@ export default function ReviewPage() {
 
   useEffect(() => {
     if (ready) session.startSession(scopedAllCards, reviewLog);
-    // PR-G3 (RC-3): include `location.key` so a fresh nav back to /review
-    // re-fires this effect with the latest scoped snapshot. Previously
-    // deps were `[ready, lockedCategory]` only — going Dashboard → Review
-    // → Dashboard → Review (same URL) kept the stale first-mount snapshot
-    // because neither dep changed. `scopedAllCards/reviewLog` are still
-    // captured by closure intentionally — re-running on every card
-    // mutation would clobber FSRS scheduling mid-session.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ready, lockedCategory, location.key]);
 
-  // FSRS diagnostics for empty state — scoped so the empty message reflects
-  // the locked subject rather than the full library.
   const diagnostics = useMemo(() => {
     let newSections = 0;
     let reviewSections = 0;
@@ -112,33 +100,26 @@ export default function ReviewPage() {
     setView("dashboard");
   }, [session, setView]);
 
-  if (!ready) {
-    return (
-      <div className="flex flex-col items-center justify-center py-20 gap-3">
-        <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-        <p className="text-sm text-muted-foreground">Priprema gradiva...</p>
-      </div>
-    );
-  }
-
   return (
-    <ErrorBoundary label="Ponavljanje" onNavigateHome={() => setView("dashboard")}>
-      {!consolidationAvailable ? (
-        <EmptyState type="review" diagnostics={diagnostics} />
-      ) : (
-        <ReviewSession
-          dueCards={scopedDueCards}
-          allCards={scopedAllCards}
-          categoryRecords={categoryRecords}
-          reviewLog={reviewLog}
-          srSettings={srSettings}
-          onReviewSection={handleReviewSection}
-          onLogError={handleLogError}
-          onBack={handleBack}
-          lockedCategory={lockedCategory}
-          autoMode={autoMode}
-        />
-      )}
-    </ErrorBoundary>
+    <DataReadyGate ready={ready} skeleton={<SessionSetupSkeleton />}>
+      <ErrorBoundary label="Ponavljanje" onNavigateHome={() => setView("dashboard")}>
+        {!consolidationAvailable ? (
+          <EmptyState type="review" diagnostics={diagnostics} />
+        ) : (
+          <ReviewSession
+            dueCards={scopedDueCards}
+            allCards={scopedAllCards}
+            categoryRecords={categoryRecords}
+            reviewLog={reviewLog}
+            srSettings={srSettings}
+            onReviewSection={handleReviewSection}
+            onLogError={handleLogError}
+            onBack={handleBack}
+            lockedCategory={lockedCategory}
+            autoMode={autoMode}
+          />
+        )}
+      </ErrorBoundary>
+    </DataReadyGate>
   );
 }

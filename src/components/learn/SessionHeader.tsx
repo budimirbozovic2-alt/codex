@@ -1,12 +1,10 @@
-import { ArrowLeft, Zap } from "lucide-react";
+import { Zap } from "lucide-react";
 import React from "react";
 import { Card, getCardScore } from "@/lib/spaced-repetition";
 import { getFrequencyMeta } from "@/lib/sr/frequency";
 import { ViewWidth, viewWidthClasses, viewWidthLabels } from "./types";
-
 import { useCategoryData } from "@/hooks/cards/useCategoryState";
-import { m } from "@/lib/motion";
-import ShortcutsHint from "@/components/ShortcutsHint";
+import { SessionChrome } from "@/components/SessionChrome";
 
 const AR_SHORTCUTS = [
   { keys: "Space", description: "Otkrij odgovor" },
@@ -35,14 +33,14 @@ const SessionHeader = React.memo(function SessionHeader({
 
   return (
     <>
-      <div className="flex items-center justify-between">
-        <button onClick={onBack} className="text-muted-foreground hover:text-foreground flex items-center gap-1">
-          <ArrowLeft className="h-4 w-4" /> Nazad
-        </button>
-        <div className="flex items-center gap-3">
+      <SessionChrome
+        onBack={onBack}
+        modeBadge={(
           <span className="text-xs px-2 py-1 rounded-md bg-secondary text-muted-foreground">
             Aktivno
           </span>
+        )}
+        viewWidthControl={(
           <div className="hidden md:flex items-center gap-1 bg-secondary rounded-lg p-1">
             {(Object.keys(viewWidthClasses) as ViewWidth[]).map((w) => (
               <button
@@ -56,23 +54,13 @@ const SessionHeader = React.memo(function SessionHeader({
               </button>
             ))}
           </div>
-          <span className="text-sm text-muted-foreground">
-            {currentIndex + 1} / {totalCards}
-          </span>
-          <ShortcutsHint shortcuts={AR_SHORTCUTS} />
-        </div>
-      </div>
+        )}
+        progressLabel={`${currentIndex + 1} / ${totalCards}`}
+        progressCurrent={currentIndex + 1}
+        progressTotal={totalCards}
+        shortcuts={AR_SHORTCUTS}
+      />
 
-      {/* Progress bar */}
-      <div className="w-full h-1.5 rounded-full bg-secondary overflow-hidden">
-        <m.div
-          className="h-full bg-primary rounded-full"
-          animate={{ width: `${((currentIndex + 1) / totalCards) * 100}%` }}
-          transition={{ duration: 0.3 }}
-        />
-      </div>
-
-      {/* Card question header */}
       <div className="rounded-xl bg-card border p-8">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
@@ -97,7 +85,7 @@ const SessionHeader = React.memo(function SessionHeader({
         )}
         {hideQuestion && (
           <p className="text-sm text-muted-foreground italic text-center py-4">
-            🎙️ Pitanje sakriveno — ponovi odgovor na glas iz sjećanja
+            Pitanje sakriveno — ponovi odgovor na glas iz sjećanja
           </p>
         )}
       </div>

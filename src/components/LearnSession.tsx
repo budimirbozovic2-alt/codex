@@ -5,6 +5,9 @@ import { LearnCardProgress, loadLearnProgress, saveLearnProgress } from "@/lib/s
 import { addActivityEntry } from "@/domains/metacognition/metacognitive-storage";
 import SessionComplete from "./learn/SessionComplete";
 import FilterSetup from "./learn/FilterSetup";
+import EmptyState from "@/components/EmptyState";
+import { SessionCardSkeleton } from "@/components/ui/loading";
+import { setImmersiveMode } from "@/store/useUIStore";
 import { LearnSessionProps, ViewWidth } from "./learn/types";
 import { useSessionDiscipline } from "@/hooks/planner/useSessionDiscipline";
 
@@ -33,6 +36,12 @@ export default function LearnSession({ cards, categories, categoryRecords, subca
   const [progress, setProgress] = useState<Record<string, LearnCardProgress>>({});
   const [sessionFinished, setSessionFinished] = useState(false);
   const progressLoadedRef = useRef(false);
+
+  useEffect(() => {
+    setImmersiveMode(started);
+    return () => { setImmersiveMode(false); };
+  }, [started]);
+
   const progressReadyRef = useRef(false);
   useEffect(() => {
     if (progressLoadedRef.current) return;
@@ -209,15 +218,10 @@ export default function LearnSession({ cards, categories, categoryRecords, subca
   // ── EMPTY FILTER STATE (no cards match) ──
   if (!card && sortedCards.length === 0) {
     return (
-      <div className="text-center py-20 space-y-4">
-        <p className="text-muted-foreground">Nema kartica za odabrani filter.</p>
-        <button
-          onClick={() => setStarted(false)}
-          className="inline-flex items-center justify-center rounded-md text-sm font-medium border border-input bg-background hover:bg-accent hover:text-accent-foreground h-10 px-4 py-2"
-        >
-          Promijeni filter
-        </button>
-      </div>
+      <EmptyState
+        type="learn-filter"
+        onAction={() => setStarted(false)}
+      />
     );
   }
 
@@ -238,7 +242,7 @@ export default function LearnSession({ cards, categories, categoryRecords, subca
     );
   }
 
-  const fallback = <div className="flex items-center justify-center py-12 text-muted-foreground text-sm">Učitavanje...</div>;
+  const fallback = <SessionCardSkeleton />;
 
   // ── ACTIVE RECALL MODE ──
   return (

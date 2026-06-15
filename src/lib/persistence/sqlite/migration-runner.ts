@@ -13,6 +13,7 @@ import schemaSql from "./schema.sql?raw";
 import { migrateCategoryTaxonomyToRelational } from "./category-taxonomy-migration";
 import { migrateCardSectionsIndex } from "./card-sections-index-migration";
 import { migrateCardMasteryScores } from "./card-mastery-score-migration";
+import { migrateCardMasteryLevels } from "./card-mastery-level-migration";
 
 interface Migration {
   version: number;
@@ -165,6 +166,10 @@ const PR12_CARD_MASTERY_SCORE_SQL = `
   SELECT 1;
 `;
 
+const PR13_CARD_MASTERY_LEVEL_SQL = `
+  SELECT 1;
+`;
+
 const MIGRATIONS: readonly Migration[] = [
   { version: 1, label: "init", sql: schemaSql },
   // PR-9 M1 — disciplineLog + drafts tables (SQLite-primary).
@@ -181,6 +186,7 @@ const MIGRATIONS: readonly Migration[] = [
   { version: 6, label: "pr10-relational-taxonomy", sql: PR10_RELATIONAL_TAXONOMY_SQL },
   { version: 7, label: "pr11-card-sections-index", sql: PR11_CARD_SECTIONS_INDEX_SQL },
   { version: 8, label: "pr12-card-mastery-score", sql: PR12_CARD_MASTERY_SCORE_SQL },
+  { version: 9, label: "pr13-card-mastery-level", sql: PR13_CARD_MASTERY_LEVEL_SQL },
 ];
 
 const TARGET_USER_VERSION = MIGRATIONS[MIGRATIONS.length - 1].version;
@@ -215,6 +221,10 @@ export async function runMigrations(exec: SqlExecutor): Promise<{ from: number; 
 
   if (TARGET_USER_VERSION >= 8) {
     await migrateCardMasteryScores(exec);
+  }
+
+  if (TARGET_USER_VERSION >= 9) {
+    await migrateCardMasteryLevels(exec);
   }
 
   return { from: current, to: TARGET_USER_VERSION };

@@ -6,6 +6,7 @@ import { describe, expect, it, beforeEach } from "vitest";
 import { backlinkIndex } from "@/lib/backlink-index";
 import type { KnowledgeBaseArticle } from "@/lib/db-types";
 import { kbArticleFromMarkdown } from "./helpers/kb-article-fixture";
+import { SLOW_TEST_TIMEOUT_MS } from "./helpers/test-timeouts";
 
 const SUBJ = "subj-X";
 const SUBJ2 = "subj-Y";
@@ -98,7 +99,7 @@ describe("backlinkIndex subscribe + version", () => {
   });
 });
 
-describe("performance characteristic", () => {
+describe("performance characteristic", { timeout: SLOW_TEST_TIMEOUT_MS }, () => {
   it("O(1) lookup remains snappy at 1k articles", () => {
     const arts: KnowledgeBaseArticle[] = [];
     for (let i = 0; i < 1000; i++) {

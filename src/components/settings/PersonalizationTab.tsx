@@ -44,12 +44,13 @@ export default function PersonalizationTab({ app, setApp }: Props) {
 
       {/* Dashboard widgeti */}
       <div className="glass-card rounded-xl p-5 space-y-3">
-        <h3 className="text-sm font-semibold">Dashboard widgeti</h3>
+        <h3 className="text-sm font-semibold">Widgeti početne table</h3>
         <p className="text-xs text-muted-foreground">Odaberi koje widgete želiš vidjeti.</p>
         {([
           { key: "showExamProgress" as const, label: "Napredak do cilja" },
-          { key: "showCoreStats" as const, label: "Brojači (Due / Naučeno)" },
-          { key: "showBriefing" as const, label: "Dnevni briefing" },
+          { key: "showCoreStats" as const, label: "Brojači (Za ponavljanje / Naučeno)" },
+          { key: "showProgressRing" as const, label: "Progres faze (planer)" },
+          { key: "showBriefing" as const, label: "Dnevni pregled" },
           { key: "showIdealFocus" as const, label: "Idealni fokus" },
           { key: "showVelocity" as const, label: "Brzina učenja" },
           { key: "showWeakCategories" as const, label: "Najslabije kategorije" },

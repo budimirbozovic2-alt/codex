@@ -28,13 +28,16 @@ export const VelocityWidget = memo(function VelocityWidget({ velocityData, weake
                 <span className="text-sm text-muted-foreground">sekcija/dan</span>
               </div>
               <p className="text-xs text-muted-foreground">
-                {velocityData.trend === "up" ? "📈 Raste u odnosu na prošlu sedmicu" :
-                 velocityData.trend === "down" ? "📉 Pada u odnosu na prošlu sedmicu" :
-                 "➡️ Stabilan tempo"}
+                {velocityData.trend === "up" ? "Raste u odnosu na prošlu sedmicu" :
+                 velocityData.trend === "down" ? "Pada u odnosu na prošlu sedmicu" :
+                 "Stabilan tempo"}
               </p>
             </>
           ) : (
-            <p className="text-sm text-muted-foreground">Učitavanje...</p>
+            <div className="space-y-2" aria-hidden="true">
+              <div className="h-8 w-16 bg-secondary rounded animate-pulse" />
+              <div className="h-3 w-full bg-secondary rounded animate-pulse" />
+            </div>
           )}
         </div>
       )}
@@ -43,7 +46,7 @@ export const VelocityWidget = memo(function VelocityWidget({ velocityData, weake
           style={{ animationDelay: "360ms", animationFillMode: "both" }}>
           <div className="flex items-center gap-2">
             <BarChart3 className="h-4 w-4 text-primary" />
-            <h3 className="text-sm font-medium">Najslabije kategorije</h3>
+            <h3 className="text-eyebrow normal-case tracking-normal">Najslabije kategorije</h3>
           </div>
           <div className="space-y-2">
             {weakestCategories.map((cat, i) => (

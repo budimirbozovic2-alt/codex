@@ -62,7 +62,7 @@ const ActivityChart = memo(function ActivityChart({ data }: { data: ActivityPoin
     <m.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="glass-card rounded-xl p-5 space-y-4">
       <div className="flex items-center gap-2">
         <TrendingUp className="h-4 w-4 text-primary" />
-        <h3 className="text-lg font-medium">Aktivnost (14 dana)</h3>
+        <h3 className="text-eyebrow normal-case tracking-normal">Aktivnost (14 dana)</h3>
       </div>
       <div className="h-[200px]">
         <ResponsiveContainer width="100%" height="100%">
@@ -99,7 +99,7 @@ const MasteryPieChart = memo(function MasteryPieChart({ data }: { data: { name: 
     <m.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} className="glass-card rounded-xl p-5 space-y-4">
       <div className="flex items-center gap-2">
         <Brain className="h-4 w-4 text-primary" />
-        <h3 className="text-lg font-medium">Distribucija znanja</h3>
+        <h3 className="text-eyebrow normal-case tracking-normal">Distribucija znanja</h3>
       </div>
       <div className="h-[200px] flex items-center justify-center">
         <ResponsiveContainer width="100%" height="100%">
@@ -131,7 +131,7 @@ const CategoryBarChart = memo(function CategoryBarChart({ data }: { data: Catego
     <m.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }} className="glass-card rounded-xl p-5 space-y-4 md:col-span-2">
       <div className="flex items-center gap-2">
         <Layers className="h-4 w-4 text-primary" />
-        <h3 className="text-lg font-medium">Znanje po kategorijama</h3>
+        <h3 className="text-eyebrow normal-case tracking-normal">Znanje po kategorijama</h3>
       </div>
       <div className="h-[220px]">
         <ResponsiveContainer width="100%" height="100%">
@@ -160,7 +160,7 @@ const MasteryLevelsChart = memo(function MasteryLevelsChart({ counts }: { counts
     >
       <div className="flex items-center gap-2">
         <Signal className="h-4 w-4 text-primary" />
-        <h3 className="text-lg font-medium">Nivoi savladavanja (kartice)</h3>
+        <h3 className="text-eyebrow normal-case tracking-normal">Nivoi savladavanja (kartice)</h3>
       </div>
       <div className="flex h-3 rounded-full overflow-hidden bg-secondary">
         {counts.map((count, i) => {
@@ -266,7 +266,7 @@ export default function OverviewTab({
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Clock className="h-4 w-4 text-primary" />
-              <h3 className="text-lg font-medium">Efektivno učenje danas</h3>
+              <h3 className="text-eyebrow normal-case tracking-normal">Efektivno učenje danas</h3>
             </div>
             <span className="text-lg font-medium text-primary tabular-nums">
               {Math.floor(todayTime.cognitiveMs / 3600000) > 0

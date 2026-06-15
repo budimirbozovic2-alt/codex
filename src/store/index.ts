@@ -29,5 +29,12 @@ export {
 } from "./useCategoryStore";
 
 // ── Source reader store ────────────────────────────────────────────────────
-export { useSourceReaderStore, WIDTH_CLASSES } from "./useSourceReaderStore";
-export type { ReaderWidth } from "./useSourceReaderStore";
+export {
+  useSourceReaderStore,
+  WIDTH_CLASSES,
+  READER_FONT_SIZE_CLASS,
+  READER_LINE_HEIGHT_VALUE,
+  READER_FONT_SIZE_LABELS,
+  READER_LINE_HEIGHT_LABELS,
+} from "./useSourceReaderStore";
+export type { ReaderWidth, ReaderFontSize, ReaderLineHeight } from "./useSourceReaderStore";

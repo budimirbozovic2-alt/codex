@@ -56,6 +56,8 @@ export const queryKeys = {
       ["cards", "count", "due", categoryId] as const,
     avgMasteryByCategory: (categoryId: string) =>
       ["cards", "avgMastery", categoryId] as const,
+    masteryDistributionByCategory: (categoryId: string) =>
+      ["cards", "masteryDist", categoryId] as const,
   },
   planner: {
     root: ["planner"] as const,

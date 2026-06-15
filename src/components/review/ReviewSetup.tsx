@@ -1,4 +1,4 @@
-import { Target, Shield, Zap, BookOpen, ArrowLeft, Play, X as XIcon, HelpCircle, RotateCcw } from "lucide-react";
+import { Target, Shield, Zap, Play, X as XIcon, HelpCircle } from "lucide-react";
 import { useState, useMemo, useCallback } from "react";
 import { Card, SRSettings } from "@/lib/spaced-repetition";
 import { m, AnimatePresence } from "@/lib/motion";
@@ -9,6 +9,7 @@ import { DueItem, REVIEW_ONBOARDING_KEY, REVIEW_SLIDES } from "./review-constant
 import { buildStabilizationItems, buildCriticalItems, buildHardestItems } from "@/lib/review-mode-builder";
 import type { CategoryRecord } from "@/lib/db-types";
 import InfoPanel from "@/components/InfoPanel";
+import { PageHeader } from "@/components/ui/PageHeader";
 
 type FilterType = "all" | "essay" | "flash";
 
@@ -100,7 +101,8 @@ const FILTER_TYPE_OPTIONS: { value: FilterType; label: string }[] = [
 ];
 
 export default function ReviewSetup({
-  dueCards, allCards, categoryRecords: _categoryRecords, srSettings,
+  dueCards, allCards, categoryRecords,
+  srSettings,
   onSelectMode, onBack, savedSession, onResumeSession, onClearSavedSession,
   lockedCategory,
 }: ReviewSetupProps) {
@@ -161,6 +163,34 @@ export default function ReviewSetup({
   }, [mode, selectedCategory, filterType, onSelectMode, itemsByMode]);
 
   const totalForMode = counts[mode];
+  const lockedCategoryName = lockedCategory
+    ? categoryRecords.find((c) => c.id === lockedCategory)?.name
+    : undefined;
+
+  const filterToggle = (
+    <div
+      role="radiogroup"
+      aria-label="Tip pitanja"
+      className="inline-flex items-center gap-1 bg-secondary rounded-lg p-1"
+    >
+      {FILTER_TYPE_OPTIONS.map(({ value, label }) => {
+        const active = filterType === value;
+        return (
+          <button
+            key={value}
+            role="radio"
+            aria-checked={active}
+            onClick={() => setFilterType(value)}
+            className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+              active ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            {label}
+          </button>
+        );
+      })}
+    </div>
+  );
 
   return (
     <m.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="max-w-3xl mx-auto space-y-6 py-10">
@@ -175,62 +205,37 @@ export default function ReviewSetup({
         )}
       </AnimatePresence>
 
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <button onClick={onBack} className="text-muted-foreground hover:text-foreground flex items-center gap-1 text-sm">
-          <ArrowLeft className="h-4 w-4" /> Nazad
-        </button>
-        <div className="flex items-center gap-1">
-          <InfoPanel title="Konsolidacija">
-            <p><strong>Fokusirano utvrđivanje</strong> — cilja nove i nedavno pogrešene kartice za brzu stabilizaciju.</p>
-            <p><strong>Kritični pregled</strong> — hvata kartice u idealnom trenutku zaborava (R ≈ 80–85%).</p>
-            <p><strong>Najteža pitanja</strong> — okršaj sa do 50 statistički najzahtjevnijih kartica.</p>
-            <p>Svi rezultati se upisuju u FSRS algoritam za optimalno zakazivanje ponavljanja.</p>
-          </InfoPanel>
-          <button
-            onClick={() => setShowOnboarding(true)}
-            className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors p-1.5 rounded-md hover:bg-secondary"
-            title="Vodič kroz konsolidaciju"
-          >
-            <HelpCircle className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">Onboarding</span>
-          </button>
-        </div>
-      </div>
-
-      {/* Title + inline type filter */}
-      <div className="flex items-end justify-between gap-4 flex-wrap">
-        <div>
-          <h2 className="text-2xl font-bold text-foreground flex items-center gap-2">
-            <RotateCcw className="h-6 w-6 text-primary" /> Konsolidacija znanja
-          </h2>
-          <p className="text-muted-foreground mt-1.5 text-sm">
-            Izaberi pristup ponavljanju za ovu sesiju.
-          </p>
-        </div>
-        <div
-          role="radiogroup"
-          aria-label="Tip pitanja"
-          className="inline-flex items-center gap-1 bg-secondary rounded-lg p-1"
-        >
-          {FILTER_TYPE_OPTIONS.map(({ value, label }) => {
-            const active = filterType === value;
-            return (
-              <button
-                key={value}
-                role="radio"
-                aria-checked={active}
-                onClick={() => setFilterType(value)}
-                className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
-                  active ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                {label}
-              </button>
-            );
-          })}
-        </div>
-      </div>
+      <PageHeader
+        eyebrow="Ponavljanje"
+        title="Konsolidacija znanja"
+        subtitle="Izaberi pristup ponavljanju za ovu sesiju."
+        back={{ onClick: onBack }}
+        scopeBadge={lockedCategoryName}
+        actions={(
+          <>
+            <InfoPanel title="Konsolidacija">
+              <p><strong>Fokusirano utvrđivanje</strong> — cilja nove i nedavno pogrešene kartice za brzu stabilizaciju.</p>
+              <p><strong>Kritični pregled</strong> — hvata kartice u idealnom trenutku zaborava (R ≈ 80–85%).</p>
+              <p><strong>Najteža pitanja</strong> — okršaj sa do 50 statistički najzahtjevnijih kartica.</p>
+              <p>Svi rezultati se upisuju u FSRS algoritam za optimalno zakazivanje ponavljanja.</p>
+            </InfoPanel>
+            <button
+              onClick={() => setShowOnboarding(true)}
+              className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors p-1.5 rounded-md hover:bg-secondary"
+              title="Vodič kroz konsolidaciju"
+              aria-label="Vodič kroz konsolidaciju"
+            >
+              <HelpCircle className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Vodič</span>
+            </button>
+          </>
+        )}
+        footer={(
+          <div className="flex justify-end pt-1">
+            {filterToggle}
+          </div>
+        )}
+      />
 
       {/* Resume saved session */}
       {savedSession && (

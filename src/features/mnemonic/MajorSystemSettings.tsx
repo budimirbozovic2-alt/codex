@@ -43,7 +43,7 @@ export default function MajorSystemSettings() {
   return (
     <div className="max-w-2xl mx-auto space-y-6">
       <div>
-        <h2 className="imperial-title">Mentalne tablice (Major sistem)</h2>
+        <h2 className="text-display text-2xl text-foreground">Mentalne tablice (Major sistem)</h2>
         <p className="text-muted-foreground mt-1">Prilagodi termine za brojeve 0–100.</p>
       </div>
 

@@ -16,7 +16,7 @@ export const DailyBriefing = memo(function DailyBriefing({ briefText, timeRecMes
       style={{ animationDelay: "200ms", animationFillMode: "both" }}>
       <div className="flex items-center gap-2">
         <Brain className="h-4 w-4 text-primary" />
-        <h3 className="text-sm font-medium">Dnevni briefing</h3>
+        <h3 className="text-eyebrow normal-case tracking-normal">Dnevni pregled</h3>
       </div>
 
       <p className="text-sm text-muted-foreground">{briefText}</p>
@@ -37,15 +37,14 @@ export const DailyBriefing = memo(function DailyBriefing({ briefText, timeRecMes
           <div className="flex items-center gap-3">
             {streak > 0 && (
               <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-warning/10 border border-warning/20">
-                <span className="text-xs animate-pulse">🔥</span>
-                <span className="text-[10px] font-bold text-warning tabular-nums">{streak}d</span>
+                <span className="text-[10px] font-bold text-warning tabular-nums">{streak}d niz</span>
               </div>
             )}
             <span className="text-xs font-medium tabular-nums">{todayReviews} / {dailyGoal}</span>
           </div>
         </div>
         <Progress value={goalProgress} className="h-2" />
-        {goalProgress >= 100 && <p className="text-xs text-success font-medium">✓ Cilj ostvaren! 🎉</p>}
+        {goalProgress >= 100 && <p className="text-xs text-success font-medium">Cilj ostvaren!</p>}
       </div>
     </div>
   );

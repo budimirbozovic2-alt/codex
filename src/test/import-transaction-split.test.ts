@@ -11,6 +11,7 @@ import type { Card } from "@/lib/spaced-repetition";
 import type { CategoryRecord } from "@/lib/db-types";
 import type { ParsedBackup } from "@/lib/migrations/backup-schema";
 import { makeCard as makeCardFixture, makeSection } from "./factories";
+import { SLOW_TEST_TIMEOUT_MS } from "./helpers/test-timeouts";
 
 function makeCard(
   id: string,
@@ -308,7 +309,7 @@ function makeManyCards(n: number, categoryId: string): Card[] {
   return list;
 }
 
-describe("applyRemapToParsed — edge cases", () => {
+describe("applyRemapToParsed — edge cases", { timeout: SLOW_TEST_TIMEOUT_MS }, () => {
   it("selectively remaps only entries whose categoryId is in the map", async () => {
     const parsed = emptyParsed();
     parsed.sources = [

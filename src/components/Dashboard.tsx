@@ -4,6 +4,7 @@ import ActivityHeatmap from "@/components/ActivityHeatmap";
 import { ReviewLogEntry } from "@/lib/storage";
 import ProgressRing from "@/components/ProgressRing";
 import { useDashboardData } from "@/hooks/useDashboardData";
+import { PageHeader } from "@/components/ui/PageHeader";
 
 import { ExamProgressBar } from "./dashboard/ExamProgressBar";
 import { CoreStats } from "./dashboard/CoreStats";
@@ -15,6 +16,7 @@ import { StudyFlowWidget } from "./dashboard/StudyFlowWidget";
 import type { CategoryRecord } from "@/lib/db-types";
 import { QuickActions } from "./dashboard/QuickActions";
 import { ToolCards } from "./dashboard/ToolCards";
+import { BackupCard } from "./dashboard/BackupCard";
 
 interface Props {
   stats: { due: number; total: number; totalSections: number; learnedSections: number };
@@ -26,9 +28,10 @@ interface Props {
   reviewLog: ReviewLogEntry[];
   srSettings: SRSettings;
   onExport?: () => void;
+  headerActions?: React.ReactNode;
 }
 
-export default function Dashboard({ stats, categoryStats, categories, categoryRecords, subcategories: _subcategories, cards, reviewLog, srSettings, onExport }: Props) {
+export default function Dashboard({ stats, categoryStats, categories, categoryRecords, subcategories: _subcategories, cards, reviewLog, srSettings, onExport, headerActions }: Props) {
   const {
     wc, todayReviews, dailyGoal, goalProgress, pendingFirstReview, streak,
     focusRatio, actualRatio, autoSuggestion, storageUsage, plannerData,
@@ -37,13 +40,12 @@ export default function Dashboard({ stats, categoryStats, categories, categoryRe
   } = useDashboardData(stats, categoryStats, categories, categoryRecords, cards, reviewLog, srSettings);
   return (
     <div className="space-y-8 relative animate-fade-in">
-      <header className="space-y-2 pb-2">
-        <p className="text-eyebrow">Pregled</p>
-        <h2 className="text-display text-4xl md:text-5xl text-foreground text-balance flex items-baseline gap-3">
-          Početna tabla
-          <Home className="h-5 w-5 text-primary/70 self-center" strokeWidth={1.5} />
-        </h2>
-      </header>
+      <PageHeader
+        eyebrow="Pregled"
+        title="Početna tabla"
+        titleIcon={<Home className="h-5 w-5 text-primary/70 self-center" strokeWidth={1.5} />}
+        actions={headerActions}
+      />
 
       {/* Warnings strip — promoted to the top so alerts are immediately visible */}
       {wc.showStatusIcons && (
@@ -82,7 +84,7 @@ export default function Dashboard({ stats, categoryStats, categories, categoryRe
             <div className="animate-fade-up glass-card p-5 h-full flex flex-col">
               <div className="flex items-center gap-2 mb-4">
                 <Target className="h-4 w-4 text-primary" />
-                <h3 className="text-sm font-medium">Progres faze: {plannerData.activePhase.name}</h3>
+                <h3 className="text-eyebrow normal-case tracking-normal">Progres faze: {plannerData.activePhase.name}</h3>
               </div>
               {/* Bounded inner area — planner data scrolls inside the card
                   instead of expanding the card and pushing siblings around. */}
@@ -152,8 +154,9 @@ export default function Dashboard({ stats, categoryStats, categories, categoryRe
         >
           <QuickActions dueCount={stats.due} hasCards={cards.length > 0} />
           <ToolCards />
+          <BackupCard />
           {wc.showHeatmap && (
-            <div className="overflow-x-auto -mx-1 px-1">
+            <div className="glass-card rounded-xl p-4 overflow-x-auto -mx-1 px-1">
               <ActivityHeatmap reviewLog={reviewLog} />
             </div>
           )}

@@ -7,9 +7,8 @@
  *   1. `<ListSkeleton>` and `<SourcesTabSkeleton>` render the expected
  *      layout-shape placeholders (so the swap to real content has no
  *      layout shift).
- *   2. `useCardsByCategoryWithStatus` exposes `{ cards, isLoading,
- *      isFetching }` and flips `isLoading` from `true` → `false` once the
- *      query resolves — which is what gates the skeleton in CategoryView.
+ *   2. `useMasteryDistributionByCategory` exposes loading lifecycle used to
+ *      gate the CategoryView skeleton without decoding full card payloads.
  *   3. `startViewTransition` is safe to call in jsdom (no `document.
  *      startViewTransition`) and still runs the callback synchronously.
  */
@@ -49,7 +48,7 @@ describe("CategoryView loading primitives", () => {
   });
 });
 
-// ── 2. Status-aware cards hook exposes loading lifecycle ─────────────────
+// ── 2. Mastery distribution hook exposes loading lifecycle ───────────────
 vi.mock("@/lib/db/queries", () => ({
   listAllCards: vi.fn(),
   cardsByCategory: vi.fn(),
@@ -58,12 +57,13 @@ vi.mock("@/lib/db/queries", () => ({
   cardsBySource: vi.fn(),
   getCardsByIds: vi.fn(),
   cardCountByCategory: vi.fn(),
+  masteryDistributionByCategoryFromDb: vi.fn(),
   notifyCardsChanged: vi.fn(),
   onCardsChanged: vi.fn(() => () => {}),
 }));
 
-import { cardsByCategory } from "@/lib/db/queries";
-import { useCardsByCategoryWithStatus } from "@/hooks/card/useCardsQuery";
+import { masteryDistributionByCategoryFromDb } from "@/lib/db/queries";
+import { useMasteryDistributionByCategory } from "@/hooks/card/useCardsQuery";
 
 function wrapper(qc: QueryClient) {
   return ({ children }: { children: ReactNode }) => (
@@ -71,12 +71,12 @@ function wrapper(qc: QueryClient) {
   );
 }
 
-describe("useCardsByCategoryWithStatus", () => {
+describe("useMasteryDistributionByCategory", () => {
   it("flips isLoading from true to false once the query resolves", async () => {
-    let resolveFn = null as ((rows: never[]) => void) | null;
-    vi.mocked(cardsByCategory).mockImplementation(
+    let resolveFn = null as ((rows: readonly number[]) => void) | null;
+    vi.mocked(masteryDistributionByCategoryFromDb).mockImplementation(
       () =>
-        new Promise<never[]>((resolve) => {
+        new Promise<readonly number[]>((resolve) => {
           resolveFn = resolve;
         }),
     );
@@ -86,16 +86,14 @@ describe("useCardsByCategoryWithStatus", () => {
     });
 
     const { result } = renderHook(
-      () => useCardsByCategoryWithStatus("cat-1"),
+      () => useMasteryDistributionByCategory("cat-1"),
       { wrapper: wrapper(qc) },
     );
 
-    // Initial state: loading, no data.
     expect(result.current.isLoading).toBe(true);
-    expect(result.current.cards.length).toBe(0);
+    expect(result.current.totalCards).toBe(0);
 
-    // Resolve.
-    resolveFn?.([]);
+    resolveFn?.([0, 0, 0, 0, 0, 0]);
     await waitFor(() => {
       expect(result.current.isLoading).toBe(false);
     });
@@ -106,11 +104,11 @@ describe("useCardsByCategoryWithStatus", () => {
       defaultOptions: { queries: { retry: false } },
     });
     const { result } = renderHook(
-      () => useCardsByCategoryWithStatus(undefined),
+      () => useMasteryDistributionByCategory(undefined),
       { wrapper: wrapper(qc) },
     );
     expect(result.current.isLoading).toBe(false);
-    expect(result.current.cards.length).toBe(0);
+    expect(result.current.totalCards).toBe(0);
   });
 });
 

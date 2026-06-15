@@ -81,6 +81,8 @@ const RE_COUNT_DUE_BY_CATEGORY =
   /^\s*SELECT\s+COUNT\s*\(\s*DISTINCT\s+idx\.card_id\s*\)\s+AS\s+n\s+FROM\s+card_sections_index\s+idx\s+INNER\s+JOIN\s+cards\s+c\s+ON\s+c\.id\s*=\s*idx\.card_id\s+WHERE\s+c\.categoryId\s*=\s*\?\s+AND\s+idx\.state\s*!=\s*\?\s+AND\s+idx\.next_review\s*<=\s*\?\s*$/i;
 const RE_AVG_MASTERY_BY_CATEGORY =
   /^\s*SELECT\s+ROUND\s*\(\s*AVG\s*\(\s*mastery_score\s*\)\s*\)\s+AS\s+score\s+FROM\s+cards\s+WHERE\s+categoryId\s*=\s*\?\s*$/i;
+const RE_MASTERY_DIST_BY_CATEGORY =
+  /^\s*SELECT\s+mastery_level,\s+COUNT\(\*\)\s+AS\s+n\s+FROM\s+cards\s+WHERE\s+categoryId\s*=\s*\?\s+GROUP\s+BY\s+mastery_level\s*$/i;
 
 interface WhereClause {
   match: (row: Row) => boolean;
@@ -553,7 +555,8 @@ class TestExecutor implements SqlExecutor {
       }
       if (table === "cards") {
         return [
-          { name: "id" }, { name: "categoryId" }, { name: "mastery_score" }, { name: "payload" },
+          { name: "id" }, { name: "categoryId" },
+          { name: "mastery_score" }, { name: "mastery_level" }, { name: "payload" },
         ] as unknown as T[];
       }
       return [] as unknown as T[];
@@ -616,6 +619,21 @@ class TestExecutor implements SqlExecutor {
       if (scores.length === 0) return [{ score: 0 } as unknown as T];
       const avg = scores.reduce((a, b) => a + b, 0) / scores.length;
       return [{ score: Math.round(avg) } as unknown as T];
+    }
+
+    const masteryDistByCategory = RE_MASTERY_DIST_BY_CATEGORY.exec(trimmed);
+    if (masteryDistByCategory) {
+      const categoryId = String(params[0]);
+      const cards = this.state.tables.get("cards")?.rows ?? [];
+      const buckets = new Map<number, number>();
+      for (const row of cards) {
+        if (String(row.categoryId) !== categoryId) continue;
+        const level = Number(row.mastery_level ?? 0);
+        buckets.set(level, (buckets.get(level) ?? 0) + 1);
+      }
+      return [...buckets.entries()]
+        .sort((a, b) => a[0] - b[0])
+        .map(([mastery_level, n]) => ({ mastery_level, n })) as unknown as T[];
     }
 
     const countDistinct = RE_COUNT_DISTINCT.exec(trimmed);

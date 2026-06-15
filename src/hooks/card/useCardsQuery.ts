@@ -24,9 +24,11 @@ import {
   countDueCardsFromDb,
   countDueCardsByCategoryFromDb,
   avgMasteryScoreByCategoryFromDb,
+  masteryDistributionByCategoryFromDb,
 } from "@/lib/db/queries";
 import { queryKeys } from "@/lib/query/keys";
 import type { Card } from "@/lib/spaced-repetition";
+import type { MasteryDistribution } from "@/lib/db/queries";
 
 const EMPTY: readonly Card[] = Object.freeze([]);
 
@@ -190,6 +192,37 @@ export function useCategoryDueCounts(
       return out;
     },
   });
+}
+
+/**
+ * Per-category mastery bar buckets (levels 0–5) via SQL GROUP BY — no payload decode.
+ */
+export function useMasteryDistributionByCategory(
+  categoryId: string | undefined,
+): {
+  distribution: MasteryDistribution | null;
+  totalCards: number;
+  isLoading: boolean;
+} {
+  const { data, isLoading } = useQuery({
+    queryKey: categoryId
+      ? queryKeys.cards.masteryDistributionByCategory(categoryId)
+      : ["cards", "masteryDist", "_disabled"],
+    queryFn: () => masteryDistributionByCategoryFromDb(categoryId!),
+    enabled: !!categoryId,
+    staleTime: Infinity,
+  });
+
+  const distribution = data ?? null;
+  const totalCards = distribution
+    ? distribution.reduce((sum, count) => sum + count, 0)
+    : 0;
+
+  return {
+    distribution: totalCards > 0 ? distribution : null,
+    totalCards,
+    isLoading,
+  };
 }
 
 /**

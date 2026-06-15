@@ -29,19 +29,19 @@ describe("pending-source-open", () => {
     const sources = [{ id: "src-a", title: "A" }, { id: "src-b", title: "B" }];
 
     const found = consumePendingSourceOpen(sources);
-    expect(found?.id).toBe("src-a");
+    expect(found.source?.id).toBe("src-a");
     expect(sessionStorage.getItem(SR_OPEN_SOURCE_ID_KEY)).toBeNull();
   });
 
-  it("consumePendingSourceOpen returns undefined when sources are still loading", () => {
+  it("consumePendingSourceOpen returns empty when sources are still loading", () => {
     sessionStorage.setItem(SR_OPEN_SOURCE_ID_KEY, "src-a");
-    expect(consumePendingSourceOpen([])).toBeUndefined();
+    expect(consumePendingSourceOpen([])).toEqual({});
     expect(sessionStorage.getItem(SR_OPEN_SOURCE_ID_KEY)).toBe("src-a");
   });
 
-  it("consumePendingSourceOpen clears storage even when id is missing from list", () => {
+  it("consumePendingSourceOpen reports missed id when not in list", () => {
     sessionStorage.setItem(SR_OPEN_SOURCE_ID_KEY, "gone");
-    expect(consumePendingSourceOpen([{ id: "other" }])).toBeUndefined();
+    expect(consumePendingSourceOpen([{ id: "other" }])).toEqual({ missedId: "gone" });
     expect(sessionStorage.getItem(SR_OPEN_SOURCE_ID_KEY)).toBeNull();
   });
 
@@ -50,7 +50,7 @@ describe("pending-source-open", () => {
     const opened: string[] = [];
     const onEvent = () => {
       const hit = consumePendingSourceOpen(sources);
-      if (hit) opened.push(hit.id);
+      if (hit.source) opened.push(hit.source.id);
     };
     window.addEventListener(SOURCE_READER_OPEN_EVENT, onEvent);
 

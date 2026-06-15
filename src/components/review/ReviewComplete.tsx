@@ -1,21 +1,84 @@
-import { BookOpen } from "lucide-react";
+import { BarChart3, BookOpen, Check, Clock, Target, Trophy } from "lucide-react";
 import { useEffect } from "react";
 import { m } from "@/lib/motion";
 import { Button } from "@/components/ui/button";
-export default function ReviewComplete({ onBack }: { onBack: () => void }) {
+import { GRADE_LABELS } from "@/components/learn/types";
+
+interface Props {
+  onBack: () => void;
+  sessionStartTime: number;
+  totalGrades: number[];
+  sectionsReviewed: number;
+}
+
+export default function ReviewComplete({
+  onBack,
+  sessionStartTime,
+  totalGrades,
+  sectionsReviewed,
+}: Props) {
   useEffect(() => {
     import("@/lib/sounds").then(m => m.playSessionComplete());
   }, []);
 
+  const elapsed = Date.now() - sessionStartTime;
+  const minutes = Math.floor(elapsed / 60000);
+  const seconds = Math.floor((elapsed % 60000) / 1000);
+  const avgGrade = totalGrades.length > 0
+    ? (totalGrades.reduce((a, b) => a + b, 0) / totalGrades.length).toFixed(1)
+    : "—";
+
+  const statItems = [
+    { icon: Clock, label: "Vrijeme", value: minutes > 0 ? `${minutes}m ${seconds}s` : `${seconds}s` },
+    { icon: Target, label: "Sekcija pregledano", value: sectionsReviewed },
+    { icon: BarChart3, label: "Prosječna ocjena", value: avgGrade },
+    { icon: Trophy, label: "Ocjena ukupno", value: totalGrades.length },
+  ];
+
   return (
-    <m.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-center space-y-6 py-20">
-      <div className="inline-flex p-4 rounded-2xl bg-gold/10 mb-2">
-        <BookOpen className="h-10 w-10 text-gold" />
+    <m.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="max-w-md mx-auto space-y-8 py-16">
+      <div className="text-center space-y-3">
+        <div className="inline-flex p-4 rounded-2xl bg-gold/10 mb-2">
+          <BookOpen className="h-10 w-10 text-gold" />
+        </div>
+        <h2 className="text-display text-4xl text-foreground text-balance">Sesija završena!</h2>
+        <p className="text-muted-foreground text-lg text-pretty">Sve dospjele sekcije su konsolidovane. Odlično!</p>
       </div>
-      <h2 className="text-4xl font-bold">Sesija završena!</h2>
-      <p className="text-muted-foreground text-lg">Sve dospjele sekcije su konsolidovane. Odlično!</p>
-      <Button onClick={onBack} className="btn-imperial bg-primary hover:bg-primary/90 text-primary-foreground">
-        <BookOpen className="h-4 w-4 mr-2" /> Zaključi i sačuvaj napredak
+
+      <div className="grid grid-cols-2 gap-3">
+        {statItems.map(({ icon: StatIcon, label, value }) => (
+          <div key={label} className="glass-card rounded-xl p-4 text-center space-y-1">
+            <StatIcon className="h-5 w-5 text-muted-foreground mx-auto" />
+            <p className="text-2xl font-bold tabular">{value}</p>
+            <p className="text-xs text-muted-foreground">{label}</p>
+          </div>
+        ))}
+      </div>
+
+      {totalGrades.length > 0 && (
+        <div className="glass-card rounded-xl p-4 space-y-2">
+          <p className="text-xs font-medium text-muted-foreground text-center">Distribucija ocjena</p>
+          <div className="flex items-end justify-center gap-3 h-16">
+            {[1, 2, 3, 4].map((g) => {
+              const count = totalGrades.filter((x) => x === g).length;
+              const pct = totalGrades.length > 0 ? (count / totalGrades.length) * 100 : 0;
+              return (
+                <div key={g} className="flex flex-col items-center gap-1">
+                  <div
+                    className={`w-8 rounded-t-md transition-all ${g === 1 ? "bg-destructive/70" : g === 2 ? "bg-warning/70" : g === 3 ? "bg-primary/70" : "bg-success/70"}`}
+                    style={{ height: `${Math.max(4, pct * 0.6)}px` }}
+                  />
+                  <span className="text-[10px] text-muted-foreground">{GRADE_LABELS[g]}</span>
+                  <span className="text-xs font-medium tabular">{count}</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      <Button onClick={onBack} className="w-full bg-primary hover:bg-primary/90 text-primary-foreground">
+        <Check className="h-4 w-4 mr-2" /> Zaključi i sačuvaj napredak
       </Button>
     </m.div>
   );

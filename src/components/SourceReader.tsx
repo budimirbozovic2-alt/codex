@@ -25,6 +25,10 @@ import { logger } from "@/lib/logger";
 const AutoSplitDialog = lazy(() => import("@/components/AutoSplitDialog"));
 const LinkToExistingCardModal = lazy(() => import("@/components/LinkToExistingCardModal"));
 
+function sourceOutlineKey(outline: Source["outline"]): string {
+  return JSON.stringify(outline ?? []);
+}
+
 interface Props {
   source: Source;
   onBack: () => void;
@@ -166,6 +170,7 @@ export default memo(function SourceReader({ source, onBack, onSourceUpdated }: P
   prev.source.id === next.source.id
   && prev.source.updatedAt === next.source.updatedAt
   && prev.source.version === next.source.version
+  && sourceOutlineKey(prev.source.outline) === sourceOutlineKey(next.source.outline)
   && prev.onBack === next.onBack
   && prev.onSourceUpdated === next.onSourceUpdated,
 );
@@ -212,13 +217,16 @@ function SourceReaderExamSidebar({
     if (saveTimerRef.current !== null) taskScheduler.cancel(saveTimerRef.current);
     saveTimerRef.current = taskScheduler.setTimeout(() => {
       saveTimerRef.current = null;
-      lastSavedJsonRef.current = json;
       const current = sourceRef.current;
       const next: Source = { ...current, examQuestions, updatedAt: Date.now() };
       saveSourceMutation.mutateAsync(next)
-        .then(() => onSourceUpdatedRef.current?.(next))
+        .then(() => {
+          lastSavedJsonRef.current = json;
+          onSourceUpdatedRef.current?.(next);
+        })
         .catch(err => {
           logger.error("[SourceReader] failed to persist examQuestions", err);
+          toast.error("Čuvanje ispitanih pitanja nije uspjelo");
         });
     }, 800, { label: `source-reader:exam-questions:${source.id}` });
     return () => {

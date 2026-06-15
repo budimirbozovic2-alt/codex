@@ -3,12 +3,22 @@ import { memo } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { SaveStatusChip } from "@/components/ui/SaveStatusChip";
 import { cn } from "@/lib/utils";
 import type { Source, SourceKind } from "@/lib/db-types";
 import { SourceHeader } from "./SourceHeader";
-import { useSourceReaderStore, type ReaderWidth } from "@/store";
+import { useSourceReaderStore, type ReaderWidth, type ReaderFontSize, type ReaderLineHeight, READER_FONT_SIZE_LABELS, READER_LINE_HEIGHT_LABELS } from "@/store";
+import { useSourceContentSaveStore } from "@/store/useSourceContentSaveStore";
 
 const WIDTH_OPTIONS: ReaderWidth[] = ["S", "M", "L", "XL", "Full"];
+
+const WIDTH_LABELS: Record<ReaderWidth, string> = {
+  S: "S",
+  M: "M",
+  L: "L",
+  XL: "XL",
+  Full: "Puna",
+};
 
 interface Props {
   source: Source;
@@ -29,6 +39,8 @@ export const SourceToolbar = memo(function SourceToolbar({ source, onBack, onAut
   const {
     editMode, setEditMode,
     readerWidth, setReaderWidth,
+    readerFontSize, setReaderFontSize,
+    readerLineHeight, setReaderLineHeight,
     examOpen, setExamOpen,
     outlineOpen, setOutlineOpen,
   } = useSourceReaderStore(
@@ -37,6 +49,10 @@ export const SourceToolbar = memo(function SourceToolbar({ source, onBack, onAut
       setEditMode: s.setEditMode,
       readerWidth: s.readerWidth,
       setReaderWidth: s.setReaderWidth,
+      readerFontSize: s.readerFontSize,
+      setReaderFontSize: s.setReaderFontSize,
+      readerLineHeight: s.readerLineHeight,
+      setReaderLineHeight: s.setReaderLineHeight,
       examOpen: s.examOpen,
       setExamOpen: s.setExamOpen,
       outlineOpen: s.outlineOpen,
@@ -47,6 +63,7 @@ export const SourceToolbar = memo(function SourceToolbar({ source, onBack, onAut
   const pendingCount = useSourceReaderStore(
     (s) => s.examQuestions.filter((q) => !q.done).length,
   );
+  const saveStatus = useSourceContentSaveStore((s) => s.status);
 
   return (
     <div className="space-y-2">
@@ -57,6 +74,8 @@ export const SourceToolbar = memo(function SourceToolbar({ source, onBack, onAut
         </Button>
 
         <SourceHeader source={source} />
+
+        <SaveStatusChip status={saveStatus} className="shrink-0" />
 
         <Button
           variant="outline"
@@ -86,7 +105,7 @@ export const SourceToolbar = memo(function SourceToolbar({ source, onBack, onAut
         {!editMode && sourceKind === "propis" && (
           <Button variant="outline" size="sm" onClick={onAutoSplit} className="gap-1.5" title="Generiši eseje iz članova">
             <Wand2 className="h-3.5 w-3.5" />
-            Auto-Split
+            Auto-podjela
           </Button>
         )}
 
@@ -99,22 +118,68 @@ export const SourceToolbar = memo(function SourceToolbar({ source, onBack, onAut
 
         <div className="ml-auto flex items-center gap-2">
           {!editMode && (
-            <Button
-              variant={examOpen ? "default" : "outline"}
-              size="sm"
-              onClick={() => setExamOpen(!examOpen)}
-              className="gap-1.5"
-              title="Ispitna pitanja sidebar (M)"
-            >
-              <FileQuestion className="h-3.5 w-3.5" />
-              {examOpen ? "Zatvori pitanja" : "Pitanja"}
-              <kbd className="hidden sm:inline text-[9px] opacity-60 ml-0.5">M</kbd>
-              {pendingCount > 0 && (
-                <Badge variant="secondary" className="text-[10px] h-4 min-w-4 px-1">
-                  {pendingCount}
-                </Badge>
-              )}
-            </Button>
+            <>
+              <div
+                className="hidden sm:flex items-center rounded-lg border border-border bg-muted/50 p-0.5"
+                role="group"
+                aria-label="Veličina teksta"
+              >
+                {(["sm", "base", "lg"] as ReaderFontSize[]).map(size => (
+                  <button
+                    key={size}
+                    type="button"
+                    onClick={() => setReaderFontSize(size)}
+                    className={cn(
+                      "px-2 py-1 rounded-md text-xs font-medium transition-colors",
+                      readerFontSize === size ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground",
+                    )}
+                    aria-pressed={readerFontSize === size}
+                    title={`Veličina: ${READER_FONT_SIZE_LABELS[size]}`}
+                  >
+                    {size === "sm" ? "A-" : size === "lg" ? "A+" : "A"}
+                  </button>
+                ))}
+              </div>
+
+              <div
+                className="hidden md:flex items-center rounded-lg border border-border bg-muted/50 p-0.5"
+                role="group"
+                aria-label="Razmak redova"
+              >
+                {(["normal", "relaxed", "loose"] as ReaderLineHeight[]).map(height => (
+                  <button
+                    key={height}
+                    type="button"
+                    onClick={() => setReaderLineHeight(height)}
+                    className={cn(
+                      "px-2 py-1 rounded-md text-xs font-medium transition-colors",
+                      readerLineHeight === height ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground",
+                    )}
+                    aria-pressed={readerLineHeight === height}
+                    title={`Razmak: ${READER_LINE_HEIGHT_LABELS[height]}`}
+                  >
+                    {height === "normal" ? "1×" : height === "relaxed" ? "1.2×" : "1.4×"}
+                  </button>
+                ))}
+              </div>
+
+              <Button
+                variant={examOpen ? "default" : "outline"}
+                size="sm"
+                onClick={() => setExamOpen(!examOpen)}
+                className="gap-1.5"
+                title="Ispitna pitanja sidebar (M)"
+              >
+                <FileQuestion className="h-3.5 w-3.5" />
+                {examOpen ? "Zatvori pitanja" : "Pitanja"}
+                <kbd className="hidden sm:inline text-[9px] opacity-60 ml-0.5">M</kbd>
+                {pendingCount > 0 && (
+                  <Badge variant="secondary" className="text-[10px] h-4 min-w-4 px-1">
+                    {pendingCount}
+                  </Badge>
+                )}
+              </Button>
+            </>
           )}
 
           <div
@@ -131,9 +196,9 @@ export const SourceToolbar = memo(function SourceToolbar({ source, onBack, onAut
                   readerWidth === w ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"
                 )}
                 aria-pressed={readerWidth === w}
-                title={`Širina: ${w}`}
+                title={`Širina: ${WIDTH_LABELS[w]}`}
               >
-                {w}
+                {WIDTH_LABELS[w]}
               </button>
             ))}
           </div>

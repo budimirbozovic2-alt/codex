@@ -89,7 +89,7 @@ export default function ResistanceTab({ cards, categories, reviewLog, srSettings
     return (
       <div className="mt-8 text-center space-y-3 py-12">
         <Flame className="h-12 w-12 mx-auto text-muted-foreground/30" />
-        <h3 className="text-lg font-medium">Nema podataka o kognitivnom otporu</h3>
+        <h3 className="text-eyebrow normal-case tracking-normal">Nema podataka o kognitivnom otporu</h3>
         <p className="text-sm text-muted-foreground max-w-md mx-auto">
           Podaci se prikupljaju automatski tokom ponavljanja. Potrebno je bar nekoliko sesija.
         </p>

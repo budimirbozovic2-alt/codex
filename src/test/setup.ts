@@ -8,6 +8,23 @@ import {
 import { __resetSqliteReadyForTests } from "@/lib/persistence/sqlite/readyMachine";
 import { __resetExecutorTelemetry } from "@/lib/db/queries/_shared/executor-telemetry";
 
+/**
+ * jsdom does not implement document hit-testing APIs. ProseMirror (posAtCoords)
+ * and TipTap Placeholder viewport tracking call elementFromPoint during mount.
+ * A no-op stub lets ProseMirror fall back to its DOM-walking path; Placeholder
+ * then uses pos 0..doc.size when coords resolve to null.
+ */
+function installDomHitTestingPolyfills(): void {
+  if (typeof document.elementFromPoint !== "function") {
+    document.elementFromPoint = () => null;
+  }
+  if (typeof document.elementsFromPoint !== "function") {
+    document.elementsFromPoint = () => [];
+  }
+}
+
+installDomHitTestingPolyfills();
+
 const mockGetOpfsSqliteExecutor = vi.hoisted(() =>
   vi.fn<[], Promise<SqlExecutor>>(),
 );
