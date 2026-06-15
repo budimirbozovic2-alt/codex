@@ -56,15 +56,15 @@ export default function CalibrationTab() {
       </div>
 
       <div className="grid grid-cols-3 gap-4">
-        <div className="rounded-xl border bg-card p-4 text-center">
+        <div className="glass-card rounded-xl p-4 text-center">
           <div className="text-2xl font-bold">{stats.total}</div>
           <div className="text-xs text-muted-foreground mt-1">Mjerenja (arhiva)</div>
         </div>
-        <div className="rounded-xl border bg-card p-4 text-center">
+        <div className="glass-card rounded-xl p-4 text-center">
           <div className="text-2xl font-bold text-success">{stats.calibrated}</div>
           <div className="text-xs text-muted-foreground mt-1">Kalibrisano</div>
         </div>
-        <div className="rounded-xl border bg-card p-4 text-center">
+        <div className="glass-card rounded-xl p-4 text-center">
           <div className={`text-2xl font-bold ${stats.avgDelta > 0.3 ? "text-destructive" : stats.avgDelta < -0.3 ? "text-warning" : "text-success"}`}>
             {stats.avgDelta > 0 ? "+" : ""}{stats.avgDelta.toFixed(1)}
           </div>

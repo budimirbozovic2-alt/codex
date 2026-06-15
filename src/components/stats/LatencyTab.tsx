@@ -60,15 +60,15 @@ export default function LatencyTab({ catNameMap }: Props) {
   return (
     <div className="space-y-6 mt-4">
       <div className="grid grid-cols-3 gap-4">
-        <div className="rounded-xl border bg-card p-4 text-center">
+        <div className="glass-card rounded-xl p-4 text-center">
           <div className="text-2xl font-bold">{(stats.avg / 1000).toFixed(1)}s</div>
           <div className="text-xs text-muted-foreground mt-1">Prosječna latencija</div>
         </div>
-        <div className="rounded-xl border bg-card p-4 text-center">
+        <div className="glass-card rounded-xl p-4 text-center">
           <div className="text-2xl font-bold text-success">{automatedPercent}%</div>
           <div className="text-xs text-muted-foreground mt-1">Automatizovano (≤3s)</div>
         </div>
-        <div className="rounded-xl border bg-card p-4 text-center">
+        <div className="glass-card rounded-xl p-4 text-center">
           <div className="text-2xl font-bold text-destructive">{stats.notAutomated}</div>
           <div className="text-xs text-muted-foreground mt-1">Nije automatiz. (&gt;3s)</div>
         </div>

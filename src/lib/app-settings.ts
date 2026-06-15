@@ -1,5 +1,6 @@
 import { logger } from "@/lib/logger";
 import { putSetting } from "@/lib/db/queries";
+import { parseAppLocale, type AppLocale } from "@/i18n/types";
 
 const APP_SETTINGS_KEY = "sr-app-settings";
 
@@ -44,6 +45,7 @@ export interface AppSettings {
   autoBackupDays: number;
   soundEffects: boolean;
   colorTheme: ColorTheme;
+  locale: AppLocale;
   dashboardWidgets: DashboardWidgetConfig;
   pomodoro: PomodoroConfig;
   notifications: NotificationConfig;
@@ -54,6 +56,7 @@ export const DEFAULT_APP_SETTINGS: AppSettings = {
   autoBackupDays: 7,
   soundEffects: false,
   colorTheme: "ocean",
+  locale: "me",
   dashboardWidgets: {
     showExamProgress: true,
     showCoreStats: true,
@@ -86,6 +89,7 @@ export function loadAppSettings(): AppSettings {
     return {
       ...DEFAULT_APP_SETTINGS,
       ...parsed,
+      locale: parseAppLocale(parsed.locale),
       dashboardWidgets: { ...DEFAULT_APP_SETTINGS.dashboardWidgets, ...parsed.dashboardWidgets },
       pomodoro: { ...DEFAULT_APP_SETTINGS.pomodoro, ...parsed.pomodoro },
       notifications: { ...DEFAULT_APP_SETTINGS.notifications, ...parsed.notifications },

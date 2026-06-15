@@ -1,5 +1,6 @@
 import { ArrowLeft, Pause } from "lucide-react";
 import type { ReactNode } from "react";
+import { useI18n } from "@/i18n";
 import { m } from "@/lib/motion";
 import ShortcutsHint from "@/components/ShortcutsHint";
 
@@ -23,7 +24,7 @@ interface Props {
 
 export function SessionChrome({
   onBack,
-  backLabel = "Nazad",
+  backLabel,
   onPause,
   modeBadge,
   scopeBadge,
@@ -33,6 +34,8 @@ export function SessionChrome({
   progressTotal,
   shortcuts,
 }: Props) {
+  const { t } = useI18n();
+  const resolvedBackLabel = backLabel ?? t("common.back");
   const pct = progressTotal > 0 ? (progressCurrent / progressTotal) * 100 : 0;
 
   return (
@@ -43,19 +46,19 @@ export function SessionChrome({
             type="button"
             onClick={onBack}
             className="text-muted-foreground hover:text-foreground flex items-center gap-1"
-            aria-label={backLabel}
+            aria-label={resolvedBackLabel}
           >
-            <ArrowLeft className="h-4 w-4" /> {backLabel}
+            <ArrowLeft className="h-4 w-4" /> {resolvedBackLabel}
           </button>
           {onPause && (
             <button
               type="button"
               onClick={onPause}
               className="text-muted-foreground hover:text-foreground flex items-center gap-1 px-2 py-1 rounded-md hover:bg-secondary text-xs"
-              title="Pauziraj sesiju i nastavi kasnije"
-              aria-label="Pauziraj sesiju"
+              title={t("session.pauseTitle")}
+              aria-label={t("session.pauseAria")}
             >
-              <Pause className="h-3.5 w-3.5" /> Pauza
+              <Pause className="h-3.5 w-3.5" /> {t("session.pause")}
             </button>
           )}
         </div>

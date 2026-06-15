@@ -55,6 +55,93 @@ export function firstWords(text: string, n = 7): string {
   return words.length > n ? slice + "..." : slice;
 }
 
+function normalizePlain(s: string): string {
+  return s.replace(/\s+/g, " ").trim();
+}
+
+/** Remove first N words from text; returns remainder. */
+export function stripWordPrefix(text: string, wordCount: number): string {
+  const words = text.replace(/\s+/g, " ").trim().split(" ").filter(Boolean);
+  if (words.length <= wordCount) return "";
+  return words.slice(wordCount).join(" ");
+}
+
+function stripPlainPrefix(content: string, titleNorm: string, titleMatch: string): string {
+  if (content.toLowerCase().startsWith(titleNorm.toLowerCase())) {
+    return content.slice(titleNorm.length).trim();
+  }
+  if (titleMatch && content.toLowerCase().startsWith(titleMatch.toLowerCase())) {
+    const rest = content.slice(titleMatch.length).trim();
+    if (rest) return rest;
+    const wordCount = titleMatch.split(" ").filter(Boolean).length;
+    return stripWordPrefix(content, wordCount);
+  }
+  return content;
+}
+
+/**
+ * Remove a title prefix from plain + HTML module content so the title is not
+ * duplicated in the essay body. Returns original content if stripping would
+ * empty the body.
+ */
+export function stripTitleFromContent(
+  title: string,
+  contentText: string,
+  contentHtml: string,
+): { contentText: string; contentHtml: string } {
+  const titleNorm = normalizePlain(title);
+  if (!titleNorm) return { contentText, contentHtml };
+
+  const titleMatch = titleNorm.replace(/\.\.\.$/, "").trim();
+  const contentNorm = normalizePlain(contentText);
+
+  const blocks = splitHtmlIntoBlocks(contentHtml);
+  if (blocks.length > 0) {
+    const firstPlain = normalizePlain(htmlToPlain(blocks[0]));
+    const matchesBlock =
+      firstPlain.toLowerCase() === titleNorm.toLowerCase()
+      || firstPlain.toLowerCase() === titleMatch.toLowerCase()
+      || (
+        titleMatch.length > 0
+        && firstPlain.toLowerCase().startsWith(titleMatch.toLowerCase())
+        && (firstPlain.length === titleMatch.length || firstPlain[titleMatch.length] === " ")
+      );
+
+    if (matchesBlock) {
+      if (blocks.length > 1) {
+        const newHtml = joinHtmlBlocks(blocks.slice(1));
+        const newText = htmlToPlain(newHtml);
+        if (newText.trim()) return { contentText: newText, contentHtml: newHtml };
+      }
+      const remainder = stripPlainPrefix(firstPlain, titleNorm, titleMatch);
+      if (remainder.trim()) {
+        return { contentText: remainder, contentHtml: `<p>${remainder}</p>` };
+      }
+    }
+  }
+
+  const stripped = stripPlainPrefix(contentNorm, titleNorm, titleMatch);
+  if (stripped !== contentNorm && stripped.trim()) {
+    const newHtml = stripped.split("\n").filter(Boolean).map((l) => `<p>${l}</p>`).join("\n");
+    return { contentText: stripped, contentHtml: newHtml };
+  }
+
+  return { contentText, contentHtml };
+}
+
+/** Derive essay title from first N words and strip that prefix from the body. */
+export function deriveTitleAndBody(
+  text: string,
+  html: string,
+  wordCount = 7,
+): { title: string; contentText: string; contentHtml: string } {
+  const plain = text.replace(/\s+/g, " ").trim();
+  const safeHtml = html?.trim() || `<p>${plain}</p>`;
+  const title = firstWords(plain, wordCount) || "Novi esej";
+  const stripped = stripTitleFromContent(title, plain, safeHtml);
+  return { title, ...stripped };
+}
+
 /**
  * Parse selected text and split into article modules.
  * If no Član boundaries found, returns hasArticles=false.
@@ -132,8 +219,19 @@ export function splitSelection(selectedText: string): SelectionSplitResult {
       if (lines[j].trim() && !HEADING_LINE_REGEX.test(lines[j]) && !isStructuralLine(lines[j])) contentLines.push(lines[j]);
     }
 
-    // Fallback title from first 7 words
-    const displayTitle = title || (contentLines.length > 0 ? firstWords(contentLines[0], 7) : `Član ${articleNum}`);
+    // Fallback title from first 7 words — strip those words from first content line
+    let displayTitle: string;
+    if (title) {
+      displayTitle = title;
+    } else if (contentLines.length > 0) {
+      const firstLine = contentLines[0];
+      displayTitle = firstWords(firstLine, 7);
+      const rest = stripWordPrefix(firstLine, 7);
+      if (rest) contentLines[0] = rest;
+      else contentLines.shift();
+    } else {
+      displayTitle = `Član ${articleNum}`;
+    }
     const formattedTitle = `čl. ${articleNum} ${displayTitle}`;
 
     const contentText = contentLines.join("\n");

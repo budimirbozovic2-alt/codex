@@ -133,6 +133,7 @@ Procjena: **Fibonacci SP** (1, 2, 3, 5, 8, 13). Rizik: nizak / srednji / visok.
 | **Prioritet** | P2 |
 | **SP** | 8 |
 | **Rizik** | srednji |
+| **Status** | ✅ Done (2026-06-15) |
 
 **Problem:** Audit §4 — TipTap Floating UI nije pouzdan u jsdom; unit testovi mockuju EditorV4. Nema E2E za edit, format toggle, smart split confirm.
 
@@ -151,6 +152,8 @@ Procjena: **Fibonacci SP** (1, 2, 3, 5, 8, 13). Rizik: nizak / srednji / visok.
 - E2E prolazi u CI (headless Chromium).
 - Dokumentovan seed/fixture za test kategoriju + izvor.
 
+**Implementirano:** `playwright.config.ts`, `e2e/source-reader-edit.spec.ts`, `src/e2e/bridge.ts` + `seed-reader-fixture.ts` (`window.__codexE2E`), `.env.e2e` (`VITE_E2E=1`), [`docs/e2e-fixtures.md`](docs/e2e-fixtures.md), `npm run test:e2e`.
+
 ---
 
 ## TD-6 · Stats / Planner charts vizuelni sprint (P3)
@@ -160,6 +163,7 @@ Procjena: **Fibonacci SP** (1, 2, 3, 5, 8, 13). Rizik: nizak / srednji / visok.
 | **Prioritet** | P3 |
 | **SP** | 8 |
 | **Rizik** | srednji |
+| **Status** | ✅ Done (2026-06-15) |
 
 **Problem:** UX plan namjerno odložio „Charts/data-viz restyling”. PageHeader/glass-card su urađeni; grafici i widgeti na Stats/Planner ekranima nisu ujednačeni.
 
@@ -177,6 +181,8 @@ Procjena: **Fibonacci SP** (1, 2, 3, 5, 8, 13). Rizik: nizak / srednji / visok.
 **DoD:**
 - Stats + Planner koriste isti header/skeleton pattern kao Dashboard.
 - Nema regresije u postojećim stats unit testovima.
+
+**Implementirano:** `StatsPage` / `PlannerPage` → `DataReadyGate` + `DashboardSkeleton` + `space-y-8 animate-fade-in`; `RetentionChart`, `ActivityHeatmap`, `LatencyTab`, `CalibrationTab`, `DisciplineTab`, `StrategicPlanner` tab bar → `glass-card` / `text-eyebrow`; `OverviewTab` mastery pie → `MASTERY_LEVELS` tokeni; `src/test/stats-planner-shell.test.tsx`.
 
 ---
 

@@ -1,11 +1,11 @@
 import { describe, it, expect, vi } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { screen, fireEvent } from "@testing-library/react";
 import { PageHeader } from "@/components/ui/PageHeader";
+import { renderWithI18n } from "@/test/helpers/render-with-i18n";
 
 describe("PageHeader", () => {
   it("renders eyebrow, title, and subtitle", () => {
-    render(
-      <PageHeader
+    renderWithI18n(      <PageHeader
         eyebrow="Kategorija"
         title="Krivično pravo"
         subtitle="Pregled izvora i karata"
@@ -19,7 +19,7 @@ describe("PageHeader", () => {
 
   it("calls back action with custom label", () => {
     const onBack = vi.fn();
-    render(
+    renderWithI18n(
       <PageHeader
         title="Naslov"
         back={{ label: "Početna", onClick: onBack }}
@@ -31,7 +31,7 @@ describe("PageHeader", () => {
   });
 
   it("renders scope badge, actions, and footer slots", () => {
-    render(
+    renderWithI18n(
       <PageHeader
         title="Sesija"
         scopeBadge="Zaključano"

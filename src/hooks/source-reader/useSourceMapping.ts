@@ -3,7 +3,7 @@ import { toast } from "sonner";
 import { useCardOnlyActions } from "@/hooks/cards/useActions";
 import { type Source } from "@/domains/sources/sources-storage";
 import { useSourceReaderStore } from "@/store";
-import { firstWords, type SelectionModule } from "@/lib/selection-split-engine";
+import { deriveTitleAndBody, splitSelection, type SelectionModule } from "@/lib/selection-split-engine";
 import { sanitizeHtml } from "@/lib/sanitize";
 import {
   buildCombinedEssayFromModules,
@@ -42,21 +42,33 @@ export function useSourceMapping(source: Source) {
       setSplitResult, setSplitSummaryOpen, initSplitWizard,
     } = useSourceReaderStore.getState();
     if (!text || text.trim().length === 0) return;
-    const plainSnippet = text.trim();
     const safe = sanitizeHtml(html || `<p>${text}</p>`);
-    const fallbackTitle = firstWords(plainSnippet, 7) || "Novi esej";
+
+    const split = source.sourceKind !== "skripta" ? splitSelection(text) : null;
+    if (split?.hasArticles && split.modules.length > 0) {
+      setSplitResult({
+        modules: split.modules,
+        rangeLabel: split.rangeLabel,
+        parentName: split.parentName,
+      });
+      initSplitWizard(split.modules, split.parentName);
+      setSplitSummaryOpen(true);
+      return;
+    }
+
+    const { title, contentText, contentHtml } = deriveTitleAndBody(text, safe);
     const singleModule: SelectionModule = {
       id: crypto.randomUUID(),
       articleNum: "",
-      title: fallbackTitle,
-      contentText: plainSnippet,
-      contentHtml: safe,
-      plainSnippet,
+      title,
+      contentText,
+      contentHtml,
+      plainSnippet: contentText,
     };
-    setSplitResult({ modules: [singleModule], rangeLabel: fallbackTitle, parentName: fallbackTitle });
-    initSplitWizard([singleModule], fallbackTitle);
+    setSplitResult({ modules: [singleModule], rangeLabel: title, parentName: title });
+    initSplitWizard([singleModule], title);
     setSplitSummaryOpen(true);
-  }, []);
+  }, [source.sourceKind]);
 
   const handleSmartSplitConfirm = useCallback(async () => {
     const {

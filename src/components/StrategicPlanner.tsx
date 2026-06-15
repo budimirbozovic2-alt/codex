@@ -119,7 +119,7 @@ export default function StrategicPlanner({ cards, categories: _categories, categ
         />
 
         {/* Tab navigation */}
-        <div className="flex gap-1 mt-4 p-1 rounded-lg bg-secondary/50">
+        <div className="flex gap-1 mt-4 p-1 rounded-lg glass-card">
           {([
             { key: "operations" as const, label: "Operativni plan", icon: Target },
             { key: "roadmap" as const, label: "Mapa puta", icon: MapIcon },

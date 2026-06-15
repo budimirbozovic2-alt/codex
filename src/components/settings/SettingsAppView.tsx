@@ -1,44 +1,8 @@
-import { Link, Navigate, Route, Routes, useLocation } from "react-router-dom";
+import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import PersonalizationTab from "@/components/settings/PersonalizationTab";
 import WorkflowTab from "@/components/settings/WorkflowTab";
 import SettingsSectionLayout from "@/components/settings/SettingsSectionLayout";
 import { useSettingsContext } from "@/components/settings/SettingsProvider";
-
-const APP_SUBSECTIONS = [
-  { path: "personalization", to: "/settings/app/personalization", label: "Personalizacija" },
-  { path: "workflow", to: "/settings/app/workflow", label: "Workflow" },
-] as const;
-
-function SettingsAppSubNav() {
-  const { pathname } = useLocation();
-
-  return (
-    <nav
-      className="flex gap-1 p-1 rounded-lg bg-secondary/50 w-fit"
-      role="tablist"
-      aria-label="Podsekcije aplikacije"
-    >
-      {APP_SUBSECTIONS.map(({ to, label }) => {
-        const active = pathname.startsWith(to);
-        return (
-          <Link
-            key={to}
-            to={to}
-            role="tab"
-            aria-selected={active}
-            className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
-              active
-                ? "bg-background text-foreground shadow-sm"
-                : "text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            {label}
-          </Link>
-        );
-      })}
-    </nav>
-  );
-}
 
 export default function SettingsAppView() {
   const { isSubjectMode, app, setApp, tts, setTts, voices } = useSettingsContext();
@@ -49,21 +13,28 @@ export default function SettingsAppView() {
   }
 
   return (
-    <SettingsSectionLayout
-      title="Aplikacija"
-      description="Izgled, dashboard, sesija učenja i podsjetnici"
-      subNav={<SettingsAppSubNav />}
-      showFooter={false}
-    >
-      <Routes>
-        <Route index element={<Navigate to="personalization" replace />} />
-        <Route
-          path="personalization"
-          element={<PersonalizationTab app={app} setApp={setApp} />}
-        />
-        <Route
-          path="workflow"
-          element={
+    <Routes>
+      <Route index element={<Navigate to="personalization" replace />} />
+      <Route
+        path="personalization"
+        element={(
+          <SettingsSectionLayout
+            title="Personalizacija"
+            description="Jezik, tema, widgeti početne table i zvuk"
+            showFooter={false}
+          >
+            <PersonalizationTab app={app} setApp={setApp} />
+          </SettingsSectionLayout>
+        )}
+      />
+      <Route
+        path="workflow"
+        element={(
+          <SettingsSectionLayout
+            title="Workflow"
+            description="Pomodoro, glasovni čitač i podsjetnici"
+            showFooter={false}
+          >
             <WorkflowTab
               app={app}
               setApp={setApp}
@@ -71,10 +42,10 @@ export default function SettingsAppView() {
               setTts={setTts}
               voices={voices}
             />
-          }
-        />
-        <Route path="*" element={<Navigate to="personalization" replace />} />
-      </Routes>
-    </SettingsSectionLayout>
+          </SettingsSectionLayout>
+        )}
+      />
+      <Route path="*" element={<Navigate to="personalization" replace />} />
+    </Routes>
   );
 }

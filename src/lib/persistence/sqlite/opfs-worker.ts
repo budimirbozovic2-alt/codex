@@ -156,8 +156,9 @@ function makeLocalExecutor(): SqlExecutor {
 }
 
 let initPromise: Promise<void> | null = null;
+let e2eMemoryMode = false;
 
-async function initDb(): Promise<void> {
+async function initDb(forceE2E = false): Promise<void> {
   const mod = await import("@sqlite.org/sqlite-wasm");
   const initFn = (
     mod as unknown as { 
@@ -176,7 +177,13 @@ async function initDb(): Promise<void> {
 
   diagSnapshot = probeDiag(sqlite3);
 
-  if (sqlite3.installOpfsSAHPoolVfs) {
+  if (forceE2E || import.meta.env.VITE_E2E) {
+    // Playwright/CI: OPFS unavailable in headless Chromium — use :memory:
+    db = new sqlite3.oo1.DB(":memory:", "c");
+    opfsMode = true;
+    e2eMemoryMode = true;
+    initError = null;
+  } else if (sqlite3.installOpfsSAHPoolVfs) {
     try {
       const pool = await sqlite3.installOpfsSAHPoolVfs({ 
         name: "codex-opfs-pool",
@@ -211,7 +218,7 @@ async function initDb(): Promise<void> {
 
 // ── RPC server ──
 type Req =
-  | { id: number; op: "init" }
+  | { id: number; op: "init"; e2e?: boolean }
   | { 
       id: number; op: "run"; sql: string; 
       params: SqlBindValue[]; txId?: number 
@@ -364,7 +371,7 @@ self.addEventListener("message", (ev: MessageEvent<Req>) => {
 
       if (msg.op === "init") {
         if (!initPromise) {
-          initPromise = initDb().catch((err) => {
+          initPromise = initDb(!!msg.e2e).catch((err) => {
             initPromise = null; 
             throw err;
           });
@@ -373,10 +380,11 @@ self.addEventListener("message", (ev: MessageEvent<Req>) => {
         return reply({
           id: msg.id,
           ok: true,
-          result: { 
-            opfsMode, 
-            initError, 
-            diag: diagSnapshot 
+          result: {
+            opfsMode,
+            initError,
+            diag: diagSnapshot,
+            e2eMemory: e2eMemoryMode,
           },
         });
       }

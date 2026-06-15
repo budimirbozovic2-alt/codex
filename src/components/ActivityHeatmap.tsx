@@ -97,7 +97,7 @@ export default function ActivityHeatmap({ reviewLog }: Props) {
   const dayLabels = ["P", "U", "S", "Č", "P", "S", "N"];
 
   return (
-    <div className="rounded-xl border bg-card p-4 space-y-2">
+    <div className="glass-card rounded-xl p-5 space-y-2">
       <h3 className="text-eyebrow normal-case tracking-normal mb-3">Aktivnost</h3>
 
       {/* Month labels */}

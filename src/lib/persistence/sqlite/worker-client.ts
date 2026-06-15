@@ -15,6 +15,7 @@ export interface WorkerInitResult {
   opfsMode: boolean;
   initError: string | null;
   diag: Record<string, unknown> | null;
+  e2eMemory?: boolean;
 }
 
 interface WorkerReply {
@@ -133,7 +134,11 @@ function rpc<T>(payload: Record<string, unknown>): Promise<T> {
 }
 
 export async function initWorkerExecutor(): Promise<WorkerInitResult> {
-  return rpc<WorkerInitResult>({ op: "init" });
+  const e2e =
+    import.meta.env.VITE_E2E === "1" ||
+    import.meta.env.VITE_E2E === "true" ||
+    import.meta.env.VITE_E2E === true;
+  return rpc<WorkerInitResult>({ op: "init", e2e });
 }
 
 function makeExecutor(txId?: number): SqlExecutor {

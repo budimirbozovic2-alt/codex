@@ -8,6 +8,7 @@ describe("editor-v4 schema", () => {
   it("registers our custom nodes and mark", () => {
     expect(schema.nodes.wikiLink).toBeDefined();
     expect(schema.nodes.mindmapEmbed).toBeDefined();
+    expect(schema.nodes.legalProvision).toBeDefined();
     expect(schema.marks.keyPart).toBeDefined();
   });
 
@@ -21,6 +22,12 @@ describe("editor-v4 schema", () => {
     const spec = schema.nodes.mindmapEmbed.spec;
     expect(spec.atom).toBe(true);
     expect(spec.group).toContain("block");
+  });
+
+  it("legalProvision is block wrapper", () => {
+    const spec = schema.nodes.legalProvision.spec;
+    expect(spec.group).toContain("block");
+    expect(spec.content).toBe("block+");
   });
 
   it("keyPart mark is non-inclusive", () => {
@@ -46,5 +53,13 @@ describe("editor-v4 schema", () => {
     const doc = htmlToDoc('<p><mark class="key-part-highlight">x</mark></p>');
     const html = docToHtml(doc);
     expect(html).toContain('class="key-part-highlight"');
+  });
+
+  it("docToHtml round-trips legal-provision wrapper", () => {
+    const input = '<div class="legal-provision"><p>Član 1. Tekst propisa.</p></div>';
+    const doc = htmlToDoc(input);
+    const html = docToHtml(doc);
+    expect(html).toContain('class="legal-provision"');
+    expect(html).toContain("Član 1. Tekst propisa.");
   });
 });

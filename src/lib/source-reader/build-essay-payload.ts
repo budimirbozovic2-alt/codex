@@ -8,7 +8,7 @@
 import { sanitizeHtml } from "@/lib/sanitize";
 import { createSection, type Card, type SourceModule } from "@/lib/spaced-repetition";
 import { createTextAnchor, type Source } from "@/domains/sources/sources-storage";
-import { splitSelection, type SelectionModule } from "@/lib/selection-split-engine";
+import { splitSelection, stripTitleFromContent, type SelectionModule } from "@/lib/selection-split-engine";
 import {
   buildSeparatePlans, buildCombinedPlan,
   type SeparateCardPlan, type CombinedCardPlan, type WizardModuleEdit,
@@ -67,9 +67,18 @@ function cardOptionsFromSource(
   };
 }
 
+function strippedModuleHtml(title: string, mod: SelectionModule): string {
+  const { contentHtml } = stripTitleFromContent(
+    normalizeQuestionTitle(title),
+    mod.contentText,
+    mod.contentHtml,
+  );
+  return sanitizeHtml(contentHtml);
+}
+
 function fromSeparatePlan(plan: SeparateCardPlan, source: Source, subId?: string, chapId?: string): AddCardArgs {
-  const content = sanitizeHtml(plan.module.contentHtml);
   const question = normalizeQuestionTitle(plan.question);
+  const content = strippedModuleHtml(plan.question, plan.module);
   return {
     question,
     sections: [{ title: "Odgovor", contentDoc: buildSectionDoc(content) ?? htmlToDoc(content) }],
@@ -96,8 +105,8 @@ export function buildSeparateEssaysFromModules(
 
 function fromCombinedPlan(plan: CombinedCardPlan, source: Source, subId?: string, chapId?: string): AddCardArgs {
   const sections = plan.modules.map(({ question, module: mod }) => {
-    const content = sanitizeHtml(mod.contentHtml);
     const title = normalizeQuestionTitle(question);
+    const content = strippedModuleHtml(question, mod);
     return { title, contentDoc: buildSectionDoc(content) ?? htmlToDoc(content) };
   });
   const sourceModules: SourceModule[] = plan.modules.map(({ question, module: mod }, index) => {
@@ -166,8 +175,8 @@ export function buildEssayFromSelection(
   if (result.hasArticles && result.modules.length > 0) {
     const { modules } = result;
     const sections = modules.map((mod) => {
-      const content = sanitizeHtml(mod.contentHtml);
       const title = normalizeQuestionTitle(mod.title);
+      const content = strippedModuleHtml(mod.title, mod);
       return { title, contentDoc: buildSectionDoc(content) ?? htmlToDoc(content) };
     });
     const sourceModules: SourceModule[] = modules.map((mod, index) => {
@@ -199,15 +208,16 @@ export function buildEssayFromSelection(
       rangeLabel: result.rangeLabel,
     };
   }
-  const fallbackContent = sanitizeHtml(html || text);
+  const stripped = stripTitleFromContent(question, text, html || text);
+  const fallbackContent = sanitizeHtml(stripped.contentHtml || stripped.contentText);
   return {
     args: {
       question,
       sections: [{ title: "Odgovor", contentDoc: buildSectionDoc(fallbackContent) ?? htmlToDoc(fallbackContent) }],
       categoryId: source.categoryId,
       options: cardOptionsFromSource(source, {
-        textAnchor: createTextAnchor(text),
-        originalSourceSnippet: text,
+        textAnchor: createTextAnchor(stripped.contentText || text),
+        originalSourceSnippet: stripped.contentText || text,
       }),
     },
     moduleCount: 1,

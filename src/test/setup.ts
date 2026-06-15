@@ -54,6 +54,7 @@ beforeEach(() => {
   resetTestSqliteState();
   __resetSqliteReadyForTests();
   __resetExecutorTelemetry();
+  localStorage.removeItem("sr-app-settings");
   mockGetOpfsSqliteExecutor.mockImplementation(() =>
     Promise.resolve(getTestSqlExecutor()),
   );

@@ -2,6 +2,7 @@ import { Navigate, useLocation } from "react-router-dom";
 import SubjectsTab from "@/components/settings/SubjectsTab";
 import SystemTab from "@/components/settings/SystemTab";
 import SettingsSectionLayout from "@/components/settings/SettingsSectionLayout";
+import SettingsSection from "@/components/settings/SettingsSection";
 import { useSettingsContext } from "@/components/settings/SettingsProvider";
 
 export default function SettingsDataView() {
@@ -28,10 +29,11 @@ export default function SettingsDataView() {
       showFooter={false}
     >
       <div className="space-y-8">
-        <section className="space-y-3">
-          <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            Predmeti i struktura
-          </h3>
+        <SettingsSection
+          id="subjects"
+          title="Predmeti i struktura"
+          description="Dodaj, preimenuj ili ukloni predmete."
+        >
           <SubjectsTab
             categories={categories}
             subcategories={subcategories}
@@ -41,14 +43,9 @@ export default function SettingsDataView() {
             onRename={renameCategory}
             onDelete={deleteCategory}
           />
-        </section>
+        </SettingsSection>
 
-        <section className="space-y-3">
-          <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            Backup, ažuriranja i zdravlje
-          </h3>
-          <SystemTab />
-        </section>
+        <SystemTab />
       </div>
     </SettingsSectionLayout>
   );

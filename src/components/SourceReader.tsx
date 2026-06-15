@@ -140,6 +140,7 @@ export default memo(function SourceReader({ source, onBack, onSourceUpdated }: P
             <SourceBubbleMenu
               editor={editor}
               editMode={editMode}
+              sourceKind={source.sourceKind ?? "propis"}
               onSplit={actions.handleConvertToEssay}
               onLinkToExisting={actions.handleLinkToExisting}
               onAddMnemo={handleMnemoFromSelection}

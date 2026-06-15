@@ -29,9 +29,9 @@ export default function DisciplineTab({
       {/* Rocket Streak Widget */}
       {disciplineLog.length > 0 && (
         <div className={cn(
-          "rounded-xl border p-5 space-y-3",
-          streak >= 7 ? "bg-success/10 border-success/30" :
-          streak >= 3 ? "bg-primary/10 border-primary/30" : "bg-card"
+          "glass-card rounded-xl p-5 space-y-3",
+          streak >= 7 && "border-success/30 bg-success/5",
+          streak >= 3 && streak < 7 && "border-primary/30 bg-primary/5",
         )}>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">

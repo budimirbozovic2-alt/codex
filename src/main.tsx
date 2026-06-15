@@ -141,6 +141,7 @@ if (!isDesktopShell && import.meta.env.PROD) {
 
     const [
       { initColorTheme },
+      { initLocale },
       { default: App },
       { createRoot },
       { eventBus },
@@ -149,6 +150,7 @@ if (!isDesktopShell && import.meta.env.PROD) {
       { installBodyPointerEventsGuard },
     ] = await Promise.all([
       import("./lib/app-settings"),
+      import("./i18n"),
       import("./App"),
       import("react-dom/client"),
       import("./lib/event-bus"),
@@ -177,6 +179,7 @@ if (!isDesktopShell && import.meta.env.PROD) {
     );
 
     initColorTheme();
+    initLocale();
     markBootStep("main:theme-init-done");
 
     // PR-D D5: install the body-pointer-events guard BEFORE the first
@@ -190,6 +193,10 @@ if (!isDesktopShell && import.meta.env.PROD) {
     markBootStep("main:react-render-start");
     createRoot(document.getElementById("root")!).render(<App />);
     markBootStep("main:react-render-done");
+
+    if (import.meta.env.VITE_E2E) {
+      void import("./e2e/bridge").then(({ installE2EBridge }) => installE2EBridge());
+    }
 
     window.onerror = (_msg, _src, _ln, _col, err) => {
       void import("./lib/logger").then(({ logger: log }) => {

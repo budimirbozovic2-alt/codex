@@ -3,8 +3,15 @@ import { memo } from "react";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { useAppUpdater } from "@/hooks/useAppUpdater";
+import { cn } from "@/lib/utils";
 
-export const AppUpdatePanel = memo(function AppUpdatePanel() {
+interface AppUpdatePanelProps {
+  variant?: "card" | "settings";
+}
+
+export const AppUpdatePanel = memo(function AppUpdatePanel({
+  variant = "card",
+}: AppUpdatePanelProps) {
   const {
     supported,
     currentVersion,
@@ -17,10 +24,15 @@ export const AppUpdatePanel = memo(function AppUpdatePanel() {
     install,
   } = useAppUpdater();
 
+  const isSettings = variant === "settings";
+  const wrapperClass = isSettings
+    ? "space-y-3 py-3.5"
+    : "glass-card rounded-xl p-5 space-y-4";
+
   if (!supported) {
     return (
-      <div className="glass-card rounded-xl p-5 space-y-2">
-        <h3 className="text-sm font-semibold">Ažuriranje aplikacije</h3>
+      <div className={wrapperClass}>
+        {!isSettings && <h3 className="text-sm font-semibold">Ažuriranje aplikacije</h3>}
         <p className="text-xs text-muted-foreground">
           Automatska ažuriranja su dostupna samo u instaliranoj desktop verziji CODEX-a (ne u browseru niti u `npm run dev`).
         </p>
@@ -29,13 +41,15 @@ export const AppUpdatePanel = memo(function AppUpdatePanel() {
   }
 
   return (
-    <div className="glass-card rounded-xl p-5 space-y-4">
+    <div className={wrapperClass}>
       <div className="flex items-start gap-3">
-        <div className="p-2 rounded-lg bg-primary/10 text-primary shrink-0">
-          <Rocket className="h-4 w-4" />
-        </div>
+        {!isSettings && (
+          <div className="p-2 rounded-lg bg-primary/10 text-primary shrink-0">
+            <Rocket className="h-4 w-4" />
+          </div>
+        )}
         <div className="min-w-0 flex-1 space-y-1">
-          <h3 className="text-sm font-semibold">Ažuriranje sa GitHub-a</h3>
+          {!isSettings && <h3 className="text-sm font-semibold">Ažuriranje sa GitHub-a</h3>}
           <p className="text-xs text-muted-foreground">
             Trenutna verzija: <span className="font-medium text-foreground/90">v{currentVersion}</span>
             {remoteVersion && remoteVersion !== currentVersion && (
@@ -87,11 +101,11 @@ export const AppUpdatePanel = memo(function AppUpdatePanel() {
           onClick={() => void check()}
           disabled={status === "checking" || status === "downloading"}
         >
-          <RefreshCw className={`h-3.5 w-3.5 ${status === "checking" ? "animate-spin" : ""}`} />
+          <RefreshCw className={cn("h-3.5 w-3.5", status === "checking" && "animate-spin")} />
           {status === "checking" ? "Provjeravam…" : "Provjeri ažuriranja"}
         </Button>
 
-        {(status === "available") && (
+        {status === "available" && (
           <Button size="sm" className="gap-2" onClick={() => void download()}>
             <Download className="h-3.5 w-3.5" />
             Preuzmi

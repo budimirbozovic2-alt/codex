@@ -118,6 +118,18 @@ function renderNode(node: JSONContent, key: string, ctx: RenderCtx): ReactNode {
       return <li key={key}>{renderChildren(node.content, key, ctx)}</li>;
     case "blockquote":
       return <blockquote key={key}>{renderChildren(node.content, key, ctx)}</blockquote>;
+    case "legalProvision":
+      return (
+        <div
+          key={key}
+          className="legal-provision relative my-4 rounded-r-md border-l-4 border-primary/50 bg-muted/40 pl-4 py-3 not-prose"
+        >
+          <span className="block text-[0.65rem] font-semibold uppercase tracking-wide text-primary/70 mb-1">
+            Propis
+          </span>
+          {renderChildren(node.content, key, ctx)}
+        </div>
+      );
     case "codeBlock":
       return (
         <pre key={key}>

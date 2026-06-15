@@ -1,5 +1,6 @@
-import { ArrowLeft } from "lucide-react";
 import type { ReactNode } from "react";
+import { ArrowLeft } from "lucide-react";
+import { useI18n } from "@/i18n";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
@@ -32,6 +33,8 @@ export function PageHeader({
   className,
   footer,
 }: PageHeaderProps) {
+  const { t } = useI18n();
+
   return (
     <header className={cn("space-y-2 pb-2", className)}>
       {(back || actions) && (
@@ -43,7 +46,7 @@ export function PageHeader({
               className="text-muted-foreground hover:text-foreground flex items-center gap-1 text-sm shrink-0"
             >
               <ArrowLeft className="h-4 w-4" />
-              {back.label ?? "Nazad"}
+              {back.label ?? t("common.back")}
             </button>
           ) : (
             <span />

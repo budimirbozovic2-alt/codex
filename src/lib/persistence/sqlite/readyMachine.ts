@@ -54,6 +54,18 @@ export function subscribeSqliteReady(listener: () => void): () => void {
 }
 
 async function openExecutor(): Promise<SqlExecutor> {
+  const isE2E =
+    import.meta.env.VITE_E2E === "1" ||
+    import.meta.env.VITE_E2E === "true" ||
+    import.meta.env.VITE_E2E === true;
+
+  if (isE2E) {
+    const { createE2eMemoryExecutor } = await import("@/e2e/browser-memory-sqlite");
+    const executor = await createE2eMemoryExecutor();
+    setState({ type: "ready", executor });
+    return executor;
+  }
+
   let attempts = 3;
   let lastError: unknown = null;
 

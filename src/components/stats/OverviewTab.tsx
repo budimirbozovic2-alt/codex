@@ -18,12 +18,13 @@ import {
 
 const DashboardChart = lazy(() => import("@/components/DashboardChart"));
 
-const MASTERY_COLORS = [
-  "hsl(var(--destructive))",
-  "hsl(var(--warning))",
-  "hsl(var(--primary))",
-  "hsl(var(--success))",
-];
+const MASTERY_COLORS = MASTERY_LEVELS.slice(1, 5).map((l) => l.color);
+
+function masterySliceColor(name: string, idx: number): string {
+  const byLabel = MASTERY_LEVELS.find((l) => l.label === name);
+  if (byLabel) return byLabel.color;
+  return MASTERY_COLORS[idx % MASTERY_COLORS.length];
+}
 
 // ─── Chart data shapes (typed instead of any[]) ──────────
 
@@ -105,8 +106,8 @@ const MasteryPieChart = memo(function MasteryPieChart({ data }: { data: { name: 
         <ResponsiveContainer width="100%" height="100%">
           <PieChart>
             <Pie data={data} cx="50%" cy="50%" innerRadius={50} outerRadius={80} paddingAngle={3} dataKey="value">
-              {data.map((_, idx) => (
-                <Cell key={idx} fill={MASTERY_COLORS[idx % MASTERY_COLORS.length]} />
+              {data.map((d, idx) => (
+                <Cell key={d.name} fill={masterySliceColor(d.name, idx)} />
               ))}
             </Pie>
             <Tooltip content={<ChartTooltip />} />
@@ -116,7 +117,7 @@ const MasteryPieChart = memo(function MasteryPieChart({ data }: { data: { name: 
       <div className="flex flex-wrap gap-3 justify-center text-xs text-muted-foreground">
         {data.map((d, i) => (
           <span key={d.name} className="flex items-center gap-1.5">
-            <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: MASTERY_COLORS[i] }} />
+            <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: masterySliceColor(d.name, i) }} />
             {d.name} ({d.value})
           </span>
         ))}

@@ -128,11 +128,35 @@ export function SourceContent({ source, editMode, onSourceUpdated, onOutlineChan
           });
         }
       },
-      1000,
+      import.meta.env.VITE_E2E ? 300 : 1000,
       { label: `sourceContent:${source.id}`, pauseWhenHidden: false },
     ),
     [source, onSourceUpdated, saveMutation, setSaveDirty, setSaveStatus],
   );
+
+  useEffect(() => {
+    if (!import.meta.env.VITE_E2E) return;
+    let unregister = () => {};
+    void import("@/e2e/bridge").then(({ registerE2EAutosaveFlush }) => {
+      unregister = registerE2EAutosaveFlush(() => {
+        void (async () => {
+          try {
+            const doc = JSON.parse(draftJsonRef.current) as EditorDoc;
+            setSaveStatus("saving");
+            const next = buildSourceFromDoc(source, doc);
+            await saveMutation.mutateAsync(next);
+            baselineJsonRef.current = JSON.stringify(doc);
+            setSaveDirty(false);
+            setSaveStatus("saved");
+            onSourceUpdated?.(next);
+          } catch {
+            setSaveStatus("error");
+          }
+        })();
+      });
+    });
+    return () => unregister();
+  }, [source, onSourceUpdated, saveMutation, setSaveDirty, setSaveStatus]);
 
   useEffect(() => () => { persistDebounced.cancel(); }, [persistDebounced]);
 
@@ -248,6 +272,13 @@ export function SourceContent({ source, editMode, onSourceUpdated, onOutlineChan
           "[&_.heading-link-icon]:text-muted-foreground/40 [&_.heading-link-icon]:opacity-0",
           "[&_h1:hover_.heading-link-icon]:opacity-100 [&_h2:hover_.heading-link-icon]:opacity-100 [&_h3:hover_.heading-link-icon]:opacity-100",
           "[&_.heading-link-icon]:transition-opacity [&_.heading-link-icon]:duration-200",
+          "[&_.legal-provision]:relative [&_.legal-provision]:my-4 [&_.legal-provision]:rounded-r-md",
+          "[&_.legal-provision]:border-l-4 [&_.legal-provision]:border-primary/50",
+          "[&_.legal-provision]:bg-muted/40 [&_.legal-provision]:pl-4 [&_.legal-provision]:py-3",
+          "[&_.legal-provision]:before:content-['Propis'] [&_.legal-provision]:before:block",
+          "[&_.legal-provision]:before:text-[0.65rem] [&_.legal-provision]:before:font-semibold",
+          "[&_.legal-provision]:before:uppercase [&_.legal-provision]:before:tracking-wide",
+          "[&_.legal-provision]:before:text-primary/70 [&_.legal-provision]:before:mb-1",
           editMode && "ring-1 ring-primary/30",
           showEmptyPlaceholder && "min-h-[240px]",
         )}

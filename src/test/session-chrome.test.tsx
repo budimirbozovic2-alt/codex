@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { screen, fireEvent } from "@testing-library/react";
 import { SessionChrome } from "@/components/SessionChrome";
-
+import { renderWithI18n } from "@/test/helpers/render-with-i18n";
 vi.mock("@/lib/motion", () => ({
   m: {
     div: ({
@@ -23,7 +23,7 @@ vi.mock("@/components/ShortcutsHint", () => ({
 
 describe("SessionChrome", () => {
   it("renders progress bar width from current/total", () => {
-    const { container } = render(
+    const { container } = renderWithI18n(
       <SessionChrome
         onBack={vi.fn()}
         progressLabel="3 / 10"
@@ -38,7 +38,7 @@ describe("SessionChrome", () => {
   });
 
   it("uses zero width when total is zero", () => {
-    const { container } = render(
+    const { container } = renderWithI18n(
       <SessionChrome
         onBack={vi.fn()}
         progressLabel="0 / 0"
@@ -55,7 +55,7 @@ describe("SessionChrome", () => {
   it("renders back, pause, badges, and shortcuts", () => {
     const onBack = vi.fn();
     const onPause = vi.fn();
-    render(
+    renderWithI18n(
       <SessionChrome
         onBack={onBack}
         onPause={onPause}

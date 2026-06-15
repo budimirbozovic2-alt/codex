@@ -1,16 +1,19 @@
 import { BubbleMenu } from "@tiptap/react/menus";
 import {
   Brain, Heading1, Heading2, Heading3, Link as LinkIcon, List, ListOrdered,
-  PenSquare, Star, Type,
+  PenSquare, Scale, Star, Type,
 } from "lucide-react";
 import { useCallback } from "react";
 import { cn } from "@/lib/utils";
 import { docToHtml, type Editor } from "@/lib/editor-v4";
+import type { SourceKind } from "@/lib/db-types";
 
 interface Props {
   editor: Editor;
   /** True = formatting buttons (H1-H3, ¶, lists, key-part) are visible. */
   editMode: boolean;
+  /** When "skripta", shows the legal-provision toggle in edit mode. */
+  sourceKind?: SourceKind;
   /** Selected text + HTML fragment → Smart-Split wizard. */
   onSplit: (text: string, html: string) => void;
   /** Selected text + HTML fragment → "Link to existing essay" modal. */
@@ -31,7 +34,7 @@ interface Props {
  *  - edit-mode only: H1 / H2 / H3 / ¶ / • / 1. / KeyPart
  */
 export function SourceBubbleMenu({
-  editor, editMode, onSplit, onLinkToExisting, onAddMnemo,
+  editor, editMode, sourceKind, onSplit, onLinkToExisting, onAddMnemo,
 }: Props) {
   /** Resolve current selection → `{ text, html }` using the V4 codec. */
   const getSelectionPayload = useCallback((): { text: string; html: string } | null => {
@@ -147,6 +150,19 @@ export function SourceBubbleMenu({
           >
             <Star className="h-3.5 w-3.5" />
           </MenuButton>
+          {sourceKind === "skripta" && (
+            <>
+              <Divider />
+              <MenuButton
+                onClick={() => editor.chain().focus().toggleLegalProvision().run()}
+                title="Označi kao citat propisa"
+                active={editor.isActive("legalProvision")}
+                variant="default"
+              >
+                <Scale className="h-3.5 w-3.5" />
+              </MenuButton>
+            </>
+          )}
         </>
       )}
     </BubbleMenu>

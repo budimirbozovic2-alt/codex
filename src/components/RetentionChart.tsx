@@ -49,16 +49,16 @@ export default function RetentionChart({ reviewLog }: Props) {
 
   if (data.length < 2) {
     return (
-      <div className="rounded-xl border bg-card p-4">
-        <h3 className="text-sm font-medium text-muted-foreground mb-2">Retencija tokom vremena</h3>
+      <div className="glass-card rounded-xl p-5 space-y-2">
+        <h3 className="text-eyebrow normal-case tracking-normal">Retencija tokom vremena</h3>
         <p className="text-xs text-muted-foreground">Potrebno je najmanje 2 sedmice podataka.</p>
       </div>
     );
   }
 
   return (
-    <div className="rounded-xl border bg-card p-4 space-y-2">
-      <h3 className="text-sm font-medium text-muted-foreground">Retencija tokom vremena</h3>
+    <div className="glass-card rounded-xl p-5 space-y-2">
+      <h3 className="text-eyebrow normal-case tracking-normal">Retencija tokom vremena</h3>
       <ResponsiveContainer width="100%" height={180}>
         <LineChart data={data} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
           <CartesianGrid strokeDasharray="3 3" className="stroke-border" />

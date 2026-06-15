@@ -1,19 +1,17 @@
-import { lazy, Suspense } from "react";
 import { useCategoryData } from "@/hooks/cards/useCategoryState";
 import { useCardData, useReviewData } from "@/hooks/cards/useCardState";
-import { PageSkeleton } from "@/components/ui/page-skeleton";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
-
-const StrategicPlanner = lazy(() => import("@/components/StrategicPlanner"));
+import { DataReadyGate, DashboardSkeleton } from "@/components/ui/loading";
+import StrategicPlanner from "@/components/StrategicPlanner";
 
 export default function PlannerPage() {
-  const { cards } = useCardData();
+  const { cards, ready } = useCardData();
   const { categories, categoryRecords } = useCategoryData();
   const { reviewLog } = useReviewData();
 
   return (
-    <div className="p-4 max-w-7xl mx-auto w-full">
-      <Suspense fallback={<PageSkeleton />}>
+    <DataReadyGate ready={ready} skeleton={<DashboardSkeleton />}>
+      <div className="space-y-8 animate-fade-in">
         <ErrorBoundary label="Planner">
           <StrategicPlanner
             cards={cards}
@@ -22,7 +20,7 @@ export default function PlannerPage() {
             reviewLog={reviewLog}
           />
         </ErrorBoundary>
-      </Suspense>
-    </div>
+      </div>
+    </DataReadyGate>
   );
 }

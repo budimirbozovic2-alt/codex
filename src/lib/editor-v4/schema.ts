@@ -4,6 +4,7 @@ import type { Extensions } from "@tiptap/core";
 import { WikiLink } from "./extensions/wiki-link";
 import { MindmapEmbed } from "./extensions/mindmap-embed";
 import { KeyPart } from "./extensions/key-part";
+import { LegalProvision } from "./extensions/legal-provision";
 
 /**
  * The canonical TipTap extension set for V4 documents.
@@ -11,7 +12,7 @@ import { KeyPart } from "./extensions/key-part";
  * StarterKit v3 already includes paragraph, heading, bold, italic, underline,
  * strike, code, code-block, blockquote, hard-break, horizontal-rule, history,
  * link, bullet/ordered list and list-item. We only add what is missing:
- * Highlight (generic `<mark>`) and our three domain extensions.
+ * Highlight (generic `<mark>`) and our domain extensions.
  *
  * KeyPart is ordered BEFORE Highlight so its `mark.key-part-highlight`
  * parseHTML rule wins over Highlight's generic `mark` rule (TipTap matches
@@ -33,4 +34,5 @@ export const editorV4Extensions: Extensions = [
   Highlight,
   WikiLink,
   MindmapEmbed,
+  LegalProvision,
 ];

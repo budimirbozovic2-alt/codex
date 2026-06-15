@@ -1,8 +1,8 @@
-import { 
-  Download, Settings2, ShieldCheck, AlertTriangle 
+import {
+  Download, Settings2, ShieldCheck, AlertTriangle,
 } from "lucide-react";
-import React, { 
-  memo, useCallback, useEffect, useState 
+import React, {
+  memo, useCallback, useEffect, useState,
 } from "react";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
@@ -10,27 +10,34 @@ import ExportImportDialog from "@/components/ExportImportDialog";
 import { useBackupActions } from "@/hooks/cards/useActions";
 import { useCardCountAll } from "@/hooks/card/useCardsQuery";
 import { getLastBackupTime } from "@/lib/storage";
+import { cn } from "@/lib/utils";
 
 function formatAge(ts: number): { label: string; days: number } {
   if (!ts) return { label: "još nikada", days: Infinity };
   const days = Math.floor((Date.now() - ts) / (24 * 60 * 60 * 1000));
   if (days <= 0) {
     const hours = Math.floor((Date.now() - ts) / (60 * 60 * 1000));
-    return { 
-      label: hours <= 0 ? "upravo sada" : `prije ${hours}h`, 
-      days 
+    return {
+      label: hours <= 0 ? "upravo sada" : `prije ${hours}h`,
+      days,
     };
   }
   if (days === 1) return { label: "prije 1 dan", days };
   return { label: `prije ${days} dana`, days };
 }
 
-export const BackupCard = memo(function BackupCard(): React.ReactElement {
+interface BackupCardProps {
+  variant?: "card" | "settings";
+}
+
+export const BackupCard = memo(function BackupCard({
+  variant = "card",
+}: BackupCardProps): React.ReactElement {
   const cardsCount = useCardCountAll();
-  const { 
-    exportData, 
-    exportTemplate, 
-    importData 
+  const {
+    exportData,
+    exportTemplate,
+    importData,
   } = useBackupActions();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [lastBackup, setLastBackup] = useState<number>(0);
@@ -42,8 +49,8 @@ export const BackupCard = memo(function BackupCard(): React.ReactElement {
     getLastBackupTime().then(setLastBackup).catch(() => {});
   }, []);
 
-  useEffect(() => { 
-    refreshLastBackup(); 
+  useEffect(() => {
+    refreshLastBackup();
   }, [refreshLastBackup]);
 
   const handleQuickBackup = useCallback(async () => {
@@ -52,9 +59,9 @@ export const BackupCard = memo(function BackupCard(): React.ReactElement {
     setQuickProgress(0);
     setQuickMsg("Priprema...");
     try {
-      await exportData(true, (p, m) => { 
-        setQuickProgress(p); 
-        setQuickMsg(m); 
+      await exportData(true, (p, m) => {
+        setQuickProgress(p);
+        setQuickMsg(m);
       });
       refreshLastBackup();
     } catch {
@@ -69,35 +76,34 @@ export const BackupCard = memo(function BackupCard(): React.ReactElement {
   const age = formatAge(lastBackup);
   const stale = age.days >= 7;
   const never = !lastBackup;
+  const isSettings = variant === "settings";
 
-  return (
-    <div
-      className="glass-card hover-lift rounded-xl p-5 space-y-4"
-    >
-      <div className="flex items-start gap-3">
-        <div 
-          className={
-            `p-2.5 rounded-lg shrink-0 ` + 
-            `${stale ? "bg-warning/10 text-warning" : "bg-primary/10 text-primary"}`
-          }
-        >
-          {stale ? (
-            <AlertTriangle className="h-5 w-5" />
-          ) : (
-            <ShieldCheck className="h-5 w-5" />
-          )}
-        </div>
+  const content = (
+    <>
+      <div className={cn("flex items-start gap-3", isSettings && "py-3.5")}>
+        {!isSettings && (
+          <div
+            className={cn(
+              "p-2.5 rounded-lg shrink-0",
+              stale ? "bg-warning/10 text-warning" : "bg-primary/10 text-primary",
+            )}
+          >
+            {stale ? (
+              <AlertTriangle className="h-5 w-5" />
+            ) : (
+              <ShieldCheck className="h-5 w-5" />
+            )}
+          </div>
+        )}
         <div className="min-w-0 flex-1">
-          <p className="font-semibold text-sm text-foreground">
-            Backup &amp; vraćanje
-          </p>
-          <p className="text-xs text-muted-foreground mt-0.5">
+          {!isSettings && (
+            <p className="font-semibold text-sm text-foreground">
+              Backup &amp; vraćanje
+            </p>
+          )}
+          <p className={cn("text-xs text-muted-foreground", !isSettings && "mt-0.5")}>
             Posljednji backup:{" "}
-            <span 
-              className={
-                stale ? "text-warning font-medium" : "text-foreground/80"
-              }
-            >
+            <span className={stale ? "text-warning font-medium" : "text-foreground/80"}>
               {age.label}
             </span>
             {never && (
@@ -108,14 +114,14 @@ export const BackupCard = memo(function BackupCard(): React.ReactElement {
       </div>
 
       {quickRunning ? (
-        <div className="space-y-2">
+        <div className={cn("space-y-2", isSettings && "pb-3.5")}>
           <Progress value={quickProgress} className="h-2" />
           <p className="text-xs text-muted-foreground text-center">
             {quickMsg}
           </p>
         </div>
       ) : (
-        <div className="flex flex-wrap gap-2">
+        <div className={cn("flex flex-wrap gap-2", isSettings && "pb-3.5")}>
           <Button
             size="sm"
             className="gap-2"
@@ -123,7 +129,7 @@ export const BackupCard = memo(function BackupCard(): React.ReactElement {
             disabled={cardsCount === 0}
             title={
               cardsCount === 0
-                ? "Nema podataka za izvoz" 
+                ? "Nema podataka za izvoz"
                 : "Brzi pun backup (ZIP)"
             }
           >
@@ -159,6 +165,16 @@ export const BackupCard = memo(function BackupCard(): React.ReactElement {
         }}
         cardsCount={cardsCount}
       />
+    </>
+  );
+
+  if (isSettings) {
+    return <div className="space-y-3">{content}</div>;
+  }
+
+  return (
+    <div className="glass-card hover-lift rounded-xl p-5 space-y-4">
+      {content}
     </div>
   );
 });

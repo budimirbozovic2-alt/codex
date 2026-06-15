@@ -15,6 +15,7 @@ import { DashboardSkeleton, SessionSetupSkeleton } from "@/components/ui/loading
 // PR-D D5: pointer-events guard now installed in `main.tsx` before render.
 import { QueryClientProvider } from "@tanstack/react-query";
 import { queryClient } from "@/lib/query/client";
+import { I18nProvider } from "@/i18n";
 import { DbDegradedWatcher } from "@/components/DbDegradedWatcher";
 import AppUpdateNotifier from "@/components/AppUpdateNotifier";
 
@@ -60,6 +61,7 @@ function SubjectDashboardWrapper() {
 const App = () => {
   return (
     <QueryClientProvider client={queryClient}>
+    <I18nProvider>
     <TooltipProvider>
       <div className="flex flex-col h-screen relative" data-app-mounted>
         <SavingIndicator />
@@ -116,6 +118,7 @@ const App = () => {
         </HashRouter>
       </div>
     </TooltipProvider>
+    </I18nProvider>
     </QueryClientProvider>
   );
 };

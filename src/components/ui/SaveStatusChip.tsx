@@ -1,4 +1,5 @@
 import { AlertCircle, Check, Loader2 } from "lucide-react";
+import { useI18n } from "@/i18n";
 import { cn } from "@/lib/utils";
 
 export type SaveStatus = "idle" | "dirty" | "saving" | "saved" | "error";
@@ -8,17 +9,18 @@ interface Props {
   className?: string;
 }
 
-const LABELS: Record<Exclude<SaveStatus, "idle">, string> = {
-  dirty: "Nesačuvane izmjene",
-  saving: "Čuvam…",
-  saved: "Sačuvano",
-  error: "Greška pri čuvanju",
-};
+const STATUS_KEYS = {
+  dirty: "save.dirty",
+  saving: "save.saving",
+  saved: "save.saved",
+  error: "save.error",
+} as const satisfies Record<Exclude<SaveStatus, "idle">, import("@/i18n").TranslationKey>;
 
 export function SaveStatusChip({ status, className }: Props) {
+  const { t } = useI18n();
   if (status === "idle") return null;
 
-  const label = LABELS[status];
+  const label = t(STATUS_KEYS[status]);
 
   return (
     <span

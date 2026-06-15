@@ -1,4 +1,5 @@
 import { Target, Home } from "lucide-react";
+import { useI18n } from "@/i18n";
 import { Card as SRCard, SRSettings } from "@/lib/spaced-repetition";
 import ActivityHeatmap from "@/components/ActivityHeatmap";
 import { ReviewLogEntry } from "@/lib/storage";
@@ -32,6 +33,7 @@ interface Props {
 }
 
 export default function Dashboard({ stats, categoryStats, categories, categoryRecords, subcategories: _subcategories, cards, reviewLog, srSettings, onExport, headerActions }: Props) {
+  const { t } = useI18n();
   const {
     wc, todayReviews, dailyGoal, goalProgress, pendingFirstReview, streak,
     focusRatio, actualRatio, autoSuggestion, storageUsage, plannerData,
@@ -41,8 +43,8 @@ export default function Dashboard({ stats, categoryStats, categories, categoryRe
   return (
     <div className="space-y-8 relative animate-fade-in">
       <PageHeader
-        eyebrow="Pregled"
-        title="Početna tabla"
+        eyebrow={t("dashboard.eyebrow")}
+        title={t("dashboard.title")}
         titleIcon={<Home className="h-5 w-5 text-primary/70 self-center" strokeWidth={1.5} />}
         actions={headerActions}
       />

@@ -21,7 +21,7 @@ export default function SettingsLearningView() {
 
   if (isSubjectMode && subjectId) {
     return (
-      <div className="max-w-2xl mx-auto space-y-6">
+      <div className="max-w-3xl mx-auto px-6 py-6 space-y-6">
         <div className="flex items-center gap-3 min-w-0">
           <Link
             to={`/subject/${subjectId}`}
@@ -31,12 +31,16 @@ export default function SettingsLearningView() {
             <ArrowLeft className="h-5 w-5" />
           </Link>
           <div className="min-w-0">
-            <h2 className="text-display text-2xl text-foreground truncate">Podešavanja — {subjectName}</h2>
-            <p className="text-sm text-muted-foreground mt-0.5">Algoritam prilagođen ovom predmetu</p>
+            <h2 className="text-lg font-semibold text-foreground truncate">
+              Podešavanja — {subjectName}
+            </h2>
+            <p className="text-sm text-muted-foreground mt-0.5">
+              Algoritam prilagođen ovom predmetu
+            </p>
           </div>
         </div>
 
-        <div className="glass-card rounded-xl p-4 flex items-center justify-between gap-4">
+        <div className="rounded-lg border border-border/60 bg-card/30 px-4 py-3 flex items-center justify-between gap-4">
           <div className="min-w-0">
             <p className="text-sm font-semibold text-foreground">Prilagođena podešavanja</p>
             <p className="text-xs text-muted-foreground mt-0.5">
@@ -57,18 +61,17 @@ export default function SettingsLearningView() {
         </div>
 
         <SettingsFormFooter />
-        <div className="pb-8" />
       </div>
     );
   }
 
   if (isSubjectMode) {
-    return <Navigate to="/settings" replace />;
+    return <Navigate to="/settings/learning" replace />;
   }
 
   return (
     <SettingsSectionLayout
-      title="Učenje i memorija"
+      title="Algoritam"
       description="FSRS, ciljna retencija, dnevni cilj i kognitivni otpor"
     >
       <AlgorithmTab local={local} setLocal={setLocal} app={app} setApp={setApp} />
