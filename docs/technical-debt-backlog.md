@@ -245,6 +245,44 @@ Procjena: **Fibonacci SP** (1, 2, 3, 5, 8, 13). Rizik: nizak / srednji / visok.
 
 ---
 
+## TD-ARCH serija — arhitekturni refaktoring (jun 2026)
+
+Master plan: [`docs/architecture-refactoring-plan.md`](architecture-refactoring-plan.md)
+
+| ID | Faza | SP | Rizik | Status |
+|----|------|-----|-------|--------|
+| TD-ARCH-1 | Foundation cleanup (storage facade, tipovi, komentari) | 3 | nizak | ✅ Done (2026-06-22) |
+| TD-ARCH-2 | Write path unifikacija (card repository) | 8 | srednji | ⏳ Backlog |
+| TD-ARCH-3 | Direct TanStack invalidation iz repositories | 13 | srednji | ⏳ Backlog |
+| TD-ARCH-4 | Cache coordinator collapse → `writeSession` | 13 | srednji–visok | ⏳ Backlog |
+| TD-ARCH-5 | Event bus + bridges uklanjanje | 8 | visok | ⏳ Backlog |
+| TD-ARCH-6 | Boot simplification (1 FSM) | 8 | srednji | ⏳ Backlog |
+| TD-ARCH-7 | Migration consolidation | 13 | visok | ⏳ Backlog |
+| TD-ARCH-8 | Schema normalizacija (FSRS sekcije) | 21 | visok | ⏳ Backlog (opciono) |
+| TD-ARCH-9 | Analytics worker audit | 3 | nizak | ⏳ Backlog |
+
+### TD-ARCH-1 · Foundation cleanup
+
+| | |
+|---|---|
+| **Prioritet** | P1 |
+| **SP** | 3 |
+| **Rizik** | nizak |
+| **Status** | ✅ Done (2026-06-22) |
+
+**Implementirano:**
+- Tipovi → `@/lib/types/logs`
+- Pomodoro → `@/lib/services/pomodoroStats`
+- Backup metadata → `@/lib/backup/backup-metadata`
+- Browser quota → `@/lib/services/browser-storage-estimate`
+- Learn progress → `@/lib/db/queries` direktno
+- `storage.ts` → deprecated re-export barrel
+- Stale WASM komentar u `main.tsx` ispravljen
+
+**Preostalo za uklanjanje barrel-a:** TD-ARCH-1b — obriši `storage.ts` kad mock testovi pređu na nove module.
+
+---
+
 ## Preporučeni redoslijed (2 sprinta)
 
 | Sprint | Tiketi | SP ukupno |

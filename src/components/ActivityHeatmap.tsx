@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { ReviewLogEntry } from "@/lib/storage";
+import type { ReviewLogEntry } from "@/lib/types/logs";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useDeferredCompute } from "@/hooks/useDeferredCompute";
 

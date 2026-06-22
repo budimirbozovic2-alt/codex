@@ -1,7 +1,7 @@
 import { useCallback } from "react";
 import { toast } from "sonner";
 import { Card, SRSettings } from "@/lib/spaced-repetition";
-import { setLastBackupTime } from "@/lib/storage";
+import { setLastBackupTime } from "@/lib/backup/backup-metadata";
 import type { CategoryRecord } from "@/lib/db-types";
 import {
   readAllCardsForBackup,

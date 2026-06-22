@@ -131,7 +131,7 @@ if (!isDesktopShell && import.meta.env.PROD) {
   try {
     markBootStep("main:parallel-import-start");
 
-    // Kick off SQLite WASM pre-warm in the background as early as possible.
+    // Kick off main-process SQLite init in the background as early as possible.
     // ensureSqliteReady() is idempotent — bootDb() will re-use the already-
     // in-flight or completed initialisation, saving ~150-300 ms of overlap
     // that would otherwise be lost while React renders its first shell frame.

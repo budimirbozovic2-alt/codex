@@ -9,7 +9,7 @@
 import { create } from "zustand";
 import { useShallow } from "zustand/react/shallow";
 import type { Card } from "@/lib/spaced-repetition";
-import type { ReviewLogEntry } from "@/lib/storage";
+import type { ReviewLogEntry } from "@/lib/types/logs";
 import { queryClient } from "@/lib/query/client";
 import { logger } from "@/lib/logger";
 import { taskScheduler } from "@/lib/scheduler";

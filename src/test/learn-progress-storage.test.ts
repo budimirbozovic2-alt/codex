@@ -9,7 +9,6 @@ import {
 import { migrateLearnProgressToRelational } from "@/lib/persistence/sqlite/learn-progress-migration";
 import type { LearnCardProgress } from "@/lib/types/logs";
 import { resetCardLearningProgress } from "@/lib/reset/reset-section-progress";
-import { loadLearnProgress, saveLearnProgress } from "@/lib/storage";
 
 const sampleProgress: LearnCardProgress = {
   mode: "active-recall",
@@ -73,8 +72,8 @@ describe("learn progress relational storage", () => {
     await exec.run(
       "CREATE TABLE learn_progress (card_id TEXT PRIMARY KEY, payload TEXT NOT NULL, updatedAt INTEGER NOT NULL DEFAULT 0)",
     );
-    await saveLearnProgress({ "card-b": sampleProgress });
-    const loaded = await loadLearnProgress();
+    await replaceAllLearnProgress({ "card-b": sampleProgress });
+    const loaded = await loadAllLearnProgress();
     expect(loaded["card-b"]).toEqual(sampleProgress);
     expect(localStorage.getItem("sr-learn-progress")).toBeNull();
   });

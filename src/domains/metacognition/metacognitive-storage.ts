@@ -1,4 +1,4 @@
-import { ReviewLogEntry } from "@/lib/storage";
+import type { ReviewLogEntry } from "@/lib/types/logs";
 import {
   getSetting,
   putSetting,

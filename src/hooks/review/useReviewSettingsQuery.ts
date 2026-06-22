@@ -4,7 +4,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { reviewLogRepository, settingsRepository } from "@/lib/repositories";
 import { DEFAULT_SR_SETTINGS, type SRSettings } from "@/lib/spaced-repetition";
-import type { ReviewLogEntry } from "@/lib/storage";
+import type { ReviewLogEntry } from "@/lib/types/logs";
 import { queryKeys } from "@/lib/query/keys";
 import {
   REVIEW_LOG_BOOT_DAYS,

@@ -2,7 +2,7 @@
  * Pure planner snapshot — shared by usePlannerData and useDashboardData.
  */
 import type { Card } from "@/lib/spaced-repetition";
-import type { ReviewLogEntry } from "@/lib/storage";
+import type { ReviewLogEntry } from "@/lib/types/logs";
 import type { CategoryRecord } from "@/lib/db-types";
 import type { SubjectPlan } from "@/types/planner";
 import type { PlannerConfig } from "./types";

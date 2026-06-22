@@ -5,7 +5,7 @@
  * Receives snapshots from main-thread adapters (see `useCognitiveStats`).
  */
 import { type Card, getErrorStatus } from "@/lib/spaced-repetition";
-import type { ReviewLogEntry } from "@/lib/storage";
+import type { ReviewLogEntry } from "@/lib/types/logs";
 import type { CalibrationEntry, LatencyEntry } from "@/domains/metacognition/metacognitive-storage";
 
 export interface CognitiveCountsSnapshots {

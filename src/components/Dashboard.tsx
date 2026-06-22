@@ -2,7 +2,7 @@ import { Target, Home } from "lucide-react";
 import { useI18n } from "@/i18n";
 import { Card as SRCard, SRSettings } from "@/lib/spaced-repetition";
 import ActivityHeatmap from "@/components/ActivityHeatmap";
-import { ReviewLogEntry } from "@/lib/storage";
+import type { ReviewLogEntry } from "@/lib/types/logs";
 import ProgressRing from "@/components/ProgressRing";
 import { useDashboardData } from "@/hooks/useDashboardData";
 import { PageHeader } from "@/components/ui/PageHeader";

@@ -9,7 +9,7 @@ import { Progress } from "@/components/ui/progress";
 import ExportImportDialog from "@/components/ExportImportDialog";
 import { useBackupActions } from "@/hooks/cards/useActions";
 import { useCardCountAll } from "@/hooks/card/useCardsQuery";
-import { getLastBackupTime } from "@/lib/storage";
+import { getLastBackupTime } from "@/lib/backup/backup-metadata";
 import { cn } from "@/lib/utils";
 
 function formatAge(ts: number): { label: string; days: number } {

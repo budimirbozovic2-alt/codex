@@ -1,7 +1,8 @@
 import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import { getCardScore } from "@/lib/spaced-repetition";
 import type { FrequencyTag } from "@/lib/sr/types";
-import { LearnCardProgress, loadLearnProgress, saveLearnProgress } from "@/lib/storage";
+import type { LearnCardProgress } from "@/lib/types/logs";
+import { loadAllLearnProgress, replaceAllLearnProgress } from "@/lib/db/queries";
 import { addActivityEntry } from "@/domains/metacognition/metacognitive-storage";
 import { setImmersiveMode } from "@/store/useUIStore";
 import { LearnSessionProps, ViewWidth } from "@/components/learn/types";
@@ -51,7 +52,7 @@ export function useLearnSession({
   useEffect(() => {
     if (progressLoadedRef.current) return;
     progressLoadedRef.current = true;
-    loadLearnProgress().then((data) => {
+    loadAllLearnProgress().then((data) => {
       setProgress(data);
       progressReadyRef.current = true;
     });
@@ -59,7 +60,7 @@ export function useLearnSession({
 
   useEffect(() => {
     if (!progressReadyRef.current) return;
-    const timer = setTimeout(() => { void saveLearnProgress(progress); }, 400);
+    const timer = setTimeout(() => { void replaceAllLearnProgress(progress); }, 400);
     return () => clearTimeout(timer);
   }, [progress]);
 

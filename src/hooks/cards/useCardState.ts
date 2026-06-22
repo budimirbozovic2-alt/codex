@@ -7,7 +7,7 @@ import { useMemo, useSyncExternalStore } from "react";
 
 import { Card, SRSettings } from "@/lib/spaced-repetition";
 
-import { ReviewLogEntry } from "@/lib/storage";
+import type { ReviewLogEntry } from "@/lib/types/logs";
 
 import { useAllCards, useCardCountAll, useDueCards, useCardCountsByCategoryMap, useCategoryMasteryScores } from "@/hooks/card/useCardsQuery";
 

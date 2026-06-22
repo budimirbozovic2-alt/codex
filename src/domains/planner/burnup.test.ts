@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { addDays } from "date-fns";
 import { buildBurnupData } from "./burnup";
-import type { ReviewLogEntry } from "@/lib/storage";
+import type { ReviewLogEntry } from "@/lib/types/logs";
 import { FIXED_NOW, installFixedPlannerClock } from "./planner-test-clock";
 
 installFixedPlannerClock();

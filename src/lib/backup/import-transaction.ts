@@ -9,7 +9,7 @@
  */
 import type { CategoryRecord } from "@/lib/db-types";
 import { DEFAULT_SR_SETTINGS, type SRSettings } from "@/lib/spaced-repetition";
-import type { ReviewLogEntry } from "@/lib/storage";
+import type { ReviewLogEntry } from "@/lib/types/logs";
 import { yieldUI } from "@/lib/backup/yield-ui";
 import { backupLog } from "@/lib/backup/backup-logger";
 import { readAllCategoriesForBackup } from "@/lib/db/queries";

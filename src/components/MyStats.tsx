@@ -8,7 +8,7 @@ import { PageHeader } from "@/components/ui/PageHeader";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Card, SRSettings } from "@/lib/spaced-repetition";
 import type { CategoryRecord } from "@/lib/db-types";
-import { ReviewLogEntry } from "@/lib/storage";
+import type { ReviewLogEntry } from "@/lib/types/logs";
 import { TabSkeleton } from "@/components/ui/page-skeleton";
 import { useStatsData } from "@/hooks/useStatsData";
 

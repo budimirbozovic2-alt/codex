@@ -29,7 +29,7 @@ export interface ReviewSessionProps {
   allCards: Card[];
   categoryRecords: import("@/lib/db-types").CategoryRecord[];
   srSettings: SRSettings;
-  reviewLog: import("@/lib/storage").ReviewLogEntry[];
+  reviewLog: import("@/lib/types/logs").ReviewLogEntry[];
   onReviewSection: (cardId: string, sectionId: string, grade: number) => void;
   onLogError: (cardId: string, text: string, sectionId?: string) => void;
   onBack: () => void;

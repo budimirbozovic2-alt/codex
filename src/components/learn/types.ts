@@ -1,6 +1,6 @@
 import { Card } from "@/lib/spaced-repetition";
 import type { FrequencyTag } from "@/lib/sr/types";
-import { LearnCardProgress, ReviewLogEntry } from "@/lib/storage";
+import type { LearnCardProgress, ReviewLogEntry } from "@/lib/types/logs";
 import type { CategoryRecord } from "@/lib/db-types";
 
 export type { LearnCardProgress };

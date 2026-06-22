@@ -3,7 +3,7 @@ import { reviewLogRepository, settingsRepository } from "@/lib/repositories";
 import type { CategoryRecord } from "@/lib/db-types";
 import { listAllCards } from "@/lib/db/queries";
 import { Card, SRSettings, DEFAULT_SR_SETTINGS } from "@/lib/spaced-repetition";
-import { ReviewLogEntry } from "@/lib/storage";
+import type { ReviewLogEntry } from "@/lib/types/logs";
 import { markBootStep } from "@/lib/boot-trace";
 import { transition } from "@/lib/boot";
 import { splashProgress } from "./splash";

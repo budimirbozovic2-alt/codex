@@ -5,7 +5,7 @@
 // `bulkPutReviewLog` (one ACID tx per batch). `flush()` force-drains before
 // backup/export/quit. `loadRecent(days)` is a bounded-window hydrator used
 // by boot to keep the RAM mirror cheap.
-import type { ReviewLogEntry } from "@/lib/storage";
+import type { ReviewLogEntry } from "@/lib/types/logs";
 import { bulkPutReviewLog, loadRecentReviewLog } from "@/lib/db/queries";
 import { logger } from "@/lib/logger";
 

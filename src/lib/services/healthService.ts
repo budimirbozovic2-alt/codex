@@ -1,4 +1,4 @@
-import { getStorageUsage } from "@/lib/storage";
+import { getBrowserStorageEstimate } from "@/lib/services/browser-storage-estimate";
 import { bulkPutCardsDirect } from "@/lib/db/queries";
 import { runBulkCardsWrite } from "@/lib/query/all-caches-coordinator";
 import {
@@ -84,7 +84,7 @@ async function fetchTableCounts(): Promise<TableStat[]> {
 }
 
 async function fetchStorageSnapshot(): Promise<StorageSnapshot> {
-  const ls = await getStorageUsage();
+  const ls = await getBrowserStorageEstimate();
   return {
     idb: { usage: ls.usedBytes, quota: ls.maxBytes },
     ls,

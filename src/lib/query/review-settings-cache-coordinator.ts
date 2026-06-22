@@ -6,7 +6,7 @@
 
 import { DEFAULT_SR_SETTINGS, type SRSettings } from "@/lib/spaced-repetition";
 
-import type { ReviewLogEntry } from "@/lib/storage";
+import type { ReviewLogEntry } from "@/lib/types/logs";
 
 import { settingsRepository, reviewLogRepository } from "@/lib/repositories";
 

@@ -3,7 +3,7 @@
  */
 import type { Card, SRSettings } from "@/lib/spaced-repetition";
 import type { CategoryRecord } from "@/lib/db-types";
-import type { ReviewLogEntry } from "@/lib/storage";
+import type { ReviewLogEntry } from "@/lib/types/logs";
 import type { ParsedBackup } from "@/lib/migrations/backup-schema";
 import type { SqlExecutor } from "@/lib/persistence/sqlite/executor";
 

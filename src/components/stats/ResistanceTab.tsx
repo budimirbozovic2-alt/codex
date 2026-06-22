@@ -3,7 +3,7 @@ import { useMemo } from "react";
 
 
 import { Card, SRSettings, DEFAULT_SR_SETTINGS } from "@/lib/spaced-repetition";
-import { ReviewLogEntry } from "@/lib/storage";
+import type { ReviewLogEntry } from "@/lib/types/logs";
 import { resolveEffectiveSrParams } from "@/domains/subjects/subject-settings";
 import type { ResistanceWeights } from "@/lib/analytics/_pure/resistance";
 import { analyticsClient } from "@/lib/analytics/workerClient";

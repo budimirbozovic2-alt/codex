@@ -3,7 +3,7 @@ import { useMemo } from "react";
 import { m } from "@/lib/motion";
 
 import { Card, SectionState } from "@/lib/spaced-repetition";
-import { ReviewLogEntry } from "@/lib/storage";
+import type { ReviewLogEntry } from "@/lib/types/logs";
 import { getLearningVelocity } from "@/domains/metacognition/metacognitive-storage";
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,

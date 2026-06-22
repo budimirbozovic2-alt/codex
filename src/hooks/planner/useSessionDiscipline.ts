@@ -1,6 +1,6 @@
 import { useCallback, useRef } from "react";
 import type { Card } from "@/lib/spaced-repetition";
-import type { ReviewLogEntry } from "@/lib/storage";
+import type { ReviewLogEntry } from "@/lib/types/logs";
 import { buildSessionDisciplinePayload, sectionReviewKey } from "@/domains/planner/session-discipline";
 import { usePlannerMutations } from "@/hooks/planner/usePlannerMutations";
 import { logger } from "@/lib/logger";

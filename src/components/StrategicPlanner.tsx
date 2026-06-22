@@ -4,7 +4,7 @@ import { m } from "@/lib/motion";
 import InfoPanel from "@/components/InfoPanel";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Card as SRCard } from "@/lib/spaced-repetition";
-import { ReviewLogEntry } from "@/lib/storage";
+import type { ReviewLogEntry } from "@/lib/types/logs";
 import type { CategoryRecord } from "@/lib/db-types";
 import { cn } from "@/lib/utils";
 import { usePlannerData } from "@/hooks/usePlannerData";

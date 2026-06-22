@@ -1,6 +1,6 @@
 import { AlertTriangle, Shield, Zap, ArrowRightLeft, HeartPulse, Eye, Wrench } from "lucide-react";
 import { Card } from "@/lib/spaced-repetition";
-import { ReviewLogEntry } from "@/lib/storage";
+import type { ReviewLogEntry } from "@/lib/types/logs";
 import { Progress } from "@/components/ui/progress";
 import { runWeakHooksAnalysis } from "@/lib/services/weakHooksService";
 import { analyticsClient } from "@/lib/analytics/workerClient";

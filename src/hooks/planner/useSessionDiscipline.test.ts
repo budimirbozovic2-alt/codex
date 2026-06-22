@@ -3,7 +3,7 @@ import { createElement } from "react";
 import { act, renderHook } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useSessionDiscipline } from "./useSessionDiscipline";
-import type { ReviewLogEntry } from "@/lib/storage";
+import type { ReviewLogEntry } from "@/lib/types/logs";
 import { makeCard, makeSection } from "@/test/factories";
 
 const mutateSpy = vi.fn();

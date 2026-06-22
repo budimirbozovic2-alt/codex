@@ -2,7 +2,7 @@
  * Planner session limits — learn/review queue caps and banner copy.
  */
 import type { Card } from "@/lib/spaced-repetition";
-import type { ReviewLogEntry } from "@/lib/storage";
+import type { ReviewLogEntry } from "@/lib/types/logs";
 import type { CategoryRecord } from "@/lib/db-types";
 import { loadPlanner } from "./config";
 import { computePlannerSnapshot } from "./snapshot";

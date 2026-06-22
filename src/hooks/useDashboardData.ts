@@ -1,7 +1,9 @@
 import { ShieldAlert, AlertTriangle, Download, HardDrive } from "lucide-react";
 import { useMemo, useEffect, useRef, useState } from "react";
 import { Card as SRCard, SRSettings, getPendingFirstReviewCount } from "@/lib/spaced-repetition";
-import { ReviewLogEntry, getStorageUsage, getLastBackupTime } from "@/lib/storage";
+import type { ReviewLogEntry } from "@/lib/types/logs";
+import { getLastBackupTime } from "@/lib/backup/backup-metadata";
+import { getBrowserStorageEstimate } from "@/lib/services/browser-storage-estimate";
 import { loadSlippageLog } from "@/domains/metacognition/metacognitive-storage";
 // R2 fix: lazy-import planner-storage to avoid eagerly loading 577-line module + date-fns
 type PlannerModule = typeof import("@/domains/planner");
@@ -145,7 +147,7 @@ export function useDashboardData(
     return { reviewTarget, newTarget };
   }, [focusRatio, dailyGoal, stats.totalSections]);
 
-  const storageUsage = useDeferredCompute(async () => getStorageUsage(), []);
+  const storageUsage = useDeferredCompute(async () => getBrowserStorageEstimate(), []);
   const backupOverdue = useDeferredCompute(async () => {
     if (appSettings.autoBackupDays <= 0) return false;
     const last = await getLastBackupTime();

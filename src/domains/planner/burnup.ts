@@ -1,6 +1,6 @@
 /** Burn-up chart data builder (actual cumulative + ideal projection). */
 import { addDays, differenceInDays } from "date-fns";
-import type { ReviewLogEntry } from "@/lib/storage";
+import type { ReviewLogEntry } from "@/lib/types/logs";
 
 export function buildBurnupData(
   reviewLog: ReviewLogEntry[], totalSections: number, goalDateStr: string | null, bufferPct: number,

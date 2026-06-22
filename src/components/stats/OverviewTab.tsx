@@ -7,7 +7,7 @@ import { m } from "@/lib/motion";
 
 import { Card } from "@/lib/spaced-repetition";
 import { MASTERY_LEVELS } from "@/lib/mastery";
-import { ReviewLogEntry } from "@/lib/storage";
+import type { ReviewLogEntry } from "@/lib/types/logs";
 import ActivityHeatmap from "../ActivityHeatmap";
 import RetentionChart from "../RetentionChart";
 import ForgettingCurve from "../ForgettingCurve";

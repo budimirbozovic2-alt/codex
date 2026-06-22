@@ -1,6 +1,6 @@
 /** Velocity, finish projection, and human-readable projection text. */
 import { addDays, differenceInDays, startOfDay } from "date-fns";
-import type { ReviewLogEntry } from "@/lib/storage";
+import type { ReviewLogEntry } from "@/lib/types/logs";
 
 export function calcVelocity(reviewLog: ReviewLogEntry[], days: number = 7): number {
   const cutoff = startOfDay(addDays(new Date(), -days)).getTime();

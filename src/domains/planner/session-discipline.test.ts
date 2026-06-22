@@ -10,7 +10,7 @@ import {
 } from "./session-discipline";
 import { plannerCache } from "./cache";
 import { DEFAULT_CONFIG } from "./types";
-import type { ReviewLogEntry } from "@/lib/storage";
+import type { ReviewLogEntry } from "@/lib/types/logs";
 import { makeCard, makeSection } from "@/test/factories";
 import { FIXED_NOW, installFixedPlannerClock } from "./planner-test-clock";
 

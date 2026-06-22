@@ -8,7 +8,7 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import type { Card } from "@/lib/spaced-repetition";
-import type { ReviewLogEntry } from "@/lib/storage";
+import type { ReviewLogEntry } from "@/lib/types/logs";
 import { loadPlanner } from "@/domains/planner";
 import { loadCalibration, loadLatency } from "@/domains/metacognition/metacognitive-storage";
 import { calcCognitiveCounts, type CognitiveCounts } from "@/lib/cognitive/aggregators";

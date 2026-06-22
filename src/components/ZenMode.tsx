@@ -2,7 +2,7 @@ import { X, Play, Pause, RotateCcw, Timer, Coffee, Brain, SkipForward } from "lu
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { m } from "@/lib/motion";
 import { Button } from "@/components/ui/button";
-import { addPomodoroEntry, getPomodoroStats } from "@/lib/storage";
+import { addPomodoroEntry, getPomodoroStats } from "@/lib/services/pomodoroStats";
 import { loadAppSettings } from "@/lib/app-settings";
 import { cn } from "@/lib/utils";
 import { taskScheduler } from "@/lib/scheduler";

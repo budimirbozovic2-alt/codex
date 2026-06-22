@@ -3,7 +3,7 @@ import { startOfDay, subDays } from "date-fns";
 import { buildChartBundle } from "./charts";
 import { makeCard, makeSection } from "@/test/factories";
 import { SectionState } from "@/lib/spaced-repetition";
-import type { ReviewLogEntry } from "@/lib/storage";
+import type { ReviewLogEntry } from "@/lib/types/logs";
 
 const FIXED_NOW = new Date("2026-06-13T12:00:00");
 
