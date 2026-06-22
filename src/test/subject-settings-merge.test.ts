@@ -55,8 +55,8 @@ describe("mergeSubjectOverrides (Phase C / P2-3)", () => {
 describe("resolveEffectiveSrParams", () => {
   const categoryId = "test-cat-override";
 
-  afterEach(() => {
-    clearSubjectSettings(categoryId);
+  afterEach(async () => {
+    await clearSubjectSettings(categoryId);
   });
 
   it("returns global settings when no subject override exists", () => {

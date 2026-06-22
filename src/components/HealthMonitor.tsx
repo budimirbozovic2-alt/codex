@@ -161,7 +161,7 @@ export default function HealthMonitor() {
             <div className="rounded-lg border bg-muted/30 p-3 space-y-1.5">
               <div className="flex items-center gap-1.5 text-xs font-medium">
                 <HardDrive className="h-3.5 w-3.5 text-primary" />
-                SQLite (OPFS)
+                SQLite
               </div>
               <p className="text-lg font-semibold">{formatBytes(idb.usage)}</p>
               <p className="text-[10px] text-muted-foreground">

@@ -1,262 +1,96 @@
-import { useState, useMemo, useCallback, useEffect, useRef, Suspense, lazy } from "react";
-import { getCardScore } from "@/lib/spaced-repetition";
-import type { FrequencyTag } from "@/lib/sr/types";
-import { LearnCardProgress, loadLearnProgress, saveLearnProgress } from "@/lib/storage";
-import { addActivityEntry } from "@/domains/metacognition/metacognitive-storage";
+import { Suspense, lazy } from "react";
 import SessionComplete from "./learn/SessionComplete";
 import FilterSetup from "./learn/FilterSetup";
 import EmptyState from "@/components/EmptyState";
 import { SessionCardSkeleton } from "@/components/ui/loading";
-import { setImmersiveMode } from "@/store/useUIStore";
-import { LearnSessionProps, ViewWidth } from "./learn/types";
-import { useSessionDiscipline } from "@/hooks/planner/useSessionDiscipline";
+import { LearnSessionProps } from "./learn/types";
+import { useLearnSession } from "@/hooks/useLearnSession";
 
 const StudyModeRecall = lazy(() => import("./learn/StudyModeRecall"));
 
-export default function LearnSession({ cards, categories, categoryRecords, subcategories, onMarkRead, onReviewSection, onBack, onEdit: _onEdit, onAddKeyPart, dueCount: _dueCount = 0, reviewLog: reviewLogProp = [], initialFilters, restoreSnapshot, onSessionStateChange }: LearnSessionProps) {
-  const isStrictRecall = initialFilters?.mode === "strict-recall";
-  const { trackSection, resetSession, recordAfterSession } = useSessionDiscipline();
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(restoreSnapshot?.selectedCategory ?? initialFilters?.categoryId ?? null);
-  const [selectedSubcategory, setSelectedSubcategory] = useState<string | null>(restoreSnapshot?.selectedSubcategory ?? initialFilters?.subcategoryId ?? null);
-  const [selectedChapter, setSelectedChapter] = useState<string | null>(restoreSnapshot?.selectedChapter ?? null);
-  const [sortMode, setSortMode] = useState<"order" | "weakest" | "leastRead">(restoreSnapshot?.sortMode ?? initialFilters?.sortMode ?? "order");
-  const [filterType, setFilterType] = useState<"all" | "essay" | "flash">(restoreSnapshot?.filterType ?? initialFilters?.type ?? "all");
-  const [frequencyFilter, setFrequencyFilter] = useState<"all" | FrequencyTag>(restoreSnapshot?.frequencyFilter ?? initialFilters?.frequencyTag ?? "all");
-  const [started, setStarted] = useState(isStrictRecall || (restoreSnapshot?.started ?? false));
+export default function LearnSession(props: LearnSessionProps) {
+  const session = useLearnSession(props);
 
-  const [currentIndex, setCurrentIndex] = useState(() => {
-    if (typeof restoreSnapshot?.currentIndex === "number") return restoreSnapshot.currentIndex;
-    const saved = sessionStorage.getItem("sr-learn-current-index");
-    return saved ? parseInt(saved, 10) || 0 : 0;
-  });
-  const [viewWidth, setViewWidth] = useState<ViewWidth>(restoreSnapshot?.viewWidth ?? "normal");
-  const [readCards, setReadCards] = useState<Set<string>>(new Set());
-  const [completedCards, setCompletedCards] = useState<Set<string>>(new Set());
-  const [chainCompletedCards] = useState<Set<string>>(new Set());
-  const [progress, setProgress] = useState<Record<string, LearnCardProgress>>({});
-  const [sessionFinished, setSessionFinished] = useState(false);
-  const progressLoadedRef = useRef(false);
-
-  useEffect(() => {
-    setImmersiveMode(started);
-    return () => { setImmersiveMode(false); };
-  }, [started]);
-
-  const progressReadyRef = useRef(false);
-  useEffect(() => {
-    if (progressLoadedRef.current) return;
-    progressLoadedRef.current = true;
-    loadLearnProgress().then((data) => {
-      setProgress(data);
-      progressReadyRef.current = true;
-    });
-  }, []);
-
-  useEffect(() => {
-    if (!progressReadyRef.current) return;
-    const timer = setTimeout(() => { void saveLearnProgress(progress); }, 400);
-    return () => clearTimeout(timer);
-  }, [progress]);
-
-  const [sessionStartTime] = useState(() => Date.now());
-  const [totalGrades, setTotalGrades] = useState<number[]>([]);
-  const [modulesCompleted, setModulesCompleted] = useState(0);
-  const activityLoggedRef = useRef(false);
-  const positionMaps = useMemo(() => {
-    const subPos: Record<string, number> = {};
-    const chapPos: Record<string, number> = {};
-    const catRec = categoryRecords.find(r => r.id === selectedCategory);
-    if (!catRec) return { subPos, chapPos };
-    for (const node of catRec.subcategories ?? []) {
-      subPos[node.id ?? node.name] = node.sortOrder ?? 0;
-      (node.chapters ?? []).forEach((ch: { id: string; name: string } | string, i: number) => {
-        const key = typeof ch === "string" ? ch : ch.id;
-        chapPos[key] = i;
-      });
-    }
-    return { subPos, chapPos };
-  }, [categoryRecords, selectedCategory]);
-
-  const availableCategories = useMemo(() => {
-    const cats = new Set(cards.map(c => c.categoryId));
-    return categories.filter(c => cats.has(c));
-  }, [cards, categories]);
-
-  const _availableSubs = selectedCategory ? (subcategories[selectedCategory] || []) : [];
-  const frequencyCounts = useMemo(() => {
-    const counts: Record<FrequencyTag, number> = { "često": 0, "rijetko": 0, "nikad": 0 };
-    for (const c of cards) {
-      if (c.frequencyTag) counts[c.frequencyTag] = (counts[c.frequencyTag] ?? 0) + 1;
-    }
-    return counts;
-  }, [cards]);
-
-  const sortedCards = useMemo(() => {
-    let filtered = selectedCategory ? cards.filter(c => c.categoryId === selectedCategory) : [...cards];
-    if (selectedSubcategory) filtered = filtered.filter(c => c.subcategoryId === selectedSubcategory);
-    if (selectedChapter) filtered = filtered.filter(c => c.chapterId === selectedChapter);
-    if (filterType === "essay") filtered = filtered.filter(c => c.type === "essay");
-    else if (filterType === "flash") filtered = filtered.filter(c => c.type === "flash");
-    if (frequencyFilter !== "all") filtered = filtered.filter(c => c.frequencyTag === frequencyFilter);
-    switch (sortMode) {
-      case "weakest": return filtered.sort((a, b) => getCardScore(a) - getCardScore(b));
-      case "leastRead": return filtered.sort((a, b) => (a.readCount || 0) - (b.readCount || 0));
-      default: {
-        const { subPos, chapPos } = positionMaps;
-        return filtered.sort((a, b) =>
-          (subPos[a.subcategoryId ?? ""] ?? 999) - (subPos[b.subcategoryId ?? ""] ?? 999)
-          || (chapPos[a.chapterId ?? ""] ?? 999) - (chapPos[b.chapterId ?? ""] ?? 999)
-          || (a.chapterOrder ?? 0) - (b.chapterOrder ?? 0)
-          || a.createdAt - b.createdAt
-        );
-      }
-    }
-  }, [cards, selectedCategory, selectedSubcategory, selectedChapter, sortMode, filterType, frequencyFilter, positionMaps]);
-
-  const card = sortedCards[currentIndex];
-
-  // Re-anchor to the card user was editing (one-shot on mount with restoreSnapshot).
-  const reanchorRef = useRef(false);
-  useEffect(() => {
-    if (reanchorRef.current) return;
-    const targetId = restoreSnapshot?.cardId;
-    if (!targetId || sortedCards.length === 0) return;
-    reanchorRef.current = true;
-    const idx = sortedCards.findIndex(c => c.id === targetId);
-    if (idx >= 0 && idx !== currentIndex) {
-      setCurrentIndex(idx);
-      sessionStorage.setItem("sr-learn-current-index", String(idx));
-    }
-  }, [restoreSnapshot?.cardId, sortedCards, currentIndex]);
-
-  // Publish state to parent for edit-return snapshot building.
-  useEffect(() => {
-    onSessionStateChange?.({
-      started, selectedCategory, selectedSubcategory, selectedChapter,
-      sortMode, filterType, frequencyFilter,
-      currentIndex, viewWidth,
-      cardId: card?.id,
-    });
-  }, [onSessionStateChange, started, selectedCategory, selectedSubcategory, selectedChapter, sortMode, filterType, frequencyFilter, currentIndex, viewWidth, card?.id]);
-
-  const updateProgress = useCallback((cardId: string, update: Partial<LearnCardProgress>) => {
-    setProgress(prev => {
-      const existing = prev[cardId] || { mode: "active-recall" as const, currentModule: 0, completedModules: [], chainPosition: 0, phase: "preview" as const, completed: false };
-      return { ...prev, [cardId]: { ...existing, ...update } };
-    });
-  }, []);
-
-  const goToCard = useCallback((index: number) => {
-    setCurrentIndex(index);
-    sessionStorage.setItem("sr-learn-current-index", String(index));
-  }, []);
-
-  const goNext = useCallback(() => {
-    if (currentIndex + 1 < sortedCards.length) {
-      goToCard(currentIndex + 1);
-    } else {
-      setSessionFinished(true);
-    }
-  }, [currentIndex, sortedCards.length, goToCard]);
-  const goPrev = useCallback(() => { if (currentIndex > 0) goToCard(currentIndex - 1); }, [currentIndex, goToCard]);
-
-  // Defensive clamp: ako filter smanji listu ispod currentIndex
-  useEffect(() => {
-    if (sessionFinished) return;
-    if (started && sortedCards.length > 0 && currentIndex >= sortedCards.length) {
-      goToCard(sortedCards.length - 1);
-    }
-  }, [started, sortedCards.length, currentIndex, goToCard, sessionFinished]);
-
-  const handleMarkRead = useCallback((id: string) => {
-    onMarkRead(id);
-    setReadCards(prev => new Set(prev).add(id));
-  }, [onMarkRead]);
-
-  const handleReviewSection = useCallback((cardId: string, sectionId: string, grade: number) => {
-    trackSection(cardId, sectionId);
-    onReviewSection(cardId, sectionId, grade);
-  }, [onReviewSection, trackSection]);
-
-  // ── SETUP SCREEN (filter only, no mode selector) ──
-  if (!started) {
+  if (!session.started) {
     return (
       <FilterSetup
-        cards={cards}
-        sortedCardsCount={sortedCards.length}
-        categories={availableCategories}
-        categoryRecords={categoryRecords}
-        subcategories={subcategories}
-        selectedCategory={selectedCategory}
-        selectedSubcategory={selectedSubcategory}
-        selectedChapter={selectedChapter}
-        frequencyFilter={frequencyFilter}
-        frequencyCounts={frequencyCounts}
-        filterType={filterType}
-        sortMode={sortMode}
-        onSelectCategory={cat => { setSelectedCategory(cat); setSelectedSubcategory(null); setSelectedChapter(null); }}
-        onSelectSubcategory={sub => { setSelectedSubcategory(sub); setSelectedChapter(null); }}
-        onSelectChapter={setSelectedChapter}
-        onFrequencyFilterChange={setFrequencyFilter}
-        onFilterTypeChange={setFilterType}
-        onSortModeChange={setSortMode}
-        onStart={() => {
-          setCurrentIndex(0);
-          sessionStorage.setItem("sr-learn-current-index", "0");
-          setReadCards(new Set());
-          setCompletedCards(new Set());
-          setSessionFinished(false);
-          activityLoggedRef.current = false;
-          resetSession();
-          setStarted(true);
-        }}
-        onBack={onBack}
+        cards={session.cards}
+        sortedCardsCount={session.sortedCards.length}
+        categories={session.availableCategories}
+        categoryRecords={session.categoryRecords}
+        subcategories={session.subcategories}
+        selectedCategory={session.selectedCategory}
+        selectedSubcategory={session.selectedSubcategory}
+        selectedChapter={session.selectedChapter}
+        frequencyFilter={session.frequencyFilter}
+        frequencyCounts={session.frequencyCounts}
+        filterType={session.filterType}
+        sortMode={session.sortMode}
+        onSelectCategory={session.handleSelectCategory}
+        onSelectSubcategory={session.handleSelectSubcategory}
+        onSelectChapter={session.setSelectedChapter}
+        onFrequencyFilterChange={session.setFrequencyFilter}
+        onFilterTypeChange={session.setFilterType}
+        onSortModeChange={session.setSortMode}
+        onStart={session.handleStart}
+        onBack={session.onBack}
       />
     );
   }
 
-  // ── EMPTY FILTER STATE (no cards match) ──
-  if (!card && sortedCards.length === 0) {
+  if (!session.card && session.sortedCards.length === 0) {
     return (
       <EmptyState
         type="learn-filter"
-        onAction={() => setStarted(false)}
+        onAction={session.handleEmptyFilterAction}
       />
     );
   }
 
-  // ── FINISHED STATE ──
-  if (sessionFinished || !card) {
-    const elapsed = Date.now() - sessionStartTime;
-    if (!activityLoggedRef.current && elapsed > 5000) {
-      activityLoggedRef.current = true;
-      addActivityEntry({ timestamp: Date.now(), type: "learn-active", durationMs: elapsed });
-    }
-    recordAfterSession({ reviewLog: reviewLogProp, cards, elapsedMs: elapsed });
+  if (session.sessionFinished) {
     return (
       <SessionComplete
-        sessionStartTime={sessionStartTime} totalGrades={totalGrades}
-        modulesCompleted={modulesCompleted} readCardsCount={readCards.size}
-        completedCardsCount={completedCards.size} onBack={onBack}
+        sessionStartTime={session.sessionStartTime}
+        totalGrades={session.totalGrades}
+        modulesCompleted={session.modulesCompleted}
+        readCardsCount={session.readCards.size}
+        completedCardsCount={session.completedCards.size}
+        onBack={session.onBack}
       />
     );
   }
 
   const fallback = <SessionCardSkeleton />;
 
-  // ── ACTIVE RECALL MODE ──
+  if (!session.card) {
+    return fallback;
+  }
+
   return (
     <Suspense fallback={fallback}>
       <StudyModeRecall
-        card={card} sortedCards={sortedCards} currentIndex={currentIndex}
-        viewWidth={viewWidth} setViewWidth={setViewWidth}
-        readCards={readCards} completedCards={completedCards} chainCompletedCards={chainCompletedCards}
-        onMarkRead={handleMarkRead} onReviewSection={handleReviewSection} onAddKeyPart={onAddKeyPart}
-        goToCard={goToCard} goNext={goNext} goPrev={goPrev} onBack={isStrictRecall ? onBack : () => setStarted(false)}
-        setCompletedCards={setCompletedCards} setTotalGrades={setTotalGrades}
-        setModulesCompleted={setModulesCompleted} updateProgress={updateProgress}
-        cardProgress={progress[card.id]}
-        strictRecall={isStrictRecall}
+        card={session.card}
+        allCards={session.cards}
+        sortedCards={session.sortedCards}
+        currentIndex={session.effectiveIndex}
+        viewWidth={session.viewWidth}
+        setViewWidth={session.setViewWidth}
+        readCards={session.readCards}
+        completedCards={session.completedCards}
+        chainCompletedCards={session.chainCompletedCards}
+        onMarkRead={session.handleMarkRead}
+        onReviewSection={session.handleReviewSection}
+        onAddKeyPart={session.onAddKeyPart}
+        goToCard={session.goToCard}
+        goNext={session.goNext}
+        goPrev={session.goPrev}
+        onBack={session.handleActiveBack}
+        setCompletedCards={session.setCompletedCards}
+        setTotalGrades={session.setTotalGrades}
+        setModulesCompleted={session.setModulesCompleted}
+        updateProgress={session.updateProgress}
+        cardProgress={session.cardProgress}
+        strictRecall={session.isStrictRecall}
       />
     </Suspense>
   );

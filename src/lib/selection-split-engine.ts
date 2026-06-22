@@ -3,6 +3,8 @@
  * Parses selected text from a source for Član boundaries,
  * creates parent-child essay structure automatically.
  */
+import { docToHtml, htmlToDoc, type EditorDoc, type JSONContent } from "@/lib/editor-v4";
+import { newUuid } from "@/lib/ids";
 
 export interface SelectionModule {
   /** Stable identity for React keys and editor remount after structural edits. */
@@ -17,6 +19,8 @@ export interface SelectionModule {
   contentText: string;
   /** HTML content (wrapped in <p> tags) */
   contentHtml: string;
+  /** Canonical V4 AST when available (preserves lists, legal-provision, etc.) */
+  contentDoc?: EditorDoc;
   /** Plain snippet for backlink */
   plainSnippet: string;
 }
@@ -79,6 +83,85 @@ function stripPlainPrefix(content: string, titleNorm: string, titleMatch: string
   return content;
 }
 
+function titleMatchesBlock(
+  blockPlain: string,
+  titleNorm: string,
+  titleMatch: string,
+): boolean {
+  return blockPlain.toLowerCase() === titleNorm.toLowerCase()
+    || blockPlain.toLowerCase() === titleMatch.toLowerCase()
+    || (
+      titleMatch.length > 0
+      && blockPlain.toLowerCase().startsWith(titleMatch.toLowerCase())
+      && (blockPlain.length === titleMatch.length || blockPlain[titleMatch.length] === " ")
+    );
+}
+
+function hasStructuredHtml(html: string): boolean {
+  return /<(ul|ol|blockquote|pre|table|div\s+class=["']legal-provision)/i.test(html);
+}
+
+function blockPlainText(node: JSONContent): string {
+  const doc: EditorDoc = {
+    version: 4,
+    content: { type: "doc", content: [node] },
+  };
+  return normalizePlain(htmlToPlain(docToHtml(doc)));
+}
+
+/**
+ * Remove a title prefix from a V4 doc without flattening lists or block structure.
+ */
+export function stripTitleFromDoc(title: string, doc: EditorDoc): EditorDoc {
+  const titleNorm = normalizePlain(title);
+  if (!titleNorm) return doc;
+
+  const titleMatch = titleNorm.replace(/\.\.\.$/, "").trim();
+  const blocks = [...(doc.content.content ?? [])];
+  if (blocks.length === 0) return doc;
+
+  const firstPlain = blockPlainText(blocks[0]);
+  if (titleMatchesBlock(firstPlain, titleNorm, titleMatch)) {
+    if (blocks.length > 1) {
+      return { version: 4, content: { type: "doc", content: blocks.slice(1) } };
+    }
+
+    if (blocks[0].type === "paragraph" && Array.isArray(blocks[0].content)) {
+      const remainder = stripPlainPrefix(firstPlain, titleNorm, titleMatch);
+      if (remainder.trim()) {
+        return {
+          version: 4,
+          content: {
+            type: "doc",
+            content: [{ type: "paragraph", content: [{ type: "text", text: remainder }] }],
+          },
+        };
+      }
+    }
+
+    return doc;
+  }
+
+  // Inline title prefix in first paragraph (e.g. exam question duplicated at body start)
+  if (blocks[0].type === "paragraph") {
+    const remainder = stripPlainPrefix(firstPlain, titleNorm, titleMatch);
+    if (remainder !== firstPlain && remainder.trim()) {
+      return {
+        version: 4,
+        content: {
+          type: "doc",
+          content: [
+            { type: "paragraph", content: [{ type: "text", text: remainder }] },
+            ...blocks.slice(1),
+          ],
+        },
+      };
+    }
+  }
+
+  return doc;
+}
+
 /**
  * Remove a title prefix from plain + HTML module content so the title is not
  * duplicated in the essay body. Returns original content if stripping would
@@ -98,14 +181,7 @@ export function stripTitleFromContent(
   const blocks = splitHtmlIntoBlocks(contentHtml);
   if (blocks.length > 0) {
     const firstPlain = normalizePlain(htmlToPlain(blocks[0]));
-    const matchesBlock =
-      firstPlain.toLowerCase() === titleNorm.toLowerCase()
-      || firstPlain.toLowerCase() === titleMatch.toLowerCase()
-      || (
-        titleMatch.length > 0
-        && firstPlain.toLowerCase().startsWith(titleMatch.toLowerCase())
-        && (firstPlain.length === titleMatch.length || firstPlain[titleMatch.length] === " ")
-      );
+    const matchesBlock = titleMatchesBlock(firstPlain, titleNorm, titleMatch);
 
     if (matchesBlock) {
       if (blocks.length > 1) {
@@ -114,10 +190,14 @@ export function stripTitleFromContent(
         if (newText.trim()) return { contentText: newText, contentHtml: newHtml };
       }
       const remainder = stripPlainPrefix(firstPlain, titleNorm, titleMatch);
-      if (remainder.trim()) {
+      if (remainder.trim() && !hasStructuredHtml(contentHtml)) {
         return { contentText: remainder, contentHtml: `<p>${remainder}</p>` };
       }
     }
+  }
+
+  if (hasStructuredHtml(contentHtml)) {
+    return { contentText, contentHtml };
   }
 
   const stripped = stripPlainPrefix(contentNorm, titleNorm, titleMatch);
@@ -133,13 +213,22 @@ export function stripTitleFromContent(
 export function deriveTitleAndBody(
   text: string,
   html: string,
+  contentDoc?: EditorDoc,
   wordCount = 7,
-): { title: string; contentText: string; contentHtml: string } {
+): { title: string; contentText: string; contentHtml: string; contentDoc: EditorDoc } {
   const plain = text.replace(/\s+/g, " ").trim();
   const safeHtml = html?.trim() || `<p>${plain}</p>`;
+  const baseDoc = contentDoc ?? htmlToDoc(safeHtml);
   const title = firstWords(plain, wordCount) || "Novi esej";
-  const stripped = stripTitleFromContent(title, plain, safeHtml);
-  return { title, ...stripped };
+  const strippedDoc = stripTitleFromDoc(title, baseDoc);
+  const strippedHtml = docToHtml(strippedDoc);
+  const strippedText = htmlToPlain(strippedHtml);
+  return {
+    title,
+    contentText: strippedText,
+    contentHtml: strippedHtml,
+    contentDoc: strippedDoc,
+  };
 }
 
 /**
@@ -239,7 +328,7 @@ export function splitSelection(selectedText: string): SelectionSplitResult {
     const plainSnippet = `Član ${articleNum}\n${contentText}`;
 
     modules.push({
-      id: crypto.randomUUID(),
+      id: newUuid(),
       articleNum,
       title: formattedTitle,
       contentText,
@@ -263,7 +352,7 @@ export function splitSelection(selectedText: string): SelectionSplitResult {
  */
 export function createEmptyModule(title = "Novi modul"): SelectionModule {
   return {
-    id: crypto.randomUUID(),
+    id: newUuid(),
     articleNum: "",
     title,
     contentText: "",
@@ -378,7 +467,7 @@ export function splitModuleByDelimiter(
       : (firstWords(lines[0] || chunk, 7) || `Modul ${i + 1}`);
     const contentHtml = lines.map(l => `<p>${l}</p>`).join("\n");
     return {
-      id: i === 0 ? mod.id : crypto.randomUUID(),
+      id: i === 0 ? mod.id : newUuid(),
       articleNum: i === 0 ? mod.articleNum : "",
       title,
       contentText: chunk,

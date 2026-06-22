@@ -63,8 +63,7 @@ export function useCardCRUD() {
       if (extra?.sourceModules) card.sourceModules = extra.sourceModules;
       if (extra?.tags && extra.tags.length > 0) card.tags = extra.tags;
       if (extra?.sourceType) card.sourceType = extra.sourceType;
-      void save.mutateAsync(card);
-      return card;
+      return save.mutateAsync(card).then(() => card);
     },
     [save],
   );
@@ -72,8 +71,7 @@ export function useCardCRUD() {
   const addFlashCard = useCallback(
     (question: string, answer: string, categoryId: string, subcategoryId?: string) => {
       const card = createFlashCard(question, answer, categoryId, subcategoryId);
-      void save.mutateAsync(card);
-      return card;
+      return save.mutateAsync(card).then(() => card);
     },
     [save],
   );

@@ -2,16 +2,19 @@
  * Boot state machine — eksplicitne faze sa per-faza error tipovima i
  * recovery akcijama.
  *
- *   idle → opening → schema → loading → healing → loading → ready
- *             ↓        ↓                  ↓          ↓
- *          blocked   schema-error     (skip steps) load-error
+ *   idle → opening → schema → loading → ready
+ *             ↓        ↓                  ↓
+ *          blocked   schema-error     load-error
  *          version
  *          corrupted
  *
  * Modul-level signal sa subscribe API-jem (zero React deps), preko kojeg
  * `BootStateProvider` reaguje preko `useSyncExternalStore`. Pre-React
- * pozivaoci (`ensureDbOpen`, `bootDb`, `runSchema`, `runHeal`) ga
+ * pozivaoci (`ensureDbOpen`, `bootDb`, `runSchema`) ga
  * čitaju/pišu direktno preko `transition()`.
+ *
+ * Data heal + editor-v4 migration run during SQLite schema migrations (v11–v15),
+ * not as a runtime `healing` boot phase.
  *
  * Backward kompat: stari `MIGRATE_*` eventi su alias-ovani u nova
  * `SCHEMA_*` stanja kako bi se izbjegli sinhroni rewrite svih pozivalaca.
@@ -24,7 +27,6 @@ export type BootPhase =
   | { type: "idle" }
   | { type: "opening" }
   | { type: "schema"; pct: number; label: string }
-  | { type: "healing"; pct: number; label: string; skipped: string[] }
   | { type: "loading"; pct: number; label: string }
   | { type: "ready" }
   | { type: "blocked"; tabCount: number; reason: "tabs" | "timeout" }
@@ -44,10 +46,6 @@ export type BootEvent =
   | { type: "SCHEMA_PROGRESS"; pct: number; label: string }
   | { type: "SCHEMA_DONE" }
   | { type: "SCHEMA_FAIL"; cause: SchemaErrorCause; message: string }
-  | { type: "HEAL_START" }
-  | { type: "HEAL_PROGRESS"; pct: number; label: string }
-  | { type: "HEAL_STEP_FAIL"; step: string }
-  | { type: "HEAL_DONE" }
   | { type: "LOAD_PROGRESS"; pct: number; label: string }
   | { type: "LOAD_FAIL"; message: string }
   | { type: "READY" }
@@ -88,10 +86,6 @@ function sameState(a: BootPhase, b: BootPhase): boolean {
       const bb = b as Extract<BootPhase, { type: "loading" }>;
       return a.pct === bb.pct && a.label === bb.label;
     }
-    case "healing": {
-      const bb = b as Extract<BootPhase, { type: "healing" }>;
-      return a.pct === bb.pct && a.label === bb.label && a.skipped.length === bb.skipped.length;
-    }
     case "blocked": {
       const bb = b as Extract<BootPhase, { type: "blocked" }>;
       return a.tabCount === bb.tabCount && a.reason === bb.reason;
@@ -112,14 +106,14 @@ function sameState(a: BootPhase, b: BootPhase): boolean {
 }
 
 /**
- * Apply a transition. Invalid transitions su log-ovane ali ne throw-aju —
+ * Apply a transition. Invalid transitions su log-ovane ali ne throw-uju —
  * boot mora biti tolerantan na neočekivane redoslijede iz async path-a.
  */
 export function transition(event: BootEvent): void {
   const prev = _state;
   const next = reduce(prev, event);
   if (next === prev) {
-    if (event.type !== "LOAD_PROGRESS" && event.type !== "SCHEMA_PROGRESS" && event.type !== "HEAL_PROGRESS") {
+    if (event.type !== "LOAD_PROGRESS" && event.type !== "SCHEMA_PROGRESS") {
       logger.debug(`[bootState] noop: ${prev.type} ← ${event.type}`);
     }
     return;
@@ -176,22 +170,7 @@ function reduce(state: BootPhase, e: BootEvent): BootPhase {
     case "SCHEMA_FAIL":
       return { type: "schema-error", cause: e.cause, message: e.message };
 
-    case "HEAL_START":
-      return { type: "healing", pct: 0, label: "Provjera integriteta…", skipped: [] };
-    case "HEAL_PROGRESS":
-      return state.type === "healing"
-        ? { type: "healing", pct: e.pct, label: e.label, skipped: state.skipped }
-        : state;
-    case "HEAL_STEP_FAIL":
-      if (state.type !== "healing") return state;
-      if (state.skipped.includes(e.step)) return state;
-      return { type: "healing", pct: state.pct, label: state.label, skipped: [...state.skipped, e.step] };
-    case "HEAL_DONE":
-      // Vraća se u loading da finalni render može završiti.
-      return { type: "loading", pct: 90, label: "Finalizacija…" };
-
     case "LOAD_PROGRESS":
-      // LOAD_PROGRESS samo dok smo u loading fazi — ne želimo da prepiše schema/healing.
       return state.type === "loading" ? { type: "loading", pct: e.pct, label: e.label } : state;
     case "LOAD_FAIL":
       return { type: "load-error", message: e.message };
@@ -219,4 +198,3 @@ if (import.meta.hot) {
     __resetBootStateForTests();
   });
 }
-

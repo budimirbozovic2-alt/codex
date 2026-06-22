@@ -73,6 +73,8 @@ export const BackupCardSchema = z
     sourceModules: z.unknown().optional(),
     frequencyTag: FrequencyTagSchema,
     sourceType: SourceTypeSchema,
+    parentId: z.unknown().optional().transform((v) => (typeof v === "string" && v.length > 0 ? v : undefined)),
+    isEndangered: z.unknown().optional().transform((v) => (typeof v === "boolean" ? v : undefined)),
   })
   .strict()
   .transform((c): Card => {
@@ -101,5 +103,7 @@ export const BackupCardSchema = z
     if (typeof c.needsReview === "boolean") out.needsReview = c.needsReview;
     if (typeof c.originalSourceSnippet === "string") out.originalSourceSnippet = c.originalSourceSnippet;
     if (Array.isArray(c.sourceModules)) out.sourceModules = c.sourceModules as Card["sourceModules"];
+    if (typeof c.parentId === "string") out.parentId = c.parentId;
+    if (typeof c.isEndangered === "boolean") out.isEndangered = c.isEndangered;
     return out;
   });

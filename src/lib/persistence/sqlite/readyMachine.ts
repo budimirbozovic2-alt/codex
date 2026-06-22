@@ -1,19 +1,24 @@
 /**
  * SQLite ready FSM — centralizovani lifecycle executor-a (O-1).
  *
- * Modul-level signal sa subscribe API-jem (zero React deps). Boot/queries/repos
- * koriste `ensureSqliteReady()` ili legacy `getOpfsSqliteExecutor()` delegaciju.
- * OPFS worker je obavezan — nema in-memory fallback-a.
+ * Electron koristi isključivo main-process better-sqlite3 (Faza 5.4).
  */
 import type { SqlExecutor } from "./executor";
 import { logger } from "@/lib/logger";
-import { taskScheduler } from "@/lib/scheduler/taskScheduler";
+import { canUseMainSqliteBackend } from "./backend";
 
 export type SqliteReadyState =
   | { type: "idle" }
   | { type: "opening" }
   | { type: "ready"; executor: SqlExecutor }
   | { type: "fatal"; error: unknown };
+
+export type SqliteBootSummary = {
+  backend: "main" | "e2e-memory";
+  dbPath?: string;
+};
+
+let _lastBootSummary: SqliteBootSummary | null = null;
 
 let _state: SqliteReadyState = { type: "idle" };
 const _listeners = new Set<() => void>();
@@ -46,11 +51,51 @@ export function getSqliteReadyState(): SqliteReadyState {
   return _state;
 }
 
+/** Last successful boot summary (Faza 5.2 telemetry). */
+export function getLastSqliteBootSummary(): SqliteBootSummary | null {
+  return _lastBootSummary;
+}
+
 export function subscribeSqliteReady(listener: () => void): () => void {
   _listeners.add(listener);
   return () => {
     _listeners.delete(listener);
   };
+}
+
+async function openMainProcessExecutor(): Promise<SqlExecutor> {
+  const { initMainSqlite, getMainSqlExecutor } = await import(
+    "./main-ipc-client"
+  );
+  const { runMigrations } = await import("./migration-runner");
+
+  const open = await initMainSqlite();
+  if (!open.ok) {
+    throw new Error("Main-process SQLite open failed");
+  }
+
+  const executor = getMainSqlExecutor();
+  await runMigrations(executor);
+  const summary: SqliteBootSummary = {
+    backend: "main",
+    dbPath: open.dbPath,
+  };
+  _lastBootSummary = summary;
+  logger.info("[sqlite] boot ready", summary);
+  setState({ type: "ready", executor });
+  return executor;
+}
+
+function fatalMainUnavailable(cause?: unknown): never {
+  const err = new Error(
+    "FatalError: Main-process SQLite unavailable. " +
+      "This build requires Electron with sqliteRpc IPC.",
+  );
+  if (cause instanceof Error) {
+    (err as Error & { cause?: unknown }).cause = cause;
+  }
+  setState({ type: "fatal", error: err });
+  throw err;
 }
 
 async function openExecutor(): Promise<SqlExecutor> {
@@ -62,62 +107,22 @@ async function openExecutor(): Promise<SqlExecutor> {
   if (isE2E) {
     const { createE2eMemoryExecutor } = await import("@/e2e/browser-memory-sqlite");
     const executor = await createE2eMemoryExecutor();
+    _lastBootSummary = { backend: "e2e-memory" };
+    logger.info("[sqlite] boot ready", _lastBootSummary);
     setState({ type: "ready", executor });
     return executor;
   }
 
-  let attempts = 3;
-  let lastError: unknown = null;
-
-  while (attempts > 0) {
-    try {
-      const { initWorkerExecutor, getWorkerSqlExecutor } = await import(
-        "./worker-client"
-      );
-
-      const result = await initWorkerExecutor();
-
-      if (result.opfsMode) {
-        logger.info("[sqlite] opened OPFS-SAH-pool DB", result.diag);
-        const executor = getWorkerSqlExecutor();
-        setState({ type: "ready", executor });
-        return executor;
-      }
-
-      logger.warn(
-        `[sqlite] OPFS init failed, retry… (${attempts} preostalo)`,
-        result.initError,
-      );
-      lastError = new Error(result.initError || "OPFS init failed");
-    } catch (err) {
-      logger.warn(
-        `[sqlite] Worker krahirao pri boot-u (${attempts} preostalo)`,
-        err,
-      );
-      lastError = err;
-    }
-
-    attempts--;
-    if (attempts > 0) {
-      await new Promise<void>((res) =>
-        taskScheduler.setTimeout(() => res(), 500, {
-          label: "sqlite:boot-retry",
-        }),
-      );
-    }
+  if (!canUseMainSqliteBackend()) {
+    fatalMainUnavailable();
   }
 
-  const err = new Error(
-    "FatalError: Persistent SQLite OPFS failed to " +
-      "initialize. App cannot continue without storage.",
-  );
-  if (lastError instanceof Error) {
-    (err as Error & { cause?: unknown }).cause = lastError;
+  try {
+    return await openMainProcessExecutor();
+  } catch (err) {
+    logger.error("[sqlite] main-process open failed permanently", err);
+    fatalMainUnavailable(err);
   }
-
-  logger.error("[sqlite] Svi pokušaji pokretanja workera propali.", lastError);
-  setState({ type: "fatal", error: err });
-  throw err;
 }
 
 export function ensureSqliteReady(): Promise<SqlExecutor> {
@@ -161,6 +166,7 @@ export function __resetSqliteReadyForTests(): void {
   _state = { type: "idle" };
   _listeners.clear();
   _initPromise = null;
+  _lastBootSummary = null;
 }
 
 if (import.meta.hot) {

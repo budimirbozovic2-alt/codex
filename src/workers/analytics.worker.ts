@@ -10,8 +10,8 @@
  * Comlink. Lazy-instantiated on first call by `workerClient.ts`.
  */
 import * as Comlink from "comlink";
-import type { Card } from "../lib/spaced-repetition";
-import type { ReviewLogEntry } from "../lib/storage";
+import type { Card } from "@/lib/sr/types";
+import type { ReviewLogEntry } from "@/lib/types/logs";
 import { calcInterferencePairs } from "../lib/analytics/_pure/interference";
 import {
   calcCategoryStability,

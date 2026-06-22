@@ -1,5 +1,6 @@
 import { getStorageUsage } from "@/lib/storage";
-import { bulkPutCardsDirect, cardToScopeRef, emitCardsChangedForRefs } from "@/lib/db/queries";
+import { bulkPutCardsDirect } from "@/lib/db/queries";
+import { runBulkCardsWrite } from "@/lib/query/all-caches-coordinator";
 import {
   // SQLite-primary readers via the backup-readers seam (P1.B).
   countCards,
@@ -92,7 +93,7 @@ async function fetchStorageSnapshot(): Promise<StorageSnapshot> {
 
 async function detectIntegrityIssues(): Promise<IntegrityIssues> {
   // Both reads flow through the SQLite-primary seam. listAllCards loads the
-  // full set once; acceptable for integrity heal because OPFS reads are fast
+  // full set once; acceptable for integrity heal on main-process SQLite.
   const [allCategories, allCards] = await Promise.all([
     readAllCategoriesForBackup(),
     listAllCards(),
@@ -195,11 +196,9 @@ export async function cleanOrphans(cardIds: string[]): Promise<CleanOrphansResul
       subcategoryId: "",
       chapterId: "",
     }));
-  await bulkPutCardsDirect(patched, { skipNotify: true });
-  emitCardsChangedForRefs([
-    ...loaded.filter(Boolean).map(cardToScopeRef),
-    ...patched.map(cardToScopeRef),
-  ]);
+  await runBulkCardsWrite(() =>
+    bulkPutCardsDirect(patched, { skipNotify: true }),
+  );
 
   return { fallbackCategoryName: fallback.name, movedCount: patched.length };
 }

@@ -81,6 +81,19 @@ async function flush(): Promise<void> {
   await _drainGuarded();
 }
 
+async function clearAll(): Promise<void> {
+  if (_timer != null) {
+    clearTimeout(_timer);
+    _timer = null;
+  }
+  _queue.length = 0;
+  if (_inFlight) await _inFlight;
+  const { requireSqlExecutor } = await import("@/lib/db/queries/_shared/require-sql-executor");
+  const exec = await requireSqlExecutor("reviewLog:clearAll");
+  await exec.run("DELETE FROM reviewLog");
+  _backoffMs = DEBOUNCE_MS;
+}
+
 export const reviewLogRepository = {
   append(entry: ReviewLogEntry): void {
     _queue.push(entry);
@@ -92,5 +105,6 @@ export const reviewLogRepository = {
     _schedule();
   },
   flush,
+  clearAll,
   loadRecent: (days: number): Promise<ReviewLogEntry[]> => loadRecentReviewLog(days),
 };

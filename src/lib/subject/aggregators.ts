@@ -13,6 +13,7 @@
  */
 
 import { getCardMasteryLevel } from "@/lib/mastery";
+import { countEndangeredEssays } from "@/lib/saga/endangered-display";
 import { SectionState, type Card } from "@/lib/spaced-repetition";
 
 interface ChapterProgress {
@@ -21,6 +22,7 @@ interface ChapterProgress {
   cardCount: number;
   pct: number;
   mastery: number;
+  endangeredCount: number;
 }
 
 export interface SubProgress {
@@ -29,6 +31,7 @@ export interface SubProgress {
   cardCount: number;
   pct: number;
   mastery: number;
+  endangeredCount: number;
   chapters: ChapterProgress[];
 }
 
@@ -91,6 +94,7 @@ export function aggregateSubjectProgress(
         cardCount: chCards.length,
         pct: computePct(chCards),
         mastery: computeMastery(chCards),
+        endangeredCount: countEndangeredEssays(chCards),
       };
     });
     return {
@@ -99,6 +103,7 @@ export function aggregateSubjectProgress(
       cardCount: subCards.length,
       pct: computePct(subCards),
       mastery: computeMastery(subCards),
+      endangeredCount: countEndangeredEssays(subCards),
       chapters,
     };
   });

@@ -1,7 +1,7 @@
 /**
  * BootRecoveryGate — renderuje akcijabilan recovery UI kada boot padne u
  * `schema-error`, `load-error`, `version`, `blocked` ili `corrupted`. U
- * happy path-u (`idle | opening | schema | healing | loading | ready`)
+ * happy path-u (`idle | opening | schema | loading | ready`)
  * samo prosljeđuje children.
  *
  * Zamjenjuje "bijeli ekran smrti" — korisnik uvijek dobije bar Retry +

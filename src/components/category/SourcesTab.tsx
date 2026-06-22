@@ -232,6 +232,7 @@ export default function SourcesTab({ categoryId, sources, onOpenReader, onSource
                 </div>
               )}
 
+              {all.length > 0 && (
               <div className="mt-4 flex justify-center">
                 <Button
                   variant="outline"
@@ -246,6 +247,7 @@ export default function SourcesTab({ categoryId, sources, onOpenReader, onSource
                   {importing ? "Importujem…" : "Dodaj dokument"}
                 </Button>
               </div>
+              )}
             </TabsContent>
           );
         })}

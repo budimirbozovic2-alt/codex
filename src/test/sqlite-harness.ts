@@ -33,14 +33,16 @@ interface TableState {
 
 interface MockState {
   tables: Map<string, TableState>;
+  userVersion: number;
 }
 
 function newState(): MockState {
-  return { tables: new Map() };
+  return { tables: new Map(), userVersion: 0 };
 }
 
 function snapshot(state: MockState): MockState {
   const copy = newState();
+  copy.userVersion = state.userVersion;
   for (const [name, t] of state.tables) {
     copy.tables.set(name, {
       rows: t.rows.map((r) => ({ ...r })),
@@ -76,7 +78,7 @@ const RE_COUNT_DISTINCT =
 const RE_UPSERT_CARD_SECTIONS =
   /^\s*INSERT\s+INTO\s+card_sections_index\s*\(\s*card_id\s*,\s*section_id\s*,\s*state\s*,\s*next_review\s*\)\s*VALUES\s*\(\s*\?\s*,\s*\?\s*,\s*\?\s*,\s*\?\s*\)\s*ON\s+CONFLICT\s*\(\s*card_id\s*,\s*section_id\s*\)\s*DO\s+UPDATE\s+SET\s+state\s*=\s*excluded\.state\s*,\s*next_review\s*=\s*excluded\.next_review\s*$/i;
 const RE_DUE_CARDS_JOIN =
-  /^\s*SELECT\s+cards\.payload\s+FROM\s+cards\s+INNER\s+JOIN\s+card_sections_index\s+idx\s+ON\s+cards\.id\s*=\s*idx\.card_id\s+WHERE\s+idx\.state\s*!=\s*\?\s+AND\s+idx\.next_review\s*<=\s*\?\s+GROUP\s+BY\s+cards\.id\s+ORDER\s+BY\s+MIN\s*\(\s*idx\.next_review\s*\)\s+ASC\s+LIMIT\s*\?\s*$/i;
+  /^\s*SELECT\s+cards\.[\s\S]+\s+FROM\s+cards\s+INNER\s+JOIN\s+card_sections_index\s+idx\s+ON\s+cards\.id\s*=\s*idx\.card_id\s+WHERE\s+idx\.state\s*!=\s*\?\s+AND\s+idx\.next_review\s*<=\s*\?\s+GROUP\s+BY\s+cards\.id\s+ORDER\s+BY\s+MIN\s*\(\s*idx\.next_review\s*\)\s+ASC\s+LIMIT\s*\?\s*$/i;
 const RE_COUNT_DUE_BY_CATEGORY =
   /^\s*SELECT\s+COUNT\s*\(\s*DISTINCT\s+idx\.card_id\s*\)\s+AS\s+n\s+FROM\s+card_sections_index\s+idx\s+INNER\s+JOIN\s+cards\s+c\s+ON\s+c\.id\s*=\s*idx\.card_id\s+WHERE\s+c\.categoryId\s*=\s*\?\s+AND\s+idx\.state\s*!=\s*\?\s+AND\s+idx\.next_review\s*<=\s*\?\s*$/i;
 const RE_AVG_MASTERY_BY_CATEGORY =
@@ -369,6 +371,14 @@ class TestExecutor implements SqlExecutor {
   ): Promise<void> {
     const trimmed = sql.replace(/\s+/g, " ").trim();
 
+    const pragmaUserVersionSet = /^\s*PRAGMA\s+user_version\s*=\s*(\d+)\s*$/i.exec(
+      trimmed,
+    );
+    if (pragmaUserVersionSet) {
+      this.state.userVersion = Number(pragmaUserVersionSet[1]);
+      return;
+    }
+
     // DDL / PRAGMA / ALTER / BEGIN/COMMIT/ROLLBACK — noop. (BEGIN/COMMIT are
     // also invoked through `transaction()`, which is the documented contract.)
     if (
@@ -419,12 +429,6 @@ class TestExecutor implements SqlExecutor {
           row[cols[i]] = ph.replace(/^'|'$/g, "");
         }
       }
-      // Auto-assign id when omitted (AUTOINCREMENT semantics)
-      if (!cols.includes("id")) {
-        row.id = t.nextRowid++;
-      } else if (typeof row.id === "number" && row.id >= t.nextRowid) {
-        t.nextRowid = (row.id as number) + 1;
-      }
       // OR REPLACE on PK ("id" or "key" or "date" depending on table)
       const isOrReplace = /INSERT\s+OR\s+REPLACE/i.test(trimmed);
       const pkCol = cols.includes("id")
@@ -434,7 +438,14 @@ class TestExecutor implements SqlExecutor {
           : cols.includes("date")
             ? "date"
             : null;
-      if (isOrReplace && pkCol) {
+      if (!cols.includes("id")) {
+        row.id = t.nextRowid++;
+      } else if (row.id === null || row.id === undefined) {
+        row.id = t.nextRowid++;
+      } else if (typeof row.id === "number" && row.id >= t.nextRowid) {
+        t.nextRowid = (row.id as number) + 1;
+      }
+      if (isOrReplace && pkCol && row[pkCol] != null) {
         const pkVal = row[pkCol];
         const idx = t.rows.findIndex((r) => r[pkCol] === pkVal);
         if (idx >= 0) {
@@ -545,6 +556,11 @@ class TestExecutor implements SqlExecutor {
     // by `findArticleByTitle` and friends — match the single-line regexes.
     const trimmed = sql.replace(/\s+/g, " ").trim();
 
+    const pragmaUserVersionRead = /^\s*PRAGMA\s+user_version\s*$/i.exec(trimmed);
+    if (pragmaUserVersionRead) {
+      return [{ user_version: this.state.userVersion }] as unknown as T[];
+    }
+
     const pragmaInfo = /^\s*PRAGMA\s+table_info\((\w+)\)\s*$/i.exec(trimmed);
     if (pragmaInfo) {
       const table = pragmaInfo[1];
@@ -555,8 +571,11 @@ class TestExecutor implements SqlExecutor {
       }
       if (table === "cards") {
         return [
-          { name: "id" }, { name: "categoryId" },
-          { name: "mastery_score" }, { name: "mastery_level" }, { name: "payload" },
+          { name: "id" }, { name: "categoryId" }, { name: "subcategoryId" },
+          { name: "chapterId" }, { name: "type" }, { name: "createdAt" },
+          { name: "updatedAt" }, { name: "sourceId" }, { name: "frequencyTag" },
+          { name: "sourceType" }, { name: "mastery_score" }, { name: "mastery_level" },
+          { name: "parentId" }, { name: "isEndangered" }, { name: "payload" },
         ] as unknown as T[];
       }
       return [] as unknown as T[];
@@ -585,8 +604,7 @@ class TestExecutor implements SqlExecutor {
       const byId = new Map(cards.map((r) => [String(r.id), r]));
       return ordered
         .map((id) => byId.get(id))
-        .filter((r): r is Row => r !== undefined)
-        .map((r) => ({ payload: r.payload })) as unknown as T[];
+        .filter((r): r is Row => r !== undefined) as unknown as T[];
     }
 
     const countDueByCategory = RE_COUNT_DUE_BY_CATEGORY.exec(trimmed);
@@ -735,6 +753,7 @@ class TestExecutor implements SqlExecutor {
       const snap = this.snapStack.pop();
       if (snap) {
         this.state.tables = snap.tables;
+        this.state.userVersion = snap.userVersion;
       }
       throw err;
     }
@@ -756,6 +775,20 @@ export function getTestSqlExecutor(): SqlExecutor {
 
 export function resetTestSqliteState(): void {
   _state = newState();
+  _executor = new TestExecutor(_state);
+}
+
+/** Opaque handle for in-memory DB snapshot (test-only). */
+export type TestSqliteSnapshot = Readonly<{ snap: MockState }>;
+
+/** Capture current harness tables for simulated worker restart. */
+export function snapshotTestSqliteState(): TestSqliteSnapshot {
+  return { snap: snapshot(_state) };
+}
+
+/** Restore harness tables from {@link snapshotTestSqliteState}. */
+export function restoreTestSqliteState(handle: TestSqliteSnapshot): void {
+  _state = snapshot(handle.snap);
   _executor = new TestExecutor(_state);
 }
 

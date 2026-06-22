@@ -6,6 +6,14 @@
  * unified event bus (`onDomainChanged`). The BRIDGES_KEY globalThis Symbol
  * is retained for HMR idempotency — each HMR cycle re-evaluates this module
  * and would re-register listeners without the guard.
+ *
+ * Bulk write rules (see `runBulkWriteSession` in all-caches-coordinator):
+ * 1. `commitCardsWriteFromDb` derived flush invalidates all except
+ *    `cards.all` + `count.all` — sufficient after bulk coordinator commit.
+ * 2. Bulk flows must NOT call `notifyCardsChanged({ kind: "all" })` or
+ *    `invalidateQueries({ queryKey: ["cards"] })` prefix invalidation.
+ * 3. Scoped notify (`category`, `subcategory`, `chapter`) is for single-card
+ *    paths only — not after a `commitCardsWriteFromDb` in the same session.
  */
 import type { QueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/query/keys";
@@ -13,10 +21,9 @@ import {
   onDomainChanged,
   type DomainChangedPayload,
 } from "@/lib/event-bus";
-import {
-  loadPlanner,
-  loadDisciplineLog,
-} from "@/domains/planner";
+import { reviewLogRepository, settingsRepository } from "@/lib/repositories";
+import { DEFAULT_SR_SETTINGS } from "@/lib/spaced-repetition";
+import { REVIEW_LOG_BOOT_DAYS } from "@/lib/query/review-settings-cache-coordinator";
 import { metrics } from "@/lib/metrics";
 import type { CardsChangedScope } from "@/lib/event-bus-types";
 
@@ -44,6 +51,7 @@ const CARDS_MAX_WAIT_MS = 250;
 let _trailingTimer: ReturnType<typeof setTimeout> | null = null;
 let _maxWaitTimer: ReturnType<typeof setTimeout> | null = null;
 let _pendingPrefix = false;
+let _pendingDerived = false;
 const _pendingKeys = new Set<string>();
 
 let _cycleId: string | null = null;
@@ -54,12 +62,16 @@ function newCycleId(): string {
   return Math.random().toString(36).slice(2, 8);
 }
 
+/** Scopes that map to concrete query keys (not prefix-wide all/derived). */
+type CardsKeyedScope = Exclude<
+  CardsChangedScope,
+  { kind: "all" } | { kind: "derived" }
+>;
+
 function keysForScope(
-  scope: CardsChangedScope
+  scope: CardsKeyedScope
 ): readonly (readonly string[])[] {
   switch (scope.kind) {
-    case "all":
-      return [queryKeys.cards.countAll()];
     case "category": {
       const { categoryId } = scope;
       return [
@@ -102,6 +114,14 @@ function keysForScope(
   }
 }
 
+/** Invalidate scoped card queries — excludes authoritative seed keys (all + countAll). */
+function isDerivedCardsQueryKey(key: readonly unknown[]): boolean {
+  if (!Array.isArray(key) || key[0] !== "cards") return false;
+  if (key.length === 2 && key[1] === "all") return false;
+  if (key.length === 3 && key[1] === "count" && key[2] === "all") return false;
+  return true;
+}
+
 function flushCardsInvalidate(qc: QueryClient): void {
   if (_trailingTimer !== null) { 
     clearTimeout(_trailingTimer); 
@@ -118,6 +138,7 @@ function flushCardsInvalidate(qc: QueryClient): void {
 
   if (_pendingPrefix) {
     _pendingPrefix = false;
+    _pendingDerived = false;
     _pendingKeys.clear();
     metrics.inc("bridges.cards.flush.prefix");
     metrics.event("bridges.cards.cycle.flush", { 
@@ -129,6 +150,25 @@ function flushCardsInvalidate(qc: QueryClient): void {
     _cycleId = null; 
     _cycleEmits = 0;
     void qc.invalidateQueries({ queryKey: ["cards"] });
+    return;
+  }
+
+  if (_pendingDerived) {
+    _pendingDerived = false;
+    _pendingKeys.clear();
+    metrics.inc("bridges.cards.flush.derived");
+    metrics.event("bridges.cards.cycle.flush", {
+      cycleId,
+      kind: "derived",
+      duration,
+      emits,
+    });
+    _cycleId = null;
+    _cycleEmits = 0;
+    void qc.invalidateQueries({
+      queryKey: queryKeys.cards.root,
+      predicate: (query) => isDerivedCardsQueryKey(query.queryKey),
+    });
     return;
   }
 
@@ -174,7 +214,10 @@ function scheduleCardsInvalidate(
   metrics.inc(`bridges.cards.schedule.${scope.kind}`);
   if (scope.kind === "all") {
     _pendingPrefix = true;
+    _pendingDerived = false;
     _pendingKeys.clear();
+  } else if (scope.kind === "derived") {
+    _pendingDerived = true;
   } else if (!_pendingPrefix) {
     for (const key of keysForScope(scope)) {
       _pendingKeys.add(JSON.stringify(key));
@@ -211,6 +254,7 @@ function _flushCardsInvalidateForTest(): void {
     _maxWaitTimer = null; 
   }
   _pendingPrefix = false;
+  _pendingDerived = false;
   _pendingKeys.clear();
   _cycleId = null;
   _cycleEmits = 0;
@@ -230,13 +274,26 @@ export function installQueryBridges(qc: QueryClient): void {
         metrics.inc(`bridges.planner.${payload.kind}`);
         switch (payload.kind) {
           case "config":
-            qc.setQueryData(queryKeys.planner.config(), loadPlanner());
+            void qc.invalidateQueries({
+              queryKey: queryKeys.planner.root,
+              predicate: (query) => {
+                const k = query.queryKey;
+                return k[0] === "planner" && k[1] !== "config";
+              },
+            });
             break;
           case "discipline":
-            qc.setQueryData(
-              queryKeys.planner.disciplineLog(), 
-              loadDisciplineLog()
-            );
+            void qc.invalidateQueries({
+              queryKey: queryKeys.planner.root,
+              predicate: (query) => {
+                const k = query.queryKey;
+                return (
+                  k[0] === "planner"
+                  && k[1] === "discipline"
+                  && k[2] !== "log"
+                );
+              },
+            });
             break;
           case "dailyMapped":
           case "lastRedistribute":
@@ -245,6 +302,33 @@ export function installQueryBridges(qc: QueryClient): void {
         break;
       case "cards":
         scheduleCardsInvalidate(qc, payload.scope);
+        break;
+      case "categories":
+        metrics.inc("bridges.categories.invalidate");
+        void qc.invalidateQueries({ queryKey: queryKeys.categories.root });
+        break;
+      case "review":
+        metrics.inc(`bridges.review.${payload.kind}`);
+        if (payload.kind === "replace") {
+          void reviewLogRepository
+            .loadRecent(REVIEW_LOG_BOOT_DAYS)
+            .then((log) => {
+              qc.setQueryData(
+                queryKeys.review.logRecent(REVIEW_LOG_BOOT_DAYS),
+                log,
+              );
+            });
+        }
+        break;
+      case "settings":
+        metrics.inc(`bridges.settings.${payload.kind}`);
+        if (payload.kind === "sr") {
+          void settingsRepository
+            .load("srSettings", DEFAULT_SR_SETTINGS)
+            .then((settings) => {
+              qc.setQueryData(queryKeys.settings.sr(), settings);
+            });
+        }
         break;
       case "mindmaps":
         metrics.inc("bridges.mindMaps.invalidate");

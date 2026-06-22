@@ -5,12 +5,12 @@ import type { ImportValidation } from "./types";
 
 interface Props {
   validation: ImportValidation;
-  currentCardsCount: number;
   onConfirm: () => void;
   onCancel: () => void;
 }
 
-export function ImportConfirmStep({ validation, currentCardsCount, onConfirm, onCancel }: Props) {
+export function ImportConfirmStep({ validation, onConfirm, onCancel }: Props) {
+  const existingCardsCount = validation.existingCardsCount;
   return (
     <>
       <DialogHeader>
@@ -112,7 +112,10 @@ export function ImportConfirmStep({ validation, currentCardsCount, onConfirm, on
               <AlertTriangle className="h-4 w-4 text-warning flex-shrink-0 mt-0.5" />
               <p className="text-muted-foreground">
                 Uvozite <strong className="text-foreground">{validation.totalCards.toLocaleString()}</strong> kartica.
-                {currentCardsCount > 0 && <> Trenutno imate {currentCardsCount.toLocaleString()} kartica u bazi.</>}
+                {existingCardsCount > 0 && <> Trenutno imate {existingCardsCount.toLocaleString()} kartica u bazi.</>}
+                {existingCardsCount === 0 && validation.hasProgress && (
+                  <> Puna zamjena postojeće (prazne) baze — preporučeno za prvi uvoz.</>
+                )}
               </p>
             </div>
           )}

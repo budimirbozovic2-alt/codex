@@ -7,8 +7,8 @@
  * `getCardRetrievability`) so the module stays free of `@/lib/sr/*` deps
  * — required for the `_pure/**` ESLint guard.
  */
-import type { Card, Section } from "../../spaced-repetition";
-import { SectionState } from "../../spaced-repetition";
+import type { Card, Section } from "@/lib/sr/types";
+import { SectionState } from "@/lib/sr/types";
 import type { ReviewLogEntry } from "../../storage";
 import type { LatencyEntry } from "@/domains/metacognition/metacognitive-storage";
 

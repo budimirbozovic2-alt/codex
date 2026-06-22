@@ -60,9 +60,9 @@ export default function PersonalizationTab({ app, setApp }: Props) {
         </SettingsRowWide>
       </SettingsSection>
 
-      <SettingsSection title="Izgled" description="Odaberi paletu koja ti odgovara. Primjenjuje se odmah.">
+      <SettingsSection title="Izgled" description="Odaberi paletu akcent boja. Primjenjuje se odmah u svijetlom i tamnom režimu.">
         <SettingsRowWide label="Tema boja">
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
             {COLOR_THEMES.map((theme) => {
               const isActive = app.colorTheme === theme.id;
               return (
@@ -73,17 +73,26 @@ export default function PersonalizationTab({ app, setApp }: Props) {
                     setApp((prev) => ({ ...prev, colorTheme: theme.id }));
                     applyColorTheme(theme.id);
                   }}
-                  className={`flex items-center gap-2.5 p-3 rounded-lg border-2 transition-all text-left ${
+                  className={`flex flex-col gap-2.5 p-3 rounded-xl border-2 transition-all text-left ${
                     isActive
                       ? "border-primary bg-primary/5 shadow-sm"
                       : "border-transparent bg-secondary/40 hover:bg-secondary/70"
                   }`}
                 >
                   <div
-                    className={`w-5 h-5 rounded-full flex-shrink-0 ring-2 ring-offset-2 ring-offset-card ${isActive ? "ring-current" : "ring-transparent"}`}
-                    style={{ backgroundColor: theme.preview, color: theme.preview }}
+                    className={`h-9 w-full rounded-lg ring-2 ring-offset-2 ring-offset-card ${
+                      isActive ? "ring-primary/40" : "ring-transparent"
+                    }`}
+                    style={{
+                      background: `linear-gradient(135deg, ${theme.preview} 0%, ${theme.previewAccent} 100%)`,
+                    }}
                   />
-                  <span className="text-xs font-medium">{theme.label}</span>
+                  <div className="min-w-0">
+                    <span className="block text-xs font-semibold leading-tight">{theme.label}</span>
+                    <span className="block text-[10px] text-muted-foreground leading-snug mt-0.5">
+                      {theme.subtitle}
+                    </span>
+                  </div>
                 </button>
               );
             })}

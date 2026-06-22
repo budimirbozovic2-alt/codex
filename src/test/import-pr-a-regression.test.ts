@@ -66,4 +66,18 @@ describe("A2: applyRemapToParsed runs pre-merge without mutating currentMap", ()
     expect(parsed.cards[0].categoryId).toBe("x");
     expect(parsed.sources[0].categoryId).toBe("x");
   });
+
+  it("overwrite imports must keep backup categoryIds (no remap to seeded defaults)", () => {
+    const parsed = emptyParsed();
+    parsed.categories = [makeCat("backup-A", "Krivično materijalno pravo")];
+    parsed.cards = [makeCard("c1", "backup-A")];
+    const remap = buildCategoryIdRemap(
+      parsed.categories,
+      [makeCat("seed-A", "Krivično materijalno pravo")],
+    );
+    expect(remap.get("backup-A")).toBe("seed-A");
+    // applyImportAtomically skips remap when strategy === "overwrite"
+    const { merged } = mergeCardsByStrategy(parsed.cards, {}, "overwrite");
+    expect(merged[0].categoryId).toBe("backup-A");
+  });
 });

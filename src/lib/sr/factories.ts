@@ -1,13 +1,14 @@
 // Builder/factory functions for Section, Card, and FlashCard.
-import { Section, SectionState, Card, ErrorLogEntry, ErrorStatus } from "./types";
+import { Section, SectionState, Card, ErrorLogEntry } from "./types";
 import type { EditorDoc } from "@/lib/editor-v4/types";
 import { htmlToDoc } from "@/lib/editor-v4";
+import { newUuid } from "@/lib/ids";
 
 const EMPTY_DOC: EditorDoc = { version: 4, content: { type: "doc", content: [] } };
 
 export function createSection(title: string, contentDoc: EditorDoc = EMPTY_DOC): Section {
   return {
-    id: crypto.randomUUID(),
+    id: newUuid(),
     title,
     contentDoc: contentDoc && contentDoc.version === 4 ? contentDoc : EMPTY_DOC,
     state: SectionState.New,
@@ -30,7 +31,7 @@ export function createCard(
   subcategoryId?: string,
 ): Card {
   return {
-    id: crypto.randomUUID(),
+    id: newUuid(),
     question,
     sections: sections.map((s) => createSection(s.title, s.contentDoc)),
     categoryId,
@@ -43,7 +44,7 @@ export function createCard(
 
 export function createFlashCard(question: string, answer: string, categoryId: string, subcategoryId?: string): Card {
   return {
-    id: crypto.randomUUID(),
+    id: newUuid(),
     question,
     sections: [createSection("Odgovor", htmlToDoc(answer))],
     categoryId,
@@ -55,8 +56,4 @@ export function createFlashCard(question: string, answer: string, categoryId: st
 }
 
 // Error-status classifier — pure utility, lives with factories for cohesion.
-export function getErrorStatus(entry: ErrorLogEntry): ErrorStatus {
-  if (entry.successStreak >= 5) return "mastered";
-  if (entry.recentSuccesses > entry.count) return "recovering";
-  return "critical";
-}
+export { getErrorStatus } from "./error-status";

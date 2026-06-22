@@ -27,7 +27,29 @@ export interface SubjectSettings {
   dailyGoal?: number;
   /** Override resistance weights */
   resistanceWeights?: { lapses: number; latency: number; forgetting: number };
+  /** Per-subject FSRS profile preset. */
+  knowledgeProfile?: KnowledgeProfile;
 }
+
+export type KnowledgeProfile = "memory" | "conceptual";
+
+export const KNOWLEDGE_PROFILE_PRESETS: Record<
+  KnowledgeProfile,
+  Pick<SubjectSettings, "targetRetention" | "leechThreshold">
+> = {
+  memory: { targetRetention: 0.93, leechThreshold: 4 },
+  conceptual: { targetRetention: 0.88, leechThreshold: 5 },
+};
+
+export const KNOWLEDGE_PROFILE_LABELS: Record<KnowledgeProfile, string> = {
+  memory: "Memorijski",
+  conceptual: "Konceptualni",
+};
+
+export const KNOWLEDGE_PROFILE_HINTS: Record<KnowledgeProfile, string> = {
+  memory: "Više ponavljanja, kraći intervali — fakti, definicije, liste.",
+  conceptual: "Duži intervali, fokus na razumijevanje i eseje.",
+};
 
 // In-memory cache: categoryId → settings. Populated at boot from SQLite `kv`.
 const _cache: Map<string, SubjectSettings> = new Map();
@@ -90,29 +112,44 @@ export async function saveSubjectSettings(
   categoryId: string,
   settings: SubjectSettings,
 ): Promise<void> {
+  const prevCached = _cache.get(categoryId);
+  const prevLs = typeof localStorage !== "undefined"
+    ? localStorage.getItem(PREFIX + categoryId)
+    : null;
   _cache.set(categoryId, settings);
   const json = JSON.stringify(settings);
-  // localStorage stays as a fast-read mirror (cache, not SSOT).
   try { localStorage.setItem(PREFIX + categoryId, json); } catch { /* quota */ }
-  // PR-G1 / C-2 final: await the SSOT write and re-throw on failure so the
-  // caller (UI) can surface a toast instead of giving false-success feedback.
-  // Previously the `.catch(logger.error)` swallowed rejections; localStorage
-  // mirror would persist while SQLite write silently dropped — survives a
-  // browser cache wipe = data lost.
   try {
     await putSetting(PREFIX + categoryId, settings);
   } catch (err) {
+    if (prevCached !== undefined) _cache.set(categoryId, prevCached);
+    else _cache.delete(categoryId);
+    try {
+      if (prevLs === null) localStorage.removeItem(PREFIX + categoryId);
+      else localStorage.setItem(PREFIX + categoryId, prevLs);
+    } catch { /* noop */ }
     logger.error("[subject-settings] put failed — SSOT write lost", err);
     throw err;
   }
 }
 
-export function clearSubjectSettings(categoryId: string): void {
+export async function clearSubjectSettings(categoryId: string): Promise<void> {
+  const prevCached = _cache.get(categoryId);
+  const prevLs = typeof localStorage !== "undefined"
+    ? localStorage.getItem(PREFIX + categoryId)
+    : null;
   _cache.delete(categoryId);
   try { localStorage.removeItem(PREFIX + categoryId); } catch { /* noop */ }
-  deleteSetting(PREFIX + categoryId).catch((err) =>
-    logger.error("[subject-settings] delete failed — SSOT row may leak", err),
-  );
+  try {
+    await deleteSetting(PREFIX + categoryId);
+  } catch (err) {
+    if (prevCached !== undefined) _cache.set(categoryId, prevCached);
+    try {
+      if (prevLs !== null) localStorage.setItem(PREFIX + categoryId, prevLs);
+    } catch { /* noop */ }
+    logger.error("[subject-settings] delete failed — SSOT row may leak", err);
+    throw err;
+  }
 }
 
 /**
@@ -126,6 +163,7 @@ export const OVERRIDABLE_SUBJECT_KEYS = [
   "leechThreshold",
   "dailyGoal",
   "resistanceWeights",
+  "knowledgeProfile",
 ] as const satisfies readonly (keyof SubjectSettings)[];
 
 export function mergeSubjectOverrides<T extends Partial<SubjectSettings>>(

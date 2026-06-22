@@ -28,6 +28,11 @@ export default function SubjectCard({ plan, index, onNavigate }: Props) {
           <div className="flex items-center gap-2">
             <span className="text-sm font-medium truncate">{plan.categoryName}</span>
             {plan.weight > 1 && <span className="text-[10px] px-1.5 py-0.5 rounded bg-warning/20 text-warning font-medium">Težak</span>}
+            {!!plan.daysLate && plan.daysLate > 0 && (
+              <span className="text-[10px] px-1.5 py-0.5 rounded bg-destructive/15 text-destructive font-medium">
+                Kasniš {plan.daysLate}d
+              </span>
+            )}
           </div>
           <p className="text-xs text-muted-foreground">
             {plan.allocatedDays}d • {format(plan.startDate, "dd.MM")} — {format(plan.endDate, "dd.MM")}

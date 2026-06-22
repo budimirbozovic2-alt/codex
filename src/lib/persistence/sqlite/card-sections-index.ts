@@ -1,7 +1,7 @@
 /**
  * Denormalised FSRS section index for O(1) due-card lookups via SQL JOIN.
  */
-import type { Card } from "@/lib/spaced-repetition";
+import type { Card } from "@/lib/sr/types";
 import type { SqlBindValue, SqlExecutor } from "./executor";
 
 export const CARD_SECTION_INDEX_UPSERT_SQL = `

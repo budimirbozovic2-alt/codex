@@ -13,18 +13,19 @@ import {
 } from "@/lib/source-reader/build-essay-payload";
 import { commitMappingCreated } from "@/lib/services/sourceEditingService";
 import { usePlannerMutations } from "@/hooks/planner/usePlannerMutations";
+import type { SelectionPayload } from "@/lib/source-reader/selection-payload";
 
 type AddCardFn = ReturnType<typeof useCardOnlyActions>["addCard"];
 
 function dispatchAdd(addCard: AddCardFn, a: AddCardArgs) {
-  addCard(a.question, a.sections, a.categoryId, a.subId, a.chapId, a.options);
+  return addCard(a.question, a.sections, a.categoryId, a.subId, a.chapId, a.options);
 }
 
 /**
  * Selection→Essay mapping actions for the source reader. Pure orchestration:
  * builders live in `build-essay-payload`, side-effects in `commitMappingCreated`.
  *
- * BubbleMenu callers pass `(text, html)` directly. ExamSidebar mapping reads
+ * BubbleMenu callers pass `SelectionPayload` directly. ExamSidebar mapping reads
  * the *current* TipTap selection via a parent-supplied getter
  * (`getSelectionPayload`) so we never reach into `window.getSelection()`.
  */
@@ -37,7 +38,8 @@ export function useSourceMapping(source: Source) {
     commitMappingCreated(count, { skipPlanner: true });
   }, [incrementMapped]);
 
-  const handleConvertToEssay = useCallback((text: string, html: string) => {
+  const handleConvertToEssay = useCallback((payload: SelectionPayload) => {
+    const { text, html, contentDoc } = payload;
     const {
       setSplitResult, setSplitSummaryOpen, initSplitWizard,
     } = useSourceReaderStore.getState();
@@ -56,13 +58,16 @@ export function useSourceMapping(source: Source) {
       return;
     }
 
-    const { title, contentText, contentHtml } = deriveTitleAndBody(text, safe);
+    const { title, contentText, contentHtml, contentDoc: strippedDoc } = deriveTitleAndBody(
+      text, safe, contentDoc,
+    );
     const singleModule: SelectionModule = {
       id: crypto.randomUUID(),
       articleNum: "",
       title,
       contentText,
       contentHtml,
+      contentDoc: strippedDoc,
       plainSnippet: contentText,
     };
     setSplitResult({ modules: [singleModule], rangeLabel: title, parentName: title });
@@ -89,7 +94,11 @@ export function useSourceMapping(source: Source) {
       toast.error("Svi članovi su preskočeni — ništa za kreirati.");
       return;
     }
-    dispatchAdd(addCard, args);
+    try {
+      await dispatchAdd(addCard, args);
+    } catch {
+      return;
+    }
     const moduleCount = args.options?.sourceModules?.length ?? 1;
     setSplitCreatedCount(moduleCount);
     setSplitDone(true);
@@ -99,37 +108,48 @@ export function useSourceMapping(source: Source) {
     });
   }, [source, addCard, commitMapping]);
 
-  const handleLinkToExisting = useCallback((text: string, html: string) => {
-    const { setLinkSelectedText, setLinkSelectedHtml, setLinkModalOpen } =
+  const handleLinkToExisting = useCallback((payload: SelectionPayload) => {
+    const { text, html, contentDoc } = payload;
+    const { setLinkSelectedText, setLinkSelectedHtml, setLinkSelectedDoc, setLinkModalOpen } =
       useSourceReaderStore.getState();
     if (!text) return;
     setLinkSelectedText(text);
     setLinkSelectedHtml(html);
+    setLinkSelectedDoc(contentDoc);
     setLinkModalOpen(true);
   }, []);
 
   const handleLinkConfirm = useCallback((cardId: string, appendSnippet: boolean = true) => {
     const {
-      linkSelectedText, linkSelectedHtml,
-      setLinkModalOpen, setLinkSelectedText, setLinkSelectedHtml,
+      linkSelectedText, linkSelectedHtml, linkSelectedDoc,
+      setLinkModalOpen, setLinkSelectedText, setLinkSelectedHtml, setLinkSelectedDoc,
     } = useSourceReaderStore.getState();
-    patchCard(cardId, (c) => buildLinkPatch(c, linkSelectedText, linkSelectedHtml, source.id, appendSnippet));
+    patchCard(cardId, (c) => buildLinkPatch(
+      c, linkSelectedText, linkSelectedHtml, source.id, appendSnippet, linkSelectedDoc ?? undefined,
+    ));
     setLinkModalOpen(false);
     setLinkSelectedText("");
     setLinkSelectedHtml("");
+    setLinkSelectedDoc(null);
     toast.success("Esej uspješno povezan!", { description: `Povezano sa izvorom "${source.title}"` });
   }, [patchCard, source.id, source.title]);
 
-  const handleMapSelection = useCallback((
+  const handleMapSelection = useCallback(async (
     questionId: string,
-    payload: { text: string; html: string } | null,
+    payload: SelectionPayload | null,
   ) => {
     const { examQuestions, setExamQuestions } = useSourceReaderStore.getState();
     if (!payload || !payload.text) return;
     const question = examQuestions.find((q) => q.id === questionId);
     if (!question) return;
-    const result = buildEssayFromSelection(payload.text, payload.html, question.text, source);
-    dispatchAdd(addCard, result.args);
+    const result = buildEssayFromSelection(
+      payload.text, payload.html, question.text, source, payload.contentDoc,
+    );
+    try {
+      await dispatchAdd(addCard, result.args);
+    } catch {
+      return;
+    }
     setExamQuestions((prev) =>
       prev.map((q) => (q.id === questionId ? { ...q, done: true, moduleCount: result.moduleCount } : q)),
     );

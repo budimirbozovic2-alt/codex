@@ -13,6 +13,7 @@ async function getPlannerModule(): Promise<PlannerModule> {
 import type { CategoryRecord } from "@/lib/db-types";
 import { StudyFlowData } from "@/components/dashboard/StudyFlowWidget";
 import { usePlannerMutations } from "@/hooks/planner/usePlannerMutations";
+import { usePlannerAutoRedistribute } from "@/hooks/planner/usePlannerAutoRedistribute";
 
 import { loadAppSettings, APP_SETTINGS_CHANGED_EVENT } from "@/lib/app-settings";
 import { useDeferredCompute } from "@/hooks/useDeferredCompute";
@@ -162,28 +163,63 @@ export function useDashboardData(
     return mod.loadPlanner();
   }, []);
 
-  const plannerData = useDeferredCompute(async () => {
-    if (!plannerConfig?.finalGoalDate || velocity7 === null) return null;
+  const redistResult = usePlannerAutoRedistribute(
+    cards,
+    plannerConfig?.finalGoalDate,
+    plannerConfig?.bufferPercent ?? 0,
+  );
+
+  const plannerBundle = useDeferredCompute(async () => {
+    if (!plannerConfig?.finalGoalDate || velocity7 === null || categoryRecords.length === 0) return null;
     const mod = await getPlannerModule();
-    const remaining = stats.totalSections - stats.learnedSections;
-    const estimated = mod.calcEstimatedFinish(remaining, velocity7);
-    const status = mod.getPlannerStatus(estimated, plannerConfig.finalGoalDate, plannerConfig.bufferPercent ?? 15);
-    const suggestion = mod.getSmartSuggestion(null, cards, plannerConfig.finalGoalDate, plannerConfig.bufferPercent ?? 15);
-    const timeRec = suggestion
-      ? mod.calcDailyTimeRecommendation(
-          suggestion.suggestedToday,
-          stats.due,
-          plannerConfig.dailyAvailableMinutes,
-        )
-      : null;
-    type ActivePhase = { name: string; pct: number; learned: number; total: number };
-    const subjectPlans = mod.generateStudyPlan(plannerConfig, categoryRecords, cards);
-    const activePhase: ActivePhase | null = resolveActivePhaseFromPlans(subjectPlans);
-    const dailyMapped = mod.getDailyMappedCount();
-    const dailyQuota = suggestion?.suggestedToday ?? 0;
-    const redistResult = mod.autoRedistributeIfNeeded(cards, plannerConfig.finalGoalDate, plannerConfig.bufferPercent ?? 15);
-    return { status, suggestion, timeRec, remaining, totalSections: stats.totalSections, learnedSections: stats.learnedSections, activePhase, dailyMapped, dailyQuota, redistResult };
-  }, [stats, velocity7, plannerConfig, cards, categoryRecords]);
+    const snapshot = mod.computePlannerSnapshot({
+      cards,
+      reviewLog,
+      categoryRecords,
+      config: plannerConfig,
+      totalSections: stats.totalSections,
+      learnedSections: stats.learnedSections,
+      dueCount: stats.due,
+    });
+    if (!snapshot) return null;
+    const activePlan = snapshot.activeSubjectPlan;
+    const overallPct = stats.totalSections > 0
+      ? Math.round((stats.learnedSections / stats.totalSections) * 100)
+      : 0;
+    return {
+      plannerData: {
+        status: snapshot.plannerStatus,
+        suggestion: snapshot.smartSuggestion,
+        timeRec: snapshot.timeRec,
+        remaining: snapshot.remaining,
+        totalSections: stats.totalSections,
+        learnedSections: stats.learnedSections,
+        activePhase: resolveActivePhaseFromPlans(snapshot.subjectPlans),
+        dailyProgress: snapshot.dailyProgress,
+        dailyQuota: snapshot.dailyQuota,
+      },
+      studyFlowData: activePlan ? {
+        focusSubject: activePlan.categoryName,
+        focusCategoryId: activePlan.categoryId,
+        dailyProgress: snapshot.dailyProgress,
+        dailyQuota: snapshot.dailyQuota,
+        learnPct: snapshot.learningRatio.learnPct,
+        reviewPct: snapshot.learningRatio.reviewPct,
+        learnTarget: snapshot.learnTarget,
+        reviewTarget: snapshot.reviewTarget,
+        ratioLabel: snapshot.learningRatio.label,
+        overallPct,
+      } satisfies StudyFlowData : null,
+    };
+  }, [stats, reviewLog, velocity7, plannerConfig, cards, categoryRecords]);
+
+  const plannerDataBase = plannerBundle?.plannerData ?? null;
+  const studyFlowData = plannerBundle?.studyFlowData ?? null;
+
+  const plannerData = useMemo(() => {
+    if (!plannerDataBase) return null;
+    return { ...plannerDataBase, redistResult };
+  }, [plannerDataBase, redistResult]);
 
   const cognitiveDebt = useDeferredCompute(async () => {
     const mod = await getPlannerModule();
@@ -204,15 +240,14 @@ export function useDashboardData(
       const mod = await getPlannerModule();
       const log = mod.loadDisciplineLog();
       if (log.find(e => e.date === yKey)) { disciplineRecordedRef.current = yKey; return; }
-      const yStart = new Date(yKey).getTime();
-      const yEnd = yStart + 86400000;
-      const yReviews = reviewLog.filter(e => e.timestamp >= yStart && e.timestamp < yEnd).length;
+      const yReviews = mod.countUniqueSectionsOnDate(reviewLog, yKey);
+      const dailyGoal = mod.resolveDailyDisciplineGoal(cards, categoryRecords);
       const slippageLog = loadSlippageLog();
       const ySlippage = slippageLog.find(s => s.date === yKey)?.slippageMs ?? null;
       recordDiscipline.mutate({ date: yKey, reviewsDone: yReviews, dailyGoal, slippageMs: ySlippage });
       disciplineRecordedRef.current = yKey;
     })();
-  }, [reviewLog, dailyGoal, recordDiscipline]);
+  }, [reviewLog, cards, recordDiscipline]);
 
   const energyLevel = getEnergyLevel();
 
@@ -225,11 +260,12 @@ export function useDashboardData(
   }, [velocity7, reviewLog]);
 
   const weakestCategoriesFull = useMemo(() => {
+    const nameById = new Map(categoryRecords.map(r => [r.id, r.name]));
     return categories
       .filter(cat => categoryStats[cat]?.total > 0)
       .map(cat => ({
         id: cat,
-        name: categoryRecords.find(r => r.id === cat)?.name || cat,
+        name: nameById.get(cat) || cat,
         score: categoryStats[cat].score,
         total: categoryStats[cat].total,
       }))
@@ -241,29 +277,6 @@ export function useDashboardData(
     [weakestCategoriesFull]
   );
   const weakestCategory = weakestCategoriesFull[0] ?? null;
-
-  const studyFlowData = useDeferredCompute<StudyFlowData | null>(async () => {
-    if (!plannerConfig?.finalGoalDate || categoryRecords.length === 0 || velocity7 === null) return null;
-    const mod = await getPlannerModule();
-    const plans = mod.generateStudyPlan(plannerConfig, categoryRecords, cards);
-    if (plans.length === 0) return null;
-    const today = startOfDay(new Date()).getTime();
-    const active = plans.find(p => startOfDay(p.startDate).getTime() <= today && today < startOfDay(p.endDate).getTime());
-    const focus = active || plans[0];
-    const overallPct = stats.totalSections > 0 ? Math.round((stats.learnedSections / stats.totalSections) * 100) : 0;
-    const ratio = mod.calcLearningReviewRatio(overallPct);
-    const dailyMapped = mod.getDailyMappedCount();
-    const dailyQuota = plannerData?.suggestion?.suggestedToday ?? 0;
-    return {
-      focusSubject: focus.categoryName,
-      dailyMapped,
-      dailyQuota,
-      learnPct: ratio.learnPct,
-      reviewPct: ratio.reviewPct,
-      ratioLabel: ratio.label,
-      overallPct,
-    };
-  }, [stats, categoryRecords, cards, velocity7, plannerConfig, plannerData]);
 
   const briefText = useMemo(() => {
     const parts: string[] = [];

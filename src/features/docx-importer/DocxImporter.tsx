@@ -29,7 +29,11 @@ const headingLabels: Record<HeadingLevel, string> = {
 const splitModeLabels: Record<SplitMode, string> = {
   heading: "Po headingu",
   delimiter: "Po tekstu",
+  "bold-period": "Skripta (bold)",
 };
+
+const sectionSplitModes: SplitMode[] = ["heading", "delimiter", "bold-period"];
+const questionSplitModes: SplitMode[] = ["heading", "delimiter"];
 
 export default function DocxImporter({ open, onClose, categories, onImport }: Props) {
   const flow = useDocxImportFlow(categories[0] ?? "");
@@ -113,7 +117,7 @@ export default function DocxImporter({ open, onClose, categories, onImport }: Pr
               <div className="space-y-2">
                 <label className="text-sm font-medium">Razdvajanje pitanja</label>
                 <div className="flex gap-2">
-                  {(["heading", "delimiter"] as SplitMode[]).map((m) => (
+                  {questionSplitModes.map((m) => (
                     <button
                       key={m}
                       type="button"
@@ -154,19 +158,28 @@ export default function DocxImporter({ open, onClose, categories, onImport }: Pr
               {/* Section split mode — only for essay */}
               {flow.cardType === "essay" && (<div className="space-y-2">
                 <label className="text-sm font-medium">Razdvajanje cjelina unutar pitanja</label>
-                <div className="flex gap-2">
-                  {(["heading", "delimiter"] as SplitMode[]).map((m) => (
+                <div className="flex flex-wrap gap-2">
+                  {sectionSplitModes.map((m) => (
                     <button
                       key={m}
                       type="button"
-                      onClick={() => updateSplitConfig({ sectionSplitMode: m })}
-                      className={`flex-1 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${splitConfig.sectionSplitMode === m ? "bg-primary text-primary-foreground" : "bg-secondary text-secondary-foreground"}`}
+                      onClick={() => flow.updateSplitConfig({ sectionSplitMode: m })}
+                      className={`flex-1 min-w-[7rem] rounded-lg px-3 py-2 text-sm font-medium transition-colors ${splitConfig.sectionSplitMode === m ? "bg-primary text-primary-foreground" : "bg-secondary text-secondary-foreground"}`}
                     >
                       {splitModeLabels[m]}
                     </button>
                   ))}
                 </div>
-                {splitConfig.sectionSplitMode === "heading" ? (
+                {flow.boldPeriodAutoDetected && splitConfig.sectionSplitMode === "bold-period" && (
+                  <p className="text-xs text-primary">
+                    Prepoznata skripta sa bold naslovima — automatski odabrana podjela po modulima.
+                  </p>
+                )}
+                {splitConfig.sectionSplitMode === "bold-period" ? (
+                  <p className="text-xs text-muted-foreground">
+                    Nova cjelina počinje kad paragraf ima <strong>boldovan naslov koji završava tačkom</strong> (npr. „Obligacioni odnos.“).
+                  </p>
+                ) : splitConfig.sectionSplitMode === "heading" ? (
                   <Select
                     value={splitConfig.sectionHeading}
                     onValueChange={(v) => updateSplitConfig({ sectionHeading: v as HeadingLevel })}

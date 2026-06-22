@@ -6,9 +6,13 @@ import type { Card } from "@/lib/spaced-repetition";
 import { SectionState } from "@/lib/spaced-repetition";
 import { 
   decodeCard, 
-  CardDecodeError 
+  CardDecodeError,
+  CARD_DECODE_SELECT,
+  cardSelectSql,
 } from "@/lib/persistence/sqlite/row-codecs";
+import type { SqlRow } from "@/lib/persistence/sqlite/executor";
 import { logger } from "@/lib/logger";
+import { getBulkWriteDepth } from "@/lib/query/bulk-write-session-depth";
 import { withSqlTiming } from "./_shared/sql-timing";
 import { requireSqlExecutor } from "./_shared/require-sql-executor";
 import {
@@ -52,17 +56,36 @@ export function onCorruptCards(fn: CorruptListener): () => void {
   return () => { _corruptListeners.delete(fn); };
 }
 
-function decodeRows(rows: readonly { payload: string }[]): Card[] {
+function decodeRows(rows: readonly SqlRow[]): Card[] {
   const out: Card[] = [];
   const failed: string[] = [];
   for (const row of rows) {
     try { out.push(decodeCard(row)); }
     catch (err: unknown) {
+      const id =
+        err instanceof CardDecodeError
+          ? err.id
+          : row.id != null
+            ? String(row.id)
+            : "unknown";
       if (err instanceof CardDecodeError) failed.push(err.id);
-      logger.warn("[cards-repo] decode failed, skipping row", err);
+      else failed.push(id);
+      logger.warn("[cards-repo] decode failed, skipping row", { id, err });
     }
   }
   if (failed.length > 0) recordCorruptIds(failed);
+  if (rows.length > 0 && out.length === 0) {
+    logger.error(
+      "[cards-repo] all card payloads failed decode — SQL rows exist but UI will be empty",
+      { rowCount: rows.length, failedSample: failed.slice(0, 5) },
+    );
+  } else if (failed.length > 0) {
+    logger.warn("[cards-repo] partial card decode failure", {
+      decoded: out.length,
+      failed: failed.length,
+      total: rows.length,
+    });
+  }
   return out;
 }
 
@@ -71,8 +94,8 @@ function decodeRows(rows: readonly { payload: string }[]): Card[] {
 export async function listAllCards(): Promise<Card[]> {
   return withSqlTiming("listAllCards", async () => {
     const exec = await requireSqlExecutor("cards:listAllCards");
-    const rows = await exec.all<{ payload: string }>(
-      "SELECT payload FROM cards"
+    const rows = await exec.all<SqlRow>(
+      `SELECT ${CARD_DECODE_SELECT} FROM cards`,
     );
     return decodeRows(rows);
   });
@@ -86,8 +109,8 @@ export async function getCardsByIds(
   const exec = await requireSqlExecutor("cards:getCardsByIds");
   
   const placeholders = ids.map(() => "?").join(",");
-  const rows = await exec.all<{ id: string; payload: string }>(
-    `SELECT id, payload FROM cards 
+  const rows = await exec.all<SqlRow>(
+    `SELECT ${CARD_DECODE_SELECT} FROM cards 
      WHERE id IN (${placeholders})`,
     ids as readonly string[],
   );
@@ -95,7 +118,7 @@ export async function getCardsByIds(
   const byId = new Map<string, Card>();
   const failed: string[] = [];
   for (const row of rows) {
-    try { byId.set(row.id, decodeCard(row)); }
+    try { byId.set(String(row.id), decodeCard(row)); }
     catch (err: unknown) {
       if (err instanceof CardDecodeError) failed.push(err.id);
       logger.warn(
@@ -116,8 +139,8 @@ export async function getDueCardsFromDb(
 ): Promise<Card[]> {
   return withSqlTiming("getDueCardsFromDb", async () => {
     const exec = await requireSqlExecutor("cards:due");
-    const rows = await exec.all<{ payload: string }>(
-      `SELECT cards.payload
+    const rows = await exec.all<SqlRow>(
+      `SELECT ${cardSelectSql("cards")}
          FROM cards
          INNER JOIN card_sections_index idx ON cards.id = idx.card_id
         WHERE idx.state != ? AND idx.next_review <= ?
@@ -217,8 +240,8 @@ export async function cardsByCategory(
 ): Promise<Card[]> {
   return withSqlTiming("cardsByCategory", async () => {
     const exec = await requireSqlExecutor("cards:cardsByCategory");
-    const rows = await exec.all<{ payload: string }>(
-      "SELECT payload FROM cards WHERE categoryId = ?", 
+    const rows = await exec.all<SqlRow>(
+      `SELECT ${CARD_DECODE_SELECT} FROM cards WHERE categoryId = ?`, 
       [categoryId],
     );
     return decodeRows(rows);
@@ -230,8 +253,8 @@ export async function cardsBySubcategory(
   subcategoryId: string,
 ): Promise<Card[]> {
   const exec = await requireSqlExecutor("cards:cardsBySubcategory");
-  const rows = await exec.all<{ payload: string }>(
-    `SELECT payload FROM cards 
+  const rows = await exec.all<SqlRow>(
+    `SELECT ${CARD_DECODE_SELECT} FROM cards 
      WHERE categoryId = ? AND subcategoryId = ?`,
     [categoryId, subcategoryId],
   );
@@ -243,8 +266,8 @@ export async function cardsByChapter(
   chapterId: string,
 ): Promise<Card[]> {
   const exec = await requireSqlExecutor("cards:cardsByChapter");
-  const rows = await exec.all<{ payload: string }>(
-    `SELECT payload FROM cards 
+  const rows = await exec.all<SqlRow>(
+    `SELECT ${CARD_DECODE_SELECT} FROM cards 
      WHERE categoryId = ? AND chapterId = ?`,
     [categoryId, chapterId],
   );
@@ -256,8 +279,8 @@ export async function cardsByType(
   type: Card["type"]
 ): Promise<Card[]> {
   const exec = await requireSqlExecutor("cards:cardsByType");
-  const rows = await exec.all<{ payload: string }>(
-    "SELECT payload FROM cards WHERE categoryId = ? AND type = ?",
+  const rows = await exec.all<SqlRow>(
+    `SELECT ${CARD_DECODE_SELECT} FROM cards WHERE categoryId = ? AND type = ?`,
     [categoryId, type],
   );
   return decodeRows(rows);
@@ -265,8 +288,8 @@ export async function cardsByType(
 
 export async function cardsBySource(sourceId: string): Promise<Card[]> {
   const exec = await requireSqlExecutor("cards:cardsBySource");
-  const rows = await exec.all<{ payload: string }>(
-    `SELECT payload FROM cards WHERE sourceId = ? 
+  const rows = await exec.all<SqlRow>(
+    `SELECT ${CARD_DECODE_SELECT} FROM cards WHERE sourceId = ? 
      ORDER BY createdAt ASC`,
     [sourceId],
   );
@@ -278,8 +301,8 @@ export async function cardsByTag(
   limit = 500,
 ): Promise<Card[]> {
   const exec = await requireSqlExecutor("cards:cardsByTag");
-  const rows = await exec.all<{ payload: string }>(
-    `SELECT cards.payload FROM cards, json_each(cards.payload, '$.tags') WHERE json_each.value = ? LIMIT ?`,
+  const rows = await exec.all<SqlRow>(
+    `SELECT ${cardSelectSql("cards")} FROM cards, json_each(cards.payload, '$.tags') WHERE json_each.value = ? LIMIT ?`,
     [tag, limit],
   );
   return decodeRows(rows);
@@ -331,6 +354,27 @@ export async function cardCountByType(
   return Number(rows[0]?.n ?? 0);
 }
 
+export async function countEndangeredEssaysByCategoryFromDb(
+  categoryId: string,
+): Promise<number> {
+  const exec = await requireSqlExecutor("cards:countEndangeredByCategory");
+  const rows = await exec.all<{ n: number }>(
+    `SELECT COUNT(*) AS n FROM cards
+      WHERE categoryId = ? AND type = 'essay' AND isEndangered = 1`,
+    [categoryId],
+  );
+  return Number(rows[0]?.n ?? 0);
+}
+
+export async function countEndangeredEssaysAllFromDb(): Promise<number> {
+  const exec = await requireSqlExecutor("cards:countEndangeredAll");
+  const rows = await exec.all<{ n: number }>(
+    `SELECT COUNT(*) AS n FROM cards
+      WHERE type = 'essay' AND isEndangered = 1`,
+  );
+  return Number(rows[0]?.n ?? 0);
+}
+
 // ── Cache invalidation hook for TanStack bridges ─────────────────
 
 // CardsScope is an alias for CardsChangedScope from event-bus-types.
@@ -348,5 +392,11 @@ export function onCardsChanged(
 export function notifyCardsChanged(
   scope: CardsScope = { kind: "all" }
 ): void {
+  if (getBulkWriteDepth() > 0 && scope.kind !== "derived") {
+    logger.warn("[cards] notifyCardsChanged suppressed during bulk write session", {
+      scope,
+    });
+    return;
+  }
   emitDomainChanged({ domain: "cards", scope });
 }

@@ -5,6 +5,7 @@ import type { Card, SRSettings } from "@/lib/spaced-repetition";
 import type { CategoryRecord } from "@/lib/db-types";
 import type { ReviewLogEntry } from "@/lib/storage";
 import type { ParsedBackup } from "@/lib/migrations/backup-schema";
+import type { SqlExecutor } from "@/lib/persistence/sqlite/executor";
 
 export type ImportStrategy = "keep" | "overwrite" | "newer";
 
@@ -21,6 +22,8 @@ export interface ImportCtx {
   strategy: ImportStrategy;
   currentMap: Record<string, Card>;
   onProgress?: (pct: number, label: string) => void;
+  /** Target executor — defaults to active readyMachine backend. */
+  exec?: SqlExecutor;
 }
 
 export type ProgressFn = (pct: number, label: string) => void;

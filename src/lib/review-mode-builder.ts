@@ -40,6 +40,12 @@ interface BuildArgs {
   now?: number;
 }
 
+export type { BuildArgs };
+
+function modeNow(args: BuildArgs): number {
+  return args.now ?? Date.now();
+}
+
 /** Stabilization — fresh / recently lapsed sections with low stability. */
 export function buildStabilizationItems(args: BuildArgs): DueItem[] {
   const items: DueItem[] = [];
@@ -67,18 +73,18 @@ export function buildStabilizationItems(args: BuildArgs): DueItem[] {
  * urgent items lead.
  */
 export function buildCriticalItems(args: BuildArgs): DueItem[] {
-  const now = args.now ?? Date.now();
+  const now = modeNow(args);
   const items: DueItem[] = [];
   for (const card of args.allCards) {
     for (const section of card.sections) {
       if (section.state === SectionState.New) continue;
       if (section.nextReview > now) continue; // strict due-only
-      const r = getRetrievability(section);
+      const r = getRetrievability(section, now);
       if (r <= 85) items.push({ card, section });
     }
   }
   items.sort(
-    (a, b) => getRetrievability(a.section) - getRetrievability(b.section),
+    (a, b) => getRetrievability(a.section, now) - getRetrievability(b.section, now),
   );
   return items;
 }
@@ -90,7 +96,7 @@ export function buildCriticalItems(args: BuildArgs): DueItem[] {
  * Sections far in the future are excluded to protect FSRS scheduling.
  */
 export function buildHardestItems(args: BuildArgs): DueItem[] {
-  const now = args.now ?? Date.now();
+  const now = modeNow(args);
   const leechItems: DueItem[] = [];
   const highDiffItems: DueItem[] = [];
 
@@ -118,13 +124,87 @@ export function buildHardestItems(args: BuildArgs): DueItem[] {
   return combined.slice(0, HARDEST_MAX_ITEMS);
 }
 
+/** Section ids already assigned to stabilization / critical / hardest. */
+function coveredSectionIds(args: BuildArgs): Set<string> {
+  const ids = new Set<string>();
+  for (const item of buildStabilizationItems(args)) ids.add(item.section.id);
+  for (const item of buildCriticalItems(args)) ids.add(item.section.id);
+  for (const item of buildHardestItems(args)) ids.add(item.section.id);
+  return ids;
+}
+
+/**
+ * Catch-up — FSRS-due sections not covered by specialized modes (e.g. Review
+ * with R > 85% on schedule). Fills the gap between schedule-due badges and
+ * mode-specific filters after legacy imports.
+ */
+export function buildCatchupItems(args: BuildArgs): DueItem[] {
+  const now = modeNow(args);
+  const covered = coveredSectionIds(args);
+  const items: DueItem[] = [];
+  for (const card of args.allCards) {
+    for (const section of card.sections) {
+      if (section.state === SectionState.New) continue;
+      if (section.nextReview > now) continue;
+      if (covered.has(section.id)) continue;
+      items.push({ card, section });
+    }
+  }
+  items.sort((a, b) => a.section.nextReview - b.section.nextReview);
+  return items;
+}
+
+/** All consolidation items across modes (unique by section id). */
+export function collectConsolidationItems(args: BuildArgs): DueItem[] {
+  const seen = new Set<string>();
+  const out: DueItem[] = [];
+  const builders = [
+    buildStabilizationItems,
+    buildCriticalItems,
+    buildHardestItems,
+    buildCatchupItems,
+  ] as const;
+  for (const build of builders) {
+    for (const item of build(args)) {
+      if (seen.has(item.section.id)) continue;
+      seen.add(item.section.id);
+      out.push(item);
+    }
+  }
+  return out;
+}
+
+/** Distinct cards with ≥1 consolidation-eligible section. */
+export function countConsolidationEligibleCards(args: BuildArgs): number {
+  const cardIds = new Set<string>();
+  for (const { card } of collectConsolidationItems(args)) {
+    cardIds.add(card.id);
+  }
+  return cardIds.size;
+}
+
+export function countConsolidationEligibleByCategory(
+  cards: readonly Card[],
+  dueCards: readonly Card[],
+  srSettings: SRSettings,
+  categoryIds: readonly string[],
+  now?: number,
+): Record<string, number> {
+  const out: Record<string, number> = {};
+  for (const categoryId of categoryIds) {
+    out[categoryId] = countConsolidationEligibleCards({
+      dueCards: dueCards.filter((c) => c.categoryId === categoryId),
+      allCards: cards.filter((c) => c.categoryId === categoryId),
+      srSettings,
+      now,
+    });
+  }
+  return out;
+}
+
 /** True when any consolidation mode has at least one eligible section. */
 export function hasConsolidationWork(args: BuildArgs): boolean {
-  return (
-    buildStabilizationItems(args).length > 0
-    || buildCriticalItems(args).length > 0
-    || buildHardestItems(args).length > 0
-  );
+  return collectConsolidationItems(args).length > 0;
 }
 
 /** Dispatcher used by ReviewSession (resume + autoMode). */
@@ -139,6 +219,8 @@ export function buildItemsForMode(
       return buildCriticalItems(args);
     case "hardest":
       return buildHardestItems(args);
+    case "catchup":
+      return buildCatchupItems(args);
   }
 }
 

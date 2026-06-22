@@ -16,7 +16,6 @@ import { DashboardSkeleton, SessionSetupSkeleton } from "@/components/ui/loading
 import { QueryClientProvider } from "@tanstack/react-query";
 import { queryClient } from "@/lib/query/client";
 import { I18nProvider } from "@/i18n";
-import { DbDegradedWatcher } from "@/components/DbDegradedWatcher";
 import AppUpdateNotifier from "@/components/AppUpdateNotifier";
 
 const NotFound = lazy(() => import("./pages/NotFound"));
@@ -66,9 +65,8 @@ const App = () => {
       <div className="flex flex-col h-screen relative" data-app-mounted>
         <SavingIndicator />
         <Sonner />
-        <DbDegradedWatcher />
 
-        <HashRouter>
+        <HashRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
           <TitleBar />
           <AppProvider>
             <AppUpdateNotifier />

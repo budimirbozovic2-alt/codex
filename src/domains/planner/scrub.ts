@@ -35,6 +35,10 @@ export function scrubCategoryFromPlannerConfig(categoryId: string): boolean {
     });
   }
 
-  if (dirty) savePlanner(cfg);
+  if (dirty) {
+    void savePlanner(cfg).catch(() => {
+      /* scrub is best-effort during category deletion */
+    });
+  }
   return dirty;
 }

@@ -23,7 +23,7 @@ export {
 } from "./cards-notify-scope";
 export type { CardScopeRef } from "./cards-notify-scope";
 
-// Cards read path — OPFS SQLite SSOT
+// Cards read path — SQLite SSOT
 export {
   listAllCards,
   getCardsByIds,
@@ -42,6 +42,8 @@ export {
   cardCountByCategory,
   cardCountByChapter,
   cardCountByType,
+  countEndangeredEssaysByCategoryFromDb,
+  countEndangeredEssaysAllFromDb,
   onCardsChanged,
   notifyCardsChanged,
   getRecentCorruptCardIds,
@@ -59,7 +61,6 @@ export {
   putCardDirect,
   bulkPutCardsDirect,
   deleteCardDirect,
-  announceCardsReplaced,
   clearCardLinksDirect,
   clearCardNeedsReviewDirect,
   snapshotAllCards,
@@ -92,6 +93,12 @@ export {
   listSettingsByPrefix,
   onSettingsChanged,
 } from "./settings";
+
+export {
+  loadAllLearnProgress,
+  replaceAllLearnProgress,
+  clearLearnProgress,
+} from "./learn-progress";
 
 export {
   getSource,
@@ -185,7 +192,10 @@ export {
   putCategory,
   bulkPutCategories,
   clearCategories,
+  notifyCategoriesChanged,
+  onCategoriesChanged,
 } from "./categories";
+export type { CategoriesScope } from "./categories";
 
 export * from "./backup-readers";
 

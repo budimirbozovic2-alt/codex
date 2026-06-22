@@ -2,9 +2,9 @@
  * editor-v4 migration engine — pure, idempotent dispatcher.
  *
  * Converts legacy HTML / markdown payloads into the canonical V4 `EditorDoc`
- * (ProseMirror JSON). Does NOT touch the DB. Used in two contexts:
+ * (ProseMirror JSON). Does NOT touch the DB. Used in:
  *
- *   1. Lazy runtime migration (`lazy-migrate.ts`) — called after load.
+ *   1. Boot schema migration (`editor-v4-schema-migration.ts`) during SQLite open.
  *   2. Dry-run CLI (`src/scripts/migrate-editor-v4.ts`) — runs over a
  *      JSON backup file and emits a `{migrated, failed, samplesWithDataLoss}`
  *      report. Test fixtures assert zero data loss for wiki/mindmap/keyParts.

@@ -14,7 +14,7 @@ vi.mock("sonner", () => ({
 }));
 
 vi.mock("@/hooks/cards/useCardState", () => ({
-  useCardReady: () => true,
+  useAppDataReady: () => true,
   useCategoryData: () => ({
     categoryRecords: [{ id: "cat-1", name: "Krivično pravo", subcategories: [] }],
   }),

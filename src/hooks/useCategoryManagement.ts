@@ -1,6 +1,7 @@
 import { useCallback } from "react";
 
 import type { CategoryRecord, SubcategoryNode, ChapterNode, ExaminerProfile } from "@/lib/db-types";
+import { newUuid } from "@/lib/ids";
 import { invalidateSourcesCache } from "@/domains/sources/sources-storage";
 import { categoryRepository } from "@/lib/repositories";
 import { deleteCategoryWithDependencies } from "@/lib/services/categoryDeletionOrchestrator";
@@ -9,14 +10,17 @@ import {
   clearCardsSubcategoryRefs,
   clearCardsChapterRefs,
   reassignCardsSubcategory,
-  fetchCardScopeRefs,
-  emitCardsChangedForRefs,
   notifyCardsChanged,
 } from "@/lib/db/queries";
-import { getCategoryStoreRecords } from "@/store";
+import { getCategoriesFromQueryCache } from "@/lib/query/categories-cache-coordinator";
+import {
+  runBulkCardsWrite,
+  runBulkWriteSession,
+} from "@/lib/query/all-caches-coordinator";
 import { logger } from "@/lib/logger";
 
-const getCategoryRecords = (): { id: string; name: string }[] => getCategoryStoreRecords();
+const getCategoryRecords = (): { id: string; name: string }[] =>
+  getCategoriesFromQueryCache().map((r) => ({ id: r.id, name: r.name }));
 
 
 function getNodes(rec: CategoryRecord): SubcategoryNode[] {
@@ -26,7 +30,7 @@ function getNodes(rec: CategoryRecord): SubcategoryNode[] {
 export function useCategoryManagement() {
   const addCategory = useCallback(
     (name: string) => {
-      const newId = crypto.randomUUID();
+      const newId = newUuid();
       const newRec: CategoryRecord = { id: newId, name, sortOrder: 9999, subcategories: [] };
       void categoryRepository.commit(
         prev => prev.some(r => r.id === newId) ? prev : [...prev, newRec],
@@ -42,6 +46,7 @@ export function useCategoryManagement() {
         prev => prev.map(r => r.id === categoryId ? { ...r, name: newName } : r),
         "renameCategory",
       );
+      notifyCardsChanged({ kind: "category", categoryId });
       invalidateSourcesCache();
     },
     [],
@@ -55,11 +60,6 @@ export function useCategoryManagement() {
       const currentRecs = getCategoryRecords();
       const remaining = currentRecs.filter(r => r.id !== categoryId);
       const fallbackId = remaining.length > 0 ? remaining[0].id : "";
-
-      void categoryRepository.commit(
-        prev => prev.filter(r => r.id !== categoryId),
-        "deleteCategory",
-      );
 
       void (async () => {
         try {
@@ -80,7 +80,7 @@ export function useCategoryManagement() {
           if (r.id !== categoryId) return r;
           const nodes = getNodes(r);
           if (nodes.some(n => n.name === subName)) return { ...r, subcategories: nodes };
-          return { ...r, subcategories: [...nodes, { id: crypto.randomUUID(), name: subName, chapters: [], sortOrder: nodes.length }] };
+          return { ...r, subcategories: [...nodes, { id: newUuid(), name: subName, chapters: [], sortOrder: nodes.length }] };
         }),
         "addSubcategory"
       );
@@ -108,19 +108,29 @@ export function useCategoryManagement() {
   // round-trip. TanStack consumers refresh via notifyCardsChanged().
   const deleteSubcategory = useCallback(
     (categoryId: string, subcategoryId: string) => {
-      void categoryRepository.commit(
-        prev => prev.map(r => {
-          if (r.id !== categoryId) return r;
-          const nodes = getNodes(r);
-          return { ...r, subcategories: nodes.filter(n => n.id !== subcategoryId) };
-        }),
-        "deleteSubcategory"
-      );
-
       void (async () => {
         try {
-          await clearCardsSubcategoryRefs(categoryId, subcategoryId);
-          notifyCardsChanged({ kind: "subcategory", categoryId, subcategoryId });
+          await runBulkWriteSession(
+            { cards: true, categories: true },
+            async () => {
+              const rows = await categoryRepository.commit(
+                (prev) =>
+                  prev.map((r) => {
+                    if (r.id !== categoryId) return r;
+                    const nodes = getNodes(r);
+                    return {
+                      ...r,
+                      subcategories: nodes.filter((n) => n.id !== subcategoryId),
+                    };
+                  }),
+                "deleteSubcategory",
+                { skipNotify: true },
+              );
+              await clearCardsSubcategoryRefs(categoryId, subcategoryId);
+              return rows;
+            },
+            (rows) => ({ freshCategories: rows }),
+          );
         } catch (err) {
           logger.error("[deleteSubcategory] clear refs failed", err);
         }
@@ -131,17 +141,11 @@ export function useCategoryManagement() {
 
   const bulkUpdateSubcategory = useCallback((ids: string[], subcategoryId: string) => {
     if (ids.length === 0) return;
-    // A2 collapse — single chunked UPDATE tx (json_set keeps payload in sync).
-    // No single categoryId — emit unscoped so all category views refresh.
     void (async () => {
       try {
-        await reassignCardsSubcategory(ids, subcategoryId);
-        const refs = await fetchCardScopeRefs(ids);
-        if (refs.length > 0) {
-          emitCardsChangedForRefs(refs);
-        } else {
-          notifyCardsChanged({ kind: "all" });
-        }
+        await runBulkCardsWrite(async () => {
+          await reassignCardsSubcategory(ids, subcategoryId);
+        });
       } catch (err) {
         logger.error("[bulkUpdateSubcategory] failed", err);
       }
@@ -157,7 +161,7 @@ export function useCategoryManagement() {
           ...r,
           subcategories: nodes.map(n => {
             if (n.id !== subcategoryId) return n;
-            const newChapter: ChapterNode = { id: crypto.randomUUID(), name: chapterName, sortOrder: n.chapters.length };
+            const newChapter: ChapterNode = { id: newUuid(), name: chapterName, sortOrder: n.chapters.length };
             return { ...n, chapters: [...n.chapters, newChapter] };
           }),
         };
@@ -187,27 +191,37 @@ export function useCategoryManagement() {
   const deleteChapter = useCallback((categoryId: string, subcategoryId: string, chapterId: string) => {
     void (async () => {
       try {
-        await clearCardsChapterRefs(categoryId, subcategoryId, chapterId);
-        notifyCardsChanged({ kind: "chapter", categoryId, chapterId });
+        await runBulkWriteSession(
+          { cards: true, categories: true },
+          async () => {
+            const rows = await categoryRepository.commit(
+              (prev) =>
+                prev.map((r) => {
+                  if (r.id !== categoryId) return r;
+                  const nodes = getNodes(r);
+                  return {
+                    ...r,
+                    subcategories: nodes.map((n) => {
+                      if (n.id !== subcategoryId) return n;
+                      return {
+                        ...n,
+                        chapters: n.chapters.filter((ch) => ch.id !== chapterId),
+                      };
+                    }),
+                  };
+                }),
+              "deleteChapter",
+              { skipNotify: true },
+            );
+            await clearCardsChapterRefs(categoryId, subcategoryId, chapterId);
+            return rows;
+          },
+          (rows) => ({ freshCategories: rows }),
+        );
       } catch (err) {
         logger.error("[deleteChapter] clear refs failed", err);
       }
     })();
-
-    void categoryRepository.commit(
-      prev => prev.map(r => {
-        if (r.id !== categoryId) return r;
-        const nodes = getNodes(r);
-        return {
-          ...r,
-          subcategories: nodes.map(n => {
-            if (n.id !== subcategoryId) return n;
-            return { ...n, chapters: n.chapters.filter(ch => ch.id !== chapterId) };
-          }),
-        };
-      }),
-      "deleteChapter"
-    );
   }, []);
 
   const reorderSubcategories = useCallback((categoryId: string, orderedIds: string[]) => {

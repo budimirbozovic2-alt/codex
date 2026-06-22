@@ -1,5 +1,6 @@
 import { useCallback, useState } from "react";
 import { sanitizeHtml } from "@/lib/sanitize";
+import { suggestBoldPeriodSectionSplit } from "@/lib/docx/bold-period-split";
 import {
   splitIntoCards,
   type HeadingLevel,
@@ -47,6 +48,7 @@ export function useDocxImportFlow(defaultCategory: string) {
   const [category, setCategory] = useState(defaultCategory);
   const [newCategory, setNewCategory] = useState("");
   const [splitConfig, setSplitConfig] = useState<DocxSplitConfig>(DEFAULT_CONFIG);
+  const [boldPeriodAutoDetected, setBoldPeriodAutoDetected] = useState(false);
 
   const updateSplitConfig = useCallback(
     (patch: Partial<DocxSplitConfig>) =>
@@ -60,7 +62,14 @@ export function useDocxImportFlow(defaultCategory: string) {
       const arrayBuffer = await f.arrayBuffer();
       const { parseDocxInWorker } = await import("./docx-parser");
       const html = await parseDocxInWorker(arrayBuffer);
-      setHtmlContent(sanitizeHtml(html));
+      const sanitized = sanitizeHtml(html);
+      setHtmlContent(sanitized);
+      if (suggestBoldPeriodSectionSplit(sanitized)) {
+        setSplitConfig((prev) => ({ ...prev, sectionSplitMode: "bold-period" }));
+        setBoldPeriodAutoDetected(true);
+      } else {
+        setBoldPeriodAutoDetected(false);
+      }
       setStep("configure");
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Neuspješno čitanje DOCX fajla.";
@@ -95,6 +104,7 @@ export function useDocxImportFlow(defaultCategory: string) {
     setNewCategory("");
     setCardType("essay");
     setSplitConfig(DEFAULT_CONFIG);
+    setBoldPeriodAutoDetected(false);
   }, []);
 
   return {
@@ -116,6 +126,7 @@ export function useDocxImportFlow(defaultCategory: string) {
     // split config
     splitConfig,
     updateSplitConfig,
+    boldPeriodAutoDetected,
     // lifecycle
     reset,
   };

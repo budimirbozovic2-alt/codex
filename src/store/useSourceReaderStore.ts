@@ -3,6 +3,7 @@ import type { ExamQuestion } from "@/components/ExamSidebar";
 import type { SelectionModule } from "@/lib/selection-split-engine";
 import type { WizardModuleEdit } from "@/lib/split-wizard-build";
 import { defaultEdit } from "@/lib/split-wizard-build";
+import type { EditorDoc } from "@/lib/editor-v4";
 
 export type ReaderWidth = "S" | "M" | "L" | "XL" | "Full";
 
@@ -77,6 +78,7 @@ interface SourceReaderState {
   linkModalOpen: boolean;
   linkSelectedText: string;
   linkSelectedHtml: string;
+  linkSelectedDoc: EditorDoc | null;
   examQuestions: ExamQuestion[];
 
   // Actions
@@ -99,6 +101,7 @@ interface SourceReaderState {
   setLinkModalOpen: (v: boolean) => void;
   setLinkSelectedText: (v: string) => void;
   setLinkSelectedHtml: (v: string) => void;
+  setLinkSelectedDoc: (v: EditorDoc | null) => void;
   setExamQuestions: (v: ExamQuestion[] | ((prev: ExamQuestion[]) => ExamQuestion[])) => void;
   setWizardSubcategoryId: (v: string) => void;
   setWizardChapterId: (v: string) => void;
@@ -147,6 +150,7 @@ const initialState = {
   linkModalOpen: false,
   linkSelectedText: "",
   linkSelectedHtml: "",
+  linkSelectedDoc: null as EditorDoc | null,
   examQuestions: [] as ExamQuestion[],
   wizardSubcategoryId: "",
   wizardChapterId: "",
@@ -204,6 +208,7 @@ export const useSourceReaderStore = create<SourceReaderState>((set, get) => ({
   setLinkModalOpen: (v) => set({ linkModalOpen: v }),
   setLinkSelectedText: (v) => set({ linkSelectedText: v }),
   setLinkSelectedHtml: (v) => set({ linkSelectedHtml: v }),
+  setLinkSelectedDoc: (v) => set({ linkSelectedDoc: v }),
   setExamQuestions: (v) => {
     if (typeof v === "function") {
       set({ examQuestions: v(get().examQuestions) });

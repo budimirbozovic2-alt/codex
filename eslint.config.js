@@ -46,4 +46,35 @@ export default tseslint.config(
       "react-refresh/only-export-components": "off",
     },
   },
+  {
+    files: ["src/components/**/*.{ts,tsx}"],
+    ignores: ["src/components/ui/**"],
+    rules: {
+      "no-restricted-imports": ["warn", {
+        patterns: [
+          {
+            group: ["@/store/*"],
+            message: "Import store selectors through parent hooks/views, not nested components.",
+          },
+          {
+            group: ["@/lib/db/queries", "@/lib/db/queries/*"],
+            message: "DB queries belong in hooks/repositories, not UI components.",
+          },
+          {
+            group: ["@/domains/metacognition/metacognitive-storage"],
+            message: "Metacognitive storage writes belong in hooks, not UI components.",
+          },
+        ],
+      }],
+    },
+  },
+  {
+    files: ["src/**/*.{ts,tsx}"],
+    rules: {
+      "no-restricted-syntax": ["warn", {
+        selector: "CallExpression[callee.name='useGlobalHotkey'] > Literal:nth-child(2):not(ObjectExpression)",
+        message: "useGlobalHotkey should pass an options object (e.g. { ignoreInEditable: true }).",
+      }],
+    },
+  },
 );

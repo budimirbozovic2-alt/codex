@@ -6,8 +6,12 @@
  */
 import type { Card } from "@/lib/spaced-repetition";
 import type { ReviewLogEntry } from "@/lib/storage";
+import type { CategoryRecord } from "@/lib/db-types";
+import type { SubjectPlan } from "@/types/planner";
 import { loadPlanner } from "./config";
+import { generateStudyPlan } from "./plan-generator";
 import { getSmartSuggestion } from "./suggestions";
+import { resolveActiveSubjectPlan } from "@/lib/dashboard/active-phase";
 
 export function sectionReviewKey(cardId: string, sectionId: string): string {
   return `${cardId}:${sectionId}`;
@@ -15,6 +19,29 @@ export function sectionReviewKey(cardId: string, sectionId: string): string {
 
 export function todayDateKey(date = new Date()): string {
   return date.toISOString().slice(0, 10);
+}
+
+/**
+ * Count sections whose *first-ever* review happened today.
+ *
+ * This is used as the planner/dashboard "daily progress" metric.
+ */
+export function countDailyLearnProgress(
+  reviewLog: ReviewLogEntry[],
+  todayKey: string = todayDateKey(),
+): number {
+  const firstSeenTsBySection = new Map<string, number>();
+  for (const e of reviewLog) {
+    const key = sectionReviewKey(e.cardId, e.sectionId);
+    const prev = firstSeenTsBySection.get(key);
+    if (prev === undefined || e.timestamp < prev) firstSeenTsBySection.set(key, e.timestamp);
+  }
+
+  let count = 0;
+  for (const ts of firstSeenTsBySection.values()) {
+    if (new Date(ts).toISOString().slice(0, 10) === todayKey) count++;
+  }
+  return count;
 }
 
 /** Unique sections with at least one review log entry on `dateKey`. */
@@ -35,10 +62,20 @@ export function countUniqueSectionsOnDate(
   return seen.size;
 }
 
-export function resolveDailyDisciplineGoal(cards: Card[]): number {
+export function resolveDailyDisciplineGoal(
+  cards: Card[],
+  categoryRecords: CategoryRecord[] = [],
+  activePlan: SubjectPlan | null = null,
+): number {
   const config = loadPlanner();
+  if (!config.finalGoalDate) return 0;
+  const plan = activePlan ?? (
+    categoryRecords.length > 0
+      ? resolveActiveSubjectPlan(generateStudyPlan(config, categoryRecords, cards))
+      : null
+  );
   const suggestion = getSmartSuggestion(
-    null,
+    plan,
     cards,
     config.finalGoalDate,
     config.bufferPercent,

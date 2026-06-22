@@ -182,7 +182,7 @@ export function SettingsProvider({ settings, onUpdate, children }: SettingsProvi
         persistedTargetRetentionRef.current = curApp.targetRetention;
         toast.success(`Podešavanja za "${subjectNameRef.current}" sačuvana`);
       } else if (subjectId && !curOverridesEnabled) {
-        clearSubjectSettings(subjectId);
+        await clearSubjectSettings(subjectId);
         toast.success("Subjektna podešavanja uklonjena — koriste se globalna");
       } else {
         onUpdate(curLocal);

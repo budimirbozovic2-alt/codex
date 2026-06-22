@@ -11,7 +11,7 @@ import { INTEGRATION_TEST_TIMEOUT_MS } from "./helpers/test-timeouts";
 
 vi.mock("@/hooks/cards/useCardState", async (importOriginal) => {
   const orig = await importOriginal<typeof import("@/hooks/cards/useCardState")>();
-  return { ...orig, useCardReady: () => true };
+  return { ...orig, useAppDataReady: () => true };
 });
 
 vi.mock("@/hooks/cards/useActions", () => ({

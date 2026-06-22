@@ -8,6 +8,7 @@ import { ReviewLogEntry } from "@/lib/storage";
 import type { CategoryRecord } from "@/lib/db-types";
 import { cn } from "@/lib/utils";
 import { usePlannerData } from "@/hooks/usePlannerData";
+import { resolveActiveSubjectPlan } from "@/lib/dashboard/active-phase";
 import PlannerSetupWizard from "./planner/PlannerSetupWizard";
 import PlannerTabSkeleton from "./planner/PlannerTabSkeleton";
 
@@ -55,7 +56,7 @@ export default function StrategicPlanner({ cards, categories: _categories, categ
   // `currentPhase` reference stays identical across `usePlannerData` ticks —
   // DisciplineTab (memo'd consumer) skips re-render entirely.
   const currentPhaseName = useMemo(
-    () => subjectPlans?.find(p => p.pct < 100)?.categoryName ?? null,
+    () => resolveActiveSubjectPlan(subjectPlans ?? [])?.categoryName ?? null,
     [subjectPlans],
   );
   const currentPhase = useMemo(
@@ -165,6 +166,9 @@ export default function StrategicPlanner({ cards, categories: _categories, categ
           debt={ready.debt}
           dueCount={ready.dueCount}
           learningRatio={ready.learningRatio}
+          learnTarget={ready.learnTarget}
+          reviewTarget={ready.reviewTarget}
+          activeSubjectPlan={ready.activeSubjectPlan}
           overallPct={ready.overallPct}
           retentionRisk={ready.retentionRisk}
           categoryRecords={categoryRecords}

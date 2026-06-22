@@ -32,7 +32,7 @@ export type {
 } from "./types";
 export { DEFAULT_CONFIG } from "./types";
 
-export { initPlannerCache, type PlannerChangeKind } from "./cache";
+export { initPlannerCache, initPlannerQueryCache, type PlannerChangeKind } from "./cache";
 export { loadPlanner, savePlanner } from "./config";
 export { scrubCategoryFromPlannerConfig } from "./scrub";
 export { calcVelocity, calcEstimatedFinish, getProjectionText } from "./velocity";
@@ -63,8 +63,11 @@ export { generateStudyPlan, calcLearningReviewRatio } from "./plan-generator";
 export {
   sectionReviewKey,
   todayDateKey,
+  countDailyLearnProgress,
   countUniqueSectionsOnDate,
   resolveDailyDisciplineGoal,
   buildSessionDisciplinePayload,
 } from "./session-discipline";
 export type { SessionDisciplineInput } from "./session-discipline";
+
+export { computePlannerSnapshot } from "./snapshot";

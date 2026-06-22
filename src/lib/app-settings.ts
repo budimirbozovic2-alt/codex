@@ -1,18 +1,66 @@
 import { logger } from "@/lib/logger";
-import { putSetting } from "@/lib/db/queries";
+import { getSetting, putSetting } from "@/lib/db/queries";
+import { readPref, writePref } from "@/lib/query/prefs-cache-coordinator";
+import { queryClient } from "@/lib/query/client";
+import { queryKeys } from "@/lib/query/keys";
 import { parseAppLocale, type AppLocale } from "@/i18n/types";
 
 const APP_SETTINGS_KEY = "sr-app-settings";
+const SQLITE_APP_SETTINGS_KEY = "appSettings";
 
 export type ColorTheme = "amber" | "slate" | "forest" | "ocean" | "rose" | "midnight";
 
-export const COLOR_THEMES: { id: ColorTheme; label: string; preview: string }[] = [
-  { id: "amber", label: "Ćilibar", preview: "hsl(38, 75%, 48%)" },
-  { id: "slate", label: "Čelik", preview: "hsl(215, 20%, 35%)" },
-  { id: "forest", label: "Šuma", preview: "hsl(152, 50%, 32%)" },
-  { id: "ocean", label: "Okean", preview: "hsl(210, 65%, 42%)" },
-  { id: "rose", label: "Ruža", preview: "hsl(346, 55%, 45%)" },
-  { id: "midnight", label: "Ponoć", preview: "hsl(245, 50%, 48%)" },
+export interface ColorThemeOption {
+  id: ColorTheme;
+  label: string;
+  subtitle: string;
+  preview: string;
+  previewAccent: string;
+}
+
+export const COLOR_THEMES: ColorThemeOption[] = [
+  {
+    id: "ocean",
+    label: "Plava tišina",
+    subtitle: "Smirena i jasna — preporučena",
+    preview: "hsl(208, 72%, 42%)",
+    previewAccent: "hsl(175, 55%, 42%)",
+  },
+  {
+    id: "amber",
+    label: "Topla zlatna",
+    subtitle: "Za dugotrajnu koncentraciju",
+    preview: "hsl(38, 78%, 50%)",
+    previewAccent: "hsl(32, 85%, 58%)",
+  },
+  {
+    id: "slate",
+    label: "Neutralna siva",
+    subtitle: "Čist, profesionalan izgled",
+    preview: "hsl(220, 22%, 32%)",
+    previewAccent: "hsl(200, 55%, 45%)",
+  },
+  {
+    id: "forest",
+    label: "Prirodna zelena",
+    subtitle: "Opuštajuća šumska paleta",
+    preview: "hsl(155, 48%, 32%)",
+    previewAccent: "hsl(38, 70%, 48%)",
+  },
+  {
+    id: "rose",
+    label: "Breskva",
+    subtitle: "Mekana topla nijansa",
+    preview: "hsl(350, 52%, 48%)",
+    previewAccent: "hsl(25, 75%, 58%)",
+  },
+  {
+    id: "midnight",
+    label: "Indigo noć",
+    subtitle: "Duboki ljubičasti akcenti",
+    preview: "hsl(248, 52%, 46%)",
+    previewAccent: "hsl(270, 55%, 62%)",
+  },
 ];
 
 interface DashboardWidgetConfig {
@@ -81,22 +129,71 @@ export const DEFAULT_APP_SETTINGS: AppSettings = {
   },
 };
 
-export function loadAppSettings(): AppSettings {
+export function mergeAppSettings(
+  parsed: Partial<AppSettings> | null | undefined,
+): AppSettings {
+  if (!parsed || typeof parsed !== "object") return { ...DEFAULT_APP_SETTINGS };
+  return {
+    ...DEFAULT_APP_SETTINGS,
+    ...parsed,
+    locale: parseAppLocale(parsed.locale),
+    dashboardWidgets: {
+      ...DEFAULT_APP_SETTINGS.dashboardWidgets,
+      ...parsed.dashboardWidgets,
+    },
+    pomodoro: { ...DEFAULT_APP_SETTINGS.pomodoro, ...parsed.pomodoro },
+    notifications: {
+      ...DEFAULT_APP_SETTINGS.notifications,
+      ...parsed.notifications,
+    },
+  };
+}
+
+function loadAppSettingsFromLocalStorage(): AppSettings {
   try {
     const data = localStorage.getItem(APP_SETTINGS_KEY);
     if (!data) return { ...DEFAULT_APP_SETTINGS };
-    const parsed = JSON.parse(data);
-    return {
-      ...DEFAULT_APP_SETTINGS,
-      ...parsed,
-      locale: parseAppLocale(parsed.locale),
-      dashboardWidgets: { ...DEFAULT_APP_SETTINGS.dashboardWidgets, ...parsed.dashboardWidgets },
-      pomodoro: { ...DEFAULT_APP_SETTINGS.pomodoro, ...parsed.pomodoro },
-      notifications: { ...DEFAULT_APP_SETTINGS.notifications, ...parsed.notifications },
-    };
+    return mergeAppSettings(JSON.parse(data) as Partial<AppSettings>);
   } catch {
     return { ...DEFAULT_APP_SETTINGS };
   }
+}
+
+/** Hydrate TanStack app settings from SQLite (boot). Migrates legacy localStorage once. */
+export async function initAppSettingsCache(): Promise<void> {
+  try {
+    const stored = await getSetting<Partial<AppSettings>>(SQLITE_APP_SETTINGS_KEY);
+    if (stored) {
+      queryClient.setQueryData(
+        queryKeys.settings.app(),
+        mergeAppSettings(stored),
+      );
+      return;
+    }
+    const fromLs = loadAppSettingsFromLocalStorage();
+    if (localStorage.getItem(APP_SETTINGS_KEY) !== null) {
+      await putSetting(SQLITE_APP_SETTINGS_KEY, fromLs);
+      try {
+        localStorage.removeItem(APP_SETTINGS_KEY);
+      } catch {
+        /* private mode */
+      }
+    }
+    queryClient.setQueryData(queryKeys.settings.app(), fromLs);
+  } catch (err) {
+    logger.warn("[app-settings] cache init failed", err);
+    queryClient.setQueryData(
+      queryKeys.settings.app(),
+      loadAppSettingsFromLocalStorage(),
+    );
+  }
+}
+
+export function loadAppSettings(): AppSettings {
+  return (
+    queryClient.getQueryData<AppSettings>(queryKeys.settings.app())
+    ?? { ...DEFAULT_APP_SETTINGS }
+  );
 }
 
 /**
@@ -109,15 +206,14 @@ export function loadAppSettings(): AppSettings {
 export const APP_SETTINGS_CHANGED_EVENT = "sr-app-settings-changed";
 
 export async function saveAppSettings(settings: AppSettings): Promise<void> {
-  const json = JSON.stringify(settings);
-  // Mirror to localStorage first for fast sync reads (cache, not SSOT).
-  try { localStorage.setItem(APP_SETTINGS_KEY, json); } catch { /* noop */ }
-  // PR-G1 / C-2 final: await the SSOT write and re-throw on failure so the
-  // caller (UI toast) can react. Previously the `.catch(logger.error)`
-  // swallowed the rejection — localStorage mirror gave false-success even
-  // when SQLite write was dropped (data survives only until cache wipe).
+  queryClient.setQueryData(queryKeys.settings.app(), settings);
   try {
-    await putSetting("appSettings", settings);
+    await putSetting(SQLITE_APP_SETTINGS_KEY, settings);
+    try {
+      localStorage.removeItem(APP_SETTINGS_KEY);
+    } catch {
+      /* private mode */
+    }
   } catch (err) {
     logger.error("[settings] put failed — SSOT write lost", err);
     throw err;
@@ -137,19 +233,21 @@ export function applyColorTheme(theme: ColorTheme): void {
 export function initColorTheme(): void {
   const settings = loadAppSettings();
   applyColorTheme(settings.colorTheme);
-  // Restore dark mode preference
-  const darkPref = localStorage.getItem("sr-dark-mode");
-  if (darkPref === "true" || (!darkPref && true)) {
-    // Default to dark mode if no preference saved
-    document.documentElement.classList.add("dark");
+  const legacyDark = localStorage.getItem("sr-dark-mode");
+  if (legacyDark !== null) {
+    writePref("darkMode", legacyDark === "true");
+    try {
+      localStorage.removeItem("sr-dark-mode");
+    } catch {
+      /* private mode */
+    }
   }
+  const darkPref = readPref<boolean | string>("darkMode", true);
+  const dark = darkPref === true || darkPref === "true";
+  document.documentElement.classList.toggle("dark", dark);
 }
 
 export function setDarkMode(dark: boolean): void {
-  localStorage.setItem("sr-dark-mode", String(dark));
-  if (dark) {
-    document.documentElement.classList.add("dark");
-  } else {
-    document.documentElement.classList.remove("dark");
-  }
+  writePref("darkMode", dark);
+  document.documentElement.classList.toggle("dark", dark);
 }

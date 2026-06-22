@@ -20,7 +20,7 @@ import type {
 
 export function useCardOnlyActions(): CardActionsValue {
   const crud = useCardCRUD();
-  const annotations = useCardAnnotations({ patchCard: crud.patchCard });
+  const annotations = useCardAnnotations();
   return useMemo(
     () => ({ ...crud, ...annotations }),
     // Spreads above pull in all keys; granular deps below memoize on the

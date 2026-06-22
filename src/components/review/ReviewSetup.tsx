@@ -1,12 +1,12 @@
-import { Target, Shield, Zap, Play, X as XIcon, HelpCircle } from "lucide-react";
-import { useState, useMemo, useCallback } from "react";
+import { Target, Shield, Zap, Play, X as XIcon, HelpCircle, BookOpen, CalendarClock } from "lucide-react";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import { Card, SRSettings } from "@/lib/spaced-repetition";
 import { m, AnimatePresence } from "@/lib/motion";
 import { Button } from "@/components/ui/button";
 import OnboardingModal, { hasSeenOnboarding } from "@/components/OnboardingModal";
 import type { ReviewMode } from "@/domains/review/types";
 import { DueItem, REVIEW_ONBOARDING_KEY, REVIEW_SLIDES } from "./review-constants";
-import { buildStabilizationItems, buildCriticalItems, buildHardestItems } from "@/lib/review-mode-builder";
+import { buildStabilizationItems, buildCriticalItems, buildHardestItems, buildCatchupItems } from "@/lib/review-mode-builder";
 import type { CategoryRecord } from "@/lib/db-types";
 import InfoPanel from "@/components/InfoPanel";
 import { PageHeader } from "@/components/ui/PageHeader";
@@ -37,7 +37,7 @@ interface ModeDef {
   label: string;
   sublabel: string;
   desc: string;
-  tone: "primary" | "warning" | "destructive";
+  tone: "primary" | "warning" | "destructive" | "success";
 }
 
 const MODE_DEFS: ModeDef[] = [
@@ -65,6 +65,14 @@ const MODE_DEFS: ModeDef[] = [
     desc: "Do 50 statistički najzahtjevnijih kartica — leech i visoka težina.",
     tone: "destructive",
   },
+  {
+    key: "catchup",
+    icon: CalendarClock,
+    label: "Redovno ponavljanje",
+    sublabel: "Dospjelo",
+    desc: "FSRS-dospjele sekcije koje ne ulaze u ostale režime — redovni raspored bez ranog ponavljanja.",
+    tone: "success",
+  },
 ];
 
 const TONE_CLASSES: Record<ModeDef["tone"], { ring: string; iconBg: string; iconText: string; badge: string }> = {
@@ -86,12 +94,19 @@ const TONE_CLASSES: Record<ModeDef["tone"], { ring: string; iconBg: string; icon
     iconText: "text-destructive",
     badge: "bg-destructive/10 text-destructive",
   },
+  success: {
+    ring: "border-success ring-1 ring-success/40",
+    iconBg: "bg-success/10",
+    iconText: "text-success",
+    badge: "bg-success/10 text-success",
+  },
 };
 
 const MODE_LABELS: Record<string, string> = {
   stabilization: "Fokusirano utvrđivanje",
   critical: "Kritični pregled",
   hardest: "Najteža pitanja",
+  catchup: "Redovno ponavljanje",
 };
 
 const FILTER_TYPE_OPTIONS: { value: FilterType; label: string }[] = [
@@ -146,17 +161,30 @@ export default function ReviewSetup({
     [filteredDueCards, filteredAllCards, srSettings],
   );
 
+  const catchupItems = useMemo<DueItem[]>(
+    () => buildCatchupItems({ dueCards: filteredDueCards, allCards: filteredAllCards, srSettings }),
+    [filteredDueCards, filteredAllCards, srSettings],
+  );
+
   const counts: Record<ModeKey, number> = {
     stabilization: stabilizationItems.length,
     critical: criticalItems.length,
     hardest: hardestItems.length,
+    catchup: catchupItems.length,
   };
 
   const itemsByMode = useMemo<Record<ModeKey, DueItem[]>>(() => ({
     stabilization: stabilizationItems,
     critical: criticalItems,
     hardest: hardestItems,
-  }), [stabilizationItems, criticalItems, hardestItems]);
+    catchup: catchupItems,
+  }), [stabilizationItems, criticalItems, hardestItems, catchupItems]);
+
+  useEffect(() => {
+    if (counts[mode] > 0) return;
+    const first = MODE_DEFS.find((m) => counts[m.key] > 0);
+    if (first) setMode(first.key);
+  }, [counts, mode]);
 
   const handleStartSession = useCallback(() => {
     onSelectMode(mode, selectedCategory, null, null, false, filterType, itemsByMode[mode]);
@@ -217,6 +245,7 @@ export default function ReviewSetup({
               <p><strong>Fokusirano utvrđivanje</strong> — cilja nove i nedavno pogrešene kartice za brzu stabilizaciju.</p>
               <p><strong>Kritični pregled</strong> — hvata kartice u idealnom trenutku zaborava (R ≈ 80–85%).</p>
               <p><strong>Najteža pitanja</strong> — okršaj sa do 50 statistički najzahtjevnijih kartica.</p>
+              <p><strong>Redovno ponavljanje</strong> — FSRS-dospjele sekcije koje ne ulaze u ostale režime.</p>
               <p>Svi rezultati se upisuju u FSRS algoritam za optimalno zakazivanje ponavljanja.</p>
             </InfoPanel>
             <button

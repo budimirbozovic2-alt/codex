@@ -10,6 +10,21 @@ import { migrateCardMasteryScores } from "@/lib/persistence/sqlite/card-mastery-
 import { getTestSqlExecutor } from "./sqlite-harness";
 import { makeCard, makeSection } from "@/test/factories";
 
+import { CARD_INSERT_SQL, bindCardInsert } from "@/lib/persistence/sqlite/row-codecs";
+import { makeCard } from "@/test/factories";
+
+describe("CARD_INSERT_SQL", () => {
+  it("column count matches placeholder and bind arity", () => {
+    const colMatch = CARD_INSERT_SQL.match(/\(([^)]+)\)\s*VALUES/i);
+    expect(colMatch).toBeTruthy();
+    const columns = colMatch![1].split(",").map((s) => s.trim()).filter(Boolean);
+    const placeholders = (CARD_INSERT_SQL.match(/\?/g) ?? []).length;
+    const binds = bindCardInsert(makeCard({ id: "sql-shape-check" })).length;
+    expect(placeholders).toBe(columns.length);
+    expect(binds).toBe(columns.length);
+  });
+});
+
 describe("card mastery_score", () => {
   it("bindCardInsert writes mastery_score on put", async () => {
     const reviewed = makeSection({ html: "<p>x</p>" });

@@ -29,19 +29,16 @@ type DailyMappedCtx = Record<string, never>; // counter — bez optimistic seeda
 export function usePlannerMutations() {
   const qc = useQueryClient();
 
-  // B2 — `mod.savePlanner(cfg)` is synchronous and fires
-  // `notifyPlannerChanged("config")` inside the same tick. The bridge
-  // invalidates `['planner']` root → `planner.config()` refetches before
-  // React commits, so an optimistic `setQueryData` here was never visible
-  // to the UI. We keep `cancelQueries + snapshot` for rollback only.
+  // savePlanner awaits SQLite; bridge invalidates ['planner'] after notify.
   const saveConfig = useMutation<void, Error, PlannerConfig, ConfigCtx>({
     mutationFn: async (cfg) => {
       const mod = await getPlannerModule();
-      mod.savePlanner(cfg);
+      await mod.savePlanner(cfg);
     },
-    onMutate: async () => {
+    onMutate: async (cfg) => {
       await qc.cancelQueries({ queryKey: queryKeys.planner.config() });
       const prev = qc.getQueryData<PlannerConfig>(queryKeys.planner.config());
+      qc.setQueryData(queryKeys.planner.config(), cfg);
       return { prev };
     },
     onError: (_e, _cfg, ctx) => {

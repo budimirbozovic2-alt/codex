@@ -10,7 +10,6 @@
  import { useCardBootstrap } from "@/hooks/useCardBootstrap";
  import { useCardSyncEffects } from "@/hooks/cards/useCardSyncEffects";
  import { useCategoryStateBridge } from "@/hooks/cards/useCategoryState";
- import { kickoffEditorV4Migration } from "@/lib/editor-v4/lazy-migrate";
  import { recordAppEntry } from "@/domains/metacognition/metacognitive-storage";
  import { useNotificationScheduler } from "@/hooks/useNotificationScheduler";
  import { useActivityTracker } from "@/hooks/useActivityTracker";
@@ -20,10 +19,6 @@
    useCategoryStateBridge();
    useCardBootstrap();
    useCardSyncEffects();
- 
-   useEffect(() => { 
-     kickoffEditorV4Migration(); 
-   }, []);
  
    useEffect(() => { 
      recordAppEntry(); 

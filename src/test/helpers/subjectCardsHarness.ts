@@ -1,7 +1,7 @@
 import type { CategoryRecord } from "@/lib/db-types";
 import type { Card } from "@/lib/spaced-repetition";
+import { bulkPutCategories } from "@/lib/db/queries";
 import { cardRepository } from "@/lib/repositories";
-import { setCategoryStoreRecords } from "@/store/useCategoryStore";
 import { setEditingCardId } from "@/store/useUIStore";
 import { makeSection } from "../factories";
 
@@ -37,7 +37,7 @@ export function makeTestCard(
 }
 
 export async function seedSubjectCardsFixture(): Promise<void> {
-  setCategoryStoreRecords([makeTestCategory()]);
+  await bulkPutCategories([makeTestCategory()]);
   await cardRepository.put(makeTestCard(TEST_CARD_A_ID));
   await cardRepository.put(makeTestCard(TEST_CARD_B_ID));
 }

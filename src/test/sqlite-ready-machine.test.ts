@@ -1,7 +1,7 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
+import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 import type { SqlExecutor } from "@/lib/persistence/sqlite/executor";
 
-const mockWorkerExecutor = {
+const mockMainExecutor = {
   run: vi.fn(),
   runMany: vi.fn(),
   all: vi.fn(),
@@ -10,39 +10,38 @@ const mockWorkerExecutor = {
   close: vi.fn(),
 } as unknown as SqlExecutor;
 
-const { initWorkerExecutor, getWorkerSqlExecutor } = vi.hoisted(() => ({
-  initWorkerExecutor: vi.fn(),
-  getWorkerSqlExecutor: vi.fn(() => mockWorkerExecutor),
+const { initMainSqlite, getMainSqlExecutor } = vi.hoisted(() => ({
+  initMainSqlite: vi.fn(),
+  getMainSqlExecutor: vi.fn(() => mockMainExecutor),
 }));
 
-vi.mock("@/lib/persistence/sqlite/worker-client", () => ({
-  initWorkerExecutor,
-  getWorkerSqlExecutor,
+const { runMigrations } = vi.hoisted(() => ({
+  runMigrations: vi.fn(async () => ({ from: 0, to: 16 })),
+}));
+
+vi.mock("@/lib/persistence/sqlite/main-ipc-client", () => ({
+  initMainSqlite,
+  getMainSqlExecutor,
+}));
+
+vi.mock("@/lib/persistence/sqlite/migration-runner", () => ({
+  runMigrations,
 }));
 
 vi.unmock("@/lib/persistence/sqlite/client");
 
-vi.mock("@/lib/scheduler/taskScheduler", async () => {
-  const actual = await vi.importActual<
-    typeof import("@/lib/scheduler/taskScheduler")
-  >("@/lib/scheduler/taskScheduler");
-  return {
-    taskScheduler: {
-      ...actual.taskScheduler,
-      setTimeout: (fn: () => void) => {
-        fn();
-        return 0;
-      },
-    },
-  };
-});
-
-describe("SQLite ready machine (O-1)", () => {
+describe("SQLite ready machine (O-1, Faza 5.4)", () => {
   beforeEach(async () => {
     vi.unstubAllEnvs();
-    delete (window as { electronAPI?: unknown }).electronAPI;
-    initWorkerExecutor.mockReset();
-    getWorkerSqlExecutor.mockClear();
+    (window as Window & { electronAPI?: { sqliteRpc?: unknown } }).electronAPI =
+      { sqliteRpc: vi.fn() };
+    initMainSqlite.mockReset();
+    getMainSqlExecutor.mockClear();
+    runMigrations.mockClear();
+    initMainSqlite.mockResolvedValue({
+      ok: true,
+      dbPath: "/tmp/codex-main.sqlite",
+    });
 
     const { __resetSqliteReadyForTests } = await import(
       "@/lib/persistence/sqlite/readyMachine"
@@ -52,14 +51,10 @@ describe("SQLite ready machine (O-1)", () => {
 
   afterEach(() => {
     vi.unstubAllEnvs();
+    delete (window as Window & { electronAPI?: unknown }).electronAPI;
   });
 
-  it("idle → opening → ready when OPFS worker succeeds", async () => {
-    initWorkerExecutor.mockResolvedValue({
-      opfsMode: true,
-      diag: { mode: "opfs" },
-    });
-
+  it("idle → opening → ready when main-process SQLite succeeds", async () => {
     const { ensureSqliteReady, getSqliteReadyState } = await import(
       "@/lib/persistence/sqlite/readyMachine"
     );
@@ -70,16 +65,13 @@ describe("SQLite ready machine (O-1)", () => {
     expect(getSqliteReadyState().type).toBe("opening");
 
     const executor = await pending;
-    expect(executor).toBe(mockWorkerExecutor);
+    expect(executor).toBe(mockMainExecutor);
     expect(getSqliteReadyState().type).toBe("ready");
-    expect(initWorkerExecutor).toHaveBeenCalledTimes(1);
+    expect(initMainSqlite).toHaveBeenCalledTimes(1);
   });
 
-  it("OPFS failure → fatal is permanent, subsequent calls re-throw immediately", async () => {
-    initWorkerExecutor.mockResolvedValue({
-      opfsMode: false,
-      initError: "worker init failed",
-    });
+  it("main failure → fatal is permanent, subsequent calls re-throw immediately", async () => {
+    initMainSqlite.mockResolvedValue({ ok: false, dbPath: "" });
 
     const { ensureSqliteReady, getSqliteReadyState } = await import(
       "@/lib/persistence/sqlite/readyMachine"
@@ -88,29 +80,24 @@ describe("SQLite ready machine (O-1)", () => {
     await expect(ensureSqliteReady()).rejects.toThrow(/FatalError/);
     expect(getSqliteReadyState().type).toBe("fatal");
 
-    initWorkerExecutor.mockResolvedValue({
-      opfsMode: true,
-      diag: { mode: "opfs" },
+    initMainSqlite.mockResolvedValue({
+      ok: true,
+      dbPath: "/tmp/codex-main.sqlite",
     });
 
     await expect(ensureSqliteReady()).rejects.toThrow(/FatalError/);
     expect(getSqliteReadyState().type).toBe("fatal");
-    expect(initWorkerExecutor).toHaveBeenCalledTimes(3);
+    expect(initMainSqlite).toHaveBeenCalledTimes(1);
   });
 
   it("ensureSqliteReady is idempotent once ready", async () => {
-    initWorkerExecutor.mockResolvedValue({
-      opfsMode: true,
-      diag: {},
-    });
-
     const { ensureSqliteReady } = await import(
       "@/lib/persistence/sqlite/readyMachine"
     );
 
     await ensureSqliteReady();
     await ensureSqliteReady();
-    expect(initWorkerExecutor).toHaveBeenCalledTimes(1);
+    expect(initMainSqlite).toHaveBeenCalledTimes(1);
   });
 
   it("getExecutorOrThrow returns executor when ready, throws when idle", async () => {
@@ -120,8 +107,7 @@ describe("SQLite ready machine (O-1)", () => {
 
     expect(() => getExecutorOrThrow()).toThrow(/SQLite not ready/);
 
-    initWorkerExecutor.mockResolvedValue({ opfsMode: true, diag: {} });
     await ensureSqliteReady();
-    expect(getExecutorOrThrow()).toBe(mockWorkerExecutor);
+    expect(getExecutorOrThrow()).toBe(mockMainExecutor);
   });
 });

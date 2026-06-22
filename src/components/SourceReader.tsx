@@ -16,7 +16,8 @@ import { SourceContent } from "@/components/source-reader/SourceContent";
 import { SourceNavigation } from "@/components/source-reader/SourceNavigation";
 import { SourceBubbleMenu } from "@/components/source-reader/SourceBubbleMenu";
 import { SmartSplitSummaryDialog } from "@/components/source-reader/SmartSplitSummaryDialog";
-import { docToHtml, type Editor } from "@/lib/editor-v4";
+import { getEditorSelectionPayload, type SelectionPayload } from "@/lib/source-reader/selection-payload";
+import type { Editor } from "@/lib/editor-v4";
 import { toast } from "sonner";
 import { createMnemonicCardFromSelection, loadMnemonicCards } from "@/domains/mnemonic";
 import { useMnemonicMutations } from "@/hooks/mnemonic/useMnemonicMutations";
@@ -59,17 +60,10 @@ export default memo(function SourceReader({ source, onBack, onSourceUpdated }: P
     [source, liveOutline],
   );
 
-  /** Compute current TipTap selection payload (text + html via docToHtml). */
-  const getSelectionPayload = useCallback((): { text: string; html: string } | null => {
+  /** Compute current TipTap selection payload (text + html + contentDoc via V4 codec). */
+  const getSelectionPayload = useCallback((): SelectionPayload | null => {
     if (!editor) return null;
-    const { state } = editor;
-    const { from, to, empty } = state.selection;
-    if (empty) return null;
-    const text = state.doc.textBetween(from, to, "\n", " ").trim();
-    if (text.length < 5) return null;
-    const slice = state.doc.slice(from, to);
-    const docJson = { type: "doc", content: slice.content.toJSON() as unknown as never[] };
-    return { text, html: docToHtml({ version: 4, content: docJson }) };
+    return getEditorSelectionPayload(editor);
   }, [editor]);
 
   const { saveCards: saveMnemoCards } = useMnemonicMutations();
@@ -89,7 +83,7 @@ export default memo(function SourceReader({ source, onBack, onSourceUpdated }: P
   const handleConvertShortcut = useCallback(() => {
     const payload = getSelectionPayload();
     if (!payload) return;
-    actions.handleConvertToEssay(payload.text, payload.html);
+    actions.handleConvertToEssay(payload);
   }, [getSelectionPayload, actions]);
 
   useSourceReaderShortcuts({ onConvertToEssay: handleConvertShortcut });
@@ -117,6 +111,7 @@ export default memo(function SourceReader({ source, onBack, onSourceUpdated }: P
         onBack={onBack}
         onAutoSplit={() => useSourceReaderStore.getState().setAutoSplitOpen(true)}
         onAutoFormat={actions.handleAutoFormatArticles}
+        onAutoFormatLegal={actions.handleAutoFormatLegalProvisions}
       />
 
       <div className="flex gap-4">

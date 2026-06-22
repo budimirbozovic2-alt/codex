@@ -1,16 +1,11 @@
 /**
- * Provider Cleanup v2 — `CategoryStateProvider` is a no-op shim and
- * `useCategoryStateInternals` is gone.
- *
- * `useCategoryData` reads from Zustand `categoryStore` via
- * `useSyncExternalStore`. `useCategoryStateBridge` is the one remaining
- * hook with React-lifecycle side-effects (examiner cache prime) — it is
- * mounted exactly once in `<AppBootstrap />`.
+ * `useCategoryData` reads from TanStack Query (`useAllCategories`).
+ * `useCategoryStateBridge` primes examiner cache on taxonomy changes.
  */
-import { useEffect, useMemo, useSyncExternalStore } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import type { CategoryRecord } from "@/lib/db-types";
 import { primeExaminerProfilesFromRecords } from "@/lib/examiner-profile-cache";
-import { categoryStore } from "@/store";
+import { useAllCategories } from "@/hooks/category/useCategoriesQuery";
 
 interface CategoryStateContextValue {
   categories: string[];
@@ -18,32 +13,53 @@ interface CategoryStateContextValue {
   subcategories: Record<string, string[]>;
 }
 
-function getRecords(): CategoryRecord[] {
-  return categoryStore.getState().records;
+function buildCategoryState(records: CategoryRecord[]): CategoryStateContextValue {
+  const categories = records.map((r) => r.id);
+  const subcategories: Record<string, string[]> = {};
+  for (const r of records) {
+    const subs = [...(r.subcategories ?? [])];
+    subs.sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+    subcategories[r.id] = subs.map((n) => n.id);
+  }
+  return { categories, categoryRecords: records, subcategories };
+}
+
+function categoryRecordsShallowEqual(a: CategoryRecord[], b: CategoryRecord[]): boolean {
+  if (a === b) return true;
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) {
+    const left = a[i];
+    const right = b[i];
+    if (
+      left.id !== right.id
+      || left.name !== right.name
+      || left.sortOrder !== right.sortOrder
+      || (left.subcategories?.length ?? 0) !== (right.subcategories?.length ?? 0)
+    ) {
+      return false;
+    }
+  }
+  return true;
 }
 
 export function useCategoryData(): CategoryStateContextValue {
-  const records = useSyncExternalStore(categoryStore.subscribe, getRecords, getRecords);
+  const records = useAllCategories();
+  const stableRef = useRef<CategoryStateContextValue>(buildCategoryState([]));
+
   return useMemo<CategoryStateContextValue>(() => {
-    const categories = records.map((r) => r.id);
-    const subcategories: Record<string, string[]> = {};
-    for (const r of records) {
-      const subs = [...(r.subcategories ?? [])];
-      subs.sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
-      subcategories[r.id] = subs.map((n) => n.id);
+    if (categoryRecordsShallowEqual(stableRef.current.categoryRecords, records)) {
+      return stableRef.current;
     }
-    return { categories, categoryRecords: records, subcategories };
+    const next = buildCategoryState(records);
+    stableRef.current = next;
+    return next;
   }, [records]);
 }
 
-/**
- * Bridge hook — mounted once in `AppBootstrap`. Primes examiner cache on
- * each categoryRecords change.
- */
+/** Mounted once in `AppBootstrap`. Primes examiner cache on taxonomy changes. */
 export function useCategoryStateBridge(): void {
   const { categoryRecords } = useCategoryData();
   useEffect(() => {
     primeExaminerProfilesFromRecords(categoryRecords);
   }, [categoryRecords]);
 }
-

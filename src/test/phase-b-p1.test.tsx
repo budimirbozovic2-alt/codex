@@ -11,7 +11,7 @@
 import { describe, it, expect } from "vitest";
 import { renderHook, act } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { useSessionContext } from "@/hooks/useSession";
+import { useSessionContext } from "@/store/useSessionStore";
 import { serializeRowsInWorker } from "@/lib/backup/json-serialize-client";
 import fs from "node:fs";
 import path from "node:path";

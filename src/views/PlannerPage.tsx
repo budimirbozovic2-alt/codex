@@ -3,8 +3,10 @@ import { useCardData, useReviewData } from "@/hooks/cards/useCardState";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { DataReadyGate, DashboardSkeleton } from "@/components/ui/loading";
 import StrategicPlanner from "@/components/StrategicPlanner";
+import { useNavigate } from "react-router-dom";
 
 export default function PlannerPage() {
+  const navigate = useNavigate();
   const { cards, ready } = useCardData();
   const { categories, categoryRecords } = useCategoryData();
   const { reviewLog } = useReviewData();
@@ -18,6 +20,7 @@ export default function PlannerPage() {
             categories={categories}
             categoryRecords={categoryRecords}
             reviewLog={reviewLog}
+            onNavigateToDatabase={(categoryId) => navigate(`/category/${categoryId}`)}
           />
         </ErrorBoundary>
       </div>

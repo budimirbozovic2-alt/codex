@@ -8,12 +8,12 @@
  *   2. `autoFormatArticles` ne smije proći XSS payload kroz `innerHTML`
  *      round-trip. Wrapper sad koristi `createElement` + `appendChild`,
  *      što ne re-parsira HTML.
- *   3. `save`/`remove`/`gradeSection` mutations više ne zovu broad
- *      `invalidateQueries({ queryKey: ['cards'] })` u `onSettled`.
- *      Bridge je SSOT za invalidaciju kroz `notifyCardsChanged`.
+ *   3. `save`/`remove`/`gradeSection` and bulk mutations no longer call broad
+ *      `invalidateQueries({ queryKey: ['cards'] })` in `onSettled`.
+ *      Single-card writes use scoped bridge invalidation; bulk uses coordinator.
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { renderHook, act, waitFor } from "@testing-library/react";
+import { renderHook, act } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createElement, type ReactNode } from "react";
 import type { Card } from "@/lib/spaced-repetition";
@@ -162,7 +162,7 @@ describe("PR-H1 #3 — save/remove/gradeSection don't broad-invalidate", () => {
     expect(cardsRootCalls.length).toBe(0);
   });
 
-  it("bulkUpsert STILL invalidates ['cards'] (settle preserved for bulk)", async () => {
+  it("bulkUpsert does not call invalidateQueries(['cards']) prefix", async () => {
     const qc = makeQc();
     qc.setQueryData(queryKeys.cards.all(), [] as Card[]);
     const invalidateSpy = vi.spyOn(qc, "invalidateQueries");
@@ -175,13 +175,11 @@ describe("PR-H1 #3 — save/remove/gradeSection don't broad-invalidate", () => {
       await result.current.bulkUpsert.mutateAsync([makeCard("b1"), makeCard("b2")]);
     });
 
-    await waitFor(() => {
-      const cardsRootCalls = invalidateSpy.mock.calls.filter((args) => {
-        const key = (args[0] as { queryKey?: unknown[] } | undefined)?.queryKey;
-        return Array.isArray(key) && key[0] === "cards" && key.length === 1;
-      });
-      expect(cardsRootCalls.length).toBeGreaterThanOrEqual(1);
+    const cardsRootCalls = invalidateSpy.mock.calls.filter((args) => {
+      const key = (args[0] as { queryKey?: unknown[] } | undefined)?.queryKey;
+      return Array.isArray(key) && key[0] === "cards" && key.length === 1;
     });
+    expect(cardsRootCalls.length).toBe(0);
   });
 });
 

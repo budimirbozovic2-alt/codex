@@ -1,12 +1,15 @@
 // Retrievability + mastery score helpers. Pure read-only views over Section/Card.
 import { Section, SectionState, Card } from "./types";
 
-export function getRetrievability(section: Section): number {
+export function getRetrievability(
+  section: Section,
+  now: number = Date.now(),
+): number {
   if (section.state === SectionState.New) return 0;
   if (section.stability <= 0) return 0;
-  const elapsed = section.lastReviewed
-    ? (Date.now() - section.lastReviewed) / (24 * 60 * 60 * 1000)
-    : 0;
+  // Missing lastReviewed on a reviewed section → unknown retention; prefer review.
+  if (section.lastReviewed == null || section.lastReviewed <= 0) return 0;
+  const elapsed = (now - section.lastReviewed) / (24 * 60 * 60 * 1000);
   const r = Math.exp(-elapsed / section.stability);
   return Math.round(Math.max(0, Math.min(100, r * 100)));
 }
@@ -22,7 +25,7 @@ export function getCardRetrievability(card: Card): number {
   if (reviewed.length === 0) return 0;
   let min = Infinity;
   for (const s of reviewed) {
-    const r = getRetrievability(s);
+    const r = getRetrievability(s, Date.now());
     if (r < min) min = r;
   }
   return min === Infinity ? 0 : min;

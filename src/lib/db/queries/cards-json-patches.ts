@@ -2,7 +2,7 @@
  * JSON-native card UPDATE statements (SQLite json_set / json_remove).
  *
  * Shared by `cardRepository` and `cards-writes` so denormalised columns
- * and `payload` stay in sync without decode/re-encode over the OPFS bridge.
+ * and `payload` stay in sync without a full decode/re-encode round-trip.
  */
 
 /** Clear sourceId / textAnchor / needsReview for ids that currently have sourceId set. */

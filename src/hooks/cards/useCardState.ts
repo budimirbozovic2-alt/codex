@@ -1,172 +1,133 @@
 // ═══════════════════════════════════════════════════════════════════════════
-
-// Provider Cleanup v2 — Context providers eliminated.
-
-//
-
-// Read hooks (useCardData, useReviewData, useCategoryStatsData,
-
-// useSettingsActions) now read directly from Zustand stores via
-
-// `useSyncExternalStore`. No Context, no provider tree, no fallback proxy.
-
-//
-
-// File path preserved for backwards-compat with the public re-exports.
-
+// Read hooks — TanStack Query is the in-memory source for cards, categories,
+// review log, and global SR settings.
 // ═══════════════════════════════════════════════════════════════════════════
 
-import { useMemo } from "react";
+import { useMemo, useSyncExternalStore } from "react";
 
 import { Card, SRSettings } from "@/lib/spaced-repetition";
 
 import { ReviewLogEntry } from "@/lib/storage";
 
-import { useAllCards, useCardCountAll, useDueCards, useDueCardCount, useCategoryDueCounts, useCardCountsByCategoryMap, useCategoryMasteryScores } from "@/hooks/card/useCardsQuery";
+import { useAllCards, useCardCountAll, useDueCards, useCardCountsByCategoryMap, useCategoryMasteryScores } from "@/hooks/card/useCardsQuery";
 
 import { useCategoryData } from "./useCategoryState";
 
 import { useCardAggregates } from "./useCardAggregates";
 
 import {
-
   useReviewLog,
-
   useSrSettings,
-
-  updateSRSettings as updateSRSettingsAction,
-
-} from "@/store/reviewSettingsStore";
+  updateSrSettings,
+} from "@/hooks/review/useReviewSettingsQuery";
 
 import { useBootState } from "@/hooks/useBootState";
-
-
-
-// Post PR-E4: TanStack `['cards','all']` is the SOLE in-memory source for
-
-// cards, invalidated via the `onCardsChanged` bridge after each SQLite
-
-// write. The legacy `cardMapStore` / `cardMapWrites` modules are deleted.
+import { getCardsHydrated, subscribeCardsHydrated } from "@/lib/query/cards-cache-coordinator";
+import {
+  getCategoriesHydrated,
+  subscribeCategoriesHydrated,
+} from "@/lib/query/categories-cache-coordinator";
+import { countConsolidationEligibleCards, countConsolidationEligibleByCategory } from "@/lib/review-mode-builder";
 
 function useCards(): Card[] {
-
-  // TanStack returns `readonly Card[]`; downstream consumers expect mutable
-
-  // arrays. Treated as same-reference cast (no copy) — array contents are
-
-  // already immutable upstream so it's safe in practice.
-
   return useAllCards() as Card[];
-
 }
 
-
-
-/** Boot-ready signal only — does not subscribe to card queries. */
-
-export function useCardReady(): boolean {
-
+/** Boot FSM READY and core entity caches seeded from SQLite. */
+export function useAppDataReady(): boolean {
   const bootState = useBootState();
+  const cardsHydrated = useCardsHydrated();
+  const categoriesHydrated = useCategoriesHydrated();
 
-  return bootState.type === "ready";
-
+  return bootState.type === "ready" && cardsHydrated && categoriesHydrated;
 }
 
+export function useCardsHydrated(): boolean {
+  return useSyncExternalStore(subscribeCardsHydrated, getCardsHydrated, getCardsHydrated);
+}
 
+export function useCategoriesHydrated(): boolean {
+  return useSyncExternalStore(
+    subscribeCategoriesHydrated,
+    getCategoriesHydrated,
+    getCategoriesHydrated,
+  );
+}
 
 interface CardStateContextValue {
-
   cards: Card[];
-
   dueCards: Card[];
-
   stats: { due: number; total: number; totalSections: number; learnedSections: number; leechCount: number };
-
   ready: boolean;
-
 }
 
-
-
-/**
-
- * Full card session data (all cards + FSRS aggregates). Use only on routes
-
- * that need the full table — not in layout shell components.
-
- */
-
 export function useCardData(): CardStateContextValue {
-
   const cards = useCards();
   const dueCards = useDueCards() as Card[];
   const totalCards = useCardCountAll();
-  const dueCount = useDueCardCount();
+  const srSettings = useSrSettings();
   const { categories } = useCategoryData();
-  const ready = useCardReady();
+  const ready = useAppDataReady();
   const { stats: rawStats } = useCardAggregates(cards, categories);
+  const consolidationDue = useMemo(
+    () => countConsolidationEligibleCards({
+      dueCards,
+      allCards: cards,
+      srSettings,
+    }),
+    [dueCards, cards, srSettings],
+  );
   const stats = useMemo(
     () => ({
       ...rawStats,
-      due: dueCount,
+      due: consolidationDue,
       total: totalCards > 0 ? totalCards : rawStats.total,
     }),
-    [rawStats, dueCount, totalCards],
+    [rawStats, consolidationDue, totalCards],
   );
 
   return useMemo(
-
     () => ({ cards, dueCards, stats, ready }),
-
     [cards, dueCards, stats, ready],
-
   );
-
 }
-
-
 
 interface ReviewStateContextValue {
-
   reviewLog: ReviewLogEntry[];
-
   srSettings: SRSettings;
-
 }
 
-
-
 export function useReviewData(): ReviewStateContextValue {
-
   const reviewLog = useReviewLog();
-
   const srSettings = useSrSettings();
 
   return useMemo(() => ({ reviewLog, srSettings }), [reviewLog, srSettings]);
-
 }
-
-
 
 interface CategoryStatsContextValue {
-
   categoryStats: Record<string, { score: number; total: number; due: number }>;
-
 }
 
-
-
-/** Full per-category mastery stats — requires all cards. Dashboard/Stats only. */
-
-export function useCategoryStatsData(): CategoryStatsContextValue {
-
+export function useCategoryStatsData(
+  options?: { enabled?: boolean },
+): CategoryStatsContextValue {
+  const enabled = options?.enabled ?? true;
   const { categories } = useCategoryData();
+  const cards = useAllCards();
+  const dueCards = useDueCards();
+  const srSettings = useSrSettings();
 
-  const dueByCategory = useCategoryDueCounts(categories);
-  const countByCategory = useCardCountsByCategoryMap(categories);
-  const scoreByCategory = useCategoryMasteryScores(categories);
+  const dueByCategory = useMemo(
+    () => (enabled
+      ? countConsolidationEligibleByCategory(cards, dueCards, srSettings, categories)
+      : {}),
+    [enabled, cards, dueCards, srSettings, categories],
+  );
+  const countByCategory = useCardCountsByCategoryMap(categories, { enabled });
+  const scoreByCategory = useCategoryMasteryScores(categories, { enabled });
 
   const categoryStats = useMemo(() => {
+    if (!enabled) return {};
     const out: Record<string, { score: number; total: number; due: number }> = {};
     for (const cat of categories) {
       out[cat] = {
@@ -176,20 +137,11 @@ export function useCategoryStatsData(): CategoryStatsContextValue {
       };
     }
     return out;
-  }, [categories, scoreByCategory, countByCategory, dueByCategory]);
+  }, [enabled, categories, scoreByCategory, countByCategory, dueByCategory]);
 
   return useMemo(() => ({ categoryStats }), [categoryStats]);
-
 }
-
-
 
 export function useSettingsActions() {
-
-  // Stable reference — module-level action.
-
-  return useMemo(() => ({ updateSRSettings: updateSRSettingsAction }), []);
-
+  return useMemo(() => ({ updateSRSettings: updateSrSettings }), []);
 }
-
-

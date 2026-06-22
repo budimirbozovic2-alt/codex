@@ -1,9 +1,11 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
 import StatsPage from "@/views/StatsPage";
 import PlannerPage from "@/views/PlannerPage";
 import RetentionChart from "@/components/RetentionChart";
 import ActivityHeatmap from "@/components/ActivityHeatmap";
+import { StudyFlowWidget } from "@/components/dashboard/StudyFlowWidget";
 
 const cardStateMock = vi.hoisted(() => ({
   useCardData: () => ({
@@ -61,7 +63,14 @@ describe("Stats/Planner page shell", () => {
   });
 
   it("PlannerPage renders PageHeader after DataReadyGate", async () => {
-    render(<PlannerPage />);
+    render(
+      <MemoryRouter
+        initialEntries={["/planner"]}
+        future={{ v7_startTransition: true, v7_relativeSplatPath: true }}
+      >
+        <PlannerPage />
+      </MemoryRouter>,
+    );
     expect(
       await screen.findByRole("heading", { name: "Strateški planer" }),
     ).toBeInTheDocument();
@@ -85,5 +94,35 @@ describe("Stats chart cards — glass-card shell", () => {
     const { container } = render(<ActivityHeatmap reviewLog={[]} />);
     expect(container.querySelector(".glass-card")).toBeTruthy();
     expect(screen.getByText("Aktivnost")).toBeInTheDocument();
+  });
+});
+
+describe("Dashboard StudyFlow integration", () => {
+  it("StudyFlowWidget shows Plan za danas with learn/review targets", () => {
+    render(
+      <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+        <StudyFlowWidget
+          data={{
+            focusSubject: "Krivično pravo",
+            focusCategoryId: "cat-kp",
+            dailyProgress: 2,
+            dailyQuota: 8,
+            learnPct: 60,
+            reviewPct: 40,
+            learnTarget: 5,
+            reviewTarget: 3,
+            ratioLabel: "Balans",
+            overallPct: 25,
+          }}
+        />
+      </MemoryRouter>,
+    );
+    expect(screen.getByText("Plan za danas")).toBeInTheDocument();
+    expect(screen.getByText(/Krivično pravo/)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Započni" })).toHaveAttribute(
+      "href",
+      "/learn?mode=strict-recall&category=cat-kp",
+    );
+    expect(screen.getByRole("link", { name: "Ponovi" })).toHaveAttribute("href", "/review");
   });
 });

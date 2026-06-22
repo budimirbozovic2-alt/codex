@@ -1,27 +1,7 @@
-
-
 import { type ReviewLogEntry, type PomodoroLogEntry, type LearnCardProgress } from "./types/logs";
 
 export type { ReviewLogEntry, PomodoroLogEntry, LearnCardProgress };
 
-// ─── Generic localStorage helpers ────────────────────────
-function loadFromStorage<T>(key: string, fallback: T): T {
-  try {
-    const data = localStorage.getItem(key);
-    return data ? JSON.parse(data) : fallback;
-  } catch {
-    return fallback;
-  }
-}
-
-function saveToStorage<T>(key: string, value: T): void {
-  localStorage.setItem(key, JSON.stringify(value));
-}
-
-// ─── Active functions (still used) ───────────────────────
-
-const _POMODORO_LOG_KEY = "sr-pomodoro-log";
-const LEARN_PROGRESS_KEY = "sr-learn-progress";
 const LAST_BACKUP_KEY = "sr-last-backup";
 
 export async function addPomodoroEntry(entry: PomodoroLogEntry): Promise<void> {
@@ -42,8 +22,6 @@ export async function getPomodoroStats(): Promise<PomodoroStatsResult> {
   const todayStart = new Date().setHours(0, 0, 0, 0);
   const weekStart = todayStart - new Date().getDay() * 86400000;
 
-  // A1c-P1: SQLite-primary. Window from weekStart covers today+week stats;
-  // total focus count is a single COUNT(*) by JSON-extracted type field.
   const [log, total] = await Promise.all([
     loadPomodoroLogSince(weekStart),
     countPomodoroLogByType("focus"),
@@ -69,34 +47,19 @@ export async function getPomodoroStats(): Promise<PomodoroStatsResult> {
   };
 }
 
-
+/** SQLite SSOT — legacy KV/localStorage migration runs at boot (`migrateBrowserLocalStorageToSqlite`) and in `migrateLearnProgressToRelational`. */
 export async function loadLearnProgress(): Promise<Record<string, LearnCardProgress>> {
-  try {
-    const { getSetting, putSetting } = await import("@/lib/db/queries");
-    const idbData = (await getSetting<Record<string, LearnCardProgress>>(LEARN_PROGRESS_KEY)) ?? {};
-    if (Object.keys(idbData).length > 0) return idbData;
-    // Fallback: migrate from localStorage
-    const lsData = loadFromStorage<Record<string, LearnCardProgress>>(LEARN_PROGRESS_KEY, {});
-    if (Object.keys(lsData).length > 0) {
-      await putSetting(LEARN_PROGRESS_KEY, lsData);
-      localStorage.removeItem(LEARN_PROGRESS_KEY);
-    }
-    return lsData;
-  } catch {
-    return loadFromStorage(LEARN_PROGRESS_KEY, {});
-  }
+  const { loadAllLearnProgress } = await import("@/lib/db/queries");
+  return loadAllLearnProgress();
 }
 
-export async function saveLearnProgress(data: Record<string, LearnCardProgress>): Promise<void> {
-  try {
-    const { putSetting } = await import("@/lib/db/queries");
-    await putSetting(LEARN_PROGRESS_KEY, data);
-  } catch {
-    saveToStorage(LEARN_PROGRESS_KEY, data);
-  }
+export async function saveLearnProgress(
+  data: Record<string, LearnCardProgress>,
+): Promise<void> {
+  const { replaceAllLearnProgress } = await import("@/lib/db/queries");
+  await replaceAllLearnProgress(data);
 }
 
-// Storage usage (estimates localStorage footprint)
 export async function getStorageUsage(): Promise<{ usedBytes: number; maxBytes: number; percent: number }> {
   if (navigator.storage?.estimate) {
     const est = await navigator.storage.estimate();
@@ -107,30 +70,13 @@ export async function getStorageUsage(): Promise<{ usedBytes: number; maxBytes: 
   return { usedBytes: 0, maxBytes: 0, percent: 0 };
 }
 
-// Backup reminder
+/** SQLite SSOT — boot migration lifts legacy `sr-last-backup` from localStorage. */
 export async function getLastBackupTime(): Promise<number> {
-  try {
-    const { getSetting, putSetting } = await import("@/lib/db/queries");
-    const idbVal = (await getSetting<number>(LAST_BACKUP_KEY)) ?? 0;
-    if (idbVal > 0) return idbVal;
-    // Fallback: migrate from localStorage
-    const lsVal = loadFromStorage(LAST_BACKUP_KEY, 0);
-    if (lsVal > 0) {
-      await putSetting(LAST_BACKUP_KEY, lsVal);
-      localStorage.removeItem(LAST_BACKUP_KEY);
-    }
-    return lsVal;
-  } catch {
-    return loadFromStorage(LAST_BACKUP_KEY, 0);
-  }
+  const { getSetting } = await import("@/lib/db/queries");
+  return (await getSetting<number>(LAST_BACKUP_KEY)) ?? 0;
 }
 
 export async function setLastBackupTime(): Promise<void> {
-  const now = Date.now();
-  try {
-    const { putSetting } = await import("@/lib/db/queries");
-    await putSetting(LAST_BACKUP_KEY, now);
-  } catch {
-    saveToStorage(LAST_BACKUP_KEY, now);
-  }
+  const { putSetting } = await import("@/lib/db/queries");
+  await putSetting(LAST_BACKUP_KEY, Date.now());
 }

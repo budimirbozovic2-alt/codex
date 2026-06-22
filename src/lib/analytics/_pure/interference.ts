@@ -1,6 +1,7 @@
 // Pure interference detection — Card[] in, InterferencePair[] out.
 // No storage / React / DOM. Safe for Web Worker.
-import { Card, getErrorStatus } from "../../spaced-repetition";
+import type { Card } from "@/lib/sr/types";
+import { getErrorStatus } from "@/lib/sr/error-status";
 
 export interface InterferencePair {
   cardA: { id: string; question: string; category: string };

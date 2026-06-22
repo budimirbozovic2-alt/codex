@@ -82,3 +82,8 @@ export const asSubcategoryId = (v: string): SubcategoryId => brand<SubcategoryId
 export const asChapterId     = (v: string): ChapterId     => brand<ChapterId>("ChapterId", v);
 export const asCardId        = (v: string): CardId        => brand<CardId>("CardId", v);
 export const asSourceId      = (v: string): SourceId      => brand<SourceId>("SourceId", v);
+
+/** Central UUID factory — prefer over raw `crypto.randomUUID()` at call sites. */
+export function newUuid(): string {
+  return crypto.randomUUID();
+}

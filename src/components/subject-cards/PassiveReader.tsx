@@ -1,121 +1,339 @@
-import { lazy, Suspense, useEffect, useMemo, useRef } from "react";
-import { BookOpen, Pencil } from "lucide-react";
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
+
+import { BookOpen, Pencil, Zap } from "lucide-react";
+
+import { useNavigate } from "react-router-dom";
+
 import { Button } from "@/components/ui/button";
+
 import { Skeleton } from "@/components/ui/skeleton";
+
 import type { Card } from "@/lib/spaced-repetition";
+
 import type { SubcategoryNode } from "@/lib/db-types";
+
 import { useCardOnlyActions } from "@/hooks/cards/useActions";
+
+import { groupCardsForSagaDisplay } from "@/lib/saga/card-saga-grouping";
+
+import { sortPassiveReaderCards } from "./passive-reader/sort-passive-reader-cards";
+
 import { usePassiveReaderFilters } from "./passive-reader/usePassiveReaderFilters";
+
 import { usePassiveReaderNavigation } from "./passive-reader/usePassiveReaderNavigation";
+
 import { useCardStats } from "./passive-reader/useCardStats";
+
 import { PassiveReaderFilters } from "./passive-reader/PassiveReaderFilters";
+
 import { PassiveReaderPager } from "./passive-reader/PassiveReaderPager";
 
-// Lazy: pulls ContentRenderer (Tiptap) out of the initial SubjectCardsView chunk.
+import { PassiveReaderSatellitePanel } from "./passive-reader/PassiveReaderSatellitePanel";
+
+
+
 const PassiveReaderCard = lazy(() =>
+
   import("./passive-reader/PassiveReaderCard").then(m => ({ default: m.PassiveReaderCard })),
+
 );
 
+
+
 function PassiveReaderCardSkeleton() {
+
   return (
+
     <Skeleton
+
       className="rounded-2xl border border-border/60"
+
       style={{ height: 420 }}
+
       role="status"
+
       aria-busy="true"
+
       aria-label="Učitavanje kartice…"
+
     />
+
   );
+
 }
+
+
 
 interface Props {
+
   cards: Card[];
+
   subcategoryNodes: SubcategoryNode[];
+
   categoryId: string;
+
   onEditCard?: (card: Card) => void;
-  /** When set, the reader will clear filters (if needed) and jump to this card. */
+
   initialCardId?: string | null;
-  /** Called once the initialCardId has been honored, so the parent can clear it. */
+
   onInitialConsumed?: () => void;
+
 }
+
+
 
 export default function PassiveReader({
+
   cards, subcategoryNodes, categoryId, onEditCard, initialCardId, onInitialConsumed,
+
 }: Props) {
+
+  const navigate = useNavigate();
+
   const filters = usePassiveReaderFilters(categoryId, subcategoryNodes);
 
+
+
   const filtered = useMemo(() => {
+
     let list = cards.slice();
+
     if (filters.subFilter !== "all") list = list.filter(c => c.subcategoryId === filters.subFilter);
+
     if (filters.chapterFilter !== "all") list = list.filter(c => c.chapterId === filters.chapterFilter);
+
     if (filters.typeFilter !== "all") list = list.filter(c => c.type === filters.typeFilter);
-    return list.sort((a, b) => (a.createdAt ?? 0) - (b.createdAt ?? 0));
+
+    return list.sort(sortPassiveReaderCards);
+
   }, [cards, filters.subFilter, filters.chapterFilter, filters.typeFilter]);
 
+
+
+  const sagaDisplay = useMemo(() => groupCardsForSagaDisplay(filtered), [filtered]);
+
+  const readerQueue = sagaDisplay.topLevelCards;
+
+
+
   const { index, next, prev } = usePassiveReaderNavigation({
-    cards, filtered, filters, initialCardId, onInitialConsumed,
+
+    cards, filtered: readerQueue, filters, initialCardId, onInitialConsumed,
+
   });
 
-  const current = filtered[index];
+
+
+  const current = readerQueue[index];
+
+  const currentSatellites = current?.type === "essay"
+
+    ? (sagaDisplay.satellitesByParent.get(current.id) ?? [])
+
+    : [];
+
+
+
+  const [expandedSatelliteId, setExpandedSatelliteId] = useState<string | null>(null);
+
+  useEffect(() => {
+
+    setExpandedSatelliteId(null);
+
+  }, [index]);
+
+
+
   const stats = useCardStats(current);
+
   const { markRead } = useCardOnlyActions();
 
-  // Count one passive view per card display; guard re-fires when patchCard updates readCount.
-  const markedRef = useRef<string | null>(null);
+
+
+  const lastMarkedIndexRef = useRef<number | null>(null);
+
   useEffect(() => {
+
     if (!current) {
-      markedRef.current = null;
+
+      lastMarkedIndexRef.current = null;
+
       return;
+
     }
-    if (markedRef.current === current.id) return;
-    markedRef.current = current.id;
+
+    if (lastMarkedIndexRef.current === index) return;
+
+    lastMarkedIndexRef.current = index;
+
     markRead(current.id);
-  }, [current?.id, markRead]);
+
+  }, [index, current, markRead]);
+
+
+
+  const toggleSatellite = (satelliteId: string) => {
+
+    setExpandedSatelliteId(prev => (prev === satelliteId ? null : satelliteId));
+
+  };
+
+
 
   return (
+
     <div className="space-y-4">
+
       <PassiveReaderFilters
+
         filters={filters}
+
         subcategoryNodes={subcategoryNodes}
-        total={filtered.length}
+
+        total={readerQueue.length}
+
         index={index}
+
       />
+
+
 
       {current && (
+
         <div className="flex flex-wrap items-center gap-2">
+
+          <Button
+
+            type="button"
+
+            size="sm"
+
+            variant="outline"
+
+            className="gap-1.5 h-8 text-xs"
+
+            onClick={() =>
+
+              navigate(`/learn?category=${categoryId}&mode=strict-recall&card=${current.id}`)
+
+            }
+
+          >
+
+            <Zap className="h-3.5 w-3.5" />
+
+            Testiraj ovaj blok
+
+          </Button>
+
           <div className="ml-auto">
+
             <Button
+
               type="button"
+
               size="sm"
+
               variant="outline"
+
               className="gap-1.5 h-8 text-xs"
+
               onClick={() => onEditCard?.(current)}
+
               disabled={!onEditCard}
+
             >
+
               <Pencil className="h-3.5 w-3.5" />
+
               Uredi karticu
+
             </Button>
+
           </div>
+
         </div>
+
       )}
+
+
 
       {!current ? (
+
         <div className="glass-card rounded-xl p-12 text-center text-sm text-muted-foreground">
+
           <BookOpen className="h-10 w-10 mx-auto mb-3 opacity-30" />
+
           Nema kartica za prikaz uz odabrane filtere.
+
         </div>
+
       ) : (
-        <Suspense fallback={<PassiveReaderCardSkeleton />}>
-          <PassiveReaderCard key={current.id} card={current} stats={stats} />
-        </Suspense>
+
+        <div
+
+          className={
+
+            currentSatellites.length > 0
+
+              ? "grid grid-cols-1 lg:grid-cols-3 gap-4 items-start"
+
+              : undefined
+
+          }
+
+        >
+
+          <div className={currentSatellites.length > 0 ? "lg:col-span-2 min-w-0" : undefined}>
+
+            <Suspense fallback={<PassiveReaderCardSkeleton />}>
+
+              <PassiveReaderCard key={current.id} card={current} stats={stats} />
+
+            </Suspense>
+
+          </div>
+
+          {currentSatellites.length > 0 && (
+
+            <aside className="lg:col-span-1 lg:sticky lg:top-4 self-start min-w-0">
+
+              <PassiveReaderSatellitePanel
+
+                satellites={currentSatellites}
+
+                expandedId={expandedSatelliteId}
+
+                onToggle={toggleSatellite}
+
+              />
+
+            </aside>
+
+          )}
+
+        </div>
+
       )}
 
+
+
       <PassiveReaderPager
+
         index={index}
-        total={filtered.length}
+
+        total={readerQueue.length}
+
         onPrev={prev}
+
         onNext={next}
+
       />
+
     </div>
+
   );
+
 }
+
+

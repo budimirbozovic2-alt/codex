@@ -12,6 +12,25 @@ export const queryKeys = {
     byCategory: (categoryId: string) => 
       ["sources", "cat", categoryId] as const,
   },
+  categories: {
+    root: ["categories"] as const,
+    all: () => ["categories", "all"] as const,
+    byId: (id: string) => ["categories", "id", id] as const,
+    countAll: () => ["categories", "count", "all"] as const,
+  },
+  review: {
+    root: ["review"] as const,
+    logRecent: (days: number) => ["review", "log", "recent", days] as const,
+  },
+  settings: {
+    root: ["settings"] as const,
+    sr: () => ["settings", "sr"] as const,
+    app: () => ["settings", "app"] as const,
+  },
+  prefs: {
+    root: ["prefs"] as const,
+    byKey: (key: string) => ["prefs", "key", key] as const,
+  },
   cards: {
     root: ["cards"] as const,
     all: () => ["cards", "all"] as const,
@@ -47,6 +66,7 @@ export const queryKeys = {
     ] as const,
     bySource: (sourceId: string) => 
       ["cards", "source", sourceId] as const,
+    byId: (id: string) => ["cards", "byId", id] as const,
     countAll: () => ["cards", "count", "all"] as const,
     countByCategory: (categoryId: string) =>
       ["cards", "count", "cat", categoryId] as const,
@@ -64,6 +84,8 @@ export const queryKeys = {
     config: () => ["planner", "config"] as const,
     disciplineLog: () => 
       ["planner", "discipline", "log"] as const,
+    dailyMapped: () => ["planner", "dailyMapped"] as const,
+    lastRedistribute: () => ["planner", "lastRedistribute"] as const,
     disciplineTrend: (days: number) => [
       "planner", "discipline", "trend", days
     ] as const,

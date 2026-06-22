@@ -15,7 +15,10 @@ import {
   extractOutlineFromDoc,
   syncHeadingDomIds,
 } from "@/lib/source-reader/heading-navigation";
-import { useSourceContentSaveStore } from "@/store/useSourceContentSaveStore";
+import {
+  registerSourceContentFlush,
+  useSourceContentSaveStore,
+} from "@/store/useSourceContentSaveStore";
 import {
   useSourceReaderStore,
   READER_FONT_SIZE_CLASS,
@@ -72,6 +75,7 @@ export function SourceContent({ source, editMode, onSourceUpdated, onOutlineChan
   const setSaveDirty = useSourceContentSaveStore((s) => s.setDirty);
   const resetSaveStore = useSourceContentSaveStore((s) => s.reset);
   const savedFadeTimerRef = useRef<ReturnType<typeof taskScheduler.setTimeout> | null>(null);
+  const saveInFlightRef = useRef<Promise<void> | null>(null);
 
   useEffect(() => {
     const json = JSON.stringify(initialDoc);
@@ -104,35 +108,62 @@ export function SourceContent({ source, editMode, onSourceUpdated, onOutlineChan
     resetSaveStore();
   }, [resetSaveStore]);
 
+  const persistDoc = useCallback(async (doc: EditorDoc): Promise<boolean> => {
+    const run = async () => {
+      setSaveStatus("saving");
+      const next = buildSourceFromDoc(source, doc);
+      await saveMutation.mutateAsync(next);
+      baselineJsonRef.current = JSON.stringify(doc);
+      setSaveDirty(false);
+      setSaveStatus("saved");
+      onSourceUpdated?.(next);
+      if (savedFadeTimerRef.current !== null) taskScheduler.cancel(savedFadeTimerRef.current);
+      savedFadeTimerRef.current = taskScheduler.setTimeout(
+        () => setSaveStatus("idle"),
+        2000,
+        { label: "sourceContent:savedFade" },
+      );
+    };
+
+    const promise = run();
+    saveInFlightRef.current = promise.then(() => undefined, () => undefined);
+    try {
+      await promise;
+      return true;
+    } catch {
+      setSaveStatus("error");
+      toast.error("Čuvanje izvora nije uspjelo", {
+        description: "Pokušajte ponovo.",
+      });
+      return false;
+    } finally {
+      saveInFlightRef.current = null;
+    }
+  }, [onSourceUpdated, saveMutation, setSaveDirty, setSaveStatus, source]);
+
   const persistDebounced = useMemo(
     () => taskScheduler.debounce(
-      async (doc: EditorDoc) => {
-        setSaveStatus("saving");
-        const next = buildSourceFromDoc(source, doc);
-        try {
-          await saveMutation.mutateAsync(next);
-          baselineJsonRef.current = JSON.stringify(doc);
-          setSaveDirty(false);
-          setSaveStatus("saved");
-          onSourceUpdated?.(next);
-          if (savedFadeTimerRef.current !== null) taskScheduler.cancel(savedFadeTimerRef.current);
-          savedFadeTimerRef.current = taskScheduler.setTimeout(
-            () => setSaveStatus("idle"),
-            2000,
-            { label: "sourceContent:savedFade" },
-          );
-        } catch {
-          setSaveStatus("error");
-          toast.error("Čuvanje izvora nije uspjelo", {
-            description: "Pokušajte ponovo ili sačuvajte ručno prije napuštanja.",
-          });
-        }
-      },
+      (doc: EditorDoc) => { void persistDoc(doc); },
       import.meta.env.VITE_E2E ? 300 : 1000,
       { label: `sourceContent:${source.id}`, pauseWhenHidden: false },
     ),
-    [source, onSourceUpdated, saveMutation, setSaveDirty, setSaveStatus],
+    [persistDoc, source.id],
   );
+
+  const flushPendingSave = useCallback(async (): Promise<boolean> => {
+    persistDebounced.flush();
+    if (saveInFlightRef.current) {
+      await saveInFlightRef.current;
+    }
+    if (draftJsonRef.current !== baselineJsonRef.current) {
+      const doc = JSON.parse(draftJsonRef.current) as EditorDoc;
+      const ok = await persistDoc(doc);
+      if (!ok) return false;
+    }
+    return !useSourceContentSaveStore.getState().isDirty;
+  }, [persistDebounced, persistDoc]);
+
+  useEffect(() => registerSourceContentFlush(flushPendingSave), [flushPendingSave]);
 
   useEffect(() => {
     if (!import.meta.env.VITE_E2E) return;

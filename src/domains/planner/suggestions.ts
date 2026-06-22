@@ -2,10 +2,11 @@
 import { addDays, differenceInDays } from "date-fns";
 import type { Card } from "@/lib/spaced-repetition";
 import type { StudyPhase, SmartSuggestion, PlannerStatus } from "./types";
+import type { SubjectPlan } from "@/types/planner";
 import { calcPhaseProgress } from "./phases";
 
 export function getSmartSuggestion(
-  phase: StudyPhase | null,
+  phase: SubjectPlan | StudyPhase | null,
   cards: Card[],
   goalDateStr: string | null,
   bufferPct: number,
@@ -22,8 +23,13 @@ export function getSmartSuggestion(
   const daysLeft = rawDaysLeft;
 
   let remaining: number;
-  if (phase) {
-    const prog = calcPhaseProgress(phase, cards);
+  const phaseName = phase
+    ? ("categoryName" in phase ? phase.categoryName : phase.name)
+    : null;
+  if (phase && "totalSections" in phase && "learnedSections" in phase) {
+    remaining = Math.max(0, phase.totalSections - phase.learnedSections);
+  } else if (phase) {
+    const prog = calcPhaseProgress(phase as StudyPhase, cards);
     remaining = prog.remainingCards;
   } else {
     let total = 0, learned = 0;
@@ -39,7 +45,9 @@ export function getSmartSuggestion(
   const message =
     quotaOverride != null && quotaOverride > 0
       ? `Nivelisan plan: ${suggestedToday} novih cjelina/dan (${daysLeft} dana do cilja).`
-      : `Obradi bar ${suggestedToday} novih cjelina danas da ostaneš na planu.`;
+      : phaseName
+        ? `Fokus: ${phaseName}. Obradi bar ${suggestedToday} novih cjelina danas da ostaneš na planu.`
+        : `Obradi bar ${suggestedToday} novih cjelina danas da ostaneš na planu.`;
   return { suggestedToday, message, burnoutWarning };
 }
 

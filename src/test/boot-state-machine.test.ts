@@ -8,7 +8,7 @@ import {
 describe("Boot state machine — eksplicitne faze", () => {
   beforeEach(() => __resetBootStateForTests());
 
-  it("idle → opening → schema → loading → healing → loading → ready (happy path)", () => {
+  it("idle → opening → schema → loading → ready (happy path)", () => {
     expect(getBootState().type).toBe("idle");
     transition({ type: "OPEN_START" });
     expect(getBootState().type).toBe("opening");
@@ -22,10 +22,6 @@ describe("Boot state machine — eksplicitne faze", () => {
     transition({ type: "LOAD_PROGRESS", pct: 60, label: "Učitano" });
     const s2 = getBootState();
     expect(s2.type === "loading" && s2.pct === 60).toBe(true);
-    transition({ type: "HEAL_START" });
-    expect(getBootState().type).toBe("healing");
-    transition({ type: "HEAL_DONE" });
-    expect(getBootState().type).toBe("loading");
     transition({ type: "READY" });
     expect(getBootState().type).toBe("ready");
   });
@@ -36,21 +32,6 @@ describe("Boot state machine — eksplicitne faze", () => {
     expect(getBootState().type).toBe("schema");
     transition({ type: "MIGRATE_DONE" });
     expect(getBootState().type).toBe("loading");
-  });
-
-  it("HEAL_STEP_FAIL akumulira skipped[] bez napuštanja healing faze", () => {
-    transition({ type: "OPEN_START" });
-    transition({ type: "SCHEMA_START" });
-    transition({ type: "SCHEMA_DONE" });
-    transition({ type: "HEAL_START" });
-    transition({ type: "HEAL_STEP_FAIL", step: "taxonomy" });
-    transition({ type: "HEAL_STEP_FAIL", step: "categoryShapes" });
-    transition({ type: "HEAL_STEP_FAIL", step: "taxonomy" }); // duplicate ignored
-    const s = getBootState();
-    expect(s.type).toBe("healing");
-    if (s.type === "healing") {
-      expect(s.skipped).toEqual(["taxonomy", "categoryShapes"]);
-    }
   });
 
   it("SCHEMA_FAIL → schema-error → RECOVERY_REQUESTED → opening", () => {

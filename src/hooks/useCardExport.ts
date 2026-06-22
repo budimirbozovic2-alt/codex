@@ -3,8 +3,6 @@ import { toast } from "sonner";
 import { Card, SRSettings } from "@/lib/spaced-repetition";
 import { setLastBackupTime } from "@/lib/storage";
 import type { CategoryRecord } from "@/lib/db-types";
-import { streamBackup, sourceSpec, type ProgressFn } from "@/lib/backup/export-stream";
-import { deriveHtml } from "@/lib/editor-v4/derived";
 import {
   readAllCardsForBackup,
   readAllCategoriesForBackup,
@@ -24,6 +22,10 @@ import {
   readPomodoroLog,
   readSettingsTableRaw,
 } from "@/lib/db/queries";
+import { reviewLogRepository } from "@/lib/repositories";
+import { streamBackup, sourceSpec, type ProgressFn } from "@/lib/backup/export-stream";
+import { exportLegacyLocalStorageData } from "@/lib/backup/legacy-local-storage";
+import { deriveHtml } from "@/lib/editor-v4/derived";
 
 const IPC_BASE64_LIMIT_MB = 50;
 const IPC_BYTES_LIMIT_MB = 500;
@@ -166,6 +168,7 @@ export function useCardExport({ srSettings }: UseCardExportDeps) {
   const exportData = useCallback(
     async (compress: boolean, onProgress: ProgressFn) => {
       onProgress(2, "Priprema…");
+      await reviewLogRepository.flush();
 
       // Categories via SQLite backup-readers.
       const catRecords = await readAllCategoriesForBackup();
@@ -173,18 +176,7 @@ export function useCardExport({ srSettings }: UseCardExportDeps) {
         (a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0),
       );
 
-      const localStorageData: Record<string, unknown> = {};
-      const lsKeys = [
-        "sr-app-settings", "sr-mnemonic-workshop", "sr-mnemonic-associations",
-        "sr-major-system-map", "sr-learn-progress", "sr-last-backup",
-        "sr-dark-mode", "sr-tts-settings",
-      ];
-      for (const key of lsKeys) {
-        const val = localStorage.getItem(key);
-        if (val !== null) {
-          try { localStorageData[key] = JSON.parse(val); } catch { localStorageData[key] = val; }
-        }
-      }
+      const localStorageData = await exportLegacyLocalStorageData();
 
       const dateStr = new Date().toISOString().slice(0, 10);
 

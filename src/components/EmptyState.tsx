@@ -10,6 +10,9 @@ interface Props {
     newSections: number;
     reviewSections: number;
     nextDueDate?: string;
+    /** FSRS schedule due (nextReview) — may exceed consolidation-eligible count. */
+    scheduleDueCards?: number;
+    consolidationDueCards?: number;
   };
   icon?: LucideIcon;
   title?: string;
@@ -67,6 +70,10 @@ export default function EmptyState({ type, onAction, actionLabel, diagnostics, i
   }
 
   if (type === "review") {
+    const scheduleDue = diagnostics?.scheduleDueCards ?? 0;
+    const consolidationDue = diagnostics?.consolidationDueCards ?? 0;
+    const scheduleMismatch = scheduleDue > 0 && consolidationDue === 0;
+
     return (
       <div className="animate-fade-up flex flex-col items-center justify-center py-24 text-center space-y-7">
         <div className="relative">
@@ -78,9 +85,21 @@ export default function EmptyState({ type, onAction, actionLabel, diagnostics, i
           </div>
         </div>
         <div className="space-y-3 max-w-md">
-          <h2 className="text-display text-4xl text-foreground text-balance">Sve je ponovljeno!</h2>
+          <h2 className="text-display text-4xl text-foreground text-balance">
+            {scheduleMismatch ? "Nema sesije konsolidacije" : "Sve je ponovljeno!"}
+          </h2>
           <p className="text-muted-foreground text-pretty leading-relaxed">
-            Nemate kartica za ponavljanje danas. Odlično — vaše znanje je ažurno. Vratite se sutra!
+            {scheduleMismatch ? (
+              <>
+                Imate <strong>{scheduleDue}</strong> kartica dospjelih po FSRS rasporedu, ali nijedna
+                ne odgovara trenutnim režimima konsolidacije. Pokušajte{" "}
+                <strong>Učenje</strong> za nove kartice ili sačekajte sljedeći FSRS termin.
+              </>
+            ) : (
+              <>
+                Nemate kartica za ponavljanje danas. Odlično — vaše znanje je ažurno. Vratite se sutra!
+              </>
+            )}
           </p>
         </div>
 

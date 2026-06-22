@@ -1,5 +1,5 @@
 import { toast } from "sonner";
-import { Clock, RefreshCw, Flame, Zap, Lightbulb, AlertTriangle, Settings2, BookOpen, Brain } from "lucide-react";
+import { Clock, RefreshCw, Flame, Zap, Lightbulb, AlertTriangle, Settings2, BookOpen, Brain, Play } from "lucide-react";
 import { m } from "@/lib/motion";
 import { Button } from "@/components/ui/button";
 import { PlannerConfig, calcRebalancedQuota } from "@/domains/planner";
@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils";
 import SubjectCard from "./SubjectCard";
 import { STATUS_CONFIG, PHASE_COLORS } from "./planner-constants";
 import type { SubjectPlan, SmartSuggestionItem, TimeRecommendation, CognitiveDebtItem, LearningReviewRatio, CategoryStabilityInfo } from "@/types/planner";
+import { Link } from "react-router-dom";
 
 interface Props {
   config: PlannerConfig;
@@ -23,6 +24,9 @@ interface Props {
   debt: CognitiveDebtItem | null;
   dueCount: number;
   learningRatio: LearningReviewRatio;
+  learnTarget: number;
+  reviewTarget: number;
+  activeSubjectPlan: SubjectPlan | null;
   overallPct: number;
   retentionRisk: CategoryStabilityInfo[];
   categoryRecords: CategoryRecord[];
@@ -34,6 +38,7 @@ export default function OperationsTab({
   config, save, subjectPlans,
   velocity, remaining, estimatedFinish, plannerStatus,
   smartSuggestion, timeRec, debt, dueCount, learningRatio, overallPct,
+  learnTarget, reviewTarget, activeSubjectPlan,
   retentionRisk, categoryRecords,
   onNavigateToDatabase, onOpenWizard,
 }: Props) {
@@ -228,6 +233,26 @@ export default function OperationsTab({
             <div className="flex-1">
               <p className="text-sm font-medium">Smart Load Balancing</p>
               <p className="text-xs text-muted-foreground mt-0.5">{smartSuggestion.message}</p>
+              <div className="mt-2 flex items-center justify-between gap-3 flex-wrap">
+                <div className="text-[11px] text-muted-foreground">
+                  Danas: {reviewTarget} ponavljanja + {learnTarget} novih
+                </div>
+                <div className="flex items-center gap-2">
+                  {reviewTarget > 0 && (
+                    <Button asChild size="sm" variant="outline" className="h-8 px-3 text-xs">
+                      <Link to="/review">Ponovi</Link>
+                    </Button>
+                  )}
+                  {(activeSubjectPlan ?? subjectPlans[0]) && (
+                    <Button asChild size="sm" className="h-8 px-3 text-xs gap-1.5">
+                      <Link to={`/learn?mode=strict-recall&category=${encodeURIComponent((activeSubjectPlan ?? subjectPlans[0]).categoryId)}`}>
+                        <Play className="h-3.5 w-3.5" />
+                        Započni sesiju
+                      </Link>
+                    </Button>
+                  )}
+                </div>
+              </div>
               <div className="flex items-center gap-4 mt-2 flex-wrap">
                 {smartSuggestion.suggestedToday > 0 && (
                   <p className="text-lg font-medium text-primary">{smartSuggestion.suggestedToday} novih cjelina</p>

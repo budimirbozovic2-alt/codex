@@ -3,13 +3,16 @@ import {
   buildStabilizationItems,
   buildCriticalItems,
   buildHardestItems,
+  buildCatchupItems,
   buildItemsForMode,
   hasConsolidationWork,
+  countConsolidationEligibleCards,
   isEarlyReview,
   HARDEST_DIFFICULT_GRACE_MS,
   HARDEST_LEECH_GRACE_MS,
   HARDEST_MAX_ITEMS,
 } from "@/lib/review-mode-builder";
+import { getRetrievability } from "@/lib/spaced-repetition";
 import {
   Card,
   Section,
@@ -267,6 +270,47 @@ describe("review-mode-builder", () => {
         srSettings: DEFAULT_SR_SETTINGS,
         now: NOW,
       })).toBe(true);
+    });
+
+    it("includes legacy imported sections with null lastReviewed (critical)", () => {
+      const legacy = makeSection({
+        state: SectionState.Review,
+        nextReview: NOW - DAY,
+        lastReviewed: null,
+        stability: 10,
+      });
+      const card = makeCard([legacy]);
+      const args = {
+        dueCards: [card],
+        allCards: [card],
+        srSettings: DEFAULT_SR_SETTINGS,
+        now: NOW,
+      };
+      expect(getRetrievability(legacy, NOW)).toBe(0);
+      expect(buildCriticalItems(args)).toHaveLength(1);
+      expect(countConsolidationEligibleCards(args)).toBe(1);
+    });
+  });
+
+  describe("buildCatchupItems", () => {
+    it("picks up due Review sections with R > 85 not in other modes", () => {
+      const dueHighR = makeSection({
+        state: SectionState.Review,
+        nextReview: NOW - DAY,
+        stability: 100,
+        lastReviewed: NOW - DAY,
+        difficulty: 5,
+      });
+      const card = makeCard([dueHighR]);
+      const args = {
+        dueCards: [card],
+        allCards: [card],
+        srSettings: DEFAULT_SR_SETTINGS,
+        now: NOW,
+      };
+      expect(buildCriticalItems(args)).toHaveLength(0);
+      expect(buildCatchupItems(args)).toHaveLength(1);
+      expect(hasConsolidationWork(args)).toBe(true);
     });
   });
 

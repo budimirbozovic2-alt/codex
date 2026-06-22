@@ -12,6 +12,7 @@ import { FIXED_NOW, installFixedPlannerClock } from "./planner-test-clock";
 vi.mock("@/lib/db/queries", () => ({
   saveDailyMapped: vi.fn().mockResolvedValue(undefined),
   saveLastRedistribute: vi.fn().mockResolvedValue(undefined),
+  savePlannerConfig: vi.fn().mockResolvedValue(undefined),
 }));
 
 installFixedPlannerClock();

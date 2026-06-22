@@ -106,6 +106,7 @@ if (!gotLock) {
 const { createSplashWindow, createWindow } = require(path.join(__dirname, 'electron', 'window.cjs'));
 const { setupBackupSystem } = require(path.join(__dirname, 'electron', 'backup.cjs'));
 const { setupUpdater } = require(path.join(__dirname, 'electron', 'updater.cjs'));
+const { setupSqliteIpc, closeMainSqlite } = require(path.join(__dirname, 'electron', 'sqlite-ipc.cjs'));
 
 let mainWindow = null;
 const setMainWindow = (win) => { mainWindow = win; };
@@ -122,6 +123,12 @@ const backup = setupBackupSystem({
 setupUpdater({
   isDev,
   getMainWindow,
+  assertTrustedSender,
+  logCrash,
+});
+
+setupSqliteIpc({
+  app,
   assertTrustedSender,
   logCrash,
 });
@@ -279,15 +286,8 @@ ipcMain.handle('read-file-bytes', async (event, filePath) => {
 });
 
 app.whenReady().then(() => {
-  // ── PR-H-OPFS-FIX (C-1): Isolation headers ──
-  const ISOLATION_HEADERS = {
-    'Cross-Origin-Opener-Policy': 'same-origin',
-    'Cross-Origin-Embedder-Policy': 'require-corp',
-    'Cross-Origin-Resource-Policy': 'cross-origin',
-  };
-  
-  // PR-H-OPFS-FIX-2: CSP Security Policies
-  const PROD_CSP = "default-src 'self' app:; script-src 'self' 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval' app:; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: app:; font-src 'self' data: app:; connect-src 'self' blob: app:; media-src 'self' blob: app:; worker-src 'self' blob: app:; object-src 'none'; base-uri 'self'; frame-ancestors 'none';";
+  // Production app:// protocol CSP
+  const PROD_CSP = "default-src 'self' app:; script-src 'self' 'unsafe-inline' 'unsafe-eval' app:; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: app:; font-src 'self' data: app:; connect-src 'self' blob: app:; media-src 'self' blob: app:; worker-src 'self' blob: app:; object-src 'none'; base-uri 'self'; frame-ancestors 'none';";
 
   if (!isDev) {
     const distPath = path.join(__dirname, 'dist');
@@ -297,11 +297,9 @@ app.whenReady().then(() => {
       '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg',
       '.ico': 'image/x-icon', '.woff': 'font/woff', '.woff2': 'font/woff2',
       '.ttf': 'font/ttf', '.otf': 'font/otf',
-      '.wasm': 'application/wasm',
     };
     const buildHeaders = (mime) => ({
       'Content-Type': mime,
-      ...ISOLATION_HEADERS,
       'Content-Security-Policy': PROD_CSP,
     });
     
@@ -357,21 +355,6 @@ app.whenReady().then(() => {
     return ALLOWED_PERMISSIONS.includes(permission);
   });
 
-  // ── CSP + Cross-Origin Isolation headers for dev (HTTP) only ──
-  session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
-    if (!isDev || details.url.startsWith('file://')) {
-      return callback({ responseHeaders: details.responseHeaders });
-    }
-    callback({
-      responseHeaders: {
-        ...details.responseHeaders,
-        'Cross-Origin-Opener-Policy': ['same-origin'],
-        'Cross-Origin-Embedder-Policy': ['require-corp'],
-        'Cross-Origin-Resource-Policy': ['same-origin'],
-      },
-    });
-  });
-
   // ── Web-contents lockdown: block in-app navigation & new windows ──
   app.on('web-contents-created', (_e, contents) => {
     contents.on('will-navigate', (event, navUrl) => {
@@ -423,6 +406,7 @@ app.on('before-quit', async (e) => {
   try {
     await backup.performBeforeQuitBackup();
   } catch (_) {}
+  closeMainSqlite();
   app.exit(0);
 });
 
@@ -436,6 +420,7 @@ app.on('second-instance', () => {
 
 app.on('window-all-closed', () => {
   backup.cleanup();
+  closeMainSqlite();
   if (process.platform !== 'darwin') app.quit();
 });
 

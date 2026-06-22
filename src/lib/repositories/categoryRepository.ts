@@ -1,87 +1,84 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// Category Repository — primary writer for `categoryRecords`.
+// Category Repository — primary writer for taxonomy records.
 //
 // Persistence runs through `queries/categories.ts` (single SQL transaction
-// per commit). Zustand `categoryStore` remains the RAM SSOT all readers
-// subscribe to via `useSyncExternalStore`; external callers that bypass this
-// repository (e.g. backup-restore) still push directly into the store via
-// `setCategoryStoreRecords`.
-//
-// `deleteAsync` runs a single SQLite transaction that re-parents (or purges)
-// cards + sources, then deletes the category row. FK CASCADE on the schema
-// then wipes mindMaps / mnemonics / knowledgeBaseArticles in the same step.
-// Cross-domain cache cleanup lives in `categoryDeletionOrchestrator`.
+// per commit). TanStack `['categories','all']` is the RAM read cache.
 // ─────────────────────────────────────────────────────────────────────────────
 import type { CategoryRecord } from "@/lib/db-types";
 import { toast } from "sonner";
 import { logger } from "@/lib/logger";
 import { createKeyedMutex } from "@/lib/concurrency";
-import {
-  getCategoryStoreRecords,
-  setCategoryStoreRecords,
-} from "@/store/useCategoryStore";
 import { wrapWrite, type WriteResult } from "@/lib/persistence/write-result";
 import { requireSqlExecutor } from "@/lib/db/queries/_shared/require-sql-executor";
-import { replaceAllCategories } from "@/lib/db/queries";
+import {
+  notifyCategoriesChanged,
+  replaceAllCategories,
+} from "@/lib/db/queries";
+import { queryClient } from "@/lib/query/client";
+import { queryKeys } from "@/lib/query/keys";
+import {
+  getCategoriesFromQueryCache,
+  seedCategoriesQueryCache,
+} from "@/lib/query/categories-cache-coordinator";
 
-// ─── Read primitives ─────────────────────────────────────────────────────
 function getCategorySnapshot(): CategoryRecord[] {
-  return getCategoryStoreRecords();
+  return [...getCategoriesFromQueryCache()];
 }
 
-// ─── Write primitives ────────────────────────────────────────────────────
-
 /**
- * Full replace — bootstrap, restore. Pushes into the SSOT synchronously.
- * Does NOT persist to SQLite on its own (the upstream caller — e.g.
- * `applyImportAtomically`, `loadInitialData` — has already done that).
+ * Full replace — bootstrap, restore. Pushes into TanStack only.
+ * Does NOT persist to SQLite (caller already wrote).
  */
 export function replaceAll(records: CategoryRecord[]): void {
-  setCategoryStoreRecords(records);
+  seedCategoriesQueryCache(records, undefined, records.length);
 }
 
 const _saveMutex = createKeyedMutex();
 
+export interface CategoryCommitOptions {
+  skipNotify?: boolean;
+}
+
 /**
- * Optimistic commit: pushes the optimistic value into the SSOT store, then
- * persists to SQLite — both **inside** a serialised mutex so concurrent
- * commits cannot race each other's rollback target.
+ * Optimistic commit: TanStack first, then SQLite; rollback on failure.
  */
 export async function commit(
   updater: (prev: CategoryRecord[]) => CategoryRecord[],
   label: string,
-): Promise<void> {
+  opts?: CategoryCommitOptions,
+): Promise<CategoryRecord[]> {
   return _saveMutex.runExclusive(null, async () => {
-    const preOptimistic = getCategoryStoreRecords();
+    const preOptimistic = getCategorySnapshot();
     const optimistic = updater(preOptimistic);
-    setCategoryStoreRecords(optimistic);
+    queryClient.setQueryData(queryKeys.categories.all(), optimistic);
+    queryClient.setQueryData(
+      queryKeys.categories.countAll(),
+      optimistic.length,
+    );
     try {
       await replaceAllCategories(optimistic);
+      if (!opts?.skipNotify) {
+        notifyCategoriesChanged({ kind: "all" });
+      }
     } catch (e) {
       logger.error(`[${label}] SQLite persist failed, rolling back`, e);
-      setCategoryStoreRecords(preOptimistic);
+      queryClient.setQueryData(queryKeys.categories.all(), preOptimistic);
+      queryClient.setQueryData(
+        queryKeys.categories.countAll(),
+        preOptimistic.length,
+      );
       toast.error("Greška", { description: "Promjena nije sačuvana." });
       throw e instanceof Error ? e : new Error(String(e));
     }
+    return optimistic;
   }, `category:${label}`);
 }
 
-
-// ─── A2 — SQLite-primary delete with FK CASCADE ──────────────────────────
-
 export interface DeleteCategoryOpts {
-  /** When true: drop cards + sources for this category. When false: re-parent. */
   purgeCards: boolean;
-  /** Re-parent target when `purgeCards === false`. Empty string skips re-parent. */
   fallbackId: string;
 }
 
-/**
- * Delete a category and cascade its children in one SQLite transaction.
- * FK CASCADE on the schema wipes mindMaps / mnemonics / knowledgeBaseArticles
- * automatically; cards + sources are handled explicitly so the `purgeCards`
- * vs. re-parent semantics survive (FK can't conditionally null-out).
- */
 export function deleteAsync(
   id: string,
   opts: DeleteCategoryOpts,

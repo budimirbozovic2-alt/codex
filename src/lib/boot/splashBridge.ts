@@ -42,9 +42,6 @@ export function installSplashBridge(): void {
         // loading pct 0..100 → 40..90
         splashProgress(40 + Math.round(s.pct * 0.5), s.label || "Učitavanje…");
         break;
-      case "healing":
-        splashProgress(85, s.label || "Provjera integriteta…");
-        break;
       case "ready":
         splashProgress(100, "Spremno!");
         cleanupSplash();
@@ -64,29 +61,15 @@ export function installSplashBridge(): void {
       const duration = Math.round(performance.now() - phaseEnteredAt);
       markBootStep(`boot:phase:exit:${prevPhase}`, `${duration}ms`);
       markBootStep(`boot:phase:enter:${s.type}`);
-      // Ako healing završi sa skipped[] — log degradacije
-      if (prevPhase === "healing") {
-        const prevState = _lastHealing;
-        if (prevState && prevState.skipped.length > 0) {
-          markBootStep("boot:heal-degraded", prevState.skipped.join(","));
-        }
-      }
       prevPhase = s.type;
       phaseEnteredAt = performance.now();
-    }
-
-    if (s.type === "healing") {
-      _lastHealing = { skipped: s.skipped };
     }
   });
 }
 
-let _lastHealing: { skipped: string[] } | null = null;
-
 /** Test-only reset. */
 export function __resetSplashBridgeForTests(): void {
   _installed = false;
-  _lastHealing = null;
 }
 
 // Audit v2 / Wave B.6: HMR dispose. Paired with the same hook in
@@ -98,4 +81,3 @@ if (import.meta.hot) {
     __resetSplashBridgeForTests();
   });
 }
-

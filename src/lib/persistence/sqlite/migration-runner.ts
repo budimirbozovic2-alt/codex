@@ -14,6 +14,14 @@ import { migrateCategoryTaxonomyToRelational } from "./category-taxonomy-migrati
 import { migrateCardSectionsIndex } from "./card-sections-index-migration";
 import { migrateCardMasteryScores } from "./card-mastery-score-migration";
 import { migrateCardMasteryLevels } from "./card-mastery-level-migration";
+import { migrateCardSagaLinks } from "./card-saga-links-migration";
+import {
+  migrateLegacyKvScalars,
+  migrateCardTaxonomyReferences,
+  migrateLegacyFrequencyTags,
+  migrateFsrsLastReviewed,
+} from "./boot-heal-migration";
+import { migrateLearnProgressToRelational } from "./learn-progress-migration";
 
 interface Migration {
   version: number;
@@ -170,6 +178,25 @@ const PR13_CARD_MASTERY_LEVEL_SQL = `
   SELECT 1;
 `;
 
+const PR14_CARD_SAGA_LINKS_SQL = `
+  SELECT 1;
+`;
+
+const PR15_BOOT_LEGACY_KV_SQL = `SELECT 1;`;
+const PR16_BOOT_TAXONOMY_HEAL_SQL = `SELECT 1;`;
+const PR17_BOOT_FREQUENCY_TAGS_SQL = `SELECT 1;`;
+const PR18_BOOT_FSRS_HEAL_SQL = `SELECT 1;`;
+const PR19_EDITOR_V4_CONTENT_SQL = `SELECT 1;`;
+
+const PR20_LEARN_PROGRESS_SQL = `
+  CREATE TABLE IF NOT EXISTS learn_progress (
+    card_id     TEXT PRIMARY KEY,
+    payload     TEXT NOT NULL,
+    updatedAt   INTEGER NOT NULL DEFAULT 0
+  );
+  CREATE INDEX IF NOT EXISTS idx_learn_progress_updated ON learn_progress(updatedAt);
+`;
+
 const MIGRATIONS: readonly Migration[] = [
   { version: 1, label: "init", sql: schemaSql },
   // PR-9 M1 — disciplineLog + drafts tables (SQLite-primary).
@@ -187,9 +214,18 @@ const MIGRATIONS: readonly Migration[] = [
   { version: 7, label: "pr11-card-sections-index", sql: PR11_CARD_SECTIONS_INDEX_SQL },
   { version: 8, label: "pr12-card-mastery-score", sql: PR12_CARD_MASTERY_SCORE_SQL },
   { version: 9, label: "pr13-card-mastery-level", sql: PR13_CARD_MASTERY_LEVEL_SQL },
+  { version: 10, label: "pr14-card-saga-links", sql: PR14_CARD_SAGA_LINKS_SQL },
+  { version: 11, label: "pr15-boot-legacy-kv", sql: PR15_BOOT_LEGACY_KV_SQL },
+  { version: 12, label: "pr16-boot-taxonomy-heal", sql: PR16_BOOT_TAXONOMY_HEAL_SQL },
+  { version: 13, label: "pr17-boot-frequency-tags", sql: PR17_BOOT_FREQUENCY_TAGS_SQL },
+  { version: 14, label: "pr18-boot-fsrs-heal", sql: PR18_BOOT_FSRS_HEAL_SQL },
+  { version: 15, label: "pr19-editor-v4-content", sql: PR19_EDITOR_V4_CONTENT_SQL },
+  { version: 16, label: "pr20-learn-progress", sql: PR20_LEARN_PROGRESS_SQL },
 ];
 
 const TARGET_USER_VERSION = MIGRATIONS[MIGRATIONS.length - 1].version;
+
+export { TARGET_USER_VERSION };
 
 export async function runMigrations(exec: SqlExecutor): Promise<{ from: number; to: number }> {
   await exec.exec("PRAGMA foreign_keys = ON;");
@@ -199,7 +235,16 @@ export async function runMigrations(exec: SqlExecutor): Promise<{ from: number; 
 
   const versionRows = await exec.all<{ user_version: number }>("PRAGMA user_version");
   const current = Number(versionRows[0]?.user_version ?? 0);
-  if (current >= TARGET_USER_VERSION) return { from: current, to: current };
+  if (current >= TARGET_USER_VERSION) {
+    // Faza 3: idempotent editor-v4 heal on every open (replaces post-READY kickoff).
+    if (typeof window !== "undefined") {
+      const { migrateEditorV4Content } = await import(
+        "./editor-v4-schema-migration"
+      );
+      await migrateEditorV4Content(exec);
+    }
+    return { from: current, to: current };
+  }
 
   await exec.transaction(async (tx) => {
     for (const m of MIGRATIONS) {
@@ -225,6 +270,39 @@ export async function runMigrations(exec: SqlExecutor): Promise<{ from: number; 
 
   if (TARGET_USER_VERSION >= 9) {
     await migrateCardMasteryLevels(exec);
+  }
+
+  if (TARGET_USER_VERSION >= 10) {
+    await migrateCardSagaLinks(exec);
+  }
+
+  if (TARGET_USER_VERSION >= 11) {
+    await migrateLegacyKvScalars(exec);
+  }
+
+  if (TARGET_USER_VERSION >= 12) {
+    await migrateCardTaxonomyReferences(exec);
+  }
+
+  if (TARGET_USER_VERSION >= 13) {
+    await migrateLegacyFrequencyTags(exec);
+  }
+
+  if (TARGET_USER_VERSION >= 14) {
+    await migrateFsrsLastReviewed(exec);
+  }
+
+  // Editor v4 uses DOMPurify + ProseMirror DOMParser — renderer-only.
+  // Dynamic import keeps this graph out of worker bundles that lack `window`.
+  if (TARGET_USER_VERSION >= 15 && typeof window !== "undefined") {
+    const { migrateEditorV4Content } = await import(
+      "./editor-v4-schema-migration"
+    );
+    await migrateEditorV4Content(exec);
+  }
+
+  if (TARGET_USER_VERSION >= 16) {
+    await migrateLearnProgressToRelational(exec);
   }
 
   return { from: current, to: TARGET_USER_VERSION };

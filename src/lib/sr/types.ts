@@ -75,6 +75,10 @@ export interface Card {
   sourceModules?: SourceModule[];
   frequencyTag?: FrequencyTag;
   sourceType?: CardSourceType;
+  /** Flash satellite → parent essay id (saga link). */
+  parentId?: string;
+  /** Denormalised on essays when a satellite is graded Again. */
+  isEndangered?: boolean;
 }
 
 export interface SRSettings {

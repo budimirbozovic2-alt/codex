@@ -1,12 +1,11 @@
 import {
   listAllCards,
-  readAllCategoriesForBackup,
 } from "@/lib/db/queries";
-import { bulkPutCardsDirect } from "@/lib/db/queries";
-import type { Card } from "@/lib/spaced-repetition";
 
 import { logger } from "@/lib/logger";
-const FLAG_KEY = "taxonomy-healed-v1";
+
+const LEGACY_FLAG_KEY = "taxonomy-healed-v1";
+const MIGRATION_FLAG_KEY = "card-taxonomy-heal-v1";
 
 export interface HealReport {
   scanned: number;
@@ -17,20 +16,8 @@ export interface HealReport {
 }
 
 /**
- * One-shot conservative healer: any card whose `subcategoryId` or `chapterId`
- * points to a UUID that no longer exists in any category gets that field
- * reset to "" — the card stays in its category and surfaces as "Neraspoređeno"
- * where the user can drag-drop it to the correct sub/chapter.
- *
- * Also fixes mismatches: chapter that belongs to a different subcategory
- * than the card's `subcategoryId` (chapter wins → reset chapter only).
- *
- * Idempotent + flagged via localStorage so it never runs twice.
- *
- * PR-E3: reads through `listAllCards` / `readAllCategoriesForBackup`,
- * writes via `bulkPutCardsDirect` (SqlExecutor.transaction →
- * `notifyCardsChanged` → TanStack bridge invalidates `['cards']`).
- * The legacy `cardMapWrites` RAM module was deleted in PR-E.
+ * Manual / health-monitor entry point for card taxonomy heal.
+ * Normal boot path runs `migrateCardTaxonomyReferences` during schema v12.
  */
 export async function healCardTaxonomy(force = false): Promise<HealReport> {
   const empty: HealReport = {
@@ -41,81 +28,55 @@ export async function healCardTaxonomy(force = false): Promise<HealReport> {
     skipped: false,
   };
 
-  if (!force && typeof localStorage !== "undefined" && localStorage.getItem(FLAG_KEY) === "1") {
+  if (
+    !force &&
+    typeof localStorage !== "undefined" &&
+    localStorage.getItem(LEGACY_FLAG_KEY) === "1"
+  ) {
     return { ...empty, skipped: true };
   }
 
   try {
-    const [cards, categories] = await Promise.all([
-      listAllCards(),
-      readAllCategoriesForBackup(),
-    ]);
+    const { requireSqlExecutor } = await import(
+      "@/lib/db/queries/_shared/require-sql-executor"
+    );
+    const { migrateCardTaxonomyReferences } = await import(
+      "@/lib/persistence/sqlite/boot-heal-migration"
+    );
+    const exec = await requireSqlExecutor("heal-card-taxonomy");
 
-    const subUuids = new Set<string>();
-    const chapUuids = new Set<string>();
-    /** chapterId → owning subcategoryId (for mismatch detection) */
-    const chapToSub = new Map<string, string>();
-
-    for (const cat of categories) {
-      for (const sub of cat.subcategories ?? []) {
-        if (sub.id) subUuids.add(sub.id);
-        for (const ch of sub.chapters ?? []) {
-          if (typeof ch === "object" && ch.id) {
-            chapUuids.add(ch.id);
-            chapToSub.set(ch.id, sub.id);
-          }
-        }
+    if (force) {
+      await exec.run("DELETE FROM kv WHERE key = ?", [MIGRATION_FLAG_KEY]);
+    } else {
+      const flagged = await exec.all<{ value: string }>(
+        "SELECT value FROM kv WHERE key = ? LIMIT 1",
+        [MIGRATION_FLAG_KEY],
+      );
+      if (flagged[0]?.value === "1") {
+        return { ...empty, skipped: true };
       }
     }
 
-    let staleSub = 0;
-    let staleChap = 0;
-    let mismatch = 0;
-    const patched: Card[] = [];
+    const cardsBefore = await listAllCards();
+    const { patched } = await migrateCardTaxonomyReferences(exec);
 
-    for (const card of cards) {
-      const patch: Partial<Card> = {};
-      const subStale = !!card.subcategoryId && !subUuids.has(card.subcategoryId);
-      const chapStale = !!card.chapterId && !chapUuids.has(card.chapterId);
-      const chapMismatch =
-        !subStale &&
-        !!card.subcategoryId &&
-        !!card.chapterId &&
-        chapToSub.has(card.chapterId) &&
-        chapToSub.get(card.chapterId) !== card.subcategoryId;
-
-      if (subStale) {
-        // Sub gone → chapter belonging to it is meaningless. Reset both.
-        patch.subcategoryId = "";
-        patch.chapterId = "";
-        staleSub++;
-      } else if (chapStale) {
-        patch.chapterId = "";
-        staleChap++;
-      } else if (chapMismatch) {
-        patch.chapterId = "";
-        mismatch++;
-      }
-
-      if (Object.keys(patch).length > 0) {
-        patched.push({ ...card, ...patch });
-      }
-    }
-
-    if (patched.length > 0) {
-      await bulkPutCardsDirect(patched);
+    if (patched > 0) {
+      const { runBulkCardsWrite } = await import(
+        "@/lib/query/all-caches-coordinator"
+      );
+      await runBulkCardsWrite(async () => undefined);
     }
 
     if (typeof localStorage !== "undefined") {
-      localStorage.setItem(FLAG_KEY, "1");
+      localStorage.setItem(LEGACY_FLAG_KEY, "1");
     }
 
     return {
-      scanned: cards.length,
-      staleSubcategoryReset: staleSub,
-      staleChapterReset: staleChap,
-      mismatchChapterReset: mismatch,
-      skipped: false,
+      scanned: cardsBefore.length,
+      staleSubcategoryReset: patched,
+      staleChapterReset: 0,
+      mismatchChapterReset: 0,
+      skipped: patched === 0,
     };
   } catch (err) {
     logger.error("[heal-card-taxonomy] failed", err);

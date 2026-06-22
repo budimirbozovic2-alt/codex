@@ -10,5 +10,6 @@ export {
   useCardsByCategoryWithStatus,
   useCardCountsByCategoryMap,
   useCardById,
+  useCardByIdWithStatus,
   useCardsBySource,
 } from "@/hooks/card/useCardsQuery";

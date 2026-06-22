@@ -18,6 +18,8 @@ export interface SubjectPlan {
   allocatedDays: number;
   startDate: Date;
   endDate: Date;
+  /** Days late for this subject (0 = on time). */
+  daysLate?: number;
   units: SubjectUnit[];
 }
 

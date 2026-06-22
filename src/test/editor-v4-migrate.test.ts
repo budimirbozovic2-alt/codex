@@ -1,7 +1,7 @@
 /**
  * editor-v4 migration engine tests.
  *
- * Runtime lazy-migrate helpers (`migrateCard`, etc.) still accept legacy HTML/markdown
+ * Runtime migrate* helpers still accept legacy HTML/markdown on read boundaries.
  * on read boundaries. v7 backup import requires canonical `contentDoc` only.
  */
 import { describe, it, expect } from "vitest";

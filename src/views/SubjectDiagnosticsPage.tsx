@@ -2,7 +2,7 @@ import { useMemo, lazy, Suspense } from "react";
 import { Link, useParams } from "react-router-dom";
 import { ArrowLeft, AlertTriangle, Brain } from "lucide-react";
 import { useCategoryData } from "@/hooks/cards/useCategoryState";
-import { useCardReady, useReviewData } from "@/hooks/cards/useCardState";
+import { useAppDataReady, useReviewData } from "@/hooks/cards/useCardState";
 import { useCardsByCategory } from "@/store";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -13,7 +13,7 @@ const CognitiveAnalytics = lazy(() => import("@/components/CognitiveAnalytics"))
 
 export default function SubjectDiagnosticsPage() {
   const { categoryId } = useParams<{ categoryId: string }>();
-  const ready = useCardReady();
+  const ready = useAppDataReady();
   const { categoryRecords } = useCategoryData();
   const { reviewLog } = useReviewData();
   

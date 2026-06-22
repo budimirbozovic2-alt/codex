@@ -3,6 +3,7 @@ import { addDays, differenceInDays } from "date-fns";
 import {
   sectionReviewKey,
   todayDateKey,
+  countDailyLearnProgress,
   countUniqueSectionsOnDate,
   resolveDailyDisciplineGoal,
   buildSessionDisciplinePayload,
@@ -45,6 +46,25 @@ describe("countUniqueSectionsOnDate", () => {
 
   it("merges session keys not yet flushed into review log", () => {
     expect(countUniqueSectionsOnDate([], "2026-06-15", new Set(["c9:s9", "c1:s1"]))).toBe(2);
+  });
+});
+
+describe("countDailyLearnProgress", () => {
+  it("counts only first-ever reviews that happened today", () => {
+    const today = "2026-06-15";
+    const todayNoon = new Date(`${today}T12:00:00.000Z`).getTime();
+    const yesterday = "2026-06-14";
+    const yesterdayNoon = new Date(`${yesterday}T12:00:00.000Z`).getTime();
+    const log: ReviewLogEntry[] = [
+      // Learned yesterday → should NOT count today.
+      { cardId: "c1", sectionId: "s1", grade: 3, timestamp: yesterdayNoon, category: "cat" },
+      { cardId: "c1", sectionId: "s1", grade: 4, timestamp: todayNoon, category: "cat" },
+      // First-ever today → should count.
+      { cardId: "c2", sectionId: "s2", grade: 3, timestamp: todayNoon, category: "cat" },
+      // Same section multiple times today → still counts once.
+      { cardId: "c2", sectionId: "s2", grade: 5, timestamp: todayNoon + 60_000, category: "cat" },
+    ];
+    expect(countDailyLearnProgress(log, today)).toBe(1);
   });
 });
 

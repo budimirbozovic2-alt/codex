@@ -8,6 +8,10 @@
  * For UI-initiated mutations prefer `cardRepository` (same mechanism,
  * richer API). These helpers remain for heal / migration / import paths
  * that live outside the React mutation layer.
+ *
+ * **Authoritative writes** (import, reset, heal, migrate) that finish with
+ * `commitCardsWriteFromDb` must pass `{ skipNotify: true }` so scoped
+ * bridge invalidation does not race with the coordinator seed.
  */
 import type { Card } from "@/lib/spaced-repetition";
 import { runInTransaction } from "@/lib/persistence/sqlite/client";
@@ -15,7 +19,7 @@ import {
   CARD_INSERT_SQL,
   bindCardInsert,
 } from "@/lib/persistence/sqlite/row-codecs";
-import { listAllCards, notifyCardsChanged } from "./cards";
+import { listAllCards } from "./cards";
 import {
   cardToScopeRef,
   emitAfterCardWrite,
@@ -88,20 +92,8 @@ export async function deleteCardDirect(
 }
 
 /**
- * Post-import cache invalidation only. The atomic import already wrote
- * rows in a dedicated SQL transaction; this just signals the bridge.
- * Accepts `Record<string, Card>` for legacy call-site signature parity;
- * the argument is intentionally unused.
- */
-export function announceCardsReplaced(_nextMap: Record<string, Card>): void {
-  void _nextMap;
-  notifyCardsChanged({ kind: "all" });
-}
-
-/**
  * Clear `sourceId`/`textAnchor`/`needsReview` for a set of cards.
- * Single UPDATE — payload is patched in SQLite via json_remove/json_set
- * (no decode/re-encode round-trip over the OPFS worker bridge).
+ * Single UPDATE — payload is patched in SQLite via json_remove/json_set.
  */
 export async function clearCardLinksDirect(
   cardIds: string[],

@@ -5,11 +5,9 @@
  *     `cardRepository.patch` / `cardRepository.bulkPatch` which perform
  *     atomic read-modify-write inside a single SQLite transaction, removing
  *     the double-read risk and the cache-as-source-of-truth anti-pattern.
- *   - `settle()` invalidation is dropped from `save`/`remove`/`gradeSection`.
- *     Single-card writes emit `notifyCardsChanged` from the repository,
- *     and the query bridge already invalidates the relevant `['cards', …]`
- *     scopes. Bulk mutations keep `settle()` because they touch many scoped
- *     slices the bridge may collapse.
+ *   - Bulk mutations use `cardRepository.*Authoritative` which runs a
+ *     `runBulkCardsWrite` session — one SQLite commit + coordinator seed.
+ *     No `settle()` prefix invalidation; derived flush comes from commit.
  *
  * Each mutation:
  *   1. `onMutate` cancels in-flight `['cards', …]` queries and snapshots
@@ -22,6 +20,7 @@
 import { useMutation, useQueryClient, type QueryClient, type QueryKey } from "@tanstack/react-query";
 import { toast } from "sonner";
 import type { Card } from "@/lib/spaced-repetition";
+import type { ReviewLogEntry } from "@/lib/types/logs";
 import { cardRepository, type ChapterFieldUpdate } from "@/lib/repositories";
 import { queryKeys } from "@/lib/query/keys";
 import { logger } from "@/lib/logger";
@@ -29,6 +28,8 @@ import { logger } from "@/lib/logger";
 interface GradeInput {
   cardId: string;
   patcher: (card: Card) => Card;
+  grade?: number;
+  reviewLogEntry?: ReviewLogEntry;
 }
 
 interface BulkPatchInput {
@@ -52,15 +53,26 @@ function patchAllCards(
   });
 }
 
+function upsertCardInList(
+  prev: readonly Card[] | undefined,
+  card: Card,
+): readonly Card[] {
+  if (!prev) return [card];
+  const idx = prev.findIndex((c) => c.id === card.id);
+  if (idx === -1) return [...prev, card];
+  const next = prev.slice();
+  next[idx] = card;
+  return next;
+}
+
 function optimisticPut(qc: QueryClient, card: Card): void {
-  patchAllCards(qc, (prev) => {
-    const idx = prev.findIndex((c) => c.id === card.id);
-    if (idx === -1) return [...prev, card];
-    const next = prev.slice();
-    next[idx] = card;
-    return next;
-  });
-  qc.setQueryData(["cards", "byId", card.id] as const, card);
+  const stamped = card.updatedAt ? card : { ...card, updatedAt: Date.now() };
+  patchAllCards(qc, (prev) => upsertCardInList(prev, stamped) as Card[]);
+  qc.setQueryData<readonly Card[] | undefined>(
+    queryKeys.cards.byCategory(stamped.categoryId),
+    (prev) => upsertCardInList(prev, stamped),
+  );
+  qc.setQueryData(["cards", "byId", card.id] as const, stamped);
 }
 
 function optimisticBulkPut(qc: QueryClient, cards: Card[]): void {
@@ -138,16 +150,6 @@ export function useCardMutations() {
     }
   }
 
-  /**
-   * Safety-net for bulk mutations: invalidate the entire `['cards']` prefix
-   * after settle. NOT used for single-card mutations — those rely on the
-   * bridge's scoped invalidation triggered by `notifyCardsChanged` inside
-   * the `*Direct` helpers (PR-H1 fix: avoids double-invalidation storm).
-   */
-  function settle(): void {
-    void qc.invalidateQueries({ queryKey: queryKeys.cards.root });
-  }
-
   const save = useMutation<Card, Error, Card, RollbackCtx>({
     mutationFn: (card) => cardRepository.put(card),
     onMutate: async (card) => {
@@ -177,7 +179,7 @@ export function useCardMutations() {
   });
 
   const bulkUpsert = useMutation<Card[], Error, Card[], RollbackCtx>({
-    mutationFn: (cards) => cardRepository.bulkPut(cards),
+    mutationFn: (cards) => cardRepository.bulkPutAuthoritative(cards),
     onMutate: async (cards) => {
       const ctx = await snapshot();
       const now = Date.now();
@@ -190,11 +192,13 @@ export function useCardMutations() {
       toast.error("Snimanje serije kartica nije uspjelo — vraćam stanje.");
       rollback(ctx);
     },
-    onSettled: settle,
   });
 
   const gradeSection = useMutation<Card | undefined, Error, GradeInput, RollbackCtx>({
-    mutationFn: ({ cardId, patcher }) => cardRepository.patch(cardId, patcher),
+    mutationFn: ({ cardId, patcher, grade, reviewLogEntry }) =>
+      grade !== undefined && reviewLogEntry
+        ? cardRepository.patchWithReviewGrade(cardId, grade, patcher, reviewLogEntry)
+        : cardRepository.patch(cardId, patcher),
     onMutate: async ({ cardId, patcher }) => {
       const ctx = await snapshot();
       optimisticPatch(qc, cardId, patcher);
@@ -208,7 +212,8 @@ export function useCardMutations() {
   });
 
   const bulkPatch = useMutation<Card[], Error, BulkPatchInput, RollbackCtx>({
-    mutationFn: ({ cardIds, patcher }) => cardRepository.bulkPatch(cardIds, patcher),
+    mutationFn: ({ cardIds, patcher }) =>
+      cardRepository.bulkPatchAuthoritative(cardIds, patcher),
     onMutate: async ({ cardIds, patcher }) => {
       const ctx = await snapshot();
       optimisticBulkPatch(qc, cardIds, patcher);
@@ -219,11 +224,10 @@ export function useCardMutations() {
       toast.error("Bulk izmjena nije uspjela — vraćam stanje.");
       rollback(ctx);
     },
-    onSettled: settle,
   });
 
   const bulkSetNeedsReview = useMutation<void, Error, string[], RollbackCtx>({
-    mutationFn: (cardIds) => cardRepository.bulkSetNeedsReview(cardIds),
+    mutationFn: (cardIds) => cardRepository.bulkSetNeedsReviewAuthoritative(cardIds),
     onMutate: async (cardIds) => {
       const ctx = await snapshot();
       optimisticBulkPatch(qc, cardIds, (c) => ({ ...c, needsReview: true }));
@@ -234,11 +238,10 @@ export function useCardMutations() {
       toast.error("Označavanje kartica nije uspjelo — vraćam stanje.");
       rollback(ctx);
     },
-    onSettled: settle,
   });
 
   const bulkUpdateChapter = useMutation<void, Error, ChapterFieldUpdate[], RollbackCtx>({
-    mutationFn: (updates) => cardRepository.bulkUpdateChapter(updates),
+    mutationFn: (updates) => cardRepository.bulkUpdateChapterAuthoritative(updates),
     onMutate: async (updates) => {
       const ctx = await snapshot();
       const map = new Map(updates.map((u) => [u.id, u]));
@@ -253,7 +256,6 @@ export function useCardMutations() {
       toast.error("Premještanje u poglavlje nije uspjelo — vraćam stanje.");
       rollback(ctx);
     },
-    onSettled: settle,
   });
 
   return {

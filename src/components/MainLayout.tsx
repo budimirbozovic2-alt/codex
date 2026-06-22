@@ -61,19 +61,50 @@ const NudgeWatcher = memo(function NudgeWatcher() {
           plannerModRef.current = await import("@/domains/planner");
         }
         if (cancelled) return;
-        const { loadPlanner, getSmartSuggestion, calcVelocity, getDailyMappedCount } = plannerModRef.current;
+        const { loadPlanner, countDailyLearnProgress, computePlannerSnapshot } = plannerModRef.current;
         const planner = loadPlanner();
-        if (!planner.finalGoalDate || (planner.phases?.length ?? 0) === 0) return;
+        const isConfigured = !!planner.finalGoalDate
+          && planner.dailyAvailableMinutes > 0
+          && planner.subjectOrder.length > 0;
+        if (!isConfigured) return;
         const cards = await queryClient.fetchQuery({
           queryKey: queryKeys.cards.all(),
           queryFn: listAllCards,
           staleTime: Infinity,
         });
         if (cancelled) return;
-        const _velocity = calcVelocity(reviewLog, 7);
-        const suggestion = getSmartSuggestion(null, cards, planner.finalGoalDate, planner.bufferPercent ?? 15);
+        const categoryRecords = await queryClient.fetchQuery({
+          queryKey: queryKeys.categories.all(),
+          queryFn: async () => {
+            const { listAllCategories } = await import("@/lib/db/queries");
+            return listAllCategories();
+          },
+          staleTime: Infinity,
+        });
+        if (cancelled) return;
+        let totalSections = 0;
+        let learnedSections = 0;
+        let dueCount = 0;
+        const now = Date.now();
+        for (const c of cards) {
+          for (const s of c.sections) {
+            totalSections++;
+            if (s.lastReviewed) learnedSections++;
+            if (s.nextReview && s.nextReview <= now) dueCount++;
+          }
+        }
+        const snapshot = computePlannerSnapshot({
+          cards,
+          reviewLog,
+          categoryRecords,
+          config: planner,
+          totalSections,
+          learnedSections,
+          dueCount,
+        });
+        const suggestion = snapshot?.smartSuggestion;
         if (!suggestion || suggestion.suggestedToday <= 0) return;
-        const dailyDone = getDailyMappedCount();
+        const dailyDone = countDailyLearnProgress(reviewLog);
         const remaining = suggestion.suggestedToday - dailyDone;
         if (cancelled) return;
         if (remaining > 0 && dailyDone < suggestion.suggestedToday) {
@@ -129,18 +160,24 @@ const GlobalSearchWrapper = memo(function GlobalSearchWrapper({
   );
 });
 
-/** Isolated wrapper for DocxImporter */
+/** Isolated wrapper for DocxImporter — hooks only mount when open. */
 const DocxImporterWrapper = memo(function DocxImporterWrapper({
   open, onClose,
 }: { open: boolean; onClose: () => void }) {
+  if (!open) return null;
+  return <DocxImporterMounted onClose={onClose} />;
+});
+
+const DocxImporterMounted = memo(function DocxImporterMounted({
+  onClose,
+}: { onClose: () => void }) {
   const { categories } = useCategoryData();
   const { addFlashCard } = useCardOnlyActions();
   const { importCards } = useBackupActions();
-  if (!open) return null;
   return (
     <Suspense fallback={null}>
       <DocxImporter
-        open={open}
+        open
         onClose={onClose}
         categories={categories}
         onImport={(docxCards, cat, cardType) => {
@@ -240,7 +277,7 @@ export default function MainLayout({ children }: { children: ReactNode }) {
 
           <NudgeWatcher />
 
-          <main id="main-content" className={`flex-1 w-full ${
+          <main id="main-content" tabIndex={-1} className={`flex-1 w-full ${
             immersiveMode ? "px-4 md:px-6 py-4 max-w-none" : `px-4 md:px-8 py-6 ${isFullWidth ? "max-w-none" : "max-w-6xl mx-auto"}`
           }`}>
             {children}

@@ -2,8 +2,8 @@
  * Denormalised per-card mastery score (0–100 float average of section scores).
  * Kept in sync on every card write via `bindCardInsert`.
  */
-import type { Card } from "@/lib/spaced-repetition";
-import { getSectionScore } from "@/lib/spaced-repetition";
+import type { Card } from "@/lib/sr/types";
+import { getSectionScore } from "@/lib/sr/retrievability";
 import { getCardMasteryLevel } from "@/lib/mastery";
 
 /** Matches `useCardAggregates` scoreAvg — float average, rounded at category level. */

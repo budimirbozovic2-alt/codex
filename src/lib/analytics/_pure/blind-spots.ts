@@ -1,7 +1,7 @@
 // Pure blind-spot detection — needs only Card[] + calibration snapshot.
 // (weak-hook tagging is orchestrated by `@/lib/services/weakHooksService` —
 // pure compute lives in `@/domains/mnemonic/analytics/weak-hooks`.)
-import type { Card } from "../../spaced-repetition";
+import type { Card } from "@/lib/sr/types";
 import type { CalibrationEntry } from "@/domains/metacognition/metacognitive-storage";
 
 export interface BlindSpot {

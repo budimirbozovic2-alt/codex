@@ -2,12 +2,13 @@ import type React from "react";
 import { useCardOnlyActions } from "@/hooks/cards/useActions";
 import { useCategoryData } from "@/hooks/cards/useCategoryState";
 import { useUIContext } from "@/hooks/useUI";
-import { useCardById } from "@/store";
+import { useCardByIdWithStatus } from "@/store";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import CardForm from "@/components/CardForm";
 import { Navigate } from "react-router-dom";
 import type { Card } from "@/lib/spaced-repetition";
 import { useEditReturnTarget } from "@/hooks/useEditReturnTarget";
+import { SessionSetupSkeleton } from "@/components/ui/loading";
 
 export default function EditPage() {
   const { categories, subcategories, categoryRecords } = useCategoryData();
@@ -17,7 +18,15 @@ export default function EditPage() {
 
   // Phase 1 — granular selector: re-renders only when THIS card changes,
   // not when any card in the entire library mutates.
-  const editingCard = useCardById(editingCardId);
+  const { card: editingCard, isLoading } = useCardByIdWithStatus(editingCardId);
+
+  if (!editingCardId) {
+    return <Navigate to="/" replace />;
+  }
+
+  if (isLoading) {
+    return <SessionSetupSkeleton />;
+  }
 
   if (!editingCard) {
     return <Navigate to="/" replace />;

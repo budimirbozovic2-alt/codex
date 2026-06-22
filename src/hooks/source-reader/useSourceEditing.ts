@@ -1,7 +1,7 @@
 import { useCallback } from "react";
 import { toast } from "sonner";
 import type { Source } from "@/domains/sources/sources-storage";
-import { buildAutoFormatSource } from "@/lib/services/sourceEditingService";
+import { buildAutoFormatSource, buildAutoFormatLegalProvisionsSource } from "@/lib/services/sourceEditingService";
 import { useSourceMutations } from "@/hooks/source/useSourceMutations";
 import { scrollToHeadingInEditor } from "@/lib/source-reader/heading-navigation";
 
@@ -30,6 +30,21 @@ export function useSourceEditing(
     toast.success(`Formatirano ${built.count} članova`, { description: "Članovi i nazivi su boldovani" });
   }, [source, onSourceUpdated, saveMutation]);
 
+  const handleAutoFormatLegalProvisions = useCallback(async () => {
+    const built = buildAutoFormatLegalProvisionsSource(source);
+    if (!built.source) {
+      toast.info("Nisu pronađeni odlomci propisa", {
+        description: "Tražim blockquote ili pasuse koji počinju s „Član“, „Prema“, „Sukladno“…",
+      });
+      return;
+    }
+    await saveMutation.mutateAsync(built.source);
+    onSourceUpdated?.(built.source);
+    toast.success(`Označeno ${built.count} odlomaka propisa`, {
+      description: "Vizuelno izdvojeni citati zakona",
+    });
+  }, [source, onSourceUpdated, saveMutation]);
+
   const scrollToHeading = useCallback((id: string) => {
     if (!scrollToHeadingInEditor(id)) {
       toast.info("Naslov nije pronađen u tekstu", { description: "Možda je uklonjen ili preimenovan." });
@@ -38,6 +53,7 @@ export function useSourceEditing(
 
   return {
     handleAutoFormatArticles,
+    handleAutoFormatLegalProvisions,
     scrollToHeading,
   };
 }

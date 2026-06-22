@@ -102,9 +102,10 @@ describe("SourceReader shell", () => {
     host.remove();
 
     expect(mockConvert).toHaveBeenCalledTimes(1);
-    const [text, html] = mockConvert.mock.calls[0];
-    expect(text.length).toBeGreaterThanOrEqual(5);
-    expect(html.length).toBeGreaterThanOrEqual(5);
+    const [sel] = mockConvert.mock.calls[0];
+    expect(sel.text.length).toBeGreaterThanOrEqual(5);
+    expect(sel.html.length).toBeGreaterThanOrEqual(5);
+    expect(sel.contentDoc).toBeDefined();
   });
 
   it("enables exam map button when editor selection is valid", async () => {

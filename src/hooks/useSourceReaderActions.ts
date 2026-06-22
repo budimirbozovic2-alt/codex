@@ -22,6 +22,7 @@ export function useSourceReaderActions(source: Source, onSourceUpdated?: (source
       handleLinkConfirm: mapping.handleLinkConfirm,
       handleMapSelection: mapping.handleMapSelection,
       handleAutoFormatArticles: editing.handleAutoFormatArticles,
+      handleAutoFormatLegalProvisions: editing.handleAutoFormatLegalProvisions,
       scrollToHeading: editing.scrollToHeading,
     },
   }), [mapping, editing]);

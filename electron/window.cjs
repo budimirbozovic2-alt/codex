@@ -132,7 +132,22 @@ async function createWindow({ isDev, baseDir, configPath, logCrash, splash, onMa
 
   onMainWindow(win);
 
-  if (!isDev) {
+  if (isDev) {
+    win.webContents.on('before-input-event', (event, input) => {
+      const key = input.key.toLowerCase();
+      const toggleDevTools =
+        key === 'f12' ||
+        (input.control && input.shift && key === 'i');
+      if (!toggleDevTools) return;
+      if (win.isDestroyed()) return;
+      if (win.webContents.isDevToolsOpened()) {
+        win.webContents.closeDevTools();
+      } else {
+        win.webContents.openDevTools({ mode: 'detach' });
+      }
+      event.preventDefault();
+    });
+  } else {
     Menu.setApplicationMenu(null);
     win.webContents.on('before-input-event', (event, input) => {
       const key = input.key.toLowerCase();

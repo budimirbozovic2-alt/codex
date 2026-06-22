@@ -1,7 +1,6 @@
 /**
  * E2E-only in-memory SQLite executor (main thread).
- * Playwright headless Chromium cannot initialise OPFS — this path keeps
- * real wasm SQLite + migrations without the worker/OPFS stack.
+ * Playwright E2E uses in-memory wasm SQLite (devDependency only).
  */
 import sqliteWasmUrl from "@sqlite.org/sqlite-wasm/sqlite3.wasm?url";
 import { runMigrations } from "@/lib/persistence/sqlite/migration-runner";

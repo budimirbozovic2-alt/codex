@@ -1,5 +1,5 @@
-import { ArrowLeft, Wand2, FileQuestion, List, X, Pencil, Type } from "lucide-react";
-import { memo } from "react";
+import { ArrowLeft, Wand2, FileQuestion, List, X, Pencil, Type, Scale } from "lucide-react";
+import { memo, useCallback } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
 import type { Source, SourceKind } from "@/lib/db-types";
 import { SourceHeader } from "./SourceHeader";
 import { useSourceReaderStore, type ReaderWidth, type ReaderFontSize, type ReaderLineHeight, READER_FONT_SIZE_LABELS, READER_LINE_HEIGHT_LABELS } from "@/store";
-import { useSourceContentSaveStore } from "@/store/useSourceContentSaveStore";
+import { useSourceContentSaveStore, flushSourceContentSave, getSourceContentDirty } from "@/store/useSourceContentSaveStore";
 
 const WIDTH_OPTIONS: ReaderWidth[] = ["S", "M", "L", "XL", "Full"];
 
@@ -25,6 +25,7 @@ interface Props {
   onBack: () => void;
   onAutoSplit: () => void;
   onAutoFormat?: () => void;
+  onAutoFormatLegal?: () => void;
 }
 
 /**
@@ -34,7 +35,13 @@ interface Props {
  *
  * Coverage view was removed; the reader is single-mode (read/edit only).
  */
-export const SourceToolbar = memo(function SourceToolbar({ source, onBack, onAutoSplit, onAutoFormat }: Props) {
+export const SourceToolbar = memo(function SourceToolbar({
+  source,
+  onBack,
+  onAutoSplit,
+  onAutoFormat,
+  onAutoFormatLegal,
+}: Props) {
   const sourceKind: SourceKind = source.sourceKind ?? "propis";
   const {
     editMode, setEditMode,
@@ -65,6 +72,13 @@ export const SourceToolbar = memo(function SourceToolbar({ source, onBack, onAut
   );
   const saveStatus = useSourceContentSaveStore((s) => s.status);
 
+  const handleEditToggle = useCallback(async () => {
+    if (editMode && getSourceContentDirty()) {
+      await flushSourceContentSave();
+    }
+    setEditMode(!editMode);
+  }, [editMode, setEditMode]);
+
   return (
     <div className="space-y-2">
       {/* Row 1 — identity */}
@@ -94,7 +108,7 @@ export const SourceToolbar = memo(function SourceToolbar({ source, onBack, onAut
         <Button
           variant={editMode ? "default" : "outline"}
           size="sm"
-          onClick={() => setEditMode(!editMode)}
+          onClick={() => void handleEditToggle()}
           className="gap-1.5"
           title="Režim uređivanja"
         >
@@ -113,6 +127,19 @@ export const SourceToolbar = memo(function SourceToolbar({ source, onBack, onAut
           <Button variant="outline" size="sm" onClick={onAutoFormat} className="gap-1.5" title="Bolduj članove i nazive">
             <Type className="h-3.5 w-3.5" />
             Članovi
+          </Button>
+        )}
+
+        {editMode && onAutoFormatLegal && sourceKind === "skripta" && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onAutoFormatLegal}
+            className="gap-1.5"
+            title="Vizuelno izdvoji citate propisa (blockquote i pasusi)"
+          >
+            <Scale className="h-3.5 w-3.5" />
+            Propisi
           </Button>
         )}
 

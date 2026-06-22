@@ -2,24 +2,25 @@
  * PR-7f M1 — TanStack bridge invalidira queryClient na SSOT eventove.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { QueryClient } from "@tanstack/react-query";
+import type { QueryClient } from "@tanstack/react-query";
 import { _resetBridgesForTest, installQueryBridges } from "@/lib/query/bridges";
-// Tests are whitelisted from W12 — deep import OK for inspecting domain internals.
+import { queryClient } from "@/lib/query/client";
+import { queryKeys } from "@/lib/query/keys";
+import { resetPlannerQueryCache } from "@/lib/query/planner-cache-coordinator";
 import { plannerCache, disciplineCache } from "@/domains/planner/cache";
 import { invalidateSourcesCache } from "@/domains/sources/sources-storage";
 import { DEFAULT_CONFIG } from "@/domains/planner";
 import { notifyCardsChanged } from "@/lib/db/queries";
 
 describe("query bridges (PR-7f M1)", () => {
-  let qc: QueryClient;
   let invalidateSpy: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
     _resetBridgesForTest();
-    qc = new QueryClient();
+    resetPlannerQueryCache();
     invalidateSpy = vi.fn().mockResolvedValue(undefined);
-    qc.invalidateQueries = invalidateSpy as unknown as QueryClient["invalidateQueries"];
-    installQueryBridges(qc);
+    queryClient.invalidateQueries = invalidateSpy as unknown as QueryClient["invalidateQueries"];
+    installQueryBridges(queryClient);
   });
 
   it("invalidates ['sources'] when sources cache changes", () => {
@@ -27,25 +28,25 @@ describe("query bridges (PR-7f M1)", () => {
     expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ["sources"] });
   });
 
-  it("pushes planner config snapshot via setQueryData (D.4 — no divergence window)", () => {
-    const setSpy = vi.spyOn(qc, "setQueryData");
+  it("seeds planner config in TanStack on plannerCache.set", () => {
     plannerCache.set({ ...DEFAULT_CONFIG, dailyAvailableMinutes: 42 });
-    expect(setSpy).toHaveBeenCalledWith(["planner", "config"], expect.objectContaining({ dailyAvailableMinutes: 42 }));
+    expect(queryClient.getQueryData(queryKeys.planner.config())).toEqual(
+      expect.objectContaining({ dailyAvailableMinutes: 42 }),
+    );
   });
 
-  it("pushes planner discipline snapshot via setQueryData (PR-C C1 — no invalidate)", () => {
-    const setSpy = vi.spyOn(qc, "setQueryData");
+  it("seeds discipline log in TanStack on disciplineCache.set", () => {
     disciplineCache.set([]);
-    expect(setSpy).toHaveBeenCalledWith(["planner", "discipline", "log"], expect.any(Array));
-    // Aligned with the config branch: setQueryData notifies subscribers in
-    // the same tick; the prior invalidateQueries opened a stale-flicker
-    // window and duplicated work. Confirm it no longer fires.
-    expect(invalidateSpy).not.toHaveBeenCalledWith({ queryKey: ["planner", "discipline"] });
+    expect(queryClient.getQueryData(queryKeys.planner.disciplineLog())).toEqual([]);
+    // Derived planner queries invalidate; discipline log slot is seeded directly.
+    expect(invalidateSpy).not.toHaveBeenCalledWith({
+      queryKey: queryKeys.planner.disciplineLog(),
+    });
   });
 
   it("is idempotent — second install is a no-op", () => {
     const callsBefore = invalidateSpy.mock.calls.length;
-    installQueryBridges(qc);
+    installQueryBridges(queryClient);
     invalidateSourcesCache();
     // Only one bridge fired
     expect(invalidateSpy.mock.calls.length).toBe(callsBefore + 1);

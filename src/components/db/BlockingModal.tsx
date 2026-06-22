@@ -5,8 +5,7 @@ import { Button } from "@/components/ui/button";
 import { taskScheduler } from "@/lib/scheduler";
 
 /**
- * Hard-blocking modal when browser storage (OPFS / legacy IndexedDB) is blocked by another tab.
- * This happens during schema upgrades.
+ * Hard-blocking modal when SQLite is locked by another tab (e.g. during schema upgrade).
  */
 export default function BlockingModal() {
   const [isBlocked, setIsBlocked] = useState(false);

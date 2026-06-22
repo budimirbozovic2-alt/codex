@@ -1,6 +1,6 @@
-// Phase 1 boot deferral — verify `loadInitialData` no longer pulls the
-// full cards table over the worker. `loadCardsDeferred` is the new
-// post-READY entrypoint and still resolves via `listAllCards`.
+// Boot card load — `loadInitialData` stays category-only; cards hydrate on the
+// critical path via `ensureCardsBootCache` before READY. `loadCardsDeferred`
+// remains a thin SQLite helper for tests and recovery paths.
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { INTEGRATION_TEST_TIMEOUT_MS } from "./helpers/test-timeouts";
 
@@ -36,7 +36,7 @@ describe("boot: deferred cards (Phase 1)", { timeout: INTEGRATION_TEST_TIMEOUT_M
     expect(result.catRecords).toEqual([]);
   });
 
-  it("loadCardsDeferred reads via listAllCards (post-READY entrypoint)", async () => {
+  it("loadCardsDeferred still reads via listAllCards", async () => {
     const { loadCardsDeferred } = await import("@/hooks/card-bootstrap/loadInitialData");
     listAllCardsMock.mockResolvedValue([{ id: "c1" }, { id: "c2" }]);
 

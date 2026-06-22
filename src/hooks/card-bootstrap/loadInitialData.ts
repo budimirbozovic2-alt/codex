@@ -11,7 +11,7 @@ import { splashProgress } from "./splash";
 import { logger } from "@/lib/logger";
 
 export interface InitialData {
-  /** Always empty in Phase 1 — cards are loaded off the critical path via `loadCardsDeferred`. */
+  /** Legacy field — cards hydrate on the critical path via `ensureCardsBootCache`. */
   cards: Card[];
   catRecords: CategoryRecord[];
   log: ReviewLogEntry[];
@@ -35,11 +35,16 @@ export async function loadInitialData(): Promise<InitialData> {
     initMetacognitiveCache(),
     initPlannerCache(),
     initSubjectSettingsCache(),
+    import("@/lib/app-settings").then((m) => m.initAppSettingsCache()),
+    import("@/lib/query/prefs-cache-coordinator").then((m) => m.initPrefsQueryCache()),
+    import("@/lib/backup/legacy-local-storage").then((m) =>
+      m.migrateBrowserLocalStorageToSqlite(),
+    ),
   ]);
 
   splashProgress(25, "Učitavanje podataka…");
   transition({ type: "LOAD_PROGRESS", pct: 25, label: "Učitavanje podataka…" });
-  if (import.meta.env.DEV) logger.log("[boot:diag] step 4: loading data (parallel, cards deferred)");
+  if (import.meta.env.DEV) logger.log("[boot:diag] step 4: loading categories (cards on critical path next)");
   markBootStep("cards:data-load-start");
 
   const [catRecords, log, settings] = await Promise.all([

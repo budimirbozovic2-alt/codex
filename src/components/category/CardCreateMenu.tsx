@@ -31,13 +31,13 @@ interface Props {
     category: string,
     subcategory?: string,
     chapter?: string,
-  ) => Card;
+  ) => Promise<Card>;
   addFlashCard: (
     question: string,
     answer: string,
     category: string,
     subcategory?: string,
-  ) => Card;
+  ) => Promise<Card>;
   /** Bulk flash import — single batched commit; replaces N×addFlashCard loop. */
   bulkAddFlashCards: (
     pairs: { question: string; answer: string }[],

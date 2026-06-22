@@ -3,6 +3,7 @@ import { TabSkeleton } from "@/components/ui/page-skeleton";
 import { BackupCard } from "@/components/dashboard/BackupCard";
 import { AppUpdatePanel } from "@/components/settings/AppUpdatePanel";
 import SettingsSection from "@/components/settings/SettingsSection";
+import ResetProgressPanel from "@/components/settings/ResetProgressPanel";
 
 const HealthMonitor = lazy(() => import("@/components/HealthMonitor"));
 
@@ -11,6 +12,13 @@ export default function SystemTab() {
     <div className="space-y-8">
       <SettingsSection title="Backup i vraćanje">
         <BackupCard variant="settings" />
+      </SettingsSection>
+
+      <SettingsSection
+        title="Reset progresa učenja"
+        description="Počnite ispočetka sa ponavljanjem bez gubitka kartica i strukture."
+      >
+        <ResetProgressPanel />
       </SettingsSection>
 
       <SettingsSection title="Ažuriranje aplikacije">

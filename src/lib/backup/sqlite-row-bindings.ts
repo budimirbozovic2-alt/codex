@@ -107,7 +107,5 @@ export function bindMajorSystemPeg(p: { id: number; peg?: string }): SqlBindValu
 }
 
 export function bindKv(entry: { key: string; value: unknown }): SqlBindValue[] {
-  const raw = entry.value;
-  const value = typeof raw === "string" ? raw : JSON.stringify(raw);
-  return [String(entry.key), value];
+  return [String(entry.key), JSON.stringify(entry.value)];
 }

@@ -14,7 +14,7 @@ import type { EditorDoc } from "@/lib/editor-v4";
 
 import { SourceContent } from "@/components/source-reader/SourceContent";
 
-import { useSourceContentSaveStore } from "@/store/useSourceContentSaveStore";
+import { useSourceContentSaveStore, flushSourceContentSave } from "@/store/useSourceContentSaveStore";
 import { useSourceReaderStore } from "@/store";
 import { taskScheduler } from "@/lib/scheduler";
 
@@ -288,6 +288,38 @@ describe("SourceContent autosave", () => {
 
 
 
+  it("flushSourceContentSave persists immediately without waiting for debounce", async () => {
+
+    renderSourceContent();
+
+
+
+    fireEvent.click(screen.getByTestId("mock-editor"));
+
+    expect(mockSave).not.toHaveBeenCalled();
+
+
+
+    await act(async () => {
+
+      const ok = await flushSourceContentSave();
+
+      expect(ok).toBe(true);
+
+      await flushMicrotasks();
+
+    });
+
+
+
+    expect(mockSave).toHaveBeenCalledTimes(1);
+
+    expect(useSourceContentSaveStore.getState().isDirty).toBe(false);
+
+  });
+
+
+
   it("surfaces save errors via store and toast", async () => {
 
     mockSave.mockRejectedValueOnce(new Error("fail"));
@@ -316,7 +348,7 @@ describe("SourceContent autosave", () => {
 
       expect.objectContaining({
 
-        description: "Pokušajte ponovo ili sačuvajte ručno prije napuštanja.",
+        description: "Pokušajte ponovo.",
 
       }),
 

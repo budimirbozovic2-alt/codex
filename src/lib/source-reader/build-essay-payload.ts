@@ -8,12 +8,12 @@
 import { sanitizeHtml } from "@/lib/sanitize";
 import { createSection, type Card, type SourceModule } from "@/lib/spaced-repetition";
 import { createTextAnchor, type Source } from "@/domains/sources/sources-storage";
-import { splitSelection, stripTitleFromContent, type SelectionModule } from "@/lib/selection-split-engine";
+import { splitSelection, stripTitleFromContent, stripTitleFromDoc, htmlToPlain, type SelectionModule } from "@/lib/selection-split-engine";
 import {
   buildSeparatePlans, buildCombinedPlan,
   type SeparateCardPlan, type CombinedCardPlan, type WizardModuleEdit,
 } from "@/lib/split-wizard-build";
-import { htmlToDoc, type EditorDoc } from "@/lib/editor-v4";
+import { docToHtml, htmlToDoc, type EditorDoc } from "@/lib/editor-v4";
 import { logger } from "@/lib/logger";
 import {
   normalizeQuestionTitle,
@@ -28,7 +28,7 @@ import type { CardSourceType } from "@/lib/spaced-repetition";
  * Smart-Split keeps producing plain text + sanitized HTML per the Smart-Split
  * Wizard rule (manual text input remains the SSOT for module detection); we
  * additionally seed `contentDoc` so the section persists in the new schema
- * immediately and doesn't have to wait for the lazy-migrate pass.
+ * immediately (boot migration handles any remaining legacy rows).
  */
 function buildSectionDoc(html: string): EditorDoc | undefined {
   try {
@@ -37,6 +37,11 @@ function buildSectionDoc(html: string): EditorDoc | undefined {
     logger.warn("[build-essay-payload] htmlToDoc failed; section persists with legacy HTML only", err);
     return undefined;
   }
+}
+
+function resolveSectionDoc(mod: SelectionModule, html: string): EditorDoc {
+  if (mod.contentDoc) return mod.contentDoc;
+  return buildSectionDoc(html) ?? htmlToDoc(sanitizeHtml(html));
 }
 
 export interface AddCardArgs {
@@ -81,7 +86,7 @@ function fromSeparatePlan(plan: SeparateCardPlan, source: Source, subId?: string
   const content = strippedModuleHtml(plan.question, plan.module);
   return {
     question,
-    sections: [{ title: "Odgovor", contentDoc: buildSectionDoc(content) ?? htmlToDoc(content) }],
+    sections: [{ title: "Odgovor", contentDoc: resolveSectionDoc(plan.module, content) }],
     categoryId: source.categoryId,
     subId,
     chapId,
@@ -107,7 +112,7 @@ function fromCombinedPlan(plan: CombinedCardPlan, source: Source, subId?: string
   const sections = plan.modules.map(({ question, module: mod }) => {
     const title = normalizeQuestionTitle(question);
     const content = strippedModuleHtml(question, mod);
-    return { title, contentDoc: buildSectionDoc(content) ?? htmlToDoc(content) };
+    return { title, contentDoc: resolveSectionDoc(mod, content) };
   });
   const sourceModules: SourceModule[] = plan.modules.map(({ question, module: mod }, index) => {
     const title = normalizeQuestionTitle(question);
@@ -168,6 +173,7 @@ export function buildEssayFromSelection(
   html: string,
   questionText: string,
   source: Source,
+  selectionDoc?: EditorDoc,
 ): ExamMappingResult {
   const question = normalizeQuestionTitle(questionText);
   const tryArticleSplit = source.sourceKind !== "skripta";
@@ -177,7 +183,7 @@ export function buildEssayFromSelection(
     const sections = modules.map((mod) => {
       const title = normalizeQuestionTitle(mod.title);
       const content = strippedModuleHtml(mod.title, mod);
-      return { title, contentDoc: buildSectionDoc(content) ?? htmlToDoc(content) };
+      return { title, contentDoc: resolveSectionDoc(mod, content) };
     });
     const sourceModules: SourceModule[] = modules.map((mod, index) => {
       const title = normalizeQuestionTitle(mod.title);
@@ -208,16 +214,17 @@ export function buildEssayFromSelection(
       rangeLabel: result.rangeLabel,
     };
   }
-  const stripped = stripTitleFromContent(question, text, html || text);
-  const fallbackContent = sanitizeHtml(stripped.contentHtml || stripped.contentText);
+  const safeHtml = sanitizeHtml(html || text);
+  const fallbackDoc = selectionDoc ?? buildSectionDoc(safeHtml) ?? htmlToDoc(safeHtml);
+  const strippedDoc = stripTitleFromDoc(question, fallbackDoc);
   return {
     args: {
       question,
-      sections: [{ title: "Odgovor", contentDoc: buildSectionDoc(fallbackContent) ?? htmlToDoc(fallbackContent) }],
+      sections: [{ title: "Odgovor", contentDoc: strippedDoc }],
       categoryId: source.categoryId,
       options: cardOptionsFromSource(source, {
-        textAnchor: createTextAnchor(stripped.contentText || text),
-        originalSourceSnippet: stripped.contentText || text,
+        textAnchor: createTextAnchor(htmlToPlain(docToHtml(strippedDoc)) || text),
+        originalSourceSnippet: htmlToPlain(docToHtml(strippedDoc)) || text,
       }),
     },
     moduleCount: 1,
@@ -230,6 +237,7 @@ export function buildLinkPatch(
   snippetHtml: string,
   sourceId: string,
   appendSnippet: boolean,
+  snippetDoc?: EditorDoc,
 ): Card {
   const base: Card = {
     ...card,
@@ -238,11 +246,12 @@ export function buildLinkPatch(
     originalSourceSnippet: snippetText,
   };
   if (!appendSnippet) return base;
+  const sectionDoc = snippetDoc ?? htmlToDoc(sanitizeHtml(snippetHtml || snippetText));
   return {
     ...base,
     sections: [
       ...card.sections,
-      createSection("Isječak iz izvora", htmlToDoc(sanitizeHtml(snippetHtml || snippetText))),
+      createSection("Isječak iz izvora", sectionDoc),
     ],
   };
 }

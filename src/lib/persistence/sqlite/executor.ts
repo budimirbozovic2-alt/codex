@@ -1,10 +1,8 @@
 /**
  * SQL executor abstraction — PR-8 M1.
  *
- * The OPFS SQLite client is a wasm module that can only be instantiated in a
- * browser/Electron renderer worker context. Tests and Node-side tools need a
- * narrower contract so we can plug in `better-sqlite3` or an in-memory shim
- * without dragging the wasm runtime into vitest.
+ * Narrow contract for main-process better-sqlite3 (Electron) and in-memory
+ * test shims without dragging optional runtimes into vitest.
  *
  * Only the surface the adapter actually uses is exposed here. Anything
  * richer (PRAGMAs, attach, etc.) is invoked via `exec` with a raw SQL string.

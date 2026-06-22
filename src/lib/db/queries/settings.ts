@@ -86,26 +86,22 @@ export async function putSetting<T>(
   value: T
 ): Promise<void> {
   const exec = await requireSqlExecutor("settings:putSetting");
-  try { 
-    await kvPut<T>(exec, key, value); 
-  } catch (err) { 
-    logger.warn(
-      "[settings-repo] sqlite put failed", 
-      { key, err }
-    ); 
+  try {
+    await kvPut<T>(exec, key, value);
+  } catch (err) {
+    logger.warn("[settings-repo] sqlite put failed", { key, err });
+    throw err instanceof Error ? err : new Error(String(err));
   }
   _notify(key);
 }
 
 export async function deleteSetting(key: string): Promise<void> {
   const exec = await requireSqlExecutor("settings:deleteSetting");
-  try { 
-    await exec.run("DELETE FROM kv WHERE key = ?", [key]); 
-  } catch (err) { 
-    logger.warn(
-      "[settings-repo] sqlite delete failed", 
-      { key, err }
-    ); 
+  try {
+    await exec.run("DELETE FROM kv WHERE key = ?", [key]);
+  } catch (err) {
+    logger.warn("[settings-repo] sqlite delete failed", { key, err });
+    throw err instanceof Error ? err : new Error(String(err));
   }
   _notify(key);
 }

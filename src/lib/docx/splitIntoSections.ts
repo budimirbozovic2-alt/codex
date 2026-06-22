@@ -12,9 +12,10 @@
 
 import { htmlToDoc } from "@/lib/editor-v4";
 import type { EditorDoc } from "@/lib/editor-v4/types";
+import { extractBoldPeriodModuleStart } from "./bold-period-split";
 
 export type HeadingLevel = "h1" | "h2" | "h3";
-export type SplitMode = "heading" | "delimiter";
+export type SplitMode = "heading" | "delimiter" | "bold-period";
 
 export interface SectionSplitOpts {
   mode: SplitMode;
@@ -45,6 +46,8 @@ export interface ParsedCard {
  *   new section. Non-heading elements are appended to the current section.
  * - `delimiter` mode: a paragraph whose trimmed text starts with the
  *   delimiter becomes the section title. Empty delimiter = single section.
+ * - `bold-period` mode: script-style modules where a leading bold phrase
+ *   ends with a period (e.g. `<strong>Modul.</strong>`).
  *
  * If no sections are detected, the entire HTML is returned as a single
  * section titled "Odgovor" (preserves original fallback behaviour).
@@ -78,6 +81,19 @@ function splitIntoSections(
       if (tag === opts.heading) {
         flushSec();
         secTitle = el.textContent?.trim() ?? "";
+      } else {
+        secContent += el.outerHTML + "\n";
+      }
+    }
+  } else if (opts.mode === "bold-period") {
+    for (const el of elements) {
+      const moduleStart = extractBoldPeriodModuleStart(el);
+      if (moduleStart) {
+        flushSec();
+        secTitle = moduleStart.title;
+        if (moduleStart.bodyHtml.trim()) {
+          secContent += moduleStart.bodyHtml + "\n";
+        }
       } else {
         secContent += el.outerHTML + "\n";
       }

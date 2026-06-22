@@ -1,6 +1,6 @@
 /**
  * Promise-chain mutex for serializing async work on the renderer thread.
- * Used by worker-client.ts so all non-transaction RPCs are strictly ordered.
+ * Used by main-ipc-client.ts so all non-transaction RPCs are strictly ordered.
  */
 let lock = Promise.resolve();
 

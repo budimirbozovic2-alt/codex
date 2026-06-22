@@ -11,7 +11,9 @@
  */
 import { 
   useQuery, 
-  useQueries, 
+  useQueries,
+  useQueryClient,
+  type QueryClient,
 } from "@tanstack/react-query";
 import {
   listAllCards,
@@ -31,6 +33,54 @@ import type { Card } from "@/lib/spaced-repetition";
 import type { MasteryDistribution } from "@/lib/db/queries";
 
 const EMPTY: readonly Card[] = Object.freeze([]);
+
+function isCardArray(data: unknown): data is readonly Card[] {
+  return (
+    Array.isArray(data) &&
+    (data.length === 0 ||
+      (typeof data[0] === "object" &&
+        data[0] !== null &&
+        "id" in data[0]))
+  );
+}
+
+/** Seed by-id lookups from already-loaded category/all card lists. */
+function findCardInCardsQueryCache(
+  qc: QueryClient,
+  id: string,
+): Card | undefined {
+  const fromAll = qc.getQueryData<readonly Card[]>(
+    queryKeys.cards.all(),
+  );
+  const fromAllHit = fromAll?.find((c) => c.id === id);
+  if (fromAllHit) return fromAllHit;
+
+  for (const [, data] of qc.getQueriesData<readonly Card[]>({
+    queryKey: queryKeys.cards.root,
+  })) {
+    if (!isCardArray(data)) continue;
+    const hit = data.find((c) => c.id === id);
+    if (hit) return hit;
+  }
+  return undefined;
+}
+
+function useCardByIdQuery(id: string | undefined | null) {
+  const qc = useQueryClient();
+  return useQuery({
+    queryKey: id
+      ? queryKeys.cards.byId(id)
+      : (["cards", "byId", "_disabled"] as const),
+    queryFn: () => getCardsByIds([id!]).then((rows) => rows[0] ?? null),
+    enabled: !!id,
+    staleTime: Infinity,
+    placeholderData: (previousData) => {
+      if (previousData !== undefined) return previousData;
+      if (!id) return undefined;
+      return findCardInCardsQueryCache(qc, id);
+    },
+  });
+}
 
 /** * Unified query with PR-H3 structural selection support.
  * Allows components to subscribe to narrow data slices.
@@ -93,16 +143,16 @@ export function useCardsBySource(
 }
 
 export function useCardById(id: string | undefined | null): Card | null {
-  const { data } = useQuery({
-    queryKey: id 
-      ? (["cards", "byId", id] as const) 
-      : (["cards", "byId", "_disabled"] as const),
-    // PR-H3 Optimizacija: Poravnat redundantni async omotac
-    queryFn: () => getCardsByIds([id!]).then((rows) => rows[0] ?? null),
-    enabled: !!id,
-    staleTime: Infinity,
-  });
+  const { data } = useCardByIdQuery(id);
   return data ?? null;
+}
+
+/** Status-aware variant — avoids treating in-flight fetches as "card missing". */
+export function useCardByIdWithStatus(
+  id: string | undefined | null,
+): { card: Card | null; isLoading: boolean; isError: boolean } {
+  const { data, isLoading, isError } = useCardByIdQuery(id);
+  return { card: data ?? null, isLoading, isError };
 }
 
 export function useCardCountByCategory(
@@ -154,12 +204,15 @@ export function useDueCardCount(): number {
  */
 export function useCategoryMasteryScores(
   categoryIds: readonly string[],
+  options?: { enabled?: boolean },
 ): Record<string, number> {
+  const enabled = (options?.enabled ?? true) && categoryIds.length > 0;
   return useQueries({
     queries: categoryIds.map((id) => ({
       queryKey: queryKeys.cards.avgMasteryByCategory(id),
       queryFn: () => avgMasteryScoreByCategoryFromDb(id),
       staleTime: Infinity,
+      enabled,
     })),
     combine: (results) => {
       const out: Record<string, number> = {};
@@ -232,12 +285,15 @@ export function useMasteryDistributionByCategory(
  */
 export function useCardCountsByCategoryMap(
   categoryIds: readonly string[],
+  options?: { enabled?: boolean },
 ): Record<string, number> {
+  const enabled = (options?.enabled ?? true) && categoryIds.length > 0;
   return useQueries({
     queries: categoryIds.map((id) => ({
       queryKey: queryKeys.cards.countByCategory(id),
       queryFn: () => cardCountByCategory(id),
       staleTime: Infinity,
+      enabled,
     })),
     combine: (results) => {
       const out: Record<string, number> = {};

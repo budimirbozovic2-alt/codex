@@ -71,25 +71,15 @@ describe("splash bridge", () => {
     expect(steps).toContain("boot:phase:enter:ready");
   });
 
-  it("emituje boot:heal-degraded sa skipped step-ovima", () => {
-    installSplashBridge();
-    transition({ type: "HEAL_START" });
-    transition({ type: "HEAL_STEP_FAIL", step: "taxonomy" });
-    transition({ type: "HEAL_STEP_FAIL", step: "shapes" });
-    transition({ type: "HEAL_DONE" }); // exit healing
-    const degraded = markBootStepMock.mock.calls.find((c) => c[0] === "boot:heal-degraded");
-    expect(degraded).toBeDefined();
-    expect(degraded?.[1]).toContain("taxonomy");
-    expect(degraded?.[1]).toContain("shapes");
-  });
-
   it("idempotentan install — drugi poziv ne duplira listenere", () => {
     installSplashBridge();
     installSplashBridge();
     transition({ type: "SCHEMA_START" });
-    // Jedan listener bi trebao biti registrovan → samo jedan splashProgress poziv za SCHEMA_START
-    const schemaCalls = splashProgressMock.mock.calls.filter((c) => c[1] === "Schema upgrade…" || (typeof c[1] === "string" && c[1].includes("Schema")));
-    // Bridge mapira SCHEMA_START → splashProgress(10, "Schema upgrade…") jednom
+    const schemaCalls = splashProgressMock.mock.calls.filter(
+      (c) =>
+        c[1] === "Schema upgrade…" ||
+        (typeof c[1] === "string" && c[1].includes("Schema")),
+    );
     expect(schemaCalls.length).toBe(1);
   });
 });

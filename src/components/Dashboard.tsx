@@ -32,16 +32,55 @@ interface Props {
   headerActions?: React.ReactNode;
 }
 
-export default function Dashboard({ stats, categoryStats, categories, categoryRecords, subcategories: _subcategories, cards, reviewLog, srSettings, onExport, headerActions }: Props) {
+export default function Dashboard({
+  stats,
+  categoryStats,
+  categories,
+  categoryRecords,
+  subcategories: _subcategories,
+  cards,
+  reviewLog,
+  srSettings,
+  onExport,
+  headerActions,
+}: Props) {
   const { t } = useI18n();
   const {
-    wc, todayReviews, dailyGoal, goalProgress, pendingFirstReview, streak,
-    focusRatio, actualRatio, autoSuggestion, storageUsage, plannerData,
-    velocityData, weakestCategories, weakestCategory, briefText, statusIcons, statusColor, statusMessage,
+    wc,
+    todayReviews,
+    dailyGoal,
+    goalProgress,
+    pendingFirstReview,
+    streak,
+    focusRatio,
+    actualRatio,
+    autoSuggestion,
+    storageUsage,
+    plannerData,
+    velocityData,
+    weakestCategories,
+    weakestCategory,
+    briefText,
+    statusIcons,
+    statusColor,
+    statusMessage,
     studyFlowData,
-  } = useDashboardData(stats, categoryStats, categories, categoryRecords, cards, reviewLog, srSettings);
+  } = useDashboardData(
+    stats,
+    categoryStats,
+    categories,
+    categoryRecords,
+    cards,
+    reviewLog,
+    srSettings,
+  );
+
+  const showTodayPair = studyFlowData != null || wc.showBriefing;
+  const showPlannerPhase =
+    wc.showProgressRing && plannerData?.activePhase != null;
+
   return (
-    <div className="space-y-8 relative animate-fade-in">
+    <div className="space-y-5 relative animate-fade-in">
       <PageHeader
         eyebrow={t("dashboard.eyebrow")}
         title={t("dashboard.title")}
@@ -49,9 +88,12 @@ export default function Dashboard({ stats, categoryStats, categories, categoryRe
         actions={headerActions}
       />
 
-      {/* Warnings strip — promoted to the top so alerts are immediately visible */}
       {wc.showStatusIcons && (
-        <StatusIconsRow icons={statusIcons} onExport={onExport} storagePercent={storageUsage?.percent} />
+        <StatusIconsRow
+          icons={statusIcons}
+          onExport={onExport}
+          storagePercent={storageUsage?.percent}
+        />
       )}
 
       {wc.showExamProgress && (
@@ -63,17 +105,8 @@ export default function Dashboard({ stats, categoryStats, categories, categoryRe
         />
       )}
 
-      {/*
-        Layout contract:
-        - 3-col grid on lg+: analytics span 2, actions occupy 1 (sticky rail).
-        - items-start prevents the right rail from stretching to match the
-          (potentially huge) analytics column.
-        - The actions <aside> is lg:sticky so Strateški planer / Statistika
-          NEVER scroll out of the viewport regardless of planner payload size.
-      */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
-        {/* Analytics column (everything dynamic) */}
-        <div className="lg:col-span-2 space-y-8 min-w-0">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 lg:gap-6 items-start">
+        <div className="lg:col-span-2 min-w-0 flex flex-col gap-5">
           {wc.showCoreStats && (
             <CoreStats
               due={stats.due}
@@ -82,51 +115,71 @@ export default function Dashboard({ stats, categoryStats, categories, categoryRe
             />
           )}
 
-          {wc.showProgressRing && plannerData && plannerData.activePhase && (
-            <div className="animate-fade-up glass-card p-5 h-full flex flex-col">
-              <div className="flex items-center gap-2 mb-4">
-                <Target className="h-4 w-4 text-primary" />
-                <h3 className="text-eyebrow normal-case tracking-normal">Progres faze: {plannerData.activePhase.name}</h3>
-              </div>
-              {/* Bounded inner area — planner data scrolls inside the card
-                  instead of expanding the card and pushing siblings around. */}
-              <div className="max-h-72 overflow-y-auto pr-1">
-                <div className="flex items-center justify-around">
-                  <ProgressRing
-                    percent={plannerData.activePhase.pct}
-                    label="Ukupno"
-                    sublabel={`${plannerData.activePhase.learned}/${plannerData.activePhase.total}`}
-                    colorClass="text-primary"
-                  />
-                  <ProgressRing
-                    percent={plannerData.dailyQuota > 0 ? Math.min(100, Math.round((plannerData.dailyMapped / plannerData.dailyQuota) * 100)) : 0}
-                    label="Danas"
-                    sublabel={`${plannerData.dailyMapped}/${plannerData.dailyQuota}`}
-                    colorClass={plannerData.dailyMapped >= plannerData.dailyQuota && plannerData.dailyQuota > 0 ? "text-success" : "text-warning"}
-                  />
-                </div>
-                {plannerData.redistResult?.redistributed && (
-                  <p className="text-xs text-warning mt-3 text-center">
-                    ⚡ Kvota automatski redistribuirana: {plannerData.redistResult.newQuota} sekcija/dan
-                  </p>
-                )}
-              </div>
+          {showTodayPair && (
+            <div
+              className={`grid gap-4 items-stretch ${
+                studyFlowData && wc.showBriefing
+                  ? "grid-cols-1 sm:grid-cols-2"
+                  : "grid-cols-1"
+              }`}
+            >
+              {studyFlowData && <StudyFlowWidget data={studyFlowData} />}
+              {wc.showBriefing && (
+                <DailyBriefing
+                  briefText={briefText}
+                  timeRecMessage={plannerData?.timeRec?.message ?? null}
+                  todayReviews={todayReviews}
+                  dailyGoal={dailyGoal}
+                  goalProgress={goalProgress}
+                  streak={streak}
+                />
+              )}
             </div>
           )}
 
-          {studyFlowData && (
-            <StudyFlowWidget data={studyFlowData} />
-          )}
-
-          {wc.showBriefing && (
-            <DailyBriefing
-              briefText={briefText}
-              timeRecMessage={plannerData?.timeRec?.message ?? null}
-              todayReviews={todayReviews}
-              dailyGoal={dailyGoal}
-              goalProgress={goalProgress}
-              streak={streak}
-            />
+          {showPlannerPhase && plannerData?.activePhase && (
+            <div className="animate-fade-up glass-card p-5">
+              <div className="flex items-center gap-2 mb-4">
+                <Target className="h-4 w-4 text-primary shrink-0" />
+                <h3 className="text-eyebrow normal-case tracking-normal truncate">
+                  Progres faze: {plannerData.activePhase.name}
+                </h3>
+              </div>
+              <div className="flex flex-wrap items-center justify-center gap-8 sm:gap-12">
+                <ProgressRing
+                  percent={plannerData.activePhase.pct}
+                  label="Ukupno"
+                  sublabel={`${plannerData.activePhase.learned}/${plannerData.activePhase.total}`}
+                  colorClass="text-primary"
+                />
+                <ProgressRing
+                  percent={
+                    plannerData.dailyQuota > 0
+                      ? Math.min(
+                          100,
+                          Math.round(
+                            (plannerData.dailyProgress / plannerData.dailyQuota) * 100,
+                          ),
+                        )
+                      : 0
+                  }
+                  label="Danas"
+                  sublabel={`${plannerData.dailyProgress}/${plannerData.dailyQuota}`}
+                  colorClass={
+                    plannerData.dailyProgress >= plannerData.dailyQuota &&
+                    plannerData.dailyQuota > 0
+                      ? "text-success"
+                      : "text-warning"
+                  }
+                />
+              </div>
+              {plannerData.redistResult?.redistributed && (
+                <p className="text-xs text-warning mt-4 text-center">
+                  ⚡ Kvota automatski redistribuirana:{" "}
+                  {plannerData.redistResult.newQuota} sekcija/dan
+                </p>
+              )}
+            </div>
           )}
 
           {wc.showIdealFocus && stats.totalSections > 0 && (
@@ -146,19 +199,17 @@ export default function Dashboard({ stats, categoryStats, categories, categoryRe
               showWeakCategories={wc.showWeakCategories}
             />
           )}
-
         </div>
 
-        {/* Action rail — locked, sticky on lg+, scrolls inner overflow on smaller widths */}
         <aside
-          aria-label="Brze akcije"
-          className="lg:col-span-1 lg:sticky lg:top-4 self-start space-y-5 min-w-0 lg:max-h-[calc(100vh-2rem)] lg:overflow-y-auto pr-1"
+          aria-label="Brze akcije i alati"
+          className="lg:col-span-1 min-w-0 flex flex-col gap-4 lg:sticky lg:top-4 self-start"
         >
           <QuickActions dueCount={stats.due} hasCards={cards.length > 0} />
-          <ToolCards />
+          <ToolCards layout="stack" />
           <BackupCard />
           {wc.showHeatmap && (
-            <div className="glass-card rounded-xl p-4 overflow-x-auto -mx-1 px-1">
+            <div className="glass-card rounded-xl p-4 overflow-x-auto">
               <ActivityHeatmap reviewLog={reviewLog} />
             </div>
           )}

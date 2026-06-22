@@ -5,13 +5,14 @@ import { useCardOnlyActions } from "@/hooks/cards/useActions";
 import { useCategoryData } from "@/hooks/cards/useCategoryState";
 import { useCardData, useReviewData } from "@/hooks/cards/useCardState";
 import { useUIContext } from "@/hooks/useUI";
-import { useSessionContext, QueuedReview, QueuedError } from "@/hooks/useSession";
+import { useSessionContext, QueuedReview, QueuedError } from "@/store/useSessionStore";
 import { SectionState } from "@/lib/spaced-repetition";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import ReviewSession from "@/components/ReviewSession";
 import EmptyState from "@/components/EmptyState";
 import { getParam } from "@/lib/url-params";
-import { hasConsolidationWork } from "@/lib/review-mode-builder";
+import { hasConsolidationWork, countConsolidationEligibleCards } from "@/lib/review-mode-builder";
+import { countScheduleDueCards } from "@/lib/sr/schedule-due";
 import { DataReadyGate, SessionSetupSkeleton } from "@/components/ui/loading";
 
 export default function ReviewPage() {
@@ -25,7 +26,7 @@ export default function ReviewPage() {
   const location = useLocation();
   const lockedCategory = getParam(searchParams, "category");
   const modeParam = getParam(searchParams, "mode");
-  const autoMode = (modeParam === "critical" || modeParam === "stabilization" || modeParam === "hardest")
+  const autoMode = (modeParam === "critical" || modeParam === "stabilization" || modeParam === "hardest" || modeParam === "catchup")
     ? modeParam
     : undefined;
 
@@ -66,13 +67,28 @@ export default function ReviewPage() {
     return { totalCards: scopedAllCards.length, newSections, reviewSections, nextDueDate };
   }, [scopedAllCards]);
 
-  const consolidationAvailable = useMemo(
-    () => hasConsolidationWork({
+  const buildArgs = useMemo(
+    () => ({
       dueCards: scopedDueCards,
       allCards: scopedAllCards,
       srSettings,
     }),
     [scopedDueCards, scopedAllCards, srSettings],
+  );
+
+  const consolidationAvailable = useMemo(
+    () => hasConsolidationWork(buildArgs),
+    [buildArgs],
+  );
+
+  const scheduleDueCount = useMemo(
+    () => countScheduleDueCards(scopedAllCards),
+    [scopedAllCards],
+  );
+
+  const consolidationDueCount = useMemo(
+    () => countConsolidationEligibleCards(buildArgs),
+    [buildArgs],
   );
 
   const handleReviewSection = useCallback((cardId: string, sectionId: string, grade: number) => {
@@ -104,7 +120,14 @@ export default function ReviewPage() {
     <DataReadyGate ready={ready} skeleton={<SessionSetupSkeleton />}>
       <ErrorBoundary label="Ponavljanje" onNavigateHome={() => setView("dashboard")}>
         {!consolidationAvailable ? (
-          <EmptyState type="review" diagnostics={diagnostics} />
+          <EmptyState
+            type="review"
+            diagnostics={{
+              ...diagnostics,
+              scheduleDueCards: scheduleDueCount,
+              consolidationDueCards: consolidationDueCount,
+            }}
+          />
         ) : (
           <ReviewSession
             dueCards={scopedDueCards}

@@ -1,4 +1,8 @@
-/** Daily-mapped counter + midnight auto-redistribute. */
+/** Daily-mapped counter + midnight auto-redistribute.
+ *
+ * NOTE: `incrementDailyMapped` tracks Source Reader mapping activity only.
+ * Planner/dashboard daily progress uses `countDailyLearnProgress` (review log).
+ */
 import { addDays } from "date-fns";
 import type { Card } from "@/lib/spaced-repetition";
 import {
@@ -6,6 +10,7 @@ import {
   disciplineCache,
   lastRedistributeCache,
 } from "./cache";
+import { loadPlanner, savePlanner } from "./config";
 import { saveDailyMapped, saveLastRedistribute } from "@/lib/db/queries";
 import { calcRebalancedQuota } from "./suggestions";
 
@@ -49,6 +54,14 @@ export function autoRedistributeIfNeeded(
   const remaining = total - learned;
   const result = calcRebalancedQuota(remaining, goalDateStr, bufferPct);
   if (!result) return null;
+
+  // Persist the rebalanced quota so the next planner/dashboard render is consistent.
+  const config = loadPlanner();
+  if (config.dailyQuotaOverride !== result.newDailyQuota) {
+    void savePlanner({ ...config, dailyQuotaOverride: result.newDailyQuota }).catch(() => {
+      /* quota persist is best-effort during auto-redistribute */
+    });
+  }
 
   lastRedistributeCache.set(today);
   void saveLastRedistribute(today);

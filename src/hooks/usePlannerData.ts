@@ -1,12 +1,14 @@
 import { useMemo, useCallback, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { usePlannerMutations } from "@/hooks/planner/usePlannerMutations";
+import { usePlannerAutoRedistribute } from "@/hooks/planner/usePlannerAutoRedistribute";
 import { Card as SRCard } from "@/lib/spaced-repetition";
 import { ReviewLogEntry } from "@/lib/storage";
 import type { CategoryRecord } from "@/lib/db-types";
 import { analyticsClient } from "@/lib/analytics/workerClient";
 import type { PlannerConfig } from "@/domains/planner";
 import { DEFAULT_CONFIG, calcLearningReviewRatio } from "@/domains/planner";
+import type { SubjectPlan } from "@/types/planner";
 import { queryKeys } from "@/lib/query/keys";
 import {
   hashCards,
@@ -96,43 +98,31 @@ export function usePlannerData(cards: SRCard[], reviewLog: ReviewLogEntry[], cat
     return count;
   }, [cards]);
 
-  // ── Pure-sync derived calcs (useMemo, gated on `mod`) ────────────────
-  //
-  // Each block returns `null` (or its zero value) until the planner module
-  // is loaded. The original `useQuery` versions did the same via `enabled`.
-
-  const velocity = useMemo<number | null>(() => {
-    if (!mod) return null;
-    return mod.calcVelocity(reviewLog, 7);
-  }, [mod, reviewLog]);
-  const estimatedFinish = useMemo(() => {
-    if (!mod || velocity === null) return null;
-    return mod.calcEstimatedFinish(remaining, velocity);
-  }, [mod, velocity, remaining]);
-
-  const plannerStatus = useMemo(() => {
-    if (!mod || estimatedFinish === null) return null;
-    return mod.getPlannerStatus(estimatedFinish, config.finalGoalDate, config.bufferPercent);
-  }, [mod, estimatedFinish, config.finalGoalDate, config.bufferPercent]);
-
-  const subjectPlans = useMemo(() => {
-    if (!mod) return null;
-    return mod.generateStudyPlan(config, categoryRecords, cards);
-  }, [mod, config, categoryRecords, cards]);
-
-  const smartSuggestion = useMemo(() => {
-    if (!mod || velocity === null) return null;
-    return mod.getSmartSuggestion(null, cards, config.finalGoalDate, config.bufferPercent, config.dailyQuotaOverride);
-  }, [mod, velocity, cards, config.finalGoalDate, config.bufferPercent, config.dailyQuotaOverride]);
-
-  const timeRec = useMemo(() => {
-    if (!mod || !smartSuggestion || velocity === null) return null;
-    return mod.calcDailyTimeRecommendation(
-      smartSuggestion.suggestedToday,
+  const snapshot = useMemo(() => {
+    if (!mod || !config.finalGoalDate) return null;
+    return mod.computePlannerSnapshot({
+      cards,
+      reviewLog,
+      categoryRecords,
+      config,
+      totalSections,
+      learnedSections,
       dueCount,
-      config.dailyAvailableMinutes,
-    );
-  }, [mod, smartSuggestion, velocity, dueCount, config.dailyAvailableMinutes]);
+    });
+  }, [mod, cards, reviewLog, categoryRecords, config, totalSections, learnedSections, dueCount]);
+
+  const subjectPlans: SubjectPlan[] | null = snapshot?.subjectPlans ?? null;
+  const velocity = snapshot?.velocity ?? null;
+  const estimatedFinish = snapshot?.estimatedFinish ?? null;
+  const plannerStatus = snapshot?.plannerStatus ?? null;
+  const smartSuggestion = snapshot?.smartSuggestion ?? null;
+  const timeRec = snapshot?.timeRec ?? null;
+  const dailyProgress = snapshot?.dailyProgress ?? 0;
+  const dailyQuota = snapshot?.dailyQuota ?? 0;
+  const learnTarget = snapshot?.learnTarget ?? 0;
+  const reviewTarget = snapshot?.reviewTarget ?? 0;
+  const activeSubjectPlan = snapshot?.activeSubjectPlan ?? null;
+  const debt = snapshot?.debt ?? null;
 
   const burnupData = useMemo(() => {
     if (!mod) return null;
@@ -149,21 +139,7 @@ export function usePlannerData(cards: SRCard[], reviewLog: ReviewLogEntry[], cat
     return mod.getPhaseDisciplinePct(disciplineLog);
   }, [mod, disciplineLog]);
 
-  const learningRatio = useMemo(
-    () => calcLearningReviewRatio(overallPct),
-    [overallPct],
-  );
-
-  const debt = useMemo<import("@/types/planner").CognitiveDebtItem | null>(() => {
-    if (!smartSuggestion) return null;
-    const debtCards = Math.max(0, smartSuggestion.suggestedToday - 5);
-    if (debtCards <= 0) return null;
-    return {
-      hasDebt: true,
-      debtCards,
-      message: `Kognitivni dug: ${debtCards} kartica iznad održivog dnevnog tempa.`,
-    };
-  }, [smartSuggestion]);
+  const learningRatio = snapshot?.learningRatio ?? calcLearningReviewRatio(overallPct);
 
   const streaks = useMemo(() => {
     if (disciplineLog.length === 0) return { streak: 0, bestStreak: 0 };
@@ -217,6 +193,12 @@ export function usePlannerData(cards: SRCard[], reviewLog: ReviewLogEntry[], cat
 
   const isConfigured = config.dailyAvailableMinutes > 0 && !!config.finalGoalDate;
 
+  const redistResult = usePlannerAutoRedistribute(
+    cards,
+    config.finalGoalDate,
+    config.bufferPercent,
+  );
+
   // PR-7f M3a — save kroz useMutation (optimistic + rollback via ctx.prev).
   // Bridge `domain:changed{planner, config}` invalidira ['planner'] nakon notify.
   const { saveConfig } = usePlannerMutations();
@@ -233,16 +215,18 @@ export function usePlannerData(cards: SRCard[], reviewLog: ReviewLogEntry[], cat
   return {
     config, save, isConfigured, isConfigLoaded,
     /** True once the lazy planner module + derived calcs are ready. */
-    isReady: subjectPlans !== null,
+    isReady: !!mod && isConfigLoaded,
     totalSections, learnedSections, remaining, overallPct, velocity,
     estimatedFinish, plannerStatus,
     subjectPlans, learningRatio,
     smartSuggestion, dueCount,
     timeRec, debt,
+    dailyProgress, dailyQuota, learnTarget, reviewTarget, activeSubjectPlan,
     retentionRisk,
     disciplineLog, disciplineTrend, phaseDisciplinePct, isDisciplineReady,
     burnupData, projectionText,
     streak: streaks?.streak ?? 0,
     bestStreak: streaks?.bestStreak ?? 0,
+    redistResult,
   };
 }

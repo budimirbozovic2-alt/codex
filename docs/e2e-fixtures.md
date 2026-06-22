@@ -27,7 +27,7 @@ npx playwright install chromium
 npm run test:e2e
 ```
 
-Dev server se podiže automatski (`playwright.config.ts` → `webServer`) na portu **8080** sa COOP/COEP headerima. U E2E modu (`VITE_E2E=1`) SQLite koristi `:memory:` umjesto OPFS jer headless Chromium nema pouzdan OPFS pristup.
+Dev server se podiže automatski (`playwright.config.ts` → `webServer`) na portu **8080** sa `--mode e2e`. U E2E modu (`VITE_E2E=1`) SQLite koristi in-memory wasm executor u rendereru (`src/e2e/browser-memory-sqlite.ts`).
 
 ## Testovi
 
@@ -35,3 +35,15 @@ Dev server se podiže automatski (`playwright.config.ts` → `webServer`) na por
 |------|----------|
 | `e2e/source-reader-edit.spec.ts` | Otvori izvor → Uredi → tipkanje → čekaj „Sačuvano” |
 | `e2e/source-reader-edit.spec.ts` | Selekcija teksta → bubble menu „Esej” vidljiv |
+| `e2e/persistence-restart.spec.ts` | Seed kartica → simulirani restart sesije → kartica u UI |
+
+## Persistence fixture ID-evi
+
+| Entitet | ID |
+|---------|-----|
+| Kategorija | `f1111111-1111-4111-8111-111111111111` |
+| Kartica | `f2222222-2222-4222-8222-222222222222` |
+
+Konstante: [`src/e2e/seed-persistence-fixture.ts`](../src/e2e/seed-persistence-fixture.ts).
+
+`simulateSessionRestart()` briše TanStack keš i ponovo pokreće boot DAG — SQLite podaci ostaju u E2E in-memory bazi (isti simptom kao „restart app“ bez gubitka DB fajla).

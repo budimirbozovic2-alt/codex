@@ -1,5 +1,5 @@
 import {
-  Download, Settings2, ShieldCheck, AlertTriangle,
+  Download, Settings2,
 } from "lucide-react";
 import React, {
   memo, useCallback, useEffect, useState,
@@ -80,38 +80,31 @@ export const BackupCard = memo(function BackupCard({
 
   const content = (
     <>
-      <div className={cn("flex items-start gap-3", isSettings && "py-3.5")}>
-        {!isSettings && (
-          <div
-            className={cn(
-              "p-2.5 rounded-lg shrink-0",
-              stale ? "bg-warning/10 text-warning" : "bg-primary/10 text-primary",
-            )}
-          >
-            {stale ? (
-              <AlertTriangle className="h-5 w-5" />
-            ) : (
-              <ShieldCheck className="h-5 w-5" />
-            )}
-          </div>
-        )}
-        <div className="min-w-0 flex-1">
-          {!isSettings && (
-            <p className="font-semibold text-sm text-foreground">
-              Backup &amp; vraćanje
+      {isSettings ? (
+        <div className={cn("flex items-start gap-3", isSettings && "py-3.5")}>
+          <div className="min-w-0 flex-1">
+            <p className={cn("text-xs text-muted-foreground")}>
+              Posljednji backup:{" "}
+              <span className={stale ? "text-warning font-medium" : "text-foreground/80"}>
+                {age.label}
+              </span>
+              {never && (
+                <span className="text-warning"> — preporučujemo izvoz</span>
+              )}
             </p>
-          )}
-          <p className={cn("text-xs text-muted-foreground", !isSettings && "mt-0.5")}>
-            Posljednji backup:{" "}
-            <span className={stale ? "text-warning font-medium" : "text-foreground/80"}>
-              {age.label}
-            </span>
-            {never && (
-              <span className="text-warning"> — preporučujemo izvoz</span>
-            )}
-          </p>
+          </div>
         </div>
-      </div>
+      ) : (
+        <p className="text-xs text-muted-foreground">
+          Posljednji backup:{" "}
+          <span className={stale ? "text-warning font-medium" : "text-foreground/80"}>
+            {age.label}
+          </span>
+          {never && (
+            <span className="text-warning"> — preporučujemo izvoz</span>
+          )}
+        </p>
+      )}
 
       {quickRunning ? (
         <div className={cn("space-y-2", isSettings && "pb-3.5")}>
@@ -121,10 +114,9 @@ export const BackupCard = memo(function BackupCard({
           </p>
         </div>
       ) : (
-        <div className={cn("flex flex-wrap gap-2", isSettings && "pb-3.5")}>
+        <div className={cn("flex flex-col gap-2", isSettings && "pb-3.5")}>
           <Button
-            size="sm"
-            className="gap-2"
+            className="w-full gap-2"
             onClick={handleQuickBackup}
             disabled={cardsCount === 0}
             title={
@@ -133,16 +125,15 @@ export const BackupCard = memo(function BackupCard({
                 : "Brzi pun backup (ZIP)"
             }
           >
-            <Download className="h-3.5 w-3.5" />
+            <Download className="h-4 w-4" />
             Brzi backup
           </Button>
           <Button
-            size="sm"
             variant="outline"
-            className="gap-2"
+            className="w-full gap-2"
             onClick={() => setDialogOpen(true)}
           >
-            <Settings2 className="h-3.5 w-3.5" />
+            <Settings2 className="h-4 w-4" />
             Više opcija
           </Button>
         </div>
@@ -159,8 +150,8 @@ export const BackupCard = memo(function BackupCard({
           await exportData(compress, onProgress);
           refreshLastBackup();
         }}
-        onImport={async (file, strategy, onProgress) => {
-          await importData(file, strategy, onProgress);
+        onImport={async (prepared, strategy, onProgress) => {
+          await importData(prepared, strategy, onProgress);
           refreshLastBackup();
         }}
         cardsCount={cardsCount}
@@ -173,7 +164,8 @@ export const BackupCard = memo(function BackupCard({
   }
 
   return (
-    <div className="glass-card hover-lift rounded-xl p-5 space-y-4">
+    <div className="glass-card rounded-xl p-4 space-y-3">
+      <h3 className="text-sm font-semibold text-foreground">Backup & vraćanje</h3>
       {content}
     </div>
   );

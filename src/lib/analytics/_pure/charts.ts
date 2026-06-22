@@ -1,7 +1,9 @@
 // Pure chart aggregators — heavy reduce/map loops used by MyStats.
 // Moved out of `useStatsData` so the worker can run them off the main thread.
 import { format, subDays, startOfDay, eachDayOfInterval } from "date-fns";
-import { Card, SectionState, getSectionScore } from "../../spaced-repetition";
+import type { Card } from "@/lib/sr/types";
+import { SectionState } from "@/lib/sr/types";
+import { getSectionScore } from "@/lib/sr/retrievability";
 import type { ReviewLogEntry } from "../../storage";
 
 interface ActivityPoint {

@@ -1,4 +1,4 @@
-import { Card, SectionState } from "@/lib/spaced-repetition";
+import { Card, SectionState } from "@/lib/sr/types";
 
 export interface MasteryLevel {
   level: number;

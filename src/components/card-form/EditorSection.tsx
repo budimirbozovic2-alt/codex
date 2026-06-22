@@ -132,29 +132,41 @@ const EditorSection = memo(function EditorSection({
 
       {/* Question */}
       <div className="space-y-2">
-        <label className="text-sm font-medium text-muted-foreground">Pitanje</label>
-        <EditorV4
-          initialDoc={questionDoc}
-          onChange={(doc) => setQuestion(docToHtml(doc))}
-          placeholder={cardType === "flash" ? "Unesite pitanje..." : "Unesite esejsko pitanje..."}
-          minimal
-        />
+        <label htmlFor="card-form-question" className="text-sm font-medium text-muted-foreground">Pitanje</label>
+        <div
+          id="card-form-question"
+          aria-invalid={validationErrors.question ? true : undefined}
+          aria-describedby={validationErrors.question ? "card-form-question-error" : undefined}
+        >
+          <EditorV4
+            initialDoc={questionDoc}
+            onChange={(doc) => setQuestion(docToHtml(doc))}
+            placeholder={cardType === "flash" ? "Unesite pitanje..." : "Unesite esejsko pitanje..."}
+            minimal
+          />
+        </div>
         {validationErrors.question && (
-          <p className="text-xs text-destructive">{validationErrors.question}</p>
+          <p id="card-form-question-error" role="alert" className="text-xs text-destructive">{validationErrors.question}</p>
         )}
       </div>
 
       {/* Flash answer or Essay sections */}
       {cardType === "flash" ? (
         <div className="space-y-2">
-          <label className="text-sm font-medium text-muted-foreground">Odgovor</label>
-          <EditorV4
-            initialDoc={flashAnswerDoc}
-            onChange={(doc) => setFlashAnswer(docToHtml(doc))}
-            placeholder="Unesite odgovor..."
-          />
+          <label htmlFor="card-form-flash-answer" className="text-sm font-medium text-muted-foreground">Odgovor</label>
+          <div
+            id="card-form-flash-answer"
+            aria-invalid={validationErrors.flashAnswer ? true : undefined}
+            aria-describedby={validationErrors.flashAnswer ? "card-form-flash-answer-error" : undefined}
+          >
+            <EditorV4
+              initialDoc={flashAnswerDoc}
+              onChange={(doc) => setFlashAnswer(docToHtml(doc))}
+              placeholder="Unesite odgovor..."
+            />
+          </div>
           {validationErrors.flashAnswer && (
-            <p className="text-xs text-destructive">{validationErrors.flashAnswer}</p>
+            <p id="card-form-flash-answer-error" role="alert" className="text-xs text-destructive">{validationErrors.flashAnswer}</p>
           )}
         </div>
       ) : (

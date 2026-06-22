@@ -17,6 +17,15 @@ export interface PlannerHydrationSnapshot {
 export async function loadPlannerSnapshot(): 
   Promise<PlannerHydrationSnapshot> {
   const exec = await requireSqlExecutor("planner:loadPlannerSnapshot");
+
+  async function safeKvGet<T>(key: string): Promise<T | undefined> {
+    try {
+      return await kvGet<T>(exec, key);
+    } catch (err) {
+      logger.warn(`[planner-repo] kv read failed for ${key}`, err);
+      return undefined;
+    }
+  }
   
   const [
     plannerConfig, 
@@ -24,9 +33,9 @@ export async function loadPlannerSnapshot():
     lastRedistribute, 
     disciplineRows
   ] = await Promise.all([
-    kvGet<unknown>(exec, "plannerConfig"),
-    kvGet<unknown>(exec, "dailyMapped"),
-    kvGet<string>(exec, "lastRedistribute"),
+    safeKvGet<unknown>("plannerConfig"),
+    safeKvGet<unknown>("dailyMapped"),
+    safeKvGet<string>("lastRedistribute"),
     exec.all<{ payload: string }>(
       "SELECT payload FROM disciplineLog ORDER BY date ASC"
     ),
@@ -101,6 +110,7 @@ async function putKv(key: string, value: unknown): Promise<void> {
       `[planner-repo] sqlite kvPut(${key}) failed`, 
       err
     );
+    throw err instanceof Error ? err : new Error(String(err));
   }
 }
 

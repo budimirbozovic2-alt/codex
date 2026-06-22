@@ -36,10 +36,11 @@ describe("SourceBubbleMenu", () => {
 
     fireEvent.click(screen.getByTitle("Napravi esej (S)"));
     expect(onSplit).toHaveBeenCalledTimes(1);
-    const [text, html] = onSplit.mock.calls[0];
-    expect(text.length).toBeGreaterThanOrEqual(5);
-    expect(html.length).toBeGreaterThanOrEqual(5);
-    expect(html).toContain("Selektovani");
+    const sel = onSplit.mock.calls[0][0];
+    expect(sel.text.length).toBeGreaterThanOrEqual(5);
+    expect(sel.html.length).toBeGreaterThanOrEqual(5);
+    expect(sel.html).toContain("Selektovani");
+    expect(sel.contentDoc).toBeDefined();
   });
 
   it("forwards selection to onLinkToExisting and onAddMnemo", () => {
@@ -103,5 +104,35 @@ describe("SourceBubbleMenu", () => {
       />,
     );
     expect(screen.getByTitle("Naslov 1")).toBeInTheDocument();
+  });
+
+  it("shows legal provision toggle for skripta in edit mode", () => {
+    editor = createSourceTestEditor("Član 1. Tekst propisa za označavanje.");
+    render(
+      <SourceBubbleMenu
+        editor={editor}
+        editMode={true}
+        sourceKind="skripta"
+        onSplit={vi.fn()}
+        onLinkToExisting={vi.fn()}
+        onAddMnemo={vi.fn()}
+      />,
+    );
+    expect(screen.getByTitle("Označi kao citat propisa")).toBeInTheDocument();
+  });
+
+  it("hides legal provision toggle for propis", () => {
+    editor = createSourceTestEditor("Član 1. Tekst propisa za označavanje.");
+    render(
+      <SourceBubbleMenu
+        editor={editor}
+        editMode={true}
+        sourceKind="propis"
+        onSplit={vi.fn()}
+        onLinkToExisting={vi.fn()}
+        onAddMnemo={vi.fn()}
+      />,
+    );
+    expect(screen.queryByTitle("Označi kao citat propisa")).toBeNull();
   });
 });

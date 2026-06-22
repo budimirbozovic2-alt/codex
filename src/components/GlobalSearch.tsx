@@ -100,22 +100,29 @@ export default function GlobalSearch({ open, onClose, onNavigateToCard }: Props)
     return () => taskScheduler.cancel(h);
   }, [open]);
 
+  const cardSearchBlobs = useMemo(
+    () =>
+      cards.map((c) => {
+        const parts = [c.question.toLowerCase()];
+        for (const s of c.sections) {
+          parts.push(s.title.toLowerCase());
+          parts.push(derivePlainText(s.contentDoc).toLowerCase());
+        }
+        return { card: c, blob: parts.join("\n") };
+      }),
+    [cards],
+  );
+
   const results = useMemo<SearchResult[]>(() => {
     if (!debouncedQuery.trim()) return [];
     const q = debouncedQuery.toLowerCase();
     const out: SearchResult[] = [];
 
-    // Search cards
-    cards
-      .filter((c) => {
-        const questionMatch = c.question.toLowerCase().includes(q);
-        const contentMatch = c.sections.some((s) =>
-          derivePlainText(s.contentDoc).toLowerCase().includes(q) || s.title.toLowerCase().includes(q)
-        );
-        return questionMatch || contentMatch;
-      })
+    // Search cards (pre-built lowercase blob per card)
+    cardSearchBlobs
+      .filter(({ blob }) => blob.includes(q))
       .slice(0, 10)
-      .forEach((c) => {
+      .forEach(({ card: c }) => {
         out.push({
           id: c.id,
           type: "card",
@@ -182,7 +189,7 @@ export default function GlobalSearch({ open, onClose, onNavigateToCard }: Props)
     // it would re-run search on every category rename. Search is scoped to
     // cards/sources/mindmaps/kb content, not name labels.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cards, sources, mindMaps, kbArticles, debouncedQuery]);
+  }, [cardSearchBlobs, sources, mindMaps, kbArticles, debouncedQuery]);
 
   useEffect(() => {
     setSelectedIndex(0);

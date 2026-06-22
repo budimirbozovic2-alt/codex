@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { E2E_CATEGORY_ID, E2E_SKRIPTA_SOURCE_ID } from "../src/e2e/seed-reader-fixture";
+import { E2E_CATEGORY_ID, E2E_SKRIPTA_SOURCE_ID } from "../src/e2e/fixture-ids";
 
 const ONBOARDING_KEYS = [
   "sr-app-onboarding-seen",

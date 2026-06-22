@@ -5,8 +5,9 @@ import {
 } from "lucide-react";
 import { useCallback } from "react";
 import { cn } from "@/lib/utils";
-import { docToHtml, type Editor } from "@/lib/editor-v4";
+import type { Editor } from "@/lib/editor-v4";
 import type { SourceKind } from "@/lib/db-types";
+import { getEditorSelectionPayload, type SelectionPayload } from "@/lib/source-reader/selection-payload";
 
 interface Props {
   editor: Editor;
@@ -14,10 +15,10 @@ interface Props {
   editMode: boolean;
   /** When "skripta", shows the legal-provision toggle in edit mode. */
   sourceKind?: SourceKind;
-  /** Selected text + HTML fragment → Smart-Split wizard. */
-  onSplit: (text: string, html: string) => void;
-  /** Selected text + HTML fragment → "Link to existing essay" modal. */
-  onLinkToExisting: (text: string, html: string) => void;
+  /** Selected text + HTML + V4 AST → Smart-Split wizard. */
+  onSplit: (payload: SelectionPayload) => void;
+  /** Selected text + HTML + V4 AST → "Link to existing essay" modal. */
+  onLinkToExisting: (payload: SelectionPayload) => void;
   /** Selected plain text → mnemonic workshop. */
   onAddMnemo: (text: string) => void;
 }
@@ -36,31 +37,19 @@ interface Props {
 export function SourceBubbleMenu({
   editor, editMode, sourceKind, onSplit, onLinkToExisting, onAddMnemo,
 }: Props) {
-  /** Resolve current selection → `{ text, html }` using the V4 codec. */
-  const getSelectionPayload = useCallback((): { text: string; html: string } | null => {
-    const { state } = editor;
-    const { from, to, empty } = state.selection;
-    if (empty || to - from < 1) return null;
-    const text = state.doc.textBetween(from, to, "\n", " ").trim();
-    if (text.length < 5) return null;
-    const slice = state.doc.slice(from, to);
-    // Wrap slice in a `doc` node so generateHTML produces well-formed markup.
-    const docJson = {
-      type: "doc",
-      content: slice.content.toJSON() as unknown as never[],
-    };
-    const html = docToHtml({ version: 4, content: docJson });
-    return { text, html };
+  /** Resolve current selection → `{ text, html, contentDoc }` using the V4 codec. */
+  const getSelectionPayload = useCallback((): SelectionPayload | null => {
+    return getEditorSelectionPayload(editor);
   }, [editor]);
 
   const handleSplit = useCallback(() => {
     const p = getSelectionPayload();
-    if (p) onSplit(p.text, p.html);
+    if (p) onSplit(p);
   }, [getSelectionPayload, onSplit]);
 
   const handleLink = useCallback(() => {
     const p = getSelectionPayload();
-    if (p) onLinkToExisting(p.text, p.html);
+    if (p) onLinkToExisting(p);
   }, [getSelectionPayload, onLinkToExisting]);
 
   const handleMnemo = useCallback(() => {

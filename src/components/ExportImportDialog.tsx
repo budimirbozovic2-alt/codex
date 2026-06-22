@@ -1,17 +1,19 @@
 import { useState, useCallback } from "react";
 import { toast } from "sonner";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { MenuStep } from "./export-import/MenuStep";
 import { ExportStep } from "./export-import/ExportStep";
 import { ProgressStep } from "./export-import/ProgressStep";
 import { ImportConfirmStep } from "./export-import/ImportConfirmStep";
 import { ImportConflictStep } from "./export-import/ImportConflictStep";
-import { validateImportFile } from "./export-import/useImportValidation";
+import { validateImportFile } from "@/hooks/useImportValidation";
 import type { 
   Step, 
   ImportValidation, 
-  ImportStrategy 
+  ImportStrategy,
+  PreparedImport,
 } from "./export-import/types";
+import { resolveAutoImportStrategy } from "@/lib/backup/resolve-import-strategy";
 import { logger } from "@/lib/logger";
 
 function resolveImportStep(validation: ImportValidation): Step {
@@ -31,7 +33,7 @@ interface ExportImportDialogProps {
     onProgress: (p: number, msg: string) => void
   ) => Promise<void>;
   onImport: (
-    file: File, 
+    prepared: PreparedImport,
     strategy: ImportStrategy, 
     onProgress?: (p: number, msg: string) => void
   ) => Promise<void>;
@@ -118,24 +120,26 @@ export default function ExportImportDialog({
         fileSizeKB: 0,
         duplicateCount: 0,
         duplicateCategoryCount: 0,
+        existingCardsCount: 0,
         uniqueCount: 0,
         valid: false,
         errors: [message],
         fileVersion: null,
         appVersion: 0,
         willMigrate: false,
+        prepared: null,
       });
       setStep("import-confirm");
     }
   };
 
   const handleImport = async (strategy: ImportStrategy) => {
-    if (!validation?.file) return;
+    if (!validation?.prepared) return;
     setStep("importing");
     setProgress(2);
     setProgressMsg("Pripremam uvoz…");
     try {
-      await onImport(validation.file, strategy, onProgress);
+      await onImport(validation.prepared, strategy, onProgress);
       setProgress(100);
       setProgressMsg("Završeno.");
       handleOpenChange(false);
@@ -152,6 +156,10 @@ export default function ExportImportDialog({
           step === "import-conflict" ? "sm:max-w-lg" : "sm:max-w-md"
         }
       >
+        <DialogTitle className="sr-only">Backup i uvoz</DialogTitle>
+        <DialogDescription className="sr-only">
+          Izvoz ili uvoz CODEX backup fajlova.
+        </DialogDescription>
         {step === "menu" && (
           <MenuStep 
             onPickExport={() => setStep("export")} 
@@ -179,8 +187,11 @@ export default function ExportImportDialog({
         {step === "import-confirm" && validation && (
           <ImportConfirmStep
             validation={validation}
-            currentCardsCount={cardsCount}
-            onConfirm={() => handleImport("keep")}
+            onConfirm={() => handleImport(resolveAutoImportStrategy({
+              type: validation.type,
+              hasProgress: validation.hasProgress,
+              existingCardsCount: validation.existingCardsCount,
+            }))}
             onCancel={reset}
           />
         )}

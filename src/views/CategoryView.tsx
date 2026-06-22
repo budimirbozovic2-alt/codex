@@ -5,7 +5,7 @@ import type { Source } from "@/lib/db-types";
 import { useCategorySourcesWithStatus } from "@/hooks/useCategorySources";
 import { useCardOnlyActions } from "@/hooks/cards/useActions";
 import { useCategoryData } from "@/hooks/cards/useCategoryState";
-import { useCardReady } from "@/hooks/cards/useCardState";
+import { useAppDataReady } from "@/hooks/cards/useCardState";
 import { useMasteryDistributionByCategory } from "@/hooks/card/useCardsQuery";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { CategoryHeaderSkeleton, SourcesTabSkeleton } from "@/components/ui/list-skeleton";
@@ -19,7 +19,7 @@ import {
   SOURCE_READER_OPEN_EVENT,
 } from "@/lib/source-reader/pending-source-open";
 import { setImmersiveMode, setTitleBarContext } from "@/store/useUIStore";
-import { getSourceContentDirty, resetSourceContentSave } from "@/store/useSourceContentSaveStore";
+import { getSourceContentDirty, resetSourceContentSave, flushSourceContentSave } from "@/store/useSourceContentSaveStore";
 import { useSourceReaderStore } from "@/store";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -27,7 +27,7 @@ import { Button } from "@/components/ui/button";
 export default function CategoryView() {
   const { categoryId } = useParams<{ categoryId: string }>();
 
-  const ready = useCardReady();
+  const ready = useAppDataReady();
   const { categoryRecords } = useCategoryData();
 
   const category = useMemo(
@@ -93,11 +93,14 @@ export default function CategoryView() {
 
   const handleSourceUpdated = useCallback(() => {}, []);
 
-  const handleReaderBack = useCallback(() => {
+  const handleReaderBack = useCallback(async () => {
     const { editMode } = useSourceReaderStore.getState();
     if (editMode && getSourceContentDirty()) {
-      const leave = window.confirm("Imate nesačuvane izmjene. Napustiti čitač bez čuvanja?");
-      if (!leave) return;
+      const saved = await flushSourceContentSave();
+      if (!saved) {
+        const leave = window.confirm("Čuvanje nije uspjelo. Napustiti bez čuvanja?");
+        if (!leave) return;
+      }
     }
     resetSourceContentSave();
     setReaderSource(null);

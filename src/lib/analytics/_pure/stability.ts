@@ -1,7 +1,7 @@
 // Pure category-stability + strategic reality check. Receives planner snapshots
 // (loaded on main thread) so the worker never touches storage.
 import { addDays, differenceInDays, startOfDay } from "date-fns";
-import type { Card } from "../../spaced-repetition";
+import type { Card } from "@/lib/sr/types";
 import type { ReviewLogEntry } from "../../storage";
 import type { DisciplineEntry, PlannerConfig } from "@/domains/planner";
 

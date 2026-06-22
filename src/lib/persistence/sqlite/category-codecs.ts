@@ -172,6 +172,13 @@ export async function replaceCategoryTaxonomy(
   categoryId: string,
   subcategories: readonly SubcategoryNode[],
 ): Promise<void> {
+  const subs = await tx.all<{ id: string }>(
+    "SELECT id FROM subcategories WHERE categoryId = ?",
+    [categoryId],
+  );
+  for (const sub of subs) {
+    await tx.run("DELETE FROM chapters WHERE subcategoryId = ?", [sub.id]);
+  }
   await tx.run("DELETE FROM subcategories WHERE categoryId = ?", [categoryId]);
   await persistCategoryTaxonomy(tx, [{ id: categoryId, name: "", sortOrder: 0, subcategories: [...subcategories] }]);
 }

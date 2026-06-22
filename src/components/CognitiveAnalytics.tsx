@@ -2,7 +2,7 @@ import { AlertTriangle, Shield, Zap, ArrowRightLeft, HeartPulse, Eye, Wrench } f
 import { Card } from "@/lib/spaced-repetition";
 import { ReviewLogEntry } from "@/lib/storage";
 import { Progress } from "@/components/ui/progress";
-import { runWeakHooksAnalysis } from "@/lib/cognitive-analytics";
+import { runWeakHooksAnalysis } from "@/lib/services/weakHooksService";
 import { analyticsClient } from "@/lib/analytics/workerClient";
 import { loadPlanner } from "@/domains/planner";
 import LazyChart from "@/components/LazyChart";

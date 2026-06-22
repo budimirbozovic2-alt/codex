@@ -30,6 +30,14 @@ export async function kvGet<T>(exec: SqlExecutor, key: string): Promise<T | unde
   try {
     return JSON.parse(raw) as T;
   } catch (err) {
+    // Legacy rows (pre-PR-9 import bug in bindKv) stored plain scalars without
+    // JSON.stringify — e.g. lastRedistribute = 2026-06-16 instead of "2026-06-16".
+    const trimmed = raw.trim();
+    const looksLikeLegacyScalar = isLegacyKvScalar(raw);
+    if (looksLikeLegacyScalar) {
+      void kvPut(exec, key, trimmed).catch(() => { /* best-effort heal */ });
+      return trimmed as T;
+    }
     throw new KvDecodeError(key, err);
   }
 }
@@ -39,6 +47,34 @@ export async function kvPut<T>(exec: SqlExecutor, key: string, value: T): Promis
     "INSERT OR REPLACE INTO kv (key, value) VALUES (?, ?)",
     [key, JSON.stringify(value)],
   );
+}
+
+function isLegacyKvScalar(raw: string): boolean {
+  const trimmed = raw.trim();
+  return (
+    trimmed.length > 0 &&
+    trimmed[0] !== "{" &&
+    trimmed[0] !== "[" &&
+    trimmed[0] !== '"'
+  );
+}
+
+/** One-time boot heal for KV rows written without JSON.stringify (import bug). */
+export async function healLegacyKvScalars(exec: SqlExecutor): Promise<number> {
+  const rows = await exec.all<{ key: string; value: string }>(
+    "SELECT key, value FROM kv",
+  );
+  let healed = 0;
+  for (const row of rows) {
+    try {
+      JSON.parse(row.value);
+    } catch {
+      if (!isLegacyKvScalar(row.value)) continue;
+      await kvPut(exec, row.key, row.value.trim());
+      healed++;
+    }
+  }
+  return healed;
 }
 
 // `kvDelete` and `kvGetMany` removed in F6.3 — no consumers. The kv table

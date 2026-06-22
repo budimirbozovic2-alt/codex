@@ -3,15 +3,18 @@ import type { CategoryRecord, Source } from "@/lib/db-types";
 import { bulkPutCategories } from "@/lib/db/queries/categories";
 import { saveSource, loadSourcesByCategory } from "@/domains/sources/sources-storage";
 import {
-  getCategoryStoreRecords,
-  setCategoryStoreRecords,
-} from "@/store/useCategoryStore";
+  getCategoriesFromQueryCache,
+  seedCategoriesQueryCache,
+} from "@/lib/query/categories-cache-coordinator";
 import { queryClient } from "@/lib/query/client";
 import { queryKeys } from "@/lib/query/keys";
+import {
+  E2E_CATEGORY_ID,
+  E2E_SOURCE_ID,
+  E2E_SKRIPTA_SOURCE_ID,
+} from "./fixture-ids";
 
-export const E2E_CATEGORY_ID = "e2e-cat-reader";
-export const E2E_SOURCE_ID = "e2e-src-reader";
-export const E2E_SKRIPTA_SOURCE_ID = "e2e-src-skripta";
+export { E2E_CATEGORY_ID, E2E_SOURCE_ID, E2E_SKRIPTA_SOURCE_ID } from "./fixture-ids";
 export const E2E_SOURCE_TITLE = "E2E Test Izvor";
 export const E2E_SKRIPTA_TITLE = "E2E Test Skripta";
 
@@ -66,10 +69,10 @@ export async function seedReaderFixture(): Promise<{
   sourceId: string;
   skriptaSourceId: string;
 }> {
-  const withoutE2E = getCategoryStoreRecords().filter(
+  const withoutE2E = getCategoriesFromQueryCache().filter(
     (c) => c.id !== E2E_CATEGORY_ID,
   );
-  setCategoryStoreRecords([...withoutE2E, E2E_CATEGORY]);
+  seedCategoriesQueryCache([...withoutE2E, E2E_CATEGORY]);
   await bulkPutCategories([E2E_CATEGORY]);
 
   const propisRes = await saveSource(buildE2ESource());

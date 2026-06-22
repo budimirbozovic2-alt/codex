@@ -8,6 +8,7 @@
 import type { Source } from "@/domains/sources/sources-storage";
 import { incrementDailyMapped } from "@/domains/planner";
 import { autoFormatArticles } from "@/lib/article-autoformat";
+import { autoFormatLegalProvisions } from "@/lib/skripta-legal-autoformat";
 import { rebuildSourceFromHtml } from "@/lib/source-reader/source-html-pipeline";
 import { docToHtml, htmlToDoc, type EditorDoc } from "@/lib/editor-v4";
 
@@ -27,6 +28,16 @@ export function buildSourceFromDoc(source: Source, doc: EditorDoc): Source {
 export function buildAutoFormatSource(source: Source): { count: number; source: Source | null } {
   const baseHtml = docToHtml(source.contentDoc);
   const result = autoFormatArticles(baseHtml);
+  if (result.count === 0) return { count: 0, source: null };
+  return { count: result.count, source: buildSourceFromDoc(source, htmlToDoc(result.html)) };
+}
+
+/** Wrap detected statutory excerpts in skripta sources (visual `legal-provision` blocks). */
+export function buildAutoFormatLegalProvisionsSource(
+  source: Source,
+): { count: number; source: Source | null } {
+  const baseHtml = docToHtml(source.contentDoc);
+  const result = autoFormatLegalProvisions(baseHtml);
   if (result.count === 0) return { count: 0, source: null };
   return { count: result.count, source: buildSourceFromDoc(source, htmlToDoc(result.html)) };
 }

@@ -2,6 +2,11 @@ import { Gauge, BarChart3 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { memo } from "react";
 
+interface Props {
+  /** Vertical stack reads better in the dashboard sidebar. */
+  layout?: "grid" | "stack";
+}
+
 const cards = [
   {
     to: "/planner",
@@ -17,10 +22,14 @@ const cards = [
   },
 ] as const;
 
-export const ToolCards = memo(function ToolCards() {
+export const ToolCards = memo(function ToolCards({ layout = "grid" }: Props) {
   return (
-    <div className="grid grid-cols-2 gap-3 animate-fade-up"
-      style={{ animationDelay: "80ms" }}>
+    <div
+      className={`animate-fade-up gap-3 ${
+        layout === "stack" ? "grid grid-cols-1" : "grid grid-cols-2"
+      }`}
+      style={{ animationDelay: "80ms" }}
+    >
       {cards.map(({ to, icon: Icon, title, desc }) => (
         <Link
           key={to}

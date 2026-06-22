@@ -9,6 +9,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { useCategoryData } from "@/hooks/cards/useCategoryState";
 import { useCategoryDueCounts } from "@/hooks/card/useCardsQuery";
+import { useCategoriesHydrated } from "@/hooks/cards/useCardState";
 
 const STATIC_NAV = [
   { path: "/", icon: Home, label: "Početna tabla" },
@@ -19,6 +20,7 @@ export default function AppSidebar() {
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
   const { categoryRecords } = useCategoryData();
+  const categoriesHydrated = useCategoriesHydrated();
   const categoryIds = useMemo(
     () => categoryRecords.map((cat) => cat.id),
     [categoryRecords],
@@ -58,7 +60,7 @@ export default function AppSidebar() {
           <SidebarGroupContent>
             <nav aria-label="Predmeti">
             <SidebarMenu>
-              {categoryRecords.length === 0 && (
+              {!categoriesHydrated && (
                 <SidebarMenuItem>
                   <div className="px-2 py-1.5 text-xs text-muted-foreground">
                     Učitavanje predmeta…
@@ -66,7 +68,15 @@ export default function AppSidebar() {
                 </SidebarMenuItem>
               )}
 
-              {categoryRecords.map((cat) => {
+              {categoriesHydrated && categoryRecords.length === 0 && (
+                <SidebarMenuItem>
+                  <div className="px-2 py-1.5 text-xs text-muted-foreground">
+                    Nema predmeta
+                  </div>
+                </SidebarMenuItem>
+              )}
+
+              {categoriesHydrated && categoryRecords.map((cat) => {
                 const due = dueByCategory[cat.id] ?? 0;
 
                 return (

@@ -29,6 +29,7 @@ export interface EventMessage<T = unknown> {
 
 export type CardsChangedScope =
   | { kind: "all" }
+  | { kind: "derived" }
   | { kind: "category"; categoryId: string }
   | { kind: "subcategory"; categoryId: string; subcategoryId: string }
   | { kind: "chapter"; categoryId: string; chapterId: string }
@@ -40,8 +41,15 @@ export type PlannerChangedKind =
   | "dailyMapped"
   | "lastRedistribute";
 
+export type CategoriesChangedScope =
+  | { kind: "all" }
+  | { kind: "byId"; categoryId: string };
+
 export type DomainChangedPayload =
   | { domain: "cards"; scope: CardsChangedScope }
+  | { domain: "categories"; scope: CategoriesChangedScope }
+  | { domain: "review"; kind: "append" | "replace" }
+  | { domain: "settings"; kind: "sr" }
   | { domain: "planner"; kind: PlannerChangedKind }
   | { domain: "sources" }
   | { domain: "mindmaps" }

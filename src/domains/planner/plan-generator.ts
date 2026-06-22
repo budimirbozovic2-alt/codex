@@ -1,5 +1,5 @@
 /** Subject-oriented plan generator + learning/review ratio heuristic. */
-import { addDays, differenceInDays } from "date-fns";
+import { addDays, differenceInDays, startOfDay } from "date-fns";
 import type { Card } from "@/lib/spaced-repetition";
 import type { CategoryRecord } from "@/lib/db-types";
 import type { SubjectPlan, SubjectUnit, LearningReviewRatio } from "@/types/planner";
@@ -38,28 +38,47 @@ export function generateStudyPlan(
   }
 
   const hardSet = new Set(config.hardSubjects);
-  const subjectData: { cat: CategoryRecord; weight: number; totalSections: number; learnedSections: number; catCards: Card[] }[] = [];
-  let totalWeightedSections = 0;
+  const subjectData: {
+    cat: CategoryRecord;
+    weight: number;
+    totalSections: number;
+    learnedSections: number;
+    remainingSections: number;
+    catCards: Card[];
+  }[] = [];
+  let totalWeightedRemaining = 0;
 
   for (const cat of orderedCats) {
     const catCards = cardsByCat.get(cat.id) ?? [];
     let total = 0, learned = 0;
     catCards.forEach(c => c.sections.forEach(s => { total++; if (s.lastReviewed) learned++; }));
     const weight = hardSet.has(cat.id) ? 1.5 : 1.0;
-    totalWeightedSections += total * weight;
-    subjectData.push({ cat, weight, totalSections: total, learnedSections: learned, catCards });
+    const remaining = Math.max(0, total - learned);
+    totalWeightedRemaining += remaining * weight;
+    subjectData.push({
+      cat,
+      weight,
+      totalSections: total,
+      learnedSections: learned,
+      remainingSections: remaining,
+      catCards,
+    });
   }
 
-  if (totalWeightedSections === 0) return [];
+  // If everything is learned, still return a stable plan list (0-day allocations).
+  if (subjectData.length === 0) return [];
 
   let cursor = new Date();
   const plans: SubjectPlan[] = [];
+  const today = startOfDay(new Date());
 
   for (const sd of subjectData) {
-    const proportion = (sd.totalSections * sd.weight) / totalWeightedSections;
-    const allocatedDays = Math.max(1, Math.round(totalEffectiveDays * proportion));
+    const proportion = totalWeightedRemaining > 0
+      ? (sd.remainingSections * sd.weight) / totalWeightedRemaining
+      : 0;
+    const allocatedDays = sd.remainingSections <= 0 ? 0 : Math.max(1, Math.round(totalEffectiveDays * proportion));
     const startDate = new Date(cursor);
-    const endDate = addDays(cursor, allocatedDays);
+    const endDate = allocatedDays <= 0 ? new Date(cursor) : addDays(cursor, allocatedDays);
 
     const subcatMap = new Map<string, { name: string; total: number; learned: number }>();
     const subs = sd.cat.subcategories || [];
@@ -95,10 +114,13 @@ export function generateStudyPlan(
       allocatedDays,
       startDate,
       endDate,
+      daysLate: allocatedDays > 0 && today.getTime() >= startOfDay(endDate).getTime() && sd.remainingSections > 0
+        ? Math.max(0, differenceInDays(today, startOfDay(endDate)))
+        : 0,
       units,
     });
 
-    cursor = endDate;
+    if (allocatedDays > 0) cursor = endDate;
   }
 
   return plans;

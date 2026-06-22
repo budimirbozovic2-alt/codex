@@ -12,9 +12,8 @@ import { DEFAULT_SR_SETTINGS, type SRSettings } from "@/lib/spaced-repetition";
 import type { ReviewLogEntry } from "@/lib/storage";
 import { yieldUI } from "@/lib/backup/yield-ui";
 import { backupLog } from "@/lib/backup/backup-logger";
-import { categoryRepository } from "@/lib/repositories";
 import { readAllCategoriesForBackup } from "@/lib/db/queries";
-import { getOpfsSqliteExecutor } from "@/lib/persistence/sqlite/client";
+import { getSqliteExecutor, runWithSqlExecutor } from "@/lib/persistence/sqlite/client";
 import { assertDesktop } from "@/lib/electron-integration";
 
 import type { ImportCtx, ImportTxResult } from "@/lib/backup/import-types";
@@ -31,6 +30,7 @@ import { writeSatelliteTablesTx, writeSourcesTx } from "@/lib/backup/write-satel
 // compiling unchanged.
 export type { ImportStrategy, ImportTxResult, ImportCtx } from "@/lib/backup/import-types";
 export { mergeCardsByStrategy, writeCardsTx } from "@/lib/backup/write-cards-tx";
+export { mergeCategoriesByStrategy } from "@/lib/backup/merge-categories";
 export { writeCategoriesTx } from "@/lib/backup/write-categories-tx";
 export { writeSatelliteTablesTx } from "@/lib/backup/write-satellite-tx";
 export { buildCategoryIdRemap, applyRemapToParsed, pruneOrphans } from "@/lib/backup/import-remap";
@@ -51,7 +51,7 @@ export async function applyImportAtomically(ctx: ImportCtx): Promise<ImportTxRes
 
   // Fail fast on web/dev — Pure Desktop policy.
   assertDesktop();
-  const exec = await getOpfsSqliteExecutor();
+  const exec = ctx.exec ?? (await getSqliteExecutor());
 
   try {
     // ── 1. Pre-tx remap (read existing categories OUTSIDE the tx) ──
@@ -61,8 +61,12 @@ export async function applyImportAtomically(ctx: ImportCtx): Promise<ImportTxRes
     // caller-owned `nextMap` (== { ...currentMap }) — silent state
     // corruption for non-overwrite imports. `applyRemapToParsed` walks
     // `parsed.cards` directly and touches no caller-owned map.
-    const freshCategories: CategoryRecord[] = await readAllCategoriesForBackup();
-    if (parsed.categories.length > 0) {
+    const freshCategories: CategoryRecord[] = ctx.exec
+      ? await runWithSqlExecutor(ctx.exec, readAllCategoriesForBackup)
+      : await readAllCategoriesForBackup();
+    // Overwrite replaces categories wholesale — remapping to pre-existing rows
+    // (e.g. seeded defaults with the same name) leaves cards pointing at deleted IDs.
+    if (parsed.categories.length > 0 && strategy !== "overwrite") {
       const remap = buildCategoryIdRemap(parsed.categories, freshCategories);
       await applyRemapToParsed(remap, parsed);
     }
@@ -70,8 +74,12 @@ export async function applyImportAtomically(ctx: ImportCtx): Promise<ImportTxRes
     // ── 2. Pre-merge cards (pure, in-memory only) ──
     const { merged, nextMap } = mergeCardsByStrategy(parsed.cards, currentMap, strategy);
 
-    for (const c of merged) nextMap[c.id] = c;
-
+    const { healCardFsrsSections } = await import("@/lib/migrations/heal-fsrs-sections");
+    for (let i = 0; i < merged.length; i++) {
+      const healed = healCardFsrsSections(merged[i]);
+      merged[i] = healed;
+      nextMap[healed.id] = healed;
+    }
 
     await yieldUI();
 
@@ -153,8 +161,15 @@ export async function applyImportAtomically(ctx: ImportCtx): Promise<ImportTxRes
       await writeSatelliteTablesTx(tx, parsed, strategy, progress);
     });
 
-    // ── 5. Push freshly restored categories into the SSOT store. ──
-    categoryRepository.replaceAll(finalCategories);
+    const countRows = await exec.all<{ n: number }>("SELECT COUNT(*) AS n FROM cards");
+    const persistedCards = Number(countRows[0]?.n ?? 0);
+    if (merged.length > 0 && persistedCards < merged.length) {
+      throw new Error(
+        `Uvoz nije u potpunosti sačuvan: očekivano ${merged.length} kartica, u bazi ${persistedCards}.`,
+      );
+    }
+
+    // ── 5. Caller syncs TanStack caches after authoritative commit. ──
 
     backupLog.success("import", "atomic restore committed", {
       strategy,

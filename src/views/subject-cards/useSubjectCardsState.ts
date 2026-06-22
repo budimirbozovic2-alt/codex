@@ -2,7 +2,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useCallback, useMemo, useRef, useState } from "react";
 import { useBackupActions, useCardOnlyActions, useCategoryActions } from "@/hooks/cards/useActions";
 import { useCategoryData } from "@/hooks/cards/useCategoryState";
-import { useCardReady } from "@/hooks/cards/useCardState";
+import { useAppDataReady } from "@/hooks/cards/useCardState";
 import { useUIContext } from "@/hooks/useUI";
 import { useCardsByCategory } from "@/store";
 import type { SubcategoryNode } from "@/lib/db-types";
@@ -20,7 +20,7 @@ export function useSubjectCardsState() {
   const { categoryId } = useParams<{ categoryId: string }>();
   const navigate = useNavigate();
 
-  const ready = useCardReady();
+  const ready = useAppDataReady();
   const { categoryRecords } = useCategoryData();
   const cardActions = useCardOnlyActions();
   const categoryActions = useCategoryActions();

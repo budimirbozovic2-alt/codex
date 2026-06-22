@@ -60,4 +60,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.on('app-update-event', handler);
     return () => ipcRenderer.removeListener('app-update-event', handler);
   },
+  // Main-process SQLite RPC (Faza 5 — better-sqlite3)
+  sqliteRpc: (payload) => ipcRenderer.invoke('sqlite-rpc', payload),
 });

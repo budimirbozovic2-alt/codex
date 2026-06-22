@@ -1,12 +1,13 @@
 import { useMemo } from "react";
 import { useCategoryData } from "@/hooks/cards/useCategoryState";
-import { countDueCards } from "@/hooks/cards/useCardAggregates";
 import { useCardsByCategory } from "@/store";
+import { getDueCards, type Card } from "@/lib/spaced-repetition";
+import { countConsolidationEligibleCards } from "@/lib/review-mode-builder";
+import { useSrSettings } from "@/hooks/review/useReviewSettingsQuery";
 import {
   aggregateSubjectProgress,
   type SubProgress,
 } from "@/lib/subject/aggregators";
-import type { Card } from "@/lib/spaced-repetition";
 
 interface SubjectSubcategoryRef {
   id: string;
@@ -59,10 +60,16 @@ export function useSubjectDashboardModel(
     [categoryId, categoryRec, subjectCards],
   );
 
-  const subjectDueCount = useMemo(
-    () => countDueCards(subjectCards),
-    [subjectCards],
-  );
+  const srSettings = useSrSettings();
+
+  const subjectDueCount = useMemo(() => {
+    const dueCards = getDueCards(subjectCards);
+    return countConsolidationEligibleCards({
+      dueCards,
+      allCards: subjectCards,
+      srSettings,
+    });
+  }, [subjectCards, srSettings]);
 
   return {
     categoryRec,

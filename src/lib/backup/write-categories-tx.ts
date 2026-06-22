@@ -12,6 +12,10 @@ import {
   CATEGORY_INSERT_SQL,
   bindCategory,
 } from "@/lib/backup/sqlite-row-bindings";
+import {
+  replaceCategoryTaxonomy,
+} from "@/lib/persistence/sqlite/category-codecs";
+import { mergeCategoriesByStrategy } from "@/lib/backup/merge-categories";
 
 export async function writeCategoriesTx(
   tx: SqlExecutor,
@@ -19,28 +23,28 @@ export async function writeCategoriesTx(
   strategy: ImportStrategy,
   freshCategories: CategoryRecord[],
 ): Promise<CategoryRecord[]> {
-  let working: CategoryRecord[] = [...freshCategories];
+  if (parsed.categories.length === 0) return [...freshCategories];
 
-  if (parsed.categories.length === 0) return working;
+  const { toUpsert, working } = mergeCategoriesByStrategy(
+    parsed.categories,
+    freshCategories,
+    strategy,
+  );
 
   if (strategy === "overwrite") {
+    await tx.run("DELETE FROM chapters");
+    await tx.run("DELETE FROM subcategories");
     await tx.run("DELETE FROM categories");
+  }
+
+  if (toUpsert.length > 0) {
     await tx.runMany(
       CATEGORY_INSERT_SQL,
-      parsed.categories.map((cat) => bindCategory(cat)),
+      toUpsert.map((cat) => bindCategory(cat)),
     );
-    working = [...parsed.categories];
-  } else {
-    const existingByName = new Map<string, string>();
-    for (const c of freshCategories) existingByName.set(c.name.toLowerCase(), c.id);
-    const toInsert = parsed.categories.filter(
-      (cr) => !existingByName.has(cr.name.toLowerCase()),
-    );
-    await tx.runMany(
-      CATEGORY_INSERT_SQL,
-      toInsert.map((cat) => bindCategory(cat)),
-    );
-    working = [...freshCategories, ...toInsert];
+    for (const cat of toUpsert) {
+      await replaceCategoryTaxonomy(tx, cat.id, cat.subcategories ?? []);
+    }
   }
 
   return working;

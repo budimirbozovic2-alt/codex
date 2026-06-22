@@ -18,8 +18,8 @@ interface AddDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   categoryId: string;
-  addCard: (question: string, sections: { title: string; contentDoc: import("@/lib/editor-v4").EditorDoc }[], category: string, subcategory?: string, chapter?: string) => Card;
-  addFlashCard: (question: string, answer: string, category: string, subcategory?: string) => Card;
+  addCard: (question: string, sections: { title: string; contentDoc: import("@/lib/editor-v4").EditorDoc }[], category: string, subcategory?: string, chapter?: string) => Promise<Card>;
+  addFlashCard: (question: string, answer: string, category: string, subcategory?: string) => Promise<Card>;
   /** Initial creation mode. Re-applied each time the dialog opens. */
   defaultMode?: "essay" | "flash";
 }
@@ -36,10 +36,23 @@ export function AddCardDialog({ open, onOpenChange, categoryId, addCard, addFlas
   const [newSectionTitle, setNewSectionTitle] = useState("Odgovor");
   const [newSectionContent, setNewSectionContent] = useState("");
 
+  const canSave =
+    newQuestion.trim().length > 0 &&
+    (addMode === "flash" ? newAnswer.trim().length > 0 : newSectionContent.trim().length > 0);
+
   const handleSave = useCallback(() => {
-    if (!newQuestion.trim()) return;
-    if (addMode === "flash" && !newAnswer.trim()) return;
-    if (addMode === "essay" && !newSectionContent.trim()) return;
+    if (!newQuestion.trim()) {
+      toast.error("Unesite pitanje.");
+      return;
+    }
+    if (addMode === "flash" && !newAnswer.trim()) {
+      toast.error("Unesite odgovor.");
+      return;
+    }
+    if (addMode === "essay" && !newSectionContent.trim()) {
+      toast.error("Unesite sadržaj eseja.");
+      return;
+    }
     // Snapshot lokalnih vrijednosti prije resetа.
     const q = newQuestion.trim();
     const a = newAnswer.trim();
@@ -52,12 +65,18 @@ export function AddCardDialog({ open, onOpenChange, categoryId, addCard, addFlas
     onOpenChange(false);
     setNewQuestion(""); setNewAnswer(""); setNewSectionTitle("Odgovor"); setNewSectionContent("");
     afterDialogClose(() => {
-      if (mode === "flash") {
-        addFlashCard(q, a, categoryId);
-      } else {
-        addCard(q, [{ title: st, contentDoc: htmlToDoc(sc) }], categoryId);
-      }
-      toast.success("Kartica kreirana.");
+      void (async () => {
+        try {
+          if (mode === "flash") {
+            await addFlashCard(q, a, categoryId);
+          } else {
+            await addCard(q, [{ title: st, contentDoc: htmlToDoc(sc) }], categoryId);
+          }
+          toast.success("Kartica kreirana.");
+        } catch {
+          /* useCardMutations.onError already toasts */
+        }
+      })();
     });
   }, [addMode, newQuestion, newAnswer, newSectionTitle, newSectionContent, categoryId, addCard, addFlashCard, onOpenChange]);
 
@@ -100,7 +119,7 @@ export function AddCardDialog({ open, onOpenChange, categoryId, addCard, addFlas
             </>
           )}
 
-          <Button onClick={handleSave} className="w-full gap-2" disabled={!newQuestion.trim()}>
+          <Button onClick={handleSave} className="w-full gap-2" disabled={!canSave}>
             <Plus className="h-4 w-4" /> Sačuvaj
           </Button>
         </div>

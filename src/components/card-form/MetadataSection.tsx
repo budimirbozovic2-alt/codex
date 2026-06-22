@@ -67,11 +67,11 @@ const MetadataSection = memo(function MetadataSection({
 
       {/* Category */}
       <div className="space-y-1.5">
-        <label className="text-sm font-medium text-muted-foreground">Kategorija</label>
+        <label htmlFor="card-form-category" className="text-sm font-medium text-muted-foreground">Kategorija</label>
         {!showNewCat ? (
           <div className="flex gap-2">
             <Select value={categoryId} onValueChange={(v) => { setCategoryId(v); setSubcategoryId(""); }}>
-              <SelectTrigger className="bg-background"><SelectValue /></SelectTrigger>
+              <SelectTrigger id="card-form-category" className="bg-background"><SelectValue /></SelectTrigger>
               <SelectContent>
                 {categories.map((c) => <SelectItem key={c} value={c}>{catNameMap[c] || c}</SelectItem>)}
               </SelectContent>
@@ -92,9 +92,9 @@ const MetadataSection = memo(function MetadataSection({
 
       {/* Subcategory */}
       <div className="space-y-1.5">
-        <label className="text-sm font-medium text-muted-foreground">Podkategorija (opciono)</label>
+        <label htmlFor="card-form-subcategory" className="text-sm font-medium text-muted-foreground">Podkategorija (opciono)</label>
         <Select value={subcategoryId || "__none__"} onValueChange={(v) => setSubcategoryId(v === "__none__" ? "" : v)}>
-          <SelectTrigger className="bg-background"><SelectValue placeholder="Bez podkategorije" /></SelectTrigger>
+          <SelectTrigger id="card-form-subcategory" className="bg-background"><SelectValue placeholder="Bez podkategorije" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="__none__">Bez podkategorije</SelectItem>
             {availableSubs.map((sc) => <SelectItem key={sc.id} value={sc.id}>{sc.name}</SelectItem>)}
@@ -105,9 +105,9 @@ const MetadataSection = memo(function MetadataSection({
       {/* Chapter — cascading: only when subcategory selected */}
       {cardType === "essay" && subcategoryId && (
         <div className="space-y-1.5">
-          <label className="text-sm font-medium text-muted-foreground">Glava (opciono)</label>
+          <label htmlFor="card-form-chapter" className="text-sm font-medium text-muted-foreground">Glava (opciono)</label>
           <Select value={chapterId || "__none__"} onValueChange={(v) => setChapterId(v === "__none__" ? "" : v)}>
-            <SelectTrigger className="bg-background"><SelectValue placeholder="Bez glave" /></SelectTrigger>
+            <SelectTrigger id="card-form-chapter" className="bg-background"><SelectValue placeholder="Bez glave" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="__none__">Bez glave</SelectItem>
               {availableChapters.map((ch) => <SelectItem key={ch.id} value={ch.id}>{ch.name}</SelectItem>)}
@@ -121,9 +121,9 @@ const MetadataSection = memo(function MetadataSection({
 
       {/* Frequency Tag */}
       <div className="space-y-1.5">
-        <label className="text-sm font-medium text-muted-foreground">Frekventnost na ispitu</label>
+        <label htmlFor="card-form-frequency" className="text-sm font-medium text-muted-foreground">Frekventnost na ispitu</label>
         <Select value={frequencyTag || "__none__"} onValueChange={(v) => setFrequencyTag(v === "__none__" ? "" : v as FrequencyTag)}>
-          <SelectTrigger className="bg-background"><SelectValue placeholder="Nije označeno" /></SelectTrigger>
+          <SelectTrigger id="card-form-frequency" className="bg-background"><SelectValue placeholder="Nije označeno" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="__none__">Nije označeno</SelectItem>
             {FREQUENCY_TAGS.map((ft) => <SelectItem key={ft.value} value={ft.value}>{ft.label}</SelectItem>)}
@@ -133,9 +133,9 @@ const MetadataSection = memo(function MetadataSection({
 
       {/* Source Type */}
       <div className="space-y-1.5">
-        <label className="text-sm font-medium text-muted-foreground">Tip izvora</label>
+        <label htmlFor="card-form-source-type" className="text-sm font-medium text-muted-foreground">Tip izvora</label>
         <Select value={sourceType || "__none__"} onValueChange={(v) => setSourceType(v === "__none__" ? "" : v as CardSourceType)}>
-          <SelectTrigger className="bg-background"><SelectValue placeholder="Nije označeno" /></SelectTrigger>
+          <SelectTrigger id="card-form-source-type" className="bg-background"><SelectValue placeholder="Nije označeno" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="__none__">Nije označeno</SelectItem>
             {SOURCE_TYPES.map((st) => <SelectItem key={st.value} value={st.value}>{st.label}</SelectItem>)}

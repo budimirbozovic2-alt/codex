@@ -35,6 +35,7 @@ import {
   bindCardInsert,
 
   decodeCard,
+  CARD_DECODE_SELECT,
 
 } from "@/lib/persistence/sqlite/row-codecs";
 
@@ -62,8 +63,18 @@ import {
   syncCardSectionsIndex,
   syncCardSectionsIndexMany,
 } from "@/lib/persistence/sqlite/card-sections-index";
+import type { ReviewLogEntry } from "@/lib/types/logs";
+import {
+  insertReviewLogInTx,
+  syncParentEndangeredOnFlashGrade,
+} from "@/lib/persistence/sqlite/card-saga-endangered-sync";
+import { runBulkCardsWrite } from "@/lib/query/all-caches-coordinator";
 
 
+
+export interface BulkCardWriteOpts {
+  skipNotify?: boolean;
+}
 
 function stamp(card: Card, now: number): Card {
 
@@ -90,7 +101,7 @@ async function put(card: Card): Promise<Card> {
 
 
 
-async function bulkPut(cards: Card[]): Promise<Card[]> {
+async function bulkPut(cards: Card[], opts?: BulkCardWriteOpts): Promise<Card[]> {
 
   if (cards.length === 0) return [];
 
@@ -103,7 +114,9 @@ async function bulkPut(cards: Card[]): Promise<Card[]> {
     await syncCardSectionsIndexMany(tx, stamped);
   });
 
-  emitCardsChangedForRefs(stamped.map(cardToScopeRef));
+  if (!opts?.skipNotify) {
+    emitCardsChangedForRefs(stamped.map(cardToScopeRef));
+  }
 
   return stamped;
 
@@ -163,9 +176,9 @@ async function patch(
 
   await runInTransaction(async (tx) => {
 
-    const rows = await tx.all<{ id: string; payload: string }>(
+    const rows = await tx.all<{ id: string; payload: string; parentId?: string | null; isEndangered?: number | null }>(
 
-      "SELECT id, payload FROM cards WHERE id = ?",
+      `SELECT ${CARD_DECODE_SELECT} FROM cards WHERE id = ?`,
 
       [id],
 
@@ -198,6 +211,98 @@ async function patch(
 
 /**
 
+ * Grade-driven patch: optional reviewLog row + parent essay endangered sync.
+
+ */
+
+async function patchWithReviewGrade(
+
+  id: string,
+
+  grade: number,
+
+  patcher: (card: Card) => Card,
+
+  reviewLogEntry?: ReviewLogEntry,
+
+): Promise<Card | undefined> {
+
+  let before: Card | undefined;
+
+  let result: Card | undefined;
+
+  let parentRef: CardScopeRef | null = null;
+
+  await runInTransaction(async (tx) => {
+
+    const rows = await tx.all<{ id: string; payload: string; parentId?: string | null; isEndangered?: number | null }>(
+
+      `SELECT ${CARD_DECODE_SELECT} FROM cards WHERE id = ?`,
+
+      [id],
+
+    );
+
+    const row = rows[0];
+
+    if (!row) return;
+
+    const current = decodeCard(row);
+
+    before = current;
+
+    const now = Date.now();
+
+    const updated: Card = { ...patcher(current), updatedAt: now };
+
+    await tx.run(CARD_INSERT_SQL, bindCardInsert(updated));
+
+    await syncCardSectionsIndex(tx, updated);
+
+    if (reviewLogEntry) {
+
+      await insertReviewLogInTx(tx, reviewLogEntry);
+
+    }
+
+    const sync = await syncParentEndangeredOnFlashGrade(tx, updated, grade, now);
+
+    if (sync.parentId) {
+
+      const parentRows = await tx.all<CardScopeRef>(
+
+        `SELECT categoryId, subcategoryId, chapterId, sourceId
+
+           FROM cards WHERE id = ?`,
+
+        [sync.parentId],
+
+      );
+
+      parentRef = parentRows[0] ?? null;
+
+    }
+
+    result = updated;
+
+  });
+
+  if (result && before) {
+
+    emitAfterCardWrite(before, result);
+
+    if (parentRef) emitCardsChangedForRefs([parentRef]);
+
+  }
+
+  return result;
+
+}
+
+
+
+/**
+
  * Atomic read-modify-write for a batch of cards. Reads directly from SQLite
 
  * (never from TanStack cache) so the repository is the source of truth.
@@ -211,6 +316,8 @@ async function bulkPatch(
   ids: string[],
 
   patcher: (card: Card) => Card,
+
+  opts?: BulkCardWriteOpts,
 
 ): Promise<Card[]> {
 
@@ -228,7 +335,7 @@ async function bulkPatch(
 
     const rows = await tx.all<{ id: string; payload: string }>(
 
-      `SELECT id, payload FROM cards WHERE id IN (${placeholders})`,
+      `SELECT ${CARD_DECODE_SELECT} FROM cards WHERE id IN (${placeholders})`,
 
       ids,
 
@@ -261,7 +368,7 @@ async function bulkPatch(
 
   });
 
-  if (updated.length > 0) {
+  if (updated.length > 0 && !opts?.skipNotify) {
 
     emitCardsChangedForRefs([...beforeRefs, ...afterRefs]);
 
@@ -365,7 +472,7 @@ async function clearNeedsReview(id: string): Promise<Card | undefined> {
 
 /** Bulk-set needsReview=true without decoding payloads. */
 
-async function bulkSetNeedsReview(cardIds: string[]): Promise<void> {
+async function bulkSetNeedsReview(cardIds: string[], opts?: BulkCardWriteOpts): Promise<void> {
 
   if (cardIds.length === 0) return;
 
@@ -383,9 +490,11 @@ async function bulkSetNeedsReview(cardIds: string[]): Promise<void> {
 
   );
 
-  const refs = await fetchCardScopeRefs(cardIds);
+  if (!opts?.skipNotify) {
+    const refs = await fetchCardScopeRefs(cardIds);
 
-  if (refs.length > 0) emitCardsChangedForRefs(refs);
+    if (refs.length > 0) emitCardsChangedForRefs(refs);
+  }
 
 }
 
@@ -405,7 +514,7 @@ export interface ChapterFieldUpdate {
 
 /** Bulk chapter reassignment — json_set on payload + chapterId column. */
 
-async function bulkUpdateChapter(updates: ChapterFieldUpdate[]): Promise<void> {
+async function bulkUpdateChapter(updates: ChapterFieldUpdate[], opts?: BulkCardWriteOpts): Promise<void> {
 
   if (updates.length === 0) return;
 
@@ -423,9 +532,49 @@ async function bulkUpdateChapter(updates: ChapterFieldUpdate[]): Promise<void> {
 
   );
 
-  const refs = await fetchCardScopeRefs(updates.map((u) => u.id));
+  if (!opts?.skipNotify) {
+    const refs = await fetchCardScopeRefs(updates.map((u) => u.id));
 
-  if (refs.length > 0) emitCardsChangedForRefs(refs);
+    if (refs.length > 0) emitCardsChangedForRefs(refs);
+  }
+
+}
+
+
+
+async function bulkPutAuthoritative(cards: Card[]): Promise<Card[]> {
+
+  return runBulkCardsWrite(() => bulkPut(cards, { skipNotify: true }));
+
+}
+
+
+
+async function bulkPatchAuthoritative(
+
+  ids: string[],
+
+  patcher: (card: Card) => Card,
+
+): Promise<Card[]> {
+
+  return runBulkCardsWrite(() => bulkPatch(ids, patcher, { skipNotify: true }));
+
+}
+
+
+
+async function bulkSetNeedsReviewAuthoritative(cardIds: string[]): Promise<void> {
+
+  return runBulkCardsWrite(() => bulkSetNeedsReview(cardIds, { skipNotify: true }));
+
+}
+
+
+
+async function bulkUpdateChapterAuthoritative(updates: ChapterFieldUpdate[]): Promise<void> {
+
+  return runBulkCardsWrite(() => bulkUpdateChapter(updates, { skipNotify: true }));
 
 }
 
@@ -437,11 +586,17 @@ export const cardRepository = {
 
   bulkPut,
 
+  bulkPutAuthoritative,
+
   remove,
 
   patch,
 
+  patchWithReviewGrade,
+
   bulkPatch,
+
+  bulkPatchAuthoritative,
 
   clearLinks,
 
@@ -449,7 +604,11 @@ export const cardRepository = {
 
   bulkSetNeedsReview,
 
+  bulkSetNeedsReviewAuthoritative,
+
   bulkUpdateChapter,
+
+  bulkUpdateChapterAuthoritative,
 
 };
 

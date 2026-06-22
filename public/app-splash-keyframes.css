@@ -1,0 +1,16 @@
+@keyframes appSplashFade {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes appSplashFloat {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-3px); }
+}
+@keyframes appSplashGlow {
+  0%, 100% { opacity: 0.5; }
+  50%      { opacity: 1; }
+}
+@keyframes appSplashPulse {
+  0%, 100% { opacity: 0.4; transform: scale(0.9); }
+  50%      { opacity: 1;   transform: scale(1.15); }
+}

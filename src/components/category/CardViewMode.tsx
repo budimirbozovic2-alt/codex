@@ -167,6 +167,11 @@ export default function CardViewMode({ cards, categoryId, allCategories, subcate
     setMoveCardId(null);
   }, [moveCardId, patchCard]);
 
+  const handleOpenMoveModal = useCallback((cardId: string) => {
+    setMoveCardId(cardId);
+    setMoveModalOpen(true);
+  }, []);
+
   if (cards.length === 0) {
     return (
       <div className="text-center py-16">
@@ -322,7 +327,7 @@ export default function CardViewMode({ cards, categoryId, allCategories, subcate
           onEdit={onEdit}
           onPassiveRead={onPassiveRead}
           onDelete={onDelete}
-          onOpenMoveModal={(cardId) => { setMoveCardId(cardId); setMoveModalOpen(true); }}
+          onOpenMoveModal={handleOpenMoveModal}
           hasActiveFilters={filters.hasActiveFilters}
           totalCount={cards.length}
           onResetFilters={filters.resetFilters}

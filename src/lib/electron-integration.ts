@@ -1,6 +1,12 @@
 import { reviewLogRepository } from "@/lib/repositories";
+import { awaitShutdownMainSqlite } from "@/lib/persistence/sqlite/main-ipc-client";
 import { toast } from "sonner";
 import { logger } from "@/lib/logger";
+
+async function shutdownActiveSqliteBackend(timeoutMs = 8000): Promise<void> {
+  if (!isElectron()) return;
+  await awaitShutdownMainSqlite(timeoutMs);
+}
 
 /**
  * Runtime Electron detector — single source of truth.
@@ -11,7 +17,7 @@ export function isElectron(): boolean {
 }
 
 /**
- * Pure Desktop guard — Electron + OPFS SQLite required in all builds.
+ * Pure Desktop guard — Electron + SQLite required in all builds.
  */
 export function assertDesktop(): void {
   if (isElectron()) return;
@@ -24,112 +30,31 @@ export async function setupElectronIPC() {
   if (!window.electronAPI) return;
 
   const buildBackupData = async () => {
-    // PR-H7 FIX: Pomjeranjem uvoza unutar handlera sprecavamo
-    // preuranjeno izvrsavanje modula i "no executor" gresku pri boot-u.
-    const {
-      getSetting,
-      readAllCardsForBackup,
-      readAllCategoriesForBackup,
-      readAllSourcesForBackup,
-      readAllMindMapsForBackup,
-      readAllDisciplineLogForBackup,
-      readReviewLog,
-      readDiary,
-      readCalibrationLog,
-      readLatencyLog,
-      readSlippageLog,
-      readActivityLog,
-      readPomodoroLog,
-    } = await import("@/lib/db/queries");
+    const { getSqliteExecutor } = await import(
+      "@/lib/persistence/sqlite/client"
+    );
+    const { buildBackupSnapshot } = await import(
+      "@/lib/backup/build-backup-snapshot"
+    );
+    const exec = await getSqliteExecutor();
+    const snapshot = await buildBackupSnapshot(exec);
 
-    const [
-      cards, categories, reviewLog, srSettingsValue,
-      sources, mindMaps, diary,
-      calibrationLog, latencyLog, slippageLog,
-      activityLog, disciplineLog, pomodoroLog,
-    ] = await Promise.all([
-      readAllCardsForBackup(),
-      readAllCategoriesForBackup(),
-      readReviewLog(),
-      getSetting<unknown>("srSettings"),
-      readAllSourcesForBackup(),
-      readAllMindMapsForBackup(),
-      readDiary(),
-      readCalibrationLog(),
-      readLatencyLog(),
-      readSlippageLog(),
-      readActivityLog(),
-      readAllDisciplineLogForBackup(),
-      readPomodoroLog(),
-    ]);
-
-    // Izrada mape podkategorija
     const subcategories: Record<string, string[]> = {};
-    categories.forEach(r => {
+    snapshot.categories.forEach((r) => {
       if (r.subcategories?.length > 0) {
         subcategories[r.id] = r.subcategories.map((s) => s.name);
       }
     });
 
-    // Citanje konfiguracije planera
-    const [
-      plannerConfigVal, 
-      dailyMappedVal, 
-      dailyMappedDateVal
-    ] = await Promise.all([
-      getSetting<unknown>("plannerConfig"),
-      getSetting<unknown>("dailyMapped"),
-      getSetting<unknown>("dailyMappedDate"),
-    ]);
-
-    const localStorageData: Record<string, unknown> = {};
-    if (plannerConfigVal != null) {
-      localStorageData["sr-planner-config"] = plannerConfigVal;
-    }
-    if (dailyMappedVal != null) {
-      localStorageData["sr-daily-mapped-count"] = dailyMappedVal;
-    }
-    if (dailyMappedDateVal != null) {
-      localStorageData["sr-daily-mapped-date"] = dailyMappedDateVal;
-    }
-
-    const lsKeys = [
-      "sr-app-settings", "sr-mnemonic-workshop",
-      "sr-mnemonic-associations", "sr-major-system-map",
-      "sr-learn-progress", "sr-last-backup",
-    ];
-    for (const key of lsKeys) {
-      const val = localStorage.getItem(key);
-      if (val !== null) {
-        try { 
-          localStorageData[key] = JSON.parse(val); 
-        } catch { 
-          localStorageData[key] = val; 
-        }
-      }
-    }
-
     const data: Record<string, unknown> = {
-      version: 7, type: "full",
-      cards,
-      categories: categories,
+      ...snapshot,
       subcategories,
-      reviewLog,
-      sources, mindMaps,
-      knowledgeBaseArticles: [],
-      mnemonics: [],
-      majorSystem: [],
-      mnemonicTestLog: [],
-      settings: [],
-      diary, calibrationLog, latencyLog, slippageLog, 
-      activityLog, disciplineLog, pomodoroLog,
-      localStorageData,
-      timestamp: Date.now()
+      timestamp: Date.now(),
     };
-    if (srSettingsValue != null) {
-      data["srSettings"] = { 
-        key: "srSettings", 
-        value: srSettingsValue 
+    if (snapshot.srSettings != null) {
+      data.srSettings = {
+        key: "srSettings",
+        value: snapshot.srSettings,
       };
     }
     return data;
@@ -184,6 +109,7 @@ export async function setupElectronIPC() {
       try {
         await Promise.race([
           (async () => {
+            await shutdownActiveSqliteBackend(8000);
             await reviewLogRepository.flush();
             const data = await buildBackupData();
             await streamBackup(data);

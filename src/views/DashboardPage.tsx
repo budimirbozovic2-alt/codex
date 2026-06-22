@@ -18,11 +18,12 @@ const OnboardingModal = lazy(() => import("@/components/OnboardingModal"));
 export default function DashboardPage() {
   const { cards, stats, ready } = useCardData();
   const { categories, categoryRecords, subcategories } = useCategoryData();
-  const { categoryStats } = useCategoryStatsData();
+  const { categoryStats } = useCategoryStatsData({ enabled: cards.length > 0 });
   const { reviewLog, srSettings } = useReviewData();
   const { exportData } = useBackupActions();
   const { setView } = useUIContext();
   const [showOnboarding, setShowOnboarding] = useState(false);
+  const cardsDecodeGap = stats.total > 0 && cards.length === 0;
 
   const headerActions = (
     <>
@@ -47,11 +48,30 @@ export default function DashboardPage() {
   return (
     <DataReadyGate ready={ready} skeleton={<DashboardSkeleton />}>
       <ErrorBoundary label="Dashboard" onNavigateHome={() => setView("dashboard")}>
-        {cards.length === 0 ? (
+        {cards.length === 0 && !cardsDecodeGap ? (
           <div className="space-y-6">
             <PageHeader eyebrow="Pregled" title="Početna tabla" actions={headerActions} />
             <EmptyState type="dashboard" onAction={() => setShowOnboarding(true)} />
             <QuickActions dueCount={0} hasCards={false} />
+            <ToolCards />
+          </div>
+        ) : cardsDecodeGap ? (
+          <div className="space-y-6">
+            <PageHeader eyebrow="Pregled" title="Početna tabla" actions={headerActions} />
+            <div
+              role="alert"
+              className="rounded-lg border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm"
+            >
+              <p className="font-medium text-destructive">
+                Kartice nisu učitane iz baze
+              </p>
+              <p className="mt-1 text-muted-foreground">
+                U bazi postoji {stats.total} kartica, ali sadržaj nije mogao biti
+                dekodiran. Pokušajte ponovo pokrenuti aplikaciju ili uvesti
+                rezervnu kopiju.
+              </p>
+            </div>
+            <QuickActions dueCount={stats.due} hasCards />
             <ToolCards />
           </div>
         ) : (

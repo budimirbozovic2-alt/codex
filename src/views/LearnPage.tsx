@@ -4,7 +4,7 @@ import { useCardOnlyActions } from "@/hooks/cards/useActions";
 import { useCategoryData } from "@/hooks/cards/useCategoryState";
 import { useCardData, useReviewData } from "@/hooks/cards/useCardState";
 import { useUIContext } from "@/hooks/useUI";
-import { useSessionContext, QueuedReview, QueuedError, QueuedMarkRead } from "@/hooks/useSession";
+import { useSessionContext, QueuedReview, QueuedError, QueuedMarkRead } from "@/store/useSessionStore";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import LearnSession from "@/components/LearnSession";
 import { Card } from "@/lib/spaced-repetition";

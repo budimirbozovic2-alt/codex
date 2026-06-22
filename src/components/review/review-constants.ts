@@ -1,4 +1,4 @@
-import { Target, Shield, Zap, BookOpen } from "lucide-react";
+import { Target, Shield, Zap, BookOpen, CalendarClock } from "lucide-react";
 import { OnboardingSlide } from "@/components/OnboardingModal";
 import { Card, Section, SRSettings } from "@/lib/spaced-repetition";
 import type { ReviewMode } from "@/domains/review/types";
@@ -70,8 +70,14 @@ export const REVIEW_SLIDES: OnboardingSlide[] = [
     content: "Top 50 najtežih: Leech kartice (\u22655 padova) + visoka težina (D>7). Fokusirana sesija za najtvrdokornije gradivo.",
   },
   {
-    icon: BookOpen,
+    icon: CalendarClock,
     iconColor: "bg-success/15 text-success",
+    title: "Redovno Ponavljanje",
+    content: "FSRS-dospjele sekcije koje ne ulaze u ostale režime — redovni raspored bez ranog ponavljanja.",
+  },
+  {
+    icon: BookOpen,
+    iconColor: "bg-muted text-muted-foreground",
     title: "Ocjenjivanje (1\u20134)",
     content: "1 — Ponovo (ponovi uskoro)\n2 — Teško (kratak interval)\n3 — Dobro (interval raste)\n4 — Lako (maksimalan rast)\n\nPrečice: Space otkriva, 1-4 ocjenjuje, N bilježi grešku.",
   },

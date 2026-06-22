@@ -40,6 +40,25 @@ export function useCardOrgDnd({ cards, tree, patchCard }: UseCardOrgDndArgs) {
     const activeCardId = active.id as string;
     const overId = over.id as string;
 
+    const essayDropMatch = /^__essay__(.+)$/.exec(overId);
+    const activeCard = cardMap.get(activeCardId);
+    const targetEssayId =
+      essayDropMatch?.[1] ??
+      (cardMap.get(overId)?.type === "essay" ? overId : null);
+
+    if (targetEssayId && activeCard?.type === "flash") {
+      const essay = cardMap.get(targetEssayId);
+      if (essay?.type === "essay") {
+        patchCard(activeCardId, (c) => ({
+          ...c,
+          parentId: targetEssayId,
+          subcategoryId: essay.subcategoryId,
+          chapterId: essay.chapterId,
+        }));
+        return;
+      }
+    }
+
     const dropTarget = parseChapterDropId(overId);
     if (dropTarget) {
       patchCard(activeCardId, c => ({

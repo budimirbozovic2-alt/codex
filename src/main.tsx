@@ -87,7 +87,7 @@ function renderDesktopOnlyCta(): void {
         </h1>
         <p style="margin:0 0 28px;line-height:1.6;font-size:16px;color:#b8c4e3;">
           Web verzija je deprecated. Preuzmi desktop build za pun pristup
-          OPFS SQLite bazi, offline radu i Electron sigurnosnom sloju.
+          lokalnoj SQLite bazi, offline radu i Electron sigurnosnom sloju.
         </p>
         <a href="https://github.com/budimirbozovic2-alt/memoria-mne/releases/latest"
            target="_blank" rel="noopener noreferrer"
@@ -159,6 +159,11 @@ if (!isDesktopShell && import.meta.env.PROD) {
       import("./lib/body-pointer-events-guard"),
     ]);
     markBootStep("main:parallel-import-done");
+
+    if (import.meta.env.DEV) {
+      const { resetCardsQueryCache } = await import("./lib/query/cards-cache-coordinator");
+      resetCardsQueryCache();
+    }
 
     // Audit v2 / Wave B.4: register `beforeunload` BEFORE `render()` so any
     // SQLite write React schedules during the first commit cycle is
