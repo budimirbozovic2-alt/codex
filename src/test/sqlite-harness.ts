@@ -211,6 +211,44 @@ function tryBuildJsonSetters(setClause: string): JsonSetters | null {
     };
   }
 
+  // TD-ZK-1 — attach concept link: linkedArticleId column + payload.
+  if (
+    /^linkedArticleId = \?, updatedAt = \?, payload = json_set\(payload, '\$\.linkedArticleId', \?, '\$\.updatedAt', \?\)$/i.test(
+      s,
+    )
+  ) {
+    return {
+      paramCount: 4,
+      apply(row, params) {
+        row.linkedArticleId = params[0] ?? null;
+        row.updatedAt = params[1] ?? null;
+        const payload = parsePayloadObj(row);
+        payload.linkedArticleId = params[2];
+        payload.updatedAt = params[3];
+        row.payload = JSON.stringify(payload);
+      },
+    };
+  }
+
+  // TD-ZK-1 — detach concept link (unlink + article delete cleanup).
+  if (
+    /^linkedArticleId = NULL, updatedAt = \?, payload = json_set\( json_remove\(payload, '\$\.linkedArticleId'\), '\$\.updatedAt', \?\)$/i.test(
+      s,
+    )
+  ) {
+    return {
+      paramCount: 2,
+      apply(row, params) {
+        row.linkedArticleId = null;
+        row.updatedAt = params[0] ?? null;
+        const payload = parsePayloadObj(row);
+        delete payload.linkedArticleId;
+        payload.updatedAt = params[1];
+        row.payload = JSON.stringify(payload);
+      },
+    };
+  }
+
   return null;
 }
 
@@ -592,7 +630,8 @@ class TestExecutor implements SqlExecutor {
           { name: "chapterId" }, { name: "type" }, { name: "createdAt" },
           { name: "updatedAt" }, { name: "sourceId" }, { name: "frequencyTag" },
           { name: "sourceType" }, { name: "mastery_score" }, { name: "mastery_level" },
-          { name: "parentId" }, { name: "isEndangered" }, { name: "payload" },
+          { name: "parentId" }, { name: "isEndangered" },
+          { name: "linkedArticleId" }, { name: "payload" },
         ] as unknown as T[];
       }
       return [] as unknown as T[];

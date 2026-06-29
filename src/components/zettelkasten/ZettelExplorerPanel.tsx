@@ -1,5 +1,5 @@
 import { memo, useCallback, useDeferredValue, useMemo, useState } from "react";
-import { Compass, Plus, Search, ChevronLeft, ChevronRight, FileText, Link2, Tag } from "lucide-react";
+import { Compass, Plus, Search, ChevronLeft, ChevronRight, FileText, Link2, Tag, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -12,6 +12,7 @@ import type { KnowledgeBaseArticle } from "@/domains/zettelkasten/zettelkasten-s
 import { backlinkIndex } from "@/lib/backlink-index";
 import { filterByActiveTags, getTagCounts, normalizeTag } from "@/lib/zettelkasten-tags";
 import { isDocEmpty } from "@/lib/editor-v4/derived";
+import { ENDANGERED_CONCEPT_LABEL } from "@/lib/saga/endangered-display";
 
 type SortMode = "recent" | "alpha" | "linked";
 
@@ -23,6 +24,8 @@ interface Props {
   onToggleCollapsed: () => void;
   onOpen: (id: string) => void;
   onCreate: () => void;
+  /** Articles whose linked cards include an endangered concept. */
+  endangeredArticleIds?: ReadonlySet<string>;
 }
 
 const SORT_LABEL: Record<SortMode, string> = {
@@ -53,6 +56,7 @@ function ZettelExplorerPanelImpl({
   onToggleCollapsed,
   onOpen,
   onCreate,
+  endangeredArticleIds,
 }: Props) {
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState<SortMode>("recent");
@@ -253,6 +257,7 @@ function ZettelExplorerPanelImpl({
             {visible.map(a => {
               const isActive = a.id === activeId;
               const isDraft = isDocEmpty(a.contentDoc);
+              const isEndangered = endangeredArticleIds?.has(a.id) ?? false;
               const linkCount = counts.get(a.id) ?? 0;
               const articleTags = a.tags ?? [];
               const visibleTags = articleTags.slice(0, VISIBLE_ROW_TAGS);
@@ -275,8 +280,19 @@ function ZettelExplorerPanelImpl({
                       <FileText className={`h-3.5 w-3.5 mt-0.5 shrink-0 ${isDraft ? "text-muted-foreground/60" : "text-muted-foreground"}`} />
                     )}
                     <div className="min-w-0 flex-1">
-                      <div className={`truncate ${isDraft && !a.isIndex ? "italic text-muted-foreground" : ""} ${a.isIndex ? "font-semibold" : ""}`}>
-                        {a.title}
+                      <div className={`flex items-center gap-1 ${a.isIndex ? "font-semibold" : ""}`}>
+                        <span className={`truncate ${isDraft && !a.isIndex ? "italic text-muted-foreground" : ""}`}>
+                          {a.title}
+                        </span>
+                        {isEndangered && (
+                          <span
+                            className="shrink-0 text-warning"
+                            title={ENDANGERED_CONCEPT_LABEL}
+                            aria-label={ENDANGERED_CONCEPT_LABEL}
+                          >
+                            <AlertTriangle className="h-3 w-3" />
+                          </span>
+                        )}
                       </div>
                       {linkCount > 0 && (
                         <div className="flex items-center gap-1 text-[10px] text-muted-foreground mt-0.5">

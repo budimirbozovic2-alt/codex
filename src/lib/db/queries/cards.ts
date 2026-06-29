@@ -98,6 +98,30 @@ export async function listAllCards(): Promise<Card[]> {
   });
 }
 
+/** Cards linked to a Zettelkasten article (concept link). Uses idx_cards_linkedArticleId. */
+export async function listCardsByArticle(articleId: string): Promise<Card[]> {
+  if (!articleId) return [];
+  return withSqlTiming("listCardsByArticle", async () => {
+    const exec = await requireSqlExecutor("cards:listCardsByArticle");
+    const rows = await exec.all<SqlRow>(
+      `SELECT ${CARD_DECODE_SELECT} FROM cards WHERE linkedArticleId = ?`,
+      [articleId],
+    );
+    return decodeRows(rows);
+  });
+}
+
+/** Count of cards linked to a Zettelkasten article — badge-friendly. */
+export async function countCardsByArticle(articleId: string): Promise<number> {
+  if (!articleId) return 0;
+  const exec = await requireSqlExecutor("cards:countCardsByArticle");
+  const rows = await exec.all<{ n: number }>(
+    `SELECT COUNT(*) AS n FROM cards WHERE linkedArticleId = ?`,
+    [articleId],
+  );
+  return Number(rows[0]?.n ?? 0);
+}
+
 /** Surgical lookup by ids. */
 export async function getCardsByIds(
   ids: readonly string[]

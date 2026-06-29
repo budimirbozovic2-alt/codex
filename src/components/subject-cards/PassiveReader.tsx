@@ -296,7 +296,7 @@ export default function PassiveReader({
 
           {currentSatellites.length > 0 && (
 
-            <aside className="lg:col-span-1 lg:sticky lg:top-4 self-start min-w-0">
+            <aside className="lg:col-span-1 lg:sticky lg:top-4 self-start min-w-0 lg:max-h-[calc(100vh-2rem)] lg:overflow-y-auto overscroll-contain">
 
               <PassiveReaderSatellitePanel
 

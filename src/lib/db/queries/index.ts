@@ -30,6 +30,8 @@ export type { CardScopeRef } from "./cards-notify-scope";
 export {
   listAllCards,
   getCardsByIds,
+  listCardsByArticle,
+  countCardsByArticle,
   getDueCardsFromDb,
   countDueCardsFromDb,
   countDueCardsByCategoryFromDb,

@@ -9,8 +9,9 @@
  * PR-H3 Hardening: Added functional data selectors 
  * to prevent aggressive component re-render cascades.
  */
-import { 
-  useQuery, 
+import { useMemo } from "react";
+import {
+  useQuery,
   useQueries,
   useQueryClient,
   type QueryClient,
@@ -31,6 +32,7 @@ import {
 import { queryKeys } from "@/lib/query/keys";
 import type { Card } from "@/lib/spaced-repetition";
 import type { MasteryDistribution } from "@/lib/db/queries";
+import { buildEndangeredArticleIds } from "@/lib/saga/endangered-articles";
 
 const EMPTY: readonly Card[] = Object.freeze([]);
 
@@ -126,6 +128,34 @@ export function useCardsByCategoryWithStatus(
   const { data, isLoading, isFetching } = 
     useCardsByCategoryQuery(categoryId);
   return { cards: data ?? EMPTY, isLoading, isFetching };
+}
+
+/**
+ * Cards linked to a Zettelkasten article (concept link). Derived from the
+ * subject's category cache so it rides on existing invalidation — link/unlink
+ * already invalidates the card's category scope. No separate cache key.
+ */
+export function useCardsByArticle(
+  categoryId: string | undefined,
+  articleId: string | undefined,
+): readonly Card[] {
+  const cards = useCardsByCategory(categoryId);
+  return useMemo(
+    () => (articleId ? cards.filter((c) => c.linkedArticleId === articleId) : EMPTY),
+    [cards, articleId],
+  );
+}
+
+/**
+ * Article ids whose linked cards include an endangered concept. Derived from
+ * the subject's category cache with a stable Set identity (memoised) so the
+ * memoised Explorer panel isn't re-rendered on unrelated updates.
+ */
+export function useEndangeredArticleIds(
+  categoryId: string | undefined,
+): ReadonlySet<string> {
+  const cards = useCardsByCategory(categoryId);
+  return useMemo(() => buildEndangeredArticleIds(cards), [cards]);
 }
 
 export function useCardsBySource(

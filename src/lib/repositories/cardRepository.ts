@@ -655,6 +655,59 @@ async function reassignSubcategory(
 
 
 
+/**
+ * Link or unlink cards to a Zettelkasten article (concept link). Field-only:
+ * updates the indexed `linkedArticleId` column + payload via json_set/json_remove,
+ * no payload decode. Pass `articleId = undefined` to detach.
+ */
+async function linkCardsToArticle(
+  cardIds: readonly string[],
+  articleId: string | undefined,
+  opts?: BulkCardWriteOpts,
+): Promise<void> {
+  if (cardIds.length === 0) return;
+  const now = Date.now();
+  const placeholders = cardIds.map(() => "?").join(",");
+  await runInTransaction(async (tx) => {
+    if (articleId) {
+      await tx.run(
+        `UPDATE cards
+            SET linkedArticleId = ?,
+                updatedAt       = ?,
+                payload         = json_set(payload,
+                                    '$.linkedArticleId', ?,
+                                    '$.updatedAt',       ?)
+          WHERE id IN (${placeholders})`,
+        [articleId, now, articleId, now, ...cardIds],
+      );
+    } else {
+      await tx.run(
+        `UPDATE cards
+            SET linkedArticleId = NULL,
+                updatedAt       = ?,
+                payload         = json_set(
+                                    json_remove(payload, '$.linkedArticleId'),
+                                    '$.updatedAt', ?)
+          WHERE id IN (${placeholders})`,
+        [now, now, ...cardIds],
+      );
+    }
+  });
+
+  if (!opts?.skipNotify) {
+    const refs = await fetchCardScopeRefs([...cardIds]);
+    if (refs.length > 0) emitCardsChangedForRefs(refs);
+  }
+}
+
+/** Link or unlink a single card to a Zettelkasten article. */
+async function linkCardToArticle(
+  cardId: string,
+  articleId: string | undefined,
+): Promise<void> {
+  return linkCardsToArticle([cardId], articleId);
+}
+
 export const cardRepository = {
 
   put,
@@ -690,6 +743,10 @@ export const cardRepository = {
   clearChapterRefs,
 
   reassignSubcategory,
+
+  linkCardToArticle,
+
+  linkCardsToArticle,
 
 };
 

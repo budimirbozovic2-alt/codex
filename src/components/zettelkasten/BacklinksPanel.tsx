@@ -1,5 +1,8 @@
-import { ArrowLeftRight, FileText, Pause } from "lucide-react";
+import { ArrowLeftRight, FileText, Pause, AlertTriangle } from "lucide-react";
 import { useBacklinks } from "@/lib/backlink-index";
+import { ENDANGERED_CONCEPT_LABEL } from "@/lib/saga/endangered-display";
+
+const ENDANGERED_BACKLINK_TOOLTIP = "Ovaj dio tvoje mreže znanja slabi";
 
 interface Props {
   subjectId: string;
@@ -9,6 +12,8 @@ interface Props {
   /** When true, BacklinksPanel freezes its last computed result and skips
    *  re-scanning the article corpus. Re-enabled when the user exits edit mode. */
   isEditing?: boolean;
+  /** Articles whose linked cards include an endangered concept. */
+  endangeredArticleIds?: ReadonlySet<string>;
 }
 
 /**
@@ -19,7 +24,7 @@ interface Props {
  * presentation: it subscribes to one slot via `useSyncExternalStore` and
  * renders. No regex scans here, ever.
  */
-export default function BacklinksPanel({ subjectId, activeArticleId, activeTitle, onOpen, isEditing = false }: Props) {
+export default function BacklinksPanel({ subjectId, activeArticleId, activeTitle, onOpen, isEditing = false, endangeredArticleIds }: Props) {
   const backlinks = useBacklinks(subjectId, activeTitle, activeArticleId, isEditing);
 
   return (
@@ -46,21 +51,36 @@ export default function BacklinksPanel({ subjectId, activeArticleId, activeTitle
         </p>
       ) : (
         <ul className="divide-y divide-border max-h-48 overflow-y-auto">
-          {backlinks.map(({ articleId, title, snippet }) => (
-            <li key={articleId}>
-              <button
-                type="button"
-                onClick={() => onOpen(articleId)}
-                className="w-full text-left px-3 py-2 hover:bg-accent/50 transition-colors"
-              >
-                <div className="flex items-center gap-1.5 text-xs font-semibold">
-                  <FileText className="h-3 w-3 text-muted-foreground" />
-                  <span className="truncate">{title}</span>
-                </div>
-                <p className="text-[11px] text-muted-foreground line-clamp-2 mt-0.5">{snippet}</p>
-              </button>
-            </li>
-          ))}
+          {backlinks.map(({ articleId, title, snippet }) => {
+            const isEndangered = endangeredArticleIds?.has(articleId) ?? false;
+            return (
+              <li key={articleId}>
+                <button
+                  type="button"
+                  onClick={() => onOpen(articleId)}
+                  className={`w-full text-left px-3 py-2 transition-colors ${
+                    isEndangered
+                      ? "bg-warning/5 hover:bg-warning/10 border-l-2 border-warning"
+                      : "hover:bg-accent/50"
+                  }`}
+                  title={isEndangered ? ENDANGERED_BACKLINK_TOOLTIP : undefined}
+                >
+                  <div className="flex items-center gap-1.5 text-xs font-semibold">
+                    {isEndangered ? (
+                      <AlertTriangle
+                        className="h-3 w-3 shrink-0 text-warning"
+                        aria-label={ENDANGERED_CONCEPT_LABEL}
+                      />
+                    ) : (
+                      <FileText className="h-3 w-3 text-muted-foreground" />
+                    )}
+                    <span className="truncate">{title}</span>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground line-clamp-2 mt-0.5">{snippet}</p>
+                </button>
+              </li>
+            );
+          })}
         </ul>
       )}
     </div>

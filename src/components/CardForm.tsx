@@ -1,4 +1,4 @@
-import { X, FileText, Loader2, Scissors, Save, RotateCcw, ArrowLeft } from "lucide-react";
+import { X, FileText, Loader2, Scissors, Save, RotateCcw, ArrowLeft, Compass } from "lucide-react";
 import { lazy, Suspense } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card } from "@/lib/spaced-repetition";
@@ -125,6 +125,20 @@ export default function CardForm({
             >
               <FileText className="h-3.5 w-3.5" />
               Vidi u izvoru
+            </button>
+          )}
+          {editCard?.linkedArticleId && (
+            <button
+              type="button"
+              onClick={() => {
+                navigate(
+                  `/subject/${editCard.categoryId}/zettelkasten?open=${editCard.linkedArticleId}`,
+                );
+              }}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
+            >
+              <Compass className="h-3.5 w-3.5" />
+              Otvori pojam
             </button>
           )}
           {onSplit && editCard && editCard.sections && editCard.sections.length > 1 && (

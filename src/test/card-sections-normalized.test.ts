@@ -120,11 +120,11 @@ describe("runMigrations v17 (TD-ARCH-8)", () => {
     resetTestSqliteState();
   });
 
-  it("TARGET_USER_VERSION is 17", async () => {
+  it("TARGET_USER_VERSION is 18", async () => {
     const { TARGET_USER_VERSION } = await import(
       "@/lib/persistence/sqlite/migration-runner"
     );
-    expect(TARGET_USER_VERSION).toBe(17);
+    expect(TARGET_USER_VERSION).toBe(18);
   });
 
   it("post-migration heal 16 → 17 backfills card_sections", async () => {

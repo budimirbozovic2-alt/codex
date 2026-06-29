@@ -79,6 +79,8 @@ export interface Card {
   parentId?: string;
   /** Denormalised on essays when a satellite is graded Again. */
   isEndangered?: boolean;
+  /** Card is "about" this Zettelkasten article (concept link). */
+  linkedArticleId?: string;
 }
 
 export interface SRSettings {

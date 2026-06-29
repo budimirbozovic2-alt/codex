@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { deriveMarkdown } from "@/lib/editor-v4/derived";
-import { Link, useParams, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { toast } from "sonner";
 import {
   ArrowLeft, Plus, Trash2, FileText, Compass,
   Pencil, Check, BookMarked,
@@ -14,6 +15,11 @@ import { useArticleIndex } from "@/hooks/zettelkasten/useArticleIndex";
 import { useArticleMutations } from "@/hooks/zettelkasten/useArticleMutations";
 import { type Source } from "@/domains/sources/sources-storage";
 import { useCategorySources } from "@/hooks/useCategorySources";
+import type { Card } from "@/lib/spaced-repetition";
+import { useEndangeredArticleIds } from "@/hooks/card/useCardsQuery";
+import { cardRepository } from "@/lib/repositories";
+import { setEditingCardId } from "@/store/useUIStore";
+import { setEditReturn } from "@/lib/edit-return";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -26,6 +32,7 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import ZettelEditor from "@/components/zettelkasten/ZettelEditor";
 import ZettelPreview from "@/components/zettelkasten/ZettelPreview";
 import BacklinksPanel from "@/components/zettelkasten/BacklinksPanel";
+import LinkedCardsPanel from "@/components/zettelkasten/LinkedCardsPanel";
 import LinkedSourcesPicker from "@/components/zettelkasten/LinkedSourcesPicker";
 import SourceSidePanel from "@/components/zettelkasten/SourceSidePanel";
 import ZettelExplorerPanel from "@/components/zettelkasten/ZettelExplorerPanel";
@@ -74,6 +81,43 @@ function ZettelkastenViewImpl() {
     indexArticleId, activeArticle, draftApi,
   });
   const { open: openArticle } = mutations;
+
+  const navigate = useNavigate();
+
+  // Open a linked card for editing, returning to this article afterwards.
+  const handleOpenCard = useCallback(
+    (card: Card) => {
+      setEditingCardId(card.id);
+      if (categoryId) {
+        const back = activeId
+          ? `/subject/${categoryId}/zettelkasten?open=${activeId}`
+          : `/subject/${categoryId}/zettelkasten`;
+        setEditReturn({ path: back });
+      }
+      navigate("/edit");
+    },
+    [navigate, categoryId, activeId],
+  );
+
+  const handleLinkCards = useCallback(
+    async (cardIds: string[], articleId: string) => {
+      if (cardIds.length === 0) return;
+      await cardRepository.linkCardsToArticle(cardIds, articleId);
+      toast.success(
+        cardIds.length === 1
+          ? "Kartica povezana s pojmom."
+          : `${cardIds.length} kartica povezano s pojmom.`,
+      );
+    },
+    [],
+  );
+
+  const handleUnlinkCard = useCallback(async (cardId: string) => {
+    await cardRepository.linkCardToArticle(cardId, undefined);
+    toast.success("Veza s pojmom uklonjena.");
+  }, []);
+
+  const endangeredArticleIds = useEndangeredArticleIds(categoryId);
 
   // Auto-open article when arriving with ?open={articleId} (GlobalSearch, wiki embeds).
   useEffect(() => {
@@ -158,6 +202,7 @@ function ZettelkastenViewImpl() {
         onToggleCollapsed={toggleExplorer}
         onOpen={mutations.open}
         onCreate={() => setCreateDialogOpen(true)}
+        endangeredArticleIds={endangeredArticleIds}
       />
 
       <div className="flex-1 min-w-0 flex flex-col">
@@ -317,7 +362,18 @@ function ZettelkastenViewImpl() {
                 activeTitle={activeArticle.title}
                 onOpen={mutations.open}
                 isEditing={isEditing}
+                endangeredArticleIds={endangeredArticleIds}
               />
+              {!isEditing && (
+                <LinkedCardsPanel
+                  subjectId={categoryId!}
+                  articleId={activeArticle.id}
+                  articleTitle={activeArticle.title}
+                  onOpenCard={handleOpenCard}
+                  onLink={(ids) => void handleLinkCards(ids, activeArticle.id)}
+                  onUnlink={(id) => void handleUnlinkCard(id)}
+                />
+              )}
             </div>
 
             <Sheet open={Boolean(readingSource)} onOpenChange={(open) => { if (!open) setReadingSourceId(null); }}>

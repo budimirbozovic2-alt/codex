@@ -106,3 +106,7 @@ ALTER TABLE cards ADD COLUMN parentId TEXT REFERENCES cards(id) ON DELETE SET NU
 ALTER TABLE cards ADD COLUMN isEndangered INTEGER NOT NULL DEFAULT 0;
 CREATE INDEX IF NOT EXISTS idx_cards_parentId ON cards(parentId);
 CREATE INDEX IF NOT EXISTS idx_cards_isEndangered ON cards(isEndangered);
+
+-- TD-ZK-1 — concept link from a card to a Zettelkasten article (v18).
+ALTER TABLE cards ADD COLUMN linkedArticleId TEXT REFERENCES knowledgeBaseArticles(id) ON DELETE SET NULL;
+CREATE INDEX IF NOT EXISTS idx_cards_linkedArticleId ON cards(linkedArticleId);

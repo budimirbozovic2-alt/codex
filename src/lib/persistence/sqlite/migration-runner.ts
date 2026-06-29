@@ -182,6 +182,13 @@ ${CARD_SECTIONS_DDL}
 DROP TABLE IF EXISTS card_sections_index;
 `;
 
+/** TD-ZK-1 — concept link from a card to a Zettelkasten article. */
+const PR22_CARD_ARTICLE_LINK_SQL = `
+  ALTER TABLE cards ADD COLUMN linkedArticleId TEXT
+    REFERENCES knowledgeBaseArticles(id) ON DELETE SET NULL;
+  CREATE INDEX IF NOT EXISTS idx_cards_linkedArticleId ON cards(linkedArticleId);
+`;
+
 const MIGRATIONS: readonly Migration[] = [
   { version: 1, label: "init", sql: schemaSql },
   { version: 2, label: "pr9-m1-discipline-drafts", sql: PR9_M1_DISCIPLINE_DRAFTS_SQL },
@@ -200,6 +207,7 @@ const MIGRATIONS: readonly Migration[] = [
   { version: 15, label: "pr19-editor-v4-content", sql: PR19_EDITOR_V4_CONTENT_SQL },
   { version: 16, label: "pr20-learn-progress", sql: PR20_LEARN_PROGRESS_SQL },
   { version: 17, label: "pr21-card-sections-normalized", sql: PR21_CARD_SECTIONS_NORMALIZED_SQL },
+  { version: 18, label: "pr22-card-article-link", sql: PR22_CARD_ARTICLE_LINK_SQL },
 ];
 
 const TARGET_USER_VERSION = MIGRATIONS[MIGRATIONS.length - 1].version;
