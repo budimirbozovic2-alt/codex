@@ -1,10 +1,10 @@
 // Pure chart aggregators — heavy reduce/map loops used by MyStats.
-// Moved out of `useStatsData` so the worker can run them off the main thread.
+// TD-ARCH-9: runs on main thread via `useDeferredCompute` (idle slot).
 import { format, subDays, startOfDay, eachDayOfInterval } from "date-fns";
 import type { Card } from "@/lib/sr/types";
 import { SectionState } from "@/lib/sr/types";
 import { getSectionScore } from "@/lib/sr/retrievability";
-import type { ReviewLogEntry } from "../../storage";
+import type { ReviewLogEntry } from "@/lib/types/logs";
 
 interface ActivityPoint {
   name: string;

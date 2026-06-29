@@ -5,7 +5,7 @@ import {
   resetReviewSettingsQueryCache,
   seedReviewLogCache,
   REVIEW_LOG_BOOT_DAYS,
-} from "@/lib/query/review-settings-cache-coordinator";
+} from "@/lib/query/cache-coordinator";
 import { queryClient } from "@/lib/query/client";
 import { queryKeys } from "@/lib/query/keys";
 import { INTEGRATION_TEST_TIMEOUT_MS } from "@/test/helpers/test-timeouts";

@@ -28,3 +28,8 @@ dist-electron/
 release/
 build/
 out/
+
+# Test i debug artefakti
+test-results*.json
+.tmp-backup*/
+.tmp-backup*

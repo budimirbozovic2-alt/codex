@@ -1,6 +1,15 @@
 /**
  * Faza 0 — helpers for export → parse → import roundtrip contract tests.
+ * Implementation lives in src/e2e/smoke-backup.ts (shared with Playwright smoke).
  */
+export {
+  buildFullBackupPayload,
+  parseBackupPayload,
+  importParsedBackup,
+} from "@/e2e/smoke-backup";
+
+import { streamBackup, sourceSpec } from "@/lib/backup/export-stream";
+import { exportLegacyLocalStorageData } from "@/lib/backup/legacy-local-storage";
 import type { CategoryRecord } from "@/lib/db-types";
 import {
   readAllCardsForBackup,
@@ -21,21 +30,9 @@ import {
   readPomodoroLog,
   readSettingsTableRaw,
 } from "@/lib/db/queries";
-import { streamBackup, sourceSpec } from "@/lib/backup/export-stream";
-import { exportLegacyLocalStorageData } from "@/lib/backup/legacy-local-storage";
-import {
-  BackupSchema,
-  type ParsedBackup,
-} from "@/lib/migrations/backup-schema";
-import { migrateBackup } from "@/lib/backup/migrate";
-import { healBackupRaw } from "@/lib/backup/heal-backup";
 import { DEFAULT_SR_SETTINGS, type SRSettings } from "@/lib/spaced-repetition";
-import { applyImportAtomically } from "@/lib/backup/import-transaction";
-import {
-  abortAllCachesWrite,
-  beginAllCachesWrite,
-  commitAllCachesFromDb,
-} from "@/lib/query/all-caches-coordinator";
+import { parseBackupPayload } from "@/e2e/smoke-backup";
+import type { ParsedBackup } from "@/lib/migrations/backup-schema";
 
 function deriveSubMap(catRecords: CategoryRecord[]): Record<string, string[]> {
   const subMap: Record<string, string[]> = {};
@@ -88,55 +85,6 @@ export async function buildFullBackupBlob(options?: {
   });
 }
 
-/** Assemble the v7 full-backup object (same fields as `streamBackup` output). */
-export async function buildFullBackupPayload(options?: {
-  srSettings?: SRSettings;
-}): Promise<Record<string, unknown>> {
-  const catRecords = await readAllCategoriesForBackup();
-  const sortedCats = [...catRecords].sort(
-    (a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0),
-  );
-  const localStorageData = await exportLegacyLocalStorageData();
-
-  return {
-    version: 7,
-    type: "full",
-    subcategories: deriveSubMap(sortedCats),
-    srSettings: options?.srSettings ?? DEFAULT_SR_SETTINGS,
-    localStorageData,
-    cards: await readAllCardsForBackup(),
-    categories: sortedCats,
-    sources: await readAllSourcesForBackup(),
-    mindMaps: await readAllMindMapsForBackup(),
-    knowledgeBaseArticles: await readAllKbArticlesForBackup(),
-    diary: await readDiary(),
-    calibrationLog: await readCalibrationLog(),
-    latencyLog: await readLatencyLog(),
-    slippageLog: await readSlippageLog(),
-    activityLog: await readActivityLog(),
-    disciplineLog: await readAllDisciplineLogForBackup(),
-    pomodoroLog: await readPomodoroLog(),
-    reviewLog: await readReviewLog(),
-    mnemonics: await readAllMnemonicsForBackup(),
-    majorSystem: await readAllMajorSystemForBackup(),
-    mnemonicTestLog: await readAllMnemonicTestLogForBackup(),
-    settings: await readSettingsTableRaw(),
-  };
-}
-
-export function parseBackupPayload(raw: unknown): ParsedBackup {
-  const { raw: healed } = healBackupRaw(raw);
-  const result = BackupSchema.safeParse(healed);
-  if (!result.success) {
-    const summary = result.error.issues
-      .slice(0, 3)
-      .map((iss) => `${iss.path.join(".")}: ${iss.message}`)
-      .join("; ");
-    throw new Error(`Backup parse failed: ${summary}`);
-  }
-  return migrateBackup(result.data);
-}
-
 async function blobToText(blob: Blob): Promise<string> {
   if (typeof blob.text === "function") {
     return blob.text();
@@ -149,26 +97,4 @@ export async function parseBackupBlob(blob: Blob): Promise<ParsedBackup> {
   return parseBackupPayload(raw);
 }
 
-/** Import parsed backup using the same cache commit path as `useCardImport`. */
-export async function importParsedBackup(parsed: ParsedBackup): Promise<void> {
-  const cacheSession = beginAllCachesWrite();
-  let committed = false;
-  try {
-    const result = await applyImportAtomically({
-      parsed,
-      strategy: "overwrite",
-      currentMap: {},
-    });
-    await commitAllCachesFromDb(cacheSession, {
-      freshCategories: result.freshCategories,
-      srSettings: result.srSettingsApplied,
-      syncReviewLog: result.reviewLogApplied !== null,
-      satellites: "import",
-    });
-    committed = true;
-  } finally {
-    if (!committed) {
-      await abortAllCachesWrite(cacheSession);
-    }
-  }
-}
+export { importParsedBackup } from "@/e2e/smoke-backup";

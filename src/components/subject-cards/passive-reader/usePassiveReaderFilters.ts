@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { SubcategoryNode } from "@/lib/db-types";
-import { readCached, writeCached } from "@/lib/settings-cache";
+import { readPref, writePref } from "@/lib/query/prefs-cache-coordinator";
 
 const FILTER_STORAGE_PREFIX = "passive-reader-filters:";
 
@@ -20,7 +20,7 @@ const DEFAULTS: PersistedFilters = {
 
 function load(categoryId: string): PersistedFilters {
   if (!categoryId) return DEFAULTS;
-  const v = readCached<PersistedFilters>(FILTER_STORAGE_PREFIX + categoryId, DEFAULTS);
+  const v = readPref<PersistedFilters>(FILTER_STORAGE_PREFIX + categoryId, DEFAULTS);
   const tf = v.typeFilter;
   return {
     subFilter: typeof v.subFilter === "string" ? v.subFilter : "all",
@@ -61,7 +61,7 @@ export function usePassiveReaderFilters(
   // Persist.
   useEffect(() => {
     if (!categoryId) return;
-    writeCached(FILTER_STORAGE_PREFIX + categoryId, { subFilter, chapterFilter, typeFilter });
+    writePref(FILTER_STORAGE_PREFIX + categoryId, { subFilter, chapterFilter, typeFilter });
   }, [categoryId, subFilter, chapterFilter, typeFilter]);
 
   const resetAll = useCallback(() => {

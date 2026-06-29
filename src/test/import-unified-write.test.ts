@@ -4,20 +4,18 @@ import { queryClient } from "@/lib/query/client";
 import { queryKeys } from "@/lib/query/keys";
 import { DEFAULT_SR_SETTINGS } from "@/lib/spaced-repetition";
 import { reviewLogRepository, settingsRepository } from "@/lib/repositories";
-import { seedCategoriesQueryCache } from "@/lib/query/categories-cache-coordinator";
 import {
+  seedCategoriesQueryCache,
   seedReviewLogCache,
   seedSrSettingsCache,
   REVIEW_LOG_BOOT_DAYS,
-  resetReviewSettingsQueryCache,
-} from "@/lib/query/review-settings-cache-coordinator";
-import {
   resetCategoriesQueryCache,
-} from "@/lib/query/categories-cache-coordinator";
+  resetReviewSettingsQueryCache,
+} from "@/lib/query/cache-coordinator";
 import {
-  beginAllCachesWrite,
-  commitAllCachesFromDb,
-} from "@/lib/query/all-caches-coordinator";
+  beginWriteSession,
+  commitWriteSessionFromDb,
+} from "@/lib/query/write-session";
 
 describe("import unified write session", () => {
   afterEach(() => {
@@ -41,9 +39,9 @@ describe("import unified write session", () => {
     ]);
     vi.spyOn(settingsRepository, "save").mockResolvedValue(undefined);
 
-    const session = beginAllCachesWrite({ reviewLog: true });
+    const session = beginWriteSession({ reviewLog: true });
 
-    await commitAllCachesFromDb(session, {
+    await commitWriteSessionFromDb(session, {
       freshCategories: cats,
       srSettings: { ...DEFAULT_SR_SETTINGS, maxNewPerDay: 12 },
       syncReviewLog: true,

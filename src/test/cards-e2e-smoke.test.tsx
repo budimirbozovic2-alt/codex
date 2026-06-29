@@ -1,32 +1,27 @@
 /**
  * PR-F+ — End-to-end smoke: create → mirror → rollback through the
- * `putCardDirect` / `listAllCards` flow.
+ * `cardRepository.put` / `listAllCards` flow.
  *
  * Threads a single TanStack cache through three steps to prove the
  * production wiring (no UI):
  *
  *   1. CREATE      — `useCardMutations().save.mutateAsync(card)` runs the
  *                    optimistic `onMutate` patch on `['cards','all']`.
- *   2. MIRROR      — `putCardDirect` resolves, test bumps `currentRows`,
- *                    emits `notifyCardsChanged()`; the bridge invalidates
- *                    `['cards']` and `useAllCards()` re-hydrates from
- *                    `listAllCards`.
+ *   2. MIRROR      — storage gains rows; `notifyCardsChanged()` direct-invalidates
+ *                    the singleton queryClient and `useAllCards()` re-hydrates.
  *   3. ROLLBACK    — a second `save.mutateAsync` is attempted with
- *                    `putCardDirect` rejecting; `onError` restores the
+ *                    `cardRepository.put` rejecting; `onError` restores the
  *                    previous snapshot so the cache contains only the
  *                    mirrored row.
  *
  * Mocks only the storage seam (`@/lib/db/queries`); everything else
- * (mutations, bridges, query keys, optimistic patches) runs as in PROD.
+ * (mutations, query keys, optimistic patches) runs as in PROD.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { renderHook, waitFor, act } from "@testing-library/react";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClientProvider } from "@tanstack/react-query";
 import type { ReactNode } from "react";
-import {
-  _resetBridgesForTest,
-  installQueryBridges,
-} from "@/lib/query/bridges";
+import { queryClient } from "@/lib/query/client";
 import { queryKeys } from "@/lib/query/keys";
 import type { Card } from "@/lib/spaced-repetition";
 
@@ -78,36 +73,26 @@ function makeCard(id: string, categoryId = "cat-smoke"): Card {
   } as unknown as Card;
 }
 
-function wrapper(qc: QueryClient) {
+function wrapper() {
   return ({ children }: { children: ReactNode }) => (
-    <QueryClientProvider client={qc}>{children}</QueryClientProvider>
+    <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
   );
 }
 
-function makeQc(): QueryClient {
-  return new QueryClient({
-    defaultOptions: { queries: { retry: false, gcTime: 5 * 60_000 } },
-  });
-}
-
 beforeEach(() => {
-  _resetBridgesForTest();
+  queryClient.clear();
   currentRows = [];
   cardPutMock.mockReset();
 });
 
 afterEach(() => {
-  _resetBridgesForTest();
+  queryClient.clear();
 });
 
-describe("E2E smoke — create → mirror → rollback via putCardDirect/listAllCards", () => {
+describe("E2E smoke — create → mirror → rollback via cardRepository/listAllCards", () => {
   it("threads a single cache through create, mirror, and rollback", async () => {
-    const qc = makeQc();
-    installQueryBridges(qc);
-
-    // Render the read hook AND the mutation hook against the same cache.
-    const reader = renderHook(() => useAllCards(), { wrapper: wrapper(qc) });
-    const mutator = renderHook(() => useCardMutations(), { wrapper: wrapper(qc) });
+    const reader = renderHook(() => useAllCards(), { wrapper: wrapper() });
+    const mutator = renderHook(() => useCardMutations(), { wrapper: wrapper() });
 
     // First hydration — empty.
     await waitFor(() => expect(reader.result.current).toEqual([]));
@@ -168,7 +153,7 @@ describe("E2E smoke — create → mirror → rollback via putCardDirect/listAll
     );
 
     // Cache restored to pre-write snapshot (no "c4").
-    const after = qc.getQueryData<readonly Card[]>(queryKeys.cards.all()) ?? [];
+    const after = queryClient.getQueryData<readonly Card[]>(queryKeys.cards.all()) ?? [];
     expect(after.map((c) => c.id).sort()).toEqual(["c1", "c2", "c3"]);
     expect(after.length).toBe(mirrored.length);
     expect(cardPutMock).toHaveBeenCalledTimes(1);

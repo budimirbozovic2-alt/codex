@@ -3,20 +3,15 @@ import { useCallback } from "react";
 import type { CategoryRecord, SubcategoryNode, ChapterNode, ExaminerProfile } from "@/lib/db-types";
 import { newUuid } from "@/lib/ids";
 import { invalidateSourcesCache } from "@/domains/sources/sources-storage";
-import { categoryRepository } from "@/lib/repositories";
+import { categoryRepository, cardRepository } from "@/lib/repositories";
 import { deleteCategoryWithDependencies } from "@/lib/services/categoryDeletionOrchestrator";
 import { toast } from "sonner";
-import {
-  clearCardsSubcategoryRefs,
-  clearCardsChapterRefs,
-  reassignCardsSubcategory,
-  notifyCardsChanged,
-} from "@/lib/db/queries";
-import { getCategoriesFromQueryCache } from "@/lib/query/categories-cache-coordinator";
+import { notifyCardsChanged } from "@/lib/db/queries";
+import { getCategoriesFromQueryCache } from "@/lib/query/cache-coordinator";
 import {
   runBulkCardsWrite,
-  runBulkWriteSession,
-} from "@/lib/query/all-caches-coordinator";
+  runWriteSession,
+} from "@/lib/query/write-session";
 import { logger } from "@/lib/logger";
 
 const getCategoryRecords = (): { id: string; name: string }[] =>
@@ -110,7 +105,7 @@ export function useCategoryManagement() {
     (categoryId: string, subcategoryId: string) => {
       void (async () => {
         try {
-          await runBulkWriteSession(
+          await runWriteSession(
             { cards: true, categories: true },
             async () => {
               const rows = await categoryRepository.commit(
@@ -126,7 +121,7 @@ export function useCategoryManagement() {
                 "deleteSubcategory",
                 { skipNotify: true },
               );
-              await clearCardsSubcategoryRefs(categoryId, subcategoryId);
+              await cardRepository.clearSubcategoryRefs(categoryId, subcategoryId);
               return rows;
             },
             (rows) => ({ freshCategories: rows }),
@@ -144,7 +139,7 @@ export function useCategoryManagement() {
     void (async () => {
       try {
         await runBulkCardsWrite(async () => {
-          await reassignCardsSubcategory(ids, subcategoryId);
+          await cardRepository.reassignSubcategory(ids, subcategoryId);
         });
       } catch (err) {
         logger.error("[bulkUpdateSubcategory] failed", err);
@@ -191,7 +186,7 @@ export function useCategoryManagement() {
   const deleteChapter = useCallback((categoryId: string, subcategoryId: string, chapterId: string) => {
     void (async () => {
       try {
-        await runBulkWriteSession(
+        await runWriteSession(
           { cards: true, categories: true },
           async () => {
             const rows = await categoryRepository.commit(
@@ -213,7 +208,7 @@ export function useCategoryManagement() {
               "deleteChapter",
               { skipNotify: true },
             );
-            await clearCardsChapterRefs(categoryId, subcategoryId, chapterId);
+            await cardRepository.clearChapterRefs(categoryId, subcategoryId, chapterId);
             return rows;
           },
           (rows) => ({ freshCategories: rows }),

@@ -1,8 +1,7 @@
 import { describe, expect, it, beforeEach } from "vitest";
 import { makeCard, makeSection } from "@/test/factories";
+import { cardRepository } from "@/lib/repositories";
 import {
-  putCardDirect,
-  bulkPutCardsDirect,
   listAllCards,
   countAllCards,
   countDueCardsFromDb,
@@ -16,7 +15,7 @@ import {
   getCardsCacheWriteGeneration,
   getCardsHydrated,
   resetCardsQueryCache,
-} from "@/lib/query/cards-cache-coordinator";
+} from "@/lib/query/cache-coordinator";
 import { queryClient } from "@/lib/query/client";
 import { queryKeys } from "@/lib/query/keys";
 import { INTEGRATION_TEST_TIMEOUT_MS } from "@/test/helpers/test-timeouts";
@@ -33,7 +32,7 @@ describe("cards persistence contract (harness)", { timeout: INTEGRATION_TEST_TIM
 
   it("single card survives session reset + boot rehydrate", async () => {
     const card = makeCard({ id: "persist-1", question: "Q?" });
-    await putCardDirect(card);
+    await cardRepository.put(card);
 
     expect(await countAllCards()).toBe(1);
     expect((await listAllCards()).map((c) => c.id)).toEqual(["persist-1"]);
@@ -54,7 +53,7 @@ describe("cards persistence contract (harness)", { timeout: INTEGRATION_TEST_TIM
     const cards = Array.from({ length: 12 }, (_, i) =>
       makeCard({ id: `bulk-${i}`, question: `Q${i}?` }),
     );
-    await bulkPutCardsDirect(cards);
+    await cardRepository.bulkPut(cards);
 
     expect(await countAllCards()).toBe(12);
     simulateAppSessionReset();
@@ -72,8 +71,8 @@ describe("cards persistence contract (harness)", { timeout: INTEGRATION_TEST_TIM
   });
 
   it("no decode gap after rehydrate", async () => {
-    await putCardDirect(makeCard({ id: "decode-1" }));
-    await putCardDirect(makeCard({ id: "decode-2" }));
+    await cardRepository.put(makeCard({ id: "decode-1" }));
+    await cardRepository.put(makeCard({ id: "decode-2" }));
 
     simulateAppSessionReset();
     const gen = getCardsCacheWriteGeneration();
@@ -84,7 +83,7 @@ describe("cards persistence contract (harness)", { timeout: INTEGRATION_TEST_TIM
     expect(cached?.length).toBe(2);
   });
 
-  it("card_sections_index + due query survive session reset", async () => {
+  it("card_sections + due query survive session reset", async () => {
     const now = Date.now();
     const dueSection = makeSection({ html: "<p>due</p>" });
     dueSection.state = SectionState.Review;
@@ -95,7 +94,7 @@ describe("cards persistence contract (harness)", { timeout: INTEGRATION_TEST_TIM
       categoryId: "cat_due",
       sections: [dueSection],
     });
-    await putCardDirect(card);
+    await cardRepository.put(card);
 
     expect(await countDueCardsFromDb(now)).toBe(1);
     expect(await countDueCardsByCategoryFromDb("cat_due", now)).toBe(1);
@@ -110,7 +109,7 @@ describe("cards persistence contract (harness)", { timeout: INTEGRATION_TEST_TIM
   });
 
   it("stale TanStack seed is ignored on boot", async () => {
-    await putCardDirect(makeCard({ id: "stale-1" }));
+    await cardRepository.put(makeCard({ id: "stale-1" }));
 
     queryClient.setQueryData(queryKeys.cards.all(), []);
     queryClient.setQueryData(queryKeys.cards.countAll(), 0);
@@ -126,7 +125,7 @@ describe("cards persistence contract (harness)", { timeout: INTEGRATION_TEST_TIM
   });
 
   it("concurrent import generation blocks stale boot seed", async () => {
-    await putCardDirect(makeCard({ id: "race-1" }));
+    await cardRepository.put(makeCard({ id: "race-1" }));
 
     const genAtStart = getCardsCacheWriteGeneration();
     beginCardsWrite();
@@ -137,7 +136,7 @@ describe("cards persistence contract (harness)", { timeout: INTEGRATION_TEST_TIM
   });
 
   it("abortCardsWrite recovers hydrated cache after failed write gen", async () => {
-    await putCardDirect(makeCard({ id: "recover-1" }));
+    await cardRepository.put(makeCard({ id: "recover-1" }));
 
     const genAtStart = getCardsCacheWriteGeneration();
     beginCardsWrite();

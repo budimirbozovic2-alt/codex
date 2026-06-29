@@ -1,6 +1,5 @@
 import { getBrowserStorageEstimate } from "@/lib/services/browser-storage-estimate";
-import { bulkPutCardsDirect } from "@/lib/db/queries";
-import { runBulkCardsWrite } from "@/lib/query/all-caches-coordinator";
+import { cardRepository } from "@/lib/repositories";
 import {
   // SQLite-primary readers via the backup-readers seam (P1.B).
   countCards,
@@ -182,8 +181,7 @@ export async function cleanOrphans(cardIds: string[]): Promise<CleanOrphansResul
   }
   const fallback = categories[0];
 
-  // PR-E3: SQLite-primary write. Load the affected cards, mutate the
-  // taxonomy fields in JS, then commit through `bulkPutCardsDirect` —
+  // taxonomy fields in JS, then commit through `cardRepository.bulkPutAuthoritative` —
   // schedules persistence via persistQueue → SQLite adapter and emits
   // `notifyCardsChanged` so the TanStack bridge invalidates `['cards']`.
   // Legacy `cardMapWrites` RAM mirror was deleted in PR-E.
@@ -196,9 +194,7 @@ export async function cleanOrphans(cardIds: string[]): Promise<CleanOrphansResul
       subcategoryId: "",
       chapterId: "",
     }));
-  await runBulkCardsWrite(() =>
-    bulkPutCardsDirect(patched, { skipNotify: true }),
-  );
+  await cardRepository.bulkPutAuthoritative(patched);
 
   return { fallbackCategoryName: fallback.name, movedCount: patched.length };
 }

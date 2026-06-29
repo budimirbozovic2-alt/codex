@@ -13,7 +13,7 @@ import { plannerCache } from "@/domains/planner/cache";
 import { addDays } from "date-fns";
 import { StudyFlowWidget } from "@/components/dashboard/StudyFlowWidget";
 
-vi.mock("@/lib/analytics/workerClient", () => ({
+vi.mock("@/lib/analytics/analyticsClient", () => ({
   analyticsClient: {
     runCategoryStability: vi.fn(async () => []),
   },

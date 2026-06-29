@@ -1,13 +1,19 @@
 import { defineConfig } from "vitest/config";
 import react from "@vitejs/plugin-react-swc";
 import path from "path";
+import { jsdomTsTestGlobs } from "./src/test/jsdom-environment-globs";
 
 export default defineConfig({
   plugins: [react()],
   test: {
-    environment: "jsdom",
+    // Pure unit tests default to node (~5× faster env startup than jsdom).
+    environment: "node",
+    environmentMatchGlobs: [
+      ["**/*.{test,spec}.tsx", "jsdom"],
+      ...jsdomTsTestGlobs.map((glob) => [glob, "jsdom"] as const),
+    ],
     globals: true,
-    setupFiles: ["./src/test/setup.ts"],
+    setupFiles: ["./src/test/setup-dom.ts", "./src/test/setup.ts"],
     include: ["src/**/*.{test,spec}.{ts,tsx}"],
     // PR-G7: enforce test isolation. Stubs/mocks created with vi.fn()/vi.spyOn()
     // are cleared (call history) and restored (original implementations) between

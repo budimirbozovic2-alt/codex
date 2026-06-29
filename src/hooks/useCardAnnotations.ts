@@ -32,7 +32,7 @@ import {
 
   getSrSettingsSnapshot,
 
-} from "@/lib/query/review-settings-cache-coordinator";
+} from "@/lib/query/cache-coordinator";
 
 
 

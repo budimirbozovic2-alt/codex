@@ -8,7 +8,10 @@ import { DEFAULT_CONFIG, PLANNER_CONFIG_VERSION } from "@/domains/planner/types"
 import type { StudyDecade } from "@/domains/planner/types";
 import { loadPlannerSnapshot } from "@/lib/db/queries";
 import { logger } from "@/lib/logger";
-import { emitDomainChanged } from "@/lib/event-bus";
+import {
+  invalidatePlannerConfigDerived,
+  invalidatePlannerDisciplineDerived,
+} from "./domain-invalidation";
 import { queryClient } from "./client";
 import { queryKeys } from "./keys";
 
@@ -37,7 +40,7 @@ export function seedPlannerConfig(
 ): void {
   queryClient.setQueryData(queryKeys.planner.config(), config);
   if (options?.notify) {
-    emitDomainChanged({ domain: "planner", kind: "config" });
+    invalidatePlannerConfigDerived();
   }
 }
 
@@ -54,7 +57,7 @@ export function seedDisciplineLog(
 ): void {
   queryClient.setQueryData(queryKeys.planner.disciplineLog(), [...log]);
   if (options?.notify) {
-    emitDomainChanged({ domain: "planner", kind: "discipline" });
+    invalidatePlannerDisciplineDerived();
   }
 }
 
@@ -70,9 +73,6 @@ export function seedDailyMapped(
   options?: { notify?: boolean },
 ): void {
   queryClient.setQueryData(queryKeys.planner.dailyMapped(), slot);
-  if (options?.notify) {
-    emitDomainChanged({ domain: "planner", kind: "dailyMapped" });
-  }
 }
 
 export function getLastRedistributeFromCache(): string {
@@ -84,9 +84,6 @@ export function seedLastRedistribute(
   options?: { notify?: boolean },
 ): void {
   queryClient.setQueryData(queryKeys.planner.lastRedistribute(), date);
-  if (options?.notify) {
-    emitDomainChanged({ domain: "planner", kind: "lastRedistribute" });
-  }
 }
 
 /** Boot — read SQLite snapshot and seed TanStack planner slots. */

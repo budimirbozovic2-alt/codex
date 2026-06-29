@@ -5,9 +5,9 @@ import { SectionState } from "@/lib/spaced-repetition";
 import {
   bulkPutCategories,
   listAllCategories,
-  putCardDirect,
 } from "@/lib/db/queries";
-import { runBulkWriteSession } from "@/lib/query/all-caches-coordinator";
+import { cardRepository } from "@/lib/repositories";
+import { runWriteSession } from "@/lib/query/write-session";
 import {
   E2E_PERSIST_CATEGORY_ID,
   E2E_PERSIST_CARD_ID,
@@ -67,7 +67,7 @@ export async function seedPersistenceFixture(): Promise<{
     ...existing.filter((c) => c.id !== E2E_PERSIST_CATEGORY_ID),
     E2E_PERSIST_CATEGORY,
   ];
-  await runBulkWriteSession(
+  await runWriteSession(
     { cards: true, categories: true },
     async () => {
       await bulkPutCategories(merged);
@@ -75,7 +75,7 @@ export async function seedPersistenceFixture(): Promise<{
       if (!persisted.some((c) => c.id === E2E_PERSIST_CATEGORY_ID)) {
         throw new Error("E2E seed: category missing after bulkPutCategories");
       }
-      await putCardDirect(buildPersistCard(), { skipNotify: true });
+      await cardRepository.bulkPut([buildPersistCard()], { skipNotify: true });
       return persisted;
     },
     (persisted) => ({ freshCategories: persisted }),

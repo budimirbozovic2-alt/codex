@@ -2,7 +2,7 @@ import { scheduleLogPrune } from "@/lib/log-retention";
 import { markBootStep } from "@/lib/boot-trace";
 import { transition } from "@/lib/boot";
 import { taskScheduler } from "@/lib/scheduler/taskScheduler";
-import { resetCardsQueryCache } from "@/lib/query/cards-cache-coordinator";
+import { resetCardsQueryCache } from "@/lib/query/cache-coordinator";
 
 /** Boot path is SQLite-only (main-process in Electron). */
 export async function bootDb(): Promise<{ ok: boolean }> {

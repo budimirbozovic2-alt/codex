@@ -7,7 +7,7 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import CategoryManager from "@/components/CategoryManager";
 
 export default function CategoriesPage() {
-  const { categories, subcategories } = useCategoryData();
+  const { categories, subcategories, categoryRecords } = useCategoryData();
   const { addCategory, renameCategory, deleteCategory } = useCategoryActions();
   const { setView } = useUIContext();
   const bootState = useBootState();
@@ -30,6 +30,7 @@ export default function CategoriesPage() {
       <CategoryManager
         categories={categories}
         subcategories={subcategories}
+        categoryRecords={categoryRecords}
         cardCountByCategory={cardCountByCategory}
         onAdd={addCategory}
         onRename={renameCategory}

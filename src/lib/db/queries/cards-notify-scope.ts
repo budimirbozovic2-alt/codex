@@ -3,9 +3,9 @@
  * indexed card columns instead of defaulting to `{ kind: "all" }`.
  */
 import type { Card } from "@/lib/spaced-repetition";
-import type { CardsScope } from "@/lib/event-bus-types";
+import type { CardsScope } from "@/lib/query/cache-scope-types";
 import { runInTransaction } from "@/lib/persistence/sqlite/client";
-import { notifyCardsChanged } from "./cards";
+import { invalidateCardsCacheScopes } from "@/lib/query/cards-invalidation";
 
 export type CardScopeRef = {
   categoryId: string;
@@ -67,16 +67,14 @@ function dedupeScopes(scopes: readonly CardsScope[]): CardsScope[] {
   return out;
 }
 
-/** Emit one or more scoped invalidations (bridge coalesces within ~16ms). */
+/** Emit scoped invalidations — direct TanStack flush (no bridge debounce). */
 export function emitCardsChanged(scopes: CardsScope | readonly CardsScope[]): void {
   const list = dedupeScopes(Array.isArray(scopes) ? scopes : [scopes]);
   if (list.length === 0) {
-    notifyCardsChanged({ kind: "all" });
+    invalidateCardsCacheScopes({ kind: "all" });
     return;
   }
-  for (const scope of list) {
-    notifyCardsChanged(scope);
-  }
+  invalidateCardsCacheScopes(list);
 }
 
 export function emitCardsChangedForRefs(refs: readonly CardScopeRef[]): void {
@@ -103,7 +101,7 @@ export function emitCardsChangedForCategoryIds(categoryIds: readonly string[]): 
     categoryIds.filter(Boolean).map((categoryId) => ({ categoryId })),
   );
   if (scopes.length === 0) {
-    notifyCardsChanged({ kind: "all" });
+    invalidateCardsCacheScopes({ kind: "all" });
     return;
   }
   emitCardsChanged(scopes);

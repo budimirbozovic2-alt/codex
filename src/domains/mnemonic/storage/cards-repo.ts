@@ -1,5 +1,5 @@
 import { logger } from "@/lib/logger";
-import { emitDomainChanged } from "@/lib/event-bus";
+import { invalidateMnemonicsQueries } from "@/lib/query/domain-invalidation";
 import {
   listAllMnemonics,
   listMnemonicsByCategory,
@@ -26,7 +26,7 @@ export async function loadMnemonicCardsByCategory(categoryId: string): Promise<M
 }
 
 export function notifyMnemonics(): void {
-  emitDomainChanged({ domain: "mnemonics" });
+  invalidateMnemonicsQueries();
 }
 
 export async function saveMnemonicCards(cards: MnemonicCard[]): Promise<void> {

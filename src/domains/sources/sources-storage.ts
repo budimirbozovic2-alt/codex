@@ -6,7 +6,7 @@
  * on HMR updates to prevent multi-module breaking.
  */
 import type { Source } from "@/lib/db-types";
-import { emitDomainChanged } from "@/lib/event-bus";
+import { invalidateSourcesQueries } from "@/lib/query/domain-invalidation";
 import {
   getSource as repoGetSource,
   listAllSources,
@@ -55,7 +55,7 @@ export function onCardLinksCleared(
 }
 
 export function invalidateSourcesCache(): void {
-  emitDomainChanged({ domain: "sources" });
+  invalidateSourcesQueries();
 }
 
 export async function loadSources(): Promise<Source[]> {

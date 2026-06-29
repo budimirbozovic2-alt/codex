@@ -15,10 +15,7 @@ import {
   initPlannerQueryCache,
   type DailyMappedSlot,
 } from "@/lib/query/planner-cache-coordinator";
-import {
-  emitDomainChanged,
-  type PlannerChangedKind,
-} from "@/lib/event-bus";
+import type { PlannerChangedKind } from "@/lib/query/cache-scope-types";
 
 export type { PlannerChangedKind as PlannerChangeKind };
 export type { DailyMappedSlot };

@@ -67,7 +67,7 @@ describe("learn progress relational storage", () => {
     expect(Object.keys(loaded)).toHaveLength(0);
   });
 
-  it("storage.ts load/save delegates to SQLite only", async () => {
+  it("learn progress stays SQLite-only (no localStorage mirror)", async () => {
     const exec = getTestSqlExecutor();
     await exec.run(
       "CREATE TABLE learn_progress (card_id TEXT PRIMARY KEY, payload TEXT NOT NULL, updatedAt INTEGER NOT NULL DEFAULT 0)",

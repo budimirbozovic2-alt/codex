@@ -17,7 +17,7 @@ import {
   CARD_INSERT_SQL,
   bindCardInsert,
 } from "@/lib/persistence/sqlite/row-codecs";
-import { syncCardSectionsIndexMany } from "@/lib/persistence/sqlite/card-sections-index";
+import { syncCardSectionsMany } from "@/lib/persistence/sqlite/card-sections";
 import type { ImportStrategy } from "@/lib/backup/import-types";
 
 /** Pre-merge imported cards into the in-memory map per strategy (pure). */
@@ -62,7 +62,7 @@ export async function writeCardsTx(
   }
   if (merged.length > 0) {
     await tx.runMany(CARD_INSERT_SQL, merged.map((c) => bindCardInsert(c)));
-    await syncCardSectionsIndexMany(tx, merged);
+    await syncCardSectionsMany(tx, merged);
   }
 }
 

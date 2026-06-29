@@ -252,16 +252,33 @@ Master plan: [`docs/architecture-refactoring-plan.md`](architecture-refactoring-
 | ID | Faza | SP | Rizik | Status |
 |----|------|-----|-------|--------|
 | TD-ARCH-1 | Foundation cleanup (storage facade, tipovi, komentari) | 3 | nizak | ✅ Done (2026-06-22) |
-| TD-ARCH-2 | Write path unifikacija (card repository) | 8 | srednji | ⏳ Backlog |
-| TD-ARCH-3 | Direct TanStack invalidation iz repositories | 13 | srednji | ⏳ Backlog |
-| TD-ARCH-4 | Cache coordinator collapse → `writeSession` | 13 | srednji–visok | ⏳ Backlog |
-| TD-ARCH-5 | Event bus + bridges uklanjanje | 8 | visok | ⏳ Backlog |
-| TD-ARCH-6 | Boot simplification (1 FSM) | 8 | srednji | ⏳ Backlog |
-| TD-ARCH-7 | Migration consolidation | 13 | visok | ⏳ Backlog |
-| TD-ARCH-8 | Schema normalizacija (FSRS sekcije) | 21 | visok | ⏳ Backlog (opciono) |
-| TD-ARCH-9 | Analytics worker audit | 3 | nizak | ⏳ Backlog |
+| TD-ARCH-2 | Write path unifikacija (card repository) | 8 | srednji | ✅ Done (2026-06-22) |
+| TD-ARCH-3 | Direct TanStack invalidation iz repositories | 13 | srednji | ✅ Done (2026-06-22) |
+| TD-ARCH-4 | Cache coordinator collapse → `writeSession` | 13 | srednji–visok | ✅ Done (2026-06-22) |
+| TD-ARCH-5 | Event bus + bridges uklanjanje | 8 | visok | ✅ Done (2026-06-22) |
+| TD-ARCH-6 | Boot simplification (linear boot) | 8 | srednji | ✅ Done (2026-06-22) |
+| TD-ARCH-7 | Migration consolidation | 13 | visok | ✅ Done (2026-06-22) |
+| TD-ARCH-8 | Schema normalizacija (FSRS sekcije) | 21 | visok | ✅ Done (2026-06-22) |
+| TD-ARCH-9 | Analytics worker audit | 3 | nizak | ✅ Done (2026-06-22) |
+| TD-ARCH-10 | Cleanup & verification | 5 | nizak | ✅ Done (2026-06-22) |
 
-### TD-ARCH-1 · Foundation cleanup
+### TD-ARCH-10 · Cleanup & verification
+
+| | |
+|---|---|
+| **Prioritet** | P1 |
+| **SP** | 5 |
+| **Rizik** | nizak |
+| **Status** | ✅ Done (2026-06-22) |
+
+**Implementirano:**
+- Obrisani deprecated barreli: `cards-/categories-/review-settings-cache-coordinator`, `all-caches-coordinator`, `bulk-write-session-depth`, `workerClient`, `useAnalyticsWorker`, `boot-dag`, `card-sections-index`, `storage.ts`, `settings-cache`
+- Svi importi → `cache-coordinator`, `write-session`, `prefs-cache-coordinator`, `@/lib/boot`, `card-sections`, `@/lib/types/logs`, `@/lib/backup/backup-metadata`
+- `syncCardSectionsMany` umjesto `syncCardSectionsIndexMany`
+- `tsc --noEmit` zelen; test suite prolazi (bench budžeti 150/200/350ms)
+- **Preostalo (ručno):** P3 desktop smoke checklist
+
+---
 
 | | |
 |---|---|
@@ -276,10 +293,102 @@ Master plan: [`docs/architecture-refactoring-plan.md`](architecture-refactoring-
 - Backup metadata → `@/lib/backup/backup-metadata`
 - Browser quota → `@/lib/services/browser-storage-estimate`
 - Learn progress → `@/lib/db/queries` direktno
-- `storage.ts` → deprecated re-export barrel
-- Stale WASM komentar u `main.tsx` ispravljen
+- `storage.ts` obrisan (TD-ARCH-1b zatvoren u Fazi 10)
 
-**Preostalo za uklanjanje barrel-a:** TD-ARCH-1b — obriši `storage.ts` kad mock testovi pređu na nove module.
+### TD-ARCH-2 · Write path unifikacija
+
+| | |
+|---|---|
+| **Prioritet** | P1 |
+| **SP** | 8 |
+| **Rizik** | srednji |
+| **Status** | ✅ Done (2026-06-22) |
+
+**Implementirano:**
+- `cardRepository` — jedini public card write API (uključujući taxonomy bulk metode)
+- Obrisani `cards-writes.ts`, `cards-bulk-mutations.ts`
+- `db/queries` barrel — samo reads + notify za kartice
+- Migrirani: `useCategoryManagement`, `healthService`, `useCardImport`, e2e seed, persistence contract testovi
+- ESLint guard za deep card-write imports
+
+### TD-ARCH-3 · Direct invalidation
+
+| | |
+|---|---|
+| **Prioritet** | P1 |
+| **SP** | 13 |
+| **Rizik** | srednji |
+| **Status** | ✅ Done (2026-06-22) |
+
+**Implementirano:**
+- `cards-invalidation.ts` + `categories-invalidation.ts`
+- Repository/notify path invalidira TanStack odmah
+- Bridge dedup (`bridges.cards.skip.direct`, `bridges.categories.skip.direct`)
+- Debounce zadržan samo za bus-only legacy emitere
+
+### TD-ARCH-4 · Cache coordinator collapse
+
+| | |
+|---|---|
+| **Prioritet** | P1 |
+| **SP** | 13 |
+| **Rizik** | srednji–visok |
+| **Status** | ✅ Done (2026-06-22) |
+
+**Implementirano:**
+- `cache-coordinator.ts` — unified cards/categories/review cache
+- `write-session.ts` — `runWriteSession`, bulk depth, satellite sync
+- Deprecated re-export barreli za stare import putanje
+- `useCardImport.importCards` pojednostavljen na `runWriteSession`
+
+**Preostalo:** Nema — deprecated barreli obrisani u TD-ARCH-10.
+
+### TD-ARCH-5 · Event bus + bridges uklanjanje
+
+| | |
+|---|---|
+| **Prioritet** | P1 |
+| **SP** | 8 |
+| **Rizik** | visok |
+| **Status** | ✅ Done (2026-06-22) |
+
+**Implementirano:**
+- `domain-invalidation.ts` — direct TanStack invalidation za satellite domene
+- `cache-scope-types.ts` — scope tipovi odvojeni od event bus-a
+- Obrisan `bridges.ts`; `client.ts` bez `installQueryBridges`
+- `event-bus.ts` zadržan samo za DB infrastrukturne evente
+- Testovi: `domain-invalidation.test.ts`; obrisani bridge-specific testovi
+
+### TD-ARCH-6 · Boot simplification
+
+| | |
+|---|---|
+| **Prioritet** | P1 |
+| **SP** | 8 |
+| **Rizik** | srednji |
+| **Status** | ✅ Done (2026-06-22) |
+
+**Implementirano:**
+- `lib/boot/boot.ts` — linearan `boot()` orchestrator
+- `lib/boot/seed-query-caches.ts` — `seedAllQueryCaches()`
+- Uklonjen 22s panic timer; splash samo preko FSM bridge-a
+- `boot-dag.ts` deprecated re-export
+
+### TD-ARCH-7 · Migration consolidation
+
+| | |
+|---|---|
+| **Prioritet** | P1 |
+| **SP** | 13 |
+| **Rizik** | visok |
+| **Status** | ✅ Done (2026-06-22) |
+
+**Implementirano:**
+- `migration-runner-v2.ts` — fresh install clean schema
+- `post-migration-heals.ts` — version-window gated heals + logging
+- `clean-schema-addon.sql` — final DDL za nove instalacije
+- `docs/migration-heals.md` — heal registry dokumentacija
+- `migration-consolidation.test.ts`
 
 ---
 

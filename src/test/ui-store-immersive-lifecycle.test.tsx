@@ -49,10 +49,14 @@ vi.mock("@/domains/review/review-session-storage", () => ({
   clearSavedReviewSession: vi.fn(),
 }));
 
-vi.mock("@/lib/storage", () => ({
-  loadLearnProgress: vi.fn(async () => ({})),
-  saveLearnProgress: vi.fn(),
-}));
+vi.mock("@/lib/db/queries", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/db/queries")>();
+  return {
+    ...actual,
+    loadAllLearnProgress: vi.fn(async () => ({})),
+    replaceAllLearnProgress: vi.fn(async () => {}),
+  };
+});
 
 const reviewProps = {
   dueCards: [makeCard()],

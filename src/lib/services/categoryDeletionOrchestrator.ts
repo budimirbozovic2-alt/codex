@@ -13,7 +13,7 @@ import {
   getSetting,
 } from "@/lib/db/queries";
 import { scrubCategoryFromPlannerConfig } from "@/domains/planner";
-import { runBulkWriteSession } from "@/lib/query/all-caches-coordinator";
+import { runWriteSession } from "@/lib/query/write-session";
 
 const SUBJECT_SETTINGS_PREFIX = "subject_settings:";
 
@@ -48,7 +48,7 @@ export async function deleteCategoryWithDependencies(
   };
   if (!categoryId) return empty;
 
-  return runBulkWriteSession(
+  return runWriteSession(
     { cards: true, categories: true },
     async () => {
       const result = { ...empty };

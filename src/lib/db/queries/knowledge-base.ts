@@ -7,13 +7,13 @@ import type { KnowledgeBaseArticle } from "@/lib/db-types";
 import { logger } from "@/lib/logger";
 import { withSqlTiming } from "./_shared/sql-timing";
 import { requireSqlExecutor } from "./_shared/require-sql-executor";
-import { emitDomainChanged } from "@/lib/event-bus";
+import { invalidateKnowledgeBaseQueries } from "@/lib/query/domain-invalidation";
 import { migrateArticle } from "@/lib/editor-v4/migrate";
 
 // ─── Change emitter ─────────────────────────────────────────────
 
 export function notifyKnowledgeBaseChanged(): void {
-  emitDomainChanged({ domain: "zettelkasten" });
+  invalidateKnowledgeBaseQueries();
 }
 
 // ─── Codec ──────────────────────────────────────────────────────

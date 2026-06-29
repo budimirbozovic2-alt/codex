@@ -1,27 +1,18 @@
 /**
- * Migration runner — PR-8 M1.
+ * Migration runner — PR-8 M1 / TD-ARCH-7.
  *
- * Reads `PRAGMA user_version`, applies any pending migrations in order, and
- * bumps the version inside the same transaction. Idempotent: re-running on
- * an up-to-date DB is a single PRAGMA read.
- *
- * Migration sources are embedded as string constants (not file reads) so the
- * Vite build can bundle them into the Electron asar without runtime file IO.
+ * - Fresh install (user_version = 0): `applyFreshSchema` — one schema apply, zero heals.
+ * - Upgrade (user_version > 0): incremental SQL migrations (frozen history) then
+ *   `runPostMigrationHeals` for version-gated data heals.
  */
 import type { SqlExecutor } from "./executor";
 import schemaSql from "./schema.sql?raw";
-import { migrateCategoryTaxonomyToRelational } from "./category-taxonomy-migration";
-import { migrateCardSectionsIndex } from "./card-sections-index-migration";
-import { migrateCardMasteryScores } from "./card-mastery-score-migration";
-import { migrateCardMasteryLevels } from "./card-mastery-level-migration";
-import { migrateCardSagaLinks } from "./card-saga-links-migration";
+import { CARD_SECTIONS_DDL } from "./card-sections";
+import { applyFreshSchema } from "./migration-runner-v2";
 import {
-  migrateLegacyKvScalars,
-  migrateCardTaxonomyReferences,
-  migrateLegacyFrequencyTags,
-  migrateFsrsLastReviewed,
-} from "./boot-heal-migration";
-import { migrateLearnProgressToRelational } from "./learn-progress-migration";
+  runEditorV4OpenHeal,
+  runPostMigrationHeals,
+} from "./post-migration-heals";
 
 interface Migration {
   version: number;
@@ -80,10 +71,6 @@ const PR9_A1B_P16_MNEMONIC_AUX_SQL = `
 `;
 
 const PR9_A1C3_LOG_TABLES_SQL = `
-  -- PR-9 A1c-3 nastavak — log tables move to SQLite-primary.
-  -- All auto-inc tables use INTEGER PRIMARY KEY AUTOINCREMENT.
-  -- payload column carries the full JSON entry; denormalised columns power the
-  -- handful of indexed queries (cardId/timestamp/date lookups).
   CREATE TABLE IF NOT EXISTS reviewLog (
     id         INTEGER PRIMARY KEY AUTOINCREMENT,
     cardId     TEXT NOT NULL,
@@ -170,18 +157,10 @@ const PR11_CARD_SECTIONS_INDEX_SQL = `
   CREATE INDEX IF NOT EXISTS idx_card_sections_state ON card_sections_index(state);
 `;
 
-const PR12_CARD_MASTERY_SCORE_SQL = `
-  SELECT 1;
-`;
-
-const PR13_CARD_MASTERY_LEVEL_SQL = `
-  SELECT 1;
-`;
-
-const PR14_CARD_SAGA_LINKS_SQL = `
-  SELECT 1;
-`;
-
+/** Frozen — v8–v15: schema changes applied via post-migration heals. */
+const PR12_CARD_MASTERY_SCORE_SQL = `SELECT 1;`;
+const PR13_CARD_MASTERY_LEVEL_SQL = `SELECT 1;`;
+const PR14_CARD_SAGA_LINKS_SQL = `SELECT 1;`;
 const PR15_BOOT_LEGACY_KV_SQL = `SELECT 1;`;
 const PR16_BOOT_TAXONOMY_HEAL_SQL = `SELECT 1;`;
 const PR17_BOOT_FREQUENCY_TAGS_SQL = `SELECT 1;`;
@@ -197,18 +176,17 @@ const PR20_LEARN_PROGRESS_SQL = `
   CREATE INDEX IF NOT EXISTS idx_learn_progress_updated ON learn_progress(updatedAt);
 `;
 
+/** TD-ARCH-8 — normalized FSRS section rows; drops legacy due index. */
+const PR21_CARD_SECTIONS_NORMALIZED_SQL = `
+${CARD_SECTIONS_DDL}
+DROP TABLE IF EXISTS card_sections_index;
+`;
+
 const MIGRATIONS: readonly Migration[] = [
   { version: 1, label: "init", sql: schemaSql },
-  // PR-9 M1 — disciplineLog + drafts tables (SQLite-primary).
-  // Planner KV (`appSettings`, `subjectSettings:*`, `srSettings`, `appEntry`)
-  // also lives in the SQLite `kv` table.
   { version: 2, label: "pr9-m1-discipline-drafts", sql: PR9_M1_DISCIPLINE_DRAFTS_SQL },
-  // PR-9 A1b P1.4 — Zettelkasten articles move to SQLite-primary.
   { version: 3, label: "pr9-a1b-p14-kb-articles", sql: PR9_A1B_P14_KB_ARTICLES_SQL },
-  // PR-9 A1b P1.6 — Major System + mnemonic test log move to SQLite-primary.
   { version: 4, label: "pr9-a1b-p16-mnemonic-aux", sql: PR9_A1B_P16_MNEMONIC_AUX_SQL },
-  // PR-9 A1c-3 nastavak — log tables (reviewLog, pomodoroLog, diary,
-  // calibrationLog, latencyLog, slippageLog, activityLog) move to SQLite.
   { version: 5, label: "pr9-a1c3-log-tables", sql: PR9_A1C3_LOG_TABLES_SQL },
   { version: 6, label: "pr10-relational-taxonomy", sql: PR10_RELATIONAL_TAXONOMY_SQL },
   { version: 7, label: "pr11-card-sections-index", sql: PR11_CARD_SECTIONS_INDEX_SQL },
@@ -221,6 +199,7 @@ const MIGRATIONS: readonly Migration[] = [
   { version: 14, label: "pr18-boot-fsrs-heal", sql: PR18_BOOT_FSRS_HEAL_SQL },
   { version: 15, label: "pr19-editor-v4-content", sql: PR19_EDITOR_V4_CONTENT_SQL },
   { version: 16, label: "pr20-learn-progress", sql: PR20_LEARN_PROGRESS_SQL },
+  { version: 17, label: "pr21-card-sections-normalized", sql: PR21_CARD_SECTIONS_NORMALIZED_SQL },
 ];
 
 const TARGET_USER_VERSION = MIGRATIONS[MIGRATIONS.length - 1].version;
@@ -229,81 +208,34 @@ export { TARGET_USER_VERSION };
 
 export async function runMigrations(exec: SqlExecutor): Promise<{ from: number; to: number }> {
   await exec.exec("PRAGMA foreign_keys = ON;");
-  // journal_mode is a connection-scoped pragma — repeat it on every open
-  // (handled by the client) but harmless to set here too.
   await exec.exec("PRAGMA journal_mode = WAL;");
 
   const versionRows = await exec.all<{ user_version: number }>("PRAGMA user_version");
   const current = Number(versionRows[0]?.user_version ?? 0);
+
   if (current >= TARGET_USER_VERSION) {
-    // Faza 3: idempotent editor-v4 heal on every open (replaces post-READY kickoff).
-    if (typeof window !== "undefined") {
-      const { migrateEditorV4Content } = await import(
-        "./editor-v4-schema-migration"
-      );
-      await migrateEditorV4Content(exec);
-    }
+    await runEditorV4OpenHeal(exec);
     return { from: current, to: current };
   }
 
+  if (current === 0) {
+    await applyFreshSchema(exec, TARGET_USER_VERSION);
+    return { from: 0, to: TARGET_USER_VERSION };
+  }
+
+  const fromVersion = current;
   await exec.transaction(async (tx) => {
     for (const m of MIGRATIONS) {
-      if (m.version <= current) continue;
+      if (m.version <= fromVersion) continue;
       await tx.exec(m.sql);
-      // PRAGMA user_version can't be parameter-bound; safe because m.version
-      // is an integer literal from the static MIGRATIONS table.
       await tx.exec(`PRAGMA user_version = ${m.version}`);
     }
   });
 
-  if (TARGET_USER_VERSION >= 6) {
-    await migrateCategoryTaxonomyToRelational(exec);
-  }
+  await runPostMigrationHeals(exec, {
+    fromVersion,
+    toVersion: TARGET_USER_VERSION,
+  });
 
-  if (TARGET_USER_VERSION >= 7) {
-    await migrateCardSectionsIndex(exec);
-  }
-
-  if (TARGET_USER_VERSION >= 8) {
-    await migrateCardMasteryScores(exec);
-  }
-
-  if (TARGET_USER_VERSION >= 9) {
-    await migrateCardMasteryLevels(exec);
-  }
-
-  if (TARGET_USER_VERSION >= 10) {
-    await migrateCardSagaLinks(exec);
-  }
-
-  if (TARGET_USER_VERSION >= 11) {
-    await migrateLegacyKvScalars(exec);
-  }
-
-  if (TARGET_USER_VERSION >= 12) {
-    await migrateCardTaxonomyReferences(exec);
-  }
-
-  if (TARGET_USER_VERSION >= 13) {
-    await migrateLegacyFrequencyTags(exec);
-  }
-
-  if (TARGET_USER_VERSION >= 14) {
-    await migrateFsrsLastReviewed(exec);
-  }
-
-  // Editor v4 uses DOMPurify + ProseMirror DOMParser — renderer-only.
-  // Dynamic import keeps this graph out of worker bundles that lack `window`.
-  if (TARGET_USER_VERSION >= 15 && typeof window !== "undefined") {
-    const { migrateEditorV4Content } = await import(
-      "./editor-v4-schema-migration"
-    );
-    await migrateEditorV4Content(exec);
-  }
-
-  if (TARGET_USER_VERSION >= 16) {
-    await migrateLearnProgressToRelational(exec);
-  }
-
-  return { from: current, to: TARGET_USER_VERSION };
+  return { from: fromVersion, to: TARGET_USER_VERSION };
 }

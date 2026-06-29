@@ -11,17 +11,17 @@ import {
 } from "@/lib/db/queries";
 import { reviewLogRepository } from "@/lib/repositories/reviewLogRepository";
 import {
-  abortAllCachesWrite,
-  beginAllCachesWrite,
-  commitAllCachesFromDb,
-} from "@/lib/query/all-caches-coordinator";
+  abortWriteSession,
+  beginWriteSession,
+  commitWriteSessionFromDb,
+} from "@/lib/query/write-session";
 import { runInTransaction } from "@/lib/persistence/sqlite/client";
 import { kvPut } from "@/lib/persistence/sqlite/kv";
 import {
   CARD_INSERT_SQL,
   bindCardInsert,
 } from "@/lib/persistence/sqlite/row-codecs";
-import { syncCardSectionsIndexMany } from "@/lib/persistence/sqlite/card-sections-index";
+import { syncCardSectionsMany } from "@/lib/persistence/sqlite/card-sections";
 import { clearSavedReviewSession } from "@/domains/review/review-session-storage";
 import { logger } from "@/lib/logger";
 import { resetCardLearningProgress } from "./reset-section-progress";
@@ -71,7 +71,7 @@ export async function resetLearningProgress(): Promise<ResetLearningProgressRepo
   const mnemonics = await listAllMnemonics();
   const resetMnemonics = mnemonics.map(resetMnemonicProgress);
 
-  const cardsWriteGen = beginAllCachesWrite({ categories: false });
+  const session = beginWriteSession({ cards: true, categories: false });
   let cacheCommitted = false;
 
   // Cards first, then logs — same tx, but clearer intent: never leave DB without cards.
@@ -79,7 +79,7 @@ export async function resetLearningProgress(): Promise<ResetLearningProgressRepo
     await runInTransaction(async (tx) => {
       if (resetCards.length > 0) {
         await tx.runMany(CARD_INSERT_SQL, resetCards.map(bindCardInsert));
-        await syncCardSectionsIndexMany(tx, resetCards);
+        await syncCardSectionsMany(tx, resetCards);
       }
       for (const table of PROGRESS_LOG_TABLES) {
         await tx.run(`DELETE FROM ${table}`);
@@ -107,14 +107,14 @@ export async function resetLearningProgress(): Promise<ResetLearningProgressRepo
 
     await clearLearnProgress();
 
-    await commitAllCachesFromDb(cardsWriteGen, {
+    await commitWriteSessionFromDb(session, {
       syncReviewLog: true,
       satellites: "reset-progress",
     });
     cacheCommitted = true;
   } catch (err) {
     if (!cacheCommitted) {
-      await abortAllCachesWrite(cardsWriteGen);
+      await abortWriteSession(session);
     }
     throw err;
   }

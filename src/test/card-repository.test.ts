@@ -1,8 +1,13 @@
 // cardRepository — write gateway tests
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, afterEach, vi } from "vitest";
 import type { Card } from "@/lib/spaced-repetition";
 import { cardRepository } from "@/lib/repositories";
-import { listAllCards, onCardsChanged } from "@/lib/db/queries";
+import { listAllCards } from "@/lib/db/queries";
+import * as cardsInvalidation from "@/lib/query/cards-invalidation";
+
+function spyCardsInvalidation() {
+  return vi.spyOn(cardsInvalidation, "invalidateCardsCacheScopes");
+}
 
 function makeCard(id: string, overrides: Partial<Card> = {}): Card {
   return {
@@ -17,8 +22,8 @@ function makeCard(id: string, overrides: Partial<Card> = {}): Card {
 }
 
 describe("cardRepository", () => {
-  beforeEach(() => {
-    // resetTestSqliteState is called globally via setup.ts beforeEach
+  afterEach(() => {
+    vi.restoreAllMocks();
   });
 
   // ── put ──────────────────────────────────────────────────────────────────
@@ -38,11 +43,9 @@ describe("cardRepository", () => {
   });
 
   it("put notifies cards-changed once", async () => {
-    let count = 0;
-    const unsub = onCardsChanged(() => count++);
+    const notifySpy = spyCardsInvalidation();
     await cardRepository.put(makeCard("put-notify"));
-    unsub();
-    expect(count).toBe(1);
+    expect(notifySpy).toHaveBeenCalledTimes(1);
   });
 
   it("put upserts an existing card (INSERT OR REPLACE)", async () => {
@@ -65,11 +68,9 @@ describe("cardRepository", () => {
 
   it("remove notifies cards-changed", async () => {
     await cardRepository.put(makeCard("rm-notify"));
-    let count = 0;
-    const unsub = onCardsChanged(() => count++);
+    const notifySpy = spyCardsInvalidation();
     await cardRepository.remove("rm-notify");
-    unsub();
-    expect(count).toBe(1);
+    expect(notifySpy).toHaveBeenCalledTimes(1);
   });
 
   it("remove is idempotent for non-existent ids", async () => {
@@ -97,20 +98,16 @@ describe("cardRepository", () => {
   });
 
   it("bulkPut notifies once even for a large batch", async () => {
-    let count = 0;
-    const unsub = onCardsChanged(() => count++);
+    const notifySpy = spyCardsInvalidation();
     await cardRepository.bulkPut([makeCard("bpn-1"), makeCard("bpn-2"), makeCard("bpn-3")]);
-    unsub();
-    expect(count).toBe(1);
+    expect(notifySpy).toHaveBeenCalledTimes(1);
   });
 
   it("bulkPut with empty array returns empty and does not notify", async () => {
-    let count = 0;
-    const unsub = onCardsChanged(() => count++);
+    const notifySpy = spyCardsInvalidation();
     const result = await cardRepository.bulkPut([]);
-    unsub();
     expect(result).toHaveLength(0);
-    expect(count).toBe(0);
+    expect(notifySpy).not.toHaveBeenCalled();
   });
 
   // ── patch ────────────────────────────────────────────────────────────────
@@ -132,21 +129,17 @@ describe("cardRepository", () => {
   });
 
   it("patch returns undefined for non-existent card and does not notify", async () => {
-    let count = 0;
-    const unsub = onCardsChanged(() => count++);
+    const notifySpy = spyCardsInvalidation();
     const result = await cardRepository.patch("no-such-id", (c) => c);
-    unsub();
     expect(result).toBeUndefined();
-    expect(count).toBe(0);
+    expect(notifySpy).not.toHaveBeenCalled();
   });
 
   it("patch notifies once on success", async () => {
     await cardRepository.put(makeCard("patch-notify"));
-    let count = 0;
-    const unsub = onCardsChanged(() => count++);
+    const notifySpy = spyCardsInvalidation();
     await cardRepository.patch("patch-notify", (c) => ({ ...c, question: "updated" }));
-    unsub();
-    expect(count).toBe(1);
+    expect(notifySpy).toHaveBeenCalledTimes(1);
   });
 
   // ── bulkPatch ────────────────────────────────────────────────────────────
@@ -185,22 +178,18 @@ describe("cardRepository", () => {
   });
 
   it("bulkPatch with empty ids returns empty and does not notify", async () => {
-    let count = 0;
-    const unsub = onCardsChanged(() => count++);
+    const notifySpy = spyCardsInvalidation();
     const result = await cardRepository.bulkPatch([], (c) => c);
-    unsub();
     expect(result).toHaveLength(0);
-    expect(count).toBe(0);
+    expect(notifySpy).not.toHaveBeenCalled();
   });
 
   it("bulkPatch notifies once even for multiple rows", async () => {
     await cardRepository.put(makeCard("bkpn-1"));
     await cardRepository.put(makeCard("bkpn-2"));
-    let count = 0;
-    const unsub = onCardsChanged(() => count++);
+    const notifySpy = spyCardsInvalidation();
     await cardRepository.bulkPatch(["bkpn-1", "bkpn-2"], (c) => c);
-    unsub();
-    expect(count).toBe(1);
+    expect(notifySpy).toHaveBeenCalledTimes(1);
   });
 
   // ── clearLinks (JSON-native) ─────────────────────────────────────────────
@@ -220,12 +209,10 @@ describe("cardRepository", () => {
 
   it("clearLinks skips cards without sourceId", async () => {
     await cardRepository.put(makeCard("cl-skip", { question: "keep" }));
-    let count = 0;
-    const unsub = onCardsChanged(() => count++);
+    const notifySpy = spyCardsInvalidation();
     const result = await cardRepository.clearLinks(["cl-skip"]);
-    unsub();
     expect(result).toEqual([]);
-    expect(count).toBe(1);
+    expect(notifySpy).toHaveBeenCalledTimes(1);
   });
 
   // ── clearNeedsReview (JSON-native) ───────────────────────────────────────
@@ -239,11 +226,9 @@ describe("cardRepository", () => {
 
   it("clearNeedsReview is no-op when flag absent", async () => {
     await cardRepository.put(makeCard("cnr-noop"));
-    let count = 0;
-    const unsub = onCardsChanged(() => count++);
+    const notifySpy = spyCardsInvalidation();
     await cardRepository.clearNeedsReview("cnr-noop");
-    unsub();
-    expect(count).toBe(0);
+    expect(notifySpy).not.toHaveBeenCalled();
   });
 
   // ── bulkSetNeedsReview / bulkUpdateChapter (JSON-native) ───────────────

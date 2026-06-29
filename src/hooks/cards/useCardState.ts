@@ -22,11 +22,12 @@ import {
 } from "@/hooks/review/useReviewSettingsQuery";
 
 import { useBootState } from "@/hooks/useBootState";
-import { getCardsHydrated, subscribeCardsHydrated } from "@/lib/query/cards-cache-coordinator";
 import {
+  getCardsHydrated,
+  subscribeCardsHydrated,
   getCategoriesHydrated,
   subscribeCategoriesHydrated,
-} from "@/lib/query/categories-cache-coordinator";
+} from "@/lib/query/cache-coordinator";
 import { countConsolidationEligibleCards, countConsolidationEligibleByCategory } from "@/lib/review-mode-builder";
 
 function useCards(): Card[] {

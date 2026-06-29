@@ -4,8 +4,8 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { CategoryRecord } from "@/lib/db-types";
 import { makeCard } from "@/test/factories";
+import { cardRepository } from "@/lib/repositories";
 import {
-  putCardDirect,
   bulkPutCategories,
   listAllCards,
   countAllCards,
@@ -25,14 +25,12 @@ import {
 } from "./helpers/persistence-contract";
 import {
   ensureCardsBootCache,
-  getCardsCacheWriteGeneration,
-  getCardsHydrated,
-} from "@/lib/query/cards-cache-coordinator";
-import {
   ensureCategoriesBootCache,
+  getCardsCacheWriteGeneration,
   getCategoriesCacheWriteGeneration,
+  getCardsHydrated,
   getCategoriesHydrated,
-} from "@/lib/query/categories-cache-coordinator";
+} from "@/lib/query/cache-coordinator";
 import { queryClient } from "@/lib/query/client";
 import { queryKeys } from "@/lib/query/keys";
 import { INTEGRATION_TEST_TIMEOUT_MS } from "@/test/helpers/test-timeouts";
@@ -86,8 +84,8 @@ beforeEach(async () => {
   resetTestSqliteState();
   simulateAppSessionReset({ resetBoot: true });
   await bulkPutCategories([ROUNDTRIP_CAT]);
-  await putCardDirect(CARD_A);
-  await putCardDirect(CARD_B);
+  await cardRepository.put(CARD_A);
+  await cardRepository.put(CARD_B);
 });
 
 describe("backup roundtrip contract (Faza 0)", { timeout: INTEGRATION_TEST_TIMEOUT_MS }, () => {

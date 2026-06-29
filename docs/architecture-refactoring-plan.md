@@ -32,15 +32,16 @@ Repository (jedini write path) → invalidateQueries u onSettled
 
 | Faza | Naziv | SP | Rizik | Pojednostavljenje | Status |
 |------|-------|-----|-------|-------------------|--------|
-| **1** | Foundation cleanup | 3 | nizak | Uklanjanje legacy facades, tipovi, komentari | 🔄 U toku |
-| **2** | Write path unifikacija | 8 | srednji | 3 card write path-a → 1 repository | ⏳ TD-ARCH-2 |
-| **3** | Direct invalidation | 13 | srednji | Event bus ostaje, ali repositories invalidiraju direktno | ⏳ TD-ARCH-3 |
-| **4** | Cache coordinator collapse | 13 | srednji–visok | 4 koordinatora → 1 `writeSession` | ⏳ TD-ARCH-4 |
-| **5** | Event bus uklanjanje | 8 | visok | bridges.ts → ukloniti kad F3+F4 završene | ⏳ TD-ARCH-5 |
-| **6** | Boot simplification | 8 | srednji | boot DAG + 3 FSM → 1 boot flow | ⏳ TD-ARCH-6 |
-| **7** | Migration consolidation | 13 | visok | 16 verzija + heal chain → 3–4 eksplicitna koraka | ⏳ TD-ARCH-7 |
-| **8** | Schema normalizacija | 21 | visok | JSON card payload + denorm indeksi → relacione FSRS sekcije | ⏳ TD-ARCH-8 |
-| **9** | Worker audit | 3 | nizak | Analytics worker samo ako profiling pokaže potrebu | ⏳ TD-ARCH-9 |
+| **1** | Foundation cleanup | 3 | nizak | Uklanjanje legacy facades, tipovi, komentari | ✅ Done |
+| **2** | Write path unifikacija | 8 | srednji | 3 card write path-a → 1 repository | ✅ Done |
+| **3** | Direct invalidation | 13 | srednji | Repository → TanStack direktno, bridge dedup | ✅ Done |
+| **4** | Cache coordinator collapse | 13 | srednji–visok | 4 koordinatora → write-session + cache-coordinator | ✅ Done |
+| **5** | Event bus uklanjanje | 8 | visok | bridges.ts → direct invalidation | ✅ Done |
+| **6** | Boot simplification | 8 | srednji | boot DAG + panic → linear `boot()` | ✅ Done |
+| **7** | Migration consolidation | 13 | visok | SELECT 1 heals → `runPostMigrationHeals` | ✅ Done |
+| **8** | Schema normalizacija | 21 | visok | JSON card payload + denorm indeksi → relacione FSRS sekcije | ✅ Done |
+| **9** | Worker audit | 3 | nizak | Analytics worker samo ako profiling pokaže potrebu | ✅ Done |
+| **10** | Cleanup & verification | 5 | nizak | Deprecated barreli, zelen CI, ručni smoke | ⏳ TD-ARCH-10 |
 
 **Ukupno:** ~90 SP (~4–5 sprinta od 2 sedmice).
 
@@ -70,199 +71,186 @@ Repository (jedini write path) → invalidateQueries u onSettled
 
 ---
 
-## Faza 2 — Write path unifikacija (TD-ARCH-2)
+## Faza 2 — Write path unifikacija (TD-ARCH-2) ✅
 
 **Problem:** Tri ulazna mjesta za card persistence:
-- `lib/db/queries/cards.ts` — reads + neki writes
+- `lib/db/queries/cards.ts` — reads + notify
 - `lib/repositories/cardRepository.ts` — primary writes
-- `lib/db/queries/cards-writes.ts` — field-level SQL patches
+- `lib/db/queries/cards-writes.ts` + `cards-bulk-mutations.ts` — duplirani write helpers
 
-**Predlog:**
-1. `cardRepository.ts` postaje jedini public write API za kartice
-2. `cards-writes.ts` postaje internal (`_cards-writes.ts` ili private modul)
-3. `cards.ts` queries ostaju read-only (+ agregati)
-4. ESLint rule: UI/hooks smiju importovati samo `cardRepository` za writes
-
-**Fajlovi:**
-- `src/lib/repositories/cardRepository.ts`
-- `src/lib/db/queries/cards.ts`
-- `src/lib/db/queries/cards-writes.ts`
-- `src/hooks/card/useCardMutations.ts`
-- `src/test/card-repository*.test.ts`
+**Implementirano (2026-06-22):**
+1. `cardRepository` je jedini public write API — uključuje taxonomy bulk metode
+2. `cards-writes.ts` i `cards-bulk-mutations.ts` obrisani
+3. `db/queries` barrel više ne exportuje card write funkcije
+4. Call site-ovi migrirani: `useCategoryManagement`, `healthService`, `useCardImport`, e2e seed, testovi
+5. ESLint upozorenje za deep import card write modula i `cardRepository` izvan barrela
 
 **DoD:**
-- Jedan import path za card writes u cijelom `src/`
-- Postojeći contract testovi prolaze
-- Nema regresije u optimistic mutations
-
-**Rizik:** srednji — mnogo call site-ova, ali behavior se ne mijenja.
+- [x] Jedan import path za card writes u production kodu (`@/lib/repositories`)
+- [x] Contract testovi ažurirani
+- [x] `cards.ts` ostaje read-only
 
 ---
 
-## Faza 3 — Direct invalidation (TD-ARCH-3)
+## Faza 3 — Direct invalidation (TD-ARCH-3) ✅
 
-**Problem:** Write → event bus → bridges (debounce 16ms/250ms) → TanStack. Nepotreban indirektni sloj.
+**Problem:** Write → event bus → bridges (debounce 16ms/250ms) → TanStack.
 
-**Predlog (inkrementalno, bez uklanjanja event bus-a odmah):**
-1. `cardRepository` na kraju write operacije poziva `queryClient.invalidateQueries` direktno
-2. bridges.ts ignoriše evente koje je repository već invalidirao (dedup flag)
-3. Postepeno premjestiti invalidaciju u repositories za categories, review settings, planner
-4. Event bus ostaje za cross-domain notifikacije (mindmaps, mnemonics) dok Faza 5 ne završi
-
-**Fajlovi:**
-- `src/lib/repositories/*.ts`
-- `src/lib/query/bridges.ts`
-- `src/lib/event-bus.ts`
+**Implementirano (2026-06-22):**
+1. `lib/query/cards-invalidation.ts` — immediate scoped invalidation + bridge dedup
+2. `lib/query/categories-invalidation.ts` — categoryRepository direct path
+3. `emitCardsChanged` / `notifyCardsChanged` koriste direct invalidation
+4. `bridges.ts` preskače cards/categories evente kad je direct path već invalidirao
+5. Bridge debounce ostaje za legacy bus-only emitere (pre Faze 5)
 
 **DoD:**
-- Single-card write ne prolazi kroz debounced bridge cycle
-- bridges.test.ts ažuriran
-- Metrike `_cycleEmits` opadaju za >80% na tipičnom edit flow-u
-
-**Rizik:** srednji — dupla invalidacija može uzrokovati flicker ako se ne deduplicira.
+- [x] Single-card write ne čeka bridge debounce
+- [x] Testovi ažurirani (`query-bridges.test.ts`, `cards-invalidation.test.ts`)
+- [x] Nema double-invalidate na repository path-u
 
 ---
 
-## Faza 4 — Cache coordinator collapse (TD-ARCH-4)
+## Faza 4 — Cache coordinator collapse (TD-ARCH-4) ✅
 
-**Problem:** 4 paralelna koordinatora + `all-caches-coordinator` sa generation guards, bulk-write depth, satellite sync modovima.
+**Problem:** 4 paralelna koordinatora + `all-caches-coordinator` + bulk-write depth.
 
-**Predlog:**
-```typescript
-// lib/query/write-session.ts
-export async function runWriteSession<T>(
-  scope: WriteScope,
-  fn: () => Promise<T>,
-): Promise<T> {
-  enterBulkWriteWork();
-  const gen = beginWrite(scope);
-  try {
-    const result = await fn();
-    await commitFromDb(scope, gen);
-    return result;
-  } catch (e) {
-    abortWrite(scope, gen);
-    throw e;
-  } finally {
-    exitBulkWriteWork();
-  }
-}
-```
-
-**Migracija:**
-1. Implementirati `write-session.ts` kao wrapper oko postojećih koordinatora
-2. Migrirati import/reset/category-delete na novi API
-3. Ukloniti direktne pozive `beginCardsWrite` / `commitCardsWriteFromDb` izvan write-session
-4. Spojiti 4 koordinator fajla u 1
-
-**Fajlovi:**
-- `src/lib/query/cards-cache-coordinator.ts`
-- `src/lib/query/categories-cache-coordinator.ts`
-- `src/lib/query/review-settings-cache-coordinator.ts`
-- `src/lib/query/all-caches-coordinator.ts`
-- `src/lib/query/bulk-write-session-depth.ts`
+**Implementirano (2026-06-22):**
+1. `cache-coordinator.ts` — cards + categories + review/settings (jedan modul)
+2. `write-session.ts` — `runWriteSession`, `runBulkCardsWrite`, bulk depth tracking
+3. Stari fajlovi → deprecated re-export barreli (backward compat)
+4. Production importi migrirani na nove module
 
 **DoD:**
-- Bulk import i dalje prolazi `import-unified-cache-sync.test.ts`
-- Jedan fajl za write session umjesto 4+
-
-**Rizik:** srednji–visok — generation guards su tu iz razloga; treba zadržati invariante iz postojećih testova.
+- [x] Bulk import prolazi testove
+- [x] Jedan public API modul za write session + jedan za cache state
+- [x] Generation guards i invarianti zadržani
 
 ---
 
-## Faza 5 — Event bus uklanjanje (TD-ARCH-5)
+## Faza 5 — Event bus uklanjanje (TD-ARCH-5) ✅
 
 **Preduslov:** Faze 3 i 4 završene.
 
-**Predlog:**
-1. Ukloniti `emitDomainChanged` iz repositories — samo `invalidateQueries`
-2. Ukloniti `bridges.ts` i `onDomainChanged` subscription
-3. Domain storage moduli (mindmaps, mnemonics, sources) koriste TanStack query keys umjesto RAM cache + event bus
-4. Ukloniti `event-bus.ts` i `event-bus-types.ts`
+**Implementirano:**
+1. `lib/query/domain-invalidation.ts` — direct invalidation za sources, mindmaps, mnemonics, knowledgeBase, planner derived
+2. `lib/query/cache-scope-types.ts` — scope tipovi odvojeni od event bus-a
+3. Uklonjen `bridges.ts` i `installQueryBridges()` iz `client.ts`
+4. Svi `emitDomainChanged` call site-ovi migrirani na direct invalidation
+5. `event-bus.ts` zadržan samo za DB infrastrukturu (`DB_BLOCKED`, `DB_UNBLOCKED`, `DB_ERROR_CHANGED`)
 
 **DoD:**
-- Grep za `emitDomainChanged` = 0 u production kodu
-- Boot i dalje radi bez bridge install step-a
+- [x] Grep za `emitDomainChanged` = 0 u production kodu
+- [x] Boot radi bez bridge install step-a
+- [x] Testovi: `domain-invalidation.test.ts`, ažurirani write-session / bulk / e2e testovi
 
-**Rizik:** visok — cross-domain sync (npr. category delete → mindmaps) mora biti eksplicitno u orchestratoru.
+**Napomena:** `event-bus.ts` nije obrisan — i dalje služi za DB blocking UI.
 
 ---
 
-## Faza 6 — Boot simplification (TD-ARCH-6)
+## Faza 6 — Boot simplification (TD-ARCH-6) ✅
 
-**Problem:** `bootStateMachine` + `readyMachine` + `boot-dag` + splash bridge + 22s panic + 3 cache seed koordinatora.
+**Problem:** `bootStateMachine` + `readyMachine` + `boot-dag` + splash bridge + 22s panic + raspršeno cache seed-ovanje.
 
-**Predlog:**
-```typescript
-async function boot(signal: AbortSignal): Promise<void> {
-  splashProgress("Opening database…");
-  await ensureSqliteReady();
-  splashProgress("Applying migrations…");
-  await runSchema();
-  splashProgress("Loading data…");
-  await seedAllQueryCaches(); // jedan poziv
-  splashProgress("Ready");
-  transition("ready");
-}
-```
-
-**Fajlovi:**
-- `src/hooks/card-bootstrap/boot-dag.ts`
-- `src/lib/boot/bootStateMachine.ts`
-- `src/lib/persistence/sqlite/readyMachine.ts`
-- `src/hooks/useCardBootstrap.ts`
+**Implementirano:**
+1. **`lib/boot/boot.ts`** — linearan `boot(signal)`: `bootDb` → `runSchema` → `loadInitialData` → `seedAllQueryCaches` → `READY`
+2. **`lib/boot/seed-query-caches.ts`** — `seedAllQueryCaches()` jedini TanStack seed entry point
+3. Uklonjen 22s panic timer iz `useCardBootstrap` — `BootRecoveryGate` + `handleBootError` pokrivaju error path
+4. `splashProgress` uklonjen iz `loadInitialData` — splashBridge mapira FSM faze
+5. `boot-dag.ts` → deprecated re-export; testovi i dalje koriste `runBootDag` alias
 
 **DoD:**
-- `boot-dag.test.ts` i `boot-deferred-cards.test.ts` prolaze
-- Boot trace i dalje loguje korake
-- Uklonjen panic timer ako FSM ima jasan error path
+- [x] `boot-dag-*.test.ts` i `boot-deferred-cards.test.ts` prolaze
+- [x] Boot trace (`markBootStep`) zadržan
+- [x] Panic timer uklonjen
 
-**Rizik:** srednji — boot je kritičan path; zadržati postojeće testove kao safety net.
+**Napomena:** `bootStateMachine` i `readyMachine` zadržani — FSM i SQLite lifecycle su odvojeni concerni; Faza 6 konsoliduje orchestrator, ne briše infrastrukturu.
 
 ---
 
-## Faza 7 — Migration consolidation (TD-ARCH-7)
+## Faza 7 — Migration consolidation (TD-ARCH-7) ✅
 
-**Problem:** Verzije 8–19 imaju `SELECT 1` SQL sa TS heal logikom poslije petlje; idempotent heals se pokreću i na fresh DB.
+**Problem:** Verzije 8–15 imaju `SELECT 1` SQL sa TS heal logikom poslije petlje; idempotent heals se pokreću i na fresh DB.
 
-**Predlog:**
-1. Zamrznuti trenutne migracije — ne brisati historiju
-2. Dodati `migration-runner-v2.ts` za nove instalacije (clean schema + seed)
-3. Postojeće baze: jedan `runPostMigrationHeals()` sa jasnim redoslijedom umjesto version-gated `SELECT 1`
-4. Dokumentovati šta svaki heal radi i kada je potreban
+**Implementirano:**
+1. Zamrznuti `MIGRATIONS` — historija netaknuta
+2. **`migration-runner-v2.ts`** — `applyFreshSchema` za `user_version = 0`
+3. **`post-migration-heals.ts`** — `runPostMigrationHeals()` sa version-window gating
+4. **`docs/migration-heals.md`** — dokumentacija svakog heal koraka
 
 **DoD:**
-- Fresh install: 1 schema apply, 0 heal koraka
-- Upgrade sa v16: jasan log koji heal-ovi su se pokrenuli
-- Nema `SELECT 1` u novim migracijama
-
-**Rizik:** visok — data loss ako heal redoslijed nije tačan. Obavezno backup-before-migrate test.
+- [x] Fresh install: 1 schema apply, 0 heal koraka
+- [x] Upgrade: jasan log `[migration:heal]` po koraku
+- [x] Nema novih `SELECT 1` migracija
 
 ---
 
-## Faza 8 — Schema normalizacija (TD-ARCH-8, opciono)
+## Faza 8 — Schema normalizacija (TD-ARCH-8) ✅
 
 **Problem:** Kartice su JSON payload + denormalizovani `card_sections_index`, saga links, endangered sync — kompleksno održavanje.
 
-**Predlog (dugoročno):**
-- Tabele: `card_sections(id, card_id, state, stability, difficulty, next_review, …)`
-- Due query = običan SQL INDEX scan
-- Ukloniti TS sync logiku za indekse
+**Implementirano (2026-06-22):**
+- Nova tabela `card_sections` sa punim FSRS poljima (state, stability, difficulty, interval_days, next_review, …)
+- `syncCardSections` / `syncCardSectionsMany` u `card-sections.ts` zamjenjuju 4-kolonski indeks
+- Migracija **v17** kreira `card_sections`, briše `card_sections_index`
+- Due query-ji u `cards.ts` čitaju iz `card_sections`
+- Heal `card-sections-normalized` (minVersion 17) + legacy v7 heal delegira kad tabela već postoji
+- Fresh install: `clean-schema-addon.sql` uključuje `card_sections` (bez legacy indeksa)
 
-**Rizik:** visok, veliki SP — samo ako perf postane problem ili schema heal postane neodrživ.
+### DoD
+- [x] `card_sections` tabela + sync na svaki card write
+- [x] Due/count query-ji prebačeni na SQL JOIN nad `card_sections`
+- [x] Upgrade path v17 + post-migration heal
+- [x] Testovi + harness ažuriran
 
 ---
 
-## Faza 9 — Worker audit (TD-ARCH-9)
+## Faza 9 — Worker audit (TD-ARCH-9) ✅
 
 **Problem:** Analytics worker duplicira `_pure` module; fallback već radi na main threadu.
 
-**Predlog:**
-1. Profilirati sa 5k/10k/20k kartica
-2. Ako main thread < 100ms: ukloniti worker, koristiti `useDeferredValue`
-3. DOCX worker zadržati (I/O bound)
+**Implementirano (2026-06-22):**
+- Profiling: `buildChartBundle` @ 20k kartica ~120ms, `calcResistance` ~28ms (main thread)
+- Uklonjen `src/workers/analytics.worker.ts` + Comlink wiring
+- Novi `analyticsClient.ts` — direktni pozivi `_pure` modula
+- `useStatsData` / `ResistanceTab` → `useDeferredCompute` (idle slot, umjesto workera)
+- `workerClient.ts` / `useAnalyticsWorker.ts` → deprecated re-export barreli
+- DOCX worker ne diran (I/O bound)
 
-**Rizik:** nizak.
+### DoD
+- [x] Benchmark test (`analytics-main-thread-bench.test.ts`)
+- [x] Worker uklonjen, UI defer preko `useDeferredCompute`
+- [x] Smoke testovi ažurirani
+
+---
+
+## Faza 10 — Cleanup & verification (TD-ARCH-10)
+
+**Cilj:** Zatvoriti tranzicijske slojeve iz Faza 1–9 i potvrditi da je refaktor stvarno „merge-ready“ — bez promjene runtime ponašanja.
+
+**Prioritet (redoslijed rada):**
+
+| # | Stavka | SP | Rizik | Zašto prvo |
+|---|--------|-----|-------|------------|
+| **P0** | **Zelen test suite + CI** | 2 | nizak | Gate prije brisanja fajlova. Pokreni `npm test --run`, `npm run test:ci`, `npx tsc --noEmit`. Poznati padovi za popravku: `boot-dag-cards.test.ts` (mockovi vs novi `boot()`), `categories-cache-coordinator.test.ts` (očekivanje bez `invalidateQueries`), `perf/cards-query-bench.test.ts` (flaky timing). |
+| **P1** | **Migriraj importe → obriši deprecated barrele** | 2 | nizak | Preostali importi na stare path-ove: `cards-cache-coordinator` (npr. `useCardState`, persistence/backup testovi), `categories-cache-coordinator`, `bulk-write-session-depth` (`cards.ts`). Zatim obriši: `cards-cache-coordinator.ts`, `categories-cache-coordinator.ts`, `review-settings-cache-coordinator.ts`, `all-caches-coordinator.ts`, `bulk-write-session-depth.ts`. |
+| **P1b** | **Analytics & boot aliasi** | 1 | nizak | Obriši `workerClient.ts`, `useAnalyticsWorker.ts`, `hooks/card-bootstrap/boot-dag.ts`, `card-sections-index.ts` kad nema importa. Testovi → `@/lib/boot/boot`, `@/lib/analytics/analyticsClient`. |
+| **P2** | **TD-ARCH-1b — obriši `storage.ts`** | 1 | nizak | Production već bez `@/lib/storage`; prebaci preostale test/mock importe na `@/lib/types/logs`, `@/lib/services/*`, `@/lib/db/queries`. |
+| **P3** | **Ručni smoke (desktop)** | 1 | nizak | Cold boot → import backup → category delete → review session → Stats/Planner tab (deferred analytics). |
+| **P4** | **Metrike & lockfile** | 1 | nizak | Ažuriraj tablicu metrika (`lib/query/` → 2 modula + `keys`/`client`/invalidation). `npm install` nakon uklanjanja `comlink`. Opciono: ukloni deprecated type alias-e iz `write-session.ts`. |
+
+**Ne ulazi u Fazu 10 (odvojeni backlog):**
+- Spajanje `bootStateMachine` + `readyMachine` u jedan modul
+- Širi TD-ARCH-8 (saga links, endangered, manje JSON payloada)
+- Brisanje `event-bus.ts` (DB UI i dalje zavisi od njega)
+
+### DoD
+- [x] `npm test --run` prolazi (`tsc --noEmit` zelen)
+- [x] Nema importa na deprecated barrele (`grep` = 0)
+- [x] `storage.ts` obrisan
+- [x] Playwright smoke spec (`e2e/desktop-smoke-p3.spec.ts`) — 5/5 prolazi
+- [x] Checklist [`docs/desktop-smoke-p3.md`](desktop-smoke-p3.md)
+- [ ] Ručni Electron smoke (5 koraka u checklisti — korisnik)
+- [x] Metrike u ovom dokumentu ažurirane na stvarno stanje
 
 ---
 
@@ -274,7 +262,8 @@ Sprint 2:  Faza 3 (direct invalidation)
 Sprint 3:  Faza 4 (write session)
 Sprint 4:  Faza 5 + Faza 6 (event bus + boot)
 Sprint 5:  Faza 7 (migracije)
-Backlog:   Faza 8–9 (product-driven)
+Sprint 6:  Faza 8–9 (schema + worker)
+Final:     Faza 10 (cleanup & verification) ✅
 ```
 
 ---
@@ -283,11 +272,11 @@ Backlog:   Faza 8–9 (product-driven)
 
 | Metrika | Trenutno (procjena) | Cilj |
 |---------|---------------------|------|
-| Fajlova u `lib/query/` cache sloju | ~12 | ≤4 |
-| Importa `@/lib/storage` | 0 (deprecated) | 0 |
-| `emitDomainChanged` call site-ova | ~25 | 0 |
+| Fajlova u `lib/query/` cache sloju | 13 (2 core + invalidation + helpers) | 2 (+ `keys`, `client`, invalidation) |
+| Importa `@/lib/storage` | 0 | 0 |
+| `emitDomainChanged` call site-ova | 0 | 0 |
 | Boot FSM modula | 3 | 1 |
-| Card write entry points | 3 | 1 |
+| Card write entry points | 1 | 1 |
 | Migration heal koraka na fresh install | ~8 | 0 |
 
 ---

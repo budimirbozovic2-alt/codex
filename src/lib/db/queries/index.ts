@@ -1,11 +1,14 @@
 /**
  * Public API barrel for `@/lib/db/queries`.
  *
- * Hooks consume this barrel directly (see ESLint 
- * `no-restricted-imports` override for `src/hooks/**`). 
+ * Hooks consume this barrel directly (see ESLint
+ * `no-restricted-imports` override for `src/hooks/**`).
  * UI components remain blocked — they must route through a hook.
  *
- * Walled per architecture memory: deep imports into sibling 
+ * Card **writes** belong in `@/lib/repositories` (`cardRepository`).
+ * This barrel exposes card reads, notify helpers, and non-card tables.
+ *
+ * Walled per architecture memory: deep imports into sibling
  * files are forbidden, the barrel is the single seam.
  */
 
@@ -44,27 +47,10 @@ export {
   cardCountByType,
   countEndangeredEssaysByCategoryFromDb,
   countEndangeredEssaysAllFromDb,
-  onCardsChanged,
   notifyCardsChanged,
   getRecentCorruptCardIds,
   onCorruptCards,
 } from "./cards";
-
-export {
-  clearCardsSubcategoryRefs,
-  clearCardsChapterRefs,
-  reassignCardsSubcategory,
-} from "./cards-bulk-mutations";
-
-// PR-E1 — direct SQLite write helpers
-export {
-  putCardDirect,
-  bulkPutCardsDirect,
-  deleteCardDirect,
-  clearCardLinksDirect,
-  clearCardNeedsReviewDirect,
-  snapshotAllCards,
-} from "./cards-writes";
 
 // PR-9 M3 — SQLite-primary read/write repos.
 export {
@@ -193,7 +179,6 @@ export {
   bulkPutCategories,
   clearCategories,
   notifyCategoriesChanged,
-  onCategoriesChanged,
 } from "./categories";
 export type { CategoriesScope } from "./categories";
 

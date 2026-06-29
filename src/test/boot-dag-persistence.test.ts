@@ -1,17 +1,17 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { makeCard } from "@/test/factories";
-import { putCardDirect } from "@/lib/db/queries";
+import { cardRepository } from "@/lib/repositories";
 import {
   ensureCardsBootCache,
   getCardsHydrated,
   resetCardsQueryCache,
-} from "@/lib/query/cards-cache-coordinator";
+} from "@/lib/query/cache-coordinator";
 import {
   ensureCategoriesBootCache,
   getCategoriesHydrated,
   resetCategoriesQueryCache,
-} from "@/lib/query/categories-cache-coordinator";
-import * as cardsCacheCoordinator from "@/lib/query/cards-cache-coordinator";
+} from "@/lib/query/cache-coordinator";
+import * as cardsCacheCoordinator from "@/lib/query/cache-coordinator";
 import { queryClient } from "@/lib/query/client";
 import { queryKeys } from "@/lib/query/keys";
 import { __resetBootStateForTests, getBootState } from "@/lib/boot";
@@ -53,9 +53,9 @@ vi.mock("@/lib/repositories", async () => {
     },
   };
 });
-vi.mock("@/lib/query/review-settings-cache-coordinator", async (importOriginal) => {
+vi.mock("@/lib/query/cache-coordinator", async (importOriginal) => {
   const actual = await importOriginal<
-    typeof import("@/lib/query/review-settings-cache-coordinator")
+    typeof import("@/lib/query/cache-coordinator")
   >();
   return {
     ...actual,
@@ -65,7 +65,7 @@ vi.mock("@/lib/query/review-settings-cache-coordinator", async (importOriginal) 
 });
 vi.mock("@/lib/boot-trace", () => ({ markBootStep: vi.fn() }));
 
-import { runBootDag } from "@/hooks/card-bootstrap/boot-dag";
+import { runBootDag } from "@/lib/boot";
 
 describe("runBootDag persistence (harness)", { timeout: INTEGRATION_TEST_TIMEOUT_MS }, () => {
   const seedIds = ["boot-persist-1", "boot-persist-2", "boot-persist-3"];
@@ -75,7 +75,7 @@ describe("runBootDag persistence (harness)", { timeout: INTEGRATION_TEST_TIMEOUT
     resetCategoriesQueryCache();
     __resetBootStateForTests();
     for (const id of seedIds) {
-      await putCardDirect(makeCard({ id, question: `${id}?` }));
+      await cardRepository.put(makeCard({ id, question: `${id}?` }));
     }
     simulateAppSessionReset({ resetBoot: true });
   });
