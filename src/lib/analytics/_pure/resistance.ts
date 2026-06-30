@@ -9,7 +9,7 @@
  */
 import type { Card, Section } from "@/lib/sr/types";
 import { SectionState } from "@/lib/sr/types";
-import type { ReviewLogEntry } from "../../storage";
+import type { ReviewLogEntry } from "@/lib/types/logs";
 import type { LatencyEntry } from "@/domains/metacognition/metacognitive-storage";
 
 export interface ResistanceWeights {

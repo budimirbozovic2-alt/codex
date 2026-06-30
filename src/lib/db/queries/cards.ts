@@ -232,7 +232,7 @@ export async function masteryDistributionByCategoryFromDb(
         counts[level] = Number(row.n);
       }
     }
-    return counts as MasteryDistribution;
+    return counts as unknown as MasteryDistribution;
   });
 }
 

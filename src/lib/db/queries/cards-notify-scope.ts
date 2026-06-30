@@ -3,7 +3,7 @@
  * indexed card columns instead of defaulting to `{ kind: "all" }`.
  */
 import type { Card } from "@/lib/spaced-repetition";
-import type { CardsScope } from "@/lib/query/cache-scope-types";
+import type { CardsChangedScope } from "@/lib/query/cache-scope-types";
 import { runInTransaction } from "@/lib/persistence/sqlite/client";
 import { invalidateCardsCacheScopes } from "@/lib/query/cards-invalidation";
 
@@ -25,9 +25,9 @@ export function cardToScopeRef(
   };
 }
 
-export function uniqueCategoryScopes(refs: readonly CardScopeRef[]): CardsScope[] {
+export function uniqueCategoryScopes(refs: readonly CardScopeRef[]): CardsChangedScope[] {
   const seen = new Set<string>();
-  const out: CardsScope[] = [];
+  const out: CardsChangedScope[] = [];
   for (const ref of refs) {
     if (!ref.categoryId || seen.has(ref.categoryId)) continue;
     seen.add(ref.categoryId);
@@ -36,7 +36,7 @@ export function uniqueCategoryScopes(refs: readonly CardScopeRef[]): CardsScope[
   return out;
 }
 
-export function scopesForRefs(refs: readonly CardScopeRef[]): CardsScope[] {
+export function scopesForRefs(refs: readonly CardScopeRef[]): CardsChangedScope[] {
   const scopes = uniqueCategoryScopes(refs);
   const sourceIds = new Set<string>();
   for (const ref of refs) {
@@ -51,13 +51,13 @@ export function scopesForRefs(refs: readonly CardScopeRef[]): CardsScope[] {
 export function scopesForTransition(
   before: CardScopeRef,
   after: CardScopeRef,
-): CardsScope[] {
+): CardsChangedScope[] {
   return scopesForRefs([before, after]);
 }
 
-function dedupeScopes(scopes: readonly CardsScope[]): CardsScope[] {
+function dedupeScopes(scopes: readonly CardsChangedScope[]): CardsChangedScope[] {
   const seen = new Set<string>();
-  const out: CardsScope[] = [];
+  const out: CardsChangedScope[] = [];
   for (const scope of scopes) {
     const key = JSON.stringify(scope);
     if (seen.has(key)) continue;
@@ -68,7 +68,7 @@ function dedupeScopes(scopes: readonly CardsScope[]): CardsScope[] {
 }
 
 /** Emit scoped invalidations — direct TanStack flush (no bridge debounce). */
-export function emitCardsChanged(scopes: CardsScope | readonly CardsScope[]): void {
+export function emitCardsChanged(scopes: CardsChangedScope | readonly CardsChangedScope[]): void {
   const list = dedupeScopes(Array.isArray(scopes) ? scopes : [scopes]);
   if (list.length === 0) {
     invalidateCardsCacheScopes({ kind: "all" });

@@ -5,7 +5,6 @@
 import {
   type EventType,
   type EventMessage,
-  EVENT_TYPES,
 } from "./event-bus-types";
 import { logger } from "@/lib/logger";
 

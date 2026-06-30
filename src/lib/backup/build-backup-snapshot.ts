@@ -73,6 +73,9 @@ export async function buildBackupSnapshot(
 
     const localStorageData = await exportLegacyLocalStorageData();
 
+    // Runtime read-for-backup shapes are structurally compatible with the
+    // Zod-inferred ParsedBackup (which re-validates on import); cast the whole
+    // assembled snapshot rather than each log field individually.
     return {
       version: 7,
       type: "full",
@@ -95,6 +98,6 @@ export async function buildBackupSnapshot(
       pomodoroLog,
       settings: [],
       localStorageData,
-    };
+    } as unknown as ParsedBackup;
   });
 }

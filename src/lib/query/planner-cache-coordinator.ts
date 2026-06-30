@@ -70,7 +70,7 @@ export function getDailyMappedFromCache(): DailyMappedSlot {
 
 export function seedDailyMapped(
   slot: DailyMappedSlot,
-  options?: { notify?: boolean },
+  _options?: { notify?: boolean },
 ): void {
   queryClient.setQueryData(queryKeys.planner.dailyMapped(), slot);
 }
@@ -81,7 +81,7 @@ export function getLastRedistributeFromCache(): string {
 
 export function seedLastRedistribute(
   date: string,
-  options?: { notify?: boolean },
+  _options?: { notify?: boolean },
 ): void {
   queryClient.setQueryData(queryKeys.planner.lastRedistribute(), date);
 }

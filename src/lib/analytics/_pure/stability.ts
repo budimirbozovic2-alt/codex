@@ -2,7 +2,7 @@
 // (loaded on main thread) so the worker never touches storage.
 import { addDays, differenceInDays, startOfDay } from "date-fns";
 import type { Card } from "@/lib/sr/types";
-import type { ReviewLogEntry } from "../../storage";
+import type { ReviewLogEntry } from "@/lib/types/logs";
 import type { DisciplineEntry, PlannerConfig } from "@/domains/planner";
 
 export interface CategoryStabilityInfo {

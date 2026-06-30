@@ -35,6 +35,7 @@ export function convertEmergencyToParsedBackup(raw: unknown): ParsedBackup {
     subcategories: o.subcategories,
     sources: arrayField(o.sources) as ParsedBackup["sources"],
     reviewLog: arrayField(o.reviewLog) as ParsedBackup["reviewLog"],
+    srSettings: o.srSettings as ParsedBackup["srSettings"],
     mindMaps: arrayField(o.mindMaps) as ParsedBackup["mindMaps"],
     diary: arrayField(o.diary) as ParsedBackup["diary"],
     calibrationLog: arrayField(o.calibrationLog) as ParsedBackup["calibrationLog"],

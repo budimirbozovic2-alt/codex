@@ -4,7 +4,7 @@
  * Formerly deferred via `taskScheduler.idle` after READY; now run during
  * `runMigrations` on SQLite open. Each step is idempotent and flagged in `kv`.
  */
-import type { SqlExecutor } from "./executor";
+import type { SqlExecutor, SqlRow } from "./executor";
 import { healLegacyKvScalars } from "./kv";
 import { loadAllCategoryRows } from "./category-codecs";
 import {
@@ -45,7 +45,7 @@ async function setFlag(exec: SqlExecutor, key: string): Promise<void> {
 }
 
 async function loadAllCards(exec: SqlExecutor): Promise<Card[]> {
-  const rows = await exec.all<Record<string, unknown>>(
+  const rows = await exec.all<SqlRow>(
     `SELECT ${CARD_DECODE_SELECT} FROM cards`,
   );
   const cards: Card[] = [];

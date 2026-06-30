@@ -10,7 +10,6 @@ import type { PreparedImport } from "@/components/export-import/types";
 
 import { isLegacyEmergencyExport } from "@/lib/backup/emergency-import";
 
-import { yieldUI } from "@/lib/backup/yield-ui";
 
 import { applyImportAtomically, type ImportStrategy } from "@/lib/backup/import-transaction";
 

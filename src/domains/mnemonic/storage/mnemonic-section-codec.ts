@@ -71,7 +71,7 @@ export function normalizeMnemonicCardOnImport(raw: Record<string, unknown>): Mne
   const sections = Array.isArray(raw.sections)
     ? raw.sections.map((s) => decodeLegacySection(s as LegacyMnemonicSectionPayload))
     : [];
-  return normalizeMnemonicCardOnRead({ ...(raw as MnemonicCard), sections });
+  return normalizeMnemonicCardOnRead({ ...(raw as unknown as MnemonicCard), sections });
 }
 
 export function normalizeMnemonicCardForWrite(card: MnemonicCard): MnemonicCard {
