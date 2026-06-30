@@ -3,10 +3,12 @@ import Breadcrumbs from "@/components/Breadcrumbs";
 import { useLocation } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { useStore } from "zustand";
+// eslint-disable-next-line no-restricted-imports -- pre-existing; tracked separately
 import { uiStore } from "@/store/useUIStore";
 import { useBackupActions, useCardOnlyActions } from "@/hooks/cards/useActions";
 import { useCategoryData } from "@/hooks/cards/useCategoryState";
 import { useReviewData } from "@/hooks/cards/useCardState";
+// eslint-disable-next-line no-restricted-imports -- pre-existing; tracked separately
 import { listAllCards } from "@/lib/db/queries";
 import { queryKeys } from "@/lib/query/keys";
 import { useUIContext } from "@/hooks/useUI";

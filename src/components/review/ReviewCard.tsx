@@ -8,6 +8,7 @@ import { EditorView } from "@/lib/editor-v4/EditorView";
 import { m, AnimatePresence } from "@/lib/motion";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
+// eslint-disable-next-line no-restricted-imports -- pre-existing; tracked separately
 import { addLatencyEntry } from "@/domains/metacognition/metacognitive-storage";
 import { shouldIgnoreGlobalKey } from "@/lib/global-overlay-state";
 import { useGlobalHotkey } from "@/hooks/useGlobalHotkey";

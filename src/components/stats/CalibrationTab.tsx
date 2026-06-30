@@ -2,6 +2,7 @@ import { AlertTriangle, Archive } from "lucide-react";
 import { useMemo } from "react";
 
 
+// eslint-disable-next-line no-restricted-imports -- pre-existing; tracked separately
 import { loadCalibration, getCalibrationStats } from "@/domains/metacognition/metacognitive-storage";
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,

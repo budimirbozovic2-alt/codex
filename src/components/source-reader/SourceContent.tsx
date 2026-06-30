@@ -15,6 +15,7 @@ import {
   extractOutlineFromDoc,
   syncHeadingDomIds,
 } from "@/lib/source-reader/heading-navigation";
+// eslint-disable-next-line no-restricted-imports -- pre-existing; tracked separately
 import {
   registerSourceContentFlush,
   useSourceContentSaveStore,

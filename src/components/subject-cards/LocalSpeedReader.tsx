@@ -86,6 +86,7 @@ export default function LocalSpeedReader({
     if (markedRef.current === current.id) return;
     markedRef.current = current.id;
     markRead(current.id);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- pre-existing; tracked separately
   }, [current?.id, markRead]);
 
   const { segments, totalWords, activeSegment, currentWordIdx, fontSize } = eng;

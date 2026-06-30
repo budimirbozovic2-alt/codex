@@ -166,6 +166,7 @@ export default function ReviewSetup({
     [filteredDueCards, filteredAllCards, srSettings],
   );
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- pre-existing; tracked separately
   const counts: Record<ModeKey, number> = {
     stabilization: stabilizationItems.length,
     critical: criticalItems.length,

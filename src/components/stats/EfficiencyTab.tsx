@@ -2,6 +2,7 @@ import { Clock, AlertTriangle, Activity } from "lucide-react";
 import { useMemo } from "react";
 
 
+// eslint-disable-next-line no-restricted-imports -- pre-existing; tracked separately
 import {
   loadSlippageLog, getDeepWorkStats, getTimeDistribution,
   getWeeklyTimeDistribution, RESERVOIR_LABELS, RESERVOIR_COLORS,

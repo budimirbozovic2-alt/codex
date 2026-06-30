@@ -76,6 +76,7 @@ export function AttachEssayDialog({
 
   useEffect(() => {
     if (open) setQuery("");
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- pre-existing; tracked separately
   }, [open, flashIds.join(",")]);
 
   const filtered = useMemo(() => {

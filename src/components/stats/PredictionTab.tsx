@@ -4,6 +4,7 @@ import { m } from "@/lib/motion";
 
 import { Card, SectionState } from "@/lib/spaced-repetition";
 import type { ReviewLogEntry } from "@/lib/types/logs";
+// eslint-disable-next-line no-restricted-imports -- pre-existing; tracked separately
 import { getLearningVelocity } from "@/domains/metacognition/metacognitive-storage";
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,

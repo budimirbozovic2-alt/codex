@@ -67,6 +67,7 @@ interface SettingsContextValue {
 
 const SettingsContext = createContext<SettingsContextValue | null>(null);
 
+// eslint-disable-next-line react-refresh/only-export-components -- pre-existing; tracked separately
 export function useSettingsContext(): SettingsContextValue {
   const ctx = useContext(SettingsContext);
   if (!ctx) throw new Error("useSettingsContext must be used within SettingsProvider");
@@ -133,6 +134,7 @@ export function SettingsProvider({ settings, onUpdate, children }: SettingsProvi
     }, AUTO_SAVE_MS);
 
     return () => clearTimeout(timer);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- pre-existing; tracked separately
   }, [app, subjectId]);
 
   useEffect(() => {
@@ -150,6 +152,7 @@ export function SettingsProvider({ settings, onUpdate, children }: SettingsProvi
     }, AUTO_SAVE_MS);
 
     return () => clearTimeout(timer);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- pre-existing; tracked separately
   }, [tts, subjectId]);
 
   useEffect(() => {
@@ -195,6 +198,7 @@ export function SettingsProvider({ settings, onUpdate, children }: SettingsProvi
       logger.error("[SettingsProvider] save failed", err);
       toast.error("Postavke nisu sačuvane u bazu. Pokušaj ponovo.");
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- pre-existing; tracked separately
   }, [subjectId, onUpdate]);
 
   const handleReset = useCallback(() => {

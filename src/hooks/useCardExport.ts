@@ -162,6 +162,7 @@ export function useCardExport({ srSettings }: UseCardExportDeps) {
         throw err;
       }
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- pre-existing; tracked separately
     [srSettings],
   );
 

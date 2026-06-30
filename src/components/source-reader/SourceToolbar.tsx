@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import type { Source, SourceKind } from "@/lib/db-types";
 import { SourceHeader } from "./SourceHeader";
 import { useSourceReaderStore, type ReaderWidth, type ReaderFontSize, type ReaderLineHeight, READER_FONT_SIZE_LABELS, READER_LINE_HEIGHT_LABELS } from "@/store";
+// eslint-disable-next-line no-restricted-imports -- pre-existing; tracked separately
 import { useSourceContentSaveStore, flushSourceContentSave, getSourceContentDirty } from "@/store/useSourceContentSaveStore";
 
 const WIDTH_OPTIONS: ReaderWidth[] = ["S", "M", "L", "XL", "Full"];

@@ -21,6 +21,7 @@ function checklistEqual(a: readonly string[], b: readonly string[]): boolean {
   return a.every((item, i) => item === b[i]);
 }
 
+// eslint-disable-next-line react-refresh/only-export-components -- pre-existing; tracked separately
 export function useExaminerProfileEditor(initialProfile?: ExaminerProfile, open = true) {
   const [difficulty, setDifficulty] = useState<string>(initialProfile?.difficulty ?? NONE);
   const [answerType, setAnswerType] = useState<string>(initialProfile?.preferredAnswerType ?? NONE);

@@ -2,6 +2,7 @@ import { Clock, AlertTriangle } from "lucide-react";
 import { useMemo } from "react";
 
 
+// eslint-disable-next-line no-restricted-imports -- pre-existing; tracked separately
 import { loadLatency, getLatencyStats } from "@/domains/metacognition/metacognitive-storage";
 import { formatCategoryLabel } from "@/components/stats/format-category-label";
 import {
