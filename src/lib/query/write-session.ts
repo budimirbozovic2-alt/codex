@@ -50,17 +50,11 @@ export interface WriteSession {
   reviewGen: number | null;
 }
 
-/** @deprecated Use `WriteSession`. */
-export type AllCachesWriteSession = WriteSession;
-
 export interface WriteScope {
   cards?: boolean;
   categories?: boolean;
   reviewLog?: boolean;
 }
-
-/** @deprecated Use `WriteScope`. */
-export type BeginAllCachesWriteOptions = WriteScope;
 
 export type SatelliteSyncMode =
   | "import"
@@ -77,9 +71,6 @@ export interface CommitWriteSessionOptions {
   categoryDelete?: CategoryDeleteSatelliteOptions;
 }
 
-/** @deprecated Use `CommitWriteSessionOptions`. */
-export type CommitAllCachesFromDbOptions = CommitWriteSessionOptions;
-
 export type CommitOptsResolver<T> =
   | CommitWriteSessionOptions
   | ((result: T) => CommitWriteSessionOptions | undefined);
@@ -91,9 +82,6 @@ export class WriteSessionCommitError extends Error {
   }
 }
 
-/** @deprecated Use `WriteSessionCommitError`. */
-export const AllCachesCommitError = WriteSessionCommitError;
-
 export function beginWriteSession(
   options: WriteScope = {},
 ): WriteSession {
@@ -104,9 +92,6 @@ export function beginWriteSession(
     reviewGen: reviewLog ? beginReviewLogWrite() : null,
   };
 }
-
-/** @deprecated Use `beginWriteSession`. */
-export const beginAllCachesWrite = beginWriteSession;
 
 export function syncImportSatelliteCaches(): void {
   invalidateImportSatelliteQueries();
@@ -163,9 +148,6 @@ export async function runWriteSession<T>(
   );
   return result;
 }
-
-/** @deprecated Use `runWriteSession`. */
-export const runBulkWriteSession = runWriteSession;
 
 /** Card-only bulk session — categories/review caches untouched. */
 export function runBulkCardsWrite<T>(
@@ -257,9 +239,6 @@ export async function commitWriteSessionFromDb(
   return { cards, categories, reviewLog };
 }
 
-/** @deprecated Use `commitWriteSessionFromDb`. */
-export const commitAllCachesFromDb = commitWriteSessionFromDb;
-
 export async function abortWriteSession(
   session: WriteSession,
 ): Promise<void> {
@@ -269,9 +248,6 @@ export async function abortWriteSession(
     session.reviewGen !== null ? abortReviewLogWrite() : Promise.resolve(0),
   ]);
 }
-
-/** @deprecated Use `abortWriteSession`. */
-export const abortAllCachesWrite = abortWriteSession;
 
 export { syncCategoryDeleteSatelliteCaches } from "./category-delete-satellites";
 export type { CategoryDeleteSatelliteOptions } from "./category-delete-satellites";

@@ -392,6 +392,68 @@ Master plan: [`docs/architecture-refactoring-plan.md`](architecture-refactoring-
 
 ---
 
+## TD-ZK serija — Zettelkasten ↔ učenje integracija (jun 2026)
+
+Zatvara izolovanost Zettelkasten modula od ostatka programa: kartice i članci sada dijele koncept-vezu, a zdravlje review-a se vidi u wiki mreži.
+
+| ID | Faza | SP | Rizik | Status |
+|----|------|-----|-------|--------|
+| TD-ZK-1 | Članak ↔ kartica concept link | 16 | srednji | ✅ Done (2026-06-29) |
+| TD-ZK-3 | Endangered signal u Zettelkasten | 4 | nizak | ✅ Done (2026-06-29) |
+
+### TD-ZK-1 · Članak ↔ kartica concept link
+
+| | |
+|---|---|
+| **Prioritet** | P1 |
+| **SP** | 16 |
+| **Rizik** | srednji |
+| **Status** | ✅ Done (2026-06-29) |
+
+**Problem:** Kartice (flash/esej) i Zettelkasten članci žive odvojeno — nema veze između pojma u wikiju i kartica koje ga obrađuju.
+
+**Implementirano:**
+- Schema **v18** (`linkedArticleId` kolona, FK `ON DELETE SET NULL`, indeks) — vidi [architecture-refactoring-plan.md](architecture-refactoring-plan.md) Faza 8
+- `row-codecs.ts` (kolona + payload), `backup-schema/cards.ts` (Zod + transform) — veza preživljava export/import
+- `cardRepository.linkCardToArticle` / `linkCardsToArticle`; `deleteArticle` nulira veze (bez dangling)
+- Read: `listCardsByArticle` / `countCardsByArticle`; hook `useCardsByArticle` (derivacija iz category cache-a)
+- UI: `LinkedCardsPanel` + `LinkCardsToArticleDialog` u `ZettelkastenView`; „Otvori pojam" u `CardForm`
+- Testovi: `card-article-link.test.ts`, `card-article-link-ui.test.tsx`; `sqlite-harness` json-setteri
+
+**DoD:**
+- [x] `linkedArticleId` round-trip kroz kolonu + payload + backup
+- [x] Link/unlink/bulk preko `cardRepository`; cleanup pri brisanju članka
+- [x] Article-strana UI (lista, povezivanje, otvaranje); card-strana navigacija
+- [x] `tsc`/eslint/suite zeleni
+
+**Preostalo (opciono, zaseban tiket):** Faza D2 — picker članka unutar `CardForm` za postavljanje veze sa strane kartice (trenutno samo sa strane članka).
+
+### TD-ZK-3 · Endangered signal u Zettelkasten
+
+| | |
+|---|---|
+| **Prioritet** | P2 |
+| **SP** | 4 |
+| **Rizik** | nizak |
+| **Status** | ✅ Done (2026-06-29) |
+
+**Problem:** `isEndangered` postoji na karticama, ali wiki ne odražava zdravlje review-a — ne vidi se koji dio mreže znanja slabi.
+
+**Implementirano:**
+- `buildEndangeredArticleIds` (pure) + `useEndangeredArticleIds` (derivacija iz category cache-a, stabilan Set identitet zbog memo Explorer-a)
+- `ZettelExplorerPanel` — `AlertTriangle` indikator (`ENDANGERED_CONCEPT_LABEL`) na ugroženom članku
+- `BacklinksPanel` — highlight (`border-warning`) + tooltip „Ovaj dio tvoje mreže znanja slabi"
+- Test: `endangered-zettel-ui.test.tsx`
+
+**DoD:**
+- [x] Derivacija bez novog upita (vozi se na postojećoj card invalidaciji)
+- [x] Indikator u Explorer-u i highlight backlinka
+- [x] `tsc`/eslint/suite zeleni
+
+**Granica obima:** signal = `card.isEndangered` na povezanoj kartici; ne ide dublje u saga lanac.
+
+---
+
 ## Preporučeni redoslijed (2 sprinta)
 
 | Sprint | Tiketi | SP ukupno |

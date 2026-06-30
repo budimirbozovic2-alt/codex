@@ -24,7 +24,7 @@ describe("import unified write session", () => {
     vi.restoreAllMocks();
   });
 
-  it("commitAllCachesFromDb seeds categories, review and settings", async () => {
+  it("commitWriteSessionFromDb seeds categories, review and settings", async () => {
     const cats: CategoryRecord[] = [
       { id: "c1", name: "Cat", sortOrder: 0, subcategories: [] },
     ];

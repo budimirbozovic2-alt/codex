@@ -202,6 +202,12 @@ Repository (jedini write path) → invalidateQueries u onSettled
 - [x] Upgrade path v17 + post-migration heal
 - [x] Testovi + harness ažuriran
 
+### Naknadne schema migracije (post TD-ARCH)
+
+| Verzija | Label | Svrha |
+|---------|-------|-------|
+| **v18** | `pr22-card-article-link` | TD-ZK-1: kolona `linkedArticleId TEXT REFERENCES knowledgeBaseArticles(id) ON DELETE SET NULL` + `idx_cards_linkedArticleId`. Numbered migracija (ne heal) da dosegne postojeće v17 korisnike; pure DDL bez backfilla. Fresh install dobija kolonu iz `clean-schema-addon.sql` i preskače numbered migracije. `TARGET_USER_VERSION = 18`. |
+
 ---
 
 ## Faza 9 — Worker audit (TD-ARCH-9) ✅
