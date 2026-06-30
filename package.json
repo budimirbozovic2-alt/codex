@@ -26,7 +26,7 @@
     "deadcode:files": "knip --include files",
     "electron": "electron main.cjs",
     "rebuild:native": "electron-rebuild -f -w better-sqlite3",
-    "verify:native": "electron scripts/verify-better-sqlite3.cjs",
+    "verify:native": "electron --no-sandbox scripts/verify-better-sqlite3.cjs",
     "verify:app-headers": "vite build && electron . --verify-headers",
     "dist": "npm run build && electron-builder",
     "dist:win": "npm run build && electron-builder --win",
