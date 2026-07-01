@@ -73,11 +73,11 @@ export function AttachEssayDialog({
   const [query, setQuery] = useState("");
   const isBulk = flashCards.length > 1;
   const flashIds = useMemo(() => flashCards.map((c) => c.id), [flashCards]);
+  const flashIdsKey = flashIds.join(",");
 
   useEffect(() => {
     if (open) setQuery("");
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- pre-existing; tracked separately
-  }, [open, flashIds.join(",")]);
+  }, [open, flashIdsKey]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();

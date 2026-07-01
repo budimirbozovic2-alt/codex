@@ -4,7 +4,7 @@ import { Switch } from "@/components/ui/switch";
 import AlgorithmTab from "@/components/settings/AlgorithmTab";
 import SettingsFormFooter from "@/components/settings/SettingsFormFooter";
 import SettingsSectionLayout from "@/components/settings/SettingsSectionLayout";
-import { useSettingsContext } from "@/components/settings/SettingsProvider";
+import { useSettingsContext } from "@/components/settings/SettingsContext";
 
 export default function SettingsLearningView() {
   const {

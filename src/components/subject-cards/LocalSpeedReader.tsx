@@ -77,17 +77,17 @@ export default function LocalSpeedReader({
   const { current, filtered, index, chapters, subFilter, chapterFilter, typeFilter } = sel;
   const { markRead } = useCardOnlyActions();
 
+  const currentId = current?.id ?? null;
   const markedRef = useRef<string | null>(null);
   useEffect(() => {
-    if (!current) {
+    if (!currentId) {
       markedRef.current = null;
       return;
     }
-    if (markedRef.current === current.id) return;
-    markedRef.current = current.id;
-    markRead(current.id);
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- pre-existing; tracked separately
-  }, [current?.id, markRead]);
+    if (markedRef.current === currentId) return;
+    markedRef.current = currentId;
+    markRead(currentId);
+  }, [currentId, markRead]);
 
   const { segments, totalWords, activeSegment, currentWordIdx, fontSize } = eng;
 

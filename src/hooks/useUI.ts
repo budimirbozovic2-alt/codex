@@ -26,6 +26,15 @@ export function setEditingCardId(id: string | null): void {
   setEditingCardIdAction(id);
 }
 
+/** Selector hooks so components read UI store state through the hooks layer. */
+export function useImmersiveMode(): boolean {
+  return useStore(uiStore, (s) => s.immersiveMode);
+}
+
+export function useTitleBarContext() {
+  return useStore(uiStore, (s) => s.titleBarContext);
+}
+
 interface UIContextValue {
   view: View;
   setView: (v: View) => void;

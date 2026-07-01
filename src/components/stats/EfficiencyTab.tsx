@@ -2,23 +2,16 @@ import { Clock, AlertTriangle, Activity } from "lucide-react";
 import { useMemo } from "react";
 
 
-// eslint-disable-next-line no-restricted-imports -- pre-existing; tracked separately
 import {
-  loadSlippageLog, getDeepWorkStats, getTimeDistribution,
-  getWeeklyTimeDistribution, RESERVOIR_LABELS, RESERVOIR_COLORS,
-} from "@/domains/metacognition/metacognitive-storage";
+  useEfficiencyData, RESERVOIR_LABELS, RESERVOIR_COLORS,
+} from "@/hooks/stats/useMetacognitionStats";
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, AreaChart, Area, CartesianGrid, Legend,
 } from "recharts";
 
 export default function EfficiencyTab() {
-  const slippageLog = useMemo(() => loadSlippageLog(), []);
-  const deepWork = useMemo(() => getDeepWorkStats(7), []);
-  const deepWork30 = useMemo(() => getDeepWorkStats(30), []);
-  const todayTime = useMemo(() => getTimeDistribution(1), []);
-  const weekTime = useMemo(() => getTimeDistribution(7), []);
-  const weeklyChart = useMemo(() => getWeeklyTimeDistribution(), []);
+  const { slippageLog, deepWork, deepWork30, todayTime, weekTime, weeklyChart } = useEfficiencyData();
 
   const formatMs = (ms: number) => {
     if (ms < 60000) return `${Math.round(ms / 1000)}s`;

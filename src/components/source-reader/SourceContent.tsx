@@ -15,11 +15,11 @@ import {
   extractOutlineFromDoc,
   syncHeadingDomIds,
 } from "@/lib/source-reader/heading-navigation";
-// eslint-disable-next-line no-restricted-imports -- pre-existing; tracked separately
 import {
   registerSourceContentFlush,
-  useSourceContentSaveStore,
-} from "@/store/useSourceContentSaveStore";
+  getSourceContentDirty,
+  useSourceSaveActions,
+} from "@/hooks/source-reader/useSourceContentSave";
 import {
   useSourceReaderStore,
   READER_FONT_SIZE_CLASS,
@@ -72,9 +72,7 @@ export function SourceContent({ source, editMode, onSourceUpdated, onOutlineChan
   const [displayDoc, setDisplayDoc] = useState<EditorDoc>(initialDoc);
   const [pendingRecovery, setPendingRecovery] = useState<EditorDoc | null>(null);
   const { save: saveMutation } = useSourceMutations();
-  const setSaveStatus = useSourceContentSaveStore((s) => s.setStatus);
-  const setSaveDirty = useSourceContentSaveStore((s) => s.setDirty);
-  const resetSaveStore = useSourceContentSaveStore((s) => s.reset);
+  const { setStatus: setSaveStatus, setDirty: setSaveDirty, reset: resetSaveStore } = useSourceSaveActions();
   const savedFadeTimerRef = useRef<ReturnType<typeof taskScheduler.setTimeout> | null>(null);
   const saveInFlightRef = useRef<Promise<void> | null>(null);
 
@@ -161,7 +159,7 @@ export function SourceContent({ source, editMode, onSourceUpdated, onOutlineChan
       const ok = await persistDoc(doc);
       if (!ok) return false;
     }
-    return !useSourceContentSaveStore.getState().isDirty;
+    return !getSourceContentDirty();
   }, [persistDebounced, persistDoc]);
 
   useEffect(() => registerSourceContentFlush(flushPendingSave), [flushPendingSave]);

@@ -249,8 +249,7 @@ export function useDashboardData(
       recordDiscipline.mutate({ date: yKey, reviewsDone: yReviews, dailyGoal, slippageMs: ySlippage });
       disciplineRecordedRef.current = yKey;
     })();
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- pre-existing; tracked separately
-  }, [reviewLog, cards, recordDiscipline]);
+  }, [reviewLog, cards, categoryRecords, recordDiscipline]);
 
   const energyLevel = getEnergyLevel();
 

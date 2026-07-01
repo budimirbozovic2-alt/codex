@@ -4,8 +4,7 @@ import { m } from "@/lib/motion";
 
 import { Card, SectionState } from "@/lib/spaced-repetition";
 import type { ReviewLogEntry } from "@/lib/types/logs";
-// eslint-disable-next-line no-restricted-imports -- pre-existing; tracked separately
-import { getLearningVelocity } from "@/domains/metacognition/metacognitive-storage";
+import { useLearningVelocity } from "@/hooks/stats/useMetacognitionStats";
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
 } from "recharts";
@@ -18,7 +17,7 @@ interface Props {
 }
 
 export default function PredictionTab({ cards, categories, reviewLog, catNameMap }: Props) {
-  const velocity = useMemo(() => getLearningVelocity(reviewLog, categories), [reviewLog, categories]);
+  const velocity = useLearningVelocity(reviewLog, categories);
 
   const predictions = useMemo(() => {
     return categories

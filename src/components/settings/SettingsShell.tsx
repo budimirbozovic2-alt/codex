@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import SettingsNavSidebar from "@/components/settings/SettingsNavSidebar";
-import { useSettingsContext } from "@/components/settings/SettingsProvider";
+import { useSettingsContext } from "@/components/settings/SettingsContext";
 
 interface Props {
   children: ReactNode;

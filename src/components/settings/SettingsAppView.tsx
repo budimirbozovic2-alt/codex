@@ -2,7 +2,7 @@ import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import PersonalizationTab from "@/components/settings/PersonalizationTab";
 import WorkflowTab from "@/components/settings/WorkflowTab";
 import SettingsSectionLayout from "@/components/settings/SettingsSectionLayout";
-import { useSettingsContext } from "@/components/settings/SettingsProvider";
+import { useSettingsContext } from "@/components/settings/SettingsContext";
 
 export default function SettingsAppView() {
   const { isSubjectMode, app, setApp, tts, setTts, voices } = useSettingsContext();

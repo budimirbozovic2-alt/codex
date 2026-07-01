@@ -2,16 +2,14 @@ import { AlertTriangle, Archive } from "lucide-react";
 import { useMemo } from "react";
 
 
-// eslint-disable-next-line no-restricted-imports -- pre-existing; tracked separately
-import { loadCalibration, getCalibrationStats } from "@/domains/metacognition/metacognitive-storage";
+import { useCalibrationData } from "@/hooks/stats/useMetacognitionStats";
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, CartesianGrid, Legend,
 } from "recharts";
 
 export default function CalibrationTab() {
-  const calibration = useMemo(() => loadCalibration(), []);
-  const stats = useMemo(() => getCalibrationStats(calibration), [calibration]);
+  const { calibration, stats } = useCalibrationData();
 
   const distributionData = useMemo(() => {
     const groups: Record<number, number[]> = { 1: [], 2: [], 3: [], 4: [], 5: [] };

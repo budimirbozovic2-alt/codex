@@ -3,7 +3,7 @@ import SubjectsTab from "@/components/settings/SubjectsTab";
 import SystemTab from "@/components/settings/SystemTab";
 import SettingsSectionLayout from "@/components/settings/SettingsSectionLayout";
 import SettingsSection from "@/components/settings/SettingsSection";
-import { useSettingsContext } from "@/components/settings/SettingsProvider";
+import { useSettingsContext } from "@/components/settings/SettingsContext";
 
 export default function SettingsDataView() {
   const {

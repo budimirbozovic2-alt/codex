@@ -47,7 +47,11 @@ vi.mock("@/hooks/cards/useCardState", () => ({
   useReviewData: () => ({ reviewLog: [] }),
 }));
 
-vi.mock("@/hooks/useUI", () => ({
+vi.mock("@/hooks/useUI", async (importOriginal) => ({
+  // Keep the real selector hooks (useImmersiveMode/useTitleBarContext read the
+  // live uiStore, which this test drives via uiStore.setState); only stub the
+  // composite context hook.
+  ...(await importOriginal<typeof import("@/hooks/useUI")>()),
   useUIContext: () => ({ editingCardId: null, setEditingCardId: vi.fn() }),
 }));
 

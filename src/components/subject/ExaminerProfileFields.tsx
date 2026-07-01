@@ -1,106 +1,11 @@
-import { useEffect, useMemo, useState } from "react";
 import { Plus, X } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import type { ExaminerProfile, ExaminerDifficulty, PreferredAnswerType } from "@/lib/db-types";
-import {
-  EXAMINER_CHECKLIST_MAX_ITEMS,
-  EXAMINER_CHECKLIST_PRESETS,
-  normalizeChecklistItem,
-  normalizeChecklistItems,
-} from "@/lib/examiner-profile-presets";
-
-const NONE = "__none__";
-const NOTES_MAX = 500;
-
-function checklistEqual(a: readonly string[], b: readonly string[]): boolean {
-  if (a.length !== b.length) return false;
-  return a.every((item, i) => item === b[i]);
-}
-
-// eslint-disable-next-line react-refresh/only-export-components -- pre-existing; tracked separately
-export function useExaminerProfileEditor(initialProfile?: ExaminerProfile, open = true) {
-  const [difficulty, setDifficulty] = useState<string>(initialProfile?.difficulty ?? NONE);
-  const [answerType, setAnswerType] = useState<string>(initialProfile?.preferredAnswerType ?? NONE);
-  const [checklist, setChecklist] = useState<string[]>(
-    () => normalizeChecklistItems(initialProfile?.expectedAnswerElements ?? []),
-  );
-  const [newItem, setNewItem] = useState("");
-  const [notes, setNotes] = useState<string>(initialProfile?.notes ?? "");
-
-  useEffect(() => {
-    if (open) {
-      setDifficulty(initialProfile?.difficulty ?? NONE);
-      setAnswerType(initialProfile?.preferredAnswerType ?? NONE);
-      setChecklist(normalizeChecklistItems(initialProfile?.expectedAnswerElements ?? []));
-      setNewItem("");
-      setNotes(initialProfile?.notes ?? "");
-    }
-  }, [open, initialProfile]);
-
-  const initialDifficulty = initialProfile?.difficulty ?? NONE;
-  const initialAnswerType = initialProfile?.preferredAnswerType ?? NONE;
-  const initialChecklist = useMemo(
-    () => normalizeChecklistItems(initialProfile?.expectedAnswerElements ?? []),
-    [initialProfile?.expectedAnswerElements],
-  );
-  const initialNotes = initialProfile?.notes ?? "";
-
-  const isDirty = useMemo(
-    () =>
-      difficulty !== initialDifficulty
-      || answerType !== initialAnswerType
-      || notes !== initialNotes
-      || !checklistEqual(checklist, initialChecklist),
-    [difficulty, answerType, notes, checklist, initialDifficulty, initialAnswerType, initialNotes, initialChecklist],
-  );
-
-  const buildProfile = (): ExaminerProfile => {
-    const trimmed = notes.trim().slice(0, NOTES_MAX);
-    const normalizedChecklist = normalizeChecklistItems(checklist);
-    return {
-      difficulty: difficulty === NONE ? undefined : (difficulty as ExaminerDifficulty),
-      preferredAnswerType: answerType === NONE ? undefined : (answerType as PreferredAnswerType),
-      expectedAnswerElements: normalizedChecklist.length > 0 ? normalizedChecklist : undefined,
-      notes: trimmed || undefined,
-    };
-  };
-
-  const addItem = (raw: string) => {
-    const item = normalizeChecklistItem(raw);
-    if (!item) return;
-    setChecklist((prev) => normalizeChecklistItems([...prev, item]));
-    setNewItem("");
-  };
-
-  const removeItem = (index: number) => {
-    setChecklist((prev) => prev.filter((_, i) => i !== index));
-  };
-
-  const atMax = checklist.length >= EXAMINER_CHECKLIST_MAX_ITEMS;
-  const checklistKeys = useMemo(() => new Set(checklist.map((c) => c.toLowerCase())), [checklist]);
-
-  return {
-    difficulty,
-    setDifficulty,
-    answerType,
-    setAnswerType,
-    checklist,
-    newItem,
-    setNewItem,
-    notes,
-    setNotes,
-    isDirty,
-    buildProfile,
-    addItem,
-    removeItem,
-    atMax,
-    checklistKeys,
-  };
-}
+import { EXAMINER_CHECKLIST_MAX_ITEMS, EXAMINER_CHECKLIST_PRESETS } from "@/lib/examiner-profile-presets";
+import { useExaminerProfileEditor, NONE, NOTES_MAX } from "./useExaminerProfileEditor";
 
 interface FieldsProps {
   editor: ReturnType<typeof useExaminerProfileEditor>;
