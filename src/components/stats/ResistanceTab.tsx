@@ -6,8 +6,8 @@ import { Card, SRSettings, DEFAULT_SR_SETTINGS } from "@/lib/spaced-repetition";
 import type { ReviewLogEntry } from "@/lib/types/logs";
 import { resolveEffectiveSrParams } from "@/domains/subjects/subject-settings";
 import type { ResistanceWeights } from "@/lib/analytics/_pure/resistance";
-import { analyticsClient } from "@/lib/analytics/workerClient";
-import { useAnalyticsWorker } from "@/hooks/useAnalyticsWorker";
+import { analyticsClient } from "@/lib/analytics/analyticsClient";
+import { useDeferredCompute } from "@/hooks/useDeferredCompute";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, CartesianGrid,
@@ -51,7 +51,7 @@ export default function ResistanceTab({ cards, categories, reviewLog, srSettings
     [categories, weightsByCategory],
   );
 
-  const rawRows = useAnalyticsWorker(
+  const rawRows = useDeferredCompute(
     () =>
       analyticsClient.runResistance(
         cards,

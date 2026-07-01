@@ -2,14 +2,11 @@ import { ReactNode, useState, useEffect, useRef, lazy, Suspense, memo, useCallba
 import Breadcrumbs from "@/components/Breadcrumbs";
 import { useLocation } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
-import { useStore } from "zustand";
-import { uiStore } from "@/store/useUIStore";
 import { useBackupActions, useCardOnlyActions } from "@/hooks/cards/useActions";
 import { useCategoryData } from "@/hooks/cards/useCategoryState";
 import { useReviewData } from "@/hooks/cards/useCardState";
-import { listAllCards } from "@/lib/db/queries";
 import { queryKeys } from "@/lib/query/keys";
-import { useUIContext } from "@/hooks/useUI";
+import { useUIContext, useImmersiveMode } from "@/hooks/useUI";
 import ZenMode from "@/components/ZenMode";
 import AppSidebar from "@/components/AppSidebar";
 import BlockingModal from "@/components/db/BlockingModal";
@@ -69,7 +66,10 @@ const NudgeWatcher = memo(function NudgeWatcher() {
         if (!isConfigured) return;
         const cards = await queryClient.fetchQuery({
           queryKey: queryKeys.cards.all(),
-          queryFn: listAllCards,
+          queryFn: async () => {
+            const { listAllCards } = await import("@/lib/db/queries");
+            return listAllCards();
+          },
           staleTime: Infinity,
         });
         if (cancelled) return;
@@ -198,7 +198,7 @@ const DocxImporterMounted = memo(function DocxImporterMounted({
 
 export default function MainLayout({ children }: { children: ReactNode }) {
   const { pathname } = useLocation();
-  const immersiveMode = useStore(uiStore, (s) => s.immersiveMode);
+  const immersiveMode = useImmersiveMode();
 
   const [docxOpen, setDocxOpen] = useState(false);
   const [zenMode, setZenMode] = useState(false);

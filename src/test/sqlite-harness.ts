@@ -76,15 +76,46 @@ const RE_COUNT =
 const RE_COUNT_DISTINCT =
   /^\s*SELECT\s+COUNT\s*\(\s*DISTINCT\s+(\w+)\s*\)\s+AS\s+n\s+FROM\s+(\w+)(?:\s+WHERE\s+(.+?))?\s*;?\s*$/i;
 const RE_UPSERT_CARD_SECTIONS =
-  /^\s*INSERT\s+INTO\s+card_sections_index\s*\(\s*card_id\s*,\s*section_id\s*,\s*state\s*,\s*next_review\s*\)\s*VALUES\s*\(\s*\?\s*,\s*\?\s*,\s*\?\s*,\s*\?\s*\)\s*ON\s+CONFLICT\s*\(\s*card_id\s*,\s*section_id\s*\)\s*DO\s+UPDATE\s+SET\s+state\s*=\s*excluded\.state\s*,\s*next_review\s*=\s*excluded\.next_review\s*$/i;
+  /^\s*INSERT\s+INTO\s+card_sections\b[\s\S]+ON\s+CONFLICT\s*\(\s*card_id\s*,\s*section_id\s*\)\s*DO\s+UPDATE\s+SET/i;
 const RE_DUE_CARDS_JOIN =
-  /^\s*SELECT\s+cards\.[\s\S]+\s+FROM\s+cards\s+INNER\s+JOIN\s+card_sections_index\s+idx\s+ON\s+cards\.id\s*=\s*idx\.card_id\s+WHERE\s+idx\.state\s*!=\s*\?\s+AND\s+idx\.next_review\s*<=\s*\?\s+GROUP\s+BY\s+cards\.id\s+ORDER\s+BY\s+MIN\s*\(\s*idx\.next_review\s*\)\s+ASC\s+LIMIT\s*\?\s*$/i;
+  /^\s*SELECT\s+cards\.[\s\S]+\s+FROM\s+cards\s+INNER\s+JOIN\s+card_sections\s+sec\s+ON\s+cards\.id\s*=\s*sec\.card_id\s+WHERE\s+sec\.state\s*!=\s*\?\s+AND\s+sec\.next_review\s*<=\s*\?\s+GROUP\s+BY\s+cards\.id\s+ORDER\s+BY\s+MIN\s*\(\s*sec\.next_review\s*\)\s+ASC\s+LIMIT\s*\?\s*$/i;
 const RE_COUNT_DUE_BY_CATEGORY =
-  /^\s*SELECT\s+COUNT\s*\(\s*DISTINCT\s+idx\.card_id\s*\)\s+AS\s+n\s+FROM\s+card_sections_index\s+idx\s+INNER\s+JOIN\s+cards\s+c\s+ON\s+c\.id\s*=\s*idx\.card_id\s+WHERE\s+c\.categoryId\s*=\s*\?\s+AND\s+idx\.state\s*!=\s*\?\s+AND\s+idx\.next_review\s*<=\s*\?\s*$/i;
+  /^\s*SELECT\s+COUNT\s*\(\s*DISTINCT\s+sec\.card_id\s*\)\s+AS\s+n\s+FROM\s+card_sections\s+sec\s+INNER\s+JOIN\s+cards\s+c\s+ON\s+c\.id\s*=\s*sec\.card_id\s+WHERE\s+c\.categoryId\s*=\s*\?\s+AND\s+sec\.state\s*!=\s*\?\s+AND\s+sec\.next_review\s*<=\s*\?\s*$/i;
+const RE_SQLITE_MASTER_TABLE =
+  /^\s*SELECT\s+COUNT\(\*\)\s+AS\s+n\s+FROM\s+sqlite_master\s+WHERE\s+type\s*=\s*'table'\s+AND\s+name\s*=\s*\?\s*$/i;
 const RE_AVG_MASTERY_BY_CATEGORY =
   /^\s*SELECT\s+ROUND\s*\(\s*AVG\s*\(\s*mastery_score\s*\)\s*\)\s+AS\s+score\s+FROM\s+cards\s+WHERE\s+categoryId\s*=\s*\?\s*$/i;
 const RE_MASTERY_DIST_BY_CATEGORY =
   /^\s*SELECT\s+mastery_level,\s+COUNT\(\*\)\s+AS\s+n\s+FROM\s+cards\s+WHERE\s+categoryId\s*=\s*\?\s+GROUP\s+BY\s+mastery_level\s*$/i;
+
+function applyCardSectionsUpsert(
+  state: MockState,
+  params: readonly SqlBindValue[],
+): void {
+  const t = getOrCreateTable(state, "card_sections");
+  const row: Row = {
+    card_id: params[0] ?? null,
+    section_id: params[1] ?? null,
+    state: params[2] ?? null,
+    stability: params[3] ?? null,
+    difficulty: params[4] ?? null,
+    interval_days: params[5] ?? null,
+    next_review: params[6] ?? null,
+    last_reviewed: params[7] ?? null,
+    lapses: params[8] ?? null,
+    elapsed_days: params[9] ?? null,
+    scheduled_days: params[10] ?? null,
+    first_review_pending: params[11] ?? null,
+  };
+  const idx = t.rows.findIndex(
+    (r) => r.card_id === row.card_id && r.section_id === row.section_id,
+  );
+  if (idx >= 0) {
+    t.rows[idx] = row;
+  } else {
+    t.rows.push(row);
+  }
+}
 
 interface WhereClause {
   match: (row: Row) => boolean;
@@ -175,6 +206,44 @@ function tryBuildJsonSetters(setClause: string): JsonSetters | null {
         payload.chapterId = params[2];
         payload.chapterOrder = params[3];
         payload.updatedAt = params[4];
+        row.payload = JSON.stringify(payload);
+      },
+    };
+  }
+
+  // TD-ZK-1 — attach concept link: linkedArticleId column + payload.
+  if (
+    /^linkedArticleId = \?, updatedAt = \?, payload = json_set\(payload, '\$\.linkedArticleId', \?, '\$\.updatedAt', \?\)$/i.test(
+      s,
+    )
+  ) {
+    return {
+      paramCount: 4,
+      apply(row, params) {
+        row.linkedArticleId = params[0] ?? null;
+        row.updatedAt = params[1] ?? null;
+        const payload = parsePayloadObj(row);
+        payload.linkedArticleId = params[2];
+        payload.updatedAt = params[3];
+        row.payload = JSON.stringify(payload);
+      },
+    };
+  }
+
+  // TD-ZK-1 — detach concept link (unlink + article delete cleanup).
+  if (
+    /^linkedArticleId = NULL, updatedAt = \?, payload = json_set\( json_remove\(payload, '\$\.linkedArticleId'\), '\$\.updatedAt', \?\)$/i.test(
+      s,
+    )
+  ) {
+    return {
+      paramCount: 2,
+      apply(row, params) {
+        row.linkedArticleId = null;
+        row.updatedAt = params[0] ?? null;
+        const payload = parsePayloadObj(row);
+        delete payload.linkedArticleId;
+        payload.updatedAt = params[1];
         row.payload = JSON.stringify(payload);
       },
     };
@@ -391,21 +460,7 @@ class TestExecutor implements SqlExecutor {
 
     const upsertSections = RE_UPSERT_CARD_SECTIONS.exec(trimmed);
     if (upsertSections) {
-      const t = getOrCreateTable(this.state, "card_sections_index");
-      const row: Row = {
-        card_id: params[0] ?? null,
-        section_id: params[1] ?? null,
-        state: params[2] ?? null,
-        next_review: params[3] ?? null,
-      };
-      const idx = t.rows.findIndex(
-        (r) => r.card_id === row.card_id && r.section_id === row.section_id,
-      );
-      if (idx >= 0) {
-        t.rows[idx] = { ...t.rows[idx], state: row.state, next_review: row.next_review };
-      } else {
-        t.rows.push(row);
-      }
+      applyCardSectionsUpsert(this.state, params);
       return;
     }
 
@@ -469,10 +524,10 @@ class TestExecutor implements SqlExecutor {
           : [];
       t.rows = t.rows.filter((r) => !where.match(r));
       if (table === "cards" && removed.length > 0) {
-        const idx = this.state.tables.get("card_sections_index");
-        if (idx) {
+        const sec = this.state.tables.get("card_sections");
+        if (sec) {
           const ids = new Set(removed.map((r) => r.id));
-          idx.rows = idx.rows.filter((r) => !ids.has(r.card_id));
+          sec.rows = sec.rows.filter((r) => !ids.has(r.card_id));
         }
       }
       return;
@@ -484,8 +539,8 @@ class TestExecutor implements SqlExecutor {
       const t = this.state.tables.get(table);
       if (t) {
         if (table === "cards") {
-          const idx = this.state.tables.get("card_sections_index");
-          if (idx) idx.rows = [];
+          const sec = this.state.tables.get("card_sections");
+          if (sec) sec.rows = [];
         }
         t.rows = [];
       }
@@ -575,10 +630,18 @@ class TestExecutor implements SqlExecutor {
           { name: "chapterId" }, { name: "type" }, { name: "createdAt" },
           { name: "updatedAt" }, { name: "sourceId" }, { name: "frequencyTag" },
           { name: "sourceType" }, { name: "mastery_score" }, { name: "mastery_level" },
-          { name: "parentId" }, { name: "isEndangered" }, { name: "payload" },
+          { name: "parentId" }, { name: "isEndangered" },
+          { name: "linkedArticleId" }, { name: "payload" },
         ] as unknown as T[];
       }
       return [] as unknown as T[];
+    }
+
+    const sqliteMasterTable = RE_SQLITE_MASTER_TABLE.exec(trimmed);
+    if (sqliteMasterTable) {
+      const name = String(params[0] ?? "");
+      const n = this.state.tables.has(name) ? 1 : 0;
+      return [{ n } as unknown as T];
     }
 
     const dueJoin = RE_DUE_CARDS_JOIN.exec(trimmed);
@@ -587,7 +650,7 @@ class TestExecutor implements SqlExecutor {
       const nowMs = Number(params[1]);
       const limit = Number(params[2]);
       const cards = this.state.tables.get("cards")?.rows ?? [];
-      const idxRows = this.state.tables.get("card_sections_index")?.rows ?? [];
+      const idxRows = this.state.tables.get("card_sections")?.rows ?? [];
       const dueByCard = new Map<string, number>();
       for (const idx of idxRows) {
         if (Number(idx.state) === newState) continue;
@@ -613,7 +676,7 @@ class TestExecutor implements SqlExecutor {
       const newState = Number(params[1]);
       const nowMs = Number(params[2]);
       const cards = this.state.tables.get("cards")?.rows ?? [];
-      const idxRows = this.state.tables.get("card_sections_index")?.rows ?? [];
+      const idxRows = this.state.tables.get("card_sections")?.rows ?? [];
       const cardsById = new Map(cards.map((r) => [String(r.id), r]));
       const dueCards = new Set<string>();
       for (const idx of idxRows) {
@@ -734,6 +797,9 @@ class TestExecutor implements SqlExecutor {
     // Multi-statement DDL — split and noop each. Only handle CREATE/PRAGMA.
     const stmts = sql.split(";").map((s) => s.trim()).filter(Boolean);
     for (const s of stmts) {
+      if (/^\s*SELECT\s+1\s*$/i.test(s)) {
+        continue;
+      }
       if (
         /^\s*(CREATE|PRAGMA|ALTER|DROP|BEGIN|COMMIT|ROLLBACK|END)\b/i.test(s)
       ) {
@@ -775,6 +841,7 @@ export function getTestSqlExecutor(): SqlExecutor {
 
 export function resetTestSqliteState(): void {
   _state = newState();
+  getOrCreateTable(_state, "card_sections");
   _executor = new TestExecutor(_state);
 }
 

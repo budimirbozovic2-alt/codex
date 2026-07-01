@@ -84,7 +84,7 @@ export default function DashboardPage() {
             cards={cards}
             reviewLog={reviewLog}
             srSettings={srSettings}
-            onExport={() => void exportData()}
+            onExport={() => void exportData(true, () => {})}
             headerActions={headerActions}
           />
         )}

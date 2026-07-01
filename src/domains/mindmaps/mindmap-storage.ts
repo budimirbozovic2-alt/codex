@@ -7,7 +7,7 @@
  */
 import type { MindMapDoc } from "@/lib/db-types";
 import * as repo from "@/lib/db/queries/mind-maps";
-import { emitDomainChanged } from "@/lib/event-bus";
+import { invalidateMindMapsQueries } from "@/lib/query/domain-invalidation";
 import { logger } from "@/lib/logger";
 import { 
   wrapWrite, 
@@ -15,7 +15,7 @@ import {
 } from "@/lib/persistence/write-result";
 
 export function invalidateMindMapsCache(): void {
-  emitDomainChanged({ domain: "mindmaps" });
+  invalidateMindMapsQueries();
 }
 
 export async function loadMindMaps(): Promise<MindMapDoc[]> {

@@ -162,7 +162,7 @@ export function useCardExport({ srSettings }: UseCardExportDeps) {
         throw err;
       }
     },
-    [srSettings],
+    [],
   );
 
   const exportData = useCallback(

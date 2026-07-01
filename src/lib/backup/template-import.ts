@@ -102,6 +102,7 @@ export function convertTemplateToParsedBackup(raw: unknown): ParsedBackup {
     knowledgeBaseArticles: [],
     settings: [],
     reviewLog: [],
+    srSettings: undefined,
     diary: [],
     calibrationLog: [],
     latencyLog: [],

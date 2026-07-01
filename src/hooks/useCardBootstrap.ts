@@ -1,20 +1,11 @@
 import { useEffect } from "react";
 import { markBootStep } from "@/lib/boot-trace";
-import { transition, getBootState, installSplashBridge } from "@/lib/boot";
+import { installSplashBridge, boot, handleBootError } from "@/lib/boot";
 import { useDbError } from "@/hooks/useDbError";
-import { taskScheduler } from "@/lib/scheduler/taskScheduler";
-import { logger } from "@/lib/logger";
 import {
   cleanupSplash,
-  forceRemoveSplash,
   notifyElectronReady,
 } from "./card-bootstrap/splash";
-import { runBootDag, handleBootError } from "./card-bootstrap/boot-dag";
-
-function inSchemaPhase(): boolean {
-  const t = getBootState().type;
-  return t === "opening" || t === "schema";
-}
 
 function applyBootMarkers(): void {
   try {
@@ -35,8 +26,8 @@ function applyBootMarkers(): void {
 }
 
 /**
- * React lifecycle wrapper for the boot DAG.
- * Orchestration lives in `runBootDag`; this hook owns timers, abort, and DOM teardown.
+ * React lifecycle wrapper for boot. Orchestration lives in `boot()`;
+ * this hook owns abort + DOM teardown (TD-ARCH-6 — no panic timer).
  */
 export function useCardBootstrap(): void {
   const dbError = useDbError();
@@ -49,39 +40,10 @@ export function useCardBootstrap(): void {
 
     installSplashBridge();
     const ac = new AbortController();
-    let bootDone = false;
 
-    const panicHandle = taskScheduler.setTimeout(() => {
-      if (bootDone) return;
-      logger.error("[boot] Panic timeout (22s)! Forsiram ready.");
-      const state = getBootState();
-      if (
-        state.type !== "ready" &&
-        state.type !== "schema-error" &&
-        state.type !== "load-error"
-      ) {
-        if (inSchemaPhase()) {
-          transition({
-            type: "SCHEMA_FAIL",
-            cause: "timeout",
-            message: "Boot panic timeout (22s)",
-          });
-        } else {
-          transition({
-            type: "LOAD_FAIL",
-            message: "Boot panic timeout (22s)",
-          });
-        }
-      }
-      ac.abort();
-      forceRemoveSplash();
-    }, 22000, { label: "boot:panic-22s" });
-
-    void runBootDag(ac.signal)
+    void boot(ac.signal)
       .catch((err) => handleBootError(err))
       .finally(() => {
-        bootDone = true;
-        taskScheduler.cancel(panicHandle);
         cleanupSplash();
         notifyElectronReady();
         applyBootMarkers();
@@ -89,7 +51,6 @@ export function useCardBootstrap(): void {
 
     return () => {
       ac.abort();
-      taskScheduler.cancel(panicHandle);
     };
   }, [dbError]);
 }

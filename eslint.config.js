@@ -47,6 +47,23 @@ export default tseslint.config(
     },
   },
   {
+    files: ["src/hooks/**/*.{ts,tsx}", "src/views/**/*.{ts,tsx}"],
+    rules: {
+      "no-restricted-imports": ["warn", {
+        patterns: [
+          {
+            group: ["@/lib/db/queries/cards-writes", "@/lib/db/queries/cards-bulk-mutations"],
+            message: "Card writes belong in cardRepository (@/lib/repositories).",
+          },
+          {
+            group: ["@/lib/repositories/cardRepository"],
+            message: "Import cardRepository from @/lib/repositories barrel.",
+          },
+        ],
+      }],
+    },
+  },
+  {
     files: ["src/components/**/*.{ts,tsx}"],
     ignores: ["src/components/ui/**"],
     rules: {

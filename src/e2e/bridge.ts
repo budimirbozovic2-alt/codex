@@ -1,14 +1,17 @@
 import { getBootState } from "@/lib/boot";
 import { seedReaderFixture } from "./seed-reader-fixture";
 import { seedPersistenceFixture } from "./seed-persistence-fixture";
+import {
+  seedDueReviewFixture,
+  seedEmptyCategoryForDelete,
+} from "./seed-smoke-fixture";
+import { runBackupSmokeRoundtrip } from "./smoke-backup";
 import { simulateE2ESessionRestart } from "./session-restart";
 import { countAllCards, listAllCards, listAllCategories } from "@/lib/db/queries";
 import {
   getCardsHydrated,
-} from "@/lib/query/cards-cache-coordinator";
-import {
   getCategoriesHydrated,
-} from "@/lib/query/categories-cache-coordinator";
+} from "@/lib/query/cache-coordinator";
 
 const autosaveFlushers = new Set<() => void>();
 
@@ -33,6 +36,9 @@ export interface CodexE2EBridge {
   waitForReady: (timeoutMs?: number) => Promise<void>;
   seedReaderFixture: () => Promise<{ categoryId: string; sourceId: string; skriptaSourceId: string }>;
   seedPersistenceFixture: () => Promise<{ categoryId: string; cardId: string; cardQuestion: string }>;
+  seedEmptyCategoryForDelete: () => Promise<{ categoryId: string }>;
+  seedDueReviewFixture: () => Promise<{ categoryId: string; cardId: string }>;
+  runBackupSmokeRoundtrip: () => Promise<{ cardCountBefore: number; cardCountAfter: number }>;
   simulateSessionRestart: () => Promise<void>;
   getCardCount: () => Promise<number>;
   listCardIds: () => Promise<string[]>;
@@ -67,6 +73,9 @@ export function installE2EBridge(): void {
     waitForReady,
     seedReaderFixture,
     seedPersistenceFixture,
+    seedEmptyCategoryForDelete,
+    seedDueReviewFixture,
+    runBackupSmokeRoundtrip,
     simulateSessionRestart: simulateE2ESessionRestart,
     getCardCount: countAllCards,
     listCardIds: async () => (await listAllCards()).map((c) => c.id),

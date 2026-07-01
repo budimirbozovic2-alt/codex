@@ -36,6 +36,7 @@ interface CardRowBindings {
   masteryLevel: SqlBindValue;
   parentId: SqlBindValue;
   isEndangered: SqlBindValue;
+  linkedArticleId: SqlBindValue;
   payload: SqlBindValue;
 }
 
@@ -55,13 +56,14 @@ function encodeCard(card: Card): CardRowBindings {
     masteryLevel: computeCardMasteryLevel(card),
     parentId: card.parentId ?? null,
     isEndangered: card.isEndangered ? 1 : 0,
+    linkedArticleId: card.linkedArticleId ?? null,
     payload: JSON.stringify(card),
   };
 }
 
 export const CARD_DECODE_SELECT =
   "id, categoryId, subcategoryId, chapterId, type, createdAt, updatedAt, " +
-  "sourceId, frequencyTag, sourceType, parentId, isEndangered, payload";
+  "sourceId, frequencyTag, sourceType, parentId, isEndangered, linkedArticleId, payload";
 
 /** Prefix columns for JOIN queries (`cards.id, cards.categoryId, …`). */
 export function cardSelectSql(tableAlias?: string): string {
@@ -133,6 +135,9 @@ function buildCardFromColumns(row: SqlRow): Card | null {
   if (row.parentId != null && row.parentId !== "") {
     card.parentId = String(row.parentId);
   }
+  if (row.linkedArticleId != null && row.linkedArticleId !== "") {
+    card.linkedArticleId = String(row.linkedArticleId);
+  }
 
   return card;
 }
@@ -168,6 +173,10 @@ export function decodeCard(row: SqlRow): Card {
       row.isEndangered != null
         ? Number(row.isEndangered) === 1
         : !!parsed.isEndangered;
+    const linkedArticleId =
+      row.linkedArticleId != null && row.linkedArticleId !== ""
+        ? String(row.linkedArticleId)
+        : parsed.linkedArticleId;
     return {
       ...parsed,
       id,
@@ -182,6 +191,7 @@ export function decodeCard(row: SqlRow): Card {
       readCount: typeof parsed.readCount === "number" ? parsed.readCount : 0,
       ...(parentId !== undefined ? { parentId } : {}),
       isEndangered,
+      ...(linkedArticleId !== undefined ? { linkedArticleId } : {}),
     } as Card;
   } catch (err) {
     const skeleton = buildCardFromColumns(row);
@@ -194,10 +204,10 @@ export const CARD_INSERT_SQL = `
   INSERT OR REPLACE INTO cards
     (id, categoryId, subcategoryId, chapterId, type, createdAt, updatedAt,
      sourceId, frequencyTag, sourceType, mastery_score, mastery_level,
-     parentId, isEndangered, payload)
+     parentId, isEndangered, linkedArticleId, payload)
   VALUES (?, ?, ?, ?, ?, ?, ?,
           ?, ?, ?, ?, ?,
-          ?, ?, ?)
+          ?, ?, ?, ?)
 `;
 
 export function bindCardInsert(card: Card): SqlBindValue[] {
@@ -205,6 +215,7 @@ export function bindCardInsert(card: Card): SqlBindValue[] {
   return [
     r.id, r.categoryId, r.subcategoryId, r.chapterId, r.type, r.createdAt,
     r.updatedAt, r.sourceId, r.frequencyTag, r.sourceType,
-    r.masteryScore, r.masteryLevel, r.parentId, r.isEndangered, r.payload,
+    r.masteryScore, r.masteryLevel, r.parentId, r.isEndangered,
+    r.linkedArticleId, r.payload,
   ];
 }

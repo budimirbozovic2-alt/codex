@@ -12,7 +12,7 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef } from "react";
 import type { Card } from "@/lib/spaced-repetition";
 import type { SubcategoryNode } from "@/lib/db-types";
-import { readCached, writeCached } from "@/lib/settings-cache";
+import { readPref, writePref } from "@/lib/query/prefs-cache-coordinator";
 
 export type TypeFilter = "all" | "essay" | "flash";
 
@@ -27,7 +27,7 @@ const FILTER_KEY = "speed-reader-filters:";
 
 function loadFilters(categoryId: string): Omit<SelectionState, "index"> {
   const defaults = { subFilter: "all", chapterFilter: "all", typeFilter: "all" as TypeFilter };
-  const p = readCached<Partial<SelectionState>>(FILTER_KEY + categoryId, defaults);
+  const p = readPref<Partial<SelectionState>>(FILTER_KEY + categoryId, defaults);
   const tf = p.typeFilter;
   return {
     subFilter: typeof p.subFilter === "string" ? p.subFilter : "all",
@@ -169,7 +169,7 @@ export function useSpeedReaderSelection({
 
   // Persist filter triple (SQLite SSOT + sync localStorage mirror)
   useEffect(() => {
-    writeCached(FILTER_KEY + categoryId, { subFilter, chapterFilter, typeFilter });
+    writePref(FILTER_KEY + categoryId, { subFilter, chapterFilter, typeFilter });
   }, [categoryId, subFilter, chapterFilter, typeFilter]);
 
 

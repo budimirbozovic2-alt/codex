@@ -75,6 +75,7 @@ export const BackupCardSchema = z
     sourceType: SourceTypeSchema,
     parentId: z.unknown().optional().transform((v) => (typeof v === "string" && v.length > 0 ? v : undefined)),
     isEndangered: z.unknown().optional().transform((v) => (typeof v === "boolean" ? v : undefined)),
+    linkedArticleId: z.unknown().optional().transform((v) => (typeof v === "string" && v.length > 0 ? v : undefined)),
   })
   .strict()
   .transform((c): Card => {
@@ -105,5 +106,6 @@ export const BackupCardSchema = z
     if (Array.isArray(c.sourceModules)) out.sourceModules = c.sourceModules as Card["sourceModules"];
     if (typeof c.parentId === "string") out.parentId = c.parentId;
     if (typeof c.isEndangered === "boolean") out.isEndangered = c.isEndangered;
+    if (typeof c.linkedArticleId === "string") out.linkedArticleId = c.linkedArticleId;
     return out;
   });

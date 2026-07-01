@@ -161,7 +161,7 @@ if (!isDesktopShell && import.meta.env.PROD) {
     markBootStep("main:parallel-import-done");
 
     if (import.meta.env.DEV) {
-      const { resetCardsQueryCache } = await import("./lib/query/cards-cache-coordinator");
+      const { resetCardsQueryCache } = await import("./lib/query/cache-coordinator");
       resetCardsQueryCache();
     }
 

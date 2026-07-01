@@ -166,12 +166,12 @@ export default function ReviewSetup({
     [filteredDueCards, filteredAllCards, srSettings],
   );
 
-  const counts: Record<ModeKey, number> = {
+  const counts = useMemo<Record<ModeKey, number>>(() => ({
     stabilization: stabilizationItems.length,
     critical: criticalItems.length,
     hardest: hardestItems.length,
     catchup: catchupItems.length,
-  };
+  }), [stabilizationItems, criticalItems, hardestItems, catchupItems]);
 
   const itemsByMode = useMemo<Record<ModeKey, DueItem[]>>(() => ({
     stabilization: stabilizationItems,

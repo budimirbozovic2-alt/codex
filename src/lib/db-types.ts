@@ -27,6 +27,7 @@ export type PreferredAnswerType = "esej" | "definicija" | "potpitanja";
 export interface ExaminerProfile {
   difficulty?: ExaminerDifficulty;
   preferredAnswerType?: PreferredAnswerType;
+  expectedAnswerElements?: string[];
   notes?: string;
   updatedAt?: number;
 }

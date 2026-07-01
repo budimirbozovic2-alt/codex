@@ -3,7 +3,7 @@ import { Card } from "@/lib/spaced-repetition";
 import type { ReviewLogEntry } from "@/lib/types/logs";
 import { Progress } from "@/components/ui/progress";
 import { runWeakHooksAnalysis } from "@/lib/services/weakHooksService";
-import { analyticsClient } from "@/lib/analytics/workerClient";
+import { analyticsClient } from "@/lib/analytics/analyticsClient";
 import { loadPlanner } from "@/domains/planner";
 import LazyChart from "@/components/LazyChart";
 import InfoPanel from "@/components/InfoPanel";

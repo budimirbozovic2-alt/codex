@@ -7,8 +7,10 @@ import {
 } from "./sqlite-harness";
 import { __resetSqliteReadyForTests } from "@/lib/persistence/sqlite/readyMachine";
 import { __resetExecutorTelemetry } from "@/lib/db/queries/_shared/executor-telemetry";
-import { resetCardsQueryCache } from "@/lib/query/cards-cache-coordinator";
-import { resetCategoriesQueryCache } from "@/lib/query/categories-cache-coordinator";
+import {
+  resetCardsQueryCache,
+  resetCategoriesQueryCache,
+} from "@/lib/query/cache-coordinator";
 import { queryClient } from "@/lib/query/client";
 import { queryKeys } from "@/lib/query/keys";
 
@@ -19,6 +21,7 @@ import { queryKeys } from "@/lib/query/keys";
  * then uses pos 0..doc.size when coords resolve to null.
  */
 function installDomHitTestingPolyfills(): void {
+  if (typeof document === "undefined") return;
   if (typeof document.elementFromPoint !== "function") {
     document.elementFromPoint = () => null;
   }

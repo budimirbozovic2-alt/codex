@@ -3,8 +3,7 @@ import { Card, SRSettings } from "@/lib/spaced-repetition";
 import type { ReviewLogEntry } from "@/lib/types/logs";
 import { getTimeDistribution } from "@/domains/metacognition/metacognitive-storage";
 import { useDeferredCompute } from "@/hooks/useDeferredCompute";
-import { useAnalyticsWorker } from "@/hooks/useAnalyticsWorker";
-import { analyticsClient } from "@/lib/analytics/workerClient";
+import { analyticsClient } from "@/lib/analytics/analyticsClient";
 import type { ChartBundle } from "@/lib/analytics/_pure/charts";
 import { formatCategoryLabel } from "@/components/stats/format-category-label";
 
@@ -27,9 +26,9 @@ export function useStatsData({ cards, categories, categoryStats, reviewLog, srSe
     return { progress, targetReviewPct: Math.max(5, progress) };
   }, [cards, srSettings]);
 
-  // Heavy chart aggregations now run inside the analytics Web Worker.
-  // Returns `null` until the worker responds — consumers render <TabSkeleton />.
-  const charts = useAnalyticsWorker<ChartBundle>(
+  // Heavy chart aggregations deferred to idle slot (TD-ARCH-9).
+  // Returns `null` until compute completes — consumers render <TabSkeleton />.
+  const charts = useDeferredCompute<ChartBundle>(
     () => analyticsClient.buildCharts(cards, reviewLog, focusRatio.targetReviewPct),
     [cards, reviewLog, focusRatio.targetReviewPct],
   );

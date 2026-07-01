@@ -27,8 +27,8 @@ import {
 } from "@/lib/persistence/sqlite/category-codecs";
 
 import { requireSqlExecutor } from "./_shared/require-sql-executor";
-import { emitDomainChanged, onDomainChanged } from "@/lib/event-bus";
-import type { CategoriesChangedScope } from "@/lib/event-bus-types";
+import type { CategoriesChangedScope } from "@/lib/query/cache-scope-types";
+import { invalidateCategoriesCache } from "@/lib/query/categories-invalidation";
 
 
 
@@ -182,22 +182,14 @@ export async function clearCategories(): Promise<void> {
 
 }
 
-// ── Cache invalidation hook for TanStack bridges ─────────────────
+// ── Cache invalidation ───────────────────────────────────────────
 
 export type CategoriesScope = CategoriesChangedScope;
 
-export function onCategoriesChanged(
-  fn: (scope: CategoriesScope) => void,
-): () => void {
-  return onDomainChanged((p) => {
-    if (p.domain === "categories") fn(p.scope);
-  });
-}
-
 export function notifyCategoriesChanged(
-  scope: CategoriesScope = { kind: "all" },
+  _scope: CategoriesScope = { kind: "all" },
 ): void {
-  emitDomainChanged({ domain: "categories", scope });
+  invalidateCategoriesCache();
 }
 
 

@@ -4,10 +4,7 @@
  */
 import { readAllCategoriesForBackup, listAllCards } from "@/lib/db/queries";
 import { yieldUI } from "@/lib/backup/yield-ui";
-import {
-  BackupSchema,
-  type ParsedBackup,
-} from "@/lib/migrations/backup-schema";
+import { BackupSchema } from "@/lib/migrations/backup-schema";
 import {
   migrateBackup,
   assertBackupVersion,

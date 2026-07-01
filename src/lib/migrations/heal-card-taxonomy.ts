@@ -62,7 +62,7 @@ export async function healCardTaxonomy(force = false): Promise<HealReport> {
 
     if (patched > 0) {
       const { runBulkCardsWrite } = await import(
-        "@/lib/query/all-caches-coordinator"
+        "@/lib/query/write-session"
       );
       await runBulkCardsWrite(async () => undefined);
     }

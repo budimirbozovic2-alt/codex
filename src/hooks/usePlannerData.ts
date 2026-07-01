@@ -5,7 +5,7 @@ import { usePlannerAutoRedistribute } from "@/hooks/planner/usePlannerAutoRedist
 import { Card as SRCard } from "@/lib/spaced-repetition";
 import type { ReviewLogEntry } from "@/lib/types/logs";
 import type { CategoryRecord } from "@/lib/db-types";
-import { analyticsClient } from "@/lib/analytics/workerClient";
+import { analyticsClient } from "@/lib/analytics/analyticsClient";
 import type { PlannerConfig } from "@/domains/planner";
 import { DEFAULT_CONFIG, calcLearningReviewRatio } from "@/domains/planner";
 import type { SubjectPlan } from "@/types/planner";

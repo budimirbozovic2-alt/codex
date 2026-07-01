@@ -1,10 +1,10 @@
 import { Loader2, CheckCircle2, Brain } from "lucide-react";
-import { useSessionContext } from "@/store/useSessionStore";
+import { useIsProcessing } from "@/hooks/useIsProcessing";
 import { useState, useEffect } from "react";
 import { taskScheduler } from "@/lib/scheduler";
 
 export default function ProcessingOverlay() {
-  const { isProcessing } = useSessionContext();
+  const isProcessing = useIsProcessing();
   const [phase, setPhase] = useState<"analyzing" | "done">("analyzing");
   const [visible, setVisible] = useState(false);
 

@@ -1,5 +1,6 @@
 import { memo } from "react";
-import { Activity, AlertTriangle, Sparkles } from "lucide-react";
+import { Activity, AlertTriangle, Sparkles, Zap } from "lucide-react";
+import { cn } from "@/lib/utils";
 import {
   Tooltip, TooltipContent, TooltipProvider, TooltipTrigger,
 } from "@/components/ui/tooltip";
@@ -19,13 +20,30 @@ interface Props {
 }
 
 function PassiveReaderCardImpl({ card, stats }: Props) {
+  const isFlash = card.type === "flash";
   return (
-    <article className="glass-card rounded-2xl p-8 space-y-5">
+    <article
+      className={cn(
+        "glass-card rounded-2xl p-8 space-y-5",
+        isFlash && "ring-1 ring-primary/30 border-l-4 border-l-primary",
+      )}
+    >
       <header className="space-y-2">
-        <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
-          Pasivno čitanje
-        </p>
-        <h2 className="text-2xl font-semibold text-foreground leading-tight">
+        {isFlash ? (
+          <p className="inline-flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-primary">
+            <Zap className="h-3 w-3" /> Blic pitanje
+          </p>
+        ) : (
+          <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
+            Pasivno čitanje
+          </p>
+        )}
+        <h2
+          className={cn(
+            "font-semibold text-foreground leading-tight",
+            isFlash ? "text-xl text-primary" : "text-2xl",
+          )}
+        >
           {card.question}
         </h2>
 

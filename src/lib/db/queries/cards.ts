@@ -12,14 +12,11 @@ import {
 } from "@/lib/persistence/sqlite/row-codecs";
 import type { SqlRow } from "@/lib/persistence/sqlite/executor";
 import { logger } from "@/lib/logger";
-import { getBulkWriteDepth } from "@/lib/query/bulk-write-session-depth";
+import { getBulkWriteDepth } from "@/lib/query/write-session";
+import { invalidateCardsCacheScopes } from "@/lib/query/cards-invalidation";
 import { withSqlTiming } from "./_shared/sql-timing";
 import { requireSqlExecutor } from "./_shared/require-sql-executor";
-import {
-  emitDomainChanged,
-  onDomainChanged,
-  type CardsChangedScope,
-} from "@/lib/event-bus";
+import type { CardsChangedScope } from "@/lib/query/cache-scope-types";
 
 // ── Corruption telemetry ─────────────────────────────────────────
 
@@ -101,6 +98,30 @@ export async function listAllCards(): Promise<Card[]> {
   });
 }
 
+/** Cards linked to a Zettelkasten article (concept link). Uses idx_cards_linkedArticleId. */
+export async function listCardsByArticle(articleId: string): Promise<Card[]> {
+  if (!articleId) return [];
+  return withSqlTiming("listCardsByArticle", async () => {
+    const exec = await requireSqlExecutor("cards:listCardsByArticle");
+    const rows = await exec.all<SqlRow>(
+      `SELECT ${CARD_DECODE_SELECT} FROM cards WHERE linkedArticleId = ?`,
+      [articleId],
+    );
+    return decodeRows(rows);
+  });
+}
+
+/** Count of cards linked to a Zettelkasten article — badge-friendly. */
+export async function countCardsByArticle(articleId: string): Promise<number> {
+  if (!articleId) return 0;
+  const exec = await requireSqlExecutor("cards:countCardsByArticle");
+  const rows = await exec.all<{ n: number }>(
+    `SELECT COUNT(*) AS n FROM cards WHERE linkedArticleId = ?`,
+    [articleId],
+  );
+  return Number(rows[0]?.n ?? 0);
+}
+
 /** Surgical lookup by ids. */
 export async function getCardsByIds(
   ids: readonly string[]
@@ -142,10 +163,10 @@ export async function getDueCardsFromDb(
     const rows = await exec.all<SqlRow>(
       `SELECT ${cardSelectSql("cards")}
          FROM cards
-         INNER JOIN card_sections_index idx ON cards.id = idx.card_id
-        WHERE idx.state != ? AND idx.next_review <= ?
+         INNER JOIN card_sections sec ON cards.id = sec.card_id
+        WHERE sec.state != ? AND sec.next_review <= ?
         GROUP BY cards.id
-        ORDER BY MIN(idx.next_review) ASC
+        ORDER BY MIN(sec.next_review) ASC
         LIMIT ?`,
       [SectionState.New, nowMs, limit],
     );
@@ -161,7 +182,7 @@ export async function countDueCardsFromDb(
     const exec = await requireSqlExecutor("cards:countDue");
     const rows = await exec.all<{ n: number }>(
       `SELECT COUNT(DISTINCT card_id) AS n
-         FROM card_sections_index
+         FROM card_sections
         WHERE state != ? AND next_review <= ?`,
       [SectionState.New, nowMs],
     );
@@ -211,7 +232,7 @@ export async function masteryDistributionByCategoryFromDb(
         counts[level] = Number(row.n);
       }
     }
-    return counts as MasteryDistribution;
+    return counts as unknown as MasteryDistribution;
   });
 }
 
@@ -223,10 +244,10 @@ export async function countDueCardsByCategoryFromDb(
   return withSqlTiming("countDueCardsByCategoryFromDb", async () => {
     const exec = await requireSqlExecutor("cards:countDueByCategory");
     const rows = await exec.all<{ n: number }>(
-      `SELECT COUNT(DISTINCT idx.card_id) AS n
-         FROM card_sections_index idx
-         INNER JOIN cards c ON c.id = idx.card_id
-        WHERE c.categoryId = ? AND idx.state != ? AND idx.next_review <= ?`,
+      `SELECT COUNT(DISTINCT sec.card_id) AS n
+         FROM card_sections sec
+         INNER JOIN cards c ON c.id = sec.card_id
+        WHERE c.categoryId = ? AND sec.state != ? AND sec.next_review <= ?`,
       [categoryId, SectionState.New, nowMs],
     );
     return Number(rows[0]?.n ?? 0);
@@ -375,22 +396,12 @@ export async function countEndangeredEssaysAllFromDb(): Promise<number> {
   return Number(rows[0]?.n ?? 0);
 }
 
-// ── Cache invalidation hook for TanStack bridges ─────────────────
+// ── Cache invalidation ───────────────────────────────────────────
 
-// CardsScope is an alias for CardsChangedScope from event-bus-types.
-// Kept as a re-export for backward compatibility with existing callers.
 export type CardsScope = CardsChangedScope;
 
-export function onCardsChanged(
-  fn: (scope: CardsScope) => void
-): () => void {
-  return onDomainChanged((p) => {
-    if (p.domain === "cards") fn(p.scope);
-  });
-}
-
 export function notifyCardsChanged(
-  scope: CardsScope = { kind: "all" }
+  scope: CardsScope = { kind: "all" },
 ): void {
   if (getBulkWriteDepth() > 0 && scope.kind !== "derived") {
     logger.warn("[cards] notifyCardsChanged suppressed during bulk write session", {
@@ -398,5 +409,5 @@ export function notifyCardsChanged(
     });
     return;
   }
-  emitDomainChanged({ domain: "cards", scope });
+  invalidateCardsCacheScopes(scope);
 }

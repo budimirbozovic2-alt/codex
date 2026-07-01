@@ -1,20 +1,12 @@
 /**
  * PR-F — Per-category card counts come from SQL, not from a reducer over
- * `useAllCards()`. This test pins the contract:
- *
- *   1. `useCardCountByCategory(id)` calls `cardCountByCategory(id)` (SQL
- *      SELECT COUNT(*) ... WHERE categoryId = ?).
- *   2. `useCardCountsByCategoryMap(ids)` returns a stable map keyed by id.
- *   3. `notifyCardsChanged()` invalidates the count cache via the bridge.
+ * `useAllCards()`.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { renderHook, waitFor, act } from "@testing-library/react";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClientProvider } from "@tanstack/react-query";
 import type { ReactNode } from "react";
-import {
-  _resetBridgesForTest,
-  installQueryBridges,
-} from "@/lib/query/bridges";
+import { queryClient } from "@/lib/query/client";
 
 const countsByCat: Record<string, number> = { "cat-a": 3, "cat-b": 7 };
 const countByCategoryMock = vi.fn(async (id: string) => countsByCat[id] ?? 0);
@@ -38,42 +30,32 @@ const { useCardCountByCategory, useCardCountsByCategoryMap } = await import(
 );
 const { notifyCardsChanged } = await import("@/lib/db/queries");
 
-function wrapper(qc: QueryClient) {
+function wrapper() {
   return ({ children }: { children: ReactNode }) => (
-    <QueryClientProvider client={qc}>{children}</QueryClientProvider>
+    <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
   );
 }
 
-function makeQc(): QueryClient {
-  return new QueryClient({
-    defaultOptions: { queries: { retry: false, gcTime: 5 * 60_000 } },
-  });
-}
-
 beforeEach(() => {
-  _resetBridgesForTest();
+  queryClient.clear();
   countByCategoryMock.mockClear();
   countsByCat["cat-a"] = 3;
   countsByCat["cat-b"] = 7;
 });
 
 afterEach(() => {
-  _resetBridgesForTest();
+  queryClient.clear();
 });
 
 describe("useCardCountByCategory — SQL count", () => {
   it("returns SQL count and refetches on notifyCardsChanged", async () => {
-    const qc = makeQc();
-    installQueryBridges(qc);
-
     const { result } = renderHook(() => useCardCountByCategory("cat-a"), {
-      wrapper: wrapper(qc),
+      wrapper: wrapper(),
     });
 
     await waitFor(() => expect(result.current).toBe(3));
     expect(countByCategoryMock).toHaveBeenCalledWith("cat-a");
 
-    // Mutate the SQL-side value and emit the bridge signal.
     countsByCat["cat-a"] = 11;
     act(() => { notifyCardsChanged(); });
 
@@ -83,12 +65,9 @@ describe("useCardCountByCategory — SQL count", () => {
 
 describe("useCardCountsByCategoryMap — batched counts", () => {
   it("returns a map keyed by categoryId", async () => {
-    const qc = makeQc();
-    installQueryBridges(qc);
-
     const { result } = renderHook(
       () => useCardCountsByCategoryMap(["cat-a", "cat-b"]),
-      { wrapper: wrapper(qc) },
+      { wrapper: wrapper() },
     );
 
     await waitFor(() => {
@@ -98,12 +77,9 @@ describe("useCardCountsByCategoryMap — batched counts", () => {
   });
 
   it("returns a stable map reference when counts do not change", async () => {
-    const qc = makeQc();
-    installQueryBridges(qc);
-
     const { result, rerender } = renderHook(
       () => useCardCountsByCategoryMap(["cat-a", "cat-b"]),
-      { wrapper: wrapper(qc) },
+      { wrapper: wrapper() },
     );
 
     await waitFor(() => expect(result.current["cat-a"]).toBe(3));
@@ -113,12 +89,9 @@ describe("useCardCountsByCategoryMap — batched counts", () => {
   });
 
   it("refetches all entries on notifyCardsChanged", async () => {
-    const qc = makeQc();
-    installQueryBridges(qc);
-
     const { result } = renderHook(
       () => useCardCountsByCategoryMap(["cat-a", "cat-b"]),
-      { wrapper: wrapper(qc) },
+      { wrapper: wrapper() },
     );
 
     await waitFor(() => expect(result.current["cat-b"]).toBe(7));

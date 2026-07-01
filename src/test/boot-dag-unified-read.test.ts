@@ -1,20 +1,17 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { makeCard } from "@/test/factories";
-import { putCardDirect, bulkPutCategories } from "@/lib/db/queries";
+import { cardRepository } from "@/lib/repositories";
+import { bulkPutCategories } from "@/lib/db/queries";
 import {
   ensureCardsBootCache,
   getCardsHydrated,
   resetCardsQueryCache,
-} from "@/lib/query/cards-cache-coordinator";
-import {
   ensureCategoriesBootCache,
   getCategoriesHydrated,
   resetCategoriesQueryCache,
-} from "@/lib/query/categories-cache-coordinator";
-import {
   resetReviewSettingsQueryCache,
   REVIEW_LOG_BOOT_DAYS,
-} from "@/lib/query/review-settings-cache-coordinator";
+} from "@/lib/query/cache-coordinator";
 import { DEFAULT_SR_SETTINGS } from "@/lib/spaced-repetition";
 import { queryClient } from "@/lib/query/client";
 import { queryKeys } from "@/lib/query/keys";
@@ -51,7 +48,7 @@ vi.mock("@/hooks/card-bootstrap/splash", () => ({
 }));
 vi.mock("@/lib/boot-trace", () => ({ markBootStep: vi.fn() }));
 
-import { runBootDag } from "@/hooks/card-bootstrap/boot-dag";
+import { runBootDag } from "@/lib/boot";
 
 describe("boot DAG unified read", { timeout: INTEGRATION_TEST_TIMEOUT_MS }, () => {
   beforeEach(async () => {
@@ -62,7 +59,7 @@ describe("boot DAG unified read", { timeout: INTEGRATION_TEST_TIMEOUT_MS }, () =
     await bulkPutCategories([
       { id: "sql-cat", name: "SQL Cat", sortOrder: 0, subcategories: [] },
     ]);
-    await putCardDirect(makeCard({ id: "sql-card", question: "Q?" }));
+    await cardRepository.put(makeCard({ id: "sql-card", question: "Q?" }));
     simulateAppSessionReset({ resetBoot: true });
   });
 

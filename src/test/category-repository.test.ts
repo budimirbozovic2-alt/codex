@@ -12,7 +12,7 @@ import { queryKeys } from "@/lib/query/keys";
 import {
   getCategoriesFromQueryCache,
   resetCategoriesQueryCache,
-} from "@/lib/query/categories-cache-coordinator";
+} from "@/lib/query/cache-coordinator";
 import { getTestSqlExecutor } from "./sqlite-harness";
 
 function rec(id: string, name = id): CategoryRecord {

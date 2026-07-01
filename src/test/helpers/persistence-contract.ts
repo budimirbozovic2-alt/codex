@@ -3,12 +3,10 @@ import { listAllCards, countAllCards, listAllCategories, countCategories } from 
 import {
   getCardsHydrated,
   resetCardsQueryCache,
-} from "@/lib/query/cards-cache-coordinator";
-import {
   getCategoriesHydrated,
   resetCategoriesQueryCache,
-} from "@/lib/query/categories-cache-coordinator";
-import { resetReviewSettingsQueryCache } from "@/lib/query/review-settings-cache-coordinator";
+  resetReviewSettingsQueryCache,
+} from "@/lib/query/cache-coordinator";
 import { queryClient } from "@/lib/query/client";
 import { queryKeys } from "@/lib/query/keys";
 import { __resetSqliteReadyForTests } from "@/lib/persistence/sqlite/readyMachine";

@@ -15,7 +15,7 @@ export interface CheckForUpdatesResult {
 export interface ElectronAPI {
   requestBackup: (jsonData: string) => Promise<boolean>;
   backupStreamStart: () => Promise<unknown>;
-  backupStreamChunk: (chunk: string) => Promise<unknown>;
+  backupStreamChunk: (chunk: Uint8Array) => Promise<unknown>;
   backupStreamFinish: () => Promise<unknown>;
   backupStreamAbort: () => Promise<unknown>;
   getAppVersion: () => Promise<string>;
@@ -23,6 +23,8 @@ export interface ElectronAPI {
   notifyReady: () => void;
   onBackupRequested: (callback: () => void) => () => void;
   onQuitBackupRequested: (callback: () => void) => () => void;
+  /** Future-proof channel — preferred over onQuitBackupRequested when available. */
+  onBeforeQuit?: (callback: () => void | Promise<void>) => () => void;
   notifyQuitBackupDone: () => void;
   windowMinimize: () => void;
   windowMaximize: () => void;

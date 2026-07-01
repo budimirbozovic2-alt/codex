@@ -43,7 +43,7 @@ function categoryRecordsShallowEqual(a: CategoryRecord[], b: CategoryRecord[]): 
 }
 
 export function useCategoryData(): CategoryStateContextValue {
-  const records = useAllCategories();
+  const records = useAllCategories() as CategoryRecord[];
   const stableRef = useRef<CategoryStateContextValue>(buildCategoryState([]));
 
   return useMemo<CategoryStateContextValue>(() => {

@@ -1,6 +1,6 @@
 import { RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useSettingsContext } from "@/components/settings/SettingsProvider";
+import { useSettingsContext } from "@/components/settings/SettingsContext";
 
 export default function SettingsFormFooter() {
   const { isSubjectMode, overridesEnabled, hasChanges, isDefault, handleSave, handleReset } =

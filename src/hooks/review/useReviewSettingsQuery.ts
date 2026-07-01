@@ -9,7 +9,7 @@ import { queryKeys } from "@/lib/query/keys";
 import {
   REVIEW_LOG_BOOT_DAYS,
   updateSrSettings,
-} from "@/lib/query/review-settings-cache-coordinator";
+} from "@/lib/query/cache-coordinator";
 
 const EMPTY_LOG: ReviewLogEntry[] = [];
 

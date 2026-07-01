@@ -11,15 +11,15 @@ import { createKeyedMutex } from "@/lib/concurrency";
 import { wrapWrite, type WriteResult } from "@/lib/persistence/write-result";
 import { requireSqlExecutor } from "@/lib/db/queries/_shared/require-sql-executor";
 import {
-  notifyCategoriesChanged,
   replaceAllCategories,
 } from "@/lib/db/queries";
+import { invalidateCategoriesCache } from "@/lib/query/categories-invalidation";
 import { queryClient } from "@/lib/query/client";
 import { queryKeys } from "@/lib/query/keys";
 import {
   getCategoriesFromQueryCache,
   seedCategoriesQueryCache,
-} from "@/lib/query/categories-cache-coordinator";
+} from "@/lib/query/cache-coordinator";
 
 function getCategorySnapshot(): CategoryRecord[] {
   return [...getCategoriesFromQueryCache()];
@@ -58,7 +58,7 @@ export async function commit(
     try {
       await replaceAllCategories(optimistic);
       if (!opts?.skipNotify) {
-        notifyCategoriesChanged({ kind: "all" });
+        invalidateCategoriesCache();
       }
     } catch (e) {
       logger.error(`[${label}] SQLite persist failed, rolling back`, e);

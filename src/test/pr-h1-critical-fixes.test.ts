@@ -20,9 +20,7 @@ import type { Card } from "@/lib/spaced-repetition";
 import { queryKeys } from "@/lib/query/keys";
 
 // ── Mocks ────────────────────────────────────────────────────────────────
-const putCardDirectMock = vi.fn();
 const getCardsByIdsMock = vi.fn();
-const deleteCardDirectMock = vi.fn();
 
 vi.mock("@/lib/db/queries", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/db/queries")>();
@@ -30,9 +28,6 @@ vi.mock("@/lib/db/queries", async (importOriginal) => {
     ...actual,
     listAllCards: vi.fn(async () => [] as Card[]),
     getCardsByIds: (...args: unknown[]) => getCardsByIdsMock(...args),
-    putCardDirect: (...args: unknown[]) => putCardDirectMock(...args),
-    deleteCardDirect: (...args: unknown[]) => deleteCardDirectMock(...args),
-    bulkPutCardsDirect: vi.fn(async (rows: Card[]) => rows),
   };
 });
 
@@ -66,9 +61,7 @@ function makeQc(): QueryClient {
 }
 
 beforeEach(() => {
-  putCardDirectMock.mockReset();
   getCardsByIdsMock.mockReset();
-  deleteCardDirectMock.mockReset();
 });
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -115,7 +108,6 @@ describe("PR-H1 #3 — save/remove/gradeSection don't broad-invalidate", () => {
   it("save mutation does not call invalidateQueries(['cards'])", async () => {
     const qc = makeQc();
     qc.setQueryData(queryKeys.cards.all(), [] as Card[]);
-    putCardDirectMock.mockResolvedValue(makeCard("x"));
 
     const invalidateSpy = vi.spyOn(qc, "invalidateQueries");
 
@@ -140,7 +132,6 @@ describe("PR-H1 #3 — save/remove/gradeSection don't broad-invalidate", () => {
     const initial = makeCard("g1", 8);
     qc.setQueryData(queryKeys.cards.all(), [initial]);
     getCardsByIdsMock.mockResolvedValue([initial]);
-    putCardDirectMock.mockImplementation(async (c: Card) => c);
 
     const invalidateSpy = vi.spyOn(qc, "invalidateQueries");
 

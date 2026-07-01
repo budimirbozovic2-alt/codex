@@ -8,7 +8,7 @@ import type { Card } from "@/lib/spaced-repetition";
 import type { CategoryRecord } from "@/lib/db-types";
 import type { Source } from "@/lib/db-types";
 import { runInTransaction } from "@/lib/persistence/sqlite/client";
-import type { SqlExecutor } from "@/lib/persistence/sqlite/executor";
+import type { SqlExecutor, SqlRow } from "@/lib/persistence/sqlite/executor";
 import {
   CARD_DECODE_SELECT,
   decodeCard,
@@ -17,7 +17,7 @@ import {
 import { loadAllCategoryRows } from "@/lib/persistence/sqlite/category-codecs";
 import { logger } from "@/lib/logger";
 
-const AUTO_INC_TABLES = [
+const _AUTO_INC_TABLES = [
   "reviewLog",
   "diary",
   "calibrationLog",
@@ -42,7 +42,7 @@ function decodePayloadRows<T>(rows: readonly { payload: string }[]): T[] {
 }
 
 async function readCardsInTx(tx: SqlExecutor): Promise<Card[]> {
-  const rows = await tx.all<Record<string, unknown>>(
+  const rows = await tx.all<SqlRow>(
     `SELECT ${CARD_DECODE_SELECT} FROM cards`,
   );
   const cards: Card[] = [];
@@ -67,7 +67,7 @@ async function readPayloadTable<T>(tx: SqlExecutor, table: string): Promise<T[]>
 
 async function readAutoIncTable<T>(
   tx: SqlExecutor,
-  table: (typeof AUTO_INC_TABLES)[number],
+  table: (typeof _AUTO_INC_TABLES)[number],
 ): Promise<T[]> {
   const rows = await tx.all<{ id: number; payload: string }>(
     `SELECT id, payload FROM ${table} ORDER BY id ASC`,

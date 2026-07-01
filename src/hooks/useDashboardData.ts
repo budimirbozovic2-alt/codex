@@ -249,7 +249,7 @@ export function useDashboardData(
       recordDiscipline.mutate({ date: yKey, reviewsDone: yReviews, dailyGoal, slippageMs: ySlippage });
       disciplineRecordedRef.current = yKey;
     })();
-  }, [reviewLog, cards, recordDiscipline]);
+  }, [reviewLog, cards, categoryRecords, recordDiscipline]);
 
   const energyLevel = getEnergyLevel();
 

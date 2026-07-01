@@ -1,5 +1,5 @@
 // Builder/factory functions for Section, Card, and FlashCard.
-import { Section, SectionState, Card, ErrorLogEntry } from "./types";
+import { Section, SectionState, Card } from "./types";
 import type { EditorDoc } from "@/lib/editor-v4/types";
 import { htmlToDoc } from "@/lib/editor-v4";
 import { newUuid } from "@/lib/ids";

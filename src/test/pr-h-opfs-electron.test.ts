@@ -37,13 +37,13 @@ describe("Electron desktop guards (Faza 5.4)", () => {
     }
   });
 
-  it("migration-runner dynamically imports editor-v4 (renderer only)", () => {
-    const src = read("src/lib/persistence/sqlite/migration-runner.ts");
-    expect(src).not.toMatch(
+  it("editor-v4 heal uses dynamic import (renderer only)", () => {
+    const healsSrc = read("src/lib/persistence/sqlite/post-migration-heals.ts");
+    expect(healsSrc).not.toMatch(
       /import\s+\{\s*migrateEditorV4Content\s*\}\s+from\s+["']\.\/editor-v4-schema-migration["']/,
     );
-    expect(src).toMatch(/await import\(\s*["']\.\/editor-v4-schema-migration["']\s*\)/);
-    expect(src).toMatch(/typeof window !== "undefined"/);
+    expect(healsSrc).toMatch(/await import\(\s*["']\.\/editor-v4-schema-migration["']\s*\)/);
+    expect(healsSrc).toMatch(/typeof window !== "undefined"/);
   });
 
   it("main.cjs protocol.handle uses CSP via buildHeaders", () => {
@@ -69,11 +69,8 @@ describe("Electron desktop guards (Faza 5.4)", () => {
     expect(src).toMatch(/toggleDevTools/);
   });
 
-  it("analytics worker chain avoids spaced-repetition barrel", () => {
-    const workerSafe = [
-      "src/workers/analytics.worker.ts",
-      "src/lib/analytics/_pure/charts.ts",
-    ];
+  it("_pure analytics modules avoid spaced-repetition barrel", () => {
+    const workerSafe = ["src/lib/analytics/_pure/charts.ts"];
     for (const file of workerSafe) {
       const src = read(file);
       expect(src).not.toMatch(/@\/lib\/spaced-repetition/);

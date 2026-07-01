@@ -5,7 +5,7 @@ import { saveSource, loadSourcesByCategory } from "@/domains/sources/sources-sto
 import {
   getCategoriesFromQueryCache,
   seedCategoriesQueryCache,
-} from "@/lib/query/categories-cache-coordinator";
+} from "@/lib/query/cache-coordinator";
 import { queryClient } from "@/lib/query/client";
 import { queryKeys } from "@/lib/query/keys";
 import {

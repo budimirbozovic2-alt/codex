@@ -8,9 +8,7 @@
 
 // (`runInTransaction`). After a successful commit the repository fires
 
-// scoped `notifyCardsChanged` so bridges.ts invalidates only affected
-
-// TanStack cache keys.
+// scoped TanStack invalidation via cards-invalidation (direct, no bridge debounce).
 
 //
 
@@ -60,15 +58,15 @@ import {
   SQL_UPDATE_CHAPTER,
 } from "@/lib/db/queries/cards-json-patches";
 import {
-  syncCardSectionsIndex,
-  syncCardSectionsIndexMany,
-} from "@/lib/persistence/sqlite/card-sections-index";
+  syncCardSections,
+  syncCardSectionsMany,
+} from "@/lib/persistence/sqlite/card-sections";
 import type { ReviewLogEntry } from "@/lib/types/logs";
 import {
   insertReviewLogInTx,
   syncParentEndangeredOnFlashGrade,
 } from "@/lib/persistence/sqlite/card-saga-endangered-sync";
-import { runBulkCardsWrite } from "@/lib/query/all-caches-coordinator";
+import { runBulkCardsWrite } from "@/lib/query/write-session";
 
 
 
@@ -90,7 +88,7 @@ async function put(card: Card): Promise<Card> {
 
   await runInTransaction(async (tx) => {
     await tx.run(CARD_INSERT_SQL, bindCardInsert(stamped));
-    await syncCardSectionsIndex(tx, stamped);
+    await syncCardSections(tx, stamped);
   });
 
   emitAfterCardWrite(null, stamped);
@@ -111,7 +109,7 @@ async function bulkPut(cards: Card[], opts?: BulkCardWriteOpts): Promise<Card[]>
 
   await runInTransaction(async (tx) => {
     await tx.runMany(CARD_INSERT_SQL, stamped.map(bindCardInsert));
-    await syncCardSectionsIndexMany(tx, stamped);
+    await syncCardSectionsMany(tx, stamped);
   });
 
   if (!opts?.skipNotify) {
@@ -195,7 +193,7 @@ async function patch(
     const updated: Card = { ...patcher(current), updatedAt: Date.now() };
 
     await tx.run(CARD_INSERT_SQL, bindCardInsert(updated));
-    await syncCardSectionsIndex(tx, updated);
+    await syncCardSections(tx, updated);
 
     result = updated;
 
@@ -257,7 +255,7 @@ async function patchWithReviewGrade(
 
     await tx.run(CARD_INSERT_SQL, bindCardInsert(updated));
 
-    await syncCardSectionsIndex(tx, updated);
+    await syncCardSections(tx, updated);
 
     if (reviewLogEntry) {
 
@@ -362,7 +360,7 @@ async function bulkPatch(
     if (batches.length > 0) {
 
       await tx.runMany(CARD_INSERT_SQL, batches);
-      await syncCardSectionsIndexMany(tx, updated);
+      await syncCardSectionsMany(tx, updated);
 
     }
 
@@ -580,6 +578,136 @@ async function bulkUpdateChapterAuthoritative(updates: ChapterFieldUpdate[]): Pr
 
 
 
+/** Clear subcategoryId + chapterId for all cards under a subcategory. */
+async function clearSubcategoryRefs(
+  categoryId: string,
+  subcategoryId: string,
+): Promise<void> {
+  const now = Date.now();
+  await runInTransaction(async (tx) => {
+    await tx.run(
+      `UPDATE cards
+          SET subcategoryId = NULL,
+              chapterId     = NULL,
+              updatedAt     = ?,
+              payload       = json_set(
+                                json_remove(
+                                  payload,
+                                  '$.subcategoryId',
+                                  '$.chapterId'
+                                ),
+                                '$.updatedAt', ?
+                              )
+        WHERE categoryId = ? AND subcategoryId = ?`,
+      [now, now, categoryId, subcategoryId],
+    );
+  });
+}
+
+
+
+/** Clear chapterId for all cards under a chapter. */
+async function clearChapterRefs(
+  categoryId: string,
+  subcategoryId: string,
+  chapterId: string,
+): Promise<void> {
+  const now = Date.now();
+  await runInTransaction(async (tx) => {
+    await tx.run(
+      `UPDATE cards
+          SET chapterId = NULL,
+              updatedAt = ?,
+              payload   = json_set(
+                            json_remove(payload, '$.chapterId'),
+                            '$.updatedAt', ?
+                          )
+        WHERE categoryId    = ?
+          AND subcategoryId = ?
+          AND chapterId     = ?`,
+      [now, now, categoryId, subcategoryId, chapterId],
+    );
+  });
+}
+
+
+
+/** Reassign cards to a new subcategoryId (payload + indexed column). */
+async function reassignSubcategory(
+  ids: readonly string[],
+  subcategoryId: string,
+): Promise<void> {
+  if (ids.length === 0) return;
+  const now = Date.now();
+  await runInTransaction(async (tx) => {
+    await tx.runMany(
+      `UPDATE cards
+          SET subcategoryId = ?,
+              updatedAt     = ?,
+              payload       = json_set(payload,
+                                '$.subcategoryId', ?,
+                                '$.updatedAt',     ?)
+        WHERE id = ?`,
+      ids.map((id) => [subcategoryId, now, subcategoryId, now, id]),
+    );
+  });
+}
+
+
+
+/**
+ * Link or unlink cards to a Zettelkasten article (concept link). Field-only:
+ * updates the indexed `linkedArticleId` column + payload via json_set/json_remove,
+ * no payload decode. Pass `articleId = undefined` to detach.
+ */
+async function linkCardsToArticle(
+  cardIds: readonly string[],
+  articleId: string | undefined,
+  opts?: BulkCardWriteOpts,
+): Promise<void> {
+  if (cardIds.length === 0) return;
+  const now = Date.now();
+  const placeholders = cardIds.map(() => "?").join(",");
+  await runInTransaction(async (tx) => {
+    if (articleId) {
+      await tx.run(
+        `UPDATE cards
+            SET linkedArticleId = ?,
+                updatedAt       = ?,
+                payload         = json_set(payload,
+                                    '$.linkedArticleId', ?,
+                                    '$.updatedAt',       ?)
+          WHERE id IN (${placeholders})`,
+        [articleId, now, articleId, now, ...cardIds],
+      );
+    } else {
+      await tx.run(
+        `UPDATE cards
+            SET linkedArticleId = NULL,
+                updatedAt       = ?,
+                payload         = json_set(
+                                    json_remove(payload, '$.linkedArticleId'),
+                                    '$.updatedAt', ?)
+          WHERE id IN (${placeholders})`,
+        [now, now, ...cardIds],
+      );
+    }
+  });
+
+  if (!opts?.skipNotify) {
+    const refs = await fetchCardScopeRefs([...cardIds]);
+    if (refs.length > 0) emitCardsChangedForRefs(refs);
+  }
+}
+
+/** Link or unlink a single card to a Zettelkasten article. */
+async function linkCardToArticle(
+  cardId: string,
+  articleId: string | undefined,
+): Promise<void> {
+  return linkCardsToArticle([cardId], articleId);
+}
+
 export const cardRepository = {
 
   put,
@@ -609,6 +737,16 @@ export const cardRepository = {
   bulkUpdateChapter,
 
   bulkUpdateChapterAuthoritative,
+
+  clearSubcategoryRefs,
+
+  clearChapterRefs,
+
+  reassignSubcategory,
+
+  linkCardToArticle,
+
+  linkCardsToArticle,
 
 };
 

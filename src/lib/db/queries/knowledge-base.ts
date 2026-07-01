@@ -7,13 +7,17 @@ import type { KnowledgeBaseArticle } from "@/lib/db-types";
 import { logger } from "@/lib/logger";
 import { withSqlTiming } from "./_shared/sql-timing";
 import { requireSqlExecutor } from "./_shared/require-sql-executor";
-import { emitDomainChanged } from "@/lib/event-bus";
+import { invalidateKnowledgeBaseQueries } from "@/lib/query/domain-invalidation";
 import { migrateArticle } from "@/lib/editor-v4/migrate";
+import {
+  emitCardsChangedForRefs,
+  type CardScopeRef,
+} from "./cards-notify-scope";
 
 // ─── Change emitter ─────────────────────────────────────────────
 
 export function notifyKnowledgeBaseChanged(): void {
-  emitDomainChanged({ domain: "zettelkasten" });
+  invalidateKnowledgeBaseQueries();
 }
 
 // ─── Codec ──────────────────────────────────────────────────────
@@ -159,6 +163,31 @@ export async function bulkPutArticles(
 
 export async function deleteArticle(id: string): Promise<void> {
   const exec = await requireSqlExecutor("kb:deleteArticle");
-  await exec.run("DELETE FROM knowledgeBaseArticles WHERE id = ?", [id]);
+  let detachedRefs: CardScopeRef[] = [];
+  await exec.transaction(async (tx) => {
+    // Detach concept links so cards don't dangle on a deleted article. Explicit
+    // (not relying on the FK ON DELETE SET NULL, which needs PRAGMA foreign_keys
+    // and may be off on legacy DBs). Keeps the indexed column + payload in sync.
+    detachedRefs = await tx.all<CardScopeRef>(
+      `SELECT categoryId, subcategoryId, chapterId, sourceId
+         FROM cards WHERE linkedArticleId = ?`,
+      [id],
+    );
+    if (detachedRefs.length > 0) {
+      const now = Date.now();
+      await tx.run(
+        `UPDATE cards
+            SET linkedArticleId = NULL,
+                updatedAt       = ?,
+                payload         = json_set(
+                                    json_remove(payload, '$.linkedArticleId'),
+                                    '$.updatedAt', ?)
+          WHERE linkedArticleId = ?`,
+        [now, now, id],
+      );
+    }
+    await tx.run("DELETE FROM knowledgeBaseArticles WHERE id = ?", [id]);
+  });
   notifyKnowledgeBaseChanged();
+  if (detachedRefs.length > 0) emitCardsChangedForRefs(detachedRefs);
 }

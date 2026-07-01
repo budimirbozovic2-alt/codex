@@ -14,7 +14,7 @@ vi.mock("@/hooks/cards/useActions", () => ({
   }),
 }));
 
-vi.mock("@/lib/storage", () => ({
+vi.mock("@/lib/backup/backup-metadata", () => ({
   getLastBackupTime: vi.fn(async () => 0),
 }));
 

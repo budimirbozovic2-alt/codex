@@ -117,7 +117,12 @@ export default function CardViewTable({
     onToggle, onToggleSelection, setFrequency, onEdit, onPassiveRead, onDelete, onOpenMoveModal,
   ]);
 
-  const useVirtual = filteredCards.length > VIRTUALIZATION_THRESHOLD;
+  // react-window assigns each row a fixed height, so an expanded preview would
+  // overflow its slot and paint over the rows below instead of pushing them
+  // down. While a row is expanded we fall back to flow layout (rows already
+  // carry `content-visibility: auto` for off-screen perf) so expansion grows
+  // the list naturally; virtualization resumes once collapsed.
+  const useVirtual = filteredCards.length > VIRTUALIZATION_THRESHOLD && !expandedId;
   const virtualHeight = Math.min(filteredCards.length * ITEM_SIZE, MAX_VIRTUAL_HEIGHT);
 
   return (

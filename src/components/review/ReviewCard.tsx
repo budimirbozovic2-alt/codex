@@ -8,7 +8,7 @@ import { EditorView } from "@/lib/editor-v4/EditorView";
 import { m, AnimatePresence } from "@/lib/motion";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { addLatencyEntry } from "@/domains/metacognition/metacognitive-storage";
+import { useLatencyTracker } from "@/hooks/review/useLatencyTracker";
 import { shouldIgnoreGlobalKey } from "@/lib/global-overlay-state";
 import { useGlobalHotkey } from "@/hooks/useGlobalHotkey";
 import GradeButtons from "@/components/learn/GradeButtons";
@@ -40,6 +40,7 @@ export default function ReviewCard({
 }: ReviewCardProps) {
   
   const { categoryRecords } = useCategoryData();
+  const { recordLatency } = useLatencyTracker();
   const catRecord = categoryRecords.find(r => r.id === card.categoryId);
   const effectiveSrSettings = useMemo(
     () => resolveEffectiveSrParams(card.categoryId, srSettings).srSettings,
@@ -63,9 +64,9 @@ export default function ReviewCard({
 
   const handleRevealAnswer = useCallback(() => {
     const latencyMs = Date.now() - questionShownAt.current;
-    addLatencyEntry({ timestamp: Date.now(), cardId: card.id, sectionId: section.id, latencyMs, category: card.categoryId });
+    recordLatency({ timestamp: Date.now(), cardId: card.id, sectionId: section.id, latencyMs, category: card.categoryId });
     setShowAnswer(true);
-  }, [setShowAnswer, card.id, section.id, card.categoryId]);
+  }, [setShowAnswer, card.id, section.id, card.categoryId, recordLatency]);
 
   const handleGradeWithCalibration = useCallback((grade: number) => {
     // Hard safety gate: never grade before the answer has been revealed.

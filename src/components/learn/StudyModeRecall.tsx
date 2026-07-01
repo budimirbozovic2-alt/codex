@@ -136,7 +136,7 @@ export default function StudyModeRecall({
 
     return allCards.find(c => c.id === card.parentId) ?? null;
 
-  }, [allCards, card.id, card.parentId, card.type]);
+  }, [allCards, card.parentId, card.type]);
 
 
 
@@ -412,7 +412,7 @@ export default function StudyModeRecall({
 
     sagaActive, essaySatellites, sagaFlashIndex, sections, card, displayCard,
 
-    leechCount, skipReadGate, onReviewSection, setTotalGrades, setModulesCompleted,
+    leechCount, onReviewSection, setTotalGrades, setModulesCompleted,
 
     setCompletedCards, updateProgress, finishCard, goNext,
 

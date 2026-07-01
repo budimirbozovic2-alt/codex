@@ -10,25 +10,21 @@ import type { PreparedImport } from "@/components/export-import/types";
 
 import { isLegacyEmergencyExport } from "@/lib/backup/emergency-import";
 
-import { yieldUI } from "@/lib/backup/yield-ui";
 
 import { applyImportAtomically, type ImportStrategy } from "@/lib/backup/import-transaction";
 
 import { clearReviewSession } from "@/domains/review/review-session-storage";
 
-import {
+import { cardRepository } from "@/lib/repositories";
 
-  bulkPutCardsDirect,
-
-  listAllCards,
-
-} from "@/lib/db/queries";
+import { listAllCards } from "@/lib/db/queries";
 
 import {
-  abortAllCachesWrite,
-  beginAllCachesWrite,
-  commitAllCachesFromDb,
-} from "@/lib/query/all-caches-coordinator";
+  beginWriteSession,
+  commitWriteSessionFromDb,
+  abortWriteSession,
+  runWriteSession,
+} from "@/lib/query/write-session";
 
 import { APP_SETTINGS_CHANGED_EVENT } from "@/lib/app-settings";
 import {
@@ -119,7 +115,7 @@ export function useCardImport() {
 
       const needsReviewWrite =
         strategy === "overwrite" && parsed.reviewLog.length > 0;
-      const cacheSession = beginAllCachesWrite({ reviewLog: needsReviewWrite });
+      const cacheSession = beginWriteSession({ reviewLog: needsReviewWrite });
       let writeCommitted = false;
 
       try {
@@ -136,7 +132,7 @@ export function useCardImport() {
 
         progress(92, "Sinhronizacija keša…");
 
-        await commitAllCachesFromDb(cacheSession, {
+        await commitWriteSessionFromDb(cacheSession, {
           freshCategories: result2.freshCategories,
           srSettings: result2.srSettingsApplied,
           syncReviewLog: result2.reviewLogApplied !== null,
@@ -195,7 +191,7 @@ export function useCardImport() {
         throw err instanceof Error ? err : new Error(msg);
       } finally {
         if (!writeCommitted) {
-          await abortAllCachesWrite(cacheSession);
+          await abortWriteSession(cacheSession);
         }
       }
 
@@ -228,17 +224,9 @@ export function useCardImport() {
       created.forEach((c) => { c.updatedAt = now; });
 
       if (created.length > 0) {
-        const session = beginAllCachesWrite({ categories: false });
-        let cacheCommitted = false;
-        try {
-          await bulkPutCardsDirect(created, { skipNotify: true });
-          await commitAllCachesFromDb(session);
-          cacheCommitted = true;
-        } finally {
-          if (!cacheCommitted) {
-            await abortAllCachesWrite(session);
-          }
-        }
+        await runWriteSession({ cards: true, categories: false }, async () => {
+          await cardRepository.bulkPut(created, { skipNotify: true });
+        });
       }
 
     },

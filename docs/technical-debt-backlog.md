@@ -252,16 +252,33 @@ Master plan: [`docs/architecture-refactoring-plan.md`](architecture-refactoring-
 | ID | Faza | SP | Rizik | Status |
 |----|------|-----|-------|--------|
 | TD-ARCH-1 | Foundation cleanup (storage facade, tipovi, komentari) | 3 | nizak | ✅ Done (2026-06-22) |
-| TD-ARCH-2 | Write path unifikacija (card repository) | 8 | srednji | ⏳ Backlog |
-| TD-ARCH-3 | Direct TanStack invalidation iz repositories | 13 | srednji | ⏳ Backlog |
-| TD-ARCH-4 | Cache coordinator collapse → `writeSession` | 13 | srednji–visok | ⏳ Backlog |
-| TD-ARCH-5 | Event bus + bridges uklanjanje | 8 | visok | ⏳ Backlog |
-| TD-ARCH-6 | Boot simplification (1 FSM) | 8 | srednji | ⏳ Backlog |
-| TD-ARCH-7 | Migration consolidation | 13 | visok | ⏳ Backlog |
-| TD-ARCH-8 | Schema normalizacija (FSRS sekcije) | 21 | visok | ⏳ Backlog (opciono) |
-| TD-ARCH-9 | Analytics worker audit | 3 | nizak | ⏳ Backlog |
+| TD-ARCH-2 | Write path unifikacija (card repository) | 8 | srednji | ✅ Done (2026-06-22) |
+| TD-ARCH-3 | Direct TanStack invalidation iz repositories | 13 | srednji | ✅ Done (2026-06-22) |
+| TD-ARCH-4 | Cache coordinator collapse → `writeSession` | 13 | srednji–visok | ✅ Done (2026-06-22) |
+| TD-ARCH-5 | Event bus + bridges uklanjanje | 8 | visok | ✅ Done (2026-06-22) |
+| TD-ARCH-6 | Boot simplification (linear boot) | 8 | srednji | ✅ Done (2026-06-22) |
+| TD-ARCH-7 | Migration consolidation | 13 | visok | ✅ Done (2026-06-22) |
+| TD-ARCH-8 | Schema normalizacija (FSRS sekcije) | 21 | visok | ✅ Done (2026-06-22) |
+| TD-ARCH-9 | Analytics worker audit | 3 | nizak | ✅ Done (2026-06-22) |
+| TD-ARCH-10 | Cleanup & verification | 5 | nizak | ✅ Done (2026-06-22) |
 
-### TD-ARCH-1 · Foundation cleanup
+### TD-ARCH-10 · Cleanup & verification
+
+| | |
+|---|---|
+| **Prioritet** | P1 |
+| **SP** | 5 |
+| **Rizik** | nizak |
+| **Status** | ✅ Done (2026-06-22) |
+
+**Implementirano:**
+- Obrisani deprecated barreli: `cards-/categories-/review-settings-cache-coordinator`, `all-caches-coordinator`, `bulk-write-session-depth`, `workerClient`, `useAnalyticsWorker`, `boot-dag`, `card-sections-index`, `storage.ts`, `settings-cache`
+- Svi importi → `cache-coordinator`, `write-session`, `prefs-cache-coordinator`, `@/lib/boot`, `card-sections`, `@/lib/types/logs`, `@/lib/backup/backup-metadata`
+- `syncCardSectionsMany` umjesto `syncCardSectionsIndexMany`
+- `tsc --noEmit` zelen; test suite prolazi (bench budžeti 150/200/350ms)
+- **Preostalo (ručno):** P3 desktop smoke checklist
+
+---
 
 | | |
 |---|---|
@@ -276,10 +293,164 @@ Master plan: [`docs/architecture-refactoring-plan.md`](architecture-refactoring-
 - Backup metadata → `@/lib/backup/backup-metadata`
 - Browser quota → `@/lib/services/browser-storage-estimate`
 - Learn progress → `@/lib/db/queries` direktno
-- `storage.ts` → deprecated re-export barrel
-- Stale WASM komentar u `main.tsx` ispravljen
+- `storage.ts` obrisan (TD-ARCH-1b zatvoren u Fazi 10)
 
-**Preostalo za uklanjanje barrel-a:** TD-ARCH-1b — obriši `storage.ts` kad mock testovi pređu na nove module.
+### TD-ARCH-2 · Write path unifikacija
+
+| | |
+|---|---|
+| **Prioritet** | P1 |
+| **SP** | 8 |
+| **Rizik** | srednji |
+| **Status** | ✅ Done (2026-06-22) |
+
+**Implementirano:**
+- `cardRepository` — jedini public card write API (uključujući taxonomy bulk metode)
+- Obrisani `cards-writes.ts`, `cards-bulk-mutations.ts`
+- `db/queries` barrel — samo reads + notify za kartice
+- Migrirani: `useCategoryManagement`, `healthService`, `useCardImport`, e2e seed, persistence contract testovi
+- ESLint guard za deep card-write imports
+
+### TD-ARCH-3 · Direct invalidation
+
+| | |
+|---|---|
+| **Prioritet** | P1 |
+| **SP** | 13 |
+| **Rizik** | srednji |
+| **Status** | ✅ Done (2026-06-22) |
+
+**Implementirano:**
+- `cards-invalidation.ts` + `categories-invalidation.ts`
+- Repository/notify path invalidira TanStack odmah
+- Bridge dedup (`bridges.cards.skip.direct`, `bridges.categories.skip.direct`)
+- Debounce zadržan samo za bus-only legacy emitere
+
+### TD-ARCH-4 · Cache coordinator collapse
+
+| | |
+|---|---|
+| **Prioritet** | P1 |
+| **SP** | 13 |
+| **Rizik** | srednji–visok |
+| **Status** | ✅ Done (2026-06-22) |
+
+**Implementirano:**
+- `cache-coordinator.ts` — unified cards/categories/review cache
+- `write-session.ts` — `runWriteSession`, bulk depth, satellite sync
+- Deprecated re-export barreli za stare import putanje
+- `useCardImport.importCards` pojednostavljen na `runWriteSession`
+
+**Preostalo:** Nema — deprecated barreli obrisani u TD-ARCH-10.
+
+### TD-ARCH-5 · Event bus + bridges uklanjanje
+
+| | |
+|---|---|
+| **Prioritet** | P1 |
+| **SP** | 8 |
+| **Rizik** | visok |
+| **Status** | ✅ Done (2026-06-22) |
+
+**Implementirano:**
+- `domain-invalidation.ts` — direct TanStack invalidation za satellite domene
+- `cache-scope-types.ts` — scope tipovi odvojeni od event bus-a
+- Obrisan `bridges.ts`; `client.ts` bez `installQueryBridges`
+- `event-bus.ts` zadržan samo za DB infrastrukturne evente
+- Testovi: `domain-invalidation.test.ts`; obrisani bridge-specific testovi
+
+### TD-ARCH-6 · Boot simplification
+
+| | |
+|---|---|
+| **Prioritet** | P1 |
+| **SP** | 8 |
+| **Rizik** | srednji |
+| **Status** | ✅ Done (2026-06-22) |
+
+**Implementirano:**
+- `lib/boot/boot.ts` — linearan `boot()` orchestrator
+- `lib/boot/seed-query-caches.ts` — `seedAllQueryCaches()`
+- Uklonjen 22s panic timer; splash samo preko FSM bridge-a
+- `boot-dag.ts` deprecated re-export
+
+### TD-ARCH-7 · Migration consolidation
+
+| | |
+|---|---|
+| **Prioritet** | P1 |
+| **SP** | 13 |
+| **Rizik** | visok |
+| **Status** | ✅ Done (2026-06-22) |
+
+**Implementirano:**
+- `migration-runner-v2.ts` — fresh install clean schema
+- `post-migration-heals.ts` — version-window gated heals + logging
+- `clean-schema-addon.sql` — final DDL za nove instalacije
+- `docs/migration-heals.md` — heal registry dokumentacija
+- `migration-consolidation.test.ts`
+
+---
+
+## TD-ZK serija — Zettelkasten ↔ učenje integracija (jun 2026)
+
+Zatvara izolovanost Zettelkasten modula od ostatka programa: kartice i članci sada dijele koncept-vezu, a zdravlje review-a se vidi u wiki mreži.
+
+| ID | Faza | SP | Rizik | Status |
+|----|------|-----|-------|--------|
+| TD-ZK-1 | Članak ↔ kartica concept link | 16 | srednji | ✅ Done (2026-06-29) |
+| TD-ZK-3 | Endangered signal u Zettelkasten | 4 | nizak | ✅ Done (2026-06-29) |
+
+### TD-ZK-1 · Članak ↔ kartica concept link
+
+| | |
+|---|---|
+| **Prioritet** | P1 |
+| **SP** | 16 |
+| **Rizik** | srednji |
+| **Status** | ✅ Done (2026-06-29) |
+
+**Problem:** Kartice (flash/esej) i Zettelkasten članci žive odvojeno — nema veze između pojma u wikiju i kartica koje ga obrađuju.
+
+**Implementirano:**
+- Schema **v18** (`linkedArticleId` kolona, FK `ON DELETE SET NULL`, indeks) — vidi [architecture-refactoring-plan.md](architecture-refactoring-plan.md) Faza 8
+- `row-codecs.ts` (kolona + payload), `backup-schema/cards.ts` (Zod + transform) — veza preživljava export/import
+- `cardRepository.linkCardToArticle` / `linkCardsToArticle`; `deleteArticle` nulira veze (bez dangling)
+- Read: `listCardsByArticle` / `countCardsByArticle`; hook `useCardsByArticle` (derivacija iz category cache-a)
+- UI: `LinkedCardsPanel` + `LinkCardsToArticleDialog` u `ZettelkastenView`; „Otvori pojam" u `CardForm`
+- Testovi: `card-article-link.test.ts`, `card-article-link-ui.test.tsx`; `sqlite-harness` json-setteri
+
+**DoD:**
+- [x] `linkedArticleId` round-trip kroz kolonu + payload + backup
+- [x] Link/unlink/bulk preko `cardRepository`; cleanup pri brisanju članka
+- [x] Article-strana UI (lista, povezivanje, otvaranje); card-strana navigacija
+- [x] `tsc`/eslint/suite zeleni
+
+**Preostalo (opciono, zaseban tiket):** Faza D2 — picker članka unutar `CardForm` za postavljanje veze sa strane kartice (trenutno samo sa strane članka).
+
+### TD-ZK-3 · Endangered signal u Zettelkasten
+
+| | |
+|---|---|
+| **Prioritet** | P2 |
+| **SP** | 4 |
+| **Rizik** | nizak |
+| **Status** | ✅ Done (2026-06-29) |
+
+**Problem:** `isEndangered` postoji na karticama, ali wiki ne odražava zdravlje review-a — ne vidi se koji dio mreže znanja slabi.
+
+**Implementirano:**
+- `buildEndangeredArticleIds` (pure) + `useEndangeredArticleIds` (derivacija iz category cache-a, stabilan Set identitet zbog memo Explorer-a)
+- `ZettelExplorerPanel` — `AlertTriangle` indikator (`ENDANGERED_CONCEPT_LABEL`) na ugroženom članku
+- `BacklinksPanel` — highlight (`border-warning`) + tooltip „Ovaj dio tvoje mreže znanja slabi"
+- Test: `endangered-zettel-ui.test.tsx`
+
+**DoD:**
+- [x] Derivacija bez novog upita (vozi se na postojećoj card invalidaciji)
+- [x] Indikator u Explorer-u i highlight backlinka
+- [x] `tsc`/eslint/suite zeleni
+
+**Granica obima:** signal = `card.isEndangered` na povezanoj kartici; ne ide dublje u saga lanac.
 
 ---
 

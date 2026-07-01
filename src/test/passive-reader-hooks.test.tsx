@@ -7,10 +7,10 @@ import type { PassiveReaderFiltersAPI } from "@/components/subject-cards/passive
 
 const storage = new Map<string, unknown>();
 
-vi.mock("@/lib/settings-cache", () => ({
-  readCached: <T,>(key: string, fallback: T): T =>
+vi.mock("@/lib/query/prefs-cache-coordinator", () => ({
+  readPref: <T,>(key: string, fallback: T): T =>
     (storage.has(key) ? storage.get(key) : fallback) as T,
-  writeCached: <T,>(key: string, value: T): void => {
+  writePref: <T,>(key: string, value: T): void => {
     storage.set(key, value);
   },
 }));

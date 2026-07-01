@@ -6,7 +6,9 @@ export type MessageCatalog = typeof meCatalog;
 
 const CATALOGS: Record<AppLocale, MessageCatalog> = {
   me: meCatalog,
-  en: enCatalog,
+  // en mirrors me's structure with English strings. me/en have identical key
+  // shapes but distinct string-literal types, so widen via unknown.
+  en: enCatalog as unknown as MessageCatalog,
 };
 
 type Join<K extends string, P extends string> = `${K}.${P}`;

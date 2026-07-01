@@ -10,9 +10,51 @@
  */
 import type { Card, Section } from "@/lib/spaced-repetition";
 import type { Source, KnowledgeBaseArticle } from "@/lib/db-types";
+import type { EditorDoc } from "@/lib/editor-v4/types";
 import { htmlToDoc } from "@/lib/editor-v4";
 import { mdToHtml } from "@/lib/editor-v4/migrate";
 import { SectionState } from "@/lib/spaced-repetition";
+
+function isVitestJsdomEnv(): boolean {
+  const env =
+    process.env.VITEST_ENVIRONMENT ??
+    (import.meta as ImportMeta & { env?: { VITEST_ENVIRONMENT?: string } }).env
+      ?.VITEST_ENVIRONMENT;
+  return env === "jsdom";
+}
+
+/** Block-level HTML must round-trip through the real codec (paragraph boundaries, marks). */
+function htmlNeedsRealCodec(html: string): boolean {
+  return /<\/?(p|div|h[1-6]|ul|ol|li|blockquote|table|strong)\b/i.test(html);
+}
+
+/** Fast path for node unit tests — avoids TipTap/DOMPurify DOM pipeline. */
+function minimalDocFromHtml(html: string): EditorDoc {
+  const text = html.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+  return {
+    version: 4,
+    content: {
+      type: "doc",
+      content: [
+        {
+          type: "paragraph",
+          ...(text ? { content: [{ type: "text", text }] } : {}),
+        },
+      ],
+    },
+  };
+}
+
+function testHtmlToDoc(html: string): EditorDoc {
+  if (isVitestJsdomEnv() || htmlNeedsRealCodec(html)) {
+    return htmlToDoc(html);
+  }
+  return minimalDocFromHtml(html);
+}
+
+function testMdToHtml(md: string): string {
+  return isVitestJsdomEnv() ? mdToHtml(md) : `<p>${md}</p>`;
+}
 
 let _id = 0;
 function uid(prefix = "id"): string {
@@ -31,7 +73,7 @@ export function makeSection(input: MakeSectionInput = {}): Section {
   return {
     id: uid("sec"),
     title: input.title ?? "Cjelina 1",
-    contentDoc: htmlToDoc(html),
+    contentDoc: testHtmlToDoc(html),
     state: SectionState.New,
     stability: 0,
     difficulty: 0,
@@ -79,7 +121,7 @@ export function makeSource(input: MakeSourceInput = {}): Source {
     categoryId: rest.categoryId ?? "cat_test",
     title: rest.title ?? "Test Source",
     date: rest.date ?? new Date().toISOString(),
-    contentDoc: htmlToDoc(finalHtml),
+    contentDoc: testHtmlToDoc(finalHtml),
     outline: rest.outline ?? [],
     articles: rest.articles ?? [],
     version: rest.version ?? 1,
@@ -96,12 +138,12 @@ export interface MakeArticleInput extends Partial<Omit<KnowledgeBaseArticle, "co
 
 export function makeArticle(input: MakeArticleInput = {}): KnowledgeBaseArticle {
   const { md, html, ...rest } = input;
-  const finalHtml = html ?? (md ? mdToHtml(md) : "<p>Test article</p>");
+  const finalHtml = html ?? (md ? testMdToHtml(md) : "<p>Test article</p>");
   return {
     id: rest.id ?? uid("art"),
     subjectId: rest.subjectId ?? "cat_test",
     title: rest.title ?? "Test Article",
-    contentDoc: htmlToDoc(finalHtml),
+    contentDoc: testHtmlToDoc(finalHtml),
     linkedSourceIds: rest.linkedSourceIds ?? [],
     ...rest,
   } as KnowledgeBaseArticle;

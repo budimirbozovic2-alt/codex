@@ -1,13 +1,8 @@
 /**
  * Singleton QueryClient for TanStack Query.
  * Read-cache above existing SSOT storage modules.
- *
- * PR-H7 Hardening: Pinned QueryClient to globalThis
- * via unique Symbol to survive Vite HMR re-evaluations
- * and preserve subscription integrity with bridges.
  */
 import { QueryClient } from "@tanstack/react-query";
-import { installQueryBridges } from "./bridges";
 
 const CLIENT_KEY = Symbol.for("codex.queryclient");
 
@@ -32,9 +27,6 @@ if (!slots[CLIENT_KEY]) {
       },
     },
   });
-
-  // Mostove instaliramo tacno jednom za stabilnu instancu
-  installQueryBridges(slots[CLIENT_KEY]);
 }
 
 export const queryClient: QueryClient = slots[CLIENT_KEY];

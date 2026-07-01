@@ -2,7 +2,7 @@
  * Editor v4 content migration — one-shot schema step (Faza 3).
  *
  * Converts legacy HTML/markdown payloads to canonical `contentDoc` v4 at SQLite open. */
-import type { SqlExecutor } from "./executor";
+import type { SqlExecutor, SqlRow } from "./executor";
 import type { Source, KnowledgeBaseArticle } from "@/lib/db-types";
 import type { Card } from "@/lib/spaced-repetition";
 import type { MnemonicCard } from "@/domains/mnemonic";
@@ -100,7 +100,7 @@ export async function migrateEditorV4Content(
   let articlesMigrated = 0;
   let mnemonicsMigrated = 0;
 
-  const cardRows = await exec.all<Record<string, unknown>>(
+  const cardRows = await exec.all<SqlRow>(
     `SELECT ${CARD_DECODE_SELECT} FROM cards`,
   );
   const pendingCards: Card[] = [];

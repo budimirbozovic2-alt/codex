@@ -2,7 +2,7 @@ import { Clock, AlertTriangle } from "lucide-react";
 import { useMemo } from "react";
 
 
-import { loadLatency, getLatencyStats } from "@/domains/metacognition/metacognitive-storage";
+import { useLatencyData } from "@/hooks/stats/useMetacognitionStats";
 import { formatCategoryLabel } from "@/components/stats/format-category-label";
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell,
@@ -13,8 +13,7 @@ interface Props {
 }
 
 export default function LatencyTab({ catNameMap }: Props) {
-  const latency = useMemo(() => loadLatency(), []);
-  const stats = useMemo(() => getLatencyStats(latency), [latency]);
+  const { latency, stats } = useLatencyData();
 
   const histogramData = useMemo(() => {
     const buckets: Record<string, number> = { "0-1s": 0, "1-2s": 0, "2-3s": 0, "3-5s": 0, "5-10s": 0, "10s+": 0 };

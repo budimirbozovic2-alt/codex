@@ -21,6 +21,7 @@ export function isElectron(): boolean {
  */
 export function assertDesktop(): void {
   if (isElectron()) return;
+  if (import.meta.env.VITE_E2E) return;
   throw new Error(
     "[pure-desktop] This build targets Electron only.",
   );

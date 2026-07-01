@@ -121,7 +121,7 @@ describe("boot heal schema migrations", () => {
   });
 
   it("boot heal migrations set kv flags when run in sequence", async () => {
-    expect(TARGET_USER_VERSION).toBe(16);
+    expect(TARGET_USER_VERSION).toBe(18);
     const exec = getTestSqlExecutor();
     await migrateLegacyKvScalars(exec);
     await migrateCardTaxonomyReferences(exec);

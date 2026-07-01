@@ -1,9 +1,8 @@
 import { Minus, Square, X, Copy } from "lucide-react";
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useLocation } from "react-router-dom";
-import { useStore } from "zustand";
 import { useCategoryData } from "@/hooks/cards/useCategoryState";
-import { uiStore } from "@/store/useUIStore";
+import { useTitleBarContext } from "@/hooks/useUI";
 
 const ROUTE_LABELS: Record<string, string> = {
   "/": "Početna tabla",
@@ -38,7 +37,7 @@ export default function TitleBar() {
   const canControl = !!api;
   const { pathname } = useLocation();
   const { categoryRecords } = useCategoryData();
-  const titleBarContext = useStore(uiStore, (s) => s.titleBarContext);
+  const titleBarContext = useTitleBarContext();
 
   const categoryId = useMemo(() => {
     const match = pathname.match(/^\/(?:category|subject)\/([^/]+)/);
